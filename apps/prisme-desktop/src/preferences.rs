@@ -67,6 +67,8 @@ impl Default for MixerPreferences {
 #[serde(default, rename_all = "camelCase")]
 pub struct LibraryPreferences {
     pub last_folder: Option<String>,
+    /// Columns of the track list the DJ hid (frontend ids).
+    pub hidden_columns: Vec<String>,
 }
 
 #[cfg(test)]

@@ -11,6 +11,8 @@ export interface DjPreferences {
 
 export interface LibraryPreferences {
   lastFolder: string | null;
+  /** Columns of the track list the DJ hid. */
+  hiddenColumns: string[];
 }
 
 export interface Preferences {

@@ -496,6 +496,11 @@ pub struct TrackDetailsDto {
     pub bpm: Option<f64>,
     pub key: Option<KeyDto>,
     pub tags: TagsDto,
+    /// 0xRRGGBB
+    pub color: Option<u32>,
+    /// 0 (not rated) to 5.
+    pub rating: u8,
+    pub play_count: usize,
     /// The file could not be decoded.
     pub failed: bool,
 }
@@ -507,6 +512,9 @@ impl From<&prisme_library::TrackRecord> for TrackDetailsDto {
             bpm: analysis.tempo.map(|t| t.bpm),
             key: analysis.key.as_ref().map(KeyDto::from),
             tags: TagsDto::from(&r.tags),
+            color: r.marks.color,
+            rating: r.marks.rating,
+            play_count: r.play_count,
             failed: r.error.is_some(),
         }
     }

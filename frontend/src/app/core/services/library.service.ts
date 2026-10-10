@@ -17,7 +17,8 @@ import { PrepareService } from './prepare.service';
 import { PreferencesService } from './preferences.service';
 
 /** `order`: the order of the list itself (play order of a set). */
-export type SortColumn = 'order' | 'title' | 'artist' | 'album' | 'genre' | 'year' | 'bpm' | 'key';
+export type SortColumn =
+  'order' | 'title' | 'artist' | 'album' | 'genre' | 'year' | 'bpm' | 'key' | 'rating' | 'plays';
 
 export interface TrackSort {
   column: SortColumn;
@@ -277,6 +278,16 @@ export class LibraryService {
     if (scope === 'library') this.searchLibrary();
   }
 
+  /** Colours tracks; `null` takes the colour off. The lists update with `track-analyzed`. */
+  setColor(paths: string[], color: number | null): Promise<void> {
+    return this.attempt(() => invoke('set_track_color', { paths, color }));
+  }
+
+  /** Rates tracks from 0 (not rated) to 5. */
+  setRating(paths: string[], rating: number): Promise<void> {
+    return this.attempt(() => invoke('set_track_rating', { paths, rating }));
+  }
+
   /** Looks for new or changed files and analyses them. */
   rescan(): Promise<void> {
     return invoke('rescan_library');
@@ -397,6 +408,11 @@ function sortValue(t: DirEntry, column: Exclude<SortColumn, 'order'>): number | 
       return d?.bpm ?? Number.MAX_SAFE_INTEGER;
     case 'key':
       return camelotRank(d?.key?.camelot);
+    // the best rated and most played first
+    case 'rating':
+      return -(d?.rating ?? 0);
+    case 'plays':
+      return -(d?.playCount ?? 0);
   }
 }
 

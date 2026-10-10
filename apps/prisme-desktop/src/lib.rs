@@ -118,6 +118,8 @@ pub fn run() {
             commands::history::history_plays,
             commands::history::delete_history_session,
             commands::history::export_history,
+            commands::marks::set_track_color,
+            commands::marks::set_track_rating,
             commands::prepare::prepare_list,
             commands::prepare::add_to_prepare,
             commands::prepare::remove_from_prepare,

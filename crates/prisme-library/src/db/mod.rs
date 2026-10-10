@@ -7,12 +7,14 @@ mod crates;
 mod cues;
 mod edits;
 mod history;
+mod marks;
 mod prepare;
 mod tracks;
 
 pub use crates::{Crate, CrateId};
 pub use edits::{GridEdit, TrackEdits};
 pub use history::{HistoryPlay, HistorySession, SessionId};
+pub use marks::{TrackMarks, MAX_RATING};
 pub use tracks::{RecordVersion, TrackEntry, TrackRecord, TAGS_VERSION};
 
 use rusqlite::Connection;
@@ -102,6 +104,20 @@ const MIGRATIONS: &[&str] = &[
          FROM tracks LEFT JOIN track_edits ON track_edits.path = tracks.path;",
     // JSON (crate::smart::SmartRules); NULL for a crate filled by hand
     "ALTER TABLE crates ADD COLUMN rules TEXT;",
+    "CREATE TABLE track_marks (
+         path TEXT PRIMARY KEY NOT NULL,
+         color INTEGER,
+         rating INTEGER NOT NULL DEFAULT 0
+     ) WITHOUT ROWID;
+     DROP VIEW track_view;
+     CREATE VIEW track_view AS
+         SELECT tracks.*, track_edits.bpm AS edit_bpm, track_edits.first_beat_s AS edit_first_beat_s,
+             track_edits.key_tonic AS edit_key_tonic, track_edits.key_minor AS edit_key_minor,
+             track_marks.color AS mark_color, COALESCE(track_marks.rating, 0) AS mark_rating,
+             (SELECT COUNT(*) FROM history_plays WHERE history_plays.path = tracks.path) AS play_count
+         FROM tracks
+         LEFT JOIN track_edits ON track_edits.path = tracks.path
+         LEFT JOIN track_marks ON track_marks.path = tracks.path;",
 ];
 
 pub fn now_ms() -> i64 {

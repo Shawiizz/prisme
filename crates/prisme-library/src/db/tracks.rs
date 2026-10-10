@@ -4,6 +4,7 @@
 //! is read again.
 
 use super::edits::TrackEdits;
+use super::marks::TrackMarks;
 use super::{path_key, DbError, FileStamp, LibraryDb};
 use prisme_analysis::{Key, KeyEstimate, Mode, Tempo, TrackAnalysis, ANALYSIS_VERSION};
 use prisme_media::TrackTags;
@@ -31,6 +32,9 @@ pub struct TrackRecord {
     /// As detected; see [`TrackRecord::effective_analysis`].
     pub analysis: TrackAnalysis,
     pub edits: TrackEdits,
+    pub marks: TrackMarks,
+    /// Times played in the history of the sets.
+    pub play_count: usize,
     pub tags: TrackTags,
     /// Why the file could not be analysed.
     pub error: Option<String>,
@@ -75,6 +79,8 @@ impl TrackRecord {
             duration_s: Some(duration_s),
             analysis,
             edits: TrackEdits::default(),
+            marks: TrackMarks::default(),
+            play_count: 0,
             tags,
             error: None,
         }
@@ -87,6 +93,8 @@ impl TrackRecord {
             duration_s: None,
             analysis: TrackAnalysis { tempo: None, key: None },
             edits: TrackEdits::default(),
+            marks: TrackMarks::default(),
+            play_count: 0,
             tags: TrackTags::default(),
             error: Some(error),
         }
@@ -267,6 +275,8 @@ pub(super) fn record_from_row(r: &Row<'_>) -> rusqlite::Result<TrackRecord> {
         duration_s: r.get("duration_s")?,
         analysis: TrackAnalysis { tempo, key },
         edits: TrackEdits::from_row(r)?,
+        marks: TrackMarks::from_row(r)?,
+        play_count: r.get::<_, i64>("play_count")? as usize,
         tags: TrackTags {
             title: r.get("title")?,
             artist: r.get("artist")?,

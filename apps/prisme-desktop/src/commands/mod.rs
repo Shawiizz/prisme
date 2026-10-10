@@ -8,6 +8,7 @@ pub mod edits;
 pub mod folders;
 pub mod history;
 pub mod library;
+pub mod marks;
 pub mod mixer;
 pub mod preferences;
 pub mod prepare;

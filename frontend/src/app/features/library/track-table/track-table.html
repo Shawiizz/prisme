@@ -1,0 +1,182 @@
+<div
+  class="table"
+  [style.--track-columns]="template()"
+  (dragover)="listDragOver($event, null)"
+  (drop)="listDrop($event, null)"
+>
+  <div
+    class="head"
+    (contextmenu)="openColumnMenu($event)"
+    title="Right-click to choose the columns"
+  >
+    @if (library.ordered()) {
+      <button class="order" (click)="library.sortBy('order')">#{{ sortMark('order') }}</button>
+    }
+    @for (c of columns(); track c.id) {
+      @if (c.sort; as sort) {
+        <button [class]="c.id" (click)="library.sortBy(sort)">
+          {{ c.header }} {{ sortMark(sort) }}
+        </button>
+      } @else {
+        <span [class]="c.id"></span>
+      }
+    }
+    <span class="load">Load</span>
+  </div>
+  @for (t of tracks(); track rowKey(t); let odd = $odd) {
+    <div
+      class="row"
+      [attr.data-path]="t.path"
+      [title]="t.path"
+      [class.odd]="odd"
+      [class.selected]="library.selected() === t.path"
+      [class.insert]="insertBefore() === t"
+      draggable="true"
+      (dragstart)="dragStart($event, t.path)"
+      (dragover)="listDragOver($event, t)"
+      (dragleave)="insertBefore.set(null)"
+      (drop)="listDrop($event, t)"
+      (click)="library.selected.set(t.path)"
+      (dblclick)="library.load(t.path, null)"
+    >
+      @if (library.ordered()) {
+        <span class="order">{{ library.positions().get(t) }}</span>
+      }
+      @for (c of columns(); track c.id) {
+        @switch (c.id) {
+          @case ('color') {
+            @if (t.details; as d) {
+              <button
+                class="swatch"
+                [class.set]="d.color !== null"
+                [style.--swatch]="d.color !== null ? hexColor(d.color) : null"
+                title="Colour"
+                (click)="openPalette($event, t)"
+              ></button>
+            } @else {
+              <span></span>
+            }
+          }
+          @case ('cover') {
+            @if (t.details && !t.details.failed) {
+              <app-cover class="cover" [path]="t.path" />
+            } @else {
+              <span class="cover"></span>
+            }
+          }
+          @case ('title') {
+            <span class="title">{{ title(t) }}</span>
+          }
+          @case ('artist') {
+            <span class="text">{{ t.details?.tags?.artist }}</span>
+          }
+          @case ('album') {
+            <span class="text">{{ t.details?.tags?.album }}</span>
+          }
+          @case ('genre') {
+            <span class="text">{{ t.details?.tags?.genre }}</span>
+          }
+          @case ('year') {
+            <span class="number">{{ t.details?.tags?.year }}</span>
+          }
+          @case ('bpm') {
+            @if (!t.details) {
+              <span class="number pending">···</span>
+            } @else if (t.details.failed) {
+              <span class="number failed" title="This file could not be decoded">—</span>
+            } @else {
+              <span class="number bpm">{{ t.details.bpm?.toFixed(1) ?? '—' }}</span>
+            }
+          }
+          @case ('key') {
+            <span>
+              @if (t.details?.key; as k) {
+                <span
+                  class="chip"
+                  [style.--key]="keyColor(k.camelot)"
+                  [class.match]="keyMatches(k.camelot) === true"
+                  [class.clash]="keyMatches(k.camelot) === false"
+                  [title]="k.name"
+                  >{{ k.camelot }}</span
+                >
+              }
+            </span>
+          }
+          @case ('rating') {
+            <span class="rating">
+              @if (t.details; as d) {
+                @for (n of stars; track n) {
+                  <button
+                    [class.on]="n <= d.rating"
+                    [title]="n + (n === 1 ? ' star' : ' stars')"
+                    (click)="rate(t, n); $event.stopPropagation()"
+                  >
+                    ★
+                  </button>
+                }
+              }
+            </span>
+          }
+          @case ('plays') {
+            <span class="number plays">{{ t.details?.playCount || '' }}</span>
+          }
+        }
+      }
+      <span class="load">
+        @for (d of deckIndexes; track d) {
+          <button
+            [style.--accent]="deckColor(d)"
+            (click)="library.load(t.path, d); $event.stopPropagation()"
+            [disabled]="engine.loading()[d]"
+          >
+            {{ d + 1 }}
+          </button>
+        }
+      </span>
+    </div>
+  } @empty {
+    <div class="none">{{ emptyMessage() }}</div>
+  }
+</div>
+
+@if (columnMenu(); as menu) {
+  <div
+    class="backdrop"
+    (click)="columnMenu.set(null)"
+    (contextmenu)="$event.preventDefault(); columnMenu.set(null)"
+  ></div>
+  <div
+    class="popover columns"
+    [style.left.px]="menu.left"
+    [style.top.px]="menu.top"
+    [style.bottom.px]="menu.bottom"
+  >
+    @for (c of allColumns; track c.id) {
+      @if (!c.fixed) {
+        <label>
+          <input type="checkbox" [checked]="isShown(c)" (change)="toggleColumn(c.id)" />
+          {{ c.name }}
+        </label>
+      }
+    }
+  </div>
+}
+
+@if (palette(); as p) {
+  <div class="backdrop" (click)="palette.set(null)"></div>
+  <div
+    class="popover palette"
+    [style.left.px]="p.left"
+    [style.top.px]="p.top"
+    [style.bottom.px]="p.bottom"
+  >
+    @for (c of trackColors; track c.value) {
+      <button
+        [style.--swatch]="hexColor(c.value)"
+        [title]="c.name"
+        (click)="setColor(c.value)"
+      ></button>
+    }
+    <button class="clear" title="No colour" (click)="setColor(null)">×</button>
+  </div>
+}

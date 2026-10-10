@@ -5,6 +5,9 @@ function entry(name: string, tags: Partial<TrackTags> | null): DirEntry {
   const details = tags && {
     bpm: null,
     key: null,
+    color: null,
+    rating: 0,
+    playCount: 0,
     failed: false,
     tags: { title: null, artist: null, album: null, genre: null, year: null, ...tags },
   };

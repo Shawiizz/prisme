@@ -13,6 +13,11 @@ export interface TrackDetails {
   bpm: number | null;
   key: MusicalKey | null;
   tags: TrackTags;
+  /** 0xRRGGBB */
+  color: number | null;
+  /** 0 (not rated) to 5. */
+  rating: number;
+  playCount: number;
   /** The file could not be decoded. */
   failed: boolean;
 }

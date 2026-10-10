@@ -1,0 +1,212 @@
+:host {
+  display: block;
+  min-height: 0;
+}
+.table {
+  height: 100%;
+  overflow-y: auto;
+}
+.head,
+.row {
+  display: grid;
+  grid-template-columns: var(--track-columns);
+  align-items: center;
+  gap: 8px;
+  padding: 0 10px;
+}
+.head {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  height: 28px;
+  background: var(--panel-2);
+  color: var(--muted);
+  font-size: 12px;
+  border-bottom: 1px solid var(--line-strong);
+  button {
+    padding: 0;
+    border: none;
+    background: transparent;
+    color: inherit;
+    font-size: inherit;
+    text-align: left;
+    white-space: nowrap;
+    overflow: hidden;
+    &:hover {
+      color: var(--text);
+    }
+  }
+  :is(.year, .bpm, .plays, .order) {
+    text-align: right;
+  }
+}
+.row {
+  height: 30px;
+  cursor: default;
+  &.odd {
+    background: #0d1019;
+  }
+  &:hover {
+    background: var(--raised);
+  }
+  &.selected {
+    background: var(--select);
+  }
+  &.insert {
+    box-shadow: inset 0 2px 0 var(--mint);
+  }
+}
+.title,
+.text {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.text {
+  color: var(--text-2);
+}
+.number {
+  text-align: right;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+.bpm {
+  color: var(--text-2);
+}
+.pending {
+  color: var(--faint);
+  letter-spacing: 0.1em;
+}
+.failed {
+  color: var(--red);
+}
+.order {
+  text-align: right;
+  color: var(--faint);
+  font-variant-numeric: tabular-nums;
+}
+.cover {
+  width: 24px;
+  height: 24px;
+}
+.swatch {
+  width: 10px;
+  height: 18px;
+  padding: 0;
+  border: 1px dashed transparent;
+  border-radius: 2px;
+  background: transparent;
+  &.set {
+    background: var(--swatch);
+    border-color: var(--swatch);
+  }
+  &:not(.set):hover {
+    border-color: var(--line-strong);
+  }
+}
+.rating {
+  display: flex;
+  button {
+    padding: 0 1px;
+    border: none;
+    background: transparent;
+    color: var(--line-strong);
+    font-size: 13px;
+    line-height: 1;
+    &.on {
+      color: var(--amber);
+    }
+    &:hover {
+      color: var(--text-2);
+    }
+  }
+}
+.chip {
+  display: inline-block;
+  min-width: 34px;
+  padding: 1px 5px;
+  border-radius: 3px;
+  font-size: 12px;
+  font-weight: 700;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+  color: var(--key);
+  border: 1px solid color-mix(in srgb, var(--key) 45%, transparent);
+  // harmonic match with a loaded deck: filled; no match: faded
+  &.match {
+    background: var(--key);
+    border-color: var(--key);
+    color: var(--ink);
+  }
+  &.clash {
+    opacity: 0.55;
+  }
+}
+.load {
+  display: flex;
+  gap: 4px;
+  justify-content: flex-end;
+  button {
+    width: 26px;
+    padding: 1px 0;
+    font-size: 11px;
+    font-weight: 700;
+    &:hover {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: var(--ink);
+    }
+  }
+}
+.none {
+  padding: 16px;
+  color: var(--faint);
+  font-size: 12px;
+}
+.backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+}
+.popover {
+  position: fixed;
+  z-index: 21;
+  padding: 6px;
+  background: var(--panel-2);
+  border: 1px solid var(--line-strong);
+  border-radius: 4px;
+  box-shadow: 0 8px 24px rgb(0 0 0 / 0.5);
+}
+.columns {
+  display: flex;
+  flex-direction: column;
+  label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 8px;
+    color: var(--text-2);
+    border-radius: 3px;
+    &:hover {
+      background: var(--raised);
+    }
+  }
+}
+.palette {
+  display: flex;
+  gap: 4px;
+  button {
+    width: 20px;
+    height: 20px;
+    padding: 0;
+    background: var(--swatch);
+    border-color: var(--swatch);
+  }
+  .clear {
+    background: transparent;
+    border-color: var(--line-strong);
+    color: var(--muted);
+    font-size: 12px;
+    line-height: 1;
+  }
+}
