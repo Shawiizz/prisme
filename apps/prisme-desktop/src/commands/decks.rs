@@ -1,6 +1,5 @@
 use crate::dto::VinylModeDto;
-use crate::error::AppResult;
-use crate::preferences::DeckPreferences;
+use crate::error::{AppError, AppResult};
 use crate::state::{deck_commands, lock, AppState};
 use prisme_engine::Command;
 use tauri::State;
@@ -43,10 +42,27 @@ pub fn set_vinyl(
         *d
     };
     state.update_preferences(|p| {
-        p.decks[deck] = DeckPreferences { vinyl_enabled: enabled, vinyl_mode: mode, lead_in_s };
+        let d = &mut p.decks[deck];
+        (d.vinyl_enabled, d.vinyl_mode, d.lead_in_s) = (enabled, mode, lead_in_s);
     });
     for c in deck_commands(deck, &settings) {
         state.send_if_running(c)?;
+    }
+    Ok(())
+}
+
+/// Swaps the turntable's left and right channels (crossed cables), kept for the next start.
+#[tauri::command]
+pub fn set_vinyl_swap(state: State<'_, AppState>, deck: usize, swap: bool) -> AppResult<()> {
+    AppState::check_deck(deck)?;
+    lock(&state.decks)[deck].swap_channels = swap;
+    state.update_preferences(|p| p.decks[deck].swap_channels = swap);
+    if let Some(session) = lock(&state.session).as_mut() {
+        let decoder = session.engine_config.decoder(swap);
+        session
+            .controller
+            .send(Command::ReplaceDecoder { deck, decoder })
+            .map_err(|_| AppError::EngineBusy)?;
     }
     Ok(())
 }

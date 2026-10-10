@@ -66,6 +66,23 @@ fn absolute_vinyl_follows_the_record_position() {
 }
 
 #[test]
+fn the_scope_and_the_level_show_the_turntable_signal() {
+    let mut rig = Rig::new();
+    rig.turntable(0, 20.0, 1.0);
+    rig.run(0.1);
+    let mut points = Vec::new();
+    rig.controller.read_scope(0, &mut points);
+    assert!(points.len() > 1000, "{} points", points.len());
+    let radius = points.iter().map(|[l, r]| (l * l + r * r).sqrt()).fold(0.0f32, f32::max);
+    assert!(radius > 0.1, "radius {radius}");
+    assert!(rig.deck(0).vinyl.level > 0.05);
+
+    let mut silent = Vec::new();
+    rig.controller.read_scope(1, &mut silent);
+    assert!(silent.iter().all(|&p| p == [0.0, 0.0]));
+}
+
+#[test]
 fn replaced_tracks_are_freed_on_the_control_side() {
     let mut rig = Rig::new();
     rig.send(Command::LoadTrack { deck: 0, track: silent_track(1.0) });

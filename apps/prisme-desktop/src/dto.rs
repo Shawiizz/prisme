@@ -244,6 +244,7 @@ pub struct DeckSettingsDto {
     pub vinyl_enabled: bool,
     pub vinyl_mode: VinylModeDto,
     pub lead_in_s: f64,
+    pub swap_channels: bool,
 }
 
 /// Settings the backend applies to the engine (the UI mirrors them at startup).
@@ -267,6 +268,8 @@ pub struct VinylDto {
     pub mode: VinylModeDto,
     /// "none", "bounce" or "ok"
     pub signal: &'static str,
+    /// Timecode carrier level (full scale = 1.0).
+    pub level: f32,
     pub record_speed: f64,
     pub record_position_s: Option<f64>,
 }
@@ -336,6 +339,7 @@ impl From<&DeckStatus> for DeckStatusDto {
                     SignalState::Bounce => "bounce",
                     SignalState::Ok => "ok",
                 },
+                level: d.vinyl.level,
                 record_speed: d.vinyl.record_speed,
                 record_position_s: d.vinyl.record_position_s,
             },

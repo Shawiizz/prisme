@@ -16,6 +16,7 @@ const DEFAULT_DECK: DeckSettings = {
   vinylEnabled: false,
   vinylMode: 'absolute',
   leadInS: 0,
+  swapChannels: false,
 };
 
 /**
@@ -108,6 +109,11 @@ export class EngineService {
       leadInS: changes.leadInS ?? this.decks()[deck].leadInS,
     });
     return this.call('set_vinyl', { deck, enabled: d.vinylEnabled, mode: d.vinylMode, leadInS: d.leadInS });
+  }
+
+  setVinylSwap(deck: number, swap: boolean) {
+    this.patchDeck(deck, { swapChannels: swap });
+    return this.call('set_vinyl_swap', { deck, swap });
   }
 
   /**

@@ -8,7 +8,7 @@ use crate::error::{AppError, AppResult};
 use crate::folders;
 use crate::preferences::{DeckPreferences, Preferences};
 use prisme_analysis::{TrackAnalysis, Waveform};
-use prisme_engine::{BeatGrid, Command, DeckStatus, EngineController, MixMode, OutputRouting};
+use prisme_engine::{BeatGrid, Command, DeckStatus, MixMode, OutputRouting};
 use prisme_library::{Cue, CueSlot};
 use prisme_media::TrackAudio;
 use prisme_session::JsonFile;
@@ -79,6 +79,7 @@ pub struct DeckSettings {
     pub vinyl_enabled: bool,
     pub vinyl_mode: VinylModeDto,
     pub lead_in_s: f64,
+    pub swap_channels: bool,
 }
 
 impl From<DeckPreferences> for DeckSettings {
@@ -90,6 +91,7 @@ impl From<DeckPreferences> for DeckSettings {
             vinyl_enabled: p.vinyl_enabled,
             vinyl_mode: p.vinyl_mode,
             lead_in_s: p.lead_in_s,
+            swap_channels: p.swap_channels,
         }
     }
 }
@@ -176,7 +178,10 @@ impl AppState {
     }
 
     /// Re-applies tracks, deck and mixer settings to a freshly started engine.
-    pub fn restore(&self, controller: &mut EngineController, output_channels: usize) {
+    pub fn restore(&self, session: &mut AudioSession) {
+        let output_channels = session.info.output_channels;
+        let config = session.engine_config;
+        let controller = &mut session.controller;
         let tracks = lock(&self.tracks);
         let decks = lock(&self.decks);
         for (deck, (track, settings)) in tracks.iter().zip(decks.iter()).enumerate() {
@@ -185,6 +190,9 @@ impl AppState {
             }
             for c in deck_commands(deck, settings) {
                 let _ = controller.send(c);
+            }
+            if settings.swap_channels {
+                let _ = controller.send(Command::ReplaceDecoder { deck, decoder: config.decoder(true) });
             }
         }
         let _ = controller.send(Command::SetCrossfader { position: *lock(&self.crossfader) });

@@ -13,6 +13,7 @@
 use crate::command::{Command, DeckId, Garbage};
 use crate::deck::Deck;
 use crate::mixer::{DeckMix, Mixer};
+use crate::scope::{self, ScopeTap};
 use crate::status::{EngineStatus, MAX_DECKS};
 use prisme_timecode::{DecoderConfig, TimecodeDecoder, TimecodeFormat};
 
@@ -63,6 +64,7 @@ pub fn create(config: EngineConfig) -> (Engine, EngineController) {
     let (status_tx, status_rx) = triple_buffer::triple_buffer(&initial);
     let (garbage_tx, garbage_rx) = rtrb::RingBuffer::new(GARBAGE_QUEUE);
     let decks = (0..config.decks).map(|_| Deck::new(config.decoder(false))).collect();
+    let (scope_taps, scopes) = (0..config.decks).map(|_| scope::scope()).unzip();
     let engine = Engine {
         config,
         decks,
@@ -71,6 +73,7 @@ pub fn create(config: EngineConfig) -> (Engine, EngineController) {
         status: status_tx,
         garbage: garbage_tx,
         deck_in: vec![0.0; config.max_block_frames * 2],
+        scope_taps,
         deck_out: vec![0.0; config.max_block_frames * 2],
         peak: 0.0,
         quantize: true,
@@ -79,7 +82,7 @@ pub fn create(config: EngineConfig) -> (Engine, EngineController) {
         frames_since_status: 0,
         status_interval: (config.sample_rate as f64 / config.status_rate_hz) as usize,
     };
-    let controller = EngineController { commands: cmd_tx, status: status_rx, garbage: garbage_rx };
+    let controller = EngineController { commands: cmd_tx, status: status_rx, garbage: garbage_rx, scopes };
     (engine, controller)
 }
 
@@ -92,6 +95,7 @@ pub struct Engine {
     status: triple_buffer::Input<EngineStatus>,
     garbage: rtrb::Producer<Garbage>,
     deck_in: Vec<f32>,
+    scope_taps: Vec<ScopeTap>,
     deck_out: Vec<f32>,
     peak: f32,
     quantize: bool,
@@ -147,6 +151,7 @@ impl Engine {
             };
             let deck_in = &mut self.deck_in[..frames * 2];
             fill_deck_input(deck_in, input, in_ch, offset, self.config.deck_inputs[d]);
+            self.scope_taps[d].push(deck_in);
             let deck_out = &mut self.deck_out[..frames * 2];
             let deck = &mut self.decks[d];
             deck.process(deck_in, deck_out, rate, target);
@@ -297,6 +302,7 @@ pub struct EngineController {
     commands: rtrb::Producer<Command>,
     status: triple_buffer::Output<EngineStatus>,
     garbage: rtrb::Consumer<Garbage>,
+    scopes: Vec<rtrb::Consumer<[f32; 2]>>,
 }
 
 impl EngineController {
@@ -312,6 +318,14 @@ impl EngineController {
     }
 
     /// Frees what the engine handed back. Call it regularly (e.g. with every UI update).
+    /// Appends the turntable signal points of `deck` received since the last call (one
+    /// frame in four, left and right).
+    pub fn read_scope(&mut self, deck: usize, points: &mut Vec<[f32; 2]>) {
+        if let Some(scope) = self.scopes.get_mut(deck) {
+            points.extend(std::iter::from_fn(|| scope.pop().ok()));
+        }
+    }
+
     pub fn collect_garbage(&mut self) -> usize {
         let mut freed = 0;
         while let Ok(item) = self.garbage.pop() {

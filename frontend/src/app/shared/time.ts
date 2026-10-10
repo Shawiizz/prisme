@@ -13,6 +13,11 @@ export function formatPitch(ratio: number): string {
   return `${pct >= 0 ? '+' : ''}${pct.toFixed(2)}%`;
 }
 
+/** -1.068 -> "-1.068×" (1 = normal speed, negative = backwards). */
+export function formatSpeed(speed: number): string {
+  return `${speed >= 0 ? '+' : ''}${speed.toFixed(3)}×`;
+}
+
 /** Colour of a deck (CSS variable). */
 export function deckColor(deck: number): string {
   return deck % 2 === 0 ? 'var(--deck-1)' : 'var(--deck-2)';

@@ -7,6 +7,8 @@ export interface VinylStatus {
   enabled: boolean;
   mode: VinylMode;
   signal: SignalState;
+  /** Timecode carrier level (full scale = 1). */
+  level: number;
   recordSpeed: number;
   recordPositionS: number | null;
 }
@@ -110,6 +112,8 @@ export interface DeckSettings {
   vinylEnabled: boolean;
   vinylMode: VinylMode;
   leadInS: number;
+  /** The turntable's left and right channels are crossed. */
+  swapChannels: boolean;
 }
 
 /** External: each deck on its own outputs for a hardware mixer. Internal: the software mixer. */

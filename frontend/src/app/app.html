@@ -1,4 +1,8 @@
-<app-titlebar (openSettings)="settingsOpen.set(true)" (openShortcuts)="keyboard.helpOpen.set(true)" />
+<app-titlebar
+  (openSettings)="settingsOpen.set(true)"
+  (openTurntables)="turntablesOpen.set(true)"
+  (openShortcuts)="keyboard.helpOpen.set(true)"
+/>
 
 <main class="layout">
   <section class="decks">
@@ -29,4 +33,8 @@
 
 @if (keyboard.helpOpen()) {
   <app-shortcuts-dialog />
+}
+
+@if (turntablesOpen()) {
+  <app-turntables-dialog (closed)="turntablesOpen.set(false)" />
 }

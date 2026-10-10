@@ -65,7 +65,7 @@ pub fn start_audio(state: &AppState, settings: &AudioSettings) -> AppResult<Audi
         decks[0].lead_in_s = prisme_timecode::testing::SimulatedTurntable::START_S;
     }
     let mut session = audio_host::start(settings)?;
-    state.restore(&mut session.controller, session.info.output_channels);
+    state.restore(&mut session);
     let info = session.info.clone();
     *lock(&state.session) = Some(session);
     Ok(info)

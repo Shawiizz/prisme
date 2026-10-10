@@ -37,6 +37,8 @@ impl AudioCallback for EngineCallback {
 /// A running audio session. Dropping it stops the audio.
 pub struct AudioSession {
     pub controller: EngineController,
+    /// What the engine was built with (to build matching decoders).
+    pub engine_config: EngineConfig,
     pub info: AudioInfo,
     stop: Option<mpsc::Sender<()>>,
     thread: Option<JoinHandle<()>>,
@@ -65,26 +67,27 @@ pub fn start(settings: &AudioSettings) -> AppResult<AudioSession> {
     };
     let simulate = settings.simulate;
 
-    let (ready_tx, ready_rx) = mpsc::channel::<AppResult<(EngineController, AudioInfo)>>();
+    let (ready_tx, ready_rx) = mpsc::channel::<AppResult<(EngineController, EngineConfig, AudioInfo)>>();
     let (stop_tx, stop_rx) = mpsc::channel::<()>();
     let thread = std::thread::Builder::new().name("prisme-audio".into()).spawn(move || {
-        let mut controller = None;
+        let mut created = None;
         let started = prisme_audio_io::start(&stream_settings, |f| {
-            let (engine, c) = prisme_engine::create(EngineConfig::new(f.sample_rate, DECKS, format));
-            controller = Some(c);
+            let config = EngineConfig::new(f.sample_rate, DECKS, format);
+            let (engine, controller) = prisme_engine::create(config);
+            created = Some((controller, config));
             let turntable =
                 simulate.then(|| SimulatedTurntable::new(format, f.sample_rate, Pattern::Scratch));
             EngineCallback { engine, turntable }
         });
-        match (started, controller) {
-            (Ok(stream), Some(controller)) => {
+        match (started, created) {
+            (Ok(stream), Some((controller, config))) => {
                 let info = AudioInfo {
                     sample_rate: stream.format.sample_rate,
                     output_channels: stream.format.output_channels,
                     input_channels: stream.format.input_channels,
                     simulated: simulate,
                 };
-                if ready_tx.send(Ok((controller, info))).is_ok() {
+                if ready_tx.send(Ok((controller, config, info))).is_ok() {
                     let _ = stop_rx.recv(); // keep the stream alive until asked to stop
                 }
                 drop(stream);
@@ -95,7 +98,7 @@ pub fn start(settings: &AudioSettings) -> AppResult<AudioSession> {
             (Ok(_), None) => unreachable!("the callback is built before the stream starts"),
         }
     })?;
-    let (controller, info) =
+    let (controller, engine_config, info) =
         ready_rx.recv().map_err(|_| AppError::Other("the audio thread stopped".into()))??;
-    Ok(AudioSession { controller, info, stop: Some(stop_tx), thread: Some(thread) })
+    Ok(AudioSession { controller, engine_config, info, stop: Some(stop_tx), thread: Some(thread) })
 }

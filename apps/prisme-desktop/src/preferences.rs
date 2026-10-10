@@ -20,6 +20,8 @@ pub struct DeckPreferences {
     pub vinyl_enabled: bool,
     pub vinyl_mode: VinylModeDto,
     pub lead_in_s: f64,
+    /// The turntable's left and right channels are crossed.
+    pub swap_channels: bool,
 }
 
 /// What SYNC does on a record in relative mode.
@@ -83,8 +85,12 @@ mod tests {
     #[test]
     fn preferences_survive_a_round_trip() {
         let mut p = Preferences::default();
-        p.decks[1] =
-            DeckPreferences { vinyl_enabled: true, vinyl_mode: VinylModeDto::Relative, lead_in_s: 2.5 };
+        p.decks[1] = DeckPreferences {
+            vinyl_enabled: true,
+            vinyl_mode: VinylModeDto::Relative,
+            lead_in_s: 2.5,
+            swap_channels: true,
+        };
         p.library.last_folder = Some("C:/Music/House".into());
         let json = serde_json::to_string(&p).unwrap();
         assert_eq!(serde_json::from_str::<Preferences>(&json).unwrap(), p);

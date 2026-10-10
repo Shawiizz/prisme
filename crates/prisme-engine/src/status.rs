@@ -12,6 +12,8 @@ pub struct VinylStatus {
     pub enabled: bool,
     pub mode: VinylMode,
     pub signal: SignalState,
+    /// Timecode carrier level (full scale = 1.0).
+    pub level: f32,
     /// Speed read from the record.
     pub record_speed: f64,
     /// Absolute position read from the record, in seconds, once locked.
@@ -78,6 +80,7 @@ impl Default for DeckStatus {
                 enabled: false,
                 mode: VinylMode::Absolute,
                 signal: SignalState::None,
+                level: 0.0,
                 record_speed: 0.0,
                 record_position_s: None,
             },

@@ -14,6 +14,7 @@ export class Titlebar {
   protected readonly engine = inject(EngineService);
   readonly openSettings = output<void>();
   readonly openShortcuts = output<void>();
+  readonly openTurntables = output<void>();
 
   private readonly window = getCurrentWindow();
 

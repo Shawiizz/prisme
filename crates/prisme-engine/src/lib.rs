@@ -18,6 +18,7 @@ mod grid;
 mod looping;
 mod mixer;
 mod playhead;
+mod scope;
 mod status;
 mod sync;
 mod vinyl;

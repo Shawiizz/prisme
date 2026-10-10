@@ -8,6 +8,7 @@ import { Mixer } from './features/mixer/mixer';
 import { Library } from './features/library/library';
 import { SettingsDialog } from './features/settings/settings-dialog';
 import { ShortcutsDialog } from './features/shortcuts/shortcuts-dialog';
+import { TurntablesDialog } from './features/turntables/turntables-dialog';
 import { KeyboardService } from './core/keyboard/keyboard.service';
 import { EngineService } from './core/services/engine.service';
 import { LibraryService } from './core/services/library.service';
@@ -18,7 +19,7 @@ import { MixerService } from './core/services/mixer.service';
 /** Main window layout: title bar, two deck rows, controls with the mixer, library. */
 @Component({
   selector: 'app-root',
-  imports: [Titlebar, DeckCard, DeckWaveform, DeckControls, DeckPads, Mixer, Library, SettingsDialog, ShortcutsDialog],
+  imports: [Titlebar, DeckCard, DeckWaveform, DeckControls, DeckPads, Mixer, Library, SettingsDialog, ShortcutsDialog, TurntablesDialog],
   templateUrl: './app.html',
   styleUrl: './app.scss',
 })
@@ -30,6 +31,7 @@ export class App implements OnInit {
   protected readonly keyboard = inject(KeyboardService);
   private readonly mixer = inject(MixerService);
   protected readonly settingsOpen = signal(false);
+  protected readonly turntablesOpen = signal(false);
 
   async ngOnInit() {
     await this.preferences.load();

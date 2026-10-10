@@ -5,6 +5,7 @@
 //! * `preferences`: what is kept from one start to the next;
 //! * `commands`: what the frontend can ask, by domain;
 //! * `status_stream`: engine state pushed to the frontend at ~60 Hz;
+//! * `scope_stream`: a turntable's signal pushed while its oscilloscope is shown;
 //! * `folders`: browsing music folders;
 //! * `library_service`: track database (analysis, cues) and background analysis;
 //! * `dto`: JSON shapes shared with the frontend.
@@ -17,6 +18,7 @@ mod error;
 mod folders;
 mod library_service;
 mod preferences;
+mod scope_stream;
 mod state;
 mod status_stream;
 
@@ -59,6 +61,7 @@ pub fn run() {
             commands::decks::seek,
             commands::decks::set_pitch,
             commands::decks::set_vinyl,
+            commands::decks::set_vinyl_swap,
             commands::decks::set_sync_locked,
             commands::mixer::mixer_state,
             commands::mixer::set_mix_mode,
@@ -90,6 +93,8 @@ pub fn run() {
             commands::preferences::set_dj_preferences,
             commands::preferences::set_library_preferences,
             status_stream::subscribe_status,
+            scope_stream::subscribe_scope,
+            scope_stream::unsubscribe_scope,
         ])
         .run(tauri::generate_context!())
         .expect("error while running Prisme");

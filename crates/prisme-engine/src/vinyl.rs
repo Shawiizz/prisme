@@ -47,6 +47,7 @@ impl VinylControl {
             enabled: self.enabled,
             mode: self.mode,
             signal: s.signal,
+            level: s.level as f32,
             record_speed: s.speed,
             record_position_s: s.position_ms.map(|ms| ms / 1000.0),
         }
