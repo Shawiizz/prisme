@@ -117,26 +117,16 @@ pub struct TimecodeFormatDto {
     pub name: &'static str,
 }
 
-#[derive(Debug, Clone, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct WaveformDto {
-    pub slices_per_second: u32,
-    pub peak: Vec<u8>,
-    pub low: Vec<u8>,
-    pub mid: Vec<u8>,
-    pub high: Vec<u8>,
-}
-
-impl From<&prisme_analysis::Waveform> for WaveformDto {
-    fn from(w: &prisme_analysis::Waveform) -> Self {
-        Self {
-            slices_per_second: w.slices_per_second,
-            peak: w.peak.clone(),
-            low: w.low.clone(),
-            mid: w.mid.clone(),
-            high: w.high.clone(),
-        }
+/// A waveform as sent to the UI, in binary (as JSON, a track's waveform is several
+/// hundred kilobytes of numbers): `slices_per_second` (u32, little-endian), then the
+/// peak, low, mid and high bands, one byte per slice each.
+pub fn waveform_bytes(w: &prisme_analysis::Waveform) -> Vec<u8> {
+    let mut bytes = Vec::with_capacity(4 + 4 * w.len());
+    bytes.extend(w.slices_per_second.to_le_bytes());
+    for band in [&w.peak, &w.low, &w.mid, &w.high] {
+        bytes.extend_from_slice(band);
     }
+    bytes
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -171,12 +161,16 @@ impl From<&prisme_analysis::KeyEstimate> for KeyDto {
 #[serde(rename_all = "camelCase")]
 pub struct TrackInfoDto {
     pub deck: usize,
+    /// Tells this load from another of the same file (see `deck-track-update`).
+    pub load_id: u64,
     pub path: String,
     pub title: String,
     pub artist: Option<String>,
     pub duration_s: f64,
     pub sample_rate: u32,
-    pub waveform: WaveformDto,
+    /// The waveform can be fetched (`deck_waveform`); otherwise a `deck-track-update`
+    /// says when it can.
+    pub waveform_ready: bool,
     pub tempo: Option<TempoDto>,
     pub key: Option<KeyDto>,
     pub grid_edited: bool,
@@ -184,7 +178,18 @@ pub struct TrackInfoDto {
     pub cues: Vec<CueDto>,
 }
 
-/// Tempo and key of a loaded track, after a correction.
+/// What became known of a loaded track after it was put on its deck.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DeckTrackUpdateDto {
+    pub deck: usize,
+    pub load_id: u64,
+    /// The waveform was computed: it can be fetched (`deck_waveform`).
+    pub waveform_ready: bool,
+    pub analysis: Option<TrackAnalysisDto>,
+}
+
+/// Tempo and key of a loaded track, after a correction or its analysis.
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct TrackAnalysisDto {

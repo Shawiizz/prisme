@@ -1,14 +1,18 @@
 import { Injectable, computed, inject, signal } from '@angular/core';
 import { Channel, invoke } from '@tauri-apps/api/core';
+import { listen } from '@tauri-apps/api/event';
 import {
   Cue,
   DECK_COUNT,
+  DeckTrackUpdate,
   DeckSettings,
   EngineStatus,
   MixerState,
   TrackAnalysis,
   TrackInfo,
   VinylMode,
+  Waveform,
+  decodeWaveform,
 } from '../models/engine';
 import { PreferencesService } from './preferences.service';
 
@@ -40,6 +44,8 @@ export class EngineService {
   readonly status = signal<EngineStatus | null>(null);
   readonly tracks = signal<(TrackInfo | null)[]>(Array(DECK_COUNT).fill(null));
   readonly loading = signal<boolean[]>(Array(DECK_COUNT).fill(false));
+  /** Waveform of each deck's track, once fetched. */
+  readonly waveforms = signal<(Waveform | null)[]>(Array(DECK_COUNT).fill(null));
   readonly decks = signal<DeckSettings[]>(
     Array.from({ length: DECK_COUNT }, () => ({ ...DEFAULT_DECK })),
   );
@@ -60,11 +66,13 @@ export class EngineService {
       this.status.set(s);
     };
     await invoke('subscribe_status', { channel });
+    await listen<DeckTrackUpdate>('deck-track-update', (e) => this.completeTrack(e.payload));
     const [tracks, mixer] = await Promise.all([
       invoke<(TrackInfo | null)[]>('loaded_tracks'),
       invoke<MixerState>('mixer_state'),
     ]);
     this.tracks.set(tracks);
+    tracks.forEach((t, deck) => t?.waveformReady && this.fetchWaveform(deck, t.loadId));
     this.decks.set(mixer.decks.map((d) => ({ ...DEFAULT_DECK, ...d })));
     return mixer;
   }
@@ -92,6 +100,8 @@ export class EngineService {
     try {
       const info = await invoke<TrackInfo>('load_track', { deck, path });
       this.patch(this.tracks, deck, info);
+      this.patch(this.waveforms, deck, null);
+      if (info.waveformReady) this.fetchWaveform(deck, info.loadId);
       this.error.set(null);
     } catch (e) {
       this.error.set(String(e));
@@ -210,6 +220,20 @@ export class EngineService {
   setCues(deck: number, cues: Cue[]) {
     const track = this.tracks()[deck];
     if (track) this.patch(this.tracks, deck, { ...track, cues });
+  }
+
+  /** Waveform and analysis that arrive after the track was put on its deck. */
+  private completeTrack({ deck, loadId, waveformReady, analysis }: DeckTrackUpdate) {
+    const track = this.tracks()[deck];
+    if (track?.loadId !== loadId) return;
+    if (analysis) this.patch(this.tracks, deck, { ...track, ...analysis });
+    if (waveformReady) this.fetchWaveform(deck, loadId);
+  }
+
+  private async fetchWaveform(deck: number, loadId: number) {
+    const waveform = decodeWaveform(await invoke<ArrayBuffer>('deck_waveform', { deck, loadId }));
+    if (waveform && this.tracks()[deck]?.loadId === loadId)
+      this.patch(this.waveforms, deck, waveform);
   }
 
   /** Replaces the tempo and key of the track on `deck` (after a correction). */

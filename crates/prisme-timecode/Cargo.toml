@@ -7,3 +7,10 @@ rust-version.workspace = true
 publish.workspace = true
 
 [dependencies]
+
+[dev-dependencies]
+criterion.workspace = true
+
+[[bench]]
+name = "decoder"
+harness = false

@@ -79,12 +79,27 @@ export interface EngineStatus {
   health: AudioHealth | null;
 }
 
+/** One byte per slice in each band (sent in binary, see `decodeWaveform`). */
 export interface Waveform {
   slicesPerSecond: number;
-  peak: number[];
-  low: number[];
-  mid: number[];
-  high: number[];
+  peak: Uint8Array;
+  low: Uint8Array;
+  mid: Uint8Array;
+  high: Uint8Array;
+}
+
+/** `slices_per_second` (u32 little-endian), then the peak, low, mid and high bands. */
+export function decodeWaveform(buffer: ArrayBuffer): Waveform | null {
+  if (buffer.byteLength < 4) return null;
+  const slices = (buffer.byteLength - 4) / 4;
+  const band = (i: number) => new Uint8Array(buffer, 4 + i * slices, slices);
+  return {
+    slicesPerSecond: new DataView(buffer).getUint32(0, true),
+    peak: band(0),
+    low: band(1),
+    mid: band(2),
+    high: band(3),
+  };
 }
 
 export interface Tempo {
@@ -102,12 +117,15 @@ export interface MusicalKey {
 
 export interface TrackInfo {
   deck: number;
+  /** Tells this load from another of the same file. */
+  loadId: number;
   path: string;
   title: string;
   artist: string | null;
   durationS: number;
   sampleRate: number;
-  waveform: Waveform;
+  /** The waveform can be fetched; otherwise a `deck-track-update` says when it can. */
+  waveformReady: boolean;
   tempo: Tempo | null;
   key: MusicalKey | null;
   /** Corrected by hand. */
@@ -116,7 +134,15 @@ export interface TrackInfo {
   cues: Cue[];
 }
 
-/** Tempo and key of a loaded track, after a correction. */
+/** What became known of a loaded track after it was put on its deck. */
+export interface DeckTrackUpdate {
+  deck: number;
+  loadId: number;
+  waveformReady: boolean;
+  analysis: TrackAnalysis | null;
+}
+
+/** Tempo and key of a loaded track, after a correction or its analysis. */
 export type TrackAnalysis = Pick<TrackInfo, 'tempo' | 'key' | 'gridEdited' | 'keyEdited'>;
 
 /** A correction of the beat grid (see `edit_grid`). */

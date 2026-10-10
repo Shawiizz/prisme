@@ -67,14 +67,15 @@ impl Playhead {
             return;
         };
         let step = speed * track.sample_rate() as f64 / out_rate;
+        let view = track.view();
         for frame in out.chunks_exact_mut(2) {
             let i = self.position.floor();
             let t = (self.position - i) as f32;
             let i = i as isize;
-            let (l0, r0) = track.frame(i - 1);
-            let (l1, r1) = track.frame(i);
-            let (l2, r2) = track.frame(i + 1);
-            let (l3, r3) = track.frame(i + 2);
+            let (l0, r0) = view.frame(i - 1);
+            let (l1, r1) = view.frame(i);
+            let (l2, r2) = view.frame(i + 1);
+            let (l3, r3) = view.frame(i + 2);
             frame[0] = catmull_rom(l0, l1, l2, l3, t);
             frame[1] = catmull_rom(r0, r1, r2, r3, t);
             self.position = wrap_in_loop(self.position, self.position + step, self.loop_frames);

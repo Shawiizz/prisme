@@ -11,3 +11,10 @@ prisme-timecode.workspace = true
 prisme-media.workspace = true
 rtrb.workspace = true
 triple_buffer.workspace = true
+
+[dev-dependencies]
+criterion.workspace = true
+
+[[bench]]
+name = "engine"
+harness = false

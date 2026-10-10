@@ -8,6 +8,8 @@ use std::f64::consts::TAU;
 /// Crossover frequencies between the bands (Hz).
 const LOW_MID_HZ: f64 = 200.0;
 const MID_HIGH_HZ: f64 = 2_000.0;
+/// Frames read from the track at a time.
+const BLOCK_FRAMES: usize = 65_536;
 
 /// Waveform summary of a track. All values are scaled to 0..=255.
 #[derive(Debug, Clone, PartialEq)]
@@ -59,20 +61,23 @@ pub fn compute_waveform(track: &TrackAudio, slices_per_second: u32) -> Waveform 
 
     let mut low_pass = LowPass::new(LOW_MID_HZ, sr);
     let mut mid_pass = LowPass::new(MID_HIGH_HZ, sr);
-    for (i, frame) in track.samples().chunks_exact(2).enumerate() {
-        let x = (frame[0] as f64 + frame[1] as f64) * 0.5;
-        let low = low_pass.process(x);
-        let below_high = mid_pass.process(x);
-        let mid = below_high - low;
-        let high = x - below_high;
-        let s = ((i as f64) / per_slice) as usize;
-        let s = s.min(slices - 1);
-        peak[s] = peak[s].max(x.abs());
-        bands[s][0] += low * low;
-        bands[s][1] += mid * mid;
-        bands[s][2] += high * high;
-        counts[s] += 1;
-    }
+    let mut i = 0usize;
+    track.for_each_block(BLOCK_FRAMES, |block| {
+        for frame in block.chunks_exact(2) {
+            let x = (frame[0] as f64 + frame[1] as f64) * 0.5;
+            let low = low_pass.process(x);
+            let below_high = mid_pass.process(x);
+            let mid = below_high - low;
+            let high = x - below_high;
+            let s = ((i as f64 / per_slice) as usize).min(slices - 1);
+            peak[s] = peak[s].max(x.abs());
+            bands[s][0] += low * low;
+            bands[s][1] += mid * mid;
+            bands[s][2] += high * high;
+            counts[s] += 1;
+            i += 1;
+        }
+    });
 
     let rms: Vec<[f64; 3]> = bands
         .iter()

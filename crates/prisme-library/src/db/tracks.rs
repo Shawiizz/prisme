@@ -16,8 +16,17 @@ use std::path::Path;
 pub const TAGS_VERSION: u32 = 1;
 
 /// Tables keyed by a file's path (`track_search`, a virtual table, is apart).
-const RELOCATED: [&str; 8] =
-    ["tracks", "covers", "cues", "track_edits", "track_marks", "crate_tracks", "history_plays", "prepare"];
+const RELOCATED: [&str; 9] = [
+    "tracks",
+    "covers",
+    "waveforms",
+    "cues",
+    "track_edits",
+    "track_marks",
+    "crate_tracks",
+    "history_plays",
+    "prepare",
+];
 
 /// A track of a list (crate, prepare list), with what the library knows of it (`None`
 /// if it was never analysed).
@@ -230,12 +239,12 @@ impl LibraryDb {
     }
 
     /// Forgets what was read from files that are gone (deleted or moved): their records,
-    /// search entries and covers. Their cues, corrections and crate entries stay, for when
+    /// search entries, covers and waveforms. Their cues, corrections and crate entries stay, for when
     /// they come back.
     pub fn forget(&self, paths: &[String]) -> Result<(), DbError> {
         let conn = self.conn();
         let tx = conn.unchecked_transaction()?;
-        for table in ["tracks", "track_search", "covers"] {
+        for table in ["tracks", "track_search", "covers", "waveforms"] {
             let mut delete = tx.prepare_cached(&format!("DELETE FROM {table} WHERE path = ?1"))?;
             for path in paths {
                 delete.execute([path])?;

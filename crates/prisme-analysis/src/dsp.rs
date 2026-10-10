@@ -26,7 +26,7 @@ impl MonoSignal {
 /// [`Decimator`]).
 pub fn analysis_signal(track: &TrackAudio) -> MonoSignal {
     let mut decimator = Decimator::new(track.sample_rate());
-    decimator.push(track.samples());
+    track.for_each_block(65_536, |block| decimator.push(block));
     decimator.finish()
 }
 

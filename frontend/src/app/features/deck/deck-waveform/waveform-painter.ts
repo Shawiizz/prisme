@@ -30,11 +30,12 @@ export class WaveformPainter {
 
   /**
    * Scrolling view centred on `positionS`: past audio dimmed, beat grid (stronger every
-   * 4 beats), loop, cues and the playhead.
+   * 4 beats), loop, cues and the playhead. Without a waveform yet (track being loaded),
+   * everything but the audio.
    */
   drawZoomed(
     ctx: CanvasRenderingContext2D,
-    w: Waveform,
+    w: Waveform | null,
     overlay: WaveformOverlay,
     positionS: number,
     spanS: number,
@@ -43,8 +44,16 @@ export class WaveformPainter {
     const view: View = { fromS: positionS - spanS / 2, spanS, ...size };
     ctx.clearRect(0, 0, view.width, view.height);
     this.drawLoop(ctx, overlay.loop, view);
+    if (w) this.drawZoomedAudio(ctx, w, view);
+    if (overlay.tempo) this.drawBeatGrid(ctx, overlay.tempo, view);
+    this.drawCues(ctx, overlay.cues, view, true);
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(Math.floor(view.width / 2), 0, 2, view.height);
+  }
+
+  private drawZoomedAudio(ctx: CanvasRenderingContext2D, w: Waveform, view: View) {
     const sps = w.slicesPerSecond;
-    const slicesPerPx = (spanS * sps) / view.width;
+    const slicesPerPx = (view.spanS * sps) / view.width;
     const mid = view.height / 2;
     for (let x = 0; x < view.width; x++) {
       const from = Math.floor(view.fromS * sps + x * slicesPerPx);
@@ -60,16 +69,12 @@ export class WaveformPainter {
       ctx.fillRect(x, mid - amp, 1, amp * 2);
     }
     ctx.globalAlpha = 1;
-    if (overlay.tempo) this.drawBeatGrid(ctx, overlay.tempo, view);
-    this.drawCues(ctx, overlay.cues, view, true);
-    ctx.fillStyle = '#ffffff';
-    ctx.fillRect(Math.floor(view.width / 2), 0, 2, view.height);
   }
 
   /** Whole track, played part dimmed, with loop, cues and the playhead. */
   drawOverview(
     ctx: CanvasRenderingContext2D,
-    w: Waveform,
+    w: Waveform | null,
     overlay: WaveformOverlay,
     positionS: number,
     durationS: number,
@@ -78,9 +83,21 @@ export class WaveformPainter {
     const view: View = { fromS: 0, spanS: durationS, ...size };
     ctx.clearRect(0, 0, view.width, view.height);
     this.drawLoop(ctx, overlay.loop, view);
+    const playedX = durationS > 0 ? (positionS / durationS) * view.width : 0;
+    if (w) this.drawOverviewAudio(ctx, w, view, playedX);
+    this.drawCues(ctx, overlay.cues, view, false);
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(Math.floor(playedX), 0, 1, view.height);
+  }
+
+  private drawOverviewAudio(
+    ctx: CanvasRenderingContext2D,
+    w: Waveform,
+    view: View,
+    playedX: number,
+  ) {
     const n = w.peak.length;
     const mid = view.height / 2;
-    const playedX = durationS > 0 ? (positionS / durationS) * view.width : 0;
     for (let x = 0; x < view.width; x++) {
       const from = Math.floor((x / view.width) * n);
       const to = Math.max(from + 1, Math.floor(((x + 1) / view.width) * n));
@@ -94,9 +111,6 @@ export class WaveformPainter {
       ctx.fillRect(x, mid - amp, 1, amp * 2);
     }
     ctx.globalAlpha = 1;
-    this.drawCues(ctx, overlay.cues, view, false);
-    ctx.fillStyle = '#ffffff';
-    ctx.fillRect(Math.floor(playedX), 0, 1, view.height);
   }
 
   private drawBeatGrid(ctx: CanvasRenderingContext2D, tempo: Tempo, view: View) {
@@ -145,7 +159,7 @@ export class WaveformPainter {
   private colorAt(w: Waveform, i: number): string {
     if (this.source !== w) {
       this.source = w;
-      this.colors = w.peak.map((_, k) => {
+      this.colors = Array.from(w.peak, (_, k) => {
         const l = w.low[k],
           m = w.mid[k],
           h = w.high[k];

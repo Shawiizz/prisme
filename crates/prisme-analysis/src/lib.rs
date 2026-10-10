@@ -37,7 +37,7 @@ impl Default for AnalysisOptions {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, Default, PartialEq)]
 pub struct TrackAnalysis {
     pub tempo: Option<Tempo>,
     pub key: Option<KeyEstimate>,

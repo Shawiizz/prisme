@@ -1,20 +1,18 @@
-use crate::dto::TrackInfoDto;
+use crate::dto::{waveform_bytes, TrackInfoDto};
 use crate::error::{AppError, AppResult};
 use crate::library_service::LibraryService;
-use crate::state::{lock, AppState, LoadedTrack};
-use prisme_analysis::{AnalysisOptions, TrackAnalysis};
-use prisme_library::{FileStamp, TrackEdits, TrackRecord};
-use prisme_media::{TrackAudio, TrackTags};
-use std::path::{Path, PathBuf};
+use crate::state::{lock, AppState};
+use crate::track_loading;
+use std::path::PathBuf;
 use std::sync::Arc;
-use tauri::State;
+use tauri::ipc::Response;
+use tauri::{AppHandle, State};
 
-/// Waveform resolution: enough for a zoomed, scrolling view.
-pub const WAVEFORM_SLICES_PER_S: u32 = 150;
-
-/// Decodes a file, analyses it (waveform, tempo, key) and loads it on a deck.
+/// Puts a track on a deck as soon as it can play; its waveform and analysis follow if
+/// they were not known (see `track_loading`).
 #[tauri::command]
 pub async fn load_track(
+    app: AppHandle,
     state: State<'_, AppState>,
     library: State<'_, Arc<LibraryService>>,
     deck: usize,
@@ -23,66 +21,28 @@ pub async fn load_track(
     AppState::check_deck(deck)?;
     let file = PathBuf::from(&path);
     let library = library.inner().clone();
-    let track = tauri::async_runtime::spawn_blocking(move || prepare_track(file, &library))
-        .await
-        .map_err(|e| AppError::Other(e.to_string()))??;
+    let (track, completion) =
+        tauri::async_runtime::spawn_blocking(move || track_loading::prepare(file, &library))
+            .await
+            .map_err(|e| AppError::Other(e.to_string()))??;
     let info = track.info(deck);
     let commands = track.load_commands(deck);
+    let load_id = track.load_id;
     // kept for audio restarts
     lock(&state.tracks)[deck] = Some(track);
     for c in commands {
         state.send_if_running(c)?;
     }
+    tauri::async_runtime::spawn_blocking(move || completion.run(&app, deck, load_id));
     Ok(info)
 }
 
-/// Decoding, then the waveform and the tempo / key analysis side by side. The
-/// analysis and tags come from the library when they are up to date there; otherwise
-/// they are computed and stored.
-pub fn prepare_track(path: PathBuf, library: &LibraryService) -> AppResult<LoadedTrack> {
-    let audio = prisme_media::decode_file(&path)?;
-    let stamp = FileStamp::of(&path).ok();
-    let stored = stamp
-        .and_then(|s| library.db.get(&path).ok().flatten().filter(|r| r.is_current(s) && r.error.is_none()));
-    let (waveform, (detected, edits, tags)) = std::thread::scope(|s| {
-        let waveform = s.spawn(|| prisme_analysis::compute_waveform(&audio, WAVEFORM_SLICES_PER_S));
-        let known = match stored {
-            Some(r) => (r.analysis, r.edits, r.tags),
-            None => analyze_and_store(&path, stamp, &audio, library),
-        };
-        (waveform.join().expect("waveform thread"), known)
-    });
-    let cues = library.db.cues(&path).unwrap_or_else(|e| {
-        eprintln!("cues of {} not read: {e}", path.display());
-        Vec::new()
-    });
-    Ok(LoadedTrack {
-        load_id: LoadedTrack::next_load_id(),
-        path,
-        audio: Arc::new(audio),
-        waveform,
-        detected,
-        edits,
-        tags,
-        cues,
-    })
-}
-
-fn analyze_and_store(
-    path: &Path,
-    stamp: Option<FileStamp>,
-    audio: &TrackAudio,
-    library: &LibraryService,
-) -> (TrackAnalysis, TrackEdits, TrackTags) {
-    let analysis = prisme_analysis::analyze(audio, &AnalysisOptions::default());
-    let metadata = prisme_library::read_metadata(path);
-    // corrections made by hand outlive the analysis they corrected
-    let edits = library.db.edits(path).unwrap_or_default();
-    let Some(stamp) = stamp else { return (analysis, edits, metadata.tags) };
-    let analyzed = TrackRecord::analyzed(path, stamp, audio.duration_s(), analysis, metadata.tags);
-    let record = TrackRecord { edits, ..analyzed };
-    library.store(&record, metadata.cover.as_deref());
-    (record.analysis, record.edits, record.tags)
+/// The waveform of the track on `deck`, in binary (`dto::waveform_bytes`); empty when
+/// it is not known yet or another track was loaded meanwhile.
+#[tauri::command]
+pub fn deck_waveform(state: State<'_, AppState>, deck: usize, load_id: u64) -> Response {
+    let bytes = state.with_loaded(deck, load_id, |t| t.waveform.as_ref().map(waveform_bytes)).flatten();
+    Response::new(bytes.unwrap_or_default())
 }
 
 /// Tracks currently loaded on the decks (to rebuild the UI after a reload).

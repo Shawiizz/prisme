@@ -8,6 +8,7 @@
 //! * `commands`: what the frontend can ask, by domain;
 //! * `status_stream`: engine state pushed to the frontend at ~60 Hz;
 //! * `scope_stream`: a turntable's signal pushed while its oscilloscope is shown;
+//! * `track_loading`: putting a track on a deck, playable before it is fully decoded;
 //! * `folders`: browsing music folders;
 //! * `library_service`: track database (analysis, tags, cues) and background analysis;
 //! * `cover_protocol`: cover thumbnails served to the UI;
@@ -28,6 +29,7 @@ mod preferences;
 mod scope_stream;
 mod state;
 mod status_stream;
+mod track_loading;
 
 use library_service::LibraryService;
 use preferences::Preferences;
@@ -49,7 +51,7 @@ pub fn run() {
             app.manage(library.clone());
 
             let state = app.state::<AppState>();
-            dev_startup::preload_tracks(&state, &library);
+            dev_startup::preload_tracks(app.handle(), &state, &library);
             start_saved_audio(&state);
             if let Some(gain) = dev_startup::master_gain() {
                 let _ = state.send(prisme_engine::Command::SetMasterGain { gain });
@@ -69,6 +71,7 @@ pub fn run() {
             commands::audio::apply_audio_settings,
             commands::tracks::load_track,
             commands::tracks::loaded_tracks,
+            commands::tracks::deck_waveform,
             commands::decks::set_playing,
             commands::decks::seek,
             commands::decks::set_pitch,

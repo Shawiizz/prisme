@@ -3,7 +3,7 @@
 //! restarts).
 
 use crate::audio_host::{AudioSession, DECKS};
-use crate::dto::{CueDto, KeyDto, MixModeDto, TempoDto, TrackInfoDto, VinylModeDto, WaveformDto};
+use crate::dto::{CueDto, KeyDto, MixModeDto, TempoDto, TrackInfoDto, VinylModeDto};
 use crate::error::{AppError, AppResult};
 use crate::folders;
 use crate::preferences::{DeckPreferences, Preferences};
@@ -21,7 +21,8 @@ pub struct LoadedTrack {
     pub load_id: u64,
     pub path: PathBuf,
     pub audio: Arc<TrackAudio>,
-    pub waveform: Waveform,
+    /// `None` until computed (first load of the track).
+    pub waveform: Option<Waveform>,
     /// As detected; [`LoadedTrack::analysis`] applies the corrections.
     pub detected: TrackAnalysis,
     pub edits: TrackEdits,
@@ -45,7 +46,8 @@ impl LoadedTrack {
             artist: self.tags.artist.clone(),
             duration_s: self.audio.duration_s(),
             sample_rate: self.audio.sample_rate(),
-            waveform: WaveformDto::from(&self.waveform),
+            load_id: self.load_id,
+            waveform_ready: self.waveform.is_some(),
             tempo: analysis.tempo.as_ref().map(TempoDto::from),
             key: analysis.key.as_ref().map(KeyDto::from),
             grid_edited: self.edits.grid.is_some(),
@@ -169,6 +171,17 @@ impl AppState {
         let Some(session) = session.as_mut() else { return Vec::new() };
         let status = session.controller.status();
         status.decks[..status.deck_count].iter().map(|d| (d.position_s, d.playing)).collect()
+    }
+
+    /// Runs `f` on the track on `deck` if it is still the load `load_id`.
+    pub fn with_loaded<R>(
+        &self,
+        deck: usize,
+        load_id: u64,
+        f: impl FnOnce(&mut LoadedTrack) -> R,
+    ) -> Option<R> {
+        let mut tracks = lock(&self.tracks);
+        tracks.get_mut(deck)?.as_mut().filter(|t| t.load_id == load_id).map(f)
     }
 
     /// Runs `f` on the track loaded on `deck`.

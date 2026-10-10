@@ -3,10 +3,12 @@
 //! A track is decoded entirely into memory as interleaved stereo `f32` ([`TrackAudio`]).
 //! For DVS this is what we want: scratching and needle drops need instant random access
 //! anywhere in the track, which streaming decoders cannot give. Decoding happens on a
-//! worker thread, never on the audio thread. [`DecodeStream`] decodes chunk by chunk
-//! for work that only scans the audio once (library analysis).
+//! worker thread, never on the audio thread, and the track can be played while it is
+//! being decoded ([`LoadingTrack`]). [`DecodeStream`] decodes chunk by chunk for work
+//! that only scans the audio once (library analysis).
 
 mod tags;
+mod track;
 
 pub use tags::{read_tags, CoverArt, TrackTags};
 
@@ -34,49 +36,7 @@ pub enum MediaError {
     Tags { path: String, message: String },
 }
 
-/// A fully decoded track: interleaved stereo samples at the file's sample rate.
-#[derive(Debug, Clone)]
-pub struct TrackAudio {
-    sample_rate: u32,
-    samples: Vec<f32>,
-}
-
-impl TrackAudio {
-    /// Builds a track from interleaved stereo samples.
-    pub fn from_interleaved(sample_rate: u32, samples: Vec<f32>) -> Self {
-        assert!(samples.len() % 2 == 0, "stereo data must have an even number of samples");
-        Self { sample_rate, samples }
-    }
-
-    pub fn sample_rate(&self) -> u32 {
-        self.sample_rate
-    }
-
-    /// Number of stereo frames.
-    pub fn frames(&self) -> usize {
-        self.samples.len() / 2
-    }
-
-    pub fn duration_s(&self) -> f64 {
-        self.frames() as f64 / self.sample_rate as f64
-    }
-
-    /// Interleaved stereo samples (left, right, left, right, ...).
-    pub fn samples(&self) -> &[f32] {
-        &self.samples
-    }
-
-    /// Frame `i` as (left, right), or silence outside the track.
-    #[inline]
-    pub fn frame(&self, i: isize) -> (f32, f32) {
-        if i < 0 || i as usize >= self.frames() {
-            (0.0, 0.0)
-        } else {
-            let k = i as usize * 2;
-            (self.samples[k], self.samples[k + 1])
-        }
-    }
-}
+pub use track::{LoadingTrack, TrackAudio, TrackView};
 
 /// Extensions of the files [`decode_file`] can read.
 pub const SUPPORTED_EXTENSIONS: &[&str] = &["mp3", "flac", "wav", "m4a", "aac", "mp4", "ogg", "oga"];
@@ -97,7 +57,7 @@ pub fn decode_file(path: &Path) -> Result<TrackAudio, MediaError> {
     if samples.is_empty() {
         return Err(MediaError::NoAudio);
     }
-    Ok(TrackAudio { sample_rate: stream.sample_rate(), samples })
+    Ok(TrackAudio::from_interleaved(stream.sample_rate(), samples))
 }
 
 /// A file being decoded chunk by chunk, for work that does not need the whole track
@@ -213,13 +173,5 @@ mod tests {
         assert!(is_supported(Path::new("x.flac")));
         assert!(!is_supported(Path::new("cover.jpg")));
         assert!(!is_supported(Path::new("noext")));
-    }
-
-    #[test]
-    fn frames_outside_the_track_are_silent() {
-        let t = TrackAudio::from_interleaved(44_100, vec![0.5, -0.5]);
-        assert_eq!(t.frame(0), (0.5, -0.5));
-        assert_eq!(t.frame(-1), (0.0, 0.0));
-        assert_eq!(t.frame(1), (0.0, 0.0));
     }
 }

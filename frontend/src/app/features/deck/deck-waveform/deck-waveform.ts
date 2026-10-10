@@ -71,10 +71,11 @@ export class DeckWaveform {
     };
     // ZOOM_SPAN_S of real time: beatmatched decks show their beats at the same spacing
     const span = ZOOM_SPAN_S * (this.engine.tempoRate(this.deck()) ?? 1);
-    this.painter.drawZoomed(zoom.ctx, track.waveform, overlay, position, span, zoom.size);
+    const waveform = this.engine.waveforms()[this.deck()];
+    this.painter.drawZoomed(zoom.ctx, waveform, overlay, position, span, zoom.size);
     this.painter.drawOverview(
       overview.ctx,
-      track.waveform,
+      waveform,
       overlay,
       position,
       track.durationS,

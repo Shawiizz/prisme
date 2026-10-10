@@ -1,6 +1,6 @@
 //! Library database (SQLite): tracks and their analysis and tags ([`tracks`]), the
 //! corrections made by hand ([`edits`]), cues,
-//! cover thumbnails, full-text search, crates, history of the sets, prepare list.
+//! cover thumbnails, waveforms, full-text search, crates, history of the sets, prepare list.
 
 mod covers;
 mod crates;
@@ -10,6 +10,7 @@ mod history;
 mod marks;
 mod prepare;
 mod tracks;
+mod waveforms;
 
 pub use crates::{Crate, CrateId};
 pub use edits::{GridEdit, TrackEdits};
@@ -118,6 +119,13 @@ const MIGRATIONS: &[&str] = &[
          FROM tracks
          LEFT JOIN track_edits ON track_edits.path = tracks.path
          LEFT JOIN track_marks ON track_marks.path = tracks.path;",
+    "CREATE TABLE waveforms (
+         path TEXT PRIMARY KEY NOT NULL,
+         size INTEGER NOT NULL,
+         modified_ms INTEGER NOT NULL,
+         slices_per_second INTEGER NOT NULL,
+         data BLOB NOT NULL
+     ) WITHOUT ROWID;",
 ];
 
 pub fn now_ms() -> i64 {
