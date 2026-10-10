@@ -13,6 +13,7 @@ prisme-timecode = { path = "crates/prisme-timecode" }
 prisme-media = { path = "crates/prisme-media" }
 prisme-engine = { path = "crates/prisme-engine" }
 prisme-audio-io = { path = "crates/prisme-audio-io" }
+prisme-analysis = { path = "crates/prisme-analysis" }
 
 anyhow = "1"
 thiserror = "2"

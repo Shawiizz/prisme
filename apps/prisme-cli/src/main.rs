@@ -8,7 +8,8 @@ use clap::{Parser, Subcommand, ValueEnum};
 use prisme_audio_io::{AudioCallback, DeviceKind, StreamSettings};
 use prisme_engine::{Command, Engine, EngineConfig, EngineController, VinylMode};
 use prisme_timecode::TimecodeFormat;
-use simulation::{Pattern, SimulatedTurntable};
+use prisme_timecode::testing::SimulatedTurntable;
+use simulation::Pattern;
 use std::io::Write;
 use std::path::PathBuf;
 use std::sync::atomic::Ordering;
@@ -130,7 +131,7 @@ fn main() -> Result<()> {
             let format = &prisme_timecode::SERATO_CV02_A;
             run(&file, &audio, None, Some((format, pattern)), seconds, |c| {
                 c.send(Command::SetVinylMode { deck: 0, mode: mode.into() }).ok();
-                c.send(Command::SetLeadIn { deck: 0, seconds: simulation::START_S }).ok();
+                c.send(Command::SetLeadIn { deck: 0, seconds: SimulatedTurntable::START_S }).ok();
                 c.send(Command::SetVinylEnabled { deck: 0, enabled: true }).ok();
             })
         }
@@ -184,7 +185,7 @@ fn run(
     let format = input.as_ref().map(|(_, f)| *f).or(simulate.map(|(f, _)| f)).unwrap_or(&prisme_timecode::SERATO_CV02_A);
     let config = EngineConfig::new(rate, 2, format);
     let (engine, mut controller) = prisme_engine::create(config);
-    let turntable = simulate.map(|(f, pattern)| SimulatedTurntable::new(f, rate, pattern));
+    let turntable = simulate.map(|(f, pattern)| SimulatedTurntable::new(f, rate, pattern.into()));
 
     let stream = prisme_audio_io::start(&settings, EngineCallback { engine, turntable })?;
     if stream.sample_rate != rate {

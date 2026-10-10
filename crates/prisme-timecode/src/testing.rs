@@ -179,3 +179,75 @@ impl Degrader {
         }
     }
 }
+
+/// Hand movement patterns for [`SimulatedTurntable`].
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Pattern {
+    /// Plays at +2%.
+    Steady,
+    /// Plays for 4 s, then scratches back and forth for 2 s.
+    Scratch,
+    /// Plays with short pitch nudges, like beatmatching by hand.
+    Nudge,
+}
+
+impl Pattern {
+    /// Record speed at time `t` (seconds).
+    pub fn speed_at(self, t: f64) -> f64 {
+        match self {
+            Pattern::Steady => 1.02,
+            Pattern::Nudge => {
+                let c = t % 4.0;
+                1.0 + if c < 0.3 {
+                    0.06
+                } else if (2.0..2.3).contains(&c) {
+                    -0.06
+                } else {
+                    0.0
+                }
+            }
+            Pattern::Scratch => {
+                let c = t % 6.0;
+                if c < 4.0 {
+                    1.0
+                } else {
+                    -1.8 * (TAU * 2.0 * (c - 4.0)).sin()
+                }
+            }
+        }
+    }
+}
+
+/// A turntable played by a simulated hand: renders the signal the sound card would
+/// receive. Lets the whole application run without hardware.
+pub struct SimulatedTurntable {
+    generator: SignalGenerator,
+    pattern: Pattern,
+    sample_rate: f64,
+    t: f64,
+    buffer: Vec<f32>,
+}
+
+impl SimulatedTurntable {
+    /// Where the needle starts on the record (seconds).
+    pub const START_S: f64 = 10.0;
+
+    pub fn new(format: &'static TimecodeFormat, sample_rate: u32, pattern: Pattern) -> Self {
+        Self {
+            generator: SignalGenerator::new(format, sample_rate, Self::START_S * 1000.0, 900_000.0),
+            pattern,
+            sample_rate: sample_rate as f64,
+            t: 0.0,
+            buffer: Vec::with_capacity(16_384 * 2),
+        }
+    }
+
+    /// Renders `frames` stereo frames (no allocation once the buffer has grown).
+    pub fn render(&mut self, frames: usize) -> &[f32] {
+        self.buffer.clear();
+        let (t0, sr, pattern) = (self.t, self.sample_rate, self.pattern);
+        self.generator.render(frames, |i| pattern.speed_at(t0 + i as f64 / sr), &mut self.buffer);
+        self.t += frames as f64 / sr;
+        &self.buffer
+    }
+}
