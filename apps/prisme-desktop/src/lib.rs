@@ -20,6 +20,7 @@ mod cover_protocol;
 mod dev_startup;
 mod dto;
 mod error;
+mod folder_watch;
 mod folders;
 mod history;
 mod library_service;
@@ -56,6 +57,7 @@ pub fn run() {
             audio_watchdog::start(app.handle().clone());
             history::start(app.handle().clone());
             library.start();
+            library.watch();
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![

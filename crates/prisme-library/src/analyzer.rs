@@ -1,16 +1,18 @@
 //! Background analysis of a music folder.
 //!
-//! A coordinator thread scans the folder, keeps the files whose stored results are
-//! missing or stale, and hands them to a few worker threads. Every thread runs in the
-//! OS "background" mode (low CPU and disk priority) so that playback, which runs at
-//! high priority, is never disturbed. Files are decoded chunk by chunk
-//! ([`prisme_analysis::analyze_file`]), so each worker holds a few MB, not a track.
+//! A coordinator thread scans the folder, forgets the stored files it does not find any
+//! more, keeps the files whose stored results are missing or stale, and hands them to a
+//! few worker threads. Every thread runs in the OS "background" mode (low CPU and disk
+//! priority) so that playback, which runs at high priority, is never disturbed. Files
+//! are decoded chunk by chunk ([`prisme_analysis::analyze_file`]), so each worker holds
+//! a few MB, not a track.
 
-use crate::db::{path_key, LibraryDb, TrackRecord};
+use crate::db::{path_key, LibraryDb, RecordVersion, TrackRecord};
 use crate::metadata::read_metadata;
 use crate::scan::{scan_folder, ScannedFile};
 use prisme_analysis::AnalysisOptions;
-use std::path::PathBuf;
+use std::collections::{HashMap, HashSet};
+use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::Arc;
 use std::thread::JoinHandle;
@@ -97,7 +99,11 @@ fn run(
     listener.progress(AnalysisProgress { running: true, ..Default::default() });
 
     let stored = db.versions().unwrap_or_default();
-    let todo: Vec<ScannedFile> = scan_folder(root, cancel)
+    let found = scan_folder(root, cancel);
+    if !cancel.load(Ordering::Relaxed) {
+        forget_missing(db, root, &stored, &found);
+    }
+    let todo: Vec<ScannedFile> = found
         .into_iter()
         .filter(|f| stored.get(&path_key(&f.path)).is_none_or(|v| !v.is_current(f.stamp)))
         .collect();
@@ -146,6 +152,21 @@ fn run(
         failed: failed.load(Ordering::Relaxed),
         running: false,
     });
+}
+
+/// Forgets the stored files under `root` that the scan did not find.
+fn forget_missing(
+    db: &LibraryDb,
+    root: &Path,
+    stored: &HashMap<String, RecordVersion>,
+    found: &[ScannedFile],
+) {
+    let present: HashSet<String> = found.iter().map(|f| path_key(&f.path)).collect();
+    let gone: Vec<String> =
+        stored.keys().filter(|p| Path::new(p).starts_with(root) && !present.contains(*p)).cloned().collect();
+    if let Err(e) = db.forget(&gone) {
+        eprintln!("{e}");
+    }
 }
 
 /// The record of a file and its cover thumbnail. When only the tags are stale, the

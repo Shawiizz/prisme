@@ -199,6 +199,22 @@ impl LibraryDb {
         Ok(rows.collect::<Result<_, _>>()?)
     }
 
+    /// Forgets what was read from files that are gone (deleted or moved): their records,
+    /// search entries and covers. Their cues, corrections and crate entries stay, for when
+    /// they come back.
+    pub fn forget(&self, paths: &[String]) -> Result<(), DbError> {
+        let conn = self.conn();
+        let tx = conn.unchecked_transaction()?;
+        for table in ["tracks", "track_search", "covers"] {
+            let mut delete = tx.prepare_cached(&format!("DELETE FROM {table} WHERE path = ?1"))?;
+            for path in paths {
+                delete.execute([path])?;
+            }
+        }
+        tx.commit()?;
+        Ok(())
+    }
+
     pub fn track_count(&self) -> Result<usize, DbError> {
         Ok(self.conn().query_row("SELECT COUNT(*) FROM tracks", [], |r| r.get::<_, i64>(0))? as usize)
     }
@@ -313,6 +329,20 @@ mod tests {
         assert_eq!(db.get(Path::new("x.mp3")).unwrap(), Some(newer));
         assert!(db.search("old", 10).unwrap().is_empty());
         assert_eq!(db.search("new", 10).unwrap().len(), 1);
+    }
+
+    #[test]
+    fn forgotten_tracks_leave_the_search_but_keep_their_cues() {
+        let db = LibraryDb::open_in_memory().unwrap();
+        let path = "C:/Music/gone.mp3";
+        db.save(&sample(path, "deadmau5", "Gone")).unwrap();
+        db.save_cover(Path::new(path), &[1]).unwrap();
+        db.save_cue(Path::new(path), &crate::Cue::point(crate::CueSlot::Main, 1.0)).unwrap();
+        db.forget(&[path.to_string()]).unwrap();
+        assert_eq!(db.get(Path::new(path)).unwrap(), None);
+        assert!(db.search("gone", 10).unwrap().is_empty());
+        assert_eq!(db.cover(Path::new(path)).unwrap(), None);
+        assert_eq!(db.cues(Path::new(path)).unwrap().len(), 1);
     }
 
     #[test]

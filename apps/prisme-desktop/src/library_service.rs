@@ -3,8 +3,12 @@
 //!
 //! * `track-analyzed` ([`TrackAnalyzedDto`]) for each file analysed;
 //! * `library-progress` ([`ProgressDto`]) as the run advances.
+//!
+//! The music folder is watched ([`FolderWatch`]): new and changed files are analysed as
+//! they come.
 
 use crate::dto::{ProgressDto, TrackAnalyzedDto, TrackDetailsDto};
+use crate::folder_watch::FolderWatch;
 use crate::state::lock;
 use prisme_analysis::AnalysisOptions;
 use prisme_library::{AnalysisListener, AnalysisProgress, BackgroundAnalyzer, LibraryDb, TrackRecord};
@@ -20,6 +24,7 @@ pub struct LibraryService {
     app: AppHandle,
     root: PathBuf,
     analyzer: Mutex<Option<BackgroundAnalyzer>>,
+    watch: Mutex<Option<FolderWatch>>,
     progress: Arc<Mutex<AnalysisProgress>>,
 }
 
@@ -39,6 +44,7 @@ impl LibraryService {
             app: app.clone(),
             root,
             analyzer: Mutex::new(None),
+            watch: Mutex::new(None),
             progress: Arc::new(Mutex::new(AnalysisProgress::default())),
         }
     }
@@ -56,6 +62,14 @@ impl LibraryService {
         // the previous run (if any) is stopped outside the lock
         let previous = lock(&self.analyzer).replace(analyzer);
         drop(previous);
+    }
+
+    /// Analyses the files of the music folder as they appear or change.
+    pub fn watch(self: &Arc<Self>) {
+        match FolderWatch::start(self.app.clone(), self.clone(), &self.root) {
+            Ok(watch) => *lock(&self.watch) = Some(watch),
+            Err(e) => eprintln!("the music folder is not watched: {e}"),
+        }
     }
 
     pub fn progress(&self) -> AnalysisProgress {

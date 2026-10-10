@@ -30,6 +30,7 @@ windows-sys = { version = "0.61", features = ["Win32_System_Threading"] }
 clap = { version = "4", features = ["derive"] }
 lofty = "0.25"
 percent-encoding = "2"
+notify = "8"
 image = { version = "0.25", default-features = false, features = ["jpeg", "png"] }
 symphonia = { version = "0.5", default-features = false, features = ["mp3", "aac", "isomp4", "flac", "ogg", "vorbis", "wav", "pcm", "alac"] }
 

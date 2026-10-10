@@ -54,7 +54,8 @@ export function matchesSearch(t: DirEntry, words: string[]): boolean {
  * Browsing the music folders on disk, the crates and the history, and searching the library, with
  * the analysis results and tags of the tracks, and the view on them (search, sort,
  * selection). The background analysis pushes each result (`track-analyzed`) and its
- * progress (`library-progress`): the lists are patched in place, no reload needed.
+ * progress (`library-progress`): the lists are patched in place, no reload needed. The open
+ * folder is listed again when files appear in it or leave it (`library-files-changed`).
  */
 @Injectable({ providedIn: 'root' })
 export class LibraryService {
@@ -139,6 +140,7 @@ export class LibraryService {
     await Promise.all([
       listen<TrackAnalyzed>('track-analyzed', (e) => this.patch(e.payload)),
       listen<AnalysisProgress>('library-progress', (e) => this.progress.set(e.payload)),
+      listen<string[]>('library-files-changed', (e) => this.relist(e.payload)),
     ]);
     this.progress.set(await invoke<AnalysisProgress>('library_progress'));
     await Promise.all([this.crates.refresh(), this.history.init(), this.prepare.init()]);
@@ -319,6 +321,15 @@ export class LibraryService {
     } catch (e) {
       this.error.set(String(e));
     }
+  }
+
+  /** Lists the open folder again if it is one of `folders`, keeping the view as it is. */
+  private async relist(folders: string[]) {
+    const path = this.listing()?.path;
+    if (!path || !folders.includes(path)) return;
+    await this.attempt(async () =>
+      this.listing.set(await invoke<DirListing>('list_dir', { path })),
+    );
   }
 
   private searchLibrary() {
