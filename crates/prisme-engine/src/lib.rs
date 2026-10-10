@@ -6,6 +6,7 @@
 //!   any speed and direction, driven either internally (play / pitch) or by a timecode
 //!   record ([`VinylMode::Absolute`] or [`VinylMode::Relative`]).
 //! * Decks with a beat grid can follow a leader deck's tempo and beats (`sync`).
+//! * A deck can keep its pitch when its speed changes (`keylock`).
 //! * The software mixer gives each deck a channel (trim, EQ with kills, filter, fader)
 //!   and applies the crossfader, the master gain and a limiter.
 //!
@@ -16,6 +17,7 @@ mod command;
 mod deck;
 mod engine;
 mod grid;
+mod keylock;
 mod looping;
 mod mixer;
 mod playhead;

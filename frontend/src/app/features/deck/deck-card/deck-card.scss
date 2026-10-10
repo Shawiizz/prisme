@@ -100,6 +100,10 @@
     color: var(--accent);
   }
 }
+// the key heard differs from the track's: the pitch moved it (key lock off)
+.label.shifted {
+  color: var(--amber);
+}
 // a value corrected by hand
 .label.edited::after {
   content: ' •';

@@ -20,6 +20,7 @@ pub fn mixer_state(state: State<'_, AppState>) -> MixerStateDto {
                 vinyl_mode: d.vinyl_mode,
                 lead_in_s: d.lead_in_s,
                 swap_channels: d.swap_channels,
+                key_lock: d.key_lock,
                 strip: d.strip,
             })
             .collect(),

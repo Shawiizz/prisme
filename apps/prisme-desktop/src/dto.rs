@@ -334,6 +334,7 @@ pub struct DeckSettingsDto {
     pub vinyl_mode: VinylModeDto,
     pub lead_in_s: f64,
     pub swap_channels: bool,
+    pub key_lock: bool,
     pub strip: ChannelStripDto,
 }
 

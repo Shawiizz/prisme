@@ -96,7 +96,7 @@ export class TrackTable {
   private readonly deckKeys = computed(() =>
     this.engine
       .tracks()
-      .map((t) => t?.key?.camelot)
+      .map((_, deck) => this.engine.heardKey(deck)?.camelot)
       .filter((k): k is string => !!k),
   );
 

@@ -190,6 +190,11 @@ pub enum Command {
         deck: DeckId,
         position: f32,
     },
+    /// The pitch stays when the speed changes.
+    SetKeyLock {
+        deck: DeckId,
+        enabled: bool,
+    },
     SetCrossfaderCurve {
         curve: CrossfaderCurve,
     },

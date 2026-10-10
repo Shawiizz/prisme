@@ -4,6 +4,7 @@ mod transport;
 
 use crate::command::{CrossfaderSide, VinylMode};
 use crate::grid::BeatGrid;
+use crate::keylock::KeyLock;
 use crate::playhead::Playhead;
 use crate::status::{DeckStatus, LoopStatus, SyncStatus};
 use crate::strip::ChannelStrip;
@@ -33,6 +34,9 @@ pub(crate) struct Deck {
     pub(crate) peak: f32,
     pub(crate) grid: Option<BeatGrid>,
     pub(crate) strip: ChannelStrip,
+    /// The pitch stays when the speed changes (within [`KeyLock::applies`]).
+    pub(crate) key_lock_enabled: bool,
+    key_lock: KeyLock,
     pub(crate) sync: DeckSync,
     transport: Transport,
     correction: f64,
@@ -40,7 +44,7 @@ pub(crate) struct Deck {
 }
 
 impl Deck {
-    pub(crate) fn new(decoder: Box<TimecodeDecoder>, sample_rate: f32) -> Self {
+    pub(crate) fn new(decoder: Box<TimecodeDecoder>, sample_rate: u32, max_block_frames: usize) -> Self {
         Self {
             playhead: Playhead::new(),
             playing: false,
@@ -52,7 +56,9 @@ impl Deck {
             cue: false,
             peak: 0.0,
             grid: None,
-            strip: ChannelStrip::new(sample_rate),
+            strip: ChannelStrip::new(sample_rate as f32),
+            key_lock_enabled: false,
+            key_lock: KeyLock::new(sample_rate, max_block_frames),
             sync: DeckSync::new(),
             transport: Transport::default(),
             correction: 0.0,
@@ -74,7 +80,12 @@ impl Deck {
         let target = target.map(|t| self.engage(t));
         let speed = self.speed_for(drive, target);
         let speed = if self.transport.censoring { -speed } else { speed };
-        self.playhead.render(out, out_rate, speed);
+        if self.key_lock_enabled && KeyLock::applies(speed) {
+            self.playhead.render_key_locked(&mut self.key_lock, out, out_rate, speed);
+        } else {
+            self.key_lock.disengage();
+            self.playhead.render(out, out_rate, speed);
+        }
         self.speed = speed;
 
         let seconds = (out.len() / 2) as f64 / out_rate;

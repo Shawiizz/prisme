@@ -36,7 +36,9 @@
           <span class="value">{{ bpm() ?? '—' }}</span>
         </div>
         <div class="stat">
-          <span class="label" [class.edited]="track()?.keyEdited">KEY</span>
+          <span class="label" [class.edited]="track()?.keyEdited" [class.shifted]="keyShifted()"
+            >KEY</span
+          >
           @if (key(); as k) {
             <span class="value"
               >{{ k.camelot }}<span class="key-name">{{ k.name }}</span></span

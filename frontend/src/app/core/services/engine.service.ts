@@ -1,11 +1,13 @@
 import { Injectable, computed, inject, signal } from '@angular/core';
 import { Channel, invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
+import { transposeCamelot } from '../../shared/camelot';
 import {
   Cue,
   DECK_COUNT,
   DeckTrackUpdate,
   FLAT_STRIP,
+  MusicalKey,
   DeckSettings,
   EngineStatus,
   MixerState,
@@ -31,6 +33,7 @@ const DEFAULT_DECK: DeckSettings = {
   vinylMode: 'absolute',
   leadInS: 0,
   swapChannels: false,
+  keyLock: false,
   strip: FLAT_STRIP,
 };
 
@@ -88,6 +91,32 @@ export class EngineService {
     if (!d?.loaded) return null;
     const elapsed = Math.min((performance.now() - this.latestAt) / 1000, 0.05);
     return d.positionS + d.speed * elapsed;
+  }
+
+  /**
+   * Playback rate of a deck: from the engine's tempo when the track has a beat grid
+   * (sync and platter included), else the platter speed while it turns, else the tempo
+   * fader.
+   */
+  playbackRate(deck: number): number {
+    const tempoRate = this.tempoRate(deck);
+    if (tempoRate !== null) return tempoRate;
+    const settings = this.decks()[deck];
+    const speed = Math.abs(this.status()?.decks[deck]?.speed ?? 0);
+    return settings.vinylEnabled && speed > 0.05 ? speed : settings.pitch;
+  }
+
+  /** The key heard on a deck: the track's, shifted by the speed unless the key lock holds it. */
+  heardKey(deck: number): MusicalKey | null {
+    const key = this.tracks()[deck]?.key ?? null;
+    if (!key || this.decks()[deck].keyLock) return key;
+    const semitones = Math.round(12 * Math.log2(this.playbackRate(deck)));
+    return semitones === 0 ? key : transposeCamelot(key.camelot, semitones);
+  }
+
+  setKeyLock(deck: number, enabled: boolean) {
+    this.patchDeck(deck, { keyLock: enabled });
+    return this.call('set_key_lock', { deck, enabled });
   }
 
   /** Playback rate of the tempo the engine reports (sync and platter included), if the track has a beat grid. */

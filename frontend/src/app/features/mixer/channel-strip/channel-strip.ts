@@ -37,7 +37,7 @@ import { eqGain, eqKnob, trimGain, trimKnob } from '../../../shared/mixer-scales
   styles: `
     :host {
       display: flex;
-      gap: 6px;
+      gap: 4px;
     }
   `,
   imports: [Knob],

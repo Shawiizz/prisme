@@ -22,6 +22,8 @@ pub struct DeckPreferences {
     pub lead_in_s: f64,
     /// The turntable's left and right channels are crossed.
     pub swap_channels: bool,
+    /// The pitch stays when the speed changes.
+    pub key_lock: bool,
 }
 
 /// What SYNC does on a record in relative mode.
@@ -101,6 +103,7 @@ mod tests {
             vinyl_mode: VinylModeDto::Relative,
             lead_in_s: 2.5,
             swap_channels: true,
+            key_lock: true,
         };
         p.library.last_folder = Some("C:/Music/House".into());
         let json = serde_json::to_string(&p).unwrap();

@@ -102,6 +102,7 @@ pub struct DeckSettings {
     pub vinyl_mode: VinylModeDto,
     pub lead_in_s: f64,
     pub swap_channels: bool,
+    pub key_lock: bool,
     pub strip: ChannelStripDto,
 }
 
@@ -115,6 +116,7 @@ impl From<DeckPreferences> for DeckSettings {
             vinyl_mode: p.vinyl_mode,
             lead_in_s: p.lead_in_s,
             swap_channels: p.swap_channels,
+            key_lock: p.key_lock,
             strip: ChannelStripDto::default(),
         }
     }
@@ -260,6 +262,7 @@ pub fn deck_commands(deck: usize, s: &DeckSettings) -> Vec<Command> {
         Command::SetVinylMode { deck, mode: s.vinyl_mode.into() },
         Command::SetLeadIn { deck, seconds: s.lead_in_s },
         Command::SetVinylEnabled { deck, enabled: s.vinyl_enabled },
+        Command::SetKeyLock { deck, enabled: s.key_lock },
         Command::SetTrim { deck, gain: strip.trim },
         Command::SetFilter { deck, position: strip.filter },
     ];

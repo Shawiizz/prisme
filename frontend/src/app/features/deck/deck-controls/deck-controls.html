@@ -33,6 +33,14 @@
   <div class="tempo">
     <div class="tempo-head">
       <span class="label">TEMPO</span>
+      <button
+        class="key-lock"
+        [class.active]="engine.decks()[deck()].keyLock"
+        (click)="engine.setKeyLock(deck(), !engine.decks()[deck()].keyLock)"
+        title="Key lock: the pitch stays when the tempo changes"
+      >
+        KEY
+      </button>
       @if (status()?.sync?.leader) {
         <span class="leader" title="The other decks follow this one">LEADER</span>
       }

@@ -1,5 +1,6 @@
 //! Reading a track at any speed, like a needle on a record.
 
+use crate::keylock::KeyLock;
 use crate::looping::LoopRegion;
 use prisme_media::TrackAudio;
 use std::sync::Arc;
@@ -81,12 +82,24 @@ impl Playhead {
             self.position = wrap_in_loop(self.position, self.position + step, self.loop_frames);
         }
     }
+
+    /// Like [`Playhead::render`], through the key lock: the pitch stays.
+    pub(crate) fn render_key_locked(
+        &mut self,
+        key_lock: &mut KeyLock,
+        out: &mut [f32],
+        out_rate: f64,
+        speed: f64,
+    ) {
+        let Some(track) = self.track.as_ref() else { return self.render(out, out_rate, speed) };
+        self.position = key_lock.render(track, self.position, self.loop_frames, out, out_rate, speed);
+    }
 }
 
 /// Wraps when the playhead crosses an edge of the loop from inside, in either
 /// direction; a playhead outside the loop is left alone.
 #[inline]
-fn wrap_in_loop(before: f64, after: f64, loop_frames: Option<(f64, f64)>) -> f64 {
+pub(crate) fn wrap_in_loop(before: f64, after: f64, loop_frames: Option<(f64, f64)>) -> f64 {
     match loop_frames {
         Some((start, end)) if (start..end).contains(&before) && after >= end => after - (end - start),
         Some((start, end)) if (start..end).contains(&before) && after < start => after + (end - start),

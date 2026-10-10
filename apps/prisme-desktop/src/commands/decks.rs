@@ -67,6 +67,15 @@ pub fn set_vinyl_swap(state: State<'_, AppState>, deck: usize, swap: bool) -> Ap
     Ok(())
 }
 
+/// The pitch stays when the speed changes; kept for the next start.
+#[tauri::command]
+pub fn set_key_lock(state: State<'_, AppState>, deck: usize, enabled: bool) -> AppResult<()> {
+    AppState::check_deck(deck)?;
+    lock(&state.decks)[deck].key_lock = enabled;
+    state.update_preferences(|p| p.decks[deck].key_lock = enabled);
+    state.send_if_running(Command::SetKeyLock { deck, enabled })
+}
+
 #[tauri::command]
 pub fn set_sync_locked(state: State<'_, AppState>, deck: usize, locked: bool) -> AppResult<()> {
     AppState::check_deck(deck)?;

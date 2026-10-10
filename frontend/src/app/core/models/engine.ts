@@ -164,6 +164,8 @@ export interface DeckSettings {
   leadInS: number;
   /** The turntable's left and right channels are crossed. */
   swapChannels: boolean;
+  /** The pitch stays when the speed changes. */
+  keyLock: boolean;
   strip: ChannelStrip;
 }
 

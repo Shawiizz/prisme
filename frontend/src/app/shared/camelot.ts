@@ -10,6 +10,42 @@ function parse(code: string): Camelot | null {
   return m ? { number: +m[1], minor: m[2] === 'A' } : null;
 }
 
+/** Key names by Camelot number (index 0 unused). */
+const MINOR_NAMES = [
+  '',
+  'G#m',
+  'Ebm',
+  'Bbm',
+  'Fm',
+  'Cm',
+  'Gm',
+  'Dm',
+  'Am',
+  'Em',
+  'Bm',
+  'F#m',
+  'C#m',
+];
+const MAJOR_NAMES = ['', 'B', 'F#', 'Db', 'Ab', 'Eb', 'Bb', 'F', 'C', 'G', 'D', 'A', 'E'];
+
+/**
+ * The key `semitones` higher (lower if negative): a semitone is 7 steps around the
+ * wheel.
+ */
+export function transposeCamelot(
+  code: string,
+  semitones: number,
+): { camelot: string; name: string } | null {
+  const c = parse(code);
+  if (!c) return null;
+  const steps = (((7 * semitones) % 12) + 12) % 12;
+  const number = ((c.number - 1 + steps) % 12) + 1;
+  return {
+    camelot: `${number}${c.minor ? 'A' : 'B'}`,
+    name: (c.minor ? MINOR_NAMES : MAJOR_NAMES)[number],
+  };
+}
+
 /** Sort rank: 1A, 1B, 2A, 2B... */
 export function camelotRank(code: string | undefined | null): number {
   const c = code ? parse(code) : null;

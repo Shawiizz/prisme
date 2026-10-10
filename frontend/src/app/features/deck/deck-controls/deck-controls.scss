@@ -9,7 +9,8 @@
   position: relative;
   display: flex;
   align-items: center;
-  gap: 18px;
+  gap: 12px;
+  overflow: hidden;
   height: 100%;
   padding: 10px 12px;
   background: var(--panel);
@@ -29,7 +30,7 @@
   display: flex;
   gap: 6px;
   button {
-    width: 76px;
+    width: 64px;
     height: 44px;
     font-weight: 700;
     letter-spacing: 0.05em;
@@ -54,6 +55,7 @@
 }
 .tempo {
   flex: 1;
+  min-width: 0;
   display: flex;
   flex-direction: column;
   gap: 6px;
@@ -67,6 +69,7 @@
   gap: 8px;
   .value {
     margin-left: auto;
+    white-space: nowrap;
     font-variant-numeric: tabular-nums;
     color: var(--text-2);
     cursor: default;
@@ -76,6 +79,17 @@
     font-weight: 700;
     letter-spacing: 0.08em;
     color: var(--accent);
+  }
+  .key-lock {
+    padding: 0 5px;
+    font-size: 10px;
+    font-weight: 700;
+    line-height: 16px;
+    &.active {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: var(--ink);
+    }
   }
   .bend {
     width: 22px;

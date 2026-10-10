@@ -65,7 +65,9 @@ pub fn create(config: EngineConfig) -> (Engine, EngineController) {
     let (status_tx, status_rx) = triple_buffer::triple_buffer(&initial);
     let (garbage_tx, garbage_rx) = rtrb::RingBuffer::new(GARBAGE_QUEUE);
     let rate = config.sample_rate as f32;
-    let decks = (0..config.decks).map(|_| Deck::new(config.decoder(false), rate)).collect();
+    let decks = (0..config.decks)
+        .map(|_| Deck::new(config.decoder(false), config.sample_rate, config.max_block_frames))
+        .collect();
     let (scope_taps, scopes) = (0..config.decks).map(|_| scope::scope()).unzip();
     let engine = Engine {
         config,
@@ -260,6 +262,7 @@ impl Engine {
             SetEq { deck, band, gain } if valid(deck) => self.decks[deck].strip.set_eq(band, gain),
             SetEqKill { deck, band, kill } if valid(deck) => self.decks[deck].strip.set_kill(band, kill),
             SetFilter { deck, position } if valid(deck) => self.decks[deck].strip.set_filter(position),
+            SetKeyLock { deck, enabled } if valid(deck) => self.decks[deck].key_lock_enabled = enabled,
             SetCrossfaderCurve { curve } => self.mixer.curve = curve,
             SetLimiter { enabled } => self.mixer.limiter.set_enabled(enabled),
             _ => {} // command for a deck that does not exist

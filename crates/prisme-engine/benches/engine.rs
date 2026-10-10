@@ -1,6 +1,6 @@
-//! Cost of one audio callback with two decks playing (one from the internal transport,
-//! one driven by a turntable in relative mode), for the buffer sizes of a low-latency
-//! interface. Budget: a callback in under 25 % of its own duration with everything on.
+//! Cost of one audio callback with two decks playing (one from the internal transport at
+//! +4 % with the key lock, one driven by a turntable in relative mode), through the
+//! software mixer, for the buffer sizes of a low-latency interface. Budget: a callback in under 25 % of its own duration with everything on.
 
 use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion, Throughput};
 use prisme_engine::{create, Command, EngineConfig, VinylMode};
@@ -27,6 +27,8 @@ fn engine(c: &mut Criterion) {
             Command::LoadTrack { deck: 0, track: track(60) },
             Command::LoadTrack { deck: 1, track: track(60) },
             Command::SetPlaying { deck: 0, playing: true },
+            Command::SetPitch { deck: 0, ratio: 1.04 },
+            Command::SetKeyLock { deck: 0, enabled: true },
             Command::SetVinylEnabled { deck: 1, enabled: true },
             Command::SetVinylMode { deck: 1, mode: VinylMode::Relative },
         ] {

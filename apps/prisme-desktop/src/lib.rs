@@ -77,6 +77,7 @@ pub fn run() {
             commands::decks::set_pitch,
             commands::decks::set_vinyl,
             commands::decks::set_vinyl_swap,
+            commands::decks::set_key_lock,
             commands::decks::set_sync_locked,
             commands::mixer::mixer_state,
             commands::mixer::set_mix_mode,

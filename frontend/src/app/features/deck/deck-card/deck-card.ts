@@ -32,22 +32,17 @@ export class DeckCard {
     const s = this.status();
     return s ? '-' + formatTime(s.durationS - s.positionS) : '';
   });
-  /**
-   * Playback rate: from the engine's tempo when the track has a beat grid (sync and
-   * platter included), else the platter speed while it turns, else the tempo fader.
-   */
-  private readonly rate = computed(() => {
-    const tempoRate = this.engine.tempoRate(this.deck());
-    if (tempoRate !== null) return tempoRate;
-    const speed = Math.abs(this.status()?.speed ?? 0);
-    return this.settings().vinylEnabled && speed > 0.05 ? speed : this.settings().pitch;
-  });
+  private readonly rate = computed(() => this.engine.playbackRate(this.deck()));
   protected readonly pitch = computed(() => formatPitch(this.rate()));
   protected readonly bpm = computed(() => {
     const tempo = this.track()?.tempo;
     return tempo ? (tempo.bpm * this.rate()).toFixed(1) : null;
   });
-  protected readonly key = computed(() => this.track()?.key ?? null);
+  /** The key heard: shifted by the pitch unless the key lock holds it. */
+  protected readonly key = computed(() => this.engine.heardKey(this.deck()));
+  protected readonly keyShifted = computed(
+    () => this.key()?.camelot !== this.track()?.key?.camelot,
+  );
   protected readonly signal = computed(() => this.status()?.vinyl.signal ?? 'none');
 
   toggleVinyl() {
