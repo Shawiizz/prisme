@@ -5,14 +5,14 @@
     }
   </div>
 
-  <div class="pads">
+  <div class="pads" [class.compact]="mode() === 'fx'">
     @for (pad of pads(); track $index) {
       <button
         class="pad"
         [class.set]="pad.color"
         [class.active]="pad.active"
         [style.--pad]="pad.color"
-        [disabled]="!canMove()"
+        [disabled]="!padsEnabled()"
         [title]="pad.title"
         (pointerdown)="press($index, $event)"
         (pointerup)="release()"
@@ -24,31 +24,53 @@
     }
   </div>
 
-  <div class="keys">
-    <div class="row">
-      <button (click)="scaleLoop(0.5)" [disabled]="!canMove()" title="Halve the loop">½</button>
-      <button (click)="scaleLoop(2)" [disabled]="!canMove()" title="Double the loop">×2</button>
-      <button [class.active]="loopActive()" (click)="toggleLoop()" [disabled]="!canMove()">
-        {{ loopActive() ? 'EXIT' : 'RELOOP' }}
-      </button>
+  @if (mode() === 'fx') {
+    <div class="fx-keys">
+      <app-knob
+        label="MIX"
+        labelTitle="Level of the effect"
+        [value]="effect().mix"
+        (valueChange)="fx.setMix(deck(), $event)"
+      />
+      <app-knob
+        label="AMOUNT"
+        labelTitle="The effect's main knob (see each pad)"
+        [value]="effect().amount"
+        (valueChange)="fx.setAmount(deck(), $event)"
+      />
+      <div class="beats" title="Period of the effect, in beats">
+        <button (click)="fx.scaleBeats(deck(), 0.5)">½</button>
+        <span>{{ formatBeats(effect().beats) }}</span>
+        <button (click)="fx.scaleBeats(deck(), 2)">×2</button>
+      </div>
     </div>
-    <div class="row">
-      <button
-        [class.active]="slip()"
-        (click)="toggleSlip()"
-        title="Loops, rolls and censor carry the track on underneath"
-      >
-        SLIP
-      </button>
-      <button
-        [disabled]="!canMove()"
-        title="Plays backwards while held"
-        (pointerdown)="censor(true)"
-        (pointerup)="censor(false)"
-        (pointercancel)="censor(false)"
-      >
-        CENSOR
-      </button>
+  } @else {
+    <div class="keys">
+      <div class="row">
+        <button (click)="scaleLoop(0.5)" [disabled]="!canMove()" title="Halve the loop">½</button>
+        <button (click)="scaleLoop(2)" [disabled]="!canMove()" title="Double the loop">×2</button>
+        <button [class.active]="loopActive()" (click)="toggleLoop()" [disabled]="!canMove()">
+          {{ loopActive() ? 'EXIT' : 'RELOOP' }}
+        </button>
+      </div>
+      <div class="row">
+        <button
+          [class.active]="slip()"
+          (click)="toggleSlip()"
+          title="Loops, rolls and censor carry the track on underneath"
+        >
+          SLIP
+        </button>
+        <button
+          [disabled]="!canMove()"
+          title="Plays backwards while held"
+          (pointerdown)="censor(true)"
+          (pointerup)="censor(false)"
+          (pointercancel)="censor(false)"
+        >
+          CENSOR
+        </button>
+      </div>
     </div>
-  </div>
+  }
 </div>

@@ -10,6 +10,7 @@ use crate::status::{DeckStatus, LoopStatus, SyncStatus};
 use crate::strip::ChannelStrip;
 use crate::sync::{self, DeckSync, LeaderBeat, SyncTarget};
 use crate::vinyl::{VinylControl, VinylDrive};
+use prisme_dsp::{Beat, FxSlot};
 use prisme_timecode::TimecodeDecoder;
 use transport::Transport;
 
@@ -37,6 +38,7 @@ pub(crate) struct Deck {
     /// The pitch stays when the speed changes (within [`KeyLock::applies`]).
     pub(crate) key_lock_enabled: bool,
     key_lock: KeyLock,
+    pub(crate) fx: FxSlot,
     pub(crate) sync: DeckSync,
     transport: Transport,
     correction: f64,
@@ -59,6 +61,7 @@ impl Deck {
             strip: ChannelStrip::new(sample_rate as f32),
             key_lock_enabled: false,
             key_lock: KeyLock::new(sample_rate, max_block_frames),
+            fx: FxSlot::new(sample_rate as f32, max_block_frames),
             sync: DeckSync::new(),
             transport: Transport::default(),
             correction: 0.0,
@@ -209,6 +212,19 @@ impl Deck {
     }
 
     /// Playback rate without the gestures: what a follower matches.
+    /// The beat the effects follow, at the current position.
+    pub(crate) fn effect_beat(&self) -> Beat {
+        // stopped or crawling, effects keep a usable tempo
+        const SLOWEST_RATE: f64 = 0.25;
+        match self.grid {
+            Some(g) => Beat {
+                seconds: (60.0 / (g.bpm * self.tempo_rate().max(SLOWEST_RATE))) as f32,
+                phase: Some(g.beats_at(self.playhead.position_s()).rem_euclid(1.0) as f32),
+            },
+            None => Beat::DEFAULT,
+        }
+    }
+
     fn tempo_rate(&self) -> f64 {
         match self.drive_mode() {
             DriveMode::Internal if self.sync.locked => self.sync.held_rate.unwrap_or(self.pitch),

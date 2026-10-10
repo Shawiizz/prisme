@@ -22,6 +22,7 @@ pub fn mixer_state(state: State<'_, AppState>) -> MixerStateDto {
                 swap_channels: d.swap_channels,
                 key_lock: d.key_lock,
                 strip: d.strip,
+                fx: d.fx,
             })
             .collect(),
         crossfader: *lock(&state.crossfader),

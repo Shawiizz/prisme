@@ -5,6 +5,7 @@
 //! * [`svf`]: the state-variable filter everything else is built from;
 //! * [`eq`]: the 3-band isolator EQ of a mixer channel;
 //! * [`dj_filter`]: the one-knob low-pass / high-pass filter;
+//! * [`fx`]: beat effects (echo, reverb, flanger, gate...);
 //! * [`limiter`]: the master limiter, and [`delay`] to keep other signals in time with it;
 //! * [`smooth`]: parameter smoothing;
 //! * [`denormal`]: keeps the arithmetic fast near silence (to hold during processing).
@@ -13,6 +14,7 @@ pub mod delay;
 pub mod denormal;
 pub mod dj_filter;
 pub mod eq;
+pub mod fx;
 pub mod limiter;
 pub mod smooth;
 pub mod svf;
@@ -21,6 +23,7 @@ pub use delay::DelayLine;
 pub use denormal::DenormalGuard;
 pub use dj_filter::DjFilter;
 pub use eq::{Band, IsolatorEq};
+pub use fx::{Beat, EffectKind, FxSlot};
 pub use limiter::Limiter;
 pub use smooth::Smoothed;
 

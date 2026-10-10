@@ -6,7 +6,8 @@
 //!   any speed and direction, driven either internally (play / pitch) or by a timecode
 //!   record ([`VinylMode::Absolute`] or [`VinylMode::Relative`]).
 //! * Decks with a beat grid can follow a leader deck's tempo and beats (`sync`).
-//! * A deck can keep its pitch when its speed changes (`keylock`).
+//! * A deck can keep its pitch when its speed changes (`keylock`), and has a beat
+//!   effect timed on its tempo.
 //! * The software mixer gives each deck a channel (trim, EQ with kills, filter, fader)
 //!   and applies the crossfader, the master gain and a limiter.
 //!
@@ -32,5 +33,5 @@ pub use engine::{create, Engine, EngineConfig, EngineController};
 pub use grid::BeatGrid;
 pub use looping::LoopRegion;
 pub use mixer::{CrossfaderCurve, MixMode, OutputRouting};
-pub use prisme_dsp::Band;
+pub use prisme_dsp::{Band, EffectKind};
 pub use status::{DeckStatus, EngineStatus, LoopStatus, SyncStatus, VinylStatus, MAX_DECKS};

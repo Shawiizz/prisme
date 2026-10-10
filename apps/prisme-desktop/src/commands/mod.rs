@@ -6,6 +6,7 @@ pub mod cues;
 pub mod decks;
 pub mod edits;
 pub mod folders;
+pub mod fx;
 pub mod history;
 pub mod import;
 pub mod library;

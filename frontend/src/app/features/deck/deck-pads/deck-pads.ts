@@ -1,11 +1,13 @@
 import { Component, computed, inject, input, signal } from '@angular/core';
+import { FxService } from '../../../core/services/fx.service';
 import { EngineService } from '../../../core/services/engine.service';
 import { PerformanceService } from '../../../core/services/performance.service';
-import { HOT_CUES } from '../../../core/models/engine';
+import { EffectKind, HOT_CUES } from '../../../core/models/engine';
+import { Knob } from '../../../shared/knob/knob';
 import { deckColor } from '../../../shared/time';
 import { formatBeats, loopBeats } from '../../../shared/beats';
 
-type PadMode = 'cues' | 'loops' | 'roll' | 'jump';
+type PadMode = 'cues' | 'loops' | 'roll' | 'jump' | 'fx';
 
 interface Pad {
   label: string;
@@ -20,22 +22,39 @@ const MODES: { id: PadMode; label: string }[] = [
   { id: 'loops', label: 'LOOP' },
   { id: 'roll', label: 'ROLL' },
   { id: 'jump', label: 'JUMP' },
+  { id: 'fx', label: 'FX' },
+];
+/** The effects on the pads, with what their AMOUNT knob does. */
+const EFFECTS: { kind: EffectKind; label: string; title: string }[] = [
+  { kind: 'echo', label: 'ECHO', title: 'Echo on the beat · amount: feedback' },
+  { kind: 'pingPong', label: 'PING', title: 'Echo bouncing left and right · amount: feedback' },
+  { kind: 'reverb', label: 'VERB', title: 'Reverb · amount: room size' },
+  { kind: 'flanger', label: 'FLANGE', title: 'Flanger · amount: feedback' },
+  { kind: 'phaser', label: 'PHASE', title: 'Phaser · amount: feedback' },
+  { kind: 'filter', label: 'FILTER', title: 'Filter sweeping on the beat · amount: depth' },
+  { kind: 'gate', label: 'GATE', title: 'Cuts the sound on the beat · amount: depth' },
+  { kind: 'bitcrusher', label: 'CRUSH', title: 'Lower resolution · amount: crush' },
 ];
 const LOOP_BEATS = [0.25, 0.5, 1, 2, 4, 8, 16, 32];
 const ROLL_BEATS = [1 / 16, 1 / 8, 1 / 4, 1 / 2, 1, 2, 4, 8];
 const JUMP_BEATS = [-32, -16, -4, -1, 1, 4, 16, 32];
 
-/** Eight performance pads per deck (hot cues, loops, rolls, beat jumps), loop and slip keys. */
+/**
+ * Eight performance pads per deck (hot cues, loops, rolls, beat jumps, beat effects),
+ * with the loop and slip keys or, for the effects, their level, knob and period.
+ */
 @Component({
   selector: 'app-deck-pads',
   templateUrl: './deck-pads.html',
   styleUrl: './deck-pads.scss',
+  imports: [Knob],
 })
 export class DeckPads {
   readonly deck = input.required<number>();
 
   private readonly engine = inject(EngineService);
   private readonly performance = inject(PerformanceService);
+  protected readonly fx = inject(FxService);
   protected readonly modes = MODES;
   protected readonly mode = signal<PadMode>('cues');
   protected readonly color = computed(() => deckColor(this.deck()));
@@ -49,6 +68,10 @@ export class DeckPads {
   });
   protected readonly loopActive = computed(() => this.status()?.looping.active ?? false);
   protected readonly slip = computed(() => this.status()?.slipMode ?? false);
+  protected readonly effect = computed(() => this.engine.decks()[this.deck()].fx);
+  /** Effects work on any deck; the rest needs a track that can move. */
+  protected readonly padsEnabled = computed(() => this.mode() === 'fx' || this.canMove());
+  protected readonly formatBeats = formatBeats;
 
   private readonly activeLoopBeats = computed(() => {
     const looping = this.status()?.looping;
@@ -69,6 +92,15 @@ export class DeckPads {
         return ROLL_BEATS.map((b) => this.beatPad(b, false, `Roll ${formatBeats(b)} while held`));
       case 'jump':
         return JUMP_BEATS.map((b) => this.beatPad(b, false, `Jump ${formatBeats(b)} beats`));
+      case 'fx': {
+        const fx = this.effect();
+        return EFFECTS.map((e) => ({
+          label: e.label,
+          color: null,
+          active: fx.enabled && fx.kind === e.kind,
+          title: e.title,
+        }));
+      }
     }
   });
 
@@ -88,6 +120,8 @@ export class DeckPads {
         return this.performance.loopRoll(deck, ROLL_BEATS[index]);
       case 'jump':
         return this.performance.beatJump(deck, JUMP_BEATS[index]);
+      case 'fx':
+        return this.fx.press(deck, EFFECTS[index].kind);
     }
   }
 

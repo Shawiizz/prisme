@@ -6,6 +6,7 @@ import {
   Cue,
   DECK_COUNT,
   DeckTrackUpdate,
+  DEFAULT_FX,
   FLAT_STRIP,
   MusicalKey,
   DeckSettings,
@@ -35,6 +36,7 @@ const DEFAULT_DECK: DeckSettings = {
   swapChannels: false,
   keyLock: false,
   strip: FLAT_STRIP,
+  fx: DEFAULT_FX,
 };
 
 /**

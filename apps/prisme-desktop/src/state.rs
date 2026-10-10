@@ -4,7 +4,7 @@
 
 use crate::audio_host::{AudioSession, DECKS};
 use crate::dto::{
-    BandDto, ChannelStripDto, CueDto, KeyDto, MixModeDto, TempoDto, TrackInfoDto, VinylModeDto,
+    BandDto, ChannelStripDto, CueDto, FxDto, KeyDto, MixModeDto, TempoDto, TrackInfoDto, VinylModeDto,
 };
 use crate::error::{AppError, AppResult};
 use crate::folders;
@@ -104,6 +104,7 @@ pub struct DeckSettings {
     pub swap_channels: bool,
     pub key_lock: bool,
     pub strip: ChannelStripDto,
+    pub fx: FxDto,
 }
 
 impl From<DeckPreferences> for DeckSettings {
@@ -118,6 +119,7 @@ impl From<DeckPreferences> for DeckSettings {
             swap_channels: p.swap_channels,
             key_lock: p.key_lock,
             strip: ChannelStripDto::default(),
+            fx: FxDto::default(),
         }
     }
 }
@@ -265,6 +267,11 @@ pub fn deck_commands(deck: usize, s: &DeckSettings) -> Vec<Command> {
         Command::SetKeyLock { deck, enabled: s.key_lock },
         Command::SetTrim { deck, gain: strip.trim },
         Command::SetFilter { deck, position: strip.filter },
+        Command::SetFx { deck, kind: s.fx.kind.into() },
+        Command::SetFxMix { deck, mix: s.fx.mix },
+        Command::SetFxAmount { deck, amount: s.fx.amount },
+        Command::SetFxBeats { deck, beats: s.fx.beats },
+        Command::SetFxEnabled { deck, enabled: s.fx.enabled },
     ];
     for (i, band) in BandDto::ALL.into_iter().enumerate() {
         commands.push(Command::SetEq { deck, band: band.into(), gain: strip.eq[i] });

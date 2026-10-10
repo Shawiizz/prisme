@@ -167,7 +167,33 @@ export interface DeckSettings {
   /** The pitch stays when the speed changes. */
   keyLock: boolean;
   strip: ChannelStrip;
+  fx: FxSettings;
 }
+
+export type EffectKind =
+  'echo' | 'pingPong' | 'reverb' | 'flanger' | 'phaser' | 'filter' | 'gate' | 'bitcrusher';
+
+/** A deck's beat effect. */
+export interface FxSettings {
+  kind: EffectKind;
+  enabled: boolean;
+  /** Level of the effect, 0..1. */
+  mix: number;
+  /** The effect's main knob, 0..1. */
+  amount: number;
+  /** The effect's period in beats. */
+  beats: number;
+}
+
+export const DEFAULT_FX: FxSettings = {
+  kind: 'echo',
+  enabled: false,
+  mix: 0.5,
+  amount: 0.5,
+  beats: 1,
+};
+/** Shortest and longest effect period, in beats. */
+export const FX_BEATS = { min: 1 / 8, max: 8 };
 
 /** EQ bands, in the order of `ChannelStrip.eq`. */
 export type Band = 'low' | 'mid' | 'high';

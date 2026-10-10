@@ -106,6 +106,55 @@ impl From<BandDto> for prisme_engine::Band {
     }
 }
 
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum EffectKindDto {
+    #[default]
+    Echo,
+    PingPong,
+    Reverb,
+    Flanger,
+    Phaser,
+    Filter,
+    Gate,
+    Bitcrusher,
+}
+
+impl From<EffectKindDto> for prisme_engine::EffectKind {
+    fn from(k: EffectKindDto) -> Self {
+        match k {
+            EffectKindDto::Echo => Self::Echo,
+            EffectKindDto::PingPong => Self::PingPong,
+            EffectKindDto::Reverb => Self::Reverb,
+            EffectKindDto::Flanger => Self::Flanger,
+            EffectKindDto::Phaser => Self::Phaser,
+            EffectKindDto::Filter => Self::Filter,
+            EffectKindDto::Gate => Self::Gate,
+            EffectKindDto::Bitcrusher => Self::Bitcrusher,
+        }
+    }
+}
+
+/// A deck's beat effect.
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct FxDto {
+    pub kind: EffectKindDto,
+    pub enabled: bool,
+    /// Level of the effect, 0..1.
+    pub mix: f32,
+    /// The effect's main knob, 0..1.
+    pub amount: f32,
+    /// The effect's period in beats.
+    pub beats: f32,
+}
+
+impl Default for FxDto {
+    fn default() -> Self {
+        Self { kind: EffectKindDto::Echo, enabled: false, mix: 0.5, amount: 0.5, beats: 1.0 }
+    }
+}
+
 /// A channel of the software mixer, before its fader. Gains are linear.
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -336,6 +385,7 @@ pub struct DeckSettingsDto {
     pub swap_channels: bool,
     pub key_lock: bool,
     pub strip: ChannelStripDto,
+    pub fx: FxDto,
 }
 
 /// Settings the backend applies to the engine (the UI mirrors them at startup).

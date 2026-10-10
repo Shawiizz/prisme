@@ -159,10 +159,12 @@ impl Engine {
             self.scope_taps[d].push(deck_in);
             let deck_out = &mut self.deck_out[..frames * 2];
             let deck = &mut self.decks[d];
+            let beat = deck.effect_beat();
             deck.process(deck_in, deck_out, rate, target);
             if self.mixer.routing.mode == MixMode::Internal {
                 deck.strip.process(deck_out);
             }
+            deck.fx.process(deck_out, beat);
             deck.peak = deck_out.iter().fold(deck.peak, |p, s| p.max(s.abs()));
             let mix = DeckMix { audio: deck_out, volume: deck.volume, side: deck.side, cue: deck.cue };
             self.mixer.add_deck(d, mix, out, out_ch);
@@ -263,6 +265,11 @@ impl Engine {
             SetEqKill { deck, band, kill } if valid(deck) => self.decks[deck].strip.set_kill(band, kill),
             SetFilter { deck, position } if valid(deck) => self.decks[deck].strip.set_filter(position),
             SetKeyLock { deck, enabled } if valid(deck) => self.decks[deck].key_lock_enabled = enabled,
+            SetFx { deck, kind } if valid(deck) => self.decks[deck].fx.set_kind(kind),
+            SetFxEnabled { deck, enabled } if valid(deck) => self.decks[deck].fx.set_enabled(enabled),
+            SetFxMix { deck, mix } if valid(deck) => self.decks[deck].fx.set_mix(mix),
+            SetFxAmount { deck, amount } if valid(deck) => self.decks[deck].fx.set_amount(amount),
+            SetFxBeats { deck, beats } if valid(deck) => self.decks[deck].fx.set_beats(beats),
             SetCrossfaderCurve { curve } => self.mixer.curve = curve,
             SetLimiter { enabled } => self.mixer.limiter.set_enabled(enabled),
             _ => {} // command for a deck that does not exist

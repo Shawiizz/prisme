@@ -2,9 +2,9 @@
 //! on a turntable, through the software mixer. The average hides what matters in real
 //! time: the slowest callback must fit in the buffer's duration.
 //!
-//! `cargo run --release -p prisme-engine --example callback_peaks [frames] [key-locked decks]`
+//! `cargo run --release -p prisme-engine --example callback_peaks [frames] [key-locked decks] [reverbs]`
 
-use prisme_engine::{create, Command, EngineConfig, VinylMode};
+use prisme_engine::{create, Command, EffectKind, EngineConfig, VinylMode};
 use prisme_media::TrackAudio;
 use prisme_timecode::testing::SignalGenerator;
 use prisme_timecode::SERATO_CV02_A;
@@ -16,7 +16,7 @@ const RATE: u32 = 48_000;
 fn main() {
     let arg =
         |i: usize, default: usize| std::env::args().nth(i).and_then(|a| a.parse().ok()).unwrap_or(default);
-    let (frames, key_locked) = (arg(1, 64), arg(2, 1));
+    let (frames, key_locked, reverbs) = (arg(1, 64), arg(2, 1), arg(3, 0));
     let track = |seconds: usize| {
         let samples = (0..seconds * RATE as usize * 2).map(|i| ((i as f32) * 0.001).sin() * 0.5).collect();
         Arc::new(TrackAudio::from_interleaved(RATE, samples))
@@ -31,6 +31,10 @@ fn main() {
         Command::SetVinylEnabled { deck: 1, enabled: true },
         Command::SetVinylMode { deck: 1, mode: VinylMode::Relative },
         Command::SetKeyLock { deck: 1, enabled: key_locked >= 2 },
+        Command::SetFx { deck: 0, kind: EffectKind::Reverb },
+        Command::SetFxEnabled { deck: 0, enabled: reverbs >= 1 },
+        Command::SetFx { deck: 1, kind: EffectKind::Reverb },
+        Command::SetFxEnabled { deck: 1, enabled: reverbs >= 2 },
     ] {
         assert!(controller.send(command).is_ok());
     }
@@ -62,7 +66,7 @@ fn main() {
     let (p99, p999, worst) = (at(0.99), at(0.999), at(1.0));
     // the worst callbacks include the times the OS preempted this (non real-time) thread
     println!(
-        "{frames} frames ({budget:.0} us), {key_locked} key-locked: average {average:.1} us, 99 % {p99:.0} us, 99.9 % {p999:.0} us ({:.0} % of the buffer), worst {worst:.0} us",
+        "{frames} frames ({budget:.0} us), {key_locked} key-locked, {reverbs} reverbs: average {average:.1} us, 99 % {p99:.0} us, 99.9 % {p999:.0} us ({:.0} % of the buffer), worst {worst:.0} us",
         p999 / budget * 100.0
     );
 }

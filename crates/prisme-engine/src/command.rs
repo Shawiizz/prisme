@@ -3,7 +3,7 @@
 use crate::grid::BeatGrid;
 use crate::looping::LoopRegion;
 use crate::mixer::{CrossfaderCurve, OutputRouting};
-use prisme_dsp::Band;
+use prisme_dsp::{Band, EffectKind};
 use prisme_media::TrackAudio;
 use prisme_timecode::TimecodeDecoder;
 use std::sync::Arc;
@@ -189,6 +189,30 @@ pub enum Command {
     SetFilter {
         deck: DeckId,
         position: f32,
+    },
+    /// The deck's beat effect.
+    SetFx {
+        deck: DeckId,
+        kind: EffectKind,
+    },
+    SetFxEnabled {
+        deck: DeckId,
+        enabled: bool,
+    },
+    /// Level of the effect, 0..1.
+    SetFxMix {
+        deck: DeckId,
+        mix: f32,
+    },
+    /// The effect's main knob (feedback, depth...), 0..1.
+    SetFxAmount {
+        deck: DeckId,
+        amount: f32,
+    },
+    /// The effect's period in beats.
+    SetFxBeats {
+        deck: DeckId,
+        beats: f32,
     },
     /// The pitch stays when the speed changes.
     SetKeyLock {
