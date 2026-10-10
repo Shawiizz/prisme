@@ -32,13 +32,16 @@ const key = (code: string, mods: { ctrl?: boolean; shift?: boolean } = {}) => ({
 describe('shortcuts', () => {
   it('never binds the same key twice', () => {
     const { shortcuts } = recorder();
-    const combos = shortcuts.map((s) => `${s.ctrl ? 'ctrl+' : ''}${s.shift ? 'shift+' : ''}${s.code}`);
+    const combos = shortcuts.map(
+      (s) => `${s.ctrl ? 'ctrl+' : ''}${s.shift ? 'shift+' : ''}${s.code}`,
+    );
     expect(new Set(combos).size).toBe(combos.length);
   });
 
   it('gives both decks the same set of actions', () => {
     const { shortcuts } = recorder();
-    const of = (group: string) => shortcuts.filter((s) => s.group === group).map((s) => s.description);
+    const of = (group: string) =>
+      shortcuts.filter((s) => s.group === group).map((s) => s.description);
     expect(of('Deck 1')).toEqual(of('Deck 2'));
     expect(of('Deck 1').length).toBe(16);
   });

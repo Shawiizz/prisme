@@ -62,7 +62,9 @@ export class DeckPads {
       case 'cues':
         return Array.from({ length: HOT_CUES }, (_, slot) => this.cuePad(slot));
       case 'loops':
-        return LOOP_BEATS.map((b) => this.beatPad(b, this.activeLoopBeats() === b, `Loop ${formatBeats(b)}`));
+        return LOOP_BEATS.map((b) =>
+          this.beatPad(b, this.activeLoopBeats() === b, `Loop ${formatBeats(b)}`),
+        );
       case 'roll':
         return ROLL_BEATS.map((b) => this.beatPad(b, false, `Roll ${formatBeats(b)} while held`));
       case 'jump':
@@ -118,7 +120,13 @@ export class DeckPads {
 
   private cuePad(slot: number): Pad {
     const cue = this.performance.hotCue(this.deck(), slot);
-    if (!cue) return { label: `${slot + 1}`, color: null, active: false, title: 'Click: set · Shift-click or right click: delete' };
+    if (!cue)
+      return {
+        label: `${slot + 1}`,
+        color: null,
+        active: false,
+        title: 'Click: set · Shift-click or right click: delete',
+      };
     const loop = cue.loopLengthS !== null;
     return {
       label: cue.label || `${slot + 1}${loop ? ' ↻' : ''}`,

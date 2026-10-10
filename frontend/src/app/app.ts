@@ -19,7 +19,18 @@ import { MixerService } from './core/services/mixer.service';
 /** Main window layout: title bar, two deck rows, controls with the mixer, library. */
 @Component({
   selector: 'app-root',
-  imports: [Titlebar, DeckCard, DeckWaveform, DeckControls, DeckPads, Mixer, Library, SettingsDialog, ShortcutsDialog, TurntablesDialog],
+  imports: [
+    Titlebar,
+    DeckCard,
+    DeckWaveform,
+    DeckControls,
+    DeckPads,
+    Mixer,
+    Library,
+    SettingsDialog,
+    ShortcutsDialog,
+    TurntablesDialog,
+  ],
   templateUrl: './app.html',
   styleUrl: './app.scss',
 })

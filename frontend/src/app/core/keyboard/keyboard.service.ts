@@ -52,7 +52,10 @@ export class KeyboardService {
 
   /** "Ctrl + F", "Shift + →", "A" as printed on the user's keyboard. */
   label(shortcut: Shortcut): string {
-    const key = this.layout().get(shortcut.code)?.toUpperCase() ?? KEY_NAMES[shortcut.code] ?? shortcut.code.replace(/^(Key|Digit)/, '');
+    const key =
+      this.layout().get(shortcut.code)?.toUpperCase() ??
+      KEY_NAMES[shortcut.code] ??
+      shortcut.code.replace(/^(Key|Digit)/, '');
     return [shortcut.ctrl && 'Ctrl', shortcut.shift && 'Shift', key].filter(Boolean).join(' + ');
   }
 
@@ -89,5 +92,8 @@ const KEY_NAMES: Record<string, string> = {
 
 function isTyping(event: KeyboardEvent): boolean {
   const target = event.target as HTMLElement | null;
-  return !!target && (['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName) || target.isContentEditable);
+  return (
+    !!target &&
+    (['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName) || target.isContentEditable)
+  );
 }

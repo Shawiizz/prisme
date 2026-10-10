@@ -10,7 +10,12 @@
     >
       CUE
     </button>
-    <button class="play" [class.active]="status()?.playing" (click)="togglePlay()" [disabled]="vinyl()">
+    <button
+      class="play"
+      [class.active]="status()?.playing"
+      (click)="togglePlay()"
+      [disabled]="vinyl()"
+    >
       {{ status()?.playing ? 'PAUSE' : 'PLAY' }}
     </button>
     <button
@@ -31,9 +36,29 @@
       @if (status()?.sync?.leader) {
         <span class="leader" title="The other decks follow this one">LEADER</span>
       }
-      <span class="value" (dblclick)="resetPitch()" title="Double-click to reset">{{ pitchText() }}</span>
-      <button class="bend" title="Slow down while held" [disabled]="tempoFaderLocked()" (pointerdown)="bend(-1)" (pointerup)="bend(0)" (pointercancel)="bend(0)">−</button>
-      <button class="bend" title="Speed up while held" [disabled]="tempoFaderLocked()" (pointerdown)="bend(1)" (pointerup)="bend(0)" (pointercancel)="bend(0)">+</button>
+      <span class="value" (dblclick)="resetPitch()" title="Double-click to reset">{{
+        pitchText()
+      }}</span>
+      <button
+        class="bend"
+        title="Slow down while held"
+        [disabled]="tempoFaderLocked()"
+        (pointerdown)="bend(-1)"
+        (pointerup)="bend(0)"
+        (pointercancel)="bend(0)"
+      >
+        −
+      </button>
+      <button
+        class="bend"
+        title="Speed up while held"
+        [disabled]="tempoFaderLocked()"
+        (pointerdown)="bend(1)"
+        (pointerup)="bend(0)"
+        (pointercancel)="bend(0)"
+      >
+        +
+      </button>
     </div>
     <input
       type="range"

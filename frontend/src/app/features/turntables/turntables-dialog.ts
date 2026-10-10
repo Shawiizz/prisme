@@ -39,9 +39,20 @@ import { TurntablePanel } from './turntable-panel';
       border: 1px solid var(--line-strong);
       border-radius: 4px;
     }
-    h2 { margin: 0; font-size: 16px; font-weight: 600; }
-    .decks { display: grid; grid-template-columns: 1fr 1fr; gap: 28px; }
-    .buttons { display: flex; justify-content: flex-end; }
+    h2 {
+      margin: 0;
+      font-size: 16px;
+      font-weight: 600;
+    }
+    .decks {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 28px;
+    }
+    .buttons {
+      display: flex;
+      justify-content: flex-end;
+    }
   `,
 })
 export class TurntablesDialog {

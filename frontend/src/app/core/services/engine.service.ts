@@ -1,6 +1,14 @@
 import { Injectable, computed, inject, signal } from '@angular/core';
 import { Channel, invoke } from '@tauri-apps/api/core';
-import { Cue, DECK_COUNT, DeckSettings, EngineStatus, MixerState, TrackInfo, VinylMode } from '../models/engine';
+import {
+  Cue,
+  DECK_COUNT,
+  DeckSettings,
+  EngineStatus,
+  MixerState,
+  TrackInfo,
+  VinylMode,
+} from '../models/engine';
 import { PreferencesService } from './preferences.service';
 
 /** A deck this close to its cue point counts as sitting on it. */
@@ -31,7 +39,9 @@ export class EngineService {
   readonly status = signal<EngineStatus | null>(null);
   readonly tracks = signal<(TrackInfo | null)[]>(Array(DECK_COUNT).fill(null));
   readonly loading = signal<boolean[]>(Array(DECK_COUNT).fill(false));
-  readonly decks = signal<DeckSettings[]>(Array.from({ length: DECK_COUNT }, () => ({ ...DEFAULT_DECK })));
+  readonly decks = signal<DeckSettings[]>(
+    Array.from({ length: DECK_COUNT }, () => ({ ...DEFAULT_DECK })),
+  );
   readonly error = signal<string | null>(null);
 
   readonly audioRunning = computed(() => this.status()?.audioRunning ?? false);
@@ -108,7 +118,12 @@ export class EngineService {
       vinylMode: changes.mode ?? this.decks()[deck].vinylMode,
       leadInS: changes.leadInS ?? this.decks()[deck].leadInS,
     });
-    return this.call('set_vinyl', { deck, enabled: d.vinylEnabled, mode: d.vinylMode, leadInS: d.leadInS });
+    return this.call('set_vinyl', {
+      deck,
+      enabled: d.vinylEnabled,
+      mode: d.vinylMode,
+      leadInS: d.leadInS,
+    });
   }
 
   setVinylSwap(deck: number, swap: boolean) {
@@ -127,7 +142,9 @@ export class EngineService {
       return this.call('set_sync_locked', { deck, locked: false });
     }
     const oneShot = this.decks()[deck].vinylEnabled && this.preferences.dj().vinylSync === 'once';
-    return oneShot ? this.call('sync_once', { deck }) : this.call('set_sync_locked', { deck, locked: true });
+    return oneShot
+      ? this.call('sync_once', { deck })
+      : this.call('set_sync_locked', { deck, locked: true });
   }
 
   /**
@@ -167,8 +184,17 @@ export class EngineService {
   private async setMainCue(deck: number, seconds: number) {
     try {
       const positionS = await invoke<number>('set_main_cue', { deck, seconds });
-      const main: Cue = { hot: null, positionS, loopLengthS: null, color: MAIN_CUE_COLOR, label: '' };
-      this.setCues(deck, [...(this.tracks()[deck]?.cues ?? []).filter((c) => c.hot !== null), main]);
+      const main: Cue = {
+        hot: null,
+        positionS,
+        loopLengthS: null,
+        color: MAIN_CUE_COLOR,
+        label: '',
+      };
+      this.setCues(deck, [
+        ...(this.tracks()[deck]?.cues ?? []).filter((c) => c.hot !== null),
+        main,
+      ]);
       this.seek(deck, positionS);
     } catch (e) {
       this.error.set(String(e));

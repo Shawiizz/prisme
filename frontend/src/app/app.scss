@@ -27,9 +27,16 @@
   grid-template-columns: minmax(0, 1fr) 200px minmax(0, 1fr);
   grid-template-rows: 116px 66px;
   gap: 6px;
-  .left { grid-column: 1; }
-  .right { grid-column: 3; }
-  .mixer { grid-column: 2; grid-row: 1 / span 2; }
+  .left {
+    grid-column: 1;
+  }
+  .right {
+    grid-column: 3;
+  }
+  .mixer {
+    grid-column: 2;
+    grid-row: 1 / span 2;
+  }
 }
 .library {
   flex: 1;

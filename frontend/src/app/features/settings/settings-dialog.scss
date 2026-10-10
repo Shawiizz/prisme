@@ -34,7 +34,11 @@ section {
   flex-direction: column;
   gap: 12px;
   min-width: 0;
-  > small { color: var(--faint); font-size: 11px; margin-top: -6px; }
+  > small {
+    color: var(--faint);
+    font-size: 11px;
+    margin-top: -6px;
+  }
 }
 h3 {
   margin: 4px 0 0;
@@ -44,12 +48,17 @@ h3 {
   text-transform: uppercase;
   color: var(--muted);
 }
-select { min-width: 0; }
+select {
+  min-width: 0;
+}
 label {
   display: flex;
   flex-direction: column;
   gap: 5px;
-  small { color: var(--faint); font-size: 11px; }
+  small {
+    color: var(--faint);
+    font-size: 11px;
+  }
 }
 .check {
   flex-direction: row;
@@ -65,6 +74,13 @@ label {
   display: flex;
   justify-content: flex-end;
   gap: 8px;
-  .primary { background: var(--deck-1); border-color: var(--deck-1); color: var(--ink); font-weight: 700; }
+  .primary {
+    background: var(--deck-1);
+    border-color: var(--deck-1);
+    color: var(--ink);
+    font-weight: 700;
+  }
 }
-.loading { color: var(--muted); }
+.loading {
+  color: var(--muted);
+}

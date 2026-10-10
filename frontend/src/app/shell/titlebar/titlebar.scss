@@ -14,7 +14,11 @@
   font-weight: 700;
   letter-spacing: 0.08em;
   color: var(--text);
-  .mark { width: 18px; height: 18px; color: var(--text); }
+  .mark {
+    width: 18px;
+    height: 18px;
+    color: var(--text);
+  }
 }
 .audio {
   flex: 1;
@@ -28,9 +32,15 @@
   width: 7px;
   height: 7px;
   border-radius: 50%;
-  &.ok { background: var(--mint); }
-  &.off { background: var(--red); }
-  &.lost { background: var(--amber); }
+  &.ok {
+    background: var(--mint);
+  }
+  &.off {
+    background: var(--red);
+  }
+  &.lost {
+    background: var(--amber);
+  }
 }
 .chip {
   padding: 1px 6px;
@@ -44,22 +54,36 @@
   background: var(--line);
   border-radius: 2px;
   overflow: hidden;
-  div { height: 100%; background: var(--mint); }
-  .clip { background: var(--red); }
+  div {
+    height: 100%;
+    background: var(--mint);
+  }
+  .clip {
+    background: var(--red);
+  }
 }
 .actions {
   display: flex;
   align-items: stretch;
   height: 100%;
-  .ghost { margin: 5px 8px; padding: 2px 10px; }
+  .ghost {
+    margin: 5px 8px;
+    padding: 2px 10px;
+  }
   .win {
     width: 44px;
     border: none;
     border-radius: 0;
     background: transparent;
     color: var(--muted);
-    &:hover { background: var(--raised); color: var(--text); }
-    &.close:hover { background: #c42b1c; color: #fff; }
+    &:hover {
+      background: var(--raised);
+      color: var(--text);
+    }
+    &.close:hover {
+      background: #c42b1c;
+      color: #fff;
+    }
   }
 }
 .chip.warn {

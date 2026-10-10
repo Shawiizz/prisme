@@ -26,25 +26,57 @@
     font-weight: 700;
     letter-spacing: 0.05em;
   }
-  .cue.active { background: var(--amber); border-color: var(--amber); }
-  .play.active { background: var(--accent); border-color: var(--accent); }
-  .sync.matched { border-color: var(--accent); color: var(--accent); }
-  .sync.locked { background: var(--accent); border-color: var(--accent); color: var(--ink); }
+  .cue.active {
+    background: var(--amber);
+    border-color: var(--amber);
+  }
+  .play.active {
+    background: var(--accent);
+    border-color: var(--accent);
+  }
+  .sync.matched {
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+  .sync.locked {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: var(--ink);
+  }
 }
 .tempo {
   flex: 1;
   display: flex;
   flex-direction: column;
   gap: 6px;
-  input { width: 100%; }
+  input {
+    width: 100%;
+  }
 }
 .tempo-head {
   display: flex;
   align-items: baseline;
   gap: 8px;
-  .value { margin-left: auto; font-variant-numeric: tabular-nums; color: var(--text-2); cursor: default; }
-  .leader { font-size: 10px; font-weight: 700; letter-spacing: 0.08em; color: var(--accent); }
-  .bend { width: 22px; height: 18px; padding: 0; font-weight: 700; line-height: 1; touch-action: none; }
+  .value {
+    margin-left: auto;
+    font-variant-numeric: tabular-nums;
+    color: var(--text-2);
+    cursor: default;
+  }
+  .leader {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    color: var(--accent);
+  }
+  .bend {
+    width: 22px;
+    height: 18px;
+    padding: 0;
+    font-weight: 700;
+    line-height: 1;
+    touch-action: none;
+  }
 }
 .phase {
   position: relative;
@@ -69,7 +101,9 @@
     border-radius: 2px;
     background: var(--amber);
   }
-  &.aligned .marker { background: var(--mint); }
+  &.aligned .marker {
+    background: var(--mint);
+  }
 }
 .note {
   position: absolute;

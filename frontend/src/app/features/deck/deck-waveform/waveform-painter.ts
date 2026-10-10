@@ -130,7 +130,8 @@ export class WaveformPainter {
     for (const cue of cues) {
       const x = Math.round(xOf(cue.positionS, view));
       if (x < -20 || x > view.width) continue;
-      const color = cue.hot === null ? MAIN_CUE_COLOR : `#${cue.color.toString(16).padStart(6, '0')}`;
+      const color =
+        cue.hot === null ? MAIN_CUE_COLOR : `#${cue.color.toString(16).padStart(6, '0')}`;
       ctx.fillStyle = color;
       ctx.fillRect(x, 0, flags ? 2 : 1, view.height);
       if (flags) {
@@ -145,7 +146,9 @@ export class WaveformPainter {
     if (this.source !== w) {
       this.source = w;
       this.colors = w.peak.map((_, k) => {
-        const l = w.low[k], m = w.mid[k], h = w.high[k];
+        const l = w.low[k],
+          m = w.mid[k],
+          h = w.high[k];
         const max = Math.max(l, m, h, 1);
         // keep colours vivid whatever the loudness
         const r = Math.round((l / max) * 255);

@@ -25,7 +25,9 @@ export class DeckControls {
   protected readonly status = computed(() => this.engine.status()?.decks[this.deck()] ?? null);
   protected readonly settings = computed(() => this.engine.decks()[this.deck()]);
   protected readonly vinyl = computed(() => this.settings().vinylEnabled);
-  private readonly absolute = computed(() => this.vinyl() && this.settings().vinylMode === 'absolute');
+  private readonly absolute = computed(
+    () => this.vinyl() && this.settings().vinylMode === 'absolute',
+  );
 
   /** The deck this one is compared with: the leader, else another deck with a tempo. */
   private readonly reference = computed(() => {
@@ -48,13 +50,19 @@ export class DeckControls {
     const once = this.vinyl() && this.preferences.dj().vinylSync === 'once';
     return once ? 'Match the tempo and beats once' : 'Lock to the leader';
   });
-  protected readonly tempoFaderLocked = computed(() => this.vinyl() || this.syncState() === 'locked');
+  protected readonly tempoFaderLocked = computed(
+    () => this.vinyl() || this.syncState() === 'locked',
+  );
 
   /** Playback rate as the engine reports it, the fader position when it cannot. */
-  private readonly rate = computed(() => this.engine.tempoRate(this.deck()) ?? this.settings().pitch);
+  private readonly rate = computed(
+    () => this.engine.tempoRate(this.deck()) ?? this.settings().pitch,
+  );
   protected readonly pitchText = computed(() => formatPitch(this.rate()));
   /** A fader the deck does not obey shows the rate it plays at. */
-  protected readonly faderValue = computed(() => (this.tempoFaderLocked() ? this.rate() : this.settings().pitch) - 1);
+  protected readonly faderValue = computed(
+    () => (this.tempoFaderLocked() ? this.rate() : this.settings().pitch) - 1,
+  );
 
   protected readonly phase = computed(() => {
     const own = this.status();

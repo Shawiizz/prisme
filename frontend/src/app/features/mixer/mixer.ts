@@ -18,7 +18,9 @@ export class Mixer {
   protected readonly mixer = inject(MixerService);
   protected readonly deckIndexes = Array.from({ length: DECK_COUNT }, (_, i) => i);
   protected readonly color = deckColor;
-  protected readonly internal = computed(() => (this.mixer.modeInUse() ?? this.mixer.mode()) === 'internal');
+  protected readonly internal = computed(
+    () => (this.mixer.modeInUse() ?? this.mixer.mode()) === 'internal',
+  );
   /** External mode asked for, but the device has too few outputs. */
   protected readonly fallback = computed(
     () => this.mixer.mode() === 'external' && this.mixer.modeInUse() === 'internal',

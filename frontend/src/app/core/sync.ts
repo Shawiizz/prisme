@@ -7,7 +7,12 @@ export function octaveRatio(bpm: number, otherBpm: number): number {
 
 /** How far a deck's beats are from another deck's, in beats within [-0.5, 0.5]; positive = ahead. */
 export function phaseOffset(deck: DeckStatus, other: DeckStatus): number | null {
-  if (deck.bpm === null || other.bpm === null || deck.beatPhase === null || other.beatPhase === null) {
+  if (
+    deck.bpm === null ||
+    other.bpm === null ||
+    deck.beatPhase === null ||
+    other.beatPhase === null
+  ) {
     return null;
   }
   const otherPhase = (other.beatPhase * octaveRatio(deck.bpm, other.bpm)) % 1;

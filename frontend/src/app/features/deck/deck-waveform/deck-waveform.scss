@@ -27,7 +27,11 @@ canvas {
   position: relative;
   flex: 1;
   min-height: 0;
-  canvas { position: absolute; inset: 0; height: 100%; }
+  canvas {
+    position: absolute;
+    inset: 0;
+    height: 100%;
+  }
 }
 .overview {
   flex: none;

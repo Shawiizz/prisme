@@ -16,7 +16,14 @@ function deck(bpm: number | null, beatPhase: number | null): DeckStatus {
     cue: false,
     slipMode: false,
     slipPositionS: null,
-    vinyl: { enabled: false, mode: 'relative', signal: 'none', level: 0, recordSpeed: 0, recordPositionS: null },
+    vinyl: {
+      enabled: false,
+      mode: 'relative',
+      signal: 'none',
+      level: 0,
+      recordSpeed: 0,
+      recordPositionS: null,
+    },
   };
 }
 

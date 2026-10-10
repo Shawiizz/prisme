@@ -1,6 +1,12 @@
 import { Injectable, signal } from '@angular/core';
 import { invoke } from '@tauri-apps/api/core';
-import { AudioBackend, AudioDevice, AudioInfo, AudioSettings, TimecodeFormat } from '../models/audio';
+import {
+  AudioBackend,
+  AudioDevice,
+  AudioInfo,
+  AudioSettings,
+  TimecodeFormat,
+} from '../models/audio';
 
 /** Audio settings: backend, devices, buffer, timecode format, simulation. */
 @Injectable({ providedIn: 'root' })

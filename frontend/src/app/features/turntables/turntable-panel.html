@@ -1,7 +1,15 @@
 <div class="panel" [style.--accent]="color()">
-  <h3><span class="tile">{{ deck() + 1 }}</span> Turntable {{ deck() + 1 }}</h3>
+  <h3>
+    <span class="tile">{{ deck() + 1 }}</span> Turntable {{ deck() + 1 }}
+  </h3>
 
-  <canvas #scope class="scope" [width]="size" [height]="size" [style.--accent-color]="color()"></canvas>
+  <canvas
+    #scope
+    class="scope"
+    [width]="size"
+    [height]="size"
+    [style.--accent-color]="color()"
+  ></canvas>
 
   <div class="readings">
     <div>
@@ -24,19 +32,46 @@
 
   <div class="controls">
     <label class="check">
-      <input type="checkbox" [checked]="settings().vinylEnabled" (change)="setEnabled($any($event.target).checked)" />
+      <input
+        type="checkbox"
+        [checked]="settings().vinylEnabled"
+        (change)="setEnabled($any($event.target).checked)"
+      />
       <span>Vinyl control</span>
     </label>
     <div class="modes">
-      <button [class.active]="settings().vinylMode === 'absolute'" (click)="setMode('absolute')" title="The needle position is the track position">ABS</button>
-      <button [class.active]="settings().vinylMode === 'relative'" (click)="setMode('relative')" title="Only the speed: cues, loops and sync work">REL</button>
+      <button
+        [class.active]="settings().vinylMode === 'absolute'"
+        (click)="setMode('absolute')"
+        title="The needle position is the track position"
+      >
+        ABS
+      </button>
+      <button
+        [class.active]="settings().vinylMode === 'relative'"
+        (click)="setMode('relative')"
+        title="Only the speed: cues, loops and sync work"
+      >
+        REL
+      </button>
     </div>
     <label>
       <span class="label">Lead-in (s)</span>
-      <input type="number" min="0" step="0.5" [value]="settings().leadInS" (change)="setLeadIn($event)" title="Where the track starts on the record" />
+      <input
+        type="number"
+        min="0"
+        step="0.5"
+        [value]="settings().leadInS"
+        (change)="setLeadIn($event)"
+        title="Where the track starts on the record"
+      />
     </label>
     <label class="check">
-      <input type="checkbox" [checked]="settings().swapChannels" (change)="setSwap($any($event.target).checked)" />
+      <input
+        type="checkbox"
+        [checked]="settings().swapChannels"
+        (change)="setSwap($any($event.target).checked)"
+      />
       <span>Swap left / right</span>
     </label>
   </div>

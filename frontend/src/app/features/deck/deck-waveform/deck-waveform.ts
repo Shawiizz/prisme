@@ -1,4 +1,13 @@
-import { Component, DestroyRef, ElementRef, afterNextRender, computed, inject, input, viewChild } from '@angular/core';
+import {
+  Component,
+  DestroyRef,
+  ElementRef,
+  afterNextRender,
+  computed,
+  inject,
+  input,
+  viewChild,
+} from '@angular/core';
 import { EngineService } from '../../../core/services/engine.service';
 import { WaveformOverlay, WaveformPainter } from './waveform-painter';
 
@@ -63,7 +72,14 @@ export class DeckWaveform {
     // ZOOM_SPAN_S of real time: beatmatched decks show their beats at the same spacing
     const span = ZOOM_SPAN_S * (this.engine.tempoRate(this.deck()) ?? 1);
     this.painter.drawZoomed(zoom.ctx, track.waveform, overlay, position, span, zoom.size);
-    this.painter.drawOverview(overview.ctx, track.waveform, overlay, position, track.durationS, overview.size);
+    this.painter.drawOverview(
+      overview.ctx,
+      track.waveform,
+      overlay,
+      position,
+      track.durationS,
+      overview.size,
+    );
   }
 
   /** Keeps the canvas backing store at the element size (device pixels). */

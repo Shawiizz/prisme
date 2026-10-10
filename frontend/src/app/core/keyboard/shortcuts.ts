@@ -61,31 +61,105 @@ export function buildShortcuts(a: ShortcutActions): Shortcut[] {
         description: `Hot cue ${slot + 1}`,
         press: () => a.hotCue(deck, slot),
       })),
-      { code: keys.cue, group, description: 'Cue (hold to preview)', press: () => a.cue(deck, true), release: () => a.cue(deck, false) },
+      {
+        code: keys.cue,
+        group,
+        description: 'Cue (hold to preview)',
+        press: () => a.cue(deck, true),
+        release: () => a.cue(deck, false),
+      },
       { code: keys.play, group, description: 'Play / pause', press: () => a.togglePlay(deck) },
       { code: keys.sync, group, description: 'Sync', press: () => a.sync(deck) },
-      { code: keys.loop, group, description: 'Loop 4 beats / exit', press: () => a.toggleLoop(deck) },
-      { code: keys.halve, group, description: 'Halve the loop', press: () => a.scaleLoop(deck, 0.5) },
-      { code: keys.double, group, description: 'Double the loop', press: () => a.scaleLoop(deck, 2) },
-      { code: keys.slower, group, description: 'Slow down while held', press: () => a.bend(deck, -1), release: () => a.bend(deck, 0) },
-      { code: keys.faster, group, description: 'Speed up while held', press: () => a.bend(deck, 1), release: () => a.bend(deck, 0) },
+      {
+        code: keys.loop,
+        group,
+        description: 'Loop 4 beats / exit',
+        press: () => a.toggleLoop(deck),
+      },
+      {
+        code: keys.halve,
+        group,
+        description: 'Halve the loop',
+        press: () => a.scaleLoop(deck, 0.5),
+      },
+      {
+        code: keys.double,
+        group,
+        description: 'Double the loop',
+        press: () => a.scaleLoop(deck, 2),
+      },
+      {
+        code: keys.slower,
+        group,
+        description: 'Slow down while held',
+        press: () => a.bend(deck, -1),
+        release: () => a.bend(deck, 0),
+      },
+      {
+        code: keys.faster,
+        group,
+        description: 'Speed up while held',
+        press: () => a.bend(deck, 1),
+        release: () => a.bend(deck, 0),
+      },
     ] satisfies Shortcut[];
   });
   const library = 'Library';
   return [
     ...deckShortcuts,
-    { code: 'ArrowUp', group: library, description: 'Previous track', press: () => a.moveSelection(-1) },
-    { code: 'ArrowDown', group: library, description: 'Next track', press: () => a.moveSelection(1) },
-    { code: 'ArrowLeft', shift: true, group: library, description: 'Load on deck 1', press: () => a.loadSelected(0) },
-    { code: 'ArrowRight', shift: true, group: library, description: 'Load on deck 2', press: () => a.loadSelected(1) },
-    { code: 'Enter', group: library, description: 'Load on a free deck', press: () => a.loadSelected(null) },
-    { code: 'KeyF', ctrl: true, group: library, description: 'Search', press: () => a.focusSearch() },
-    { code: 'F1', group: 'General', description: 'Keyboard shortcuts', press: () => a.toggleHelp() },
+    {
+      code: 'ArrowUp',
+      group: library,
+      description: 'Previous track',
+      press: () => a.moveSelection(-1),
+    },
+    {
+      code: 'ArrowDown',
+      group: library,
+      description: 'Next track',
+      press: () => a.moveSelection(1),
+    },
+    {
+      code: 'ArrowLeft',
+      shift: true,
+      group: library,
+      description: 'Load on deck 1',
+      press: () => a.loadSelected(0),
+    },
+    {
+      code: 'ArrowRight',
+      shift: true,
+      group: library,
+      description: 'Load on deck 2',
+      press: () => a.loadSelected(1),
+    },
+    {
+      code: 'Enter',
+      group: library,
+      description: 'Load on a free deck',
+      press: () => a.loadSelected(null),
+    },
+    {
+      code: 'KeyF',
+      ctrl: true,
+      group: library,
+      description: 'Search',
+      press: () => a.focusSearch(),
+    },
+    {
+      code: 'F1',
+      group: 'General',
+      description: 'Keyboard shortcuts',
+      press: () => a.toggleHelp(),
+    },
   ];
 }
 
 /** `true` if the event is the shortcut's key with exactly its modifiers. */
-export function matches(shortcut: Shortcut, event: Pick<KeyboardEvent, 'code' | 'ctrlKey' | 'shiftKey' | 'altKey'>): boolean {
+export function matches(
+  shortcut: Shortcut,
+  event: Pick<KeyboardEvent, 'code' | 'ctrlKey' | 'shiftKey' | 'altKey'>,
+): boolean {
   return (
     shortcut.code === event.code &&
     !!shortcut.ctrl === event.ctrlKey &&

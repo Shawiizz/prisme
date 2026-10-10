@@ -24,14 +24,20 @@ export class SettingsDialog implements OnInit {
   protected readonly mixMode = signal<MixMode>(this.mixer.mode());
   protected readonly busy = signal(false);
   protected readonly error = signal<string | null>(null);
-  protected readonly outputs = computed(() => this.service.devices().filter((d) => d.kind === 'output'));
-  protected readonly inputs = computed(() => this.service.devices().filter((d) => d.kind === 'input'));
+  protected readonly outputs = computed(() =>
+    this.service.devices().filter((d) => d.kind === 'output'),
+  );
+  protected readonly inputs = computed(() =>
+    this.service.devices().filter((d) => d.kind === 'input'),
+  );
   protected readonly asio = computed(() => this.draft()?.backend === 'asio');
 
   /** Buffer sizes the chosen output's driver accepts. */
   protected readonly bufferSizes = computed(() => {
     const d = this.draft();
-    const device = this.outputs().find((o) => o.name === d?.outputDevice) ?? this.outputs().find((o) => o.isDefault);
+    const device =
+      this.outputs().find((o) => o.name === d?.outputDevice) ??
+      this.outputs().find((o) => o.isDefault);
     const range = device?.bufferRange;
     return range ? BUFFER_SIZES.filter((n) => n >= range[0] && n <= range[1]) : BUFFER_SIZES;
   });
@@ -63,7 +69,7 @@ export class SettingsDialog implements OnInit {
   }
 
   setTurntablesOnDriver(enabled: boolean) {
-    this.update({ inputDevice: enabled ? this.draft()?.outputDevice ?? null : null });
+    this.update({ inputDevice: enabled ? (this.draft()?.outputDevice ?? null) : null });
   }
 
   /** Restarts the audio only if the audio settings changed. */
