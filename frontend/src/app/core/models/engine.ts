@@ -63,10 +63,20 @@ export const HOT_CUES = 8;
 /** What SYNC does on a record in relative mode. */
 export type VinylSyncMode = 'once' | 'locked';
 
+/** How well the audio keeps up. */
+export interface AudioHealth {
+  /** Periods processed too late: each one is an audible click. */
+  overBudget: number;
+  worstCallbackUs: number;
+  inputUnderruns: number;
+  deviceLost: boolean;
+}
+
 export interface EngineStatus {
   audioRunning: boolean;
   decks: DeckStatus[];
   mainPeak: number;
+  health: AudioHealth | null;
 }
 
 export interface Waveform {

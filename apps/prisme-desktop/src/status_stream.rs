@@ -27,7 +27,7 @@ pub fn subscribe_status(app: AppHandle, channel: Channel<StatusDto>) {
                     match session.as_mut() {
                         Some(s) => {
                             s.controller.collect_garbage();
-                            StatusDto::from_engine(&s.controller.status())
+                            StatusDto::from_engine(&s.controller.status(), &s.stats)
                         }
                         None => StatusDto::stopped(),
                     }

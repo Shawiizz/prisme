@@ -145,6 +145,14 @@ impl AppState {
         Ok(session.controller.status().decks[deck])
     }
 
+    /// Position and play state of each deck, to carry them over an audio restart.
+    pub fn transport_snapshot(&self) -> Vec<(f64, bool)> {
+        let mut session = lock(&self.session);
+        let Some(session) = session.as_mut() else { return Vec::new() };
+        let status = session.controller.status();
+        status.decks[..status.deck_count].iter().map(|d| (d.position_s, d.playing)).collect()
+    }
+
     /// Runs `f` on the track loaded on `deck`.
     pub fn with_track<R>(&self, deck: usize, f: impl FnOnce(&mut LoadedTrack) -> R) -> AppResult<R> {
         Self::check_deck(deck)?;

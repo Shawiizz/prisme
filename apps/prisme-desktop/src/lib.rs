@@ -1,6 +1,7 @@
 //! Prisme desktop application: Tauri shell around the engine.
 //!
 //! * `audio_host`: runs the sound card stream and the engine on a dedicated thread;
+//! * `audio_watchdog`: restarts the audio when its device comes back after a loss;
 //! * `state`: preferences, loaded tracks and deck settings;
 //! * `preferences`: what is kept from one start to the next;
 //! * `commands`: what the frontend can ask, by domain;
@@ -11,6 +12,7 @@
 //! * `dto`: JSON shapes shared with the frontend.
 
 mod audio_host;
+mod audio_watchdog;
 mod commands;
 mod dev_startup;
 mod dto;
@@ -45,6 +47,7 @@ pub fn run() {
             if let Some(gain) = dev_startup::master_gain() {
                 let _ = state.send(prisme_engine::Command::SetMasterGain { gain });
             }
+            audio_watchdog::start(app.handle().clone());
             library.start();
             Ok(())
         })

@@ -18,8 +18,17 @@
           <span class="chip">{{ info.inputChannels }} input ch</span>
         }
       }
+    } @else if (engine.status()?.health?.deviceLost) {
+      <span class="dot lost"></span> audio device lost, reconnecting…
     } @else {
       <span class="dot off"></span> audio stopped
+    }
+    @if (engine.status()?.health; as h) {
+      @if (h.overBudget > 0) {
+        <span class="chip warn" [title]="'Slowest period: ' + h.worstCallbackUs.toFixed(0) + ' µs. Raise the buffer in the settings.'">
+          {{ h.overBudget }} dropout{{ h.overBudget > 1 ? 's' : '' }}
+        </span>
+      }
     }
     @if (engine.status(); as s) {
       <div class="meter"><div [style.width.%]="s.mainPeak * 100" [class.clip]="s.mainPeak > 0.99"></div></div>

@@ -1,10 +1,11 @@
 //! Data exchanged with the frontend (camelCase JSON).
 
-use prisme_audio_io::Backend;
+use prisme_audio_io::{Backend, StreamStats};
 use prisme_engine::{DeckStatus, EngineStatus, LoopRegion, MixMode, VinylMode};
 use prisme_library::{Cue, CueSlot};
 use prisme_timecode::SignalState;
 use serde::{Deserialize, Serialize};
+use std::sync::atomic::Ordering;
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -353,19 +354,44 @@ pub struct StatusDto {
     pub audio_running: bool,
     pub decks: Vec<DeckStatusDto>,
     pub main_peak: f32,
+    pub health: Option<AudioHealthDto>,
+}
+
+/// How well the audio keeps up.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AudioHealthDto {
+    /// Periods processed too late: each one is an audible click.
+    pub over_budget: u64,
+    pub worst_callback_us: f64,
+    pub input_underruns: u64,
+    pub device_lost: bool,
+}
+
+impl From<&StreamStats> for AudioHealthDto {
+    fn from(s: &StreamStats) -> Self {
+        Self {
+            over_budget: s.over_budget.load(Ordering::Relaxed),
+            worst_callback_us: s.max_callback_ns.load(Ordering::Relaxed) as f64 / 1000.0,
+            input_underruns: s.input_underruns.load(Ordering::Relaxed),
+            device_lost: s.device_lost.load(Ordering::Relaxed),
+        }
+    }
 }
 
 impl StatusDto {
-    pub fn from_engine(s: &EngineStatus) -> Self {
+    pub fn from_engine(s: &EngineStatus, stats: &StreamStats) -> Self {
+        let health = AudioHealthDto::from(stats);
         Self {
-            audio_running: true,
+            audio_running: !health.device_lost,
             decks: s.decks[..s.deck_count].iter().map(DeckStatusDto::from).collect(),
             main_peak: s.main_peak,
+            health: Some(health),
         }
     }
 
     pub fn stopped() -> Self {
-        Self { audio_running: false, decks: Vec::new(), main_peak: 0.0 }
+        Self { audio_running: false, decks: Vec::new(), main_peak: 0.0, health: None }
     }
 }
 

@@ -3,6 +3,7 @@ use crate::dto::{AudioInfo, AudioSettings, BackendDto, DeviceDto, TimecodeFormat
 use crate::error::AppResult;
 use crate::state::{lock, AppState};
 use prisme_audio_io::{Backend, DeviceKind};
+use prisme_engine::Command;
 use tauri::State;
 
 /// Backends this computer offers (ASIO only with an ASIO driver installed).
@@ -54,8 +55,9 @@ pub fn apply_audio_settings(state: State<'_, AppState>, settings: AudioSettings)
     Ok(info)
 }
 
-/// (Re)starts the audio and restores the decks.
+/// (Re)starts the audio and restores the decks where they were, playing if they were.
 pub fn start_audio(state: &AppState, settings: &AudioSettings) -> AppResult<AudioInfo> {
+    let transport = state.transport_snapshot();
     // the device may not open twice
     lock(&state.session).take();
     if settings.simulate {
@@ -66,6 +68,10 @@ pub fn start_audio(state: &AppState, settings: &AudioSettings) -> AppResult<Audi
     }
     let mut session = audio_host::start(settings)?;
     state.restore(&mut session);
+    for (deck, (seconds, playing)) in transport.into_iter().enumerate() {
+        let _ = session.controller.send(Command::Seek { deck, seconds });
+        let _ = session.controller.send(Command::SetPlaying { deck, playing });
+    }
     let info = session.info.clone();
     *lock(&state.session) = Some(session);
     Ok(info)

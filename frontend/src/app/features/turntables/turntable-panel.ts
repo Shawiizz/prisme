@@ -6,6 +6,8 @@ import { deckColor, formatSpeed, formatTime } from '../../shared/time';
 import { ScopePainter } from './scope-painter';
 
 const SCOPE_SIZE = 220;
+/** Carrier level shown as a full bar: a healthy line-level timecode reaches it. */
+const FULL_LEVEL = 0.5;
 
 /** One turntable: its signal on a scope, what the decoder reads, the vinyl settings. */
 @Component({
@@ -21,7 +23,7 @@ export class TurntablePanel {
   protected readonly color = computed(() => deckColor(this.deck()));
   protected readonly settings = computed(() => this.engine.decks()[this.deck()]);
   protected readonly vinyl = computed(() => this.engine.status()?.decks[this.deck()]?.vinyl ?? null);
-  protected readonly levelPercent = computed(() => Math.min(100, (this.vinyl()?.level ?? 0) * 100 * 2));
+  protected readonly levelPercent = computed(() => Math.min(100, ((this.vinyl()?.level ?? 0) / FULL_LEVEL) * 100));
   protected readonly speed = computed(() => formatSpeed(this.vinyl()?.recordSpeed ?? 0));
   protected readonly position = computed(() => {
     const p = this.vinyl()?.recordPositionS;

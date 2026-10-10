@@ -30,6 +30,7 @@
   border-radius: 50%;
   &.ok { background: var(--mint); }
   &.off { background: var(--red); }
+  &.lost { background: var(--amber); }
 }
 .chip {
   padding: 1px 6px;
@@ -60,4 +61,8 @@
     &:hover { background: var(--raised); color: var(--text); }
     &.close:hover { background: #c42b1c; color: #fff; }
   }
+}
+.chip.warn {
+  border-color: var(--amber);
+  color: var(--amber);
 }
