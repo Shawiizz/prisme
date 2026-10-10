@@ -12,6 +12,12 @@ pub enum AppError {
     InvalidCue(u8),
     #[error("a crate needs a name")]
     EmptyCrateName,
+    #[error("deck {} has no beat grid", .0 + 1)]
+    NoBeatGrid(usize),
+    #[error("{0} BPM is out of range")]
+    InvalidBpm(f64),
+    #[error("unknown key {0}")]
+    InvalidKey(String),
     #[error(transparent)]
     Library(#[from] prisme_library::DbError),
     #[error("unknown timecode format {0}")]

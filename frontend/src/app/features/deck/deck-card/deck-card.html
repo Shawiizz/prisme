@@ -1,4 +1,4 @@
-<div class="card" [style.--accent]="color()">
+<div class="card">
   <div class="tile">{{ deck() + 1 }}</div>
   @if (track(); as t) {
     <app-cover class="cover" [path]="t.path" />
@@ -25,20 +25,27 @@
     <div class="divider"></div>
 
     <div class="row stats">
-      <div class="stat">
-        <span class="label">BPM</span>
-        <span class="value">{{ bpm() ?? '—' }}</span>
-      </div>
-      <div class="stat">
-        <span class="label">KEY</span>
-        @if (key(); as k) {
-          <span class="value"
-            >{{ k.camelot }}<span class="key-name">{{ k.name }}</span></span
-          >
-        } @else {
-          <span class="value">—</span>
-        }
-      </div>
+      <button
+        class="analysis"
+        [disabled]="!track()"
+        title="Correct the beat grid or the key"
+        (click)="editing.set(!editing())"
+      >
+        <div class="stat">
+          <span class="label" [class.edited]="track()?.gridEdited">BPM</span>
+          <span class="value">{{ bpm() ?? '—' }}</span>
+        </div>
+        <div class="stat">
+          <span class="label" [class.edited]="track()?.keyEdited">KEY</span>
+          @if (key(); as k) {
+            <span class="value"
+              >{{ k.camelot }}<span class="key-name">{{ k.name }}</span></span
+            >
+          } @else {
+            <span class="value">—</span>
+          }
+        </div>
+      </button>
       <div class="stat">
         <span class="label">PITCH</span>
         <span class="value small">{{ pitch() }}</span>
@@ -54,3 +61,6 @@
     </div>
   </div>
 </div>
+@if (editing() && track()) {
+  <app-grid-editor [deck]="deck()" (closed)="editing.set(false)" />
+}

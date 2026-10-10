@@ -1,0 +1,60 @@
+<div class="backdrop" (click)="closed.emit()"></div>
+<div class="panel" (keydown.escape)="closed.emit()">
+  <header>
+    <span>Beat grid</span>
+    @if (track()?.gridEdited) {
+      <button class="ghost" title="Back to the analysed grid" (click)="grid({ kind: 'reset' })">
+        Reset
+      </button>
+    }
+  </header>
+  <div class="row">
+    <input
+      #bpm
+      class="bpm"
+      inputmode="decimal"
+      [value]="bpmText()"
+      (keydown.enter)="setBpm(bpm.value)"
+      aria-label="BPM"
+    />
+    <button (click)="setBpm(bpm.value)">Set</button>
+    <button title="Half time" (click)="grid({ kind: 'scale', factor: 0.5 })">÷2</button>
+    <button title="Double time" (click)="grid({ kind: 'scale', factor: 2 })">×2</button>
+    <button class="tap" title="Tap the beat; the tempo shows after four taps" (click)="tap()">
+      Tap
+    </button>
+  </div>
+  <div class="row">
+    <button title="Grid earlier (20 ms)" (click)="grid({ kind: 'shift', seconds: -coarse })">
+      ◀◀
+    </button>
+    <button title="Grid earlier (2 ms)" (click)="grid({ kind: 'shift', seconds: -fine })">◀</button>
+    <button class="wide" title="Put a beat where the deck is" (click)="grid({ kind: 'beatHere' })">
+      Beat here
+    </button>
+    <button title="Grid later (2 ms)" (click)="grid({ kind: 'shift', seconds: fine })">▶</button>
+    <button title="Grid later (20 ms)" (click)="grid({ kind: 'shift', seconds: coarse })">
+      ▶▶
+    </button>
+  </div>
+
+  <header>
+    <span>Key</span>
+    @if (track()?.keyEdited) {
+      <button class="ghost" title="Back to the detected key" (click)="setKey(null)">Reset</button>
+    }
+  </header>
+  @for (row of [minorKeys(), majorKeys()]; track $index) {
+    <div class="keys">
+      @for (k of row; track k.camelot) {
+        <button
+          [class.current]="track()?.key?.camelot === k.camelot"
+          [title]="k.name"
+          (click)="setKey(k.camelot)"
+        >
+          {{ k.camelot }}
+        </button>
+      }
+    </div>
+  }
+</div>

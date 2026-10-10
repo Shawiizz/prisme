@@ -6,6 +6,7 @@ import {
   DeckSettings,
   EngineStatus,
   MixerState,
+  TrackAnalysis,
   TrackInfo,
   VinylMode,
 } from '../models/engine';
@@ -209,6 +210,12 @@ export class EngineService {
   setCues(deck: number, cues: Cue[]) {
     const track = this.tracks()[deck];
     if (track) this.patch(this.tracks, deck, { ...track, cues });
+  }
+
+  /** Replaces the tempo and key of the track on `deck` (after a correction). */
+  setAnalysis(deck: number, analysis: TrackAnalysis) {
+    const track = this.tracks()[deck];
+    if (track) this.patch(this.tracks, deck, { ...track, ...analysis });
   }
 
   patchDeck(deck: number, changes: Partial<DeckSettings>): DeckSettings {

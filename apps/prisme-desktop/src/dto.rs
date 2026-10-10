@@ -179,7 +179,31 @@ pub struct TrackInfoDto {
     pub waveform: WaveformDto,
     pub tempo: Option<TempoDto>,
     pub key: Option<KeyDto>,
+    pub grid_edited: bool,
+    pub key_edited: bool,
     pub cues: Vec<CueDto>,
+}
+
+/// Tempo and key of a loaded track, after a correction.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TrackAnalysisDto {
+    pub tempo: Option<TempoDto>,
+    pub key: Option<KeyDto>,
+    pub grid_edited: bool,
+    pub key_edited: bool,
+}
+
+impl From<&crate::state::LoadedTrack> for TrackAnalysisDto {
+    fn from(track: &crate::state::LoadedTrack) -> Self {
+        let analysis = track.analysis();
+        Self {
+            tempo: analysis.tempo.as_ref().map(TempoDto::from),
+            key: analysis.key.as_ref().map(KeyDto::from),
+            grid_edited: track.edits.grid.is_some(),
+            key_edited: track.edits.key.is_some(),
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -476,9 +500,10 @@ pub struct TrackDetailsDto {
 
 impl From<&prisme_library::TrackRecord> for TrackDetailsDto {
     fn from(r: &prisme_library::TrackRecord) -> Self {
+        let analysis = r.effective_analysis();
         Self {
-            bpm: r.analysis.tempo.map(|t| t.bpm),
-            key: r.analysis.key.as_ref().map(KeyDto::from),
+            bpm: analysis.tempo.map(|t| t.bpm),
+            key: analysis.key.as_ref().map(KeyDto::from),
             tags: TagsDto::from(&r.tags),
             failed: r.error.is_some(),
         }

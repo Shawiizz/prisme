@@ -37,6 +37,7 @@ fn tracklist_csv(plays: &[HistoryPlay]) -> String {
     let start = plays.first().map_or(0, |p| p.played_at_ms);
     for (i, p) in plays.iter().enumerate() {
         let record = p.record.as_ref();
+        let analysis = record.map(|r| r.effective_analysis());
         let tags = record.map(|r| &r.tags);
         let title = tags.and_then(|t| t.title.clone()).unwrap_or_else(|| file_stem(&p.path));
         let fields = [
@@ -46,8 +47,8 @@ fn tracklist_csv(plays: &[HistoryPlay]) -> String {
             tags.and_then(|t| t.artist.clone()).unwrap_or_default(),
             title,
             tags.and_then(|t| t.album.clone()).unwrap_or_default(),
-            record.and_then(|r| r.analysis.tempo).map(|t| format!("{:.1}", t.bpm)).unwrap_or_default(),
-            record.and_then(|r| r.analysis.key).map(|k| k.key.camelot()).unwrap_or_default(),
+            analysis.and_then(|a| a.tempo).map(|t| format!("{:.1}", t.bpm)).unwrap_or_default(),
+            analysis.and_then(|a| a.key).map(|k| k.key.camelot()).unwrap_or_default(),
             p.path.clone(),
         ];
         let line: Vec<String> = fields.iter().map(|f| csv_field(f)).collect();

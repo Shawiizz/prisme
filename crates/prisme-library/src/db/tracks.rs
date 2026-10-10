@@ -3,6 +3,7 @@
 //! ([`ANALYSIS_VERSION`]) and of the tag reading ([`TAGS_VERSION`]); otherwise the file
 //! is read again.
 
+use super::edits::TrackEdits;
 use super::{path_key, DbError, FileStamp, LibraryDb};
 use prisme_analysis::{Key, KeyEstimate, Mode, Tempo, TrackAnalysis, ANALYSIS_VERSION};
 use prisme_media::TrackTags;
@@ -27,7 +28,9 @@ pub struct TrackRecord {
     pub path: String,
     pub version: RecordVersion,
     pub duration_s: Option<f64>,
+    /// As detected; see [`TrackRecord::effective_analysis`].
     pub analysis: TrackAnalysis,
+    pub edits: TrackEdits,
     pub tags: TrackTags,
     /// Why the file could not be analysed.
     pub error: Option<String>,
@@ -71,6 +74,7 @@ impl TrackRecord {
             version: RecordVersion::current(stamp),
             duration_s: Some(duration_s),
             analysis,
+            edits: TrackEdits::default(),
             tags,
             error: None,
         }
@@ -82,6 +86,7 @@ impl TrackRecord {
             version: RecordVersion::current(stamp),
             duration_s: None,
             analysis: TrackAnalysis { tempo: None, key: None },
+            edits: TrackEdits::default(),
             tags: TrackTags::default(),
             error: Some(error),
         }
@@ -89,6 +94,11 @@ impl TrackRecord {
 
     pub fn is_current(&self, stamp: FileStamp) -> bool {
         self.version.is_current(stamp)
+    }
+
+    /// The analysis with the corrections made by hand.
+    pub fn effective_analysis(&self) -> TrackAnalysis {
+        self.edits.apply(self.analysis)
     }
 
     /// The same record with tags read by the current code.
@@ -112,7 +122,7 @@ impl TrackRecord {
 impl LibraryDb {
     pub fn get(&self, path: &Path) -> Result<Option<TrackRecord>, DbError> {
         let conn = self.conn();
-        let mut stmt = conn.prepare_cached("SELECT * FROM tracks WHERE path = ?1")?;
+        let mut stmt = conn.prepare_cached("SELECT * FROM track_view WHERE path = ?1")?;
         Ok(stmt.query_row([path_key(path)], record_from_row).optional()?)
     }
 
@@ -182,7 +192,7 @@ impl LibraryDb {
         let Some(fts) = fts_query(query) else { return Ok(Vec::new()) };
         let conn = self.conn();
         let mut stmt = conn.prepare_cached(
-            "SELECT tracks.* FROM track_search JOIN tracks ON tracks.path = track_search.path
+            "SELECT track_view.* FROM track_search JOIN track_view ON track_view.path = track_search.path
              WHERE track_search MATCH ?1 ORDER BY rank LIMIT ?2",
         )?;
         let rows = stmt.query_map(params![fts, limit as i64], record_from_row)?;
@@ -204,7 +214,7 @@ fn fts_query(query: &str) -> Option<String> {
     (!terms.is_empty()).then(|| terms.join(" "))
 }
 
-/// A row of `SELECT <list>.path AS entry_path, tracks.* ... LEFT JOIN tracks`.
+/// A row of `SELECT <list>.path AS entry_path, track_view.* ... LEFT JOIN track_view`.
 pub(super) fn entry_from_row(r: &Row<'_>) -> rusqlite::Result<TrackEntry> {
     let analysed = r.get::<_, Option<String>>("path")?.is_some();
     Ok(TrackEntry {
@@ -240,6 +250,7 @@ pub(super) fn record_from_row(r: &Row<'_>) -> rusqlite::Result<TrackRecord> {
         },
         duration_s: r.get("duration_s")?,
         analysis: TrackAnalysis { tempo, key },
+        edits: TrackEdits::from_row(r)?,
         tags: TrackTags {
             title: r.get("title")?,
             artist: r.get("artist")?,

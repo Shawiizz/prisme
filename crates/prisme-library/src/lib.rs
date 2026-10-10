@@ -17,8 +17,8 @@ pub mod scan;
 pub use analyzer::{default_workers, AnalysisListener, AnalysisProgress, BackgroundAnalyzer};
 pub use cues::{Cue, CueSlot, HOT_CUES};
 pub use db::{
-    now_ms, path_key, Crate, CrateId, DbError, FileStamp, HistoryPlay, HistorySession, LibraryDb,
-    RecordVersion, SessionId, TrackEntry, TrackRecord, TAGS_VERSION,
+    now_ms, path_key, Crate, CrateId, DbError, FileStamp, GridEdit, HistoryPlay, HistorySession, LibraryDb,
+    RecordVersion, SessionId, TrackEdits, TrackEntry, TrackRecord, TAGS_VERSION,
 };
 pub use metadata::{read_metadata, Metadata};
 pub use scan::{scan_folder, ScannedFile};

@@ -62,6 +62,17 @@ impl LibraryService {
         *lock(&self.progress)
     }
 
+    /// Tells the UI that what the library knows of a track changed.
+    pub fn announce(&self, path: &Path) {
+        match self.db.get(path) {
+            Ok(Some(record)) => {
+                let _ = self.app.emit(TRACK_ANALYZED_EVENT, TrackAnalyzedDto::from(&record));
+            }
+            Ok(None) => {}
+            Err(e) => eprintln!("{e}"),
+        }
+    }
+
     /// Stores a track analysed outside the background run (on load) and tells the UI.
     pub fn store(&self, record: &TrackRecord, cover: Option<&[u8]>) {
         let saved = self.db.save(record).and_then(|()| match cover {

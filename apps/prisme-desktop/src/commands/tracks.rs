@@ -3,7 +3,7 @@ use crate::error::{AppError, AppResult};
 use crate::library_service::LibraryService;
 use crate::state::{lock, AppState, LoadedTrack};
 use prisme_analysis::{AnalysisOptions, TrackAnalysis};
-use prisme_library::{FileStamp, TrackRecord};
+use prisme_library::{FileStamp, TrackEdits, TrackRecord};
 use prisme_media::{TrackAudio, TrackTags};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
@@ -44,10 +44,10 @@ pub fn prepare_track(path: PathBuf, library: &LibraryService) -> AppResult<Loade
     let stamp = FileStamp::of(&path).ok();
     let stored = stamp
         .and_then(|s| library.db.get(&path).ok().flatten().filter(|r| r.is_current(s) && r.error.is_none()));
-    let (waveform, (analysis, tags)) = std::thread::scope(|s| {
+    let (waveform, (detected, edits, tags)) = std::thread::scope(|s| {
         let waveform = s.spawn(|| prisme_analysis::compute_waveform(&audio, WAVEFORM_SLICES_PER_S));
         let known = match stored {
-            Some(r) => (r.analysis, r.tags),
+            Some(r) => (r.analysis, r.edits, r.tags),
             None => analyze_and_store(&path, stamp, &audio, library),
         };
         (waveform.join().expect("waveform thread"), known)
@@ -61,7 +61,8 @@ pub fn prepare_track(path: PathBuf, library: &LibraryService) -> AppResult<Loade
         path,
         audio: Arc::new(audio),
         waveform,
-        analysis,
+        detected,
+        edits,
         tags,
         cues,
     })
@@ -72,13 +73,16 @@ fn analyze_and_store(
     stamp: Option<FileStamp>,
     audio: &TrackAudio,
     library: &LibraryService,
-) -> (TrackAnalysis, TrackTags) {
+) -> (TrackAnalysis, TrackEdits, TrackTags) {
     let analysis = prisme_analysis::analyze(audio, &AnalysisOptions::default());
     let metadata = prisme_library::read_metadata(path);
-    let Some(stamp) = stamp else { return (analysis, metadata.tags) };
-    let record = TrackRecord::analyzed(path, stamp, audio.duration_s(), analysis, metadata.tags);
+    // corrections made by hand outlive the analysis they corrected
+    let edits = library.db.edits(path).unwrap_or_default();
+    let Some(stamp) = stamp else { return (analysis, edits, metadata.tags) };
+    let analyzed = TrackRecord::analyzed(path, stamp, audio.duration_s(), analysis, metadata.tags);
+    let record = TrackRecord { edits, ..analyzed };
     library.store(&record, metadata.cover.as_deref());
-    (record.analysis, record.tags)
+    (record.analysis, record.edits, record.tags)
 }
 
 /// Tracks currently loaded on the decks (to rebuild the UI after a reload).

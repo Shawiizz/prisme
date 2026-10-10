@@ -1,14 +1,17 @@
-//! Library database (SQLite): tracks and their analysis and tags ([`tracks`]), cues,
+//! Library database (SQLite): tracks and their analysis and tags ([`tracks`]), the
+//! corrections made by hand ([`edits`]), cues,
 //! cover thumbnails, full-text search, crates, history of the sets, prepare list.
 
 mod covers;
 mod crates;
 mod cues;
+mod edits;
 mod history;
 mod prepare;
 mod tracks;
 
 pub use crates::{Crate, CrateId};
+pub use edits::{GridEdit, TrackEdits};
 pub use history::{HistoryPlay, HistorySession, SessionId};
 pub use tracks::{RecordVersion, TrackEntry, TrackRecord, TAGS_VERSION};
 
@@ -83,6 +86,18 @@ const MIGRATIONS: &[&str] = &[
      CREATE INDEX history_plays_by_session ON history_plays (session_id);
      CREATE INDEX history_plays_by_path ON history_plays (path);",
     "CREATE TABLE prepare (path TEXT PRIMARY KEY NOT NULL, position INTEGER NOT NULL) WITHOUT ROWID;",
+    "CREATE TABLE track_edits (
+         path TEXT PRIMARY KEY NOT NULL,
+         bpm REAL,
+         first_beat_s REAL,
+         key_tonic INTEGER,
+         key_minor INTEGER
+     ) WITHOUT ROWID;
+     -- what is read as a track: the analysis results with the corrections made by hand
+     CREATE VIEW track_view AS
+         SELECT tracks.*, track_edits.bpm AS edit_bpm, track_edits.first_beat_s AS edit_first_beat_s,
+             track_edits.key_tonic AS edit_key_tonic, track_edits.key_minor AS edit_key_minor
+         FROM tracks LEFT JOIN track_edits ON track_edits.path = tracks.path;",
 ];
 
 pub fn now_ms() -> i64 {

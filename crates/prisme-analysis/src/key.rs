@@ -136,6 +136,26 @@ impl Key {
         };
         format!("{}{}", self.camelot_number(), letter)
     }
+
+    /// The key of a Camelot code ("8A", "12B").
+    pub fn from_camelot(code: &str) -> Option<Self> {
+        let code = code.trim();
+        let letter = code.chars().last()?;
+        let number: u32 =
+            code[..code.len() - letter.len_utf8()].parse().ok().filter(|n| (1..=12).contains(n))?;
+        // inverse of camelot_number: 7 is its own inverse modulo 12
+        let major_tonic = ((number + 12 - 8) % 12 * 7 % 12) as u8;
+        match letter.to_ascii_uppercase() {
+            'B' => Some(Self::new(major_tonic, Mode::Major)),
+            'A' => Some(Self::new(major_tonic + 9, Mode::Minor)),
+            _ => None,
+        }
+    }
+
+    /// The 24 keys in Camelot order: 1A, 1B, 2A ... 12B.
+    pub fn all() -> impl Iterator<Item = Self> {
+        (1..=12).flat_map(|n| ["A", "B"].map(|l| Self::from_camelot(&format!("{n}{l}")).expect("valid code")))
+    }
 }
 
 impl fmt::Display for Key {
@@ -299,6 +319,21 @@ fn correlation(chroma: &[f64; 12], profile: &[f64; 12], tonic: usize) -> f64 {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn camelot_codes_read_back() {
+        assert_eq!(Key::from_camelot("8B"), Some(Key::new(0, Mode::Major)));
+        assert_eq!(Key::from_camelot("8A"), Some(Key::new(9, Mode::Minor)));
+        assert_eq!(Key::from_camelot("12a"), Some(Key::new(1, Mode::Minor)));
+        for code in ["", "A", "0A", "13B", "8C", "xB", "8é"] {
+            assert_eq!(Key::from_camelot(code), None, "{code}");
+        }
+        let all: Vec<Key> = Key::all().collect();
+        assert_eq!(all.len(), 24);
+        for key in all {
+            assert_eq!(Key::from_camelot(&key.camelot()), Some(key));
+        }
+    }
 
     #[test]
     fn names_and_camelot_codes() {

@@ -1,7 +1,8 @@
-import { Component, computed, inject, input } from '@angular/core';
+import { Component, computed, inject, input, signal } from '@angular/core';
 import { EngineService } from '../../../core/services/engine.service';
 import { deckColor, formatPitch, formatTime } from '../../../shared/time';
 import { Cover } from '../../../shared/cover/cover';
+import { GridEditor } from '../grid-editor/grid-editor';
 
 /**
  * Deck header: number tile in the deck colour, cover, title and time, labelled stats and
@@ -11,7 +12,8 @@ import { Cover } from '../../../shared/cover/cover';
   selector: 'app-deck-card',
   templateUrl: './deck-card.html',
   styleUrl: './deck-card.scss',
-  imports: [Cover],
+  imports: [Cover, GridEditor],
+  host: { '[style.--accent]': 'color()' },
 })
 export class DeckCard {
   readonly deck = input.required<number>();
@@ -22,6 +24,8 @@ export class DeckCard {
   protected readonly status = computed(() => this.engine.status()?.decks[this.deck()] ?? null);
   protected readonly settings = computed(() => this.engine.decks()[this.deck()]);
   protected readonly loading = computed(() => this.engine.loading()[this.deck()]);
+  /** The grid and key editor is open. */
+  protected readonly editing = signal(false);
 
   protected readonly elapsed = computed(() => formatTime(this.status()?.positionS ?? 0));
   protected readonly remaining = computed(() => {

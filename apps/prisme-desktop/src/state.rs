@@ -9,7 +9,7 @@ use crate::folders;
 use crate::preferences::{DeckPreferences, Preferences};
 use prisme_analysis::{TrackAnalysis, Waveform};
 use prisme_engine::{BeatGrid, Command, DeckStatus, MixMode, OutputRouting};
-use prisme_library::{Cue, CueSlot};
+use prisme_library::{Cue, CueSlot, TrackEdits};
 use prisme_media::{TrackAudio, TrackTags};
 use prisme_session::JsonFile;
 use std::path::PathBuf;
@@ -22,7 +22,9 @@ pub struct LoadedTrack {
     pub path: PathBuf,
     pub audio: Arc<TrackAudio>,
     pub waveform: Waveform,
-    pub analysis: TrackAnalysis,
+    /// As detected; [`LoadedTrack::analysis`] applies the corrections.
+    pub detected: TrackAnalysis,
+    pub edits: TrackEdits,
     pub tags: TrackTags,
     pub cues: Vec<Cue>,
 }
@@ -35,6 +37,7 @@ impl LoadedTrack {
 
     /// What the UI shows of the track on `deck`.
     pub fn info(&self, deck: usize) -> TrackInfoDto {
+        let analysis = self.analysis();
         TrackInfoDto {
             deck,
             path: self.path.display().to_string(),
@@ -43,14 +46,20 @@ impl LoadedTrack {
             duration_s: self.audio.duration_s(),
             sample_rate: self.audio.sample_rate(),
             waveform: WaveformDto::from(&self.waveform),
-            tempo: self.analysis.tempo.as_ref().map(TempoDto::from),
-            key: self.analysis.key.as_ref().map(KeyDto::from),
+            tempo: analysis.tempo.as_ref().map(TempoDto::from),
+            key: analysis.key.as_ref().map(KeyDto::from),
+            grid_edited: self.edits.grid.is_some(),
+            key_edited: self.edits.key.is_some(),
             cues: self.cue_dtos(),
         }
     }
 
+    pub fn analysis(&self) -> TrackAnalysis {
+        self.edits.apply(self.detected)
+    }
+
     pub fn grid(&self) -> Option<BeatGrid> {
-        self.analysis.tempo.map(|t| BeatGrid { bpm: t.bpm, first_beat_s: t.first_beat_s })
+        self.analysis().tempo.map(|t| BeatGrid { bpm: t.bpm, first_beat_s: t.first_beat_s })
     }
 
     /// Commands that put the track, with its beat grid, on `deck`.

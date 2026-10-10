@@ -1,4 +1,5 @@
 :host {
+  position: relative;
   display: block;
   min-width: 0;
   min-height: 0;
@@ -86,6 +87,23 @@
 .stats {
   align-items: flex-end;
   gap: 18px;
+}
+.analysis {
+  display: flex;
+  gap: 18px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  &:not(:disabled):hover .value {
+    color: var(--accent);
+  }
+}
+// a value corrected by hand
+.label.edited::after {
+  content: ' •';
+  color: var(--accent);
 }
 .stat {
   display: flex;

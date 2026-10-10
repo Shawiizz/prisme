@@ -161,7 +161,11 @@ fn process(db: &LibraryDb, file: &ScannedFile, options: &AnalysisOptions) -> (Tr
             let metadata = read_metadata(&file.path);
             (record.with_tags(metadata.tags), metadata.cover)
         }
-        None => analyze(file, options),
+        None => {
+            let (record, cover) = analyze(file, options);
+            let edits = db.edits(&file.path).unwrap_or_default();
+            (TrackRecord { edits, ..record }, cover)
+        }
     }
 }
 

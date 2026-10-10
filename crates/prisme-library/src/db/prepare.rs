@@ -9,8 +9,8 @@ impl LibraryDb {
     pub fn prepare_list(&self) -> Result<Vec<TrackEntry>, DbError> {
         let conn = self.conn();
         let mut stmt = conn.prepare_cached(
-            "SELECT prepare.path AS entry_path, tracks.* FROM prepare
-             LEFT JOIN tracks ON tracks.path = prepare.path ORDER BY prepare.position",
+            "SELECT prepare.path AS entry_path, track_view.* FROM prepare
+             LEFT JOIN track_view ON track_view.path = prepare.path ORDER BY prepare.position",
         )?;
         let rows = stmt.query_map([], entry_from_row)?;
         Ok(rows.collect::<Result<_, _>>()?)

@@ -86,8 +86,8 @@ impl LibraryDb {
     pub fn crate_tracks(&self, id: CrateId) -> Result<Vec<TrackEntry>, DbError> {
         let conn = self.conn();
         let mut stmt = conn.prepare_cached(
-            "SELECT crate_tracks.path AS entry_path, tracks.* FROM crate_tracks
-             LEFT JOIN tracks ON tracks.path = crate_tracks.path
+            "SELECT crate_tracks.path AS entry_path, track_view.* FROM crate_tracks
+             LEFT JOIN track_view ON track_view.path = crate_tracks.path
              WHERE crate_tracks.crate_id = ?1 ORDER BY crate_tracks.added_at_ms, crate_tracks.rowid",
         )?;
         let rows = stmt.query_map([id.0], entry_from_row)?;

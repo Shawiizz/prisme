@@ -70,8 +70,8 @@ impl LibraryDb {
     pub fn history_plays(&self, session: SessionId) -> Result<Vec<HistoryPlay>, DbError> {
         let conn = self.conn();
         let mut stmt = conn.prepare_cached(
-            "SELECT history_plays.path AS play_path, history_plays.deck, history_plays.played_at_ms, tracks.*
-             FROM history_plays LEFT JOIN tracks ON tracks.path = history_plays.path
+            "SELECT history_plays.path AS play_path, history_plays.deck, history_plays.played_at_ms, track_view.*
+             FROM history_plays LEFT JOIN track_view ON track_view.path = history_plays.path
              WHERE history_plays.session_id = ?1 ORDER BY history_plays.played_at_ms, history_plays.id",
         )?;
         let rows = stmt.query_map([session.0], |r| {

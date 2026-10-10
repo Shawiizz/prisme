@@ -4,6 +4,7 @@ pub mod audio;
 pub mod crates;
 pub mod cues;
 pub mod decks;
+pub mod edits;
 pub mod folders;
 pub mod history;
 pub mod library;

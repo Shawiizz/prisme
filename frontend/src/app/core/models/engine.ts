@@ -110,8 +110,22 @@ export interface TrackInfo {
   waveform: Waveform;
   tempo: Tempo | null;
   key: MusicalKey | null;
+  /** Corrected by hand. */
+  gridEdited: boolean;
+  keyEdited: boolean;
   cues: Cue[];
 }
+
+/** Tempo and key of a loaded track, after a correction. */
+export type TrackAnalysis = Pick<TrackInfo, 'tempo' | 'key' | 'gridEdited' | 'keyEdited'>;
+
+/** A correction of the beat grid (see `edit_grid`). */
+export type GridChange =
+  | { kind: 'bpm'; bpm: number }
+  | { kind: 'scale'; factor: number }
+  | { kind: 'shift'; seconds: number }
+  | { kind: 'beatHere' }
+  | { kind: 'reset' };
 
 /** Deck settings owned by the UI and pushed to the engine. */
 export interface DeckSettings {
