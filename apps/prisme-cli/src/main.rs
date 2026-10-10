@@ -3,6 +3,7 @@
 //! analyses tracks (tempo, key).
 
 mod analyze;
+mod latency;
 mod simulation;
 
 use anyhow::{Context, Result};
@@ -67,6 +68,22 @@ enum Cmd {
         #[arg(long, default_value_t = 0.0)]
         lead_in: f64,
         #[arg(long, default_value_t = 60)]
+        seconds: u64,
+        #[command(flatten)]
+        audio: AudioArgs,
+    },
+    /// Measures the round trip from an output to an input joined by a cable.
+    Latency {
+        /// Part of the input device name (ASIO: the same driver as the output).
+        #[arg(long)]
+        input: String,
+        /// Output channel playing the clicks, from 1.
+        #[arg(long, default_value_t = 1)]
+        out_channel: usize,
+        /// Input channel receiving them, from 1.
+        #[arg(long, default_value_t = 1)]
+        in_channel: usize,
+        #[arg(long, default_value_t = 4)]
         seconds: u64,
         #[command(flatten)]
         audio: AudioArgs,
@@ -171,6 +188,15 @@ fn main() -> Result<()> {
                 c.send(Command::SetLeadIn { deck: 0, seconds: lead_in }).ok();
                 c.send(Command::SetVinylEnabled { deck: 0, enabled: true }).ok();
             })
+        }
+        Cmd::Latency { input, out_channel, in_channel, seconds, audio } => {
+            let settings = StreamSettings {
+                backend: audio.backend.into(),
+                output_device: audio.output.clone(),
+                input_device: Some(input),
+                buffer_frames: audio.buffer,
+            };
+            latency::run(&settings, out_channel, in_channel, seconds)
         }
         Cmd::Analyze { paths, min_bpm, csv } => {
             analyze::run(&paths, prisme_analysis::AnalysisOptions { min_bpm }, csv.as_deref())

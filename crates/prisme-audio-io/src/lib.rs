@@ -6,6 +6,7 @@
 
 mod devices;
 mod formats;
+pub mod latency;
 mod stream;
 
 pub use devices::{list_devices, Backend, DeviceInfo, DeviceKind};
