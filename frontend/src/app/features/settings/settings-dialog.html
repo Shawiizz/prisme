@@ -1,0 +1,53 @@
+<div class="backdrop" (click)="closed.emit()">
+  <div class="dialog" (click)="$event.stopPropagation()">
+    <h2>Audio settings</h2>
+
+    @if (draft(); as d) {
+      <label>
+        <span class="label">Output (main mix)</span>
+        <select [value]="d.outputDevice ?? ''" (change)="update({ outputDevice: orNull($any($event.target).value) })">
+          <option value="">Default device</option>
+          @for (o of outputs(); track o.name) {
+            <option [value]="o.name">{{ o.name }} · {{ o.channels }} ch · {{ o.sampleRate }} Hz</option>
+          }
+        </select>
+      </label>
+
+      <label>
+        <span class="label">Turntables input (DVS interface)</span>
+        <select [value]="d.inputDevice ?? ''" (change)="update({ inputDevice: orNull($any($event.target).value) })" [disabled]="d.simulate">
+          <option value="">None</option>
+          @for (i of inputs(); track i.name) {
+            <option [value]="i.name">{{ i.name }} · {{ i.channels }} ch · {{ i.sampleRate }} Hz</option>
+          }
+        </select>
+        <small>Deck 1 reads input channels 1-2, deck 2 channels 3-4.</small>
+      </label>
+
+      <label>
+        <span class="label">Control vinyl</span>
+        <select [value]="d.timecodeFormat" (change)="update({ timecodeFormat: $any($event.target).value })">
+          @for (f of service.formats(); track f.id) {
+            <option [value]="f.id">{{ f.name }}</option>
+          }
+        </select>
+      </label>
+
+      <label class="check">
+        <input type="checkbox" [checked]="d.simulate" (change)="update({ simulate: $any($event.target).checked })" />
+        <span>Simulated turntable on deck 1 (try vinyl control without hardware)</span>
+      </label>
+
+      @if (error(); as e) {
+        <div class="error">{{ e }}</div>
+      }
+
+      <div class="buttons">
+        <button (click)="closed.emit()">Cancel</button>
+        <button class="primary" (click)="apply()" [disabled]="busy()">{{ busy() ? 'Starting…' : 'Apply' }}</button>
+      </div>
+    } @else {
+      <p class="loading">Reading devices…</p>
+    }
+  </div>
+</div>

@@ -11,7 +11,7 @@ use prisme_timecode::TimecodeFormat;
 use prisme_timecode::testing::SimulatedTurntable;
 use simulation::Pattern;
 use std::io::Write;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::atomic::Ordering;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
@@ -159,7 +159,7 @@ fn devices() -> Result<()> {
 }
 
 fn run(
-    file: &PathBuf,
+    file: &Path,
     audio: &AudioArgs,
     input: Option<(String, &'static TimecodeFormat)>,
     simulate: Option<(&'static TimecodeFormat, Pattern)>,

@@ -1,0 +1,35 @@
+<header class="titlebar" data-tauri-drag-region>
+  <div class="brand" data-tauri-drag-region>
+    <svg viewBox="0 0 24 24" class="mark" aria-hidden="true">
+      <path d="M12 3 L21 20 L3 20 Z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" />
+      <path d="M12 3 L12 20" stroke="var(--deck-1)" stroke-width="1.8" stroke-linecap="round" />
+    </svg>
+    <span>PRISME</span>
+  </div>
+
+  <div class="audio" data-tauri-drag-region>
+    @if (engine.audioRunning()) {
+      @if (settings.info(); as info) {
+        <span class="dot ok"></span>
+        {{ info.sampleRate / 1000 }} kHz
+        @if (info.simulated) {
+          <span class="chip">simulated turntable</span>
+        } @else if (info.inputChannels > 0) {
+          <span class="chip">{{ info.inputChannels }} input ch</span>
+        }
+      }
+    } @else {
+      <span class="dot off"></span> audio stopped
+    }
+    @if (engine.status(); as s) {
+      <div class="meter"><div [style.width.%]="s.mainPeak * 100" [class.clip]="s.mainPeak > 0.99"></div></div>
+    }
+  </div>
+
+  <div class="actions">
+    <button class="ghost" (click)="openSettings.emit()" title="Audio settings">Settings</button>
+    <button class="win" (click)="minimize()" aria-label="Minimize">&#x2013;</button>
+    <button class="win" (click)="toggleMaximize()" aria-label="Maximize">&#x25A1;</button>
+    <button class="win close" (click)="close()" aria-label="Close">&#x2715;</button>
+  </div>
+</header>

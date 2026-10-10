@@ -1,0 +1,22 @@
+<div class="mixer">
+  <div class="channels">
+    @for (d of deckIndexes; track d) {
+      <div class="channel" [style.--accent]="color(d)">
+        <span class="label">{{ d + 1 }}</span>
+        <input
+          class="fader"
+          type="range"
+          min="0"
+          max="1"
+          step="0.01"
+          [value]="engine.decks()[d].volume"
+          (input)="onVolume(d, $event)"
+        />
+      </div>
+    }
+    <div class="meter" title="Main output">
+      <div [style.height.%]="peak() * 100" [class.clip]="peak() > 0.99"></div>
+    </div>
+  </div>
+  <input class="crossfader" type="range" min="-1" max="1" step="0.01" [value]="engine.crossfader()" (input)="onCrossfader($event)" (dblclick)="engine.setCrossfader(0)" />
+</div>

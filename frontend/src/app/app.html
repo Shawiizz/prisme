@@ -1,0 +1,26 @@
+<app-titlebar (openSettings)="settingsOpen.set(true)" />
+
+<main class="layout">
+  <section class="decks">
+    @for (d of [0, 1]; track d) {
+      <div class="deck-row">
+        <app-deck-card [deck]="d" />
+        <app-deck-waveform [deck]="d" />
+      </div>
+    }
+  </section>
+
+  <section class="controls">
+    <app-deck-controls [deck]="0" />
+    <app-mixer />
+    <app-deck-controls [deck]="1" />
+  </section>
+
+  <section class="library">
+    <app-library />
+  </section>
+</main>
+
+@if (settingsOpen()) {
+  <app-settings-dialog (closed)="settingsOpen.set(false)" />
+}

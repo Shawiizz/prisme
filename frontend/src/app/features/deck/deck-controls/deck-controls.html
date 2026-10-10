@@ -1,0 +1,29 @@
+<div class="controls" [style.--accent]="color()" [class.vinyl]="vinyl()">
+  <div class="transport">
+    <button class="cue" [class.active]="status()?.playing === false && status()?.loaded" (click)="cue()" [disabled]="vinyl()">CUE</button>
+    <button class="play" [class.active]="status()?.playing" (click)="togglePlay()" [disabled]="vinyl()">
+      {{ status()?.playing ? 'PAUSE' : 'PLAY' }}
+    </button>
+  </div>
+
+  <div class="pitch">
+    <div class="pitch-head">
+      <span class="label">TEMPO</span>
+      <span class="value" (dblclick)="resetPitch()" title="Double-click to reset">{{ pitchText() }}</span>
+    </div>
+    <input
+      type="range"
+      [min]="-range"
+      [max]="range"
+      step="0.0005"
+      [value]="settings().pitch - 1"
+      (input)="onPitch($event)"
+      (dblclick)="resetPitch()"
+      [disabled]="vinyl()"
+    />
+  </div>
+
+  @if (vinyl()) {
+    <div class="vinyl-note">Driven by the turntable</div>
+  }
+</div>

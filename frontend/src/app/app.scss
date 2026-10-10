@@ -1,0 +1,34 @@
+:host {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+}
+.layout {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 6px;
+}
+.decks {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.deck-row {
+  height: 128px;
+  display: grid;
+  grid-template-columns: 420px minmax(0, 1fr);
+  gap: 6px;
+}
+.controls {
+  height: 116px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 200px minmax(0, 1fr);
+  gap: 6px;
+}
+.library {
+  flex: 1;
+  min-height: 0;
+}

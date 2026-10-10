@@ -1,0 +1,90 @@
+/* Prisme design tokens: flat surfaces, colour only where it carries meaning. */
+:root {
+  --bg: #08090e;
+  --panel: #0e1118;
+  --panel-2: #11141d;
+  --raised: #1a1e2d;
+  --raised-hover: #222843;
+  --line: #1c2130;
+  --line-strong: #2c3350;
+  --text: #f2f4fb;
+  --text-2: #aab2d0;
+  --muted: #8b92ab;
+  --faint: #5a6385;
+  --ink: #07080d;
+  --deck-1: #2fd6ff;
+  --deck-2: #ff4fd8;
+  --amber: #ffb02e;
+  --mint: #34e6a0;
+  --red: #ff4d6d;
+  --select: #14485f;
+  --radius: 4px;
+  --font: 'Segoe UI Variable Text', 'Segoe UI', system-ui, sans-serif;
+  --mono: 'Cascadia Mono', 'Consolas', ui-monospace, monospace;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  height: 100%;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font);
+  font-size: 13px;
+  user-select: none;
+  overflow: hidden;
+  -webkit-font-smoothing: antialiased;
+}
+
+button {
+  font: inherit;
+  color: var(--text-2);
+  background: var(--raised);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius);
+  padding: 4px 10px;
+  cursor: pointer;
+  &:hover { background: var(--raised-hover); border-color: #4b588c; }
+  &:disabled { opacity: 0.4; cursor: default; }
+  &.active { color: var(--ink); font-weight: 700; }
+}
+
+input, select {
+  font: inherit;
+  color: var(--text);
+  background: var(--panel-2);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius);
+  padding: 5px 8px;
+  &:focus { outline: none; border-color: var(--deck-1); }
+}
+
+input[type='range'] {
+  appearance: none;
+  background: transparent;
+  border: none;
+  padding: 0;
+  &::-webkit-slider-runnable-track { height: 4px; background: var(--line-strong); border-radius: 2px; }
+  &::-webkit-slider-thumb {
+    appearance: none;
+    width: 14px;
+    height: 22px;
+    margin-top: -9px;
+    border-radius: 3px;
+    background: var(--text-2);
+    border: 1px solid var(--ink);
+  }
+}
+
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: var(--bg); }
+::-webkit-scrollbar-thumb { background: var(--line-strong); border-radius: 2px; border: 2px solid var(--bg); }
+
+.label {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: var(--faint);
+  text-transform: uppercase;
+}

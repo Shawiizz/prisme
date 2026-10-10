@@ -1,0 +1,52 @@
+<section class="library">
+  <aside class="folders">
+    <div class="crumbs">
+      @for (c of crumbs(); track c.path; let last = $last) {
+        <button class="crumb" [class.current]="last" (click)="open(c.path)">{{ c.name }}</button>
+        @if (!last) {
+          <span class="sep">/</span>
+        }
+      }
+    </div>
+    <div class="list">
+      @for (f of library.listing()?.folders ?? []; track f.path) {
+        <div class="folder" (click)="open(f.path)" [title]="f.path">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h7l2 2h9v10H3z" /></svg>
+          {{ f.name }}
+        </div>
+      } @empty {
+        <div class="none">No sub-folder</div>
+      }
+    </div>
+  </aside>
+
+  <div class="tracks">
+    <div class="toolbar">
+      <input type="search" placeholder="Search in this folder" [value]="filter()" (input)="filter.set($any($event.target).value)" />
+      <span class="count">{{ tracks().length }} tracks</span>
+      @if (engine.error(); as e) {
+        <span class="error" [title]="e">{{ e }}</span>
+      }
+    </div>
+    <div class="table">
+      <div class="head">
+        <span class="name">Title</span>
+        <span class="size">Size</span>
+        <span class="load">Load</span>
+      </div>
+      @for (t of tracks(); track t.path; let odd = $odd) {
+        <div class="row" [class.odd]="odd" [class.selected]="selected() === t.path" (click)="selected.set(t.path)" (dblclick)="loadDefault(t)">
+          <span class="name">{{ displayName(t.name) }}</span>
+          <span class="size">{{ size(t.sizeBytes) }}</span>
+          <span class="load">
+            @for (d of deckIndexes; track d) {
+              <button [style.--accent]="color(d)" (click)="load(t, d); $event.stopPropagation()" [disabled]="engine.loading()[d]">{{ d + 1 }}</button>
+            }
+          </span>
+        </div>
+      } @empty {
+        <div class="none">No audio file in this folder</div>
+      }
+    </div>
+  </div>
+</section>

@@ -1,0 +1,54 @@
+:host {
+  display: block;
+  min-width: 0;
+  min-height: 0;
+  height: 100%;
+}
+
+.mixer {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 8px 12px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 3px;
+}
+.channels {
+  flex: 1;
+  display: flex;
+  justify-content: center;
+  gap: 18px;
+  min-height: 0;
+}
+.channel {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  min-height: 0;
+  .label { color: var(--accent); }
+}
+.fader {
+  writing-mode: vertical-lr;
+  direction: rtl;
+  flex: 1;
+  min-height: 0;
+  height: auto;
+  margin: 0;
+  width: 22px;
+  &::-webkit-slider-runnable-track { width: 4px; height: auto; }
+  &::-webkit-slider-thumb { width: 22px; height: 14px; margin-top: 0; margin-left: -9px; }
+}
+.meter {
+  width: 6px;
+  margin-top: 18px;
+  background: var(--line);
+  border-radius: 2px;
+  display: flex;
+  align-items: flex-end;
+  div { width: 100%; background: var(--mint); border-radius: 2px; }
+  .clip { background: var(--red); }
+}
+.crossfader { width: 100%; }

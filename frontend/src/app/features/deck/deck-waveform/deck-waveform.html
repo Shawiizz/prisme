@@ -1,0 +1,9 @@
+<div class="waveform">
+  <div class="zoom">
+    <canvas #zoom></canvas>
+  </div>
+  <canvas #overview class="overview" (click)="seekOverview($event)"></canvas>
+  @if (!track()) {
+    <div class="hint">Load a track from the library</div>
+  }
+</div>

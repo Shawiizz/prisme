@@ -1,0 +1,47 @@
+.backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(4, 5, 9, 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10;
+}
+.dialog {
+  width: 560px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 20px;
+  background: var(--panel);
+  border: 1px solid var(--line-strong);
+  border-radius: 4px;
+}
+h2 {
+  margin: 0 0 4px;
+  font-size: 16px;
+  font-weight: 600;
+}
+label {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  small { color: var(--faint); font-size: 11px; }
+}
+.check {
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+  color: var(--text-2);
+}
+.error {
+  color: var(--red);
+  font-size: 12px;
+}
+.buttons {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  .primary { background: var(--deck-1); border-color: var(--deck-1); color: var(--ink); font-weight: 700; }
+}
+.loading { color: var(--muted); }

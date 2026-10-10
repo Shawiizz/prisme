@@ -1,0 +1,47 @@
+<div class="card" [style.--accent]="color()">
+  <div class="tile">{{ deck() + 1 }}</div>
+
+  <div class="body">
+    <div class="row">
+      @if (track(); as t) {
+        <span class="title">{{ t.title }}</span>
+        <span class="time">{{ remaining() }}</span>
+      } @else if (loading()) {
+        <span class="empty">LOADING…</span>
+      } @else {
+        <span class="empty">NO TRACK LOADED</span>
+      }
+    </div>
+    <div class="row sub">
+      <span class="artist">{{ track()?.artist ?? '' }}</span>
+      @if (track()) {
+        <span class="elapsed">{{ elapsed() }}</span>
+      }
+    </div>
+
+    <div class="divider"></div>
+
+    <div class="row stats">
+      <div class="stat">
+        <span class="label">BPM</span>
+        <span class="value">—</span>
+      </div>
+      <div class="stat">
+        <span class="label">KEY</span>
+        <span class="value">—</span>
+      </div>
+      <div class="stat">
+        <span class="label">PITCH</span>
+        <span class="value small">{{ pitch() }}</span>
+      </div>
+
+      <div class="vinyl">
+        <span class="signal" [class]="signal()" [title]="'Timecode signal: ' + signal()"></span>
+        <button [class.active]="settings().vinylEnabled" (click)="toggleVinyl()">VINYL</button>
+        <button [class.active]="settings().vinylEnabled" (click)="toggleMode()">
+          {{ settings().vinylMode === 'absolute' ? 'ABS' : 'REL' }}
+        </button>
+      </div>
+    </div>
+  </div>
+</div>

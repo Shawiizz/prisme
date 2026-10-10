@@ -1,0 +1,109 @@
+:host {
+  display: block;
+  min-width: 0;
+  min-height: 0;
+  height: 100%;
+}
+
+.library {
+  height: 100%;
+  display: grid;
+  grid-template-columns: 260px minmax(0, 1fr);
+  gap: 6px;
+  min-height: 0;
+}
+.folders, .tracks {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 3px;
+}
+.crumbs {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2px;
+  padding: 8px;
+  border-bottom: 1px solid var(--line);
+  .crumb {
+    border: none;
+    background: transparent;
+    padding: 2px 4px;
+    color: var(--muted);
+    &.current { color: var(--text); font-weight: 600; }
+  }
+  .sep { color: var(--faint); }
+}
+.list {
+  overflow-y: auto;
+  padding: 4px;
+}
+.folder {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 8px;
+  border-radius: 3px;
+  color: var(--text-2);
+  cursor: pointer;
+  svg { width: 15px; height: 15px; fill: none; stroke: var(--faint); stroke-width: 1.6; }
+  &:hover { background: var(--raised); color: var(--text); }
+}
+.toolbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--line);
+  input { width: 280px; }
+  .count { color: var(--faint); font-size: 12px; }
+  .error { color: var(--red); font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+}
+.table {
+  overflow-y: auto;
+  min-height: 0;
+}
+.head, .row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 90px 90px;
+  align-items: center;
+  gap: 8px;
+  padding: 0 10px;
+}
+.head {
+  position: sticky;
+  top: 0;
+  height: 28px;
+  background: var(--panel-2);
+  color: var(--muted);
+  font-size: 12px;
+  border-bottom: 1px solid var(--line-strong);
+}
+.row {
+  height: 30px;
+  cursor: default;
+  &.odd { background: #0d1019; }
+  &:hover { background: var(--raised); }
+  &.selected { background: var(--select); }
+  .name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .size { color: var(--faint); font-variant-numeric: tabular-nums; }
+}
+.load {
+  display: flex;
+  gap: 4px;
+  justify-content: flex-end;
+  button {
+    width: 26px;
+    padding: 1px 0;
+    font-size: 11px;
+    font-weight: 700;
+    &:hover { background: var(--accent); border-color: var(--accent); color: var(--ink); }
+  }
+}
+.none {
+  padding: 16px;
+  color: var(--faint);
+  font-size: 12px;
+}

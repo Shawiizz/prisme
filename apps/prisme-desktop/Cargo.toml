@@ -1,0 +1,25 @@
+[package]
+name = "prisme-desktop"
+description = "Prisme desktop application (Tauri v2)"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[lib]
+name = "prisme_desktop_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+prisme-timecode.workspace = true
+prisme-media.workspace = true
+prisme-engine.workspace = true
+prisme-audio-io.workspace = true
+prisme-analysis.workspace = true
+tauri = { version = "2", features = [] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+thiserror.workspace = true
