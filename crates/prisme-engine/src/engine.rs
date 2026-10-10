@@ -79,11 +79,7 @@ pub fn create(config: EngineConfig) -> (Engine, EngineController) {
         frames_since_status: 0,
         status_interval: (config.sample_rate as f64 / config.status_rate_hz) as usize,
     };
-    let controller = EngineController {
-        commands: cmd_tx,
-        status: status_rx,
-        garbage: garbage_rx,
-    };
+    let controller = EngineController { commands: cmd_tx, status: status_rx, garbage: garbage_rx };
     (engine, controller)
 }
 
@@ -114,7 +110,13 @@ impl Engine {
     /// Processes one audio callback. `input` and `output` are interleaved with
     /// `input_channels` / `output_channels` channels. If the input has fewer frames than
     /// the output (input stream late), the missing frames are silence.
-    pub fn process(&mut self, input: &[f32], input_channels: usize, output: &mut [f32], output_channels: usize) {
+    pub fn process(
+        &mut self,
+        input: &[f32],
+        input_channels: usize,
+        output: &mut [f32],
+        output_channels: usize,
+    ) {
         self.apply_commands();
         let out_channels = output_channels.max(1);
         let frames = output.len() / out_channels;
@@ -137,7 +139,9 @@ impl Engine {
         let leader_beat = self.leader.and_then(|l| self.decks[l].leader_beat());
         for d in 0..self.decks.len() {
             let target = match leader_beat {
-                Some(beat) if self.leader != Some(d) && self.decks[d].follows() => self.decks[d].sync_target(beat),
+                Some(beat) if self.leader != Some(d) && self.decks[d].follows() => {
+                    self.decks[d].sync_target(beat)
+                }
                 _ => None,
             };
             let deck_in = &mut self.deck_in[..frames * 2];
@@ -251,7 +255,8 @@ impl Engine {
             return;
         }
         self.frames_since_status = 0;
-        let mut status = EngineStatus { deck_count: self.decks.len(), main_peak: self.peak, ..Default::default() };
+        let mut status =
+            EngineStatus { deck_count: self.decks.len(), main_peak: self.peak, ..Default::default() };
         for (d, (slot, deck)) in status.decks.iter_mut().zip(&self.decks).enumerate() {
             *slot = deck.status(self.leader == Some(d));
         }

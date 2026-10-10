@@ -1,6 +1,7 @@
 //! Data exchanged with the frontend (camelCase JSON).
 
-use prisme_engine::{DeckStatus, EngineStatus, VinylMode};
+use prisme_engine::{DeckStatus, EngineStatus, LoopRegion, VinylMode};
+use prisme_library::{Cue, CueSlot};
 use prisme_timecode::SignalState;
 use serde::{Deserialize, Serialize};
 
@@ -118,6 +119,35 @@ pub struct TrackInfoDto {
     pub waveform: WaveformDto,
     pub tempo: Option<TempoDto>,
     pub key: Option<KeyDto>,
+    pub cues: Vec<CueDto>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CueDto {
+    /// Hot cue slot, `None` for the main cue.
+    pub hot: Option<u8>,
+    pub position_s: f64,
+    pub loop_length_s: Option<f64>,
+    /// 0xRRGGBB
+    pub color: u32,
+    pub label: String,
+}
+
+impl From<&Cue> for CueDto {
+    fn from(c: &Cue) -> Self {
+        let hot = match c.slot {
+            CueSlot::Main => None,
+            CueSlot::Hot(n) => Some(n),
+        };
+        Self {
+            hot,
+            position_s: c.position_s,
+            loop_length_s: c.loop_length_s,
+            color: c.color,
+            label: c.label.clone(),
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy, Default, Serialize, Deserialize, PartialEq, Eq)]
@@ -194,7 +224,24 @@ pub struct DeckStatusDto {
     pub bpm: Option<f64>,
     pub beat_phase: Option<f64>,
     pub sync: SyncDto,
+    pub looping: LoopDto,
+    pub slip_mode: bool,
+    pub slip_position_s: Option<f64>,
     pub vinyl: VinylDto,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LoopDto {
+    pub start_s: Option<f64>,
+    pub end_s: Option<f64>,
+    pub active: bool,
+}
+
+impl LoopDto {
+    fn new(region: Option<LoopRegion>, active: bool) -> Self {
+        Self { start_s: region.map(|r| r.start_s), end_s: region.map(|r| r.end_s), active }
+    }
 }
 
 impl From<&DeckStatus> for DeckStatusDto {
@@ -208,6 +255,9 @@ impl From<&DeckStatus> for DeckStatusDto {
             bpm: d.bpm,
             beat_phase: d.beat_phase,
             sync: SyncDto { locked: d.sync.locked, leader: d.sync.leader, rate_offset: d.sync.rate_offset },
+            looping: LoopDto::new(d.looping.region, d.looping.active),
+            slip_mode: d.slip_mode,
+            slip_position_s: d.slip_position_s,
             vinyl: VinylDto {
                 enabled: d.vinyl.enabled,
                 mode: d.vinyl.mode.into(),

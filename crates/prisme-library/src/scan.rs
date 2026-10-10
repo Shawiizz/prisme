@@ -20,7 +20,9 @@ pub fn scan_folder(root: &Path, cancel: &AtomicBool) -> Vec<ScannedFile> {
         if cancel.load(Ordering::Relaxed) {
             break;
         }
-        let Ok(entries) = std::fs::read_dir(&dir) else { continue };
+        let Ok(entries) = std::fs::read_dir(&dir) else {
+            continue;
+        };
         for entry in entries.flatten() {
             if entry.file_name().to_string_lossy().starts_with('.') {
                 continue;
@@ -49,7 +51,9 @@ mod tests {
         let root = std::env::temp_dir().join(format!("prisme-scan-test-{}", std::process::id()));
         std::fs::create_dir_all(root.join("House/Deep")).unwrap();
         std::fs::create_dir_all(root.join(".hidden")).unwrap();
-        for f in ["a.mp3", "House/b.FLAC", "House/Deep/c.wav", "House/cover.jpg", ".hidden/d.mp3", "notes.txt"] {
+        for f in
+            ["a.mp3", "House/b.FLAC", "House/Deep/c.wav", "House/cover.jpg", ".hidden/d.mp3", "notes.txt"]
+        {
             std::fs::write(root.join(f), b"x").unwrap();
         }
         let found: Vec<String> = scan_folder(&root, &AtomicBool::new(false))

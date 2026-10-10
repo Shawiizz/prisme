@@ -18,6 +18,12 @@ export interface SyncStatus {
   rateOffset: number;
 }
 
+export interface LoopStatus {
+  startS: number | null;
+  endS: number | null;
+  active: boolean;
+}
+
 export interface DeckStatus {
   loaded: boolean;
   playing: boolean;
@@ -29,8 +35,25 @@ export interface DeckStatus {
   /** Position within the current beat, 0..1. */
   beatPhase: number | null;
   sync: SyncStatus;
+  looping: LoopStatus;
+  slipMode: boolean;
+  /** Where the track would be without the loop, roll or censor in progress. */
+  slipPositionS: number | null;
   vinyl: VinylStatus;
 }
+
+export interface Cue {
+  /** Hot cue slot, `null` for the main cue. */
+  hot: number | null;
+  positionS: number;
+  /** A saved loop starting at `positionS`. */
+  loopLengthS: number | null;
+  /** 0xRRGGBB */
+  color: number;
+  label: string;
+}
+
+export const HOT_CUES = 8;
 
 /** What SYNC does on a record in relative mode. */
 export type VinylSyncMode = 'once' | 'locked';
@@ -72,6 +95,7 @@ export interface TrackInfo {
   waveform: Waveform;
   tempo: Tempo | null;
   key: MusicalKey | null;
+  cues: Cue[];
 }
 
 /** Deck settings owned by the UI and pushed to the engine. */
@@ -81,12 +105,11 @@ export interface DeckSettings {
   vinylEnabled: boolean;
   vinylMode: VinylMode;
   leadInS: number;
-  cueS: number;
 }
 
-/** Settings as the backend applies them (`cueS` is UI-only). */
+/** Settings as the backend applies them. */
 export interface MixerState {
-  decks: Omit<DeckSettings, 'cueS'>[];
+  decks: DeckSettings[];
   crossfader: number;
 }
 

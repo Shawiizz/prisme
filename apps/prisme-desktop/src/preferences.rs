@@ -67,7 +67,8 @@ mod tests {
     #[test]
     fn preferences_survive_a_round_trip() {
         let mut p = Preferences::default();
-        p.decks[1] = DeckPreferences { vinyl_enabled: true, vinyl_mode: VinylModeDto::Relative, lead_in_s: 2.5 };
+        p.decks[1] =
+            DeckPreferences { vinyl_enabled: true, vinyl_mode: VinylModeDto::Relative, lead_in_s: 2.5 };
         p.library.last_folder = Some("C:/Music/House".into());
         let json = serde_json::to_string(&p).unwrap();
         assert_eq!(serde_json::from_str::<Preferences>(&json).unwrap(), p);

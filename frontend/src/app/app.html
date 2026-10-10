@@ -11,9 +11,11 @@
   </section>
 
   <section class="controls">
-    <app-deck-controls [deck]="0" />
-    <app-mixer />
-    <app-deck-controls [deck]="1" />
+    <app-deck-controls class="left" [deck]="0" />
+    <app-mixer class="mixer" />
+    <app-deck-controls class="right" [deck]="1" />
+    <app-deck-pads class="left" [deck]="0" />
+    <app-deck-pads class="right" [deck]="1" />
   </section>
 
   <section class="library">

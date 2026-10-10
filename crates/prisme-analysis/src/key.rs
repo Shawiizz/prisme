@@ -198,7 +198,8 @@ impl SpectralPeaks {
                     // parabolic interpolation of the log magnitude
                     let (a, b, c) = (m[k - 1].max(1e-9).ln(), m[k].ln(), m[k + 1].max(1e-9).ln());
                     let denom = a - 2.0 * b + c;
-                    let delta = if denom.abs() > 1e-9 { (0.5 * (a - c) / denom).clamp(-0.5, 0.5) } else { 0.0 };
+                    let delta =
+                        if denom.abs() > 1e-9 { (0.5 * (a - c) / denom).clamp(-0.5, 0.5) } else { 0.0 };
                     let hz = (k as f64 + delta as f64) * bin_hz;
                     peaks.push(Peak { hz, pitch: 69.0 + 12.0 * (hz / 440.0).log2(), magnitude: m[k] as f64 });
                 }
@@ -208,13 +209,26 @@ impl SpectralPeaks {
     }
 
     pub fn estimate(&self, config: &KeyConfig) -> Option<KeyEstimate> {
-        let weight = |p: &Peak| if config.log_magnitude { (1.0 + 100.0 * p.magnitude).ln() } else { p.magnitude };
+        let weight = |p: &Peak| {
+            if config.log_magnitude {
+                (1.0 + 100.0 * p.magnitude).ln()
+            } else {
+                p.magnitude
+            }
+        };
         let tuning = if config.estimate_tuning {
-            tuning_semitones(self.peaks.iter().filter(|p| p.hz >= config.tuning_min_hz && p.hz <= config.max_hz), weight)
+            tuning_semitones(
+                self.peaks.iter().filter(|p| p.hz >= config.tuning_min_hz && p.hz <= config.max_hz),
+                weight,
+            )
         } else {
             0.0
         };
-        let chroma = chroma(self.peaks.iter().filter(|p| p.hz >= config.min_hz && p.hz <= config.max_hz), tuning, weight);
+        let chroma = chroma(
+            self.peaks.iter().filter(|p| p.hz >= config.min_hz && p.hz <= config.max_hz),
+            tuning,
+            weight,
+        );
         if chroma.iter().all(|&c| c <= 0.0) {
             return None;
         }
@@ -222,8 +236,9 @@ impl SpectralPeaks {
         let (major, minor) = config.profiles.values();
         let mut scores: Vec<(Key, f64)> = (0..12u8)
             .flat_map(|tonic| {
-                [(Mode::Major, major), (Mode::Minor, minor)]
-                    .map(|(mode, profile)| (Key::new(tonic, mode), correlation(&chroma, profile, tonic as usize)))
+                [(Mode::Major, major), (Mode::Minor, minor)].map(|(mode, profile)| {
+                    (Key::new(tonic, mode), correlation(&chroma, profile, tonic as usize))
+                })
             })
             .collect();
         scores.sort_by(|a, b| b.1.total_cmp(&a.1));
@@ -245,7 +260,11 @@ fn tuning_semitones<'a>(peaks: impl Iterator<Item = &'a Peak>, weight: impl Fn(&
     s.atan2(c) / TAU
 }
 
-fn chroma<'a>(peaks: impl Iterator<Item = &'a Peak>, tuning: f64, weight: impl Fn(&Peak) -> f64) -> [f64; 12] {
+fn chroma<'a>(
+    peaks: impl Iterator<Item = &'a Peak>,
+    tuning: f64,
+    weight: impl Fn(&Peak) -> f64,
+) -> [f64; 12] {
     let mut chroma = [0.0; 12];
     for p in peaks {
         let pitch = p.pitch - tuning;
@@ -303,8 +322,10 @@ mod tests {
 
     #[test]
     fn every_key_has_its_own_camelot_code() {
-        let mut codes: Vec<String> =
-            (0..12).flat_map(|t| [Key::new(t, Mode::Major), Key::new(t, Mode::Minor)]).map(|k| k.camelot()).collect();
+        let mut codes: Vec<String> = (0..12)
+            .flat_map(|t| [Key::new(t, Mode::Major), Key::new(t, Mode::Minor)])
+            .map(|k| k.camelot())
+            .collect();
         codes.sort();
         codes.dedup();
         assert_eq!(codes.len(), 24);

@@ -15,7 +15,7 @@ use tauri::{AppHandle, Emitter};
 pub const TRACK_ANALYZED_EVENT: &str = "track-analyzed";
 pub const PROGRESS_EVENT: &str = "library-progress";
 
-pub struct AnalysisService {
+pub struct LibraryService {
     pub db: Arc<LibraryDb>,
     app: AppHandle,
     root: PathBuf,
@@ -23,7 +23,7 @@ pub struct AnalysisService {
     progress: Arc<Mutex<AnalysisProgress>>,
 }
 
-impl AnalysisService {
+impl LibraryService {
     /// Opens the database in the app data folder. If it cannot be opened the app still
     /// works, with a database in memory (analyses are then redone at each start).
     pub fn open(app: &AppHandle, data_dir: Option<&Path>, root: PathBuf) -> Self {

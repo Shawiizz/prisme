@@ -1,0 +1,57 @@
+//! Cue points of a track: the main cue and the hot cues, each a point or a loop.
+
+pub const HOT_CUES: u8 = 8;
+
+/// One colour per hot cue slot (0xRRGGBB), the usual DJ palette order.
+pub const DEFAULT_COLORS: [u32; HOT_CUES as usize] =
+    [0xFF3B4E, 0xFF8C2E, 0xFFD23A, 0x3EE07A, 0x2FD6FF, 0x4F7BFF, 0xA45CFF, 0xFF4FD8];
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum CueSlot {
+    Main,
+    Hot(u8),
+}
+
+impl CueSlot {
+    pub(crate) fn to_db(self) -> i64 {
+        match self {
+            CueSlot::Main => -1,
+            CueSlot::Hot(n) => n as i64,
+        }
+    }
+
+    pub(crate) fn from_db(value: i64) -> Option<Self> {
+        match value {
+            -1 => Some(CueSlot::Main),
+            n if (0..HOT_CUES as i64).contains(&n) => Some(CueSlot::Hot(n as u8)),
+            _ => None,
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct Cue {
+    pub slot: CueSlot,
+    pub position_s: f64,
+    /// A saved loop starting at `position_s`.
+    pub loop_length_s: Option<f64>,
+    pub color: u32,
+    pub label: String,
+}
+
+impl Cue {
+    pub fn point(slot: CueSlot, position_s: f64) -> Self {
+        Self { slot, position_s, loop_length_s: None, color: default_color(slot), label: String::new() }
+    }
+
+    pub fn looped(slot: CueSlot, start_s: f64, length_s: f64) -> Self {
+        Self { loop_length_s: Some(length_s), ..Self::point(slot, start_s) }
+    }
+}
+
+fn default_color(slot: CueSlot) -> u32 {
+    match slot {
+        CueSlot::Main => 0xFFB02E,
+        CueSlot::Hot(n) => DEFAULT_COLORS[n as usize % DEFAULT_COLORS.len()],
+    }
+}

@@ -34,7 +34,8 @@ pub struct Rig {
 impl Rig {
     pub fn new() -> Self {
         // a snapshot after every block, so that positions read by the tests are exact
-        let config = EngineConfig { status_rate_hz: f64::INFINITY, ..EngineConfig::new(SR, DECKS, &SERATO_CV02_A) };
+        let config =
+            EngineConfig { status_rate_hz: f64::INFINITY, ..EngineConfig::new(SR, DECKS, &SERATO_CV02_A) };
         let (engine, controller) = create(config);
         Self {
             engine,
@@ -71,7 +72,8 @@ impl Rig {
                 self.deck_signal.clear();
                 let speed = t.speed;
                 t.generator.render(BLOCK, |_| speed, &mut self.deck_signal);
-                for (frame, lr) in self.input.chunks_exact_mut(channels).zip(self.deck_signal.chunks_exact(2)) {
+                for (frame, lr) in self.input.chunks_exact_mut(channels).zip(self.deck_signal.chunks_exact(2))
+                {
                     frame[deck * 2] = lr[0];
                     frame[deck * 2 + 1] = lr[1];
                 }

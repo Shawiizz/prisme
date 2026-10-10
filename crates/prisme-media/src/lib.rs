@@ -107,7 +107,8 @@ pub struct DecodeStream {
 
 impl DecodeStream {
     pub fn open(path: &Path) -> Result<Self, MediaError> {
-        let file = File::open(path).map_err(|source| MediaError::Open { path: path.display().to_string(), source })?;
+        let file = File::open(path)
+            .map_err(|source| MediaError::Open { path: path.display().to_string(), source })?;
         let stream = MediaSourceStream::new(Box::new(file), Default::default());
         let mut hint = Hint::new();
         if let Some(ext) = path.extension().and_then(|e| e.to_str()) {
@@ -121,7 +122,8 @@ impl DecodeStream {
         )?;
         let format = probed.format;
         let track = format.default_track().ok_or(MediaError::NoAudio)?;
-        let decoder = symphonia::default::get_codecs().make(&track.codec_params, &DecoderOptions::default())?;
+        let decoder =
+            symphonia::default::get_codecs().make(&track.codec_params, &DecoderOptions::default())?;
         Ok(Self {
             track_id: track.id,
             sample_rate: track.codec_params.sample_rate.ok_or(MediaError::NoSampleRate)?,
@@ -147,7 +149,9 @@ impl DecodeStream {
             let packet = match self.format.next_packet() {
                 Ok(packet) => packet,
                 // end of stream
-                Err(SymphoniaError::IoError(e)) if e.kind() == std::io::ErrorKind::UnexpectedEof => return Ok(false),
+                Err(SymphoniaError::IoError(e)) if e.kind() == std::io::ErrorKind::UnexpectedEof => {
+                    return Ok(false)
+                }
                 Err(SymphoniaError::ResetRequired) => return Ok(false),
                 Err(e) => return Err(e.into()),
             };
@@ -162,7 +166,8 @@ impl DecodeStream {
             };
             let spec = *decoded.spec();
             let channels = spec.channels.count();
-            let buffer = self.buffer.get_or_insert_with(|| SampleBuffer::<f32>::new(decoded.capacity() as u64, spec));
+            let buffer =
+                self.buffer.get_or_insert_with(|| SampleBuffer::<f32>::new(decoded.capacity() as u64, spec));
             if buffer.capacity() < decoded.capacity() * channels {
                 *buffer = SampleBuffer::<f32>::new(decoded.capacity() as u64, spec);
             }

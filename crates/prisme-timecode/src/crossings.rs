@@ -70,7 +70,8 @@ impl QuadrantGuard {
             Some(last) => {
                 let step = quadrant - self.last_quadrant;
                 let well_formed = last != channel && step.abs() == 1;
-                let forward_compatible = speed.abs() < REVERSAL_SPEED || (step as f64).signum() == speed.signum();
+                let forward_compatible =
+                    speed.abs() < REVERSAL_SPEED || (step as f64).signum() == speed.signum();
                 if !well_formed {
                     Verdict::Reject
                 } else if forward_compatible {

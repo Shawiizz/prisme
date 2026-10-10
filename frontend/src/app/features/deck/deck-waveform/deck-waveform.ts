@@ -1,6 +1,6 @@
 import { Component, DestroyRef, ElementRef, afterNextRender, computed, inject, input, viewChild } from '@angular/core';
 import { EngineService } from '../../../core/services/engine.service';
-import { WaveformPainter } from './waveform-painter';
+import { WaveformOverlay, WaveformPainter } from './waveform-painter';
 
 /** Seconds shown in the scrolling view. */
 const ZOOM_SPAN_S = 10;
@@ -50,15 +50,20 @@ export class DeckWaveform {
     const overview = this.fit(this.overviewCanvas().nativeElement);
     if (!zoom || !overview) return;
     if (!track) {
-      zoom.ctx.clearRect(0, 0, zoom.w, zoom.h);
-      overview.ctx.clearRect(0, 0, overview.w, overview.h);
+      zoom.ctx.clearRect(0, 0, zoom.size.width, zoom.size.height);
+      overview.ctx.clearRect(0, 0, overview.size.width, overview.size.height);
       return;
     }
     const position = this.engine.livePosition(this.deck()) ?? 0;
+    const overlay: WaveformOverlay = {
+      tempo: track.tempo,
+      cues: track.cues,
+      loop: this.engine.status()?.decks[this.deck()]?.looping ?? null,
+    };
     // ZOOM_SPAN_S of real time: beatmatched decks show their beats at the same spacing
     const span = ZOOM_SPAN_S * (this.engine.tempoRate(this.deck()) ?? 1);
-    this.painter.drawZoomed(zoom.ctx, track.waveform, track.tempo, position, span, zoom.w, zoom.h);
-    this.painter.drawOverview(overview.ctx, track.waveform, position, track.durationS, overview.w, overview.h);
+    this.painter.drawZoomed(zoom.ctx, track.waveform, overlay, position, span, zoom.size);
+    this.painter.drawOverview(overview.ctx, track.waveform, overlay, position, track.durationS, overview.size);
   }
 
   /** Keeps the canvas backing store at the element size (device pixels). */
@@ -71,6 +76,6 @@ export class DeckWaveform {
       canvas.height = h;
     }
     const ctx = canvas.getContext('2d');
-    return ctx ? { ctx, w, h } : null;
+    return ctx ? { ctx, size: { width: w, height: h } } : null;
   }
 }

@@ -6,6 +6,12 @@ pub enum AppError {
     AudioNotRunning,
     #[error("invalid deck {0}")]
     InvalidDeck(usize),
+    #[error("no track on deck {}", .0 + 1)]
+    NoTrack(usize),
+    #[error("invalid hot cue {0}")]
+    InvalidCue(u8),
+    #[error(transparent)]
+    Library(#[from] prisme_library::DbError),
     #[error("unknown timecode format {0}")]
     UnknownFormat(String),
     #[error("the engine is busy, try again")]

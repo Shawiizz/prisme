@@ -1,6 +1,6 @@
-use crate::analysis_service::AnalysisService;
 use crate::dto::TrackInfoDto;
 use crate::error::{AppError, AppResult};
+use crate::library_service::LibraryService;
 use crate::state::{lock, AppState, LoadedTrack};
 use prisme_analysis::AnalysisOptions;
 use prisme_library::{FileStamp, TrackRecord};
@@ -15,7 +15,7 @@ pub const WAVEFORM_SLICES_PER_S: u32 = 150;
 #[tauri::command]
 pub async fn load_track(
     state: State<'_, AppState>,
-    library: State<'_, Arc<AnalysisService>>,
+    library: State<'_, Arc<LibraryService>>,
     deck: usize,
     path: String,
 ) -> AppResult<TrackInfoDto> {
@@ -38,7 +38,7 @@ pub async fn load_track(
 /// Decoding, then the waveform and the tempo / key analysis side by side. The
 /// analysis comes from the library when it is up to date there; otherwise it is
 /// computed and stored.
-pub fn prepare_track(path: PathBuf, library: &AnalysisService) -> AppResult<LoadedTrack> {
+pub fn prepare_track(path: PathBuf, library: &LibraryService) -> AppResult<LoadedTrack> {
     let audio = prisme_media::decode_file(&path)?;
     let stamp = FileStamp::of(&path).ok();
     let stored = stamp
@@ -59,7 +59,11 @@ pub fn prepare_track(path: PathBuf, library: &AnalysisService) -> AppResult<Load
         });
         (waveform.join().expect("waveform thread"), analysis)
     });
-    Ok(LoadedTrack { path, audio: Arc::new(audio), waveform, analysis })
+    let cues = library.db.cues(&path).unwrap_or_else(|e| {
+        eprintln!("cues of {} not read: {e}", path.display());
+        Vec::new()
+    });
+    Ok(LoadedTrack { path, audio: Arc::new(audio), waveform, analysis, cues })
 }
 
 /// Tracks currently loaded on the decks (to rebuild the UI after a reload).

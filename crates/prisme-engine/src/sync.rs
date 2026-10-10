@@ -100,7 +100,8 @@ impl DeckSync {
                 // a platter that starts turning: no history to average with
                 self.platter_recent = p;
             }
-            let steady = p > PLATTER_MIN_SPEED && (p - self.platter_recent).abs() < PLATTER_STEADY_TOLERANCE * p;
+            let steady =
+                p > PLATTER_MIN_SPEED && (p - self.platter_recent).abs() < PLATTER_STEADY_TOLERANCE * p;
             self.platter_steady_s = if steady { self.platter_steady_s + seconds } else { 0.0 };
             self.platter_recent += (p - self.platter_recent) * smoothing(seconds, SPEED_SMOOTHING_S);
             if self.platter_steady_s >= PLATTER_STEADY_MIN_S {

@@ -6,8 +6,8 @@
 //! * `PRISME_MASTER_GAIN`: initial master gain (e.g. 0.2 to test quietly).
 
 use crate::audio_host::DECKS;
-use crate::analysis_service::AnalysisService;
 use crate::commands::tracks::prepare_track;
+use crate::library_service::LibraryService;
 use crate::state::{lock, AppState};
 use std::path::PathBuf;
 
@@ -18,9 +18,11 @@ pub fn simulate_requested() -> bool {
 
 /// Loads the tracks requested by the environment (before the audio starts, so that
 /// `AppState::restore` hands them to the engine).
-pub fn preload_tracks(state: &AppState, library: &AnalysisService) {
+pub fn preload_tracks(state: &AppState, library: &LibraryService) {
     for deck in 0..DECKS {
-        let Ok(path) = std::env::var(format!("PRISME_DECK{}", deck + 1)) else { continue };
+        let Ok(path) = std::env::var(format!("PRISME_DECK{}", deck + 1)) else {
+            continue;
+        };
         match prepare_track(PathBuf::from(path), library) {
             Ok(track) => lock(&state.tracks)[deck] = Some(track),
             Err(e) => eprintln!("PRISME_DECK{}: {e}", deck + 1),

@@ -54,11 +54,22 @@ fn main() {
         ("min 100, log", KeyConfig { min_hz: 100.0, tuning_min_hz: 100.0, log_magnitude: true, ..base }),
         ("min 100, no tuning", KeyConfig { min_hz: 100.0, estimate_tuning: false, ..base }),
         ("log, tuning >= 100", KeyConfig { log_magnitude: true, tuning_min_hz: 100.0, ..base }),
-        ("log, min 60, tuning >= 100", KeyConfig { log_magnitude: true, min_hz: 60.0, tuning_min_hz: 100.0, ..base }),
-        ("krumhansl, tuning >= 100", KeyConfig { profiles: Profiles::KrumhanslKessler, tuning_min_hz: 100.0, ..base }),
+        (
+            "log, min 60, tuning >= 100",
+            KeyConfig { log_magnitude: true, min_hz: 60.0, tuning_min_hz: 100.0, ..base },
+        ),
+        (
+            "krumhansl, tuning >= 100",
+            KeyConfig { profiles: Profiles::KrumhanslKessler, tuning_min_hz: 100.0, ..base },
+        ),
         (
             "krumhansl, log, tuning >= 100",
-            KeyConfig { profiles: Profiles::KrumhanslKessler, log_magnitude: true, tuning_min_hz: 100.0, ..base },
+            KeyConfig {
+                profiles: Profiles::KrumhanslKessler,
+                log_magnitude: true,
+                tuning_min_hz: 100.0,
+                ..base
+            },
         ),
         ("max 1000 Hz, tuning >= 100", KeyConfig { max_hz: 1_000.0, tuning_min_hz: 100.0, ..base }),
         ("max 4000 Hz, tuning >= 100", KeyConfig { max_hz: 4_000.0, tuning_min_hz: 100.0, ..base }),
@@ -69,11 +80,18 @@ fn main() {
         let mut misses = Vec::new();
         for (file, keys, peaks) in &tracks {
             let found = peaks.estimate(config);
-            let label = found.map_or("--".to_string(), |k| format!("{} ({:+.0}c)", k.key.name(), k.tuning_cents));
+            let label =
+                found.map_or("--".to_string(), |k| format!("{} ({:+.0}c)", k.key.name(), k.tuning_cents));
             if found.is_some_and(|k| keys.iter().any(|r| r == k.key.name())) {
                 exact += 1;
             } else {
-                let short = std::path::Path::new(file).file_stem().unwrap().to_string_lossy().chars().take(28).collect::<String>();
+                let short = std::path::Path::new(file)
+                    .file_stem()
+                    .unwrap()
+                    .to_string_lossy()
+                    .chars()
+                    .take(28)
+                    .collect::<String>();
                 misses.push(format!("{short}: {label} vs {}", keys.join("/")));
             }
         }

@@ -58,7 +58,8 @@ impl LevelMonitor {
     pub(crate) fn update(&mut self, level: f64, amp_s: f64, speed: f64, steady: bool, t: f64) -> bool {
         self.recent_peak = (self.recent_peak * self.peak_decay).max(level);
         if self.bounce_ref == 0.0 {
-            let abrupt = level < COLLAPSE_RATIO * self.recent_peak && self.recent_peak > 0.6 * self.slow_level;
+            let abrupt =
+                level < COLLAPSE_RATIO * self.recent_peak && self.recent_peak > 0.6 * self.slow_level;
             if abrupt && speed.abs() > 0.3 {
                 self.bounce_ref = self.slow_level;
                 self.bounce_start = t;

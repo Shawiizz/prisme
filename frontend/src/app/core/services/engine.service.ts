@@ -1,13 +1,6 @@
 import { Injectable, computed, inject, signal } from '@angular/core';
 import { Channel, invoke } from '@tauri-apps/api/core';
-import {
-  DECK_COUNT,
-  DeckSettings,
-  EngineStatus,
-  MixerState,
-  TrackInfo,
-  VinylMode,
-} from '../models/engine';
+import { Cue, DECK_COUNT, DeckSettings, EngineStatus, MixerState, TrackInfo, VinylMode } from '../models/engine';
 import { PreferencesService } from './preferences.service';
 
 const DEFAULT_DECK: DeckSettings = {
@@ -16,7 +9,6 @@ const DEFAULT_DECK: DeckSettings = {
   vinylEnabled: false,
   vinylMode: 'absolute',
   leadInS: 0,
-  cueS: 0,
 };
 
 /**
@@ -80,7 +72,6 @@ export class EngineService {
     try {
       const info = await invoke<TrackInfo>('load_track', { deck, path });
       this.patch(this.tracks, deck, info);
-      this.updateDeck(deck, { cueS: 0 });
       this.error.set(null);
     } catch (e) {
       this.error.set(String(e));
@@ -136,15 +127,31 @@ export class EngineService {
   }
 
   /** CDJ-style cue: while playing, jump back to the cue point and stop; when stopped, set it. */
-  cue(deck: number) {
+  async cue(deck: number) {
     const d = this.status()?.decks[deck];
     if (!d?.loaded) return;
     if (d.playing) {
       this.setPlaying(deck, false);
-      this.seek(deck, this.decks()[deck].cueS);
-    } else {
-      this.updateDeck(deck, { cueS: d.positionS });
+      this.seek(deck, this.mainCue(deck)?.positionS ?? 0);
+      return;
     }
+    try {
+      const positionS = await invoke<number>('set_main_cue', { deck, seconds: d.positionS });
+      const main: Cue = { hot: null, positionS, loopLengthS: null, color: 0xffb02e, label: '' };
+      this.setCues(deck, [...(this.tracks()[deck]?.cues ?? []).filter((c) => c.hot !== null), main]);
+    } catch (e) {
+      this.error.set(String(e));
+    }
+  }
+
+  mainCue(deck: number): Cue | null {
+    return this.tracks()[deck]?.cues.find((c) => c.hot === null) ?? null;
+  }
+
+  /** Replaces the cues of the track on `deck` (after the backend changed them). */
+  setCues(deck: number, cues: Cue[]) {
+    const track = this.tracks()[deck];
+    if (track) this.patch(this.tracks, deck, { ...track, cues });
   }
 
   private updateDeck(deck: number, changes: Partial<DeckSettings>): DeckSettings {
@@ -159,7 +166,8 @@ export class EngineService {
     s.set(copy);
   }
 
-  private async call(command: string, args: Record<string, unknown>): Promise<void> {
+  /** Runs a backend command; a failure is shown rather than thrown. */
+  async call(command: string, args: Record<string, unknown>): Promise<void> {
     try {
       await invoke(command, args);
     } catch (e) {

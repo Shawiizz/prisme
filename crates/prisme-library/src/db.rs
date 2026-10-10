@@ -4,6 +4,7 @@
 //! size and modification time, [`FileStamp`]) and one version of the analysis
 //! algorithms ([`ANALYSIS_VERSION`]); otherwise the file is analysed again.
 
+use crate::cues::{Cue, CueSlot};
 use prisme_analysis::{Key, KeyEstimate, Mode, Tempo, TrackAnalysis, ANALYSIS_VERSION};
 use rusqlite::{params, Connection, OptionalExtension, Row};
 use std::collections::HashMap;
@@ -21,7 +22,8 @@ pub enum DbError {
 
 /// Schema changes, applied in order; the database records how many it has seen
 /// (`PRAGMA user_version`).
-const MIGRATIONS: &[&str] = &["CREATE TABLE tracks (
+const MIGRATIONS: &[&str] = &[
+    "CREATE TABLE tracks (
         path TEXT PRIMARY KEY NOT NULL,
         size INTEGER NOT NULL,
         modified_ms INTEGER NOT NULL,
@@ -36,7 +38,18 @@ const MIGRATIONS: &[&str] = &["CREATE TABLE tracks (
         tuning_cents REAL,
         error TEXT,
         analyzed_at_ms INTEGER NOT NULL
-    ) WITHOUT ROWID;"];
+    ) WITHOUT ROWID;",
+    // cues outlive analysis results: they are not in the tracks table
+    "CREATE TABLE cues (
+        path TEXT NOT NULL,
+        slot INTEGER NOT NULL,
+        position_s REAL NOT NULL,
+        loop_length_s REAL,
+        color INTEGER NOT NULL,
+        label TEXT NOT NULL,
+        PRIMARY KEY (path, slot)
+    ) WITHOUT ROWID;",
+];
 
 /// The key a path is stored under.
 pub fn path_key(path: &Path) -> String {
@@ -176,7 +189,8 @@ impl LibraryDb {
     pub fn save(&self, record: &TrackRecord) -> Result<(), DbError> {
         let tempo = record.analysis.tempo;
         let key = record.analysis.key;
-        let now_ms = std::time::SystemTime::now().duration_since(UNIX_EPOCH).map_or(0, |d| d.as_millis() as i64);
+        let now_ms =
+            std::time::SystemTime::now().duration_since(UNIX_EPOCH).map_or(0, |d| d.as_millis() as i64);
         self.conn().prepare_cached(
             "INSERT OR REPLACE INTO tracks (path, size, modified_ms, analysis_version, duration_s, bpm, first_beat_s,
                  tempo_confidence, key_tonic, key_minor, key_confidence, tuning_cents, error, analyzed_at_ms)
@@ -201,9 +215,56 @@ impl LibraryDb {
         Ok(())
     }
 
+    pub fn cues(&self, path: &Path) -> Result<Vec<Cue>, DbError> {
+        let conn = self.conn();
+        let mut stmt = conn.prepare_cached(
+            "SELECT slot, position_s, loop_length_s, color, label FROM cues WHERE path = ?1 ORDER BY slot",
+        )?;
+        let rows = stmt.query_map([path_key(path)], cue_from_row)?;
+        Ok(rows.filter_map(Result::transpose).collect::<Result<_, _>>()?)
+    }
+
+    pub fn save_cue(&self, path: &Path, cue: &Cue) -> Result<(), DbError> {
+        self.conn()
+            .prepare_cached(
+                "INSERT OR REPLACE INTO cues (path, slot, position_s, loop_length_s, color, label)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+            )?
+            .execute(params![
+                path_key(path),
+                cue.slot.to_db(),
+                cue.position_s,
+                cue.loop_length_s,
+                cue.color,
+                cue.label
+            ])?;
+        Ok(())
+    }
+
+    pub fn delete_cue(&self, path: &Path, slot: CueSlot) -> Result<(), DbError> {
+        self.conn()
+            .prepare_cached("DELETE FROM cues WHERE path = ?1 AND slot = ?2")?
+            .execute(params![path_key(path), slot.to_db()])?;
+        Ok(())
+    }
+
     pub fn track_count(&self) -> Result<usize, DbError> {
         Ok(self.conn().query_row("SELECT COUNT(*) FROM tracks", [], |r| r.get::<_, i64>(0))? as usize)
     }
+}
+
+/// `None` for a slot this version does not know.
+fn cue_from_row(r: &Row<'_>) -> rusqlite::Result<Option<Cue>> {
+    let Some(slot) = CueSlot::from_db(r.get(0)?) else {
+        return Ok(None);
+    };
+    Ok(Some(Cue {
+        slot,
+        position_s: r.get(1)?,
+        loop_length_s: r.get(2)?,
+        color: r.get(3)?,
+        label: r.get(4)?,
+    }))
 }
 
 fn record_from_row(r: &Row<'_>) -> rusqlite::Result<TrackRecord> {
@@ -257,7 +318,11 @@ mod tests {
         assert_eq!(db.get(Path::new("C:/Music/a.mp3")).unwrap(), Some(record));
         assert_eq!(db.get(Path::new("C:/Music/missing.mp3")).unwrap(), None);
 
-        let failed = TrackRecord::failed(Path::new("C:/Music/b.mp3"), FileStamp { size: 1, modified_ms: 2 }, "corrupt".into());
+        let failed = TrackRecord::failed(
+            Path::new("C:/Music/b.mp3"),
+            FileStamp { size: 1, modified_ms: 2 },
+            "corrupt".into(),
+        );
         db.save(&failed).unwrap();
         assert_eq!(db.get(Path::new("C:/Music/b.mp3")).unwrap(), Some(failed));
         assert_eq!(db.track_count().unwrap(), 2);
@@ -280,7 +345,25 @@ mod tests {
         let r = sample("x.mp3");
         assert!(r.is_current(FileStamp { size: 1234, modified_ms: 99 }));
         assert!(!r.is_current(FileStamp { size: 1234, modified_ms: 100 }));
-        assert!(!TrackRecord { analysis_version: ANALYSIS_VERSION + 1, ..r }.is_current(FileStamp { size: 1234, modified_ms: 99 }));
+        assert!(!TrackRecord { analysis_version: ANALYSIS_VERSION + 1, ..r }
+            .is_current(FileStamp { size: 1234, modified_ms: 99 }));
+    }
+
+    #[test]
+    fn cues_are_stored_per_track_and_slot() {
+        let db = LibraryDb::open_in_memory().unwrap();
+        let track = Path::new("C:/Music/a.mp3");
+        let main = Cue::point(CueSlot::Main, 0.5);
+        let hot = Cue { label: "drop".into(), ..Cue::looped(CueSlot::Hot(2), 64.0, 2.0) };
+        db.save_cue(track, &hot).unwrap();
+        db.save_cue(track, &main).unwrap();
+        db.save_cue(Path::new("C:/Music/b.mp3"), &Cue::point(CueSlot::Hot(0), 1.0)).unwrap();
+        assert_eq!(db.cues(track).unwrap(), vec![main, hot]);
+
+        let moved = Cue::point(CueSlot::Hot(2), 70.0);
+        db.save_cue(track, &moved).unwrap();
+        db.delete_cue(track, CueSlot::Main).unwrap();
+        assert_eq!(db.cues(track).unwrap(), vec![moved]);
     }
 
     #[test]

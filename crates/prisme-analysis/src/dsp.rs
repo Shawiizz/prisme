@@ -181,7 +181,8 @@ impl Stft {
     pub fn for_each_frame(&mut self, signal: &[f32], mut f: impl FnMut(usize, &[f32])) {
         for frame in 0..self.frame_count(signal.len()) {
             let start = frame * self.hop;
-            for ((b, x), w) in self.buffer.iter_mut().zip(&signal[start..start + self.size]).zip(&self.window) {
+            for ((b, x), w) in self.buffer.iter_mut().zip(&signal[start..start + self.size]).zip(&self.window)
+            {
                 *b = Complex32::new(x * w, 0.0);
             }
             self.fft.process_with_scratch(&mut self.buffer, &mut self.scratch);

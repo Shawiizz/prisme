@@ -38,7 +38,8 @@ pub fn run(paths: &[PathBuf], options: AnalysisOptions, csv: Option<&Path>) -> R
     if let Some(csv) = csv {
         let mut rows = rows.into_inner().unwrap();
         rows.sort_by(|a, b| a.path.cmp(&b.path));
-        let mut out = String::from("path,bpm,first_beat_s,tempo_confidence,key,camelot,key_confidence,tuning_cents\n");
+        let mut out =
+            String::from("path,bpm,first_beat_s,tempo_confidence,key,camelot,key_confidence,tuning_cents\n");
         for r in &rows {
             if let Ok((a, _)) = &r.result {
                 let t = a.tempo;
@@ -82,13 +83,17 @@ fn analyze_file(path: &Path, options: &AnalysisOptions) -> Result<(TrackAnalysis
 }
 
 fn print_row(row: &Row) {
-    let name = row.path.file_name().map_or_else(|| row.path.display().to_string(), |n| n.to_string_lossy().into_owned());
+    let name = row
+        .path
+        .file_name()
+        .map_or_else(|| row.path.display().to_string(), |n| n.to_string_lossy().into_owned());
     match &row.result {
         Ok((a, ms)) => {
             let tempo = a.tempo.map_or("   --  ".into(), |t| format!("{:7.2}", t.bpm));
             let grid = a.tempo.map_or("  -- ".into(), |t| format!("{:5.3}", t.first_beat_s));
             let tconf = a.tempo.map_or(" -- ".into(), |t| format!("{:4.2}", t.confidence));
-            let key = a.key.map_or("  --      ".into(), |k| format!("{:>3} {:<4}", k.key.camelot(), k.key.name()));
+            let key =
+                a.key.map_or("  --      ".into(), |k| format!("{:>3} {:<4}", k.key.camelot(), k.key.name()));
             let kconf = a.key.map_or(" -- ".into(), |k| format!("{:4.2}", k.confidence));
             println!("{tempo} BPM ({tconf}) grid {grid}s  {key} ({kconf})  {ms:5} ms  {name}");
         }

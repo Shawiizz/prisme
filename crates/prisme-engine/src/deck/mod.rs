@@ -7,9 +7,9 @@ use crate::grid::BeatGrid;
 use crate::playhead::Playhead;
 use crate::status::{DeckStatus, LoopStatus, SyncStatus};
 use crate::sync::{self, DeckSync, LeaderBeat, SyncTarget};
-use transport::Transport;
 use crate::vinyl::{VinylControl, VinylDrive};
 use prisme_timecode::TimecodeDecoder;
+use transport::Transport;
 
 /// In absolute mode, a gap larger than this (s) is a needle drop: jump.
 const JUMP_THRESHOLD_S: f64 = 0.1;
@@ -50,7 +50,13 @@ impl Deck {
 
     /// Renders one block from the turntable signal `input`; `target` is given when the
     /// deck follows a leader.
-    pub(crate) fn process(&mut self, input: &[f32], out: &mut [f32], out_rate: f64, target: Option<SyncTarget>) {
+    pub(crate) fn process(
+        &mut self,
+        input: &[f32],
+        out: &mut [f32],
+        out_rate: f64,
+        target: Option<SyncTarget>,
+    ) {
         // decoded even with vinyl control off, for the signal indicator
         let drive = self.vinyl.process(input);
         let target = target.map(|t| self.engage(t));
@@ -80,7 +86,10 @@ impl Deck {
 
     pub(crate) fn leader_beat(&self) -> Option<LeaderBeat> {
         let grid = self.grid?;
-        Some(LeaderBeat { bpm: grid.bpm * self.tempo_rate(), beats: grid.beats_at(self.playhead.position_s()) })
+        Some(LeaderBeat {
+            bpm: grid.bpm * self.tempo_rate(),
+            beats: grid.beats_at(self.playhead.position_s()),
+        })
     }
 
     pub(crate) fn sync_target(&self, leader: LeaderBeat) -> Option<SyncTarget> {
@@ -182,7 +191,9 @@ impl Deck {
         match self.drive_mode() {
             DriveMode::Internal if self.sync.locked => self.sync.held_rate.unwrap_or(self.pitch),
             DriveMode::Internal => self.pitch,
-            DriveMode::Relative if self.sync.locked => self.sync.held_rate.unwrap_or(self.sync.platter_reference),
+            DriveMode::Relative if self.sync.locked => {
+                self.sync.held_rate.unwrap_or(self.sync.platter_reference)
+            }
             DriveMode::Relative => self.sync.platter_reference * self.sync.rate_offset,
             DriveMode::Absolute => self.sync.platter_reference,
         }

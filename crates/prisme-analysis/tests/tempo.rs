@@ -18,7 +18,15 @@ fn phase_error(tempo: &Tempo, first_beat: f64) -> f64 {
 
 #[test]
 fn finds_the_bpm_and_the_grid_of_dj_tempos() {
-    for &(bpm, first_beat) in &[(95.5, 0.31), (120.0, 0.05), (123.45, 0.737), (128.0, 0.2), (140.0, 1.003), (150.0, 0.4), (174.0, 0.12)] {
+    for &(bpm, first_beat) in &[
+        (95.5, 0.31),
+        (120.0, 0.05),
+        (123.45, 0.737),
+        (128.0, 0.2),
+        (140.0, 1.003),
+        (150.0, 0.4),
+        (174.0, 0.12),
+    ] {
         let mut s = Synth::new(60.0);
         s.drums(bpm, first_beat, 1.0, 0.3);
         let t = tempo_of(&s, 88.0);

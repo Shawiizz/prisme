@@ -9,8 +9,8 @@ use anyhow::{bail, Context, Result};
 use clap::{Parser, Subcommand, ValueEnum};
 use prisme_audio_io::{AudioCallback, DeviceKind, StreamSettings};
 use prisme_engine::{Command, Engine, EngineConfig, EngineController, VinylMode};
-use prisme_timecode::TimecodeFormat;
 use prisme_timecode::testing::SimulatedTurntable;
+use prisme_timecode::TimecodeFormat;
 use simulation::Pattern;
 use std::io::Write;
 use std::path::{Path, PathBuf};
@@ -134,12 +134,10 @@ impl AudioCallback for EngineCallback {
 fn main() -> Result<()> {
     match Cli::parse().command {
         Cmd::Devices => devices(),
-        Cmd::Play { file, pitch, seconds, audio } => {
-            run(&file, &audio, None, None, seconds, |c| {
-                c.send(Command::SetPitch { deck: 0, ratio: pitch }).ok();
-                c.send(Command::SetPlaying { deck: 0, playing: true }).ok();
-            })
-        }
+        Cmd::Play { file, pitch, seconds, audio } => run(&file, &audio, None, None, seconds, |c| {
+            c.send(Command::SetPitch { deck: 0, ratio: pitch }).ok();
+            c.send(Command::SetPlaying { deck: 0, playing: true }).ok();
+        }),
         Cmd::Simulate { file, pattern, mode, seconds, audio } => {
             let format = &prisme_timecode::SERATO_CV02_A;
             run(&file, &audio, None, Some((format, pattern)), seconds, |c| {
@@ -149,7 +147,8 @@ fn main() -> Result<()> {
             })
         }
         Cmd::Vinyl { file, input, mode, format, lead_in, seconds, audio } => {
-            let format = TimecodeFormat::by_id(&format).with_context(|| format!("unknown timecode format {format}"))?;
+            let format = TimecodeFormat::by_id(&format)
+                .with_context(|| format!("unknown timecode format {format}"))?;
             run(&file, &audio, Some((input, format)), None, seconds, |c| {
                 c.send(Command::SetVinylMode { deck: 0, mode: mode.into() }).ok();
                 c.send(Command::SetLeadIn { deck: 0, seconds: lead_in }).ok();
@@ -184,7 +183,13 @@ fn run(
 ) -> Result<()> {
     let started = Instant::now();
     let track = Arc::new(prisme_media::decode_file(file)?);
-    println!("{}: {:.1} s at {} Hz, decoded in {} ms", file.display(), track.duration_s(), track.sample_rate(), started.elapsed().as_millis());
+    println!(
+        "{}: {:.1} s at {} Hz, decoded in {} ms",
+        file.display(),
+        track.duration_s(),
+        track.sample_rate(),
+        started.elapsed().as_millis()
+    );
 
     let settings = StreamSettings {
         output_device: audio.output.clone(),
@@ -195,10 +200,20 @@ fn run(
     let probe = prisme_audio_io::list_devices()?;
     let rate = probe
         .iter()
-        .find(|d| d.kind == DeviceKind::Output && audio.output.as_deref().map_or(d.is_default, |n| d.name.to_lowercase().contains(&n.to_lowercase())))
+        .find(|d| {
+            d.kind == DeviceKind::Output
+                && audio
+                    .output
+                    .as_deref()
+                    .map_or(d.is_default, |n| d.name.to_lowercase().contains(&n.to_lowercase()))
+        })
         .map(|d| d.sample_rate)
         .context("output device not found")?;
-    let format = input.as_ref().map(|(_, f)| *f).or(simulate.map(|(f, _)| f)).unwrap_or(&prisme_timecode::SERATO_CV02_A);
+    let format = input
+        .as_ref()
+        .map(|(_, f)| *f)
+        .or(simulate.map(|(f, _)| f))
+        .unwrap_or(&prisme_timecode::SERATO_CV02_A);
     let config = EngineConfig::new(rate, 2, format);
     let (engine, mut controller) = prisme_engine::create(config);
     let turntable = simulate.map(|(f, pattern)| SimulatedTurntable::new(f, rate, pattern.into()));
@@ -207,7 +222,10 @@ fn run(
     if stream.sample_rate != rate {
         bail!("device rate changed ({} Hz instead of {} Hz)", stream.sample_rate, rate);
     }
-    println!("audio: {} Hz, {} output / {} input channels", stream.sample_rate, stream.output_channels, stream.input_channels);
+    println!(
+        "audio: {} Hz, {} output / {} input channels",
+        stream.sample_rate, stream.output_channels, stream.input_channels
+    );
 
     controller.send(Command::LoadTrack { deck: 0, track }).ok();
     controller.send(Command::SetMasterGain { gain: audio.gain }).ok();
@@ -219,7 +237,8 @@ fn run(
         controller.collect_garbage();
         let s = controller.status();
         let d = s.decks[0];
-        let record = d.vinyl.record_position_s.map(|p| format!("{p:7.2}s")).unwrap_or_else(|| "   --   ".into());
+        let record =
+            d.vinyl.record_position_s.map(|p| format!("{p:7.2}s")).unwrap_or_else(|| "   --   ".into());
         print!(
             "\rpos {:7.2}s / {:6.1}s  speed {:+6.3}  record {}  signal {:<6} peak {:4.2}   ",
             d.position_s,

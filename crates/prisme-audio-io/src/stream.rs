@@ -47,7 +47,10 @@ pub struct RunningStream {
 }
 
 /// Opens the devices and starts calling `callback`.
-pub fn start(settings: &StreamSettings, mut callback: impl AudioCallback) -> Result<RunningStream, AudioError> {
+pub fn start(
+    settings: &StreamSettings,
+    mut callback: impl AudioCallback,
+) -> Result<RunningStream, AudioError> {
     let out_device = find(DeviceKind::Output, settings.output_device.as_deref())?;
     let out_default = out_device.default_output_config()?;
     if out_default.sample_format() != cpal::SampleFormat::F32 {
@@ -69,7 +72,10 @@ pub fn start(settings: &StreamSettings, mut callback: impl AudioCallback) -> Res
             let in_device = find(DeviceKind::Input, Some(name))?;
             let in_default = in_device.default_input_config()?;
             if in_default.sample_rate().0 != sample_rate {
-                return Err(AudioError::SampleRateMismatch { input: in_default.sample_rate().0, output: sample_rate });
+                return Err(AudioError::SampleRateMismatch {
+                    input: in_default.sample_rate().0,
+                    output: sample_rate,
+                });
             }
             let channels = in_default.channels() as usize;
             let (mut tx, rx) = rtrb::RingBuffer::<f32>::new(sample_rate as usize * channels / 2);
@@ -85,7 +91,9 @@ pub fn start(settings: &StreamSettings, mut callback: impl AudioCallback) -> Res
                 }
             };
             let stream = match in_default.sample_format() {
-                cpal::SampleFormat::F32 => in_device.build_input_stream(&in_config, move |d: &[f32], _| push(d), log_error, None)?,
+                cpal::SampleFormat::F32 => {
+                    in_device.build_input_stream(&in_config, move |d: &[f32], _| push(d), log_error, None)?
+                }
                 cpal::SampleFormat::I16 => {
                     let mut scratch = vec![0.0f32; MAX_PERIOD * channels];
                     in_device.build_input_stream(

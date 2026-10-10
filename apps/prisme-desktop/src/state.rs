@@ -3,12 +3,13 @@
 //! restarts).
 
 use crate::audio_host::{AudioSession, DECKS};
-use crate::dto::{KeyDto, TempoDto, TrackInfoDto, VinylModeDto, WaveformDto};
+use crate::dto::{CueDto, KeyDto, TempoDto, TrackInfoDto, VinylModeDto, WaveformDto};
 use crate::error::{AppError, AppResult};
-use crate::library;
+use crate::folders;
 use crate::preferences::{DeckPreferences, Preferences};
 use prisme_analysis::{TrackAnalysis, Waveform};
-use prisme_engine::{BeatGrid, Command, EngineController};
+use prisme_engine::{BeatGrid, Command, DeckStatus, EngineController};
+use prisme_library::{Cue, CueSlot};
 use prisme_media::TrackAudio;
 use prisme_session::JsonFile;
 use std::path::PathBuf;
@@ -19,6 +20,7 @@ pub struct LoadedTrack {
     pub audio: Arc<TrackAudio>,
     pub waveform: Waveform,
     pub analysis: TrackAnalysis,
+    pub cues: Vec<Cue>,
 }
 
 impl LoadedTrack {
@@ -27,20 +29,45 @@ impl LoadedTrack {
         TrackInfoDto {
             deck,
             path: self.path.display().to_string(),
-            title: library::title_from_path(&self.path),
+            title: folders::title_from_path(&self.path),
             artist: None,
             duration_s: self.audio.duration_s(),
             sample_rate: self.audio.sample_rate(),
             waveform: WaveformDto::from(&self.waveform),
             tempo: self.analysis.tempo.as_ref().map(TempoDto::from),
             key: self.analysis.key.as_ref().map(KeyDto::from),
+            cues: self.cue_dtos(),
         }
+    }
+
+    pub fn grid(&self) -> Option<BeatGrid> {
+        self.analysis.tempo.map(|t| BeatGrid { bpm: t.bpm, first_beat_s: t.first_beat_s })
     }
 
     /// Commands that put the track, with its beat grid, on `deck`.
     pub fn load_commands(&self, deck: usize) -> [Command; 2] {
-        let grid = self.analysis.tempo.map(|t| BeatGrid { bpm: t.bpm, first_beat_s: t.first_beat_s });
-        [Command::LoadTrack { deck, track: self.audio.clone() }, Command::SetBeatGrid { deck, grid }]
+        [
+            Command::LoadTrack { deck, track: self.audio.clone() },
+            Command::SetBeatGrid { deck, grid: self.grid() },
+        ]
+    }
+
+    pub fn cue(&self, slot: CueSlot) -> Option<&Cue> {
+        self.cues.iter().find(|c| c.slot == slot)
+    }
+
+    /// Adds `cue`, replacing the one in the same slot.
+    pub fn put_cue(&mut self, cue: Cue) {
+        self.remove_cue(cue.slot);
+        self.cues.push(cue);
+    }
+
+    pub fn remove_cue(&mut self, slot: CueSlot) {
+        self.cues.retain(|c| c.slot != slot);
+    }
+
+    pub fn cue_dtos(&self) -> Vec<CueDto> {
+        self.cues.iter().map(CueDto::from).collect()
     }
 }
 
@@ -55,7 +82,13 @@ pub struct DeckSettings {
 
 impl From<DeckPreferences> for DeckSettings {
     fn from(p: DeckPreferences) -> Self {
-        Self { pitch: 1.0, volume: 1.0, vinyl_enabled: p.vinyl_enabled, vinyl_mode: p.vinyl_mode, lead_in_s: p.lead_in_s }
+        Self {
+            pitch: 1.0,
+            volume: 1.0,
+            vinyl_enabled: p.vinyl_enabled,
+            vinyl_mode: p.vinyl_mode,
+            lead_in_s: p.lead_in_s,
+        }
     }
 }
 
@@ -100,6 +133,21 @@ impl AppState {
         }
     }
 
+    /// The engine's latest view of `deck`.
+    pub fn deck_status(&self, deck: usize) -> AppResult<DeckStatus> {
+        Self::check_deck(deck)?;
+        let mut session = lock(&self.session);
+        let session = session.as_mut().ok_or(AppError::AudioNotRunning)?;
+        Ok(session.controller.status().decks[deck])
+    }
+
+    /// Runs `f` on the track loaded on `deck`.
+    pub fn with_track<R>(&self, deck: usize, f: impl FnOnce(&mut LoadedTrack) -> R) -> AppResult<R> {
+        Self::check_deck(deck)?;
+        let mut tracks = lock(&self.tracks);
+        tracks[deck].as_mut().map(f).ok_or(AppError::NoTrack(deck))
+    }
+
     /// Sends a command to the running engine.
     pub fn send(&self, command: Command) -> AppResult<()> {
         let mut session = lock(&self.session);
@@ -129,6 +177,7 @@ impl AppState {
             }
         }
         let _ = controller.send(Command::SetCrossfader { position: *lock(&self.crossfader) });
+        let _ = controller.send(Command::SetQuantize { enabled: self.preferences.get().dj.quantize });
     }
 }
 

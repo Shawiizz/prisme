@@ -1,0 +1,50 @@
+<div class="panel" [style.--accent]="color()">
+  <div class="modes">
+    @for (m of modes; track m.id) {
+      <button [class.active]="mode() === m.id" (click)="mode.set(m.id)">{{ m.label }}</button>
+    }
+  </div>
+
+  <div class="pads">
+    @for (pad of pads(); track $index) {
+      <button
+        class="pad"
+        [class.set]="pad.color"
+        [class.active]="pad.active"
+        [style.--pad]="pad.color"
+        [disabled]="!canMove()"
+        [title]="pad.title"
+        (pointerdown)="press($index, $event)"
+        (pointerup)="release()"
+        (pointercancel)="release()"
+        (contextmenu)="remove($index, $event)"
+      >
+        {{ pad.label }}
+      </button>
+    }
+  </div>
+
+  <div class="keys">
+    <div class="row">
+      <button (click)="scaleLoop(0.5)" [disabled]="!canMove()" title="Halve the loop">½</button>
+      <button (click)="scaleLoop(2)" [disabled]="!canMove()" title="Double the loop">×2</button>
+      <button [class.active]="loopActive()" (click)="toggleLoop()" [disabled]="!canMove()">
+        {{ loopActive() ? 'EXIT' : 'RELOOP' }}
+      </button>
+    </div>
+    <div class="row">
+      <button [class.active]="slip()" (click)="toggleSlip()" title="Loops, rolls and censor carry the track on underneath">
+        SLIP
+      </button>
+      <button
+        [disabled]="!canMove()"
+        title="Plays backwards while held"
+        (pointerdown)="censor(true)"
+        (pointerup)="censor(false)"
+        (pointercancel)="censor(false)"
+      >
+        CENSOR
+      </button>
+    </div>
+  </div>
+</div>

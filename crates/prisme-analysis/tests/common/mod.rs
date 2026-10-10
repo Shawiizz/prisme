@@ -62,7 +62,11 @@ impl Synth {
         for i in 0..len {
             let tt = i as f64 / SR as f64;
             let env = (tt / 0.01).min(1.0) * ((duration - tt) / 0.05).clamp(0.0, 1.0);
-            let x: f64 = [1.0, 0.5, 0.3, 0.2].iter().enumerate().map(|(h, a)| a * (TAU * hz * (h + 1) as f64 * tt).sin()).sum();
+            let x: f64 = [1.0, 0.5, 0.3, 0.2]
+                .iter()
+                .enumerate()
+                .map(|(h, a)| a * (TAU * hz * (h + 1) as f64 * tt).sin())
+                .sum();
             self.add(start + i, gain * env * x);
         }
     }
@@ -120,5 +124,10 @@ pub fn minor_progression(tonic: u8, detune: f64) -> Vec<Vec<f64>> {
 /// I - V - vi - IV in the major key on `tonic` (pitch class).
 pub fn major_progression(tonic: u8, detune: f64) -> Vec<Vec<f64>> {
     let t = 60.0 + tonic as f64 + detune;
-    vec![triad(t, false), triad(t + 7.0 - 12.0, false), triad(t + 9.0 - 12.0, true), triad(t + 5.0 - 12.0, false)]
+    vec![
+        triad(t, false),
+        triad(t + 7.0 - 12.0, false),
+        triad(t + 9.0 - 12.0, true),
+        triad(t + 5.0 - 12.0, false),
+    ]
 }

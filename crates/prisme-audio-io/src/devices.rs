@@ -61,7 +61,9 @@ pub(crate) fn find(kind: DeviceKind, name: Option<&str>) -> Result<cpal::Device,
     let Some(wanted) = name else {
         return match kind {
             DeviceKind::Output => host.default_output_device().ok_or(AudioError::NoOutputDevice),
-            DeviceKind::Input => host.default_input_device().ok_or(AudioError::DeviceNotFound("default input".into())),
+            DeviceKind::Input => {
+                host.default_input_device().ok_or(AudioError::DeviceNotFound("default input".into()))
+            }
         };
     };
     let wanted_lower = wanted.to_lowercase();

@@ -38,7 +38,8 @@ impl Deck {
         if !self.controls_position() || beats <= 0.0 {
             return;
         }
-        self.transport.loop_region = Some(LoopRegion::of_beats(&grid, self.playhead.position_s(), beats, quantize));
+        self.transport.loop_region =
+            Some(LoopRegion::of_beats(&grid, self.playhead.position_s(), beats, quantize));
         self.activate_loop(true);
     }
 
@@ -65,7 +66,9 @@ impl Deck {
 
     /// Toggles the stored loop; turning it on past its end goes back to its start.
     pub(crate) fn reloop(&mut self) {
-        let Some(region) = self.transport.loop_region else { return };
+        let Some(region) = self.transport.loop_region else {
+            return;
+        };
         if self.transport.loop_active {
             self.activate_loop(false);
         } else if self.controls_position() {
@@ -91,7 +94,9 @@ impl Deck {
         }
         let by_s = beats * grid.beat_period_s();
         let position = self.playhead.position_s();
-        if let Some(region) = self.transport.loop_region.filter(|r| self.transport.loop_active && r.contains(position)) {
+        if let Some(region) =
+            self.transport.loop_region.filter(|r| self.transport.loop_active && r.contains(position))
+        {
             self.transport.loop_region = Some(region.shifted(by_s));
             self.activate_loop(true);
         }

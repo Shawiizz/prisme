@@ -29,7 +29,12 @@ pub fn list_dir(
         }
         let path = entry.path();
         let Ok(meta) = entry.metadata() else { continue };
-        let item = |analysis| DirEntryDto { name, path: path.display().to_string(), size_bytes: meta.len(), analysis };
+        let item = |analysis| DirEntryDto {
+            name,
+            path: path.display().to_string(),
+            size_bytes: meta.len(),
+            analysis,
+        };
         if meta.is_dir() {
             folders.push(item(None));
         } else if prisme_media::is_supported(&path) {

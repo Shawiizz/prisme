@@ -195,7 +195,9 @@ impl TimecodeDecoder {
                 Verdict::AcceptReversal => self.speed.enter_fast(n),
                 Verdict::Accept | Verdict::First => {}
             }
-            if let Some(raw) = self.speed.on_crossing(crossing_t, quadrant, n, self.level.max_plausible_speed()) {
+            if let Some(raw) =
+                self.speed.on_crossing(crossing_t, quadrant, n, self.level.max_plausible_speed())
+            {
                 // quiet but coherent crossings: the record is still turning
                 let held = self.speed.speed();
                 if self.level.is_bouncing() && (raw - held).abs() < BOUNCE_RELEASE_RATIO * held.abs() {

@@ -73,7 +73,13 @@ impl SpeedEstimator {
 
     /// A validated crossing at time `t` (samples) in quadrant `quadrant`. Returns the
     /// new raw estimate if one was produced.
-    pub(crate) fn on_crossing(&mut self, t: f64, quadrant: i64, n: u64, max_plausible: Option<f64>) -> Option<f64> {
+    pub(crate) fn on_crossing(
+        &mut self,
+        t: f64,
+        quadrant: i64,
+        n: u64,
+        max_plausible: Option<f64>,
+    ) -> Option<f64> {
         self.event_t[self.event_pos] = t;
         self.event_q[self.event_pos] = quadrant;
         self.event_pos = (self.event_pos + 1) % EVENTS;

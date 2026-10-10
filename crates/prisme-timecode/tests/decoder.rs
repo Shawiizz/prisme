@@ -129,7 +129,11 @@ fn backwards_position_is_not_offset() {
 
 #[test]
 fn wow_and_flutter_are_followed() {
-    let r = steady(|t| 1.0 + 0.005 * (TAU * 0.55 * t).sin() + 0.002 * (TAU * 8.0 * t).sin(), 5_000.0, Degradation::default());
+    let r = steady(
+        |t| 1.0 + 0.005 * (TAU * 0.55 * t).sin() + 0.002 * (TAU * 8.0 * t).sin(),
+        5_000.0,
+        Degradation::default(),
+    );
     assert!(r.speed_rms < 0.003, "{r:?}");
 }
 
@@ -146,12 +150,20 @@ fn noise_and_low_level() {
 fn dust_dropouts_and_worn_records() {
     let dust = steady(|_| 1.0, 5_000.0, Degradation { crackles_per_s: 30.0, ..Default::default() });
     assert!(dust.speed_rms < 0.012 && dust.lost_ratio < 0.2, "{dust:?}");
-    let dropouts = steady(|_| 1.0, 5_000.0, Degradation { dropouts_per_s: 4.0, dropout_ms: 15.0, ..Default::default() });
+    let dropouts =
+        steady(|_| 1.0, 5_000.0, Degradation { dropouts_per_s: 4.0, dropout_ms: 15.0, ..Default::default() });
     assert!(dropouts.speed_rms < 0.015 && dropouts.lost_ratio < 0.2, "{dropouts:?}");
     let worn = steady(
         |t| 1.02 + 0.004 * (TAU * 0.55 * t).sin(),
         5_000.0,
-        Degradation { noise: 0.03, crackles_per_s: 15.0, imbalance: 0.7, dropouts_per_s: 1.0, dropout_ms: 8.0, ..Default::default() },
+        Degradation {
+            noise: 0.03,
+            crackles_per_s: 15.0,
+            imbalance: 0.7,
+            dropouts_per_s: 1.0,
+            dropout_ms: 8.0,
+            ..Default::default()
+        },
     );
     assert!(worn.speed_rms < 0.015 && worn.lost_ratio < 0.15, "{worn:?}");
 }
@@ -159,8 +171,13 @@ fn dust_dropouts_and_worn_records() {
 #[test]
 fn reacts_quickly() {
     let react = |target: f64, tol: f64, speed: fn(f64) -> f64| {
-        run(Scenario { measure: Measure::Reaction { target, tol }, start_ms: 5_000.0, speed, degradation: Degradation::default() })
-            .reaction_ms
+        run(Scenario {
+            measure: Measure::Reaction { target, tol },
+            start_ms: 5_000.0,
+            speed,
+            degradation: Degradation::default(),
+        })
+        .reaction_ms
     };
     let nudge = react(1.06, 0.01, |t| if t < 2.0 { 1.0 } else { 1.06 }).unwrap();
     assert!(nudge < 10.0, "nudge {nudge} ms");
@@ -172,7 +189,12 @@ fn reacts_quickly() {
 
 #[test]
 fn needle_drop_relocks() {
-    let r = run(Scenario { measure: Measure::NeedleDrop, start_ms: 5_000.0, speed: |_| 1.0, degradation: Degradation::default() });
+    let r = run(Scenario {
+        measure: Measure::NeedleDrop,
+        start_ms: 5_000.0,
+        speed: |_| 1.0,
+        degradation: Degradation::default(),
+    });
     assert!(r.reaction_ms.unwrap() < 35.0, "{r:?}");
 }
 

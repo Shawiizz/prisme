@@ -55,7 +55,14 @@ fn write_kicks(path: &Path, bpm: f64, seconds: f64) {
 
 fn run(db: &Arc<LibraryDb>, root: &Path) -> Arc<Collector> {
     let collector = Arc::new(Collector::default());
-    BackgroundAnalyzer::start(db.clone(), root.to_path_buf(), 2, AnalysisOptions::default(), collector.clone()).wait();
+    BackgroundAnalyzer::start(
+        db.clone(),
+        root.to_path_buf(),
+        2,
+        AnalysisOptions::default(),
+        collector.clone(),
+    )
+    .wait();
     collector
 }
 

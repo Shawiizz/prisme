@@ -83,32 +83,34 @@ pub fn start(settings: &AudioSettings) -> AppResult<AudioSession> {
 
     let (ready_tx, ready_rx) = mpsc::channel::<AppResult<(EngineController, AudioInfo)>>();
     let (stop_tx, stop_rx) = mpsc::channel::<()>();
-    let thread = std::thread::Builder::new()
-        .name("prisme-audio".into())
-        .spawn(move || {
-            let (engine, controller) = prisme_engine::create(EngineConfig::new(rate, DECKS, format));
-            let turntable = simulate.then(|| SimulatedTurntable::new(format, rate, Pattern::Scratch));
-            match prisme_audio_io::start(&stream_settings, EngineCallback { engine, turntable }) {
-                Ok(stream) => {
-                    let info = AudioInfo {
-                        sample_rate: stream.sample_rate,
-                        output_channels: stream.output_channels,
-                        input_channels: stream.input_channels,
-                        simulated: simulate,
-                    };
-                    if ready_tx.send(Ok((controller, info))).is_ok() {
-                        let _ = stop_rx.recv(); // keep the stream alive until asked to stop
-                    }
-                    drop(stream);
+    let thread = std::thread::Builder::new().name("prisme-audio".into()).spawn(move || {
+        let (engine, controller) = prisme_engine::create(EngineConfig::new(rate, DECKS, format));
+        let turntable = simulate.then(|| SimulatedTurntable::new(format, rate, Pattern::Scratch));
+        match prisme_audio_io::start(&stream_settings, EngineCallback { engine, turntable }) {
+            Ok(stream) => {
+                let info = AudioInfo {
+                    sample_rate: stream.sample_rate,
+                    output_channels: stream.output_channels,
+                    input_channels: stream.input_channels,
+                    simulated: simulate,
+                };
+                if ready_tx.send(Ok((controller, info))).is_ok() {
+                    let _ = stop_rx.recv(); // keep the stream alive until asked to stop
                 }
-                Err(e) => {
-                    let _ = ready_tx.send(Err(e.into()));
-                }
+                drop(stream);
             }
-        })?;
-    let (controller, info) = ready_rx.recv().map_err(|_| AppError::Other("the audio thread stopped".into()))??;
+            Err(e) => {
+                let _ = ready_tx.send(Err(e.into()));
+            }
+        }
+    })?;
+    let (controller, info) =
+        ready_rx.recv().map_err(|_| AppError::Other("the audio thread stopped".into()))??;
     if info.sample_rate != rate {
-        return Err(AppError::Other(format!("the device runs at {} Hz instead of {rate} Hz", info.sample_rate)));
+        return Err(AppError::Other(format!(
+            "the device runs at {} Hz instead of {rate} Hz",
+            info.sample_rate
+        )));
     }
     Ok(AudioSession { controller, info, stop: Some(stop_tx), thread: Some(thread) })
 }

@@ -30,46 +30,123 @@ pub enum CrossfaderSide {
 
 /// Commands sent to the engine. Building them may allocate; executing them never does.
 pub enum Command {
-    LoadTrack { deck: DeckId, track: Arc<TrackAudio> },
-    Eject { deck: DeckId },
+    LoadTrack {
+        deck: DeckId,
+        track: Arc<TrackAudio>,
+    },
+    Eject {
+        deck: DeckId,
+    },
     /// Internal play (used when vinyl control is off).
-    SetPlaying { deck: DeckId, playing: bool },
+    SetPlaying {
+        deck: DeckId,
+        playing: bool,
+    },
     /// Tempo ratio for internal play (1.0 = original tempo).
-    SetPitch { deck: DeckId, ratio: f64 },
+    SetPitch {
+        deck: DeckId,
+        ratio: f64,
+    },
     /// Moves the playhead there, as is (needle search).
-    Seek { deck: DeckId, seconds: f64 },
+    Seek {
+        deck: DeckId,
+        seconds: f64,
+    },
     /// Moves the playhead there, keeping the beat phase if quantize is on (cues).
-    Jump { deck: DeckId, seconds: f64 },
-    BeatJump { deck: DeckId, beats: f64 },
-    SetQuantize { enabled: bool },
-    SetLoop { deck: DeckId, region: Option<LoopRegion>, active: bool },
-    BeatLoop { deck: DeckId, beats: f64 },
+    Jump {
+        deck: DeckId,
+        seconds: f64,
+    },
+    BeatJump {
+        deck: DeckId,
+        beats: f64,
+    },
+    SetQuantize {
+        enabled: bool,
+    },
+    SetLoop {
+        deck: DeckId,
+        region: Option<LoopRegion>,
+        active: bool,
+    },
+    BeatLoop {
+        deck: DeckId,
+        beats: f64,
+    },
     /// `Some(beats)` starts a roll, `None` releases it.
-    LoopRoll { deck: DeckId, beats: Option<f64> },
-    ExitLoop { deck: DeckId },
-    Reloop { deck: DeckId },
-    ScaleLoop { deck: DeckId, factor: f64 },
-    SetSlip { deck: DeckId, enabled: bool },
-    Censor { deck: DeckId, active: bool },
-    SetVinylEnabled { deck: DeckId, enabled: bool },
-    SetVinylMode { deck: DeckId, mode: VinylMode },
+    LoopRoll {
+        deck: DeckId,
+        beats: Option<f64>,
+    },
+    ExitLoop {
+        deck: DeckId,
+    },
+    Reloop {
+        deck: DeckId,
+    },
+    ScaleLoop {
+        deck: DeckId,
+        factor: f64,
+    },
+    SetSlip {
+        deck: DeckId,
+        enabled: bool,
+    },
+    Censor {
+        deck: DeckId,
+        active: bool,
+    },
+    SetVinylEnabled {
+        deck: DeckId,
+        enabled: bool,
+    },
+    SetVinylMode {
+        deck: DeckId,
+        mode: VinylMode,
+    },
     /// Position of the start of the track on the record, in seconds (lead-in).
-    SetLeadIn { deck: DeckId, seconds: f64 },
+    SetLeadIn {
+        deck: DeckId,
+        seconds: f64,
+    },
     /// Replaces a deck's timecode decoder (another format, swapped channels...). Build it
     /// on the control side: it allocates.
-    ReplaceDecoder { deck: DeckId, decoder: Box<TimecodeDecoder> },
-    SetBeatGrid { deck: DeckId, grid: Option<BeatGrid> },
+    ReplaceDecoder {
+        deck: DeckId,
+        decoder: Box<TimecodeDecoder>,
+    },
+    SetBeatGrid {
+        deck: DeckId,
+        grid: Option<BeatGrid>,
+    },
     /// Locks the deck to the leader's tempo (`false` also clears a one-shot match).
-    SetSyncLocked { deck: DeckId, locked: bool },
+    SetSyncLocked {
+        deck: DeckId,
+        locked: bool,
+    },
     /// Relative vinyl: matches the leader's tempo and phase once. Internal play: locks.
-    SyncOnce { deck: DeckId },
+    SyncOnce {
+        deck: DeckId,
+    },
     /// `None`: the leader is chosen automatically among the playing decks.
-    SetSyncLeader { deck: Option<DeckId> },
-    SetVolume { deck: DeckId, gain: f32 },
-    SetCrossfaderSide { deck: DeckId, side: CrossfaderSide },
+    SetSyncLeader {
+        deck: Option<DeckId>,
+    },
+    SetVolume {
+        deck: DeckId,
+        gain: f32,
+    },
+    SetCrossfaderSide {
+        deck: DeckId,
+        side: CrossfaderSide,
+    },
     /// -1.0 = full left, 1.0 = full right.
-    SetCrossfader { position: f32 },
-    SetMasterGain { gain: f32 },
+    SetCrossfader {
+        position: f32,
+    },
+    SetMasterGain {
+        gain: f32,
+    },
 }
 
 /// Objects the audio thread hands back so that they are freed on the control side.

@@ -99,7 +99,9 @@ fn run(
     let todo: Vec<ScannedFile> = scan_folder(root, cancel)
         .into_iter()
         .filter(|f| {
-            stored.get(&path_key(&f.path)).is_none_or(|(stamp, version)| *stamp != f.stamp || *version != ANALYSIS_VERSION)
+            stored
+                .get(&path_key(&f.path))
+                .is_none_or(|(stamp, version)| *stamp != f.stamp || *version != ANALYSIS_VERSION)
         })
         .collect();
 
@@ -114,7 +116,9 @@ fn run(
             s.spawn(|| {
                 background_priority();
                 while !cancel.load(Ordering::Relaxed) {
-                    let Some(file) = todo.get(next.fetch_add(1, Ordering::Relaxed)) else { break };
+                    let Some(file) = todo.get(next.fetch_add(1, Ordering::Relaxed)) else {
+                        break;
+                    };
                     let record = analyze(file, options);
                     if record.error.is_some() {
                         failed.fetch_add(1, Ordering::Relaxed);
@@ -124,7 +128,12 @@ fn run(
                     }
                     listener.track_analyzed(&record);
                     let done = done.fetch_add(1, Ordering::Relaxed) + 1;
-                    listener.progress(AnalysisProgress { total, done, failed: failed.load(Ordering::Relaxed), running: true });
+                    listener.progress(AnalysisProgress {
+                        total,
+                        done,
+                        failed: failed.load(Ordering::Relaxed),
+                        running: true,
+                    });
                 }
             });
         }
@@ -150,7 +159,9 @@ fn background_priority() {
     #[cfg(windows)]
     // SAFETY: changes the priority of the calling thread only; no pointers involved.
     unsafe {
-        use windows_sys::Win32::System::Threading::{GetCurrentThread, SetThreadPriority, THREAD_MODE_BACKGROUND_BEGIN};
+        use windows_sys::Win32::System::Threading::{
+            GetCurrentThread, SetThreadPriority, THREAD_MODE_BACKGROUND_BEGIN,
+        };
         SetThreadPriority(GetCurrentThread(), THREAD_MODE_BACKGROUND_BEGIN);
     }
 }
