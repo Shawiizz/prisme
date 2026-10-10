@@ -1,9 +1,20 @@
 import { Component, ElementRef, computed, effect, inject, signal, viewChild } from '@angular/core';
 import { CratesService } from '../../../core/services/crates.service';
+import { HistoryService } from '../../../core/services/history.service';
 import { LibraryService } from '../../../core/services/library.service';
 import { TRACKS_DRAG_TYPE } from '../../../shared/drag';
 
-/** Left panel of the library: the crates (tracks are dropped on them) and the folders. */
+type Deletable = 'crate' | 'session';
+
+const SESSION_DATE = new Intl.DateTimeFormat('en-GB', {
+  weekday: 'short',
+  day: 'numeric',
+  month: 'short',
+  hour: '2-digit',
+  minute: '2-digit',
+});
+
+/** Left panel of the library: the crates (tracks are dropped on them), the history of the sets and the folders. */
 @Component({
   selector: 'app-library-sidebar',
   templateUrl: './library-sidebar.html',
@@ -12,11 +23,12 @@ import { TRACKS_DRAG_TYPE } from '../../../shared/drag';
 export class LibrarySidebar {
   protected readonly library = inject(LibraryService);
   protected readonly crates = inject(CratesService).crates;
+  protected readonly sessions = inject(HistoryService).sessions;
 
   /** Crate whose name is being typed: `'new'` for a crate being created. */
   protected readonly editing = signal<number | 'new' | null>(null);
-  /** Crate whose delete button was clicked once: a second click deletes it. */
-  protected readonly armedDelete = signal<number | null>(null);
+  /** Item whose delete button was clicked once: a second click deletes it. */
+  private readonly armed = signal<{ kind: Deletable; id: number } | null>(null);
   protected readonly dropTarget = signal<number | null>(null);
   private readonly nameInput = viewChild<ElementRef<HTMLInputElement>>('nameInput');
 
@@ -48,8 +60,13 @@ export class LibrarySidebar {
   }
 
   open(id: number) {
-    this.armedDelete.set(null);
+    this.armed.set(null);
     this.library.openCrate(id);
+  }
+
+  /** `Sat 10 Oct, 21:30` */
+  sessionLabel(ms: number): string {
+    return SESSION_DATE.format(ms);
   }
 
   async commitEdit(text: string) {
@@ -61,13 +78,19 @@ export class LibrarySidebar {
     else await this.library.renameCrate(editing, name);
   }
 
-  delete(id: number) {
-    if (this.armedDelete() !== id) {
-      this.armedDelete.set(id);
+  isArmed(kind: Deletable, id: number): boolean {
+    const armed = this.armed();
+    return armed?.kind === kind && armed.id === id;
+  }
+
+  delete(kind: Deletable, id: number) {
+    if (!this.isArmed(kind, id)) {
+      this.armed.set({ kind, id });
       return;
     }
-    this.armedDelete.set(null);
-    this.library.deleteCrate(id);
+    this.armed.set(null);
+    if (kind === 'crate') this.library.deleteCrate(id);
+    else this.library.deleteSession(id);
   }
 
   dragOver(event: DragEvent, id: number) {

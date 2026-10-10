@@ -1,13 +1,21 @@
-import { Injectable, computed, inject, signal } from '@angular/core';
+import { Injectable, computed, effect, inject, signal, untracked } from '@angular/core';
 import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
-import { AnalysisProgress, DirEntry, DirListing, TrackAnalyzed } from '../models/library';
+import {
+  AnalysisProgress,
+  DirEntry,
+  DirListing,
+  HistorySession,
+  TrackAnalyzed,
+} from '../models/library';
 import { camelotRank } from '../../shared/camelot';
 import { CratesService } from './crates.service';
 import { EngineService } from './engine.service';
+import { HistoryService } from './history.service';
 import { PreferencesService } from './preferences.service';
 
-export type SortColumn = 'title' | 'artist' | 'album' | 'genre' | 'year' | 'bpm' | 'key';
+/** `order`: the order of the list itself (play order of a set). */
+export type SortColumn = 'order' | 'title' | 'artist' | 'album' | 'genre' | 'year' | 'bpm' | 'key';
 
 export interface TrackSort {
   column: SortColumn;
@@ -15,7 +23,8 @@ export interface TrackSort {
 }
 
 /** The list of tracks being browsed. */
-export type TrackSource = { kind: 'folder' } | { kind: 'crate'; id: number };
+export type TrackSource =
+  { kind: 'folder' } | { kind: 'crate'; id: number } | { kind: 'history'; id: number };
 
 /** Where the search looks: the tracks being browsed, or every analysed track. */
 export type SearchScope = 'list' | 'library';
@@ -38,7 +47,7 @@ export function matchesSearch(t: DirEntry, words: string[]): boolean {
 }
 
 /**
- * Browsing the music folders on disk and the crates, and searching the library, with
+ * Browsing the music folders on disk, the crates and the history, and searching the library, with
  * the analysis results and tags of the tracks, and the view on them (search, sort,
  * selection). The background analysis pushes each result (`track-analyzed`) and its
  * progress (`library-progress`): the lists are patched in place, no reload needed.
@@ -48,6 +57,7 @@ export class LibraryService {
   private readonly preferences = inject(PreferencesService);
   private readonly engine = inject(EngineService);
   private readonly crates = inject(CratesService);
+  private readonly history = inject(HistoryService);
 
   readonly root = signal<string | null>(null);
   readonly listing = signal<DirListing | null>(null);
@@ -61,7 +71,8 @@ export class LibraryService {
   /** Incremented to ask the view to focus the search field. */
   readonly searchRequests = signal(0);
 
-  private readonly crateTracks = signal<DirEntry[]>([]);
+  /** Tracks of the crate or history session being browsed. */
+  private readonly sourceTracks = signal<DirEntry[]>([]);
   private readonly libraryResults = signal<DirEntry[]>([]);
   private searchTimer: ReturnType<typeof setTimeout> | undefined;
   /** Answers to older searches arriving late are dropped. */
@@ -73,10 +84,22 @@ export class LibraryService {
     return source.kind === 'crate' ? source.id : null;
   });
 
-  /** Tracks of the folder or crate being browsed. */
+  /** The history session being browsed, if any. */
+  readonly currentSession = computed(() => {
+    const source = this.source();
+    return source.kind === 'history' ? source.id : null;
+  });
+
+  /** Whether the list has an order of its own (shown in a `#` column). */
+  readonly ordered = computed(() => this.source().kind === 'history');
+
+  /** Tracks of the folder, crate or history session being browsed. */
   readonly listTracks = computed(() =>
-    this.source().kind === 'crate' ? this.crateTracks() : (this.listing()?.tracks ?? []),
+    this.source().kind === 'folder' ? (this.listing()?.tracks ?? []) : this.sourceTracks(),
   );
+
+  /** Position of each track in its list, from 1. */
+  readonly positions = computed(() => new Map(this.listTracks().map((t, i) => [t, i + 1])));
 
   /** Tracks as shown: those of the list matching the search, or the library's matches; sorted. */
   readonly visibleTracks = computed(() => {
@@ -86,8 +109,19 @@ export class LibraryService {
         ? [...this.libraryResults()]
         : this.listTracks().filter((t) => matchesSearch(t, words));
     const { column, direction } = this.sort();
-    return shown.sort((a, b) => compare(sortValue(a, column), sortValue(b, column)) * direction);
+    const positions = this.positions();
+    const value = (t: DirEntry) =>
+      column === 'order' ? (positions.get(t) ?? Number.MAX_SAFE_INTEGER) : sortValue(t, column);
+    return shown.sort((a, b) => compare(value(a), value(b)) * direction);
   });
+
+  constructor() {
+    effect(() => {
+      if (this.history.changes() === 0) return;
+      const id = untracked(this.currentSession);
+      if (id !== null) untracked(() => this.loadSource(() => this.history.plays(id)));
+    });
+  }
 
   async init(): Promise<void> {
     await Promise.all([
@@ -95,7 +129,7 @@ export class LibraryService {
       listen<AnalysisProgress>('library-progress', (e) => this.progress.set(e.payload)),
     ]);
     this.progress.set(await invoke<AnalysisProgress>('library_progress'));
-    await this.crates.refresh();
+    await Promise.all([this.crates.refresh(), this.history.init()]);
     const root = await invoke<string>('music_root');
     this.root.set(root);
     const last = this.preferences.library().lastFolder;
@@ -119,8 +153,26 @@ export class LibraryService {
 
   async openCrate(id: number): Promise<void> {
     await this.attempt(async () => {
-      this.crateTracks.set(await this.crates.tracks(id));
+      await this.loadSource(() => this.crates.tracks(id));
       this.browse({ kind: 'crate', id });
+    });
+  }
+
+  async openSession(id: number): Promise<void> {
+    await this.attempt(async () => {
+      await this.loadSource(() => this.history.plays(id));
+      this.browse({ kind: 'history', id });
+    });
+  }
+
+  exportSession(session: HistorySession): Promise<void> {
+    return this.attempt(async () => void (await this.history.export(session)));
+  }
+
+  async deleteSession(id: number): Promise<void> {
+    await this.attempt(async () => {
+      await this.history.delete(id);
+      if (this.currentSession() === id) this.browse({ kind: 'folder' });
     });
   }
 
@@ -142,7 +194,7 @@ export class LibraryService {
   async addToCrate(id: number, paths: string[]): Promise<void> {
     await this.attempt(async () => {
       await this.crates.add(id, paths);
-      if (this.currentCrate() === id) this.crateTracks.set(await this.crates.tracks(id));
+      if (this.currentCrate() === id) await this.loadSource(() => this.crates.tracks(id));
     });
   }
 
@@ -154,7 +206,7 @@ export class LibraryService {
     const next = this.neighbour(path);
     await this.attempt(async () => {
       await this.crates.remove(id, [path]);
-      this.crateTracks.update((tracks) => tracks.filter((t) => t.path !== path));
+      this.sourceTracks.update((tracks) => tracks.filter((t) => t.path !== path));
       this.selected.set(next);
     });
   }
@@ -201,11 +253,17 @@ export class LibraryService {
     this.engine.load(deck ?? (free >= 0 ? free : 0), path);
   }
 
+  private async loadSource(tracks: () => Promise<DirEntry[]>): Promise<void> {
+    this.sourceTracks.set(await tracks());
+  }
+
   private browse(source: TrackSource) {
     this.source.set(source);
     this.scope.set('list');
     this.setFilter('');
     this.error.set(null);
+    if (this.ordered()) this.sort.set({ column: 'order', direction: 1 });
+    else if (this.sort().column === 'order') this.sort.set({ column: 'title', direction: 1 });
   }
 
   /** The track shown after `path`, else before it: where the selection goes when it leaves. */
@@ -249,14 +307,14 @@ export class LibraryService {
     if (listing?.tracks.some((t) => t.path === path)) {
       this.listing.set({ ...listing, tracks: update(listing.tracks) });
     }
-    for (const list of [this.crateTracks, this.libraryResults]) {
+    for (const list of [this.sourceTracks, this.libraryResults]) {
       if (list().some((t) => t.path === path)) list.update(update);
     }
   }
 }
 
-/** Value a column sorts on; tracks without one go last. */
-function sortValue(t: DirEntry, column: SortColumn): number | string {
+/** Value a tag or analysis column sorts on; tracks without one go last. */
+function sortValue(t: DirEntry, column: Exclude<SortColumn, 'order'>): number | string {
   const d = t.details;
   const text = (s: string | null | undefined) => s?.toLowerCase() ?? '\uffff';
   switch (column) {

@@ -51,8 +51,11 @@
         </button>
       </div>
     </div>
-    <div class="table">
+    <div class="table" [class.ordered]="library.ordered()">
       <div class="head">
+        @if (library.ordered()) {
+          <button class="order" (click)="library.sortBy('order')">#{{ sortMark('order') }}</button>
+        }
         <span class="cover"></span>
         @for (c of columns; track c.id) {
           <button [class]="c.id" (click)="library.sortBy(c.id)">
@@ -61,7 +64,7 @@
         }
         <span class="load">Load</span>
       </div>
-      @for (t of tracks(); track t.path; let odd = $odd) {
+      @for (t of tracks(); track t; let odd = $odd) {
         <div
           class="row"
           [attr.data-path]="t.path"
@@ -73,6 +76,9 @@
           (click)="library.selected.set(t.path)"
           (dblclick)="library.load(t.path, null)"
         >
+          @if (library.ordered()) {
+            <span class="order">{{ library.positions().get(t) }}</span>
+          }
           @if (t.details && !t.details.failed) {
             <app-cover class="cover" [path]="t.path" />
           } @else {

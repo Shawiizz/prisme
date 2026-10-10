@@ -2,6 +2,7 @@
 //!
 //! * `audio_host`: runs the sound card stream and the engine on a dedicated thread;
 //! * `audio_watchdog`: restarts the audio when its device comes back after a loss;
+//! * `history`: records the tracks played, set by set;
 //! * `state`: preferences, loaded tracks and deck settings;
 //! * `preferences`: what is kept from one start to the next;
 //! * `commands`: what the frontend can ask, by domain;
@@ -20,6 +21,7 @@ mod dev_startup;
 mod dto;
 mod error;
 mod folders;
+mod history;
 mod library_service;
 mod preferences;
 mod scope_stream;
@@ -36,6 +38,7 @@ use tauri::Manager;
 
 pub fn run() {
     tauri::Builder::default()
+        .plugin(tauri_plugin_dialog::init())
         .register_asynchronous_uri_scheme_protocol(cover_protocol::SCHEME, cover_protocol::handle)
         .setup(|app| {
             let data_dir = app.path().app_data_dir().inspect_err(|e| eprintln!("no data folder: {e}")).ok();
@@ -51,6 +54,7 @@ pub fn run() {
                 let _ = state.send(prisme_engine::Command::SetMasterGain { gain });
             }
             audio_watchdog::start(app.handle().clone());
+            history::start(app.handle().clone());
             library.start();
             Ok(())
         })
@@ -103,6 +107,10 @@ pub fn run() {
             commands::crates::add_to_crate,
             commands::crates::remove_from_crate,
             commands::crates::crate_tracks,
+            commands::history::history_sessions,
+            commands::history::history_plays,
+            commands::history::delete_history_session,
+            commands::history::export_history,
             commands::preferences::get_preferences,
             commands::preferences::set_dj_preferences,
             commands::preferences::set_library_preferences,

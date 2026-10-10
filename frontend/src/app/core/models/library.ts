@@ -30,6 +30,18 @@ export interface Crate {
   trackCount: number;
 }
 
+/** A run of the app that played tracks. */
+export interface HistorySession {
+  id: number;
+  startedAtMs: number;
+  playCount: number;
+}
+
+export interface HistoryPlay extends DirEntry {
+  deck: number;
+  playedAtMs: number;
+}
+
 export interface DirListing {
   path: string;
   parent: string | null;

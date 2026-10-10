@@ -26,7 +26,7 @@
         />
       } @else {
         <div
-          class="crate"
+          class="item"
           [class.current]="library.currentCrate() === c.id"
           [class.drop]="dropTarget() === c.id"
           (click)="open(c.id)"
@@ -40,13 +40,13 @@
           <span class="count">{{ c.trackCount }}</span>
           <button
             class="delete"
-            [class.armed]="armedDelete() === c.id"
+            [class.armed]="isArmed('crate', c.id)"
             [title]="
-              armedDelete() === c.id ? 'Click again to delete' : 'Delete the crate (not its tracks)'
+              isArmed('crate', c.id) ? 'Click again to delete' : 'Delete the crate (not its tracks)'
             "
-            (click)="delete(c.id); $event.stopPropagation()"
+            (click)="delete('crate', c.id); $event.stopPropagation()"
           >
-            {{ armedDelete() === c.id ? 'Delete' : '×' }}
+            {{ isArmed('crate', c.id) ? 'Delete' : '×' }}
           </button>
         </div>
       }
@@ -54,6 +54,45 @@
       @if (editing() !== 'new') {
         <div class="none">No crate yet</div>
       }
+    }
+  </div>
+</section>
+
+<section class="history">
+  <header><span>History</span></header>
+  <div class="list">
+    @for (s of sessions(); track s.id) {
+      <div
+        class="item"
+        [class.current]="library.currentSession() === s.id"
+        (click)="library.openSession(s.id)"
+      >
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <circle cx="12" cy="12" r="8" />
+          <path d="M12 8v4l3 2" />
+        </svg>
+        <span class="name">{{ sessionLabel(s.startedAtMs) }}</span>
+        <span class="count">{{ s.playCount }}</span>
+        <button
+          class="action"
+          title="Export the tracklist (CSV)"
+          (click)="library.exportSession(s); $event.stopPropagation()"
+        >
+          CSV
+        </button>
+        <button
+          class="delete"
+          [class.armed]="isArmed('session', s.id)"
+          [title]="
+            isArmed('session', s.id) ? 'Click again to delete' : 'Delete this set from the history'
+          "
+          (click)="delete('session', s.id); $event.stopPropagation()"
+        >
+          {{ isArmed('session', s.id) ? 'Delete' : '×' }}
+        </button>
+      </div>
+    } @empty {
+      <div class="none">Tracks played for 30 s are listed here, set by set</div>
     }
   </div>
 </section>
@@ -75,7 +114,7 @@
   </div>
   <div class="list">
     @for (f of library.listing()?.folders ?? []; track f.path) {
-      <div class="folder" (click)="library.open(f.path)" [title]="f.path">
+      <div class="item" (click)="library.open(f.path)" [title]="f.path">
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h7l2 2h9v10H3z" /></svg>
         {{ f.name }}
       </div>

@@ -1,12 +1,14 @@
 //! Library database (SQLite): tracks and their analysis and tags ([`tracks`]), cues,
-//! cover thumbnails, full-text search, crates.
+//! cover thumbnails, full-text search, crates, history of the sets.
 
 mod covers;
 mod crates;
 mod cues;
+mod history;
 mod tracks;
 
 pub use crates::{Crate, CrateEntry, CrateId};
+pub use history::{HistoryPlay, HistorySession, SessionId};
 pub use tracks::{RecordVersion, TrackRecord, TAGS_VERSION};
 
 use rusqlite::Connection;
@@ -69,9 +71,19 @@ const MIGRATIONS: &[&str] = &[
          added_at_ms INTEGER NOT NULL,
          PRIMARY KEY (crate_id, path)
      );",
+    "CREATE TABLE history_sessions (id INTEGER PRIMARY KEY, started_at_ms INTEGER NOT NULL);
+     CREATE TABLE history_plays (
+         id INTEGER PRIMARY KEY,
+         session_id INTEGER NOT NULL REFERENCES history_sessions (id) ON DELETE CASCADE,
+         path TEXT NOT NULL,
+         deck INTEGER NOT NULL,
+         played_at_ms INTEGER NOT NULL
+     );
+     CREATE INDEX history_plays_by_session ON history_plays (session_id);
+     CREATE INDEX history_plays_by_path ON history_plays (path);",
 ];
 
-fn now_ms() -> i64 {
+pub fn now_ms() -> i64 {
     std::time::SystemTime::now().duration_since(UNIX_EPOCH).map_or(0, |d| d.as_millis() as i64)
 }
 

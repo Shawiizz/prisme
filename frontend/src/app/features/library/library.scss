@@ -88,18 +88,26 @@
   }
 }
 .table {
+  --track-columns: 24px minmax(0, 1.6fr) minmax(0, 1fr) minmax(0, 1fr) minmax(0, 0.6fr) 40px 56px
+    52px 64px;
   overflow-y: auto;
   min-height: 0;
 }
 .head,
 .row {
   display: grid;
-  grid-template-columns:
-    24px minmax(0, 1.6fr) minmax(0, 1fr) minmax(0, 1fr) minmax(0, 0.6fr)
-    40px 56px 52px 64px;
+  grid-template-columns: var(--track-columns);
   align-items: center;
   gap: 8px;
   padding: 0 10px;
+}
+.ordered :is(.head, .row) {
+  grid-template-columns: 30px var(--track-columns);
+}
+.order {
+  text-align: right;
+  color: var(--faint);
+  font-variant-numeric: tabular-nums;
 }
 .head {
   position: sticky;

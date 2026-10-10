@@ -22,6 +22,7 @@ prisme-analysis.workspace = true
 prisme-library.workspace = true
 prisme-session.workspace = true
 tauri = { version = "2", features = [] }
+tauri-plugin-dialog = "2"
 serde.workspace = true
 serde_json.workspace = true
 thiserror.workspace = true

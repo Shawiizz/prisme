@@ -424,6 +424,39 @@ pub struct CrateDto {
     pub track_count: usize,
 }
 
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct HistorySessionDto {
+    pub id: i64,
+    pub started_at_ms: i64,
+    pub play_count: usize,
+}
+
+impl From<prisme_library::HistorySession> for HistorySessionDto {
+    fn from(s: prisme_library::HistorySession) -> Self {
+        Self { id: s.id.0, started_at_ms: s.started_at_ms, play_count: s.play_count }
+    }
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct HistoryPlayDto {
+    #[serde(flatten)]
+    pub track: DirEntryDto,
+    pub deck: usize,
+    pub played_at_ms: i64,
+}
+
+impl From<&prisme_library::HistoryPlay> for HistoryPlayDto {
+    fn from(p: &prisme_library::HistoryPlay) -> Self {
+        Self {
+            track: DirEntryDto::track(&p.path, p.record.as_ref()),
+            deck: p.deck,
+            played_at_ms: p.played_at_ms,
+        }
+    }
+}
+
 impl From<prisme_library::Crate> for CrateDto {
     fn from(c: prisme_library::Crate) -> Self {
         Self { id: c.id.0, name: c.name, track_count: c.track_count }

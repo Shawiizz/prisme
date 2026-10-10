@@ -13,9 +13,12 @@ use prisme_library::{Cue, CueSlot};
 use prisme_media::{TrackAudio, TrackTags};
 use prisme_session::JsonFile;
 use std::path::PathBuf;
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex, MutexGuard};
 
 pub struct LoadedTrack {
+    /// Tells two loads apart, even of the same file.
+    pub load_id: u64,
     pub path: PathBuf,
     pub audio: Arc<TrackAudio>,
     pub waveform: Waveform,
@@ -25,6 +28,11 @@ pub struct LoadedTrack {
 }
 
 impl LoadedTrack {
+    pub fn next_load_id() -> u64 {
+        static NEXT: AtomicU64 = AtomicU64::new(1);
+        NEXT.fetch_add(1, Ordering::Relaxed)
+    }
+
     /// What the UI shows of the track on `deck`.
     pub fn info(&self, deck: usize) -> TrackInfoDto {
         TrackInfoDto {

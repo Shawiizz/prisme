@@ -1,5 +1,10 @@
 import { Component, ElementRef, computed, effect, inject, viewChild } from '@angular/core';
-import { LibraryService, SortColumn, trackTitle } from '../../core/services/library.service';
+import {
+  LibraryService,
+  SortColumn,
+  TrackSource,
+  trackTitle,
+} from '../../core/services/library.service';
 import { EngineService } from '../../core/services/engine.service';
 import { DECK_COUNT } from '../../core/models/engine';
 import { deckColor } from '../../shared/time';
@@ -18,7 +23,13 @@ const COLUMNS: { id: SortColumn; label: string }[] = [
   { id: 'key', label: 'Key' },
 ];
 
-/** Crates and folders (left), the tracks being browsed or found (right). */
+const SOURCE_TEXT: Record<TrackSource['kind'], { label: string; empty: string }> = {
+  folder: { label: 'Folder', empty: 'No audio file in this folder' },
+  crate: { label: 'Crate', empty: 'This crate is empty: drag tracks onto it' },
+  history: { label: 'Set', empty: 'No track in this set' },
+};
+
+/** Crates, history and folders (left), the tracks being browsed or found (right). */
 @Component({
   selector: 'app-library',
   templateUrl: './library.html',
@@ -51,16 +62,10 @@ export class Library {
     return p.total > 0 ? (p.done / p.total) * 100 : 0;
   });
 
-  protected readonly listLabel = computed(() =>
-    this.library.source().kind === 'crate' ? 'Crate' : 'Folder',
-  );
+  protected readonly listLabel = computed(() => SOURCE_TEXT[this.library.source().kind].label);
 
   protected readonly emptyMessage = computed(() => {
-    if (this.library.scope() === 'list') {
-      return this.library.source().kind === 'crate'
-        ? 'This crate is empty: drag tracks onto it'
-        : 'No audio file in this folder';
-    }
+    if (this.library.scope() === 'list') return SOURCE_TEXT[this.library.source().kind].empty;
     return this.library.filter().trim()
       ? 'No analysed track matches'
       : 'Type to search every analysed track';

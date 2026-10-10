@@ -56,7 +56,15 @@ pub fn prepare_track(path: PathBuf, library: &LibraryService) -> AppResult<Loade
         eprintln!("cues of {} not read: {e}", path.display());
         Vec::new()
     });
-    Ok(LoadedTrack { path, audio: Arc::new(audio), waveform, analysis, tags, cues })
+    Ok(LoadedTrack {
+        load_id: LoadedTrack::next_load_id(),
+        path,
+        audio: Arc::new(audio),
+        waveform,
+        analysis,
+        tags,
+        cues,
+    })
 }
 
 fn analyze_and_store(
