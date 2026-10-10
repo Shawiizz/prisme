@@ -208,13 +208,15 @@ impl LibraryDb {
     }
 
     /// Tracks whose tags or file name contain every word of `query` (word starts
-    /// match: "dee mau" finds deadmau5), best matches first.
+    /// match: "dee mau" finds deadmau5), at most `limit` of them. They are not ranked:
+    /// the track list sorts them, and ranking every match costs 6 times more with
+    /// thousands of them (one letter typed in a large library).
     pub fn search(&self, query: &str, limit: usize) -> Result<Vec<TrackRecord>, DbError> {
         let Some(fts) = fts_query(query) else { return Ok(Vec::new()) };
         let conn = self.conn();
         let mut stmt = conn.prepare_cached(
             "SELECT track_view.* FROM track_search JOIN track_view ON track_view.path = track_search.path
-             WHERE track_search MATCH ?1 ORDER BY rank LIMIT ?2",
+             WHERE track_search MATCH ?1 LIMIT ?2",
         )?;
         let rows = stmt.query_map(params![fts, limit as i64], record_from_row)?;
         Ok(rows.collect::<Result<_, _>>()?)

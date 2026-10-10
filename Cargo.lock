@@ -3136,6 +3136,7 @@ dependencies = [
 name = "prisme-library"
 version = "0.1.0"
 dependencies = [
+ "criterion",
  "image",
  "prisme-analysis",
  "prisme-media",
