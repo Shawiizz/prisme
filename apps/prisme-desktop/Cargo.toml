@@ -24,6 +24,9 @@ prisme-session.workspace = true
 prisme-import.workspace = true
 prisme-control.workspace = true
 midir.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
+tracing-appender.workspace = true
 tauri = { version = "2", features = [] }
 tauri-plugin-dialog = "2"
 serde.workspace = true

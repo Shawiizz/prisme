@@ -9,6 +9,7 @@ use prisme_media::TrackAudio;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use tauri::{AppHandle, Manager};
+use tracing::warn;
 
 /// A sampler is for short sounds; longer files belong on a deck.
 pub const MAX_SAMPLE_S: f64 = 30.0;
@@ -56,7 +57,7 @@ pub fn load_saved(app: AppHandle) {
                 let Some(path) = path.as_ref().map(PathBuf::from) else { continue };
                 let loaded = decode(&path).and_then(|audio| put(&state, deck, slot, path.clone(), audio));
                 if let Err(e) = loaded {
-                    eprintln!("sample {} not loaded: {e}", path.display());
+                    warn!("sample {} not loaded: {e}", path.display());
                 }
             }
         }

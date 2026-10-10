@@ -11,6 +11,7 @@ use crate::state::AppState;
 use crate::track_loading;
 use std::path::PathBuf;
 use tauri::AppHandle;
+use tracing::warn;
 
 /// Settings override requested by the environment.
 pub fn simulate_requested() -> bool {
@@ -25,7 +26,7 @@ pub fn preload_tracks(app: &AppHandle, state: &AppState, library: &LibraryServic
             continue;
         };
         if let Err(e) = track_loading::preload(app, state, library, deck, PathBuf::from(path)) {
-            eprintln!("PRISME_DECK{}: {e}", deck + 1);
+            warn!("PRISME_DECK{}: {e}", deck + 1);
         }
     }
 }

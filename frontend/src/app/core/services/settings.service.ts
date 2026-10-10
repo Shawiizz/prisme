@@ -1,5 +1,6 @@
 import { Injectable, signal } from '@angular/core';
 import { invoke } from '@tauri-apps/api/core';
+import { save } from '@tauri-apps/plugin-dialog';
 import {
   AudioBackend,
   AudioDevice,
@@ -8,7 +9,7 @@ import {
   TimecodeFormat,
 } from '../models/audio';
 
-/** Audio settings: backend, devices, buffer, timecode format, simulation. */
+/** Audio settings (backend, devices, buffer, timecode format, simulation) and diagnostics. */
 @Injectable({ providedIn: 'root' })
 export class SettingsService {
   readonly backends = signal<AudioBackend[]>(['wasapi']);
@@ -33,6 +34,17 @@ export class SettingsService {
 
   async loadDevices(backend: AudioBackend): Promise<void> {
     this.devices.set(await invoke<AudioDevice[]>('list_devices', { backend }));
+  }
+
+  /** Asks where to save a diagnostic report and writes it; `false` if cancelled. */
+  async saveDiagnostics(): Promise<boolean> {
+    const path = await save({
+      defaultPath: 'prisme-diagnostic.txt',
+      filters: [{ name: 'Text', extensions: ['txt'] }],
+    });
+    if (!path) return false;
+    await invoke('save_diagnostics', { path });
+    return true;
   }
 
   /** Restarts the audio with new settings. Throws the error message on failure. */

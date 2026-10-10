@@ -12,6 +12,7 @@ use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
 use tauri::{AppHandle, Manager};
+use tracing::{error, warn};
 
 const SAVE_EVERY: Duration = Duration::from_secs(5);
 
@@ -53,7 +54,7 @@ impl CrashRecovery {
                 continue;
             }
             if let Err(e) = track_loading::preload(app, state, library, deck, saved.path.clone()) {
-                eprintln!("{} not restored: {e}", saved.path.display());
+                warn!("{} not restored: {e}", saved.path.display());
             }
         }
     }
@@ -84,7 +85,7 @@ impl CrashRecovery {
     pub fn closed_normally(&self) {
         self.closing.store(true, Ordering::SeqCst);
         if let (_, Err(e)) = self.file.update(|s| s.running = false) {
-            eprintln!("session not saved: {e}");
+            error!("session not saved: {e}");
         }
     }
 
@@ -110,7 +111,7 @@ impl CrashRecovery {
             }
         });
         if let Err(e) = saved {
-            eprintln!("session not saved: {e}");
+            error!("session not saved: {e}");
         }
     }
 }

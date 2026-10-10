@@ -10,6 +10,7 @@ use std::panic::{catch_unwind, AssertUnwindSafe};
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::Arc;
 use std::time::Instant;
+use tracing::warn;
 
 #[derive(Debug, Clone, Default)]
 pub struct StreamSettings {
@@ -239,7 +240,7 @@ fn error_handler(stats: Arc<StreamStats>) -> impl FnMut(cpal::Error) + Send + 's
         if e.kind() == cpal::ErrorKind::DeviceNotAvailable {
             stats.device_lost.store(true, Ordering::Relaxed);
         }
-        eprintln!("audio stream error: {e}");
+        warn!("audio stream error: {e}");
     }
 }
 

@@ -11,6 +11,7 @@ use prisme_session::JsonFile;
 use serde::{Deserialize, Serialize};
 use std::sync::Mutex;
 use tauri::{AppHandle, Emitter, Manager};
+use tracing::{error, warn};
 
 const CLIENT: &str = "Prisme";
 
@@ -69,7 +70,7 @@ impl Controllers {
     pub fn open_enabled(&self, app: &AppHandle) {
         for device in self.setup.read(|s| s.enabled.clone()) {
             if let Err(e) = self.open(app, &device) {
-                eprintln!("controller {device} not opened: {e}");
+                warn!("controller {device} not opened: {e}");
             }
         }
     }
@@ -178,7 +179,7 @@ impl Controllers {
 
     fn save(&self, change: impl FnOnce(&mut ControllerSetup)) {
         if let (_, Err(e)) = self.setup.update(change) {
-            eprintln!("controllers not saved: {e}");
+            error!("controllers not saved: {e}");
         }
     }
 }

@@ -15,6 +15,7 @@ use prisme_library::{AnalysisListener, AnalysisProgress, BackgroundAnalyzer, Lib
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 use tauri::{AppHandle, Emitter};
+use tracing::{error, warn};
 
 pub const TRACK_ANALYZED_EVENT: &str = "track-analyzed";
 pub const PROGRESS_EVENT: &str = "library-progress";
@@ -36,7 +37,7 @@ impl LibraryService {
             .ok_or_else(|| "no data folder".to_string())
             .and_then(|dir| LibraryDb::open(&dir.join("library.sqlite")).map_err(|e| e.to_string()))
             .unwrap_or_else(|e| {
-                eprintln!("library database unavailable ({e}), keeping it in memory");
+                warn!("library database unavailable ({e}), keeping it in memory");
                 LibraryDb::open_in_memory().expect("in-memory database")
             });
         Self {
@@ -68,7 +69,7 @@ impl LibraryService {
     pub fn watch(self: &Arc<Self>) {
         match FolderWatch::start(self.app.clone(), self.clone(), &self.root) {
             Ok(watch) => *lock(&self.watch) = Some(watch),
-            Err(e) => eprintln!("the music folder is not watched: {e}"),
+            Err(e) => warn!("the music folder is not watched: {e}"),
         }
     }
 
@@ -83,7 +84,7 @@ impl LibraryService {
                 let _ = self.app.emit(TRACK_ANALYZED_EVENT, TrackAnalyzedDto::from(&record));
             }
             Ok(None) => {}
-            Err(e) => eprintln!("{e}"),
+            Err(e) => error!("{} not read from the library: {e}", path.display()),
         }
     }
 
@@ -94,7 +95,7 @@ impl LibraryService {
             None => Ok(()),
         });
         if let Err(e) = saved {
-            eprintln!("{e}");
+            error!("analysis of {} not saved: {e}", record.path);
         }
         let _ = self.app.emit(TRACK_ANALYZED_EVENT, TrackAnalyzedDto::from(record));
     }

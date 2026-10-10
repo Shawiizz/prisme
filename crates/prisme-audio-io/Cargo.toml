@@ -10,6 +10,7 @@ publish.workspace = true
 cpal = { workspace = true, features = ["realtime"] }
 rtrb.workspace = true
 thiserror.workspace = true
+tracing.workspace = true
 
 [target.'cfg(windows)'.dependencies]
 cpal = { workspace = true, features = ["realtime", "asio"] }

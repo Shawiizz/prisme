@@ -5,6 +5,7 @@ pub mod controllers;
 pub mod crates;
 pub mod cues;
 pub mod decks;
+pub mod diagnostics;
 pub mod edits;
 pub mod folders;
 pub mod fx;

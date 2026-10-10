@@ -14,6 +14,7 @@ use prisme_media::LoadingTrack;
 use std::path::PathBuf;
 use std::sync::Arc;
 use tauri::{AppHandle, Emitter, Manager};
+use tracing::{error, warn};
 
 pub const DECK_TRACK_UPDATE_EVENT: &str = "deck-track-update";
 /// Waveform resolution: enough for a zoomed, scrolling view.
@@ -68,7 +69,7 @@ pub fn prepare(path: PathBuf, library: &LibraryService) -> AppResult<(LoadedTrac
         ),
     };
     let cues = library.db.cues(&path).unwrap_or_else(|e| {
-        eprintln!("cues of {} not read: {e}", path.display());
+        warn!("cues of {} not read: {e}", path.display());
         Vec::new()
     });
     let track = LoadedTrack {
@@ -91,7 +92,7 @@ impl Completion {
     pub fn run(self, app: &AppHandle, deck: usize, load_id: u64) {
         let (audio, decoded) = self.loading.decode_rest();
         if let Err(e) = decoded {
-            eprintln!("{} decoded up to {:.1} s: {e}", self.path.display(), audio.duration_s());
+            warn!("{} decoded up to {:.1} s: {e}", self.path.display(), audio.duration_s());
         }
         let state = app.state::<AppState>();
         let library = app.state::<Arc<LibraryService>>();
@@ -100,7 +101,7 @@ impl Completion {
             let waveform = prisme_analysis::compute_waveform(&audio, WAVEFORM_SLICES_PER_S);
             if let Some(stamp) = self.stamp {
                 if let Err(e) = library.db.save_waveform(&self.path, stamp, &waveform) {
-                    eprintln!("{e}");
+                    error!("waveform of {} not saved: {e}", self.path.display());
                 }
             }
             update.waveform_ready =

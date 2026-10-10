@@ -16,6 +16,7 @@ use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::Arc;
 use std::thread::JoinHandle;
+use tracing::error;
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub struct AnalysisProgress {
@@ -131,7 +132,7 @@ fn run(
                         None => Ok(()),
                     });
                     if let Err(e) = saved {
-                        eprintln!("{e}");
+                        error!("analysis of {} not saved: {e}", file.path.display());
                     }
                     listener.track_analyzed(&record);
                     let done = done.fetch_add(1, Ordering::Relaxed) + 1;
@@ -188,11 +189,11 @@ fn follow_moves(
                     listener.track_analyzed(&record);
                 }
             }
-            Err(e) => eprintln!("{e}"),
+            Err(e) => error!("{old} not moved to {}: {e}", file.path.display()),
         }
     }
     if let Err(e) = db.forget(&forgotten) {
-        eprintln!("{e}");
+        error!("removed files not forgotten: {e}");
     }
 }
 

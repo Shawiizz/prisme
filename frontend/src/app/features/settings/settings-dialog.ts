@@ -6,7 +6,7 @@ import { AudioBackend, AudioSettings, BUFFER_SIZES } from '../../core/models/aud
 import { MixMode } from '../../core/models/engine';
 import { DjPreferences, PITCH_RANGES } from '../../core/models/preferences';
 
-/** Settings: audio backend and devices, mixing, turntables, DJ preferences. */
+/** Settings: audio backend and devices, mixing, turntables, DJ preferences; diagnostics. */
 @Component({
   selector: 'app-settings-dialog',
   templateUrl: './settings-dialog.html',
@@ -24,6 +24,7 @@ export class SettingsDialog implements OnInit {
   protected readonly mixMode = signal<MixMode>(this.mixer.mode());
   protected readonly busy = signal(false);
   protected readonly error = signal<string | null>(null);
+  protected readonly diagnosticsSaved = signal(false);
   protected readonly outputs = computed(() =>
     this.service.devices().filter((d) => d.kind === 'output'),
   );
@@ -89,6 +90,14 @@ export class SettingsDialog implements OnInit {
       this.error.set(String(e));
     } finally {
       this.busy.set(false);
+    }
+  }
+
+  async saveDiagnostics() {
+    try {
+      this.diagnosticsSaved.set(await this.service.saveDiagnostics());
+    } catch (e) {
+      this.error.set(String(e));
     }
   }
 

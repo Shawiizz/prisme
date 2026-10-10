@@ -5,6 +5,7 @@
 //! * `controllers`: MIDI controllers and their mappings;
 //! * `crash_recovery`: puts the decks back after a crash;
 //! * `history`: records the tracks played, set by set;
+//! * `logging`: the log files;
 //! * `midi_clock`: MIDI clock out, in time with the sync leader;
 //! * `recording`: records the mix to a file, with its tracklist;
 //! * `sampler`: the decks' sampler sounds;
@@ -32,6 +33,7 @@ mod folder_watch;
 mod folders;
 mod history;
 mod library_service;
+mod logging;
 mod midi_clock;
 mod preferences;
 mod recording;
@@ -52,13 +54,15 @@ use state::AppState;
 use std::path::Path;
 use std::sync::Arc;
 use tauri::Manager;
+use tracing::{error, warn};
 
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .register_asynchronous_uri_scheme_protocol(cover_protocol::SCHEME, cover_protocol::handle)
         .setup(|app| {
-            let data_dir = app.path().app_data_dir().inspect_err(|e| eprintln!("no data folder: {e}")).ok();
+            app.manage(logging::init(app.path().app_log_dir().ok().as_deref()));
+            let data_dir = app.path().app_data_dir().inspect_err(|e| warn!("no data folder: {e}")).ok();
             app.manage(AppState::new(open_json(data_dir.as_deref(), "preferences.json")));
             app.manage(Controllers::new(open_json(data_dir.as_deref(), "controllers.json")));
             let library =
@@ -85,7 +89,7 @@ pub fn run() {
             app.manage(MidiClock::new());
             if let Some(output) = controllers.setup().clock_output {
                 if let Err(e) = app.state::<MidiClock>().set_output(Some(&output)) {
-                    eprintln!("MIDI clock not sent to {output}: {e}");
+                    warn!("MIDI clock not sent to {output}: {e}");
                 }
             }
             MidiClock::start(app.handle().clone());
@@ -183,6 +187,7 @@ pub fn run() {
             commands::controllers::cancel_learning,
             commands::controllers::forget_control,
             commands::controllers::set_lights,
+            commands::diagnostics::save_diagnostics,
             commands::controllers::midi_outputs,
             commands::controllers::midi_clock_output,
             commands::controllers::set_midi_clock_output,
@@ -217,7 +222,7 @@ fn open_json<T: Serialize + DeserializeOwned + Default + Clone>(
     };
     let (file, set_aside) = JsonFile::open(dir.join(name));
     if let Some(path) = set_aside {
-        eprintln!("unreadable {name} moved to {}", path.display());
+        warn!("unreadable {name} moved to {}", path.display());
     }
     file
 }
@@ -227,10 +232,10 @@ fn start_saved_audio(state: &AppState) {
     let mut settings = state.preferences.get().audio;
     settings.simulate |= dev_startup::simulate_requested();
     if let Err(e) = commands::audio::start_audio(state, &settings) {
-        eprintln!("saved audio settings unusable ({e}), using the default devices");
+        warn!("saved audio settings unusable ({e}), using the default devices");
         let defaults = dto::AudioSettings { simulate: settings.simulate, ..Default::default() };
         if let Err(e) = commands::audio::start_audio(state, &defaults) {
-            eprintln!("audio could not start: {e}");
+            error!("audio could not start: {e}");
         }
     }
 }

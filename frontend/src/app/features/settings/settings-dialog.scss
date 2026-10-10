@@ -74,6 +74,9 @@ label {
   display: flex;
   justify-content: flex-end;
   gap: 8px;
+  .diagnostics {
+    margin-right: auto;
+  }
 }
 .loading {
   color: var(--muted);

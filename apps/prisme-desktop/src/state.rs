@@ -19,6 +19,7 @@ use prisme_session::JsonFile;
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex, MutexGuard};
+use tracing::error;
 
 pub struct LoadedTrack {
     /// Tells two loads apart, even of the same file.
@@ -173,7 +174,7 @@ impl AppState {
     /// Changes the preferences and saves them; a failed save is reported, not fatal.
     pub fn update_preferences(&self, change: impl FnOnce(&mut Preferences)) {
         if let ((), Err(e)) = self.preferences.update(change) {
-            eprintln!("preferences not saved: {e}");
+            error!("preferences not saved: {e}");
         }
     }
 

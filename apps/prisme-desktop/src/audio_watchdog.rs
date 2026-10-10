@@ -7,6 +7,7 @@ use crate::state::{lock, AppState};
 use std::collections::VecDeque;
 use std::time::{Duration, Instant};
 use tauri::{AppHandle, Manager};
+use tracing::{error, info, warn};
 
 const CHECK: Duration = Duration::from_millis(500);
 const RETRY: Duration = Duration::from_secs(2);
@@ -32,7 +33,7 @@ pub fn start(app: AppHandle) {
                     continue;
                 };
                 if lost {
-                    eprintln!("audio device lost, waiting for it to come back");
+                    info!("audio device lost, waiting for it to come back");
                     recover(&state, &settings);
                     last_periods = None;
                     continue;
@@ -40,9 +41,9 @@ pub fn start(app: AppHandle) {
                 let stalled = last_periods == Some(periods);
                 last_periods = Some(periods);
                 if (failed || stalled) && restarts.allow(Instant::now()) {
-                    eprintln!("audio {}, restarting it", if failed { "engine failed" } else { "stalled" });
+                    warn!("audio {}, restarting it", if failed { "engine failed" } else { "stalled" });
                     if let Err(e) = start_audio(&state, &settings) {
-                        eprintln!("audio could not restart: {e}");
+                        error!("audio could not restart: {e}");
                     }
                     last_periods = None;
                 }
@@ -56,10 +57,10 @@ fn recover(state: &AppState, settings: &AudioSettings) {
         std::thread::sleep(RETRY);
         match start_audio(state, settings) {
             Ok(_) => {
-                eprintln!("audio device back");
+                info!("audio device back");
                 return;
             }
-            Err(e) => eprintln!("audio still unavailable: {e}"),
+            Err(e) => info!("audio still unavailable: {e}"),
         }
     }
 }

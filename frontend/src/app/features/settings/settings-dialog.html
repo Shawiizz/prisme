@@ -169,6 +169,13 @@
       }
 
       <div class="buttons">
+        <button
+          class="diagnostics"
+          title="Versions, audio setup and the end of the log, to help understand a problem"
+          (click)="saveDiagnostics()"
+        >
+          {{ diagnosticsSaved() ? 'Report saved' : 'Save a diagnostic report…' }}
+        </button>
         <button (click)="closed.emit()">Cancel</button>
         <button class="primary" (click)="apply()" [disabled]="busy()">
           {{ busy() ? 'Starting…' : 'Apply' }}

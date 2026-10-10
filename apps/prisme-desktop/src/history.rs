@@ -11,6 +11,7 @@ use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 use tauri::{AppHandle, Emitter, Manager};
+use tracing::error;
 
 pub const PLAYED_AFTER_S: f64 = 30.0;
 pub const HISTORY_CHANGED_EVENT: &str = "history-changed";
@@ -121,14 +122,14 @@ fn record(app: &AppHandle, session: &mut Option<SessionId>, path: &std::path::Pa
         Ok(()) => {
             let _ = app.emit(HISTORY_CHANGED_EVENT, ());
         }
-        Err(e) => eprintln!("play not recorded: {e}"),
+        Err(e) => error!("play not recorded: {e}"),
     }
     match library.db.remove_from_prepare(&[path]) {
         Ok(0) => {}
         Ok(_) => {
             let _ = app.emit(PREPARE_CHANGED_EVENT, ());
         }
-        Err(e) => eprintln!("{e}"),
+        Err(e) => error!("{} not removed from the prepare list: {e}", path.display()),
     }
 }
 
