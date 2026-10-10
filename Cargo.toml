@@ -20,6 +20,7 @@ thiserror = "2"
 rtrb = "0.3"
 triple_buffer = "8"
 cpal = "0.15"
+rustfft = "6"
 clap = { version = "4", features = ["derive"] }
 symphonia = { version = "0.5", default-features = false, features = ["mp3", "aac", "isomp4", "flac", "ogg", "vorbis", "wav", "pcm", "alac"] }
 
@@ -30,4 +31,9 @@ debug = 1
 [profile.test]
 opt-level = 2
 [profile.dev.package."*"]
+opt-level = 2
+# the DSP crates are unusably slow unoptimised, even while developing the UI
+[profile.dev.package.prisme-analysis]
+opt-level = 2
+[profile.dev.package.prisme-media]
 opt-level = 2

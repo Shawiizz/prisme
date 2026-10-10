@@ -3,11 +3,12 @@
 use crate::audio_host;
 use crate::dto::{
     AudioInfo, AudioSettings, DeckSettingsDto, DeviceDto, DirListingDto, MixerStateDto, TimecodeFormatDto,
-    TrackInfoDto, VinylModeDto, WaveformDto,
+    TrackInfoDto, VinylModeDto,
 };
 use crate::error::{AppError, AppResult};
 use crate::library;
 use crate::state::{deck_commands, lock, AppState, LoadedTrack};
+use prisme_analysis::AnalysisOptions;
 use prisme_audio_io::DeviceKind;
 use prisme_engine::Command;
 use std::path::PathBuf;
@@ -72,57 +73,39 @@ pub fn start_audio(state: &AppState, settings: AudioSettings) -> AppResult<Audio
     Ok(info)
 }
 
-/// Decodes a file, analyses it and loads it on a deck.
+/// Decodes a file, analyses it (waveform, tempo, key) and loads it on a deck.
 #[tauri::command]
 pub async fn load_track(state: State<'_, AppState>, deck: usize, path: String) -> AppResult<TrackInfoDto> {
     AppState::check_deck(deck)?;
     let file = PathBuf::from(&path);
-    let decoded = {
-        let file = file.clone();
-        tauri::async_runtime::spawn_blocking(move || {
-            let audio = prisme_media::decode_file(&file)?;
-            let waveform = prisme_analysis::compute_waveform(&audio, WAVEFORM_SLICES_PER_S);
-            Ok::<_, AppError>((Arc::new(audio), Arc::new(waveform)))
-        })
+    let track = tauri::async_runtime::spawn_blocking(move || prepare_track(file))
         .await
-        .map_err(|e| AppError::Other(e.to_string()))??
-    };
-    let (audio, waveform) = decoded;
-    let info = TrackInfoDto {
-        deck,
-        path: path.clone(),
-        title: library::title_from_path(&file),
-        artist: None,
-        duration_s: audio.duration_s(),
-        sample_rate: audio.sample_rate(),
-        waveform: WaveformDto::from(waveform.as_ref()),
-    };
+        .map_err(|e| AppError::Other(e.to_string()))??;
+    let info = track.info(deck);
+    let audio = track.audio.clone();
     // keep it for audio restarts, then hand it to the engine (if audio runs)
-    lock(&state.tracks)[deck] = Some(LoadedTrack { path: file, audio: audio.clone(), waveform });
+    lock(&state.tracks)[deck] = Some(track);
     match state.send(Command::LoadTrack { deck, track: audio }) {
         Ok(()) | Err(AppError::AudioNotRunning) => Ok(info),
         Err(e) => Err(e),
     }
 }
 
+/// Decoding, then the waveform and the tempo / key analysis side by side.
+pub fn prepare_track(path: PathBuf) -> AppResult<LoadedTrack> {
+    let audio = prisme_media::decode_file(&path)?;
+    let (waveform, analysis) = std::thread::scope(|s| {
+        let waveform = s.spawn(|| prisme_analysis::compute_waveform(&audio, WAVEFORM_SLICES_PER_S));
+        let analysis = prisme_analysis::analyze(&audio, &AnalysisOptions::default());
+        (waveform.join().expect("waveform thread"), analysis)
+    });
+    Ok(LoadedTrack { path, audio: Arc::new(audio), waveform, analysis })
+}
+
 /// Tracks currently loaded on the decks (to rebuild the UI after a reload).
 #[tauri::command]
 pub fn loaded_tracks(state: State<'_, AppState>) -> Vec<Option<TrackInfoDto>> {
-    lock(&state.tracks)
-        .iter()
-        .enumerate()
-        .map(|(deck, t)| {
-            t.as_ref().map(|t| TrackInfoDto {
-                deck,
-                path: t.path.display().to_string(),
-                title: library::title_from_path(&t.path),
-                artist: None,
-                duration_s: t.audio.duration_s(),
-                sample_rate: t.audio.sample_rate(),
-                waveform: WaveformDto::from(t.waveform.as_ref()),
-            })
-        })
-        .collect()
+    lock(&state.tracks).iter().enumerate().map(|(deck, t)| t.as_ref().map(|t| t.info(deck))).collect()
 }
 
 /// Deck settings and crossfader as the backend knows them (to rebuild the UI).

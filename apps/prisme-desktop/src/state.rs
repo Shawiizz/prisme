@@ -2,9 +2,10 @@
 //! the deck settings (kept so they can be re-applied when the audio restarts).
 
 use crate::audio_host::{AudioSession, DECKS};
-use crate::dto::{AudioSettings, VinylModeDto};
+use crate::dto::{AudioSettings, KeyDto, TempoDto, TrackInfoDto, VinylModeDto, WaveformDto};
 use crate::error::{AppError, AppResult};
-use prisme_analysis::Waveform;
+use crate::library;
+use prisme_analysis::{TrackAnalysis, Waveform};
 use prisme_engine::{Command, EngineController};
 use prisme_media::TrackAudio;
 use std::path::PathBuf;
@@ -13,7 +14,25 @@ use std::sync::{Arc, Mutex, MutexGuard};
 pub struct LoadedTrack {
     pub path: PathBuf,
     pub audio: Arc<TrackAudio>,
-    pub waveform: Arc<Waveform>,
+    pub waveform: Waveform,
+    pub analysis: TrackAnalysis,
+}
+
+impl LoadedTrack {
+    /// What the UI shows of the track on `deck`.
+    pub fn info(&self, deck: usize) -> TrackInfoDto {
+        TrackInfoDto {
+            deck,
+            path: self.path.display().to_string(),
+            title: library::title_from_path(&self.path),
+            artist: None,
+            duration_s: self.audio.duration_s(),
+            sample_rate: self.audio.sample_rate(),
+            waveform: WaveformDto::from(&self.waveform),
+            tempo: self.analysis.tempo.as_ref().map(TempoDto::from),
+            key: self.analysis.key.as_ref().map(KeyDto::from),
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy)]

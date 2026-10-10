@@ -1,4 +1,4 @@
-import { Waveform } from '../../../core/models/engine';
+import { Tempo, Waveform } from '../../../core/models/engine';
 
 /**
  * Draws waveforms on a canvas. Height = peak amplitude, colour = balance between the
@@ -27,9 +27,18 @@ export class WaveformPainter {
 
   /**
    * Scrolling view centred on `positionS`, showing `spanS` seconds.
-   * Past audio is dimmed; a white line marks the playhead.
+   * Past audio is dimmed; a white line marks the playhead; the beat grid (if any) is
+   * drawn with a stronger line every 4 beats, counted from the first beat.
    */
-  drawZoomed(ctx: CanvasRenderingContext2D, w: Waveform, positionS: number, spanS: number, width: number, height: number) {
+  drawZoomed(
+    ctx: CanvasRenderingContext2D,
+    w: Waveform,
+    tempo: Tempo | null,
+    positionS: number,
+    spanS: number,
+    width: number,
+    height: number,
+  ) {
     ctx.clearRect(0, 0, width, height);
     const sps = w.slicesPerSecond;
     const startS = positionS - spanS / 2;
@@ -49,8 +58,21 @@ export class WaveformPainter {
       ctx.fillRect(x, mid - amp, 1, amp * 2);
     }
     ctx.globalAlpha = 1;
+    if (tempo) this.drawBeatGrid(ctx, tempo, startS, spanS, width, height);
     ctx.fillStyle = '#ffffff';
     ctx.fillRect(Math.floor(width / 2), 0, 2, height);
+  }
+
+  private drawBeatGrid(ctx: CanvasRenderingContext2D, tempo: Tempo, startS: number, spanS: number, width: number, height: number) {
+    const period = 60 / tempo.bpm;
+    const first = Math.ceil((startS - tempo.firstBeatS) / period);
+    const last = Math.floor((startS + spanS - tempo.firstBeatS) / period);
+    for (let n = Math.max(first, 0); n <= last; n++) {
+      const x = Math.round(((tempo.firstBeatS + n * period - startS) / spanS) * width);
+      const bar = n % 4 === 0;
+      ctx.fillStyle = bar ? 'rgba(255,255,255,0.55)' : 'rgba(255,255,255,0.2)';
+      ctx.fillRect(x, 0, bar ? 2 : 1, height);
+    }
   }
 
   /** Whole track, played part dimmed, with the playhead. */

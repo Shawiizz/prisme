@@ -26,12 +26,18 @@ export class DeckCard {
     const s = this.status();
     return s ? '-' + formatTime(s.durationS - s.positionS) : '';
   });
-  /** Vinyl: the platter speed (while it turns). Internal: the tempo fader. */
-  protected readonly pitch = computed(() => {
+  /** Playback rate. Vinyl: the platter speed (while it turns). Internal: the tempo fader. */
+  private readonly rate = computed(() => {
     const speed = Math.abs(this.status()?.speed ?? 0);
-    const live = this.settings().vinylEnabled && speed > 0.05;
-    return formatPitch(live ? speed : this.settings().pitch);
+    return this.settings().vinylEnabled && speed > 0.05 ? speed : this.settings().pitch;
   });
+  protected readonly pitch = computed(() => formatPitch(this.rate()));
+  /** Track tempo at the current rate. */
+  protected readonly bpm = computed(() => {
+    const tempo = this.track()?.tempo;
+    return tempo ? (tempo.bpm * this.rate()).toFixed(1) : null;
+  });
+  protected readonly key = computed(() => this.track()?.key ?? null);
   protected readonly signal = computed(() => this.status()?.vinyl.signal ?? 'none');
 
   toggleVinyl() {

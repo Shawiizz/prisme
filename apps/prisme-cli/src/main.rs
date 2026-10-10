@@ -1,6 +1,8 @@
 //! `prisme`: command line front-end. Plays a track through the real engine, driven
-//! internally, by a simulated turntable, or by a real one on the sound card input.
+//! internally, by a simulated turntable, or by a real one on the sound card input;
+//! analyses tracks (tempo, key).
 
+mod analyze;
 mod simulation;
 
 use anyhow::{bail, Context, Result};
@@ -68,6 +70,17 @@ enum Cmd {
         seconds: u64,
         #[command(flatten)]
         audio: AudioArgs,
+    },
+    /// Detects the tempo and key of files or folders.
+    Analyze {
+        #[arg(required = true)]
+        paths: Vec<PathBuf>,
+        /// Lower bound of the BPM range (the range spans one octave).
+        #[arg(long, default_value_t = prisme_analysis::DEFAULT_MIN_BPM)]
+        min_bpm: f64,
+        /// Also writes the results to this CSV file.
+        #[arg(long)]
+        csv: Option<PathBuf>,
     },
 }
 
@@ -142,6 +155,9 @@ fn main() -> Result<()> {
                 c.send(Command::SetLeadIn { deck: 0, seconds: lead_in }).ok();
                 c.send(Command::SetVinylEnabled { deck: 0, enabled: true }).ok();
             })
+        }
+        Cmd::Analyze { paths, min_bpm, csv } => {
+            analyze::run(&paths, prisme_analysis::AnalysisOptions { min_bpm }, csv.as_deref())
         }
     }
 }

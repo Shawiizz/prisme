@@ -6,9 +6,9 @@
 //! * `PRISME_MASTER_GAIN`: initial master gain (e.g. 0.2 to test quietly).
 
 use crate::audio_host::DECKS;
-use crate::state::{lock, AppState, LoadedTrack};
+use crate::commands::prepare_track;
+use crate::state::{lock, AppState};
 use std::path::PathBuf;
-use std::sync::Arc;
 
 /// Settings override requested by the environment.
 pub fn simulate_requested() -> bool {
@@ -20,13 +20,8 @@ pub fn simulate_requested() -> bool {
 pub fn preload_tracks(state: &AppState) {
     for deck in 0..DECKS {
         let Ok(path) = std::env::var(format!("PRISME_DECK{}", deck + 1)) else { continue };
-        let path = PathBuf::from(path);
-        match prisme_media::decode_file(&path) {
-            Ok(audio) => {
-                let waveform = prisme_analysis::compute_waveform(&audio, crate::commands::WAVEFORM_SLICES_PER_S);
-                lock(&state.tracks)[deck] =
-                    Some(LoadedTrack { path, audio: Arc::new(audio), waveform: Arc::new(waveform) });
-            }
+        match prepare_track(PathBuf::from(path)) {
+            Ok(track) => lock(&state.tracks)[deck] = Some(track),
             Err(e) => eprintln!("PRISME_DECK{}: {e}", deck + 1),
         }
     }

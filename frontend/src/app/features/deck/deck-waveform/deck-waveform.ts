@@ -55,7 +55,7 @@ export class DeckWaveform {
       return;
     }
     const position = this.engine.livePosition(this.deck()) ?? 0;
-    this.painter.drawZoomed(zoom.ctx, track.waveform, position, ZOOM_SPAN_S, zoom.w, zoom.h);
+    this.painter.drawZoomed(zoom.ctx, track.waveform, track.tempo, position, ZOOM_SPAN_S, zoom.w, zoom.h);
     this.painter.drawOverview(overview.ctx, track.waveform, position, track.durationS, overview.w, overview.h);
   }
 

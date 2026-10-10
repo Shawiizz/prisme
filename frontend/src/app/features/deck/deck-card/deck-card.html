@@ -24,11 +24,15 @@
     <div class="row stats">
       <div class="stat">
         <span class="label">BPM</span>
-        <span class="value">—</span>
+        <span class="value">{{ bpm() ?? '—' }}</span>
       </div>
       <div class="stat">
         <span class="label">KEY</span>
-        <span class="value">—</span>
+        @if (key(); as k) {
+          <span class="value">{{ k.camelot }}<span class="key-name">{{ k.name }}</span></span>
+        } @else {
+          <span class="value">—</span>
+        }
       </div>
       <div class="stat">
         <span class="label">PITCH</span>

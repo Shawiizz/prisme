@@ -80,6 +80,34 @@ impl From<&prisme_analysis::Waveform> for WaveformDto {
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
+pub struct TempoDto {
+    pub bpm: f64,
+    pub first_beat_s: f64,
+}
+
+impl From<&prisme_analysis::Tempo> for TempoDto {
+    fn from(t: &prisme_analysis::Tempo) -> Self {
+        Self { bpm: t.bpm, first_beat_s: t.first_beat_s }
+    }
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct KeyDto {
+    /// "Am", "F#"...
+    pub name: &'static str,
+    /// "8A", "2B"...
+    pub camelot: String,
+}
+
+impl From<&prisme_analysis::KeyEstimate> for KeyDto {
+    fn from(k: &prisme_analysis::KeyEstimate) -> Self {
+        Self { name: k.key.name(), camelot: k.key.camelot() }
+    }
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct TrackInfoDto {
     pub deck: usize,
     pub path: String,
@@ -88,6 +116,8 @@ pub struct TrackInfoDto {
     pub duration_s: f64,
     pub sample_rate: u32,
     pub waveform: WaveformDto,
+    pub tempo: Option<TempoDto>,
+    pub key: Option<KeyDto>,
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]

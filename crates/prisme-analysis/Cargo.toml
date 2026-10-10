@@ -1,6 +1,6 @@
 [package]
 name = "prisme-analysis"
-description = "Track analysis: waveform summaries (BPM and key later)"
+description = "Track analysis: waveform summaries, tempo and beat grid, musical key"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -8,3 +8,4 @@ publish.workspace = true
 
 [dependencies]
 prisme-media.workspace = true
+rustfft.workspace = true

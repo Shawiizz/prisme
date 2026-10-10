@@ -15,5 +15,6 @@ prisme-timecode.workspace = true
 prisme-media.workspace = true
 prisme-engine.workspace = true
 prisme-audio-io.workspace = true
+prisme-analysis.workspace = true
 anyhow.workspace = true
 clap.workspace = true

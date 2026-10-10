@@ -34,6 +34,19 @@ export interface Waveform {
   high: number[];
 }
 
+export interface Tempo {
+  bpm: number;
+  /** First beat at or after the start of the track (seconds). */
+  firstBeatS: number;
+}
+
+export interface MusicalKey {
+  /** "Am", "F#"... */
+  name: string;
+  /** "8A", "2B"... */
+  camelot: string;
+}
+
 export interface TrackInfo {
   deck: number;
   path: string;
@@ -42,6 +55,8 @@ export interface TrackInfo {
   durationS: number;
   sampleRate: number;
   waveform: Waveform;
+  tempo: Tempo | null;
+  key: MusicalKey | null;
 }
 
 /** Deck settings owned by the UI and pushed to the engine. */
