@@ -1,4 +1,6 @@
 import { Component, computed, inject, input } from '@angular/core';
+import { MixerService } from '../../../core/services/mixer.service';
+import { ChannelStrip } from '../../mixer/channel-strip/channel-strip';
 import { EngineService } from '../../../core/services/engine.service';
 import { PreferencesService } from '../../../core/services/preferences.service';
 import { phaseOffset, pitchToMatch } from '../../../core/sync';
@@ -14,11 +16,13 @@ type SyncState = 'off' | 'matched' | 'locked';
   selector: 'app-deck-controls',
   templateUrl: './deck-controls.html',
   styleUrl: './deck-controls.scss',
+  imports: [ChannelStrip],
 })
 export class DeckControls {
   readonly deck = input.required<number>();
 
   protected readonly engine = inject(EngineService);
+  protected readonly mixer = inject(MixerService);
   private readonly preferences = inject(PreferencesService);
   protected readonly range = computed(() => this.preferences.dj().pitchRange);
   protected readonly color = computed(() => deckColor(this.deck()));

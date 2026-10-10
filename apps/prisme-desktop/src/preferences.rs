@@ -1,7 +1,7 @@
 //! What the user chooses once and finds again at the next start.
 
 use crate::audio_host::DECKS;
-use crate::dto::{AudioSettings, MixModeDto, VinylModeDto};
+use crate::dto::{AudioSettings, CrossfaderCurveDto, MixModeDto, VinylModeDto};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
@@ -55,11 +55,20 @@ pub struct MixerPreferences {
     /// Headphones: 0 = cued decks only, 1 = master only.
     pub cue_mix: f32,
     pub headphone_gain: f32,
+    pub crossfader_curve: CrossfaderCurveDto,
+    /// Master limiter (adds 1 ms of latency to the software mixer).
+    pub limiter: bool,
 }
 
 impl Default for MixerPreferences {
     fn default() -> Self {
-        Self { mode: MixModeDto::External, cue_mix: 0.0, headphone_gain: 1.0 }
+        Self {
+            mode: MixModeDto::External,
+            cue_mix: 0.0,
+            headphone_gain: 1.0,
+            crossfader_curve: CrossfaderCurveDto::Smooth,
+            limiter: true,
+        }
     }
 }
 

@@ -65,6 +65,65 @@ impl From<MixMode> for MixModeDto {
     }
 }
 
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum CrossfaderCurveDto {
+    /// Equal power, for blending.
+    #[default]
+    Smooth,
+    /// Cuts only at the very ends, for scratching.
+    Sharp,
+}
+
+impl From<CrossfaderCurveDto> for prisme_engine::CrossfaderCurve {
+    fn from(c: CrossfaderCurveDto) -> Self {
+        match c {
+            CrossfaderCurveDto::Smooth => Self::Smooth,
+            CrossfaderCurveDto::Sharp => Self::Sharp,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum BandDto {
+    Low,
+    Mid,
+    High,
+}
+
+impl BandDto {
+    pub const ALL: [BandDto; 3] = [BandDto::Low, BandDto::Mid, BandDto::High];
+}
+
+impl From<BandDto> for prisme_engine::Band {
+    fn from(b: BandDto) -> Self {
+        match b {
+            BandDto::Low => Self::Low,
+            BandDto::Mid => Self::Mid,
+            BandDto::High => Self::High,
+        }
+    }
+}
+
+/// A channel of the software mixer, before its fader. Gains are linear.
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ChannelStripDto {
+    pub trim: f32,
+    /// Low, mid, high.
+    pub eq: [f32; 3],
+    pub kills: [bool; 3],
+    /// -1 = low-pass closed, 0 = off, 1 = high-pass open.
+    pub filter: f32,
+}
+
+impl Default for ChannelStripDto {
+    fn default() -> Self {
+        Self { trim: 1.0, eq: [1.0; 3], kills: [false; 3], filter: 0.0 }
+    }
+}
+
 impl From<MixModeDto> for MixMode {
     fn from(m: MixModeDto) -> Self {
         match m {
@@ -275,6 +334,7 @@ pub struct DeckSettingsDto {
     pub vinyl_mode: VinylModeDto,
     pub lead_in_s: f64,
     pub swap_channels: bool,
+    pub strip: ChannelStripDto,
 }
 
 /// Settings the backend applies to the engine (the UI mirrors them at startup).
@@ -289,6 +349,8 @@ pub struct MixerStateDto {
     pub mode_in_use: Option<MixModeDto>,
     pub cue_mix: f32,
     pub headphone_gain: f32,
+    pub crossfader_curve: CrossfaderCurveDto,
+    pub limiter: bool,
 }
 
 #[derive(Debug, Clone, Serialize)]

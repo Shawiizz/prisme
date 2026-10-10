@@ -1,0 +1,9 @@
+[package]
+name = "prisme-dsp"
+description = "Real-time audio processing: filters, EQ, DJ filter, limiter"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[dependencies]

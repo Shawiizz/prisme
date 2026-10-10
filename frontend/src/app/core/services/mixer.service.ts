@@ -1,9 +1,12 @@
-import { Injectable, inject, signal } from '@angular/core';
+import { Injectable, computed, inject, signal } from '@angular/core';
 import { invoke } from '@tauri-apps/api/core';
-import { MixMode, MixerState } from '../models/engine';
+import { BANDS, Band, ChannelStrip, CrossfaderCurve, MixMode, MixerState } from '../models/engine';
 import { EngineService } from './engine.service';
 
-/** Where the decks are heard: a hardware mixer, or the software mixer and its headphones. */
+/**
+ * Where the decks are heard: a hardware mixer, or the software mixer (channel strips,
+ * faders, crossfader, master limiter) and its headphones.
+ */
 @Injectable({ providedIn: 'root' })
 export class MixerService {
   private readonly engine = inject(EngineService);
@@ -15,6 +18,10 @@ export class MixerService {
   readonly modeInUse = signal<MixMode | null>(null);
   readonly cueMix = signal(0);
   readonly headphoneGain = signal(1);
+  readonly crossfaderCurve = signal<CrossfaderCurve>('smooth');
+  readonly limiter = signal(true);
+  /** The software mixer is in use. */
+  readonly internal = computed(() => (this.modeInUse() ?? this.mode()) === 'internal');
 
   apply(state: MixerState) {
     this.crossfader.set(state.crossfader);
@@ -22,6 +29,8 @@ export class MixerService {
     this.modeInUse.set(state.modeInUse);
     this.cueMix.set(state.cueMix);
     this.headphoneGain.set(state.headphoneGain);
+    this.crossfaderCurve.set(state.crossfaderCurve);
+    this.limiter.set(state.limiter);
   }
 
   async setMode(mode: MixMode) {
@@ -56,5 +65,47 @@ export class MixerService {
   setHeadphoneGain(gain: number) {
     this.headphoneGain.set(gain);
     return this.engine.call('set_headphone_gain', { gain });
+  }
+
+  strip(deck: number): ChannelStrip {
+    return this.engine.decks()[deck].strip;
+  }
+
+  setTrim(deck: number, gain: number) {
+    this.patchStrip(deck, { trim: gain });
+    return this.engine.call('set_trim', { deck, gain });
+  }
+
+  setEq(deck: number, band: Band, gain: number) {
+    const eq = [...this.strip(deck).eq];
+    eq[BANDS.indexOf(band)] = gain;
+    this.patchStrip(deck, { eq });
+    return this.engine.call('set_eq', { deck, band, gain });
+  }
+
+  setKill(deck: number, band: Band, kill: boolean) {
+    const kills = [...this.strip(deck).kills];
+    kills[BANDS.indexOf(band)] = kill;
+    this.patchStrip(deck, { kills });
+    return this.engine.call('set_eq_kill', { deck, band, kill });
+  }
+
+  setFilter(deck: number, position: number) {
+    this.patchStrip(deck, { filter: position });
+    return this.engine.call('set_filter', { deck, position });
+  }
+
+  setCrossfaderCurve(curve: CrossfaderCurve) {
+    this.crossfaderCurve.set(curve);
+    return this.engine.call('set_crossfader_curve', { curve });
+  }
+
+  setLimiter(enabled: boolean) {
+    this.limiter.set(enabled);
+    return this.engine.call('set_limiter', { enabled });
+  }
+
+  private patchStrip(deck: number, changes: Partial<ChannelStrip>) {
+    this.engine.patchDeck(deck, { strip: { ...this.strip(deck), ...changes } });
   }
 }

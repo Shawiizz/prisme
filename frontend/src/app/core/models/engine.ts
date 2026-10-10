@@ -164,7 +164,32 @@ export interface DeckSettings {
   leadInS: number;
   /** The turntable's left and right channels are crossed. */
   swapChannels: boolean;
+  strip: ChannelStrip;
 }
+
+/** EQ bands, in the order of `ChannelStrip.eq`. */
+export type Band = 'low' | 'mid' | 'high';
+export const BANDS: readonly Band[] = ['low', 'mid', 'high'];
+
+/** A channel of the software mixer, before its fader. Gains are linear. */
+export interface ChannelStrip {
+  trim: number;
+  /** Low, mid, high. */
+  eq: number[];
+  kills: boolean[];
+  /** -1 = low-pass closed, 0 = off, 1 = high-pass open. */
+  filter: number;
+}
+
+export const FLAT_STRIP: ChannelStrip = {
+  trim: 1,
+  eq: [1, 1, 1],
+  kills: [false, false, false],
+  filter: 0,
+};
+
+/** Smooth: equal power, for blending. Sharp: cuts only at the very ends, for scratching. */
+export type CrossfaderCurve = 'smooth' | 'sharp';
 
 /** External: each deck on its own outputs for a hardware mixer. Internal: the software mixer. */
 export type MixMode = 'external' | 'internal';
@@ -179,6 +204,9 @@ export interface MixerState {
   /** Headphones: 0 = cued decks only, 1 = master only. */
   cueMix: number;
   headphoneGain: number;
+  crossfaderCurve: CrossfaderCurve;
+  /** Master limiter. */
+  limiter: boolean;
 }
 
 export const DECK_COUNT = 2;

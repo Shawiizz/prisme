@@ -5,6 +5,7 @@ import {
   Cue,
   DECK_COUNT,
   DeckTrackUpdate,
+  FLAT_STRIP,
   DeckSettings,
   EngineStatus,
   MixerState,
@@ -30,6 +31,7 @@ const DEFAULT_DECK: DeckSettings = {
   vinylMode: 'absolute',
   leadInS: 0,
   swapChannels: false,
+  strip: FLAT_STRIP,
 };
 
 /**

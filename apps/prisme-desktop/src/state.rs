@@ -3,7 +3,9 @@
 //! restarts).
 
 use crate::audio_host::{AudioSession, DECKS};
-use crate::dto::{CueDto, KeyDto, MixModeDto, TempoDto, TrackInfoDto, VinylModeDto};
+use crate::dto::{
+    BandDto, ChannelStripDto, CueDto, KeyDto, MixModeDto, TempoDto, TrackInfoDto, VinylModeDto,
+};
 use crate::error::{AppError, AppResult};
 use crate::folders;
 use crate::preferences::{DeckPreferences, Preferences};
@@ -100,6 +102,7 @@ pub struct DeckSettings {
     pub vinyl_mode: VinylModeDto,
     pub lead_in_s: f64,
     pub swap_channels: bool,
+    pub strip: ChannelStripDto,
 }
 
 impl From<DeckPreferences> for DeckSettings {
@@ -112,6 +115,7 @@ impl From<DeckPreferences> for DeckSettings {
             vinyl_mode: p.vinyl_mode,
             lead_in_s: p.lead_in_s,
             swap_channels: p.swap_channels,
+            strip: ChannelStripDto::default(),
         }
     }
 }
@@ -240,17 +244,28 @@ impl AppState {
         let _ = controller.send(Command::SetRouting { routing: self.routing(output_channels) });
         let _ = controller.send(Command::SetCueMix { mix: preferences.mixer.cue_mix });
         let _ = controller.send(Command::SetHeadphoneGain { gain: preferences.mixer.headphone_gain });
+        let _ =
+            controller.send(Command::SetCrossfaderCurve { curve: preferences.mixer.crossfader_curve.into() });
+        let _ = controller.send(Command::SetLimiter { enabled: preferences.mixer.limiter });
     }
 }
 
 /// Commands that put a deck in the state described by `s`.
-pub fn deck_commands(deck: usize, s: &DeckSettings) -> [Command; 6] {
-    [
+pub fn deck_commands(deck: usize, s: &DeckSettings) -> Vec<Command> {
+    let strip = s.strip;
+    let mut commands = vec![
         Command::SetDeckCue { deck, enabled: s.cue },
         Command::SetPitch { deck, ratio: s.pitch },
         Command::SetVolume { deck, gain: s.volume },
         Command::SetVinylMode { deck, mode: s.vinyl_mode.into() },
         Command::SetLeadIn { deck, seconds: s.lead_in_s },
         Command::SetVinylEnabled { deck, enabled: s.vinyl_enabled },
-    ]
+        Command::SetTrim { deck, gain: strip.trim },
+        Command::SetFilter { deck, position: strip.filter },
+    ];
+    for (i, band) in BandDto::ALL.into_iter().enumerate() {
+        commands.push(Command::SetEq { deck, band: band.into(), gain: strip.eq[i] });
+        commands.push(Command::SetEqKill { deck, band: band.into(), kill: strip.kills[i] });
+    }
+    commands
 }

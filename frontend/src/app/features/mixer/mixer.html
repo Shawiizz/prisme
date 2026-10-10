@@ -31,6 +31,14 @@
         <div class="meter">
           <div [style.height.%]="peak() * 100" [class.clip]="peak() > 0.99"></div>
         </div>
+        <button
+          class="toggle"
+          [class.active]="mixer.limiter()"
+          (click)="mixer.setLimiter(!mixer.limiter())"
+          title="Master limiter: no clipping (adds 1 ms of latency)"
+        >
+          LIM
+        </button>
       </div>
     </div>
     <div class="headphones">
@@ -55,16 +63,26 @@
         title="Headphone volume"
       />
     </div>
-    <input
-      class="crossfader"
-      type="range"
-      min="-1"
-      max="1"
-      step="0.01"
-      [value]="mixer.crossfader()"
-      (input)="onCrossfader($event)"
-      (dblclick)="mixer.setCrossfader(0)"
-    />
+    <div class="crossfader-row">
+      <input
+        class="crossfader"
+        type="range"
+        min="-1"
+        max="1"
+        step="0.01"
+        [value]="mixer.crossfader()"
+        (input)="onCrossfader($event)"
+        (dblclick)="mixer.setCrossfader(0)"
+      />
+      <button
+        class="toggle"
+        [class.active]="mixer.crossfaderCurve() === 'sharp'"
+        (click)="mixer.setCrossfaderCurve(mixer.crossfaderCurve() === 'sharp' ? 'smooth' : 'sharp')"
+        title="Crossfader curve: smooth for blending, sharp for scratching"
+      >
+        {{ mixer.crossfaderCurve() === 'sharp' ? 'SHARP' : 'SMOOTH' }}
+      </button>
+    </div>
   } @else {
     <div class="external">
       <span class="label">External mixer</span>

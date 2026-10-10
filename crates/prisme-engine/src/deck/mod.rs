@@ -6,6 +6,7 @@ use crate::command::{CrossfaderSide, VinylMode};
 use crate::grid::BeatGrid;
 use crate::playhead::Playhead;
 use crate::status::{DeckStatus, LoopStatus, SyncStatus};
+use crate::strip::ChannelStrip;
 use crate::sync::{self, DeckSync, LeaderBeat, SyncTarget};
 use crate::vinyl::{VinylControl, VinylDrive};
 use prisme_timecode::TimecodeDecoder;
@@ -28,9 +29,10 @@ pub(crate) struct Deck {
     pub(crate) side: CrossfaderSide,
     /// Internal mixer: heard in the headphones.
     pub(crate) cue: bool,
-    /// Loudest sample since the last status.
+    /// Loudest sample since the last status (after the channel strip in internal mode).
     pub(crate) peak: f32,
     pub(crate) grid: Option<BeatGrid>,
+    pub(crate) strip: ChannelStrip,
     pub(crate) sync: DeckSync,
     transport: Transport,
     correction: f64,
@@ -38,7 +40,7 @@ pub(crate) struct Deck {
 }
 
 impl Deck {
-    pub(crate) fn new(decoder: Box<TimecodeDecoder>) -> Self {
+    pub(crate) fn new(decoder: Box<TimecodeDecoder>, sample_rate: f32) -> Self {
         Self {
             playhead: Playhead::new(),
             playing: false,
@@ -50,6 +52,7 @@ impl Deck {
             cue: false,
             peak: 0.0,
             grid: None,
+            strip: ChannelStrip::new(sample_rate),
             sync: DeckSync::new(),
             transport: Transport::default(),
             correction: 0.0,
@@ -73,7 +76,6 @@ impl Deck {
         let speed = if self.transport.censoring { -speed } else { speed };
         self.playhead.render(out, out_rate, speed);
         self.speed = speed;
-        self.peak = out.iter().fold(self.peak, |p, s| p.max(s.abs()));
 
         let seconds = (out.len() / 2) as f64 / out_rate;
         let platter = self.vinyl.enabled.then_some(drive.speed);

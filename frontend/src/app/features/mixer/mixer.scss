@@ -56,6 +56,23 @@
     margin-left: -9px;
   }
 }
+.toggle {
+  padding: 1px 4px;
+  font-size: 9px;
+  font-weight: 700;
+  &.active {
+    background: var(--select);
+    color: var(--text);
+  }
+}
+.crossfader-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  .crossfader {
+    flex: 1;
+  }
+}
 .cue {
   width: 40px;
   padding: 1px 0;

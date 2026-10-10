@@ -78,6 +78,10 @@
     </div>
   </div>
 
+  @if (mixer.internal()) {
+    <app-channel-strip class="strip" [class.toward-left]="deck() > 0" [deck]="deck()" />
+  }
+
   @if (pitchHint(); as hint) {
     <div class="note">Pitch {{ hint }} to match</div>
   } @else if (vinyl()) {

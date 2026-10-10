@@ -3110,10 +3110,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "prisme-dsp"
+version = "0.1.0"
+
+[[package]]
 name = "prisme-engine"
 version = "0.1.0"
 dependencies = [
  "criterion",
+ "prisme-dsp",
  "prisme-media",
  "prisme-timecode",
  "rtrb",

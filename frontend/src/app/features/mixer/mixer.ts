@@ -5,8 +5,9 @@ import { DECK_COUNT } from '../../core/models/engine';
 import { deckColor } from '../../shared/time';
 
 /**
- * External mixer: the level sent to each deck's outputs. Software mixer: channel
- * volumes, headphone cues, crossfader, cue/master blend and headphone volume.
+ * External mixer: the level sent to each deck's outputs. Software mixer: channel volumes,
+ * headphone cues, crossfader and its curve, master limiter, cue/master blend and headphone
+ * volume. The channel strips (trim, EQ, filter) sit with their decks (`ChannelStrip`).
  */
 @Component({
   selector: 'app-mixer',
@@ -18,9 +19,7 @@ export class Mixer {
   protected readonly mixer = inject(MixerService);
   protected readonly deckIndexes = Array.from({ length: DECK_COUNT }, (_, i) => i);
   protected readonly color = deckColor;
-  protected readonly internal = computed(
-    () => (this.mixer.modeInUse() ?? this.mixer.mode()) === 'internal',
-  );
+  protected readonly internal = this.mixer.internal;
   /** External mode asked for, but the device has too few outputs. */
   protected readonly fallback = computed(
     () => this.mixer.mode() === 'external' && this.mixer.modeInUse() === 'internal',

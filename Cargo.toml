@@ -17,6 +17,7 @@ prisme-analysis = { path = "crates/prisme-analysis" }
 prisme-library = { path = "crates/prisme-library" }
 prisme-session = { path = "crates/prisme-session" }
 prisme-import = { path = "crates/prisme-import" }
+prisme-dsp = { path = "crates/prisme-dsp" }
 
 anyhow = "1"
 thiserror = "2"

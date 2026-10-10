@@ -17,6 +17,14 @@
   border-top: 1px solid var(--accent);
   border-radius: 3px;
 }
+// the channel strip sits on the side of the mixer: after the tempo on the left deck,
+// before the transport on the right one
+.strip {
+  flex: none;
+  &.toward-left {
+    order: -1;
+  }
+}
 .transport {
   display: flex;
   gap: 6px;

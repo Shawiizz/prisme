@@ -12,9 +12,10 @@
 
 use crate::command::{Command, DeckId, Garbage};
 use crate::deck::Deck;
-use crate::mixer::{DeckMix, Mixer};
+use crate::mixer::{DeckMix, MixMode, Mixer};
 use crate::scope::{self, ScopeTap};
 use crate::status::{EngineStatus, MAX_DECKS};
+use prisme_dsp::DenormalGuard;
 use prisme_timecode::{DecoderConfig, TimecodeDecoder, TimecodeFormat};
 
 const COMMAND_QUEUE: usize = 256;
@@ -63,12 +64,13 @@ pub fn create(config: EngineConfig) -> (Engine, EngineController) {
     let initial = EngineStatus { deck_count: config.decks, ..Default::default() };
     let (status_tx, status_rx) = triple_buffer::triple_buffer(&initial);
     let (garbage_tx, garbage_rx) = rtrb::RingBuffer::new(GARBAGE_QUEUE);
-    let decks = (0..config.decks).map(|_| Deck::new(config.decoder(false))).collect();
+    let rate = config.sample_rate as f32;
+    let decks = (0..config.decks).map(|_| Deck::new(config.decoder(false), rate)).collect();
     let (scope_taps, scopes) = (0..config.decks).map(|_| scope::scope()).unzip();
     let engine = Engine {
         config,
         decks,
-        mixer: Mixer::new(config.max_block_frames),
+        mixer: Mixer::new(config.max_block_frames, rate),
         commands: cmd_rx,
         status: status_tx,
         garbage: garbage_tx,
@@ -121,6 +123,7 @@ impl Engine {
         output: &mut [f32],
         output_channels: usize,
     ) {
+        let _denormals = DenormalGuard::new();
         self.apply_commands();
         let out_channels = output_channels.max(1);
         let frames = output.len() / out_channels;
@@ -155,6 +158,10 @@ impl Engine {
             let deck_out = &mut self.deck_out[..frames * 2];
             let deck = &mut self.decks[d];
             deck.process(deck_in, deck_out, rate, target);
+            if self.mixer.routing.mode == MixMode::Internal {
+                deck.strip.process(deck_out);
+            }
+            deck.peak = deck_out.iter().fold(deck.peak, |p, s| p.max(s.abs()));
             let mix = DeckMix { audio: deck_out, volume: deck.volume, side: deck.side, cue: deck.cue };
             self.mixer.add_deck(d, mix, out, out_ch);
         }
@@ -249,6 +256,12 @@ impl Engine {
             SetDeckCue { deck, enabled } if valid(deck) => self.decks[deck].cue = enabled,
             SetCueMix { mix } => self.mixer.cue_mix = mix,
             SetHeadphoneGain { gain } => self.mixer.headphone_gain = gain,
+            SetTrim { deck, gain } if valid(deck) => self.decks[deck].strip.set_trim(gain),
+            SetEq { deck, band, gain } if valid(deck) => self.decks[deck].strip.set_eq(band, gain),
+            SetEqKill { deck, band, kill } if valid(deck) => self.decks[deck].strip.set_kill(band, kill),
+            SetFilter { deck, position } if valid(deck) => self.decks[deck].strip.set_filter(position),
+            SetCrossfaderCurve { curve } => self.mixer.curve = curve,
+            SetLimiter { enabled } => self.mixer.limiter.set_enabled(enabled),
             _ => {} // command for a deck that does not exist
         }
     }

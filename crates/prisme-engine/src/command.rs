@@ -2,7 +2,8 @@
 
 use crate::grid::BeatGrid;
 use crate::looping::LoopRegion;
-use crate::mixer::OutputRouting;
+use crate::mixer::{CrossfaderCurve, OutputRouting};
+use prisme_dsp::Band;
 use prisme_media::TrackAudio;
 use prisme_timecode::TimecodeDecoder;
 use std::sync::Arc;
@@ -167,6 +168,33 @@ pub enum Command {
     },
     SetHeadphoneGain {
         gain: f32,
+    },
+    /// Internal mixer: gain before the EQ (linear).
+    SetTrim {
+        deck: DeckId,
+        gain: f32,
+    },
+    /// Internal mixer: EQ band gain (linear, 1 = flat).
+    SetEq {
+        deck: DeckId,
+        band: Band,
+        gain: f32,
+    },
+    SetEqKill {
+        deck: DeckId,
+        band: Band,
+        kill: bool,
+    },
+    /// Internal mixer: -1 = low-pass closed, 0 = off, 1 = high-pass open.
+    SetFilter {
+        deck: DeckId,
+        position: f32,
+    },
+    SetCrossfaderCurve {
+        curve: CrossfaderCurve,
+    },
+    SetLimiter {
+        enabled: bool,
     },
 }
 

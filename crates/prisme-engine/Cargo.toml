@@ -9,6 +9,7 @@ publish.workspace = true
 [dependencies]
 prisme-timecode.workspace = true
 prisme-media.workspace = true
+prisme-dsp.workspace = true
 rtrb.workspace = true
 triple_buffer.workspace = true
 
