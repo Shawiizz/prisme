@@ -1,6 +1,6 @@
 import { Component, computed, inject } from '@angular/core';
+import { ControlService } from '../../core/control/control.service';
 import { KeyboardService } from '../../core/keyboard/keyboard.service';
-import { Shortcut } from '../../core/keyboard/shortcuts';
 
 /** The keyboard shortcuts, by group, with the keys as printed on the user's keyboard. */
 @Component({
@@ -10,12 +10,16 @@ import { Shortcut } from '../../core/keyboard/shortcuts';
 })
 export class ShortcutsDialog {
   protected readonly keyboard = inject(KeyboardService);
+  protected readonly controls = inject(ControlService);
 
   protected readonly groups = computed(() => {
-    const groups = new Map<string, Shortcut[]>();
+    const groups = new Map<string, { key: string; label: string }[]>();
     for (const s of this.keyboard.shortcuts) {
-      groups.set(s.group, [...(groups.get(s.group) ?? []), s]);
+      const control = this.controls.find(s.control);
+      if (!control) continue;
+      const line = { key: this.keyboard.label(s), label: control.label };
+      groups.set(control.group, [...(groups.get(control.group) ?? []), line]);
     }
-    return [...groups.entries()].map(([name, shortcuts]) => ({ name, shortcuts }));
+    return [...groups.entries()].map(([name, lines]) => ({ name, lines }));
   });
 }

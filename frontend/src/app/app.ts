@@ -9,14 +9,17 @@ import { Library } from './features/library/library';
 import { SettingsDialog } from './features/settings/settings-dialog';
 import { ShortcutsDialog } from './features/shortcuts/shortcuts-dialog';
 import { TurntablesDialog } from './features/turntables/turntables-dialog';
+import { ControllersDialog } from './features/controllers/controllers-dialog';
 import { KeyboardService } from './core/keyboard/keyboard.service';
+import { ControlService } from './core/control/control.service';
+import { ControllerService } from './core/control/controller.service';
 import { EngineService } from './core/services/engine.service';
 import { LibraryService } from './core/services/library.service';
 import { SettingsService } from './core/services/settings.service';
 import { PreferencesService } from './core/services/preferences.service';
 import { MixerService } from './core/services/mixer.service';
 
-/** Main window layout: title bar, two deck rows, controls with the mixer, library. */
+/** Main window layout: title bar, two deck rows, controls with the mixer, library; and the dialogs. */
 @Component({
   selector: 'app-root',
   imports: [
@@ -30,6 +33,7 @@ import { MixerService } from './core/services/mixer.service';
     SettingsDialog,
     ShortcutsDialog,
     TurntablesDialog,
+    ControllersDialog,
   ],
   templateUrl: './app.html',
   styleUrl: './app.scss',
@@ -39,10 +43,13 @@ export class App implements OnInit {
   private readonly library = inject(LibraryService);
   private readonly settings = inject(SettingsService);
   private readonly preferences = inject(PreferencesService);
-  protected readonly keyboard = inject(KeyboardService);
+  private readonly keyboard = inject(KeyboardService);
+  protected readonly controls = inject(ControlService);
   private readonly mixer = inject(MixerService);
+  private readonly controllers = inject(ControllerService);
   protected readonly settingsOpen = signal(false);
   protected readonly turntablesOpen = signal(false);
+  protected readonly controllersOpen = signal(false);
 
   async ngOnInit() {
     await this.preferences.load();
@@ -51,6 +58,7 @@ export class App implements OnInit {
       this.library.init(),
       this.settings.refresh(),
       this.keyboard.start(),
+      this.controllers.start(),
     ]);
     this.mixer.apply(mixer);
   }

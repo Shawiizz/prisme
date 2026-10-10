@@ -26,6 +26,10 @@ pub enum AppError {
     Library(#[from] prisme_library::DbError),
     #[error(transparent)]
     Rekordbox(#[from] prisme_import::rekordbox::RekordboxError),
+    #[error("MIDI: {0}")]
+    Midi(String),
+    #[error("controller {0} is not plugged in")]
+    ControllerUnplugged(String),
     #[error("unknown timecode format {0}")]
     UnknownFormat(String),
     #[error("the engine is busy, try again")]

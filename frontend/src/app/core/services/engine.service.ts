@@ -166,6 +166,11 @@ export class EngineService {
     }
   }
 
+  togglePlay(deck: number) {
+    const status = this.status()?.decks[deck];
+    if (status?.loaded) this.setPlaying(deck, !status.playing);
+  }
+
   setPlaying(deck: number, playing: boolean) {
     return this.call('set_playing', { deck, playing });
   }

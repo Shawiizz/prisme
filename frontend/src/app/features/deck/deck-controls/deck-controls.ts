@@ -85,8 +85,7 @@ export class DeckControls {
   });
 
   togglePlay() {
-    const s = this.status();
-    if (s?.loaded) this.engine.setPlaying(this.deck(), !s.playing);
+    this.engine.togglePlay(this.deck());
   }
 
   cueDown() {

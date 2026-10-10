@@ -69,6 +69,11 @@ impl<T: Serialize + DeserializeOwned + Default + Clone> JsonFile<T> {
         self.lock().clone()
     }
 
+    /// Reads the value without copying it.
+    pub fn read<R>(&self, f: impl FnOnce(&T) -> R) -> R {
+        f(&self.lock())
+    }
+
     /// Changes the value and saves it. The change is kept even if saving fails.
     pub fn update<R>(&self, change: impl FnOnce(&mut T) -> R) -> (R, std::io::Result<()>) {
         let mut value = self.lock();

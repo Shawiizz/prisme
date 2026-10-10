@@ -1,28 +1,5 @@
-import { buildShortcuts, matches, ShortcutActions } from './shortcuts';
-
-function recorder() {
-  const calls: string[] = [];
-  const record =
-    (name: string) =>
-    (...args: unknown[]) =>
-      calls.push(`${name}(${args.join(',')})`);
-  const actions: ShortcutActions = {
-    hotCue: record('hotCue'),
-    cue: record('cue'),
-    togglePlay: record('togglePlay'),
-    sync: record('sync'),
-    bend: record('bend'),
-    toggleLoop: record('toggleLoop'),
-    scaleLoop: record('scaleLoop'),
-    moveSelection: record('moveSelection'),
-    loadSelected: record('loadSelected'),
-    removeSelected: record('removeSelected'),
-    prepareSelected: record('prepareSelected'),
-    focusSearch: record('focusSearch'),
-    toggleHelp: record('toggleHelp'),
-  };
-  return { calls, shortcuts: buildShortcuts(actions) };
-}
+import { buildControls, ControlActions } from '../control/controls';
+import { matches, SHORTCUTS } from './shortcuts';
 
 const key = (code: string, mods: { ctrl?: boolean; shift?: boolean } = {}) => ({
   code,
@@ -33,35 +10,29 @@ const key = (code: string, mods: { ctrl?: boolean; shift?: boolean } = {}) => ({
 
 describe('shortcuts', () => {
   it('never binds the same key twice', () => {
-    const { shortcuts } = recorder();
-    const combos = shortcuts.map(
+    const combos = SHORTCUTS.map(
       (s) => `${s.ctrl ? 'ctrl+' : ''}${s.shift ? 'shift+' : ''}${s.code}`,
     );
     expect(new Set(combos).size).toBe(combos.length);
   });
 
-  it('gives both decks the same set of actions', () => {
-    const { shortcuts } = recorder();
-    const of = (group: string) =>
-      shortcuts.filter((s) => s.group === group).map((s) => s.description);
-    expect(of('Deck 1')).toEqual(of('Deck 2'));
-    expect(of('Deck 1').length).toBe(16);
+  it('only names controls that exist', () => {
+    const ids = new Set(
+      buildControls(new Proxy({}, { get: () => () => {} }) as ControlActions).map((c) => c.id),
+    );
+    expect(SHORTCUTS.filter((s) => !ids.has(s.control))).toEqual([]);
   });
 
-  it('runs the action of the key pressed, and its release', () => {
-    const { calls, shortcuts } = recorder();
-    const find = (code: string, mods = {}) => shortcuts.find((s) => matches(s, key(code, mods)))!;
-    find('KeyA').press();
-    find('KeyA').release!();
-    find('Digit9').press();
-    find('ArrowRight', { shift: true }).press();
-    expect(calls).toEqual(['cue(0,true)', 'cue(0,false)', 'hotCue(1,2)', 'loadSelected(1)']);
+  it('gives both decks the same keys', () => {
+    const of = (deck: number) =>
+      SHORTCUTS.filter((s) => s.control.startsWith(`deck${deck}.`)).map((s) => s.control.slice(6));
+    expect(of(1)).toEqual(of(2));
+    expect(of(1).length).toBe(16);
   });
 
   it('requires exactly the modifiers of the shortcut', () => {
-    const { shortcuts } = recorder();
-    const search = shortcuts.find((s) => s.description === 'Search')!;
-    const loop = shortcuts.find((s) => s.description === 'Loop 4 beats / exit')!;
+    const search = SHORTCUTS.find((s) => s.control === 'library.search')!;
+    const loop = SHORTCUTS.find((s) => s.control === 'deck1.loop')!;
     expect(matches(search, key('KeyF', { ctrl: true }))).toBe(true);
     expect(matches(loop, key('KeyF', { ctrl: true }))).toBe(false);
     expect(matches(loop, key('KeyF'))).toBe(true);

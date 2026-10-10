@@ -1,21 +1,21 @@
-<div class="backdrop" (click)="keyboard.helpOpen.set(false)">
+<div class="backdrop" (click)="controls.helpOpen.set(false)">
   <div class="dialog" (click)="$event.stopPropagation()">
     <h2>Keyboard shortcuts</h2>
     <div class="groups">
       @for (g of groups(); track g.name) {
         <section>
           <h3>{{ g.name }}</h3>
-          @for (s of g.shortcuts; track s.description) {
+          @for (line of g.lines; track line.label) {
             <div class="line">
-              <kbd>{{ keyboard.label(s) }}</kbd>
-              <span>{{ s.description }}</span>
+              <kbd>{{ line.key }}</kbd>
+              <span>{{ line.label }}</span>
             </div>
           }
         </section>
       }
     </div>
     <div class="buttons">
-      <button (click)="keyboard.helpOpen.set(false)">Close</button>
+      <button (click)="controls.helpOpen.set(false)">Close</button>
     </div>
   </div>
 </div>

@@ -1,7 +1,8 @@
 <app-titlebar
   (openSettings)="settingsOpen.set(true)"
   (openTurntables)="turntablesOpen.set(true)"
-  (openShortcuts)="keyboard.helpOpen.set(true)"
+  (openShortcuts)="controls.helpOpen.set(true)"
+  (openControllers)="controllersOpen.set(true)"
 />
 
 <main class="layout">
@@ -31,8 +32,12 @@
   <app-settings-dialog (closed)="settingsOpen.set(false)" />
 }
 
-@if (keyboard.helpOpen()) {
+@if (controls.helpOpen()) {
   <app-shortcuts-dialog />
+}
+
+@if (controllersOpen()) {
+  <app-controllers-dialog (closed)="controllersOpen.set(false)" />
 }
 
 @if (turntablesOpen()) {

@@ -23,6 +23,7 @@ export class Titlebar {
   });
   readonly openSettings = output<void>();
   readonly openShortcuts = output<void>();
+  readonly openControllers = output<void>();
   readonly openTurntables = output<void>();
 
   record(option: RecordOption) {

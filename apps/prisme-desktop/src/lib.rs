@@ -2,6 +2,7 @@
 //!
 //! * `audio_host`: runs the sound card stream and the engine on a dedicated thread;
 //! * `audio_watchdog`: restarts the audio when its device comes back after a loss;
+//! * `controllers`: MIDI controllers and their mappings;
 //! * `history`: records the tracks played, set by set;
 //! * `recording`: records the mix to a file, with its tracklist;
 //! * `sampler`: the decks' sampler sounds;
@@ -19,6 +20,7 @@
 mod audio_host;
 mod audio_watchdog;
 mod commands;
+mod controllers;
 mod cover_protocol;
 mod dev_startup;
 mod dto;
@@ -35,9 +37,11 @@ mod state;
 mod status_stream;
 mod track_loading;
 
+use controllers::Controllers;
 use library_service::LibraryService;
-use preferences::Preferences;
 use prisme_session::JsonFile;
+use serde::de::DeserializeOwned;
+use serde::Serialize;
 use state::AppState;
 use std::path::Path;
 use std::sync::Arc;
@@ -49,7 +53,8 @@ pub fn run() {
         .register_asynchronous_uri_scheme_protocol(cover_protocol::SCHEME, cover_protocol::handle)
         .setup(|app| {
             let data_dir = app.path().app_data_dir().inspect_err(|e| eprintln!("no data folder: {e}")).ok();
-            app.manage(AppState::new(open_preferences(data_dir.as_deref())));
+            app.manage(AppState::new(open_json(data_dir.as_deref(), "preferences.json")));
+            app.manage(Controllers::new(open_json(data_dir.as_deref(), "controllers.json")));
             let library =
                 Arc::new(LibraryService::open(app.handle(), data_dir.as_deref(), folders::music_root()));
             app.manage(library.clone());
@@ -63,6 +68,7 @@ pub fn run() {
             audio_watchdog::start(app.handle().clone());
             history::start(app.handle().clone());
             sampler::load_saved(app.handle().clone());
+            app.state::<Controllers>().open_enabled(app.handle());
             library.start();
             library.watch();
             Ok(())
@@ -150,6 +156,13 @@ pub fn run() {
             commands::sampler::trigger_sample,
             commands::sampler::stop_sample,
             commands::sampler::set_sampler_gain,
+            commands::controllers::list_controllers,
+            commands::controllers::set_controller_enabled,
+            commands::controllers::controller_mappings,
+            commands::controllers::learn_control,
+            commands::controllers::cancel_learning,
+            commands::controllers::forget_control,
+            commands::controllers::set_lights,
             commands::recording::start_recording,
             commands::recording::stop_recording,
             commands::prepare::prepare_list,
@@ -167,13 +180,16 @@ pub fn run() {
         .expect("error while running Prisme");
 }
 
-fn open_preferences(data_dir: Option<&Path>) -> JsonFile<Preferences> {
+fn open_json<T: Serialize + DeserializeOwned + Default + Clone>(
+    data_dir: Option<&Path>,
+    name: &str,
+) -> JsonFile<T> {
     let Some(dir) = data_dir else {
-        return JsonFile::in_memory(Preferences::default());
+        return JsonFile::in_memory(T::default());
     };
-    let (file, set_aside) = JsonFile::open(dir.join("preferences.json"));
+    let (file, set_aside) = JsonFile::open(dir.join(name));
     if let Some(path) = set_aside {
-        eprintln!("unreadable preferences moved to {}", path.display());
+        eprintln!("unreadable {name} moved to {}", path.display());
     }
     file
 }

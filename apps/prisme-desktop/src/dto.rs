@@ -758,3 +758,28 @@ pub struct DirListingDto {
     pub folders: Vec<DirEntryDto>,
     pub tracks: Vec<DirEntryDto>,
 }
+
+/// A MIDI controller.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ControllerDto {
+    pub name: String,
+    pub enabled: bool,
+    pub plugged: bool,
+}
+
+/// A mapped control moved: the action and its value (see `prisme_control::Encoding`).
+#[derive(Debug, Clone, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ControllerInputDto {
+    pub target: String,
+    pub value: f32,
+}
+
+/// Whether the controls of an action are lit.
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LightDto {
+    pub target: String,
+    pub on: bool,
+}
