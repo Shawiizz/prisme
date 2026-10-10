@@ -55,4 +55,24 @@
       }
     </div>
   }
+
+  <header>
+    <span>Key shift</span>
+    @if (keyShift() !== 0) {
+      <button title="Back to the track's key" (click)="shiftKey(0)">Reset</button>
+    }
+  </header>
+  <div class="row">
+    <button title="Down a semitone" (click)="shiftKey(keyShift() - 1)">♭</button>
+    <span class="shift" [class.moved]="keyShift() !== 0">{{ shiftLabel() }}</span>
+    <button title="Up a semitone" (click)="shiftKey(keyShift() + 1)">♯</button>
+    <button
+      class="wide"
+      [disabled]="keyMatch() === null"
+      title="The smallest shift after which the two decks mix harmonically"
+      (click)="shiftKey(keyMatch()!)"
+    >
+      Mix with the other deck
+    </button>
+  </div>
 </div>

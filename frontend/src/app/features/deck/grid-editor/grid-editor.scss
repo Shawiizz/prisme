@@ -70,3 +70,14 @@ header {
     }
   }
 }
+.shift {
+  min-width: 34px;
+  align-self: center;
+  text-align: center;
+  font-size: 13px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  &.moved {
+    color: var(--amber);
+  }
+}

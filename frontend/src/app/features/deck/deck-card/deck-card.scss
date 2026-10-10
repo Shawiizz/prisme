@@ -100,7 +100,7 @@
     color: var(--accent);
   }
 }
-// the key heard differs from the track's: the pitch moved it (key lock off)
+// the key heard differs from the track's: the pitch (key lock off) or a key shift moved it
 .label.shifted {
   color: var(--amber);
 }

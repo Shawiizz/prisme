@@ -46,6 +46,27 @@ export function transposeCamelot(
   };
 }
 
+/**
+ * The smallest transposition (-5..+6 semitones) after which `code` mixes harmonically
+ * with `target` (see `camelotCompatible`); landing on the target's own wheel number wins
+ * a tie.
+ */
+export function semitonesToMix(code: string, target: string): number | null {
+  const c = parse(code);
+  const t = parse(target);
+  if (!c || !t) return null;
+  const steps = t.number - c.number;
+  const candidates = c.minor === t.minor ? [steps, steps - 1, steps + 1] : [steps];
+  return candidates
+    .map(semitonesForSteps)
+    .reduce((best, s) => (Math.abs(s) < Math.abs(best) ? s : best));
+}
+
+/** A semitone is 7 steps around the wheel, and 7 × 7 = 49 ≡ 1 (mod 12). */
+function semitonesForSteps(steps: number): number {
+  const semitones = (((7 * steps) % 12) + 12) % 12;
+  return semitones > 6 ? semitones - 12 : semitones;
+}
 /** Sort rank: 1A, 1B, 2A, 2B... */
 export function camelotRank(code: string | undefined | null): number {
   const c = code ? parse(code) : null;

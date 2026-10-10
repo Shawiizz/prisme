@@ -63,6 +63,7 @@ pub fn prepare(path: PathBuf, library: &LibraryService) -> AppResult<(LoadedTrac
         edits,
         tags,
         cues,
+        key_shift: 0,
     };
     Ok((track, completion))
 }

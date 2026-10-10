@@ -244,6 +244,11 @@ pub enum Command {
         deck: DeckId,
         enabled: bool,
     },
+    /// Transposes the track by whole semitones.
+    SetKeyShift {
+        deck: DeckId,
+        semitones: i8,
+    },
     SetCrossfaderCurve {
         curve: CrossfaderCurve,
     },

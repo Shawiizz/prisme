@@ -61,6 +61,7 @@ export interface Cue {
 }
 
 export const HOT_CUES = 8;
+export const MAX_KEY_SHIFT = 12;
 export const SAMPLE_SLOTS = 8;
 
 /** What SYNC does on a record in relative mode. */
@@ -152,6 +153,8 @@ export interface TrackInfo {
   gridEdited: boolean;
   keyEdited: boolean;
   cues: Cue[];
+  /** Semitones the deck transposes it by (0 at each load). */
+  keyShift: number;
 }
 
 /** What became known of a loaded track after it was put on its deck. */

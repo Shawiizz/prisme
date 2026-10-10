@@ -4,6 +4,8 @@ use crate::state::{deck_commands, lock, AppState};
 use prisme_engine::Command;
 use tauri::State;
 
+const MAX_KEY_SHIFT: u8 = 12;
+
 #[tauri::command]
 pub fn set_playing(state: State<'_, AppState>, deck: usize, playing: bool) -> AppResult<()> {
     AppState::check_deck(deck)?;
@@ -74,6 +76,16 @@ pub fn set_key_lock(state: State<'_, AppState>, deck: usize, enabled: bool) -> A
     lock(&state.decks)[deck].key_lock = enabled;
     state.update_preferences(|p| p.decks[deck].key_lock = enabled);
     state.send_if_running(Command::SetKeyLock { deck, enabled })
+}
+
+/// Transposes the track on `deck` until the next load.
+#[tauri::command]
+pub fn set_key_shift(state: State<'_, AppState>, deck: usize, semitones: i8) -> AppResult<()> {
+    if semitones.unsigned_abs() > MAX_KEY_SHIFT {
+        return Err(AppError::Other(format!("a key shift is ±{MAX_KEY_SHIFT} semitones at most")));
+    }
+    state.with_track(deck, |track| track.key_shift = semitones)?;
+    state.send_if_running(Command::SetKeyShift { deck, semitones })
 }
 
 #[tauri::command]

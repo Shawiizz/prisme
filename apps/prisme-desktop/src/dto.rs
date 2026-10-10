@@ -312,6 +312,8 @@ pub struct TrackInfoDto {
     pub grid_edited: bool,
     pub key_edited: bool,
     pub cues: Vec<CueDto>,
+    /// Semitones the deck transposes the track by.
+    pub key_shift: i8,
 }
 
 /// What became known of a loaded track after it was put on its deck.

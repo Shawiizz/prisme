@@ -86,7 +86,7 @@ impl Deck {
         let target = target.map(|t| self.engage(t));
         let speed = self.speed_for(drive, target);
         let speed = if self.transport.censoring { -speed } else { speed };
-        if self.key_lock_enabled && KeyLock::applies(speed) {
+        if (self.key_lock_enabled || self.key_lock.key_shift() != 0) && KeyLock::applies(speed) {
             self.playhead.render_key_locked(&mut self.key_lock, out, out_rate, speed);
         } else {
             self.key_lock.disengage();
@@ -99,6 +99,11 @@ impl Deck {
         self.sync.observe(speed, platter, seconds);
         self.advance_shadow(seconds);
         self.follow_record_position(drive);
+    }
+
+    /// Transposes the track; this goes through the key lock's stretcher, on or off.
+    pub(crate) fn set_key_shift(&mut self, semitones: i8) {
+        self.key_lock.set_key_shift(semitones);
     }
 
     /// Whether the deck follows a leader: locked, or about to match it once.

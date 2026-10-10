@@ -8,7 +8,7 @@ import { TapTempo } from '../../../shared/tap-tempo';
 const FINE_SHIFT_S = 0.002;
 const COARSE_SHIFT_S = 0.02;
 
-/** Corrections of the beat grid and key of the track on a deck. */
+/** Corrections of the beat grid and key of the track on a deck, and its key shift. */
 @Component({
   selector: 'app-grid-editor',
   templateUrl: './grid-editor.html',
@@ -38,6 +38,13 @@ export class GridEditor {
     this.edits.keys().filter((k) => k.camelot.endsWith('B')),
   );
 
+  protected readonly keyShift = computed(() => this.track()?.keyShift ?? 0);
+  protected readonly shiftLabel = computed(() => {
+    const s = this.keyShift();
+    return s > 0 ? `+${s}` : s < 0 ? `−${-s}` : '0';
+  });
+  protected readonly keyMatch = computed(() => this.engine.keyMatch(this.deck()));
+
   constructor() {
     this.edits.loadKeys();
   }
@@ -55,6 +62,10 @@ export class GridEditor {
   tap() {
     const bpm = this.tapTempo.tap(performance.now());
     if (bpm !== null) this.tapped.set(bpm);
+  }
+
+  shiftKey(semitones: number) {
+    this.engine.setKeyShift(this.deck(), semitones);
   }
 
   setKey(camelot: string | null) {

@@ -280,6 +280,7 @@ impl Engine {
             SetEqKill { deck, band, kill } if valid(deck) => self.decks[deck].strip.set_kill(band, kill),
             SetFilter { deck, position } if valid(deck) => self.decks[deck].strip.set_filter(position),
             SetKeyLock { deck, enabled } if valid(deck) => self.decks[deck].key_lock_enabled = enabled,
+            SetKeyShift { deck, semitones } if valid(deck) => self.decks[deck].set_key_shift(semitones),
             SetSample { deck, slot, sample } => {
                 let old = match self.decks.get_mut(deck) {
                     Some(d) => d.sampler.set(slot, sample),

@@ -32,6 +32,8 @@ pub struct LoadedTrack {
     pub edits: TrackEdits,
     pub tags: TrackTags,
     pub cues: Vec<Cue>,
+    /// Semitones the deck transposes it by (0 again at each load).
+    pub key_shift: i8,
 }
 
 impl LoadedTrack {
@@ -57,6 +59,7 @@ impl LoadedTrack {
             grid_edited: self.edits.grid.is_some(),
             key_edited: self.edits.key.is_some(),
             cues: self.cue_dtos(),
+            key_shift: self.key_shift,
         }
     }
 
@@ -68,11 +71,12 @@ impl LoadedTrack {
         self.analysis().tempo.map(|t| BeatGrid { bpm: t.bpm, first_beat_s: t.first_beat_s })
     }
 
-    /// Commands that put the track, with its beat grid, on `deck`.
-    pub fn load_commands(&self, deck: usize) -> [Command; 2] {
+    /// Commands that put the track, with its beat grid and key shift, on `deck`.
+    pub fn load_commands(&self, deck: usize) -> [Command; 3] {
         [
             Command::LoadTrack { deck, track: self.audio.clone() },
             Command::SetBeatGrid { deck, grid: self.grid() },
+            Command::SetKeyShift { deck, semitones: self.key_shift },
         ]
     }
 

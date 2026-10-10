@@ -1,7 +1,7 @@
 import { Injectable, computed, inject, signal } from '@angular/core';
 import { Channel, invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
-import { transposeCamelot } from '../../shared/camelot';
+import { semitonesToMix, transposeCamelot } from '../../shared/camelot';
 import {
   Cue,
   DECK_COUNT,
@@ -11,6 +11,7 @@ import {
   MusicalKey,
   DeckSettings,
   EngineStatus,
+  MAX_KEY_SHIFT,
   MixerState,
   SAMPLE_SLOTS,
   TrackAnalysis,
@@ -111,12 +112,31 @@ export class EngineService {
     return settings.vinylEnabled && speed > 0.05 ? speed : settings.pitch;
   }
 
-  /** The key heard on a deck: the track's, shifted by the speed unless the key lock holds it. */
+  /**
+   * The key heard on a deck: the track's, moved by the speed unless the key lock holds
+   * it. A key shift holds it too (it goes through the same stretcher).
+   */
   heardKey(deck: number): MusicalKey | null {
-    const key = this.tracks()[deck]?.key ?? null;
-    if (!key || this.decks()[deck].keyLock) return key;
-    const semitones = Math.round(12 * Math.log2(this.playbackRate(deck)));
-    return semitones === 0 ? key : transposeCamelot(key.camelot, semitones);
+    const track = this.tracks()[deck];
+    if (!track?.key) return null;
+    const held = this.decks()[deck].keyLock || track.keyShift !== 0;
+    const semitones = held ? track.keyShift : Math.round(12 * Math.log2(this.playbackRate(deck)));
+    return semitones === 0 ? track.key : transposeCamelot(track.key.camelot, semitones);
+  }
+
+  setKeyShift(deck: number, semitones: number) {
+    const track = this.tracks()[deck];
+    if (!track) return;
+    const keyShift = Math.max(-MAX_KEY_SHIFT, Math.min(MAX_KEY_SHIFT, semitones));
+    this.patch(this.tracks, deck, { ...track, keyShift });
+    return this.call('set_key_shift', { deck, semitones: keyShift });
+  }
+
+  /** The smallest key shift after which `deck` mixes with the other deck, if both keys are known. */
+  keyMatch(deck: number): number | null {
+    const own = this.tracks()[deck]?.key;
+    const other = this.heardKey((deck + 1) % DECK_COUNT);
+    return own && other ? semitonesToMix(own.camelot, other.camelot) : null;
   }
 
   setKeyLock(deck: number, enabled: boolean) {

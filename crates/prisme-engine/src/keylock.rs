@@ -1,6 +1,6 @@
 //! Key lock: the tempo changes, the pitch does not. The track is read at the deck's
 //! speed and goes through a time-stretcher (Signalsmith Stretch) that plays it back at
-//! the original pitch.
+//! the original pitch, or transposed by whole semitones (key shift).
 //!
 //! The stretcher delays what it is given; it is fed ahead of the playhead by that delay
 //! so that what is heard is where the playhead is. After a jump the feed starts again
@@ -23,8 +23,9 @@ pub(crate) struct KeyLock {
     /// Source frame (fractional) of the next input.
     feed: f64,
     engaged: bool,
-    /// Track sample rate the transposition was set for.
-    transposed_for: u32,
+    key_shift: i8,
+    /// Track sample rate and key shift the transposition was set for.
+    transposed_for: (u32, i8),
 }
 
 impl KeyLock {
@@ -32,12 +33,27 @@ impl KeyLock {
         let stretch = Stretch::preset_cheaper(2, out_rate);
         let longest = (max_block_frames as f64 * MAX_SPEED * 2.0) as usize + 2;
         let frames = longest.max(stretch.input_latency() * 2);
-        Self { stretch, input: vec![0.0; frames * 2], feed: 0.0, engaged: false, transposed_for: out_rate }
+        Self {
+            stretch,
+            input: vec![0.0; frames * 2],
+            feed: 0.0,
+            engaged: false,
+            key_shift: 0,
+            transposed_for: (out_rate, 0),
+        }
     }
 
     /// Whether the key lock can play at `speed`.
     pub(crate) fn applies(speed: f64) -> bool {
         (MIN_SPEED..=MAX_SPEED).contains(&speed)
+    }
+
+    pub(crate) fn key_shift(&self) -> i8 {
+        self.key_shift
+    }
+
+    pub(crate) fn set_key_shift(&mut self, semitones: i8) {
+        self.key_shift = semitones;
     }
 
     /// Stops following the playhead (the deck plays without the key lock).
@@ -58,10 +74,12 @@ impl KeyLock {
         speed: f64,
     ) -> f64 {
         let ratio = track.sample_rate() as f64 / out_rate;
-        if track.sample_rate() != self.transposed_for {
+        let transposition = (track.sample_rate(), self.key_shift);
+        if transposition != self.transposed_for {
             // the track's samples are played at the output rate: bring its pitch back
-            self.stretch.set_transpose_factor(ratio as f32, None);
-            self.transposed_for = track.sample_rate();
+            let factor = ratio * 2f64.powf(f64::from(self.key_shift) / 12.0);
+            self.stretch.set_transpose_factor(factor as f32, None);
+            self.transposed_for = transposition;
         }
         let lead = self.stretch.input_latency() as f64 + self.stretch.output_latency() as f64 * speed * ratio;
         let wanted = position + lead;
@@ -184,6 +202,18 @@ mod tests {
         }
         let lead = lock.stretch.input_latency() as f64 + lock.stretch.output_latency() as f64;
         assert!((lock.feed - (position + lead)).abs() < 2.0, "no restart at each wrap");
+    }
+
+    #[test]
+    fn a_key_shift_transposes_whatever_the_speed() {
+        let track = sine(440.0, 6.0);
+        let mut lock = KeyLock::new(RATE, 1024);
+        lock.set_key_shift(12);
+        let f = frequency(&play(&mut lock, &track, 1.0, 2.0).0);
+        assert!((f - 880.0).abs() < 6.0, "{f} Hz");
+        lock.set_key_shift(-2);
+        let f = frequency(&play(&mut lock, &track, 1.08, 2.0).0);
+        assert!((f - 392.0).abs() < 3.0, "{f} Hz");
     }
 
     #[test]
