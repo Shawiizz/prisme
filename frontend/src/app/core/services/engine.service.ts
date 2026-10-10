@@ -12,6 +12,7 @@ import {
   DeckSettings,
   EngineStatus,
   MixerState,
+  SAMPLE_SLOTS,
   TrackAnalysis,
   TrackInfo,
   VinylMode,
@@ -37,6 +38,8 @@ const DEFAULT_DECK: DeckSettings = {
   keyLock: false,
   strip: FLAT_STRIP,
   fx: DEFAULT_FX,
+  samples: Array(SAMPLE_SLOTS).fill(null),
+  samplerGain: 1,
 };
 
 /**

@@ -1,5 +1,6 @@
 import { Component, computed, inject, input, signal } from '@angular/core';
 import { FxService } from '../../../core/services/fx.service';
+import { SamplerService } from '../../../core/services/sampler.service';
 import { EngineService } from '../../../core/services/engine.service';
 import { PerformanceService } from '../../../core/services/performance.service';
 import { EffectKind, HOT_CUES } from '../../../core/models/engine';
@@ -7,7 +8,7 @@ import { Knob } from '../../../shared/knob/knob';
 import { deckColor } from '../../../shared/time';
 import { formatBeats, loopBeats } from '../../../shared/beats';
 
-type PadMode = 'cues' | 'loops' | 'roll' | 'jump' | 'fx';
+type PadMode = 'cues' | 'loops' | 'roll' | 'jump' | 'fx' | 'sampler';
 
 interface Pad {
   label: string;
@@ -23,7 +24,9 @@ const MODES: { id: PadMode; label: string }[] = [
   { id: 'roll', label: 'ROLL' },
   { id: 'jump', label: 'JUMP' },
   { id: 'fx', label: 'FX' },
+  { id: 'sampler', label: 'SMPL' },
 ];
+const SAMPLE_COLOR = '#b48cff';
 /** The effects on the pads, with what their AMOUNT knob does. */
 const EFFECTS: { kind: EffectKind; label: string; title: string }[] = [
   { kind: 'echo', label: 'ECHO', title: 'Echo on the beat · amount: feedback' },
@@ -40,8 +43,8 @@ const ROLL_BEATS = [1 / 16, 1 / 8, 1 / 4, 1 / 2, 1, 2, 4, 8];
 const JUMP_BEATS = [-32, -16, -4, -1, 1, 4, 16, 32];
 
 /**
- * Eight performance pads per deck (hot cues, loops, rolls, beat jumps, beat effects),
- * with the loop and slip keys or, for the effects, their level, knob and period.
+ * Eight performance pads per deck (hot cues, loops, rolls, beat jumps, beat effects,
+ * sampler), with the loop and slip keys or, for the effects, their level, knob and period.
  */
 @Component({
   selector: 'app-deck-pads',
@@ -55,6 +58,7 @@ export class DeckPads {
   private readonly engine = inject(EngineService);
   private readonly performance = inject(PerformanceService);
   protected readonly fx = inject(FxService);
+  protected readonly sampler = inject(SamplerService);
   protected readonly modes = MODES;
   protected readonly mode = signal<PadMode>('cues');
   protected readonly color = computed(() => deckColor(this.deck()));
@@ -69,8 +73,12 @@ export class DeckPads {
   protected readonly loopActive = computed(() => this.status()?.looping.active ?? false);
   protected readonly slip = computed(() => this.status()?.slipMode ?? false);
   protected readonly effect = computed(() => this.engine.decks()[this.deck()].fx);
-  /** Effects work on any deck; the rest needs a track that can move. */
-  protected readonly padsEnabled = computed(() => this.mode() === 'fx' || this.canMove());
+  protected readonly samplerGain = computed(() => this.engine.decks()[this.deck()].samplerGain);
+  private readonly samples = computed(() => this.engine.decks()[this.deck()].samples);
+  /** Effects and samples work on any deck; the rest needs a track that can move. */
+  protected readonly padsEnabled = computed(
+    () => this.mode() === 'fx' || this.mode() === 'sampler' || this.canMove(),
+  );
   protected readonly formatBeats = formatBeats;
 
   private readonly activeLoopBeats = computed(() => {
@@ -101,6 +109,8 @@ export class DeckPads {
           title: e.title,
         }));
       }
+      case 'sampler':
+        return this.samples().map((name, slot) => this.samplePad(name, slot));
     }
   });
 
@@ -122,6 +132,9 @@ export class DeckPads {
         return this.performance.beatJump(deck, JUMP_BEATS[index]);
       case 'fx':
         return this.fx.press(deck, EFFECTS[index].kind);
+      case 'sampler':
+        if (!this.samples()[index]) return this.sampler.choose(deck, index);
+        return event.shiftKey ? this.sampler.clear(deck, index) : this.sampler.trigger(deck, index);
     }
   }
 
@@ -129,10 +142,14 @@ export class DeckPads {
     if (this.mode() === 'roll') this.performance.loopRoll(this.deck(), null);
   }
 
-  /** Right click on a hot cue deletes it. */
+  /** Right click deletes a hot cue, stops a sound playing, or else takes it off its pad. */
   remove(index: number, event: MouseEvent) {
     event.preventDefault();
-    if (this.mode() === 'cues') this.performance.deleteHotCue(this.deck(), index);
+    const deck = this.deck();
+    if (this.mode() === 'cues') this.performance.deleteHotCue(deck, index);
+    if (this.mode() !== 'sampler') return;
+    if (this.samplePlaying(index)) this.sampler.stop(deck, index);
+    else if (this.samples()[index]) this.sampler.clear(deck, index);
   }
 
   scaleLoop(factor: number) {
@@ -168,6 +185,20 @@ export class DeckPads {
       active: false,
       title: `${loop ? 'Saved loop' : 'Hot cue'} ${slot + 1} · Shift-click or right click: delete`,
     };
+  }
+
+  private samplePad(name: string | null, slot: number): Pad {
+    if (!name) return { label: '+', color: null, active: false, title: 'Click: choose a sound' };
+    return {
+      label: name,
+      color: SAMPLE_COLOR,
+      active: this.samplePlaying(slot),
+      title: `${name} · Click: play · Right click: stop, then remove · Shift-click: remove`,
+    };
+  }
+
+  private samplePlaying(slot: number): boolean {
+    return ((this.status()?.samplesPlaying ?? 0) & (1 << slot)) !== 0;
   }
 
   private beatPad(beats: number, active: boolean, title: string): Pad {

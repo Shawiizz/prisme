@@ -1,5 +1,6 @@
 use crate::dto::{BandDto, CrossfaderCurveDto, DeckSettingsDto, MixModeDto, MixerStateDto};
 use crate::error::AppResult;
+use crate::sampler;
 use crate::state::{lock, AppState};
 use prisme_engine::Command;
 use tauri::State;
@@ -9,10 +10,12 @@ use tauri::State;
 pub fn mixer_state(state: State<'_, AppState>) -> MixerStateDto {
     let mixer = state.preferences.get().mixer;
     let output_channels = lock(&state.session).as_ref().map(|s| s.info.output_channels);
+    let samplers = lock(&state.samplers);
     MixerStateDto {
         decks: lock(&state.decks)
             .iter()
-            .map(|d| DeckSettingsDto {
+            .zip(samplers.iter())
+            .map(|(d, samples)| DeckSettingsDto {
                 pitch: d.pitch,
                 volume: d.volume,
                 cue: d.cue,
@@ -23,6 +26,8 @@ pub fn mixer_state(state: State<'_, AppState>) -> MixerStateDto {
                 key_lock: d.key_lock,
                 strip: d.strip,
                 fx: d.fx,
+                samples: samples.iter().map(|s| s.as_ref().map(|s| sampler::name(&s.path))).collect(),
+                sampler_gain: d.sampler_gain,
             })
             .collect(),
         crossfader: *lock(&state.crossfader),

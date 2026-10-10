@@ -52,6 +52,8 @@ pub struct DeckStatus {
     pub looping: LoopStatus,
     /// Loudest sample since the previous snapshot.
     pub peak: f32,
+    /// Sampler slots playing (bit per slot).
+    pub samples_playing: u8,
     /// Internal mixer: heard in the headphones.
     pub cue: bool,
     pub slip_mode: bool,
@@ -73,6 +75,7 @@ impl Default for DeckStatus {
             sync: SyncStatus { rate_offset: 1.0, ..Default::default() },
             looping: LoopStatus::default(),
             peak: 0.0,
+            samples_playing: 0,
             cue: false,
             slip_mode: false,
             slip_position_s: None,

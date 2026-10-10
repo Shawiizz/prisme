@@ -5,7 +5,7 @@
     }
   </div>
 
-  <div class="pads" [class.compact]="mode() === 'fx'">
+  <div class="pads" [class.compact]="mode() === 'fx' || mode() === 'sampler'">
     @for (pad of pads(); track $index) {
       <button
         class="pad"
@@ -43,6 +43,16 @@
         <span>{{ formatBeats(effect().beats) }}</span>
         <button (click)="fx.scaleBeats(deck(), 2)">×2</button>
       </div>
+    </div>
+  } @else if (mode() === 'sampler') {
+    <div class="fx-keys">
+      <app-knob
+        label="VOL"
+        labelTitle="Level of the sampler"
+        [defaultValue]="1"
+        [value]="samplerGain()"
+        (valueChange)="sampler.setGain(deck(), $event)"
+      />
     </div>
   } @else {
     <div class="keys">

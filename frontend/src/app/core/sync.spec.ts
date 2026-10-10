@@ -24,6 +24,7 @@ function deck(bpm: number | null, beatPhase: number | null): DeckStatus {
       recordSpeed: 0,
       recordPositionS: null,
     },
+    samplesPlaying: 0,
   };
 }
 

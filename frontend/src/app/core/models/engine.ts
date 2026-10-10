@@ -45,6 +45,8 @@ export interface DeckStatus {
   /** Where the track would be without the loop, roll or censor in progress. */
   slipPositionS: number | null;
   vinyl: VinylStatus;
+  /** Sampler slots playing, one bit per slot. */
+  samplesPlaying: number;
 }
 
 export interface Cue {
@@ -59,6 +61,7 @@ export interface Cue {
 }
 
 export const HOT_CUES = 8;
+export const SAMPLE_SLOTS = 8;
 
 /** What SYNC does on a record in relative mode. */
 export type VinylSyncMode = 'once' | 'locked';
@@ -185,6 +188,9 @@ export interface DeckSettings {
   keyLock: boolean;
   strip: ChannelStrip;
   fx: FxSettings;
+  /** Name of the sound in each sampler slot. */
+  samples: (string | null)[];
+  samplerGain: number;
 }
 
 export type EffectKind =

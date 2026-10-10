@@ -20,6 +20,8 @@ pub enum AppError {
     InvalidBpm(f64),
     #[error("unknown key {0}")]
     InvalidKey(String),
+    #[error("a sampler sound lasts {0} s at most: load longer files on a deck")]
+    SampleTooLong(f64),
     #[error(transparent)]
     Library(#[from] prisme_library::DbError),
     #[error(transparent)]

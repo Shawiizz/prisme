@@ -4,6 +4,7 @@
 //! * `audio_watchdog`: restarts the audio when its device comes back after a loss;
 //! * `history`: records the tracks played, set by set;
 //! * `recording`: records the mix to a file, with its tracklist;
+//! * `sampler`: the decks' sampler sounds;
 //! * `state`: preferences, loaded tracks and deck settings;
 //! * `preferences`: what is kept from one start to the next;
 //! * `commands`: what the frontend can ask, by domain;
@@ -28,6 +29,7 @@ mod history;
 mod library_service;
 mod preferences;
 mod recording;
+mod sampler;
 mod scope_stream;
 mod state;
 mod status_stream;
@@ -60,6 +62,7 @@ pub fn run() {
             }
             audio_watchdog::start(app.handle().clone());
             history::start(app.handle().clone());
+            sampler::load_saved(app.handle().clone());
             library.start();
             library.watch();
             Ok(())
@@ -141,6 +144,11 @@ pub fn run() {
             commands::import::serato_folder,
             commands::import::import_serato,
             commands::import::import_rekordbox,
+            commands::sampler::load_sample,
+            commands::sampler::clear_sample,
+            commands::sampler::trigger_sample,
+            commands::sampler::stop_sample,
+            commands::sampler::set_sampler_gain,
             commands::recording::start_recording,
             commands::recording::stop_recording,
             commands::prepare::prepare_list,

@@ -414,6 +414,9 @@ pub struct DeckSettingsDto {
     pub key_lock: bool,
     pub strip: ChannelStripDto,
     pub fx: FxDto,
+    /// Name of the sound in each sampler slot.
+    pub samples: Vec<Option<String>>,
+    pub sampler_gain: f32,
 }
 
 /// Settings the backend applies to the engine (the UI mirrors them at startup).
@@ -470,6 +473,8 @@ pub struct DeckStatusDto {
     pub slip_mode: bool,
     pub slip_position_s: Option<f64>,
     pub vinyl: VinylDto,
+    /// Sampler slots playing (bit per slot).
+    pub samples_playing: u8,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -502,6 +507,7 @@ impl From<&DeckStatus> for DeckStatusDto {
             cue: d.cue,
             slip_mode: d.slip_mode,
             slip_position_s: d.slip_position_s,
+            samples_playing: d.samples_playing,
             vinyl: VinylDto {
                 enabled: d.vinyl.enabled,
                 mode: d.vinyl.mode.into(),

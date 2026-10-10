@@ -6,6 +6,7 @@ use crate::command::{CrossfaderSide, VinylMode};
 use crate::grid::BeatGrid;
 use crate::keylock::KeyLock;
 use crate::playhead::Playhead;
+use crate::sampler::Sampler;
 use crate::status::{DeckStatus, LoopStatus, SyncStatus};
 use crate::strip::ChannelStrip;
 use crate::sync::{self, DeckSync, LeaderBeat, SyncTarget};
@@ -39,6 +40,7 @@ pub(crate) struct Deck {
     pub(crate) key_lock_enabled: bool,
     key_lock: KeyLock,
     pub(crate) fx: FxSlot,
+    pub(crate) sampler: Sampler,
     pub(crate) sync: DeckSync,
     transport: Transport,
     correction: f64,
@@ -62,6 +64,7 @@ impl Deck {
             key_lock_enabled: false,
             key_lock: KeyLock::new(sample_rate, max_block_frames),
             fx: FxSlot::new(sample_rate as f32, max_block_frames),
+            sampler: Sampler::new(),
             sync: DeckSync::new(),
             transport: Transport::default(),
             correction: 0.0,
@@ -212,6 +215,19 @@ impl Deck {
     }
 
     /// Playback rate without the gestures: what a follower matches.
+    /// Output frames until the next beat, when the deck plays on its grid.
+    pub(crate) fn frames_to_next_beat(&self, out_rate: f64) -> Option<usize> {
+        // slower than this, the next beat is too far to wait for
+        const MIN_SPEED: f64 = 0.1;
+        let grid = self.grid?;
+        if self.speed < MIN_SPEED {
+            return None;
+        }
+        let beats = grid.beats_at(self.playhead.position_s());
+        let to_next = 1.0 - beats.rem_euclid(1.0);
+        Some((to_next * 60.0 / grid.bpm / self.speed * out_rate) as usize)
+    }
+
     /// The beat the effects follow, at the current position.
     pub(crate) fn effect_beat(&self) -> Beat {
         // stopped or crawling, effects keep a usable tempo
@@ -266,6 +282,7 @@ impl Deck {
             sync: SyncStatus { locked: self.sync.locked, leader, rate_offset: self.sync.rate_offset },
             looping: LoopStatus { region: self.transport.loop_region, active: self.transport.loop_active },
             peak: self.peak,
+            samples_playing: self.sampler.playing(),
             cue: self.cue,
             slip_mode: self.transport.slip_mode,
             slip_position_s: self.transport.shadow_s,

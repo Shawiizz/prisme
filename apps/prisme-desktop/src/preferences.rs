@@ -14,7 +14,7 @@ pub struct Preferences {
     pub library: LibraryPreferences,
 }
 
-#[derive(Debug, Clone, Copy, Default, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 #[serde(default, rename_all = "camelCase")]
 pub struct DeckPreferences {
     pub vinyl_enabled: bool,
@@ -24,6 +24,8 @@ pub struct DeckPreferences {
     pub swap_channels: bool,
     /// The pitch stays when the speed changes.
     pub key_lock: bool,
+    /// Sound file in each sampler slot.
+    pub samples: Vec<Option<String>>,
 }
 
 /// What SYNC does on a record in relative mode.
@@ -104,6 +106,7 @@ mod tests {
             lead_in_s: 2.5,
             swap_channels: true,
             key_lock: true,
+            samples: vec![Some("C:/Samples/horn.wav".into()), None],
         };
         p.library.last_folder = Some("C:/Music/House".into());
         let json = serde_json::to_string(&p).unwrap();

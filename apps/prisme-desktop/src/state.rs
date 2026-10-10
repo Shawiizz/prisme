@@ -10,6 +10,7 @@ use crate::error::{AppError, AppResult};
 use crate::folders;
 use crate::preferences::{DeckPreferences, Preferences};
 use crate::recording::Recorder;
+use crate::sampler::Samplers;
 use prisme_analysis::{TrackAnalysis, Waveform};
 use prisme_engine::{BeatGrid, Command, DeckStatus, MixMode, OutputRouting};
 use prisme_library::{Cue, CueSlot, TrackEdits};
@@ -106,6 +107,7 @@ pub struct DeckSettings {
     pub key_lock: bool,
     pub strip: ChannelStripDto,
     pub fx: FxDto,
+    pub sampler_gain: f32,
 }
 
 impl From<DeckPreferences> for DeckSettings {
@@ -121,6 +123,7 @@ impl From<DeckPreferences> for DeckSettings {
             key_lock: p.key_lock,
             strip: ChannelStripDto::default(),
             fx: FxDto::default(),
+            sampler_gain: 1.0,
         }
     }
 }
@@ -132,6 +135,7 @@ pub struct AppState {
     pub decks: Mutex<[DeckSettings; DECKS]>,
     pub crossfader: Mutex<f32>,
     pub recorder: Mutex<Option<Recorder>>,
+    pub samplers: Mutex<Samplers>,
 }
 
 /// Locks a mutex, recovering from a poisoned lock (a panicking command must not take
@@ -150,6 +154,7 @@ impl AppState {
             decks: Mutex::new(saved.map(DeckSettings::from)),
             crossfader: Mutex::new(0.0),
             recorder: Mutex::new(None),
+            samplers: Mutex::default(),
         }
     }
 
@@ -250,6 +255,17 @@ impl AppState {
                 let _ = controller.send(Command::ReplaceDecoder { deck, decoder: config.decoder(true) });
             }
         }
+        for (deck, slots) in lock(&self.samplers).iter().enumerate() {
+            for (slot, loaded) in slots.iter().enumerate() {
+                if let Some(loaded) = loaded {
+                    let _ = controller.send(Command::SetSample {
+                        deck,
+                        slot,
+                        sample: Some(loaded.audio.clone()),
+                    });
+                }
+            }
+        }
         let _ = controller.send(Command::SetCrossfader { position: *lock(&self.crossfader) });
         let preferences = self.preferences.get();
         let _ = controller.send(Command::SetQuantize { enabled: preferences.dj.quantize });
@@ -280,6 +296,7 @@ pub fn deck_commands(deck: usize, s: &DeckSettings) -> Vec<Command> {
         Command::SetFxAmount { deck, amount: s.fx.amount },
         Command::SetFxBeats { deck, beats: s.fx.beats },
         Command::SetFxEnabled { deck, enabled: s.fx.enabled },
+        Command::SetSamplerGain { deck, gain: s.sampler_gain },
     ];
     for (i, band) in BandDto::ALL.into_iter().enumerate() {
         commands.push(Command::SetEq { deck, band: band.into(), gain: strip.eq[i] });

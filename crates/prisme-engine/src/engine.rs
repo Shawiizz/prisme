@@ -167,6 +167,7 @@ impl Engine {
             let deck = &mut self.decks[d];
             let beat = deck.effect_beat();
             deck.process(deck_in, deck_out, rate, target);
+            deck.sampler.render(deck_out, rate);
             if self.mixer.routing.mode == MixMode::Internal {
                 deck.strip.process(deck_out);
             }
@@ -279,6 +280,23 @@ impl Engine {
             SetEqKill { deck, band, kill } if valid(deck) => self.decks[deck].strip.set_kill(band, kill),
             SetFilter { deck, position } if valid(deck) => self.decks[deck].strip.set_filter(position),
             SetKeyLock { deck, enabled } if valid(deck) => self.decks[deck].key_lock_enabled = enabled,
+            SetSample { deck, slot, sample } => {
+                let old = match self.decks.get_mut(deck) {
+                    Some(d) => d.sampler.set(slot, sample),
+                    None => sample,
+                };
+                if let Some(old) = old {
+                    self.discard(Garbage::Track(old));
+                }
+            }
+            TriggerSample { deck, slot } if valid(deck) => {
+                let rate = self.config.sample_rate as f64;
+                let d = &mut self.decks[deck];
+                let wait = if self.quantize { d.frames_to_next_beat(rate).unwrap_or(0) } else { 0 };
+                d.sampler.trigger(slot, wait);
+            }
+            StopSample { deck, slot } if valid(deck) => self.decks[deck].sampler.stop(slot),
+            SetSamplerGain { deck, gain } if valid(deck) => self.decks[deck].sampler.gain = gain,
             StartRecording { source, sink } => {
                 let started = Recording { source, sink, frames: 0, dropped: 0 };
                 if let Some(old) = self.recording.replace(started) {

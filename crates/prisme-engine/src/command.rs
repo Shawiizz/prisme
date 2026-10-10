@@ -214,6 +214,25 @@ pub enum Command {
         deck: DeckId,
         beats: f32,
     },
+    /// Puts a sound in a sampler slot of the deck (`None` empties it).
+    SetSample {
+        deck: DeckId,
+        slot: usize,
+        sample: Option<Arc<TrackAudio>>,
+    },
+    /// Plays a sampler slot from its start (on the next beat with quantize on).
+    TriggerSample {
+        deck: DeckId,
+        slot: usize,
+    },
+    StopSample {
+        deck: DeckId,
+        slot: usize,
+    },
+    SetSamplerGain {
+        deck: DeckId,
+        gain: f32,
+    },
     /// Starts copying `source` into `sink` (a running recording is replaced).
     StartRecording {
         source: RecordSource,
