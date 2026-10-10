@@ -3,6 +3,7 @@
 use crate::controllers::Controllers;
 use crate::dto::{ControllerDto, LightDto};
 use crate::error::AppResult;
+use crate::midi_clock::MidiClock;
 use prisme_control::{Encoding, Mapping};
 use tauri::{AppHandle, State};
 
@@ -52,4 +53,27 @@ pub fn forget_control(controllers: State<'_, Controllers>, target: String) {
 #[tauri::command]
 pub fn set_lights(controllers: State<'_, Controllers>, lights: Vec<LightDto>) {
     controllers.set_lights(&lights);
+}
+
+/// The MIDI outputs the clock can go to.
+#[tauri::command]
+pub fn midi_outputs() -> AppResult<Vec<String>> {
+    MidiClock::outputs()
+}
+
+#[tauri::command]
+pub fn midi_clock_output(clock: State<'_, MidiClock>) -> Option<String> {
+    clock.output_name()
+}
+
+/// Sends the MIDI clock to `name` (`None`: nowhere); kept for the next start.
+#[tauri::command]
+pub fn set_midi_clock_output(
+    clock: State<'_, MidiClock>,
+    controllers: State<'_, Controllers>,
+    name: Option<String>,
+) -> AppResult<()> {
+    clock.set_output(name.as_deref())?;
+    controllers.remember_clock_output(name);
+    Ok(())
 }

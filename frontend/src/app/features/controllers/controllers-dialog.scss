@@ -45,6 +45,15 @@ h2 {
     color: var(--faint);
   }
 }
+.clock {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+  small {
+    color: var(--faint);
+  }
+}
 .hint {
   margin: 0;
   font-size: 12px;

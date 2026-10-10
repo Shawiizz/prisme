@@ -16,6 +16,9 @@ export class ControllerService {
 
   readonly controllers = signal<Controller[]>([]);
   readonly mappings = signal<ControllerMapping[]>([]);
+  /** MIDI outputs, for the clock. */
+  readonly outputs = signal<string[]>([]);
+  readonly clockOutput = signal<string | null>(null);
   /** The control waiting for a move on the controller. */
   readonly learning = signal<string | null>(null);
 
@@ -40,15 +43,28 @@ export class ControllerService {
   }
 
   async refresh() {
-    await this.run(async () =>
-      this.controllers.set(await invoke<Controller[]>('list_controllers')),
-    );
+    await this.run(async () => {
+      const [controllers, outputs, clockOutput] = await Promise.all([
+        invoke<Controller[]>('list_controllers'),
+        invoke<string[]>('midi_outputs'),
+        invoke<string | null>('midi_clock_output'),
+      ]);
+      this.controllers.set(controllers);
+      this.outputs.set(outputs);
+      this.clockOutput.set(clockOutput);
+    });
   }
 
   async setEnabled(name: string, enabled: boolean) {
     await this.run(() => invoke('set_controller_enabled', { name, enabled }));
     await this.refresh();
     this.sendAllLights();
+  }
+
+  /** Sends the MIDI clock, in time with the sync leader, to `name` (`null`: nowhere). */
+  async setClockOutput(name: string | null) {
+    await this.run(() => invoke('set_midi_clock_output', { name }));
+    await this.refresh();
   }
 
   learn(target: string) {

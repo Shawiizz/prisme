@@ -4,6 +4,7 @@
 //! * `audio_watchdog`: restarts the audio when its device comes back after a loss;
 //! * `controllers`: MIDI controllers and their mappings;
 //! * `history`: records the tracks played, set by set;
+//! * `midi_clock`: MIDI clock out, in time with the sync leader;
 //! * `recording`: records the mix to a file, with its tracklist;
 //! * `sampler`: the decks' sampler sounds;
 //! * `state`: preferences, loaded tracks and deck settings;
@@ -29,6 +30,7 @@ mod folder_watch;
 mod folders;
 mod history;
 mod library_service;
+mod midi_clock;
 mod preferences;
 mod recording;
 mod sampler;
@@ -39,6 +41,7 @@ mod track_loading;
 
 use controllers::Controllers;
 use library_service::LibraryService;
+use midi_clock::MidiClock;
 use prisme_session::JsonFile;
 use serde::de::DeserializeOwned;
 use serde::Serialize;
@@ -68,7 +71,15 @@ pub fn run() {
             audio_watchdog::start(app.handle().clone());
             history::start(app.handle().clone());
             sampler::load_saved(app.handle().clone());
-            app.state::<Controllers>().open_enabled(app.handle());
+            let controllers = app.state::<Controllers>();
+            controllers.open_enabled(app.handle());
+            app.manage(MidiClock::new());
+            if let Some(output) = controllers.setup().clock_output {
+                if let Err(e) = app.state::<MidiClock>().set_output(Some(&output)) {
+                    eprintln!("MIDI clock not sent to {output}: {e}");
+                }
+            }
+            MidiClock::start(app.handle().clone());
             library.start();
             library.watch();
             Ok(())
@@ -163,6 +174,9 @@ pub fn run() {
             commands::controllers::cancel_learning,
             commands::controllers::forget_control,
             commands::controllers::set_lights,
+            commands::controllers::midi_outputs,
+            commands::controllers::midi_clock_output,
+            commands::controllers::set_midi_clock_output,
             commands::recording::start_recording,
             commands::recording::stop_recording,
             commands::prepare::prepare_list,

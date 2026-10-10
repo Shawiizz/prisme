@@ -22,6 +22,20 @@
         <p class="hint">No MIDI controller plugged in.</p>
       }
     </section>
+    <label class="clock">
+      <span>MIDI clock out</span>
+      <select
+        [value]="service.clockOutput() ?? ''"
+        (change)="service.setClockOutput($any($event.target).value || null)"
+      >
+        <option value="">None</option>
+        @for (o of service.outputs(); track o) {
+          <option [value]="o">{{ o }}</option>
+        }
+      </select>
+      <small>24 ticks per beat of the sync leader</small>
+    </label>
+
     @if (canLearn()) {
       <p class="hint">Press Learn, then move the control on the controller.</p>
     } @else if (service.controllers().length > 0) {

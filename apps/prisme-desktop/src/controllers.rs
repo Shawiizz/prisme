@@ -21,6 +21,8 @@ pub struct ControllerSetup {
     /// unless the DJ asks.
     pub enabled: Vec<String>,
     pub mappings: Mappings,
+    /// Where the MIDI clock goes (see `midi_clock`).
+    pub clock_output: Option<String>,
 }
 
 /// The next control moved will drive `target`.
@@ -93,6 +95,10 @@ impl Controllers {
 
     pub fn cancel_learning(&self) {
         *lock(&self.learning) = None;
+    }
+
+    pub fn remember_clock_output(&self, name: Option<String>) {
+        self.save(|s| s.clock_output = name);
     }
 
     pub fn forget(&self, target: &str) {
