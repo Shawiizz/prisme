@@ -58,8 +58,9 @@ pub fn apply_audio_settings(state: State<'_, AppState>, settings: AudioSettings)
 /// (Re)starts the audio and restores the decks where they were, playing if they were.
 pub fn start_audio(state: &AppState, settings: &AudioSettings) -> AppResult<AudioInfo> {
     let transport = state.transport_snapshot();
-    // the device may not open twice
-    lock(&state.session).take();
+    // the device may not open twice; closed outside the lock, as it waits for the audio thread
+    let previous = lock(&state.session).take();
+    drop(previous);
     if settings.simulate {
         // the simulated needle starts 10 s into the record: start the track there
         let mut decks = lock(&state.decks);

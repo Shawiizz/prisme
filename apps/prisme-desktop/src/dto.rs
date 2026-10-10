@@ -553,6 +553,8 @@ pub struct AudioHealthDto {
     pub worst_callback_us: f64,
     pub input_underruns: u64,
     pub device_lost: bool,
+    /// The engine failed and could not be restarted: the audio is silent.
+    pub engine_failed: bool,
 }
 
 impl From<&StreamStats> for AudioHealthDto {
@@ -562,6 +564,7 @@ impl From<&StreamStats> for AudioHealthDto {
             worst_callback_us: s.max_callback_ns.load(Ordering::Relaxed) as f64 / 1000.0,
             input_underruns: s.input_underruns.load(Ordering::Relaxed),
             device_lost: s.device_lost.load(Ordering::Relaxed),
+            engine_failed: s.callback_failed.load(Ordering::Relaxed),
         }
     }
 }

@@ -74,6 +74,8 @@ export interface AudioHealth {
   worstCallbackUs: number;
   inputUnderruns: number;
   deviceLost: boolean;
+  /** The engine failed and could not be restarted: the audio is silent. */
+  engineFailed: boolean;
 }
 
 export interface EngineStatus {

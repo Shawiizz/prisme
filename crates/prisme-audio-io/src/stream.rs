@@ -6,6 +6,7 @@ use crate::devices::{device_name, find, Backend, DeviceKind};
 use crate::formats::{input_stream, output_stream, MAX_PERIOD};
 use crate::{AudioCallback, AudioError};
 use cpal::traits::{DeviceTrait, StreamTrait};
+use std::panic::{catch_unwind, AssertUnwindSafe};
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::Arc;
 use std::time::Instant;
@@ -36,6 +37,8 @@ pub struct StreamStats {
     pub input_dropped: AtomicU64,
     /// The device went away (unplugged): the stream must be restarted.
     pub device_lost: AtomicBool,
+    /// The callback panicked: it is no longer called, the output is silent.
+    pub callback_failed: AtomicBool,
 }
 
 /// What the opened devices actually run at.
@@ -90,6 +93,7 @@ pub fn start<C: AudioCallback>(
         output_channels,
         sample_rate,
         stats: stats.clone(),
+        failed: false,
     };
     let output = output_stream(
         &out_device,
@@ -154,19 +158,21 @@ struct Renderer<C> {
     output_channels: usize,
     sample_rate: u32,
     stats: Arc<StreamStats>,
+    /// The callback panicked: its state cannot be trusted any more.
+    failed: bool,
 }
 
 impl<C: AudioCallback> Renderer<C> {
     fn render(&mut self, output: &mut [f32]) {
         let start = Instant::now();
         let frames = output.len() / self.output_channels;
-        match self.ring.as_mut() {
-            Some(ring) => {
-                let want = (frames * self.input_channels).min(self.input.len());
-                read_input(ring, &mut self.input[..want], self.input_channels, &self.stats);
-                self.callback.process(&self.input[..want], self.input_channels, output, self.output_channels);
-            }
-            None => self.callback.process(&[], 0, output, self.output_channels),
+        // a panic must not unwind into the driver (that aborts the whole program)
+        if !self.failed && catch_unwind(AssertUnwindSafe(|| self.process(output, frames))).is_err() {
+            self.failed = true;
+            self.stats.callback_failed.store(true, Ordering::Relaxed);
+        }
+        if self.failed {
+            output.fill(0.0);
         }
         let ns = start.elapsed().as_nanos() as u64;
         let budget = (frames as f64 / self.sample_rate as f64 * 1e9) as u64;
@@ -175,6 +181,19 @@ impl<C: AudioCallback> Renderer<C> {
         self.stats.max_callback_ns.fetch_max(ns, Ordering::Relaxed);
         if ns > budget {
             self.stats.over_budget.fetch_add(1, Ordering::Relaxed);
+        }
+    }
+}
+
+impl<C: AudioCallback> Renderer<C> {
+    fn process(&mut self, output: &mut [f32], frames: usize) {
+        match self.ring.as_mut() {
+            Some(ring) => {
+                let want = (frames * self.input_channels).min(self.input.len());
+                read_input(ring, &mut self.input[..want], self.input_channels, &self.stats);
+                self.callback.process(&self.input[..want], self.input_channels, output, self.output_channels);
+            }
+            None => self.callback.process(&[], 0, output, self.output_channels),
         }
     }
 }
@@ -221,5 +240,53 @@ fn error_handler(stats: Arc<StreamStats>) -> impl FnMut(cpal::Error) + Send + 's
             stats.device_lost.store(true, Ordering::Relaxed);
         }
         eprintln!("audio stream error: {e}");
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Plays a tone, and panics on its `fail_at`th call.
+    struct Faulty {
+        calls: usize,
+        fail_at: usize,
+    }
+
+    impl AudioCallback for Faulty {
+        fn process(&mut self, _: &[f32], _: usize, output: &mut [f32], _: usize) {
+            self.calls += 1;
+            assert!(self.calls != self.fail_at, "engine bug");
+            output.fill(0.5);
+        }
+    }
+
+    fn renderer(fail_at: usize) -> Renderer<Faulty> {
+        Renderer {
+            callback: Faulty { calls: 0, fail_at },
+            ring: None,
+            input: Vec::new(),
+            input_channels: 0,
+            output_channels: 2,
+            sample_rate: 48_000,
+            stats: Arc::new(StreamStats::default()),
+            failed: false,
+        }
+    }
+
+    #[test]
+    fn a_panicking_callback_is_silenced_and_never_called_again() {
+        let mut r = renderer(2);
+        let mut output = [0.0f32; 128];
+        r.render(&mut output);
+        assert!(output.iter().all(|&s| s == 0.5));
+        assert!(!r.stats.callback_failed.load(Ordering::Relaxed));
+
+        r.render(&mut output);
+        r.render(&mut output);
+        assert!(output.iter().all(|&s| s == 0.0));
+        assert!(r.stats.callback_failed.load(Ordering::Relaxed));
+        assert_eq!(r.callback.calls, 2);
+        assert_eq!(r.stats.callbacks.load(Ordering::Relaxed), 3);
     }
 }

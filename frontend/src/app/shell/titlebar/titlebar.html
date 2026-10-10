@@ -30,6 +30,11 @@
       <span class="dot off"></span> audio stopped
     }
     @if (engine.status()?.health; as h) {
+      @if (h.engineFailed) {
+        <span class="chip warn" title="Apply the settings again to restart it"
+          >audio engine error</span
+        >
+      }
       @if (h.overBudget > 0) {
         <span
           class="chip warn"

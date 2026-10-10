@@ -42,6 +42,8 @@ pub struct AudioSession {
     /// What the engine was built with (to build matching decoders).
     pub engine_config: EngineConfig,
     pub info: AudioInfo,
+    /// What it was started with, to start it again.
+    pub settings: AudioSettings,
     stop: Option<mpsc::Sender<()>>,
     thread: Option<JoinHandle<()>>,
 }
@@ -50,6 +52,16 @@ impl AudioSession {
     /// The device went away (unplugged): the session must be restarted.
     pub fn device_lost(&self) -> bool {
         self.stats.device_lost.load(Ordering::Relaxed)
+    }
+
+    /// The engine failed: the audio is silent until it is restarted.
+    pub fn engine_failed(&self) -> bool {
+        self.stats.callback_failed.load(Ordering::Relaxed)
+    }
+
+    /// Periods processed so far.
+    pub fn periods(&self) -> u64 {
+        self.stats.callbacks.load(Ordering::Relaxed)
     }
 }
 
@@ -110,5 +122,13 @@ pub fn start(settings: &AudioSettings) -> AppResult<AudioSession> {
     })?;
     let (controller, engine_config, info, stats) =
         ready_rx.recv().map_err(|_| AppError::Other("the audio thread stopped".into()))??;
-    Ok(AudioSession { controller, stats, engine_config, info, stop: Some(stop_tx), thread: Some(thread) })
+    Ok(AudioSession {
+        controller,
+        stats,
+        engine_config,
+        info,
+        settings: settings.clone(),
+        stop: Some(stop_tx),
+        thread: Some(thread),
+    })
 }
