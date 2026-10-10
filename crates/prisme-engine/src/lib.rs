@@ -26,4 +26,5 @@ pub use command::{Command, CrossfaderSide, DeckId, Garbage, VinylMode};
 pub use engine::{create, Engine, EngineConfig, EngineController};
 pub use grid::BeatGrid;
 pub use looping::LoopRegion;
+pub use mixer::{MixMode, OutputRouting};
 pub use status::{DeckStatus, EngineStatus, LoopStatus, SyncStatus, VinylStatus, MAX_DECKS};

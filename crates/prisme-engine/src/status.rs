@@ -48,6 +48,10 @@ pub struct DeckStatus {
     pub beat_phase: Option<f64>,
     pub sync: SyncStatus,
     pub looping: LoopStatus,
+    /// Loudest sample since the previous snapshot.
+    pub peak: f32,
+    /// Internal mixer: heard in the headphones.
+    pub cue: bool,
     pub slip_mode: bool,
     /// Where the track would be without the loop, roll or censor in progress.
     pub slip_position_s: Option<f64>,
@@ -66,6 +70,8 @@ impl Default for DeckStatus {
             beat_phase: None,
             sync: SyncStatus { rate_offset: 1.0, ..Default::default() },
             looping: LoopStatus::default(),
+            peak: 0.0,
+            cue: false,
             slip_mode: false,
             slip_position_s: None,
             vinyl: VinylStatus {

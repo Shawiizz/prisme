@@ -23,6 +23,7 @@ pub fn list_devices(backend: BackendDto) -> AppResult<Vec<DeviceDto>> {
             name: d.name,
             channels: d.channels,
             sample_rate: d.sample_rate,
+            buffer_range: d.buffer_range,
             is_default: d.is_default,
         })
         .collect())
@@ -64,7 +65,7 @@ pub fn start_audio(state: &AppState, settings: &AudioSettings) -> AppResult<Audi
         decks[0].lead_in_s = prisme_timecode::testing::SimulatedTurntable::START_S;
     }
     let mut session = audio_host::start(settings)?;
-    state.restore(&mut session.controller);
+    state.restore(&mut session.controller, session.info.output_channels);
     let info = session.info.clone();
     *lock(&state.session) = Some(session);
     Ok(info)

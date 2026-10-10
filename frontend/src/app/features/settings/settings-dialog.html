@@ -3,57 +3,123 @@
     <h2>Settings</h2>
 
     @if (draft(); as d) {
-      <label>
-        <span class="label">Output (main mix)</span>
-        <select [value]="d.outputDevice ?? ''" (change)="update({ outputDevice: orNull($any($event.target).value) })">
-          <option value="">Default device</option>
-          @for (o of outputs(); track o.name) {
-            <option [value]="o.name">{{ o.name }} · {{ o.channels }} ch · {{ o.sampleRate }} Hz</option>
+      <div class="sections">
+        <section>
+          <h3>Audio</h3>
+          <label>
+            <span class="label">Driver type</span>
+            <select [value]="d.backend" (change)="setBackend($any($event.target).value)">
+              @for (b of service.backends(); track b) {
+                <option [value]="b">{{ b === 'asio' ? 'ASIO (lowest latency)' : 'WASAPI (Windows)' }}</option>
+              }
+            </select>
+          </label>
+
+          @if (asio()) {
+            <label>
+              <span class="label">ASIO driver</span>
+              <select [value]="d.outputDevice ?? ''" (change)="setDriver(orNull($any($event.target).value))">
+                <option value="">Default driver</option>
+                @for (o of outputs(); track o.name) {
+                  <option [value]="o.name">{{ o.name }} · {{ o.channels }} out · {{ o.sampleRate }} Hz</option>
+                }
+              </select>
+            </label>
+          } @else {
+            <label>
+              <span class="label">Output</span>
+              <select [value]="d.outputDevice ?? ''" (change)="update({ outputDevice: orNull($any($event.target).value) })">
+                <option value="">Default device</option>
+                @for (o of outputs(); track o.name) {
+                  <option [value]="o.name">{{ o.name }} · {{ o.channels }} ch · {{ o.sampleRate }} Hz</option>
+                }
+              </select>
+            </label>
           }
-        </select>
-      </label>
 
-      <label>
-        <span class="label">Turntables input (DVS interface)</span>
-        <select [value]="d.inputDevice ?? ''" (change)="update({ inputDevice: orNull($any($event.target).value) })" [disabled]="d.simulate">
-          <option value="">None</option>
-          @for (i of inputs(); track i.name) {
-            <option [value]="i.name">{{ i.name }} · {{ i.channels }} ch · {{ i.sampleRate }} Hz</option>
+          <label>
+            <span class="label">Buffer</span>
+            <select [value]="d.bufferFrames ?? ''" (change)="update({ bufferFrames: orNull($any($event.target).value) === null ? null : +$any($event.target).value })">
+              <option value="">Driver default</option>
+              @for (n of bufferSizes(); track n) {
+                <option [value]="n">{{ bufferLabel(n) }}</option>
+              }
+            </select>
+            <small>Smaller is more responsive; raise it if the sound crackles.</small>
+          </label>
+
+          <label>
+            <span class="label">Mixing</span>
+            <select [value]="mixMode()" (change)="mixMode.set($any($event.target).value)">
+              <option value="external">External mixer: deck 1 on outputs 1-2, deck 2 on 3-4</option>
+              <option value="internal">Software mixer: master on 1-2, headphones on 3-4</option>
+            </select>
+          </label>
+        </section>
+
+        <section>
+          <h3>Turntables</h3>
+          @if (asio()) {
+            <label class="check">
+              <input
+                type="checkbox"
+                [checked]="!!d.inputDevice"
+                [disabled]="d.simulate"
+                (change)="setTurntablesOnDriver($any($event.target).checked)"
+              />
+              <span>Turntables plugged into this driver's inputs</span>
+            </label>
+          } @else {
+            <label>
+              <span class="label">Input (DVS interface)</span>
+              <select [value]="d.inputDevice ?? ''" (change)="update({ inputDevice: orNull($any($event.target).value) })" [disabled]="d.simulate">
+                <option value="">None</option>
+                @for (i of inputs(); track i.name) {
+                  <option [value]="i.name">{{ i.name }} · {{ i.channels }} ch · {{ i.sampleRate }} Hz</option>
+                }
+              </select>
+            </label>
           }
-        </select>
-        <small>Deck 1 reads input channels 1-2, deck 2 channels 3-4.</small>
-      </label>
+          <small>Deck 1 reads inputs 1-2, deck 2 inputs 3-4.</small>
 
-      <label>
-        <span class="label">Control vinyl</span>
-        <select [value]="d.timecodeFormat" (change)="update({ timecodeFormat: $any($event.target).value })">
-          @for (f of service.formats(); track f.id) {
-            <option [value]="f.id">{{ f.name }}</option>
-          }
-        </select>
-      </label>
+          <label>
+            <span class="label">Control vinyl</span>
+            <select [value]="d.timecodeFormat" (change)="update({ timecodeFormat: $any($event.target).value })">
+              @for (f of service.formats(); track f.id) {
+                <option [value]="f.id">{{ f.name }}</option>
+              }
+            </select>
+          </label>
 
-      <label class="check">
-        <input type="checkbox" [checked]="d.simulate" (change)="update({ simulate: $any($event.target).checked })" />
-        <span>Simulated turntable on deck 1 (try vinyl control without hardware)</span>
-      </label>
+          <label class="check">
+            <input type="checkbox" [checked]="d.simulate" (change)="update({ simulate: $any($event.target).checked })" />
+            <span>Simulated turntable on deck 1 (no hardware needed)</span>
+          </label>
 
-      <label>
-        <span class="label">Sync on a record in relative mode</span>
-        <select [value]="dj().vinylSync" (change)="updateDj({ vinylSync: $any($event.target).value })">
-          <option value="once">One shot: matches once, the pitch fader keeps working</option>
-          <option value="locked">Locked: follows the leader, the pitch fader is ignored</option>
-        </select>
-      </label>
+          <h3>DJ</h3>
+          <label>
+            <span class="label">Sync on a record in relative mode</span>
+            <select [value]="dj().vinylSync" (change)="updateDj({ vinylSync: $any($event.target).value })">
+              <option value="once">One shot: matches once, the pitch fader keeps working</option>
+              <option value="locked">Locked: follows the leader, the pitch fader is ignored</option>
+            </select>
+          </label>
 
-      <label>
-        <span class="label">Tempo fader range</span>
-        <select [value]="dj().pitchRange" (change)="updateDj({ pitchRange: +$any($event.target).value })">
-          @for (r of pitchRanges; track r) {
-            <option [value]="r">±{{ r * 100 }} %</option>
-          }
-        </select>
-      </label>
+          <label>
+            <span class="label">Tempo fader range</span>
+            <select [value]="dj().pitchRange" (change)="updateDj({ pitchRange: +$any($event.target).value })">
+              @for (r of pitchRanges; track r) {
+                <option [value]="r">±{{ r * 100 }} %</option>
+              }
+            </select>
+          </label>
+
+          <label class="check">
+            <input type="checkbox" [checked]="dj().quantize" (change)="updateDj({ quantize: $any($event.target).checked })" />
+            <span>Quantize: cues, loops and jumps land on the beat</span>
+          </label>
+        </section>
+      </div>
 
       @if (error(); as e) {
         <div class="error">{{ e }}</div>

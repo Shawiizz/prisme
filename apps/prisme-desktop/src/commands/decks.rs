@@ -1,27 +1,9 @@
-use crate::dto::{DeckSettingsDto, MixerStateDto, VinylModeDto};
+use crate::dto::VinylModeDto;
 use crate::error::AppResult;
 use crate::preferences::DeckPreferences;
 use crate::state::{deck_commands, lock, AppState};
 use prisme_engine::Command;
 use tauri::State;
-
-/// Deck settings and crossfader as the backend knows them (to rebuild the UI).
-#[tauri::command]
-pub fn mixer_state(state: State<'_, AppState>) -> MixerStateDto {
-    MixerStateDto {
-        decks: lock(&state.decks)
-            .iter()
-            .map(|d| DeckSettingsDto {
-                pitch: d.pitch,
-                volume: d.volume,
-                vinyl_enabled: d.vinyl_enabled,
-                vinyl_mode: d.vinyl_mode,
-                lead_in_s: d.lead_in_s,
-            })
-            .collect(),
-        crossfader: *lock(&state.crossfader),
-    }
-}
 
 #[tauri::command]
 pub fn set_playing(state: State<'_, AppState>, deck: usize, playing: bool) -> AppResult<()> {
@@ -40,13 +22,6 @@ pub fn set_pitch(state: State<'_, AppState>, deck: usize, ratio: f64) -> AppResu
     AppState::check_deck(deck)?;
     lock(&state.decks)[deck].pitch = ratio;
     state.send(Command::SetPitch { deck, ratio })
-}
-
-#[tauri::command]
-pub fn set_volume(state: State<'_, AppState>, deck: usize, gain: f32) -> AppResult<()> {
-    AppState::check_deck(deck)?;
-    lock(&state.decks)[deck].volume = gain;
-    state.send(Command::SetVolume { deck, gain })
 }
 
 /// Vinyl control of a deck, kept for the next start.
@@ -74,12 +49,6 @@ pub fn set_vinyl(
         state.send_if_running(c)?;
     }
     Ok(())
-}
-
-#[tauri::command]
-pub fn set_crossfader(state: State<'_, AppState>, position: f32) -> AppResult<()> {
-    *lock(&state.crossfader) = position;
-    state.send(Command::SetCrossfader { position })
 }
 
 #[tauri::command]

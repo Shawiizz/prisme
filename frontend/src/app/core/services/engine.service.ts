@@ -12,6 +12,7 @@ const PITCH_BEND = 0.03;
 const DEFAULT_DECK: DeckSettings = {
   pitch: 1,
   volume: 1,
+  cue: false,
   vinylEnabled: false,
   vinylMode: 'absolute',
   leadInS: 0,
@@ -30,7 +31,6 @@ export class EngineService {
   readonly tracks = signal<(TrackInfo | null)[]>(Array(DECK_COUNT).fill(null));
   readonly loading = signal<boolean[]>(Array(DECK_COUNT).fill(false));
   readonly decks = signal<DeckSettings[]>(Array.from({ length: DECK_COUNT }, () => ({ ...DEFAULT_DECK })));
-  readonly crossfader = signal(0);
   readonly error = signal<string | null>(null);
 
   readonly audioRunning = computed(() => this.status()?.audioRunning ?? false);
@@ -39,7 +39,8 @@ export class EngineService {
   private latest: EngineStatus | null = null;
   private latestAt = 0;
 
-  async connect(): Promise<void> {
+  /** Subscribes to the engine state; returns the mixer settings for the mixer service. */
+  async connect(): Promise<MixerState> {
     const channel = new Channel<EngineStatus>();
     channel.onmessage = (s) => {
       this.latest = s;
@@ -53,7 +54,7 @@ export class EngineService {
     ]);
     this.tracks.set(tracks);
     this.decks.set(mixer.decks.map((d) => ({ ...DEFAULT_DECK, ...d })));
-    this.crossfader.set(mixer.crossfader);
+    return mixer;
   }
 
   /**
@@ -96,27 +97,17 @@ export class EngineService {
   }
 
   setPitch(deck: number, ratio: number) {
-    this.updateDeck(deck, { pitch: ratio });
+    this.patchDeck(deck, { pitch: ratio });
     return this.call('set_pitch', { deck, ratio });
   }
 
-  setVolume(deck: number, gain: number) {
-    this.updateDeck(deck, { volume: gain });
-    return this.call('set_volume', { deck, gain });
-  }
-
   setVinyl(deck: number, changes: { enabled?: boolean; mode?: VinylMode; leadInS?: number }) {
-    const d = this.updateDeck(deck, {
+    const d = this.patchDeck(deck, {
       vinylEnabled: changes.enabled ?? this.decks()[deck].vinylEnabled,
       vinylMode: changes.mode ?? this.decks()[deck].vinylMode,
       leadInS: changes.leadInS ?? this.decks()[deck].leadInS,
     });
     return this.call('set_vinyl', { deck, enabled: d.vinylEnabled, mode: d.vinylMode, leadInS: d.leadInS });
-  }
-
-  setCrossfader(position: number) {
-    this.crossfader.set(position);
-    return this.call('set_crossfader', { position });
   }
 
   /**
@@ -188,7 +179,7 @@ export class EngineService {
     if (track) this.patch(this.tracks, deck, { ...track, cues });
   }
 
-  private updateDeck(deck: number, changes: Partial<DeckSettings>): DeckSettings {
+  patchDeck(deck: number, changes: Partial<DeckSettings>): DeckSettings {
     const next = { ...this.decks()[deck], ...changes };
     this.patch(this.decks, deck, next);
     return next;

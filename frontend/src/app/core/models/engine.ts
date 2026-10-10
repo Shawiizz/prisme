@@ -36,6 +36,9 @@ export interface DeckStatus {
   beatPhase: number | null;
   sync: SyncStatus;
   looping: LoopStatus;
+  /** Loudest sample since the previous status. */
+  peak: number;
+  cue: boolean;
   slipMode: boolean;
   /** Where the track would be without the loop, roll or censor in progress. */
   slipPositionS: number | null;
@@ -102,15 +105,26 @@ export interface TrackInfo {
 export interface DeckSettings {
   pitch: number;
   volume: number;
+  /** Software mixer: heard in the headphones. */
+  cue: boolean;
   vinylEnabled: boolean;
   vinylMode: VinylMode;
   leadInS: number;
 }
 
+/** External: each deck on its own outputs for a hardware mixer. Internal: the software mixer. */
+export type MixMode = 'external' | 'internal';
+
 /** Settings as the backend applies them. */
 export interface MixerState {
   decks: DeckSettings[];
   crossfader: number;
+  mode: MixMode;
+  /** An external mixer needs an output pair per deck; `null` without audio. */
+  modeInUse: MixMode | null;
+  /** Headphones: 0 = cued decks only, 1 = master only. */
+  cueMix: number;
+  headphoneGain: number;
 }
 
 export const DECK_COUNT = 2;

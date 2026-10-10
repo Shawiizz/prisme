@@ -1,7 +1,7 @@
 //! Data exchanged with the frontend (camelCase JSON).
 
 use prisme_audio_io::Backend;
-use prisme_engine::{DeckStatus, EngineStatus, LoopRegion, VinylMode};
+use prisme_engine::{DeckStatus, EngineStatus, LoopRegion, MixMode, VinylMode};
 use prisme_library::{Cue, CueSlot};
 use prisme_timecode::SignalState;
 use serde::{Deserialize, Serialize};
@@ -14,6 +14,8 @@ pub struct DeviceDto {
     pub kind: &'static str,
     pub channels: u16,
     pub sample_rate: u32,
+    /// Periods the driver accepts (frames): `[min, max]`.
+    pub buffer_range: Option<(u32, u32)>,
     pub is_default: bool,
 }
 
@@ -39,6 +41,34 @@ impl From<Backend> for BackendDto {
         match b {
             Backend::Wasapi => BackendDto::Wasapi,
             Backend::Asio => BackendDto::Asio,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum MixModeDto {
+    /// Each deck on its own outputs, to a hardware mixer.
+    #[default]
+    External,
+    /// The software mixer: master and headphones.
+    Internal,
+}
+
+impl From<MixMode> for MixModeDto {
+    fn from(m: MixMode) -> Self {
+        match m {
+            MixMode::External => MixModeDto::External,
+            MixMode::Internal => MixModeDto::Internal,
+        }
+    }
+}
+
+impl From<MixModeDto> for MixMode {
+    fn from(m: MixModeDto) -> Self {
+        match m {
+            MixModeDto::External => MixMode::External,
+            MixModeDto::Internal => MixMode::Internal,
         }
     }
 }
@@ -210,6 +240,7 @@ impl From<VinylMode> for VinylModeDto {
 pub struct DeckSettingsDto {
     pub pitch: f64,
     pub volume: f32,
+    pub cue: bool,
     pub vinyl_enabled: bool,
     pub vinyl_mode: VinylModeDto,
     pub lead_in_s: f64,
@@ -221,6 +252,12 @@ pub struct DeckSettingsDto {
 pub struct MixerStateDto {
     pub decks: Vec<DeckSettingsDto>,
     pub crossfader: f32,
+    /// The mode the user chose.
+    pub mode: MixModeDto,
+    /// The mode in use: an external mixer needs an output pair per deck.
+    pub mode_in_use: Option<MixModeDto>,
+    pub cue_mix: f32,
+    pub headphone_gain: f32,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -254,6 +291,8 @@ pub struct DeckStatusDto {
     pub beat_phase: Option<f64>,
     pub sync: SyncDto,
     pub looping: LoopDto,
+    pub peak: f32,
+    pub cue: bool,
     pub slip_mode: bool,
     pub slip_position_s: Option<f64>,
     pub vinyl: VinylDto,
@@ -285,6 +324,8 @@ impl From<&DeckStatus> for DeckStatusDto {
             beat_phase: d.beat_phase,
             sync: SyncDto { locked: d.sync.locked, leader: d.sync.leader, rate_offset: d.sync.rate_offset },
             looping: LoopDto::new(d.looping.region, d.looping.active),
+            peak: d.peak,
+            cue: d.cue,
             slip_mode: d.slip_mode,
             slip_position_s: d.slip_position_s,
             vinyl: VinylDto {

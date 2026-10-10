@@ -2,6 +2,7 @@
 
 use crate::grid::BeatGrid;
 use crate::looping::LoopRegion;
+use crate::mixer::OutputRouting;
 use prisme_media::TrackAudio;
 use prisme_timecode::TimecodeDecoder;
 use std::sync::Arc;
@@ -150,6 +151,21 @@ pub enum Command {
         position: f32,
     },
     SetMasterGain {
+        gain: f32,
+    },
+    SetRouting {
+        routing: OutputRouting,
+    },
+    /// Internal mixer: sends the deck to the headphones.
+    SetDeckCue {
+        deck: DeckId,
+        enabled: bool,
+    },
+    /// Headphones: 0 = cued decks only, 1 = master only.
+    SetCueMix {
+        mix: f32,
+    },
+    SetHeadphoneGain {
         gain: f32,
     },
 }

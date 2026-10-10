@@ -13,7 +13,12 @@ pub const BLOCK: usize = 256;
 const DECKS: usize = 2;
 
 pub fn silent_track(seconds: f64) -> Arc<TrackAudio> {
-    Arc::new(TrackAudio::from_interleaved(44_100, vec![0.0; (seconds * 44_100.0) as usize * 2]))
+    constant_track(seconds, 0.0)
+}
+
+/// A track whose every sample is `level`: easy to follow through the mixer.
+pub fn constant_track(seconds: f64, level: f32) -> Arc<TrackAudio> {
+    Arc::new(TrackAudio::from_interleaved(44_100, vec![level; (seconds * 44_100.0) as usize * 2]))
 }
 
 /// A record on a turntable, turning at `speed`.
@@ -29,10 +34,15 @@ pub struct Rig {
     deck_signal: Vec<f32>,
     input: Vec<f32>,
     output: Vec<f32>,
+    output_channels: usize,
 }
 
 impl Rig {
     pub fn new() -> Self {
+        Self::with_outputs(2)
+    }
+
+    pub fn with_outputs(output_channels: usize) -> Self {
         // a snapshot after every block, so that positions read by the tests are exact
         let config =
             EngineConfig { status_rate_hz: f64::INFINITY, ..EngineConfig::new(SR, DECKS, &SERATO_CV02_A) };
@@ -43,7 +53,8 @@ impl Rig {
             turntables: [None, None],
             deck_signal: Vec::new(),
             input: vec![0.0; BLOCK * DECKS * 2],
-            output: vec![0.0; BLOCK * 2],
+            output: vec![0.0; BLOCK * output_channels],
+            output_channels,
         }
     }
 
@@ -78,9 +89,14 @@ impl Rig {
                     frame[deck * 2 + 1] = lr[1];
                 }
             }
-            self.engine.process(&self.input, channels, &mut self.output, 2);
+            self.engine.process(&self.input, channels, &mut self.output, self.output_channels);
         }
         (blocks * BLOCK) as f64 / SR as f64
+    }
+
+    /// The first frame of the last block, one value per output channel.
+    pub fn output_frame(&self) -> &[f32] {
+        &self.output[..self.output_channels]
     }
 
     pub fn deck(&mut self, deck: usize) -> DeckStatus {

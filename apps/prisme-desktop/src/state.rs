@@ -3,12 +3,12 @@
 //! restarts).
 
 use crate::audio_host::{AudioSession, DECKS};
-use crate::dto::{CueDto, KeyDto, TempoDto, TrackInfoDto, VinylModeDto, WaveformDto};
+use crate::dto::{CueDto, KeyDto, MixModeDto, TempoDto, TrackInfoDto, VinylModeDto, WaveformDto};
 use crate::error::{AppError, AppResult};
 use crate::folders;
 use crate::preferences::{DeckPreferences, Preferences};
 use prisme_analysis::{TrackAnalysis, Waveform};
-use prisme_engine::{BeatGrid, Command, DeckStatus, EngineController};
+use prisme_engine::{BeatGrid, Command, DeckStatus, EngineController, MixMode, OutputRouting};
 use prisme_library::{Cue, CueSlot};
 use prisme_media::TrackAudio;
 use prisme_session::JsonFile;
@@ -75,6 +75,7 @@ impl LoadedTrack {
 pub struct DeckSettings {
     pub pitch: f64,
     pub volume: f32,
+    pub cue: bool,
     pub vinyl_enabled: bool,
     pub vinyl_mode: VinylModeDto,
     pub lead_in_s: f64,
@@ -85,6 +86,7 @@ impl From<DeckPreferences> for DeckSettings {
         Self {
             pitch: 1.0,
             volume: 1.0,
+            cue: false,
             vinyl_enabled: p.vinyl_enabled,
             vinyl_mode: p.vinyl_mode,
             lead_in_s: p.lead_in_s,
@@ -164,8 +166,17 @@ impl AppState {
         }
     }
 
-    /// Re-applies tracks and deck settings to a freshly started engine.
-    pub fn restore(&self, controller: &mut EngineController) {
+    /// The routing for a device with `output_channels`: an external mixer needs an output
+    /// pair per deck, else the software mixer is used.
+    pub fn routing(&self, output_channels: usize) -> OutputRouting {
+        let external =
+            self.preferences.get().mixer.mode == MixModeDto::External && output_channels >= 2 * DECKS;
+        let mode = if external { MixMode::External } else { MixMode::Internal };
+        OutputRouting { mode, ..OutputRouting::default() }
+    }
+
+    /// Re-applies tracks, deck and mixer settings to a freshly started engine.
+    pub fn restore(&self, controller: &mut EngineController, output_channels: usize) {
         let tracks = lock(&self.tracks);
         let decks = lock(&self.decks);
         for (deck, (track, settings)) in tracks.iter().zip(decks.iter()).enumerate() {
@@ -177,13 +188,18 @@ impl AppState {
             }
         }
         let _ = controller.send(Command::SetCrossfader { position: *lock(&self.crossfader) });
-        let _ = controller.send(Command::SetQuantize { enabled: self.preferences.get().dj.quantize });
+        let preferences = self.preferences.get();
+        let _ = controller.send(Command::SetQuantize { enabled: preferences.dj.quantize });
+        let _ = controller.send(Command::SetRouting { routing: self.routing(output_channels) });
+        let _ = controller.send(Command::SetCueMix { mix: preferences.mixer.cue_mix });
+        let _ = controller.send(Command::SetHeadphoneGain { gain: preferences.mixer.headphone_gain });
     }
 }
 
 /// Commands that put a deck in the state described by `s`.
-pub fn deck_commands(deck: usize, s: &DeckSettings) -> [Command; 5] {
+pub fn deck_commands(deck: usize, s: &DeckSettings) -> [Command; 6] {
     [
+        Command::SetDeckCue { deck, enabled: s.cue },
         Command::SetPitch { deck, ratio: s.pitch },
         Command::SetVolume { deck, gain: s.volume },
         Command::SetVinylMode { deck, mode: s.vinyl_mode.into() },

@@ -26,6 +26,10 @@ pub(crate) struct Deck {
     pub(crate) vinyl: VinylControl,
     pub(crate) volume: f32,
     pub(crate) side: CrossfaderSide,
+    /// Internal mixer: heard in the headphones.
+    pub(crate) cue: bool,
+    /// Loudest sample since the last status.
+    pub(crate) peak: f32,
     pub(crate) grid: Option<BeatGrid>,
     pub(crate) sync: DeckSync,
     transport: Transport,
@@ -43,6 +47,8 @@ impl Deck {
             vinyl: VinylControl::new(decoder),
             volume: 1.0,
             side: CrossfaderSide::Center,
+            cue: false,
+            peak: 0.0,
             grid: None,
             sync: DeckSync::new(),
             transport: Transport::default(),
@@ -67,6 +73,7 @@ impl Deck {
         let speed = if self.transport.censoring { -speed } else { speed };
         self.playhead.render(out, out_rate, speed);
         self.speed = speed;
+        self.peak = out.iter().fold(self.peak, |p, s| p.max(s.abs()));
 
         let seconds = (out.len() / 2) as f64 / out_rate;
         let platter = self.vinyl.enabled.then_some(drive.speed);
@@ -229,6 +236,8 @@ impl Deck {
             beat_phase: self.grid.map(|g| g.beats_at(position_s).rem_euclid(1.0)),
             sync: SyncStatus { locked: self.sync.locked, leader, rate_offset: self.sync.rate_offset },
             looping: LoopStatus { region: self.transport.loop_region, active: self.transport.loop_active },
+            peak: self.peak,
+            cue: self.cue,
             slip_mode: self.transport.slip_mode,
             slip_position_s: self.transport.shadow_s,
             vinyl: self.vinyl.status(),

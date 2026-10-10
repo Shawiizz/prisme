@@ -12,7 +12,7 @@
 
 use crate::command::{Command, DeckId, Garbage};
 use crate::deck::Deck;
-use crate::mixer::Mixer;
+use crate::mixer::{DeckMix, Mixer};
 use crate::status::{EngineStatus, MAX_DECKS};
 use prisme_timecode::{DecoderConfig, TimecodeDecoder, TimecodeFormat};
 
@@ -66,7 +66,7 @@ pub fn create(config: EngineConfig) -> (Engine, EngineController) {
     let engine = Engine {
         config,
         decks,
-        mixer: Mixer::new(),
+        mixer: Mixer::new(config.max_block_frames),
         commands: cmd_rx,
         status: status_tx,
         garbage: garbage_tx,
@@ -137,6 +137,7 @@ impl Engine {
         self.leader = self.resolve_leader();
         // every follower is compared with the leader as it was at the start of the block
         let leader_beat = self.leader.and_then(|l| self.decks[l].leader_beat());
+        self.mixer.begin(frames);
         for d in 0..self.decks.len() {
             let target = match leader_beat {
                 Some(beat) if self.leader != Some(d) && self.decks[d].follows() => {
@@ -149,9 +150,10 @@ impl Engine {
             let deck_out = &mut self.deck_out[..frames * 2];
             let deck = &mut self.decks[d];
             deck.process(deck_in, deck_out, rate, target);
-            let gain = deck.volume * self.mixer.crossfader_gain(deck.side);
-            self.mixer.add_deck(deck_out, gain, out, out_ch);
+            let mix = DeckMix { audio: deck_out, volume: deck.volume, side: deck.side, cue: deck.cue };
+            self.mixer.add_deck(d, mix, out, out_ch);
         }
+        self.mixer.finish(frames, out, out_ch);
         for s in out.iter() {
             self.peak = self.peak.max(s.abs());
         }
@@ -238,6 +240,10 @@ impl Engine {
             SetCrossfaderSide { deck, side } if valid(deck) => self.decks[deck].side = side,
             SetCrossfader { position } => self.mixer.crossfader = position,
             SetMasterGain { gain } => self.mixer.master_gain = gain,
+            SetRouting { routing } => self.mixer.routing = routing,
+            SetDeckCue { deck, enabled } if valid(deck) => self.decks[deck].cue = enabled,
+            SetCueMix { mix } => self.mixer.cue_mix = mix,
+            SetHeadphoneGain { gain } => self.mixer.headphone_gain = gain,
             _ => {} // command for a deck that does not exist
         }
     }
@@ -258,8 +264,9 @@ impl Engine {
         self.frames_since_status = 0;
         let mut status =
             EngineStatus { deck_count: self.decks.len(), main_peak: self.peak, ..Default::default() };
-        for (d, (slot, deck)) in status.decks.iter_mut().zip(&self.decks).enumerate() {
+        for (d, (slot, deck)) in status.decks.iter_mut().zip(&mut self.decks).enumerate() {
             *slot = deck.status(self.leader == Some(d));
+            deck.peak = 0.0;
         }
         self.peak = 0.0;
         self.status.write(status);

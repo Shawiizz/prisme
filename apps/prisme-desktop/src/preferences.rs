@@ -1,7 +1,7 @@
 //! What the user chooses once and finds again at the next start.
 
 use crate::audio_host::DECKS;
-use crate::dto::{AudioSettings, VinylModeDto};
+use crate::dto::{AudioSettings, MixModeDto, VinylModeDto};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
@@ -10,6 +10,7 @@ pub struct Preferences {
     pub audio: AudioSettings,
     pub decks: [DeckPreferences; DECKS],
     pub dj: DjPreferences,
+    pub mixer: MixerPreferences,
     pub library: LibraryPreferences,
 }
 
@@ -42,6 +43,21 @@ pub struct DjPreferences {
 impl Default for DjPreferences {
     fn default() -> Self {
         Self { vinyl_sync: VinylSync::Once, quantize: true, pitch_range: 0.08 }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+#[serde(default, rename_all = "camelCase")]
+pub struct MixerPreferences {
+    pub mode: MixModeDto,
+    /// Headphones: 0 = cued decks only, 1 = master only.
+    pub cue_mix: f32,
+    pub headphone_gain: f32,
+}
+
+impl Default for MixerPreferences {
+    fn default() -> Self {
+        Self { mode: MixModeDto::External, cue_mix: 0.0, headphone_gain: 1.0 }
     }
 }
 

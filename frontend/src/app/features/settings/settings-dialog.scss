@@ -8,7 +8,9 @@
   z-index: 10;
 }
 .dialog {
-  width: 560px;
+  width: 860px;
+  max-height: 90vh;
+  overflow: auto;
   display: flex;
   flex-direction: column;
   gap: 14px;
@@ -22,6 +24,27 @@ h2 {
   font-size: 16px;
   font-weight: 600;
 }
+.sections {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+}
+section {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+  > small { color: var(--faint); font-size: 11px; margin-top: -6px; }
+}
+h3 {
+  margin: 4px 0 0;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+select { min-width: 0; }
 label {
   display: flex;
   flex-direction: column;
