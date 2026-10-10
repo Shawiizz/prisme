@@ -1,5 +1,6 @@
 //! Messages between the control side (UI, controllers) and the audio thread.
 
+use crate::sync::BeatGrid;
 use prisme_media::TrackAudio;
 use prisme_timecode::TimecodeDecoder;
 use std::sync::Arc;
@@ -42,6 +43,13 @@ pub enum Command {
     /// Replaces a deck's timecode decoder (another format, swapped channels...). Build it
     /// on the control side: it allocates.
     ReplaceDecoder { deck: DeckId, decoder: Box<TimecodeDecoder> },
+    SetBeatGrid { deck: DeckId, grid: Option<BeatGrid> },
+    /// Locks the deck to the leader's tempo (`false` also clears a one-shot match).
+    SetSyncLocked { deck: DeckId, locked: bool },
+    /// Relative vinyl: matches the leader's tempo and phase once. Internal play: locks.
+    SyncOnce { deck: DeckId },
+    /// `None`: the leader is chosen automatically among the playing decks.
+    SetSyncLeader { deck: Option<DeckId> },
     SetVolume { deck: DeckId, gain: f32 },
     SetCrossfaderSide { deck: DeckId, side: CrossfaderSide },
     /// -1.0 = full left, 1.0 = full right.

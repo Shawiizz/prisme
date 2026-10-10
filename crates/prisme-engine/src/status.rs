@@ -17,6 +17,14 @@ pub struct VinylStatus {
     pub record_position_s: Option<f64>,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Default)]
+pub struct SyncStatus {
+    pub locked: bool,
+    pub leader: bool,
+    /// Relative vinyl: factor applied to the platter speed by a one-shot sync.
+    pub rate_offset: f64,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct DeckStatus {
     pub loaded: bool,
@@ -26,6 +34,11 @@ pub struct DeckStatus {
     pub duration_s: f64,
     /// Effective playback speed (1.0 = original tempo, negative = backwards).
     pub speed: f64,
+    /// Current tempo, gestures excluded (needs a beat grid).
+    pub bpm: Option<f64>,
+    /// Position within the current beat, `0..1`.
+    pub beat_phase: Option<f64>,
+    pub sync: SyncStatus,
     pub vinyl: VinylStatus,
 }
 
@@ -37,6 +50,9 @@ impl Default for DeckStatus {
             position_s: 0.0,
             duration_s: 0.0,
             speed: 0.0,
+            bpm: None,
+            beat_phase: None,
+            sync: SyncStatus { rate_offset: 1.0, ..Default::default() },
             vinyl: VinylStatus {
                 enabled: false,
                 mode: VinylMode::Absolute,

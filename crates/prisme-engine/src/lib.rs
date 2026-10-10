@@ -5,6 +5,7 @@
 //! * Each deck plays a [`prisme_media::TrackAudio`] through a playhead that can move at
 //!   any speed and direction, driven either internally (play / pitch) or by a timecode
 //!   record ([`VinylMode::Absolute`] or [`VinylMode::Relative`]).
+//! * Decks with a beat grid can follow a leader deck's tempo and beats (`sync`).
 //! * The mixer applies channel volumes, an equal-power crossfader and the master gain.
 //!
 //! Real-time rules: the audio thread never allocates, locks or frees memory. Objects it
@@ -16,8 +17,10 @@ mod engine;
 mod mixer;
 mod playhead;
 mod status;
+mod sync;
 mod vinyl;
 
 pub use command::{Command, CrossfaderSide, DeckId, Garbage, VinylMode};
 pub use engine::{create, Engine, EngineConfig, EngineController};
-pub use status::{DeckStatus, EngineStatus, VinylStatus, MAX_DECKS};
+pub use status::{DeckStatus, EngineStatus, SyncStatus, VinylStatus, MAX_DECKS};
+pub use sync::BeatGrid;

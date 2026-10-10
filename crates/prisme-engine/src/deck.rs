@@ -2,15 +2,15 @@
 
 use crate::command::{CrossfaderSide, VinylMode};
 use crate::playhead::Playhead;
-use crate::status::DeckStatus;
-use crate::vinyl::VinylControl;
+use crate::status::{DeckStatus, SyncStatus};
+use crate::sync::{self, BeatGrid, DeckSync, LeaderBeat, SyncTarget};
+use crate::vinyl::{VinylControl, VinylDrive};
 use prisme_timecode::TimecodeDecoder;
 
 /// In absolute mode, a gap larger than this (s) is a needle drop: jump.
 const JUMP_THRESHOLD_S: f64 = 0.1;
-/// Smaller gaps are closed smoothly by adjusting the speed: correction per second of gap.
+/// Smaller gaps are closed smoothly: speed correction per second of gap, and its limit.
 const PULL_PER_S: f64 = 5.0;
-/// Largest speed correction used to close a gap.
 const MAX_CORRECTION: f64 = 0.05;
 
 pub(crate) struct Deck {
@@ -20,6 +20,8 @@ pub(crate) struct Deck {
     pub(crate) vinyl: VinylControl,
     pub(crate) volume: f32,
     pub(crate) side: CrossfaderSide,
+    pub(crate) grid: Option<BeatGrid>,
+    pub(crate) sync: DeckSync,
     correction: f64,
     speed: f64,
 }
@@ -33,48 +35,177 @@ impl Deck {
             vinyl: VinylControl::new(decoder),
             volume: 1.0,
             side: CrossfaderSide::Center,
+            grid: None,
+            sync: DeckSync::new(),
             correction: 0.0,
             speed: 0.0,
         }
     }
 
-    /// Processes one block: `input` is the turntable signal of this deck (stereo),
-    /// `out` receives the deck audio (stereo, same number of frames).
-    pub(crate) fn process(&mut self, input: &[f32], out: &mut [f32], out_rate: f64) {
-        // Always decode, so that the signal indicator works even with vinyl control off.
+    /// Renders one block from the turntable signal `input`; `target` is given when the
+    /// deck follows a leader.
+    pub(crate) fn process(&mut self, input: &[f32], out: &mut [f32], out_rate: f64, target: Option<SyncTarget>) {
+        // decoded even with vinyl control off, for the signal indicator
         let drive = self.vinyl.process(input);
-
-        let speed = if self.vinyl.enabled {
-            drive.speed + self.correction
-        } else if self.playing {
-            self.pitch
-        } else {
-            0.0
-        };
+        let target = target.map(|t| self.engage(t));
+        let speed = self.speed_for(drive, target);
         self.playhead.render(out, out_rate, speed);
         self.speed = speed;
 
-        self.correction = 0.0;
-        if self.vinyl.enabled && self.vinyl.mode == VinylMode::Absolute && self.playhead.is_loaded() {
-            if let Some(target) = drive.target_position_s {
-                let gap = target - self.playhead.position_s();
-                if gap.abs() > JUMP_THRESHOLD_S {
-                    self.playhead.seek_s(target);
-                } else {
-                    self.correction = (gap * PULL_PER_S).clamp(-MAX_CORRECTION, MAX_CORRECTION);
+        let platter = self.vinyl.enabled.then_some(drive.speed);
+        self.sync.observe(speed, platter, (out.len() / 2) as f64 / out_rate);
+        self.follow_record_position(drive);
+    }
+
+    /// Whether the deck follows a leader: locked, or about to match it once.
+    pub(crate) fn follows(&self) -> bool {
+        self.sync.locked || self.sync.once_pending || self.sync.snap_pending
+    }
+
+    pub(crate) fn can_lead(&self) -> bool {
+        self.grid.is_some()
+            && self.playhead.is_loaded()
+            && !self.sync.locked
+            && self.sync.smoothed_speed.abs() > sync::LEADER_MIN_SPEED
+    }
+
+    pub(crate) fn leader_beat(&self) -> Option<LeaderBeat> {
+        let grid = self.grid?;
+        Some(LeaderBeat { bpm: grid.bpm * self.tempo_rate(), beats: grid.beats_at(self.playhead.position_s()) })
+    }
+
+    pub(crate) fn sync_target(&self, leader: LeaderBeat) -> Option<SyncTarget> {
+        let grid = self.grid?;
+        Some(sync::sync_target(&grid, self.playhead.position_s(), leader))
+    }
+
+    /// Internal play is always locked; a relative record is locked or matched once.
+    pub(crate) fn engage_sync(&mut self, locked: bool) {
+        match (self.drive_mode(), locked) {
+            (DriveMode::Absolute, _) => return,
+            (DriveMode::Relative, false) => self.sync.once_pending = true,
+            _ => self.sync.locked = true,
+        }
+        self.sync.snap_pending = true;
+    }
+
+    /// Applies what engaging sync asks for (phase snap, rate offset) and returns the
+    /// target as it stands afterwards.
+    fn engage(&mut self, mut target: SyncTarget) -> SyncTarget {
+        let resnap = self.drive_mode() == DriveMode::Internal
+            && self.sync.locked
+            && self.playing
+            && sync::needs_resnap(target.phase_error);
+        if let (Some(grid), true) = (self.grid, self.sync.snap_pending || resnap) {
+            let position = self.playhead.position_s() + sync::snap_offset_s(&grid, target.phase_error);
+            self.playhead.seek_s(position);
+            target.phase_error = 0.0;
+            if self.sync.locked {
+                // start from the platter as it turns now rather than from a stale average
+                if let Some(platter) = self.sync.platter_now() {
+                    self.sync.platter_reference = platter;
                 }
+            }
+            self.sync.snap_pending = false;
+        }
+        if self.sync.once_pending {
+            // a stopped platter is assumed to restart at its nominal speed
+            self.sync.rate_offset = target.rate / self.sync.platter_now().unwrap_or(1.0);
+            self.sync.once_pending = false;
+        }
+        target
+    }
+
+    fn speed_for(&mut self, drive: VinylDrive, target: Option<SyncTarget>) -> f64 {
+        match self.drive_mode() {
+            DriveMode::Internal => self.internal_speed(target),
+            DriveMode::Relative => self.relative_speed(drive.speed, target),
+            DriveMode::Absolute => drive.speed + self.correction,
+        }
+    }
+
+    fn internal_speed(&mut self, target: Option<SyncTarget>) -> f64 {
+        if !self.playing {
+            return 0.0;
+        }
+        if !self.sync.locked {
+            return self.pitch;
+        }
+        match target {
+            Some(t) => {
+                self.sync.held_rate = Some(t.rate);
+                t.rate * (1.0 + sync::phase_correction(t.phase_error))
+            }
+            None => self.sync.held_rate.unwrap_or(self.pitch),
+        }
+    }
+
+    /// Locked: the platter's gestures around its steady speed, at the leader's tempo.
+    fn relative_speed(&mut self, platter: f64, target: Option<SyncTarget>) -> f64 {
+        if !self.sync.locked {
+            return platter * self.sync.rate_offset;
+        }
+        let rate = match target {
+            Some(t) => *self.sync.held_rate.insert(t.rate),
+            None => self.sync.held_rate.unwrap_or(self.sync.platter_reference),
+        };
+        platter / self.sync.platter_reference * rate
+    }
+
+    /// Absolute mode: jumps on needle drops, closes small gaps smoothly.
+    fn follow_record_position(&mut self, drive: VinylDrive) {
+        self.correction = 0.0;
+        if self.drive_mode() != DriveMode::Absolute || !self.playhead.is_loaded() {
+            return;
+        }
+        if let Some(target) = drive.target_position_s {
+            let gap = target - self.playhead.position_s();
+            if gap.abs() > JUMP_THRESHOLD_S {
+                self.playhead.seek_s(target);
+            } else {
+                self.correction = (gap * PULL_PER_S).clamp(-MAX_CORRECTION, MAX_CORRECTION);
             }
         }
     }
 
-    pub(crate) fn status(&self) -> DeckStatus {
+    /// Playback rate without the gestures: what a follower matches.
+    fn tempo_rate(&self) -> f64 {
+        match self.drive_mode() {
+            DriveMode::Internal if self.sync.locked => self.sync.held_rate.unwrap_or(self.pitch),
+            DriveMode::Internal => self.pitch,
+            DriveMode::Relative if self.sync.locked => self.sync.held_rate.unwrap_or(self.sync.platter_reference),
+            DriveMode::Relative => self.sync.platter_reference * self.sync.rate_offset,
+            DriveMode::Absolute => self.sync.platter_reference,
+        }
+    }
+
+    fn drive_mode(&self) -> DriveMode {
+        match (self.vinyl.enabled, self.vinyl.mode) {
+            (false, _) => DriveMode::Internal,
+            (true, VinylMode::Relative) => DriveMode::Relative,
+            (true, VinylMode::Absolute) => DriveMode::Absolute,
+        }
+    }
+
+    pub(crate) fn status(&self, leader: bool) -> DeckStatus {
+        let position_s = self.playhead.position_s();
         DeckStatus {
             loaded: self.playhead.is_loaded(),
             playing: self.playing,
-            position_s: self.playhead.position_s(),
+            position_s,
             duration_s: self.playhead.duration_s(),
             speed: self.speed,
+            bpm: self.grid.map(|g| g.bpm * self.tempo_rate()),
+            beat_phase: self.grid.map(|g| g.beats_at(position_s).rem_euclid(1.0)),
+            sync: SyncStatus { locked: self.sync.locked, leader, rate_offset: self.sync.rate_offset },
             vinyl: self.vinyl.status(),
         }
     }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum DriveMode {
+    Internal,
+    Relative,
+    Absolute,
 }

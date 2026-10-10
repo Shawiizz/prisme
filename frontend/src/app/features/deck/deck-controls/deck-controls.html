@@ -1,14 +1,27 @@
-<div class="controls" [style.--accent]="color()" [class.vinyl]="vinyl()">
+<div class="controls" [style.--accent]="color()">
   <div class="transport">
     <button class="cue" [class.active]="status()?.playing === false && status()?.loaded" (click)="cue()" [disabled]="vinyl()">CUE</button>
     <button class="play" [class.active]="status()?.playing" (click)="togglePlay()" [disabled]="vinyl()">
       {{ status()?.playing ? 'PAUSE' : 'PLAY' }}
     </button>
+    <button
+      class="sync"
+      [class.locked]="syncState() === 'locked'"
+      [class.matched]="syncState() === 'matched'"
+      (click)="sync()"
+      [disabled]="!canSync()"
+      [title]="syncTitle()"
+    >
+      SYNC
+    </button>
   </div>
 
-  <div class="pitch">
-    <div class="pitch-head">
+  <div class="tempo">
+    <div class="tempo-head">
       <span class="label">TEMPO</span>
+      @if (status()?.sync?.leader) {
+        <span class="leader" title="The other decks follow this one">LEADER</span>
+      }
       <span class="value" (dblclick)="resetPitch()" title="Double-click to reset">{{ pitchText() }}</span>
     </div>
     <input
@@ -16,14 +29,22 @@
       [min]="-range"
       [max]="range"
       step="0.0005"
-      [value]="settings().pitch - 1"
+      [value]="faderValue()"
       (input)="onPitch($event)"
       (dblclick)="resetPitch()"
-      [disabled]="vinyl()"
+      [disabled]="tempoFaderLocked()"
     />
+    <div class="phase" [class.aligned]="aligned()" title="Beat offset from the other deck">
+      @let offset = phase();
+      @if (offset !== null) {
+        <div class="marker" [style.left.%]="50 + offset * 100"></div>
+      }
+    </div>
   </div>
 
-  @if (vinyl()) {
-    <div class="vinyl-note">Driven by the turntable</div>
+  @if (pitchHint(); as hint) {
+    <div class="note">Pitch {{ hint }} to match</div>
+  } @else if (vinyl()) {
+    <div class="note">Driven by the turntable</div>
   }
 </div>

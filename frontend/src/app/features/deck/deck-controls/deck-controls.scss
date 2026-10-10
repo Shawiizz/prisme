@@ -28,20 +28,49 @@
   }
   .cue.active { background: var(--amber); border-color: var(--amber); }
   .play.active { background: var(--accent); border-color: var(--accent); }
+  .sync.matched { border-color: var(--accent); color: var(--accent); }
+  .sync.locked { background: var(--accent); border-color: var(--accent); color: var(--ink); }
 }
-.pitch {
+.tempo {
   flex: 1;
   display: flex;
   flex-direction: column;
   gap: 6px;
   input { width: 100%; }
 }
-.pitch-head {
+.tempo-head {
   display: flex;
-  justify-content: space-between;
-  .value { font-variant-numeric: tabular-nums; color: var(--text-2); cursor: default; }
+  align-items: baseline;
+  gap: 8px;
+  .value { margin-left: auto; font-variant-numeric: tabular-nums; color: var(--text-2); cursor: default; }
+  .leader { font-size: 10px; font-weight: 700; letter-spacing: 0.08em; color: var(--accent); }
 }
-.vinyl-note {
+.phase {
+  position: relative;
+  height: 6px;
+  border-radius: 3px;
+  background: var(--line);
+  &::before {
+    content: '';
+    position: absolute;
+    left: 50%;
+    top: -2px;
+    bottom: -2px;
+    width: 1px;
+    background: var(--line-strong);
+  }
+  .marker {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 4px;
+    margin-left: -2px;
+    border-radius: 2px;
+    background: var(--amber);
+  }
+  &.aligned .marker { background: var(--mint); }
+}
+.note {
   position: absolute;
   right: 12px;
   bottom: 4px;

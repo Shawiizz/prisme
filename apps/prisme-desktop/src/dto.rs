@@ -176,12 +176,23 @@ pub struct VinylDto {
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
+pub struct SyncDto {
+    pub locked: bool,
+    pub leader: bool,
+    pub rate_offset: f64,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct DeckStatusDto {
     pub loaded: bool,
     pub playing: bool,
     pub position_s: f64,
     pub duration_s: f64,
     pub speed: f64,
+    pub bpm: Option<f64>,
+    pub beat_phase: Option<f64>,
+    pub sync: SyncDto,
     pub vinyl: VinylDto,
 }
 
@@ -193,6 +204,9 @@ impl From<&DeckStatus> for DeckStatusDto {
             position_s: d.position_s,
             duration_s: d.duration_s,
             speed: d.speed,
+            bpm: d.bpm,
+            beat_phase: d.beat_phase,
+            sync: SyncDto { locked: d.sync.locked, leader: d.sync.leader, rate_offset: d.sync.rate_offset },
             vinyl: VinylDto {
                 enabled: d.vinyl.enabled,
                 mode: d.vinyl.mode.into(),

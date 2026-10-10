@@ -1,8 +1,10 @@
 import { Component, OnInit, computed, inject, output, signal } from '@angular/core';
 import { SettingsService } from '../../core/services/settings.service';
+import { EngineService } from '../../core/services/engine.service';
 import { AudioSettings } from '../../core/models/audio';
+import { VinylSyncMode } from '../../core/models/engine';
 
-/** Audio settings: devices, DVS input, timecode format and the simulated turntable. */
+/** Settings: audio devices, DVS input, timecode format, simulated turntable, sync behaviour. */
 @Component({
   selector: 'app-settings-dialog',
   templateUrl: './settings-dialog.html',
@@ -10,9 +12,11 @@ import { AudioSettings } from '../../core/models/audio';
 })
 export class SettingsDialog implements OnInit {
   protected readonly service = inject(SettingsService);
+  private readonly engine = inject(EngineService);
   readonly closed = output<void>();
 
   protected readonly draft = signal<AudioSettings | null>(null);
+  protected readonly vinylSync = signal<VinylSyncMode>(this.engine.vinylSync());
   protected readonly busy = signal(false);
   protected readonly error = signal<string | null>(null);
   protected readonly outputs = computed(() => this.service.devices().filter((d) => d.kind === 'output'));
@@ -28,13 +32,17 @@ export class SettingsDialog implements OnInit {
     if (d) this.draft.set({ ...d, ...changes });
   }
 
+  /** Restarts the audio only if the audio settings changed. */
   async apply() {
     const d = this.draft();
     if (!d) return;
+    this.engine.vinylSync.set(this.vinylSync());
     this.busy.set(true);
     this.error.set(null);
     try {
-      await this.service.apply(d);
+      if (JSON.stringify(d) !== JSON.stringify(this.service.settings())) {
+        await this.service.apply(d);
+      }
       this.closed.emit();
     } catch (e) {
       this.error.set(String(e));

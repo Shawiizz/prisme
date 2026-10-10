@@ -11,14 +11,29 @@ export interface VinylStatus {
   recordPositionS: number | null;
 }
 
+export interface SyncStatus {
+  locked: boolean;
+  leader: boolean;
+  /** Relative vinyl: factor a one-shot sync applies to the platter speed. */
+  rateOffset: number;
+}
+
 export interface DeckStatus {
   loaded: boolean;
   playing: boolean;
   positionS: number;
   durationS: number;
   speed: number;
+  /** Current tempo, gestures excluded (`null` without a beat grid). */
+  bpm: number | null;
+  /** Position within the current beat, 0..1. */
+  beatPhase: number | null;
+  sync: SyncStatus;
   vinyl: VinylStatus;
 }
+
+/** What SYNC does on a record in relative mode. */
+export type VinylSyncMode = 'once' | 'locked';
 
 export interface EngineStatus {
   audioRunning: boolean;

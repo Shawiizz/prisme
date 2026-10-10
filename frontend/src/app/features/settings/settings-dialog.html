@@ -1,6 +1,6 @@
 <div class="backdrop" (click)="closed.emit()">
   <div class="dialog" (click)="$event.stopPropagation()">
-    <h2>Audio settings</h2>
+    <h2>Settings</h2>
 
     @if (draft(); as d) {
       <label>
@@ -36,6 +36,14 @@
       <label class="check">
         <input type="checkbox" [checked]="d.simulate" (change)="update({ simulate: $any($event.target).checked })" />
         <span>Simulated turntable on deck 1 (try vinyl control without hardware)</span>
+      </label>
+
+      <label>
+        <span class="label">Sync on a record in relative mode</span>
+        <select [value]="vinylSync()" (change)="vinylSync.set($any($event.target).value)">
+          <option value="once">One shot: matches once, the pitch fader keeps working</option>
+          <option value="locked">Locked: follows the leader, the pitch fader is ignored</option>
+        </select>
       </label>
 
       @if (error(); as e) {

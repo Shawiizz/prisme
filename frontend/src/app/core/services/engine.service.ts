@@ -1,6 +1,14 @@
 import { Injectable, computed, signal } from '@angular/core';
 import { Channel, invoke } from '@tauri-apps/api/core';
-import { DECK_COUNT, DeckSettings, EngineStatus, MixerState, TrackInfo, VinylMode } from '../models/engine';
+import {
+  DECK_COUNT,
+  DeckSettings,
+  EngineStatus,
+  MixerState,
+  TrackInfo,
+  VinylMode,
+  VinylSyncMode,
+} from '../models/engine';
 
 const DEFAULT_DECK: DeckSettings = {
   pitch: 1,
@@ -23,6 +31,7 @@ export class EngineService {
   readonly loading = signal<boolean[]>(Array(DECK_COUNT).fill(false));
   readonly decks = signal<DeckSettings[]>(Array.from({ length: DECK_COUNT }, () => ({ ...DEFAULT_DECK })));
   readonly crossfader = signal(0);
+  readonly vinylSync = signal<VinylSyncMode>('once');
   readonly error = signal<string | null>(null);
 
   readonly audioRunning = computed(() => this.status()?.audioRunning ?? false);
@@ -56,6 +65,13 @@ export class EngineService {
     if (!d?.loaded) return null;
     const elapsed = Math.min((performance.now() - this.latestAt) / 1000, 0.05);
     return d.positionS + d.speed * elapsed;
+  }
+
+  /** Playback rate of the tempo the engine reports (sync and platter included), if the track has a beat grid. */
+  tempoRate(deck: number): number | null {
+    const bpm = this.status()?.decks[deck]?.bpm;
+    const trackBpm = this.tracks()[deck]?.tempo?.bpm;
+    return bpm && trackBpm ? bpm / trackBpm : null;
   }
 
   async load(deck: number, path: string): Promise<void> {
@@ -102,6 +118,20 @@ export class EngineService {
   setCrossfader(position: number) {
     this.crossfader.set(position);
     return this.call('set_crossfader', { position });
+  }
+
+  /**
+   * SYNC button: unlocks a locked deck; otherwise locks it, or on a relative record in
+   * one-shot mode matches it once (pressing again re-matches after a drift).
+   */
+  toggleSync(deck: number) {
+    const status = this.status()?.decks[deck];
+    if (!status) return;
+    if (status.sync.locked) {
+      return this.call('set_sync_locked', { deck, locked: false });
+    }
+    const oneShot = this.decks()[deck].vinylEnabled && this.vinylSync() === 'once';
+    return oneShot ? this.call('sync_once', { deck }) : this.call('set_sync_locked', { deck, locked: true });
   }
 
   /** CDJ-style cue: while playing, jump back to the cue point and stop; when stopped, set it. */

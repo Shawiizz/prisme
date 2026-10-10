@@ -6,7 +6,7 @@ use crate::dto::{AudioSettings, KeyDto, TempoDto, TrackInfoDto, VinylModeDto, Wa
 use crate::error::{AppError, AppResult};
 use crate::library;
 use prisme_analysis::{TrackAnalysis, Waveform};
-use prisme_engine::{Command, EngineController};
+use prisme_engine::{BeatGrid, Command, EngineController};
 use prisme_media::TrackAudio;
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex, MutexGuard};
@@ -32,6 +32,12 @@ impl LoadedTrack {
             tempo: self.analysis.tempo.as_ref().map(TempoDto::from),
             key: self.analysis.key.as_ref().map(KeyDto::from),
         }
+    }
+
+    /// Commands that put the track, with its beat grid, on `deck`.
+    pub fn load_commands(&self, deck: usize) -> [Command; 2] {
+        let grid = self.analysis.tempo.map(|t| BeatGrid { bpm: t.bpm, first_beat_s: t.first_beat_s });
+        [Command::LoadTrack { deck, track: self.audio.clone() }, Command::SetBeatGrid { deck, grid }]
     }
 }
 
@@ -81,13 +87,22 @@ impl AppState {
         session.controller.send(command).map_err(|_| AppError::EngineBusy)
     }
 
+    /// Sends a command if the audio runs; without audio it will be applied by
+    /// [`AppState::restore`] when the audio starts.
+    pub fn send_if_running(&self, command: Command) -> AppResult<()> {
+        match self.send(command) {
+            Ok(()) | Err(AppError::AudioNotRunning) => Ok(()),
+            Err(e) => Err(e),
+        }
+    }
+
     /// Re-applies tracks and deck settings to a freshly started engine.
     pub fn restore(&self, controller: &mut EngineController) {
         let tracks = lock(&self.tracks);
         let decks = lock(&self.decks);
         for (deck, (track, settings)) in tracks.iter().zip(decks.iter()).enumerate() {
-            if let Some(t) = track {
-                let _ = controller.send(Command::LoadTrack { deck, track: t.audio.clone() });
+            for c in track.iter().flat_map(|t| t.load_commands(deck)) {
+                let _ = controller.send(c);
             }
             for c in deck_commands(deck, settings) {
                 let _ = controller.send(c);

@@ -90,13 +90,13 @@ pub async fn load_track(
         .await
         .map_err(|e| AppError::Other(e.to_string()))??;
     let info = track.info(deck);
-    let audio = track.audio.clone();
-    // keep it for audio restarts, then hand it to the engine (if audio runs)
+    let commands = track.load_commands(deck);
+    // kept for audio restarts
     lock(&state.tracks)[deck] = Some(track);
-    match state.send(Command::LoadTrack { deck, track: audio }) {
-        Ok(()) | Err(AppError::AudioNotRunning) => Ok(info),
-        Err(e) => Err(e),
+    for c in commands {
+        state.send_if_running(c)?;
     }
+    Ok(info)
 }
 
 /// Decoding, then the waveform and the tempo / key analysis side by side. The
@@ -203,6 +203,27 @@ pub fn set_vinyl(
 pub fn set_crossfader(state: State<'_, AppState>, position: f32) -> AppResult<()> {
     *lock(&state.crossfader) = position;
     state.send(Command::SetCrossfader { position })
+}
+
+#[tauri::command]
+pub fn set_sync_locked(state: State<'_, AppState>, deck: usize, locked: bool) -> AppResult<()> {
+    AppState::check_deck(deck)?;
+    state.send(Command::SetSyncLocked { deck, locked })
+}
+
+#[tauri::command]
+pub fn sync_once(state: State<'_, AppState>, deck: usize) -> AppResult<()> {
+    AppState::check_deck(deck)?;
+    state.send(Command::SyncOnce { deck })
+}
+
+/// `None`: the leader is picked automatically.
+#[tauri::command]
+pub fn set_sync_leader(state: State<'_, AppState>, deck: Option<usize>) -> AppResult<()> {
+    if let Some(d) = deck {
+        AppState::check_deck(d)?;
+    }
+    state.send(Command::SetSyncLeader { deck })
 }
 
 #[tauri::command]

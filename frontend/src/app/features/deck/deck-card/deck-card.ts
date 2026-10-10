@@ -26,13 +26,17 @@ export class DeckCard {
     const s = this.status();
     return s ? '-' + formatTime(s.durationS - s.positionS) : '';
   });
-  /** Playback rate. Vinyl: the platter speed (while it turns). Internal: the tempo fader. */
+  /**
+   * Playback rate: from the engine's tempo when the track has a beat grid (sync and
+   * platter included), else the platter speed while it turns, else the tempo fader.
+   */
   private readonly rate = computed(() => {
+    const tempoRate = this.engine.tempoRate(this.deck());
+    if (tempoRate !== null) return tempoRate;
     const speed = Math.abs(this.status()?.speed ?? 0);
     return this.settings().vinylEnabled && speed > 0.05 ? speed : this.settings().pitch;
   });
   protected readonly pitch = computed(() => formatPitch(this.rate()));
-  /** Track tempo at the current rate. */
   protected readonly bpm = computed(() => {
     const tempo = this.track()?.tempo;
     return tempo ? (tempo.bpm * this.rate()).toFixed(1) : null;

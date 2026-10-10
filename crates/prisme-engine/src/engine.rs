@@ -10,7 +10,7 @@
 //! * garbage (replaced tracks and decoders): engine -> controller, freed there, so the
 //!   audio thread never frees memory.
 
-use crate::command::{Command, Garbage};
+use crate::command::{Command, DeckId, Garbage};
 use crate::deck::Deck;
 use crate::mixer::Mixer;
 use crate::status::{EngineStatus, MAX_DECKS};
@@ -18,8 +18,6 @@ use prisme_timecode::{DecoderConfig, TimecodeDecoder, TimecodeFormat};
 
 const COMMAND_QUEUE: usize = 256;
 const GARBAGE_QUEUE: usize = 64;
-/// Status snapshots per second.
-const STATUS_RATE_HZ: f64 = 100.0;
 
 /// Engine settings, fixed for the lifetime of an engine.
 #[derive(Debug, Clone, Copy)]
@@ -31,6 +29,8 @@ pub struct EngineConfig {
     pub timecode: &'static TimecodeFormat,
     /// First input channel of each deck's turntable (stereo pair), if any.
     pub deck_inputs: [Option<usize>; MAX_DECKS],
+    /// Status snapshots per second (at most one per callback).
+    pub status_rate_hz: f64,
 }
 
 impl EngineConfig {
@@ -42,6 +42,7 @@ impl EngineConfig {
             decks: decks.clamp(1, MAX_DECKS),
             timecode,
             deck_inputs: [Some(0), Some(2), Some(4), Some(6)],
+            status_rate_hz: 100.0,
         }
     }
 
@@ -72,8 +73,10 @@ pub fn create(config: EngineConfig) -> (Engine, EngineController) {
         deck_in: vec![0.0; config.max_block_frames * 2],
         deck_out: vec![0.0; config.max_block_frames * 2],
         peak: 0.0,
+        chosen_leader: None,
+        leader: None,
         frames_since_status: 0,
-        status_interval: (config.sample_rate as f64 / STATUS_RATE_HZ) as usize,
+        status_interval: (config.sample_rate as f64 / config.status_rate_hz) as usize,
     };
     let controller = EngineController {
         commands: cmd_tx,
@@ -94,6 +97,9 @@ pub struct Engine {
     deck_in: Vec<f32>,
     deck_out: Vec<f32>,
     peak: f32,
+    /// Leader picked by the user, if any.
+    chosen_leader: Option<DeckId>,
+    leader: Option<DeckId>,
     frames_since_status: usize,
     status_interval: usize,
 }
@@ -124,18 +130,35 @@ impl Engine {
         let frames = out.len() / out_ch;
         out.fill(0.0);
         let rate = self.config.sample_rate as f64;
+        self.leader = self.resolve_leader();
+        // every follower is compared with the leader as it was at the start of the block
+        let leader_beat = self.leader.and_then(|l| self.decks[l].leader_beat());
         for d in 0..self.decks.len() {
+            let target = match leader_beat {
+                Some(beat) if self.leader != Some(d) && self.decks[d].follows() => self.decks[d].sync_target(beat),
+                _ => None,
+            };
             let deck_in = &mut self.deck_in[..frames * 2];
             fill_deck_input(deck_in, input, in_ch, offset, self.config.deck_inputs[d]);
             let deck_out = &mut self.deck_out[..frames * 2];
             let deck = &mut self.decks[d];
-            deck.process(deck_in, deck_out, rate);
+            deck.process(deck_in, deck_out, rate, target);
             let gain = deck.volume * self.mixer.crossfader_gain(deck.side);
             self.mixer.add_deck(deck_out, gain, out, out_ch);
         }
         for s in out.iter() {
             self.peak = self.peak.max(s.abs());
         }
+    }
+
+    /// The chosen leader if it can lead, else the current one if it still can, else the
+    /// first deck that can.
+    fn resolve_leader(&self) -> Option<DeckId> {
+        let can_lead = |d: &DeckId| self.decks.get(*d).is_some_and(Deck::can_lead);
+        self.chosen_leader
+            .filter(can_lead)
+            .or(self.leader.filter(can_lead))
+            .or_else(|| (0..self.decks.len()).find(can_lead))
     }
 
     fn apply_commands(&mut self) {
@@ -151,7 +174,10 @@ impl Engine {
         match command {
             LoadTrack { deck, track } => {
                 if valid(deck) {
-                    if let Some(old) = self.decks[deck].playhead.load(track) {
+                    let d = &mut self.decks[deck];
+                    d.grid = None;
+                    d.sync.reset();
+                    if let Some(old) = d.playhead.load(track) {
                         self.discard(Garbage::Track(old));
                     }
                 } else {
@@ -159,16 +185,30 @@ impl Engine {
                 }
             }
             Eject { deck } if valid(deck) => {
-                if let Some(old) = self.decks[deck].playhead.eject() {
+                let d = &mut self.decks[deck];
+                d.playing = false;
+                d.grid = None;
+                d.sync.reset();
+                if let Some(old) = d.playhead.eject() {
                     self.discard(Garbage::Track(old));
                 }
-                self.decks[deck].playing = false;
             }
             SetPlaying { deck, playing } if valid(deck) => self.decks[deck].playing = playing,
             SetPitch { deck, ratio } if valid(deck) => self.decks[deck].pitch = ratio,
             Seek { deck, seconds } if valid(deck) => self.decks[deck].playhead.seek_s(seconds),
-            SetVinylEnabled { deck, enabled } if valid(deck) => self.decks[deck].vinyl.enabled = enabled,
-            SetVinylMode { deck, mode } if valid(deck) => self.decks[deck].vinyl.mode = mode,
+            SetVinylEnabled { deck, enabled } if valid(deck) => {
+                self.decks[deck].vinyl.enabled = enabled;
+                self.decks[deck].sync.reset();
+            }
+            SetVinylMode { deck, mode } if valid(deck) => {
+                self.decks[deck].vinyl.mode = mode;
+                self.decks[deck].sync.reset();
+            }
+            SetBeatGrid { deck, grid } if valid(deck) => self.decks[deck].grid = grid,
+            SetSyncLocked { deck, locked: true } if valid(deck) => self.decks[deck].engage_sync(true),
+            SetSyncLocked { deck, locked: false } if valid(deck) => self.decks[deck].sync.reset(),
+            SyncOnce { deck } if valid(deck) => self.decks[deck].engage_sync(false),
+            SetSyncLeader { deck } => self.chosen_leader = deck.filter(|&d| valid(d)),
             SetLeadIn { deck, seconds } if valid(deck) => self.decks[deck].vinyl.lead_in_s = seconds,
             ReplaceDecoder { deck, decoder } => {
                 if valid(deck) {
@@ -201,8 +241,8 @@ impl Engine {
         }
         self.frames_since_status = 0;
         let mut status = EngineStatus { deck_count: self.decks.len(), main_peak: self.peak, ..Default::default() };
-        for (slot, deck) in status.decks.iter_mut().zip(&self.decks) {
-            *slot = deck.status();
+        for (d, (slot, deck)) in status.decks.iter_mut().zip(&self.decks).enumerate() {
+            *slot = deck.status(self.leader == Some(d));
         }
         self.peak = 0.0;
         self.status.write(status);
