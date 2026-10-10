@@ -38,6 +38,7 @@ export class KeyboardService {
     scaleLoop: (deck, factor) => this.performance.scaleLoop(deck, factor),
     moveSelection: (delta) => this.library.moveSelection(delta),
     loadSelected: (deck) => this.library.loadSelected(deck),
+    removeSelected: () => this.library.removeSelectedFromCrate(),
     focusSearch: () => this.library.searchRequests.update((n) => n + 1),
     toggleHelp: () => this.helpOpen.update((open) => !open),
   });
@@ -88,6 +89,7 @@ const KEY_NAMES: Record<string, string> = {
   ArrowRight: '→',
   Comma: ',',
   Period: '.',
+  Delete: 'Del',
 };
 
 function isTyping(event: KeyboardEvent): boolean {

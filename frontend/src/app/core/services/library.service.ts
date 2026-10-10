@@ -3,6 +3,7 @@ import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
 import { AnalysisProgress, DirEntry, DirListing, TrackAnalyzed } from '../models/library';
 import { camelotRank } from '../../shared/camelot';
+import { CratesService } from './crates.service';
 import { EngineService } from './engine.service';
 import { PreferencesService } from './preferences.service';
 
@@ -13,8 +14,11 @@ export interface TrackSort {
   direction: 1 | -1;
 }
 
-/** Where the search looks: the open folder, or every analysed track. */
-export type SearchScope = 'folder' | 'library';
+/** The list of tracks being browsed. */
+export type TrackSource = { kind: 'folder' } | { kind: 'crate'; id: number };
+
+/** Where the search looks: the tracks being browsed, or every analysed track. */
+export type SearchScope = 'list' | 'library';
 
 /** Wait after the last keystroke before searching the whole library. */
 const LIBRARY_SEARCH_DELAY_MS = 120;
@@ -34,39 +38,53 @@ export function matchesSearch(t: DirEntry, words: string[]): boolean {
 }
 
 /**
- * Browsing the music folders on disk and searching the library, with the analysis
- * results and tags of the tracks, and the view on them (search, sort, selection). The
- * background analysis pushes each result (`track-analyzed`) and its progress
- * (`library-progress`): the lists are patched in place, no reload needed.
+ * Browsing the music folders on disk and the crates, and searching the library, with
+ * the analysis results and tags of the tracks, and the view on them (search, sort,
+ * selection). The background analysis pushes each result (`track-analyzed`) and its
+ * progress (`library-progress`): the lists are patched in place, no reload needed.
  */
 @Injectable({ providedIn: 'root' })
 export class LibraryService {
   private readonly preferences = inject(PreferencesService);
   private readonly engine = inject(EngineService);
+  private readonly crates = inject(CratesService);
 
   readonly root = signal<string | null>(null);
   readonly listing = signal<DirListing | null>(null);
+  readonly source = signal<TrackSource>({ kind: 'folder' });
   readonly error = signal<string | null>(null);
   readonly progress = signal<AnalysisProgress>({ total: 0, done: 0, failed: 0, running: false });
   readonly filter = signal('');
-  readonly scope = signal<SearchScope>('folder');
+  readonly scope = signal<SearchScope>('list');
   readonly sort = signal<TrackSort>({ column: 'title', direction: 1 });
   readonly selected = signal<string | null>(null);
   /** Incremented to ask the view to focus the search field. */
   readonly searchRequests = signal(0);
 
+  private readonly crateTracks = signal<DirEntry[]>([]);
   private readonly libraryResults = signal<DirEntry[]>([]);
   private searchTimer: ReturnType<typeof setTimeout> | undefined;
   /** Answers to older searches arriving late are dropped. */
   private searchId = 0;
 
-  /** Tracks as shown: those of the folder matching the search, or the library's matches; sorted. */
+  /** The crate being browsed, if any. */
+  readonly currentCrate = computed(() => {
+    const source = this.source();
+    return source.kind === 'crate' ? source.id : null;
+  });
+
+  /** Tracks of the folder or crate being browsed. */
+  readonly listTracks = computed(() =>
+    this.source().kind === 'crate' ? this.crateTracks() : (this.listing()?.tracks ?? []),
+  );
+
+  /** Tracks as shown: those of the list matching the search, or the library's matches; sorted. */
   readonly visibleTracks = computed(() => {
     const words = this.filter().trim().toLowerCase().split(/\s+/).filter(Boolean);
     const shown =
       this.scope() === 'library'
         ? [...this.libraryResults()]
-        : (this.listing()?.tracks ?? []).filter((t) => matchesSearch(t, words));
+        : this.listTracks().filter((t) => matchesSearch(t, words));
     const { column, direction } = this.sort();
     return shown.sort((a, b) => compare(sortValue(a, column), sortValue(b, column)) * direction);
   });
@@ -77,6 +95,7 @@ export class LibraryService {
       listen<AnalysisProgress>('library-progress', (e) => this.progress.set(e.payload)),
     ]);
     this.progress.set(await invoke<AnalysisProgress>('library_progress'));
+    await this.crates.refresh();
     const root = await invoke<string>('music_root');
     this.root.set(root);
     const last = this.preferences.library().lastFolder;
@@ -89,15 +108,55 @@ export class LibraryService {
   async open(path: string): Promise<boolean> {
     try {
       this.listing.set(await invoke<DirListing>('list_dir', { path }));
-      this.scope.set('folder');
-      this.setFilter('');
-      this.error.set(null);
+      this.browse({ kind: 'folder' });
       await this.preferences.updateLibrary({ lastFolder: path });
       return true;
     } catch (e) {
       this.error.set(String(e));
       return false;
     }
+  }
+
+  async openCrate(id: number): Promise<void> {
+    await this.attempt(async () => {
+      this.crateTracks.set(await this.crates.tracks(id));
+      this.browse({ kind: 'crate', id });
+    });
+  }
+
+  async createCrate(name: string): Promise<void> {
+    await this.attempt(async () => this.openCrate(await this.crates.create(name)));
+  }
+
+  renameCrate(id: number, name: string): Promise<void> {
+    return this.attempt(() => this.crates.rename(id, name));
+  }
+
+  async deleteCrate(id: number): Promise<void> {
+    await this.attempt(async () => {
+      await this.crates.delete(id);
+      if (this.currentCrate() === id) this.browse({ kind: 'folder' });
+    });
+  }
+
+  async addToCrate(id: number, paths: string[]): Promise<void> {
+    await this.attempt(async () => {
+      await this.crates.add(id, paths);
+      if (this.currentCrate() === id) this.crateTracks.set(await this.crates.tracks(id));
+    });
+  }
+
+  /** Takes the selected track out of the crate being browsed. */
+  async removeSelectedFromCrate(): Promise<void> {
+    const id = this.currentCrate();
+    const path = this.selected();
+    if (id === null || !path || this.scope() !== 'list') return;
+    const next = this.neighbour(path);
+    await this.attempt(async () => {
+      await this.crates.remove(id, [path]);
+      this.crateTracks.update((tracks) => tracks.filter((t) => t.path !== path));
+      this.selected.set(next);
+    });
   }
 
   setFilter(text: string) {
@@ -142,6 +201,29 @@ export class LibraryService {
     this.engine.load(deck ?? (free >= 0 ? free : 0), path);
   }
 
+  private browse(source: TrackSource) {
+    this.source.set(source);
+    this.scope.set('list');
+    this.setFilter('');
+    this.error.set(null);
+  }
+
+  /** The track shown after `path`, else before it: where the selection goes when it leaves. */
+  private neighbour(path: string): string | null {
+    const tracks = this.visibleTracks();
+    const index = tracks.findIndex((t) => t.path === path);
+    return (tracks[index + 1] ?? tracks[index - 1])?.path ?? null;
+  }
+
+  private async attempt(action: () => Promise<void>): Promise<void> {
+    try {
+      await action();
+      this.error.set(null);
+    } catch (e) {
+      this.error.set(String(e));
+    }
+  }
+
   private searchLibrary() {
     clearTimeout(this.searchTimer);
     const id = ++this.searchId;
@@ -167,8 +249,8 @@ export class LibraryService {
     if (listing?.tracks.some((t) => t.path === path)) {
       this.listing.set({ ...listing, tracks: update(listing.tracks) });
     }
-    if (this.libraryResults().some((t) => t.path === path)) {
-      this.libraryResults.update(update);
+    for (const list of [this.crateTracks, this.libraryResults]) {
+      if (list().some((t) => t.path === path)) list.update(update);
     }
   }
 }

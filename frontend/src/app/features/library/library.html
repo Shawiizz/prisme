@@ -1,32 +1,11 @@
 <section class="library">
-  <aside class="folders">
-    <div class="crumbs">
-      @for (c of crumbs(); track c.path; let last = $last) {
-        <button class="crumb" [class.current]="last" (click)="library.open(c.path)">
-          {{ c.name }}
-        </button>
-        @if (!last) {
-          <span class="sep">/</span>
-        }
-      }
-    </div>
-    <div class="list">
-      @for (f of library.listing()?.folders ?? []; track f.path) {
-        <div class="folder" (click)="library.open(f.path)" [title]="f.path">
-          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h7l2 2h9v10H3z" /></svg>
-          {{ f.name }}
-        </div>
-      } @empty {
-        <div class="none">No sub-folder</div>
-      }
-    </div>
-  </aside>
+  <app-library-sidebar />
 
   <div class="tracks">
     <div class="toolbar">
       <div class="scope" role="group" aria-label="Search in">
-        <button [class.active]="library.scope() === 'folder'" (click)="library.setScope('folder')">
-          Folder
+        <button [class.active]="library.scope() === 'list'" (click)="library.setScope('list')">
+          {{ listLabel() }}
         </button>
         <button
           [class.active]="library.scope() === 'library'"
@@ -39,7 +18,9 @@
         #search
         type="search"
         [placeholder]="
-          library.scope() === 'folder' ? 'Search in this folder' : 'Search the whole library'
+          library.scope() === 'list'
+            ? 'Search in this ' + listLabel().toLowerCase()
+            : 'Search the whole library'
         "
         [value]="library.filter()"
         (input)="library.setFilter($any($event.target).value)"
@@ -48,7 +29,7 @@
       <span class="count"
         >{{ tracks().length }} {{ tracks().length === 1 ? 'track' : 'tracks' }}</span
       >
-      @if (engine.error(); as e) {
+      @if (engine.error() ?? library.error(); as e) {
         <span class="error" [title]="e">{{ e }}</span>
       }
       <div class="analysis">
@@ -87,6 +68,8 @@
           [title]="t.path"
           [class.odd]="odd"
           [class.selected]="library.selected() === t.path"
+          draggable="true"
+          (dragstart)="dragStart($event, t.path)"
           (click)="library.selected.set(t.path)"
           (dblclick)="library.load(t.path, null)"
         >

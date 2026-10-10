@@ -1,0 +1,86 @@
+<section class="crates">
+  <header>
+    <span>Crates</span>
+    <button class="add" title="New crate" (click)="editing.set('new')">+</button>
+  </header>
+  <div class="list">
+    @if (editing() === 'new') {
+      <input
+        #nameInput
+        class="name-input"
+        placeholder="Crate name"
+        (keydown.enter)="commitEdit($any($event.target).value)"
+        (keydown.escape)="editing.set(null)"
+        (blur)="editing.set(null)"
+      />
+    }
+    @for (c of crates(); track c.id) {
+      @if (editing() === c.id) {
+        <input
+          #nameInput
+          class="name-input"
+          [value]="c.name"
+          (keydown.enter)="commitEdit($any($event.target).value)"
+          (keydown.escape)="editing.set(null)"
+          (blur)="editing.set(null)"
+        />
+      } @else {
+        <div
+          class="crate"
+          [class.current]="library.currentCrate() === c.id"
+          [class.drop]="dropTarget() === c.id"
+          (click)="open(c.id)"
+          (dblclick)="editing.set(c.id)"
+          (dragover)="dragOver($event, c.id)"
+          (dragleave)="dropTarget.set(null)"
+          (drop)="drop($event, c.id)"
+        >
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8h16v11H4zM6 5h12" /></svg>
+          <span class="name" title="Double-click to rename">{{ c.name }}</span>
+          <span class="count">{{ c.trackCount }}</span>
+          <button
+            class="delete"
+            [class.armed]="armedDelete() === c.id"
+            [title]="
+              armedDelete() === c.id ? 'Click again to delete' : 'Delete the crate (not its tracks)'
+            "
+            (click)="delete(c.id); $event.stopPropagation()"
+          >
+            {{ armedDelete() === c.id ? 'Delete' : '×' }}
+          </button>
+        </div>
+      }
+    } @empty {
+      @if (editing() !== 'new') {
+        <div class="none">No crate yet</div>
+      }
+    }
+  </div>
+</section>
+
+<section class="folders">
+  <div class="crumbs">
+    @for (c of crumbs(); track c.path; let last = $last) {
+      <button
+        class="crumb"
+        [class.current]="last && browsingFolder()"
+        (click)="library.open(c.path)"
+      >
+        {{ c.name }}
+      </button>
+      @if (!last) {
+        <span class="sep">/</span>
+      }
+    }
+  </div>
+  <div class="list">
+    @for (f of library.listing()?.folders ?? []; track f.path) {
+      <div class="folder" (click)="library.open(f.path)" [title]="f.path">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h7l2 2h9v10H3z" /></svg>
+        {{ f.name }}
+      </div>
+    } @empty {
+      <div class="none">No sub-folder</div>
+    }
+  </div>
+</section>

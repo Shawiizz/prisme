@@ -9,7 +9,6 @@ use prisme_media::TrackTags;
 use rusqlite::{params, OptionalExtension, Row};
 use std::collections::HashMap;
 use std::path::Path;
-use std::time::UNIX_EPOCH;
 
 /// Version of what is read from the tags: bump it to read every file's tags again.
 pub const TAGS_VERSION: u32 = 1;
@@ -129,8 +128,7 @@ impl LibraryDb {
         let tempo = record.analysis.tempo;
         let key = record.analysis.key;
         let tags = &record.tags;
-        let now_ms =
-            std::time::SystemTime::now().duration_since(UNIX_EPOCH).map_or(0, |d| d.as_millis() as i64);
+        let now_ms = super::now_ms();
         let conn = self.conn();
         let tx = conn.unchecked_transaction()?;
         tx.prepare_cached(
@@ -198,7 +196,7 @@ fn fts_query(query: &str) -> Option<String> {
     (!terms.is_empty()).then(|| terms.join(" "))
 }
 
-fn record_from_row(r: &Row<'_>) -> rusqlite::Result<TrackRecord> {
+pub(super) fn record_from_row(r: &Row<'_>) -> rusqlite::Result<TrackRecord> {
     let tempo = match (r.get::<_, Option<f64>>("bpm")?, r.get::<_, Option<f64>>("first_beat_s")?) {
         (Some(bpm), Some(first_beat_s)) => Some(Tempo {
             bpm,

@@ -9,6 +9,7 @@ export interface ShortcutActions {
   scaleLoop(deck: number, factor: number): void;
   moveSelection(delta: number): void;
   loadSelected(deck: number | null): void;
+  removeSelected(): void;
   focusSearch(): void;
   toggleHelp(): void;
 }
@@ -138,6 +139,12 @@ export function buildShortcuts(a: ShortcutActions): Shortcut[] {
       group: library,
       description: 'Load on a free deck',
       press: () => a.loadSelected(null),
+    },
+    {
+      code: 'Delete',
+      group: library,
+      description: 'Remove from the crate',
+      press: () => a.removeSelected(),
     },
     {
       code: 'KeyF',

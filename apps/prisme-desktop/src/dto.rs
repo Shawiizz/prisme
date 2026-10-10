@@ -400,21 +400,33 @@ impl StatusDto {
 pub struct DirEntryDto {
     pub name: String,
     pub path: String,
-    pub size_bytes: u64,
     /// What the library knows of a track, `None` until it has been analysed.
     pub details: Option<TrackDetailsDto>,
 }
 
 impl DirEntryDto {
-    /// A track found in the database (search results).
-    pub fn from_record(record: &prisme_library::TrackRecord) -> Self {
-        let path = std::path::Path::new(&record.path);
+    /// A track known by its path (search results, crates).
+    pub fn track(path: &str, record: Option<&prisme_library::TrackRecord>) -> Self {
+        let name = std::path::Path::new(path).file_name().map(|n| n.to_string_lossy().into_owned());
         Self {
-            name: path.file_name().map_or_else(|| record.path.clone(), |n| n.to_string_lossy().into_owned()),
-            path: record.path.clone(),
-            size_bytes: record.version.stamp.size,
-            details: Some(TrackDetailsDto::from(record)),
+            name: name.unwrap_or_else(|| path.to_string()),
+            path: path.to_string(),
+            details: record.map(TrackDetailsDto::from),
         }
+    }
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CrateDto {
+    pub id: i64,
+    pub name: String,
+    pub track_count: usize,
+}
+
+impl From<prisme_library::Crate> for CrateDto {
+    fn from(c: prisme_library::Crate) -> Self {
+        Self { id: c.id.0, name: c.name, track_count: c.track_count }
     }
 }
 

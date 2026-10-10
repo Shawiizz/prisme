@@ -22,5 +22,10 @@ const SEARCH_LIMIT: usize = 500;
 /// Tracks of the whole library matching `query` (tags and file names).
 #[tauri::command]
 pub fn search_library(library: State<'_, Arc<LibraryService>>, query: String) -> AppResult<Vec<DirEntryDto>> {
-    Ok(library.db.search(&query, SEARCH_LIMIT)?.iter().map(DirEntryDto::from_record).collect())
+    Ok(library
+        .db
+        .search(&query, SEARCH_LIMIT)?
+        .iter()
+        .map(|r| DirEntryDto::track(&r.path, Some(r)))
+        .collect())
 }

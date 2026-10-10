@@ -1,10 +1,12 @@
 //! Library database (SQLite): tracks and their analysis and tags ([`tracks`]), cues,
-//! cover thumbnails, full-text search.
+//! cover thumbnails, full-text search, crates.
 
 mod covers;
+mod crates;
 mod cues;
 mod tracks;
 
+pub use crates::{Crate, CrateEntry, CrateId};
 pub use tracks::{RecordVersion, TrackRecord, TAGS_VERSION};
 
 use rusqlite::Connection;
@@ -60,7 +62,18 @@ const MIGRATIONS: &[&str] = &[
      CREATE VIRTUAL TABLE track_search USING fts5(
          path UNINDEXED, words, tokenize = 'unicode61 remove_diacritics 2'
      );",
+    "CREATE TABLE crates (id INTEGER PRIMARY KEY, name TEXT NOT NULL);
+     CREATE TABLE crate_tracks (
+         crate_id INTEGER NOT NULL REFERENCES crates (id) ON DELETE CASCADE,
+         path TEXT NOT NULL,
+         added_at_ms INTEGER NOT NULL,
+         PRIMARY KEY (crate_id, path)
+     );",
 ];
+
+fn now_ms() -> i64 {
+    std::time::SystemTime::now().duration_since(UNIX_EPOCH).map_or(0, |d| d.as_millis() as i64)
+}
 
 /// The key a path is stored under.
 pub fn path_key(path: &Path) -> String {
@@ -110,6 +123,7 @@ impl LibraryDb {
         // WAL: readers (the UI) are not blocked by the analysis writing
         conn.pragma_update(None, "journal_mode", "WAL")?;
         conn.pragma_update(None, "synchronous", "NORMAL")?;
+        conn.pragma_update(None, "foreign_keys", true)?;
         let applied: i64 = conn.pragma_query_value(None, "user_version", |r| r.get(0))?;
         for (i, sql) in MIGRATIONS.iter().enumerate().skip(applied as usize) {
             conn.execute_batch(sql)?;

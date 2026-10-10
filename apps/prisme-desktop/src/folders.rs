@@ -29,8 +29,7 @@ pub fn list_dir(
         }
         let path = entry.path();
         let Ok(meta) = entry.metadata() else { continue };
-        let item =
-            |details| DirEntryDto { name, path: path.display().to_string(), size_bytes: meta.len(), details };
+        let item = |details| DirEntryDto { name, path: path.display().to_string(), details };
         if meta.is_dir() {
             folders.push(item(None));
         } else if prisme_media::is_supported(&path) {

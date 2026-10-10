@@ -10,6 +10,8 @@ pub enum AppError {
     NoTrack(usize),
     #[error("invalid hot cue {0}")]
     InvalidCue(u8),
+    #[error("a crate needs a name")]
+    EmptyCrateName,
     #[error(transparent)]
     Library(#[from] prisme_library::DbError),
     #[error("unknown timecode format {0}")]

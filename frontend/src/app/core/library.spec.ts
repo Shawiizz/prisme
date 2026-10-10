@@ -8,7 +8,7 @@ function entry(name: string, tags: Partial<TrackTags> | null): DirEntry {
     failed: false,
     tags: { title: null, artist: null, album: null, genre: null, year: null, ...tags },
   };
-  return { name, path: 'C:/Music/' + name, sizeBytes: 0, details };
+  return { name, path: 'C:/Music/' + name, details };
 }
 
 describe('trackTitle', () => {

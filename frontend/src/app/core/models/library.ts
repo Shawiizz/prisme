@@ -20,9 +20,14 @@ export interface TrackDetails {
 export interface DirEntry {
   name: string;
   path: string;
-  sizeBytes: number;
   /** `null` until the track has been analysed. */
   details: TrackDetails | null;
+}
+
+export interface Crate {
+  id: number;
+  name: string;
+  trackCount: number;
 }
 
 export interface DirListing {

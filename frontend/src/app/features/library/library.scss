@@ -12,7 +12,6 @@
   gap: 6px;
   min-height: 0;
 }
-.folders,
 .tracks {
   display: flex;
   flex-direction: column;
@@ -20,51 +19,6 @@
   background: var(--panel);
   border: 1px solid var(--line);
   border-radius: 3px;
-}
-.crumbs {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 2px;
-  padding: 8px;
-  border-bottom: 1px solid var(--line);
-  .crumb {
-    border: none;
-    background: transparent;
-    padding: 2px 4px;
-    color: var(--muted);
-    &.current {
-      color: var(--text);
-      font-weight: 600;
-    }
-  }
-  .sep {
-    color: var(--faint);
-  }
-}
-.list {
-  overflow-y: auto;
-  padding: 4px;
-}
-.folder {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 5px 8px;
-  border-radius: 3px;
-  color: var(--text-2);
-  cursor: pointer;
-  svg {
-    width: 15px;
-    height: 15px;
-    fill: none;
-    stroke: var(--faint);
-    stroke-width: 1.6;
-  }
-  &:hover {
-    background: var(--raised);
-    color: var(--text);
-  }
 }
 .toolbar {
   display: flex;

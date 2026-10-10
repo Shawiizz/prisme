@@ -5,6 +5,8 @@ import { DECK_COUNT } from '../../core/models/engine';
 import { deckColor } from '../../shared/time';
 import { camelotColor, camelotCompatible } from '../../shared/camelot';
 import { Cover } from '../../shared/cover/cover';
+import { TRACKS_DRAG_TYPE } from '../../shared/drag';
+import { LibrarySidebar } from './library-sidebar/library-sidebar';
 
 const COLUMNS: { id: SortColumn; label: string }[] = [
   { id: 'title', label: 'Title' },
@@ -16,12 +18,12 @@ const COLUMNS: { id: SortColumn; label: string }[] = [
   { id: 'key', label: 'Key' },
 ];
 
-/** Folder browser (left) and the tracks of the current folder or library search (right). */
+/** Crates and folders (left), the tracks being browsed or found (right). */
 @Component({
   selector: 'app-library',
   templateUrl: './library.html',
   styleUrl: './library.scss',
-  imports: [Cover],
+  imports: [Cover, LibrarySidebar],
 })
 export class Library {
   protected readonly library = inject(LibraryService);
@@ -49,21 +51,19 @@ export class Library {
     return p.total > 0 ? (p.done / p.total) * 100 : 0;
   });
 
-  /** Path segments from the music root to the current folder, for the breadcrumb. */
-  protected readonly crumbs = computed(() => {
-    const listing = this.library.listing();
-    const root = this.library.root();
-    if (!listing || !root) return [];
-    const rel = listing.path.startsWith(root) ? listing.path.slice(root.length) : '';
-    const parts = rel.split(/[\\/]/).filter(Boolean);
-    const sep = root.includes('\\') ? '\\' : '/';
-    const crumbs = [{ name: 'Music', path: root }];
-    let acc = root;
-    for (const p of parts) {
-      acc = acc + sep + p;
-      crumbs.push({ name: p, path: acc });
+  protected readonly listLabel = computed(() =>
+    this.library.source().kind === 'crate' ? 'Crate' : 'Folder',
+  );
+
+  protected readonly emptyMessage = computed(() => {
+    if (this.library.scope() === 'list') {
+      return this.library.source().kind === 'crate'
+        ? 'This crate is empty: drag tracks onto it'
+        : 'No audio file in this folder';
     }
-    return crumbs;
+    return this.library.filter().trim()
+      ? 'No analysed track matches'
+      : 'Type to search every analysed track';
   });
 
   constructor() {
@@ -89,10 +89,8 @@ export class Library {
     return keys.length ? keys.some((k) => camelotCompatible(k, camelot)) : null;
   }
 
-  protected readonly emptyMessage = computed(() => {
-    if (this.library.scope() === 'folder') return 'No audio file in this folder';
-    return this.library.filter().trim()
-      ? 'No analysed track matches'
-      : 'Type to search every analysed track';
-  });
+  dragStart(event: DragEvent, path: string) {
+    this.library.selected.set(path);
+    event.dataTransfer?.setData(TRACKS_DRAG_TYPE, JSON.stringify([path]));
+  }
 }
