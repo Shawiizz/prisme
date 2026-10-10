@@ -14,6 +14,8 @@
 mod command;
 mod deck;
 mod engine;
+mod grid;
+mod looping;
 mod mixer;
 mod playhead;
 mod status;
@@ -22,5 +24,6 @@ mod vinyl;
 
 pub use command::{Command, CrossfaderSide, DeckId, Garbage, VinylMode};
 pub use engine::{create, Engine, EngineConfig, EngineController};
-pub use status::{DeckStatus, EngineStatus, SyncStatus, VinylStatus, MAX_DECKS};
-pub use sync::BeatGrid;
+pub use grid::BeatGrid;
+pub use looping::LoopRegion;
+pub use status::{DeckStatus, EngineStatus, LoopStatus, SyncStatus, VinylStatus, MAX_DECKS};

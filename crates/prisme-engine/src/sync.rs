@@ -5,21 +5,7 @@
 //! only snapped when sync is engaged, never corrected afterwards. Absolute mode has no
 //! sync, the record decides where the track is.
 
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub struct BeatGrid {
-    pub bpm: f64,
-    pub first_beat_s: f64,
-}
-
-impl BeatGrid {
-    pub fn beats_at(&self, position_s: f64) -> f64 {
-        (position_s - self.first_beat_s) * self.bpm / 60.0
-    }
-
-    pub fn beat_period_s(&self) -> f64 {
-        60.0 / self.bpm
-    }
-}
+use crate::grid::BeatGrid;
 
 const SPEED_SMOOTHING_S: f64 = 0.3;
 /// Slow enough to absorb a pitch fader move, fast enough to let a nudge through.

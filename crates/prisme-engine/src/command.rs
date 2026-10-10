@@ -1,6 +1,7 @@
 //! Messages between the control side (UI, controllers) and the audio thread.
 
-use crate::sync::BeatGrid;
+use crate::grid::BeatGrid;
+use crate::looping::LoopRegion;
 use prisme_media::TrackAudio;
 use prisme_timecode::TimecodeDecoder;
 use std::sync::Arc;
@@ -35,7 +36,21 @@ pub enum Command {
     SetPlaying { deck: DeckId, playing: bool },
     /// Tempo ratio for internal play (1.0 = original tempo).
     SetPitch { deck: DeckId, ratio: f64 },
+    /// Moves the playhead there, as is (needle search).
     Seek { deck: DeckId, seconds: f64 },
+    /// Moves the playhead there, keeping the beat phase if quantize is on (cues).
+    Jump { deck: DeckId, seconds: f64 },
+    BeatJump { deck: DeckId, beats: f64 },
+    SetQuantize { enabled: bool },
+    SetLoop { deck: DeckId, region: Option<LoopRegion>, active: bool },
+    BeatLoop { deck: DeckId, beats: f64 },
+    /// `Some(beats)` starts a roll, `None` releases it.
+    LoopRoll { deck: DeckId, beats: Option<f64> },
+    ExitLoop { deck: DeckId },
+    Reloop { deck: DeckId },
+    ScaleLoop { deck: DeckId, factor: f64 },
+    SetSlip { deck: DeckId, enabled: bool },
+    Censor { deck: DeckId, active: bool },
     SetVinylEnabled { deck: DeckId, enabled: bool },
     SetVinylMode { deck: DeckId, mode: VinylMode },
     /// Position of the start of the track on the record, in seconds (lead-in).

@@ -1,6 +1,7 @@
 //! Snapshots of the engine state, published by the audio thread for the UI.
 
 use crate::command::VinylMode;
+use crate::looping::LoopRegion;
 use prisme_timecode::SignalState;
 
 /// Maximum number of decks.
@@ -25,6 +26,13 @@ pub struct SyncStatus {
     pub rate_offset: f64,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Default)]
+pub struct LoopStatus {
+    /// The stored loop, active or not.
+    pub region: Option<LoopRegion>,
+    pub active: bool,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct DeckStatus {
     pub loaded: bool,
@@ -39,6 +47,10 @@ pub struct DeckStatus {
     /// Position within the current beat, `0..1`.
     pub beat_phase: Option<f64>,
     pub sync: SyncStatus,
+    pub looping: LoopStatus,
+    pub slip_mode: bool,
+    /// Where the track would be without the loop, roll or censor in progress.
+    pub slip_position_s: Option<f64>,
     pub vinyl: VinylStatus,
 }
 
@@ -53,6 +65,9 @@ impl Default for DeckStatus {
             bpm: None,
             beat_phase: None,
             sync: SyncStatus { rate_offset: 1.0, ..Default::default() },
+            looping: LoopStatus::default(),
+            slip_mode: false,
+            slip_position_s: None,
             vinyl: VinylStatus {
                 enabled: false,
                 mode: VinylMode::Absolute,

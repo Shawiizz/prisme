@@ -1,9 +1,13 @@
 //! A deck: a track, a playhead and what drives it (internal play or the record).
 
+mod transport;
+
 use crate::command::{CrossfaderSide, VinylMode};
+use crate::grid::BeatGrid;
 use crate::playhead::Playhead;
-use crate::status::{DeckStatus, SyncStatus};
-use crate::sync::{self, BeatGrid, DeckSync, LeaderBeat, SyncTarget};
+use crate::status::{DeckStatus, LoopStatus, SyncStatus};
+use crate::sync::{self, DeckSync, LeaderBeat, SyncTarget};
+use transport::Transport;
 use crate::vinyl::{VinylControl, VinylDrive};
 use prisme_timecode::TimecodeDecoder;
 
@@ -22,6 +26,7 @@ pub(crate) struct Deck {
     pub(crate) side: CrossfaderSide,
     pub(crate) grid: Option<BeatGrid>,
     pub(crate) sync: DeckSync,
+    transport: Transport,
     correction: f64,
     speed: f64,
 }
@@ -37,6 +42,7 @@ impl Deck {
             side: CrossfaderSide::Center,
             grid: None,
             sync: DeckSync::new(),
+            transport: Transport::default(),
             correction: 0.0,
             speed: 0.0,
         }
@@ -49,11 +55,14 @@ impl Deck {
         let drive = self.vinyl.process(input);
         let target = target.map(|t| self.engage(t));
         let speed = self.speed_for(drive, target);
+        let speed = if self.transport.censoring { -speed } else { speed };
         self.playhead.render(out, out_rate, speed);
         self.speed = speed;
 
+        let seconds = (out.len() / 2) as f64 / out_rate;
         let platter = self.vinyl.enabled.then_some(drive.speed);
-        self.sync.observe(speed, platter, (out.len() / 2) as f64 / out_rate);
+        self.sync.observe(speed, platter, seconds);
+        self.advance_shadow(seconds);
         self.follow_record_position(drive);
     }
 
@@ -179,6 +188,14 @@ impl Deck {
         }
     }
 
+    /// Whether the track advances at its tempo (gestures aside).
+    fn is_moving(&self) -> bool {
+        match self.drive_mode() {
+            DriveMode::Internal => self.playing,
+            DriveMode::Relative | DriveMode::Absolute => self.sync.platter_now().is_some(),
+        }
+    }
+
     fn drive_mode(&self) -> DriveMode {
         match (self.vinyl.enabled, self.vinyl.mode) {
             (false, _) => DriveMode::Internal,
@@ -198,6 +215,9 @@ impl Deck {
             bpm: self.grid.map(|g| g.bpm * self.tempo_rate()),
             beat_phase: self.grid.map(|g| g.beats_at(position_s).rem_euclid(1.0)),
             sync: SyncStatus { locked: self.sync.locked, leader, rate_offset: self.sync.rate_offset },
+            looping: LoopStatus { region: self.transport.loop_region, active: self.transport.loop_active },
+            slip_mode: self.transport.slip_mode,
+            slip_position_s: self.transport.shadow_s,
             vinyl: self.vinyl.status(),
         }
     }

@@ -73,6 +73,7 @@ pub fn create(config: EngineConfig) -> (Engine, EngineController) {
         deck_in: vec![0.0; config.max_block_frames * 2],
         deck_out: vec![0.0; config.max_block_frames * 2],
         peak: 0.0,
+        quantize: true,
         chosen_leader: None,
         leader: None,
         frames_since_status: 0,
@@ -97,6 +98,7 @@ pub struct Engine {
     deck_in: Vec<f32>,
     deck_out: Vec<f32>,
     peak: f32,
+    quantize: bool,
     /// Leader picked by the user, if any.
     chosen_leader: Option<DeckId>,
     leader: Option<DeckId>,
@@ -175,8 +177,7 @@ impl Engine {
             LoadTrack { deck, track } => {
                 if valid(deck) {
                     let d = &mut self.decks[deck];
-                    d.grid = None;
-                    d.sync.reset();
+                    d.reset_track_state();
                     if let Some(old) = d.playhead.load(track) {
                         self.discard(Garbage::Track(old));
                     }
@@ -187,8 +188,7 @@ impl Engine {
             Eject { deck } if valid(deck) => {
                 let d = &mut self.decks[deck];
                 d.playing = false;
-                d.grid = None;
-                d.sync.reset();
+                d.reset_track_state();
                 if let Some(old) = d.playhead.eject() {
                     self.discard(Garbage::Track(old));
                 }
@@ -196,6 +196,17 @@ impl Engine {
             SetPlaying { deck, playing } if valid(deck) => self.decks[deck].playing = playing,
             SetPitch { deck, ratio } if valid(deck) => self.decks[deck].pitch = ratio,
             Seek { deck, seconds } if valid(deck) => self.decks[deck].playhead.seek_s(seconds),
+            Jump { deck, seconds } if valid(deck) => self.decks[deck].jump(seconds, self.quantize),
+            BeatJump { deck, beats } if valid(deck) => self.decks[deck].beat_jump(beats),
+            SetQuantize { enabled } => self.quantize = enabled,
+            SetLoop { deck, region, active } if valid(deck) => self.decks[deck].set_loop(region, active),
+            BeatLoop { deck, beats } if valid(deck) => self.decks[deck].beat_loop(beats, self.quantize),
+            LoopRoll { deck, beats } if valid(deck) => self.decks[deck].loop_roll(beats, self.quantize),
+            ExitLoop { deck } if valid(deck) => self.decks[deck].exit_loop(),
+            Reloop { deck } if valid(deck) => self.decks[deck].reloop(),
+            ScaleLoop { deck, factor } if valid(deck) => self.decks[deck].scale_loop(factor),
+            SetSlip { deck, enabled } if valid(deck) => self.decks[deck].set_slip(enabled),
+            Censor { deck, active } if valid(deck) => self.decks[deck].censor(active),
             SetVinylEnabled { deck, enabled } if valid(deck) => {
                 self.decks[deck].vinyl.enabled = enabled;
                 self.decks[deck].sync.reset();
