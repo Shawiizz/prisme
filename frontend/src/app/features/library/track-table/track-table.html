@@ -7,7 +7,7 @@
   <div
     class="head"
     (contextmenu)="openColumnMenu($event)"
-    title="Right-click to choose the columns"
+    [title]="'Right-click to choose the columns' | t"
   >
     @if (library.ordered()) {
       <button class="order" (click)="library.sortBy('order')">#{{ sortMark('order') }}</button>
@@ -21,7 +21,7 @@
         <span [class]="c.id"></span>
       }
     }
-    <span class="load">Load</span>
+    <span class="load">{{ 'Load' | t }}</span>
   </div>
   @for (t of tracks(); track rowKey(t); let odd = $odd) {
     <div
@@ -50,7 +50,7 @@
                 class="swatch"
                 [class.set]="d.color !== null"
                 [style.--swatch]="d.color !== null ? hexColor(d.color) : null"
-                title="Colour"
+                [title]="'Colour' | t"
                 (click)="openPalette($event, t)"
               ></button>
             } @else {
@@ -83,7 +83,7 @@
             @if (!t.details) {
               <span class="number pending">···</span>
             } @else if (t.details.failed) {
-              <span class="number failed" title="This file could not be decoded">—</span>
+              <span class="number failed" [title]="'This file could not be decoded' | t">—</span>
             } @else {
               <span class="number bpm">{{ t.details.bpm?.toFixed(1) ?? '—' }}</span>
             }
@@ -108,7 +108,7 @@
                 @for (n of stars; track n) {
                   <button
                     [class.on]="n <= d.rating"
-                    [title]="n + (n === 1 ? ' star' : ' stars')"
+                    [title]="n === 1 ? ('1 star' | t) : ('{n} stars' | t: { n })"
                     (click)="rate(t, n); $event.stopPropagation()"
                   >
                     ★
@@ -177,6 +177,6 @@
         (click)="setColor(c.value)"
       ></button>
     }
-    <button class="clear" title="No colour" (click)="setColor(null)">×</button>
+    <button class="clear" [title]="'No colour' | t" (click)="setColor(null)">×</button>
   </div>
 }

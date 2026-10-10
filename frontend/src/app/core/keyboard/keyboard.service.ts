@@ -2,6 +2,7 @@ import { Injectable, inject, signal } from '@angular/core';
 import { Control } from '../control/controls';
 import { ControlService } from '../control/control.service';
 import { matches, Shortcut, SHORTCUTS } from './shortcuts';
+import { t } from '../i18n/i18n';
 
 interface KeyboardLayoutApi {
   keyboard?: { getLayoutMap(): Promise<Map<string, string>> };
@@ -62,7 +63,7 @@ const KEY_NAMES: Record<string, string> = {
   ArrowRight: '→',
   Comma: ',',
   Period: '.',
-  Delete: 'Del',
+  Delete: t('Del'),
 };
 
 function isTyping(event: KeyboardEvent): boolean {

@@ -3,6 +3,7 @@ import { ControlService } from '../../core/control/control.service';
 import { ControllerService } from '../../core/control/controller.service';
 import { Control } from '../../core/control/controls';
 import { describeControl } from '../../core/models/controllers';
+import { TPipe } from '../../core/i18n/t.pipe';
 
 interface Row {
   control: Control;
@@ -15,6 +16,7 @@ interface Row {
   selector: 'app-controllers-dialog',
   templateUrl: './controllers-dialog.html',
   styleUrl: './controllers-dialog.scss',
+  imports: [TPipe],
   host: { '(keydown.escape)': 'service.cancelLearning()' },
 })
 export class ControllersDialog implements OnInit, OnDestroy {

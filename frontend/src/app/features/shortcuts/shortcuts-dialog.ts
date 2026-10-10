@@ -1,12 +1,14 @@
 import { Component, computed, inject } from '@angular/core';
 import { ControlService } from '../../core/control/control.service';
 import { KeyboardService } from '../../core/keyboard/keyboard.service';
+import { TPipe } from '../../core/i18n/t.pipe';
 
 /** The keyboard shortcuts, by group, with the keys as printed on the user's keyboard. */
 @Component({
   selector: 'app-shortcuts-dialog',
   templateUrl: './shortcuts-dialog.html',
   styleUrl: './shortcuts-dialog.scss',
+  imports: [TPipe],
 })
 export class ShortcutsDialog {
   protected readonly keyboard = inject(KeyboardService);

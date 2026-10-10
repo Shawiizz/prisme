@@ -20,13 +20,13 @@
             class="cue"
             [class.active]="engine.decks()[d].cue"
             (click)="mixer.setDeckCue(d, !engine.decks()[d].cue)"
-            title="Hear this deck in the headphones"
+            [title]="'Hear this deck in the headphones' | t"
           >
             CUE
           </button>
         </div>
       }
-      <div class="master" title="Master">
+      <div class="master" [title]="'Master' | t">
         <span class="label">M</span>
         <div class="meter">
           <div [style.height.%]="peak() * 100" [class.clip]="peak() > 0.99"></div>
@@ -35,14 +35,14 @@
           class="toggle"
           [class.active]="mixer.limiter()"
           (click)="mixer.setLimiter(!mixer.limiter())"
-          title="Master limiter: no clipping (adds 1 ms of latency)"
+          [title]="'Master limiter: no clipping (adds 1 ms of latency)' | t"
         >
           LIM
         </button>
       </div>
     </div>
     <div class="headphones">
-      <span class="label" title="Headphones: cued decks or master">CUE</span>
+      <span class="label" [title]="'Headphones: cued decks or master' | t">CUE</span>
       <input
         type="range"
         min="0"
@@ -60,7 +60,7 @@
         step="0.01"
         [value]="mixer.headphoneGain()"
         (input)="onHeadphoneGain($event)"
-        title="Headphone volume"
+        [title]="'Headphone volume' | t"
       />
     </div>
     <div class="crossfader-row">
@@ -78,14 +78,14 @@
         class="toggle"
         [class.active]="mixer.crossfaderCurve() === 'sharp'"
         (click)="mixer.setCrossfaderCurve(mixer.crossfaderCurve() === 'sharp' ? 'smooth' : 'sharp')"
-        title="Crossfader curve: smooth for blending, sharp for scratching"
+        [title]="'Crossfader curve: smooth for blending, sharp for scratching' | t"
       >
         {{ mixer.crossfaderCurve() === 'sharp' ? 'SHARP' : 'SMOOTH' }}
       </button>
     </div>
   } @else {
     <div class="external">
-      <span class="label">External mixer</span>
+      <span class="label">{{ 'External mixer' | t }}</span>
       <div class="sends">
         @for (d of deckIndexes; track d) {
           <div class="send" [style.--accent]="color(d)">
@@ -98,8 +98,8 @@
     </div>
   }
   @if (fallback()) {
-    <div class="warning" title="Each deck needs its own pair of outputs">
-      External mixer needs 4 outputs
+    <div class="warning" [title]="'Each deck needs its own pair of outputs' | t">
+      {{ 'External mixer needs 4 outputs' | t }}
     </div>
   }
 </div>

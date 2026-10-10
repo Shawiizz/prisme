@@ -10,19 +10,27 @@ import {
 } from '@angular/core';
 import { Channel, invoke } from '@tauri-apps/api/core';
 import { EngineService } from '../../core/services/engine.service';
-import { VinylMode } from '../../core/models/engine';
+import { SignalState, VinylMode } from '../../core/models/engine';
 import { deckColor, formatSpeed, formatTime } from '../../shared/time';
 import { ScopePainter } from './scope-painter';
+import { t } from '../../core/i18n/i18n';
+import { TPipe } from '../../core/i18n/t.pipe';
 
 const SCOPE_SIZE = 220;
 /** Carrier level shown as a full bar: a healthy line-level timecode reaches it. */
 const FULL_LEVEL = 0.5;
+const SIGNAL_TEXT: Record<SignalState, string> = {
+  none: t('none'),
+  bounce: t('unsteady'),
+  ok: t('locked'),
+};
 
 /** One turntable: its signal on a scope, what the decoder reads, the vinyl settings. */
 @Component({
   selector: 'app-turntable-panel',
   templateUrl: './turntable-panel.html',
   styleUrl: './turntable-panel.scss',
+  imports: [TPipe],
 })
 export class TurntablePanel {
   readonly deck = input.required<number>();
@@ -34,6 +42,7 @@ export class TurntablePanel {
   protected readonly vinyl = computed(
     () => this.engine.status()?.decks[this.deck()]?.vinyl ?? null,
   );
+  protected readonly signalText = computed(() => SIGNAL_TEXT[this.vinyl()?.signal ?? 'none']);
   protected readonly levelPercent = computed(() =>
     Math.min(100, ((this.vinyl()?.level ?? 0) / FULL_LEVEL) * 100),
   );

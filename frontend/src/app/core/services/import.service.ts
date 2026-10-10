@@ -1,6 +1,7 @@
 import { Injectable, inject } from '@angular/core';
 import { invoke } from '@tauri-apps/api/core';
 import { open } from '@tauri-apps/plugin-dialog';
+import { t } from '../i18n/i18n';
 import { CratesService } from './crates.service';
 
 /** What an import brought (see `ImportSummaryDto`). */
@@ -29,7 +30,7 @@ export class ImportService {
 
   /** Asks for a `_Serato_` folder; `null` if cancelled. */
   async pickSeratoFolder(): Promise<string | null> {
-    return open({ directory: true, title: 'The _Serato_ folder' });
+    return open({ directory: true, title: t('The _Serato_ folder') });
   }
 
   async importSerato(seratoDir: string | null): Promise<ImportSummary> {

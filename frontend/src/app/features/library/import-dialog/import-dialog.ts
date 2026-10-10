@@ -1,11 +1,13 @@
 import { Component, inject, output, signal } from '@angular/core';
 import { ImportService, ImportSummary } from '../../../core/services/import.service';
+import { TPipe } from '../../../core/i18n/t.pipe';
 
 /** Import from Serato or rekordbox, with what it brought. */
 @Component({
   selector: 'app-import-dialog',
   templateUrl: './import-dialog.html',
   styleUrl: './import-dialog.scss',
+  imports: [TPipe],
 })
 export class ImportDialog {
   readonly closed = output();

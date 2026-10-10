@@ -28,17 +28,17 @@
     <div class="fx-keys">
       <app-knob
         label="MIX"
-        labelTitle="Level of the effect"
+        [labelTitle]="'Level of the effect' | t"
         [value]="effect().mix"
         (valueChange)="fx.setMix(deck(), $event)"
       />
       <app-knob
         label="AMOUNT"
-        labelTitle="The effect's main knob (see each pad)"
+        [labelTitle]="'Main knob of the effect (see each pad)' | t"
         [value]="effect().amount"
         (valueChange)="fx.setAmount(deck(), $event)"
       />
-      <div class="beats" title="Period of the effect, in beats">
+      <div class="beats" [title]="'Period of the effect, in beats' | t">
         <button (click)="fx.scaleBeats(deck(), 0.5)">½</button>
         <span>{{ formatBeats(effect().beats) }}</span>
         <button (click)="fx.scaleBeats(deck(), 2)">×2</button>
@@ -48,7 +48,7 @@
     <div class="fx-keys">
       <app-knob
         label="VOL"
-        labelTitle="Level of the sampler"
+        [labelTitle]="'Level of the sampler' | t"
         [defaultValue]="1"
         [value]="samplerGain()"
         (valueChange)="sampler.setGain(deck(), $event)"
@@ -57,8 +57,12 @@
   } @else {
     <div class="keys">
       <div class="row">
-        <button (click)="scaleLoop(0.5)" [disabled]="!canMove()" title="Halve the loop">½</button>
-        <button (click)="scaleLoop(2)" [disabled]="!canMove()" title="Double the loop">×2</button>
+        <button (click)="scaleLoop(0.5)" [disabled]="!canMove()" [title]="'Halve the loop' | t">
+          ½
+        </button>
+        <button (click)="scaleLoop(2)" [disabled]="!canMove()" [title]="'Double the loop' | t">
+          ×2
+        </button>
         <button [class.active]="loopActive()" (click)="toggleLoop()" [disabled]="!canMove()">
           {{ loopActive() ? 'EXIT' : 'RELOOP' }}
         </button>
@@ -67,13 +71,13 @@
         <button
           [class.active]="slip()"
           (click)="toggleSlip()"
-          title="Loops, rolls and censor carry the track on underneath"
+          [title]="'Loops, rolls and censor carry the track on underneath' | t"
         >
           SLIP
         </button>
         <button
           [disabled]="!canMove()"
-          title="Plays backwards while held"
+          [title]="'Plays backwards while held' | t"
           (pointerdown)="censor(true)"
           (pointerup)="censor(false)"
           (pointercancel)="censor(false)"

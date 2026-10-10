@@ -1,8 +1,17 @@
 import { Component, computed, inject, input, signal } from '@angular/core';
 import { EngineService } from '../../../core/services/engine.service';
+import { SignalState } from '../../../core/models/engine';
 import { deckColor, formatPitch, formatTime } from '../../../shared/time';
 import { Cover } from '../../../shared/cover/cover';
 import { GridEditor } from '../grid-editor/grid-editor';
+import { t } from '../../../core/i18n/i18n';
+import { TPipe } from '../../../core/i18n/t.pipe';
+
+const SIGNAL_TITLE: Record<SignalState, string> = {
+  none: t('No timecode signal'),
+  bounce: t('Timecode signal unsteady'),
+  ok: t('Timecode signal locked'),
+};
 
 /**
  * Deck header: number tile in the deck colour, cover, title and time, labelled stats and
@@ -12,7 +21,7 @@ import { GridEditor } from '../grid-editor/grid-editor';
   selector: 'app-deck-card',
   templateUrl: './deck-card.html',
   styleUrl: './deck-card.scss',
-  imports: [Cover, GridEditor],
+  imports: [Cover, GridEditor, TPipe],
   host: { '[style.--accent]': 'color()' },
 })
 export class DeckCard {
@@ -44,6 +53,7 @@ export class DeckCard {
     () => this.key()?.camelot !== this.track()?.key?.camelot,
   );
   protected readonly signal = computed(() => this.status()?.vinyl.signal ?? 'none');
+  protected readonly signalTitle = computed(() => SIGNAL_TITLE[this.signal()]);
 
   toggleVinyl() {
     this.engine.setVinyl(this.deck(), { enabled: !this.settings().vinylEnabled });

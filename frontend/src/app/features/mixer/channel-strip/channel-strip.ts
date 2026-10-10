@@ -3,6 +3,8 @@ import { BANDS, Band } from '../../../core/models/engine';
 import { MixerService } from '../../../core/services/mixer.service';
 import { Knob } from '../../../shared/knob/knob';
 import { eqGain, eqKnob, trimGain, trimKnob } from '../../../shared/mixer-scales';
+import { t } from '../../../core/i18n/i18n';
+import { TPipe } from '../../../core/i18n/t.pipe';
 
 /** A deck's channel of the software mixer, before its fader: trim, EQ with kills, filter. */
 @Component({
@@ -10,7 +12,7 @@ import { eqGain, eqKnob, trimGain, trimKnob } from '../../../shared/mixer-scales
   template: `
     <app-knob
       label="TRIM"
-      labelTitle="Gain before the EQ (±12 dB)"
+      [labelTitle]="'Gain before the EQ (±12 dB)' | t"
       bipolar
       [value]="trimKnob()"
       (valueChange)="setTrim($event)"
@@ -18,7 +20,7 @@ import { eqGain, eqKnob, trimGain, trimKnob } from '../../../shared/mixer-scales
     @for (b of bands; track b.band) {
       <app-knob
         [label]="b.label"
-        [labelTitle]="'Click to kill the ' + b.name"
+        [labelTitle]="b.killTitle"
         bipolar
         [value]="eqKnob(b.band)"
         [active]="killed(b.band)"
@@ -28,7 +30,7 @@ import { eqGain, eqKnob, trimGain, trimKnob } from '../../../shared/mixer-scales
     }
     <app-knob
       label="FILTER"
-      labelTitle="Left: low-pass, right: high-pass"
+      [labelTitle]="'Left: low-pass, right: high-pass' | t"
       bipolar
       [value]="(strip().filter + 1) / 2"
       (valueChange)="mixer.setFilter(deck(), $event * 2 - 1)"
@@ -40,15 +42,15 @@ import { eqGain, eqKnob, trimGain, trimKnob } from '../../../shared/mixer-scales
       gap: 4px;
     }
   `,
-  imports: [Knob],
+  imports: [Knob, TPipe],
 })
 export class ChannelStrip {
   readonly deck = input.required<number>();
   protected readonly mixer = inject(MixerService);
-  protected readonly bands: { band: Band; label: string; name: string }[] = [
-    { band: 'high', label: 'HI', name: 'highs' },
-    { band: 'mid', label: 'MID', name: 'mids' },
-    { band: 'low', label: 'LOW', name: 'bass' },
+  protected readonly bands: { band: Band; label: string; killTitle: string }[] = [
+    { band: 'high', label: 'HI', killTitle: t('Click to kill the highs') },
+    { band: 'mid', label: 'MID', killTitle: t('Click to kill the mids') },
+    { band: 'low', label: 'LOW', killTitle: t('Click to kill the bass') },
   ];
 
   protected strip() {

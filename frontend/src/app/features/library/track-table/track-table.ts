@@ -15,13 +15,15 @@ import { TRACKS_DRAG_TYPE } from '../../../shared/drag';
 import { deckColor } from '../../../shared/time';
 import { TRACK_COLORS, hexColor } from '../../../shared/track-colors';
 import { COLUMNS, Column, ColumnId, gridTemplate } from './columns';
+import { t } from '../../../core/i18n/i18n';
+import { TPipe } from '../../../core/i18n/t.pipe';
 
 const EMPTY_LIST: Record<TrackSource['kind'], string> = {
-  folder: 'No audio file in this folder',
-  crate: 'This crate is empty: drag tracks onto it',
-  history: 'No track in this set',
-  prepare: 'Drag tracks here or press Ctrl + P to line them up for the set',
-  duplicates: 'No two tracks share an artist and a title',
+  folder: t('No audio file in this folder'),
+  crate: t('This crate is empty: drag tracks onto it'),
+  history: t('No track in this set'),
+  prepare: t('Drag tracks here or press Ctrl + P to line them up for the set'),
+  duplicates: t('No two tracks share an artist and a title'),
 };
 
 const STARS = [1, 2, 3, 4, 5];
@@ -50,7 +52,7 @@ function popoverAt(event: MouseEvent): Popover {
   selector: 'app-track-table',
   templateUrl: './track-table.html',
   styleUrl: './track-table.scss',
-  imports: [Cover],
+  imports: [Cover, TPipe],
 })
 export class TrackTable {
   protected readonly library = inject(LibraryService);
@@ -103,8 +105,8 @@ export class TrackTable {
   protected readonly emptyMessage = computed(() => {
     if (this.library.scope() === 'list') return EMPTY_LIST[this.library.source().kind];
     return this.library.filter().trim()
-      ? 'No analysed track matches'
-      : 'Type to search every analysed track';
+      ? t('No analysed track matches')
+      : t('Type to search every analysed track');
   });
 
   constructor() {

@@ -1,4 +1,5 @@
 import { BANDS, Band, DECK_COUNT, HOT_CUES, SAMPLE_SLOTS } from '../models/engine';
+import { t } from '../i18n/i18n';
 
 /** The physical control an action suits. */
 export type ControlKind = 'button' | 'fader' | 'encoder';
@@ -51,6 +52,11 @@ export interface ControlActions {
 }
 
 const JUMP_BEATS = 4;
+const EQ_LABEL: Record<Band, string> = {
+  low: t('EQ low'),
+  mid: t('EQ mid'),
+  high: t('EQ high'),
+};
 
 /** A button acting when pressed. */
 function button(id: string, group: string, label: string, run: () => void): Control {
@@ -75,90 +81,92 @@ function fader(id: string, group: string, label: string, run: (v: number) => voi
 }
 
 function deckControls(a: ControlActions, deck: number): Control[] {
-  const group = `Deck ${deck + 1}`;
+  const group = t('Deck {n}', { n: deck + 1 });
   const id = (name: string) => `deck${deck + 1}.${name}`;
   const lit = (control: Control, on: () => boolean): Control => ({ ...control, lit: on });
   return [
     lit(
-      button(id('play'), group, 'Play / pause', () => a.togglePlay(deck)),
+      button(id('play'), group, t('Play / pause'), () => a.togglePlay(deck)),
       () => a.playing(deck),
     ),
-    hold(id('cue'), group, 'Cue (hold to preview)', (held) => a.cue(deck, held)),
+    hold(id('cue'), group, t('Cue (hold to preview)'), (held) => a.cue(deck, held)),
     lit(
-      button(id('sync'), group, 'Sync', () => a.sync(deck)),
+      button(id('sync'), group, t('Sync'), () => a.sync(deck)),
       () => a.synced(deck),
     ),
     ...Array.from({ length: HOT_CUES }, (_, slot) =>
       lit(
-        button(id(`hotcue${slot + 1}`), group, `Hot cue ${slot + 1}`, () => a.hotCue(deck, slot)),
+        button(id(`hotcue${slot + 1}`), group, t('Hot cue {n}', { n: slot + 1 }), () =>
+          a.hotCue(deck, slot),
+        ),
         () => a.hotCueSet(deck, slot),
       ),
     ),
     lit(
-      button(id('loop'), group, 'Loop 4 beats / exit', () => a.toggleLoop(deck)),
+      button(id('loop'), group, t('Loop 4 beats / exit'), () => a.toggleLoop(deck)),
       () => a.looping(deck),
     ),
-    button(id('loop.halve'), group, 'Halve the loop', () => a.scaleLoop(deck, 0.5)),
-    button(id('loop.double'), group, 'Double the loop', () => a.scaleLoop(deck, 2)),
-    button(id('jump.back'), group, `Jump back ${JUMP_BEATS} beats`, () =>
+    button(id('loop.halve'), group, t('Halve the loop'), () => a.scaleLoop(deck, 0.5)),
+    button(id('loop.double'), group, t('Double the loop'), () => a.scaleLoop(deck, 2)),
+    button(id('jump.back'), group, t('Jump back {n} beats', { n: JUMP_BEATS }), () =>
       a.beatJump(deck, -JUMP_BEATS),
     ),
-    button(id('jump.forward'), group, `Jump ${JUMP_BEATS} beats ahead`, () =>
+    button(id('jump.forward'), group, t('Jump {n} beats ahead', { n: JUMP_BEATS }), () =>
       a.beatJump(deck, JUMP_BEATS),
     ),
-    hold(id('bend.down'), group, 'Slow down while held', (held) => a.bend(deck, held ? -1 : 0)),
-    hold(id('bend.up'), group, 'Speed up while held', (held) => a.bend(deck, held ? 1 : 0)),
+    hold(id('bend.down'), group, t('Slow down while held'), (held) => a.bend(deck, held ? -1 : 0)),
+    hold(id('bend.up'), group, t('Speed up while held'), (held) => a.bend(deck, held ? 1 : 0)),
     lit(
-      button(id('keylock'), group, 'Key lock', () => a.toggleKeyLock(deck)),
+      button(id('keylock'), group, t('Key lock'), () => a.toggleKeyLock(deck)),
       () => a.keyLocked(deck),
     ),
     ...Array.from({ length: SAMPLE_SLOTS }, (_, slot) =>
       lit(
-        button(id(`sample${slot + 1}`), group, `Sample ${slot + 1}`, () =>
+        button(id(`sample${slot + 1}`), group, t('Sample {n}', { n: slot + 1 }), () =>
           a.triggerSample(deck, slot),
         ),
         () => a.samplePlaying(deck, slot),
       ),
     ),
     lit(
-      button(id('fx'), group, 'Effect on / off', () => a.toggleFx(deck)),
+      button(id('fx'), group, t('Effect on / off'), () => a.toggleFx(deck)),
       () => a.fxOn(deck),
     ),
-    fader(id('fx.mix'), group, 'Effect level', (v) => a.setFxMix(deck, v)),
-    fader(id('pitch'), group, 'Tempo', (v) => a.setPitch(deck, v)),
-    fader(id('volume'), group, 'Volume', (v) => a.setVolume(deck, v)),
+    fader(id('fx.mix'), group, t('Effect level'), (v) => a.setFxMix(deck, v)),
+    fader(id('pitch'), group, t('Tempo'), (v) => a.setPitch(deck, v)),
+    fader(id('volume'), group, t('Volume'), (v) => a.setVolume(deck, v)),
     ...BANDS.map((band) =>
-      fader(id(`eq.${band}`), group, `EQ ${band}`, (v) => a.setEq(deck, band, v)),
+      fader(id(`eq.${band}`), group, EQ_LABEL[band], (v) => a.setEq(deck, band, v)),
     ),
-    fader(id('filter'), group, 'Filter', (v) => a.setFilter(deck, v)),
+    fader(id('filter'), group, t('Filter'), (v) => a.setFilter(deck, v)),
   ];
 }
 
 export function buildControls(a: ControlActions): Control[] {
-  const library = 'Library';
+  const library = t('Library');
   return [
     ...Array.from({ length: DECK_COUNT }, (_, deck) => deckControls(a, deck)).flat(),
-    fader('mixer.crossfader', 'Mixer', 'Crossfader', (v) => a.setCrossfader(v)),
+    fader('mixer.crossfader', t('Mixer'), t('Crossfader'), (v) => a.setCrossfader(v)),
     {
       id: 'library.browse',
       group: library,
-      label: 'Browse',
+      label: t('Browse'),
       kind: 'encoder',
       apply: (steps) => a.browse(steps),
     },
-    button('library.previous', library, 'Previous track', () => a.browse(-1)),
-    button('library.next', library, 'Next track', () => a.browse(1)),
+    button('library.previous', library, t('Previous track'), () => a.browse(-1)),
+    button('library.next', library, t('Next track'), () => a.browse(1)),
     ...Array.from({ length: DECK_COUNT }, (_, deck) =>
-      button(`library.load${deck + 1}`, library, `Load on deck ${deck + 1}`, () =>
+      button(`library.load${deck + 1}`, library, t('Load on deck {n}', { n: deck + 1 }), () =>
         a.loadSelected(deck),
       ),
     ),
-    button('library.load', library, 'Load on a free deck', () => a.loadSelected(null)),
-    button('library.remove', library, 'Remove from the crate or prepare list', () =>
+    button('library.load', library, t('Load on a free deck'), () => a.loadSelected(null)),
+    button('library.remove', library, t('Remove from the crate or prepare list'), () =>
       a.removeSelected(),
     ),
-    button('library.prepare', library, 'Add to the prepare list', () => a.prepareSelected()),
-    button('library.search', library, 'Search', () => a.focusSearch()),
-    button('general.help', 'General', 'Keyboard shortcuts', () => a.toggleHelp()),
+    button('library.prepare', library, t('Add to the prepare list'), () => a.prepareSelected()),
+    button('library.search', library, t('Search'), () => a.focusSearch()),
+    button('general.help', t('General'), t('Keyboard shortcuts'), () => a.toggleHelp()),
   ];
 }

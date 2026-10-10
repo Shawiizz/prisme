@@ -6,11 +6,13 @@ import { PrepareService } from '../../../core/services/prepare.service';
 import { TRACKS_DRAG_TYPE } from '../../../shared/drag';
 import { Crate } from '../../../core/models/library';
 import { SmartCrateDialog } from '../smart-crate-dialog/smart-crate-dialog';
+import { LOCALE, t } from '../../../core/i18n/i18n';
+import { TPipe } from '../../../core/i18n/t.pipe';
 
 type Deletable = 'crate' | 'session';
 type DropTarget = number | 'prepare';
 
-const SESSION_DATE = new Intl.DateTimeFormat('en-GB', {
+const SESSION_DATE = new Intl.DateTimeFormat(LOCALE, {
   weekday: 'short',
   day: 'numeric',
   month: 'short',
@@ -26,7 +28,7 @@ const SESSION_DATE = new Intl.DateTimeFormat('en-GB', {
   selector: 'app-library-sidebar',
   templateUrl: './library-sidebar.html',
   styleUrl: './library-sidebar.scss',
-  imports: [SmartCrateDialog],
+  imports: [SmartCrateDialog, TPipe],
 })
 export class LibrarySidebar {
   protected readonly library = inject(LibraryService);
@@ -55,7 +57,7 @@ export class LibrarySidebar {
     const rel = listing.path.startsWith(root) ? listing.path.slice(root.length) : '';
     const parts = rel.split(/[\\/]/).filter(Boolean);
     const sep = root.includes('\\') ? '\\' : '/';
-    const crumbs = [{ name: 'Music', path: root }];
+    const crumbs = [{ name: t('Music'), path: root }];
     let acc = root;
     for (const p of parts) {
       acc = acc + sep + p;

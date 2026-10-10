@@ -10,6 +10,7 @@ import {
 } from '@angular/core';
 import { EngineService } from '../../../core/services/engine.service';
 import { WaveformOverlay, WaveformPainter } from './waveform-painter';
+import { TPipe } from '../../../core/i18n/t.pipe';
 
 /** Seconds shown in the scrolling view. */
 const ZOOM_SPAN_S = 10;
@@ -22,6 +23,7 @@ const ZOOM_SPAN_S = 10;
   selector: 'app-deck-waveform',
   templateUrl: './deck-waveform.html',
   styleUrl: './deck-waveform.scss',
+  imports: [TPipe],
 })
 export class DeckWaveform {
   readonly deck = input.required<number>();

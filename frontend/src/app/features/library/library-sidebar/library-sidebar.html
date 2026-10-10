@@ -4,38 +4,38 @@
       class="item"
       [class.current]="library.source().kind === 'prepare'"
       [class.drop]="dropTarget() === 'prepare'"
-      title="Tracks lined up for the set; a played track leaves the list"
+      [title]="'Tracks lined up for the set; a played track leaves the list' | t"
       (click)="library.openPrepare()"
       (dragover)="dragOver($event, 'prepare')"
       (dragleave)="dropTarget.set(null)"
       (drop)="drop($event, 'prepare')"
     >
       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 7h14M5 12h14M5 17h9" /></svg>
-      <span class="name">Prepare</span>
+      <span class="name">{{ 'Prepare' | t }}</span>
       <span class="count">{{ prepareCount() }}</span>
     </div>
     <div
       class="item"
       [class.current]="library.source().kind === 'duplicates'"
-      title="Tracks that look like the same song: same artist and title, or file name"
+      [title]="'Tracks that look like the same song: same artist and title, or file name' | t"
       (click)="library.openDuplicates()"
     >
       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 4h10v12H8zM5 8v12h10" /></svg>
-      <span class="name">Duplicates</span>
+      <span class="name">{{ 'Duplicates' | t }}</span>
     </div>
   </div>
 </section>
 <section class="crates">
   <header>
-    <span>Crates</span>
+    <span>{{ 'Crates' | t }}</span>
     <span class="adds">
       <button
-        title="New smart crate: tracks picked by rules"
+        [title]="'New smart crate: tracks picked by rules' | t"
         (click)="smartDialog.set({ crate: null })"
       >
-        + Smart
+        + {{ 'Smart' | t }}
       </button>
-      <button class="add" title="New crate" (click)="editing.set('new')">+</button>
+      <button class="add" [title]="'New crate' | t" (click)="editing.set('new')">+</button>
     </span>
   </header>
   <div class="list">
@@ -43,7 +43,7 @@
       <input
         #nameInput
         class="name-input"
-        placeholder="Crate name"
+        [placeholder]="'Crate name' | t"
         (keydown.enter)="commitEdit($any($event.target).value)"
         (keydown.escape)="editing.set(null)"
         (blur)="editing.set(null)"
@@ -77,7 +77,9 @@
           }
           <span
             class="name"
-            [title]="c.rules ? 'Double-click to change the rules' : 'Double-click to rename'"
+            [title]="
+              c.rules ? ('Double-click to change the rules' | t) : ('Double-click to rename' | t)
+            "
             >{{ c.name }}</span
           >
           <span class="count">{{ c.trackCount }}</span>
@@ -85,24 +87,28 @@
             class="delete"
             [class.armed]="isArmed('crate', c.id)"
             [title]="
-              isArmed('crate', c.id) ? 'Click again to delete' : 'Delete the crate (not its tracks)'
+              isArmed('crate', c.id)
+                ? ('Click again to delete' | t)
+                : ('Delete the crate (not its tracks)' | t)
             "
             (click)="delete('crate', c.id); $event.stopPropagation()"
           >
-            {{ isArmed('crate', c.id) ? 'Delete' : '×' }}
+            {{ isArmed('crate', c.id) ? ('Delete' | t) : '×' }}
           </button>
         </div>
       }
     } @empty {
       @if (editing() !== 'new') {
-        <div class="none">No crate yet</div>
+        <div class="none">{{ 'No crate yet' | t }}</div>
       }
     }
   </div>
 </section>
 
 <section class="history">
-  <header><span>History</span></header>
+  <header>
+    <span>{{ 'History' | t }}</span>
+  </header>
   <div class="list">
     @for (s of sessions(); track s.id) {
       <div
@@ -118,7 +124,7 @@
         <span class="count">{{ s.playCount }}</span>
         <button
           class="action"
-          title="Export the tracklist (CSV)"
+          [title]="'Export the tracklist (CSV)' | t"
           (click)="library.exportSession(s); $event.stopPropagation()"
         >
           CSV
@@ -127,15 +133,17 @@
           class="delete"
           [class.armed]="isArmed('session', s.id)"
           [title]="
-            isArmed('session', s.id) ? 'Click again to delete' : 'Delete this set from the history'
+            isArmed('session', s.id)
+              ? ('Click again to delete' | t)
+              : ('Delete this set from the history' | t)
           "
           (click)="delete('session', s.id); $event.stopPropagation()"
         >
-          {{ isArmed('session', s.id) ? 'Delete' : '×' }}
+          {{ isArmed('session', s.id) ? ('Delete' | t) : '×' }}
         </button>
       </div>
     } @empty {
-      <div class="none">Tracks played for 30 s are listed here, set by set</div>
+      <div class="none">{{ 'Tracks played for 30 s are listed here, set by set' | t }}</div>
     }
   </div>
 </section>
@@ -162,7 +170,7 @@
         {{ f.name }}
       </div>
     } @empty {
-      <div class="none">No sub-folder</div>
+      <div class="none">{{ 'No sub-folder' | t }}</div>
     }
   </div>
 </section>

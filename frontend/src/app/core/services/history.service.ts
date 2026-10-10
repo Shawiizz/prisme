@@ -2,6 +2,7 @@ import { Injectable, signal } from '@angular/core';
 import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
 import { save } from '@tauri-apps/plugin-dialog';
+import { t } from '../i18n/i18n';
 import { HistoryPlay, HistorySession } from '../models/library';
 
 /** The history of the sets, updated as tracks get played (`history-changed`). */
@@ -35,7 +36,7 @@ export class HistoryService {
   /** Asks where to save the tracklist (CSV); `false` if cancelled. */
   async export(session: HistorySession): Promise<boolean> {
     const path = await save({
-      defaultPath: `Set ${fileDate(session.startedAtMs)}.csv`,
+      defaultPath: t('Set {date}.csv', { date: fileDate(session.startedAtMs) }),
       filters: [{ name: 'CSV', extensions: ['csv'] }],
     });
     if (!path) return false;

@@ -3,6 +3,7 @@ import { GridChange } from '../../../core/models/engine';
 import { EngineService } from '../../../core/services/engine.service';
 import { TrackEditService } from '../../../core/services/track-edit.service';
 import { TapTempo } from '../../../shared/tap-tempo';
+import { TPipe } from '../../../core/i18n/t.pipe';
 
 /** Grid moves of the arrow buttons: fine and coarse (seconds). */
 const FINE_SHIFT_S = 0.002;
@@ -13,6 +14,7 @@ const COARSE_SHIFT_S = 0.02;
   selector: 'app-grid-editor',
   templateUrl: './grid-editor.html',
   styleUrl: './grid-editor.scss',
+  imports: [TPipe],
 })
 export class GridEditor {
   readonly deck = input.required<number>();

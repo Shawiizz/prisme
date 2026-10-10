@@ -1,5 +1,7 @@
 /** Shapes exchanged with the Rust side about MIDI controllers (see `controllers.rs`). */
 
+import { t } from '../i18n/i18n';
+
 export interface Controller {
   /** The MIDI port name. */
   name: string;
@@ -31,9 +33,9 @@ export interface ControllerInput {
 export function describeControl(c: MidiControl): string {
   const what =
     c.kind === 'note'
-      ? `Note ${c.number}`
+      ? t('Note {n}', { n: c.number })
       : c.kind === 'controlChange'
         ? `CC ${c.number}`
-        : 'Pitch bend';
-  return `${what} · ch ${c.channel + 1}`;
+        : t('Pitch bend');
+  return `${what} · ${t('ch {n}', { n: c.channel + 1 })}`;
 }

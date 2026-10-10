@@ -3,6 +3,7 @@ import { EngineService } from '../../core/services/engine.service';
 import { MixerService } from '../../core/services/mixer.service';
 import { DECK_COUNT } from '../../core/models/engine';
 import { deckColor } from '../../shared/time';
+import { TPipe } from '../../core/i18n/t.pipe';
 
 /**
  * External mixer: the level sent to each deck's outputs. Software mixer: channel volumes,
@@ -13,6 +14,7 @@ import { deckColor } from '../../shared/time';
   selector: 'app-mixer',
   templateUrl: './mixer.html',
   styleUrl: './mixer.scss',
+  imports: [TPipe],
 })
 export class Mixer {
   protected readonly engine = inject(EngineService);

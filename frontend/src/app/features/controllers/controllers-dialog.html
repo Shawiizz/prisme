@@ -1,8 +1,8 @@
 <div class="backdrop" (click)="closed.emit()">
   <div class="dialog" (click)="$event.stopPropagation()">
     <header>
-      <h2>Controllers</h2>
-      <button (click)="service.refresh()">Refresh</button>
+      <h2>{{ 'Controllers' | t }}</h2>
+      <button (click)="service.refresh()">{{ 'Refresh' | t }}</button>
     </header>
 
     <section class="devices">
@@ -15,31 +15,31 @@
           />
           <span>{{ c.name }}</span>
           @if (!c.plugged) {
-            <small>not plugged in</small>
+            <small>{{ 'not plugged in' | t }}</small>
           }
         </label>
       } @empty {
-        <p class="hint">No MIDI controller plugged in.</p>
+        <p class="hint">{{ 'No MIDI controller plugged in.' | t }}</p>
       }
     </section>
     <label class="clock">
-      <span>MIDI clock out</span>
+      <span>{{ 'MIDI clock out' | t }}</span>
       <select
         [value]="service.clockOutput() ?? ''"
         (change)="service.setClockOutput($any($event.target).value || null)"
       >
-        <option value="">None</option>
+        <option value="">{{ 'None' | t }}</option>
         @for (o of service.outputs(); track o) {
           <option [value]="o">{{ o }}</option>
         }
       </select>
-      <small>24 ticks per beat of the sync leader</small>
+      <small>{{ '24 ticks per beat of the sync leader' | t }}</small>
     </label>
 
     @if (canLearn()) {
-      <p class="hint">Press Learn, then move the control on the controller.</p>
+      <p class="hint">{{ 'Press Learn, then move the control on the controller.' | t }}</p>
     } @else if (service.controllers().length > 0) {
-      <p class="hint">Tick a controller to map its controls.</p>
+      <p class="hint">{{ 'Tick a controller to map its controls.' | t }}</p>
     }
     <div class="groups">
       @for (g of groups(); track g.name) {
@@ -56,12 +56,14 @@
                 }
               </span>
               <button [disabled]="!canLearn()" (click)="toggleLearning(row.control.id)">
-                {{ service.learning() === row.control.id ? 'Move a control…' : 'Learn' }}
+                {{
+                  service.learning() === row.control.id ? ('Move a control…' | t) : ('Learn' | t)
+                }}
               </button>
               <button
                 class="forget"
                 [disabled]="row.bindings.length === 0"
-                title="Unmap"
+                [title]="'Unmap' | t"
                 (click)="service.forget(row.control.id)"
               >
                 ✕
@@ -73,7 +75,7 @@
     </div>
 
     <div class="buttons">
-      <button (click)="closed.emit()">Close</button>
+      <button (click)="closed.emit()">{{ 'Close' | t }}</button>
     </div>
   </div>
 </div>

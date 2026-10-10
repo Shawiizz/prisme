@@ -1,6 +1,6 @@
 <div class="panel" [style.--accent]="color()">
   <h3>
-    <span class="tile">{{ deck() + 1 }}</span> Turntable {{ deck() + 1 }}
+    <span class="tile">{{ deck() + 1 }}</span> {{ 'Turntable {n}' | t: { n: deck() + 1 } }}
   </h3>
 
   <canvas
@@ -13,19 +13,19 @@
 
   <div class="readings">
     <div>
-      <span class="label">Signal</span>
-      <span class="value" [class]="vinyl()?.signal ?? 'none'">{{ vinyl()?.signal ?? 'none' }}</span>
+      <span class="label">{{ 'Signal' | t }}</span>
+      <span class="value" [class]="vinyl()?.signal ?? 'none'">{{ signalText() }}</span>
     </div>
     <div>
-      <span class="label">Level</span>
+      <span class="label">{{ 'Level' | t }}</span>
       <div class="bar"><div [style.width.%]="levelPercent()"></div></div>
     </div>
     <div>
-      <span class="label">Speed</span>
+      <span class="label">{{ 'Speed' | t }}</span>
       <span class="value">{{ speed() }}</span>
     </div>
     <div>
-      <span class="label">Record</span>
+      <span class="label">{{ 'Record' | t }}</span>
       <span class="value">{{ position() }}</span>
     </div>
   </div>
@@ -37,33 +37,33 @@
         [checked]="settings().vinylEnabled"
         (change)="setEnabled($any($event.target).checked)"
       />
-      <span>Vinyl control</span>
+      <span>{{ 'Vinyl control' | t }}</span>
     </label>
     <div class="modes">
       <button
         [class.active]="settings().vinylMode === 'absolute'"
         (click)="setMode('absolute')"
-        title="The needle position is the track position"
+        [title]="'The needle position is the track position' | t"
       >
         ABS
       </button>
       <button
         [class.active]="settings().vinylMode === 'relative'"
         (click)="setMode('relative')"
-        title="Only the speed: cues, loops and sync work"
+        [title]="'Only the speed: cues, loops and sync work' | t"
       >
         REL
       </button>
     </div>
     <label>
-      <span class="label">Lead-in (s)</span>
+      <span class="label">{{ 'Lead-in (s)' | t }}</span>
       <input
         type="number"
         min="0"
         step="0.5"
         [value]="settings().leadInS"
         (change)="setLeadIn($event)"
-        title="Where the track starts on the record"
+        [title]="'Where the track starts on the record' | t"
       />
     </label>
     <label class="check">
@@ -72,7 +72,7 @@
         [checked]="settings().swapChannels"
         (change)="setSwap($any($event.target).checked)"
       />
-      <span>Swap left / right</span>
+      <span>{{ 'Swap left / right' | t }}</span>
     </label>
   </div>
 </div>

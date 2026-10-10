@@ -1,21 +1,24 @@
 import { Component, output } from '@angular/core';
 import { DECK_COUNT } from '../../core/models/engine';
 import { TurntablePanel } from './turntable-panel';
+import { TPipe } from '../../core/i18n/t.pipe';
 
 /** Both turntables side by side, to check and set up vinyl control. */
 @Component({
   selector: 'app-turntables-dialog',
-  imports: [TurntablePanel],
+  imports: [TurntablePanel, TPipe],
   template: `
     <div class="backdrop" (click)="closed.emit()">
       <div class="dialog" (click)="$event.stopPropagation()">
-        <h2>Turntables</h2>
+        <h2>{{ 'Turntables' | t }}</h2>
         <div class="decks">
           @for (d of decks; track d) {
             <app-turntable-panel [deck]="d" />
           }
         </div>
-        <div class="buttons"><button (click)="closed.emit()">Close</button></div>
+        <div class="buttons">
+          <button (click)="closed.emit()">{{ 'Close' | t }}</button>
+        </div>
       </div>
     </div>
   `,

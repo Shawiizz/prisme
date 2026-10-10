@@ -1,6 +1,7 @@
 import { Injectable, computed, inject, signal } from '@angular/core';
 import { invoke } from '@tauri-apps/api/core';
 import { RecordSource, Recording } from '../models/engine';
+import { t } from '../i18n/i18n';
 import { EngineService } from './engine.service';
 import { MixerService } from './mixer.service';
 import { SettingsService } from './settings.service';
@@ -32,16 +33,16 @@ export class RecordingService {
     if (this.mixer.internal()) {
       options.push({
         source: { kind: 'master' },
-        label: 'Master',
-        title: 'What the software mixer plays',
+        label: t('Master'),
+        title: t('What the software mixer plays'),
       });
     }
     const inputs = this.settings.info()?.inputChannels ?? 0;
     for (let first = 0; first + 1 < inputs; first += 2) {
       options.push({
         source: { kind: 'input', first },
-        label: `Inputs ${first + 1}-${first + 2}`,
-        title: "What comes into these inputs: plug the hardware mixer's record output there",
+        label: t('Inputs {from}-{to}', { from: first + 1, to: first + 2 }),
+        title: t("What comes into these inputs: plug the hardware mixer's record output there"),
       });
     }
     return options;

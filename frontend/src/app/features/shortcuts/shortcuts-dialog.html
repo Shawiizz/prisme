@@ -1,6 +1,6 @@
 <div class="backdrop" (click)="controls.helpOpen.set(false)">
   <div class="dialog" (click)="$event.stopPropagation()">
-    <h2>Keyboard shortcuts</h2>
+    <h2>{{ 'Keyboard shortcuts' | t }}</h2>
     <div class="groups">
       @for (g of groups(); track g.name) {
         <section>
@@ -15,7 +15,7 @@
       }
     </div>
     <div class="buttons">
-      <button (click)="controls.helpOpen.set(false)">Close</button>
+      <button (click)="controls.helpOpen.set(false)">{{ 'Close' | t }}</button>
     </div>
   </div>
 </div>

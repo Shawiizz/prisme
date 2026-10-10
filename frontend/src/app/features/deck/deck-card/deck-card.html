@@ -10,9 +10,9 @@
         <span class="title">{{ t.title }}</span>
         <span class="time">{{ remaining() }}</span>
       } @else if (loading()) {
-        <span class="empty">LOADING…</span>
+        <span class="empty">{{ 'LOADING…' | t }}</span>
       } @else {
-        <span class="empty">NO TRACK LOADED</span>
+        <span class="empty">{{ 'NO TRACK LOADED' | t }}</span>
       }
     </div>
     <div class="row sub">
@@ -28,7 +28,7 @@
       <button
         class="analysis"
         [disabled]="!track()"
-        title="Beat grid, key and key shift"
+        [title]="'Beat grid, key and key shift' | t"
         (click)="editing.set(!editing())"
       >
         <div class="stat">
@@ -54,7 +54,7 @@
       </div>
 
       <div class="vinyl">
-        <span class="signal" [class]="signal()" [title]="'Timecode signal: ' + signal()"></span>
+        <span class="signal" [class]="signal()" [title]="signalTitle()"></span>
         <button [class.active]="settings().vinylEnabled" (click)="toggleVinyl()">VINYL</button>
         <button [class.active]="settings().vinylEnabled" (click)="toggleMode()">
           {{ settings().vinylMode === 'absolute' ? 'ABS' : 'REL' }}

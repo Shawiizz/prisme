@@ -37,19 +37,19 @@
         class="key-lock"
         [class.active]="engine.decks()[deck()].keyLock"
         (click)="engine.setKeyLock(deck(), !engine.decks()[deck()].keyLock)"
-        title="Key lock: the pitch stays when the tempo changes"
+        [title]="'Key lock: the pitch stays when the tempo changes' | t"
       >
         KEY
       </button>
       @if (status()?.sync?.leader) {
-        <span class="leader" title="The other decks follow this one">LEADER</span>
+        <span class="leader" [title]="'The other decks follow this one' | t">LEADER</span>
       }
-      <span class="value" (dblclick)="resetPitch()" title="Double-click to reset">{{
+      <span class="value" (dblclick)="resetPitch()" [title]="'Double-click to reset' | t">{{
         pitchText()
       }}</span>
       <button
         class="bend"
-        title="Slow down while held"
+        [title]="'Slow down while held' | t"
         [disabled]="tempoFaderLocked()"
         (pointerdown)="bend(-1)"
         (pointerup)="bend(0)"
@@ -59,7 +59,7 @@
       </button>
       <button
         class="bend"
-        title="Speed up while held"
+        [title]="'Speed up while held' | t"
         [disabled]="tempoFaderLocked()"
         (pointerdown)="bend(1)"
         (pointerup)="bend(0)"
@@ -78,7 +78,7 @@
       (dblclick)="resetPitch()"
       [disabled]="tempoFaderLocked()"
     />
-    <div class="phase" [class.aligned]="aligned()" title="Beat offset from the other deck">
+    <div class="phase" [class.aligned]="aligned()" [title]="'Beat offset from the other deck' | t">
       @let offset = phase();
       @if (offset !== null) {
         <div class="marker" [style.left.%]="50 + offset * 100"></div>
@@ -91,8 +91,8 @@
   }
 
   @if (pitchHint(); as hint) {
-    <div class="note">Pitch {{ hint }} to match</div>
+    <div class="note">{{ 'Pitch {change} to match' | t: { change: hint } }}</div>
   } @else if (vinyl()) {
-    <div class="note">Driven by the turntable</div>
+    <div class="note">{{ 'Driven by the turntable' | t }}</div>
   }
 </div>

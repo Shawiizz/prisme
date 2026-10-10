@@ -5,6 +5,8 @@ import { EngineService } from '../../../core/services/engine.service';
 import { PreferencesService } from '../../../core/services/preferences.service';
 import { phaseOffset, pitchToMatch } from '../../../core/sync';
 import { deckColor, formatPitch } from '../../../shared/time';
+import { t } from '../../../core/i18n/i18n';
+import { TPipe } from '../../../core/i18n/t.pipe';
 
 /** Beat offset under which two decks count as aligned on the phase meter. */
 const ALIGNED_BEATS = 0.02;
@@ -16,7 +18,7 @@ type SyncState = 'off' | 'matched' | 'locked';
   selector: 'app-deck-controls',
   templateUrl: './deck-controls.html',
   styleUrl: './deck-controls.scss',
-  imports: [ChannelStrip],
+  imports: [ChannelStrip, TPipe],
 })
 export class DeckControls {
   readonly deck = input.required<number>();
@@ -49,10 +51,10 @@ export class DeckControls {
     return !!s?.loaded && s.bpm !== null && !this.absolute();
   });
   protected readonly syncTitle = computed(() => {
-    if (this.absolute()) return 'Sync needs relative mode or internal play';
-    if (this.status()?.bpm == null) return 'No beat grid';
+    if (this.absolute()) return t('Sync needs relative mode or internal play');
+    if (this.status()?.bpm == null) return t('No beat grid');
     const once = this.vinyl() && this.preferences.dj().vinylSync === 'once';
-    return once ? 'Match the tempo and beats once' : 'Lock to the leader';
+    return once ? t('Match the tempo and beats once') : t('Lock to the leader');
   });
   protected readonly tempoFaderLocked = computed(
     () => this.vinyl() || this.syncState() === 'locked',

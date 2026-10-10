@@ -1,22 +1,21 @@
 <div class="backdrop" (click)="closed.emit()">
   <div class="dialog" (click)="$event.stopPropagation()" (keydown.escape)="closed.emit()">
-    <h2>{{ crate() ? 'Smart crate' : 'New smart crate' }}</h2>
+    <h2>{{ crate() ? ('Smart crate' | t) : ('New smart crate' | t) }}</h2>
     <input
       class="name"
-      placeholder="Name"
+      [placeholder]="'Name' | t"
       [value]="name()"
       (input)="name.set($any($event.target).value)"
     />
     <div class="match">
-      Tracks matching
+      {{ 'Tracks matching' | t }}
       <select
         [value]="matchAll() ? 'all' : 'any'"
         (change)="matchAll.set($any($event.target).value === 'all')"
       >
-        <option value="all">all</option>
-        <option value="any">any</option>
+        <option value="all">{{ 'all of these rules' | t }}</option>
+        <option value="any">{{ 'any of these rules' | t }}</option>
       </select>
-      of these rules
     </div>
     <div class="rules">
       @for (r of rules(); track $index; let i = $index) {
@@ -27,14 +26,14 @@
             }
           </select>
           @if (r.kind === 'text') {
-            <span>contains</span>
+            <span>{{ 'contains' | t }}</span>
             <input
               class="grow"
               [value]="r.contains"
               (input)="setContains(i, $any($event.target).value)"
             />
           } @else if (r.kind === 'key') {
-            <span>is one of</span>
+            <span>{{ 'is one of' | t }}</span>
             <input
               class="grow"
               placeholder="8A 9A 8B"
@@ -42,14 +41,14 @@
               (change)="setKeys(i, $any($event.target).value)"
             />
           } @else {
-            <span>from</span>
+            <span>{{ 'from' | t }}</span>
             <input
               class="bound"
               inputmode="decimal"
               [value]="r.min ?? ''"
               (change)="setBound(i, 'min', $any($event.target).value)"
             />
-            <span>to</span>
+            <span>{{ 'to' | t }}</span>
             <input
               class="bound"
               inputmode="decimal"
@@ -57,16 +56,16 @@
               (change)="setBound(i, 'max', $any($event.target).value)"
             />
           }
-          <button class="remove" title="Remove this rule" (click)="remove(i)">×</button>
+          <button class="remove" [title]="'Remove this rule' | t" (click)="remove(i)">×</button>
         </div>
       }
     </div>
     <div class="buttons">
-      <button (click)="add()">Add a rule</button>
+      <button (click)="add()">{{ 'Add a rule' | t }}</button>
       <span class="spacer"></span>
-      <button (click)="closed.emit()">Cancel</button>
+      <button (click)="closed.emit()">{{ 'Cancel' | t }}</button>
       <button class="primary" [disabled]="!name().trim() || !rules().length" (click)="save()">
-        {{ crate() ? 'Save' : 'Create' }}
+        {{ crate() ? ('Save' | t) : ('Create' | t) }}
       </button>
     </div>
   </div>

@@ -1,17 +1,17 @@
 <div class="backdrop" (click)="closed.emit()">
   <div class="dialog" (click)="$event.stopPropagation()">
-    <h2>Settings</h2>
+    <h2>{{ 'Settings' | t }}</h2>
 
     @if (draft(); as d) {
       <div class="sections">
         <section>
           <h3>Audio</h3>
           <label>
-            <span class="label">Driver type</span>
+            <span class="label">{{ 'Driver type' | t }}</span>
             <select [value]="d.backend" (change)="setBackend($any($event.target).value)">
               @for (b of service.backends(); track b) {
                 <option [value]="b">
-                  {{ b === 'asio' ? 'ASIO (lowest latency)' : 'WASAPI (Windows)' }}
+                  {{ b === 'asio' ? ('ASIO (lowest latency)' | t) : 'WASAPI (Windows)' }}
                 </option>
               }
             </select>
@@ -19,30 +19,30 @@
 
           @if (asio()) {
             <label>
-              <span class="label">ASIO driver</span>
+              <span class="label">{{ 'ASIO driver' | t }}</span>
               <select
                 [value]="d.outputDevice ?? ''"
                 (change)="setDriver(orNull($any($event.target).value))"
               >
-                <option value="">Default driver</option>
+                <option value="">{{ 'Default driver' | t }}</option>
                 @for (o of outputs(); track o.name) {
                   <option [value]="o.name">
-                    {{ o.name }} · {{ o.channels }} out · {{ o.sampleRate }} Hz
+                    {{ o.name }} · {{ '{n} out' | t: { n: o.channels } }} · {{ o.sampleRate }} Hz
                   </option>
                 }
               </select>
             </label>
           } @else {
             <label>
-              <span class="label">Output</span>
+              <span class="label">{{ 'Output' | t }}</span>
               <select
                 [value]="d.outputDevice ?? ''"
                 (change)="update({ outputDevice: orNull($any($event.target).value) })"
               >
-                <option value="">Default device</option>
+                <option value="">{{ 'Default device' | t }}</option>
                 @for (o of outputs(); track o.name) {
                   <option [value]="o.name">
-                    {{ o.name }} · {{ o.channels }} ch · {{ o.sampleRate }} Hz
+                    {{ o.name }} · {{ '{n} ch' | t: { n: o.channels } }} · {{ o.sampleRate }} Hz
                   </option>
                 }
               </select>
@@ -50,7 +50,7 @@
           }
 
           <label>
-            <span class="label">Buffer</span>
+            <span class="label">{{ 'Buffer' | t }}</span>
             <select
               [value]="d.bufferFrames ?? ''"
               (change)="
@@ -60,25 +60,39 @@
                 })
               "
             >
-              <option value="">Driver default</option>
+              <option value="">{{ 'Driver default' | t }}</option>
               @for (n of bufferSizes(); track n) {
                 <option [value]="n">{{ bufferLabel(n) }}</option>
               }
             </select>
-            <small>Smaller is more responsive; raise it if the sound crackles.</small>
+            <small>{{ 'Smaller is more responsive; raise it if the sound crackles.' | t }}</small>
           </label>
 
           <label>
-            <span class="label">Mixing</span>
+            <span class="label">{{ 'Mixing' | t }}</span>
             <select [value]="mixMode()" (change)="mixMode.set($any($event.target).value)">
-              <option value="external">External mixer: deck 1 on outputs 1-2, deck 2 on 3-4</option>
-              <option value="internal">Software mixer: master on 1-2, headphones on 3-4</option>
+              <option value="external">
+                {{ 'External mixer: deck 1 on outputs 1-2, deck 2 on 3-4' | t }}
+              </option>
+              <option value="internal">
+                {{ 'Software mixer: master on 1-2, headphones on 3-4' | t }}
+              </option>
+            </select>
+          </label>
+
+          <h3>{{ 'Interface' | t }}</h3>
+          <label>
+            <span class="label">{{ 'Language' | t }}</span>
+            <select (change)="language.set($any($event.target).value)">
+              @for (l of languages; track l.id) {
+                <option [value]="l.id" [selected]="l.id === language()">{{ l.name }}</option>
+              }
             </select>
           </label>
         </section>
 
         <section>
-          <h3>Turntables</h3>
+          <h3>{{ 'Turntables' | t }}</h3>
           @if (asio()) {
             <label class="check">
               <input
@@ -87,29 +101,29 @@
                 [disabled]="d.simulate"
                 (change)="setTurntablesOnDriver($any($event.target).checked)"
               />
-              <span>Turntables plugged into this driver's inputs</span>
+              <span>{{ 'Turntables plugged into the inputs of this driver' | t }}</span>
             </label>
           } @else {
             <label>
-              <span class="label">Input (DVS interface)</span>
+              <span class="label">{{ 'Input (DVS interface)' | t }}</span>
               <select
                 [value]="d.inputDevice ?? ''"
                 (change)="update({ inputDevice: orNull($any($event.target).value) })"
                 [disabled]="d.simulate"
               >
-                <option value="">None</option>
+                <option value="">{{ 'None' | t }}</option>
                 @for (i of inputs(); track i.name) {
                   <option [value]="i.name">
-                    {{ i.name }} · {{ i.channels }} ch · {{ i.sampleRate }} Hz
+                    {{ i.name }} · {{ '{n} ch' | t: { n: i.channels } }} · {{ i.sampleRate }} Hz
                   </option>
                 }
               </select>
             </label>
           }
-          <small>Deck 1 reads inputs 1-2, deck 2 inputs 3-4.</small>
+          <small>{{ 'Deck 1 reads inputs 1-2, deck 2 inputs 3-4.' | t }}</small>
 
           <label>
-            <span class="label">Control vinyl</span>
+            <span class="label">{{ 'Control vinyl' | t }}</span>
             <select
               [value]="d.timecodeFormat"
               (change)="update({ timecodeFormat: $any($event.target).value })"
@@ -126,23 +140,27 @@
               [checked]="d.simulate"
               (change)="update({ simulate: $any($event.target).checked })"
             />
-            <span>Simulated turntable on deck 1 (no hardware needed)</span>
+            <span>{{ 'Simulated turntable on deck 1 (no hardware needed)' | t }}</span>
           </label>
 
           <h3>DJ</h3>
           <label>
-            <span class="label">Sync on a record in relative mode</span>
+            <span class="label">{{ 'Sync on a record in relative mode' | t }}</span>
             <select
               [value]="dj().vinylSync"
               (change)="updateDj({ vinylSync: $any($event.target).value })"
             >
-              <option value="once">One shot: matches once, the pitch fader keeps working</option>
-              <option value="locked">Locked: follows the leader, the pitch fader is ignored</option>
+              <option value="once">
+                {{ 'One shot: matches once, the pitch fader keeps working' | t }}
+              </option>
+              <option value="locked">
+                {{ 'Locked: follows the leader, the pitch fader is ignored' | t }}
+              </option>
             </select>
           </label>
 
           <label>
-            <span class="label">Tempo fader range</span>
+            <span class="label">{{ 'Tempo fader range' | t }}</span>
             <select
               [value]="dj().pitchRange"
               (change)="updateDj({ pitchRange: +$any($event.target).value })"
@@ -159,7 +177,7 @@
               [checked]="dj().quantize"
               (change)="updateDj({ quantize: $any($event.target).checked })"
             />
-            <span>Quantize: cues, loops and jumps land on the beat</span>
+            <span>{{ 'Quantize: cues, loops and jumps land on the beat' | t }}</span>
           </label>
         </section>
       </div>
@@ -171,18 +189,18 @@
       <div class="buttons">
         <button
           class="diagnostics"
-          title="Versions, audio setup and the end of the log, to help understand a problem"
+          [title]="'Versions, audio setup and the end of the log, to help understand a problem' | t"
           (click)="saveDiagnostics()"
         >
-          {{ diagnosticsSaved() ? 'Report saved' : 'Save a diagnostic report…' }}
+          {{ diagnosticsSaved() ? ('Report saved' | t) : ('Save a diagnostic report…' | t) }}
         </button>
-        <button (click)="closed.emit()">Cancel</button>
+        <button (click)="closed.emit()">{{ 'Cancel' | t }}</button>
         <button class="primary" (click)="apply()" [disabled]="busy()">
-          {{ busy() ? 'Starting…' : 'Apply' }}
+          {{ busy() ? ('Starting…' | t) : ('Apply' | t) }}
         </button>
       </div>
     } @else {
-      <p class="loading">Reading devices…</p>
+      <p class="loading">{{ 'Reading devices…' | t }}</p>
     }
   </div>
 </div>

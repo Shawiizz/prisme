@@ -1,19 +1,21 @@
 import { Component, inject, input, linkedSignal, output } from '@angular/core';
 import { Crate, Rule, SmartRules, TextField } from '../../../core/models/library';
 import { LibraryService } from '../../../core/services/library.service';
+import { t } from '../../../core/i18n/i18n';
+import { TPipe } from '../../../core/i18n/t.pipe';
 
 type Choice = TextField | 'bpm' | 'year' | 'key';
 
 const CHOICES: { id: Choice; label: string }[] = [
-  { id: 'genre', label: 'Genre' },
-  { id: 'artist', label: 'Artist' },
-  { id: 'title', label: 'Title' },
-  { id: 'album', label: 'Album' },
-  { id: 'comment', label: 'Comment' },
-  { id: 'fileName', label: 'File name' },
+  { id: 'genre', label: t('Genre') },
+  { id: 'artist', label: t('Artist') },
+  { id: 'title', label: t('Title') },
+  { id: 'album', label: t('Album') },
+  { id: 'comment', label: t('Comment') },
+  { id: 'fileName', label: t('File name') },
   { id: 'bpm', label: 'BPM' },
-  { id: 'year', label: 'Year' },
-  { id: 'key', label: 'Key' },
+  { id: 'year', label: t('Year') },
+  { id: 'key', label: t('Key') },
 ];
 
 function newRule(choice: Choice): Rule {
@@ -33,6 +35,7 @@ function newRule(choice: Choice): Rule {
   selector: 'app-smart-crate-dialog',
   templateUrl: './smart-crate-dialog.html',
   styleUrl: './smart-crate-dialog.scss',
+  imports: [TPipe],
 })
 export class SmartCrateDialog {
   /** The crate to change; `null` to create one. */

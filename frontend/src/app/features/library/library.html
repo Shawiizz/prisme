@@ -3,7 +3,7 @@
 
   <div class="tracks">
     <div class="toolbar">
-      <div class="scope" role="group" aria-label="Search in">
+      <div class="scope" role="group" [attr.aria-label]="'Search in' | t">
         <button [class.active]="library.scope() === 'list'" (click)="library.setScope('list')">
           {{ listLabel() }}
         </button>
@@ -11,49 +11,49 @@
           [class.active]="library.scope() === 'library'"
           (click)="library.setScope('library')"
         >
-          Library
+          {{ 'Library' | t }}
         </button>
       </div>
       <input
         #search
         type="search"
         [placeholder]="
-          library.scope() === 'list'
-            ? 'Search in this ' + listLabel().toLowerCase()
-            : 'Search the whole library'
+          library.scope() === 'list' ? searchPlaceholder() : ('Search the whole library' | t)
         "
         [value]="library.filter()"
         (input)="library.setFilter($any($event.target).value)"
         (keydown.escape)="search.blur()"
       />
-      <span class="count"
-        >{{ tracks().length }} {{ tracks().length === 1 ? 'track' : 'tracks' }}</span
-      >
+      <span class="count">{{
+        tracks().length === 1 ? ('1 track' | t) : ('{n} tracks' | t: { n: tracks().length })
+      }}</span>
       @if (engine.error() ?? library.error(); as e) {
         <span class="error" [title]="e">{{ e }}</span>
       }
       <div class="analysis">
         @if (progress().running) {
-          <span class="status">Analysing {{ progress().done }} / {{ progress().total }}</span>
+          <span class="status">{{
+            'Analysing {done} / {total}' | t: { done: progress().done, total: progress().total }
+          }}</span>
           <div class="bar"><div [style.width.%]="progressPercent()"></div></div>
         } @else if (progress().failed > 0) {
-          <span class="status" title="Files that could not be decoded"
-            >{{ progress().failed }} unreadable</span
-          >
+          <span class="status" [title]="'Files that could not be decoded' | t">{{
+            '{n} unreadable' | t: { n: progress().failed }
+          }}</span>
         }
         <button
           (click)="importOpen.set(true)"
-          title="Crates, cues and grids from Serato or rekordbox"
+          [title]="'Crates, cues and grids from Serato or rekordbox' | t"
         >
-          Import
+          {{ 'Import' | t }}
         </button>
         <button
           class="ghost"
           (click)="library.rescan()"
           [disabled]="progress().running"
-          title="Analyse new and changed files"
+          [title]="'Analyse new and changed files' | t"
         >
-          Rescan
+          {{ 'Rescan' | t }}
         </button>
       </div>
     </div>

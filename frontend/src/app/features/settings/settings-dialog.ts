@@ -5,12 +5,15 @@ import { MixerService } from '../../core/services/mixer.service';
 import { AudioBackend, AudioSettings, BUFFER_SIZES } from '../../core/models/audio';
 import { MixMode } from '../../core/models/engine';
 import { DjPreferences, PITCH_RANGES } from '../../core/models/preferences';
+import { LANGUAGE, LANGUAGES, Language, setLanguage, t } from '../../core/i18n/i18n';
+import { TPipe } from '../../core/i18n/t.pipe';
 
-/** Settings: audio backend and devices, mixing, turntables, DJ preferences; diagnostics. */
+/** Settings: audio backend and devices, mixing, language, turntables, DJ preferences; diagnostics. */
 @Component({
   selector: 'app-settings-dialog',
   templateUrl: './settings-dialog.html',
   styleUrl: './settings-dialog.scss',
+  imports: [TPipe],
 })
 export class SettingsDialog implements OnInit {
   protected readonly service = inject(SettingsService);
@@ -19,6 +22,8 @@ export class SettingsDialog implements OnInit {
   readonly closed = output<void>();
 
   protected readonly pitchRanges = PITCH_RANGES;
+  protected readonly languages = LANGUAGES;
+  protected readonly language = signal<Language>(LANGUAGE);
   protected readonly draft = signal<AudioSettings | null>(null);
   protected readonly dj = signal<DjPreferences>(this.preferences.dj());
   protected readonly mixMode = signal<MixMode>(this.mixer.mode());
@@ -85,6 +90,7 @@ export class SettingsDialog implements OnInit {
         await this.service.apply(d);
       }
       await this.mixer.setMode(this.mixMode());
+      if (this.language() !== LANGUAGE) setLanguage(this.language());
       this.closed.emit();
     } catch (e) {
       this.error.set(String(e));
@@ -108,6 +114,6 @@ export class SettingsDialog implements OnInit {
 
   bufferLabel(frames: number): string {
     const rate = this.service.info()?.sampleRate ?? 48_000;
-    return `${frames} samples · ${((frames / rate) * 1000).toFixed(1)} ms`;
+    return t('{frames} samples · {ms} ms', { frames, ms: ((frames / rate) * 1000).toFixed(1) });
   }
 }

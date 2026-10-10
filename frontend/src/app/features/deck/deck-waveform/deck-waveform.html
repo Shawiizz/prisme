@@ -4,6 +4,6 @@
   </div>
   <canvas #overview class="overview" (click)="seekOverview($event)"></canvas>
   @if (!track()) {
-    <div class="hint">Load a track from the library</div>
+    <div class="hint">{{ 'Load a track from the library' | t }}</div>
   }
 </div>

@@ -7,6 +7,8 @@ import { EffectKind, HOT_CUES } from '../../../core/models/engine';
 import { Knob } from '../../../shared/knob/knob';
 import { deckColor } from '../../../shared/time';
 import { formatBeats, loopBeats } from '../../../shared/beats';
+import { t } from '../../../core/i18n/i18n';
+import { TPipe } from '../../../core/i18n/t.pipe';
 
 type PadMode = 'cues' | 'loops' | 'roll' | 'jump' | 'fx' | 'sampler';
 
@@ -29,14 +31,22 @@ const MODES: { id: PadMode; label: string }[] = [
 const SAMPLE_COLOR = '#b48cff';
 /** The effects on the pads, with what their AMOUNT knob does. */
 const EFFECTS: { kind: EffectKind; label: string; title: string }[] = [
-  { kind: 'echo', label: 'ECHO', title: 'Echo on the beat · amount: feedback' },
-  { kind: 'pingPong', label: 'PING', title: 'Echo bouncing left and right · amount: feedback' },
-  { kind: 'reverb', label: 'VERB', title: 'Reverb · amount: room size' },
-  { kind: 'flanger', label: 'FLANGE', title: 'Flanger · amount: feedback' },
-  { kind: 'phaser', label: 'PHASE', title: 'Phaser · amount: feedback' },
-  { kind: 'filter', label: 'FILTER', title: 'Filter sweeping on the beat · amount: depth' },
-  { kind: 'gate', label: 'GATE', title: 'Cuts the sound on the beat · amount: depth' },
-  { kind: 'bitcrusher', label: 'CRUSH', title: 'Lower resolution · amount: crush' },
+  { kind: 'echo', label: 'ECHO', title: t('Echo on the beat · amount: feedback') },
+  {
+    kind: 'pingPong',
+    label: 'PING',
+    title: t('Echo bouncing left and right · amount: feedback'),
+  },
+  { kind: 'reverb', label: 'VERB', title: t('Reverb · amount: room size') },
+  { kind: 'flanger', label: 'FLANGE', title: t('Flanger · amount: feedback') },
+  { kind: 'phaser', label: 'PHASE', title: t('Phaser · amount: feedback') },
+  {
+    kind: 'filter',
+    label: 'FILTER',
+    title: t('Filter sweeping on the beat · amount: depth'),
+  },
+  { kind: 'gate', label: 'GATE', title: t('Cuts the sound on the beat · amount: depth') },
+  { kind: 'bitcrusher', label: 'CRUSH', title: t('Lower resolution · amount: crush') },
 ];
 const LOOP_BEATS = [0.25, 0.5, 1, 2, 4, 8, 16, 32];
 const ROLL_BEATS = [1 / 16, 1 / 8, 1 / 4, 1 / 2, 1, 2, 4, 8];
@@ -50,7 +60,7 @@ const JUMP_BEATS = [-32, -16, -4, -1, 1, 4, 16, 32];
   selector: 'app-deck-pads',
   templateUrl: './deck-pads.html',
   styleUrl: './deck-pads.scss',
-  imports: [Knob],
+  imports: [Knob, TPipe],
 })
 export class DeckPads {
   readonly deck = input.required<number>();
@@ -94,12 +104,20 @@ export class DeckPads {
         return Array.from({ length: HOT_CUES }, (_, slot) => this.cuePad(slot));
       case 'loops':
         return LOOP_BEATS.map((b) =>
-          this.beatPad(b, this.activeLoopBeats() === b, `Loop ${formatBeats(b)}`),
+          this.beatPad(
+            b,
+            this.activeLoopBeats() === b,
+            t('Loop {beats}', { beats: formatBeats(b) }),
+          ),
         );
       case 'roll':
-        return ROLL_BEATS.map((b) => this.beatPad(b, false, `Roll ${formatBeats(b)} while held`));
+        return ROLL_BEATS.map((b) =>
+          this.beatPad(b, false, t('Roll {beats} while held', { beats: formatBeats(b) })),
+        );
       case 'jump':
-        return JUMP_BEATS.map((b) => this.beatPad(b, false, `Jump ${formatBeats(b)} beats`));
+        return JUMP_BEATS.map((b) =>
+          this.beatPad(b, false, t('Jump {beats} beats', { beats: formatBeats(b) })),
+        );
       case 'fx': {
         const fx = this.effect();
         return EFFECTS.map((e) => ({
@@ -176,24 +194,28 @@ export class DeckPads {
         label: `${slot + 1}`,
         color: null,
         active: false,
-        title: 'Click: set · Shift-click or right click: delete',
+        title: t('Click: set · Shift-click or right click: delete'),
       };
     const loop = cue.loopLengthS !== null;
     return {
       label: cue.label || `${slot + 1}${loop ? ' ↻' : ''}`,
       color: `#${cue.color.toString(16).padStart(6, '0')}`,
       active: false,
-      title: `${loop ? 'Saved loop' : 'Hot cue'} ${slot + 1} · Shift-click or right click: delete`,
+      title: loop
+        ? t('Saved loop {n} · Shift-click or right click: delete', { n: slot + 1 })
+        : t('Hot cue {n} · Shift-click or right click: delete', { n: slot + 1 }),
     };
   }
 
   private samplePad(name: string | null, slot: number): Pad {
-    if (!name) return { label: '+', color: null, active: false, title: 'Click: choose a sound' };
+    if (!name) return { label: '+', color: null, active: false, title: t('Click: choose a sound') };
     return {
       label: name,
       color: SAMPLE_COLOR,
       active: this.samplePlaying(slot),
-      title: `${name} · Click: play · Right click: stop, then remove · Shift-click: remove`,
+      title: t('{name} · Click: play · Right click: stop, then remove · Shift-click: remove', {
+        name,
+      }),
     };
   }
 

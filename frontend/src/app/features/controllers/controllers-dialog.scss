@@ -77,7 +77,7 @@ h3 {
 }
 .row {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr) 112px 26px;
+  grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr) 112px 26px;
   align-items: center;
   gap: 6px;
   padding: 2px 0;

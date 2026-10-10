@@ -1,11 +1,12 @@
 import { Injectable, inject } from '@angular/core';
 import { invoke } from '@tauri-apps/api/core';
 import { open } from '@tauri-apps/plugin-dialog';
+import { t } from '../i18n/i18n';
 import { EngineService } from './engine.service';
 
 /** What `prisme_media::decode_file` reads. */
 const AUDIO_FILES = {
-  name: 'Audio',
+  name: t('Audio'),
   extensions: ['mp3', 'flac', 'wav', 'm4a', 'aac', 'mp4', 'ogg', 'oga'],
 };
 
@@ -16,7 +17,7 @@ export class SamplerService {
 
   /** Asks for a sound and puts it in `slot`. */
   async choose(deck: number, slot: number) {
-    const path = await open({ title: 'Sampler sound', filters: [AUDIO_FILES] });
+    const path = await open({ title: t('Sampler sound'), filters: [AUDIO_FILES] });
     if (!path) return;
     try {
       this.setName(deck, slot, await invoke<string>('load_sample', { deck, slot, path }));

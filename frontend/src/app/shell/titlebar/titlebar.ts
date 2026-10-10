@@ -3,12 +3,15 @@ import { RecordOption, RecordingService } from '../../core/services/recording.se
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { SettingsService } from '../../core/services/settings.service';
 import { EngineService } from '../../core/services/engine.service';
+import { t } from '../../core/i18n/i18n';
+import { TPipe } from '../../core/i18n/t.pipe';
 
 /** Custom title bar: drag area, audio state, settings and window buttons. */
 @Component({
   selector: 'app-titlebar',
   templateUrl: './titlebar.html',
   styleUrl: './titlebar.scss',
+  imports: [TPipe],
 })
 export class Titlebar {
   protected readonly settings = inject(SettingsService);
@@ -18,8 +21,12 @@ export class Titlebar {
   protected readonly lastTitle = computed(() => {
     const last = this.recording.last();
     return last
-      ? `Last recording: ${last.path} (${this.clock(last.seconds)}, ${last.tracks} tracks)`
-      : 'Record the mix (WAV and tracklist in Documents/Prisme Recordings)';
+      ? t('Last recording: {path} ({time}, {tracks} tracks)', {
+          path: last.path,
+          time: this.clock(last.seconds),
+          tracks: last.tracks,
+        })
+      : t('Record the mix (WAV and tracklist in Documents/Prisme Recordings)');
   });
   readonly openSettings = output<void>();
   readonly openShortcuts = output<void>();
