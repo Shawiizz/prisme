@@ -2,7 +2,9 @@
 //! file, the cache, and re-analysis after a change.
 
 use prisme_analysis::AnalysisOptions;
-use prisme_library::{AnalysisListener, AnalysisProgress, BackgroundAnalyzer, LibraryDb, TrackRecord};
+use prisme_library::{
+    AnalysisListener, AnalysisProgress, BackgroundAnalyzer, Cue, CueSlot, LibraryDb, TrackRecord,
+};
 use std::f64::consts::TAU;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
@@ -105,5 +107,27 @@ fn analyses_new_and_changed_files_only() {
     assert_eq!(records.len(), 1);
     assert_eq!(bpm_of(&records, "house.wav"), Some(126.0));
 
+    std::fs::remove_dir_all(root).ok();
+}
+
+#[test]
+fn a_moved_file_keeps_what_it_had_without_a_new_analysis() {
+    let root: PathBuf = std::env::temp_dir().join(format!("prisme-move-test-{}", std::process::id()));
+    std::fs::create_dir_all(root.join("Sorted")).unwrap();
+    let before = root.join("track.wav");
+    write_kicks(&before, 124.0, 10.0);
+    let db = Arc::new(LibraryDb::open_in_memory().unwrap());
+    run(&db, &root);
+    db.save_cue(&before, &Cue::point(CueSlot::Hot(0), 2.0)).unwrap();
+
+    let after = root.join("Sorted").join("Artist - Track.wav");
+    std::fs::rename(&before, &after).unwrap();
+    let moved = run(&db, &root);
+
+    assert_eq!(moved.progress.lock().unwrap().last().unwrap().total, 0, "nothing to analyse");
+    let announced: Vec<_> = moved.records.lock().unwrap().iter().map(|r| r.path.clone()).collect();
+    assert_eq!(announced, [after.display().to_string()]);
+    assert_eq!(db.get(&before).unwrap(), None);
+    assert_eq!(db.cues(&after).unwrap().len(), 1);
     std::fs::remove_dir_all(root).ok();
 }

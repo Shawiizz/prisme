@@ -29,3 +29,10 @@ pub fn search_library(library: State<'_, Arc<LibraryService>>, query: String) ->
         .map(|r| DirEntryDto::track(&r.path, Some(r)))
         .collect())
 }
+
+/// Tracks that look like the same song, one group after the other.
+#[tauri::command]
+pub fn find_duplicates(library: State<'_, Arc<LibraryService>>) -> AppResult<Vec<DirEntryDto>> {
+    let groups = prisme_library::duplicate_groups(library.db.analysed_records()?);
+    Ok(groups.iter().flatten().map(|r| DirEntryDto::track(&r.path, Some(r))).collect())
+}

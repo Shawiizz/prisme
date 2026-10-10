@@ -15,6 +15,10 @@ use std::path::Path;
 /// Version of what is read from the tags: bump it to read every file's tags again.
 pub const TAGS_VERSION: u32 = 1;
 
+/// Tables keyed by a file's path (`track_search`, a virtual table, is apart).
+const RELOCATED: [&str; 8] =
+    ["tracks", "covers", "cues", "track_edits", "track_marks", "crate_tracks", "history_plays", "prepare"];
+
 /// A track of a list (crate, prepare list), with what the library knows of it (`None`
 /// if it was never analysed).
 #[derive(Debug, Clone, PartialEq)]
@@ -207,6 +211,24 @@ impl LibraryDb {
         Ok(rows.collect::<Result<_, _>>()?)
     }
 
+    /// Moves everything known about a file to its new path (moved or renamed): record,
+    /// search entry, cover, cues, corrections, marks, crate entries, history and prepare
+    /// list.
+    pub fn relocate(&self, from: &Path, to: &Path) -> Result<(), DbError> {
+        let (from, to) = (path_key(from), path_key(to));
+        let conn = self.conn();
+        let tx = conn.unchecked_transaction()?;
+        for table in RELOCATED {
+            // a row already at the new path wins; the old one goes
+            tx.prepare_cached(&format!("UPDATE OR IGNORE {table} SET path = ?2 WHERE path = ?1"))?
+                .execute([&from, &to])?;
+            tx.prepare_cached(&format!("DELETE FROM {table} WHERE path = ?1"))?.execute([&from])?;
+        }
+        tx.prepare_cached("UPDATE track_search SET path = ?2 WHERE path = ?1")?.execute([&from, &to])?;
+        tx.commit()?;
+        Ok(())
+    }
+
     /// Forgets what was read from files that are gone (deleted or moved): their records,
     /// search entries and covers. Their cues, corrections and crate entries stay, for when
     /// they come back.
@@ -221,6 +243,14 @@ impl LibraryDb {
         }
         tx.commit()?;
         Ok(())
+    }
+
+    /// Every track analysed without error.
+    pub fn analysed_records(&self) -> Result<Vec<TrackRecord>, DbError> {
+        let conn = self.conn();
+        let mut stmt = conn.prepare_cached("SELECT * FROM track_view WHERE error IS NULL")?;
+        let rows = stmt.query_map([], record_from_row)?;
+        Ok(rows.collect::<Result<_, _>>()?)
     }
 
     pub fn track_count(&self) -> Result<usize, DbError> {
@@ -353,6 +383,27 @@ mod tests {
         assert!(db.search("gone", 10).unwrap().is_empty());
         assert_eq!(db.cover(Path::new(path)).unwrap(), None);
         assert_eq!(db.cues(Path::new(path)).unwrap().len(), 1);
+    }
+
+    #[test]
+    fn relocation_carries_everything_to_the_new_path() {
+        let db = LibraryDb::open_in_memory().unwrap();
+        let (old, new) = (Path::new("C:/Music/old.mp3"), Path::new("C:/Music/Sub/new name.mp3"));
+        db.save(&sample("C:/Music/old.mp3", "deadmau5", "Strobe")).unwrap();
+        db.save_cue(old, &crate::Cue::point(crate::CueSlot::Hot(1), 3.0)).unwrap();
+        db.set_rating(&[old], 4).unwrap();
+        let id = db.create_crate("Warm-up").unwrap();
+        db.add_to_crate(id, &[old]).unwrap();
+        db.add_to_prepare(&[old]).unwrap();
+
+        db.relocate(old, new).unwrap();
+        assert_eq!(db.get(old).unwrap(), None);
+        let moved = db.get(new).unwrap().unwrap();
+        assert_eq!((moved.tags.title.as_deref(), moved.marks.rating), (Some("Strobe"), 4));
+        assert_eq!(db.cues(new).unwrap().len(), 1);
+        assert_eq!(db.crate_tracks(id).unwrap()[0].path, path_key(new));
+        assert_eq!(db.prepare_list().unwrap()[0].path, path_key(new));
+        assert_eq!(db.search("strobe", 10).unwrap()[0].path, path_key(new));
     }
 
     #[test]

@@ -10,6 +10,7 @@ const LIST_LABEL: Record<TrackSource['kind'], string> = {
   crate: 'Crate',
   history: 'Set',
   prepare: 'Prepare',
+  duplicates: 'Duplicates',
 };
 
 /** Crates, history and folders (left); search, analysis progress and tracks (right). */

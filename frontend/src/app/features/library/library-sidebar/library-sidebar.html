@@ -14,6 +14,15 @@
       <span class="name">Prepare</span>
       <span class="count">{{ prepareCount() }}</span>
     </div>
+    <div
+      class="item"
+      [class.current]="library.source().kind === 'duplicates'"
+      title="Tracks that look like the same song: same artist and title, or file name"
+      (click)="library.openDuplicates()"
+    >
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 4h10v12H8zM5 8v12h10" /></svg>
+      <span class="name">Duplicates</span>
+    </div>
   </div>
 </section>
 <section class="crates">

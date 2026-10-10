@@ -105,6 +105,7 @@ pub fn run() {
             commands::library::library_progress,
             commands::library::rescan_library,
             commands::library::search_library,
+            commands::library::find_duplicates,
             commands::crates::list_crates,
             commands::crates::create_crate,
             commands::crates::create_smart_crate,

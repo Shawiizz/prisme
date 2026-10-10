@@ -29,6 +29,7 @@ export interface TrackSort {
 export type TrackSource =
   | { kind: 'folder' }
   | { kind: 'prepare' }
+  | { kind: 'duplicates' }
   | { kind: 'crate'; id: number }
   | { kind: 'history'; id: number };
 
@@ -99,7 +100,9 @@ export class LibraryService {
   });
 
   /** Whether the list has an order of its own (shown in a `#` column). */
-  readonly ordered = computed(() => ['history', 'prepare'].includes(this.source().kind));
+  readonly ordered = computed(() =>
+    ['history', 'prepare', 'duplicates'].includes(this.source().kind),
+  );
 
   /** Tracks of the folder, prepare list, crate or history session being browsed. */
   readonly listTracks = computed(() => {
@@ -169,6 +172,14 @@ export class LibraryService {
 
   openPrepare() {
     this.browse({ kind: 'prepare' });
+  }
+
+  /** Tracks that look like the same song, grouped. */
+  async openDuplicates(): Promise<void> {
+    await this.attempt(async () => {
+      await this.loadSource(() => invoke<DirEntry[]>('find_duplicates'));
+      this.browse({ kind: 'duplicates' });
+    });
   }
 
   addToPrepare(paths: string[]): Promise<void> {

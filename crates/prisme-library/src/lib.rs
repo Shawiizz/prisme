@@ -3,6 +3,7 @@
 //! * [`db`]: SQLite database of the tracks, their analysis results (invalidated when the
 //!   file or the algorithms change), their [`cues`], the crates and the history of the sets;
 //! * [`metadata`] and [`covers`]: tags and cover thumbnails;
+//! * [`duplicates`]: tracks that are the same song;
 //! * [`scan`]: finding the audio files under a folder;
 //! * [`smart`]: the rules of smart crates;
 //! * [`analyzer`]: analysing, in the background and at low priority, every file
@@ -12,6 +13,7 @@ pub mod analyzer;
 pub mod covers;
 pub mod cues;
 pub mod db;
+pub mod duplicates;
 pub mod metadata;
 pub mod scan;
 pub mod smart;
@@ -22,6 +24,7 @@ pub use db::{
     now_ms, path_key, Crate, CrateId, DbError, FileStamp, GridEdit, HistoryPlay, HistorySession, LibraryDb,
     RecordVersion, SessionId, TrackEdits, TrackEntry, TrackMarks, TrackRecord, MAX_RATING, TAGS_VERSION,
 };
+pub use duplicates::duplicate_groups;
 pub use metadata::{read_metadata, Metadata};
 pub use scan::{scan_folder, ScannedFile};
 pub use smart::{Rule, SmartRules, TextField};

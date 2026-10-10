@@ -1,8 +1,8 @@
 //! Crates: named sets of tracks (as in Serato), shown sorted by the library columns. A
 //! smart crate holds no tracks of its own: its rules pick them from the library.
 
-use super::tracks::{entry_from_row, record_from_row};
-use super::{path_key, DbError, LibraryDb, TrackEntry, TrackRecord};
+use super::tracks::entry_from_row;
+use super::{path_key, DbError, LibraryDb, TrackEntry};
 use crate::smart::SmartRules;
 use rusqlite::{params, OptionalExtension};
 use std::path::Path;
@@ -143,20 +143,12 @@ impl LibraryDb {
         let rows = stmt.query_map([id.0], entry_from_row)?;
         Ok(rows.collect::<Result<_, _>>()?)
     }
-
-    /// Every track analysed without error: what smart crates choose from.
-    fn analysed_records(&self) -> Result<Vec<TrackRecord>, DbError> {
-        let conn = self.conn();
-        let mut stmt = conn.prepare_cached("SELECT * FROM track_view WHERE error IS NULL")?;
-        let rows = stmt.query_map([], record_from_row)?;
-        Ok(rows.collect::<Result<_, _>>()?)
-    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::db::FileStamp;
+    use crate::db::{FileStamp, TrackRecord};
     use crate::smart::{Rule, TextField};
     use prisme_analysis::TrackAnalysis;
     use prisme_media::TrackTags;

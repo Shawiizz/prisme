@@ -21,6 +21,7 @@ const EMPTY_LIST: Record<TrackSource['kind'], string> = {
   crate: 'This crate is empty: drag tracks onto it',
   history: 'No track in this set',
   prepare: 'Drag tracks here or press Ctrl + P to line them up for the set',
+  duplicates: 'No two tracks share an artist and a title',
 };
 
 const STARS = [1, 2, 3, 4, 5];
