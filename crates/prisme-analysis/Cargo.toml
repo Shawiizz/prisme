@@ -9,3 +9,11 @@ publish.workspace = true
 [dependencies]
 prisme-media.workspace = true
 rustfft.workspace = true
+realfft.workspace = true
+
+[dev-dependencies]
+criterion.workspace = true
+
+[[bench]]
+name = "analysis"
+harness = false

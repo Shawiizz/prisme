@@ -2,8 +2,8 @@
 //! short-time Fourier transform.
 
 use prisme_media::TrackAudio;
+use realfft::{RealFftPlanner, RealToComplex};
 use rustfft::num_complex::Complex32;
-use rustfft::{Fft, FftPlanner};
 use std::f64::consts::PI;
 use std::sync::Arc;
 
@@ -132,20 +132,22 @@ fn lowpass_taps(cutoff: f64, len: usize) -> Vec<f32> {
 }
 
 /// Short-time Fourier transform with a Hann window. Magnitudes are scaled so that a
-/// full-scale sine reads about 1.0 in its bin.
+/// full-scale sine reads about 1.0 in its bin. The input is real: a real FFT gives the
+/// same half spectrum for about half the work of a complex one.
 pub struct Stft {
     size: usize,
     hop: usize,
     window: Vec<f32>,
-    fft: Arc<dyn Fft<f32>>,
-    buffer: Vec<Complex32>,
+    fft: Arc<dyn RealToComplex<f32>>,
+    frame: Vec<f32>,
+    spectrum: Vec<Complex32>,
     scratch: Vec<Complex32>,
     magnitudes: Vec<f32>,
 }
 
 impl Stft {
     pub fn new(size: usize, hop: usize) -> Self {
-        let fft = FftPlanner::new().plan_fft_forward(size);
+        let fft = RealFftPlanner::new().plan_fft_forward(size);
         let window: Vec<f32> =
             (0..size).map(|i| (0.5 - 0.5 * (2.0 * PI * i as f64 / size as f64).cos()) as f32).collect();
         let gain = 2.0 / window.iter().sum::<f32>();
@@ -153,8 +155,9 @@ impl Stft {
             size,
             hop,
             window: window.iter().map(|w| w * gain).collect(),
-            scratch: vec![Complex32::default(); fft.get_inplace_scratch_len()],
-            buffer: vec![Complex32::default(); size],
+            frame: fft.make_input_vec(),
+            spectrum: fft.make_output_vec(),
+            scratch: fft.make_scratch_vec(),
             magnitudes: vec![0.0; size / 2 + 1],
             fft,
         }
@@ -181,12 +184,14 @@ impl Stft {
     pub fn for_each_frame(&mut self, signal: &[f32], mut f: impl FnMut(usize, &[f32])) {
         for frame in 0..self.frame_count(signal.len()) {
             let start = frame * self.hop;
-            for ((b, x), w) in self.buffer.iter_mut().zip(&signal[start..start + self.size]).zip(&self.window)
+            for ((b, x), w) in self.frame.iter_mut().zip(&signal[start..start + self.size]).zip(&self.window)
             {
-                *b = Complex32::new(x * w, 0.0);
+                *b = x * w;
             }
-            self.fft.process_with_scratch(&mut self.buffer, &mut self.scratch);
-            for (m, b) in self.magnitudes.iter_mut().zip(&self.buffer) {
+            self.fft
+                .process_with_scratch(&mut self.frame, &mut self.spectrum, &mut self.scratch)
+                .expect("buffers made by the planner");
+            for (m, b) in self.magnitudes.iter_mut().zip(&self.spectrum) {
                 *m = b.norm();
             }
             f(frame, &self.magnitudes);
