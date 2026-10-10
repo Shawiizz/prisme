@@ -1,0 +1,26 @@
+name: Setup
+description: Rust, Node and pnpm, the frontend packages, libclang, and the Windows resource compiler
+
+runs:
+  using: composite
+  steps:
+    - uses: dtolnay/rust-toolchain@stable
+      with:
+        components: clippy, rustfmt
+    - uses: Swatinem/rust-cache@v2
+    - uses: pnpm/action-setup@v4
+      with:
+        package_json_file: frontend/package.json
+    - uses: actions/setup-node@v4
+      with:
+        node-version: 24
+        cache: pnpm
+        cache-dependency-path: frontend/pnpm-lock.yaml
+    - name: Development tools
+      shell: pwsh
+      run: ./scripts/setup-dev.ps1
+    - name: Resource compiler
+      shell: pwsh
+      run: |
+        $rc = Get-ChildItem "C:\Program Files (x86)\Windows Kits\10\bin\*\x64\rc.exe" | Sort-Object FullName | Select-Object -Last 1
+        "RC=$($rc.FullName)" >> $env:GITHUB_ENV
