@@ -12,6 +12,8 @@ pub enum AppError {
     InvalidCue(u8),
     #[error("a crate needs a name")]
     EmptyCrateName,
+    #[error("a smart crate picks its own tracks")]
+    SmartCrate,
     #[error("deck {} has no beat grid", .0 + 1)]
     NoBeatGrid(usize),
     #[error("{0} BPM is out of range")]

@@ -60,6 +60,13 @@ button {
     color: var(--ink);
     font-weight: 700;
   }
+  // the main action of a dialog
+  &.primary {
+    background: var(--deck-1);
+    border-color: var(--deck-1);
+    color: var(--ink);
+    font-weight: 700;
+  }
 }
 
 input,

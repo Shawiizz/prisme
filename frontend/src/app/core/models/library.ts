@@ -27,7 +27,24 @@ export interface DirEntry {
 export interface Crate {
   id: number;
   name: string;
+  /** The rules of a smart crate. */
+  rules: SmartRules | null;
   trackCount: number;
+}
+
+export type TextField = 'title' | 'artist' | 'album' | 'genre' | 'comment' | 'fileName';
+
+/** A rule of a smart crate; bounds are inclusive, a missing one is open. */
+export type Rule =
+  | { kind: 'text'; field: TextField; contains: string }
+  | { kind: 'bpm'; min: number | null; max: number | null }
+  | { kind: 'year'; min: number | null; max: number | null }
+  | { kind: 'key'; camelot: string[] };
+
+export interface SmartRules {
+  /** Every rule must match; otherwise one is enough. */
+  matchAll: boolean;
+  rules: Rule[];
 }
 
 /** A run of the app that played tracks. */

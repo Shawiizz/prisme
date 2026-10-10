@@ -1,7 +1,7 @@
 use crate::dto::{CrateDto, DirEntryDto};
 use crate::error::{AppError, AppResult};
 use crate::library_service::LibraryService;
-use prisme_library::CrateId;
+use prisme_library::{CrateId, SmartRules};
 use std::path::Path;
 use std::sync::Arc;
 use tauri::State;
@@ -19,6 +19,16 @@ pub fn create_crate(library: Library<'_>, name: String) -> AppResult<i64> {
 }
 
 #[tauri::command]
+pub fn create_smart_crate(library: Library<'_>, name: String, rules: SmartRules) -> AppResult<i64> {
+    Ok(library.db.create_smart_crate(crate_name(&name)?, &rules)?.0)
+}
+
+#[tauri::command]
+pub fn set_crate_rules(library: Library<'_>, id: i64, rules: SmartRules) -> AppResult<()> {
+    Ok(library.db.set_crate_rules(CrateId(id), &rules)?)
+}
+
+#[tauri::command]
 pub fn rename_crate(library: Library<'_>, id: i64, name: String) -> AppResult<()> {
     Ok(library.db.rename_crate(CrateId(id), crate_name(&name)?)?)
 }
@@ -31,11 +41,13 @@ pub fn delete_crate(library: Library<'_>, id: i64) -> AppResult<()> {
 /// Returns how many tracks were not in the crate yet.
 #[tauri::command]
 pub fn add_to_crate(library: Library<'_>, id: i64, paths: Vec<String>) -> AppResult<usize> {
+    filled_by_hand(&library, id)?;
     Ok(library.db.add_to_crate(CrateId(id), &as_paths(&paths))?)
 }
 
 #[tauri::command]
 pub fn remove_from_crate(library: Library<'_>, id: i64, paths: Vec<String>) -> AppResult<()> {
+    filled_by_hand(&library, id)?;
     Ok(library.db.remove_from_crate(CrateId(id), &as_paths(&paths))?)
 }
 
@@ -51,6 +63,13 @@ fn crate_name(name: &str) -> AppResult<&str> {
         return Err(AppError::EmptyCrateName);
     }
     Ok(name)
+}
+
+fn filled_by_hand(library: &LibraryService, id: i64) -> AppResult<()> {
+    match library.db.crate_rules(CrateId(id))? {
+        Some(_) => Err(AppError::SmartCrate),
+        None => Ok(()),
+    }
 }
 
 fn as_paths(paths: &[String]) -> Vec<&Path> {

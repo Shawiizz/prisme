@@ -107,6 +107,8 @@ pub fn run() {
             commands::library::search_library,
             commands::crates::list_crates,
             commands::crates::create_crate,
+            commands::crates::create_smart_crate,
+            commands::crates::set_crate_rules,
             commands::crates::rename_crate,
             commands::crates::delete_crate,
             commands::crates::add_to_crate,

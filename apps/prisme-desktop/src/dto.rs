@@ -445,6 +445,8 @@ impl DirEntryDto {
 pub struct CrateDto {
     pub id: i64,
     pub name: String,
+    /// The rules of a smart crate.
+    pub rules: Option<prisme_library::SmartRules>,
     pub track_count: usize,
 }
 
@@ -483,7 +485,7 @@ impl From<&prisme_library::HistoryPlay> for HistoryPlayDto {
 
 impl From<prisme_library::Crate> for CrateDto {
     fn from(c: prisme_library::Crate) -> Self {
-        Self { id: c.id.0, name: c.name, track_count: c.track_count }
+        Self { id: c.id.0, name: c.name, rules: c.rules, track_count: c.track_count }
     }
 }
 

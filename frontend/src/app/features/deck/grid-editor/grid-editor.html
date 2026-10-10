@@ -3,9 +3,7 @@
   <header>
     <span>Beat grid</span>
     @if (track()?.gridEdited) {
-      <button class="ghost" title="Back to the analysed grid" (click)="grid({ kind: 'reset' })">
-        Reset
-      </button>
+      <button title="Back to the analysed grid" (click)="grid({ kind: 'reset' })">Reset</button>
     }
   </header>
   <div class="row">
@@ -41,7 +39,7 @@
   <header>
     <span>Key</span>
     @if (track()?.keyEdited) {
-      <button class="ghost" title="Back to the detected key" (click)="setKey(null)">Reset</button>
+      <button title="Back to the detected key" (click)="setKey(null)">Reset</button>
     }
   </header>
   @for (row of [minorKeys(), majorKeys()]; track $index) {

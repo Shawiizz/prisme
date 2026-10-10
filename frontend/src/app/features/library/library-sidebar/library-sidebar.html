@@ -19,7 +19,15 @@
 <section class="crates">
   <header>
     <span>Crates</span>
-    <button class="add" title="New crate" (click)="editing.set('new')">+</button>
+    <span class="adds">
+      <button
+        title="New smart crate: tracks picked by rules"
+        (click)="smartDialog.set({ crate: null })"
+      >
+        + Smart
+      </button>
+      <button class="add" title="New crate" (click)="editing.set('new')">+</button>
+    </span>
   </header>
   <div class="list">
     @if (editing() === 'new') {
@@ -48,13 +56,21 @@
           [class.current]="library.currentCrate() === c.id"
           [class.drop]="dropTarget() === c.id"
           (click)="open(c.id)"
-          (dblclick)="editing.set(c.id)"
-          (dragover)="dragOver($event, c.id)"
+          (dblclick)="c.rules ? smartDialog.set({ crate: c }) : editing.set(c.id)"
+          (dragover)="dragOverCrate($event, c)"
           (dragleave)="dropTarget.set(null)"
           (drop)="drop($event, c.id)"
         >
-          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8h16v11H4zM6 5h12" /></svg>
-          <span class="name" title="Double-click to rename">{{ c.name }}</span>
+          @if (c.rules) {
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16l-6 7v6l-4 2v-8z" /></svg>
+          } @else {
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8h16v11H4zM6 5h12" /></svg>
+          }
+          <span
+            class="name"
+            [title]="c.rules ? 'Double-click to change the rules' : 'Double-click to rename'"
+            >{{ c.name }}</span
+          >
           <span class="count">{{ c.trackCount }}</span>
           <button
             class="delete"
@@ -141,3 +157,7 @@
     }
   </div>
 </section>
+
+@if (smartDialog(); as d) {
+  <app-smart-crate-dialog [crate]="d.crate" (closed)="smartDialog.set(null)" />
+}

@@ -6,6 +6,7 @@ import {
   DirEntry,
   DirListing,
   HistorySession,
+  SmartRules,
   TrackAnalyzed,
 } from '../models/library';
 import { camelotRank } from '../../shared/camelot';
@@ -215,6 +216,19 @@ export class LibraryService {
     await this.attempt(async () => this.openCrate(await this.crates.create(name)));
   }
 
+  async createSmartCrate(name: string, rules: SmartRules): Promise<void> {
+    await this.attempt(async () => this.openCrate(await this.crates.createSmart(name, rules)));
+  }
+
+  /** Renames a smart crate and changes its rules. */
+  async updateSmartCrate(id: number, name: string, rules: SmartRules): Promise<void> {
+    await this.attempt(async () => {
+      await this.crates.rename(id, name);
+      await this.crates.setRules(id, rules);
+      if (this.currentCrate() === id) await this.loadSource(() => this.crates.tracks(id));
+    });
+  }
+
   renameCrate(id: number, name: string): Promise<void> {
     return this.attempt(() => this.crates.rename(id, name));
   }
@@ -241,6 +255,7 @@ export class LibraryService {
     const next = this.neighbour(path);
     await this.attempt(async () => {
       if (source.kind === 'crate') {
+        if (this.crates.crates().find((c) => c.id === source.id)?.rules) return;
         await this.crates.remove(source.id, [path]);
         this.sourceTracks.update((tracks) => tracks.filter((t) => t.path !== path));
       } else if (source.kind === 'prepare') {

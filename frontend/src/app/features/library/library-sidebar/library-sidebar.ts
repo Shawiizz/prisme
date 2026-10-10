@@ -4,6 +4,8 @@ import { HistoryService } from '../../../core/services/history.service';
 import { LibraryService } from '../../../core/services/library.service';
 import { PrepareService } from '../../../core/services/prepare.service';
 import { TRACKS_DRAG_TYPE } from '../../../shared/drag';
+import { Crate } from '../../../core/models/library';
+import { SmartCrateDialog } from '../smart-crate-dialog/smart-crate-dialog';
 
 type Deletable = 'crate' | 'session';
 type DropTarget = number | 'prepare';
@@ -24,6 +26,7 @@ const SESSION_DATE = new Intl.DateTimeFormat('en-GB', {
   selector: 'app-library-sidebar',
   templateUrl: './library-sidebar.html',
   styleUrl: './library-sidebar.scss',
+  imports: [SmartCrateDialog],
 })
 export class LibrarySidebar {
   protected readonly library = inject(LibraryService);
@@ -32,6 +35,8 @@ export class LibrarySidebar {
   private readonly prepare = inject(PrepareService).list;
   protected readonly prepareCount = computed(() => this.prepare().length);
 
+  /** The smart crate dialog, open on a crate (`null`: a new one). */
+  protected readonly smartDialog = signal<{ crate: Crate | null } | null>(null);
   /** Crate whose name is being typed: `'new'` for a crate being created. */
   protected readonly editing = signal<number | 'new' | null>(null);
   /** Item whose delete button was clicked once: a second click deletes it. */
@@ -99,6 +104,11 @@ export class LibrarySidebar {
     this.armed.set(null);
     if (kind === 'crate') this.library.deleteCrate(id);
     else this.library.deleteSession(id);
+  }
+
+  /** A smart crate picks its own tracks: nothing can be dropped on it. */
+  dragOverCrate(event: DragEvent, crate: Crate) {
+    if (!crate.rules) this.dragOver(event, crate.id);
   }
 
   dragOver(event: DragEvent, target: DropTarget) {

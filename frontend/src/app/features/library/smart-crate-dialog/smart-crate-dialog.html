@@ -1,0 +1,73 @@
+<div class="backdrop" (click)="closed.emit()">
+  <div class="dialog" (click)="$event.stopPropagation()" (keydown.escape)="closed.emit()">
+    <h2>{{ crate() ? 'Smart crate' : 'New smart crate' }}</h2>
+    <input
+      class="name"
+      placeholder="Name"
+      [value]="name()"
+      (input)="name.set($any($event.target).value)"
+    />
+    <div class="match">
+      Tracks matching
+      <select
+        [value]="matchAll() ? 'all' : 'any'"
+        (change)="matchAll.set($any($event.target).value === 'all')"
+      >
+        <option value="all">all</option>
+        <option value="any">any</option>
+      </select>
+      of these rules
+    </div>
+    <div class="rules">
+      @for (r of rules(); track $index; let i = $index) {
+        <div class="rule">
+          <select [value]="choiceOf(r)" (change)="setChoice(i, $any($event.target).value)">
+            @for (c of choices; track c.id) {
+              <option [value]="c.id">{{ c.label }}</option>
+            }
+          </select>
+          @if (r.kind === 'text') {
+            <span>contains</span>
+            <input
+              class="grow"
+              [value]="r.contains"
+              (input)="setContains(i, $any($event.target).value)"
+            />
+          } @else if (r.kind === 'key') {
+            <span>is one of</span>
+            <input
+              class="grow"
+              placeholder="8A 9A 8B"
+              [value]="r.camelot.join(' ')"
+              (change)="setKeys(i, $any($event.target).value)"
+            />
+          } @else {
+            <span>from</span>
+            <input
+              class="bound"
+              inputmode="decimal"
+              [value]="r.min ?? ''"
+              (change)="setBound(i, 'min', $any($event.target).value)"
+            />
+            <span>to</span>
+            <input
+              class="bound"
+              inputmode="decimal"
+              [value]="r.max ?? ''"
+              (change)="setBound(i, 'max', $any($event.target).value)"
+            />
+          }
+          <button class="remove" title="Remove this rule" (click)="remove(i)">×</button>
+        </div>
+      }
+    </div>
+    <div class="buttons">
+      <button (click)="add()">Add a rule</button>
+      <span class="spacer"></span>
+      <button (click)="closed.emit()">Cancel</button>
+      <button class="primary" [disabled]="!name().trim() || !rules().length" (click)="save()">
+        {{ crate() ? 'Save' : 'Create' }}
+      </button>
+    </div>
+  </div>
+</div>

@@ -74,12 +74,6 @@ label {
   display: flex;
   justify-content: flex-end;
   gap: 8px;
-  .primary {
-    background: var(--deck-1);
-    border-color: var(--deck-1);
-    color: var(--ink);
-    font-weight: 700;
-  }
 }
 .loading {
   color: var(--muted);

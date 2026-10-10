@@ -26,6 +26,8 @@ pub enum DbError {
     Sqlite(#[from] rusqlite::Error),
     #[error("library database: {0}")]
     Io(#[from] std::io::Error),
+    #[error("library database: smart crate rules: {0}")]
+    Rules(#[from] serde_json::Error),
 }
 
 /// Schema changes, applied in order; the database records how many it has seen
@@ -98,6 +100,8 @@ const MIGRATIONS: &[&str] = &[
          SELECT tracks.*, track_edits.bpm AS edit_bpm, track_edits.first_beat_s AS edit_first_beat_s,
              track_edits.key_tonic AS edit_key_tonic, track_edits.key_minor AS edit_key_minor
          FROM tracks LEFT JOIN track_edits ON track_edits.path = tracks.path;",
+    // JSON (crate::smart::SmartRules); NULL for a crate filled by hand
+    "ALTER TABLE crates ADD COLUMN rules TEXT;",
 ];
 
 pub fn now_ms() -> i64 {

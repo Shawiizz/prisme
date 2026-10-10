@@ -1,8 +1,8 @@
 import { Injectable, signal } from '@angular/core';
 import { invoke } from '@tauri-apps/api/core';
-import { Crate, DirEntry } from '../models/library';
+import { Crate, DirEntry, SmartRules } from '../models/library';
 
-/** The crates of the library (named sets of tracks) and their management. */
+/** The crates of the library (named sets of tracks, or rules for smart ones). */
 @Injectable({ providedIn: 'root' })
 export class CratesService {
   readonly crates = signal<Crate[]>([]);
@@ -15,6 +15,17 @@ export class CratesService {
     const id = await invoke<number>('create_crate', { name });
     await this.refresh();
     return id;
+  }
+
+  async createSmart(name: string, rules: SmartRules): Promise<number> {
+    const id = await invoke<number>('create_smart_crate', { name, rules });
+    await this.refresh();
+    return id;
+  }
+
+  async setRules(id: number, rules: SmartRules): Promise<void> {
+    await invoke('set_crate_rules', { id, rules });
+    await this.refresh();
   }
 
   async rename(id: number, name: string): Promise<void> {

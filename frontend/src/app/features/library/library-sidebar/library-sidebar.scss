@@ -31,10 +31,19 @@ section {
     letter-spacing: 0.06em;
     text-transform: uppercase;
   }
+  .adds {
+    display: flex;
+    gap: 4px;
+    button {
+      padding: 0 6px;
+      font-size: 11px;
+      line-height: 18px;
+      text-transform: none;
+      letter-spacing: 0;
+    }
+  }
   .add {
     width: 22px;
-    padding: 0;
-    line-height: 18px;
   }
 }
 .crates {

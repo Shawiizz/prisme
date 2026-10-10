@@ -1,0 +1,64 @@
+.backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(4, 5, 9, 0.7);
+}
+.dialog {
+  width: 560px;
+  max-height: 86vh;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 20px;
+  overflow: auto;
+  background: var(--panel);
+  border: 1px solid var(--line-strong);
+  border-radius: 4px;
+}
+h2 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+}
+.match {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text-2);
+}
+.rules {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.rule {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--muted);
+  select {
+    width: 110px;
+  }
+  .grow {
+    flex: 1;
+    min-width: 0;
+  }
+  .bound {
+    width: 70px;
+  }
+  .remove {
+    margin-left: auto;
+    padding: 2px 8px;
+  }
+}
+.buttons {
+  display: flex;
+  gap: 8px;
+  .spacer {
+    flex: 1;
+  }
+}
