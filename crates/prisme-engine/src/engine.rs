@@ -10,11 +10,12 @@
 //! * garbage (replaced tracks and decoders): engine -> controller, freed there, so the
 //!   audio thread never frees memory.
 
-use crate::command::{Command, DeckId, Garbage};
+use crate::command::{Command, DeckId, Garbage, RecordSource};
 use crate::deck::Deck;
 use crate::mixer::{DeckMix, MixMode, Mixer};
+use crate::recording::{input_pair, Recording};
 use crate::scope::{self, ScopeTap};
-use crate::status::{EngineStatus, MAX_DECKS};
+use crate::status::{EngineStatus, RecordingStatus, MAX_DECKS};
 use prisme_dsp::DenormalGuard;
 use prisme_timecode::{DecoderConfig, TimecodeDecoder, TimecodeFormat};
 
@@ -85,6 +86,8 @@ pub fn create(config: EngineConfig) -> (Engine, EngineController) {
         leader: None,
         frames_since_status: 0,
         status_interval: (config.sample_rate as f64 / config.status_rate_hz) as usize,
+        recording: None,
+        record_buffer: vec![0.0; config.max_block_frames * 2],
     };
     let controller = EngineController { commands: cmd_tx, status: status_rx, garbage: garbage_rx, scopes };
     (engine, controller)
@@ -108,6 +111,9 @@ pub struct Engine {
     leader: Option<DeckId>,
     frames_since_status: usize,
     status_interval: usize,
+    recording: Option<Recording>,
+    /// Scratch space for what is recorded.
+    record_buffer: Vec<f32>,
 }
 
 impl Engine {
@@ -170,6 +176,14 @@ impl Engine {
             self.mixer.add_deck(d, mix, out, out_ch);
         }
         self.mixer.finish(frames, out, out_ch);
+        if let Some(recording) = self.recording.as_mut() {
+            let buffer = &mut self.record_buffer[..frames * 2];
+            match recording.source {
+                RecordSource::Master => buffer.copy_from_slice(self.mixer.master(frames)),
+                RecordSource::Input(first) => input_pair(input, in_ch, offset, first, buffer),
+            }
+            recording.push(buffer);
+        }
         for s in out.iter() {
             self.peak = self.peak.max(s.abs());
         }
@@ -265,6 +279,17 @@ impl Engine {
             SetEqKill { deck, band, kill } if valid(deck) => self.decks[deck].strip.set_kill(band, kill),
             SetFilter { deck, position } if valid(deck) => self.decks[deck].strip.set_filter(position),
             SetKeyLock { deck, enabled } if valid(deck) => self.decks[deck].key_lock_enabled = enabled,
+            StartRecording { source, sink } => {
+                let started = Recording { source, sink, frames: 0, dropped: 0 };
+                if let Some(old) = self.recording.replace(started) {
+                    self.discard(Garbage::Recording(old.sink));
+                }
+            }
+            StopRecording => {
+                if let Some(old) = self.recording.take() {
+                    self.discard(Garbage::Recording(old.sink));
+                }
+            }
             SetFx { deck, kind } if valid(deck) => self.decks[deck].fx.set_kind(kind),
             SetFxEnabled { deck, enabled } if valid(deck) => self.decks[deck].fx.set_enabled(enabled),
             SetFxMix { deck, mix } if valid(deck) => self.decks[deck].fx.set_mix(mix),
@@ -290,8 +315,14 @@ impl Engine {
             return;
         }
         self.frames_since_status = 0;
-        let mut status =
-            EngineStatus { deck_count: self.decks.len(), main_peak: self.peak, ..Default::default() };
+        let recording =
+            self.recording.as_ref().map(|r| RecordingStatus { frames: r.frames, dropped: r.dropped });
+        let mut status = EngineStatus {
+            deck_count: self.decks.len(),
+            main_peak: self.peak,
+            recording,
+            ..Default::default()
+        };
         for (d, (slot, deck)) in status.decks.iter_mut().zip(&mut self.decks).enumerate() {
             *slot = deck.status(self.leader == Some(d));
             deck.peak = 0.0;

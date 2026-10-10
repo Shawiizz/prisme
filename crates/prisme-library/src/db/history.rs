@@ -74,15 +74,21 @@ impl LibraryDb {
              FROM history_plays LEFT JOIN track_view ON track_view.path = history_plays.path
              WHERE history_plays.session_id = ?1 ORDER BY history_plays.played_at_ms, history_plays.id",
         )?;
-        let rows = stmt.query_map([session.0], |r| {
-            let analysed = r.get::<_, Option<String>>("path")?.is_some();
-            Ok(HistoryPlay {
-                path: r.get("play_path")?,
-                deck: r.get::<_, i64>("deck")? as usize,
-                played_at_ms: r.get("played_at_ms")?,
-                record: if analysed { Some(record_from_row(r)?) } else { None },
-            })
-        })?;
+        let rows = stmt.query_map([session.0], play_from_row)?;
+
+        Ok(rows.collect::<Result<_, _>>()?)
+    }
+
+    /// The tracks played from `from_ms` on, whatever their session, in order (the
+    /// tracklist of a recording).
+    pub fn plays_since(&self, from_ms: i64) -> Result<Vec<HistoryPlay>, DbError> {
+        let conn = self.conn();
+        let mut stmt = conn.prepare_cached(
+            "SELECT history_plays.path AS play_path, history_plays.deck, history_plays.played_at_ms, track_view.*
+             FROM history_plays LEFT JOIN track_view ON track_view.path = history_plays.path
+             WHERE history_plays.played_at_ms >= ?1 ORDER BY history_plays.played_at_ms, history_plays.id",
+        )?;
+        let rows = stmt.query_map([from_ms], play_from_row)?;
         Ok(rows.collect::<Result<_, _>>()?)
     }
 
@@ -90,6 +96,16 @@ impl LibraryDb {
         self.conn().prepare_cached("DELETE FROM history_sessions WHERE id = ?1")?.execute([session.0])?;
         Ok(())
     }
+}
+
+fn play_from_row(r: &rusqlite::Row<'_>) -> rusqlite::Result<HistoryPlay> {
+    let analysed = r.get::<_, Option<String>>("path")?.is_some();
+    Ok(HistoryPlay {
+        path: r.get("play_path")?,
+        deck: r.get::<_, i64>("deck")? as usize,
+        played_at_ms: r.get("played_at_ms")?,
+        record: if analysed { Some(record_from_row(r)?) } else { None },
+    })
 }
 
 #[cfg(test)]
@@ -116,6 +132,9 @@ mod tests {
         let order: Vec<_> = plays.iter().map(|p| (p.path.as_str(), p.deck, p.played_at_ms)).collect();
         assert_eq!(order, [("a.mp3", 0, 1_500), ("b.mp3", 1, 2_000), ("a.mp3", 0, 3_000)]);
         assert!(plays.iter().all(|p| p.record.is_none()));
+
+        let since: Vec<_> = db.plays_since(2_000).unwrap().iter().map(|p| p.played_at_ms).collect();
+        assert_eq!(since, [2_000, 3_000, 91_000], "across sessions");
     }
 
     #[test]

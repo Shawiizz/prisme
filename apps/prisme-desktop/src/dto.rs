@@ -135,6 +135,34 @@ impl From<EffectKindDto> for prisme_engine::EffectKind {
     }
 }
 
+/// What a recording takes.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "kind", rename_all = "camelCase")]
+pub enum RecordSourceDto {
+    /// The software mixer's master.
+    Master,
+    /// An input pair, from its first channel (0-based).
+    Input { first: usize },
+}
+
+impl From<RecordSourceDto> for prisme_engine::RecordSource {
+    fn from(s: RecordSourceDto) -> Self {
+        match s {
+            RecordSourceDto::Master => Self::Master,
+            RecordSourceDto::Input { first } => Self::Input(first),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RecordingDto {
+    pub path: String,
+    pub seconds: f64,
+    /// Tracks in its tracklist.
+    pub tracks: usize,
+}
+
 /// A deck's beat effect.
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -497,6 +525,15 @@ pub struct StatusDto {
     pub decks: Vec<DeckStatusDto>,
     pub main_peak: f32,
     pub health: Option<AudioHealthDto>,
+    pub recording: Option<RecordingStatusDto>,
+}
+
+#[derive(Debug, Clone, Copy, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RecordingStatusDto {
+    pub seconds: f64,
+    /// Audio the writer could not take in time (lost).
+    pub dropped_seconds: f64,
 }
 
 /// How well the audio keeps up.
@@ -522,18 +559,22 @@ impl From<&StreamStats> for AudioHealthDto {
 }
 
 impl StatusDto {
-    pub fn from_engine(s: &EngineStatus, stats: &StreamStats) -> Self {
+    pub fn from_engine(s: &EngineStatus, stats: &StreamStats, sample_rate: u32) -> Self {
         let health = AudioHealthDto::from(stats);
         Self {
             audio_running: !health.device_lost,
             decks: s.decks[..s.deck_count].iter().map(DeckStatusDto::from).collect(),
             main_peak: s.main_peak,
             health: Some(health),
+            recording: s.recording.map(|r| RecordingStatusDto {
+                seconds: r.frames as f64 / sample_rate as f64,
+                dropped_seconds: r.dropped as f64 / sample_rate as f64,
+            }),
         }
     }
 
     pub fn stopped() -> Self {
-        Self { audio_running: false, decks: Vec::new(), main_peak: 0.0, health: None }
+        Self { audio_running: false, decks: Vec::new(), main_peak: 0.0, health: None, recording: None }
     }
 }
 

@@ -148,6 +148,12 @@ impl Mixer {
         }
     }
 
+    /// The master of the software mixer for the block just finished (silence in
+    /// external mode).
+    pub(crate) fn master(&self, frames: usize) -> &[f32] {
+        &self.master_bus[..frames * 2]
+    }
+
     /// Gain of the crossfader for a deck on `side`.
     pub(crate) fn crossfader_gain(&self, side: CrossfaderSide) -> f32 {
         // how far the crossfader is towards the other side, 0..1

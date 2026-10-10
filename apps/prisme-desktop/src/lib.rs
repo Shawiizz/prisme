@@ -3,6 +3,7 @@
 //! * `audio_host`: runs the sound card stream and the engine on a dedicated thread;
 //! * `audio_watchdog`: restarts the audio when its device comes back after a loss;
 //! * `history`: records the tracks played, set by set;
+//! * `recording`: records the mix to a file, with its tracklist;
 //! * `state`: preferences, loaded tracks and deck settings;
 //! * `preferences`: what is kept from one start to the next;
 //! * `commands`: what the frontend can ask, by domain;
@@ -26,6 +27,7 @@ mod folders;
 mod history;
 mod library_service;
 mod preferences;
+mod recording;
 mod scope_stream;
 mod state;
 mod status_stream;
@@ -139,6 +141,8 @@ pub fn run() {
             commands::import::serato_folder,
             commands::import::import_serato,
             commands::import::import_rekordbox,
+            commands::recording::start_recording,
+            commands::recording::stop_recording,
             commands::prepare::prepare_list,
             commands::prepare::add_to_prepare,
             commands::prepare::remove_from_prepare,

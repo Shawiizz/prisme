@@ -51,6 +51,40 @@
   </div>
 
   <div class="actions">
+    <div class="rec">
+      @if (recording.status(); as r) {
+        <button
+          class="ghost recording"
+          (click)="recording.stop()"
+          [title]="
+            r.droppedSeconds > 0
+              ? r.droppedSeconds.toFixed(1) + ' s lost (disk too slow)'
+              : 'Stop recording'
+          "
+        >
+          ● {{ clock(r.seconds) }}
+        </button>
+      } @else {
+        <button
+          class="ghost"
+          (click)="recordMenu.set(!recordMenu())"
+          [title]="lastTitle()"
+          [disabled]="!engine.audioRunning()"
+        >
+          REC
+        </button>
+        @if (recordMenu()) {
+          <div class="backdrop" (click)="recordMenu.set(false)"></div>
+          <div class="menu">
+            @for (o of recording.options(); track o.label) {
+              <button [title]="o.title" (click)="record(o)">{{ o.label }}</button>
+            } @empty {
+              <span class="none">Nothing to record: no software mixer, no input</span>
+            }
+          </div>
+        }
+      }
+    </div>
     <button class="ghost" (click)="openTurntables.emit()" title="Turntables and timecode signal">
       DVS
     </button>

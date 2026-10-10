@@ -214,6 +214,12 @@ pub enum Command {
         deck: DeckId,
         beats: f32,
     },
+    /// Starts copying `source` into `sink` (a running recording is replaced).
+    StartRecording {
+        source: RecordSource,
+        sink: rtrb::Producer<f32>,
+    },
+    StopRecording,
     /// The pitch stays when the speed changes.
     SetKeyLock {
         deck: DeckId,
@@ -227,8 +233,18 @@ pub enum Command {
     },
 }
 
+/// What a recording takes.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum RecordSource {
+    /// The software mixer's master.
+    Master,
+    /// An input pair (its first channel), e.g. a hardware mixer's record output.
+    Input(usize),
+}
+
 /// Objects the audio thread hands back so that they are freed on the control side.
 pub enum Garbage {
     Track(Arc<TrackAudio>),
     Decoder(Box<TimecodeDecoder>),
+    Recording(rtrb::Producer<f32>),
 }

@@ -29,3 +29,6 @@ serde_json.workspace = true
 thiserror.workspace = true
 percent-encoding.workspace = true
 notify.workspace = true
+hound.workspace = true
+chrono.workspace = true
+rtrb.workspace = true

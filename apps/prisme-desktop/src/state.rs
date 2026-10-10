@@ -9,6 +9,7 @@ use crate::dto::{
 use crate::error::{AppError, AppResult};
 use crate::folders;
 use crate::preferences::{DeckPreferences, Preferences};
+use crate::recording::Recorder;
 use prisme_analysis::{TrackAnalysis, Waveform};
 use prisme_engine::{BeatGrid, Command, DeckStatus, MixMode, OutputRouting};
 use prisme_library::{Cue, CueSlot, TrackEdits};
@@ -130,6 +131,7 @@ pub struct AppState {
     pub tracks: Mutex<[Option<LoadedTrack>; DECKS]>,
     pub decks: Mutex<[DeckSettings; DECKS]>,
     pub crossfader: Mutex<f32>,
+    pub recorder: Mutex<Option<Recorder>>,
 }
 
 /// Locks a mutex, recovering from a poisoned lock (a panicking command must not take
@@ -147,6 +149,7 @@ impl AppState {
             tracks: Mutex::default(),
             decks: Mutex::new(saved.map(DeckSettings::from)),
             crossfader: Mutex::new(0.0),
+            recorder: Mutex::new(None),
         }
     }
 
@@ -213,6 +216,11 @@ impl AppState {
             Ok(()) | Err(AppError::AudioNotRunning) => Ok(()),
             Err(e) => Err(e),
         }
+    }
+
+    /// Sample rate of the running audio.
+    pub fn sample_rate(&self) -> Option<u32> {
+        lock(&self.session).as_ref().map(|s| s.engine_config.sample_rate)
     }
 
     /// The routing for a device with `output_channels`: an external mixer needs an output

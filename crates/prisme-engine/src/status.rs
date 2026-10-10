@@ -94,4 +94,12 @@ pub struct EngineStatus {
     pub decks: [DeckStatus; MAX_DECKS],
     /// Peak level of the main output since the previous snapshot.
     pub main_peak: f32,
+    pub recording: Option<RecordingStatus>,
+}
+
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct RecordingStatus {
+    pub frames: u64,
+    /// Frames the writer could not take in time (lost).
+    pub dropped: u64,
 }

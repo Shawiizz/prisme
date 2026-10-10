@@ -77,6 +77,23 @@ export interface EngineStatus {
   decks: DeckStatus[];
   mainPeak: number;
   health: AudioHealth | null;
+  recording: RecordingStatus | null;
+}
+
+export interface RecordingStatus {
+  seconds: number;
+  /** Audio the writer could not take in time (lost). */
+  droppedSeconds: number;
+}
+
+/** What a recording takes: the software mixer's master, or an input pair (0-based). */
+export type RecordSource = { kind: 'master' } | { kind: 'input'; first: number };
+
+export interface Recording {
+  path: string;
+  seconds: number;
+  /** Tracks in its tracklist. */
+  tracks: number;
 }
 
 /** One byte per slice in each band (sent in binary, see `decodeWaveform`). */
