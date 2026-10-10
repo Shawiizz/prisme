@@ -27,16 +27,52 @@
       @if (engine.error(); as e) {
         <span class="error" [title]="e">{{ e }}</span>
       }
+      <div class="analysis">
+        @if (progress().running) {
+          <span class="status">Analysing {{ progress().done }} / {{ progress().total }}</span>
+          <div class="bar"><div [style.width.%]="progressPercent()"></div></div>
+        } @else if (progress().failed > 0) {
+          <span class="status" title="Files that could not be decoded">{{ progress().failed }} unreadable</span>
+        }
+        <button class="ghost" (click)="library.rescan()" [disabled]="progress().running" title="Analyse new and changed files">
+          Rescan
+        </button>
+      </div>
     </div>
     <div class="table">
       <div class="head">
-        <span class="name">Title</span>
+        <button class="name" (click)="sortBy('name')">Title {{ sortMark('name') }}</button>
+        <button class="bpm" (click)="sortBy('bpm')">BPM {{ sortMark('bpm') }}</button>
+        <button class="key" (click)="sortBy('key')">Key {{ sortMark('key') }}</button>
         <span class="size">Size</span>
         <span class="load">Load</span>
       </div>
       @for (t of tracks(); track t.path; let odd = $odd) {
         <div class="row" [class.odd]="odd" [class.selected]="selected() === t.path" (click)="selected.set(t.path)" (dblclick)="loadDefault(t)">
           <span class="name">{{ displayName(t.name) }}</span>
+          @if (t.analysis; as a) {
+            @if (a.failed) {
+              <span class="bpm failed" title="This file could not be decoded">—</span>
+              <span class="key"></span>
+            } @else {
+              <span class="bpm">{{ a.bpm !== null ? a.bpm.toFixed(1) : '—' }}</span>
+              <span class="key">
+                @if (a.key; as k) {
+                  <span
+                    class="chip"
+                    [style.--key]="keyColor(k.camelot)"
+                    [class.match]="keyMatches(k.camelot) === true"
+                    [class.clash]="keyMatches(k.camelot) === false"
+                    [title]="k.name"
+                    >{{ k.camelot }}</span
+                  >
+                }
+              </span>
+            }
+          } @else {
+            <span class="bpm pending">···</span>
+            <span class="key"></span>
+          }
           <span class="size">{{ size(t.sizeBytes) }}</span>
           <span class="load">
             @for (d of deckIndexes; track d) {

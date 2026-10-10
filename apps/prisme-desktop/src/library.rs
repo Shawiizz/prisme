@@ -1,10 +1,7 @@
 //! Browsing music folders.
 
-use crate::dto::{DirEntryDto, DirListingDto};
+use crate::dto::{DirEntryDto, DirListingDto, TrackAnalysisDto};
 use std::path::{Path, PathBuf};
-
-/// Extensions the media decoder can play.
-const AUDIO_EXTENSIONS: &[&str] = &["mp3", "flac", "wav", "m4a", "aac", "ogg", "oga", "mp4"];
 
 /// The user's music folder (falls back to the home folder).
 pub fn music_root() -> PathBuf {
@@ -16,14 +13,12 @@ pub fn music_root() -> PathBuf {
     }
 }
 
-pub fn is_audio_file(path: &Path) -> bool {
-    path.extension()
-        .and_then(|e| e.to_str())
-        .is_some_and(|e| AUDIO_EXTENSIONS.contains(&e.to_ascii_lowercase().as_str()))
-}
-
 /// Sub-folders and playable files of `dir`, sorted by name (hidden entries skipped).
-pub fn list_dir(dir: &Path) -> std::io::Result<DirListingDto> {
+/// `analysis` gives the stored analysis of a track, if any.
+pub fn list_dir(
+    dir: &Path,
+    analysis: impl Fn(&Path, &std::fs::Metadata) -> Option<TrackAnalysisDto>,
+) -> std::io::Result<DirListingDto> {
     let mut folders = Vec::new();
     let mut tracks = Vec::new();
     for entry in std::fs::read_dir(dir)? {
@@ -34,11 +29,11 @@ pub fn list_dir(dir: &Path) -> std::io::Result<DirListingDto> {
         }
         let path = entry.path();
         let Ok(meta) = entry.metadata() else { continue };
-        let item = DirEntryDto { name, path: path.display().to_string(), size_bytes: meta.len() };
+        let item = |analysis| DirEntryDto { name, path: path.display().to_string(), size_bytes: meta.len(), analysis };
         if meta.is_dir() {
-            folders.push(item);
-        } else if is_audio_file(&path) {
-            tracks.push(item);
+            folders.push(item(None));
+        } else if prisme_media::is_supported(&path) {
+            tracks.push(item(analysis(&path, &meta)));
         }
     }
     let by_name = |a: &DirEntryDto, b: &DirEntryDto| a.name.to_lowercase().cmp(&b.name.to_lowercase());
@@ -60,14 +55,6 @@ pub fn title_from_path(path: &Path) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn recognises_audio_files() {
-        assert!(is_audio_file(Path::new("a/b/Track.MP3")));
-        assert!(is_audio_file(Path::new("x.flac")));
-        assert!(!is_audio_file(Path::new("cover.jpg")));
-        assert!(!is_audio_file(Path::new("noext")));
-    }
 
     #[test]
     fn title_is_the_file_stem() {

@@ -14,6 +14,7 @@ prisme-media = { path = "crates/prisme-media" }
 prisme-engine = { path = "crates/prisme-engine" }
 prisme-audio-io = { path = "crates/prisme-audio-io" }
 prisme-analysis = { path = "crates/prisme-analysis" }
+prisme-library = { path = "crates/prisme-library" }
 
 anyhow = "1"
 thiserror = "2"
@@ -21,6 +22,8 @@ rtrb = "0.3"
 triple_buffer = "8"
 cpal = "0.15"
 rustfft = "6"
+rusqlite = { version = "0.40", features = ["bundled"] }
+windows-sys = { version = "0.61", features = ["Win32_System_Threading"] }
 clap = { version = "4", features = ["derive"] }
 symphonia = { version = "0.5", default-features = false, features = ["mp3", "aac", "isomp4", "flac", "ogg", "vorbis", "wav", "pcm", "alac"] }
 

@@ -3,7 +3,8 @@
 //! A track is decoded entirely into memory as interleaved stereo `f32` ([`TrackAudio`]).
 //! For DVS this is what we want: scratching and needle drops need instant random access
 //! anywhere in the track, which streaming decoders cannot give. Decoding happens on a
-//! worker thread, never on the audio thread.
+//! worker thread, never on the audio thread. [`DecodeStream`] decodes chunk by chunk
+//! for work that only scans the audio once (library analysis).
 
 use std::fs::File;
 use std::path::Path;
@@ -71,56 +72,105 @@ impl TrackAudio {
     }
 }
 
+/// Extensions of the files [`decode_file`] can read.
+pub const SUPPORTED_EXTENSIONS: &[&str] = &["mp3", "flac", "wav", "m4a", "aac", "mp4", "ogg", "oga"];
+
+/// Whether `path` has the extension of a file this crate can decode.
+pub fn is_supported(path: &Path) -> bool {
+    path.extension()
+        .and_then(|e| e.to_str())
+        .is_some_and(|e| SUPPORTED_EXTENSIONS.contains(&e.to_ascii_lowercase().as_str()))
+}
+
 /// Decodes an audio file (MP3, AAC/M4A, FLAC, ALAC, OGG/Vorbis, WAV) into memory.
 /// Mono files are duplicated on both channels; extra channels are dropped.
 pub fn decode_file(path: &Path) -> Result<TrackAudio, MediaError> {
-    let file = File::open(path).map_err(|source| MediaError::Open { path: path.display().to_string(), source })?;
-    let stream = MediaSourceStream::new(Box::new(file), Default::default());
-    let mut hint = Hint::new();
-    if let Some(ext) = path.extension().and_then(|e| e.to_str()) {
-        hint.with_extension(ext);
-    }
-    let probed =
-        symphonia::default::get_probe().format(&hint, stream, &FormatOptions::default(), &MetadataOptions::default())?;
-    let mut format = probed.format;
-    let track = format.default_track().ok_or(MediaError::NoAudio)?;
-    let track_id = track.id;
-    let sample_rate = track.codec_params.sample_rate.ok_or(MediaError::NoSampleRate)?;
-    let estimated = track.codec_params.n_frames.unwrap_or(0) as usize * 2;
-    let mut decoder = symphonia::default::get_codecs().make(&track.codec_params, &DecoderOptions::default())?;
-
-    let mut samples = Vec::with_capacity(estimated);
-    let mut buffer: Option<SampleBuffer<f32>> = None;
-    loop {
-        let packet = match format.next_packet() {
-            Ok(packet) => packet,
-            // end of stream
-            Err(SymphoniaError::IoError(e)) if e.kind() == std::io::ErrorKind::UnexpectedEof => break,
-            Err(SymphoniaError::ResetRequired) => break,
-            Err(e) => return Err(e.into()),
-        };
-        if packet.track_id() != track_id {
-            continue;
-        }
-        let decoded = match decoder.decode(&packet) {
-            Ok(decoded) => decoded,
-            // a damaged frame: skip it, like every player does
-            Err(SymphoniaError::DecodeError(_)) => continue,
-            Err(e) => return Err(e.into()),
-        };
-        let spec = *decoded.spec();
-        let channels = spec.channels.count();
-        let buffer = buffer.get_or_insert_with(|| SampleBuffer::<f32>::new(decoded.capacity() as u64, spec));
-        if buffer.capacity() < decoded.capacity() * channels {
-            *buffer = SampleBuffer::<f32>::new(decoded.capacity() as u64, spec);
-        }
-        buffer.copy_interleaved_ref(decoded);
-        append_stereo(&mut samples, buffer.samples(), channels);
-    }
+    let mut stream = DecodeStream::open(path)?;
+    let mut samples = Vec::with_capacity(stream.estimated_frames() * 2);
+    while stream.next_chunk(&mut samples)? {}
     if samples.is_empty() {
         return Err(MediaError::NoAudio);
     }
-    Ok(TrackAudio { sample_rate, samples })
+    Ok(TrackAudio { sample_rate: stream.sample_rate(), samples })
+}
+
+/// A file being decoded chunk by chunk, for work that does not need the whole track
+/// in memory (analysing a library).
+pub struct DecodeStream {
+    format: Box<dyn symphonia::core::formats::FormatReader>,
+    decoder: Box<dyn symphonia::core::codecs::Decoder>,
+    track_id: u32,
+    sample_rate: u32,
+    estimated_frames: usize,
+    buffer: Option<SampleBuffer<f32>>,
+}
+
+impl DecodeStream {
+    pub fn open(path: &Path) -> Result<Self, MediaError> {
+        let file = File::open(path).map_err(|source| MediaError::Open { path: path.display().to_string(), source })?;
+        let stream = MediaSourceStream::new(Box::new(file), Default::default());
+        let mut hint = Hint::new();
+        if let Some(ext) = path.extension().and_then(|e| e.to_str()) {
+            hint.with_extension(ext);
+        }
+        let probed = symphonia::default::get_probe().format(
+            &hint,
+            stream,
+            &FormatOptions::default(),
+            &MetadataOptions::default(),
+        )?;
+        let format = probed.format;
+        let track = format.default_track().ok_or(MediaError::NoAudio)?;
+        let decoder = symphonia::default::get_codecs().make(&track.codec_params, &DecoderOptions::default())?;
+        Ok(Self {
+            track_id: track.id,
+            sample_rate: track.codec_params.sample_rate.ok_or(MediaError::NoSampleRate)?,
+            estimated_frames: track.codec_params.n_frames.unwrap_or(0) as usize,
+            format,
+            decoder,
+            buffer: None,
+        })
+    }
+
+    pub fn sample_rate(&self) -> u32 {
+        self.sample_rate
+    }
+
+    /// Frame count announced by the file header (0 if unknown).
+    pub fn estimated_frames(&self) -> usize {
+        self.estimated_frames
+    }
+
+    /// Appends the next packet as interleaved stereo to `out`. `false` at the end.
+    pub fn next_chunk(&mut self, out: &mut Vec<f32>) -> Result<bool, MediaError> {
+        loop {
+            let packet = match self.format.next_packet() {
+                Ok(packet) => packet,
+                // end of stream
+                Err(SymphoniaError::IoError(e)) if e.kind() == std::io::ErrorKind::UnexpectedEof => return Ok(false),
+                Err(SymphoniaError::ResetRequired) => return Ok(false),
+                Err(e) => return Err(e.into()),
+            };
+            if packet.track_id() != self.track_id {
+                continue;
+            }
+            let decoded = match self.decoder.decode(&packet) {
+                Ok(decoded) => decoded,
+                // a damaged frame: skip it, like every player does
+                Err(SymphoniaError::DecodeError(_)) => continue,
+                Err(e) => return Err(e.into()),
+            };
+            let spec = *decoded.spec();
+            let channels = spec.channels.count();
+            let buffer = self.buffer.get_or_insert_with(|| SampleBuffer::<f32>::new(decoded.capacity() as u64, spec));
+            if buffer.capacity() < decoded.capacity() * channels {
+                *buffer = SampleBuffer::<f32>::new(decoded.capacity() as u64, spec);
+            }
+            buffer.copy_interleaved_ref(decoded);
+            append_stereo(out, buffer.samples(), channels);
+            return Ok(true);
+        }
+    }
 }
 
 fn append_stereo(out: &mut Vec<f32>, interleaved: &[f32], channels: usize) {
@@ -144,6 +194,14 @@ mod tests {
         out.clear();
         append_stereo(&mut out, &[1.0, 2.0, 3.0, 4.0, 5.0, 6.0], 3);
         assert_eq!(out, vec![1.0, 2.0, 4.0, 5.0]);
+    }
+
+    #[test]
+    fn supported_files_are_recognised_by_extension() {
+        assert!(is_supported(Path::new("a/b/Track.MP3")));
+        assert!(is_supported(Path::new("x.flac")));
+        assert!(!is_supported(Path::new("cover.jpg")));
+        assert!(!is_supported(Path::new("noext")));
     }
 
     #[test]

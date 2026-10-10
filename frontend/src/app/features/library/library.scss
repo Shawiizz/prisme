@@ -61,13 +61,30 @@
   .count { color: var(--faint); font-size: 12px; }
   .error { color: var(--red); font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 }
+.analysis {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: none;
+  .status { color: var(--muted); font-size: 12px; font-variant-numeric: tabular-nums; }
+  .bar {
+    width: 120px;
+    height: 4px;
+    border-radius: 2px;
+    background: var(--line);
+    overflow: hidden;
+    div { height: 100%; background: var(--mint); transition: width 0.2s; }
+  }
+  button { padding: 3px 10px; font-size: 12px; }
+}
 .table {
   overflow-y: auto;
   min-height: 0;
 }
 .head, .row {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 90px 90px;
+  grid-template-columns: minmax(0, 1fr) 64px 56px 80px 90px;
   align-items: center;
   gap: 8px;
   padding: 0 10px;
@@ -75,11 +92,22 @@
 .head {
   position: sticky;
   top: 0;
+  z-index: 1;
   height: 28px;
   background: var(--panel-2);
   color: var(--muted);
   font-size: 12px;
   border-bottom: 1px solid var(--line-strong);
+  button {
+    padding: 0;
+    border: none;
+    background: transparent;
+    color: inherit;
+    font-size: inherit;
+    text-align: left;
+    &:hover { color: var(--text); }
+  }
+  .bpm { text-align: right; }
 }
 .row {
   height: 30px;
@@ -89,6 +117,24 @@
   &.selected { background: var(--select); }
   .name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .size { color: var(--faint); font-variant-numeric: tabular-nums; }
+  .bpm { text-align: right; font-variant-numeric: tabular-nums; color: var(--text-2); }
+  .pending { color: var(--faint); letter-spacing: 0.1em; }
+  .failed { color: var(--red); }
+}
+.chip {
+  display: inline-block;
+  min-width: 34px;
+  padding: 1px 5px;
+  border-radius: 3px;
+  font-size: 12px;
+  font-weight: 700;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+  color: var(--key);
+  border: 1px solid color-mix(in srgb, var(--key) 45%, transparent);
+  // harmonic match with a loaded deck: filled; no match: faded
+  &.match { background: var(--key); border-color: var(--key); color: var(--ink); }
+  &.clash { opacity: 0.55; }
 }
 .load {
   display: flex;

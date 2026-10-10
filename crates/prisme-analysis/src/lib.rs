@@ -18,7 +18,12 @@ pub use key::{Key, KeyConfig, KeyEstimate, Mode, Profiles};
 pub use tempo::{Tempo, DEFAULT_MIN_BPM};
 pub use waveform::{compute_waveform, Waveform};
 
-use prisme_media::TrackAudio;
+use prisme_media::{DecodeStream, MediaError, TrackAudio};
+use std::path::Path;
+
+/// Version of the tempo / key algorithms. Stored results from an older version are
+/// recomputed: bump it whenever a change can alter them.
+pub const ANALYSIS_VERSION: u32 = 1;
 
 #[derive(Debug, Clone, Copy)]
 pub struct AnalysisOptions {
@@ -38,12 +43,38 @@ pub struct TrackAnalysis {
     pub key: Option<KeyEstimate>,
 }
 
-/// Tempo and key of a track.
+/// Tempo and key of a decoded track.
 pub fn analyze(track: &TrackAudio, options: &AnalysisOptions) -> TrackAnalysis {
-    let signal = dsp::analysis_signal(track);
-    let envelopes = onset::onset_envelopes(&signal);
+    analyze_signal(&dsp::analysis_signal(track), options)
+}
+
+/// Tempo and key of a file, decoded on the fly: memory stays at the size of the
+/// decimated signal (~13 MB for 5 minutes) instead of the whole track.
+pub fn analyze_file(path: &Path, options: &AnalysisOptions) -> Result<FileAnalysis, MediaError> {
+    let mut stream = DecodeStream::open(path)?;
+    let mut decimator = dsp::Decimator::new(stream.sample_rate());
+    let mut chunk = Vec::new();
+    while stream.next_chunk(&mut chunk)? {
+        decimator.push(&chunk);
+        chunk.clear();
+    }
+    let signal = decimator.finish();
+    if signal.samples.is_empty() {
+        return Err(MediaError::NoAudio);
+    }
+    Ok(FileAnalysis { duration_s: signal.duration_s(), analysis: analyze_signal(&signal, options) })
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct FileAnalysis {
+    pub duration_s: f64,
+    pub analysis: TrackAnalysis,
+}
+
+fn analyze_signal(signal: &dsp::MonoSignal, options: &AnalysisOptions) -> TrackAnalysis {
+    let envelopes = onset::onset_envelopes(signal);
     TrackAnalysis {
         tempo: tempo::estimate_tempo(&envelopes, options.min_bpm),
-        key: key::estimate_key(&signal),
+        key: key::estimate_key(signal),
     }
 }

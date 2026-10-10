@@ -19,6 +19,7 @@ prisme-media.workspace = true
 prisme-engine.workspace = true
 prisme-audio-io.workspace = true
 prisme-analysis.workspace = true
+prisme-library.workspace = true
 tauri = { version = "2", features = [] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"

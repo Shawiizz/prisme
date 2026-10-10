@@ -22,36 +22,85 @@ impl MonoSignal {
     }
 }
 
-/// Mixes `track` down to mono and decimates it by an integer factor to about
-/// [`ANALYSIS_RATE`], with a windowed-sinc anti-alias filter. Output sample `i` is
-/// aligned with input frame `i * factor`.
+/// Mixes `track` down to mono and decimates it to about [`ANALYSIS_RATE`] (see
+/// [`Decimator`]).
 pub fn analysis_signal(track: &TrackAudio) -> MonoSignal {
-    let sr = track.sample_rate() as f64;
-    let factor = ((sr / ANALYSIS_RATE).floor() as usize).max(1);
-    let mono: Vec<f32> = track.samples().chunks_exact(2).map(|f| (f[0] + f[1]) * 0.5).collect();
-    if factor == 1 {
-        return MonoSignal { samples: mono, sample_rate: sr };
+    let mut decimator = Decimator::new(track.sample_rate());
+    decimator.push(track.samples());
+    decimator.finish()
+}
+
+/// Streaming mono mixdown and decimation by an integer factor to about
+/// [`ANALYSIS_RATE`], with a windowed-sinc anti-alias filter. Output sample `i` is
+/// aligned with input frame `i * factor`; the signal is taken as silent outside.
+pub struct Decimator {
+    factor: usize,
+    taps: Vec<f32>,
+    /// Mono input not yet fully consumed; `pending[0]` is input frame `base`.
+    pending: Vec<f32>,
+    base: isize,
+    input_frames: usize,
+    output: Vec<f32>,
+    sample_rate: f64,
+}
+
+impl Decimator {
+    pub fn new(sample_rate: u32) -> Self {
+        let sr = sample_rate as f64;
+        let factor = ((sr / ANALYSIS_RATE).floor() as usize).max(1);
+        // pass band up to 0.8 x the new Nyquist, stop band (-74 dB) before what would
+        // fold back below ~4.5 kHz
+        let taps = if factor == 1 { vec![1.0] } else { lowpass_taps(0.4 / factor as f64, 16 * factor + 1) };
+        let half = taps.len() / 2;
+        Self {
+            factor,
+            // silence before the start
+            pending: vec![0.0; half],
+            base: -(half as isize),
+            taps,
+            input_frames: 0,
+            output: Vec::new(),
+            sample_rate: sr / factor as f64,
+        }
     }
 
-    // pass band up to 0.8 x the new Nyquist, stop band (-74 dB) before what would fold
-    // back below ~4.5 kHz
-    let taps = lowpass_taps(0.4 / factor as f64, 16 * factor + 1);
-    let half = taps.len() / 2;
-    let samples = (0..mono.len().div_ceil(factor))
-        .map(|o| {
-            let start = (o * factor) as isize - half as isize;
-            if start >= 0 && start as usize + taps.len() <= mono.len() {
-                dot(&mono[start as usize..start as usize + taps.len()], &taps)
-            } else {
-                // edges: skip the taps that fall outside the signal
-                taps.iter()
-                    .enumerate()
-                    .filter_map(|(j, t)| mono.get(usize::try_from(start + j as isize).ok()?).map(|x| x * t))
-                    .sum()
+    /// Adds interleaved stereo samples.
+    pub fn push(&mut self, stereo: &[f32]) {
+        self.pending.extend(stereo.chunks_exact(2).map(|f| (f[0] + f[1]) * 0.5));
+        self.input_frames += stereo.len() / 2;
+        self.drain(false);
+    }
+
+    pub fn finish(mut self) -> MonoSignal {
+        // silence after the end
+        self.pending.extend(std::iter::repeat_n(0.0, self.taps.len()));
+        self.drain(true);
+        MonoSignal { samples: self.output, sample_rate: self.sample_rate }
+    }
+
+    /// Computes every output whose filter window is available.
+    fn drain(&mut self, last: bool) {
+        let half = (self.taps.len() / 2) as isize;
+        let total_outputs = self.input_frames.div_ceil(self.factor);
+        loop {
+            let o = self.output.len();
+            if last && o >= total_outputs {
+                break;
             }
-        })
-        .collect();
-    MonoSignal { samples, sample_rate: sr / factor as f64 }
+            let start = (o * self.factor) as isize - half - self.base;
+            let end = start as usize + self.taps.len();
+            if end > self.pending.len() {
+                break;
+            }
+            self.output.push(dot(&self.pending[start as usize..end], &self.taps));
+        }
+        // drop what no future output needs
+        let next_start = (self.output.len() * self.factor) as isize - half - self.base;
+        if next_start > 65_536 {
+            self.pending.drain(..next_start as usize);
+            self.base += next_start;
+        }
+    }
 }
 
 /// Dot product with 8 independent accumulators, so the compiler can vectorize it.
@@ -172,6 +221,25 @@ mod tests {
         let freq = peak.0 as f64 * mono.sample_rate / 4096.0;
         assert!((freq - 440.0).abs() < 3.0, "peak at {freq} Hz");
         assert!((peak.1 - 1.0).abs() < 0.2, "level {}", peak.1);
+    }
+
+    #[test]
+    fn streaming_gives_the_same_signal_whatever_the_chunks() {
+        let samples: Vec<f32> = (0..100_003).map(|i| ((i * 7919) % 2001) as f32 / 1000.0 - 1.0).collect();
+        let samples = &samples[..samples.len() / 2 * 2];
+        let whole = analysis_signal(&TrackAudio::from_interleaved(44_100, samples.to_vec()));
+        assert_eq!(whole.samples.len(), (samples.len() / 2).div_ceil(4));
+
+        let mut d = Decimator::new(44_100);
+        let mut rest = samples;
+        let mut size = 2;
+        while !rest.is_empty() {
+            let n = size.min(rest.len());
+            d.push(&rest[..n]);
+            rest = &rest[n..];
+            size = (size * 3 + 2) % 4000 / 2 * 2 + 2;
+        }
+        assert_eq!(d.finish().samples, whole.samples);
     }
 
     #[test]

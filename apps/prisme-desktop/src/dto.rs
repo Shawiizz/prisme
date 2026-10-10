@@ -236,6 +236,52 @@ pub struct DirEntryDto {
     pub name: String,
     pub path: String,
     pub size_bytes: u64,
+    /// Stored analysis of a track, `None` until it has been analysed.
+    pub analysis: Option<TrackAnalysisDto>,
+}
+
+/// Analysis results as the library shows them.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TrackAnalysisDto {
+    pub bpm: Option<f64>,
+    pub key: Option<KeyDto>,
+    /// The file could not be decoded.
+    pub failed: bool,
+}
+
+impl From<&prisme_library::TrackRecord> for TrackAnalysisDto {
+    fn from(r: &prisme_library::TrackRecord) -> Self {
+        Self {
+            bpm: r.analysis.tempo.map(|t| t.bpm),
+            key: r.analysis.key.as_ref().map(KeyDto::from),
+            failed: r.error.is_some(),
+        }
+    }
+}
+
+/// Payload of the `track-analyzed` event.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TrackAnalyzedDto {
+    pub path: String,
+    pub analysis: TrackAnalysisDto,
+}
+
+/// Payload of the `library-progress` event.
+#[derive(Debug, Clone, Copy, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ProgressDto {
+    pub total: usize,
+    pub done: usize,
+    pub failed: usize,
+    pub running: bool,
+}
+
+impl From<prisme_library::AnalysisProgress> for ProgressDto {
+    fn from(p: prisme_library::AnalysisProgress) -> Self {
+        Self { total: p.total, done: p.done, failed: p.failed, running: p.running }
+    }
 }
 
 #[derive(Debug, Clone, Serialize)]

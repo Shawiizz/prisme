@@ -2,14 +2,16 @@
 
 use crate::audio_host;
 use crate::dto::{
-    AudioInfo, AudioSettings, DeckSettingsDto, DeviceDto, DirListingDto, MixerStateDto, TimecodeFormatDto,
-    TrackInfoDto, VinylModeDto,
+    AudioInfo, AudioSettings, DeckSettingsDto, DeviceDto, DirListingDto, MixerStateDto, ProgressDto,
+    TimecodeFormatDto, TrackAnalysisDto, TrackInfoDto, VinylModeDto,
 };
+use crate::analysis_service::AnalysisService;
 use crate::error::{AppError, AppResult};
 use crate::library;
 use crate::state::{deck_commands, lock, AppState, LoadedTrack};
 use prisme_analysis::AnalysisOptions;
 use prisme_audio_io::DeviceKind;
+use prisme_library::{FileStamp, TrackRecord};
 use prisme_engine::Command;
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -75,10 +77,16 @@ pub fn start_audio(state: &AppState, settings: AudioSettings) -> AppResult<Audio
 
 /// Decodes a file, analyses it (waveform, tempo, key) and loads it on a deck.
 #[tauri::command]
-pub async fn load_track(state: State<'_, AppState>, deck: usize, path: String) -> AppResult<TrackInfoDto> {
+pub async fn load_track(
+    state: State<'_, AppState>,
+    library: State<'_, Arc<AnalysisService>>,
+    deck: usize,
+    path: String,
+) -> AppResult<TrackInfoDto> {
     AppState::check_deck(deck)?;
     let file = PathBuf::from(&path);
-    let track = tauri::async_runtime::spawn_blocking(move || prepare_track(file))
+    let library = library.inner().clone();
+    let track = tauri::async_runtime::spawn_blocking(move || prepare_track(file, &library))
         .await
         .map_err(|e| AppError::Other(e.to_string()))??;
     let info = track.info(deck);
@@ -91,12 +99,28 @@ pub async fn load_track(state: State<'_, AppState>, deck: usize, path: String) -
     }
 }
 
-/// Decoding, then the waveform and the tempo / key analysis side by side.
-pub fn prepare_track(path: PathBuf) -> AppResult<LoadedTrack> {
+/// Decoding, then the waveform and the tempo / key analysis side by side. The
+/// analysis comes from the library when it is up to date there; otherwise it is
+/// computed and stored.
+pub fn prepare_track(path: PathBuf, library: &AnalysisService) -> AppResult<LoadedTrack> {
     let audio = prisme_media::decode_file(&path)?;
+    let stamp = FileStamp::of(&path).ok();
+    let stored = stamp
+        .and_then(|s| library.db.get(&path).ok().flatten().filter(|r| r.is_current(s) && r.error.is_none()))
+        .map(|r| r.analysis);
     let (waveform, analysis) = std::thread::scope(|s| {
         let waveform = s.spawn(|| prisme_analysis::compute_waveform(&audio, WAVEFORM_SLICES_PER_S));
-        let analysis = prisme_analysis::analyze(&audio, &AnalysisOptions::default());
+        let analysis = stored.unwrap_or_else(|| {
+            let analysis = prisme_analysis::analyze(&audio, &AnalysisOptions::default());
+            if let Some(stamp) = stamp {
+                let record = TrackRecord::analyzed(&path, stamp, audio.duration_s(), analysis);
+                if let Err(e) = library.db.save(&record) {
+                    eprintln!("{e}");
+                }
+                library.announce(&record);
+            }
+            analysis
+        });
         (waveform.join().expect("waveform thread"), analysis)
     });
     Ok(LoadedTrack { path, audio: Arc::new(audio), waveform, analysis })
@@ -186,7 +210,23 @@ pub fn music_root() -> String {
     library::music_root().display().to_string()
 }
 
+/// Folders and tracks of a folder, with the stored analysis of each track.
 #[tauri::command]
-pub fn list_dir(path: String) -> AppResult<DirListingDto> {
-    Ok(library::list_dir(&PathBuf::from(path))?)
+pub fn list_dir(library: State<'_, Arc<AnalysisService>>, path: String) -> AppResult<DirListingDto> {
+    Ok(library::list_dir(&PathBuf::from(path), |file, meta| {
+        let record = library.db.get(file).ok().flatten()?;
+        record.is_current(FileStamp::from_metadata(meta)).then(|| TrackAnalysisDto::from(&record))
+    })?)
+}
+
+/// State of the background analysis of the music folder.
+#[tauri::command]
+pub fn library_progress(library: State<'_, Arc<AnalysisService>>) -> ProgressDto {
+    library.progress().into()
+}
+
+/// Looks for new or changed files in the music folder and analyses them.
+#[tauri::command]
+pub fn rescan_library(library: State<'_, Arc<AnalysisService>>) {
+    library.start();
 }
