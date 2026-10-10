@@ -1,0 +1,9 @@
+[package]
+name = "prisme-timecode"
+description = "Timecode vinyl (DVS) decoder: speed, direction and absolute position from the record signal"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[dependencies]

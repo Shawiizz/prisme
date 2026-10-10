@@ -1,0 +1,19 @@
+[package]
+name = "prisme-cli"
+description = "Command line front-end: run the whole chain without the GUI"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[[bin]]
+name = "prisme"
+path = "src/main.rs"
+
+[dependencies]
+prisme-timecode.workspace = true
+prisme-media.workspace = true
+prisme-engine.workspace = true
+prisme-audio-io.workspace = true
+anyhow.workspace = true
+clap.workspace = true

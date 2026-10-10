@@ -1,0 +1,13 @@
+[package]
+name = "prisme-engine"
+description = "Real-time DJ engine: decks, vinyl control, mixer"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[dependencies]
+prisme-timecode.workspace = true
+prisme-media.workspace = true
+rtrb.workspace = true
+triple_buffer.workspace = true
