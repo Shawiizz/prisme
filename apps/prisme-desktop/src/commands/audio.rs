@@ -1,13 +1,19 @@
 use crate::audio_host;
-use crate::dto::{AudioInfo, AudioSettings, DeviceDto, TimecodeFormatDto};
+use crate::dto::{AudioInfo, AudioSettings, BackendDto, DeviceDto, TimecodeFormatDto};
 use crate::error::AppResult;
 use crate::state::{lock, AppState};
-use prisme_audio_io::DeviceKind;
+use prisme_audio_io::{Backend, DeviceKind};
 use tauri::State;
 
+/// Backends this computer offers (ASIO only with an ASIO driver installed).
 #[tauri::command]
-pub fn list_devices() -> AppResult<Vec<DeviceDto>> {
-    Ok(prisme_audio_io::list_devices()?
+pub fn audio_backends() -> Vec<BackendDto> {
+    Backend::available().into_iter().map(BackendDto::from).collect()
+}
+
+#[tauri::command]
+pub fn list_devices(backend: BackendDto) -> AppResult<Vec<DeviceDto>> {
+    Ok(prisme_audio_io::list_devices(backend.into())?
         .into_iter()
         .map(|d| DeviceDto {
             kind: match d.kind {

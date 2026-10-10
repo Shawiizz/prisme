@@ -7,6 +7,9 @@ rust-version.workspace = true
 publish.workspace = true
 
 [dependencies]
-cpal.workspace = true
+cpal = { workspace = true, features = ["realtime"] }
 rtrb.workspace = true
 thiserror.workspace = true
+
+[target.'cfg(windows)'.dependencies]
+cpal = { workspace = true, features = ["realtime", "asio"] }

@@ -1,5 +1,6 @@
 //! Data exchanged with the frontend (camelCase JSON).
 
+use prisme_audio_io::Backend;
 use prisme_engine::{DeckStatus, EngineStatus, LoopRegion, VinylMode};
 use prisme_library::{Cue, CueSlot};
 use prisme_timecode::SignalState;
@@ -16,10 +17,37 @@ pub struct DeviceDto {
     pub is_default: bool,
 }
 
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum BackendDto {
+    #[default]
+    Wasapi,
+    Asio,
+}
+
+impl From<BackendDto> for Backend {
+    fn from(b: BackendDto) -> Self {
+        match b {
+            BackendDto::Wasapi => Backend::Wasapi,
+            BackendDto::Asio => Backend::Asio,
+        }
+    }
+}
+
+impl From<Backend> for BackendDto {
+    fn from(b: Backend) -> Self {
+        match b {
+            Backend::Wasapi => BackendDto::Wasapi,
+            Backend::Asio => BackendDto::Asio,
+        }
+    }
+}
+
 /// Audio settings chosen by the user.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(default, rename_all = "camelCase")]
 pub struct AudioSettings {
+    pub backend: BackendDto,
     pub output_device: Option<String>,
     /// Turntable input (DVS interface). None = no turntables.
     pub input_device: Option<String>,
@@ -32,6 +60,7 @@ pub struct AudioSettings {
 impl Default for AudioSettings {
     fn default() -> Self {
         Self {
+            backend: BackendDto::Wasapi,
             output_device: None,
             input_device: None,
             simulate: false,

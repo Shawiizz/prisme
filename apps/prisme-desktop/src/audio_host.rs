@@ -4,7 +4,7 @@
 
 use crate::dto::{AudioInfo, AudioSettings};
 use crate::error::{AppError, AppResult};
-use prisme_audio_io::{AudioCallback, DeviceKind, StreamSettings};
+use prisme_audio_io::{AudioCallback, StreamSettings};
 use prisme_engine::{Engine, EngineConfig, EngineController};
 use prisme_timecode::testing::{Pattern, SimulatedTurntable};
 use prisme_timecode::TimecodeFormat;
@@ -53,28 +53,12 @@ impl Drop for AudioSession {
     }
 }
 
-/// Sample rate of the output device that `settings` selects.
-fn output_rate(settings: &AudioSettings) -> AppResult<u32> {
-    let wanted = settings.output_device.as_deref().map(str::to_lowercase);
-    prisme_audio_io::list_devices()?
-        .into_iter()
-        .find(|d| {
-            d.kind == DeviceKind::Output
-                && match &wanted {
-                    Some(w) => d.name.to_lowercase().contains(w),
-                    None => d.is_default,
-                }
-        })
-        .map(|d| d.sample_rate)
-        .ok_or_else(|| AppError::Other("output device not found".into()))
-}
-
 /// Starts the audio with `settings`.
 pub fn start(settings: &AudioSettings) -> AppResult<AudioSession> {
     let format = TimecodeFormat::by_id(&settings.timecode_format)
         .ok_or_else(|| AppError::UnknownFormat(settings.timecode_format.clone()))?;
-    let rate = output_rate(settings)?;
     let stream_settings = StreamSettings {
+        backend: settings.backend.into(),
         output_device: settings.output_device.clone(),
         input_device: if settings.simulate { None } else { settings.input_device.clone() },
         buffer_frames: settings.buffer_frames,
@@ -84,14 +68,20 @@ pub fn start(settings: &AudioSettings) -> AppResult<AudioSession> {
     let (ready_tx, ready_rx) = mpsc::channel::<AppResult<(EngineController, AudioInfo)>>();
     let (stop_tx, stop_rx) = mpsc::channel::<()>();
     let thread = std::thread::Builder::new().name("prisme-audio".into()).spawn(move || {
-        let (engine, controller) = prisme_engine::create(EngineConfig::new(rate, DECKS, format));
-        let turntable = simulate.then(|| SimulatedTurntable::new(format, rate, Pattern::Scratch));
-        match prisme_audio_io::start(&stream_settings, EngineCallback { engine, turntable }) {
-            Ok(stream) => {
+        let mut controller = None;
+        let started = prisme_audio_io::start(&stream_settings, |f| {
+            let (engine, c) = prisme_engine::create(EngineConfig::new(f.sample_rate, DECKS, format));
+            controller = Some(c);
+            let turntable =
+                simulate.then(|| SimulatedTurntable::new(format, f.sample_rate, Pattern::Scratch));
+            EngineCallback { engine, turntable }
+        });
+        match (started, controller) {
+            (Ok(stream), Some(controller)) => {
                 let info = AudioInfo {
-                    sample_rate: stream.sample_rate,
-                    output_channels: stream.output_channels,
-                    input_channels: stream.input_channels,
+                    sample_rate: stream.format.sample_rate,
+                    output_channels: stream.format.output_channels,
+                    input_channels: stream.format.input_channels,
                     simulated: simulate,
                 };
                 if ready_tx.send(Ok((controller, info))).is_ok() {
@@ -99,18 +89,13 @@ pub fn start(settings: &AudioSettings) -> AppResult<AudioSession> {
                 }
                 drop(stream);
             }
-            Err(e) => {
+            (Err(e), _) => {
                 let _ = ready_tx.send(Err(e.into()));
             }
+            (Ok(_), None) => unreachable!("the callback is built before the stream starts"),
         }
     })?;
     let (controller, info) =
         ready_rx.recv().map_err(|_| AppError::Other("the audio thread stopped".into()))??;
-    if info.sample_rate != rate {
-        return Err(AppError::Other(format!(
-            "the device runs at {} Hz instead of {rate} Hz",
-            info.sample_rate
-        )));
-    }
     Ok(AudioSession { controller, info, stop: Some(stop_tx), thread: Some(thread) })
 }

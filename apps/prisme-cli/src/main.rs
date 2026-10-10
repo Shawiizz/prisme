@@ -5,9 +5,9 @@
 mod analyze;
 mod simulation;
 
-use anyhow::{bail, Context, Result};
+use anyhow::{Context, Result};
 use clap::{Parser, Subcommand, ValueEnum};
-use prisme_audio_io::{AudioCallback, DeviceKind, StreamSettings};
+use prisme_audio_io::{AudioCallback, Backend, DeviceKind, StreamSettings};
 use prisme_engine::{Command, Engine, EngineConfig, EngineController, VinylMode};
 use prisme_timecode::testing::SimulatedTurntable;
 use prisme_timecode::TimecodeFormat;
@@ -86,6 +86,8 @@ enum Cmd {
 
 #[derive(clap::Args, Clone)]
 struct AudioArgs {
+    #[arg(long, value_enum, default_value_t = BackendArg::Wasapi)]
+    backend: BackendArg,
     /// Part of the output device name (default device if omitted).
     #[arg(long)]
     output: Option<String>,
@@ -95,6 +97,21 @@ struct AudioArgs {
     /// Master gain (1.0 = unity).
     #[arg(long, default_value_t = 1.0)]
     gain: f32,
+}
+
+#[derive(Clone, Copy, ValueEnum)]
+enum BackendArg {
+    Wasapi,
+    Asio,
+}
+
+impl From<BackendArg> for Backend {
+    fn from(b: BackendArg) -> Self {
+        match b {
+            BackendArg::Wasapi => Backend::Wasapi,
+            BackendArg::Asio => Backend::Asio,
+        }
+    }
 }
 
 #[derive(Clone, Copy, ValueEnum)]
@@ -162,13 +179,15 @@ fn main() -> Result<()> {
 }
 
 fn devices() -> Result<()> {
-    for d in prisme_audio_io::list_devices()? {
-        let kind = match d.kind {
-            DeviceKind::Input => "in ",
-            DeviceKind::Output => "out",
-        };
-        let default = if d.is_default { " (default)" } else { "" };
-        println!("{kind}  {:<60} {} ch, {} Hz [{}]{default}", d.name, d.channels, d.sample_rate, d.host);
+    for backend in Backend::available() {
+        for d in prisme_audio_io::list_devices(backend)? {
+            let kind = match d.kind {
+                DeviceKind::Input => "in ",
+                DeviceKind::Output => "out",
+            };
+            let default = if d.is_default { " (default)" } else { "" };
+            println!("{backend:<6} {kind}  {:<60} {} ch, {} Hz{default}", d.name, d.channels, d.sample_rate);
+        }
     }
     Ok(())
 }
@@ -192,39 +211,29 @@ fn run(
     );
 
     let settings = StreamSettings {
+        backend: audio.backend.into(),
         output_device: audio.output.clone(),
         input_device: input.as_ref().map(|(name, _)| name.clone()),
         buffer_frames: audio.buffer,
     };
-    // The engine needs the sample rate of the device: probe it first.
-    let probe = prisme_audio_io::list_devices()?;
-    let rate = probe
-        .iter()
-        .find(|d| {
-            d.kind == DeviceKind::Output
-                && audio
-                    .output
-                    .as_deref()
-                    .map_or(d.is_default, |n| d.name.to_lowercase().contains(&n.to_lowercase()))
-        })
-        .map(|d| d.sample_rate)
-        .context("output device not found")?;
     let format = input
         .as_ref()
         .map(|(_, f)| *f)
         .or(simulate.map(|(f, _)| f))
         .unwrap_or(&prisme_timecode::SERATO_CV02_A);
-    let config = EngineConfig::new(rate, 2, format);
-    let (engine, mut controller) = prisme_engine::create(config);
-    let turntable = simulate.map(|(f, pattern)| SimulatedTurntable::new(f, rate, pattern.into()));
-
-    let stream = prisme_audio_io::start(&settings, EngineCallback { engine, turntable })?;
-    if stream.sample_rate != rate {
-        bail!("device rate changed ({} Hz instead of {} Hz)", stream.sample_rate, rate);
-    }
+    let mut controller = None;
+    let stream = prisme_audio_io::start(&settings, |f| {
+        let (engine, c) = prisme_engine::create(EngineConfig::new(f.sample_rate, 2, format));
+        controller = Some(c);
+        let turntable =
+            simulate.map(|(t, pattern)| SimulatedTurntable::new(t, f.sample_rate, pattern.into()));
+        EngineCallback { engine, turntable }
+    })?;
+    let mut controller = controller.context("the engine was not created")?;
+    let f = stream.format;
     println!(
         "audio: {} Hz, {} output / {} input channels",
-        stream.sample_rate, stream.output_channels, stream.input_channels
+        f.sample_rate, f.output_channels, f.input_channels
     );
 
     controller.send(Command::LoadTrack { deck: 0, track }).ok();

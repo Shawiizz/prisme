@@ -1,0 +1,3 @@
+[env]
+# libclang for the ASIO bindings (bindgen); installed by scripts/setup-dev.ps1
+LIBCLANG_PATH = { value = ".tools/libclang/clang/native", relative = true }
