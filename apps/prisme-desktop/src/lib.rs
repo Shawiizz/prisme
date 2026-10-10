@@ -3,6 +3,7 @@
 //! * `audio_host`: runs the sound card stream and the engine on a dedicated thread;
 //! * `audio_watchdog`: restarts the audio when its device comes back after a loss;
 //! * `controllers`: MIDI controllers and their mappings;
+//! * `crash_recovery`: puts the decks back after a crash;
 //! * `history`: records the tracks played, set by set;
 //! * `midi_clock`: MIDI clock out, in time with the sync leader;
 //! * `recording`: records the mix to a file, with its tracklist;
@@ -23,6 +24,7 @@ mod audio_watchdog;
 mod commands;
 mod controllers;
 mod cover_protocol;
+mod crash_recovery;
 mod dev_startup;
 mod dto;
 mod error;
@@ -40,6 +42,7 @@ mod status_stream;
 mod track_loading;
 
 use controllers::Controllers;
+use crash_recovery::CrashRecovery;
 use library_service::LibraryService;
 use midi_clock::MidiClock;
 use prisme_session::JsonFile;
@@ -62,9 +65,15 @@ pub fn run() {
                 Arc::new(LibraryService::open(app.handle(), data_dir.as_deref(), folders::music_root()));
             app.manage(library.clone());
 
+            app.manage(CrashRecovery::new(open_json(data_dir.as_deref(), "session.json")));
+            let restored = app.state::<CrashRecovery>().decks_to_restore();
+
             let state = app.state::<AppState>();
             dev_startup::preload_tracks(app.handle(), &state, &library);
+            CrashRecovery::preload(app.handle(), &state, &library, &restored);
             start_saved_audio(&state);
+            CrashRecovery::seek(&state, &restored);
+            CrashRecovery::start(app.handle().clone());
             if let Some(gain) = dev_startup::master_gain() {
                 let _ = state.send(prisme_engine::Command::SetMasterGain { gain });
             }
@@ -190,8 +199,13 @@ pub fn run() {
             scope_stream::subscribe_scope,
             scope_stream::unsubscribe_scope,
         ])
-        .run(tauri::generate_context!())
-        .expect("error while running Prisme");
+        .build(tauri::generate_context!())
+        .expect("error while building Prisme")
+        .run(|app, event| {
+            if let tauri::RunEvent::Exit = event {
+                app.state::<CrashRecovery>().closed_normally();
+            }
+        });
 }
 
 fn open_json<T: Serialize + DeserializeOwned + Default + Clone>(

@@ -7,7 +7,7 @@
 
 use crate::audio_host::DECKS;
 use crate::library_service::LibraryService;
-use crate::state::{lock, AppState};
+use crate::state::AppState;
 use crate::track_loading;
 use std::path::PathBuf;
 use tauri::AppHandle;
@@ -24,14 +24,8 @@ pub fn preload_tracks(app: &AppHandle, state: &AppState, library: &LibraryServic
         let Ok(path) = std::env::var(format!("PRISME_DECK{}", deck + 1)) else {
             continue;
         };
-        match track_loading::prepare(PathBuf::from(path), library) {
-            Ok((track, completion)) => {
-                let load_id = track.load_id;
-                lock(&state.tracks)[deck] = Some(track);
-                let app = app.clone();
-                std::thread::spawn(move || completion.run(&app, deck, load_id));
-            }
-            Err(e) => eprintln!("PRISME_DECK{}: {e}", deck + 1),
+        if let Err(e) = track_loading::preload(app, state, library, deck, PathBuf::from(path)) {
+            eprintln!("PRISME_DECK{}: {e}", deck + 1);
         }
     }
 }

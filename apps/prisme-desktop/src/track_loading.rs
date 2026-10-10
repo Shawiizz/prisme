@@ -6,7 +6,7 @@
 use crate::dto::{DeckTrackUpdateDto, TrackAnalysisDto};
 use crate::error::AppResult;
 use crate::library_service::LibraryService;
-use crate::state::{AppState, LoadedTrack};
+use crate::state::{lock, AppState, LoadedTrack};
 use prisme_analysis::{AnalysisOptions, TrackAnalysis};
 use prisme_engine::Command;
 use prisme_library::{FileStamp, TrackRecord};
@@ -29,6 +29,23 @@ pub struct Completion {
 }
 
 /// The track, playable, and what is left to do ([`Completion::run`]).
+/// Puts a track on `deck` before the audio starts (`AppState::restore` hands it to the
+/// engine); its waveform and analysis follow.
+pub fn preload(
+    app: &AppHandle,
+    state: &AppState,
+    library: &LibraryService,
+    deck: usize,
+    path: PathBuf,
+) -> AppResult<()> {
+    let (track, completion) = prepare(path, library)?;
+    let load_id = track.load_id;
+    lock(&state.tracks)[deck] = Some(track);
+    let app = app.clone();
+    std::thread::spawn(move || completion.run(&app, deck, load_id));
+    Ok(())
+}
+
 pub fn prepare(path: PathBuf, library: &LibraryService) -> AppResult<(LoadedTrack, Completion)> {
     let loading = LoadingTrack::open(&path)?;
     let stamp = FileStamp::of(&path).ok();
