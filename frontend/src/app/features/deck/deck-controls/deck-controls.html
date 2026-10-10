@@ -26,8 +26,8 @@
     </div>
     <input
       type="range"
-      [min]="-range"
-      [max]="range"
+      [min]="-range()"
+      [max]="range()"
       step="0.0005"
       [value]="faderValue()"
       (input)="onPitch($event)"

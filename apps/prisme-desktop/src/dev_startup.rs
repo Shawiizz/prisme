@@ -7,7 +7,7 @@
 
 use crate::audio_host::DECKS;
 use crate::analysis_service::AnalysisService;
-use crate::commands::prepare_track;
+use crate::commands::tracks::prepare_track;
 use crate::state::{lock, AppState};
 use std::path::PathBuf;
 

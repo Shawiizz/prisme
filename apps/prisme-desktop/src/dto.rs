@@ -17,7 +17,7 @@ pub struct DeviceDto {
 
 /// Audio settings chosen by the user.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-#[serde(rename_all = "camelCase")]
+#[serde(default, rename_all = "camelCase")]
 pub struct AudioSettings {
     pub output_device: Option<String>,
     /// Turntable input (DVS interface). None = no turntables.
@@ -120,9 +120,10 @@ pub struct TrackInfoDto {
     pub key: Option<KeyDto>,
 }
 
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, Default, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub enum VinylModeDto {
+    #[default]
     Absolute,
     Relative,
 }

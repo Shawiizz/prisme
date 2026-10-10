@@ -1,4 +1,4 @@
-import { Injectable, computed, signal } from '@angular/core';
+import { Injectable, computed, inject, signal } from '@angular/core';
 import { Channel, invoke } from '@tauri-apps/api/core';
 import {
   DECK_COUNT,
@@ -7,8 +7,8 @@ import {
   MixerState,
   TrackInfo,
   VinylMode,
-  VinylSyncMode,
 } from '../models/engine';
+import { PreferencesService } from './preferences.service';
 
 const DEFAULT_DECK: DeckSettings = {
   pitch: 1,
@@ -25,13 +25,14 @@ const DEFAULT_DECK: DeckSettings = {
  */
 @Injectable({ providedIn: 'root' })
 export class EngineService {
+  private readonly preferences = inject(PreferencesService);
+
   /** Latest engine state (drives the templates). */
   readonly status = signal<EngineStatus | null>(null);
   readonly tracks = signal<(TrackInfo | null)[]>(Array(DECK_COUNT).fill(null));
   readonly loading = signal<boolean[]>(Array(DECK_COUNT).fill(false));
   readonly decks = signal<DeckSettings[]>(Array.from({ length: DECK_COUNT }, () => ({ ...DEFAULT_DECK })));
   readonly crossfader = signal(0);
-  readonly vinylSync = signal<VinylSyncMode>('once');
   readonly error = signal<string | null>(null);
 
   readonly audioRunning = computed(() => this.status()?.audioRunning ?? false);
@@ -130,7 +131,7 @@ export class EngineService {
     if (status.sync.locked) {
       return this.call('set_sync_locked', { deck, locked: false });
     }
-    const oneShot = this.decks()[deck].vinylEnabled && this.vinylSync() === 'once';
+    const oneShot = this.decks()[deck].vinylEnabled && this.preferences.dj().vinylSync === 'once';
     return oneShot ? this.call('sync_once', { deck }) : this.call('set_sync_locked', { deck, locked: true });
   }
 

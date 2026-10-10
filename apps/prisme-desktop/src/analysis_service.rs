@@ -8,9 +8,9 @@ use crate::dto::{ProgressDto, TrackAnalysisDto, TrackAnalyzedDto};
 use crate::state::lock;
 use prisme_analysis::AnalysisOptions;
 use prisme_library::{AnalysisListener, AnalysisProgress, BackgroundAnalyzer, LibraryDb, TrackRecord};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
-use tauri::{AppHandle, Emitter, Manager};
+use tauri::{AppHandle, Emitter};
 
 pub const TRACK_ANALYZED_EVENT: &str = "track-analyzed";
 pub const PROGRESS_EVENT: &str = "library-progress";
@@ -26,11 +26,9 @@ pub struct AnalysisService {
 impl AnalysisService {
     /// Opens the database in the app data folder. If it cannot be opened the app still
     /// works, with a database in memory (analyses are then redone at each start).
-    pub fn open(app: &AppHandle, root: PathBuf) -> Self {
-        let db = app
-            .path()
-            .app_data_dir()
-            .map_err(|e| e.to_string())
+    pub fn open(app: &AppHandle, data_dir: Option<&Path>, root: PathBuf) -> Self {
+        let db = data_dir
+            .ok_or_else(|| "no data folder".to_string())
             .and_then(|dir| LibraryDb::open(&dir.join("library.sqlite")).map_err(|e| e.to_string()))
             .unwrap_or_else(|e| {
                 eprintln!("library database unavailable ({e}), keeping it in memory");

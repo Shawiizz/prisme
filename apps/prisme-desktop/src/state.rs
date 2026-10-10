@@ -1,13 +1,16 @@
-//! Application state shared by the commands: the audio session, the loaded tracks and
-//! the deck settings (kept so they can be re-applied when the audio restarts).
+//! Application state shared by the commands: the preferences, the audio session, the
+//! loaded tracks and the deck settings (kept so they can be re-applied when the audio
+//! restarts).
 
 use crate::audio_host::{AudioSession, DECKS};
-use crate::dto::{AudioSettings, KeyDto, TempoDto, TrackInfoDto, VinylModeDto, WaveformDto};
+use crate::dto::{KeyDto, TempoDto, TrackInfoDto, VinylModeDto, WaveformDto};
 use crate::error::{AppError, AppResult};
 use crate::library;
+use crate::preferences::{DeckPreferences, Preferences};
 use prisme_analysis::{TrackAnalysis, Waveform};
 use prisme_engine::{BeatGrid, Command, EngineController};
 use prisme_media::TrackAudio;
+use prisme_session::JsonFile;
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex, MutexGuard};
 
@@ -50,16 +53,15 @@ pub struct DeckSettings {
     pub lead_in_s: f64,
 }
 
-impl Default for DeckSettings {
-    fn default() -> Self {
-        Self { pitch: 1.0, volume: 1.0, vinyl_enabled: false, vinyl_mode: VinylModeDto::Absolute, lead_in_s: 0.0 }
+impl From<DeckPreferences> for DeckSettings {
+    fn from(p: DeckPreferences) -> Self {
+        Self { pitch: 1.0, volume: 1.0, vinyl_enabled: p.vinyl_enabled, vinyl_mode: p.vinyl_mode, lead_in_s: p.lead_in_s }
     }
 }
 
-#[derive(Default)]
 pub struct AppState {
+    pub preferences: JsonFile<Preferences>,
     pub session: Mutex<Option<AudioSession>>,
-    pub settings: Mutex<AudioSettings>,
     pub tracks: Mutex<[Option<LoadedTrack>; DECKS]>,
     pub decks: Mutex<[DeckSettings; DECKS]>,
     pub crossfader: Mutex<f32>,
@@ -72,11 +74,29 @@ pub fn lock<T>(m: &Mutex<T>) -> MutexGuard<'_, T> {
 }
 
 impl AppState {
+    pub fn new(preferences: JsonFile<Preferences>) -> Self {
+        let saved = preferences.get().decks;
+        Self {
+            preferences,
+            session: Mutex::new(None),
+            tracks: Mutex::default(),
+            decks: Mutex::new(saved.map(DeckSettings::from)),
+            crossfader: Mutex::new(0.0),
+        }
+    }
+
     pub fn check_deck(deck: usize) -> AppResult<()> {
         if deck < DECKS {
             Ok(())
         } else {
             Err(AppError::InvalidDeck(deck))
+        }
+    }
+
+    /// Changes the preferences and saves them; a failed save is reported, not fatal.
+    pub fn update_preferences(&self, change: impl FnOnce(&mut Preferences)) {
+        if let ((), Err(e)) = self.preferences.update(change) {
+            eprintln!("preferences not saved: {e}");
         }
     }
 

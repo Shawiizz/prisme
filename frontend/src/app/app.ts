@@ -9,6 +9,7 @@ import { SettingsDialog } from './features/settings/settings-dialog';
 import { EngineService } from './core/services/engine.service';
 import { LibraryService } from './core/services/library.service';
 import { SettingsService } from './core/services/settings.service';
+import { PreferencesService } from './core/services/preferences.service';
 
 /** Main window layout: title bar, two deck rows, controls with the mixer, library. */
 @Component({
@@ -21,9 +22,11 @@ export class App implements OnInit {
   private readonly engine = inject(EngineService);
   private readonly library = inject(LibraryService);
   private readonly settings = inject(SettingsService);
+  private readonly preferences = inject(PreferencesService);
   protected readonly settingsOpen = signal(false);
 
   async ngOnInit() {
+    await this.preferences.load();
     await Promise.all([this.engine.connect(), this.library.init(), this.settings.refresh()]);
   }
 }

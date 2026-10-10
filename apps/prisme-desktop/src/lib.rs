@@ -1,8 +1,9 @@
 //! Prisme desktop application: Tauri shell around the engine.
 //!
 //! * `audio_host`: runs the sound card stream and the engine on a dedicated thread;
-//! * `state`: loaded tracks and deck settings, re-applied when the audio restarts;
-//! * `commands`: what the frontend can ask;
+//! * `state`: preferences, loaded tracks and deck settings;
+//! * `preferences`: what is kept from one start to the next;
+//! * `commands`: what the frontend can ask, by domain;
 //! * `status_stream`: engine state pushed to the frontend at ~60 Hz;
 //! * `library`: browsing music folders;
 //! * `analysis_service`: track database and background analysis of the music folder;
@@ -15,59 +16,85 @@ mod dev_startup;
 mod dto;
 mod error;
 mod library;
+mod preferences;
 mod state;
 mod status_stream;
 
 use analysis_service::AnalysisService;
+use commands::{audio, decks, library as library_commands, preferences as preference_commands, tracks};
+use preferences::Preferences;
+use prisme_session::JsonFile;
 use state::AppState;
+use std::path::Path;
 use std::sync::Arc;
 use tauri::Manager;
 
 pub fn run() {
     tauri::Builder::default()
-        .manage(AppState::default())
         .setup(|app| {
-            let library = Arc::new(AnalysisService::open(app.handle(), library::music_root()));
+            let data_dir = app.path().app_data_dir().inspect_err(|e| eprintln!("no data folder: {e}")).ok();
+            app.manage(AppState::new(open_preferences(data_dir.as_deref())));
+            let library = Arc::new(AnalysisService::open(app.handle(), data_dir.as_deref(), library::music_root()));
             app.manage(library.clone());
 
-            // Start with the default devices; the user can change them in the settings.
             let state = app.state::<AppState>();
             dev_startup::preload_tracks(&state, &library);
-            let settings = dto::AudioSettings { simulate: dev_startup::simulate_requested(), ..Default::default() };
-            if let Err(e) = commands::start_audio(&state, settings) {
-                eprintln!("audio could not start: {e}");
-            }
+            start_saved_audio(&state);
             if let Some(gain) = dev_startup::master_gain() {
                 let _ = state.send(prisme_engine::Command::SetMasterGain { gain });
             }
-            // analyse new and changed files of the music folder, in the background
             library.start();
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
-            commands::list_devices,
-            commands::timecode_formats,
-            commands::get_audio_settings,
-            commands::audio_info,
-            commands::apply_audio_settings,
-            commands::load_track,
-            commands::loaded_tracks,
-            commands::mixer_state,
-            commands::set_playing,
-            commands::seek,
-            commands::set_pitch,
-            commands::set_volume,
-            commands::set_vinyl,
-            commands::set_crossfader,
-            commands::set_sync_locked,
-            commands::sync_once,
-            commands::set_sync_leader,
-            commands::music_root,
-            commands::list_dir,
-            commands::library_progress,
-            commands::rescan_library,
+            audio::list_devices,
+            audio::timecode_formats,
+            audio::get_audio_settings,
+            audio::audio_info,
+            audio::apply_audio_settings,
+            tracks::load_track,
+            tracks::loaded_tracks,
+            decks::mixer_state,
+            decks::set_playing,
+            decks::seek,
+            decks::set_pitch,
+            decks::set_volume,
+            decks::set_vinyl,
+            decks::set_crossfader,
+            decks::set_sync_locked,
+            decks::sync_once,
+            decks::set_sync_leader,
+            library_commands::music_root,
+            library_commands::list_dir,
+            library_commands::library_progress,
+            library_commands::rescan_library,
+            preference_commands::get_preferences,
+            preference_commands::set_dj_preferences,
+            preference_commands::set_library_preferences,
             status_stream::subscribe_status,
         ])
         .run(tauri::generate_context!())
         .expect("error while running Prisme");
+}
+
+fn open_preferences(data_dir: Option<&Path>) -> JsonFile<Preferences> {
+    let Some(dir) = data_dir else { return JsonFile::in_memory(Preferences::default()) };
+    let (file, set_aside) = JsonFile::open(dir.join("preferences.json"));
+    if let Some(path) = set_aside {
+        eprintln!("unreadable preferences moved to {}", path.display());
+    }
+    file
+}
+
+/// The saved devices, or the default ones if they are missing (interface unplugged).
+fn start_saved_audio(state: &AppState) {
+    let mut settings = state.preferences.get().audio;
+    settings.simulate |= dev_startup::simulate_requested();
+    if let Err(e) = audio::start_audio(state, &settings) {
+        eprintln!("saved audio settings unusable ({e}), using the default devices");
+        let defaults = dto::AudioSettings { simulate: settings.simulate, ..Default::default() };
+        if let Err(e) = audio::start_audio(state, &defaults) {
+            eprintln!("audio could not start: {e}");
+        }
+    }
 }
