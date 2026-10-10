@@ -9,5 +9,6 @@ pub mod history;
 pub mod library;
 pub mod mixer;
 pub mod preferences;
+pub mod prepare;
 pub mod tracks;
 pub mod transport;

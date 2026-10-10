@@ -12,6 +12,7 @@ import { camelotRank } from '../../shared/camelot';
 import { CratesService } from './crates.service';
 import { EngineService } from './engine.service';
 import { HistoryService } from './history.service';
+import { PrepareService } from './prepare.service';
 import { PreferencesService } from './preferences.service';
 
 /** `order`: the order of the list itself (play order of a set). */
@@ -24,7 +25,10 @@ export interface TrackSort {
 
 /** The list of tracks being browsed. */
 export type TrackSource =
-  { kind: 'folder' } | { kind: 'crate'; id: number } | { kind: 'history'; id: number };
+  | { kind: 'folder' }
+  | { kind: 'prepare' }
+  | { kind: 'crate'; id: number }
+  | { kind: 'history'; id: number };
 
 /** Where the search looks: the tracks being browsed, or every analysed track. */
 export type SearchScope = 'list' | 'library';
@@ -58,6 +62,7 @@ export class LibraryService {
   private readonly engine = inject(EngineService);
   private readonly crates = inject(CratesService);
   private readonly history = inject(HistoryService);
+  private readonly prepare = inject(PrepareService);
 
   readonly root = signal<string | null>(null);
   readonly listing = signal<DirListing | null>(null);
@@ -91,12 +96,19 @@ export class LibraryService {
   });
 
   /** Whether the list has an order of its own (shown in a `#` column). */
-  readonly ordered = computed(() => this.source().kind === 'history');
+  readonly ordered = computed(() => ['history', 'prepare'].includes(this.source().kind));
 
-  /** Tracks of the folder, crate or history session being browsed. */
-  readonly listTracks = computed(() =>
-    this.source().kind === 'folder' ? (this.listing()?.tracks ?? []) : this.sourceTracks(),
-  );
+  /** Tracks of the folder, prepare list, crate or history session being browsed. */
+  readonly listTracks = computed(() => {
+    switch (this.source().kind) {
+      case 'folder':
+        return this.listing()?.tracks ?? [];
+      case 'prepare':
+        return this.prepare.list();
+      default:
+        return this.sourceTracks();
+    }
+  });
 
   /** Position of each track in its list, from 1. */
   readonly positions = computed(() => new Map(this.listTracks().map((t, i) => [t, i + 1])));
@@ -129,7 +141,7 @@ export class LibraryService {
       listen<AnalysisProgress>('library-progress', (e) => this.progress.set(e.payload)),
     ]);
     this.progress.set(await invoke<AnalysisProgress>('library_progress'));
-    await Promise.all([this.crates.refresh(), this.history.init()]);
+    await Promise.all([this.crates.refresh(), this.history.init(), this.prepare.init()]);
     const root = await invoke<string>('music_root');
     this.root.set(root);
     const last = this.preferences.library().lastFolder;
@@ -149,6 +161,27 @@ export class LibraryService {
       this.error.set(String(e));
       return false;
     }
+  }
+
+  openPrepare() {
+    this.browse({ kind: 'prepare' });
+  }
+
+  addToPrepare(paths: string[]): Promise<void> {
+    return this.attempt(() => this.prepare.add(paths));
+  }
+
+  /** Puts a track at `index` of the prepare list, adding it if needed. */
+  placeInPrepare(path: string, index: number): Promise<void> {
+    return this.attempt(async () => {
+      if (!this.prepare.list().some((t) => t.path === path)) await this.prepare.add([path]);
+      await this.prepare.move(path, index);
+    });
+  }
+
+  addSelectedToPrepare(): Promise<void> {
+    const path = this.selected();
+    return path ? this.addToPrepare([path]) : Promise.resolve();
   }
 
   async openCrate(id: number): Promise<void> {
@@ -198,15 +231,21 @@ export class LibraryService {
     });
   }
 
-  /** Takes the selected track out of the crate being browsed. */
-  async removeSelectedFromCrate(): Promise<void> {
-    const id = this.currentCrate();
+  /** Takes the selected track out of the crate or prepare list being browsed. */
+  async removeSelected(): Promise<void> {
+    const source = this.source();
     const path = this.selected();
-    if (id === null || !path || this.scope() !== 'list') return;
+    if (!path || this.scope() !== 'list') return;
     const next = this.neighbour(path);
     await this.attempt(async () => {
-      await this.crates.remove(id, [path]);
-      this.sourceTracks.update((tracks) => tracks.filter((t) => t.path !== path));
+      if (source.kind === 'crate') {
+        await this.crates.remove(source.id, [path]);
+        this.sourceTracks.update((tracks) => tracks.filter((t) => t.path !== path));
+      } else if (source.kind === 'prepare') {
+        await this.prepare.remove([path]);
+      } else {
+        return;
+      }
       this.selected.set(next);
     });
   }
@@ -307,7 +346,7 @@ export class LibraryService {
     if (listing?.tracks.some((t) => t.path === path)) {
       this.listing.set({ ...listing, tracks: update(listing.tracks) });
     }
-    for (const list of [this.sourceTracks, this.libraryResults]) {
+    for (const list of [this.sourceTracks, this.libraryResults, this.prepare.list]) {
       if (list().some((t) => t.path === path)) list.update(update);
     }
   }

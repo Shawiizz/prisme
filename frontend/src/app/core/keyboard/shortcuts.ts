@@ -10,6 +10,7 @@ export interface ShortcutActions {
   moveSelection(delta: number): void;
   loadSelected(deck: number | null): void;
   removeSelected(): void;
+  prepareSelected(): void;
   focusSearch(): void;
   toggleHelp(): void;
 }
@@ -143,8 +144,15 @@ export function buildShortcuts(a: ShortcutActions): Shortcut[] {
     {
       code: 'Delete',
       group: library,
-      description: 'Remove from the crate',
+      description: 'Remove from the crate or prepare list',
       press: () => a.removeSelected(),
+    },
+    {
+      code: 'KeyP',
+      ctrl: true,
+      group: library,
+      description: 'Add to the prepare list',
+      press: () => a.prepareSelected(),
     },
     {
       code: 'KeyF',

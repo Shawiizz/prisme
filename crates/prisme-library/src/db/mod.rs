@@ -1,15 +1,16 @@
 //! Library database (SQLite): tracks and their analysis and tags ([`tracks`]), cues,
-//! cover thumbnails, full-text search, crates, history of the sets.
+//! cover thumbnails, full-text search, crates, history of the sets, prepare list.
 
 mod covers;
 mod crates;
 mod cues;
 mod history;
+mod prepare;
 mod tracks;
 
-pub use crates::{Crate, CrateEntry, CrateId};
+pub use crates::{Crate, CrateId};
 pub use history::{HistoryPlay, HistorySession, SessionId};
-pub use tracks::{RecordVersion, TrackRecord, TAGS_VERSION};
+pub use tracks::{RecordVersion, TrackEntry, TrackRecord, TAGS_VERSION};
 
 use rusqlite::Connection;
 use std::path::Path;
@@ -81,6 +82,7 @@ const MIGRATIONS: &[&str] = &[
      );
      CREATE INDEX history_plays_by_session ON history_plays (session_id);
      CREATE INDEX history_plays_by_path ON history_plays (path);",
+    "CREATE TABLE prepare (path TEXT PRIMARY KEY NOT NULL, position INTEGER NOT NULL) WITHOUT ROWID;",
 ];
 
 pub fn now_ms() -> i64 {

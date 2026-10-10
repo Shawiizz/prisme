@@ -17,6 +17,7 @@ function recorder() {
     moveSelection: record('moveSelection'),
     loadSelected: record('loadSelected'),
     removeSelected: record('removeSelected'),
+    prepareSelected: record('prepareSelected'),
     focusSearch: record('focusSearch'),
     toggleHelp: record('toggleHelp'),
   };

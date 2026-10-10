@@ -1,7 +1,7 @@
 //! Crates: named sets of tracks (as in Serato), shown sorted by the library columns.
 
-use super::tracks::record_from_row;
-use super::{path_key, DbError, LibraryDb, TrackRecord};
+use super::tracks::entry_from_row;
+use super::{path_key, DbError, LibraryDb, TrackEntry};
 use rusqlite::{params, OptionalExtension};
 use std::path::Path;
 
@@ -13,14 +13,6 @@ pub struct Crate {
     pub id: CrateId,
     pub name: String,
     pub track_count: usize,
-}
-
-/// A track of a crate, with what the library knows of it (`None` if it was never
-/// analysed).
-#[derive(Debug, Clone, PartialEq)]
-pub struct CrateEntry {
-    pub path: String,
-    pub record: Option<TrackRecord>,
 }
 
 impl LibraryDb {
@@ -91,20 +83,14 @@ impl LibraryDb {
     }
 
     /// The tracks of a crate, in the order they were added.
-    pub fn crate_tracks(&self, id: CrateId) -> Result<Vec<CrateEntry>, DbError> {
+    pub fn crate_tracks(&self, id: CrateId) -> Result<Vec<TrackEntry>, DbError> {
         let conn = self.conn();
         let mut stmt = conn.prepare_cached(
             "SELECT crate_tracks.path AS entry_path, tracks.* FROM crate_tracks
              LEFT JOIN tracks ON tracks.path = crate_tracks.path
              WHERE crate_tracks.crate_id = ?1 ORDER BY crate_tracks.added_at_ms, crate_tracks.rowid",
         )?;
-        let rows = stmt.query_map([id.0], |r| {
-            let analysed = r.get::<_, Option<String>>("path")?.is_some();
-            Ok(CrateEntry {
-                path: r.get("entry_path")?,
-                record: if analysed { Some(record_from_row(r)?) } else { None },
-            })
-        })?;
+        let rows = stmt.query_map([id.0], entry_from_row)?;
         Ok(rows.collect::<Result<_, _>>()?)
     }
 
@@ -118,7 +104,7 @@ impl LibraryDb {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::db::FileStamp;
+    use crate::db::{FileStamp, TrackRecord};
 
     fn analysed(db: &LibraryDb, path: &str) {
         let stamp = FileStamp { size: 1, modified_ms: 2 };

@@ -1,3 +1,21 @@
+<section class="queue">
+  <div class="list">
+    <div
+      class="item"
+      [class.current]="library.source().kind === 'prepare'"
+      [class.drop]="dropTarget() === 'prepare'"
+      title="Tracks lined up for the set; a played track leaves the list"
+      (click)="library.openPrepare()"
+      (dragover)="dragOver($event, 'prepare')"
+      (dragleave)="dropTarget.set(null)"
+      (drop)="drop($event, 'prepare')"
+    >
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 7h14M5 12h14M5 17h9" /></svg>
+      <span class="name">Prepare</span>
+      <span class="count">{{ prepareCount() }}</span>
+    </div>
+  </div>
+</section>
 <section class="crates">
   <header>
     <span>Crates</span>

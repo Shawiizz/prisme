@@ -2,9 +2,11 @@ import { Component, ElementRef, computed, effect, inject, signal, viewChild } fr
 import { CratesService } from '../../../core/services/crates.service';
 import { HistoryService } from '../../../core/services/history.service';
 import { LibraryService } from '../../../core/services/library.service';
+import { PrepareService } from '../../../core/services/prepare.service';
 import { TRACKS_DRAG_TYPE } from '../../../shared/drag';
 
 type Deletable = 'crate' | 'session';
+type DropTarget = number | 'prepare';
 
 const SESSION_DATE = new Intl.DateTimeFormat('en-GB', {
   weekday: 'short',
@@ -14,7 +16,10 @@ const SESSION_DATE = new Intl.DateTimeFormat('en-GB', {
   minute: '2-digit',
 });
 
-/** Left panel of the library: the crates (tracks are dropped on them), the history of the sets and the folders. */
+/**
+ * Left panel of the library: the prepare list and the crates (tracks are dropped on them),
+ * the history of the sets and the folders.
+ */
 @Component({
   selector: 'app-library-sidebar',
   templateUrl: './library-sidebar.html',
@@ -24,12 +29,15 @@ export class LibrarySidebar {
   protected readonly library = inject(LibraryService);
   protected readonly crates = inject(CratesService).crates;
   protected readonly sessions = inject(HistoryService).sessions;
+  private readonly prepare = inject(PrepareService).list;
+  protected readonly prepareCount = computed(() => this.prepare().length);
 
   /** Crate whose name is being typed: `'new'` for a crate being created. */
   protected readonly editing = signal<number | 'new' | null>(null);
   /** Item whose delete button was clicked once: a second click deletes it. */
   private readonly armed = signal<{ kind: Deletable; id: number } | null>(null);
-  protected readonly dropTarget = signal<number | null>(null);
+  /** Where dragged tracks would go: a crate or the prepare list. */
+  protected readonly dropTarget = signal<DropTarget | null>(null);
   private readonly nameInput = viewChild<ElementRef<HTMLInputElement>>('nameInput');
 
   protected readonly browsingFolder = computed(() => this.library.source().kind === 'folder');
@@ -93,18 +101,20 @@ export class LibrarySidebar {
     else this.library.deleteSession(id);
   }
 
-  dragOver(event: DragEvent, id: number) {
+  dragOver(event: DragEvent, target: DropTarget) {
     if (!event.dataTransfer?.types.includes(TRACKS_DRAG_TYPE)) return;
     event.preventDefault();
     event.dataTransfer.dropEffect = 'copy';
-    this.dropTarget.set(id);
+    this.dropTarget.set(target);
   }
 
-  drop(event: DragEvent, id: number) {
+  drop(event: DragEvent, target: DropTarget) {
     this.dropTarget.set(null);
     const data = event.dataTransfer?.getData(TRACKS_DRAG_TYPE);
     if (!data) return;
     event.preventDefault();
-    this.library.addToCrate(id, JSON.parse(data) as string[]);
+    const paths = JSON.parse(data) as string[];
+    if (target === 'prepare') this.library.addToPrepare(paths);
+    else this.library.addToCrate(target, paths);
   }
 }

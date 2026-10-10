@@ -104,6 +104,9 @@
 .ordered :is(.head, .row) {
   grid-template-columns: 30px var(--track-columns);
 }
+.row.insert {
+  box-shadow: inset 0 2px 0 var(--mint);
+}
 .order {
   text-align: right;
   color: var(--faint);

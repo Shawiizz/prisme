@@ -11,6 +11,10 @@ section {
   flex-direction: column;
   min-height: 0;
 }
+.queue {
+  flex: none;
+  border-bottom: 1px solid var(--line);
+}
 .crates,
 .history {
   flex: 0 1 auto;

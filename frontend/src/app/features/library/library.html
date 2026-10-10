@@ -51,7 +51,12 @@
         </button>
       </div>
     </div>
-    <div class="table" [class.ordered]="library.ordered()">
+    <div
+      class="table"
+      [class.ordered]="library.ordered()"
+      (dragover)="listDragOver($event, null)"
+      (drop)="listDrop($event, null)"
+    >
       <div class="head">
         @if (library.ordered()) {
           <button class="order" (click)="library.sortBy('order')">#{{ sortMark('order') }}</button>
@@ -64,15 +69,19 @@
         }
         <span class="load">Load</span>
       </div>
-      @for (t of tracks(); track t; let odd = $odd) {
+      @for (t of tracks(); track rowKey(t); let odd = $odd) {
         <div
           class="row"
           [attr.data-path]="t.path"
           [title]="t.path"
           [class.odd]="odd"
           [class.selected]="library.selected() === t.path"
+          [class.insert]="insertBefore() === t"
           draggable="true"
           (dragstart)="dragStart($event, t.path)"
+          (dragover)="listDragOver($event, t)"
+          (dragleave)="insertBefore.set(null)"
+          (drop)="listDrop($event, t)"
           (click)="library.selected.set(t.path)"
           (dblclick)="library.load(t.path, null)"
         >

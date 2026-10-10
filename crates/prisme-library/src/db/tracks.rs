@@ -13,6 +13,14 @@ use std::path::Path;
 /// Version of what is read from the tags: bump it to read every file's tags again.
 pub const TAGS_VERSION: u32 = 1;
 
+/// A track of a list (crate, prepare list), with what the library knows of it (`None`
+/// if it was never analysed).
+#[derive(Debug, Clone, PartialEq)]
+pub struct TrackEntry {
+    pub path: String,
+    pub record: Option<TrackRecord>,
+}
+
 /// What the library knows about a file.
 #[derive(Debug, Clone, PartialEq)]
 pub struct TrackRecord {
@@ -194,6 +202,15 @@ fn fts_query(query: &str) -> Option<String> {
         .map(|w| format!("\"{w}\"*"))
         .collect();
     (!terms.is_empty()).then(|| terms.join(" "))
+}
+
+/// A row of `SELECT <list>.path AS entry_path, tracks.* ... LEFT JOIN tracks`.
+pub(super) fn entry_from_row(r: &Row<'_>) -> rusqlite::Result<TrackEntry> {
+    let analysed = r.get::<_, Option<String>>("path")?.is_some();
+    Ok(TrackEntry {
+        path: r.get("entry_path")?,
+        record: if analysed { Some(record_from_row(r)?) } else { None },
+    })
 }
 
 pub(super) fn record_from_row(r: &Row<'_>) -> rusqlite::Result<TrackRecord> {

@@ -1,6 +1,7 @@
 //! History of the sets. A track counts as played once it has been heard for
 //! [`PLAYED_AFTER_S`] on a deck: shorter plays are previews or mistakes. The first play
-//! of a run of the app opens a new history session.
+//! of a run of the app opens a new history session. A played track leaves the prepare
+//! list.
 
 use crate::audio_host::DECKS;
 use crate::library_service::LibraryService;
@@ -13,6 +14,7 @@ use tauri::{AppHandle, Emitter, Manager};
 
 pub const PLAYED_AFTER_S: f64 = 30.0;
 pub const HISTORY_CHANGED_EVENT: &str = "history-changed";
+pub const PREPARE_CHANGED_EVENT: &str = "prepare-changed";
 const POLL: Duration = Duration::from_millis(250);
 /// Slower than this, a deck is stopped or being cued rather than played.
 const AUDIBLE_SPEED: f64 = 0.5;
@@ -120,6 +122,13 @@ fn record(app: &AppHandle, session: &mut Option<SessionId>, path: &std::path::Pa
             let _ = app.emit(HISTORY_CHANGED_EVENT, ());
         }
         Err(e) => eprintln!("play not recorded: {e}"),
+    }
+    match library.db.remove_from_prepare(&[path]) {
+        Ok(0) => {}
+        Ok(_) => {
+            let _ = app.emit(PREPARE_CHANGED_EVENT, ());
+        }
+        Err(e) => eprintln!("{e}"),
     }
 }
 
