@@ -1,4 +1,4 @@
-<app-titlebar (openSettings)="settingsOpen.set(true)" />
+<app-titlebar (openSettings)="settingsOpen.set(true)" (openShortcuts)="keyboard.helpOpen.set(true)" />
 
 <main class="layout">
   <section class="decks">
@@ -25,4 +25,8 @@
 
 @if (settingsOpen()) {
   <app-settings-dialog (closed)="settingsOpen.set(false)" />
+}
+
+@if (keyboard.helpOpen()) {
+  <app-shortcuts-dialog />
 }

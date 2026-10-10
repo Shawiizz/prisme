@@ -47,6 +47,11 @@ pub enum Command {
         deck: DeckId,
         ratio: f64,
     },
+    /// Internal play: temporary speed change while held (0.04 = +4 %, 0 = released).
+    SetPitchBend {
+        deck: DeckId,
+        amount: f64,
+    },
     /// Moves the playhead there, as is (needle search).
     Seek {
         deck: DeckId,

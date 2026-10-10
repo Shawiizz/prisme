@@ -77,8 +77,16 @@ export class DeckControls {
     if (s?.loaded) this.engine.setPlaying(this.deck(), !s.playing);
   }
 
-  cue() {
-    this.engine.cue(this.deck());
+  cueDown() {
+    this.engine.cueDown(this.deck());
+  }
+
+  cueUp() {
+    this.engine.cueUp(this.deck());
+  }
+
+  bend(direction: -1 | 0 | 1) {
+    this.engine.pitchBend(this.deck(), direction);
   }
 
   sync() {

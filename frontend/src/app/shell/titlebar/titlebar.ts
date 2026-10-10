@@ -13,6 +13,7 @@ export class Titlebar {
   protected readonly settings = inject(SettingsService);
   protected readonly engine = inject(EngineService);
   readonly openSettings = output<void>();
+  readonly openShortcuts = output<void>();
 
   private readonly window = getCurrentWindow();
 

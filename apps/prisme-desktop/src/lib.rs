@@ -64,6 +64,7 @@ pub fn run() {
             commands::decks::set_sync_locked,
             commands::decks::sync_once,
             commands::decks::set_sync_leader,
+            commands::transport::set_pitch_bend,
             commands::transport::beat_loop,
             commands::transport::loop_roll,
             commands::transport::exit_loop,

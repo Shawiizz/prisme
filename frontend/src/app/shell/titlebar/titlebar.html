@@ -27,7 +27,8 @@
   </div>
 
   <div class="actions">
-    <button class="ghost" (click)="openSettings.emit()" title="Audio settings">Settings</button>
+    <button class="ghost" (click)="openShortcuts.emit()" title="Keyboard shortcuts (F1)">Keys</button>
+    <button class="ghost" (click)="openSettings.emit()" title="Settings">Settings</button>
     <button class="win" (click)="minimize()" aria-label="Minimize">&#x2013;</button>
     <button class="win" (click)="toggleMaximize()" aria-label="Maximize">&#x25A1;</button>
     <button class="win close" (click)="close()" aria-label="Close">&#x2715;</button>

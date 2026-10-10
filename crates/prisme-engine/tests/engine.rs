@@ -19,6 +19,19 @@ fn internal_play_follows_the_pitch() {
 }
 
 #[test]
+fn a_pitch_bend_lasts_while_held() {
+    let mut rig = Rig::new();
+    rig.send(Command::LoadTrack { deck: 0, track: silent_track(10.0) });
+    rig.send(Command::SetPlaying { deck: 0, playing: true });
+    rig.send(Command::SetPitchBend { deck: 0, amount: 0.04 });
+    rig.run(0.1);
+    assert!((rig.deck(0).speed - 1.04).abs() < 1e-9);
+    rig.send(Command::SetPitchBend { deck: 0, amount: 0.0 });
+    rig.run(0.1);
+    assert!((rig.deck(0).speed - 1.0).abs() < 1e-9);
+}
+
+#[test]
 fn relative_vinyl_follows_the_record_speed() {
     let mut rig = Rig::new();
     rig.turntable(0, 20.0, 1.05);

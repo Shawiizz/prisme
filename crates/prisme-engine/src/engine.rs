@@ -199,6 +199,7 @@ impl Engine {
             }
             SetPlaying { deck, playing } if valid(deck) => self.decks[deck].playing = playing,
             SetPitch { deck, ratio } if valid(deck) => self.decks[deck].pitch = ratio,
+            SetPitchBend { deck, amount } if valid(deck) => self.decks[deck].bend = amount,
             Seek { deck, seconds } if valid(deck) => self.decks[deck].playhead.seek_s(seconds),
             Jump { deck, seconds } if valid(deck) => self.decks[deck].jump(seconds, self.quantize),
             BeatJump { deck, beats } if valid(deck) => self.decks[deck].beat_jump(beats),

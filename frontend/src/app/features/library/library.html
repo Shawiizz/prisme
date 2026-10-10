@@ -2,7 +2,7 @@
   <aside class="folders">
     <div class="crumbs">
       @for (c of crumbs(); track c.path; let last = $last) {
-        <button class="crumb" [class.current]="last" (click)="open(c.path)">{{ c.name }}</button>
+        <button class="crumb" [class.current]="last" (click)="library.open(c.path)">{{ c.name }}</button>
         @if (!last) {
           <span class="sep">/</span>
         }
@@ -10,7 +10,7 @@
     </div>
     <div class="list">
       @for (f of library.listing()?.folders ?? []; track f.path) {
-        <div class="folder" (click)="open(f.path)" [title]="f.path">
+        <div class="folder" (click)="library.open(f.path)" [title]="f.path">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h7l2 2h9v10H3z" /></svg>
           {{ f.name }}
         </div>
@@ -22,7 +22,14 @@
 
   <div class="tracks">
     <div class="toolbar">
-      <input type="search" placeholder="Search in this folder" [value]="filter()" (input)="filter.set($any($event.target).value)" />
+      <input
+        #search
+        type="search"
+        placeholder="Search in this folder"
+        [value]="library.filter()"
+        (input)="library.filter.set($any($event.target).value)"
+        (keydown.escape)="search.blur()"
+      />
       <span class="count">{{ tracks().length }} tracks</span>
       @if (engine.error(); as e) {
         <span class="error" [title]="e">{{ e }}</span>
@@ -41,14 +48,21 @@
     </div>
     <div class="table">
       <div class="head">
-        <button class="name" (click)="sortBy('name')">Title {{ sortMark('name') }}</button>
-        <button class="bpm" (click)="sortBy('bpm')">BPM {{ sortMark('bpm') }}</button>
-        <button class="key" (click)="sortBy('key')">Key {{ sortMark('key') }}</button>
+        <button class="name" (click)="library.sortBy('name')">Title {{ sortMark('name') }}</button>
+        <button class="bpm" (click)="library.sortBy('bpm')">BPM {{ sortMark('bpm') }}</button>
+        <button class="key" (click)="library.sortBy('key')">Key {{ sortMark('key') }}</button>
         <span class="size">Size</span>
         <span class="load">Load</span>
       </div>
       @for (t of tracks(); track t.path; let odd = $odd) {
-        <div class="row" [class.odd]="odd" [class.selected]="selected() === t.path" (click)="selected.set(t.path)" (dblclick)="loadDefault(t)">
+        <div
+          class="row"
+          [attr.data-path]="t.path"
+          [class.odd]="odd"
+          [class.selected]="library.selected() === t.path"
+          (click)="library.selected.set(t.path)"
+          (dblclick)="library.load(t.path, null)"
+        >
           <span class="name">{{ displayName(t.name) }}</span>
           @if (t.analysis; as a) {
             @if (a.failed) {
@@ -76,7 +90,7 @@
           <span class="size">{{ size(t.sizeBytes) }}</span>
           <span class="load">
             @for (d of deckIndexes; track d) {
-              <button [style.--accent]="color(d)" (click)="load(t, d); $event.stopPropagation()" [disabled]="engine.loading()[d]">{{ d + 1 }}</button>
+              <button [style.--accent]="color(d)" (click)="library.load(t.path, d); $event.stopPropagation()" [disabled]="engine.loading()[d]">{{ d + 1 }}</button>
             }
           </span>
         </div>

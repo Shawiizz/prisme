@@ -3,6 +3,12 @@ import { Channel, invoke } from '@tauri-apps/api/core';
 import { Cue, DECK_COUNT, DeckSettings, EngineStatus, MixerState, TrackInfo, VinylMode } from '../models/engine';
 import { PreferencesService } from './preferences.service';
 
+/** A deck this close to its cue point counts as sitting on it. */
+const CUE_TOLERANCE_S = 0.02;
+const MAIN_CUE_COLOR = 0xffb02e;
+/** Speed change while a bend key is held. */
+const PITCH_BEND = 0.03;
+
 const DEFAULT_DECK: DeckSettings = {
   pitch: 1,
   volume: 1,
@@ -29,6 +35,7 @@ export class EngineService {
 
   readonly audioRunning = computed(() => this.status()?.audioRunning ?? false);
 
+  private readonly previewing = new Set<number>();
   private latest: EngineStatus | null = null;
   private latestAt = 0;
 
@@ -126,19 +133,46 @@ export class EngineService {
     return oneShot ? this.call('sync_once', { deck }) : this.call('set_sync_locked', { deck, locked: true });
   }
 
-  /** CDJ-style cue: while playing, jump back to the cue point and stop; when stopped, set it. */
-  async cue(deck: number) {
+  /**
+   * CDJ cue, pressed: while playing, back to the cue point and stop; stopped on the cue
+   * point, play while held; stopped elsewhere, set the cue point there.
+   */
+  async cueDown(deck: number) {
     const d = this.status()?.decks[deck];
     if (!d?.loaded) return;
+    const cue = this.mainCue(deck)?.positionS ?? 0;
     if (d.playing) {
-      this.setPlaying(deck, false);
-      this.seek(deck, this.mainCue(deck)?.positionS ?? 0);
-      return;
+      this.returnToCue(deck);
+    } else if (Math.abs(d.positionS - cue) < CUE_TOLERANCE_S) {
+      this.previewing.add(deck);
+      this.setPlaying(deck, true);
+    } else {
+      await this.setMainCue(deck, d.positionS);
     }
+  }
+
+  /** CDJ cue, released: a preview goes back to the cue point. */
+  cueUp(deck: number) {
+    if (this.previewing.delete(deck)) this.returnToCue(deck);
+  }
+
+  /** -1, 0 or 1: slower, released, faster. */
+  pitchBend(deck: number, direction: -1 | 0 | 1) {
+    return this.call('set_pitch_bend', { deck, amount: direction * PITCH_BEND });
+  }
+
+  private returnToCue(deck: number) {
+    this.setPlaying(deck, false);
+    this.seek(deck, this.mainCue(deck)?.positionS ?? 0);
+  }
+
+  /** Stores the cue point (the backend may move it onto the beat) and goes there. */
+  private async setMainCue(deck: number, seconds: number) {
     try {
-      const positionS = await invoke<number>('set_main_cue', { deck, seconds: d.positionS });
-      const main: Cue = { hot: null, positionS, loopLengthS: null, color: 0xffb02e, label: '' };
+      const positionS = await invoke<number>('set_main_cue', { deck, seconds });
+      const main: Cue = { hot: null, positionS, loopLengthS: null, color: MAIN_CUE_COLOR, label: '' };
       this.setCues(deck, [...(this.tracks()[deck]?.cues ?? []).filter((c) => c.hot !== null), main]);
+      this.seek(deck, positionS);
     } catch (e) {
       this.error.set(String(e));
     }

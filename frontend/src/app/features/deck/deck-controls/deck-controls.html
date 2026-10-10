@@ -1,6 +1,15 @@
 <div class="controls" [style.--accent]="color()">
   <div class="transport">
-    <button class="cue" [class.active]="status()?.playing === false && status()?.loaded" (click)="cue()" [disabled]="vinyl()">CUE</button>
+    <button
+      class="cue"
+      [class.active]="status()?.playing === false && status()?.loaded"
+      [disabled]="vinyl()"
+      (pointerdown)="cueDown()"
+      (pointerup)="cueUp()"
+      (pointercancel)="cueUp()"
+    >
+      CUE
+    </button>
     <button class="play" [class.active]="status()?.playing" (click)="togglePlay()" [disabled]="vinyl()">
       {{ status()?.playing ? 'PAUSE' : 'PLAY' }}
     </button>
@@ -23,6 +32,8 @@
         <span class="leader" title="The other decks follow this one">LEADER</span>
       }
       <span class="value" (dblclick)="resetPitch()" title="Double-click to reset">{{ pitchText() }}</span>
+      <button class="bend" title="Slow down while held" [disabled]="tempoFaderLocked()" (pointerdown)="bend(-1)" (pointerup)="bend(0)" (pointercancel)="bend(0)">−</button>
+      <button class="bend" title="Speed up while held" [disabled]="tempoFaderLocked()" (pointerdown)="bend(1)" (pointerup)="bend(0)" (pointercancel)="bend(0)">+</button>
     </div>
     <input
       type="range"

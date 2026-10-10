@@ -1,12 +1,9 @@
-import { Component, computed, inject, signal } from '@angular/core';
-import { LibraryService } from '../../core/services/library.service';
+import { Component, ElementRef, computed, effect, inject, viewChild } from '@angular/core';
+import { LibraryService, SortColumn } from '../../core/services/library.service';
 import { EngineService } from '../../core/services/engine.service';
-import { DirEntry } from '../../core/models/library';
 import { DECK_COUNT } from '../../core/models/engine';
 import { deckColor } from '../../shared/time';
-import { camelotColor, camelotCompatible, camelotRank } from '../../shared/camelot';
-
-type SortColumn = 'name' | 'bpm' | 'key';
+import { camelotColor, camelotCompatible } from '../../shared/camelot';
 
 /** Folder browser (left) and the tracks of the current folder (right). */
 @Component({
@@ -20,31 +17,9 @@ export class Library {
   protected readonly deckIndexes = Array.from({ length: DECK_COUNT }, (_, i) => i);
   protected readonly color = deckColor;
   protected readonly keyColor = camelotColor;
-  protected readonly filter = signal('');
-  protected readonly selected = signal<string | null>(null);
-  protected readonly sort = signal<{ column: SortColumn; direction: 1 | -1 }>({ column: 'name', direction: 1 });
-
-  protected readonly tracks = computed(() => {
-    const all = this.library.listing()?.tracks ?? [];
-    const f = this.filter().trim().toLowerCase();
-    const shown = f ? all.filter((t) => t.name.toLowerCase().includes(f)) : [...all];
-    const { column, direction } = this.sort();
-    const value = (t: DirEntry): number | string => {
-      switch (column) {
-        case 'bpm':
-          return t.analysis?.bpm ?? Number.MAX_SAFE_INTEGER;
-        case 'key':
-          return camelotRank(t.analysis?.key?.camelot);
-        default:
-          return t.name.toLowerCase();
-      }
-    };
-    return shown.sort((a, b) => {
-      const va = value(a);
-      const vb = value(b);
-      return (va < vb ? -1 : va > vb ? 1 : 0) * direction;
-    });
-  });
+  protected readonly tracks = this.library.visibleTracks;
+  private readonly search = viewChild.required<ElementRef<HTMLInputElement>>('search');
+  private readonly host = inject(ElementRef<HTMLElement>);
 
   /** Keys of the tracks on the decks, to point out the harmonic matches. */
   private readonly deckKeys = computed(() =>
@@ -77,30 +52,19 @@ export class Library {
     return crumbs;
   });
 
-  open(path: string) {
-    this.filter.set('');
-    this.library.open(path);
-  }
-
-  load(track: DirEntry, deck: number) {
-    this.selected.set(track.path);
-    this.engine.load(deck, track.path);
-  }
-
-  /** Double-click: first empty deck, else deck 1. */
-  loadDefault(track: DirEntry) {
-    const empty = this.engine.tracks().findIndex((t) => !t);
-    this.load(track, empty >= 0 ? empty : 0);
-  }
-
-  /** Click on a column title: sort by it, again to reverse. */
-  sortBy(column: SortColumn) {
-    const s = this.sort();
-    this.sort.set({ column, direction: s.column === column ? (-s.direction as 1 | -1) : 1 });
+  constructor() {
+    effect(() => {
+      if (this.library.searchRequests() > 0) this.search().nativeElement.focus();
+    });
+    effect(() => {
+      const path = this.library.selected();
+      const row = path && this.host.nativeElement.querySelector(`[data-path="${CSS.escape(path)}"]`);
+      row?.scrollIntoView({ block: 'nearest' });
+    });
   }
 
   sortMark(column: SortColumn): string {
-    const s = this.sort();
+    const s = this.library.sort();
     return s.column === column ? (s.direction === 1 ? '▲' : '▼') : '';
   }
 

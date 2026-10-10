@@ -3,6 +3,12 @@ use crate::state::AppState;
 use prisme_engine::Command;
 use tauri::State;
 
+/// Temporary speed change while a bend key is held (0 when released).
+#[tauri::command]
+pub fn set_pitch_bend(state: State<'_, AppState>, deck: usize, amount: f64) -> AppResult<()> {
+    send(&state, deck, Command::SetPitchBend { deck, amount })
+}
+
 #[tauri::command]
 pub fn beat_loop(state: State<'_, AppState>, deck: usize, beats: f64) -> AppResult<()> {
     send(&state, deck, Command::BeatLoop { deck, beats })
