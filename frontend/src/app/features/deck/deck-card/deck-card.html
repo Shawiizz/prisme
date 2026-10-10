@@ -1,5 +1,8 @@
 <div class="card" [style.--accent]="color()">
   <div class="tile">{{ deck() + 1 }}</div>
+  @if (track(); as t) {
+    <app-cover class="cover" [path]="t.path" />
+  }
 
   <div class="body">
     <div class="row">
@@ -29,7 +32,9 @@
       <div class="stat">
         <span class="label">KEY</span>
         @if (key(); as k) {
-          <span class="value">{{ k.camelot }}<span class="key-name">{{ k.name }}</span></span>
+          <span class="value"
+            >{{ k.camelot }}<span class="key-name">{{ k.name }}</span></span
+          >
         } @else {
           <span class="value">—</span>
         }

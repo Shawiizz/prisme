@@ -8,12 +8,14 @@
 //! * `status_stream`: engine state pushed to the frontend at ~60 Hz;
 //! * `scope_stream`: a turntable's signal pushed while its oscilloscope is shown;
 //! * `folders`: browsing music folders;
-//! * `library_service`: track database (analysis, cues) and background analysis;
+//! * `library_service`: track database (analysis, tags, cues) and background analysis;
+//! * `cover_protocol`: cover thumbnails served to the UI;
 //! * `dto`: JSON shapes shared with the frontend.
 
 mod audio_host;
 mod audio_watchdog;
 mod commands;
+mod cover_protocol;
 mod dev_startup;
 mod dto;
 mod error;
@@ -34,6 +36,7 @@ use tauri::Manager;
 
 pub fn run() {
     tauri::Builder::default()
+        .register_asynchronous_uri_scheme_protocol(cover_protocol::SCHEME, cover_protocol::handle)
         .setup(|app| {
             let data_dir = app.path().app_data_dir().inspect_err(|e| eprintln!("no data folder: {e}")).ok();
             app.manage(AppState::new(open_preferences(data_dir.as_deref())));
@@ -92,6 +95,7 @@ pub fn run() {
             commands::folders::list_dir,
             commands::library::library_progress,
             commands::library::rescan_library,
+            commands::library::search_library,
             commands::preferences::get_preferences,
             commands::preferences::set_dj_preferences,
             commands::preferences::set_library_preferences,

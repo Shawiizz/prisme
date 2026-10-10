@@ -2,7 +2,9 @@
   <aside class="folders">
     <div class="crumbs">
       @for (c of crumbs(); track c.path; let last = $last) {
-        <button class="crumb" [class.current]="last" (click)="library.open(c.path)">{{ c.name }}</button>
+        <button class="crumb" [class.current]="last" (click)="library.open(c.path)">
+          {{ c.name }}
+        </button>
         @if (!last) {
           <span class="sep">/</span>
         }
@@ -22,15 +24,30 @@
 
   <div class="tracks">
     <div class="toolbar">
+      <div class="scope" role="group" aria-label="Search in">
+        <button [class.active]="library.scope() === 'folder'" (click)="library.setScope('folder')">
+          Folder
+        </button>
+        <button
+          [class.active]="library.scope() === 'library'"
+          (click)="library.setScope('library')"
+        >
+          Library
+        </button>
+      </div>
       <input
         #search
         type="search"
-        placeholder="Search in this folder"
+        [placeholder]="
+          library.scope() === 'folder' ? 'Search in this folder' : 'Search the whole library'
+        "
         [value]="library.filter()"
-        (input)="library.filter.set($any($event.target).value)"
+        (input)="library.setFilter($any($event.target).value)"
         (keydown.escape)="search.blur()"
       />
-      <span class="count">{{ tracks().length }} tracks</span>
+      <span class="count"
+        >{{ tracks().length }} {{ tracks().length === 1 ? 'track' : 'tracks' }}</span
+      >
       @if (engine.error(); as e) {
         <span class="error" [title]="e">{{ e }}</span>
       }
@@ -39,39 +56,58 @@
           <span class="status">Analysing {{ progress().done }} / {{ progress().total }}</span>
           <div class="bar"><div [style.width.%]="progressPercent()"></div></div>
         } @else if (progress().failed > 0) {
-          <span class="status" title="Files that could not be decoded">{{ progress().failed }} unreadable</span>
+          <span class="status" title="Files that could not be decoded"
+            >{{ progress().failed }} unreadable</span
+          >
         }
-        <button class="ghost" (click)="library.rescan()" [disabled]="progress().running" title="Analyse new and changed files">
+        <button
+          class="ghost"
+          (click)="library.rescan()"
+          [disabled]="progress().running"
+          title="Analyse new and changed files"
+        >
           Rescan
         </button>
       </div>
     </div>
     <div class="table">
       <div class="head">
-        <button class="name" (click)="library.sortBy('name')">Title {{ sortMark('name') }}</button>
-        <button class="bpm" (click)="library.sortBy('bpm')">BPM {{ sortMark('bpm') }}</button>
-        <button class="key" (click)="library.sortBy('key')">Key {{ sortMark('key') }}</button>
-        <span class="size">Size</span>
+        <span class="cover"></span>
+        @for (c of columns; track c.id) {
+          <button [class]="c.id" (click)="library.sortBy(c.id)">
+            {{ c.label }} {{ sortMark(c.id) }}
+          </button>
+        }
         <span class="load">Load</span>
       </div>
       @for (t of tracks(); track t.path; let odd = $odd) {
         <div
           class="row"
           [attr.data-path]="t.path"
+          [title]="t.path"
           [class.odd]="odd"
           [class.selected]="library.selected() === t.path"
           (click)="library.selected.set(t.path)"
           (dblclick)="library.load(t.path, null)"
         >
-          <span class="name">{{ displayName(t.name) }}</span>
-          @if (t.analysis; as a) {
-            @if (a.failed) {
+          @if (t.details && !t.details.failed) {
+            <app-cover class="cover" [path]="t.path" />
+          } @else {
+            <span class="cover"></span>
+          }
+          <span class="title">{{ title(t) }}</span>
+          <span class="artist">{{ t.details?.tags?.artist }}</span>
+          <span class="album">{{ t.details?.tags?.album }}</span>
+          <span class="genre">{{ t.details?.tags?.genre }}</span>
+          <span class="year">{{ t.details?.tags?.year }}</span>
+          @if (t.details; as d) {
+            @if (d.failed) {
               <span class="bpm failed" title="This file could not be decoded">—</span>
               <span class="key"></span>
             } @else {
-              <span class="bpm">{{ a.bpm !== null ? a.bpm.toFixed(1) : '—' }}</span>
+              <span class="bpm">{{ d.bpm !== null ? d.bpm.toFixed(1) : '—' }}</span>
               <span class="key">
-                @if (a.key; as k) {
+                @if (d.key; as k) {
                   <span
                     class="chip"
                     [style.--key]="keyColor(k.camelot)"
@@ -87,15 +123,20 @@
             <span class="bpm pending">···</span>
             <span class="key"></span>
           }
-          <span class="size">{{ size(t.sizeBytes) }}</span>
           <span class="load">
             @for (d of deckIndexes; track d) {
-              <button [style.--accent]="color(d)" (click)="library.load(t.path, d); $event.stopPropagation()" [disabled]="engine.loading()[d]">{{ d + 1 }}</button>
+              <button
+                [style.--accent]="color(d)"
+                (click)="library.load(t.path, d); $event.stopPropagation()"
+                [disabled]="engine.loading()[d]"
+              >
+                {{ d + 1 }}
+              </button>
             }
           </span>
         </div>
       } @empty {
-        <div class="none">No audio file in this folder</div>
+        <div class="none">{{ emptyMessage() }}</div>
       }
     </div>
   </div>

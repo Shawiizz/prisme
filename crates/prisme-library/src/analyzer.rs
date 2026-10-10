@@ -7,8 +7,9 @@
 //! ([`prisme_analysis::analyze_file`]), so each worker holds a few MB, not a track.
 
 use crate::db::{path_key, LibraryDb, TrackRecord};
+use crate::metadata::read_metadata;
 use crate::scan::{scan_folder, ScannedFile};
-use prisme_analysis::{AnalysisOptions, ANALYSIS_VERSION};
+use prisme_analysis::AnalysisOptions;
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::Arc;
@@ -98,11 +99,7 @@ fn run(
     let stored = db.versions().unwrap_or_default();
     let todo: Vec<ScannedFile> = scan_folder(root, cancel)
         .into_iter()
-        .filter(|f| {
-            stored
-                .get(&path_key(&f.path))
-                .is_none_or(|(stamp, version)| *stamp != f.stamp || *version != ANALYSIS_VERSION)
-        })
+        .filter(|f| stored.get(&path_key(&f.path)).is_none_or(|v| !v.is_current(f.stamp)))
         .collect();
 
     let total = todo.len();
@@ -119,11 +116,15 @@ fn run(
                     let Some(file) = todo.get(next.fetch_add(1, Ordering::Relaxed)) else {
                         break;
                     };
-                    let record = analyze(file, options);
+                    let (record, cover) = process(db, file, options);
                     if record.error.is_some() {
                         failed.fetch_add(1, Ordering::Relaxed);
                     }
-                    if let Err(e) = db.save(&record) {
+                    let saved = db.save(&record).and_then(|()| match &cover {
+                        Some(jpeg) => db.save_cover(&file.path, jpeg),
+                        None => Ok(()),
+                    });
+                    if let Err(e) = saved {
                         eprintln!("{e}");
                     }
                     listener.track_analyzed(&record);
@@ -147,10 +148,32 @@ fn run(
     });
 }
 
-fn analyze(file: &ScannedFile, options: &AnalysisOptions) -> TrackRecord {
+/// The record of a file and its cover thumbnail. When only the tags are stale, the
+/// stored analysis is kept: reading tags takes milliseconds, analysing seconds.
+fn process(db: &LibraryDb, file: &ScannedFile, options: &AnalysisOptions) -> (TrackRecord, Option<Vec<u8>>) {
+    let reusable = db
+        .get(&file.path)
+        .ok()
+        .flatten()
+        .filter(|r| r.error.is_none() && r.version.analysis_is_current(file.stamp));
+    match reusable {
+        Some(record) => {
+            let metadata = read_metadata(&file.path);
+            (record.with_tags(metadata.tags), metadata.cover)
+        }
+        None => analyze(file, options),
+    }
+}
+
+fn analyze(file: &ScannedFile, options: &AnalysisOptions) -> (TrackRecord, Option<Vec<u8>>) {
     match prisme_analysis::analyze_file(&file.path, options) {
-        Ok(a) => TrackRecord::analyzed(&file.path, file.stamp, a.duration_s, a.analysis),
-        Err(e) => TrackRecord::failed(&file.path, file.stamp, e.to_string()),
+        Ok(a) => {
+            let metadata = read_metadata(&file.path);
+            let record =
+                TrackRecord::analyzed(&file.path, file.stamp, a.duration_s, a.analysis, metadata.tags);
+            (record, metadata.cover)
+        }
+        Err(e) => (TrackRecord::failed(&file.path, file.stamp, e.to_string()), None),
     }
 }
 

@@ -6,6 +6,10 @@
 //! worker thread, never on the audio thread. [`DecodeStream`] decodes chunk by chunk
 //! for work that only scans the audio once (library analysis).
 
+mod tags;
+
+pub use tags::{read_tags, CoverArt, TrackTags};
+
 use std::fs::File;
 use std::path::Path;
 use symphonia::core::audio::SampleBuffer;
@@ -26,6 +30,8 @@ pub enum MediaError {
     NoAudio,
     #[error("the audio track has no sample rate")]
     NoSampleRate,
+    #[error("cannot read the tags of {path}: {message}")]
+    Tags { path: String, message: String },
 }
 
 /// A fully decoded track: interleaved stereo samples at the file's sample rate.

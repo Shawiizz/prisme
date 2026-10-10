@@ -2,9 +2,10 @@ use crate::dto::TrackInfoDto;
 use crate::error::{AppError, AppResult};
 use crate::library_service::LibraryService;
 use crate::state::{lock, AppState, LoadedTrack};
-use prisme_analysis::AnalysisOptions;
+use prisme_analysis::{AnalysisOptions, TrackAnalysis};
 use prisme_library::{FileStamp, TrackRecord};
-use std::path::PathBuf;
+use prisme_media::{TrackAudio, TrackTags};
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use tauri::State;
 
@@ -36,34 +37,40 @@ pub async fn load_track(
 }
 
 /// Decoding, then the waveform and the tempo / key analysis side by side. The
-/// analysis comes from the library when it is up to date there; otherwise it is
-/// computed and stored.
+/// analysis and tags come from the library when they are up to date there; otherwise
+/// they are computed and stored.
 pub fn prepare_track(path: PathBuf, library: &LibraryService) -> AppResult<LoadedTrack> {
     let audio = prisme_media::decode_file(&path)?;
     let stamp = FileStamp::of(&path).ok();
     let stored = stamp
-        .and_then(|s| library.db.get(&path).ok().flatten().filter(|r| r.is_current(s) && r.error.is_none()))
-        .map(|r| r.analysis);
-    let (waveform, analysis) = std::thread::scope(|s| {
+        .and_then(|s| library.db.get(&path).ok().flatten().filter(|r| r.is_current(s) && r.error.is_none()));
+    let (waveform, (analysis, tags)) = std::thread::scope(|s| {
         let waveform = s.spawn(|| prisme_analysis::compute_waveform(&audio, WAVEFORM_SLICES_PER_S));
-        let analysis = stored.unwrap_or_else(|| {
-            let analysis = prisme_analysis::analyze(&audio, &AnalysisOptions::default());
-            if let Some(stamp) = stamp {
-                let record = TrackRecord::analyzed(&path, stamp, audio.duration_s(), analysis);
-                if let Err(e) = library.db.save(&record) {
-                    eprintln!("{e}");
-                }
-                library.announce(&record);
-            }
-            analysis
-        });
-        (waveform.join().expect("waveform thread"), analysis)
+        let known = match stored {
+            Some(r) => (r.analysis, r.tags),
+            None => analyze_and_store(&path, stamp, &audio, library),
+        };
+        (waveform.join().expect("waveform thread"), known)
     });
     let cues = library.db.cues(&path).unwrap_or_else(|e| {
         eprintln!("cues of {} not read: {e}", path.display());
         Vec::new()
     });
-    Ok(LoadedTrack { path, audio: Arc::new(audio), waveform, analysis, cues })
+    Ok(LoadedTrack { path, audio: Arc::new(audio), waveform, analysis, tags, cues })
+}
+
+fn analyze_and_store(
+    path: &Path,
+    stamp: Option<FileStamp>,
+    audio: &TrackAudio,
+    library: &LibraryService,
+) -> (TrackAnalysis, TrackTags) {
+    let analysis = prisme_analysis::analyze(audio, &AnalysisOptions::default());
+    let metadata = prisme_library::read_metadata(path);
+    let Some(stamp) = stamp else { return (analysis, metadata.tags) };
+    let record = TrackRecord::analyzed(path, stamp, audio.duration_s(), analysis, metadata.tags);
+    library.store(&record, metadata.cover.as_deref());
+    (record.analysis, record.tags)
 }
 
 /// Tracks currently loaded on the decks (to rebuild the UI after a reload).

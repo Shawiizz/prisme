@@ -1,15 +1,17 @@
 import { Component, computed, inject, input } from '@angular/core';
 import { EngineService } from '../../../core/services/engine.service';
 import { deckColor, formatPitch, formatTime } from '../../../shared/time';
+import { Cover } from '../../../shared/cover/cover';
 
 /**
- * Deck header: number tile in the deck colour, title and time, labelled stats and the
- * vinyl (DVS) controls.
+ * Deck header: number tile in the deck colour, cover, title and time, labelled stats and
+ * the vinyl (DVS) controls.
  */
 @Component({
   selector: 'app-deck-card',
   templateUrl: './deck-card.html',
   styleUrl: './deck-card.scss',
+  imports: [Cover],
 })
 export class DeckCard {
   readonly deck = input.required<number>();
@@ -49,6 +51,8 @@ export class DeckCard {
   }
 
   toggleMode() {
-    this.engine.setVinyl(this.deck(), { mode: this.settings().vinylMode === 'absolute' ? 'relative' : 'absolute' });
+    this.engine.setVinyl(this.deck(), {
+      mode: this.settings().vinylMode === 'absolute' ? 'relative' : 'absolute',
+    });
   }
 }

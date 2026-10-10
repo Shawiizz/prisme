@@ -1,15 +1,27 @@
 import { Component, ElementRef, computed, effect, inject, viewChild } from '@angular/core';
-import { LibraryService, SortColumn } from '../../core/services/library.service';
+import { LibraryService, SortColumn, trackTitle } from '../../core/services/library.service';
 import { EngineService } from '../../core/services/engine.service';
 import { DECK_COUNT } from '../../core/models/engine';
 import { deckColor } from '../../shared/time';
 import { camelotColor, camelotCompatible } from '../../shared/camelot';
+import { Cover } from '../../shared/cover/cover';
 
-/** Folder browser (left) and the tracks of the current folder (right). */
+const COLUMNS: { id: SortColumn; label: string }[] = [
+  { id: 'title', label: 'Title' },
+  { id: 'artist', label: 'Artist' },
+  { id: 'album', label: 'Album' },
+  { id: 'genre', label: 'Genre' },
+  { id: 'year', label: 'Year' },
+  { id: 'bpm', label: 'BPM' },
+  { id: 'key', label: 'Key' },
+];
+
+/** Folder browser (left) and the tracks of the current folder or library search (right). */
 @Component({
   selector: 'app-library',
   templateUrl: './library.html',
   styleUrl: './library.scss',
+  imports: [Cover],
 })
 export class Library {
   protected readonly library = inject(LibraryService);
@@ -17,6 +29,8 @@ export class Library {
   protected readonly deckIndexes = Array.from({ length: DECK_COUNT }, (_, i) => i);
   protected readonly color = deckColor;
   protected readonly keyColor = camelotColor;
+  protected readonly columns = COLUMNS;
+  protected readonly title = trackTitle;
   protected readonly tracks = this.library.visibleTracks;
   private readonly search = viewChild.required<ElementRef<HTMLInputElement>>('search');
   private readonly host = inject(ElementRef<HTMLElement>);
@@ -58,7 +72,8 @@ export class Library {
     });
     effect(() => {
       const path = this.library.selected();
-      const row = path && this.host.nativeElement.querySelector(`[data-path="${CSS.escape(path)}"]`);
+      const row =
+        path && this.host.nativeElement.querySelector(`[data-path="${CSS.escape(path)}"]`);
       row?.scrollIntoView({ block: 'nearest' });
     });
   }
@@ -74,11 +89,10 @@ export class Library {
     return keys.length ? keys.some((k) => camelotCompatible(k, camelot)) : null;
   }
 
-  displayName(name: string): string {
-    return name.replace(/\.[^.]+$/, '');
-  }
-
-  size(bytes: number): string {
-    return (bytes / 1_048_576).toFixed(1) + ' MB';
-  }
+  protected readonly emptyMessage = computed(() => {
+    if (this.library.scope() === 'folder') return 'No audio file in this folder';
+    return this.library.filter().trim()
+      ? 'No analysed track matches'
+      : 'Type to search every analysed track';
+  });
 }

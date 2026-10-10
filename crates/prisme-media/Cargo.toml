@@ -1,6 +1,6 @@
 [package]
 name = "prisme-media"
-description = "Audio file decoding into in-memory tracks"
+description = "Audio files: decoding into in-memory tracks, tags and cover art"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -8,4 +8,5 @@ publish.workspace = true
 
 [dependencies]
 symphonia.workspace = true
+lofty.workspace = true
 thiserror.workspace = true

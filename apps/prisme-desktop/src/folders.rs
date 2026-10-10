@@ -1,6 +1,6 @@
 //! Browsing music folders.
 
-use crate::dto::{DirEntryDto, DirListingDto, TrackAnalysisDto};
+use crate::dto::{DirEntryDto, DirListingDto, TrackDetailsDto};
 use std::path::{Path, PathBuf};
 
 /// The user's music folder (falls back to the home folder).
@@ -14,10 +14,10 @@ pub fn music_root() -> PathBuf {
 }
 
 /// Sub-folders and playable files of `dir`, sorted by name (hidden entries skipped).
-/// `analysis` gives the stored analysis of a track, if any.
+/// `details` gives what the library knows of a track, if anything.
 pub fn list_dir(
     dir: &Path,
-    analysis: impl Fn(&Path, &std::fs::Metadata) -> Option<TrackAnalysisDto>,
+    details: impl Fn(&Path, &std::fs::Metadata) -> Option<TrackDetailsDto>,
 ) -> std::io::Result<DirListingDto> {
     let mut folders = Vec::new();
     let mut tracks = Vec::new();
@@ -29,16 +29,12 @@ pub fn list_dir(
         }
         let path = entry.path();
         let Ok(meta) = entry.metadata() else { continue };
-        let item = |analysis| DirEntryDto {
-            name,
-            path: path.display().to_string(),
-            size_bytes: meta.len(),
-            analysis,
-        };
+        let item =
+            |details| DirEntryDto { name, path: path.display().to_string(), size_bytes: meta.len(), details };
         if meta.is_dir() {
             folders.push(item(None));
         } else if prisme_media::is_supported(&path) {
-            tracks.push(item(analysis(&path, &meta)));
+            tracks.push(item(details(&path, &meta)));
         }
     }
     let by_name = |a: &DirEntryDto, b: &DirEntryDto| a.name.to_lowercase().cmp(&b.name.to_lowercase());

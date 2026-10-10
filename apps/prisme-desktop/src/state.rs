@@ -10,7 +10,7 @@ use crate::preferences::{DeckPreferences, Preferences};
 use prisme_analysis::{TrackAnalysis, Waveform};
 use prisme_engine::{BeatGrid, Command, DeckStatus, MixMode, OutputRouting};
 use prisme_library::{Cue, CueSlot};
-use prisme_media::TrackAudio;
+use prisme_media::{TrackAudio, TrackTags};
 use prisme_session::JsonFile;
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex, MutexGuard};
@@ -20,6 +20,7 @@ pub struct LoadedTrack {
     pub audio: Arc<TrackAudio>,
     pub waveform: Waveform,
     pub analysis: TrackAnalysis,
+    pub tags: TrackTags,
     pub cues: Vec<Cue>,
 }
 
@@ -29,8 +30,8 @@ impl LoadedTrack {
         TrackInfoDto {
             deck,
             path: self.path.display().to_string(),
-            title: folders::title_from_path(&self.path),
-            artist: None,
+            title: self.tags.title.clone().unwrap_or_else(|| folders::title_from_path(&self.path)),
+            artist: self.tags.artist.clone(),
             duration_s: self.audio.duration_s(),
             sample_rate: self.audio.sample_rate(),
             waveform: WaveformDto::from(&self.waveform),

@@ -4,7 +4,7 @@
 //! * `track-analyzed` ([`TrackAnalyzedDto`]) for each file analysed;
 //! * `library-progress` ([`ProgressDto`]) as the run advances.
 
-use crate::dto::{ProgressDto, TrackAnalysisDto, TrackAnalyzedDto};
+use crate::dto::{ProgressDto, TrackAnalyzedDto, TrackDetailsDto};
 use crate::state::lock;
 use prisme_analysis::AnalysisOptions;
 use prisme_library::{AnalysisListener, AnalysisProgress, BackgroundAnalyzer, LibraryDb, TrackRecord};
@@ -62,8 +62,15 @@ impl LibraryService {
         *lock(&self.progress)
     }
 
-    /// Tells the UI about a track analysed outside the background run (on load).
-    pub fn announce(&self, record: &TrackRecord) {
+    /// Stores a track analysed outside the background run (on load) and tells the UI.
+    pub fn store(&self, record: &TrackRecord, cover: Option<&[u8]>) {
+        let saved = self.db.save(record).and_then(|()| match cover {
+            Some(jpeg) => self.db.save_cover(Path::new(&record.path), jpeg),
+            None => Ok(()),
+        });
+        if let Err(e) = saved {
+            eprintln!("{e}");
+        }
         let _ = self.app.emit(TRACK_ANALYZED_EVENT, TrackAnalyzedDto::from(record));
     }
 }
@@ -86,6 +93,6 @@ impl AnalysisListener for EventListener {
 
 impl From<&TrackRecord> for TrackAnalyzedDto {
     fn from(r: &TrackRecord) -> Self {
-        Self { path: r.path.clone(), analysis: TrackAnalysisDto::from(r) }
+        Self { path: r.path.clone(), details: TrackDetailsDto::from(r) }
     }
 }

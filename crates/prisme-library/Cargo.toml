@@ -10,6 +10,7 @@ publish.workspace = true
 prisme-media.workspace = true
 prisme-analysis.workspace = true
 rusqlite.workspace = true
+image.workspace = true
 thiserror.workspace = true
 
 [target.'cfg(windows)'.dependencies]

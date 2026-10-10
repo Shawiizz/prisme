@@ -1,4 +1,4 @@
-use crate::dto::{DirListingDto, TrackAnalysisDto};
+use crate::dto::{DirListingDto, TrackDetailsDto};
 use crate::error::AppResult;
 use crate::folders;
 use crate::library_service::LibraryService;
@@ -17,6 +17,6 @@ pub fn music_root() -> String {
 pub fn list_dir(library: State<'_, Arc<LibraryService>>, path: String) -> AppResult<DirListingDto> {
     Ok(folders::list_dir(&PathBuf::from(path), |file, meta| {
         let record = library.db.get(file).ok().flatten()?;
-        record.is_current(FileStamp::from_metadata(meta)).then(|| TrackAnalysisDto::from(&record))
+        record.is_current(FileStamp::from_metadata(meta)).then(|| TrackDetailsDto::from(&record))
     })?)
 }

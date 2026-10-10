@@ -1,9 +1,18 @@
 import { MusicalKey } from './engine';
 
-/** Stored analysis of a track (see TrackAnalysisDto). */
-export interface TrackAnalysis {
+export interface TrackTags {
+  title: string | null;
+  artist: string | null;
+  album: string | null;
+  genre: string | null;
+  year: number | null;
+}
+
+/** What the library knows of a track: analysis and tags (see TrackDetailsDto). */
+export interface TrackDetails {
   bpm: number | null;
   key: MusicalKey | null;
+  tags: TrackTags;
   /** The file could not be decoded. */
   failed: boolean;
 }
@@ -13,7 +22,7 @@ export interface DirEntry {
   path: string;
   sizeBytes: number;
   /** `null` until the track has been analysed. */
-  analysis: TrackAnalysis | null;
+  details: TrackDetails | null;
 }
 
 export interface DirListing {
@@ -34,5 +43,5 @@ export interface AnalysisProgress {
 /** Payload of the `track-analyzed` event. */
 export interface TrackAnalyzed {
   path: string;
-  analysis: TrackAnalysis;
+  details: TrackDetails;
 }

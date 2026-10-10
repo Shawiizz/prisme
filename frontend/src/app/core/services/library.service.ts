@@ -6,18 +6,38 @@ import { camelotRank } from '../../shared/camelot';
 import { EngineService } from './engine.service';
 import { PreferencesService } from './preferences.service';
 
-export type SortColumn = 'name' | 'bpm' | 'key';
+export type SortColumn = 'title' | 'artist' | 'album' | 'genre' | 'year' | 'bpm' | 'key';
 
 export interface TrackSort {
   column: SortColumn;
   direction: 1 | -1;
 }
 
+/** Where the search looks: the open folder, or every analysed track. */
+export type SearchScope = 'folder' | 'library';
+
+/** Wait after the last keystroke before searching the whole library. */
+const LIBRARY_SEARCH_DELAY_MS = 120;
+
+/** Title shown for a track: its tag, else the file name without extension. */
+export function trackTitle(t: DirEntry): string {
+  return t.details?.tags.title ?? t.name.replace(/\.[^.]+$/, '');
+}
+
+/** Whether every word of the search appears in the track's title, tags or file name. */
+export function matchesSearch(t: DirEntry, words: string[]): boolean {
+  const tags = t.details?.tags;
+  const text = [t.name, tags?.title, tags?.artist, tags?.album, tags?.genre]
+    .join(' ')
+    .toLowerCase();
+  return words.every((w) => text.includes(w));
+}
+
 /**
- * Browsing the music folders on disk, with the analysis results of the tracks, and the
- * view on them (filter, sort, selection). The background analysis pushes each result
- * (`track-analyzed`) and its progress (`library-progress`): the listing is patched in
- * place, no reload needed.
+ * Browsing the music folders on disk and searching the library, with the analysis
+ * results and tags of the tracks, and the view on them (search, sort, selection). The
+ * background analysis pushes each result (`track-analyzed`) and its progress
+ * (`library-progress`): the lists are patched in place, no reload needed.
  */
 @Injectable({ providedIn: 'root' })
 export class LibraryService {
@@ -29,32 +49,26 @@ export class LibraryService {
   readonly error = signal<string | null>(null);
   readonly progress = signal<AnalysisProgress>({ total: 0, done: 0, failed: 0, running: false });
   readonly filter = signal('');
-  readonly sort = signal<TrackSort>({ column: 'name', direction: 1 });
+  readonly scope = signal<SearchScope>('folder');
+  readonly sort = signal<TrackSort>({ column: 'title', direction: 1 });
   readonly selected = signal<string | null>(null);
   /** Incremented to ask the view to focus the search field. */
   readonly searchRequests = signal(0);
 
-  /** Tracks of the folder as shown: filtered, then sorted. */
+  private readonly libraryResults = signal<DirEntry[]>([]);
+  private searchTimer: ReturnType<typeof setTimeout> | undefined;
+  /** Answers to older searches arriving late are dropped. */
+  private searchId = 0;
+
+  /** Tracks as shown: those of the folder matching the search, or the library's matches; sorted. */
   readonly visibleTracks = computed(() => {
-    const all = this.listing()?.tracks ?? [];
-    const f = this.filter().trim().toLowerCase();
-    const shown = f ? all.filter((t) => t.name.toLowerCase().includes(f)) : [...all];
+    const words = this.filter().trim().toLowerCase().split(/\s+/).filter(Boolean);
+    const shown =
+      this.scope() === 'library'
+        ? [...this.libraryResults()]
+        : (this.listing()?.tracks ?? []).filter((t) => matchesSearch(t, words));
     const { column, direction } = this.sort();
-    const value = (t: DirEntry): number | string => {
-      switch (column) {
-        case 'bpm':
-          return t.analysis?.bpm ?? Number.MAX_SAFE_INTEGER;
-        case 'key':
-          return camelotRank(t.analysis?.key?.camelot);
-        default:
-          return t.name.toLowerCase();
-      }
-    };
-    return shown.sort((a, b) => {
-      const va = value(a);
-      const vb = value(b);
-      return (va < vb ? -1 : va > vb ? 1 : 0) * direction;
-    });
+    return shown.sort((a, b) => compare(sortValue(a, column), sortValue(b, column)) * direction);
   });
 
   async init(): Promise<void> {
@@ -75,7 +89,8 @@ export class LibraryService {
   async open(path: string): Promise<boolean> {
     try {
       this.listing.set(await invoke<DirListing>('list_dir', { path }));
-      this.filter.set('');
+      this.scope.set('folder');
+      this.setFilter('');
       this.error.set(null);
       await this.preferences.updateLibrary({ lastFolder: path });
       return true;
@@ -83,6 +98,16 @@ export class LibraryService {
       this.error.set(String(e));
       return false;
     }
+  }
+
+  setFilter(text: string) {
+    this.filter.set(text);
+    if (this.scope() === 'library') this.searchLibrary();
+  }
+
+  setScope(scope: SearchScope) {
+    this.scope.set(scope);
+    if (scope === 'library') this.searchLibrary();
   }
 
   /** Looks for new or changed files and analyses them. */
@@ -117,9 +142,59 @@ export class LibraryService {
     this.engine.load(deck ?? (free >= 0 ? free : 0), path);
   }
 
-  private patch({ path, analysis }: TrackAnalyzed) {
-    const listing = this.listing();
-    if (!listing?.tracks.some((t) => t.path === path)) return;
-    this.listing.set({ ...listing, tracks: listing.tracks.map((t) => (t.path === path ? { ...t, analysis } : t)) });
+  private searchLibrary() {
+    clearTimeout(this.searchTimer);
+    const id = ++this.searchId;
+    const query = this.filter().trim();
+    if (!query) {
+      this.libraryResults.set([]);
+      return;
+    }
+    this.searchTimer = setTimeout(async () => {
+      try {
+        const results = await invoke<DirEntry[]>('search_library', { query });
+        if (id === this.searchId) this.libraryResults.set(results);
+      } catch (e) {
+        this.error.set(String(e));
+      }
+    }, LIBRARY_SEARCH_DELAY_MS);
   }
+
+  private patch({ path, details }: TrackAnalyzed) {
+    const update = (tracks: DirEntry[]) =>
+      tracks.map((t) => (t.path === path ? { ...t, details } : t));
+    const listing = this.listing();
+    if (listing?.tracks.some((t) => t.path === path)) {
+      this.listing.set({ ...listing, tracks: update(listing.tracks) });
+    }
+    if (this.libraryResults().some((t) => t.path === path)) {
+      this.libraryResults.update(update);
+    }
+  }
+}
+
+/** Value a column sorts on; tracks without one go last. */
+function sortValue(t: DirEntry, column: SortColumn): number | string {
+  const d = t.details;
+  const text = (s: string | null | undefined) => s?.toLowerCase() ?? '\uffff';
+  switch (column) {
+    case 'title':
+      return trackTitle(t).toLowerCase();
+    case 'artist':
+      return text(d?.tags.artist);
+    case 'album':
+      return text(d?.tags.album);
+    case 'genre':
+      return text(d?.tags.genre);
+    case 'year':
+      return d?.tags.year ?? Number.MAX_SAFE_INTEGER;
+    case 'bpm':
+      return d?.bpm ?? Number.MAX_SAFE_INTEGER;
+    case 'key':
+      return camelotRank(d?.key?.camelot);
+  }
+}
+
+function compare(a: number | string, b: number | string): number {
+  return a < b ? -1 : a > b ? 1 : 0;
 }

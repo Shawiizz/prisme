@@ -401,26 +401,63 @@ pub struct DirEntryDto {
     pub name: String,
     pub path: String,
     pub size_bytes: u64,
-    /// Stored analysis of a track, `None` until it has been analysed.
-    pub analysis: Option<TrackAnalysisDto>,
+    /// What the library knows of a track, `None` until it has been analysed.
+    pub details: Option<TrackDetailsDto>,
 }
 
-/// Analysis results as the library shows them.
+impl DirEntryDto {
+    /// A track found in the database (search results).
+    pub fn from_record(record: &prisme_library::TrackRecord) -> Self {
+        let path = std::path::Path::new(&record.path);
+        Self {
+            name: path.file_name().map_or_else(|| record.path.clone(), |n| n.to_string_lossy().into_owned()),
+            path: record.path.clone(),
+            size_bytes: record.version.stamp.size,
+            details: Some(TrackDetailsDto::from(record)),
+        }
+    }
+}
+
+/// Analysis and tags of a track as the library shows them.
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct TrackAnalysisDto {
+pub struct TrackDetailsDto {
     pub bpm: Option<f64>,
     pub key: Option<KeyDto>,
+    pub tags: TagsDto,
     /// The file could not be decoded.
     pub failed: bool,
 }
 
-impl From<&prisme_library::TrackRecord> for TrackAnalysisDto {
+impl From<&prisme_library::TrackRecord> for TrackDetailsDto {
     fn from(r: &prisme_library::TrackRecord) -> Self {
         Self {
             bpm: r.analysis.tempo.map(|t| t.bpm),
             key: r.analysis.key.as_ref().map(KeyDto::from),
+            tags: TagsDto::from(&r.tags),
             failed: r.error.is_some(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Default, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TagsDto {
+    pub title: Option<String>,
+    pub artist: Option<String>,
+    pub album: Option<String>,
+    pub genre: Option<String>,
+    pub year: Option<u16>,
+}
+
+impl From<&prisme_media::TrackTags> for TagsDto {
+    fn from(t: &prisme_media::TrackTags) -> Self {
+        Self {
+            title: t.title.clone(),
+            artist: t.artist.clone(),
+            album: t.album.clone(),
+            genre: t.genre.clone(),
+            year: t.year,
         }
     }
 }
@@ -430,7 +467,7 @@ impl From<&prisme_library::TrackRecord> for TrackAnalysisDto {
 #[serde(rename_all = "camelCase")]
 pub struct TrackAnalyzedDto {
     pub path: String,
-    pub analysis: TrackAnalysisDto,
+    pub details: TrackDetailsDto,
 }
 
 /// Payload of the `library-progress` event.
