@@ -22,6 +22,8 @@ pub enum AppError {
     InvalidKey(String),
     #[error(transparent)]
     Library(#[from] prisme_library::DbError),
+    #[error(transparent)]
+    Rekordbox(#[from] prisme_import::rekordbox::RekordboxError),
     #[error("unknown timecode format {0}")]
     UnknownFormat(String),
     #[error("the engine is busy, try again")]

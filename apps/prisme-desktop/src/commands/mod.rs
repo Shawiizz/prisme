@@ -7,6 +7,7 @@ pub mod decks;
 pub mod edits;
 pub mod folders;
 pub mod history;
+pub mod import;
 pub mod library;
 pub mod marks;
 pub mod mixer;

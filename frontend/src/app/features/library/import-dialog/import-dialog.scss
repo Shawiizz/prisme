@@ -1,0 +1,80 @@
+.backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(4, 5, 9, 0.7);
+}
+.dialog {
+  width: 600px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 20px;
+  background: var(--panel);
+  border: 1px solid var(--line-strong);
+  border-radius: 4px;
+}
+h2 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+}
+h3 {
+  margin: 0 0 4px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+p {
+  margin: 0;
+  color: var(--text-2);
+  line-height: 1.45;
+}
+.note {
+  color: var(--muted);
+}
+section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.path,
+.spacer {
+  flex: 1;
+  min-width: 0;
+}
+.path {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-2);
+  font-family: var(--mono);
+  font-size: 12px;
+  &.missing {
+    font-family: inherit;
+    color: var(--faint);
+  }
+}
+.status {
+  color: var(--text);
+}
+.missing {
+  color: var(--amber);
+}
+.error {
+  color: var(--red);
+}
+.buttons {
+  display: flex;
+  justify-content: flex-end;
+}

@@ -450,6 +450,23 @@ pub struct CrateDto {
     pub track_count: usize,
 }
 
+/// What an import brought.
+#[derive(Debug, Clone, Copy, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ImportSummaryDto {
+    pub tracks: usize,
+    pub cues: usize,
+    pub grids: usize,
+    pub crates: usize,
+    pub missing: usize,
+}
+
+impl From<prisme_import::ImportSummary> for ImportSummaryDto {
+    fn from(s: prisme_import::ImportSummary) -> Self {
+        Self { tracks: s.tracks, cues: s.cues, grids: s.grids, crates: s.crates, missing: s.missing }
+    }
+}
+
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct HistorySessionDto {

@@ -1,7 +1,7 @@
 //! What the DJ marks tracks with: a colour and a rating.
 
 use super::{path_key, DbError, LibraryDb};
-use rusqlite::{params, Row};
+use rusqlite::{params, OptionalExtension, Row};
 use std::path::Path;
 
 pub const MAX_RATING: u8 = 5;
@@ -22,6 +22,14 @@ impl TrackMarks {
 }
 
 impl LibraryDb {
+    pub fn marks(&self, path: &Path) -> Result<TrackMarks, DbError> {
+        let conn = self.conn();
+        let mut stmt = conn.prepare_cached(
+            "SELECT color AS mark_color, rating AS mark_rating FROM track_marks WHERE path = ?1",
+        )?;
+        Ok(stmt.query_row([path_key(path)], TrackMarks::from_row).optional()?.unwrap_or_default())
+    }
+
     pub fn set_color(&self, paths: &[&Path], color: Option<u32>) -> Result<(), DbError> {
         self.mark(
             paths,

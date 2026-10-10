@@ -1,0 +1,56 @@
+<div class="backdrop" (click)="busy() || closed.emit()">
+  <div class="dialog" (click)="$event.stopPropagation()">
+    <h2>Import</h2>
+    <p class="note">
+      What is already set in Prisme stays as it is: importing again only adds what is missing.
+    </p>
+
+    <section>
+      <h3>Serato DJ</h3>
+      <p>
+        Crates from the <code>_Serato_</code> folder, and the cues, saved loops, colours and beat
+        grids Serato wrote into your files.
+      </p>
+      <div class="row">
+        <span class="path" [class.missing]="!seratoFolder()">
+          {{ seratoFolder() ?? 'No _Serato_ folder in Music: only the tags of the files' }}
+        </span>
+        <button [disabled]="busy()" (click)="pickSeratoFolder()">Choose…</button>
+        <button class="primary" [disabled]="busy()" (click)="importSerato()">Import</button>
+      </div>
+    </section>
+
+    <section>
+      <h3>rekordbox</h3>
+      <p>
+        In rekordbox, File › Export Collection in xml format, then pick that file: playlists, hot
+        and memory cues, loops, beat grids, colours and ratings.
+      </p>
+      <div class="row">
+        <span class="spacer"></span>
+        <button class="primary" [disabled]="busy()" (click)="importRekordbox()">
+          Choose the XML file…
+        </button>
+      </div>
+    </section>
+
+    @if (busy()) {
+      <p class="status">Importing…</p>
+    } @else if (summary(); as s) {
+      <p class="status">
+        {{ s.tracks }} tracks updated: {{ s.cues }} cues, {{ s.grids }} beat grids;
+        {{ s.crates }} crates.
+        @if (s.missing > 0) {
+          <span class="missing">{{ s.missing }} files are not on this computer.</span>
+        }
+      </p>
+    }
+    @if (error(); as e) {
+      <p class="error">{{ e }}</p>
+    }
+
+    <div class="buttons">
+      <button [disabled]="busy()" (click)="closed.emit()">Close</button>
+    </div>
+  </div>
+</div>

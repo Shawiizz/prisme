@@ -21,6 +21,7 @@ prisme-audio-io.workspace = true
 prisme-analysis.workspace = true
 prisme-library.workspace = true
 prisme-session.workspace = true
+prisme-import.workspace = true
 tauri = { version = "2", features = [] }
 tauri-plugin-dialog = "2"
 serde.workspace = true
