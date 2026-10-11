@@ -27,7 +27,7 @@ jobs:
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         with:
           projectPath: apps/prisme-desktop
-          tauriScript: npx --yes @tauri-apps/cli@2.9.6
+          tauriScript: npx --yes @tauri-apps/cli@2.12.2
           tagName: ${{ github.ref_name }}
           releaseName: Prisme ${{ github.ref_name }}
           releaseDraft: true
