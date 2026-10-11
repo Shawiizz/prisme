@@ -253,8 +253,8 @@ impl Deck {
             DriveMode::Relative if self.sync.locked => {
                 self.sync.held_rate.unwrap_or(self.sync.platter_reference)
             }
-            DriveMode::Relative => self.sync.platter_reference * self.sync.rate_offset,
-            DriveMode::Absolute => self.sync.platter_reference,
+            DriveMode::Relative => self.sync.tempo.rate() * self.sync.rate_offset,
+            DriveMode::Absolute => self.sync.tempo.rate(),
         }
     }
 

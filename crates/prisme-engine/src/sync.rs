@@ -6,6 +6,7 @@
 //! sync, the record decides where the track is.
 
 use crate::grid::BeatGrid;
+use crate::tempo::PlatterTempo;
 
 const SPEED_SMOOTHING_S: f64 = 0.3;
 /// Slow enough to absorb a pitch fader move, fast enough to let a nudge through.
@@ -63,8 +64,11 @@ pub(crate) struct DeckSync {
     pub(crate) smoothed_speed: f64,
     platter_recent: f64,
     platter_steady_s: f64,
-    /// Steady platter speed, pitch fader included, gestures excluded.
+    /// Steady platter speed, pitch fader included, gestures excluded: what relative
+    /// locked play measures the gestures against.
     pub(crate) platter_reference: f64,
+    /// The tempo of the record: what is shown and what followers match.
+    pub(crate) tempo: PlatterTempo,
 }
 
 impl DeckSync {
@@ -79,18 +83,17 @@ impl DeckSync {
             platter_recent: 0.0,
             platter_steady_s: 0.0,
             platter_reference: 1.0,
+            tempo: PlatterTempo::new(),
         }
     }
 
     /// Drops the sync settings, keeps what was learnt about the speeds.
     pub(crate) fn reset(&mut self) {
-        *self = Self {
-            smoothed_speed: self.smoothed_speed,
-            platter_recent: self.platter_recent,
-            platter_steady_s: self.platter_steady_s,
-            platter_reference: self.platter_reference,
-            ..Self::new()
-        };
+        self.locked = false;
+        self.once_pending = false;
+        self.snap_pending = false;
+        self.rate_offset = 1.0;
+        self.held_rate = None;
     }
 
     pub(crate) fn observe(&mut self, speed: f64, platter_speed: Option<f64>, seconds: f64) {
@@ -107,6 +110,7 @@ impl DeckSync {
             if self.platter_steady_s >= PLATTER_STEADY_MIN_S {
                 self.platter_reference +=
                     (p - self.platter_reference) * smoothing(seconds, PLATTER_REFERENCE_SMOOTHING_S);
+                self.tempo.observe(p, seconds);
             }
         }
     }
@@ -155,5 +159,6 @@ mod tests {
             s.observe(scratch, Some(scratch), 0.01);
         }
         assert!((s.platter_reference - 1.35).abs() < 0.001);
+        assert!((s.tempo.rate() - 1.35).abs() < 0.001);
     }
 }

@@ -28,6 +28,7 @@ mod scope;
 mod status;
 mod strip;
 mod sync;
+mod tempo;
 mod vinyl;
 
 pub use command::{Command, CrossfaderSide, DeckId, Garbage, RecordSource, VinylMode};
