@@ -36,7 +36,8 @@ pub struct StreamStats {
     pub input_underruns: AtomicU64,
     /// Input frames dropped because the ring buffer was full, or to limit latency.
     pub input_dropped: AtomicU64,
-    /// The device went away (unplugged): the stream must be restarted.
+    /// The device went away or changed (unplugged, another default device, another format):
+    /// the stream must be restarted.
     pub device_lost: AtomicBool,
     /// The callback panicked: it is no longer called, the output is silent.
     pub callback_failed: AtomicBool,
@@ -240,7 +241,7 @@ fn supported_buffer(frames: u32, supported: &cpal::SupportedBufferSize) -> u32 {
 
 fn error_handler(stats: Arc<StreamStats>) -> impl FnMut(cpal::Error) + Send + 'static {
     move |e| {
-        if e.kind() == cpal::ErrorKind::DeviceNotAvailable {
+        if matches!(e.kind(), cpal::ErrorKind::DeviceNotAvailable | cpal::ErrorKind::StreamInvalidated) {
             stats.device_lost.store(true, Ordering::Relaxed);
         }
         warn!("audio stream error: {e}");

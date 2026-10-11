@@ -110,12 +110,16 @@ pub(crate) fn find(
 ) -> Result<cpal::Device, AudioError> {
     let host = backend.host()?;
     let Some(wanted) = name else {
-        return match kind {
-            DeviceKind::Output => host.default_output_device().ok_or(AudioError::NoOutputDevice),
-            DeviceKind::Input => {
-                host.default_input_device().ok_or_else(|| AudioError::DeviceNotFound("default input".into()))
-            }
+        let default = match kind {
+            DeviceKind::Output => host.default_output_device().ok_or(AudioError::NoOutputDevice)?,
+            DeviceKind::Input => host
+                .default_input_device()
+                .ok_or_else(|| AudioError::DeviceNotFound("default input".into()))?,
         };
+        // WASAPI's "default device" fails to open again once Windows changed the default:
+        // open the device it currently is, the watchdog restarts on the next change
+        let Some(name) = device_name(&default) else { return Ok(default) };
+        return find(backend, kind, Some(&name)).or(Ok(default));
     };
     let wanted_lower = wanted.to_lowercase();
     let matches = |d: &cpal::Device| device_name(d).is_some_and(|n| n.to_lowercase().contains(&wanted_lower));
