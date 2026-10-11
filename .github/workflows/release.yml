@@ -20,6 +20,13 @@ jobs:
         run: |
           $version = (cargo metadata --no-deps --format-version 1 | ConvertFrom-Json).packages.Where({ $_.name -eq 'prisme-desktop' }).version
           if ($version -ne '${{ github.ref_name }}') { throw "tag ${{ github.ref_name }}, app version $version" }
+      # tauri-action attaches to this draft: creating the release itself was refused once
+      - name: Draft release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ github.ref_name }}
+        run: gh release view "$TAG" > /dev/null 2>&1 || gh release create "$TAG" --draft --verify-tag --title "Prisme $TAG" --notes ""
       - uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
