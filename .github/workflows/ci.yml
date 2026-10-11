@@ -1,8 +1,8 @@
 name: CI
 
-# Windows runners count double against a private repository's minutes: checked on
-# pull requests and on demand rather than on every push.
 on:
+  push:
+    branches: [main]
   pull_request:
   workflow_dispatch:
 
