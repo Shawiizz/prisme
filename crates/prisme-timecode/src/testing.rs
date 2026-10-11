@@ -10,8 +10,9 @@ use std::f64::consts::TAU;
 /// Bit amplitudes on the primary channel (relative to full scale).
 const HIGH_BIT: f64 = 0.80;
 const LOW_BIT: f64 = 0.40;
-/// Secondary channel amplitude.
-const SECONDARY: f64 = 0.60;
+/// Secondary channel amplitude relative to the primary. Both channels carry the bits, as
+/// on real records.
+const SECONDARY: f64 = 0.75;
 /// Speed at which the level stops growing.
 const MAX_LEVEL_SPEED: f64 = 1.6;
 
@@ -71,7 +72,7 @@ impl SignalGenerator {
             let level = if self.velocity_sensitive { speed.abs().min(MAX_LEVEL_SPEED) } else { 1.0 };
             let primary = level * amplitude * sin;
             // orientation of real records (calibrated against an independent decoder)
-            let secondary = -level * SECONDARY * cos;
+            let secondary = -level * amplitude * SECONDARY * cos;
             let (left, right) = match self.format.primary {
                 crate::format::Channel::Right => (secondary, primary),
                 crate::format::Channel::Left => (primary, secondary),

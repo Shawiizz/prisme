@@ -104,7 +104,8 @@ fn steady(speed: fn(f64) -> f64, start_ms: f64, degradation: Degradation) -> Res
 #[test]
 fn clean_signal_locks_fast_and_is_exact() {
     let r = steady(|_| 1.0, 5_000.0, Degradation::default());
-    assert!(r.lock_ms.unwrap() < 40.0, "{r:?}");
+    // 20 bits fill the register, 24 more confirm it: a cycle each at 1 kHz
+    assert!(r.lock_ms.unwrap() < 50.0, "{r:?}");
     assert!(r.speed_rms < 1e-3, "{r:?}");
     assert!(r.position_rms < 0.5, "{r:?}");
     assert_eq!(r.lost_ratio, 0.0, "{r:?}");
@@ -114,7 +115,7 @@ fn clean_signal_locks_fast_and_is_exact() {
 fn pitched_and_half_speed_play() {
     for speed in [|_| 1.06, |_| 0.92, |_| 0.5] as [fn(f64) -> f64; 3] {
         let r = steady(speed, 5_000.0, Degradation::default());
-        assert!(r.lock_ms.unwrap() < 80.0, "{r:?}");
+        assert!(r.lock_ms.unwrap() < 100.0, "{r:?}");
         assert!(r.speed_rms < 1e-3, "{r:?}");
         assert_eq!(r.lost_ratio, 0.0, "{r:?}");
     }
@@ -195,7 +196,7 @@ fn needle_drop_relocks() {
         speed: |_| 1.0,
         degradation: Degradation::default(),
     });
-    assert!(r.reaction_ms.unwrap() < 35.0, "{r:?}");
+    assert!(r.reaction_ms.unwrap() < 50.0, "{r:?}");
 }
 
 #[test]

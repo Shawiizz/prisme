@@ -1,11 +1,12 @@
 //! Bit reading and absolute position.
 //!
 //! One bit is read per carrier cycle, when the secondary channel crosses zero while the
-//! primary is positive. Its value is the primary peak compared with the secondary peak
-//! of the same cycle (their ratio does not depend on the signal level). The last `bits`
-//! bits form a register whose index on the record is looked up in the
-//! [`SequenceTable`]. Once locked, the position is predicted bit after bit, so a wrong
-//! bit costs nothing; a new consistent position (needle drop) re-locks after a few bits.
+//! primary is positive: the primary is then at its peak, which is compared with the
+//! average of the recent peaks. (Both channels carry the bits, so the primary cannot be
+//! measured against the secondary.) The last `bits` bits form a register whose index on
+//! the record is looked up in the [`SequenceTable`]. Once locked, the position is
+//! predicted bit after bit, so a wrong bit costs nothing; a new position (needle drop)
+//! takes over once it has been confirmed as long as the first lock.
 
 use crate::format::{SequenceTable, TimecodeFormat};
 use std::f64::consts::TAU;
@@ -15,8 +16,10 @@ use std::sync::Arc;
 const WARMUP_PEAKS: u32 = 8;
 /// Averaging length of the bit threshold, in bits.
 const THRESHOLD_LENGTH: f64 = 24.0;
-/// Consecutive consistent lookups needed to lock (or re-lock elsewhere).
-const LOCK_RUN: u32 = 3;
+/// Consecutive consistent lookups needed to lock (or re-lock elsewhere). Any register
+/// is a position, and a random one goes on following the sequence for one more bit half
+/// the time: 24 bits leave one false lock in about 16 million.
+const LOCK_RUN: u32 = 24;
 /// Bits without a single matching lookup before the lock is dropped.
 const MAX_GARBAGE: u32 = 80;
 /// A bit is read at most once per this fraction of a cycle.
@@ -25,7 +28,6 @@ const MIN_BIT_SPACING: f64 = 0.6;
 pub(crate) struct PositionTracker {
     table: Arc<SequenceTable>,
     bits: u32,
-    secondary_peak: f64,
     threshold: f64,
     peaks_seen: u32,
     last_bit_phase: Option<f64>,
@@ -44,7 +46,6 @@ impl PositionTracker {
         Self {
             table,
             bits: format.bits,
-            secondary_peak: 0.0,
             threshold: 0.0,
             peaks_seen: 0,
             last_bit_phase: None,
@@ -59,11 +60,6 @@ impl PositionTracker {
         }
     }
 
-    /// The primary channel crossed zero: the secondary is at its peak.
-    pub(crate) fn on_primary_crossing(&mut self, secondary_abs: f64) {
-        self.secondary_peak = secondary_abs;
-    }
-
     /// The secondary crossed zero with the primary positive: read a bit.
     /// `phase` is the unwrapped carrier phase (radians, forward positive).
     pub(crate) fn on_bit_crossing(&mut self, primary_peak: f64, phase: f64, forwards: bool) {
@@ -73,18 +69,14 @@ impl PositionTracker {
             }
         }
         self.last_bit_phase = Some(phase);
-        if self.secondary_peak <= 1e-6 {
-            return;
-        }
 
-        let ratio = primary_peak / self.secondary_peak;
         if self.peaks_seen < WARMUP_PEAKS {
             self.peaks_seen += 1;
-            self.threshold += (ratio - self.threshold) / self.peaks_seen as f64;
+            self.threshold += (primary_peak - self.threshold) / self.peaks_seen as f64;
         } else {
-            self.threshold += (ratio - self.threshold) / THRESHOLD_LENGTH;
+            self.threshold += (primary_peak - self.threshold) / THRESHOLD_LENGTH;
         }
-        let bit = (ratio > self.threshold) as u32;
+        let bit = (primary_peak > self.threshold) as u32;
         let mask = (1u32 << self.bits) - 1;
         self.register = if forwards {
             (self.register >> 1) | (bit << (self.bits - 1))

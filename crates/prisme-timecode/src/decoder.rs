@@ -204,9 +204,7 @@ impl TimecodeDecoder {
                     self.level.release();
                 }
             }
-            if channel == 0 {
-                self.position.on_primary_crossing(s.abs());
-            } else if p > 0.0 {
+            if channel == 1 && p > 0.0 {
                 self.position.on_bit_crossing(p, self.phase, self.speed.raw() >= 0.0);
             }
         }

@@ -5,6 +5,7 @@
 mod analyze;
 mod latency;
 mod simulation;
+mod timecode;
 
 use anyhow::{Context, Result};
 use clap::{Parser, Subcommand, ValueEnum};
@@ -87,6 +88,19 @@ enum Cmd {
         seconds: u64,
         #[command(flatten)]
         audio: AudioArgs,
+    },
+    /// Decodes a recording of a turntable (WAV) and says how steadily the record reads.
+    Timecode {
+        file: PathBuf,
+        /// Timecode format id (serato_cv02_a, serato_cv02_b, serato_cd).
+        #[arg(long, default_value = "serato_cv02_a")]
+        format: String,
+        /// The left and right channels are crossed.
+        #[arg(long)]
+        swap: bool,
+        /// Milliseconds between two printed readings.
+        #[arg(long, default_value_t = 250.0)]
+        every_ms: f64,
     },
     /// Detects the tempo and key of files or folders.
     Analyze {
@@ -197,6 +211,11 @@ fn main() -> Result<()> {
                 buffer_frames: audio.buffer,
             };
             latency::run(&settings, out_channel, in_channel, seconds)
+        }
+        Cmd::Timecode { file, format, swap, every_ms } => {
+            let format = TimecodeFormat::by_id(&format)
+                .with_context(|| format!("unknown timecode format {format}"))?;
+            timecode::run(&file, format, swap, every_ms)
         }
         Cmd::Analyze { paths, min_bpm, csv } => {
             analyze::run(&paths, prisme_analysis::AnalysisOptions { min_bpm }, csv.as_deref())
