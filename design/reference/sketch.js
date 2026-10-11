@@ -49,13 +49,17 @@
     return { g, w, h };
   }
 
-  function bands(g, x, mid, h, [low, mid_, high]) {
-    g.fillStyle = token("--pr-f-low");
-    g.fillRect(x, mid - low * h * 0.47, 1, low * h * 0.94);
-    g.fillStyle = token("--pr-f-mid");
-    g.fillRect(x, mid - mid_ * h * 0.33, 1, mid_ * h * 0.66);
-    g.fillStyle = token("--pr-f-high");
-    g.fillRect(x, mid - high * h * 0.2, 1, high * h * 0.4);
+  /** The bands mixed like light: low lights the red, mid the green, high the blue. */
+  function color([low, mid, high]) {
+    const max = Math.max(low, mid, high, 1e-6);
+    return `rgb(${Math.round((low / max) * 255)},${Math.round((mid / max) * 230)},${Math.round((high / max) * 255)})`;
+  }
+
+  /** One slice: the envelope as high as the loudest band, in the colour of the mix. */
+  function slice(g, x, mid, h, bands) {
+    const peak = Math.min(1, Math.max(...bands));
+    g.fillStyle = color(bands);
+    g.fillRect(x, mid - peak * h * 0.47, 1, peak * h * 0.94);
   }
 
   /** The playhead: the only white line, dispersed on its edges like light through a prism. */
@@ -96,7 +100,7 @@
       const t = pos + (x - x0) * spp;
       if (t < 0) continue;
       g.globalAlpha = x < x0 ? 0.42 : 1; // already played
-      bands(g, x, mid, h, fn(t));
+      slice(g, x, mid, h, fn(t));
     }
     g.globalAlpha = 1;
     if (bpm) {
@@ -129,23 +133,20 @@
     playhead(g, x0, h);
   }
 
-  /** The whole track, in grey: the played part dimmed, the cues as ticks. */
+  /** The whole track in the same colours: the played part dimmed, the cues as ticks. */
   function overview(canvas, fn, { length, pos, cues = [] }) {
     const { g, w, h } = surface(canvas);
     g.fillStyle = token("--pr-base");
     g.fillRect(0, 0, w, h);
     const mid = h / 2;
     for (let x = 0; x < w; x++) {
-      let peak = 0;
+      let loudest = [0, 0, 0];
       for (let k = 0; k < 6; k++) {
-        const [l, m, hi] = fn(((x + k / 6) / w) * length);
-        peak = Math.max(peak, 0.55 * l + 0.3 * m + 0.15 * hi);
+        const bands = fn(((x + k / 6) / w) * length);
+        if (Math.max(...bands) > Math.max(...loudest)) loudest = bands;
       }
-      const played = (x / w) * length < pos;
-      g.fillStyle = token(played ? "--pr-text-3" : "--pr-text-2");
-      g.globalAlpha = played ? 0.55 : 0.9;
-      const hp = Math.min(1, peak) * h * 0.46;
-      g.fillRect(x, mid - hp, 1, hp * 2);
+      g.globalAlpha = (x / w) * length < pos ? 0.35 : 1;
+      slice(g, x, mid, h, loudest);
     }
     g.globalAlpha = 1;
     g.fillStyle = token("--pr-light");

@@ -55,9 +55,9 @@ zone and the playhead are in the light, with dark glyphs on it. Nothing else is 
 
 Used for the music only.
 
-- **Frequencies** in the waveform: low `--pr-f-low` (red), mid `--pr-f-mid` (green), high
-  `--pr-f-high` (violet). The order of a real prism: the longest wavelength of light for the
-  lowest frequencies of sound.
+- **Frequencies**: low red, mid green, high blue-violet (`--pr-f-low`, `--pr-f-mid`,
+  `--pr-f-high`). The order of a real prism: the longest wavelength of light for the lowest
+  frequencies of sound. The waveform mixes them like light (Waveform, below).
 - **Keys**: one hue per Camelot number, in the order of the wheel (`--pr-key-hue-1` to `-12`),
   so compatible keys have neighbouring colours. `.pr-key` makes minor keys deep and major keys
   pale. In the library, keys compatible with the reference deck are filled, the others
@@ -136,8 +136,10 @@ A toggle is a button with `.is-on` when on. Radius 3 px, no shadow, no glow.
 
 ## Waveform
 
-- **Three layers**, low behind and high in front, each its own envelope: the kick, the bass and
-  the hats read separately. Heights: low 94 %, mid 66 %, high 40 % of the lane.
+- **One envelope**, its height the peak, its colour the balance of the bands mixed like light:
+  the low band lights the red, the mid the green, the high the blue, scaled to the strongest
+  so the colours stay vivid. A kick reads red, a voice green-yellow, hats blue; the full
+  spectrum goes to white.
 - **What has played** (left of the playhead) at 42 % opacity.
 - **The playhead** is the only white line of the screen, 2 px, dispersed on its edges: 1 px of
   `--pr-f-low` on the left, 1 px of `--pr-f-high` on the right.
@@ -145,8 +147,8 @@ A toggle is a button with `.is-on` when on. Radius 3 px, no shadow, no glow.
 - **Hot cues**: a line and a numbered flag in the cue's tag colour, as on its pad; the main
   cue in the light, flagged C. **Loop**: a band of `--pr-light-veil` between two lines in the
   light; a stored loop as two `--pr-text-3` lines.
-- **Overview**: the whole track in grey, played part dimmed, cues as ticks, position in the
-  light.
+- **Overview**: the whole track in the same colours, played part dimmed, cues as ticks,
+  position in the light.
 - **Phase strip** between the two decks: the beats of A at the top and of B at the bottom,
   around the playheads, with the offset in milliseconds. Matched, they meet.
 

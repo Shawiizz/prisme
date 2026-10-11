@@ -17,26 +17,19 @@ interface View {
   ratio: number;
 }
 
-/** Height of each band, as a share of the lane: low behind, high in front. */
-const LAYERS = [
-  { band: 'low', height: 0.94 },
-  { band: 'mid', height: 0.66 },
-  { band: 'high', height: 0.4 },
-] as const;
-/** Opacity of what has played. */
-const PLAYED = 0.42;
+/** Opacity of what has played, in the scrolling view and in the overview. */
+const PLAYED = 0.45;
+const PLAYED_OVERVIEW = 0.35;
 
 /** The colours of the design system (tokens.css), read once. */
 class Palette {
   private readonly style = getComputedStyle(document.documentElement);
   readonly low = this.token('--pr-f-low');
-  readonly mid = this.token('--pr-f-mid');
   readonly high = this.token('--pr-f-high');
   readonly light = this.token('--pr-light');
   readonly veil = this.token('--pr-light-veil');
   readonly onLight = this.token('--pr-on-light');
   readonly text = this.token('--pr-text');
-  readonly text2 = this.token('--pr-text-2');
   readonly text3 = this.token('--pr-text-3');
   readonly mono = this.token('--pr-font-mono');
 
@@ -46,14 +39,14 @@ class Palette {
 }
 
 /**
- * Draws the waveforms (design/DESIGN.md, Waveform): the three bands as layers in the
- * spectrum's colours, the beat grid as short ticks, cues as flags in their tag colour, the
- * loop as a band of light and the playhead, the only white line, dispersed on its edges.
+ * Draws the waveforms (design/DESIGN.md, Waveform): one envelope coloured slice by slice by
+ * the balance of its bands, the beat grid as short ticks, cues as flags in their tag colour,
+ * the loop as a band of light and the playhead, the only white line, dispersed on its edges.
  */
 export class WaveformPainter {
   private readonly palette = new Palette();
-  /** Highest value of each band over the track, so that every band fills its layer. */
-  private bandMax = { low: 1, mid: 1, high: 1 };
+  /** Colour of each slice, cached per waveform. */
+  private colors: string[] = [];
   private source: Waveform | null = null;
 
   /** Scrolling view centred on `positionS`; without a waveform yet, everything but the audio. */
@@ -68,7 +61,7 @@ export class WaveformPainter {
     const view: View = { fromS: positionS - spanS / 2, spanS, ...size };
     ctx.clearRect(0, 0, view.width, view.height);
     this.drawLoop(ctx, overlay.loop, view);
-    if (w) this.drawLayers(ctx, w, view);
+    if (w) this.drawZoomedAudio(ctx, w, view);
     if (overlay.tempo) this.drawBeatGrid(ctx, overlay.tempo, view);
     this.drawCues(ctx, overlay.cues, view, true);
     this.drawPlayhead(ctx, Math.round(view.width / 2), view);
@@ -93,33 +86,20 @@ export class WaveformPainter {
     ctx.fillRect(Math.floor(playedX) - view.ratio, 0, 2 * view.ratio, view.height);
   }
 
-  private drawLayers(ctx: CanvasRenderingContext2D, w: Waveform, view: View) {
-    this.measure(w);
+  private drawZoomedAudio(ctx: CanvasRenderingContext2D, w: Waveform, view: View) {
     const sps = w.slicesPerSecond;
     const slicesPerPx = (view.spanS * sps) / view.width;
     const mid = view.height / 2;
     const playhead = view.width / 2;
-    for (const layer of LAYERS) {
-      const values = w[layer.band];
-      const scale = (layer.height * mid) / this.bandMax[layer.band];
-      ctx.fillStyle = this.palette[layer.band];
-      for (const played of [true, false]) {
-        ctx.globalAlpha = played ? PLAYED : 1;
-        ctx.beginPath();
-        const [from, to] = played ? [0, Math.floor(playhead)] : [Math.floor(playhead), view.width];
-        for (let x = from; x < to; x++) {
-          const first = Math.floor(view.fromS * sps + x * slicesPerPx);
-          const last = Math.max(first + 1, Math.floor(view.fromS * sps + (x + 1) * slicesPerPx));
-          if (last <= 0 || first >= values.length) continue;
-          let value = 0;
-          for (let i = Math.max(first, 0); i < Math.min(last, values.length); i++) {
-            value = Math.max(value, values[i]);
-          }
-          const h = value * scale;
-          ctx.rect(x, mid - h, 1, h * 2);
-        }
-        ctx.fill();
-      }
+    for (let x = 0; x < view.width; x++) {
+      const first = Math.floor(view.fromS * sps + x * slicesPerPx);
+      const last = Math.max(first + 1, Math.floor(view.fromS * sps + (x + 1) * slicesPerPx));
+      if (last <= 0 || first >= w.peak.length) continue;
+      const loudest = this.loudest(w, first, last);
+      const h = (w.peak[loudest] / 255) * (mid - 1);
+      ctx.globalAlpha = x < playhead ? PLAYED : 1;
+      ctx.fillStyle = this.colorAt(w, loudest);
+      ctx.fillRect(x, mid - h, 1, h * 2);
     }
     ctx.globalAlpha = 1;
   }
@@ -132,22 +112,25 @@ export class WaveformPainter {
   ) {
     const n = w.peak.length;
     const mid = view.height / 2;
-    for (const played of [true, false]) {
-      ctx.fillStyle = played ? this.palette.text3 : this.palette.text2;
-      ctx.globalAlpha = played ? 0.55 : 0.9;
-      ctx.beginPath();
-      const [from, to] = played ? [0, Math.floor(playedX)] : [Math.floor(playedX), view.width];
-      for (let x = from; x < to; x++) {
-        const first = Math.floor((x / view.width) * n);
-        const last = Math.max(first + 1, Math.floor(((x + 1) / view.width) * n));
-        let peak = 0;
-        for (let i = first; i < Math.min(last, n); i++) peak = Math.max(peak, w.peak[i]);
-        const h = (peak / 255) * (mid - 1);
-        ctx.rect(x, mid - h, 1, h * 2);
-      }
-      ctx.fill();
+    for (let x = 0; x < view.width; x++) {
+      const first = Math.floor((x / view.width) * n);
+      const last = Math.max(first + 1, Math.floor(((x + 1) / view.width) * n));
+      const loudest = this.loudest(w, first, last);
+      const h = (w.peak[loudest] / 255) * (mid - 1);
+      ctx.globalAlpha = x < playedX ? PLAYED_OVERVIEW : 1;
+      ctx.fillStyle = this.colorAt(w, loudest);
+      ctx.fillRect(x, mid - h, 1, h * 2);
     }
     ctx.globalAlpha = 1;
+  }
+
+  /** The loudest slice from `first` to `last` (excluded), within the track. */
+  private loudest(w: Waveform, first: number, last: number): number {
+    let best = Math.max(first, 0);
+    for (let i = best; i < Math.min(last, w.peak.length); i++) {
+      if (w.peak[i] > w.peak[best]) best = i;
+    }
+    return best;
   }
 
   /** Short ticks at the top and the bottom, longer and brighter on each bar. */
@@ -220,11 +203,22 @@ export class WaveformPainter {
     ctx.fillRect(x - r, 0, 2 * r, view.height);
   }
 
-  private measure(w: Waveform) {
-    if (this.source === w) return;
-    this.source = w;
-    const max = (values: Uint8Array) => values.reduce((m, v) => Math.max(m, v), 1);
-    this.bandMax = { low: max(w.low), mid: max(w.mid), high: max(w.high) };
+  /**
+   * The bands mixed like light: the low band lights the red, the mid the green, the high
+   * the blue, scaled to the strongest so that the colours stay vivid whatever the level.
+   */
+  private colorAt(w: Waveform, i: number): string {
+    if (this.source !== w) {
+      this.source = w;
+      this.colors = Array.from(w.peak, (_, k) => {
+        const max = Math.max(w.low[k], w.mid[k], w.high[k], 1);
+        const r = Math.round((w.low[k] / max) * 255);
+        const g = Math.round((w.mid[k] / max) * 230);
+        const b = Math.round((w.high[k] / max) * 255);
+        return `rgb(${r},${g},${b})`;
+      });
+    }
+    return this.colors[i];
   }
 }
 
