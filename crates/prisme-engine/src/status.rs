@@ -13,6 +13,9 @@ pub struct VinylStatus {
     pub mode: VinylMode,
     /// The needle reached the end of the record: the deck plays on by itself.
     pub run_out: bool,
+    /// The record has read backwards at play speed for a while: its left and right
+    /// channels are probably crossed.
+    pub crossed: bool,
     pub signal: SignalState,
     /// Timecode carrier level (full scale = 1.0).
     pub level: f32,
@@ -85,6 +88,7 @@ impl Default for DeckStatus {
                 enabled: false,
                 mode: VinylMode::Absolute,
                 run_out: false,
+                crossed: false,
                 signal: SignalState::None,
                 level: 0.0,
                 record_speed: 0.0,

@@ -53,7 +53,10 @@ export class DeckCard {
     () => this.key()?.camelot !== this.track()?.key?.camelot,
   );
   protected readonly signal = computed(() => this.status()?.vinyl.signal ?? 'none');
-  protected readonly signalTitle = computed(() => SIGNAL_TITLE[this.signal()]);
+  protected readonly crossed = computed(() => this.status()?.vinyl.crossed ?? false);
+  protected readonly signalTitle = computed(() =>
+    this.crossed() ? t('Left and right cables crossed? See DVS') : SIGNAL_TITLE[this.signal()],
+  );
 
   /** After the end of the record: the record drives the deck again. */
   takeBack() {

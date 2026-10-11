@@ -20,6 +20,7 @@ function deck(bpm: number | null, beatPhase: number | null): DeckStatus {
       enabled: false,
       mode: 'relative',
       runOut: false,
+      crossed: false,
       signal: 'none',
       level: 0,
       recordSpeed: 0,

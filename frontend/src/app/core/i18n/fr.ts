@@ -40,6 +40,7 @@ export const FR: Record<string, string> = {
   'No timecode signal': 'Pas de signal timecode',
   'Timecode signal unsteady': 'Signal timecode instable',
   'Timecode signal locked': 'Signal timecode verrouillé',
+  'Left and right cables crossed? See DVS': 'Câbles gauche et droit inversés ? Voir DVS',
   'Key lock: the pitch stays when the tempo changes':
     'Key lock : la tonalité reste quand le tempo change',
   'The other decks follow this one': 'Les autres decks suivent celui-ci',
@@ -314,6 +315,8 @@ export const FR: Record<string, string> = {
   'Lead-in (s)': 'Amorce (s)',
   'Where the track starts on the record': 'Où le morceau commence sur le disque',
   'Swap left / right': 'Inverser gauche / droite',
+  'The record has been playing backwards for a while: if the platter turns forwards, the left and right cables are crossed.':
+    "Le disque est lu à l'envers depuis un moment : si le plateau tourne à l'endroit, les câbles gauche et droit sont inversés.",
 
   // controls (keyboard and MIDI)
   'Keyboard shortcuts': 'Raccourcis clavier',

@@ -30,6 +30,16 @@
     </div>
   </div>
 
+  @if (vinyl()?.crossed) {
+    <div class="crossed">
+      <span>{{
+        'The record has been playing backwards for a while: if the platter turns forwards, the left and right cables are crossed.'
+          | t
+      }}</span>
+      <button (click)="setSwap(!settings().swapChannels)">{{ 'Swap left / right' | t }}</button>
+    </div>
+  }
+
   <div class="controls">
     <label class="check">
       <input

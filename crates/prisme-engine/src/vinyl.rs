@@ -13,6 +13,11 @@ use prisme_timecode::TimecodeDecoder;
 
 /// Slowest forward speed at which reaching the end of the record counts as playing.
 const PLAYING_SPEED: f64 = 0.5;
+/// A record read backwards at play speed for this long, without a break: its left and
+/// right channels are probably crossed (a turntable's reverse switch could do it too, so
+/// it only makes the UI ask).
+const CROSSED_AFTER_S: f64 = 5.0;
+const CROSSED_SPEED: std::ops::RangeInclusive<f64> = -1.15..=-0.85;
 
 /// What the record asks the deck to do for the block just decoded.
 #[derive(Debug, Clone, Copy)]
@@ -29,6 +34,8 @@ pub(crate) struct VinylControl {
     /// Position of the track start on the record (seconds).
     pub(crate) lead_in_s: f64,
     run_out: RunOut,
+    reversed_frames: usize,
+    crossed_after_frames: usize,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -42,14 +49,28 @@ enum RunOut {
 }
 
 impl VinylControl {
-    pub(crate) fn new(decoder: Box<TimecodeDecoder>) -> Self {
-        Self { decoder, enabled: false, mode: VinylMode::Absolute, lead_in_s: 0.0, run_out: RunOut::Unarmed }
+    pub(crate) fn new(decoder: Box<TimecodeDecoder>, sample_rate: u32) -> Self {
+        Self {
+            decoder,
+            enabled: false,
+            mode: VinylMode::Absolute,
+            lead_in_s: 0.0,
+            run_out: RunOut::Unarmed,
+            reversed_frames: 0,
+            crossed_after_frames: (CROSSED_AFTER_S * f64::from(sample_rate)) as usize,
+        }
     }
 
     /// Decodes one block of the turntable signal (interleaved stereo).
     pub(crate) fn process(&mut self, input: &[f32]) -> VinylDrive {
         self.decoder.process(input);
-        if let Some(speed) = self.run_out(self.decoder.speed(), self.decoder.position_ms()) {
+        let (speed, position_ms) = (self.decoder.speed(), self.decoder.position_ms());
+        self.reversed_frames = if CROSSED_SPEED.contains(&speed) {
+            self.reversed_frames.saturating_add(input.len() / 2)
+        } else {
+            0
+        };
+        if let Some(speed) = self.run_out(speed, position_ms) {
             return VinylDrive { speed, target_position_s: None };
         }
         let target_position_s = match self.mode {
@@ -96,6 +117,7 @@ impl VinylControl {
             enabled: self.enabled,
             mode: self.mode,
             run_out: matches!(self.run_out, RunOut::PlayingOn(_)),
+            crossed: self.reversed_frames >= self.crossed_after_frames,
             signal: s.signal,
             level: s.level as f32,
             record_speed: s.speed,

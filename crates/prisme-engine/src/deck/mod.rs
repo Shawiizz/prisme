@@ -54,7 +54,7 @@ impl Deck {
             playing: false,
             pitch: 1.0,
             bend: 0.0,
-            vinyl: VinylControl::new(decoder),
+            vinyl: VinylControl::new(decoder, sample_rate),
             volume: 1.0,
             side: CrossfaderSide::Center,
             cue: false,

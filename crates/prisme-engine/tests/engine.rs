@@ -2,8 +2,9 @@
 
 mod common;
 
-use common::{silent_track, Rig};
+use common::{silent_track, Rig, SR};
 use prisme_engine::{Command, VinylMode};
+use prisme_timecode::{DecoderConfig, TimecodeDecoder, SERATO_CV02_A};
 
 #[test]
 fn internal_play_follows_the_pitch() {
@@ -91,4 +92,30 @@ fn replaced_tracks_are_freed_on_the_control_side() {
     rig.send(Command::LoadTrack { deck: 7, track: silent_track(1.0) });
     rig.run(0.01);
     assert_eq!(rig.controller.collect_garbage(), 3);
+}
+
+#[test]
+fn crossed_channels_are_noticed() {
+    let mut rig = Rig::new();
+    rig.turntable(0, 20.0, 1.0);
+    let crossed = DecoderConfig { format: &SERATO_CV02_A, sample_rate: SR, swap_channels: true };
+    rig.send(Command::ReplaceDecoder { deck: 0, decoder: Box::new(TimecodeDecoder::new(crossed)) });
+    rig.run(4.0);
+    assert!(!rig.deck(0).vinyl.crossed, "not before a while");
+    rig.run(1.5);
+    let d = rig.deck(0);
+    assert!(d.vinyl.crossed, "{d:?}");
+}
+
+#[test]
+fn going_back_and_forth_is_not_taken_for_crossed_channels() {
+    let mut rig = Rig::new();
+    rig.turntable(0, 60.0, -1.0);
+    for _ in 0..3 {
+        rig.set_turntable_speed(0, -1.0);
+        rig.run(3.0);
+        rig.set_turntable_speed(0, 1.0);
+        rig.run(0.5);
+    }
+    assert!(!rig.deck(0).vinyl.crossed);
 }

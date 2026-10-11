@@ -8,6 +8,8 @@ export interface VinylStatus {
   mode: VinylMode;
   /** The needle reached the end of the record: the deck plays on by itself. */
   runOut: boolean;
+  /** The record has read backwards at play speed for a while: crossed channels? */
+  crossed: boolean;
   signal: SignalState;
   /** Timecode carrier level (full scale = 1). */
   level: number;

@@ -66,7 +66,12 @@
             INT
           </button>
         } @else {
-          <span class="signal" [class]="signal()" [title]="signalTitle()"></span>
+          <span
+            class="signal"
+            [class]="signal()"
+            [class.crossed]="crossed()"
+            [title]="signalTitle()"
+          ></span>
         }
         <button [class.active]="settings().vinylEnabled" (click)="toggleVinyl()">VINYL</button>
         <button [class.active]="settings().vinylEnabled" (click)="toggleMode()">

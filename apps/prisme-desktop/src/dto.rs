@@ -444,6 +444,8 @@ pub struct VinylDto {
     pub mode: VinylModeDto,
     /// The needle reached the end of the record: the deck plays on by itself.
     pub run_out: bool,
+    /// The record has read backwards at play speed for a while: crossed channels?
+    pub crossed: bool,
     /// "none", "bounce" or "ok"
     pub signal: &'static str,
     /// Timecode carrier level (full scale = 1.0).
@@ -516,6 +518,7 @@ impl From<&DeckStatus> for DeckStatusDto {
                 enabled: d.vinyl.enabled,
                 mode: d.vinyl.mode.into(),
                 run_out: d.vinyl.run_out,
+                crossed: d.vinyl.crossed,
                 signal: match d.vinyl.signal {
                     SignalState::None => "none",
                     SignalState::Bounce => "bounce",

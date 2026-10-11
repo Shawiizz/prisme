@@ -100,3 +100,16 @@ h3 {
     }
   }
 }
+.crossed {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px;
+  border: 1px solid var(--amber);
+  border-radius: 3px;
+  color: var(--amber);
+  font-size: 12px;
+  button {
+    align-self: flex-start;
+  }
+}
