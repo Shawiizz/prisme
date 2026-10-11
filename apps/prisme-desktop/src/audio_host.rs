@@ -4,7 +4,7 @@
 
 use crate::dto::{AudioInfo, AudioSettings};
 use crate::error::{AppError, AppResult};
-use prisme_audio_io::{AudioCallback, StreamSettings, StreamStats};
+use prisme_audio_io::{is_available, AudioCallback, DeviceKind, StreamSettings, StreamStats};
 use prisme_engine::{Engine, EngineConfig, EngineController};
 use prisme_timecode::testing::{Pattern, SimulatedTurntable};
 use prisme_timecode::TimecodeFormat;
@@ -74,6 +74,14 @@ impl Drop for AudioSession {
             let _ = thread.join();
         }
     }
+}
+
+/// Whether the devices `settings` asks for are there.
+pub fn devices_available(settings: &AudioSettings) -> bool {
+    let backend = settings.backend.into();
+    let input = settings.input_device.as_deref().filter(|_| !settings.simulate);
+    is_available(backend, DeviceKind::Output, settings.output_device.as_deref())
+        && input.is_none_or(|name| is_available(backend, DeviceKind::Input, Some(name)))
 }
 
 /// Starts the audio with `settings`.

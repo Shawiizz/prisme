@@ -56,7 +56,7 @@ export class App implements OnInit {
     const [mixer] = await Promise.all([
       this.engine.connect(),
       this.library.init(),
-      this.settings.refresh(),
+      this.settings.init(),
       this.keyboard.start(),
       this.controllers.start(),
     ]);

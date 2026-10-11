@@ -1,5 +1,6 @@
 import { Injectable, signal } from '@angular/core';
 import { invoke } from '@tauri-apps/api/core';
+import { listen } from '@tauri-apps/api/event';
 import { save } from '@tauri-apps/plugin-dialog';
 import {
   AudioBackend,
@@ -17,6 +18,12 @@ export class SettingsService {
   readonly formats = signal<TimecodeFormat[]>([]);
   readonly settings = signal<AudioSettings | null>(null);
   readonly info = signal<AudioInfo | null>(null);
+
+  /** Loads the settings, and again whenever the audio moves to other devices by itself. */
+  async init(): Promise<void> {
+    await listen('audio-changed', () => this.refresh());
+    await this.refresh();
+  }
 
   async refresh(): Promise<void> {
     const [backends, formats, settings, info] = await Promise.all([

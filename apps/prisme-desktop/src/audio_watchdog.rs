@@ -1,12 +1,15 @@
 //! Keeps the audio going, with the decks where they were: restarts it when its device
-//! comes back after a loss, when the engine failed, or when the driver stopped calling it.
+//! comes back after a loss, when the engine failed, or when the driver stopped calling it,
+//! and moves it to the saved devices once they appear (the audio started on the default
+//! ones because the interface was off).
 
+use crate::audio_host::devices_available;
 use crate::commands::audio::start_audio;
 use crate::dto::AudioSettings;
 use crate::state::{lock, AppState};
 use std::collections::VecDeque;
 use std::time::{Duration, Instant};
-use tauri::{AppHandle, Manager};
+use tauri::{AppHandle, Emitter, Manager};
 use tracing::{error, info, warn};
 
 const CHECK: Duration = Duration::from_millis(500);
@@ -15,6 +18,8 @@ const RETRY: Duration = Duration::from_secs(2);
 /// would only come back.
 const MAX_RESTARTS: usize = 3;
 const RESTART_WINDOW: Duration = Duration::from_secs(60);
+/// Sent when the audio moved to other devices by itself: the interface shows them again.
+pub const AUDIO_CHANGED_EVENT: &str = "audio-changed";
 
 pub fn start(app: AppHandle) {
     std::thread::Builder::new()
@@ -23,6 +28,10 @@ pub fn start(app: AppHandle) {
             let state = app.state::<AppState>();
             let mut restarts = Restarts::default();
             let mut last_periods = None;
+            let mut last_look = Instant::now();
+            // saved devices that were there but would not start: not tried again until they
+            // go away and come back
+            let mut refused: Option<AudioSettings> = None;
             loop {
                 std::thread::sleep(CHECK);
                 let session = lock(&state.session)
@@ -35,8 +44,35 @@ pub fn start(app: AppHandle) {
                 if lost {
                     info!("audio device lost, waiting for it to come back");
                     recover(&state, &settings);
+                    let _ = app.emit(AUDIO_CHANGED_EVENT, ());
                     last_periods = None;
                     continue;
+                }
+                if last_look.elapsed() >= RETRY {
+                    last_look = Instant::now();
+                    let saved =
+                        AudioSettings { simulate: settings.simulate, ..state.preferences.get().audio };
+                    if saved != settings {
+                        if !devices_available(&saved) {
+                            refused = None;
+                        } else if refused.as_ref() != Some(&saved) {
+                            info!("saved audio devices found, moving to them");
+                            match start_audio(&state, &saved) {
+                                Ok(_) => {
+                                    let _ = app.emit(AUDIO_CHANGED_EVENT, ());
+                                }
+                                Err(e) => {
+                                    warn!("saved audio devices unusable ({e}), back to the previous ones");
+                                    refused = Some(saved);
+                                    if let Err(e) = start_audio(&state, &settings) {
+                                        error!("audio could not restart: {e}");
+                                    }
+                                }
+                            }
+                            last_periods = None;
+                            continue;
+                        }
+                    }
                 }
                 let stalled = last_periods == Some(periods);
                 last_periods = Some(periods);

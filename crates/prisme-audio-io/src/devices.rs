@@ -102,6 +102,12 @@ pub fn list_devices(backend: Backend) -> Result<Vec<DeviceInfo>, AudioError> {
     Ok(list)
 }
 
+/// Whether a device of `backend` whose name contains `name` (or the default one) is
+/// there: an interface plugged in or switched on.
+pub fn is_available(backend: Backend, kind: DeviceKind, name: Option<&str>) -> bool {
+    find(backend, kind, name).is_ok()
+}
+
 /// A device of `backend` whose name contains `name` (case-insensitive), or the default one.
 pub(crate) fn find(
     backend: Backend,
