@@ -4,9 +4,9 @@ description: Rust, Node and pnpm, the frontend packages, libclang, and the Windo
 runs:
   using: composite
   steps:
-    - uses: dtolnay/rust-toolchain@stable
-      with:
-        components: clippy, rustfmt
+    - name: Rust (the version of rust-toolchain.toml)
+      shell: pwsh
+      run: rustup toolchain install
     - uses: Swatinem/rust-cache@v2
     - uses: pnpm/action-setup@v4
       with:

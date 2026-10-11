@@ -20,7 +20,7 @@ pub fn read_crates(serato_dir: &Path) -> std::io::Result<Vec<ImportedCrate>> {
             track_paths(&std::fs::read(&path)?).iter().map(|p| crate::join_relative(&root, p)).collect();
         crates.push(ImportedCrate { name: stem.replace("%%", " / "), paths });
     }
-    crates.sort_by(|a, b| a.name.to_lowercase().cmp(&b.name.to_lowercase()));
+    crates.sort_by_cached_key(|c| c.name.to_lowercase());
     Ok(crates)
 }
 
