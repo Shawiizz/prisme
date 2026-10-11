@@ -28,7 +28,7 @@
         background: var(--pr-void);
         display: grid;
         grid-template-columns: minmax(0, 1fr);
-        grid-template-rows: var(--pr-titlebar) auto 62px minmax(0, 1fr);
+        grid-template-rows: var(--pr-titlebar) auto auto minmax(0, 1fr);
         overflow: hidden;
         outline: 1px solid var(--pr-line);
       }
@@ -142,31 +142,101 @@
         color: var(--pr-text-2);
       }
 
-      .perf {
+      .controls {
         display: grid;
-        grid-template-columns: 1fr 1fr;
-        gap: 10px;
+        grid-template-columns: minmax(0, 1fr) 120px minmax(0, 1fr);
+        grid-template-rows: 72px 60px;
+        gap: 6px 10px;
         padding: 0 10px 10px;
       }
-      .perf > div {
+      .controls > .pr-panel {
         display: flex;
         align-items: center;
         gap: 14px;
-        padding: 0 10px;
+        padding: 0 var(--pr-space-3);
       }
-      .group {
+      .sends {
+        grid-column: 2;
+        grid-row: 1 / span 2;
+        flex-direction: column;
+        justify-content: center;
+      }
+      .sends .meters {
+        flex: 1;
+        display: flex;
+        gap: var(--pr-space-5);
+        padding-bottom: var(--pr-space-2);
+      }
+      .sends .meters > div {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: var(--pr-space-1);
+      }
+      .sends .pr-meter {
+        flex: 1;
+      }
+      .transport {
         display: flex;
         gap: var(--pr-space-1);
       }
-      .loop .pr-btn {
-        width: 34px;
+      .transport .pr-btn {
+        width: 58px;
         padding: 0;
-        font-family: var(--pr-font-mono);
         font-size: var(--pr-size-small);
       }
-      .jump .pr-btn {
-        width: 40px;
-        padding: 0;
+      .tempo {
+        flex: 1;
+        display: grid;
+        gap: 2px;
+      }
+      .tempo-head,
+      .fader {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+      }
+      .tempo-head .pr-num {
+        margin-left: auto;
+        font-size: 14px;
+      }
+      .fader .pr-range {
+        flex: 1;
+      }
+      .note {
+        font-size: 11px;
+        color: var(--pr-text-3);
+      }
+      .modes {
+        display: grid;
+        grid-template-columns: repeat(3, auto);
+      }
+      .modes > button {
+        padding: 0 7px;
+        font-size: 10.5px;
+      }
+      .pads {
+        flex: 1;
+        display: flex;
+        gap: var(--pr-space-1);
+      }
+      .pads .pr-pad {
+        flex: 1;
+        width: auto;
+        min-width: 26px;
+      }
+      .keys {
+        display: grid;
+        gap: var(--pr-space-1);
+      }
+      .keys > div {
+        display: flex;
+        gap: var(--pr-space-1);
+      }
+      .keys .pr-btn {
+        flex: 1;
+        padding: 0 7px;
+        font-size: 10.5px;
       }
 
       .library {
@@ -302,7 +372,7 @@
             >ASIO · UMC404HD</span
           >
           <span class="pr-chip"
-            >Latence <span class="pr-num">5,3 ms</span></span
+            >Buffer <span class="pr-num">2,7 ms</span></span
           >
           <span class="pr-chip">Décrochages <span class="pr-num">0</span></span>
         </div>
@@ -428,79 +498,191 @@
         </div>
       </section>
 
-      <section class="perf">
+      <section class="controls">
         <div class="pr-panel">
-          <span class="pr-label">Repères</span>
-          <div class="group">
-            <button
-              class="pr-pad pr-pad--set"
-              style="--tag: var(--pr-tag-green)"
-            >
-              1
-            </button>
-            <button class="pr-pad pr-pad--set" style="--tag: var(--pr-tag-red)">
-              2
-            </button>
-            <button
-              class="pr-pad pr-pad--set"
-              style="--tag: var(--pr-tag-violet)"
-            >
-              3
-            </button>
-            <button
-              class="pr-pad pr-pad--set"
-              style="--tag: var(--pr-tag-orange)"
-            >
-              4
-            </button>
-            <button class="pr-pad">5</button><button class="pr-pad">6</button
-            ><button class="pr-pad">7</button><button class="pr-pad">8</button>
+          <div class="transport">
+            <button class="pr-btn pr-btn--lg" disabled>CUE</button>
+            <button class="pr-btn pr-btn--lg" disabled>PLAY</button>
+            <button class="pr-btn pr-btn--lg">SYNC</button>
           </div>
-          <span class="pr-label">Boucle</span>
-          <div class="group loop">
-            <button class="pr-btn pr-btn--lg">½</button
-            ><button class="pr-btn pr-btn--lg">1</button
-            ><button class="pr-btn pr-btn--lg">2</button
-            ><button class="pr-btn pr-btn--lg">4</button
-            ><button class="pr-btn pr-btn--lg">8</button
-            ><button class="pr-btn pr-btn--lg">16</button>
+          <div class="tempo">
+            <div class="tempo-head">
+              <span class="pr-label">Tempo</span>
+              <button class="pr-btn pr-btn--sm">KEY</button>
+              <span class="pr-num">+0,80 %</span>
+            </div>
+            <div class="fader">
+              <button
+                class="pr-btn pr-btn--sm pr-btn--icon"
+                disabled
+                aria-label="Ralentir"
+              >
+                −
+              </button>
+              <input
+                class="pr-range"
+                type="range"
+                disabled
+                aria-label="Tempo"
+              />
+              <button
+                class="pr-btn pr-btn--sm pr-btn--icon"
+                disabled
+                aria-label="Accélérer"
+              >
+                +
+              </button>
+            </div>
+            <span class="note">Piloté par la platine</span>
           </div>
-          <div class="group jump">
-            <button class="pr-btn pr-btn--lg">◂ 4</button
-            ><button class="pr-btn pr-btn--lg">4 ▸</button>
+        </div>
+        <div class="pr-panel sends">
+          <span class="pr-label">Table externe</span>
+          <div class="meters">
+            <div>
+              <div class="pr-meter pr-meter--vertical">
+                <i class="is-lit"></i><i class="is-lit"></i
+                ><i class="is-lit"></i><i class="is-lit"></i
+                ><i class="is-lit"></i><i class="is-lit"></i
+                ><i class="is-lit"></i><i class="is-lit"></i
+                ><i class="is-lit"></i><i class="is-lit"></i
+                ><i class="is-lit"></i><i></i><i></i><i></i><i></i><i></i>
+              </div>
+              <span class="pr-label">A</span>
+            </div>
+            <div>
+              <div class="pr-meter pr-meter--vertical">
+                <i class="is-lit"></i><i class="is-lit"></i
+                ><i class="is-lit"></i><i class="is-lit"></i
+                ><i class="is-lit"></i><i class="is-lit"></i
+                ><i class="is-lit"></i><i class="is-lit"></i
+                ><i class="is-lit"></i><i></i><i></i><i></i><i></i><i></i><i></i
+                ><i></i>
+              </div>
+              <span class="pr-label">B</span>
+            </div>
           </div>
         </div>
         <div class="pr-panel">
-          <span class="pr-label">Repères</span>
-          <div class="group">
+          <div class="transport">
+            <button class="pr-btn pr-btn--lg" disabled>CUE</button>
+            <button class="pr-btn pr-btn--lg" disabled>PLAY</button>
+            <button class="pr-btn pr-btn--lg">SYNC</button>
+          </div>
+          <div class="tempo">
+            <div class="tempo-head">
+              <span class="pr-label">Tempo</span>
+              <button class="pr-btn pr-btn--sm">KEY</button>
+              <span class="pr-num">+0,80 %</span>
+            </div>
+            <div class="fader">
+              <button
+                class="pr-btn pr-btn--sm pr-btn--icon"
+                disabled
+                aria-label="Ralentir"
+              >
+                −
+              </button>
+              <input
+                class="pr-range"
+                type="range"
+                disabled
+                aria-label="Tempo"
+              />
+              <button
+                class="pr-btn pr-btn--sm pr-btn--icon"
+                disabled
+                aria-label="Accélérer"
+              >
+                +
+              </button>
+            </div>
+            <span class="note">Piloté par la platine</span>
+          </div>
+        </div>
+        <div class="pr-panel">
+          <div class="pr-seg modes" role="radiogroup">
+            <button role="radio" aria-checked="true">CUES</button
+            ><button role="radio" aria-checked="false">LOOP</button
+            ><button role="radio" aria-checked="false">ROLL</button
+            ><button role="radio" aria-checked="false">JUMP</button
+            ><button role="radio" aria-checked="false">FX</button
+            ><button role="radio" aria-checked="false">SMPL</button>
+          </div>
+          <div class="pads">
             <button
               class="pr-pad pr-pad--set"
               style="--tag: var(--pr-tag-green)"
             >
-              1
-            </button>
-            <button
+              1</button
+            ><button
               class="pr-pad pr-pad--set"
-              style="--tag: var(--pr-tag-blue)"
+              style="--tag: var(--pr-tag-red)"
             >
-              2
-            </button>
-            <button class="pr-pad">3</button><button class="pr-pad">4</button
+              2</button
+            ><button
+              class="pr-pad pr-pad--set"
+              style="--tag: var(--pr-tag-violet)"
+            >
+              3</button
+            ><button
+              class="pr-pad pr-pad--set"
+              style="--tag: var(--pr-tag-orange)"
+            >
+              4</button
             ><button class="pr-pad">5</button><button class="pr-pad">6</button
             ><button class="pr-pad">7</button><button class="pr-pad">8</button>
           </div>
-          <span class="pr-label">Boucle</span>
-          <div class="group loop">
-            <button class="pr-btn pr-btn--lg">½</button
-            ><button class="pr-btn pr-btn--lg">1</button
-            ><button class="pr-btn pr-btn--lg">2</button
-            ><button class="pr-btn pr-btn--lg">4</button
-            ><button class="pr-btn pr-btn--lg is-on">8</button
-            ><button class="pr-btn pr-btn--lg">16</button>
+          <div class="keys">
+            <div>
+              <button class="pr-btn pr-btn--sm">IN</button
+              ><button class="pr-btn pr-btn--sm">OUT</button
+              ><button class="pr-btn pr-btn--sm">½</button
+              ><button class="pr-btn pr-btn--sm">×2</button>
+            </div>
+            <div>
+              <button class="pr-btn pr-btn--sm">RELOOP</button
+              ><button class="pr-btn pr-btn--sm">SLIP</button
+              ><button class="pr-btn pr-btn--sm">CENSOR</button>
+            </div>
           </div>
-          <div class="group jump">
-            <button class="pr-btn pr-btn--lg">◂ 4</button
-            ><button class="pr-btn pr-btn--lg">4 ▸</button>
+        </div>
+        <div class="pr-panel">
+          <div class="pr-seg modes" role="radiogroup">
+            <button role="radio" aria-checked="true">CUES</button
+            ><button role="radio" aria-checked="false">LOOP</button
+            ><button role="radio" aria-checked="false">ROLL</button
+            ><button role="radio" aria-checked="false">JUMP</button
+            ><button role="radio" aria-checked="false">FX</button
+            ><button role="radio" aria-checked="false">SMPL</button>
+          </div>
+          <div class="pads">
+            <button
+              class="pr-pad pr-pad--set"
+              style="--tag: var(--pr-tag-green)"
+            >
+              1</button
+            ><button
+              class="pr-pad pr-pad--set"
+              style="--tag: var(--pr-tag-blue)"
+            >
+              2</button
+            ><button class="pr-pad">3</button><button class="pr-pad">4</button
+            ><button class="pr-pad">5</button><button class="pr-pad">6</button
+            ><button class="pr-pad">7</button><button class="pr-pad">8</button>
+          </div>
+          <div class="keys">
+            <div>
+              <button class="pr-btn pr-btn--sm">IN</button
+              ><button class="pr-btn pr-btn--sm">OUT</button
+              ><button class="pr-btn pr-btn--sm">½</button
+              ><button class="pr-btn pr-btn--sm">×2</button>
+            </div>
+            <div>
+              <button class="pr-btn pr-btn--sm is-on">EXIT</button
+              ><button class="pr-btn pr-btn--sm">SLIP</button
+              ><button class="pr-btn pr-btn--sm">CENSOR</button>
+            </div>
           </div>
         </div>
       </section>

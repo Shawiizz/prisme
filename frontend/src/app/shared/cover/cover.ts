@@ -14,7 +14,7 @@ import { convertFileSrc } from '@tauri-apps/api/core';
       display: block;
       overflow: hidden;
       border-radius: 2px;
-      background: var(--raised);
+      background: var(--pr-raise);
     }
     img {
       display: block;

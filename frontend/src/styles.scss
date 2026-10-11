@@ -1,30 +1,5 @@
 /* Base of the interface, on the design system (styles/tokens.css, design/DESIGN.md). */
 
-/* Older names, kept while the screens move to the --pr-* tokens. */
-:root {
-  --bg: var(--pr-void);
-  --panel: var(--pr-base);
-  --panel-2: var(--pr-raise);
-  --raised: var(--pr-raise);
-  --raised-hover: var(--pr-raise-2);
-  --line: var(--pr-line);
-  --line-strong: var(--pr-line-2);
-  --text: var(--pr-text);
-  --text-2: var(--pr-text-2);
-  --muted: var(--pr-text-2);
-  --faint: var(--pr-text-3);
-  --ink: var(--pr-on-light);
-  --deck-1: var(--pr-light);
-  --deck-2: var(--pr-light);
-  --amber: var(--pr-warn);
-  --mint: var(--pr-ok);
-  --red: var(--pr-alert);
-  --select: var(--pr-raise-2);
-  --radius: var(--pr-radius);
-  --font: var(--pr-font);
-  --mono: var(--pr-font-mono);
-}
-
 * {
   box-sizing: border-box;
 }
@@ -41,7 +16,7 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
-/* Native controls look like the design system's, for the screens not moved yet. */
+/* Native controls without a class of their own look like the design system's. */
 button {
   font: 500 var(--pr-size) / 1 var(--pr-font);
   color: var(--pr-text);
@@ -61,13 +36,6 @@ button {
     opacity: 0.35;
     cursor: default;
     background: transparent;
-  }
-  &.active,
-  &.primary {
-    background: var(--pr-light);
-    border-color: var(--pr-light);
-    color: var(--pr-on-light);
-    font-weight: 600;
   }
 }
 
@@ -129,11 +97,4 @@ input[type='range'] {
 }
 ::-webkit-scrollbar-corner {
   background: transparent;
-}
-
-.label {
-  font: 600 var(--pr-size-label) / 1.2 var(--pr-font);
-  letter-spacing: 0.09em;
-  color: var(--pr-text-3);
-  text-transform: uppercase;
 }

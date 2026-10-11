@@ -29,8 +29,6 @@ can use the classes and the tokens.
 - Components use the `.pr-*` classes for what they cover, and the `--pr-*` tokens for anything
   else. **No colour or size is written in a component**, not even in a canvas painter: read the
   token (`getComputedStyle`).
-- The older tokens of `styles.scss` (`--bg`, `--deck-1`…) stay while the screens are redone one
-  by one, then disappear. New code never uses them.
 
 ## Colours
 
@@ -152,14 +150,17 @@ A toggle is a button with `.is-on` when on. Radius 3 px, no shadow, no glow.
 
 ## Layout
 
-- Title bar 36: logo, audio health, then Record, Turntables, MIDI, Shortcuts, Settings.
+- Title bar 36: logo, audio health (driver and device, buffer, dropouts) and the master meter,
+  then Rec, Turntables, MIDI, Shortcuts, Settings.
 - Two deck rows: the deck panel (380) on the left, the waveform on the right; the phase strip
   between them.
-- A performance band of pads, loops and beat jumps, one half per deck.
-- The library fills the rest: sidebar (210) and the track table, with search and the reference
+- The controls, one half per deck: transport and tempo (72), then the pads with their modes and
+  the loop keys (60). The mixer column sits between the halves.
+- The library fills the rest: sidebar (230) and the track table, with search and the reference
   deck.
-- **External mixer first**: without the software mixer the screen goes to the waveforms and the
-  library. When enabled, the internal mixer is inserted in the middle of the performance band.
+- **External mixer first**: the mixer column narrows to the send meters (120), and the screen
+  goes to the waveforms and the library. The software mixer widens it (210) and adds the
+  trim, EQ and filter knobs to each deck's transport row.
 - Spacing on a base of 4: 4, 8, 12, 16, 24, 32, 48.
 
 ## Ergonomic rules

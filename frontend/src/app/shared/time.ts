@@ -35,8 +35,3 @@ export function formatSpeed(speed: number): string {
 export function deckLetter(deck: number): string {
   return String.fromCharCode(65 + deck);
 }
-
-/** Colour of a deck (CSS variable). */
-export function deckColor(deck: number): string {
-  return deck % 2 === 0 ? 'var(--deck-1)' : 'var(--deck-2)';
-}
