@@ -80,6 +80,17 @@
             </select>
           </label>
 
+          <h3>{{ 'Library' | t }}</h3>
+          <label class="check">
+            <input
+              type="checkbox"
+              [checked]="writeTags()"
+              (change)="writeTags.set($any($event.target).checked)"
+            />
+            <span>{{ 'Write the tempo and key into the tags of the files' | t }}</span>
+          </label>
+          <small>{{ 'So that Serato, rekordbox and the others find them.' | t }}</small>
+
           <h3>{{ 'Interface' | t }}</h3>
           <label>
             <span class="label">{{ 'Language' | t }}</span>

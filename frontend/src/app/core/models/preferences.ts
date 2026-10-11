@@ -13,6 +13,8 @@ export interface LibraryPreferences {
   lastFolder: string | null;
   /** Columns of the track list the DJ hid. */
   hiddenColumns: string[];
+  /** Tempo and key written into the files' tags. */
+  writeTags: boolean;
 }
 
 export interface Preferences {

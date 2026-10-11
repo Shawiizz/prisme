@@ -5,9 +5,11 @@ use std::path::{Path, PathBuf};
 use tracing::error;
 use tracing_appender::non_blocking::WorkerGuard;
 use tracing_appender::rolling::{RollingFileAppender, Rotation};
+use tracing_subscriber::filter::{LevelFilter, Targets};
 use tracing_subscriber::fmt::format::Writer;
 use tracing_subscriber::fmt::time::FormatTime;
 use tracing_subscriber::fmt::writer::MakeWriterExt;
+use tracing_subscriber::prelude::*;
 
 const PREFIX: &str = "prisme";
 const SUFFIX: &str = "log";
@@ -39,11 +41,18 @@ pub fn init(dir: Option<&Path>) -> LogGuard {
         Some(file) => {
             let (writer, guard) = tracing_appender::non_blocking(file);
             let writer = writer.with_max_level(tracing::Level::INFO).and(console);
-            tracing_subscriber::fmt().with_timer(LocalTime).with_writer(writer).with_ansi(false).init();
+            let subscriber =
+                tracing_subscriber::fmt().with_timer(LocalTime).with_writer(writer).with_ansi(false);
+            subscriber.finish().with(quiet_libraries()).init();
             Some(guard)
         }
         None => {
-            tracing_subscriber::fmt().with_timer(LocalTime).with_writer(console).init();
+            tracing_subscriber::fmt()
+                .with_timer(LocalTime)
+                .with_writer(console)
+                .finish()
+                .with(quiet_libraries())
+                .init();
             None
         }
     };
@@ -53,6 +62,12 @@ pub fn init(dir: Option<&Path>) -> LogGuard {
         default_hook(info);
     }));
     LogGuard { _writer: guard }
+}
+
+/// lofty warns about every file it searches with a tolerance for junk bytes, even when
+/// there are none: only its errors are kept.
+fn quiet_libraries() -> Targets {
+    Targets::new().with_default(LevelFilter::TRACE).with_target("lofty", LevelFilter::ERROR)
 }
 
 /// The computer's time: the log is read against what happened that evening.

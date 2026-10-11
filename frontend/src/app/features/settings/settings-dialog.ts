@@ -8,7 +8,7 @@ import { DjPreferences, PITCH_RANGES } from '../../core/models/preferences';
 import { LANGUAGE, LANGUAGES, Language, setLanguage, t } from '../../core/i18n/i18n';
 import { TPipe } from '../../core/i18n/t.pipe';
 
-/** Settings: audio backend and devices, mixing, language, turntables, DJ preferences; diagnostics. */
+/** Settings: audio, mixing, library, language, turntables, DJ preferences; diagnostics. */
 @Component({
   selector: 'app-settings-dialog',
   templateUrl: './settings-dialog.html',
@@ -24,6 +24,7 @@ export class SettingsDialog implements OnInit {
   protected readonly pitchRanges = PITCH_RANGES;
   protected readonly languages = LANGUAGES;
   protected readonly language = signal<Language>(LANGUAGE);
+  protected readonly writeTags = signal(this.preferences.library().writeTags);
   protected readonly draft = signal<AudioSettings | null>(null);
   protected readonly dj = signal<DjPreferences>(this.preferences.dj());
   protected readonly mixMode = signal<MixMode>(this.mixer.mode());
@@ -86,6 +87,9 @@ export class SettingsDialog implements OnInit {
     this.error.set(null);
     try {
       await this.preferences.updateDj(this.dj());
+      if (this.writeTags() !== this.preferences.library().writeTags) {
+        await this.preferences.updateLibrary({ writeTags: this.writeTags() });
+      }
       if (JSON.stringify(d) !== JSON.stringify(this.service.settings())) {
         await this.service.apply(d);
       }

@@ -6,7 +6,11 @@ import { DjPreferences, LibraryPreferences, Preferences } from '../models/prefer
 @Injectable({ providedIn: 'root' })
 export class PreferencesService {
   readonly dj = signal<DjPreferences>({ vinylSync: 'once', quantize: true, pitchRange: 0.08 });
-  readonly library = signal<LibraryPreferences>({ lastFolder: null, hiddenColumns: [] });
+  readonly library = signal<LibraryPreferences>({
+    lastFolder: null,
+    hiddenColumns: [],
+    writeTags: true,
+  });
 
   async load(): Promise<void> {
     const p = await invoke<Preferences>('get_preferences');

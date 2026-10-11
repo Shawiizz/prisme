@@ -274,6 +274,10 @@ export const FR: Record<string, string> = {
   'Software mixer: master on 1-2, headphones on 3-4':
     'Table de mixage logicielle : master sur 1-2, casque sur 3-4',
   Interface: 'Interface',
+  'Write the tempo and key into the tags of the files':
+    'Écrire le tempo et la tonalité dans les tags des fichiers',
+  'So that Serato, rekordbox and the others find them.':
+    'Pour que Serato, rekordbox et les autres les retrouvent.',
   Language: 'Langue',
   Turntables: 'Platines',
   'Turntables plugged into the inputs of this driver':

@@ -92,5 +92,6 @@ fn edit(
     })??;
     state.send_if_running(Command::SetBeatGrid { deck, grid })?;
     library.announce(&path);
+    library.write_tags_soon();
     Ok(analysis)
 }

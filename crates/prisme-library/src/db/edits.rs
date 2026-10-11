@@ -103,6 +103,8 @@ impl LibraryDb {
 
     pub fn save_edits(&self, path: &Path, edits: &TrackEdits) -> Result<(), DbError> {
         let conn = self.conn();
+        conn.prepare_cached("UPDATE tracks SET tags_written = 0 WHERE path = ?1")?
+            .execute([path_key(path)])?;
         if edits.is_empty() {
             conn.prepare_cached("DELETE FROM track_edits WHERE path = ?1")?.execute([path_key(path)])?;
             return Ok(());

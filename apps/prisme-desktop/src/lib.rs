@@ -10,6 +10,7 @@
 //! * `recording`: records the mix to a file, with its tracklist;
 //! * `sampler`: the decks' sampler sounds;
 //! * `state`: preferences, loaded tracks and deck settings;
+//! * `tag_writer`: writes the tempo and key into the files' tags;
 //! * `preferences`: what is kept from one start to the next;
 //! * `commands`: what the frontend can ask, by domain;
 //! * `status_stream`: engine state pushed to the frontend at ~60 Hz;
@@ -41,6 +42,7 @@ mod sampler;
 mod scope_stream;
 mod state;
 mod status_stream;
+mod tag_writer;
 mod track_loading;
 
 use controllers::Controllers;
@@ -53,6 +55,7 @@ use serde::Serialize;
 use state::AppState;
 use std::path::Path;
 use std::sync::Arc;
+use tag_writer::TagWriter;
 use tauri::Manager;
 use tracing::{error, warn};
 
@@ -68,6 +71,7 @@ pub fn run() {
             let library =
                 Arc::new(LibraryService::open(app.handle(), data_dir.as_deref(), folders::music_root()));
             app.manage(library.clone());
+            app.manage(TagWriter::start(app.handle().clone()));
 
             app.manage(CrashRecovery::new(open_json(data_dir.as_deref(), "session.json")));
             let restored = app.state::<CrashRecovery>().decks_to_restore();
@@ -93,6 +97,7 @@ pub fn run() {
                 }
             }
             MidiClock::start(app.handle().clone());
+            app.state::<TagWriter>().wake();
             library.start();
             library.watch();
             Ok(())

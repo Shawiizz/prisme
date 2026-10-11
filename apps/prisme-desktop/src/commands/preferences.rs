@@ -1,6 +1,7 @@
 use crate::error::AppResult;
 use crate::preferences::{DjPreferences, LibraryPreferences, Preferences};
 use crate::state::AppState;
+use crate::tag_writer::TagWriter;
 use prisme_engine::Command;
 use tauri::State;
 
@@ -16,6 +17,14 @@ pub fn set_dj_preferences(state: State<'_, AppState>, dj: DjPreferences) -> AppR
 }
 
 #[tauri::command]
-pub fn set_library_preferences(state: State<'_, AppState>, library: LibraryPreferences) {
+pub fn set_library_preferences(
+    state: State<'_, AppState>,
+    tag_writer: State<'_, TagWriter>,
+    library: LibraryPreferences,
+) {
+    let write_tags = library.write_tags;
     state.update_preferences(|p| p.library = library);
+    if write_tags {
+        tag_writer.wake();
+    }
 }

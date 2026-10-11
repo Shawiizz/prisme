@@ -9,6 +9,7 @@ mod edits;
 mod history;
 mod marks;
 mod prepare;
+mod tag_sync;
 mod tracks;
 mod waveforms;
 
@@ -126,6 +127,8 @@ const MIGRATIONS: &[&str] = &[
          slices_per_second INTEGER NOT NULL,
          data BLOB NOT NULL
      ) WITHOUT ROWID;",
+    // the file's tags hold the track's current tempo and key (see tag_sync)
+    "ALTER TABLE tracks ADD COLUMN tags_written INTEGER NOT NULL DEFAULT 0;",
 ];
 
 pub fn now_ms() -> i64 {

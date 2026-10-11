@@ -7,9 +7,11 @@
 //! being decoded ([`LoadingTrack`]). [`DecodeStream`] decodes chunk by chunk for work
 //! that only scans the audio once (library analysis).
 
+mod tag_writing;
 mod tags;
 mod track;
 
+pub use tag_writing::{write_tempo_and_key, TempoAndKey};
 pub use tags::{read_tags, CoverArt, TrackTags};
 
 use std::fs::File;
@@ -34,6 +36,8 @@ pub enum MediaError {
     NoSampleRate,
     #[error("cannot read the tags of {path}: {message}")]
     Tags { path: String, message: String },
+    #[error("cannot write the tags of {path}: {message}")]
+    WriteTags { path: String, message: String },
 }
 
 pub use track::{LoadingTrack, TrackAudio, TrackView};

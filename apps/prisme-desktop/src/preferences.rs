@@ -76,12 +76,20 @@ impl Default for MixerPreferences {
     }
 }
 
-#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(default, rename_all = "camelCase")]
 pub struct LibraryPreferences {
     pub last_folder: Option<String>,
     /// Columns of the track list the DJ hid (frontend ids).
     pub hidden_columns: Vec<String>,
+    /// Tempo and key written into the files' tags (see `tag_writer`).
+    pub write_tags: bool,
+}
+
+impl Default for LibraryPreferences {
+    fn default() -> Self {
+        Self { last_folder: None, hidden_columns: Vec::new(), write_tags: true }
+    }
 }
 
 #[cfg(test)]
@@ -95,6 +103,7 @@ mod tests {
         assert!(p.dj.quantize);
         assert_eq!(p.dj.pitch_range, 0.08);
         assert_eq!(p.audio, AudioSettings::default());
+        assert!(p.library.write_tags);
     }
 
     #[test]

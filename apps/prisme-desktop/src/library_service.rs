@@ -10,11 +10,14 @@
 use crate::dto::{ProgressDto, TrackAnalyzedDto, TrackDetailsDto};
 use crate::folder_watch::FolderWatch;
 use crate::state::lock;
+use crate::tag_writer::TagWriter;
 use prisme_analysis::AnalysisOptions;
-use prisme_library::{AnalysisListener, AnalysisProgress, BackgroundAnalyzer, LibraryDb, TrackRecord};
+use prisme_library::{
+    AnalysisListener, AnalysisProgress, BackgroundAnalyzer, FileStamp, LibraryDb, TrackRecord,
+};
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
-use tauri::{AppHandle, Emitter};
+use tauri::{AppHandle, Emitter, Manager};
 use tracing::{error, warn};
 
 pub const TRACK_ANALYZED_EVENT: &str = "track-analyzed";
@@ -98,6 +101,19 @@ impl LibraryService {
             error!("analysis of {} not saved: {e}", record.path);
         }
         let _ = self.app.emit(TRACK_ANALYZED_EVENT, TrackAnalyzedDto::from(record));
+        self.write_tags_soon();
+    }
+
+    /// A track's tempo or key may have to be written into its file (see `tag_writer`).
+    pub fn write_tags_soon(&self) {
+        self.app.state::<TagWriter>().wake();
+    }
+
+    /// Whether the library describes the current version of `path` (a change made by
+    /// Prisme itself, such as tags it wrote).
+    pub fn knows_current(&self, path: &Path) -> bool {
+        let Ok(stamp) = FileStamp::of(path) else { return false };
+        self.db.get(path).ok().flatten().is_some_and(|r| r.is_current(stamp))
     }
 }
 
@@ -114,6 +130,9 @@ impl AnalysisListener for EventListener {
     fn progress(&self, progress: AnalysisProgress) {
         *lock(&self.progress) = progress;
         let _ = self.app.emit(PROGRESS_EVENT, ProgressDto::from(progress));
+        if !progress.running {
+            self.app.state::<TagWriter>().wake();
+        }
     }
 }
 
