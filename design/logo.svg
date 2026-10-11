@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="46" height="40" viewBox="0 0 46 40">
+  <title>Prisme</title>
+  <g fill="none" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M1 24 L14 21.5" stroke="#f3f1eb" />
+    <path d="M19 4 L33 34 L5 34 Z" stroke="#f3f1eb" />
+    <path d="M25 20 L45 25" stroke="#ff5442" />
+    <path d="M25 21 L45 30" stroke="#a6e25c" />
+    <path d="M25 22 L45 35" stroke="#8f7bff" />
+  </g>
+</svg>

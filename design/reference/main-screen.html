@@ -1,0 +1,750 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="utf-8" />
+    <title>Prisme · écran principal</title>
+    <link rel="stylesheet" href="../../frontend/src/styles/fonts.css" />
+    <link rel="stylesheet" href="../../frontend/src/styles/tokens.css" />
+    <link rel="stylesheet" href="../../frontend/src/styles/components.css" />
+    <style>
+      /* The main screen with an external mixer, at 1280 × 800: the exact visual model. */
+      *,
+      *::before,
+      *::after {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        padding: 32px;
+        background: #050506;
+        font: var(--pr-size) / 1.35 var(--pr-font);
+        color: var(--pr-text);
+        -webkit-font-smoothing: antialiased;
+      }
+      .screen {
+        width: 1280px;
+        height: 800px;
+        margin: 0 auto;
+        background: var(--pr-void);
+        display: grid;
+        grid-template-columns: minmax(0, 1fr);
+        grid-template-rows: var(--pr-titlebar) auto 62px minmax(0, 1fr);
+        overflow: hidden;
+        outline: 1px solid var(--pr-line);
+      }
+
+      .titlebar {
+        display: flex;
+        align-items: center;
+        gap: 18px;
+        padding-left: var(--pr-space-3);
+        border-bottom: 1px solid var(--pr-line);
+      }
+      .brand {
+        display: flex;
+        align-items: center;
+        gap: var(--pr-space-2);
+        font: 600 16px / 1 var(--pr-font);
+        font-stretch: var(--pr-narrow);
+      }
+      .health {
+        display: flex;
+        gap: 6px;
+      }
+      .titlebar nav {
+        display: flex;
+        gap: 2px;
+        margin-left: auto;
+      }
+      .window {
+        display: flex;
+      }
+      .window span {
+        width: 44px;
+        height: var(--pr-titlebar);
+        display: grid;
+        place-items: center;
+        color: var(--pr-text-3);
+      }
+
+      .decks {
+        display: grid;
+        grid-template-rows: 124px 26px 124px;
+        padding: var(--pr-space-2) 10px;
+      }
+      .deck,
+      .phase {
+        display: grid;
+        grid-template-columns: var(--pr-deck-panel) minmax(0, 1fr);
+        gap: 10px;
+      }
+      .deck-panel {
+        padding: 10px var(--pr-space-3);
+        display: grid;
+        grid-template-rows: auto 1fr;
+        gap: var(--pr-space-2);
+      }
+      .head {
+        display: grid;
+        grid-template-columns: 34px minmax(0, 1fr) auto;
+        gap: 10px;
+        align-items: center;
+      }
+      .title {
+        font-weight: 600;
+        font-size: 14.5px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .artist {
+        font-size: var(--pr-size-small);
+        color: var(--pr-text-2);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .vinyl {
+        display: flex;
+        align-items: center;
+        gap: var(--pr-space-2);
+      }
+      .readouts {
+        display: grid;
+        grid-template-columns: auto auto 1fr;
+        gap: 18px;
+        align-items: end;
+      }
+      .wave {
+        display: grid;
+        grid-template-rows: minmax(0, 1fr) 22px;
+        gap: var(--pr-space-1);
+      }
+      .cv {
+        position: relative;
+      }
+      .cv canvas {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        border-radius: var(--pr-radius-sm);
+      }
+      .phase {
+        padding-block: var(--pr-space-1);
+      }
+      .phase-info {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 0 var(--pr-space-3);
+        font-size: var(--pr-size-small);
+        color: var(--pr-text-2);
+      }
+
+      .perf {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 10px;
+        padding: 0 10px 10px;
+      }
+      .perf > div {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        padding: 0 10px;
+      }
+      .group {
+        display: flex;
+        gap: var(--pr-space-1);
+      }
+      .loop .pr-btn {
+        width: 34px;
+        padding: 0;
+        font-family: var(--pr-font-mono);
+        font-size: var(--pr-size-small);
+      }
+      .jump .pr-btn {
+        width: 40px;
+        padding: 0;
+      }
+
+      .library {
+        display: grid;
+        grid-template-columns: 210px minmax(0, 1fr);
+        border-top: 1px solid var(--pr-line);
+        min-height: 0;
+      }
+      .sidebar {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+        padding: 10px var(--pr-space-2);
+        border-right: 1px solid var(--pr-line);
+      }
+      .sidebar .pr-label {
+        padding: 10px var(--pr-space-2) var(--pr-space-1);
+      }
+      .sidebar a {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        height: 28px;
+        padding: 0 var(--pr-space-2);
+        border-radius: var(--pr-radius-sm);
+        color: var(--pr-text-2);
+        text-decoration: none;
+      }
+      .sidebar a .pr-num {
+        font-size: 11px;
+        color: var(--pr-text-3);
+      }
+      .sidebar a.is-on {
+        background: var(--pr-raise-2);
+        color: var(--pr-text);
+      }
+      .sidebar .pr-btn {
+        margin-top: auto;
+        justify-content: flex-start;
+      }
+      .list {
+        display: grid;
+        grid-template-rows: 44px minmax(0, 1fr);
+        min-width: 0;
+      }
+      .toolbar {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 0 var(--pr-space-3);
+        border-bottom: 1px solid var(--pr-line);
+      }
+      .search {
+        position: relative;
+        flex: 1;
+        max-width: 460px;
+      }
+      .search .pr-input {
+        width: 100%;
+        height: 30px;
+        padding-left: 30px;
+      }
+      .search svg {
+        position: absolute;
+        left: 10px;
+        top: 8px;
+        color: var(--pr-text-3);
+      }
+      .search .pr-kbd {
+        position: absolute;
+        right: 8px;
+        top: 7px;
+      }
+      .count {
+        margin-left: auto;
+        font-size: var(--pr-size-small);
+        color: var(--pr-text-3);
+      }
+      .pr-table {
+        --pr-cols: 34px minmax(0, 1.5fr) minmax(0, 1fr) minmax(0, 0.9fr) 60px
+          70px 64px 52px 44px 64px;
+        overflow: hidden;
+      }
+      .pr-table .pr-num {
+        font-size: var(--pr-size-small);
+        text-align: right;
+      }
+      .pr-table .muted {
+        color: var(--pr-text-2);
+      }
+      .pr-table .dim {
+        color: var(--pr-text-3);
+      }
+      .mark {
+        display: grid;
+        place-items: center;
+        width: 20px;
+        height: 20px;
+        font: 600 11px / 1 var(--pr-font);
+        border-radius: var(--pr-radius-sm);
+        background: var(--pr-light);
+        color: var(--pr-on-light);
+      }
+      .mark.out {
+        background: transparent;
+        color: var(--pr-text);
+        border: 1px solid var(--pr-line-2);
+      }
+      .load {
+        display: flex;
+        gap: var(--pr-space-1);
+        justify-content: flex-end;
+      }
+      .load .pr-btn {
+        height: 22px;
+        padding: 0 7px;
+        font-size: 11px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="screen">
+      <header class="titlebar">
+        <div class="brand">
+          <img src="../logo.svg" width="22" height="19" alt="" />prisme
+        </div>
+        <div class="health">
+          <span class="pr-chip"
+            ><span
+              class="pr-sig pr-sig--ok"
+              style="width: 7px; height: 7px"
+            ></span
+            >ASIO · UMC404HD</span
+          >
+          <span class="pr-chip"
+            >Latence <span class="pr-num">5,3 ms</span></span
+          >
+          <span class="pr-chip">Décrochages <span class="pr-num">0</span></span>
+        </div>
+        <nav>
+          <button class="pr-btn pr-btn--ghost pr-btn--rec">
+            <span class="pr-btn__dot"></span>Enregistrer
+          </button>
+          <button class="pr-btn pr-btn--ghost">Platines</button>
+          <button class="pr-btn pr-btn--ghost">MIDI</button>
+          <button class="pr-btn pr-btn--ghost">Raccourcis</button>
+          <button class="pr-btn pr-btn--ghost">Réglages</button>
+        </nav>
+        <div class="window"><span>–</span><span>□</span><span>×</span></div>
+      </header>
+
+      <section class="decks">
+        <div class="deck">
+          <div class="deck-panel pr-panel">
+            <div class="head">
+              <div class="pr-tile">A</div>
+              <div>
+                <div class="title">Future</div>
+                <div class="artist">Boris Brejcha · Space Diver</div>
+              </div>
+              <div class="vinyl">
+                <span class="pr-sig pr-sig--ok" title="Signal du disque"></span>
+                <div class="pr-seg" role="radiogroup">
+                  <button role="radio" aria-checked="false">INT</button
+                  ><button role="radio" aria-checked="true">REL</button
+                  ><button role="radio" aria-checked="false">ABS</button>
+                </div>
+              </div>
+            </div>
+            <div class="readouts">
+              <div class="pr-readout">
+                <span class="pr-label">Reste</span
+                ><span class="pr-readout__value">−2:15,7</span
+                ><span class="pr-readout__sub"
+                  ><span class="pr-num">4:58,3</span> sur
+                  <span class="pr-num">7:14</span></span
+                >
+              </div>
+              <div class="pr-readout">
+                <span class="pr-label">BPM</span
+                ><span class="pr-readout__value pr-readout__value--mid"
+                  >126,00</span
+                ><span class="pr-readout__sub pr-num">125,00 +0,8 %</span>
+              </div>
+              <div class="pr-readout">
+                <span class="pr-label">Tonalité</span
+                ><span
+                  ><span
+                    class="pr-key pr-key--fill pr-key--lg"
+                    style="--h: var(--pr-key-hue-5)"
+                    >5A</span
+                  ></span
+                ><span class="pr-readout__sub">Do mineur</span>
+              </div>
+            </div>
+          </div>
+          <div class="wave">
+            <div class="cv"><canvas id="wave-a"></canvas></div>
+            <div class="cv"><canvas id="overview-a"></canvas></div>
+          </div>
+        </div>
+
+        <div class="phase">
+          <div class="phase-info">
+            <span class="pr-label">Phase</span
+            ><span>B en avance de <span class="pr-num">24 ms</span></span>
+          </div>
+          <div class="cv"><canvas id="phase"></canvas></div>
+        </div>
+
+        <div class="deck">
+          <div class="deck-panel pr-panel">
+            <div class="head">
+              <div class="pr-tile">B</div>
+              <div>
+                <div class="title">Schleierwolken</div>
+                <div class="artist">Boris Brejcha · Schleierwolken</div>
+              </div>
+              <div class="vinyl">
+                <span class="pr-sig pr-sig--ok" title="Signal du disque"></span>
+                <div class="pr-seg" role="radiogroup">
+                  <button role="radio" aria-checked="false">INT</button
+                  ><button role="radio" aria-checked="true">REL</button
+                  ><button role="radio" aria-checked="false">ABS</button>
+                </div>
+              </div>
+            </div>
+            <div class="readouts">
+              <div class="pr-readout">
+                <span class="pr-label">Reste</span
+                ><span class="pr-readout__value">−6:41,1</span
+                ><span class="pr-readout__sub"
+                  ><span class="pr-num">0:31,9</span> sur
+                  <span class="pr-num">7:13</span></span
+                >
+              </div>
+              <div class="pr-readout">
+                <span class="pr-label">BPM</span
+                ><span class="pr-readout__value pr-readout__value--mid"
+                  >126,01</span
+                ><span class="pr-readout__sub pr-num">125,00 +0,8 %</span>
+              </div>
+              <div class="pr-readout">
+                <span class="pr-label">Tonalité</span
+                ><span
+                  ><span
+                    class="pr-key pr-key--fill pr-key--lg"
+                    style="--h: var(--pr-key-hue-4)"
+                    >4A</span
+                  ></span
+                ><span class="pr-readout__sub">Fa mineur</span>
+              </div>
+            </div>
+          </div>
+          <div class="wave">
+            <div class="cv"><canvas id="wave-b"></canvas></div>
+            <div class="cv"><canvas id="overview-b"></canvas></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="perf">
+        <div class="pr-panel">
+          <span class="pr-label">Repères</span>
+          <div class="group">
+            <button
+              class="pr-pad pr-pad--set"
+              style="--tag: var(--pr-tag-green)"
+            >
+              1
+            </button>
+            <button class="pr-pad pr-pad--set" style="--tag: var(--pr-tag-red)">
+              2
+            </button>
+            <button
+              class="pr-pad pr-pad--set"
+              style="--tag: var(--pr-tag-violet)"
+            >
+              3
+            </button>
+            <button
+              class="pr-pad pr-pad--set"
+              style="--tag: var(--pr-tag-orange)"
+            >
+              4
+            </button>
+            <button class="pr-pad">5</button><button class="pr-pad">6</button
+            ><button class="pr-pad">7</button><button class="pr-pad">8</button>
+          </div>
+          <span class="pr-label">Boucle</span>
+          <div class="group loop">
+            <button class="pr-btn pr-btn--lg">½</button
+            ><button class="pr-btn pr-btn--lg">1</button
+            ><button class="pr-btn pr-btn--lg">2</button
+            ><button class="pr-btn pr-btn--lg">4</button
+            ><button class="pr-btn pr-btn--lg">8</button
+            ><button class="pr-btn pr-btn--lg">16</button>
+          </div>
+          <div class="group jump">
+            <button class="pr-btn pr-btn--lg">◂ 4</button
+            ><button class="pr-btn pr-btn--lg">4 ▸</button>
+          </div>
+        </div>
+        <div class="pr-panel">
+          <span class="pr-label">Repères</span>
+          <div class="group">
+            <button
+              class="pr-pad pr-pad--set"
+              style="--tag: var(--pr-tag-green)"
+            >
+              1
+            </button>
+            <button
+              class="pr-pad pr-pad--set"
+              style="--tag: var(--pr-tag-blue)"
+            >
+              2
+            </button>
+            <button class="pr-pad">3</button><button class="pr-pad">4</button
+            ><button class="pr-pad">5</button><button class="pr-pad">6</button
+            ><button class="pr-pad">7</button><button class="pr-pad">8</button>
+          </div>
+          <span class="pr-label">Boucle</span>
+          <div class="group loop">
+            <button class="pr-btn pr-btn--lg">½</button
+            ><button class="pr-btn pr-btn--lg">1</button
+            ><button class="pr-btn pr-btn--lg">2</button
+            ><button class="pr-btn pr-btn--lg">4</button
+            ><button class="pr-btn pr-btn--lg is-on">8</button
+            ><button class="pr-btn pr-btn--lg">16</button>
+          </div>
+          <div class="group jump">
+            <button class="pr-btn pr-btn--lg">◂ 4</button
+            ><button class="pr-btn pr-btn--lg">4 ▸</button>
+          </div>
+        </div>
+      </section>
+
+      <section class="library">
+        <aside class="sidebar">
+          <span class="pr-label">Collection</span>
+          <a class="is-on" href="#"
+            >Tous les morceaux <span class="pr-num">153</span></a
+          >
+          <a href="#">Préparation <span class="pr-num">4</span></a>
+          <a href="#">Historique</a>
+          <span class="pr-label">Bacs</span>
+          <a href="#">Mélodique <span class="pr-num">18</span></a>
+          <a href="#">Peak time <span class="pr-num">24</span></a>
+          <a href="#">Closing <span class="pr-num">9</span></a>
+          <span class="pr-label">Bacs intelligents</span>
+          <a href="#">120–126 BPM · 4A–6A <span class="pr-num">31</span></a>
+          <button class="pr-btn pr-btn--ghost pr-btn--sm">+ Nouveau bac</button>
+        </aside>
+        <div class="list">
+          <div class="toolbar">
+            <label class="search">
+              <svg
+                width="14"
+                height="14"
+                viewBox="0 0 16 16"
+                aria-hidden="true"
+              >
+                <circle
+                  cx="7"
+                  cy="7"
+                  r="5"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="1.6"
+                />
+                <line
+                  x1="11"
+                  y1="11"
+                  x2="15"
+                  y2="15"
+                  stroke="currentColor"
+                  stroke-width="1.6"
+                />
+              </svg>
+              <input
+                class="pr-input"
+                placeholder="Titre, artiste, 124-128, 5A…"
+                aria-label="Rechercher"
+              />
+              <span class="pr-kbd">Ctrl F</span>
+            </label>
+            <span class="pr-label">Comparer à</span>
+            <div class="pr-seg" role="radiogroup">
+              <button role="radio" aria-checked="true">A</button
+              ><button role="radio" aria-checked="false">B</button>
+            </div>
+            <span class="count">153 morceaux · analysés</span>
+          </div>
+          <div class="pr-table" id="tracks"></div>
+        </div>
+      </section>
+    </div>
+
+    <script src="sketch.js"></script>
+    <script>
+      // Tracks of the author's collection, compared with deck A (126,00 BPM, 5A); crates are examples.
+      const rows = [
+        ["", "Maia", "Oliver Schories", "Maia", 123, "8A", "6:46", 2019],
+        [
+          "",
+          "Parallel Echo",
+          "Marcus Schmahl",
+          "Fragments of Time EP",
+          123,
+          "4A",
+          "6:39",
+          2026,
+        ],
+        [
+          "",
+          "The Tribe",
+          "Mark Tarmonea",
+          "The Tribe",
+          123,
+          "5A",
+          "8:29",
+          2020,
+        ],
+        ["", "Under", "Frederick & Kusse", "Under", 123, "12B", "6:35", 2018],
+        [
+          "",
+          "Never Leave",
+          "Helsloot",
+          "Root to Branch, Vol. 5",
+          124,
+          "3A",
+          "5:45",
+          2020,
+        ],
+        [
+          "played",
+          "Tell Me",
+          "Tinlicker, Helsloot, Hero Baldwin",
+          "Tell Me",
+          124,
+          "6B",
+          "3:16",
+          2020,
+        ],
+        [
+          "A",
+          "Future",
+          "Boris Brejcha",
+          "Space Diver",
+          125,
+          "5A",
+          "7:14",
+          2020,
+        ],
+        [
+          "B",
+          "Schleierwolken",
+          "Boris Brejcha",
+          "Schleierwolken",
+          125,
+          "4A",
+          "7:13",
+          2015,
+        ],
+        [
+          "selected",
+          "Spicy (feat. Ginger)",
+          "Boris Brejcha, Ginger",
+          "Spicy (Edit)",
+          125,
+          "5A",
+          "3:35",
+          2021,
+        ],
+        ["", "Data", "Adonis FR", "Friday", 125, "11B", "7:22", 2020],
+        [
+          "played",
+          "Survivor",
+          "Jack Back",
+          "Survivor",
+          125,
+          "2A",
+          "5:42",
+          2019,
+        ],
+        [
+          "",
+          "Freedom (Jesse Jacob Remix)",
+          "ASTRE, Jesse Jacob",
+          "Freedom EP",
+          128,
+          "8A",
+          "6:09",
+          2020,
+        ],
+        ["", "Find You", "UNREFINED", "Find You", 129, "5A", "5:08", 2023],
+        ["", "Kids", "Crusy, Calussa", "Kids", 129, "3A", "6:14", 2026],
+      ];
+      const reference = { bpm: 126, key: "5A" };
+      const compatible = (key) => {
+        const n = parseInt(key, 10),
+          r = parseInt(reference.key, 10);
+        const sameMode = key.at(-1) === reference.key.at(-1);
+        return sameMode ? [0, 1, 11].includes((n - r + 12) % 12) : n === r;
+      };
+      const chip = (key) =>
+        `<span><span class="pr-key${key.endsWith("B") ? " pr-key--maj" : ""}${compatible(key) ? " pr-key--fill" : ""}" style="--h: var(--pr-key-hue-${parseInt(key, 10)})">${key}</span></span>`;
+      const decimal = (v, digits) => v.toFixed(digits).replace(".", ",");
+      let html =
+        '<div class="pr-table__head"><span></span><span>Titre</span><span>Artiste</span><span>Album</span><span style="text-align:right">BPM</span><span style="text-align:right">Pitch → A</span><span>Tonalité</span><span style="text-align:right">Durée</span><span style="text-align:right">Année</span><span></span></div>';
+      for (const [
+        state,
+        title,
+        artist,
+        album,
+        bpm,
+        key,
+        length,
+        year,
+      ] of rows) {
+        const pitch = (reference.bpm / bpm - 1) * 100;
+        const mark =
+          state === "A"
+            ? '<span class="mark">A</span>'
+            : state === "B"
+              ? '<span class="mark out">B</span>'
+              : "";
+        const classes =
+          state === "played"
+            ? " is-played"
+            : state === "selected"
+              ? " is-selected"
+              : "";
+        html +=
+          `<div class="pr-table__row${classes}"><span>${mark}</span><span>${title}</span><span class="muted">${artist}</span><span class="muted">${album}</span>` +
+          `<span class="pr-num">${decimal(bpm, 2)}</span><span class="pr-num${Math.abs(pitch) > 8 ? " dim" : ""}">${state === "A" ? "" : (pitch >= 0 ? "+" : "−") + decimal(Math.abs(pitch), 1) + " %"}</span>` +
+          `${chip(key)}<span class="pr-num">${length}</span><span class="pr-num dim">${year}</span>` +
+          `<span class="load">${state === "selected" ? '<button class="pr-btn pr-btn--sm">→ A</button><button class="pr-btn pr-btn--sm">→ B</button>' : ""}</span></div>`;
+      }
+      document.getElementById("tracks").innerHTML = html;
+
+      const S = window.PrismeSketch;
+      const draw = () => {
+        S.scrolling(document.getElementById("wave-a"), S.future, {
+          bpm: 126,
+          pos: 298.3,
+          span: 7.6,
+          cues: [
+            [150.2, 3],
+            [199.9, 4],
+          ],
+        });
+        S.overview(document.getElementById("overview-a"), S.future, {
+          length: 434,
+          pos: 298.3,
+          cues: [[0.5], [61.9], [150.2], [199.9]],
+        });
+        const loop = 30.72;
+        S.scrolling(document.getElementById("wave-b"), S.schleierwolken, {
+          bpm: 126,
+          pos: 31.9,
+          span: 7.6,
+          cues: [[0.48, 1]],
+          loop: [loop, loop + (8 * 60) / 125],
+        });
+        S.overview(document.getElementById("overview-b"), S.schleierwolken, {
+          length: 433,
+          pos: 31.9,
+          cues: [[0.48], [46.1]],
+        });
+        S.phase(document.getElementById("phase"), {
+          bpm: 126,
+          span: 7.6,
+          offsetMs: 24,
+        });
+      };
+      document.fonts.ready.then(draw);
+    </script>
+  </body>
+</html>

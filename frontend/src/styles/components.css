@@ -1,0 +1,595 @@
+/* Prisme components: ready-made classes built only from the tokens. The reference
+   pages in design/reference use them as they are. See design/DESIGN.md. */
+
+/* ---------- Text ---------- */
+
+.pr-label {
+  font: 600 var(--pr-size-label) / 1.2 var(--pr-font);
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--pr-text-3);
+}
+
+/* every number that changes while the music plays */
+.pr-num {
+  font-family: var(--pr-font-mono);
+  font-stretch: var(--pr-mono-width);
+  font-variant-numeric: tabular-nums;
+}
+
+.pr-heading {
+  margin: 0;
+  font: 600 var(--pr-size-heading) / 1.1 var(--pr-font);
+  font-stretch: var(--pr-narrow);
+  text-wrap: balance;
+}
+
+.pr-kbd {
+  font: 11px / 1 var(--pr-font-mono);
+  color: var(--pr-text-3);
+  border: 1px solid var(--pr-line-2);
+  border-radius: var(--pr-radius-sm);
+  padding: 2px 5px;
+}
+
+/* ---------- Buttons ---------- */
+
+.pr-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--pr-space-2);
+  height: var(--pr-h);
+  padding: 0 14px;
+  font: 500 var(--pr-size) / 1 var(--pr-font);
+  color: var(--pr-text);
+  background: transparent;
+  border: 1px solid var(--pr-line-2);
+  border-radius: var(--pr-radius);
+  white-space: nowrap;
+  cursor: pointer;
+}
+.pr-btn:hover {
+  background: var(--pr-raise-2);
+}
+.pr-btn:focus-visible {
+  outline: 2px solid var(--pr-light);
+  outline-offset: 2px;
+}
+.pr-btn:disabled {
+  opacity: 0.35;
+  cursor: default;
+  background: transparent;
+}
+.pr-btn--lg {
+  height: var(--pr-h-lg);
+  padding: 0 18px;
+  font-size: 14px;
+}
+.pr-btn--sm {
+  height: var(--pr-h-sm);
+  padding: 0 9px;
+  font-size: var(--pr-size-small);
+}
+/* the main action of a zone, and every toggle that is on */
+.pr-btn--light,
+.pr-btn.is-on {
+  background: var(--pr-light);
+  border-color: var(--pr-light);
+  color: var(--pr-on-light);
+  font-weight: 600;
+}
+.pr-btn--ghost {
+  border-color: transparent;
+  color: var(--pr-text-2);
+}
+.pr-btn--ghost:hover {
+  color: var(--pr-text);
+}
+.pr-btn--danger {
+  border-color: var(--pr-alert);
+  color: var(--pr-alert);
+}
+.pr-btn--danger:hover {
+  background: var(--pr-alert);
+  color: var(--pr-on-light);
+}
+/* a square button holding a symbol: always an aria-label */
+.pr-btn--icon {
+  width: var(--pr-h);
+  padding: 0;
+}
+.pr-btn--icon.pr-btn--sm {
+  width: var(--pr-h-sm);
+}
+.pr-btn--icon.pr-btn--lg {
+  width: var(--pr-h-lg);
+}
+/* recording: a red dot, the whole button red while it records */
+.pr-btn__dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--pr-alert);
+}
+.pr-btn--rec.is-on {
+  background: var(--pr-alert);
+  border-color: var(--pr-alert);
+}
+.pr-btn--rec.is-on .pr-btn__dot {
+  background: var(--pr-on-light);
+}
+
+/* ---------- Segmented choice (INT / REL / ABS, A / B) ---------- */
+
+.pr-seg {
+  display: inline-flex;
+  gap: 2px;
+  padding: 2px;
+  border: 1px solid var(--pr-line-2);
+  border-radius: var(--pr-radius);
+}
+.pr-seg > button {
+  height: 22px;
+  padding: 0 9px;
+  font: 600 11px / 1 var(--pr-font);
+  letter-spacing: 0.06em;
+  color: var(--pr-text-3);
+  background: transparent;
+  border: 0;
+  border-radius: var(--pr-radius-sm);
+  cursor: pointer;
+}
+.pr-seg > button:hover {
+  color: var(--pr-text);
+}
+.pr-seg > button:focus-visible {
+  outline: 2px solid var(--pr-light);
+}
+.pr-seg > button[aria-checked='true'],
+.pr-seg > button.is-on {
+  background: var(--pr-light);
+  color: var(--pr-on-light);
+}
+.pr-seg--lg > button {
+  height: 34px;
+  padding: 0 16px;
+  font-size: var(--pr-size-small);
+}
+
+/* ---------- Key chip ---------- */
+/* style="--h: var(--pr-key-hue-5)"; .pr-key--maj for B keys; filled when compatible */
+
+.pr-key {
+  --c: oklch(0.76 0.13 var(--h));
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 38px;
+  height: 22px;
+  padding: 0 6px;
+  font: 600 var(--pr-size-small) / 1 var(--pr-font-mono);
+  font-stretch: var(--pr-mono-width);
+  color: var(--c);
+  border: 1px solid oklch(0.76 0.13 var(--h) / 0.55);
+  border-radius: var(--pr-radius-sm);
+}
+.pr-key--maj {
+  --c: oklch(0.87 0.085 var(--h));
+  border-color: oklch(0.87 0.085 var(--h) / 0.55);
+}
+.pr-key--fill {
+  background: var(--c);
+  border-color: var(--c);
+  color: var(--pr-on-light);
+}
+.pr-key--lg {
+  min-width: 52px;
+  height: 30px;
+  font-size: 16px;
+}
+
+/* ---------- State marks ---------- */
+
+/* the signal of a record: full when fine, hollow when it needs a look */
+.pr-sig {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+}
+.pr-sig--ok {
+  background: var(--pr-ok);
+}
+.pr-sig--weak {
+  border: 2px solid var(--pr-warn);
+}
+.pr-sig--none {
+  border: 2px solid var(--pr-alert);
+}
+
+.pr-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 22px;
+  padding: 0 8px;
+  font-size: 11.5px;
+  color: var(--pr-text-2);
+  border: 1px solid var(--pr-line);
+  border-radius: var(--pr-radius-sm);
+}
+.pr-chip .pr-num {
+  font-size: 11px;
+  color: var(--pr-text);
+}
+.pr-chip--warn,
+.pr-chip--warn .pr-num {
+  border-color: var(--pr-warn);
+  color: var(--pr-warn);
+}
+.pr-chip--alert,
+.pr-chip--alert .pr-num {
+  border-color: var(--pr-alert);
+  color: var(--pr-alert);
+}
+
+/* the deck letter */
+.pr-tile {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  font: 600 18px / 1 var(--pr-font);
+  font-stretch: var(--pr-narrow);
+  color: var(--pr-on-light);
+  background: var(--pr-light);
+  border-radius: var(--pr-radius-sm);
+}
+.pr-tile--outline {
+  color: var(--pr-text);
+  background: transparent;
+  border: 1px solid var(--pr-line-2);
+}
+
+/* ---------- Surfaces ---------- */
+
+.pr-panel {
+  background: var(--pr-base);
+  border: 1px solid var(--pr-line);
+  border-radius: var(--pr-radius);
+}
+
+.pr-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: grid;
+  place-items: center;
+  background: rgb(10 11 13 / 0.72);
+}
+.pr-dialog {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  width: min(720px, calc(100vw - 48px));
+  max-height: calc(100vh - 96px);
+  background: var(--pr-base);
+  border: 1px solid var(--pr-line-2);
+  border-radius: var(--pr-radius);
+  box-shadow: 0 24px 64px rgb(0 0 0 / 0.5);
+}
+.pr-dialog__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--pr-space-4);
+  padding: var(--pr-space-4) var(--pr-space-5);
+  border-bottom: 1px solid var(--pr-line);
+}
+.pr-dialog__head h2 {
+  margin: 0;
+  font: 600 22px / 1.1 var(--pr-font);
+  font-stretch: var(--pr-narrow);
+}
+.pr-dialog__body {
+  overflow: auto;
+  padding: var(--pr-space-5);
+}
+.pr-dialog__foot {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--pr-space-2);
+  padding: var(--pr-space-3) var(--pr-space-5);
+  border-top: 1px solid var(--pr-line);
+}
+
+/* ---------- Readouts ---------- */
+
+.pr-readout {
+  display: grid;
+  gap: 2px;
+}
+.pr-readout__value {
+  font: 500 var(--pr-size-time) / 1 var(--pr-font-mono);
+  font-stretch: var(--pr-mono-width);
+  font-variant-numeric: tabular-nums;
+}
+.pr-readout__value--mid {
+  font-size: var(--pr-size-value);
+}
+.pr-readout__sub {
+  font-size: 11px;
+  color: var(--pr-text-3);
+  white-space: nowrap;
+}
+/* remaining time: amber for the last 30 s, red and blinking for the last 10 */
+.pr-readout--warn .pr-readout__value {
+  color: var(--pr-warn);
+}
+.pr-readout--alert .pr-readout__value {
+  color: var(--pr-alert);
+  animation: pr-blink 1s steps(1) infinite;
+}
+@keyframes pr-blink {
+  50% {
+    opacity: 0.35;
+  }
+}
+
+/* ---------- Pads ---------- */
+/* empty: dashed; set: its tag colour as a bar (style="--tag: ..."); held: in the light */
+
+.pr-pad {
+  display: grid;
+  align-content: center;
+  justify-items: start;
+  gap: 3px;
+  width: 42px;
+  height: var(--pr-h-lg);
+  padding: 0 6px;
+  font: 600 var(--pr-size-small) / 1 var(--pr-font-mono);
+  color: var(--pr-text-3);
+  background: transparent;
+  border: 1px dashed var(--pr-line-2);
+  border-radius: var(--pr-radius-sm);
+  cursor: pointer;
+}
+.pr-pad--set {
+  color: var(--pr-text);
+  background: var(--pr-raise);
+  border-style: solid;
+}
+.pr-pad--set::after {
+  content: '';
+  width: 100%;
+  height: 3px;
+  border-radius: 1px;
+  background: var(--tag);
+}
+.pr-pad.is-hot {
+  color: var(--pr-on-light);
+  background: var(--pr-light);
+  border-color: var(--pr-light);
+}
+
+/* ---------- Level meter ---------- */
+/* 24 segments: grey up to -6 dB, amber up to 0, red beyond */
+
+.pr-meter {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
+  gap: 1px;
+  height: 8px;
+}
+.pr-meter > i {
+  background: var(--pr-raise-2);
+}
+.pr-meter > i.is-lit {
+  background: var(--pr-text-2);
+}
+.pr-meter > i.is-hot {
+  background: var(--pr-warn);
+}
+.pr-meter > i.is-clip {
+  background: var(--pr-alert);
+}
+
+/* ---------- Fields ---------- */
+
+.pr-input,
+.pr-select {
+  height: var(--pr-h);
+  padding: 0 10px;
+  font: 400 var(--pr-size) / 1 var(--pr-font);
+  color: var(--pr-text);
+  background: var(--pr-raise);
+  border: 1px solid var(--pr-line-2);
+  border-radius: var(--pr-radius);
+}
+.pr-input::placeholder {
+  color: var(--pr-text-3);
+}
+.pr-input:focus,
+.pr-select:focus {
+  outline: none;
+  border-color: var(--pr-light);
+}
+.pr-select {
+  appearance: none;
+  padding-right: 28px;
+  background-image:
+    linear-gradient(45deg, transparent 50%, var(--pr-text-2) 50%),
+    linear-gradient(-45deg, transparent 50%, var(--pr-text-2) 50%);
+  background-size: 5px 5px;
+  background-position:
+    calc(100% - 15px) 50%,
+    calc(100% - 10px) 50%;
+  background-repeat: no-repeat;
+}
+.pr-field {
+  display: grid;
+  gap: 6px;
+}
+.pr-field__help {
+  font-size: var(--pr-size-small);
+  color: var(--pr-text-3);
+}
+
+/* <label class="pr-check"><input type="checkbox" />Text</label> */
+.pr-check {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--pr-space-2);
+  cursor: pointer;
+}
+.pr-check > input {
+  appearance: none;
+  display: grid;
+  place-items: center;
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  border: 1px solid var(--pr-line-2);
+  border-radius: var(--pr-radius-sm);
+  cursor: pointer;
+}
+.pr-check > input:checked {
+  background: var(--pr-light);
+  border-color: var(--pr-light);
+}
+.pr-check > input:checked::after {
+  content: '';
+  width: 8px;
+  height: 4px;
+  margin-top: -2px;
+  border: solid var(--pr-on-light);
+  border-width: 0 0 2px 2px;
+  transform: rotate(-45deg);
+}
+.pr-check > input:focus-visible {
+  outline: 2px solid var(--pr-light);
+  outline-offset: 2px;
+}
+
+/* <button class="pr-switch" role="switch" aria-checked="true"><span></span></button> */
+.pr-switch {
+  position: relative;
+  width: 34px;
+  height: 18px;
+  padding: 0;
+  background: transparent;
+  border: 1px solid var(--pr-line-2);
+  border-radius: 9px;
+  cursor: pointer;
+}
+.pr-switch > span {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--pr-text-3);
+  transition: left var(--pr-fast);
+}
+.pr-switch[aria-checked='true'] {
+  background: var(--pr-light);
+  border-color: var(--pr-light);
+}
+.pr-switch[aria-checked='true'] > span {
+  left: 19px;
+  background: var(--pr-on-light);
+}
+
+.pr-range {
+  appearance: none;
+  height: 22px;
+  background: transparent;
+}
+.pr-range::-webkit-slider-runnable-track {
+  height: 2px;
+  background: var(--pr-line-2);
+}
+.pr-range::-webkit-slider-thumb {
+  appearance: none;
+  width: 12px;
+  height: 20px;
+  margin-top: -9px;
+  background: var(--pr-light);
+  border-radius: var(--pr-radius-sm);
+}
+.pr-range:focus-visible {
+  outline: 2px solid var(--pr-light);
+  outline-offset: 2px;
+}
+
+/* ---------- Table ---------- */
+/* rows are grids sharing the columns given on the table: style="--pr-cols: 1fr 60px ..." */
+
+.pr-table {
+  font-size: var(--pr-size);
+}
+.pr-table__head,
+.pr-table__row {
+  display: grid;
+  grid-template-columns: var(--pr-cols);
+  align-items: center;
+  gap: 10px;
+  padding: 0 var(--pr-space-3);
+}
+.pr-table__head {
+  height: 28px;
+  border-bottom: 1px solid var(--pr-line);
+}
+.pr-table__head > * {
+  font: 600 var(--pr-size-label) / 1 var(--pr-font);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--pr-text-3);
+}
+.pr-table__row {
+  height: var(--pr-row);
+  border-bottom: 1px solid var(--pr-line-soft);
+}
+.pr-table__row > * {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.pr-table__row:hover {
+  background: var(--pr-base);
+}
+.pr-table__row.is-selected {
+  background: var(--pr-raise-2);
+}
+/* played tonight: dimmed, never hidden */
+.pr-table__row.is-played,
+.pr-table__row.is-played * {
+  color: var(--pr-text-3);
+}
+.pr-table__row.is-played .pr-key {
+  opacity: 0.5;
+}
+
+/* ---------- Tooltip ---------- */
+
+.pr-tooltip {
+  max-width: 280px;
+  padding: 6px 9px;
+  font-size: var(--pr-size-small);
+  color: var(--pr-text);
+  background: var(--pr-raise-2);
+  border: 1px solid var(--pr-line-2);
+  border-radius: var(--pr-radius-sm);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pr-readout--alert .pr-readout__value {
+    animation: none;
+  }
+  .pr-switch > span {
+    transition: none;
+  }
+}

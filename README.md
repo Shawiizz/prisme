@@ -61,6 +61,7 @@ crates/
   prisme-import/     Serato and rekordbox import
   prisme-control/    MIDI controller messages and mappings
   prisme-session/    settings files with atomic writes
+design/              the design system: DESIGN.md and the reference screens
 ```
 
 The audio thread never allocates, locks or frees: the interface sends commands through

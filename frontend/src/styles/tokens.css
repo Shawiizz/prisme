@@ -1,0 +1,97 @@
+/* Prisme design tokens: the single source of every colour and size of the interface.
+   Components never hard-code a value: they read these. See design/DESIGN.md. */
+
+:root {
+  color-scheme: dark;
+
+  /* Glass: the colourless interface, from the darkest to the lightest */
+  --pr-void: #0a0b0d; /* background, behind the waveforms */
+  --pr-base: #111316; /* deck panels, bands, sidebar */
+  --pr-raise: #181b1f; /* set pads, fields */
+  --pr-raise-2: #20242a; /* hover, selected row */
+  --pr-line-soft: #16191d; /* lines between table rows */
+  --pr-line: #23272d; /* separations */
+  --pr-line-2: #333840; /* outlines of buttons and fields */
+
+  /* Text */
+  --pr-text: #e7e8ea;
+  --pr-text-2: #a1a6ae; /* secondary */
+  --pr-text-3: #6b717a; /* labels, dimmed */
+
+  /* White light: the only accent. Active states, the main action, the playhead. */
+  --pr-light: #f3f1eb;
+  --pr-on-light: #0b0c0e; /* glyphs on the light */
+  --pr-light-veil: rgb(243 241 235 / 0.08); /* loop band */
+
+  /* States */
+  --pr-ok: oklch(0.8 0.15 155);
+  --pr-warn: oklch(0.84 0.15 80);
+  --pr-alert: oklch(0.66 0.21 27);
+
+  /* The spectrum, for the music only: low frequencies red, high ones violet,
+     as light through a prism */
+  --pr-f-low: #ff5442;
+  --pr-f-mid: #a6e25c;
+  --pr-f-high: #8f7bff;
+
+  /* Keys: one hue per Camelot number, in the order of the wheel, so that compatible
+     keys have neighbouring colours. Minor keys deep, major keys pale (see .pr-key). */
+  --pr-key-hue-1: 175;
+  --pr-key-hue-2: 145;
+  --pr-key-hue-3: 115;
+  --pr-key-hue-4: 85;
+  --pr-key-hue-5: 55;
+  --pr-key-hue-6: 25;
+  --pr-key-hue-7: 355;
+  --pr-key-hue-8: 325;
+  --pr-key-hue-9: 295;
+  --pr-key-hue-10: 265;
+  --pr-key-hue-11: 235;
+  --pr-key-hue-12: 205;
+
+  /* Tags: the colours a hot cue or a track can be marked with, eight hues of the
+     spectrum in the usual DJ order */
+  --pr-tag-red: #ff5442;
+  --pr-tag-orange: #ff9a3c;
+  --pr-tag-yellow: #f5d547;
+  --pr-tag-green: #a6e25c;
+  --pr-tag-aqua: #3fd3b5;
+  --pr-tag-blue: #4aa8ff;
+  --pr-tag-violet: #8f7bff;
+  --pr-tag-pink: #e86bd6;
+
+  /* Type: Instrument Sans to read, Martian Mono for every number that changes */
+  --pr-font: 'Instrument Sans', 'Segoe UI Variable Text', 'Segoe UI', system-ui, sans-serif;
+  --pr-font-mono: 'Martian Mono', 'Cascadia Mono', Consolas, ui-monospace, monospace;
+  --pr-narrow: 75%; /* width of titles and the wordmark */
+  --pr-mono-width: 75%; /* width of the numbers: Martian Mono is wide */
+  --pr-size-label: 10.5px; /* capitals: REMAINING, BPM, KEY */
+  --pr-size-small: 12px; /* secondary text, table numbers */
+  --pr-size: 13px; /* the interface */
+  --pr-size-track: 15px; /* track titles */
+  --pr-size-heading: 30px; /* dialog and screen titles */
+  --pr-size-value: 20px; /* BPM, key */
+  --pr-size-time: 27px; /* remaining time */
+
+  /* Shape and size */
+  --pr-radius: 3px;
+  --pr-radius-sm: 2px;
+  --pr-h-lg: 40px; /* what is touched while mixing */
+  --pr-h: 32px;
+  --pr-h-sm: 24px; /* dialogs and toolbars only */
+  --pr-row: 29px; /* library rows */
+  --pr-titlebar: 36px;
+  --pr-deck-panel: 330px;
+
+  /* Spacing, on a base of 4 */
+  --pr-space-1: 4px;
+  --pr-space-2: 8px;
+  --pr-space-3: 12px;
+  --pr-space-4: 16px;
+  --pr-space-5: 24px;
+  --pr-space-6: 32px;
+  --pr-space-7: 48px;
+
+  /* Motion: the interface opens fast and never moves while the music plays */
+  --pr-fast: 120ms;
+}

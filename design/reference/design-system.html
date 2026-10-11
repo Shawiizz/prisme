@@ -1,0 +1,578 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Prisme · design system</title>
+    <link rel="stylesheet" href="../../frontend/src/styles/fonts.css" />
+    <link rel="stylesheet" href="../../frontend/src/styles/tokens.css" />
+    <link rel="stylesheet" href="../../frontend/src/styles/components.css" />
+    <style>
+      /* Every token and component on one board, built from the app's own stylesheets. */
+      *,
+      *::before,
+      *::after {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        background: var(--pr-void);
+        color: var(--pr-text);
+        font: 15px / 1.55 var(--pr-font);
+        -webkit-font-smoothing: antialiased;
+      }
+      main {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 48px 32px 96px;
+      }
+      header.top {
+        display: grid;
+        gap: var(--pr-space-4);
+        margin-bottom: 56px;
+      }
+      header.top h1 {
+        margin: 0;
+        font: 600 64px / 0.95 var(--pr-font);
+        font-stretch: var(--pr-narrow);
+      }
+      header.top p {
+        margin: 0;
+        max-width: 70ch;
+        color: var(--pr-text-2);
+      }
+      section {
+        margin-top: 64px;
+      }
+      h2 {
+        margin: 0 0 var(--pr-space-2);
+        font: 600 30px / 1.1 var(--pr-font);
+        font-stretch: var(--pr-narrow);
+      }
+      h2 .n {
+        margin-right: 12px;
+        font: 13px var(--pr-font-mono);
+        color: var(--pr-text-3);
+        vertical-align: 6px;
+      }
+      h3 {
+        margin: 28px 0 12px;
+        font-size: 12px;
+        font-weight: 600;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        color: var(--pr-text-3);
+      }
+      section > p {
+        margin: 0 0 var(--pr-space-4);
+        max-width: 70ch;
+        color: var(--pr-text-2);
+      }
+      .swatches {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+        gap: 10px;
+      }
+      .swatch {
+        overflow: hidden;
+      }
+      .swatch i {
+        display: block;
+        height: 56px;
+        border-bottom: 1px solid var(--pr-line);
+      }
+      .swatch div {
+        display: grid;
+        gap: 1px;
+        padding: var(--pr-space-2) 10px;
+      }
+      .swatch b {
+        font-size: 13.5px;
+        font-weight: 600;
+      }
+      .swatch code {
+        font: 11px var(--pr-font-mono);
+        color: var(--pr-text-3);
+      }
+      .swatch small {
+        font-size: var(--pr-size-small);
+        color: var(--pr-text-2);
+        line-height: 1.35;
+      }
+      .wheel {
+        display: grid;
+        grid-template-columns: 56px repeat(12, minmax(0, 1fr));
+        gap: 6px;
+        align-items: center;
+      }
+      .wheel .pr-key {
+        width: 100%;
+      }
+      .cells {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+        gap: var(--pr-space-4);
+      }
+      .cell {
+        display: grid;
+        gap: 14px;
+        align-content: start;
+        padding: 18px;
+      }
+      .cell p {
+        margin: 0;
+        font-size: 13.5px;
+        color: var(--pr-text-2);
+      }
+      .row {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 10px;
+      }
+      .type {
+        display: grid;
+        grid-template-columns: 220px minmax(0, 1fr);
+        gap: var(--pr-space-4);
+        align-items: baseline;
+        padding: 12px 0;
+        border-bottom: 1px solid var(--pr-line);
+      }
+      .type code {
+        font: 11.5px var(--pr-font-mono);
+        color: var(--pr-text-3);
+      }
+      .readouts {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+        gap: 10px;
+      }
+      .readouts .pr-readout {
+        padding: var(--pr-space-3);
+      }
+      .wave {
+        position: relative;
+        height: 120px;
+      }
+      .wave canvas {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <header class="top">
+        <img src="../logo.svg" width="46" height="40" alt="Prisme" />
+        <h1>Prisme design system</h1>
+        <p>
+          White light for the interface, the spectrum for the music. The rules
+          and the reasons are in DESIGN.md; this board shows every token and
+          component as the app draws them.
+        </p>
+      </header>
+
+      <section>
+        <h2><span class="n">01</span>Colours</h2>
+        <p>
+          Three families that never mix: the greys of the glass for the
+          interface, a white light for what acts, the spectrum for the music.
+          The states keep their three colours.
+        </p>
+        <h3>Glass and light</h3>
+        <div class="swatches">
+          <div class="swatch pr-panel">
+            <i style="background: var(--pr-void)"></i>
+            <div>
+              <b>Void</b><code>--pr-void</code
+              ><small>Background, behind the waveforms</small>
+            </div>
+          </div>
+          <div class="swatch pr-panel">
+            <i style="background: var(--pr-base)"></i>
+            <div>
+              <b>Base</b><code>--pr-base</code
+              ><small>Deck panels, bands, sidebar</small>
+            </div>
+          </div>
+          <div class="swatch pr-panel">
+            <i style="background: var(--pr-raise)"></i>
+            <div>
+              <b>Raise</b><code>--pr-raise</code><small>Set pads, fields</small>
+            </div>
+          </div>
+          <div class="swatch pr-panel">
+            <i style="background: var(--pr-raise-2)"></i>
+            <div>
+              <b>Raise 2</b><code>--pr-raise-2</code
+              ><small>Hover, selected row</small>
+            </div>
+          </div>
+          <div class="swatch pr-panel">
+            <i style="background: var(--pr-line-2)"></i>
+            <div>
+              <b>Lines</b><code>--pr-line · --pr-line-2</code
+              ><small>Separations, outlines</small>
+            </div>
+          </div>
+          <div class="swatch pr-panel">
+            <i style="background: var(--pr-text)"></i>
+            <div>
+              <b>Text</b><code>--pr-text · -2 · -3</code
+              ><small>Main, secondary, labels</small>
+            </div>
+          </div>
+          <div class="swatch pr-panel">
+            <i style="background: var(--pr-light)"></i>
+            <div>
+              <b>Light</b><code>--pr-light</code
+              ><small>The only accent: on, main action, playhead</small>
+            </div>
+          </div>
+        </div>
+        <h3>States</h3>
+        <div class="swatches">
+          <div class="swatch pr-panel">
+            <i style="background: var(--pr-ok)"></i>
+            <div>
+              <b>OK</b><code>--pr-ok</code
+              ><small>Record signal, audio running</small>
+            </div>
+          </div>
+          <div class="swatch pr-panel">
+            <i style="background: var(--pr-warn)"></i>
+            <div>
+              <b>Warning</b><code>--pr-warn</code
+              ><small>Weak signal, last 30 s</small>
+            </div>
+          </div>
+          <div class="swatch pr-panel">
+            <i style="background: var(--pr-alert)"></i>
+            <div>
+              <b>Alert</b><code>--pr-alert</code
+              ><small>Lost signal, dropout, recording, end of track</small>
+            </div>
+          </div>
+        </div>
+        <h3>Frequencies</h3>
+        <div class="swatches">
+          <div class="swatch pr-panel">
+            <i style="background: var(--pr-f-low)"></i>
+            <div>
+              <b>Low</b><code>--pr-f-low</code
+              ><small>Kick, bass: red, the longest wavelength of light</small>
+            </div>
+          </div>
+          <div class="swatch pr-panel">
+            <i style="background: var(--pr-f-mid)"></i>
+            <div>
+              <b>Mid</b><code>--pr-f-mid</code
+              ><small>Voices, claps, pads</small>
+            </div>
+          </div>
+          <div class="swatch pr-panel">
+            <i style="background: var(--pr-f-high)"></i>
+            <div>
+              <b>High</b><code>--pr-f-high</code
+              ><small>Hats, cymbals, air</small>
+            </div>
+          </div>
+        </div>
+        <h3>Keys</h3>
+        <div class="wheel" id="wheel"></div>
+        <h3>Tags (hot cues, tracks)</h3>
+        <div class="row" id="tags"></div>
+      </section>
+
+      <section>
+        <h2><span class="n">02</span>Type</h2>
+        <p>
+          Instrument Sans to read, narrow for titles. Martian Mono for every
+          number that changes: with fixed widths, a running time never shakes
+          its line.
+        </p>
+        <div class="type">
+          <code>Heading · 600 · narrow · 30</code
+          ><span class="pr-heading">Turntables and timecode signal</span>
+        </div>
+        <div class="type">
+          <code>Track title · 600 · 15</code
+          ><span style="font-weight: 600; font-size: var(--pr-size-track)"
+            >Schleierwolken</span
+          >
+        </div>
+        <div class="type">
+          <code>Interface · 400 · 13</code
+          ><span style="font-size: var(--pr-size)"
+            >The record is read in relative mode: only its speed matters.</span
+          >
+        </div>
+        <div class="type">
+          <code>Label · 600 · 10.5 · capitals</code
+          ><span class="pr-label">Remaining · BPM · Key</span>
+        </div>
+        <div class="type">
+          <code>Time · mono 500 · 27</code
+          ><span class="pr-readout__value">−2:15.7</span>
+        </div>
+        <div class="type">
+          <code>Value · mono 500 · 20</code
+          ><span class="pr-readout__value pr-readout__value--mid">126.00</span>
+        </div>
+        <div class="type">
+          <code>Table · mono 400 · 12</code
+          ><span class="pr-num" style="font-size: var(--pr-size-small)"
+            >124.00 +1.6 % 6:39 2026</span
+          >
+        </div>
+      </section>
+
+      <section>
+        <h2><span class="n">03</span>Buttons and controls</h2>
+        <p>
+          Three heights, one per use; two buttons side by side always share one.
+          A button that is on lights up in white.
+        </p>
+        <div class="cells">
+          <div class="cell pr-panel">
+            <span class="pr-label">Heights</span>
+            <div class="row">
+              <button class="pr-btn pr-btn--lg">40 · while mixing</button
+              ><button class="pr-btn">32 · default</button
+              ><button class="pr-btn pr-btn--sm">24 · settings</button>
+            </div>
+          </div>
+          <div class="cell pr-panel">
+            <span class="pr-label">Variants</span>
+            <div class="row">
+              <button class="pr-btn pr-btn--light">Load on A</button
+              ><button class="pr-btn">Analyse</button
+              ><button class="pr-btn pr-btn--ghost">Cancel</button
+              ><button class="pr-btn pr-btn--icon" aria-label="Close">×</button>
+            </div>
+            <div class="row">
+              <button class="pr-btn pr-btn--danger">Delete the crate</button
+              ><button class="pr-btn pr-btn--rec">
+                <span class="pr-btn__dot"></span>Record</button
+              ><button class="pr-btn pr-btn--rec is-on">
+                <span class="pr-btn__dot"></span
+                ><span class="pr-num">12:04</span></button
+              ><button class="pr-btn" disabled>Disabled</button>
+            </div>
+          </div>
+          <div class="cell pr-panel">
+            <span class="pr-label">Choices and toggles</span>
+            <div class="row">
+              <div class="pr-seg pr-seg--lg" role="radiogroup">
+                <button role="radio" aria-checked="false">INT</button
+                ><button role="radio" aria-checked="true">REL</button
+                ><button role="radio" aria-checked="false">ABS</button>
+              </div>
+              <div class="pr-seg" role="radiogroup">
+                <button role="radio" aria-checked="true">A</button
+                ><button role="radio" aria-checked="false">B</button>
+              </div>
+            </div>
+            <div class="row">
+              <button class="pr-btn pr-btn--sm is-on">Key lock</button
+              ><button class="pr-btn pr-btn--sm">Quantize</button
+              ><button
+                class="pr-switch"
+                role="switch"
+                aria-checked="true"
+                aria-label="Write tags"
+              >
+                <span></span></button
+              ><button
+                class="pr-switch"
+                role="switch"
+                aria-checked="false"
+                aria-label="Preview"
+              >
+                <span></span></button
+              ><label class="pr-check"
+                ><input type="checkbox" checked />Write tags</label
+              >
+            </div>
+          </div>
+          <div class="cell pr-panel">
+            <span class="pr-label">Pads</span>
+            <div class="row">
+              <button class="pr-pad">1</button
+              ><button
+                class="pr-pad pr-pad--set"
+                style="--tag: var(--pr-tag-green)"
+              >
+                2</button
+              ><button
+                class="pr-pad pr-pad--set"
+                style="--tag: var(--pr-tag-violet)"
+              >
+                3</button
+              ><button
+                class="pr-pad pr-pad--set is-hot"
+                style="--tag: var(--pr-tag-orange)"
+              >
+                4
+              </button>
+            </div>
+            <p>
+              Empty dashed, set with its tag colour, in the light while held.
+            </p>
+          </div>
+          <div class="cell pr-panel">
+            <span class="pr-label">Fields</span>
+            <label class="pr-field"
+              ><span class="pr-label">Audio interface</span
+              ><select class="pr-select">
+                <option>UMC404HD 192k</option>
+              </select></label
+            >
+            <label class="pr-field"
+              ><span class="pr-label">Crate name</span
+              ><input class="pr-input" placeholder="Peak time" /><span
+                class="pr-field__help"
+                >Shown in the sidebar.</span
+              ></label
+            >
+            <input class="pr-range" type="range" aria-label="Level" />
+          </div>
+        </div>
+      </section>
+
+      <section>
+        <h2><span class="n">04</span>Readouts and indicators</h2>
+        <p>
+          Three numbers per deck read from afar: remaining time, BPM, key. An
+          alert changes both colour and shape, to be seen from the corner of the
+          eye.
+        </p>
+        <div class="readouts">
+          <div class="pr-readout pr-panel">
+            <span class="pr-label">Remaining</span
+            ><span class="pr-readout__value">−2:15.7</span
+            ><span class="pr-readout__sub">Normal</span>
+          </div>
+          <div class="pr-readout pr-readout--warn pr-panel">
+            <span class="pr-label">Remaining</span
+            ><span class="pr-readout__value">−0:28.4</span
+            ><span class="pr-readout__sub">Last 30 seconds</span>
+          </div>
+          <div class="pr-readout pr-readout--alert pr-panel">
+            <span class="pr-label">Remaining</span
+            ><span class="pr-readout__value">−0:07.9</span
+            ><span class="pr-readout__sub">Last 10: blinks at 1 Hz</span>
+          </div>
+          <div class="pr-readout pr-panel">
+            <span class="pr-label">BPM</span
+            ><span class="pr-readout__value pr-readout__value--mid">126.00</span
+            ><span class="pr-readout__sub pr-num">125.00 +0.8 %</span>
+          </div>
+        </div>
+        <div class="cells" style="margin-top: var(--pr-space-4)">
+          <div class="cell pr-panel">
+            <span class="pr-label">Record signal</span>
+            <div class="row">
+              <span class="pr-sig pr-sig--ok"></span>Good
+              <span class="pr-sig pr-sig--weak"></span>Weak
+              <span class="pr-sig pr-sig--none"></span>None
+              <span class="pr-tile">A</span
+              ><span class="pr-tile pr-tile--outline">B</span>
+            </div>
+          </div>
+          <div class="cell pr-panel">
+            <span class="pr-label">Audio health and level</span>
+            <div class="row">
+              <span class="pr-chip"
+                ><span
+                  class="pr-sig pr-sig--ok"
+                  style="width: 7px; height: 7px"
+                ></span
+                >ASIO</span
+              ><span class="pr-chip"
+                >Latency <span class="pr-num">5.3 ms</span></span
+              ><span class="pr-chip pr-chip--warn"
+                >Dropouts <span class="pr-num">2</span></span
+              >
+            </div>
+            <div class="pr-meter" id="meter" style="width: 160px"></div>
+          </div>
+          <div class="cell pr-panel">
+            <span class="pr-label">Keys in the library</span>
+            <div class="row">
+              <span class="pr-key pr-key--fill" style="--h: var(--pr-key-hue-4)"
+                >4A</span
+              ><span
+                class="pr-key pr-key--fill pr-key--maj"
+                style="--h: var(--pr-key-hue-5)"
+                >5B</span
+              ><span class="pr-key" style="--h: var(--pr-key-hue-12)">12A</span
+              ><span class="pr-key pr-key--maj" style="--h: var(--pr-key-hue-9)"
+                >9B</span
+              >
+            </div>
+            <p>
+              Compatible with the reference deck: filled. The others: outlined.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <section>
+        <h2><span class="n">05</span>Waveform</h2>
+        <p>
+          Three layers, low behind and high in front. The playhead is the only
+          white line, dispersed on its edges like light through a prism. What
+          has played is dimmed.
+        </p>
+        <div class="wave"><canvas id="legend"></canvas></div>
+      </section>
+    </main>
+
+    <script src="sketch.js"></script>
+    <script>
+      const minor = Array.from(
+        { length: 12 },
+        (_, i) =>
+          `<span class="pr-key pr-key--fill" style="--h:var(--pr-key-hue-${i + 1})">${i + 1}A</span>`,
+      ).join("");
+      const major = Array.from(
+        { length: 12 },
+        (_, i) =>
+          `<span class="pr-key pr-key--fill pr-key--maj" style="--h:var(--pr-key-hue-${i + 1})">${i + 1}B</span>`,
+      ).join("");
+      document.getElementById("wheel").innerHTML =
+        `<span class="pr-label">Minor</span>${minor}<span class="pr-label">Major</span>${major}`;
+      document.getElementById("tags").innerHTML = [
+        "red",
+        "orange",
+        "yellow",
+        "green",
+        "aqua",
+        "blue",
+        "violet",
+        "pink",
+      ]
+        .map(
+          (t, i) =>
+            `<button class="pr-pad pr-pad--set" style="--tag:var(--pr-tag-${t})" title="--pr-tag-${t}">${i + 1}</button>`,
+        )
+        .join("");
+      document.getElementById("meter").innerHTML = Array.from(
+        { length: 24 },
+        (_, i) =>
+          `<i class="${i < 14 ? "is-lit" : i < 17 ? "is-hot" : i < 18 ? "is-clip" : ""}"></i>`,
+      ).join("");
+      const S = window.PrismeSketch;
+      document.fonts.ready.then(() =>
+        S.scrolling(document.getElementById("legend"), S.future, {
+          bpm: 125,
+          pos: 205,
+          span: 9,
+          playheadAt: 0.35,
+        }),
+      );
+    </script>
+  </body>
+</html>
