@@ -321,7 +321,7 @@ export class LibraryService {
     this.selected.set(tracks[next].path);
   }
 
-  /** Loads the selected track on `deck`, or on the first free deck (deck 1 if none). */
+  /** Loads the selected track on `deck`, or on the first free deck (deck A if none). */
   loadSelected(deck: number | null) {
     const path = this.selected();
     if (path) this.load(path, deck);

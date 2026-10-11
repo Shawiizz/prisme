@@ -12,16 +12,21 @@ const SMALLEST_SIGNAL = 0.02;
 export class ScopePainter {
   private radius = 0.2;
 
-  draw(ctx: CanvasRenderingContext2D, points: [number, number][], size: number, color: string) {
+  draw(
+    ctx: CanvasRenderingContext2D,
+    points: [number, number][],
+    size: number,
+    colors: { dots: string; guides: string },
+  ) {
     const centre = size / 2;
     ctx.clearRect(0, 0, size, size);
-    this.drawGuides(ctx, centre);
+    this.drawGuides(ctx, centre, colors.guides);
 
     const loudest = points.reduce((m, [l, r]) => Math.max(m, Math.hypot(l, r)), 0);
     this.radius += (Math.max(loudest, SMALLEST_SIGNAL) - this.radius) * ZOOM_SMOOTHING;
     const scale = (centre * FILL) / this.radius;
 
-    ctx.fillStyle = color;
+    ctx.fillStyle = colors.dots;
     ctx.globalAlpha = 0.55;
     for (const [l, r] of points) {
       ctx.fillRect(centre + l * scale, centre - r * scale, 1.5, 1.5);
@@ -29,8 +34,8 @@ export class ScopePainter {
     ctx.globalAlpha = 1;
   }
 
-  private drawGuides(ctx: CanvasRenderingContext2D, centre: number) {
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.08)';
+  private drawGuides(ctx: CanvasRenderingContext2D, centre: number, color: string) {
+    ctx.strokeStyle = color;
     ctx.lineWidth = 1;
     ctx.beginPath();
     ctx.arc(centre, centre, centre * FILL, 0, Math.PI * 2);

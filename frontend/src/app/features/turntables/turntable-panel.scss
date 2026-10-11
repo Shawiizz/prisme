@@ -2,114 +2,79 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 12px;
+  gap: var(--pr-space-4);
 }
 h3 {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
   align-self: stretch;
   margin: 0;
-  font-size: 13px;
-  font-weight: 600;
-}
-.tile {
-  width: 22px;
-  height: 22px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  background: var(--accent);
-  color: var(--ink);
-  font-weight: 800;
-  border-radius: 2px;
+  font: 600 var(--pr-size-track) / 1.2 var(--pr-font);
 }
 .scope {
   width: 220px;
   height: 220px;
-  background: #05060a;
-  border: 1px solid var(--line);
+  background: var(--pr-void);
+  border: 1px solid var(--pr-line);
   border-radius: 50%;
 }
 .readings {
   align-self: stretch;
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 8px 16px;
+  gap: var(--pr-space-3) var(--pr-space-4);
   > div {
-    display: flex;
-    flex-direction: column;
-    gap: 3px;
-  }
-  .value {
-    font-variant-numeric: tabular-nums;
-    text-transform: uppercase;
-    font-weight: 600;
-  }
-  .ok {
-    color: var(--mint);
-  }
-  .bounce {
-    color: var(--amber);
-  }
-  .none {
-    color: var(--faint);
-  }
-  .bar {
-    height: 6px;
-    margin-top: 5px;
-    border-radius: 3px;
-    background: var(--line);
-    overflow: hidden;
-    div {
-      height: 100%;
-      background: var(--accent);
-    }
-  }
-}
-.controls {
-  align-self: stretch;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  label {
-    display: flex;
-    flex-direction: column;
+    display: grid;
     gap: 4px;
   }
-  .check {
-    flex-direction: row;
-    align-items: center;
-    gap: 8px;
-    color: var(--text-2);
+  .value {
+    font-size: 15px;
+    font-weight: 500;
   }
-  input[type='number'] {
-    width: 90px;
+  .ok {
+    color: var(--pr-ok);
   }
-}
-.modes {
-  display: flex;
-  gap: 4px;
-  button {
-    flex: 1;
-    font-weight: 700;
-    &.active {
-      background: var(--accent);
-      border-color: var(--accent);
-      color: var(--ink);
+  .bounce {
+    color: var(--pr-warn);
+  }
+  .none {
+    color: var(--pr-text-3);
+  }
+  .bar {
+    height: 2px;
+    margin-top: 8px;
+    background: var(--pr-line-2);
+    div {
+      height: 100%;
+      background: var(--pr-light);
     }
   }
 }
 .crossed {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  padding: 8px;
-  border: 1px solid var(--amber);
-  border-radius: 3px;
-  color: var(--amber);
-  font-size: 12px;
-  button {
-    align-self: flex-start;
+  align-self: stretch;
+  display: grid;
+  gap: var(--pr-space-2);
+  justify-items: start;
+  padding: var(--pr-space-3);
+  border: 1px solid var(--pr-warn);
+  border-radius: var(--pr-radius);
+  font-size: var(--pr-size-small);
+  color: var(--pr-warn);
+}
+.controls {
+  align-self: stretch;
+  display: grid;
+  gap: var(--pr-space-3);
+  .line {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .pr-check {
+    color: var(--pr-text-2);
+  }
+  .pr-input {
+    width: 100px;
   }
 }

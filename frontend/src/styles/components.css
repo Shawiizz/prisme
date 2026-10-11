@@ -56,11 +56,7 @@
   outline: 2px solid var(--pr-light);
   outline-offset: 2px;
 }
-.pr-btn:disabled {
-  opacity: 0.35;
-  cursor: default;
-  background: transparent;
-}
+
 .pr-btn--lg {
   height: var(--pr-h-lg);
   padding: 0 18px;
@@ -118,6 +114,14 @@
 }
 .pr-btn--rec.is-on .pr-btn__dot {
   background: var(--pr-on-light);
+}
+/* after the variants: a disabled button is outlined and dim, whatever its variant */
+.pr-btn:disabled {
+  opacity: 0.35;
+  cursor: default;
+  background: transparent;
+  border-color: var(--pr-line-2);
+  color: var(--pr-text);
 }
 
 /* ---------- Segmented choice (INT / REL / ABS, A / B) ---------- */

@@ -1,5 +1,6 @@
 import { BANDS, Band, DECK_COUNT, HOT_CUES, SAMPLE_SLOTS } from '../models/engine';
 import { t } from '../i18n/i18n';
+import { deckLetter } from '../../shared/time';
 
 /** The physical control an action suits. */
 export type ControlKind = 'button' | 'fader' | 'encoder';
@@ -84,7 +85,7 @@ function fader(id: string, group: string, label: string, run: (v: number) => voi
 }
 
 function deckControls(a: ControlActions, deck: number): Control[] {
-  const group = t('Deck {n}', { n: deck + 1 });
+  const group = t('Deck {deck}', { deck: deckLetter(deck) });
   const id = (name: string) => `deck${deck + 1}.${name}`;
   const lit = (control: Control, on: () => boolean): Control => ({ ...control, lit: on });
   return [
@@ -165,8 +166,11 @@ export function buildControls(a: ControlActions): Control[] {
     button('library.previous', library, t('Previous track'), () => a.browse(-1)),
     button('library.next', library, t('Next track'), () => a.browse(1)),
     ...Array.from({ length: DECK_COUNT }, (_, deck) =>
-      button(`library.load${deck + 1}`, library, t('Load on deck {n}', { n: deck + 1 }), () =>
-        a.loadSelected(deck),
+      button(
+        `library.load${deck + 1}`,
+        library,
+        t('Load on deck {deck}', { deck: deckLetter(deck) }),
+        () => a.loadSelected(deck),
       ),
     ),
     button('library.load', library, t('Load on a free deck'), () => a.loadSelected(null)),

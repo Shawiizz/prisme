@@ -297,8 +297,8 @@ export const FR: Record<string, string> = {
     "Plus petit, c'est plus réactif ; augmentez-le si le son craque.",
   '{frames} samples · {ms} ms': '{frames} échantillons · {ms} ms',
   Mixing: 'Mixage',
-  'External mixer: deck 1 on outputs 1-2, deck 2 on 3-4':
-    'Table de mixage externe : deck 1 sur les sorties 1-2, deck 2 sur 3-4',
+  'External mixer: deck A on outputs 1-2, deck B on 3-4':
+    'Table de mixage externe : deck A sur les sorties 1-2, deck B sur 3-4',
   'Software mixer: master on 1-2, headphones on 3-4':
     'Table de mixage logicielle : master sur 1-2, casque sur 3-4',
   Interface: 'Interface',
@@ -312,11 +312,11 @@ export const FR: Record<string, string> = {
     'Platines branchées sur les entrées de ce pilote',
   'Input (DVS interface)': 'Entrée (interface DVS)',
   None: 'Aucune',
-  'Deck 1 reads inputs 1-2, deck 2 inputs 3-4.':
-    'Le deck 1 lit les entrées 1-2, le deck 2 les entrées 3-4.',
+  'Deck A reads inputs 1-2, deck B inputs 3-4.':
+    'Le deck A lit les entrées 1-2, le deck B les entrées 3-4.',
   'Control vinyl': 'Vinyle de contrôle',
-  'Simulated turntable on deck 1 (no hardware needed)':
-    'Platine simulée sur le deck 1 (sans matériel)',
+  'Simulated turntable on deck A (no hardware needed)':
+    'Platine simulée sur le deck A (sans matériel)',
   'Sync on a record in relative mode': 'Sync sur un disque en mode relatif',
   'One shot: matches once, the pitch fader keeps working':
     'Ponctuelle : cale une fois, le fader de pitch reste actif',
@@ -334,7 +334,7 @@ export const FR: Record<string, string> = {
   'Reading devices…': 'Lecture des périphériques…',
 
   // turntables
-  'Turntable {n}': 'Platine {n}',
+  'Turntable {deck}': 'Platine {deck}',
   Signal: 'Signal',
   Level: 'Niveau',
   Speed: 'Vitesse',
@@ -354,7 +354,7 @@ export const FR: Record<string, string> = {
 
   // controls (keyboard and MIDI)
   'Keyboard shortcuts': 'Raccourcis clavier',
-  'Deck {n}': 'Deck {n}',
+  'Deck {deck}': 'Deck {deck}',
   'Play / pause': 'Lecture / pause',
   'Cue (hold to preview)': 'Cue (maintenir pour pré-écouter)',
   Sync: 'Sync',
@@ -379,7 +379,6 @@ export const FR: Record<string, string> = {
   Browse: 'Parcourir',
   'Previous track': 'Morceau précédent',
   'Next track': 'Morceau suivant',
-  'Load on deck {n}': 'Charger sur le deck {n}',
   'Load on a free deck': 'Charger sur un deck libre',
   'Remove from the crate or prepare list': 'Retirer de la crate ou de la préparation',
   'Add to the prepare list': 'Ajouter à la préparation',

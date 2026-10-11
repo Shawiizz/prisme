@@ -1,72 +1,105 @@
-<div class="backdrop" (click)="closed.emit()">
-  <div class="dialog" (click)="$event.stopPropagation()" (keydown.escape)="closed.emit()">
-    <h2>{{ crate() ? ('Smart crate' | t) : ('New smart crate' | t) }}</h2>
-    <input
-      class="name"
-      [placeholder]="'Name' | t"
-      [value]="name()"
-      (input)="name.set($any($event.target).value)"
-    />
-    <div class="match">
-      {{ 'Tracks matching' | t }}
-      <select
-        [value]="matchAll() ? 'all' : 'any'"
-        (change)="matchAll.set($any($event.target).value === 'all')"
+<div class="pr-backdrop" (click)="closed.emit()">
+  <div
+    class="pr-dialog"
+    role="dialog"
+    aria-modal="true"
+    [attr.aria-label]="crate() ? ('Smart crate' | t) : ('New smart crate' | t)"
+    (click)="$event.stopPropagation()"
+    (keydown.escape)="closed.emit()"
+  >
+    <header class="pr-dialog__head">
+      <h2>{{ crate() ? ('Smart crate' | t) : ('New smart crate' | t) }}</h2>
+      <button
+        class="pr-btn pr-btn--ghost pr-btn--icon"
+        [attr.aria-label]="'Close' | t"
+        (click)="closed.emit()"
       >
-        <option value="all">{{ 'all of these rules' | t }}</option>
-        <option value="any">{{ 'any of these rules' | t }}</option>
-      </select>
-    </div>
-    <div class="rules">
-      @for (r of rules(); track $index; let i = $index) {
-        <div class="rule">
-          <select [value]="choiceOf(r)" (change)="setChoice(i, $any($event.target).value)">
-            @for (c of choices; track c.id) {
-              <option [value]="c.id">{{ c.label }}</option>
+        ×
+      </button>
+    </header>
+    <div class="pr-dialog__body">
+      <input
+        class="pr-input name"
+        [placeholder]="'Name' | t"
+        [value]="name()"
+        (input)="name.set($any($event.target).value)"
+      />
+      <div class="match">
+        {{ 'Tracks matching' | t }}
+        <select
+          class="pr-select"
+          [value]="matchAll() ? 'all' : 'any'"
+          (change)="matchAll.set($any($event.target).value === 'all')"
+        >
+          <option value="all">{{ 'all of these rules' | t }}</option>
+          <option value="any">{{ 'any of these rules' | t }}</option>
+        </select>
+      </div>
+      <div class="rules">
+        @for (r of rules(); track $index; let i = $index) {
+          <div class="rule">
+            <select
+              class="pr-select"
+              [value]="choiceOf(r)"
+              (change)="setChoice(i, $any($event.target).value)"
+            >
+              @for (c of choices; track c.id) {
+                <option [value]="c.id">{{ c.label }}</option>
+              }
+            </select>
+            @if (r.kind === 'text') {
+              <span>{{ 'contains' | t }}</span>
+              <input
+                class="pr-input grow"
+                [value]="r.contains"
+                (input)="setContains(i, $any($event.target).value)"
+              />
+            } @else if (r.kind === 'key') {
+              <span>{{ 'is one of' | t }}</span>
+              <input
+                class="pr-input grow"
+                placeholder="8A 9A 8B"
+                [value]="r.camelot.join(' ')"
+                (change)="setKeys(i, $any($event.target).value)"
+              />
+            } @else {
+              <span>{{ 'from' | t }}</span>
+              <input
+                class="pr-input bound"
+                inputmode="decimal"
+                [value]="r.min ?? ''"
+                (change)="setBound(i, 'min', $any($event.target).value)"
+              />
+              <span>{{ 'to' | t }}</span>
+              <input
+                class="pr-input bound"
+                inputmode="decimal"
+                [value]="r.max ?? ''"
+                (change)="setBound(i, 'max', $any($event.target).value)"
+              />
             }
-          </select>
-          @if (r.kind === 'text') {
-            <span>{{ 'contains' | t }}</span>
-            <input
-              class="grow"
-              [value]="r.contains"
-              (input)="setContains(i, $any($event.target).value)"
-            />
-          } @else if (r.kind === 'key') {
-            <span>{{ 'is one of' | t }}</span>
-            <input
-              class="grow"
-              placeholder="8A 9A 8B"
-              [value]="r.camelot.join(' ')"
-              (change)="setKeys(i, $any($event.target).value)"
-            />
-          } @else {
-            <span>{{ 'from' | t }}</span>
-            <input
-              class="bound"
-              inputmode="decimal"
-              [value]="r.min ?? ''"
-              (change)="setBound(i, 'min', $any($event.target).value)"
-            />
-            <span>{{ 'to' | t }}</span>
-            <input
-              class="bound"
-              inputmode="decimal"
-              [value]="r.max ?? ''"
-              (change)="setBound(i, 'max', $any($event.target).value)"
-            />
-          }
-          <button class="remove" [title]="'Remove this rule' | t" (click)="remove(i)">×</button>
-        </div>
-      }
+            <button
+              class="pr-btn pr-btn--sm pr-btn--ghost pr-btn--icon"
+              [title]="'Remove this rule' | t"
+              [attr.aria-label]="'Remove this rule' | t"
+              (click)="remove(i)"
+            >
+              ×
+            </button>
+          </div>
+        }
+      </div>
+      <button class="pr-btn pr-btn--sm add" (click)="add()">{{ 'Add a rule' | t }}</button>
     </div>
-    <div class="buttons">
-      <button (click)="add()">{{ 'Add a rule' | t }}</button>
-      <span class="spacer"></span>
-      <button (click)="closed.emit()">{{ 'Cancel' | t }}</button>
-      <button class="primary" [disabled]="!name().trim() || !rules().length" (click)="save()">
+    <footer class="pr-dialog__foot">
+      <button class="pr-btn" (click)="closed.emit()">{{ 'Cancel' | t }}</button>
+      <button
+        class="pr-btn pr-btn--light"
+        [disabled]="!name().trim() || !rules().length"
+        (click)="save()"
+      >
         {{ crate() ? ('Save' | t) : ('Create' | t) }}
       </button>
-    </div>
+    </footer>
   </div>
 </div>

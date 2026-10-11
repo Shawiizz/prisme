@@ -1,69 +1,85 @@
-<div class="backdrop" (click)="busy() || closed.emit()">
-  <div class="dialog" (click)="$event.stopPropagation()">
-    <h2>{{ 'Import' | t }}</h2>
-    <p class="note">
-      {{
-        'What is already set in Prisme stays as it is: importing again only adds what is missing.'
-          | t
-      }}
-    </p>
-
-    <section>
-      <h3>Serato DJ</h3>
-      <p>
+<div class="pr-backdrop" (click)="busy() || closed.emit()">
+  <div
+    class="pr-dialog"
+    role="dialog"
+    aria-modal="true"
+    [attr.aria-label]="'Import' | t"
+    (click)="$event.stopPropagation()"
+  >
+    <header class="pr-dialog__head">
+      <h2>{{ 'Import' | t }}</h2>
+      <button
+        class="pr-btn pr-btn--ghost pr-btn--icon"
+        [attr.aria-label]="'Close' | t"
+        [disabled]="busy()"
+        (click)="closed.emit()"
+      >
+        ×
+      </button>
+    </header>
+    <div class="pr-dialog__body">
+      <p class="note">
         {{
-          'Crates from the _Serato_ folder, and the cues, saved loops, colours and beat grids Serato wrote into your files.'
+          'What is already set in Prisme stays as it is: importing again only adds what is missing.'
             | t
         }}
       </p>
-      <div class="row">
-        <span class="path" [class.missing]="!seratoFolder()">
-          {{ seratoFolder() ?? ('No _Serato_ folder in Music: only the tags of the files' | t) }}
-        </span>
-        <button [disabled]="busy()" (click)="pickSeratoFolder()">{{ 'Choose…' | t }}</button>
-        <button class="primary" [disabled]="busy()" (click)="importSerato()">
-          {{ 'Import' | t }}
-        </button>
-      </div>
-    </section>
 
-    <section>
-      <h3>rekordbox</h3>
-      <p>
-        {{
-          'In rekordbox, File › Export Collection in xml format, then pick that file: playlists, hot and memory cues, loops, beat grids, colours and ratings.'
-            | t
-        }}
-      </p>
-      <div class="row">
-        <span class="spacer"></span>
-        <button class="primary" [disabled]="busy()" (click)="importRekordbox()">
-          {{ 'Choose the XML file…' | t }}
-        </button>
-      </div>
-    </section>
+      <section>
+        <h3>Serato DJ</h3>
+        <p>
+          {{
+            'Crates from the _Serato_ folder, and the cues, saved loops, colours and beat grids Serato wrote into your files.'
+              | t
+          }}
+        </p>
+        <div class="row">
+          <span class="path" [class.missing]="!seratoFolder()">
+            {{ seratoFolder() ?? ('No _Serato_ folder in Music: only the tags of the files' | t) }}
+          </span>
+          <button class="pr-btn" [disabled]="busy()" (click)="pickSeratoFolder()">
+            {{ 'Choose…' | t }}
+          </button>
+          <button class="pr-btn pr-btn--light" [disabled]="busy()" (click)="importSerato()">
+            {{ 'Import' | t }}
+          </button>
+        </div>
+      </section>
 
-    @if (busy()) {
-      <p class="status">{{ 'Importing…' | t }}</p>
-    } @else if (summary(); as s) {
-      <p class="status">
-        {{
-          '{tracks} tracks updated: {cues} cues, {grids} beat grids; {crates} crates.'
-            | t: { tracks: s.tracks, cues: s.cues, grids: s.grids, crates: s.crates }
-        }}
-        @if (s.missing > 0) {
-          <span class="missing">{{
-            '{n} files are not on this computer.' | t: { n: s.missing }
-          }}</span>
-        }
-      </p>
-    }
-    @if (error(); as e) {
-      <p class="error">{{ e }}</p>
-    }
+      <section>
+        <h3>rekordbox</h3>
+        <p>
+          {{
+            'In rekordbox, File › Export Collection in xml format, then pick that file: playlists, hot and memory cues, loops, beat grids, colours and ratings.'
+              | t
+          }}
+        </p>
+        <div class="row">
+          <span class="spacer"></span>
+          <button class="pr-btn pr-btn--light" [disabled]="busy()" (click)="importRekordbox()">
+            {{ 'Choose the XML file…' | t }}
+          </button>
+        </div>
+      </section>
 
-    <div class="buttons">
-      <button [disabled]="busy()" (click)="closed.emit()">{{ 'Close' | t }}</button>
+      @if (busy()) {
+        <p class="status">{{ 'Importing…' | t }}</p>
+      } @else if (summary(); as s) {
+        <p class="status">
+          {{
+            '{tracks} tracks updated: {cues} cues, {grids} beat grids; {crates} crates.'
+              | t: { tracks: s.tracks, cues: s.cues, grids: s.grids, crates: s.crates }
+          }}
+          @if (s.missing > 0) {
+            <span class="missing">{{
+              '{n} files are not on this computer.' | t: { n: s.missing }
+            }}</span>
+          }
+        </p>
+      }
+      @if (error(); as e) {
+        <p class="error">{{ e }}</p>
+      }
     </div>
   </div>
 </div>

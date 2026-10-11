@@ -1,64 +1,40 @@
-.backdrop {
-  position: fixed;
-  inset: 0;
-  z-index: 10;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: rgba(4, 5, 9, 0.7);
+.pr-dialog {
+  width: min(640px, calc(100vw - 48px));
 }
-.dialog {
-  width: 560px;
-  max-height: 86vh;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  padding: 20px;
-  overflow: auto;
-  background: var(--panel);
-  border: 1px solid var(--line-strong);
-  border-radius: 4px;
+.pr-dialog__body {
+  display: grid;
+  gap: var(--pr-space-4);
+  align-content: start;
 }
-h2 {
-  margin: 0;
-  font-size: 16px;
-  font-weight: 600;
+.name {
+  width: 100%;
 }
 .match {
   display: flex;
   align-items: center;
-  gap: 8px;
-  color: var(--text-2);
+  gap: var(--pr-space-2);
+  color: var(--pr-text-2);
 }
 .rules {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
+  display: grid;
+  gap: var(--pr-space-2);
 }
 .rule {
   display: flex;
   align-items: center;
-  gap: 8px;
-  color: var(--muted);
-  select {
-    width: 110px;
+  gap: var(--pr-space-2);
+  color: var(--pr-text-2);
+  .pr-select {
+    width: 150px;
   }
   .grow {
     flex: 1;
     min-width: 0;
   }
   .bound {
-    width: 70px;
-  }
-  .remove {
-    margin-left: auto;
-    padding: 2px 8px;
+    width: 80px;
   }
 }
-.buttons {
-  display: flex;
-  gap: 8px;
-  .spacer {
-    flex: 1;
-  }
+.add {
+  justify-self: start;
 }

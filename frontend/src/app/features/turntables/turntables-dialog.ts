@@ -8,53 +8,40 @@ import { TPipe } from '../../core/i18n/t.pipe';
   selector: 'app-turntables-dialog',
   imports: [TurntablePanel, TPipe],
   template: `
-    <div class="backdrop" (click)="closed.emit()">
-      <div class="dialog" (click)="$event.stopPropagation()">
-        <h2>{{ 'Turntables' | t }}</h2>
-        <div class="decks">
+    <div class="pr-backdrop" (click)="closed.emit()">
+      <div
+        class="pr-dialog"
+        role="dialog"
+        aria-modal="true"
+        [attr.aria-label]="'Turntables' | t"
+        (click)="$event.stopPropagation()"
+      >
+        <header class="pr-dialog__head">
+          <h2>{{ 'Turntables' | t }}</h2>
+          <button
+            class="pr-btn pr-btn--ghost pr-btn--icon"
+            [attr.aria-label]="'Close' | t"
+            (click)="closed.emit()"
+          >
+            ×
+          </button>
+        </header>
+        <div class="pr-dialog__body decks">
           @for (d of decks; track d) {
             <app-turntable-panel [deck]="d" />
           }
-        </div>
-        <div class="buttons">
-          <button (click)="closed.emit()">{{ 'Close' | t }}</button>
         </div>
       </div>
     </div>
   `,
   styles: `
-    .backdrop {
-      position: fixed;
-      inset: 0;
-      z-index: 10;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      background: rgba(4, 5, 9, 0.7);
-    }
-    .dialog {
-      width: 640px;
-      display: flex;
-      flex-direction: column;
-      gap: 16px;
-      padding: 20px;
-      background: var(--panel);
-      border: 1px solid var(--line-strong);
-      border-radius: 4px;
-    }
-    h2 {
-      margin: 0;
-      font-size: 16px;
-      font-weight: 600;
+    .pr-dialog {
+      width: min(760px, calc(100vw - 48px));
     }
     .decks {
       display: grid;
       grid-template-columns: 1fr 1fr;
-      gap: 28px;
-    }
-    .buttons {
-      display: flex;
-      justify-content: flex-end;
+      gap: var(--pr-space-5);
     }
   `,
 })

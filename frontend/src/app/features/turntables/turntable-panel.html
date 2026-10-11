@@ -1,32 +1,27 @@
-<div class="panel" [style.--accent]="color()">
+<div class="panel">
   <h3>
-    <span class="tile">{{ deck() + 1 }}</span> {{ 'Turntable {n}' | t: { n: deck() + 1 } }}
+    <span class="pr-tile">{{ letter() }}</span>
+    {{ 'Turntable {deck}' | t: { deck: letter() } }}
   </h3>
 
-  <canvas
-    #scope
-    class="scope"
-    [width]="size"
-    [height]="size"
-    [style.--accent-color]="color()"
-  ></canvas>
+  <canvas #scope class="scope" [width]="size" [height]="size"></canvas>
 
   <div class="readings">
     <div>
-      <span class="label">{{ 'Signal' | t }}</span>
+      <span class="pr-label">{{ 'Signal' | t }}</span>
       <span class="value" [class]="vinyl()?.signal ?? 'none'">{{ signalText() }}</span>
     </div>
     <div>
-      <span class="label">{{ 'Level' | t }}</span>
+      <span class="pr-label">{{ 'Level' | t }}</span>
       <div class="bar"><div [style.width.%]="levelPercent()"></div></div>
     </div>
     <div>
-      <span class="label">{{ 'Speed' | t }}</span>
-      <span class="value">{{ speed() }}</span>
+      <span class="pr-label">{{ 'Speed' | t }}</span>
+      <span class="value pr-num">{{ speed() }}</span>
     </div>
     <div>
-      <span class="label">{{ 'Record' | t }}</span>
-      <span class="value">{{ position() }}</span>
+      <span class="pr-label">{{ 'Record' | t }}</span>
+      <span class="value pr-num">{{ position() }}</span>
     </div>
   </div>
 
@@ -36,38 +31,45 @@
         'The record has been playing backwards for a while: if the platter turns forwards, the left and right cables are crossed.'
           | t
       }}</span>
-      <button (click)="setSwap(!settings().swapChannels)">{{ 'Swap left / right' | t }}</button>
+      <button class="pr-btn pr-btn--sm" (click)="setSwap(!settings().swapChannels)">
+        {{ 'Swap left / right' | t }}
+      </button>
     </div>
   }
 
   <div class="controls">
-    <label class="check">
-      <input
-        type="checkbox"
-        [checked]="settings().vinylEnabled"
-        (change)="setEnabled($any($event.target).checked)"
-      />
-      <span>{{ 'Vinyl control' | t }}</span>
-    </label>
-    <div class="modes">
-      <button
-        [class.active]="settings().vinylMode === 'absolute'"
-        (click)="setMode('absolute')"
-        [title]="'The needle position is the track position' | t"
-      >
-        ABS
-      </button>
-      <button
-        [class.active]="settings().vinylMode === 'relative'"
-        (click)="setMode('relative')"
-        [title]="'Only the speed: cues, loops and sync work' | t"
-      >
-        REL
-      </button>
+    <div class="line">
+      <label class="pr-check">
+        <input
+          type="checkbox"
+          [checked]="settings().vinylEnabled"
+          (change)="setEnabled($any($event.target).checked)"
+        />
+        {{ 'Vinyl control' | t }}
+      </label>
+      <div class="pr-seg" role="radiogroup" [attr.aria-label]="'Vinyl control' | t">
+        <button
+          role="radio"
+          [attr.aria-checked]="settings().vinylMode === 'relative'"
+          (click)="setMode('relative')"
+          [title]="'Only the speed: cues, loops and sync work' | t"
+        >
+          REL
+        </button>
+        <button
+          role="radio"
+          [attr.aria-checked]="settings().vinylMode === 'absolute'"
+          (click)="setMode('absolute')"
+          [title]="'The needle position is the track position' | t"
+        >
+          ABS
+        </button>
+      </div>
     </div>
-    <label>
-      <span class="label">{{ 'Lead-in (s)' | t }}</span>
+    <label class="pr-field">
+      <span class="pr-label">{{ 'Lead-in (s)' | t }}</span>
       <input
+        class="pr-input"
         type="number"
         min="0"
         step="0.5"
@@ -76,13 +78,13 @@
         [title]="'Where the track starts on the record' | t"
       />
     </label>
-    <label class="check">
+    <label class="pr-check">
       <input
         type="checkbox"
         [checked]="settings().swapChannels"
         (change)="setSwap($any($event.target).checked)"
       />
-      <span>{{ 'Swap left / right' | t }}</span>
+      {{ 'Swap left / right' | t }}
     </label>
   </div>
 </div>

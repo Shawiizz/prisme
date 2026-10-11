@@ -1,83 +1,53 @@
-.backdrop {
-  position: fixed;
-  inset: 0;
-  background: rgba(4, 5, 9, 0.7);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 10;
-}
-.dialog {
-  width: 860px;
-  max-height: 90vh;
-  overflow: auto;
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-  padding: 20px;
-  background: var(--panel);
-  border: 1px solid var(--line-strong);
-  border-radius: 4px;
-}
-h2 {
-  margin: 0 0 4px;
-  font-size: 16px;
-  font-weight: 600;
+.pr-dialog {
+  width: min(880px, calc(100vw - 48px));
 }
 .sections {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 24px;
+  gap: var(--pr-space-6);
 }
 section {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: var(--pr-space-3);
   min-width: 0;
   > small {
-    color: var(--faint);
-    font-size: 11px;
-    margin-top: -6px;
+    margin-top: calc(-1 * var(--pr-space-1));
+    font-size: var(--pr-size-small);
+    color: var(--pr-text-3);
   }
 }
 h3 {
-  margin: 4px 0 0;
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--muted);
-}
-select {
-  min-width: 0;
-}
-label {
-  display: flex;
-  flex-direction: column;
-  gap: 5px;
-  small {
-    color: var(--faint);
-    font-size: 11px;
+  margin: var(--pr-space-4) 0 0;
+  font: 600 var(--pr-size-track) / 1.2 var(--pr-font);
+  color: var(--pr-text);
+  &:first-child {
+    margin-top: 0;
   }
 }
-.check {
-  flex-direction: row;
-  align-items: center;
-  gap: 8px;
-  color: var(--text-2);
+label:not(.pr-check) {
+  display: grid;
+  gap: 6px;
+  small {
+    font-size: var(--pr-size-small);
+    color: var(--pr-text-3);
+  }
+}
+.pr-select {
+  min-width: 0;
+  width: 100%;
+}
+.pr-check {
+  color: var(--pr-text-2);
 }
 .error {
-  color: var(--red);
-  font-size: 12px;
+  margin-top: var(--pr-space-4);
+  font-size: var(--pr-size-small);
+  color: var(--pr-alert);
 }
-.buttons {
-  display: flex;
-  justify-content: flex-end;
-  gap: 8px;
-  .diagnostics {
-    margin-right: auto;
-  }
+.diagnostics {
+  margin-right: auto;
 }
 .loading {
-  color: var(--muted);
+  color: var(--pr-text-2);
 }

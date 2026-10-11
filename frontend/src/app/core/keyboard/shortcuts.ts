@@ -7,7 +7,7 @@ export interface Shortcut {
   control: string;
 }
 
-/** Physical keys of each deck: the left hand plays deck 1, the right hand deck 2. */
+/** Physical keys of each deck: the left hand plays deck A, the right hand deck B. */
 const DECK_KEYS = [
   {
     hotCues: ['Digit1', 'Digit2', 'Digit3', 'Digit4', 'KeyQ', 'KeyW', 'KeyE', 'KeyR'],

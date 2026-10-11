@@ -1,9 +1,13 @@
 <div class="backdrop" (click)="closed.emit()"></div>
-<div class="panel" (keydown.escape)="closed.emit()">
+<div class="panel pr-panel" (keydown.escape)="closed.emit()">
   <header>
-    <span>{{ 'Beat grid' | t }}</span>
+    <span class="pr-label">{{ 'Beat grid' | t }}</span>
     @if (track()?.gridEdited) {
-      <button [title]="'Back to the analysed grid' | t" (click)="grid({ kind: 'reset' })">
+      <button
+        class="pr-btn pr-btn--sm"
+        [title]="'Back to the analysed grid' | t"
+        (click)="grid({ kind: 'reset' })"
+      >
         {{ 'Reset' | t }}
       </button>
     }
@@ -11,17 +15,29 @@
   <div class="row">
     <input
       #bpm
-      class="bpm"
+      class="pr-input pr-num bpm"
       inputmode="decimal"
       [value]="bpmText()"
       (keydown.enter)="setBpm(bpm.value)"
       aria-label="BPM"
     />
-    <button (click)="setBpm(bpm.value)">{{ 'Apply' | t }}</button>
-    <button [title]="'Half time' | t" (click)="grid({ kind: 'scale', factor: 0.5 })">÷2</button>
-    <button [title]="'Double time' | t" (click)="grid({ kind: 'scale', factor: 2 })">×2</button>
+    <button class="pr-btn pr-btn--sm" (click)="setBpm(bpm.value)">{{ 'Apply' | t }}</button>
     <button
-      class="tap"
+      class="pr-btn pr-btn--sm"
+      [title]="'Half time' | t"
+      (click)="grid({ kind: 'scale', factor: 0.5 })"
+    >
+      ÷2
+    </button>
+    <button
+      class="pr-btn pr-btn--sm"
+      [title]="'Double time' | t"
+      (click)="grid({ kind: 'scale', factor: 2 })"
+    >
+      ×2
+    </button>
+    <button
+      class="pr-btn pr-btn--sm tap"
       [title]="'Tap the beat; the tempo shows after four taps' | t"
       (click)="tap()"
     >
@@ -30,33 +46,50 @@
   </div>
   <div class="row">
     <button
+      class="pr-btn pr-btn--sm"
       [title]="'Grid earlier (20 ms)' | t"
       (click)="grid({ kind: 'shift', seconds: -coarse })"
     >
       ◀◀
     </button>
-    <button [title]="'Grid earlier (2 ms)' | t" (click)="grid({ kind: 'shift', seconds: -fine })">
+    <button
+      class="pr-btn pr-btn--sm"
+      [title]="'Grid earlier (2 ms)' | t"
+      (click)="grid({ kind: 'shift', seconds: -fine })"
+    >
       ◀
     </button>
     <button
-      class="wide"
+      class="pr-btn pr-btn--sm wide"
       [title]="'Put a beat where the deck is' | t"
       (click)="grid({ kind: 'beatHere' })"
     >
       {{ 'Beat here' | t }}
     </button>
-    <button [title]="'Grid later (2 ms)' | t" (click)="grid({ kind: 'shift', seconds: fine })">
+    <button
+      class="pr-btn pr-btn--sm"
+      [title]="'Grid later (2 ms)' | t"
+      (click)="grid({ kind: 'shift', seconds: fine })"
+    >
       ▶
     </button>
-    <button [title]="'Grid later (20 ms)' | t" (click)="grid({ kind: 'shift', seconds: coarse })">
+    <button
+      class="pr-btn pr-btn--sm"
+      [title]="'Grid later (20 ms)' | t"
+      (click)="grid({ kind: 'shift', seconds: coarse })"
+    >
       ▶▶
     </button>
   </div>
 
   <header>
-    <span>{{ 'Key' | t }}</span>
+    <span class="pr-label">{{ 'Key' | t }}</span>
     @if (track()?.keyEdited) {
-      <button [title]="'Back to the detected key' | t" (click)="setKey(null)">
+      <button
+        class="pr-btn pr-btn--sm"
+        [title]="'Back to the detected key' | t"
+        (click)="setKey(null)"
+      >
         {{ 'Reset' | t }}
       </button>
     }
@@ -65,8 +98,11 @@
     <div class="keys">
       @for (k of row; track k.camelot) {
         <button
-          [class.current]="track()?.key?.camelot === k.camelot"
-          [title]="k.name"
+          class="pr-key"
+          [class.pr-key--maj]="major(k.camelot)"
+          [class.pr-key--fill]="track()?.key?.camelot === k.camelot"
+          [style.--h]="hue(k.camelot)"
+          [title]="keyName(k.camelot)"
           (click)="setKey(k.camelot)"
         >
           {{ k.camelot }}
@@ -76,19 +112,31 @@
   }
 
   <header>
-    <span>{{ 'Key shift' | t }}</span>
+    <span class="pr-label">{{ 'Key shift' | t }}</span>
     @if (keyShift() !== 0) {
-      <button [title]="'Back to the track key' | t" (click)="shiftKey(0)">
+      <button class="pr-btn pr-btn--sm" [title]="'Back to the track key' | t" (click)="shiftKey(0)">
         {{ 'Reset' | t }}
       </button>
     }
   </header>
   <div class="row">
-    <button [title]="'Down a semitone' | t" (click)="shiftKey(keyShift() - 1)">♭</button>
-    <span class="shift" [class.moved]="keyShift() !== 0">{{ shiftLabel() }}</span>
-    <button [title]="'Up a semitone' | t" (click)="shiftKey(keyShift() + 1)">♯</button>
     <button
-      class="wide"
+      class="pr-btn pr-btn--sm"
+      [title]="'Down a semitone' | t"
+      (click)="shiftKey(keyShift() - 1)"
+    >
+      ♭
+    </button>
+    <span class="shift pr-num" [class.moved]="keyShift() !== 0">{{ shiftLabel() }}</span>
+    <button
+      class="pr-btn pr-btn--sm"
+      [title]="'Up a semitone' | t"
+      (click)="shiftKey(keyShift() + 1)"
+    >
+      ♯
+    </button>
+    <button
+      class="pr-btn pr-btn--sm wide"
       [disabled]="keyMatch() === null"
       [title]="'The smallest shift after which the two decks mix harmonically' | t"
       (click)="shiftKey(keyMatch()!)"
