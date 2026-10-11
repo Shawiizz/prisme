@@ -67,6 +67,22 @@ fn absolute_vinyl_follows_the_record_position() {
 }
 
 #[test]
+fn absolute_vinyl_closes_a_small_gap_quickly() {
+    let mut rig = Rig::new();
+    rig.turntable(0, 12.0, 1.0);
+    rig.send(Command::LoadTrack { deck: 0, track: silent_track(40.0) });
+    rig.send(Command::SetVinylEnabled { deck: 0, enabled: true });
+    rig.run(1.0);
+    // the track 20 ms behind the record: too little to jump, it catches up
+    rig.send(Command::SetLeadIn { deck: 0, seconds: -0.02 });
+    rig.run(0.1);
+    let d = rig.deck(0);
+    let record = d.vinyl.record_position_s.expect("locked");
+    let gap = record + 0.02 - d.position_s;
+    assert!(gap.abs() < 0.001, "still {:.1} ms behind after 100 ms", gap * 1000.0);
+}
+
+#[test]
 fn the_scope_and_the_level_show_the_turntable_signal() {
     let mut rig = Rig::new();
     rig.turntable(0, 20.0, 1.0);

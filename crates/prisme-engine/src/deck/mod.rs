@@ -17,9 +17,11 @@ use transport::Transport;
 
 /// In absolute mode, a gap larger than this (s) is a needle drop: jump.
 const JUMP_THRESHOLD_S: f64 = 0.1;
-/// Smaller gaps are closed smoothly: speed correction per second of gap, and its limit.
-const PULL_PER_S: f64 = 5.0;
-const MAX_CORRECTION: f64 = 0.05;
+/// Smaller gaps are closed within about 20 ms: speed correction per second of gap, and
+/// its limit, wider when the record moves fast (a scratch leaves larger gaps to close).
+const PULL_PER_S: f64 = 50.0;
+const MAX_CORRECTION: f64 = 0.2;
+const MAX_CORRECTION_PER_SPEED: f64 = 0.5;
 
 pub(crate) struct Deck {
     pub(crate) playhead: Playhead,
@@ -214,7 +216,8 @@ impl Deck {
             if gap.abs() > JUMP_THRESHOLD_S {
                 self.playhead.seek_s(target);
             } else {
-                self.correction = (gap * PULL_PER_S).clamp(-MAX_CORRECTION, MAX_CORRECTION);
+                let cap = MAX_CORRECTION + MAX_CORRECTION_PER_SPEED * drive.speed.abs();
+                self.correction = (gap * PULL_PER_S).clamp(-cap, cap);
             }
         }
     }
