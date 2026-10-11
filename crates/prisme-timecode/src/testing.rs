@@ -70,9 +70,10 @@ impl SignalGenerator {
             let amplitude = if self.bits[index] == 1 { HIGH_BIT } else { LOW_BIT };
             let (sin, cos) = (TAU * (self.position - cycle)).sin_cos();
             let level = if self.velocity_sensitive { speed.abs().min(MAX_LEVEL_SPEED) } else { 1.0 };
-            let primary = level * amplitude * sin;
-            // orientation of real records (calibrated against an independent decoder)
-            let secondary = -level * amplitude * SECONDARY * cos;
+            // as on real records: a cycle runs from one primary peak to the next, and the
+            // secondary lags the primary by a quarter of a cycle
+            let primary = level * amplitude * cos;
+            let secondary = level * amplitude * SECONDARY * sin;
             let (left, right) = match self.format.primary {
                 crate::format::Channel::Right => (secondary, primary),
                 crate::format::Channel::Left => (primary, secondary),

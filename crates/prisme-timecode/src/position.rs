@@ -1,21 +1,21 @@
 //! Bit reading and absolute position.
 //!
-//! One bit is read per carrier cycle, when the secondary channel crosses zero while the
-//! primary is positive: the primary is then at its peak, which is compared with the
-//! average of the recent peaks. (Both channels carry the bits, so the primary cannot be
-//! measured against the secondary.) The last `bits` bits form a register whose index on
-//! the record is looked up in the [`SequenceTable`]. Once locked, the position is
-//! predicted bit after bit, so a wrong bit costs nothing; a new position (needle drop)
-//! takes over once it has been confirmed as long as the first lock.
+//! Each carrier cycle carries one bit, centred on the negative half of the primary
+//! channel: the bit changes where the primary peaks. One bit is read per such lobe, from
+//! the signal level averaged over it, against the average of the recent lobes. The last
+//! `bits` bits form a register whose index on the record is looked up in the
+//! [`SequenceTable`]. Once locked, the position follows the carrier phase, so wrong bits
+//! and changes of direction cost nothing; a new position (needle drop) takes over once it
+//! has been confirmed as long as the first lock.
 
 use crate::format::{SequenceTable, TimecodeFormat};
 use std::f64::consts::TAU;
 use std::sync::Arc;
 
-/// Peaks used to initialise the bit threshold.
-const WARMUP_PEAKS: u32 = 8;
+/// Lobes used to initialise the bit threshold.
+const WARMUP_LOBES: u32 = 8;
 /// Averaging length of the bit threshold, in bits.
-const THRESHOLD_LENGTH: f64 = 24.0;
+const THRESHOLD_LENGTH: f64 = 16.0;
 /// Consecutive consistent lookups needed to lock (or re-lock elsewhere). Any register
 /// is a position, and a random one goes on following the sequence for one more bit half
 /// the time: 24 bits leave one false lock in about 16 million.
@@ -29,13 +29,13 @@ pub(crate) struct PositionTracker {
     table: Arc<SequenceTable>,
     bits: u32,
     threshold: f64,
-    peaks_seen: u32,
+    lobes_seen: u32,
     last_bit_phase: Option<f64>,
     register: u32,
     bits_read: u32,
     locked: bool,
-    index: u32,
-    index_phase: f64,
+    lock_cycle: u32,
+    lock_phase: f64,
     candidate: Option<u32>,
     candidate_run: u32,
     garbage: u32,
@@ -47,36 +47,35 @@ impl PositionTracker {
             table,
             bits: format.bits,
             threshold: 0.0,
-            peaks_seen: 0,
+            lobes_seen: 0,
             last_bit_phase: None,
             register: 0,
             bits_read: 0,
             locked: false,
-            index: 0,
-            index_phase: 0.0,
+            lock_cycle: 0,
+            lock_phase: 0.0,
             candidate: None,
             candidate_run: 0,
             garbage: 0,
         }
     }
 
-    /// The secondary crossed zero with the primary positive: read a bit.
-    /// `phase` is the unwrapped carrier phase (radians, forward positive).
-    pub(crate) fn on_bit_crossing(&mut self, primary_peak: f64, phase: f64, forwards: bool) {
-        if let Some(last) = self.last_bit_phase {
-            if (phase - last).abs() < MIN_BIT_SPACING * TAU {
-                return;
-            }
+    /// A negative lobe of the primary was crossed: read its bit. `level`: the signal
+    /// level averaged over the lobe; `phase`: the unwrapped carrier phase at its centre
+    /// (radians, forward positive); `forwards`: the direction the lobe was left in.
+    pub(crate) fn on_lobe(&mut self, level: f64, phase: f64, forwards: bool) {
+        if self.last_bit_phase.is_some_and(|last| (phase - last).abs() < MIN_BIT_SPACING * TAU) {
+            return;
         }
         self.last_bit_phase = Some(phase);
 
-        if self.peaks_seen < WARMUP_PEAKS {
-            self.peaks_seen += 1;
-            self.threshold += (primary_peak - self.threshold) / self.peaks_seen as f64;
+        if self.lobes_seen < WARMUP_LOBES {
+            self.lobes_seen += 1;
+            self.threshold += (level - self.threshold) / self.lobes_seen as f64;
         } else {
-            self.threshold += (primary_peak - self.threshold) / THRESHOLD_LENGTH;
+            self.threshold += (level - self.threshold) / THRESHOLD_LENGTH;
         }
-        let bit = (primary_peak > self.threshold) as u32;
+        let bit = (level > self.threshold) as u32;
         let mask = (1u32 << self.bits) - 1;
         self.register = if forwards {
             (self.register >> 1) | (bit << (self.bits - 1))
@@ -84,12 +83,7 @@ impl PositionTracker {
             ((self.register << 1) & mask) | bit
         };
         self.bits_read = (self.bits_read + 1).min(64);
-
-        if self.locked {
-            self.index = if forwards { self.index + 1 } else { self.index.saturating_sub(1) };
-            self.index_phase = phase;
-        }
-        if self.bits_read < self.bits || self.peaks_seen < WARMUP_PEAKS {
+        if self.bits_read < self.bits || self.lobes_seen < WARMUP_LOBES {
             return;
         }
 
@@ -104,19 +98,20 @@ impl PositionTracker {
         self.track_candidate(lookup, forwards);
 
         if self.locked {
-            if lookup == Some(self.index) {
+            let expected = self.cycle_at(phase);
+            if lookup == expected {
                 self.garbage = 0;
             } else {
-                // a wrong bit spoils the next `bits` lookups: keep the prediction meanwhile
+                // a wrong bit spoils the next `bits` lookups: the phase carries on meanwhile
                 self.garbage += 1;
-                if self.candidate_run >= LOCK_RUN && self.candidate != Some(self.index) {
-                    self.lock_at(self.candidate);
+                if self.candidate_run >= LOCK_RUN && self.candidate != expected {
+                    self.lock_at(self.candidate, phase);
                 } else if self.garbage > MAX_GARBAGE {
                     self.locked = false;
                 }
             }
         } else if self.candidate_run >= LOCK_RUN {
-            self.lock_at(self.candidate);
+            self.lock_at(self.candidate, phase);
         }
     }
 
@@ -131,22 +126,27 @@ impl PositionTracker {
         self.candidate = Some(index);
     }
 
-    fn lock_at(&mut self, index: Option<u32>) {
-        if let (Some(index), Some(phase)) = (index, self.last_bit_phase) {
+    fn lock_at(&mut self, cycle: Option<u32>, phase: f64) {
+        if let Some(cycle) = cycle {
             self.locked = true;
-            self.index = index;
-            self.index_phase = phase;
+            self.lock_cycle = cycle;
+            self.lock_phase = phase;
             self.garbage = 0;
         }
+    }
+
+    /// The cycle whose lobe is centred at `phase`, by the phase travelled since the lock.
+    fn cycle_at(&self, phase: f64) -> Option<u32> {
+        let cycle = self.lock_cycle as f64 + ((phase - self.lock_phase) / TAU).round();
+        (cycle >= 0.0).then_some(cycle as u32)
     }
 
     pub(crate) fn is_locked(&self) -> bool {
         self.locked
     }
 
-    /// Position in carrier cycles, interpolated with the phase since the last bit.
+    /// Position in carrier cycles: a cycle starts and ends where the primary peaks.
     pub(crate) fn position_cycles(&self, phase: f64) -> Option<f64> {
-        // the bit is read a quarter of a cycle into its cycle
-        self.locked.then(|| self.index as f64 + 0.25 + (phase - self.index_phase) / TAU)
+        self.locked.then(|| self.lock_cycle as f64 + 0.5 + (phase - self.lock_phase) / TAU)
     }
 }

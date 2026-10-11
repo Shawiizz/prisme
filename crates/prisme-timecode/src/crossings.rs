@@ -40,6 +40,11 @@ impl ZeroCrossing {
         };
         flipped.then_some(self.raw_crossing)
     }
+
+    /// The last confirmed half-wave is positive.
+    pub(crate) fn is_high(&self) -> bool {
+        self.high
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

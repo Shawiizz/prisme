@@ -58,11 +58,6 @@ impl SpeedEstimator {
         self.speed
     }
 
-    /// Latest unsmoothed estimate; its sign gives the current direction.
-    pub(crate) fn raw(&self) -> f64 {
-        self.raw
-    }
-
     pub(crate) fn is_fast(&self, n: u64) -> bool {
         n < self.fast_until
     }

@@ -50,6 +50,15 @@ pub struct DecoderStatus {
     pub level: f64,
 }
 
+/// The negative lobe of the primary being crossed, which carries one bit.
+#[derive(Default)]
+struct Lobe {
+    level_sum: f64,
+    samples: u32,
+    /// Quadrant where the secondary crossed zero inside the lobe: its centre.
+    centre: Option<i64>,
+}
+
 /// Timecode vinyl decoder. Feed it the turntable signal with [`TimecodeDecoder::process`]
 /// and read [`TimecodeDecoder::status`] whenever needed. Real-time safe once built.
 pub struct TimecodeDecoder {
@@ -65,6 +74,7 @@ pub struct TimecodeDecoder {
     speed: SpeedEstimator,
     position: PositionTracker,
 
+    lobe: Lobe,
     n: u64,
     last_theta: f64,
     phase: f64,
@@ -91,6 +101,7 @@ impl TimecodeDecoder {
             guard: QuadrantGuard::default(),
             speed: SpeedEstimator::new(sample_rate, format.resolution),
             position: PositionTracker::new(format, SequenceTable::for_format(format)),
+            lobe: Lobe::default(),
             n: 0,
             last_theta: 0.0,
             phase: 0.0,
@@ -165,7 +176,8 @@ impl TimecodeDecoder {
         self.lost_samples = 0;
 
         let steady = !self.speed.is_fast(n);
-        let bouncing = self.level.update((p * p + s * s).sqrt(), amp_s, self.speed.speed(), steady, t);
+        let magnitude = p.hypot(s);
+        let bouncing = self.level.update(magnitude, amp_s, self.speed.speed(), steady, t);
         if self.level.bounce_expired(t, BOUNCE_HOLD_S) {
             self.speed.fade(self.stop_decay);
         }
@@ -182,10 +194,20 @@ impl TimecodeDecoder {
         self.last_theta = theta;
         self.phase += d * self.format.phase_sign;
 
+        if !self.crossings[0].is_high() {
+            // both channels carry the bits
+            self.lobe.level_sum += magnitude;
+            self.lobe.samples += 1;
+        }
+
         for (channel, value, amplitude) in [(0usize, p, amp_p), (1usize, s, amp_s)] {
             let Some(crossing_t) = self.crossings[channel].update(value, amplitude, t) else {
                 continue;
             };
+            let primary_low = !self.crossings[0].is_high();
+            if channel == 0 && primary_low {
+                self.lobe = Lobe::default();
+            }
             let quadrant = (self.phase / FRAC_PI_2).round() as i64;
             match self.guard.check(channel, quadrant, self.speed.speed()) {
                 Verdict::Reject => {
@@ -204,8 +226,10 @@ impl TimecodeDecoder {
                     self.level.release();
                 }
             }
-            if channel == 1 && p > 0.0 {
-                self.position.on_bit_crossing(p, self.phase, self.speed.raw() >= 0.0);
+            if channel == 1 && primary_low {
+                self.lobe.centre = Some(quadrant);
+            } else if channel == 0 && !primary_low {
+                self.end_lobe(quadrant);
             }
         }
 
@@ -213,6 +237,15 @@ impl TimecodeDecoder {
             self.speed.decay(t, n);
         }
         self.speed.smooth(n);
+    }
+
+    /// The primary rose at `quadrant`: the bit of the lobe it left can be read.
+    fn end_lobe(&mut self, quadrant: i64) {
+        let lobe = std::mem::take(&mut self.lobe);
+        if let Some(centre) = lobe.centre.filter(|_| lobe.samples > 0) {
+            let level = lobe.level_sum / lobe.samples as f64;
+            self.position.on_lobe(level, centre as f64 * FRAC_PI_2, quadrant > centre);
+        }
     }
 
     /// True once the absolute position is known.
