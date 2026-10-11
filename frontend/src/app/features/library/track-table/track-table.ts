@@ -9,7 +9,7 @@ import {
   trackTitle,
 } from '../../../core/services/library.service';
 import { PreferencesService } from '../../../core/services/preferences.service';
-import { camelotColor, camelotCompatible } from '../../../shared/camelot';
+import { camelotCompatible, camelotHue, camelotMajor, keyName } from '../../../shared/camelot';
 import { Cover } from '../../../shared/cover/cover';
 import { TRACKS_DRAG_TYPE } from '../../../shared/drag';
 import { deckColor } from '../../../shared/time';
@@ -66,7 +66,9 @@ export class TrackTable {
   protected readonly trackColors = TRACK_COLORS;
   protected readonly allColumns = COLUMNS;
   protected readonly deckColor = deckColor;
-  protected readonly keyColor = camelotColor;
+  protected readonly hue = camelotHue;
+  protected readonly major = camelotMajor;
+  protected readonly keyName = keyName;
   protected readonly hexColor = hexColor;
   protected readonly title = trackTitle;
 

@@ -7,12 +7,15 @@
 
 <main class="layout">
   <section class="decks">
-    @for (d of [0, 1]; track d) {
-      <div class="deck-row">
-        <app-deck-card [deck]="d" />
-        <app-deck-waveform [deck]="d" />
-      </div>
-    }
+    <div class="deck-row">
+      <app-deck-card [deck]="0" />
+      <app-deck-waveform [deck]="0" />
+    </div>
+    <app-phase-strip />
+    <div class="deck-row">
+      <app-deck-card [deck]="1" />
+      <app-deck-waveform [deck]="1" />
+    </div>
   </section>
 
   <section class="controls">

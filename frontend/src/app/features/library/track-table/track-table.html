@@ -92,11 +92,11 @@
             <span>
               @if (t.details?.key; as k) {
                 <span
-                  class="chip"
-                  [style.--key]="keyColor(k.camelot)"
-                  [class.match]="keyMatches(k.camelot) === true"
-                  [class.clash]="keyMatches(k.camelot) === false"
-                  [title]="k.name"
+                  class="pr-key"
+                  [class.pr-key--maj]="major(k.camelot)"
+                  [class.pr-key--fill]="keyMatches(k.camelot) === true"
+                  [style.--h]="hue(k.camelot)"
+                  [title]="keyName(k.camelot)"
                   >{{ k.camelot }}</span
                 >
               }

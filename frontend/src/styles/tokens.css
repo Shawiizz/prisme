@@ -81,7 +81,7 @@
   --pr-h-sm: 24px; /* dialogs and toolbars only */
   --pr-row: 29px; /* library rows */
   --pr-titlebar: 36px;
-  --pr-deck-panel: 330px;
+  --pr-deck-panel: 380px;
 
   /* Spacing, on a base of 4 */
   --pr-space-1: 4px;

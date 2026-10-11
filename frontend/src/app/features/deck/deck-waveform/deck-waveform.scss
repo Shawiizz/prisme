@@ -8,44 +8,37 @@
 .waveform {
   position: relative;
   height: 100%;
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  background: var(--ink);
-  border: 1px solid var(--line);
-  border-radius: 3px;
-  padding: 4px;
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) 22px;
+  gap: var(--pr-space-1);
 }
-canvas {
-  display: block;
-  width: 100%;
-}
-/* The canvas is absolutely positioned so that its backing store size can never feed
-   back into the layout. */
-.zoom {
+/* Canvases are absolutely positioned so that their backing store can never feed back into
+   the layout. */
+.zoom,
+.overview {
   position: relative;
-  flex: 1;
   min-height: 0;
   canvas {
     position: absolute;
     inset: 0;
+    display: block;
+    width: 100%;
     height: 100%;
   }
 }
+.zoom {
+  background: var(--pr-void);
+}
 .overview {
-  flex: none;
-  height: 26px;
+  background: var(--pr-base);
+  border-radius: var(--pr-radius-sm);
   cursor: pointer;
-  border-top: 1px solid var(--line);
 }
 .hint {
   position: absolute;
   inset: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--faint);
-  font-size: 12px;
+  display: grid;
+  place-items: center;
+  color: var(--pr-text-3);
   pointer-events: none;
 }

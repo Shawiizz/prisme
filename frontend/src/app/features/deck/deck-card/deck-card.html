@@ -1,84 +1,86 @@
-<div class="card">
-  <div class="tile">{{ deck() + 1 }}</div>
-  @if (track(); as t) {
-    <app-cover class="cover" [path]="t.path" />
-  }
-
-  <div class="body">
-    <div class="row">
-      @if (track(); as t) {
-        <span class="title">{{ t.title }}</span>
-        <span class="time">{{ remaining() }}</span>
-      } @else if (loading()) {
-        <span class="empty">{{ 'LOADING…' | t }}</span>
-      } @else {
-        <span class="empty">{{ 'NO TRACK LOADED' | t }}</span>
-      }
-    </div>
-    <div class="row sub">
-      <span class="artist">{{ track()?.artist ?? '' }}</span>
-      @if (track()) {
-        <span class="elapsed">{{ elapsed() }}</span>
-      }
-    </div>
-
-    <div class="divider"></div>
-
-    <div class="row stats">
-      <button
-        class="analysis"
-        [disabled]="!track()"
-        [title]="'Beat grid, key and key shift' | t"
-        (click)="editing.set(!editing())"
-      >
-        <div class="stat">
-          <span class="label" [class.edited]="track()?.gridEdited">BPM</span>
-          <span class="value">{{ bpm() ?? '—' }}</span>
-        </div>
-        <div class="stat">
-          <span class="label" [class.edited]="track()?.keyEdited" [class.shifted]="keyShifted()"
-            >KEY</span
-          >
-          @if (key(); as k) {
-            <span class="value"
-              >{{ k.camelot }}<span class="key-name">{{ k.name }}</span></span
-            >
-          } @else {
-            <span class="value">—</span>
-          }
-        </div>
-      </button>
-      <div class="stat">
-        <span class="label">PITCH</span>
-        <span class="value small">{{ pitch() }}</span>
+<div class="card pr-panel">
+  <div class="head">
+    <div class="pr-tile" [class.pr-tile--outline]="!status()?.playing">{{ letter() }}</div>
+    @if (track(); as t) {
+      <app-cover class="cover" [path]="t.path" />
+      <div class="meta">
+        <div class="title">{{ t.title }}</div>
+        <div class="artist">{{ t.artist ?? '' }}</div>
       </div>
-
-      <div class="vinyl">
-        @if (status()?.vinyl?.runOut) {
+    } @else {
+      <div class="meta empty">{{ loading() ? ('Loading…' | t) : ('No track loaded' | t) }}</div>
+    }
+    <div class="vinyl">
+      <span
+        class="pr-sig"
+        [class.pr-sig--ok]="settings().vinylEnabled && signal() === 'ok' && !crossed()"
+        [class.pr-sig--weak]="settings().vinylEnabled && signal() === 'bounce' && !crossed()"
+        [class.pr-sig--none]="settings().vinylEnabled && (signal() === 'none' || crossed())"
+        [title]="signalTitle()"
+      ></span>
+      <div class="pr-seg" role="radiogroup" [attr.aria-label]="'Vinyl control' | t">
+        @for (m of modes; track m.id) {
           <button
-            class="run-out"
-            [title]="
-              'The needle reached the end of the record: the deck plays on by itself. Click to hand it back to the record.'
-                | t
-            "
-            (click)="takeBack()"
+            role="radio"
+            [attr.aria-checked]="mode() === m.id"
+            [title]="m.title"
+            (click)="setMode(m.id)"
           >
-            INT
+            {{ m.label }}
           </button>
-        } @else {
-          <span
-            class="signal"
-            [class]="signal()"
-            [class.crossed]="crossed()"
-            [title]="signalTitle()"
-          ></span>
         }
-        <button [class.active]="settings().vinylEnabled" (click)="toggleVinyl()">VINYL</button>
-        <button [class.active]="settings().vinylEnabled" (click)="toggleMode()">
-          {{ settings().vinylMode === 'absolute' ? 'ABS' : 'REL' }}
-        </button>
       </div>
     </div>
+  </div>
+
+  <div class="readouts">
+    <div
+      class="pr-readout"
+      [class.pr-readout--warn]="ending() === 'warn'"
+      [class.pr-readout--alert]="ending() === 'alert'"
+    >
+      <span class="pr-label">{{ 'Remaining' | t }}</span>
+      <span class="pr-readout__value">{{ remaining() }}</span>
+      <span class="pr-readout__sub">
+        @if (track()) {
+          <span class="pr-num">{{ elapsed() }}</span> {{ 'of' | t }}
+          <span class="pr-num">{{ length() }}</span>
+        }
+      </span>
+    </div>
+    <button
+      class="analysis"
+      [disabled]="!track()"
+      [title]="'Beat grid, key and key shift' | t"
+      (click)="editing.set(!editing())"
+    >
+      <span class="pr-readout">
+        <span class="pr-label" [class.edited]="track()?.gridEdited">BPM</span>
+        <span class="pr-readout__value pr-readout__value--mid">{{ bpm() ?? '—' }}</span>
+        <span class="pr-readout__sub pr-num">{{ tempoDetail() }}</span>
+      </span>
+      <span class="pr-readout">
+        <span
+          class="pr-label"
+          [class.edited]="track()?.keyEdited"
+          [class.shifted]="keyShifted()"
+          [title]="keyShifted() ? ('The pitch or a key shift moved the key' | t) : ''"
+          >{{ 'Key' | t }}</span
+        >
+        @if (key(); as k) {
+          <span
+            class="pr-key pr-key--fill pr-key--lg"
+            [class.pr-key--maj]="major(k.camelot)"
+            [style.--h]="hue(k.camelot)"
+            >{{ k.camelot }}</span
+          >
+          <span class="pr-readout__sub">{{ keyName(k.camelot) }}</span>
+        } @else {
+          <span class="pr-readout__value pr-readout__value--mid">—</span>
+          <span class="pr-readout__sub"></span>
+        }
+      </span>
+    </button>
   </div>
 </div>
 @if (editing() && track()) {

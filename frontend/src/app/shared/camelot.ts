@@ -1,3 +1,5 @@
+import { LANGUAGE, t } from '../core/i18n/i18n';
+
 /** Camelot wheel helpers ("8A" = A minor, "8B" = C major). */
 
 interface Camelot {
@@ -73,12 +75,34 @@ export function camelotRank(code: string | undefined | null): number {
   return c ? c.number * 2 + (c.minor ? 0 : 1) : Number.MAX_SAFE_INTEGER;
 }
 
-/** One colour per wheel position, minor keys slightly darker. */
-export function camelotColor(code: string): string {
+/** Hue of a key chip (`--h` of `.pr-key`): one per wheel number, see tokens.css. */
+export function camelotHue(code: string): string | null {
   const c = parse(code);
-  if (!c) return 'var(--muted)';
-  const hue = (c.number - 1) * 30 + 165;
-  return `hsl(${hue % 360} 75% ${c.minor ? 62 : 72}%)`;
+  return c ? `var(--pr-key-hue-${c.number})` : null;
+}
+
+export function camelotMajor(code: string): boolean {
+  return parse(code)?.minor === false;
+}
+
+const NOTES: Record<string, string> = {
+  C: 'Do',
+  D: 'Ré',
+  E: 'Mi',
+  F: 'Fa',
+  G: 'Sol',
+  A: 'La',
+  B: 'Si',
+};
+
+/** "5A" -> "C minor", "Do mineur" in French; accidentals as ♯ and ♭. */
+export function keyName(code: string): string {
+  const c = parse(code);
+  if (!c) return '';
+  const name = (c.minor ? MINOR_NAMES : MAJOR_NAMES)[c.number].replace(/m$/, '');
+  const note = LANGUAGE === 'fr' ? NOTES[name[0]] : name[0];
+  const accidental = name.slice(1).replace('#', '♯').replace('b', '♭');
+  return `${note}${accidental} ${c.minor ? t('minor') : t('major')}`;
 }
 
 /**

@@ -21,6 +21,8 @@ export const FR: Record<string, string> = {
   'Keyboard shortcuts (F1)': 'Raccourcis clavier (F1)',
   Shortcuts: 'Raccourcis',
   Rec: 'Enregistrer',
+  minor: 'mineur',
+  major: 'majeur',
   Settings: 'Réglages',
   Minimize: 'Réduire',
   Maximize: 'Agrandir',
@@ -41,13 +43,20 @@ export const FR: Record<string, string> = {
     "Ce qui arrive sur ces entrées : branchez-y la sortie d'enregistrement de la table de mixage",
 
   // decks
-  'LOADING…': 'CHARGEMENT…',
-  'NO TRACK LOADED': 'AUCUN MORCEAU',
+  'Loading…': 'Chargement…',
+  'No track loaded': 'Aucun morceau',
+  Remaining: 'Reste',
+  of: 'sur',
+  'The deck plays by itself': 'Le deck joue tout seul',
+  'The record drives the speed': 'Le disque pilote la vitesse',
+  'The record drives the speed and the position': 'Le disque pilote la vitesse et la position',
+  'The pitch or a key shift moved the key': 'Le pitch ou une transposition a déplacé la tonalité',
   'Beat grid, key and key shift': 'Grille rythmique, tonalité et transposition',
   'No timecode signal': 'Pas de signal timecode',
   'Timecode signal unsteady': 'Signal timecode instable',
   'Timecode signal locked': 'Signal timecode verrouillé',
-  'Left and right cables crossed? See DVS': 'Câbles gauche et droit inversés ? Voir DVS',
+  'Left and right cables crossed? See Turntables':
+    'Câbles gauche et droit inversés ? Voir Platines',
   'Key lock: the pitch stays when the tempo changes':
     'Key lock : la tonalité reste quand le tempo change',
   'The other decks follow this one': 'Les autres decks suivent celui-ci',
@@ -57,14 +66,18 @@ export const FR: Record<string, string> = {
   'Beat offset from the other deck': "Décalage de temps avec l'autre deck",
   'Pitch {change} to match': 'Pitch {change} pour caler',
   'Driven by the turntable': 'Piloté par la platine',
-  'The needle reached the end of the record: the deck plays on by itself. Click to hand it back to the record.':
-    'Le diamant a atteint la fin du disque : le deck continue tout seul. Cliquez pour rendre la main au disque.',
+  'The needle reached the end of the record: the deck plays on by itself. Choose REL or ABS to hand it back to the record.':
+    'Le diamant a atteint la fin du disque : le deck continue tout seul. Choisissez REL ou ABS pour rendre la main au disque.',
   'Sync needs relative mode or internal play':
     'La sync demande le mode relatif ou la lecture interne',
   'No beat grid': 'Pas de grille rythmique',
   'Match the tempo and beats once': 'Caler le tempo et les temps une fois',
   'Lock to the leader': 'Suivre le leader',
   'Load a track from the library': 'Chargez un morceau depuis la bibliothèque',
+  Phase: 'Phase',
+  Matched: 'Calés',
+  'B ahead by {ms} ms': 'B en avance de {ms} ms',
+  'B behind by {ms} ms': 'B en retard de {ms} ms',
 
   // pads
   'Level of the effect': "Niveau de l'effet",

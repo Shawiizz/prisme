@@ -1,0 +1,30 @@
+:host {
+  display: grid;
+  grid-template-columns: var(--pr-deck-panel) minmax(0, 1fr);
+  gap: 10px;
+  min-height: 0;
+}
+.info {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--pr-space-2);
+  padding: 0 var(--pr-space-3);
+  .offset {
+    font-size: var(--pr-size-small);
+    color: var(--pr-text-2);
+    white-space: nowrap;
+  }
+}
+.lane {
+  position: relative;
+  min-height: 0;
+  background: var(--pr-base);
+  border-radius: var(--pr-radius-sm);
+  canvas {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+  }
+}

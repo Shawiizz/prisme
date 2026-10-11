@@ -2,7 +2,9 @@
   <div class="zoom">
     <canvas #zoom></canvas>
   </div>
-  <canvas #overview class="overview" (click)="seekOverview($event)"></canvas>
+  <div class="overview" (click)="seekOverview($event)">
+    <canvas #overview></canvas>
+  </div>
   @if (!track()) {
     <div class="hint">{{ 'Load a track from the library' | t }}</div>
   }

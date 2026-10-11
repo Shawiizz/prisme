@@ -2,6 +2,7 @@ import { Component, OnInit, inject, signal } from '@angular/core';
 import { Titlebar } from './shell/titlebar/titlebar';
 import { DeckCard } from './features/deck/deck-card/deck-card';
 import { DeckWaveform } from './features/deck/deck-waveform/deck-waveform';
+import { PhaseStrip } from './features/deck/phase-strip/phase-strip';
 import { DeckControls } from './features/deck/deck-controls/deck-controls';
 import { DeckPads } from './features/deck/deck-pads/deck-pads';
 import { Mixer } from './features/mixer/mixer';
@@ -20,13 +21,17 @@ import { SettingsService } from './core/services/settings.service';
 import { PreferencesService } from './core/services/preferences.service';
 import { MixerService } from './core/services/mixer.service';
 
-/** Main window layout: title bar, two deck rows, controls with the mixer, library; and the dialogs. */
+/**
+ * Main window layout: title bar, the two decks with the phase strip between them, the
+ * controls with the mixer, the library; and the dialogs.
+ */
 @Component({
   selector: 'app-root',
   imports: [
     Titlebar,
     DeckCard,
     DeckWaveform,
+    PhaseStrip,
     DeckControls,
     DeckPads,
     Mixer,

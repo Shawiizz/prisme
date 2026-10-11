@@ -9,18 +9,21 @@
   display: flex;
   flex-direction: column;
   gap: 6px;
-  padding: 6px;
+  padding: var(--pr-space-2) 10px 0;
 }
 .decks {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
+  display: grid;
+  grid-template-rows: 124px 26px 124px;
+  padding-bottom: 4px;
 }
 .deck-row {
-  height: 128px;
   display: grid;
-  grid-template-columns: 420px minmax(0, 1fr);
-  gap: 6px;
+  grid-template-columns: var(--pr-deck-panel) minmax(0, 1fr);
+  gap: 10px;
+  min-height: 0;
+}
+app-phase-strip {
+  padding-block: var(--pr-space-1);
 }
 .controls {
   display: grid;

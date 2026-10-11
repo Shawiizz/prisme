@@ -12,8 +12,8 @@ import { EngineService } from '../../../core/services/engine.service';
 import { WaveformOverlay, WaveformPainter } from './waveform-painter';
 import { TPipe } from '../../../core/i18n/t.pipe';
 
-/** Seconds shown in the scrolling view. */
-const ZOOM_SPAN_S = 10;
+/** Seconds of real time shown in the scrolling view (and the phase strip). */
+export const ZOOM_SPAN_S = 10;
 
 /**
  * Scrolling waveform around the playhead plus an overview of the whole track. Drawn on
@@ -95,6 +95,6 @@ export class DeckWaveform {
       canvas.height = h;
     }
     const ctx = canvas.getContext('2d');
-    return ctx ? { ctx, size: { width: w, height: h } } : null;
+    return ctx ? { ctx, size: { width: w, height: h, ratio } } : null;
   }
 }
