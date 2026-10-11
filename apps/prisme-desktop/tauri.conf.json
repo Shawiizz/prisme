@@ -2,7 +2,6 @@
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "Prisme",
   "identifier": "com.shawiizz.prisme",
-  "version": "0.1.0",
   "build": {
     "frontendDist": "../../frontend/dist/frontend/browser",
     "devUrl": "http://localhost:4200",

@@ -18,7 +18,7 @@ jobs:
       - name: The tag is the app version
         shell: pwsh
         run: |
-          $version = (Get-Content apps/prisme-desktop/tauri.conf.json -Raw | ConvertFrom-Json).version
+          $version = (cargo metadata --no-deps --format-version 1 | ConvertFrom-Json).packages.Where({ $_.name -eq 'prisme-desktop' }).version
           if ($version -ne '${{ github.ref_name }}') { throw "tag ${{ github.ref_name }}, app version $version" }
       - uses: tauri-apps/tauri-action@v0
         env:

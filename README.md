@@ -37,6 +37,13 @@ cargo tauri dev
 
 `cargo tauri build` produces the installer in `target\release\bundle\nsis`.
 
+## Releasing
+
+1. Set the new version in the workspace `Cargo.toml` (`[workspace.package] version`).
+2. Push a tag with that version, such as `0.2.0`: CI builds the signed installer and the
+   update packages and attaches them to a draft release.
+3. Publish the draft: the installed copies then offer the update.
+
 ## Architecture
 
 ```
