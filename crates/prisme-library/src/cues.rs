@@ -2,9 +2,10 @@
 
 pub const HOT_CUES: u8 = 8;
 
-/// One colour per hot cue slot (0xRRGGBB), the usual DJ palette order.
+/// One colour per hot cue slot (0xRRGGBB), the usual DJ palette order: the tags of the
+/// design system (frontend/src/styles/tokens.css).
 pub const DEFAULT_COLORS: [u32; HOT_CUES as usize] =
-    [0xFF3B4E, 0xFF8C2E, 0xFFD23A, 0x3EE07A, 0x2FD6FF, 0x4F7BFF, 0xA45CFF, 0xFF4FD8];
+    [0xFF5442, 0xFF9A3C, 0xF5D547, 0xA6E25C, 0x3FD3B5, 0x4AA8FF, 0x8F7BFF, 0xE86BD6];
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum CueSlot {

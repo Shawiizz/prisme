@@ -10,6 +10,7 @@ export type ColumnId =
   | 'genre'
   | 'year'
   | 'bpm'
+  | 'pitch'
   | 'key'
   | 'rating'
   | 'plays';
@@ -42,7 +43,9 @@ export const COLUMNS: readonly Column[] = [
   { id: 'album', name: t('Album'), header: t('Album'), width: 'minmax(0, 1fr)', sort: 'album' },
   { id: 'genre', name: t('Genre'), header: t('Genre'), width: 'minmax(0, 0.6fr)', sort: 'genre' },
   { id: 'year', name: t('Year'), header: t('Year'), width: '40px', sort: 'year' },
-  { id: 'bpm', name: 'BPM', header: 'BPM', width: '56px', sort: 'bpm' },
+  { id: 'bpm', name: 'BPM', header: 'BPM', width: '60px', sort: 'bpm' },
+  // its header names the reference deck
+  { id: 'pitch', name: t('Pitch to match'), header: '', width: '72px' },
   { id: 'key', name: t('Key'), header: t('Key'), width: '52px', sort: 'key' },
   { id: 'rating', name: t('Rating'), header: t('Rating'), width: '74px', sort: 'rating' },
   { id: 'plays', name: t('Plays'), header: t('Plays'), width: '52px', sort: 'plays' },
@@ -50,5 +53,5 @@ export const COLUMNS: readonly Column[] = [
 
 /** Grid tracks of a row: the play order of ordered lists, the columns, the load buttons. */
 export function gridTemplate(columns: readonly Column[], ordered: boolean): string {
-  return [...(ordered ? ['30px'] : []), ...columns.map((c) => c.width), '64px'].join(' ');
+  return [...(ordered ? ['30px'] : []), ...columns.map((c) => c.width), '58px'].join(' ');
 }

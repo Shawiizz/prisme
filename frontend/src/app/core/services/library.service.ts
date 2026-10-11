@@ -77,6 +77,8 @@ export class LibraryService {
   readonly scope = signal<SearchScope>('list');
   readonly sort = signal<TrackSort>({ column: 'title', direction: 1 });
   readonly selected = signal<string | null>(null);
+  /** The deck the tracks are compared with: compatible keys, pitch to match. */
+  readonly reference = signal(0);
   /** Incremented to ask the view to focus the search field. */
   readonly searchRequests = signal(0);
 

@@ -8,57 +8,66 @@
 .library {
   height: 100%;
   display: grid;
-  grid-template-columns: 260px minmax(0, 1fr);
-  gap: 6px;
+  grid-template-columns: 230px minmax(0, 1fr);
   min-height: 0;
+  margin: 0 -10px;
+  border-top: 1px solid var(--pr-line);
 }
 .tracks {
   display: flex;
   flex-direction: column;
+  min-width: 0;
   min-height: 0;
-  background: var(--panel);
-  border: 1px solid var(--line);
-  border-radius: 3px;
 }
+
 .toolbar {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 6px 8px;
-  border-bottom: 1px solid var(--line);
-  input {
-    width: 280px;
-  }
-  .scope {
-    display: flex;
-    button {
-      padding: 3px 10px;
-      font-size: 12px;
-      &:first-child {
-        border-radius: 3px 0 0 3px;
-      }
-      &:last-child {
-        border-radius: 0 3px 3px 0;
-        margin-left: -1px;
-      }
-      &.active {
-        background: var(--select);
-        color: var(--text);
-      }
-    }
-  }
+  gap: 10px;
+  height: 44px;
+  flex: none;
+  padding: 0 var(--pr-space-3);
+  border-bottom: 1px solid var(--pr-line);
   .count {
-    color: var(--faint);
-    font-size: 12px;
+    font-size: var(--pr-size-small);
+    color: var(--pr-text-3);
+    white-space: nowrap;
   }
   .error {
-    color: var(--red);
-    font-size: 12px;
+    min-width: 0;
+    font-size: var(--pr-size-small);
+    color: var(--pr-alert);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
   }
 }
+.search {
+  position: relative;
+  flex: 0 1 380px;
+  min-width: 160px;
+  svg {
+    position: absolute;
+    left: 10px;
+    top: 9px;
+    width: 13px;
+    height: 13px;
+    fill: none;
+    stroke: var(--pr-text-3);
+    stroke-width: 1.6;
+  }
+  .pr-input {
+    width: 100%;
+    height: 30px;
+    padding: 0 60px 0 30px;
+  }
+  .pr-kbd {
+    position: absolute;
+    right: 8px;
+    top: 7px;
+  }
+}
+
 .analysis {
   margin-left: auto;
   display: flex;
@@ -66,25 +75,18 @@
   gap: 10px;
   flex: none;
   .status {
-    color: var(--muted);
-    font-size: 12px;
+    font-size: var(--pr-size-small);
+    color: var(--pr-text-2);
     font-variant-numeric: tabular-nums;
   }
   .bar {
     width: 120px;
-    height: 4px;
-    border-radius: 2px;
-    background: var(--line);
-    overflow: hidden;
+    height: 2px;
+    background: var(--pr-line-2);
     div {
       height: 100%;
-      background: var(--mint);
-      transition: width 0.2s;
+      background: var(--pr-light);
     }
-  }
-  button {
-    padding: 3px 10px;
-    font-size: 12px;
   }
 }
 app-track-table {

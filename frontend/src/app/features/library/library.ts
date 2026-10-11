@@ -6,6 +6,8 @@ import { LibrarySidebar } from './library-sidebar/library-sidebar';
 import { TrackTable } from './track-table/track-table';
 import { t } from '../../core/i18n/i18n';
 import { TPipe } from '../../core/i18n/t.pipe';
+import { DECK_COUNT } from '../../core/models/engine';
+import { deckLetter } from '../../shared/time';
 
 const LIST_LABEL: Record<TrackSource['kind'], string> = {
   folder: t('Folder'),
@@ -34,6 +36,8 @@ export class Library {
   protected readonly library = inject(LibraryService);
   protected readonly engine = inject(EngineService);
   protected readonly tracks = this.library.visibleTracks;
+  protected readonly deckIndexes = Array.from({ length: DECK_COUNT }, (_, i) => i);
+  protected readonly letter = deckLetter;
   private readonly search = viewChild.required<ElementRef<HTMLInputElement>>('search');
 
   protected readonly importOpen = signal(false);

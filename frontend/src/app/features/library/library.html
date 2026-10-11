@@ -3,27 +3,53 @@
 
   <div class="tracks">
     <div class="toolbar">
-      <div class="scope" role="group" [attr.aria-label]="'Search in' | t">
-        <button [class.active]="library.scope() === 'list'" (click)="library.setScope('list')">
+      <div class="pr-seg" role="radiogroup" [attr.aria-label]="'Search in' | t">
+        <button
+          role="radio"
+          [attr.aria-checked]="library.scope() === 'list'"
+          (click)="library.setScope('list')"
+        >
           {{ listLabel() }}
         </button>
         <button
-          [class.active]="library.scope() === 'library'"
+          role="radio"
+          [attr.aria-checked]="library.scope() === 'library'"
           (click)="library.setScope('library')"
         >
           {{ 'Library' | t }}
         </button>
       </div>
-      <input
-        #search
-        type="search"
-        [placeholder]="
-          library.scope() === 'list' ? searchPlaceholder() : ('Search the whole library' | t)
-        "
-        [value]="library.filter()"
-        (input)="library.setFilter($any($event.target).value)"
-        (keydown.escape)="search.blur()"
-      />
+      <label class="search">
+        <svg viewBox="0 0 16 16" aria-hidden="true">
+          <circle cx="7" cy="7" r="5" />
+          <path d="M11 11l4 4" />
+        </svg>
+        <input
+          #search
+          class="pr-input"
+          type="search"
+          [placeholder]="
+            library.scope() === 'list' ? searchPlaceholder() : ('Search the whole library' | t)
+          "
+          [value]="library.filter()"
+          (input)="library.setFilter($any($event.target).value)"
+          (keydown.escape)="search.blur()"
+        />
+        <span class="pr-kbd">Ctrl F</span>
+      </label>
+      <span class="pr-label">{{ 'Compare with' | t }}</span>
+      <div class="pr-seg" role="radiogroup" [attr.aria-label]="'Compare with' | t">
+        @for (d of deckIndexes; track d) {
+          <button
+            role="radio"
+            [attr.aria-checked]="library.reference() === d"
+            (click)="library.reference.set(d)"
+            [title]="'Keys and pitch compared with deck {deck}' | t: { deck: letter(d) }"
+          >
+            {{ letter(d) }}
+          </button>
+        }
+      </div>
       <span class="count">{{
         tracks().length === 1 ? ('1 track' | t) : ('{n} tracks' | t: { n: tracks().length })
       }}</span>
@@ -42,13 +68,14 @@
           }}</span>
         }
         <button
+          class="pr-btn pr-btn--sm"
           (click)="importOpen.set(true)"
           [title]="'Crates, cues and grids from Serato or rekordbox' | t"
         >
           {{ 'Import' | t }}
         </button>
         <button
-          class="ghost"
+          class="pr-btn pr-btn--sm pr-btn--ghost"
           (click)="library.rescan()"
           [disabled]="progress().running"
           [title]="'Analyse new and changed files' | t"

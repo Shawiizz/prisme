@@ -12,7 +12,9 @@ import { PreferencesService } from '../../../core/services/preferences.service';
 import { camelotCompatible, camelotHue, camelotMajor, keyName } from '../../../shared/camelot';
 import { Cover } from '../../../shared/cover/cover';
 import { TRACKS_DRAG_TYPE } from '../../../shared/drag';
-import { deckColor } from '../../../shared/time';
+import { decimal, deckLetter } from '../../../shared/time';
+import { octaveRatio } from '../../../core/sync';
+import { HistoryService } from '../../../core/services/history.service';
 import { TRACK_COLORS, hexColor } from '../../../shared/track-colors';
 import { COLUMNS, Column, ColumnId, gridTemplate } from './columns';
 import { t } from '../../../core/i18n/i18n';
@@ -58,6 +60,7 @@ export class TrackTable {
   protected readonly library = inject(LibraryService);
   protected readonly engine = inject(EngineService);
   private readonly preferences = inject(PreferencesService);
+  private readonly history = inject(HistoryService);
   private readonly host = inject(ElementRef<HTMLElement>);
 
   protected readonly tracks = this.library.visibleTracks;
@@ -65,7 +68,8 @@ export class TrackTable {
   protected readonly stars = STARS;
   protected readonly trackColors = TRACK_COLORS;
   protected readonly allColumns = COLUMNS;
-  protected readonly deckColor = deckColor;
+  protected readonly letter = deckLetter;
+  protected readonly decimal = decimal;
   protected readonly hue = camelotHue;
   protected readonly major = camelotMajor;
   protected readonly keyName = keyName;
@@ -96,13 +100,18 @@ export class TrackTable {
     );
   });
 
-  /** Keys of the tracks on the decks, to point out the harmonic matches. */
-  private readonly deckKeys = computed(() =>
-    this.engine
-      .tracks()
-      .map((_, deck) => this.engine.heardKey(deck)?.camelot)
-      .filter((k): k is string => !!k),
+  /** The reference deck's key as heard and its tempo now: what the rows are compared with. */
+  private readonly referenceKey = computed(
+    () => this.engine.heardKey(this.library.reference())?.camelot ?? null,
   );
+  private readonly referenceBpm = computed(
+    () => this.engine.status()?.decks[this.library.reference()]?.bpm ?? null,
+  );
+  protected readonly pitchHeader = computed(() =>
+    t('Pitch → {deck}', { deck: deckLetter(this.library.reference()) }),
+  );
+  /** Path of the track on each deck. */
+  private readonly deckPaths = computed(() => this.engine.tracks().map((track) => track?.path));
 
   protected readonly emptyMessage = computed(() => {
     if (this.library.scope() === 'list') return EMPTY_LIST[this.library.source().kind];
@@ -125,10 +134,31 @@ export class TrackTable {
     return column && s.column === column ? (s.direction === 1 ? '▲' : '▼') : '';
   }
 
-  /** Whether the key mixes with a loaded track (`null` when no deck has a key). */
-  keyMatches(camelot: string): boolean | null {
-    const keys = this.deckKeys();
-    return keys.length ? keys.some((k) => camelotCompatible(k, camelot)) : null;
+  /** Whether the key mixes with the reference deck's. */
+  keyMatches(camelot: string): boolean {
+    const key = this.referenceKey();
+    return key !== null && camelotCompatible(key, camelot);
+  }
+
+  /** The pitch that brings a track to the reference deck's tempo, and whether a turntable reaches it. */
+  pitchToMatch(bpm: number | null | undefined): { text: string; reachable: boolean } | null {
+    const reference = this.referenceBpm();
+    if (!bpm || !reference) return null;
+    const change = (octaveRatio(bpm, reference) * reference) / bpm - 1;
+    const percent = Math.round(change * 1000) / 10 || 0;
+    return {
+      text: `${percent >= 0 ? '+' : '−'}${decimal(Math.abs(percent), 1)} %`,
+      reachable: Math.abs(change) <= this.preferences.dj().pitchRange,
+    };
+  }
+
+  /** The decks a track is loaded on. */
+  decksOf(path: string): number[] {
+    return this.deckPaths().flatMap((p, deck) => (p === path ? [deck] : []));
+  }
+
+  played(path: string): boolean {
+    return this.history.playedTonight().has(path);
   }
 
   /** A set can hold the same track twice: its rows are told apart by play time. */

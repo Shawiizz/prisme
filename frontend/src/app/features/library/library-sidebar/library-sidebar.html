@@ -30,19 +30,27 @@
     <span>{{ 'Crates' | t }}</span>
     <span class="adds">
       <button
+        class="pr-btn pr-btn--sm pr-btn--ghost"
         [title]="'New smart crate: tracks picked by rules' | t"
         (click)="smartDialog.set({ crate: null })"
       >
         + {{ 'Smart' | t }}
       </button>
-      <button class="add" [title]="'New crate' | t" (click)="editing.set('new')">+</button>
+      <button
+        class="pr-btn pr-btn--sm pr-btn--ghost pr-btn--icon"
+        [title]="'New crate' | t"
+        [attr.aria-label]="'New crate' | t"
+        (click)="editing.set('new')"
+      >
+        +
+      </button>
     </span>
   </header>
   <div class="list">
     @if (editing() === 'new') {
       <input
         #nameInput
-        class="name-input"
+        class="name-input pr-input"
         [placeholder]="'Crate name' | t"
         (keydown.enter)="commitEdit($any($event.target).value)"
         (keydown.escape)="editing.set(null)"
@@ -53,7 +61,7 @@
       @if (editing() === c.id) {
         <input
           #nameInput
-          class="name-input"
+          class="name-input pr-input"
           [value]="c.name"
           (keydown.enter)="commitEdit($any($event.target).value)"
           (keydown.escape)="editing.set(null)"

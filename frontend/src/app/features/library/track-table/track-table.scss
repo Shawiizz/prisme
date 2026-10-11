@@ -11,79 +11,119 @@
   display: grid;
   grid-template-columns: var(--track-columns);
   align-items: center;
-  gap: 8px;
-  padding: 0 10px;
+  gap: 10px;
+  padding: 0 var(--pr-space-3);
 }
 .head {
   position: sticky;
   top: 0;
   z-index: 1;
   height: 28px;
-  background: var(--panel-2);
-  color: var(--muted);
-  font-size: 12px;
-  border-bottom: 1px solid var(--line-strong);
+  background: var(--pr-void);
+  border-bottom: 1px solid var(--pr-line);
+  font: 600 var(--pr-size-label) / 1 var(--pr-font);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--pr-text-3);
   button {
+    height: auto;
     padding: 0;
     border: none;
     background: transparent;
     color: inherit;
-    font-size: inherit;
+    font: inherit;
+    letter-spacing: inherit;
+    text-transform: inherit;
     text-align: left;
     white-space: nowrap;
     overflow: hidden;
     &:hover {
-      color: var(--text);
+      background: transparent;
+      color: var(--pr-text);
     }
   }
-  :is(.year, .bpm, .plays, .order) {
+  > span {
+    white-space: nowrap;
+  }
+  :is(.year, .bpm, .pitch, .plays, .order) {
     text-align: right;
   }
 }
 .row {
-  height: 30px;
+  height: var(--pr-row);
+  border-bottom: 1px solid var(--pr-line-soft);
   cursor: default;
-  &.odd {
-    background: #0d1019;
-  }
   &:hover {
-    background: var(--raised);
+    background: var(--pr-base);
   }
   &.selected {
-    background: var(--select);
+    background: var(--pr-raise-2);
+  }
+  // already played tonight: dimmed, never hidden
+  &.played {
+    .text,
+    .number,
+    .order {
+      color: var(--pr-text-3);
+    }
+    .pr-key {
+      opacity: 0.5;
+    }
   }
   &.insert {
-    box-shadow: inset 0 2px 0 var(--mint);
+    box-shadow: inset 0 2px 0 var(--pr-light);
   }
 }
-.title,
+.title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  .text {
+    color: var(--pr-text);
+  }
+}
+// the decks this track is on: lit while playing
+.deck {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  font: 600 11px / 1 var(--pr-font);
+  color: var(--pr-text);
+  border: 1px solid var(--pr-line-2);
+  border-radius: var(--pr-radius-sm);
+  &.playing {
+    background: var(--pr-light);
+    border-color: var(--pr-light);
+    color: var(--pr-on-light);
+  }
+}
 .text {
+  min-width: 0;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  color: var(--pr-text-2);
 }
-.text {
-  color: var(--text-2);
-}
-.number {
-  text-align: right;
-  color: var(--muted);
+.number,
+.order {
+  font-family: var(--pr-font-mono);
+  font-stretch: var(--pr-mono-width);
   font-variant-numeric: tabular-nums;
+  font-size: var(--pr-size-small);
+  text-align: right;
+  color: var(--pr-text);
+  white-space: nowrap;
 }
-.bpm {
-  color: var(--text-2);
-}
+.order,
+.dim,
 .pending {
-  color: var(--faint);
-  letter-spacing: 0.1em;
+  color: var(--pr-text-3);
 }
 .failed {
-  color: var(--red);
-}
-.order {
-  text-align: right;
-  color: var(--faint);
-  font-variant-numeric: tabular-nums;
+  color: var(--pr-alert);
 }
 .cover {
   width: 24px;
@@ -94,74 +134,48 @@
   height: 18px;
   padding: 0;
   border: 1px dashed transparent;
-  border-radius: 2px;
+  border-radius: var(--pr-radius-sm);
   background: transparent;
   &.set {
     background: var(--swatch);
     border-color: var(--swatch);
   }
   &:not(.set):hover {
-    border-color: var(--line-strong);
+    border-color: var(--pr-line-2);
+    background: transparent;
   }
 }
 .rating {
   display: flex;
   button {
+    height: auto;
     padding: 0 1px;
     border: none;
     background: transparent;
-    color: var(--line-strong);
+    color: var(--pr-line-2);
     font-size: 13px;
     line-height: 1;
     &.on {
-      color: var(--amber);
+      color: var(--pr-light);
     }
     &:hover {
-      color: var(--text-2);
+      background: transparent;
+      color: var(--pr-text-2);
     }
-  }
-}
-.chip {
-  display: inline-block;
-  min-width: 34px;
-  padding: 1px 5px;
-  border-radius: 3px;
-  font-size: 12px;
-  font-weight: 700;
-  text-align: center;
-  font-variant-numeric: tabular-nums;
-  color: var(--key);
-  border: 1px solid color-mix(in srgb, var(--key) 45%, transparent);
-  // harmonic match with a loaded deck: filled; no match: faded
-  &.match {
-    background: var(--key);
-    border-color: var(--key);
-    color: var(--ink);
-  }
-  &.clash {
-    opacity: 0.55;
   }
 }
 .load {
   display: flex;
-  gap: 4px;
+  gap: var(--pr-space-1);
   justify-content: flex-end;
-  button {
-    width: 26px;
-    padding: 1px 0;
-    font-size: 11px;
-    font-weight: 700;
-    &:hover {
-      background: var(--accent);
-      border-color: var(--accent);
-      color: var(--ink);
-    }
+  .pr-btn {
+    width: 24px;
+    padding: 0;
   }
 }
 .none {
-  padding: 16px;
-  color: var(--faint);
-  font-size: 12px;
+  padding: var(--pr-space-4);
+  color: var(--pr-text-3);
 }
 .backdrop {
   position: fixed;
@@ -172,41 +186,39 @@
   position: fixed;
   z-index: 21;
   padding: 6px;
-  background: var(--panel-2);
-  border: 1px solid var(--line-strong);
-  border-radius: 4px;
-  box-shadow: 0 8px 24px rgb(0 0 0 / 0.5);
+  background: var(--pr-base);
+  border: 1px solid var(--pr-line-2);
+  border-radius: var(--pr-radius);
 }
 .columns {
-  display: flex;
-  flex-direction: column;
-  label {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 4px 8px;
-    color: var(--text-2);
-    border-radius: 3px;
+  display: grid;
+  gap: 2px;
+  .pr-check {
+    padding: 4px var(--pr-space-2);
+    color: var(--pr-text-2);
+    border-radius: var(--pr-radius-sm);
     &:hover {
-      background: var(--raised);
+      background: var(--pr-raise-2);
+      color: var(--pr-text);
     }
   }
 }
 .palette {
   display: flex;
-  gap: 4px;
+  gap: var(--pr-space-1);
   button {
     width: 20px;
     height: 20px;
     padding: 0;
     background: var(--swatch);
     border-color: var(--swatch);
+    border-radius: var(--pr-radius-sm);
   }
   .clear {
     background: transparent;
-    border-color: var(--line-strong);
-    color: var(--muted);
-    font-size: 12px;
+    border-color: var(--pr-line-2);
+    color: var(--pr-text-2);
+    font-size: var(--pr-size-small);
     line-height: 1;
   }
 }
