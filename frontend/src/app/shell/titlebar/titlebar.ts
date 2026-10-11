@@ -6,6 +6,11 @@ import { EngineService } from '../../core/services/engine.service';
 import { UpdateService } from '../../core/services/update.service';
 import { t } from '../../core/i18n/i18n';
 import { TPipe } from '../../core/i18n/t.pipe';
+import { AudioBackend } from '../../core/models/audio';
+import { decimal } from '../../shared/time';
+
+/** Segments of the level meter, and the level in dBFS where each one lights. */
+const SEGMENTS = Array.from({ length: 24 }, (_, i) => -46 + i * 2);
 
 /** Custom title bar: drag area, audio state, recording, update, dialogs and window buttons. */
 @Component({
@@ -30,6 +35,20 @@ export class Titlebar {
         })
       : t('Record the mix (WAV and tracklist in Documents/Prisme Recordings)');
   });
+  /** The period in milliseconds, once the driver has called the engine. */
+  protected readonly bufferMs = computed(() => {
+    const frames = this.engine.status()?.health?.periodFrames;
+    const rate = this.settings.info()?.sampleRate;
+    return frames && rate ? decimal((frames / rate) * 1000, 1) : null;
+  });
+  /** Grey up to -6 dB, amber up to 0, red when clipping. */
+  protected readonly level = computed(() => {
+    const peak = this.engine.status()?.mainPeak ?? 0;
+    const db = peak > 0 ? 20 * Math.log10(peak) : -Infinity;
+    return SEGMENTS.map((at, i) =>
+      db < at ? '' : i === SEGMENTS.length - 1 ? 'is-clip' : at >= -6 ? 'is-hot' : 'is-lit',
+    );
+  });
   readonly openSettings = output<void>();
   readonly openShortcuts = output<void>();
   readonly openControllers = output<void>();
@@ -38,6 +57,10 @@ export class Titlebar {
   record(option: RecordOption) {
     this.recordMenu.set(false);
     this.recording.start(option.source);
+  }
+
+  backendName(backend: AudioBackend): string {
+    return backend === 'asio' ? 'ASIO' : 'WASAPI';
   }
 
   /** `1:02:05` or `12:34`. */

@@ -1,63 +1,75 @@
 <header class="titlebar" data-tauri-drag-region>
   <div class="brand" data-tauri-drag-region>
-    <svg viewBox="0 0 24 24" class="mark" aria-hidden="true">
-      <path
-        d="M12 3 L21 20 L3 20 Z"
-        fill="none"
-        stroke="currentColor"
-        stroke-width="1.8"
-        stroke-linejoin="round"
-      />
-      <path d="M12 3 L12 20" stroke="var(--deck-1)" stroke-width="1.8" stroke-linecap="round" />
+    <svg viewBox="0 0 46 40" class="mark" aria-hidden="true">
+      <g fill="none" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M1 24 L14 21.5" stroke="var(--pr-light)" />
+        <path d="M19 4 L33 34 L5 34 Z" stroke="var(--pr-light)" />
+        <path d="M25 20 L45 25" stroke="var(--pr-f-low)" />
+        <path d="M25 21 L45 30" stroke="var(--pr-f-mid)" />
+        <path d="M25 22 L45 35" stroke="var(--pr-f-high)" />
+      </g>
     </svg>
-    <span>PRISME</span>
+    prisme
   </div>
 
-  <div class="audio" data-tauri-drag-region>
+  <div class="health" data-tauri-drag-region>
     @if (engine.audioRunning()) {
       @if (settings.info(); as info) {
-        <span class="dot ok"></span>
-        {{ info.sampleRate / 1000 }} kHz
+        <span class="pr-chip device" [title]="info.device">
+          <span class="pr-sig pr-sig--ok"></span>{{ backendName(info.backend) }} · {{ info.device }}
+        </span>
+        @if (bufferMs(); as ms) {
+          <span class="pr-chip" [title]="'Length of an audio period' | t">
+            {{ 'Buffer' | t }} <span class="pr-num">{{ ms }} ms</span>
+          </span>
+        }
         @if (info.simulated) {
-          <span class="chip">{{ 'simulated turntable' | t }}</span>
+          <span class="pr-chip">{{ 'simulated turntable' | t }}</span>
         } @else if (info.inputChannels > 0) {
-          <span class="chip">{{ '{n} input ch' | t: { n: info.inputChannels } }}</span>
+          <span class="pr-chip">{{ '{n} input ch' | t: { n: info.inputChannels } }}</span>
         }
       }
     } @else if (engine.status()?.health?.deviceLost) {
-      <span class="dot lost"></span> {{ 'audio device lost, reconnecting…' | t }}
+      <span class="pr-chip pr-chip--alert">
+        <span class="pr-sig pr-sig--none"></span>{{ 'audio device lost, reconnecting…' | t }}
+      </span>
     } @else {
-      <span class="dot off"></span> {{ 'audio stopped' | t }}
+      <span class="pr-chip"
+        ><span class="pr-sig pr-sig--none"></span>{{ 'audio stopped' | t }}</span
+      >
     }
     @if (engine.status()?.health; as h) {
       @if (h.engineFailed) {
-        <span class="chip warn" [title]="'Apply the settings again to restart it' | t">
+        <span class="pr-chip pr-chip--alert" [title]="'Apply the settings again to restart it' | t">
           {{ 'audio engine error' | t }}
         </span>
       }
-      @if (h.overBudget > 0) {
+      @if (engine.audioRunning()) {
         <span
-          class="chip warn"
+          class="pr-chip"
+          [class.pr-chip--warn]="h.overBudget > 0"
           [title]="
             'Slowest period: {us} µs. Raise the buffer in the settings.'
               | t: { us: h.worstCallbackUs.toFixed(0) }
           "
         >
-          {{ h.overBudget > 1 ? ('{n} dropouts' | t: { n: h.overBudget }) : ('1 dropout' | t) }}
+          {{ 'Dropouts' | t }} <span class="pr-num">{{ h.overBudget }}</span>
         </span>
       }
     }
     @if (engine.status(); as s) {
-      <div class="meter">
-        <div [style.width.%]="s.mainPeak * 100" [class.clip]="s.mainPeak > 0.99"></div>
+      <div class="pr-meter level" [title]="'Master level' | t">
+        @for (segment of level(); track $index) {
+          <i [class]="segment"></i>
+        }
       </div>
     }
   </div>
 
-  <div class="actions">
+  <nav class="actions">
     @if (updates.available(); as update) {
       <button
-        class="ghost update"
+        class="pr-btn pr-btn--light pr-btn--sm update"
         [disabled]="updates.decksPlaying() || updates.installing()"
         [title]="
           updates.decksPlaying()
@@ -76,7 +88,7 @@
     <div class="rec">
       @if (recording.status(); as r) {
         <button
-          class="ghost recording"
+          class="pr-btn pr-btn--rec is-on"
           (click)="recording.stop()"
           [title]="
             r.droppedSeconds > 0
@@ -84,22 +96,24 @@
               : ('Stop recording' | t)
           "
         >
-          ● {{ clock(r.seconds) }}
+          <span class="pr-btn__dot"></span><span class="pr-num">{{ clock(r.seconds) }}</span>
         </button>
       } @else {
         <button
-          class="ghost"
+          class="pr-btn pr-btn--ghost pr-btn--rec"
           (click)="recordMenu.set(!recordMenu())"
           [title]="lastTitle()"
           [disabled]="!engine.audioRunning()"
         >
-          REC
+          <span class="pr-btn__dot"></span>{{ 'Rec' | t }}
         </button>
         @if (recordMenu()) {
           <div class="backdrop" (click)="recordMenu.set(false)"></div>
           <div class="menu">
             @for (o of recording.options(); track o.label) {
-              <button [title]="o.title" (click)="record(o)">{{ o.label }}</button>
+              <button class="pr-btn pr-btn--ghost" [title]="o.title" (click)="record(o)">
+                {{ o.label }}
+              </button>
             } @empty {
               <span class="none">{{ 'Nothing to record: no software mixer, no input' | t }}</span>
             }
@@ -108,25 +122,40 @@
       }
     </div>
     <button
-      class="ghost"
+      class="pr-btn pr-btn--ghost"
       (click)="openTurntables.emit()"
       [title]="'Turntables and timecode signal' | t"
     >
-      DVS
+      {{ 'Turntables' | t }}
     </button>
-    <button class="ghost" (click)="openControllers.emit()" [title]="'MIDI controllers' | t">
+    <button
+      class="pr-btn pr-btn--ghost"
+      (click)="openControllers.emit()"
+      [title]="'MIDI controllers' | t"
+    >
       MIDI
     </button>
-    <button class="ghost" (click)="openShortcuts.emit()" [title]="'Keyboard shortcuts (F1)' | t">
-      {{ 'Keys' | t }}
+    <button
+      class="pr-btn pr-btn--ghost"
+      (click)="openShortcuts.emit()"
+      [title]="'Keyboard shortcuts (F1)' | t"
+    >
+      {{ 'Shortcuts' | t }}
     </button>
-    <button class="ghost" (click)="openSettings.emit()" [title]="'Settings' | t">
+    <button class="pr-btn pr-btn--ghost" (click)="openSettings.emit()" [title]="'Settings' | t">
       {{ 'Settings' | t }}
     </button>
-    <button class="win" (click)="minimize()" [attr.aria-label]="'Minimize' | t">&#x2013;</button>
-    <button class="win" (click)="toggleMaximize()" [attr.aria-label]="'Maximize' | t">
-      &#x25A1;
+  </nav>
+
+  <div class="window">
+    <button class="win" (click)="minimize()" [attr.aria-label]="'Minimize' | t">
+      <svg viewBox="0 0 10 10" aria-hidden="true"><path d="M1 5h8" /></svg>
     </button>
-    <button class="win close" (click)="close()" [attr.aria-label]="'Close' | t">&#x2715;</button>
+    <button class="win" (click)="toggleMaximize()" [attr.aria-label]="'Maximize' | t">
+      <svg viewBox="0 0 10 10" aria-hidden="true"><path d="M1.5 1.5h7v7h-7z" /></svg>
+    </button>
+    <button class="win close" (click)="close()" [attr.aria-label]="'Close' | t">
+      <svg viewBox="0 0 10 10" aria-hidden="true"><path d="M1.5 1.5l7 7M8.5 1.5l-7 7" /></svg>
+    </button>
   </div>
 </header>

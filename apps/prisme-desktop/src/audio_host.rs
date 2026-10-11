@@ -87,6 +87,7 @@ pub fn start(settings: &AudioSettings) -> AppResult<AudioSession> {
         buffer_frames: settings.buffer_frames,
     };
     let simulate = settings.simulate;
+    let backend = settings.backend;
 
     type Ready = (EngineController, EngineConfig, AudioInfo, Arc<StreamStats>);
     let (ready_tx, ready_rx) = mpsc::channel::<AppResult<Ready>>();
@@ -104,6 +105,8 @@ pub fn start(settings: &AudioSettings) -> AppResult<AudioSession> {
         match (started, created) {
             (Ok(stream), Some((controller, config))) => {
                 let info = AudioInfo {
+                    backend,
+                    device: stream.output_device.clone(),
                     sample_rate: stream.format.sample_rate,
                     output_channels: stream.format.output_channels,
                     input_channels: stream.format.input_channels,

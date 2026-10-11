@@ -1,103 +1,65 @@
 .titlebar {
-  height: 36px;
+  height: var(--pr-titlebar);
   display: flex;
   align-items: center;
-  gap: 16px;
-  padding-left: 12px;
-  background: var(--bg);
-  border-bottom: 1px solid var(--line);
+  gap: 18px;
+  padding-left: var(--pr-space-3);
+  border-bottom: 1px solid var(--pr-line);
 }
+
 .brand {
   display: flex;
   align-items: center;
-  gap: 8px;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  color: var(--text);
+  gap: var(--pr-space-2);
+  font: 600 16px / 1 var(--pr-font);
+  font-stretch: var(--pr-narrow);
   .mark {
-    width: 18px;
-    height: 18px;
-    color: var(--text);
+    width: 22px;
+    height: 19px;
   }
 }
-.audio {
+
+.health {
   flex: 1;
+  min-width: 0;
   display: flex;
   align-items: center;
-  gap: 8px;
-  color: var(--muted);
-  font-size: 12px;
-}
-.dot {
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  &.ok {
-    background: var(--mint);
+  gap: 6px;
+  .pr-sig {
+    width: 7px;
+    height: 7px;
   }
-  &.off {
-    background: var(--red);
+  .pr-chip--alert .pr-sig {
+    border-width: 1.5px;
   }
-  &.lost {
-    background: var(--amber);
+  .device {
+    min-width: 0;
+    max-width: 260px;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
   }
-}
-.chip {
-  padding: 1px 6px;
-  border: 1px solid var(--line-strong);
-  border-radius: 3px;
-  color: var(--text-2);
-}
-.meter {
-  width: 90px;
-  height: 4px;
-  background: var(--line);
-  border-radius: 2px;
-  overflow: hidden;
-  div {
-    height: 100%;
-    background: var(--mint);
-  }
-  .clip {
-    background: var(--red);
+  .level {
+    width: 96px;
+    margin-left: var(--pr-space-2);
   }
 }
+
 .actions {
   display: flex;
-  align-items: stretch;
-  height: 100%;
-  .ghost {
-    margin: 5px 8px;
-    padding: 2px 10px;
+  align-items: center;
+  gap: 2px;
+  .pr-btn {
+    height: 28px;
+    font-size: 12.5px;
   }
-  .win {
-    width: 44px;
-    border: none;
-    border-radius: 0;
-    background: transparent;
-    color: var(--muted);
-    &:hover {
-      background: var(--raised);
-      color: var(--text);
-    }
-    &.close:hover {
-      background: #c42b1c;
-      color: #fff;
-    }
+  .update {
+    margin-right: var(--pr-space-2);
   }
 }
-.chip.warn {
-  border-color: var(--amber);
-  color: var(--amber);
-}
+
 .rec {
   position: relative;
-  display: flex;
-  align-items: stretch;
-  .recording {
-    color: var(--red);
-    font-variant-numeric: tabular-nums;
-  }
   .backdrop {
     position: fixed;
     inset: 0;
@@ -105,30 +67,53 @@
   }
   .menu {
     position: absolute;
-    top: calc(100% - 2px);
-    right: 8px;
+    top: calc(100% + 4px);
+    right: 0;
     z-index: 31;
-    display: flex;
-    flex-direction: column;
+    display: grid;
     gap: 2px;
-    min-width: 160px;
-    padding: 4px;
-    background: var(--panel-2);
-    border: 1px solid var(--line-strong);
-    border-radius: 4px;
-    box-shadow: 0 8px 24px rgb(0 0 0 / 0.5);
-    button {
-      text-align: left;
+    min-width: 180px;
+    padding: var(--pr-space-1);
+    background: var(--pr-base);
+    border: 1px solid var(--pr-line-2);
+    border-radius: var(--pr-radius);
+    .pr-btn {
+      justify-content: flex-start;
     }
     .none {
-      padding: 6px 8px;
-      color: var(--faint);
-      font-size: 12px;
+      padding: 6px var(--pr-space-2);
+      color: var(--pr-text-3);
+      font-size: var(--pr-size-small);
     }
   }
 }
 
-.update {
-  border-color: var(--mint);
-  color: var(--mint);
+.window {
+  display: flex;
+  align-self: stretch;
+  margin-left: var(--pr-space-1);
+  .win {
+    width: 44px;
+    display: grid;
+    place-items: center;
+    padding: 0;
+    border: none;
+    border-radius: 0;
+    color: var(--pr-text-2);
+    svg {
+      width: 10px;
+      height: 10px;
+      fill: none;
+      stroke: currentColor;
+      stroke-width: 1;
+    }
+    &:hover {
+      background: var(--pr-raise-2);
+      color: var(--pr-text);
+    }
+    &.close:hover {
+      background: var(--pr-alert);
+      color: var(--pr-on-light);
+    }
+  }
 }

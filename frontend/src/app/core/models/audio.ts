@@ -20,6 +20,9 @@ export interface AudioSettings {
 }
 
 export interface AudioInfo {
+  backend: AudioBackend;
+  /** Name of the output device. */
+  device: string;
   sampleRate: number;
   outputChannels: number;
   inputChannels: number;

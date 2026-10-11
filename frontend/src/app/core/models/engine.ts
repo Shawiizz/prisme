@@ -82,6 +82,8 @@ export interface AudioHealth {
   deviceLost: boolean;
   /** The engine failed and could not be restarted: the audio is silent. */
   engineFailed: boolean;
+  /** Frames per period, as the driver calls the engine (0 before the first period). */
+  periodFrames: number;
 }
 
 export interface EngineStatus {

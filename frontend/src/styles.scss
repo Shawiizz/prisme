@@ -1,26 +1,28 @@
-/* Prisme design tokens: flat surfaces, colour only where it carries meaning. */
+/* Base of the interface, on the design system (styles/tokens.css, design/DESIGN.md). */
+
+/* Older names, kept while the screens move to the --pr-* tokens. */
 :root {
-  --bg: #08090e;
-  --panel: #0e1118;
-  --panel-2: #11141d;
-  --raised: #1a1e2d;
-  --raised-hover: #222843;
-  --line: #1c2130;
-  --line-strong: #2c3350;
-  --text: #f2f4fb;
-  --text-2: #aab2d0;
-  --muted: #8b92ab;
-  --faint: #5a6385;
-  --ink: #07080d;
-  --deck-1: #2fd6ff;
-  --deck-2: #ff4fd8;
-  --amber: #ffb02e;
-  --mint: #34e6a0;
-  --red: #ff4d6d;
-  --select: #14485f;
-  --radius: 4px;
-  --font: 'Segoe UI Variable Text', 'Segoe UI', system-ui, sans-serif;
-  --mono: 'Cascadia Mono', 'Consolas', ui-monospace, monospace;
+  --bg: var(--pr-void);
+  --panel: var(--pr-base);
+  --panel-2: var(--pr-raise);
+  --raised: var(--pr-raise);
+  --raised-hover: var(--pr-raise-2);
+  --line: var(--pr-line);
+  --line-strong: var(--pr-line-2);
+  --text: var(--pr-text);
+  --text-2: var(--pr-text-2);
+  --muted: var(--pr-text-2);
+  --faint: var(--pr-text-3);
+  --ink: var(--pr-on-light);
+  --deck-1: var(--pr-light);
+  --deck-2: var(--pr-light);
+  --amber: var(--pr-warn);
+  --mint: var(--pr-ok);
+  --red: var(--pr-alert);
+  --select: var(--pr-raise-2);
+  --radius: var(--pr-radius);
+  --font: var(--pr-font);
+  --mono: var(--pr-font-mono);
 }
 
 * {
@@ -31,55 +33,59 @@ html,
 body {
   margin: 0;
   height: 100%;
-  background: var(--bg);
-  color: var(--text);
-  font-family: var(--font);
-  font-size: 13px;
+  background: var(--pr-void);
+  color: var(--pr-text);
+  font: var(--pr-size) / 1.35 var(--pr-font);
   user-select: none;
   overflow: hidden;
   -webkit-font-smoothing: antialiased;
 }
 
+/* Native controls look like the design system's, for the screens not moved yet. */
 button {
-  font: inherit;
-  color: var(--text-2);
-  background: var(--raised);
-  border: 1px solid var(--line-strong);
-  border-radius: var(--radius);
+  font: 500 var(--pr-size) / 1 var(--pr-font);
+  color: var(--pr-text);
+  background: transparent;
+  border: 1px solid var(--pr-line-2);
+  border-radius: var(--pr-radius);
   padding: 4px 10px;
   cursor: pointer;
   &:hover {
-    background: var(--raised-hover);
-    border-color: #4b588c;
+    background: var(--pr-raise-2);
+  }
+  &:focus-visible {
+    outline: 2px solid var(--pr-light);
+    outline-offset: 2px;
   }
   &:disabled {
-    opacity: 0.4;
+    opacity: 0.35;
     cursor: default;
+    background: transparent;
   }
-  &.active {
-    color: var(--ink);
-    font-weight: 700;
-  }
-  // the main action of a dialog
+  &.active,
   &.primary {
-    background: var(--deck-1);
-    border-color: var(--deck-1);
-    color: var(--ink);
-    font-weight: 700;
+    background: var(--pr-light);
+    border-color: var(--pr-light);
+    color: var(--pr-on-light);
+    font-weight: 600;
   }
 }
 
 input,
-select {
+select,
+textarea {
   font: inherit;
-  color: var(--text);
-  background: var(--panel-2);
-  border: 1px solid var(--line-strong);
-  border-radius: var(--radius);
+  color: var(--pr-text);
+  background: var(--pr-raise);
+  border: 1px solid var(--pr-line-2);
+  border-radius: var(--pr-radius);
   padding: 5px 8px;
+  &::placeholder {
+    color: var(--pr-text-3);
+  }
   &:focus {
     outline: none;
-    border-color: var(--deck-1);
+    border-color: var(--pr-light);
   }
 }
 
@@ -89,18 +95,23 @@ input[type='range'] {
   border: none;
   padding: 0;
   &::-webkit-slider-runnable-track {
-    height: 4px;
-    background: var(--line-strong);
-    border-radius: 2px;
+    height: 2px;
+    background: var(--pr-line-2);
   }
   &::-webkit-slider-thumb {
     appearance: none;
-    width: 14px;
-    height: 22px;
+    width: 12px;
+    height: 20px;
     margin-top: -9px;
-    border-radius: 3px;
-    background: var(--text-2);
-    border: 1px solid var(--ink);
+    border-radius: var(--pr-radius-sm);
+    background: var(--pr-light);
+  }
+  &:disabled::-webkit-slider-thumb {
+    background: var(--pr-text-3);
+  }
+  &:focus-visible {
+    outline: 2px solid var(--pr-light);
+    outline-offset: 2px;
   }
 }
 
@@ -109,18 +120,20 @@ input[type='range'] {
   height: 10px;
 }
 ::-webkit-scrollbar-track {
-  background: var(--bg);
+  background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: var(--line-strong);
-  border-radius: 2px;
-  border: 2px solid var(--bg);
+  background: var(--pr-line-2);
+  border-radius: var(--pr-radius-sm);
+  border: 3px solid var(--pr-void);
+}
+::-webkit-scrollbar-corner {
+  background: transparent;
 }
 
 .label {
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.06em;
-  color: var(--faint);
+  font: 600 var(--pr-size-label) / 1.2 var(--pr-font);
+  letter-spacing: 0.09em;
+  color: var(--pr-text-3);
   text-transform: uppercase;
 }

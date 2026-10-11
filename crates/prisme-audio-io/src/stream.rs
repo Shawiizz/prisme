@@ -58,6 +58,8 @@ pub struct RunningStream {
     _input: Option<cpal::Stream>,
     pub format: StreamFormat,
     pub stats: Arc<StreamStats>,
+    /// Name of the output device.
+    pub output_device: String,
 }
 
 /// Opens the devices, builds the callback for their format and starts calling it.
@@ -108,7 +110,8 @@ pub fn start<C: AudioCallback>(
         i.play()?;
     }
     output.play()?;
-    Ok(RunningStream { _output: output, _input: input_stream, format, stats })
+    let output_device = device_name(&out_device).unwrap_or_default();
+    Ok(RunningStream { _output: output, _input: input_stream, format, stats, output_device })
 }
 
 struct Input {

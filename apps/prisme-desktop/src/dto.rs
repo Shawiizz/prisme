@@ -240,6 +240,8 @@ impl Default for AudioSettings {
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AudioInfo {
+    pub backend: BackendDto,
+    pub device: String,
     pub sample_rate: u32,
     pub output_channels: usize,
     pub input_channels: usize,
@@ -568,6 +570,8 @@ pub struct AudioHealthDto {
     pub device_lost: bool,
     /// The engine failed and could not be restarted: the audio is silent.
     pub engine_failed: bool,
+    /// Frames per period, as the driver calls the engine (0 before the first period).
+    pub period_frames: u64,
 }
 
 impl From<&StreamStats> for AudioHealthDto {
@@ -578,6 +582,7 @@ impl From<&StreamStats> for AudioHealthDto {
             input_underruns: s.input_underruns.load(Ordering::Relaxed),
             device_lost: s.device_lost.load(Ordering::Relaxed),
             engine_failed: s.callback_failed.load(Ordering::Relaxed),
+            period_frames: s.frames.load(Ordering::Relaxed) / s.callbacks.load(Ordering::Relaxed).max(1),
         }
     }
 }

@@ -9,8 +9,9 @@ export const FR: Record<string, string> = {
   'audio engine error': 'erreur du moteur audio',
   'Slowest period: {us} µs. Raise the buffer in the settings.':
     'Période la plus lente : {us} µs. Augmentez le buffer dans les réglages.',
-  '{n} dropouts': '{n} décrochages',
-  '1 dropout': '1 décrochage',
+  Dropouts: 'Décrochages',
+  'Length of an audio period': "Durée d'une période audio",
+  'Master level': 'Niveau du master',
   '{s} s lost (disk too slow)': '{s} s perdues (disque trop lent)',
   'Stop recording': "Arrêter l'enregistrement",
   'Nothing to record: no software mixer, no input':
@@ -18,7 +19,8 @@ export const FR: Record<string, string> = {
   'Turntables and timecode signal': 'Platines et signal timecode',
   'MIDI controllers': 'Contrôleurs MIDI',
   'Keyboard shortcuts (F1)': 'Raccourcis clavier (F1)',
-  Keys: 'Clavier',
+  Shortcuts: 'Raccourcis',
+  Rec: 'Enregistrer',
   Settings: 'Réglages',
   Minimize: 'Réduire',
   Maximize: 'Agrandir',
