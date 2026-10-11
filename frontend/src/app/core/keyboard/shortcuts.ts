@@ -5,6 +5,8 @@ export interface Shortcut {
   ctrl?: boolean;
   shift?: boolean;
   control: string;
+  /** Works while typing and over the settings and the palette. */
+  global?: boolean;
 }
 
 /** Physical keys of each deck: the left hand plays deck A, the right hand deck B. */
@@ -46,7 +48,10 @@ export const SHORTCUTS: Shortcut[] = [
   { code: 'Delete', control: 'library.remove' },
   { code: 'KeyP', ctrl: true, control: 'library.prepare' },
   { code: 'KeyF', ctrl: true, control: 'library.search' },
-  { code: 'F1', control: 'general.help' },
+  { code: 'F1', control: 'general.help', global: true },
+  { code: 'KeyK', ctrl: true, control: 'general.palette', global: true },
+  { code: 'KeyP', ctrl: true, shift: true, control: 'general.palette', global: true },
+  { code: 'Comma', ctrl: true, control: 'general.settings', global: true },
 ];
 
 /** `true` if the event is the shortcut's key with exactly its modifiers. */

@@ -112,7 +112,9 @@ A toggle is a button with `.is-on` when on. Radius 3 px, no shadow, no glow.
 | `.pr-switch` | A setting on or off: `<button role="switch" aria-checked>` with a `<span>`. |
 | `.pr-check` | A box in a list of options. |
 | `.pr-input`, `.pr-select`, `.pr-field` | Fields: 32 high, label above, help below. Native `<select>`. |
-| `.pr-range` | Sliders in the settings. |
+| `app-fader` | Tempo, volumes, crossfader: a thin track filled from its start or from a centre detent, a cap with a line of light. Drag (Shift: fine), click the track, scroll, arrow keys, double-click to reset. |
+| `app-knob` | Trim, EQ, filter, effects, headphones: a cap with a line of light in a ring filled with the value, a detent when bipolar. Its label shows the value (dB, %) while touched. |
+| `.pr-group` > `.pr-card` > `.pr-row` | Settings: a row per setting, its name and a line of help on the left, its control on the right. A row pointed out from the palette lights up once (`.is-pointed`). |
 | `.pr-pad` (`--set`, `.is-hot`) | Hot cues and samples: empty dashed, set with its tag (`--tag`), in the light while held. |
 | `.pr-dialog` in `.pr-backdrop` | Dialogs: head, scrolling body, foot with the actions. The only shadow of the app. |
 | `.pr-table` | Rows on a grid (`--pr-cols`): `.is-selected`, `.is-played` (dimmed, never hidden). |
@@ -158,6 +160,11 @@ A toggle is a button with `.is-on` when on. Radius 3 px, no shadow, no glow.
   the loop keys (60). The mixer column sits between the halves.
 - The library fills the rest: sidebar (230) and the track table, with search and the reference
   deck.
+- **Settings**: one window, a sidebar of pages with a search over every setting. Most
+  settings apply at once; those that restart the audio or the interface wait in a bar with
+  Apply, and the window does not close over them.
+- **Command palette** (Ctrl + K, Ctrl + Shift + P): actions with their keys, settings, crates
+  and tracks of the whole library; Enter runs, Alt + A / Alt + B loads a track on a deck.
 - **External mixer first**: the mixer column narrows to the send meters (120), and the screen
   goes to the waveforms and the library. The software mixer widens it (210) and adds the
   trim, EQ and filter knobs to each deck's transport row.

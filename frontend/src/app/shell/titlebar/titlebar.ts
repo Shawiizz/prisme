@@ -1,10 +1,11 @@
-import { Component, computed, inject, output, signal } from '@angular/core';
+import { Component, computed, inject, signal } from '@angular/core';
 import { RecordOption, RecordingService } from '../../core/services/recording.service';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { SettingsService } from '../../core/services/settings.service';
 import { EngineService } from '../../core/services/engine.service';
 import { UpdateService } from '../../core/services/update.service';
 import { MixerService } from '../../core/services/mixer.service';
+import { NavigationService } from '../../core/services/navigation.service';
 import { t } from '../../core/i18n/i18n';
 import { TPipe } from '../../core/i18n/t.pipe';
 import { AudioBackend } from '../../core/models/audio';
@@ -24,6 +25,7 @@ export class Titlebar {
   protected readonly recording = inject(RecordingService);
   protected readonly updates = inject(UpdateService);
   protected readonly mixer = inject(MixerService);
+  protected readonly navigation = inject(NavigationService);
   protected readonly recordMenu = signal(false);
   protected readonly lastTitle = computed(() => {
     const last = this.recording.last();
@@ -42,10 +44,6 @@ export class Titlebar {
     return frames && rate ? decimal((frames / rate) * 1000, 1) : null;
   });
   protected readonly level = computed(() => levelSegments(this.engine.status()?.mainPeak ?? 0, 24));
-  readonly openSettings = output<void>();
-  readonly openShortcuts = output<void>();
-  readonly openControllers = output<void>();
-  readonly openTurntables = output<void>();
 
   record(option: RecordOption) {
     this.recordMenu.set(false);

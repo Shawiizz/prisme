@@ -1,0 +1,13 @@
+@for (g of groups(); track g.name) {
+  <section class="pr-group">
+    <h3 class="pr-label">{{ g.name }}</h3>
+    <div class="pr-card lines">
+      @for (line of g.lines; track line.label) {
+        <div class="line">
+          <span>{{ line.label }}</span>
+          <kbd class="pr-kbd">{{ line.key }}</kbd>
+        </div>
+      }
+    </div>
+  </section>
+}

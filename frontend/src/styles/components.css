@@ -309,6 +309,57 @@
   border-top: 1px solid var(--pr-line);
 }
 
+/* ---------- Setting rows ---------- */
+/* <section class="pr-group"><h3 class="pr-label">…</h3><div class="pr-card">
+   <div class="pr-row"><div><span class="pr-row__name">…</span><span class="pr-row__help">…</span>
+   </div>control</div></div></section> */
+
+.pr-group {
+  display: grid;
+  gap: var(--pr-space-2);
+}
+.pr-card {
+  background: var(--pr-base);
+  border: 1px solid var(--pr-line);
+  border-radius: var(--pr-radius);
+}
+.pr-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--pr-space-5);
+  min-height: 56px;
+  padding: var(--pr-space-3) var(--pr-space-4);
+}
+.pr-row + .pr-row {
+  border-top: 1px solid var(--pr-line);
+}
+.pr-row > div:first-child {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+.pr-row__name {
+  font-weight: 600;
+  font-size: 13.5px;
+  color: var(--pr-text);
+}
+.pr-row__help {
+  font-size: var(--pr-size-small);
+  line-height: 1.4;
+  color: var(--pr-text-3);
+}
+/* a row pointed out (from the search or the command palette) lights up once */
+.pr-row.is-pointed {
+  animation: pr-point 1.6s ease-out;
+}
+@keyframes pr-point {
+  from {
+    background: var(--pr-raise-2);
+    box-shadow: inset 0 0 0 1px var(--pr-light);
+  }
+}
+
 /* ---------- Readouts ---------- */
 
 .pr-readout {
@@ -602,7 +653,8 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .pr-readout--alert .pr-readout__value {
+  .pr-readout--alert .pr-readout__value,
+  .pr-row.is-pointed {
     animation: none;
   }
   .pr-switch > span {

@@ -18,8 +18,6 @@ export const FR: Record<string, string> = {
     'Rien à enregistrer : ni table de mixage logicielle, ni entrée',
   'Turntables and timecode signal': 'Platines et signal timecode',
   'MIDI controllers': 'Contrôleurs MIDI',
-  'Keyboard shortcuts (F1)': 'Raccourcis clavier (F1)',
-  Shortcuts: 'Raccourcis',
   Rec: 'Enregistrer',
   minor: 'mineur',
   major: 'majeur',
@@ -284,7 +282,6 @@ export const FR: Record<string, string> = {
 
   // settings
   'Driver type': 'Type de pilote',
-  'ASIO (lowest latency)': 'ASIO (latence minimale)',
   'ASIO driver': 'Pilote ASIO',
   'Default driver': 'Pilote par défaut',
   '{n} out': '{n} sorties',
@@ -315,16 +312,12 @@ export const FR: Record<string, string> = {
   'Deck A reads inputs 1-2, deck B inputs 3-4.':
     'Le deck A lit les entrées 1-2, le deck B les entrées 3-4.',
   'Control vinyl': 'Vinyle de contrôle',
-  'Simulated turntable on deck A (no hardware needed)':
-    'Platine simulée sur le deck A (sans matériel)',
   'Sync on a record in relative mode': 'Sync sur un disque en mode relatif',
   'One shot: matches once, the pitch fader keeps working':
     'Ponctuelle : cale une fois, le fader de pitch reste actif',
   'Locked: follows the leader, the pitch fader is ignored':
     'Verrouillée : suit le leader, le fader de pitch est ignoré',
   'Tempo fader range': 'Plage du fader de tempo',
-  'Quantize: cues, loops and jumps land on the beat':
-    'Quantize : cues, boucles et sauts tombent sur le temps',
   'Versions, audio setup and the end of the log, to help understand a problem':
     'Versions, configuration audio et fin du journal, pour aider à comprendre un problème',
   'Report saved': 'Rapport enregistré',
@@ -395,11 +388,80 @@ export const FR: Record<string, string> = {
   '24 ticks per beat of the sync leader': '24 tops par temps du leader de sync',
   'Press Learn, then move the control on the controller.':
     'Cliquez sur Apprendre, puis bougez la commande sur le contrôleur.',
-  'Tick a controller to map its controls.': 'Cochez un contrôleur pour assigner ses commandes.',
   'Move a control…': 'Bougez une commande…',
   Learn: 'Apprendre',
   Unmap: 'Désassigner',
   'Note {n}': 'Note {n}',
   'Pitch bend': 'Pitch bend',
   'ch {n}': 'canal {n}',
+
+  // settings and command palette
+  Results: 'Résultats',
+  'Command palette': 'Palette de commandes',
+  'Search actions, tracks, settings…': 'Chercher une action, un morceau, un réglage…',
+  'Nothing matches “{q}”': 'Rien ne correspond à « {q} »',
+  'to move': 'pour se déplacer',
+  'to run': 'pour lancer',
+  'a track on a deck': 'un morceau sur un deck',
+  Actions: 'Actions',
+  Tracks: 'Morceaux',
+  'Compare the tracks with deck {deck}': 'Comparer les morceaux au deck {deck}',
+  'Plugged in': 'Branché',
+  'Plug one in, then refresh.': 'Branchez-en un, puis actualisez.',
+  'Turn a controller on to map its controls.':
+    'Activez un contrôleur pour en associer les commandes.',
+  'The sound card and how fast it answers.': 'La carte son et sa réactivité.',
+  'The timecode signal of each record, and how it drives its deck.':
+    'Le signal timecode de chaque disque, et comment il pilote son deck.',
+  'Your mixer or the one in Prisme, and how it sounds.':
+    'Votre table de mixage ou celle de Prisme, et son rendu.',
+  'Sync, tempo fader and quantize.': 'Sync, fader de tempo et quantize.',
+  'Your music files and what Prisme writes into them.':
+    'Vos fichiers musicaux et ce que Prisme y écrit.',
+  'Map the controls of a controller by moving them.':
+    "Associez les commandes d'un contrôleur en les bougeant.",
+  'Every key of the keyboard, as printed on yours.':
+    "Toutes les touches, telles qu'imprimées sur votre clavier.",
+  'Language of Prisme.': 'La langue de Prisme.',
+  About: 'À propos',
+  'Version, updates and help with a problem.': 'Version, mises à jour et aide en cas de problème.',
+  'ASIO answers fastest; WASAPI works with every Windows device.':
+    'ASIO répond le plus vite ; WASAPI marche avec tous les périphériques Windows.',
+  'Where the decks come out.': 'Où sortent les decks.',
+  'The timecode pressed on your records.': 'Le timecode gravé sur vos disques.',
+  'Simulated turntable': 'Platine simulée',
+  'A turntable played by Prisme on deck A, to try vinyl control without one.':
+    'Une platine jouée par Prisme sur le deck A, pour essayer le contrôle vinyle sans platine.',
+  'An external mixer takes one output pair per deck.':
+    'Une table externe prend une paire de sorties par deck.',
+  'Crossfader curve': 'Courbe du crossfader',
+  'Smooth for blending, sharp for scratching.':
+    'Douce pour les enchaînements, franche pour le scratch.',
+  'Master limiter': 'Limiteur du master',
+  'No clipping on the master, for 1 ms of latency.':
+    'Aucune saturation sur le master, pour 1 ms de latence.',
+  'What SYNC does when a record drives the deck.':
+    'Ce que fait SYNC quand un disque pilote le deck.',
+  'The travel of the tempo faders, as on your turntables.':
+    'La course des faders de tempo, comme sur vos platines.',
+  Quantize: 'Quantize',
+  'Cues, loops and jumps land on the beat.': 'Cues, boucles et sauts tombent sur le temps.',
+  'The interface starts again in it.': "L'interface redémarre dans cette langue.",
+  Version: 'Version',
+  'Prisme is free software, under the GNU GPL v3.':
+    'Prisme est un logiciel libre, sous licence GNU GPL v3.',
+  Updates: 'Mises à jour',
+  'New versions are offered in the title bar.':
+    'Les nouvelles versions sont proposées dans la barre de titre.',
+  'Diagnostic report': 'Rapport de diagnostic',
+  'Search the settings': 'Chercher un réglage',
+  '1 setting found': '1 réglage trouvé',
+  '{n} settings found': '{n} réglages trouvés',
+  'Prisme {version} is ready to install.': 'Prisme {version} est prêt à être installé.',
+  'Install and restart': 'Installer et redémarrer',
+  'Check now': 'Vérifier maintenant',
+  Undo: 'Annuler',
+  'Prisme starts again in the new language.': 'Prisme redémarre dans la nouvelle langue.',
+  'The audio restarts to apply these changes.': "L'audio redémarre pour appliquer ces changements.",
+  'Settings (Ctrl + ,)': 'Réglages (Ctrl + ,)',
 };

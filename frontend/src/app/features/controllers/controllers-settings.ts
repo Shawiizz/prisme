@@ -1,4 +1,4 @@
-import { Component, OnDestroy, OnInit, computed, inject, output } from '@angular/core';
+import { Component, OnDestroy, OnInit, computed, inject } from '@angular/core';
 import { ControlService } from '../../core/control/control.service';
 import { ControllerService } from '../../core/control/controller.service';
 import { Control } from '../../core/control/controls';
@@ -11,18 +11,17 @@ interface Row {
   bindings: string[];
 }
 
-/** MIDI controllers in use, and the mapping of the app's controls (learnt by moving them). */
+/** Settings page: MIDI controllers in use, and the mapping of the app's controls (learnt by moving them). */
 @Component({
-  selector: 'app-controllers-dialog',
-  templateUrl: './controllers-dialog.html',
-  styleUrl: './controllers-dialog.scss',
+  selector: 'app-controllers-settings',
+  templateUrl: './controllers-settings.html',
+  styleUrl: './controllers-settings.scss',
   imports: [TPipe],
   host: { '(keydown.escape)': 'service.cancelLearning()' },
 })
-export class ControllersDialog implements OnInit, OnDestroy {
+export class ControllersSettings implements OnInit, OnDestroy {
   protected readonly service = inject(ControllerService);
   private readonly controls = inject(ControlService);
-  readonly closed = output();
 
   /** A controller is open: controls can be learnt. */
   protected readonly canLearn = computed(() =>

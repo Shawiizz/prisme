@@ -1,4 +1,4 @@
-import { Injectable, inject, signal } from '@angular/core';
+import { Injectable, inject } from '@angular/core';
 import { EngineService } from '../services/engine.service';
 import { FxService } from '../services/fx.service';
 import { LibraryService } from '../services/library.service';
@@ -6,6 +6,7 @@ import { MixerService } from '../services/mixer.service';
 import { PerformanceService } from '../services/performance.service';
 import { PreferencesService } from '../services/preferences.service';
 import { SamplerService } from '../services/sampler.service';
+import { NavigationService } from '../services/navigation.service';
 import { eqGain } from '../../shared/mixer-scales';
 import { Control, buildControls } from './controls';
 
@@ -21,8 +22,7 @@ export class ControlService {
   private readonly sampler = inject(SamplerService);
   private readonly library = inject(LibraryService);
   private readonly preferences = inject(PreferencesService);
-
-  readonly helpOpen = signal(false);
+  private readonly navigation = inject(NavigationService);
 
   readonly controls: Control[] = buildControls({
     togglePlay: (deck) => this.engine.togglePlay(deck),
@@ -63,7 +63,9 @@ export class ControlService {
     removeSelected: () => this.library.removeSelected(),
     prepareSelected: () => this.library.addSelectedToPrepare(),
     focusSearch: () => this.library.searchRequests.update((n) => n + 1),
-    toggleHelp: () => this.helpOpen.update((open) => !open),
+    toggleHelp: () => this.navigation.toggleSettings('shortcuts'),
+    togglePalette: () => this.navigation.togglePalette(),
+    openSettings: () => this.navigation.openSettings(),
   });
 
   private readonly byId = new Map(this.controls.map((c) => [c.id, c]));

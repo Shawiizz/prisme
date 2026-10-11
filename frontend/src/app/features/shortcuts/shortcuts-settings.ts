@@ -1,18 +1,16 @@
 import { Component, computed, inject } from '@angular/core';
 import { ControlService } from '../../core/control/control.service';
 import { KeyboardService } from '../../core/keyboard/keyboard.service';
-import { TPipe } from '../../core/i18n/t.pipe';
 
-/** The keyboard shortcuts, by group, with the keys as printed on the user's keyboard. */
+/** Settings page: the keyboard shortcuts, by group, with the keys as printed on the user's keyboard. */
 @Component({
-  selector: 'app-shortcuts-dialog',
-  templateUrl: './shortcuts-dialog.html',
-  styleUrl: './shortcuts-dialog.scss',
-  imports: [TPipe],
+  selector: 'app-shortcuts-settings',
+  templateUrl: './shortcuts-settings.html',
+  styleUrl: './shortcuts-settings.scss',
 })
-export class ShortcutsDialog {
+export class ShortcutsSettings {
   protected readonly keyboard = inject(KeyboardService);
-  protected readonly controls = inject(ControlService);
+  private readonly controls = inject(ControlService);
 
   protected readonly groups = computed(() => {
     const groups = new Map<string, { key: string; label: string }[]>();

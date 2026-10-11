@@ -1,5 +1,6 @@
 import { Injectable, inject, signal } from '@angular/core';
 import { Control } from '../control/controls';
+import { NavigationService } from '../services/navigation.service';
 import { ControlService } from '../control/control.service';
 import { matches, Shortcut, SHORTCUTS } from './shortcuts';
 import { t } from '../i18n/i18n';
@@ -12,6 +13,7 @@ interface KeyboardLayoutApi {
 @Injectable({ providedIn: 'root' })
 export class KeyboardService {
   private readonly controls = inject(ControlService);
+  private readonly navigation = inject(NavigationService);
 
   readonly shortcuts = SHORTCUTS;
   /** Key code -> what the user's keyboard layout prints on that key. */
@@ -26,6 +28,12 @@ export class KeyboardService {
     if (api) this.layout.set(await api.getLayoutMap());
   }
 
+  /** The first key of a control, as printed on the user's keyboard. */
+  keysOf(control: string): string | null {
+    const shortcut = this.shortcuts.find((s) => s.control === control);
+    return shortcut ? this.label(shortcut) : null;
+  }
+
   /** "Ctrl + F", "Shift + →", "A" as printed on the user's keyboard. */
   label(shortcut: Shortcut): string {
     const key =
@@ -38,7 +46,8 @@ export class KeyboardService {
   private onKeyDown(event: KeyboardEvent) {
     const shortcut = this.shortcuts.find((s) => matches(s, event));
     const control = shortcut && this.controls.find(shortcut.control);
-    if (!control || (isTyping(event) && shortcut.code !== 'F1')) return;
+    if (!control) return;
+    if (!shortcut.global && (isTyping(event) || this.navigation.covered())) return;
     event.preventDefault();
     if (event.repeat || this.held.has(event.code)) return;
     control.apply(1);

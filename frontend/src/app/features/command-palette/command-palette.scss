@@ -1,0 +1,126 @@
+.pr-backdrop {
+  align-items: start;
+  padding-top: 12vh;
+}
+.palette {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  width: min(680px, calc(100vw - 48px));
+  max-height: min(560px, 76vh);
+  background: var(--pr-base);
+  border: 1px solid var(--pr-line-2);
+  border-radius: var(--pr-radius);
+  box-shadow: 0 24px 64px rgb(0 0 0 / 0.55);
+  overflow: hidden;
+}
+.field {
+  display: flex;
+  align-items: center;
+  gap: var(--pr-space-3);
+  height: 54px;
+  padding: 0 var(--pr-space-4);
+  border-bottom: 1px solid var(--pr-line);
+  svg {
+    flex: none;
+    width: 16px;
+    height: 16px;
+    fill: none;
+    stroke: var(--pr-text-2);
+    stroke-width: 1.5;
+  }
+  input {
+    flex: 1;
+    min-width: 0;
+    height: 100%;
+    padding: 0;
+    border: none;
+    background: transparent;
+    font-size: 16px;
+    &:focus {
+      border: none;
+    }
+  }
+}
+.list {
+  overflow-y: auto;
+  padding: var(--pr-space-1) var(--pr-space-2) var(--pr-space-2);
+}
+.section {
+  padding: var(--pr-space-3) var(--pr-space-2) var(--pr-space-1);
+}
+.item {
+  display: flex;
+  align-items: center;
+  gap: var(--pr-space-3);
+  min-height: 40px;
+  padding: 4px var(--pr-space-2);
+  border-radius: var(--pr-radius-sm);
+  cursor: pointer;
+  &.is-active {
+    background: var(--pr-raise-2);
+  }
+}
+.text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: baseline;
+  gap: var(--pr-space-2);
+}
+.title {
+  flex: none;
+  max-width: 70%;
+  color: var(--pr-text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.detail {
+  min-width: 0;
+  font-size: var(--pr-size-small);
+  color: var(--pr-text-3);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  .bpm {
+    width: 48px;
+    text-align: right;
+    font-size: var(--pr-size-small);
+    color: var(--pr-text-2);
+  }
+  .pr-btn {
+    width: 24px;
+    padding: 0;
+  }
+}
+.pr-kbd {
+  white-space: nowrap;
+}
+.none {
+  margin: 0;
+  padding: var(--pr-space-5) var(--pr-space-2);
+  color: var(--pr-text-3);
+  text-align: center;
+}
+footer {
+  display: flex;
+  gap: var(--pr-space-5);
+  padding: var(--pr-space-2) var(--pr-space-4);
+  border-top: 1px solid var(--pr-line);
+  font-size: 11.5px;
+  color: var(--pr-text-3);
+  span {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+  .pr-kbd {
+    padding: 2px 5px;
+    font-size: 10.5px;
+  }
+}

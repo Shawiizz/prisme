@@ -1,0 +1,97 @@
+<div class="pr-backdrop" (click)="close()">
+  <div
+    class="palette"
+    role="dialog"
+    aria-modal="true"
+    [attr.aria-label]="'Command palette' | t"
+    (click)="$event.stopPropagation()"
+  >
+    <label class="field">
+      <svg viewBox="0 0 16 16" aria-hidden="true">
+        <circle cx="7" cy="7" r="5" />
+        <path d="M11 11l4 4" />
+      </svg>
+      <input
+        #input
+        type="text"
+        role="combobox"
+        aria-expanded="true"
+        aria-controls="palette-list"
+        [attr.aria-activedescendant]="'palette-item-' + active()"
+        [placeholder]="'Search actions, tracks, settings…' | t"
+        [value]="query()"
+        (input)="type($any($event.target).value)"
+        (keydown)="key($event)"
+      />
+      <kbd class="pr-kbd">Esc</kbd>
+    </label>
+
+    <div class="list" id="palette-list" role="listbox" #list>
+      @for (g of groups(); track g.id) {
+        <div class="pr-label section">{{ g.label }}</div>
+        @for (item of g.items; track $index) {
+          @let index = flat().indexOf(item);
+          <div
+            class="item"
+            role="option"
+            [id]="'palette-item-' + index"
+            [attr.data-index]="index"
+            [attr.aria-selected]="index === active()"
+            [class.is-active]="index === active()"
+            (pointermove)="active.set(index)"
+            (click)="run(item)"
+          >
+            <div class="text">
+              <span class="title">{{ item.title }}</span>
+              @if (item.detail) {
+                <span class="detail">{{ item.detail }}</span>
+              }
+            </div>
+            @if (item.track; as track) {
+              <span class="meta">
+                @if (track.details?.bpm; as bpm) {
+                  <span class="pr-num bpm">{{ decimal(bpm, 1) }}</span>
+                }
+                @if (track.details?.key; as k) {
+                  <span
+                    class="pr-key"
+                    [class.pr-key--maj]="major(k.camelot)"
+                    [style.--h]="hue(k.camelot)"
+                    >{{ k.camelot }}</span
+                  >
+                }
+                <button
+                  class="pr-btn pr-btn--sm"
+                  [title]="'Load on deck {deck}' | t: { deck: 'A' }"
+                  (click)="load(track, 0); $event.stopPropagation()"
+                >
+                  A
+                </button>
+                <button
+                  class="pr-btn pr-btn--sm"
+                  [title]="'Load on deck {deck}' | t: { deck: 'B' }"
+                  (click)="load(track, 1); $event.stopPropagation()"
+                >
+                  B
+                </button>
+              </span>
+            } @else if (item.keys) {
+              <kbd class="pr-kbd">{{ item.keys }}</kbd>
+            }
+          </div>
+        }
+      } @empty {
+        <p class="none">{{ 'Nothing matches “{q}”' | t: { q: query() } }}</p>
+      }
+    </div>
+
+    <footer>
+      <span><kbd class="pr-kbd">↑</kbd><kbd class="pr-kbd">↓</kbd> {{ 'to move' | t }}</span>
+      <span><kbd class="pr-kbd">Enter</kbd> {{ 'to run' | t }}</span>
+      <span
+        ><kbd class="pr-kbd">Alt A</kbd><kbd class="pr-kbd">Alt B</kbd>
+        {{ 'a track on a deck' | t }}</span
+      >
+    </footer>
+  </div>
+</div>

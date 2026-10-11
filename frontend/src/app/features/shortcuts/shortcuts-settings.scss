@@ -1,0 +1,23 @@
+:host {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: start;
+  gap: var(--pr-space-5);
+}
+.line {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--pr-space-3);
+  min-height: 36px;
+  padding: 0 var(--pr-space-3) 0 var(--pr-space-4);
+  color: var(--pr-text-2);
+  & + & {
+    border-top: 1px solid var(--pr-line);
+  }
+}
+.pr-kbd {
+  padding: 3px 7px;
+  color: var(--pr-text);
+  white-space: nowrap;
+}

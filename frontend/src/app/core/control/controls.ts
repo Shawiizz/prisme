@@ -53,6 +53,8 @@ export interface ControlActions {
   prepareSelected(): void;
   focusSearch(): void;
   toggleHelp(): void;
+  togglePalette(): void;
+  openSettings(): void;
 }
 
 const JUMP_BEATS = 4;
@@ -180,5 +182,7 @@ export function buildControls(a: ControlActions): Control[] {
     button('library.prepare', library, t('Add to the prepare list'), () => a.prepareSelected()),
     button('library.search', library, t('Search'), () => a.focusSearch()),
     button('general.help', t('General'), t('Keyboard shortcuts'), () => a.toggleHelp()),
+    button('general.palette', t('General'), t('Command palette'), () => a.togglePalette()),
+    button('general.settings', t('General'), t('Settings'), () => a.openSettings()),
   ];
 }

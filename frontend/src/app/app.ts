@@ -1,4 +1,4 @@
-import { Component, OnInit, inject, signal } from '@angular/core';
+import { Component, OnInit, inject } from '@angular/core';
 import { Titlebar } from './shell/titlebar/titlebar';
 import { DeckCard } from './features/deck/deck-card/deck-card';
 import { DeckWaveform } from './features/deck/deck-waveform/deck-waveform';
@@ -8,11 +8,8 @@ import { DeckPads } from './features/deck/deck-pads/deck-pads';
 import { Mixer } from './features/mixer/mixer';
 import { Library } from './features/library/library';
 import { SettingsDialog } from './features/settings/settings-dialog';
-import { ShortcutsDialog } from './features/shortcuts/shortcuts-dialog';
-import { TurntablesDialog } from './features/turntables/turntables-dialog';
-import { ControllersDialog } from './features/controllers/controllers-dialog';
+import { CommandPalette } from './features/command-palette/command-palette';
 import { KeyboardService } from './core/keyboard/keyboard.service';
-import { ControlService } from './core/control/control.service';
 import { ControllerService } from './core/control/controller.service';
 import { UpdateService } from './core/services/update.service';
 import { EngineService } from './core/services/engine.service';
@@ -20,6 +17,7 @@ import { LibraryService } from './core/services/library.service';
 import { SettingsService } from './core/services/settings.service';
 import { PreferencesService } from './core/services/preferences.service';
 import { MixerService } from './core/services/mixer.service';
+import { NavigationService } from './core/services/navigation.service';
 
 /**
  * Main window layout: title bar, the two decks with the phase strip between them, the
@@ -37,9 +35,7 @@ import { MixerService } from './core/services/mixer.service';
     Mixer,
     Library,
     SettingsDialog,
-    ShortcutsDialog,
-    TurntablesDialog,
-    ControllersDialog,
+    CommandPalette,
   ],
   templateUrl: './app.html',
   styleUrl: './app.scss',
@@ -50,13 +46,10 @@ export class App implements OnInit {
   private readonly settings = inject(SettingsService);
   private readonly preferences = inject(PreferencesService);
   private readonly keyboard = inject(KeyboardService);
-  protected readonly controls = inject(ControlService);
   protected readonly mixer = inject(MixerService);
   private readonly controllers = inject(ControllerService);
   private readonly updates = inject(UpdateService);
-  protected readonly settingsOpen = signal(false);
-  protected readonly turntablesOpen = signal(false);
-  protected readonly controllersOpen = signal(false);
+  protected readonly navigation = inject(NavigationService);
 
   async ngOnInit() {
     await this.preferences.load();

@@ -46,6 +46,42 @@
   }
 }
 
+// opens the command palette
+.palette {
+  flex: 0 1 300px;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: var(--pr-space-2);
+  height: 26px;
+  padding: 0 6px 0 10px;
+  border: 1px solid var(--pr-line-2);
+  border-radius: var(--pr-radius);
+  background: var(--pr-base);
+  color: var(--pr-text-3);
+  font: 400 var(--pr-size-small) / 1 var(--pr-font);
+  svg {
+    flex: none;
+    width: 12px;
+    height: 12px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.6;
+  }
+  span {
+    flex: 1;
+    min-width: 0;
+    text-align: left;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  &:hover {
+    background: var(--pr-raise);
+    color: var(--pr-text-2);
+  }
+}
+
 .actions {
   display: flex;
   align-items: center;

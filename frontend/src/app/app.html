@@ -1,9 +1,4 @@
-<app-titlebar
-  (openSettings)="settingsOpen.set(true)"
-  (openTurntables)="turntablesOpen.set(true)"
-  (openShortcuts)="controls.helpOpen.set(true)"
-  (openControllers)="controllersOpen.set(true)"
-/>
+<app-titlebar />
 
 <main class="layout">
   <section class="decks">
@@ -31,18 +26,10 @@
   </section>
 </main>
 
-@if (settingsOpen()) {
-  <app-settings-dialog (closed)="settingsOpen.set(false)" />
+@if (navigation.settings()) {
+  <app-settings-dialog />
 }
 
-@if (controls.helpOpen()) {
-  <app-shortcuts-dialog />
-}
-
-@if (controllersOpen()) {
-  <app-controllers-dialog (closed)="controllersOpen.set(false)" />
-}
-
-@if (turntablesOpen()) {
-  <app-turntables-dialog (closed)="turntablesOpen.set(false)" />
+@if (navigation.palette()) {
+  <app-command-palette />
 }

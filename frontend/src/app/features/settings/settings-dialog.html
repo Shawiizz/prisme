@@ -1,253 +1,665 @@
-<div class="pr-backdrop" (click)="closed.emit()">
+<div class="pr-backdrop" (click)="requestClose()">
   <div
-    class="pr-dialog"
+    class="settings"
     role="dialog"
     aria-modal="true"
     [attr.aria-label]="'Settings' | t"
     (click)="$event.stopPropagation()"
+    (keydown.escape)="requestClose()"
   >
-    <header class="pr-dialog__head">
+    <aside class="sidebar">
       <h2>{{ 'Settings' | t }}</h2>
-      <button
-        class="pr-btn pr-btn--ghost pr-btn--icon"
-        [attr.aria-label]="'Close' | t"
-        (click)="closed.emit()"
-      >
-        ×
-      </button>
-    </header>
-
-    <div class="pr-dialog__body">
-      @if (draft(); as d) {
-        <div class="sections">
-          <section>
-            <h3>Audio</h3>
-            <label>
-              <span class="pr-label">{{ 'Driver type' | t }}</span>
-              <select
-                class="pr-select"
-                [value]="d.backend"
-                (change)="setBackend($any($event.target).value)"
-              >
-                @for (b of service.backends(); track b) {
-                  <option [value]="b">
-                    {{ b === 'asio' ? ('ASIO (lowest latency)' | t) : 'WASAPI (Windows)' }}
-                  </option>
+      <label class="search">
+        <svg viewBox="0 0 16 16" aria-hidden="true">
+          <circle cx="7" cy="7" r="5" />
+          <path d="M11 11l4 4" />
+        </svg>
+        <input
+          class="pr-input"
+          type="search"
+          [placeholder]="'Search the settings' | t"
+          [value]="query()"
+          (input)="query.set($any($event.target).value)"
+          (keydown.escape)="clearSearch($event)"
+          [attr.aria-label]="'Search the settings' | t"
+        />
+      </label>
+      <nav>
+        @for (p of pages; track p.id) {
+          <button
+            class="item"
+            [class.is-current]="!found() && category() === p.id"
+            [class.is-found]="found() && shows(p.id)"
+            [attr.aria-current]="!found() && category() === p.id ? 'page' : null"
+            (click)="go(p.id)"
+          >
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              @switch (p.id) {
+                @case ('audio') {
+                  <path d="M4 9h3l5-4v14l-5-4H4zM16 9.5a3.5 3.5 0 0 1 0 5M18.5 7a7 7 0 0 1 0 10" />
                 }
-              </select>
-            </label>
-
-            @if (asio()) {
-              <label>
-                <span class="pr-label">{{ 'ASIO driver' | t }}</span>
-                <select
-                  class="pr-select"
-                  [value]="d.outputDevice ?? ''"
-                  (change)="setDriver(orNull($any($event.target).value))"
-                >
-                  <option value="">{{ 'Default driver' | t }}</option>
-                  @for (o of outputs(); track o.name) {
-                    <option [value]="o.name">
-                      {{ o.name }} · {{ '{n} out' | t: { n: o.channels } }} · {{ o.sampleRate }} Hz
-                    </option>
-                  }
-                </select>
-              </label>
-            } @else {
-              <label>
-                <span class="pr-label">{{ 'Output' | t }}</span>
-                <select
-                  class="pr-select"
-                  [value]="d.outputDevice ?? ''"
-                  (change)="update({ outputDevice: orNull($any($event.target).value) })"
-                >
-                  <option value="">{{ 'Default device' | t }}</option>
-                  @for (o of outputs(); track o.name) {
-                    <option [value]="o.name">
-                      {{ o.name }} · {{ '{n} ch' | t: { n: o.channels } }} · {{ o.sampleRate }} Hz
-                    </option>
-                  }
-                </select>
-              </label>
-            }
-
-            <label>
-              <span class="pr-label">{{ 'Buffer' | t }}</span>
-              <select
-                class="pr-select"
-                [value]="d.bufferFrames ?? ''"
-                (change)="
-                  update({
-                    bufferFrames:
-                      orNull($any($event.target).value) === null
-                        ? null
-                        : +$any($event.target).value,
-                  })
-                "
-              >
-                <option value="">{{ 'Driver default' | t }}</option>
-                @for (n of bufferSizes(); track n) {
-                  <option [value]="n">{{ bufferLabel(n) }}</option>
+                @case ('turntables') {
+                  <circle cx="12" cy="12" r="8.5" />
+                  <circle cx="12" cy="12" r="2.5" />
                 }
-              </select>
-              <small>{{ 'Smaller is more responsive; raise it if the sound crackles.' | t }}</small>
-            </label>
-
-            <label>
-              <span class="pr-label">{{ 'Mixing' | t }}</span>
-              <select
-                class="pr-select"
-                [value]="mixMode()"
-                (change)="mixMode.set($any($event.target).value)"
-              >
-                <option value="external">
-                  {{ 'External mixer: deck A on outputs 1-2, deck B on 3-4' | t }}
-                </option>
-                <option value="internal">
-                  {{ 'Software mixer: master on 1-2, headphones on 3-4' | t }}
-                </option>
-              </select>
-            </label>
-
-            <h3>{{ 'Library' | t }}</h3>
-            <label class="pr-check">
-              <input
-                type="checkbox"
-                [checked]="writeTags()"
-                (change)="writeTags.set($any($event.target).checked)"
-              />
-              <span>{{ 'Write the tempo and key into the tags of the files' | t }}</span>
-            </label>
-            <small>{{ 'So that Serato, rekordbox and the others find them.' | t }}</small>
-
-            <h3>{{ 'Interface' | t }}</h3>
-            <label>
-              <span class="pr-label">{{ 'Language' | t }}</span>
-              <select class="pr-select" (change)="language.set($any($event.target).value)">
-                @for (l of languages; track l.id) {
-                  <option [value]="l.id" [selected]="l.id === language()">{{ l.name }}</option>
+                @case ('mixing') {
+                  <path d="M7 4v16M17 4v16M4 9h6M14 15h6" />
                 }
-              </select>
-            </label>
-          </section>
-
-          <section>
-            <h3>{{ 'Turntables' | t }}</h3>
-            @if (asio()) {
-              <label class="pr-check">
-                <input
-                  type="checkbox"
-                  [checked]="!!d.inputDevice"
-                  [disabled]="d.simulate"
-                  (change)="setTurntablesOnDriver($any($event.target).checked)"
-                />
-                <span>{{ 'Turntables plugged into the inputs of this driver' | t }}</span>
-              </label>
-            } @else {
-              <label>
-                <span class="pr-label">{{ 'Input (DVS interface)' | t }}</span>
-                <select
-                  class="pr-select"
-                  [value]="d.inputDevice ?? ''"
-                  (change)="update({ inputDevice: orNull($any($event.target).value) })"
-                  [disabled]="d.simulate"
-                >
-                  <option value="">{{ 'None' | t }}</option>
-                  @for (i of inputs(); track i.name) {
-                    <option [value]="i.name">
-                      {{ i.name }} · {{ '{n} ch' | t: { n: i.channels } }} · {{ i.sampleRate }} Hz
-                    </option>
-                  }
-                </select>
-              </label>
-            }
-            <small>{{ 'Deck A reads inputs 1-2, deck B inputs 3-4.' | t }}</small>
-
-            <label>
-              <span class="pr-label">{{ 'Control vinyl' | t }}</span>
-              <select
-                class="pr-select"
-                [value]="d.timecodeFormat"
-                (change)="update({ timecodeFormat: $any($event.target).value })"
-              >
-                @for (f of service.formats(); track f.id) {
-                  <option [value]="f.id">{{ f.name }}</option>
+                @case ('dj') {
+                  <path d="M4 17l4-6 4 3 4-7 4 5" />
                 }
-              </select>
-            </label>
-
-            <label class="pr-check">
-              <input
-                type="checkbox"
-                [checked]="d.simulate"
-                (change)="update({ simulate: $any($event.target).checked })"
-              />
-              <span>{{ 'Simulated turntable on deck A (no hardware needed)' | t }}</span>
-            </label>
-
-            <h3>DJ</h3>
-            <label>
-              <span class="pr-label">{{ 'Sync on a record in relative mode' | t }}</span>
-              <select
-                class="pr-select"
-                [value]="dj().vinylSync"
-                (change)="updateDj({ vinylSync: $any($event.target).value })"
-              >
-                <option value="once">
-                  {{ 'One shot: matches once, the pitch fader keeps working' | t }}
-                </option>
-                <option value="locked">
-                  {{ 'Locked: follows the leader, the pitch fader is ignored' | t }}
-                </option>
-              </select>
-            </label>
-
-            <label>
-              <span class="pr-label">{{ 'Tempo fader range' | t }}</span>
-              <select
-                class="pr-select"
-                [value]="dj().pitchRange"
-                (change)="updateDj({ pitchRange: +$any($event.target).value })"
-              >
-                @for (r of pitchRanges; track r) {
-                  <option [value]="r">±{{ r * 100 }} %</option>
+                @case ('library') {
+                  <path d="M5 4v16M10 4v16M15 5l4 15" />
                 }
-              </select>
-            </label>
+                @case ('controllers') {
+                  <rect x="3" y="7" width="18" height="10" rx="1.5" />
+                  <path d="M7 11v2M11 11v2M15 11h2" />
+                }
+                @case ('shortcuts') {
+                  <rect x="3" y="6" width="18" height="12" rx="1.5" />
+                  <path d="M7 10h1M11 10h1M15 10h2M8 14h8" />
+                }
+                @case ('interface') {
+                  <circle cx="12" cy="12" r="8.5" />
+                  <path d="M3.5 12h17M12 3.5c3 3 3 14 0 17M12 3.5c-3 3-3 14 0 17" />
+                }
+                @case ('about') {
+                  <circle cx="12" cy="12" r="8.5" />
+                  <path d="M12 11v5M12 8h.01" />
+                }
+              }
+            </svg>
+            <span>{{ p.label }}</span>
+          </button>
+        }
+      </nav>
+    </aside>
 
-            <label class="pr-check">
-              <input
-                type="checkbox"
-                [checked]="dj().quantize"
-                (change)="updateDj({ quantize: $any($event.target).checked })"
-              />
-              <span>{{ 'Quantize: cues, loops and jumps land on the beat' | t }}</span>
-            </label>
-          </section>
+    <section class="content">
+      <header class="head">
+        <div>
+          @if (found()) {
+            <h2>{{ 'Results' | t }}</h2>
+            <p>
+              {{
+                foundCount() === 0
+                  ? ('Nothing matches “{q}”' | t: { q: query() })
+                  : foundCount() === 1
+                    ? ('1 setting found' | t)
+                    : ('{n} settings found' | t: { n: foundCount() })
+              }}
+            </p>
+          } @else {
+            <h2>{{ page().label }}</h2>
+            <p>{{ page().description }}</p>
+          }
         </div>
+        <button
+          class="pr-btn pr-btn--ghost pr-btn--icon"
+          [attr.aria-label]="'Close' | t"
+          (click)="requestClose()"
+        >
+          <svg viewBox="0 0 10 10" aria-hidden="true"><path d="M1.5 1.5l7 7M8.5 1.5l-7 7" /></svg>
+        </button>
+      </header>
+
+      <div class="body" #body>
+        @if (shows('audio')) {
+          <section class="pr-group">
+            @if (found()) {
+              <h3 class="pr-label">{{ pageLabel('audio') }}</h3>
+            }
+            @if (draft(); as d) {
+              <div class="pr-card">
+                @if (row('audio.driver')) {
+                  @let e = entry('audio.driver');
+                  <div
+                    class="pr-row"
+                    data-setting="audio.driver"
+                    [class.is-pointed]="pointed() === e.id"
+                  >
+                    <div>
+                      <span class="pr-row__name">{{ e.label }}</span>
+                      <span class="pr-row__help">{{ e.description }}</span>
+                    </div>
+                    <div class="pr-seg pr-seg--lg" role="radiogroup" [attr.aria-label]="e.label">
+                      @for (b of service.backends(); track b) {
+                        <button
+                          role="radio"
+                          [attr.aria-checked]="d.backend === b"
+                          (click)="setBackend(b)"
+                        >
+                          {{ b === 'asio' ? 'ASIO' : 'WASAPI' }}
+                        </button>
+                      }
+                    </div>
+                  </div>
+                }
+                @if (row('audio.output')) {
+                  @let e = entry('audio.output');
+                  <div
+                    class="pr-row"
+                    data-setting="audio.output"
+                    [class.is-pointed]="pointed() === e.id"
+                  >
+                    <div>
+                      <span class="pr-row__name">{{ asio() ? ('ASIO driver' | t) : e.label }}</span>
+                      <span class="pr-row__help">{{ e.description }}</span>
+                    </div>
+                    @if (asio()) {
+                      <select
+                        class="pr-select"
+                        [value]="d.outputDevice ?? ''"
+                        (change)="setDriver(orNull($any($event.target).value))"
+                        [attr.aria-label]="'ASIO driver' | t"
+                      >
+                        <option value="">{{ 'Default driver' | t }}</option>
+                        @for (o of outputs(); track o.name) {
+                          <option [value]="o.name">
+                            {{ o.name }} · {{ '{n} out' | t: { n: o.channels } }} ·
+                            {{ o.sampleRate }} Hz
+                          </option>
+                        }
+                      </select>
+                    } @else {
+                      <select
+                        class="pr-select"
+                        [value]="d.outputDevice ?? ''"
+                        (change)="update({ outputDevice: orNull($any($event.target).value) })"
+                        [attr.aria-label]="e.label"
+                      >
+                        <option value="">{{ 'Default device' | t }}</option>
+                        @for (o of outputs(); track o.name) {
+                          <option [value]="o.name">
+                            {{ o.name }} · {{ '{n} ch' | t: { n: o.channels } }} ·
+                            {{ o.sampleRate }} Hz
+                          </option>
+                        }
+                      </select>
+                    }
+                  </div>
+                }
+                @if (row('audio.buffer')) {
+                  @let e = entry('audio.buffer');
+                  <div
+                    class="pr-row"
+                    data-setting="audio.buffer"
+                    [class.is-pointed]="pointed() === e.id"
+                  >
+                    <div>
+                      <span class="pr-row__name">{{ e.label }}</span>
+                      <span class="pr-row__help">{{ e.description }}</span>
+                    </div>
+                    <select
+                      class="pr-select"
+                      [value]="d.bufferFrames ?? ''"
+                      (change)="
+                        update({
+                          bufferFrames:
+                            orNull($any($event.target).value) === null
+                              ? null
+                              : +$any($event.target).value,
+                        })
+                      "
+                      [attr.aria-label]="e.label"
+                    >
+                      <option value="">{{ 'Driver default' | t }}</option>
+                      @for (n of bufferSizes(); track n) {
+                        <option [value]="n">{{ bufferLabel(n) }}</option>
+                      }
+                    </select>
+                  </div>
+                }
+              </div>
+            } @else {
+              <p class="loading">{{ 'Reading devices…' | t }}</p>
+            }
+          </section>
+        }
+
+        @if (shows('turntables')) {
+          <section class="pr-group">
+            @if (found()) {
+              <h3 class="pr-label">{{ pageLabel('turntables') }}</h3>
+            }
+            @if (draft(); as d) {
+              <div class="pr-card">
+                @if (row('turntables.input')) {
+                  @let e = entry('turntables.input');
+                  <div
+                    class="pr-row"
+                    data-setting="turntables.input"
+                    [class.is-pointed]="pointed() === e.id"
+                  >
+                    <div>
+                      <span class="pr-row__name">{{
+                        asio() ? ('Turntables plugged into the inputs of this driver' | t) : e.label
+                      }}</span>
+                      <span class="pr-row__help">{{ e.description }}</span>
+                    </div>
+                    @if (asio()) {
+                      <button
+                        class="pr-switch"
+                        role="switch"
+                        [attr.aria-checked]="!!d.inputDevice"
+                        [disabled]="d.simulate"
+                        [attr.aria-label]="'Turntables plugged into the inputs of this driver' | t"
+                        (click)="setTurntablesOnDriver(!d.inputDevice)"
+                      >
+                        <span></span>
+                      </button>
+                    } @else {
+                      <select
+                        class="pr-select"
+                        [value]="d.inputDevice ?? ''"
+                        (change)="update({ inputDevice: orNull($any($event.target).value) })"
+                        [disabled]="d.simulate"
+                        [attr.aria-label]="e.label"
+                      >
+                        <option value="">{{ 'None' | t }}</option>
+                        @for (i of inputs(); track i.name) {
+                          <option [value]="i.name">
+                            {{ i.name }} · {{ '{n} ch' | t: { n: i.channels } }} ·
+                            {{ i.sampleRate }} Hz
+                          </option>
+                        }
+                      </select>
+                    }
+                  </div>
+                }
+                @if (row('turntables.vinyl')) {
+                  @let e = entry('turntables.vinyl');
+                  <div
+                    class="pr-row"
+                    data-setting="turntables.vinyl"
+                    [class.is-pointed]="pointed() === e.id"
+                  >
+                    <div>
+                      <span class="pr-row__name">{{ e.label }}</span>
+                      <span class="pr-row__help">{{ e.description }}</span>
+                    </div>
+                    <select
+                      class="pr-select"
+                      [value]="d.timecodeFormat"
+                      (change)="update({ timecodeFormat: $any($event.target).value })"
+                      [attr.aria-label]="e.label"
+                    >
+                      @for (f of service.formats(); track f.id) {
+                        <option [value]="f.id">{{ f.name }}</option>
+                      }
+                    </select>
+                  </div>
+                }
+                @if (row('turntables.simulate')) {
+                  @let e = entry('turntables.simulate');
+                  <div
+                    class="pr-row"
+                    data-setting="turntables.simulate"
+                    [class.is-pointed]="pointed() === e.id"
+                  >
+                    <div>
+                      <span class="pr-row__name">{{ e.label }}</span>
+                      <span class="pr-row__help">{{ e.description }}</span>
+                    </div>
+                    <button
+                      class="pr-switch"
+                      role="switch"
+                      [attr.aria-checked]="d.simulate"
+                      [attr.aria-label]="e.label"
+                      (click)="update({ simulate: !d.simulate })"
+                    >
+                      <span></span>
+                    </button>
+                  </div>
+                }
+              </div>
+            }
+            @if (!found() || found()!.pages.has('turntables')) {
+              <div class="pr-card turntables">
+                @for (deck of decks; track deck) {
+                  <app-turntable-panel [deck]="deck" />
+                }
+              </div>
+            }
+          </section>
+        }
+
+        @if (shows('mixing')) {
+          <section class="pr-group">
+            @if (found()) {
+              <h3 class="pr-label">{{ pageLabel('mixing') }}</h3>
+            }
+            <div class="pr-card">
+              @if (row('mixing.mode')) {
+                @let e = entry('mixing.mode');
+                <div
+                  class="pr-row"
+                  data-setting="mixing.mode"
+                  [class.is-pointed]="pointed() === e.id"
+                >
+                  <div>
+                    <span class="pr-row__name">{{ e.label }}</span>
+                    <span class="pr-row__help">{{ e.description }}</span>
+                  </div>
+                  <select
+                    class="pr-select"
+                    [value]="mixMode()"
+                    (change)="mixMode.set($any($event.target).value)"
+                    [attr.aria-label]="e.label"
+                  >
+                    <option value="external">
+                      {{ 'External mixer: deck A on outputs 1-2, deck B on 3-4' | t }}
+                    </option>
+                    <option value="internal">
+                      {{ 'Software mixer: master on 1-2, headphones on 3-4' | t }}
+                    </option>
+                  </select>
+                </div>
+              }
+              @if (row('mixing.curve')) {
+                @let e = entry('mixing.curve');
+                <div
+                  class="pr-row"
+                  data-setting="mixing.curve"
+                  [class.is-pointed]="pointed() === e.id"
+                >
+                  <div>
+                    <span class="pr-row__name">{{ e.label }}</span>
+                    <span class="pr-row__help">{{ e.description }}</span>
+                  </div>
+                  <div class="pr-seg pr-seg--lg" role="radiogroup" [attr.aria-label]="e.label">
+                    <button
+                      role="radio"
+                      [attr.aria-checked]="mixer.crossfaderCurve() === 'smooth'"
+                      (click)="mixer.setCrossfaderCurve('smooth')"
+                    >
+                      SMOOTH
+                    </button>
+                    <button
+                      role="radio"
+                      [attr.aria-checked]="mixer.crossfaderCurve() === 'sharp'"
+                      (click)="mixer.setCrossfaderCurve('sharp')"
+                    >
+                      SHARP
+                    </button>
+                  </div>
+                </div>
+              }
+              @if (row('mixing.limiter')) {
+                @let e = entry('mixing.limiter');
+                <div
+                  class="pr-row"
+                  data-setting="mixing.limiter"
+                  [class.is-pointed]="pointed() === e.id"
+                >
+                  <div>
+                    <span class="pr-row__name">{{ e.label }}</span>
+                    <span class="pr-row__help">{{ e.description }}</span>
+                  </div>
+                  <button
+                    class="pr-switch"
+                    role="switch"
+                    [attr.aria-checked]="mixer.limiter()"
+                    [attr.aria-label]="e.label"
+                    (click)="mixer.setLimiter(!mixer.limiter())"
+                  >
+                    <span></span>
+                  </button>
+                </div>
+              }
+            </div>
+          </section>
+        }
+
+        @if (shows('dj')) {
+          <section class="pr-group">
+            @if (found()) {
+              <h3 class="pr-label">DJ</h3>
+            }
+            <div class="pr-card">
+              @if (row('dj.sync')) {
+                @let e = entry('dj.sync');
+                <div class="pr-row" data-setting="dj.sync" [class.is-pointed]="pointed() === e.id">
+                  <div>
+                    <span class="pr-row__name">{{ e.label }}</span>
+                    <span class="pr-row__help">{{ e.description }}</span>
+                  </div>
+                  <select
+                    class="pr-select"
+                    [value]="dj().vinylSync"
+                    (change)="updateDj({ vinylSync: $any($event.target).value })"
+                    [attr.aria-label]="e.label"
+                  >
+                    <option value="once">
+                      {{ 'One shot: matches once, the pitch fader keeps working' | t }}
+                    </option>
+                    <option value="locked">
+                      {{ 'Locked: follows the leader, the pitch fader is ignored' | t }}
+                    </option>
+                  </select>
+                </div>
+              }
+              @if (row('dj.pitchRange')) {
+                @let e = entry('dj.pitchRange');
+                <div
+                  class="pr-row"
+                  data-setting="dj.pitchRange"
+                  [class.is-pointed]="pointed() === e.id"
+                >
+                  <div>
+                    <span class="pr-row__name">{{ e.label }}</span>
+                    <span class="pr-row__help">{{ e.description }}</span>
+                  </div>
+                  <div class="pr-seg pr-seg--lg" role="radiogroup" [attr.aria-label]="e.label">
+                    @for (r of pitchRanges; track r) {
+                      <button
+                        role="radio"
+                        [attr.aria-checked]="dj().pitchRange === r"
+                        (click)="updateDj({ pitchRange: r })"
+                      >
+                        ±{{ r * 100 }} %
+                      </button>
+                    }
+                  </div>
+                </div>
+              }
+              @if (row('dj.quantize')) {
+                @let e = entry('dj.quantize');
+                <div
+                  class="pr-row"
+                  data-setting="dj.quantize"
+                  [class.is-pointed]="pointed() === e.id"
+                >
+                  <div>
+                    <span class="pr-row__name">{{ e.label }}</span>
+                    <span class="pr-row__help">{{ e.description }}</span>
+                  </div>
+                  <button
+                    class="pr-switch"
+                    role="switch"
+                    [attr.aria-checked]="dj().quantize"
+                    [attr.aria-label]="e.label"
+                    (click)="updateDj({ quantize: !dj().quantize })"
+                  >
+                    <span></span>
+                  </button>
+                </div>
+              }
+            </div>
+          </section>
+        }
+
+        @if (shows('library')) {
+          <section class="pr-group">
+            @if (found()) {
+              <h3 class="pr-label">{{ pageLabel('library') }}</h3>
+            }
+            <div class="pr-card">
+              @if (row('library.tags')) {
+                @let e = entry('library.tags');
+                <div
+                  class="pr-row"
+                  data-setting="library.tags"
+                  [class.is-pointed]="pointed() === e.id"
+                >
+                  <div>
+                    <span class="pr-row__name">{{ e.label }}</span>
+                    <span class="pr-row__help">{{ e.description }}</span>
+                  </div>
+                  <button
+                    class="pr-switch"
+                    role="switch"
+                    [attr.aria-checked]="writeTags()"
+                    [attr.aria-label]="e.label"
+                    (click)="setWriteTags(!writeTags())"
+                  >
+                    <span></span>
+                  </button>
+                </div>
+              }
+            </div>
+          </section>
+        }
+
+        @if (shows('controllers')) {
+          @if (found()) {
+            <h3 class="pr-label">{{ pageLabel('controllers') }}</h3>
+          }
+          <app-controllers-settings />
+        }
+
+        @if (shows('shortcuts')) {
+          @if (found()) {
+            <h3 class="pr-label">{{ pageLabel('shortcuts') }}</h3>
+          }
+          <app-shortcuts-settings />
+        }
+
+        @if (shows('interface')) {
+          <section class="pr-group">
+            @if (found()) {
+              <h3 class="pr-label">{{ pageLabel('interface') }}</h3>
+            }
+            <div class="pr-card">
+              @if (row('interface.language')) {
+                @let e = entry('interface.language');
+                <div
+                  class="pr-row"
+                  data-setting="interface.language"
+                  [class.is-pointed]="pointed() === e.id"
+                >
+                  <div>
+                    <span class="pr-row__name">{{ e.label }}</span>
+                    <span class="pr-row__help">{{ e.description }}</span>
+                  </div>
+                  <div class="pr-seg pr-seg--lg" role="radiogroup" [attr.aria-label]="e.label">
+                    @for (l of languages; track l.id) {
+                      <button
+                        role="radio"
+                        [attr.aria-checked]="language() === l.id"
+                        (click)="language.set(l.id)"
+                      >
+                        {{ l.name }}
+                      </button>
+                    }
+                  </div>
+                </div>
+              }
+            </div>
+          </section>
+        }
+
+        @if (shows('about')) {
+          <section class="pr-group">
+            @if (found()) {
+              <h3 class="pr-label">{{ pageLabel('about') }}</h3>
+            }
+            <div class="pr-card">
+              @if (row('about.version')) {
+                @let e = entry('about.version');
+                <div
+                  class="pr-row"
+                  data-setting="about.version"
+                  [class.is-pointed]="pointed() === e.id"
+                >
+                  <div>
+                    <span class="pr-row__name"
+                      >Prisme <span class="pr-num">{{ version() }}</span></span
+                    >
+                    <span class="pr-row__help">{{ e.description }}</span>
+                  </div>
+                </div>
+              }
+              @if (row('about.updates')) {
+                @let e = entry('about.updates');
+                <div
+                  class="pr-row"
+                  data-setting="about.updates"
+                  [class.is-pointed]="pointed() === e.id"
+                >
+                  <div>
+                    <span class="pr-row__name">{{ e.label }}</span>
+                    <span class="pr-row__help">
+                      @if (updates.available(); as update) {
+                        {{
+                          'Prisme {version} is ready to install.' | t: { version: update.version }
+                        }}
+                      } @else {
+                        {{ e.description }}
+                      }
+                    </span>
+                  </div>
+                  @if (updates.available()) {
+                    <button
+                      class="pr-btn pr-btn--light"
+                      [disabled]="updates.decksPlaying() || updates.installing()"
+                      (click)="updates.install()"
+                    >
+                      {{ updates.installing() ? ('Installing…' | t) : ('Install and restart' | t) }}
+                    </button>
+                  } @else {
+                    <button class="pr-btn" (click)="updates.look()">{{ 'Check now' | t }}</button>
+                  }
+                </div>
+              }
+              @if (row('about.diagnostics')) {
+                @let e = entry('about.diagnostics');
+                <div
+                  class="pr-row"
+                  data-setting="about.diagnostics"
+                  [class.is-pointed]="pointed() === e.id"
+                >
+                  <div>
+                    <span class="pr-row__name">{{ e.label }}</span>
+                    <span class="pr-row__help">{{ e.description }}</span>
+                  </div>
+                  <button class="pr-btn" (click)="saveDiagnostics()">
+                    {{
+                      diagnosticsSaved() ? ('Report saved' | t) : ('Save a diagnostic report…' | t)
+                    }}
+                  </button>
+                </div>
+              }
+            </div>
+          </section>
+        }
 
         @if (error(); as e) {
-          <div class="error">{{ e }}</div>
+          <p class="error">{{ e }}</p>
         }
-      } @else {
-        <p class="loading">{{ 'Reading devices…' | t }}</p>
-      }
-    </div>
+      </div>
 
-    @if (draft()) {
-      <footer class="pr-dialog__foot">
-        <button
-          class="pr-btn pr-btn--ghost diagnostics"
-          [title]="'Versions, audio setup and the end of the log, to help understand a problem' | t"
-          (click)="saveDiagnostics()"
-        >
-          {{ diagnosticsSaved() ? ('Report saved' | t) : ('Save a diagnostic report…' | t) }}
-        </button>
-        <button class="pr-btn" (click)="closed.emit()">{{ 'Cancel' | t }}</button>
-        <button class="pr-btn pr-btn--light" (click)="apply()" [disabled]="busy()">
-          {{ busy() ? ('Starting…' | t) : ('Apply' | t) }}
-        </button>
-      </footer>
-    }
+      @if (pending()) {
+        <footer class="pending" [class.nudged]="nudged()" (animationend)="nudged.set(false)">
+          <span>{{ pendingText() }}</span>
+          <button class="pr-btn pr-btn--ghost" [disabled]="busy()" (click)="discard()">
+            {{ 'Undo' | t }}
+          </button>
+          <button class="pr-btn pr-btn--light" [disabled]="busy()" (click)="apply()">
+            {{ busy() ? ('Starting…' | t) : ('Apply' | t) }}
+          </button>
+        </footer>
+      }
+    </section>
   </div>
 </div>

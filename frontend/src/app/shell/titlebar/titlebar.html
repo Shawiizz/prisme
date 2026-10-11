@@ -71,6 +71,15 @@
     }
   </div>
 
+  <button class="palette" (click)="navigation.togglePalette()" [title]="'Command palette' | t">
+    <svg viewBox="0 0 16 16" aria-hidden="true">
+      <circle cx="7" cy="7" r="5" />
+      <path d="M11 11l4 4" />
+    </svg>
+    <span>{{ 'Search actions, tracks, settings…' | t }}</span>
+    <kbd class="pr-kbd">Ctrl K</kbd>
+  </button>
+
   <nav class="actions">
     @if (updates.available(); as update) {
       <button
@@ -128,26 +137,16 @@
     </div>
     <button
       class="pr-btn pr-btn--ghost"
-      (click)="openTurntables.emit()"
+      (click)="navigation.openSettings('turntables')"
       [title]="'Turntables and timecode signal' | t"
     >
       {{ 'Turntables' | t }}
     </button>
     <button
       class="pr-btn pr-btn--ghost"
-      (click)="openControllers.emit()"
-      [title]="'MIDI controllers' | t"
+      (click)="navigation.openSettings()"
+      [title]="'Settings (Ctrl + ,)' | t"
     >
-      MIDI
-    </button>
-    <button
-      class="pr-btn pr-btn--ghost"
-      (click)="openShortcuts.emit()"
-      [title]="'Keyboard shortcuts (F1)' | t"
-    >
-      {{ 'Shortcuts' | t }}
-    </button>
-    <button class="pr-btn pr-btn--ghost" (click)="openSettings.emit()" [title]="'Settings' | t">
       {{ 'Settings' | t }}
     </button>
   </nav>
