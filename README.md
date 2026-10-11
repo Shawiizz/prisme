@@ -1,56 +1,76 @@
 # Prisme
 
-Logiciel DJ pensé pour le DVS (vinyles timecodés) : moteur audio temps réel en Rust,
-interface Tauri v2 + Angular (à venir).
+DJ software built for DVS: timecode vinyl drives the tracks, with a real-time audio
+engine in Rust and a Tauri + Angular interface. Windows only for now.
+
+## Features
+
+- **Vinyl control**: Serato CV02 (sides A and B) and Serato CD timecode, absolute and
+  relative modes, needle drops, backspins and scratches; a decoder written from
+  scratch. The deck plays on by itself when the needle reaches the end of the record.
+- **Mixing**: each deck on its own outputs for a hardware mixer, or a software mixer
+  (trim, 3-band EQ with kills, filter, crossfader curves, master limiter, headphone
+  cue).
+- **Performance**: tempo and beat sync, quantize, 8 hot cues, beat loops, loop in/out,
+  loop rolls, beat jumps, slip, censor, key lock and key shift, beat-synced effects,
+  8-slot sampler per deck, mix recording with its tracklist.
+- **Library**: tempo, beat grid and key analysis in the background, instant search,
+  crates and smart crates, prepare list, set history, duplicates, Serato and rekordbox
+  import, beat grid and key editing.
+- **Control**: keyboard shortcuts, MIDI controllers with MIDI learn and lights, MIDI
+  clock out.
+- **Reliability**: the audio restarts after a device loss or an engine failure, decks
+  come back after a crash, daily logs and a diagnostic report.
+- English and French interface.
+
+## Building
+
+Requirements: Windows 10 or 11, Rust (stable), Node.js 24 and pnpm, Python (for the
+ASIO bindings' libclang).
+
+```
+scripts\setup-dev.ps1
+cargo test --workspace
+cd apps\prisme-desktop
+cargo tauri dev
+```
+
+`cargo tauri build` produces the installer in `target\release\bundle\nsis`.
 
 ## Architecture
 
 ```
 apps/
-  prisme-cli/        outil en ligne de commande : toute la chaîne sans interface
+  prisme-desktop/    the application (Tauri v2), frontend in frontend/ (Angular)
+  prisme-cli/        the whole chain from the command line, without the interface
 crates/
-  prisme-timecode/   décodeur de vinyle timecodé (vitesse, sens, position absolue)
-  prisme-media/      décodage des fichiers audio en mémoire
-  prisme-engine/     moteur temps réel : decks, contrôle vinyle, mixeur
-  prisme-audio-io/   cartes son (WASAPI via cpal ; ASIO à venir) derrière une interface
+  prisme-timecode/   timecode vinyl decoder: speed, direction, absolute position
+  prisme-engine/     real-time engine: decks, vinyl control, mixer, sampler
+  prisme-dsp/        real-time processing: filters, EQ, effects, limiter
+  prisme-audio-io/   sound cards (WASAPI, ASIO) behind a small interface
+  prisme-media/      audio file decoding, tags and cover art
+  prisme-analysis/   waveforms, tempo and beat grid, musical key
+  prisme-library/    track database, folder scanning, background analysis
+  prisme-import/     Serato and rekordbox import
+  prisme-control/    MIDI controller messages and mappings
+  prisme-session/    settings files with atomic writes
 ```
 
-Dépendances entre crates (aucun cycle, l'interface audio ne connaît pas le moteur) :
+The audio thread never allocates, locks or frees: the interface sends commands through
+a lock-free queue, the engine publishes its state in a triple buffer, and what it
+replaces (tracks, decoders) goes back to the control side to be freed there.
+
+## Command line
 
 ```
-prisme-cli ──> prisme-engine ──> prisme-timecode
-     │               └─────────> prisme-media
-     └───────> prisme-audio-io
+prisme devices
+prisme play "track.mp3" --pitch 1.02
+prisme simulate "track.mp3" --pattern scratch --gain 0.3
+prisme vinyl "track.mp3" --input "interface name" --mode absolute
+prisme analyze "Music folder" --csv results.csv
+prisme latency --input "interface name"
 ```
 
-### Règles du temps réel
-
-Le thread audio (`Engine::process`) n'alloue jamais de mémoire, ne prend aucun verrou et
-ne libère rien :
-
-- l'interface envoie des `Command` par une file sans verrou ;
-- l'état (`EngineStatus`) est publié dans un triple buffer : la lecture donne toujours
-  la dernière valeur ;
-- ce que le moteur remplace (morceaux, décodeurs) revient au contrôleur par une file
-  `Garbage` et y est libéré (`EngineController::collect_garbage`).
-
-### Décodeur de timecode
-
-Écrit de zéro (aucun code de xwax ni de Mixxx). Il mesure la vitesse aux passages à zéro
-de la porteuse, apprend le rapport niveau / vitesse de la cellule, gère les sauts
-d'aiguille, les poses d'aiguille et la marche arrière. Formats : Serato CV02 faces A et B,
-Serato CD. Les performances sont figées par les tests de `crates/prisme-timecode/tests`.
-
-## Utilisation
-
-```
-cargo test
-cargo build --release
-target\release\prisme devices
-target\release\prisme play "morceau.mp3" --pitch 1.02
-target\release\prisme simulate "morceau.mp3" --pattern scratch --gain 0.3
-target\release\prisme vinyl "morceau.mp3" --input "nom de la carte" --mode absolute
-```
-
-`simulate` génère le signal d'une platine (lecture, scratch, coups de pitch) : pratique
-pour tester sans matériel. `vinyl` lit une vraie platine sur l'entrée de la carte son.
+`simulate` generates the signal of a turntable, to try vinyl control without hardware.
+`latency` measures the round trip through a cable from an output to an input: it plays
+clicks at full level, so keep speakers and headphones away from that output.
