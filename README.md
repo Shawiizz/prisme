@@ -74,3 +74,9 @@ prisme latency --input "interface name"
 `simulate` generates the signal of a turntable, to try vinyl control without hardware.
 `latency` measures the round trip through a cable from an output to an input: it plays
 clicks at full level, so keep speakers and headphones away from that output.
+
+## License
+
+Prisme is free software: you can redistribute it and/or modify it under the terms of
+the GNU General Public License as published by the Free Software Foundation, either
+version 3 of the License, or (at your option) any later version. See [LICENSE](LICENSE).

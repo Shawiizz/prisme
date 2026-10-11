@@ -9,6 +9,7 @@
     "test": "ng test"
   },
   "private": true,
+  "license": "GPL-3.0-or-later",
   "packageManager": "pnpm@10.30.1",
   "dependencies": {
     "@angular/common": "^22.2.0",
