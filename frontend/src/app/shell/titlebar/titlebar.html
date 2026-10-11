@@ -55,6 +55,24 @@
   </div>
 
   <div class="actions">
+    @if (updates.available(); as update) {
+      <button
+        class="ghost update"
+        [disabled]="updates.decksPlaying() || updates.installing()"
+        [title]="
+          updates.decksPlaying()
+            ? ('Stop the decks first: installing restarts Prisme' | t)
+            : ('Install Prisme {version} and restart' | t: { version: update.version })
+        "
+        (click)="updates.install()"
+      >
+        {{
+          updates.installing()
+            ? ('Installing…' | t)
+            : ('Update {version}' | t: { version: update.version })
+        }}
+      </button>
+    }
     <div class="rec">
       @if (recording.status(); as r) {
         <button

@@ -13,6 +13,7 @@ import { ControllersDialog } from './features/controllers/controllers-dialog';
 import { KeyboardService } from './core/keyboard/keyboard.service';
 import { ControlService } from './core/control/control.service';
 import { ControllerService } from './core/control/controller.service';
+import { UpdateService } from './core/services/update.service';
 import { EngineService } from './core/services/engine.service';
 import { LibraryService } from './core/services/library.service';
 import { SettingsService } from './core/services/settings.service';
@@ -47,6 +48,7 @@ export class App implements OnInit {
   protected readonly controls = inject(ControlService);
   private readonly mixer = inject(MixerService);
   private readonly controllers = inject(ControllerService);
+  private readonly updates = inject(UpdateService);
   protected readonly settingsOpen = signal(false);
   protected readonly turntablesOpen = signal(false);
   protected readonly controllersOpen = signal(false);
@@ -61,5 +63,6 @@ export class App implements OnInit {
       this.controllers.start(),
     ]);
     this.mixer.apply(mixer);
+    this.updates.look();
   }
 }

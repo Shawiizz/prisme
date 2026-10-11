@@ -24,6 +24,13 @@
     ],
     "security": { "csp": null }
   },
+  "plugins": {
+    "updater": {
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEExNDg0MERDNzQ2RTRENDgKUldSSVRXNTAzRUJJb1JQR2QweVJ0WmhpeE9hN1BFRC9hRkJVQWJkZ0l3Y2dUdm41WmdyQXI1bzUK",
+      "endpoints": ["https://github.com/Shawiizz/prisme/releases/latest/download/latest.json"],
+      "windows": { "installMode": "passive" }
+    }
+  },
   "bundle": {
     "active": true,
     "targets": ["nsis"],

@@ -23,6 +23,11 @@ export const FR: Record<string, string> = {
   Minimize: 'Réduire',
   Maximize: 'Agrandir',
   Close: 'Fermer',
+  'Stop the decks first: installing restarts Prisme':
+    "Arrêtez d'abord les decks : l'installation redémarre Prisme",
+  'Install Prisme {version} and restart': 'Installer Prisme {version} et redémarrer',
+  'Installing…': 'Installation…',
+  'Update {version}': 'Mise à jour {version}',
   'Last recording: {path} ({time}, {tracks} tracks)':
     'Dernier enregistrement : {path} ({time}, {tracks} morceaux)',
   'Record the mix (WAV and tracklist in Documents/Prisme Recordings)':

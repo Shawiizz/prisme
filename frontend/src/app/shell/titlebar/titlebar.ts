@@ -3,10 +3,11 @@ import { RecordOption, RecordingService } from '../../core/services/recording.se
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { SettingsService } from '../../core/services/settings.service';
 import { EngineService } from '../../core/services/engine.service';
+import { UpdateService } from '../../core/services/update.service';
 import { t } from '../../core/i18n/i18n';
 import { TPipe } from '../../core/i18n/t.pipe';
 
-/** Custom title bar: drag area, audio state, settings and window buttons. */
+/** Custom title bar: drag area, audio state, recording, update, dialogs and window buttons. */
 @Component({
   selector: 'app-titlebar',
   templateUrl: './titlebar.html',
@@ -17,6 +18,7 @@ export class Titlebar {
   protected readonly settings = inject(SettingsService);
   protected readonly engine = inject(EngineService);
   protected readonly recording = inject(RecordingService);
+  protected readonly updates = inject(UpdateService);
   protected readonly recordMenu = signal(false);
   protected readonly lastTitle = computed(() => {
     const last = this.recording.last();
