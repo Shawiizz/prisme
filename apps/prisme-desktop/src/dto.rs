@@ -1,7 +1,7 @@
 //! Data exchanged with the frontend (camelCase JSON).
 
 use prisme_audio_io::{Backend, StreamStats};
-use prisme_engine::{DeckStatus, EngineStatus, LoopRegion, MixMode, VinylMode};
+use prisme_engine::{DeckStatus, EngineStatus, LoopStatus, MixMode, VinylMode};
 use prisme_library::{Cue, CueSlot};
 use prisme_timecode::SignalState;
 use serde::{Deserialize, Serialize};
@@ -489,11 +489,18 @@ pub struct LoopDto {
     pub start_s: Option<f64>,
     pub end_s: Option<f64>,
     pub active: bool,
+    /// Start marked by LOOP IN, waiting for LOOP OUT.
+    pub loop_in_s: Option<f64>,
 }
 
-impl LoopDto {
-    fn new(region: Option<LoopRegion>, active: bool) -> Self {
-        Self { start_s: region.map(|r| r.start_s), end_s: region.map(|r| r.end_s), active }
+impl From<LoopStatus> for LoopDto {
+    fn from(l: LoopStatus) -> Self {
+        Self {
+            start_s: l.region.map(|r| r.start_s),
+            end_s: l.region.map(|r| r.end_s),
+            active: l.active,
+            loop_in_s: l.loop_in_s,
+        }
     }
 }
 
@@ -508,7 +515,7 @@ impl From<&DeckStatus> for DeckStatusDto {
             bpm: d.bpm,
             beat_phase: d.beat_phase,
             sync: SyncDto { locked: d.sync.locked, leader: d.sync.leader, rate_offset: d.sync.rate_offset },
-            looping: LoopDto::new(d.looping.region, d.looping.active),
+            looping: d.looping.into(),
             peak: d.peak,
             cue: d.cue,
             slip_mode: d.slip_mode,

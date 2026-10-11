@@ -138,6 +138,8 @@ pub fn run() {
             commands::transport::set_pitch_bend,
             commands::transport::beat_loop,
             commands::transport::loop_roll,
+            commands::transport::loop_in,
+            commands::transport::loop_out,
             commands::transport::exit_loop,
             commands::transport::reloop,
             commands::transport::scale_loop,

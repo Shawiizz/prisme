@@ -80,6 +80,14 @@ pub enum Command {
         deck: DeckId,
         beats: f64,
     },
+    /// Marks the start of the next loop (on the nearest beat with quantize).
+    LoopIn {
+        deck: DeckId,
+    },
+    /// Ends the loop at the playhead and plays it.
+    LoopOut {
+        deck: DeckId,
+    },
     /// `Some(beats)` starts a roll, `None` releases it.
     LoopRoll {
         deck: DeckId,

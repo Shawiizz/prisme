@@ -57,17 +57,32 @@
   } @else {
     <div class="keys">
       <div class="row">
+        <button
+          [class.active]="loopInSet()"
+          (click)="loopIn()"
+          [disabled]="!canMove()"
+          [title]="'Loop in: where the next loop starts' | t"
+        >
+          IN
+        </button>
+        <button
+          (click)="loopOut()"
+          [disabled]="!canMove()"
+          [title]="'Loop out: the loop ends here and plays' | t"
+        >
+          OUT
+        </button>
         <button (click)="scaleLoop(0.5)" [disabled]="!canMove()" [title]="'Halve the loop' | t">
           ½
         </button>
         <button (click)="scaleLoop(2)" [disabled]="!canMove()" [title]="'Double the loop' | t">
           ×2
         </button>
+      </div>
+      <div class="row">
         <button [class.active]="loopActive()" (click)="toggleLoop()" [disabled]="!canMove()">
           {{ loopActive() ? 'EXIT' : 'RELOOP' }}
         </button>
-      </div>
-      <div class="row">
         <button
           [class.active]="slip()"
           (click)="toggleSlip()"

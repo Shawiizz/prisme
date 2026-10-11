@@ -11,7 +11,7 @@ function deck(bpm: number | null, beatPhase: number | null): DeckStatus {
     bpm,
     beatPhase,
     sync: { locked: false, leader: false, rateOffset: 1 },
-    looping: { startS: null, endS: null, active: false },
+    looping: { startS: null, endS: null, active: false, loopInS: null },
     peak: 0,
     cue: false,
     slipMode: false,

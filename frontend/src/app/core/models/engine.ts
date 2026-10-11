@@ -28,6 +28,8 @@ export interface LoopStatus {
   startS: number | null;
   endS: number | null;
   active: boolean;
+  /** Start marked by LOOP IN, waiting for LOOP OUT. */
+  loopInS: number | null;
 }
 
 export interface DeckStatus {

@@ -9,6 +9,8 @@ use crate::looping::LoopRegion;
 pub(crate) struct Transport {
     pub(super) loop_region: Option<LoopRegion>,
     pub(super) loop_active: bool,
+    /// Start marked by LOOP IN, waiting for LOOP OUT.
+    pub(super) loop_in_s: Option<f64>,
     pub(super) slip_mode: bool,
     /// Where the track would be without the loop, roll or censor in progress.
     pub(super) shadow_s: Option<f64>,
@@ -41,6 +43,32 @@ impl Deck {
         }
         self.transport.loop_region =
             Some(LoopRegion::of_beats(&grid, self.playhead.position_s(), beats, quantize));
+        self.activate_loop(true);
+    }
+
+    /// Marks where the next loop starts (LOOP IN).
+    pub(crate) fn loop_in(&mut self, quantize: bool) {
+        if self.controls_position() {
+            self.transport.loop_in_s = Some(self.snapped(self.playhead.position_s(), quantize));
+        }
+    }
+
+    /// Ends the loop here and plays it (LOOP OUT): from LOOP IN, or else from the start of
+    /// the stored loop, whose end moves.
+    pub(crate) fn loop_out(&mut self, quantize: bool) {
+        if !self.controls_position() {
+            return;
+        }
+        let start = self.transport.loop_in_s.or(self.transport.loop_region.map(|r| r.start_s));
+        let end_s = self.snapped(self.playhead.position_s(), quantize);
+        let Some(start_s) = start.filter(|&s| s < end_s) else { return };
+        self.transport.loop_in_s = None;
+        self.transport.loop_region = Some(LoopRegion { start_s, end_s });
+        // the end snapped to a beat already played: back into the loop, in phase
+        let position = self.playhead.position_s();
+        if position >= end_s {
+            self.playhead.seek_s(start_s + (position - end_s) % (end_s - start_s));
+        }
         self.activate_loop(true);
     }
 
@@ -169,6 +197,13 @@ impl Deck {
     fn end_slip(&mut self) {
         if let Some(shadow) = self.transport.shadow_s.take() {
             self.playhead.seek_s(shadow);
+        }
+    }
+
+    fn snapped(&self, position_s: f64, quantize: bool) -> f64 {
+        match self.grid {
+            Some(grid) if quantize => grid.nearest_beat_s(position_s),
+            _ => position_s,
         }
     }
 

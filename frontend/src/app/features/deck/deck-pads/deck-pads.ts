@@ -81,6 +81,7 @@ export class DeckPads {
     return !!this.status()?.loaded && !absolute;
   });
   protected readonly loopActive = computed(() => this.status()?.looping.active ?? false);
+  protected readonly loopInSet = computed(() => this.status()?.looping.loopInS != null);
   protected readonly slip = computed(() => this.status()?.slipMode ?? false);
   protected readonly effect = computed(() => this.engine.decks()[this.deck()].fx);
   protected readonly samplerGain = computed(() => this.engine.decks()[this.deck()].samplerGain);
@@ -168,6 +169,14 @@ export class DeckPads {
     if (this.mode() !== 'sampler') return;
     if (this.samplePlaying(index)) this.sampler.stop(deck, index);
     else if (this.samples()[index]) this.sampler.clear(deck, index);
+  }
+
+  loopIn() {
+    this.performance.loopIn(this.deck());
+  }
+
+  loopOut() {
+    this.performance.loopOut(this.deck());
   }
 
   scaleLoop(factor: number) {

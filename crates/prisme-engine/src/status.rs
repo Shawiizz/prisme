@@ -38,6 +38,8 @@ pub struct LoopStatus {
     /// The stored loop, active or not.
     pub region: Option<LoopRegion>,
     pub active: bool,
+    /// Start marked by LOOP IN, waiting for LOOP OUT.
+    pub loop_in_s: Option<f64>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]

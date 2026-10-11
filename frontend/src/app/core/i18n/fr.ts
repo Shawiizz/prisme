@@ -65,6 +65,8 @@ export const FR: Record<string, string> = {
   'Period of the effect, in beats': "Période de l'effet, en temps",
   'Level of the sampler': 'Niveau du sampler',
   'Halve the loop': 'Diviser la boucle par deux',
+  'Loop in: where the next loop starts': 'Loop in : début de la prochaine boucle',
+  'Loop out: the loop ends here and plays': 'Loop out : la boucle finit ici et démarre',
   'Double the loop': 'Doubler la boucle',
   'Loops, rolls and censor carry the track on underneath':
     'Boucles, rolls et censor laissent le morceau avancer en dessous',
@@ -326,6 +328,8 @@ export const FR: Record<string, string> = {
   Sync: 'Sync',
   'Hot cue {n}': 'Hot cue {n}',
   'Loop 4 beats / exit': 'Boucle de 4 temps / sortie',
+  'Loop in': 'Loop in',
+  'Loop out': 'Loop out',
   'Jump back {n} beats': 'Reculer de {n} temps',
   'Jump {n} beats ahead': 'Avancer de {n} temps',
   'Key lock': 'Key lock',

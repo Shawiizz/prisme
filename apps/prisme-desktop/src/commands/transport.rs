@@ -21,6 +21,16 @@ pub fn loop_roll(state: State<'_, AppState>, deck: usize, beats: Option<f64>) ->
 }
 
 #[tauri::command]
+pub fn loop_in(state: State<'_, AppState>, deck: usize) -> AppResult<()> {
+    send(&state, deck, Command::LoopIn { deck })
+}
+
+#[tauri::command]
+pub fn loop_out(state: State<'_, AppState>, deck: usize) -> AppResult<()> {
+    send(&state, deck, Command::LoopOut { deck })
+}
+
+#[tauri::command]
 pub fn exit_loop(state: State<'_, AppState>, deck: usize) -> AppResult<()> {
     send(&state, deck, Command::ExitLoop { deck })
 }

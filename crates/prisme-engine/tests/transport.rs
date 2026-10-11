@@ -168,3 +168,40 @@ fn a_record_in_relative_mode_loops() {
     assert!(d.looping.active);
     assert!(d.looping.region.unwrap().contains(d.position_s), "{d:?}");
 }
+
+#[test]
+fn loop_in_then_loop_out_loops_between_their_beats() {
+    let mut rig = playing_deck(10.1);
+    rig.send(Command::LoopIn { deck: 0 });
+    rig.run(0.01);
+    assert_eq!(rig.deck(0).looping.loop_in_s, Some(10.0));
+    rig.run(1.9);
+    rig.send(Command::LoopOut { deck: 0 });
+    rig.run(1.0);
+    let d = rig.deck(0);
+    assert_eq!(d.looping.region, Some(LoopRegion { start_s: 10.0, end_s: 12.0 }));
+    assert!(d.looping.active && d.looping.loop_in_s.is_none());
+    assert!((10.0..12.0).contains(&d.position_s), "{}", d.position_s);
+}
+
+#[test]
+fn loop_out_alone_moves_the_end_of_the_stored_loop() {
+    let mut rig = playing_deck(10.1);
+    rig.send(Command::BeatLoop { deck: 0, beats: 4.0 });
+    rig.run(1.25);
+    rig.send(Command::LoopOut { deck: 0 });
+    rig.run(0.01);
+    assert_eq!(rig.deck(0).looping.region, Some(LoopRegion { start_s: 10.0, end_s: 11.5 }));
+}
+
+#[test]
+fn loop_out_on_the_loop_in_beat_does_nothing() {
+    let mut rig = playing_deck(10.1);
+    rig.send(Command::LoopIn { deck: 0 });
+    rig.run(0.1);
+    rig.send(Command::LoopOut { deck: 0 });
+    rig.run(0.01);
+    let looping = rig.deck(0).looping;
+    assert!(!looping.active && looping.region.is_none());
+    assert_eq!(looping.loop_in_s, Some(10.0));
+}

@@ -32,6 +32,16 @@ export class PerformanceService {
     return this.engine.call('loop_roll', { deck, beats });
   }
 
+  /** Marks where the next loop starts. */
+  loopIn(deck: number) {
+    return this.engine.call('loop_in', { deck });
+  }
+
+  /** Ends the loop at the playhead and plays it (from LOOP IN, else the stored loop). */
+  loopOut(deck: number) {
+    return this.engine.call('loop_out', { deck });
+  }
+
   exitLoop(deck: number) {
     return this.engine.call('exit_loop', { deck });
   }

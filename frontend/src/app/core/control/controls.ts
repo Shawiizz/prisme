@@ -29,6 +29,9 @@ export interface ControlActions {
   toggleLoop(deck: number): void;
   looping(deck: number): boolean;
   scaleLoop(deck: number, factor: number): void;
+  loopIn(deck: number): void;
+  loopInSet(deck: number): boolean;
+  loopOut(deck: number): void;
   beatJump(deck: number, beats: number): void;
   bend(deck: number, direction: -1 | 0 | 1): void;
   toggleKeyLock(deck: number): void;
@@ -106,6 +109,11 @@ function deckControls(a: ControlActions, deck: number): Control[] {
       button(id('loop'), group, t('Loop 4 beats / exit'), () => a.toggleLoop(deck)),
       () => a.looping(deck),
     ),
+    lit(
+      button(id('loop.in'), group, t('Loop in'), () => a.loopIn(deck)),
+      () => a.loopInSet(deck),
+    ),
+    button(id('loop.out'), group, t('Loop out'), () => a.loopOut(deck)),
     button(id('loop.halve'), group, t('Halve the loop'), () => a.scaleLoop(deck, 0.5)),
     button(id('loop.double'), group, t('Double the loop'), () => a.scaleLoop(deck, 2)),
     button(id('jump.back'), group, t('Jump back {n} beats', { n: JUMP_BEATS }), () =>

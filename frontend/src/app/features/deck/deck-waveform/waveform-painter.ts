@@ -126,6 +126,10 @@ export class WaveformPainter {
   }
 
   private drawLoop(ctx: CanvasRenderingContext2D, loop: LoopStatus | null, view: View) {
+    if (loop?.loopInS != null) {
+      ctx.fillStyle = LOOP_ACTIVE.edge;
+      ctx.fillRect(Math.round(xOf(loop.loopInS, view)), 0, 2, view.height);
+    }
     if (loop?.startS == null || loop.endS == null) return;
     const style = loop.active ? LOOP_ACTIVE : LOOP_STORED;
     const x0 = xOf(loop.startS, view);

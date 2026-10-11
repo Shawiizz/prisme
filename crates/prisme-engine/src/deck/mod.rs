@@ -285,7 +285,11 @@ impl Deck {
             bpm: self.grid.map(|g| g.bpm * self.tempo_rate()),
             beat_phase: self.grid.map(|g| g.beats_at(position_s).rem_euclid(1.0)),
             sync: SyncStatus { locked: self.sync.locked, leader, rate_offset: self.sync.rate_offset },
-            looping: LoopStatus { region: self.transport.loop_region, active: self.transport.loop_active },
+            looping: LoopStatus {
+                region: self.transport.loop_region,
+                active: self.transport.loop_active,
+                loop_in_s: self.transport.loop_in_s,
+            },
             peak: self.peak,
             samples_playing: self.sampler.playing(),
             cue: self.cue,

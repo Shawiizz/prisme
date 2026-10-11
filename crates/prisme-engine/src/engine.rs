@@ -239,6 +239,8 @@ impl Engine {
             SetQuantize { enabled } => self.quantize = enabled,
             SetLoop { deck, region, active } if valid(deck) => self.decks[deck].set_loop(region, active),
             BeatLoop { deck, beats } if valid(deck) => self.decks[deck].beat_loop(beats, self.quantize),
+            LoopIn { deck } if valid(deck) => self.decks[deck].loop_in(self.quantize),
+            LoopOut { deck } if valid(deck) => self.decks[deck].loop_out(self.quantize),
             LoopRoll { deck, beats } if valid(deck) => self.decks[deck].loop_roll(beats, self.quantize),
             ExitLoop { deck } if valid(deck) => self.decks[deck].exit_loop(),
             Reloop { deck } if valid(deck) => self.decks[deck].reloop(),
