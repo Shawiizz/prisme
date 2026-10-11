@@ -32,6 +32,8 @@ struct Result {
     speed_rms: f64,
     position_rms: f64,
     lost_ratio: f64,
+    /// Share of the readings giving a position more than 20 ms off.
+    wrong_ratio: f64,
     reaction_ms: Option<f64>,
 }
 
@@ -42,7 +44,7 @@ fn run(sc: Scenario) -> Result {
     let mut decoder = TimecodeDecoder::new(DecoderConfig { format, sample_rate: SR, swap_channels: false });
     let mut buf = Vec::with_capacity(BLOCK * 2);
     let mut result = Result::default();
-    let (mut speed_err, mut pos_err, mut evaluated, mut lost) = (0.0, 0.0, 0usize, 0usize);
+    let (mut speed_err, mut pos_err, mut evaluated, mut lost, mut wrong) = (0.0, 0.0, 0usize, 0usize, 0usize);
     let mut done = 0usize;
     let mut jumped = false;
     while done < (SR as f64 * 4.5) as usize {
@@ -72,7 +74,11 @@ fn run(sc: Scenario) -> Result {
                 speed_err += (decoder.speed() - truth_speed).powi(2);
                 match pos {
                     Some(p) if (p - truth_pos).abs() < 20.0 => pos_err += (p - truth_pos).powi(2),
-                    _ => lost += 1,
+                    Some(_) => {
+                        lost += 1;
+                        wrong += 1;
+                    }
+                    None => lost += 1,
                 }
             }
             Measure::Reaction { target, tol } => {
@@ -93,6 +99,7 @@ fn run(sc: Scenario) -> Result {
         let kept = (evaluated - lost).max(1);
         result.position_rms = (pos_err / kept as f64).sqrt();
         result.lost_ratio = lost as f64 / evaluated as f64;
+        result.wrong_ratio = wrong as f64 / evaluated as f64;
     }
     result
 }
@@ -153,7 +160,9 @@ fn dust_dropouts_and_worn_records() {
     assert!(dust.speed_rms < 0.012 && dust.lost_ratio < 0.2, "{dust:?}");
     let dropouts =
         steady(|_| 1.0, 5_000.0, Degradation { dropouts_per_s: 4.0, dropout_ms: 15.0, ..Default::default() });
-    assert!(dropouts.speed_rms < 0.015 && dropouts.lost_ratio < 0.2, "{dropouts:?}");
+    // a bounce drops the position (its phase says nothing), the bits give it back
+    assert!(dropouts.speed_rms < 0.015 && dropouts.lost_ratio < 0.3, "{dropouts:?}");
+    assert_eq!(dropouts.wrong_ratio, 0.0, "{dropouts:?}");
     let worn = steady(
         |t| 1.02 + 0.004 * (TAU * 0.55 * t).sin(),
         5_000.0,
@@ -205,4 +214,63 @@ fn scratching_keeps_the_position() {
     let r = steady(scratch, 20_000.0, Degradation::default());
     assert!(r.lost_ratio < 0.1, "{r:?}");
     assert!(r.speed_rms < 0.08, "{r:?}");
+}
+
+/// Plays a clean record at the nominal speed for 3 s, letting `alter` spoil each block
+/// (given its start time), and hands `check` the time, the decoded and the true position.
+fn play_altered(mut alter: impl FnMut(f64, &mut [f32]), mut check: impl FnMut(f64, Option<f64>, f64)) {
+    let format = &SERATO_CV02_A;
+    let mut generator = SignalGenerator::new(format, SR, 5_000.0, 60_000.0);
+    let mut decoder = TimecodeDecoder::new(DecoderConfig { format, sample_rate: SR, swap_channels: false });
+    let mut buf = Vec::with_capacity(BLOCK * 2);
+    let mut done = 0;
+    while done < SR as usize * 3 {
+        let t = done as f64 / SR as f64;
+        buf.clear();
+        generator.render(BLOCK, |_| 1.0, &mut buf);
+        alter(t, &mut buf);
+        decoder.process(&buf);
+        done += BLOCK;
+        check(t, decoder.position_ms(), generator.position_ms());
+    }
+}
+
+#[test]
+fn unreadable_bits_keep_the_position() {
+    // 200 ms where every block has a random level, as in a slow or reversing gesture:
+    // no bit can be read, but the phase still says where the record is
+    let mut seed = 7u64;
+    play_altered(
+        |t, block| {
+            if (2.0..2.2).contains(&t) {
+                seed = seed.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407);
+                let gain = 0.6 + 0.8 * (seed >> 11) as f32 / (1u64 << 53) as f32;
+                block.iter_mut().for_each(|x| *x *= gain);
+            }
+        },
+        |t, pos, truth| {
+            if t > 1.0 {
+                let pos = pos.expect("the position is kept");
+                assert!((pos - truth).abs() < 1.0, "at {t:.3} s: {pos} ms instead of {truth}");
+            }
+        },
+    );
+}
+
+#[test]
+fn a_position_is_never_stale_after_the_signal_was_lost() {
+    // the needle off the record for 30 ms while it turns: the phase misses 30 cycles
+    play_altered(
+        |t, block| {
+            if (2.0..2.03).contains(&t) {
+                block.fill(0.0);
+            }
+        },
+        |t, pos, truth| {
+            // within the block that loses the signal the phase stops: up to two cycles behind
+            if let Some(pos) = pos.filter(|_| t > 1.0) {
+                assert!((pos - truth).abs() < 3.0, "at {t:.3} s: {pos} ms instead of {truth}");
+            }
+        },
+    );
 }

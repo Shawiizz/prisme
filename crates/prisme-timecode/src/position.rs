@@ -5,8 +5,9 @@
 //! the signal level averaged over it, against the average of the recent lobes. The last
 //! `bits` bits form a register whose index on the record is looked up in the
 //! [`SequenceTable`]. Once locked, the position follows the carrier phase, so wrong bits
-//! and changes of direction cost nothing; a new position (needle drop) takes over once it
-//! has been confirmed as long as the first lock.
+//! (slow or reversing gestures) and changes of direction cost nothing: the lock is only
+//! dropped when the phase could not be followed (see [`PositionTracker::unlock`]). A new
+//! position (needle drop) takes over once it has been confirmed as long as the first lock.
 
 use crate::format::{SequenceTable, TimecodeFormat};
 use std::f64::consts::TAU;
@@ -20,8 +21,6 @@ const THRESHOLD_LENGTH: f64 = 16.0;
 /// is a position, and a random one goes on following the sequence for one more bit half
 /// the time: 24 bits leave one false lock in about 16 million.
 const LOCK_RUN: u32 = 24;
-/// Bits without a single matching lookup before the lock is dropped.
-const MAX_GARBAGE: u32 = 80;
 /// A bit is read at most once per this fraction of a cycle.
 const MIN_BIT_SPACING: f64 = 0.6;
 
@@ -38,7 +37,6 @@ pub(crate) struct PositionTracker {
     lock_phase: f64,
     candidate: Option<u32>,
     candidate_run: u32,
-    garbage: u32,
 }
 
 impl PositionTracker {
@@ -56,7 +54,6 @@ impl PositionTracker {
             lock_phase: 0.0,
             candidate: None,
             candidate_run: 0,
-            garbage: 0,
         }
     }
 
@@ -98,17 +95,9 @@ impl PositionTracker {
         self.track_candidate(lookup, forwards);
 
         if self.locked {
-            let expected = self.cycle_at(phase);
-            if lookup == expected {
-                self.garbage = 0;
-            } else {
-                // a wrong bit spoils the next `bits` lookups: the phase carries on meanwhile
-                self.garbage += 1;
-                if self.candidate_run >= LOCK_RUN && self.candidate != expected {
-                    self.lock_at(self.candidate, phase);
-                } else if self.garbage > MAX_GARBAGE {
-                    self.locked = false;
-                }
+            // a wrong bit spoils the next `bits` lookups: the phase carries on meanwhile
+            if self.candidate_run >= LOCK_RUN && self.candidate != self.cycle_at(phase) {
+                self.lock_at(self.candidate, phase);
             }
         } else if self.candidate_run >= LOCK_RUN {
             self.lock_at(self.candidate, phase);
@@ -131,7 +120,6 @@ impl PositionTracker {
             self.locked = true;
             self.lock_cycle = cycle;
             self.lock_phase = phase;
-            self.garbage = 0;
         }
     }
 
@@ -139,6 +127,12 @@ impl PositionTracker {
     fn cycle_at(&self, phase: f64) -> Option<u32> {
         let cycle = self.lock_cycle as f64 + ((phase - self.lock_phase) / TAU).round();
         (cycle >= 0.0).then_some(cycle as u32)
+    }
+
+    /// The record moved while its phase could not be followed (signal lost): the
+    /// position is no longer known until the bits confirm one again.
+    pub(crate) fn unlock(&mut self) {
+        self.locked = false;
     }
 
     pub(crate) fn is_locked(&self) -> bool {

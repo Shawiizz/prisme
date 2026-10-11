@@ -17,6 +17,13 @@ const STOP_TAU_S: f64 = 0.003;
 const QUIET_AFTER_DIRT_S: f64 = 0.004;
 /// A bounce ends when coherent crossings agree with the held speed within this ratio.
 const BOUNCE_RELEASE_RATIO: f64 = 0.25;
+/// The phase is unwrapped across a gap in the signal only while the record turned less
+/// than half a cycle: past this (in cycles), the position is dropped.
+const MAX_UNTRACKED_CYCLES: f64 = 0.4;
+/// The two channels in quadrature, each scaled to its envelope, lie on the unit circle:
+/// well inside it the signal is collapsing (the needle leaving the groove) and its phase
+/// says nothing of the record.
+const MIN_QUADRATURE: f64 = 0.25;
 
 /// Decoder settings.
 #[derive(Debug, Clone, Copy)]
@@ -79,6 +86,8 @@ pub struct TimecodeDecoder {
     last_theta: f64,
     phase: f64,
     lost_samples: u64,
+    /// Cycles the record may have turned since the phase was last followed.
+    untracked_cycles: f64,
     last_dirt: f64,
     signal: SignalState,
 }
@@ -106,6 +115,7 @@ impl TimecodeDecoder {
             last_theta: 0.0,
             phase: 0.0,
             lost_samples: 0,
+            untracked_cycles: 0.0,
             last_dirt: f64::NEG_INFINITY,
             signal: SignalState::None,
         }
@@ -146,6 +156,16 @@ impl TimecodeDecoder {
         }
     }
 
+    /// A sample whose phase is not followed: once the record may have turned too far
+    /// meanwhile, the position is lost.
+    fn untracked(&mut self) {
+        let cycles_per_sample = 1000.0 / (self.format.cycle_ms() * self.sample_rate);
+        self.untracked_cycles += self.speed.speed().abs() * cycles_per_sample;
+        if self.untracked_cycles > MAX_UNTRACKED_CYCLES {
+            self.position.unlock();
+        }
+    }
+
     fn process_frame(&mut self, p_in: f64, s_in: f64) {
         self.n += 1;
         let n = self.n;
@@ -154,9 +174,11 @@ impl TimecodeDecoder {
         let (p, s, amp_p, amp_s) = match self.conditioner.process(p_in, s_in) {
             Conditioned::Click => {
                 self.last_dirt = t;
+                self.untracked();
                 return;
             }
             Conditioned::NoSignal => {
+                self.untracked();
                 self.lost_samples += 1;
                 if self.lost_samples as f64 > BOUNCE_HOLD_S * self.sample_rate {
                     self.speed.fade(self.stop_decay);
@@ -184,7 +206,8 @@ impl TimecodeDecoder {
         self.signal = if bouncing { SignalState::Bounce } else { SignalState::Ok };
 
         // unwrapped carrier phase, forward positive
-        let theta = (p / amp_p).atan2(s / amp_s);
+        let (p_unit, s_unit) = (p / amp_p, s / amp_s);
+        let theta = p_unit.atan2(s_unit);
         let mut d = theta - self.last_theta;
         if d > PI {
             d -= TAU;
@@ -193,6 +216,11 @@ impl TimecodeDecoder {
         }
         self.last_theta = theta;
         self.phase += d * self.format.phase_sign;
+        if p_unit.hypot(s_unit) < MIN_QUADRATURE {
+            self.untracked();
+        } else {
+            self.untracked_cycles = 0.0;
+        }
 
         if !self.crossings[0].is_high() {
             // both channels carry the bits
