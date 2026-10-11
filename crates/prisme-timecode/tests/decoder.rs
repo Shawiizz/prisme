@@ -236,6 +236,36 @@ fn play_altered(mut alter: impl FnMut(f64, &mut [f32]), mut check: impl FnMut(f6
 }
 
 #[test]
+fn a_needle_drop_relocks_while_the_needle_settles() {
+    // after the drop the level dips to 40 % and back in 100 ms while the needle settles
+    let format = &SERATO_CV02_A;
+    let mut generator = SignalGenerator::new(format, SR, 5_000.0, 60_000.0);
+    let mut decoder = TimecodeDecoder::new(DecoderConfig { format, sample_rate: SR, swap_channels: false });
+    let mut buf = Vec::with_capacity(BLOCK * 2);
+    let mut done = 0;
+    let mut relocked_ms = None;
+    while done < SR as usize * 3 && relocked_ms.is_none() {
+        let t = done as f64 / SR as f64;
+        if done == 2 * SR as usize {
+            generator.jump_ms(40_000.0);
+        }
+        buf.clear();
+        generator.render(BLOCK, |_| 1.0, &mut buf);
+        if t >= 2.0 {
+            let gain = 1.0 - 0.6 * (std::f64::consts::PI * ((t - 2.0) / 0.1).min(1.0)).sin();
+            buf.iter_mut().for_each(|x| *x *= gain as f32);
+        }
+        decoder.process(&buf);
+        done += BLOCK;
+        if t > 2.0 && decoder.position_ms().is_some_and(|p| (p - generator.position_ms()).abs() < 5.0) {
+            relocked_ms = Some((t - 2.0) * 1000.0);
+        }
+    }
+    let ms = relocked_ms.expect("relocked");
+    assert!(ms < 60.0, "relocked after {ms:.0} ms");
+}
+
+#[test]
 fn unreadable_bits_keep_the_position() {
     // 200 ms where every block has a random level, as in a slow or reversing gesture:
     // no bit can be read, but the phase still says where the record is

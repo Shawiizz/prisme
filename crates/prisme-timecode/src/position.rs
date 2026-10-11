@@ -2,12 +2,14 @@
 //!
 //! Each carrier cycle carries one bit, centred on the negative half of the primary
 //! channel: the bit changes where the primary peaks. One bit is read per such lobe, from
-//! the signal level averaged over it, against the average of the recent lobes. The last
-//! `bits` bits form a register whose index on the record is looked up in the
-//! [`SequenceTable`]. Once locked, the position follows the carrier phase, so wrong bits
-//! (slow or reversing gestures) and changes of direction cost nothing: the lock is only
-//! dropped when the phase could not be followed (see [`PositionTracker::unlock`]). A new
-//! position (needle drop) takes over once it has been confirmed as long as the first lock.
+//! the signal level averaged over it, against a threshold half way between the highest
+//! and the lowest of the last few lobes, which follows the level as fast as a needle
+//! settling after a drop, or a gesture, changes it. The last `bits` bits form a register
+//! whose index on the record is looked up in the [`SequenceTable`]. Once locked, the
+//! position follows the carrier phase, so wrong bits (slow or reversing gestures) and
+//! changes of direction cost nothing: the lock is only dropped when the phase could not
+//! be followed (see [`PositionTracker::unlock`]). A new position (needle drop) takes over
+//! once it has been confirmed as long as the first lock.
 
 use crate::format::{SequenceTable, TimecodeFormat};
 use std::f64::consts::TAU;
@@ -15,8 +17,13 @@ use std::sync::Arc;
 
 /// Lobes used to initialise the bit threshold.
 const WARMUP_LOBES: u32 = 8;
-/// Averaging length of the bit threshold, in bits.
+/// Averaging length of the fallback threshold, in bits.
 const THRESHOLD_LENGTH: f64 = 16.0;
+/// Lobes whose levels set the bit threshold.
+const SLICE_LOBES: usize = 6;
+/// Below this ratio between their highest and lowest levels, those lobes all carry the
+/// same bit: the running average decides instead.
+const MIN_CONTRAST: f64 = 1.12;
 /// Consecutive consistent lookups needed to lock (or re-lock elsewhere). Any register
 /// is a position, and a random one goes on following the sequence for one more bit half
 /// the time: 24 bits leave one false lock in about 16 million.
@@ -29,6 +36,9 @@ pub(crate) struct PositionTracker {
     bits: u32,
     threshold: f64,
     lobes_seen: u32,
+    /// Levels of the last lobes, oldest overwritten first.
+    recent: [f64; SLICE_LOBES],
+    next_recent: usize,
     last_bit_phase: Option<f64>,
     register: u32,
     bits_read: u32,
@@ -46,6 +56,8 @@ impl PositionTracker {
             bits: format.bits,
             threshold: 0.0,
             lobes_seen: 0,
+            recent: [0.0; SLICE_LOBES],
+            next_recent: 0,
             last_bit_phase: None,
             register: 0,
             bits_read: 0,
@@ -72,7 +84,9 @@ impl PositionTracker {
         } else {
             self.threshold += (level - self.threshold) / THRESHOLD_LENGTH;
         }
-        let bit = (level > self.threshold) as u32;
+        let bit = (level > self.slice_threshold()) as u32;
+        self.recent[self.next_recent] = level;
+        self.next_recent = (self.next_recent + 1) % SLICE_LOBES;
         let mask = (1u32 << self.bits) - 1;
         self.register = if forwards {
             (self.register >> 1) | (bit << (self.bits - 1))
@@ -101,6 +115,21 @@ impl PositionTracker {
             }
         } else if self.candidate_run >= LOCK_RUN {
             self.lock_at(self.candidate, phase);
+        }
+    }
+
+    /// Half way between the highest and the lowest recent levels when they differ as bits
+    /// do, the running average otherwise.
+    fn slice_threshold(&self) -> f64 {
+        if self.lobes_seen < WARMUP_LOBES {
+            return self.threshold;
+        }
+        let (low, high) =
+            self.recent.iter().fold((f64::INFINITY, 0.0_f64), |(low, high), &l| (low.min(l), high.max(l)));
+        if high > MIN_CONTRAST * low {
+            (low + high) / 2.0
+        } else {
+            self.threshold
         }
     }
 
