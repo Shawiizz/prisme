@@ -1,3 +1,5 @@
+import { decimal } from './time';
+
 /** Knob positions (0 = full left, 0.5 = centre, 1 = full right) and the gains they set. */
 
 /** Below this the EQ knob removes its band, like an isolator. */
@@ -30,4 +32,25 @@ export function trimGain(knob: number): number {
 
 export function trimKnob(gain: number): number {
   return Math.min(Math.max(0.5 + toDb(gain) / (2 * TRIM_RANGE_DB), 0), 1);
+}
+
+/** What a knob reads while it is touched. */
+export const readouts = {
+  /** "+3.0 dB", "−∞ dB" when the band is removed. */
+  eq: (knob: number) => decibels(eqGain(knob)),
+  trim: (knob: number) => decibels(trimGain(knob)),
+  /** Left of the centre a low-pass, right of it a high-pass. */
+  filter: (knob: number) => {
+    const amount = Math.round(Math.abs(knob - 0.5) * 200);
+    if (amount < 2) return '0';
+    return `${knob < 0.5 ? 'LPF' : 'HPF'} ${amount} %`;
+  },
+  percent: (knob: number) => `${Math.round(knob * 100)} %`,
+  gain: (gain: number) => decibels(gain),
+};
+
+function decibels(gain: number): string {
+  if (gain <= 0) return '−∞ dB';
+  const db = Math.round(toDb(gain) * 10) / 10 || 0;
+  return `${db > 0 ? '+' : db < 0 ? '−' : ''}${decimal(Math.abs(db), 1)} dB`;
 }

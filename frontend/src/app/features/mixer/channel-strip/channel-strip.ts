@@ -2,7 +2,7 @@ import { Component, inject, input } from '@angular/core';
 import { BANDS, Band } from '../../../core/models/engine';
 import { MixerService } from '../../../core/services/mixer.service';
 import { Knob } from '../../../shared/knob/knob';
-import { eqGain, eqKnob, trimGain, trimKnob } from '../../../shared/mixer-scales';
+import { eqGain, eqKnob, readouts, trimGain, trimKnob } from '../../../shared/mixer-scales';
 import { t } from '../../../core/i18n/i18n';
 import { TPipe } from '../../../core/i18n/t.pipe';
 
@@ -14,6 +14,7 @@ import { TPipe } from '../../../core/i18n/t.pipe';
       label="TRIM"
       [labelTitle]="'Gain before the EQ (±12 dB)' | t"
       bipolar
+      [format]="readouts.trim"
       [value]="trimKnob()"
       (valueChange)="setTrim($event)"
     />
@@ -22,6 +23,7 @@ import { TPipe } from '../../../core/i18n/t.pipe';
         [label]="b.label"
         [labelTitle]="b.killTitle"
         bipolar
+        [format]="readouts.eq"
         [value]="eqKnob(b.band)"
         [active]="killed(b.band)"
         (valueChange)="setEq(b.band, $event)"
@@ -32,6 +34,7 @@ import { TPipe } from '../../../core/i18n/t.pipe';
       label="FILTER"
       [labelTitle]="'Left: low-pass, right: high-pass' | t"
       bipolar
+      [format]="readouts.filter"
       [value]="(strip().filter + 1) / 2"
       (valueChange)="mixer.setFilter(deck(), $event * 2 - 1)"
     />
@@ -47,6 +50,7 @@ import { TPipe } from '../../../core/i18n/t.pipe';
 export class ChannelStrip {
   readonly deck = input.required<number>();
   protected readonly mixer = inject(MixerService);
+  protected readonly readouts = readouts;
   protected readonly bands: { band: Band; label: string; killTitle: string }[] = [
     { band: 'high', label: 'HI', killTitle: t('Click to kill the highs') },
     { band: 'mid', label: 'MID', killTitle: t('Click to kill the mids') },

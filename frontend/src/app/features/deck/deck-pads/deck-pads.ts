@@ -6,6 +6,7 @@ import { PerformanceService } from '../../../core/services/performance.service';
 import { EffectKind, HOT_CUES } from '../../../core/models/engine';
 import { Knob } from '../../../shared/knob/knob';
 import { formatBeats, loopBeats } from '../../../shared/beats';
+import { readouts } from '../../../shared/mixer-scales';
 import { t } from '../../../core/i18n/i18n';
 import { TPipe } from '../../../core/i18n/t.pipe';
 
@@ -91,6 +92,7 @@ export class DeckPads {
     () => this.mode() === 'fx' || this.mode() === 'sampler' || this.canMove(),
   );
   protected readonly formatBeats = formatBeats;
+  protected readonly readouts = readouts;
 
   private readonly activeLoopBeats = computed(() => {
     const looping = this.status()?.looping;

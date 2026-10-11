@@ -60,17 +60,14 @@
       >
         −
       </button>
-      <input
-        class="pr-range"
-        type="range"
+      <app-fader
+        centered
         [min]="-range()"
         [max]="range()"
-        step="0.0005"
         [value]="faderValue()"
-        (input)="onPitch($event)"
-        (dblclick)="resetPitch()"
+        (valueChange)="setPitch($event)"
         [disabled]="tempoFaderLocked()"
-        [attr.aria-label]="'Tempo' | t"
+        [label]="'Tempo' | t"
       />
       <button
         class="pr-btn pr-btn--sm pr-btn--icon"

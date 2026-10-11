@@ -7,6 +7,7 @@ import { pitchToMatch } from '../../../core/sync';
 import { formatPitch } from '../../../shared/time';
 import { t } from '../../../core/i18n/i18n';
 import { TPipe } from '../../../core/i18n/t.pipe';
+import { Fader } from '../../../shared/fader/fader';
 
 type SyncState = 'off' | 'matched' | 'locked';
 
@@ -15,7 +16,7 @@ type SyncState = 'off' | 'matched' | 'locked';
   selector: 'app-deck-controls',
   templateUrl: './deck-controls.html',
   styleUrl: './deck-controls.scss',
-  imports: [ChannelStrip, TPipe],
+  imports: [ChannelStrip, Fader, TPipe],
 })
 export class DeckControls {
   readonly deck = input.required<number>();
@@ -95,9 +96,8 @@ export class DeckControls {
     this.engine.toggleSync(this.deck());
   }
 
-  onPitch(event: Event) {
-    const v = Number((event.target as HTMLInputElement).value);
-    this.engine.setPitch(this.deck(), 1 + v);
+  setPitch(offset: number) {
+    this.engine.setPitch(this.deck(), 1 + offset);
   }
 
   resetPitch() {

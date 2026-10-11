@@ -31,12 +31,14 @@
       <app-knob
         label="MIX"
         [labelTitle]="'Level of the effect' | t"
+        [format]="readouts.percent"
         [value]="effect().mix"
         (valueChange)="fx.setMix(deck(), $event)"
       />
       <app-knob
         label="AMOUNT"
         [labelTitle]="'Main knob of the effect (see each pad)' | t"
+        [format]="readouts.percent"
         [value]="effect().amount"
         (valueChange)="fx.setAmount(deck(), $event)"
       />
@@ -52,6 +54,7 @@
         label="VOL"
         [labelTitle]="'Level of the sampler' | t"
         [defaultValue]="1"
+        [format]="readouts.percent"
         [value]="samplerGain()"
         (valueChange)="sampler.setGain(deck(), $event)"
       />

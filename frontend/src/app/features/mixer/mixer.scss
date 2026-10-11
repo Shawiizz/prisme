@@ -38,30 +38,15 @@
   gap: 6px;
 }
 
-// upright volume faders
-.fader {
-  writing-mode: vertical-lr;
-  direction: rtl;
-  width: 22px;
+.volume {
   height: auto;
-  min-height: 0;
-  margin: 0;
-  &::-webkit-slider-runnable-track {
-    width: 2px;
-    height: auto;
-  }
-  &::-webkit-slider-thumb {
-    width: 20px;
-    height: 12px;
-    margin: 0 0 0 -9px;
-  }
 }
 
 .row {
   display: flex;
   align-items: center;
   gap: 6px;
-  .pr-range {
+  .crossfader {
     flex: 1;
     min-width: 0;
   }
