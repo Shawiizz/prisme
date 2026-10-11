@@ -11,6 +11,8 @@ pub const MAX_DECKS: usize = 4;
 pub struct VinylStatus {
     pub enabled: bool,
     pub mode: VinylMode,
+    /// The needle reached the end of the record: the deck plays on by itself.
+    pub run_out: bool,
     pub signal: SignalState,
     /// Timecode carrier level (full scale = 1.0).
     pub level: f32,
@@ -82,6 +84,7 @@ impl Default for DeckStatus {
             vinyl: VinylStatus {
                 enabled: false,
                 mode: VinylMode::Absolute,
+                run_out: false,
                 signal: SignalState::None,
                 level: 0.0,
                 record_speed: 0.0,

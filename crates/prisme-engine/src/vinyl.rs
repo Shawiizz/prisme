@@ -1,9 +1,18 @@
 //! Vinyl control of a deck: reads the record through the timecode decoder and tells the
 //! deck how fast to play and, in absolute mode, where it should be.
+//!
+//! When the needle reaches the end of the timecode while the record plays, the deck
+//! plays on by itself at the record's last speed rather than stop with the music. In
+//! relative mode the record takes over again once the needle is back before the end
+//! and the platter turns; in absolute mode (where that would jump the track) only once
+//! the vinyl control is set again or another track is loaded.
 
 use crate::command::VinylMode;
 use crate::status::VinylStatus;
 use prisme_timecode::TimecodeDecoder;
+
+/// Slowest forward speed at which reaching the end of the record counts as playing.
+const PLAYING_SPEED: f64 = 0.5;
 
 /// What the record asks the deck to do for the block just decoded.
 #[derive(Debug, Clone, Copy)]
@@ -19,21 +28,61 @@ pub(crate) struct VinylControl {
     pub(crate) mode: VinylMode,
     /// Position of the track start on the record (seconds).
     pub(crate) lead_in_s: f64,
+    run_out: RunOut,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+enum RunOut {
+    /// The record was not seen before its end since the track was loaded or taken back.
+    Unarmed,
+    /// Seen before the end: reaching the end while playing makes the deck play on.
+    Armed,
+    /// Played past the end: the deck plays on by itself at this speed.
+    PlayingOn(f64),
 }
 
 impl VinylControl {
     pub(crate) fn new(decoder: Box<TimecodeDecoder>) -> Self {
-        Self { decoder, enabled: false, mode: VinylMode::Absolute, lead_in_s: 0.0 }
+        Self { decoder, enabled: false, mode: VinylMode::Absolute, lead_in_s: 0.0, run_out: RunOut::Unarmed }
     }
 
     /// Decodes one block of the turntable signal (interleaved stereo).
     pub(crate) fn process(&mut self, input: &[f32]) -> VinylDrive {
         self.decoder.process(input);
+        if let Some(speed) = self.run_out(self.decoder.speed(), self.decoder.position_ms()) {
+            return VinylDrive { speed, target_position_s: None };
+        }
         let target_position_s = match self.mode {
             VinylMode::Absolute => self.decoder.position_ms().map(|ms| ms / 1000.0 - self.lead_in_s),
             VinylMode::Relative => None,
         };
         VinylDrive { speed: self.decoder.speed(), target_position_s }
+    }
+
+    /// The speed to play on at past the end of the record, if the deck does.
+    fn run_out(&mut self, speed: f64, position_ms: Option<f64>) -> Option<f64> {
+        let format = self.decoder.format();
+        let end_ms = f64::from(format.safe) * format.cycle_ms();
+        let before_end = position_ms.is_some_and(|p| p < end_ms);
+        let past_end = position_ms.is_some_and(|p| p >= end_ms);
+        let playing = speed >= PLAYING_SPEED;
+        self.run_out = match self.run_out {
+            RunOut::PlayingOn(_) if self.mode == VinylMode::Relative && before_end && playing => {
+                RunOut::Armed
+            }
+            RunOut::Unarmed | RunOut::Armed if before_end => RunOut::Armed,
+            RunOut::Armed if self.enabled && playing && past_end => RunOut::PlayingOn(speed),
+            state => state,
+        };
+        match self.run_out {
+            RunOut::PlayingOn(speed) => Some(speed),
+            _ => None,
+        }
+    }
+
+    /// The record drives the deck again (after the end of the record was reached).
+    pub(crate) fn take_back(&mut self) {
+        self.run_out = RunOut::Unarmed;
     }
 
     /// Installs a new decoder and returns the old one (to be freed off the audio thread).
@@ -46,6 +95,7 @@ impl VinylControl {
         VinylStatus {
             enabled: self.enabled,
             mode: self.mode,
+            run_out: matches!(self.run_out, RunOut::PlayingOn(_)),
             signal: s.signal,
             level: s.level as f32,
             record_speed: s.speed,

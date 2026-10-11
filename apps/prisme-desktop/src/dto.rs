@@ -442,6 +442,8 @@ pub struct MixerStateDto {
 pub struct VinylDto {
     pub enabled: bool,
     pub mode: VinylModeDto,
+    /// The needle reached the end of the record: the deck plays on by itself.
+    pub run_out: bool,
     /// "none", "bounce" or "ok"
     pub signal: &'static str,
     /// Timecode carrier level (full scale = 1.0).
@@ -513,6 +515,7 @@ impl From<&DeckStatus> for DeckStatusDto {
             vinyl: VinylDto {
                 enabled: d.vinyl.enabled,
                 mode: d.vinyl.mode.into(),
+                run_out: d.vinyl.run_out,
                 signal: match d.vinyl.signal {
                     SignalState::None => "none",
                     SignalState::Bounce => "bounce",

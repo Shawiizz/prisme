@@ -219,7 +219,6 @@ impl Deck {
         }
     }
 
-    /// Playback rate without the gestures: what a follower matches.
     /// Output frames until the next beat, when the deck plays on its grid.
     pub(crate) fn frames_to_next_beat(&self, out_rate: f64) -> Option<usize> {
         // slower than this, the next beat is too far to wait for
@@ -246,6 +245,7 @@ impl Deck {
         }
     }
 
+    /// Playback rate without the gestures: what a follower matches.
     fn tempo_rate(&self) -> f64 {
         match self.drive_mode() {
             DriveMode::Internal if self.sync.locked => self.sync.held_rate.unwrap_or(self.pitch),

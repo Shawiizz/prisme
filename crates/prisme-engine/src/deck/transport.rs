@@ -21,6 +21,7 @@ impl Deck {
     pub(crate) fn reset_track_state(&mut self) {
         self.grid = None;
         self.sync.reset();
+        self.vinyl.take_back();
         self.transport = Transport { slip_mode: self.transport.slip_mode, ..Transport::default() };
         self.playhead.set_loop(None);
     }

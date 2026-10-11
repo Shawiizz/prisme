@@ -49,6 +49,8 @@ export const FR: Record<string, string> = {
   'Beat offset from the other deck': "Décalage de temps avec l'autre deck",
   'Pitch {change} to match': 'Pitch {change} pour caler',
   'Driven by the turntable': 'Piloté par la platine',
+  'The needle reached the end of the record: the deck plays on by itself. Click to hand it back to the record.':
+    'Le diamant a atteint la fin du disque : le deck continue tout seul. Cliquez pour rendre la main au disque.',
   'Sync needs relative mode or internal play':
     'La sync demande le mode relatif ou la lecture interne',
   'No beat grid': 'Pas de grille rythmique',

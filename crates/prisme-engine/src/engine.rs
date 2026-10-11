@@ -247,10 +247,12 @@ impl Engine {
             Censor { deck, active } if valid(deck) => self.decks[deck].censor(active),
             SetVinylEnabled { deck, enabled } if valid(deck) => {
                 self.decks[deck].vinyl.enabled = enabled;
+                self.decks[deck].vinyl.take_back();
                 self.decks[deck].sync.reset();
             }
             SetVinylMode { deck, mode } if valid(deck) => {
                 self.decks[deck].vinyl.mode = mode;
+                self.decks[deck].vinyl.take_back();
                 self.decks[deck].sync.reset();
             }
             SetBeatGrid { deck, grid } if valid(deck) => self.decks[deck].grid = grid,

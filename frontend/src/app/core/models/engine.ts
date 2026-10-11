@@ -6,6 +6,8 @@ export type VinylMode = 'absolute' | 'relative';
 export interface VinylStatus {
   enabled: boolean;
   mode: VinylMode;
+  /** The needle reached the end of the record: the deck plays on by itself. */
+  runOut: boolean;
   signal: SignalState;
   /** Timecode carrier level (full scale = 1). */
   level: number;

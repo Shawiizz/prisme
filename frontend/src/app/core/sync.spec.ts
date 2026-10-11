@@ -19,6 +19,7 @@ function deck(bpm: number | null, beatPhase: number | null): DeckStatus {
     vinyl: {
       enabled: false,
       mode: 'relative',
+      runOut: false,
       signal: 'none',
       level: 0,
       recordSpeed: 0,

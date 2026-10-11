@@ -54,7 +54,20 @@
       </div>
 
       <div class="vinyl">
-        <span class="signal" [class]="signal()" [title]="signalTitle()"></span>
+        @if (status()?.vinyl?.runOut) {
+          <button
+            class="run-out"
+            [title]="
+              'The needle reached the end of the record: the deck plays on by itself. Click to hand it back to the record.'
+                | t
+            "
+            (click)="takeBack()"
+          >
+            INT
+          </button>
+        } @else {
+          <span class="signal" [class]="signal()" [title]="signalTitle()"></span>
+        }
         <button [class.active]="settings().vinylEnabled" (click)="toggleVinyl()">VINYL</button>
         <button [class.active]="settings().vinylEnabled" (click)="toggleMode()">
           {{ settings().vinylMode === 'absolute' ? 'ABS' : 'REL' }}

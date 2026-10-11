@@ -55,6 +55,11 @@ export class DeckCard {
   protected readonly signal = computed(() => this.status()?.vinyl.signal ?? 'none');
   protected readonly signalTitle = computed(() => SIGNAL_TITLE[this.signal()]);
 
+  /** After the end of the record: the record drives the deck again. */
+  takeBack() {
+    this.engine.setVinyl(this.deck(), {});
+  }
+
   toggleVinyl() {
     this.engine.setVinyl(this.deck(), { enabled: !this.settings().vinylEnabled });
   }
