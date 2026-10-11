@@ -16,7 +16,8 @@ away. Everything here serves that glance.
 | `frontend/src/styles/fonts.css` | Instrument Sans and Martian Mono, shipped in `styles/fonts` (OFL): the app works offline. |
 | `design/reference/main-screen.html` | The main screen at 1280 × 800. **The exact visual model.** |
 | `design/reference/design-system.html` | Every token and component on one board. |
-| `design/logo.svg` | The prism: white light in, three bands out. |
+| `design/logo.svg` | The logo, a glass prism, with its glow: the app icon and large sizes. |
+| `design/logo-mark.svg` | The same prism tight around it, without the glow: the title bar and small sizes. |
 
 The reference pages load the app's own stylesheets: open them in a browser from the repository,
 they always show the current system.
@@ -152,6 +153,18 @@ A toggle is a button with `.is-on` when on. Radius 3 px, no shadow, no glow.
 - **Phase strip** between the two decks: the beats of A at the top and of B at the bottom,
   around the playheads, with the offset in milliseconds. Matched, they meet.
 
+## Logo
+
+A prism of frosted glass: two faces carry the white light, the third is the spectrum, from the
+red at the apex to the violet that the base shows through. The glass is lit from its corner
+and catches the light on its edges.
+
+- `logo.svg` on its own, from 64 px; the app icon puts it on a dark rounded tile
+  (`apps/prisme-desktop/icons`, rendered from it at 1024 by `tauri icon`).
+- `logo-mark.svg` under 64 px: the title bar draws it at 22 px beside the name, in Instrument
+  Sans 600 narrow, lower case.
+- On the dark backgrounds of the app only. The logo is the one place for glow and gradients.
+
 ## Layout
 
 - Title bar 36: logo, audio health (driver and device, buffer, dropouts) and the master meter,
@@ -191,7 +204,7 @@ A toggle is a button with `.is-on` when on. Radius 3 px, no shadow, no glow.
 
 ## Never
 
-Glows and neon. Gradients. Shadows, except under dialogs. Pure white, pure black. Colour as
+Glows and neon. Gradients (the logo aside). Shadows, except under dialogs. Pure white, pure black. Colour as
 decoration. A colour per deck. Emoji. Text under 10.5 px. Weight 700.
 
 ## Words
