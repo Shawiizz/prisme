@@ -11,7 +11,7 @@ use crate::status::{DeckStatus, LoopStatus, SyncStatus};
 use crate::strip::ChannelStrip;
 use crate::sync::{self, DeckSync, LeaderBeat, SyncTarget};
 use crate::vinyl::{VinylControl, VinylDrive};
-use prisme_dsp::{Beat, FxSlot};
+use prisme_dsp::{Beat, FxSlot, Smoothed};
 use prisme_timecode::TimecodeDecoder;
 use transport::Transport;
 
@@ -22,6 +22,11 @@ const JUMP_THRESHOLD_S: f64 = 0.1;
 const PULL_PER_S: f64 = 50.0;
 const MAX_CORRECTION: f64 = 0.2;
 const MAX_CORRECTION_PER_SPEED: f64 = 0.5;
+/// Below this speed the track fades out: a stopped playhead holds its last sample, a
+/// constant level the speakers would thump on whenever it changed.
+const STILL_SPEED: f64 = 0.02;
+/// How fast the track fades with the motion (s).
+const MOTION_FADE_S: f32 = 0.005;
 
 pub(crate) struct Deck {
     pub(crate) playhead: Playhead,
@@ -47,6 +52,8 @@ pub(crate) struct Deck {
     transport: Transport,
     correction: f64,
     speed: f64,
+    /// Gain of the track, following its motion.
+    motion: Smoothed,
 }
 
 impl Deck {
@@ -71,6 +78,7 @@ impl Deck {
             transport: Transport::default(),
             correction: 0.0,
             speed: 0.0,
+            motion: Smoothed::new(0.0, MOTION_FADE_S, sample_rate as f32),
         }
     }
 
@@ -95,12 +103,26 @@ impl Deck {
             self.playhead.render(out, out_rate, speed);
         }
         self.speed = speed;
+        self.fade_with_motion(out);
 
         let seconds = (out.len() / 2) as f64 / out_rate;
         let platter = self.vinyl.enabled.then_some(drive.speed);
         self.sync.observe(speed, platter, seconds);
         self.advance_shadow(seconds);
         self.follow_record_position(drive);
+    }
+
+    /// Fades the track out as it stops and in as it moves again.
+    fn fade_with_motion(&mut self, out: &mut [f32]) {
+        self.motion.set((self.speed.abs() / STILL_SPEED).min(1.0) as f32);
+        if self.motion.is_settled() && self.motion.target() == 1.0 {
+            return;
+        }
+        for frame in out.chunks_exact_mut(2) {
+            let gain = self.motion.tick();
+            frame[0] *= gain;
+            frame[1] *= gain;
+        }
     }
 
     /// Transposes the track; this goes through the key lock's stretcher, on or off.

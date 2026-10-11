@@ -64,3 +64,13 @@ fn each_deck_reports_its_level() {
     assert!((rig.deck(0).peak - 0.5).abs() < 1e-4);
     assert!((rig.deck(1).peak - 0.25).abs() < 1e-4);
 }
+
+#[test]
+fn a_stopped_deck_is_silent_not_frozen_on_its_last_sample() {
+    let mut rig = two_playing_decks(MixMode::External);
+    rig.run(0.05);
+    assert_frame(rig.output_frame(), [0.5, 0.5, 0.25, 0.25]);
+    rig.send(Command::SetPlaying { deck: 0, playing: false });
+    rig.run(0.05);
+    assert_frame(rig.output_frame(), [0.0, 0.0, 0.25, 0.25]);
+}
