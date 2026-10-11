@@ -67,7 +67,8 @@ pub fn run() {
         .register_asynchronous_uri_scheme_protocol(cover_protocol::SCHEME, cover_protocol::handle)
         .setup(|app| {
             app.manage(logging::init(app.path().app_log_dir().ok().as_deref()));
-            let data_dir = app.path().app_data_dir().inspect_err(|e| warn!("no data folder: {e}")).ok();
+            let data_dir = dev_startup::data_dir()
+                .or_else(|| app.path().app_data_dir().inspect_err(|e| warn!("no data folder: {e}")).ok());
             app.manage(AppState::new(open_json(data_dir.as_deref(), "preferences.json")));
             app.manage(Controllers::new(open_json(data_dir.as_deref(), "controllers.json")));
             let library =
