@@ -1,102 +1,72 @@
 :host {
   display: block;
   min-width: 0;
-  min-height: 0;
-  height: 100%;
 }
 
 .panel {
   height: 100%;
-  display: grid;
-  grid-template-columns: 96px minmax(0, 1fr) 150px;
-  gap: 8px;
-  padding: 6px 8px;
-  background: var(--panel);
-  border: 1px solid var(--line);
-  border-radius: 3px;
-}
-.modes {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 3px;
-  button {
-    padding: 0;
-    font-size: 10px;
-    font-weight: 700;
-    letter-spacing: 0.04em;
-    &.active {
-      border-color: var(--accent);
-      color: var(--accent);
-    }
-  }
-}
-.pads {
-  display: grid;
-  grid-template-columns: repeat(8, minmax(0, 1fr));
-  gap: 4px;
-}
-.pad {
-  padding: 0;
-  font-size: 12px;
-  font-weight: 700;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  touch-action: none;
-  &.set {
-    background: color-mix(in srgb, var(--pad) 22%, var(--raised));
-    border-color: var(--pad);
-    color: var(--pad);
-  }
-  &.active {
-    background: var(--accent);
-    border-color: var(--accent);
-    color: var(--ink);
-  }
-}
-.keys {
-  display: grid;
-  grid-template-rows: 1fr 1fr;
-  gap: 3px;
-}
-.row {
-  display: flex;
-  gap: 3px;
-  button {
-    flex: 1;
-    padding: 0;
-    font-size: 10px;
-    font-weight: 700;
-    &.active {
-      background: var(--accent);
-      border-color: var(--accent);
-      color: var(--ink);
-    }
-  }
-}
-.fx-keys {
   display: flex;
   align-items: center;
-  gap: 8px;
-  .beats {
-    display: flex;
-    align-items: center;
-    gap: 4px;
+  gap: var(--pr-space-3);
+  padding: 0 var(--pr-space-3);
+}
+
+// six modes on two rows of three
+.modes {
+  flex: none;
+  display: grid;
+  grid-template-columns: repeat(3, auto);
+  > button {
+    padding: 0 7px;
+    font-size: 10.5px;
+  }
+}
+
+.pads {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  gap: var(--pr-space-1);
+  .pr-pad {
+    flex: 1;
+    min-width: 26px;
+    width: auto;
+    overflow: hidden;
     span {
-      min-width: 28px;
-      text-align: center;
-      font-size: 12px;
-      font-weight: 700;
-      font-variant-numeric: tabular-nums;
-    }
-    button {
-      padding: 2px 6px;
-      font-size: 11px;
+      max-width: 100%;
+      overflow: hidden;
+      white-space: nowrap;
+      text-overflow: ellipsis;
     }
   }
 }
-// effect names are longer than cue numbers
-.compact .pad {
-  font-size: 10px;
-  letter-spacing: 0;
+
+.keys {
+  flex: none;
+  display: grid;
+  gap: var(--pr-space-1);
+  .row {
+    display: flex;
+    gap: var(--pr-space-1);
+  }
+  .pr-btn {
+    flex: 1;
+    padding: 0 7px;
+    font-size: 10.5px;
+    letter-spacing: 0.04em;
+  }
+  &.knobs {
+    display: flex;
+    align-items: center;
+    gap: var(--pr-space-3);
+  }
+}
+.beats {
+  display: flex;
+  align-items: center;
+  gap: var(--pr-space-1);
+  .pr-num {
+    min-width: 32px;
+    text-align: center;
+  }
 }

@@ -2,34 +2,40 @@ import { Component, computed, inject } from '@angular/core';
 import { EngineService } from '../../core/services/engine.service';
 import { MixerService } from '../../core/services/mixer.service';
 import { DECK_COUNT } from '../../core/models/engine';
-import { deckColor } from '../../shared/time';
+import { deckLetter } from '../../shared/time';
+import { Segment, levelSegments } from '../../shared/level';
 import { TPipe } from '../../core/i18n/t.pipe';
+import { Knob } from '../../shared/knob/knob';
+
+/** Segments of the channel meters. */
+const METER_SEGMENTS = 16;
+/** The headphone volume knob goes up to +3.5 dB. */
+const MAX_HEADPHONE_GAIN = 1.5;
 
 /**
  * External mixer: the level sent to each deck's outputs. Software mixer: channel volumes,
- * headphone cues, crossfader and its curve, master limiter, cue/master blend and headphone
- * volume. The channel strips (trim, EQ, filter) sit with their decks (`ChannelStrip`).
+ * headphone cues, crossfader and its curve, master limiter, and the headphone knobs (cue/master
+ * blend, volume). The channel strips (trim, EQ, filter) sit with their decks (`ChannelStrip`).
  */
 @Component({
   selector: 'app-mixer',
   templateUrl: './mixer.html',
   styleUrl: './mixer.scss',
-  imports: [TPipe],
+  imports: [Knob, TPipe],
 })
 export class Mixer {
   protected readonly engine = inject(EngineService);
   protected readonly mixer = inject(MixerService);
   protected readonly deckIndexes = Array.from({ length: DECK_COUNT }, (_, i) => i);
-  protected readonly color = deckColor;
+  protected readonly letter = deckLetter;
+  protected readonly MAX_HEADPHONE_GAIN = MAX_HEADPHONE_GAIN;
   protected readonly internal = this.mixer.internal;
-  /** External mode asked for, but the device has too few outputs. */
-  protected readonly fallback = computed(
-    () => this.mixer.mode() === 'external' && this.mixer.modeInUse() === 'internal',
+  protected readonly masterLevel = computed(() =>
+    levelSegments(this.engine.status()?.mainPeak ?? 0, METER_SEGMENTS),
   );
-  protected readonly peak = computed(() => this.engine.status()?.mainPeak ?? 0);
 
-  deckPeak(deck: number): number {
-    return this.engine.status()?.decks[deck]?.peak ?? 0;
+  deckLevel(deck: number): Segment[] {
+    return levelSegments(this.engine.status()?.decks[deck]?.peak ?? 0, METER_SEGMENTS);
   }
 
   /** First and last output of a deck's pair in external mode, counting from 1. */
@@ -43,13 +49,5 @@ export class Mixer {
 
   onCrossfader(event: Event) {
     this.mixer.setCrossfader(Number((event.target as HTMLInputElement).value));
-  }
-
-  onCueMix(event: Event) {
-    this.mixer.setCueMix(Number((event.target as HTMLInputElement).value));
-  }
-
-  onHeadphoneGain(event: Event) {
-    this.mixer.setHeadphoneGain(Number((event.target as HTMLInputElement).value));
   }
 }

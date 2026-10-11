@@ -1,17 +1,19 @@
-<div class="panel" [style.--accent]="color()">
-  <div class="modes">
+<div class="panel pr-panel">
+  <div class="pr-seg modes" role="radiogroup" [attr.aria-label]="'Pad mode' | t">
     @for (m of modes; track m.id) {
-      <button [class.active]="mode() === m.id" (click)="mode.set(m.id)">{{ m.label }}</button>
+      <button role="radio" [attr.aria-checked]="mode() === m.id" (click)="mode.set(m.id)">
+        {{ m.label }}
+      </button>
     }
   </div>
 
-  <div class="pads" [class.compact]="mode() === 'fx' || mode() === 'sampler'">
+  <div class="pads">
     @for (pad of pads(); track $index) {
       <button
-        class="pad"
-        [class.set]="pad.color"
-        [class.active]="pad.active"
-        [style.--pad]="pad.color"
+        class="pr-pad"
+        [class.pr-pad--set]="pad.set"
+        [class.is-hot]="pad.active"
+        [style.--tag]="pad.color"
         [disabled]="!padsEnabled()"
         [title]="pad.title"
         (pointerdown)="press($index, $event)"
@@ -19,13 +21,13 @@
         (pointercancel)="release()"
         (contextmenu)="remove($index, $event)"
       >
-        {{ pad.label }}
+        <span>{{ pad.label }}</span>
       </button>
     }
   </div>
 
   @if (mode() === 'fx') {
-    <div class="fx-keys">
+    <div class="keys knobs">
       <app-knob
         label="MIX"
         [labelTitle]="'Level of the effect' | t"
@@ -39,13 +41,13 @@
         (valueChange)="fx.setAmount(deck(), $event)"
       />
       <div class="beats" [title]="'Period of the effect, in beats' | t">
-        <button (click)="fx.scaleBeats(deck(), 0.5)">½</button>
-        <span>{{ formatBeats(effect().beats) }}</span>
-        <button (click)="fx.scaleBeats(deck(), 2)">×2</button>
+        <button class="pr-btn pr-btn--sm" (click)="fx.scaleBeats(deck(), 0.5)">½</button>
+        <span class="pr-num">{{ formatBeats(effect().beats) }}</span>
+        <button class="pr-btn pr-btn--sm" (click)="fx.scaleBeats(deck(), 2)">×2</button>
       </div>
     </div>
   } @else if (mode() === 'sampler') {
-    <div class="fx-keys">
+    <div class="keys knobs">
       <app-knob
         label="VOL"
         [labelTitle]="'Level of the sampler' | t"
@@ -58,7 +60,8 @@
     <div class="keys">
       <div class="row">
         <button
-          [class.active]="loopInSet()"
+          class="pr-btn pr-btn--sm"
+          [class.is-on]="loopInSet()"
           (click)="loopIn()"
           [disabled]="!canMove()"
           [title]="'Loop in: where the next loop starts' | t"
@@ -66,31 +69,49 @@
           IN
         </button>
         <button
+          class="pr-btn pr-btn--sm"
           (click)="loopOut()"
           [disabled]="!canMove()"
           [title]="'Loop out: the loop ends here and plays' | t"
         >
           OUT
         </button>
-        <button (click)="scaleLoop(0.5)" [disabled]="!canMove()" [title]="'Halve the loop' | t">
+        <button
+          class="pr-btn pr-btn--sm"
+          (click)="scaleLoop(0.5)"
+          [disabled]="!canMove()"
+          [title]="'Halve the loop' | t"
+        >
           ½
         </button>
-        <button (click)="scaleLoop(2)" [disabled]="!canMove()" [title]="'Double the loop' | t">
+        <button
+          class="pr-btn pr-btn--sm"
+          (click)="scaleLoop(2)"
+          [disabled]="!canMove()"
+          [title]="'Double the loop' | t"
+        >
           ×2
         </button>
       </div>
       <div class="row">
-        <button [class.active]="loopActive()" (click)="toggleLoop()" [disabled]="!canMove()">
+        <button
+          class="pr-btn pr-btn--sm"
+          [class.is-on]="loopActive()"
+          (click)="toggleLoop()"
+          [disabled]="!canMove()"
+        >
           {{ loopActive() ? 'EXIT' : 'RELOOP' }}
         </button>
         <button
-          [class.active]="slip()"
+          class="pr-btn pr-btn--sm"
+          [class.is-on]="slip()"
           (click)="toggleSlip()"
           [title]="'Loops, rolls and censor carry the track on underneath' | t"
         >
           SLIP
         </button>
         <button
+          class="pr-btn pr-btn--sm"
           [disabled]="!canMove()"
           [title]="'Plays backwards while held' | t"
           (pointerdown)="censor(true)"

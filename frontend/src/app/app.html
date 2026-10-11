@@ -18,7 +18,7 @@
     </div>
   </section>
 
-  <section class="controls">
+  <section class="controls" [class.external]="!mixer.internal()">
     <app-deck-controls class="left" [deck]="0" />
     <app-mixer class="mixer" />
     <app-deck-controls class="right" [deck]="1" />

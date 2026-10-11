@@ -1,136 +1,63 @@
 :host {
   display: block;
   min-width: 0;
-  min-height: 0;
-  height: 100%;
 }
 
 .controls {
-  position: relative;
+  height: 100%;
   display: flex;
   align-items: center;
-  gap: 12px;
-  overflow: hidden;
-  height: 100%;
-  padding: 10px 12px;
-  background: var(--panel);
-  border: 1px solid var(--line);
-  border-top: 1px solid var(--accent);
-  border-radius: 3px;
+  gap: 18px;
+  padding: 0 var(--pr-space-3);
 }
-// the channel strip sits on the side of the mixer: after the tempo on the left deck,
-// before the transport on the right one
-.strip {
-  flex: none;
-  &.toward-left {
-    order: -1;
-  }
-}
+
 .transport {
   display: flex;
-  gap: 6px;
-  button {
-    width: 64px;
-    height: 44px;
-    font-weight: 700;
-    letter-spacing: 0.05em;
+  gap: var(--pr-space-1);
+  .pr-btn {
+    width: 58px;
+    padding: 0;
+    font-size: var(--pr-size-small);
+    letter-spacing: 0.06em;
   }
-  .cue.active {
-    background: var(--amber);
-    border-color: var(--amber);
-  }
-  .play.active {
-    background: var(--accent);
-    border-color: var(--accent);
-  }
+  // matched once, not locked: outlined in the light
   .sync.matched {
-    border-color: var(--accent);
-    color: var(--accent);
-  }
-  .sync.locked {
-    background: var(--accent);
-    border-color: var(--accent);
-    color: var(--ink);
+    border-color: var(--pr-light);
   }
 }
+
 .tempo {
   flex: 1;
   min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  input {
-    width: 100%;
-  }
+  display: grid;
+  gap: 2px;
 }
 .tempo-head {
   display: flex;
-  align-items: baseline;
-  gap: 8px;
+  align-items: center;
+  gap: 6px;
   .value {
     margin-left: auto;
+    font-size: 14px;
     white-space: nowrap;
-    font-variant-numeric: tabular-nums;
-    color: var(--text-2);
     cursor: default;
   }
-  .leader {
-    font-size: 10px;
-    font-weight: 700;
-    letter-spacing: 0.08em;
-    color: var(--accent);
-  }
-  .key-lock {
-    padding: 0 5px;
-    font-size: 10px;
-    font-weight: 700;
-    line-height: 16px;
-    &.active {
-      background: var(--accent);
-      border-color: var(--accent);
-      color: var(--ink);
-    }
-  }
-  .bend {
-    width: 22px;
-    height: 18px;
-    padding: 0;
-    font-weight: 700;
-    line-height: 1;
-    touch-action: none;
-  }
 }
-.phase {
-  position: relative;
-  height: 6px;
-  border-radius: 3px;
-  background: var(--line);
-  &::before {
-    content: '';
-    position: absolute;
-    left: 50%;
-    top: -2px;
-    bottom: -2px;
-    width: 1px;
-    background: var(--line-strong);
-  }
-  .marker {
-    position: absolute;
-    top: 0;
-    bottom: 0;
-    width: 4px;
-    margin-left: -2px;
-    border-radius: 2px;
-    background: var(--amber);
-  }
-  &.aligned .marker {
-    background: var(--mint);
+.fader {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  .pr-range {
+    flex: 1;
+    min-width: 0;
   }
 }
 .note {
-  position: absolute;
-  right: 12px;
-  bottom: 4px;
-  font-size: 10px;
-  color: var(--faint);
+  min-height: 14px;
+  font-size: 11px;
+  color: var(--pr-text-3);
+}
+
+.strip {
+  flex: none;
 }

@@ -55,11 +55,11 @@ function arc(from: number, to: number): string {
       display: flex;
       flex-direction: column;
       align-items: center;
-      gap: 1px;
+      gap: 2px;
     }
     svg {
-      width: 24px;
-      height: 24px;
+      width: 26px;
+      height: 26px;
       cursor: ns-resize;
       touch-action: none;
     }
@@ -69,30 +69,29 @@ function arc(from: number, to: number): string {
       stroke-linecap: round;
     }
     .track {
-      stroke: var(--line-strong);
+      stroke: var(--pr-line-2);
     }
     .value {
-      stroke: var(--accent, var(--text-2));
+      stroke: var(--pr-light);
     }
     line {
-      stroke: var(--text);
+      stroke: var(--pr-text);
       stroke-width: 2;
       stroke-linecap: round;
     }
     .label {
-      padding: 0 3px;
+      height: auto;
+      padding: 1px 4px;
       border: none;
+      border-radius: var(--pr-radius-sm);
       background: transparent;
-      color: var(--faint);
-      font-size: 9px;
-      font-weight: 700;
-      letter-spacing: 0.04em;
-      line-height: 11px;
+      color: var(--pr-text-3);
+      font: 600 var(--pr-size-label) / 1.1 var(--pr-font);
+      letter-spacing: 0.06em;
       cursor: default;
       &.active {
-        background: var(--red);
-        color: var(--ink);
-        border-radius: 2px;
+        background: var(--pr-light);
+        color: var(--pr-on-light);
       }
     }
   `,

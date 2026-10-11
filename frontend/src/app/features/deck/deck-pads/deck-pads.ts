@@ -5,7 +5,6 @@ import { EngineService } from '../../../core/services/engine.service';
 import { PerformanceService } from '../../../core/services/performance.service';
 import { EffectKind, HOT_CUES } from '../../../core/models/engine';
 import { Knob } from '../../../shared/knob/knob';
-import { deckColor } from '../../../shared/time';
 import { formatBeats, loopBeats } from '../../../shared/beats';
 import { t } from '../../../core/i18n/i18n';
 import { TPipe } from '../../../core/i18n/t.pipe';
@@ -14,7 +13,9 @@ type PadMode = 'cues' | 'loops' | 'roll' | 'jump' | 'fx' | 'sampler';
 
 interface Pad {
   label: string;
-  /** CSS colour of a set hot cue. */
+  /** Something is on it: an empty pad (no cue, no sound) is dashed. */
+  set: boolean;
+  /** Tag colour of a hot cue or a sound. */
   color: string | null;
   active: boolean;
   title: string;
@@ -28,7 +29,7 @@ const MODES: { id: PadMode; label: string }[] = [
   { id: 'fx', label: 'FX' },
   { id: 'sampler', label: 'SMPL' },
 ];
-const SAMPLE_COLOR = '#b48cff';
+const SAMPLE_COLOR = 'var(--pr-tag-violet)';
 /** The effects on the pads, with what their AMOUNT knob does. */
 const EFFECTS: { kind: EffectKind; label: string; title: string }[] = [
   { kind: 'echo', label: 'ECHO', title: t('Echo on the beat · amount: feedback') },
@@ -71,7 +72,6 @@ export class DeckPads {
   protected readonly sampler = inject(SamplerService);
   protected readonly modes = MODES;
   protected readonly mode = signal<PadMode>('cues');
-  protected readonly color = computed(() => deckColor(this.deck()));
   private readonly status = computed(() => this.engine.status()?.decks[this.deck()] ?? null);
 
   /** Loops and jumps need a beat grid, and a record in absolute mode keeps the position. */
@@ -123,6 +123,7 @@ export class DeckPads {
         const fx = this.effect();
         return EFFECTS.map((e) => ({
           label: e.label,
+          set: true,
           color: null,
           active: fx.enabled && fx.kind === e.kind,
           title: e.title,
@@ -201,6 +202,7 @@ export class DeckPads {
     if (!cue)
       return {
         label: `${slot + 1}`,
+        set: false,
         color: null,
         active: false,
         title: t('Click: set · Shift-click or right click: delete'),
@@ -208,6 +210,7 @@ export class DeckPads {
     const loop = cue.loopLengthS !== null;
     return {
       label: cue.label || `${slot + 1}${loop ? ' ↻' : ''}`,
+      set: true,
       color: `#${cue.color.toString(16).padStart(6, '0')}`,
       active: false,
       title: loop
@@ -217,9 +220,18 @@ export class DeckPads {
   }
 
   private samplePad(name: string | null, slot: number): Pad {
-    if (!name) return { label: '+', color: null, active: false, title: t('Click: choose a sound') };
+    if (!name) {
+      return {
+        label: '+',
+        set: false,
+        color: null,
+        active: false,
+        title: t('Click: choose a sound'),
+      };
+    }
     return {
       label: name,
+      set: true,
       color: SAMPLE_COLOR,
       active: this.samplePlaying(slot),
       title: t('{name} · Click: play · Right click: stop, then remove · Shift-click: remove', {
@@ -233,6 +245,6 @@ export class DeckPads {
   }
 
   private beatPad(beats: number, active: boolean, title: string): Pad {
-    return { label: formatBeats(beats), color: null, active, title };
+    return { label: formatBeats(beats), set: true, color: null, active, title };
   }
 }

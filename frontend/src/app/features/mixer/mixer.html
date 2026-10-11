@@ -1,9 +1,8 @@
-<div class="mixer">
+<div class="mixer pr-panel">
   @if (internal()) {
     <div class="channels">
       @for (d of deckIndexes; track d) {
-        <div class="channel" [style.--accent]="color(d)">
-          <span class="label">{{ d + 1 }}</span>
+        <div class="channel">
           <div class="fader-row">
             <input
               class="fader"
@@ -13,12 +12,17 @@
               step="0.01"
               [value]="engine.decks()[d].volume"
               (input)="onVolume(d, $event)"
+              [attr.aria-label]="'Volume of deck {deck}' | t: { deck: letter(d) }"
             />
-            <div class="meter"><div [style.height.%]="deckPeak(d) * 100"></div></div>
+            <div class="pr-meter pr-meter--vertical">
+              @for (segment of deckLevel(d); track $index) {
+                <i [class]="segment"></i>
+              }
+            </div>
           </div>
           <button
-            class="cue"
-            [class.active]="engine.decks()[d].cue"
+            class="pr-btn pr-btn--sm"
+            [class.is-on]="engine.decks()[d].cue"
             (click)="mixer.setDeckCue(d, !engine.decks()[d].cue)"
             [title]="'Hear this deck in the headphones' | t"
           >
@@ -26,46 +30,43 @@
           </button>
         </div>
       }
-      <div class="master" [title]="'Master' | t">
-        <span class="label">M</span>
-        <div class="meter">
-          <div [style.height.%]="peak() * 100" [class.clip]="peak() > 0.99"></div>
+      <div class="channel" [title]="'Master' | t">
+        <div class="fader-row">
+          <div class="pr-meter pr-meter--vertical">
+            @for (segment of masterLevel(); track $index) {
+              <i [class]="segment"></i>
+            }
+          </div>
         </div>
         <button
-          class="toggle"
-          [class.active]="mixer.limiter()"
+          class="pr-btn pr-btn--sm"
+          [class.is-on]="mixer.limiter()"
           (click)="mixer.setLimiter(!mixer.limiter())"
           [title]="'Master limiter: no clipping (adds 1 ms of latency)' | t"
         >
           LIM
         </button>
       </div>
+      <div class="phones">
+        <app-knob
+          label="CUE/MST"
+          [labelTitle]="'Headphones: cued decks or master' | t"
+          [defaultValue]="0"
+          [value]="mixer.cueMix()"
+          (valueChange)="mixer.setCueMix($event)"
+        />
+        <app-knob
+          label="PHONES"
+          [labelTitle]="'Headphone volume' | t"
+          [defaultValue]="1 / MAX_HEADPHONE_GAIN"
+          [value]="mixer.headphoneGain() / MAX_HEADPHONE_GAIN"
+          (valueChange)="mixer.setHeadphoneGain($event * MAX_HEADPHONE_GAIN)"
+        />
+      </div>
     </div>
-    <div class="headphones">
-      <span class="label" [title]="'Headphones: cued decks or master' | t">CUE</span>
+    <div class="row">
       <input
-        type="range"
-        min="0"
-        max="1"
-        step="0.01"
-        [value]="mixer.cueMix()"
-        (input)="onCueMix($event)"
-      />
-      <span class="label">MST</span>
-      <input
-        class="gain"
-        type="range"
-        min="0"
-        max="1.5"
-        step="0.01"
-        [value]="mixer.headphoneGain()"
-        (input)="onHeadphoneGain($event)"
-        [title]="'Headphone volume' | t"
-      />
-    </div>
-    <div class="crossfader-row">
-      <input
-        class="crossfader"
+        class="pr-range crossfader"
         type="range"
         min="-1"
         max="1"
@@ -73,10 +74,11 @@
         [value]="mixer.crossfader()"
         (input)="onCrossfader($event)"
         (dblclick)="mixer.setCrossfader(0)"
+        [attr.aria-label]="'Crossfader' | t"
       />
       <button
-        class="toggle"
-        [class.active]="mixer.crossfaderCurve() === 'sharp'"
+        class="pr-btn pr-btn--sm"
+        [class.is-on]="mixer.crossfaderCurve() === 'sharp'"
         (click)="mixer.setCrossfaderCurve(mixer.crossfaderCurve() === 'sharp' ? 'smooth' : 'sharp')"
         [title]="'Crossfader curve: smooth for blending, sharp for scratching' | t"
       >
@@ -84,22 +86,19 @@
       </button>
     </div>
   } @else {
-    <div class="external">
-      <span class="label">{{ 'External mixer' | t }}</span>
-      <div class="sends">
-        @for (d of deckIndexes; track d) {
-          <div class="send" [style.--accent]="color(d)">
-            <div class="meter"><div [style.height.%]="deckPeak(d) * 100"></div></div>
-            <span class="deck">{{ d + 1 }}</span>
-            <span class="out">OUT {{ outputs(d) }}</span>
+    <span class="pr-label">{{ 'External mixer' | t }}</span>
+    <div class="sends">
+      @for (d of deckIndexes; track d) {
+        <div class="send" [title]="'Level sent to outputs {outputs}' | t: { outputs: outputs(d) }">
+          <div class="pr-meter pr-meter--vertical">
+            @for (segment of deckLevel(d); track $index) {
+              <i [class]="segment"></i>
+            }
           </div>
-        }
-      </div>
-    </div>
-  }
-  @if (fallback()) {
-    <div class="warning" [title]="'Each deck needs its own pair of outputs' | t">
-      {{ 'External mixer needs 4 outputs' | t }}
+          <span class="pr-label">{{ letter(d) }}</span>
+          <span class="out pr-num">{{ outputs(d) }}</span>
+        </div>
+      }
     </div>
   }
 </div>

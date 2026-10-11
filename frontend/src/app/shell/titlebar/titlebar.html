@@ -38,6 +38,11 @@
         ><span class="pr-sig pr-sig--none"></span>{{ 'audio stopped' | t }}</span
       >
     }
+    @if (mixer.fallback()) {
+      <span class="pr-chip pr-chip--warn" [title]="'Each deck needs its own pair of outputs' | t">
+        {{ 'External mixer needs 4 outputs' | t }}
+      </span>
+    }
     @if (engine.status()?.health; as h) {
       @if (h.engineFailed) {
         <span class="pr-chip pr-chip--alert" [title]="'Apply the settings again to restart it' | t">

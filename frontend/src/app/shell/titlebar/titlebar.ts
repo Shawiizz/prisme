@@ -4,13 +4,12 @@ import { getCurrentWindow } from '@tauri-apps/api/window';
 import { SettingsService } from '../../core/services/settings.service';
 import { EngineService } from '../../core/services/engine.service';
 import { UpdateService } from '../../core/services/update.service';
+import { MixerService } from '../../core/services/mixer.service';
 import { t } from '../../core/i18n/i18n';
 import { TPipe } from '../../core/i18n/t.pipe';
 import { AudioBackend } from '../../core/models/audio';
 import { decimal } from '../../shared/time';
-
-/** Segments of the level meter, and the level in dBFS where each one lights. */
-const SEGMENTS = Array.from({ length: 24 }, (_, i) => -46 + i * 2);
+import { levelSegments } from '../../shared/level';
 
 /** Custom title bar: drag area, audio state, recording, update, dialogs and window buttons. */
 @Component({
@@ -24,6 +23,7 @@ export class Titlebar {
   protected readonly engine = inject(EngineService);
   protected readonly recording = inject(RecordingService);
   protected readonly updates = inject(UpdateService);
+  protected readonly mixer = inject(MixerService);
   protected readonly recordMenu = signal(false);
   protected readonly lastTitle = computed(() => {
     const last = this.recording.last();
@@ -41,14 +41,7 @@ export class Titlebar {
     const rate = this.settings.info()?.sampleRate;
     return frames && rate ? decimal((frames / rate) * 1000, 1) : null;
   });
-  /** Grey up to -6 dB, amber up to 0, red when clipping. */
-  protected readonly level = computed(() => {
-    const peak = this.engine.status()?.mainPeak ?? 0;
-    const db = peak > 0 ? 20 * Math.log10(peak) : -Infinity;
-    return SEGMENTS.map((at, i) =>
-      db < at ? '' : i === SEGMENTS.length - 1 ? 'is-clip' : at >= -6 ? 'is-hot' : 'is-lit',
-    );
-  });
+  protected readonly level = computed(() => levelSegments(this.engine.status()?.mainPeak ?? 0, 24));
   readonly openSettings = output<void>();
   readonly openShortcuts = output<void>();
   readonly openControllers = output<void>();

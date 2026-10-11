@@ -27,9 +27,12 @@ app-phase-strip {
 }
 .controls {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 200px minmax(0, 1fr);
-  grid-template-rows: 116px 66px;
-  gap: 6px;
+  grid-template-columns: minmax(0, 1fr) 210px minmax(0, 1fr);
+  grid-template-rows: 72px 60px;
+  gap: 6px 10px;
+  &.external {
+    grid-template-columns: minmax(0, 1fr) 120px minmax(0, 1fr);
+  }
   .left {
     grid-column: 1;
   }

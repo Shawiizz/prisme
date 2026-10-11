@@ -51,7 +51,7 @@ export class App implements OnInit {
   private readonly preferences = inject(PreferencesService);
   private readonly keyboard = inject(KeyboardService);
   protected readonly controls = inject(ControlService);
-  private readonly mixer = inject(MixerService);
+  protected readonly mixer = inject(MixerService);
   private readonly controllers = inject(ControllerService);
   private readonly updates = inject(UpdateService);
   protected readonly settingsOpen = signal(false);

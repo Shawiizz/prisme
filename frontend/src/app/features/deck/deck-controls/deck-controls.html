@@ -1,8 +1,8 @@
-<div class="controls" [style.--accent]="color()">
+<div class="controls pr-panel">
   <div class="transport">
     <button
-      class="cue"
-      [class.active]="status()?.playing === false && status()?.loaded"
+      class="pr-btn pr-btn--lg"
+      [class.is-on]="status()?.playing === false && status()?.loaded"
       [disabled]="vinyl()"
       (pointerdown)="cueDown()"
       (pointerup)="cueUp()"
@@ -11,16 +11,16 @@
       CUE
     </button>
     <button
-      class="play"
-      [class.active]="status()?.playing"
+      class="pr-btn pr-btn--lg"
+      [class.is-on]="status()?.playing"
       (click)="togglePlay()"
       [disabled]="vinyl()"
     >
       {{ status()?.playing ? 'PAUSE' : 'PLAY' }}
     </button>
     <button
-      class="sync"
-      [class.locked]="syncState() === 'locked'"
+      class="pr-btn pr-btn--lg sync"
+      [class.is-on]="syncState() === 'locked'"
       [class.matched]="syncState() === 'matched'"
       (click)="sync()"
       [disabled]="!canSync()"
@@ -32,24 +32,27 @@
 
   <div class="tempo">
     <div class="tempo-head">
-      <span class="label">TEMPO</span>
+      <span class="pr-label">Tempo</span>
       <button
-        class="key-lock"
-        [class.active]="engine.decks()[deck()].keyLock"
-        (click)="engine.setKeyLock(deck(), !engine.decks()[deck()].keyLock)"
+        class="pr-btn pr-btn--sm"
+        [class.is-on]="settings().keyLock"
+        (click)="engine.setKeyLock(deck(), !settings().keyLock)"
         [title]="'Key lock: the pitch stays when the tempo changes' | t"
       >
         KEY
       </button>
       @if (status()?.sync?.leader) {
-        <span class="leader" [title]="'The other decks follow this one' | t">LEADER</span>
+        <span class="pr-chip" [title]="'The other decks follow this one' | t">LEADER</span>
       }
-      <span class="value" (dblclick)="resetPitch()" [title]="'Double-click to reset' | t">{{
+      <span class="value pr-num" (dblclick)="resetPitch()" [title]="'Double-click to reset' | t">{{
         pitchText()
       }}</span>
+    </div>
+    <div class="fader">
       <button
-        class="bend"
+        class="pr-btn pr-btn--sm pr-btn--icon"
         [title]="'Slow down while held' | t"
+        [attr.aria-label]="'Slow down while held' | t"
         [disabled]="tempoFaderLocked()"
         (pointerdown)="bend(-1)"
         (pointerup)="bend(0)"
@@ -57,9 +60,22 @@
       >
         −
       </button>
+      <input
+        class="pr-range"
+        type="range"
+        [min]="-range()"
+        [max]="range()"
+        step="0.0005"
+        [value]="faderValue()"
+        (input)="onPitch($event)"
+        (dblclick)="resetPitch()"
+        [disabled]="tempoFaderLocked()"
+        [attr.aria-label]="'Tempo' | t"
+      />
       <button
-        class="bend"
+        class="pr-btn pr-btn--sm pr-btn--icon"
         [title]="'Speed up while held' | t"
+        [attr.aria-label]="'Speed up while held' | t"
         [disabled]="tempoFaderLocked()"
         (pointerdown)="bend(1)"
         (pointerup)="bend(0)"
@@ -68,31 +84,16 @@
         +
       </button>
     </div>
-    <input
-      type="range"
-      [min]="-range()"
-      [max]="range()"
-      step="0.0005"
-      [value]="faderValue()"
-      (input)="onPitch($event)"
-      (dblclick)="resetPitch()"
-      [disabled]="tempoFaderLocked()"
-    />
-    <div class="phase" [class.aligned]="aligned()" [title]="'Beat offset from the other deck' | t">
-      @let offset = phase();
-      @if (offset !== null) {
-        <div class="marker" [style.left.%]="50 + offset * 100"></div>
+    <span class="note">
+      @if (pitchHint(); as hint) {
+        {{ 'Pitch {change} to match' | t: { change: hint } }}
+      } @else if (vinyl()) {
+        {{ 'Driven by the turntable' | t }}
       }
-    </div>
+    </span>
   </div>
 
   @if (mixer.internal()) {
-    <app-channel-strip class="strip" [class.toward-left]="deck() > 0" [deck]="deck()" />
-  }
-
-  @if (pitchHint(); as hint) {
-    <div class="note">{{ 'Pitch {change} to match' | t: { change: hint } }}</div>
-  } @else if (vinyl()) {
-    <div class="note">{{ 'Driven by the turntable' | t }}</div>
+    <app-channel-strip class="strip" [deck]="deck()" />
   }
 </div>

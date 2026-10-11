@@ -3,17 +3,14 @@ import { MixerService } from '../../../core/services/mixer.service';
 import { ChannelStrip } from '../../mixer/channel-strip/channel-strip';
 import { EngineService } from '../../../core/services/engine.service';
 import { PreferencesService } from '../../../core/services/preferences.service';
-import { phaseOffset, pitchToMatch } from '../../../core/sync';
-import { deckColor, formatPitch } from '../../../shared/time';
+import { pitchToMatch } from '../../../core/sync';
+import { formatPitch } from '../../../shared/time';
 import { t } from '../../../core/i18n/i18n';
 import { TPipe } from '../../../core/i18n/t.pipe';
 
-/** Beat offset under which two decks count as aligned on the phase meter. */
-const ALIGNED_BEATS = 0.02;
-
 type SyncState = 'off' | 'matched' | 'locked';
 
-/** Transport, sync, tempo fader and phase meter of a deck. */
+/** Transport, sync and tempo fader of a deck, with its channel when the software mixer runs. */
 @Component({
   selector: 'app-deck-controls',
   templateUrl: './deck-controls.html',
@@ -27,7 +24,6 @@ export class DeckControls {
   protected readonly mixer = inject(MixerService);
   private readonly preferences = inject(PreferencesService);
   protected readonly range = computed(() => this.preferences.dj().pitchRange);
-  protected readonly color = computed(() => deckColor(this.deck()));
   protected readonly status = computed(() => this.engine.status()?.decks[this.deck()] ?? null);
   protected readonly settings = computed(() => this.engine.decks()[this.deck()]);
   protected readonly vinyl = computed(() => this.settings().vinylEnabled);
@@ -69,13 +65,6 @@ export class DeckControls {
   protected readonly faderValue = computed(
     () => (this.tempoFaderLocked() ? this.rate() : this.settings().pitch) - 1,
   );
-
-  protected readonly phase = computed(() => {
-    const own = this.status();
-    const reference = this.reference();
-    return own && reference ? phaseOffset(own, reference) : null;
-  });
-  protected readonly aligned = computed(() => Math.abs(this.phase() ?? 1) < ALIGNED_BEATS);
 
   /** On a record not locked by sync: the pitch change that would match the other deck. */
   protected readonly pitchHint = computed(() => {

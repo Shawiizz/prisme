@@ -63,7 +63,6 @@ export const FR: Record<string, string> = {
   'Double-click to reset': 'Double-clic pour remettre à zéro',
   'Slow down while held': 'Ralentir tant que maintenu',
   'Speed up while held': 'Accélérer tant que maintenu',
-  'Beat offset from the other deck': "Décalage de temps avec l'autre deck",
   'Pitch {change} to match': 'Pitch {change} pour caler',
   'Driven by the turntable': 'Piloté par la platine',
   'The needle reached the end of the record: the deck plays on by itself. Choose REL or ABS to hand it back to the record.':
@@ -152,6 +151,9 @@ export const FR: Record<string, string> = {
   'External mixer': 'Table de mixage externe',
   'Each deck needs its own pair of outputs': 'Chaque deck a besoin de sa paire de sorties',
   'External mixer needs 4 outputs': 'Table externe : 4 sorties nécessaires',
+  'Volume of deck {deck}': 'Volume du deck {deck}',
+  'Level sent to outputs {outputs}': 'Niveau envoyé aux sorties {outputs}',
+  'Pad mode': 'Mode des pads',
   'Gain before the EQ (±12 dB)': "Gain avant l'égaliseur (±12 dB)",
   'Click to kill the highs': 'Clic pour couper les aigus',
   'Click to kill the mids': 'Clic pour couper les médiums',

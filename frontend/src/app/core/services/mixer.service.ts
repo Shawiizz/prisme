@@ -22,6 +22,8 @@ export class MixerService {
   readonly limiter = signal(true);
   /** The software mixer is in use. */
   readonly internal = computed(() => (this.modeInUse() ?? this.mode()) === 'internal');
+  /** External mode asked for, but the device has too few outputs: the software mixer runs. */
+  readonly fallback = computed(() => this.mode() === 'external' && this.modeInUse() === 'internal');
 
   apply(state: MixerState) {
     this.crossfader.set(state.crossfader);
