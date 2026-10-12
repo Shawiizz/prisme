@@ -7,6 +7,7 @@ use crate::audio_host::devices_available;
 use crate::commands::audio::start_audio;
 use crate::dto::AudioSettings;
 use crate::state::{lock, AppState};
+use prisme_audio_io::system_devices;
 use std::collections::VecDeque;
 use std::time::{Duration, Instant};
 use tauri::{AppHandle, Emitter, Manager};
@@ -18,6 +19,8 @@ const RETRY: Duration = Duration::from_secs(2);
 /// would only come back.
 const MAX_RESTARTS: usize = 3;
 const RESTART_WINDOW: Duration = Duration::from_secs(60);
+/// Looks for the saved devices after the system's devices changed.
+const LOOKS_AFTER_A_CHANGE: u32 = 5;
 /// Sent when the audio moved to other devices by itself: the interface shows them again.
 pub const AUDIO_CHANGED_EVENT: &str = "audio-changed";
 
@@ -29,9 +32,8 @@ pub fn start(app: AppHandle) {
             let mut restarts = Restarts::default();
             let mut last_periods = None;
             let mut last_look = Instant::now();
-            // saved devices that were there but would not start: not tried again until they
-            // go away and come back
-            let mut refused: Option<AudioSettings> = None;
+            let mut devices: Option<Vec<String>> = None;
+            let mut looks_left = 0;
             loop {
                 std::thread::sleep(CHECK);
                 let session = lock(&state.session)
@@ -52,26 +54,11 @@ pub fn start(app: AppHandle) {
                     last_look = Instant::now();
                     let saved =
                         AudioSettings { simulate: settings.simulate, ..state.preferences.get().audio };
-                    if saved != settings {
-                        if !devices_available(&saved) {
-                            refused = None;
-                        } else if refused.as_ref() != Some(&saved) {
-                            info!("saved audio devices found, moving to them");
-                            match start_audio(&state, &saved) {
-                                Ok(_) => {
-                                    let _ = app.emit(AUDIO_CHANGED_EVENT, ());
-                                }
-                                Err(e) => {
-                                    warn!("saved audio devices unusable ({e}), back to the previous ones");
-                                    refused = Some(saved);
-                                    if let Err(e) = start_audio(&state, &settings) {
-                                        error!("audio could not restart: {e}");
-                                    }
-                                }
-                            }
-                            last_periods = None;
-                            continue;
-                        }
+                    if saved == settings {
+                        devices = None;
+                    } else if move_to_saved(&state, &app, &saved, &settings, &mut devices, &mut looks_left) {
+                        last_periods = None;
+                        continue;
                     }
                 }
                 let stalled = last_periods == Some(periods);
@@ -86,6 +73,46 @@ pub fn start(app: AppHandle) {
             }
         })
         .expect("cannot start the audio watchdog");
+}
+
+/// While the audio runs on other devices than the saved ones, looks for these whenever
+/// the system's devices change (loading the drivers to look is slow, and they must not be
+/// loaded over and over), a few times as an interface takes a moment to come up. True
+/// once the audio has moved.
+fn move_to_saved(
+    state: &AppState,
+    app: &AppHandle,
+    saved: &AudioSettings,
+    current: &AudioSettings,
+    devices: &mut Option<Vec<String>>,
+    looks_left: &mut u32,
+) -> bool {
+    let now = system_devices();
+    if devices.as_ref() != Some(&now) {
+        *devices = Some(now);
+        *looks_left = LOOKS_AFTER_A_CHANGE;
+    }
+    if *looks_left == 0 {
+        return false;
+    }
+    *looks_left -= 1;
+    if !devices_available(saved) {
+        return false;
+    }
+    *looks_left = 0;
+    info!("saved audio devices found, moving to them");
+    match start_audio(state, saved) {
+        Ok(_) => {
+            let _ = app.emit(AUDIO_CHANGED_EVENT, ());
+        }
+        Err(e) => {
+            warn!("saved audio devices unusable ({e}), back to the previous ones");
+            if let Err(e) = start_audio(state, current) {
+                error!("audio could not restart: {e}");
+            }
+        }
+    }
+    true
 }
 
 fn recover(state: &AppState, settings: &AudioSettings) {

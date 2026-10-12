@@ -9,7 +9,7 @@ mod formats;
 pub mod latency;
 mod stream;
 
-pub use devices::{is_available, list_devices, Backend, DeviceInfo, DeviceKind};
+pub use devices::{is_available, list_devices, system_devices, Backend, DeviceInfo, DeviceKind};
 pub use stream::{start, RunningStream, StreamFormat, StreamSettings, StreamStats};
 
 /// Called on the audio thread once per period. Must be real-time safe.

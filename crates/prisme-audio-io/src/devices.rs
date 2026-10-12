@@ -3,6 +3,15 @@
 use crate::AudioError;
 use cpal::traits::{DeviceTrait, HostTrait};
 use std::fmt;
+use std::sync::{Mutex, MutexGuard};
+
+/// The drivers, ASIO's above all, do not bear being loaded from two threads at once (the
+/// process aborts): whatever lists, opens or closes devices holds this.
+static DRIVERS: Mutex<()> = Mutex::new(());
+
+pub(crate) fn drivers() -> MutexGuard<'static, ()> {
+    DRIVERS.lock().unwrap_or_else(|e| e.into_inner())
+}
 
 /// How the sound card is reached.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
@@ -69,6 +78,7 @@ pub struct DeviceInfo {
 
 /// Input and output devices of `backend` (an ASIO driver appears once in each list).
 pub fn list_devices(backend: Backend) -> Result<Vec<DeviceInfo>, AudioError> {
+    let _drivers = drivers();
     let host = backend.host()?;
     let default_in = host.default_input_device().as_ref().and_then(device_name);
     let default_out = host.default_output_device().as_ref().and_then(device_name);
@@ -105,7 +115,16 @@ pub fn list_devices(backend: Backend) -> Result<Vec<DeviceInfo>, AudioError> {
 /// Whether a device of `backend` whose name contains `name` (or the default one) is
 /// there: an interface plugged in or switched on.
 pub fn is_available(backend: Backend, kind: DeviceKind, name: Option<&str>) -> bool {
+    let _drivers = drivers();
     find(backend, kind, name).is_ok()
+}
+
+/// Names of the devices Windows offers now, read without loading any driver: they change
+/// when an interface is plugged in or switched on.
+pub fn system_devices() -> Vec<String> {
+    let _drivers = drivers();
+    let Ok(host) = Backend::Wasapi.host() else { return Vec::new() };
+    host.devices().map(|devices| devices.filter_map(|d| device_name(&d)).collect()).unwrap_or_default()
 }
 
 /// A device of `backend` whose name contains `name` (case-insensitive), or the default one.

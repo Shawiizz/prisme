@@ -2,7 +2,7 @@
 //! feeds it through a lock-free ring buffer. With ASIO both streams come from the same
 //! driver period, so the ring never holds more than a period.
 
-use crate::devices::{device_name, find, Backend, DeviceKind};
+use crate::devices::{device_name, drivers, find, Backend, DeviceKind};
 use crate::formats::{input_stream, output_stream, MAX_PERIOD};
 use crate::{AudioCallback, AudioError};
 use cpal::traits::{DeviceTrait, StreamTrait};
@@ -55,8 +55,8 @@ pub struct StreamFormat {
 
 /// A running audio setup. Dropping it stops the audio.
 pub struct RunningStream {
-    _output: cpal::Stream,
-    _input: Option<cpal::Stream>,
+    /// The output and input streams, closed under the drivers' lock.
+    streams: Option<(cpal::Stream, Option<cpal::Stream>)>,
     pub format: StreamFormat,
     pub stats: Arc<StreamStats>,
     /// Name of the output device.
@@ -68,6 +68,7 @@ pub fn start<C: AudioCallback>(
     settings: &StreamSettings,
     make_callback: impl FnOnce(StreamFormat) -> C,
 ) -> Result<RunningStream, AudioError> {
+    let _drivers = drivers();
     let out_device = find(settings.backend, DeviceKind::Output, settings.output_device.as_deref())?;
     let out_default = out_device.default_output_config()?;
     let sample_rate = out_default.sample_rate();
@@ -112,7 +113,14 @@ pub fn start<C: AudioCallback>(
     }
     output.play()?;
     let output_device = device_name(&out_device).unwrap_or_default();
-    Ok(RunningStream { _output: output, _input: input_stream, format, stats, output_device })
+    Ok(RunningStream { streams: Some((output, input_stream)), format, stats, output_device })
+}
+
+impl Drop for RunningStream {
+    fn drop(&mut self) {
+        let _drivers = drivers();
+        self.streams = None;
+    }
 }
 
 struct Input {
