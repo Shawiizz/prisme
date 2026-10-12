@@ -105,7 +105,7 @@ export class DeckCard {
       );
     }
     return this.crossed()
-      ? t('Left and right cables crossed? See Turntables')
+      ? t('Left and right cables crossed? See Settings, Turntables')
       : SIGNAL_TITLE[this.signal()];
   });
 

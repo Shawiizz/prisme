@@ -168,7 +168,7 @@ and catches the light on its edges.
 ## Layout
 
 - Title bar 36: logo, audio health (driver and device, buffer, dropouts) and the master meter,
-  then Rec, Turntables, MIDI, Shortcuts, Settings.
+  then Rec and Settings (the turntables, MIDI and shortcuts are pages of the settings).
 - Two deck rows: the deck panel (380) on the left, the waveform on the right; the phase strip
   between them.
 - The controls, one half per deck: transport and tempo (72), then the pads with their modes and

@@ -16,7 +16,6 @@ export const FR: Record<string, string> = {
   'Stop recording': "Arrêter l'enregistrement",
   'Nothing to record: no software mixer, no input':
     'Rien à enregistrer : ni table de mixage logicielle, ni entrée',
-  'Turntables and timecode signal': 'Platines et signal timecode',
   'MIDI controllers': 'Contrôleurs MIDI',
   Rec: 'Enregistrer',
   minor: 'mineur',
@@ -53,8 +52,8 @@ export const FR: Record<string, string> = {
   'No timecode signal': 'Pas de signal timecode',
   'Timecode signal unsteady': 'Signal timecode instable',
   'Timecode signal locked': 'Signal timecode verrouillé',
-  'Left and right cables crossed? See Turntables':
-    'Câbles gauche et droit inversés ? Voir Platines',
+  'Left and right cables crossed? See Settings, Turntables':
+    'Câbles gauche et droit inversés ? Voir Réglages, Platines',
   'Key lock: the pitch stays when the tempo changes':
     'Key lock : la tonalité reste quand le tempo change',
   'The other decks follow this one': 'Les autres decks suivent celui-ci',
