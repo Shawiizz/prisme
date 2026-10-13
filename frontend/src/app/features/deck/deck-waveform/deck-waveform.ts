@@ -16,6 +16,9 @@ import { TPipe } from '../../../core/i18n/t.pipe';
 export const ZOOM_SPAN_S = 10;
 /** A press moving less than this (CSS px) is a click. */
 const CLICK_PX = 3;
+/** The hand's positions go to the engine at most this often (ms), with the time the
+ * pointer was there: the engine replays the hand's path from those times. */
+const HAND_EVERY_MS = 4;
 
 /** A press on a waveform, from where it started. */
 interface Drag {
@@ -24,13 +27,16 @@ interface Drag {
   /** The track position when the press started (s). */
   startS: number;
   moved: boolean;
+  /** When the hand's position last went out (event time, ms). */
+  sentAt: number;
 }
 
 /**
  * Scrolling waveform around the playhead plus an overview of the whole track. Drawn on
  * every animation frame from the extrapolated position, outside change detection.
- * A click on either jumps there; dragging the scrolling view moves the track like a
- * record pushed by hand, dragging along the overview follows the pointer.
+ * A click on either jumps there. The scrolling view is held and moved like a record: the
+ * deck plays through the hand's motion, as a record scratched; dragging along the
+ * overview jumps after the pointer.
  */
 @Component({
   selector: 'app-deck-waveform',
@@ -67,8 +73,12 @@ export class DeckWaveform {
     if (!this.track() || event.button !== 0) return;
     (event.currentTarget as HTMLElement).setPointerCapture(event.pointerId);
     const startS = this.engine.livePosition(this.deck()) ?? 0;
-    this.drag = { view, startX: event.clientX, startS, moved: false };
-    if (view === 'overview') this.pendingSeek = this.overviewTime(event);
+    this.drag = { view, startX: event.clientX, startS, moved: false, sentAt: event.timeStamp };
+    if (view === 'overview') {
+      this.pendingSeek = this.overviewTime(event);
+    } else {
+      this.engine.hand(this.deck(), startS, event.timeStamp); // the hand on the record holds it
+    }
   }
 
   move(event: PointerEvent) {
@@ -79,22 +89,32 @@ export class DeckWaveform {
     if (drag.view === 'overview') {
       this.pendingSeek = this.overviewTime(event);
     } else {
+      if (event.timeStamp - drag.sentAt < HAND_EVERY_MS) return;
+      drag.sentAt = event.timeStamp;
       const width = (event.currentTarget as HTMLElement).clientWidth;
-      this.pendingSeek = drag.startS - ((event.clientX - drag.startX) / width) * this.zoomSpan();
+      const at = drag.startS - ((event.clientX - drag.startX) / width) * this.zoomSpan();
+      this.engine.hand(this.deck(), at, event.timeStamp);
     }
   }
 
   release(event: PointerEvent) {
     const drag = this.drag;
     this.drag = null;
-    if (drag?.view !== 'zoom' || drag.moved) return;
+    if (drag?.view !== 'zoom') return;
+    this.letGo();
+    if (drag.moved) return;
     const rect = (event.currentTarget as HTMLElement).getBoundingClientRect();
     const fromCentre = (event.clientX - rect.left) / rect.width - 0.5;
     this.pendingSeek = drag.startS + fromCentre * this.zoomSpan();
   }
 
   cancel() {
+    if (this.drag?.view === 'zoom') this.letGo();
     this.drag = null;
+  }
+
+  private letGo() {
+    this.engine.hand(this.deck(), null);
   }
 
   private overviewTime(event: PointerEvent): number {

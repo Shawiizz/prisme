@@ -18,6 +18,14 @@ pub fn seek(state: State<'_, AppState>, deck: usize, seconds: f64) -> AppResult<
     state.send(Command::Seek { deck, seconds })
 }
 
+/// The track dragged by hand to `seconds` on the scrolling waveform at `at_ms` on the
+/// pointer's clock, or let go (`None`).
+#[tauri::command]
+pub fn hand(state: State<'_, AppState>, deck: usize, seconds: Option<f64>, at_ms: f64) -> AppResult<()> {
+    AppState::check_deck(deck)?;
+    state.send(Command::Hand { deck, position_s: seconds, at_s: at_ms / 1000.0 })
+}
+
 #[tauri::command]
 pub fn set_pitch(state: State<'_, AppState>, deck: usize, ratio: f64) -> AppResult<()> {
     AppState::check_deck(deck)?;

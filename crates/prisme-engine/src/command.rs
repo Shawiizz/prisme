@@ -59,6 +59,13 @@ pub enum Command {
         deck: DeckId,
         seconds: f64,
     },
+    /// The track dragged by hand to `position_s` at `at_s` on the pointer's clock (the
+    /// scrolling waveform moved like a record), or let go (`None`).
+    Hand {
+        deck: DeckId,
+        position_s: Option<f64>,
+        at_s: f64,
+    },
     /// Moves the playhead there, keeping the beat phase if quantize is on (cues).
     Jump {
         deck: DeckId,

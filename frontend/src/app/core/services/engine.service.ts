@@ -179,6 +179,13 @@ export class EngineService {
     return this.call('seek', { deck, seconds: Math.max(0, seconds) });
   }
 
+  /** The track dragged by hand to `seconds` at `atMs` (the pointer event's time), as the
+   * scrolling waveform is moved like a record, or let go (`null`). */
+  hand(deck: number, seconds: number | null, atMs = performance.now()) {
+    const at = seconds === null ? null : Math.max(0, seconds);
+    return this.call('hand', { deck, seconds: at, atMs });
+  }
+
   setPitch(deck: number, ratio: number) {
     this.patchDeck(deck, { pitch: ratio });
     return this.call('set_pitch', { deck, ratio });

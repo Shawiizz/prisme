@@ -1,5 +1,7 @@
-//! A deck: a track, a playhead and what drives it (internal play or the record).
+//! A deck: a track, a playhead and what drives it (internal play, the record, or a hand
+//! on the screen).
 
+mod hand;
 mod transport;
 
 use crate::command::{CrossfaderSide, VinylMode};
@@ -11,6 +13,7 @@ use crate::status::{DeckStatus, LoopStatus, SyncStatus};
 use crate::strip::ChannelStrip;
 use crate::sync::{self, DeckSync, LeaderBeat, SyncTarget};
 use crate::vinyl::{VinylControl, VinylDrive};
+use hand::Hand;
 use prisme_dsp::{Beat, FxSlot, Smoothed};
 use prisme_timecode::TimecodeDecoder;
 use transport::Transport;
@@ -52,6 +55,8 @@ pub(crate) struct Deck {
     transport: Transport,
     correction: f64,
     speed: f64,
+    /// The track dragged on the screen: it drives the deck while there.
+    hand: Option<Hand>,
     /// Gain of the track, following its motion.
     motion: Smoothed,
 }
@@ -78,6 +83,7 @@ impl Deck {
             transport: Transport::default(),
             correction: 0.0,
             speed: 0.0,
+            hand: None,
             motion: Smoothed::new(0.0, MOTION_FADE_S, sample_rate as f32),
         }
     }
@@ -94,7 +100,13 @@ impl Deck {
         // decoded even with vinyl control off, for the signal indicator
         let drive = self.vinyl.process(input);
         let target = target.map(|t| self.engage(t));
-        let speed = self.speed_for(drive, target);
+        let seconds = (out.len() / 2) as f64 / out_rate;
+        let by_hand = self.drive_mode() != DriveMode::Absolute;
+        let playhead_s = self.playhead.position_s();
+        let speed = match self.hand.as_mut().filter(|_| by_hand) {
+            Some(hand) => hand.speed(playhead_s, seconds),
+            None => self.speed_for(drive, target),
+        };
         let speed = if self.transport.censoring { -speed } else { speed };
         if (self.key_lock_enabled || self.key_lock.key_shift() != 0) && KeyLock::applies(speed) {
             self.playhead.render_key_locked(&mut self.key_lock, out, out_rate, speed);
@@ -106,11 +118,20 @@ impl Deck {
         self.fade_with_motion(out);
         self.stop_at_the_end();
 
-        let seconds = (out.len() / 2) as f64 / out_rate;
         let platter = self.vinyl.enabled.then_some(drive.speed);
         self.sync.observe(speed, platter, seconds);
         self.advance_shadow(seconds);
         self.follow_record_position(drive);
+    }
+
+    /// A hand on the track: at `position_s` at `at_s` on the pointer's clock, or taken off
+    /// it (`None`) and play goes on as before. A record in absolute mode keeps the track
+    /// where it is.
+    pub(crate) fn hand(&mut self, position_s: Option<f64>, at_s: f64) {
+        match position_s {
+            Some(p) => self.hand.get_or_insert_with(Hand::new).move_to(p, at_s),
+            None => self.hand = None,
+        }
     }
 
     /// Internal play stops at the end of the track (a record, on the other hand, turns on).
