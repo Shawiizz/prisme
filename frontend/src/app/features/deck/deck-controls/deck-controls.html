@@ -54,12 +54,13 @@
     <div class="fader">
       <button
         class="pr-btn pr-btn--sm pr-btn--icon"
-        [title]="'Slow down while held' | t"
-        [attr.aria-label]="'Slow down while held' | t"
+        [title]="'Tempo down 0.1 % (held, on down)' | t"
+        [attr.aria-label]="'Tempo down 0.1 % (held, on down)' | t"
         [disabled]="tempoFaderLocked()"
-        (pointerdown)="bend(-1)"
-        (pointerup)="bend(0)"
-        (pointercancel)="bend(0)"
+        (pointerdown)="stepDown($event, -1)"
+        (pointerup)="stepStop()"
+        (pointercancel)="stepStop()"
+        (click)="stepKey($event, -1)"
       >
         −
       </button>
@@ -74,12 +75,13 @@
       />
       <button
         class="pr-btn pr-btn--sm pr-btn--icon"
-        [title]="'Speed up while held' | t"
-        [attr.aria-label]="'Speed up while held' | t"
+        [title]="'Tempo up 0.1 % (held, on up)' | t"
+        [attr.aria-label]="'Tempo up 0.1 % (held, on up)' | t"
         [disabled]="tempoFaderLocked()"
-        (pointerdown)="bend(1)"
-        (pointerup)="bend(0)"
-        (pointercancel)="bend(0)"
+        (pointerdown)="stepDown($event, 1)"
+        (pointerup)="stepStop()"
+        (pointercancel)="stepStop()"
+        (click)="stepKey($event, 1)"
       >
         +
       </button>

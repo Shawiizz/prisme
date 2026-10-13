@@ -13,6 +13,11 @@ type SyncState = 'off' | 'matched' | 'locked';
 
 /** Holding SYNC this long (ms) matches the leader once instead of locking to it. */
 const SYNC_HOLD_MS = 450;
+/** A press of − or + moves the tempo this much; held, it goes on, a step this often (ms)
+ * after the first wait. (The temporary bend is on the keyboard and the controllers.) */
+const PITCH_STEP = 0.001;
+const STEP_WAIT_MS = 400;
+const STEP_EVERY_MS = 60;
 
 /** Transport, sync and tempo fader of a deck, with its channel when the software mixer runs. */
 @Component({
@@ -59,6 +64,7 @@ export class DeckControls {
       : t('Tap: lock to the leader · hold: match its tempo and beats once');
   });
   private syncHold: ReturnType<typeof setTimeout> | null = null;
+  private stepping: ReturnType<typeof setTimeout> | null = null;
   protected readonly tempoFaderLocked = computed(
     () => this.vinyl() || this.syncState() === 'locked',
   );
@@ -94,8 +100,34 @@ export class DeckControls {
     this.engine.cueUp(this.deck());
   }
 
-  bend(direction: -1 | 0 | 1) {
-    this.engine.pitchBend(this.deck(), direction);
+  stepDown(event: PointerEvent, direction: -1 | 1) {
+    if (event.button !== 0) return;
+    this.stepStop();
+    this.step(direction);
+    const goOn = (wait: number) => {
+      this.stepping = setTimeout(() => {
+        this.step(direction);
+        goOn(STEP_EVERY_MS);
+      }, wait);
+    };
+    goOn(STEP_WAIT_MS);
+  }
+
+  stepStop() {
+    if (this.stepping !== null) clearTimeout(this.stepping);
+    this.stepping = null;
+  }
+
+  /** From the keyboard (a click with no pointer behind it): one step. */
+  stepKey(event: MouseEvent, direction: -1 | 1) {
+    if (event.detail === 0) this.step(direction);
+  }
+
+  private step(direction: -1 | 1) {
+    const range = this.range();
+    const pitch = this.settings().pitch + direction * PITCH_STEP;
+    const kept = Math.min(Math.max(pitch, 1 - range), 1 + range);
+    this.engine.setPitch(this.deck(), Math.round(kept * 1e4) / 1e4);
   }
 
   syncDown(event: PointerEvent) {
