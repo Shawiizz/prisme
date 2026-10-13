@@ -14,8 +14,8 @@
         "title": "Prisme",
         "width": 1480,
         "height": 920,
-        "minWidth": 1100,
-        "minHeight": 700,
+        "minWidth": 1280,
+        "minHeight": 720,
         "decorations": false,
         "center": true,
         "dragDropEnabled": false

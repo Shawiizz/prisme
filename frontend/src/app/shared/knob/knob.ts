@@ -96,8 +96,8 @@ function arc(from: number, to: number): string {
       gap: 1px;
     }
     svg {
-      width: 34px;
-      height: 34px;
+      width: var(--knob-size, 34px);
+      height: var(--knob-size, 34px);
       :host(.small) & {
         width: 26px;
         height: 26px;
@@ -140,7 +140,7 @@ function arc(from: number, to: number): string {
       stroke-linecap: round;
     }
     .label {
-      min-width: 40px;
+      min-width: var(--knob-label-width, 40px);
       height: auto;
       padding: 1px 4px;
       border: none;

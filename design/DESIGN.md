@@ -183,6 +183,10 @@ and catches the light on its edges.
 - **External mixer first**: the mixer column narrows to the send meters (120), and the screen
   goes to the waveforms and the library. The software mixer widens it (210) and adds the
   trim, EQ and filter knobs to each deck's transport row.
+- The window is 1280 × 720 at least. Where a deck's controls have less than 600 px (a narrow
+  window, the software mixer's channel strip), they go compact: narrower transport keys,
+  smaller knobs, the pads on two rows of four; the title bar drops its master level (the
+  mixer shows it) and the search narrows before the health chips.
 - Spacing on a base of 4: 4, 8, 12, 16, 24, 32, 48.
 
 ## Ergonomic rules

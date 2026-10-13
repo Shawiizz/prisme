@@ -1,6 +1,7 @@
 :host {
   display: block;
   min-width: 0;
+  container-type: inline-size;
 }
 
 .panel {
@@ -61,6 +62,27 @@
     gap: var(--pr-space-3);
   }
 }
+// a narrow window: the pads on two rows of four, tighter keys
+@container (max-width: 600px) {
+  .panel {
+    gap: var(--pr-space-2);
+    padding: 0 var(--pr-space-2);
+  }
+  .modes > button,
+  .keys .pr-btn {
+    padding: 0 5px;
+  }
+  .pads {
+    align-self: stretch;
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    align-content: center;
+    .pr-pad {
+      height: 24px;
+    }
+  }
+}
+
 .beats {
   display: flex;
   align-items: center;

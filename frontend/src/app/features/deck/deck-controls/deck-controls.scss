@@ -1,6 +1,7 @@
 :host {
   display: block;
   min-width: 0;
+  container-type: inline-size;
 }
 
 .controls {
@@ -60,4 +61,24 @@
 
 .strip {
   flex: none;
+}
+
+// a narrow window (or the software mixer's channel strip taking its share): smaller
+// transport keys and knobs, the tempo keeps the room
+@container (max-width: 600px) {
+  .controls {
+    gap: 10px;
+    padding: 0 var(--pr-space-2);
+  }
+  .transport .pr-btn {
+    width: 44px;
+  }
+  .tempo-head .pr-label {
+    display: none;
+  }
+  .strip {
+    gap: 2px;
+    --knob-size: 28px;
+    --knob-label-width: 30px;
+  }
 }
