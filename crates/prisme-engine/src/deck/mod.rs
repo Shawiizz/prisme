@@ -13,7 +13,7 @@ use crate::status::{DeckStatus, LoopStatus, SyncStatus};
 use crate::strip::ChannelStrip;
 use crate::sync::{self, DeckSync, LeaderBeat, SyncTarget};
 use crate::vinyl::{VinylControl, VinylDrive};
-use hand::Hand;
+use hand::{Hand, Step};
 use prisme_dsp::{Beat, FxSlot, Smoothed};
 use prisme_timecode::TimecodeDecoder;
 use transport::Transport;
@@ -103,8 +103,12 @@ impl Deck {
         let seconds = (out.len() / 2) as f64 / out_rate;
         let by_hand = self.drive_mode() != DriveMode::Absolute;
         let playhead_s = self.playhead.position_s();
-        let speed = match self.hand.as_mut().filter(|_| by_hand) {
-            Some(hand) => hand.speed(playhead_s, seconds),
+        let speed = match self.hand.as_mut().filter(|_| by_hand).map(|h| h.step(playhead_s, seconds)) {
+            Some(Step::Play(speed)) => speed,
+            Some(Step::Jump(to)) => {
+                self.playhead.seek_s(to);
+                0.0
+            }
             None => self.speed_for(drive, target),
         };
         let speed = if self.transport.censoring { -speed } else { speed };

@@ -34,9 +34,9 @@ interface Drag {
 /**
  * Scrolling waveform around the playhead plus an overview of the whole track. Drawn on
  * every animation frame from the extrapolated position, outside change detection.
- * A click on either jumps there. The scrolling view is held and moved like a record: the
- * deck plays through the hand's motion, as a record scratched; dragging along the
- * overview jumps after the pointer.
+ * A click on either jumps there. Either is held and moved like a record: the deck plays
+ * through the hand's motion, as a record scratched (the engine jumps after a hand too
+ * fast to play, as along the overview of a whole track).
  */
 @Component({
   selector: 'app-deck-waveform',
@@ -54,8 +54,6 @@ export class DeckWaveform {
   protected readonly track = computed(() => this.engine.tracks()[this.deck()]);
   private frame = 0;
   private drag: Drag | null = null;
-  /** Where to go at the next frame: pointer moves come faster than the engine needs. */
-  private pendingSeek: number | null = null;
 
   constructor() {
     const destroyRef = inject(DestroyRef);
@@ -72,48 +70,45 @@ export class DeckWaveform {
   press(event: PointerEvent, view: Drag['view']) {
     if (!this.track() || event.button !== 0) return;
     (event.currentTarget as HTMLElement).setPointerCapture(event.pointerId);
-    const startS = this.engine.livePosition(this.deck()) ?? 0;
-    this.drag = { view, startX: event.clientX, startS, moved: false, sentAt: event.timeStamp };
+    let startS = this.engine.livePosition(this.deck()) ?? 0;
     if (view === 'overview') {
-      this.pendingSeek = this.overviewTime(event);
-    } else {
-      this.engine.hand(this.deck(), startS, event.timeStamp); // the hand on the record holds it
+      startS = this.overviewTime(event);
+      this.engine.seek(this.deck(), startS);
     }
+    this.drag = { view, startX: event.clientX, startS, moved: false, sentAt: event.timeStamp };
+    this.engine.hand(this.deck(), startS, event.timeStamp); // the hand on the record holds it
   }
 
   move(event: PointerEvent) {
     const drag = this.drag;
     if (!drag) return;
     drag.moved ||= Math.abs(event.clientX - drag.startX) > CLICK_PX;
-    if (!drag.moved) return;
-    if (drag.view === 'overview') {
-      this.pendingSeek = this.overviewTime(event);
-    } else {
-      if (event.timeStamp - drag.sentAt < HAND_EVERY_MS) return;
-      drag.sentAt = event.timeStamp;
-      const width = (event.currentTarget as HTMLElement).clientWidth;
-      const at = drag.startS - ((event.clientX - drag.startX) / width) * this.zoomSpan();
-      this.engine.hand(this.deck(), at, event.timeStamp);
-    }
+    if (!drag.moved || event.timeStamp - drag.sentAt < HAND_EVERY_MS) return;
+    drag.sentAt = event.timeStamp;
+    const width = (event.currentTarget as HTMLElement).clientWidth;
+    const at =
+      drag.view === 'overview'
+        ? this.overviewTime(event)
+        : drag.startS - ((event.clientX - drag.startX) / width) * this.zoomSpan();
+    this.engine.hand(this.deck(), at, event.timeStamp);
   }
 
   release(event: PointerEvent) {
     const drag = this.drag;
-    this.drag = null;
-    if (drag?.view !== 'zoom') return;
-    this.letGo();
-    if (drag.moved) return;
+    if (!drag) return;
+    this.cancel();
+    if (drag.view !== 'zoom' || drag.moved) return;
     const rect = (event.currentTarget as HTMLElement).getBoundingClientRect();
     const fromCentre = (event.clientX - rect.left) / rect.width - 0.5;
-    this.pendingSeek = drag.startS + fromCentre * this.zoomSpan();
+    const duration = this.track()?.durationS ?? 0;
+    const at = drag.startS + fromCentre * this.zoomSpan();
+    this.engine.seek(this.deck(), Math.min(Math.max(at, 0), duration));
   }
 
+  /** The hand off the track: play goes on as before. */
   cancel() {
-    if (this.drag?.view === 'zoom') this.letGo();
+    if (!this.drag) return;
     this.drag = null;
-  }
-
-  private letGo() {
     this.engine.hand(this.deck(), null);
   }
 
@@ -130,11 +125,6 @@ export class DeckWaveform {
   }
 
   private draw() {
-    if (this.pendingSeek !== null) {
-      const duration = this.track()?.durationS ?? 0;
-      this.engine.seek(this.deck(), Math.min(Math.max(this.pendingSeek, 0), duration));
-      this.pendingSeek = null;
-    }
     const track = this.track();
     const zoom = this.fit(this.zoomCanvas().nativeElement);
     const overview = this.fit(this.overviewCanvas().nativeElement);

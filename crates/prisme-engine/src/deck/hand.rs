@@ -2,21 +2,29 @@
 //! The pointer gives positions with the time it was there; they reach the engine in
 //! bunches, one audio buffer at a time, so the deck replays the hand's path a little
 //! behind it, from those times: as smooth as the hand, whatever the buffer. Where the
-//! hand holds still the track stops, with nothing pulled back.
+//! hand holds still the track stops, with nothing pulled back; where it goes faster than
+//! a track can sensibly be played (dragged along the whole track's overview), the track
+//! jumps after it.
 
 /// How far behind the hand the track follows (s): more than the audio buffers and the
 /// pointer's own jitter, so that the path ahead is known.
 const BEHIND_S: f64 = 0.03;
 /// Positions kept: the path over more than `BEHIND_S` at the pointer's rate.
 const KEPT: usize = 32;
-/// The fastest a hand drives the track.
-const MAX_SPEED: f64 = 8.0;
+/// The fastest a hand plays the track; faster, it jumps.
+const MAX_SPEED: f64 = 32.0;
 
 #[derive(Clone, Copy, Default)]
 struct Point {
     /// When the hand was there, on the pointer's clock (s), and where (track s).
     at_s: f64,
     position_s: f64,
+}
+
+/// What a hand does to the track for a block.
+pub(crate) enum Step {
+    Play(f64),
+    Jump(f64),
 }
 
 pub(crate) struct Hand {
@@ -48,13 +56,18 @@ impl Hand {
         self.len = (self.len + 1).min(KEPT);
     }
 
-    /// The speed for the next `seconds`, the playhead being at `playhead_s`: to where
-    /// the hand was `BEHIND_S` before the end of these seconds.
-    pub(crate) fn speed(&mut self, playhead_s: f64, seconds: f64) -> f64 {
+    /// The next `seconds`, the playhead being at `playhead_s`: to where the hand was
+    /// `BEHIND_S` before their end.
+    pub(crate) fn step(&mut self, playhead_s: f64, seconds: f64) -> Step {
         self.clock_s += seconds;
-        let Some(offset) = self.offset_s else { return 0.0 };
+        let Some(offset) = self.offset_s else { return Step::Play(0.0) };
         let target = self.position_at(self.clock_s + offset - BEHIND_S);
-        ((target - playhead_s) / seconds).clamp(-MAX_SPEED, MAX_SPEED)
+        let speed = (target - playhead_s) / seconds;
+        if speed.abs() > MAX_SPEED {
+            Step::Jump(target)
+        } else {
+            Step::Play(speed)
+        }
     }
 
     /// Where the hand was at `at_s`: between the points around, the first or the last
@@ -101,9 +114,13 @@ mod tests {
                 hand.move_to(10.0 + velocity * next_point, 100.0 + next_point);
                 next_point += POINT_S;
             }
-            let speed = hand.speed(playhead, BUFFER_S);
-            playhead += speed * BUFFER_S;
-            speeds.push(speed);
+            match hand.step(playhead, BUFFER_S) {
+                Step::Play(speed) => {
+                    playhead += speed * BUFFER_S;
+                    speeds.push(speed);
+                }
+                Step::Jump(to) => panic!("jumped to {to}"),
+            }
         }
         (playhead, speeds)
     }
@@ -113,6 +130,15 @@ mod tests {
         let (_, speeds) = drag(-0.5, 1.0, 0.0);
         let settled = &speeds[10..speeds.len() - 5];
         assert!(settled.iter().all(|s| (s + 0.5).abs() < 0.02), "{settled:?}");
+    }
+
+    #[test]
+    fn a_hand_far_ahead_of_the_track_makes_it_jump() {
+        let mut hand = Hand::new();
+        hand.move_to(10.0, 100.0);
+        hand.move_to(70.0, 100.02);
+        hand.step(10.0, 0.04);
+        assert!(matches!(hand.step(10.0, 0.01), Step::Jump(to) if (to - 70.0).abs() < 1e-9));
     }
 
     #[test]
