@@ -16,7 +16,13 @@ impl BeatGrid {
     }
 
     pub fn nearest_beat_s(&self, position_s: f64) -> f64 {
-        self.first_beat_s + self.beats_at(position_s).round() * self.beat_period_s()
+        self.nearest_s(position_s, 1.0)
+    }
+
+    /// The nearest point of the grid divided in steps of `beats` (a quarter: 0.25).
+    pub fn nearest_s(&self, position_s: f64, beats: f64) -> f64 {
+        let step_s = beats * self.beat_period_s();
+        self.first_beat_s + ((position_s - self.first_beat_s) / step_s).round() * step_s
     }
 
     /// Where to land to reach `target_s` without losing the beat: the target plus how
