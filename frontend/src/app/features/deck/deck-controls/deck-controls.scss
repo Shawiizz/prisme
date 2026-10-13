@@ -37,11 +37,24 @@
   display: flex;
   align-items: center;
   gap: 6px;
+  min-width: 0;
+  // the chip gives way before the value ever runs into the knobs
+  .pr-chip {
+    flex: 0 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
   .value {
+    flex: none;
     margin-left: auto;
     font-size: 14px;
     white-space: nowrap;
     cursor: default;
+  }
+  // leading, the deck shows LEADER where the label was
+  &:has(.pr-chip) .pr-label {
+    display: none;
   }
 }
 .fader {
@@ -65,7 +78,7 @@
 
 // a narrow window (or the software mixer's channel strip taking its share): smaller
 // transport keys and knobs, the tempo keeps the room
-@container (max-width: 600px) {
+@container (max-width: 700px) {
   .controls {
     gap: 10px;
     padding: 0 var(--pr-space-2);
@@ -73,8 +86,14 @@
   .transport .pr-btn {
     width: 44px;
   }
-  .tempo-head .pr-label {
-    display: none;
+  .tempo-head {
+    .pr-label {
+      display: none;
+    }
+    .pr-chip {
+      padding: 0 5px;
+      letter-spacing: 0.02em;
+    }
   }
   .strip {
     gap: 2px;

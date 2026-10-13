@@ -405,6 +405,7 @@
   height: var(--pr-h-lg);
   padding: 0 6px;
   font: 600 var(--pr-size-small) / 1 var(--pr-font-mono);
+  font-stretch: var(--pr-mono-width);
   color: var(--pr-text-3);
   background: transparent;
   border: 1px dashed var(--pr-line-2);
