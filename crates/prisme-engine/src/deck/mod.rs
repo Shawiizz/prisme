@@ -195,12 +195,14 @@ impl Deck {
         Some(sync::sync_target(&grid, self.playhead.position_s(), leader))
     }
 
-    /// Internal play is always locked; a relative record is locked or matched once.
+    /// Locks the deck to the leader, or matches it once: a relative record takes its rate,
+    /// internal play only its beats (the pitch is the caller's to set, as the fader shows it).
     pub(crate) fn engage_sync(&mut self, locked: bool) {
         match (self.drive_mode(), locked) {
             (DriveMode::Absolute, _) => return,
             (DriveMode::Relative, false) => self.sync.once_pending = true,
-            _ => self.sync.locked = true,
+            (DriveMode::Internal, false) => {}
+            (_, true) => self.sync.locked = true,
         }
         self.sync.snap_pending = true;
     }

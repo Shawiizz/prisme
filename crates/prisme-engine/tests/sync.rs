@@ -69,6 +69,22 @@ fn an_internal_follower_locks_to_the_tempo_and_the_beats() {
 }
 
 #[test]
+fn an_internal_deck_matched_once_takes_the_beats_and_stays_free() {
+    let mut rig = leader_with_follower(125.0);
+    play_internal(&mut rig, 1, 10.07);
+    rig.send(Command::SetPitch { deck: 1, ratio: LEADER_BPM / 125.0 });
+    rig.send(Command::SyncOnce { deck: 1 });
+    rig.run(0.5);
+    let follower = rig.deck(1);
+    assert!(!follower.sync.locked, "{follower:?}");
+    assert!(phase_gap(&mut rig).abs() < 0.01, "{}", phase_gap(&mut rig));
+    // free: a pitch change is played, not undone by the leader
+    rig.send(Command::SetPitch { deck: 1, ratio: 1.1 });
+    rig.run(0.2);
+    assert_close(mean_speed(&mut rig, 1, 1.0), 1.1, 1e-3);
+}
+
+#[test]
 fn a_follower_plays_on_through_the_leader_s_short_loops() {
     let mut rig = leader_with_follower(125.0);
     play_internal(&mut rig, 1, 10.07);

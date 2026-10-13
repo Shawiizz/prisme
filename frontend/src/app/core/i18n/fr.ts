@@ -68,7 +68,8 @@ export const FR: Record<string, string> = {
     'La sync demande le mode relatif ou la lecture interne',
   'No beat grid': 'Pas de grille rythmique',
   'Match the tempo and beats once': 'Caler le tempo et les temps une fois',
-  'Lock to the leader': 'Suivre le leader',
+  'Tap: lock to the leader · hold: match its tempo and beats once':
+    'Appui : suivre le leader · appui long : caler son tempo et ses temps une fois',
   'Load a track from the library': 'Chargez un morceau depuis la bibliothèque',
   Phase: 'Phase',
   Matched: 'Calés',

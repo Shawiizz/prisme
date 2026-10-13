@@ -88,6 +88,14 @@ export class EngineService {
     return mixer;
   }
 
+  /** Matches the leader once and leaves the deck free (unlocking it first). */
+  async syncOnce(deck: number) {
+    if (this.status()?.decks[deck]?.sync.locked) {
+      await this.call('set_sync_locked', { deck, locked: false });
+    }
+    return this.call('sync_once', { deck });
+  }
+
   /**
    * Position of a deck extrapolated to this instant, for smooth 60 fps drawing between
    * two status updates.

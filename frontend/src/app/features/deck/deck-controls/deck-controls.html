@@ -22,7 +22,10 @@
       class="pr-btn pr-btn--lg sync"
       [class.is-on]="syncState() === 'locked'"
       [class.matched]="syncState() === 'matched'"
-      (click)="sync()"
+      (pointerdown)="syncDown($event)"
+      (pointerup)="syncUp()"
+      (pointercancel)="syncCancel()"
+      (click)="syncKey($event)"
       [disabled]="!canSync()"
       [title]="syncTitle()"
     >
