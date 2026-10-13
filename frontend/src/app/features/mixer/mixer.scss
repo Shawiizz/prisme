@@ -30,6 +30,10 @@
   align-items: center;
   gap: var(--pr-space-1);
   min-height: 0;
+  // CUE and LIM are short: tight keys leave the headphone knobs their room
+  .pr-btn {
+    padding: 0 6px;
+  }
 }
 .fader-row {
   flex: 1;
