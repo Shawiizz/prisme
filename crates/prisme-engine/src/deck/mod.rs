@@ -104,12 +104,22 @@ impl Deck {
         }
         self.speed = speed;
         self.fade_with_motion(out);
+        self.stop_at_the_end();
 
         let seconds = (out.len() / 2) as f64 / out_rate;
         let platter = self.vinyl.enabled.then_some(drive.speed);
         self.sync.observe(speed, platter, seconds);
         self.advance_shadow(seconds);
         self.follow_record_position(drive);
+    }
+
+    /// Internal play stops at the end of the track (a record, on the other hand, turns on).
+    fn stop_at_the_end(&mut self) {
+        let end_s = self.playhead.duration_s();
+        if self.drive_mode() == DriveMode::Internal && self.playing && self.playhead.position_s() >= end_s {
+            self.playing = false;
+            self.playhead.seek_s(end_s);
+        }
     }
 
     /// Fades the track out as it stops and in as it moves again.

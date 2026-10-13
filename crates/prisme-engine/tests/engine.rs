@@ -83,6 +83,18 @@ fn absolute_vinyl_closes_a_small_gap_quickly() {
 }
 
 #[test]
+fn internal_play_stops_at_the_end_of_the_track() {
+    let mut rig = Rig::new();
+    rig.send(Command::LoadTrack { deck: 0, track: silent_track(10.0) });
+    rig.send(Command::Seek { deck: 0, seconds: 9.8 });
+    rig.send(Command::SetPlaying { deck: 0, playing: true });
+    rig.run(0.5);
+    let d = rig.deck(0);
+    assert!(!d.playing, "{d:?}");
+    assert!((d.position_s - 10.0).abs() < 0.01, "{d:?}");
+}
+
+#[test]
 fn the_scope_and_the_level_show_the_turntable_signal() {
     let mut rig = Rig::new();
     rig.turntable(0, 20.0, 1.0);
