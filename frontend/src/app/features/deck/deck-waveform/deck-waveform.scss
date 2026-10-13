@@ -28,11 +28,17 @@
 }
 .zoom {
   background: var(--pr-void);
+  cursor: grab;
+  touch-action: none;
+  &:active {
+    cursor: grabbing;
+  }
 }
 .overview {
   background: var(--pr-base);
   border-radius: var(--pr-radius-sm);
   cursor: pointer;
+  touch-action: none;
 }
 .hint {
   position: absolute;

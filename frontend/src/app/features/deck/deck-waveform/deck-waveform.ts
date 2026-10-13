@@ -14,10 +14,23 @@ import { TPipe } from '../../../core/i18n/t.pipe';
 
 /** Seconds of real time shown in the scrolling view (and the phase strip). */
 export const ZOOM_SPAN_S = 10;
+/** A press moving less than this (CSS px) is a click. */
+const CLICK_PX = 3;
+
+/** A press on a waveform, from where it started. */
+interface Drag {
+  view: 'zoom' | 'overview';
+  startX: number;
+  /** The track position when the press started (s). */
+  startS: number;
+  moved: boolean;
+}
 
 /**
  * Scrolling waveform around the playhead plus an overview of the whole track. Drawn on
  * every animation frame from the extrapolated position, outside change detection.
+ * A click on either jumps there; dragging the scrolling view moves the track like a
+ * record pushed by hand, dragging along the overview follows the pointer.
  */
 @Component({
   selector: 'app-deck-waveform',
@@ -34,6 +47,9 @@ export class DeckWaveform {
   private readonly painter = new WaveformPainter();
   protected readonly track = computed(() => this.engine.tracks()[this.deck()]);
   private frame = 0;
+  private drag: Drag | null = null;
+  /** Where to go at the next frame: pointer moves come faster than the engine needs. */
+  private pendingSeek: number | null = null;
 
   constructor() {
     const destroyRef = inject(DestroyRef);
@@ -47,15 +63,58 @@ export class DeckWaveform {
     destroyRef.onDestroy(() => cancelAnimationFrame(this.frame));
   }
 
-  /** Click on the overview: jump there. */
-  seekOverview(event: MouseEvent) {
-    const t = this.track();
-    if (!t) return;
+  press(event: PointerEvent, view: Drag['view']) {
+    if (!this.track() || event.button !== 0) return;
+    (event.currentTarget as HTMLElement).setPointerCapture(event.pointerId);
+    const startS = this.engine.livePosition(this.deck()) ?? 0;
+    this.drag = { view, startX: event.clientX, startS, moved: false };
+    if (view === 'overview') this.pendingSeek = this.overviewTime(event);
+  }
+
+  move(event: PointerEvent) {
+    const drag = this.drag;
+    if (!drag) return;
+    drag.moved ||= Math.abs(event.clientX - drag.startX) > CLICK_PX;
+    if (!drag.moved) return;
+    if (drag.view === 'overview') {
+      this.pendingSeek = this.overviewTime(event);
+    } else {
+      const width = (event.currentTarget as HTMLElement).clientWidth;
+      this.pendingSeek = drag.startS - ((event.clientX - drag.startX) / width) * this.zoomSpan();
+    }
+  }
+
+  release(event: PointerEvent) {
+    const drag = this.drag;
+    this.drag = null;
+    if (drag?.view !== 'zoom' || drag.moved) return;
     const rect = (event.currentTarget as HTMLElement).getBoundingClientRect();
-    this.engine.seek(this.deck(), ((event.clientX - rect.left) / rect.width) * t.durationS);
+    const fromCentre = (event.clientX - rect.left) / rect.width - 0.5;
+    this.pendingSeek = drag.startS + fromCentre * this.zoomSpan();
+  }
+
+  cancel() {
+    this.drag = null;
+  }
+
+  private overviewTime(event: PointerEvent): number {
+    const rect = (event.currentTarget as HTMLElement).getBoundingClientRect();
+    const share = Math.min(Math.max((event.clientX - rect.left) / rect.width, 0), 1);
+    return share * (this.track()?.durationS ?? 0);
+  }
+
+  /** Seconds of the track shown in the scrolling view: ZOOM_SPAN_S of real time, so that
+   * beatmatched decks show their beats at the same spacing. */
+  private zoomSpan(): number {
+    return ZOOM_SPAN_S * (this.engine.tempoRate(this.deck()) ?? 1);
   }
 
   private draw() {
+    if (this.pendingSeek !== null) {
+      const duration = this.track()?.durationS ?? 0;
+      this.engine.seek(this.deck(), Math.min(Math.max(this.pendingSeek, 0), duration));
+      this.pendingSeek = null;
+    }
     const track = this.track();
     const zoom = this.fit(this.zoomCanvas().nativeElement);
     const overview = this.fit(this.overviewCanvas().nativeElement);
@@ -71,8 +130,7 @@ export class DeckWaveform {
       cues: track.cues,
       loop: this.engine.status()?.decks[this.deck()]?.looping ?? null,
     };
-    // ZOOM_SPAN_S of real time: beatmatched decks show their beats at the same spacing
-    const span = ZOOM_SPAN_S * (this.engine.tempoRate(this.deck()) ?? 1);
+    const span = this.zoomSpan();
     const waveform = this.engine.waveforms()[this.deck()];
     this.painter.drawZoomed(zoom.ctx, waveform, overlay, position, span, zoom.size);
     this.painter.drawOverview(

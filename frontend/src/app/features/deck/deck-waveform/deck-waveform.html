@@ -1,8 +1,20 @@
 <div class="waveform">
-  <div class="zoom">
+  <div
+    class="zoom"
+    (pointerdown)="press($event, 'zoom')"
+    (pointermove)="move($event)"
+    (pointerup)="release($event)"
+    (pointercancel)="cancel()"
+  >
     <canvas #zoom></canvas>
   </div>
-  <div class="overview" (click)="seekOverview($event)">
+  <div
+    class="overview"
+    (pointerdown)="press($event, 'overview')"
+    (pointermove)="move($event)"
+    (pointerup)="release($event)"
+    (pointercancel)="cancel()"
+  >
     <canvas #overview></canvas>
   </div>
   @if (!track()) {
