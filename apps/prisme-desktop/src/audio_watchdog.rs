@@ -15,6 +15,10 @@ use tracing::{error, info, warn};
 
 const CHECK: Duration = Duration::from_millis(500);
 const RETRY: Duration = Duration::from_secs(2);
+/// A lost device is tried again at once, then this often for a few times (a Bluetooth
+/// headset or an interface back within a second), then every `RETRY`.
+const QUICK_RETRY: Duration = Duration::from_millis(200);
+const QUICK_RETRIES: usize = 5;
 /// More engine failures than this within the window are not restarted: the failure
 /// would only come back.
 const MAX_RESTARTS: usize = 3;
@@ -116,8 +120,11 @@ fn move_to_saved(
 }
 
 fn recover(state: &AppState, settings: &AudioSettings) {
-    loop {
-        std::thread::sleep(RETRY);
+    let waits = std::iter::once(Duration::ZERO)
+        .chain(std::iter::repeat_n(QUICK_RETRY, QUICK_RETRIES))
+        .chain(std::iter::repeat(RETRY));
+    for wait in waits {
+        std::thread::sleep(wait);
         match start_audio(state, settings) {
             Ok(_) => {
                 info!("audio device back");
