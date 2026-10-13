@@ -170,10 +170,13 @@ impl Deck {
         self.sync.locked || self.sync.once_pending || self.sync.snap_pending
     }
 
+    /// A deck stopped no longer leads at once (paused, its beats stand still: followers
+    /// would chase them); a record, as soon as its averaged speed says it slowed.
     pub(crate) fn can_lead(&self) -> bool {
         self.grid.is_some()
             && self.playhead.is_loaded()
             && !self.sync.locked
+            && self.is_moving()
             && self.sync.smoothed_speed.abs() > sync::LEADER_MIN_SPEED
     }
 

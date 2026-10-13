@@ -85,6 +85,23 @@ fn an_internal_deck_matched_once_takes_the_beats_and_stays_free() {
 }
 
 #[test]
+fn a_follower_plays_on_when_the_leader_stops() {
+    let mut rig = leader_with_follower(125.0);
+    play_internal(&mut rig, 1, 10.07);
+    rig.send(Command::SetSyncLocked { deck: 1, locked: true });
+    rig.run(1.0);
+    rig.send(Command::SetPlaying { deck: 0, playing: false });
+    let speed = LEADER_BPM / 125.0;
+    let mut position = rig.deck(1).position_s;
+    for _ in 0..200 {
+        let elapsed = rig.run(0.01);
+        let now = rig.deck(1).position_s;
+        assert_close(now - position, speed * elapsed, 1e-4);
+        position = now;
+    }
+}
+
+#[test]
 fn a_follower_plays_on_through_the_leader_s_short_loops() {
     let mut rig = leader_with_follower(125.0);
     play_internal(&mut rig, 1, 10.07);
