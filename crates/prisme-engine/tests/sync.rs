@@ -69,6 +69,24 @@ fn an_internal_follower_locks_to_the_tempo_and_the_beats() {
 }
 
 #[test]
+fn a_follower_plays_on_through_the_leader_s_short_loops() {
+    let mut rig = leader_with_follower(125.0);
+    play_internal(&mut rig, 1, 10.07);
+    rig.send(Command::SetSyncLocked { deck: 1, locked: true });
+    rig.run(1.0);
+    // half a beat, looped: the leader goes back half a beat at every turn
+    rig.send(Command::BeatLoop { deck: 0, beats: 0.5 });
+    let speed = LEADER_BPM / 125.0;
+    let mut position = rig.deck(1).position_s;
+    for _ in 0..200 {
+        let elapsed = rig.run(0.01);
+        let now = rig.deck(1).position_s;
+        assert_close(now - position, speed * elapsed, 1e-4);
+        position = now;
+    }
+}
+
+#[test]
 fn tempos_an_octave_apart_play_at_their_own_speed() {
     let mut rig = leader_with_follower(LEADER_BPM / 2.0);
     play_internal(&mut rig, 1, 5.0);

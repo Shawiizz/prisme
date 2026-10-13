@@ -16,6 +16,7 @@ use crate::mixer::{DeckMix, MixMode, Mixer};
 use crate::recording::{input_pair, Recording};
 use crate::scope::{self, ScopeTap};
 use crate::status::{EngineStatus, RecordingStatus, MAX_DECKS};
+use crate::sync::LeaderClock;
 use prisme_dsp::DenormalGuard;
 use prisme_timecode::{DecoderConfig, TimecodeDecoder, TimecodeFormat};
 
@@ -84,6 +85,7 @@ pub fn create(config: EngineConfig) -> (Engine, EngineController) {
         quantize: true,
         chosen_leader: None,
         leader: None,
+        leader_clock: LeaderClock::default(),
         frames_since_status: 0,
         status_interval: (config.sample_rate as f64 / config.status_rate_hz) as usize,
         recording: None,
@@ -109,6 +111,7 @@ pub struct Engine {
     /// Leader picked by the user, if any.
     chosen_leader: Option<DeckId>,
     leader: Option<DeckId>,
+    leader_clock: LeaderClock,
     frames_since_status: usize,
     status_interval: usize,
     recording: Option<Recording>,
@@ -151,7 +154,12 @@ impl Engine {
         let rate = self.config.sample_rate as f64;
         self.leader = self.resolve_leader();
         // every follower is compared with the leader as it was at the start of the block
-        let leader_beat = self.leader.and_then(|l| self.decks[l].leader_beat());
+        let seconds = frames as f64 / rate;
+        let leader_beat = self.leader.and_then(|l| {
+            let leader = &self.decks[l];
+            let beat = leader.leader_beat()?;
+            Some(self.leader_clock.beat(l, beat, leader.is_looping(), seconds))
+        });
         self.mixer.begin(frames);
         for d in 0..self.decks.len() {
             let target = match leader_beat {

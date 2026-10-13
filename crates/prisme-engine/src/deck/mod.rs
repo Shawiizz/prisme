@@ -150,6 +150,11 @@ impl Deck {
         })
     }
 
+    /// Whether the deck plays a loop.
+    pub(crate) fn is_looping(&self) -> bool {
+        self.transport.loop_active
+    }
+
     pub(crate) fn sync_target(&self, leader: LeaderBeat) -> Option<SyncTarget> {
         let grid = self.grid?;
         Some(sync::sync_target(&grid, self.playhead.position_s(), leader))

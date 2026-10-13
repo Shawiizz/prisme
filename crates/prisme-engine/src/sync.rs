@@ -35,6 +35,34 @@ pub(crate) struct SyncTarget {
 }
 
 /// Matches an octave of the leader's tempo when that is closer (70 BPM follows 140).
+/// The beat the followers lock to: the leader's own, except while it loops, when a clock
+/// carries on at its tempo: the jumps back of a loop shorter than a beat would otherwise
+/// shift the followers' phase at every turn of it.
+#[derive(Default)]
+pub(crate) struct LeaderClock {
+    /// The leader, and its beat at the start of the next block.
+    next: Option<(usize, f64)>,
+}
+
+impl LeaderClock {
+    /// The beat of `deck`, leading, at the start of a block of `seconds`; `actual` is its
+    /// own.
+    pub(crate) fn beat(
+        &mut self,
+        deck: usize,
+        actual: LeaderBeat,
+        looping: bool,
+        seconds: f64,
+    ) -> LeaderBeat {
+        let beats = match self.next {
+            Some((leader, beats)) if leader == deck && looping => beats,
+            _ => actual.beats,
+        };
+        self.next = Some((deck, beats + actual.bpm / 60.0 * seconds));
+        LeaderBeat { bpm: actual.bpm, beats }
+    }
+}
+
 pub(crate) fn sync_target(own: &BeatGrid, own_position_s: f64, leader: LeaderBeat) -> SyncTarget {
     let octave = (own.bpm / leader.bpm).log2().round().exp2();
     let beats = own.beats_at(own_position_s) - octave * leader.beats;
