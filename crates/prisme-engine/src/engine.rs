@@ -272,6 +272,7 @@ impl Engine {
             SyncOnce { deck } if valid(deck) => self.decks[deck].engage_sync(false),
             SetSyncLeader { deck } => self.chosen_leader = deck.filter(|&d| valid(d)),
             SetLeadIn { deck, seconds } if valid(deck) => self.decks[deck].vinyl.lead_in_s = seconds,
+            SetRpm { deck, rpm } if valid(deck) => self.decks[deck].set_rpm(rpm),
             ReplaceDecoder { deck, decoder } => {
                 if valid(deck) {
                     let old = self.decks[deck].vinyl.replace_decoder(decoder);

@@ -1,7 +1,7 @@
 //! Data exchanged with the frontend (camelCase JSON).
 
 use prisme_audio_io::{Backend, StreamStats};
-use prisme_engine::{DeckStatus, EngineStatus, LoopStatus, MixMode, VinylMode};
+use prisme_engine::{DeckStatus, EngineStatus, LoopStatus, MixMode, Rpm, VinylMode};
 use prisme_library::{Cue, CueSlot};
 use prisme_timecode::SignalState;
 use serde::{Deserialize, Serialize};
@@ -396,6 +396,25 @@ impl From<VinylModeDto> for VinylMode {
     }
 }
 
+/// The speed the record turns at when the track plays at its own speed.
+#[derive(Debug, Clone, Copy, Default, Serialize, Deserialize, PartialEq, Eq)]
+pub enum RpmDto {
+    #[default]
+    #[serde(rename = "33")]
+    Rpm33,
+    #[serde(rename = "45")]
+    Rpm45,
+}
+
+impl From<RpmDto> for Rpm {
+    fn from(r: RpmDto) -> Self {
+        match r {
+            RpmDto::Rpm33 => Rpm::Rpm33,
+            RpmDto::Rpm45 => Rpm::Rpm45,
+        }
+    }
+}
+
 impl From<VinylMode> for VinylModeDto {
     fn from(m: VinylMode) -> Self {
         match m {
@@ -413,6 +432,7 @@ pub struct DeckSettingsDto {
     pub cue: bool,
     pub vinyl_enabled: bool,
     pub vinyl_mode: VinylModeDto,
+    pub rpm: RpmDto,
     pub lead_in_s: f64,
     pub swap_channels: bool,
     pub key_lock: bool,

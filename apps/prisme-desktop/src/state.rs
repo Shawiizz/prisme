@@ -4,7 +4,7 @@
 
 use crate::audio_host::{AudioSession, DECKS};
 use crate::dto::{
-    BandDto, ChannelStripDto, CueDto, FxDto, KeyDto, MixModeDto, TempoDto, TrackInfoDto, VinylModeDto,
+    BandDto, ChannelStripDto, CueDto, FxDto, KeyDto, MixModeDto, RpmDto, TempoDto, TrackInfoDto, VinylModeDto,
 };
 use crate::error::{AppError, AppResult};
 use crate::folders;
@@ -107,6 +107,7 @@ pub struct DeckSettings {
     pub cue: bool,
     pub vinyl_enabled: bool,
     pub vinyl_mode: VinylModeDto,
+    pub rpm: RpmDto,
     pub lead_in_s: f64,
     pub swap_channels: bool,
     pub key_lock: bool,
@@ -123,6 +124,7 @@ impl From<DeckPreferences> for DeckSettings {
             cue: false,
             vinyl_enabled: p.vinyl_enabled,
             vinyl_mode: p.vinyl_mode,
+            rpm: p.rpm,
             lead_in_s: p.lead_in_s,
             swap_channels: p.swap_channels,
             key_lock: p.key_lock,
@@ -291,6 +293,7 @@ pub fn deck_commands(deck: usize, s: &DeckSettings) -> Vec<Command> {
         Command::SetPitch { deck, ratio: s.pitch },
         Command::SetVolume { deck, gain: s.volume },
         Command::SetVinylMode { deck, mode: s.vinyl_mode.into() },
+        Command::SetRpm { deck, rpm: s.rpm.into() },
         Command::SetLeadIn { deck, seconds: s.lead_in_s },
         Command::SetVinylEnabled { deck, enabled: s.vinyl_enabled },
         Command::SetKeyLock { deck, enabled: s.key_lock },

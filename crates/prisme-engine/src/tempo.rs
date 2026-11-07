@@ -6,10 +6,8 @@
 //! whatever its size: it is followed by a quick estimate within a third of a second, then
 //! by the mean speed since the fader stopped, until the last turn is all after the move.
 
-/// One turn of a record at 33⅓ rpm, at the nominal speed.
-const TURN_S: f64 = 1.8;
 const BUCKET_S: f64 = 0.025;
-/// Two turns at 70 % of the nominal speed.
+/// Two turns of a record at 33⅓ rpm, at 70 % of its speed.
 const BUCKETS: usize = 208;
 /// Farther than this from the shown tempo, the last turn is a pitch fader move to follow.
 const MOVE: f64 = 0.0015;
@@ -44,6 +42,8 @@ struct FaderMove {
 }
 
 pub(crate) struct PlatterTempo {
+    /// How long a turn lasts at the nominal speed (s).
+    turn_s: f64,
     buckets: [Bucket; BUCKETS],
     current: usize,
     shown: f64,
@@ -51,7 +51,7 @@ pub(crate) struct PlatterTempo {
 }
 
 impl PlatterTempo {
-    pub(crate) fn new() -> Self {
+    pub(crate) fn new(turn_s: f64) -> Self {
         let fader = FaderMove {
             quick: 1.0,
             step_from: 1.0,
@@ -59,7 +59,7 @@ impl PlatterTempo {
             active: false,
             settled: Bucket::default(),
         };
-        Self { buckets: [Bucket::default(); BUCKETS], current: 0, shown: 1.0, fader }
+        Self { turn_s, buckets: [Bucket::default(); BUCKETS], current: 0, shown: 1.0, fader }
     }
 
     /// The tempo as a playback rate (1.0 = the nominal speed).
@@ -77,7 +77,7 @@ impl PlatterTempo {
             self.buckets[self.current] = Bucket::default();
         }
 
-        let turn_s = TURN_S / self.shown.max(0.7);
+        let turn_s = self.turn_s / self.shown.max(0.7);
         if self.follow_fader(speed, seconds, turn_s) {
             return;
         }
@@ -160,6 +160,7 @@ impl PlatterTempo {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::command::Rpm;
     use std::f64::consts::TAU;
 
     const STEP_S: f64 = 128.0 / 48_000.0;
@@ -180,28 +181,30 @@ mod tests {
         let mut t = t0;
         while t < t0 + seconds {
             let base = rate(t);
-            tempo.observe(base * (1.0 + waver * (TAU * t * base / TURN_S).sin()), STEP_S);
+            tempo.observe(base * (1.0 + waver * (TAU * t * base / tempo.turn_s).sin()), STEP_S);
             t += STEP_S;
         }
         t
     }
 
     #[test]
-    fn a_wavering_record_shows_a_still_tempo() {
-        let mut tempo = PlatterTempo::new();
-        let mut t = play(&mut tempo, 0.0, 26.0, |_| 1.0);
-        let mut seen = (f64::MAX, f64::MIN);
-        for _ in 0..2000 {
-            t = play(&mut tempo, t, STEP_S, |_| 1.0);
-            seen = (seen.0.min(tempo.rate()), seen.1.max(tempo.rate()));
+    fn a_wavering_record_shows_a_still_tempo_at_both_speeds() {
+        for rpm in [Rpm::Rpm33, Rpm::Rpm45] {
+            let mut tempo = PlatterTempo::new(rpm.turn_s());
+            let mut t = play(&mut tempo, 0.0, 26.0, |_| 1.0);
+            let mut seen = (f64::MAX, f64::MIN);
+            for _ in 0..2000 {
+                t = play(&mut tempo, t, STEP_S, |_| 1.0);
+                seen = (seen.0.min(tempo.rate()), seen.1.max(tempo.rate()));
+            }
+            assert!((tempo.rate() - 1.0).abs() < 0.0005, "{rpm:?}: tempo {}", tempo.rate());
+            assert!(seen.1 - seen.0 < 1e-9, "{rpm:?}: the tempo moved by {}", seen.1 - seen.0);
         }
-        assert!((tempo.rate() - 1.0).abs() < 0.0005, "tempo {}", tempo.rate());
-        assert!(seen.1 - seen.0 < 1e-9, "the tempo moved by {}", seen.1 - seen.0);
     }
 
     #[test]
     fn a_record_wavering_more_than_most_is_not_taken_for_fader_moves() {
-        let mut tempo = PlatterTempo::new();
+        let mut tempo = PlatterTempo::new(Rpm::Rpm33.turn_s());
         let mut t = play_wavering(&mut tempo, 0.0, 10.0, 0.02, |_| 1.0);
         let mut seen = (f64::MAX, f64::MIN);
         for _ in 0..4000 {
@@ -213,7 +216,7 @@ mod tests {
 
     #[test]
     fn a_pitch_fader_move_shows_as_it_goes_and_settles_within_two_seconds() {
-        let mut tempo = PlatterTempo::new();
+        let mut tempo = PlatterTempo::new(Rpm::Rpm33.turn_s());
         let t = play(&mut tempo, 0.0, 6.0, |_| 1.0);
         // the fader from 0 to +6 % in half a second, then held
         let fader = |s: f64| 1.0 + 0.06 * ((s - 6.0) / 0.5).clamp(0.0, 1.0);

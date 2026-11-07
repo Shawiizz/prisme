@@ -2,6 +2,8 @@
 
 export type SignalState = 'none' | 'bounce' | 'ok';
 export type VinylMode = 'absolute' | 'relative';
+/** The speed the record turns at when the track plays at its own speed. */
+export type Rpm = '33' | '45';
 
 export interface VinylStatus {
   enabled: boolean;
@@ -194,6 +196,7 @@ export interface DeckSettings {
   cue: boolean;
   vinylEnabled: boolean;
   vinylMode: VinylMode;
+  rpm: Rpm;
   leadInS: number;
   /** The turntable's left and right channels are crossed. */
   swapChannels: boolean;

@@ -1,4 +1,4 @@
-use crate::dto::VinylModeDto;
+use crate::dto::{RpmDto, VinylModeDto};
 use crate::error::{AppError, AppResult};
 use crate::state::{deck_commands, lock, AppState};
 use prisme_engine::Command;
@@ -40,6 +40,7 @@ pub fn set_vinyl(
     deck: usize,
     enabled: bool,
     mode: VinylModeDto,
+    rpm: RpmDto,
     lead_in_s: f64,
 ) -> AppResult<()> {
     AppState::check_deck(deck)?;
@@ -48,12 +49,13 @@ pub fn set_vinyl(
         let d = &mut decks[deck];
         d.vinyl_enabled = enabled;
         d.vinyl_mode = mode;
+        d.rpm = rpm;
         d.lead_in_s = lead_in_s;
         *d
     };
     state.update_preferences(|p| {
         let d = &mut p.decks[deck];
-        (d.vinyl_enabled, d.vinyl_mode, d.lead_in_s) = (enabled, mode, lead_in_s);
+        (d.vinyl_enabled, d.vinyl_mode, d.rpm, d.lead_in_s) = (enabled, mode, rpm, lead_in_s);
     });
     for c in deck_commands(deck, &settings) {
         state.send_if_running(c)?;

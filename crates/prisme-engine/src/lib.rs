@@ -31,7 +31,7 @@ mod sync;
 mod tempo;
 mod vinyl;
 
-pub use command::{Command, CrossfaderSide, DeckId, Garbage, RecordSource, VinylMode};
+pub use command::{Command, CrossfaderSide, DeckId, Garbage, RecordSource, Rpm, VinylMode};
 pub use engine::{create, Engine, EngineConfig, EngineController};
 pub use grid::BeatGrid;
 pub use looping::LoopRegion;

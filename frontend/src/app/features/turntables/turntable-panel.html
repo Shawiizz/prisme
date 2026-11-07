@@ -66,6 +66,22 @@
         </button>
       </div>
     </div>
+    <div class="line">
+      <span class="pr-label">{{ 'Record speed' | t }}</span>
+      <div class="pr-seg" role="radiogroup" [attr.aria-label]="'Record speed' | t">
+        <button role="radio" [attr.aria-checked]="settings().rpm === '33'" (click)="setRpm('33')">
+          33
+        </button>
+        <button
+          role="radio"
+          [attr.aria-checked]="settings().rpm === '45'"
+          (click)="setRpm('45')"
+          [title]="'The track spreads over more of the record: about 7 minutes a side' | t"
+        >
+          45
+        </button>
+      </div>
+    </div>
     <label class="pr-field">
       <span class="pr-label">{{ 'Lead-in (s)' | t }}</span>
       <input

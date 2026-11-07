@@ -4,7 +4,7 @@
 mod hand;
 mod transport;
 
-use crate::command::{CrossfaderSide, VinylMode};
+use crate::command::{CrossfaderSide, Rpm, VinylMode};
 use crate::grid::BeatGrid;
 use crate::keylock::KeyLock;
 use crate::playhead::Playhead;
@@ -12,6 +12,7 @@ use crate::sampler::Sampler;
 use crate::status::{DeckStatus, LoopStatus, SyncStatus};
 use crate::strip::ChannelStrip;
 use crate::sync::{self, DeckSync, LeaderBeat, SyncTarget};
+use crate::tempo::PlatterTempo;
 use crate::vinyl::{VinylControl, VinylDrive};
 use hand::{Hand, Step};
 use prisme_dsp::{Beat, FxSlot, Smoothed};
@@ -191,6 +192,16 @@ impl Deck {
     /// Whether the deck plays a loop.
     pub(crate) fn is_looping(&self) -> bool {
         self.transport.loop_active
+    }
+
+    /// The record is meant to turn at `rpm`: its tempo is learnt again.
+    pub(crate) fn set_rpm(&mut self, rpm: Rpm) {
+        if self.vinyl.rpm != rpm {
+            self.vinyl.rpm = rpm;
+            self.vinyl.take_back();
+            self.sync.reset();
+            self.sync.tempo = PlatterTempo::new(rpm.turn_s());
+        }
     }
 
     pub(crate) fn sync_target(&self, leader: LeaderBeat) -> Option<SyncTarget> {

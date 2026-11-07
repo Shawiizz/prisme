@@ -5,6 +5,7 @@
 //! only snapped when sync is engaged, never corrected afterwards. Absolute mode has no
 //! sync, the record decides where the track is.
 
+use crate::command::Rpm;
 use crate::grid::BeatGrid;
 use crate::tempo::PlatterTempo;
 
@@ -111,7 +112,7 @@ impl DeckSync {
             platter_recent: 0.0,
             platter_steady_s: 0.0,
             platter_reference: 1.0,
-            tempo: PlatterTempo::new(),
+            tempo: PlatterTempo::new(Rpm::default().turn_s()),
         }
     }
 

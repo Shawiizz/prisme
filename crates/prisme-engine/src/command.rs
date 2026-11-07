@@ -21,6 +21,30 @@ pub enum VinylMode {
     Relative,
 }
 
+/// The speed the record turns at when the track plays at its own speed: at 45 rpm the
+/// music takes 35 % more groove.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum Rpm {
+    #[default]
+    Rpm33,
+    Rpm45,
+}
+
+impl Rpm {
+    /// The record's speed, as read from the timecode, that plays the track at its own speed.
+    pub fn record_speed(self) -> f64 {
+        match self {
+            Rpm::Rpm33 => 1.0,
+            Rpm::Rpm45 => 1.35,
+        }
+    }
+
+    /// How long a turn lasts at that speed (s): 1.8 at 33⅓ rpm.
+    pub fn turn_s(self) -> f64 {
+        1.8 / self.record_speed()
+    }
+}
+
 /// Which side of the crossfader a deck is on.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum CrossfaderSide {
@@ -126,10 +150,15 @@ pub enum Command {
         deck: DeckId,
         mode: VinylMode,
     },
-    /// Position of the start of the track on the record, in seconds (lead-in).
+    /// Position of the start of the track on the record, in seconds at its [`Rpm`]
+    /// (lead-in).
     SetLeadIn {
         deck: DeckId,
         seconds: f64,
+    },
+    SetRpm {
+        deck: DeckId,
+        rpm: Rpm,
     },
     /// Replaces a deck's timecode decoder (another format, swapped channels...). Build it
     /// on the control side: it allocates.

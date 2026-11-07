@@ -3,7 +3,7 @@
 mod common;
 
 use common::{silent_track, Rig, SR};
-use prisme_engine::{Command, VinylMode};
+use prisme_engine::{Command, Rpm, VinylMode};
 use prisme_timecode::{DecoderConfig, TimecodeDecoder, SERATO_CV02_A};
 
 #[test]
@@ -64,6 +64,29 @@ fn absolute_vinyl_follows_the_record_position() {
     rig.run(0.5);
     let d = rig.deck(0);
     assert!((d.position_s - 26.5).abs() < 0.05, "{d:?}");
+}
+
+#[test]
+fn a_record_at_45_rpm_plays_the_track_at_its_own_speed() {
+    let mut rig = Rig::new();
+    // 13.5 s into the record at 45 rpm: 10 s of music
+    rig.turntable(0, 13.5, 1.35);
+    rig.send(Command::LoadTrack { deck: 0, track: silent_track(40.0) });
+    rig.send(Command::SetRpm { deck: 0, rpm: Rpm::Rpm45 });
+    rig.send(Command::SetLeadIn { deck: 0, seconds: 2.0 });
+    rig.send(Command::SetVinylEnabled { deck: 0, enabled: true });
+    rig.run(1.0);
+    let d = rig.deck(0);
+    assert!((d.speed - 1.0).abs() < 0.01, "{d:?}");
+    assert!((d.vinyl.record_speed - 1.0).abs() < 0.01, "{d:?}");
+    let record = d.vinyl.record_position_s.expect("locked");
+    assert!((record - 11.0).abs() < 0.02, "{d:?}");
+    assert!((d.position_s - 9.0).abs() < 0.02, "{d:?}");
+
+    rig.send(Command::SetVinylMode { deck: 0, mode: VinylMode::Relative });
+    rig.set_turntable_speed(0, 1.35 * 1.05);
+    rig.run(1.0);
+    assert!((rig.deck(0).speed - 1.05).abs() < 0.01, "{:?}", rig.deck(0));
 }
 
 #[test]

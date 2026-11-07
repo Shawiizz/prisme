@@ -13,6 +13,7 @@ import {
   EngineStatus,
   MAX_KEY_SHIFT,
   MixerState,
+  Rpm,
   SAMPLE_SLOTS,
   TrackAnalysis,
   TrackInfo,
@@ -34,6 +35,7 @@ const DEFAULT_DECK: DeckSettings = {
   cue: false,
   vinylEnabled: false,
   vinylMode: 'absolute',
+  rpm: '33',
   leadInS: 0,
   swapChannels: false,
   keyLock: false,
@@ -199,16 +201,21 @@ export class EngineService {
     return this.call('set_pitch', { deck, ratio });
   }
 
-  setVinyl(deck: number, changes: { enabled?: boolean; mode?: VinylMode; leadInS?: number }) {
+  setVinyl(
+    deck: number,
+    changes: { enabled?: boolean; mode?: VinylMode; rpm?: Rpm; leadInS?: number },
+  ) {
     const d = this.patchDeck(deck, {
       vinylEnabled: changes.enabled ?? this.decks()[deck].vinylEnabled,
       vinylMode: changes.mode ?? this.decks()[deck].vinylMode,
+      rpm: changes.rpm ?? this.decks()[deck].rpm,
       leadInS: changes.leadInS ?? this.decks()[deck].leadInS,
     });
     return this.call('set_vinyl', {
       deck,
       enabled: d.vinylEnabled,
       mode: d.vinylMode,
+      rpm: d.rpm,
       leadInS: d.leadInS,
     });
   }

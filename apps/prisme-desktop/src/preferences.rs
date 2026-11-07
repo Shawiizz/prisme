@@ -1,7 +1,7 @@
 //! What the user chooses once and finds again at the next start.
 
 use crate::audio_host::DECKS;
-use crate::dto::{AudioSettings, CrossfaderCurveDto, MixModeDto, VinylModeDto};
+use crate::dto::{AudioSettings, CrossfaderCurveDto, MixModeDto, RpmDto, VinylModeDto};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
@@ -19,6 +19,7 @@ pub struct Preferences {
 pub struct DeckPreferences {
     pub vinyl_enabled: bool,
     pub vinyl_mode: VinylModeDto,
+    pub rpm: RpmDto,
     pub lead_in_s: f64,
     /// The turntable's left and right channels are crossed.
     pub swap_channels: bool,
@@ -112,6 +113,7 @@ mod tests {
         p.decks[1] = DeckPreferences {
             vinyl_enabled: true,
             vinyl_mode: VinylModeDto::Relative,
+            rpm: RpmDto::Rpm45,
             lead_in_s: 2.5,
             swap_channels: true,
             key_lock: true,

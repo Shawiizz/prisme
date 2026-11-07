@@ -6,8 +6,11 @@
 //! relative mode the record takes over again once the needle is back before the end
 //! and the platter turns; in absolute mode (where that would jump the track) only once
 //! the vinyl control is set again or another track is loaded.
+//!
+//! The deck sees the record at the speed it is meant to turn at ([`Rpm`]): speeds and
+//! positions are those of the music, whatever the record's own.
 
-use crate::command::VinylMode;
+use crate::command::{Rpm, VinylMode};
 use crate::status::VinylStatus;
 use prisme_timecode::TimecodeDecoder;
 
@@ -31,7 +34,8 @@ pub(crate) struct VinylControl {
     decoder: Box<TimecodeDecoder>,
     pub(crate) enabled: bool,
     pub(crate) mode: VinylMode,
-    /// Position of the track start on the record (seconds).
+    pub(crate) rpm: Rpm,
+    /// Position of the track start on the record (seconds of music).
     pub(crate) lead_in_s: f64,
     run_out: RunOut,
     reversed_frames: usize,
@@ -54,6 +58,7 @@ impl VinylControl {
             decoder,
             enabled: false,
             mode: VinylMode::Absolute,
+            rpm: Rpm::default(),
             lead_in_s: 0.0,
             run_out: RunOut::Unarmed,
             reversed_frames: 0,
@@ -64,7 +69,8 @@ impl VinylControl {
     /// Decodes one block of the turntable signal (interleaved stereo).
     pub(crate) fn process(&mut self, input: &[f32]) -> VinylDrive {
         self.decoder.process(input);
-        let (speed, position_ms) = (self.decoder.speed(), self.decoder.position_ms());
+        let speed = self.decoder.speed() / self.rpm.record_speed();
+        let position_ms = self.decoder.position_ms();
         self.reversed_frames = if CROSSED_SPEED.contains(&speed) {
             self.reversed_frames.saturating_add(input.len() / 2)
         } else {
@@ -74,10 +80,15 @@ impl VinylControl {
             return VinylDrive { speed, target_position_s: None };
         }
         let target_position_s = match self.mode {
-            VinylMode::Absolute => self.decoder.position_ms().map(|ms| ms / 1000.0 - self.lead_in_s),
+            VinylMode::Absolute => self.position_s(position_ms).map(|s| s - self.lead_in_s),
             VinylMode::Relative => None,
         };
-        VinylDrive { speed: self.decoder.speed(), target_position_s }
+        VinylDrive { speed, target_position_s }
+    }
+
+    /// A position read from the record, in seconds of music.
+    fn position_s(&self, position_ms: Option<f64>) -> Option<f64> {
+        position_ms.map(|ms| ms / 1000.0 / self.rpm.record_speed())
     }
 
     /// The speed to play on at past the end of the record, if the deck does.
@@ -120,8 +131,8 @@ impl VinylControl {
             crossed: self.reversed_frames >= self.crossed_after_frames,
             signal: s.signal,
             level: s.level as f32,
-            record_speed: s.speed,
-            record_position_s: s.position_ms.map(|ms| ms / 1000.0),
+            record_speed: s.speed / self.rpm.record_speed(),
+            record_position_s: self.position_s(s.position_ms),
         }
     }
 }

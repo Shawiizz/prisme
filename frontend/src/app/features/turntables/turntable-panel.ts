@@ -10,7 +10,7 @@ import {
 } from '@angular/core';
 import { Channel, invoke } from '@tauri-apps/api/core';
 import { EngineService } from '../../core/services/engine.service';
-import { SignalState, VinylMode } from '../../core/models/engine';
+import { Rpm, SignalState, VinylMode } from '../../core/models/engine';
 import { deckLetter, formatSpeed, formatTime } from '../../shared/time';
 import { ScopePainter } from './scope-painter';
 import { t } from '../../core/i18n/i18n';
@@ -79,6 +79,10 @@ export class TurntablePanel {
 
   setMode(mode: VinylMode) {
     this.engine.setVinyl(this.deck(), { mode });
+  }
+
+  setRpm(rpm: Rpm) {
+    this.engine.setVinyl(this.deck(), { rpm });
   }
 
   setLeadIn(event: Event) {

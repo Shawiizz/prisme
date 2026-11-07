@@ -19,9 +19,10 @@ pub struct VinylStatus {
     pub signal: SignalState,
     /// Timecode carrier level (full scale = 1.0).
     pub level: f32,
-    /// Speed read from the record.
+    /// Speed read from the record, 1.0 at its [`Rpm`](crate::Rpm).
     pub record_speed: f64,
-    /// Absolute position read from the record, in seconds, once locked.
+    /// Absolute position read from the record, in seconds at its [`Rpm`](crate::Rpm),
+    /// once locked.
     pub record_position_s: Option<f64>,
 }
 

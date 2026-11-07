@@ -342,6 +342,9 @@ export const FR: Record<string, string> = {
   'Only the speed: cues, loops and sync work':
     'Seulement la vitesse : cues, boucles et sync fonctionnent',
   'Lead-in (s)': 'Amorce (s)',
+  'Record speed': 'Vitesse du disque',
+  'The track spreads over more of the record: about 7 minutes a side':
+    "Le morceau s'étale sur plus de disque : environ 7 minutes par face",
   'Where the track starts on the record': 'Où le morceau commence sur le disque',
   'Swap left / right': 'Inverser gauche / droite',
   'The record has been playing backwards for a while: if the platter turns forwards, the left and right cables are crossed.':

@@ -21,6 +21,7 @@ pub fn mixer_state(state: State<'_, AppState>) -> MixerStateDto {
                 cue: d.cue,
                 vinyl_enabled: d.vinyl_enabled,
                 vinyl_mode: d.vinyl_mode,
+                rpm: d.rpm,
                 lead_in_s: d.lead_in_s,
                 swap_channels: d.swap_channels,
                 key_lock: d.key_lock,
