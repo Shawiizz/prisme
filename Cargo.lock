@@ -3414,7 +3414,7 @@ dependencies = [
 
 [[package]]
 name = "prisme-analysis"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "criterion",
  "prisme-media",
@@ -3424,7 +3424,7 @@ dependencies = [
 
 [[package]]
 name = "prisme-audio-io"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "cpal",
  "rtrb",
@@ -3434,7 +3434,7 @@ dependencies = [
 
 [[package]]
 name = "prisme-cli"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "anyhow",
  "clap",
@@ -3447,7 +3447,7 @@ dependencies = [
 
 [[package]]
 name = "prisme-control"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "serde",
  "serde_json",
@@ -3455,7 +3455,7 @@ dependencies = [
 
 [[package]]
 name = "prisme-desktop"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "chrono",
  "hound",
@@ -3487,11 +3487,11 @@ dependencies = [
 
 [[package]]
 name = "prisme-dsp"
-version = "0.2.0"
+version = "0.3.0"
 
 [[package]]
 name = "prisme-engine"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "criterion",
  "prisme-dsp",
@@ -3504,7 +3504,7 @@ dependencies = [
 
 [[package]]
 name = "prisme-import"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "base64 0.22.1",
  "lofty",
@@ -3516,7 +3516,7 @@ dependencies = [
 
 [[package]]
 name = "prisme-library"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "criterion",
  "image",
@@ -3532,7 +3532,7 @@ dependencies = [
 
 [[package]]
 name = "prisme-media"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "lofty",
  "symphonia",
@@ -3541,7 +3541,7 @@ dependencies = [
 
 [[package]]
 name = "prisme-session"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "serde",
  "serde_json",
@@ -3549,7 +3549,7 @@ dependencies = [
 
 [[package]]
 name = "prisme-timecode"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "criterion",
 ]
