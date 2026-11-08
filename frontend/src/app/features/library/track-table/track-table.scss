@@ -222,3 +222,34 @@
     line-height: 1;
   }
 }
+
+.stems {
+  display: flex;
+  justify-content: center;
+  color: var(--pr-text-3);
+  .separated {
+    color: var(--pr-text-2);
+  }
+  .number {
+    font-size: 11px;
+  }
+  // appears with the row: a click queues the track
+  .separate {
+    height: auto;
+    padding: 0 4px;
+    border: none;
+    background: transparent;
+    color: var(--pr-text-3);
+    font-size: 14px;
+    line-height: 1;
+    opacity: 0;
+    &:hover,
+    &:focus-visible {
+      color: var(--pr-light);
+    }
+  }
+}
+.row:hover .stems .separate,
+.row.selected .stems .separate {
+  opacity: 1;
+}

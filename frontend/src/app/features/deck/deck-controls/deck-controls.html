@@ -33,6 +33,27 @@
     </button>
   </div>
 
+  <div class="stems" [title]="stemsTitle()">
+    <button
+      class="pr-btn pr-btn--sm"
+      [class.is-on]="track()?.vocals && track()?.stemMix?.vocals"
+      [disabled]="!track()?.vocals"
+      (click)="engine.toggleStem(deck(), 'vocals')"
+      [title]="'Vocals: on or muted' | t"
+    >
+      VOX
+    </button>
+    <button
+      class="pr-btn pr-btn--sm"
+      [class.is-on]="track()?.vocals && track()?.stemMix?.instrumental"
+      [disabled]="!track()?.vocals"
+      (click)="engine.toggleStem(deck(), 'instrumental')"
+      [title]="'Instrumental: on or muted' | t"
+    >
+      INST
+    </button>
+  </div>
+
   <div class="tempo">
     <div class="tempo-head">
       <span class="pr-label">Tempo</span>

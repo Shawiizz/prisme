@@ -18,7 +18,7 @@
           {{ c.header }} {{ sortMark(sort) }}
         </button>
       } @else {
-        <span [class]="c.id">{{ c.id === 'pitch' ? pitchHeader() : '' }}</span>
+        <span [class]="c.id">{{ c.id === 'pitch' ? pitchHeader() : c.header }}</span>
       }
     }
     <span class="load">{{ 'Load' | t }}</span>
@@ -138,6 +138,28 @@
           }
           @case ('plays') {
             <span class="number plays">{{ t.details?.playCount || '' }}</span>
+          }
+          @case ('stems') {
+            <span class="stems">
+              @if (t.details?.vocals) {
+                <span class="separated" [title]="'Vocals separated' | t">✓</span>
+              } @else if (stems.progress().current === t.path) {
+                <span class="number" [title]="'Separating the vocals' | t">{{
+                  percent(stems.progress().fraction)
+                }}</span>
+              } @else if (stems.pending().has(t.path)) {
+                <span class="dim" [title]="'Waiting to be separated' | t">…</span>
+              } @else if (t.details && !t.details.failed) {
+                <button
+                  class="separate"
+                  (click)="stems.separate([t.path]); $event.stopPropagation()"
+                  [title]="'Separate the vocals' | t"
+                  [attr.aria-label]="'Separate the vocals' | t"
+                >
+                  +
+                </button>
+              }
+            </span>
           }
         }
       }

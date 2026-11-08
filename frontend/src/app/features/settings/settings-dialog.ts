@@ -13,6 +13,7 @@ import { SettingsService } from '../../core/services/settings.service';
 import { PreferencesService } from '../../core/services/preferences.service';
 import { MixerService } from '../../core/services/mixer.service';
 import { UpdateService } from '../../core/services/update.service';
+import { StemsService } from '../../core/services/stems.service';
 import { NavigationService, SettingsCategory } from '../../core/services/navigation.service';
 import { AudioBackend, AudioSettings, BUFFER_SIZES } from '../../core/models/audio';
 import { DECK_COUNT, MixMode } from '../../core/models/engine';
@@ -41,6 +42,7 @@ export class SettingsDialog implements OnInit {
   private readonly preferences = inject(PreferencesService);
   protected readonly mixer = inject(MixerService);
   protected readonly updates = inject(UpdateService);
+  protected readonly stems = inject(StemsService);
   private readonly navigation = inject(NavigationService);
 
   protected readonly pages = SETTINGS_PAGES;
@@ -201,6 +203,15 @@ export class SettingsDialog implements OnInit {
 
   updateDj(changes: Partial<DjPreferences>) {
     this.preferences.updateDj({ ...this.dj(), ...changes });
+  }
+
+  /** `0.42` → `42 %` */
+  percent(fraction: number): string {
+    return `${Math.round(fraction * 100)} %`;
+  }
+
+  megabytes(bytes: number): number {
+    return Math.round(bytes / 1e6);
   }
 
   setWriteTags(writeTags: boolean) {

@@ -45,6 +45,11 @@ export class ControlService {
     bend: (deck, direction) => this.engine.pitchBend(deck, direction),
     toggleKeyLock: (deck) => this.engine.setKeyLock(deck, !this.engine.decks()[deck].keyLock),
     keyLocked: (deck) => this.engine.decks()[deck].keyLock,
+    toggleStem: (deck, stem) => this.engine.toggleStem(deck, stem),
+    stemPlaying: (deck, stem) => {
+      const track = this.engine.tracks()[deck];
+      return !!track?.vocals && track.stemMix[stem];
+    },
     triggerSample: (deck, slot) => this.sampler.trigger(deck, slot),
     samplePlaying: (deck, slot) => ((this.deck(deck)?.samplesPlaying ?? 0) & (1 << slot)) !== 0,
     toggleFx: (deck) => this.fx.setEnabled(deck, !this.fx.settings(deck).enabled),

@@ -12,7 +12,7 @@ use crate::preferences::{DeckPreferences, Preferences};
 use crate::recording::Recorder;
 use crate::sampler::Samplers;
 use prisme_analysis::{TrackAnalysis, Waveform};
-use prisme_engine::{BeatGrid, Command, DeckStatus, MixMode, OutputRouting};
+use prisme_engine::{BeatGrid, Command, DeckStatus, MixMode, OutputRouting, StemMix};
 use prisme_library::{Cue, CueSlot, TrackEdits};
 use prisme_media::{TrackAudio, TrackTags};
 use prisme_session::JsonFile;
@@ -35,6 +35,10 @@ pub struct LoadedTrack {
     pub cues: Vec<Cue>,
     /// Semitones the deck transposes it by (0 again at each load).
     pub key_shift: i8,
+    /// Its separated vocals, once read (`prisme_stems::track`).
+    pub vocals: Option<Arc<TrackAudio>>,
+    /// The stems the deck plays (both again at each load).
+    pub stem_mix: StemMix,
 }
 
 impl LoadedTrack {
@@ -61,6 +65,8 @@ impl LoadedTrack {
             key_edited: self.edits.key.is_some(),
             cues: self.cue_dtos(),
             key_shift: self.key_shift,
+            vocals: self.vocals.is_some(),
+            stem_mix: self.stem_mix.into(),
         }
     }
 
@@ -72,12 +78,14 @@ impl LoadedTrack {
         self.analysis().tempo.map(|t| BeatGrid { bpm: t.bpm, first_beat_s: t.first_beat_s })
     }
 
-    /// Commands that put the track, with its beat grid and key shift, on `deck`.
-    pub fn load_commands(&self, deck: usize) -> [Command; 3] {
+    /// Commands that put the track, with its beat grid, key shift and stems, on `deck`.
+    pub fn load_commands(&self, deck: usize) -> [Command; 5] {
         [
             Command::LoadTrack { deck, track: self.audio.clone() },
             Command::SetBeatGrid { deck, grid: self.grid() },
             Command::SetKeyShift { deck, semitones: self.key_shift },
+            Command::SetVocals { deck, vocals: self.vocals.clone() },
+            Command::SetStemMix { deck, mix: self.stem_mix },
         ]
     }
 

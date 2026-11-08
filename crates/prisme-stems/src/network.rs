@@ -12,6 +12,16 @@ pub trait MaskNetwork: Send {
     fn masks(&mut self, bins: &[f32], frames: usize, out: &mut [f32]) -> Result<(), StemsError>;
 }
 
+impl<N: MaskNetwork + ?Sized> MaskNetwork for Box<N> {
+    fn geometry(&self) -> &Geometry {
+        (**self).geometry()
+    }
+
+    fn masks(&mut self, bins: &[f32], frames: usize, out: &mut [f32]) -> Result<(), StemsError> {
+        (**self).masks(bins, frames, out)
+    }
+}
+
 /// The axis a transformer attends along. Tokens are stored frame by frame, then band by band.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum Axis {

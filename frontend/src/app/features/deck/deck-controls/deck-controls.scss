@@ -27,6 +27,17 @@
   }
 }
 
+.stems {
+  display: grid;
+  gap: 2px;
+  .pr-btn {
+    width: 44px;
+    padding: 0;
+    font-size: var(--pr-size-small);
+    letter-spacing: 0.06em;
+  }
+}
+
 .tempo {
   flex: 1;
   min-width: 0;

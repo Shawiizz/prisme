@@ -42,6 +42,7 @@ mod sampler;
 mod scope_stream;
 mod state;
 mod status_stream;
+mod stems_service;
 mod tag_writer;
 mod track_loading;
 
@@ -75,6 +76,7 @@ pub fn run() {
                 Arc::new(LibraryService::open(app.handle(), data_dir.as_deref(), folders::music_root()));
             app.manage(library.clone());
             app.manage(TagWriter::start(app.handle().clone()));
+            app.manage(stems_service::StemsService::new(app.handle().clone(), data_dir.as_deref()));
 
             app.manage(CrashRecovery::new(open_json(data_dir.as_deref(), "session.json")));
             let restored = app.state::<CrashRecovery>().decks_to_restore();
@@ -113,6 +115,12 @@ pub fn run() {
             commands::audio::audio_info,
             commands::audio::apply_audio_settings,
             commands::tracks::load_track,
+            commands::stems::stems_status,
+            commands::stems::download_stems_model,
+            commands::stems::separate_tracks,
+            commands::stems::separate_library,
+            commands::stems::cancel_separation,
+            commands::stems::set_stem_mix,
             commands::tracks::loaded_tracks,
             commands::tracks::deck_waveform,
             commands::decks::set_playing,

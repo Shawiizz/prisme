@@ -65,9 +65,15 @@ pub fn init(dir: Option<&Path>) -> LogGuard {
 }
 
 /// lofty warns about every file it searches with a tolerance for junk bytes, even when
-/// there are none: only its errors are kept.
+/// there are none, and the GPU layers (wgpu, naga) relay every message of the Vulkan
+/// loader and of the drivers: only their errors are kept.
 fn quiet_libraries() -> Targets {
-    Targets::new().with_default(LevelFilter::TRACE).with_target("lofty", LevelFilter::ERROR)
+    Targets::new()
+        .with_default(LevelFilter::TRACE)
+        .with_target("lofty", LevelFilter::ERROR)
+        .with_target("wgpu_core", LevelFilter::ERROR)
+        .with_target("wgpu_hal", LevelFilter::ERROR)
+        .with_target("naga", LevelFilter::ERROR)
 }
 
 /// The computer's time: the log is read against what happened that evening.

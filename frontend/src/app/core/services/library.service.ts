@@ -389,6 +389,21 @@ export class LibraryService {
     }, LIBRARY_SEARCH_DELAY_MS);
   }
 
+  /** Shows `path` as separated in the lists. */
+  markSeparated(path: string) {
+    const update = (tracks: DirEntry[]) =>
+      tracks.map((t) =>
+        t.path === path && t.details ? { ...t, details: { ...t.details, vocals: true } } : t,
+      );
+    const listing = this.listing();
+    if (listing?.tracks.some((t) => t.path === path)) {
+      this.listing.set({ ...listing, tracks: update(listing.tracks) });
+    }
+    for (const list of [this.sourceTracks, this.libraryResults, this.prepare.list]) {
+      if (list().some((t) => t.path === path)) list.update(update);
+    }
+  }
+
   private patch({ path, details }: TrackAnalyzed) {
     const update = (tracks: DirEntry[]) =>
       tracks.map((t) => (t.path === path ? { ...t, details } : t));

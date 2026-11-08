@@ -53,10 +53,24 @@
       <span class="count">{{
         tracks().length === 1 ? ('1 track' | t) : ('{n} tracks' | t: { n: tracks().length })
       }}</span>
-      @if (engine.error() ?? library.error(); as e) {
+      @if (engine.error() ?? library.error() ?? stems.error(); as e) {
         <span class="error" [title]="e">{{ e }}</span>
       }
       <div class="analysis">
+        @if (stems.progress().running) {
+          <span class="status" [title]="stems.progress().device ?? ''">{{
+            'Separating {done} / {total}'
+              | t: { done: stems.progress().done, total: separationTotal() }
+          }}</span>
+          <div class="bar"><div [style.width.%]="stems.overall() * 100"></div></div>
+          <button
+            class="pr-btn pr-btn--sm pr-btn--ghost"
+            (click)="stems.cancel()"
+            [title]="'Stop separating the vocals' | t"
+          >
+            {{ 'Stop' | t }}
+          </button>
+        }
         @if (progress().running) {
           <span class="status">{{
             'Analysing {done} / {total}' | t: { done: progress().done, total: progress().total }

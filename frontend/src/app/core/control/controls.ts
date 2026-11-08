@@ -37,6 +37,9 @@ export interface ControlActions {
   bend(deck: number, direction: -1 | 0 | 1): void;
   toggleKeyLock(deck: number): void;
   keyLocked(deck: number): boolean;
+  /** Mutes or plays the vocals or the instrumental of a separated track. */
+  toggleStem(deck: number, stem: 'vocals' | 'instrumental'): void;
+  stemPlaying(deck: number, stem: 'vocals' | 'instrumental'): boolean;
   triggerSample(deck: number, slot: number): void;
   samplePlaying(deck: number, slot: number): boolean;
   toggleFx(deck: number): void;
@@ -130,6 +133,16 @@ function deckControls(a: ControlActions, deck: number): Control[] {
     lit(
       button(id('keylock'), group, t('Key lock'), () => a.toggleKeyLock(deck)),
       () => a.keyLocked(deck),
+    ),
+    lit(
+      button(id('vocals'), group, t('Vocals'), () => a.toggleStem(deck, 'vocals')),
+      () => a.stemPlaying(deck, 'vocals'),
+    ),
+    lit(
+      button(id('instrumental'), group, t('Instrumental'), () =>
+        a.toggleStem(deck, 'instrumental'),
+      ),
+      () => a.stemPlaying(deck, 'instrumental'),
     ),
     ...Array.from({ length: SAMPLE_SLOTS }, (_, slot) =>
       lit(

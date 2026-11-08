@@ -316,6 +316,62 @@ pub struct TrackInfoDto {
     pub cues: Vec<CueDto>,
     /// Semitones the deck transposes the track by.
     pub key_shift: i8,
+    /// Its separated vocals are on the deck: the stems can be muted.
+    pub vocals: bool,
+    pub stem_mix: StemMixDto,
+}
+
+/// Which stems a deck plays.
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct StemMixDto {
+    pub vocals: bool,
+    pub instrumental: bool,
+}
+
+impl From<prisme_engine::StemMix> for StemMixDto {
+    fn from(m: prisme_engine::StemMix) -> Self {
+        Self { vocals: m.vocals, instrumental: m.instrumental }
+    }
+}
+
+impl From<StemMixDto> for prisme_engine::StemMix {
+    fn from(m: StemMixDto) -> Self {
+        Self { vocals: m.vocals, instrumental: m.instrumental }
+    }
+}
+
+/// The separation queue.
+#[derive(Debug, Clone, Default, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct StemsProgressDto {
+    pub running: bool,
+    /// Tracks left, the one being separated included.
+    pub queued: usize,
+    pub done: usize,
+    pub failed: usize,
+    /// The track being separated, and how far (0 to 1).
+    pub current: Option<String>,
+    pub fraction: f64,
+    /// The GPU (and API) or "CPU" doing the work.
+    pub device: Option<String>,
+}
+
+/// The separation model: installed, or how far its download is.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ModelStatusDto {
+    pub installed: bool,
+    pub downloading: Option<f64>,
+    pub error: Option<String>,
+    pub bytes: u64,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct StemsStatusDto {
+    pub model: ModelStatusDto,
+    pub progress: StemsProgressDto,
 }
 
 /// What became known of a loaded track after it was put on its deck.
@@ -327,6 +383,8 @@ pub struct DeckTrackUpdateDto {
     /// The waveform was computed: it can be fetched (`deck_waveform`).
     pub waveform_ready: bool,
     pub analysis: Option<TrackAnalysisDto>,
+    /// The track's separated vocals reached the deck.
+    pub vocals_ready: bool,
 }
 
 /// Tempo and key of a loaded track, after a correction or its analysis.
@@ -728,6 +786,8 @@ pub struct TrackDetailsDto {
     pub play_count: usize,
     /// The file could not be decoded.
     pub failed: bool,
+    /// Its vocals are separated (stored next to it).
+    pub vocals: bool,
 }
 
 impl From<&prisme_library::TrackRecord> for TrackDetailsDto {
@@ -741,6 +801,7 @@ impl From<&prisme_library::TrackRecord> for TrackDetailsDto {
             rating: r.marks.rating,
             play_count: r.play_count,
             failed: r.error.is_some(),
+            vocals: prisme_stems::track::has_vocals(std::path::Path::new(&r.path)),
         }
     }
 }

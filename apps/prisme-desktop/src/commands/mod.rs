@@ -18,5 +18,6 @@ pub mod preferences;
 pub mod prepare;
 pub mod recording;
 pub mod sampler;
+pub mod stems;
 pub mod tracks;
 pub mod transport;

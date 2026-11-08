@@ -20,6 +20,7 @@ prisme-session = { path = "crates/prisme-session" }
 prisme-import = { path = "crates/prisme-import" }
 prisme-dsp = { path = "crates/prisme-dsp" }
 prisme-control = { path = "crates/prisme-control" }
+prisme-stems = { path = "crates/prisme-stems" }
 
 anyhow = "1"
 thiserror = "2"
@@ -64,4 +65,6 @@ opt-level = 2
 [profile.dev.package.prisme-analysis]
 opt-level = 2
 [profile.dev.package.prisme-media]
+opt-level = 2
+[profile.dev.package.prisme-stems]
 opt-level = 2

@@ -36,6 +36,12 @@ export class DeckControls {
   protected readonly status = computed(() => this.engine.status()?.decks[this.deck()] ?? null);
   protected readonly settings = computed(() => this.engine.decks()[this.deck()]);
   protected readonly vinyl = computed(() => this.settings().vinylEnabled);
+  protected readonly track = computed(() => this.engine.tracks()[this.deck()]);
+  protected readonly stemsTitle = computed(() =>
+    this.track()?.vocals
+      ? ''
+      : t('Separate the track in the library to mute its vocals or its instrumental'),
+  );
   private readonly absolute = computed(
     () => this.vinyl() && this.settings().vinylMode === 'absolute',
   );

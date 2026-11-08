@@ -1,6 +1,7 @@
 import { Component, ElementRef, computed, effect, inject, signal, viewChild } from '@angular/core';
 import { EngineService } from '../../core/services/engine.service';
 import { LibraryService, TrackSource } from '../../core/services/library.service';
+import { StemsService } from '../../core/services/stems.service';
 import { ImportDialog } from './import-dialog/import-dialog';
 import { LibrarySidebar } from './library-sidebar/library-sidebar';
 import { TrackTable } from './track-table/track-table';
@@ -35,6 +36,11 @@ const SEARCH_PLACEHOLDER: Record<TrackSource['kind'], string> = {
 export class Library {
   protected readonly library = inject(LibraryService);
   protected readonly engine = inject(EngineService);
+  protected readonly stems = inject(StemsService);
+  protected readonly separationTotal = computed(() => {
+    const p = this.stems.progress();
+    return p.done + p.failed + p.queued;
+  });
   protected readonly tracks = this.library.visibleTracks;
   protected readonly deckIndexes = Array.from({ length: DECK_COUNT }, (_, i) => i);
   protected readonly letter = deckLetter;

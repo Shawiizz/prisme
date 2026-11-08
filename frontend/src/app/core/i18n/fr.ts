@@ -469,4 +469,29 @@ export const FR: Record<string, string> = {
   'Prisme starts again in the new language.': 'Prisme redémarre dans la nouvelle langue.',
   'The audio restarts to apply these changes.': "L'audio redémarre pour appliquer ces changements.",
   'Settings (Ctrl + ,)': 'Réglages (Ctrl + ,)',
+  // vocals separation
+  Vocals: 'Voix',
+  Instrumental: 'Instru',
+  'Vocals: on or muted': 'Voix : jouée ou coupée',
+  'Instrumental: on or muted': 'Instru : jouée ou coupée',
+  'Separate the track in the library to mute its vocals or its instrumental':
+    'Séparez le morceau dans la bibliothèque pour couper sa voix ou son instru',
+  'Separated vocals': 'Voix séparée',
+  'Vocals separated': 'Voix séparée',
+  'Separating the vocals': 'Séparation de la voix',
+  'Waiting to be separated': 'En attente de séparation',
+  'Separate the vocals': 'Séparer la voix',
+  'Separating {done} / {total}': 'Séparation {done} / {total}',
+  'Stop separating the vocals': 'Arrêter la séparation',
+  Stop: 'Arrêter',
+  'Vocals separation': 'Séparation voix / instru',
+  'Downloaded once. A track takes about a minute with a recent graphics card, several minutes on the processor alone.':
+    'Téléchargée une fois. Un morceau prend environ une minute avec une carte graphique récente, plusieurs sur le processeur seul.',
+  'Separate the whole library': 'Séparer toute la bibliothèque',
+  'The vocals are stored next to each track, in a .prisme folder: copy your music to another computer and its separations come along.':
+    'Les voix sont rangées à côté de chaque morceau, dans un dossier .prisme : copiez votre musique sur un autre ordinateur et ses séparations suivent.',
+  Installed: 'Installée',
+  'Download ({size} MB)': 'Télécharger ({size} Mo)',
+  'Separating…': 'Séparation…',
+  Separate: 'Séparer',
 };

@@ -18,7 +18,9 @@ pub mod metadata;
 pub mod scan;
 pub mod smart;
 
-pub use analyzer::{default_workers, AnalysisListener, AnalysisProgress, BackgroundAnalyzer};
+pub use analyzer::{
+    background_priority, default_workers, AnalysisListener, AnalysisProgress, BackgroundAnalyzer,
+};
 pub use cues::{Cue, CueSlot, HOT_CUES};
 pub use db::{
     now_ms, path_key, Crate, CrateId, DbError, FileStamp, GridEdit, HistoryPlay, HistorySession, LibraryDb,

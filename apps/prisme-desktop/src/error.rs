@@ -4,6 +4,8 @@
 pub enum AppError {
     #[error("audio is not running")]
     AudioNotRunning,
+    #[error("the separation model is not installed")]
+    NoStemsModel,
     #[error("invalid deck {0}")]
     InvalidDeck(usize),
     #[error("no track on deck {}", .0 + 1)]

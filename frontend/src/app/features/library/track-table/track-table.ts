@@ -15,6 +15,7 @@ import { TRACKS_DRAG_TYPE } from '../../../shared/drag';
 import { decimal, deckLetter } from '../../../shared/time';
 import { octaveRatio } from '../../../core/sync';
 import { HistoryService } from '../../../core/services/history.service';
+import { StemsService } from '../../../core/services/stems.service';
 import { TRACK_COLORS, hexColor } from '../../../shared/track-colors';
 import { COLUMNS, Column, ColumnId, gridTemplate } from './columns';
 import { t } from '../../../core/i18n/i18n';
@@ -59,6 +60,7 @@ function popoverAt(event: MouseEvent): Popover {
 export class TrackTable {
   protected readonly library = inject(LibraryService);
   protected readonly engine = inject(EngineService);
+  protected readonly stems = inject(StemsService);
   private readonly preferences = inject(PreferencesService);
   private readonly history = inject(HistoryService);
   private readonly host = inject(ElementRef<HTMLElement>);
@@ -162,6 +164,11 @@ export class TrackTable {
   }
 
   /** A set can hold the same track twice: its rows are told apart by play time. */
+  /** `0.42` → `42 %` */
+  percent(fraction: number): string {
+    return `${Math.round(fraction * 100)} %`;
+  }
+
   rowKey(t: DirEntry): string {
     return 'playedAtMs' in t ? `${t.path}@${t.playedAtMs}` : t.path;
   }

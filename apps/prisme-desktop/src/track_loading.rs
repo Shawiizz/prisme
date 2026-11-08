@@ -8,7 +8,7 @@ use crate::error::AppResult;
 use crate::library_service::LibraryService;
 use crate::state::{lock, AppState, LoadedTrack};
 use prisme_analysis::{AnalysisOptions, TrackAnalysis};
-use prisme_engine::Command;
+use prisme_engine::{Command, StemMix};
 use prisme_library::{FileStamp, TrackRecord};
 use prisme_media::LoadingTrack;
 use std::path::PathBuf;
@@ -82,6 +82,8 @@ pub fn prepare(path: PathBuf, library: &LibraryService) -> AppResult<(LoadedTrac
         tags,
         cues,
         key_shift: 0,
+        vocals: None,
+        stem_mix: StemMix::default(),
     };
     Ok((track, completion))
 }
@@ -96,7 +98,9 @@ impl Completion {
         }
         let state = app.state::<AppState>();
         let library = app.state::<Arc<LibraryService>>();
-        let mut update = DeckTrackUpdateDto { deck, load_id, waveform_ready: false, analysis: None };
+        let vocals_ready = crate::stems_service::give_vocals(app, deck, load_id, &self.path, &audio);
+        let mut update =
+            DeckTrackUpdateDto { deck, load_id, waveform_ready: false, analysis: None, vocals_ready };
         if self.waveform_missing {
             let waveform = prisme_analysis::compute_waveform(&audio, WAVEFORM_SLICES_PER_S);
             if let Some(stamp) = self.stamp {
@@ -125,7 +129,7 @@ impl Completion {
                 update.analysis = Some(dto);
             }
         }
-        if update.waveform_ready || update.analysis.is_some() {
+        if update.waveform_ready || update.analysis.is_some() || update.vocals_ready {
             let _ = app.emit(DECK_TRACK_UPDATE_EVENT, update);
         }
     }

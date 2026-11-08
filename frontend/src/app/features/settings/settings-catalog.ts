@@ -155,6 +155,22 @@ export const SETTINGS: readonly SettingEntry[] = [
     description: t('So that Serato, rekordbox and the others find them.'),
   },
   {
+    id: 'library.stemsModel',
+    page: 'library',
+    label: t('Vocals separation'),
+    description: t(
+      'Downloaded once. A track takes about a minute with a recent graphics card, several minutes on the processor alone.',
+    ),
+  },
+  {
+    id: 'library.stemsAll',
+    page: 'library',
+    label: t('Separate the whole library'),
+    description: t(
+      'The vocals are stored next to each track, in a .prisme folder: copy your music to another computer and its separations come along.',
+    ),
+  },
+  {
     id: 'interface.language',
     page: 'interface',
     label: t('Language'),

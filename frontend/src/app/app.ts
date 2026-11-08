@@ -1,4 +1,5 @@
 import { Component, OnInit, inject } from '@angular/core';
+import { StemsService } from './core/services/stems.service';
 import { Titlebar } from './shell/titlebar/titlebar';
 import { DeckCard } from './features/deck/deck-card/deck-card';
 import { DeckWaveform } from './features/deck/deck-waveform/deck-waveform';
@@ -43,6 +44,7 @@ import { NavigationService } from './core/services/navigation.service';
 export class App implements OnInit {
   private readonly engine = inject(EngineService);
   private readonly library = inject(LibraryService);
+  private readonly stems = inject(StemsService);
   private readonly settings = inject(SettingsService);
   private readonly preferences = inject(PreferencesService);
   private readonly keyboard = inject(KeyboardService);
@@ -56,6 +58,7 @@ export class App implements OnInit {
     const [mixer] = await Promise.all([
       this.engine.connect(),
       this.library.init(),
+      this.stems.init(),
       this.settings.init(),
       this.keyboard.start(),
       this.controllers.start(),

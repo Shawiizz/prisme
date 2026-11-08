@@ -20,6 +20,8 @@ export interface TrackDetails {
   playCount: number;
   /** The file could not be decoded. */
   failed: boolean;
+  /** Its vocals are separated: a deck can mute them or the instrumental. */
+  vocals: boolean;
 }
 
 export interface DirEntry {

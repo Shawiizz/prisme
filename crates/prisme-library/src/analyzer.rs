@@ -231,7 +231,7 @@ fn analyze(file: &ScannedFile, options: &AnalysisOptions) -> (TrackRecord, Optio
 }
 
 /// Puts the calling thread in background mode: lowest CPU, disk and memory priority.
-fn background_priority() {
+pub fn background_priority() {
     #[cfg(windows)]
     // SAFETY: changes the priority of the calling thread only; no pointers involved.
     unsafe {
