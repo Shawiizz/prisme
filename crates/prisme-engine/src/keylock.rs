@@ -8,7 +8,7 @@
 //! [`KeyLock::applies`] (scratching, backwards, very slow or fast) the deck plays
 //! without it.
 
-use prisme_media::TrackAudio;
+use crate::stems::Reader;
 use signalsmith_stretch::Stretch;
 
 const MIN_SPEED: f64 = 0.5;
@@ -61,20 +61,19 @@ impl KeyLock {
         self.engaged = false;
     }
 
-    /// Renders `out` from `track` at `speed`, the playhead being at `position` (source
-    /// frames) in the loop `loop_frames`; returns where the playhead is afterwards, and
-    /// by how much a loop made it jump back.
+    /// Renders `out` from `source` at `speed`, the playhead being at `position` (source
+    /// frames) in the loop `loop_frames`; returns where the playhead is afterwards.
     pub(crate) fn render(
         &mut self,
-        track: &TrackAudio,
+        source: &mut Reader,
         position: f64,
         loop_frames: Option<(f64, f64)>,
         out: &mut [f32],
         out_rate: f64,
         speed: f64,
     ) -> f64 {
-        let ratio = track.sample_rate() as f64 / out_rate;
-        let transposition = (track.sample_rate(), self.key_shift);
+        let ratio = source.sample_rate() as f64 / out_rate;
+        let transposition = (source.sample_rate(), self.key_shift);
         if transposition != self.transposed_for {
             // the track's samples are played at the output rate: bring its pitch back
             let factor = ratio * 2f64.powf(f64::from(self.key_shift) / 12.0);
@@ -84,14 +83,14 @@ impl KeyLock {
         let lead = self.stretch.input_latency() as f64 + self.stretch.output_latency() as f64 * speed * ratio;
         let wanted = position + lead;
         if !self.engaged || (self.feed - wanted).abs() > JUMP_FRAMES {
-            self.start_at(track, wanted, loop_frames, speed);
+            self.start_at(source, wanted, loop_frames, speed);
         }
         let out_frames = out.len() / 2;
         let advance = out_frames as f64 * speed * ratio;
         let start = self.feed.floor();
         let frames = ((self.feed + advance).floor() - start) as usize;
         let input = &mut self.input[..frames * 2];
-        read(track, start as isize, loop_frames, input);
+        read(source, start as isize, loop_frames, input, true);
         self.stretch.process(&*input, &mut *out);
         self.feed += advance;
 
@@ -102,11 +101,11 @@ impl KeyLock {
     }
 
     /// Restarts the stretcher with what comes before `feed`.
-    fn start_at(&mut self, track: &TrackAudio, feed: f64, loop_frames: Option<(f64, f64)>, speed: f64) {
+    fn start_at(&mut self, source: &mut Reader, feed: f64, loop_frames: Option<(f64, f64)>, speed: f64) {
         self.stretch.reset();
         let preroll = self.stretch.input_latency();
         let input = &mut self.input[..preroll * 2];
-        read(track, feed.floor() as isize - preroll as isize, loop_frames, input);
+        read(source, feed.floor() as isize - preroll as isize, loop_frames, input, false);
         self.stretch.seek(&*input, speed);
         self.feed = feed.floor();
         self.engaged = true;
@@ -114,9 +113,9 @@ impl KeyLock {
 }
 
 /// Reads interleaved frames from `start`; frames past the end of an active loop come
-/// from its start, as the playhead will play them.
-fn read(track: &TrackAudio, start: isize, loop_frames: Option<(f64, f64)>, out: &mut [f32]) {
-    let view = track.view();
+/// from its start, as the playhead will play them. The stem gains move with the frames
+/// read, except for a pre-roll (already heard, or never).
+fn read(source: &mut Reader, start: isize, loop_frames: Option<(f64, f64)>, out: &mut [f32], advance: bool) {
     for (i, frame) in out.chunks_exact_mut(2).enumerate() {
         let mut index = start + i as isize;
         if let Some((loop_start, loop_end)) = loop_frames {
@@ -125,15 +124,20 @@ fn read(track: &TrackAudio, start: isize, loop_frames: Option<(f64, f64)>, out: 
                 index = s + (index - s) % (e - s);
             }
         }
-        let (l, r) = view.frame(index);
+        let (l, r) = source.frame(index);
         frame[0] = l;
         frame[1] = r;
+        if advance {
+            source.advance();
+        }
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::stems::Stems;
+    use prisme_media::TrackAudio;
     use std::f32::consts::TAU;
 
     const RATE: u32 = 48_000;
@@ -150,7 +154,8 @@ mod tests {
         let mut heard = Vec::new();
         let mut block = vec![0.0f32; 256 * 2];
         for _ in 0..(seconds * RATE as f64 / 256.0) as usize {
-            position = lock.render(track, position, None, &mut block, RATE as f64, speed);
+            position =
+                lock.render(&mut Stems::new().reader(track), position, None, &mut block, RATE as f64, speed);
             heard.extend(block.chunks_exact(2).map(|f| f[0]));
         }
         (heard, position)
@@ -180,7 +185,14 @@ mod tests {
         let mut lock = KeyLock::new(RATE, 1024);
         play(&mut lock, &track, 1.0, 0.5);
         let mut block = vec![0.0f32; 512];
-        let after = lock.render(&track, 4.0 * RATE as f64, None, &mut block, RATE as f64, 1.0);
+        let after = lock.render(
+            &mut Stems::new().reader(&track),
+            4.0 * RATE as f64,
+            None,
+            &mut block,
+            RATE as f64,
+            1.0,
+        );
         assert!((after - (4.0 * RATE as f64 + 256.0)).abs() < 1e-6);
         assert!(
             (lock.feed - after - lock.stretch.input_latency() as f64 - lock.stretch.output_latency() as f64)
@@ -197,7 +209,14 @@ mod tests {
         let mut position = RATE as f64;
         let mut block = vec![0.0f32; 512];
         for _ in 0..2_000 {
-            position = lock.render(&track, position, loop_frames, &mut block, RATE as f64, 1.0);
+            position = lock.render(
+                &mut Stems::new().reader(&track),
+                position,
+                loop_frames,
+                &mut block,
+                RATE as f64,
+                1.0,
+            );
             assert!((RATE as f64..RATE as f64 * 1.25).contains(&position));
         }
         let lead = lock.stretch.input_latency() as f64 + lock.stretch.output_latency() as f64;

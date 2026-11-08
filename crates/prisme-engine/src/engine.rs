@@ -223,8 +223,10 @@ impl Engine {
                 if valid(deck) {
                     let d = &mut self.decks[deck];
                     d.reset_track_state();
-                    if let Some(old) = d.playhead.load(track) {
-                        self.discard(Garbage::Track(old));
+                    let vocals = d.playhead.take_vocals();
+                    let old = d.playhead.load(track);
+                    for garbage in [vocals, old].into_iter().flatten() {
+                        self.discard(Garbage::Track(garbage));
                     }
                 } else {
                     self.discard(Garbage::Track(track));
@@ -234,10 +236,19 @@ impl Engine {
                 let d = &mut self.decks[deck];
                 d.playing = false;
                 d.reset_track_state();
-                if let Some(old) = d.playhead.eject() {
+                let vocals = d.playhead.take_vocals();
+                let old = d.playhead.eject();
+                for garbage in [vocals, old].into_iter().flatten() {
+                    self.discard(Garbage::Track(garbage));
+                }
+            }
+            SetVocals { deck, vocals } => {
+                let old = if valid(deck) { self.decks[deck].playhead.set_vocals(vocals) } else { vocals };
+                if let Some(old) = old {
                     self.discard(Garbage::Track(old));
                 }
             }
+            SetStemMix { deck, mix } if valid(deck) => self.decks[deck].playhead.set_stem_mix(mix),
             SetPlaying { deck, playing } if valid(deck) => self.decks[deck].playing = playing,
             SetPitch { deck, ratio } if valid(deck) => self.decks[deck].pitch = ratio,
             SetPitchBend { deck, amount } if valid(deck) => self.decks[deck].bend = amount,

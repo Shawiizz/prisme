@@ -21,6 +21,13 @@ pub fn constant_track(seconds: f64, level: f32) -> Arc<TrackAudio> {
     Arc::new(TrackAudio::from_interleaved(44_100, vec![level; (seconds * 44_100.0) as usize * 2]))
 }
 
+/// A 440 Hz sine of amplitude `level`.
+pub fn sine_track(seconds: f64, level: f32) -> Arc<TrackAudio> {
+    let frames = (seconds * 44_100.0) as usize;
+    let sine = (0..frames).map(|i| (i as f32 * std::f32::consts::TAU * 440.0 / 44_100.0).sin() * level);
+    Arc::new(TrackAudio::from_interleaved(44_100, sine.flat_map(|v| [v, v]).collect()))
+}
+
 /// A record on a turntable, turning at `speed`.
 pub struct Turntable {
     pub generator: SignalGenerator,
@@ -97,6 +104,17 @@ impl Rig {
     /// The first frame of the last block, one value per output channel.
     pub fn output_frame(&self) -> &[f32] {
         &self.output[..self.output_channels]
+    }
+
+    /// Runs for about `seconds` and returns the RMS level of the first output channel.
+    pub fn run_rms(&mut self, seconds: f64) -> f32 {
+        let blocks = (seconds * SR as f64 / BLOCK as f64).round().max(1.0) as usize;
+        let mut sum = 0.0;
+        for _ in 0..blocks {
+            self.run(BLOCK as f64 / SR as f64);
+            sum += self.output.iter().step_by(self.output_channels).map(|v| v * v).sum::<f32>();
+        }
+        (sum / (blocks * BLOCK) as f32).sqrt()
     }
 
     pub fn deck(&mut self, deck: usize) -> DeckStatus {

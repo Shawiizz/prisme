@@ -2,6 +2,7 @@
 
 use crate::keylock::KeyLock;
 use crate::looping::LoopRegion;
+use crate::stems::{StemMix, Stems};
 use prisme_media::TrackAudio;
 use std::sync::Arc;
 
@@ -12,11 +13,12 @@ pub(crate) struct Playhead {
     position: f64,
     /// Active loop, in source frames.
     loop_frames: Option<(f64, f64)>,
+    stems: Stems,
 }
 
 impl Playhead {
     pub(crate) fn new() -> Self {
-        Self { track: None, position: 0.0, loop_frames: None }
+        Self { track: None, position: 0.0, loop_frames: None, stems: Stems::new() }
     }
 
     /// Loads a track at its start and returns the previous one (to be freed elsewhere).
@@ -30,6 +32,20 @@ impl Playhead {
         self.position = 0.0;
         self.loop_frames = None;
         self.track.take()
+    }
+
+    /// Sets the vocals of the loaded track; returns the previous ones (to be freed elsewhere).
+    pub(crate) fn set_vocals(&mut self, vocals: Option<Arc<TrackAudio>>) -> Option<Arc<TrackAudio>> {
+        self.stems.set_vocals(vocals)
+    }
+
+    /// Takes the vocals away and plays both stems again, before another track is loaded.
+    pub(crate) fn take_vocals(&mut self) -> Option<Arc<TrackAudio>> {
+        self.stems.clear()
+    }
+
+    pub(crate) fn set_stem_mix(&mut self, mix: StemMix) {
+        self.stems.set_mix(mix);
     }
 
     /// Makes the playhead wrap around `region` (`None`: no loop).
@@ -68,17 +84,18 @@ impl Playhead {
             return;
         };
         let step = speed * track.sample_rate() as f64 / out_rate;
-        let view = track.view();
+        let mut source = self.stems.reader(track);
         for frame in out.chunks_exact_mut(2) {
             let i = self.position.floor();
             let t = (self.position - i) as f32;
             let i = i as isize;
-            let (l0, r0) = view.frame(i - 1);
-            let (l1, r1) = view.frame(i);
-            let (l2, r2) = view.frame(i + 1);
-            let (l3, r3) = view.frame(i + 2);
+            let (l0, r0) = source.frame(i - 1);
+            let (l1, r1) = source.frame(i);
+            let (l2, r2) = source.frame(i + 1);
+            let (l3, r3) = source.frame(i + 2);
             frame[0] = catmull_rom(l0, l1, l2, l3, t);
             frame[1] = catmull_rom(r0, r1, r2, r3, t);
+            source.advance();
             self.position = wrap_in_loop(self.position, self.position + step, self.loop_frames);
         }
     }
@@ -92,7 +109,8 @@ impl Playhead {
         speed: f64,
     ) {
         let Some(track) = self.track.as_ref() else { return self.render(out, out_rate, speed) };
-        self.position = key_lock.render(track, self.position, self.loop_frames, out, out_rate, speed);
+        let mut source = self.stems.reader(track);
+        self.position = key_lock.render(&mut source, self.position, self.loop_frames, out, out_rate, speed);
     }
 }
 

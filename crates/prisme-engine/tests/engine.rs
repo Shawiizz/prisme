@@ -2,8 +2,8 @@
 
 mod common;
 
-use common::{silent_track, Rig, SR};
-use prisme_engine::{Command, Rpm, VinylMode};
+use common::{silent_track, sine_track, Rig, SR};
+use prisme_engine::{Command, Rpm, StemMix, VinylMode};
 use prisme_timecode::{DecoderConfig, TimecodeDecoder, SERATO_CV02_A};
 
 #[test]
@@ -169,4 +169,35 @@ fn going_back_and_forth_is_not_taken_for_crossed_channels() {
         rig.run(0.5);
     }
     assert!(!rig.deck(0).vinyl.crossed);
+}
+
+#[test]
+fn a_deck_mutes_the_vocals_or_the_instrumental() {
+    for key_lock in [false, true] {
+        let mut rig = Rig::new();
+        rig.send(Command::LoadTrack { deck: 0, track: sine_track(10.0, 0.6) });
+        rig.send(Command::SetVocals { deck: 0, vocals: Some(sine_track(10.0, 0.2)) });
+        rig.send(Command::SetKeyLock { deck: 0, enabled: key_lock });
+        rig.send(Command::SetPlaying { deck: 0, playing: true });
+        rig.run(0.5);
+        let both = rig.run_rms(0.5);
+        assert!(both > 0.05, "{both}");
+        let level = |rig: &mut Rig, mix: StemMix| {
+            rig.send(Command::SetStemMix { deck: 0, mix });
+            rig.run(0.5);
+            rig.run_rms(0.5) / both
+        };
+        let tolerance = if key_lock { 0.01 } else { 1e-3 };
+        let instrumental = level(&mut rig, StemMix { vocals: false, instrumental: true });
+        assert!((instrumental - 0.4 / 0.6).abs() < tolerance, "key lock {key_lock}: {instrumental}");
+        let vocals = level(&mut rig, StemMix { vocals: true, instrumental: false });
+        assert!((vocals - 0.2 / 0.6).abs() < tolerance, "key lock {key_lock}: {vocals}");
+        assert!(level(&mut rig, StemMix { vocals: false, instrumental: false }) < 1e-3);
+
+        // another track plays whole, whatever the previous one muted
+        rig.send(Command::LoadTrack { deck: 0, track: sine_track(10.0, 0.6) });
+        rig.send(Command::SetPlaying { deck: 0, playing: true });
+        rig.run(0.5);
+        assert!((rig.run_rms(0.5) / both - 1.0).abs() < tolerance, "key lock {key_lock}");
+    }
 }
