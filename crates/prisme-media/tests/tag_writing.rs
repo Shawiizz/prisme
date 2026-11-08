@@ -8,7 +8,7 @@ use lofty::mp4::{AtomData, AtomIdent, Mp4File};
 use lofty::mpeg::MpegFile;
 use lofty::tag::ItemKey;
 use lofty::TextEncoding;
-use prisme_media::{write_tempo_and_key, TempoAndKey};
+use prisme_media::{write_genre, write_tempo_and_key, TempoAndKey};
 use std::borrow::Cow;
 use std::fs::File;
 use std::path::{Path, PathBuf};
@@ -117,6 +117,24 @@ fn other_files_are_left_alone() {
     let file = Scratch::path("notes.txt");
     std::fs::write(&file.0, "not audio").unwrap();
     assert!(!write_tempo_and_key(&file.0, VALUES).unwrap());
+}
+
+#[test]
+fn the_genre_is_written_replaced_and_taken_off() {
+    for fixture in ["silence.mp3", "silence.flac", "silence.ogg", "silence.m4a"] {
+        let file = Scratch::of(fixture);
+        assert!(write_genre(&file.0, Some("Électro")).unwrap(), "{fixture}");
+        assert_eq!(read(&file.0, ItemKey::Genre).as_deref(), Some("Électro"), "{fixture}");
+        assert!(!write_genre(&file.0, Some("Électro")).unwrap(), "{fixture} written again");
+        assert!(write_genre(&file.0, Some("House")).unwrap(), "{fixture}");
+        assert_eq!(read(&file.0, ItemKey::Genre).as_deref(), Some("House"), "{fixture}");
+        // the tempo and key written before stay
+        write_tempo_and_key(&file.0, VALUES).unwrap();
+        assert!(write_genre(&file.0, None).unwrap(), "{fixture}");
+        assert_eq!(read(&file.0, ItemKey::Genre), None, "{fixture}");
+        assert_eq!(read(&file.0, ItemKey::InitialKey).as_deref(), Some("Am"), "{fixture}");
+        assert!(!write_genre(&file.0, None).unwrap(), "{fixture} taken off again");
+    }
 }
 
 /// Half a second of 16-bit mono silence.

@@ -191,6 +191,8 @@ pub fn run() {
             commands::history::export_history,
             commands::marks::set_track_color,
             commands::marks::set_track_rating,
+            commands::marks::set_track_genre,
+            commands::library::library_genres,
             commands::import::serato_folder,
             commands::import::import_serato,
             commands::import::import_rekordbox,

@@ -211,6 +211,17 @@ impl LibraryDb {
     /// match: "dee mau" finds deadmau5), at most `limit` of them. They are not ranked:
     /// the track list sorts them, and ranking every match costs 6 times more with
     /// thousands of them (one letter typed in a large library).
+    /// The genres of the library's tracks, the most common first.
+    pub fn genres(&self) -> Result<Vec<String>, DbError> {
+        let conn = self.conn();
+        let mut stmt = conn.prepare_cached(
+            "SELECT genre FROM tracks WHERE genre IS NOT NULL AND genre <> ''
+             GROUP BY genre ORDER BY COUNT(*) DESC, genre",
+        )?;
+        let rows = stmt.query_map([], |r| r.get(0))?;
+        Ok(rows.collect::<Result<_, _>>()?)
+    }
+
     pub fn search(&self, query: &str, limit: usize) -> Result<Vec<TrackRecord>, DbError> {
         let Some(fts) = fts_query(query) else { return Ok(Vec::new()) };
         let conn = self.conn();
@@ -354,6 +365,38 @@ mod tests {
                 comment: None,
             },
         )
+    }
+
+    #[test]
+    fn a_written_genre_follows_its_file_without_a_new_version() {
+        let db = LibraryDb::open_in_memory().unwrap();
+        let path = Path::new("C:/Music/a.mp3");
+        db.save(&sample("C:/Music/a.mp3", "deadmau5", "Alone with You")).unwrap();
+        let after = FileStamp { size: 1300, modified_ms: 120 };
+        db.genre_written(path, Some("Progressive"), STAMP, after).unwrap();
+        let record = db.get(path).unwrap().unwrap();
+        assert_eq!(record.tags.genre.as_deref(), Some("Progressive"));
+        assert_eq!(record.version.stamp, after);
+
+        // the file changed meanwhile: the record is left for the next analysis
+        db.genre_written(path, None, STAMP, FileStamp { size: 1, modified_ms: 1 }).unwrap();
+        assert_eq!(db.get(path).unwrap().unwrap().tags.genre.as_deref(), Some("Progressive"));
+        db.genre_written(path, None, after, after).unwrap();
+        assert_eq!(db.get(path).unwrap().unwrap().tags.genre, None);
+    }
+
+    #[test]
+    fn genres_come_most_common_first() {
+        let db = LibraryDb::open_in_memory().unwrap();
+        let with_genre = |path: &str, genre: Option<&str>| {
+            let record = sample(path, "a", "t");
+            TrackRecord { tags: TrackTags { genre: genre.map(Into::into), ..record.tags.clone() }, ..record }
+        };
+        for (path, genre) in [("1", Some("Techno")), ("2", Some("House")), ("3", Some("House")), ("4", None)]
+        {
+            db.save(&with_genre(path, genre)).unwrap();
+        }
+        assert_eq!(db.genres().unwrap(), ["House", "Techno"]);
     }
 
     #[test]

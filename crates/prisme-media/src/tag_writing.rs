@@ -1,5 +1,6 @@
-//! Writing the tempo and key into a file's tags, where DJ software reads them: ID3v2
-//! TBPM and TKEY, Vorbis BPM and INITIALKEY, MP4 tmpo and iTunes initialkey.
+//! Writing into a file's tags, where DJ software reads them: the tempo and key (ID3v2
+//! TBPM and TKEY, Vorbis BPM and INITIALKEY, MP4 tmpo and iTunes initialkey) and the
+//! genre.
 //!
 //! Each format goes through its own tag type: lofty's generic tag would drop what it
 //! does not know, such as the ID3v2 GEOB frames where Serato keeps cues and beat grids.
@@ -30,6 +31,74 @@ pub struct TempoAndKey<'a> {
 /// Writes `values` into the tags of `path`; returns whether the file changed (values
 /// already there are not written again, formats without such tags are left alone).
 pub fn write_tempo_and_key(path: &Path, values: TempoAndKey<'_>) -> Result<bool, MediaError> {
+    write(
+        path,
+        Setters {
+            id3v2: &|tag| set_id3v2(tag, values),
+            vorbis: &|comments| set_vorbis(comments, values),
+            ilst: &|ilst| set_ilst(ilst, values),
+        },
+    )
+}
+
+/// Writes the genre of `path` (`None` takes it off); returns whether the file changed:
+/// ID3v2 TCON, Vorbis GENRE, MP4 ©gen.
+pub fn write_genre(path: &Path, genre: Option<&str>) -> Result<bool, MediaError> {
+    write(
+        path,
+        Setters {
+            id3v2: &|tag| {
+                let id = FrameId::Valid(Cow::Borrowed("TCON"));
+                match genre {
+                    Some(genre) if tag.get_text(&id) == Some(genre) => false,
+                    // UTF-16: accents survive in ID3v2.3, which has no UTF-8
+                    Some(genre) => {
+                        tag.insert(Frame::Text(TextInformationFrame::new(
+                            id,
+                            TextEncoding::UTF16,
+                            genre.to_owned(),
+                        )));
+                        true
+                    }
+                    None => tag.remove(&id).count() > 0,
+                }
+            },
+            vorbis: &|comments| match genre {
+                Some(genre) if comments.get("GENRE") == Some(genre) => false,
+                Some(genre) => {
+                    comments.insert("GENRE".into(), genre.into());
+                    true
+                }
+                None => comments.remove("GENRE").count() > 0,
+            },
+            ilst: &|ilst| {
+                let ident = AtomIdent::Fourcc(*b"\xa9gen");
+                // iTunes' older numbered genre would contradict the new one
+                let numbered = ilst.remove(&AtomIdent::Fourcc(*b"gnre")).count() > 0;
+                match genre {
+                    Some(genre) => {
+                        let data = AtomData::UTF8(genre.into());
+                        if ilst.get(&ident).and_then(|a| a.data().next()) == Some(&data) {
+                            return numbered;
+                        }
+                        ilst.replace_atom(Atom::new(ident, data));
+                        true
+                    }
+                    None => ilst.remove(&ident).count() > 0 || numbered,
+                }
+            },
+        },
+    )
+}
+
+/// How each kind of tag is changed; each returns whether it changed something.
+struct Setters<'a> {
+    id3v2: &'a dyn Fn(&mut Id3v2Tag) -> bool,
+    vorbis: &'a dyn Fn(&mut VorbisComments) -> bool,
+    ilst: &'a dyn Fn(&mut Ilst) -> bool,
+}
+
+fn write(path: &Path, set: Setters<'_>) -> Result<bool, MediaError> {
     let extension = path.extension().map(|e| e.to_string_lossy().to_lowercase());
     match extension.as_deref() {
         Some("mp3") => update(path, |f: &mut MpegFile| {
@@ -37,29 +106,29 @@ pub fn write_tempo_and_key(path: &Path, values: TempoAndKey<'_>) -> Result<bool,
             if f.id3v2().is_none() {
                 f.set_id3v2(Id3v2Tag::new());
             }
-            (set_id3v2(f.id3v2_mut().expect("set above"), values), version)
+            ((set.id3v2)(f.id3v2_mut().expect("set above")), version)
         }),
         Some("wav") => update(path, |f: &mut WavFile| {
             let version = f.id3v2().map(|t| t.original_version());
             if f.id3v2().is_none() {
                 f.set_id3v2(Id3v2Tag::new());
             }
-            (set_id3v2(f.id3v2_mut().expect("set above"), values), version)
+            ((set.id3v2)(f.id3v2_mut().expect("set above")), version)
         }),
         Some("flac") => update(path, |f: &mut FlacFile| {
             if f.vorbis_comments().is_none() {
                 f.set_vorbis_comments(VorbisComments::new());
             }
-            (set_vorbis(f.vorbis_comments_mut().expect("set above"), values), None)
+            ((set.vorbis)(f.vorbis_comments_mut().expect("set above")), None)
         }),
         Some("ogg" | "oga") => {
-            update(path, |f: &mut VorbisFile| (set_vorbis(f.vorbis_comments_mut(), values), None))
+            update(path, |f: &mut VorbisFile| ((set.vorbis)(f.vorbis_comments_mut()), None))
         }
         Some("m4a" | "mp4") => update(path, |f: &mut Mp4File| {
             if f.ilst().is_none() {
                 f.set_ilst(Ilst::new());
             }
-            (set_ilst(f.ilst_mut().expect("set above"), values), None)
+            ((set.ilst)(f.ilst_mut().expect("set above")), None)
         }),
         _ => Ok(false),
     }

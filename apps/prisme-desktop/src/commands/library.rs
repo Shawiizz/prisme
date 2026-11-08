@@ -30,6 +30,12 @@ pub fn search_library(library: State<'_, Arc<LibraryService>>, query: String) ->
         .collect())
 }
 
+/// The genres of the library, the most common first (suggestions when tagging).
+#[tauri::command]
+pub fn library_genres(library: State<'_, Arc<LibraryService>>) -> AppResult<Vec<String>> {
+    Ok(library.db.genres()?)
+}
+
 /// Tracks that look like the same song, one group after the other.
 #[tauri::command]
 pub fn find_duplicates(library: State<'_, Arc<LibraryService>>) -> AppResult<Vec<DirEntryDto>> {
