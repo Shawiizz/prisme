@@ -32,7 +32,7 @@ impl AudioCallback for LatencyProbe {
         output.fill(0.0);
         let frames = output.len() / output_channels.max(1);
         for f in 0..frames {
-            if (self.frame + f) % self.period == 0 && self.output_channel < output_channels {
+            if (self.frame + f).is_multiple_of(self.period) && self.output_channel < output_channels {
                 output[f * output_channels + self.output_channel] = 1.0;
             }
             let sample = if self.input_channel < input_channels {

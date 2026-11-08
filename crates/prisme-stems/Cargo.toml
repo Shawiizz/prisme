@@ -1,0 +1,23 @@
+[package]
+name = "prisme-stems"
+description = "Vocals / instrumental separation with a Mel-Band RoFormer network, on the GPU or the CPU"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+license.workspace = true
+
+[dependencies]
+realfft.workspace = true
+thiserror.workspace = true
+safetensors = "0.8"
+memmap2 = "0.9"
+gemm = "0.19"
+rayon = "1"
+libm = "0.2"
+wgpu = { version = "30", default-features = false, features = ["std", "parking_lot", "dx12", "vulkan", "wgsl"] }
+bytemuck = { version = "1", features = ["derive"] }
+pollster = "0.4"
+
+[dev-dependencies]
+hound.workspace = true

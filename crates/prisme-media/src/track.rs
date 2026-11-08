@@ -27,7 +27,7 @@ pub struct TrackAudio {
 impl TrackAudio {
     /// A complete track from interleaved stereo samples.
     pub fn from_interleaved(sample_rate: u32, samples: Vec<f32>) -> Self {
-        assert!(samples.len() % 2 == 0, "stereo data must have an even number of samples");
+        assert!(samples.len().is_multiple_of(2), "stereo data must have an even number of samples");
         let frames = samples.len() / 2;
         Self {
             sample_rate,
