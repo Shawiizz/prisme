@@ -265,12 +265,20 @@ impl Reader<'_> {
         self.tensors.tensor(name).is_ok()
     }
 
+    /// A float tensor, widened to f32 when stored as f16.
     fn f32s(&self, name: &str) -> Result<Vec<f32>, StemsError> {
         let t = self.tensors.tensor(name).map_err(|_| missing(name))?;
-        if t.dtype() != Dtype::F32 {
-            return Err(StemsError::Model(format!("{name} is not f32")));
+        match t.dtype() {
+            Dtype::F32 => {
+                Ok(t.data().chunks_exact(4).map(|b| f32::from_le_bytes([b[0], b[1], b[2], b[3]])).collect())
+            }
+            Dtype::F16 => Ok(t
+                .data()
+                .chunks_exact(2)
+                .map(|b| half::f16::from_le_bytes([b[0], b[1]]).to_f32())
+                .collect()),
+            other => Err(StemsError::Model(format!("{name} is {other:?}, not a float"))),
         }
-        Ok(t.data().chunks_exact(4).map(|b| f32::from_le_bytes([b[0], b[1], b[2], b[3]])).collect())
     }
 
     fn u32s(&self, name: &str) -> Result<Vec<u32>, StemsError> {

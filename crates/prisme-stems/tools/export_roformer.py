@@ -1,6 +1,6 @@
 """Convert a Mel-Band RoFormer checkpoint into the safetensors file Prisme reads.
 
-    python export_roformer.py model.ckpt model.yaml out.safetensors
+    python export_roformer.py [--half] model.ckpt model.yaml out.safetensors
     python export_roformer.py --fixture ../tests/data/tiny_roformer.safetensors
 
 Needs torch, safetensors, pyyaml and audio-separator (for the reference model class).
@@ -11,6 +11,9 @@ only, laid out for it:
 * every RMSNorm that feeds linear layers has its gain folded into their weights;
 * the attention scale is folded into the query weights;
 * the query/key/value projection and the attention gates form one matrix (`qkvg`).
+
+`--half` stores the weights and biases in float16, halving the download: the output moves by
+about 5e-4 of its level (-66 dB). Rotary frequencies, norm gains and indices stay exact.
 
 `--fixture` writes a tiny model with random weights, plus a random input and the reference
 model's output (`test.*` tensors): the Rust tests check their implementations against it.
@@ -78,21 +81,23 @@ def tensors_of(model):
     return {k: v.contiguous().clone() for k, v in t.items()}, meta
 
 
-def save(model, out, meta_extra, extra_tensors=None):
+def save(model, out, meta_extra, extra_tensors=None, half=False):
     tensors, meta = tensors_of(model)
+    if half:
+        tensors = {k: v.half() if k.endswith((".weight", ".bias")) else v for k, v in tensors.items()}
     meta.update(meta_extra)
     tensors.update(extra_tensors or {})
     save_file(tensors, out, metadata={k: str(v) for k, v in meta.items()})
     print(f"wrote {out}: {len(tensors)} tensors, {json.dumps(meta)}")
 
 
-def export(ckpt, config, out):
+def export(ckpt, config, out, half):
     cfg = yaml.load(Path(config).read_text(), Loader=yaml.FullLoader)
     model = MelBandRoformer(**cfg["model"])
     state = torch.load(ckpt, map_location="cpu", weights_only=False)
     model.load_state_dict(state.get("state_dict", state))
     meta = dict(sample_rate=cfg["model"]["sample_rate"], chunk_frames=cfg["inference"]["dim_t"])
-    save(model.eval(), out, meta)
+    save(model.eval(), out, meta, half=half)
 
 
 def fixture(out):
@@ -118,8 +123,9 @@ if __name__ == "__main__":
     ap.add_argument("config", nargs="?")
     ap.add_argument("out", nargs="?")
     ap.add_argument("--fixture")
+    ap.add_argument("--half", action="store_true")
     a = ap.parse_args()
     if a.fixture:
         fixture(a.fixture)
     else:
-        export(a.ckpt, a.config, a.out)
+        export(a.ckpt, a.config, a.out, a.half)

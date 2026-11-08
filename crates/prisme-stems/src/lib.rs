@@ -12,6 +12,7 @@ pub mod model;
 pub mod network;
 pub mod separate;
 pub mod stft;
+pub mod track;
 
 pub use cpu::CpuNetwork;
 pub use gpu::GpuNetwork;
@@ -31,6 +32,8 @@ pub enum StemsError {
     NoGpu(String),
     #[error("GPU: {0}")]
     Gpu(String),
+    #[error("{0}")]
+    Track(String),
     #[error("cancelled")]
     Cancelled,
 }
