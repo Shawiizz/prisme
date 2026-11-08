@@ -1,3 +1,8 @@
 [env]
 # libclang for the ASIO bindings (bindgen); installed by scripts/setup-dev.ps1
 LIBCLANG_PATH = { value = ".tools/libclang/clang/native", relative = true }
+
+# The C and C++ runtimes inside the executable: a computer without the Visual C++
+# redistributable runs it too (the ASIO SDK and the key lock are C++)
+[target.x86_64-pc-windows-msvc]
+rustflags = ["-C", "target-feature=+crt-static"]
