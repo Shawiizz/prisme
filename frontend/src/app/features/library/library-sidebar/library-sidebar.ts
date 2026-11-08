@@ -11,6 +11,21 @@ import { TPipe } from '../../../core/i18n/t.pipe';
 
 type Deletable = 'crate' | 'session';
 type DropTarget = number | 'prepare';
+type Foldable = 'crates' | 'history';
+
+const FOLDED_KEY = 'prisme.sidebar.folded';
+
+/** The sections the user folded, as left last time. */
+function savedFolded(): Foldable[] {
+  try {
+    const saved: unknown = JSON.parse(localStorage.getItem(FOLDED_KEY) ?? '[]');
+    return Array.isArray(saved)
+      ? saved.filter((s): s is Foldable => s === 'crates' || s === 'history')
+      : [];
+  } catch {
+    return [];
+  }
+}
 
 const SESSION_DATE = new Intl.DateTimeFormat(LOCALE, {
   weekday: 'short',
@@ -21,8 +36,8 @@ const SESSION_DATE = new Intl.DateTimeFormat(LOCALE, {
 });
 
 /**
- * Left panel of the library: the prepare list and the crates (tracks are dropped on them),
- * the history of the sets and the folders.
+ * Left panel of the library: the prepare list, the folders, the crates (tracks are dropped
+ * on them) and the history of the sets, the last two foldable.
  */
 @Component({
   selector: 'app-library-sidebar',
@@ -43,6 +58,7 @@ export class LibrarySidebar {
   protected readonly editing = signal<number | 'new' | null>(null);
   /** Item whose delete button was clicked once: a second click deletes it. */
   private readonly armed = signal<{ kind: Deletable; id: number } | null>(null);
+  private readonly folded = signal<Foldable[]>(savedFolded());
   /** Where dragged tracks would go: a crate or the prepare list. */
   protected readonly dropTarget = signal<DropTarget | null>(null);
   private readonly nameInput = viewChild<ElementRef<HTMLInputElement>>('nameInput');
@@ -72,6 +88,26 @@ export class LibrarySidebar {
       input?.focus();
       input?.select();
     });
+  }
+
+  isFolded(section: Foldable): boolean {
+    return this.folded().includes(section);
+  }
+
+  toggle(section: Foldable) {
+    this.folded.update((f) =>
+      f.includes(section) ? f.filter((s) => s !== section) : [...f, section],
+    );
+    try {
+      localStorage.setItem(FOLDED_KEY, JSON.stringify(this.folded()));
+    } catch {
+      // storage unavailable: folded until the next start only
+    }
+  }
+
+  newCrate() {
+    if (this.isFolded('crates')) this.toggle('crates');
+    this.editing.set('new');
   }
 
   open(id: number) {

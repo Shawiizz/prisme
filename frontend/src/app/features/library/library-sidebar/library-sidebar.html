@@ -25,9 +25,38 @@
     </div>
   </div>
 </section>
-<section class="crates">
+<section class="folders">
+  <div class="crumbs">
+    @for (c of crumbs(); track c.path; let last = $last) {
+      <button
+        class="crumb"
+        [class.current]="last && browsingFolder()"
+        (click)="library.open(c.path)"
+      >
+        {{ c.name }}
+      </button>
+      @if (!last) {
+        <span class="sep">/</span>
+      }
+    }
+  </div>
+  <div class="list">
+    @for (f of library.listing()?.folders ?? []; track f.path) {
+      <div class="item" (click)="library.open(f.path)" [title]="f.path">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h7l2 2h9v10H3z" /></svg>
+        {{ f.name }}
+      </div>
+    } @empty {
+      <div class="none">{{ 'No sub-folder' | t }}</div>
+    }
+  </div>
+</section>
+<section class="crates" [class.folded]="isFolded('crates')">
   <header>
-    <span>{{ 'Crates' | t }}</span>
+    <button class="fold" [attr.aria-expanded]="!isFolded('crates')" (click)="toggle('crates')">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6" /></svg>
+      {{ 'Crates' | t }}
+    </button>
     <span class="adds">
       <button
         class="pr-btn pr-btn--sm pr-btn--ghost"
@@ -40,7 +69,7 @@
         class="pr-btn pr-btn--sm pr-btn--ghost pr-btn--icon"
         [title]="'New crate' | t"
         [attr.aria-label]="'New crate' | t"
-        (click)="editing.set('new')"
+        (click)="newCrate()"
       >
         +
       </button>
@@ -113,9 +142,12 @@
   </div>
 </section>
 
-<section class="history">
+<section class="history" [class.folded]="isFolded('history')">
   <header>
-    <span>{{ 'History' | t }}</span>
+    <button class="fold" [attr.aria-expanded]="!isFolded('history')" (click)="toggle('history')">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6" /></svg>
+      {{ 'History' | t }}
+    </button>
   </header>
   <div class="list">
     @for (s of sessions(); track s.id) {
@@ -152,33 +184,6 @@
       </div>
     } @empty {
       <div class="none">{{ 'Tracks played for 30 s are listed here, set by set' | t }}</div>
-    }
-  </div>
-</section>
-
-<section class="folders">
-  <div class="crumbs">
-    @for (c of crumbs(); track c.path; let last = $last) {
-      <button
-        class="crumb"
-        [class.current]="last && browsingFolder()"
-        (click)="library.open(c.path)"
-      >
-        {{ c.name }}
-      </button>
-      @if (!last) {
-        <span class="sep">/</span>
-      }
-    }
-  </div>
-  <div class="list">
-    @for (f of library.listing()?.folders ?? []; track f.path) {
-      <div class="item" (click)="library.open(f.path)" [title]="f.path">
-        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h7l2 2h9v10H3z" /></svg>
-        {{ f.name }}
-      </div>
-    } @empty {
-      <div class="none">{{ 'No sub-folder' | t }}</div>
     }
   </div>
 </section>
