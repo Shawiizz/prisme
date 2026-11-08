@@ -88,3 +88,6 @@ clicks at full level, so keep speakers and headphones away from that output.
 Prisme is free software: you can redistribute it and/or modify it under the terms of
 the GNU General Public License as published by the Free Software Foundation, either
 version 3 of the License, or (at your option) any later version. See [LICENSE](LICENSE).
+
+The vocals separation model, downloaded separately, is Kimberley Jensen's
+[Mel-Band RoFormer](https://huggingface.co/KimberleyJSN/melbandroformer) (MIT licence).

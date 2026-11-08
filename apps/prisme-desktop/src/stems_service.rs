@@ -24,7 +24,7 @@ pub const STEMS_PROGRESS_EVENT: &str = "stems-progress";
 pub const STEMS_SEPARATED_EVENT: &str = "stems-separated";
 pub const STEMS_MODEL_EVENT: &str = "stems-model";
 
-/// The Mel-Band RoFormer vocals model of Kimberley Jensen (GPL-3.0), converted by
+/// The Mel-Band RoFormer vocals model of Kimberley Jensen (MIT licence), converted by
 /// `crates/prisme-stems/tools/export_roformer.py --half`.
 const MODEL_FILE: &str = "roformer-vocals-f16-1.safetensors";
 const MODEL_URL: &str =
