@@ -53,6 +53,8 @@ export interface ControlActions {
   browse(steps: number): void;
   loadSelected(deck: number | null): void;
   removeSelected(): void;
+  selectAll(): void;
+  clearSelection(): void;
   prepareSelected(): void;
   focusSearch(): void;
   toggleHelp(): void;
@@ -193,6 +195,8 @@ export function buildControls(a: ControlActions): Control[] {
       a.removeSelected(),
     ),
     button('library.prepare', library, t('Add to the prepare list'), () => a.prepareSelected()),
+    button('library.selectAll', library, t('Select all the tracks'), () => a.selectAll()),
+    button('library.clearSelection', library, t('Clear the selection'), () => a.clearSelection()),
     button('library.search', library, t('Search'), () => a.focusSearch()),
     button('general.help', t('General'), t('Keyboard shortcuts'), () => a.toggleHelp()),
     button('general.palette', t('General'), t('Command palette'), () => a.togglePalette()),

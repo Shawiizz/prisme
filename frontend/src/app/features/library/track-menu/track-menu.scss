@@ -1,0 +1,100 @@
+:host {
+  display: block;
+  min-width: 200px;
+  max-width: 280px;
+}
+
+.menu {
+  display: grid;
+  gap: 1px;
+  > button {
+    display: block;
+    width: 100%;
+    height: auto;
+    padding: 6px var(--pr-space-2);
+    border: none;
+    border-radius: var(--pr-radius-sm);
+    background: transparent;
+    color: var(--pr-text-2);
+    text-align: left;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    &:hover:not(:disabled),
+    &:focus-visible {
+      background: var(--pr-raise-2);
+      color: var(--pr-text);
+    }
+    &:disabled {
+      color: var(--pr-text-3);
+    }
+  }
+  // opens a panel
+  .more::after {
+    content: '›';
+    float: right;
+    margin-left: var(--pr-space-3);
+    color: var(--pr-text-3);
+  }
+  // back to the actions, naming the panel
+  .back {
+    color: var(--pr-text);
+    font-weight: 600;
+    &::before {
+      content: '‹';
+      margin-right: var(--pr-space-2);
+      color: var(--pr-text-3);
+    }
+  }
+  .danger:hover {
+    color: var(--pr-text);
+  }
+  hr {
+    width: 100%;
+    margin: 3px 0;
+    border: none;
+    border-top: 1px solid var(--pr-line-soft);
+  }
+}
+
+.empty,
+.hint {
+  padding: 4px var(--pr-space-2);
+  color: var(--pr-text-3);
+  font-size: var(--pr-size-small);
+  white-space: normal;
+}
+
+.swatches {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--pr-space-1);
+  padding: 4px var(--pr-space-2);
+  button {
+    width: 20px;
+    height: 20px;
+    padding: 0;
+    background: var(--swatch);
+    border-color: var(--swatch);
+    border-radius: var(--pr-radius-sm);
+  }
+  .clear {
+    background: transparent;
+    border-color: var(--pr-line-2);
+    color: var(--pr-text-3);
+    line-height: 1;
+  }
+}
+
+.genre {
+  gap: var(--pr-space-1);
+  .pr-input {
+    margin: 2px var(--pr-space-2) 0;
+  }
+  .actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: var(--pr-space-1);
+    padding: 2px var(--pr-space-2) 2px;
+  }
+}

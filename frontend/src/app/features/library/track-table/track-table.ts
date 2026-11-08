@@ -18,6 +18,7 @@ import { HistoryService } from '../../../core/services/history.service';
 import { StemsService } from '../../../core/services/stems.service';
 import { TRACK_COLORS, hexColor } from '../../../shared/track-colors';
 import { COLUMNS, Column, ColumnId, gridTemplate } from './columns';
+import { TrackMenu, TrackMenuPanel } from '../track-menu/track-menu';
 import { t } from '../../../core/i18n/i18n';
 import { TPipe } from '../../../core/i18n/t.pipe';
 
@@ -31,20 +32,36 @@ const EMPTY_LIST: Record<TrackSource['kind'], string> = {
 
 const STARS = [1, 2, 3, 4, 5];
 
-/** A popover opened at the pointer: below it, or above it in the lower half of the window. */
+/**
+ * A popover opened at a point: below it, or above it in the lower half of the window; to
+ * its right, or to its left in the right half.
+ */
 interface Popover {
-  left: number;
+  left: number | null;
+  right: number | null;
   top: number | null;
   bottom: number | null;
 }
 
-function popoverAt(event: MouseEvent): Popover {
-  const below = event.clientY < window.innerHeight / 2;
+function popoverAt(x: number, y: number): Popover {
+  const below = y < window.innerHeight / 2;
+  const rightwards = x < window.innerWidth / 2;
   return {
-    left: event.clientX,
-    top: below ? event.clientY : null,
-    bottom: below ? null : window.innerHeight - event.clientY,
+    left: rightwards ? x : null,
+    right: rightwards ? null : window.innerWidth - x,
+    top: below ? y : null,
+    bottom: below ? null : window.innerHeight - y,
   };
+}
+
+function popoverAtPointer(event: MouseEvent): Popover {
+  return popoverAt(event.clientX, event.clientY);
+}
+
+/** A popover above an element (the buttons of the selection bar). */
+function popoverAbove(element: HTMLElement): Popover {
+  const r = element.getBoundingClientRect();
+  return { ...popoverAt(r.left, r.top), top: null, bottom: window.innerHeight - r.top + 4 };
 }
 
 /**
@@ -55,7 +72,7 @@ function popoverAt(event: MouseEvent): Popover {
   selector: 'app-track-table',
   templateUrl: './track-table.html',
   styleUrl: './track-table.scss',
-  imports: [Cover, TPipe],
+  imports: [Cover, TrackMenu, TPipe],
 })
 export class TrackTable {
   protected readonly library = inject(LibraryService);
@@ -88,6 +105,8 @@ export class TrackTable {
 
   protected readonly columnMenu = signal<Popover | null>(null);
   protected readonly palette = signal<(Popover & { path: string }) | null>(null);
+  /** The actions on the selection, opened on one of their panels. */
+  protected readonly trackMenu = signal<(Popover & { panel: TrackMenuPanel }) | null>(null);
   /** Row a dragged track would be put before (`null`: the end of the list). */
   protected readonly insertBefore = signal<DirEntry | null>(null);
 
@@ -190,12 +209,12 @@ export class TrackTable {
 
   openColumnMenu(event: MouseEvent) {
     event.preventDefault();
-    this.columnMenu.set(popoverAt(event));
+    this.columnMenu.set(popoverAtPointer(event));
   }
 
   openPalette(event: MouseEvent, t: DirEntry) {
     event.stopPropagation();
-    this.palette.set({ ...popoverAt(event), path: t.path });
+    this.palette.set({ ...popoverAtPointer(event), path: t.path });
   }
 
   setColor(color: number | null) {
@@ -209,9 +228,32 @@ export class TrackTable {
     this.library.setRating([t.path], t.details?.rating === stars ? 0 : stars);
   }
 
+  /** Click: this track; Ctrl click: add or remove it; Shift click: up to it. */
+  click(event: MouseEvent, path: string) {
+    const mode = event.shiftKey ? 'range' : event.ctrlKey || event.metaKey ? 'toggle' : 'only';
+    this.library.select(path, mode);
+  }
+
+  /** Right click: the actions on the selection, or on this track alone if it is not in it. */
+  openTrackMenu(event: MouseEvent, path: string) {
+    event.preventDefault();
+    if (!this.library.selection().has(path)) this.library.select(path, 'only');
+    this.trackMenu.set({ ...popoverAtPointer(event), panel: 'main' });
+  }
+
+  /** A button of the selection bar: its panel of the actions, above it. */
+  openPanel(event: MouseEvent, panel: TrackMenuPanel) {
+    this.trackMenu.set({ ...popoverAbove(event.currentTarget as HTMLElement), panel });
+  }
+
+  separateSelection() {
+    this.stems.separate(this.library.selectedPaths());
+  }
+
+  /** Dragging a selected track drags the whole selection. */
   dragStart(event: DragEvent, path: string) {
-    this.library.selected.set(path);
-    event.dataTransfer?.setData(TRACKS_DRAG_TYPE, JSON.stringify([path]));
+    if (!this.library.selection().has(path)) this.library.select(path, 'only');
+    event.dataTransfer?.setData(TRACKS_DRAG_TYPE, JSON.stringify(this.library.selectedPaths()));
   }
 
   listDragOver(event: DragEvent, before: DirEntry | null) {
@@ -227,12 +269,7 @@ export class TrackTable {
     if (!this.reorderable() || !data) return;
     event.preventDefault();
     event.stopPropagation();
-    const [path] = JSON.parse(data) as string[];
-    const list = this.library.listTracks();
-    const from = list.findIndex((t) => t.path === path);
-    let to = before ? list.indexOf(before) : list.length;
-    // the moved track leaves its place first: the ones after it move up by one
-    if (from >= 0 && from < to) to -= 1;
-    this.library.placeInPrepare(path, to);
+    const paths = JSON.parse(data) as string[];
+    this.library.placeInPrepare(paths, before?.path ?? null);
   }
 }

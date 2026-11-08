@@ -32,7 +32,7 @@
       class="row"
       [attr.data-path]="t.path"
       [title]="t.path"
-      [class.selected]="library.selected() === t.path"
+      [class.selected]="library.selection().has(t.path)"
       [class.played]="played(t.path)"
       [class.insert]="insertBefore() === t"
       draggable="true"
@@ -40,7 +40,8 @@
       (dragover)="listDragOver($event, t)"
       (dragleave)="insertBefore.set(null)"
       (drop)="listDrop($event, t)"
-      (click)="library.selected.set(t.path)"
+      (click)="click($event, t.path)"
+      (contextmenu)="openTrackMenu($event, t.path)"
       (dblclick)="library.load(t.path, null)"
     >
       @if (library.ordered()) {
@@ -185,6 +186,57 @@
   }
 </div>
 
+@if (library.selectedPaths().length > 1) {
+  <div class="selection-bar" role="toolbar" [attr.aria-label]="'Selected tracks' | t">
+    <span class="count">{{
+      '{n} tracks selected' | t: { n: library.selectedPaths().length }
+    }}</span>
+    <button class="pr-btn pr-btn--sm pr-btn--ghost" (click)="library.addSelectedToPrepare()">
+      {{ 'Prepare' | t }}
+    </button>
+    <button class="pr-btn pr-btn--sm pr-btn--ghost" (click)="openPanel($event, 'crates')">
+      {{ 'Crate' | t }}
+    </button>
+    <button class="pr-btn pr-btn--sm pr-btn--ghost" (click)="openPanel($event, 'color')">
+      {{ 'Colour' | t }}
+    </button>
+    <button class="pr-btn pr-btn--sm pr-btn--ghost" (click)="openPanel($event, 'genre')">
+      {{ 'Genre' | t }}
+    </button>
+    @if (stems.model().installed) {
+      <button class="pr-btn pr-btn--sm pr-btn--ghost" (click)="separateSelection()">
+        {{ 'Separate the vocals' | t }}
+      </button>
+    }
+    <button
+      class="pr-btn pr-btn--sm pr-btn--ghost pr-btn--icon close"
+      (click)="library.clearSelection()"
+      [title]="'Clear the selection (Esc)' | t"
+      [attr.aria-label]="'Clear the selection (Esc)' | t"
+    >
+      ×
+    </button>
+  </div>
+}
+
+@if (trackMenu(); as menu) {
+  <div
+    class="backdrop"
+    (click)="trackMenu.set(null)"
+    (contextmenu)="$event.preventDefault(); trackMenu.set(null)"
+  ></div>
+  <app-track-menu
+    class="popover"
+    [style.left.px]="menu.left"
+    [style.right.px]="menu.right"
+    [style.top.px]="menu.top"
+    [style.bottom.px]="menu.bottom"
+    [paths]="library.selectedPaths()"
+    [start]="menu.panel"
+    (closed)="trackMenu.set(null)"
+  />
+}
+
 @if (columnMenu(); as menu) {
   <div
     class="backdrop"
@@ -194,6 +246,7 @@
   <div
     class="popover columns"
     [style.left.px]="menu.left"
+    [style.right.px]="menu.right"
     [style.top.px]="menu.top"
     [style.bottom.px]="menu.bottom"
   >
@@ -213,6 +266,7 @@
   <div
     class="popover palette"
     [style.left.px]="p.left"
+    [style.right.px]="p.right"
     [style.top.px]="p.top"
     [style.bottom.px]="p.bottom"
   >

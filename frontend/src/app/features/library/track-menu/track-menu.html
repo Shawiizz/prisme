@@ -1,0 +1,104 @@
+@switch (panel()) {
+  @case ('main') {
+    <div class="menu" role="menu">
+      @if (paths().length === 1) {
+        @for (d of decks; track d) {
+          <button role="menuitem" (click)="load(d)">
+            {{ 'Load on deck {deck}' | t: { deck: letter(d) } }}
+          </button>
+        }
+        <hr />
+      }
+      <button role="menuitem" (click)="prepare()">{{ 'Add to the prepare list' | t }}</button>
+      <button role="menuitem" class="more" (click)="show('crates')">
+        {{ 'Add to a crate' | t }}
+      </button>
+      <hr />
+      <button role="menuitem" class="more" (click)="show('color')">{{ 'Colour' | t }}</button>
+      <button role="menuitem" class="more" (click)="show('genre')">{{ 'Genre' | t }}</button>
+      <hr />
+      @if (!stems.model().installed) {
+        <button
+          role="menuitem"
+          (click)="installModel()"
+          [title]="'The separation model is downloaded once, in the settings' | t"
+        >
+          {{ 'Separate the vocals…' | t }}
+        </button>
+      } @else {
+        <button role="menuitem" [disabled]="toSeparate().length === 0" (click)="separate()">
+          @if (paths().length > 1 && toSeparate().length > 0) {
+            {{ 'Separate the vocals ({n})' | t: { n: toSeparate().length } }}
+          } @else if (toSeparate().length === 0) {
+            {{ 'Vocals separated' | t }}
+          } @else {
+            {{ 'Separate the vocals' | t }}
+          }
+        </button>
+      }
+      @if (library.removable()) {
+        <hr />
+        <button role="menuitem" class="danger" (click)="remove()">{{ removeLabel() }}</button>
+      }
+    </div>
+  }
+  @case ('crates') {
+    <div class="menu" role="menu">
+      <button class="back" (click)="panel.set('main')">{{ 'Add to a crate' | t }}</button>
+      @for (c of targetCrates(); track c.id) {
+        <button role="menuitem" (click)="addToCrate(c.id)">{{ c.name }}</button>
+      } @empty {
+        <span class="empty">{{ 'No crate yet: create one in the side panel' | t }}</span>
+      }
+    </div>
+  }
+  @case ('color') {
+    <div class="menu">
+      <button class="back" (click)="panel.set('main')">{{ 'Colour' | t }}</button>
+      <div class="swatches">
+        @for (c of trackColors; track c.value) {
+          <button
+            [style.--swatch]="hexColor(c.value)"
+            [title]="c.name"
+            [attr.aria-label]="c.name"
+            (click)="setColor(c.value)"
+          ></button>
+        }
+        <button class="clear" [title]="'No colour' | t" (click)="setColor(null)">×</button>
+      </div>
+    </div>
+  }
+  @case ('genre') {
+    <form class="menu genre" (submit)="$event.preventDefault(); applyGenre(genre())">
+      <button type="button" class="back" (click)="panel.set('main')">{{ 'Genre' | t }}</button>
+      <input
+        #genreInput
+        class="pr-input"
+        list="library-genres"
+        [value]="genre()"
+        (input)="genre.set(genreInput.value)"
+        (keydown.escape)="closed.emit()"
+        [placeholder]="'House, Techno…' | t"
+        [attr.aria-label]="'Genre' | t"
+      />
+      <datalist id="library-genres">
+        @for (g of library.genres(); track g) {
+          <option [value]="g"></option>
+        }
+      </datalist>
+      <span class="hint">{{
+        paths().length > 1
+          ? ('Written into the tags of {n} files' | t: { n: paths().length })
+          : ('Written into the tags of the file' | t)
+      }}</span>
+      <div class="actions">
+        <button type="button" class="pr-btn pr-btn--sm pr-btn--ghost" (click)="applyGenre(null)">
+          {{ 'No genre' | t }}
+        </button>
+        <button type="submit" class="pr-btn pr-btn--sm" [disabled]="!genre().trim()">
+          {{ 'Apply' | t }}
+        </button>
+      </div>
+    </form>
+  }
+}

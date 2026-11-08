@@ -66,6 +66,8 @@ export class ControlService {
     browse: (steps) => this.library.moveSelection(steps),
     loadSelected: (deck) => this.library.loadSelected(deck),
     removeSelected: () => this.library.removeSelected(),
+    selectAll: () => this.library.selectAll(),
+    clearSelection: () => this.library.clearSelection(),
     prepareSelected: () => this.library.addSelectedToPrepare(),
     focusSearch: () => this.library.searchRequests.update((n) => n + 1),
     toggleHelp: () => this.navigation.toggleSettings('shortcuts'),

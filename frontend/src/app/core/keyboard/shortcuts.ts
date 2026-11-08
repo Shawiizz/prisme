@@ -47,6 +47,8 @@ export const SHORTCUTS: Shortcut[] = [
   { code: 'Enter', control: 'library.load' },
   { code: 'Delete', control: 'library.remove' },
   { code: 'KeyP', ctrl: true, control: 'library.prepare' },
+  { code: 'KeyA', ctrl: true, control: 'library.selectAll' },
+  { code: 'Escape', control: 'library.clearSelection' },
   { code: 'KeyF', ctrl: true, control: 'library.search' },
   { code: 'F1', control: 'general.help', global: true },
   { code: 'KeyK', ctrl: true, control: 'general.palette', global: true },

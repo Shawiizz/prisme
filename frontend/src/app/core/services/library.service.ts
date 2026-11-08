@@ -89,7 +89,25 @@ export class LibraryService {
   readonly filter = signal('');
   readonly scope = signal<SearchScope>('list');
   readonly sort = signal<TrackSort>({ column: 'title', direction: 1 });
+  /** The track the keyboard and the controllers move through, and load. */
   readonly selected = signal<string | null>(null);
+  /** Tracks picked with Ctrl and Shift clicks (or Ctrl + A), the cursor's among them. */
+  readonly picked = signal<ReadonlySet<string>>(new Set());
+  /** Where a Shift click extends the selection from. */
+  private anchor: string | null = null;
+  /** The tracks the actions apply to: the picked ones, else the cursor's. */
+  readonly selection = computed<ReadonlySet<string>>(() => {
+    const picked = this.picked();
+    const cursor = this.selected();
+    return picked.size > 0 ? picked : new Set(cursor ? [cursor] : []);
+  });
+  /** The selection, in the order shown. */
+  readonly selectedPaths = computed(() => {
+    const selection = this.selection();
+    return [...new Set(this.visibleTracks().map((t) => t.path))].filter((p) => selection.has(p));
+  });
+  /** The genres of the library, the most common first (loaded on demand). */
+  readonly genres = signal<string[]>([]);
   /** The deck the tracks are compared with: compatible keys, pitch to match. */
   readonly reference = signal(0);
   /** Incremented to ask the view to focus the search field. */
@@ -236,17 +254,24 @@ export class LibraryService {
     return this.attempt(() => this.prepare.add(paths));
   }
 
-  /** Puts a track at `index` of the prepare list, adding it if needed. */
-  placeInPrepare(path: string, index: number): Promise<void> {
+  /** Puts tracks before `before` in the prepare list (`null`: at its end), adding them if needed. */
+  placeInPrepare(paths: string[], before: string | null): Promise<void> {
+    if (before !== null && paths.includes(before)) return Promise.resolve();
     return this.attempt(async () => {
-      if (!this.prepare.list().some((t) => t.path === path)) await this.prepare.add([path]);
-      await this.prepare.move(path, index);
+      const missing = paths.filter((p) => !this.prepare.list().some((t) => t.path === p));
+      if (missing.length) await this.prepare.add(missing);
+      // each one in turn just before `before`: they keep their order
+      for (const path of paths) {
+        const others = this.prepare.list().filter((t) => t.path !== path);
+        const index = before === null ? others.length : others.findIndex((t) => t.path === before);
+        await this.prepare.move(path, index);
+      }
     });
   }
 
   addSelectedToPrepare(): Promise<void> {
-    const path = this.selected();
-    return path ? this.addToPrepare([path]) : Promise.resolve();
+    const paths = this.selectedPaths();
+    return paths.length ? this.addToPrepare(paths) : Promise.resolve();
   }
 
   async openCrate(id: number): Promise<void> {
@@ -309,24 +334,39 @@ export class LibraryService {
     });
   }
 
-  /** Takes the selected track out of the crate or prepare list being browsed. */
+  /** Whether the selection can be taken out of the list being browsed. */
+  readonly removable = computed(() => {
+    const source = this.source();
+    if (this.scope() !== 'list') return false;
+    if (source.kind === 'prepare') return true;
+    return source.kind === 'crate' && !this.crates.crates().find((c) => c.id === source.id)?.rules;
+  });
+
+  /** Takes the selected tracks out of the crate or prepare list being browsed. */
   async removeSelected(): Promise<void> {
     const source = this.source();
-    const path = this.selected();
-    if (!path || this.scope() !== 'list') return;
-    const next = this.neighbour(path);
+    const paths = this.selectedPaths();
+    if (!paths.length || !this.removable()) return;
+    const next = this.neighbour(paths[paths.length - 1]);
     await this.attempt(async () => {
       if (source.kind === 'crate') {
-        if (this.crates.crates().find((c) => c.id === source.id)?.rules) return;
-        await this.crates.remove(source.id, [path]);
-        this.sourceTracks.update((tracks) => tracks.filter((t) => t.path !== path));
+        await this.crates.remove(source.id, paths);
+        this.sourceTracks.update((tracks) => tracks.filter((t) => !paths.includes(t.path)));
       } else if (source.kind === 'prepare') {
-        await this.prepare.remove([path]);
-      } else {
-        return;
+        await this.prepare.remove(paths);
       }
-      this.selected.set(next);
+      this.clearSelection();
+      this.selected.set(next && !paths.includes(next) ? next : null);
     });
+  }
+
+  /** Writes `genre` into the files' tags (`null`: takes it off). */
+  setGenre(paths: string[], genre: string | null): Promise<void> {
+    return this.attempt(() => invoke('set_track_genre', { paths, genre }));
+  }
+
+  async loadGenres() {
+    this.genres.set(await invoke<string[]>('library_genres'));
   }
 
   setFilter(text: string) {
@@ -369,8 +409,40 @@ export class LibraryService {
     });
   }
 
+  /**
+   * A click on a row: `only` selects it alone, `toggle` (Ctrl) adds or removes it, `range`
+   * (Shift) selects from the last clicked one.
+   */
+  select(path: string, mode: 'only' | 'toggle' | 'range') {
+    if (mode === 'only') {
+      this.picked.set(new Set());
+    } else if (mode === 'toggle') {
+      const picked = new Set(this.selection());
+      if (!picked.delete(path)) picked.add(path);
+      this.picked.set(picked);
+    } else {
+      const paths = this.visibleTracks().map((t) => t.path);
+      const from = paths.indexOf(this.anchor ?? this.selected() ?? path);
+      const to = paths.indexOf(path);
+      const [a, b] = from < 0 ? [to, to] : [Math.min(from, to), Math.max(from, to)];
+      this.picked.set(new Set(paths.slice(a, b + 1)));
+    }
+    if (mode !== 'range') this.anchor = path;
+    this.selected.set(path);
+  }
+
+  selectAll() {
+    this.picked.set(new Set(this.visibleTracks().map((t) => t.path)));
+  }
+
+  clearSelection() {
+    this.picked.set(new Set());
+    this.anchor = null;
+  }
+
   /** Moves the selection through the visible tracks. */
   moveSelection(delta: number) {
+    this.clearSelection();
     const tracks = this.visibleTracks();
     if (!tracks.length) return;
     const index = tracks.findIndex((t) => t.path === this.selected());
@@ -395,6 +467,7 @@ export class LibraryService {
   }
 
   private browse(source: TrackSource) {
+    this.clearSelection();
     this.source.set(source);
     this.scope.set('list');
     this.setFilter('');

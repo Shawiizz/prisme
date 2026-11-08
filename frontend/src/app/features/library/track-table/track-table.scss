@@ -253,3 +253,21 @@
 .row.selected .stems .separate {
   opacity: 1;
 }
+
+// shown while several tracks are selected: what can be done with them
+.selection-bar {
+  position: sticky;
+  bottom: 0;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  gap: var(--pr-space-1);
+  padding: var(--pr-space-1) var(--pr-space-2);
+  background: var(--pr-raise);
+  border-top: 1px solid var(--pr-line-2);
+  .count {
+    margin-right: auto;
+    color: var(--pr-text);
+    font-weight: 600;
+  }
+}

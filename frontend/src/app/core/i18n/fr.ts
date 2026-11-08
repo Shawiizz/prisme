@@ -494,6 +494,24 @@ export const FR: Record<string, string> = {
   'Download ({size} MB)': 'Télécharger ({size} Mo)',
   'Separating…': 'Séparation…',
   Separate: 'Séparer',
+  'Select all the tracks': 'Sélectionner tous les morceaux',
+  'Clear the selection': 'Vider la sélection',
+  'Clear the selection (Esc)': 'Vider la sélection (Échap)',
+  'Selected tracks': 'Morceaux sélectionnés',
+  '{n} tracks selected': '{n} morceaux sélectionnés',
+  'Add to a crate': 'Ajouter à une crate',
+  'No crate yet: create one in the side panel':
+    'Aucune crate : créez-en une dans le panneau de gauche',
+  'Remove from the prepare list': 'Retirer de la préparation',
+  'Remove from the crate': 'Retirer de la crate',
+  'Separate the vocals…': 'Séparer la voix…',
+  'Separate the vocals ({n})': 'Séparer la voix ({n})',
+  'The separation model is downloaded once, in the settings':
+    'Le modèle de séparation se télécharge une fois, dans les réglages',
+  'House, Techno…': 'House, Techno…',
+  'Written into the tags of {n} files': 'Écrit dans les tags de {n} fichiers',
+  'Written into the tags of the file': 'Écrit dans les tags du fichier',
+  'No genre': 'Aucun genre',
   'Sort by how well the tracks follow deck {deck}: key as heard, then tempo':
     'Trier selon ce qui enchaîne le mieux après le deck {deck} : tonalité entendue, puis tempo',
 };
