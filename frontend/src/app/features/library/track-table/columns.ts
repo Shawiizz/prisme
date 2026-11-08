@@ -46,7 +46,7 @@ export const COLUMNS: readonly Column[] = [
   { id: 'year', name: t('Year'), header: t('Year'), width: '40px', sort: 'year' },
   { id: 'bpm', name: 'BPM', header: 'BPM', width: '60px', sort: 'bpm' },
   // its header names the reference deck
-  { id: 'pitch', name: t('Pitch to match'), header: '', width: '72px' },
+  { id: 'pitch', name: t('Pitch to match'), header: '', width: '72px', sort: 'mix' },
   { id: 'key', name: t('Key'), header: t('Key'), width: '52px', sort: 'key' },
   { id: 'rating', name: t('Rating'), header: t('Rating'), width: '74px', sort: 'rating' },
   { id: 'plays', name: t('Plays'), header: t('Plays'), width: '52px', sort: 'plays' },

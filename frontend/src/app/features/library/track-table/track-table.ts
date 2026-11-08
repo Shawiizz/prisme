@@ -112,6 +112,11 @@ export class TrackTable {
   protected readonly pitchHeader = computed(() =>
     t('Pitch → {deck}', { deck: deckLetter(this.library.reference()) }),
   );
+  protected readonly mixTitle = computed(() =>
+    t('Sort by how well the tracks follow deck {deck}: key as heard, then tempo', {
+      deck: deckLetter(this.library.reference()),
+    }),
+  );
   /** Path of the track on each deck. */
   private readonly deckPaths = computed(() => this.engine.tracks().map((track) => track?.path));
 

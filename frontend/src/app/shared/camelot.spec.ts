@@ -1,4 +1,4 @@
-import { camelotCompatible, semitonesToMix, transposeCamelot } from './camelot';
+import { camelotCompatible, camelotEnergyBoost, semitonesToMix, transposeCamelot } from './camelot';
 
 describe('transposeCamelot', () => {
   it('moves 7 steps per semitone', () => {
@@ -40,5 +40,18 @@ describe('semitonesToMix', () => {
         }
       }
     }
+  });
+});
+
+describe('camelotEnergyBoost', () => {
+  it('is two steps up in the same mode, around the wheel', () => {
+    expect(camelotEnergyBoost('8A', '10A')).toBe(true);
+    expect(camelotEnergyBoost('11B', '1B')).toBe(true);
+    expect(camelotEnergyBoost('12A', '2A')).toBe(true);
+  });
+
+  it('is not two steps down, nor the other mode', () => {
+    expect(camelotEnergyBoost('10A', '8A')).toBe(false);
+    expect(camelotEnergyBoost('8A', '10B')).toBe(false);
   });
 });

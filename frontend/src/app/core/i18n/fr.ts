@@ -494,4 +494,6 @@ export const FR: Record<string, string> = {
   'Download ({size} MB)': 'Télécharger ({size} Mo)',
   'Separating…': 'Séparation…',
   Separate: 'Séparer',
+  'Sort by how well the tracks follow deck {deck}: key as heard, then tempo':
+    'Trier selon ce qui enchaîne le mieux après le deck {deck} : tonalité entendue, puis tempo',
 };

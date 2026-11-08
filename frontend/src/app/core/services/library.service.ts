@@ -10,6 +10,8 @@ import {
   TrackAnalyzed,
 } from '../models/library';
 import { camelotRank } from '../../shared/camelot';
+import { DECK_COUNT } from '../models/engine';
+import { MixContext, MixReference, mixRank } from '../mix-rank';
 import { CratesService } from './crates.service';
 import { EngineService } from './engine.service';
 import { HistoryService } from './history.service';
@@ -17,8 +19,19 @@ import { PrepareService } from './prepare.service';
 import { PreferencesService } from './preferences.service';
 
 /** `order`: the order of the list itself (play order of a set). */
+/** `mix`: how well the tracks follow the reference deck (see `mixRank`). */
 export type SortColumn =
-  'order' | 'title' | 'artist' | 'album' | 'genre' | 'year' | 'bpm' | 'key' | 'rating' | 'plays';
+  | 'order'
+  | 'title'
+  | 'artist'
+  | 'album'
+  | 'genre'
+  | 'year'
+  | 'bpm'
+  | 'key'
+  | 'rating'
+  | 'plays'
+  | 'mix';
 
 export interface TrackSort {
   column: SortColumn;
@@ -129,13 +142,48 @@ export class LibraryService {
         ? [...this.libraryResults()]
         : this.listTracks().filter((t) => matchesSearch(t, words));
     const { column, direction } = this.sort();
+    if (column === 'mix') {
+      const context = this.mixContext();
+      if (!context) return shown;
+      const ranks = new Map(shown.map((t) => [t, mixRank(t, context)]));
+      return shown.sort((a, b) => compareRanks(ranks.get(a)!, ranks.get(b)!) * direction);
+    }
     const positions = this.positions();
     const value = (t: DirEntry) =>
       column === 'order' ? (positions.get(t) ?? Number.MAX_SAFE_INTEGER) : sortValue(t, column);
     return shown.sort((a, b) => compare(value(a), value(b)) * direction);
   });
 
+  /**
+   * The reference deck as it sounded when sorting by `mix` was chosen, or when another
+   * track came on it: its tempo and key move with the platter, the order should not.
+   */
+  private readonly mixReference = signal<MixReference | null>(null);
+
+  /** The reference deck and its track: another load, or its analysis arriving after it. */
+  private readonly referenceTrack = computed(() => {
+    const deck = this.reference();
+    const track = this.engine.tracks()[deck];
+    return `${deck} ${track?.loadId} ${track?.tempo?.bpm} ${track?.key?.camelot}`;
+  });
+
+  private readonly mixContext = computed((): MixContext | null => {
+    const reference = this.mixReference();
+    if (!reference) return null;
+    const next = (this.reference() + 1) % DECK_COUNT;
+    return {
+      reference,
+      pitchRange: this.preferences.dj().pitchRange,
+      keyLock: this.engine.decks()[next].keyLock,
+      playedTonight: this.history.playedTonight(),
+    };
+  });
+
   constructor() {
+    effect(() => {
+      this.referenceTrack();
+      if (this.sort().column === 'mix') untracked(() => this.captureMixReference());
+    });
     effect(() => {
       if (this.history.changes() === 0) return;
       const id = untracked(this.currentSession);
@@ -312,6 +360,15 @@ export class LibraryService {
     this.sort.set({ column, direction: s.column === column ? (-s.direction as 1 | -1) : 1 });
   }
 
+  private captureMixReference() {
+    const deck = this.reference();
+    this.mixReference.set({
+      bpm: this.engine.status()?.decks[deck]?.bpm ?? this.engine.tracks()[deck]?.tempo?.bpm ?? null,
+      camelot: this.engine.heardKey(deck)?.camelot ?? null,
+      path: this.engine.tracks()[deck]?.path ?? null,
+    });
+  }
+
   /** Moves the selection through the visible tracks. */
   moveSelection(delta: number) {
     const tracks = this.visibleTracks();
@@ -418,7 +475,7 @@ export class LibraryService {
 }
 
 /** Value a tag or analysis column sorts on; tracks without one go last. */
-function sortValue(t: DirEntry, column: Exclude<SortColumn, 'order'>): number | string {
+function sortValue(t: DirEntry, column: Exclude<SortColumn, 'order' | 'mix'>): number | string {
   const d = t.details;
   const text = (s: string | null | undefined) => s?.toLowerCase() ?? '\uffff';
   switch (column) {
@@ -446,4 +503,11 @@ function sortValue(t: DirEntry, column: Exclude<SortColumn, 'order'>): number | 
 
 function compare(a: number | string, b: number | string): number {
   return a < b ? -1 : a > b ? 1 : 0;
+}
+
+function compareRanks(a: number[], b: number[]): number {
+  for (let i = 0; i < a.length; i++) {
+    if (a[i] !== b[i]) return a[i] - b[i];
+  }
+  return 0;
 }

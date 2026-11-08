@@ -105,6 +105,13 @@ export function keyName(code: string): string {
   return `${note}${accidental} ${c.minor ? t('minor') : t('major')}`;
 }
 
+/** Two steps up the wheel in the same mode: a whole tone higher, a lift in energy. */
+export function camelotEnergyBoost(from: string, to: string): boolean {
+  const x = parse(from);
+  const y = parse(to);
+  return !!x && !!y && x.minor === y.minor && ((x.number + 1) % 12) + 1 === y.number;
+}
+
 /**
  * Keys that mix harmonically: the same key, one step around the wheel, or the
  * relative major / minor.
