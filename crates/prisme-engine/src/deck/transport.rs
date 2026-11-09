@@ -26,6 +26,8 @@ impl Deck {
         self.vinyl.take_back();
         self.transport = Transport { slip_mode: self.transport.slip_mode, ..Transport::default() };
         self.playhead.set_loop(None);
+        self.jog = Default::default();
+        self.hand = None;
     }
 
     pub(crate) fn set_loop(&mut self, region: Option<LoopRegion>, active: bool) {

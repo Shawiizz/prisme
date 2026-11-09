@@ -201,3 +201,65 @@ fn a_deck_mutes_the_vocals_or_the_instrumental() {
         assert!((rig.run_rms(0.5) / both - 1.0).abs() < tolerance, "key lock {key_lock}");
     }
 }
+
+#[test]
+fn a_touched_jog_carries_the_track_like_a_record() {
+    let mut rig = Rig::new();
+    rig.send(Command::LoadTrack { deck: 0, track: silent_track(60.0) });
+    rig.send(Command::Seek { deck: 0, seconds: 10.0 });
+    rig.send(Command::SetPlaying { deck: 0, playing: true });
+    rig.run(0.2);
+    let before = rig.deck(0).position_s;
+    rig.send(Command::JogTouch { deck: 0, touched: true, at_s: 100.0 });
+    // half a turn forwards over 0.1 s, then held still
+    for i in 1..=10 {
+        rig.send(Command::Jog { deck: 0, turns: 0.05, at_s: 100.0 + 0.01 * f64::from(i) });
+        rig.run(0.01);
+    }
+    rig.run(0.3);
+    let held = rig.deck(0).position_s;
+    assert!((held - (before + 0.9)).abs() < 0.03, "{before} -> {held}");
+    rig.run(0.3);
+    assert!((rig.deck(0).position_s - held).abs() < 1e-6, "held still, the track stays");
+
+    rig.send(Command::JogTouch { deck: 0, touched: false, at_s: 101.0 });
+    rig.run(0.5);
+    assert!((rig.deck(0).position_s - (held + 0.5)).abs() < 0.03, "let go, it plays on");
+}
+
+#[test]
+fn the_jog_edge_nudges_a_playing_track() {
+    let mut rig = Rig::new();
+    rig.send(Command::LoadTrack { deck: 0, track: silent_track(60.0) });
+    rig.send(Command::SetPlaying { deck: 0, playing: true });
+    rig.run(0.2);
+    let before = rig.deck(0).position_s;
+    rig.send(Command::Jog { deck: 0, turns: 0.2, at_s: 0.0 });
+    rig.run(0.05);
+    assert!(rig.deck(0).speed > 1.05, "{:?}", rig.deck(0).speed);
+    rig.run(1.0);
+    let moved = rig.deck(0).position_s - before;
+    // +20 % fading over 0.1 s: about 0.02 s ahead of plain play
+    assert!(moved > 1.05 + 0.01 && moved < 1.05 + 0.03, "{moved}");
+    assert!((rig.deck(0).speed - 1.0).abs() < 1e-3);
+}
+
+#[test]
+fn the_jog_moves_a_stopped_track_and_leaves_a_record_alone() {
+    let mut rig = Rig::new();
+    rig.send(Command::LoadTrack { deck: 0, track: silent_track(60.0) });
+    rig.send(Command::Seek { deck: 0, seconds: 10.0 });
+    rig.send(Command::Jog { deck: 0, turns: -1.0, at_s: 0.0 });
+    rig.run(0.05);
+    assert!((rig.deck(0).position_s - 8.2).abs() < 1e-6);
+
+    rig.turntable(1, 20.0, 1.0);
+    rig.send(Command::LoadTrack { deck: 1, track: silent_track(60.0) });
+    rig.send(Command::SetVinylEnabled { deck: 1, enabled: true });
+    rig.run(0.5);
+    let record = rig.deck(1).position_s;
+    rig.send(Command::JogTouch { deck: 1, touched: true, at_s: 0.0 });
+    rig.send(Command::Jog { deck: 1, turns: 2.0, at_s: 0.01 });
+    rig.run(0.5);
+    assert!((rig.deck(1).position_s - (record + 0.5)).abs() < 0.05, "the record drives");
+}

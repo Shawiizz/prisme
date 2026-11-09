@@ -2,6 +2,7 @@
 //! on the screen).
 
 mod hand;
+mod jog;
 mod transport;
 
 use crate::command::{CrossfaderSide, Rpm, VinylMode};
@@ -15,6 +16,7 @@ use crate::sync::{self, DeckSync, LeaderBeat, SyncTarget};
 use crate::tempo::PlatterTempo;
 use crate::vinyl::{VinylControl, VinylDrive};
 use hand::{Hand, Step};
+use jog::{Jog, Turn};
 use prisme_dsp::{Beat, FxSlot, Smoothed};
 use prisme_timecode::TimecodeDecoder;
 use transport::Transport;
@@ -58,6 +60,7 @@ pub(crate) struct Deck {
     speed: f64,
     /// The track dragged on the screen: it drives the deck while there.
     hand: Option<Hand>,
+    jog: Jog,
     /// Gain of the track, following its motion.
     motion: Smoothed,
 }
@@ -85,6 +88,7 @@ impl Deck {
             correction: 0.0,
             speed: 0.0,
             hand: None,
+            jog: Jog::default(),
             motion: Smoothed::new(0.0, MOTION_FADE_S, sample_rate as f32),
         }
     }
@@ -112,6 +116,7 @@ impl Deck {
             }
             None => self.speed_for(drive, target),
         };
+        self.jog.fade(seconds);
         let speed = if self.transport.censoring { -speed } else { speed };
         if (self.key_lock_enabled || self.key_lock.key_shift() != 0) && KeyLock::applies(speed) {
             self.playhead.render_key_locked(&mut self.key_lock, out, out_rate, speed);
@@ -136,6 +141,32 @@ impl Deck {
         match position_s {
             Some(p) => self.hand.get_or_insert_with(Hand::new).move_to(p, at_s),
             None => self.hand = None,
+        }
+    }
+
+    /// The jog wheel touched (at `at_s` on the controller's clock) or let go. A record in
+    /// vinyl control drives the deck: the jog does nothing then.
+    pub(crate) fn jog_touch(&mut self, touched: bool, at_s: f64) {
+        if self.vinyl.enabled || touched == self.jog.touched() {
+            return;
+        }
+        let position = touched.then(|| self.playhead.position_s());
+        self.jog.touch(position);
+        self.hand(position, at_s);
+    }
+
+    /// The jog wheel turned by `turns` (positive forwards) at `at_s`.
+    pub(crate) fn jog_turn(&mut self, turns: f64, at_s: f64) {
+        if self.vinyl.enabled || !self.playhead.is_loaded() {
+            return;
+        }
+        match self.jog.turn(turns, self.playing) {
+            Turn::Hand(position_s) => self.hand(Some(position_s), at_s),
+            Turn::Move(seconds) => {
+                let position = (self.playhead.position_s() + seconds).clamp(0.0, self.playhead.duration_s());
+                self.playhead.seek_s(position);
+            }
+            Turn::Nothing => {}
         }
     }
 
@@ -268,7 +299,7 @@ impl Deck {
             }
             None => self.sync.held_rate.unwrap_or(self.pitch),
         };
-        rate * (1.0 + self.bend)
+        rate * (1.0 + self.bend + self.jog.nudge)
     }
 
     /// Locked: the platter's gestures around its steady speed, at the leader's tempo.

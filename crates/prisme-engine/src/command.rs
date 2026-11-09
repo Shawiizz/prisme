@@ -94,6 +94,19 @@ pub enum Command {
         deck: DeckId,
         seconds: f64,
     },
+    /// A controller's jog wheel touched or let go, at `at_s` on the controller's clock (s).
+    JogTouch {
+        deck: DeckId,
+        touched: bool,
+        at_s: f64,
+    },
+    /// A controller's jog wheel turned by `turns` (positive forwards): touched it scratches,
+    /// by its edge it nudges a playing track, a stopped one moves.
+    Jog {
+        deck: DeckId,
+        turns: f64,
+        at_s: f64,
+    },
     /// The track dragged by hand to `position_s` at `at_s` on the pointer's clock (the
     /// scrolling waveform moved like a record), or let go (`None`).
     Hand {
