@@ -7,6 +7,8 @@
 
 mod mapping;
 mod message;
+mod pickup;
 
-pub use mapping::{light, Encoding, Mapping, Mappings};
+pub use mapping::{light, Encoding, Mapping, Mappings, Reader, SHIFT};
 pub use message::{parse, Control, ControlKind, Event};
+pub use pickup::Pickup;
