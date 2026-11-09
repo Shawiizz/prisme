@@ -8,6 +8,7 @@ import { formatPitch } from '../../../shared/time';
 import { t } from '../../../core/i18n/i18n';
 import { TPipe } from '../../../core/i18n/t.pipe';
 import { Fader } from '../../../shared/fader/fader';
+import { StemPart, partPlaying } from '../../../core/stem-parts';
 
 type SyncState = 'off' | 'matched' | 'locked';
 
@@ -37,11 +38,31 @@ export class DeckControls {
   protected readonly settings = computed(() => this.engine.decks()[this.deck()]);
   protected readonly vinyl = computed(() => this.settings().vinylEnabled);
   protected readonly track = computed(() => this.engine.tracks()[this.deck()]);
+  protected readonly separation = computed(() => this.track()?.separation ?? 'none');
   protected readonly stemsTitle = computed(() =>
-    this.track()?.vocals
-      ? ''
-      : t('Separate the track in the library to mute its vocals or its instrumental'),
+    this.separation() === 'none' ? t('Separate the track in the library to mute its stems') : '',
   );
+  /** Vocals and instrumental, or the four stems of a fully separated track. */
+  protected readonly stemButtons = computed(() => {
+    const mix = this.track()?.stemMix;
+    const button = (part: StemPart, label: string, title: string) => ({
+      part,
+      label,
+      title,
+      on: !!mix && this.separation() !== 'none' && partPlaying(mix, part),
+    });
+    return this.separation() === 'full'
+      ? [
+          button('vocals', 'VOX', t('Vocals: on or muted')),
+          button('drums', 'DRUM', t('Drums: on or muted')),
+          button('bass', 'BASS', t('Bass: on or muted')),
+          button('other', 'MELO', t('Melody (the other instruments): on or muted')),
+        ]
+      : [
+          button('vocals', 'VOX', t('Vocals: on or muted')),
+          button('instrumental', 'INST', t('Instrumental: on or muted')),
+        ];
+  });
   private readonly absolute = computed(
     () => this.vinyl() && this.settings().vinylMode === 'absolute',
   );

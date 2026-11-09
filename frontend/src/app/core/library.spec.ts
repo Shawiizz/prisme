@@ -9,7 +9,7 @@ function entry(name: string, tags: Partial<TrackTags> | null): DirEntry {
     rating: 0,
     playCount: 0,
     failed: false,
-    vocals: false,
+    separation: 'none' as const,
     tags: { title: null, artist: null, album: null, genre: null, year: null, ...tags },
   };
   return { name, path: 'C:/Music/' + name, details };

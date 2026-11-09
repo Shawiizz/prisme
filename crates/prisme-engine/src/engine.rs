@@ -223,9 +223,9 @@ impl Engine {
                 if valid(deck) {
                     let d = &mut self.decks[deck];
                     d.reset_track_state();
-                    let vocals = d.playhead.take_vocals();
+                    let stems = d.playhead.take_stems();
                     let old = d.playhead.load(track);
-                    for garbage in [vocals, old].into_iter().flatten() {
+                    for garbage in stems.into_iter().chain([old]).flatten() {
                         self.discard(Garbage::Track(garbage));
                     }
                 } else {
@@ -236,16 +236,16 @@ impl Engine {
                 let d = &mut self.decks[deck];
                 d.playing = false;
                 d.reset_track_state();
-                let vocals = d.playhead.take_vocals();
+                let stems = d.playhead.take_stems();
                 let old = d.playhead.eject();
-                for garbage in [vocals, old].into_iter().flatten() {
+                for garbage in stems.into_iter().chain([old]).flatten() {
                     self.discard(Garbage::Track(garbage));
                 }
             }
-            SetVocals { deck, vocals } => {
-                let old = if valid(deck) { self.decks[deck].playhead.set_vocals(vocals) } else { vocals };
-                if let Some(old) = old {
-                    self.discard(Garbage::Track(old));
+            SetStems { deck, stems } => {
+                let old = if valid(deck) { self.decks[deck].playhead.set_stems(stems) } else { stems };
+                for garbage in old.into_iter().flatten() {
+                    self.discard(Garbage::Track(garbage));
                 }
             }
             SetStemMix { deck, mix } if valid(deck) => self.decks[deck].playhead.set_stem_mix(mix),

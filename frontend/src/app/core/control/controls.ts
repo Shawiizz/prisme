@@ -1,6 +1,7 @@
 import { BANDS, Band, DECK_COUNT, HOT_CUES, SAMPLE_SLOTS } from '../models/engine';
 import { t } from '../i18n/i18n';
 import { deckLetter } from '../../shared/time';
+import { StemPart } from '../stem-parts';
 
 /** The physical control an action suits. */
 export type ControlKind = 'button' | 'fader' | 'encoder';
@@ -39,9 +40,9 @@ export interface ControlActions {
   bend(deck: number, direction: -1 | 0 | 1): void;
   toggleKeyLock(deck: number): void;
   keyLocked(deck: number): boolean;
-  /** Mutes or plays the vocals or the instrumental of a separated track. */
-  toggleStem(deck: number, stem: 'vocals' | 'instrumental'): void;
-  stemPlaying(deck: number, stem: 'vocals' | 'instrumental'): boolean;
+  /** Mutes or plays a part of a separated track. */
+  toggleStem(deck: number, part: StemPart): void;
+  stemPlaying(deck: number, part: StemPart): boolean;
   triggerSample(deck: number, slot: number): void;
   samplePlaying(deck: number, slot: number): boolean;
   toggleFx(deck: number): void;
@@ -191,6 +192,20 @@ function deckControls(a: ControlActions, deck: number): Control[] {
         a.toggleStem(deck, 'instrumental'),
       ),
       () => a.stemPlaying(deck, 'instrumental'),
+    ),
+    lit(
+      button(id('drums'), group, t('Drums'), () => a.toggleStem(deck, 'drums')),
+      () => a.stemPlaying(deck, 'drums'),
+    ),
+    lit(
+      button(id('bass'), group, t('Bass'), () => a.toggleStem(deck, 'bass')),
+      () => a.stemPlaying(deck, 'bass'),
+    ),
+    lit(
+      button(id('melody'), group, t('Melody (the other instruments)'), () =>
+        a.toggleStem(deck, 'other'),
+      ),
+      () => a.stemPlaying(deck, 'other'),
     ),
     ...Array.from({ length: SAMPLE_SLOTS }, (_, slot) =>
       lit(

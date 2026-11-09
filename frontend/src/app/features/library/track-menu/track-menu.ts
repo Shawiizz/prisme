@@ -62,10 +62,10 @@ export class TrackMenu {
     const paths = new Set(this.paths());
     return this.library.visibleTracks().filter((t) => paths.has(t.path));
   });
-  /** Tracks of the selection whose vocals are not separated yet. */
+  /** Tracks of the selection the installed models have stems to add to. */
   protected readonly toSeparate = computed(() =>
     this.tracks()
-      .filter((t) => t.details && !t.details.failed && !t.details.vocals)
+      .filter((t) => t.details && !t.details.failed && this.stems.canAdd(t.details.separation))
       .map((t) => t.path)
       .filter((p) => !this.stems.pending().has(p)),
   );

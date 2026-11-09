@@ -146,23 +146,35 @@
           }
           @case ('stems') {
             <span class="stems">
-              @if (t.details?.vocals) {
-                <span class="separated" [title]="'Vocals separated' | t">✓</span>
-              } @else if (stems.progress().current === t.path) {
-                <span class="number" [title]="'Separating the vocals' | t">{{
+              @let separation = t.details?.separation ?? 'none';
+              @if (stems.progress().current === t.path) {
+                <span class="number" [title]="'Separating the stems' | t">{{
                   percent(stems.progress().fraction)
                 }}</span>
               } @else if (stems.pending().has(t.path)) {
                 <span class="dim" [title]="'Waiting to be separated' | t">…</span>
-              } @else if (t.details && !t.details.failed) {
+              } @else if (t.details && !t.details.failed && stems.canAdd(separation)) {
+                @let title =
+                  separation === 'vocals'
+                    ? ('Vocals separated: add the drums and bass' | t)
+                    : ('Separate the stems' | t);
                 <button
                   class="separate"
+                  [class.partly]="separation === 'vocals'"
                   (click)="stems.separate([t.path]); $event.stopPropagation()"
-                  [title]="'Separate the vocals' | t"
-                  [attr.aria-label]="'Separate the vocals' | t"
+                  [title]="title"
+                  [attr.aria-label]="title"
                 >
                   +
                 </button>
+              } @else if (separation === 'full') {
+                <span
+                  class="separated"
+                  [title]="'Separated into vocals, drums, bass and melody' | t"
+                  >4</span
+                >
+              } @else if (separation === 'vocals') {
+                <span class="separated" [title]="'Vocals separated' | t">✓</span>
               }
             </span>
           }
@@ -203,9 +215,9 @@
     <button class="pr-btn pr-btn--sm pr-btn--ghost" (click)="openPanel($event, 'genre')">
       {{ 'Genre' | t }}
     </button>
-    @if (stems.model().installed) {
+    @if (stems.reach() !== 'none') {
       <button class="pr-btn pr-btn--sm pr-btn--ghost" (click)="separateSelection()">
-        {{ 'Separate the vocals' | t }}
+        {{ 'Separate the stems' | t }}
       </button>
     }
     <button

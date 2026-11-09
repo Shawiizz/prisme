@@ -1,5 +1,5 @@
 import { Injectable, computed, inject, signal } from '@angular/core';
-import { StemMix } from '../models/stems';
+import { StemPart, hasPart, togglePart } from '../stem-parts';
 import { Channel, invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
 import { semitonesToMix, transposeCamelot } from '../../shared/camelot';
@@ -154,11 +154,11 @@ export class EngineService {
     return own && other ? semitonesToMix(own.camelot, other.camelot) : null;
   }
 
-  /** Mutes or plays one stem of the track on `deck` (until the next load). */
-  toggleStem(deck: number, stem: keyof StemMix) {
+  /** Mutes or plays a part of the track on `deck` (until the next load). */
+  toggleStem(deck: number, part: StemPart) {
     const track = this.tracks()[deck];
-    if (!track?.vocals) return;
-    const stemMix = { ...track.stemMix, [stem]: !track.stemMix[stem] };
+    if (!track || !hasPart(track.separation, part)) return;
+    const stemMix = togglePart(track.stemMix, part);
     this.patch(this.tracks, deck, { ...track, stemMix });
     return this.call('set_stem_mix', { deck, mix: stemMix });
   }
@@ -320,11 +320,15 @@ export class EngineService {
   }
 
   /** Waveform and analysis that arrive after the track was put on its deck. */
-  private completeTrack({ deck, loadId, waveformReady, analysis, vocalsReady }: DeckTrackUpdate) {
+  private completeTrack({ deck, loadId, waveformReady, analysis, separation }: DeckTrackUpdate) {
     const track = this.tracks()[deck];
     if (track?.loadId !== loadId) return;
-    if (analysis || vocalsReady) {
-      this.patch(this.tracks, deck, { ...track, ...analysis, vocals: track.vocals || vocalsReady });
+    if (analysis || separation) {
+      this.patch(this.tracks, deck, {
+        ...track,
+        ...analysis,
+        separation: separation ?? track.separation,
+      });
     }
     if (waveformReady) this.fetchWaveform(deck, loadId);
   }

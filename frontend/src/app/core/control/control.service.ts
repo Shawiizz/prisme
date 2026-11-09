@@ -9,6 +9,7 @@ import { SamplerService } from '../services/sampler.service';
 import { NavigationService } from '../services/navigation.service';
 import { eqGain, eqKnob, trimGain, trimKnob } from '../../shared/mixer-scales';
 import { BANDS } from '../models/engine';
+import { hasPart, partPlaying } from '../stem-parts';
 import { Control, buildControls } from './controls';
 
 const LOOP_BEATS = 4;
@@ -47,9 +48,9 @@ export class ControlService {
     toggleKeyLock: (deck) => this.engine.setKeyLock(deck, !this.engine.decks()[deck].keyLock),
     keyLocked: (deck) => this.engine.decks()[deck].keyLock,
     toggleStem: (deck, stem) => this.engine.toggleStem(deck, stem),
-    stemPlaying: (deck, stem) => {
+    stemPlaying: (deck, part) => {
       const track = this.engine.tracks()[deck];
-      return !!track?.vocals && track.stemMix[stem];
+      return !!track && hasPart(track.separation, part) && partPlaying(track.stemMix, part);
     },
     triggerSample: (deck, slot) => this.sampler.trigger(deck, slot),
     samplePlaying: (deck, slot) => ((this.deck(deck)?.samplesPlaying ?? 0) & (1 << slot)) !== 0,

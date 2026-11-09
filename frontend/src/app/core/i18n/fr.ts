@@ -469,27 +469,39 @@ export const FR: Record<string, string> = {
   'Prisme starts again in the new language.': 'Prisme redémarre dans la nouvelle langue.',
   'The audio restarts to apply these changes.': "L'audio redémarre pour appliquer ces changements.",
   'Settings (Ctrl + ,)': 'Réglages (Ctrl + ,)',
-  // vocals separation
+  // stem separation
   Vocals: 'Voix',
   Instrumental: 'Instru',
+  Drums: 'Batterie',
+  Bass: 'Basse',
+  'Melody (the other instruments)': 'Mélodie (les autres instruments)',
   'Vocals: on or muted': 'Voix : jouée ou coupée',
   'Instrumental: on or muted': 'Instru : jouée ou coupée',
-  'Separate the track in the library to mute its vocals or its instrumental':
-    'Séparez le morceau dans la bibliothèque pour couper sa voix ou son instru',
-  'Separated vocals': 'Voix séparée',
+  'Drums: on or muted': 'Batterie : jouée ou coupée',
+  'Bass: on or muted': 'Basse : jouée ou coupée',
+  'Melody (the other instruments): on or muted':
+    'Mélodie (les autres instruments) : jouée ou coupée',
+  'Separate the track in the library to mute its stems':
+    'Séparez le morceau dans la bibliothèque pour couper ses pistes',
+  'Separated stems': 'Pistes séparées',
   'Vocals separated': 'Voix séparée',
-  'Separating the vocals': 'Séparation de la voix',
+  'Vocals separated: add the drums and bass': 'Voix séparée : ajouter la batterie et la basse',
+  'Separated into vocals, drums, bass and melody': 'Séparé en voix, batterie, basse et mélodie',
+  'Separating the stems': 'Séparation des pistes',
   'Waiting to be separated': 'En attente de séparation',
-  'Separate the vocals': 'Séparer la voix',
+  'Separate the stems': 'Séparer les pistes',
   'Separating {done} / {total}': 'Séparation {done} / {total}',
-  'Stop separating the vocals': 'Arrêter la séparation',
+  'Stop separating the stems': 'Arrêter la séparation',
   Stop: 'Arrêter',
   'Vocals separation': 'Séparation voix / instru',
   'Downloaded once. A track takes about a minute with a recent graphics card, several minutes on the processor alone.':
     'Téléchargée une fois. Un morceau prend environ une minute avec une carte graphique récente, plusieurs sur le processeur seul.',
+  'Drums and bass separation': 'Séparation batterie / basse',
+  'Splits the instrumental into drums, bass and melody, to mute each on its own. Needs the vocals separation; about a minute more per track with a recent graphics card.':
+    'Sépare l’instru en batterie, basse et mélodie, pour couper chacune à part. Demande la séparation voix / instru ; environ une minute de plus par morceau avec une carte graphique récente.',
   'Separate the whole library': 'Séparer toute la bibliothèque',
-  'The vocals are stored next to each track, in a .prisme folder: copy your music to another computer and its separations come along.':
-    'Les voix sont rangées à côté de chaque morceau, dans un dossier .prisme : copiez votre musique sur un autre ordinateur et ses séparations suivent.',
+  'The stems are stored next to each track, in a .prisme folder: copy your music to another computer and its separations come along.':
+    'Les pistes sont rangées à côté de chaque morceau, dans un dossier .prisme : copiez votre musique sur un autre ordinateur et ses séparations suivent.',
   Installed: 'Installée',
   'Download ({size} MB)': 'Télécharger ({size} Mo)',
   'Separating…': 'Séparation…',
@@ -523,10 +535,11 @@ export const FR: Record<string, string> = {
     'Aucune crate : créez-en une dans le panneau de gauche',
   'Remove from the prepare list': 'Retirer de la préparation',
   'Remove from the crate': 'Retirer de la crate',
-  'Separate the vocals…': 'Séparer la voix…',
-  'Separate the vocals ({n})': 'Séparer la voix ({n})',
-  'The separation model is downloaded once, in the settings':
-    'Le modèle de séparation se télécharge une fois, dans les réglages',
+  'Separate the stems…': 'Séparer les pistes…',
+  'Separate the stems ({n})': 'Séparer les pistes ({n})',
+  'Stems separated': 'Pistes séparées',
+  'The separation models are downloaded once, in the settings':
+    'Les modèles de séparation se téléchargent une fois, dans les réglages',
   'House, Techno…': 'House, Techno…',
   'Written into the tags of {n} files': 'Écrit dans les tags de {n} fichiers',
   'Written into the tags of the file': 'Écrit dans les tags du fichier',

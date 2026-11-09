@@ -89,5 +89,8 @@ Prisme is free software: you can redistribute it and/or modify it under the term
 the GNU General Public License as published by the Free Software Foundation, either
 version 3 of the License, or (at your option) any later version. See [LICENSE](LICENSE).
 
-The vocals separation model, downloaded separately, is Kimberley Jensen's
-[Mel-Band RoFormer](https://huggingface.co/KimberleyJSN/melbandroformer) (MIT licence).
+The separation models, downloaded separately, are Kimberley Jensen's
+[Mel-Band RoFormer](https://huggingface.co/KimberleyJSN/melbandroformer) (MIT licence) for
+the vocals, and SYH99999's
+[four-stem Mel-Band RoFormer](https://huggingface.co/SYH99999/MelBandRoformer4StemFTLarge)
+(Apache 2.0 licence) for the drums and bass.

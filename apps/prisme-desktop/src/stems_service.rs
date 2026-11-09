@@ -1,14 +1,18 @@
-//! Vocals separation in the background: a queue of tracks worked through on one thread,
-//! on the GPU when there is a usable one, and the model it needs, downloaded once.
+//! Stem separation in the background: a queue of tracks worked through on one thread, on
+//! the GPU when there is a usable one, and the models it needs, each downloaded once. The
+//! vocals model separates the vocals from the instrumental; the drums and bass model then
+//! splits the instrumental into drums, bass and the other instruments.
 //!
 //! The separations are stored next to the tracks (`prisme_stems::track`): a track loaded
-//! on a deck gets its vocals as soon as they exist.
+//! on a deck gets its stems as soon as they exist.
 
-use crate::dto::{DeckTrackUpdateDto, ModelStatusDto, StemsProgressDto, StemsStatusDto};
+use crate::dto::{
+    DeckTrackUpdateDto, ModelStatusDto, SeparatedDto, SeparationDto, StemsProgressDto, StemsStatusDto,
+};
 use crate::error::{AppError, AppResult};
 use crate::state::{lock, AppState};
 use crate::track_loading::DECK_TRACK_UPDATE_EVENT;
-use prisme_engine::Command;
+use prisme_engine::{Command, Stem, StemTracks};
 use prisme_stems::{CpuNetwork, GpuNetwork, MaskNetwork, Separator, StemsError, Weights};
 use sha2::{Digest, Sha256};
 use std::collections::VecDeque;
@@ -20,24 +24,50 @@ use tauri::{AppHandle, Emitter, Manager};
 use tracing::{error, info, warn};
 
 pub const STEMS_PROGRESS_EVENT: &str = "stems-progress";
-/// Payload: the path of the track whose vocals were just stored.
+/// Payload: [`SeparatedDto`].
 pub const STEMS_SEPARATED_EVENT: &str = "stems-separated";
+/// Payload: the [`ModelStatusDto`] of one model.
 pub const STEMS_MODEL_EVENT: &str = "stems-model";
 
-/// The Mel-Band RoFormer vocals model of Kimberley Jensen (MIT licence), converted by
-/// `crates/prisme-stems/tools/export_roformer.py --half`.
-const MODEL_FILE: &str = "roformer-vocals-f16-1.safetensors";
-const MODEL_URL: &str =
-    "https://github.com/Shawiizz/prisme/releases/download/model-roformer-vocals-1/roformer-vocals-f16-1.safetensors";
-const MODEL_SHA256: &str = "90397548e9e427b2645ba33a71f5e3de3f1e01997f7c28fc4b0914fee7ba21ee";
-const MODEL_BYTES: u64 = 456_488_724;
+/// A separation model, converted by `crates/prisme-stems/tools/export_roformer.py --half`.
+struct Model {
+    id: &'static str,
+    file: &'static str,
+    url: &'static str,
+    sha256: &'static str,
+    bytes: u64,
+    /// What it separates, in the order of its masks.
+    stems: &'static [Stem],
+}
+
+const MODELS: [Model; 2] = [
+    // the Mel-Band RoFormer vocals model of Kimberley Jensen (MIT licence)
+    Model {
+        id: "vocals",
+        file: "roformer-vocals-f16-1.safetensors",
+        url: "https://github.com/Shawiizz/prisme/releases/download/model-roformer-vocals-1/roformer-vocals-f16-1.safetensors",
+        sha256: "90397548e9e427b2645ba33a71f5e3de3f1e01997f7c28fc4b0914fee7ba21ee",
+        bytes: 456_488_724,
+        stems: &[Stem::Vocals],
+    },
+    // the drums and bass of SYH99999's four-stem Mel-Band RoFormer (Apache 2.0 licence),
+    // `--stems drums,bass --overlap 4`
+    Model {
+        id: "drums-bass",
+        file: "roformer-drums-bass-f16-1.safetensors",
+        url: "https://github.com/Shawiizz/prisme/releases/download/model-roformer-drums-bass-1/roformer-drums-bass-f16-1.safetensors",
+        sha256: "b25942f2582deaac642b87697fff71a4a7e980358b85f27e5f8a00709944e3c1",
+        bytes: 978_627_756,
+        stems: &[Stem::Drums, Stem::Bass],
+    },
+];
 
 pub struct StemsService {
     app: AppHandle,
-    model: PathBuf,
+    folder: PathBuf,
     queue: Arc<Mutex<Queue>>,
     cancel: Arc<AtomicBool>,
-    download: Arc<Mutex<Download>>,
+    downloads: Arc<Mutex<[Download; MODELS.len()]>>,
 }
 
 #[derive(Default)]
@@ -55,27 +85,45 @@ struct Download {
 
 impl StemsService {
     pub fn new(app: AppHandle, data_dir: Option<&Path>) -> Self {
-        let model = data_dir.unwrap_or(Path::new(".")).join("models").join(MODEL_FILE);
-        Self { app, model, queue: Arc::default(), cancel: Arc::default(), download: Arc::default() }
-    }
-
-    pub fn status(&self) -> StemsStatusDto {
-        StemsStatusDto { model: self.model_status(), progress: lock(&self.queue).progress.clone() }
-    }
-
-    fn model_status(&self) -> ModelStatusDto {
-        let download = lock(&self.download);
-        ModelStatusDto {
-            installed: self.model.is_file(),
-            downloading: download.running.then_some(download.fraction),
-            error: download.error.clone(),
-            bytes: MODEL_BYTES,
+        Self {
+            app,
+            folder: data_dir.unwrap_or(Path::new(".")).join("models"),
+            queue: Arc::default(),
+            cancel: Arc::default(),
+            downloads: Arc::default(),
         }
     }
 
-    /// Queues the tracks that have no vocals yet; starts working if idle.
+    pub fn status(&self) -> StemsStatusDto {
+        StemsStatusDto {
+            models: (0..MODELS.len()).map(|m| self.model_status(m)).collect(),
+            progress: lock(&self.queue).progress.clone(),
+        }
+    }
+
+    fn model_path(&self, model: usize) -> PathBuf {
+        self.folder.join(MODELS[model].file)
+    }
+
+    fn installed(&self) -> Vec<usize> {
+        (0..MODELS.len()).filter(|&m| self.model_path(m).is_file()).collect()
+    }
+
+    fn model_status(&self, model: usize) -> ModelStatusDto {
+        let download = &lock(&self.downloads)[model];
+        ModelStatusDto {
+            id: MODELS[model].id,
+            installed: self.model_path(model).is_file(),
+            downloading: download.running.then_some(download.fraction),
+            error: download.error.clone(),
+            bytes: MODELS[model].bytes,
+        }
+    }
+
+    /// Queues the tracks that an installed model has stems to add to; starts working if idle.
     pub fn enqueue(&self, paths: impl IntoIterator<Item = PathBuf>) -> AppResult<usize> {
-        if !self.model.is_file() {
+        let installed = self.installed();
+        if installed.is_empty() {
             return Err(AppError::NoStemsModel);
         }
         let mut queue = lock(&self.queue);
@@ -84,7 +132,7 @@ impl StemsService {
         for path in paths {
             let already = queue.waiting.contains(&path)
                 || current.as_deref() == Some(&*path.to_string_lossy())
-                || prisme_stems::track::has_vocals(&path);
+                || missing(&installed, &path).is_empty();
             if !already {
                 queue.waiting.push_back(path);
             }
@@ -97,7 +145,7 @@ impl StemsService {
             self.cancel.store(false, Ordering::Relaxed);
             let worker = Worker {
                 app: self.app.clone(),
-                model: self.model.clone(),
+                models: (0..MODELS.len()).map(|m| self.model_path(m)).collect(),
                 queue: self.queue.clone(),
                 cancel: self.cancel.clone(),
             };
@@ -116,32 +164,52 @@ impl StemsService {
         self.cancel.store(true, Ordering::Relaxed);
     }
 
-    /// Downloads the model in the background (`stems-model` events); nothing if it is
+    /// Downloads the model `id` in the background (`stems-model` events); nothing if it is
     /// there or on its way.
-    pub fn download_model(&self) {
+    pub fn download_model(&self, id: &str) -> AppResult<()> {
+        let model = MODELS
+            .iter()
+            .position(|m| m.id == id)
+            .ok_or_else(|| AppError::Other(format!("no separation model {id}")))?;
         {
-            let mut download = lock(&self.download);
-            if download.running || self.model.is_file() {
-                return;
+            let download = &mut lock(&self.downloads)[model];
+            if download.running || self.model_path(model).is_file() {
+                return Ok(());
             }
             *download = Download { running: true, ..Default::default() };
         }
-        let (app, target, download) = (self.app.clone(), self.model.clone(), self.download.clone());
+        let (app, target, downloads) = (self.app.clone(), self.model_path(model), self.downloads.clone());
         tauri::async_runtime::spawn(async move {
-            let result = fetch_model(&app, &target, &download).await;
-            let mut state = lock(&download);
-            state.running = false;
+            let result = fetch_model(&app, model, &target, &downloads).await;
+            let mut state = lock(&downloads);
+            state[model].running = false;
             if let Err(e) = result {
-                error!("model download failed: {e}");
-                state.error = Some(e);
+                error!("download of the {} model failed: {e}", MODELS[model].id);
+                state[model].error = Some(e);
             }
             drop(state);
-            let _ = app.emit(STEMS_MODEL_EVENT, app.state::<StemsService>().model_status());
+            let _ = app.emit(STEMS_MODEL_EVENT, app.state::<StemsService>().model_status(model));
         });
+        Ok(())
     }
 }
 
-async fn fetch_model(app: &AppHandle, target: &Path, download: &Mutex<Download>) -> Result<(), String> {
+/// The models of `installed` with stems `track` lacks.
+fn missing(installed: &[usize], track: &Path) -> Vec<usize> {
+    installed
+        .iter()
+        .copied()
+        .filter(|&m| MODELS[m].stems.iter().any(|s| !prisme_stems::track::has_stem(track, s.name())))
+        .collect()
+}
+
+async fn fetch_model(
+    app: &AppHandle,
+    model: usize,
+    target: &Path,
+    downloads: &Mutex<[Download; MODELS.len()]>,
+) -> Result<(), String> {
+    let Model { url, sha256, bytes, .. } = MODELS[model];
     if rustls::crypto::CryptoProvider::get_default().is_none() {
         let _ = rustls::crypto::ring::default_provider().install_default();
     }
@@ -150,7 +218,7 @@ async fn fetch_model(app: &AppHandle, target: &Path, download: &Mutex<Download>)
     let partial = target.with_extension("part");
     let client = reqwest::Client::builder().user_agent("Prisme").build().map_err(|e| e.to_string())?;
     let mut response =
-        client.get(MODEL_URL).send().await.and_then(|r| r.error_for_status()).map_err(|e| e.to_string())?;
+        client.get(url).send().await.and_then(|r| r.error_for_status()).map_err(|e| e.to_string())?;
     let mut file = std::fs::File::create(&partial).map_err(|e| e.to_string())?;
     let mut hash = Sha256::new();
     let mut received = 0u64;
@@ -159,61 +227,70 @@ async fn fetch_model(app: &AppHandle, target: &Path, download: &Mutex<Download>)
         file.write_all(&chunk).map_err(|e| e.to_string())?;
         hash.update(&chunk);
         received += chunk.len() as u64;
-        let fraction = received as f64 / MODEL_BYTES as f64;
+        let fraction = received as f64 / bytes as f64;
         if fraction - reported >= 0.005 {
             reported = fraction;
-            lock(download).fraction = fraction;
-            let _ = app.emit(STEMS_MODEL_EVENT, app.state::<StemsService>().model_status());
+            lock(downloads)[model].fraction = fraction;
+            let _ = app.emit(STEMS_MODEL_EVENT, app.state::<StemsService>().model_status(model));
         }
     }
     file.sync_all().map_err(|e| e.to_string())?;
     drop(file);
     let digest: String = hash.finalize().iter().map(|b| format!("{b:02x}")).collect();
-    if received != MODEL_BYTES || digest != MODEL_SHA256 {
+    if received != bytes || digest != sha256 {
         let _ = std::fs::remove_file(&partial);
         return Err(format!("the downloaded model is damaged ({received} bytes)"));
     }
     std::fs::rename(&partial, target).map_err(|e| e.to_string())?;
-    info!("separation model installed in {}", target.display());
+    info!("separation model {} installed in {}", MODELS[model].id, target.display());
     Ok(())
 }
 
 struct Worker {
     app: AppHandle,
-    model: PathBuf,
+    /// Where each of [`MODELS`] is (installed or not).
+    models: Vec<PathBuf>,
     queue: Arc<Mutex<Queue>>,
     cancel: Arc<AtomicBool>,
 }
 
+type BoxedSeparator = Separator<Box<dyn MaskNetwork>>;
+
 impl Worker {
     fn run(self) {
         prisme_library::background_priority();
-        let mut separator = None;
+        let mut separators: Vec<Option<BoxedSeparator>> = (0..MODELS.len()).map(|_| None).collect();
         while let Some(path) = self.next() {
-            if separator.is_none() {
-                match self.open() {
-                    Ok((s, device)) => {
-                        self.update(|p| p.device = Some(device));
-                        separator = Some(s);
-                    }
-                    Err(e) => {
-                        error!("separation unavailable: {e}");
-                        let dropped = std::mem::take(&mut lock(&self.queue).waiting).len();
-                        self.update(|p| p.failed += 1 + dropped);
-                        break;
-                    }
-                }
+            let installed: Vec<usize> = (0..MODELS.len()).filter(|&m| self.models[m].is_file()).collect();
+            let needed = missing(&installed, &path);
+            if needed.is_empty() {
+                continue;
             }
-            let separator = separator.as_mut().expect("opened above");
-            let result = prisme_stems::track::separate_file(separator, &path, |done, total| {
+            if let Err(e) = self.open(&mut separators, &needed) {
+                error!("separation unavailable: {e}");
+                let dropped = std::mem::take(&mut lock(&self.queue).waiting).len();
+                self.update(|p| p.failed += 1 + dropped);
+                break;
+            }
+            let mut chosen: Vec<&mut BoxedSeparator> = separators
+                .iter_mut()
+                .enumerate()
+                .filter(|(m, _)| needed.contains(m))
+                .filter_map(|(_, s)| s.as_mut())
+                .collect();
+            let result = prisme_stems::track::separate_file(&mut chosen, &path, |done, total| {
                 self.update(|p| p.fraction = done as f64 / total as f64);
                 !self.cancel.load(Ordering::Relaxed)
             });
             match result {
                 Ok(_) => {
                     self.update(|p| p.done += 1);
-                    let _ = self.app.emit(STEMS_SEPARATED_EVENT, path.display().to_string());
-                    attach_vocals(&self.app, &path);
+                    let separated = SeparatedDto {
+                        path: path.display().to_string(),
+                        separation: SeparationDto::stored(&path),
+                    };
+                    let _ = self.app.emit(STEMS_SEPARATED_EVENT, separated);
+                    attach_stems(&self.app, &path);
                 }
                 Err(StemsError::Cancelled) => info!("separation of {} cancelled", path.display()),
                 Err(e) => {
@@ -222,7 +299,7 @@ impl Worker {
                 }
             }
         }
-        // the separator (and the GPU memory it holds) goes with the thread
+        // the separators (and the GPU memory they hold) go with the thread
         self.update(|p| {
             p.running = false;
             p.current = None;
@@ -241,20 +318,32 @@ impl Worker {
         path
     }
 
-    fn open(&self) -> Result<(Separator<Box<dyn MaskNetwork>>, String), StemsError> {
-        let weights = Weights::load(&self.model)?;
-        let (network, device): (Box<dyn MaskNetwork>, String) = match GpuNetwork::new(weights.clone()) {
-            Ok(gpu) => {
-                let device = gpu.adapter().to_owned();
-                (Box::new(gpu), device)
+    /// Opens the separators of the `needed` models not open yet, on the GPU when it can.
+    fn open(&self, separators: &mut [Option<BoxedSeparator>], needed: &[usize]) -> Result<(), StemsError> {
+        for &m in needed {
+            if separators[m].is_some() {
+                continue;
             }
-            Err(e) => {
-                warn!("separating on the CPU: {e}");
-                (Box::new(CpuNetwork::new(weights)), "CPU".to_owned())
+            let weights = Weights::load(&self.models[m])?;
+            let stems: Vec<&str> = MODELS[m].stems.iter().map(|s| s.name()).collect();
+            if weights.geometry.stems != stems {
+                return Err(StemsError::Model(format!("{} does not separate {stems:?}", MODELS[m].file)));
             }
-        };
-        info!("separating with {device}");
-        Ok((Separator::new(network), device))
+            let (network, device): (Box<dyn MaskNetwork>, String) = match GpuNetwork::new(weights.clone()) {
+                Ok(gpu) => {
+                    let device = gpu.adapter().to_owned();
+                    (Box::new(gpu), device)
+                }
+                Err(e) => {
+                    warn!("separating with the {} model on the CPU: {e}", MODELS[m].id);
+                    (Box::new(CpuNetwork::new(weights)), "CPU".to_owned())
+                }
+            };
+            info!("separating with the {} model on {device}", MODELS[m].id);
+            self.update(|p| p.device = Some(device));
+            separators[m] = Some(Separator::new(network));
+        }
+        Ok(())
     }
 
     fn update(&self, f: impl FnOnce(&mut StemsProgressDto)) {
@@ -267,9 +356,9 @@ impl Worker {
     }
 }
 
-/// Gives the stored vocals of `path` to the decks it is loaded on (once fully decoded:
+/// Gives the stored stems of `path` to the decks it is loaded on (once fully decoded:
 /// otherwise the end of its loading does it).
-pub fn attach_vocals(app: &AppHandle, path: &Path) {
+pub fn attach_stems(app: &AppHandle, path: &Path) {
     let state = app.state::<AppState>();
     let loaded: Vec<(usize, u64, Arc<prisme_media::TrackAudio>)> = lock(&state.tracks)
         .iter()
@@ -279,40 +368,46 @@ pub fn attach_vocals(app: &AppHandle, path: &Path) {
         })
         .collect();
     for (deck, load_id, audio) in loaded {
-        if audio.is_complete() && give_vocals(app, deck, load_id, path, &audio) {
+        if !audio.is_complete() {
+            continue;
+        }
+        if let Some(separation) = give_stems(app, deck, load_id, path, &audio) {
             let update = DeckTrackUpdateDto {
                 deck,
                 load_id,
                 waveform_ready: false,
                 analysis: None,
-                vocals_ready: true,
+                separation: Some(separation),
             };
             let _ = app.emit(DECK_TRACK_UPDATE_EVENT, update);
         }
     }
 }
 
-/// Loads the stored vocals of the track loaded on `deck` as `load_id` and sends them to the
-/// engine; `true` if it got some (the caller tells the UI).
-pub fn give_vocals(
+/// Loads the stored stems of the track loaded on `deck` as `load_id` and sends them to the
+/// engine; how far it is separated if it got some (the caller tells the UI).
+pub fn give_stems(
     app: &AppHandle,
     deck: usize,
     load_id: u64,
     path: &Path,
     audio: &prisme_media::TrackAudio,
-) -> bool {
-    let vocals = match prisme_stems::track::load_vocals(path, audio.frames(), audio.sample_rate()) {
-        Ok(Some(vocals)) => Arc::new(vocals),
-        Ok(None) => return false,
-        Err(e) => {
-            warn!("vocals of {} not read: {e}", path.display());
-            return false;
+) -> Option<SeparationDto> {
+    let stems: StemTracks = Stem::ALL.map(|stem| {
+        match prisme_stems::track::load_stem(path, stem.name(), audio.frames(), audio.sample_rate()) {
+            Ok(stem) => stem.map(Arc::new),
+            Err(e) => {
+                warn!("{} of {} not read: {e}", stem.name(), path.display());
+                None
+            }
         }
-    };
-    let state = app.state::<AppState>();
-    let given = state.with_loaded(deck, load_id, |t| t.vocals = Some(vocals.clone())).is_some();
-    if given {
-        let _ = state.send_if_running(Command::SetVocals { deck, vocals: Some(vocals) });
+    });
+    let separation = SeparationDto::of(|stem| stems[stem as usize].is_some());
+    if separation == SeparationDto::None {
+        return None;
     }
-    given
+    let state = app.state::<AppState>();
+    state.with_loaded(deck, load_id, |t| t.stems = stems.clone())?;
+    let _ = state.send_if_running(Command::SetStems { deck, stems });
+    Some(separation)
 }

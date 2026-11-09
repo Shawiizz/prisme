@@ -11,6 +11,7 @@ import {
 } from '../models/library';
 import { camelotRank } from '../../shared/camelot';
 import { DECK_COUNT } from '../models/engine';
+import { Separation } from '../models/stems';
 import { MixContext, MixReference, mixRank } from '../mix-rank';
 import { CratesService } from './crates.service';
 import { EngineService } from './engine.service';
@@ -519,11 +520,11 @@ export class LibraryService {
     }, LIBRARY_SEARCH_DELAY_MS);
   }
 
-  /** Shows `path` as separated in the lists. */
-  markSeparated(path: string) {
+  /** Shows `path` as separated this far in the lists. */
+  markSeparated(path: string, separation: Separation) {
     const update = (tracks: DirEntry[]) =>
       tracks.map((t) =>
-        t.path === path && t.details ? { ...t, details: { ...t.details, vocals: true } } : t,
+        t.path === path && t.details ? { ...t, details: { ...t.details, separation } } : t,
       );
     const listing = this.listing();
     if (listing?.tracks.some((t) => t.path === path)) {

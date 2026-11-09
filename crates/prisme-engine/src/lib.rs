@@ -40,4 +40,4 @@ pub use mixer::{CrossfaderCurve, MixMode, OutputRouting};
 pub use prisme_dsp::{Band, EffectKind};
 pub use sampler::SAMPLE_SLOTS;
 pub use status::{DeckStatus, EngineStatus, LoopStatus, RecordingStatus, SyncStatus, VinylStatus, MAX_DECKS};
-pub use stems::StemMix;
+pub use stems::{Stem, StemMix, StemTracks};

@@ -13,7 +13,7 @@ function track(name: string, bpm: number | null, camelot: string | null): DirEnt
       rating: 0,
       playCount: 0,
       failed: false,
-      vocals: false,
+      separation: 'none',
     },
   };
 }

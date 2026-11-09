@@ -4,7 +4,8 @@
 
 use crate::audio_host::{AudioSession, DECKS};
 use crate::dto::{
-    BandDto, ChannelStripDto, CueDto, FxDto, KeyDto, MixModeDto, RpmDto, TempoDto, TrackInfoDto, VinylModeDto,
+    BandDto, ChannelStripDto, CueDto, FxDto, KeyDto, MixModeDto, RpmDto, SeparationDto, TempoDto,
+    TrackInfoDto, VinylModeDto,
 };
 use crate::error::{AppError, AppResult};
 use crate::folders;
@@ -12,7 +13,7 @@ use crate::preferences::{DeckPreferences, Preferences};
 use crate::recording::Recorder;
 use crate::sampler::Samplers;
 use prisme_analysis::{TrackAnalysis, Waveform};
-use prisme_engine::{BeatGrid, Command, DeckStatus, MixMode, OutputRouting, StemMix};
+use prisme_engine::{BeatGrid, Command, DeckStatus, MixMode, OutputRouting, StemMix, StemTracks};
 use prisme_library::{Cue, CueSlot, TrackEdits};
 use prisme_media::{TrackAudio, TrackTags};
 use prisme_session::JsonFile;
@@ -35,9 +36,9 @@ pub struct LoadedTrack {
     pub cues: Vec<Cue>,
     /// Semitones the deck transposes it by (0 again at each load).
     pub key_shift: i8,
-    /// Its separated vocals, once read (`prisme_stems::track`).
-    pub vocals: Option<Arc<TrackAudio>>,
-    /// The stems the deck plays (both again at each load).
+    /// Its separated stems, once read (`prisme_stems::track`).
+    pub stems: StemTracks,
+    /// The parts the deck plays (all again at each load).
     pub stem_mix: StemMix,
 }
 
@@ -65,7 +66,7 @@ impl LoadedTrack {
             key_edited: self.edits.key.is_some(),
             cues: self.cue_dtos(),
             key_shift: self.key_shift,
-            vocals: self.vocals.is_some(),
+            separation: SeparationDto::of(|stem| self.stems[stem as usize].is_some()),
             stem_mix: self.stem_mix.into(),
         }
     }
@@ -84,7 +85,7 @@ impl LoadedTrack {
             Command::LoadTrack { deck, track: self.audio.clone() },
             Command::SetBeatGrid { deck, grid: self.grid() },
             Command::SetKeyShift { deck, semitones: self.key_shift },
-            Command::SetVocals { deck, vocals: self.vocals.clone() },
+            Command::SetStems { deck, stems: self.stems.clone() },
             Command::SetStemMix { deck, mix: self.stem_mix },
         ]
     }

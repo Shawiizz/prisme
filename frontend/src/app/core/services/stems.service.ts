@@ -1,7 +1,14 @@
 import { Injectable, computed, inject, signal } from '@angular/core';
 import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
-import { ModelStatus, StemsProgress, StemsStatus } from '../models/stems';
+import {
+  ModelId,
+  ModelStatus,
+  Separated,
+  Separation,
+  StemsProgress,
+  StemsStatus,
+} from '../models/stems';
 import { LibraryService } from './library.service';
 
 const IDLE: StemsProgress = {
@@ -14,24 +21,34 @@ const IDLE: StemsProgress = {
   device: null,
 };
 
+const MISSING = (id: ModelId): ModelStatus => ({
+  id,
+  installed: false,
+  downloading: null,
+  error: null,
+  bytes: 0,
+});
+
 /**
- * Vocals separation, done in the background by the backend: the model (downloaded once),
- * the queue and its progress. A separated track gets `details.vocals` in the lists.
+ * Stem separation, done in the background by the backend: the models (each downloaded
+ * once), the queue and its progress. A separated track gets `details.separation` in the lists.
  */
 @Injectable({ providedIn: 'root' })
 export class StemsService {
   private readonly library = inject(LibraryService);
 
-  readonly model = signal<ModelStatus>({
-    installed: false,
-    downloading: null,
-    error: null,
-    bytes: 0,
-  });
+  readonly vocalsModel = signal<ModelStatus>(MISSING('vocals'));
+  readonly drumsBassModel = signal<ModelStatus>(MISSING('drums-bass'));
   readonly progress = signal<StemsProgress>(IDLE);
   /** Tracks sent to the queue and not separated yet. */
   readonly pending = signal<ReadonlySet<string>>(new Set());
   readonly error = signal<string | null>(null);
+
+  /** How far the installed models separate a track. */
+  readonly reach = computed<Separation>(() => {
+    if (!this.vocalsModel().installed) return 'none';
+    return this.drumsBassModel().installed ? 'full' : 'vocals';
+  });
 
   /** The whole queue, as a share of the tracks it held (0 to 1). */
   readonly overall = computed(() => {
@@ -43,23 +60,24 @@ export class StemsService {
   async init() {
     await Promise.all([
       listen<StemsProgress>('stems-progress', (e) => this.onProgress(e.payload)),
-      listen<ModelStatus>('stems-model', (e) => this.model.set(e.payload)),
-      listen<string>('stems-separated', (e) => this.onSeparated(e.payload)),
+      listen<ModelStatus>('stems-model', (e) => this.setModel(e.payload)),
+      listen<Separated>('stems-separated', (e) => this.onSeparated(e.payload)),
     ]);
     const status = await invoke<StemsStatus>('stems_status');
-    this.model.set(status.model);
+    status.models.forEach((m) => this.setModel(m));
     this.progress.set(status.progress);
   }
 
-  /** Whether `path` is being separated, and how far. */
-  separating(path: string): number | null {
-    const p = this.progress();
-    return p.current === path ? p.fraction : null;
+  /** Whether the installed models would add stems to a track separated this far. */
+  canAdd(separation: Separation): boolean {
+    const order: Separation[] = ['none', 'vocals', 'full'];
+    return order.indexOf(this.reach()) > order.indexOf(separation);
   }
 
-  downloadModel() {
-    this.model.update((m) => ({ ...m, downloading: m.downloading ?? 0, error: null }));
-    return this.call('download_stems_model', {});
+  downloadModel(id: ModelId) {
+    const model = id === 'vocals' ? this.vocalsModel : this.drumsBassModel;
+    model.update((m) => ({ ...m, downloading: m.downloading ?? 0, error: null }));
+    return this.call('download_stems_model', { id });
   }
 
   async separate(paths: string[]) {
@@ -76,14 +94,18 @@ export class StemsService {
     return this.call('cancel_separation', {});
   }
 
+  private setModel(status: ModelStatus) {
+    (status.id === 'vocals' ? this.vocalsModel : this.drumsBassModel).set(status);
+  }
+
   private onProgress(progress: StemsProgress) {
     this.progress.set(progress);
     if (!progress.running) this.pending.set(new Set());
   }
 
-  private onSeparated(path: string) {
+  private onSeparated({ path, separation }: Separated) {
     this.forget([path]);
-    this.library.markSeparated(path);
+    this.library.markSeparated(path, separation);
   }
 
   private forget(paths: string[]) {

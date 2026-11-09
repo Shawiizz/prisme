@@ -517,31 +517,46 @@
                   </button>
                 </div>
               }
-              @if (row('library.stemsModel')) {
-                @let e = entry('library.stemsModel');
-                @let model = stems.model();
-                <div
-                  class="pr-row"
-                  data-setting="library.stemsModel"
-                  [class.is-pointed]="pointed() === e.id"
-                >
-                  <div>
-                    <span class="pr-row__name">{{ e.label }}</span>
-                    <span class="pr-row__help">{{ e.description }}</span>
-                    @if (model.error; as error) {
-                      <span class="pr-row__help error">{{ error }}</span>
+              @for (
+                m of [
+                  { id: 'library.stemsModel', model: stems.vocalsModel(), ready: true },
+                  {
+                    id: 'library.stemsDrumsBass',
+                    model: stems.drumsBassModel(),
+                    ready: stems.vocalsModel().installed,
+                  },
+                ];
+                track m.id
+              ) {
+                @if (row(m.id)) {
+                  @let e = entry(m.id);
+                  <div
+                    class="pr-row"
+                    [attr.data-setting]="m.id"
+                    [class.is-pointed]="pointed() === e.id"
+                  >
+                    <div>
+                      <span class="pr-row__name">{{ e.label }}</span>
+                      <span class="pr-row__help">{{ e.description }}</span>
+                      @if (m.model.error; as error) {
+                        <span class="pr-row__help error">{{ error }}</span>
+                      }
+                    </div>
+                    @if (m.model.installed) {
+                      <span class="pr-label">{{ 'Installed' | t }}</span>
+                    } @else if (m.model.downloading !== null) {
+                      <span class="pr-num">{{ percent(m.model.downloading) }}</span>
+                    } @else {
+                      <button
+                        class="pr-btn pr-btn--sm"
+                        [disabled]="!m.ready"
+                        (click)="stems.downloadModel(m.model.id)"
+                      >
+                        {{ 'Download ({size} MB)' | t: { size: megabytes(m.model.bytes) } }}
+                      </button>
                     }
                   </div>
-                  @if (model.installed) {
-                    <span class="pr-label">{{ 'Installed' | t }}</span>
-                  } @else if (model.downloading !== null) {
-                    <span class="pr-num">{{ percent(model.downloading) }}</span>
-                  } @else {
-                    <button class="pr-btn pr-btn--sm" (click)="stems.downloadModel()">
-                      {{ 'Download ({size} MB)' | t: { size: megabytes(model.bytes) } }}
-                    </button>
-                  }
-                </div>
+                }
               }
               @if (row('library.stemsAll')) {
                 @let e = entry('library.stemsAll');
@@ -557,7 +572,7 @@
                   <button
                     class="pr-btn pr-btn--sm"
                     (click)="stems.separateLibrary()"
-                    [disabled]="!stems.model().installed || stems.progress().running"
+                    [disabled]="stems.reach() === 'none' || stems.progress().running"
                   >
                     {{ stems.progress().running ? ('Separating…' | t) : ('Separate' | t) }}
                   </button>

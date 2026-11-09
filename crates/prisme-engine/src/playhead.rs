@@ -2,7 +2,7 @@
 
 use crate::keylock::KeyLock;
 use crate::looping::LoopRegion;
-use crate::stems::{StemMix, Stems};
+use crate::stems::{StemMix, StemTracks, Stems};
 use prisme_media::TrackAudio;
 use std::sync::Arc;
 
@@ -34,13 +34,13 @@ impl Playhead {
         self.track.take()
     }
 
-    /// Sets the vocals of the loaded track; returns the previous ones (to be freed elsewhere).
-    pub(crate) fn set_vocals(&mut self, vocals: Option<Arc<TrackAudio>>) -> Option<Arc<TrackAudio>> {
-        self.stems.set_vocals(vocals)
+    /// Sets the stems of the loaded track; returns the previous ones (to be freed elsewhere).
+    pub(crate) fn set_stems(&mut self, stems: StemTracks) -> StemTracks {
+        self.stems.set_tracks(stems)
     }
 
-    /// Takes the vocals away and plays both stems again, before another track is loaded.
-    pub(crate) fn take_vocals(&mut self) -> Option<Arc<TrackAudio>> {
+    /// Takes the stems away and plays the whole track again, before another track is loaded.
+    pub(crate) fn take_stems(&mut self) -> StemTracks {
         self.stems.clear()
     }
 

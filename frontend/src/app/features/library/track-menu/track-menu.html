@@ -17,22 +17,22 @@
       <button role="menuitem" class="more" (click)="show('color')">{{ 'Colour' | t }}</button>
       <button role="menuitem" class="more" (click)="show('genre')">{{ 'Genre' | t }}</button>
       <hr />
-      @if (!stems.model().installed) {
+      @if (stems.reach() === 'none') {
         <button
           role="menuitem"
           (click)="installModel()"
-          [title]="'The separation model is downloaded once, in the settings' | t"
+          [title]="'The separation models are downloaded once, in the settings' | t"
         >
-          {{ 'Separate the vocals…' | t }}
+          {{ 'Separate the stems…' | t }}
         </button>
       } @else {
         <button role="menuitem" [disabled]="toSeparate().length === 0" (click)="separate()">
           @if (paths().length > 1 && toSeparate().length > 0) {
-            {{ 'Separate the vocals ({n})' | t: { n: toSeparate().length } }}
+            {{ 'Separate the stems ({n})' | t: { n: toSeparate().length } }}
           } @else if (toSeparate().length === 0) {
-            {{ 'Vocals separated' | t }}
+            {{ 'Stems separated' | t }}
           } @else {
-            {{ 'Separate the vocals' | t }}
+            {{ 'Separate the stems' | t }}
           }
         </button>
       }

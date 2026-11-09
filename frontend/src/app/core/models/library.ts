@@ -1,4 +1,5 @@
 import { MusicalKey } from './engine';
+import { Separation } from './stems';
 
 export interface TrackTags {
   title: string | null;
@@ -20,8 +21,8 @@ export interface TrackDetails {
   playCount: number;
   /** The file could not be decoded. */
   failed: boolean;
-  /** Its vocals are separated: a deck can mute them or the instrumental. */
-  vocals: boolean;
+  /** How far it is separated: a deck can mute its stems. */
+  separation: Separation;
 }
 
 export interface DirEntry {

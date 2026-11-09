@@ -30,6 +30,9 @@
 .stems {
   display: grid;
   gap: 2px;
+  &.full {
+    grid-template-columns: repeat(2, auto);
+  }
   .pr-btn {
     width: 44px;
     padding: 0;

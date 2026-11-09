@@ -172,11 +172,12 @@ fn going_back_and_forth_is_not_taken_for_crossed_channels() {
 }
 
 #[test]
-fn a_deck_mutes_the_vocals_or_the_instrumental() {
+fn a_deck_mutes_any_stem() {
     for key_lock in [false, true] {
         let mut rig = Rig::new();
         rig.send(Command::LoadTrack { deck: 0, track: sine_track(10.0, 0.6) });
-        rig.send(Command::SetVocals { deck: 0, vocals: Some(sine_track(10.0, 0.2)) });
+        let stems = [Some(sine_track(10.0, 0.2)), Some(sine_track(10.0, 0.15)), Some(sine_track(10.0, 0.1))];
+        rig.send(Command::SetStems { deck: 0, stems });
         rig.send(Command::SetKeyLock { deck: 0, enabled: key_lock });
         rig.send(Command::SetPlaying { deck: 0, playing: true });
         rig.run(0.5);
@@ -188,11 +189,18 @@ fn a_deck_mutes_the_vocals_or_the_instrumental() {
             rig.run_rms(0.5) / both
         };
         let tolerance = if key_lock { 0.01 } else { 1e-3 };
-        let instrumental = level(&mut rig, StemMix { vocals: false, instrumental: true });
-        assert!((instrumental - 0.4 / 0.6).abs() < tolerance, "key lock {key_lock}: {instrumental}");
-        let vocals = level(&mut rig, StemMix { vocals: true, instrumental: false });
-        assert!((vocals - 0.2 / 0.6).abs() < tolerance, "key lock {key_lock}: {vocals}");
-        assert!(level(&mut rig, StemMix { vocals: false, instrumental: false }) < 1e-3);
+        let only = |vocals, drums, bass, other| StemMix { vocals, drums, bass, other };
+        for (mix, expected) in [
+            (only(false, true, true, true), 0.4),
+            (only(true, false, false, false), 0.2),
+            (only(false, true, false, false), 0.15),
+            (only(false, false, true, false), 0.1),
+            (only(false, false, false, true), 0.15),
+        ] {
+            let got = level(&mut rig, mix);
+            assert!((got - expected / 0.6).abs() < tolerance, "key lock {key_lock}, {mix:?}: {got}");
+        }
+        assert!(level(&mut rig, only(false, false, false, false)) < 1e-3);
 
         // another track plays whole, whatever the previous one muted
         rig.send(Command::LoadTrack { deck: 0, track: sine_track(10.0, 0.6) });

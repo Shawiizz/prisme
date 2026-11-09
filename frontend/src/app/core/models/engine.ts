@@ -1,6 +1,6 @@
 /** Shapes exchanged with the Rust side (see apps/prisme-desktop/src/dto.rs). */
 
-import { StemMix } from './stems';
+import { Separation, StemMix } from './stems';
 
 export type SignalState = 'none' | 'bounce' | 'ok';
 export type VinylMode = 'absolute' | 'relative';
@@ -169,9 +169,9 @@ export interface TrackInfo {
   cues: Cue[];
   /** Semitones the deck transposes it by (0 at each load). */
   keyShift: number;
-  /** Its separated vocals are on the deck: the stems can be muted. */
-  vocals: boolean;
-  /** The stems the deck plays (both at each load). */
+  /** The separated stems on the deck, which it can mute. */
+  separation: Separation;
+  /** The parts the deck plays (all at each load). */
   stemMix: StemMix;
 }
 
@@ -181,8 +181,8 @@ export interface DeckTrackUpdate {
   loadId: number;
   waveformReady: boolean;
   analysis: TrackAnalysis | null;
-  /** Its separated vocals reached the deck. */
-  vocalsReady: boolean;
+  /** Its separated stems reached the deck. */
+  separation: Separation | null;
 }
 
 /** Tempo and key of a loaded track, after a correction or its analysis. */

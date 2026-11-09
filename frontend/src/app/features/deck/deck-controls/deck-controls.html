@@ -33,25 +33,18 @@
     </button>
   </div>
 
-  <div class="stems" [title]="stemsTitle()">
-    <button
-      class="pr-btn pr-btn--sm"
-      [class.is-on]="track()?.vocals && track()?.stemMix?.vocals"
-      [disabled]="!track()?.vocals"
-      (click)="engine.toggleStem(deck(), 'vocals')"
-      [title]="'Vocals: on or muted' | t"
-    >
-      VOX
-    </button>
-    <button
-      class="pr-btn pr-btn--sm"
-      [class.is-on]="track()?.vocals && track()?.stemMix?.instrumental"
-      [disabled]="!track()?.vocals"
-      (click)="engine.toggleStem(deck(), 'instrumental')"
-      [title]="'Instrumental: on or muted' | t"
-    >
-      INST
-    </button>
+  <div class="stems" [class.full]="separation() === 'full'" [title]="stemsTitle()">
+    @for (b of stemButtons(); track b.part) {
+      <button
+        class="pr-btn pr-btn--sm"
+        [class.is-on]="b.on"
+        [disabled]="separation() === 'none'"
+        (click)="engine.toggleStem(deck(), b.part)"
+        [title]="b.title"
+      >
+        {{ b.label }}
+      </button>
+    }
   </div>
 
   <div class="tempo">

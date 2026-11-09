@@ -316,28 +316,61 @@ pub struct TrackInfoDto {
     pub cues: Vec<CueDto>,
     /// Semitones the deck transposes the track by.
     pub key_shift: i8,
-    /// Its separated vocals are on the deck: the stems can be muted.
-    pub vocals: bool,
+    /// The stems on the deck, which it can mute.
+    pub separation: SeparationDto,
     pub stem_mix: StemMixDto,
 }
 
-/// Which stems a deck plays.
+/// How far a track is separated.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub enum SeparationDto {
+    None,
+    /// Its vocals, the rest being the instrumental.
+    Vocals,
+    /// Its vocals, drums and bass, the rest being the other instruments.
+    Full,
+}
+
+impl SeparationDto {
+    /// From which stems there are; the drums and bass count only with the vocals.
+    pub fn of(has: impl Fn(prisme_engine::Stem) -> bool) -> Self {
+        use prisme_engine::Stem;
+        if !has(Stem::Vocals) {
+            Self::None
+        } else if has(Stem::Drums) && has(Stem::Bass) {
+            Self::Full
+        } else {
+            Self::Vocals
+        }
+    }
+
+    /// Of the stems stored next to `track`.
+    pub fn stored(track: &std::path::Path) -> Self {
+        Self::of(|stem| prisme_stems::track::has_stem(track, stem.name()))
+    }
+}
+
+/// Which parts of the track a deck plays.
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct StemMixDto {
     pub vocals: bool,
-    pub instrumental: bool,
+    pub drums: bool,
+    pub bass: bool,
+    /// What no stem holds: the instrumental of a track separated into its vocals alone.
+    pub other: bool,
 }
 
 impl From<prisme_engine::StemMix> for StemMixDto {
     fn from(m: prisme_engine::StemMix) -> Self {
-        Self { vocals: m.vocals, instrumental: m.instrumental }
+        Self { vocals: m.vocals, drums: m.drums, bass: m.bass, other: m.other }
     }
 }
 
 impl From<StemMixDto> for prisme_engine::StemMix {
     fn from(m: StemMixDto) -> Self {
-        Self { vocals: m.vocals, instrumental: m.instrumental }
+        Self { vocals: m.vocals, drums: m.drums, bass: m.bass, other: m.other }
     }
 }
 
@@ -357,10 +390,12 @@ pub struct StemsProgressDto {
     pub device: Option<String>,
 }
 
-/// The separation model: installed, or how far its download is.
+/// A separation model: installed, or how far its download is.
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ModelStatusDto {
+    /// `vocals` or `drums-bass`.
+    pub id: &'static str,
     pub installed: bool,
     pub downloading: Option<f64>,
     pub error: Option<String>,
@@ -370,8 +405,16 @@ pub struct ModelStatusDto {
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct StemsStatusDto {
-    pub model: ModelStatusDto,
+    pub models: Vec<ModelStatusDto>,
     pub progress: StemsProgressDto,
+}
+
+/// A track whose stems were just stored.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SeparatedDto {
+    pub path: String,
+    pub separation: SeparationDto,
 }
 
 /// What became known of a loaded track after it was put on its deck.
@@ -383,8 +426,8 @@ pub struct DeckTrackUpdateDto {
     /// The waveform was computed: it can be fetched (`deck_waveform`).
     pub waveform_ready: bool,
     pub analysis: Option<TrackAnalysisDto>,
-    /// The track's separated vocals reached the deck.
-    pub vocals_ready: bool,
+    /// The track's separated stems reached the deck.
+    pub separation: Option<SeparationDto>,
 }
 
 /// Tempo and key of a loaded track, after a correction or its analysis.
@@ -786,8 +829,8 @@ pub struct TrackDetailsDto {
     pub play_count: usize,
     /// The file could not be decoded.
     pub failed: bool,
-    /// Its vocals are separated (stored next to it).
-    pub vocals: bool,
+    /// Its stems stored next to it.
+    pub separation: SeparationDto,
 }
 
 impl From<&prisme_library::TrackRecord> for TrackDetailsDto {
@@ -801,7 +844,7 @@ impl From<&prisme_library::TrackRecord> for TrackDetailsDto {
             rating: r.marks.rating,
             play_count: r.play_count,
             failed: r.error.is_some(),
-            vocals: prisme_stems::track::has_vocals(std::path::Path::new(&r.path)),
+            separation: SeparationDto::stored(std::path::Path::new(&r.path)),
         }
     }
 }

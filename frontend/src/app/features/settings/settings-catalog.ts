@@ -163,11 +163,19 @@ export const SETTINGS: readonly SettingEntry[] = [
     ),
   },
   {
+    id: 'library.stemsDrumsBass',
+    page: 'library',
+    label: t('Drums and bass separation'),
+    description: t(
+      'Splits the instrumental into drums, bass and melody, to mute each on its own. Needs the vocals separation; about a minute more per track with a recent graphics card.',
+    ),
+  },
+  {
     id: 'library.stemsAll',
     page: 'library',
     label: t('Separate the whole library'),
     description: t(
-      'The vocals are stored next to each track, in a .prisme folder: copy your music to another computer and its separations come along.',
+      'The stems are stored next to each track, in a .prisme folder: copy your music to another computer and its separations come along.',
     ),
   },
   {

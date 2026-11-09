@@ -3,7 +3,7 @@
 use crate::grid::BeatGrid;
 use crate::looping::LoopRegion;
 use crate::mixer::{CrossfaderCurve, OutputRouting};
-use crate::stems::StemMix;
+use crate::stems::{StemMix, StemTracks};
 use prisme_dsp::{Band, EffectKind};
 use prisme_media::TrackAudio;
 use prisme_timecode::TimecodeDecoder;
@@ -64,12 +64,12 @@ pub enum Command {
     Eject {
         deck: DeckId,
     },
-    /// The separated vocals of the loaded track: same rate and length (`None`: none).
-    SetVocals {
+    /// The separated stems of the loaded track: same rate and length (`None`: not separated).
+    SetStems {
         deck: DeckId,
-        vocals: Option<Arc<TrackAudio>>,
+        stems: StemTracks,
     },
-    /// Which stems the deck plays (both again when a track is loaded).
+    /// Which stems the deck plays (all again when a track is loaded).
     SetStemMix {
         deck: DeckId,
         mix: StemMix,

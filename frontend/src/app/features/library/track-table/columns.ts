@@ -50,7 +50,7 @@ export const COLUMNS: readonly Column[] = [
   { id: 'key', name: t('Key'), header: t('Key'), width: '52px', sort: 'key' },
   { id: 'rating', name: t('Rating'), header: t('Rating'), width: '74px', sort: 'rating' },
   { id: 'plays', name: t('Plays'), header: t('Plays'), width: '52px', sort: 'plays' },
-  { id: 'stems', name: t('Separated vocals'), header: 'VOX', width: '40px' },
+  { id: 'stems', name: t('Separated stems'), header: 'STEMS', width: '48px' },
 ];
 
 /** Grid tracks of a row: the play order of ordered lists, the columns, the load buttons. */
