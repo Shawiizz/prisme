@@ -32,7 +32,8 @@ struct Params {
     rotary_freq: Vec<f32>,
     band_proj: Vec<GpuLinear>,
     transformers: Vec<(Vec<GpuLayer>, wgpu::Buffer)>,
-    masks: Vec<Vec<GpuLinear>>,
+    /// Per stem, per band.
+    masks: Vec<Vec<Vec<GpuLinear>>>,
     no_bias: wgpu::Buffer,
     ff_hidden: usize,
     mask_hidden: usize,
@@ -59,6 +60,7 @@ struct Pipelines {
     rotary: wgpu::ComputePipeline,
     attention: wgpu::ComputePipeline,
     glu: wgpu::ComputePipeline,
+    add: wgpu::ComputePipeline,
 }
 
 /// The dispatches for one frame count, in submissions short enough not to trip the
@@ -84,6 +86,7 @@ enum Kind {
     Rotary,
     Attention,
     Glu,
+    Add,
 }
 
 #[derive(Clone, Copy)]
@@ -192,8 +195,8 @@ impl MaskNetwork for GpuNetwork {
     }
 
     fn masks(&mut self, bins: &[f32], frames: usize, out: &mut [f32]) -> Result<(), StemsError> {
-        let size = frames * self.geometry.features();
-        assert!(bins.len() == size && out.len() == size, "bins and masks hold `frames` rows of features");
+        assert!(bins.len() == frames * self.geometry.features(), "bins hold `frames` rows of features");
+        assert!(out.len() == self.geometry.mask_len(frames), "masks hold `frames` rows per stem");
         self.prepare(frames)?;
         let plan = &self.plans[&frames];
         self.queue.write_buffer(&plan.bins, 0, bytemuck::cast_slice(bins));
@@ -274,6 +277,7 @@ impl Pipelines {
             rotary: make(include_str!("rotary.wgsl"), "main", &[]),
             attention: make(include_str!("attention.wgsl"), "main", &[("DH", dim_head as f64)]),
             glu: make(include_str!("glu.wgsl"), "main", &[]),
+            add: make(include_str!("add.wgsl"), "main", &[]),
         }
     }
 
@@ -285,6 +289,7 @@ impl Pipelines {
             Kind::Rotary => &self.rotary,
             Kind::Attention => &self.attention,
             Kind::Glu => &self.glu,
+            Kind::Add => &self.add,
         }
     }
 }
@@ -318,6 +323,7 @@ impl Params {
         let mask_hidden = w
             .masks
             .iter()
+            .flatten()
             .flat_map(|m| m.split_last().map_or(&[][..], |(_, hidden)| hidden))
             .map(|l| l.out)
             .max()
@@ -327,7 +333,11 @@ impl Params {
             rotary_freq: w.rotary_freq.clone(),
             band_proj: w.band_proj.iter().map(linear).collect(),
             transformers,
-            masks: w.masks.iter().map(|m| m.iter().map(linear).collect()).collect(),
+            masks: w
+                .masks
+                .iter()
+                .map(|stem| stem.iter().map(|m| m.iter().map(linear).collect()).collect())
+                .collect(),
             no_bias: storage(device, &[0.0; 4]),
             ff_hidden,
             mask_hidden,
@@ -350,17 +360,19 @@ impl Planner<'_> {
         let tokens = frames * bands;
         let features = g.features();
         let widest_band = g.bands.iter().map(|b| b.width).max().unwrap_or(0);
-        let mask_out = p.masks.iter().filter_map(|m| m.last()).map(|l| l.out).max().unwrap_or(0);
+        let mask_out = p.masks.iter().flatten().filter_map(|m| m.last()).map(|l| l.out).max().unwrap_or(0);
 
         let bins = self.buffer(frames * features, wgpu::BufferUsages::COPY_DST);
-        let mask = self.buffer(frames * features, wgpu::BufferUsages::COPY_SRC);
+        let mask = self.buffer(g.mask_len(frames), wgpu::BufferUsages::COPY_SRC);
         let readback = self.net.device.create_buffer(&wgpu::BufferDescriptor {
             label: None,
-            size: (frames * features * 4) as u64,
+            size: (g.mask_len(frames) * 4) as u64,
             usage: wgpu::BufferUsages::MAP_READ | wgpu::BufferUsages::COPY_DST,
             mapped_at_creation: false,
         });
         let x = self.buffer(tokens * c.dim, wgpu::BufferUsages::empty());
+        let earlier =
+            if c.skip { Some(self.buffer(tokens * c.dim, wgpu::BufferUsages::empty())) } else { None };
         let normed = self.buffer(tokens * c.dim, wgpu::BufferUsages::empty());
         let qkvg = self.buffer(tokens * c.qkvg_width(), wgpu::BufferUsages::empty());
         let attended = self.buffer(tokens * c.inner_dim(), wgpu::BufferUsages::empty());
@@ -393,6 +405,9 @@ impl Planner<'_> {
         for (i, (layers, gain)) in p.transformers.iter().enumerate() {
             let axis = if i % 2 == 0 { Axis::Time } else { Axis::Freq };
             let angles = if axis == Axis::Time { &angles_time } else { &angles_freq };
+            if let Some(earlier) = earlier.as_ref().filter(|_| axis == Axis::Time && i > 0) {
+                steps.push(self.add(earlier, &x, tokens * c.dim, true));
+            }
             for l in layers {
                 steps.push(self.norm(&x, &normed, tokens, c.dim, (c.dim, 0), (c.dim, 0)));
                 let into = Out { buffer: &qkvg, ld: c.qkvg_width(), off: 0 };
@@ -408,28 +423,34 @@ impl Planner<'_> {
                 steps.push(self.matmul(&l.ff2, (&hidden, l.ff1.out, 0), tokens, into, Act::None, true));
             }
             steps.push(self.norm_in_place(&x, gain, tokens, c.dim));
+            if let Some(earlier) = earlier.as_ref().filter(|_| axis == Axis::Freq) {
+                steps.push(self.add(&x, earlier, tokens * c.dim, i > 1));
+            }
             submissions.push(std::mem::take(&mut steps));
         }
 
-        for (b, (band, mlp_layers)) in g.bands.iter().zip(&p.masks).enumerate() {
-            let mut input = (&x, bands * c.dim, b * c.dim);
-            for (k, l) in mlp_layers.iter().enumerate() {
-                let last = k + 1 == mlp_layers.len();
-                let target = if last { &mlp_out } else { &mlp[k % 2] };
-                let act = if last { Act::None } else { Act::Tanh };
-                steps.push(self.matmul(
-                    l,
-                    input,
-                    frames,
-                    Out { buffer: target, ld: l.out, off: 0 },
-                    act,
-                    false,
-                ));
-                input = (target, l.out, 0);
+        for (s, stem) in p.masks.iter().enumerate() {
+            let stem_off = s * frames * features;
+            for (b, (band, mlp_layers)) in g.bands.iter().zip(stem).enumerate() {
+                let mut input = (&x, bands * c.dim, b * c.dim);
+                for (k, l) in mlp_layers.iter().enumerate() {
+                    let last = k + 1 == mlp_layers.len();
+                    let target = if last { &mlp_out } else { &mlp[k % 2] };
+                    let act = if last { Act::None } else { Act::Tanh };
+                    steps.push(self.matmul(
+                        l,
+                        input,
+                        frames,
+                        Out { buffer: target, ld: l.out, off: 0 },
+                        act,
+                        false,
+                    ));
+                    input = (target, l.out, 0);
+                }
+                steps.push(self.glu(&mlp_out, &mask, frames, band.width, features, stem_off + band.offset));
             }
-            steps.push(self.glu(&mlp_out, &mask, frames, band.width, features, band.offset));
+            submissions.push(std::mem::take(&mut steps));
         }
-        submissions.push(steps);
 
         Plan { bins, mask, readback, submissions }
     }
@@ -543,6 +564,11 @@ impl Planner<'_> {
             groups_x,
         ];
         self.step(Kind::Attention, groups, &[qkvg, out], &words(&uniform))
+    }
+
+    fn add(&self, src: &wgpu::Buffer, dst: &wgpu::Buffer, len: usize, accumulate: bool) -> Step {
+        let (groups, groups_x) = grid(len.div_ceil(256));
+        self.step(Kind::Add, groups, &[src, dst], &words(&[len, accumulate as usize, groups_x]))
     }
 
     fn glu(

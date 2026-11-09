@@ -1,5 +1,6 @@
 //! Separates a stereo WAV at the model's rate, on the GPU when there is one
-//! (`PRISME_STEMS_CPU=1` forces the CPU): `separate <model.safetensors> <in.wav> <vocals.wav>`.
+//! (`PRISME_STEMS_CPU=1` forces the CPU): `separate <model.safetensors> <in.wav> <out>`
+//! writes `<out>.<stem>.wav` for each stem of the model.
 
 use std::path::PathBuf;
 use std::time::Instant;
@@ -9,7 +10,7 @@ use prisme_stems::{CpuNetwork, GpuNetwork, MaskNetwork, Separator, Weights};
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args: Vec<PathBuf> = std::env::args_os().skip(1).map(PathBuf::from).collect();
     let [model, input, output] = args.as_slice() else {
-        return Err("usage: separate <model.safetensors> <in.wav> <vocals.wav>".into());
+        return Err("usage: separate <model.safetensors> <in.wav> <out>".into());
     };
     let t = Instant::now();
     let weights = Weights::load(model)?;
@@ -39,7 +40,7 @@ fn run(
     output: &std::path::Path,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let t = Instant::now();
-    let [l, r] = separator.vocals(left, right, |done, total| {
+    let stems = separator.separate(left, right, |done, total| {
         eprintln!("chunk {done}/{total} at {:.1} s", t.elapsed().as_secs_f64());
         true
     })?;
@@ -47,11 +48,15 @@ fn run(
     let took = t.elapsed().as_secs_f64();
     eprintln!("{seconds:.1} s of audio in {took:.1} s ({:.2}x)", seconds / took);
 
-    let mut writer = hound::WavWriter::create(output, spec)?;
-    for (a, b) in l.iter().zip(&r) {
-        writer.write_sample(*a)?;
-        writer.write_sample(*b)?;
+    for (name, [l, r]) in separator.stems().iter().zip(stems) {
+        let mut path = output.as_os_str().to_owned();
+        path.push(format!(".{name}.wav"));
+        let mut writer = hound::WavWriter::create(path, spec)?;
+        for (a, b) in l.iter().zip(&r) {
+            writer.write_sample(*a)?;
+            writer.write_sample(*b)?;
+        }
+        writer.finalize()?;
     }
-    writer.finalize()?;
     Ok(())
 }

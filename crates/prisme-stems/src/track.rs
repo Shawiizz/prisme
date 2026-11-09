@@ -1,9 +1,9 @@
-//! Separated vocals stored next to their track, in a `.prisme` folder: copying a music folder
+//! Separated stems stored next to their track, in a `.prisme` folder: copying a music folder
 //! to another computer brings its separations along.
 //!
-//! The vocals are a 16-bit FLAC at the track's own rate and length, at half their level (a
-//! track mastered over full scale leaves vocals above it too). The instrumental is never
-//! stored: it is the track minus its vocals.
+//! Each stem is a 16-bit FLAC at the track's own rate and length, at half its level (a track
+//! mastered over full scale leaves stems above it too). What no stem holds is never stored:
+//! it is the track minus its stems.
 
 use std::path::{Path, PathBuf};
 
@@ -19,48 +19,79 @@ use crate::StemsError;
 pub const FOLDER: &str = ".prisme";
 const STORED_GAIN: f32 = 0.5;
 
-/// Where the vocals of `track` are stored.
-pub fn vocals_path(track: &Path) -> Option<PathBuf> {
+/// Where `stem` of `track` is stored.
+pub fn stem_path(track: &Path, stem: &str) -> Option<PathBuf> {
     let name = track.file_name()?.to_string_lossy();
-    Some(track.parent()?.join(FOLDER).join(format!("{name}.vocals.flac")))
+    Some(track.parent()?.join(FOLDER).join(format!("{name}.{stem}.flac")))
 }
 
-/// Whether `track` has stored vocals (not checking that they still match it).
-pub fn has_vocals(track: &Path) -> bool {
-    vocals_path(track).is_some_and(|p| p.is_file())
+/// Whether `track` has `stem` stored (not checking that it still matches the track).
+pub fn has_stem(track: &Path, stem: &str) -> bool {
+    stem_path(track, stem).is_some_and(|p| p.is_file())
 }
 
-/// Separates the vocals of `track` and stores them next to it.
+/// Separates `track` with each separator in turn and stores every stem next to it.
+///
+/// `progress(done, total)` counts the chunks of all the separators: returning `false` cancels,
+/// keeping the stems of the separators already through.
 pub fn separate_file<N: MaskNetwork>(
-    separator: &mut Separator<N>,
+    separators: &mut [&mut Separator<N>],
     track: &Path,
-    progress: impl FnMut(usize, usize) -> bool,
-) -> Result<PathBuf, StemsError> {
-    let target =
-        vocals_path(track).ok_or_else(|| StemsError::Track(format!("{} is not a file", track.display())))?;
+    mut progress: impl FnMut(usize, usize) -> bool,
+) -> Result<Vec<PathBuf>, StemsError> {
+    let targets = separators
+        .iter()
+        .map(|s| s.stems().iter().map(|stem| stem_path(track, stem)).collect::<Option<Vec<_>>>())
+        .collect::<Option<Vec<_>>>()
+        .ok_or_else(|| StemsError::Track(format!("{} is not a file", track.display())))?;
     let (rate, samples) = decode(track)?;
     let frames = samples.len() / 2;
-    let model_rate = separator.sample_rate();
-    let input = resample(&samples, rate, model_rate)?;
-    let (left, right) = deinterleave(&input);
-    let [l, r] = separator.vocals(&left, &right, progress)?;
-    let vocals: Vec<f32> = l.iter().zip(&r).flat_map(|(a, b)| [*a, *b]).collect();
-    let mut vocals = resample(&vocals, model_rate, rate)?;
-    vocals.resize(frames * 2, 0.0);
-
-    let flac = encode(&vocals, rate)?;
-    let folder = target.parent().expect("the vocals path has a folder");
-    std::fs::create_dir_all(folder)?;
-    let partial = target.with_extension("flac.part");
-    std::fs::write(&partial, flac)?;
-    std::fs::rename(&partial, &target)?;
-    Ok(target)
+    // the track at each model's rate, resampled once per rate
+    let mut inputs: Vec<(u32, Vec<f32>, Vec<f32>)> = Vec::new();
+    for separator in separators.iter() {
+        let model_rate = separator.sample_rate();
+        if inputs.iter().all(|(r, ..)| *r != model_rate) {
+            let (left, right) = deinterleave(&resample(&samples, rate, model_rate)?);
+            inputs.push((model_rate, left, right));
+        }
+    }
+    let input = |model_rate: u32| inputs.iter().find(|(r, ..)| *r == model_rate).expect("resampled above");
+    let total = separators.iter().map(|s| s.chunks(input(s.sample_rate()).1.len())).sum();
+    let mut before = 0;
+    let mut stored = Vec::new();
+    for (separator, targets) in separators.iter_mut().zip(targets) {
+        let model_rate = separator.sample_rate();
+        let (_, left, right) = input(model_rate);
+        let stems = separator.separate(left, right, |done, _| progress(before + done, total))?;
+        before += separator.chunks(left.len());
+        for ([l, r], target) in stems.into_iter().zip(targets) {
+            let stem: Vec<f32> = l.iter().zip(&r).flat_map(|(a, b)| [*a, *b]).collect();
+            let mut stem = resample(&stem, model_rate, rate)?;
+            stem.resize(frames * 2, 0.0);
+            store(&target, &encode(&stem, rate)?)?;
+            stored.push(target);
+        }
+    }
+    Ok(stored)
 }
 
-/// The stored vocals of a track whose decoded audio has `frames` frames at `sample_rate`:
-/// `None` when there are none, or when they were made from a different version of the file.
-pub fn load_vocals(track: &Path, frames: usize, sample_rate: u32) -> Result<Option<TrackAudio>, StemsError> {
-    let Some(path) = vocals_path(track).filter(|p| p.is_file()) else { return Ok(None) };
+fn store(target: &Path, bytes: &[u8]) -> Result<(), StemsError> {
+    std::fs::create_dir_all(target.parent().expect("a stem path has a folder"))?;
+    let partial = target.with_extension("flac.part");
+    std::fs::write(&partial, bytes)?;
+    std::fs::rename(&partial, target)?;
+    Ok(())
+}
+
+/// The stored `stem` of a track whose decoded audio has `frames` frames at `sample_rate`:
+/// `None` when there is none, or when it was made from a different version of the file.
+pub fn load_stem(
+    track: &Path,
+    stem: &str,
+    frames: usize,
+    sample_rate: u32,
+) -> Result<Option<TrackAudio>, StemsError> {
+    let Some(path) = stem_path(track, stem).filter(|p| p.is_file()) else { return Ok(None) };
     let (rate, mut samples) = decode(&path)?;
     if rate != sample_rate || samples.len() != frames * 2 {
         return Ok(None);
@@ -123,8 +154,8 @@ mod tests {
     use super::*;
 
     #[test]
-    fn the_vocals_live_in_a_folder_beside_the_track() {
-        let path = vocals_path(Path::new("C:/Music/House/a b.mp3")).unwrap();
+    fn the_stems_live_in_a_folder_beside_the_track() {
+        let path = stem_path(Path::new("C:/Music/House/a b.mp3"), "vocals").unwrap();
         assert_eq!(path, Path::new("C:/Music/House/.prisme/a b.mp3.vocals.flac"));
     }
 

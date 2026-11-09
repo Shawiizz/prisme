@@ -1,8 +1,9 @@
-//! Vocals / instrumental separation.
+//! Stem separation.
 //!
-//! A Mel-Band RoFormer network ([Wang et al., 2023]) estimates a complex mask of the vocals
-//! on the track's STFT; the instrumental is the track minus the vocals. The network runs on
-//! the GPU when one is usable, else on the CPU ([`cpu`]).
+//! A Mel-Band RoFormer network ([Wang et al., 2023]) estimates a complex mask of each of its
+//! stems (the vocals, or the drums and the bass) on the track's STFT; what no stem holds is
+//! the track minus the stems. The network runs on the GPU when one is usable, else on the
+//! CPU ([`cpu`]).
 //!
 //! [Wang et al., 2023]: https://arxiv.org/abs/2310.01809
 

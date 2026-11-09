@@ -1,6 +1,6 @@
 [package]
 name = "prisme-stems"
-description = "Vocals / instrumental separation with a Mel-Band RoFormer network, on the GPU or the CPU"
+description = "Stem separation with Mel-Band RoFormer networks, on the GPU or the CPU"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true

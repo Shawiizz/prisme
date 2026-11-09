@@ -22,6 +22,10 @@ pub struct Config {
     pub sample_rate: u32,
     /// STFT frames the network sees at once.
     pub chunk_frames: usize,
+    /// Each transformer pair also takes the sum of the outputs of the pairs before it.
+    pub skip: bool,
+    /// How many chunks cover each sample of a track: 1 cuts it back to back.
+    pub overlap: usize,
 }
 
 impl Config {
@@ -62,11 +66,13 @@ pub struct Band {
     pub width: usize,
 }
 
-/// What the separation needs to know around the network: its shape and how the STFT bins
-/// map to its bands.
+/// What the separation needs to know around the network: its shape, the stems it separates
+/// and how the STFT bins map to its bands.
 #[derive(Debug, Clone)]
 pub struct Geometry {
     pub config: Config,
+    /// The stems a mask is estimated for, in the order of the masks.
+    pub stems: Vec<String>,
     /// For each gathered bin, its index in the stereo STFT (`bin * 2 + channel`).
     pub freq_indices: Vec<u32>,
     /// How many bands each STFT bin belongs to.
@@ -78,6 +84,11 @@ impl Geometry {
     /// The features of a frame: every gathered bin, real and imaginary.
     pub fn features(&self) -> usize {
         self.freq_indices.len() * 2
+    }
+
+    /// The values of the masks of `frames` frames: [`Self::features`] per frame and stem.
+    pub fn mask_len(&self, frames: usize) -> usize {
+        self.stems.len() * frames * self.features()
     }
 }
 
@@ -106,8 +117,8 @@ pub struct Weights {
     pub band_proj: Vec<Linear>,
     /// Time then frequency transformer, `depth` times.
     pub transformers: Vec<Transformer>,
-    /// For each band, its mask MLP (tanh between layers, a GLU after the last).
-    pub masks: Vec<Vec<Linear>>,
+    /// For each stem, then each band, its mask MLP (tanh between layers, a GLU after the last).
+    pub masks: Vec<Vec<Vec<Linear>>>,
     /// Tensors of the file the network does not use (test vectors of the fixtures).
     pub extra: HashMap<String, Vec<f32>>,
 }
@@ -135,7 +146,12 @@ impl Weights {
             hop: file.meta("hop")?,
             sample_rate: file.meta("sample_rate")?,
             chunk_frames: file.meta("chunk_frames")?,
+            skip: file.meta_or("skip_connection", 0u8)? == 1,
+            overlap: file.meta_or("overlap", 1)?,
         };
+        if config.overlap == 0 || config.overlap > config.chunk_samples() {
+            return Err(StemsError::Model("overlap out of range".into()));
+        }
         let time_depth: usize = file.meta("time_depth")?;
         let freq_depth: usize = file.meta("freq_depth")?;
         let mask_layers: usize = file.meta("mask_layers")?;
@@ -176,8 +192,20 @@ impl Weights {
             transformers.push(Transformer { layers, norm: file.f32s(&format!("transformer.{i}.norm"))? });
         }
 
-        let masks = (0..bands.len())
-            .map(|b| (0..mask_layers).map(|k| file.linear(&format!("mask.{b}.{k}"))).collect())
+        // A file without a list of stems holds the vocals' masks, unnamed.
+        let stems: Vec<String> = match file.meta.get("stems") {
+            Some(list) => list.split(',').map(str::to_owned).collect(),
+            None => vec!["vocals".to_owned()],
+        };
+        let named = file.meta.contains_key("stems");
+        let masks = stems
+            .iter()
+            .map(|stem| {
+                let prefix = if named { format!("mask.{stem}.") } else { "mask.".to_owned() };
+                (0..bands.len())
+                    .map(|b| (0..mask_layers).map(|k| file.linear(&format!("{prefix}{b}.{k}"))).collect())
+                    .collect()
+            })
             .collect::<Result<_, StemsError>>()?;
 
         let mut extra = HashMap::new();
@@ -188,7 +216,7 @@ impl Weights {
         }
 
         let weights = Self {
-            geometry: Geometry { config, freq_indices, bands_per_freq, bands },
+            geometry: Geometry { config, stems, freq_indices, bands_per_freq, bands },
             rotary_time: file.f32s("rotary.time")?,
             rotary_freq: file.f32s("rotary.freq")?,
             band_proj,
@@ -229,7 +257,10 @@ impl Weights {
                 return bad("transformer norm");
             }
         }
-        for (band, mlp) in g.bands.iter().zip(&self.masks) {
+        if g.stems.is_empty() || g.stems.iter().any(|s| s.is_empty()) {
+            return bad("stems");
+        }
+        for (band, mlp) in self.masks.iter().flat_map(|stem| g.bands.iter().zip(stem)) {
             let mut inp = c.dim;
             for l in mlp {
                 if l.inp != inp {
@@ -259,6 +290,14 @@ impl Reader<'_> {
             .get(key)
             .and_then(|v| v.parse().ok())
             .ok_or_else(|| StemsError::Model(format!("missing metadata {key}")))
+    }
+
+    fn meta_or<T: std::str::FromStr>(&self, key: &str, default: T) -> Result<T, StemsError> {
+        if self.meta.contains_key(key) {
+            self.meta(key)
+        } else {
+            Ok(default)
+        }
     }
 
     fn has(&self, name: &str) -> bool {

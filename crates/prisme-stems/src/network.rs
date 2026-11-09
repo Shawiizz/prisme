@@ -3,12 +3,13 @@
 use crate::model::Geometry;
 use crate::StemsError;
 
-/// The network between the STFT and the iSTFT: gathered bins in, a complex mask per bin out.
+/// The network between the STFT and the iSTFT: gathered bins in, a complex mask per bin and
+/// stem out.
 pub trait MaskNetwork: Send {
     fn geometry(&self) -> &Geometry;
 
-    /// `bins` and `out` hold `frames` rows of [`Geometry::features`] values: for each gathered
-    /// bin, its real then imaginary part.
+    /// `bins` holds `frames` rows of [`Geometry::features`] values: for each gathered bin, its
+    /// real then imaginary part. `out` holds the masks the same way, stem after stem.
     fn masks(&mut self, bins: &[f32], frames: usize, out: &mut [f32]) -> Result<(), StemsError>;
 }
 

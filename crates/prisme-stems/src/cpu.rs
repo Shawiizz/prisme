@@ -46,8 +46,12 @@ impl MaskNetwork for CpuNetwork {
         }
 
         let mut scratch = Scratch::new(tokens, c);
+        let mut earlier = if c.skip { vec![0.0; x.len()] } else { Vec::new() };
         for (i, tr) in w.transformers.iter().enumerate() {
             let axis = if i % 2 == 0 { Axis::Time } else { Axis::Freq };
+            if c.skip && axis == Axis::Time {
+                x.par_iter_mut().zip(&earlier).for_each(|(x, e)| *x += e);
+            }
             let rotary = Rotary::new(
                 if axis == Axis::Time { &w.rotary_time } else { &w.rotary_freq },
                 axis.len(frames, bands),
@@ -72,39 +76,53 @@ impl MaskNetwork for CpuNetwork {
                 rms_normalize(row);
                 row.iter_mut().zip(&tr.norm).for_each(|(v, g)| *v *= g);
             });
-        }
-
-        let per_band: Vec<Vec<f32>> = g
-            .bands
-            .par_iter()
-            .zip(&w.masks)
-            .enumerate()
-            .map(|(b, (band, mlp))| {
-                let mut input: Vec<f32> =
-                    (0..frames).flat_map(|t| x[(t * bands + b) * c.dim..][..c.dim].iter().copied()).collect();
-                for (k, l) in mlp.iter().enumerate() {
-                    let mut y = vec![0.0; frames * l.out];
-                    linear_with(l, frames, &input, l.inp, &mut y, l.out, false, Parallelism::None);
-                    if k + 1 < mlp.len() {
-                        y.iter_mut().for_each(|v| *v = v.tanh());
-                    }
-                    input = y;
-                }
-                input
-                    .chunks_exact(band.width * 2)
-                    .flat_map(|row| {
-                        let (a, gate) = row.split_at(band.width);
-                        a.iter().zip(gate).map(|(a, g)| a * sigmoid(*g))
-                    })
-                    .collect()
-            })
-            .collect();
-        for (band, mask) in g.bands.iter().zip(per_band) {
-            for (t, row) in mask.chunks_exact(band.width).enumerate() {
-                out[t * features + band.offset..][..band.width].copy_from_slice(row);
+            if c.skip && axis == Axis::Freq {
+                earlier.par_iter_mut().zip(&x).for_each(|(e, x)| *e += x);
             }
         }
+
+        let size = frames * features;
+        for (stem, out) in w.masks.iter().zip(out.chunks_exact_mut(size)) {
+            stem_masks(g, stem, &x, frames, out);
+        }
         Ok(())
+    }
+}
+
+/// One stem's masks from the transformers' output.
+fn stem_masks(g: &Geometry, stem: &[Vec<Linear>], x: &[f32], frames: usize, out: &mut [f32]) {
+    let dim = g.config.dim;
+    let bands = g.bands.len();
+    let features = g.features();
+    let per_band: Vec<Vec<f32>> = g
+        .bands
+        .par_iter()
+        .zip(stem)
+        .enumerate()
+        .map(|(b, (band, mlp))| {
+            let mut input: Vec<f32> =
+                (0..frames).flat_map(|t| x[(t * bands + b) * dim..][..dim].iter().copied()).collect();
+            for (k, l) in mlp.iter().enumerate() {
+                let mut y = vec![0.0; frames * l.out];
+                linear_with(l, frames, &input, l.inp, &mut y, l.out, false, Parallelism::None);
+                if k + 1 < mlp.len() {
+                    y.iter_mut().for_each(|v| *v = v.tanh());
+                }
+                input = y;
+            }
+            input
+                .chunks_exact(band.width * 2)
+                .flat_map(|row| {
+                    let (a, gate) = row.split_at(band.width);
+                    a.iter().zip(gate).map(|(a, g)| a * sigmoid(*g))
+                })
+                .collect()
+        })
+        .collect();
+    for (band, mask) in g.bands.iter().zip(per_band) {
+        for (t, row) in mask.chunks_exact(band.width).enumerate() {
+            out[t * features + band.offset..][..band.width].copy_from_slice(row);
+        }
     }
 }
 
