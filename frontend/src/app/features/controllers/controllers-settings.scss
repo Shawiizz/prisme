@@ -38,6 +38,15 @@
     overflow: hidden;
     text-overflow: ellipsis;
   }
+  // how an encoder's steps are read, under its binding
+  .steps {
+    justify-self: start;
+    height: 22px;
+    margin-top: 2px;
+    padding: 0 var(--pr-space-1);
+    font-family: var(--pr-font-ui);
+    font-size: var(--pr-size-small);
+  }
   .none {
     color: var(--pr-text-3);
   }

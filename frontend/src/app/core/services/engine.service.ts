@@ -81,6 +81,10 @@ export class EngineService {
     };
     await invoke('subscribe_status', { channel });
     await listen<DeckTrackUpdate>('deck-track-update', (e) => this.completeTrack(e.payload));
+    // a controller's tempo fader, performed by the backend
+    await listen<{ deck: number; ratio: number }>('deck-pitch', ({ payload }) =>
+      this.patchDeck(payload.deck, { pitch: payload.ratio }),
+    );
     const [tracks, mixer] = await Promise.all([
       invoke<(TrackInfo | null)[]>('loaded_tracks'),
       invoke<MixerState>('mixer_state'),

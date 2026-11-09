@@ -1,17 +1,25 @@
 //! MIDI controllers. A mapped control's messages become `controller-input` events for
-//! the UI, which performs the actions and says which lights are on. Mappings are learnt
-//! from the controller itself and kept in `controllers.json`, with the controllers in use.
+//! the UI, which performs the actions and says which lights are on, except for the jog
+//! wheels and tempo faders, which drive the engine from here (`controller_direct`).
+//! Mappings are learnt from the controller itself and kept in `controllers.json`, with the
+//! controllers in use.
 
-use crate::dto::{ControllerInputDto, LightDto};
+use crate::controller_direct::{Direct, Performer, Tempo};
+use crate::dto::{ControllerInputDto, DeckPitchDto, LightDto};
 use crate::error::{AppError, AppResult};
-use crate::state::lock;
+use crate::state::{lock, AppState};
 use midir::{Ignore, MidiInput, MidiInputConnection, MidiOutput, MidiOutputConnection};
-use prisme_control::{ControlKind, Encoding, Event, Mapping, Mappings};
+use prisme_control::{ControlKind, Encoding, Event, Mapping, Mappings, Reader, SHIFT};
+use prisme_engine::Command;
 use prisme_session::JsonFile;
 use serde::{Deserialize, Serialize};
 use std::sync::Mutex;
+use std::time::{Duration, Instant};
 use tauri::{AppHandle, Emitter, Manager};
 use tracing::{error, warn};
+
+/// The low half of a 14-bit control follows its high half within this.
+const FINE_HALF_WITHIN: Duration = Duration::from_millis(100);
 
 const CLIENT: &str = "Prisme";
 
@@ -26,16 +34,18 @@ pub struct ControllerSetup {
     pub clock_output: Option<String>,
 }
 
-/// The next control moved will drive `target`.
+/// The next control moved will drive `target`; an encoder's steps are read as it sends
+/// its first one.
 struct Learning {
     target: String,
-    encoding: Encoding,
+    encoder: bool,
 }
 
 #[derive(Debug, PartialEq)]
 enum Routed {
     Learned(Mapping),
     Input(ControllerInputDto),
+    Direct(Direct, f32),
 }
 
 struct Connection {
@@ -48,12 +58,23 @@ struct Connection {
 pub struct Controllers {
     setup: JsonFile<ControllerSetup>,
     learning: Mutex<Option<Learning>>,
+    /// The mapping just learnt: it becomes a 14-bit one if its low half follows.
+    just_learnt: Mutex<Option<(Mapping, Instant)>>,
+    reader: Mutex<Reader>,
+    performer: Mutex<Performer>,
     connections: Mutex<Vec<Connection>>,
 }
 
 impl Controllers {
     pub fn new(setup: JsonFile<ControllerSetup>) -> Self {
-        Self { setup, learning: Mutex::new(None), connections: Mutex::new(Vec::new()) }
+        Self {
+            setup,
+            learning: Mutex::new(None),
+            just_learnt: Mutex::new(None),
+            reader: Mutex::new(Reader::default()),
+            performer: Mutex::new(Performer::default()),
+            connections: Mutex::new(Vec::new()),
+        }
     }
 
     /// The MIDI ports plugged in.
@@ -90,8 +111,13 @@ impl Controllers {
         Ok(())
     }
 
-    pub fn learn(&self, target: String, encoding: Encoding) {
-        *lock(&self.learning) = Some(Learning { target, encoding });
+    pub fn learn(&self, target: String, encoder: bool) {
+        *lock(&self.learning) = Some(Learning { target, encoder });
+    }
+
+    /// Changes how the control of `target` on `device` is read (an encoder's steps).
+    pub fn set_encoding(&self, device: &str, target: &str, encoding: Encoding) {
+        self.save(|s| s.mappings.set_encoding(device, target, encoding));
     }
 
     pub fn cancel_learning(&self) {
@@ -140,9 +166,10 @@ impl Controllers {
             .connect(
                 &port,
                 CLIENT,
-                move |_, bytes, _| {
+                move |stamp_us, bytes, _| {
                     if let Some(event) = prisme_control::parse(bytes) {
-                        app.state::<Controllers>().receive(&app, &name, event);
+                        let at_s = stamp_us as f64 / 1e6;
+                        app.state::<Controllers>().receive(&app, &name, event, at_s);
                     }
                 },
                 (),
@@ -153,28 +180,96 @@ impl Controllers {
         Ok(())
     }
 
-    fn receive(&self, app: &AppHandle, device: &str, event: Event) {
+    /// An event of `device`, at `at_s` on its clock.
+    fn receive(&self, app: &AppHandle, device: &str, event: Event, at_s: f64) {
         let _ = match self.route(device, event) {
             Some(Routed::Learned(mapping)) => app.emit("controller-learned", mapping),
             Some(Routed::Input(input)) => app.emit("controller-input", input),
+            Some(Routed::Direct(action, value)) => {
+                self.perform(app, action, value, at_s);
+                Ok(())
+            }
             None => Ok(()),
         };
     }
 
     /// Learns the control if a target waits for one, else finds what it drives.
     fn route(&self, device: &str, event: Event) -> Option<Routed> {
-        // a release is the end of the previous press, not the control to learn
+        if let Some(learnt) = self.complete_fine(device, event) {
+            return Some(Routed::Learned(learnt));
+        }
+        let mut reader = lock(&self.reader);
+        let shift = self
+            .setup
+            .read(|s| s.mappings.find(device, event.control, false).is_some_and(|m| m.target == SHIFT));
+        // a release is the end of the previous press, not the control to learn; nor is shift
         let released = event.control.kind == ControlKind::Note && event.raw == 0;
-        let learning = lock(&self.learning).take_if(|_| !released);
-        if let Some(Learning { target, encoding }) = learning {
-            let mapping = Mapping { device: device.to_owned(), control: event.control, target, encoding };
+        let learning = lock(&self.learning).take_if(|_| !released && !shift);
+        if let Some(Learning { target, encoder }) = learning {
+            let mapping = Mapping {
+                device: device.to_owned(),
+                control: event.control,
+                target,
+                encoding: if encoder { Encoding::guess(event.raw) } else { Encoding::Absolute },
+                fine: None,
+                shift: reader.shifted(device),
+            };
             self.save(|s| s.mappings.learn(mapping.clone()));
+            *lock(&self.just_learnt) = Some((mapping.clone(), Instant::now()));
             return Some(Routed::Learned(mapping));
         }
         self.setup.read(|s| {
-            let (target, value) = s.mappings.resolve(device, event)?;
-            Some(Routed::Input(ControllerInputDto { target: target.to_owned(), value }))
+            let (mapping, value) = reader.read(&s.mappings, device, event)?;
+            Some(match Direct::of(&mapping.target) {
+                Some(action) => Routed::Direct(action, value),
+                None => Routed::Input(ControllerInputDto { target: mapping.target.clone(), value }),
+            })
         })
+    }
+
+    /// A fader just learnt whose low half follows on the controller numbered 32 higher is
+    /// a 14-bit one: it is learnt as such.
+    fn complete_fine(&self, device: &str, event: Event) -> Option<Mapping> {
+        let mut just_learnt = lock(&self.just_learnt);
+        let (mapping, at) =
+            just_learnt.take_if(|(m, at)| m.device == device && at.elapsed() < FINE_HALF_WITHIN)?;
+        let coarse = mapping.control;
+        let fine = coarse.number + 32;
+        let follows = coarse.kind == ControlKind::ControlChange
+            && event.control.kind == ControlKind::ControlChange
+            && coarse.number < 32
+            && event.control.channel == coarse.channel
+            && event.control.number == fine
+            && mapping.encoding == Encoding::Absolute;
+        if !follows {
+            *just_learnt = Some((mapping, at));
+            return None;
+        }
+        self.save(|s| s.mappings.make_fine(&mapping, fine));
+        Some(Mapping { fine: Some(fine), ..mapping })
+    }
+
+    /// Drives the engine for a direct action; the UI hears of a new tempo.
+    fn perform(&self, app: &AppHandle, action: Direct, value: f32, at_s: f64) {
+        let state = app.state::<AppState>();
+        let deck = match action {
+            Direct::Jog(d) | Direct::JogTouch(d) | Direct::Pitch(d) => d,
+        };
+        if AppState::check_deck(deck).is_err() {
+            return;
+        }
+        let tempo = Tempo {
+            ratio: lock(&state.decks)[deck].pitch,
+            range: state.preferences.read(|p| p.dj.pitch_range),
+        };
+        let Some(command) = lock(&self.performer).command(action, value, at_s, tempo) else { return };
+        if let Command::SetPitch { ratio, .. } = command {
+            lock(&state.decks)[deck].pitch = ratio;
+            let _ = app.emit("deck-pitch", DeckPitchDto { deck, ratio });
+        }
+        if let Err(e) = state.send_if_running(command) {
+            warn!("controller action on deck {} lost: {e}", deck + 1);
+        }
     }
 
     fn save(&self, change: impl FnOnce(&mut ControllerSetup)) {
@@ -210,37 +305,82 @@ mod tests {
         Some(Routed::Input(ControllerInputDto { target: target.into(), value }))
     }
 
+    fn mapping(control: Control, target: &str) -> Mapping {
+        Mapping {
+            device: "DDJ".into(),
+            control,
+            target: target.into(),
+            encoding: Encoding::Absolute,
+            fine: None,
+            shift: false,
+        }
+    }
+
+    fn route(c: &Controllers, bytes: &[u8]) -> Option<Routed> {
+        c.route("DDJ", parse(bytes).unwrap())
+    }
+
     #[test]
     fn a_learnt_control_then_drives_its_target() {
         let c = controllers();
-        c.learn("deck1.play".into(), Encoding::Absolute);
+        c.learn("deck1.play".into(), false);
         // the release of a press made before Learn is not learnt
         assert_eq!(c.route("DDJ", parse(&[0x80, 40, 0]).unwrap()), None);
         let learnt = c.route("DDJ", parse(&[0x90, 36, 127]).unwrap());
-        let mapping = Mapping {
-            device: "DDJ".into(),
-            control: PAD,
-            target: "deck1.play".into(),
-            encoding: Encoding::Absolute,
-        };
-        assert_eq!(learnt, Some(Routed::Learned(mapping)));
+        assert_eq!(learnt, Some(Routed::Learned(mapping(PAD, "deck1.play"))));
         assert_eq!(c.route("DDJ", parse(&[0x80, 36, 0]).unwrap()), input("deck1.play", 0.0));
         assert_eq!(c.route("DDJ", parse(&[0x90, 36, 127]).unwrap()), input("deck1.play", 1.0));
         assert_eq!(c.route("Other", parse(&[0x90, 36, 127]).unwrap()), None);
     }
 
     #[test]
-    fn encoders_are_learnt_relative() {
+    fn encoders_are_learnt_with_their_kind_of_steps() {
         let c = controllers();
-        c.learn("library.browse".into(), Encoding::Relative);
-        c.route("DDJ", parse(&[0xb0, 64, 1]).unwrap());
-        assert_eq!(c.route("DDJ", parse(&[0xb0, 64, 127]).unwrap()), input("library.browse", -1.0));
+        c.learn("library.browse".into(), true);
+        route(&c, &[0xb0, 64, 1]);
+        assert_eq!(route(&c, &[0xb0, 64, 127]), input("library.browse", -1.0));
+        // a jog sending steps around 64
+        c.learn("deck1.jog".into(), true);
+        route(&c, &[0xb0, 33, 65]);
+        assert_eq!(route(&c, &[0xb0, 33, 61]), Some(Routed::Direct(Direct::Jog(0), -3.0)));
+    }
+
+    #[test]
+    fn a_fader_sending_its_low_half_is_learnt_14_bit() {
+        let c = controllers();
+        c.learn("deck1.pitch".into(), false);
+        route(&c, &[0xb0, 0, 64]);
+        let fine = route(&c, &[0xb0, 32, 0]);
+        let tempo = Control { kind: ControlKind::ControlChange, channel: 0, number: 0 };
+        assert_eq!(fine, Some(Routed::Learned(Mapping { fine: Some(32), ..mapping(tempo, "deck1.pitch") })));
+        assert_eq!(route(&c, &[0xb0, 0, 64]), None);
+        assert_eq!(route(&c, &[0xb0, 32, 64]), Some(Routed::Direct(Direct::Pitch(0), 8256.0 / 16383.0)));
+    }
+
+    #[test]
+    fn shift_held_while_learning_learns_the_second_layer() {
+        let c = controllers();
+        c.learn(SHIFT.into(), false);
+        route(&c, &[0x90, 63, 127]);
+        route(&c, &[0x90, 63, 0]);
+        c.learn("deck1.cue".into(), false);
+        route(&c, &[0x90, 36, 127]);
+        c.learn("deck1.hotcue1.delete".into(), false);
+        // shift is pressed first: it is not what is learnt
+        assert_eq!(route(&c, &[0x90, 63, 127]), None);
+        let learnt = route(&c, &[0x90, 36, 127]);
+        assert_eq!(
+            learnt,
+            Some(Routed::Learned(Mapping { shift: true, ..mapping(PAD, "deck1.hotcue1.delete") }))
+        );
+        route(&c, &[0x90, 63, 0]);
+        assert_eq!(route(&c, &[0x90, 36, 127]), input("deck1.cue", 1.0));
     }
 
     #[test]
     fn learning_can_be_cancelled() {
         let c = controllers();
-        c.learn("deck1.play".into(), Encoding::Absolute);
+        c.learn("deck1.play".into(), false);
         c.cancel_learning();
         assert_eq!(c.route("DDJ", parse(&[0x90, 36, 127]).unwrap()), None);
         assert!(c.setup().mappings.all().is_empty());

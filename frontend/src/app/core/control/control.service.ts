@@ -7,7 +7,8 @@ import { PerformanceService } from '../services/performance.service';
 import { PreferencesService } from '../services/preferences.service';
 import { SamplerService } from '../services/sampler.service';
 import { NavigationService } from '../services/navigation.service';
-import { eqGain } from '../../shared/mixer-scales';
+import { eqGain, eqKnob, trimGain, trimKnob } from '../../shared/mixer-scales';
+import { BANDS } from '../models/engine';
 import { Control, buildControls } from './controls';
 
 const LOOP_BEATS = 4;
@@ -62,7 +63,22 @@ export class ControlService {
     setVolume: (deck, position) => this.mixer.setVolume(deck, position),
     setEq: (deck, band, position) => this.mixer.setEq(deck, band, eqGain(position)),
     setFilter: (deck, position) => this.mixer.setFilter(deck, position * 2 - 1),
+    setTrim: (deck, position) => this.mixer.setTrim(deck, trimGain(position)),
     setCrossfader: (position) => this.mixer.setCrossfader(position * 2 - 1),
+    fxMixPosition: (deck) => this.fx.settings(deck).mix,
+    volumePosition: (deck) => this.engine.decks()[deck].volume,
+    eqPosition: (deck, band) => eqKnob(this.mixer.strip(deck).eq[BANDS.indexOf(band)]),
+    filterPosition: (deck) => (this.mixer.strip(deck).filter + 1) / 2,
+    trimPosition: (deck) => trimKnob(this.mixer.strip(deck).trim),
+    crossfaderPosition: () => (this.mixer.crossfader() + 1) / 2,
+    toggleHeadphones: (deck) => this.mixer.setDeckCue(deck, !this.engine.decks()[deck].cue),
+    inHeadphones: (deck) => this.engine.decks()[deck].cue,
+    toggleSlip: (deck) => this.performance.setSlip(deck, !(this.deck(deck)?.slipMode ?? false)),
+    slipping: (deck) => this.deck(deck)?.slipMode ?? false,
+    censor: (deck, held) => this.performance.censor(deck, held),
+    reloop: (deck) => this.performance.reloop(deck),
+    deleteHotCue: (deck, slot) => this.performance.deleteHotCue(deck, slot),
+    resetTempo: (deck) => this.engine.setPitch(deck, 1),
     browse: (steps) => this.library.moveSelection(steps),
     loadSelected: (deck) => this.library.loadSelected(deck),
     removeSelected: () => this.library.removeSelected(),

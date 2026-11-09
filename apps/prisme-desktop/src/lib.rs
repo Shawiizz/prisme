@@ -24,6 +24,7 @@
 mod audio_host;
 mod audio_watchdog;
 mod commands;
+mod controller_direct;
 mod controllers;
 mod cover_protocol;
 mod crash_recovery;
@@ -205,6 +206,7 @@ pub fn run() {
             commands::controllers::set_controller_enabled,
             commands::controllers::controller_mappings,
             commands::controllers::learn_control,
+            commands::controllers::set_control_encoding,
             commands::controllers::cancel_learning,
             commands::controllers::forget_control,
             commands::controllers::set_lights,

@@ -64,8 +64,24 @@
         <div class="mapping" [class.learning]="service.learning() === row.control.id">
           <span class="name">{{ row.control.label }}</span>
           <span class="binding">
-            @for (b of row.bindings; track b) {
-              <span>{{ b }}</span>
+            @for (b of row.bindings; track b.text) {
+              <span>{{ b.text }}</span>
+              @if (b.mapping.encoding !== 'absolute') {
+                <select
+                  class="pr-select steps"
+                  [value]="b.mapping.encoding"
+                  (change)="service.setEncoding(b.mapping, $any($event.target).value)"
+                  [title]="
+                    'How the controller sends its steps: change it if the control turns the wrong way or by leaps'
+                      | t
+                  "
+                  [attr.aria-label]="'Steps' | t"
+                >
+                  @for (e of stepEncodings; track e.value) {
+                    <option [value]="e.value">{{ e.label }}</option>
+                  }
+                </select>
+              }
             } @empty {
               <span class="none">—</span>
             }

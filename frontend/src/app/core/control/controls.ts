@@ -16,6 +16,8 @@ export interface Control {
   apply(value: number): void;
   /** Whether the control's light is on. */
   lit?(): boolean;
+  /** A fader's setting now (0 to 1): a controller's fader takes it over from there. */
+  position?(): number;
 }
 
 /** What the controls do, independent of how it is done. Positions go from 0 to 1. */
@@ -49,7 +51,23 @@ export interface ControlActions {
   setVolume(deck: number, position: number): void;
   setEq(deck: number, band: Band, position: number): void;
   setFilter(deck: number, position: number): void;
+  setTrim(deck: number, position: number): void;
   setCrossfader(position: number): void;
+  /** Where the faders' settings stand (0 to 1). */
+  fxMixPosition(deck: number): number;
+  volumePosition(deck: number): number;
+  eqPosition(deck: number, band: Band): number;
+  filterPosition(deck: number): number;
+  trimPosition(deck: number): number;
+  crossfaderPosition(): number;
+  toggleHeadphones(deck: number): void;
+  inHeadphones(deck: number): boolean;
+  toggleSlip(deck: number): void;
+  slipping(deck: number): boolean;
+  censor(deck: number, held: boolean): void;
+  reloop(deck: number): void;
+  deleteHotCue(deck: number, slot: number): void;
+  resetTempo(deck: number): void;
   browse(steps: number): void;
   loadSelected(deck: number | null): void;
   removeSelected(): void;
@@ -87,8 +105,22 @@ function hold(id: string, group: string, label: string, run: (held: boolean) => 
   return { id, group, label, kind: 'button', apply: (v) => run(v >= 0.5) };
 }
 
-function fader(id: string, group: string, label: string, run: (v: number) => void): Control {
-  return { id, group, label, kind: 'fader', apply: run };
+function fader(
+  id: string,
+  group: string,
+  label: string,
+  run: (v: number) => void,
+  position?: () => number,
+): Control {
+  return { id, group, label, kind: 'fader', apply: run, position };
+}
+
+/**
+ * A control the backend performs itself, straight from the controller (the jog wheels and
+ * tempo faders, `controller_direct.rs`): listed to be mapped, never applied here.
+ */
+function direct(id: string, group: string, label: string, kind: ControlKind): Control {
+  return { id, group, label, kind, apply: () => undefined };
 }
 
 function deckControls(a: ControlActions, deck: number): Control[] {
@@ -113,6 +145,13 @@ function deckControls(a: ControlActions, deck: number): Control[] {
         () => a.hotCueSet(deck, slot),
       ),
     ),
+    ...Array.from({ length: HOT_CUES }, (_, slot) =>
+      button(id(`hotcue${slot + 1}.delete`), group, t('Delete hot cue {n}', { n: slot + 1 }), () =>
+        a.deleteHotCue(deck, slot),
+      ),
+    ),
+    direct(id('jog'), group, t('Jog wheel (turn)'), 'encoder'),
+    direct(id('jog.touch'), group, t('Jog wheel (touch: scratch)'), 'button'),
     lit(
       button(id('loop'), group, t('Loop 4 beats / exit'), () => a.toggleLoop(deck)),
       () => a.looping(deck),
@@ -122,6 +161,7 @@ function deckControls(a: ControlActions, deck: number): Control[] {
       () => a.loopInSet(deck),
     ),
     button(id('loop.out'), group, t('Loop out'), () => a.loopOut(deck)),
+    button(id('reloop'), group, t('Reloop'), () => a.reloop(deck)),
     button(id('loop.halve'), group, t('Halve the loop'), () => a.scaleLoop(deck, 0.5)),
     button(id('loop.double'), group, t('Double the loop'), () => a.scaleLoop(deck, 2)),
     button(id('jump.back'), group, t('Jump back {n} beats', { n: JUMP_BEATS }), () =>
@@ -132,6 +172,12 @@ function deckControls(a: ControlActions, deck: number): Control[] {
     ),
     hold(id('bend.down'), group, t('Slow down while held'), (held) => a.bend(deck, held ? -1 : 0)),
     hold(id('bend.up'), group, t('Speed up while held'), (held) => a.bend(deck, held ? 1 : 0)),
+    button(id('tempo.reset'), group, t('Tempo back to the track'), () => a.resetTempo(deck)),
+    lit(
+      button(id('slip'), group, t('Slip'), () => a.toggleSlip(deck)),
+      () => a.slipping(deck),
+    ),
+    hold(id('censor'), group, t('Censor while held'), (held) => a.censor(deck, held)),
     lit(
       button(id('keylock'), group, t('Key lock'), () => a.toggleKeyLock(deck)),
       () => a.keyLocked(deck),
@@ -158,13 +204,48 @@ function deckControls(a: ControlActions, deck: number): Control[] {
       button(id('fx'), group, t('Effect on / off'), () => a.toggleFx(deck)),
       () => a.fxOn(deck),
     ),
-    fader(id('fx.mix'), group, t('Effect level'), (v) => a.setFxMix(deck, v)),
-    fader(id('pitch'), group, t('Tempo'), (v) => a.setPitch(deck, v)),
-    fader(id('volume'), group, t('Volume'), (v) => a.setVolume(deck, v)),
-    ...BANDS.map((band) =>
-      fader(id(`eq.${band}`), group, EQ_LABEL[band], (v) => a.setEq(deck, band, v)),
+    fader(
+      id('fx.mix'),
+      group,
+      t('Effect level'),
+      (v) => a.setFxMix(deck, v),
+      () => a.fxMixPosition(deck),
     ),
-    fader(id('filter'), group, t('Filter'), (v) => a.setFilter(deck, v)),
+    direct(id('pitch'), group, t('Tempo'), 'fader'),
+    fader(
+      id('volume'),
+      group,
+      t('Volume'),
+      (v) => a.setVolume(deck, v),
+      () => a.volumePosition(deck),
+    ),
+    fader(
+      id('trim'),
+      group,
+      t('Gain'),
+      (v) => a.setTrim(deck, v),
+      () => a.trimPosition(deck),
+    ),
+    ...BANDS.map((band) =>
+      fader(
+        id(`eq.${band}`),
+        group,
+        EQ_LABEL[band],
+        (v) => a.setEq(deck, band, v),
+        () => a.eqPosition(deck, band),
+      ),
+    ),
+    fader(
+      id('filter'),
+      group,
+      t('Filter'),
+      (v) => a.setFilter(deck, v),
+      () => a.filterPosition(deck),
+    ),
+    lit(
+      button(id('headphones'), group, t('Headphones (pre-listen)'), () => a.toggleHeadphones(deck)),
+      () => a.inHeadphones(deck),
+    ),
   ];
 }
 
@@ -172,7 +253,14 @@ export function buildControls(a: ControlActions): Control[] {
   const library = t('Library');
   return [
     ...Array.from({ length: DECK_COUNT }, (_, deck) => deckControls(a, deck)).flat(),
-    fader('mixer.crossfader', t('Mixer'), t('Crossfader'), (v) => a.setCrossfader(v)),
+    fader(
+      'mixer.crossfader',
+      t('Mixer'),
+      t('Crossfader'),
+      (v) => a.setCrossfader(v),
+      () => a.crossfaderPosition(),
+    ),
+    direct('shift', t('Controller'), t('Shift (second use of the controls)'), 'button'),
     {
       id: 'library.browse',
       group: library,

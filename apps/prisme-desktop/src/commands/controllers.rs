@@ -36,8 +36,19 @@ pub fn controller_mappings(controllers: State<'_, Controllers>) -> Vec<Mapping> 
 /// (`controller-learned` says which).
 #[tauri::command]
 pub fn learn_control(controllers: State<'_, Controllers>, target: String, encoder: bool) {
-    let encoding = if encoder { Encoding::Relative } else { Encoding::Absolute };
-    controllers.learn(target, encoding);
+    controllers.learn(target, encoder);
+}
+
+/// How the encoder of `target` on `device` sends its steps (a jog that turns the wrong way
+/// or by leaps is read with another encoding).
+#[tauri::command]
+pub fn set_control_encoding(
+    controllers: State<'_, Controllers>,
+    device: String,
+    target: String,
+    encoding: Encoding,
+) {
+    controllers.set_encoding(&device, &target, encoding);
 }
 
 #[tauri::command]

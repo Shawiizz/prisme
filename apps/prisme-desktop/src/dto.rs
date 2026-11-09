@@ -878,6 +878,14 @@ pub struct ControllerInputDto {
     pub value: f32,
 }
 
+/// A deck's tempo, set from a controller (`deck-pitch`).
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DeckPitchDto {
+    pub deck: usize,
+    pub ratio: f64,
+}
+
 /// Whether the controls of an action are lit.
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]

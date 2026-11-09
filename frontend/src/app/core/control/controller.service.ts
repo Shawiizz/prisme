@@ -1,7 +1,13 @@
 import { Injectable, effect, inject, signal } from '@angular/core';
+import { Pickup } from './pickup';
 import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
-import { Controller, ControllerInput, ControllerMapping } from '../models/controllers';
+import {
+  Controller,
+  ControllerInput,
+  ControllerMapping,
+  StepEncoding,
+} from '../models/controllers';
 import { EngineService } from '../services/engine.service';
 import { ControlService } from './control.service';
 
@@ -26,20 +32,32 @@ export class ControllerService {
   private readonly sent = new Map<string, boolean>();
   /** Bumped to send every light again (a controller was opened). */
   private readonly relight = signal(0);
+  /** The soft takeover of each fader, by control. */
+  private readonly pickups = new Map<string, Pickup>();
 
   constructor() {
     effect(() => this.updateLights());
   }
 
   async start() {
-    await listen<ControllerInput>('controller-input', ({ payload }) =>
-      this.controls.find(payload.target)?.apply(payload.value),
-    );
+    await listen<ControllerInput>('controller-input', ({ payload }) => this.input(payload));
     await listen<ControllerMapping>('controller-learned', () => {
       this.learning.set(null);
       this.reloadMappings();
     });
     await this.reloadMappings();
+  }
+
+  /** A mapped control moved; a fader acts once it has picked its setting up. */
+  private input({ target, value }: ControllerInput) {
+    const control = this.controls.find(target);
+    const current = control?.position?.();
+    if (current !== undefined) {
+      const pickup = this.pickups.get(target) ?? new Pickup();
+      this.pickups.set(target, pickup);
+      if (!pickup.takes(value, current)) return;
+    }
+    control?.apply(value);
   }
 
   async refresh() {
@@ -77,6 +95,13 @@ export class ControllerService {
     if (this.learning() === null) return;
     this.learning.set(null);
     return this.run(() => invoke('cancel_learning'));
+  }
+
+  /** Reads the steps of `mapping`'s encoder another way. */
+  async setEncoding(mapping: ControllerMapping, encoding: StepEncoding) {
+    const { device, target } = mapping;
+    await this.run(() => invoke('set_control_encoding', { device, target, encoding }));
+    await this.reloadMappings();
   }
 
   async forget(target: string) {

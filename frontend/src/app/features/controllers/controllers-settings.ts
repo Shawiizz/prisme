@@ -2,14 +2,27 @@ import { Component, OnDestroy, OnInit, computed, inject } from '@angular/core';
 import { ControlService } from '../../core/control/control.service';
 import { ControllerService } from '../../core/control/controller.service';
 import { Control } from '../../core/control/controls';
-import { describeControl } from '../../core/models/controllers';
+import { ControllerMapping, StepEncoding, describeMapping } from '../../core/models/controllers';
+import { t } from '../../core/i18n/i18n';
 import { TPipe } from '../../core/i18n/t.pipe';
+
+interface Binding {
+  mapping: ControllerMapping;
+  text: string;
+}
 
 interface Row {
   control: Control;
   /** Where the control is mapped, one line per controller. */
-  bindings: string[];
+  bindings: Binding[];
 }
+
+/** How an encoder may send its steps, as offered when the guess was wrong. */
+const STEP_ENCODINGS: { value: StepEncoding; label: string }[] = [
+  { value: 'relative', label: t('Steps 1 and 127') },
+  { value: 'relativeOffset', label: t('Steps around 64') },
+  { value: 'relativeSigned', label: t('Steps 1 and 65') },
+];
 
 /** Settings page: MIDI controllers in use, and the mapping of the app's controls (learnt by moving them). */
 @Component({
@@ -23,6 +36,8 @@ export class ControllersSettings implements OnInit, OnDestroy {
   protected readonly service = inject(ControllerService);
   private readonly controls = inject(ControlService);
 
+  protected readonly stepEncodings = STEP_ENCODINGS;
+
   /** A controller is open: controls can be learnt. */
   protected readonly canLearn = computed(() =>
     this.service.controllers().some((c) => c.enabled && c.plugged),
@@ -34,7 +49,7 @@ export class ControllersSettings implements OnInit, OnDestroy {
       const bindings = this.service
         .mappings()
         .filter((m) => m.target === control.id)
-        .map((m) => `${m.device} · ${describeControl(m.control)}`);
+        .map((m) => ({ mapping: m, text: `${m.device} · ${describeMapping(m)}` }));
       groups.set(control.group, [...(groups.get(control.group) ?? []), { control, bindings }]);
     }
     return [...groups.entries()].map(([name, rows]) => ({ name, rows }));
