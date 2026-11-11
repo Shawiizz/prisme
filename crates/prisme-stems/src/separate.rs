@@ -36,7 +36,8 @@ impl<N: MaskNetwork> Separator<N> {
     /// The stems of a stereo track at [`Self::sample_rate`], each as left and right. The
     /// track is cut in chunks the size the network was made for, `overlap` of them over each
     /// sample ([`crate::Config::overlap`]), the last one ending with the track; where chunks
-    /// overlap they are blended with Hamming weights.
+    /// overlap they are blended with Hamming weights. Each chunk's STFT and the iSTFT of the
+    /// one before are worked out while the network runs.
     ///
     /// `progress(done, total)` is called after each chunk: returning `false` cancels.
     pub fn separate(
@@ -53,15 +54,23 @@ impl<N: MaskNetwork> Separator<N> {
         let stems = self.stems().len();
         let mut sum = vec![[vec![0.0f32; len], vec![0.0f32; len]]; stems];
         let mut weight = vec![0.0f32; len];
-        let mut part = [vec![0.0; chunk], vec![0.0; chunk]];
         let mut out = vec![[vec![0.0; chunk], vec![0.0; chunk]]; stems];
+        let part = |start: usize| {
+            let end = (start + chunk).min(len);
+            [&left[start..end], &right[start..end]]
+        };
+
+        let mut current = self.analyse_padded(part(starts[0]), chunk);
+        self.net.start(&current.bins, current.frames)?;
         for (done, &start) in starts.iter().enumerate() {
-            let n = chunk.min(len - start);
-            for (p, src) in part.iter_mut().zip([left, right]) {
-                p[..n].copy_from_slice(&src[start..start + n]);
-                p[n..].fill(0.0);
+            let next = starts.get(done + 1).map(|&next| self.analyse_padded(part(next), chunk));
+            let mut masks = vec![0.0; self.net.geometry().mask_len(current.frames)];
+            self.net.finish(&mut masks)?;
+            if let Some(next) = &next {
+                self.net.start(&next.bins, next.frames)?;
             }
-            self.chunk(&part[0], &part[1], &mut out)?;
+            self.synthesise(&current, &masks, &mut out);
+            let n = chunk.min(len - start);
             for (s, o) in sum.iter_mut().flatten().zip(out.iter().flatten()) {
                 for ((s, o), w) in s[start..start + n].iter_mut().zip(o).zip(&window) {
                     *s += o * w;
@@ -70,6 +79,9 @@ impl<N: MaskNetwork> Separator<N> {
             weight[start..start + n].iter_mut().zip(&window).for_each(|(a, w)| *a += w);
             if !progress(done + 1, starts.len()) {
                 return Err(StemsError::Cancelled);
+            }
+            if let Some(next) = next {
+                current = next;
             }
         }
         for s in sum.iter_mut().flatten() {
@@ -86,6 +98,25 @@ impl<N: MaskNetwork> Separator<N> {
         right: &[f32],
         out: &mut [[Vec<f32>; 2]],
     ) -> Result<(), StemsError> {
+        let analysis = self.analyse(left, right);
+        let mut masks = vec![0.0; self.net.geometry().mask_len(analysis.frames)];
+        self.net.masks(&analysis.bins, analysis.frames, &mut masks)?;
+        self.synthesise(&analysis, &masks, out);
+        Ok(())
+    }
+
+    /// [`Self::analyse`] of a chunk padded with silence to `len` samples.
+    fn analyse_padded(&self, [left, right]: [&[f32]; 2], len: usize) -> Analysis {
+        let pad = |part: &[f32]| {
+            let mut padded = vec![0.0; len];
+            padded[..part.len()].copy_from_slice(part);
+            padded
+        };
+        self.analyse(&pad(left), &pad(right))
+    }
+
+    /// The STFT of a chunk, and its bins gathered for the network.
+    fn analyse(&self, left: &[f32], right: &[f32]) -> Analysis {
         let stft = &self.stft;
         let frames = stft.frames(left.len());
         let bins = stft.bins();
@@ -95,7 +126,6 @@ impl<N: MaskNetwork> Separator<N> {
 
         let w = self.net.geometry();
         let features = w.features();
-        let source = |index: u32| (index as usize % 2, index as usize / 2);
         let mut gathered = vec![0.0; frames * features];
         for (t, row) in gathered.chunks_exact_mut(features).enumerate() {
             for (pair, &index) in row.chunks_exact_mut(2).zip(&w.freq_indices) {
@@ -104,10 +134,16 @@ impl<N: MaskNetwork> Separator<N> {
                 pair.copy_from_slice(&[c.re, c.im]);
             }
         }
-        let mut masks = vec![0.0; w.mask_len(frames)];
-        self.net.masks(&gathered, frames, &mut masks)?;
+        Analysis { spec, bins: gathered, frames }
+    }
 
+    /// Each stem of a chunk from its masks: the chunk's STFT masked, then inverted.
+    fn synthesise(&self, analysis: &Analysis, masks: &[f32], out: &mut [[Vec<f32>; 2]]) {
+        let stft = &self.stft;
+        let Analysis { spec, frames, .. } = analysis;
+        let bins = stft.bins();
         let w = self.net.geometry();
+        let features = w.features();
         let mut masked =
             [vec![Complex32::default(); frames * bins], vec![Complex32::default(); frames * bins]];
         for (stem_masks, stem_out) in masks.chunks_exact(frames * features).zip(out) {
@@ -118,19 +154,30 @@ impl<N: MaskNetwork> Separator<N> {
                     masked[ch][t * bins + bin] += Complex32::new(pair[0], pair[1]);
                 }
             }
-            for (m, s) in masked.iter_mut().zip(&spec) {
+            for (m, s) in masked.iter_mut().zip(spec) {
                 for (i, (m, s)) in m.iter_mut().zip(s).enumerate() {
                     *m = s * *m / w.bands_per_freq[i % bins].max(1) as f32;
                 }
             }
             for (m, out) in masked.iter().zip(stem_out) {
-                let n = stft.samples(frames).min(out.len());
+                let n = stft.samples(*frames).min(out.len());
                 stft.inverse(m, &mut out[..n]);
                 out[n..].fill(0.0);
             }
         }
-        Ok(())
     }
+}
+
+/// A chunk's STFT (left and right) and the bins the network takes.
+struct Analysis {
+    spec: [Vec<Complex32>; 2],
+    bins: Vec<f32>,
+    frames: usize,
+}
+
+/// The channel and STFT bin of a gathered bin.
+fn source(index: u32) -> (usize, usize) {
+    (index as usize % 2, index as usize / 2)
 }
 
 /// Where the chunks start: `step` apart, the last one moved back to end with the track.

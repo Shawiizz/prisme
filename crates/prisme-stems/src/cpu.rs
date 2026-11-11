@@ -14,11 +14,13 @@ use crate::StemsError;
 
 pub struct CpuNetwork {
     weights: Weights,
+    /// The bins of the chunk started, and its frames.
+    started: Option<(Vec<f32>, usize)>,
 }
 
 impl CpuNetwork {
     pub fn new(weights: Weights) -> Self {
-        Self { weights }
+        Self { weights, started: None }
     }
 }
 
@@ -27,11 +29,25 @@ impl MaskNetwork for CpuNetwork {
         &self.weights.geometry
     }
 
-    fn masks(&mut self, bins: &[f32], frames: usize, out: &mut [f32]) -> Result<(), StemsError> {
+    fn start(&mut self, bins: &[f32], frames: usize) -> Result<(), StemsError> {
+        self.started = Some((bins.to_vec(), frames));
+        Ok(())
+    }
+
+    fn finish(&mut self, out: &mut [f32]) -> Result<(), StemsError> {
+        let (bins, frames) = self.started.take().expect("a chunk was started");
+        self.compute(&bins, frames, out);
+        Ok(())
+    }
+}
+
+impl CpuNetwork {
+    fn compute(&self, bins: &[f32], frames: usize, out: &mut [f32]) {
         let w = &self.weights;
         let g = &w.geometry;
         let features = g.features();
-        debug_assert_eq!(bins.len(), frames * features);
+        assert!(bins.len() == frames * features, "bins hold `frames` rows of features");
+        assert!(out.len() == g.mask_len(frames), "masks hold `frames` rows per stem");
         let c = &g.config;
         let bands = g.bands.len();
         let tokens = frames * bands;
@@ -85,7 +101,6 @@ impl MaskNetwork for CpuNetwork {
         for (stem, out) in w.masks.iter().zip(out.chunks_exact_mut(size)) {
             stem_masks(g, stem, &x, frames, out);
         }
-        Ok(())
     }
 }
 

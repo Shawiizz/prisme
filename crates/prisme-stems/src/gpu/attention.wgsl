@@ -17,8 +17,8 @@ struct Params {
     groups_x: u32,
 }
 
-@group(0) @binding(0) var<storage, read> qkvg: array<f32>;
-@group(0) @binding(1) var<storage, read_write> out: array<f32>;
+@group(0) @binding(0) var<storage, read> qkvg: array<Act>;
+@group(0) @binding(1) var<storage, read_write> out: array<Act>;
 @group(0) @binding(2) var<uniform> p: Params;
 
 override DH: u32 = 64u;
@@ -50,7 +50,7 @@ fn main(@builtin(workgroup_id) wg: vec3<u32>, @builtin(local_invocation_index) l
     var q: array<f32, MAX_DH>;
     var o: array<f32, MAX_DH>;
     for (var d = 0u; d < DH; d++) {
-        q[d] = qkvg[me * p.width + head * DH + d];
+        q[d] = f32(qkvg[me * p.width + head * DH + d]);
         o[d] = 0.0;
     }
     var m = -3.0e38;
@@ -64,8 +64,8 @@ fn main(@builtin(workgroup_id) wg: vec3<u32>, @builtin(local_invocation_index) l
             var vv = 0.0;
             if (key < p.len) {
                 let at = token(group, key) * p.width + head * DH + e % DH;
-                kv = qkvg[at + p.inner];
-                vv = qkvg[at + 2u * p.inner];
+                kv = f32(qkvg[at + p.inner]);
+                vv = f32(qkvg[at + 2u * p.inner]);
             }
             k_tile[e] = kv;
             v_tile[e] = vv;
@@ -99,10 +99,10 @@ fn main(@builtin(workgroup_id) wg: vec3<u32>, @builtin(local_invocation_index) l
     }
 
     if (valid) {
-        let gate = 1.0 / (1.0 + exp(-qkvg[me * p.width + 3u * p.inner + head]));
+        let gate = 1.0 / (1.0 + exp(-f32(qkvg[me * p.width + 3u * p.inner + head])));
         let scale = gate / l;
         for (var d = 0u; d < DH; d++) {
-            out[me * p.inner + head * DH + d] = o[d] * scale;
+            out[me * p.inner + head * DH + d] = Act(o[d] * scale);
         }
     }
 }

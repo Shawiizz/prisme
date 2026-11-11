@@ -1,6 +1,11 @@
 //! The network on the GPU, through wgpu (Direct3D 12 or Vulkan): any recent GPU, no runtime
 //! to install.
 //!
+//! Where wgpu reaches the GPU's matrix units (the tensor cores, through Vulkan's cooperative
+//! matrices), the matrix products and the attention run on them: f16 operands, f32 sums. The
+//! activations they read are then stored as f16, as the units round them anyway; the residual
+//! stream between the layers stays f32.
+//!
 //! The work for a chunk is planned once (buffers, bind groups, dispatches) per frame count,
 //! then replayed: only the input bins change between chunks.
 
@@ -15,15 +20,27 @@ use crate::StemsError;
 
 const MAX_GROUPS: u32 = 65_535;
 
+/// How a [`GpuNetwork`] may be opened.
+#[derive(Debug, Clone, Copy, Default)]
+pub struct GpuOptions {
+    /// Accepts a software rasteriser: for tests on machines without a GPU.
+    pub software: bool,
+    /// Keeps to f32 arithmetic on the shader cores even where there are matrix units.
+    pub without_matrix_units: bool,
+}
+
 pub struct GpuNetwork {
     geometry: Geometry,
     device: wgpu::Device,
     queue: wgpu::Queue,
     adapter: String,
     errors: Arc<Mutex<Option<String>>>,
+    matrix: bool,
     pipelines: Pipelines,
     params: Params,
     plans: HashMap<usize, Plan>,
+    /// The frames of the chunk started.
+    started: Option<usize>,
 }
 
 /// The weights, on the GPU.
@@ -40,10 +57,12 @@ struct Params {
 }
 
 struct GpuLinear {
+    /// f32 rows of `inp` values, or for the matrix units f16 rows padded to `ld` groups of 4.
     weight: wgpu::Buffer,
     bias: Option<wgpu::Buffer>,
     out: usize,
     inp: usize,
+    ld: usize,
 }
 
 struct GpuLayer {
@@ -53,12 +72,23 @@ struct GpuLayer {
     ff2: GpuLinear,
 }
 
+/// How an activation is stored: f32, or as the matrix units read it (f16 where they are
+/// used, else f32).
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum Store {
+    F32,
+    Act,
+}
+
 struct Pipelines {
-    matmul: wgpu::ComputePipeline,
+    /// By input then output storage: F32 → F32, F32 → Act, Act → F32, Act → Act.
+    matmul: [wgpu::ComputePipeline; 4],
     norm: wgpu::ComputePipeline,
     norm_in_place: wgpu::ComputePipeline,
     rotary: wgpu::ComputePipeline,
     attention: wgpu::ComputePipeline,
+    /// The attention runs on the matrix units, rotating the queries and keys itself.
+    matrix_attention: bool,
     glu: wgpu::ComputePipeline,
     add: wgpu::ComputePipeline,
 }
@@ -73,20 +103,9 @@ struct Plan {
 }
 
 struct Step {
-    pipeline: Kind,
+    pipeline: wgpu::ComputePipeline,
     bind_group: wgpu::BindGroup,
     groups: (u32, u32),
-}
-
-#[derive(Clone, Copy)]
-enum Kind {
-    Matmul,
-    Norm,
-    NormInPlace,
-    Rotary,
-    Attention,
-    Glu,
-    Add,
 }
 
 #[derive(Clone, Copy)]
@@ -97,30 +116,40 @@ enum Act {
 }
 
 impl GpuNetwork {
-    /// Takes the most capable GPU; fails without one (software rasterisers are refused: the
-    /// CPU implementation is faster).
+    /// Takes the most capable GPU, and its matrix units when it has some; fails without a
+    /// GPU (software rasterisers are refused: the CPU implementation is faster).
     pub fn new(weights: Weights) -> Result<Self, StemsError> {
-        Self::open(weights, false)
+        Self::with_options(weights, GpuOptions::default())
     }
 
     /// Accepts a software rasteriser too: for tests on machines without a GPU.
     pub fn new_allowing_software(weights: Weights) -> Result<Self, StemsError> {
-        Self::open(weights, true)
+        Self::with_options(weights, GpuOptions { software: true, ..Default::default() })
     }
 
-    fn open(weights: Weights, software: bool) -> Result<Self, StemsError> {
+    pub fn with_options(weights: Weights, options: GpuOptions) -> Result<Self, StemsError> {
         let c = &weights.geometry.config;
         if c.dim_head > 64 || !c.dim_head.is_multiple_of(2) {
             return Err(StemsError::Model("the GPU attention takes heads of at most 64 values".into()));
         }
         let adapter = adapter()?;
         let info = adapter.get_info();
-        if info.device_type == wgpu::DeviceType::Cpu && !software {
+        if info.device_type == wgpu::DeviceType::Cpu && !options.software {
             return Err(StemsError::NoGpu(format!("{} is a software renderer", info.name)));
         }
+        let matrix =
+            !options.without_matrix_units && has_matrix_units(&adapter) && fits_matrix_units(&weights);
         let (device, queue) = pollster::block_on(adapter.request_device(&wgpu::DeviceDescriptor {
             label: Some("prisme-stems"),
+            required_features: if matrix { MATRIX_FEATURES } else { wgpu::Features::empty() },
             required_limits: adapter.limits(),
+            // SAFETY: the cooperative matrices are the only experimental feature in use; the
+            // tests hold the network on them to the f32 one.
+            experimental_features: if matrix {
+                unsafe { wgpu::ExperimentalFeatures::enabled() }
+            } else {
+                wgpu::ExperimentalFeatures::disabled()
+            },
             memory_hints: wgpu::MemoryHints::Performance,
             ..Default::default()
         }))
@@ -135,17 +164,20 @@ impl GpuNetwork {
             sink.lock().expect("error sink").get_or_insert(message);
         }));
 
-        let pipelines = Pipelines::new(&device, weights.geometry.config.dim_head);
-        let params = Params::upload(&device, &weights);
+        let pipelines = Pipelines::new(&device, &weights.geometry, matrix);
+        let params = Params::upload(&device, &weights, matrix);
+        let units = if matrix { ", tensor cores" } else { "" };
         let network = Self {
             geometry: weights.geometry,
             device,
             queue,
-            adapter: format!("{} ({:?})", info.name, info.backend),
+            adapter: format!("{} ({:?}{units})", info.name, info.backend),
             errors,
+            matrix,
             pipelines,
             params,
             plans: HashMap::new(),
+            started: None,
         };
         network.check_errors()?;
         let frames = network.geometry.config.chunk_frames;
@@ -156,6 +188,11 @@ impl GpuNetwork {
     /// The GPU and graphics API in use.
     pub fn adapter(&self) -> &str {
         &self.adapter
+    }
+
+    /// Whether the products run on matrix units.
+    pub fn uses_matrix_units(&self) -> bool {
+        self.matrix
     }
 
     fn check_errors(&self) -> Result<(), StemsError> {
@@ -170,12 +207,20 @@ impl GpuNetwork {
         let c = &self.geometry.config;
         let tokens = frames * self.geometry.bands.len();
         let widest = c.qkvg_width().max(self.params.ff_hidden);
-        let bytes = (tokens * widest * 4) as u64;
+        let bytes = (tokens * widest * self.act_bytes()).max(tokens * c.dim * 4) as u64;
         let limits = self.device.limits();
         if bytes > limits.max_storage_buffer_binding_size || bytes > limits.max_buffer_size {
             return Err(StemsError::Gpu(format!("{bytes} byte buffers exceed this GPU's limits")));
         }
         Ok(())
+    }
+
+    fn act_bytes(&self) -> usize {
+        if self.matrix {
+            2
+        } else {
+            4
+        }
     }
 
     fn prepare(&mut self, frames: usize) -> Result<(), StemsError> {
@@ -194,9 +239,8 @@ impl MaskNetwork for GpuNetwork {
         &self.geometry
     }
 
-    fn masks(&mut self, bins: &[f32], frames: usize, out: &mut [f32]) -> Result<(), StemsError> {
+    fn start(&mut self, bins: &[f32], frames: usize) -> Result<(), StemsError> {
         assert!(bins.len() == frames * self.geometry.features(), "bins hold `frames` rows of features");
-        assert!(out.len() == self.geometry.mask_len(frames), "masks hold `frames` rows per stem");
         self.prepare(frames)?;
         let plan = &self.plans[&frames];
         self.queue.write_buffer(&plan.bins, 0, bytemuck::cast_slice(bins));
@@ -205,7 +249,7 @@ impl MaskNetwork for GpuNetwork {
             {
                 let mut pass = encoder.begin_compute_pass(&Default::default());
                 for step in steps {
-                    pass.set_pipeline(self.pipelines.get(step.pipeline));
+                    pass.set_pipeline(&step.pipeline);
                     pass.set_bind_group(0, &step.bind_group, &[]);
                     pass.dispatch_workgroups(step.groups.0, step.groups.1, 1);
                 }
@@ -215,6 +259,14 @@ impl MaskNetwork for GpuNetwork {
             }
             self.queue.submit([encoder.finish()]);
         }
+        self.started = Some(frames);
+        self.check_errors()
+    }
+
+    fn finish(&mut self, out: &mut [f32]) -> Result<(), StemsError> {
+        let frames = self.started.take().expect("a chunk was started");
+        assert!(out.len() == self.geometry.mask_len(frames), "masks hold `frames` rows per stem");
+        let plan = &self.plans[&frames];
         let slice = plan.readback.slice(..);
         let (tx, rx) = std::sync::mpsc::channel();
         slice.map_async(wgpu::MapMode::Read, move |r| {
@@ -224,7 +276,7 @@ impl MaskNetwork for GpuNetwork {
         rx.recv().map_err(|e| StemsError::Gpu(e.to_string()))?.map_err(|e| StemsError::Gpu(e.to_string()))?;
         {
             let view = slice.get_mapped_range().map_err(|e| StemsError::Gpu(e.to_string()))?;
-            out.copy_from_slice(bytemuck::cast_slice(&view));
+            out.copy_from_slice(&bytemuck::cast_slice(&view)[..out.len()]);
         }
         plan.readback.unmap();
         self.check_errors()
@@ -232,7 +284,8 @@ impl MaskNetwork for GpuNetwork {
 }
 
 /// The most capable GPU, through Vulkan when it can (its compiler makes the matrix products
-/// faster than Direct3D 12's), else whatever API reaches one. `WGPU_BACKEND` overrides.
+/// faster than Direct3D 12's, and it reaches the matrix units), else whatever API reaches
+/// one. `WGPU_BACKEND` overrides.
 fn adapter() -> Result<wgpu::Adapter, StemsError> {
     let request = |backends: wgpu::Backends| {
         let mut desc = wgpu::InstanceDescriptor::new_without_display_handle();
@@ -248,12 +301,59 @@ fn adapter() -> Result<wgpu::Adapter, StemsError> {
         .map_err(|e| StemsError::NoGpu(e.to_string()))
 }
 
+const MATRIX_FEATURES: wgpu::Features = wgpu::Features::SHADER_F16
+    .union(wgpu::Features::SUBGROUP)
+    .union(wgpu::Features::EXPERIMENTAL_COOPERATIVE_MATRIX);
+
+/// Shared memory the attention on the matrix units takes.
+const MATRIX_ATTENTION_SHARED: u32 = 23_056;
+
+/// Whether the shaders written for the matrix units run here: 16 x 16 x 16 products of f16
+/// summed in f32, by subgroups of 32 invocations.
+fn has_matrix_units(adapter: &wgpu::Adapter) -> bool {
+    let info = adapter.get_info();
+    adapter.features().contains(MATRIX_FEATURES)
+        && info.subgroup_min_size == 32
+        && info.subgroup_max_size == 32
+        && adapter.limits().max_compute_invocations_per_workgroup >= 256
+        && adapter.cooperative_matrix_properties().iter().any(|p| {
+            (p.m_size, p.n_size, p.k_size) == (16, 16, 16)
+                && p.ab_type == wgpu::CooperativeScalarType::F16
+                && p.cr_type == wgpu::CooperativeScalarType::F32
+        })
+}
+
+/// Whether the products suit the network: they read their inputs 4 values at a time.
+fn fits_matrix_units(weights: &Weights) -> bool {
+    let transformers = weights.transformers.iter().flat_map(|t| &t.layers);
+    let mut linears = weights
+        .band_proj
+        .iter()
+        .chain(transformers.flat_map(|l| [&l.qkvg, &l.out, &l.ff1, &l.ff2]))
+        .chain(weights.masks.iter().flatten().flatten());
+    weights.geometry.config.dim.is_multiple_of(4) && linears.all(|l| l.inp.is_multiple_of(4))
+}
+
+/// Whether the attention runs on the matrix units: heads of 64 values, and the queries, keys
+/// and values of a token read 4 values at a time.
+fn matrix_attention(device: &wgpu::Device, geometry: &Geometry) -> bool {
+    let c = &geometry.config;
+    c.dim_head == 64
+        && c.heads.is_multiple_of(4)
+        && device.limits().max_compute_workgroup_storage_size >= MATRIX_ATTENTION_SHARED
+}
+
 impl Pipelines {
-    fn new(device: &wgpu::Device, dim_head: usize) -> Self {
+    fn new(device: &wgpu::Device, geometry: &Geometry, matrix: bool) -> Self {
+        let header = if matrix {
+            "enable f16;\nenable wgpu_cooperative_matrix;\nalias Act = f16;\n"
+        } else {
+            "alias Act = f32;\n"
+        };
         let make = |source: &str, entry: &str, constants: &[(&str, f64)]| {
             let descriptor = wgpu::ShaderModuleDescriptor {
                 label: Some(entry),
-                source: wgpu::ShaderSource::Wgsl(source.into()),
+                source: wgpu::ShaderSource::Wgsl(format!("{header}{source}").into()),
             };
             // SAFETY: the shaders bound every index themselves (each global access is guarded
             // by the sizes in its parameters, and the plan sizes every buffer for them); the
@@ -270,37 +370,58 @@ impl Pipelines {
                 cache: None,
             })
         };
+        let matmul = if matrix {
+            [("f32", "f32"), ("f32", "f16"), ("f16", "f32"), ("f16", "f16")].map(|(input, output)| {
+                let types = format!("alias In = {input};\nalias Out = {output};\n");
+                make(&format!("{types}{}", include_str!("matmul_coop.wgsl")), "main", &[])
+            })
+        } else {
+            let f32 = make(include_str!("matmul.wgsl"), "main", &[]);
+            [f32.clone(), f32.clone(), f32.clone(), f32]
+        };
+        let matrix_attention = matrix && matrix_attention(device, geometry);
+        let attention = if matrix_attention {
+            make(include_str!("attention_coop.wgsl"), "main", &[])
+        } else {
+            make(include_str!("attention.wgsl"), "main", &[("DH", geometry.config.dim_head as f64)])
+        };
         Self {
-            matmul: make(include_str!("matmul.wgsl"), "main", &[]),
+            matmul,
             norm: make(include_str!("norm.wgsl"), "normalize", &[]),
             norm_in_place: make(include_str!("norm_in_place.wgsl"), "normalize_in_place", &[]),
             rotary: make(include_str!("rotary.wgsl"), "main", &[]),
-            attention: make(include_str!("attention.wgsl"), "main", &[("DH", dim_head as f64)]),
+            attention,
+            matrix_attention,
             glu: make(include_str!("glu.wgsl"), "main", &[]),
             add: make(include_str!("add.wgsl"), "main", &[]),
         }
     }
 
-    fn get(&self, kind: Kind) -> &wgpu::ComputePipeline {
-        match kind {
-            Kind::Matmul => &self.matmul,
-            Kind::Norm => &self.norm,
-            Kind::NormInPlace => &self.norm_in_place,
-            Kind::Rotary => &self.rotary,
-            Kind::Attention => &self.attention,
-            Kind::Glu => &self.glu,
-            Kind::Add => &self.add,
-        }
+    fn matmul(&self, input: Store, output: Store) -> &wgpu::ComputePipeline {
+        &self.matmul[2 * usize::from(input == Store::Act) + usize::from(output == Store::Act)]
     }
 }
 
 impl Params {
-    fn upload(device: &wgpu::Device, w: &Weights) -> Self {
-        let linear = |l: &Linear| GpuLinear {
-            weight: storage(device, &l.weight),
-            bias: l.bias.as_ref().map(|b| storage(device, b)),
-            out: l.out,
-            inp: l.inp,
+    fn upload(device: &wgpu::Device, w: &Weights, matrix: bool) -> Self {
+        let linear = |l: &Linear| {
+            let (weight, ld) = if matrix {
+                let ld = l.inp.div_ceil(4);
+                let mut rows = vec![half::f16::ZERO; l.out * ld * 4];
+                for (row, from) in rows.chunks_exact_mut(ld * 4).zip(l.weight.chunks_exact(l.inp)) {
+                    row.iter_mut().zip(from).for_each(|(to, &v)| *to = half::f16::from_f32(v));
+                }
+                (storage(device, bytemuck::cast_slice(&rows)), ld)
+            } else {
+                (storage(device, bytemuck::cast_slice(&l.weight)), l.inp)
+            };
+            GpuLinear {
+                weight,
+                bias: l.bias.as_ref().map(|b| storage(device, bytemuck::cast_slice(b))),
+                out: l.out,
+                inp: l.inp,
+                ld,
+            }
         };
         let transformers = w
             .transformers
@@ -316,7 +437,7 @@ impl Params {
                         ff2: linear(&l.ff2),
                     })
                     .collect();
-                (layers, storage(device, &tr.norm))
+                (layers, storage(device, bytemuck::cast_slice(&tr.norm)))
             })
             .collect();
         let ff_hidden = w.transformers.iter().flat_map(|t| &t.layers).map(|l| l.ff1.out).max().unwrap_or(0);
@@ -338,7 +459,7 @@ impl Params {
                 .iter()
                 .map(|stem| stem.iter().map(|m| m.iter().map(linear).collect()).collect())
                 .collect(),
-            no_bias: storage(device, &[0.0; 4]),
+            no_bias: storage(device, bytemuck::cast_slice(&[0.0f32; 4])),
             ff_hidden,
             mask_hidden,
         }
@@ -361,30 +482,28 @@ impl Planner<'_> {
         let features = g.features();
         let widest_band = g.bands.iter().map(|b| b.width).max().unwrap_or(0);
         let mask_out = p.masks.iter().flatten().filter_map(|m| m.last()).map(|l| l.out).max().unwrap_or(0);
+        let f32s = |n| self.buffer(Store::F32, n, wgpu::BufferUsages::empty());
+        let acts = |n| self.buffer(Store::Act, n, wgpu::BufferUsages::empty());
 
-        let bins = self.buffer(frames * features, wgpu::BufferUsages::COPY_DST);
-        let mask = self.buffer(g.mask_len(frames), wgpu::BufferUsages::COPY_SRC);
+        let bins = self.buffer(Store::F32, frames * features, wgpu::BufferUsages::COPY_DST);
+        let mask = self.buffer(Store::F32, g.mask_len(frames), wgpu::BufferUsages::COPY_SRC);
         let readback = self.net.device.create_buffer(&wgpu::BufferDescriptor {
             label: None,
-            size: (g.mask_len(frames) * 4) as u64,
+            size: mask.size(),
             usage: wgpu::BufferUsages::MAP_READ | wgpu::BufferUsages::COPY_DST,
             mapped_at_creation: false,
         });
-        let x = self.buffer(tokens * c.dim, wgpu::BufferUsages::empty());
-        let earlier =
-            if c.skip { Some(self.buffer(tokens * c.dim, wgpu::BufferUsages::empty())) } else { None };
-        let normed = self.buffer(tokens * c.dim, wgpu::BufferUsages::empty());
-        let qkvg = self.buffer(tokens * c.qkvg_width(), wgpu::BufferUsages::empty());
-        let attended = self.buffer(tokens * c.inner_dim(), wgpu::BufferUsages::empty());
-        let hidden = self.buffer(tokens * p.ff_hidden, wgpu::BufferUsages::empty());
-        let band_in = self.buffer(frames * widest_band, wgpu::BufferUsages::empty());
-        let mlp = [
-            self.buffer(frames * p.mask_hidden, wgpu::BufferUsages::empty()),
-            self.buffer(frames * p.mask_hidden, wgpu::BufferUsages::empty()),
-        ];
-        let mlp_out = self.buffer(frames * mask_out, wgpu::BufferUsages::empty());
-        let angles_time = storage(&self.net.device, &angles(&p.rotary_time, frames));
-        let angles_freq = storage(&self.net.device, &angles(&p.rotary_freq, bands));
+        let x = f32s(tokens * c.dim);
+        let earlier = c.skip.then(|| f32s(tokens * c.dim));
+        let normed = acts(tokens * c.dim);
+        let qkvg = acts(tokens * c.qkvg_width());
+        let attended = acts(tokens * c.inner_dim());
+        let hidden = acts(tokens * p.ff_hidden);
+        let band_in = acts(frames * widest_band);
+        let mlp = [acts(frames * p.mask_hidden), acts(frames * p.mask_hidden)];
+        let mlp_out = f32s(frames * mask_out);
+        let angles_time = storage(&self.net.device, bytemuck::cast_slice(&angles(&p.rotary_time, frames)));
+        let angles_freq = storage(&self.net.device, bytemuck::cast_slice(&angles(&p.rotary_freq, bands)));
 
         let mut submissions = Vec::new();
         let mut steps = Vec::new();
@@ -397,11 +516,14 @@ impl Planner<'_> {
                 (features, band.offset),
                 (band.width, 0),
             ));
-            let into = Out { buffer: &x, ld: bands * c.dim, off: b * c.dim };
-            steps.push(self.matmul(proj, (&band_in, band.width, 0), frames, into, Act::None, false));
+            let input = Input { buffer: &band_in, store: Store::Act, ld: band.width, off: 0 };
+            let into = Input { buffer: &x, store: Store::F32, ld: bands * c.dim, off: b * c.dim };
+            steps.push(self.matmul(proj, input, frames, into, Act::None, false));
         }
         submissions.push(std::mem::take(&mut steps));
 
+        let normed_in = Input { buffer: &normed, store: Store::Act, ld: c.dim, off: 0 };
+        let x_rows = Input { buffer: &x, store: Store::F32, ld: c.dim, off: 0 };
         for (i, (layers, gain)) in p.transformers.iter().enumerate() {
             let axis = if i % 2 == 0 { Axis::Time } else { Axis::Freq };
             let angles = if axis == Axis::Time { &angles_time } else { &angles_freq };
@@ -410,17 +532,18 @@ impl Planner<'_> {
             }
             for l in layers {
                 steps.push(self.norm(&x, &normed, tokens, c.dim, (c.dim, 0), (c.dim, 0)));
-                let into = Out { buffer: &qkvg, ld: c.qkvg_width(), off: 0 };
-                steps.push(self.matmul(&l.qkvg, (&normed, c.dim, 0), tokens, into, Act::None, false));
-                steps.push(self.rotary(&qkvg, angles, axis, tokens));
-                steps.push(self.attention(&qkvg, &attended, axis));
-                let into = Out { buffer: &x, ld: c.dim, off: 0 };
-                steps.push(self.matmul(&l.out, (&attended, c.inner_dim(), 0), tokens, into, Act::None, true));
+                let into = Input { buffer: &qkvg, store: Store::Act, ld: c.qkvg_width(), off: 0 };
+                steps.push(self.matmul(&l.qkvg, normed_in, tokens, into, Act::None, false));
+                if !self.net.pipelines.matrix_attention {
+                    steps.push(self.rotary(&qkvg, angles, axis, tokens));
+                }
+                steps.push(self.attention(&qkvg, angles, &attended, axis));
+                let input = Input { buffer: &attended, store: Store::Act, ld: c.inner_dim(), off: 0 };
+                steps.push(self.matmul(&l.out, input, tokens, x_rows, Act::None, true));
                 steps.push(self.norm(&x, &normed, tokens, c.dim, (c.dim, 0), (c.dim, 0)));
-                let into = Out { buffer: &hidden, ld: l.ff1.out, off: 0 };
-                steps.push(self.matmul(&l.ff1, (&normed, c.dim, 0), tokens, into, Act::Gelu, false));
-                let into = Out { buffer: &x, ld: c.dim, off: 0 };
-                steps.push(self.matmul(&l.ff2, (&hidden, l.ff1.out, 0), tokens, into, Act::None, true));
+                let into = Input { buffer: &hidden, store: Store::Act, ld: l.ff1.out, off: 0 };
+                steps.push(self.matmul(&l.ff1, normed_in, tokens, into, Act::Gelu, false));
+                steps.push(self.matmul(&l.ff2, into, tokens, x_rows, Act::None, true));
             }
             steps.push(self.norm_in_place(&x, gain, tokens, c.dim));
             if let Some(earlier) = earlier.as_ref().filter(|_| axis == Axis::Freq) {
@@ -432,20 +555,15 @@ impl Planner<'_> {
         for (s, stem) in p.masks.iter().enumerate() {
             let stem_off = s * frames * features;
             for (b, (band, mlp_layers)) in g.bands.iter().zip(stem).enumerate() {
-                let mut input = (&x, bands * c.dim, b * c.dim);
+                let mut input = Input { buffer: &x, store: Store::F32, ld: bands * c.dim, off: b * c.dim };
                 for (k, l) in mlp_layers.iter().enumerate() {
                     let last = k + 1 == mlp_layers.len();
-                    let target = if last { &mlp_out } else { &mlp[k % 2] };
+                    let (buffer, store) =
+                        if last { (&mlp_out, Store::F32) } else { (&mlp[k % 2], Store::Act) };
+                    let into = Input { buffer, store, ld: l.out, off: 0 };
                     let act = if last { Act::None } else { Act::Tanh };
-                    steps.push(self.matmul(
-                        l,
-                        input,
-                        frames,
-                        Out { buffer: target, ld: l.out, off: 0 },
-                        act,
-                        false,
-                    ));
-                    input = (target, l.out, 0);
+                    steps.push(self.matmul(l, input, frames, into, act, false));
+                    input = into;
                 }
                 steps.push(self.glu(&mlp_out, &mask, frames, band.width, features, stem_off + band.offset));
             }
@@ -455,16 +573,24 @@ impl Planner<'_> {
         Plan { bins, mask, readback, submissions }
     }
 
-    fn buffer(&self, floats: usize, usage: wgpu::BufferUsages) -> wgpu::Buffer {
+    /// Room for `count` values stored as `store`, in whole groups of 4.
+    fn buffer(&self, store: Store, count: usize, usage: wgpu::BufferUsages) -> wgpu::Buffer {
+        let bytes = if store == Store::Act { self.net.act_bytes() } else { 4 };
         self.net.device.create_buffer(&wgpu::BufferDescriptor {
             label: None,
-            size: (floats.max(4) * 4) as u64,
+            size: (count.max(1).next_multiple_of(4) * bytes) as u64,
             usage: wgpu::BufferUsages::STORAGE | usage,
             mapped_at_creation: false,
         })
     }
 
-    fn step(&self, kind: Kind, groups: (u32, u32), buffers: &[&wgpu::Buffer], uniform: &[u32]) -> Step {
+    fn step(
+        &self,
+        pipeline: &wgpu::ComputePipeline,
+        groups: (u32, u32),
+        buffers: &[&wgpu::Buffer],
+        uniform: &[u32],
+    ) -> Step {
         let device = &self.net.device;
         let mut words = uniform.to_vec();
         words.resize(uniform.len().next_multiple_of(4), 0);
@@ -481,36 +607,31 @@ impl Planner<'_> {
             .collect();
         let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
             label: None,
-            layout: &self.net.pipelines.get(kind).get_bind_group_layout(0),
+            layout: &pipeline.get_bind_group_layout(0),
             entries: &entries,
         });
-        Step { pipeline: kind, bind_group, groups }
+        Step { pipeline: pipeline.clone(), bind_group, groups }
     }
 
-    fn matmul(
-        &self,
-        l: &GpuLinear,
-        (a, lda, a_off): (&wgpu::Buffer, usize, usize),
-        rows: usize,
-        out: Out,
-        act: Act,
-        accumulate: bool,
-    ) -> Step {
+    /// `out` (+)= act(`a` · `l`) over `rows` rows.
+    fn matmul(&self, l: &GpuLinear, a: Input, rows: usize, out: Input, act: Act, accumulate: bool) -> Step {
         let bias = l.bias.as_ref().unwrap_or(&self.net.params.no_bias);
         let groups = (l.out.div_ceil(128) as u32, rows.div_ceil(128) as u32);
         let uniform = [
             rows,
             l.out,
             l.inp,
-            lda,
-            a_off,
+            a.ld,
+            a.off,
             out.ld,
             out.off,
             act as usize,
-            accumulate as usize,
-            l.bias.is_some() as usize,
+            usize::from(accumulate),
+            usize::from(l.bias.is_some()),
+            l.ld,
         ];
-        self.step(Kind::Matmul, groups, &[a, &l.weight, bias, out.buffer], &words(&uniform))
+        let pipeline = self.net.pipelines.matmul(a.store, out.store);
+        self.step(pipeline, groups, &[a.buffer, &l.weight, bias, out.buffer], &words(&uniform))
     }
 
     fn norm(
@@ -524,13 +645,14 @@ impl Planner<'_> {
     ) -> Step {
         let (groups, groups_x) = grid(rows);
         let uniform = [rows, width, src_ld, src_off, dst_ld, dst_off, 0, groups_x];
-        self.step(Kind::Norm, groups, &[src, dst, &self.net.params.no_bias], &words(&uniform))
+        let buffers = [src, dst, &self.net.params.no_bias];
+        self.step(&self.net.pipelines.norm, groups, &buffers, &words(&uniform))
     }
 
     fn norm_in_place(&self, x: &wgpu::Buffer, gain: &wgpu::Buffer, rows: usize, width: usize) -> Step {
         let (groups, groups_x) = grid(rows);
         let uniform = [rows, width, width, 0, width, 0, 1, groups_x];
-        self.step(Kind::NormInPlace, groups, &[x, gain], &words(&uniform))
+        self.step(&self.net.pipelines.norm_in_place, groups, &[x, gain], &words(&uniform))
     }
 
     fn rotary(&self, qkvg: &wgpu::Buffer, angles: &wgpu::Buffer, axis: Axis, tokens: usize) -> Step {
@@ -541,10 +663,10 @@ impl Planner<'_> {
         let (groups, groups_x) = grid((tokens * 2 * c.heads * pairs).div_ceil(256));
         let positions = axis.len(self.frames, bands);
         let uniform = [tokens, 2 * c.heads, pairs, c.qkvg_width(), bands, axis_id(axis), positions, groups_x];
-        self.step(Kind::Rotary, groups, &[qkvg, angles], &words(&uniform))
+        self.step(&self.net.pipelines.rotary, groups, &[qkvg, angles], &words(&uniform))
     }
 
-    fn attention(&self, qkvg: &wgpu::Buffer, out: &wgpu::Buffer, axis: Axis) -> Step {
+    fn attention(&self, qkvg: &wgpu::Buffer, angles: &wgpu::Buffer, out: &wgpu::Buffer, axis: Axis) -> Step {
         let g = &self.net.geometry;
         let c = &g.config;
         let bands = g.bands.len();
@@ -563,12 +685,16 @@ impl Planner<'_> {
             blocks,
             groups_x,
         ];
-        self.step(Kind::Attention, groups, &[qkvg, out], &words(&uniform))
+        let pipelines = &self.net.pipelines;
+        let buffers: &[&wgpu::Buffer] =
+            if pipelines.matrix_attention { &[qkvg, out, qkvg, angles] } else { &[qkvg, out] };
+        self.step(&pipelines.attention, groups, buffers, &words(&uniform))
     }
 
     fn add(&self, src: &wgpu::Buffer, dst: &wgpu::Buffer, len: usize, accumulate: bool) -> Step {
         let (groups, groups_x) = grid(len.div_ceil(256));
-        self.step(Kind::Add, groups, &[src, dst], &words(&[len, accumulate as usize, groups_x]))
+        let uniform = [len, usize::from(accumulate), groups_x];
+        self.step(&self.net.pipelines.add, groups, &[src, dst], &words(&uniform))
     }
 
     fn glu(
@@ -581,12 +707,15 @@ impl Planner<'_> {
         off: usize,
     ) -> Step {
         let (groups, groups_x) = grid((rows * width).div_ceil(256));
-        self.step(Kind::Glu, groups, &[y, mask], &words(&[rows, width, ld, off, groups_x]))
+        self.step(&self.net.pipelines.glu, groups, &[y, mask], &words(&[rows, width, ld, off, groups_x]))
     }
 }
 
-struct Out<'a> {
+/// Rows of a matrix in a buffer: `ld` values apart, from `off`.
+#[derive(Clone, Copy)]
+struct Input<'a> {
     buffer: &'a wgpu::Buffer,
+    store: Store,
     ld: usize,
     off: usize,
 }
@@ -616,10 +745,186 @@ fn angles(freqs: &[f32], positions: usize) -> Vec<f32> {
     all.iter().map(|a| a.cos()).chain(all.iter().map(|a| a.sin())).collect()
 }
 
-fn storage(device: &wgpu::Device, data: &[f32]) -> wgpu::Buffer {
+fn storage(device: &wgpu::Device, bytes: &[u8]) -> wgpu::Buffer {
     device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
         label: None,
-        contents: bytemuck::cast_slice(data),
+        contents: bytes,
         usage: wgpu::BufferUsages::STORAGE,
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::model::{Band, Config, Layer, Transformer};
+
+    /// A network of 4 heads of 64 values on `bands` bands, as the attention on the matrix
+    /// units takes them (its weights play no part here); `None` without such units.
+    fn matrix_network(bands: usize) -> Option<GpuNetwork> {
+        let config = Config {
+            dim: 64,
+            heads: 4,
+            dim_head: 64,
+            depth: 1,
+            n_fft: 2 * bands,
+            hop: 4,
+            sample_rate: 44_100,
+            chunk_frames: 9,
+            skip: false,
+            overlap: 1,
+        };
+        let zero = |out: usize, inp: usize| Linear { weight: vec![0.0; out * inp], bias: None, out, inp };
+        let layer = || Layer {
+            qkvg: zero(config.qkvg_width(), 64),
+            out: zero(64, config.inner_dim()),
+            ff1: zero(128, 64),
+            ff2: zero(64, 128),
+        };
+        let freqs: Vec<f32> = (0..32).map(|i| 10_000f32.powf(-(i as f32) / 32.0)).collect();
+        let weights = Weights {
+            geometry: Geometry {
+                config: config.clone(),
+                stems: vec!["vocals".into()],
+                freq_indices: (0..2 * bands as u32).collect(),
+                bands_per_freq: vec![1; bands + 1],
+                bands: (0..bands).map(|b| Band { offset: 4 * b, width: 4 }).collect(),
+            },
+            rotary_time: freqs.clone(),
+            rotary_freq: freqs,
+            band_proj: (0..bands).map(|_| zero(64, 4)).collect(),
+            transformers: (0..2)
+                .map(|_| Transformer { layers: vec![layer()], norm: vec![1.0; 64] })
+                .collect(),
+            masks: vec![(0..bands).map(|_| vec![zero(8, 64)]).collect()],
+            extra: Default::default(),
+        };
+        let net = match GpuNetwork::with_options(weights, GpuOptions { software: true, ..Default::default() })
+        {
+            Ok(net) => net,
+            Err(StemsError::NoGpu(e)) => {
+                eprintln!("skipped: {e}");
+                return None;
+            }
+            Err(e) => panic!("{e}"),
+        };
+        if !net.pipelines.matrix_attention {
+            eprintln!("skipped: {} has no matrix units", net.adapter());
+            return None;
+        }
+        Some(net)
+    }
+
+    /// The gated attention of rotated queries and keys, in f64.
+    fn reference(
+        qkvg: &[f32],
+        c: &Config,
+        freqs: &[f32],
+        axis: Axis,
+        frames: usize,
+        bands: usize,
+    ) -> Vec<f32> {
+        let (width, inner, dh) = (c.qkvg_width(), c.inner_dim(), c.dim_head);
+        let len = axis.len(frames, bands);
+        let rotated = |token: usize, at: usize| -> Vec<f64> {
+            let pos = axis.position(token, bands) as f64;
+            let v = &qkvg[token * width + at..][..dh];
+            let mut out = vec![0.0; dh];
+            for (p, &f) in freqs.iter().enumerate() {
+                let (s, co) = (pos * f64::from(f)).sin_cos();
+                let (a, b) = (f64::from(v[2 * p]), f64::from(v[2 * p + 1]));
+                out[2 * p] = a * co - b * s;
+                out[2 * p + 1] = b * co + a * s;
+            }
+            out
+        };
+        let mut out = vec![0.0; frames * bands * inner];
+        for group in 0..axis.groups(frames, bands) {
+            let token = |i| axis.token(group, i, bands);
+            for head in 0..c.heads {
+                let keys: Vec<Vec<f64>> = (0..len).map(|j| rotated(token(j), inner + head * dh)).collect();
+                for i in 0..len {
+                    let q = rotated(token(i), head * dh);
+                    let scores: Vec<f64> =
+                        keys.iter().map(|k| q.iter().zip(k).map(|(a, b)| a * b).sum()).collect();
+                    let max = scores.iter().copied().fold(f64::MIN, f64::max);
+                    let weights: Vec<f64> = scores.iter().map(|s| (s - max).exp()).collect();
+                    let total: f64 = weights.iter().sum();
+                    let gate = 1.0 / (1.0 + (-f64::from(qkvg[token(i) * width + 3 * inner + head])).exp());
+                    for d in 0..dh {
+                        let v: f64 = (0..len)
+                            .map(|j| {
+                                weights[j] * f64::from(qkvg[token(j) * width + 2 * inner + head * dh + d])
+                            })
+                            .sum();
+                        out[token(i) * inner + head * dh + d] = (v / total * gate) as f32;
+                    }
+                }
+            }
+        }
+        out
+    }
+
+    /// Along both axes, over sequences that end in partial blocks of queries and keys, with
+    /// keys growing along them: the scores rise block after block, and the attention rescales
+    /// what it summed again and again.
+    #[test]
+    fn the_attention_on_the_matrix_units_matches_a_plain_one() {
+        for (axis, frames, bands) in [(Axis::Time, 150, 3), (Axis::Freq, 5, 70)] {
+            let Some(net) = matrix_network(bands) else { return };
+            let c = &net.geometry.config;
+            let (width, inner) = (c.qkvg_width(), c.inner_dim());
+            let tokens = frames * bands;
+            let mut state = 0x9e37_79b9_7f4a_7c15u64;
+            let qkvg: Vec<half::f16> = (0..tokens * width)
+                .map(|i| {
+                    state =
+                        state.wrapping_mul(6_364_136_223_846_793_005).wrapping_add(1_442_695_040_888_963_407);
+                    let r = (state >> 40) as f32 / (1u64 << 24) as f32 - 0.5;
+                    let (token, at) = (i / width, i % width);
+                    let growth = 1.0 + axis.position(token, bands) as f32 / 16.0;
+                    let v = if at < inner {
+                        4.0 * r
+                    } else if at < 2 * inner {
+                        r * growth
+                    } else {
+                        r
+                    };
+                    half::f16::from_f32(v)
+                })
+                .collect();
+            let wide: Vec<f32> = qkvg.iter().map(|v| v.to_f32()).collect();
+            let freqs = if axis == Axis::Time { &net.params.rotary_time } else { &net.params.rotary_freq };
+            let expected = reference(&wide, c, freqs, axis, frames, bands);
+
+            let planner = Planner { net: &net, frames };
+            let input = storage(&net.device, bytemuck::cast_slice(&qkvg));
+            let angles = storage(&net.device, bytemuck::cast_slice(&angles(freqs, axis.len(frames, bands))));
+            let out = planner.buffer(Store::Act, tokens * inner, wgpu::BufferUsages::COPY_SRC);
+            let step = planner.attention(&input, &angles, &out, axis);
+            let read = net.device.create_buffer(&wgpu::BufferDescriptor {
+                label: None,
+                size: out.size(),
+                usage: wgpu::BufferUsages::MAP_READ | wgpu::BufferUsages::COPY_DST,
+                mapped_at_creation: false,
+            });
+            let mut encoder = net.device.create_command_encoder(&Default::default());
+            {
+                let mut pass = encoder.begin_compute_pass(&Default::default());
+                pass.set_pipeline(&step.pipeline);
+                pass.set_bind_group(0, &step.bind_group, &[]);
+                pass.dispatch_workgroups(step.groups.0, step.groups.1, 1);
+            }
+            encoder.copy_buffer_to_buffer(&out, 0, &read, 0, out.size());
+            net.queue.submit([encoder.finish()]);
+            read.slice(..).map_async(wgpu::MapMode::Read, |r| r.expect("mapped"));
+            net.device.poll(wgpu::PollType::wait_indefinitely()).expect("GPU done");
+            let view = read.slice(..).get_mapped_range().expect("mapped");
+            let got = &bytemuck::cast_slice::<u8, half::f16>(&view)[..tokens * inner];
+
+            let num: f64 = got.iter().zip(&expected).map(|(a, b)| f64::from(a.to_f32() - b).powi(2)).sum();
+            let den: f64 = expected.iter().map(|b| f64::from(*b).powi(2)).sum();
+            let err = (num / den).sqrt();
+            assert!(err < 2e-3, "{axis:?}: relative error {err:e}");
+        }
+    }
 }

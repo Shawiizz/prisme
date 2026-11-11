@@ -14,7 +14,7 @@ struct Params {
     groups_x: u32,
 }
 
-@group(0) @binding(0) var<storage, read_write> qkvg: array<f32>;
+@group(0) @binding(0) var<storage, read_write> qkvg: array<Act>;
 // cos for every (position, pair), then sin
 @group(0) @binding(1) var<storage, read> angles: array<f32>;
 @group(0) @binding(2) var<uniform> p: Params;
@@ -33,8 +33,8 @@ fn main(@builtin(workgroup_id) wg: vec3<u32>, @builtin(local_invocation_index) l
     let at = token * p.width + (rest / p.pairs) * p.pairs * 2u + pair * 2u;
     let c = angles[pos * p.pairs + pair];
     let s = angles[(p.positions + pos) * p.pairs + pair];
-    let a = qkvg[at];
-    let b = qkvg[at + 1u];
-    qkvg[at] = a * c - b * s;
-    qkvg[at + 1u] = b * c + a * s;
+    let a = f32(qkvg[at]);
+    let b = f32(qkvg[at + 1u]);
+    qkvg[at] = Act(a * c - b * s);
+    qkvg[at + 1u] = Act(b * c + a * s);
 }

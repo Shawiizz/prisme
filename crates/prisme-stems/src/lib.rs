@@ -16,7 +16,7 @@ pub mod stft;
 pub mod track;
 
 pub use cpu::CpuNetwork;
-pub use gpu::GpuNetwork;
+pub use gpu::{GpuNetwork, GpuOptions};
 pub use model::{Config, Geometry, Weights};
 pub use network::MaskNetwork;
 pub use separate::Separator;

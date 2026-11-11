@@ -8,9 +8,20 @@ use crate::StemsError;
 pub trait MaskNetwork: Send {
     fn geometry(&self) -> &Geometry;
 
-    /// `bins` holds `frames` rows of [`Geometry::features`] values: for each gathered bin, its
-    /// real then imaginary part. `out` holds the masks the same way, stem after stem.
-    fn masks(&mut self, bins: &[f32], frames: usize, out: &mut [f32]) -> Result<(), StemsError>;
+    /// Starts on the masks of a chunk, which [`Self::finish`] gives: where the work runs
+    /// elsewhere (on the GPU), the caller prepares the next chunk meanwhile. `bins` holds
+    /// `frames` rows of [`Geometry::features`] values: for each gathered bin, its real then
+    /// imaginary part.
+    fn start(&mut self, bins: &[f32], frames: usize) -> Result<(), StemsError>;
+
+    /// The masks of the chunk last started, laid out as its bins, stem after stem.
+    fn finish(&mut self, out: &mut [f32]) -> Result<(), StemsError>;
+
+    /// The masks of a chunk, [`Self::start`] then [`Self::finish`].
+    fn masks(&mut self, bins: &[f32], frames: usize, out: &mut [f32]) -> Result<(), StemsError> {
+        self.start(bins, frames)?;
+        self.finish(out)
+    }
 }
 
 impl<N: MaskNetwork + ?Sized> MaskNetwork for Box<N> {
@@ -18,8 +29,12 @@ impl<N: MaskNetwork + ?Sized> MaskNetwork for Box<N> {
         (**self).geometry()
     }
 
-    fn masks(&mut self, bins: &[f32], frames: usize, out: &mut [f32]) -> Result<(), StemsError> {
-        (**self).masks(bins, frames, out)
+    fn start(&mut self, bins: &[f32], frames: usize) -> Result<(), StemsError> {
+        (**self).start(bins, frames)
+    }
+
+    fn finish(&mut self, out: &mut [f32]) -> Result<(), StemsError> {
+        (**self).finish(out)
     }
 }
 

@@ -1,4 +1,5 @@
-// RMS normalisation of rows, one workgroup per row: x / max(|x|, 1e-12), times a gain.
+// RMS normalisation of rows, one workgroup per row: x / max(|x|, 1e-12), times a gain. The
+// rows go where a matrix product reads them (`Act`).
 
 struct Params {
     rows: u32,
@@ -12,7 +13,7 @@ struct Params {
 }
 
 @group(0) @binding(0) var<storage, read> src: array<f32>;
-@group(0) @binding(1) var<storage, read_write> dst: array<f32>;
+@group(0) @binding(1) var<storage, read_write> dst: array<Act>;
 @group(0) @binding(2) var<storage, read> gain: array<f32>;
 @group(0) @binding(3) var<uniform> p: Params;
 
@@ -50,6 +51,6 @@ fn normalize(@builtin(workgroup_id) wg: vec3<u32>, @builtin(local_invocation_ind
         if (p.has_gain != 0u) {
             v *= gain[i];
         }
-        dst[to + i] = v;
+        dst[to + i] = Act(v);
     }
 }
