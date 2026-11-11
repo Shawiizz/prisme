@@ -54,6 +54,9 @@ export class DeckWaveform {
   protected readonly track = computed(() => this.engine.tracks()[this.deck()]);
   private frame = 0;
   private drag: Drag | null = null;
+  /** What the last frame showed: a frame showing the same is not drawn again (a deck at
+   * rest costs nothing). */
+  private shown: unknown[] = [];
 
   constructor() {
     const destroyRef = inject(DestroyRef);
@@ -132,16 +135,31 @@ export class DeckWaveform {
     if (!track) {
       zoom.ctx.clearRect(0, 0, zoom.size.width, zoom.size.height);
       overview.ctx.clearRect(0, 0, overview.size.width, overview.size.height);
+      this.shown = [];
       return;
     }
     const position = this.engine.livePosition(this.deck()) ?? 0;
-    const overlay: WaveformOverlay = {
-      tempo: track.tempo,
-      cues: track.cues,
-      loop: this.engine.status()?.decks[this.deck()]?.looping ?? null,
-    };
+    const loop = this.engine.status()?.decks[this.deck()]?.looping ?? null;
+    const overlay: WaveformOverlay = { tempo: track.tempo, cues: track.cues, loop };
     const span = this.zoomSpan();
     const waveform = this.engine.waveforms()[this.deck()];
+    const showing = [
+      track,
+      waveform,
+      position,
+      span,
+      loop?.active,
+      loop?.loopInS,
+      loop?.startS,
+      loop?.endS,
+      zoom.size.width,
+      zoom.size.height,
+      overview.size.width,
+      overview.size.height,
+    ];
+    if (showing.length === this.shown.length && showing.every((v, i) => v === this.shown[i]))
+      return;
+    this.shown = showing;
     this.painter.drawZoomed(zoom.ctx, waveform, overlay, position, span, zoom.size);
     this.painter.drawOverview(
       overview.ctx,

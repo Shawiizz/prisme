@@ -48,6 +48,14 @@ export class WaveformPainter {
   /** Colour of each slice, cached per waveform. */
   private colors: string[] = [];
   private source: Waveform | null = null;
+  /** The overview's audio as it plays and as played, drawn once per waveform and size. */
+  private overview: {
+    w: Waveform;
+    width: number;
+    height: number;
+    full: Bitmap;
+    played: Bitmap;
+  } | null = null;
 
   /** Scrolling view centred on `positionS`; without a waveform yet, everything but the audio. */
   drawZoomed(
@@ -80,7 +88,15 @@ export class WaveformPainter {
     ctx.clearRect(0, 0, view.width, view.height);
     this.drawLoop(ctx, overlay.loop, view);
     const playedX = durationS > 0 ? (positionS / durationS) * view.width : 0;
-    if (w) this.drawOverviewAudio(ctx, w, view, playedX);
+    if (w) {
+      const { full, played } = this.overviewAudio(w, view);
+      const split = Math.min(Math.max(Math.round(playedX), 0), view.width);
+      if (split > 0) ctx.drawImage(played, 0, 0, split, view.height, 0, 0, split, view.height);
+      if (split < view.width) {
+        const rest = view.width - split;
+        ctx.drawImage(full, split, 0, rest, view.height, split, 0, rest, view.height);
+      }
+    }
     this.drawCues(ctx, overlay.cues, view, false);
     ctx.fillStyle = this.palette.light;
     ctx.fillRect(Math.floor(playedX) - view.ratio, 0, 2 * view.ratio, view.height);
@@ -104,20 +120,29 @@ export class WaveformPainter {
     ctx.globalAlpha = 1;
   }
 
-  private drawOverviewAudio(
-    ctx: CanvasRenderingContext2D,
-    w: Waveform,
-    view: View,
-    playedX: number,
-  ) {
+  /** The overview's audio, drawn again only for another waveform or another size. */
+  private overviewAudio(w: Waveform, view: View): { full: Bitmap; played: Bitmap } {
+    const cached = this.overview;
+    if (cached && cached.w === w && cached.width === view.width && cached.height === view.height) {
+      return cached;
+    }
+    const full = bitmap(view.width, view.height);
+    const played = bitmap(view.width, view.height);
+    this.drawOverviewAudio(full.getContext('2d')!, w, view, 1);
+    this.drawOverviewAudio(played.getContext('2d')!, w, view, PLAYED_OVERVIEW);
+    this.overview = { w, width: view.width, height: view.height, full, played };
+    return this.overview;
+  }
+
+  private drawOverviewAudio(ctx: Context2D, w: Waveform, view: View, alpha: number) {
     const n = w.peak.length;
     const mid = view.height / 2;
+    ctx.globalAlpha = alpha;
     for (let x = 0; x < view.width; x++) {
       const first = Math.floor((x / view.width) * n);
       const last = Math.max(first + 1, Math.floor(((x + 1) / view.width) * n));
       const loudest = this.loudest(w, first, last);
       const h = (w.peak[loudest] / 255) * (mid - 1);
-      ctx.globalAlpha = x < playedX ? PLAYED_OVERVIEW : 1;
       ctx.fillStyle = this.colorAt(w, loudest);
       ctx.fillRect(x, mid - h, 1, h * 2);
     }
@@ -220,6 +245,13 @@ export class WaveformPainter {
     }
     return this.colors[i];
   }
+}
+
+type Bitmap = OffscreenCanvas;
+type Context2D = OffscreenCanvasRenderingContext2D;
+
+function bitmap(width: number, height: number): Bitmap {
+  return new OffscreenCanvas(width, height);
 }
 
 function xOf(seconds: number, view: View): number {
