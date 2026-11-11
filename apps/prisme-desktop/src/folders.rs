@@ -3,14 +3,15 @@
 use crate::dto::{DirEntryDto, DirListingDto, TrackDetailsDto};
 use std::path::{Path, PathBuf};
 
-/// The user's music folder (falls back to the home folder).
+/// The user's music folder: where Windows keeps it (moved to another drive or to OneDrive
+/// as well), else `Music` in the home folder. Never the home folder itself, whose scan would
+/// read the whole profile.
 pub fn music_root() -> PathBuf {
     let home = std::env::var_os("USERPROFILE").or_else(|| std::env::var_os("HOME")).map(PathBuf::from);
-    match home {
-        Some(home) if home.join("Music").is_dir() => home.join("Music"),
-        Some(home) => home,
-        None => PathBuf::from("."),
-    }
+    dirs::audio_dir()
+        .filter(|dir| dir.is_dir())
+        .or_else(|| home.map(|home| home.join("Music")))
+        .unwrap_or_else(|| PathBuf::from("Music"))
 }
 
 /// Sub-folders and playable files of `dir`, sorted by name (hidden entries skipped).

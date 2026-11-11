@@ -69,7 +69,10 @@ impl Changes {
         if matches!(event.kind, EventKind::Access(_)) {
             return;
         }
-        for path in event.paths {
+        // hidden entries (Prisme's own `.prisme` folders of stems among them) are not music
+        let visible =
+            |path: &Path| !path.components().any(|c| c.as_os_str().to_string_lossy().starts_with('.'));
+        for path in event.paths.into_iter().filter(|p| visible(p)) {
             if matches!(event.kind, EventKind::Modify(ModifyKind::Data(_) | ModifyKind::Any))
                 && prisme_media::is_supported(&path)
             {
@@ -111,6 +114,8 @@ mod tests {
         changes.add(event(EventKind::Create(CreateKind::File), &["C:/Music/House/set.csv"]));
         changes.add(event(EventKind::Remove(RemoveKind::Any), &["C:/Music/Old Folder"]));
         changes.add(event(EventKind::Access(AccessKind::Any), &["C:/Music/Techno/a.flac"]));
+        changes
+            .add(event(EventKind::Create(CreateKind::File), &["C:/Music/Techno/.prisme/a.flac.vocals.flac"]));
         assert_eq!(
             changes.folders(|_| false).into_iter().collect::<Vec<_>>(),
             [PathBuf::from("C:/Music"), PathBuf::from("C:/Music/House")]

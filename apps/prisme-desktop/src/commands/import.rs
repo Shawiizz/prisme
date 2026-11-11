@@ -28,6 +28,7 @@ pub async fn import_serato(
     run(library, move || {
         let files: Vec<PathBuf> =
             prisme_library::scan_folder(&folders::music_root(), &AtomicBool::new(false))
+                .files
                 .into_iter()
                 .map(|f| f.path)
                 .collect();

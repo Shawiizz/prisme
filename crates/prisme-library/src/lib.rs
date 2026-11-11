@@ -28,5 +28,5 @@ pub use db::{
 };
 pub use duplicates::duplicate_groups;
 pub use metadata::{read_metadata, Metadata};
-pub use scan::{scan_folder, ScannedFile};
+pub use scan::{scan_folder, Scan, ScannedFile};
 pub use smart::{Rule, SmartRules, TextField};

@@ -9,7 +9,7 @@
 
 use crate::db::{path_key, FileStamp, LibraryDb, RecordVersion, TrackRecord};
 use crate::metadata::read_metadata;
-use crate::scan::{scan_folder, ScannedFile};
+use crate::scan::{scan_folder, Scan, ScannedFile};
 use prisme_analysis::AnalysisOptions;
 use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
@@ -105,6 +105,7 @@ fn run(
         follow_moves(db, root, &mut stored, &found, listener);
     }
     let todo: Vec<ScannedFile> = found
+        .files
         .into_iter()
         .filter(|f| stored.get(&path_key(&f.path)).is_none_or(|v| !v.is_current(f.stamp)))
         .collect();
@@ -157,19 +158,28 @@ fn run(
 
 /// Follows the stored files under `root` that the scan did not find: one that reappears
 /// elsewhere with the same size and modification time (moved or renamed) keeps all it
-/// had; the others are forgotten. `stored` is updated to match.
+/// had; the others are forgotten. Those under a folder the scan could not list (a drive
+/// unplugged) are kept as they are. `stored` is updated to match.
 fn follow_moves(
     db: &LibraryDb,
     root: &Path,
     stored: &mut HashMap<String, RecordVersion>,
-    found: &[ScannedFile],
+    found: &Scan,
     listener: &dyn AnalysisListener,
 ) {
-    let present: HashSet<String> = found.iter().map(|f| path_key(&f.path)).collect();
-    let gone: Vec<String> =
-        stored.keys().filter(|p| Path::new(p).starts_with(root) && !present.contains(*p)).cloned().collect();
+    let present: HashSet<String> = found
+        .files
+        .iter()
+        .map(|f| path_key(&f.path))
+        .chain(found.online_only.iter().map(|p| path_key(p)))
+        .collect();
+    let gone: Vec<String> = stored
+        .keys()
+        .filter(|p| Path::new(p).starts_with(root) && !present.contains(*p) && !found.may_hold(Path::new(p)))
+        .cloned()
+        .collect();
     let mut arrivals: HashMap<FileStamp, Vec<&ScannedFile>> = HashMap::new();
-    for file in found.iter().filter(|f| !stored.contains_key(&path_key(&f.path))) {
+    for file in found.files.iter().filter(|f| !stored.contains_key(&path_key(&f.path))) {
         arrivals.entry(file.stamp).or_default().push(file);
     }
     let mut forgotten = Vec::new();
