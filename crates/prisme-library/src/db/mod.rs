@@ -184,15 +184,18 @@ impl LibraryDb {
         Self::init(Connection::open_in_memory()?)
     }
 
-    fn init(conn: Connection) -> Result<Self, DbError> {
+    fn init(mut conn: Connection) -> Result<Self, DbError> {
         // WAL: readers (the UI) are not blocked by the analysis writing
         conn.pragma_update(None, "journal_mode", "WAL")?;
         conn.pragma_update(None, "synchronous", "NORMAL")?;
         conn.pragma_update(None, "foreign_keys", true)?;
         let applied: i64 = conn.pragma_query_value(None, "user_version", |r| r.get(0))?;
+        // each migration whole or not at all: one cut short by a crash is run again
         for (i, sql) in MIGRATIONS.iter().enumerate().skip(applied as usize) {
-            conn.execute_batch(sql)?;
-            conn.pragma_update(None, "user_version", i as i64 + 1)?;
+            let tx = conn.transaction()?;
+            tx.execute_batch(sql)?;
+            tx.pragma_update(None, "user_version", i as i64 + 1)?;
+            tx.commit()?;
         }
         Ok(Self { conn: Mutex::new(conn) })
     }
