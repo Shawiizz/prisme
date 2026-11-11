@@ -34,8 +34,9 @@ export function driftTime(deck: DeckStatus, other: DeckStatus, limit: number): n
   // beats per second the deck gains on the other
   const rate = (deck.bpm - octaveRatio(deck.bpm, other.bpm) * other.bpm) / 60;
   if (Math.abs(rate) < MIN_DRIFT) return null;
+  if (Math.abs(offset) >= limit) return 0;
   const left = rate > 0 ? limit - offset : offset + limit;
-  return Math.max(0, left / Math.abs(rate));
+  return left / Math.abs(rate);
 }
 
 /** Slower than this (beats per second) the decks hold for minutes: no drift to tell. */

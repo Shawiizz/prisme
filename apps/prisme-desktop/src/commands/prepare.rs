@@ -32,13 +32,13 @@ pub fn add_to_prepare(
     Ok(added)
 }
 
-#[tauri::command(async)]
+#[tauri::command]
 pub fn remove_from_prepare(library: Library<'_>, paths: Vec<String>) -> AppResult<()> {
     library.db.remove_from_prepare(&paths.iter().map(Path::new).collect::<Vec<_>>())?;
     Ok(())
 }
 
-#[tauri::command(async)]
+#[tauri::command]
 pub fn move_in_prepare(library: Library<'_>, path: String, index: usize) -> AppResult<()> {
     Ok(library.db.move_in_prepare(Path::new(&path), index)?)
 }

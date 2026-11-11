@@ -40,10 +40,9 @@ pub fn preload(
     path: PathBuf,
 ) -> AppResult<()> {
     let (track, completion) = prepare(path, library)?;
-    let load_id = track.load_id;
     lock(&state.tracks)[deck] = Some(track);
     let app = app.clone();
-    std::thread::spawn(move || completion.run(&app, deck, load_id));
+    std::thread::spawn(move || completion.run(&app));
     Ok(())
 }
 
@@ -90,16 +89,21 @@ pub fn prepare(path: PathBuf, library: &LibraryService) -> AppResult<(LoadedTrac
 }
 
 impl Completion {
-    /// Runs on a worker thread. The results go to the track loaded on `deck` as
-    /// `load_id`, and nowhere if another one was loaded meanwhile.
-    pub fn run(self, app: &AppHandle, deck: usize, load_id: u64) {
+    /// Runs on a worker thread. The results go to the decks still playing the track's audio
+    /// (its load, and the instant doubles made of it meanwhile), and nowhere once another
+    /// track was loaded on them.
+    pub fn run(self, app: &AppHandle) {
         let (audio, decoded) = self.loading.decode_rest();
         if let Err(e) = decoded {
             warn!("{} decoded up to {:.1} s: {e}", self.path.display(), audio.duration_s());
         }
         let state = app.state::<AppState>();
         let library = app.state::<Arc<LibraryService>>();
-        let separation = crate::stems_service::give_stems(app, deck, load_id, &self.path, &audio);
+        let mut updates = Updates::default();
+        for (deck, load_id, ()) in state.with_audio(&audio, |_| ()) {
+            let separation = crate::stems_service::give_stems(app, deck, load_id, &self.path, &audio);
+            updates.of(deck, load_id).separation = separation;
+        }
         if state.preferences.read(|p| p.library.separate_on_load) {
             if let Err(e) = app
                 .state::<crate::stems_service::StemsService>()
@@ -110,15 +114,12 @@ impl Completion {
         }
         let loudness = prisme_analysis::loudness(&audio);
         let auto_gain = state.preferences.read(|p| p.dj.auto_gain);
-        let level = state.with_loaded(deck, load_id, |t| {
+        for (deck, _, gain) in state.with_audio(&audio, |t| {
             t.loudness = loudness;
             t.level(auto_gain)
-        });
-        if let Some(gain) = level {
+        }) {
             let _ = state.send_if_running(Command::SetLevel { deck, gain });
         }
-        let mut update =
-            DeckTrackUpdateDto { deck, load_id, waveform_ready: false, analysis: None, separation };
         if self.waveform_missing {
             let waveform = prisme_analysis::compute_waveform(&audio, WAVEFORM_SLICES_PER_S);
             if let Some(stamp) = self.stamp {
@@ -126,8 +127,9 @@ impl Completion {
                     error!("waveform of {} not saved: {e}", self.path.display());
                 }
             }
-            update.waveform_ready =
-                state.with_loaded(deck, load_id, |t| t.waveform = Some(waveform)).is_some();
+            for (deck, load_id, ()) in state.with_audio(&audio, |t| t.waveform = Some(waveform.clone())) {
+                updates.of(deck, load_id).waveform_ready = true;
+            }
         }
         if self.analysis_missing {
             let analysis = prisme_analysis::analyze(&audio, &AnalysisOptions::default());
@@ -138,17 +140,41 @@ impl Completion {
                 let edits = library.db.edits(&self.path).unwrap_or_default();
                 library.store(&TrackRecord { edits, ..analyzed }, metadata.cover.as_deref());
             }
-            let applied = state.with_loaded(deck, load_id, |t| {
+            for (deck, load_id, (grid, dto)) in state.with_audio(&audio, |t| {
                 t.detected = analysis;
                 (t.grid(), TrackAnalysisDto::from(&*t))
-            });
-            if let Some((grid, dto)) = applied {
+            }) {
                 let _ = state.send_if_running(Command::SetBeatGrid { deck, grid });
-                update.analysis = Some(dto);
+                updates.of(deck, load_id).analysis = Some(dto);
             }
         }
-        if update.waveform_ready || update.analysis.is_some() || update.separation.is_some() {
-            let _ = app.emit(DECK_TRACK_UPDATE_EVENT, update);
+        for update in updates.0 {
+            if update.waveform_ready || update.analysis.is_some() || update.separation.is_some() {
+                let _ = app.emit(DECK_TRACK_UPDATE_EVENT, update);
+            }
         }
+    }
+}
+
+/// What the end of a load brought to each deck playing it.
+#[derive(Default)]
+struct Updates(Vec<DeckTrackUpdateDto>);
+
+impl Updates {
+    fn of(&mut self, deck: usize, load_id: u64) -> &mut DeckTrackUpdateDto {
+        let at = match self.0.iter().position(|u| u.deck == deck && u.load_id == load_id) {
+            Some(at) => at,
+            None => {
+                self.0.push(DeckTrackUpdateDto {
+                    deck,
+                    load_id,
+                    waveform_ready: false,
+                    analysis: None,
+                    separation: None,
+                });
+                self.0.len() - 1
+            }
+        };
+        &mut self.0[at]
     }
 }

@@ -28,13 +28,12 @@ pub async fn load_track(
             .map_err(|e| AppError::Other(e.to_string()))??;
     let info = track.info(deck);
     let commands = track.load_commands(deck, state.preferences.read(|p| p.dj.auto_gain));
-    let load_id = track.load_id;
     // kept for audio restarts
     lock(&state.tracks)[deck] = Some(track);
     for c in commands {
         state.send_if_running(c)?;
     }
-    tauri::async_runtime::spawn_blocking(move || completion.run(&app, deck, load_id));
+    tauri::async_runtime::spawn_blocking(move || completion.run(&app));
     Ok(info)
 }
 

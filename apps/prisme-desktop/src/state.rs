@@ -259,6 +259,23 @@ impl AppState {
         tracks.get_mut(deck)?.as_mut().filter(|t| t.load_id == load_id).map(f)
     }
 
+    /// Runs `f` on every loaded track playing `audio` (a load and its instant doubles): what
+    /// is found out about a load goes to them all. The deck, load and result of each.
+    pub fn with_audio<R>(
+        &self,
+        audio: &Arc<TrackAudio>,
+        mut f: impl FnMut(&mut LoadedTrack) -> R,
+    ) -> Vec<(usize, u64, R)> {
+        lock(&self.tracks)
+            .iter_mut()
+            .enumerate()
+            .filter_map(|(deck, t)| {
+                let t = t.as_mut().filter(|t| Arc::ptr_eq(&t.audio, audio))?;
+                Some((deck, t.load_id, f(t)))
+            })
+            .collect()
+    }
+
     /// Runs `f` on the track loaded on `deck`.
     pub fn with_track<R>(&self, deck: usize, f: impl FnOnce(&mut LoadedTrack) -> R) -> AppResult<R> {
         Self::check_deck(deck)?;

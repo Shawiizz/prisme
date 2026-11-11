@@ -75,8 +75,9 @@ describe('driftTime', () => {
     expect(driftTime(slower, deck(128, 0.5), 1 / 16)).toBeCloseTo(55.5, 6);
   });
 
-  it('is zero past the limit, and nothing without drift or playback', () => {
+  it('is zero past the limit on either side, and nothing without drift or playback', () => {
     expect(driftTime(deck(128.1, 0.6), deck(128, 0.5), 1 / 16)).toBe(0);
+    expect(driftTime(deck(128.1, 0.4), deck(128, 0.5), 1 / 16)).toBe(0);
     expect(driftTime(deck(128, 0.6), deck(128, 0.5), 1 / 16)).toBeNull();
     expect(driftTime({ ...deck(128.1, 0.5), playing: false }, deck(128, 0.5), 1 / 16)).toBeNull();
   });

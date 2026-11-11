@@ -18,7 +18,7 @@ pub fn history_plays(library: Library<'_>, id: i64) -> AppResult<Vec<HistoryPlay
     Ok(library.db.history_plays(SessionId(id))?.iter().map(HistoryPlayDto::from).collect())
 }
 
-#[tauri::command(async)]
+#[tauri::command]
 pub fn delete_history_session(library: Library<'_>, id: i64) -> AppResult<()> {
     Ok(library.db.delete_history_session(SessionId(id))?)
 }

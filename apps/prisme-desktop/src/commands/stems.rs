@@ -23,7 +23,7 @@ pub fn download_stems_model(stems: State<'_, StemsService>, id: String) -> AppRe
 
 /// Queues the tracks for separation (those the installed models have nothing to add to are
 /// skipped); returns how many were added.
-#[tauri::command(async)]
+#[tauri::command]
 pub fn separate_tracks(stems: State<'_, StemsService>, paths: Vec<String>) -> AppResult<usize> {
     stems.enqueue(paths.into_iter().map(PathBuf::from))
 }
