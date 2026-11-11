@@ -475,14 +475,6 @@ export const FR: Record<string, string> = {
   Drums: 'Batterie',
   Bass: 'Basse',
   'Melody (the other instruments)': 'Mélodie (les autres instruments)',
-  'Vocals: on or muted': 'Voix : jouée ou coupée',
-  'Instrumental: on or muted': 'Instru : jouée ou coupée',
-  'Drums: on or muted': 'Batterie : jouée ou coupée',
-  'Bass: on or muted': 'Basse : jouée ou coupée',
-  'Melody (the other instruments): on or muted':
-    'Mélodie (les autres instruments) : jouée ou coupée',
-  'Separate the track in the library to mute its stems':
-    'Séparez le morceau dans la bibliothèque pour couper ses pistes',
   'Separated stems': 'Pistes séparées',
   'Vocals separated': 'Voix séparée',
   'Vocals separated: add the drums and bass': 'Voix séparée : ajouter la batterie et la basse',
@@ -500,6 +492,17 @@ export const FR: Record<string, string> = {
   'Splits the instrumental into drums, bass and melody, to mute each on its own. Needs the vocals separation, and takes two to three times as long.':
     'Sépare l’instru en batterie, basse et mélodie, pour couper chacune à part. Demande la séparation voix / instru, et prend deux à trois fois plus de temps.',
   'Vocals level': 'Niveau de la voix',
+  'Vocals: turn for the level, click the name to mute':
+    'Voix : tourner pour doser, cliquer le nom pour couper',
+  'Drums: turn for the level, click the name to mute':
+    'Batterie : tourner pour doser, cliquer le nom pour couper',
+  'Bass: turn for the level, click the name to mute':
+    'Basse : tourner pour doser, cliquer le nom pour couper',
+  'Melody (the other instruments): turn for the level, click the name to mute':
+    'Mélodie (les autres instruments) : tourner pour doser, cliquer le nom pour couper',
+  'Instrumental: turn for the level, click the name to mute':
+    'Instru : tourner pour doser, cliquer le nom pour couper',
+  'Separate this track into stems': 'Séparer ce morceau en pistes',
   'Instrumental level': 'Niveau de l’instru',
   'Drums level': 'Niveau de la batterie',
   'Bass level': 'Niveau de la basse',

@@ -28,22 +28,22 @@
 }
 
 .stems {
-  display: grid;
+  display: flex;
+  align-items: center;
   gap: 2px;
-  &.full {
-    grid-template-columns: repeat(2, auto);
-  }
-  .pr-btn {
-    width: 44px;
-    padding: 0;
+  --knob-label-width: 34px;
+  .separate {
+    min-width: 88px;
     font-size: var(--pr-size-small);
     letter-spacing: 0.06em;
+    text-transform: uppercase;
   }
 }
 
 .tempo {
   flex: 1;
-  min-width: 0;
+  // the key, the value and the fader's keys: never overlapped by the knobs beside
+  min-width: 112px;
   display: grid;
   gap: 2px;
 }
@@ -98,7 +98,7 @@
     padding: 0 var(--pr-space-2);
   }
   .transport .pr-btn {
-    width: 44px;
+    width: 40px;
   }
   .tempo-head {
     .pr-label {
@@ -110,8 +110,36 @@
     }
   }
   .strip {
-    gap: 2px;
+    gap: 0;
     --knob-size: 28px;
-    --knob-label-width: 30px;
+    --knob-label-width: 29px;
+  }
+  .stems {
+    gap: 0;
+    --knob-label-width: 29px;
+  }
+}
+
+// the narrowest window with the software mixer: the tempo fader alone (its fine steps stay
+// on the keyboard and the controllers)
+@container (max-width: 560px) {
+  .controls {
+    gap: 6px;
+    padding: 0 var(--pr-space-1);
+  }
+  .transport .pr-btn {
+    width: 36px;
+  }
+  // four stems two by two
+  .stems:has(app-knob:nth-child(3)) {
+    display: grid;
+    grid-template-columns: repeat(2, auto);
+    row-gap: 0;
+  }
+  .tempo {
+    min-width: 84px;
+  }
+  .fader .pr-btn--icon {
+    display: none;
   }
 }

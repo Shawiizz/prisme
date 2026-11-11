@@ -8,7 +8,9 @@ import { formatPitch } from '../../../shared/time';
 import { t } from '../../../core/i18n/i18n';
 import { TPipe } from '../../../core/i18n/t.pipe';
 import { Fader } from '../../../shared/fader/fader';
-import { StemPart, partPlaying } from '../../../core/stem-parts';
+import { StemPart, partLevel, partPlaying } from '../../../core/stem-parts';
+import { Knob } from '../../../shared/knob/knob';
+import { StemsService } from '../../../core/services/stems.service';
 
 type SyncState = 'off' | 'matched' | 'locked';
 
@@ -25,13 +27,14 @@ const STEP_EVERY_MS = 60;
   selector: 'app-deck-controls',
   templateUrl: './deck-controls.html',
   styleUrl: './deck-controls.scss',
-  imports: [ChannelStrip, Fader, TPipe],
+  imports: [ChannelStrip, Fader, Knob, TPipe],
 })
 export class DeckControls {
   readonly deck = input.required<number>();
 
   protected readonly engine = inject(EngineService);
   protected readonly mixer = inject(MixerService);
+  private readonly stems = inject(StemsService);
   private readonly preferences = inject(PreferencesService);
   protected readonly range = computed(() => this.preferences.dj().pitchRange);
   protected readonly status = computed(() => this.engine.status()?.decks[this.deck()] ?? null);
@@ -39,30 +42,52 @@ export class DeckControls {
   protected readonly vinyl = computed(() => this.settings().vinylEnabled);
   protected readonly track = computed(() => this.engine.tracks()[this.deck()]);
   protected readonly separation = computed(() => this.track()?.separation ?? 'none');
-  protected readonly stemsTitle = computed(() =>
-    this.separation() === 'none' ? t('Separate the track in the library to mute its stems') : '',
-  );
-  /** Vocals and instrumental, or the four stems of a fully separated track. */
-  protected readonly stemButtons = computed(() => {
+  /** Vocals and instrumental, or the four stems of a fully separated track: a knob each,
+   * its name muting it at its level. */
+  protected readonly stemKnobs = computed(() => {
     const mix = this.track()?.stemMix;
-    const button = (part: StemPart, label: string, title: string) => ({
+    const knob = (part: StemPart, label: string, title: string) => ({
       part,
       label,
       title,
-      on: !!mix && this.separation() !== 'none' && partPlaying(mix, part),
+      level: mix ? partLevel(mix, part) : 1,
+      on: !mix || partPlaying(mix, part),
     });
     return this.separation() === 'full'
       ? [
-          button('vocals', 'VOX', t('Vocals: on or muted')),
-          button('drums', 'DRUM', t('Drums: on or muted')),
-          button('bass', 'BASS', t('Bass: on or muted')),
-          button('other', 'MELO', t('Melody (the other instruments): on or muted')),
+          knob('vocals', 'VOX', t('Vocals: turn for the level, click the name to mute')),
+          knob('drums', 'DRUM', t('Drums: turn for the level, click the name to mute')),
+          knob('bass', 'BASS', t('Bass: turn for the level, click the name to mute')),
+          knob(
+            'other',
+            'MELO',
+            t('Melody (the other instruments): turn for the level, click the name to mute'),
+          ),
         ]
       : [
-          button('vocals', 'VOX', t('Vocals: on or muted')),
-          button('instrumental', 'INST', t('Instrumental: on or muted')),
+          knob('vocals', 'VOX', t('Vocals: turn for the level, click the name to mute')),
+          knob(
+            'instrumental',
+            'INST',
+            t('Instrumental: turn for the level, click the name to mute'),
+          ),
         ];
   });
+  /** How far this track's separation is, while it is being separated. */
+  protected readonly separating = computed(() => {
+    const progress = this.stems.progress();
+    const path = this.track()?.path;
+    return path && progress.current === path ? progress.fraction : null;
+  });
+  protected readonly canSeparate = computed(
+    () => !!this.track() && this.stems.canAdd('none') && this.separating() === null,
+  );
+  protected readonly percent = (v: number) => `${Math.round(v * 100)} %`;
+
+  separate() {
+    const path = this.track()?.path;
+    if (path) this.stems.separate([path]);
+  }
   private readonly absolute = computed(
     () => this.vinyl() && this.settings().vinylMode === 'absolute',
   );

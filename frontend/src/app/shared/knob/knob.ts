@@ -40,7 +40,7 @@ function arc(from: number, to: number): string {
  */
 @Component({
   selector: 'app-knob',
-  host: { '[class.small]': 'small()' },
+  host: { '[class.small]': 'small()', '[class.dimmed]': 'dimmed()' },
   template: `
     <svg
       viewBox="0 0 36 36"
@@ -94,6 +94,9 @@ function arc(from: number, to: number): string {
       flex-direction: column;
       align-items: center;
       gap: 1px;
+    }
+    :host(.dimmed) svg {
+      opacity: 0.4;
     }
     svg {
       width: var(--knob-size, 34px);
@@ -187,6 +190,8 @@ export class Knob {
   /** Highlights the label (a kill engaged, for instance). */
   readonly active = input(false);
   readonly small = input(false, { transform: booleanAttribute });
+  /** Drawn dimmed, its value kept (a stem muted at its level). */
+  readonly dimmed = input(false, { transform: booleanAttribute });
   readonly valueChange = output<number>();
   readonly labelClick = output();
 

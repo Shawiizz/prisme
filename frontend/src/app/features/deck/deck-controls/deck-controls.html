@@ -33,17 +33,35 @@
     </button>
   </div>
 
-  <div class="stems" [class.full]="separation() === 'full'" [title]="stemsTitle()">
-    @for (b of stemButtons(); track b.part) {
+  <div class="stems">
+    @if (separation() === 'none') {
       <button
-        class="pr-btn pr-btn--sm"
-        [class.is-on]="b.on"
-        [disabled]="separation() === 'none'"
-        (click)="engine.toggleStem(deck(), b.part)"
-        [title]="b.title"
+        class="pr-btn pr-btn--sm separate"
+        [disabled]="!canSeparate()"
+        (click)="separate()"
+        [title]="'Separate this track into stems' | t"
       >
-        {{ b.label }}
+        @if (separating() !== null) {
+          <span class="pr-num">{{ percent(separating()!) }}</span>
+        } @else {
+          {{ 'Separate' | t }}
+        }
       </button>
+    } @else {
+      @for (k of stemKnobs(); track k.part) {
+        <app-knob
+          small
+          [dimmed]="!k.on"
+          [value]="k.level"
+          [defaultValue]="1"
+          [label]="k.label"
+          [labelTitle]="k.title"
+          [active]="!k.on"
+          [format]="percent"
+          (valueChange)="engine.setStemLevel(deck(), k.part, $event)"
+          (labelClick)="engine.toggleStem(deck(), k.part)"
+        />
+      }
     }
   </div>
 
