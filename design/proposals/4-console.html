@@ -1,0 +1,1426 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="utf-8" />
+    <title>Prisme · proposition 4 · Console</title>
+    <link rel="stylesheet" href="../../frontend/src/styles/fonts.css" />
+    <link rel="stylesheet" href="../../frontend/src/styles/tokens.css" />
+    <link rel="stylesheet" href="../../frontend/src/styles/components.css" />
+    <style>
+      *,
+      *::before,
+      *::after {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        padding: 32px;
+        background: #050506;
+        font: var(--pr-size) / 1.35 var(--pr-font);
+        color: var(--pr-text);
+        -webkit-font-smoothing: antialiased;
+      }
+      .page {
+        width: 1280px;
+        margin: 0 auto;
+      }
+      .intro {
+        display: grid;
+        gap: var(--pr-space-3);
+        margin-bottom: var(--pr-space-6);
+      }
+      .intro p {
+        margin: 0;
+        max-width: 980px;
+        font-size: 14px;
+        line-height: 1.55;
+        color: var(--pr-text-2);
+      }
+      .intro strong {
+        color: var(--pr-text);
+        font-weight: 600;
+      }
+      .caption {
+        display: flex;
+        align-items: baseline;
+        gap: var(--pr-space-3);
+        margin: var(--pr-space-6) 0 var(--pr-space-2);
+        font-size: var(--pr-size-small);
+        color: var(--pr-text-2);
+      }
+      .caption .pr-label {
+        color: var(--pr-text);
+      }
+
+      /* ---------- Screen ---------- */
+      .screen {
+        width: 1280px;
+        height: 800px;
+        background: var(--pr-void);
+        display: grid;
+        grid-template-columns: minmax(0, 1fr);
+        grid-template-rows: var(--pr-titlebar) auto auto minmax(0, 1fr);
+        overflow: hidden;
+        outline: 1px solid var(--pr-line);
+      }
+      .titlebar {
+        display: flex;
+        align-items: center;
+        gap: 18px;
+        padding-left: var(--pr-space-3);
+        border-bottom: 1px solid var(--pr-line);
+      }
+      .brand {
+        display: flex;
+        align-items: center;
+        gap: var(--pr-space-2);
+        font: 600 16px / 1 var(--pr-font);
+        font-stretch: var(--pr-narrow);
+      }
+      .health {
+        display: flex;
+        gap: 6px;
+      }
+      .titlebar nav {
+        display: flex;
+        gap: 2px;
+        margin-left: auto;
+      }
+      .window {
+        display: flex;
+      }
+      .window span {
+        width: 44px;
+        height: var(--pr-titlebar);
+        display: grid;
+        place-items: center;
+        color: var(--pr-text-3);
+      }
+
+      /* ---------- Waveforms, full width ---------- */
+      .waves {
+        display: grid;
+        gap: var(--pr-space-1);
+        padding: var(--pr-space-2) var(--pr-space-2) 6px;
+      }
+      .wrow {
+        display: grid;
+        grid-template-columns: 64px minmax(0, 1fr);
+        gap: var(--pr-space-2);
+        height: 84px;
+      }
+      .waves.four .wrow {
+        height: 56px;
+      }
+      .gutter {
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: flex-start;
+        gap: 6px;
+        padding-left: var(--pr-space-1);
+      }
+      .gutter .pr-tile {
+        width: 28px;
+        height: 28px;
+        font-size: 16px;
+      }
+      .waves.four .gutter {
+        flex-direction: row;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 4px 6px;
+      }
+      .waves.four .gutter .pr-tile {
+        width: 22px;
+        height: 22px;
+        font-size: 13px;
+      }
+      .gutter .time {
+        font: 500 13px / 1 var(--pr-font-mono);
+        font-stretch: var(--pr-mono-width);
+        color: var(--pr-text);
+      }
+      .gutter .time.warn {
+        color: var(--pr-warn);
+      }
+      .wave {
+        display: grid;
+        grid-template-rows: minmax(0, 1fr) 14px;
+        gap: 3px;
+      }
+      .waves.four .wave {
+        grid-template-rows: minmax(0, 1fr) 10px;
+      }
+      .cv {
+        position: relative;
+        min-height: 0;
+      }
+      .cv canvas {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        border-radius: var(--pr-radius-sm);
+      }
+      .prow {
+        display: grid;
+        grid-template-columns: 64px minmax(0, 1fr);
+        gap: var(--pr-space-2);
+        height: 26px;
+      }
+      .prow .gutter {
+        gap: 2px;
+      }
+      .prow .gutter .pr-label {
+        line-height: 1;
+      }
+      .prow .gutter .pr-num {
+        font-size: 11px;
+        color: var(--pr-text-2);
+      }
+
+      /* ---------- Deck columns and the centre ---------- */
+      .decks {
+        display: grid;
+        gap: var(--pr-space-2);
+        padding: 0 var(--pr-space-2) var(--pr-space-2);
+      }
+      .decks.two-ext {
+        grid-template-columns: minmax(0, 1fr) 120px minmax(0, 1fr);
+      }
+      .decks.two-int {
+        grid-template-columns: minmax(0, 1fr) 210px minmax(0, 1fr);
+      }
+      .decks.four {
+        grid-template-columns: repeat(2, minmax(0, 1fr)) 120px repeat(
+            2,
+            minmax(0, 1fr)
+          );
+      }
+      .col {
+        display: grid;
+        align-content: start;
+        gap: 6px;
+        padding: var(--pr-space-2) var(--pr-space-3);
+        min-width: 0;
+      }
+      .four .col {
+        padding: var(--pr-space-2);
+      }
+
+      /* header: title, then the three numbers read from afar */
+      .head {
+        display: grid;
+        grid-template-columns: 34px minmax(0, 1fr) auto;
+        grid-template-rows: 18px 30px;
+        column-gap: 10px;
+        row-gap: 4px;
+        height: 52px;
+      }
+      .head > .pr-tile {
+        grid-column: 1;
+        grid-row: 1 / span 2;
+        align-self: center;
+      }
+      .head .name {
+        grid-column: 2;
+        grid-row: 1;
+      }
+      .head .name {
+        display: flex;
+        align-items: baseline;
+        gap: var(--pr-space-2);
+        min-width: 0;
+        white-space: nowrap;
+        overflow: hidden;
+      }
+      .head .title {
+        font-weight: 600;
+        font-size: 15px;
+        line-height: 18px;
+      }
+      .head .artist {
+        font-size: var(--pr-size-small);
+        color: var(--pr-text-2);
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .head .vinyl {
+        grid-column: 3;
+        grid-row: 1 / span 2;
+        display: flex;
+        align-items: center;
+        align-self: start;
+        gap: var(--pr-space-2);
+      }
+      .head .reads {
+        grid-column: 2;
+        grid-row: 2;
+        display: flex;
+        align-items: center;
+        gap: var(--pr-space-4);
+      }
+      .big {
+        font: 500 var(--pr-size-time) / 1 var(--pr-font-mono);
+        font-stretch: var(--pr-mono-width);
+        font-variant-numeric: tabular-nums;
+      }
+      .big.warn {
+        color: var(--pr-warn);
+      }
+      .mid {
+        font: 500 var(--pr-size-value) / 1 var(--pr-font-mono);
+        font-stretch: var(--pr-mono-width);
+        font-variant-numeric: tabular-nums;
+      }
+      .with {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+      }
+      .stack {
+        display: grid;
+        gap: 2px;
+        font-size: 11px;
+        line-height: 1.1;
+        color: var(--pr-text-3);
+        white-space: nowrap;
+      }
+      .stack .pr-label {
+        line-height: 1;
+      }
+      /* compact header (4 decks): the letter joins the title line */
+      .four .head {
+        grid-template-columns: minmax(0, 1fr) auto;
+        column-gap: 6px;
+      }
+      .four .head .name {
+        grid-column: 1;
+        align-items: center;
+        gap: 6px;
+      }
+      .four .head .name .pr-tile {
+        flex: none;
+        width: 20px;
+        height: 20px;
+        font-size: 12px;
+      }
+      .four .head .title {
+        font-size: 13.5px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .four .head .vinyl {
+        grid-column: 2;
+        grid-row: 1;
+        gap: 6px;
+      }
+      .four .head .reads {
+        grid-column: 1 / span 2;
+        gap: var(--pr-space-3);
+      }
+      .four .head .pr-seg > button {
+        height: 18px;
+        padding: 0 5px;
+        font-size: 10.5px;
+        letter-spacing: 0.04em;
+      }
+
+      /* stems row: knobs, then sync and the pitch to reach */
+      .stems {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        height: 48px;
+      }
+      .knobs {
+        display: flex;
+        gap: var(--pr-space-1);
+      }
+      .knob {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 1px;
+        width: 44px;
+      }
+      .four .knob {
+        width: 36px;
+      }
+      .knob svg {
+        width: var(--k);
+        height: var(--k);
+        display: block;
+      }
+      .knob.is-dim svg {
+        opacity: 0.38;
+      }
+      .klab {
+        padding: 1px 4px;
+        border-radius: var(--pr-radius-sm);
+        font: 600 var(--pr-size-label) / 1.2 var(--pr-font);
+        letter-spacing: 0.06em;
+        color: var(--pr-text-3);
+        white-space: nowrap;
+      }
+      .klab.is-on {
+        background: var(--pr-light);
+        color: var(--pr-on-light);
+      }
+      .sep {
+        width: 1px;
+        align-self: stretch;
+        margin: 6px 0;
+        background: var(--pr-line);
+      }
+      .sync {
+        width: 68px;
+        padding: 0;
+      }
+      .four .stems {
+        gap: 6px;
+      }
+      .four .knobs {
+        gap: 2px;
+      }
+      .four .sync {
+        flex: 0 0 52px;
+        margin-left: auto;
+      }
+      .four .twoline {
+        flex: 0 0 48px;
+      }
+      .four .separate {
+        flex: 0 0 118px;
+      }
+      .twoline {
+        flex: 1;
+        padding: 0;
+        flex-direction: column;
+        gap: 1px;
+        font-size: 10.5px;
+        line-height: 1.05;
+        letter-spacing: 0.04em;
+      }
+      .match {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        white-space: nowrap;
+        margin-left: auto;
+      }
+      .match .now {
+        color: var(--pr-text-2);
+      }
+      .target {
+        display: grid;
+        gap: 3px;
+        padding: 5px 10px;
+        border: 1px solid var(--pr-line-2);
+        border-radius: var(--pr-radius);
+      }
+      .target .mid {
+        color: var(--pr-text);
+      }
+      .separate {
+        flex: 1;
+        position: relative;
+        justify-content: space-between;
+        overflow: hidden;
+        padding: 0 10px;
+        font-size: var(--pr-size-small);
+        letter-spacing: 0.04em;
+      }
+      .separate .pr-num {
+        color: var(--pr-text-2);
+      }
+      .separate i {
+        position: absolute;
+        left: 0;
+        bottom: 0;
+        height: 2px;
+        background: var(--pr-light);
+      }
+
+      /* pad mode + the side block that follows it */
+      .modes {
+        display: flex;
+        gap: var(--pr-space-2);
+        height: 40px;
+      }
+      .modes .pr-seg {
+        flex: 1;
+        min-width: 0;
+      }
+      .modes .pr-seg > button {
+        flex: 1;
+        padding: 0 4px;
+      }
+      .four .modes .pr-seg > button {
+        flex: 1 1 auto;
+        padding: 0 3px;
+        font-size: 11px;
+        letter-spacing: 0.03em;
+      }
+      .side {
+        flex: none;
+        width: 88px;
+        display: flex;
+        gap: 4px;
+        justify-content: center;
+        align-items: center;
+      }
+      .side .pr-btn {
+        flex: 1;
+        padding: 0;
+      }
+      .side .pr-btn.txt {
+        font-size: 10.5px;
+        font-weight: 600;
+        letter-spacing: 0.02em;
+      }
+      .side .knob {
+        width: 42px;
+      }
+
+      .pads {
+        display: flex;
+        gap: var(--pr-space-1);
+      }
+      .pads .pr-pad {
+        flex: 1;
+        width: auto;
+        min-width: 56px;
+      }
+      .four .pads {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+      }
+      .pr-pad .nm {
+        font: 500 11px / 1 var(--pr-font);
+        color: var(--pr-text-2);
+        margin-left: 5px;
+      }
+      .pr-pad.is-hot .nm {
+        color: var(--pr-on-light);
+      }
+      .pr-pad.plain {
+        color: var(--pr-text);
+        background: var(--pr-raise);
+        border-style: solid;
+      }
+      .pr-pad.plain.is-hot {
+        color: var(--pr-on-light);
+        background: var(--pr-light);
+        border-color: var(--pr-light);
+      }
+      .pr-pad.word {
+        font-family: var(--pr-font);
+        font-stretch: normal;
+        font-size: var(--pr-size-small);
+      }
+
+      /* transport and pitch (internal play) */
+      .transport {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        height: 40px;
+      }
+      .transport > .pr-btn {
+        padding: 0;
+        width: 58px;
+      }
+      .transport > .pr-btn--icon {
+        width: 40px;
+      }
+      .transport .fd {
+        flex: 1;
+      }
+      .transport .reading {
+        display: grid;
+        gap: 2px;
+        width: 70px;
+        text-align: right;
+      }
+      .transport .reading .pr-num {
+        font-size: 15px;
+      }
+      .transport .keylock {
+        width: auto;
+        padding: 0 12px;
+        font-size: var(--pr-size-small);
+        letter-spacing: 0.04em;
+      }
+      /* compact transport (4 decks) */
+      .tempo-c {
+        flex: 1;
+        min-width: 0;
+        display: grid;
+        grid-template-rows: 12px 24px;
+        gap: 2px;
+      }
+      .tempo-c > div {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+      }
+      .tempo-c .pr-num {
+        font-size: 11px;
+        white-space: nowrap;
+      }
+      .tempo-c .pr-label {
+        line-height: 1;
+      }
+      .bottom {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        height: 40px;
+      }
+      .bottom > .pr-btn {
+        flex: none;
+        width: 36px;
+        padding: 0;
+        font-size: var(--pr-size-small);
+      }
+      .bottom .pmatch {
+        flex: 1;
+        display: flex;
+        align-items: center;
+        gap: var(--pr-space-2);
+        min-width: 0;
+        height: 40px;
+        padding: 0 8px;
+        border: 1px solid var(--pr-line-2);
+        border-radius: var(--pr-radius);
+      }
+      .bottom .pmatch .stack .pr-num {
+        font-size: 12px;
+        color: var(--pr-text-2);
+      }
+      .bottom .pmatch .to {
+        margin-left: auto;
+        font: 500 16px / 1 var(--pr-font-mono);
+        font-stretch: var(--pr-mono-width);
+        white-space: nowrap;
+      }
+
+      /* turntable row (record control) */
+      .platine {
+        display: flex;
+        align-items: center;
+        gap: var(--pr-space-3);
+        height: 40px;
+        padding: 0 2px;
+        font-size: var(--pr-size-small);
+        color: var(--pr-text-2);
+      }
+      .groove {
+        position: relative;
+        flex: 1;
+        max-width: 220px;
+        height: 6px;
+        border-radius: 3px;
+        background: var(--pr-raise-2);
+      }
+      .groove b {
+        position: absolute;
+        top: -3px;
+        width: 2px;
+        height: 12px;
+        background: var(--pr-light);
+      }
+      .groove i {
+        position: absolute;
+        inset: 0 auto 0 0;
+        border-radius: 3px;
+        background: var(--pr-line-2);
+      }
+      .platine .pr-num {
+        color: var(--pr-text);
+      }
+
+      /* ---------- Faders, after app-fader ---------- */
+      .fd {
+        position: relative;
+        --cap: 14px;
+      }
+      .fd.h {
+        height: 24px;
+      }
+      .fd.v {
+        width: 24px;
+      }
+      .fd .tr {
+        position: absolute;
+        border-radius: 2px;
+        background: var(--pr-line-2);
+      }
+      .fd.h .tr {
+        left: 7px;
+        right: 7px;
+        top: calc(50% - 2px);
+        height: 4px;
+      }
+      .fd.v .tr {
+        top: 7px;
+        bottom: 7px;
+        left: calc(50% - 2px);
+        width: 4px;
+      }
+      .fd .fill {
+        position: absolute;
+        border-radius: 2px;
+        background: var(--pr-text-3);
+      }
+      .fd.h .fill {
+        top: 0;
+        bottom: 0;
+        left: calc(var(--from) * 100%);
+        right: calc((1 - var(--to)) * 100%);
+      }
+      .fd.v .fill {
+        left: 0;
+        right: 0;
+        bottom: calc(var(--from) * 100%);
+        top: calc((1 - var(--to)) * 100%);
+      }
+      .fd .det {
+        position: absolute;
+        background: var(--pr-text-2);
+      }
+      .fd.h .det {
+        left: calc(50% - 0.5px);
+        top: -5px;
+        width: 1px;
+        height: 14px;
+      }
+      .fd.v .det {
+        top: calc(50% - 0.5px);
+        left: -5px;
+        height: 1px;
+        width: 14px;
+      }
+      .fd .cap {
+        position: absolute;
+        display: grid;
+        place-items: center;
+        border: 1px solid var(--pr-line-2);
+        border-radius: 3px;
+        background: var(--pr-raise-2);
+      }
+      .fd .cap i {
+        display: block;
+        background: var(--pr-light);
+        border-radius: 1px;
+      }
+      .fd.h .cap {
+        top: 0;
+        bottom: 0;
+        width: var(--cap);
+        left: calc(var(--at) * (100% - var(--cap)));
+      }
+      .fd.h .cap i {
+        width: 2px;
+        height: 12px;
+      }
+      .fd.v .cap {
+        left: 0;
+        right: 0;
+        height: var(--cap);
+        bottom: calc(var(--at) * (100% - var(--cap)));
+      }
+      .fd.v .cap i {
+        width: 12px;
+        height: 2px;
+      }
+
+      /* ---------- External mixer: the send meters ---------- */
+      .sends {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: var(--pr-space-2);
+        padding: 10px var(--pr-space-2) var(--pr-space-2);
+      }
+      .sends .meters {
+        flex: 1;
+        display: flex;
+        gap: var(--pr-space-5);
+      }
+      .four .sends .meters {
+        gap: 14px;
+      }
+      .sends .meters > div {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: var(--pr-space-1);
+      }
+      .sends .pr-meter {
+        flex: 1;
+      }
+      .sends .out {
+        font: 10.5px / 1 var(--pr-font-mono);
+        font-stretch: var(--pr-mono-width);
+        color: var(--pr-text-3);
+      }
+
+      /* ---------- Internal mixer: a console ---------- */
+      .console {
+        display: grid;
+        grid-template-rows: 24px minmax(0, 1fr) 24px;
+        gap: 6px;
+        padding: var(--pr-space-2) 10px;
+      }
+      .console .top {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+      }
+      .console .top .pr-btn {
+        padding: 0 8px;
+      }
+      .strips {
+        display: grid;
+        grid-template-columns: 1fr 1px 1fr;
+        gap: 10px;
+      }
+      .strips .rule {
+        background: var(--pr-line);
+      }
+      .strip {
+        display: grid;
+        grid-template-columns: 40px auto;
+        justify-content: center;
+        gap: 10px;
+      }
+      .strip .eq {
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+      }
+      .strip .knob {
+        width: 40px;
+      }
+      .strip .chan {
+        display: grid;
+        grid-template-rows: 32px minmax(0, 1fr) 16px;
+        gap: 6px;
+        justify-items: center;
+      }
+      .strip .chan .pr-btn {
+        width: 32px;
+      }
+      .strip .fader {
+        display: flex;
+        gap: 4px;
+        height: 100%;
+      }
+      .strip .fader .fd {
+        height: 120px;
+        align-self: end;
+      }
+      .strip .fader .pr-meter {
+        height: 120px;
+        align-self: end;
+      }
+      .strip .letter {
+        font: 600 12px / 16px var(--pr-font);
+        color: var(--pr-text-2);
+      }
+      .xfade {
+        display: grid;
+        grid-template-columns: 14px minmax(0, 1fr) 14px;
+        align-items: center;
+        gap: 6px;
+        padding: 0 4px;
+      }
+      .xfade .pr-label {
+        text-align: center;
+      }
+
+      /* ---------- Library, as in the reference ---------- */
+      .library {
+        display: grid;
+        grid-template-columns: 210px minmax(0, 1fr);
+        border-top: 1px solid var(--pr-line);
+        min-height: 0;
+      }
+      .sidebar {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+        padding: 6px var(--pr-space-2);
+        border-right: 1px solid var(--pr-line);
+        overflow: hidden;
+      }
+      .sidebar .pr-label {
+        padding: 10px var(--pr-space-2) var(--pr-space-1);
+      }
+      .sidebar a {
+        flex: none;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        height: 28px;
+        padding: 0 var(--pr-space-2);
+        border-radius: var(--pr-radius-sm);
+        color: var(--pr-text-2);
+        text-decoration: none;
+      }
+      .sidebar a .pr-num {
+        font-size: 11px;
+        color: var(--pr-text-3);
+      }
+      .sidebar a.is-on {
+        background: var(--pr-raise-2);
+        color: var(--pr-text);
+      }
+      .list {
+        display: grid;
+        grid-template-rows: 44px minmax(0, 1fr);
+        min-width: 0;
+        min-height: 0;
+      }
+      .toolbar {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 0 var(--pr-space-3);
+        border-bottom: 1px solid var(--pr-line);
+      }
+      .search {
+        position: relative;
+        flex: 1;
+        max-width: 460px;
+      }
+      .search .pr-input {
+        width: 100%;
+        height: 30px;
+        padding-left: 30px;
+      }
+      .search svg {
+        position: absolute;
+        left: 10px;
+        top: 8px;
+        color: var(--pr-text-3);
+      }
+      .search .pr-kbd {
+        position: absolute;
+        right: 8px;
+        top: 7px;
+      }
+      .count {
+        margin-left: auto;
+        font-size: var(--pr-size-small);
+        color: var(--pr-text-3);
+      }
+      .pr-table {
+        --pr-cols: 34px minmax(0, 1.5fr) minmax(0, 1fr) minmax(0, 0.9fr) 60px
+          70px 64px 52px 44px 64px;
+        overflow: hidden;
+      }
+      .pr-table .pr-num {
+        font-size: var(--pr-size-small);
+        text-align: right;
+      }
+      .pr-table .muted {
+        color: var(--pr-text-2);
+      }
+      .pr-table .dim {
+        color: var(--pr-text-3);
+      }
+      .mark {
+        display: grid;
+        place-items: center;
+        width: 20px;
+        height: 20px;
+        font: 600 11px / 1 var(--pr-font);
+        border-radius: var(--pr-radius-sm);
+        background: var(--pr-light);
+        color: var(--pr-on-light);
+      }
+      .mark.out {
+        background: transparent;
+        color: var(--pr-text);
+        border: 1px solid var(--pr-line-2);
+      }
+      .load {
+        display: flex;
+        gap: var(--pr-space-1);
+        justify-content: flex-end;
+      }
+      .load .pr-btn {
+        height: 22px;
+        padding: 0 7px;
+        font-size: 11px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="page">
+      <section class="intro">
+        <span class="pr-label">Proposition 4</span>
+        <h1 class="pr-heading">Console</h1>
+        <p>
+          <strong>L’idée : la disposition de Traktor et de rekordbox.</strong> Les
+          waveforms passent en haut, sur toute la largeur de l’écran, avec la bande
+          de phase entre A et B : on cale à l’œil sur 1 200 px au lieu de 880. Dessous,
+          chaque platine devient une colonne qui se lit de haut en bas, comme une
+          tranche de table : ce qu’on lit (temps, BPM, tonalité), puis les stems et le
+          pitch à atteindre, le mode des pads, les pads, et le transport seulement en
+          INT. La table interne devient une vraie console au centre, une tranche par
+          platine, au lieu d’être éparpillée en trois endroits ; en table externe, le
+          centre se réduit aux vu-mètres d’envoi. <strong>Ce qu’on perd :</strong>
+          l’œil fait un zigzag, les waveforms sont en lignes (A B, ou A B C D) alors
+          que les platines sont en colonnes (A | B, ou C A | B D), donc la platine C
+          est la troisième ligne en haut mais la première colonne en bas. Le bloc des
+          réglages du mode (½ ×2, SLIP…) quitte le côté des pads pour le bout de la
+          ligne des modes, sinon les 8 pads tomberaient sous 56 px ; à 4 platines, il
+          descend sous les pads, à côté du pitch, et les colonnes de 260 px laissent
+          à la bibliothèque à peine trois lignes.
+        </p>
+      </section>
+
+      <div class="caption">
+        <span class="pr-label">1 · 2 platines, table externe</span>L’écran de
+        tous les soirs : A sur la platine (REL), B en lecture interne (INT).
+      </div>
+      <div class="screen" id="s1"></div>
+
+      <div class="caption">
+        <span class="pr-label">2 · 4 platines, table externe</span>Colonnes C A |
+        B D, pads sur deux rangées. C en ABS dans ses 30 dernières secondes, D pas
+        encore séparé.
+      </div>
+      <div class="screen" id="s2"></div>
+
+      <div class="caption">
+        <span class="pr-label">3 · 2 platines, table interne</span>Une tranche
+        par platine au centre ; limiteur, courbe du crossfader, CUE/MST et casque
+        derrière « Table ⋯ ».
+      </div>
+      <div class="screen" id="s3"></div>
+    </div>
+
+    <script src="../reference/sketch.js"></script>
+    <script>
+      /* ---------- Small drawing helpers ---------- */
+      const SWEEP = 270,
+        START = -135,
+        C = 18,
+        RING = 15,
+        CAP = 11;
+      const polar = (a, r) => {
+        const rad = ((a - 90) * Math.PI) / 180;
+        return { x: C + r * Math.cos(rad), y: C + r * Math.sin(rad) };
+      };
+      const arc = (from, to) => {
+        if (Math.abs(to - from) < 0.5) return "";
+        const [a, b] = from < to ? [from, to] : [to, from];
+        const p = polar(a, RING),
+          q = polar(b, RING);
+        return `M ${p.x} ${p.y} A ${RING} ${RING} 0 ${b - a > 180 ? 1 : 0} 1 ${q.x} ${q.y}`;
+      };
+      function knob(v, { size = 34, bipolar = false, label = "", on = false, dim = false, title = "" } = {}) {
+        const angle = START + v * SWEEP;
+        const p = polar(angle, 3),
+          q = polar(angle, CAP - 2.5);
+        return (
+          `<div class="knob${dim ? " is-dim" : ""}" style="--k:${size}px"${title ? ` title="${title}"` : ""}>` +
+          `<svg viewBox="0 0 36 36" aria-hidden="true">` +
+          `<path d="${arc(START, START + SWEEP)}" fill="none" stroke="var(--pr-line-2)" stroke-width="2.5" stroke-linecap="round"/>` +
+          `<path d="${arc(bipolar ? START + SWEEP / 2 : START, angle)}" fill="none" stroke="var(--pr-light)" stroke-width="2.5" stroke-linecap="round"/>` +
+          (bipolar ? `<line x1="18" y1="0.5" x2="18" y2="2.5" stroke="var(--pr-text-2)" stroke-width="1.5"/>` : "") +
+          `<circle cx="18" cy="18" r="${CAP}" fill="var(--pr-raise-2)" stroke="var(--pr-line-2)"/>` +
+          `<line x1="${p.x}" y1="${p.y}" x2="${q.x}" y2="${q.y}" stroke="var(--pr-light)" stroke-width="2" stroke-linecap="round"/>` +
+          `</svg>${label ? `<span class="klab${on ? " is-on" : ""}">${label}</span>` : ""}</div>`
+        );
+      }
+      function fader(v, { vertical = false, centered = false } = {}) {
+        const from = centered ? Math.min(v, 0.5) : 0,
+          to = centered ? Math.max(v, 0.5) : v;
+        return `<div class="fd ${vertical ? "v" : "h"}" style="--at:${v};--from:${from};--to:${to}"><div class="tr"><div class="fill"></div>${centered ? '<i class="det"></i>' : ""}</div><div class="cap"><i></i></div></div>`;
+      }
+      function meter(n, vertical = true) {
+        let s = "";
+        for (let i = 0; i < 24; i++) {
+          const c = i >= n ? "" : i >= 22 ? "is-clip" : i >= 18 ? "is-hot" : "is-lit";
+          s += `<i${c ? ` class="${c}"` : ""}></i>`;
+        }
+        return `<div class="pr-meter${vertical ? " pr-meter--vertical" : ""}">${s}</div>`;
+      }
+      const phones = `<svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path d="M2.5 10V8a5.5 5.5 0 0 1 11 0v2" fill="none" stroke="currentColor" stroke-width="1.5"/><rect x="1.75" y="9" width="3" height="5" rx="1" fill="currentColor"/><rect x="11.25" y="9" width="3" height="5" rx="1" fill="currentColor"/></svg>`;
+      const seg = (items, checked, cls = "") =>
+        `<div class="pr-seg ${cls}" role="radiogroup">${items
+          .map((i) => `<button role="radio" aria-checked="${i === checked}">${i}</button>`)
+          .join("")}</div>`;
+
+      /* ---------- The decks ---------- */
+      const decks = {
+        A: {
+          id: "A", mode: "REL", title: "Future", artist: "Boris Brejcha · Space Diver",
+          rem: "−2:15,7", bpm: "125,63", bpmSub: "125,00 · +0,50 %", key: "5A", hue: 5, keyName: "Do mineur",
+          stems: [
+            { l: "VOX", v: 0.35 },
+            { l: "DRUM", v: 0.8, muted: true },
+            { l: "BASS", v: 1 },
+            { l: "MELO", v: 1 },
+          ],
+          pitch: "+0,50 %", target: "+0,80 %", ref: "B",
+          padMode: "CUES",
+          pads: [
+            { n: 1, nm: "Intro", tag: "green" },
+            { n: 2, nm: "Drop", tag: "red" },
+            { n: 3, nm: "Break", tag: "violet" },
+            { n: 4, nm: "Outro", tag: "orange" },
+            { n: 5 }, { n: 6 }, { n: 7 }, { n: 8 },
+          ],
+          side: "cues", platine: 1, groove: 0.41, signal: "97 %",
+        },
+        B: {
+          id: "B", mode: "INT", title: "Schleierwolken", artist: "Boris Brejcha · Schleierwolken",
+          rem: "−6:41,1", bpm: "126,00", bpmSub: "125,00 · +0,80 %", key: "4A", hue: 4, keyName: "Fa mineur",
+          stems: [
+            { l: "VOX", v: 1 },
+            { l: "DRUM", v: 1 },
+            { l: "BASS", v: 0.55 },
+            { l: "MELO", v: 1 },
+          ],
+          sync: true, keylock: true, tempo: 0.55, pitch: "+0,80 %",
+          padMode: "LOOP",
+          loops: ["1/4", "1/2", "1 BEAT", "2", "4", "8", "16", "32"], hot: "8",
+          side: "loop",
+        },
+        C: {
+          id: "C", mode: "ABS", title: "Spicy (feat. Ginger)", artist: "Boris Brejcha, Ginger",
+          rem: "−0:24,3", warn: true, bpm: "125,38", bpmSub: "125,00 · +0,30 %", key: "5A", hue: 5, keyName: "Do mineur",
+          stems: [
+            { l: "VOX", v: 0.7 },
+            { l: "INST", v: 1 },
+          ],
+          pitch: "+0,30 %", target: "+0,80 %", ref: "B",
+          padMode: "FX",
+          fx: ["Echo", "Reverb", "Filtre", "Flanger", "Phaser", "Gate", "Crush", "Delay"], hot: "Echo",
+          side: "fx",
+        },
+        D: {
+          id: "D", mode: "INT", title: "Maia", artist: "Oliver Schories",
+          rem: "−5:12,0", bpm: "123,00", bpmSub: "123,00 · 0,00 %", key: "8A", hue: 8, keyName: "Mi mineur",
+          separating: 64, sync: false, keylock: false, tempo: 0.5, pitch: "0,00 %",
+          padMode: "SAMPLE",
+          samples: [
+            { nm: "Kick", tag: "red" }, { nm: "Clap", tag: "orange" }, { nm: "Horn", tag: "yellow" },
+            { nm: "Vox", tag: "green" }, { nm: "Riser", tag: "blue" }, {}, {}, {},
+          ],
+          side: "sample",
+        },
+      };
+      const MODES = ["CUES", "LOOP", "ROLL", "JUMP", "FX", "SAMPLE"];
+
+      function head(d, compact) {
+        const vinyl =
+          `<div class="vinyl">${d.mode !== "INT" ? '<span class="pr-sig pr-sig--ok" title="Signal du disque"></span>' : ""}` +
+          `${seg(["INT", "REL", "ABS"], d.mode)}</div>`;
+        const key = `<span class="pr-key pr-key--fill pr-key--lg" style="--h: var(--pr-key-hue-${d.hue})">${d.key}</span>`;
+        if (compact) {
+          return (
+            `<div class="head"><div class="name"><span class="pr-tile">${d.id}</span><span class="title">${d.title}</span></div>${vinyl}` +
+            `<div class="reads"><span class="big${d.warn ? " warn" : ""}">${d.rem}</span>` +
+            `<span class="mid">${d.bpm}</span>${key}</div></div>`
+          );
+        }
+        return (
+          `<div class="head"><span class="pr-tile">${d.id}</span>` +
+          `<div class="name"><span class="title">${d.title}</span><span class="artist">${d.artist}</span></div>${vinyl}` +
+          `<div class="reads"><span class="big${d.warn ? " warn" : ""}">${d.rem}</span>` +
+          `<span class="with"><span class="mid">${d.bpm}</span><span class="stack"><span class="pr-label">BPM</span><span class="pr-num">${d.bpmSub.split(" · ")[1]}</span></span></span>` +
+          `<span class="with">${key}<span class="stack">${d.keyName}</span></span></div></div>`
+        );
+      }
+
+      function stems(d, compact) {
+        const size = compact ? 28 : 34;
+        let left;
+        if (d.separating != null) {
+          left = `<button class="pr-btn pr-btn--lg separate" title="Séparer les stems du morceau">SÉPARER<span class="pr-num">${d.separating} %</span><i style="width:${d.separating}%"></i></button>`;
+        } else {
+          left =
+            `<div class="knobs">` +
+            d.stems
+              .map((s) =>
+                knob(s.v, {
+                  size,
+                  label: s.l,
+                  on: s.muted,
+                  dim: s.muted,
+                  title: s.muted ? `${s.l} coupé à ${Math.round(s.v * 100)} %` : "",
+                }),
+              )
+              .join("") +
+            `</div>`;
+        }
+        const sync = `<button class="pr-btn pr-btn--lg sync${d.sync ? " is-on" : ""}">SYNC</button>`;
+        if (compact) {
+          const kl = d.mode === "INT" ? `<button class="pr-btn pr-btn--lg twoline${d.keylock ? " is-on" : ""}"><span>KEY</span><span>LOCK</span></button>` : "";
+          return `<div class="stems">${left}${sync}${kl}</div>`;
+        }
+        let right;
+        if (d.mode === "INT") {
+          right = `<button class="pr-btn pr-btn--lg keylock${d.keylock ? " is-on" : ""}" style="padding:0 14px;font-size:12px;letter-spacing:.04em">KEY LOCK</button>`;
+        } else {
+          right =
+            `<div class="match"><div class="stack"><span class="pr-label">Pitch</span><span class="mid now">${d.pitch}</span></div>` +
+            `<div class="target"><span class="pr-label">Calage sur ${d.ref}</span><span class="mid">→ ${d.target}</span></div></div>`;
+        }
+        return `<div class="stems">${left}<span class="sep"></span>${sync}${right}</div>`;
+      }
+
+      function sideBlock(d) {
+        switch (d.side) {
+          case "loop":
+            return `<div class="side"><button class="pr-btn pr-btn--lg">½</button><button class="pr-btn pr-btn--lg">×2</button></div>`;
+          case "cues":
+            return `<div class="side"><button class="pr-btn pr-btn--lg txt" style="flex:0 0 34px">SLIP</button><button class="pr-btn pr-btn--lg txt">CENSOR</button></div>`;
+          case "fx":
+            return `<div class="side">${knob(0.6, { size: 26, label: "MIX" })}${knob(0.45, { size: 26, label: "AMOUNT" })}</div>`;
+          case "sample":
+            return `<div class="side">${knob(0.75, { size: 26, label: "VOL" })}</div>`;
+        }
+      }
+
+      function pads(d) {
+        let s = "";
+        if (d.padMode === "CUES") {
+          for (const p of d.pads) {
+            s += p.tag
+              ? `<button class="pr-pad pr-pad--set" style="--tag: var(--pr-tag-${p.tag})"><span>${p.n}<span class="nm">${p.nm}</span></span></button>`
+              : `<button class="pr-pad">${p.n}</button>`;
+          }
+        } else if (d.padMode === "LOOP") {
+          for (const l of d.loops) s += `<button class="pr-pad plain${l === d.hot ? " is-hot" : ""}">${l}</button>`;
+        } else if (d.padMode === "FX") {
+          for (const f of d.fx) s += `<button class="pr-pad plain word${f === d.hot ? " is-hot" : ""}">${f}</button>`;
+        } else {
+          d.samples.forEach((p, i) => {
+            s += p.tag
+              ? `<button class="pr-pad pr-pad--set" style="--tag: var(--pr-tag-${p.tag})"><span>${i + 1}<span class="nm">${p.nm}</span></span></button>`
+              : `<button class="pr-pad">${i + 1}</button>`;
+          });
+        }
+        return `<div class="pads">${s}</div>`;
+      }
+
+      function transport(d) {
+        return (
+          `<div class="transport"><button class="pr-btn pr-btn--lg">CUE</button><button class="pr-btn pr-btn--lg is-on">PLAY</button><span class="sep"></span>` +
+          `<button class="pr-btn pr-btn--lg pr-btn--icon" aria-label="Ralentir">−</button>${fader(d.tempo, { centered: true })}` +
+          `<button class="pr-btn pr-btn--lg pr-btn--icon" aria-label="Accélérer">+</button>` +
+          `<div class="reading"><span class="pr-label">Pitch</span><span class="pr-num">${d.pitch}</span></div></div>`
+        );
+      }
+
+      function bottomCompact(d) {
+        let left;
+        if (d.mode === "INT") {
+          left =
+            `<button class="pr-btn pr-btn--lg">CUE</button><button class="pr-btn pr-btn--lg is-on" aria-label="Lecture">▶</button>` +
+            `<div class="tempo-c" title="Pitch ${d.pitch}"><div><span class="pr-num">${d.pitch}</span></div>${fader(d.tempo, { centered: true })}</div>`;
+        } else {
+          left = `<div class="pmatch" title="Pitch de la platine, et celui à atteindre pour caler sur ${d.ref}"><span class="stack"><span class="pr-label">Pitch</span><span class="pr-num">${d.pitch}</span></span><span class="to">→ ${d.target}</span></div>`;
+        }
+        return `<div class="bottom">${left}${sideBlock(d)}</div>`;
+      }
+
+      function platine(d) {
+        return (
+          `<div class="platine"><span class="pr-label">Platine ${d.platine}</span><span class="pr-sig pr-sig--ok" style="width:8px;height:8px"></span>` +
+          `<span>Signal <span class="pr-num">${d.signal}</span></span><span class="sep" style="margin:12px 0"></span>` +
+          `<span>Aiguille</span><div class="groove"><i style="width:${d.groove * 100}%"></i><b style="left:${d.groove * 100}%"></b></div>` +
+          `<span><span class="pr-num">${Math.round(d.groove * 100)} %</span> du disque</span></div>`
+        );
+      }
+
+      function deckCol(d, compact) {
+        let s = head(d, compact) + stems(d, compact);
+        s += `<div class="modes">${seg(MODES, d.padMode, "pr-seg--lg")}${compact ? "" : sideBlock(d)}</div>`;
+        s += pads(d);
+        if (compact) s += bottomCompact(d);
+        else s += d.mode === "INT" ? transport(d) : platine(d);
+        return `<div class="col pr-panel">${s}</div>`;
+      }
+
+      function sends(ids) {
+        const lv = { A: 11, B: 9, C: 7, D: 12 };
+        const out = { A: "1·2", B: "3·4", C: "5·6", D: "7·8" };
+        return (
+          `<div class="pr-panel sends"><span class="pr-label">Table externe</span><div class="meters">` +
+          ids.map((i) => `<div>${meter(lv[i])}<span class="pr-label">${i}</span><span class="out">${out[i]}</span></div>`).join("") +
+          `</div></div>`
+        );
+      }
+
+      function strip(id, eq, fade, level) {
+        const names = ["TRIM", "HI", "MID", "LOW", "FILTER"];
+        return (
+          `<div class="strip"><div class="eq">${eq
+            .map((v, i) => knob(v, { size: 26, bipolar: true, label: names[i] }))
+            .join("")}</div>` +
+          `<div class="chan"><button class="pr-btn pr-btn--icon${id === "B" ? " is-on" : ""}" aria-label="Casque ${id}">${phones}</button>` +
+          `<div class="fader">${fader(fade, { vertical: true })}${meter(level)}</div><span class="letter">${id}</span></div></div>`
+        );
+      }
+
+      function console_() {
+        return (
+          `<div class="pr-panel console"><div class="top"><span class="pr-label">Table interne</span><button class="pr-btn pr-btn--sm pr-btn--ghost">Table ⋯</button></div>` +
+          `<div class="strips">${strip("A", [0.5, 0.5, 0.5, 0.28, 0.5], 0.82, 13)}<span class="rule"></span>${strip("B", [0.55, 0.5, 0.44, 0.5, 0.62], 0.9, 15)}</div>` +
+          `<div class="xfade"><span class="pr-label">A</span>${fader(0.5, { centered: true })}<span class="pr-label">B</span></div></div>`
+        );
+      }
+
+      /* ---------- Screen chrome and library ---------- */
+      const titlebar = `<header class="titlebar"><div class="brand"><img src="../logo-mark.svg" width="22" height="19" alt="" />prisme</div>
+        <div class="health"><span class="pr-chip"><span class="pr-sig pr-sig--ok" style="width: 7px; height: 7px"></span>ASIO · UMC404HD</span>
+        <span class="pr-chip">Buffer <span class="pr-num">2,7 ms</span></span><span class="pr-chip">Décrochages <span class="pr-num">0</span></span></div>
+        <nav><button class="pr-btn pr-btn--ghost pr-btn--rec"><span class="pr-btn__dot"></span>Enregistrer</button><button class="pr-btn pr-btn--ghost">Réglages</button></nav>
+        <div class="window"><span>–</span><span>□</span><span>×</span></div></header>`;
+
+      const rows = [
+        ["", "Maia", "Oliver Schories", "Maia", 123, "8A", "6:46", 2019],
+        ["", "Parallel Echo", "Marcus Schmahl", "Fragments of Time EP", 123, "4A", "6:39", 2026],
+        ["", "The Tribe", "Mark Tarmonea", "The Tribe", 123, "5A", "8:29", 2020],
+        ["", "Under", "Frederick & Kusse", "Under", 123, "12B", "6:35", 2018],
+        ["", "Never Leave", "Helsloot", "Root to Branch, Vol. 5", 124, "3A", "5:45", 2020],
+        ["played", "Tell Me", "Tinlicker, Helsloot, Hero Baldwin", "Tell Me", 124, "6B", "3:16", 2020],
+        ["A", "Future", "Boris Brejcha", "Space Diver", 125, "5A", "7:14", 2020],
+        ["B", "Schleierwolken", "Boris Brejcha", "Schleierwolken", 125, "4A", "7:13", 2015],
+        ["selected", "Spicy (feat. Ginger)", "Boris Brejcha, Ginger", "Spicy (Edit)", 125, "5A", "3:35", 2021],
+        ["", "Data", "Adonis FR", "Friday", 125, "11B", "7:22", 2020],
+        ["played", "Survivor", "Jack Back", "Survivor", 125, "2A", "5:42", 2019],
+        ["", "Freedom (Jesse Jacob Remix)", "ASTRE, Jesse Jacob", "Freedom EP", 128, "8A", "6:09", 2020],
+      ];
+      const rows4 = [
+        ["", "Parallel Echo", "Marcus Schmahl", "Fragments of Time EP", 123, "4A", "6:39", 2026],
+        ["D", "Maia", "Oliver Schories", "Maia", 123, "8A", "6:46", 2019],
+        ["selected", "The Tribe", "Mark Tarmonea", "The Tribe", 123, "5A", "8:29", 2020],
+        ["A", "Future", "Boris Brejcha", "Space Diver", 125, "5A", "7:14", 2020],
+        ["B", "Schleierwolken", "Boris Brejcha", "Schleierwolken", 125, "4A", "7:13", 2015],
+        ["C", "Spicy (feat. Ginger)", "Boris Brejcha, Ginger", "Spicy (Edit)", 125, "5A", "3:35", 2021],
+        ["", "Data", "Adonis FR", "Friday", 125, "11B", "7:22", 2020],
+      ];
+      const reference = { bpm: 126, key: "5A" };
+      const compatible = (key) => {
+        const n = parseInt(key, 10),
+          r = parseInt(reference.key, 10);
+        return key.at(-1) === reference.key.at(-1) ? [0, 1, 11].includes((n - r + 12) % 12) : n === r;
+      };
+      const chip = (key) =>
+        `<span><span class="pr-key${key.endsWith("B") ? " pr-key--maj" : ""}${compatible(key) ? " pr-key--fill" : ""}" style="--h: var(--pr-key-hue-${parseInt(key, 10)})">${key}</span></span>`;
+      const decimal = (v, digits) => v.toFixed(digits).replace(".", ",");
+      function table(list) {
+        let html =
+          '<div class="pr-table__head"><span></span><span>Titre</span><span>Artiste</span><span>Album</span><span style="text-align:right">BPM</span><span style="text-align:right">Pitch → A</span><span>Tonalité</span><span style="text-align:right">Durée</span><span style="text-align:right">Année</span><span></span></div>';
+        for (const [state, title, artist, album, bpm, key, length, year] of list) {
+          const pitch = (reference.bpm / bpm - 1) * 100;
+          const deck = "ABCD".includes(state) && state.length === 1 ? state : "";
+          const mark = deck ? `<span class="mark${deck === "A" ? "" : " out"}">${deck}</span>` : "";
+          const classes = state === "played" ? " is-played" : state === "selected" ? " is-selected" : "";
+          html +=
+            `<div class="pr-table__row${classes}"><span>${mark}</span><span>${title}</span><span class="muted">${artist}</span><span class="muted">${album}</span>` +
+            `<span class="pr-num">${decimal(bpm, 2)}</span><span class="pr-num${Math.abs(pitch) > 8 ? " dim" : ""}">${state === "A" ? "" : (pitch >= 0 ? "+" : "−") + decimal(Math.abs(pitch), 1) + " %"}</span>` +
+            `${chip(key)}<span class="pr-num">${length}</span><span class="pr-num dim">${year}</span>` +
+            `<span class="load">${state === "selected" ? '<button class="pr-btn pr-btn--sm">→ A</button><button class="pr-btn pr-btn--sm">→ B</button>' : ""}</span></div>`;
+        }
+        return html;
+      }
+      const search = `<label class="search"><svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true"><circle cx="7" cy="7" r="5" fill="none" stroke="currentColor" stroke-width="1.6" /><line x1="11" y1="11" x2="15" y2="15" stroke="currentColor" stroke-width="1.6" /></svg><input class="pr-input" placeholder="Titre, artiste, 124-128, 5A…" aria-label="Rechercher" /><span class="pr-kbd">Ctrl F</span></label>`;
+      function library(ids, list) {
+        return (
+          `<section class="library"><aside class="sidebar"><span class="pr-label">Collection</span>` +
+          `<a class="is-on" href="#">Tous les morceaux <span class="pr-num">153</span></a><a href="#">Préparation <span class="pr-num">4</span></a><a href="#">Historique</a>` +
+          `<span class="pr-label">Bacs</span><a href="#">Mélodique <span class="pr-num">18</span></a><a href="#">Peak time <span class="pr-num">24</span></a><a href="#">Closing <span class="pr-num">9</span></a>` +
+          `<span class="pr-label">Bacs intelligents</span><a href="#">120–126 BPM · 4A–6A <span class="pr-num">31</span></a></aside>` +
+          `<div class="list"><div class="toolbar">${search}<span class="pr-label">Comparer à</span>${seg(ids, "A")}<span class="count">153 morceaux · analysés</span></div>` +
+          `<div class="pr-table">${table(list)}</div></div></section>`
+        );
+      }
+
+      function waves(screen, ids) {
+        const four = ids.length === 4;
+        let s = `<section class="waves${four ? " four" : ""}">`;
+        ids.forEach((id, i) => {
+          const d = decks[id];
+          s +=
+            `<div class="wrow"><div class="gutter"><span class="pr-tile">${id}</span><span class="time${d.warn ? " warn" : ""}">${d.rem}</span></div>` +
+            `<div class="wave"><div class="cv"><canvas data-wave="${id}"></canvas></div><div class="cv"><canvas data-over="${id}"></canvas></div></div></div>`;
+          if (i === 0)
+            s += `<div class="prow"><div class="gutter"><span class="pr-label">Phase</span><span class="pr-num">24 ms</span></div><div class="cv"><canvas data-phase></canvas></div></div>`;
+        });
+        return s + `</section>`;
+      }
+
+      function screen(el, { ids, columns, centre, cls, list }) {
+        el.innerHTML =
+          titlebar +
+          waves(el, ids) +
+          `<section class="decks ${cls}">${columns
+            .map((c) => (c === "|" ? centre : deckCol(decks[c], ids.length === 4)))
+            .join("")}</section>` +
+          library(ids, list);
+      }
+
+      screen(document.getElementById("s1"), { ids: ["A", "B"], columns: ["A", "|", "B"], centre: sends(["A", "B"]), cls: "two-ext", list: rows });
+      screen(document.getElementById("s2"), {
+        ids: ["A", "B", "C", "D"], columns: ["C", "A", "|", "B", "D"], centre: sends(["C", "A", "B", "D"]), cls: "four", list: rows4,
+      });
+      screen(document.getElementById("s3"), { ids: ["A", "B"], columns: ["A", "|", "B"], centre: console_(), cls: "two-int", list: rows });
+
+      /* ---------- Waveforms ---------- */
+      const S = window.PrismeSketch;
+      const spicy = S.track(
+        125,
+        [
+          [0, 30, { k: 1, h: 1, p: 0.2 }],
+          [30, 120, { k: 1, h: 1, b: 1, c: 1, p: 0.45 }],
+          [120, 150, { p: 0.6, a: 0.15 }],
+          [150, 200, { k: 1, h: 1, b: 1, c: 1, p: 0.35 }],
+          [200, 215, { k: 1, h: 1 }],
+        ],
+        2.7,
+      );
+      const maia = S.track(
+        123,
+        [
+          [0, 40, { k: 1, h: 1 }],
+          [40, 130, { k: 1, h: 1, b: 1, p: 0.3 }],
+          [130, 190, { p: 0.7, a: 0.1 }],
+          [190, 406, { k: 1, h: 1, b: 1, c: 1, p: 0.4 }],
+        ],
+        5.6,
+      );
+      const SPAN = 10.4;
+      const wave = {
+        A: { fn: S.future, bpm: 126, pos: 298.3, length: 434, cues: [[150.2, 3], [199.9, 4]], over: [[0.5], [61.9], [150.2], [199.9]] },
+        B: { fn: S.schleierwolken, bpm: 126, pos: 31.9, length: 433, cues: [[0.48, 1]], over: [[0.48], [46.1]], loop: [30.72, 30.72 + (8 * 60) / 125] },
+        C: { fn: spicy, bpm: 126, pos: 190.7, length: 215, cues: [[196, 4]], over: [[0.3], [30], [150], [196]] },
+        D: { fn: maia, bpm: 123, pos: 94, length: 406, cues: [], over: [[0.2]] },
+      };
+      function draw() {
+        for (const c of document.querySelectorAll("canvas[data-wave]")) {
+          const w = wave[c.dataset.wave];
+          S.scrolling(c, w.fn, { bpm: w.bpm, pos: w.pos, span: SPAN, cues: w.cues, loop: w.loop ?? null });
+        }
+        for (const c of document.querySelectorAll("canvas[data-over]")) {
+          const w = wave[c.dataset.over];
+          S.overview(c, w.fn, { length: w.length, pos: w.pos, cues: w.over });
+        }
+        for (const c of document.querySelectorAll("canvas[data-phase]")) S.phase(c, { bpm: 126, span: SPAN, offsetMs: 24 });
+      }
+      document.fonts.ready.then(draw);
+    </script>
+  </body>
+</html>

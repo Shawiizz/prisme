@@ -1,0 +1,1500 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="utf-8" />
+    <title>Prisme · proposition 5 · Couloirs, épuré</title>
+    <link rel="stylesheet" href="../../frontend/src/styles/fonts.css" />
+    <link rel="stylesheet" href="../../frontend/src/styles/tokens.css" />
+    <link rel="stylesheet" href="../../frontend/src/styles/components.css" />
+    <style>
+      /* Proposal 5, "Couloirs, épuré": the lanes of proposal 1 cut down to what is read between two gestures. */
+      *,
+      *::before,
+      *::after {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        padding: 32px;
+        background: #050506;
+        font: var(--pr-size) / 1.35 var(--pr-font);
+        color: var(--pr-text);
+        -webkit-font-smoothing: antialiased;
+      }
+
+      /* ---------- Page ---------- */
+      .intro {
+        width: 1280px;
+        margin: 0 auto 36px;
+        display: grid;
+        grid-template-columns: 380px minmax(0, 1fr);
+        gap: 10px;
+        align-items: start;
+      }
+      .intro .kicker {
+        display: block;
+        margin-bottom: 10px;
+      }
+      .intro p {
+        margin: 6px 0 0;
+        max-width: 860px;
+        font-size: 14px;
+        line-height: 1.6;
+        color: var(--pr-text-2);
+      }
+      .intro p b {
+        color: var(--pr-text);
+        font-weight: 600;
+      }
+      figure {
+        width: 1280px;
+        margin: 0 auto 40px;
+      }
+      figcaption {
+        display: flex;
+        align-items: baseline;
+        gap: 12px;
+        margin-bottom: 10px;
+        font-size: 13px;
+        color: var(--pr-text-2);
+      }
+      figcaption b {
+        flex: none;
+        font: 600 15px / 1 var(--pr-font);
+        color: var(--pr-text);
+      }
+      figcaption .pr-num {
+        flex: none;
+        margin-left: auto;
+        color: var(--pr-text-3);
+        font-size: 12px;
+      }
+
+      /* ---------- Screen ---------- */
+      .screen {
+        position: relative;
+        width: 1280px;
+        height: 800px;
+        background: var(--pr-void);
+        display: grid;
+        grid-template-columns: minmax(0, 1fr);
+        grid-template-rows: var(--pr-titlebar) auto minmax(0, 1fr);
+        overflow: hidden;
+        outline: 1px solid var(--pr-line);
+      }
+
+      .titlebar {
+        display: flex;
+        align-items: center;
+        gap: 18px;
+        padding-left: var(--pr-space-3);
+        border-bottom: 1px solid var(--pr-line);
+      }
+      .brand {
+        display: flex;
+        align-items: center;
+        gap: var(--pr-space-2);
+        font: 600 16px / 1 var(--pr-font);
+        font-stretch: var(--pr-narrow);
+      }
+      .health {
+        display: flex;
+        gap: 6px;
+      }
+      .health .pr-sig {
+        width: 7px;
+        height: 7px;
+      }
+      .titlebar nav {
+        display: flex;
+        align-items: center;
+        gap: 2px;
+        margin-left: auto;
+      }
+      .master {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-right: 14px;
+      }
+      .master .pr-meter {
+        width: 96px;
+        height: 6px;
+      }
+      .window {
+        display: flex;
+      }
+      .window span {
+        width: 44px;
+        height: var(--pr-titlebar);
+        display: grid;
+        place-items: center;
+        color: var(--pr-text-3);
+      }
+
+      /* ---------- Lanes ---------- */
+      .decks {
+        display: grid;
+        gap: 4px;
+        padding: 4px 10px;
+      }
+      .lane,
+      .strip {
+        display: grid;
+        grid-template-columns: var(--pr-deck-panel) minmax(0, 1fr) 116px;
+        column-gap: 10px;
+      }
+      .lane.mix,
+      .strip.mix {
+        grid-template-columns: var(--pr-deck-panel) minmax(0, 1fr) 184px 116px;
+      }
+      .lane {
+        grid-template-rows: 100px 44px;
+        row-gap: 4px;
+      }
+      .lane.open {
+        grid-template-rows: 100px 44px 44px;
+      }
+      .deck-panel {
+        grid-column: 1;
+        grid-row: 1;
+      }
+      .rail {
+        grid-column: 1;
+        grid-row: 2;
+      }
+      .wave {
+        grid-column: 2;
+        grid-row: 1 / span 2;
+      }
+      .slot {
+        grid-column: 3;
+        grid-row: 1 / span 2;
+      }
+      .pitchcol {
+        grid-column: -2;
+        grid-row: 1 / -1;
+      }
+      .padrow {
+        grid-column: 1 / -2;
+        grid-row: 3;
+      }
+
+      /* the deck panel: what is read from a metre away, and nothing else */
+      .deck-panel {
+        padding: 6px var(--pr-space-3);
+        display: grid;
+        grid-template-rows: auto 1fr;
+        gap: 6px;
+        min-width: 0;
+      }
+      .head {
+        display: grid;
+        grid-template-columns: auto minmax(0, 1fr) auto;
+        gap: 10px;
+        align-items: center;
+      }
+      .tilewrap {
+        display: flex;
+        gap: 4px;
+        align-items: stretch;
+      }
+      /* the send to the external mixer, a thin meter by the letter */
+      .send {
+        width: 4px;
+        gap: 1px;
+      }
+      .title {
+        font-weight: 600;
+        font-size: 14.5px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .artist {
+        font-size: var(--pr-size-small);
+        color: var(--pr-text-2);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .vinyl {
+        display: flex;
+        align-items: center;
+        gap: var(--pr-space-2);
+      }
+      .readouts {
+        display: grid;
+        grid-template-columns: 138px 100px 1fr;
+        align-items: end;
+      }
+      .readouts .pr-readout:last-child {
+        justify-self: end;
+        justify-items: end;
+      }
+
+      .wave {
+        display: grid;
+        grid-template-rows: minmax(0, 1fr) 22px;
+        gap: var(--pr-space-1);
+        min-width: 0;
+      }
+      .cv {
+        position: relative;
+        min-height: 0;
+      }
+      .cv canvas {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        border-radius: var(--pr-radius-sm);
+      }
+
+      /* ---------- The transition strip, between the lanes ---------- */
+      .strip {
+        height: 28px;
+      }
+      .strip.mix {
+        height: 40px;
+      }
+      .strip > .cv {
+        margin-block: 2px;
+      }
+      .strip.mix > .cv {
+        margin-block: 8px;
+      }
+      .tr {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        align-items: center;
+        gap: 18px;
+        padding: 0 var(--pr-space-3);
+      }
+      .left {
+        display: grid;
+        grid-template-columns: 12px minmax(0, 1fr) 46px;
+        grid-auto-rows: 12px;
+        row-gap: 3px;
+        column-gap: 8px;
+        align-items: center;
+      }
+      .left .pr-label {
+        line-height: 12px;
+        color: var(--pr-text-2);
+      }
+      .left .t {
+        font-size: 11px;
+        line-height: 12px;
+        text-align: right;
+        color: var(--pr-text-2);
+      }
+      .left .t.out {
+        color: var(--pr-text);
+      }
+      /* remaining time on one scale: where A ends, B still runs */
+      .bar {
+        position: relative;
+        height: 4px;
+        border-radius: 2px;
+        background: var(--pr-raise-2);
+      }
+      .bar i {
+        position: absolute;
+        left: 0;
+        top: 0;
+        bottom: 0;
+        width: calc(var(--r) * 100%);
+        border-radius: 2px;
+        background: var(--pr-text-3);
+      }
+      .bar.out i {
+        background: var(--pr-text-2);
+      }
+      .bar .end {
+        position: absolute;
+        left: calc(var(--e) * 100% - 0.5px);
+        top: -4px;
+        bottom: -4px;
+        width: 1px;
+        background: var(--pr-text-2);
+      }
+      .ph {
+        display: grid;
+        justify-items: end;
+        gap: 1px;
+        font-size: 11px;
+        line-height: 12px;
+        color: var(--pr-text-2);
+        white-space: nowrap;
+      }
+      .ph .pr-label {
+        line-height: 12px;
+      }
+      .ph .pr-num {
+        color: var(--pr-text);
+      }
+
+      /* ---------- Pitch column: the turntable's fader, read as a matching gauge ---------- */
+      .pitchcol {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) 32px;
+        grid-template-rows: 12px minmax(0, 1fr);
+        column-gap: 6px;
+        row-gap: 4px;
+        min-height: 0;
+      }
+      .pitchcol > .pr-label {
+        grid-column: 1 / -1;
+        line-height: 12px;
+        text-align: right;
+        padding-right: 4px;
+      }
+      .pread {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-end;
+        min-width: 0;
+        padding-top: 2px;
+        text-align: right;
+      }
+      .pval {
+        font-size: 15px;
+        font-weight: 500;
+        line-height: 18px;
+      }
+      .psub {
+        font-size: 11px;
+        line-height: 14px;
+        color: var(--pr-text-3);
+        white-space: nowrap;
+      }
+      .ptarget {
+        margin-top: 6px;
+        display: inline-flex;
+        align-items: center;
+        height: 20px;
+        padding: 0 5px;
+        font-size: 12px;
+        color: var(--pr-light);
+        border: 1px solid var(--pr-text-3);
+        border-radius: var(--pr-radius-sm);
+      }
+      .pdrift {
+        font-size: 15px;
+        font-weight: 500;
+        line-height: 18px;
+      }
+      .pread .pr-label {
+        margin-top: 6px;
+        line-height: 12px;
+      }
+      .pread .klock {
+        margin-top: 8px;
+        padding: 0 7px;
+        font: 600 var(--pr-size-label) / 1 var(--pr-font);
+        letter-spacing: 0.06em;
+      }
+      .pcol {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 4px;
+        min-height: 0;
+      }
+      .pcol .pr-btn--icon {
+        width: 32px;
+        flex: none;
+        font-size: 15px;
+        font-weight: 500;
+        color: var(--pr-text-2);
+      }
+      .pcol .range {
+        font-size: 11px;
+        line-height: 12px;
+        color: var(--pr-text-3);
+      }
+      .ptrack {
+        --cap: 14px;
+        position: relative;
+        flex: 1;
+        width: 32px;
+        min-height: 0;
+      }
+      .ptrack .rail-line {
+        position: absolute;
+        left: 14px;
+        width: 4px;
+        top: calc(var(--cap) / 2);
+        bottom: calc(var(--cap) / 2);
+        border-radius: 2px;
+        background: var(--pr-line-2);
+      }
+      .ptrack .detent {
+        position: absolute;
+        left: 9px;
+        width: 14px;
+        height: 1px;
+        top: calc(50% - 0.5px);
+        background: var(--pr-text-2);
+      }
+      /* filled from the centre to the pitch; + is at the bottom, as on a turntable */
+      .ptrack .fill {
+        position: absolute;
+        left: 14px;
+        width: 4px;
+        border-radius: 2px;
+        background: var(--pr-text-3);
+        top: calc(var(--cap) / 2 + (100% - var(--cap)) * min(0.5, var(--at)));
+        bottom: calc(var(--cap) / 2 + (100% - var(--cap)) * (1 - max(0.5, var(--at))));
+      }
+      /* the way still to go, from the cap to the pitch that matches */
+      .ptrack .togo {
+        position: absolute;
+        left: 15px;
+        width: 2px;
+        background: var(--pr-light);
+        top: calc(var(--cap) / 2 + (100% - var(--cap)) * min(var(--at), var(--tgt)));
+        bottom: calc(var(--cap) / 2 + (100% - var(--cap)) * (1 - max(var(--at), var(--tgt))));
+      }
+      .ptrack .cap {
+        position: absolute;
+        left: 6px;
+        width: 20px;
+        height: var(--cap);
+        top: calc((100% - var(--cap)) * var(--at));
+        display: grid;
+        place-items: center;
+        background: var(--pr-raise-2);
+        border: 1px solid var(--pr-line-2);
+        border-radius: var(--pr-radius);
+      }
+      .ptrack .cap i {
+        width: 12px;
+        height: 2px;
+        border-radius: 1px;
+        background: var(--pr-light);
+      }
+      /* read-only: the turntable holds the pitch */
+      .ptrack.ro .cap {
+        background: var(--pr-base);
+        border-color: var(--pr-text-3);
+      }
+      .ptrack.ro .cap i {
+        background: var(--pr-text-2);
+      }
+      /* the pitch to reach, hollow, on both sides of the track */
+      .ptrack .notch {
+        position: absolute;
+        top: calc((100% - var(--cap)) * var(--tgt) + var(--cap) / 2 - 5px);
+        width: 6px;
+        height: 10px;
+      }
+      .ptrack .notch.l {
+        left: 0;
+      }
+      .ptrack .notch.r {
+        right: 0;
+        transform: scaleX(-1);
+      }
+      .ptrack .notch path {
+        fill: none;
+        stroke: var(--pr-light);
+        stroke-width: 1.2;
+        stroke-linejoin: round;
+      }
+
+      /* ---------- The rail: the DV-1's four encoders, SYNC, the pads folded ---------- */
+      .rail {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        padding: 0 6px 0 4px;
+        min-width: 0;
+      }
+      .tbtn {
+        flex: none;
+        width: 56px;
+        padding: 0;
+        font-size: var(--pr-size-small);
+        letter-spacing: 0.04em;
+      }
+      .rail.int {
+        gap: 4px;
+      }
+      .rail.int .tbtn {
+        width: 50px;
+      }
+      .padsbtn {
+        flex: none;
+        margin-left: auto;
+        gap: 6px;
+        padding: 0 10px;
+        font-size: var(--pr-size-small);
+        letter-spacing: 0.04em;
+      }
+      .rail.int .padsbtn {
+        padding: 0 8px;
+      }
+      .padsbtn svg {
+        flex: none;
+      }
+
+      /* stems: knobs, 34 px (28 when the transport is there) */
+      .stems {
+        flex: none;
+        display: grid;
+        grid-auto-flow: column;
+        grid-auto-columns: 44px;
+        justify-items: center;
+      }
+      .stems.compact {
+        grid-auto-columns: 32px;
+      }
+      .stems.compact .k-label {
+        font-stretch: 85%;
+        letter-spacing: 0.04em;
+      }
+      .knob {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+      }
+      .knob svg {
+        width: var(--k);
+        height: var(--k);
+        margin-bottom: calc(var(--k) * -0.09);
+        overflow: visible;
+      }
+      .knob path {
+        fill: none;
+        stroke-width: 2.5;
+        stroke-linecap: round;
+      }
+      .knob .k-track {
+        stroke: var(--pr-line-2);
+      }
+      .knob .k-val {
+        stroke: var(--pr-light);
+      }
+      .knob .k-det {
+        stroke: var(--pr-text-2);
+        stroke-width: 1.5;
+      }
+      .knob .k-cap {
+        fill: var(--pr-raise-2);
+        stroke: var(--pr-line-2);
+        stroke-width: 1;
+      }
+      .knob .k-ptr {
+        stroke: var(--pr-light);
+        stroke-width: 2;
+        stroke-linecap: round;
+      }
+      /* muted: the knob keeps its level, drawn dim; the label lights */
+      .knob.is-dim svg {
+        opacity: 0.32;
+      }
+      .k-label {
+        height: 13px;
+        padding: 0 3px;
+        font: 600 var(--pr-size-label) / 13px var(--pr-font);
+        letter-spacing: 0.06em;
+        color: var(--pr-text-3);
+        background: transparent;
+        border: 0;
+        border-radius: var(--pr-radius-sm);
+        white-space: nowrap;
+      }
+      .k-label.is-on {
+        background: var(--pr-light);
+        color: var(--pr-on-light);
+      }
+
+      /* ---------- Pads, unfolded: one more row of 44 px under the lane ---------- */
+      .padrow {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        padding: 0 4px;
+        min-width: 0;
+      }
+      .modes {
+        flex: none;
+      }
+      .pads {
+        flex: 1;
+        display: flex;
+        gap: 4px;
+        min-width: 0;
+      }
+      .pads .pr-pad {
+        flex: 1;
+        width: auto;
+        min-width: 56px;
+        padding: 0 8px;
+        overflow: hidden;
+      }
+      .pad-u {
+        font: 600 var(--pr-size-label) / 1 var(--pr-font);
+        letter-spacing: 0.06em;
+        color: var(--pr-text-3);
+        white-space: nowrap;
+      }
+      .pr-pad.is-hot .pad-u {
+        color: var(--pr-on-light);
+      }
+      .pad-plain {
+        border-style: solid;
+        color: var(--pr-text);
+        gap: 4px;
+      }
+      .pad-plain .big {
+        font: 500 13px / 1 var(--pr-font-mono);
+        font-stretch: var(--pr-mono-width);
+      }
+      .side {
+        flex: 0 0 88px;
+        display: flex;
+        gap: 4px;
+      }
+      .side .pr-btn {
+        flex: 1;
+        padding: 0;
+        font: 500 15px / 1 var(--pr-font-mono);
+        font-stretch: var(--pr-mono-width);
+      }
+
+      /* ---------- Internal mixer: a slim strip at the end of each lane ---------- */
+      .slot {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0 12px 0 8px;
+      }
+      .eq {
+        display: grid;
+        grid-template-columns: repeat(3, 40px);
+        grid-auto-rows: 44px;
+        row-gap: 10px;
+        justify-items: center;
+        align-items: start;
+      }
+      .eq .k-label {
+        font-stretch: 85%;
+        letter-spacing: 0.04em;
+      }
+      .eq .cue {
+        margin-top: 2px;
+        width: 26px;
+        height: 26px;
+        padding: 0;
+      }
+      .chan {
+        display: flex;
+        gap: 6px;
+        height: 124px;
+        align-items: stretch;
+      }
+      .chan .pr-meter--vertical {
+        width: 5px;
+      }
+      .vfader {
+        position: relative;
+        width: 22px;
+      }
+      .vfader::before {
+        content: '';
+        position: absolute;
+        left: 9px;
+        width: 4px;
+        top: 7px;
+        bottom: 7px;
+        border-radius: 2px;
+        background: var(--pr-line-2);
+      }
+      .vfader .fill {
+        position: absolute;
+        left: 9px;
+        width: 4px;
+        bottom: 7px;
+        height: calc((100% - 14px) * var(--at));
+        border-radius: 2px;
+        background: var(--pr-text-3);
+      }
+      .vfader .cap,
+      .hfader .cap {
+        position: absolute;
+        display: grid;
+        place-items: center;
+        background: var(--pr-raise-2);
+        border: 1px solid var(--pr-line-2);
+        border-radius: var(--pr-radius);
+      }
+      .vfader .cap {
+        left: 0;
+        right: 0;
+        height: 14px;
+        bottom: calc((100% - 14px) * var(--at));
+      }
+      .vfader .cap i {
+        width: 12px;
+        height: 2px;
+        border-radius: 1px;
+        background: var(--pr-light);
+      }
+      .xbar {
+        grid-column: 3 / span 2;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 0 8px 0 12px;
+      }
+      .hfader {
+        position: relative;
+        flex: 1;
+        height: 24px;
+      }
+      .hfader::before {
+        content: '';
+        position: absolute;
+        top: 10px;
+        height: 4px;
+        left: 7px;
+        right: 7px;
+        border-radius: 2px;
+        background: var(--pr-line-2);
+      }
+      .hfader .det {
+        position: absolute;
+        left: calc(50% - 0.5px);
+        top: 5px;
+        width: 1px;
+        height: 14px;
+        background: var(--pr-text-2);
+      }
+      .hfader .fill {
+        position: absolute;
+        top: 10px;
+        height: 4px;
+        border-radius: 2px;
+        background: var(--pr-text-3);
+        left: calc(7px + (100% - 14px) * min(0.5, var(--at)));
+        right: calc(7px + (100% - 14px) * (1 - max(0.5, var(--at))));
+      }
+      .hfader .cap {
+        top: 0;
+        bottom: 0;
+        width: 14px;
+        left: calc((100% - 14px) * var(--at));
+      }
+      .hfader .cap i {
+        width: 2px;
+        height: 12px;
+        border-radius: 1px;
+        background: var(--pr-light);
+      }
+      .xbar .pr-btn {
+        flex: none;
+      }
+
+      /* the "Table ⋯" popover, shown opened beside the third screen */
+      .aside {
+        display: grid;
+        grid-template-columns: 300px minmax(0, 1fr);
+        gap: 24px;
+        align-items: start;
+        margin-top: 14px;
+        font-size: 13px;
+        color: var(--pr-text-2);
+      }
+      .pop {
+        padding: 6px 0;
+        background: var(--pr-base);
+        border: 1px solid var(--pr-line-2);
+        border-radius: var(--pr-radius);
+      }
+      .pop .row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        min-height: 40px;
+        padding: 0 12px;
+      }
+      .pop .row + .row {
+        border-top: 1px solid var(--pr-line);
+      }
+      .pop .knobs {
+        display: flex;
+        gap: 18px;
+        padding: 8px 0 4px;
+      }
+      .aside p {
+        margin: 4px 0 0;
+        line-height: 1.6;
+        max-width: 640px;
+      }
+
+      /* ---------- Library, as on the reference page ---------- */
+      .library {
+        display: grid;
+        grid-template-columns: 210px minmax(0, 1fr);
+        border-top: 1px solid var(--pr-line);
+        min-height: 0;
+      }
+      .sidebar {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+        padding: 10px var(--pr-space-2);
+        border-right: 1px solid var(--pr-line);
+        min-height: 0;
+        overflow: hidden;
+      }
+      .sidebar .pr-label {
+        padding: 10px var(--pr-space-2) var(--pr-space-1);
+      }
+      .sidebar a {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex: none;
+        height: 28px;
+        padding: 0 var(--pr-space-2);
+        border-radius: var(--pr-radius-sm);
+        color: var(--pr-text-2);
+        text-decoration: none;
+      }
+      .sidebar a .pr-num {
+        font-size: 11px;
+        color: var(--pr-text-3);
+      }
+      .sidebar a.is-on {
+        background: var(--pr-raise-2);
+        color: var(--pr-text);
+      }
+      .list {
+        display: grid;
+        grid-template-rows: 44px minmax(0, 1fr);
+        min-width: 0;
+        min-height: 0;
+      }
+      .toolbar {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 0 var(--pr-space-3);
+        border-bottom: 1px solid var(--pr-line);
+      }
+      .search {
+        position: relative;
+        flex: 1;
+        max-width: 460px;
+      }
+      .search .pr-input {
+        width: 100%;
+        height: 30px;
+        padding-left: 30px;
+      }
+      .search svg {
+        position: absolute;
+        left: 10px;
+        top: 8px;
+        color: var(--pr-text-3);
+      }
+      .search .pr-kbd {
+        position: absolute;
+        right: 8px;
+        top: 7px;
+      }
+      .count {
+        margin-left: auto;
+        font-size: var(--pr-size-small);
+        color: var(--pr-text-3);
+      }
+      .pr-table {
+        --pr-cols: 34px minmax(0, 1.5fr) minmax(0, 1fr) minmax(0, 0.9fr) 60px 70px 64px 52px 44px 64px;
+        overflow: hidden;
+        min-height: 0;
+      }
+      .pr-table .pr-num {
+        font-size: var(--pr-size-small);
+        text-align: right;
+      }
+      .pr-table .muted {
+        color: var(--pr-text-2);
+      }
+      .pr-table .dim {
+        color: var(--pr-text-3);
+      }
+      .mark {
+        display: grid;
+        place-items: center;
+        width: 20px;
+        height: 20px;
+        font: 600 11px / 1 var(--pr-font);
+        border-radius: var(--pr-radius-sm);
+        background: var(--pr-light);
+        color: var(--pr-on-light);
+      }
+      .mark.out {
+        background: transparent;
+        color: var(--pr-text);
+        border: 1px solid var(--pr-line-2);
+      }
+      .load {
+        display: flex;
+        gap: var(--pr-space-1);
+        justify-content: flex-end;
+      }
+      .load .pr-btn {
+        height: 22px;
+        padding: 0 6px;
+        font-size: 11px;
+      }
+    </style>
+  </head>
+  <body>
+    <header class="intro">
+      <div>
+        <span class="pr-label kicker">Proposition 5 · variante de la 1</span>
+        <h1 class="pr-heading">Couloirs, épuré</h1>
+      </div>
+      <p>
+        <b>L’écran se regarde, le DV-1 se touche.</b> Vos mains vont des platines à la table et au
+        DV-1, jamais à la souris : chaque couloir ne garde que ce qu’on lit entre deux gestes. Le
+        panneau (temps restant, BPM, tonalité, INT/REL/ABS), la forme d’onde sur toute la hauteur,
+        et au bout le fader de pitch devenu jauge de calage : la position de votre platine, en
+        creux le pitch qui cale, et la dérive prévue. Le rail ne montre que les quatre potards de
+        stems que tiennent les encodeurs du DV-1, SYNC, et les pads repliés. Une bande calme, entre
+        les couloirs, compare la phase et le temps qui reste à chacun. Deux decks seulement (vos
+        quatre sorties en font deux), et la bibliothèque gagne deux lignes. Compromis : les pads
+        coûtent un geste de plus, KEY LOCK et le nudge n’existent qu’en INT, et le panneau perd ses
+        sous-lignes (temps écoulé, BPM d’origine, nom de la tonalité).
+      </p>
+    </header>
+
+    <figure>
+      <figcaption>
+        <b>1 · Deux decks, table externe, pads repliés</b>
+        <span>L’écran de tous les soirs : A (ABS) sort, B (REL) entre ; le creux et la dérive vont au deck à caler. Hachures : pas encore séparé.</span>
+        <span class="pr-num">1280 × 800</span>
+      </figcaption>
+      <div class="screen" id="s1"></div>
+    </figure>
+
+    <figure>
+      <figcaption>
+        <b>2 · Pads de B dépliés, mode LOOP</b>
+        <span>Le couloir de B s’allonge de 44 px : modes, huit pads de 92 px, ½ et ×2 ; la bibliothèque recule d’autant.</span>
+        <span class="pr-num">1280 × 800</span>
+      </figcaption>
+      <div class="screen" id="s2"></div>
+    </figure>
+
+    <figure>
+      <figcaption>
+        <b>3 · Deux decks, table interne</b>
+        <span>Une tranche mince au bout de chaque couloir, le crossfader entre les deux ; B en INT montre CUE, PLAY, le nudge et KEY LOCK.</span>
+        <span class="pr-num">1280 × 800</span>
+      </figcaption>
+      <div class="screen" id="s3"></div>
+      <div class="aside">
+        <div class="pop" id="pop"></div>
+        <div>
+          <span class="pr-label">Table ⋯ ouvert</span>
+          <p>
+            Ce qui se règle une fois par soirée quitte l’écran : limiteur, courbe du crossfader,
+            mélange CUE/MST et volume du casque. Chaque tranche ne garde que ce qui se touche en
+            mixant : TRIM, HI, MID, LOW, FILTER, le fader avec son niveau et l’écoute au casque.
+          </p>
+        </div>
+      </div>
+    </figure>
+
+    <script src="../reference/sketch.js"></script>
+    <script>
+      const S = window.PrismeSketch;
+      const token = (name) => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+      const draws = [];
+      let uid = 0;
+
+      /* ---------- Small pieces ---------- */
+
+      const polar = (a, r) => {
+        const t = ((a - 90) * Math.PI) / 180;
+        return [18 + r * Math.cos(t), 18 + r * Math.sin(t)];
+      };
+      const arc = (f, t) => {
+        if (Math.abs(t - f) < 0.5) return "";
+        const [a, b] = f < t ? [f, t] : [t, f];
+        const p = polar(a, 15),
+          q = polar(b, 15);
+        return `M ${p[0].toFixed(2)} ${p[1].toFixed(2)} A 15 15 0 ${b - a > 180 ? 1 : 0} 1 ${q[0].toFixed(2)} ${q[1].toFixed(2)}`;
+      };
+      /** The app's knob: a ring filled with the value, a cap with a line of light. */
+      function knob(label, v, { size = 34, bipolar = false, on = false, dim = false, title = "" } = {}) {
+        const ang = -135 + v * 270;
+        const p = polar(ang, 3),
+          q = polar(ang, 8.5);
+        return (
+          `<div class="knob${dim ? " is-dim" : ""}" style="--k:${size}px"${title ? ` title="${title}"` : ""}>` +
+          `<svg viewBox="0 0 36 36" role="slider" aria-label="${label}"><path class="k-track" d="${arc(-135, 135)}"/>` +
+          `<path class="k-val" d="${arc(bipolar ? 0 : -135, ang)}"/>` +
+          (bipolar ? '<line class="k-det" x1="18" y1="0.5" x2="18" y2="2.5"/>' : "") +
+          `<circle class="k-cap" cx="18" cy="18" r="11"/><line class="k-ptr" x1="${p[0]}" y1="${p[1]}" x2="${q[0]}" y2="${q[1]}"/></svg>` +
+          `<button class="k-label${on ? " is-on" : ""}">${label}</button></div>`
+        );
+      }
+      const meter = (n, lit, hot = 0, cls = "") =>
+        `<div class="pr-meter pr-meter--vertical ${cls}">` +
+        Array.from({ length: n }, (_, i) =>
+          i < lit ? (i >= n - hot ? '<i class="is-hot"></i>' : '<i class="is-lit"></i>') : "<i></i>",
+        ).join("") +
+        "</div>";
+      const hMeter = (n, lit, hot) =>
+        '<div class="pr-meter">' +
+        Array.from({ length: n }, (_, i) =>
+          i < lit ? (i >= lit - hot ? '<i class="is-hot"></i>' : '<i class="is-lit"></i>') : "<i></i>",
+        ).join("") +
+        "</div>";
+      const seg = (items, on, cls = "") =>
+        `<div class="pr-seg ${cls}" role="radiogroup">` +
+        items.map((m) => `<button role="radio" aria-checked="${m === on}">${m}</button>`).join("") +
+        "</div>";
+      const headphones =
+        '<svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true"><path d="M2.5 10V8a5.5 5.5 0 0 1 11 0v2" fill="none" stroke="currentColor" stroke-width="1.5"/><rect x="1.5" y="9" width="3.5" height="5" rx="1" fill="currentColor"/><rect x="11" y="9" width="3.5" height="5" rx="1" fill="currentColor"/></svg>';
+      const chevron = (open) =>
+        `<svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true"><path d="${open ? "M1.5 3.5 L5 7 L8.5 3.5" : "M3.5 1.5 L7 5 L3.5 8.5"}" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+      const notch = '<svg viewBox="0 0 6 10"><path d="M0.6 0.8 L5.2 5 L0.6 9.2 Z"/></svg>';
+      const frac = (v) => 0.5 + v / 16; // ±8 %, + at the bottom
+
+      /* ---------- The decks of the mockup ---------- */
+
+      const A = {
+        letter: "A",
+        title: "Future",
+        artist: "Boris Brejcha · Space Diver",
+        mode: "ABS",
+        playing: true,
+        remain: "−2:15,7",
+        remainS: 135.7,
+        bpm: "126,00",
+        key: "5A",
+        pitch: "+0,80 %",
+        pitchV: 0.8,
+        role: "ref",
+        send: [12, 9, 0],
+        stems: [
+          ["VOX", 0.8, "muted"],
+          ["DRUM", 1],
+          ["BASS", 0.45],
+          ["MELO", 1],
+        ],
+        wave: {
+          fn: "future",
+          bpm: 125,
+          pos: 298.3,
+          cues: [
+            [150.2, 3],
+            [199.9, 4],
+          ],
+          length: 434,
+          ov: [[0.5], [61.9], [150.2], [199.9]],
+        },
+        mix: { trim: 0.5, hi: 0.5, mid: 0.56, low: 0.5, filter: 0.5, fader: 0.86, level: 18, cue: false },
+      };
+      const B = {
+        letter: "B",
+        title: "Schleierwolken",
+        artist: "Boris Brejcha · Schleierwolken",
+        mode: "REL",
+        playing: true,
+        remain: "−6:41,1",
+        remainS: 401.1,
+        bpm: "124,88",
+        key: "4A",
+        pitch: "−0,10 %",
+        pitchV: -0.1,
+        target: "+0,80 %",
+        targetV: 0.8,
+        drift: ["1/16", "dans 12 s"],
+        send: [12, 7, 0],
+        stems: [
+          ["VOX", 1],
+          ["DRUM", 1],
+          ["BASS", 1],
+          ["MELO", 1],
+        ],
+        separated: 0.58,
+        wave: {
+          fn: "schleierwolken",
+          bpm: 125,
+          pos: 31.9,
+          cues: [[0.48, 1]],
+          length: 433,
+          ov: [[0.48], [46.1]],
+        },
+        mix: { trim: 0.47, hi: 0.5, mid: 0.5, low: 0.18, filter: 0.62, fader: 0.7, level: 15, cue: true },
+      };
+      const loop = [30.72, 30.72 + (8 * 60) / 125];
+      const B2 = { ...B, open: true, loopOn: 5, wave: { ...B.wave, loop } };
+      const { target, targetV, drift, ...untargeted } = B;
+      const B3 = { ...untargeted, mode: "INT", bpm: "126,00", pitch: "+0,80 %", pitchV: 0.8, sync: true, keylock: false };
+
+      const tracks = { future: S.future, schleierwolken: S.schleierwolken };
+
+      /* ---------- Lane parts ---------- */
+
+      function tile(d, mixer) {
+        const t = `<div class="pr-tile${d.playing ? "" : " pr-tile--outline"}">${d.letter}</div>`;
+        if (mixer) return `<div class="tilewrap">${t}</div>`;
+        const [n, lit, hot] = d.send;
+        return `<div class="tilewrap" title="Envoi vers la table">${t}${meter(n, lit, hot, "send")}</div>`;
+      }
+
+      function panel(d, mixer) {
+        return `
+          <div class="deck-panel pr-panel">
+            <div class="head">
+              ${tile(d, mixer)}
+              <div><div class="title">${d.title}</div><div class="artist">${d.artist}</div></div>
+              <div class="vinyl">
+                <span class="pr-sig pr-sig--ok" title="Signal du disque"></span>
+                ${seg(["INT", "REL", "ABS"], d.mode)}
+              </div>
+            </div>
+            <div class="readouts">
+              <div class="pr-readout">
+                <span class="pr-label">Reste</span><span class="pr-readout__value">${d.remain}</span>
+              </div>
+              <div class="pr-readout">
+                <span class="pr-label">BPM</span><span class="pr-readout__value pr-readout__value--mid">${d.bpm}</span>
+              </div>
+              <div class="pr-readout">
+                <span class="pr-label">Tonalité</span>
+                <span class="pr-key pr-key--fill pr-key--lg" style="--h: var(--pr-key-hue-${parseInt(d.key)})">${d.key}</span>
+              </div>
+            </div>
+          </div>`;
+      }
+
+      function wave(d) {
+        const id = `w${uid++}`;
+        draws.push({ id, d });
+        return `<div class="wave"><div class="cv"><canvas id="${id}-z"></canvas></div><div class="cv ov"><canvas id="${id}-o"></canvas></div></div>`;
+      }
+
+      /** The pitch fader, at the end of the lane: the turntable's position, the pitch that matches, the drift. */
+      function pitchCol(d) {
+        const int = d.mode === "INT";
+        const tgt = d.targetV != null;
+        const track =
+          `<div class="ptrack${int ? "" : " ro"}" style="--at:${frac(d.pitchV)};--tgt:${frac(d.targetV ?? d.pitchV)}">` +
+          '<i class="rail-line"></i><i class="detent"></i><i class="fill"></i>' +
+          (tgt ? `<i class="togo"></i><span class="notch l">${notch}</span><span class="notch r">${notch}</span>` : "") +
+          '<i class="cap"><i></i></i></div>';
+        let read = `<span class="pval pr-num">${d.pitch}</span><span class="psub">${int ? "pitch" : "platine"}</span>`;
+        if (tgt)
+          read +=
+            `<span class="ptarget pr-num" title="Pitch à régler sur la platine pour caler ${d.letter}">→ ${d.target}</span><span class="psub">pour caler</span>` +
+            `<span class="pr-label">Dérive</span><span class="pdrift pr-num" title="Au tempo actuel, les temps de A et B seront à une double croche d’écart dans 12 s">${d.drift[0]}</span><span class="psub">${d.drift[1]}</span>`;
+        else if (int)
+          read +=
+            `<button class="pr-btn pr-btn--sm klock${d.keylock ? " is-on" : ""}">KEY LOCK</button>` +
+            (d.sync ? '<span class="psub" style="margin-top:8px">calé sur A</span>' : "");
+        else if (d.role === "ref") read += '<span class="psub" style="margin-top:8px">référence</span>';
+        return `
+          <div class="pitchcol" title="${int ? "Pitch" : "Pitch de la platine, + vers le bas"}">
+            <span class="pr-label">Pitch</span>
+            <div class="pread">${read}</div>
+            <div class="pcol">
+              ${int ? '<button class="pr-btn pr-btn--sm pr-btn--icon" aria-label="Ralentir un instant">−</button>' : ""}
+              ${track}
+              ${int ? '<button class="pr-btn pr-btn--sm pr-btn--icon" aria-label="Accélérer un instant">+</button>' : '<span class="range pr-num">±8</span>'}
+            </div>
+          </div>`;
+      }
+
+      function stems(d) {
+        const int = d.mode === "INT";
+        return (
+          `<div class="stems${int ? " compact" : ""}">` +
+          d.stems
+            .map(([l, v, s], i) =>
+              knob(l, v, {
+                size: int ? 28 : 34,
+                on: s === "muted",
+                dim: s === "muted",
+                title: `${s === "muted" ? `${l} coupé, à ${Math.round(v * 100)} %` : `${l} à ${Math.round(v * 100)} %`} · encodeur ${d.letter === "A" ? i + 1 : i + 5} du DV-1`,
+              }),
+            )
+            .join("") +
+          "</div>"
+        );
+      }
+
+      function rail(d) {
+        const int = d.mode === "INT";
+        const transport = int
+          ? `<button class="pr-btn pr-btn--lg tbtn">CUE</button><button class="pr-btn pr-btn--lg tbtn${d.playing ? " is-on" : ""}">PLAY</button>`
+          : "";
+        return `
+          <div class="rail pr-panel${int ? " int" : ""}">
+            ${transport}
+            ${stems(d)}
+            <button class="pr-btn pr-btn--lg tbtn${d.sync ? " is-on" : ""}">SYNC</button>
+            <button class="pr-btn pr-btn--lg padsbtn${d.open ? " is-on" : ""}" aria-expanded="${!!d.open}">PADS ${chevron(d.open)}</button>
+          </div>`;
+      }
+
+      function padRow(d) {
+        const sizes = [
+          ["¼", "BEAT"],
+          ["½", "BEAT"],
+          ["1", "BEAT"],
+          ["2", "BEATS"],
+          ["4", "BEATS"],
+          ["8", "BEATS"],
+          ["16", "BEATS"],
+          ["32", "BEATS"],
+        ];
+        const pads = sizes
+          .map(
+            ([n, u], i) =>
+              `<button class="pr-pad pad-plain${i === d.loopOn ? " is-hot" : ""}"><span class="big">${n}</span><span class="pad-u">${u}</span></button>`,
+          )
+          .join("");
+        return `
+          <div class="padrow pr-panel">
+            ${seg(["CUES", "LOOP", "ROLL", "JUMP", "FX", "SAMPLE"], "LOOP", "pr-seg--lg modes")}
+            <div class="pads">${pads}</div>
+            <div class="side"><button class="pr-btn pr-btn--lg" aria-label="Diviser la boucle par deux">½</button><button class="pr-btn pr-btn--lg" aria-label="Doubler la boucle">×2</button></div>
+          </div>`;
+      }
+
+      function slot(d) {
+        const m = d.mix;
+        return `
+          <div class="slot pr-panel">
+            <div class="eq">
+              ${knob("TRIM", m.trim, { size: 26, bipolar: true })}
+              ${knob("HI", m.hi, { size: 26, bipolar: true })}
+              ${knob("MID", m.mid, { size: 26, bipolar: true })}
+              ${knob("LOW", m.low, { size: 26, bipolar: true })}
+              ${knob("FILTER", m.filter, { size: 26, bipolar: true })}
+              <button class="pr-btn pr-btn--icon cue${m.cue ? " is-on" : ""}" aria-label="Écouter ${d.letter} au casque" title="Écouter ${d.letter} au casque">${headphones}</button>
+            </div>
+            <div class="chan">
+              ${meter(24, m.level, m.level > 18 ? m.level - 18 : 0)}
+              <div class="vfader" style="--at:${m.fader}" role="slider" aria-label="Volume de ${d.letter}"><i class="fill"></i><i class="cap"><i></i></i></div>
+            </div>
+          </div>`;
+      }
+
+      function lane(d, { mixer = false } = {}) {
+        return `
+          <div class="lane${mixer ? " mix" : ""}${d.open ? " open" : ""}">
+            ${panel(d, mixer)}
+            ${rail(d)}
+            ${wave(d)}
+            ${mixer ? slot(d) : ""}
+            ${pitchCol(d)}
+            ${d.open ? padRow(d) : ""}
+          </div>`;
+      }
+
+      /** Between the lanes: the phase of A and B, and how long each still runs, on one scale. */
+      function strip(a, b, { mixer = false, offsetMs, phaseText } = {}) {
+        const id = `p${uid++}`;
+        draws.push({ id, phase: true, offsetMs });
+        const scale = 480;
+        const row = (d, out) =>
+          `<span class="pr-label">${d.letter}</span>` +
+          `<span class="bar${out ? " out" : ""}" style="--r:${d.remainS / scale};--e:${a.remainS / scale}"><i></i>${out ? "" : '<span class="end"></span>'}</span>` +
+          `<span class="t pr-num${out ? " out" : ""}">${d.remain.slice(0, -2)}</span>`;
+        return `
+          <div class="strip${mixer ? " mix" : ""}">
+            <div class="tr" title="Temps restant de chaque deck, sur la même échelle : le trait marque la fin de A">
+              <div class="left">${row(a, true)}${row(b, false)}</div>
+              <div class="ph"><span class="pr-label">Phase</span><span>${phaseText}</span></div>
+            </div>
+            <div class="cv"><canvas id="${id}"></canvas></div>
+            ${
+              mixer
+                ? `<div class="xbar pr-panel"><span class="pr-label">A</span><div class="hfader" style="--at:0.44" role="slider" aria-label="Crossfader"><i class="det"></i><i class="fill"></i><i class="cap"><i></i></i></div><span class="pr-label">B</span><button class="pr-btn pr-btn--sm">Table ⋯</button></div>`
+                : ""
+            }
+          </div>`;
+      }
+
+      /* ---------- Title bar and library ---------- */
+
+      function titlebar(mixer) {
+        return `
+          <header class="titlebar">
+            <div class="brand"><img src="../logo-mark.svg" width="22" height="19" alt="" />prisme</div>
+            <div class="health">
+              <span class="pr-chip"><span class="pr-sig pr-sig--ok"></span>ASIO · UMC404HD</span>
+              <span class="pr-chip">Buffer <span class="pr-num">2,7 ms</span></span>
+              <span class="pr-chip">Décrochages <span class="pr-num">0</span></span>
+              ${mixer ? "" : '<span class="pr-chip">Table externe · <span class="pr-num">2</span> sorties</span>'}
+              <span class="pr-chip"><span class="pr-sig pr-sig--ok"></span>DV-1 · stems</span>
+            </div>
+            <nav>
+              ${mixer ? `<div class="master"><span class="pr-label">Master</span>${hMeter(24, 17, 2)}</div>` : ""}
+              <button class="pr-btn pr-btn--ghost pr-btn--rec"><span class="pr-btn__dot"></span>Enregistrer</button>
+              <button class="pr-btn pr-btn--ghost">Réglages</button>
+            </nav>
+            <div class="window"><span>–</span><span>□</span><span>×</span></div>
+          </header>`;
+      }
+
+      const rows = [
+        ["", "Maia", "Oliver Schories", "Maia", 123, "8A", "6:46", 2019],
+        ["", "Parallel Echo", "Marcus Schmahl", "Fragments of Time EP", 123, "4A", "6:39", 2026],
+        ["", "The Tribe", "Mark Tarmonea", "The Tribe", 123, "5A", "8:29", 2020],
+        ["", "Under", "Frederick & Kusse", "Under", 123, "12B", "6:35", 2018],
+        ["", "Never Leave", "Helsloot", "Root to Branch, Vol. 5", 124, "3A", "5:45", 2020],
+        ["played", "Tell Me", "Tinlicker, Helsloot, Hero Baldwin", "Tell Me", 124, "6B", "3:16", 2020],
+        ["A", "Future", "Boris Brejcha", "Space Diver", 125, "5A", "7:14", 2020],
+        ["B", "Schleierwolken", "Boris Brejcha", "Schleierwolken", 125, "4A", "7:13", 2015],
+        ["selected", "Spicy (feat. Ginger)", "Boris Brejcha, Ginger", "Spicy (Edit)", 125, "5A", "3:35", 2021],
+        ["", "Data", "Adonis FR", "Friday", 125, "11B", "7:22", 2020],
+        ["played", "Survivor", "Jack Back", "Survivor", 125, "2A", "5:42", 2019],
+        ["", "Freedom (Jesse Jacob Remix)", "ASTRE, Jesse Jacob", "Freedom EP", 128, "8A", "6:09", 2020],
+        ["", "Find You", "UNREFINED", "Find You", 129, "5A", "5:08", 2023],
+        ["", "Kids", "Crusy, Calussa", "Kids", 129, "3A", "6:14", 2026],
+      ];
+      const reference = { bpm: 126, key: "5A" };
+      const compatible = (key) => {
+        const n = parseInt(key, 10),
+          r = parseInt(reference.key, 10);
+        return key.at(-1) === reference.key.at(-1) ? [0, 1, 11].includes((n - r + 12) % 12) : n === r;
+      };
+      const chip = (key) =>
+        `<span><span class="pr-key${key.endsWith("B") ? " pr-key--maj" : ""}${compatible(key) ? " pr-key--fill" : ""}" style="--h: var(--pr-key-hue-${parseInt(key, 10)})">${key}</span></span>`;
+      const decimal = (v, digits) => v.toFixed(digits).replace(".", ",");
+
+      function library() {
+        let table =
+          '<div class="pr-table__head"><span></span><span>Titre</span><span>Artiste</span><span>Album</span><span style="text-align:right">BPM</span><span style="text-align:right">Pitch → A</span><span>Tonalité</span><span style="text-align:right">Durée</span><span style="text-align:right">Année</span><span></span></div>';
+        for (const [state, title, artist, album, bpm, key, length, year] of rows) {
+          const loaded = state === "A" || state === "B";
+          const pitch = (reference.bpm / bpm - 1) * 100;
+          const mark = loaded ? `<span class="mark${state === "A" ? "" : " out"}">${state}</span>` : "";
+          const cls = state === "played" ? " is-played" : state === "selected" ? " is-selected" : "";
+          table +=
+            `<div class="pr-table__row${cls}"><span>${mark}</span><span>${title}</span><span class="muted">${artist}</span><span class="muted">${album}</span>` +
+            `<span class="pr-num">${decimal(bpm, 2)}</span><span class="pr-num${Math.abs(pitch) > 8 ? " dim" : ""}">${state === "A" ? "" : (pitch >= 0 ? "+" : "−") + decimal(Math.abs(pitch), 1) + " %"}</span>` +
+            `${chip(key)}<span class="pr-num">${length}</span><span class="pr-num dim">${year}</span>` +
+            `<span class="load">${state === "selected" ? '<button class="pr-btn pr-btn--sm">→ A</button><button class="pr-btn pr-btn--sm">→ B</button>' : ""}</span></div>`;
+        }
+        return `
+          <section class="library">
+            <aside class="sidebar">
+              <span class="pr-label">Collection</span>
+              <a class="is-on" href="#">Tous les morceaux <span class="pr-num">153</span></a>
+              <a href="#">Préparation <span class="pr-num">4</span></a>
+              <a href="#">Historique</a>
+              <span class="pr-label">Bacs</span>
+              <a href="#">Mélodique <span class="pr-num">18</span></a>
+              <a href="#">Peak time <span class="pr-num">24</span></a>
+              <a href="#">Closing <span class="pr-num">9</span></a>
+              <span class="pr-label">Bacs intelligents</span>
+              <a href="#">120–126 BPM · 4A–6A <span class="pr-num">31</span></a>
+            </aside>
+            <div class="list">
+              <div class="toolbar">
+                <label class="search">
+                  <svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true"><circle cx="7" cy="7" r="5" fill="none" stroke="currentColor" stroke-width="1.6" /><line x1="11" y1="11" x2="15" y2="15" stroke="currentColor" stroke-width="1.6" /></svg>
+                  <input class="pr-input" placeholder="Titre, artiste, 124-128, 5A…" aria-label="Rechercher" />
+                  <span class="pr-kbd">Ctrl F</span>
+                </label>
+                <span class="pr-label">Comparer à</span>
+                ${seg(["A", "B"], "A")}
+                <span class="count">153 morceaux · analysés</span>
+              </div>
+              <div class="pr-table">${table}</div>
+            </div>
+          </section>`;
+      }
+
+      /* ---------- The three screens ---------- */
+
+      const late = "B en retard de <span class=\"pr-num\">12 ms</span>";
+      document.getElementById("s1").innerHTML =
+        titlebar(false) +
+        `<section class="decks">${lane(A)}${strip(A, B, { offsetMs: -12, phaseText: late })}${lane(B)}</section>` +
+        library();
+      document.getElementById("s2").innerHTML =
+        titlebar(false) +
+        `<section class="decks">${lane(A)}${strip(A, B2, { offsetMs: -12, phaseText: late })}${lane(B2)}</section>` +
+        library();
+      document.getElementById("s3").innerHTML =
+        titlebar(true) +
+        `<section class="decks">${lane(A, { mixer: true })}${strip(A, B3, { mixer: true, offsetMs: 2, phaseText: "calé · <span class=\"pr-num\">2 ms</span>" })}${lane(B3, { mixer: true })}</section>` +
+        library();
+
+      document.getElementById("pop").innerHTML = `
+        <div class="row"><span>Limiteur sur le master</span><button class="pr-switch" role="switch" aria-checked="true"><span></span></button></div>
+        <div class="row"><span>Courbe du crossfader</span>${seg(["DOUCE", "SÈCHE"], "DOUCE")}</div>
+        <div class="row"><span>Casque</span><div class="knobs">${knob("CUE/MST", 0.3, { size: 28 })}${knob("PHONES", 0.62, { size: 28 })}</div></div>`;
+
+      /* ---------- Waveforms ---------- */
+
+      /** Hatches the part of the overview whose stems are not separated yet. */
+      function unseparated(canvas, from) {
+        const g = canvas.getContext("2d");
+        const w = canvas.clientWidth;
+        const h = canvas.clientHeight;
+        const x0 = Math.round(w * from);
+        g.save();
+        g.beginPath();
+        g.rect(x0, 0, w - x0, h);
+        g.clip();
+        g.globalAlpha = 0.55;
+        g.fillStyle = token("--pr-base");
+        g.fillRect(x0, 0, w - x0, h);
+        g.globalAlpha = 0.8;
+        g.strokeStyle = token("--pr-text-3");
+        g.lineWidth = 1;
+        for (let x = x0 - h; x < w; x += 6) {
+          g.beginPath();
+          g.moveTo(x, h);
+          g.lineTo(x + h, 0);
+          g.stroke();
+        }
+        g.globalAlpha = 1;
+        g.fillStyle = token("--pr-text-2");
+        g.fillRect(x0, 0, 1, h);
+        g.restore();
+      }
+
+      const draw = () => {
+        for (const job of draws) {
+          if (job.phase) {
+            const c = document.getElementById(job.id);
+            S.phase(c, { bpm: 126, span: (c.clientWidth / 828) * 7.6, offsetMs: job.offsetMs });
+            continue;
+          }
+          const { d } = job;
+          const z = document.getElementById(`${job.id}-z`);
+          const o = document.getElementById(`${job.id}-o`);
+          const w = d.wave;
+          S.scrolling(z, tracks[w.fn], {
+            bpm: w.bpm,
+            pos: w.pos,
+            span: (z.clientWidth / 828) * 7.6,
+            cues: w.cues,
+            loop: w.loop ?? null,
+          });
+          S.overview(o, tracks[w.fn], { length: w.length, pos: w.pos, cues: w.ov });
+          if (d.separated != null) unseparated(o, d.separated);
+        }
+      };
+      document.fonts.ready.then(draw);
+    </script>
+  </body>
+</html>
