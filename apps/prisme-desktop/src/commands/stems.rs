@@ -28,8 +28,9 @@ pub fn separate_tracks(stems: State<'_, StemsService>, paths: Vec<String>) -> Ap
     stems.enqueue(paths.into_iter().map(PathBuf::from))
 }
 
-/// Queues every track of the library not fully separated yet.
-#[tauri::command]
+/// Queues every track of the library not fully separated yet (off the main thread: a large
+/// library takes a while to look over).
+#[tauri::command(async)]
 pub fn separate_library(
     stems: State<'_, StemsService>,
     library: State<'_, Arc<LibraryService>>,

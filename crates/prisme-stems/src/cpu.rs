@@ -14,6 +14,8 @@ use crate::StemsError;
 
 pub struct CpuNetwork {
     weights: Weights,
+    /// The threads it computes on: rayon's global ones unless given.
+    pool: Option<rayon::ThreadPool>,
     /// The bins of the chunk started, and its frames.
     started: Option<(Vec<f32>, usize)>,
 }
@@ -26,7 +28,13 @@ impl CpuNetwork {
                 l.weight = Values::F32(l.weight.to_f32().into_owned());
             }
         }
-        Self { weights, started: None }
+        Self { weights, pool: None, started: None }
+    }
+
+    /// Computing on `pool`'s threads: fewer than the cores, at a low priority, so that the
+    /// audio and the interface keep theirs.
+    pub fn with_pool(weights: Weights, pool: rayon::ThreadPool) -> Self {
+        Self { pool: Some(pool), ..Self::new(weights) }
     }
 }
 
@@ -42,7 +50,10 @@ impl MaskNetwork for CpuNetwork {
 
     fn finish(&mut self, out: &mut [f32]) -> Result<(), StemsError> {
         let (bins, frames) = self.started.take().expect("a chunk was started");
-        self.compute(&bins, frames, out);
+        match &self.pool {
+            Some(pool) => pool.install(|| self.compute(&bins, frames, out)),
+            None => self.compute(&bins, frames, out),
+        }
         Ok(())
     }
 }

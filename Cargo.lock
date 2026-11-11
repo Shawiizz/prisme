@@ -3923,6 +3923,7 @@ dependencies = [
  "prisme-session",
  "prisme-stems",
  "prisme-timecode",
+ "rayon",
  "reqwest",
  "rtrb",
  "rustls",

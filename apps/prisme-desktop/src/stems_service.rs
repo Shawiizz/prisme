@@ -25,7 +25,7 @@ use prisme_media::TrackAudio;
 use prisme_stems::track::TrackSeparation;
 use prisme_stems::{CpuNetwork, Gpu, GpuNetwork, MaskNetwork, Separator, StemsError, Weights};
 use sha2::{Digest, Sha256};
-use std::collections::VecDeque;
+use std::collections::{HashSet, VecDeque};
 use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -103,9 +103,10 @@ impl Queue {
         self.played.len() + self.waiting.len()
     }
 
-    fn holds(&self, path: &Path) -> bool {
-        self.played.iter().chain(&self.waiting).any(|p| p == path)
-            || self.progress.current.as_deref() == Some(&*path.to_string_lossy())
+    /// The tracks queued or being separated.
+    fn held(&self) -> HashSet<PathBuf> {
+        let current = self.progress.current.as_deref().map(PathBuf::from);
+        self.played.iter().chain(&self.waiting).cloned().chain(current).collect()
     }
 }
 
@@ -160,10 +161,13 @@ impl StemsService {
         if installed.is_empty() {
             return Err(AppError::NoStemsModel);
         }
+        // the files are looked at before taking the queue, which the worker needs too
+        let wanted: Vec<PathBuf> = paths.into_iter().filter(|p| !missing(&installed, p).is_empty()).collect();
         let mut queue = lock(&self.queue);
+        let mut held = queue.held();
         let before = queue.waiting.len();
-        for path in paths {
-            if !queue.holds(&path) && !missing(&installed, &path).is_empty() {
+        for path in wanted {
+            if held.insert(path.clone()) {
                 queue.waiting.push_back(path);
             }
         }
@@ -348,8 +352,12 @@ enum Ended {
 impl Worker {
     fn run(self) {
         prisme_library::background_priority();
+        let _stopped = Stopped { app: self.app.clone(), queue: self.queue.clone() };
         let mut separators: Vec<Option<BoxedSeparator>> = (0..MODELS.len()).map(|_| None).collect();
-        let gpu = Gpu::open(Default::default()).inspect_err(|e| warn!("separating on the CPU: {e}")).ok();
+        let open_gpu =
+            || Gpu::open(Default::default()).inspect_err(|e| warn!("separating on the CPU: {e}")).ok();
+        let mut gpu = open_gpu();
+        let mut gpu_failed = false;
         while let Some(job) = self.next() {
             let installed: Vec<usize> = (0..MODELS.len()).filter(|&m| self.models[m].is_file()).collect();
             let needed = missing(&installed, &job.path);
@@ -390,17 +398,23 @@ impl Worker {
                 }
                 Ok(Ended::Dropped) => info!("{} left the decks before its separation", job.path.display()),
                 Err(StemsError::Cancelled) => info!("separation of {} cancelled", job.path.display()),
+                Err(StemsError::Gpu(e)) => {
+                    // out of memory, a driver reset: the GPU starts afresh, the CPU after
+                    // a second failure; the track is tried again first
+                    warn!("separation of {} failed on the GPU: {e}", job.path.display());
+                    separators.iter_mut().for_each(|s| *s = None);
+                    gpu = if gpu_failed { None } else { open_gpu() };
+                    gpu_failed = true;
+                    let mut queue = lock(&self.queue);
+                    let line = if job.played { &mut queue.played } else { &mut queue.waiting };
+                    line.push_front(job.path);
+                }
                 Err(e) => {
                     warn!("{} not separated: {e}", job.path.display());
                     self.update(|p| p.failed += 1);
                 }
             }
         }
-        // the separators (and the GPU memory they hold) go with the thread
-        let mut queue = lock(&self.queue);
-        queue.worker = false;
-        idle(&mut queue.progress);
-        let _ = self.app.emit(STEMS_PROGRESS_EVENT, queue.progress.clone());
     }
 
     /// The next track, the decks' first: waits for one up to [`IDLE`].
@@ -423,6 +437,8 @@ impl Worker {
             let (woken, wait) = self.wake.wait_timeout(queue, IDLE).unwrap_or_else(|e| e.into_inner());
             queue = woken;
             if wait.timed_out() && queue.len() == 0 {
+                // under the lock, so that a track queued from now starts another worker
+                queue.worker = false;
                 return None;
             }
         };
@@ -532,7 +548,7 @@ impl Worker {
                 let device = network.adapter().to_owned();
                 (Box::new(network), device)
             }
-            None => (Box::new(CpuNetwork::new(weights)), "CPU".to_owned()),
+            None => (Box::new(CpuNetwork::with_pool(weights, background_pool()?)), "CPU".to_owned()),
         })
     }
 
@@ -610,6 +626,34 @@ impl Live {
         }
         Ok(())
     }
+}
+
+/// Tells the queue the worker stopped, whether it returned or panicked: the next track starts
+/// another one. The separators (and the GPU memory they hold) go with the thread.
+struct Stopped {
+    app: AppHandle,
+    queue: Arc<Mutex<Queue>>,
+}
+
+impl Drop for Stopped {
+    fn drop(&mut self) {
+        let mut queue = lock(&self.queue);
+        queue.worker = false;
+        queue.live = None;
+        idle(&mut queue.progress);
+        let _ = self.app.emit(STEMS_PROGRESS_EVENT, queue.progress.clone());
+    }
+}
+
+/// Threads for a separation on the CPU: all the cores but two, at a background priority.
+fn background_pool() -> Result<rayon::ThreadPool, StemsError> {
+    let cores = std::thread::available_parallelism().map_or(2, |n| n.get());
+    rayon::ThreadPoolBuilder::new()
+        .num_threads(cores.saturating_sub(2).max(1))
+        .thread_name(|i| format!("prisme-stems-cpu-{i}"))
+        .start_handler(|_| prisme_library::background_priority())
+        .build()
+        .map_err(|e| StemsError::Track(e.to_string()))
 }
 
 /// Nothing left to separate.
