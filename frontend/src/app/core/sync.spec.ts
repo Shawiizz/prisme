@@ -1,5 +1,5 @@
 import { DeckStatus } from './models/engine';
-import { octaveRatio, phaseOffset, pitchToMatch } from './sync';
+import { driftTime, octaveRatio, phaseOffset, pitchToMatch } from './sync';
 
 function deck(bpm: number | null, beatPhase: number | null): DeckStatus {
   return {
@@ -59,5 +59,25 @@ describe('pitchToMatch', () => {
     expect(pitchToMatch(deck(125, 0), deck(128, 0))).toBeCloseTo(0.024);
     expect(pitchToMatch(deck(128, 0), deck(64, 0))).toBeCloseTo(0);
     expect(pitchToMatch(deck(null, 0), deck(128, 0))).toBeNull();
+  });
+});
+
+describe('driftTime', () => {
+  it('tells when a faster deck gets a sixteenth ahead', () => {
+    // 0.1 BPM faster: 1/600 beat per second, from in phase to 1/16 ahead in 37.5 s
+    expect(driftTime(deck(128.1, 0.5), deck(128, 0.5), 1 / 16)).toBeCloseTo(37.5, 6);
+  });
+
+  it('counts from where the beats are, in the direction they drift', () => {
+    const ahead = deck(128.1, 0.53);
+    expect(driftTime(ahead, deck(128, 0.5), 1 / 16)).toBeCloseTo(19.5, 6);
+    const slower = deck(127.9, 0.53);
+    expect(driftTime(slower, deck(128, 0.5), 1 / 16)).toBeCloseTo(55.5, 6);
+  });
+
+  it('is zero past the limit, and nothing without drift or playback', () => {
+    expect(driftTime(deck(128.1, 0.6), deck(128, 0.5), 1 / 16)).toBe(0);
+    expect(driftTime(deck(128, 0.6), deck(128, 0.5), 1 / 16)).toBeNull();
+    expect(driftTime({ ...deck(128.1, 0.5), playing: false }, deck(128, 0.5), 1 / 16)).toBeNull();
   });
 });

@@ -25,3 +25,18 @@ export function pitchToMatch(deck: DeckStatus, other: DeckStatus): number | null
   if (!deck.bpm || !other.bpm) return null;
   return (octaveRatio(deck.bpm, other.bpm) * other.bpm) / deck.bpm - 1;
 }
+
+/** Seconds before a deck's beats, drifting at the present tempos, are `limit` beats from the
+ * other deck's; `null` unless both play and they drift apart (or are past it already: 0). */
+export function driftTime(deck: DeckStatus, other: DeckStatus, limit: number): number | null {
+  const offset = phaseOffset(deck, other);
+  if (offset === null || !deck.playing || !other.playing || !deck.bpm || !other.bpm) return null;
+  // beats per second the deck gains on the other
+  const rate = (deck.bpm - octaveRatio(deck.bpm, other.bpm) * other.bpm) / 60;
+  if (Math.abs(rate) < MIN_DRIFT) return null;
+  const left = rate > 0 ? limit - offset : offset + limit;
+  return Math.max(0, left / Math.abs(rate));
+}
+
+/** Slower than this (beats per second) the decks hold for minutes: no drift to tell. */
+const MIN_DRIFT = 1e-4;

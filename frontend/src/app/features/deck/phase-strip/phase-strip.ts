@@ -8,13 +8,17 @@ import {
   viewChild,
 } from '@angular/core';
 import { EngineService } from '../../../core/services/engine.service';
-import { phaseOffset } from '../../../core/sync';
+import { driftTime, phaseOffset } from '../../../core/sync';
 import { t } from '../../../core/i18n/i18n';
 import { TPipe } from '../../../core/i18n/t.pipe';
 import { ZOOM_SPAN_S } from '../deck-waveform/deck-waveform';
 
 /** Beat offset under which the two decks count as matched. */
 const MATCHED_BEATS = 0.02;
+/** The offset heard as two kicks rather than one: a sixteenth note. */
+const HEARD_BEATS = 1 / 16;
+/** How far ahead the drift is told (s). */
+const FORECAST_S = 60;
 
 /**
  * Between the two decks: the beats of A at the top and of B at the bottom, around their
@@ -45,6 +49,15 @@ export class PhaseStrip {
     if (Math.abs(beats) < MATCHED_BEATS) return t('Matched');
     const ms = String(Math.round((Math.abs(beats) * 60_000) / b.bpm));
     return beats > 0 ? t('B ahead by {ms} ms', { ms }) : t('B behind by {ms} ms', { ms });
+  });
+  /** When B, at the present tempos, will be heard off A's beat. */
+  protected readonly drift = computed(() => {
+    const [a, b] = this.engine.status()?.decks ?? [];
+    const seconds = a && b ? driftTime(b, a, HEARD_BEATS) : null;
+    if (seconds === null || seconds > FORECAST_S) return '';
+    return seconds === 0
+      ? t('Off the beat: adjust the pitch')
+      : t('Off by 1/16 in {s} s', { s: String(Math.round(seconds)) });
   });
 
   constructor() {

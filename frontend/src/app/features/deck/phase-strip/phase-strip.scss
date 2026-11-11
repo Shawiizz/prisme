@@ -10,10 +10,14 @@
   justify-content: space-between;
   gap: var(--pr-space-2);
   padding: 0 var(--pr-space-3);
-  .offset {
+  .offset,
+  .drift {
     font-size: var(--pr-size-small);
     color: var(--pr-text-2);
     white-space: nowrap;
+  }
+  .drift {
+    color: var(--pr-warn);
   }
 }
 .lane {

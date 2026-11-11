@@ -77,6 +77,8 @@ export const FR: Record<string, string> = {
   Matched: 'Calés',
   'B ahead by {ms} ms': 'B en avance de {ms} ms',
   'B behind by {ms} ms': 'B en retard de {ms} ms',
+  'Off by 1/16 in {s} s': 'Décalé d’1/16 dans {s} s',
+  'Off the beat: adjust the pitch': 'Décalé : corrigez le pitch',
 
   // pads
   'Level of the effect': "Niveau de l'effet",
