@@ -34,6 +34,7 @@ mod error;
 mod folder_watch;
 mod folders;
 mod history;
+mod keep_awake;
 mod library_service;
 mod logging;
 mod midi_clock;
