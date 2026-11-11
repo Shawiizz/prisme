@@ -75,10 +75,14 @@ pub struct DecodeStream {
     buffer: Option<SampleBuffer<f32>>,
 }
 
+/// More frames than any codec gets out of a byte (16 kb/s Opus gives about 22).
+const MAX_FRAMES_PER_BYTE: u64 = 64;
+
 impl DecodeStream {
     pub fn open(path: &Path) -> Result<Self, MediaError> {
         let file = File::open(path)
             .map_err(|source| MediaError::Open { path: path.display().to_string(), source })?;
+        let file_bytes = file.metadata().map_or(u64::MAX, |m| m.len());
         let stream = MediaSourceStream::new(Box::new(file), Default::default());
         let mut hint = Hint::new();
         if let Some(ext) = path.extension().and_then(|e| e.to_str()) {
@@ -97,7 +101,12 @@ impl DecodeStream {
         Ok(Self {
             track_id: track.id,
             sample_rate: track.codec_params.sample_rate.ok_or(MediaError::NoSampleRate)?,
-            estimated_frames: track.codec_params.n_frames.unwrap_or(0) as usize,
+            // a damaged header announcing more than its file can hold is not believed
+            estimated_frames: track
+                .codec_params
+                .n_frames
+                .filter(|&n| n <= file_bytes.saturating_mul(MAX_FRAMES_PER_BYTE))
+                .unwrap_or(0) as usize,
             format,
             decoder,
             buffer: None,
@@ -169,6 +178,41 @@ mod tests {
         out.clear();
         append_stereo(&mut out, &[1.0, 2.0, 3.0, 4.0, 5.0, 6.0], 3);
         assert_eq!(out, vec![1.0, 2.0, 4.0, 5.0]);
+    }
+
+    /// A 16-bit stereo WAV of `frames` frames whose header announces `announced` bytes of data.
+    fn wav(name: &str, frames: u32, announced: u32) -> std::path::PathBuf {
+        let mut bytes = Vec::new();
+        bytes.extend_from_slice(b"RIFF");
+        bytes.extend_from_slice(&announced.saturating_add(36).to_le_bytes());
+        bytes.extend_from_slice(b"WAVEfmt ");
+        bytes.extend_from_slice(&16u32.to_le_bytes());
+        for v in [1u16, 2] {
+            bytes.extend_from_slice(&v.to_le_bytes());
+        }
+        bytes.extend_from_slice(&44_100u32.to_le_bytes());
+        bytes.extend_from_slice(&(44_100u32 * 4).to_le_bytes());
+        for v in [4u16, 16] {
+            bytes.extend_from_slice(&v.to_le_bytes());
+        }
+        bytes.extend_from_slice(b"data");
+        bytes.extend_from_slice(&announced.to_le_bytes());
+        bytes.extend((0..frames * 2).flat_map(|i| ((i % 100) as i16 * 100).to_le_bytes()));
+        let path = std::env::temp_dir().join(format!("prisme-media-{}-{name}.wav", std::process::id()));
+        std::fs::write(&path, bytes).unwrap();
+        path
+    }
+
+    #[test]
+    fn a_header_announcing_more_than_its_file_holds_is_not_believed() {
+        let honest = wav("honest", 1000, 4000);
+        assert_eq!(DecodeStream::open(&honest).unwrap().estimated_frames(), 1000);
+        let lying = wav("lying", 1000, 0x7fff_0000);
+        let stream = DecodeStream::open(&lying);
+        let decoded = decode_file(&lying);
+        let _ = (std::fs::remove_file(&honest), std::fs::remove_file(&lying));
+        assert_eq!(stream.unwrap().estimated_frames(), 0);
+        assert_eq!(decoded.unwrap().frames(), 1000);
     }
 
     #[test]
