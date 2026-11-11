@@ -129,6 +129,11 @@ const MIGRATIONS: &[&str] = &[
      ) WITHOUT ROWID;",
     // the file's tags hold the track's current tempo and key (see tag_sync)
     "ALTER TABLE tracks ADD COLUMN tags_written INTEGER NOT NULL DEFAULT 0;",
+    // the search row of each path: track_search finds its rows by words, not by path
+    "CREATE TABLE search_rows (path TEXT PRIMARY KEY NOT NULL, row INTEGER NOT NULL) WITHOUT ROWID;
+     INSERT OR REPLACE INTO search_rows (path, row) SELECT path, rowid FROM track_search ORDER BY rowid;
+     DELETE FROM track_search WHERE rowid NOT IN (SELECT row FROM search_rows);
+     CREATE INDEX crate_tracks_by_path ON crate_tracks (path);",
 ];
 
 pub fn now_ms() -> i64 {

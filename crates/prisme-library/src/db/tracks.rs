@@ -200,9 +200,11 @@ impl LibraryDb {
             tags.comment,
             record.version.tags_version,
         ])?;
-        tx.prepare_cached("DELETE FROM track_search WHERE path = ?1")?.execute([&record.path])?;
+        tx.prepare_cached(DELETE_SEARCH_ROW)?.execute([&record.path])?;
         tx.prepare_cached("INSERT INTO track_search (path, words) VALUES (?1, ?2)")?
             .execute(params![record.path, record.search_words()])?;
+        tx.prepare_cached("INSERT OR REPLACE INTO search_rows (path, row) VALUES (?1, ?2)")?
+            .execute(params![record.path, tx.last_insert_rowid()])?;
         tx.commit()?;
         Ok(())
     }
@@ -246,7 +248,18 @@ impl LibraryDb {
                 .execute([&from, &to])?;
             tx.prepare_cached(&format!("DELETE FROM {table} WHERE path = ?1"))?.execute([&from])?;
         }
-        tx.prepare_cached("UPDATE track_search SET path = ?2 WHERE path = ?1")?.execute([&from, &to])?;
+        // the search row already at the new path wins too
+        if tx.prepare_cached("SELECT 1 FROM search_rows WHERE path = ?1")?.exists([&to])? {
+            tx.prepare_cached(DELETE_SEARCH_ROW)?.execute([&from])?;
+            tx.prepare_cached("DELETE FROM search_rows WHERE path = ?1")?.execute([&from])?;
+        } else {
+            tx.prepare_cached(
+                "UPDATE track_search SET path = ?2
+                 WHERE rowid = (SELECT row FROM search_rows WHERE path = ?1)",
+            )?
+            .execute([&from, &to])?;
+            tx.prepare_cached("UPDATE search_rows SET path = ?2 WHERE path = ?1")?.execute([&from, &to])?;
+        }
         tx.commit()?;
         Ok(())
     }
@@ -257,7 +270,13 @@ impl LibraryDb {
     pub fn forget(&self, paths: &[String]) -> Result<(), DbError> {
         let conn = self.conn();
         let tx = conn.unchecked_transaction()?;
-        for table in ["tracks", "track_search", "covers", "waveforms"] {
+        {
+            let mut search = tx.prepare_cached(DELETE_SEARCH_ROW)?;
+            for path in paths {
+                search.execute([path])?;
+            }
+        }
+        for table in ["tracks", "search_rows", "covers", "waveforms"] {
             let mut delete = tx.prepare_cached(&format!("DELETE FROM {table} WHERE path = ?1"))?;
             for path in paths {
                 delete.execute([path])?;
@@ -281,6 +300,11 @@ impl LibraryDb {
 }
 
 /// `deadmau5 alone` -> `"deadmau5"* "alone"*`; `None` when there is nothing to look for.
+/// Deletes the search row of path ?1, found through `search_rows` (track_search would read
+/// every row to find a path).
+const DELETE_SEARCH_ROW: &str =
+    "DELETE FROM track_search WHERE rowid = (SELECT row FROM search_rows WHERE path = ?1)";
+
 fn fts_query(query: &str) -> Option<String> {
     let terms: Vec<String> = query
         .split(|c: char| !c.is_alphanumeric())
