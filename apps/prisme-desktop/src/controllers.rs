@@ -22,8 +22,9 @@ use tracing::{error, warn};
 const FINE_HALF_WITHIN: Duration = Duration::from_millis(100);
 
 const CLIENT: &str = "Prisme";
-/// How often the controllers in use are looked for, to open again one plugged back.
-const WATCH_EVERY: Duration = Duration::from_secs(2);
+/// How often the controllers in use are looked for, to open again one plugged back: less
+/// than a controller takes to come back on the USB bus, so that none goes unseen.
+const WATCH_EVERY: Duration = Duration::from_millis(500);
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 #[serde(default, rename_all = "camelCase")]
@@ -114,6 +115,10 @@ impl Controllers {
                         continue;
                     }
                     match controllers.open(&app, &device) {
+                        // turned off meanwhile
+                        Ok(()) if !controllers.setup.read(|s| s.enabled.contains(&device)) => {
+                            lock(&controllers.connections).retain(|c| c.device != device);
+                        }
                         Ok(()) => {
                             missing.retain(|d| *d != device);
                             tracing::info!("controller {device} opened again");
