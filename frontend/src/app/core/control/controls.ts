@@ -74,6 +74,8 @@ export interface ControlActions {
   resetTempo(deck: number): void;
   browse(steps: number): void;
   loadSelected(deck: number | null): void;
+  /** Loads on `deck` the track of the other deck of its pair, where it is. */
+  double(deck: number): void;
   removeSelected(): void;
   selectAll(): void;
   clearSelection(): void;
@@ -332,6 +334,14 @@ export function buildControls(a: ControlActions): Control[] {
       ),
     ),
     button('library.load', library, t('Load on a free deck'), () => a.loadSelected(null)),
+    ...Array.from({ length: DECK_COUNT }, (_, deck) =>
+      button(
+        `library.double${deck + 1}`,
+        library,
+        t('Instant double on deck {deck}', { deck: deckLetter(deck) }),
+        () => a.double(deck),
+      ),
+    ),
     button('library.remove', library, t('Remove from the crate or prepare list'), () =>
       a.removeSelected(),
     ),

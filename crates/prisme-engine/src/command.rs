@@ -94,6 +94,12 @@ pub enum Command {
         deck: DeckId,
         seconds: f64,
     },
+    /// Moves the playhead of `deck` where that of `from` is, and plays it if `from` plays: with
+    /// the same track loaded, an instant double.
+    TakePosition {
+        deck: DeckId,
+        from: DeckId,
+    },
     /// A controller's jog wheel touched or let go, at `at_s` on the controller's clock (s).
     JogTouch {
         deck: DeckId,

@@ -87,6 +87,7 @@ export class ControlService {
     resetTempo: (deck) => this.engine.setPitch(deck, 1),
     browse: (steps) => this.library.moveSelection(steps),
     loadSelected: (deck) => this.library.loadSelected(deck),
+    double: (deck) => this.engine.double(deck ^ 1, deck),
     removeSelected: () => this.library.removeSelected(),
     selectAll: () => this.library.selectAll(),
     clearSelection: () => this.library.clearSelection(),

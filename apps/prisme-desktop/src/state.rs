@@ -66,6 +66,24 @@ impl LoadedTrack {
         NEXT.fetch_add(1, Ordering::Relaxed)
     }
 
+    /// The same track as a load of its own, its audio and stems shared: an instant double.
+    pub fn double(&self) -> Self {
+        Self {
+            load_id: Self::next_load_id(),
+            path: self.path.clone(),
+            audio: self.audio.clone(),
+            waveform: self.waveform.clone(),
+            detected: self.detected,
+            edits: self.edits,
+            tags: self.tags.clone(),
+            cues: self.cues.clone(),
+            key_shift: self.key_shift,
+            stems: self.stems.clone(),
+            stem_mix: self.stem_mix,
+            loudness: self.loudness,
+        }
+    }
+
     /// What the UI shows of the track on `deck`.
     pub fn info(&self, deck: usize) -> TrackInfoDto {
         let analysis = self.analysis();

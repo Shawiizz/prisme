@@ -185,6 +185,21 @@ fn a_track_plays_at_its_level() {
 }
 
 #[test]
+fn a_double_plays_from_where_its_source_is() {
+    let mut rig = Rig::new();
+    let track = sine_track(10.0, 0.6);
+    rig.send(Command::LoadTrack { deck: 0, track: track.clone() });
+    rig.send(Command::SetPlaying { deck: 0, playing: true });
+    rig.run(1.5);
+    rig.send(Command::LoadTrack { deck: 1, track });
+    rig.send(Command::TakePosition { deck: 1, from: 0 });
+    rig.run(0.5);
+    let (a, b) = (rig.deck(0), rig.deck(1));
+    assert!(b.playing, "{b:?}");
+    assert!((a.position_s - b.position_s).abs() < 0.01, "{a:?} {b:?}");
+}
+
+#[test]
 fn a_deck_mutes_any_stem() {
     for key_lock in [false, true] {
         let mut rig = Rig::new();

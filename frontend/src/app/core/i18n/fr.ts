@@ -170,6 +170,7 @@ export const FR: Record<string, string> = {
   'Pitch → {deck}': 'Pitch → {deck}',
   'On deck {deck}': 'Sur le deck {deck}',
   'Load on deck {deck}': 'Charger sur le deck {deck}',
+  'Instant double on deck {deck}': 'Double instantané sur le deck {deck}',
   '1 track': '1 morceau',
   '{n} tracks': '{n} morceaux',
   'Analysing {done} / {total}': 'Analyse {done} / {total}',
@@ -420,7 +421,8 @@ export const FR: Record<string, string> = {
     'Le signal timecode de chaque disque, et comment il pilote son deck.',
   'Your mixer or the one in Prisme, and how it sounds.':
     'Votre table de mixage ou celle de Prisme, et son rendu.',
-  'Sync, tempo fader, quantize and auto gain.': 'Sync, fader de tempo, quantize et gain automatique.',
+  'Sync, tempo fader, quantize and auto gain.':
+    'Sync, fader de tempo, quantize et gain automatique.',
   'Your music files and what Prisme writes into them.':
     'Vos fichiers musicaux et ce que Prisme y écrit.',
   'Map the controls of a controller by moving them.':

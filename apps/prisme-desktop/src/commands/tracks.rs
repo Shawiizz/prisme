@@ -3,6 +3,7 @@ use crate::error::{AppError, AppResult};
 use crate::library_service::LibraryService;
 use crate::state::{lock, AppState};
 use crate::track_loading;
+use prisme_engine::Command;
 use std::path::PathBuf;
 use std::sync::Arc;
 use tauri::ipc::Response;
@@ -34,6 +35,21 @@ pub async fn load_track(
         state.send_if_running(c)?;
     }
     tauri::async_runtime::spawn_blocking(move || completion.run(&app, deck, load_id));
+    Ok(info)
+}
+
+/// Puts the track of deck `from` on `deck` where it is, playing if it plays (an instant
+/// double): nothing is read again.
+#[tauri::command]
+pub fn double_deck(state: State<'_, AppState>, from: usize, deck: usize) -> AppResult<TrackInfoDto> {
+    AppState::check_deck(deck)?;
+    let track = state.with_track(from, |t| t.double())?;
+    let info = track.info(deck);
+    let commands = track.load_commands(deck, state.preferences.read(|p| p.dj.auto_gain));
+    lock(&state.tracks)[deck] = Some(track);
+    for c in commands.into_iter().chain([Command::TakePosition { deck, from }]) {
+        state.send_if_running(c)?;
+    }
     Ok(info)
 }
 

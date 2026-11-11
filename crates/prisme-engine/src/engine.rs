@@ -253,6 +253,11 @@ impl Engine {
             SetPitch { deck, ratio } if valid(deck) => self.decks[deck].pitch = ratio,
             SetPitchBend { deck, amount } if valid(deck) => self.decks[deck].bend = amount,
             Seek { deck, seconds } if valid(deck) => self.decks[deck].playhead.seek_s(seconds),
+            TakePosition { deck, from } if valid(deck) && valid(from) => {
+                let (position, playing) = (self.decks[from].playhead.position_s(), self.decks[from].playing);
+                self.decks[deck].playhead.seek_s(position);
+                self.decks[deck].playing = playing;
+            }
             Hand { deck, position_s, at_s } if valid(deck) => self.decks[deck].hand(position_s, at_s),
             JogTouch { deck, touched, at_s } if valid(deck) => self.decks[deck].jog_touch(touched, at_s),
             Jog { deck, turns, at_s } if valid(deck) => self.decks[deck].jog_turn(turns, at_s),

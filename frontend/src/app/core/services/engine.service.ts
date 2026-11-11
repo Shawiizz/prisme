@@ -185,9 +185,19 @@ export class EngineService {
   }
 
   async load(deck: number, path: string): Promise<void> {
+    return this.put(deck, () => invoke<TrackInfo>('load_track', { deck, path }));
+  }
+
+  /** The track of deck `from` on `deck`, where it is and playing if it plays. */
+  async double(from: number, deck: number): Promise<void> {
+    if (!this.tracks()[from]) return;
+    return this.put(deck, () => invoke<TrackInfo>('double_deck', { from, deck }));
+  }
+
+  private async put(deck: number, load: () => Promise<TrackInfo>): Promise<void> {
     this.patch(this.loading, deck, true);
     try {
-      const info = await invoke<TrackInfo>('load_track', { deck, path });
+      const info = await load();
       this.patch(this.tracks, deck, info);
       this.patch(this.waveforms, deck, null);
       if (info.waveformReady) this.fetchWaveform(deck, info.loadId);

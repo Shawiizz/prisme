@@ -169,6 +169,7 @@ pub fn run() {
             commands::audio::audio_info,
             commands::audio::apply_audio_settings,
             commands::tracks::load_track,
+            commands::tracks::double_deck,
             commands::stems::stems_status,
             commands::stems::download_stems_model,
             commands::stems::separate_tracks,

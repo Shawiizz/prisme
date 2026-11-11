@@ -44,6 +44,8 @@ export const SHORTCUTS: Shortcut[] = [
   { code: 'ArrowDown', control: 'library.next' },
   { code: 'ArrowLeft', shift: true, control: 'library.load1' },
   { code: 'ArrowRight', shift: true, control: 'library.load2' },
+  { code: 'ArrowLeft', ctrl: true, shift: true, control: 'library.double1' },
+  { code: 'ArrowRight', ctrl: true, shift: true, control: 'library.double2' },
   { code: 'Enter', control: 'library.load' },
   { code: 'Delete', control: 'library.remove' },
   { code: 'KeyP', ctrl: true, control: 'library.prepare' },
