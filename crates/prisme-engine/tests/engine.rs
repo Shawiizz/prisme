@@ -172,6 +172,19 @@ fn going_back_and_forth_is_not_taken_for_crossed_channels() {
 }
 
 #[test]
+fn a_track_plays_at_its_level() {
+    let mut rig = Rig::new();
+    rig.send(Command::LoadTrack { deck: 0, track: sine_track(10.0, 0.6) });
+    rig.send(Command::SetPlaying { deck: 0, playing: true });
+    rig.run(0.5);
+    let full = rig.run_rms(0.5);
+    rig.send(Command::SetLevel { deck: 0, gain: 0.5 });
+    rig.run(0.5);
+    let half = rig.run_rms(0.5);
+    assert!((half / full - 0.5).abs() < 1e-3, "{half} / {full}");
+}
+
+#[test]
 fn a_deck_mutes_any_stem() {
     for key_lock in [false, true] {
         let mut rig = Rig::new();

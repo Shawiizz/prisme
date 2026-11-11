@@ -84,6 +84,7 @@ pub fn prepare(path: PathBuf, library: &LibraryService) -> AppResult<(LoadedTrac
         key_shift: 0,
         stems: StemTracks::default(),
         stem_mix: Default::default(),
+        loudness: None,
     };
     Ok((track, completion))
 }
@@ -106,6 +107,15 @@ impl Completion {
             {
                 warn!("{} not separated: {e}", self.path.display());
             }
+        }
+        let loudness = prisme_analysis::loudness(&audio);
+        let auto_gain = state.preferences.read(|p| p.dj.auto_gain);
+        let level = state.with_loaded(deck, load_id, |t| {
+            t.loudness = loudness;
+            t.level(auto_gain)
+        });
+        if let Some(gain) = level {
+            let _ = state.send_if_running(Command::SetLevel { deck, gain });
         }
         let mut update =
             DeckTrackUpdateDto { deck, load_id, waveform_ready: false, analysis: None, separation };

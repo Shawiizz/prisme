@@ -22,6 +22,22 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex, MutexGuard};
 use tracing::error;
 
+/// The loudness auto gain brings every track to: that of a loud modern master, so that most
+/// tracks come down a little and few need a boost.
+pub const AUTO_GAIN_LUFS: f64 = -10.0;
+
+/// The gain bringing a track of `loudness` to [`AUTO_GAIN_LUFS`]: at most 12 dB down and 6 dB
+/// up, and never so far up that its peak would clip.
+fn auto_gain_for(loudness: prisme_analysis::Loudness) -> f32 {
+    let db = (AUTO_GAIN_LUFS - loudness.lufs).clamp(-12.0, 6.0);
+    let gain = 10f64.powf(db / 20.0) as f32;
+    if gain > 1.0 {
+        gain.min(1.0 / loudness.peak.max(1e-6)).max(1.0)
+    } else {
+        gain
+    }
+}
+
 pub struct LoadedTrack {
     /// Tells two loads apart, even of the same file.
     pub load_id: u64,
@@ -40,6 +56,8 @@ pub struct LoadedTrack {
     pub stems: StemTracks,
     /// The parts the deck plays (all again at each load).
     pub stem_mix: StemMixDto,
+    /// How loud the track is, once its audio is all decoded.
+    pub loudness: Option<prisme_analysis::Loudness>,
 }
 
 impl LoadedTrack {
@@ -79,15 +97,22 @@ impl LoadedTrack {
         self.analysis().tempo.map(|t| BeatGrid { bpm: t.bpm, first_beat_s: t.first_beat_s })
     }
 
-    /// Commands that put the track, with its beat grid, key shift and stems, on `deck`.
-    pub fn load_commands(&self, deck: usize) -> [Command; 5] {
+    /// Commands that put the track, with its beat grid, key shift and stems, on `deck`, at
+    /// its level if `auto_gain`.
+    pub fn load_commands(&self, deck: usize, auto_gain: bool) -> [Command; 6] {
         [
             Command::LoadTrack { deck, track: self.audio.clone() },
             Command::SetBeatGrid { deck, grid: self.grid() },
             Command::SetKeyShift { deck, semitones: self.key_shift },
             Command::SetStems { deck, stems: self.stems.clone() },
             Command::SetStemMix { deck, mix: self.stem_mix.into() },
+            Command::SetLevel { deck, gain: self.level(auto_gain) },
         ]
+    }
+
+    /// Its gain: the one bringing it to [`AUTO_GAIN_LUFS`] if `auto_gain`, else 1.
+    pub fn level(&self, auto_gain: bool) -> f32 {
+        self.loudness.filter(|_| auto_gain).map_or(1.0, auto_gain_for)
     }
 
     pub fn cue(&self, slot: CueSlot) -> Option<&Cue> {
@@ -239,6 +264,20 @@ impl AppState {
         }
     }
 
+    /// Puts every loaded track at its level, after auto gain was turned on or off.
+    pub fn apply_levels(&self) -> AppResult<()> {
+        let auto_gain = self.preferences.read(|p| p.dj.auto_gain);
+        let levels: Vec<(usize, f32)> = lock(&self.tracks)
+            .iter()
+            .enumerate()
+            .filter_map(|(deck, t)| Some((deck, t.as_ref()?.level(auto_gain))))
+            .collect();
+        for (deck, gain) in levels {
+            self.send_if_running(Command::SetLevel { deck, gain })?;
+        }
+        Ok(())
+    }
+
     /// Sample rate of the running audio.
     pub fn sample_rate(&self) -> Option<u32> {
         lock(&self.session).as_ref().map(|s| s.engine_config.sample_rate)
@@ -258,10 +297,11 @@ impl AppState {
         let output_channels = session.info.output_channels;
         let config = session.engine_config;
         let controller = &mut session.controller;
+        let auto_gain = self.preferences.read(|p| p.dj.auto_gain);
         let tracks = lock(&self.tracks);
         let decks = lock(&self.decks);
         for (deck, (track, settings)) in tracks.iter().zip(decks.iter()).enumerate() {
-            for c in track.iter().flat_map(|t| t.load_commands(deck)) {
+            for c in track.iter().flat_map(|t| t.load_commands(deck, auto_gain)) {
                 let _ = controller.send(c);
             }
             for c in deck_commands(deck, settings) {
@@ -320,4 +360,34 @@ pub fn deck_commands(deck: usize, s: &DeckSettings) -> Vec<Command> {
         commands.push(Command::SetEqKill { deck, band: band.into(), kill: strip.kills[i] });
     }
     commands
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use prisme_analysis::Loudness;
+
+    fn db(gain: f32) -> f32 {
+        20.0 * gain.log10()
+    }
+
+    #[test]
+    fn a_loud_track_comes_down_to_the_target() {
+        let gain = auto_gain_for(Loudness { lufs: -6.0, peak: 1.0 });
+        assert!((db(gain) + 4.0).abs() < 1e-3, "{}", db(gain));
+    }
+
+    #[test]
+    fn a_quiet_track_goes_up_as_far_as_its_peak_allows() {
+        assert!((db(auto_gain_for(Loudness { lufs: -14.0, peak: 0.25 })) - 4.0).abs() < 1e-3);
+        let gain = auto_gain_for(Loudness { lufs: -14.0, peak: 0.9 });
+        assert!((gain - 1.0 / 0.9).abs() < 1e-5, "{gain}");
+        assert_eq!(auto_gain_for(Loudness { lufs: -14.0, peak: 1.0 }), 1.0);
+    }
+
+    #[test]
+    fn the_correction_is_bounded() {
+        assert!((db(auto_gain_for(Loudness { lufs: 5.0, peak: 1.0 })) + 12.0).abs() < 1e-3);
+        assert!((db(auto_gain_for(Loudness { lufs: -40.0, peak: 0.01 })) - 6.0).abs() < 1e-3);
+    }
 }

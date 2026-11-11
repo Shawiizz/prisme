@@ -45,11 +45,13 @@ pub struct DjPreferences {
     pub quantize: bool,
     /// Range of the tempo faders (0.08 = ±8 %).
     pub pitch_range: f64,
+    /// Every track played at the same loudness (see `LoadedTrack::level`).
+    pub auto_gain: bool,
 }
 
 impl Default for DjPreferences {
     fn default() -> Self {
-        Self { vinyl_sync: VinylSync::Once, quantize: true, pitch_range: 0.08 }
+        Self { vinyl_sync: VinylSync::Once, quantize: true, pitch_range: 0.08, auto_gain: false }
     }
 }
 

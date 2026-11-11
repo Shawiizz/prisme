@@ -485,6 +485,28 @@
                   </button>
                 </div>
               }
+              @if (row('dj.autoGain')) {
+                @let e = entry('dj.autoGain');
+                <div
+                  class="pr-row"
+                  data-setting="dj.autoGain"
+                  [class.is-pointed]="pointed() === e.id"
+                >
+                  <div>
+                    <span class="pr-row__name">{{ e.label }}</span>
+                    <span class="pr-row__help">{{ e.description }}</span>
+                  </div>
+                  <button
+                    class="pr-switch"
+                    role="switch"
+                    [attr.aria-checked]="dj().autoGain"
+                    [attr.aria-label]="e.label"
+                    (click)="updateDj({ autoGain: !dj().autoGain })"
+                  >
+                    <span></span>
+                  </button>
+                </div>
+              }
             </div>
           </section>
         }

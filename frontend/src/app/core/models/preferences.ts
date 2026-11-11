@@ -7,6 +7,8 @@ export interface DjPreferences {
   quantize: boolean;
   /** Range of the tempo faders (0.08 = ±8 %). */
   pitchRange: number;
+  /** Every track played at the same loudness. */
+  autoGain: boolean;
 }
 
 export interface LibraryPreferences {

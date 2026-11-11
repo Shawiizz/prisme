@@ -13,7 +13,8 @@ pub fn get_preferences(state: State<'_, AppState>) -> Preferences {
 #[tauri::command]
 pub fn set_dj_preferences(state: State<'_, AppState>, dj: DjPreferences) -> AppResult<()> {
     state.update_preferences(|p| p.dj = dj);
-    state.send_if_running(Command::SetQuantize { enabled: dj.quantize })
+    state.send_if_running(Command::SetQuantize { enabled: dj.quantize })?;
+    state.apply_levels()
 }
 
 #[tauri::command]

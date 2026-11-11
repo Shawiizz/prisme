@@ -26,7 +26,7 @@ pub async fn load_track(
             .await
             .map_err(|e| AppError::Other(e.to_string()))??;
     let info = track.info(deck);
-    let commands = track.load_commands(deck);
+    let commands = track.load_commands(deck, state.preferences.read(|p| p.dj.auto_gain));
     let load_id = track.load_id;
     // kept for audio restarts
     lock(&state.tracks)[deck] = Some(track);

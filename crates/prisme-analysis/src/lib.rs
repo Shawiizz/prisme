@@ -4,17 +4,20 @@
 //!   colored waveforms.
 //! * [`tempo`]: BPM and beat grid.
 //! * [`key`]: musical key, with its Camelot code.
+//! * [`loudness`]: loudness (LUFS), to play tracks at the same level.
 //!
 //! Tempo and key work on a mono copy decimated to ~11 kHz ([`dsp`]), and the tempo on
 //! onset envelopes ([`onset`]).
 
 pub mod dsp;
 pub mod key;
+pub mod loudness;
 pub mod onset;
 pub mod tempo;
 pub mod waveform;
 
 pub use key::{Key, KeyConfig, KeyEstimate, Mode, Profiles};
+pub use loudness::{loudness, Loudness};
 pub use tempo::{Tempo, DEFAULT_MIN_BPM};
 pub use waveform::{compute_waveform, Waveform};
 

@@ -31,6 +31,8 @@ const MAX_CORRECTION_PER_SPEED: f64 = 0.5;
 /// Below this speed the track fades out: a stopped playhead holds its last sample, a
 /// constant level the speakers would thump on whenever it changed.
 const STILL_SPEED: f64 = 0.02;
+/// How fast the level of a track glides to its auto gain (s): no click when it comes.
+const LEVEL_GLIDE_S: f32 = 0.05;
 /// How fast the track fades with the motion (s).
 const MOTION_FADE_S: f32 = 0.005;
 
@@ -63,6 +65,8 @@ pub(crate) struct Deck {
     jog: Jog,
     /// Gain of the track, following its motion.
     motion: Smoothed,
+    /// Gain bringing the track to the level of the others (1 without auto gain).
+    pub(crate) level: Smoothed,
 }
 
 impl Deck {
@@ -90,6 +94,7 @@ impl Deck {
             hand: None,
             jog: Jog::default(),
             motion: Smoothed::new(0.0, MOTION_FADE_S, sample_rate as f32),
+            level: Smoothed::new(1.0, LEVEL_GLIDE_S, sample_rate as f32),
         }
     }
 
@@ -180,13 +185,15 @@ impl Deck {
     }
 
     /// Fades the track out as it stops and in as it moves again.
+    /// The track's gain: its motion's, and its level's.
     fn fade_with_motion(&mut self, out: &mut [f32]) {
         self.motion.set((self.speed.abs() / STILL_SPEED).min(1.0) as f32);
-        if self.motion.is_settled() && self.motion.target() == 1.0 {
+        let still = |s: &Smoothed| s.is_settled() && s.target() == 1.0;
+        if still(&self.motion) && still(&self.level) {
             return;
         }
         for frame in out.chunks_exact_mut(2) {
-            let gain = self.motion.tick();
+            let gain = self.motion.tick() * self.level.tick();
             frame[0] *= gain;
             frame[1] *= gain;
         }

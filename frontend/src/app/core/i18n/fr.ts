@@ -449,6 +449,9 @@ export const FR: Record<string, string> = {
     'Ce que fait SYNC quand un disque pilote le deck.',
   'The travel of the tempo faders, as on your turntables.':
     'La course des faders de tempo, comme sur vos platines.',
+  'Auto gain': 'Gain automatique',
+  'Every track plays at the same loudness, measured as it loads: no trim to touch between a quiet one and a loud one.':
+    'Chaque morceau joue au même volume, mesuré au chargement : plus de gain à retoucher entre un morceau calme et un fort.',
   Quantize: 'Quantize',
   'Cues, loops and jumps land on the beat.': 'Cues, boucles et sauts tombent sur le temps.',
   'The interface starts again in it.': "L'interface redémarre dans cette langue.",

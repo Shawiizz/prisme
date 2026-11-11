@@ -5,7 +5,12 @@ import { DjPreferences, LibraryPreferences, Preferences } from '../models/prefer
 /** Preferences kept by the backend from one start to the next. */
 @Injectable({ providedIn: 'root' })
 export class PreferencesService {
-  readonly dj = signal<DjPreferences>({ vinylSync: 'once', quantize: true, pitchRange: 0.08 });
+  readonly dj = signal<DjPreferences>({
+    vinylSync: 'once',
+    quantize: true,
+    pitchRange: 0.08,
+    autoGain: false,
+  });
   readonly library = signal<LibraryPreferences>({
     lastFolder: null,
     hiddenColumns: [],

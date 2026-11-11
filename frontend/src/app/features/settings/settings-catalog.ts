@@ -149,6 +149,14 @@ export const SETTINGS: readonly SettingEntry[] = [
     description: t('Cues, loops and jumps land on the beat.'),
   },
   {
+    id: 'dj.autoGain',
+    page: 'dj',
+    label: t('Auto gain'),
+    description: t(
+      'Every track plays at the same loudness, measured as it loads: no trim to touch between a quiet one and a loud one.',
+    ),
+  },
+  {
     id: 'library.tags',
     page: 'library',
     label: t('Write the tempo and key into the tags of the files'),

@@ -302,6 +302,7 @@ impl Engine {
             SetDeckCue { deck, enabled } if valid(deck) => self.decks[deck].cue = enabled,
             SetCueMix { mix } => self.mixer.cue_mix = mix,
             SetHeadphoneGain { gain } => self.mixer.headphone_gain = gain,
+            SetLevel { deck, gain } if valid(deck) => self.decks[deck].level.set(gain.max(0.0)),
             SetTrim { deck, gain } if valid(deck) => self.decks[deck].strip.set_trim(gain),
             SetEq { deck, band, gain } if valid(deck) => self.decks[deck].strip.set_eq(band, gain),
             SetEqKill { deck, band, kill } if valid(deck) => self.decks[deck].strip.set_kill(band, kill),

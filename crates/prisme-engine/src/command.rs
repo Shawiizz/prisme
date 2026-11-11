@@ -237,6 +237,11 @@ pub enum Command {
     SetHeadphoneGain {
         gain: f32,
     },
+    /// The level of the track on `deck` (linear): its auto gain, in either mixer mode.
+    SetLevel {
+        deck: DeckId,
+        gain: f32,
+    },
     /// Internal mixer: gain before the EQ (linear).
     SetTrim {
         deck: DeckId,
