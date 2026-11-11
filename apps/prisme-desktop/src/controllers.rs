@@ -22,6 +22,8 @@ use tracing::{error, warn};
 const FINE_HALF_WITHIN: Duration = Duration::from_millis(100);
 
 const CLIENT: &str = "Prisme";
+/// How often the controllers in use are looked for, to open again one plugged back.
+const WATCH_EVERY: Duration = Duration::from_secs(2);
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 #[serde(default, rename_all = "camelCase")]
@@ -93,6 +95,41 @@ impl Controllers {
             if let Err(e) = self.open(app, &device) {
                 warn!("controller {device} not opened: {e}");
             }
+        }
+    }
+
+    /// Keeps the controllers in use open: one unplugged (a USB cable pulled, a hub that
+    /// resets) is closed, and opened again as soon as it is back.
+    pub fn watch(app: AppHandle) {
+        let spawned = std::thread::Builder::new().name("prisme-midi-watch".into()).spawn(move || {
+            let mut missing: Vec<String> = Vec::new();
+            loop {
+                std::thread::sleep(WATCH_EVERY);
+                let Ok(plugged) = Self::plugged() else { continue };
+                let controllers = app.state::<Controllers>();
+                lock(&controllers.connections).retain(|c| plugged.contains(&c.device));
+                for device in controllers.setup.read(|s| s.enabled.clone()) {
+                    let open = lock(&controllers.connections).iter().any(|c| c.device == device);
+                    if open || !plugged.contains(&device) {
+                        continue;
+                    }
+                    match controllers.open(&app, &device) {
+                        Ok(()) => {
+                            missing.retain(|d| *d != device);
+                            tracing::info!("controller {device} opened again");
+                        }
+                        // told once, tried again
+                        Err(e) if !missing.contains(&device) => {
+                            warn!("controller {device} not opened again: {e}");
+                            missing.push(device);
+                        }
+                        Err(_) => {}
+                    }
+                }
+            }
+        });
+        if let Err(e) = spawned {
+            error!("controllers not watched: {e}");
         }
     }
 

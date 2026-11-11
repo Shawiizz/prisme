@@ -97,6 +97,7 @@ pub fn run() {
             sampler::load_saved(app.handle().clone());
             let controllers = app.state::<Controllers>();
             controllers.open_enabled(app.handle());
+            Controllers::watch(app.handle().clone());
             app.manage(MidiClock::new());
             if let Some(output) = controllers.setup().clock_output {
                 if let Err(e) = app.state::<MidiClock>().set_output(Some(&output)) {
