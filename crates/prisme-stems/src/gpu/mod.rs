@@ -39,6 +39,9 @@ pub struct Gpu {
     errors: Arc<Mutex<Option<String>>>,
     /// The shaders for the matrix units run on it.
     matrix_units: bool,
+    /// NVIDIA's GPUs take the f32 products in large tiles; others would spill their
+    /// registers, and take them in small ones.
+    large_tiles: bool,
 }
 
 pub struct GpuNetwork {
@@ -93,6 +96,8 @@ enum Store {
 struct Pipelines {
     /// By input then output storage: F32 → F32, F32 → Act, Act → F32, Act → Act.
     matmul: [wgpu::ComputePipeline; 4],
+    /// The side of the square of outputs a workgroup of `matmul` computes.
+    matmul_tile: usize,
     norm: wgpu::ComputePipeline,
     norm_in_place: wgpu::ComputePipeline,
     rotary: wgpu::ComputePipeline,
@@ -127,15 +132,23 @@ enum Act {
 
 impl Gpu {
     /// The most capable GPU, with its matrix units if it has some; fails without a GPU
-    /// (software rasterisers are refused unless `options` accept them: the CPU implementation
-    /// is faster).
+    /// worth it. Software rasterisers are refused unless `options` accept them, and so are
+    /// integrated GPUs without matrix units unless picked by name (`WGPU_ADAPTER_NAME`): the
+    /// CPU separates faster (on an Intel UHD of 2023, 26 times faster).
     pub fn open(options: GpuOptions) -> Result<Arc<Self>, StemsError> {
-        let adapter = adapter()?;
+        let (adapter, picked) = adapter()?;
         let info = adapter.get_info();
         if info.device_type == wgpu::DeviceType::Cpu && !options.software {
             return Err(StemsError::NoGpu(format!("{} is a software renderer", info.name)));
         }
         let matrix_units = !options.without_matrix_units && has_matrix_units(&adapter);
+        if info.device_type == wgpu::DeviceType::IntegratedGpu && !matrix_units && !picked {
+            return Err(StemsError::NoGpu(format!(
+                "{} is an integrated GPU, slower than the CPU",
+                info.name
+            )));
+        }
+        let large_tiles = info.vendor == NVIDIA;
         let (device, queue) = pollster::block_on(adapter.request_device(&wgpu::DeviceDescriptor {
             label: Some("prisme-stems"),
             required_features: if matrix_units { MATRIX_FEATURES } else { wgpu::Features::empty() },
@@ -161,7 +174,7 @@ impl Gpu {
             sink.lock().expect("error sink").get_or_insert(message);
         }));
         let name = format!("{} ({:?})", info.name, info.backend);
-        Ok(Arc::new(Self { device, queue, name, errors, matrix_units }))
+        Ok(Arc::new(Self { device, queue, name, errors, matrix_units, large_tiles }))
     }
 
     /// The GPU and graphics API.
@@ -200,7 +213,7 @@ impl GpuNetwork {
             return Err(StemsError::Model("the GPU attention takes heads of at most 64 values".into()));
         }
         let matrix = gpu.matrix_units && fits_matrix_units(weights);
-        let pipelines = Pipelines::new(&gpu.device, &weights.geometry, matrix);
+        let pipelines = Pipelines::new(gpu, &weights.geometry, matrix);
         let params = Params::upload(&gpu.device, weights, matrix);
         let units = if matrix { ", tensor cores" } else { "" };
         let network = Self {
@@ -319,9 +332,9 @@ impl MaskNetwork for GpuNetwork {
 
 /// The most capable GPU, through Vulkan when it can (its compiler makes the matrix products
 /// faster than Direct3D 12's, and it reaches the matrix units), else whatever API reaches
-/// one. `WGPU_BACKEND` restricts the APIs, `WGPU_ADAPTER_NAME` picks a GPU by (part of) its
-/// name.
-fn adapter() -> Result<wgpu::Adapter, StemsError> {
+/// one, and whether it was picked by name. `WGPU_BACKEND` restricts the APIs,
+/// `WGPU_ADAPTER_NAME` picks a GPU by (part of) its name.
+fn adapter() -> Result<(wgpu::Adapter, bool), StemsError> {
     let instance = |backends: wgpu::Backends| {
         let mut desc = wgpu::InstanceDescriptor::new_without_display_handle();
         desc.backends = backends;
@@ -335,6 +348,7 @@ fn adapter() -> Result<wgpu::Adapter, StemsError> {
         return adapters
             .into_iter()
             .find(|a| a.get_info().name.to_lowercase().contains(&wanted))
+            .map(|a| (a, true))
             .ok_or_else(|| StemsError::NoGpu(format!("no GPU named like {wanted}")));
     }
     let request = |backends: wgpu::Backends| {
@@ -345,8 +359,12 @@ fn adapter() -> Result<wgpu::Adapter, StemsError> {
     };
     request(wgpu::Backends::VULKAN)
         .or_else(|_| request(wgpu::Backends::PRIMARY))
+        .map(|a| (a, false))
         .map_err(|e| StemsError::NoGpu(e.to_string()))
 }
+
+/// NVIDIA's PCI vendor id.
+const NVIDIA: u32 = 0x10de;
 
 const MATRIX_FEATURES: wgpu::Features = wgpu::Features::SHADER_F16
     .union(wgpu::Features::SUBGROUP)
@@ -385,7 +403,8 @@ fn matrix_attention(device: &wgpu::Device, geometry: &Geometry) -> bool {
 }
 
 impl Pipelines {
-    fn new(device: &wgpu::Device, geometry: &Geometry, matrix: bool) -> Self {
+    fn new(gpu: &Gpu, geometry: &Geometry, matrix: bool) -> Self {
+        let device = &gpu.device;
         let header = if matrix {
             "enable f16;\nenable wgpu_cooperative_matrix;\nalias Act = f16;\n"
         } else {
@@ -417,9 +436,12 @@ impl Pipelines {
                 make(&format!("{types}{}", include_str!("matmul_coop.wgsl")), "main", &[])
             })
         } else {
-            let f32 = make(include_str!("matmul.wgsl"), "main", &[]);
+            let source =
+                if gpu.large_tiles { include_str!("matmul.wgsl") } else { include_str!("matmul_small.wgsl") };
+            let f32 = make(source, "main", &[]);
             [f32.clone(), f32.clone(), f32.clone(), f32]
         };
+        let matmul_tile = if matrix || gpu.large_tiles { 128 } else { 64 };
         let matrix_attention = matrix && matrix_attention(device, geometry);
         let attention = if matrix_attention {
             make(include_str!("attention_coop.wgsl"), "main", &[])
@@ -428,6 +450,7 @@ impl Pipelines {
         };
         Self {
             matmul,
+            matmul_tile,
             norm: make(include_str!("norm.wgsl"), "normalize", &[]),
             norm_in_place: make(include_str!("norm_in_place.wgsl"), "normalize_in_place", &[]),
             rotary: make(include_str!("rotary.wgsl"), "main", &[]),
@@ -655,7 +678,8 @@ impl Planner<'_> {
     /// `out` (+)= act(`a` · `l`) over `rows` rows.
     fn matmul(&self, l: &GpuLinear, a: Input, rows: usize, out: Input, act: Act, accumulate: bool) -> Step {
         let bias = l.bias.as_ref().unwrap_or(&self.net.params.no_bias);
-        let groups = (l.out.div_ceil(128) as u32, rows.div_ceil(128) as u32);
+        let tile = self.net.pipelines.matmul_tile;
+        let groups = (l.out.div_ceil(tile) as u32, rows.div_ceil(tile) as u32);
         let uniform = [
             rows,
             l.out,
