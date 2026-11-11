@@ -18,7 +18,8 @@ struct Params {
 }
 
 @group(0) @binding(0) var<storage, read> a: array<f32>;
-@group(0) @binding(1) var<storage, read> w: array<f32>;
+// f16 weights, two to a word (no f16 arithmetic needed)
+@group(0) @binding(1) var<storage, read> w: array<u32>;
 @group(0) @binding(2) var<storage, read> bias: array<f32>;
 @group(0) @binding(3) var<storage, read_write> c: array<f32>;
 @group(0) @binding(4) var<uniform> p: Params;
@@ -69,7 +70,9 @@ fn main(
             a_tile[kk * STRIDE + r] = av;
             var wv = 0.0;
             if (col0 + r < p.n && gk < p.k) {
-                wv = w[(col0 + r) * p.k + gk];
+                let at = (col0 + r) * p.k + gk;
+                let pair = unpack2x16float(w[at / 2u]);
+                wv = select(pair.x, pair.y, at % 2u == 1u);
             }
             w_tile[kk * STRIDE + r] = wv;
         }

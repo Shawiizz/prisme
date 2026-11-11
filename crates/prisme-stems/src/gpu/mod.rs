@@ -4,7 +4,8 @@
 //! Where wgpu reaches the GPU's matrix units (the tensor cores, through Vulkan's cooperative
 //! matrices), the matrix products and the attention run on them: f16 operands, f32 sums. The
 //! activations they read are then stored as f16, as the units round them anyway; the residual
-//! stream between the layers stays f32.
+//! stream between the layers stays f32. The weights are f16 either way, as the models store
+//! them: half the memory of f32 ones, which lets the networks fit on 4 GB cards.
 //!
 //! The work for a chunk is planned once (buffers, bind groups, dispatches) per frame count,
 //! then replayed: only the input bins change between chunks. Networks opened on one [`Gpu`]
@@ -70,7 +71,7 @@ struct Params {
 }
 
 struct GpuLinear {
-    /// f32 rows of `inp` values, or for the matrix units f16 rows padded to `ld` groups of 4.
+    /// f16 rows: of `inp` values, or for the matrix units padded to `ld` groups of 4.
     weight: wgpu::Buffer,
     bias: Option<wgpu::Buffer>,
     out: usize,
@@ -470,14 +471,11 @@ impl Params {
     fn upload(device: &wgpu::Device, w: &Weights, matrix: bool) -> Self {
         let linear = |l: &Linear| {
             // the matrix units read rows of whole groups of 4, which the networks they run
-            // have (`fits_matrix_units`)
-            let (weight, ld) = if matrix {
-                (storage(device, bytemuck::cast_slice(&l.weight.to_f16())), l.inp / 4)
-            } else {
-                (storage(device, bytemuck::cast_slice(&l.weight.to_f32())), l.inp)
-            };
+            // have (`fits_matrix_units`); the shader cores read pairs of values,
+            // the last one padded by `storage`
+            let ld = if matrix { l.inp / 4 } else { l.inp };
             GpuLinear {
-                weight,
+                weight: storage(device, bytemuck::cast_slice(&l.weight.to_f16())),
                 bias: l.bias.as_ref().map(|b| storage(device, bytemuck::cast_slice(b))),
                 out: l.out,
                 inp: l.inp,
@@ -808,6 +806,7 @@ fn angles(freqs: &[f32], positions: usize) -> Vec<f32> {
     all.iter().map(|a| a.cos()).chain(all.iter().map(|a| a.sin())).collect()
 }
 
+/// A storage buffer holding `bytes`, zero-padded to whole words.
 fn storage(device: &wgpu::Device, bytes: &[u8]) -> wgpu::Buffer {
     device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
         label: None,

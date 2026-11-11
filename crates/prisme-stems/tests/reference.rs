@@ -33,21 +33,21 @@ pub fn relative_error(a: &[f32], b: &[f32]) -> f64 {
     (num / den).sqrt()
 }
 
-fn separates_like_the_reference(net: impl MaskNetwork, audio: &[f32], expected: &[f32]) {
+fn separates_like_the_reference(net: impl MaskNetwork, audio: &[f32], expected: &[f32], tolerance: f64) {
     let n = audio.len() / 2;
     let mut separator = Separator::new(net);
     let mut out = vec![[vec![0.0; n], vec![0.0; n]]; separator.stems().len()];
     separator.chunk(&audio[..n], &audio[n..], &mut out).unwrap();
     let got: Vec<f32> = out.into_iter().flatten().flatten().collect();
     let err = relative_error(&got, expected);
-    assert!(err < 1e-4, "relative error {err:e}");
+    assert!(err < tolerance, "relative error {err:e}");
 }
 
 #[test]
 fn the_cpu_network_separates_like_the_reference() {
     for weights in [fixture(), stems_fixture()] {
         let (audio, expected) = reference(&weights);
-        separates_like_the_reference(CpuNetwork::new(weights), &audio, &expected);
+        separates_like_the_reference(CpuNetwork::new(weights), &audio, &expected, 1e-4);
     }
 }
 
@@ -84,8 +84,19 @@ fn the_gpu_network_separates_like_the_reference() {
     for weights in [fixture(), stems_fixture()] {
         let (audio, expected) = reference(&weights);
         let Some(net) = gpu(weights, true) else { return };
-        separates_like_the_reference(net, &audio, &expected);
+        separates_like_the_reference(net, &audio, &expected, F16_TOLERANCE);
     }
+}
+
+/// The weights rounded to f16, as the GPU stores them.
+fn in_f16(mut weights: Weights) -> Weights {
+    let round = |l: &mut Linear| l.weight = Values::F16(l.weight.to_f16().into_owned());
+    weights.band_proj.iter_mut().for_each(round);
+    for layer in weights.transformers.iter_mut().flat_map(|t| &mut t.layers) {
+        [&mut layer.qkvg, &mut layer.out, &mut layer.ff1, &mut layer.ff2].into_iter().for_each(round);
+    }
+    weights.masks.iter_mut().flatten().flatten().for_each(round);
+    weights
 }
 
 /// Masks of the GPU and of the CPU for the same bins, long enough for several query blocks
@@ -105,7 +116,7 @@ fn gpu_and_cpu_masks(gpu: &mut GpuNetwork, weights: Weights) -> (Vec<f32>, Vec<f
 
 #[test]
 fn the_gpu_network_matches_the_cpu_on_longer_chunks() {
-    for weights in [fixture(), stems_fixture()] {
+    for weights in [fixture(), stems_fixture()].map(in_f16) {
         let Some(mut gpu) = gpu(weights.clone(), true) else { return };
         let (got, expected) = gpu_and_cpu_masks(&mut gpu, weights);
         let err = relative_error(&got, &expected);
@@ -113,8 +124,9 @@ fn the_gpu_network_matches_the_cpu_on_longer_chunks() {
     }
 }
 
-/// The matrix units round the activations they read to f16: within a few thousandths.
-const MATRIX_TOLERANCE: f64 = 5e-3;
+/// The weights rounded to f16, and on the matrix units the activations they read too: within
+/// a few thousandths of the reference.
+const F16_TOLERANCE: f64 = 5e-3;
 
 #[test]
 fn the_matrix_units_match_the_cpu() {
@@ -122,7 +134,7 @@ fn the_matrix_units_match_the_cpu() {
         let Some(mut gpu) = matrix_units(weights.clone()) else { return };
         let (got, expected) = gpu_and_cpu_masks(&mut gpu, weights);
         let err = relative_error(&got, &expected);
-        assert!(err < MATRIX_TOLERANCE, "relative error {err:e}");
+        assert!(err < F16_TOLERANCE, "relative error {err:e}");
     }
 }
 
@@ -131,13 +143,7 @@ fn the_matrix_units_separate_like_the_reference() {
     for weights in [fixture(), stems_fixture()] {
         let (audio, expected) = reference(&weights);
         let Some(net) = matrix_units(weights) else { return };
-        let n = audio.len() / 2;
-        let mut separator = Separator::new(net);
-        let mut out = vec![[vec![0.0; n], vec![0.0; n]]; separator.stems().len()];
-        separator.chunk(&audio[..n], &audio[n..], &mut out).unwrap();
-        let got: Vec<f32> = out.into_iter().flatten().flatten().collect();
-        let err = relative_error(&got, &expected);
-        assert!(err < MATRIX_TOLERANCE, "relative error {err:e}");
+        separates_like_the_reference(net, &audio, &expected, F16_TOLERANCE);
     }
 }
 
