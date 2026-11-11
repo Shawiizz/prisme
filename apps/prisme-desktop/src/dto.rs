@@ -362,7 +362,7 @@ pub struct StemMixDto {
     pub other: StemLevelDto,
 }
 
-/// A part's level (0 to 1), kept while it is muted.
+/// A part's level: where its knob stands (0 to 1), kept while it is muted.
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct StemLevelDto {
@@ -377,9 +377,11 @@ impl Default for StemLevelDto {
 }
 
 impl StemLevelDto {
+    /// The gain of the knob's position along a volume taper (the square: -12 dB half way),
+    /// so that the whole travel is heard, as on a fader.
     fn gain(self) -> f32 {
         if self.on {
-            self.level.clamp(0.0, 1.0)
+            self.level.clamp(0.0, 1.0).powi(2)
         } else {
             0.0
         }
@@ -953,4 +955,17 @@ pub struct DeckPitchDto {
 pub struct LightDto {
     pub target: String,
     pub on: bool,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn a_stem_knob_follows_a_volume_taper_and_a_mute_keeps_its_level() {
+        let at = |level, on| StemLevelDto { level, on };
+        let mix = StemMixDto { vocals: at(0.5, true), drums: at(1.0, false), ..Default::default() };
+        let engine = prisme_engine::StemMix::from(mix);
+        assert_eq!((engine.vocals, engine.drums, engine.bass), (0.25, 0.0, 1.0));
+    }
 }
