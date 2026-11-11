@@ -331,9 +331,9 @@ impl MaskNetwork for GpuNetwork {
     }
 }
 
-/// The most capable GPU, through Vulkan when it can (its compiler makes the matrix products
-/// faster than Direct3D 12's, and it reaches the matrix units), else whatever API reaches
-/// one, and whether it was picked by name. `WGPU_BACKEND` restricts the APIs,
+/// The most capable GPU, through Vulkan when it reaches a hardware one (its compiler makes
+/// the matrix products faster than Direct3D 12's, and it reaches the matrix units), else
+/// whatever API reaches one, and whether it was picked by name. `WGPU_BACKEND` restricts the APIs,
 /// `WGPU_ADAPTER_NAME` picks a GPU by (part of) its name.
 fn adapter() -> Result<(wgpu::Adapter, bool), StemsError> {
     let instance = |backends: wgpu::Backends| {
@@ -358,8 +358,11 @@ fn adapter() -> Result<(wgpu::Adapter, bool), StemsError> {
             ..Default::default()
         }))
     };
-    request(wgpu::Backends::VULKAN)
-        .or_else(|_| request(wgpu::Backends::PRIMARY))
+    let hardware = |a: &wgpu::Adapter| a.get_info().device_type != wgpu::DeviceType::Cpu;
+    [wgpu::Backends::VULKAN, wgpu::Backends::DX12]
+        .into_iter()
+        .find_map(|backends| request(backends).ok().filter(hardware))
+        .map_or_else(|| request(wgpu::Backends::PRIMARY), Ok)
         .map(|a| (a, false))
         .map_err(|e| StemsError::NoGpu(e.to_string()))
 }
