@@ -100,7 +100,10 @@ impl Completion {
         let library = app.state::<Arc<LibraryService>>();
         let separation = crate::stems_service::give_stems(app, deck, load_id, &self.path, &audio);
         if state.preferences.read(|p| p.library.separate_on_load) {
-            if let Err(e) = app.state::<crate::stems_service::StemsService>().separate_played(&self.path) {
+            if let Err(e) = app
+                .state::<crate::stems_service::StemsService>()
+                .separate_played(&self.path, audio.duration_s())
+            {
                 warn!("{} not separated: {e}", self.path.display());
             }
         }

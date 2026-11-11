@@ -228,15 +228,19 @@ fn process(db: &LibraryDb, file: &ScannedFile, options: &AnalysisOptions) -> (Tr
     }
 }
 
+/// The analysis of a file; a file that makes a decoder or the analysis panic is recorded as
+/// failed, and left alone until it changes, instead of stopping the analysis there.
 fn analyze(file: &ScannedFile, options: &AnalysisOptions) -> (TrackRecord, Option<Vec<u8>>) {
-    match prisme_analysis::analyze_file(&file.path, options) {
-        Ok(a) => {
-            let metadata = read_metadata(&file.path);
-            let record =
-                TrackRecord::analyzed(&file.path, file.stamp, a.duration_s, a.analysis, metadata.tags);
-            (record, metadata.cover)
-        }
-        Err(e) => (TrackRecord::failed(&file.path, file.stamp, e.to_string()), None),
+    let analyzed = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        let a = prisme_analysis::analyze_file(&file.path, options)?;
+        let metadata = read_metadata(&file.path);
+        let record = TrackRecord::analyzed(&file.path, file.stamp, a.duration_s, a.analysis, metadata.tags);
+        Ok::<_, prisme_media::MediaError>((record, metadata.cover))
+    }));
+    match analyzed {
+        Ok(Ok(analyzed)) => analyzed,
+        Ok(Err(e)) => (TrackRecord::failed(&file.path, file.stamp, e.to_string()), None),
+        Err(_) => (TrackRecord::failed(&file.path, file.stamp, "the file could not be read".into()), None),
     }
 }
 

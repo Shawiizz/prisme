@@ -39,6 +39,9 @@ pub const STEMS_PROGRESS_EVENT: &str = "stems-progress";
 pub const STEMS_SEPARATED_EVENT: &str = "stems-separated";
 /// Payload: the [`ModelStatusDto`] of one model.
 pub const STEMS_MODEL_EVENT: &str = "stems-model";
+/// Longest track separated as soon as it is loaded: an hour-long mix would hold gigabytes
+/// while separated (the library's queue still takes it).
+const LONGEST_PLAYED_S: f64 = 20.0 * 60.0;
 /// How long the worker keeps the models open, waiting for another track.
 const IDLE: Duration = Duration::from_secs(300);
 
@@ -178,11 +181,11 @@ impl StemsService {
         Ok(added)
     }
 
-    /// Separates `path`, loaded on a deck, before the library's tracks, if an installed
-    /// model has stems to add to it.
-    pub fn separate_played(&self, path: &Path) -> AppResult<()> {
+    /// Separates `path`, loaded on a deck and `duration_s` long, before the library's
+    /// tracks, if an installed model has stems to add to it.
+    pub fn separate_played(&self, path: &Path, duration_s: f64) -> AppResult<()> {
         let installed = self.installed();
-        if installed.is_empty() || missing(&installed, path).is_empty() {
+        if duration_s > LONGEST_PLAYED_S || installed.is_empty() || missing(&installed, path).is_empty() {
             return Ok(());
         }
         let mut queue = lock(&self.queue);

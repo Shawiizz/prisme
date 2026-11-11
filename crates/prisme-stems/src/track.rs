@@ -102,7 +102,12 @@ impl TrackSeparation {
             let input = match inputs.iter().position(|(r, _)| *r == rate) {
                 Some(input) => input,
                 None => {
-                    inputs.push((rate, deinterleave(&resample(&samples, sample_rate, rate)?)));
+                    let input = if rate == sample_rate {
+                        deinterleave(&samples)
+                    } else {
+                        deinterleave(&resample(&samples, sample_rate, rate)?)
+                    };
+                    inputs.push((rate, input));
                     inputs.len() - 1
                 }
             };
