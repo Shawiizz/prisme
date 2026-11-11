@@ -17,6 +17,19 @@
   >
     <canvas #overview></canvas>
   </div>
+  @if (activity(); as activity) {
+    <div
+      class="lanes"
+      [style.height.px]="activity.length * 4 - 1"
+      [title]="lanesTitle()"
+      (pointerdown)="press($event, 'overview')"
+      (pointermove)="move($event)"
+      (pointerup)="release($event)"
+      (pointercancel)="cancel()"
+    >
+      <canvas #lanes></canvas>
+    </div>
+  }
   @if (!track()) {
     <div class="hint">{{ 'Load a track from the library' | t }}</div>
   }

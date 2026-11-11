@@ -10,12 +10,15 @@
   height: 100%;
   display: grid;
   grid-template-rows: minmax(0, 1fr) 22px;
+  /* the stem lanes, once there are some */
+  grid-auto-rows: auto;
   gap: var(--pr-space-1);
 }
 /* Canvases are absolutely positioned so that their backing store can never feed back into
    the layout. */
 .zoom,
-.overview {
+.overview,
+.lanes {
   position: relative;
   min-height: 0;
   canvas {
@@ -37,6 +40,10 @@
 .overview {
   background: var(--pr-base);
   border-radius: var(--pr-radius-sm);
+  cursor: pointer;
+  touch-action: none;
+}
+.lanes {
   cursor: pointer;
   touch-action: none;
 }

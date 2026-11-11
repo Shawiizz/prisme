@@ -20,6 +20,8 @@ interface View {
 /** Opacity of what has played, in the scrolling view and in the overview. */
 const PLAYED = 0.45;
 const PLAYED_OVERVIEW = 0.35;
+/** Stem levels (0 to 255, -48 to 0 dBFS) below this are another stem's bleed: not drawn. */
+const LANE_FLOOR = 80;
 
 /** The colours of the design system (tokens.css), read once. */
 class Palette {
@@ -27,6 +29,7 @@ class Palette {
   readonly low = this.token('--pr-f-low');
   readonly high = this.token('--pr-f-high');
   readonly light = this.token('--pr-light');
+  readonly base = this.token('--pr-base');
   readonly veil = this.token('--pr-light-veil');
   readonly onLight = this.token('--pr-on-light');
   readonly text = this.token('--pr-text');
@@ -56,6 +59,64 @@ export class WaveformPainter {
     full: Bitmap;
     played: Bitmap;
   } | null = null;
+
+  /** The stem lanes, drawn again only for other levels or another size. */
+  private lanes: { activity: Uint8Array[]; width: number; height: number; image: Bitmap } | null =
+    null;
+
+  /** A lane per part of a separated track, the vocals at the top, lit where the part plays;
+   * the played part veiled as in the overview. */
+  drawStemLanes(
+    ctx: CanvasRenderingContext2D,
+    activity: Uint8Array[],
+    positionS: number,
+    durationS: number,
+    size: { width: number; height: number; ratio: number },
+  ) {
+    ctx.clearRect(0, 0, size.width, size.height);
+    ctx.drawImage(this.lanesImage(activity, size), 0, 0);
+    const played = durationS > 0 ? Math.round((positionS / durationS) * size.width) : 0;
+    ctx.globalAlpha = 1 - PLAYED_OVERVIEW;
+    ctx.fillStyle = this.palette.base;
+    ctx.fillRect(0, 0, Math.min(Math.max(played, 0), size.width), size.height);
+    ctx.globalAlpha = 1;
+  }
+
+  private lanesImage(
+    activity: Uint8Array[],
+    size: { width: number; height: number; ratio: number },
+  ): Bitmap {
+    const cached = this.lanes;
+    if (
+      cached &&
+      cached.activity === activity &&
+      cached.width === size.width &&
+      cached.height === size.height
+    ) {
+      return cached.image;
+    }
+    const image = bitmap(size.width, size.height);
+    const ctx = image.getContext('2d')!;
+    const lane = size.height / activity.length;
+    ctx.fillStyle = this.palette.light;
+    activity.forEach((levels, i) => {
+      const n = levels.length;
+      const top = Math.round(i * lane);
+      const height = Math.max(1, Math.round((i + 1) * lane) - top - size.ratio);
+      for (let x = 0; x < size.width; x++) {
+        const first = Math.floor((x / size.width) * n);
+        const last = Math.max(first + 1, Math.floor(((x + 1) / size.width) * n));
+        let level = 0;
+        for (let k = first; k < Math.min(last, n); k++) level = Math.max(level, levels[k]);
+        if (level <= LANE_FLOOR) continue;
+        ctx.globalAlpha = Math.min((level - LANE_FLOOR) / 150, 1);
+        ctx.fillRect(x, top, 1, height);
+      }
+    });
+    ctx.globalAlpha = 1;
+    this.lanes = { activity, width: size.width, height: size.height, image };
+    return image;
+  }
 
   /** Scrolling view centred on `positionS`; without a waveform yet, everything but the audio. */
   drawZoomed(

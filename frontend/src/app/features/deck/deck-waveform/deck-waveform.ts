@@ -4,10 +4,15 @@ import {
   ElementRef,
   afterNextRender,
   computed,
+  effect,
   inject,
   input,
+  signal,
   viewChild,
 } from '@angular/core';
+import { invoke } from '@tauri-apps/api/core';
+import { StemsService } from '../../../core/services/stems.service';
+import { t } from '../../../core/i18n/i18n';
 import { EngineService } from '../../../core/services/engine.service';
 import { WaveformOverlay, WaveformPainter } from './waveform-painter';
 import { TPipe } from '../../../core/i18n/t.pipe';
@@ -50,8 +55,20 @@ export class DeckWaveform {
   private readonly engine = inject(EngineService);
   private readonly zoomCanvas = viewChild.required<ElementRef<HTMLCanvasElement>>('zoom');
   private readonly overviewCanvas = viewChild.required<ElementRef<HTMLCanvasElement>>('overview');
+  private readonly lanesCanvas = viewChild<ElementRef<HTMLCanvasElement>>('lanes');
+  private readonly stems = inject(StemsService);
   private readonly painter = new WaveformPainter();
   protected readonly track = computed(() => this.engine.tracks()[this.deck()]);
+  /** Where each part of the separated track plays (`stem_activity`), once it is all
+   * separated. */
+  protected readonly activity = signal<Uint8Array[] | null>(null);
+  /** The load and separation the activity was asked for. */
+  private activityOf = '';
+  protected readonly lanesTitle = computed(() =>
+    this.activity()?.length === 4
+      ? t('Vocals, drums, bass and melody along the track')
+      : t('Vocals and instrumental along the track'),
+  );
   private frame = 0;
   private drag: Drag | null = null;
   /** What the last frame showed: a frame showing the same is not drawn again (a deck at
@@ -68,6 +85,36 @@ export class DeckWaveform {
       this.frame = requestAnimationFrame(loop);
     });
     destroyRef.onDestroy(() => cancelAnimationFrame(this.frame));
+    effect(() => this.askActivity());
+  }
+
+  /** Asks the activity of the track once it is separated, again until it is all there. */
+  private askActivity() {
+    const track = this.track();
+    const separating = this.stems.progress().current === track?.path;
+    const of =
+      track && track.separation !== 'none' && !separating
+        ? `${track.loadId} ${track.separation}`
+        : '';
+    if (of === this.activityOf) return;
+    this.activityOf = of;
+    this.activity.set(null);
+    if (!track || !of) return;
+    const parts = track.separation === 'full' ? 4 : 2;
+    invoke<ArrayBuffer>('stem_activity', { deck: this.deck(), loadId: track.loadId }).then(
+      (buffer) => {
+        if (this.activityOf !== of) return;
+        const bytes = new Uint8Array(buffer);
+        const slices = bytes.length / parts;
+        if (!slices) {
+          this.activityOf = '';
+          return;
+        }
+        this.activity.set(
+          Array.from({ length: parts }, (_, i) => bytes.subarray(i * slices, (i + 1) * slices)),
+        );
+      },
+    );
   }
 
   press(event: PointerEvent, view: Drag['view']) {
@@ -131,6 +178,9 @@ export class DeckWaveform {
     const track = this.track();
     const zoom = this.fit(this.zoomCanvas().nativeElement);
     const overview = this.fit(this.overviewCanvas().nativeElement);
+    const lanesCanvas = this.lanesCanvas()?.nativeElement;
+    const lanes = lanesCanvas ? this.fit(lanesCanvas) : null;
+    const activity = this.activity();
     if (!zoom || !overview) return;
     if (!track) {
       zoom.ctx.clearRect(0, 0, zoom.size.width, zoom.size.height);
@@ -156,6 +206,9 @@ export class DeckWaveform {
       zoom.size.height,
       overview.size.width,
       overview.size.height,
+      activity,
+      lanes?.size.width,
+      lanes?.size.height,
     ];
     if (showing.length === this.shown.length && showing.every((v, i) => v === this.shown[i]))
       return;
@@ -169,6 +222,9 @@ export class DeckWaveform {
       track.durationS,
       overview.size,
     );
+    if (lanes && activity) {
+      this.painter.drawStemLanes(lanes.ctx, activity, position, track.durationS, lanes.size);
+    }
   }
 
   /** Keeps the canvas backing store at the element size (device pixels). */

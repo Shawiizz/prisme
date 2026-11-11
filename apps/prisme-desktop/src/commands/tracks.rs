@@ -1,9 +1,9 @@
-use crate::dto::{waveform_bytes, TrackInfoDto};
+use crate::dto::{waveform_bytes, SeparationDto, TrackInfoDto};
 use crate::error::{AppError, AppResult};
 use crate::library_service::LibraryService;
 use crate::state::{lock, AppState};
 use crate::track_loading;
-use prisme_engine::Command;
+use prisme_engine::{Command, Stem};
 use std::path::PathBuf;
 use std::sync::Arc;
 use tauri::ipc::Response;
@@ -59,6 +59,26 @@ pub fn double_deck(state: State<'_, AppState>, from: usize, deck: usize) -> AppR
 pub fn deck_waveform(state: State<'_, AppState>, deck: usize, load_id: u64) -> Response {
     let bytes = state.with_loaded(deck, load_id, |t| t.waveform.as_ref().map(waveform_bytes)).flatten();
     Response::new(bytes.unwrap_or_default())
+}
+
+/// Where each part of the separated track on `deck` plays (`prisme_analysis::stem_activity`):
+/// a row of levels for the vocals then the instrumental, or for the vocals, drums, bass and
+/// other instruments, one after the other; empty until the track is all separated.
+#[tauri::command(async)]
+pub fn stem_activity(state: State<'_, AppState>, deck: usize, load_id: u64) -> Response {
+    let parts = state.with_loaded(deck, load_id, |t| {
+        let stems: &[Stem] = match SeparationDto::of(|s| t.stems[s as usize].is_some()) {
+            SeparationDto::None => return None,
+            SeparationDto::Vocals => &[Stem::Vocals],
+            SeparationDto::Full => &Stem::ALL,
+        };
+        let stems: Option<Vec<_>> = stems.iter().map(|&s| t.stems[s as usize].clone()).collect();
+        Some((t.audio.clone(), stems?))
+    });
+    let rows = parts.flatten().and_then(|(audio, stems)| {
+        prisme_analysis::stem_activity(&audio, &stems.iter().map(|s| &**s).collect::<Vec<_>>())
+    });
+    Response::new(rows.map(|r| r.concat()).unwrap_or_default())
 }
 
 /// Tracks currently loaded on the decks (to rebuild the UI after a reload).

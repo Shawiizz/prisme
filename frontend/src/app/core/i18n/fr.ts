@@ -510,6 +510,9 @@ export const FR: Record<string, string> = {
   'Instrumental: turn for the level, click the name to mute':
     'Instru : tourner pour doser, cliquer le nom pour couper',
   'Separate this track into stems': 'Séparer ce morceau en pistes',
+  'Vocals, drums, bass and melody along the track':
+    'Voix, batterie, basse et mélodie le long du morceau',
+  'Vocals and instrumental along the track': 'Voix et instru le long du morceau',
   'Instrumental level': 'Niveau de l’instru',
   'Drums level': 'Niveau de la batterie',
   'Bass level': 'Niveau de la basse',

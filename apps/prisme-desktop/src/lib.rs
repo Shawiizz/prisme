@@ -178,6 +178,7 @@ pub fn run() {
             commands::stems::set_stem_mix,
             commands::tracks::loaded_tracks,
             commands::tracks::deck_waveform,
+            commands::tracks::stem_activity,
             commands::decks::set_playing,
             commands::decks::seek,
             commands::decks::hand,
