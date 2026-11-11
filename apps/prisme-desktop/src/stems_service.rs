@@ -97,8 +97,11 @@ struct Queue {
     progress: StemsProgressDto,
     /// The track being separated and its stems as the decks play them while they come.
     live: Option<(PathBuf, StemTracks)>,
-    /// The worker runs (separating, or waiting for a track with the models open).
-    worker: bool,
+    /// The worker running (separating, or waiting for a track with the models open), by
+    /// number: one that stopped tells it apart from the one started after it.
+    worker: Option<u64>,
+    /// Workers started so far.
+    started: u64,
 }
 
 impl Queue {
@@ -209,8 +212,11 @@ impl StemsService {
                 StemsProgressDto { running: true, queued: queue.len(), device, ..Default::default() };
             self.cancel.store(false, Ordering::Relaxed);
         }
-        if !queue.worker {
+        if queue.worker.is_none() {
+            let id = queue.started;
+            queue.started += 1;
             let worker = Worker {
+                id,
                 app: self.app.clone(),
                 models: (0..MODELS.len()).map(|m| self.model_path(m)).collect(),
                 queue: self.queue.clone(),
@@ -221,7 +227,7 @@ impl StemsService {
                 .name("prisme-stems".into())
                 .spawn(move || worker.run())
                 .map_err(|e| AppError::Other(e.to_string()))?;
-            queue.worker = true;
+            queue.worker = Some(id);
         }
         self.wake.notify_one();
         let _ = self.app.emit(STEMS_PROGRESS_EVENT, queue.progress.clone());
@@ -377,6 +383,7 @@ fn sha256_of(path: &Path) -> std::io::Result<(u64, String)> {
 }
 
 struct Worker {
+    id: u64,
     app: AppHandle,
     /// Where each of [`MODELS`] is (installed or not).
     models: Vec<PathBuf>,
@@ -409,7 +416,7 @@ enum Ended {
 impl Worker {
     fn run(self) {
         prisme_library::background_priority();
-        let _stopped = Stopped { app: self.app.clone(), queue: self.queue.clone() };
+        let _stopped = Stopped { id: self.id, app: self.app.clone(), queue: self.queue.clone() };
         let mut separators: Vec<Option<BoxedSeparator>> = (0..MODELS.len()).map(|_| None).collect();
         let open_gpu =
             || Gpu::open(Default::default()).inspect_err(|e| warn!("separating on the CPU: {e}")).ok();
@@ -495,7 +502,7 @@ impl Worker {
             queue = woken;
             if wait.timed_out() && queue.len() == 0 {
                 // under the lock, so that a track queued from now starts another worker
-                queue.worker = false;
+                queue.worker = None;
                 return None;
             }
         };
@@ -686,8 +693,10 @@ impl Live {
 }
 
 /// Tells the queue the worker stopped, whether it returned or panicked: the next track starts
-/// another one. The separators (and the GPU memory they hold) go with the thread.
+/// another one. The separators (and the GPU memory they hold) go with the thread. A worker
+/// that gave the queue up while waiting has nothing to tell: another may run already.
 struct Stopped {
+    id: u64,
     app: AppHandle,
     queue: Arc<Mutex<Queue>>,
 }
@@ -695,7 +704,10 @@ struct Stopped {
 impl Drop for Stopped {
     fn drop(&mut self) {
         let mut queue = lock(&self.queue);
-        queue.worker = false;
+        if queue.worker != Some(self.id) {
+            return;
+        }
+        queue.worker = None;
         queue.live = None;
         idle(&mut queue.progress);
         let _ = self.app.emit(STEMS_PROGRESS_EVENT, queue.progress.clone());
