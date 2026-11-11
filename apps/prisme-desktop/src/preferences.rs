@@ -85,11 +85,13 @@ pub struct LibraryPreferences {
     pub hidden_columns: Vec<String>,
     /// Tempo and key written into the files' tags (see `tag_writer`).
     pub write_tags: bool,
+    /// A track loaded on a deck is separated right away, before the library's.
+    pub separate_on_load: bool,
 }
 
 impl Default for LibraryPreferences {
     fn default() -> Self {
-        Self { last_folder: None, hidden_columns: Vec::new(), write_tags: true }
+        Self { last_folder: None, hidden_columns: Vec::new(), write_tags: true, separate_on_load: true }
     }
 }
 
@@ -105,6 +107,7 @@ mod tests {
         assert_eq!(p.dj.pitch_range, 0.08);
         assert_eq!(p.audio, AudioSettings::default());
         assert!(p.library.write_tags);
+        assert!(p.library.separate_on_load);
     }
 
     #[test]

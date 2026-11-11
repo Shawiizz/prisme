@@ -99,6 +99,11 @@ impl Completion {
         let state = app.state::<AppState>();
         let library = app.state::<Arc<LibraryService>>();
         let separation = crate::stems_service::give_stems(app, deck, load_id, &self.path, &audio);
+        if state.preferences.read(|p| p.library.separate_on_load) {
+            if let Err(e) = app.state::<crate::stems_service::StemsService>().separate_played(&self.path) {
+                warn!("{} not separated: {e}", self.path.display());
+            }
+        }
         let mut update =
             DeckTrackUpdateDto { deck, load_id, waveform_ready: false, analysis: None, separation };
         if self.waveform_missing {

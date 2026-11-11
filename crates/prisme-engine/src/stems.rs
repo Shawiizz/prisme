@@ -4,7 +4,9 @@
 //! the interpolation and the key lock see a single signal.
 //!
 //! A track separated into its vocals alone has no drums nor bass: they stay in the other
-//! instruments and follow their gain.
+//! instruments and follow their gain. So does a stem where it is not separated yet (the
+//! stems of a track being separated come as they are made); where none is, the track plays
+//! whole.
 
 use prisme_media::{TrackAudio, TrackView};
 use std::sync::Arc;
@@ -118,20 +120,22 @@ impl Reader<'_> {
     #[inline]
     pub(crate) fn frame(&self, i: isize) -> (f32, f32) {
         let (l, r) = self.track.frame(i);
-        if self.stems.iter().all(Option::is_none) {
-            return (l, r);
-        }
         let other = self.other.value;
-        let (mut l, mut r) = (other * l, other * r);
+        let (mut ml, mut mr) = (other * l, other * r);
+        let mut separated = false;
         for (stem, ramp) in self.stems.iter().zip(self.gains.iter()) {
-            if let Some(stem) = stem {
-                let (sl, sr) = stem.frame(i);
+            if let Some((sl, sr)) = stem.and_then(|s| s.get(i)) {
                 let delta = ramp.value - other;
-                l += delta * sl;
-                r += delta * sr;
+                ml += delta * sl;
+                mr += delta * sr;
+                separated = true;
             }
         }
-        (l, r)
+        if separated {
+            (ml, mr)
+        } else {
+            (l, r)
+        }
     }
 
     /// Moves the gains one frame towards their targets.
@@ -230,6 +234,25 @@ mod tests {
         assert_eq!(settle(&mut stems, &track), (0.25, 0.25));
         stems.set_mix(mix(true, false, false, true));
         assert_eq!(settle(&mut stems, &track), (0.75, 0.75));
+    }
+
+    #[test]
+    fn stems_play_where_they_are_separated_already() {
+        let track = constant(1.0, 10);
+        let vocals = Arc::new(TrackAudio::pending(48_000, 10));
+        vocals.publish(4, &[0.5; 4]);
+        let drums = Arc::new(TrackAudio::pending(48_000, 10));
+        drums.publish(5, &[0.25; 2]);
+        let mut stems = Stems::new();
+        stems.set_tracks([Some(vocals), Some(drums), None]);
+        stems.set_mix(mix(false, false, true, true));
+        let mut reader = stems.reader(&track);
+        for _ in 0..1000 {
+            reader.advance();
+        }
+        assert_eq!(reader.frame(3), (1.0, 1.0), "nothing separated: the whole track");
+        assert_eq!(reader.frame(4), (0.5, 0.5), "the drums not separated yet stay");
+        assert_eq!(reader.frame(5), (0.25, 0.25), "both muted");
     }
 
     #[test]

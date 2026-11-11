@@ -159,7 +159,7 @@ export const SETTINGS: readonly SettingEntry[] = [
     page: 'library',
     label: t('Vocals separation'),
     description: t(
-      'Downloaded once. A track takes about a minute with a recent graphics card, several minutes on the processor alone.',
+      'Downloaded once. A track takes a few seconds with a recent graphics card, a few minutes on the processor alone.',
     ),
   },
   {
@@ -167,7 +167,15 @@ export const SETTINGS: readonly SettingEntry[] = [
     page: 'library',
     label: t('Drums and bass separation'),
     description: t(
-      'Splits the instrumental into drums, bass and melody, to mute each on its own. Needs the vocals separation; about a minute more per track with a recent graphics card.',
+      'Splits the instrumental into drums, bass and melody, to mute each on its own. Needs the vocals separation, and takes two to three times as long.',
+    ),
+  },
+  {
+    id: 'library.stemsOnLoad',
+    page: 'library',
+    label: t('Separate the tracks loaded on the decks'),
+    description: t(
+      'Right away, from where the deck plays: the stems come there within seconds, before the library tracks.',
     ),
   },
   {

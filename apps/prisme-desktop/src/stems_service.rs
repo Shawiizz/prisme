@@ -3,6 +3,14 @@
 //! vocals model separates the vocals from the instrumental; the drums and bass model then
 //! splits the instrumental into drums, bass and the other instruments.
 //!
+//! A track loaded on a deck goes before the library's: a library track being separated
+//! gives way to it (and starts again afterwards). It is separated from where the deck plays,
+//! both models abreast, and its stems reach the deck as they come
+//! (`prisme_stems::track::TrackSeparation`).
+//!
+//! The models stay open a few minutes after the queue empties: the next track loaded starts
+//! at once.
+//!
 //! The separations are stored next to the tracks (`prisme_stems::track`): a track loaded
 //! on a deck gets its stems as soon as they exist.
 
@@ -13,13 +21,16 @@ use crate::error::{AppError, AppResult};
 use crate::state::{lock, AppState};
 use crate::track_loading::DECK_TRACK_UPDATE_EVENT;
 use prisme_engine::{Command, Stem, StemTracks};
-use prisme_stems::{CpuNetwork, GpuNetwork, MaskNetwork, Separator, StemsError, Weights};
+use prisme_media::TrackAudio;
+use prisme_stems::track::TrackSeparation;
+use prisme_stems::{CpuNetwork, Gpu, GpuNetwork, MaskNetwork, Separator, StemsError, Weights};
 use sha2::{Digest, Sha256};
 use std::collections::VecDeque;
 use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Condvar, Mutex};
+use std::time::Duration;
 use tauri::{AppHandle, Emitter, Manager};
 use tracing::{error, info, warn};
 
@@ -28,6 +39,8 @@ pub const STEMS_PROGRESS_EVENT: &str = "stems-progress";
 pub const STEMS_SEPARATED_EVENT: &str = "stems-separated";
 /// Payload: the [`ModelStatusDto`] of one model.
 pub const STEMS_MODEL_EVENT: &str = "stems-model";
+/// How long the worker keeps the models open, waiting for another track.
+const IDLE: Duration = Duration::from_secs(300);
 
 /// A separation model, converted by `crates/prisme-stems/tools/export_roformer.py --half`.
 struct Model {
@@ -66,14 +79,34 @@ pub struct StemsService {
     app: AppHandle,
     folder: PathBuf,
     queue: Arc<Mutex<Queue>>,
+    /// Wakes the worker waiting for a track.
+    wake: Arc<Condvar>,
     cancel: Arc<AtomicBool>,
     downloads: Arc<Mutex<[Download; MODELS.len()]>>,
 }
 
 #[derive(Default)]
 struct Queue {
+    /// Tracks loaded on a deck: separated first, in the order they were loaded.
+    played: VecDeque<PathBuf>,
+    /// The library's tracks.
     waiting: VecDeque<PathBuf>,
     progress: StemsProgressDto,
+    /// The track being separated and its stems as the decks play them while they come.
+    live: Option<(PathBuf, StemTracks)>,
+    /// The worker runs (separating, or waiting for a track with the models open).
+    worker: bool,
+}
+
+impl Queue {
+    fn len(&self) -> usize {
+        self.played.len() + self.waiting.len()
+    }
+
+    fn holds(&self, path: &Path) -> bool {
+        self.played.iter().chain(&self.waiting).any(|p| p == path)
+            || self.progress.current.as_deref() == Some(&*path.to_string_lossy())
+    }
 }
 
 #[derive(Default)]
@@ -89,6 +122,7 @@ impl StemsService {
             app,
             folder: data_dir.unwrap_or(Path::new(".")).join("models"),
             queue: Arc::default(),
+            wake: Arc::default(),
             cancel: Arc::default(),
             downloads: Arc::default(),
         }
@@ -128,40 +162,75 @@ impl StemsService {
         }
         let mut queue = lock(&self.queue);
         let before = queue.waiting.len();
-        let current = queue.progress.current.clone();
         for path in paths {
-            let already = queue.waiting.contains(&path)
-                || current.as_deref() == Some(&*path.to_string_lossy())
-                || missing(&installed, &path).is_empty();
-            if !already {
+            if !queue.holds(&path) && !missing(&installed, &path).is_empty() {
                 queue.waiting.push_back(path);
             }
         }
         let added = queue.waiting.len() - before;
-        queue.progress.queued = queue.waiting.len() + usize::from(queue.progress.running);
-        if added > 0 && !queue.progress.running {
+        if added > 0 {
+            self.work(&mut queue)?;
+        }
+        Ok(added)
+    }
+
+    /// Separates `path`, loaded on a deck, before the library's tracks, if an installed
+    /// model has stems to add to it.
+    pub fn separate_played(&self, path: &Path) -> AppResult<()> {
+        let installed = self.installed();
+        if installed.is_empty() || missing(&installed, path).is_empty() {
+            return Ok(());
+        }
+        let mut queue = lock(&self.queue);
+        if queue.played.iter().any(|p| p == path)
+            || queue.progress.current.as_deref() == Some(&*path.to_string_lossy())
+        {
+            return Ok(());
+        }
+        queue.played.push_back(path.to_owned());
+        self.work(&mut queue)
+    }
+
+    /// Wakes the worker, or starts it, and tells the UI how the queue stands.
+    fn work(&self, queue: &mut Queue) -> AppResult<()> {
+        let running = queue.progress.running;
+        queue.progress.queued = queue.len() + usize::from(running);
+        if !running {
+            let device = queue.progress.device.take();
             queue.progress =
-                StemsProgressDto { running: true, queued: queue.waiting.len(), ..Default::default() };
+                StemsProgressDto { running: true, queued: queue.len(), device, ..Default::default() };
             self.cancel.store(false, Ordering::Relaxed);
+        }
+        if !queue.worker {
             let worker = Worker {
                 app: self.app.clone(),
                 models: (0..MODELS.len()).map(|m| self.model_path(m)).collect(),
                 queue: self.queue.clone(),
+                wake: self.wake.clone(),
                 cancel: self.cancel.clone(),
             };
             std::thread::Builder::new()
                 .name("prisme-stems".into())
                 .spawn(move || worker.run())
                 .map_err(|e| AppError::Other(e.to_string()))?;
+            queue.worker = true;
         }
+        self.wake.notify_one();
         let _ = self.app.emit(STEMS_PROGRESS_EVENT, queue.progress.clone());
-        Ok(added)
+        Ok(())
     }
 
     /// Empties the queue and stops the track being separated.
     pub fn cancel(&self) {
-        lock(&self.queue).waiting.clear();
+        let mut queue = lock(&self.queue);
+        queue.waiting.clear();
+        queue.played.clear();
         self.cancel.store(true, Ordering::Relaxed);
+    }
+
+    /// The stems of `path` as they come, if it is being separated.
+    fn live(&self, path: &Path) -> Option<StemTracks> {
+        lock(&self.queue).live.as_ref().filter(|(p, _)| p == path).map(|(_, stems)| stems.clone())
     }
 
     /// Downloads the model `id` in the background (`stems-model` events); nothing if it is
@@ -251,24 +320,51 @@ struct Worker {
     /// Where each of [`MODELS`] is (installed or not).
     models: Vec<PathBuf>,
     queue: Arc<Mutex<Queue>>,
+    wake: Arc<Condvar>,
     cancel: Arc<AtomicBool>,
 }
 
 type BoxedSeparator = Separator<Box<dyn MaskNetwork>>;
 
+/// A track taken from the queue.
+struct Job {
+    path: PathBuf,
+    /// Loaded on a deck when queued.
+    played: bool,
+    /// In the library's queue too.
+    requested: bool,
+}
+
+/// How a separation ended, short of an error.
+enum Ended {
+    /// Every stem stored.
+    Through,
+    /// Given way to a track loaded on a deck: back in the queue.
+    GaveWay,
+    /// Off the decks, and nobody asked for it otherwise.
+    Dropped,
+}
+
 impl Worker {
     fn run(self) {
         prisme_library::background_priority();
         let mut separators: Vec<Option<BoxedSeparator>> = (0..MODELS.len()).map(|_| None).collect();
-        while let Some(path) = self.next() {
+        let gpu = Gpu::open(Default::default()).inspect_err(|e| warn!("separating on the CPU: {e}")).ok();
+        while let Some(job) = self.next() {
             let installed: Vec<usize> = (0..MODELS.len()).filter(|&m| self.models[m].is_file()).collect();
-            let needed = missing(&installed, &path);
+            let needed = missing(&installed, &job.path);
             if needed.is_empty() {
                 continue;
             }
-            if let Err(e) = self.open(&mut separators, &needed) {
+            if let Err(e) = self.open(gpu.as_ref(), &mut separators, &needed) {
                 error!("separation unavailable: {e}");
-                let dropped = std::mem::take(&mut lock(&self.queue).waiting).len();
+                let dropped = {
+                    let mut queue = lock(&self.queue);
+                    let dropped = queue.len();
+                    queue.played.clear();
+                    queue.waiting.clear();
+                    dropped
+                };
                 self.update(|p| p.failed += 1 + dropped);
                 break;
             }
@@ -278,48 +374,126 @@ impl Worker {
                 .filter(|(m, _)| needed.contains(m))
                 .filter_map(|(_, s)| s.as_mut())
                 .collect();
-            let result = prisme_stems::track::separate_file(&mut chosen, &path, |done, total| {
-                self.update(|p| p.fraction = done as f64 / total as f64);
-                !self.cancel.load(Ordering::Relaxed)
-            });
+            let result = self.separate(&mut chosen, &job);
+            lock(&self.queue).live = None;
             match result {
-                Ok(_) => {
+                Ok(Ended::Through) => {
                     self.update(|p| p.done += 1);
-                    let separated = SeparatedDto {
-                        path: path.display().to_string(),
-                        separation: SeparationDto::stored(&path),
-                    };
+                    let separation = SeparationDto::stored(&job.path);
+                    let separated = SeparatedDto { path: job.path.display().to_string(), separation };
                     let _ = self.app.emit(STEMS_SEPARATED_EVENT, separated);
-                    attach_stems(&self.app, &path);
+                    attach_stems(&self.app, &job.path);
                 }
-                Err(StemsError::Cancelled) => info!("separation of {} cancelled", path.display()),
+                Ok(Ended::GaveWay) => {
+                    info!("separation of {} gives way to a track on a deck", job.path.display());
+                    lock(&self.queue).waiting.push_front(job.path);
+                }
+                Ok(Ended::Dropped) => info!("{} left the decks before its separation", job.path.display()),
+                Err(StemsError::Cancelled) => info!("separation of {} cancelled", job.path.display()),
                 Err(e) => {
-                    warn!("{} not separated: {e}", path.display());
+                    warn!("{} not separated: {e}", job.path.display());
                     self.update(|p| p.failed += 1);
                 }
             }
         }
         // the separators (and the GPU memory they hold) go with the thread
-        self.update(|p| {
-            p.running = false;
-            p.current = None;
-            p.queued = 0;
-        });
+        let mut queue = lock(&self.queue);
+        queue.worker = false;
+        idle(&mut queue.progress);
+        let _ = self.app.emit(STEMS_PROGRESS_EVENT, queue.progress.clone());
     }
 
-    fn next(&self) -> Option<PathBuf> {
+    /// The next track, the decks' first: waits for one up to [`IDLE`].
+    fn next(&self) -> Option<Job> {
         let mut queue = lock(&self.queue);
-        let path = queue.waiting.pop_front();
-        queue.progress.current = path.as_ref().map(|p| p.display().to_string());
+        let job = loop {
+            if let Some(path) = queue.played.pop_front() {
+                let before = queue.waiting.len();
+                queue.waiting.retain(|p| *p != path);
+                let requested = queue.waiting.len() < before;
+                break Job { path, played: true, requested };
+            }
+            if let Some(path) = queue.waiting.pop_front() {
+                break Job { path, played: false, requested: true };
+            }
+            if queue.progress.running {
+                idle(&mut queue.progress);
+                let _ = self.app.emit(STEMS_PROGRESS_EVENT, queue.progress.clone());
+            }
+            let (woken, wait) = self.wake.wait_timeout(queue, IDLE).unwrap_or_else(|e| e.into_inner());
+            queue = woken;
+            if wait.timed_out() && queue.len() == 0 {
+                return None;
+            }
+        };
+        queue.progress.current = Some(job.path.display().to_string());
         queue.progress.fraction = 0.0;
-        queue.progress.queued = queue.waiting.len() + usize::from(path.is_some());
+        queue.progress.queued = queue.len() + 1;
         drop(queue);
         self.update(|_| {});
-        path
+        Some(job)
     }
 
-    /// Opens the separators of the `needed` models not open yet, on the GPU when it can.
-    fn open(&self, separators: &mut [Option<BoxedSeparator>], needed: &[usize]) -> Result<(), StemsError> {
+    /// Separates the job's track, its stems reaching the decks it is loaded on as they come.
+    fn separate(&self, separators: &mut [&mut BoxedSeparator], job: &Job) -> Result<Ended, StemsError> {
+        let deck = self.on_decks(&job.path);
+        let mut separation = TrackSeparation::open(
+            separators,
+            &job.path,
+            deck.as_ref().map(|(audio, _)| (audio.sample_rate(), samples(audio))),
+            deck.map(|(_, frame)| frame),
+        )?;
+        let mut live = None;
+        while !separation.is_done() {
+            if self.cancel.load(Ordering::Relaxed) {
+                return Err(StemsError::Cancelled);
+            }
+            let on_decks = self.on_decks(&job.path).is_some();
+            if !on_decks {
+                if job.played && !job.requested {
+                    return Ok(Ended::Dropped);
+                }
+                if !lock(&self.queue).played.is_empty() {
+                    return Ok(Ended::GaveWay);
+                }
+            }
+            if on_decks && live.is_none() {
+                live = Some(Live::start(&self.app, &separation, &self.queue)?);
+            }
+            separation.step(separators)?;
+            if let Some(live) = &live {
+                live.publish(&separation)?;
+            }
+            separation.store_through()?;
+            self.update(|p| p.fraction = separation.done() as f64 / separation.chunks() as f64);
+        }
+        Ok(Ended::Through)
+    }
+
+    /// The audio of `path` on a deck, fully decoded, and the frame the deck plays.
+    fn on_decks(&self, path: &Path) -> Option<(Arc<TrackAudio>, usize)> {
+        let state = self.app.state::<AppState>();
+        let (deck, audio) = lock(&state.tracks)
+            .iter()
+            .enumerate()
+            .find_map(|(deck, t)| t.as_ref().filter(|t| t.path == path).map(|t| (deck, t.audio.clone())))?;
+        if !audio.is_complete() {
+            return None;
+        }
+        let position = state.deck_status(deck).map_or(0.0, |s| s.position_s.max(0.0));
+        let frame =
+            ((position * f64::from(audio.sample_rate())) as usize).min(audio.frames().saturating_sub(1));
+        Some((audio, frame))
+    }
+
+    /// Opens the separators of the `needed` models not open yet, on `gpu` when they can: they
+    /// share it, their chunks taking turns.
+    fn open(
+        &self,
+        gpu: Option<&Arc<Gpu>>,
+        separators: &mut [Option<BoxedSeparator>],
+        needed: &[usize],
+    ) -> Result<(), StemsError> {
         for &m in needed {
             if separators[m].is_some() {
                 continue;
@@ -329,15 +503,16 @@ impl Worker {
             if weights.geometry.stems != stems {
                 return Err(StemsError::Model(format!("{} does not separate {stems:?}", MODELS[m].file)));
             }
-            let (network, device): (Box<dyn MaskNetwork>, String) = match GpuNetwork::new(weights.clone()) {
-                Ok(gpu) => {
-                    let device = gpu.adapter().to_owned();
-                    (Box::new(gpu), device)
+            let on_gpu = gpu.map(|gpu| GpuNetwork::on(gpu, &weights)).transpose().unwrap_or_else(|e| {
+                warn!("separating with the {} model on the CPU: {e}", MODELS[m].id);
+                None
+            });
+            let (network, device): (Box<dyn MaskNetwork>, String) = match on_gpu {
+                Some(network) => {
+                    let device = network.adapter().to_owned();
+                    (Box::new(network), device)
                 }
-                Err(e) => {
-                    warn!("separating with the {} model on the CPU: {e}", MODELS[m].id);
-                    (Box::new(CpuNetwork::new(weights)), "CPU".to_owned())
-                }
+                None => (Box::new(CpuNetwork::new(weights)), "CPU".to_owned()),
             };
             info!("separating with the {} model on {device}", MODELS[m].id);
             self.update(|p| p.device = Some(device));
@@ -356,15 +531,97 @@ impl Worker {
     }
 }
 
+/// The stems of a track being separated, given to the decks it is loaded on: those still
+/// separated fill in as they come, the others are read from their files.
+struct Live {
+    /// The stems being separated, by their index in `TrackSeparation::stems`.
+    filling: Vec<Option<Arc<TrackAudio>>>,
+}
+
+impl Live {
+    fn start(
+        app: &AppHandle,
+        separation: &TrackSeparation,
+        queue: &Mutex<Queue>,
+    ) -> Result<Self, StemsError> {
+        let path = separation.track();
+        let (rate, frames) = (separation.sample_rate(), separation.frames());
+        let separated = separation.stems();
+        let filling: Vec<Option<Arc<TrackAudio>>> = (0..separated.len())
+            .map(|i| (!separation.is_stored(i)).then(|| Arc::new(TrackAudio::pending(rate, frames))))
+            .collect();
+        let stems: StemTracks = Stem::ALL.map(|stem| {
+            let filled =
+                separated.iter().position(|(name, _)| *name == stem.name()).and_then(|i| filling[i].clone());
+            filled.or_else(|| {
+                prisme_stems::track::load_stem(path, stem.name(), frames, rate)
+                    .unwrap_or_else(|e| {
+                        warn!("{} of {} not read: {e}", stem.name(), path.display());
+                        None
+                    })
+                    .map(Arc::new)
+            })
+        });
+        lock(queue).live = Some((path.to_owned(), stems.clone()));
+        let live = Self { filling };
+        live.publish(separation)?;
+        let state = app.state::<AppState>();
+        let decks: Vec<(usize, u64)> = lock(&state.tracks)
+            .iter()
+            .enumerate()
+            .filter_map(|(deck, t)| t.as_ref().filter(|t| t.path == path).map(|t| (deck, t.load_id)))
+            .collect();
+        for (deck, load_id) in decks {
+            if let Some(separation) = give(app, deck, load_id, &stems, frames, rate) {
+                tell(app, deck, load_id, separation);
+            }
+        }
+        Ok(live)
+    }
+
+    /// Fills in what is final of the stems since last time.
+    fn publish(&self, separation: &TrackSeparation) -> Result<(), StemsError> {
+        for (index, ((_, finished), audio)) in separation.stems().into_iter().zip(&self.filling).enumerate() {
+            let Some(audio) = audio else { continue };
+            let readable = audio.readable();
+            let parts = if readable.is_empty() {
+                [finished.clone(), 0..0]
+            } else {
+                [finished.start..readable.start, readable.end..finished.end]
+            };
+            for part in parts.into_iter().filter(|p| !p.is_empty()) {
+                audio.publish(part.start, &separation.read(index, part)?);
+            }
+        }
+        Ok(())
+    }
+}
+
+/// Nothing left to separate.
+fn idle(progress: &mut StemsProgressDto) {
+    progress.running = false;
+    progress.current = None;
+    progress.queued = 0;
+}
+
+/// The interleaved samples of a decoded track.
+fn samples(audio: &TrackAudio) -> Vec<f32> {
+    let mut samples = Vec::with_capacity(audio.frames() * 2);
+    audio.for_each_block(1 << 16, |block| samples.extend_from_slice(block));
+    samples
+}
+
 /// Gives the stored stems of `path` to the decks it is loaded on (once fully decoded:
-/// otherwise the end of its loading does it).
+/// otherwise the end of its loading does it), but for those that got them as they came.
 pub fn attach_stems(app: &AppHandle, path: &Path) {
+    let stored = SeparationDto::stored(path);
     let state = app.state::<AppState>();
-    let loaded: Vec<(usize, u64, Arc<prisme_media::TrackAudio>)> = lock(&state.tracks)
+    let loaded: Vec<(usize, u64, Arc<TrackAudio>)> = lock(&state.tracks)
         .iter()
         .enumerate()
         .filter_map(|(deck, t)| {
-            t.as_ref().filter(|t| t.path == path).map(|t| (deck, t.load_id, t.audio.clone()))
+            let t = t.as_ref().filter(|t| t.path == path && !plays_whole(&t.stems, stored))?;
+            Some((deck, t.load_id, t.audio.clone()))
         })
         .collect();
     for (deck, load_id, audio) in loaded {
@@ -372,42 +629,70 @@ pub fn attach_stems(app: &AppHandle, path: &Path) {
             continue;
         }
         if let Some(separation) = give_stems(app, deck, load_id, path, &audio) {
-            let update = DeckTrackUpdateDto {
-                deck,
-                load_id,
-                waveform_ready: false,
-                analysis: None,
-                separation: Some(separation),
-            };
-            let _ = app.emit(DECK_TRACK_UPDATE_EVENT, update);
+            tell(app, deck, load_id, separation);
         }
     }
 }
 
-/// Loads the stored stems of the track loaded on `deck` as `load_id` and sends them to the
-/// engine; how far it is separated if it got some (the caller tells the UI).
+/// Whether `stems` are whole and go as far as `separation`.
+fn plays_whole(stems: &StemTracks, separation: SeparationDto) -> bool {
+    SeparationDto::of(|s| stems[s as usize].is_some()) == separation
+        && stems.iter().flatten().all(|s| s.is_complete())
+}
+
+/// Gives the deck playing `load_id` the stems of `path`: as they come if it is being
+/// separated, else those stored; how far it is separated, if at all (the caller tells the
+/// UI).
 pub fn give_stems(
     app: &AppHandle,
     deck: usize,
     load_id: u64,
     path: &Path,
-    audio: &prisme_media::TrackAudio,
+    audio: &TrackAudio,
 ) -> Option<SeparationDto> {
-    let stems: StemTracks = Stem::ALL.map(|stem| {
-        match prisme_stems::track::load_stem(path, stem.name(), audio.frames(), audio.sample_rate()) {
+    let (frames, rate) = (audio.frames(), audio.sample_rate());
+    let stems = app.state::<StemsService>().live(path).unwrap_or_else(|| {
+        Stem::ALL.map(|stem| match prisme_stems::track::load_stem(path, stem.name(), frames, rate) {
             Ok(stem) => stem.map(Arc::new),
             Err(e) => {
                 warn!("{} of {} not read: {e}", stem.name(), path.display());
                 None
             }
-        }
+        })
     });
+    give(app, deck, load_id, &stems, frames, rate)
+}
+
+/// Gives `stems` to the deck playing `load_id` if they fit its track; how far they separate
+/// it, if at all.
+fn give(
+    app: &AppHandle,
+    deck: usize,
+    load_id: u64,
+    stems: &StemTracks,
+    frames: usize,
+    rate: u32,
+) -> Option<SeparationDto> {
     let separation = SeparationDto::of(|stem| stems[stem as usize].is_some());
     if separation == SeparationDto::None {
         return None;
     }
     let state = app.state::<AppState>();
-    state.with_loaded(deck, load_id, |t| t.stems = stems.clone())?;
-    let _ = state.send_if_running(Command::SetStems { deck, stems });
+    state.with_loaded(deck, load_id, |t| {
+        (t.audio.frames() == frames && t.audio.sample_rate() == rate).then(|| t.stems = stems.clone())
+    })??;
+    let _ = state.send_if_running(Command::SetStems { deck, stems: stems.clone() });
     Some(separation)
+}
+
+/// Tells the UI how far the track on `deck` is separated.
+fn tell(app: &AppHandle, deck: usize, load_id: u64, separation: SeparationDto) {
+    let update = DeckTrackUpdateDto {
+        deck,
+        load_id,
+        waveform_ready: false,
+        analysis: None,
+        separation: Some(separation),
+    };
+    let _ = app.emit(DECK_TRACK_UPDATE_EVENT, update);
 }

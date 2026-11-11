@@ -10,6 +10,7 @@ export class PreferencesService {
     lastFolder: null,
     hiddenColumns: [],
     writeTags: true,
+    separateOnLoad: true,
   });
 
   async load(): Promise<void> {

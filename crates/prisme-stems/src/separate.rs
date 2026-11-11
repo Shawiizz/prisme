@@ -1,5 +1,7 @@
 //! The stems of a whole track: STFT, the network's masks, inverse STFT, chunk by chunk.
 
+use std::ops::Range;
+
 use realfft::num_complex::Complex32;
 
 use crate::network::MaskNetwork;
@@ -33,11 +35,8 @@ impl<N: MaskNetwork> Separator<N> {
         &self.net.geometry().stems
     }
 
-    /// The stems of a stereo track at [`Self::sample_rate`], each as left and right. The
-    /// track is cut in chunks the size the network was made for, `overlap` of them over each
-    /// sample ([`crate::Config::overlap`]), the last one ending with the track; where chunks
-    /// overlap they are blended with Hamming weights. Each chunk's STFT and the iSTFT of the
-    /// one before are worked out while the network runs.
+    /// The stems of a stereo track at [`Self::sample_rate`], each as left and right: every
+    /// chunk of [`Self::begin`] from the start.
     ///
     /// `progress(done, total)` is called after each chunk: returning `false` cancels.
     pub fn separate(
@@ -46,48 +45,71 @@ impl<N: MaskNetwork> Separator<N> {
         right: &[f32],
         mut progress: impl FnMut(usize, usize) -> bool,
     ) -> Result<Vec<[Vec<f32>; 2]>, StemsError> {
-        let len = left.len().min(right.len());
+        let mut separation = self.begin(left.len().min(right.len()), 0);
+        while self.step(&mut separation, left, right)? {
+            if !progress(separation.done(), separation.chunks()) {
+                return Err(StemsError::Cancelled);
+            }
+        }
+        Ok(separation.into_stems())
+    }
+
+    /// A separation of a track of `len` samples, to be worked through by [`Self::step`]. The
+    /// track is cut in chunks the size the network was made for, `overlap` of them over each
+    /// sample ([`crate::Config::overlap`]), the last one ending with the track; where chunks
+    /// overlap they are blended with Hamming weights. The chunks over sample `anchor` come
+    /// first, then those after it, then those before it.
+    pub fn begin(&self, len: usize, anchor: usize) -> Separation {
         let config = &self.net.geometry().config;
         let chunk = config.chunk_samples();
         let starts = chunk_starts(len, chunk, chunk / config.overlap);
-        let window = hamming(chunk);
-        let stems = self.stems().len();
-        let mut sum = vec![[vec![0.0f32; len], vec![0.0f32; len]]; stems];
-        let mut weight = vec![0.0f32; len];
-        let mut out = vec![[vec![0.0; chunk], vec![0.0; chunk]]; stems];
-        let part = |start: usize| {
-            let end = (start + chunk).min(len);
-            [&left[start..end], &right[start..end]]
-        };
+        let order = order(&starts, chunk, anchor.min(len.saturating_sub(1)));
+        Separation {
+            len,
+            chunk,
+            window: hamming(chunk),
+            sum: vec![[vec![0.0; len], vec![0.0; len]]; self.stems().len()],
+            weight: vec![0.0; len],
+            starts,
+            order,
+            done: 0,
+            running: None,
+        }
+    }
 
-        let mut current = self.analyse_padded(part(starts[0]), chunk);
-        self.net.start(&current.bins, current.frames)?;
-        for (done, &start) in starts.iter().enumerate() {
-            let next = starts.get(done + 1).map(|&next| self.analyse_padded(part(next), chunk));
-            let mut masks = vec![0.0; self.net.geometry().mask_len(current.frames)];
-            self.net.finish(&mut masks)?;
-            if let Some(next) = &next {
-                self.net.start(&next.bins, next.frames)?;
+    /// Separates the next chunk of `separation`, a separation of the stereo track `left`,
+    /// `right` begun by this separator, which separates nothing else until it is through.
+    /// The network works on the chunk after it meanwhile, and the STFTs are worked out while
+    /// it runs. `false` once every chunk is through.
+    pub fn step(
+        &mut self,
+        separation: &mut Separation,
+        left: &[f32],
+        right: &[f32],
+    ) -> Result<bool, StemsError> {
+        let Some(&index) = separation.order.get(separation.done) else { return Ok(false) };
+        let current = match separation.running.take() {
+            Some(running) => running,
+            None => {
+                let analysis = self.analyse_padded(separation.part(index, left, right), separation.chunk);
+                self.net.start(&analysis.bins, analysis.frames)?;
+                analysis
             }
-            self.synthesise(&current, &masks, &mut out);
-            let n = chunk.min(len - start);
-            for (s, o) in sum.iter_mut().flatten().zip(out.iter().flatten()) {
-                for ((s, o), w) in s[start..start + n].iter_mut().zip(o).zip(&window) {
-                    *s += o * w;
-                }
-            }
-            weight[start..start + n].iter_mut().zip(&window).for_each(|(a, w)| *a += w);
-            if !progress(done + 1, starts.len()) {
-                return Err(StemsError::Cancelled);
-            }
-            if let Some(next) = next {
-                current = next;
-            }
+        };
+        let next = separation
+            .order
+            .get(separation.done + 1)
+            .map(|&next| self.analyse_padded(separation.part(next, left, right), separation.chunk));
+        let mut masks = vec![0.0; self.net.geometry().mask_len(current.frames)];
+        self.net.finish(&mut masks)?;
+        if let Some(next) = &next {
+            self.net.start(&next.bins, next.frames)?;
         }
-        for s in sum.iter_mut().flatten() {
-            s.iter_mut().zip(&weight).for_each(|(v, w)| *v /= w.max(1e-10));
-        }
-        Ok(sum)
+        let mut out = vec![[vec![0.0; separation.chunk], vec![0.0; separation.chunk]]; self.stems().len()];
+        self.synthesise(&current, &masks, &mut out);
+        separation.add(index, &out);
+        separation.running = next;
+        Ok(true)
     }
 
     /// The stems of one chunk (at most the network's chunk size): `out` holds a left and a
@@ -168,11 +190,99 @@ impl<N: MaskNetwork> Separator<N> {
     }
 }
 
+/// A track being separated chunk by chunk ([`Separator::begin`]). The stems are final where
+/// every chunk over them is through: [`Self::finished`], a span that grows at either end as
+/// the chunks come in order.
+pub struct Separation {
+    len: usize,
+    chunk: usize,
+    window: Vec<f32>,
+    /// Per stem, left and right: the weighted sum of the chunks through over each sample.
+    sum: Vec<[Vec<f32>; 2]>,
+    weight: Vec<f32>,
+    starts: Vec<usize>,
+    /// The chunks (indices into `starts`) in the order they are separated.
+    order: Vec<usize>,
+    /// How many of `order` are through.
+    done: usize,
+    /// The analysis of the chunk the network is working on: `order[done]`.
+    running: Option<Analysis>,
+}
+
+impl Separation {
+    pub fn chunks(&self) -> usize {
+        self.order.len()
+    }
+
+    /// How many chunks are through.
+    pub fn done(&self) -> usize {
+        self.done
+    }
+
+    pub fn is_done(&self) -> bool {
+        self.done == self.order.len()
+    }
+
+    /// The samples whose stems are final: those no chunk still to come lies over.
+    pub fn finished(&self) -> Range<usize> {
+        let through = &self.order[..self.done];
+        let (Some(&first), Some(&last)) = (through.iter().min(), through.iter().max()) else {
+            return 0..0;
+        };
+        let start = first.checked_sub(1).map_or(0, |before| self.starts[before] + self.chunk);
+        let end = self.starts.get(last + 1).copied().unwrap_or(self.len);
+        start.min(end)..end
+    }
+
+    /// Stem `stem` over `range` (final samples), left and right.
+    pub fn read(&self, stem: usize, range: Range<usize>) -> [Vec<f32>; 2] {
+        let weight = &self.weight[range.clone()];
+        self.sum[stem]
+            .each_ref()
+            .map(|channel| channel[range.clone()].iter().zip(weight).map(|(v, w)| v / w.max(1e-10)).collect())
+    }
+
+    /// The stems, each as left and right, once every chunk is through.
+    pub fn into_stems(mut self) -> Vec<[Vec<f32>; 2]> {
+        for s in self.sum.iter_mut().flatten() {
+            s.iter_mut().zip(&self.weight).for_each(|(v, w)| *v /= w.max(1e-10));
+        }
+        self.sum
+    }
+
+    /// Chunk `index` of the stereo track, which may end before a whole chunk.
+    fn part<'a>(&self, index: usize, left: &'a [f32], right: &'a [f32]) -> [&'a [f32]; 2] {
+        let start = self.starts[index];
+        let end = (start + self.chunk).min(self.len);
+        [&left[start..end], &right[start..end]]
+    }
+
+    /// Adds the stems of chunk `index`, weighted.
+    fn add(&mut self, index: usize, out: &[[Vec<f32>; 2]]) {
+        let start = self.starts[index];
+        let n = self.chunk.min(self.len - start);
+        for (s, o) in self.sum.iter_mut().flatten().zip(out.iter().flatten()) {
+            for ((s, o), w) in s[start..start + n].iter_mut().zip(o).zip(&self.window) {
+                *s += o * w;
+            }
+        }
+        self.weight[start..start + n].iter_mut().zip(&self.window).for_each(|(a, w)| *a += w);
+        self.done += 1;
+    }
+}
+
 /// A chunk's STFT (left and right) and the bins the network takes.
 struct Analysis {
     spec: [Vec<Complex32>; 2],
     bins: Vec<f32>,
     frames: usize,
+}
+
+/// The chunks over `anchor`, then those after them, then those before them backwards: the
+/// chunks through always follow each other, so the final samples make one span.
+fn order(starts: &[usize], chunk: usize, anchor: usize) -> Vec<usize> {
+    let first = starts.iter().position(|&s| anchor < s + chunk).unwrap_or(starts.len() - 1);
+    (first..starts.len()).chain((0..first).rev()).collect()
 }
 
 /// The channel and STFT bin of a gathered bin.
@@ -212,5 +322,37 @@ mod tests {
     fn overlapping_chunks_start_a_step_apart() {
         assert_eq!(chunk_starts(25, 10, 5), vec![0, 5, 10, 15]);
         assert_eq!(chunk_starts(27, 10, 5), vec![0, 5, 10, 15, 17]);
+    }
+
+    #[test]
+    fn the_chunks_over_the_anchor_come_first_then_those_after_then_those_before() {
+        let starts = [0, 5, 10, 15, 20];
+        assert_eq!(order(&starts, 10, 0), [0, 1, 2, 3, 4]);
+        assert_eq!(order(&starts, 10, 12), [1, 2, 3, 4, 0]);
+        assert_eq!(order(&starts, 10, 29), [4, 3, 2, 1, 0]);
+    }
+
+    #[test]
+    fn the_final_samples_grow_from_the_anchor() {
+        let starts = vec![0, 5, 10, 15];
+        let mut separation = Separation {
+            len: 25,
+            chunk: 10,
+            window: vec![1.0; 10],
+            sum: vec![[vec![0.0; 25], vec![0.0; 25]]],
+            weight: vec![0.0; 25],
+            order: order(&starts, 10, 12),
+            starts,
+            done: 0,
+            running: None,
+        };
+        assert_eq!(separation.order, [1, 2, 3, 0]);
+        let out = [[vec![1.0; 10], vec![1.0; 10]]];
+        let mut finished = vec![separation.finished()];
+        while let Some(&index) = separation.order.get(separation.done) {
+            separation.add(index, &out);
+            finished.push(separation.finished());
+        }
+        assert_eq!(finished, [0..0, 10..10, 10..15, 10..25, 0..25]);
     }
 }

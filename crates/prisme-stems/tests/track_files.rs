@@ -2,7 +2,7 @@
 
 use std::path::{Path, PathBuf};
 
-use prisme_stems::track::{has_stem, load_stem, separate_file, stem_path};
+use prisme_stems::track::{has_stem, load_stem, separate_file, stem_path, TrackSeparation};
 use prisme_stems::{CpuNetwork, Separator, Weights};
 
 fn load(name: &str) -> Separator<CpuNetwork> {
@@ -117,4 +117,82 @@ fn several_separators_store_all_their_stems_and_count_all_their_chunks() {
         assert!(load_stem(&track, stem, 3000, 44_100).unwrap().is_some(), "{stem}");
     }
     std::fs::remove_dir_all(dir).unwrap();
+}
+
+/// Played from its middle, a track gets its stems there first, then on either side: what is
+/// final reads as it ends up, and as it is stored.
+#[test]
+fn a_played_track_gets_its_stems_around_where_it_plays() {
+    for rate in [44_100, 48_000] {
+        let dir = folder(&format!("played-{rate}"));
+        let track = dir.join("track.wav");
+        let frames = 90_000;
+        write_track(&track, rate, frames);
+        let mut overlapping = Weights::load(
+            &Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/data/tiny_roformer_stems.safetensors"),
+        )
+        .unwrap();
+        overlapping.geometry.config.overlap = 4;
+        let (mut vocals, mut others) = (separator(), Separator::new(CpuNetwork::new(overlapping)));
+        let separators = &mut [&mut vocals, &mut others];
+        let around = 50_000;
+        let mut separation = TrackSeparation::open(separators, &track, None, Some(around)).unwrap();
+
+        let mut seen: Vec<Vec<(std::ops::Range<usize>, Vec<f32>)>> = vec![Vec::new(); 3];
+        let mut reached = [None; 3];
+        while !separation.is_done() {
+            separation.step(separators).unwrap();
+            for (stem, (_, finished)) in separation.stems().into_iter().enumerate() {
+                if let Some((before, _)) = seen[stem].last() {
+                    assert!(
+                        finished.start <= before.start && finished.end >= before.end,
+                        "the final frames grow"
+                    );
+                }
+                if finished.contains(&around) && reached[stem].is_none() {
+                    reached[stem] = Some(separation.done());
+                }
+                if !finished.is_empty() {
+                    let read = separation.read(stem, finished.clone()).unwrap();
+                    seen[stem].push((finished, read));
+                }
+            }
+        }
+        for done in reached {
+            let done = done.expect("the frame played gets its stems");
+            assert!(
+                done * 4 < separation.chunks(),
+                "the frame played first: {done} of {}",
+                separation.chunks()
+            );
+        }
+        let names: Vec<String> = separation.stems().iter().map(|(name, _)| name.to_string()).collect();
+        assert_eq!(names, ["vocals", "drums", "bass"]);
+        for (stem, reads) in seen.iter().enumerate() {
+            assert!(reads.len() > 2, "{} came in parts", names[stem]);
+            let whole = separation.read(stem, 0..frames).unwrap();
+            for (range, read) in reads {
+                let err = read
+                    .iter()
+                    .zip(&whole[range.start * 2..range.end * 2])
+                    .map(|(a, b)| (a - b).abs())
+                    .fold(0.0, f32::max);
+                assert!(err < 1e-5, "{} at {rate} Hz over {range:?}: {err}", names[stem]);
+            }
+        }
+        let wholes: Vec<Vec<f32>> = (0..3).map(|stem| separation.read(stem, 0..frames).unwrap()).collect();
+        assert_eq!(separation.store_through().unwrap().len(), 3);
+        for (name, whole) in names.iter().zip(&wholes) {
+            let stored = load_stem(&track, name, frames, rate).unwrap().expect("stored");
+            let err = (0..frames)
+                .map(|i| {
+                    let (a, b) = stored.frame(i as isize);
+                    let clamp = |v: f32| v.clamp(-2.0, 32767.0 / 16384.0);
+                    (a - clamp(whole[2 * i])).abs().max((b - clamp(whole[2 * i + 1])).abs())
+                })
+                .fold(0.0, f32::max);
+            assert!(err <= 1.0 / 32768.0 + 1e-6, "{name} at {rate} Hz stored: {err}");
+        }
+        std::fs::remove_dir_all(dir).unwrap();
+    }
 }

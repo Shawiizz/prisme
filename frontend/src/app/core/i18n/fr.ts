@@ -494,11 +494,14 @@ export const FR: Record<string, string> = {
   'Stop separating the stems': 'Arrêter la séparation',
   Stop: 'Arrêter',
   'Vocals separation': 'Séparation voix / instru',
-  'Downloaded once. A track takes about a minute with a recent graphics card, several minutes on the processor alone.':
-    'Téléchargée une fois. Un morceau prend environ une minute avec une carte graphique récente, plusieurs sur le processeur seul.',
+  'Downloaded once. A track takes a few seconds with a recent graphics card, a few minutes on the processor alone.':
+    'Téléchargée une fois. Un morceau prend quelques secondes avec une carte graphique récente, quelques minutes sur le processeur seul.',
   'Drums and bass separation': 'Séparation batterie / basse',
-  'Splits the instrumental into drums, bass and melody, to mute each on its own. Needs the vocals separation; about a minute more per track with a recent graphics card.':
-    'Sépare l’instru en batterie, basse et mélodie, pour couper chacune à part. Demande la séparation voix / instru ; environ une minute de plus par morceau avec une carte graphique récente.',
+  'Splits the instrumental into drums, bass and melody, to mute each on its own. Needs the vocals separation, and takes two to three times as long.':
+    'Sépare l’instru en batterie, basse et mélodie, pour couper chacune à part. Demande la séparation voix / instru, et prend deux à trois fois plus de temps.',
+  'Separate the tracks loaded on the decks': 'Séparer les morceaux chargés sur les decks',
+  'Right away, from where the deck plays: the stems come there within seconds, before the library tracks.':
+    'Tout de suite, à partir de là où joue le deck : les pistes y arrivent en quelques secondes, avant celles de la bibliothèque.',
   'Separate the whole library': 'Séparer toute la bibliothèque',
   'The stems are stored next to each track, in a .prisme folder: copy your music to another computer and its separations come along.':
     'Les pistes sont rangées à côté de chaque morceau, dans un dossier .prisme : copiez votre musique sur un autre ordinateur et ses séparations suivent.',

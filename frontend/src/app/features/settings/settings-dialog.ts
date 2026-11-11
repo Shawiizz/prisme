@@ -86,6 +86,7 @@ export class SettingsDialog implements OnInit {
   protected readonly mixMode = signal<MixMode>(this.mixer.mode());
   protected readonly dj = this.preferences.dj;
   protected readonly writeTags = computed(() => this.preferences.library().writeTags);
+  protected readonly separateOnLoad = computed(() => this.preferences.library().separateOnLoad);
   protected readonly busy = signal(false);
   protected readonly error = signal<string | null>(null);
   protected readonly diagnosticsSaved = signal(false);
@@ -216,6 +217,10 @@ export class SettingsDialog implements OnInit {
 
   setWriteTags(writeTags: boolean) {
     this.preferences.updateLibrary({ writeTags });
+  }
+
+  setSeparateOnLoad(separateOnLoad: boolean) {
+    this.preferences.updateLibrary({ separateOnLoad });
   }
 
   /** Another backend has other devices: start again from its defaults. */

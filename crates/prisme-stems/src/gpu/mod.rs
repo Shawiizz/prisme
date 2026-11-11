@@ -7,7 +7,8 @@
 //! stream between the layers stays f32.
 //!
 //! The work for a chunk is planned once (buffers, bind groups, dispatches) per frame count,
-//! then replayed: only the input bins change between chunks.
+//! then replayed: only the input bins change between chunks. Networks opened on one [`Gpu`]
+//! share its queue: their chunks take turns instead of contending.
 
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
@@ -20,7 +21,7 @@ use crate::StemsError;
 
 const MAX_GROUPS: u32 = 65_535;
 
-/// How a [`GpuNetwork`] may be opened.
+/// How a [`Gpu`] is opened.
 #[derive(Debug, Clone, Copy, Default)]
 pub struct GpuOptions {
     /// Accepts a software rasteriser: for tests on machines without a GPU.
@@ -29,18 +30,27 @@ pub struct GpuOptions {
     pub without_matrix_units: bool,
 }
 
-pub struct GpuNetwork {
-    geometry: Geometry,
+/// The GPU the networks run on.
+pub struct Gpu {
     device: wgpu::Device,
     queue: wgpu::Queue,
-    adapter: String,
+    /// The GPU and graphics API.
+    name: String,
     errors: Arc<Mutex<Option<String>>>,
+    /// The shaders for the matrix units run on it.
+    matrix_units: bool,
+}
+
+pub struct GpuNetwork {
+    gpu: Arc<Gpu>,
+    geometry: Geometry,
+    adapter: String,
     matrix: bool,
     pipelines: Pipelines,
     params: Params,
     plans: HashMap<usize, Plan>,
-    /// The frames of the chunk started.
-    started: Option<usize>,
+    /// The frames of the chunk started, and its last submission.
+    started: Option<(usize, wgpu::SubmissionIndex)>,
 }
 
 /// The weights, on the GPU.
@@ -115,37 +125,24 @@ enum Act {
     Tanh = 2,
 }
 
-impl GpuNetwork {
-    /// Takes the most capable GPU, and its matrix units when it has some; fails without a
-    /// GPU (software rasterisers are refused: the CPU implementation is faster).
-    pub fn new(weights: Weights) -> Result<Self, StemsError> {
-        Self::with_options(weights, GpuOptions::default())
-    }
-
-    /// Accepts a software rasteriser too: for tests on machines without a GPU.
-    pub fn new_allowing_software(weights: Weights) -> Result<Self, StemsError> {
-        Self::with_options(weights, GpuOptions { software: true, ..Default::default() })
-    }
-
-    pub fn with_options(weights: Weights, options: GpuOptions) -> Result<Self, StemsError> {
-        let c = &weights.geometry.config;
-        if c.dim_head > 64 || !c.dim_head.is_multiple_of(2) {
-            return Err(StemsError::Model("the GPU attention takes heads of at most 64 values".into()));
-        }
+impl Gpu {
+    /// The most capable GPU, with its matrix units if it has some; fails without a GPU
+    /// (software rasterisers are refused unless `options` accept them: the CPU implementation
+    /// is faster).
+    pub fn open(options: GpuOptions) -> Result<Arc<Self>, StemsError> {
         let adapter = adapter()?;
         let info = adapter.get_info();
         if info.device_type == wgpu::DeviceType::Cpu && !options.software {
             return Err(StemsError::NoGpu(format!("{} is a software renderer", info.name)));
         }
-        let matrix =
-            !options.without_matrix_units && has_matrix_units(&adapter) && fits_matrix_units(&weights);
+        let matrix_units = !options.without_matrix_units && has_matrix_units(&adapter);
         let (device, queue) = pollster::block_on(adapter.request_device(&wgpu::DeviceDescriptor {
             label: Some("prisme-stems"),
-            required_features: if matrix { MATRIX_FEATURES } else { wgpu::Features::empty() },
+            required_features: if matrix_units { MATRIX_FEATURES } else { wgpu::Features::empty() },
             required_limits: adapter.limits(),
             // SAFETY: the cooperative matrices are the only experimental feature in use; the
-            // tests hold the network on them to the f32 one.
-            experimental_features: if matrix {
+            // tests hold the networks on them to the f32 ones.
+            experimental_features: if matrix_units {
                 unsafe { wgpu::ExperimentalFeatures::enabled() }
             } else {
                 wgpu::ExperimentalFeatures::disabled()
@@ -163,29 +160,66 @@ impl GpuNetwork {
             };
             sink.lock().expect("error sink").get_or_insert(message);
         }));
+        let name = format!("{} ({:?})", info.name, info.backend);
+        Ok(Arc::new(Self { device, queue, name, errors, matrix_units }))
+    }
 
-        let pipelines = Pipelines::new(&device, &weights.geometry, matrix);
-        let params = Params::upload(&device, &weights, matrix);
+    /// The GPU and graphics API.
+    pub fn name(&self) -> &str {
+        &self.name
+    }
+
+    fn check_errors(&self) -> Result<(), StemsError> {
+        match self.errors.lock().expect("error sink").take() {
+            Some(e) => Err(StemsError::Gpu(e)),
+            None => Ok(()),
+        }
+    }
+}
+
+impl GpuNetwork {
+    /// On the most capable GPU ([`Gpu::open`]), alone.
+    pub fn new(weights: Weights) -> Result<Self, StemsError> {
+        Self::with_options(weights, GpuOptions::default())
+    }
+
+    /// Accepts a software rasteriser too: for tests on machines without a GPU.
+    pub fn new_allowing_software(weights: Weights) -> Result<Self, StemsError> {
+        Self::with_options(weights, GpuOptions { software: true, ..Default::default() })
+    }
+
+    pub fn with_options(weights: Weights, options: GpuOptions) -> Result<Self, StemsError> {
+        Self::on(&Gpu::open(options)?, &weights)
+    }
+
+    /// On `gpu`, which other networks may share: the products on its matrix units if the
+    /// network suits them.
+    pub fn on(gpu: &Arc<Gpu>, weights: &Weights) -> Result<Self, StemsError> {
+        let c = &weights.geometry.config;
+        if c.dim_head > 64 || !c.dim_head.is_multiple_of(2) {
+            return Err(StemsError::Model("the GPU attention takes heads of at most 64 values".into()));
+        }
+        let matrix = gpu.matrix_units && fits_matrix_units(weights);
+        let pipelines = Pipelines::new(&gpu.device, &weights.geometry, matrix);
+        let params = Params::upload(&gpu.device, weights, matrix);
         let units = if matrix { ", tensor cores" } else { "" };
         let network = Self {
-            geometry: weights.geometry,
-            device,
-            queue,
-            adapter: format!("{} ({:?}{units})", info.name, info.backend),
-            errors,
+            gpu: gpu.clone(),
+            geometry: weights.geometry.clone(),
+            adapter: format!("{}{units}", gpu.name),
             matrix,
             pipelines,
             params,
             plans: HashMap::new(),
             started: None,
         };
-        network.check_errors()?;
+        gpu.check_errors()?;
         let frames = network.geometry.config.chunk_frames;
         network.check_limits(frames)?;
         Ok(network)
     }
 
-    /// The GPU and graphics API in use.
+    /// The GPU and graphics API in use, and its matrix units if the network runs on them.
     pub fn adapter(&self) -> &str {
         &self.adapter
     }
@@ -196,10 +230,7 @@ impl GpuNetwork {
     }
 
     fn check_errors(&self) -> Result<(), StemsError> {
-        match self.errors.lock().expect("error sink").take() {
-            Some(e) => Err(StemsError::Gpu(e)),
-            None => Ok(()),
-        }
+        self.gpu.check_errors()
     }
 
     /// Whether the largest activation fits in one buffer binding.
@@ -208,7 +239,7 @@ impl GpuNetwork {
         let tokens = frames * self.geometry.bands.len();
         let widest = c.qkvg_width().max(self.params.ff_hidden);
         let bytes = (tokens * widest * self.act_bytes()).max(tokens * c.dim * 4) as u64;
-        let limits = self.device.limits();
+        let limits = self.gpu.device.limits();
         if bytes > limits.max_storage_buffer_binding_size || bytes > limits.max_buffer_size {
             return Err(StemsError::Gpu(format!("{bytes} byte buffers exceed this GPU's limits")));
         }
@@ -243,9 +274,11 @@ impl MaskNetwork for GpuNetwork {
         assert!(bins.len() == frames * self.geometry.features(), "bins hold `frames` rows of features");
         self.prepare(frames)?;
         let plan = &self.plans[&frames];
-        self.queue.write_buffer(&plan.bins, 0, bytemuck::cast_slice(bins));
+        let gpu = &self.gpu;
+        gpu.queue.write_buffer(&plan.bins, 0, bytemuck::cast_slice(bins));
+        let mut last = None;
         for (i, steps) in plan.submissions.iter().enumerate() {
-            let mut encoder = self.device.create_command_encoder(&Default::default());
+            let mut encoder = gpu.device.create_command_encoder(&Default::default());
             {
                 let mut pass = encoder.begin_compute_pass(&Default::default());
                 for step in steps {
@@ -257,14 +290,14 @@ impl MaskNetwork for GpuNetwork {
             if i + 1 == plan.submissions.len() {
                 encoder.copy_buffer_to_buffer(&plan.mask, 0, &plan.readback, 0, plan.mask.size());
             }
-            self.queue.submit([encoder.finish()]);
+            last = Some(gpu.queue.submit([encoder.finish()]));
         }
-        self.started = Some(frames);
+        self.started = Some((frames, last.expect("a plan has submissions")));
         self.check_errors()
     }
 
     fn finish(&mut self, out: &mut [f32]) -> Result<(), StemsError> {
-        let frames = self.started.take().expect("a chunk was started");
+        let (frames, submission) = self.started.take().expect("a chunk was started");
         assert!(out.len() == self.geometry.mask_len(frames), "masks hold `frames` rows per stem");
         let plan = &self.plans[&frames];
         let slice = plan.readback.slice(..);
@@ -272,7 +305,8 @@ impl MaskNetwork for GpuNetwork {
         slice.map_async(wgpu::MapMode::Read, move |r| {
             let _ = tx.send(r);
         });
-        self.device.poll(wgpu::PollType::wait_indefinitely()).map_err(|e| StemsError::Gpu(e.to_string()))?;
+        let done = wgpu::PollType::Wait { submission_index: Some(submission), timeout: None };
+        self.gpu.device.poll(done).map_err(|e| StemsError::Gpu(e.to_string()))?;
         rx.recv().map_err(|e| StemsError::Gpu(e.to_string()))?.map_err(|e| StemsError::Gpu(e.to_string()))?;
         {
             let view = slice.get_mapped_range().map_err(|e| StemsError::Gpu(e.to_string()))?;
@@ -487,7 +521,7 @@ impl Planner<'_> {
 
         let bins = self.buffer(Store::F32, frames * features, wgpu::BufferUsages::COPY_DST);
         let mask = self.buffer(Store::F32, g.mask_len(frames), wgpu::BufferUsages::COPY_SRC);
-        let readback = self.net.device.create_buffer(&wgpu::BufferDescriptor {
+        let readback = self.net.gpu.device.create_buffer(&wgpu::BufferDescriptor {
             label: None,
             size: mask.size(),
             usage: wgpu::BufferUsages::MAP_READ | wgpu::BufferUsages::COPY_DST,
@@ -502,8 +536,9 @@ impl Planner<'_> {
         let band_in = acts(frames * widest_band);
         let mlp = [acts(frames * p.mask_hidden), acts(frames * p.mask_hidden)];
         let mlp_out = f32s(frames * mask_out);
-        let angles_time = storage(&self.net.device, bytemuck::cast_slice(&angles(&p.rotary_time, frames)));
-        let angles_freq = storage(&self.net.device, bytemuck::cast_slice(&angles(&p.rotary_freq, bands)));
+        let angles_time =
+            storage(&self.net.gpu.device, bytemuck::cast_slice(&angles(&p.rotary_time, frames)));
+        let angles_freq = storage(&self.net.gpu.device, bytemuck::cast_slice(&angles(&p.rotary_freq, bands)));
 
         let mut submissions = Vec::new();
         let mut steps = Vec::new();
@@ -576,7 +611,7 @@ impl Planner<'_> {
     /// Room for `count` values stored as `store`, in whole groups of 4.
     fn buffer(&self, store: Store, count: usize, usage: wgpu::BufferUsages) -> wgpu::Buffer {
         let bytes = if store == Store::Act { self.net.act_bytes() } else { 4 };
-        self.net.device.create_buffer(&wgpu::BufferDescriptor {
+        self.net.gpu.device.create_buffer(&wgpu::BufferDescriptor {
             label: None,
             size: (count.max(1).next_multiple_of(4) * bytes) as u64,
             usage: wgpu::BufferUsages::STORAGE | usage,
@@ -591,7 +626,7 @@ impl Planner<'_> {
         buffers: &[&wgpu::Buffer],
         uniform: &[u32],
     ) -> Step {
-        let device = &self.net.device;
+        let device = &self.net.gpu.device;
         let mut words = uniform.to_vec();
         words.resize(uniform.len().next_multiple_of(4), 0);
         let uniform = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
@@ -897,17 +932,18 @@ mod tests {
             let expected = reference(&wide, c, freqs, axis, frames, bands);
 
             let planner = Planner { net: &net, frames };
-            let input = storage(&net.device, bytemuck::cast_slice(&qkvg));
-            let angles = storage(&net.device, bytemuck::cast_slice(&angles(freqs, axis.len(frames, bands))));
+            let input = storage(&net.gpu.device, bytemuck::cast_slice(&qkvg));
+            let angles =
+                storage(&net.gpu.device, bytemuck::cast_slice(&angles(freqs, axis.len(frames, bands))));
             let out = planner.buffer(Store::Act, tokens * inner, wgpu::BufferUsages::COPY_SRC);
             let step = planner.attention(&input, &angles, &out, axis);
-            let read = net.device.create_buffer(&wgpu::BufferDescriptor {
+            let read = net.gpu.device.create_buffer(&wgpu::BufferDescriptor {
                 label: None,
                 size: out.size(),
                 usage: wgpu::BufferUsages::MAP_READ | wgpu::BufferUsages::COPY_DST,
                 mapped_at_creation: false,
             });
-            let mut encoder = net.device.create_command_encoder(&Default::default());
+            let mut encoder = net.gpu.device.create_command_encoder(&Default::default());
             {
                 let mut pass = encoder.begin_compute_pass(&Default::default());
                 pass.set_pipeline(&step.pipeline);
@@ -915,9 +951,9 @@ mod tests {
                 pass.dispatch_workgroups(step.groups.0, step.groups.1, 1);
             }
             encoder.copy_buffer_to_buffer(&out, 0, &read, 0, out.size());
-            net.queue.submit([encoder.finish()]);
+            net.gpu.queue.submit([encoder.finish()]);
             read.slice(..).map_async(wgpu::MapMode::Read, |r| r.expect("mapped"));
-            net.device.poll(wgpu::PollType::wait_indefinitely()).expect("GPU done");
+            net.gpu.device.poll(wgpu::PollType::wait_indefinitely()).expect("GPU done");
             let view = read.slice(..).get_mapped_range().expect("mapped");
             let got = &bytemuck::cast_slice::<u8, half::f16>(&view)[..tokens * inner];
 

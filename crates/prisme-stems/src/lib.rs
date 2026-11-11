@@ -16,10 +16,10 @@ pub mod stft;
 pub mod track;
 
 pub use cpu::CpuNetwork;
-pub use gpu::{GpuNetwork, GpuOptions};
+pub use gpu::{Gpu, GpuNetwork, GpuOptions};
 pub use model::{Config, Geometry, Weights};
 pub use network::MaskNetwork;
-pub use separate::Separator;
+pub use separate::{Separation, Separator};
 
 #[derive(Debug, thiserror::Error)]
 pub enum StemsError {

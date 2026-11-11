@@ -558,6 +558,28 @@
                   </div>
                 }
               }
+              @if (row('library.stemsOnLoad')) {
+                @let e = entry('library.stemsOnLoad');
+                <div
+                  class="pr-row"
+                  data-setting="library.stemsOnLoad"
+                  [class.is-pointed]="pointed() === e.id"
+                >
+                  <div>
+                    <span class="pr-row__name">{{ e.label }}</span>
+                    <span class="pr-row__help">{{ e.description }}</span>
+                  </div>
+                  <button
+                    class="pr-switch"
+                    role="switch"
+                    [attr.aria-checked]="separateOnLoad()"
+                    [attr.aria-label]="e.label"
+                    (click)="setSeparateOnLoad(!separateOnLoad())"
+                  >
+                    <span></span>
+                  </button>
+                </div>
+              }
               @if (row('library.stemsAll')) {
                 @let e = entry('library.stemsAll');
                 <div
