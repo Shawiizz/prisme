@@ -71,9 +71,17 @@ pub fn start<C: AudioCallback>(
     let _drivers = drivers();
     let out_device = find(settings.backend, DeviceKind::Output, settings.output_device.as_deref())?;
     let out_default = out_device.default_output_config()?;
-    let sample_rate = out_default.sample_rate();
+    let mut sample_rate = out_default.sample_rate();
     let output_channels = out_default.channels() as usize;
     let mut out_config = out_default.config();
+    // A WASAPI output takes any rate (Windows converts it): it follows the input, whose
+    // rate the timecode needs as it is, when Windows set them apart.
+    if settings.backend == Backend::Wasapi {
+        if let Some(rate) = settings.input_device.as_deref().and_then(input_rate) {
+            sample_rate = rate;
+            out_config.sample_rate = rate;
+        }
+    }
     let buffer_frames =
         settings.buffer_frames.map(|frames| supported_buffer(frames, out_default.buffer_size()));
     if let Some(frames) = buffer_frames {
@@ -121,6 +129,12 @@ impl Drop for RunningStream {
         let _drivers = drivers();
         self.streams = None;
     }
+}
+
+/// The rate WASAPI runs input `name` at, if it is there.
+fn input_rate(name: &str) -> Option<u32> {
+    let device = find(Backend::Wasapi, DeviceKind::Input, Some(name)).ok()?;
+    Some(device.default_input_config().ok()?.sample_rate())
 }
 
 struct Input {

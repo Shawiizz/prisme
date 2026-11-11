@@ -50,11 +50,14 @@ fn output_as<T: SizedSample + FromSample<f32>>(
     let mut scratch = vec![0.0f32; MAX_PERIOD * config.channels as usize];
     let stream = device.build_output_stream(
         config,
+        // a driver asking for more than MAX_PERIOD frames at once gets them in several renders
         move |data: &mut [T], _| {
-            let n = data.len().min(scratch.len());
-            render(&mut scratch[..n]);
-            for (out, &s) in data.iter_mut().zip(&scratch[..n]) {
-                *out = T::from_sample(s);
+            for part in data.chunks_mut(scratch.len()) {
+                let rendered = &mut scratch[..part.len()];
+                render(rendered);
+                for (out, &s) in part.iter_mut().zip(rendered.iter()) {
+                    *out = T::from_sample(s);
+                }
             }
         },
         on_error,
