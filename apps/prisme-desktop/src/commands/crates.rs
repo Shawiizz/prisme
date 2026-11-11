@@ -8,50 +8,50 @@ use tauri::State;
 
 type Library<'a> = State<'a, Arc<LibraryService>>;
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn list_crates(library: Library<'_>) -> AppResult<Vec<CrateDto>> {
     Ok(library.db.crates()?.into_iter().map(CrateDto::from).collect())
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn create_crate(library: Library<'_>, name: String) -> AppResult<i64> {
     Ok(library.db.create_crate(crate_name(&name)?)?.0)
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn create_smart_crate(library: Library<'_>, name: String, rules: SmartRules) -> AppResult<i64> {
     Ok(library.db.create_smart_crate(crate_name(&name)?, &rules)?.0)
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn set_crate_rules(library: Library<'_>, id: i64, rules: SmartRules) -> AppResult<()> {
     Ok(library.db.set_crate_rules(CrateId(id), &rules)?)
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn rename_crate(library: Library<'_>, id: i64, name: String) -> AppResult<()> {
     Ok(library.db.rename_crate(CrateId(id), crate_name(&name)?)?)
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn delete_crate(library: Library<'_>, id: i64) -> AppResult<()> {
     Ok(library.db.delete_crate(CrateId(id))?)
 }
 
 /// Returns how many tracks were not in the crate yet.
-#[tauri::command]
+#[tauri::command(async)]
 pub fn add_to_crate(library: Library<'_>, id: i64, paths: Vec<String>) -> AppResult<usize> {
     filled_by_hand(&library, id)?;
     Ok(library.db.add_to_crate(CrateId(id), &as_paths(&paths))?)
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn remove_from_crate(library: Library<'_>, id: i64, paths: Vec<String>) -> AppResult<()> {
     filled_by_hand(&library, id)?;
     Ok(library.db.remove_from_crate(CrateId(id), &as_paths(&paths))?)
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn crate_tracks(library: Library<'_>, id: i64) -> AppResult<Vec<DirEntryDto>> {
     let entries = library.db.crate_tracks(CrateId(id))?;
     Ok(entries.iter().map(|e| DirEntryDto::track(&e.path, e.record.as_ref())).collect())

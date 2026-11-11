@@ -9,7 +9,7 @@ use tauri::State;
 
 type Library<'a> = State<'a, Arc<LibraryService>>;
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn prepare_list(library: Library<'_>) -> AppResult<Vec<DirEntryDto>> {
     let entries = library.db.prepare_list()?;
     Ok(entries.iter().map(|e| DirEntryDto::track(&e.path, e.record.as_ref())).collect())
@@ -32,13 +32,13 @@ pub fn add_to_prepare(
     Ok(added)
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn remove_from_prepare(library: Library<'_>, paths: Vec<String>) -> AppResult<()> {
     library.db.remove_from_prepare(&paths.iter().map(Path::new).collect::<Vec<_>>())?;
     Ok(())
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn move_in_prepare(library: Library<'_>, path: String, index: usize) -> AppResult<()> {
     Ok(library.db.move_in_prepare(Path::new(&path), index)?)
 }

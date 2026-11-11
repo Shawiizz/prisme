@@ -13,7 +13,7 @@ pub fn music_root() -> String {
 }
 
 /// Folders and tracks of a folder, with the stored analysis of each track.
-#[tauri::command]
+#[tauri::command(async)]
 pub fn list_dir(library: State<'_, Arc<LibraryService>>, path: String) -> AppResult<DirListingDto> {
     Ok(folders::list_dir(&PathBuf::from(path), |file, meta| {
         let record = library.db.get(file).ok().flatten()?;

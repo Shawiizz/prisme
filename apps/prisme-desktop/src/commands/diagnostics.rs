@@ -16,7 +16,7 @@ const LOG_LINES: usize = 400;
 
 /// Writes the versions, the audio setup and its health, the controllers and the end of
 /// the log to `path`.
-#[tauri::command]
+#[tauri::command(async)]
 pub fn save_diagnostics(
     app: AppHandle,
     state: State<'_, AppState>,

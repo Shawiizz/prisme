@@ -8,24 +8,24 @@ use tauri::State;
 
 type Library<'a> = State<'a, Arc<LibraryService>>;
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn history_sessions(library: Library<'_>) -> AppResult<Vec<HistorySessionDto>> {
     Ok(library.db.history_sessions()?.into_iter().map(HistorySessionDto::from).collect())
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn history_plays(library: Library<'_>, id: i64) -> AppResult<Vec<HistoryPlayDto>> {
     Ok(library.db.history_plays(SessionId(id))?.iter().map(HistoryPlayDto::from).collect())
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn delete_history_session(library: Library<'_>, id: i64) -> AppResult<()> {
     Ok(library.db.delete_history_session(SessionId(id))?)
 }
 
 /// Writes the tracklist of a session as CSV (UTF-8 with a BOM, so that Excel reads the
 /// accents right).
-#[tauri::command]
+#[tauri::command(async)]
 pub fn export_history(library: Library<'_>, id: i64, path: PathBuf) -> AppResult<()> {
     let plays = library.db.history_plays(SessionId(id))?;
     std::fs::write(path, format!("\u{feff}{}", tracklist_csv(&plays)))?;
