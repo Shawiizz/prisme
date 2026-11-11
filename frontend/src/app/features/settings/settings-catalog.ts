@@ -40,7 +40,7 @@ export const SETTINGS_PAGES: readonly SettingsPage[] = [
   {
     id: 'dj',
     label: 'DJ',
-    description: t('Sync, tempo fader and quantize.'),
+    description: t('Sync, tempo fader, quantize and auto gain.'),
     keywords: 'sync pitch quantize',
   },
   {

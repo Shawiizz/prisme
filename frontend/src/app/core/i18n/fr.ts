@@ -420,7 +420,7 @@ export const FR: Record<string, string> = {
     'Le signal timecode de chaque disque, et comment il pilote son deck.',
   'Your mixer or the one in Prisme, and how it sounds.':
     'Votre table de mixage ou celle de Prisme, et son rendu.',
-  'Sync, tempo fader and quantize.': 'Sync, fader de tempo et quantize.',
+  'Sync, tempo fader, quantize and auto gain.': 'Sync, fader de tempo, quantize et gain automatique.',
   'Your music files and what Prisme writes into them.':
     'Vos fichiers musicaux et ce que Prisme y écrit.',
   'Map the controls of a controller by moving them.':
