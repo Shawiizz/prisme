@@ -1,5 +1,6 @@
 //! The network's weights, as written by `tools/export_roformer.py`.
 
+use std::borrow::Cow;
 use std::collections::HashMap;
 use std::fs::File;
 use std::path::Path;
@@ -51,10 +52,54 @@ impl Config {
 /// `y = x · weightᵀ + bias`, the weight stored `out` rows of `inp` values.
 #[derive(Debug, Clone)]
 pub struct Linear {
-    pub weight: Vec<f32>,
+    pub weight: Values,
     pub bias: Option<Vec<f32>>,
     pub out: usize,
     pub inp: usize,
+}
+
+/// A weight in the precision of the model file: the GPU takes f16 weights as they are.
+#[derive(Debug, Clone)]
+pub enum Values {
+    F32(Vec<f32>),
+    F16(Vec<half::f16>),
+}
+
+impl Values {
+    pub fn len(&self) -> usize {
+        match self {
+            Values::F32(v) => v.len(),
+            Values::F16(v) => v.len(),
+        }
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+
+    /// The values as f32, widened if stored as f16.
+    pub fn to_f32(&self) -> Cow<'_, [f32]> {
+        match self {
+            Values::F32(v) => Cow::Borrowed(v),
+            Values::F16(v) => Cow::Owned(v.iter().map(|h| h.to_f32()).collect()),
+        }
+    }
+
+    /// The values as f16, rounded if stored as f32.
+    pub fn to_f16(&self) -> Cow<'_, [half::f16]> {
+        match self {
+            Values::F32(v) => Cow::Owned(v.iter().map(|&x| half::f16::from_f32(x)).collect()),
+            Values::F16(v) => Cow::Borrowed(v),
+        }
+    }
+
+    /// The values if stored as f32.
+    pub fn as_f32(&self) -> Option<&[f32]> {
+        match self {
+            Values::F32(v) => Some(v),
+            Values::F16(_) => None,
+        }
+    }
 }
 
 /// One band of the band split: its slice of a frame of gathered STFT bins.
@@ -124,6 +169,23 @@ pub struct Weights {
 }
 
 impl Weights {
+    /// Every linear layer: band split, transformers, mask estimators.
+    pub fn linears(&self) -> impl Iterator<Item = &Linear> {
+        let layers = self.transformers.iter().flat_map(|t| &t.layers);
+        self.band_proj
+            .iter()
+            .chain(layers.flat_map(|l| [&l.qkvg, &l.out, &l.ff1, &l.ff2]))
+            .chain(self.masks.iter().flatten().flatten())
+    }
+
+    pub fn linears_mut(&mut self) -> impl Iterator<Item = &mut Linear> {
+        let layers = self.transformers.iter_mut().flat_map(|t| &mut t.layers);
+        self.band_proj
+            .iter_mut()
+            .chain(layers.flat_map(|l| [&mut l.qkvg, &mut l.out, &mut l.ff1, &mut l.ff2]))
+            .chain(self.masks.iter_mut().flatten().flatten())
+    }
+
     pub fn load(path: &Path) -> Result<Self, StemsError> {
         let file = File::open(path)?;
         // SAFETY: the file is only read, and Prisme never writes a model file while running.
@@ -320,6 +382,15 @@ impl Reader<'_> {
         }
     }
 
+    /// A float tensor as stored.
+    fn values(&self, name: &str) -> Result<Values, StemsError> {
+        let t = self.tensors.tensor(name).map_err(|_| missing(name))?;
+        match t.dtype() {
+            Dtype::F16 => Ok(Values::F16(bytemuck::pod_collect_to_vec(t.data()))),
+            _ => Ok(Values::F32(self.f32s(name)?)),
+        }
+    }
+
     fn u32s(&self, name: &str) -> Result<Vec<u32>, StemsError> {
         let t = self.tensors.tensor(name).map_err(|_| missing(name))?;
         if t.dtype() != Dtype::I32 {
@@ -345,7 +416,11 @@ impl Reader<'_> {
         if bias.as_ref().is_some_and(|b| b.len() != out) {
             return Err(StemsError::Model(format!("{bias_name} does not match its weight")));
         }
-        Ok(Linear { weight: self.f32s(&name)?, bias, out, inp })
+        let weight = self.values(&name)?;
+        if weight.len() != out * inp {
+            return Err(StemsError::Model(format!("{name} does not match its shape")));
+        }
+        Ok(Linear { weight, bias, out, inp })
     }
 }
 

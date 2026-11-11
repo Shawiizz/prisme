@@ -8,7 +8,7 @@
 use gemm::Parallelism;
 use rayon::prelude::*;
 
-use crate::model::{Config, Geometry, Linear, Weights};
+use crate::model::{Config, Geometry, Linear, Values, Weights};
 use crate::network::{Axis, MaskNetwork};
 use crate::StemsError;
 
@@ -19,7 +19,13 @@ pub struct CpuNetwork {
 }
 
 impl CpuNetwork {
-    pub fn new(weights: Weights) -> Self {
+    /// The weights stored as f16 are widened here: the CPU computes in f32.
+    pub fn new(mut weights: Weights) -> Self {
+        for l in weights.linears_mut() {
+            if l.weight.as_f32().is_none() {
+                l.weight = Values::F32(l.weight.to_f32().into_owned());
+            }
+        }
         Self { weights, started: None }
     }
 }
@@ -294,6 +300,7 @@ fn linear_with(
     parallelism: Parallelism,
 ) {
     assert!(rows == 0 || (input.len() >= (rows - 1) * ldi + l.inp && out.len() >= (rows - 1) * ldo + l.out));
+    let weight = l.weight.as_f32().expect("widened by CpuNetwork::new");
     // SAFETY: the bounds were checked above; the weight is `out` rows of `inp` values.
     unsafe {
         gemm::gemm(
@@ -307,7 +314,7 @@ fn linear_with(
             input.as_ptr(),
             1,
             ldi as isize,
-            l.weight.as_ptr(),
+            weight.as_ptr(),
             l.inp as isize,
             1,
             1.0,

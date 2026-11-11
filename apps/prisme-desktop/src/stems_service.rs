@@ -486,39 +486,54 @@ impl Worker {
         Some((audio, frame))
     }
 
-    /// Opens the separators of the `needed` models not open yet, on `gpu` when they can: they
-    /// share it, their chunks taking turns.
+    /// Opens the separators of the `needed` models not open yet, all at once, on `gpu` when
+    /// they can: they share it, their chunks taking turns.
     fn open(
         &self,
         gpu: Option<&Arc<Gpu>>,
         separators: &mut [Option<BoxedSeparator>],
         needed: &[usize],
     ) -> Result<(), StemsError> {
-        for &m in needed {
-            if separators[m].is_some() {
-                continue;
-            }
-            let weights = Weights::load(&self.models[m])?;
-            let stems: Vec<&str> = MODELS[m].stems.iter().map(|s| s.name()).collect();
-            if weights.geometry.stems != stems {
-                return Err(StemsError::Model(format!("{} does not separate {stems:?}", MODELS[m].file)));
-            }
-            let on_gpu = gpu.map(|gpu| GpuNetwork::on(gpu, &weights)).transpose().unwrap_or_else(|e| {
-                warn!("separating with the {} model on the CPU: {e}", MODELS[m].id);
-                None
-            });
-            let (network, device): (Box<dyn MaskNetwork>, String) = match on_gpu {
-                Some(network) => {
-                    let device = network.adapter().to_owned();
-                    (Box::new(network), device)
-                }
-                None => (Box::new(CpuNetwork::new(weights)), "CPU".to_owned()),
-            };
+        let missing: Vec<usize> = needed.iter().copied().filter(|&m| separators[m].is_none()).collect();
+        let opened = std::thread::scope(|scope| {
+            let opening: Vec<_> =
+                missing.iter().map(|&m| (m, scope.spawn(move || self.open_model(gpu, m)))).collect();
+            opening
+                .into_iter()
+                .map(|(m, opening)| (m, opening.join().expect("a model opens without panicking")))
+                .collect::<Vec<_>>()
+        });
+        for (m, opened) in opened {
+            let (network, device) = opened?;
             info!("separating with the {} model on {device}", MODELS[m].id);
             self.update(|p| p.device = Some(device));
             separators[m] = Some(Separator::new(network));
         }
         Ok(())
+    }
+
+    /// Model `m` as a network, on `gpu` if it can, and where it runs.
+    fn open_model(
+        &self,
+        gpu: Option<&Arc<Gpu>>,
+        m: usize,
+    ) -> Result<(Box<dyn MaskNetwork>, String), StemsError> {
+        let weights = Weights::load(&self.models[m])?;
+        let stems: Vec<&str> = MODELS[m].stems.iter().map(|s| s.name()).collect();
+        if weights.geometry.stems != stems {
+            return Err(StemsError::Model(format!("{} does not separate {stems:?}", MODELS[m].file)));
+        }
+        let on_gpu = gpu.map(|gpu| GpuNetwork::on(gpu, &weights)).transpose().unwrap_or_else(|e| {
+            warn!("separating with the {} model on the CPU: {e}", MODELS[m].id);
+            None
+        });
+        Ok(match on_gpu {
+            Some(network) => {
+                let device = network.adapter().to_owned();
+                (Box::new(network), device)
+            }
+            None => (Box::new(CpuNetwork::new(weights)), "CPU".to_owned()),
+        })
     }
 
     fn update(&self, f: impl FnOnce(&mut StemsProgressDto)) {

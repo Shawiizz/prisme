@@ -17,7 +17,7 @@ pub mod track;
 
 pub use cpu::CpuNetwork;
 pub use gpu::{Gpu, GpuNetwork, GpuOptions};
-pub use model::{Config, Geometry, Weights};
+pub use model::{Config, Geometry, Values, Weights};
 pub use network::MaskNetwork;
 pub use separate::{Separation, Separator};
 

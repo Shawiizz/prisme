@@ -4,7 +4,7 @@
 
 use std::path::Path;
 
-use prisme_stems::model::{Geometry, Layer, Linear, Transformer};
+use prisme_stems::model::{Geometry, Layer, Linear, Transformer, Values};
 use prisme_stems::{CpuNetwork, GpuNetwork, GpuOptions, MaskNetwork, Separator, StemsError, Weights};
 
 fn load(name: &str) -> Weights {
@@ -155,7 +155,7 @@ fn wide_heads(base: &Weights) -> Weights {
     let mut linear = |out: usize, inp: usize| {
         let scale = 2.0 / (inp as f32).sqrt();
         Linear {
-            weight: (0..out * inp).map(|_| half::f16::from_f32(next() * scale).to_f32()).collect(),
+            weight: Values::F16((0..out * inp).map(|_| half::f16::from_f32(next() * scale)).collect()),
             bias: Some((0..out).map(|_| next() * 0.2).collect()),
             out,
             inp,

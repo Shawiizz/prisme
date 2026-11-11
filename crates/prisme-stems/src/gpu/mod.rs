@@ -214,8 +214,8 @@ impl GpuNetwork {
             started: None,
         };
         gpu.check_errors()?;
-        let frames = network.geometry.config.chunk_frames;
-        network.check_limits(frames)?;
+        let mut network = network;
+        network.prepare(network.geometry.config.chunk_frames)?;
         Ok(network)
     }
 
@@ -359,13 +359,7 @@ fn has_matrix_units(adapter: &wgpu::Adapter) -> bool {
 
 /// Whether the products suit the network: they read their inputs 4 values at a time.
 fn fits_matrix_units(weights: &Weights) -> bool {
-    let transformers = weights.transformers.iter().flat_map(|t| &t.layers);
-    let mut linears = weights
-        .band_proj
-        .iter()
-        .chain(transformers.flat_map(|l| [&l.qkvg, &l.out, &l.ff1, &l.ff2]))
-        .chain(weights.masks.iter().flatten().flatten());
-    weights.geometry.config.dim.is_multiple_of(4) && linears.all(|l| l.inp.is_multiple_of(4))
+    weights.geometry.config.dim.is_multiple_of(4) && weights.linears().all(|l| l.inp.is_multiple_of(4))
 }
 
 /// Whether the attention runs on the matrix units: heads of 64 values, and the queries, keys
@@ -439,15 +433,12 @@ impl Pipelines {
 impl Params {
     fn upload(device: &wgpu::Device, w: &Weights, matrix: bool) -> Self {
         let linear = |l: &Linear| {
+            // the matrix units read rows of whole groups of 4, which the networks they run
+            // have (`fits_matrix_units`)
             let (weight, ld) = if matrix {
-                let ld = l.inp.div_ceil(4);
-                let mut rows = vec![half::f16::ZERO; l.out * ld * 4];
-                for (row, from) in rows.chunks_exact_mut(ld * 4).zip(l.weight.chunks_exact(l.inp)) {
-                    row.iter_mut().zip(from).for_each(|(to, &v)| *to = half::f16::from_f32(v));
-                }
-                (storage(device, bytemuck::cast_slice(&rows)), ld)
+                (storage(device, bytemuck::cast_slice(&l.weight.to_f16())), l.inp / 4)
             } else {
-                (storage(device, bytemuck::cast_slice(&l.weight)), l.inp)
+                (storage(device, bytemuck::cast_slice(&l.weight.to_f32())), l.inp)
             };
             GpuLinear {
                 weight,
@@ -791,7 +782,7 @@ fn storage(device: &wgpu::Device, bytes: &[u8]) -> wgpu::Buffer {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::model::{Band, Config, Layer, Transformer};
+    use crate::model::{Band, Config, Layer, Transformer, Values};
 
     /// A network of 4 heads of 64 values on `bands` bands, as the attention on the matrix
     /// units takes them (its weights play no part here); `None` without such units.
@@ -808,7 +799,12 @@ mod tests {
             skip: false,
             overlap: 1,
         };
-        let zero = |out: usize, inp: usize| Linear { weight: vec![0.0; out * inp], bias: None, out, inp };
+        let zero = |out: usize, inp: usize| Linear {
+            weight: Values::F32(vec![0.0; out * inp]),
+            bias: None,
+            out,
+            inp,
+        };
         let layer = || Layer {
             qkvg: zero(config.qkvg_width(), 64),
             out: zero(64, config.inner_dim()),

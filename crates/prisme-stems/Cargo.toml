@@ -16,7 +16,7 @@ memmap2 = "0.9"
 gemm = "0.19"
 rayon = "1"
 libm = "0.2"
-half = "2"
+half = { version = "2", features = ["bytemuck"] }
 flacenc = "0.5"
 rubato = "5"
 wgpu = { version = "30", default-features = false, features = ["std", "parking_lot", "dx12", "vulkan", "wgsl"] }
