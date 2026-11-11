@@ -85,7 +85,8 @@ pub struct LibraryPreferences {
     pub hidden_columns: Vec<String>,
     /// Tempo and key written into the files' tags (see `tag_writer`).
     pub write_tags: bool,
-    /// A track loaded on a deck is separated right away, before the library's.
+    /// A track loaded on a deck is separated right away, before the library's; one put in
+    /// the prepare list in the background.
     pub separate_on_load: bool,
 }
 

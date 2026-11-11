@@ -173,9 +173,9 @@ export const SETTINGS: readonly SettingEntry[] = [
   {
     id: 'library.stemsOnLoad',
     page: 'library',
-    label: t('Separate the tracks loaded on the decks'),
+    label: t('Separate the tracks as they are loaded or prepared'),
     description: t(
-      'Right away, from where the deck plays: the stems come there within seconds, before the library tracks.',
+      'A track loaded on a deck right away, from where it plays: its stems come within seconds. A track put in Prepare in the background, ready before the set.',
     ),
   },
   {

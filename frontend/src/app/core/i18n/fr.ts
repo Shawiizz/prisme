@@ -499,14 +499,15 @@ export const FR: Record<string, string> = {
   'Drums and bass separation': 'Séparation batterie / basse',
   'Splits the instrumental into drums, bass and melody, to mute each on its own. Needs the vocals separation, and takes two to three times as long.':
     'Sépare l’instru en batterie, basse et mélodie, pour couper chacune à part. Demande la séparation voix / instru, et prend deux à trois fois plus de temps.',
-  'Separate the tracks loaded on the decks': 'Séparer les morceaux chargés sur les decks',
   'Vocals level': 'Niveau de la voix',
   'Instrumental level': 'Niveau de l’instru',
   'Drums level': 'Niveau de la batterie',
   'Bass level': 'Niveau de la basse',
   'Melody level': 'Niveau de la mélodie',
-  'Right away, from where the deck plays: the stems come there within seconds, before the library tracks.':
-    'Tout de suite, à partir de là où joue le deck : les pistes y arrivent en quelques secondes, avant celles de la bibliothèque.',
+  'Separate the tracks as they are loaded or prepared':
+    'Séparer les morceaux dès qu’ils sont chargés ou mis en préparation',
+  'A track loaded on a deck right away, from where it plays: its stems come within seconds. A track put in Prepare in the background, ready before the set.':
+    'Un morceau chargé sur un deck tout de suite, à partir de là où il joue : ses pistes arrivent en quelques secondes. Un morceau mis en préparation en arrière-plan, prêt avant le set.',
   'Separate the whole library': 'Séparer toute la bibliothèque',
   'The stems are stored next to each track, in a .prisme folder: copy your music to another computer and its separations come along.':
     'Les pistes sont rangées à côté de chaque morceau, dans un dossier .prisme : copiez votre musique sur un autre ordinateur et ses séparations suivent.',
