@@ -210,8 +210,10 @@ impl GpuNetwork {
     /// network suits them.
     pub fn on(gpu: &Arc<Gpu>, weights: &Weights) -> Result<Self, StemsError> {
         let c = &weights.geometry.config;
-        if c.dim_head > 64 || !c.dim_head.is_multiple_of(2) {
-            return Err(StemsError::Model("the GPU attention takes heads of at most 64 values".into()));
+        if c.dim_head > 64 || !c.dim_head.is_multiple_of(4) {
+            return Err(StemsError::Model(
+                "the GPU attention takes heads of at most 64 values, in groups of 4".into(),
+            ));
         }
         let matrix = gpu.matrix_units && fits_matrix_units(weights);
         let pipelines = Pipelines::new(gpu, &weights.geometry, matrix);
