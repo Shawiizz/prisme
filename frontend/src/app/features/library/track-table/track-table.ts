@@ -125,8 +125,15 @@ export class TrackTable {
   private readonly referenceKey = computed(
     () => this.engine.heardKey(this.library.reference())?.camelot ?? null,
   );
-  private readonly referenceBpm = computed(
-    () => this.engine.status()?.decks[this.library.reference()]?.bpm ?? null,
+  /** To a hundredth of a BPM: the rows follow a tempo change, not every status tick. */
+  private readonly referenceBpm = computed(() => {
+    const bpm = this.engine.status()?.decks[this.library.reference()]?.bpm;
+    return bpm == null ? null : Math.round(bpm * 100) / 100;
+  });
+  /** Which decks play: the deck marks change with it, not with every status tick. */
+  protected readonly playing = computed(
+    () => (this.engine.status()?.decks ?? []).map((d) => d?.playing ?? false),
+    { equal: (a, b) => a.length === b.length && a.every((v, i) => v === b[i]) },
   );
   protected readonly pitchHeader = computed(() =>
     t('Pitch → {deck}', { deck: deckLetter(this.library.reference()) }),

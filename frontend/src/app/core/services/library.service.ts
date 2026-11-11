@@ -186,14 +186,19 @@ export class LibraryService {
     return `${deck} ${track?.loadId} ${track?.tempo?.bpm} ${track?.key?.camelot}`;
   });
 
+  /** Whether the deck the next track goes on keeps its key: the mix order depends on it,
+   * not on the rest of that deck's settings. */
+  private readonly nextKeyLock = computed(
+    () => this.engine.decks()[(this.reference() + 1) % DECK_COUNT].keyLock,
+  );
+
   private readonly mixContext = computed((): MixContext | null => {
     const reference = this.mixReference();
     if (!reference) return null;
-    const next = (this.reference() + 1) % DECK_COUNT;
     return {
       reference,
       pitchRange: this.preferences.dj().pitchRange,
-      keyLock: this.engine.decks()[next].keyLock,
+      keyLock: this.nextKeyLock(),
       playedTonight: this.history.playedTonight(),
     };
   });

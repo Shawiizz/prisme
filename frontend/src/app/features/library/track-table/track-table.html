@@ -74,7 +74,7 @@
               @for (d of decksOf(t.path); track d) {
                 <span
                   class="deck"
-                  [class.playing]="engine.status()?.decks[d]?.playing"
+                  [class.playing]="playing()[d]"
                   [title]="'On deck {deck}' | t: { deck: letter(d) }"
                   >{{ letter(d) }}</span
                 >
