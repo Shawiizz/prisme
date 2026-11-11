@@ -6,9 +6,10 @@
 //! A track separated into its vocals alone has no drums nor bass: they stay in the other
 //! instruments and follow their gain. So does a stem where it is not separated yet (the
 //! stems of a track being separated come as they are made); where none is, the track plays
-//! whole.
+//! whole. Crossing from one to the other fades in about 10 ms, as a gain does.
 
 use prisme_media::{TrackAudio, TrackView};
+use std::cell::Cell;
 use std::sync::Arc;
 
 /// Gains move by this much per frame read: a toggle fades in about 10 ms instead of clicking.
@@ -57,6 +58,13 @@ pub(crate) struct Stems {
     tracks: StemTracks,
     gains: [Ramp; 3],
     other: Ramp,
+    /// How much each stem is there where the deck plays: 0 where it is not separated yet.
+    present: [Ramp; 3],
+    /// How much any stem is: 0 where none is, and the track plays whole.
+    separated: Ramp,
+    /// Every part played as in the track until now: the presence takes the truth at once,
+    /// as it changes nothing heard yet.
+    settle_presence: bool,
 }
 
 impl Stems {
@@ -65,6 +73,9 @@ impl Stems {
             tracks: Default::default(),
             gains: [Ramp::at(1.0), Ramp::at(1.0), Ramp::at(1.0)],
             other: Ramp::at(1.0),
+            present: [Ramp::at(0.0), Ramp::at(0.0), Ramp::at(0.0)],
+            separated: Ramp::at(0.0),
+            settle_presence: true,
         }
     }
 
@@ -89,6 +100,7 @@ impl Stems {
 
     pub(crate) fn reader<'a>(&'a mut self, track: &'a TrackAudio) -> Reader<'a> {
         let mixing = !(self.other.is_one() && self.gains.iter().all(Ramp::is_one));
+        self.settle_presence |= !mixing;
         let stems =
             std::array::from_fn(|i| self.tracks[i].as_deref().filter(|_| mixing).map(TrackAudio::view));
         Reader {
@@ -96,6 +108,10 @@ impl Stems {
             stems,
             gains: &mut self.gains,
             other: &mut self.other,
+            present: &mut self.present,
+            separated: &mut self.separated,
+            settle_presence: &mut self.settle_presence,
+            last: Cell::new(0),
             sample_rate: track.sample_rate(),
         }
     }
@@ -108,6 +124,11 @@ pub(crate) struct Reader<'a> {
     stems: [Option<TrackView<'a>>; 3],
     gains: &'a mut [Ramp; 3],
     other: &'a mut Ramp,
+    present: &'a mut [Ramp; 3],
+    separated: &'a mut Ramp,
+    settle_presence: &'a mut bool,
+    /// The last frame read: where the deck plays, for the presence of the stems.
+    last: Cell<isize>,
     sample_rate: u32,
 }
 
@@ -120,31 +141,41 @@ impl Reader<'_> {
     #[inline]
     pub(crate) fn frame(&self, i: isize) -> (f32, f32) {
         let (l, r) = self.track.frame(i);
-        let other = self.other.value;
+        if self.stems.iter().all(Option::is_none) {
+            return (l, r);
+        }
+        self.last.set(i);
+        // the other instruments at their gain where stems are, the whole track where none is
+        let other = 1.0 + self.separated.value * (self.other.value - 1.0);
         let (mut ml, mut mr) = (other * l, other * r);
-        let mut separated = false;
-        for (stem, ramp) in self.stems.iter().zip(self.gains.iter()) {
+        for ((stem, gain), present) in self.stems.iter().zip(self.gains.iter()).zip(self.present.iter()) {
             if let Some((sl, sr)) = stem.and_then(|s| s.get(i)) {
-                let delta = ramp.value - other;
+                let delta = present.value * (gain.value - other);
                 ml += delta * sl;
                 mr += delta * sr;
-                separated = true;
             }
         }
-        if separated {
-            (ml, mr)
-        } else {
-            (l, r)
-        }
+        (ml, mr)
     }
 
-    /// Moves the gains one frame towards their targets.
+    /// Moves the gains one frame towards their targets, and the presence of the stems
+    /// towards what is separated where the deck plays.
     #[inline]
     pub(crate) fn advance(&mut self) {
-        if self.stems.iter().any(Option::is_some) {
-            self.gains.iter_mut().for_each(Ramp::step);
-            self.other.step();
+        if self.stems.iter().all(Option::is_none) {
+            return;
         }
+        self.gains.iter_mut().for_each(Ramp::step);
+        self.other.step();
+        let at = self.last.get();
+        let settle = std::mem::take(self.settle_presence);
+        let mut any = false;
+        for (stem, present) in self.stems.iter().zip(self.present.iter_mut()) {
+            let there = stem.is_some_and(|s| s.get(at).is_some());
+            present.move_to(if there { 1.0 } else { 0.0 }, settle);
+            any |= there;
+        }
+        self.separated.move_to(if any { 1.0 } else { 0.0 }, settle);
     }
 }
 
@@ -160,6 +191,17 @@ impl Ramp {
 
     fn is_one(&self) -> bool {
         self.value == 1.0 && self.target == 1.0
+    }
+
+    /// Aims at `target`, reached at once if `now`, else one step closer.
+    #[inline]
+    fn move_to(&mut self, target: f32, now: bool) {
+        self.target = target;
+        if now {
+            self.value = target;
+        } else {
+            self.step();
+        }
     }
 
     #[inline]
@@ -178,11 +220,17 @@ mod tests {
     }
 
     fn settle(stems: &mut Stems, track: &TrackAudio) -> (f32, f32) {
+        settle_at(stems, track, 0)
+    }
+
+    /// The deck playing frame `i` long enough for every gain and presence to settle.
+    fn settle_at(stems: &mut Stems, track: &TrackAudio, i: isize) -> (f32, f32) {
         let mut reader = stems.reader(track);
         for _ in 0..1000 {
+            reader.frame(i);
             reader.advance();
         }
-        reader.frame(0)
+        reader.frame(i)
     }
 
     fn mix(vocals: bool, drums: bool, bass: bool, other: bool) -> StemMix {
@@ -239,13 +287,30 @@ mod tests {
         let mut stems = Stems::new();
         stems.set_tracks([Some(vocals), Some(drums), None]);
         stems.set_mix(mix(false, false, true, true));
+        assert_eq!(settle_at(&mut stems, &track, 3), (1.0, 1.0), "nothing separated: the whole track");
+        assert_eq!(settle_at(&mut stems, &track, 4), (0.5, 0.5), "the drums not separated yet stay");
+        assert_eq!(settle_at(&mut stems, &track, 5), (0.25, 0.25), "both muted");
+    }
+
+    #[test]
+    fn playing_into_the_separated_part_fades_into_the_mix() {
+        let track = constant(1.0, 2000);
+        let vocals = Arc::new(TrackAudio::pending(48_000, 2000));
+        vocals.publish(1000, &[0.5; 2000]);
+        let mut stems = Stems::new();
+        stems.set_tracks([Some(vocals), None, None]);
+        stems.set_mix(mix(false, true, true, true));
+        settle_at(&mut stems, &track, 999);
         let mut reader = stems.reader(&track);
-        for _ in 0..1000 {
+        let mut last = reader.frame(999).0;
+        assert_eq!(last, 1.0, "the vocals not separated yet play");
+        for i in 1000..2000 {
+            let now = reader.frame(i).0;
+            assert!((now - last).abs() <= 0.5 * RAMP_STEP + 1e-6, "frame {i}: {last} -> {now}");
             reader.advance();
+            last = now;
         }
-        assert_eq!(reader.frame(3), (1.0, 1.0), "nothing separated: the whole track");
-        assert_eq!(reader.frame(4), (0.5, 0.5), "the drums not separated yet stay");
-        assert_eq!(reader.frame(5), (0.25, 0.25), "both muted");
+        assert_eq!(last, 0.5, "then they are muted");
     }
 
     #[test]
@@ -260,6 +325,7 @@ mod tests {
     #[test]
     fn a_toggle_fades_instead_of_jumping() {
         let (track, mut stems) = separated();
+        settle(&mut stems, &track);
         stems.set_mix(mix(true, false, false, false));
         let mut reader = stems.reader(&track);
         let mut last = reader.frame(0).0;
