@@ -121,10 +121,11 @@ struct Download {
 }
 
 impl StemsService {
-    pub fn new(app: AppHandle, data_dir: Option<&Path>) -> Self {
+    /// The service with its models in `folder`.
+    pub fn new(app: AppHandle, folder: PathBuf) -> Self {
         Self {
             app,
-            folder: data_dir.unwrap_or(Path::new(".")).join("models"),
+            folder,
             queue: Arc::default(),
             wake: Arc::default(),
             cancel: Arc::default(),
@@ -279,29 +280,84 @@ fn missing(installed: &[usize], track: &Path) -> Vec<usize> {
         .collect()
 }
 
+/// A stalled connection gives up after this long, and the download resumes where it stopped.
+const DOWNLOAD_TIMEOUT: Duration = Duration::from_secs(30);
+/// Connections a download may take, each resuming the last.
+const DOWNLOAD_ATTEMPTS: usize = 3;
+
 async fn fetch_model(
     app: &AppHandle,
     model: usize,
     target: &Path,
     downloads: &Mutex<[Download; MODELS.len()]>,
 ) -> Result<(), String> {
-    let Model { url, sha256, bytes, .. } = MODELS[model];
+    let Model { sha256, bytes, .. } = MODELS[model];
     if rustls::crypto::CryptoProvider::get_default().is_none() {
         let _ = rustls::crypto::ring::default_provider().install_default();
     }
     let folder = target.parent().ok_or("no folder for the model")?;
     std::fs::create_dir_all(folder).map_err(|e| e.to_string())?;
     let partial = target.with_extension("part");
-    let client = reqwest::Client::builder().user_agent("Prisme").build().map_err(|e| e.to_string())?;
-    let mut response =
-        client.get(url).send().await.and_then(|r| r.error_for_status()).map_err(|e| e.to_string())?;
-    let mut file = std::fs::File::create(&partial).map_err(|e| e.to_string())?;
-    let mut hash = Sha256::new();
-    let mut received = 0u64;
+    let client = reqwest::Client::builder()
+        .user_agent("Prisme")
+        .connect_timeout(DOWNLOAD_TIMEOUT)
+        .read_timeout(DOWNLOAD_TIMEOUT)
+        .build()
+        .map_err(|e| e.to_string())?;
+    for attempt in 1.. {
+        match fetch_rest(app, &client, model, &partial, downloads).await {
+            Ok(()) => break,
+            Err(e) if attempt < DOWNLOAD_ATTEMPTS => {
+                warn!("download of the {} model cut: {e}", MODELS[model].id)
+            }
+            Err(e) => return Err(e),
+        }
+    }
+    let check = partial.clone();
+    let (received, digest) = tauri::async_runtime::spawn_blocking(move || sha256_of(&check))
+        .await
+        .map_err(|e| e.to_string())?
+        .map_err(|e| e.to_string())?;
+    if received != bytes || digest != sha256 {
+        let _ = std::fs::remove_file(&partial);
+        return Err(format!("the downloaded model is damaged ({received} bytes)"));
+    }
+    std::fs::rename(&partial, target).map_err(|e| e.to_string())?;
+    info!("separation model {} installed in {}", MODELS[model].id, target.display());
+    Ok(())
+}
+
+/// Appends to `partial` the rest of the model: all of it, or from where an earlier download
+/// stopped if the server sends parts.
+async fn fetch_rest(
+    app: &AppHandle,
+    client: &reqwest::Client,
+    model: usize,
+    partial: &Path,
+    downloads: &Mutex<[Download; MODELS.len()]>,
+) -> Result<(), String> {
+    let Model { url, bytes, .. } = MODELS[model];
+    let start = std::fs::metadata(partial).map_or(0, |m| m.len());
+    if start >= bytes {
+        return Ok(());
+    }
+    let mut request = client.get(url);
+    if start > 0 {
+        request = request.header(reqwest::header::RANGE, format!("bytes={start}-"));
+    }
+    let mut response = request.send().await.and_then(|r| r.error_for_status()).map_err(|e| e.to_string())?;
+    let resumed = response.status() == reqwest::StatusCode::PARTIAL_CONTENT;
+    let mut file = std::fs::OpenOptions::new()
+        .create(true)
+        .write(true)
+        .append(resumed)
+        .truncate(!resumed)
+        .open(partial)
+        .map_err(|e| e.to_string())?;
+    let mut received = if resumed { start } else { 0 };
     let mut reported = 0.0;
     while let Some(chunk) = response.chunk().await.map_err(|e| e.to_string())? {
         file.write_all(&chunk).map_err(|e| e.to_string())?;
-        hash.update(&chunk);
         received += chunk.len() as u64;
         let fraction = received as f64 / bytes as f64;
         if fraction - reported >= 0.005 {
@@ -310,16 +366,14 @@ async fn fetch_model(
             let _ = app.emit(STEMS_MODEL_EVENT, app.state::<StemsService>().model_status(model));
         }
     }
-    file.sync_all().map_err(|e| e.to_string())?;
-    drop(file);
-    let digest: String = hash.finalize().iter().map(|b| format!("{b:02x}")).collect();
-    if received != bytes || digest != sha256 {
-        let _ = std::fs::remove_file(&partial);
-        return Err(format!("the downloaded model is damaged ({received} bytes)"));
-    }
-    std::fs::rename(&partial, target).map_err(|e| e.to_string())?;
-    info!("separation model {} installed in {}", MODELS[model].id, target.display());
-    Ok(())
+    file.sync_all().map_err(|e| e.to_string())
+}
+
+/// The length and SHA-256 (in hex) of a file.
+fn sha256_of(path: &Path) -> std::io::Result<(u64, String)> {
+    let mut hash = Sha256::new();
+    let received = std::io::copy(&mut std::fs::File::open(path)?, &mut hash)?;
+    Ok((received, hash.finalize().iter().map(|b| format!("{b:02x}")).collect()))
 }
 
 struct Worker {

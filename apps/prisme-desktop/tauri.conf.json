@@ -15,7 +15,7 @@
         "width": 1480,
         "height": 920,
         "minWidth": 1280,
-        "minHeight": 720,
+        "minHeight": 640,
         "decorations": false,
         "center": true,
         "dragDropEnabled": false

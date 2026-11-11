@@ -56,20 +56,65 @@ use prisme_session::JsonFile;
 use serde::de::DeserializeOwned;
 use serde::Serialize;
 use state::AppState;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use tag_writer::TagWriter;
 use tauri::Manager;
 use tracing::{error, warn};
 
+/// The window maximised where its first size does not fit the screen (a laptop at 150 %).
+fn fit_window(app: &tauri::App) {
+    let Some(window) = app.get_webview_window("main") else { return };
+    let (Ok(Some(monitor)), Ok(size)) = (window.current_monitor(), window.outer_size()) else { return };
+    let area = monitor.work_area().size;
+    if size.width > area.width || size.height > area.height {
+        let _ = window.maximize();
+    }
+}
+
+/// Where the separation models go: with the data in development, else in the local data
+/// folder, kept out of roaming profiles (they weigh 1.4 GB). Models a version before put
+/// with the roaming data move there.
+fn models_dir(app: &tauri::App, data_dir: Option<&Path>) -> PathBuf {
+    let data = data_dir.unwrap_or(Path::new(".")).join("models");
+    let local = match (dev_startup::data_dir(), app.path().app_local_data_dir()) {
+        (None, Ok(local)) => local.join("models"),
+        _ => return data,
+    };
+    if data.is_dir() && !local.exists() {
+        let moved = local
+            .parent()
+            .map_or(Ok(()), std::fs::create_dir_all)
+            .and_then(|()| std::fs::rename(&data, &local));
+        if let Err(e) = moved {
+            warn!("models left in {}: {e}", data.display());
+            return data;
+        }
+    }
+    local
+}
+
 pub fn run() {
-    tauri::Builder::default()
+    let builder = tauri::Builder::default();
+    // a second launch on the same data shows the running one: two would share the library
+    let builder = if dev_startup::data_dir().is_none() {
+        builder.plugin(tauri_plugin_single_instance::init(|app, _, _| {
+            if let Some(window) = app.get_webview_window("main") {
+                let _ = window.unminimize();
+                let _ = window.set_focus();
+            }
+        }))
+    } else {
+        builder
+    };
+    builder
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_process::init())
         .register_asynchronous_uri_scheme_protocol(cover_protocol::SCHEME, cover_protocol::handle)
         .setup(|app| {
             app.manage(logging::init(app.path().app_log_dir().ok().as_deref()));
+            fit_window(app);
             let data_dir = dev_startup::data_dir()
                 .or_else(|| app.path().app_data_dir().inspect_err(|e| warn!("no data folder: {e}")).ok());
             app.manage(AppState::new(open_json(data_dir.as_deref(), "preferences.json")));
@@ -78,7 +123,10 @@ pub fn run() {
                 Arc::new(LibraryService::open(app.handle(), data_dir.as_deref(), folders::music_root()));
             app.manage(library.clone());
             app.manage(TagWriter::start(app.handle().clone()));
-            app.manage(stems_service::StemsService::new(app.handle().clone(), data_dir.as_deref()));
+            app.manage(stems_service::StemsService::new(
+                app.handle().clone(),
+                models_dir(app, data_dir.as_deref()),
+            ));
 
             app.manage(CrashRecovery::new(open_json(data_dir.as_deref(), "session.json")));
             let restored = app.state::<CrashRecovery>().decks_to_restore();
