@@ -115,6 +115,9 @@ pub fn run() {
         .setup(|app| {
             app.manage(logging::init(app.path().app_log_dir().ok().as_deref()));
             fit_window(app);
+            if !keep_awake::run_at_full_speed() {
+                warn!("Windows may slow Prisme down when its window is behind others");
+            }
             let data_dir = dev_startup::data_dir()
                 .or_else(|| app.path().app_data_dir().inspect_err(|e| warn!("no data folder: {e}")).ok());
             app.manage(AppState::new(open_json(data_dir.as_deref(), "preferences.json")));

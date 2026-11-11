@@ -1,5 +1,5 @@
 //! Keeps the computer and its screen awake while the audio runs: with turntables nobody
-//! touches the keyboard or the mouse during a set.
+//! touches the keyboard or the mouse during a set. And keeps Prisme at full speed.
 
 use windows_sys::Win32::Foundation::{CloseHandle, HANDLE, INVALID_HANDLE_VALUE};
 use windows_sys::Win32::System::Power::{
@@ -8,7 +8,10 @@ use windows_sys::Win32::System::Power::{
 };
 use windows_sys::Win32::System::SystemServices::POWER_REQUEST_CONTEXT_VERSION;
 use windows_sys::Win32::System::Threading::{
-    POWER_REQUEST_CONTEXT_SIMPLE_STRING, REASON_CONTEXT, REASON_CONTEXT_0,
+    GetCurrentProcess, ProcessPowerThrottling, SetProcessInformation, POWER_REQUEST_CONTEXT_SIMPLE_STRING,
+    PROCESS_POWER_THROTTLING_CURRENT_VERSION, PROCESS_POWER_THROTTLING_EXECUTION_SPEED,
+    PROCESS_POWER_THROTTLING_IGNORE_TIMER_RESOLUTION, PROCESS_POWER_THROTTLING_STATE, REASON_CONTEXT,
+    REASON_CONTEXT_0,
 };
 
 const REQUESTS: [POWER_REQUEST_TYPE; 2] = [PowerRequestSystemRequired, PowerRequestDisplayRequired];
@@ -53,9 +56,34 @@ impl Drop for KeepAwake {
     }
 }
 
+/// Opts out of Windows' power throttling (EcoQoS), which on a laptop slows down a process
+/// whose window is not in front and coarsens its timers: the audio would crackle.
+pub fn run_at_full_speed() -> bool {
+    let state = PROCESS_POWER_THROTTLING_STATE {
+        Version: PROCESS_POWER_THROTTLING_CURRENT_VERSION,
+        ControlMask: PROCESS_POWER_THROTTLING_EXECUTION_SPEED
+            | PROCESS_POWER_THROTTLING_IGNORE_TIMER_RESOLUTION,
+        StateMask: 0,
+    };
+    // SAFETY: the state outlives the call, which reads its size in bytes.
+    unsafe {
+        SetProcessInformation(
+            GetCurrentProcess(),
+            ProcessPowerThrottling,
+            std::ptr::from_ref(&state).cast(),
+            size_of::<PROCESS_POWER_THROTTLING_STATE>() as u32,
+        ) != 0
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn the_process_opts_out_of_power_throttling() {
+        assert!(run_at_full_speed());
+    }
 
     #[test]
     fn a_request_is_taken_and_released() {
