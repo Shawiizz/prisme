@@ -1,10 +1,15 @@
 import { Separation, StemMix } from './models/stems';
 
-/** A part of a separated track that a deck mutes: one stem, or the instrumental (everything
- * but the vocals). */
+/** A part of a separated track that a deck mutes or turns down: one stem, or the
+ * instrumental (everything but the vocals). */
 export type StemPart = keyof StemMix | 'instrumental';
 
 const INSTRUMENTS = ['drums', 'bass', 'other'] as const;
+
+/** The stems `part` stands for. */
+function stemsOf(part: StemPart): (keyof StemMix)[] {
+  return part === 'instrumental' ? [...INSTRUMENTS] : [part];
+}
 
 /** Whether a track separated this far has `part` to mute. */
 export function hasPart(separation: Separation, part: StemPart): boolean {
@@ -20,12 +25,23 @@ export function hasPart(separation: Separation, part: StemPart): boolean {
 
 /** Whether `part` plays: the instrumental while any of its instruments does. */
 export function partPlaying(mix: StemMix, part: StemPart): boolean {
-  return part === 'instrumental' ? INSTRUMENTS.some((s) => mix[s]) : mix[part];
+  return stemsOf(part).some((s) => mix[s].on);
 }
 
-/** `mix` with `part` toggled: the instrumental mutes all its instruments, or plays them all. */
+/** `mix` with `part` muted or played again: the instrumental mutes all its instruments, or
+ * plays them all. The levels stay. */
 export function togglePart(mix: StemMix, part: StemPart): StemMix {
-  if (part !== 'instrumental') return { ...mix, [part]: !mix[part] };
   const on = !partPlaying(mix, part);
-  return { ...mix, drums: on, bass: on, other: on };
+  return stemsOf(part).reduce((m, s) => ({ ...m, [s]: { ...m[s], on } }), mix);
+}
+
+/** The level of `part`: the instrumental's loudest instrument. */
+export function partLevel(mix: StemMix, part: StemPart): number {
+  return Math.max(...stemsOf(part).map((s) => mix[s].level));
+}
+
+/** `mix` with the level of `part` set (the instrumental's instruments together). */
+export function setPartLevel(mix: StemMix, part: StemPart, level: number): StemMix {
+  const clamped = Math.min(1, Math.max(0, level));
+  return stemsOf(part).reduce((m, s) => ({ ...m, [s]: { ...m[s], level: clamped } }), mix);
 }

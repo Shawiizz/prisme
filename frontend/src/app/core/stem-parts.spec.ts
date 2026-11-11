@@ -1,7 +1,8 @@
-import { StemMix } from './models/stems';
-import { hasPart, partPlaying, togglePart } from './stem-parts';
+import { FULL_MIX, StemMix } from './models/stems';
+import { hasPart, partLevel, partPlaying, setPartLevel, togglePart } from './stem-parts';
 
-const ALL: StemMix = { vocals: true, drums: true, bass: true, other: true };
+const ALL = FULL_MIX;
+const off = { level: 1, on: false };
 
 describe('stem parts', () => {
   it('offers the parts a separation has', () => {
@@ -14,20 +15,36 @@ describe('stem parts', () => {
   });
 
   it('toggles one stem alone', () => {
-    expect(togglePart(ALL, 'drums')).toEqual({ ...ALL, drums: false });
-    expect(togglePart({ ...ALL, other: false }, 'other')).toEqual(ALL);
+    expect(togglePart(ALL, 'drums')).toEqual({ ...ALL, drums: off });
+    expect(togglePart({ ...ALL, other: off }, 'other')).toEqual(ALL);
   });
 
   it('mutes the whole instrumental, then plays it all again', () => {
     const muted = togglePart(ALL, 'instrumental');
-    expect(muted).toEqual({ vocals: true, drums: false, bass: false, other: false });
+    expect(muted).toEqual({ vocals: ALL.vocals, drums: off, bass: off, other: off });
     expect(partPlaying(muted, 'instrumental')).toBe(false);
     expect(togglePart(muted, 'instrumental')).toEqual(ALL);
   });
 
   it('counts the instrumental as playing while any instrument does', () => {
-    const drumsOnly = { vocals: false, drums: true, bass: false, other: false };
+    const drumsOnly: StemMix = { vocals: off, drums: ALL.drums, bass: off, other: off };
     expect(partPlaying(drumsOnly, 'instrumental')).toBe(true);
-    expect(togglePart(drumsOnly, 'instrumental')).toEqual({ ...drumsOnly, drums: false });
+    expect(togglePart(drumsOnly, 'instrumental')).toEqual({ ...drumsOnly, drums: off });
+  });
+
+  it('keeps a level through a mute', () => {
+    const low = setPartLevel(ALL, 'bass', 0.4);
+    const muted = togglePart(low, 'bass');
+    expect(muted.bass).toEqual({ level: 0.4, on: false });
+    expect(togglePart(muted, 'bass').bass).toEqual({ level: 0.4, on: true });
+  });
+
+  it('sets the instrumental level on all its instruments, within 0 and 1', () => {
+    const mix = setPartLevel(ALL, 'instrumental', 1.5);
+    expect(partLevel(mix, 'instrumental')).toBe(1);
+    const low = setPartLevel(ALL, 'instrumental', 0.25);
+    expect([low.drums.level, low.bass.level, low.other.level, low.vocals.level]).toEqual([
+      0.25, 0.25, 0.25, 1,
+    ]);
   });
 });

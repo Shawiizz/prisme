@@ -1,5 +1,5 @@
 import { Injectable, computed, inject, signal } from '@angular/core';
-import { StemPart, hasPart, togglePart } from '../stem-parts';
+import { StemPart, hasPart, setPartLevel, togglePart } from '../stem-parts';
 import { Channel, invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
 import { semitonesToMix, transposeCamelot } from '../../shared/camelot';
@@ -159,6 +159,15 @@ export class EngineService {
     const track = this.tracks()[deck];
     if (!track || !hasPart(track.separation, part)) return;
     const stemMix = togglePart(track.stemMix, part);
+    this.patch(this.tracks, deck, { ...track, stemMix });
+    return this.call('set_stem_mix', { deck, mix: stemMix });
+  }
+
+  /** Sets how loud a part of the track on `deck` plays (0 to 1, until the next load). */
+  setStemLevel(deck: number, part: StemPart, level: number) {
+    const track = this.tracks()[deck];
+    if (!track || !hasPart(track.separation, part)) return;
+    const stemMix = setPartLevel(track.stemMix, part, level);
     this.patch(this.tracks, deck, { ...track, stemMix });
     return this.call('set_stem_mix', { deck, mix: stemMix });
   }

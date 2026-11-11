@@ -4,7 +4,7 @@
 
 use crate::audio_host::{AudioSession, DECKS};
 use crate::dto::{
-    BandDto, ChannelStripDto, CueDto, FxDto, KeyDto, MixModeDto, RpmDto, SeparationDto, TempoDto,
+    BandDto, ChannelStripDto, CueDto, FxDto, KeyDto, MixModeDto, RpmDto, SeparationDto, StemMixDto, TempoDto,
     TrackInfoDto, VinylModeDto,
 };
 use crate::error::{AppError, AppResult};
@@ -13,7 +13,7 @@ use crate::preferences::{DeckPreferences, Preferences};
 use crate::recording::Recorder;
 use crate::sampler::Samplers;
 use prisme_analysis::{TrackAnalysis, Waveform};
-use prisme_engine::{BeatGrid, Command, DeckStatus, MixMode, OutputRouting, StemMix, StemTracks};
+use prisme_engine::{BeatGrid, Command, DeckStatus, MixMode, OutputRouting, StemTracks};
 use prisme_library::{Cue, CueSlot, TrackEdits};
 use prisme_media::{TrackAudio, TrackTags};
 use prisme_session::JsonFile;
@@ -39,7 +39,7 @@ pub struct LoadedTrack {
     /// Its separated stems, once read (`prisme_stems::track`).
     pub stems: StemTracks,
     /// The parts the deck plays (all again at each load).
-    pub stem_mix: StemMix,
+    pub stem_mix: StemMixDto,
 }
 
 impl LoadedTrack {
@@ -67,7 +67,7 @@ impl LoadedTrack {
             cues: self.cue_dtos(),
             key_shift: self.key_shift,
             separation: SeparationDto::of(|stem| self.stems[stem as usize].is_some()),
-            stem_mix: self.stem_mix.into(),
+            stem_mix: self.stem_mix,
         }
     }
 
@@ -86,7 +86,7 @@ impl LoadedTrack {
             Command::SetBeatGrid { deck, grid: self.grid() },
             Command::SetKeyShift { deck, semitones: self.key_shift },
             Command::SetStems { deck, stems: self.stems.clone() },
-            Command::SetStemMix { deck, mix: self.stem_mix },
+            Command::SetStemMix { deck, mix: self.stem_mix.into() },
         ]
     }
 

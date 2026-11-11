@@ -44,9 +44,9 @@ pub fn cancel_separation(stems: State<'_, StemsService>) {
     stems.cancel();
 }
 
-/// Mutes stems of the track on `deck`, until the next load.
+/// Sets how the track on `deck` plays each part, until the next load.
 #[tauri::command]
 pub fn set_stem_mix(state: State<'_, AppState>, deck: usize, mix: StemMixDto) -> AppResult<()> {
-    state.with_track(deck, |t| t.stem_mix = mix.into())?;
+    state.with_track(deck, |t| t.stem_mix = mix)?;
     state.send_if_running(Command::SetStemMix { deck, mix: mix.into() })
 }

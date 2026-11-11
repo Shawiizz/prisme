@@ -8,7 +8,7 @@ use crate::error::AppResult;
 use crate::library_service::LibraryService;
 use crate::state::{lock, AppState, LoadedTrack};
 use prisme_analysis::{AnalysisOptions, TrackAnalysis};
-use prisme_engine::{Command, StemMix, StemTracks};
+use prisme_engine::{Command, StemTracks};
 use prisme_library::{FileStamp, TrackRecord};
 use prisme_media::LoadingTrack;
 use std::path::PathBuf;
@@ -83,7 +83,7 @@ pub fn prepare(path: PathBuf, library: &LibraryService) -> AppResult<(LoadedTrac
         cues,
         key_shift: 0,
         stems: StemTracks::default(),
-        stem_mix: StemMix::default(),
+        stem_mix: Default::default(),
     };
     Ok((track, completion))
 }

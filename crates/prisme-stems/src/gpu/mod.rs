@@ -319,13 +319,26 @@ impl MaskNetwork for GpuNetwork {
 
 /// The most capable GPU, through Vulkan when it can (its compiler makes the matrix products
 /// faster than Direct3D 12's, and it reaches the matrix units), else whatever API reaches
-/// one. `WGPU_BACKEND` overrides.
+/// one. `WGPU_BACKEND` restricts the APIs, `WGPU_ADAPTER_NAME` picks a GPU by (part of) its
+/// name.
 fn adapter() -> Result<wgpu::Adapter, StemsError> {
-    let request = |backends: wgpu::Backends| {
+    let instance = |backends: wgpu::Backends| {
         let mut desc = wgpu::InstanceDescriptor::new_without_display_handle();
         desc.backends = backends;
-        let instance = wgpu::Instance::new(desc.with_env());
-        pollster::block_on(instance.request_adapter(&wgpu::RequestAdapterOptions {
+        wgpu::Instance::new(desc.with_env())
+    };
+    if let Some(wanted) = std::env::var_os("WGPU_ADAPTER_NAME") {
+        let wanted = wanted.to_string_lossy().to_lowercase();
+        let mut adapters =
+            pollster::block_on(instance(wgpu::Backends::PRIMARY).enumerate_adapters(wgpu::Backends::PRIMARY));
+        adapters.sort_by_key(|a| a.get_info().backend != wgpu::Backend::Vulkan);
+        return adapters
+            .into_iter()
+            .find(|a| a.get_info().name.to_lowercase().contains(&wanted))
+            .ok_or_else(|| StemsError::NoGpu(format!("no GPU named like {wanted}")));
+    }
+    let request = |backends: wgpu::Backends| {
+        pollster::block_on(instance(backends).request_adapter(&wgpu::RequestAdapterOptions {
             power_preference: wgpu::PowerPreference::HighPerformance,
             ..Default::default()
         }))

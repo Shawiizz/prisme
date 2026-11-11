@@ -9,7 +9,7 @@ import { SamplerService } from '../services/sampler.service';
 import { NavigationService } from '../services/navigation.service';
 import { eqGain, eqKnob, trimGain, trimKnob } from '../../shared/mixer-scales';
 import { BANDS } from '../models/engine';
-import { hasPart, partPlaying } from '../stem-parts';
+import { hasPart, partLevel, partPlaying } from '../stem-parts';
 import { Control, buildControls } from './controls';
 
 const LOOP_BEATS = 4;
@@ -51,6 +51,11 @@ export class ControlService {
     stemPlaying: (deck, part) => {
       const track = this.engine.tracks()[deck];
       return !!track && hasPart(track.separation, part) && partPlaying(track.stemMix, part);
+    },
+    setStemLevel: (deck, part, position) => this.engine.setStemLevel(deck, part, position),
+    stemLevel: (deck, part) => {
+      const track = this.engine.tracks()[deck];
+      return track ? partLevel(track.stemMix, part) : 1;
     },
     triggerSample: (deck, slot) => this.sampler.trigger(deck, slot),
     samplePlaying: (deck, slot) => ((this.deck(deck)?.samplesPlaying ?? 0) & (1 << slot)) !== 0,

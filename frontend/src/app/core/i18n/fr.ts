@@ -500,6 +500,11 @@ export const FR: Record<string, string> = {
   'Splits the instrumental into drums, bass and melody, to mute each on its own. Needs the vocals separation, and takes two to three times as long.':
     'Sépare l’instru en batterie, basse et mélodie, pour couper chacune à part. Demande la séparation voix / instru, et prend deux à trois fois plus de temps.',
   'Separate the tracks loaded on the decks': 'Séparer les morceaux chargés sur les decks',
+  'Vocals level': 'Niveau de la voix',
+  'Instrumental level': 'Niveau de l’instru',
+  'Drums level': 'Niveau de la batterie',
+  'Bass level': 'Niveau de la basse',
+  'Melody level': 'Niveau de la mélodie',
   'Right away, from where the deck plays: the stems come there within seconds, before the library tracks.':
     'Tout de suite, à partir de là où joue le deck : les pistes y arrivent en quelques secondes, avant celles de la bibliothèque.',
   'Separate the whole library': 'Séparer toute la bibliothèque',

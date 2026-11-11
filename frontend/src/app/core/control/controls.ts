@@ -43,6 +43,9 @@ export interface ControlActions {
   /** Mutes or plays a part of a separated track. */
   toggleStem(deck: number, part: StemPart): void;
   stemPlaying(deck: number, part: StemPart): boolean;
+  /** Sets how loud a part of a separated track plays. */
+  setStemLevel(deck: number, part: StemPart, position: number): void;
+  stemLevel(deck: number, part: StemPart): number;
   triggerSample(deck: number, slot: number): void;
   samplePlaying(deck: number, slot: number): boolean;
   toggleFx(deck: number): void;
@@ -206,6 +209,41 @@ function deckControls(a: ControlActions, deck: number): Control[] {
         a.toggleStem(deck, 'other'),
       ),
       () => a.stemPlaying(deck, 'other'),
+    ),
+    fader(
+      id('vocals.level'),
+      group,
+      t('Vocals level'),
+      (v) => a.setStemLevel(deck, 'vocals', v),
+      () => a.stemLevel(deck, 'vocals'),
+    ),
+    fader(
+      id('instrumental.level'),
+      group,
+      t('Instrumental level'),
+      (v) => a.setStemLevel(deck, 'instrumental', v),
+      () => a.stemLevel(deck, 'instrumental'),
+    ),
+    fader(
+      id('drums.level'),
+      group,
+      t('Drums level'),
+      (v) => a.setStemLevel(deck, 'drums', v),
+      () => a.stemLevel(deck, 'drums'),
+    ),
+    fader(
+      id('bass.level'),
+      group,
+      t('Bass level'),
+      (v) => a.setStemLevel(deck, 'bass', v),
+      () => a.stemLevel(deck, 'bass'),
+    ),
+    fader(
+      id('melody.level'),
+      group,
+      t('Melody level'),
+      (v) => a.setStemLevel(deck, 'other', v),
+      () => a.stemLevel(deck, 'other'),
     ),
     ...Array.from({ length: SAMPLE_SLOTS }, (_, slot) =>
       lit(

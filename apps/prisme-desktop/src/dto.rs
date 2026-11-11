@@ -351,26 +351,44 @@ impl SeparationDto {
     }
 }
 
-/// Which parts of the track a deck plays.
-#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+/// How a deck plays each part of the track.
+#[derive(Debug, Clone, Copy, PartialEq, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct StemMixDto {
-    pub vocals: bool,
-    pub drums: bool,
-    pub bass: bool,
+    pub vocals: StemLevelDto,
+    pub drums: StemLevelDto,
+    pub bass: StemLevelDto,
     /// What no stem holds: the instrumental of a track separated into its vocals alone.
-    pub other: bool,
+    pub other: StemLevelDto,
 }
 
-impl From<prisme_engine::StemMix> for StemMixDto {
-    fn from(m: prisme_engine::StemMix) -> Self {
-        Self { vocals: m.vocals, drums: m.drums, bass: m.bass, other: m.other }
+/// A part's level (0 to 1), kept while it is muted.
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct StemLevelDto {
+    pub level: f32,
+    pub on: bool,
+}
+
+impl Default for StemLevelDto {
+    fn default() -> Self {
+        Self { level: 1.0, on: true }
+    }
+}
+
+impl StemLevelDto {
+    fn gain(self) -> f32 {
+        if self.on {
+            self.level.clamp(0.0, 1.0)
+        } else {
+            0.0
+        }
     }
 }
 
 impl From<StemMixDto> for prisme_engine::StemMix {
     fn from(m: StemMixDto) -> Self {
-        Self { vocals: m.vocals, drums: m.drums, bass: m.bass, other: m.other }
+        Self { vocals: m.vocals.gain(), drums: m.drums.gain(), bass: m.bass.gain(), other: m.other.gain() }
     }
 }
 

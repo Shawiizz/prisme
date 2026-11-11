@@ -189,7 +189,13 @@ fn a_deck_mutes_any_stem() {
             rig.run_rms(0.5) / both
         };
         let tolerance = if key_lock { 0.01 } else { 1e-3 };
-        let only = |vocals, drums, bass, other| StemMix { vocals, drums, bass, other };
+        let gain = |on: bool| if on { 1.0 } else { 0.0 };
+        let only = |vocals, drums, bass, other| StemMix {
+            vocals: gain(vocals),
+            drums: gain(drums),
+            bass: gain(bass),
+            other: gain(other),
+        };
         for (mix, expected) in [
             (only(false, true, true, true), 0.4),
             (only(true, false, false, false), 0.2),

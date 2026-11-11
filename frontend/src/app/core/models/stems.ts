@@ -2,14 +2,28 @@
  * drums and bass (the rest is the other instruments). */
 export type Separation = 'none' | 'vocals' | 'full';
 
-/** Which parts of the track a deck plays. */
+/** How a deck plays each part of the track. */
 export interface StemMix {
-  vocals: boolean;
-  drums: boolean;
-  bass: boolean;
+  vocals: StemLevel;
+  drums: StemLevel;
+  bass: StemLevel;
   /** What no stem holds: the instrumental of a track separated into its vocals alone. */
-  other: boolean;
+  other: StemLevel;
 }
+
+/** A part's level (0 to 1), kept while it is muted. */
+export interface StemLevel {
+  level: number;
+  on: boolean;
+}
+
+/** Every part at its level in the track. */
+export const FULL_MIX: StemMix = {
+  vocals: { level: 1, on: true },
+  drums: { level: 1, on: true },
+  bass: { level: 1, on: true },
+  other: { level: 1, on: true },
+};
 
 /** The separation queue. */
 export interface StemsProgress {

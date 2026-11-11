@@ -38,18 +38,18 @@ impl Stem {
 /// The separated stems of a track, frame for frame at its rate, indexed by [`Stem`].
 pub type StemTracks = [Option<Arc<TrackAudio>>; 3];
 
-/// Which parts of the track a deck plays.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+/// How loud a deck plays each part of the track, from 0 (muted) to 1 (as in the track).
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub struct StemMix {
-    pub vocals: bool,
-    pub drums: bool,
-    pub bass: bool,
-    pub other: bool,
+    pub vocals: f32,
+    pub drums: f32,
+    pub bass: f32,
+    pub other: f32,
 }
 
 impl Default for StemMix {
     fn default() -> Self {
-        Self { vocals: true, drums: true, bass: true, other: true }
+        Self { vocals: 1.0, drums: 1.0, bass: 1.0, other: 1.0 }
     }
 }
 
@@ -69,10 +69,10 @@ impl Stems {
     }
 
     pub(crate) fn set_mix(&mut self, mix: StemMix) {
-        for (ramp, on) in self.gains.iter_mut().zip([mix.vocals, mix.drums, mix.bass]) {
-            ramp.target = gain(on);
+        for (ramp, gain) in self.gains.iter_mut().zip([mix.vocals, mix.drums, mix.bass]) {
+            ramp.target = gain.clamp(0.0, 1.0);
         }
-        self.other.target = gain(mix.other);
+        self.other.target = mix.other.clamp(0.0, 1.0);
     }
 
     /// Sets the stems of the loaded track and returns the previous ones, to be freed elsewhere.
@@ -169,14 +169,6 @@ impl Ramp {
     }
 }
 
-fn gain(on: bool) -> f32 {
-    if on {
-        1.0
-    } else {
-        0.0
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -194,7 +186,8 @@ mod tests {
     }
 
     fn mix(vocals: bool, drums: bool, bass: bool, other: bool) -> StemMix {
-        StemMix { vocals, drums, bass, other }
+        let gain = |on: bool| if on { 1.0 } else { 0.0 };
+        StemMix { vocals: gain(vocals), drums: gain(drums), bass: gain(bass), other: gain(other) }
     }
 
     /// A track of 1.0: vocals 0.5, drums 0.25, bass 0.125, the rest 0.125.
@@ -253,6 +246,15 @@ mod tests {
         assert_eq!(reader.frame(3), (1.0, 1.0), "nothing separated: the whole track");
         assert_eq!(reader.frame(4), (0.5, 0.5), "the drums not separated yet stay");
         assert_eq!(reader.frame(5), (0.25, 0.25), "both muted");
+    }
+
+    #[test]
+    fn a_stem_turned_down_plays_in_proportion() {
+        let (track, mut stems) = separated();
+        stems.set_mix(StemMix { vocals: 0.5, ..StemMix::default() });
+        assert_eq!(settle(&mut stems, &track), (0.75, 0.75));
+        stems.set_mix(StemMix { other: 0.0, drums: 0.5, ..StemMix::default() });
+        assert_eq!(settle(&mut stems, &track), (0.5 + 0.125 + 0.125, 0.5 + 0.125 + 0.125));
     }
 
     #[test]
