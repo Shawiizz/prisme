@@ -1,4 +1,4 @@
-import { Injectable, inject } from '@angular/core';
+import { computed, Injectable, inject } from '@angular/core';
 import { EngineService } from '../services/engine.service';
 import { FxService } from '../services/fx.service';
 import { LibraryService } from '../services/library.service';
@@ -100,8 +100,21 @@ export class ControlService {
 
   private readonly byId = new Map(this.controls.map((c) => [c.id, c]));
 
+  /** The controls that act now: those of the decks shown, and those of no deck. */
+  readonly inUse = computed(() => {
+    const decks = this.engine.deckIndexes().length;
+    return this.controls.filter((c) => c.deck === undefined || c.deck < decks);
+  });
+
+  /** The control `id`, whatever its deck (to name it, to map it). */
   find(id: string): Control | undefined {
     return this.byId.get(id);
+  }
+
+  /** The control `id` if it acts now: a control of a deck not shown does nothing. */
+  findInUse(id: string): Control | undefined {
+    const control = this.byId.get(id);
+    return control && this.inUse().includes(control) ? control : undefined;
   }
 
   private deck(deck: number) {

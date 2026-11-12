@@ -233,8 +233,13 @@ export class SettingsDialog implements OnInit {
 
   /** Another number of decks is another engine: the audio starts again with it. */
   async setDeckCount(deckCount: number) {
-    await this.updateDj({ deckCount });
-    await Promise.all([this.service.refresh(), this.engine.refreshTracks()]);
+    try {
+      await this.updateDj({ deckCount });
+    } catch (e) {
+      this.engine.error.set(String(e));
+    } finally {
+      await Promise.all([this.service.refresh(), this.engine.refreshTracks()]);
+    }
   }
 
   /** `0.42` → `42 %` */

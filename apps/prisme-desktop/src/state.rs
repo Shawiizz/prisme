@@ -362,29 +362,39 @@ impl AppState {
         Some(partner)
     }
 
+    /// The settings of the decks as the device of `info` lets them be: of two decks layered
+    /// on a turntable and both asked to follow it, the first does. What was asked stays, for
+    /// a device with a turntable each.
+    pub fn decks_in_use(&self, info: Option<&AudioInfo>) -> [DeckSettings; MAX_DECKS] {
+        let mut decks = *lock(&self.decks);
+        for deck in 0..info.map_or(0, |info| info.decks) {
+            let first = info
+                .and_then(|info| layer_partner(deck, info.decks, info.input_channels))
+                .filter(|&partner| partner < deck);
+            if first.is_some_and(|first| decks[first].vinyl_enabled) {
+                decks[deck].vinyl_enabled = false;
+            }
+        }
+        decks
+    }
+
+    /// Whether `deck` is one of the decks in use (two, or four).
+    pub fn has_deck(&self, deck: usize) -> AppResult<()> {
+        if deck < self.preferences.read(|p| p.dj.decks()) {
+            Ok(())
+        } else {
+            Err(AppError::InvalidDeck(deck))
+        }
+    }
+
     /// Re-applies tracks, deck and mixer settings to a freshly started engine.
     pub fn restore(&self, session: &mut AudioSession) {
         let routing = self.routing(&session.info);
         let config = session.engine_config;
-        // of two decks layered on a turntable, both saved as driven by it, the first has it
-        let (decks, inputs) = (session.info.decks, session.info.input_channels);
-        let layered: Vec<usize> = {
-            let mut settings = lock(&self.decks);
-            (0..decks)
-                .filter(|&deck| {
-                    let first = layer_partner(deck, decks, inputs).filter(|&partner| partner < deck);
-                    first.is_some_and(|first| settings[first].vinyl_enabled)
-                        && std::mem::take(&mut settings[deck].vinyl_enabled)
-                })
-                .collect()
-        };
-        if !layered.is_empty() {
-            self.update_preferences(|p| layered.iter().for_each(|&deck| p.decks[deck].vinyl_enabled = false));
-        }
         let controller = &mut session.controller;
         let auto_gain = self.preferences.read(|p| p.dj.auto_gain);
         let tracks = lock(&self.tracks);
-        let decks = lock(&self.decks);
+        let decks = self.decks_in_use(Some(&session.info));
         for (deck, (track, settings)) in tracks.iter().zip(decks.iter()).enumerate() {
             for c in track.iter().flat_map(|t| t.load_commands(deck, auto_gain)) {
                 let _ = controller.send(c);

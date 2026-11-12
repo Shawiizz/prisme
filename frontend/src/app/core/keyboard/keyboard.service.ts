@@ -45,7 +45,7 @@ export class KeyboardService {
 
   private onKeyDown(event: KeyboardEvent) {
     const shortcut = this.shortcuts.find((s) => matches(s, event));
-    const control = shortcut && this.controls.find(shortcut.control);
+    const control = shortcut && this.controls.findInUse(shortcut.control);
     if (!control) return;
     if (!shortcut.global && (isTyping(event) || this.navigation.covered())) return;
     event.preventDefault();

@@ -39,6 +39,7 @@ pub fn preload(
     deck: usize,
     path: PathBuf,
 ) -> AppResult<()> {
+    state.has_deck(deck)?;
     let (track, completion) = prepare(path, library)?;
     lock(&state.tracks)[deck] = Some(track);
     let app = app.clone();

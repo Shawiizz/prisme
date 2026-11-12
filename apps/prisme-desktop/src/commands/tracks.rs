@@ -19,7 +19,7 @@ pub async fn load_track(
     deck: usize,
     path: String,
 ) -> AppResult<TrackInfoDto> {
-    AppState::check_deck(deck)?;
+    state.has_deck(deck)?;
     let file = PathBuf::from(&path);
     let library = library.inner().clone();
     let (track, completion) =

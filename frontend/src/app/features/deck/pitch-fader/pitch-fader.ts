@@ -1,4 +1,4 @@
-import { Component, computed, inject, input } from '@angular/core';
+import { Component, DestroyRef, computed, inject, input } from '@angular/core';
 import { deckTempo } from '../../../core/deck-tempo';
 import { EngineService } from '../../../core/services/engine.service';
 import { PreferencesService } from '../../../core/services/preferences.service';
@@ -158,8 +158,14 @@ export class PitchFader {
 
   private stepping: ReturnType<typeof setTimeout> | null = null;
 
+  constructor() {
+    inject(DestroyRef).onDestroy(() => this.stepStop());
+  }
+
   stepDown(event: PointerEvent, direction: -1 | 1) {
     if (event.button !== 0) return;
+    // the release comes to the key even from off it
+    (event.currentTarget as Element).setPointerCapture(event.pointerId);
     this.stepStop();
     this.step(direction);
     const goOn = (wait: number) => {

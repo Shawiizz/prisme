@@ -85,14 +85,6 @@
       </button>
       <button
         class="pr-btn pr-btn--sm"
-        [class.is-on]="loopActive()"
-        (click)="toggleLoop()"
-        [disabled]="!canMove()"
-      >
-        {{ loopActive() ? 'EXIT' : 'RELOOP' }}
-      </button>
-      <button
-        class="pr-btn pr-btn--sm"
         (click)="scaleLoop(0.5)"
         [disabled]="!canMove()"
         [title]="'Halve the loop' | t"
@@ -107,25 +99,45 @@
       >
         ×2
       </button>
+      <ng-container [ngTemplateOutlet]="loopKey" />
       <ng-container [ngTemplateOutlet]="slipKey" />
+      <ng-container [ngTemplateOutlet]="censorKey" />
     </div>
   }
   @default {
     <div class="side">
+      @if (loopActive()) {
+        <ng-container [ngTemplateOutlet]="loopKey" />
+      }
       <ng-container [ngTemplateOutlet]="slipKey" />
-      <button
-        class="pr-btn censor"
-        [disabled]="!canMove()"
-        [title]="'Plays backwards while held' | t"
-        (pointerdown)="censor(true)"
-        (pointerup)="censor(false)"
-        (pointercancel)="censor(false)"
-      >
-        CENSOR
-      </button>
+      <ng-container [ngTemplateOutlet]="censorKey" />
     </div>
   }
 }
+
+<ng-template #loopKey>
+  <button
+    class="pr-btn loop-key"
+    [class.is-on]="loopActive()"
+    (click)="toggleLoop()"
+    [disabled]="!canMove()"
+  >
+    {{ loopActive() ? 'EXIT' : 'RELOOP' }}
+  </button>
+</ng-template>
+
+<ng-template #censorKey>
+  <button
+    class="pr-btn censor"
+    [disabled]="!canMove()"
+    [title]="'Plays backwards while held' | t"
+    (pointerdown)="censor(true)"
+    (pointerup)="censor(false)"
+    (pointercancel)="censor(false)"
+  >
+    CENSOR
+  </button>
+</ng-template>
 
 <ng-template #slipKey>
   <button

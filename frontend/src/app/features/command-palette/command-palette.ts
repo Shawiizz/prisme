@@ -86,7 +86,8 @@ export class CommandPalette {
 
   /** Everything the palette can do, before the search. */
   private readonly everything = computed<Item[]>(() => [
-    ...this.controls.controls
+    ...this.controls
+      .inUse()
       .filter((c) => c.kind === 'button' && c.id !== 'general.palette')
       .map((c) => ({
         section: 'actions' as const,

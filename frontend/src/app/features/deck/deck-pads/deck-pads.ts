@@ -57,8 +57,9 @@ const JUMP_BEATS = [-32, -16, -4, -1, 1, 4, 16, 32];
 
 /**
  * Eight performance pads per deck, at the end of its rail (hot cues, loops, rolls, beat
- * jumps, beat effects, sampler), with the keys that go with their mode: slip and censor,
- * the loop keys, the level, knob and period of the effects, or the sampler's level.
+ * jumps, beat effects, sampler), with the keys that go with their mode: slip and censor
+ * (and the way out of a loop while one plays), all the loop keys, the level, knob and
+ * period of the effects, or the sampler's level.
  */
 @Component({
   selector: 'app-deck-pads',

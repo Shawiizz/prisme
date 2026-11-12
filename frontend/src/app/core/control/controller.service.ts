@@ -55,7 +55,7 @@ export class ControllerService {
 
   /** A mapped control moved; a fader acts once it has picked its setting up. */
   private input({ target, value }: ControllerInput) {
-    const control = this.controls.find(target);
+    const control = this.controls.findInUse(target);
     const current = control?.position?.();
     if (current !== undefined) {
       const pickup = this.pickups.get(target) ?? new Pickup();
@@ -129,7 +129,7 @@ export class ControllerService {
     this.relight();
     const lights: { target: string; on: boolean }[] = [];
     for (const target of new Set(this.mappings().map((m) => m.target))) {
-      const on = this.controls.find(target)?.lit?.();
+      const on = this.controls.findInUse(target)?.lit?.();
       if (on === undefined || this.sent.get(target) === on) continue;
       this.sent.set(target, on);
       lights.push({ target, on });

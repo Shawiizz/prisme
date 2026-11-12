@@ -47,17 +47,23 @@
     font-stretch: 85%;
     letter-spacing: 0.05em;
   }
-  .slip,
-  .censor {
+  .pr-btn {
     height: var(--pr-h-lg);
   }
+  // the loop keys on two rows: in, out, halve, double; then reloop, slip, censor
   &.loop {
     display: grid;
-    grid-template-columns: repeat(3, auto);
+    grid-template-columns: repeat(12, auto);
     gap: 2px 3px;
     .pr-btn {
+      grid-column: span 3;
       height: 20px;
       padding: 0 6px;
+    }
+    .loop-key,
+    .slip,
+    .censor {
+      grid-column: span 4;
     }
   }
   &.knobs {

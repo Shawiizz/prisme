@@ -13,6 +13,8 @@ export interface Control {
   group: string;
   label: string;
   kind: ControlKind;
+  /** The deck it plays, for the controls of a deck. */
+  deck?: number;
   /** Button: 1 pressed, 0 released. Fader: 0 to 1. Encoder: steps, negative to the left. */
   apply(value: number): void;
   /** Whether the control's light is on. */
@@ -271,7 +273,9 @@ function deckControls(a: ControlActions, deck: number): Control[] {
 export function buildControls(a: ControlActions): Control[] {
   const library = t('Library');
   return [
-    ...Array.from({ length: MAX_DECKS }, (_, deck) => deckControls(a, deck)).flat(),
+    ...Array.from({ length: MAX_DECKS }, (_, deck) =>
+      deckControls(a, deck).map((control) => ({ ...control, deck })),
+    ).flat(),
     fader(
       'mixer.crossfader',
       t('Mixer'),
@@ -289,14 +293,15 @@ export function buildControls(a: ControlActions): Control[] {
     },
     button('library.previous', library, t('Previous track'), () => a.browse(-1)),
     button('library.next', library, t('Next track'), () => a.browse(1)),
-    ...Array.from({ length: MAX_DECKS }, (_, deck) =>
-      button(
+    ...Array.from({ length: MAX_DECKS }, (_, deck) => ({
+      ...button(
         `library.load${deck + 1}`,
         library,
         t('Load on deck {deck}', { deck: deckLetter(deck) }),
         () => a.loadSelected(deck),
       ),
-    ),
+      deck,
+    })),
     button('library.load', library, t('Load on a free deck'), () => a.loadSelected(null)),
     ...Array.from({ length: MAX_DECKS }, (_, deck) =>
       button(

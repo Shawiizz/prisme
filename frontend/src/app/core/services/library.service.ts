@@ -1,4 +1,12 @@
-import { Injectable, computed, effect, inject, signal, untracked } from '@angular/core';
+import {
+  Injectable,
+  computed,
+  effect,
+  inject,
+  linkedSignal,
+  signal,
+  untracked,
+} from '@angular/core';
 import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
 import {
@@ -120,7 +128,11 @@ export class LibraryService {
   /** The genres of the library, the most common first (loaded on demand). */
   readonly genres = signal<string[]>([]);
   /** The deck the tracks are compared with: compatible keys, pitch to match. */
-  readonly reference = signal(0);
+  readonly reference = linkedSignal<number, number>({
+    source: () => this.engine.deckIndexes().length,
+    // a deck that is no longer shown gives way to A
+    computation: (decks, previous) => (previous && previous.value < decks ? previous.value : 0),
+  });
   /** Incremented to ask the view to focus the search field. */
   readonly searchRequests = signal(0);
 

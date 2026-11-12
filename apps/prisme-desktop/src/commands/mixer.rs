@@ -15,7 +15,8 @@ pub fn mixer_state(state: State<'_, AppState>) -> MixerStateDto {
     let routing = info.as_ref().map(|info| state.routing(info));
     let samplers = lock(&state.samplers);
     MixerStateDto {
-        decks: lock(&state.decks)
+        decks: state
+            .decks_in_use(info.as_ref())
             .iter()
             .zip(samplers.iter())
             .map(|(d, samples)| DeckSettingsDto {
