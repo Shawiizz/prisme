@@ -1,13 +1,15 @@
 //! Keeps the audio going, with the decks where they were: restarts it when its device
 //! comes back after a loss, when the engine failed, or when the driver stopped calling it,
 //! moves it to the saved devices once they appear (the audio started on the default ones
-//! because the interface was off), and starts it when devices appear if there was none.
+//! because the interface was off), follows Windows' default output when it plays on it, and
+//! starts it when devices appear if there was none.
 
 use crate::audio_host::devices_available;
 use crate::commands::audio::{start_audio, start_audio_unless_running};
 use crate::dto::AudioSettings;
+use crate::dto::BackendDto;
 use crate::state::{lock, AppState};
-use prisme_audio_io::system_devices;
+use prisme_audio_io::{default_output_name, system_devices};
 use std::collections::VecDeque;
 use std::time::{Duration, Instant};
 use tauri::{AppHandle, Emitter, Manager};
@@ -40,12 +42,14 @@ pub fn start(app: AppHandle) {
             let mut looks_left = 0;
             // no audio since the last check: tried at once, then when devices change
             let mut silent = false;
+            let mut default_output = default_output_name();
             loop {
                 std::thread::sleep(CHECK);
-                let session = lock(&state.session)
-                    .as_ref()
-                    .map(|s| (s.device_lost(), s.engine_failed(), s.periods(), s.settings.clone()));
-                let Some((lost, failed, periods, settings)) = session else {
+                let session = lock(&state.session).as_ref().map(|s| {
+                    let device = s.info.device.clone();
+                    (s.device_lost(), s.engine_failed(), s.periods(), s.settings.clone(), device)
+                });
+                let Some((lost, failed, periods, settings, device)) = session else {
                     last_periods = None;
                     if !silent {
                         silent = true;
@@ -72,6 +76,10 @@ pub fn start(app: AppHandle) {
                     if saved == settings {
                         devices = None;
                     } else if move_to_saved(&state, &app, &saved, &settings, &mut devices, &mut looks_left) {
+                        last_periods = None;
+                        continue;
+                    }
+                    if follow_default_output(&state, &app, &settings, &device, &mut default_output) {
                         last_periods = None;
                         continue;
                     }
@@ -128,6 +136,37 @@ fn move_to_saved(
         }
     }
     true
+}
+
+/// Audio on Windows' default output (no device chosen) moves when the default changes from
+/// `last` to another device than `device`: a headset connected takes the sound, as in every
+/// other program. True once moved.
+fn follow_default_output(
+    state: &AppState,
+    app: &AppHandle,
+    settings: &AudioSettings,
+    device: &str,
+    last: &mut Option<String>,
+) -> bool {
+    if settings.output_device.is_some() || settings.backend != BackendDto::Wasapi {
+        return false;
+    }
+    let now = default_output_name();
+    if now == *last {
+        return false;
+    }
+    *last = now.clone();
+    match now {
+        Some(default) if default != device => {
+            info!("Windows plays on {default} now, the audio follows");
+            if let Err(e) = start_audio(state, settings) {
+                error!("audio could not follow the default output: {e}");
+            }
+            let _ = app.emit(AUDIO_CHANGED_EVENT, ());
+            true
+        }
+        _ => false,
+    }
 }
 
 /// With no audio at all (no device when Prisme started, or a restart that failed), starts it

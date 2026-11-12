@@ -10,7 +10,8 @@ pub mod latency;
 mod stream;
 
 pub use devices::{
-    base_device_name, is_available, list_devices, system_devices, Backend, DeviceInfo, DeviceKind,
+    base_device_name, default_output_name, is_available, list_devices, system_devices, Backend, DeviceInfo,
+    DeviceKind,
 };
 pub use stream::{start, RunningStream, StreamFormat, StreamSettings, StreamStats};
 

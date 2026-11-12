@@ -119,6 +119,13 @@ pub fn is_available(backend: Backend, kind: DeviceKind, name: Option<&str>) -> b
     find(backend, kind, name).is_ok()
 }
 
+/// The output Windows plays on by default now: it changes when a headset connects, say.
+pub fn default_output_name() -> Option<String> {
+    let _drivers = drivers();
+    let host = Backend::Wasapi.host().ok()?;
+    device_name(&host.default_output_device()?)
+}
+
 /// Names of the devices Windows offers now, read without loading any driver: they change
 /// when an interface is plugged in or switched on.
 pub fn system_devices() -> Vec<String> {
@@ -147,8 +154,9 @@ pub fn base_device_name(name: &str) -> String {
     base
 }
 
-/// A device of `backend` whose name contains `name` (case-insensitive; else once the
-/// numbers Windows adds are left out, see [`base_device_name`]), or the default one.
+/// The device of `backend` named `name`, else one whose name contains it, else the same
+/// once the numbers Windows adds are left out (see [`base_device_name`]); all
+/// case-insensitive. The default one without a name.
 pub(crate) fn find(
     backend: Backend,
     kind: DeviceKind,
@@ -175,9 +183,11 @@ pub(crate) fn find(
     .filter_map(|d| device_name(&d).map(|n| (d, n)))
     .collect();
     let (wanted_lower, wanted_base) = (wanted.to_lowercase(), base_device_name(wanted));
-    let exact = devices.iter().position(|(_, n)| n.to_lowercase().contains(&wanted_lower));
-    let found =
-        exact.or_else(|| devices.iter().position(|(_, n)| base_device_name(n).contains(&wanted_base)));
+    let found = devices
+        .iter()
+        .position(|(_, n)| n.to_lowercase() == wanted_lower)
+        .or_else(|| devices.iter().position(|(_, n)| n.to_lowercase().contains(&wanted_lower)))
+        .or_else(|| devices.iter().position(|(_, n)| base_device_name(n).contains(&wanted_base)));
     found
         .map(|i| devices.into_iter().nth(i).expect("found among them").0)
         .ok_or_else(|| AudioError::DeviceNotFound(wanted.to_string()))
