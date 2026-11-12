@@ -40,6 +40,8 @@ export class PhaseStrip {
     line: this.token('--pr-line'),
   };
   private frame = 0;
+  /** What the last frame showed: a frame showing the same is not drawn again. */
+  private shown: unknown[] = [];
 
   /** How far B's beats are from A's. */
   protected readonly offset = computed(() => {
@@ -81,6 +83,10 @@ export class PhaseStrip {
       canvas.width = width;
       canvas.height = height;
     }
+    const showing = [width, height, ...[0, 1].flatMap((deck) => this.shownOf(deck))];
+    if (showing.length === this.shown.length && showing.every((v, i) => v === this.shown[i]))
+      return;
+    this.shown = showing;
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
     ctx.clearRect(0, 0, width, height);
@@ -92,6 +98,15 @@ export class PhaseStrip {
     ctx.fillRect(0, mid, width, ratio);
     ctx.fillStyle = this.colors.light;
     ctx.fillRect(Math.round(width / 2) - ratio, 0, 2 * ratio, height);
+  }
+
+  /** What the beats of `deck` are drawn from. */
+  private shownOf(deck: number): unknown[] {
+    return [
+      this.engine.tracks()[deck]?.tempo,
+      this.engine.livePosition(deck),
+      this.engine.tempoRate(deck),
+    ];
   }
 
   /** The beats of `deck` around its playhead, between `top` and `bottom`. */
