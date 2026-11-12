@@ -74,6 +74,8 @@ fn quiet_libraries() -> Targets {
         .with_target("wgpu_core", LevelFilter::ERROR)
         .with_target("wgpu_hal", LevelFilter::ERROR)
         .with_target("naga", LevelFilter::ERROR)
+        // its statistics after each stem written
+        .with_target("flacenc", LevelFilter::WARN)
 }
 
 /// The computer's time: the log is read against what happened that evening.
