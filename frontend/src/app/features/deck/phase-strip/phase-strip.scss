@@ -1,8 +1,21 @@
 :host {
   display: grid;
-  grid-template-columns: var(--pr-deck-panel) minmax(0, 1fr);
+  grid-template-columns: var(--pr-lane-columns);
   gap: 10px;
   min-height: 0;
+}
+// the crossfader between the two channels of the software mixer
+.crossfade {
+  display: flex;
+  align-items: center;
+  gap: var(--pr-space-2);
+  padding: 0 var(--pr-space-2) 0 var(--pr-space-3);
+  app-fader {
+    flex: 1;
+  }
+}
+:host:has(.crossfade) .lane {
+  margin-block: 7px;
 }
 .info {
   display: flex;

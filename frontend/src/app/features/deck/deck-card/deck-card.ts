@@ -1,5 +1,6 @@
 import { Component, computed, inject, input, signal } from '@angular/core';
 import { EngineService } from '../../../core/services/engine.service';
+import { MixerService } from '../../../core/services/mixer.service';
 import { SignalState, VinylMode } from '../../../core/models/engine';
 import {
   decimal,
@@ -9,6 +10,7 @@ import {
   formatTime,
 } from '../../../shared/time';
 import { camelotHue, camelotMajor, keyName } from '../../../shared/camelot';
+import { levelSegments } from '../../../shared/level';
 import { Cover } from '../../../shared/cover/cover';
 import { GridEditor } from '../grid-editor/grid-editor';
 import { t } from '../../../core/i18n/i18n';
@@ -26,10 +28,13 @@ type DeckMode = 'int' | VinylMode;
 /** The remaining time turns amber, then red and blinking, near the end of the track. */
 const WARN_S = 30;
 const ALERT_S = 10;
+/** Segments of the meter of what goes to the external mixer. */
+const SEND_SEGMENTS = 10;
 
 /**
- * Deck header: letter (lit while playing), cover and title, who drives the deck, and the
- * three readouts seen from afar: remaining time, BPM, key.
+ * Deck header: letter (lit while playing) with the level sent to an external mixer, cover
+ * and title, who drives the deck, and the three readouts seen from afar: remaining time,
+ * BPM, key.
  */
 @Component({
   selector: 'app-deck-card',
@@ -41,7 +46,17 @@ export class DeckCard {
   readonly deck = input.required<number>();
 
   protected readonly engine = inject(EngineService);
+  private readonly mixer = inject(MixerService);
   protected readonly letter = computed(() => deckLetter(this.deck()));
+  /** The level sent to the deck's outputs of an external mixer (the software mixer has
+   * its own meters). */
+  protected readonly send = computed(() =>
+    this.mixer.internal()
+      ? null
+      : levelSegments(this.engine.status()?.decks[this.deck()]?.peak ?? 0, SEND_SEGMENTS),
+  );
+  /** First and last output of the deck's pair in external mode, counting from 1. */
+  protected readonly outputs = computed(() => `${this.deck() * 2 + 1}-${this.deck() * 2 + 2}`);
   protected readonly track = computed(() => this.engine.tracks()[this.deck()]);
   protected readonly status = computed(() => this.engine.status()?.decks[this.deck()] ?? null);
   protected readonly settings = computed(() => this.engine.decks()[this.deck()]);

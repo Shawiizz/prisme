@@ -1,134 +1,90 @@
-<div class="controls pr-panel">
+@if (!vinyl()) {
   <div class="transport">
     <button
-      class="pr-btn pr-btn--lg"
+      class="pr-btn pr-btn--lg key"
       [class.is-on]="status()?.playing === false && status()?.loaded"
-      [disabled]="vinyl()"
       (pointerdown)="cueDown()"
       (pointerup)="cueUp()"
       (pointercancel)="cueUp()"
     >
       CUE
     </button>
-    <button
-      class="pr-btn pr-btn--lg"
-      [class.is-on]="status()?.playing"
-      (click)="togglePlay()"
-      [disabled]="vinyl()"
-    >
+    <button class="pr-btn pr-btn--lg key" [class.is-on]="status()?.playing" (click)="togglePlay()">
       {{ status()?.playing ? 'PAUSE' : 'PLAY' }}
     </button>
-    <button
-      class="pr-btn pr-btn--lg sync"
-      [class.is-on]="syncState() === 'locked'"
-      [class.matched]="syncState() === 'matched'"
-      (pointerdown)="syncDown($event)"
-      (pointerup)="syncUp()"
-      (pointercancel)="syncCancel()"
-      (click)="syncKey($event)"
-      [disabled]="!canSync()"
-      [title]="syncTitle()"
-    >
-      SYNC
-    </button>
   </div>
+}
 
+@if (separation() === 'none') {
+  <button
+    class="pr-btn pr-btn--lg separate"
+    [disabled]="!canSeparate()"
+    (click)="separate()"
+    [title]="'Separate this track into stems' | t"
+  >
+    <span>{{ 'Separate' | t }}</span>
+    @if (separating() !== null) {
+      <span class="pr-num">{{ percent(separating()!) }}</span>
+      <i [style.--done]="separating()"></i>
+    }
+  </button>
+} @else {
   <div class="stems">
-    @if (separation() === 'none') {
-      <button
-        class="pr-btn pr-btn--sm separate"
-        [disabled]="!canSeparate()"
-        (click)="separate()"
-        [title]="'Separate this track into stems' | t"
-      >
-        @if (separating() !== null) {
-          <span class="pr-num">{{ percent(separating()!) }}</span>
-        } @else {
-          {{ 'Separate' | t }}
-        }
-      </button>
-    } @else {
-      @for (k of stemKnobs(); track k.part) {
-        <app-knob
-          small
-          [class.waiting]="k.waiting"
-          [dimmed]="!k.on"
-          [value]="k.level"
-          [defaultValue]="1"
-          [label]="k.label"
-          [labelTitle]="k.title"
-          [active]="!k.on"
-          [format]="percent"
-          (valueChange)="engine.setStemLevel(deck(), k.part, $event)"
-          (labelClick)="engine.toggleStem(deck(), k.part)"
-        />
-      }
+    @for (k of stemKnobs(); track k.part) {
+      <app-knob
+        small
+        [class.waiting]="k.waiting"
+        [dimmed]="!k.on"
+        [value]="k.level"
+        [defaultValue]="1"
+        [label]="k.label"
+        [labelTitle]="k.title"
+        [active]="!k.on"
+        [format]="percent"
+        (valueChange)="engine.setStemLevel(deck(), k.part, $event)"
+        (labelClick)="engine.toggleStem(deck(), k.part)"
+      />
     }
   </div>
+}
 
-  <div class="tempo">
-    <div class="tempo-head">
-      <span class="pr-label">Tempo</span>
-      <button
-        class="pr-btn pr-btn--sm"
-        [class.is-on]="settings().keyLock"
-        (click)="engine.setKeyLock(deck(), !settings().keyLock)"
-        [title]="'Key lock: the pitch stays when the tempo changes' | t"
+<button
+  class="pr-btn pr-btn--lg key sync"
+  [class.is-on]="syncState() === 'locked'"
+  [class.matched]="syncState() === 'matched'"
+  (pointerdown)="syncDown($event)"
+  (pointerup)="syncUp()"
+  (pointercancel)="syncCancel()"
+  (click)="syncKey($event)"
+  [disabled]="!canSync()"
+  [title]="syncTitle()"
+>
+  SYNC
+</button>
+
+<div class="pitch">
+  <div class="line">
+    <span
+      class="value pr-num"
+      (dblclick)="resetPitch()"
+      [title]="vinyl() ? ('Pitch of the turntable' | t) : ('Double-click to reset' | t)"
+      >{{ pitchText() }}</span
+    >
+    @if (pitchTarget(); as target) {
+      <span class="target pr-num" [title]="'Pitch to set on the turntable to match' | t"
+        >→ {{ target }}</span
       >
-        KEY
-      </button>
-      @if (status()?.sync?.leader) {
-        <span class="pr-chip" [title]="'The other decks follow this one' | t">LEADER</span>
-      }
-      <span class="value pr-num" (dblclick)="resetPitch()" [title]="'Double-click to reset' | t">{{
-        pitchText()
-      }}</span>
-    </div>
-    <div class="fader">
-      <button
-        class="pr-btn pr-btn--sm pr-btn--icon"
-        [title]="'Tempo down 0.1 % (held, on down)' | t"
-        [attr.aria-label]="'Tempo down 0.1 % (held, on down)' | t"
-        [disabled]="tempoFaderLocked()"
-        (pointerdown)="stepDown($event, -1)"
-        (pointerup)="stepStop()"
-        (pointercancel)="stepStop()"
-        (click)="stepKey($event, -1)"
-      >
-        −
-      </button>
-      <app-fader
-        centered
-        [min]="-range()"
-        [max]="range()"
-        [value]="faderValue()"
-        (valueChange)="setPitch($event)"
-        [disabled]="tempoFaderLocked()"
-        [label]="'Tempo' | t"
-      />
-      <button
-        class="pr-btn pr-btn--sm pr-btn--icon"
-        [title]="'Tempo up 0.1 % (held, on up)' | t"
-        [attr.aria-label]="'Tempo up 0.1 % (held, on up)' | t"
-        [disabled]="tempoFaderLocked()"
-        (pointerdown)="stepDown($event, 1)"
-        (pointerup)="stepStop()"
-        (pointercancel)="stepStop()"
-        (click)="stepKey($event, 1)"
-      >
-        +
-      </button>
-    </div>
-    <span class="note">
-      @if (pitchHint(); as hint) {
-        {{ 'Pitch {change} to match' | t: { change: hint } }}
-      } @else if (vinyl()) {
-        {{ 'Driven by the turntable' | t }}
-      }
-    </span>
+    }
+    @if (status()?.sync?.leader) {
+      <span class="pr-chip" [title]="'The other decks follow this one' | t">LEADER</span>
+    }
   </div>
-
-  @if (mixer.internal()) {
-    <app-channel-strip class="strip" [deck]="deck()" />
-  }
+  <button
+    class="pr-btn pr-btn--sm key-lock"
+    [class.is-on]="settings().keyLock"
+    (click)="engine.setKeyLock(deck(), !settings().keyLock)"
+    [title]="'Key lock: the pitch stays when the tempo changes' | t"
+  >
+    KEY LOCK
+  </button>
 </div>

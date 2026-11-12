@@ -63,8 +63,10 @@ export const FR: Record<string, string> = {
   'Double-click to reset': 'Double-clic pour remettre à zéro',
   'Slow down while held': 'Ralentir tant que maintenu',
   'Speed up while held': 'Accélérer tant que maintenu',
-  'Pitch {change} to match': 'Pitch {change} pour caler',
-  'Driven by the turntable': 'Piloté par la platine',
+  'Pitch of the turntable': 'Pitch de la platine',
+  'Pitch to set on the turntable to match': 'Pitch à régler sur la platine pour caler',
+  'Where to bring the turntable’s pitch': 'Où amener le pitch de la platine',
+  'Limiter, crossfader curve and headphones': 'Limiteur, courbe du crossfader et casque',
   'The needle reached the end of the record: the deck plays on by itself. Choose REL or ABS to hand it back to the record.':
     'Le diamant a atteint la fin du disque : le deck continue tout seul. Choisissez REL ou ABS pour rendre la main au disque.',
   'Sync needs relative mode or internal play':
@@ -153,7 +155,6 @@ export const FR: Record<string, string> = {
   'Headphone volume': 'Volume du casque',
   'Crossfader curve: smooth for blending, sharp for scratching':
     'Courbe du crossfader : douce pour les enchaînements, sèche pour le scratch',
-  'External mixer': 'Table de mixage externe',
   'Each deck needs its own pair of outputs': 'Chaque deck a besoin de sa paire de sorties',
   'External mixer needs 4 outputs': 'Table externe : 4 sorties nécessaires',
   'Volume of deck {deck}': 'Volume du deck {deck}',

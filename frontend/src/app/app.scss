@@ -11,37 +11,23 @@
   gap: 6px;
   padding: var(--pr-space-2) 10px 0;
 }
+// a lane per deck, the phase of the two between them, on the same columns: the deck's
+// panel, its waveform, its channel of the software mixer, its pitch fader
 .decks {
+  --pr-lane-columns: var(--pr-deck-panel) minmax(0, 1fr) 32px;
   display: grid;
-  grid-template-rows: 124px 26px 124px;
+  gap: 4px;
   padding-bottom: 4px;
-}
-.deck-row {
-  display: grid;
-  grid-template-columns: var(--pr-deck-panel) minmax(0, 1fr);
-  gap: 10px;
-  min-height: 0;
+  &.mix {
+    --pr-lane-columns: var(--pr-deck-panel) minmax(0, 1fr) 210px 32px;
+  }
 }
 app-phase-strip {
+  height: 26px;
   padding-block: var(--pr-space-1);
-}
-.controls {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 210px minmax(0, 1fr);
-  grid-template-rows: 72px 60px;
-  gap: 6px 10px;
-  &.external {
-    grid-template-columns: minmax(0, 1fr) 120px minmax(0, 1fr);
-  }
-  .left {
-    grid-column: 1;
-  }
-  .right {
-    grid-column: 3;
-  }
-  .mixer {
-    grid-column: 2;
-    grid-row: 1 / span 2;
+  .mix & {
+    height: 40px;
+    padding-block: 0;
   }
 }
 .library {

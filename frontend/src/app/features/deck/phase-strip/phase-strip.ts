@@ -8,11 +8,14 @@ import {
   viewChild,
 } from '@angular/core';
 import { EngineService } from '../../../core/services/engine.service';
+import { MixerService } from '../../../core/services/mixer.service';
 import { driftTime, phaseOffset } from '../../../core/sync';
 import { t } from '../../../core/i18n/i18n';
 import { TPipe } from '../../../core/i18n/t.pipe';
 import { ZOOM_SPAN_S } from '../deck-waveform/deck-waveform';
 import { fitToDevicePixels, forgetCanvas } from '../../../shared/device-pixels';
+import { Fader } from '../../../shared/fader/fader';
+import { MixerMenu } from '../../mixer/mixer-menu/mixer-menu';
 
 /** Beat offset under which the two decks count as matched. */
 const MATCHED_BEATS = 0.02;
@@ -23,16 +26,18 @@ const FORECAST_S = 60;
 
 /**
  * Between the two decks: the beats of A at the top and of B at the bottom, around their
- * playheads and at the scale of the waveforms. Matched, they meet.
+ * playheads and at the scale of the waveforms. Matched, they meet. The software mixer has
+ * its crossfader there, between its two channels.
  */
 @Component({
   selector: 'app-phase-strip',
   templateUrl: './phase-strip.html',
   styleUrl: './phase-strip.scss',
-  imports: [TPipe],
+  imports: [Fader, MixerMenu, TPipe],
 })
 export class PhaseStrip {
   private readonly engine = inject(EngineService);
+  protected readonly mixer = inject(MixerService);
   private readonly lane = viewChild.required<ElementRef<HTMLCanvasElement>>('lane');
   private readonly style = getComputedStyle(document.documentElement);
   private readonly colors = {

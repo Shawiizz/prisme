@@ -1,24 +1,10 @@
 <app-titlebar />
 
 <main class="layout">
-  <section class="decks">
-    <div class="deck-row">
-      <app-deck-card [deck]="0" />
-      <app-deck-waveform [deck]="0" />
-    </div>
+  <section class="decks" [class.mix]="mixer.internal()">
+    <app-deck-lane [deck]="0" />
     <app-phase-strip />
-    <div class="deck-row">
-      <app-deck-card [deck]="1" />
-      <app-deck-waveform [deck]="1" />
-    </div>
-  </section>
-
-  <section class="controls" [class.external]="!mixer.internal()">
-    <app-deck-controls class="left" [deck]="0" />
-    <app-mixer class="mixer" />
-    <app-deck-controls class="right" [deck]="1" />
-    <app-deck-pads class="left" [deck]="0" />
-    <app-deck-pads class="right" [deck]="1" />
+    <app-deck-lane [deck]="1" />
   </section>
 
   <section class="library">

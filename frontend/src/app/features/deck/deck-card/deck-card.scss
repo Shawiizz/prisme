@@ -20,6 +20,16 @@
   align-items: center;
   gap: 10px;
 }
+// the level sent to the external mixer, a thin meter by the letter
+.letter {
+  display: flex;
+  align-items: stretch;
+  gap: 4px;
+  .pr-meter {
+    width: 4px;
+    gap: 1px;
+  }
+}
 .cover {
   width: 34px;
   height: 34px;

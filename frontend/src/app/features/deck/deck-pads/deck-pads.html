@@ -1,34 +1,35 @@
-<div class="panel pr-panel">
-  <div class="pr-seg modes" role="radiogroup" [attr.aria-label]="'Pad mode' | t">
-    @for (m of modes; track m.id) {
-      <button role="radio" [attr.aria-checked]="mode() === m.id" (click)="mode.set(m.id)">
-        {{ m.label }}
-      </button>
-    }
-  </div>
+<div class="pr-seg pr-seg--lg modes" role="radiogroup" [attr.aria-label]="'Pad mode' | t">
+  @for (m of modes; track m.id) {
+    <button role="radio" [attr.aria-checked]="mode() === m.id" (click)="mode.set(m.id)">
+      {{ m.label }}
+    </button>
+  }
+</div>
 
-  <div class="pads">
-    @for (pad of pads(); track $index) {
-      <button
-        class="pr-pad"
-        [class.pr-pad--set]="pad.set"
-        [class.is-hot]="pad.active"
-        [style.--tag]="pad.color"
-        [disabled]="!padsEnabled()"
-        [title]="pad.title"
-        (pointerdown)="press($index, $event)"
-        (pointerup)="release()"
-        (pointercancel)="release()"
-        (contextmenu)="remove($index, $event)"
-      >
-        <span>{{ pad.label }}</span>
-      </button>
-    }
-  </div>
+<div class="pads">
+  @for (pad of pads(); track $index) {
+    <button
+      class="pr-pad"
+      [class.pr-pad--set]="pad.set"
+      [class.is-hot]="pad.active"
+      [style.--tag]="pad.color"
+      [disabled]="!padsEnabled()"
+      [title]="pad.title"
+      (pointerdown)="press($index, $event)"
+      (pointerup)="release()"
+      (pointercancel)="release()"
+      (contextmenu)="remove($index, $event)"
+    >
+      <span>{{ pad.label }}</span>
+    </button>
+  }
+</div>
 
-  @if (mode() === 'fx') {
-    <div class="keys knobs">
+@switch (keys()) {
+  @case ('fx') {
+    <div class="side knobs">
       <app-knob
+        small
         label="MIX"
         [labelTitle]="'Level of the effect' | t"
         [format]="readouts.percent"
@@ -36,6 +37,7 @@
         (valueChange)="fx.setMix(deck(), $event)"
       />
       <app-knob
+        small
         label="AMOUNT"
         [labelTitle]="'Main knob of the effect (see each pad)' | t"
         [format]="readouts.percent"
@@ -44,13 +46,15 @@
       />
       <div class="beats" [title]="'Period of the effect, in beats' | t">
         <button class="pr-btn pr-btn--sm" (click)="fx.scaleBeats(deck(), 0.5)">½</button>
-        <span class="pr-num">{{ formatBeats(effect().beats) }}</span>
         <button class="pr-btn pr-btn--sm" (click)="fx.scaleBeats(deck(), 2)">×2</button>
+        <span class="pr-num">{{ formatBeats(effect().beats) }}</span>
       </div>
     </div>
-  } @else if (mode() === 'sampler') {
-    <div class="keys knobs">
+  }
+  @case ('sampler') {
+    <div class="side knobs">
       <app-knob
+        small
         label="VOL"
         [labelTitle]="'Level of the sampler' | t"
         [defaultValue]="1"
@@ -59,71 +63,77 @@
         (valueChange)="sampler.setGain(deck(), $event)"
       />
     </div>
-  } @else {
-    <div class="keys">
-      <div class="row">
-        <button
-          class="pr-btn pr-btn--sm"
-          [class.is-on]="loopInSet()"
-          (click)="loopIn()"
-          [disabled]="!canMove()"
-          [title]="'Loop in: where the next loop starts' | t"
-        >
-          IN
-        </button>
-        <button
-          class="pr-btn pr-btn--sm"
-          (click)="loopOut()"
-          [disabled]="!canMove()"
-          [title]="'Loop out: the loop ends here and plays' | t"
-        >
-          OUT
-        </button>
-        <button
-          class="pr-btn pr-btn--sm"
-          (click)="scaleLoop(0.5)"
-          [disabled]="!canMove()"
-          [title]="'Halve the loop' | t"
-        >
-          ½
-        </button>
-        <button
-          class="pr-btn pr-btn--sm"
-          (click)="scaleLoop(2)"
-          [disabled]="!canMove()"
-          [title]="'Double the loop' | t"
-        >
-          ×2
-        </button>
-      </div>
-      <div class="row">
-        <button
-          class="pr-btn pr-btn--sm"
-          [class.is-on]="loopActive()"
-          (click)="toggleLoop()"
-          [disabled]="!canMove()"
-        >
-          {{ loopActive() ? 'EXIT' : 'RELOOP' }}
-        </button>
-        <button
-          class="pr-btn pr-btn--sm"
-          [class.is-on]="slip()"
-          (click)="toggleSlip()"
-          [title]="'Loops, rolls and censor carry the track on underneath' | t"
-        >
-          SLIP
-        </button>
-        <button
-          class="pr-btn pr-btn--sm"
-          [disabled]="!canMove()"
-          [title]="'Plays backwards while held' | t"
-          (pointerdown)="censor(true)"
-          (pointerup)="censor(false)"
-          (pointercancel)="censor(false)"
-        >
-          CENSOR
-        </button>
-      </div>
+  }
+  @case ('loop') {
+    <div class="side loop">
+      <button
+        class="pr-btn pr-btn--sm"
+        [class.is-on]="loopInSet()"
+        (click)="loopIn()"
+        [disabled]="!canMove()"
+        [title]="'Loop in: where the next loop starts' | t"
+      >
+        IN
+      </button>
+      <button
+        class="pr-btn pr-btn--sm"
+        (click)="loopOut()"
+        [disabled]="!canMove()"
+        [title]="'Loop out: the loop ends here and plays' | t"
+      >
+        OUT
+      </button>
+      <button
+        class="pr-btn pr-btn--sm"
+        [class.is-on]="loopActive()"
+        (click)="toggleLoop()"
+        [disabled]="!canMove()"
+      >
+        {{ loopActive() ? 'EXIT' : 'RELOOP' }}
+      </button>
+      <button
+        class="pr-btn pr-btn--sm"
+        (click)="scaleLoop(0.5)"
+        [disabled]="!canMove()"
+        [title]="'Halve the loop' | t"
+      >
+        ½
+      </button>
+      <button
+        class="pr-btn pr-btn--sm"
+        (click)="scaleLoop(2)"
+        [disabled]="!canMove()"
+        [title]="'Double the loop' | t"
+      >
+        ×2
+      </button>
+      <ng-container [ngTemplateOutlet]="slipKey" />
     </div>
   }
-</div>
+  @default {
+    <div class="side">
+      <ng-container [ngTemplateOutlet]="slipKey" />
+      <button
+        class="pr-btn censor"
+        [disabled]="!canMove()"
+        [title]="'Plays backwards while held' | t"
+        (pointerdown)="censor(true)"
+        (pointerup)="censor(false)"
+        (pointercancel)="censor(false)"
+      >
+        CENSOR
+      </button>
+    </div>
+  }
+}
+
+<ng-template #slipKey>
+  <button
+    class="pr-btn slip"
+    [class.is-on]="slip()"
+    (click)="toggleSlip()"
+    [title]="'Loops, rolls and censor carry the track on underneath' | t"
+  >
+    SLIP
+  </button>
+</ng-template>

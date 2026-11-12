@@ -1,25 +1,18 @@
 :host {
-  display: block;
+  flex: 1;
   min-width: 0;
-  container-type: inline-size;
-}
-
-.panel {
-  height: 100%;
   display: flex;
   align-items: center;
-  gap: var(--pr-space-3);
-  padding: 0 var(--pr-space-3);
+  gap: 5px;
+  height: 100%;
 }
 
-// six modes on two rows of three
 .modes {
   flex: none;
-  display: grid;
-  grid-template-columns: repeat(3, auto);
   > button {
-    padding: 0 7px;
-    font-size: 10.5px;
+    padding: 0 5px;
+    font-stretch: 80%;
+    letter-spacing: 0.05em;
   }
 }
 
@@ -27,11 +20,11 @@
   flex: 1;
   min-width: 0;
   display: flex;
-  gap: var(--pr-space-1);
+  gap: 4px;
   .pr-pad {
     flex: 1;
-    min-width: 26px;
     width: auto;
+    min-width: 44px;
     overflow: hidden;
     span {
       max-width: 100%;
@@ -42,53 +35,61 @@
   }
 }
 
-.keys {
+// the keys that go with the pads' mode
+.side {
   flex: none;
-  display: grid;
-  gap: var(--pr-space-1);
-  .row {
-    display: flex;
-    gap: var(--pr-space-1);
-  }
+  display: flex;
+  align-items: center;
+  gap: 4px;
   .pr-btn {
-    flex: 1;
-    padding: 0 7px;
-    font-size: 10.5px;
-    letter-spacing: 0.04em;
+    padding: 0 8px;
+    font: 600 11px / 1 var(--pr-font);
+    font-stretch: 85%;
+    letter-spacing: 0.05em;
+  }
+  .slip,
+  .censor {
+    height: var(--pr-h-lg);
+  }
+  &.loop {
+    display: grid;
+    grid-template-columns: repeat(3, auto);
+    gap: 2px 3px;
+    .pr-btn {
+      height: 20px;
+      padding: 0 6px;
+    }
   }
   &.knobs {
-    display: flex;
-    align-items: center;
-    gap: var(--pr-space-3);
+    gap: var(--pr-space-2);
+    --knob-label-width: 34px;
   }
 }
-// a narrow window: the pads on two rows of four, tighter keys
-@container (max-width: 600px) {
-  .panel {
-    gap: var(--pr-space-2);
-    padding: 0 var(--pr-space-2);
+// the period of the effect: halve, double, and the beats it lasts below
+.beats {
+  display: grid;
+  grid-template-columns: repeat(2, auto);
+  gap: 2px 3px;
+  justify-items: center;
+  .pr-btn {
+    height: 20px;
+    padding: 0 6px;
   }
-  .modes > button,
-  .keys .pr-btn {
-    padding: 0 5px;
-  }
-  .pads {
-    align-self: stretch;
-    display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-    align-content: center;
-    .pr-pad {
-      height: 24px;
-    }
+  .pr-num {
+    grid-column: span 2;
+    font-size: var(--pr-size-small);
+    line-height: 16px;
+    color: var(--pr-text-2);
   }
 }
 
-.beats {
-  display: flex;
-  align-items: center;
-  gap: var(--pr-space-1);
-  .pr-num {
-    min-width: 32px;
-    text-align: center;
+// a rail short of room: smaller labels rather than cut ones
+@container rail (max-width: 1400px) {
+  .modes > button {
+    padding: 0 4px;
+  }
+  .pads .pr-pad {
+    padding: 0 4px;
+    font-size: 11px;
   }
 }

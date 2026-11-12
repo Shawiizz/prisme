@@ -1,3 +1,4 @@
+import { NgTemplateOutlet } from '@angular/common';
 import { Component, computed, inject, input, signal } from '@angular/core';
 import { FxService } from '../../../core/services/fx.service';
 import { SamplerService } from '../../../core/services/sampler.service';
@@ -55,14 +56,15 @@ const ROLL_BEATS = [1 / 16, 1 / 8, 1 / 4, 1 / 2, 1, 2, 4, 8];
 const JUMP_BEATS = [-32, -16, -4, -1, 1, 4, 16, 32];
 
 /**
- * Eight performance pads per deck (hot cues, loops, rolls, beat jumps, beat effects,
- * sampler), with the loop and slip keys or, for the effects, their level, knob and period.
+ * Eight performance pads per deck, at the end of its rail (hot cues, loops, rolls, beat
+ * jumps, beat effects, sampler), with the keys that go with their mode: slip and censor,
+ * the loop keys, the level, knob and period of the effects, or the sampler's level.
  */
 @Component({
   selector: 'app-deck-pads',
   templateUrl: './deck-pads.html',
   styleUrl: './deck-pads.scss',
-  imports: [Knob, TPipe],
+  imports: [Knob, NgTemplateOutlet, TPipe],
 })
 export class DeckPads {
   readonly deck = input.required<number>();
@@ -73,6 +75,12 @@ export class DeckPads {
   protected readonly sampler = inject(SamplerService);
   protected readonly modes = MODES;
   protected readonly mode = signal<PadMode>('cues');
+  /** The keys beside the pads. */
+  protected readonly keys = computed(() => {
+    const mode = this.mode();
+    if (mode === 'loops' || mode === 'roll') return 'loop';
+    return mode === 'fx' || mode === 'sampler' ? mode : 'slip';
+  });
   private readonly status = computed(() => this.engine.status()?.decks[this.deck()] ?? null);
 
   /** Loops and jumps need a beat grid, and a record in absolute mode keeps the position. */

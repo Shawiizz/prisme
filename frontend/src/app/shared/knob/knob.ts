@@ -145,12 +145,13 @@ function arc(from: number, to: number): string {
     .label {
       min-width: var(--knob-label-width, 40px);
       height: auto;
-      padding: 1px 4px;
+      padding: 1px var(--knob-label-pad, 4px);
       border: none;
       border-radius: var(--pr-radius-sm);
       background: transparent;
       color: var(--pr-text-3);
       font: 600 var(--pr-size-label) / 1.2 var(--pr-font);
+      font-stretch: var(--knob-label-stretch, 100%);
       letter-spacing: 0.06em;
       text-align: center;
       white-space: nowrap;

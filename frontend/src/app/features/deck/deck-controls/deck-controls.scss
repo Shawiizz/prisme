@@ -1,149 +1,120 @@
 :host {
-  display: block;
-  min-width: 0;
-  container-type: inline-size;
-}
-
-.controls {
-  height: 100%;
+  flex: none;
   display: flex;
   align-items: center;
-  gap: 18px;
-  padding: 0 var(--pr-space-3);
+  gap: 5px;
+  height: 100%;
 }
 
+.key {
+  width: 58px;
+  padding: 0;
+  font-size: var(--pr-size-small);
+  letter-spacing: 0.04em;
+}
 .transport {
   display: flex;
-  gap: var(--pr-space-1);
-  .pr-btn {
-    width: 58px;
-    padding: 0;
-    font-size: var(--pr-size-small);
-    letter-spacing: 0.06em;
-  }
-  // matched once, not locked: outlined in the light
-  .sync.matched {
-    border-color: var(--pr-light);
-  }
+  gap: 3px;
+}
+// matched once, not locked: outlined in the light
+.sync.matched {
+  border-color: var(--pr-light);
 }
 
 .stems {
-  display: flex;
-  align-items: center;
-  gap: 2px;
+  flex: none;
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 40px;
+  justify-items: center;
   --knob-label-width: 34px;
-  .separate {
-    min-width: 88px;
-    font-size: var(--pr-size-small);
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
-  }
   // a part cut or brought back on the next bar, until it is
   .waiting {
     animation: pr-blink 0.5s steps(1) infinite;
   }
 }
-
-.tempo {
-  flex: 1;
-  // the key, the value and the fader's keys: never overlapped by the knobs beside
-  min-width: 112px;
-  display: grid;
-  gap: 2px;
-}
-.tempo-head {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  min-width: 0;
-  // the chip gives way before the value ever runs into the knobs
-  .pr-chip {
-    flex: 0 1 auto;
-    min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-  .value {
-    flex: none;
-    margin-left: auto;
-    font-size: 14px;
-    white-space: nowrap;
-    cursor: default;
-  }
-  // leading, the deck shows LEADER where the label was
-  &:has(.pr-chip) .pr-label {
-    display: none;
-  }
-}
-.fader {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  app-fader {
-    flex: 1;
-    min-width: 0;
-  }
-}
-.note {
-  min-height: 14px;
-  font-size: 11px;
-  color: var(--pr-text-3);
-}
-
-.strip {
+.separate {
+  position: relative;
   flex: none;
-}
-
-// a narrow window (or the software mixer's channel strip taking its share): smaller
-// transport keys and knobs, the tempo keeps the room
-@container (max-width: 700px) {
-  .controls {
-    gap: 10px;
-    padding: 0 var(--pr-space-2);
+  width: 128px;
+  gap: 6px;
+  padding: 0;
+  overflow: hidden;
+  font-size: var(--pr-size-small);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  .pr-num {
+    font-size: 11.5px;
+    color: var(--pr-text-2);
   }
-  .transport .pr-btn {
-    width: 40px;
-  }
-  .tempo-head {
-    .pr-label {
-      display: none;
-    }
-    .pr-chip {
-      padding: 0 5px;
-      letter-spacing: 0.02em;
-    }
-  }
-  .strip {
-    gap: 0;
-    --knob-size: 28px;
-    --knob-label-width: 29px;
-  }
-  .stems {
-    gap: 0;
-    --knob-label-width: 29px;
+  // how far the separation is
+  i {
+    position: absolute;
+    left: 0;
+    bottom: 0;
+    height: 2px;
+    width: calc(var(--done) * 100%);
+    background: var(--pr-light);
   }
 }
 
-// the narrowest window with the software mixer: the tempo fader alone (its fine steps stay
-// on the keyboard and the controllers)
-@container (max-width: 560px) {
-  .controls {
-    gap: 6px;
-    padding: 0 var(--pr-space-1);
+// the pitch, the pitch to reach on the turntable, key lock
+.pitch {
+  display: grid;
+  grid-template-rows: 16px 22px;
+  row-gap: 2px;
+  justify-items: start;
+  min-width: 78px;
+}
+.line {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+  .pr-chip {
+    height: 16px;
+    padding: 0 5px;
   }
-  .transport .pr-btn {
-    width: 36px;
-  }
-  // four stems two by two
-  .stems:has(app-knob:nth-child(3)) {
-    display: grid;
-    grid-template-columns: repeat(2, auto);
-    row-gap: 0;
-  }
-  .tempo {
-    min-width: 84px;
-  }
-  .fader .pr-btn--icon {
-    display: none;
+}
+.value {
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 16px;
+  cursor: default;
+}
+.target {
+  display: inline-flex;
+  align-items: center;
+  height: 16px;
+  padding: 0 4px;
+  font-size: 11.5px;
+  color: var(--pr-light);
+  border: 1px solid var(--pr-text-3);
+  border-radius: var(--pr-radius-sm);
+}
+.key-lock {
+  height: 22px;
+  padding: 0 7px;
+  font: 600 var(--pr-size-label) / 1 var(--pr-font);
+  letter-spacing: 0.06em;
+}
+
+// the transport of internal play on a rail short of room: tighter keys and knobs
+@container rail (max-width: 1400px) {
+  :host(.plays) {
+    gap: 4px;
+    .key {
+      width: 46px;
+    }
+    .stems {
+      grid-auto-columns: 33px;
+      --knob-size: 28px;
+      --knob-label-width: 30px;
+      --knob-label-pad: 2px;
+      --knob-label-stretch: 85%;
+    }
+    .separate {
+      width: 100px;
+    }
   }
 }

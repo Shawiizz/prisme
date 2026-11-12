@@ -1,6 +1,18 @@
 <div class="card pr-panel">
   <div class="head">
-    <div class="pr-tile" [class.pr-tile--outline]="!status()?.playing">{{ letter() }}</div>
+    <div class="letter">
+      <div class="pr-tile" [class.pr-tile--outline]="!status()?.playing">{{ letter() }}</div>
+      @if (send(); as segments) {
+        <div
+          class="pr-meter pr-meter--vertical"
+          [title]="'Level sent to outputs {outputs}' | t: { outputs: outputs() }"
+        >
+          @for (segment of segments; track $index) {
+            <i [class]="segment"></i>
+          }
+        </div>
+      }
+    </div>
     @if (track(); as t) {
       <app-cover class="cover" [path]="t.path" />
       <div class="meta">

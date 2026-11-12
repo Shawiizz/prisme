@@ -1,46 +1,41 @@
 import { Component, computed, inject, input } from '@angular/core';
-import { MixerService } from '../../../core/services/mixer.service';
-import { ChannelStrip } from '../../mixer/channel-strip/channel-strip';
+import { deckTempo } from '../../../core/deck-tempo';
 import { EngineService } from '../../../core/services/engine.service';
 import { PreferencesService } from '../../../core/services/preferences.service';
 import { pitchToMatch } from '../../../core/sync';
 import { formatPitch } from '../../../shared/time';
 import { t } from '../../../core/i18n/i18n';
 import { TPipe } from '../../../core/i18n/t.pipe';
-import { Fader } from '../../../shared/fader/fader';
 import { StemPart, partIn, partLevel, partPlaying } from '../../../core/stem-parts';
 import { Knob } from '../../../shared/knob/knob';
 import { readouts } from '../../../shared/mixer-scales';
 import { StemsService } from '../../../core/services/stems.service';
 
-type SyncState = 'off' | 'matched' | 'locked';
-
 /** Holding SYNC this long (ms) matches the leader once instead of locking to it. */
 const SYNC_HOLD_MS = 450;
-/** A press of − or + moves the tempo this much; held, it goes on, a step this often (ms)
- * after the first wait. (The temporary bend is on the keyboard and the controllers.) */
-const PITCH_STEP = 0.001;
-const STEP_WAIT_MS = 400;
-const STEP_EVERY_MS = 60;
 
-/** Transport, sync and tempo fader of a deck, with its channel when the software mixer runs. */
+/**
+ * What plays a deck, at the start of its rail: the transport (a record has its own), the
+ * stems, sync, and the pitch with key lock.
+ */
 @Component({
   selector: 'app-deck-controls',
   templateUrl: './deck-controls.html',
   styleUrl: './deck-controls.scss',
-  imports: [ChannelStrip, Fader, Knob, TPipe],
+  imports: [Knob, TPipe],
+  host: { '[class.plays]': '!vinyl()' },
 })
 export class DeckControls {
   readonly deck = input.required<number>();
 
   protected readonly engine = inject(EngineService);
-  protected readonly mixer = inject(MixerService);
   private readonly stems = inject(StemsService);
   private readonly preferences = inject(PreferencesService);
-  protected readonly range = computed(() => this.preferences.dj().pitchRange);
-  protected readonly status = computed(() => this.engine.status()?.decks[this.deck()] ?? null);
-  protected readonly settings = computed(() => this.engine.decks()[this.deck()]);
-  protected readonly vinyl = computed(() => this.settings().vinylEnabled);
+  private readonly tempo = deckTempo(this.deck);
+  protected readonly status = this.tempo.status;
+  protected readonly settings = this.tempo.settings;
+  protected readonly vinyl = this.tempo.vinyl;
+  protected readonly syncState = this.tempo.syncState;
   protected readonly track = computed(() => this.engine.tracks()[this.deck()]);
   protected readonly separation = computed(() => this.track()?.separation ?? 'none');
   /** Vocals and instrumental, or the four stems of a fully separated track: a knob each,
@@ -84,17 +79,6 @@ export class DeckControls {
     () => this.vinyl() && this.settings().vinylMode === 'absolute',
   );
 
-  /** The deck this one is compared with: the leader, else another deck with a tempo. */
-  private readonly reference = computed(() => {
-    const others = (this.engine.status()?.decks ?? []).filter((_, i) => i !== this.deck());
-    return others.find((d) => d.sync.leader) ?? others.find((d) => d.bpm !== null) ?? null;
-  });
-
-  protected readonly syncState = computed<SyncState>(() => {
-    const sync = this.status()?.sync;
-    if (sync?.locked) return 'locked';
-    return sync && sync.rateOffset !== 1 ? 'matched' : 'off';
-  });
   protected readonly canSync = computed(() => {
     const s = this.status();
     return !!s?.loaded && s.bpm !== null && !this.absolute();
@@ -108,28 +92,13 @@ export class DeckControls {
       : t('Tap: lock to the leader · hold: match its tempo and beats once');
   });
   private syncHold: ReturnType<typeof setTimeout> | null = null;
-  private stepping: ReturnType<typeof setTimeout> | null = null;
-  protected readonly tempoFaderLocked = computed(
-    () => this.vinyl() || this.syncState() === 'locked',
-  );
 
-  /** Playback rate as the engine reports it, the fader position when it cannot. */
-  private readonly rate = computed(
-    () => this.engine.tempoRate(this.deck()) ?? this.settings().pitch,
-  );
-  protected readonly pitchText = computed(() => formatPitch(this.rate()));
-  /** A fader the deck does not obey shows the rate it plays at. */
-  protected readonly faderValue = computed(
-    () => (this.tempoFaderLocked() ? this.rate() : this.settings().pitch) - 1,
-  );
-
-  /** On a record not locked by sync: the pitch change that would match the other deck. */
-  protected readonly pitchHint = computed(() => {
-    const own = this.status();
-    const reference = this.reference();
-    if (!this.vinyl() || this.syncState() === 'locked' || !own || !reference) return null;
-    const change = pitchToMatch(own, reference);
-    return change === null ? null : formatPitch(1 + change);
+  protected readonly pitchText = computed(() => formatPitch(this.tempo.rate()));
+  /** On a record not locked by sync: the pitch to set on the turntable to match the other
+   * deck. */
+  protected readonly pitchTarget = computed(() => {
+    const target = this.tempo.target();
+    return target === null ? null : formatPitch(target);
   });
 
   togglePlay() {
@@ -142,36 +111,6 @@ export class DeckControls {
 
   cueUp() {
     this.engine.cueUp(this.deck());
-  }
-
-  stepDown(event: PointerEvent, direction: -1 | 1) {
-    if (event.button !== 0) return;
-    this.stepStop();
-    this.step(direction);
-    const goOn = (wait: number) => {
-      this.stepping = setTimeout(() => {
-        this.step(direction);
-        goOn(STEP_EVERY_MS);
-      }, wait);
-    };
-    goOn(STEP_WAIT_MS);
-  }
-
-  stepStop() {
-    if (this.stepping !== null) clearTimeout(this.stepping);
-    this.stepping = null;
-  }
-
-  /** From the keyboard (a click with no pointer behind it): one step. */
-  stepKey(event: MouseEvent, direction: -1 | 1) {
-    if (event.detail === 0) this.step(direction);
-  }
-
-  private step(direction: -1 | 1) {
-    const range = this.range();
-    const pitch = this.settings().pitch + direction * PITCH_STEP;
-    const kept = Math.min(Math.max(pitch, 1 - range), 1 + range);
-    this.engine.setPitch(this.deck(), Math.round(kept * 1e4) / 1e4);
   }
 
   syncDown(event: PointerEvent) {
@@ -204,19 +143,15 @@ export class DeckControls {
    * tempo on its fader, so that the fader says what it plays. */
   private matchOnce() {
     const own = this.status();
-    const reference = this.reference();
+    const reference = this.tempo.reference();
     const change = own && reference ? pitchToMatch(own, reference) : null;
     if (!this.vinyl() && change !== null) {
-      this.engine.setPitch(this.deck(), this.rate() * (1 + change));
+      this.engine.setPitch(this.deck(), this.tempo.rate() * (1 + change));
     }
     this.engine.syncOnce(this.deck());
   }
 
-  setPitch(offset: number) {
-    this.engine.setPitch(this.deck(), 1 + offset);
-  }
-
   resetPitch() {
-    this.engine.setPitch(this.deck(), 1);
+    if (!this.tempo.held()) this.engine.setPitch(this.deck(), 1);
   }
 }
