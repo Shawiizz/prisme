@@ -192,10 +192,28 @@ fn a_double_plays_from_where_its_source_is() {
     rig.send(Command::SetPlaying { deck: 0, playing: true });
     rig.run(1.5);
     rig.send(Command::LoadTrack { deck: 1, track });
-    rig.send(Command::TakePosition { deck: 1, from: 0 });
+    rig.send(Command::TakePlace { deck: 1, from: 0 });
     rig.run(0.5);
     let (a, b) = (rig.deck(0), rig.deck(1));
     assert!(b.playing, "{b:?}");
+    assert!((a.position_s - b.position_s).abs() < 0.01, "{a:?} {b:?}");
+}
+
+#[test]
+fn a_double_of_a_deck_in_a_loop_loops_with_it() {
+    let mut rig = Rig::new();
+    let track = sine_track(10.0, 0.6);
+    rig.send(Command::LoadTrack { deck: 0, track: track.clone() });
+    rig.send(Command::SetBeatGrid { deck: 0, grid: Some(BeatGrid { bpm: 120.0, first_beat_s: 0.0 }) });
+    rig.send(Command::SetPlaying { deck: 0, playing: true });
+    rig.run(1.1);
+    rig.send(Command::BeatLoop { deck: 0, beats: 1.0 });
+    rig.run(0.2);
+    rig.send(Command::LoadTrack { deck: 1, track });
+    rig.send(Command::TakePlace { deck: 1, from: 0 });
+    rig.run(1.3);
+    let (a, b) = (rig.deck(0), rig.deck(1));
+    assert!(b.looping.active && a.position_s < 2.0, "{a:?} {b:?}");
     assert!((a.position_s - b.position_s).abs() < 0.01, "{a:?} {b:?}");
 }
 

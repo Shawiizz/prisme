@@ -97,9 +97,9 @@ pub enum Command {
         deck: DeckId,
         seconds: f64,
     },
-    /// Moves the playhead of `deck` where that of `from` is, and plays it if `from` plays: with
-    /// the same track loaded, an instant double.
-    TakePosition {
+    /// Puts `deck` where `from` is in the same track, in its loop, playing if it plays: an
+    /// instant double.
+    TakePlace {
         deck: DeckId,
         from: DeckId,
     },

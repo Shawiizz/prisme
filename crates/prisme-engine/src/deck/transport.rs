@@ -18,7 +18,31 @@ pub(crate) struct Transport {
     pub(super) censoring: bool,
 }
 
+/// Where a deck is in its track: for another deck playing it to take.
+pub(crate) struct Place {
+    position_s: f64,
+    playing: bool,
+    loop_region: Option<LoopRegion>,
+    loop_active: bool,
+}
+
 impl Deck {
+    pub(crate) fn place(&self) -> Place {
+        Place {
+            position_s: self.playhead.position_s(),
+            playing: self.playing,
+            loop_region: self.transport.loop_region,
+            loop_active: self.transport.loop_active,
+        }
+    }
+
+    /// Takes the place of another deck in the same track: an instant double.
+    pub(crate) fn take_place(&mut self, place: Place) {
+        self.playhead.seek_s(place.position_s);
+        self.playing = place.playing;
+        self.set_loop(place.loop_region, place.loop_active);
+    }
+
     /// Forgets everything tied to the previous track.
     pub(crate) fn reset_track_state(&mut self) {
         self.grid = None;

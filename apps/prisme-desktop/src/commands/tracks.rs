@@ -46,7 +46,7 @@ pub fn double_deck(state: State<'_, AppState>, from: usize, deck: usize) -> AppR
     let info = track.info(deck);
     let commands = track.load_commands(deck, state.preferences.read(|p| p.dj.auto_gain));
     lock(&state.tracks)[deck] = Some(track);
-    for c in commands.into_iter().chain([Command::TakePosition { deck, from }]) {
+    for c in commands.into_iter().chain([Command::TakePlace { deck, from }]) {
         state.send_if_running(c)?;
     }
     Ok(info)
