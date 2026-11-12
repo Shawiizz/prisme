@@ -9,7 +9,7 @@
 
 use crate::dto::{ProgressDto, TrackAnalyzedDto, TrackDetailsDto};
 use crate::folder_watch::FolderWatch;
-use crate::state::lock;
+use crate::state::{lock, AppState};
 use crate::tag_writer::TagWriter;
 use prisme_analysis::AnalysisOptions;
 use prisme_library::{
@@ -172,6 +172,12 @@ impl AnalysisListener for EventListener {
         if !progress.running {
             self.app.state::<TagWriter>().wake();
         }
+    }
+
+    fn holds_back(&self) -> bool {
+        self.app.try_state::<AppState>().is_some_and(|state| {
+            state.preferences.read(|p| p.library.pause_while_playing) && state.is_playing()
+        })
     }
 }
 

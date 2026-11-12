@@ -179,6 +179,12 @@ export const FR: Record<string, string> = {
   '1 track': '1 morceau',
   '{n} tracks': '{n} morceaux',
   'Analysing {done} / {total}': 'Analyse {done} / {total}',
+  'Analysis paused {done} / {total}': 'Analyse en pause {done} / {total}',
+  'Goes on once the decks stop': 'Reprend quand les decks s’arrêtent',
+  'Pause the analysis of the library while a deck plays':
+    'Mettre l’analyse de la bibliothèque en pause quand un deck joue',
+  'The processor and the disk stay with the sound during a set. A track copied meanwhile is analysed once the decks stop, or as it is loaded.':
+    'Le processeur et le disque restent au son pendant un set. Un morceau copié entre-temps est analysé à l’arrêt des decks, ou à son chargement.',
   'Files that could not be decoded': "Fichiers qui n'ont pas pu être décodés",
   '{n} unreadable': '{n} illisibles',
   'Crates, cues and grids from Serato or rekordbox':

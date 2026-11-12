@@ -930,11 +930,13 @@ pub struct ProgressDto {
     pub done: usize,
     pub failed: usize,
     pub running: bool,
+    /// Held back while a deck plays.
+    pub paused: bool,
 }
 
 impl From<prisme_library::AnalysisProgress> for ProgressDto {
     fn from(p: prisme_library::AnalysisProgress) -> Self {
-        Self { total: p.total, done: p.done, failed: p.failed, running: p.running }
+        Self { total: p.total, done: p.done, failed: p.failed, running: p.running, paused: p.paused }
     }
 }
 

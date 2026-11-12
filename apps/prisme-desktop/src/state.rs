@@ -239,6 +239,11 @@ impl AppState {
         status.decks[..status.deck_count].iter().map(|d| (d.position_s, d.playing)).collect()
     }
 
+    /// Whether a deck plays.
+    pub fn is_playing(&self) -> bool {
+        self.transport_snapshot().iter().any(|&(_, playing)| playing)
+    }
+
     /// Runs `f` on the track on `deck` if it is still the load `load_id`.
     pub fn with_loaded<R>(
         &self,

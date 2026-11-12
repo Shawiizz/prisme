@@ -80,6 +80,8 @@ export interface AnalysisProgress {
   done: number;
   failed: number;
   running: boolean;
+  /** Held back while a deck plays. */
+  paused: boolean;
 }
 
 /** Payload of the `track-analyzed` event. */

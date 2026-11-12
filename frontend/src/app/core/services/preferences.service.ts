@@ -16,6 +16,7 @@ export class PreferencesService {
     hiddenColumns: [],
     writeTags: true,
     replaceTags: false,
+    pauseWhilePlaying: true,
     separateOnLoad: null,
   });
 

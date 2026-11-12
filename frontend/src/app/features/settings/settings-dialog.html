@@ -595,6 +595,28 @@
                   </button>
                 </div>
               }
+              @if (row('library.pauseWhilePlaying')) {
+                @let e = entry('library.pauseWhilePlaying');
+                <div
+                  class="pr-row"
+                  data-setting="library.pauseWhilePlaying"
+                  [class.is-pointed]="pointed() === e.id"
+                >
+                  <div>
+                    <span class="pr-row__name">{{ e.label }}</span>
+                    <span class="pr-row__help">{{ e.description }}</span>
+                  </div>
+                  <button
+                    class="pr-switch"
+                    role="switch"
+                    [attr.aria-checked]="pauseWhilePlaying()"
+                    [attr.aria-label]="e.label"
+                    (click)="setPauseWhilePlaying(!pauseWhilePlaying())"
+                  >
+                    <span></span>
+                  </button>
+                </div>
+              }
               @for (
                 m of [
                   { id: 'library.stemsModel', model: stems.vocalsModel(), ready: true },

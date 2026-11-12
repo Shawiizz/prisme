@@ -91,6 +91,8 @@ pub struct LibraryPreferences {
     pub write_tags: bool,
     /// Those another program wrote (Mixed In Key, say) replaced as well.
     pub replace_tags: bool,
+    /// The background analysis of the music folder waits while a deck plays.
+    pub pause_while_playing: bool,
     /// A track loaded on a deck is separated right away, before the library's; one put in
     /// the prepare list in the background. Not chosen: with a graphics card only (see
     /// `stems_service::separates_on_load`).
@@ -104,6 +106,7 @@ impl Default for LibraryPreferences {
             hidden_columns: Vec::new(),
             write_tags: true,
             replace_tags: false,
+            pause_while_playing: true,
             separate_on_load: None,
         }
     }
@@ -122,6 +125,7 @@ mod tests {
         assert_eq!(p.audio, AudioSettings::default());
         assert!(p.library.write_tags);
         assert!(!p.library.replace_tags);
+        assert!(p.library.pause_while_playing);
         assert_eq!(p.library.separate_on_load, None);
     }
 

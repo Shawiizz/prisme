@@ -19,6 +19,8 @@ export interface LibraryPreferences {
   writeTags: boolean;
   /** Those another program wrote (Mixed In Key, say) replaced as well. */
   replaceTags: boolean;
+  /** The background analysis of the music folder waits while a deck plays. */
+  pauseWhilePlaying: boolean;
   /** A track loaded on a deck is separated right away, before the library's; one put in the
    * prepare list in the background. */
   /** `null`: not chosen, on with a graphics card that can separate. */

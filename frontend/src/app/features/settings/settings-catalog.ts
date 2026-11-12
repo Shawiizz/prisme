@@ -181,6 +181,14 @@ export const SETTINGS: readonly SettingEntry[] = [
     ),
   },
   {
+    id: 'library.pauseWhilePlaying',
+    page: 'library',
+    label: t('Pause the analysis of the library while a deck plays'),
+    description: t(
+      'The processor and the disk stay with the sound during a set. A track copied meanwhile is analysed once the decks stop, or as it is loaded.',
+    ),
+  },
+  {
     id: 'library.stemsModel',
     page: 'library',
     label: t('Vocals separation'),

@@ -103,6 +103,9 @@ export class SettingsDialog implements OnInit {
   });
   protected readonly writeTags = computed(() => this.preferences.library().writeTags);
   protected readonly replaceTags = computed(() => this.preferences.library().replaceTags);
+  protected readonly pauseWhilePlaying = computed(
+    () => this.preferences.library().pauseWhilePlaying,
+  );
   protected readonly separateOnLoad = computed(
     () => this.preferences.library().separateOnLoad ?? this.stems.gpu() ?? false,
   );
@@ -244,6 +247,10 @@ export class SettingsDialog implements OnInit {
         ? { kind: value }
         : { kind: 'pair', first: Number(value) },
     );
+  }
+
+  setPauseWhilePlaying(pauseWhilePlaying: boolean) {
+    this.preferences.updateLibrary({ pauseWhilePlaying });
   }
 
   setReplaceTags(replaceTags: boolean) {

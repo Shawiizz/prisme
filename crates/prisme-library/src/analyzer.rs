@@ -16,7 +16,11 @@ use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::Arc;
 use std::thread::JoinHandle;
+use std::time::Duration;
 use tracing::error;
+
+/// How often a run held back looks whether it may go on.
+const HELD_BACK_POLL: Duration = Duration::from_millis(500);
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub struct AnalysisProgress {
@@ -27,12 +31,20 @@ pub struct AnalysisProgress {
     pub failed: usize,
     /// False once the run is over (finished or cancelled).
     pub running: bool,
+    /// Held back by the listener: no file is started.
+    pub paused: bool,
 }
 
 /// Receives the results as they come, from the analysis threads.
 pub trait AnalysisListener: Send + Sync + 'static {
     fn track_analyzed(&self, record: &TrackRecord);
     fn progress(&self, progress: AnalysisProgress);
+
+    /// Asked before each file: whether the analysis holds back for now (a deck plays, and
+    /// the processor and the disk are left to it).
+    fn holds_back(&self) -> bool {
+        false
+    }
 }
 
 pub struct BackgroundAnalyzer {
@@ -114,13 +126,32 @@ fn run(
     let next = AtomicUsize::new(0);
     let done = AtomicUsize::new(0);
     let failed = AtomicUsize::new(0);
-    listener.progress(AnalysisProgress { total, running: true, ..Default::default() });
+    let paused = AtomicBool::new(false);
+    let report = |running: bool| {
+        listener.progress(AnalysisProgress {
+            total,
+            done: done.load(Ordering::Relaxed),
+            failed: failed.load(Ordering::Relaxed),
+            running,
+            paused: running && paused.load(Ordering::Relaxed),
+        });
+    };
+    report(true);
 
     std::thread::scope(|s| {
         for _ in 0..workers.min(total) {
             s.spawn(|| {
                 background_priority();
                 while !cancel.load(Ordering::Relaxed) {
+                    // told once, by the worker that sees it first
+                    let held_back = listener.holds_back();
+                    if paused.swap(held_back, Ordering::Relaxed) != held_back {
+                        report(true);
+                    }
+                    if held_back {
+                        std::thread::sleep(HELD_BACK_POLL);
+                        continue;
+                    }
                     let Some(file) = todo.get(next.fetch_add(1, Ordering::Relaxed)) else {
                         break;
                     };
@@ -136,24 +167,14 @@ fn run(
                         error!("analysis of {} not saved: {e}", file.path.display());
                     }
                     listener.track_analyzed(&record);
-                    let done = done.fetch_add(1, Ordering::Relaxed) + 1;
-                    listener.progress(AnalysisProgress {
-                        total,
-                        done,
-                        failed: failed.load(Ordering::Relaxed),
-                        running: true,
-                    });
+                    done.fetch_add(1, Ordering::Relaxed);
+                    report(true);
                 }
             });
         }
     });
 
-    listener.progress(AnalysisProgress {
-        total,
-        done: done.load(Ordering::Relaxed),
-        failed: failed.load(Ordering::Relaxed),
-        running: false,
-    });
+    report(false);
 }
 
 /// Follows the stored files under `root` that the scan did not find: one that reappears

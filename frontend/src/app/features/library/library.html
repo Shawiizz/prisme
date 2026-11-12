@@ -72,9 +72,16 @@
           </button>
         }
         @if (progress().running) {
-          <span class="status">{{
-            'Analysing {done} / {total}' | t: { done: progress().done, total: progress().total }
-          }}</span>
+          @if (progress().paused) {
+            <span class="status" [title]="'Goes on once the decks stop' | t">{{
+              'Analysis paused {done} / {total}'
+                | t: { done: progress().done, total: progress().total }
+            }}</span>
+          } @else {
+            <span class="status">{{
+              'Analysing {done} / {total}' | t: { done: progress().done, total: progress().total }
+            }}</span>
+          }
           <div class="bar"><div [style.width.%]="progressPercent()"></div></div>
         } @else if (progress().failed > 0) {
           <span class="status" [title]="'Files that could not be decoded' | t">{{

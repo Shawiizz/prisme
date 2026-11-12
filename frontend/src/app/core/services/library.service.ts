@@ -89,7 +89,13 @@ export class LibraryService {
   readonly listing = signal<DirListing | null>(null);
   readonly source = signal<TrackSource>({ kind: 'folder' });
   readonly error = signal<string | null>(null);
-  readonly progress = signal<AnalysisProgress>({ total: 0, done: 0, failed: 0, running: false });
+  readonly progress = signal<AnalysisProgress>({
+    total: 0,
+    done: 0,
+    failed: 0,
+    running: false,
+    paused: false,
+  });
   /** The library's database could not be opened: what changes is lost at exit. */
   readonly inMemory = signal(false);
   readonly filter = signal('');

@@ -7,7 +7,9 @@ use prisme_library::{
 };
 use std::f64::consts::TAU;
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
+use std::time::{Duration, Instant};
 
 #[derive(Default)]
 struct Collector {
@@ -90,7 +92,7 @@ fn analyses_new_and_changed_files_only() {
     let broken = records.iter().find(|r| r.path.ends_with("broken.mp3")).unwrap();
     assert!(broken.error.is_some());
     let last = *first.progress.lock().unwrap().last().unwrap();
-    assert_eq!(last, AnalysisProgress { total: 3, done: 3, failed: 1, running: false });
+    assert_eq!(last, AnalysisProgress { total: 3, done: 3, failed: 1, running: false, paused: false });
     assert_eq!(db.track_count().unwrap(), 3);
     assert!((db.get(&root.join("house.wav")).unwrap().unwrap().duration_s.unwrap() - 20.0).abs() < 0.01);
 
@@ -129,5 +131,49 @@ fn a_moved_file_keeps_what_it_had_without_a_new_analysis() {
     assert_eq!(announced, [after.display().to_string()]);
     assert_eq!(db.get(&before).unwrap(), None);
     assert_eq!(db.cues(&after).unwrap().len(), 1);
+    std::fs::remove_dir_all(root).ok();
+}
+
+/// Holds the analysis back until told otherwise.
+struct Held {
+    collector: Collector,
+    held: AtomicBool,
+}
+
+impl AnalysisListener for Held {
+    fn track_analyzed(&self, record: &TrackRecord) {
+        self.collector.track_analyzed(record);
+    }
+    fn progress(&self, progress: AnalysisProgress) {
+        self.collector.progress(progress);
+    }
+    fn holds_back(&self) -> bool {
+        self.held.load(Ordering::Relaxed)
+    }
+}
+
+#[test]
+fn no_file_is_started_while_the_analysis_is_held_back() {
+    let root = std::env::temp_dir().join(format!("prisme-analyzer-held-{}", std::process::id()));
+    std::fs::create_dir_all(&root).unwrap();
+    write_kicks(&root.join("house.wav"), 124.0, 12.0);
+    let db = Arc::new(LibraryDb::open_in_memory().unwrap());
+    let listener = Arc::new(Held { collector: Collector::default(), held: AtomicBool::new(true) });
+    let paused = || listener.collector.progress.lock().unwrap().last().is_some_and(|p| p.paused);
+
+    let analyzer =
+        BackgroundAnalyzer::start(db, root.clone(), 2, AnalysisOptions::default(), listener.clone());
+    let deadline = Instant::now() + Duration::from_secs(10);
+    while !paused() && Instant::now() < deadline {
+        std::thread::sleep(Duration::from_millis(20));
+    }
+    assert!(paused(), "told as paused");
+    assert!(listener.collector.records.lock().unwrap().is_empty());
+
+    listener.held.store(false, Ordering::Relaxed);
+    analyzer.wait();
+    assert_eq!(listener.collector.records.lock().unwrap().len(), 1);
+    let last = *listener.collector.progress.lock().unwrap().last().unwrap();
+    assert_eq!(last, AnalysisProgress { total: 1, done: 1, failed: 0, running: false, paused: false });
     std::fs::remove_dir_all(root).ok();
 }
