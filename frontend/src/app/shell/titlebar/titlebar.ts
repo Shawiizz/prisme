@@ -1,7 +1,7 @@
-import { LibraryService } from '../../core/services/library.service';
 import { Component, computed, inject, signal } from '@angular/core';
 import { RecordOption, RecordingService } from '../../core/services/recording.service';
 import { getCurrentWindow } from '@tauri-apps/api/window';
+import { LibraryService } from '../../core/services/library.service';
 import { SettingsService } from '../../core/services/settings.service';
 import { EngineService } from '../../core/services/engine.service';
 import { UpdateService } from '../../core/services/update.service';
