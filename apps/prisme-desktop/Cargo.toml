@@ -47,4 +47,4 @@ rustls = { version = "0.23", default-features = false, features = ["ring"] }
 sha2 = "0.10"
 dirs = "7"
 rayon = "1"
-windows-sys = { workspace = true, features = ["Win32_Foundation", "Win32_System_Power", "Win32_System_SystemServices", "Win32_System_Threading"] }
+windows-sys = { workspace = true, features = ["Win32_Foundation", "Win32_Globalization", "Win32_System_Power", "Win32_System_SystemServices", "Win32_System_Threading"] }

@@ -5,6 +5,7 @@ use prisme_library::{HistoryPlay, SessionId};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use tauri::State;
+use windows_sys::Win32::Globalization::{GetLocaleInfoEx, LOCALE_SDECIMAL, LOCALE_SLIST};
 
 type Library<'a> = State<'a, Arc<LibraryService>>;
 
@@ -28,12 +29,45 @@ pub fn delete_history_session(library: Library<'_>, id: i64) -> AppResult<()> {
 #[tauri::command(async)]
 pub fn export_history(library: Library<'_>, id: i64, path: PathBuf) -> AppResult<()> {
     let plays = library.db.history_plays(SessionId(id))?;
-    std::fs::write(path, format!("\u{feff}{}", tracklist_csv(&plays)))?;
+    std::fs::write(path, format!("\u{feff}{}", tracklist_csv(&plays, CsvFormat::of_this_computer())))?;
     Ok(())
 }
 
-fn tracklist_csv(plays: &[HistoryPlay]) -> String {
-    let mut csv = String::from("#,Started,Deck,Artist,Title,Album,BPM,Key,File\r\n");
+/// The separators of a CSV file: those of the regional settings, as Excel writes and reads
+/// it (`;` and `,` in French).
+#[derive(Clone, Copy)]
+struct CsvFormat {
+    separator: char,
+    decimal: char,
+}
+
+impl CsvFormat {
+    const ENGLISH: Self = Self { separator: ',', decimal: '.' };
+
+    fn of_this_computer() -> Self {
+        match (locale_char(LOCALE_SLIST), locale_char(LOCALE_SDECIMAL)) {
+            (Some(separator), Some(decimal)) if separator != decimal && !"\"\r\n".contains(separator) => {
+                Self { separator, decimal }
+            }
+            _ => Self::ENGLISH,
+        }
+    }
+}
+
+/// A setting of the user's regional settings that is a single character.
+fn locale_char(setting: u32) -> Option<char> {
+    let mut text = [0u16; 8];
+    // SAFETY: the length given is that of the buffer; no name is the user's locale
+    let written = unsafe { GetLocaleInfoEx(std::ptr::null(), setting, text.as_mut_ptr(), text.len() as i32) };
+    let text = String::from_utf16(&text[..usize::try_from(written).ok()?.checked_sub(1)?]).ok()?;
+    let mut chars = text.chars();
+    chars.next().filter(|_| chars.next().is_none())
+}
+
+fn tracklist_csv(plays: &[HistoryPlay], format: CsvFormat) -> String {
+    let separator = format.separator.to_string();
+    let mut csv = ["#", "Started", "Deck", "Artist", "Title", "Album", "BPM", "Key", "File"].join(&separator);
+    csv.push_str("\r\n");
     let start = plays.first().map_or(0, |p| p.played_at_ms);
     for (i, p) in plays.iter().enumerate() {
         let record = p.record.as_ref();
@@ -47,12 +81,15 @@ fn tracklist_csv(plays: &[HistoryPlay]) -> String {
             tags.and_then(|t| t.artist.clone()).unwrap_or_default(),
             title,
             tags.and_then(|t| t.album.clone()).unwrap_or_default(),
-            analysis.and_then(|a| a.tempo).map(|t| format!("{:.1}", t.bpm)).unwrap_or_default(),
+            analysis
+                .and_then(|a| a.tempo)
+                .map(|t| format!("{:.1}", t.bpm).replace('.', &format.decimal.to_string()))
+                .unwrap_or_default(),
             analysis.and_then(|a| a.key).map(|k| k.key.camelot()).unwrap_or_default(),
             p.path.clone(),
         ];
-        let line: Vec<String> = fields.iter().map(|f| csv_field(f)).collect();
-        csv.push_str(&line.join(","));
+        let line: Vec<String> = fields.iter().map(|f| csv_field(f, format.separator)).collect();
+        csv.push_str(&line.join(&separator));
         csv.push_str("\r\n");
     }
     csv
@@ -68,8 +105,8 @@ fn file_stem(path: &str) -> String {
     Path::new(path).file_stem().map_or_else(|| path.to_string(), |s| s.to_string_lossy().into_owned())
 }
 
-fn csv_field(value: &str) -> String {
-    if value.contains([',', '"', '\n', '\r']) {
+fn csv_field(value: &str, separator: char) -> String {
+    if value.contains([separator, '"', '\n', '\r']) {
         format!("\"{}\"", value.replace('"', "\"\""))
     } else {
         value.to_string()
@@ -82,14 +119,14 @@ mod tests {
     use prisme_library::{FileStamp, TrackRecord};
     use prisme_media::TrackTags;
 
-    #[test]
-    fn the_tracklist_lists_the_plays_from_the_start_of_the_set() {
+    fn plays() -> [HistoryPlay; 2] {
         let tags = TrackTags {
             title: Some("Say \"Yes\"".into()),
             artist: Some("A, B".into()),
             ..TrackTags::default()
         };
-        let analysis = prisme_analysis::TrackAnalysis { tempo: None, key: None };
+        let tempo = prisme_analysis::Tempo { bpm: 124.04, first_beat_s: 0.0, confidence: 1.0 };
+        let analysis = prisme_analysis::TrackAnalysis { tempo: Some(tempo), key: None };
         let record = TrackRecord::analyzed(
             Path::new("C:/Music/yes.mp3"),
             FileStamp { size: 1, modified_ms: 1 },
@@ -97,7 +134,7 @@ mod tests {
             analysis,
             tags,
         );
-        let plays = [
+        [
             HistoryPlay { path: record.path.clone(), deck: 0, played_at_ms: 1_000_000, record: Some(record) },
             HistoryPlay {
                 path: "C:/Music/untagged.mp3".into(),
@@ -105,12 +142,33 @@ mod tests {
                 played_at_ms: 4_725_000,
                 record: None,
             },
-        ];
+        ]
+    }
+
+    #[test]
+    fn the_tracklist_lists_the_plays_from_the_start_of_the_set() {
         assert_eq!(
-            tracklist_csv(&plays),
+            tracklist_csv(&plays(), CsvFormat::ENGLISH),
             "#,Started,Deck,Artist,Title,Album,BPM,Key,File\r\n\
-             1,0:00:00,1,\"A, B\",\"Say \"\"Yes\"\"\",,,,C:/Music/yes.mp3\r\n\
+             1,0:00:00,1,\"A, B\",\"Say \"\"Yes\"\"\",,124.0,,C:/Music/yes.mp3\r\n\
              2,1:02:05,2,,untagged,,,,C:/Music/untagged.mp3\r\n"
         );
+    }
+
+    #[test]
+    fn a_french_spreadsheet_gets_its_own_separators() {
+        let french = CsvFormat { separator: ';', decimal: ',' };
+        assert_eq!(
+            tracklist_csv(&plays(), french),
+            "#;Started;Deck;Artist;Title;Album;BPM;Key;File\r\n\
+             1;0:00:00;1;A, B;\"Say \"\"Yes\"\"\";;124,0;;C:/Music/yes.mp3\r\n\
+             2;1:02:05;2;;untagged;;;;C:/Music/untagged.mp3\r\n"
+        );
+    }
+
+    #[test]
+    fn the_separators_of_this_computer_are_read() {
+        let format = CsvFormat::of_this_computer();
+        assert_ne!(format.separator, format.decimal);
     }
 }
