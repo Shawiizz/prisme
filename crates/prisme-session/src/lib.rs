@@ -30,11 +30,11 @@ pub struct Loaded<T> {
 /// read (`held`).
 pub fn load<T: DeserializeOwned + Default>(path: &Path) -> Loaded<T> {
     let defaults = |held| Loaded { value: T::default(), set_aside: None, held };
-    let text = match read(path) {
-        Ok(text) => text,
+    let bytes = match read(path) {
+        Ok(bytes) => bytes,
         Err(e) => return defaults(e.kind() != std::io::ErrorKind::NotFound),
     };
-    match serde_json::from_str(&text) {
+    match serde_json::from_slice(&bytes) {
         Ok(value) => Loaded { value, set_aside: None, held: false },
         Err(_) => {
             let backup = path.with_extension("unreadable.json");
@@ -44,11 +44,12 @@ pub fn load<T: DeserializeOwned + Default>(path: &Path) -> Loaded<T> {
     }
 }
 
-/// The text of `path`, tried again a few times while another program holds it.
-fn read(path: &Path) -> std::io::Result<String> {
+/// The bytes of `path`, tried again a few times while another program holds it (content
+/// that is not text is for the parser to refuse: the file is set aside, not held).
+fn read(path: &Path) -> std::io::Result<Vec<u8>> {
     let mut tries = 1;
     loop {
-        match std::fs::read_to_string(path) {
+        match std::fs::read(path) {
             Err(e) if e.kind() != std::io::ErrorKind::NotFound && tries < READ_TRIES => {
                 tries += 1;
                 std::thread::sleep(READ_RETRY);
@@ -174,6 +175,17 @@ mod tests {
         let (_, saved) = file.update(|p| p.volume = 0.3);
         saved.unwrap();
         assert!(path.is_dir());
+        std::fs::remove_dir_all(dir).ok();
+    }
+
+    #[test]
+    fn a_file_that_is_not_utf_8_is_set_aside() {
+        let dir = temp_dir("ansi");
+        let path = dir.join("prefs.json");
+        // saved as Windows-1252 by an editor: "é" is the byte 0xE9
+        std::fs::write(&path, b"{ \"folder\": \"Musique \xe9t\xe9\" }").unwrap();
+        let loaded = load::<Prefs>(&path);
+        assert!(!loaded.held && loaded.set_aside.is_some());
         std::fs::remove_dir_all(dir).ok();
     }
 
