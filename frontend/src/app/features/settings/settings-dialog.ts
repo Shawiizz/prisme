@@ -10,13 +10,14 @@ import {
 } from '@angular/core';
 import { getVersion } from '@tauri-apps/api/app';
 import { SettingsService } from '../../core/services/settings.service';
+import { EngineService } from '../../core/services/engine.service';
 import { PreferencesService } from '../../core/services/preferences.service';
 import { MixerService } from '../../core/services/mixer.service';
 import { UpdateService } from '../../core/services/update.service';
 import { StemsService } from '../../core/services/stems.service';
 import { NavigationService, SettingsCategory } from '../../core/services/navigation.service';
 import { AudioBackend, AudioSettings, BUFFER_SIZES } from '../../core/models/audio';
-import { DECK_COUNT, MixMode } from '../../core/models/engine';
+import { MAX_DECKS, MixMode } from '../../core/models/engine';
 import { DjPreferences, PITCH_RANGES } from '../../core/models/preferences';
 import { LANGUAGE, LANGUAGES, Language, setLanguage, t } from '../../core/i18n/i18n';
 import { TPipe } from '../../core/i18n/t.pipe';
@@ -39,6 +40,7 @@ import { SETTINGS, SETTINGS_PAGES, SettingEntry, normalize } from './settings-ca
 })
 export class SettingsDialog implements OnInit {
   protected readonly service = inject(SettingsService);
+  private readonly engine = inject(EngineService);
   private readonly preferences = inject(PreferencesService);
   protected readonly mixer = inject(MixerService);
   protected readonly updates = inject(UpdateService);
@@ -48,7 +50,8 @@ export class SettingsDialog implements OnInit {
   protected readonly pages = SETTINGS_PAGES;
   protected readonly pitchRanges = PITCH_RANGES;
   protected readonly languages = LANGUAGES;
-  protected readonly decks = Array.from({ length: DECK_COUNT }, (_, i) => i);
+  protected readonly decks = this.engine.deckIndexes;
+  protected readonly MAX_DECKS = MAX_DECKS;
 
   protected readonly category = computed(() => this.navigation.settings()?.category ?? 'audio');
   protected readonly page = computed(
@@ -225,7 +228,13 @@ export class SettingsDialog implements OnInit {
   }
 
   updateDj(changes: Partial<DjPreferences>) {
-    this.preferences.updateDj({ ...this.dj(), ...changes });
+    return this.preferences.updateDj({ ...this.dj(), ...changes });
+  }
+
+  /** Another number of decks is another engine: the audio starts again with it. */
+  async setDeckCount(deckCount: number) {
+    await this.updateDj({ deckCount });
+    await Promise.all([this.service.refresh(), this.engine.refreshTracks()]);
   }
 
   /** `0.42` → `42 %` */

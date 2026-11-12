@@ -17,8 +17,8 @@ import { MixerService } from './core/services/mixer.service';
 import { NavigationService } from './core/services/navigation.service';
 
 /**
- * Main window layout: title bar, a lane per deck with the phase strip between them, the
- * library; and the dialogs.
+ * Main window layout: title bar, a lane per deck (compact ones for four decks) with the
+ * phase strip after the first, the library; and the dialogs.
  */
 @Component({
   selector: 'app-root',
@@ -34,6 +34,7 @@ export class App implements OnInit {
   private readonly preferences = inject(PreferencesService);
   private readonly keyboard = inject(KeyboardService);
   protected readonly mixer = inject(MixerService);
+  protected readonly decks = this.engine.deckIndexes;
   private readonly controllers = inject(ControllerService);
   private readonly updates = inject(UpdateService);
   protected readonly navigation = inject(NavigationService);

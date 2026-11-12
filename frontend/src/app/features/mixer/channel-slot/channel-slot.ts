@@ -77,6 +77,12 @@ const METER_SEGMENTS = 24;
       height: 28px;
       padding: 0;
     }
+    :host-context(app-deck-lane.compact) {
+      padding-block: 4px;
+      .strip {
+        row-gap: 0;
+      }
+    }
     .pr-meter {
       width: 5px;
     }

@@ -151,9 +151,10 @@ A toggle is a button with `.is-on` when on. Radius 3 px, no shadow, no glow.
 - **Overview**: the whole track in the same colours, played part dimmed, cues as ticks,
   position in the light. Under it, once the track is separated, a lane per part (vocals,
   drums, bass, melody; or vocals and instrumental) in the light where the part plays.
-- **Phase strip** between the two decks: the beats of A at the top and of B at the bottom,
-  around the playheads, with the offset in milliseconds. Matched, they meet. While both play,
-  `--pr-warn` tells when B will be a sixteenth off A's beat.
+- **Phase strip** after the first deck: the beats of A at the top and of B at the bottom
+  (with four decks, of the first two that play), around the playheads, with the offset in
+  milliseconds. Matched, they meet. While both play, `--pr-warn` tells when the second will
+  be a sixteenth off the first's beat.
 
 ## Logo
 
@@ -171,10 +172,18 @@ and catches the light on its edges.
 
 - Title bar 36: logo, audio health (driver and device, buffer, dropouts) and the master meter,
   then Rec and Settings (the turntables, MIDI and shortcuts are pages of the settings).
-- Two deck rows: the deck panel (380) on the left, the waveform on the right; the phase strip
-  between them.
-- The controls, one half per deck: transport and tempo (72), then the pads with their modes and
-  the loop keys (60). The mixer column sits between the halves.
+- A lane per deck, read from left to right: the deck panel (380), the waveform, and at the
+  end the pitch fader (32), where a turntable has it and the same way up: faster is down.
+  Under them a rail (44) holds what plays the deck (transport, stems, sync, the pitch with key
+  lock), then its pads with their modes and the keys that go with the mode (slip and censor,
+  the loop keys, the knobs of the effects or the sampler). The phase strip is between the
+  first two lanes.
+- On a record the lane loses what the turntable has (cue, play, the fine tempo keys); the
+  fader shows the pitch played and, as a mark, where to bring the turntable's to match the
+  other deck.
+- **Four decks** (a setting): compact lanes, the panel on one line (540) and the waveform
+  half as high. On an interface for two decks, C is layered over A and D over B: they share
+  the outputs and the turntable, which the deck put on REL or ABS takes.
 - The library fills the rest: sidebar (230) and the track table, with search and the reference
   deck.
 - **Settings**: one window, a sidebar of pages with a search over every setting. Most
@@ -182,13 +191,14 @@ and catches the light on its edges.
   Apply, and the window does not close over them.
 - **Command palette** (Ctrl + K, Ctrl + Shift + P): actions with their keys, settings, crates
   and tracks of the whole library; Enter runs, Alt + A / Alt + B loads a track on a deck.
-- **External mixer first**: the mixer column narrows to the send meters (120), and the screen
-  goes to the waveforms and the library. The software mixer widens it (210) and adds the
-  trim, EQ and filter knobs to each deck's transport row.
-- The window is 1280 × 640 at least (a 1080p laptop at 150 %). Where a deck's controls have less than 700 px (a narrow
-  window, the software mixer's channel strip), they go compact: narrower transport keys,
-  smaller knobs, the pads on two rows of four; the title bar drops its master level (the
-  mixer shows it) and the search narrows before the health chips.
+- **External mixer first**: nothing of a mixer on the screen but the level sent to each
+  deck's outputs, a thin meter by its letter. The software mixer adds a channel (210) at the
+  end of each lane, before the pitch fader (trim, EQ with kills, filter, headphones, the
+  fader and its level), and the crossfader in the phase strip; what is set once an evening
+  (limiter, crossfader curve, headphones) is in a menu beside it.
+- The window is 1280 × 640 at least (a 1080p laptop at 150 %). A rail under 1400 px goes
+  tight where it holds the transport of internal play: narrower keys, smaller stem knobs
+  and pad labels.
 - Spacing on a base of 4: 4, 8, 12, 16, 24, 32, 48.
 
 ## Ergonomic rules

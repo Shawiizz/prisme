@@ -1,4 +1,4 @@
-import { Component, inject, input } from '@angular/core';
+import { Component, booleanAttribute, inject, input } from '@angular/core';
 import { MixerService } from '../../../core/services/mixer.service';
 import { ChannelSlot } from '../../mixer/channel-slot/channel-slot';
 import { DeckCard } from '../deck-card/deck-card';
@@ -39,6 +39,17 @@ import { PitchFader } from '../pitch-fader/pitch-fader';
       grid-column: -2;
       grid-row: 1 / span 2;
     }
+    // four decks: half the height, the channel of the software mixer over both rows
+    :host(.compact) {
+      grid-template-rows: 44px 44px;
+      app-channel-slot {
+        grid-column: 3;
+        grid-row: 1 / span 2;
+      }
+      .rail {
+        grid-column: 1 / 3;
+      }
+    }
     .rail {
       grid-column: 1 / -2;
       grid-row: 2;
@@ -56,9 +67,12 @@ import { PitchFader } from '../pitch-fader/pitch-fader';
       background: var(--pr-line);
     }
   `,
+  host: { '[class.compact]': 'compact()' },
   imports: [ChannelSlot, DeckCard, DeckControls, DeckPads, DeckWaveform, PitchFader],
 })
 export class DeckLane {
   readonly deck = input.required<number>();
+  /** Half the height, for four decks. */
+  readonly compact = input(false, { transform: booleanAttribute });
   protected readonly mixer = inject(MixerService);
 }

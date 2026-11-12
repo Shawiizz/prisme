@@ -9,6 +9,8 @@ export interface DjPreferences {
   pitchRange: number;
   /** Every track played at the same loudness. */
   autoGain: boolean;
+  /** Two decks, or four. */
+  deckCount: number;
 }
 
 export interface LibraryPreferences {

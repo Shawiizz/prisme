@@ -1,10 +1,13 @@
 <app-titlebar />
 
 <main class="layout">
-  <section class="decks" [class.mix]="mixer.internal()">
-    <app-deck-lane [deck]="0" />
-    <app-phase-strip />
-    <app-deck-lane [deck]="1" />
+  <section class="decks" [class.mix]="mixer.internal()" [class.four]="decks().length > 2">
+    @for (deck of decks(); track deck) {
+      <app-deck-lane [deck]="deck" [compact]="decks().length > 2" />
+      @if (deck === 0) {
+        <app-phase-strip />
+      }
+    }
   </section>
 
   <section class="library">

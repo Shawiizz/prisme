@@ -24,7 +24,7 @@
   .pr-pad {
     flex: 1;
     width: auto;
-    min-width: 44px;
+    min-width: 28px;
     overflow: hidden;
     span {
       max-width: 100%;
@@ -91,5 +91,29 @@
   .pads .pr-pad {
     padding: 0 4px;
     font-size: 11px;
+  }
+}
+
+// the rail of a compact lane beside the channel of the software mixer: the modes on two
+// rows of three, every key at its narrowest
+@container rail (max-width: 1050px) {
+  .modes {
+    display: grid;
+    grid-template-columns: repeat(3, auto);
+    > button {
+      height: 19px;
+      padding: 0 4px;
+      font-size: 10.5px;
+    }
+  }
+  .pads {
+    gap: 3px;
+    .pr-pad {
+      padding: 0 3px;
+      font-size: 10.5px;
+    }
+  }
+  .side .pr-btn {
+    padding: 0 5px;
   }
 }

@@ -6,7 +6,7 @@ import { listen } from '@tauri-apps/api/event';
 import { semitonesToMix, transposeCamelot } from '../../shared/camelot';
 import {
   Cue,
-  DECK_COUNT,
+  MAX_DECKS,
   DeckTrackUpdate,
   DEFAULT_FX,
   FLAT_STRIP,
@@ -58,12 +58,19 @@ export class EngineService {
 
   /** Latest engine state (drives the templates). */
   readonly status = signal<EngineStatus | null>(null);
-  readonly tracks = signal<(TrackInfo | null)[]>(Array(DECK_COUNT).fill(null));
-  readonly loading = signal<boolean[]>(Array(DECK_COUNT).fill(false));
+  readonly tracks = signal<(TrackInfo | null)[]>(Array(MAX_DECKS).fill(null));
+  readonly loading = signal<boolean[]>(Array(MAX_DECKS).fill(false));
   /** Waveform of each deck's track, once fetched. */
-  readonly waveforms = signal<(Waveform | null)[]>(Array(DECK_COUNT).fill(null));
+  readonly waveforms = signal<(Waveform | null)[]>(Array(MAX_DECKS).fill(null));
   readonly decks = signal<DeckSettings[]>(
-    Array.from({ length: DECK_COUNT }, () => ({ ...DEFAULT_DECK })),
+    Array.from({ length: MAX_DECKS }, () => ({ ...DEFAULT_DECK })),
+  );
+  /** The decks shown and played: two, or four. */
+  readonly deckIndexes = computed(() =>
+    Array.from(
+      { length: this.preferences.dj().deckCount === MAX_DECKS ? MAX_DECKS : 2 },
+      (_, i) => i,
+    ),
   );
   readonly error = signal<string | null>(null);
 
@@ -148,10 +155,24 @@ export class EngineService {
     return this.call('set_key_shift', { deck, semitones: keyShift });
   }
 
+  /** Reads again what is on the decks (fewer decks leave the others empty). */
+  async refreshTracks() {
+    const tracks = await invoke<(TrackInfo | null)[]>('loaded_tracks');
+    this.tracks.set(tracks);
+    this.waveforms.update((waveforms) => waveforms.map((w, deck) => (tracks[deck] ? w : null)));
+  }
+
+  /** The deck `deck` is mixed with: another one playing, else the one beside it (A and B, C
+   * and D). */
+  mixedWith(deck: number): number {
+    const playing = (this.status()?.decks ?? []).findIndex((d, i) => i !== deck && d.playing);
+    return playing >= 0 ? playing : deck ^ 1;
+  }
+
   /** The smallest key shift after which `deck` mixes with the other deck, if both keys are known. */
   keyMatch(deck: number): number | null {
     const own = this.tracks()[deck]?.key;
-    const other = this.heardKey((deck + 1) % DECK_COUNT);
+    const other = this.heardKey(this.mixedWith(deck));
     return own && other ? semitonesToMix(own.camelot, other.camelot) : null;
   }
 
@@ -252,13 +273,24 @@ export class EngineService {
       rpm: changes.rpm ?? this.decks()[deck].rpm,
       leadInS: changes.leadInS ?? this.decks()[deck].leadInS,
     });
-    return this.call('set_vinyl', {
-      deck,
-      enabled: d.vinylEnabled,
-      mode: d.vinylMode,
-      rpm: d.rpm,
-      leadInS: d.leadInS,
-    });
+    return this.takeTurntable(deck, d);
+  }
+
+  /** A deck put on a record takes the turntable from the deck layered with it, which goes
+   * on by itself. */
+  private async takeTurntable(deck: number, d: DeckSettings) {
+    try {
+      const freed = await invoke<number | null>('set_vinyl', {
+        deck,
+        enabled: d.vinylEnabled,
+        mode: d.vinylMode,
+        rpm: d.rpm,
+        leadInS: d.leadInS,
+      });
+      if (freed !== null) this.patchDeck(freed, { vinylEnabled: false });
+    } catch (e) {
+      this.error.set(String(e));
+    }
   }
 
   setVinylSwap(deck: number, swap: boolean) {

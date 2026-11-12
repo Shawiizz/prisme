@@ -21,10 +21,21 @@
   &.mix {
     --pr-lane-columns: var(--pr-deck-panel) minmax(0, 1fr) 210px 32px;
   }
+  // four decks: compact lanes, their panel on one line
+  &.four {
+    --pr-lane-columns: 540px minmax(0, 1fr) 32px;
+    gap: 6px;
+    &.mix {
+      --pr-lane-columns: 540px minmax(0, 1fr) 210px 32px;
+    }
+  }
 }
 app-phase-strip {
   height: 26px;
   padding-block: var(--pr-space-1);
+  .four & {
+    margin-block: -3px;
+  }
   .mix & {
     height: 40px;
     padding-block: 0;

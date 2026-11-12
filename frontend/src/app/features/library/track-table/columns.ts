@@ -53,7 +53,9 @@ export const COLUMNS: readonly Column[] = [
   { id: 'stems', name: t('Separated stems'), header: 'STEMS', width: '48px' },
 ];
 
-/** Grid tracks of a row: the play order of ordered lists, the columns, the load buttons. */
-export function gridTemplate(columns: readonly Column[], ordered: boolean): string {
-  return [...(ordered ? ['30px'] : []), ...columns.map((c) => c.width), '58px'].join(' ');
+/** Grid tracks of a row: the play order of ordered lists, the columns, a load button for
+ * each of the `decks`. */
+export function gridTemplate(columns: readonly Column[], ordered: boolean, decks: number): string {
+  const load = `${decks * 28 + 2}px`;
+  return [...(ordered ? ['30px'] : []), ...columns.map((c) => c.width), load].join(' ');
 }

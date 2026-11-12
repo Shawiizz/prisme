@@ -294,4 +294,5 @@ export interface MixerState {
   limiter: boolean;
 }
 
-export const DECK_COUNT = 2;
+/** The decks there can be: two are shown, or all four (a preference). */
+export const MAX_DECKS = 4;

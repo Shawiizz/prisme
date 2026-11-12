@@ -11,7 +11,6 @@ import {
   TrackDetails,
 } from '../models/library';
 import { camelotRank } from '../../shared/camelot';
-import { DECK_COUNT } from '../models/engine';
 import { Separation } from '../models/stems';
 import { MixContext, MixReference, mixRank } from '../mix-rank';
 import { CratesService } from './crates.service';
@@ -199,9 +198,7 @@ export class LibraryService {
 
   /** Whether the deck the next track goes on keeps its key: the mix order depends on it,
    * not on the rest of that deck's settings. */
-  private readonly nextKeyLock = computed(
-    () => this.engine.decks()[(this.reference() + 1) % DECK_COUNT].keyLock,
-  );
+  private readonly nextKeyLock = computed(() => this.engine.decks()[this.reference() ^ 1].keyLock);
 
   private readonly mixContext = computed((): MixContext | null => {
     const reference = this.mixReference();
@@ -476,8 +473,8 @@ export class LibraryService {
 
   load(path: string, deck: number | null) {
     this.selected.set(path);
-    const free = this.engine.tracks().findIndex((t) => !t);
-    this.engine.load(deck ?? (free >= 0 ? free : 0), path);
+    const free = this.engine.deckIndexes().find((d) => !this.engine.tracks()[d]);
+    this.engine.load(deck ?? free ?? 0, path);
   }
 
   private async loadSource(tracks: () => Promise<DirEntry[]>): Promise<void> {

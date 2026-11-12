@@ -184,7 +184,7 @@
         }
       }
       <span class="load">
-        @for (d of deckIndexes; track d) {
+        @for (d of deckIndexes(); track d) {
           <button
             class="pr-btn pr-btn--sm"
             (click)="library.load(t.path, d); $event.stopPropagation()"

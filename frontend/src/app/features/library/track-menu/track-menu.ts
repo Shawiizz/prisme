@@ -9,8 +9,8 @@ import {
   signal,
   viewChild,
 } from '@angular/core';
-import { DECK_COUNT } from '../../../core/models/engine';
 import { CratesService } from '../../../core/services/crates.service';
+import { EngineService } from '../../../core/services/engine.service';
 import { LibraryService } from '../../../core/services/library.service';
 import { NavigationService } from '../../../core/services/navigation.service';
 import { StemsService } from '../../../core/services/stems.service';
@@ -40,6 +40,7 @@ function folderName(path: string): string {
 })
 export class TrackMenu {
   protected readonly library = inject(LibraryService);
+  private readonly engine = inject(EngineService);
   protected readonly stems = inject(StemsService);
   private readonly crates = inject(CratesService);
   private readonly navigation = inject(NavigationService);
@@ -49,7 +50,7 @@ export class TrackMenu {
   readonly closed = output<void>();
 
   protected readonly panel = signal<TrackMenuPanel>('main');
-  protected readonly decks = Array.from({ length: DECK_COUNT }, (_, d) => d);
+  protected readonly decks = this.engine.deckIndexes;
   protected readonly letter = deckLetter;
   protected readonly trackColors = TRACK_COLORS;
   protected readonly hexColor = hexColor;

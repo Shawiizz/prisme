@@ -18,6 +18,8 @@ pub fn set_dj_preferences(state: State<'_, AppState>, dj: DjPreferences) -> AppR
     let decks_before = state.preferences.read(|p| p.dj.decks());
     state.update_preferences(|p| p.dj = dj);
     // another number of decks is another engine: the audio starts again, the tracks stay
+    // on the decks there still are
+    lock(&state.tracks)[dj.decks()..].fill_with(|| None);
     let running = lock(&state.session).as_ref().map(|s| s.settings.clone());
     if let Some(settings) = running.filter(|_| dj.decks() != decks_before) {
         start_audio(&state, &settings)?;

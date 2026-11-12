@@ -106,6 +106,17 @@ const STEP_EVERY_MS = 60;
         height: auto;
       }
     }
+    // four decks: the fader and its keys alone
+    :host-context(app-deck-lane.compact) {
+      gap: 2px;
+      .pr-label,
+      .range {
+        display: none;
+      }
+      .pr-btn--icon {
+        height: 20px;
+      }
+    }
     // the rate to reach: a hollow mark on both sides of the track
     .notch {
       --cap: 14px;

@@ -37,6 +37,7 @@ export const FR: Record<string, string> = {
   'Record the mix (WAV and tracklist in Documents/Prisme Recordings)':
     'Enregistrer le mix (WAV et tracklist dans Documents/Prisme Recordings)',
   Master: 'Master',
+  Decks: 'Decks',
   'What the software mixer plays': 'Ce que joue la table de mixage logicielle',
   'Inputs {from}-{to}': 'Entrées {from}-{to}',
   "What comes into these inputs: plug the hardware mixer's record output there":
@@ -80,8 +81,10 @@ export const FR: Record<string, string> = {
   'Load a track from the library': 'Chargez un morceau depuis la bibliothèque',
   Phase: 'Phase',
   Matched: 'Calés',
-  'B ahead by {ms} ms': 'B en avance de {ms} ms',
-  'B behind by {ms} ms': 'B en retard de {ms} ms',
+  '{deck} ahead by {ms} ms': '{deck} en avance de {ms} ms',
+  '{deck} behind by {ms} ms': '{deck} en retard de {ms} ms',
+  'With four decks on an interface for two, C shares the outputs and the turntable of A, D those of B: the deck put on REL or ABS takes the turntable, the other plays on by itself.':
+    'Avec quatre decks sur une interface pour deux, C partage les sorties et la platine de A, D celles de B : le deck mis en REL ou ABS prend la platine, l’autre continue seul.',
   'Off by 1/16 in {s} s': 'Décalé d’1/16 dans {s} s',
   'Off the beat: adjust the pitch': 'Décalé : corrigez le pitch',
 

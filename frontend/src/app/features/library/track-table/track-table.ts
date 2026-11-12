@@ -11,7 +11,6 @@ import {
   untracked,
   viewChild,
 } from '@angular/core';
-import { DECK_COUNT } from '../../../core/models/engine';
 import { DirEntry } from '../../../core/models/library';
 import { EngineService } from '../../../core/services/engine.service';
 import {
@@ -119,7 +118,7 @@ export class TrackTable {
       after: (tracks.length - last) * this.rowHeight,
     };
   });
-  protected readonly deckIndexes = Array.from({ length: DECK_COUNT }, (_, i) => i);
+  protected readonly deckIndexes = this.engine.deckIndexes;
   protected readonly stars = STARS;
   protected readonly trackColors = TRACK_COLORS;
   protected readonly allColumns = COLUMNS;
@@ -136,7 +135,7 @@ export class TrackTable {
     COLUMNS.filter((c) => c.fixed || !this.hidden().has(c.id)),
   );
   protected readonly template = computed(() =>
-    gridTemplate(this.columns(), this.library.ordered()),
+    gridTemplate(this.columns(), this.library.ordered(), this.deckIndexes().length),
   );
 
   protected readonly columnMenu = signal<Popover | null>(null);

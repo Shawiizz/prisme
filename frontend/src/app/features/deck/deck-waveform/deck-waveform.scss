@@ -55,3 +55,17 @@
   color: var(--pr-text-3);
   pointer-events: none;
 }
+
+// four decks: the overview as a thin line, no room for the stem lanes
+:host-context(app-deck-lane.compact) {
+  .waveform {
+    grid-template-rows: minmax(0, 1fr) 5px;
+    gap: 2px;
+  }
+  .overview {
+    border-radius: 1px;
+  }
+  .lanes {
+    display: none;
+  }
+}

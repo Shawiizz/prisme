@@ -48,6 +48,14 @@ export class MixerService {
     });
   }
 
+  /** The outputs of `deck` to an external mixer, counting from 1 (`3-4`): its own pair, or
+   * that of the deck it is layered over when the device has no pair for each deck. */
+  outputsOf(deck: number): string {
+    const decks = this.engine.deckIndexes().length;
+    const pair = (this.outputChannels() ?? 0) >= 2 * decks ? deck : deck % 2;
+    return `${pair * 2 + 1}-${pair * 2 + 2}`;
+  }
+
   private async followDevice() {
     try {
       this.applyRouting(await invoke<MixerState>('mixer_state'));

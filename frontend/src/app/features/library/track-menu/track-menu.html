@@ -2,7 +2,7 @@
   @case ('main') {
     <div class="menu" role="menu">
       @if (paths().length === 1) {
-        @for (d of decks; track d) {
+        @for (d of decks(); track d) {
           <button role="menuitem" (click)="load(d)">
             {{ 'Load on deck {deck}' | t: { deck: letter(d) } }}
           </button>

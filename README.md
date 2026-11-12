@@ -10,7 +10,8 @@ engine in Rust and a Tauri + Angular interface. Windows only for now.
   scratch. The deck plays on by itself when the needle reaches the end of the record.
 - **Mixing**: each deck on its own outputs for a hardware mixer, or a software mixer
   (trim, 3-band EQ with kills, filter, crossfader curves, master limiter, headphone
-  cue); auto gain plays every track at the same loudness.
+  cue); auto gain plays every track at the same loudness. Two decks or four: on an
+  interface for two, the third and fourth are layers over the first two.
 - **Performance**: tempo and beat sync, quantize, 8 hot cues, beat loops, loop in/out,
   loop rolls, beat jumps, slip, censor, key lock and key shift, beat-synced effects,
   8-slot sampler per deck, instant doubles, mix recording with its tracklist.

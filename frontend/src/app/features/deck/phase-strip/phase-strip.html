@@ -1,5 +1,5 @@
 <div class="info">
-  <span class="pr-label">{{ 'Phase' | t }}</span>
+  <span class="pr-label">{{ 'Phase' | t }} {{ pairName() }}</span>
   <span class="offset">{{ offset() }}</span>
   @if (drift(); as drift) {
     <span class="drift">{{ drift }}</span>

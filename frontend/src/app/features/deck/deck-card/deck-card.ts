@@ -55,8 +55,7 @@ export class DeckCard {
       ? null
       : levelSegments(this.engine.status()?.decks[this.deck()]?.peak ?? 0, SEND_SEGMENTS),
   );
-  /** First and last output of the deck's pair in external mode, counting from 1. */
-  protected readonly outputs = computed(() => `${this.deck() * 2 + 1}-${this.deck() * 2 + 2}`);
+  protected readonly outputs = computed(() => this.mixer.outputsOf(this.deck()));
   protected readonly track = computed(() => this.engine.tracks()[this.deck()]);
   protected readonly status = computed(() => this.engine.status()?.decks[this.deck()] ?? null);
   protected readonly settings = computed(() => this.engine.decks()[this.deck()]);

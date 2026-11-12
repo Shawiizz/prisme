@@ -1,4 +1,4 @@
-import { BANDS, Band, DECK_COUNT, HOT_CUES, SAMPLE_SLOTS } from '../models/engine';
+import { BANDS, Band, MAX_DECKS, HOT_CUES, SAMPLE_SLOTS } from '../models/engine';
 import { t } from '../i18n/i18n';
 import { deckLetter } from '../../shared/time';
 import { StemPart } from '../stem-parts';
@@ -271,7 +271,7 @@ function deckControls(a: ControlActions, deck: number): Control[] {
 export function buildControls(a: ControlActions): Control[] {
   const library = t('Library');
   return [
-    ...Array.from({ length: DECK_COUNT }, (_, deck) => deckControls(a, deck)).flat(),
+    ...Array.from({ length: MAX_DECKS }, (_, deck) => deckControls(a, deck)).flat(),
     fader(
       'mixer.crossfader',
       t('Mixer'),
@@ -289,7 +289,7 @@ export function buildControls(a: ControlActions): Control[] {
     },
     button('library.previous', library, t('Previous track'), () => a.browse(-1)),
     button('library.next', library, t('Next track'), () => a.browse(1)),
-    ...Array.from({ length: DECK_COUNT }, (_, deck) =>
+    ...Array.from({ length: MAX_DECKS }, (_, deck) =>
       button(
         `library.load${deck + 1}`,
         library,
@@ -298,7 +298,7 @@ export function buildControls(a: ControlActions): Control[] {
       ),
     ),
     button('library.load', library, t('Load on a free deck'), () => a.loadSelected(null)),
-    ...Array.from({ length: DECK_COUNT }, (_, deck) =>
+    ...Array.from({ length: MAX_DECKS }, (_, deck) =>
       button(
         `library.double${deck + 1}`,
         library,

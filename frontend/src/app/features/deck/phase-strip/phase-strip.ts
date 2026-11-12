@@ -14,6 +14,7 @@ import { t } from '../../../core/i18n/i18n';
 import { TPipe } from '../../../core/i18n/t.pipe';
 import { ZOOM_SPAN_S } from '../deck-waveform/deck-waveform';
 import { fitToDevicePixels, forgetCanvas } from '../../../shared/device-pixels';
+import { deckLetter } from '../../../shared/time';
 import { Fader } from '../../../shared/fader/fader';
 import { MixerMenu } from '../../mixer/mixer-menu/mixer-menu';
 
@@ -25,8 +26,8 @@ const HEARD_BEATS = 1 / 16;
 const FORECAST_S = 60;
 
 /**
- * Between the two decks: the beats of A at the top and of B at the bottom, around their
- * playheads and at the scale of the waveforms. Matched, they meet. The software mixer has
+ * Between the first two decks: the beats of one deck at the top and of the other at the
+ * bottom, around their playheads and at the scale of the waveforms. Matched, they meet. The software mixer has
  * its crossfader there, between its two channels.
  */
 @Component({
@@ -49,18 +50,36 @@ export class PhaseStrip {
   /** What the last frame showed: a frame showing the same is not drawn again. */
   private shown: unknown[] = [];
 
-  /** How far B's beats are from A's. */
+  /** The two decks compared: with four decks, the first two that play; else A and B. */
+  protected readonly pair = computed<[number, number]>(() => {
+    const decks = this.engine.status()?.decks ?? [];
+    const playing = decks.flatMap((d, i) => (d.playing ? [i] : []));
+    return playing.length >= 2 ? [playing[0], playing[1]] : [0, 1];
+  });
+  /** The pair by its letters, told when there are more than two decks. */
+  protected readonly pairName = computed(() =>
+    this.engine.deckIndexes().length > 2 ? this.pair().map(deckLetter).join('·') : '',
+  );
+  private readonly statuses = computed(() => {
+    const decks = this.engine.status()?.decks ?? [];
+    return this.pair().map((deck) => decks[deck]);
+  });
+
+  /** How far the beats of the second deck are from those of the first. */
   protected readonly offset = computed(() => {
-    const [a, b] = this.engine.status()?.decks ?? [];
+    const [a, b] = this.statuses();
     const beats = a && b ? phaseOffset(b, a) : null;
     if (beats === null || !b.bpm) return '';
     if (Math.abs(beats) < MATCHED_BEATS) return t('Matched');
     const ms = String(Math.round((Math.abs(beats) * 60_000) / b.bpm));
-    return beats > 0 ? t('B ahead by {ms} ms', { ms }) : t('B behind by {ms} ms', { ms });
+    const deck = deckLetter(this.pair()[1]);
+    return beats > 0
+      ? t('{deck} ahead by {ms} ms', { deck, ms })
+      : t('{deck} behind by {ms} ms', { deck, ms });
   });
-  /** When B, at the present tempos, will be heard off A's beat. */
+  /** When the second deck, at the present tempos, will be heard off the beat of the first. */
   protected readonly drift = computed(() => {
-    const [a, b] = this.engine.status()?.decks ?? [];
+    const [a, b] = this.statuses();
     const seconds = a && b ? driftTime(b, a, HEARD_BEATS) : null;
     if (seconds === null || seconds > FORECAST_S) return '';
     return seconds === 0
@@ -87,7 +106,8 @@ export class PhaseStrip {
     const canvas = this.lane().nativeElement;
     const ratio = window.devicePixelRatio || 1;
     const { width, height } = fitToDevicePixels(canvas);
-    const showing = [width, height, ...[0, 1].flatMap((deck) => this.shownOf(deck))];
+    const [first, second] = this.pair();
+    const showing = [width, height, ...[first, second].flatMap((deck) => this.shownOf(deck))];
     if (showing.length === this.shown.length && showing.every((v, i) => v === this.shown[i]))
       return;
     this.shown = showing;
@@ -96,8 +116,8 @@ export class PhaseStrip {
     ctx.clearRect(0, 0, width, height);
     const mid = Math.round(height / 2);
     const gap = 3 * ratio;
-    this.drawBeats(ctx, 0, width, gap, mid - ratio, ratio);
-    this.drawBeats(ctx, 1, width, mid + ratio, height - gap, ratio);
+    this.drawBeats(ctx, first, width, gap, mid - ratio, ratio);
+    this.drawBeats(ctx, second, width, mid + ratio, height - gap, ratio);
     ctx.fillStyle = this.colors.line;
     ctx.fillRect(0, mid, width, ratio);
     ctx.fillStyle = this.colors.light;

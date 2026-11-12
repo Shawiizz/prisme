@@ -159,6 +159,14 @@ export const SETTINGS: readonly SettingEntry[] = [
     ),
   },
   {
+    id: 'dj.decks',
+    page: 'dj',
+    label: t('Decks'),
+    description: t(
+      'With four decks on an interface for two, C shares the outputs and the turntable of A, D those of B: the deck put on REL or ABS takes the turntable, the other plays on by itself.',
+    ),
+  },
+  {
     id: 'dj.autoGain',
     page: 'dj',
     label: t('Auto gain'),

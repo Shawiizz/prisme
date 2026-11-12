@@ -1,7 +1,9 @@
 # Deck layout proposals
 
 Five static mockups of the deck area, two and four decks, with the stems as knobs. Open them
-in a browser from this folder: they use the app's own tokens and components.
+in a browser from this folder: they use the app's own tokens and components. The first one,
+"Couloirs", was chosen and is the application's layout (see `../DESIGN.md`); the others are
+kept for the record.
 
 | File | Idea |
 | --- | --- |

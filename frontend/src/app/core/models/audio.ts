@@ -26,6 +26,8 @@ export interface AudioInfo {
   sampleRate: number;
   outputChannels: number;
   inputChannels: number;
+  /** Decks of the engine. */
+  decks: number;
   simulated: boolean;
 }
 

@@ -102,3 +102,44 @@
 .pr-label.shifted {
   color: var(--pr-warn);
 }
+
+// four decks: the panel on one line, the readouts without their labels
+:host-context(app-deck-lane.compact) {
+  .card {
+    grid-template-rows: none;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 12px;
+    padding: 0 12px 0 5px;
+  }
+  .head {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    gap: 8px;
+  }
+  .cover {
+    display: none;
+  }
+  .meta {
+    .title {
+      font-size: 14px;
+      line-height: 1.2;
+    }
+    &.empty {
+      grid-column: auto;
+    }
+  }
+  .pr-seg > button {
+    padding: 0 6px;
+  }
+  .readouts {
+    align-items: center;
+    gap: 12px;
+  }
+  .pr-label,
+  .pr-readout__sub {
+    display: none;
+  }
+  .pr-readout__value {
+    font-size: var(--pr-size-value);
+  }
+}

@@ -10,6 +10,7 @@ export class PreferencesService {
     quantize: true,
     pitchRange: 0.08,
     autoGain: false,
+    deckCount: 2,
   });
   readonly library = signal<LibraryPreferences>({
     lastFolder: null,

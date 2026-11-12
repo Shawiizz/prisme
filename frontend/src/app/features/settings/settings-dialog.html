@@ -316,7 +316,7 @@
             }
             @if (!found() || found()!.pages.has('turntables')) {
               <div class="pr-card turntables">
-                @for (deck of decks; track deck) {
+                @for (deck of decks(); track deck) {
                   <app-turntable-panel [deck]="deck" />
                 }
               </div>
@@ -517,6 +517,26 @@
                   >
                     <span></span>
                   </button>
+                </div>
+              }
+              @if (row('dj.decks')) {
+                @let e = entry('dj.decks');
+                <div class="pr-row" data-setting="dj.decks" [class.is-pointed]="pointed() === e.id">
+                  <div>
+                    <span class="pr-row__name">{{ e.label }}</span>
+                    <span class="pr-row__help">{{ e.description }}</span>
+                  </div>
+                  <div class="pr-seg pr-seg--lg" role="radiogroup" [attr.aria-label]="e.label">
+                    @for (count of [2, MAX_DECKS]; track count) {
+                      <button
+                        role="radio"
+                        [attr.aria-checked]="decks().length === count"
+                        (click)="setDeckCount(count)"
+                      >
+                        {{ count }}
+                      </button>
+                    }
+                  </div>
                 </div>
               }
               @if (row('dj.autoGain')) {

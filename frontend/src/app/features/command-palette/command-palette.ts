@@ -15,7 +15,7 @@ import { KeyboardService } from '../../core/keyboard/keyboard.service';
 import { CratesService } from '../../core/services/crates.service';
 import { LibraryService, trackTitle } from '../../core/services/library.service';
 import { NavigationService } from '../../core/services/navigation.service';
-import { DECK_COUNT } from '../../core/models/engine';
+import { EngineService } from '../../core/services/engine.service';
 import { DirEntry } from '../../core/models/library';
 import { t } from '../../core/i18n/i18n';
 import { TPipe } from '../../core/i18n/t.pipe';
@@ -62,6 +62,7 @@ export class CommandPalette {
   private readonly keyboard = inject(KeyboardService);
   private readonly crates = inject(CratesService);
   private readonly library = inject(LibraryService);
+  private readonly engine = inject(EngineService);
 
   private readonly input = viewChild.required<ElementRef<HTMLInputElement>>('input');
   private readonly list = viewChild.required<ElementRef<HTMLElement>>('list');
@@ -103,7 +104,7 @@ export class CommandPalette {
       detail: t('Library'),
       run: () => this.library.rescan(),
     },
-    ...Array.from({ length: DECK_COUNT }, (_, deck) => ({
+    ...this.engine.deckIndexes().map((deck) => ({
       section: 'actions' as const,
       title: t('Compare the tracks with deck {deck}', { deck: deckLetter(deck) }),
       detail: t('Library'),
