@@ -183,8 +183,14 @@ mod tests {
         let mut block = vec![0.0f32; 4096 * 2];
         let mut position = 192_000.0 * 0.2;
         for _ in 0..4 {
-            position =
-                lock.render(&mut Stems::new().reader(&track), position, None, &mut block, 44_100.0, MAX_SPEED);
+            position = lock.render(
+                &mut Stems::new().reader(&track),
+                position,
+                None,
+                &mut block,
+                44_100.0,
+                MAX_SPEED,
+            );
         }
         assert!(block.iter().all(|s| s.is_finite()));
     }

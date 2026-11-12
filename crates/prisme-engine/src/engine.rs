@@ -250,9 +250,11 @@ impl Engine {
             }
             SetStemMix { deck, mix, on_bar } if valid(deck) => self.decks[deck].set_stem_mix(mix, on_bar),
             SetPlaying { deck, playing } if valid(deck) => self.decks[deck].playing = playing,
-            SetPitch { deck, ratio } if valid(deck) => self.decks[deck].pitch = ratio,
+            SetPitch { deck, ratio } if valid(deck) && ratio.is_finite() => self.decks[deck].pitch = ratio,
             SetPitchBend { deck, amount } if valid(deck) => self.decks[deck].bend = amount,
-            Seek { deck, seconds } if valid(deck) => self.decks[deck].playhead.seek_s(seconds),
+            Seek { deck, seconds } if valid(deck) && seconds.is_finite() => {
+                self.decks[deck].playhead.seek_s(seconds)
+            }
             TakePlace { deck, from } if valid(deck) && valid(from) => {
                 let place = self.decks[from].place();
                 self.decks[deck].take_place(place);
@@ -260,8 +262,10 @@ impl Engine {
             Hand { deck, position_s, at_s } if valid(deck) => self.decks[deck].hand(position_s, at_s),
             JogTouch { deck, touched, at_s } if valid(deck) => self.decks[deck].jog_touch(touched, at_s),
             Jog { deck, turns, at_s } if valid(deck) => self.decks[deck].jog_turn(turns, at_s),
-            Jump { deck, seconds } if valid(deck) => self.decks[deck].jump(seconds, self.quantize),
-            BeatJump { deck, beats } if valid(deck) => self.decks[deck].beat_jump(beats),
+            Jump { deck, seconds } if valid(deck) && seconds.is_finite() => {
+                self.decks[deck].jump(seconds, self.quantize)
+            }
+            BeatJump { deck, beats } if valid(deck) && beats.is_finite() => self.decks[deck].beat_jump(beats),
             SetQuantize { enabled } => self.quantize = enabled,
             SetLoop { deck, region, active } if valid(deck) => self.decks[deck].set_loop(region, active),
             BeatLoop { deck, beats } if valid(deck) => self.decks[deck].beat_loop(beats, self.quantize),
@@ -283,7 +287,11 @@ impl Engine {
                 self.decks[deck].vinyl.take_back();
                 self.decks[deck].sync.reset();
             }
-            SetBeatGrid { deck, grid } if valid(deck) => self.decks[deck].grid = grid,
+            // a grid without a finite tempo would put the beats at infinity
+            SetBeatGrid { deck, grid } if valid(deck) => {
+                self.decks[deck].grid =
+                    grid.filter(|g| g.bpm.is_finite() && g.bpm > 0.0 && g.first_beat_s.is_finite())
+            }
             SetSyncLocked { deck, locked: true } if valid(deck) => self.decks[deck].engage_sync(true),
             SetSyncLocked { deck, locked: false } if valid(deck) => self.decks[deck].sync.reset(),
             SyncOnce { deck } if valid(deck) => self.decks[deck].engage_sync(false),

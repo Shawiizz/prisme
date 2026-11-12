@@ -279,6 +279,20 @@ fn a_double_of_a_deck_in_a_roll_plays_on_where_the_roll_comes_back() {
 }
 
 #[test]
+fn positions_and_tempos_out_of_range_are_ignored() {
+    let mut rig = Rig::new();
+    rig.send(Command::LoadTrack { deck: 0, track: sine_track(10.0, 0.6) });
+    rig.send(Command::SetBeatGrid { deck: 0, grid: Some(BeatGrid { bpm: 0.0, first_beat_s: 0.0 }) });
+    rig.send(Command::Seek { deck: 0, seconds: f64::INFINITY });
+    rig.send(Command::SetPitch { deck: 0, ratio: f64::NAN });
+    rig.send(Command::BeatJump { deck: 0, beats: 4.0 });
+    rig.send(Command::SetPlaying { deck: 0, playing: true });
+    rig.run(0.5);
+    let d = rig.deck(0);
+    assert!(d.bpm.is_none() && (d.position_s - 0.5).abs() < 0.02, "{d:?}");
+}
+
+#[test]
 fn a_deck_mutes_any_stem() {
     for key_lock in [false, true] {
         let mut rig = Rig::new();
