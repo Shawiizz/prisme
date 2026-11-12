@@ -10,11 +10,16 @@ engine in Rust and a Tauri + Angular interface. Windows only for now.
   scratch. The deck plays on by itself when the needle reaches the end of the record.
 - **Mixing**: each deck on its own outputs for a hardware mixer, or a software mixer
   (trim, 3-band EQ with kills, filter, crossfader curves, master limiter, headphone
-  cue).
+  cue); auto gain plays every track at the same loudness.
 - **Performance**: tempo and beat sync, quantize, 8 hot cues, beat loops, loop in/out,
   loop rolls, beat jumps, slip, censor, key lock and key shift, beat-synced effects,
-  8-slot sampler per deck, mix recording with its tracklist.
-- **Library**: tempo, beat grid and key analysis in the background, instant search,
+  8-slot sampler per deck, instant doubles, mix recording with its tracklist.
+- **Stems**: vocals, drums, bass and melody, separated on the GPU (on its tensor cores
+  where it has some) or the processor, from where the deck plays as soon as a track is
+  loaded; a knob per part, cut and brought back on the bar with quantize, and lanes
+  showing where each part plays.
+- **Library**: MP3, AAC, ALAC, FLAC, Ogg Vorbis, WAV and AIFF; tempo, beat grid and key
+  analysis in the background, instant search,
   crates and smart crates, prepare list, set history, duplicates, Serato and rekordbox
   import, beat grid and key editing.
 - **Control**: keyboard shortcuts, MIDI controllers with MIDI learn and lights, MIDI
@@ -58,6 +63,7 @@ crates/
   prisme-media/      audio file decoding, tags and cover art
   prisme-analysis/   waveforms, tempo and beat grid, musical key
   prisme-library/    track database, folder scanning, background analysis
+  prisme-stems/      source separation (Mel-Band RoFormer) on the GPU (wgpu) or the CPU
   prisme-import/     Serato and rekordbox import
   prisme-control/    MIDI controller messages and mappings
   prisme-session/    settings files with atomic writes
