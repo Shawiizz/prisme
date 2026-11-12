@@ -48,6 +48,20 @@ pub fn list_dir(
     })
 }
 
+/// `to`, where the folder `from` was moved if it existed and `to` did not; `from` if it could
+/// not move (another drive, a file in use).
+pub fn moved(from: &Path, to: PathBuf) -> PathBuf {
+    if from.is_dir() && !to.exists() {
+        let moved =
+            to.parent().map_or(Ok(()), std::fs::create_dir_all).and_then(|()| std::fs::rename(from, &to));
+        if let Err(e) = moved {
+            tracing::warn!("{} not moved to {}: {e}", from.display(), to.display());
+            return from.to_owned();
+        }
+    }
+    to
+}
+
 /// Title shown for a file until tags are read: the file name without extension.
 pub fn title_from_path(path: &Path) -> String {
     path.file_stem().map(|s| s.to_string_lossy().into_owned()).unwrap_or_else(|| path.display().to_string())
@@ -56,6 +70,20 @@ pub fn title_from_path(path: &Path) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_folder_moves_where_nothing_is_yet() {
+        let root = std::env::temp_dir().join(format!("prisme-moved-{}", std::process::id()));
+        let (from, to) = (root.join("roaming/models"), root.join("local/models"));
+        std::fs::create_dir_all(&from).unwrap();
+        std::fs::write(from.join("model"), b"weights").unwrap();
+        assert_eq!(moved(&from, to.clone()), to);
+        assert!(!from.exists() && to.join("model").is_file());
+        std::fs::create_dir_all(&from).unwrap();
+        assert_eq!(moved(&from, to.clone()), to, "the folder already there stays");
+        assert!(from.is_dir());
+        std::fs::remove_dir_all(root).unwrap();
+    }
 
     #[test]
     fn title_is_the_file_stem() {

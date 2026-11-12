@@ -77,21 +77,10 @@ fn fit_window(app: &tauri::App) {
 /// with the roaming data move there.
 fn models_dir(app: &tauri::App, data_dir: Option<&Path>) -> PathBuf {
     let data = data_dir.unwrap_or(Path::new(".")).join("models");
-    let local = match (dev_startup::data_dir(), app.path().app_local_data_dir()) {
-        (None, Ok(local)) => local.join("models"),
-        _ => return data,
-    };
-    if data.is_dir() && !local.exists() {
-        let moved = local
-            .parent()
-            .map_or(Ok(()), std::fs::create_dir_all)
-            .and_then(|()| std::fs::rename(&data, &local));
-        if let Err(e) = moved {
-            warn!("models left in {}: {e}", data.display());
-            return data;
-        }
+    match (dev_startup::data_dir(), app.path().app_local_data_dir()) {
+        (None, Ok(local)) => folders::moved(&data, local.join("models")),
+        _ => data,
     }
-    local
 }
 
 pub fn run() {
