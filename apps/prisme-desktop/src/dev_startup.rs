@@ -6,10 +6,10 @@
 //! * `PRISME_MASTER_GAIN`: initial master gain (e.g. 0.2 to test quietly);
 //! * `PRISME_DATA_DIR`: folder of the settings and the library, instead of the user's.
 
-use crate::audio_host::DECKS;
 use crate::library_service::LibraryService;
 use crate::state::AppState;
 use crate::track_loading;
+use prisme_engine::MAX_DECKS;
 use std::path::PathBuf;
 use tauri::AppHandle;
 use tracing::warn;
@@ -22,7 +22,7 @@ pub fn simulate_requested() -> bool {
 /// Loads the tracks requested by the environment (before the audio starts, so that
 /// `AppState::restore` hands them to the engine).
 pub fn preload_tracks(app: &AppHandle, state: &AppState, library: &LibraryService) {
-    for deck in 0..DECKS {
+    for deck in 0..MAX_DECKS {
         let Ok(path) = std::env::var(format!("PRISME_DECK{}", deck + 1)) else {
             continue;
         };

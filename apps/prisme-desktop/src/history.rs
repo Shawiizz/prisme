@@ -3,9 +3,9 @@
 //! of a run of the app opens a new history session. A played track leaves the prepare
 //! list.
 
-use crate::audio_host::DECKS;
 use crate::library_service::LibraryService;
 use crate::state::{lock, AppState};
+use prisme_engine::MAX_DECKS;
 use prisme_library::SessionId;
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -38,7 +38,7 @@ struct DeckPlay {
 /// Counts how long each loaded track is heard.
 #[derive(Default)]
 pub struct PlayTracker {
-    decks: [DeckPlay; DECKS],
+    decks: [DeckPlay; MAX_DECKS],
 }
 
 impl PlayTracker {
@@ -94,7 +94,7 @@ fn deck_states(state: &AppState) -> Vec<(usize, Option<u64>, PathBuf, bool)> {
         let mut session = lock(&state.session);
         let Some(session) = session.as_mut() else { return Vec::new() };
         let status = session.controller.status();
-        status.decks.iter().take(DECKS).map(|d| if d.loaded { d.speed } else { 0.0 }).collect()
+        status.decks.iter().take(MAX_DECKS).map(|d| if d.loaded { d.speed } else { 0.0 }).collect()
     };
     let tracks = lock(&state.tracks);
     tracks

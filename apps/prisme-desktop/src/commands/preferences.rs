@@ -1,7 +1,8 @@
+use crate::commands::audio::start_audio;
 use crate::error::AppResult;
 use crate::library_service::LibraryService;
 use crate::preferences::{DjPreferences, LibraryPreferences, Preferences};
-use crate::state::AppState;
+use crate::state::{lock, AppState};
 use crate::tag_writer::TagWriter;
 use prisme_engine::Command;
 use std::sync::Arc;
@@ -14,7 +15,13 @@ pub fn get_preferences(state: State<'_, AppState>) -> Preferences {
 
 #[tauri::command]
 pub fn set_dj_preferences(state: State<'_, AppState>, dj: DjPreferences) -> AppResult<()> {
+    let decks_before = state.preferences.read(|p| p.dj.decks());
     state.update_preferences(|p| p.dj = dj);
+    // another number of decks is another engine: the audio starts again, the tracks stay
+    let running = lock(&state.session).as_ref().map(|s| s.settings.clone());
+    if let Some(settings) = running.filter(|_| dj.decks() != decks_before) {
+        start_audio(&state, &settings)?;
+    }
     state.send_if_running(Command::SetQuantize { enabled: dj.quantize })?;
     state.apply_levels()
 }

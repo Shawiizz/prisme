@@ -1,10 +1,9 @@
 //! The decks' samplers: sounds decoded once, kept to be given back to the engine after
 //! an audio restart, their files remembered for the next start.
 
-use crate::audio_host::DECKS;
 use crate::error::{AppError, AppResult};
 use crate::state::{lock, AppState};
-use prisme_engine::{Command, SAMPLE_SLOTS};
+use prisme_engine::{Command, MAX_DECKS, SAMPLE_SLOTS};
 use prisme_media::TrackAudio;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
@@ -19,7 +18,7 @@ pub struct LoadedSample {
     pub audio: Arc<TrackAudio>,
 }
 
-pub type Samplers = [[Option<LoadedSample>; SAMPLE_SLOTS]; DECKS];
+pub type Samplers = [[Option<LoadedSample>; SAMPLE_SLOTS]; MAX_DECKS];
 
 pub fn decode(path: &Path) -> AppResult<Arc<TrackAudio>> {
     let audio = prisme_media::decode_file(path)?;

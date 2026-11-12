@@ -33,7 +33,8 @@ pub fn set_pitch(state: State<'_, AppState>, deck: usize, ratio: f64) -> AppResu
     state.send(Command::SetPitch { deck, ratio })
 }
 
-/// Vinyl control of a deck, kept for the next start.
+/// Vinyl control of a deck, kept for the next start. Returns the deck it took the turntable
+/// from, if they are layered on it (see `audio_host::deck_pair`).
 #[tauri::command]
 pub fn set_vinyl(
     state: State<'_, AppState>,
@@ -42,7 +43,7 @@ pub fn set_vinyl(
     mode: VinylModeDto,
     rpm: RpmDto,
     lead_in_s: f64,
-) -> AppResult<()> {
+) -> AppResult<Option<usize>> {
     AppState::check_deck(deck)?;
     let settings = {
         let mut decks = lock(&state.decks);
@@ -57,10 +58,11 @@ pub fn set_vinyl(
         let d = &mut p.decks[deck];
         (d.vinyl_enabled, d.vinyl_mode, d.rpm, d.lead_in_s) = (enabled, mode, rpm, lead_in_s);
     });
+    let freed = enabled.then(|| state.take_turntable(deck)).flatten();
     for c in deck_commands(deck, &settings) {
         state.send_if_running(c)?;
     }
-    Ok(())
+    Ok(freed)
 }
 
 /// Swaps the turntable's left and right channels (crossed cables), kept for the next start.

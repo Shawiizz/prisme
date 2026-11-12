@@ -2,7 +2,7 @@
 //! loaded tracks and the deck settings (kept so they can be re-applied when the audio
 //! restarts).
 
-use crate::audio_host::{AudioSession, DECKS};
+use crate::audio_host::{deck_pair, layer_partner, AudioSession};
 use crate::dto::{
     AudioInfo, BackendDto, BandDto, ChannelStripDto, CueDto, FxDto, HeadphonesOutputDto, KeyDto, MixModeDto,
     RpmDto, SeparationDto, StemMixDto, TempoDto, TrackInfoDto, VinylModeDto,
@@ -13,7 +13,9 @@ use crate::preferences::{DeckPreferences, Preferences};
 use crate::recording::Recorder;
 use crate::sampler::Samplers;
 use prisme_analysis::{TrackAnalysis, Waveform};
-use prisme_engine::{BeatGrid, Command, DeckStatus, MixMode, OutputRouting, StemTracks};
+use prisme_engine::{
+    BeatGrid, Command, CrossfaderSide, DeckStatus, MixMode, OutputRouting, StemTracks, MAX_DECKS,
+};
 use prisme_library::{Cue, CueSlot, TrackEdits};
 use prisme_media::{TrackAudio, TrackTags};
 use prisme_session::JsonFile;
@@ -178,8 +180,8 @@ impl From<DeckPreferences> for DeckSettings {
 pub struct AppState {
     pub preferences: JsonFile<Preferences>,
     pub session: Mutex<Option<AudioSession>>,
-    pub tracks: Mutex<[Option<LoadedTrack>; DECKS]>,
-    pub decks: Mutex<[DeckSettings; DECKS]>,
+    pub tracks: Mutex<[Option<LoadedTrack>; MAX_DECKS]>,
+    pub decks: Mutex<[DeckSettings; MAX_DECKS]>,
     pub crossfader: Mutex<f32>,
     pub recorder: Mutex<Option<Recorder>>,
     /// Held while the audio starts: the watchdog and the user never start it at once.
@@ -209,7 +211,7 @@ impl AppState {
     }
 
     pub fn check_deck(deck: usize) -> AppResult<()> {
-        if deck < DECKS {
+        if deck < MAX_DECKS {
             Ok(())
         } else {
             Err(AppError::InvalidDeck(deck))
@@ -333,21 +335,52 @@ impl AppState {
         lock(&self.session).as_ref().map(|s| s.engine_config.sample_rate)
     }
 
-    /// The routing for the running device: an external mixer needs an output pair per deck,
-    /// else the software mixer is used, its headphones where the DJ wants them.
+    /// The routing for the running device: an external mixer needs two output pairs (four
+    /// decks share them if there are no more, see `deck_pair`), else the software mixer is
+    /// used, its headphones where the DJ wants them.
     pub fn routing(&self, info: &AudioInfo) -> OutputRouting {
         let mixer = self.preferences.read(|p| p.mixer);
         let outputs = info.output_channels;
-        let external = mixer.mode == MixModeDto::External && outputs >= 2 * DECKS;
+        let external = mixer.mode == MixModeDto::External && outputs >= 4;
         let mode = if external { MixMode::External } else { MixMode::Internal };
         let headphones = headphones_output(mixer.headphones, info.backend, outputs);
-        OutputRouting { mode, headphones, ..Default::default() }
+        let deck_outputs = std::array::from_fn(|deck| Some(2 * deck_pair(deck, info.decks, outputs)));
+        OutputRouting { mode, deck_outputs, headphones, ..Default::default() }
+    }
+
+    /// Gives the turntable of `deck` to it alone: the deck layered with it on the running
+    /// device, if a record drove it, goes on by itself. Returns that deck.
+    pub fn take_turntable(&self, deck: usize) -> Option<usize> {
+        let partner = lock(&self.session)
+            .as_ref()
+            .and_then(|s| layer_partner(deck, s.info.decks, s.info.input_channels))?;
+        if !std::mem::take(&mut lock(&self.decks)[partner].vinyl_enabled) {
+            return None;
+        }
+        self.update_preferences(|p| p.decks[partner].vinyl_enabled = false);
+        let _ = self.send_if_running(Command::SetVinylEnabled { deck: partner, enabled: false });
+        Some(partner)
     }
 
     /// Re-applies tracks, deck and mixer settings to a freshly started engine.
     pub fn restore(&self, session: &mut AudioSession) {
         let routing = self.routing(&session.info);
         let config = session.engine_config;
+        // of two decks layered on a turntable, both saved as driven by it, the first has it
+        let (decks, inputs) = (session.info.decks, session.info.input_channels);
+        let layered: Vec<usize> = {
+            let mut settings = lock(&self.decks);
+            (0..decks)
+                .filter(|&deck| {
+                    let first = layer_partner(deck, decks, inputs).filter(|&partner| partner < deck);
+                    first.is_some_and(|first| settings[first].vinyl_enabled)
+                        && std::mem::take(&mut settings[deck].vinyl_enabled)
+                })
+                .collect()
+        };
+        if !layered.is_empty() {
+            self.update_preferences(|p| layered.iter().for_each(|&deck| p.decks[deck].vinyl_enabled = false));
+        }
         let controller = &mut session.controller;
         let auto_gain = self.preferences.read(|p| p.dj.auto_gain);
         let tracks = lock(&self.tracks);
@@ -389,7 +422,10 @@ impl AppState {
 /// Commands that put a deck in the state described by `s`.
 pub fn deck_commands(deck: usize, s: &DeckSettings) -> Vec<Command> {
     let strip = s.strip;
+    // A and C on the left of the crossfader, B and D on its right
+    let side = if deck.is_multiple_of(2) { CrossfaderSide::Left } else { CrossfaderSide::Right };
     let mut commands = vec![
+        Command::SetCrossfaderSide { deck, side },
         Command::SetDeckCue { deck, enabled: s.cue },
         Command::SetPitch { deck, ratio: s.pitch },
         Command::SetVolume { deck, gain: s.volume },
@@ -431,6 +467,20 @@ fn headphones_output(choice: HeadphonesOutputDto, backend: BackendDto, outputs: 
 mod tests {
     use super::*;
     use prisme_analysis::Loudness;
+    use CrossfaderSide::{Left, Right};
+
+    #[test]
+    fn the_decks_are_on_either_side_of_the_crossfader() {
+        let side = |deck| {
+            deck_commands(deck, &DeckSettings::from(DeckPreferences::default())).into_iter().find_map(
+                |command| match command {
+                    Command::SetCrossfaderSide { side, .. } => Some(side),
+                    _ => None,
+                },
+            )
+        };
+        assert_eq!([0, 1, 2, 3].map(side), [Left, Right, Left, Right].map(Some));
+    }
 
     #[test]
     fn the_headphones_stay_off_the_surround_channels_of_a_computer() {

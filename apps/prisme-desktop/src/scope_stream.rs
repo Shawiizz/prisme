@@ -1,8 +1,8 @@
 //! Streams a turntable's signal to the frontend while its oscilloscope is shown.
 
-use crate::audio_host::DECKS;
 use crate::error::AppResult;
 use crate::state::{lock, AppState};
+use prisme_engine::MAX_DECKS;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::Duration;
 use tauri::ipc::Channel;
@@ -14,7 +14,7 @@ const POINTS: usize = 1024;
 
 /// Per deck, incremented by every subscription and unsubscription: a stream stops when
 /// it sees another generation.
-static GENERATIONS: [AtomicU64; DECKS] = [const { AtomicU64::new(0) }; DECKS];
+static GENERATIONS: [AtomicU64; MAX_DECKS] = [const { AtomicU64::new(0) }; MAX_DECKS];
 
 #[tauri::command]
 pub fn subscribe_scope(app: AppHandle, deck: usize, channel: Channel<Vec<[f32; 2]>>) -> AppResult<()> {

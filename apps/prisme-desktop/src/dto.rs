@@ -260,6 +260,8 @@ pub struct AudioInfo {
     pub sample_rate: u32,
     pub output_channels: usize,
     pub input_channels: usize,
+    /// Decks of the engine.
+    pub decks: usize,
     pub simulated: bool,
 }
 

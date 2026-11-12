@@ -1,17 +1,25 @@
 //! What the user chooses once and finds again at the next start.
 
-use crate::audio_host::DECKS;
 use crate::dto::{AudioSettings, CrossfaderCurveDto, HeadphonesOutputDto, MixModeDto, RpmDto, VinylModeDto};
-use serde::{Deserialize, Serialize};
+use prisme_engine::MAX_DECKS;
+use serde::{Deserialize, Deserializer, Serialize};
 
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 #[serde(default, rename_all = "camelCase")]
 pub struct Preferences {
     pub audio: AudioSettings,
-    pub decks: [DeckPreferences; DECKS],
+    #[serde(deserialize_with = "decks_of")]
+    pub decks: [DeckPreferences; MAX_DECKS],
     pub dj: DjPreferences,
     pub mixer: MixerPreferences,
     pub library: LibraryPreferences,
+}
+
+/// The decks a file holds, fewer than there are (two, before there could be four): the
+/// others take the defaults.
+fn decks_of<'de, D: Deserializer<'de>>(file: D) -> Result<[DeckPreferences; MAX_DECKS], D::Error> {
+    let mut saved = Vec::<DeckPreferences>::deserialize(file)?.into_iter();
+    Ok(std::array::from_fn(|_| saved.next().unwrap_or_default()))
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
@@ -47,11 +55,30 @@ pub struct DjPreferences {
     pub pitch_range: f64,
     /// Every track played at the same loudness (see `LoadedTrack::level`).
     pub auto_gain: bool,
+    /// Two decks, or four.
+    pub deck_count: usize,
+}
+
+impl DjPreferences {
+    /// The decks of the engine: four if asked for, else two.
+    pub fn decks(&self) -> usize {
+        if self.deck_count == MAX_DECKS {
+            MAX_DECKS
+        } else {
+            2
+        }
+    }
 }
 
 impl Default for DjPreferences {
     fn default() -> Self {
-        Self { vinyl_sync: VinylSync::Once, quantize: true, pitch_range: 0.08, auto_gain: false }
+        Self {
+            vinyl_sync: VinylSync::Once,
+            quantize: true,
+            pitch_range: 0.08,
+            auto_gain: false,
+            deck_count: 2,
+        }
     }
 }
 
@@ -127,6 +154,16 @@ mod tests {
         assert!(!p.library.replace_tags);
         assert!(p.library.pause_while_playing);
         assert_eq!(p.library.separate_on_load, None);
+    }
+
+    #[test]
+    fn a_file_from_before_four_decks_keeps_its_two() {
+        let p: Preferences =
+            serde_json::from_str(r#"{ "decks": [{ "keyLock": true }, { "rpm": "45" }] }"#).unwrap();
+        assert!(p.decks[0].key_lock);
+        assert_eq!(p.decks[1].rpm, RpmDto::Rpm45);
+        assert_eq!(p.decks[2], DeckPreferences::default());
+        assert_eq!(p.dj.decks(), 2);
     }
 
     #[test]

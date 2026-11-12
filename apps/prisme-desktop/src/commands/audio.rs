@@ -86,7 +86,7 @@ fn start(state: &AppState, settings: &AudioSettings) -> AppResult<AudioInfo> {
         decks[0].vinyl_enabled = true;
         decks[0].lead_in_s = prisme_timecode::testing::SimulatedTurntable::START_S;
     }
-    let mut session = audio_host::start(settings)?;
+    let mut session = audio_host::start(settings, state.preferences.read(|p| p.dj.decks()))?;
     state.restore(&mut session);
     for (deck, (seconds, playing)) in transport.into_iter().enumerate() {
         let _ = session.controller.send(Command::Seek { deck, seconds });
