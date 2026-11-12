@@ -197,6 +197,7 @@ export class TrackTable {
     const destroyRef = inject(DestroyRef);
     afterNextRender(() => {
       const table = this.table().nativeElement;
+      this.viewHeight.set(table.clientHeight);
       const resized = new ResizeObserver(() => this.viewHeight.set(table.clientHeight));
       resized.observe(table);
       destroyRef.onDestroy(() => resized.disconnect());
