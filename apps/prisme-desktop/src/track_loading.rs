@@ -104,7 +104,7 @@ impl Completion {
         for (deck, load_id, separation) in crate::stems_service::give_stems(app, &loads, &self.path, &audio) {
             updates.of(deck, load_id).separation = Some(separation);
         }
-        if state.preferences.read(|p| p.library.separate_on_load) {
+        if crate::stems_service::separates_on_load(&state) {
             if let Err(e) = app
                 .state::<crate::stems_service::StemsService>()
                 .separate_played(&self.path, audio.duration_s())

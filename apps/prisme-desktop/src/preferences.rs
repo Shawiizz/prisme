@@ -92,8 +92,9 @@ pub struct LibraryPreferences {
     /// Those another program wrote (Mixed In Key, say) replaced as well.
     pub replace_tags: bool,
     /// A track loaded on a deck is separated right away, before the library's; one put in
-    /// the prepare list in the background.
-    pub separate_on_load: bool,
+    /// the prepare list in the background. Not chosen: with a graphics card only (see
+    /// `stems_service::separates_on_load`).
+    pub separate_on_load: Option<bool>,
 }
 
 impl Default for LibraryPreferences {
@@ -103,7 +104,7 @@ impl Default for LibraryPreferences {
             hidden_columns: Vec::new(),
             write_tags: true,
             replace_tags: false,
-            separate_on_load: true,
+            separate_on_load: None,
         }
     }
 }
@@ -121,7 +122,7 @@ mod tests {
         assert_eq!(p.audio, AudioSettings::default());
         assert!(p.library.write_tags);
         assert!(!p.library.replace_tags);
-        assert!(p.library.separate_on_load);
+        assert_eq!(p.library.separate_on_load, None);
     }
 
     #[test]

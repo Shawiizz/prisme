@@ -103,7 +103,9 @@ export class SettingsDialog implements OnInit {
   });
   protected readonly writeTags = computed(() => this.preferences.library().writeTags);
   protected readonly replaceTags = computed(() => this.preferences.library().replaceTags);
-  protected readonly separateOnLoad = computed(() => this.preferences.library().separateOnLoad);
+  protected readonly separateOnLoad = computed(
+    () => this.preferences.library().separateOnLoad ?? this.stems.gpu() ?? false,
+  );
   protected readonly busy = signal(false);
   protected readonly error = signal<string | null>(null);
   protected readonly diagnosticsSaved = signal(false);

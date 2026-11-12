@@ -201,7 +201,7 @@ export const SETTINGS: readonly SettingEntry[] = [
     page: 'library',
     label: t('Separate the tracks as they are loaded or prepared'),
     description: t(
-      'A track loaded on a deck right away, from where it plays: its stems come within seconds. A track put in Prepare in the background, ready before the set.',
+      'A track loaded on a deck right away, from where it plays: its stems come within seconds. A track put in Prepare in the background, ready before the set. Off at first without a graphics card for it: the processor alone takes minutes a track.',
     ),
   },
   {

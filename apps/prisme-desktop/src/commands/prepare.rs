@@ -2,7 +2,7 @@ use crate::dto::DirEntryDto;
 use crate::error::AppResult;
 use crate::library_service::LibraryService;
 use crate::state::AppState;
-use crate::stems_service::StemsService;
+use crate::stems_service::{self, StemsService};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use tauri::State;
@@ -25,7 +25,7 @@ pub fn add_to_prepare(
     paths: Vec<String>,
 ) -> AppResult<usize> {
     let added = library.db.add_to_prepare(&paths.iter().map(Path::new).collect::<Vec<_>>())?;
-    if state.preferences.read(|p| p.library.separate_on_load) {
+    if stems_service::separates_on_load(&state) {
         // without a model there is nothing to do, and nothing to tell
         let _ = stems.enqueue(paths.into_iter().map(PathBuf::from));
     }

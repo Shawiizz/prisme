@@ -29,7 +29,7 @@ use std::collections::{HashSet, VecDeque};
 use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::{Arc, Condvar, Mutex};
+use std::sync::{Arc, Condvar, Mutex, OnceLock};
 use std::time::Duration;
 use tauri::{AppHandle, Emitter, Manager};
 use tracing::{error, info, warn};
@@ -121,6 +121,19 @@ struct Download {
     running: bool,
     fraction: f64,
     error: Option<String>,
+}
+
+/// Whether a graphics card can separate, looked for once (which takes a moment: not from
+/// the window's thread).
+pub fn has_gpu() -> bool {
+    static HAS_GPU: OnceLock<bool> = OnceLock::new();
+    *HAS_GPU.get_or_init(Gpu::available)
+}
+
+/// Whether tracks are separated as they are loaded or prepared: as the DJ chose, else with
+/// a graphics card only (the processor alone takes minutes a track, on all its cores).
+pub fn separates_on_load(state: &AppState) -> bool {
+    state.preferences.read(|p| p.library.separate_on_load).unwrap_or_else(has_gpu)
 }
 
 impl StemsService {

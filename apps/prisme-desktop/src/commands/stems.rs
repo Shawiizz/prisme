@@ -4,7 +4,7 @@ use crate::dto::{StemMixDto, StemsStatusDto};
 use crate::error::AppResult;
 use crate::library_service::LibraryService;
 use crate::state::AppState;
-use crate::stems_service::StemsService;
+use crate::stems_service::{self, StemsService};
 use prisme_engine::Command;
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -13,6 +13,12 @@ use tauri::State;
 #[tauri::command]
 pub fn stems_status(stems: State<'_, StemsService>) -> StemsStatusDto {
     stems.status()
+}
+
+/// Whether a graphics card can separate (looked for once, off the window's thread).
+#[tauri::command(async)]
+pub fn stems_gpu() -> bool {
+    stems_service::has_gpu()
 }
 
 /// Starts downloading the separation model `id` (`stems-model` events).

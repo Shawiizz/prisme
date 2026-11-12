@@ -526,8 +526,8 @@ export const FR: Record<string, string> = {
   'Melody level': 'Niveau de la mélodie',
   'Separate the tracks as they are loaded or prepared':
     'Séparer les morceaux dès qu’ils sont chargés ou mis en préparation',
-  'A track loaded on a deck right away, from where it plays: its stems come within seconds. A track put in Prepare in the background, ready before the set.':
-    'Un morceau chargé sur un deck tout de suite, à partir de là où il joue : ses pistes arrivent en quelques secondes. Un morceau mis en préparation en arrière-plan, prêt avant le set.',
+  'A track loaded on a deck right away, from where it plays: its stems come within seconds. A track put in Prepare in the background, ready before the set. Off at first without a graphics card for it: the processor alone takes minutes a track.':
+    'Un morceau chargé sur un deck tout de suite, à partir de là où il joue : ses pistes arrivent en quelques secondes. Un morceau mis en préparation en arrière-plan, prêt avant le set. Désactivé au départ sans carte graphique adaptée : le processeur seul met plusieurs minutes par morceau.',
   'Separate the whole library': 'Séparer toute la bibliothèque',
   'The stems are stored next to each track, in a .prisme folder: copy your music to another computer and its separations come along.':
     'Les pistes sont rangées à côté de chaque morceau, dans un dossier .prisme : copiez votre musique sur un autre ordinateur et ses séparations suivent.',

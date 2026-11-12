@@ -171,18 +171,8 @@ impl Gpu {
     /// integrated GPUs without matrix units unless picked by name (`WGPU_ADAPTER_NAME`): the
     /// CPU separates faster (on an Intel UHD of 2023, 26 times faster).
     pub fn open(options: GpuOptions) -> Result<Arc<Self>, StemsError> {
-        let (adapter, picked) = adapter()?;
+        let (adapter, matrix_units) = worthy_adapter(options)?;
         let info = adapter.get_info();
-        if info.device_type == wgpu::DeviceType::Cpu && !options.software {
-            return Err(StemsError::NoGpu(format!("{} is a software renderer", info.name)));
-        }
-        let matrix_units = !options.without_matrix_units && has_matrix_units(&adapter);
-        if info.device_type == wgpu::DeviceType::IntegratedGpu && !matrix_units && !picked {
-            return Err(StemsError::NoGpu(format!(
-                "{} is an integrated GPU, slower than the CPU",
-                info.name
-            )));
-        }
         let large_tiles = info.vendor == NVIDIA;
         let (device, queue) = pollster::block_on(adapter.request_device(&wgpu::DeviceDescriptor {
             label: Some("prisme-stems"),
@@ -218,6 +208,11 @@ impl Gpu {
             large_tiles,
             scratch: Mutex::default(),
         }))
+    }
+
+    /// Whether there is a GPU [`Gpu::open`] would take, without opening it.
+    pub fn available() -> bool {
+        worthy_adapter(GpuOptions::default()).is_ok()
     }
 
     /// The GPU and graphics API.
@@ -415,6 +410,20 @@ impl MaskNetwork for GpuNetwork {
 /// the matrix products faster than Direct3D 12's, and it reaches the matrix units), else
 /// whatever API reaches one, and whether it was picked by name. `WGPU_BACKEND` restricts the APIs,
 /// `WGPU_ADAPTER_NAME` picks a GPU by (part of) its name.
+/// The adapter worth separating on and whether its matrix units are used: see [`Gpu::open`].
+fn worthy_adapter(options: GpuOptions) -> Result<(wgpu::Adapter, bool), StemsError> {
+    let (adapter, picked) = adapter()?;
+    let info = adapter.get_info();
+    if info.device_type == wgpu::DeviceType::Cpu && !options.software {
+        return Err(StemsError::NoGpu(format!("{} is a software renderer", info.name)));
+    }
+    let matrix_units = !options.without_matrix_units && has_matrix_units(&adapter);
+    if info.device_type == wgpu::DeviceType::IntegratedGpu && !matrix_units && !picked {
+        return Err(StemsError::NoGpu(format!("{} is an integrated GPU, slower than the CPU", info.name)));
+    }
+    Ok((adapter, matrix_units))
+}
+
 fn adapter() -> Result<(wgpu::Adapter, bool), StemsError> {
     let instance = |backends: wgpu::Backends| {
         let mut desc = wgpu::InstanceDescriptor::new_without_display_handle();

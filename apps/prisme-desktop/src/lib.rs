@@ -160,6 +160,7 @@ pub fn run() {
             commands::tracks::load_track,
             commands::tracks::double_deck,
             commands::stems::stems_status,
+            commands::stems::stems_gpu,
             commands::stems::download_stems_model,
             commands::stems::separate_tracks,
             commands::stems::separate_library,

@@ -16,7 +16,7 @@ export class PreferencesService {
     hiddenColumns: [],
     writeTags: true,
     replaceTags: false,
-    separateOnLoad: true,
+    separateOnLoad: null,
   });
 
   async load(): Promise<void> {

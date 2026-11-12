@@ -21,7 +21,8 @@ export interface LibraryPreferences {
   replaceTags: boolean;
   /** A track loaded on a deck is separated right away, before the library's; one put in the
    * prepare list in the background. */
-  separateOnLoad: boolean;
+  /** `null`: not chosen, on with a graphics card that can separate. */
+  separateOnLoad: boolean | null;
 }
 
 export interface Preferences {

@@ -40,6 +40,8 @@ export class StemsService {
   readonly vocalsModel = signal<ModelStatus>(MISSING('vocals'));
   readonly drumsBassModel = signal<ModelStatus>(MISSING('drums-bass'));
   readonly progress = signal<StemsProgress>(IDLE);
+  /** Whether a graphics card can separate; `null` until known. */
+  readonly gpu = signal<boolean | null>(null);
   /** Tracks sent to the queue and not separated yet. */
   readonly pending = signal<ReadonlySet<string>>(new Set());
   readonly error = signal<string | null>(null);
@@ -63,6 +65,8 @@ export class StemsService {
       listen<ModelStatus>('stems-model', (e) => this.setModel(e.payload)),
       listen<Separated>('stems-separated', (e) => this.onSeparated(e.payload)),
     ]);
+    // looking for the graphics card takes a moment: not waited for
+    void invoke<boolean>('stems_gpu').then((gpu) => this.gpu.set(gpu));
     const status = await invoke<StemsStatus>('stems_status');
     status.models.forEach((m) => this.setModel(m));
     this.progress.set(status.progress);
