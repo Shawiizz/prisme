@@ -45,6 +45,11 @@ export class ControllerService {
       this.learning.set(null);
       this.reloadMappings();
     });
+    // plugged back in, with its lights off
+    await listen<string>('controller-opened', async () => {
+      await this.refresh();
+      this.sendAllLights();
+    });
     await this.reloadMappings();
   }
 

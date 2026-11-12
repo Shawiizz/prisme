@@ -126,6 +126,8 @@ impl Controllers {
                         Ok(()) => {
                             missing.retain(|d| *d != device);
                             info!("controller {device} opened again");
+                            // back with its lights off
+                            let _ = app.emit("controller-opened", &device);
                         }
                         // told once, tried again
                         Err(e) if !missing.contains(&device) => {
