@@ -28,10 +28,6 @@
 }
 
 .stems {
-  // a part cut or brought back on the next bar, until it is
-  .waiting {
-    animation: pr-blink 0.5s steps(1) infinite;
-  }
   display: flex;
   align-items: center;
   gap: 2px;
@@ -41,6 +37,10 @@
     font-size: var(--pr-size-small);
     letter-spacing: 0.06em;
     text-transform: uppercase;
+  }
+  // a part cut or brought back on the next bar, until it is
+  .waiting {
+    animation: pr-blink 0.5s steps(1) infinite;
   }
 }
 

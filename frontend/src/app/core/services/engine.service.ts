@@ -1,5 +1,6 @@
 import { Injectable, computed, inject, signal } from '@angular/core';
 import { StemPart, hasPart, setPartLevel, togglePart } from '../stem-parts';
+import { StemMix } from '../models/stems';
 import { Channel, invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
 import { semitonesToMix, transposeCamelot } from '../../shared/camelot';
@@ -154,24 +155,29 @@ export class EngineService {
     return own && other ? semitonesToMix(own.camelot, other.camelot) : null;
   }
 
-  /** Mutes or plays a part of the track on `deck` (until the next load). */
+  /** Mutes or plays a part of the track on `deck` (until the next load), on the next bar
+   * with quantize. */
   toggleStem(deck: number, part: StemPart) {
-    const track = this.tracks()[deck];
-    if (!track || !hasPart(track.separation, part)) return;
-    const stemMix = togglePart(track.stemMix, part);
-    this.patch(this.tracks, deck, { ...track, stemMix });
-    // with quantize, on the next bar
     const onBar = this.preferences.dj().quantize;
-    return this.call('set_stem_mix', { deck, mix: stemMix, onBar });
+    return this.changeStemMix(deck, part, (mix) => togglePart(mix, part), onBar);
   }
 
   /** Sets how loud a part of the track on `deck` plays (0 to 1, until the next load). */
   setStemLevel(deck: number, part: StemPart, level: number) {
+    return this.changeStemMix(deck, part, (mix) => setPartLevel(mix, part, level), false);
+  }
+
+  private changeStemMix(
+    deck: number,
+    part: StemPart,
+    change: (mix: StemMix) => StemMix,
+    onBar: boolean,
+  ) {
     const track = this.tracks()[deck];
     if (!track || !hasPart(track.separation, part)) return;
-    const stemMix = setPartLevel(track.stemMix, part, level);
+    const stemMix = change(track.stemMix);
     this.patch(this.tracks, deck, { ...track, stemMix });
-    return this.call('set_stem_mix', { deck, mix: stemMix, onBar: false });
+    return this.call('set_stem_mix', { deck, mix: stemMix, onBar });
   }
 
   setKeyLock(deck: number, enabled: boolean) {

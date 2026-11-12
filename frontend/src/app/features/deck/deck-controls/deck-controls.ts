@@ -10,6 +10,7 @@ import { TPipe } from '../../../core/i18n/t.pipe';
 import { Fader } from '../../../shared/fader/fader';
 import { StemPart, partIn, partLevel, partPlaying } from '../../../core/stem-parts';
 import { Knob } from '../../../shared/knob/knob';
+import { readouts } from '../../../shared/mixer-scales';
 import { StemsService } from '../../../core/services/stems.service';
 
 type SyncState = 'off' | 'matched' | 'locked';
@@ -47,33 +48,22 @@ export class DeckControls {
   protected readonly stemKnobs = computed(() => {
     const mix = this.track()?.stemMix;
     const waiting = this.engine.status()?.decks[this.deck()]?.stemsWaiting ?? 0;
-    const knob = (part: StemPart, label: string, title: string) => ({
+    const knob = (part: StemPart, label: string, name: string) => ({
       part,
       label,
-      title,
+      title: t('{part}: turn for the level, click the name to mute', { part: name }),
       level: mix ? partLevel(mix, part) : 1,
       on: !mix || partPlaying(mix, part),
       waiting: partIn(waiting, part),
     });
     return this.separation() === 'full'
       ? [
-          knob('vocals', 'VOX', t('Vocals: turn for the level, click the name to mute')),
-          knob('drums', 'DRUM', t('Drums: turn for the level, click the name to mute')),
-          knob('bass', 'BASS', t('Bass: turn for the level, click the name to mute')),
-          knob(
-            'other',
-            'MELO',
-            t('Melody (the other instruments): turn for the level, click the name to mute'),
-          ),
+          knob('vocals', 'VOX', t('Vocals')),
+          knob('drums', 'DRUM', t('Drums')),
+          knob('bass', 'BASS', t('Bass')),
+          knob('other', 'MELO', t('Melody (the other instruments)')),
         ]
-      : [
-          knob('vocals', 'VOX', t('Vocals: turn for the level, click the name to mute')),
-          knob(
-            'instrumental',
-            'INST',
-            t('Instrumental: turn for the level, click the name to mute'),
-          ),
-        ];
+      : [knob('vocals', 'VOX', t('Vocals')), knob('instrumental', 'INST', t('Instrumental'))];
   });
   /** How far this track's separation is, while it is being separated. */
   protected readonly separating = computed(() => {
@@ -84,7 +74,7 @@ export class DeckControls {
   protected readonly canSeparate = computed(
     () => !!this.track() && this.stems.canAdd('none') && this.separating() === null,
   );
-  protected readonly percent = (v: number) => `${Math.round(v * 100)} %`;
+  protected readonly percent = readouts.percent;
 
   separate() {
     const path = this.track()?.path;

@@ -56,13 +56,17 @@ export class WaveformPainter {
     w: Waveform;
     width: number;
     height: number;
-    full: Bitmap;
-    played: Bitmap;
+    full: OffscreenCanvas;
+    played: OffscreenCanvas;
   } | null = null;
 
   /** The stem lanes, drawn again only for other levels or another size. */
-  private lanes: { activity: Uint8Array[]; width: number; height: number; image: Bitmap } | null =
-    null;
+  private lanes: {
+    activity: Uint8Array[];
+    width: number;
+    height: number;
+    image: OffscreenCanvas;
+  } | null = null;
 
   /** A lane per part of a separated track, the vocals at the top, lit where the part plays;
    * the played part veiled as in the overview. */
@@ -85,7 +89,7 @@ export class WaveformPainter {
   private lanesImage(
     activity: Uint8Array[],
     size: { width: number; height: number; ratio: number },
-  ): Bitmap {
+  ): OffscreenCanvas {
     const cached = this.lanes;
     if (
       cached &&
@@ -95,7 +99,7 @@ export class WaveformPainter {
     ) {
       return cached.image;
     }
-    const image = bitmap(size.width, size.height);
+    const image = new OffscreenCanvas(size.width, size.height);
     const ctx = image.getContext('2d')!;
     const lane = size.height / activity.length;
     ctx.fillStyle = this.palette.light;
@@ -182,20 +186,28 @@ export class WaveformPainter {
   }
 
   /** The overview's audio, drawn again only for another waveform or another size. */
-  private overviewAudio(w: Waveform, view: View): { full: Bitmap; played: Bitmap } {
+  private overviewAudio(
+    w: Waveform,
+    view: View,
+  ): { full: OffscreenCanvas; played: OffscreenCanvas } {
     const cached = this.overview;
     if (cached && cached.w === w && cached.width === view.width && cached.height === view.height) {
       return cached;
     }
-    const full = bitmap(view.width, view.height);
-    const played = bitmap(view.width, view.height);
+    const full = new OffscreenCanvas(view.width, view.height);
+    const played = new OffscreenCanvas(view.width, view.height);
     this.drawOverviewAudio(full.getContext('2d')!, w, view, 1);
     this.drawOverviewAudio(played.getContext('2d')!, w, view, PLAYED_OVERVIEW);
     this.overview = { w, width: view.width, height: view.height, full, played };
     return this.overview;
   }
 
-  private drawOverviewAudio(ctx: Context2D, w: Waveform, view: View, alpha: number) {
+  private drawOverviewAudio(
+    ctx: OffscreenCanvasRenderingContext2D,
+    w: Waveform,
+    view: View,
+    alpha: number,
+  ) {
     const n = w.peak.length;
     const mid = view.height / 2;
     ctx.globalAlpha = alpha;
@@ -306,13 +318,6 @@ export class WaveformPainter {
     }
     return this.colors[i];
   }
-}
-
-type Bitmap = OffscreenCanvas;
-type Context2D = OffscreenCanvasRenderingContext2D;
-
-function bitmap(width: number, height: number): Bitmap {
-  return new OffscreenCanvas(width, height);
 }
 
 function xOf(seconds: number, view: View): number {

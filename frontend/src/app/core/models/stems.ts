@@ -17,14 +17,6 @@ export interface StemLevel {
   on: boolean;
 }
 
-/** Every part at its level in the track. */
-export const FULL_MIX: StemMix = {
-  vocals: { level: 1, on: true },
-  drums: { level: 1, on: true },
-  bass: { level: 1, on: true },
-  other: { level: 1, on: true },
-};
-
 /** The separation queue. */
 export interface StemsProgress {
   running: boolean;

@@ -1,7 +1,12 @@
-import { FULL_MIX, StemMix } from './models/stems';
+import { StemMix } from './models/stems';
 import { hasPart, partIn, partLevel, partPlaying, setPartLevel, togglePart } from './stem-parts';
 
-const ALL = FULL_MIX;
+const ALL: StemMix = {
+  vocals: { level: 1, on: true },
+  drums: { level: 1, on: true },
+  bass: { level: 1, on: true },
+  other: { level: 1, on: true },
+};
 const off = { level: 1, on: false };
 
 describe('stem parts', () => {

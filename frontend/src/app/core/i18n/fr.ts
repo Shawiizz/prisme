@@ -500,16 +500,8 @@ export const FR: Record<string, string> = {
   'Splits the instrumental into drums, bass and melody, to mute each on its own. Needs the vocals separation, and takes two to three times as long.':
     'Sépare l’instru en batterie, basse et mélodie, pour couper chacune à part. Demande la séparation voix / instru, et prend deux à trois fois plus de temps.',
   'Vocals level': 'Niveau de la voix',
-  'Vocals: turn for the level, click the name to mute':
-    'Voix : tourner pour doser, cliquer le nom pour couper',
-  'Drums: turn for the level, click the name to mute':
-    'Batterie : tourner pour doser, cliquer le nom pour couper',
-  'Bass: turn for the level, click the name to mute':
-    'Basse : tourner pour doser, cliquer le nom pour couper',
-  'Melody (the other instruments): turn for the level, click the name to mute':
-    'Mélodie (les autres instruments) : tourner pour doser, cliquer le nom pour couper',
-  'Instrumental: turn for the level, click the name to mute':
-    'Instru : tourner pour doser, cliquer le nom pour couper',
+  '{part}: turn for the level, click the name to mute':
+    '{part} : tourner pour doser, cliquer le nom pour couper',
   'Separate this track into stems': 'Séparer ce morceau en pistes',
   'Vocals, drums, bass and melody along the track':
     'Voix, batterie, basse et mélodie le long du morceau',

@@ -133,6 +133,14 @@ function deckControls(a: ControlActions, deck: number): Control[] {
   const group = t('Deck {deck}', { deck: deckLetter(deck) });
   const id = (name: string) => `deck${deck + 1}.${name}`;
   const lit = (control: Control, on: () => boolean): Control => ({ ...control, lit: on });
+  // the parts of a separated track: a button muting each, a fader for its level
+  const stems: [string, StemPart, string, string][] = [
+    ['vocals', 'vocals', t('Vocals'), t('Vocals level')],
+    ['instrumental', 'instrumental', t('Instrumental'), t('Instrumental level')],
+    ['drums', 'drums', t('Drums'), t('Drums level')],
+    ['bass', 'bass', t('Bass'), t('Bass level')],
+    ['melody', 'other', t('Melody (the other instruments)'), t('Melody level')],
+  ];
   return [
     lit(
       button(id('play'), group, t('Play / pause'), () => a.togglePlay(deck)),
@@ -188,64 +196,20 @@ function deckControls(a: ControlActions, deck: number): Control[] {
       button(id('keylock'), group, t('Key lock'), () => a.toggleKeyLock(deck)),
       () => a.keyLocked(deck),
     ),
-    lit(
-      button(id('vocals'), group, t('Vocals'), () => a.toggleStem(deck, 'vocals')),
-      () => a.stemPlaying(deck, 'vocals'),
-    ),
-    lit(
-      button(id('instrumental'), group, t('Instrumental'), () =>
-        a.toggleStem(deck, 'instrumental'),
+    ...stems.map(([name, part, label]) =>
+      lit(
+        button(id(name), group, label, () => a.toggleStem(deck, part)),
+        () => a.stemPlaying(deck, part),
       ),
-      () => a.stemPlaying(deck, 'instrumental'),
     ),
-    lit(
-      button(id('drums'), group, t('Drums'), () => a.toggleStem(deck, 'drums')),
-      () => a.stemPlaying(deck, 'drums'),
-    ),
-    lit(
-      button(id('bass'), group, t('Bass'), () => a.toggleStem(deck, 'bass')),
-      () => a.stemPlaying(deck, 'bass'),
-    ),
-    lit(
-      button(id('melody'), group, t('Melody (the other instruments)'), () =>
-        a.toggleStem(deck, 'other'),
+    ...stems.map(([name, part, , level]) =>
+      fader(
+        id(`${name}.level`),
+        group,
+        level,
+        (v) => a.setStemLevel(deck, part, v),
+        () => a.stemLevel(deck, part),
       ),
-      () => a.stemPlaying(deck, 'other'),
-    ),
-    fader(
-      id('vocals.level'),
-      group,
-      t('Vocals level'),
-      (v) => a.setStemLevel(deck, 'vocals', v),
-      () => a.stemLevel(deck, 'vocals'),
-    ),
-    fader(
-      id('instrumental.level'),
-      group,
-      t('Instrumental level'),
-      (v) => a.setStemLevel(deck, 'instrumental', v),
-      () => a.stemLevel(deck, 'instrumental'),
-    ),
-    fader(
-      id('drums.level'),
-      group,
-      t('Drums level'),
-      (v) => a.setStemLevel(deck, 'drums', v),
-      () => a.stemLevel(deck, 'drums'),
-    ),
-    fader(
-      id('bass.level'),
-      group,
-      t('Bass level'),
-      (v) => a.setStemLevel(deck, 'bass', v),
-      () => a.stemLevel(deck, 'bass'),
-    ),
-    fader(
-      id('melody.level'),
-      group,
-      t('Melody level'),
-      (v) => a.setStemLevel(deck, 'other', v),
-      () => a.stemLevel(deck, 'other'),
     ),
     ...Array.from({ length: SAMPLE_SLOTS }, (_, slot) =>
       lit(
