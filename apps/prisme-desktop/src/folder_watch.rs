@@ -3,7 +3,7 @@
 //! A file whose change the library already knows of (tags Prisme wrote) is left alone.
 
 use crate::library_service::LibraryService;
-use notify::event::ModifyKind;
+use notify::event::{ModifyKind, RenameMode};
 use notify::{Event, EventKind, RecommendedWatcher, RecursiveMode, Watcher};
 use std::collections::BTreeSet;
 use std::path::{Path, PathBuf};
@@ -73,9 +73,12 @@ impl Changes {
         let visible =
             |path: &Path| !path.components().any(|c| c.as_os_str().to_string_lossy().starts_with('.'));
         for path in event.paths.into_iter().filter(|p| visible(p)) {
-            if matches!(event.kind, EventKind::Modify(ModifyKind::Data(_) | ModifyKind::Any))
-                && prisme_media::is_supported(&path)
-            {
+            // an audio file renamed over (as tags are written) is a change of content too
+            let rewritten = matches!(
+                event.kind,
+                EventKind::Modify(ModifyKind::Data(_) | ModifyKind::Any | ModifyKind::Name(RenameMode::To))
+            );
+            if rewritten && prisme_media::is_supported(&path) {
                 self.modified.insert(path);
                 continue;
             }
@@ -132,5 +135,14 @@ mod tests {
             changes.folders(known).into_iter().collect::<Vec<_>>(),
             [PathBuf::from("C:/Music/Techno")]
         );
+    }
+
+    #[test]
+    fn a_file_renamed_over_with_its_tags_written_is_a_known_change() {
+        let mut changes = Changes::default();
+        let renamed = |mode| EventKind::Modify(ModifyKind::Name(mode));
+        changes.add(event(renamed(RenameMode::From), &["C:/Music/House/.tagged.mp3.prisme-tags"]));
+        changes.add(event(renamed(RenameMode::To), &["C:/Music/House/tagged.mp3"]));
+        assert!(changes.folders(|file| file.ends_with("tagged.mp3")).is_empty());
     }
 }
