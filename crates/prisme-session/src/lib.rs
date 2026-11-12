@@ -1,35 +1,59 @@
 //! Persistent state stored as JSON files.
 //!
 //! Writes are atomic (temporary file, then rename), so a crash never leaves a
-//! half-written file. A file that cannot be read is set aside and replaced by the
-//! defaults rather than blocking the start.
+//! half-written file. A file that cannot be parsed is set aside and replaced by the
+//! defaults rather than blocking the start; one that another program keeps from being read
+//! (an antivirus, a backup) is left alone, the session going on without saving over it.
 
 use serde::de::DeserializeOwned;
 use serde::Serialize;
 use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::sync::{Mutex, MutexGuard};
+use std::time::Duration;
+
+/// Reads of a file another program holds: a scan by an antivirus takes a moment.
+const READ_TRIES: usize = 5;
+const READ_RETRY: Duration = Duration::from_millis(100);
 
 /// A value read from disk.
 #[derive(Debug)]
 pub struct Loaded<T> {
     pub value: T,
-    /// Where an unreadable file was moved, if there was one.
+    /// Where a file that could not be parsed was moved, if there was one.
     pub set_aside: Option<PathBuf>,
+    /// The file is there but could not be read: it must not be saved over.
+    pub held: bool,
 }
 
-/// Reads `path`; a missing file gives the default value.
+/// Reads `path`; a missing file gives the default value, and so does one that cannot be
+/// read (`held`).
 pub fn load<T: DeserializeOwned + Default>(path: &Path) -> Loaded<T> {
-    let text = match std::fs::read_to_string(path) {
+    let defaults = |held| Loaded { value: T::default(), set_aside: None, held };
+    let text = match read(path) {
         Ok(text) => text,
-        Err(_) => return Loaded { value: T::default(), set_aside: None },
+        Err(e) => return defaults(e.kind() != std::io::ErrorKind::NotFound),
     };
     match serde_json::from_str(&text) {
-        Ok(value) => Loaded { value, set_aside: None },
+        Ok(value) => Loaded { value, set_aside: None, held: false },
         Err(_) => {
             let backup = path.with_extension("unreadable.json");
             let set_aside = std::fs::rename(path, &backup).ok().map(|()| backup);
-            Loaded { value: T::default(), set_aside }
+            Loaded { set_aside, ..defaults(false) }
+        }
+    }
+}
+
+/// The text of `path`, tried again a few times while another program holds it.
+fn read(path: &Path) -> std::io::Result<String> {
+    let mut tries = 1;
+    loop {
+        match std::fs::read_to_string(path) {
+            Err(e) if e.kind() != std::io::ErrorKind::NotFound && tries < READ_TRIES => {
+                tries += 1;
+                std::thread::sleep(READ_RETRY);
+            }
+            read => return read,
         }
     }
 }
@@ -55,9 +79,12 @@ pub struct JsonFile<T> {
 }
 
 impl<T: Serialize + DeserializeOwned + Default + Clone> JsonFile<T> {
-    pub fn open(path: PathBuf) -> (Self, Option<PathBuf>) {
+    /// The value of `path`, saved there after every change unless the file could not be read
+    /// (`Loaded::held`); how it was read.
+    pub fn open(path: PathBuf) -> (Self, Loaded<()>) {
         let loaded = load(&path);
-        (Self { path: Some(path), value: Mutex::new(loaded.value) }, loaded.set_aside)
+        let file = Self { path: (!loaded.held).then_some(path), value: Mutex::new(loaded.value) };
+        (file, Loaded { value: (), set_aside: loaded.set_aside, held: loaded.held })
     }
 
     /// Kept in memory only (when the data folder is not available).
@@ -133,6 +160,20 @@ mod tests {
         let backup = loaded.set_aside.expect("set aside");
         assert_eq!(std::fs::read_to_string(backup).unwrap(), "{ not json");
         assert!(!path.exists());
+        std::fs::remove_dir_all(dir).ok();
+    }
+
+    #[test]
+    fn a_file_that_cannot_be_read_is_never_saved_over() {
+        let dir = temp_dir("held");
+        // a folder where the file should be: there, but not readable as a file
+        let path = dir.join("prefs.json");
+        std::fs::create_dir_all(&path).unwrap();
+        let (file, opened) = JsonFile::<Prefs>::open(path.clone());
+        assert!(opened.held && opened.set_aside.is_none());
+        let (_, saved) = file.update(|p| p.volume = 0.3);
+        saved.unwrap();
+        assert!(path.is_dir());
         std::fs::remove_dir_all(dir).ok();
     }
 

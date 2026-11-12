@@ -295,9 +295,12 @@ fn open_json<T: Serialize + DeserializeOwned + Default + Clone>(
     let Some(dir) = data_dir else {
         return JsonFile::in_memory(T::default());
     };
-    let (file, set_aside) = JsonFile::open(dir.join(name));
-    if let Some(path) = set_aside {
+    let (file, opened) = JsonFile::open(dir.join(name));
+    if let Some(path) = opened.set_aside {
         warn!("unreadable {name} moved to {}", path.display());
+    }
+    if opened.held {
+        error!("{name} could not be read: this session's changes to it are not saved");
     }
     file
 }
