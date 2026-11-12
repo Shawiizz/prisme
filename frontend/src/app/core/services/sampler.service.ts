@@ -7,7 +7,7 @@ import { EngineService } from './engine.service';
 /** What `prisme_media::decode_file` reads. */
 const AUDIO_FILES = {
   name: t('Audio'),
-  extensions: ['mp3', 'flac', 'wav', 'm4a', 'aac', 'mp4', 'ogg', 'oga'],
+  extensions: ['mp3', 'flac', 'wav', 'aif', 'aiff', 'm4a', 'aac', 'mp4', 'ogg', 'oga'],
 };
 
 /** Each deck's sampler: short sounds played from their start, on the beat with quantize. */

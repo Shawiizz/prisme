@@ -43,7 +43,8 @@ pub enum MediaError {
 pub use track::{LoadingTrack, TrackAudio, TrackView};
 
 /// Extensions of the files [`decode_file`] can read.
-pub const SUPPORTED_EXTENSIONS: &[&str] = &["mp3", "flac", "wav", "m4a", "aac", "mp4", "ogg", "oga"];
+pub const SUPPORTED_EXTENSIONS: &[&str] =
+    &["mp3", "flac", "wav", "aif", "aiff", "m4a", "aac", "mp4", "ogg", "oga"];
 
 /// Whether `path` has the extension of a file this crate can decode.
 pub fn is_supported(path: &Path) -> bool {
@@ -52,7 +53,7 @@ pub fn is_supported(path: &Path) -> bool {
         .is_some_and(|e| SUPPORTED_EXTENSIONS.contains(&e.to_ascii_lowercase().as_str()))
 }
 
-/// Decodes an audio file (MP3, AAC/M4A, FLAC, ALAC, OGG/Vorbis, WAV) into memory.
+/// Decodes an audio file (MP3, AAC/M4A, FLAC, ALAC, OGG/Vorbis, WAV, AIFF) into memory.
 /// Mono files are duplicated on both channels; extra channels are dropped.
 pub fn decode_file(path: &Path) -> Result<TrackAudio, MediaError> {
     let mut stream = DecodeStream::open(path)?;
@@ -213,6 +214,37 @@ mod tests {
         let _ = (std::fs::remove_file(&honest), std::fs::remove_file(&lying));
         assert_eq!(stream.unwrap().estimated_frames(), 0);
         assert_eq!(decoded.unwrap().frames(), 1000);
+    }
+
+    #[test]
+    fn an_aiff_file_decodes() {
+        let frames = 1000u32;
+        let mut comm = Vec::new();
+        comm.extend_from_slice(&2u16.to_be_bytes());
+        comm.extend_from_slice(&frames.to_be_bytes());
+        comm.extend_from_slice(&16u16.to_be_bytes());
+        // 44 100 as an 80-bit extended float
+        comm.extend_from_slice(&[0x40, 0x0e, 0xac, 0x44, 0, 0, 0, 0, 0, 0]);
+        let mut ssnd = vec![0u8; 8];
+        ssnd.extend((0..frames * 2).flat_map(|i| ((i % 100) as i16 * 100).to_be_bytes()));
+        let mut body = b"AIFF".to_vec();
+        for (id, chunk) in [(b"COMM", &comm), (b"SSND", &ssnd)] {
+            body.extend_from_slice(id);
+            body.extend_from_slice(&(chunk.len() as u32).to_be_bytes());
+            body.extend_from_slice(chunk);
+        }
+        let mut bytes = b"FORM".to_vec();
+        bytes.extend_from_slice(&(body.len() as u32).to_be_bytes());
+        bytes.extend(body);
+        let path = std::env::temp_dir().join(format!("prisme-media-{}.aiff", std::process::id()));
+        std::fs::write(&path, bytes).unwrap();
+        let decoded = decode_file(&path);
+        let _ = std::fs::remove_file(&path);
+        let track = decoded.unwrap();
+        assert!(is_supported(&path));
+        assert_eq!((track.sample_rate(), track.frames()), (44_100, 1000));
+        // frame 3 is samples 6 and 7
+        assert!((track.frame(3).0 - 600.0 / 32768.0).abs() < 1e-6);
     }
 
     #[test]
