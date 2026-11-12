@@ -93,12 +93,14 @@ fn start(state: &AppState, settings: &AudioSettings) -> AppResult<AudioInfo> {
         let _ = session.controller.send(Command::SetPlaying { deck, playing });
     }
     let info = session.info.clone();
+    // held from before the session is in place: a recording started on it meanwhile would
+    // have its writer, on the live engine, waited for by the resume
+    let mut recorder = lock(&state.recorder);
     *lock(&state.session) = Some(session);
     // a recording goes on, in a file of its own
-    if let Some(recorder) = lock(&state.recorder).as_mut() {
-        if let Err(e) = recorder.resume(state) {
-            error!("recording not resumed: {e}");
-        }
+    if let Some(Err(e)) = recorder.as_mut().map(|r| r.resume(state)) {
+        error!("recording ended, not resumed: {e}");
+        *recorder = None;
     }
     Ok(info)
 }

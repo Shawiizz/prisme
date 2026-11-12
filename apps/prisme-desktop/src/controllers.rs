@@ -220,7 +220,7 @@ impl Controllers {
                 (),
             )
             .map_err(midi_error)?;
-        let output = open_output(device);
+        let output = open_output(&port_name);
         let connection =
             Connection { device: device.to_owned(), port: port_name, _input: connection, output };
         lock(&self.connections).push(connection);

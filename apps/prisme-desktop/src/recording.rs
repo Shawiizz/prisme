@@ -121,9 +121,13 @@ fn begin(
     let sample_rate = state.sample_rate().ok_or(AppError::AudioNotRunning)?;
     let spec = WavSpec { channels: 2, sample_rate, bits_per_sample: 24, sample_format: SampleFormat::Int };
     let path = part_path(first, part.load(Ordering::Acquire));
-    let wav = WavWriter::create(path, spec).map_err(|e| AppError::Other(e.to_string()))?;
+    let wav = WavWriter::create(&path, spec).map_err(|e| AppError::Other(e.to_string()))?;
     let (sink, queue) = rtrb::RingBuffer::new(sample_rate as usize * 2 * QUEUE_S);
-    state.send(Command::StartRecording { source, sink })?;
+    if let Err(e) = state.send(Command::StartRecording { source, sink }) {
+        drop(wav);
+        let _ = std::fs::remove_file(&path);
+        return Err(e);
+    }
     let (stop, part, first) = (stop.clone(), part.clone(), first.to_owned());
     Ok(std::thread::Builder::new()
         .name("prisme-recording".into())
