@@ -22,11 +22,16 @@ impl MonoSignal {
     }
 }
 
-/// Mixes `track` down to mono and decimates it to about [`ANALYSIS_RATE`] (see
-/// [`Decimator`]).
-pub fn analysis_signal(track: &TrackAudio) -> MonoSignal {
+/// Mixes the first `seconds` of `track` down to mono and decimates them to about
+/// [`ANALYSIS_RATE`] (see [`Decimator`]).
+pub fn analysis_signal(track: &TrackAudio, seconds: f64) -> MonoSignal {
     let mut decimator = Decimator::new(track.sample_rate());
-    track.for_each_block(65_536, |block| decimator.push(block));
+    let mut room = 2 * (seconds * f64::from(track.sample_rate())) as usize;
+    track.for_each_block(65_536, |block| {
+        let taken = block.len().min(room);
+        decimator.push(&block[..taken]);
+        room -= taken;
+    });
     decimator.finish()
 }
 
@@ -202,6 +207,7 @@ impl Stft {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::MAX_ANALYSED_S;
 
     #[test]
     fn decimation_keeps_the_pitch_and_level() {
@@ -212,7 +218,7 @@ mod tests {
                 [v, v]
             })
             .collect();
-        let mono = analysis_signal(&TrackAudio::from_interleaved(sr, samples));
+        let mono = analysis_signal(&TrackAudio::from_interleaved(sr, samples), MAX_ANALYSED_S);
         assert_eq!(mono.sample_rate, 11_025.0);
 
         let mut stft = Stft::new(4096, 4096);
@@ -233,7 +239,7 @@ mod tests {
     fn streaming_gives_the_same_signal_whatever_the_chunks() {
         let samples: Vec<f32> = (0..100_003).map(|i| ((i * 7919) % 2001) as f32 / 1000.0 - 1.0).collect();
         let samples = &samples[..samples.len() / 2 * 2];
-        let whole = analysis_signal(&TrackAudio::from_interleaved(44_100, samples.to_vec()));
+        let whole = analysis_signal(&TrackAudio::from_interleaved(44_100, samples.to_vec()), MAX_ANALYSED_S);
         assert_eq!(whole.samples.len(), (samples.len() / 2).div_ceil(4));
 
         let mut d = Decimator::new(44_100);
@@ -257,10 +263,17 @@ mod tests {
                 [v, v]
             })
             .collect();
-        let mono = analysis_signal(&TrackAudio::from_interleaved(sr, samples));
+        let mono = analysis_signal(&TrackAudio::from_interleaved(sr, samples), MAX_ANALYSED_S);
         let rms = (mono.samples[100..mono.samples.len() - 100].iter().map(|x| x * x).sum::<f32>()
             / (mono.samples.len() - 200) as f32)
             .sqrt();
         assert!(rms < 0.01, "aliased rms {rms}");
+    }
+
+    #[test]
+    fn only_the_first_seconds_asked_are_taken() {
+        let track = TrackAudio::from_interleaved(44_100, vec![0.1; 44_100 * 2 * 3]);
+        let signal = analysis_signal(&track, 1.0);
+        assert!((signal.duration_s() - 1.0).abs() < 0.01, "{}", signal.duration_s());
     }
 }

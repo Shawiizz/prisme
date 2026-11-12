@@ -49,26 +49,34 @@ pub struct TrackAnalysis {
     pub key: Option<KeyEstimate>,
 }
 
+/// Tempo and key are taken from the first this many seconds of a track: a set recorded for
+/// an hour has no single tempo, and its whole signal would take hundreds of megabytes.
+pub const MAX_ANALYSED_S: f64 = 20.0 * 60.0;
+
 /// Tempo and key of a decoded track.
 pub fn analyze(track: &TrackAudio, options: &AnalysisOptions) -> TrackAnalysis {
-    analyze_signal(&dsp::analysis_signal(track), options)
+    analyze_signal(&dsp::analysis_signal(track, MAX_ANALYSED_S), options)
 }
 
 /// Tempo and key of a file, decoded on the fly: memory stays at the size of the
 /// decimated signal (~13 MB for 5 minutes) instead of the whole track.
 pub fn analyze_file(path: &Path, options: &AnalysisOptions) -> Result<FileAnalysis, MediaError> {
     let mut stream = DecodeStream::open(path)?;
+    let rate = f64::from(stream.sample_rate());
+    let analysed = (MAX_ANALYSED_S * rate) as usize;
     let mut decimator = dsp::Decimator::new(stream.sample_rate());
-    let mut chunk = Vec::new();
+    let (mut chunk, mut frames) = (Vec::new(), 0);
     while stream.next_chunk(&mut chunk)? {
-        decimator.push(&chunk);
+        let room = 2 * analysed.saturating_sub(frames);
+        decimator.push(&chunk[..chunk.len().min(room)]);
+        frames += chunk.len() / 2;
         chunk.clear();
     }
     let signal = decimator.finish();
     if signal.samples.is_empty() {
         return Err(MediaError::NoAudio);
     }
-    Ok(FileAnalysis { duration_s: signal.duration_s(), analysis: analyze_signal(&signal, options) })
+    Ok(FileAnalysis { duration_s: frames as f64 / rate, analysis: analyze_signal(&signal, options) })
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]

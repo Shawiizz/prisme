@@ -7,7 +7,7 @@
 
 use prisme_analysis::dsp::analysis_signal;
 use prisme_analysis::key::SpectralPeaks;
-use prisme_analysis::{KeyConfig, Profiles};
+use prisme_analysis::{KeyConfig, Profiles, MAX_ANALYSED_S};
 use std::sync::Mutex;
 
 fn main() {
@@ -29,7 +29,7 @@ fn main() {
             let tracks = &tracks;
             s.spawn(move || {
                 let audio = prisme_media::decode_file(file.as_ref()).expect("decodable track");
-                let peaks = SpectralPeaks::extract(&analysis_signal(&audio), 30.0, 4_000.0);
+                let peaks = SpectralPeaks::extract(&analysis_signal(&audio, MAX_ANALYSED_S), 30.0, 4_000.0);
                 tracks.lock().unwrap().push((file.clone(), keys.clone(), peaks));
             });
         }

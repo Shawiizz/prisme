@@ -7,7 +7,7 @@ use prisme_analysis::dsp::analysis_signal;
 use prisme_analysis::key::estimate_key;
 use prisme_analysis::onset::onset_envelopes;
 use prisme_analysis::tempo::estimate_tempo;
-use prisme_analysis::{analyze, compute_waveform, AnalysisOptions, DEFAULT_MIN_BPM};
+use prisme_analysis::{analyze, compute_waveform, AnalysisOptions, DEFAULT_MIN_BPM, MAX_ANALYSED_S};
 use prisme_media::TrackAudio;
 use std::f64::consts::TAU;
 
@@ -35,9 +35,9 @@ fn analysis(c: &mut Criterion) {
     let mut group = c.benchmark_group("track analysis");
     group.sample_size(20);
     group.bench_function("tempo and key, 3 min", |b| b.iter(|| analyze(&track, &AnalysisOptions::default())));
-    let signal = analysis_signal(&track);
+    let signal = analysis_signal(&track, MAX_ANALYSED_S);
     let envelopes = onset_envelopes(&signal);
-    group.bench_function("  mono 11 kHz", |b| b.iter(|| analysis_signal(&track)));
+    group.bench_function("  mono 11 kHz", |b| b.iter(|| analysis_signal(&track, MAX_ANALYSED_S)));
     group.bench_function("  onsets", |b| b.iter(|| onset_envelopes(&signal)));
     group.bench_function("  tempo", |b| b.iter(|| estimate_tempo(&envelopes, DEFAULT_MIN_BPM)));
     group.bench_function("  key", |b| b.iter(|| estimate_key(&signal)));
