@@ -22,6 +22,8 @@ use tracing::{error, warn};
 
 pub const TRACK_ANALYZED_EVENT: &str = "track-analyzed";
 pub const PROGRESS_EVENT: &str = "library-progress";
+/// How often a music folder that cannot be watched is tried again.
+const WATCH_RETRY: std::time::Duration = std::time::Duration::from_secs(30);
 
 pub struct LibraryService {
     pub db: Arc<LibraryDb>,
@@ -77,11 +79,32 @@ impl LibraryService {
         drop(previous);
     }
 
-    /// Analyses the files of the music folder as they appear or change.
+    /// Analyses the files of the music folder as they appear or change. The watch is set up
+    /// on a thread of its own, the window never waiting on the network (a NAS offline), and
+    /// again every half minute until the folder can be watched; the folder is then
+    /// scanned, as it could not be when it was away.
     pub fn watch(self: &Arc<Self>) {
-        match FolderWatch::start(self.app.clone(), self.clone(), &self.root) {
-            Ok(watch) => *lock(&self.watch) = Some(watch),
-            Err(e) => warn!("the music folder is not watched: {e}"),
+        let library = self.clone();
+        let spawned = std::thread::Builder::new().name("prisme-music-watch".into()).spawn(move || {
+            let mut away = false;
+            loop {
+                match FolderWatch::start(library.app.clone(), library.clone(), &library.root) {
+                    Ok(watch) => {
+                        *lock(&library.watch) = Some(watch);
+                        if away {
+                            library.start();
+                        }
+                        return;
+                    }
+                    Err(e) if !away => warn!("the music folder is not watched until it can be: {e}"),
+                    Err(_) => {}
+                }
+                away = true;
+                std::thread::sleep(WATCH_RETRY);
+            }
+        });
+        if let Err(e) = spawned {
+            error!("the music folder is not watched: {e}");
         }
     }
 
