@@ -24,6 +24,7 @@ import {
   decodeWaveform,
 } from '../models/engine';
 import { PreferencesService } from './preferences.service';
+import { Playhead, followPlayhead } from '../playhead';
 
 /** A deck this close to its cue point counts as sitting on it. */
 const CUE_TOLERANCE_S = 0.02;
@@ -69,15 +70,14 @@ export class EngineService {
   readonly audioRunning = computed(() => this.status()?.audioRunning ?? false);
 
   private readonly previewing = new Set<number>();
-  private latest: EngineStatus | null = null;
-  private latestAt = 0;
+  /** Where each deck's playhead was when, and its speed: what it is drawn from. */
+  private playheads: (Playhead | null)[] = [];
 
   /** Subscribes to the engine state; returns the mixer settings for the mixer service. */
   async connect(): Promise<MixerState> {
     const channel = new Channel<EngineStatus>();
     channel.onmessage = (s) => {
-      this.latest = s;
-      this.latestAt = performance.now();
+      this.playheads = s.decks.map((d, i) => followPlayhead(this.playheads[i] ?? null, d));
       this.status.set(s);
     };
     await invoke('subscribe_status', { channel });
@@ -109,10 +109,10 @@ export class EngineService {
    * two status updates.
    */
   livePosition(deck: number): number | null {
-    const d = this.latest?.decks[deck];
-    if (!d?.loaded) return null;
-    const elapsed = Math.min((performance.now() - this.latestAt) / 1000, 0.05);
-    return d.positionS + d.speed * elapsed;
+    const playhead = this.playheads[deck];
+    if (!playhead) return null;
+    const elapsed = Math.min((performance.now() - playhead.at) / 1000, 0.05);
+    return playhead.positionS + playhead.speed * elapsed;
   }
 
   /**
