@@ -18,7 +18,7 @@ use prisme_library::{
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 use tauri::{AppHandle, Emitter, Manager};
-use tracing::{error, warn};
+use tracing::{error, info, warn};
 
 pub const TRACK_ANALYZED_EVENT: &str = "track-analyzed";
 pub const PROGRESS_EVENT: &str = "library-progress";
@@ -80,9 +80,9 @@ impl LibraryService {
     }
 
     /// Analyses the files of the music folder as they appear or change. The watch is set up
-    /// on a thread of its own, the window never waiting on the network (a NAS offline), and
-    /// again every half minute until the folder can be watched; the folder is then
-    /// scanned, as it could not be when it was away.
+    /// on a thread of its own, the window never waiting on the network (a NAS offline). A
+    /// folder away (a NAS offline, a drive unplugged) is looked for every half minute; once
+    /// back, it is watched again and scanned, as it could not be meanwhile.
     pub fn watch(self: &Arc<Self>) {
         let library = self.clone();
         let spawned = std::thread::Builder::new().name("prisme-music-watch".into()).spawn(move || {
@@ -92,9 +92,16 @@ impl LibraryService {
                     Ok(watch) => {
                         *lock(&library.watch) = Some(watch);
                         if away {
+                            info!("the music folder is back");
                             library.start();
                         }
-                        return;
+                        // the watch of a folder that goes ends without a word
+                        while library.root.exists() {
+                            std::thread::sleep(WATCH_RETRY);
+                        }
+                        warn!("the music folder went away");
+                        let ended = lock(&library.watch).take();
+                        drop(ended);
                     }
                     Err(e) if !away => warn!("the music folder is not watched until it can be: {e}"),
                     Err(_) => {}
