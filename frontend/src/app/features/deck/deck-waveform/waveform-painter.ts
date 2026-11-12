@@ -32,7 +32,6 @@ class Palette {
   readonly high = this.token('--pr-f-high');
   readonly light = this.token('--pr-light');
   readonly base = this.token('--pr-base');
-  readonly void = this.token('--pr-void');
   readonly veil = this.token('--pr-light-veil');
   readonly onLight = this.token('--pr-on-light');
   readonly text = this.token('--pr-text');
@@ -181,7 +180,7 @@ export class WaveformPainter {
     ctx.fillRect(Math.floor(playedX) - view.ratio, 0, 2 * view.ratio, view.height);
   }
 
-  /** The audio from its tiles at `pxPerS`, what has played (left of the playhead) veiled. */
+  /** The audio from its tiles at `pxPerS`, what has played (left of the playhead) dimmed. */
   private drawZoomedAudio(ctx: CanvasRenderingContext2D, w: Waveform, view: View, pxPerS: number) {
     const cached = this.tiles;
     const tiles =
@@ -197,7 +196,7 @@ export class WaveformPainter {
     for (const k of tiles.images.keys()) {
       if (k < first - 1 || k > last + 1) tiles.images.delete(k);
     }
-    const width = (tileS / view.spanS) * view.width;
+    const visible: [OffscreenCanvas, number][] = [];
     for (let k = first; k <= last; k++) {
       let image = tiles.images.get(k);
       if (!image) {
@@ -206,12 +205,24 @@ export class WaveformPainter {
         this.drawColumns(image.getContext('2d')!, w, tile);
         tiles.images.set(k, image);
       }
-      ctx.drawImage(image, xOf(k * tileS, view), 0, width, view.height);
+      visible.push([image, Math.round(xOf(k * tileS, view))]);
     }
-    ctx.globalAlpha = 1 - PLAYED;
-    ctx.fillStyle = this.palette.void;
-    ctx.fillRect(0, 0, Math.round(view.width / 2), view.height);
-    ctx.globalAlpha = 1;
+    // whole columns copied, not blended across pixels as they scroll
+    ctx.imageSmoothingEnabled = false;
+    const width = Math.round((tileS / view.spanS) * view.width);
+    const playhead = Math.round(view.width / 2);
+    for (const [from, to, alpha] of [
+      [0, playhead, PLAYED],
+      [playhead, view.width, 1],
+    ]) {
+      ctx.save();
+      ctx.beginPath();
+      ctx.rect(from, 0, to - from, view.height);
+      ctx.clip();
+      ctx.globalAlpha = alpha;
+      for (const [image, x] of visible) ctx.drawImage(image, x, 0, width, view.height);
+      ctx.restore();
+    }
   }
 
   /** The loudest slice under each column of `view`, in its colour. */

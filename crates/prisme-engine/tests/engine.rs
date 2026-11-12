@@ -260,6 +260,25 @@ fn a_stem_muted_on_the_bar_inside_a_shorter_loop_waits_for_the_loop_to_go_round(
 }
 
 #[test]
+fn a_double_of_a_deck_in_a_roll_plays_on_where_the_roll_comes_back() {
+    let mut rig = Rig::new();
+    let track = sine_track(10.0, 0.6);
+    rig.send(Command::LoadTrack { deck: 0, track: track.clone() });
+    rig.send(Command::SetBeatGrid { deck: 0, grid: Some(BeatGrid { bpm: 120.0, first_beat_s: 0.0 }) });
+    rig.send(Command::SetPlaying { deck: 0, playing: true });
+    rig.run(1.0);
+    rig.send(Command::LoopRoll { deck: 0, beats: Some(0.125) });
+    rig.run(0.5);
+    rig.send(Command::LoadTrack { deck: 1, track });
+    rig.send(Command::TakePlace { deck: 1, from: 0 });
+    rig.run(0.25);
+    let (a, b) = (rig.deck(0), rig.deck(1));
+    let shadow = a.slip_position_s.expect("rolling");
+    assert!(!b.looping.active, "{b:?}");
+    assert!((b.position_s - shadow).abs() < 0.01, "{a:?} {b:?}");
+}
+
+#[test]
 fn a_deck_mutes_any_stem() {
     for key_lock in [false, true] {
         let mut rig = Rig::new();

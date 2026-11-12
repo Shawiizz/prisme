@@ -27,12 +27,15 @@ pub(crate) struct Place {
 }
 
 impl Deck {
+    /// Its place; during a roll or a censor, the one it comes back to, out of the roll's loop.
     pub(crate) fn place(&self) -> Place {
+        let t = &self.transport;
+        let passing = t.rolling || t.censoring;
         Place {
-            position_s: self.playhead.position_s(),
+            position_s: t.shadow_s.filter(|_| passing).unwrap_or(self.playhead.position_s()),
             playing: self.playing,
-            loop_region: self.transport.loop_region,
-            loop_active: self.transport.loop_active,
+            loop_region: t.loop_region.filter(|_| !t.rolling),
+            loop_active: t.loop_active && !t.rolling,
         }
     }
 
