@@ -13,10 +13,11 @@ use prisme_engine::{Command, RecordSource};
 use prisme_library::{HistoryPlay, LibraryDb};
 use std::fmt::Write as _;
 use std::path::{Path, PathBuf};
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::Arc;
 use std::thread::JoinHandle;
 use std::time::{Duration, Instant};
+use tracing::warn;
 
 /// What the queue holds if the writer stalls (seconds).
 const QUEUE_S: usize = 4;
@@ -30,17 +31,17 @@ const MAX_FILE_BYTES: u64 = 4_000_000_000;
 const FLUSH_EVERY: Duration = Duration::from_secs(1);
 
 pub struct Recorder {
+    /// The first file: the others are named after it.
     path: PathBuf,
-    sample_rate: u32,
+    source: RecordSource,
     started_at_ms: i64,
     stop: Arc<AtomicBool>,
-    writer: JoinHandle<Result<Written, hound::Error>>,
-}
-
-/// What the writer wrote: frames, in how many files.
-struct Written {
-    frames: u64,
-    parts: usize,
+    /// The writer of the current audio session.
+    writer: Option<JoinHandle<Result<f64, hound::Error>>>,
+    /// Seconds the writers of earlier audio sessions wrote.
+    earlier_s: f64,
+    /// The last file written in, by its number (1: the first).
+    part: Arc<AtomicUsize>,
 }
 
 /// What a finished recording holds.
@@ -53,27 +54,32 @@ pub struct RecordingSummary {
 impl Recorder {
     /// Starts recording `source` into a new file in `folder`, named after the local time.
     pub fn start(state: &AppState, source: RecordSource, folder: &Path) -> AppResult<Self> {
-        let sample_rate = state.sample_rate().ok_or(AppError::AudioNotRunning)?;
         std::fs::create_dir_all(folder)?;
         let path = folder.join(format!("Prisme {}.wav", chrono::Local::now().format(FILE_TIME)));
-        let spec =
-            WavSpec { channels: 2, sample_rate, bits_per_sample: 24, sample_format: SampleFormat::Int };
-        let wav = WavWriter::create(&path, spec).map_err(|e| AppError::Other(e.to_string()))?;
-        let (sink, queue) = rtrb::RingBuffer::new(sample_rate as usize * 2 * QUEUE_S);
-        state.send(Command::StartRecording { source, sink })?;
-        let stop = Arc::new(AtomicBool::new(false));
-        let writer = {
-            let (stop, path) = (stop.clone(), path.clone());
-            std::thread::Builder::new()
-                .name("prisme-recording".into())
-                .spawn(move || write(queue, wav, &stop, &path, spec, MAX_FILE_BYTES))
-                .expect("cannot start the recording thread")
-        };
-        Ok(Self { path, sample_rate, started_at_ms: prisme_library::now_ms(), stop, writer })
+        let (stop, part) = (Arc::new(AtomicBool::new(false)), Arc::new(AtomicUsize::new(1)));
+        let writer = begin(state, source, &path, &part, &stop)?;
+        let started_at_ms = prisme_library::now_ms();
+        Ok(Self { path, source, started_at_ms, stop, writer: Some(writer), earlier_s: 0.0, part })
     }
 
     pub fn path(&self) -> &Path {
         &self.path
+    }
+
+    /// Goes on recording from a new audio session, the old one gone with its engine: in the
+    /// next file, at the new session's rate.
+    pub fn resume(&mut self, state: &AppState) -> AppResult<()> {
+        if let Some(ended) = self.writer.take() {
+            // the old engine is gone: its writer ends once it has written what it queued
+            match ended.join() {
+                Ok(Ok(seconds)) => self.earlier_s += seconds,
+                Ok(Err(e)) => warn!("recording cut short: {e}"),
+                Err(_) => warn!("the recording thread failed"),
+            }
+        }
+        self.part.fetch_add(1, Ordering::AcqRel);
+        self.writer = Some(begin(state, self.source, &self.path, &self.part, &self.stop)?);
+        Ok(())
     }
 
     /// Ends the file and writes the tracklist of what was played since the start.
@@ -83,42 +89,63 @@ impl Recorder {
             Err(e) => return Err(e),
         }
         self.stop.store(true, Ordering::Release);
-        let written = self
-            .writer
-            .join()
-            .map_err(|_| AppError::Other("the recording thread failed".into()))?
-            .map_err(|e| AppError::Other(e.to_string()))?;
+        let last_s = match self.writer {
+            Some(writer) => writer
+                .join()
+                .map_err(|_| AppError::Other("the recording thread failed".into()))?
+                .map_err(|e| AppError::Other(e.to_string()))?,
+            None => 0.0,
+        };
         let plays = db.plays_since(self.started_at_ms)?;
         let file_name = self.path.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
         std::fs::write(self.path.with_extension("txt"), tracklist_text(&plays, self.started_at_ms))?;
         // a sheet holds the tracks of one file
-        if written.parts == 1 {
+        if self.part.load(Ordering::Acquire) == 1 {
             std::fs::write(
                 self.path.with_extension("cue"),
                 cue_sheet(&plays, self.started_at_ms, &file_name),
             )?;
         }
-        Ok(RecordingSummary {
-            seconds: written.frames as f64 / self.sample_rate as f64,
-            tracks: plays.len(),
-            path: self.path,
-        })
+        Ok(RecordingSummary { seconds: self.earlier_s + last_s, tracks: plays.len(), path: self.path })
     }
 }
 
-/// Writes what the engine queues to `wav` (the file at `first`) until stopped: the header up
-/// to date every second, the next part in a file of its own past `max_bytes` of audio.
+/// Has the engine queue `source` to a writer of the recording at `first`, from file `part`.
+fn begin(
+    state: &AppState,
+    source: RecordSource,
+    first: &Path,
+    part: &Arc<AtomicUsize>,
+    stop: &Arc<AtomicBool>,
+) -> AppResult<JoinHandle<Result<f64, hound::Error>>> {
+    let sample_rate = state.sample_rate().ok_or(AppError::AudioNotRunning)?;
+    let spec = WavSpec { channels: 2, sample_rate, bits_per_sample: 24, sample_format: SampleFormat::Int };
+    let path = part_path(first, part.load(Ordering::Acquire));
+    let wav = WavWriter::create(path, spec).map_err(|e| AppError::Other(e.to_string()))?;
+    let (sink, queue) = rtrb::RingBuffer::new(sample_rate as usize * 2 * QUEUE_S);
+    state.send(Command::StartRecording { source, sink })?;
+    let (stop, part, first) = (stop.clone(), part.clone(), first.to_owned());
+    Ok(std::thread::Builder::new()
+        .name("prisme-recording".into())
+        .spawn(move || write(queue, wav, &stop, &first, &part, spec, MAX_FILE_BYTES))
+        .expect("cannot start the recording thread"))
+}
+
+/// Writes what the engine queues to `wav` (file `part` of the recording at `first`) until
+/// stopped or the engine is gone: the header up to date every second, the next part in a
+/// file of its own past `max_bytes` of audio. The seconds written.
 fn write(
     mut queue: rtrb::Consumer<f32>,
     mut wav: WavWriter<std::io::BufWriter<std::fs::File>>,
     stop: &AtomicBool,
     first: &Path,
+    part: &AtomicUsize,
     spec: WavSpec,
     max_bytes: u64,
-) -> Result<Written, hound::Error> {
+) -> Result<f64, hound::Error> {
     let channels = u64::from(spec.channels);
     let samples_per_file = max_bytes / u64::from(spec.bits_per_sample / 8) / channels * channels;
-    let (mut samples, mut in_file, mut parts) = (0u64, 0u64, 1);
+    let (mut samples, mut in_file) = (0u64, 0u64);
     let mut flushed = Instant::now();
     loop {
         let available = queue.slots();
@@ -134,8 +161,8 @@ fn write(
         for sample in chunk {
             // a file ends on a whole frame
             if in_file == samples_per_file {
-                parts += 1;
-                let next = WavWriter::create(part_path(first, parts), spec)?;
+                let next = part.fetch_add(1, Ordering::AcqRel) + 1;
+                let next = WavWriter::create(part_path(first, next), spec)?;
                 std::mem::replace(&mut wav, next).finalize()?;
                 in_file = 0;
             }
@@ -149,11 +176,14 @@ fn write(
         }
     }
     wav.finalize()?;
-    Ok(Written { frames: samples / channels, parts })
+    Ok((samples / channels) as f64 / f64::from(spec.sample_rate))
 }
 
 /// The file of part `part` of the recording at `first`: `first` itself, then `… 2.wav`.
 fn part_path(first: &Path, part: usize) -> PathBuf {
+    if part == 1 {
+        return first.to_owned();
+    }
     let stem = first.file_stem().map(|s| s.to_string_lossy().into_owned()).unwrap_or_default();
     first.with_file_name(format!("{stem} {part}.wav"))
 }
@@ -259,8 +289,10 @@ mod tests {
         drop(sink);
         let wav = WavWriter::create(&first, spec).unwrap();
         // 4 frames of 6 bytes a file
-        let written = write(queue, wav, &AtomicBool::new(true), &first, spec, 24).unwrap();
-        assert_eq!((written.frames, written.parts), (10, 3));
+        let part = AtomicUsize::new(1);
+        let seconds = write(queue, wav, &AtomicBool::new(true), &first, &part, spec, 24).unwrap();
+        assert_eq!(part.load(Ordering::Acquire), 3);
+        assert!((seconds - 10.0 / 48_000.0).abs() < 1e-12);
         let frames: Vec<u32> = [first.clone(), dir.join("set 2.wav"), dir.join("set 3.wav")]
             .iter()
             .map(|p| hound::WavReader::open(p).unwrap().duration())

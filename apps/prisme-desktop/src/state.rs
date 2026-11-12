@@ -182,6 +182,8 @@ pub struct AppState {
     pub decks: Mutex<[DeckSettings; DECKS]>,
     pub crossfader: Mutex<f32>,
     pub recorder: Mutex<Option<Recorder>>,
+    /// Held while the audio starts: the watchdog and the user never start it at once.
+    pub audio_start: Mutex<()>,
     pub samplers: Mutex<Samplers>,
 }
 
@@ -201,6 +203,7 @@ impl AppState {
             decks: Mutex::new(saved.map(DeckSettings::from)),
             crossfader: Mutex::new(0.0),
             recorder: Mutex::new(None),
+            audio_start: Mutex::new(()),
             samplers: Mutex::default(),
         }
     }

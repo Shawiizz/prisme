@@ -4,7 +4,7 @@
 //! because the interface was off), and starts it when devices appear if there was none.
 
 use crate::audio_host::devices_available;
-use crate::commands::audio::start_audio;
+use crate::commands::audio::{start_audio, start_audio_unless_running};
 use crate::dto::AudioSettings;
 use crate::state::{lock, AppState};
 use prisme_audio_io::system_devices;
@@ -38,6 +38,8 @@ pub fn start(app: AppHandle) {
             let mut last_look = Instant::now();
             let mut devices: Option<Vec<String>> = None;
             let mut looks_left = 0;
+            // no audio since the last check: tried at once, then when devices change
+            let mut silent = false;
             loop {
                 std::thread::sleep(CHECK);
                 let session = lock(&state.session)
@@ -45,12 +47,17 @@ pub fn start(app: AppHandle) {
                     .map(|s| (s.device_lost(), s.engine_failed(), s.periods(), s.settings.clone()));
                 let Some((lost, failed, periods, settings)) = session else {
                     last_periods = None;
+                    if !silent {
+                        silent = true;
+                        devices = None;
+                    }
                     if last_look.elapsed() >= RETRY {
                         last_look = Instant::now();
                         start_when_devices_change(&state, &app, &mut devices);
                     }
                     continue;
                 };
+                silent = false;
                 if lost {
                     info!("audio device lost, waiting for it to come back");
                     recover(&state, &settings);
@@ -133,8 +140,10 @@ fn start_when_devices_change(state: &AppState, app: &AppHandle, devices: &mut Op
     *devices = Some(now);
     let saved = state.preferences.get().audio;
     let defaults = AudioSettings { simulate: saved.simulate, ..Default::default() };
-    if start_audio(state, &saved).or_else(|_| start_audio(state, &defaults)).is_ok() {
-        info!("audio started on the devices that appeared");
+    let started =
+        start_audio_unless_running(state, &saved).or_else(|_| start_audio_unless_running(state, &defaults));
+    if let Ok(Some(_)) = started {
+        info!("audio started on the devices there are");
         let _ = app.emit(AUDIO_CHANGED_EVENT, ());
     }
 }
@@ -149,14 +158,13 @@ fn recover(state: &AppState, settings: &AudioSettings) {
     let mut told = String::new();
     for wait in waits {
         std::thread::sleep(wait);
-        if lock(&state.session).as_ref().is_some_and(|s| !s.device_lost()) {
-            return;
-        }
-        match start_audio(state, settings) {
-            Ok(_) => {
+        match start_audio_unless_running(state, settings) {
+            Ok(Some(_)) => {
                 info!("audio device back");
                 return;
             }
+            // other settings run it: the user picked other devices
+            Ok(None) => return,
             Err(e) => {
                 let reason = e.to_string();
                 if reason != told {

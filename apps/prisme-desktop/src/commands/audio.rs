@@ -5,6 +5,7 @@ use crate::state::{lock, AppState};
 use prisme_audio_io::{Backend, DeviceKind};
 use prisme_engine::Command;
 use tauri::State;
+use tracing::error;
 
 /// Backends this computer offers (ASIO only with an ASIO driver installed).
 #[tauri::command]
@@ -57,6 +58,24 @@ pub fn apply_audio_settings(state: State<'_, AppState>, settings: AudioSettings)
 
 /// (Re)starts the audio and restores the decks where they were, playing if they were.
 pub fn start_audio(state: &AppState, settings: &AudioSettings) -> AppResult<AudioInfo> {
+    let _starting = lock(&state.audio_start);
+    start(state, settings)
+}
+
+/// Starts the audio with `settings` unless it runs (started by the user meanwhile, on other
+/// devices): the watchdog's way to bring it back. `None` if it ran.
+pub fn start_audio_unless_running(
+    state: &AppState,
+    settings: &AudioSettings,
+) -> AppResult<Option<AudioInfo>> {
+    let _starting = lock(&state.audio_start);
+    if lock(&state.session).as_ref().is_some_and(|s| !s.device_lost()) {
+        return Ok(None);
+    }
+    start(state, settings).map(Some)
+}
+
+fn start(state: &AppState, settings: &AudioSettings) -> AppResult<AudioInfo> {
     let transport = state.transport_snapshot();
     // the device may not open twice; closed outside the lock, as it waits for the audio thread
     let previous = lock(&state.session).take();
@@ -75,5 +94,11 @@ pub fn start_audio(state: &AppState, settings: &AudioSettings) -> AppResult<Audi
     }
     let info = session.info.clone();
     *lock(&state.session) = Some(session);
+    // a recording goes on, in a file of its own
+    if let Some(recorder) = lock(&state.recorder).as_mut() {
+        if let Err(e) = recorder.resume(state) {
+            error!("recording not resumed: {e}");
+        }
+    }
     Ok(info)
 }
