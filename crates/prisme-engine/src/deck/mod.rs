@@ -1,6 +1,7 @@
 //! A deck: a track, a playhead and what drives it (internal play, the record, or a hand
 //! on the screen).
 
+mod bar_mix;
 mod hand;
 mod jog;
 mod transport;
@@ -11,10 +12,12 @@ use crate::keylock::KeyLock;
 use crate::playhead::Playhead;
 use crate::sampler::Sampler;
 use crate::status::{DeckStatus, LoopStatus, SyncStatus};
+use crate::stems::StemMix;
 use crate::strip::ChannelStrip;
 use crate::sync::{self, DeckSync, LeaderBeat, SyncTarget};
 use crate::tempo::PlatterTempo;
 use crate::vinyl::{VinylControl, VinylDrive};
+use bar_mix::BarMix;
 use hand::{Hand, Step};
 use jog::{Jog, Turn};
 use prisme_dsp::{Beat, FxSlot, Smoothed};
@@ -33,6 +36,8 @@ const MAX_CORRECTION_PER_SPEED: f64 = 0.5;
 const STILL_SPEED: f64 = 0.02;
 /// How fast the level of a track glides to its auto gain (s): no click when it comes.
 const LEVEL_GLIDE_S: f32 = 0.05;
+/// Stem changes on the bar wait for the next group of this many beats.
+const BEATS_PER_BAR: f64 = 4.0;
 /// How fast the track fades with the motion (s).
 const MOTION_FADE_S: f32 = 0.005;
 
@@ -67,6 +72,8 @@ pub(crate) struct Deck {
     motion: Smoothed,
     /// Gain bringing the track to the level of the others (1 without auto gain).
     pub(crate) level: Smoothed,
+    /// The stem mix, and its changes waiting for a bar.
+    bar_mix: BarMix,
 }
 
 impl Deck {
@@ -95,7 +102,24 @@ impl Deck {
             jog: Jog::default(),
             motion: Smoothed::new(0.0, MOTION_FADE_S, sample_rate as f32),
             level: Smoothed::new(1.0, LEVEL_GLIDE_S, sample_rate as f32),
+            bar_mix: BarMix::default(),
         }
+    }
+
+    /// Plays the parts of the track as `mix` says: the parts it changes from the next bar if
+    /// `on_bar` and the deck moves forward with a beat grid, else at once.
+    pub(crate) fn set_stem_mix(&mut self, mix: StemMix, on_bar: bool) {
+        let bar_s = (on_bar && self.speed > STILL_SPEED).then(|| self.next_bar_s()).flatten();
+        let playing = self.bar_mix.ask(mix, bar_s);
+        self.playhead.set_stem_mix(playing);
+    }
+
+    /// The start of the next bar after the playhead, by the beat grid.
+    fn next_bar_s(&self) -> Option<f64> {
+        let grid = self.grid?;
+        let bar_s = BEATS_PER_BAR * grid.beat_period_s();
+        let bars = ((self.playhead.position_s() - grid.first_beat_s) / bar_s).floor() + 1.0;
+        Some(grid.first_beat_s + bars * bar_s)
     }
 
     /// Renders one block from the turntable signal `input`; `target` is given when the
@@ -123,6 +147,9 @@ impl Deck {
         };
         self.jog.fade(seconds);
         let speed = if self.transport.censoring { -speed } else { speed };
+        if let Some(mix) = self.bar_mix.follow(playhead_s, seconds * speed.max(0.0), self.next_bar_s()) {
+            self.playhead.set_stem_mix(mix);
+        }
         if (self.key_lock_enabled || self.key_lock.key_shift() != 0) && KeyLock::applies(speed) {
             self.playhead.render_key_locked(&mut self.key_lock, out, out_rate, speed);
         } else {
@@ -414,6 +441,7 @@ impl Deck {
             cue: self.cue,
             slip_mode: self.transport.slip_mode,
             slip_position_s: self.transport.shadow_s,
+            stems_waiting: self.bar_mix.waiting(),
             vinyl: self.vinyl.status(),
         }
     }

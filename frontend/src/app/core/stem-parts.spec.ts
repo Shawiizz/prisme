@@ -1,5 +1,5 @@
 import { FULL_MIX, StemMix } from './models/stems';
-import { hasPart, partLevel, partPlaying, setPartLevel, togglePart } from './stem-parts';
+import { hasPart, partIn, partLevel, partPlaying, setPartLevel, togglePart } from './stem-parts';
 
 const ALL = FULL_MIX;
 const off = { level: 1, on: false };
@@ -46,5 +46,15 @@ describe('stem parts', () => {
     expect([low.drums.level, low.bass.level, low.other.level, low.vocals.level]).toEqual([
       0.25, 0.25, 0.25, 1,
     ]);
+  });
+});
+
+describe('partIn', () => {
+  it('reads the engine bits, the instrumental by any of its instruments', () => {
+    expect(partIn(0b0001, 'vocals')).toBe(true);
+    expect(partIn(0b0001, 'drums')).toBe(false);
+    expect(partIn(0b0100, 'bass')).toBe(true);
+    expect(partIn(0b1000, 'instrumental')).toBe(true);
+    expect(partIn(0b0001, 'instrumental')).toBe(false);
   });
 });

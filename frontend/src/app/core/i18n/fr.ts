@@ -457,7 +457,8 @@ export const FR: Record<string, string> = {
   'Every track plays at the same loudness, measured as it loads: no trim to touch between a quiet one and a loud one.':
     'Chaque morceau joue au même volume, mesuré au chargement : plus de gain à retoucher entre un morceau calme et un fort.',
   Quantize: 'Quantize',
-  'Cues, loops and jumps land on the beat.': 'Cues, boucles et sauts tombent sur le temps.',
+  'Cues, loops and jumps land on the beat; stems are cut and brought back on the bar.':
+    'Cues, boucles et sauts tombent sur le temps ; les stems se coupent et reviennent sur la mesure.',
   'The interface starts again in it.': "L'interface redémarre dans cette langue.",
   Version: 'Version',
   'Prisme is free software, under the GNU GPL v3.':

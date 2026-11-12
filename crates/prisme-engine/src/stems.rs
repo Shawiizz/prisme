@@ -48,6 +48,17 @@ pub struct StemMix {
     pub other: f32,
 }
 
+impl StemMix {
+    /// The gains of the vocals, drums, bass and other instruments.
+    pub(crate) fn parts(self) -> [f32; 4] {
+        [self.vocals, self.drums, self.bass, self.other]
+    }
+
+    pub(crate) fn from_parts([vocals, drums, bass, other]: [f32; 4]) -> Self {
+        Self { vocals, drums, bass, other }
+    }
+}
+
 impl Default for StemMix {
     fn default() -> Self {
         Self { vocals: 1.0, drums: 1.0, bass: 1.0, other: 1.0 }

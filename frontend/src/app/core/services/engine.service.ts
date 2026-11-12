@@ -160,7 +160,9 @@ export class EngineService {
     if (!track || !hasPart(track.separation, part)) return;
     const stemMix = togglePart(track.stemMix, part);
     this.patch(this.tracks, deck, { ...track, stemMix });
-    return this.call('set_stem_mix', { deck, mix: stemMix });
+    // with quantize, on the next bar
+    const onBar = this.preferences.dj().quantize;
+    return this.call('set_stem_mix', { deck, mix: stemMix, onBar });
   }
 
   /** Sets how loud a part of the track on `deck` plays (0 to 1, until the next load). */
@@ -169,7 +171,7 @@ export class EngineService {
     if (!track || !hasPart(track.separation, part)) return;
     const stemMix = setPartLevel(track.stemMix, part, level);
     this.patch(this.tracks, deck, { ...track, stemMix });
-    return this.call('set_stem_mix', { deck, mix: stemMix });
+    return this.call('set_stem_mix', { deck, mix: stemMix, onBar: false });
   }
 
   setKeyLock(deck: number, enabled: boolean) {

@@ -146,7 +146,9 @@ export const SETTINGS: readonly SettingEntry[] = [
     id: 'dj.quantize',
     page: 'dj',
     label: t('Quantize'),
-    description: t('Cues, loops and jumps land on the beat.'),
+    description: t(
+      'Cues, loops and jumps land on the beat; stems are cut and brought back on the bar.',
+    ),
   },
   {
     id: 'dj.autoGain',

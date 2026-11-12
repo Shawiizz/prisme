@@ -248,7 +248,7 @@ impl Engine {
                     self.discard(Garbage::Track(garbage));
                 }
             }
-            SetStemMix { deck, mix } if valid(deck) => self.decks[deck].playhead.set_stem_mix(mix),
+            SetStemMix { deck, mix, on_bar } if valid(deck) => self.decks[deck].set_stem_mix(mix, on_bar),
             SetPlaying { deck, playing } if valid(deck) => self.decks[deck].playing = playing,
             SetPitch { deck, ratio } if valid(deck) => self.decks[deck].pitch = ratio,
             SetPitchBend { deck, amount } if valid(deck) => self.decks[deck].bend = amount,

@@ -123,7 +123,7 @@ impl LoadedTrack {
             Command::SetBeatGrid { deck, grid: self.grid() },
             Command::SetKeyShift { deck, semitones: self.key_shift },
             Command::SetStems { deck, stems: self.stems.clone() },
-            Command::SetStemMix { deck, mix: self.stem_mix.into() },
+            Command::SetStemMix { deck, mix: self.stem_mix.into(), on_bar: false },
             Command::SetLevel { deck, gain: self.level(auto_gain) },
         ]
     }

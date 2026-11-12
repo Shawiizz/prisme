@@ -8,7 +8,7 @@ import { formatPitch } from '../../../shared/time';
 import { t } from '../../../core/i18n/i18n';
 import { TPipe } from '../../../core/i18n/t.pipe';
 import { Fader } from '../../../shared/fader/fader';
-import { StemPart, partLevel, partPlaying } from '../../../core/stem-parts';
+import { StemPart, partIn, partLevel, partPlaying } from '../../../core/stem-parts';
 import { Knob } from '../../../shared/knob/knob';
 import { StemsService } from '../../../core/services/stems.service';
 
@@ -46,12 +46,14 @@ export class DeckControls {
    * its name muting it at its level. */
   protected readonly stemKnobs = computed(() => {
     const mix = this.track()?.stemMix;
+    const waiting = this.engine.status()?.decks[this.deck()]?.stemsWaiting ?? 0;
     const knob = (part: StemPart, label: string, title: string) => ({
       part,
       label,
       title,
       level: mix ? partLevel(mix, part) : 1,
       on: !mix || partPlaying(mix, part),
+      waiting: partIn(waiting, part),
     });
     return this.separation() === 'full'
       ? [

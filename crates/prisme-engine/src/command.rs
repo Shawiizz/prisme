@@ -70,7 +70,10 @@ pub enum Command {
         stems: StemTracks,
     },
     /// Which stems the deck plays (all again when a track is loaded).
+    /// How the deck plays each part of the track; the parts it changes from the next bar if
+    /// `on_bar` and the deck moves forward with a beat grid, else at once.
     SetStemMix {
+        on_bar: bool,
         deck: DeckId,
         mix: StemMix,
     },

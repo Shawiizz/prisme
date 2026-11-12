@@ -57,6 +57,8 @@ export interface DeckStatus {
   vinyl: VinylStatus;
   /** Sampler slots playing, one bit per slot. */
   samplesPlaying: number;
+  /** The stems whose change waits for the next bar, a bit each: vocals, drums, bass, other. */
+  stemsWaiting: number;
 }
 
 export interface Cue {

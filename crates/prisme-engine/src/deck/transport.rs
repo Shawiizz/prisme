@@ -28,6 +28,7 @@ impl Deck {
         self.playhead.set_loop(None);
         self.jog = Default::default();
         self.hand = None;
+        self.bar_mix.reset();
     }
 
     pub(crate) fn set_loop(&mut self, region: Option<LoopRegion>, active: bool) {

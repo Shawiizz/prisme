@@ -3,7 +3,7 @@
 mod common;
 
 use common::{silent_track, sine_track, Rig, SR};
-use prisme_engine::{Command, Rpm, StemMix, VinylMode};
+use prisme_engine::{BeatGrid, Command, Rpm, StemMix, VinylMode};
 use prisme_timecode::{DecoderConfig, TimecodeDecoder, SERATO_CV02_A};
 
 #[test]
@@ -200,6 +200,28 @@ fn a_double_plays_from_where_its_source_is() {
 }
 
 #[test]
+fn a_stem_muted_on_the_bar_waits_for_it() {
+    let mut rig = Rig::new();
+    rig.send(Command::LoadTrack { deck: 0, track: sine_track(10.0, 0.6) });
+    rig.send(Command::SetStems { deck: 0, stems: [Some(sine_track(10.0, 0.6)), None, None] });
+    // a bar every 2 s
+    rig.send(Command::SetBeatGrid { deck: 0, grid: Some(BeatGrid { bpm: 120.0, first_beat_s: 0.0 }) });
+    rig.send(Command::SetPlaying { deck: 0, playing: true });
+    rig.run(0.5);
+    let full = rig.run_rms(0.25);
+    let muted = StemMix { vocals: 0.0, ..StemMix::default() };
+    rig.send(Command::SetStemMix { deck: 0, mix: muted, on_bar: true });
+    rig.run(0.25);
+    assert_eq!(rig.deck(0).stems_waiting, 0b0001);
+    let waiting = rig.run_rms(0.9);
+    assert!((waiting / full - 1.0).abs() < 1e-3, "{waiting} / {full}");
+    rig.run(0.2);
+    let d = rig.deck(0);
+    assert!(d.stems_waiting == 0 && d.position_s > 2.0, "{d:?}");
+    assert!(rig.run_rms(0.25) < full * 1e-3);
+}
+
+#[test]
 fn a_deck_mutes_any_stem() {
     for key_lock in [false, true] {
         let mut rig = Rig::new();
@@ -212,7 +234,7 @@ fn a_deck_mutes_any_stem() {
         let both = rig.run_rms(0.5);
         assert!(both > 0.05, "{both}");
         let level = |rig: &mut Rig, mix: StemMix| {
-            rig.send(Command::SetStemMix { deck: 0, mix });
+            rig.send(Command::SetStemMix { deck: 0, mix, on_bar: false });
             rig.run(0.5);
             rig.run_rms(0.5) / both
         };

@@ -51,6 +51,7 @@
       @for (k of stemKnobs(); track k.part) {
         <app-knob
           small
+          [class.waiting]="k.waiting"
           [dimmed]="!k.on"
           [value]="k.level"
           [defaultValue]="1"

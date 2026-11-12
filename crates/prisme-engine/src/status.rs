@@ -67,6 +67,8 @@ pub struct DeckStatus {
     pub slip_mode: bool,
     /// Where the track would be without the loop, roll or censor in progress.
     pub slip_position_s: Option<f64>,
+    /// The parts whose change waits for the next bar, a bit each: vocals, drums, bass, other.
+    pub stems_waiting: u8,
     pub vinyl: VinylStatus,
 }
 
@@ -87,6 +89,7 @@ impl Default for DeckStatus {
             cue: false,
             slip_mode: false,
             slip_position_s: None,
+            stems_waiting: 0,
             vinyl: VinylStatus {
                 enabled: false,
                 mode: VinylMode::Absolute,
