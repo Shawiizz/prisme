@@ -52,8 +52,12 @@ impl Conditioner {
         }
     }
 
-    /// `p_in` / `s_in`: primary and secondary channel samples, full scale = 1.0.
+    /// `p_in` / `s_in`: primary and secondary channel samples, full scale = 1.0. A sample
+    /// that is not a number (a device in floating point can send one) counts as silence:
+    /// kept, it would stay in the filters for good.
     pub(crate) fn process(&mut self, p_in: f64, s_in: f64) -> Conditioned {
+        let finite = |x: f64| if x.is_finite() { x } else { 0.0 };
+        let (p_in, s_in) = (finite(p_in), finite(s_in));
         self.dc_p += self.dc_alpha * (p_in - self.dc_p);
         self.dc_s += self.dc_alpha * (s_in - self.dc_s);
         let p = p_in - self.dc_p;

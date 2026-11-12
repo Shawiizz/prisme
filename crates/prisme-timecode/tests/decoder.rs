@@ -304,3 +304,23 @@ fn a_position_is_never_stale_after_the_signal_was_lost() {
         },
     );
 }
+
+#[test]
+fn a_sample_that_is_not_a_number_is_passed_over() {
+    let format = &SERATO_CV02_A;
+    let mut generator = SignalGenerator::new(format, SR, 5_000.0, 60_000.0);
+    let mut decoder = TimecodeDecoder::new(DecoderConfig { format, sample_rate: SR, swap_channels: false });
+    let mut buf = Vec::with_capacity(BLOCK * 2);
+    for block in 0..(SR as usize / BLOCK) {
+        buf.clear();
+        generator.render(BLOCK, |_| 1.0, &mut buf);
+        if block == 100 {
+            buf[10] = f32::NAN;
+            buf[11] = f32::INFINITY;
+        }
+        decoder.process(&buf);
+    }
+    let position = decoder.position_ms().expect("locked again");
+    assert!((position - generator.position_ms()).abs() < 5.0, "{position}");
+    assert!((decoder.speed() - 1.0).abs() < 0.01, "{}", decoder.speed());
+}
