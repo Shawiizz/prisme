@@ -218,6 +218,7 @@ pub fn run() {
             commands::folders::music_root,
             commands::folders::list_dir,
             commands::library::library_progress,
+            commands::library::library_in_memory,
             commands::library::rescan_library,
             commands::library::search_library,
             commands::library::find_duplicates,

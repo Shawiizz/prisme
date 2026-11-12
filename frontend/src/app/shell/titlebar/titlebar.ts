@@ -1,3 +1,4 @@
+import { LibraryService } from '../../core/services/library.service';
 import { Component, computed, inject, signal } from '@angular/core';
 import { RecordOption, RecordingService } from '../../core/services/recording.service';
 import { getCurrentWindow } from '@tauri-apps/api/window';
@@ -26,6 +27,7 @@ export class Titlebar {
   protected readonly updates = inject(UpdateService);
   protected readonly mixer = inject(MixerService);
   protected readonly navigation = inject(NavigationService);
+  protected readonly library = inject(LibraryService);
   protected readonly recordMenu = signal(false);
   protected readonly lastTitle = computed(() => {
     const last = this.recording.last();

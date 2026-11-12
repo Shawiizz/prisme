@@ -3,6 +3,9 @@ export const FR: Record<string, string> = {
   // title bar
   'simulated turntable': 'platine simulée',
   '{n} input ch': '{n} entrées',
+  'library not saved': 'bibliothèque non enregistrée',
+  'The library could not be opened: cues, corrections and crates changed now are lost at exit':
+    "La bibliothèque n'a pas pu être ouverte : cues, corrections et crates modifiés maintenant seront perdus à la fermeture",
   'audio device lost, reconnecting…': 'interface audio perdue, reconnexion…',
   'audio stopped': 'audio arrêté',
   'Apply the settings again to restart it': 'Appliquez à nouveau les réglages pour le relancer',

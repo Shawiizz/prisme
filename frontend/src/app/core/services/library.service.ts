@@ -90,6 +90,8 @@ export class LibraryService {
   readonly source = signal<TrackSource>({ kind: 'folder' });
   readonly error = signal<string | null>(null);
   readonly progress = signal<AnalysisProgress>({ total: 0, done: 0, failed: 0, running: false });
+  /** The library's database could not be opened: what changes is lost at exit. */
+  readonly inMemory = signal(false);
   readonly filter = signal('');
   readonly scope = signal<SearchScope>('list');
   readonly sort = signal<TrackSort>({ column: 'title', direction: 1 });
@@ -225,6 +227,7 @@ export class LibraryService {
       listen<string[]>('library-files-changed', (e) => this.relist(e.payload)),
     ]);
     this.progress.set(await invoke<AnalysisProgress>('library_progress'));
+    this.inMemory.set(await invoke<boolean>('library_in_memory'));
     await Promise.all([this.crates.refresh(), this.history.init(), this.prepare.init()]);
     const root = await invoke<string>('music_root');
     this.root.set(root);

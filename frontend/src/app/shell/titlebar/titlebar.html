@@ -30,6 +30,16 @@
         ><span class="pr-sig pr-sig--none"></span>{{ 'audio stopped' | t }}</span
       >
     }
+    @if (library.inMemory()) {
+      <span
+        class="pr-chip pr-chip--alert"
+        [title]="
+          'The library could not be opened: cues, corrections and crates changed now are lost at exit'
+            | t
+        "
+        >{{ 'library not saved' | t }}</span
+      >
+    }
     @if (mixer.fallback()) {
       <span class="pr-chip pr-chip--warn" [title]="'Each deck needs its own pair of outputs' | t">
         {{ 'External mixer needs 4 outputs' | t }}

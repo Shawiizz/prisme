@@ -10,6 +10,13 @@ pub fn library_progress(library: State<'_, Arc<LibraryService>>) -> ProgressDto 
     library.progress().into()
 }
 
+/// Whether the library lives in memory only (its database could not be opened): what is
+/// changed of it is lost at exit.
+#[tauri::command]
+pub fn library_in_memory(library: State<'_, Arc<LibraryService>>) -> bool {
+    library.in_memory()
+}
+
 /// Looks for new or changed files in the music folder and analyses them.
 #[tauri::command]
 pub fn rescan_library(library: State<'_, Arc<LibraryService>>) {

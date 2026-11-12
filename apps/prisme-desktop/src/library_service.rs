@@ -30,19 +30,22 @@ pub struct LibraryService {
     analyzer: Mutex<Option<BackgroundAnalyzer>>,
     watch: Mutex<Option<FolderWatch>>,
     progress: Arc<Mutex<AnalysisProgress>>,
+    /// The database could not be opened: the library lives in memory, lost at exit.
+    in_memory: bool,
 }
 
 impl LibraryService {
     /// Opens the database in the app data folder. If it cannot be opened the app still
     /// works, with a database in memory (analyses are then redone at each start).
     pub fn open(app: &AppHandle, data_dir: Option<&Path>, root: PathBuf) -> Self {
-        let db = data_dir
+        let opened = data_dir
             .ok_or_else(|| "no data folder".to_string())
-            .and_then(|dir| LibraryDb::open(&dir.join("library.sqlite")).map_err(|e| e.to_string()))
-            .unwrap_or_else(|e| {
-                warn!("library database unavailable ({e}), keeping it in memory");
-                LibraryDb::open_in_memory().expect("in-memory database")
-            });
+            .and_then(|dir| LibraryDb::open(&dir.join("library.sqlite")).map_err(|e| e.to_string()));
+        let in_memory = opened.is_err();
+        let db = opened.unwrap_or_else(|e| {
+            error!("library database unavailable ({e}), keeping it in memory");
+            LibraryDb::open_in_memory().expect("in-memory database")
+        });
         Self {
             db: Arc::new(db),
             app: app.clone(),
@@ -50,7 +53,13 @@ impl LibraryService {
             analyzer: Mutex::new(None),
             watch: Mutex::new(None),
             progress: Arc::new(Mutex::new(AnalysisProgress::default())),
+            in_memory,
         }
+    }
+
+    /// Whether the library lives in memory only, its database not opened.
+    pub fn in_memory(&self) -> bool {
+        self.in_memory
     }
 
     /// (Re)starts the analysis of the music folder: new and changed files only.
