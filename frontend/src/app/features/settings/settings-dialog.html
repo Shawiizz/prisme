@@ -351,7 +351,41 @@
                       {{ 'External mixer: deck A on outputs 1-2, deck B on 3-4' | t }}
                     </option>
                     <option value="internal">
-                      {{ 'Software mixer: master on 1-2, headphones on 3-4' | t }}
+                      {{ 'Software mixer: master on outputs 1-2' | t }}
+                    </option>
+                  </select>
+                </div>
+              }
+              @if (row('mixing.headphones')) {
+                @let e = entry('mixing.headphones');
+                @let chosen = mixer.headphones();
+                <div
+                  class="pr-row"
+                  data-setting="mixing.headphones"
+                  [class.is-pointed]="pointed() === e.id"
+                >
+                  <div>
+                    <span class="pr-row__name">{{ e.label }}</span>
+                    <span class="pr-row__help">{{ e.description }} {{ headphonesState() }}</span>
+                  </div>
+                  <select
+                    class="pr-select"
+                    (change)="setHeadphones($any($event.target).value)"
+                    [attr.aria-label]="e.label"
+                  >
+                    <option value="auto" [selected]="chosen.kind === 'auto'">
+                      {{ 'Automatic' | t }}
+                    </option>
+                    @for (first of headphonesPairs(); track first) {
+                      <option
+                        [value]="first"
+                        [selected]="chosen.kind === 'pair' && chosen.first === first"
+                      >
+                        {{ 'Outputs {a}-{b}' | t: { a: first + 1, b: first + 2 } }}
+                      </option>
+                    }
+                    <option value="off" [selected]="chosen.kind === 'off'">
+                      {{ 'No headphones' | t }}
                     </option>
                   </select>
                 </div>

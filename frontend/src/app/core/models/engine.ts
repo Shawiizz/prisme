@@ -271,6 +271,9 @@ export type CrossfaderCurve = 'smooth' | 'sharp';
 /** External: each deck on its own outputs for a hardware mixer. Internal: the software mixer. */
 export type MixMode = 'external' | 'internal';
 
+/** Where the software mixer sends the headphones; `first` is 0-based. */
+export type HeadphonesOutput = { kind: 'auto' } | { kind: 'off' } | { kind: 'pair'; first: number };
+
 /** Settings as the backend applies them. */
 export interface MixerState {
   decks: DeckSettings[];
@@ -278,6 +281,11 @@ export interface MixerState {
   mode: MixMode;
   /** An external mixer needs an output pair per deck; `null` without audio. */
   modeInUse: MixMode | null;
+  headphones: HeadphonesOutput;
+  /** First output (0-based) of the headphones in use; `null` when they are not heard. */
+  headphonesInUse: number | null;
+  /** Outputs of the running device; `null` without audio. */
+  outputChannels: number | null;
   /** Headphones: 0 = cued decks only, 1 = master only. */
   cueMix: number;
   headphoneGain: number;

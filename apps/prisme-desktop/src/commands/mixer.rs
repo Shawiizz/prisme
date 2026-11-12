@@ -1,15 +1,18 @@
-use crate::dto::{BandDto, CrossfaderCurveDto, DeckSettingsDto, MixModeDto, MixerStateDto};
+use crate::dto::{
+    BandDto, CrossfaderCurveDto, DeckSettingsDto, HeadphonesOutputDto, MixModeDto, MixerStateDto,
+};
 use crate::error::AppResult;
 use crate::sampler;
 use crate::state::{lock, AppState};
-use prisme_engine::Command;
+use prisme_engine::{Command, OutputRouting};
 use tauri::State;
 
 /// Deck and mixer settings as the backend knows them (to rebuild the UI).
 #[tauri::command]
 pub fn mixer_state(state: State<'_, AppState>) -> MixerStateDto {
     let mixer = state.preferences.get().mixer;
-    let output_channels = lock(&state.session).as_ref().map(|s| s.info.output_channels);
+    let info = lock(&state.session).as_ref().map(|s| s.info.clone());
+    let routing = info.as_ref().map(|info| state.routing(info));
     let samplers = lock(&state.samplers);
     MixerStateDto {
         decks: lock(&state.decks)
@@ -33,7 +36,10 @@ pub fn mixer_state(state: State<'_, AppState>) -> MixerStateDto {
             .collect(),
         crossfader: *lock(&state.crossfader),
         mode: mixer.mode,
-        mode_in_use: output_channels.map(|n| state.routing(n).mode.into()),
+        mode_in_use: routing.map(|r| r.mode.into()),
+        headphones: mixer.headphones,
+        headphones_in_use: routing.and_then(|r| r.headphones),
+        output_channels: info.map(|info| info.output_channels),
         cue_mix: mixer.cue_mix,
         headphone_gain: mixer.headphone_gain,
         crossfader_curve: mixer.crossfader_curve,
@@ -45,12 +51,25 @@ pub fn mixer_state(state: State<'_, AppState>) -> MixerStateDto {
 #[tauri::command]
 pub fn set_mix_mode(state: State<'_, AppState>, mode: MixModeDto) -> AppResult<Option<MixModeDto>> {
     state.update_preferences(|p| p.mixer.mode = mode);
-    let Some(output_channels) = lock(&state.session).as_ref().map(|s| s.info.output_channels) else {
-        return Ok(None);
-    };
-    let routing = state.routing(output_channels);
+    Ok(route(&state)?.map(|routing| routing.mode.into()))
+}
+
+/// Where the headphones go, kept for the next start; returns their first output in use.
+#[tauri::command]
+pub fn set_headphones_output(
+    state: State<'_, AppState>,
+    output: HeadphonesOutputDto,
+) -> AppResult<Option<usize>> {
+    state.update_preferences(|p| p.mixer.headphones = output);
+    Ok(route(&state)?.and_then(|routing| routing.headphones))
+}
+
+/// Applies the routing the preferences give to the running audio, if any.
+fn route(state: &AppState) -> AppResult<Option<OutputRouting>> {
+    let Some(info) = lock(&state.session).as_ref().map(|s| s.info.clone()) else { return Ok(None) };
+    let routing = state.routing(&info);
     state.send(Command::SetRouting { routing })?;
-    Ok(Some(routing.mode.into()))
+    Ok(Some(routing))
 }
 
 #[tauri::command]

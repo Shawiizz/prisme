@@ -1,7 +1,16 @@
-import { Injectable, computed, inject, signal } from '@angular/core';
+import { Injectable, computed, effect, inject, signal } from '@angular/core';
 import { invoke } from '@tauri-apps/api/core';
-import { BANDS, Band, ChannelStrip, CrossfaderCurve, MixMode, MixerState } from '../models/engine';
+import {
+  BANDS,
+  Band,
+  ChannelStrip,
+  CrossfaderCurve,
+  HeadphonesOutput,
+  MixMode,
+  MixerState,
+} from '../models/engine';
 import { EngineService } from './engine.service';
+import { SettingsService } from './settings.service';
 
 /**
  * Where the decks are heard: a hardware mixer, or the software mixer (channel strips,
@@ -10,12 +19,19 @@ import { EngineService } from './engine.service';
 @Injectable({ providedIn: 'root' })
 export class MixerService {
   private readonly engine = inject(EngineService);
+  private readonly settings = inject(SettingsService);
 
   readonly crossfader = signal(0);
   /** The mode the user chose. */
   readonly mode = signal<MixMode>('external');
   /** The mode in use: an external mixer needs an output pair per deck. */
   readonly modeInUse = signal<MixMode | null>(null);
+  /** Where the user wants the headphones of the software mixer. */
+  readonly headphones = signal<HeadphonesOutput>({ kind: 'auto' });
+  /** First output (0-based) of the headphones in use; `null` when they are not heard. */
+  readonly headphonesInUse = signal<number | null>(null);
+  /** Outputs of the running device. */
+  readonly outputChannels = signal<number | null>(null);
   readonly cueMix = signal(0);
   readonly headphoneGain = signal(1);
   readonly crossfaderCurve = signal<CrossfaderCurve>('smooth');
@@ -25,10 +41,32 @@ export class MixerService {
   /** External mode asked for, but the device has too few outputs: the software mixer runs. */
   readonly fallback = computed(() => this.mode() === 'external' && this.modeInUse() === 'internal');
 
+  constructor() {
+    // the routing depends on the device the audio runs on
+    effect(() => {
+      if (this.settings.info()) void this.followDevice();
+    });
+  }
+
+  private async followDevice() {
+    try {
+      this.applyRouting(await invoke<MixerState>('mixer_state'));
+    } catch (e) {
+      this.engine.error.set(String(e));
+    }
+  }
+
+  private applyRouting(state: MixerState) {
+    this.modeInUse.set(state.modeInUse);
+    this.headphones.set(state.headphones);
+    this.headphonesInUse.set(state.headphonesInUse);
+    this.outputChannels.set(state.outputChannels);
+  }
+
   apply(state: MixerState) {
     this.crossfader.set(state.crossfader);
     this.mode.set(state.mode);
-    this.modeInUse.set(state.modeInUse);
+    this.applyRouting(state);
     this.cueMix.set(state.cueMix);
     this.headphoneGain.set(state.headphoneGain);
     this.crossfaderCurve.set(state.crossfaderCurve);
@@ -39,6 +77,15 @@ export class MixerService {
     this.mode.set(mode);
     try {
       this.modeInUse.set(await invoke<MixMode | null>('set_mix_mode', { mode }));
+    } catch (e) {
+      this.engine.error.set(String(e));
+    }
+  }
+
+  async setHeadphones(output: HeadphonesOutput) {
+    this.headphones.set(output);
+    try {
+      this.headphonesInUse.set(await invoke<number | null>('set_headphones_output', { output }));
     } catch (e) {
       this.engine.error.set(String(e));
     }

@@ -4,8 +4,8 @@
 
 use crate::audio_host::{AudioSession, DECKS};
 use crate::dto::{
-    BandDto, ChannelStripDto, CueDto, FxDto, KeyDto, MixModeDto, RpmDto, SeparationDto, StemMixDto, TempoDto,
-    TrackInfoDto, VinylModeDto,
+    AudioInfo, BackendDto, BandDto, ChannelStripDto, CueDto, FxDto, HeadphonesOutputDto, KeyDto, MixModeDto,
+    RpmDto, SeparationDto, StemMixDto, TempoDto, TrackInfoDto, VinylModeDto,
 };
 use crate::error::{AppError, AppResult};
 use crate::folders;
@@ -328,18 +328,20 @@ impl AppState {
         lock(&self.session).as_ref().map(|s| s.engine_config.sample_rate)
     }
 
-    /// The routing for a device with `output_channels`: an external mixer needs an output
-    /// pair per deck, else the software mixer is used.
-    pub fn routing(&self, output_channels: usize) -> OutputRouting {
-        let external =
-            self.preferences.get().mixer.mode == MixModeDto::External && output_channels >= 2 * DECKS;
+    /// The routing for the running device: an external mixer needs an output pair per deck,
+    /// else the software mixer is used, its headphones where the DJ wants them.
+    pub fn routing(&self, info: &AudioInfo) -> OutputRouting {
+        let mixer = self.preferences.read(|p| p.mixer);
+        let outputs = info.output_channels;
+        let external = mixer.mode == MixModeDto::External && outputs >= 2 * DECKS;
         let mode = if external { MixMode::External } else { MixMode::Internal };
-        OutputRouting { mode, ..OutputRouting::default() }
+        let headphones = headphones_output(mixer.headphones, info.backend, outputs);
+        OutputRouting { mode, headphones, ..Default::default() }
     }
 
     /// Re-applies tracks, deck and mixer settings to a freshly started engine.
     pub fn restore(&self, session: &mut AudioSession) {
-        let output_channels = session.info.output_channels;
+        let routing = self.routing(&session.info);
         let config = session.engine_config;
         let controller = &mut session.controller;
         let auto_gain = self.preferences.read(|p| p.dj.auto_gain);
@@ -370,7 +372,7 @@ impl AppState {
         let _ = controller.send(Command::SetCrossfader { position: *lock(&self.crossfader) });
         let preferences = self.preferences.get();
         let _ = controller.send(Command::SetQuantize { enabled: preferences.dj.quantize });
-        let _ = controller.send(Command::SetRouting { routing: self.routing(output_channels) });
+        let _ = controller.send(Command::SetRouting { routing });
         let _ = controller.send(Command::SetCueMix { mix: preferences.mixer.cue_mix });
         let _ = controller.send(Command::SetHeadphoneGain { gain: preferences.mixer.headphone_gain });
         let _ =
@@ -407,10 +409,38 @@ pub fn deck_commands(deck: usize, s: &DeckSettings) -> Vec<Command> {
     commands
 }
 
+/// The first output of the headphones on a device with `outputs`, reached through
+/// `backend`: the pair chosen if the device has it, by default 3-4 of a DJ interface (four
+/// outputs, or ASIO) and none on the surround outputs of a computer, where 3-4 are the
+/// centre and the subwoofer of the room.
+fn headphones_output(choice: HeadphonesOutputDto, backend: BackendDto, outputs: usize) -> Option<usize> {
+    let first = match choice {
+        HeadphonesOutputDto::Auto => (outputs == 4 || backend == BackendDto::Asio).then_some(2),
+        HeadphonesOutputDto::Off => None,
+        HeadphonesOutputDto::Pair { first } => Some(first),
+    };
+    first.filter(|first| first + 2 <= outputs)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use prisme_analysis::Loudness;
+
+    #[test]
+    fn the_headphones_stay_off_the_surround_channels_of_a_computer() {
+        use BackendDto::{Asio, Wasapi};
+        use HeadphonesOutputDto::{Auto, Off, Pair};
+        assert_eq!(headphones_output(Auto, Wasapi, 4), Some(2), "a DJ interface");
+        assert_eq!(headphones_output(Auto, Wasapi, 2), None);
+        assert_eq!(headphones_output(Auto, Wasapi, 6), None, "5.1");
+        assert_eq!(headphones_output(Auto, Wasapi, 8), None, "7.1");
+        assert_eq!(headphones_output(Auto, Asio, 10), Some(2));
+        assert_eq!(headphones_output(Auto, Asio, 2), None);
+        assert_eq!(headphones_output(Pair { first: 4 }, Wasapi, 8), Some(4), "chosen on purpose");
+        assert_eq!(headphones_output(Pair { first: 4 }, Wasapi, 4), None, "not on this device");
+        assert_eq!(headphones_output(Off, Wasapi, 4), None);
+    }
 
     fn db(gain: f32) -> f32 {
         20.0 * gain.log10()

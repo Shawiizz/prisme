@@ -184,6 +184,7 @@ pub fn run() {
             commands::decks::set_sync_locked,
             commands::mixer::mixer_state,
             commands::mixer::set_mix_mode,
+            commands::mixer::set_headphones_output,
             commands::mixer::set_volume,
             commands::mixer::set_crossfader,
             commands::mixer::set_deck_cue,

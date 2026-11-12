@@ -85,6 +85,22 @@ export class SettingsDialog implements OnInit {
   protected readonly draft = signal<AudioSettings | null>(null);
   protected readonly mixMode = signal<MixMode>(this.mixer.mode());
   protected readonly dj = this.preferences.dj;
+  /** The pairs the headphones can take on the running device, with the one chosen. */
+  protected readonly headphonesPairs = computed(() => {
+    const pairs = new Set<number>();
+    for (let first = 2; first + 2 <= (this.mixer.outputChannels() ?? 0); first += 2)
+      pairs.add(first);
+    const chosen = this.mixer.headphones();
+    if (chosen.kind === 'pair') pairs.add(chosen.first);
+    return [...pairs].sort((a, b) => a - b);
+  });
+  protected readonly headphonesState = computed(() => {
+    if (!this.mixer.internal() || this.mixer.outputChannels() === null) return '';
+    const first = this.mixer.headphonesInUse();
+    return first === null
+      ? t('Not heard on this device.')
+      : t('Now on outputs {a}-{b}.', { a: first + 1, b: first + 2 });
+  });
   protected readonly writeTags = computed(() => this.preferences.library().writeTags);
   protected readonly replaceTags = computed(() => this.preferences.library().replaceTags);
   protected readonly separateOnLoad = computed(() => this.preferences.library().separateOnLoad);
@@ -218,6 +234,14 @@ export class SettingsDialog implements OnInit {
 
   setWriteTags(writeTags: boolean) {
     this.preferences.updateLibrary({ writeTags });
+  }
+
+  setHeadphones(value: string) {
+    this.mixer.setHeadphones(
+      value === 'auto' || value === 'off'
+        ? { kind: value }
+        : { kind: 'pair', first: Number(value) },
+    );
   }
 
   setReplaceTags(replaceTags: boolean) {

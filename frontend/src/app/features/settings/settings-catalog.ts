@@ -119,6 +119,14 @@ export const SETTINGS: readonly SettingEntry[] = [
     description: t('An external mixer takes one output pair per deck.'),
   },
   {
+    id: 'mixing.headphones',
+    page: 'mixing',
+    label: t('Headphones'),
+    description: t(
+      'Where the software mixer plays the cued decks. Automatic takes outputs 3-4 of a DJ interface, never the surround channels of a computer.',
+    ),
+  },
+  {
     id: 'mixing.curve',
     page: 'mixing',
     label: t('Crossfader curve'),

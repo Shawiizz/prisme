@@ -304,8 +304,16 @@ export const FR: Record<string, string> = {
   Mixing: 'Mixage',
   'External mixer: deck A on outputs 1-2, deck B on 3-4':
     'Table de mixage externe : deck A sur les sorties 1-2, deck B sur 3-4',
-  'Software mixer: master on 1-2, headphones on 3-4':
-    'Table de mixage logicielle : master sur 1-2, casque sur 3-4',
+  'Software mixer: master on outputs 1-2':
+    'Table de mixage logicielle : master sur les sorties 1-2',
+  Headphones: 'Casque',
+  'Where the software mixer plays the cued decks. Automatic takes outputs 3-4 of a DJ interface, never the surround channels of a computer.':
+    'Où la table logicielle joue les decks en pré-écoute. Automatique prend les sorties 3-4 d’une interface DJ, jamais les canaux surround d’un ordinateur.',
+  Automatic: 'Automatique',
+  'Outputs {a}-{b}': 'Sorties {a}-{b}',
+  'No headphones': 'Pas de casque',
+  'Not heard on this device.': 'Pas de casque sur ce périphérique.',
+  'Now on outputs {a}-{b}.': 'En ce moment sur les sorties {a}-{b}.',
   Interface: 'Interface',
   'Write the tempo and key into the tags of the files':
     'Écrire le tempo et la tonalité dans les tags des fichiers',

@@ -65,6 +65,21 @@ impl From<MixMode> for MixModeDto {
     }
 }
 
+/// Where the software mixer sends the headphones.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "kind", rename_all = "camelCase")]
+pub enum HeadphonesOutputDto {
+    /// Outputs 3-4 of a DJ interface (four outputs, or ASIO); nowhere on a computer's
+    /// surround outputs, where 3-4 are the centre and the subwoofer of the room.
+    #[default]
+    Auto,
+    Off,
+    /// The pair from output `first` (0-based).
+    Pair {
+        first: usize,
+    },
+}
+
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub enum CrossfaderCurveDto {
@@ -574,6 +589,11 @@ pub struct MixerStateDto {
     pub mode: MixModeDto,
     /// The mode in use: an external mixer needs an output pair per deck.
     pub mode_in_use: Option<MixModeDto>,
+    pub headphones: HeadphonesOutputDto,
+    /// The first output of the headphones in use, if they are heard.
+    pub headphones_in_use: Option<usize>,
+    /// Outputs of the running device.
+    pub output_channels: Option<usize>,
     pub cue_mix: f32,
     pub headphone_gain: f32,
     pub crossfader_curve: CrossfaderCurveDto,
