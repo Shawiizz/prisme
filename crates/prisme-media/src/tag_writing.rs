@@ -148,9 +148,35 @@ fn update<F: AudioFile>(
     let (changed, version) = change(&mut file);
     if changed {
         let options = WriteOptions::new().use_id3v23(version == Some(Id3v2Version::V3));
-        file.save_to_path(path, options).map_err(|e| error(&e))?;
+        let copy = path.with_file_name(format!(
+            ".{}.prisme-tags",
+            path.file_name().map(|n| n.to_string_lossy()).unwrap_or_default()
+        ));
+        let saved = save_in_copy(&file, path, &copy, options);
+        if saved.is_err() {
+            let _ = std::fs::remove_file(&copy);
+        }
+        saved.map_err(|e| error(&e))?;
     }
     Ok(changed)
+}
+
+/// Saves `file`'s tags into `copy`, a copy of `path`, then puts it in `path`'s place once it
+/// reads back and is on the disk: a crash, a full disk or a file held open by another
+/// program leaves the track as it was, never half written (lofty saves in place, moving the
+/// audio behind the tags it grows).
+fn save_in_copy<F: AudioFile>(
+    file: &F,
+    path: &Path,
+    copy: &Path,
+    options: WriteOptions,
+) -> Result<(), Box<dyn std::error::Error>> {
+    std::fs::copy(path, copy)?;
+    file.save_to_path(copy, options)?;
+    F::read_from(&mut File::open(copy)?, ParseOptions::new())?;
+    std::fs::OpenOptions::new().write(true).open(copy)?.sync_all()?;
+    std::fs::rename(copy, path)?;
+    Ok(())
 }
 
 fn set_id3v2(tag: &mut Id3v2Tag, values: TempoAndKey<'_>) -> bool {

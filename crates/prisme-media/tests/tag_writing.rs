@@ -113,6 +113,32 @@ fn serato_markers_are_kept() {
 }
 
 #[test]
+fn the_file_is_replaced_whole_and_no_copy_is_left() {
+    let file = Scratch::of("silence.mp3");
+    assert!(write_tempo_and_key(&file.0, VALUES).unwrap());
+    let folder = file.0.parent().unwrap();
+    let name = file.0.file_name().unwrap().to_string_lossy().into_owned();
+    assert!(!folder.join(format!(".{name}.prisme-tags")).exists());
+}
+
+#[test]
+fn a_file_that_cannot_be_written_stays_as_it_was() {
+    let file = Scratch::of("silence.mp3");
+    let before = std::fs::read(&file.0).unwrap();
+    let mut permissions = std::fs::metadata(&file.0).unwrap().permissions();
+    permissions.set_readonly(true);
+    std::fs::set_permissions(&file.0, permissions.clone()).unwrap();
+    let written = write_tempo_and_key(&file.0, VALUES);
+    #[allow(clippy::permissions_set_readonly_false)]
+    permissions.set_readonly(false);
+    std::fs::set_permissions(&file.0, permissions).unwrap();
+    assert!(written.is_err());
+    assert_eq!(std::fs::read(&file.0).unwrap(), before);
+    let name = file.0.file_name().unwrap().to_string_lossy().into_owned();
+    assert!(!file.0.parent().unwrap().join(format!(".{name}.prisme-tags")).exists());
+}
+
+#[test]
 fn other_files_are_left_alone() {
     let file = Scratch::path("notes.txt");
     std::fs::write(&file.0, "not audio").unwrap();
