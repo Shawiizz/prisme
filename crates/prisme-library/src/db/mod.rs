@@ -189,6 +189,8 @@ impl LibraryDb {
         conn.pragma_update(None, "journal_mode", "WAL")?;
         conn.pragma_update(None, "synchronous", "NORMAL")?;
         conn.pragma_update(None, "foreign_keys", true)?;
+        // room for every statement of the library, of which there are more than the default 16
+        conn.set_prepared_statement_cache_capacity(64);
         let applied: i64 = conn.pragma_query_value(None, "user_version", |r| r.get(0))?;
         // each migration whole or not at all: one cut short by a crash is run again
         for (i, sql) in MIGRATIONS.iter().enumerate().skip(applied as usize) {
