@@ -127,7 +127,28 @@ pub fn system_devices() -> Vec<String> {
     host.devices().map(|devices| devices.filter_map(|d| device_name(&d)).collect()).unwrap_or_default()
 }
 
-/// A device of `backend` whose name contains `name` (case-insensitive), or the default one.
+/// A device's name as Windows gives any device of its model, lower case: without the
+/// "2- " it puts in for a second one, or for one plugged into another port
+/// (`Line (2- SL3)`). Two names for the same interface, wherever it is plugged.
+pub fn base_device_name(name: &str) -> String {
+    let lower = name.to_lowercase();
+    let mut base = String::with_capacity(lower.len());
+    let mut rest = lower.as_str();
+    while let Some(start) = rest.find(|c: char| c.is_ascii_digit()) {
+        let end = rest[start..].find(|c: char| !c.is_ascii_digit()).map_or(rest.len(), |n| start + n);
+        let numbered = (start == 0 || rest[..start].ends_with('(')) && rest[end..].starts_with("- ");
+        base.push_str(&rest[..start]);
+        if !numbered {
+            base.push_str(&rest[start..end]);
+        }
+        rest = &rest[if numbered { end + 2 } else { end }..];
+    }
+    base.push_str(rest);
+    base
+}
+
+/// A device of `backend` whose name contains `name` (case-insensitive; else once the
+/// numbers Windows adds are left out, see [`base_device_name`]), or the default one.
 pub(crate) fn find(
     backend: Backend,
     kind: DeviceKind,
@@ -146,13 +167,20 @@ pub(crate) fn find(
         let Some(name) = device_name(&default) else { return Ok(default) };
         return find(backend, kind, Some(&name)).or(Ok(default));
     };
-    let wanted_lower = wanted.to_lowercase();
-    let matches = |d: &cpal::Device| device_name(d).is_some_and(|n| n.to_lowercase().contains(&wanted_lower));
-    let found = match kind {
-        DeviceKind::Output => host.output_devices()?.find(matches),
-        DeviceKind::Input => host.input_devices()?.find(matches),
-    };
-    found.ok_or_else(|| AudioError::DeviceNotFound(wanted.to_string()))
+    let devices: Vec<(cpal::Device, String)> = match kind {
+        DeviceKind::Output => host.output_devices()?.collect::<Vec<_>>(),
+        DeviceKind::Input => host.input_devices()?.collect(),
+    }
+    .into_iter()
+    .filter_map(|d| device_name(&d).map(|n| (d, n)))
+    .collect();
+    let (wanted_lower, wanted_base) = (wanted.to_lowercase(), base_device_name(wanted));
+    let exact = devices.iter().position(|(_, n)| n.to_lowercase().contains(&wanted_lower));
+    let found =
+        exact.or_else(|| devices.iter().position(|(_, n)| base_device_name(n).contains(&wanted_base)));
+    found
+        .map(|i| devices.into_iter().nth(i).expect("found among them").0)
+        .ok_or_else(|| AudioError::DeviceNotFound(wanted.to_string()))
 }
 
 fn buffer_range(supported: &cpal::SupportedBufferSize) -> Option<(u32, u32)> {
@@ -164,4 +192,23 @@ fn buffer_range(supported: &cpal::SupportedBufferSize) -> Option<(u32, u32)> {
 
 pub(crate) fn device_name(device: &cpal::Device) -> Option<String> {
     device.description().ok().map(|d| d.name().to_string())
+}
+
+#[cfg(test)]
+mod base_name_tests {
+    use super::base_device_name;
+
+    #[test]
+    fn windows_numbers_are_left_out() {
+        assert_eq!(base_device_name("Line (2- SL3)"), "line (sl3)");
+        assert_eq!(base_device_name("2- DJControl Inpulse 200"), "djcontrol inpulse 200");
+        assert_eq!(base_device_name("Speakers (12- USB Audio)"), "speakers (usb audio)");
+    }
+
+    #[test]
+    fn numbers_of_the_name_stay() {
+        assert_eq!(base_device_name("UMC404HD 192k"), "umc404hd 192k");
+        assert_eq!(base_device_name("Out 3-4 (UMC404HD)"), "out 3-4 (umc404hd)");
+        assert_eq!(base_device_name("Line (SL3)"), "line (sl3)");
+    }
 }

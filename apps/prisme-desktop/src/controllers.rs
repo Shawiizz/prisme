@@ -9,6 +9,7 @@ use crate::dto::{ControllerInputDto, DeckPitchDto, LightDto};
 use crate::error::{AppError, AppResult};
 use crate::state::{lock, AppState};
 use midir::{Ignore, MidiInput, MidiInputConnection, MidiOutput, MidiOutputConnection};
+use prisme_audio_io::base_device_name;
 use prisme_control::{ControlKind, Encoding, Event, Mapping, Mappings, Reader, SHIFT};
 use prisme_engine::Command;
 use prisme_session::JsonFile;
@@ -52,7 +53,10 @@ enum Routed {
 }
 
 struct Connection {
+    /// The controller as saved.
     device: String,
+    /// The port it was opened on: the same name, or with a number Windows added.
+    port: String,
     _input: MidiInputConnection<()>,
     /// Lights; not every controller has them.
     output: Option<MidiOutputConnection>,
@@ -108,10 +112,10 @@ impl Controllers {
                 std::thread::sleep(WATCH_EVERY);
                 let Ok(plugged) = Self::plugged() else { continue };
                 let controllers = app.state::<Controllers>();
-                lock(&controllers.connections).retain(|c| plugged.contains(&c.device));
+                lock(&controllers.connections).retain(|c| plugged.contains(&c.port));
                 for device in controllers.setup.read(|s| s.enabled.clone()) {
                     let open = lock(&controllers.connections).iter().any(|c| c.device == device);
-                    if open || !plugged.contains(&device) {
+                    if open || port_of(&plugged, &device).is_none() {
                         continue;
                     }
                     match controllers.open(&app, &device) {
@@ -198,15 +202,14 @@ impl Controllers {
         }
         let mut input = MidiInput::new(CLIENT).map_err(midi_error)?;
         input.ignore(Ignore::All);
-        let port = input
-            .ports()
-            .into_iter()
-            .find(|p| input.port_name(p).is_ok_and(|name| name == device))
-            .ok_or_else(|| AppError::ControllerUnplugged(device.to_owned()))?;
+        let ports = input.ports();
+        let names: Vec<String> = ports.iter().map(|p| input.port_name(p).unwrap_or_default()).collect();
+        let at = port_of(&names, device).ok_or_else(|| AppError::ControllerUnplugged(device.to_owned()))?;
+        let (port, port_name) = (&ports[at], names[at].clone());
         let (app, name) = (app.clone(), device.to_owned());
         let connection = input
             .connect(
-                &port,
+                port,
                 CLIENT,
                 move |stamp_us, bytes, _| {
                     if let Some(event) = prisme_control::parse(bytes) {
@@ -218,7 +221,9 @@ impl Controllers {
             )
             .map_err(midi_error)?;
         let output = open_output(device);
-        lock(&self.connections).push(Connection { device: device.to_owned(), _input: connection, output });
+        let connection =
+            Connection { device: device.to_owned(), port: port_name, _input: connection, output };
+        lock(&self.connections).push(connection);
         Ok(())
     }
 
@@ -324,8 +329,19 @@ impl Controllers {
 /// The output of the same name, for the lights.
 fn open_output(device: &str) -> Option<MidiOutputConnection> {
     let output = MidiOutput::new(CLIENT).ok()?;
-    let port = output.ports().into_iter().find(|p| output.port_name(p).is_ok_and(|name| name == device))?;
-    output.connect(&port, CLIENT).ok()
+    let ports = output.ports();
+    let names: Vec<String> = ports.iter().map(|p| output.port_name(p).unwrap_or_default()).collect();
+    let port = &ports[port_of(&names, device)?];
+    output.connect(port, CLIENT).ok()
+}
+
+/// Of the ports `names`, the one of the controller saved as `device`: its name, else the
+/// same once the numbers Windows adds are left out (plugged into another USB port).
+fn port_of(names: &[String], device: &str) -> Option<usize> {
+    names.iter().position(|n| n == device).or_else(|| {
+        let base = base_device_name(device);
+        names.iter().position(|n| base_device_name(n) == base)
+    })
 }
 
 fn midi_error(e: impl std::fmt::Display) -> AppError {
@@ -335,6 +351,15 @@ fn midi_error(e: impl std::fmt::Display) -> AppError {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_controller_is_found_on_another_usb_port() {
+        let names = ["2- DJControl Inpulse 200".to_owned(), "Other".to_owned()];
+        assert_eq!(port_of(&names, "DJControl Inpulse 200"), Some(0));
+        let both = ["DJControl Inpulse 200".to_owned(), "2- DJControl Inpulse 200".to_owned()];
+        assert_eq!(port_of(&both, "2- DJControl Inpulse 200"), Some(1), "the same name first");
+        assert_eq!(port_of(&names, "FLX4"), None);
+    }
     use prisme_control::{parse, Control};
 
     const PAD: Control = Control { kind: ControlKind::Note, channel: 0, number: 36 };
