@@ -7,10 +7,9 @@ use std::path::{Path, PathBuf};
 /// as well), else `Music` in the home folder. Never the home folder itself, whose scan would
 /// read the whole profile.
 pub fn music_root() -> PathBuf {
-    let home = std::env::var_os("USERPROFILE").or_else(|| std::env::var_os("HOME")).map(PathBuf::from);
     dirs::audio_dir()
         .filter(|dir| dir.is_dir())
-        .or_else(|| home.map(|home| home.join("Music")))
+        .or_else(|| dirs::home_dir().map(|home| home.join("Music")))
         .unwrap_or_else(|| PathBuf::from("Music"))
 }
 

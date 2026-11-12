@@ -227,12 +227,12 @@ impl Deck {
         }
     }
 
-    /// Fades the track out as it stops and in as it moves again.
-    /// The track's gain: its motion's, and its level's.
+    /// Applies the track's gain: its motion's (a fade as it stops and moves again) and its
+    /// level's.
     fn fade_with_motion(&mut self, out: &mut [f32]) {
         self.motion.set((self.speed.abs() / STILL_SPEED).min(1.0) as f32);
-        let still = |s: &Smoothed| s.is_settled() && s.target() == 1.0;
-        if still(&self.motion) && still(&self.level) {
+        let at_unity = |s: &Smoothed| s.is_settled() && s.target() == 1.0;
+        if at_unity(&self.motion) && at_unity(&self.level) {
             return;
         }
         for frame in out.chunks_exact_mut(2) {

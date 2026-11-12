@@ -574,10 +574,10 @@ impl Worker {
         separators: &mut [Option<BoxedSeparator>],
         needed: &[usize],
     ) -> Result<(), StemsError> {
-        let missing: Vec<usize> = needed.iter().copied().filter(|&m| separators[m].is_none()).collect();
+        let unopened: Vec<usize> = needed.iter().copied().filter(|&m| separators[m].is_none()).collect();
         let opened = std::thread::scope(|scope| {
             let opening: Vec<_> =
-                missing.iter().map(|&m| (m, scope.spawn(move || self.open_model(gpu, m)))).collect();
+                unopened.iter().map(|&m| (m, scope.spawn(move || self.open_model(gpu, m)))).collect();
             opening
                 .into_iter()
                 .map(|(m, opening)| (m, opening.join().expect("a model opens without panicking")))
@@ -769,8 +769,8 @@ fn plays_whole(stems: &StemTracks, separation: SeparationDto) -> bool {
 }
 
 /// Gives the decks playing `loads` of `path` (its decoded `audio`) its stems: as they come if
-/// it is being separated, else those stored, read once for them all; how far each deck it
-/// separates is (the caller tells the UI).
+/// it is being separated, else those stored, read once for them all; for each deck, how far
+/// its track is separated (the caller tells the UI).
 pub fn give_stems(
     app: &AppHandle,
     loads: &[(usize, u64)],

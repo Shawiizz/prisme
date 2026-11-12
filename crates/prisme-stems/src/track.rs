@@ -5,6 +5,7 @@
 //! mastered over full scale leaves stems above it too). What no stem holds is never stored:
 //! it is the track minus its stems.
 
+use std::borrow::Cow;
 use std::ops::Range;
 use std::path::{Path, PathBuf};
 
@@ -102,12 +103,7 @@ impl TrackSeparation {
             let input = match inputs.iter().position(|(r, _)| *r == rate) {
                 Some(input) => input,
                 None => {
-                    let input = if rate == sample_rate {
-                        deinterleave(&samples)
-                    } else {
-                        deinterleave(&resample(&samples, sample_rate, rate)?)
-                    };
-                    inputs.push((rate, input));
+                    inputs.push((rate, deinterleave(&resample(&samples, sample_rate, rate)?)));
                     inputs.len() - 1
                 }
             };
@@ -213,7 +209,8 @@ impl TrackSeparation {
         }
         let span = input_span(&frames, run.sample_rate, self.sample_rate, self.input_len(run));
         let [l, r] = separation.read(local, span.clone());
-        let resampled = resample(&interleave(&l, &r), run.sample_rate, self.sample_rate)?;
+        let read = interleave(&l, &r);
+        let resampled = resample(&read, run.sample_rate, self.sample_rate)?;
         let offset = (span.start as u64 * u64::from(self.sample_rate) / u64::from(run.sample_rate)) as usize;
         let mut out = vec![0.0; frames.len() * 2];
         let from = (frames.start - offset) * 2;
@@ -231,7 +228,7 @@ impl TrackSeparation {
             }
             let stems = run.separation.take().expect("checked above").into_stems();
             for ([l, r], target) in stems.into_iter().zip(&run.targets) {
-                let mut stem = resample(&interleave(&l, &r), run.sample_rate, self.sample_rate)?;
+                let mut stem = resample(&interleave(&l, &r), run.sample_rate, self.sample_rate)?.into_owned();
                 stem.resize(self.frames * 2, 0.0);
                 store(target, &encode(&stem, self.sample_rate)?)?;
                 stored.push(target.clone());
@@ -346,9 +343,9 @@ fn decode(path: &Path) -> Result<(u32, Vec<f32>), StemsError> {
 }
 
 /// Interleaved stereo from one rate to another, aligned (the resampler's delay removed).
-fn resample(samples: &[f32], from: u32, to: u32) -> Result<Vec<f32>, StemsError> {
+fn resample(samples: &[f32], from: u32, to: u32) -> Result<Cow<'_, [f32]>, StemsError> {
     if from == to {
-        return Ok(samples.to_vec());
+        return Ok(Cow::Borrowed(samples));
     }
     let error = |e: &dyn std::fmt::Display| StemsError::Track(format!("resampling: {e}"));
     let frames = samples.len() / 2;
@@ -356,7 +353,7 @@ fn resample(samples: &[f32], from: u32, to: u32) -> Result<Vec<f32>, StemsError>
         Fft::<f32>::new(from as usize, to as usize, 1024, 2, FixedSync::Both).map_err(|e| error(&e))?;
     let input = InterleavedSlice::new(samples, 2, frames).map_err(|e| error(&e))?;
     let output = resampler.process_all(&input, frames, None).map_err(|e| error(&e))?;
-    Ok(output.take_data())
+    Ok(Cow::Owned(output.take_data()))
 }
 
 fn deinterleave(samples: &[f32]) -> [Vec<f32>; 2] {
@@ -407,7 +404,7 @@ mod tests {
             })
             .collect();
         let down = resample(&tone, 48_000, 44_100).unwrap();
-        let mut back = resample(&down, 44_100, 48_000).unwrap();
+        let mut back = resample(&down, 44_100, 48_000).unwrap().into_owned();
         back.resize(tone.len(), 0.0);
         let middle = 2000..tone.len() - 2000;
         let err =

@@ -299,12 +299,12 @@ impl LibraryDb {
     }
 }
 
-/// `deadmau5 alone` -> `"deadmau5"* "alone"*`; `None` when there is nothing to look for.
 /// Deletes the search row of path ?1, found through `search_rows` (track_search would read
 /// every row to find a path).
 const DELETE_SEARCH_ROW: &str =
     "DELETE FROM track_search WHERE rowid = (SELECT row FROM search_rows WHERE path = ?1)";
 
+/// `deadmau5 alone` -> `"deadmau5"* "alone"*`; `None` when there is nothing to look for.
 fn fts_query(query: &str) -> Option<String> {
     let terms: Vec<String> = query
         .split(|c: char| !c.is_alphanumeric())

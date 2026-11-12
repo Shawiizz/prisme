@@ -16,7 +16,7 @@ use serde::{Deserialize, Serialize};
 use std::sync::Mutex;
 use std::time::{Duration, Instant};
 use tauri::{AppHandle, Emitter, Manager};
-use tracing::{error, warn};
+use tracing::{error, info, warn};
 
 /// The low half of a 14-bit control follows its high half within this.
 const FINE_HALF_WITHIN: Duration = Duration::from_millis(100);
@@ -121,7 +121,7 @@ impl Controllers {
                         }
                         Ok(()) => {
                             missing.retain(|d| *d != device);
-                            tracing::info!("controller {device} opened again");
+                            info!("controller {device} opened again");
                         }
                         // told once, tried again
                         Err(e) if !missing.contains(&device) => {

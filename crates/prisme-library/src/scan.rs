@@ -31,8 +31,8 @@ impl Scan {
 }
 
 /// Every decodable file under `root`, recursively. Hidden files, system folders (the
-/// recycle bin) and symbolic links to folders are skipped (no loops). Stops early, with what it found so far, when
-/// `cancel` is set.
+/// recycle bin) and symbolic links to folders are skipped (no loops). Stops early, with what
+/// it found so far, when `cancel` is set.
 pub fn scan_folder(root: &Path, cancel: &AtomicBool) -> Scan {
     let mut scan = Scan::default();
     let mut folders = vec![root.to_path_buf()];

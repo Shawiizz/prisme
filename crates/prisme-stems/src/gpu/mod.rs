@@ -75,7 +75,7 @@ enum Slot {
     MlpOut,
 }
 
-const SLOTS: usize = 10;
+const SLOTS: usize = Slot::MlpOut as usize + 1;
 
 pub struct GpuNetwork {
     gpu: Arc<Gpu>,
@@ -290,7 +290,7 @@ impl GpuNetwork {
         let pipelines = Pipelines::new(gpu, &weights.geometry, matrix);
         let params = Params::upload(&gpu.device, weights, matrix);
         let units = if matrix { ", tensor cores" } else { "" };
-        let network = Self {
+        let mut network = Self {
             gpu: gpu.clone(),
             geometry: weights.geometry.clone(),
             adapter: format!("{}{units}", gpu.name),
@@ -301,7 +301,6 @@ impl GpuNetwork {
             started: None,
         };
         gpu.check_errors()?;
-        let mut network = network;
         network.prepare(network.geometry.config.chunk_frames)?;
         Ok(network)
     }

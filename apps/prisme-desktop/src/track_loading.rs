@@ -100,8 +100,7 @@ impl Completion {
         let state = app.state::<AppState>();
         let library = app.state::<Arc<LibraryService>>();
         let mut updates = Updates::default();
-        let loads: Vec<(usize, u64)> =
-            state.with_audio(&audio, |_| ()).into_iter().map(|(deck, load_id, ())| (deck, load_id)).collect();
+        let loads = state.loads_of(&audio);
         for (deck, load_id, separation) in crate::stems_service::give_stems(app, &loads, &self.path, &audio) {
             updates.of(deck, load_id).separation = Some(separation);
         }

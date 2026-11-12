@@ -38,6 +38,7 @@ fn auto_gain_for(loudness: prisme_analysis::Loudness) -> f32 {
     }
 }
 
+#[derive(Clone)]
 pub struct LoadedTrack {
     /// Tells two loads apart, even of the same file.
     pub load_id: u64,
@@ -54,7 +55,7 @@ pub struct LoadedTrack {
     pub key_shift: i8,
     /// Its separated stems, once read (`prisme_stems::track`).
     pub stems: StemTracks,
-    /// The parts the deck plays (all again at each load).
+    /// How the deck plays each part (all at full level again at each load).
     pub stem_mix: StemMixDto,
     /// How loud the track is, once its audio is all decoded.
     pub loudness: Option<prisme_analysis::Loudness>,
@@ -68,20 +69,7 @@ impl LoadedTrack {
 
     /// The same track as a load of its own, its audio and stems shared: an instant double.
     pub fn double(&self) -> Self {
-        Self {
-            load_id: Self::next_load_id(),
-            path: self.path.clone(),
-            audio: self.audio.clone(),
-            waveform: self.waveform.clone(),
-            detected: self.detected,
-            edits: self.edits,
-            tags: self.tags.clone(),
-            cues: self.cues.clone(),
-            key_shift: self.key_shift,
-            stems: self.stems.clone(),
-            stem_mix: self.stem_mix,
-            loudness: self.loudness,
-        }
+        Self { load_id: Self::next_load_id(), ..self.clone() }
     }
 
     /// What the UI shows of the track on `deck`.
@@ -274,6 +262,11 @@ impl AppState {
                 Some((deck, t.load_id, f(t)))
             })
             .collect()
+    }
+
+    /// The decks playing `audio`, and their loads (see [`AppState::with_audio`]).
+    pub fn loads_of(&self, audio: &Arc<TrackAudio>) -> Vec<(usize, u64)> {
+        self.with_audio(audio, |_| ()).into_iter().map(|(deck, load_id, ())| (deck, load_id)).collect()
     }
 
     /// Runs `f` on the track loaded on `deck`.

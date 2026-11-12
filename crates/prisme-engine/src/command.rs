@@ -69,13 +69,13 @@ pub enum Command {
         deck: DeckId,
         stems: StemTracks,
     },
-    /// Which stems the deck plays (all again when a track is loaded).
-    /// How the deck plays each part of the track; the parts it changes from the next bar if
-    /// `on_bar` and the deck moves forward with a beat grid, else at once.
+    /// How the deck plays each part of the track (all at full level again at each load); the
+    /// parts it changes from the next bar if `on_bar` and the deck moves forward with a beat
+    /// grid, else at once.
     SetStemMix {
-        on_bar: bool,
         deck: DeckId,
         mix: StemMix,
+        on_bar: bool,
     },
     /// Internal play (used when vinyl control is off).
     SetPlaying {
