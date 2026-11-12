@@ -19,7 +19,7 @@ libm = "0.2"
 half = { version = "2", features = ["bytemuck"] }
 flacenc = "0.5"
 rubato = "5"
-wgpu = { version = "30", default-features = false, features = ["std", "parking_lot", "dx12", "vulkan", "wgsl"] }
+wgpu = { version = "30", default-features = false, features = ["std", "parking_lot", "dx12", "static-dxc", "vulkan", "wgsl"] }
 bytemuck = { version = "1", features = ["derive"] }
 pollster = "0.4"
 
