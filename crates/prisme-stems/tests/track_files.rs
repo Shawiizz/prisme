@@ -196,3 +196,22 @@ fn a_played_track_gets_its_stems_around_where_it_plays() {
         std::fs::remove_dir_all(dir).unwrap();
     }
 }
+
+/// A model asking for four chunks over each sample can be held to two: half the chunks.
+#[test]
+fn fewer_overlapping_chunks_can_be_asked_for() {
+    let weights = || {
+        let path = Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/data/tiny_roformer.safetensors");
+        let mut weights = Weights::load(&path).unwrap();
+        weights.geometry.config.overlap = 4;
+        weights
+    };
+    let chunk = weights().geometry.config.chunk_samples();
+    let len = chunk * 8;
+    let full = Separator::new(CpuNetwork::new(weights()));
+    let halved = Separator::new(CpuNetwork::new(weights())).overlapping_at_most(2);
+    let more = Separator::new(CpuNetwork::new(weights())).overlapping_at_most(8);
+    assert_eq!(full.chunks(len), 29);
+    assert_eq!(halved.chunks(len), 15);
+    assert_eq!(more.chunks(len), full.chunks(len), "never more than the model asks for");
+}

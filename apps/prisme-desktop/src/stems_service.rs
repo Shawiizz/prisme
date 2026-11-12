@@ -44,6 +44,10 @@ pub const STEMS_MODEL_EVENT: &str = "stems-model";
 const LONGEST_PLAYED_S: f64 = 20.0 * 60.0;
 /// How long the worker keeps the models open, waiting for another track.
 const IDLE: Duration = Duration::from_secs(300);
+/// Chunks over each sample off the matrix units of a graphics card (another card, the
+/// processor), where a model asking for four takes minutes: half the time for a difference
+/// a blind test hardly heard.
+const SLOW_OVERLAP: usize = 2;
 
 /// A separation model, converted by `crates/prisme-stems/tools/export_roformer.py --half`.
 struct Model {
@@ -597,20 +601,22 @@ impl Worker {
                 .collect::<Vec<_>>()
         });
         for (m, opened) in opened {
-            let (network, device) = opened?;
+            let (network, device, fast) = opened?;
             info!("separating with the {} model on {device}", MODELS[m].id);
             self.update(|p| p.device = Some(device));
-            separators[m] = Some(Separator::new(network));
+            let separator = Separator::new(network);
+            separators[m] = Some(if fast { separator } else { separator.overlapping_at_most(SLOW_OVERLAP) });
         }
         Ok(())
     }
 
-    /// Model `m` as a network, on `gpu` if it can, and where it runs.
+    /// Model `m` as a network, on `gpu` if it can, where it runs, and whether that is fast
+    /// (on the matrix units of a graphics card).
     fn open_model(
         &self,
         gpu: Option<&Arc<Gpu>>,
         m: usize,
-    ) -> Result<(Box<dyn MaskNetwork>, String), StemsError> {
+    ) -> Result<(Box<dyn MaskNetwork>, String, bool), StemsError> {
         let weights = Weights::load(&self.models[m])?;
         let stems: Vec<&str> = MODELS[m].stems.iter().map(|s| s.name()).collect();
         if weights.geometry.stems != stems {
@@ -622,10 +628,10 @@ impl Worker {
         });
         Ok(match on_gpu {
             Some(network) => {
-                let device = network.adapter().to_owned();
-                (Box::new(network), device)
+                let (device, fast) = (network.adapter().to_owned(), network.uses_matrix_units());
+                (Box::new(network), device, fast)
             }
-            None => (Box::new(CpuNetwork::with_pool(weights, background_pool()?)), "CPU".to_owned()),
+            None => (Box::new(CpuNetwork::with_pool(weights, background_pool()?)), "CPU".to_owned(), false),
         })
     }
 

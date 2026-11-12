@@ -11,13 +11,24 @@ use crate::StemsError;
 pub struct Separator<N: MaskNetwork> {
     net: N,
     stft: Stft,
+    /// How many chunks cover each sample.
+    overlap: usize,
 }
 
 impl<N: MaskNetwork> Separator<N> {
     pub fn new(net: N) -> Self {
         let c = &net.geometry().config;
         let stft = Stft::new(c.n_fft, c.hop);
-        Self { net, stft }
+        let overlap = c.overlap;
+        Self { net, stft, overlap }
+    }
+
+    /// With at most `overlap` chunks over each sample, when the model asks for more: that
+    /// many times fewer chunks to work through, for a little less of the quality (a
+    /// difference of -25 to -35 dB on drums and bass from 4 to 2).
+    pub fn overlapping_at_most(mut self, overlap: usize) -> Self {
+        self.overlap = self.overlap.min(overlap.max(1));
+        self
     }
 
     pub fn sample_rate(&self) -> u32 {
@@ -26,8 +37,8 @@ impl<N: MaskNetwork> Separator<N> {
 
     /// How many chunks [`Self::separate`] cuts a track of `len` samples in.
     pub fn chunks(&self, len: usize) -> usize {
-        let config = &self.net.geometry().config;
-        chunk_starts(len, config.chunk_samples(), config.chunk_samples() / config.overlap).len()
+        let chunk = self.net.geometry().config.chunk_samples();
+        chunk_starts(len, chunk, chunk / self.overlap).len()
     }
 
     /// The stems the network separates, in the order [`Self::separate`] returns them.
@@ -55,14 +66,14 @@ impl<N: MaskNetwork> Separator<N> {
     }
 
     /// A separation of a track of `len` samples, to be worked through by [`Self::step`]. The
-    /// track is cut in chunks the size the network was made for, `overlap` of them over each
-    /// sample ([`crate::Config::overlap`]), the last one ending with the track; where chunks
+    /// track is cut in chunks the size the network was made for, as many over each sample as
+    /// the model asks ([`crate::Config::overlap`], or [`Self::overlapping_at_most`]), the
+    /// last one ending with the track; where chunks
     /// overlap they are blended with Hamming weights. The chunks over sample `anchor` come
     /// first, then those after it, then those before it.
     pub fn begin(&self, len: usize, anchor: usize) -> Separation {
-        let config = &self.net.geometry().config;
-        let chunk = config.chunk_samples();
-        let starts = chunk_starts(len, chunk, chunk / config.overlap);
+        let chunk = self.net.geometry().config.chunk_samples();
+        let starts = chunk_starts(len, chunk, chunk / self.overlap);
         let order = order(&starts, chunk, anchor.min(len.saturating_sub(1)));
         Separation {
             len,
