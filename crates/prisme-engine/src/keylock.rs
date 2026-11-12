@@ -15,10 +15,13 @@ const MIN_SPEED: f64 = 0.5;
 const MAX_SPEED: f64 = 2.0;
 /// A feed further than this from where it should be means the playhead jumped.
 const JUMP_FRAMES: f64 = 64.0;
+/// The highest sample rate of a track the input is sized for (studio masters reach 384 kHz):
+/// a block reads that many more track frames than it plays at the output rate.
+const MAX_TRACK_RATE: f64 = 384_000.0;
 
 pub(crate) struct KeyLock {
     stretch: Stretch,
-    /// Interleaved input, sized for the longest block at the highest speed.
+    /// Interleaved input, sized for the longest block at the highest speed and track rate.
     input: Vec<f32>,
     /// Source frame (fractional) of the next input.
     feed: f64,
@@ -31,7 +34,8 @@ pub(crate) struct KeyLock {
 impl KeyLock {
     pub(crate) fn new(out_rate: u32, max_block_frames: usize) -> Self {
         let stretch = Stretch::preset_cheaper(2, out_rate);
-        let longest = (max_block_frames as f64 * MAX_SPEED * 2.0) as usize + 2;
+        let rates = (MAX_TRACK_RATE / f64::from(out_rate)).max(1.0);
+        let longest = (max_block_frames as f64 * MAX_SPEED * rates).ceil() as usize + 2;
         let frames = longest.max(stretch.input_latency() * 2);
         Self {
             stretch,
@@ -88,7 +92,8 @@ impl KeyLock {
         let out_frames = out.len() / 2;
         let advance = out_frames as f64 * speed * ratio;
         let start = self.feed.floor();
-        let frames = ((self.feed + advance).floor() - start) as usize;
+        // a track above MAX_TRACK_RATE is read short rather than overflowing the input
+        let frames = (((self.feed + advance).floor() - start) as usize).min(self.input.len() / 2);
         let input = &mut self.input[..frames * 2];
         read(source, start as isize, loop_frames, input, true);
         self.stretch.process(&*input, &mut *out);
@@ -166,6 +171,22 @@ mod tests {
         let half = &signal[signal.len() / 2..];
         let crossings = half.windows(2).filter(|w| w[0] < 0.0 && w[1] >= 0.0).count();
         crossings as f64 / (half.len() as f64 / RATE as f64)
+    }
+
+    #[test]
+    fn a_high_resolution_track_plays_in_long_blocks() {
+        // 192 kHz played at 44.1 kHz: more than four track frames per output frame
+        let frames = 192_000 * 2;
+        let samples = (0..frames).flat_map(|i| [(TAU * 440.0 * i as f32 / 192_000.0).sin(); 2]).collect();
+        let track = TrackAudio::from_interleaved(192_000, samples);
+        let mut lock = KeyLock::new(44_100, 4096);
+        let mut block = vec![0.0f32; 4096 * 2];
+        let mut position = 192_000.0 * 0.2;
+        for _ in 0..4 {
+            position =
+                lock.render(&mut Stems::new().reader(&track), position, None, &mut block, 44_100.0, MAX_SPEED);
+        }
+        assert!(block.iter().all(|s| s.is_finite()));
     }
 
     #[test]

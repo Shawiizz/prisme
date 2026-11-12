@@ -27,9 +27,10 @@ impl Sampler {
         Self { gain: 1.0, ..Default::default() }
     }
 
-    /// Puts a sound in a slot; returns the one it replaces (to be freed elsewhere).
+    /// Puts a sound in a slot; returns the one it replaces, or the one given for a slot
+    /// that does not exist (to be freed elsewhere either way).
     pub(crate) fn set(&mut self, slot: usize, sample: Option<Arc<TrackAudio>>) -> Option<Arc<TrackAudio>> {
-        let voice = self.voices.get_mut(slot)?;
+        let Some(voice) = self.voices.get_mut(slot) else { return sample };
         voice.position = None;
         std::mem::replace(&mut voice.sample, sample)
     }
@@ -87,6 +88,14 @@ mod tests {
 
     fn sound(frames: usize) -> Arc<TrackAudio> {
         Arc::new(TrackAudio::from_interleaved(48_000, vec![0.5; frames * 2]))
+    }
+
+    #[test]
+    fn a_sound_for_a_slot_that_does_not_exist_comes_back_to_be_freed() {
+        let mut s = Sampler::new();
+        let given = sound(10);
+        let back = s.set(SAMPLE_SLOTS, Some(given.clone())).expect("given back");
+        assert!(Arc::ptr_eq(&back, &given));
     }
 
     #[test]
