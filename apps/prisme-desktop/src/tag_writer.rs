@@ -107,21 +107,33 @@ fn write_pending(app: &AppHandle) {
     }
 }
 
+/// Writes the tempo and key of `path` as stored now (corrected since `record` was read,
+/// perhaps).
 fn write(db: &LibraryDb, path: &Path, record: &TrackRecord) -> AppResult<()> {
     let before = FileStamp::of(path)?;
     // changed since it was analysed: the analysis comes first
     if before != record.version.stamp {
         return Ok(());
     }
-    let analysis = record.effective_analysis();
-    let values = TempoAndKey { bpm: analysis.tempo.map(|t| t.bpm), key: analysis.key.map(|k| k.key.name()) };
-    if let Err(e) = prisme_media::write_tempo_and_key(path, values) {
+    let Some(record) = db.get(path)? else { return Ok(()) };
+    if let Err(e) = prisme_media::write_tempo_and_key(path, tempo_and_key(&record)) {
         // not tried again until the track changes
         db.tags_written(path, before, before)?;
         return Err(e.into());
     }
-    db.tags_written(path, before, FileStamp::of(path)?)?;
+    let after = FileStamp::of(path)?;
+    if db.get(path)?.is_some_and(|now| tempo_and_key(&now) == tempo_and_key(&record)) {
+        db.tags_written(path, before, after)?;
+    } else {
+        // corrected while it was written: the next pass writes the correction
+        db.tags_outdated(path, before, after)?;
+    }
     Ok(())
+}
+
+fn tempo_and_key(record: &TrackRecord) -> TempoAndKey<'static> {
+    let analysis = record.effective_analysis();
+    TempoAndKey { bpm: analysis.tempo.map(|t| t.bpm), key: analysis.key.map(|k| k.key.name()) }
 }
 
 fn wanted(app: &AppHandle) -> bool {
