@@ -22,6 +22,8 @@ const PLAYED = 0.45;
 const PLAYED_OVERVIEW = 0.35;
 /** Stem levels (0 to 255, -48 to 0 dBFS) below this are another stem's bleed: not drawn. */
 const LANE_FLOOR = 80;
+/** Width of the tiles the scrolling view's audio is drawn in once (device pixels). */
+const TILE_PX = 1024;
 
 /** The colours of the design system (tokens.css), read once. */
 class Palette {
@@ -30,6 +32,7 @@ class Palette {
   readonly high = this.token('--pr-f-high');
   readonly light = this.token('--pr-light');
   readonly base = this.token('--pr-base');
+  readonly void = this.token('--pr-void');
   readonly veil = this.token('--pr-light-veil');
   readonly onLight = this.token('--pr-on-light');
   readonly text = this.token('--pr-text');
@@ -58,6 +61,15 @@ export class WaveformPainter {
     height: number;
     full: OffscreenCanvas;
     played: OffscreenCanvas;
+  } | null = null;
+
+  /** The scrolling view's audio in tiles, at its scale with the track at its own tempo:
+   * drawn once each, then copied (stretched to the tempo) frame after frame. */
+  private tiles: {
+    w: Waveform;
+    pxPerS: number;
+    height: number;
+    images: Map<number, OffscreenCanvas>;
   } | null = null;
 
   /** The stem lanes, drawn again only for other levels or another size. */
@@ -122,19 +134,21 @@ export class WaveformPainter {
     return image;
   }
 
-  /** Scrolling view centred on `positionS`; without a waveform yet, everything but the audio. */
+  /** Scrolling view centred on `positionS`, `spanS` of the track wide (`ownSpanS` at its own
+   * tempo); without a waveform yet, everything but the audio. */
   drawZoomed(
     ctx: CanvasRenderingContext2D,
     w: Waveform | null,
     overlay: WaveformOverlay,
     positionS: number,
     spanS: number,
+    ownSpanS: number,
     size: { width: number; height: number; ratio: number },
   ) {
     const view: View = { fromS: positionS - spanS / 2, spanS, ...size };
     ctx.clearRect(0, 0, view.width, view.height);
     this.drawLoop(ctx, overlay.loop, view);
-    if (w) this.drawZoomedAudio(ctx, w, view);
+    if (w) this.drawZoomedAudio(ctx, w, view, view.width / ownSpanS);
     if (overlay.tempo) this.drawBeatGrid(ctx, overlay.tempo, view);
     this.drawCues(ctx, overlay.cues, view, true);
     this.drawPlayhead(ctx, Math.round(view.width / 2), view);
@@ -167,22 +181,53 @@ export class WaveformPainter {
     ctx.fillRect(Math.floor(playedX) - view.ratio, 0, 2 * view.ratio, view.height);
   }
 
-  private drawZoomedAudio(ctx: CanvasRenderingContext2D, w: Waveform, view: View) {
+  /** The audio from its tiles at `pxPerS`, what has played (left of the playhead) veiled. */
+  private drawZoomedAudio(ctx: CanvasRenderingContext2D, w: Waveform, view: View, pxPerS: number) {
+    const cached = this.tiles;
+    const tiles =
+      cached && cached.w === w && cached.pxPerS === pxPerS && cached.height === view.height
+        ? cached
+        : (this.tiles = { w, pxPerS, height: view.height, images: new Map() });
+    const tileS = TILE_PX / pxPerS;
+    const first = Math.max(Math.floor(view.fromS / tileS), 0);
+    const last = Math.min(
+      Math.floor((view.fromS + view.spanS) / tileS),
+      Math.floor(w.peak.length / w.slicesPerSecond / tileS),
+    );
+    for (const k of tiles.images.keys()) {
+      if (k < first - 1 || k > last + 1) tiles.images.delete(k);
+    }
+    const width = (tileS / view.spanS) * view.width;
+    for (let k = first; k <= last; k++) {
+      let image = tiles.images.get(k);
+      if (!image) {
+        image = new OffscreenCanvas(TILE_PX, view.height);
+        const tile = { ...view, fromS: k * tileS, spanS: tileS, width: TILE_PX };
+        this.drawColumns(image.getContext('2d')!, w, tile);
+        tiles.images.set(k, image);
+      }
+      ctx.drawImage(image, xOf(k * tileS, view), 0, width, view.height);
+    }
+    ctx.globalAlpha = 1 - PLAYED;
+    ctx.fillStyle = this.palette.void;
+    ctx.fillRect(0, 0, Math.round(view.width / 2), view.height);
+    ctx.globalAlpha = 1;
+  }
+
+  /** The loudest slice under each column of `view`, in its colour. */
+  private drawColumns(ctx: OffscreenCanvasRenderingContext2D, w: Waveform, view: View) {
     const sps = w.slicesPerSecond;
     const slicesPerPx = (view.spanS * sps) / view.width;
     const mid = view.height / 2;
-    const playhead = view.width / 2;
     for (let x = 0; x < view.width; x++) {
       const first = Math.floor(view.fromS * sps + x * slicesPerPx);
       const last = Math.max(first + 1, Math.floor(view.fromS * sps + (x + 1) * slicesPerPx));
       if (last <= 0 || first >= w.peak.length) continue;
       const loudest = this.loudest(w, first, last);
       const h = (w.peak[loudest] / 255) * (mid - 1);
-      ctx.globalAlpha = x < playhead ? PLAYED : 1;
       ctx.fillStyle = this.colorAt(w, loudest);
       ctx.fillRect(x, mid - h, 1, h * 2);
     }
-    ctx.globalAlpha = 1;
   }
 
   /** The overview's audio, drawn again only for another waveform or another size. */

@@ -213,7 +213,7 @@ export class DeckWaveform {
     if (showing.length === this.shown.length && showing.every((v, i) => v === this.shown[i]))
       return;
     this.shown = showing;
-    this.painter.drawZoomed(zoom.ctx, waveform, overlay, position, span, zoom.size);
+    this.painter.drawZoomed(zoom.ctx, waveform, overlay, position, span, ZOOM_SPAN_S, zoom.size);
     this.painter.drawOverview(
       overview.ctx,
       waveform,
