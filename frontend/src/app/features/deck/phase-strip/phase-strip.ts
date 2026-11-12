@@ -12,6 +12,7 @@ import { driftTime, phaseOffset } from '../../../core/sync';
 import { t } from '../../../core/i18n/i18n';
 import { TPipe } from '../../../core/i18n/t.pipe';
 import { ZOOM_SPAN_S } from '../deck-waveform/deck-waveform';
+import { fitToDevicePixels, forgetCanvas } from '../../../shared/device-pixels';
 
 /** Beat offset under which the two decks count as matched. */
 const MATCHED_BEATS = 0.02;
@@ -71,18 +72,16 @@ export class PhaseStrip {
       };
       this.frame = requestAnimationFrame(loop);
     });
-    destroyRef.onDestroy(() => cancelAnimationFrame(this.frame));
+    destroyRef.onDestroy(() => {
+      cancelAnimationFrame(this.frame);
+      forgetCanvas(this.lane().nativeElement);
+    });
   }
 
   private draw() {
     const canvas = this.lane().nativeElement;
     const ratio = window.devicePixelRatio || 1;
-    const width = Math.max(1, Math.floor(canvas.clientWidth * ratio));
-    const height = Math.max(1, Math.floor(canvas.clientHeight * ratio));
-    if (canvas.width !== width || canvas.height !== height) {
-      canvas.width = width;
-      canvas.height = height;
-    }
+    const { width, height } = fitToDevicePixels(canvas);
     const showing = [width, height, ...[0, 1].flatMap((deck) => this.shownOf(deck))];
     if (showing.length === this.shown.length && showing.every((v, i) => v === this.shown[i]))
       return;

@@ -13,6 +13,7 @@ import {
 import { invoke } from '@tauri-apps/api/core';
 import { StemsService } from '../../../core/services/stems.service';
 import { t } from '../../../core/i18n/i18n';
+import { fitToDevicePixels, forgetCanvas } from '../../../shared/device-pixels';
 import { EngineService } from '../../../core/services/engine.service';
 import { WaveformOverlay, WaveformPainter } from './waveform-painter';
 import { TPipe } from '../../../core/i18n/t.pipe';
@@ -84,8 +85,17 @@ export class DeckWaveform {
       };
       this.frame = requestAnimationFrame(loop);
     });
-    destroyRef.onDestroy(() => cancelAnimationFrame(this.frame));
+    destroyRef.onDestroy(() => {
+      cancelAnimationFrame(this.frame);
+      forgetCanvas(this.zoomCanvas().nativeElement);
+      forgetCanvas(this.overviewCanvas().nativeElement);
+    });
     effect(() => this.askActivity());
+    // the lanes' canvas comes and goes with the stems
+    effect((onCleanup) => {
+      const lanes = this.lanesCanvas()?.nativeElement;
+      if (lanes) onCleanup(() => forgetCanvas(lanes));
+    });
   }
 
   /** Asks the activity of the track once it is separated, again until it is all there. */
@@ -227,16 +237,10 @@ export class DeckWaveform {
     }
   }
 
-  /** Keeps the canvas backing store at the element size (device pixels). */
+  /** The canvas at its size in device pixels, and its context. */
   private fit(canvas: HTMLCanvasElement) {
-    const ratio = window.devicePixelRatio || 1;
-    const w = Math.max(1, Math.floor(canvas.clientWidth * ratio));
-    const h = Math.max(1, Math.floor(canvas.clientHeight * ratio));
-    if (canvas.width !== w || canvas.height !== h) {
-      canvas.width = w;
-      canvas.height = h;
-    }
+    const { width, height } = fitToDevicePixels(canvas);
     const ctx = canvas.getContext('2d');
-    return ctx ? { ctx, size: { width: w, height: h, ratio } } : null;
+    return ctx ? { ctx, size: { width, height, ratio: window.devicePixelRatio || 1 } } : null;
   }
 }
