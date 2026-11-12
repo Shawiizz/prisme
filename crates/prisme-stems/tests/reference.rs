@@ -5,7 +5,7 @@
 use std::path::Path;
 
 use prisme_stems::model::{Geometry, Layer, Linear, Transformer, Values};
-use prisme_stems::{CpuNetwork, GpuNetwork, GpuOptions, MaskNetwork, Separator, StemsError, Weights};
+use prisme_stems::{CpuNetwork, Gpu, GpuNetwork, GpuOptions, MaskNetwork, Separator, StemsError, Weights};
 
 fn load(name: &str) -> Weights {
     Weights::load(&Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/data").join(name))
@@ -85,6 +85,55 @@ fn the_gpu_network_separates_like_the_reference() {
         let (audio, expected) = reference(&weights);
         let Some(net) = gpu(weights, true) else { return };
         separates_like_the_reference(net, &audio, &expected, F16_TOLERANCE);
+    }
+}
+
+/// Bins for `frames` frames of a network, the same for every run.
+fn bins(geometry: &Geometry, frames: usize) -> Vec<f32> {
+    (0..frames * geometry.features()).map(|i| ((i * 7919 % 2003) as f32 / 1001.5 - 1.0) * 3.0).collect()
+}
+
+/// Its masks for `bins` of `frames` frames, started and finished.
+fn masks_of(net: &mut GpuNetwork, bins: &[f32], frames: usize) -> Vec<f32> {
+    let mut out = vec![0.0; net.geometry().mask_len(frames)];
+    net.start(bins, frames).unwrap();
+    net.finish(&mut out).unwrap();
+    out
+}
+
+/// Networks on one GPU share the buffers of their activations, as their chunks take turns:
+/// interleaved, each gives what it gives alone.
+#[test]
+fn networks_sharing_a_gpu_give_what_they_give_alone() {
+    let options = GpuOptions { software: true, without_matrix_units: true };
+    let shared = match Gpu::open(options) {
+        Ok(gpu) => gpu,
+        Err(StemsError::NoGpu(e)) => return eprintln!("skipped: {e}"),
+        Err(e) => panic!("{e}"),
+    };
+    let frames = 150;
+    let weights = [fixture(), stems_fixture()];
+    let alone: Vec<Vec<f32>> = weights
+        .iter()
+        .map(|w| {
+            let mut net = gpu(w.clone(), true).expect("a GPU");
+            masks_of(&mut net, &bins(&w.geometry, frames), frames)
+        })
+        .collect();
+    // the second grows the buffers the first planned with
+    let mut nets = weights.map(|w| GpuNetwork::on(&shared, &w).unwrap());
+    let inputs: Vec<Vec<f32>> = nets.iter().map(|n| bins(n.geometry(), frames)).collect();
+    for order in [[0, 1], [1, 0], [0, 1]] {
+        let mut outs: Vec<Vec<f32>> = nets.iter().map(|n| vec![0.0; n.geometry().mask_len(frames)]).collect();
+        for &i in &order {
+            nets[i].start(&inputs[i], frames).unwrap();
+        }
+        for &i in &order {
+            nets[i].finish(&mut outs[i]).unwrap();
+        }
+        for (got, expected) in outs.iter().zip(&alone) {
+            assert_eq!(got, expected, "order {order:?}");
+        }
     }
 }
 

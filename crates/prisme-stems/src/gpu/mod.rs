@@ -9,7 +9,8 @@
 //!
 //! The work for a chunk is planned once (buffers, bind groups, dispatches) per frame count,
 //! then replayed: only the input bins change between chunks. Networks opened on one [`Gpu`]
-//! share its queue: their chunks take turns instead of contending.
+//! share its queue: their chunks take turns instead of contending, and so share the buffers
+//! holding the activations of the one running.
 
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
@@ -43,7 +44,38 @@ pub struct Gpu {
     /// NVIDIA's GPUs take the f32 products in large tiles; others would spill their
     /// registers, and take them in small ones.
     large_tiles: bool,
+    scratch: Mutex<Scratch>,
 }
+
+/// The activations of the networks on a GPU, one buffer per [`Slot`], as large as the
+/// largest network needs.
+#[derive(Default)]
+struct Scratch {
+    /// Bumped when a buffer gives way to a larger one: the plans binding the old one are
+    /// built again (until then, they keep it alive).
+    generation: u64,
+    buffers: Vec<wgpu::Buffer>,
+}
+
+/// What each scratch buffer holds during a chunk.
+#[derive(Clone, Copy)]
+enum Slot {
+    /// The residual stream, f32.
+    X,
+    /// The stream before the last time transformer (networks with skip connections).
+    Earlier,
+    Normed,
+    Qkvg,
+    Attended,
+    Hidden,
+    BandIn,
+    Mlp0,
+    Mlp1,
+    /// The last layer of a mask estimator, f32.
+    MlpOut,
+}
+
+const SLOTS: usize = 10;
 
 pub struct GpuNetwork {
     gpu: Arc<Gpu>,
@@ -112,6 +144,8 @@ struct Pipelines {
 /// The dispatches for one frame count, in submissions short enough not to trip the
 /// operating system's GPU watchdog on a slow GPU.
 struct Plan {
+    /// Of the scratch buffers it binds.
+    generation: u64,
     bins: wgpu::Buffer,
     mask: wgpu::Buffer,
     readback: wgpu::Buffer,
@@ -175,7 +209,15 @@ impl Gpu {
             sink.lock().expect("error sink").get_or_insert(message);
         }));
         let name = format!("{} ({:?})", info.name, info.backend);
-        Ok(Arc::new(Self { device, queue, name, errors, matrix_units, large_tiles }))
+        Ok(Arc::new(Self {
+            device,
+            queue,
+            name,
+            errors,
+            matrix_units,
+            large_tiles,
+            scratch: Mutex::default(),
+        }))
     }
 
     /// The GPU and graphics API.
@@ -188,6 +230,35 @@ impl Gpu {
             Some(e) => Err(StemsError::Gpu(e)),
             None => Ok(()),
         }
+    }
+
+    /// The scratch buffers, each of at least `bytes`, and their generation.
+    fn scratch(&self, bytes: [u64; SLOTS]) -> (u64, Vec<wgpu::Buffer>) {
+        let mut scratch = self.scratch.lock().expect("scratch buffers");
+        let scratch = &mut *scratch;
+        if scratch.buffers.len() != SLOTS {
+            scratch.buffers = (0..SLOTS).map(|_| self.storage_buffer(0)).collect();
+        }
+        for (buffer, &needed) in scratch.buffers.iter_mut().zip(&bytes) {
+            if buffer.size() < needed {
+                *buffer = self.storage_buffer(needed);
+                scratch.generation += 1;
+            }
+        }
+        (scratch.generation, scratch.buffers.clone())
+    }
+
+    fn scratch_generation(&self) -> u64 {
+        self.scratch.lock().expect("scratch buffers").generation
+    }
+
+    fn storage_buffer(&self, bytes: u64) -> wgpu::Buffer {
+        self.device.create_buffer(&wgpu::BufferDescriptor {
+            label: None,
+            size: bytes.max(16),
+            usage: wgpu::BufferUsages::STORAGE,
+            mapped_at_creation: false,
+        })
     }
 }
 
@@ -270,13 +341,21 @@ impl GpuNetwork {
         }
     }
 
+    /// Plans the work for `frames`, again if a network sharing the GPU grew the scratch
+    /// buffers since.
     fn prepare(&mut self, frames: usize) -> Result<(), StemsError> {
-        if !self.plans.contains_key(&frames) {
-            self.check_limits(frames)?;
-            let plan = Planner { net: self, frames }.build();
-            self.check_errors()?;
-            self.plans.insert(frames, plan);
+        let generation = self.gpu.scratch_generation();
+        if self.plans.get(&frames).is_some_and(|p| p.generation == generation) {
+            return Ok(());
         }
+        // the plans binding replaced buffers keep them alive: they go first
+        self.plans.retain(|_, p| p.generation == generation);
+        self.check_limits(frames)?;
+        let plan = Planner { net: self, frames }.build();
+        self.check_errors()?;
+        let built = plan.generation;
+        self.plans.retain(|_, p| p.generation == built);
+        self.plans.insert(frames, plan);
         Ok(())
     }
 }
@@ -546,8 +625,21 @@ impl Planner<'_> {
         let features = g.features();
         let widest_band = g.bands.iter().map(|b| b.width).max().unwrap_or(0);
         let mask_out = p.masks.iter().flatten().filter_map(|m| m.last()).map(|l| l.out).max().unwrap_or(0);
-        let f32s = |n| self.buffer(Store::F32, n, wgpu::BufferUsages::empty());
-        let acts = |n| self.buffer(Store::Act, n, wgpu::BufferUsages::empty());
+        let f32s = |n: usize| (n.max(1).next_multiple_of(4) * 4) as u64;
+        let acts = |n: usize| (n.max(1).next_multiple_of(4) * self.net.act_bytes()) as u64;
+        let mut bytes = [0; SLOTS];
+        bytes[Slot::X as usize] = f32s(tokens * c.dim);
+        bytes[Slot::Earlier as usize] = if c.skip { f32s(tokens * c.dim) } else { 0 };
+        bytes[Slot::Normed as usize] = acts(tokens * c.dim);
+        bytes[Slot::Qkvg as usize] = acts(tokens * c.qkvg_width());
+        bytes[Slot::Attended as usize] = acts(tokens * c.inner_dim());
+        bytes[Slot::Hidden as usize] = acts(tokens * p.ff_hidden);
+        bytes[Slot::BandIn as usize] = acts(frames * widest_band);
+        bytes[Slot::Mlp0 as usize] = acts(frames * p.mask_hidden);
+        bytes[Slot::Mlp1 as usize] = acts(frames * p.mask_hidden);
+        bytes[Slot::MlpOut as usize] = f32s(frames * mask_out);
+        let (generation, scratch) = self.net.gpu.scratch(bytes);
+        let slot = |s: Slot| scratch[s as usize].clone();
 
         let bins = self.buffer(Store::F32, frames * features, wgpu::BufferUsages::COPY_DST);
         let mask = self.buffer(Store::F32, g.mask_len(frames), wgpu::BufferUsages::COPY_SRC);
@@ -557,15 +649,15 @@ impl Planner<'_> {
             usage: wgpu::BufferUsages::MAP_READ | wgpu::BufferUsages::COPY_DST,
             mapped_at_creation: false,
         });
-        let x = f32s(tokens * c.dim);
-        let earlier = c.skip.then(|| f32s(tokens * c.dim));
-        let normed = acts(tokens * c.dim);
-        let qkvg = acts(tokens * c.qkvg_width());
-        let attended = acts(tokens * c.inner_dim());
-        let hidden = acts(tokens * p.ff_hidden);
-        let band_in = acts(frames * widest_band);
-        let mlp = [acts(frames * p.mask_hidden), acts(frames * p.mask_hidden)];
-        let mlp_out = f32s(frames * mask_out);
+        let x = slot(Slot::X);
+        let earlier = c.skip.then(|| slot(Slot::Earlier));
+        let normed = slot(Slot::Normed);
+        let qkvg = slot(Slot::Qkvg);
+        let attended = slot(Slot::Attended);
+        let hidden = slot(Slot::Hidden);
+        let band_in = slot(Slot::BandIn);
+        let mlp = [slot(Slot::Mlp0), slot(Slot::Mlp1)];
+        let mlp_out = slot(Slot::MlpOut);
         let angles_time =
             storage(&self.net.gpu.device, bytemuck::cast_slice(&angles(&p.rotary_time, frames)));
         let angles_freq = storage(&self.net.gpu.device, bytemuck::cast_slice(&angles(&p.rotary_freq, bands)));
@@ -635,7 +727,7 @@ impl Planner<'_> {
             submissions.push(std::mem::take(&mut steps));
         }
 
-        Plan { bins, mask, readback, submissions }
+        Plan { generation, bins, mask, readback, submissions }
     }
 
     /// Room for `count` values stored as `store`, in whole groups of 4.
