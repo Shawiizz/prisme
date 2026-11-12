@@ -1,6 +1,8 @@
 <div
+  #table
   class="table"
   [style.--track-columns]="template()"
+  (scroll)="scrolled()"
   (dragover)="listDragOver($event, null)"
   (drop)="listDrop($event, null)"
 >
@@ -27,7 +29,8 @@
     }
     <span class="load">{{ 'Load' | t }}</span>
   </div>
-  @for (t of tracks(); track rowKey(t)) {
+  <div [style.height.px]="shown().before"></div>
+  @for (t of shown().rows; track rowKey(t)) {
     <div
       class="row"
       [attr.data-path]="t.path"
@@ -193,7 +196,9 @@
         }
       </span>
     </div>
-  } @empty {
+  }
+  <div [style.height.px]="shown().after"></div>
+  @if (tracks().length === 0) {
     <div class="none">{{ emptyMessage() }}</div>
   }
 </div>

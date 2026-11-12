@@ -1,4 +1,16 @@
-import { Component, ElementRef, computed, effect, inject, signal } from '@angular/core';
+import {
+  Component,
+  DestroyRef,
+  ElementRef,
+  afterNextRender,
+  afterRenderEffect,
+  computed,
+  effect,
+  inject,
+  signal,
+  untracked,
+  viewChild,
+} from '@angular/core';
 import { DECK_COUNT } from '../../../core/models/engine';
 import { DirEntry } from '../../../core/models/library';
 import { EngineService } from '../../../core/services/engine.service';
@@ -31,6 +43,8 @@ const EMPTY_LIST: Record<TrackSource['kind'], string> = {
 };
 
 const STARS = [1, 2, 3, 4, 5];
+/** Rows drawn beyond those in view, above and below: a quick scroll shows no gap. */
+const OVERSCAN = 12;
 
 /**
  * A popover opened at a point: below it, or above it in the lower half of the window; to
@@ -80,9 +94,31 @@ export class TrackTable {
   protected readonly stems = inject(StemsService);
   private readonly preferences = inject(PreferencesService);
   private readonly history = inject(HistoryService);
-  private readonly host = inject(ElementRef<HTMLElement>);
+  private readonly table = viewChild.required<ElementRef<HTMLElement>>('table');
 
   protected readonly tracks = this.library.visibleTracks;
+  /** Only the rows in view are drawn (a library of thousands would be hundreds of thousands
+   * of elements): the others are spaces of their height. */
+  private readonly rowHeight =
+    parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--pr-row')) || 29;
+  private readonly scrollTop = signal(0);
+  private readonly viewHeight = signal(0);
+  private readonly firstShown = computed(() =>
+    Math.max(0, Math.floor(this.scrollTop() / this.rowHeight) - OVERSCAN),
+  );
+  private readonly shownCount = computed(
+    () => Math.ceil(this.viewHeight() / this.rowHeight) + 2 * OVERSCAN,
+  );
+  protected readonly shown = computed(() => {
+    const tracks = this.tracks();
+    const first = Math.min(this.firstShown(), tracks.length);
+    const last = Math.min(first + this.shownCount(), tracks.length);
+    return {
+      rows: tracks.slice(first, last),
+      before: first * this.rowHeight,
+      after: (tracks.length - last) * this.rowHeight,
+    };
+  });
   protected readonly deckIndexes = Array.from({ length: DECK_COUNT }, (_, i) => i);
   protected readonly stars = STARS;
   protected readonly trackColors = TRACK_COLORS;
@@ -156,10 +192,38 @@ export class TrackTable {
   constructor() {
     effect(() => {
       const path = this.library.selected();
-      const row =
-        path && this.host.nativeElement.querySelector(`[data-path="${CSS.escape(path)}"]`);
-      row?.scrollIntoView({ block: 'nearest' });
+      if (path) untracked(() => this.scrollTo(path));
     });
+    const destroyRef = inject(DestroyRef);
+    afterNextRender(() => {
+      const table = this.table().nativeElement;
+      const resized = new ResizeObserver(() => this.viewHeight.set(table.clientHeight));
+      resized.observe(table);
+      destroyRef.onDestroy(() => resized.disconnect());
+    });
+    // another list may leave the table scrolled elsewhere (back to its end if shorter)
+    afterRenderEffect(() => {
+      this.tracks();
+      untracked(() => this.scrolled());
+    });
+  }
+
+  scrolled() {
+    this.scrollTop.set(this.table().nativeElement.scrollTop);
+  }
+
+  /** Scrolls the least that shows the row of `path` whole, under the column headers. */
+  private scrollTo(path: string) {
+    const index = this.tracks().findIndex((t) => t.path === path);
+    if (index < 0) return;
+    const table = this.table().nativeElement;
+    const head = table.querySelector<HTMLElement>('.head')?.offsetHeight ?? 0;
+    const top = index * this.rowHeight;
+    if (top < table.scrollTop) {
+      table.scrollTop = top;
+    } else if (head + top + this.rowHeight > table.scrollTop + table.clientHeight) {
+      table.scrollTop = head + top + this.rowHeight - table.clientHeight;
+    }
   }
 
   sortMark(column: SortColumn | undefined): string {
