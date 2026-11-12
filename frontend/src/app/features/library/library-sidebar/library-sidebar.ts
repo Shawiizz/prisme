@@ -76,7 +76,8 @@ export class LibrarySidebar {
     const crumbs = [{ name: t('Music'), path: root }];
     let acc = root;
     for (const p of parts) {
-      acc = acc + sep + p;
+      // a root at the top of a drive (D:\) ends with the separator already
+      acc = acc.endsWith(sep) ? acc + p : acc + sep + p;
       crumbs.push({ name: p, path: acc });
     }
     return crumbs;

@@ -3,12 +3,12 @@
 use crate::dto::{DirEntryDto, DirListingDto, TrackDetailsDto};
 use std::path::{Path, PathBuf};
 
-/// The user's music folder: where Windows keeps it (moved to another drive or to OneDrive
-/// as well), else `Music` in the home folder. Never the home folder itself, whose scan would
-/// read the whole profile.
+/// The user's music folder: where Windows keeps it (moved to another drive, a NAS or
+/// OneDrive as well), else `Music` in the home folder. Never the home folder itself, whose
+/// scan would read the whole profile. Not looked at: a NAS offline would hold the start for
+/// as long as the network waits.
 pub fn music_root() -> PathBuf {
     dirs::audio_dir()
-        .filter(|dir| dir.is_dir())
         .or_else(|| dirs::home_dir().map(|home| home.join("Music")))
         .unwrap_or_else(|| PathBuf::from("Music"))
 }
