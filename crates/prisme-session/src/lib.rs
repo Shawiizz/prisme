@@ -36,12 +36,26 @@ pub fn load<T: DeserializeOwned + Default>(path: &Path) -> Loaded<T> {
     };
     match serde_json::from_slice(&bytes) {
         Ok(value) => Loaded { value, set_aside: None, held: false },
-        Err(_) => {
-            let backup = path.with_extension("unreadable.json");
-            let set_aside = std::fs::rename(path, &backup).ok().map(|()| backup);
-            Loaded { set_aside, ..defaults(false) }
-        }
+        Err(_) => match set_aside(path) {
+            Some(backup) => Loaded { set_aside: Some(backup), ..defaults(false) },
+            // not saved over, as it could not be kept
+            None => defaults(true),
+        },
     }
+}
+
+/// Moves `path` out of the way, beside it, without replacing a file set aside before.
+fn set_aside(path: &Path) -> Option<PathBuf> {
+    let backup = (1..100)
+        .map(|n| {
+            path.with_extension(if n == 1 {
+                "unreadable.json".into()
+            } else {
+                format!("unreadable {n}.json")
+            })
+        })
+        .find(|backup| !backup.exists())?;
+    std::fs::rename(path, &backup).ok().map(|()| backup)
 }
 
 /// The bytes of `path`, tried again a few times while another program holds it (content
@@ -175,6 +189,19 @@ mod tests {
         let (_, saved) = file.update(|p| p.volume = 0.3);
         saved.unwrap();
         assert!(path.is_dir());
+        std::fs::remove_dir_all(dir).ok();
+    }
+
+    #[test]
+    fn a_file_set_aside_before_is_kept() {
+        let dir = temp_dir("twice");
+        let path = dir.join("prefs.json");
+        for content in ["{ first", "{ second"] {
+            std::fs::write(&path, content).unwrap();
+            assert!(load::<Prefs>(&path).set_aside.is_some());
+        }
+        assert_eq!(std::fs::read_to_string(dir.join("prefs.unreadable.json")).unwrap(), "{ first");
+        assert_eq!(std::fs::read_to_string(dir.join("prefs.unreadable 2.json")).unwrap(), "{ second");
         std::fs::remove_dir_all(dir).ok();
     }
 

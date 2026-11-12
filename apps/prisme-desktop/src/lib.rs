@@ -280,7 +280,7 @@ pub fn run() {
                 let state = app.state::<AppState>();
                 let recorder = lock(&state.recorder).take();
                 if let Some(recorder) = recorder {
-                    if let Err(e) = recorder.stop(&state, &app.state::<Arc<LibraryService>>().db) {
+                    if let Err(e) = recorder.stop(&state) {
                         error!("recording not ended: {e}");
                     }
                 }

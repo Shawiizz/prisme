@@ -100,7 +100,9 @@ fn start(state: &AppState, settings: &AudioSettings) -> AppResult<AudioInfo> {
     // a recording goes on, in a file of its own
     if let Some(Err(e)) = recorder.as_mut().map(|r| r.resume(state)) {
         error!("recording ended, not resumed: {e}");
-        *recorder = None;
+        if let Err(e) = recorder.take().map_or(Ok(()), |r| r.stop(state).map(drop)) {
+            error!("recording not ended: {e}");
+        }
     }
     Ok(info)
 }

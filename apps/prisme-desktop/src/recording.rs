@@ -42,6 +42,8 @@ pub struct Recorder {
     earlier_s: f64,
     /// The last file written in, by its number (1: the first).
     part: Arc<AtomicUsize>,
+    /// Where the plays of the tracklist are read.
+    db: Arc<LibraryDb>,
 }
 
 /// What a finished recording holds.
@@ -53,13 +55,18 @@ pub struct RecordingSummary {
 
 impl Recorder {
     /// Starts recording `source` into a new file in `folder`, named after the local time.
-    pub fn start(state: &AppState, source: RecordSource, folder: &Path) -> AppResult<Self> {
+    pub fn start(
+        state: &AppState,
+        source: RecordSource,
+        folder: &Path,
+        db: Arc<LibraryDb>,
+    ) -> AppResult<Self> {
         std::fs::create_dir_all(folder)?;
         let path = folder.join(format!("Prisme {}.wav", chrono::Local::now().format(FILE_TIME)));
         let (stop, part) = (Arc::new(AtomicBool::new(false)), Arc::new(AtomicUsize::new(1)));
         let writer = begin(state, source, &path, &part, &stop)?;
         let started_at_ms = prisme_library::now_ms();
-        Ok(Self { path, source, started_at_ms, stop, writer: Some(writer), earlier_s: 0.0, part })
+        Ok(Self { path, source, started_at_ms, stop, writer: Some(writer), earlier_s: 0.0, part, db })
     }
 
     pub fn path(&self) -> &Path {
@@ -78,12 +85,20 @@ impl Recorder {
             }
         }
         self.part.fetch_add(1, Ordering::AcqRel);
-        self.writer = Some(begin(state, self.source, &self.path, &self.part, &self.stop)?);
-        Ok(())
+        match begin(state, self.source, &self.path, &self.part, &self.stop) {
+            Ok(writer) => {
+                self.writer = Some(writer);
+                Ok(())
+            }
+            Err(e) => {
+                self.part.fetch_sub(1, Ordering::AcqRel);
+                Err(e)
+            }
+        }
     }
 
     /// Ends the file and writes the tracklist of what was played since the start.
-    pub fn stop(self, state: &AppState, db: &LibraryDb) -> AppResult<RecordingSummary> {
+    pub fn stop(self, state: &AppState) -> AppResult<RecordingSummary> {
         match state.send(Command::StopRecording) {
             Ok(()) | Err(AppError::AudioNotRunning) => {}
             Err(e) => return Err(e),
@@ -96,7 +111,7 @@ impl Recorder {
                 .map_err(|e| AppError::Other(e.to_string()))?,
             None => 0.0,
         };
-        let plays = db.plays_since(self.started_at_ms)?;
+        let plays = self.db.plays_since(self.started_at_ms)?;
         let file_name = self.path.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
         std::fs::write(self.path.with_extension("txt"), tracklist_text(&plays, self.started_at_ms))?;
         // a sheet holds the tracks of one file

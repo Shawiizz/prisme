@@ -17,6 +17,7 @@ const FOLDER: &str = "Prisme Recordings";
 pub fn start_recording(
     app: AppHandle,
     state: State<'_, AppState>,
+    library: State<'_, Arc<LibraryService>>,
     source: RecordSourceDto,
 ) -> AppResult<String> {
     let mut recorder = lock(&state.recorder);
@@ -24,7 +25,7 @@ pub fn start_recording(
         return Err(AppError::Other("already recording".into()));
     }
     let documents = app.path().document_dir().map_err(|e| AppError::Other(e.to_string()))?;
-    let started = Recorder::start(&state, source.into(), &documents.join(FOLDER))?;
+    let started = Recorder::start(&state, source.into(), &documents.join(FOLDER), library.db.clone())?;
     let path = started.path().display().to_string();
     *recorder = Some(started);
     Ok(path)
@@ -32,12 +33,9 @@ pub fn start_recording(
 
 /// Ends the recording and writes its tracklist next to it.
 #[tauri::command]
-pub fn stop_recording(
-    state: State<'_, AppState>,
-    library: State<'_, Arc<LibraryService>>,
-) -> AppResult<Option<RecordingDto>> {
+pub fn stop_recording(state: State<'_, AppState>) -> AppResult<Option<RecordingDto>> {
     let Some(recorder) = lock(&state.recorder).take() else { return Ok(None) };
-    let summary = recorder.stop(&state, &library.db)?;
+    let summary = recorder.stop(&state)?;
     Ok(Some(RecordingDto {
         path: summary.path.display().to_string(),
         seconds: summary.seconds,
