@@ -87,6 +87,8 @@ pub struct LibraryPreferences {
     pub hidden_columns: Vec<String>,
     /// Tempo and key written into the files' tags (see `tag_writer`).
     pub write_tags: bool,
+    /// Those another program wrote (Mixed In Key, say) replaced as well.
+    pub replace_tags: bool,
     /// A track loaded on a deck is separated right away, before the library's; one put in
     /// the prepare list in the background.
     pub separate_on_load: bool,
@@ -94,7 +96,13 @@ pub struct LibraryPreferences {
 
 impl Default for LibraryPreferences {
     fn default() -> Self {
-        Self { last_folder: None, hidden_columns: Vec::new(), write_tags: true, separate_on_load: true }
+        Self {
+            last_folder: None,
+            hidden_columns: Vec::new(),
+            write_tags: true,
+            replace_tags: false,
+            separate_on_load: true,
+        }
     }
 }
 
@@ -110,6 +118,7 @@ mod tests {
         assert_eq!(p.dj.pitch_range, 0.08);
         assert_eq!(p.audio, AudioSettings::default());
         assert!(p.library.write_tags);
+        assert!(!p.library.replace_tags);
         assert!(p.library.separate_on_load);
     }
 

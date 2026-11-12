@@ -1,6 +1,6 @@
 //! Writes into the files' tags, so that other DJ software finds what Prisme knows: the
-//! tempo and key of the analysed tracks (a preference, on by default), and the genres
-//! given by hand. One file at a time on its own thread, so that two writes never meet;
+//! tempo and key of the analysed tracks (a preference, on by default; those another
+//! program wrote are kept unless the DJ chose otherwise), and the genres given by hand. One file at a time on its own thread, so that two writes never meet;
 //! the library's record of each file follows the change, which is therefore not taken for
 //! a new version of the file.
 
@@ -8,7 +8,7 @@ use crate::error::{AppError, AppResult};
 use crate::library_service::LibraryService;
 use crate::state::{lock, AppState};
 use prisme_library::{FileStamp, LibraryDb, TrackRecord};
-use prisme_media::TempoAndKey;
+use prisme_media::{Replacing, TempoAndKey};
 use std::path::{Path, PathBuf};
 use std::sync::{mpsc, Arc};
 use tauri::{AppHandle, Manager};
@@ -101,28 +101,39 @@ fn write_pending(app: &AppHandle) {
         if decoding(app, path) {
             continue;
         }
-        if let Err(e) = write(&library.db, path, &record) {
+        let replace_all = app.state::<AppState>().preferences.read(|p| p.library.replace_tags);
+        if let Err(e) = write(&library.db, path, &record, replace_all) {
             warn!("tempo and key not written into {}: {e}", path.display());
         }
     }
 }
 
 /// Writes the tempo and key of `path` as stored now (corrected since `record` was read,
-/// perhaps).
-fn write(db: &LibraryDb, path: &Path, record: &TrackRecord) -> AppResult<()> {
+/// perhaps), over those Prisme wrote before, or over any with `replace_all`.
+fn write(db: &LibraryDb, path: &Path, record: &TrackRecord, replace_all: bool) -> AppResult<()> {
     let before = FileStamp::of(path)?;
     // changed since it was analysed: the analysis comes first
     if before != record.version.stamp {
         return Ok(());
     }
     let Some(record) = db.get(path)? else { return Ok(()) };
-    if let Err(e) = prisme_media::write_tempo_and_key(path, tempo_and_key(&record)) {
-        // not tried again until the track changes
-        db.tags_written(path, before, before)?;
-        return Err(e.into());
-    }
+    let values = tempo_and_key(&record);
+    let own = db.own_tags(path)?;
+    let replacing = if replace_all { Replacing::Any } else { Replacing::Own(own.values()) };
+    let written = match prisme_media::write_tempo_and_key(path, values, replacing) {
+        Ok(written) => written,
+        Err(e) => {
+            // not tried again until the track changes
+            db.tags_written(path, before, before)?;
+            return Err(e.into());
+        }
+    };
+    db.own_tags_written(
+        path,
+        TempoAndKey { bpm: values.bpm.filter(|_| written.bpm), key: values.key.filter(|_| written.key) },
+    )?;
     let after = FileStamp::of(path)?;
-    if db.get(path)?.is_some_and(|now| tempo_and_key(&now) == tempo_and_key(&record)) {
+    if db.get(path)?.is_some_and(|now| tempo_and_key(&now) == values) {
         db.tags_written(path, before, after)?;
     } else {
         // corrected while it was written: the next pass writes the correction

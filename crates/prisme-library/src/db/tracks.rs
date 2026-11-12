@@ -173,9 +173,10 @@ impl LibraryDb {
         tx.prepare_cached(
             "INSERT OR REPLACE INTO tracks (path, size, modified_ms, analysis_version, duration_s, bpm,
                  first_beat_s, tempo_confidence, key_tonic, key_minor, key_confidence, tuning_cents, error,
-                 analyzed_at_ms, title, artist, album, genre, year, comment, tags_version)
+                 analyzed_at_ms, title, artist, album, genre, year, comment, tags_version, tag_bpm, tag_key)
              VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19,
-                 ?20, ?21)",
+                 ?20, ?21, (SELECT tag_bpm FROM tracks WHERE path = ?1),
+                 (SELECT tag_key FROM tracks WHERE path = ?1))",
         )?
         .execute(params![
             record.path,

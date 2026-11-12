@@ -17,6 +17,8 @@ export interface LibraryPreferences {
   hiddenColumns: string[];
   /** Tempo and key written into the files' tags. */
   writeTags: boolean;
+  /** Those another program wrote (Mixed In Key, say) replaced as well. */
+  replaceTags: boolean;
   /** A track loaded on a deck is separated right away, before the library's; one put in the
    * prepare list in the background. */
   separateOnLoad: boolean;

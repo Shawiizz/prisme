@@ -15,6 +15,7 @@ export class PreferencesService {
     lastFolder: null,
     hiddenColumns: [],
     writeTags: true,
+    replaceTags: false,
     separateOnLoad: true,
   });
 

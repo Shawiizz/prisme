@@ -24,7 +24,8 @@ pub use analyzer::{
 pub use cues::{Cue, CueSlot, HOT_CUES};
 pub use db::{
     now_ms, path_key, Crate, CrateId, DbError, FileStamp, GridEdit, HistoryPlay, HistorySession, LibraryDb,
-    RecordVersion, SessionId, TrackEdits, TrackEntry, TrackMarks, TrackRecord, MAX_RATING, TAGS_VERSION,
+    RecordVersion, SessionId, TrackEdits, TrackEntry, TrackMarks, TrackRecord, WrittenTags, MAX_RATING,
+    TAGS_VERSION,
 };
 pub use duplicates::duplicate_groups;
 pub use metadata::{read_metadata, Metadata};

@@ -165,6 +165,14 @@ export const SETTINGS: readonly SettingEntry[] = [
     description: t('So that Serato, rekordbox and the others find them.'),
   },
   {
+    id: 'library.tagsReplace',
+    page: 'library',
+    label: t('Replace those another program wrote'),
+    description: t(
+      'A tempo or a key Mixed In Key or another program put in a file is kept unless this is on.',
+    ),
+  },
+  {
     id: 'library.stemsModel',
     page: 'library',
     label: t('Vocals separation'),

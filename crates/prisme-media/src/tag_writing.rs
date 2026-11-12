@@ -17,6 +17,7 @@ use lofty::ogg::tag::VorbisComments;
 use lofty::ogg::VorbisFile;
 use lofty::TextEncoding;
 use std::borrow::Cow;
+use std::cell::Cell;
 use std::fs::File;
 use std::path::Path;
 
@@ -28,17 +29,87 @@ pub struct TempoAndKey<'a> {
     pub key: Option<&'a str>,
 }
 
-/// Writes `values` into the tags of `path`; returns whether the file changed (values
-/// already there are not written again, formats without such tags are left alone).
-pub fn write_tempo_and_key(path: &Path, values: TempoAndKey<'_>) -> Result<bool, MediaError> {
+/// Which of the values a file already holds are written over.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum Replacing<'a> {
+    /// Whatever the file holds.
+    Any,
+    /// Those Prisme wrote before, still as it wrote them: what another program put in the
+    /// file (Mixed In Key, say) is kept.
+    Own(TempoAndKey<'a>),
+}
+
+/// The tempo and the key, one flag each.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct TagFields {
+    pub bpm: bool,
+    pub key: bool,
+}
+
+impl TagFields {
+    pub const NONE: Self = Self { bpm: false, key: false };
+    pub const BOTH: Self = Self { bpm: true, key: true };
+
+    pub fn any(self) -> bool {
+        self.bpm || self.key
+    }
+}
+
+/// Writes `values` into the tags of `path` where the file holds none, or one `replacing`
+/// lets go; returns those written. Values already there are not written again, formats
+/// without such tags are left alone.
+pub fn write_tempo_and_key(
+    path: &Path,
+    values: TempoAndKey<'_>,
+    replacing: Replacing<'_>,
+) -> Result<TagFields, MediaError> {
+    let written = Cell::new(TagFields::NONE);
+    let record = |fields: TagFields| {
+        written.set(fields);
+        fields.any()
+    };
     write(
         path,
         Setters {
-            id3v2: &|tag| set_id3v2(tag, values),
-            vorbis: &|comments| set_vorbis(comments, values),
-            ilst: &|ilst| set_ilst(ilst, values),
+            id3v2: &|tag| record(set_id3v2(tag, values, replacing)),
+            vorbis: &|comments| record(set_vorbis(comments, values, replacing)),
+            ilst: &|ilst| record(set_ilst(ilst, values, replacing)),
         },
-    )
+    )?;
+    Ok(written.get())
+}
+
+/// A value to write, as a kind of tag spells it.
+struct Field {
+    value: Option<String>,
+    /// What Prisme wrote before, spelt the same way.
+    own: Option<String>,
+    replace_any: bool,
+}
+
+impl Field {
+    /// The tempo, spelt by `tempo`, and the key.
+    fn pair(values: TempoAndKey<'_>, replacing: Replacing<'_>, tempo: impl Fn(f64) -> String) -> [Self; 2] {
+        let (own, replace_any) = match replacing {
+            Replacing::Any => (TempoAndKey { bpm: None, key: None }, true),
+            Replacing::Own(own) => (own, false),
+        };
+        [
+            Self { value: values.bpm.map(&tempo), own: own.bpm.map(&tempo), replace_any },
+            Self { value: values.key.map(str::to_owned), own: own.key.map(str::to_owned), replace_any },
+        ]
+    }
+
+    /// The value, if it goes in where the file holds `current`.
+    fn in_place_of(self, current: Option<&str>) -> Option<String> {
+        let value = self.value?;
+        let goes_in = match current.map(str::trim) {
+            Some(current) if current == value => false,
+            Some(current) if !current.is_empty() => self.replace_any || self.own.as_deref() == Some(current),
+            _ => true,
+        };
+        goes_in.then_some(value)
+    }
 }
 
 /// Writes the genre of `path` (`None` takes it off); returns whether the file changed:
@@ -179,54 +250,56 @@ fn save_in_copy<F: AudioFile>(
     Ok(())
 }
 
-fn set_id3v2(tag: &mut Id3v2Tag, values: TempoAndKey<'_>) -> bool {
-    let mut set = |id: &'static str, value: String| {
+fn set_id3v2(tag: &mut Id3v2Tag, values: TempoAndKey<'_>, replacing: Replacing<'_>) -> TagFields {
+    // TBPM holds a whole number of beats per minute
+    let [bpm, key] = Field::pair(values, replacing, |bpm| format!("{}", bpm.round()));
+    let mut set = |id: &'static str, field: Field| {
         let id = FrameId::Valid(Cow::Borrowed(id));
-        if tag.get_text(&id) == Some(value.as_str()) {
-            return false;
-        }
+        let Some(value) = field.in_place_of(tag.get_text(&id)) else { return false };
         tag.insert(Frame::Text(TextInformationFrame::new(id, TextEncoding::Latin1, value)));
         true
     };
-    // TBPM holds a whole number of beats per minute
-    let bpm = values.bpm.is_some_and(|bpm| set("TBPM", format!("{}", bpm.round())));
-    let key = values.key.is_some_and(|key| set("TKEY", key.to_owned()));
-    bpm | key
+    TagFields { bpm: set("TBPM", bpm), key: set("TKEY", key) }
 }
 
-fn set_vorbis(comments: &mut VorbisComments, values: TempoAndKey<'_>) -> bool {
-    let mut set = |key: &str, value: String| {
-        if comments.get(key) == Some(value.as_str()) {
-            return false;
-        }
-        comments.insert(key.to_owned(), value);
+fn set_vorbis(comments: &mut VorbisComments, values: TempoAndKey<'_>, replacing: Replacing<'_>) -> TagFields {
+    let [bpm, key] = Field::pair(values, replacing, |bpm| format!("{bpm:.2}"));
+    let mut set = |name: &str, field: Field| {
+        let Some(value) = field.in_place_of(comments.get(name)) else { return false };
+        comments.insert(name.to_owned(), value);
         true
     };
-    let bpm = values.bpm.is_some_and(|bpm| set("BPM", format!("{bpm:.2}")));
-    let key = values.key.is_some_and(|key| set("INITIALKEY", key.to_owned()));
-    bpm | key
+    TagFields { bpm: set("BPM", bpm), key: set("INITIALKEY", key) }
 }
 
-fn set_ilst(ilst: &mut Ilst, values: TempoAndKey<'_>) -> bool {
-    let mut bpm_changed = false;
-    if let Some(bpm) = values.bpm.map(|bpm| bpm.round() as i16) {
-        let ident = AtomIdent::Fourcc(*b"tmpo");
-        if ilst.get(&ident).and_then(|a| a.data().next()) != Some(&AtomData::SignedInteger(i32::from(bpm))) {
-            // tmpo holds 2 bytes, as iTunes writes it (lofty would write 4)
-            let data =
-                AtomData::Unknown { code: DataType::BeSignedInteger, data: bpm.to_be_bytes().to_vec() };
-            ilst.replace_atom(Atom::new(ident, data));
-            bpm_changed = true;
-        }
+fn set_ilst(ilst: &mut Ilst, values: TempoAndKey<'_>, replacing: Replacing<'_>) -> TagFields {
+    let whole = |bpm: f64| bpm.round() as i16;
+    let [bpm, key] = Field::pair(values, replacing, |bpm| whole(bpm).to_string());
+    let mut written = TagFields::NONE;
+
+    let ident = AtomIdent::Fourcc(*b"tmpo");
+    let current = match ilst.get(&ident).and_then(|a| a.data().next()) {
+        Some(AtomData::SignedInteger(0)) | None => None,
+        Some(AtomData::SignedInteger(n)) => Some(n.to_string()),
+        Some(_) => Some(String::from("?")),
+    };
+    if let (Some(_), Some(tempo)) = (bpm.in_place_of(current.as_deref()), values.bpm) {
+        // tmpo holds 2 bytes, as iTunes writes it (lofty would write 4)
+        let data =
+            AtomData::Unknown { code: DataType::BeSignedInteger, data: whole(tempo).to_be_bytes().to_vec() };
+        ilst.replace_atom(Atom::new(ident, data));
+        written.bpm = true;
     }
-    let mut key_changed = false;
-    if let Some(key) = values.key {
-        let ident = AtomIdent::Freeform { mean: "com.apple.iTunes".into(), name: "initialkey".into() };
-        let data = AtomData::UTF8(key.to_owned());
-        if ilst.get(&ident).and_then(|a| a.data().next()) != Some(&data) {
-            ilst.replace_atom(Atom::new(ident, data));
-            key_changed = true;
-        }
+
+    let ident = AtomIdent::Freeform { mean: "com.apple.iTunes".into(), name: "initialkey".into() };
+    let current = match ilst.get(&ident).and_then(|a| a.data().next()) {
+        Some(AtomData::UTF8(text)) => Some(text.clone()),
+        Some(_) => Some(String::from("?")),
+        None => None,
+    };
+    if let Some(value) = key.in_place_of(current.as_deref()) {
+        ilst.replace_atom(Atom::new(ident, AtomData::UTF8(value)));
+        written.key = true;
     }
-    bpm_changed | key_changed
+    written
 }

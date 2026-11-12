@@ -1,8 +1,10 @@
 use crate::error::AppResult;
+use crate::library_service::LibraryService;
 use crate::preferences::{DjPreferences, LibraryPreferences, Preferences};
 use crate::state::AppState;
 use crate::tag_writer::TagWriter;
 use prisme_engine::Command;
+use std::sync::Arc;
 use tauri::State;
 
 #[tauri::command]
@@ -21,11 +23,18 @@ pub fn set_dj_preferences(state: State<'_, AppState>, dj: DjPreferences) -> AppR
 pub fn set_library_preferences(
     state: State<'_, AppState>,
     tag_writer: State<'_, TagWriter>,
+    service: State<'_, Arc<LibraryService>>,
     library: LibraryPreferences,
-) {
-    let write_tags = library.write_tags;
+) -> AppResult<()> {
+    let (write_tags, replace_tags) = (library.write_tags, library.replace_tags);
+    let replaced_before = state.preferences.read(|p| p.library.replace_tags);
     state.update_preferences(|p| p.library = library);
+    // the tempos and keys of other programs left until now are to be written over
+    if replace_tags && !replaced_before {
+        service.db.retag_all()?;
+    }
     if write_tags {
         tag_writer.wake();
     }
+    Ok(())
 }

@@ -17,6 +17,7 @@ pub use crates::{Crate, CrateId};
 pub use edits::{GridEdit, TrackEdits};
 pub use history::{HistoryPlay, HistorySession, SessionId};
 pub use marks::{TrackMarks, MAX_RATING};
+pub use tag_sync::WrittenTags;
 pub use tracks::{RecordVersion, TrackEntry, TrackRecord, TAGS_VERSION};
 
 use rusqlite::Connection;
@@ -134,6 +135,18 @@ const MIGRATIONS: &[&str] = &[
      INSERT OR REPLACE INTO search_rows (path, row) SELECT path, rowid FROM track_search ORDER BY rowid;
      DELETE FROM track_search WHERE rowid NOT IN (SELECT row FROM search_rows);
      CREATE INDEX crate_tracks_by_path ON crate_tracks (path);",
+    // the tempo and key Prisme wrote into the file, its own to write again (see tag_sync);
+    // until now it wrote them over whatever the file held
+    "ALTER TABLE tracks ADD COLUMN tag_bpm REAL;
+     ALTER TABLE tracks ADD COLUMN tag_key TEXT;
+     UPDATE tracks SET (tag_bpm, tag_key) = (
+         SELECT COALESCE(edit_bpm, bpm),
+             CASE COALESCE(edit_key_minor, key_minor)
+                 WHEN 0 THEN CASE COALESCE(edit_key_tonic, key_tonic) WHEN 0 THEN 'C' WHEN 1 THEN 'Db' WHEN 2 THEN 'D' WHEN 3 THEN 'Eb' WHEN 4 THEN 'E' WHEN 5 THEN 'F' WHEN 6 THEN 'F#' WHEN 7 THEN 'G' WHEN 8 THEN 'Ab' WHEN 9 THEN 'A' WHEN 10 THEN 'Bb' WHEN 11 THEN 'B' END
+                 WHEN 1 THEN CASE COALESCE(edit_key_tonic, key_tonic) WHEN 0 THEN 'Cm' WHEN 1 THEN 'C#m' WHEN 2 THEN 'Dm' WHEN 3 THEN 'Ebm' WHEN 4 THEN 'Em' WHEN 5 THEN 'Fm' WHEN 6 THEN 'F#m' WHEN 7 THEN 'Gm' WHEN 8 THEN 'G#m' WHEN 9 THEN 'Am' WHEN 10 THEN 'Bbm' WHEN 11 THEN 'Bm' END
+             END
+         FROM track_view WHERE track_view.path = tracks.path
+     ) WHERE tags_written = 1;",
 ];
 
 pub fn now_ms() -> i64 {

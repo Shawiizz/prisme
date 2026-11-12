@@ -539,6 +539,28 @@
                   </button>
                 </div>
               }
+              @if (writeTags() && row('library.tagsReplace')) {
+                @let e = entry('library.tagsReplace');
+                <div
+                  class="pr-row"
+                  data-setting="library.tagsReplace"
+                  [class.is-pointed]="pointed() === e.id"
+                >
+                  <div>
+                    <span class="pr-row__name">{{ e.label }}</span>
+                    <span class="pr-row__help">{{ e.description }}</span>
+                  </div>
+                  <button
+                    class="pr-switch"
+                    role="switch"
+                    [attr.aria-checked]="replaceTags()"
+                    [attr.aria-label]="e.label"
+                    (click)="setReplaceTags(!replaceTags())"
+                  >
+                    <span></span>
+                  </button>
+                </div>
+              }
               @for (
                 m of [
                   { id: 'library.stemsModel', model: stems.vocalsModel(), ready: true },

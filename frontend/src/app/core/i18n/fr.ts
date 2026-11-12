@@ -311,6 +311,9 @@ export const FR: Record<string, string> = {
     'Écrire le tempo et la tonalité dans les tags des fichiers',
   'So that Serato, rekordbox and the others find them.':
     'Pour que Serato, rekordbox et les autres les retrouvent.',
+  'Replace those another program wrote': 'Remplacer ceux écrits par un autre logiciel',
+  'A tempo or a key Mixed In Key or another program put in a file is kept unless this is on.':
+    'Sinon, le tempo et la tonalité déjà mis dans un fichier par Mixed In Key ou un autre logiciel sont gardés.',
   Language: 'Langue',
   Turntables: 'Platines',
   'Turntables plugged into the inputs of this driver':

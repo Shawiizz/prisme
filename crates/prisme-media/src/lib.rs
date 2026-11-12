@@ -11,7 +11,7 @@ mod tag_writing;
 mod tags;
 mod track;
 
-pub use tag_writing::{write_genre, write_tempo_and_key, TempoAndKey};
+pub use tag_writing::{write_genre, write_tempo_and_key, Replacing, TagFields, TempoAndKey};
 pub use tags::{read_tags, CoverArt, TrackTags};
 
 use std::fs::File;
