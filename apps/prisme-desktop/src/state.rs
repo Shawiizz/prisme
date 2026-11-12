@@ -17,7 +17,7 @@ use prisme_engine::{BeatGrid, Command, DeckStatus, MixMode, OutputRouting, StemT
 use prisme_library::{Cue, CueSlot, TrackEdits};
 use prisme_media::{TrackAudio, TrackTags};
 use prisme_session::JsonFile;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex, MutexGuard};
 use tracing::error;
@@ -252,13 +252,27 @@ impl AppState {
     pub fn with_audio<R>(
         &self,
         audio: &Arc<TrackAudio>,
+        f: impl FnMut(&mut LoadedTrack) -> R,
+    ) -> Vec<(usize, u64, R)> {
+        self.with_tracks(|t| Arc::ptr_eq(&t.audio, audio), f)
+    }
+
+    /// Runs `f` on every loaded track of the file `path` (loaded twice, or doubled): what is
+    /// changed of a file changes on every deck playing it. The deck, load and result of each.
+    pub fn with_path<R>(&self, path: &Path, f: impl FnMut(&mut LoadedTrack) -> R) -> Vec<(usize, u64, R)> {
+        self.with_tracks(|t| t.path == path, f)
+    }
+
+    fn with_tracks<R>(
+        &self,
+        which: impl Fn(&LoadedTrack) -> bool,
         mut f: impl FnMut(&mut LoadedTrack) -> R,
     ) -> Vec<(usize, u64, R)> {
         lock(&self.tracks)
             .iter_mut()
             .enumerate()
             .filter_map(|(deck, t)| {
-                let t = t.as_mut().filter(|t| Arc::ptr_eq(&t.audio, audio))?;
+                let t = t.as_mut().filter(|t| which(t))?;
                 Some((deck, t.load_id, f(t)))
             })
             .collect()

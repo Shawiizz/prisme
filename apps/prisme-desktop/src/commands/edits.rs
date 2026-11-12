@@ -1,16 +1,17 @@
 //! Corrections of a loaded track's beat grid and key: stored in the library, applied to
 //! the engine and shown in the library lists at once.
 
-use crate::dto::{KeyDto, TrackAnalysisDto};
+use crate::dto::{DeckTrackUpdateDto, KeyDto, TrackAnalysisDto};
 use crate::error::{AppError, AppResult};
 use crate::library_service::LibraryService;
 use crate::state::AppState;
+use crate::track_loading::DECK_TRACK_UPDATE_EVENT;
 use prisme_analysis::{Key, KeyEstimate};
 use prisme_engine::Command;
 use prisme_library::{GridEdit, TrackEdits};
 use serde::Deserialize;
 use std::sync::Arc;
-use tauri::State;
+use tauri::{AppHandle, Emitter, State};
 
 #[derive(Debug, Clone, Copy, Deserialize)]
 #[serde(tag = "kind", rename_all = "camelCase")]
@@ -29,6 +30,7 @@ pub enum GridChange {
 
 #[tauri::command]
 pub fn edit_grid(
+    app: AppHandle,
     state: State<'_, AppState>,
     library: State<'_, Arc<LibraryService>>,
     deck: usize,
@@ -38,7 +40,7 @@ pub fn edit_grid(
         GridChange::BeatHere => state.deck_status(deck)?.position_s,
         _ => 0.0,
     };
-    edit(&state, &library, deck, |track_grid, edits| {
+    edit(&app, &state, &library, deck, |track_grid, edits| {
         let grid = || track_grid.ok_or(AppError::NoBeatGrid(deck));
         let with_bpm = |g: GridEdit, bpm: f64| g.with_bpm(bpm).ok_or(AppError::InvalidBpm(bpm));
         edits.grid = match change {
@@ -57,13 +59,14 @@ pub fn edit_grid(
 /// Sets the key from its Camelot code; `None` goes back to the detected key.
 #[tauri::command]
 pub fn set_key(
+    app: AppHandle,
     state: State<'_, AppState>,
     library: State<'_, Arc<LibraryService>>,
     deck: usize,
     camelot: Option<String>,
 ) -> AppResult<TrackAnalysisDto> {
     let key = camelot.map(|code| Key::from_camelot(&code).ok_or(AppError::InvalidKey(code))).transpose()?;
-    edit(&state, &library, deck, |_, edits| {
+    edit(&app, &state, &library, deck, |_, edits| {
         edits.key = key;
         Ok(())
     })
@@ -75,23 +78,41 @@ pub fn key_choices() -> Vec<KeyDto> {
     Key::all().map(|key| KeyDto::from(&KeyEstimate { key, confidence: 1.0, tuning_cents: 0.0 })).collect()
 }
 
-/// Applies `change` to the edits of the track on `deck` (given its current grid), then
-/// stores them and updates the engine and the UI.
+/// Applies `change` to the stored edits of the track on `deck` (given its grid with them),
+/// stores them, and updates every deck playing the track, the engine and the UI. The
+/// stored edits, not the deck's: another deck may have changed them since it loaded.
 fn edit(
+    app: &AppHandle,
     state: &AppState,
     library: &LibraryService,
     deck: usize,
     change: impl FnOnce(Option<GridEdit>, &mut TrackEdits) -> AppResult<()>,
 ) -> AppResult<TrackAnalysisDto> {
-    let (path, grid, analysis) = state.with_track(deck, |track| {
-        let mut edits = track.edits;
-        change(track.analysis().tempo.map(GridEdit::from), &mut edits)?;
-        library.db.save_edits(&track.path, &edits)?;
+    let (path, detected) = state.with_track(deck, |track| (track.path.clone(), track.detected))?;
+    let mut edits = library.db.edits(&path)?;
+    change(edits.apply(detected).tempo.map(GridEdit::from), &mut edits)?;
+    library.db.save_edits(&path, &edits)?;
+    let updated = state.with_path(&path, |track| {
         track.edits = edits;
-        Ok::<_, AppError>((track.path.clone(), track.grid(), TrackAnalysisDto::from(&*track)))
-    })??;
-    state.send_if_running(Command::SetBeatGrid { deck, grid })?;
+        (track.grid(), TrackAnalysisDto::from(&*track))
+    });
+    let mut analysis = None;
+    for (on, load_id, (grid, dto)) in updated {
+        state.send_if_running(Command::SetBeatGrid { deck: on, grid })?;
+        if on == deck {
+            analysis = Some(dto);
+        } else {
+            let update = DeckTrackUpdateDto {
+                deck: on,
+                load_id,
+                waveform_ready: false,
+                analysis: Some(dto),
+                separation: None,
+            };
+            let _ = app.emit(DECK_TRACK_UPDATE_EVENT, update);
+        }
+    }
     library.announce(&path);
     library.write_tags_soon();
-    Ok(analysis)
+    analysis.ok_or(AppError::NoTrack(deck))
 }
