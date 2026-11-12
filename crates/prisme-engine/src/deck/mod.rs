@@ -38,6 +38,8 @@ const STILL_SPEED: f64 = 0.02;
 const LEVEL_GLIDE_S: f32 = 0.05;
 /// Stem changes on the bar wait for the next group of this many beats.
 const BEATS_PER_BAR: f64 = 4.0;
+/// A playhead this far (s) from where play took it went round a loop or jumped.
+const LEAP_S: f64 = 1e-3;
 /// How fast the track fades with the motion (s).
 const MOTION_FADE_S: f32 = 0.005;
 
@@ -109,9 +111,22 @@ impl Deck {
     /// Plays the parts of the track as `mix` says: the parts it changes from the next bar if
     /// `on_bar` and the deck moves forward with a beat grid, else at once.
     pub(crate) fn set_stem_mix(&mut self, mix: StemMix, on_bar: bool) {
-        let bar_s = (on_bar && self.speed > STILL_SPEED).then(|| self.next_bar_s()).flatten();
+        let bar_s = (on_bar && self.speed > STILL_SPEED)
+            .then(|| self.next_bar_s())
+            .flatten()
+            .filter(|&bar_s| bar_s < self.playhead.duration_s());
         let playing = self.bar_mix.ask(mix, bar_s);
         self.playhead.set_stem_mix(playing);
+    }
+
+    /// Stem changes waiting for a bar come when play forward leaps instead of reaching it:
+    /// a loop going round (a loop shorter than a bar never reaches the next) or a jump.
+    fn leap_stems_to_their_bar(&mut self, from_s: f64, played_s: f64) {
+        let leapt = (self.playhead.position_s() - from_s - played_s).abs() > LEAP_S;
+        if self.bar_mix.is_waiting() && played_s > 0.0 && leapt {
+            let mix = self.bar_mix.release();
+            self.playhead.set_stem_mix(mix);
+        }
     }
 
     /// The start of the next bar after the playhead, by the beat grid.
@@ -157,6 +172,7 @@ impl Deck {
             self.playhead.render(out, out_rate, speed);
         }
         self.speed = speed;
+        self.leap_stems_to_their_bar(playhead_s, seconds * speed);
         self.fade_with_motion(out);
         self.stop_at_the_end();
 

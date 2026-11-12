@@ -56,11 +56,14 @@ impl BarMix {
                 self.at_s = self.at_s.min(next);
                 None
             }
-            _ => {
-                self.waiting = [false; 4];
-                Some(self.settle())
-            }
+            _ => Some(self.release()),
         }
+    }
+
+    /// The waiting parts change now: what to play.
+    pub(super) fn release(&mut self) -> StemMix {
+        self.waiting = [false; 4];
+        self.settle()
     }
 
     /// Nothing waits any more, and the track plays whole: a new track was loaded.

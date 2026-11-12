@@ -222,6 +222,26 @@ fn a_stem_muted_on_the_bar_waits_for_it() {
 }
 
 #[test]
+fn a_stem_muted_on_the_bar_inside_a_shorter_loop_waits_for_the_loop_to_go_round() {
+    let mut rig = Rig::new();
+    rig.send(Command::LoadTrack { deck: 0, track: sine_track(10.0, 0.6) });
+    rig.send(Command::SetStems { deck: 0, stems: [Some(sine_track(10.0, 0.6)), None, None] });
+    rig.send(Command::SetBeatGrid { deck: 0, grid: Some(BeatGrid { bpm: 120.0, first_beat_s: 0.0 }) });
+    rig.send(Command::SetPlaying { deck: 0, playing: true });
+    rig.run(0.6);
+    // one beat, 0.5 s
+    rig.send(Command::BeatLoop { deck: 0, beats: 1.0 });
+    rig.run(0.1);
+    let muted = StemMix { vocals: 0.0, ..StemMix::default() };
+    rig.send(Command::SetStemMix { deck: 0, mix: muted, on_bar: true });
+    rig.run(0.05);
+    assert_eq!(rig.deck(0).stems_waiting, 0b0001);
+    rig.run(0.6);
+    let d = rig.deck(0);
+    assert!(d.stems_waiting == 0 && d.position_s < 2.0, "{d:?}");
+}
+
+#[test]
 fn a_deck_mutes_any_stem() {
     for key_lock in [false, true] {
         let mut rig = Rig::new();
