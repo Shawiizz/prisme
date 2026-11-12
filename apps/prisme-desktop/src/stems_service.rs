@@ -744,21 +744,21 @@ fn samples(audio: &TrackAudio) -> Vec<f32> {
 pub fn attach_stems(app: &AppHandle, path: &Path) {
     let stored = SeparationDto::stored(path);
     let state = app.state::<AppState>();
-    let loaded: Vec<(usize, u64, Arc<TrackAudio>)> = lock(&state.tracks)
+    let mut audio = None;
+    let loads: Vec<(usize, u64)> = lock(&state.tracks)
         .iter()
         .enumerate()
         .filter_map(|(deck, t)| {
-            let t = t.as_ref().filter(|t| t.path == path && !plays_whole(&t.stems, stored))?;
-            Some((deck, t.load_id, t.audio.clone()))
+            let t = t
+                .as_ref()
+                .filter(|t| t.path == path && t.audio.is_complete() && !plays_whole(&t.stems, stored))?;
+            audio.get_or_insert_with(|| t.audio.clone());
+            Some((deck, t.load_id))
         })
         .collect();
-    for (deck, load_id, audio) in loaded {
-        if !audio.is_complete() {
-            continue;
-        }
-        if let Some(separation) = give_stems(app, deck, load_id, path, &audio) {
-            tell(app, deck, load_id, separation);
-        }
+    let Some(audio) = audio else { return };
+    for (deck, load_id, separation) in give_stems(app, &loads, path, &audio) {
+        tell(app, deck, load_id, separation);
     }
 }
 
@@ -768,16 +768,18 @@ fn plays_whole(stems: &StemTracks, separation: SeparationDto) -> bool {
         && stems.iter().flatten().all(|s| s.is_complete())
 }
 
-/// Gives the deck playing `load_id` the stems of `path`: as they come if it is being
-/// separated, else those stored; how far it is separated, if at all (the caller tells the
-/// UI).
+/// Gives the decks playing `loads` of `path` (its decoded `audio`) its stems: as they come if
+/// it is being separated, else those stored, read once for them all; how far each deck it
+/// separates is (the caller tells the UI).
 pub fn give_stems(
     app: &AppHandle,
-    deck: usize,
-    load_id: u64,
+    loads: &[(usize, u64)],
     path: &Path,
     audio: &TrackAudio,
-) -> Option<SeparationDto> {
+) -> Vec<(usize, u64, SeparationDto)> {
+    if loads.is_empty() {
+        return Vec::new();
+    }
     let (frames, rate) = (audio.frames(), audio.sample_rate());
     let stems = app.state::<StemsService>().live(path).unwrap_or_else(|| {
         Stem::ALL.map(|stem| match prisme_stems::track::load_stem(path, stem.name(), frames, rate) {
@@ -788,7 +790,10 @@ pub fn give_stems(
             }
         })
     });
-    give(app, deck, load_id, &stems, frames, rate)
+    loads
+        .iter()
+        .filter_map(|&(deck, load_id)| Some((deck, load_id, give(app, deck, load_id, &stems, frames, rate)?)))
+        .collect()
 }
 
 /// Gives `stems` to the deck playing `load_id` if they fit its track; how far they separate
