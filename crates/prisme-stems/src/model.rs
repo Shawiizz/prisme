@@ -92,14 +92,6 @@ impl Values {
             Values::F16(v) => Cow::Borrowed(v),
         }
     }
-
-    /// The values if stored as f32.
-    pub fn as_f32(&self) -> Option<&[f32]> {
-        match self {
-            Values::F32(v) => Some(v),
-            Values::F16(_) => None,
-        }
-    }
 }
 
 /// One band of the band split: its slice of a frame of gathered STFT bins.

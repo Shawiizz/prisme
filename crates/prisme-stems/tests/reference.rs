@@ -139,12 +139,9 @@ fn networks_sharing_a_gpu_give_what_they_give_alone() {
 
 /// The weights rounded to f16, as the GPU stores them.
 fn in_f16(mut weights: Weights) -> Weights {
-    let round = |l: &mut Linear| l.weight = Values::F16(l.weight.to_f16().into_owned());
-    weights.band_proj.iter_mut().for_each(round);
-    for layer in weights.transformers.iter_mut().flat_map(|t| &mut t.layers) {
-        [&mut layer.qkvg, &mut layer.out, &mut layer.ff1, &mut layer.ff2].into_iter().for_each(round);
+    for l in weights.linears_mut() {
+        l.weight = Values::F16(l.weight.to_f16().into_owned());
     }
-    weights.masks.iter_mut().flatten().flatten().for_each(round);
     weights
 }
 
