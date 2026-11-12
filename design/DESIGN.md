@@ -114,7 +114,7 @@ A toggle is a button with `.is-on` when on. Radius 3 px, no shadow, no glow.
 | `.pr-check` | A box in a list of options. |
 | `.pr-input`, `.pr-select`, `.pr-field` | Fields: 32 high, label above, help below. Native `<select>`. |
 | `app-fader` | Tempo, volumes, crossfader: a thin track filled from its start or from a centre detent, a cap with a line of light. Drag (Shift: fine), click the track, scroll, arrow keys, double-click to reset. |
-| `app-knob` | Trim, EQ, filter, effects, headphones: a cap with a line of light in a ring filled with the value, a detent when bipolar. Its label shows the value (dB, %) while touched. |
+| `app-knob` | Trim, EQ, filter, effects, headphones, stem levels: a cap with a line of light in a ring filled with the value, a detent when bipolar. Its label shows the value (dB, %) while touched. A stem's label mutes it at its level (`dimmed`), and blinks while the change waits for the bar. |
 | `.pr-group` > `.pr-card` > `.pr-row` | Settings: a row per setting, its name and a line of help on the left, its control on the right. A row pointed out from the palette lights up once (`.is-pointed`). |
 | `.pr-pad` (`--set`, `.is-hot`) | Hot cues and samples: empty dashed, set with its tag (`--tag`), in the light while held. |
 | `.pr-dialog` in `.pr-backdrop` | Dialogs: head, scrolling body, foot with the actions. The only shadow of the app. |
@@ -141,7 +141,7 @@ A toggle is a button with `.is-on` when on. Radius 3 px, no shadow, no glow.
   the low band lights the red, the mid the green, the high the blue, scaled to the strongest
   so the colours stay vivid. A kick reads red, a voice green-yellow, hats blue; the full
   spectrum goes to white.
-- **What has played** (left of the playhead) at 42 % opacity.
+- **What has played** (left of the playhead) at 45 % opacity.
 - **The playhead** is the only white line of the screen, 2 px, dispersed on its edges: 1 px of
   `--pr-f-low` on the left, 1 px of `--pr-f-high` on the right.
 - **Beat grid**: short ticks at the top and bottom only, longer and brighter on each bar.
@@ -149,9 +149,11 @@ A toggle is a button with `.is-on` when on. Radius 3 px, no shadow, no glow.
   cue in the light, flagged C. **Loop**: a band of `--pr-light-veil` between two lines in the
   light; a stored loop as two `--pr-text-3` lines.
 - **Overview**: the whole track in the same colours, played part dimmed, cues as ticks,
-  position in the light.
+  position in the light. Under it, once the track is separated, a lane per part (vocals,
+  drums, bass, melody; or vocals and instrumental) in the light where the part plays.
 - **Phase strip** between the two decks: the beats of A at the top and of B at the bottom,
-  around the playheads, with the offset in milliseconds. Matched, they meet.
+  around the playheads, with the offset in milliseconds. Matched, they meet. While both play,
+  `--pr-warn` tells when B will be a sixteenth off A's beat.
 
 ## Logo
 
@@ -183,7 +185,7 @@ and catches the light on its edges.
 - **External mixer first**: the mixer column narrows to the send meters (120), and the screen
   goes to the waveforms and the library. The software mixer widens it (210) and adds the
   trim, EQ and filter knobs to each deck's transport row.
-- The window is 1280 × 720 at least. Where a deck's controls have less than 700 px (a narrow
+- The window is 1280 × 640 at least (a 1080p laptop at 150 %). Where a deck's controls have less than 700 px (a narrow
   window, the software mixer's channel strip), they go compact: narrower transport keys,
   smaller knobs, the pads on two rows of four; the title bar drops its master level (the
   mixer shows it) and the search narrows before the health chips.
