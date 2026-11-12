@@ -8,6 +8,7 @@ import {
   HistorySession,
   SmartRules,
   TrackAnalyzed,
+  TrackDetails,
 } from '../models/library';
 import { camelotRank } from '../../shared/camelot';
 import { DECK_COUNT } from '../models/engine';
@@ -81,6 +82,8 @@ export class LibraryService {
   private readonly crates = inject(CratesService);
   private readonly history = inject(HistoryService);
   private readonly prepare = inject(PrepareService);
+  /** Analyses received since the last frame, by path. */
+  private analyzed = new Map<string, TrackDetails>();
 
   readonly root = signal<string | null>(null);
   readonly listing = signal<DirListing | null>(null);
@@ -540,15 +543,31 @@ export class LibraryService {
     }
   }
 
+  /** Takes the analysis of a track; a scan sends them faster than frames are drawn, so they
+   * reach the lists together, once a frame. */
   private patch({ path, details }: TrackAnalyzed) {
+    if (this.analyzed.size === 0) requestAnimationFrame(() => this.applyAnalyzed());
+    this.analyzed.set(path, details);
+  }
+
+  private applyAnalyzed() {
+    const analyzed = this.analyzed;
+    this.analyzed = new Map();
     const update = (tracks: DirEntry[]) =>
-      tracks.map((t) => (t.path === path ? { ...t, details } : t));
+      tracks.some((t) => analyzed.has(t.path))
+        ? tracks.map((t) => {
+            const details = analyzed.get(t.path);
+            return details ? { ...t, details } : t;
+          })
+        : tracks;
     const listing = this.listing();
-    if (listing?.tracks.some((t) => t.path === path)) {
-      this.listing.set({ ...listing, tracks: update(listing.tracks) });
+    if (listing) {
+      const tracks = update(listing.tracks);
+      if (tracks !== listing.tracks) this.listing.set({ ...listing, tracks });
     }
     for (const list of [this.sourceTracks, this.libraryResults, this.prepare.list]) {
-      if (list().some((t) => t.path === path)) list.update(update);
+      const tracks = update(list());
+      if (tracks !== list()) list.set(tracks);
     }
   }
 }
