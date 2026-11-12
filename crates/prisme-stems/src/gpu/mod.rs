@@ -44,6 +44,8 @@ pub struct Gpu {
     /// NVIDIA's GPUs take the f32 products in large tiles; others would spill their
     /// registers, and take them in small ones.
     large_tiles: bool,
+    /// A software renderer, accepted for tests on machines without a GPU.
+    software: bool,
     scratch: Mutex<Scratch>,
 }
 
@@ -206,6 +208,7 @@ impl Gpu {
             errors,
             matrix_units,
             large_tiles,
+            software: info.device_type == wgpu::DeviceType::Cpu,
             scratch: Mutex::default(),
         }))
     }
@@ -308,6 +311,11 @@ impl GpuNetwork {
     /// Whether the products run on matrix units.
     pub fn uses_matrix_units(&self) -> bool {
         self.matrix
+    }
+
+    /// Whether the network runs on a software renderer (see [`GpuOptions::software`]).
+    pub fn on_software_renderer(&self) -> bool {
+        self.gpu.software
     }
 
     fn check_errors(&self) -> Result<(), StemsError> {
