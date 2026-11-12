@@ -55,7 +55,7 @@ use midi_clock::MidiClock;
 use prisme_session::JsonFile;
 use serde::de::DeserializeOwned;
 use serde::Serialize;
-use state::AppState;
+use state::{lock, AppState};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use tag_writer::TagWriter;
@@ -275,6 +275,14 @@ pub fn run() {
         .expect("error while building Prisme")
         .run(|app, event| {
             if let tauri::RunEvent::Exit = event {
+                // a recording going on is ended: its file closed, its tracklist written
+                let state = app.state::<AppState>();
+                let recorder = lock(&state.recorder).take();
+                if let Some(recorder) = recorder {
+                    if let Err(e) = recorder.stop(&state, &app.state::<Arc<LibraryService>>().db) {
+                        error!("recording not ended: {e}");
+                    }
+                }
                 app.state::<CrashRecovery>().closed_normally();
             }
         });
