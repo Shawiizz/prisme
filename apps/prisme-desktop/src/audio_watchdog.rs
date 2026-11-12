@@ -123,6 +123,8 @@ fn recover(state: &AppState, settings: &AudioSettings) {
     let waits = std::iter::once(Duration::ZERO)
         .chain(std::iter::repeat_n(QUICK_RETRY, QUICK_RETRIES))
         .chain(std::iter::repeat(RETRY));
+    // each reason told once: the device may stay away for hours
+    let mut told = String::new();
     for wait in waits {
         std::thread::sleep(wait);
         match start_audio(state, settings) {
@@ -130,7 +132,13 @@ fn recover(state: &AppState, settings: &AudioSettings) {
                 info!("audio device back");
                 return;
             }
-            Err(e) => info!("audio still unavailable: {e}"),
+            Err(e) => {
+                let reason = e.to_string();
+                if reason != told {
+                    info!("audio unavailable, tried again until it is back: {reason}");
+                    told = reason;
+                }
+            }
         }
     }
 }
