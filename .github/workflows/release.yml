@@ -1,7 +1,8 @@
 name: Release
 
-# A version tag (1.2.3) builds the signed installer and the update manifest and attaches
-# them to a draft release: publishing it offers the update to the installed copies.
+# A version tag (1.2.3) builds the packages of the three systems and the signed update
+# manifest and attaches them to a draft release: publishing it offers the update to the
+# installed copies.
 on:
   push:
     tags: ["[0-9]+.[0-9]+.[0-9]+"]
@@ -10,23 +11,43 @@ permissions:
   contents: write
 
 jobs:
-  installer:
-    runs-on: windows-latest
+  draft:
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: ./.github/actions/setup
       - name: The tag is the app version
         shell: pwsh
         run: |
+          rustup toolchain install
           $version = (cargo metadata --no-deps --format-version 1 | ConvertFrom-Json).packages.Where({ $_.name -eq 'prisme-desktop' }).version
           if ($version -ne '${{ github.ref_name }}') { throw "tag ${{ github.ref_name }}, app version $version" }
       # tauri-action attaches to this draft: creating the release itself was refused once
       - name: Draft release
-        shell: bash
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAG: ${{ github.ref_name }}
         run: gh release view "$TAG" > /dev/null 2>&1 || gh release create "$TAG" --draft --verify-tag --title "Prisme $TAG" --notes ""
+
+  packages:
+    needs: draft
+    strategy:
+      fail-fast: false
+      # one after the other: each adds its system to the same update manifest
+      max-parallel: 1
+      matrix:
+        include:
+          - os: windows-latest
+          # the oldest Ubuntu there is: a build runs on the systems as old as the one it was made on
+          - os: ubuntu-22.04
+          - os: macos-latest
+            args: --target universal-apple-darwin
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup
+      - name: Both processors of the Macs
+        if: runner.os == 'macOS'
+        run: rustup target add aarch64-apple-darwin x86_64-apple-darwin
       - uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -40,4 +61,4 @@ jobs:
           releaseDraft: true
           includeUpdaterJson: true
           # signed update packages: only here, where the signing key is
-          args: --config tauri.release.conf.json
+          args: --config tauri.release.conf.json ${{ matrix.args }}

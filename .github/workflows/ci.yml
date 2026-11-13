@@ -8,16 +8,15 @@ on:
 
 jobs:
   check:
-    runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/setup
-      - name: Rust format
-        run: cargo fmt --all --check
-      - name: Clippy
-        run: cargo clippy --workspace --all-targets -- -D warnings
-      - name: Rust tests
-        run: cargo test --workspace
+      # the frontend first: the application embeds it
       - name: Frontend format
         working-directory: frontend
         run: pnpm exec prettier --check src
@@ -27,3 +26,9 @@ jobs:
       - name: Frontend build
         working-directory: frontend
         run: pnpm build
+      - name: Rust format
+        run: cargo fmt --all --check
+      - name: Clippy
+        run: cargo clippy --workspace --all-targets -- -D warnings
+      - name: Rust tests
+        run: cargo test --workspace

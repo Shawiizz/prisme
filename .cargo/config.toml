@@ -1,5 +1,5 @@
 [env]
-# libclang for the ASIO bindings (bindgen); installed by scripts/setup-dev.ps1
+# libclang for the bindings of the C++ libraries (bindgen); installed by scripts/setup-dev
 LIBCLANG_PATH = { value = ".tools/libclang/clang/native", relative = true }
 
 # The C and C++ runtimes inside the executable: a computer without the Visual C++

@@ -1,7 +1,8 @@
 # Prisme
 
 DJ software built for DVS: timecode vinyl drives the tracks, with a real-time audio
-engine in Rust and a Tauri + Angular interface. Windows only for now.
+engine in Rust and a Tauri + Angular interface. For Windows, Linux and macOS: the last
+two are new, and tried on fewer sound cards.
 
 ## Features
 
@@ -32,23 +33,35 @@ engine in Rust and a Tauri + Angular interface. Windows only for now.
 
 ## Building
 
-Requirements: Windows 10 or 11, Rust (stable), Node.js 24 and pnpm, Python (for the
-ASIO bindings' libclang).
+Requirements: Rust (stable), Node.js 24 and pnpm, Python (it fetches the libclang the
+C++ bindings are generated with), and:
+
+- Windows 10 or 11;
+- macOS 13.3 or later, with the Xcode command line tools;
+- Linux: a C++ compiler and the libraries of the web view, ALSA and JACK. On Debian and
+  Ubuntu: `sudo apt install build-essential libwebkit2gtk-4.1-dev libgtk-3-dev libxdo-dev
+  libssl-dev libayatana-appindicator3-dev librsvg2-dev libasound2-dev libjack-jackd2-dev
+  libudev-dev`.
 
 ```
-scripts\setup-dev.ps1
+scripts/setup-dev.sh        (scripts\setup-dev.ps1 on Windows)
 cargo test --workspace
-cd apps\prisme-desktop
+cd apps/prisme-desktop
 cargo tauri dev
 ```
 
-`cargo tauri build` produces the installer in `target\release\bundle\nsis`.
+`cargo tauri build` produces the packages in `target/release/bundle`: the installer on
+Windows, a `.deb` and an AppImage on Linux, a `.dmg` on macOS.
+
+On Linux, Prisme plays through ALSA, or through JACK (PipeWire's included) for the
+lowest latency. The macOS build is not notarized by Apple: the first time, open it from
+System Settings > Privacy & Security.
 
 ## Releasing
 
 1. Set the new version in the workspace `Cargo.toml` (`[workspace.package] version`).
-2. Push a tag with that version, such as `0.2.0`: CI builds the signed installer and the
-   update packages and attaches them to a draft release.
+2. Push a tag with that version, such as `0.2.0`: CI builds the packages of the three
+   systems and their signed update packages and attaches them to a draft release.
 3. Publish the draft: the installed copies then offer the update.
 
 ## Architecture
@@ -61,7 +74,7 @@ crates/
   prisme-timecode/   timecode vinyl decoder: speed, direction, absolute position
   prisme-engine/     real-time engine: decks, vinyl control, mixer, sampler
   prisme-dsp/        real-time processing: filters, EQ, effects, limiter
-  prisme-audio-io/   sound cards (WASAPI, ASIO) behind a small interface
+  prisme-audio-io/   sound cards (WASAPI, ASIO, CoreAudio, ALSA, JACK) behind a small interface
   prisme-media/      audio file decoding, tags and cover art
   prisme-analysis/   waveforms, tempo and beat grid, musical key
   prisme-library/    track database, folder scanning, background analysis

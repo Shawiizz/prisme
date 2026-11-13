@@ -1,0 +1,51 @@
+name: Package
+
+# On demand: builds what a release would on the three systems, without the update packages
+# (their signing key stays with the releases), starts each build once, and keeps the
+# packages, a screenshot and the logs of that start.
+on:
+  workflow_dispatch:
+
+jobs:
+  package:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            executable: target/release/prisme-desktop.exe
+          # the oldest Ubuntu there is: a build runs on the systems as old as the one it was made on
+          - os: ubuntu-22.04
+            executable: target/release/prisme-desktop
+          - os: macos-latest
+            args: --target universal-apple-darwin
+            executable: target/universal-apple-darwin/release/bundle/macos/Prisme.app/Contents/MacOS/prisme-desktop
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup
+      - name: Both processors of the Macs
+        if: runner.os == 'macOS'
+        run: rustup target add aarch64-apple-darwin x86_64-apple-darwin
+      - name: Build
+        working-directory: apps/prisme-desktop
+        run: npx --yes @tauri-apps/cli@2.12.2 build ${{ matrix.args }}
+      - name: A screen and a session bus to start on
+        if: runner.os == 'Linux'
+        run: sudo apt-get install -y xvfb imagemagick dbus
+      - name: Start
+        shell: bash
+        run: scripts/smoke-test.sh "${{ matrix.executable }}" start
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: start-${{ runner.os }}
+          path: start
+      - uses: actions/upload-artifact@v4
+        with:
+          name: packages-${{ runner.os }}
+          path: |
+            target/**/release/bundle/nsis/*.exe
+            target/**/release/bundle/deb/*.deb
+            target/**/release/bundle/appimage/*.AppImage
+            target/**/release/bundle/dmg/*.dmg
