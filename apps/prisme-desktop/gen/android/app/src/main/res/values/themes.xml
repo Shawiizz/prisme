@@ -1,6 +1,7 @@
 <resources xmlns:tools="http://schemas.android.com/tools">
     <!-- Base application theme. -->
     <style name="Theme.prisme_desktop" parent="Theme.Material3.DayNight.NoActionBar">
-        <!-- Customize your theme here. -->
+        <!-- what shows around the application, behind the bars of the system -->
+        <item name="android:windowBackground">@color/void_black</item>
     </style>
 </resources>
