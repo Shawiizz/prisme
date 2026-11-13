@@ -1,3 +1,4 @@
+import { PHONE } from '../../core/platform';
 import { t } from '../../core/i18n/i18n';
 import { SettingsCategory } from '../../core/services/navigation.service';
 
@@ -18,7 +19,7 @@ export interface SettingEntry {
   description: string;
 }
 
-export const SETTINGS_PAGES: readonly SettingsPage[] = [
+const PAGES: readonly SettingsPage[] = [
   {
     id: 'audio',
     label: t('Audio'),
@@ -74,6 +75,11 @@ export const SETTINGS_PAGES: readonly SettingsPage[] = [
     keywords: 'version update diagnostic',
   },
 ];
+
+/** The pages a phone has no use for: no turntables are plugged into it, and it has no keyboard. */
+const COMPUTER_ONLY: readonly SettingsCategory[] = ['turntables', 'shortcuts'];
+
+export const SETTINGS_PAGES = PHONE ? PAGES.filter((p) => !COMPUTER_ONLY.includes(p.id)) : PAGES;
 
 export const SETTINGS: readonly SettingEntry[] = [
   {

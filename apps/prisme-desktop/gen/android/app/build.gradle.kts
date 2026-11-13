@@ -14,6 +14,15 @@ val tauriProperties = Properties().apply {
     }
 }
 
+// The key releases are signed with, where there is one (keystore.properties, kept out of the
+// repository): without it a release build is left unsigned.
+val keystoreProperties = Properties().apply {
+    val propFile = rootProject.file("keystore.properties")
+    if (propFile.exists()) {
+        propFile.inputStream().use { load(it) }
+    }
+}
+
 android {
     compileSdk = 37
     namespace = "com.shawiizz.prisme"
@@ -24,6 +33,16 @@ android {
         targetSdk = 37
         versionCode = tauriProperties.getProperty("tauri.android.versionCode", "1").toInt()
         versionName = tauriProperties.getProperty("tauri.android.versionName", "1.0")
+    }
+    signingConfigs {
+        if (!keystoreProperties.isEmpty) {
+            create("release") {
+                keyAlias = keystoreProperties.getProperty("keyAlias")
+                keyPassword = keystoreProperties.getProperty("password")
+                storeFile = file(keystoreProperties.getProperty("storeFile"))
+                storePassword = keystoreProperties.getProperty("password")
+            }
+        }
     }
     buildTypes {
         getByName("debug") {
@@ -39,6 +58,7 @@ android {
             }
         }
         getByName("release") {
+            signingConfig = signingConfigs.findByName("release")
             optimization {
                enable = true
             }
