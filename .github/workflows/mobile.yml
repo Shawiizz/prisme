@@ -35,7 +35,7 @@ jobs:
         if: always()
         working-directory: apps/prisme-desktop
         run: |
-          brew install xcodegen
+          brew install xcodegen libimobiledevice
           cargo tauri ios init
       - uses: actions/upload-artifact@v4
         if: always()
