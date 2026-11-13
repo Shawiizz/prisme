@@ -1,0 +1,961 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="utf-8" />
+    <title>Prisme · téléphone, deuxième version</title>
+    <link rel="stylesheet" href="../../frontend/src/styles/fonts.css" />
+    <link rel="stylesheet" href="../../frontend/src/styles/tokens.css" />
+    <link rel="stylesheet" href="../../frontend/src/styles/components.css" />
+    <style>
+      /* Prisme on a phone, drawn from the gesture: what the eyes need from afar when the hands
+         are on a controller, what the thumbs reach when they are on the glass. */
+      *,
+      *::before,
+      *::after {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        padding: 28px 32px 56px;
+        background: #050506;
+        font: var(--pr-size) / 1.35 var(--pr-font);
+        color: var(--pr-text);
+        -webkit-font-smoothing: antialiased;
+      }
+      h1 {
+        margin: 0 0 4px;
+        font: 600 22px / 1.2 var(--pr-font);
+      }
+      .lead {
+        margin: 0 0 30px;
+        max-width: 880px;
+        font-size: 14px;
+        line-height: 1.6;
+        color: var(--pr-text-2);
+      }
+      .row {
+        display: flex;
+        gap: 40px;
+        align-items: flex-start;
+        flex-wrap: wrap;
+        margin-bottom: 48px;
+      }
+      figure {
+        margin: 0;
+      }
+      figcaption {
+        width: 0;
+        min-width: 100%;
+        min-height: 84px;
+        margin-bottom: 12px;
+        font-size: 13px;
+        line-height: 1.5;
+        color: var(--pr-text-2);
+      }
+      figcaption b {
+        display: block;
+        margin-bottom: 2px;
+        font: 600 15px / 1.3 var(--pr-font);
+        color: var(--pr-text);
+      }
+
+      /* ---------- Phone ---------- */
+      .phone {
+        position: relative;
+        display: flex;
+        flex-direction: column;
+        width: 372px;
+        height: 780px;
+        border: 1px solid var(--pr-line-2);
+        border-radius: 34px;
+        background: var(--pr-void);
+        overflow: hidden;
+      }
+      .phone.wide {
+        width: 780px;
+        height: 372px;
+      }
+      .status {
+        flex: none;
+        display: flex;
+        justify-content: space-between;
+        padding: 12px 26px 6px;
+        font: 500 11px / 1 var(--pr-font-mono);
+        color: var(--pr-text-3);
+      }
+      .mono {
+        font-family: var(--pr-font-mono);
+        font-stretch: 75%;
+      }
+      .dim {
+        color: var(--pr-text-2);
+      }
+      .faint {
+        color: var(--pr-text-3);
+      }
+      canvas {
+        display: block;
+        width: 100%;
+      }
+
+      /* ---------- A deck: what is read from afar ---------- */
+      .deck {
+        position: relative;
+        padding: 10px 16px 12px;
+      }
+      .deck + .deck {
+        border-top: 1px solid var(--pr-line);
+      }
+      .deck__line {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        min-width: 0;
+      }
+      .cover {
+        flex: none;
+        width: 40px;
+        height: 40px;
+        border-radius: var(--pr-radius);
+        background: linear-gradient(135deg, #2b3340, #171a20);
+      }
+      .cover.b {
+        background: linear-gradient(135deg, #3a2e3d, #1a171d);
+      }
+      .names {
+        flex: 1;
+        min-width: 0;
+      }
+      .names div {
+        overflow: hidden;
+        white-space: nowrap;
+        text-overflow: ellipsis;
+      }
+      .names .t {
+        font-weight: 600;
+        font-size: 15px;
+      }
+      .names .a {
+        font-size: 12px;
+        color: var(--pr-text-2);
+      }
+      .letter {
+        flex: none;
+        display: grid;
+        place-items: center;
+        width: 22px;
+        height: 22px;
+        border-radius: var(--pr-radius-sm);
+        background: var(--pr-light);
+        color: var(--pr-on-light);
+        font: 700 12px / 1 var(--pr-font-mono);
+      }
+      .letter.off {
+        background: none;
+        border: 1px solid var(--pr-line-2);
+        color: var(--pr-text-2);
+      }
+      .time {
+        font: 600 30px / 1 var(--pr-font-mono);
+        font-stretch: 75%;
+        letter-spacing: -0.01em;
+      }
+      .bpm {
+        font: 600 19px / 1 var(--pr-font-mono);
+        font-stretch: 75%;
+      }
+      .key {
+        padding: 4px 7px;
+        border-radius: var(--pr-radius-sm);
+        background: oklch(0.72 0.14 295);
+        color: var(--pr-on-light);
+        font: 700 12px / 1 var(--pr-font-mono);
+      }
+      .key.b {
+        background: oklch(0.78 0.14 145);
+      }
+      .readouts {
+        display: flex;
+        align-items: baseline;
+        gap: 12px;
+        margin-top: 8px;
+      }
+      .readouts .grow {
+        flex: 1;
+      }
+      .chip {
+        padding: 3px 7px;
+        border: 1px solid var(--pr-line-2);
+        border-radius: 99px;
+        font: 600 10.5px / 1 var(--pr-font);
+        letter-spacing: 0.05em;
+        color: var(--pr-text-2);
+      }
+      .chip.ok {
+        border-color: transparent;
+        background: color-mix(in oklab, var(--pr-ok) 22%, transparent);
+        color: var(--pr-ok);
+      }
+
+      /* ---------- The library: a sheet over the decks, or the whole screen ---------- */
+      .sheet {
+        flex: 1;
+        min-height: 0;
+        display: flex;
+        flex-direction: column;
+        border-top: 1px solid var(--pr-line-2);
+        border-radius: 18px 18px 0 0;
+        background: var(--pr-base);
+      }
+      .grip {
+        flex: none;
+        width: 36px;
+        height: 4px;
+        margin: 8px auto 4px;
+        border-radius: 2px;
+        background: var(--pr-line-2);
+      }
+      .sheet__head {
+        flex: none;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 4px 16px 10px;
+      }
+      .search {
+        flex: 1;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        height: 40px;
+        padding: 0 12px;
+        border-radius: 20px;
+        background: var(--pr-raise);
+        color: var(--pr-text-3);
+        font-size: 14px;
+      }
+      .round {
+        flex: none;
+        display: grid;
+        place-items: center;
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        background: var(--pr-raise);
+        color: var(--pr-text-2);
+        font-size: 15px;
+      }
+      .crumbs {
+        flex: none;
+        display: flex;
+        gap: 8px;
+        padding: 0 16px 10px;
+        overflow: hidden;
+      }
+      .crumbs span {
+        flex: none;
+        padding: 7px 12px;
+        border-radius: 99px;
+        background: var(--pr-raise);
+        font-size: 12.5px;
+        color: var(--pr-text-2);
+      }
+      .crumbs .on {
+        background: var(--pr-light);
+        color: var(--pr-on-light);
+        font-weight: 600;
+      }
+      .tracks {
+        flex: 1;
+        min-height: 0;
+        overflow: hidden;
+      }
+      .track {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        height: 60px;
+        padding: 0 16px;
+      }
+      .track .cover {
+        width: 44px;
+        height: 44px;
+      }
+      .track .meta {
+        flex: none;
+        text-align: right;
+      }
+      .track .meta .bpm {
+        font-size: 14px;
+      }
+      .track .meta .k {
+        margin-top: 4px;
+        font: 600 11px / 1 var(--pr-font-mono);
+        color: oklch(0.8 0.12 145);
+      }
+      .track.fits .k {
+        color: var(--pr-ok);
+      }
+      .track.playing {
+        background: var(--pr-light-veil);
+      }
+      .hint {
+        flex: none;
+        padding: 10px 16px 14px;
+        font-size: 12px;
+        color: var(--pr-text-3);
+        text-align: center;
+      }
+
+      /* ---------- The bar at the bottom ---------- */
+      .tabs {
+        flex: none;
+        display: grid;
+        grid-auto-flow: column;
+        grid-auto-columns: 1fr;
+        padding: 6px 12px 16px;
+        border-top: 1px solid var(--pr-line);
+        background: var(--pr-void);
+      }
+      .tabs div {
+        display: grid;
+        justify-items: center;
+        gap: 4px;
+        font-size: 11px;
+        color: var(--pr-text-3);
+      }
+      .tabs i {
+        width: 22px;
+        height: 22px;
+        border-radius: 6px;
+        border: 1.5px solid currentColor;
+        opacity: 0.8;
+      }
+      .tabs .on {
+        color: var(--pr-text);
+      }
+      .tabs .on i {
+        background: var(--pr-light);
+        border-color: var(--pr-light);
+        opacity: 1;
+      }
+
+      /* ---------- Under the thumbs ---------- */
+      .thumbs {
+        flex: none;
+        display: grid;
+        gap: 10px;
+        padding: 12px 16px 14px;
+        border-top: 1px solid var(--pr-line);
+        background: var(--pr-base);
+      }
+      .pads {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 8px;
+      }
+      .pad {
+        display: grid;
+        place-items: center;
+        height: 54px;
+        border-radius: 10px;
+        background: var(--pr-raise);
+        font: 600 13px / 1 var(--pr-font-mono);
+        color: var(--pr-text-3);
+      }
+      .pad.set {
+        background: color-mix(in oklab, var(--c) 26%, var(--pr-raise));
+        color: var(--pr-text);
+        box-shadow: inset 0 -3px var(--c);
+      }
+      .modes {
+        display: flex;
+        gap: 6px;
+      }
+      .modes span {
+        padding: 6px 11px;
+        border-radius: 99px;
+        font: 600 11px / 1 var(--pr-font);
+        letter-spacing: 0.04em;
+        color: var(--pr-text-3);
+      }
+      .modes .on {
+        background: var(--pr-raise-2);
+        color: var(--pr-text);
+      }
+      .transport {
+        display: grid;
+        grid-template-columns: 1fr 1.5fr 1fr;
+        gap: 10px;
+      }
+      .big {
+        display: grid;
+        place-items: center;
+        height: 64px;
+        border-radius: 14px;
+        background: var(--pr-raise);
+        font: 700 14px / 1 var(--pr-font);
+        letter-spacing: 0.06em;
+      }
+      .big.play {
+        background: var(--pr-light);
+        color: var(--pr-on-light);
+      }
+      .big.sync {
+        color: var(--pr-text-2);
+      }
+      .slide {
+        position: relative;
+        height: 40px;
+        border-radius: 20px;
+        background: var(--pr-raise);
+      }
+      .slide::before {
+        content: "";
+        position: absolute;
+        inset: 19px 18px auto;
+        height: 2px;
+        border-radius: 1px;
+        background: var(--pr-line-2);
+      }
+      .slide i {
+        position: absolute;
+        top: 4px;
+        left: calc(var(--at) - 22px);
+        width: 44px;
+        height: 32px;
+        border-radius: 16px;
+        background: var(--pr-light);
+      }
+      .slide b {
+        position: absolute;
+        top: 12px;
+        font: 600 11px / 1.4 var(--pr-font);
+        color: var(--pr-text-3);
+      }
+      .slide b:first-of-type {
+        left: 14px;
+      }
+      .slide b:last-of-type {
+        right: 14px;
+      }
+      .switch {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        padding: 3px;
+        border-radius: 99px;
+        background: var(--pr-raise);
+      }
+      .switch span {
+        padding: 7px 0;
+        border-radius: 99px;
+        text-align: center;
+        font: 600 12px / 1 var(--pr-font-mono);
+        color: var(--pr-text-3);
+      }
+      .switch .on {
+        background: var(--pr-light);
+        color: var(--pr-on-light);
+      }
+
+      /* ---------- A panel risen over the screen ---------- */
+      .veil {
+        position: absolute;
+        inset: 0;
+        background: rgb(0 0 0 / 0.55);
+      }
+      .panel {
+        position: absolute;
+        inset: auto 0 0;
+        padding: 0 16px 22px;
+        border-radius: 18px 18px 0 0;
+        background: var(--pr-base);
+        border-top: 1px solid var(--pr-line-2);
+      }
+      .panel h4 {
+        margin: 14px 0 8px;
+        font: 600 10.5px / 1 var(--pr-font);
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: var(--pr-text-3);
+      }
+      .choice {
+        display: grid;
+        grid-auto-flow: column;
+        grid-auto-columns: 1fr;
+        gap: 6px;
+      }
+      .choice span {
+        padding: 12px 0;
+        border-radius: 10px;
+        background: var(--pr-raise);
+        text-align: center;
+        font: 600 12px / 1 var(--pr-font);
+        color: var(--pr-text-2);
+      }
+      .choice .on {
+        background: var(--pr-light);
+        color: var(--pr-on-light);
+      }
+      .faders {
+        display: grid;
+        grid-template-columns: repeat(5, 1fr);
+        gap: 8px;
+      }
+      .fader {
+        display: grid;
+        justify-items: center;
+        gap: 6px;
+        font: 600 10px / 1 var(--pr-font);
+        letter-spacing: 0.05em;
+        color: var(--pr-text-3);
+      }
+      .fader div {
+        position: relative;
+        width: 44px;
+        height: 132px;
+        border-radius: 12px;
+        background: var(--pr-raise);
+        overflow: hidden;
+      }
+      .fader div::after {
+        content: "";
+        position: absolute;
+        inset: auto 0 0;
+        height: var(--v);
+        background: var(--pr-raise-2);
+        border-top: 3px solid var(--pr-light);
+      }
+
+      /* ---------- Sideways ---------- */
+      .wide .cols {
+        flex: 1;
+        min-height: 0;
+        display: grid;
+        grid-template-columns: 150px minmax(0, 1fr) 150px;
+      }
+      .wide .side {
+        display: grid;
+        grid-template-rows: auto 1fr auto auto;
+        gap: 8px;
+        padding: 10px 12px 14px;
+      }
+      .wide .side .pads {
+        grid-template-columns: repeat(2, 1fr);
+        align-content: center;
+      }
+      .wide .side .pad {
+        height: 40px;
+      }
+      .wide .side .big {
+        height: 52px;
+      }
+      .wide .two {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 8px;
+      }
+      .wide .middle {
+        display: flex;
+        flex-direction: column;
+        min-width: 0;
+        border-inline: 1px solid var(--pr-line);
+      }
+      .wide .middle .deck {
+        padding: 8px 12px;
+      }
+      .wide .middle .time {
+        font-size: 20px;
+      }
+      .wide .middle .bpm {
+        font-size: 15px;
+      }
+      .wide .cross {
+        margin: auto 12px 14px;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Prisme sur téléphone · deuxième version</h1>
+    <p class="lead">
+      Deux écrans seulement : <b>Platines</b> et <b>Bibliothèque</b>. Platines
+      s'adapte : avec un contrôleur ou une carte son branchée, il ne montre que
+      ce qui se lit de loin ; sans rien de branché, les commandes apparaissent
+      en bas, sous les pouces. Ce qui se règle rarement (INT / REL / ABS,
+      grille, EQ) s'ouvre en touchant le deck.
+    </p>
+
+    <div class="row">
+      <figure>
+        <figcaption>
+          <b>1 · Platines, contrôleur ou UMC branché</b>
+          Les mains sont sur le matériel : deux grandes formes d'onde, le temps
+          restant en gros, le tempo et la tonalité. Les prochains morceaux de la
+          liste restent visibles en bas.
+        </figcaption>
+        <div class="phone">
+          <div class="status">
+            <span>21:42</span><span class="mono">DDJ-FLX2 · 5,3 ms</span
+            ><span>82 %</span>
+          </div>
+          <div class="deck">
+            <div class="deck__line">
+              <span class="letter">A</span>
+              <div class="names">
+                <div class="t">Afraid To Feel</div>
+                <div class="a">LF SYSTEM</div>
+              </div>
+              <span class="key">9A</span>
+            </div>
+            <canvas
+              data-wave="a"
+              height="118"
+              style="margin-top: 10px"
+            ></canvas>
+            <div class="readouts">
+              <span class="time">−1:42</span><span class="grow"></span>
+              <span class="chip ok">REL</span>
+              <span class="bpm">128.0</span><span class="mono dim">+1.6 %</span>
+            </div>
+          </div>
+          <div class="deck">
+            <div class="deck__line">
+              <span class="letter off">B</span>
+              <div class="names">
+                <div class="t">Running</div>
+                <div class="a">Kate Bush</div>
+              </div>
+              <span class="key b">2A</span>
+            </div>
+            <canvas
+              data-wave="b"
+              height="118"
+              style="margin-top: 10px"
+            ></canvas>
+            <div class="readouts">
+              <span class="time dim">−3:05</span><span class="grow"></span>
+              <span class="chip">REL</span>
+              <span class="bpm">128.0</span><span class="mono dim">−0.4 %</span>
+            </div>
+          </div>
+          <div class="sheet">
+            <div class="grip"></div>
+            <div class="sheet__head">
+              <div class="search">⌕ Rechercher</div>
+              <div class="round">↕</div>
+            </div>
+            <div class="tracks" data-tracks="2"></div>
+          </div>
+          <div class="tabs">
+            <div class="on"><i></i>Platines</div>
+            <div><i></i>Bibliothèque</div>
+            <div><i></i>Réglages</div>
+          </div>
+        </div>
+      </figure>
+
+      <figure>
+        <figcaption>
+          <b>2 · Bibliothèque</b>
+          Tout l'écran pour choisir : grandes lignes, pochette, tempo et
+          tonalité (en vert quand elle s'accorde avec le deck). Glisser une
+          ligne vers la droite charge sur A, vers la gauche sur B ; la toucher
+          ouvre son menu.
+        </figcaption>
+        <div class="phone">
+          <div class="status"><span>21:42</span><span>82 %</span></div>
+          <div class="sheet" style="border-radius: 0; border-top: 0">
+            <div class="sheet__head" style="padding-top: 8px">
+              <div class="search">⌕ Rechercher dans House</div>
+              <div class="round">↕</div>
+            </div>
+            <div class="crumbs">
+              <span class="on">House</span><span>Schranz</span
+              ><span>Préparation · 4</span><span>Crates</span>
+            </div>
+            <div class="tracks" data-tracks="9"></div>
+            <div class="hint">→ A · B ←</div>
+          </div>
+          <div class="tabs">
+            <div><i></i>Platines</div>
+            <div class="on"><i></i>Bibliothèque</div>
+            <div><i></i>Réglages</div>
+          </div>
+        </div>
+      </figure>
+
+      <figure>
+        <figcaption>
+          <b>3 · Platines, rien de branché</b>
+          Le même écran, mais les commandes d'un deck montent sous les pouces :
+          pads, puis CUE, PLAY et SYNC tout en bas, et le crossfader juste
+          au-dessus. A / B change de deck ; les formes d'onde rétrécissent.
+        </figcaption>
+        <div class="phone">
+          <div class="status">
+            <span>21:42</span><span class="mono">Haut-parleur</span
+            ><span>82 %</span>
+          </div>
+          <div class="deck" style="padding-bottom: 8px">
+            <div class="deck__line">
+              <span class="letter">A</span>
+              <div class="names"><div class="t">Afraid To Feel</div></div>
+              <span class="bpm" style="font-size: 15px">128.0</span
+              ><span class="key">9A</span>
+              <span class="time" style="font-size: 20px">−1:42</span>
+            </div>
+            <canvas data-wave="a" height="104" style="margin-top: 8px"></canvas>
+          </div>
+          <div class="deck" style="padding-bottom: 8px">
+            <div class="deck__line">
+              <span class="letter off">B</span>
+              <div class="names"><div class="t dim">Running</div></div>
+              <span class="bpm dim" style="font-size: 15px">128.0</span
+              ><span class="key b">2A</span>
+              <span class="time dim" style="font-size: 20px">−3:05</span>
+            </div>
+            <canvas data-wave="b" height="104" style="margin-top: 8px"></canvas>
+          </div>
+          <div style="flex: 1"></div>
+          <div class="thumbs">
+            <div class="deck__line">
+              <div class="switch" style="width: 96px">
+                <span class="on">A</span><span>B</span>
+              </div>
+              <div class="modes" style="margin-left: auto">
+                <span class="on">CUES</span><span>LOOP</span><span>ROLL</span
+                ><span>FX</span>
+              </div>
+            </div>
+            <div class="pads">
+              <div class="pad set" style="--c: #ff5442">1</div>
+              <div class="pad set" style="--c: #f5d547">2</div>
+              <div class="pad set" style="--c: #4aa8ff">3</div>
+              <div class="pad">4</div>
+              <div class="pad">5</div>
+              <div class="pad">6</div>
+              <div class="pad">7</div>
+              <div class="pad">8</div>
+            </div>
+            <div class="slide" style="--at: 42%"><b>A</b><i></i><b>B</b></div>
+            <div class="transport">
+              <div class="big">CUE</div>
+              <div class="big play">PLAY</div>
+              <div class="big sync">SYNC</div>
+            </div>
+          </div>
+          <div class="tabs">
+            <div class="on"><i></i>Platines</div>
+            <div><i></i>Bibliothèque</div>
+            <div><i></i>Réglages</div>
+          </div>
+        </div>
+      </figure>
+
+      <figure>
+        <figcaption>
+          <b>4 · Toucher un deck</b>
+          Ce qui se règle rarement monte dans un panneau : qui pilote le deck,
+          le pitch, l'égaliseur et le volume en curseurs larges (pas de
+          potards), la grille. Un glissement vers le bas le referme.
+        </figcaption>
+        <div class="phone">
+          <div class="status"><span>21:42</span><span>82 %</span></div>
+          <div class="deck">
+            <div class="deck__line">
+              <span class="letter">A</span>
+              <div class="names">
+                <div class="t">Afraid To Feel</div>
+                <div class="a">LF SYSTEM</div>
+              </div>
+              <span class="key">9A</span>
+            </div>
+            <canvas
+              data-wave="a"
+              height="118"
+              style="margin-top: 10px"
+            ></canvas>
+          </div>
+          <div class="veil"></div>
+          <div class="panel">
+            <div class="grip"></div>
+            <h4>Deck A · piloté par</h4>
+            <div class="choice">
+              <span>Lui-même</span><span class="on">Vinyle REL</span
+              ><span>Vinyle ABS</span>
+            </div>
+            <h4>Pitch · +1.6 %</h4>
+            <div class="slide" style="--at: 58%"><b>−8</b><i></i><b>+8</b></div>
+            <h4>Table</h4>
+            <div class="faders">
+              <div class="fader">
+                <div style="--v: 50%"></div>
+                GRAVE
+              </div>
+              <div class="fader">
+                <div style="--v: 50%"></div>
+                MÉD
+              </div>
+              <div class="fader">
+                <div style="--v: 62%"></div>
+                AIGU
+              </div>
+              <div class="fader">
+                <div style="--v: 50%"></div>
+                FILTRE
+              </div>
+              <div class="fader">
+                <div style="--v: 84%"></div>
+                VOL
+              </div>
+            </div>
+            <h4>Morceau</h4>
+            <div class="choice">
+              <span>Key lock</span><span>Grille · 128.00</span
+              ><span>Casque</span>
+            </div>
+          </div>
+        </div>
+      </figure>
+    </div>
+
+    <div class="row">
+      <figure>
+        <figcaption>
+          <b>5 · Tenu de côté, rien de branché</b>
+          Les deux decks à la fois : chacun de son côté, sous son pouce, PLAY et
+          CUE dans les coins du bas. Les formes d'onde et le crossfader au
+          milieu. Avec un contrôleur, les côtés disparaissent et les formes
+          d'onde prennent toute la largeur.
+        </figcaption>
+        <div class="phone wide">
+          <div class="cols">
+            <div class="side">
+              <div class="modes">
+                <span class="on">CUES</span><span>LOOP</span>
+              </div>
+              <div class="pads">
+                <div class="pad set" style="--c: #ff5442">1</div>
+                <div class="pad set" style="--c: #f5d547">2</div>
+                <div class="pad set" style="--c: #4aa8ff">3</div>
+                <div class="pad">4</div>
+              </div>
+              <div class="big sync" style="height: 40px">SYNC</div>
+              <div class="two">
+                <div class="big">CUE</div>
+                <div class="big play">PLAY</div>
+              </div>
+            </div>
+            <div class="middle">
+              <div class="deck">
+                <div class="deck__line">
+                  <span class="letter">A</span>
+                  <div class="names"><div class="t">Afraid To Feel</div></div>
+                  <span class="bpm">128.0</span><span class="key">9A</span
+                  ><span class="time">−1:42</span>
+                </div>
+                <canvas
+                  data-wave="a"
+                  height="76"
+                  style="margin-top: 6px"
+                ></canvas>
+              </div>
+              <div class="deck">
+                <div class="deck__line">
+                  <span class="letter off">B</span>
+                  <div class="names"><div class="t dim">Running</div></div>
+                  <span class="bpm dim">128.0</span><span class="key b">2A</span
+                  ><span class="time dim">−3:05</span>
+                </div>
+                <canvas
+                  data-wave="b"
+                  height="76"
+                  style="margin-top: 6px"
+                ></canvas>
+              </div>
+              <div class="slide cross" style="--at: 42%">
+                <b>A</b><i></i><b>B</b>
+              </div>
+            </div>
+            <div class="side">
+              <div class="modes" style="justify-content: flex-end">
+                <span class="on">CUES</span><span>LOOP</span>
+              </div>
+              <div class="pads">
+                <div class="pad set" style="--c: #a6e25c">1</div>
+                <div class="pad">2</div>
+                <div class="pad">3</div>
+                <div class="pad">4</div>
+              </div>
+              <div class="big sync" style="height: 40px">SYNC</div>
+              <div class="two">
+                <div class="big play">PLAY</div>
+                <div class="big">CUE</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </figure>
+    </div>
+
+    <script>
+      const TRACKS = [
+        ["Afraid To Feel", "LF SYSTEM", "128", "9A", 1],
+        ["Running", "Kate Bush", "108", "2A", 0],
+        ["Dans ma rue", "Zaz", "124", "8A", 1],
+        ["Caile", "Luar La L", "126", "10A", 1],
+        ["Strobe (Club)", "deadmau5", "128", "4B", 0],
+        ["Mi Casa", "2fox", "125", "9B", 1],
+        ["Opus", "Eric Prydz", "126", "6A", 0],
+        ["Innerbloom", "RÜFÜS DU SOL", "122", "7A", 0],
+        ["Cola", "CamelPhat", "124", "9A", 1],
+      ];
+      const HUES = [210, 300, 30, 150, 260, 20, 190, 330, 90];
+      for (const list of document.querySelectorAll("[data-tracks]")) {
+        list.innerHTML = TRACKS.slice(0, +list.dataset.tracks)
+          .map(
+            ([title, artist, bpm, key, fits], i) => `
+          <div class="track${fits ? " fits" : ""}${i === 0 ? " playing" : ""}">
+            <div class="cover" style="background: linear-gradient(135deg, oklch(0.42 0.06 ${HUES[i]}), oklch(0.22 0.03 ${HUES[i]}))"></div>
+            <div class="names"><div class="t">${title}</div><div class="a">${artist}</div></div>
+            <div class="meta"><div class="bpm">${bpm}</div><div class="k" style="${fits ? "" : "color: var(--pr-text-3)"}">${key}</div></div>
+          </div>`,
+          )
+          .join("");
+      }
+
+      /** A waveform as the decks draw it: bass, mids and highs, the playhead a third in. */
+      for (const canvas of document.querySelectorAll("canvas[data-wave]")) {
+        const width = canvas.clientWidth;
+        const height = canvas.height;
+        const scale = window.devicePixelRatio || 1;
+        canvas.width = width * scale;
+        canvas.height = height * scale;
+        canvas.style.height = `${height}px`;
+        const ctx = canvas.getContext("2d");
+        ctx.scale(scale, scale);
+        let seed = canvas.dataset.wave === "a" ? 7 : 23;
+        const random = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+        const beat = canvas.dataset.wave === "a" ? 30 : 34;
+        for (let x = 0; x < width; x += 2) {
+          const kick = Math.exp(-((x % beat) / beat) * 5);
+          const body = 0.25 + 0.3 * random();
+          const levels = [
+            ["#ff5442", (0.35 + 0.65 * kick) * 0.95],
+            ["#a6e25c", body + 0.2 * kick],
+            ["#8f7bff", 0.12 + 0.2 * random()],
+          ];
+          for (const [color, level] of levels) {
+            const h = level * height * 0.5;
+            ctx.fillStyle = color;
+            ctx.globalAlpha = x < width / 3 ? 0.3 : 0.9;
+            ctx.fillRect(x, height / 2 - h, 1.4, h * 2);
+          }
+        }
+        ctx.globalAlpha = 1;
+        ctx.fillStyle = "#f3f1eb";
+        ctx.fillRect(Math.round(width / 3), 0, 2, height);
+      }
+    </script>
+  </body>
+</html>
