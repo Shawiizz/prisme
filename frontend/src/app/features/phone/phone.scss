@@ -1,7 +1,9 @@
 :host {
   display: flex;
   flex-direction: column;
-  height: 100dvh;
+  // the whole screen, under the bars of the system too: an iPhone counts them out of the
+  // other heights
+  height: 100lvh;
   // clear of the notch, the status bar and the gesture bar
   padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom)
     env(safe-area-inset-left);
