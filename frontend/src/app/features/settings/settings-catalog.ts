@@ -23,7 +23,7 @@ export const SETTINGS_PAGES: readonly SettingsPage[] = [
     id: 'audio',
     label: t('Audio'),
     description: t('The sound card and how fast it answers.'),
-    keywords: 'asio wasapi latency',
+    keywords: 'asio wasapi core audio alsa jack latency',
   },
   {
     id: 'turntables',
@@ -80,7 +80,7 @@ export const SETTINGS: readonly SettingEntry[] = [
     id: 'audio.driver',
     page: 'audio',
     label: t('Driver type'),
-    description: t('ASIO answers fastest; WASAPI works with every Windows device.'),
+    description: t('ASIO and JACK answer fastest; the others work with every device.'),
   },
   {
     id: 'audio.output',

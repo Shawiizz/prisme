@@ -2,7 +2,7 @@ import { Injectable, inject, signal } from '@angular/core';
 import { Control } from '../control/controls';
 import { NavigationService } from '../services/navigation.service';
 import { ControlService } from '../control/control.service';
-import { matches, Shortcut, SHORTCUTS } from './shortcuts';
+import { CTRL, matches, Shortcut, SHORTCUTS } from './shortcuts';
 import { t } from '../i18n/i18n';
 
 interface KeyboardLayoutApi {
@@ -40,7 +40,7 @@ export class KeyboardService {
       this.layout().get(shortcut.code)?.toUpperCase() ??
       KEY_NAMES[shortcut.code] ??
       shortcut.code.replace(/^(Key|Digit)/, '');
-    return [shortcut.ctrl && 'Ctrl', shortcut.shift && 'Shift', key].filter(Boolean).join(' + ');
+    return [shortcut.ctrl && CTRL, shortcut.shift && 'Shift', key].filter(Boolean).join(' + ');
   }
 
   private onKeyDown(event: KeyboardEvent) {

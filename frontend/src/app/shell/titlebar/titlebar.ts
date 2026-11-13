@@ -9,9 +9,10 @@ import { MixerService } from '../../core/services/mixer.service';
 import { NavigationService } from '../../core/services/navigation.service';
 import { t } from '../../core/i18n/i18n';
 import { TPipe } from '../../core/i18n/t.pipe';
-import { AudioBackend } from '../../core/models/audio';
+import { AudioBackend, BACKEND_NAMES } from '../../core/models/audio';
 import { decimal } from '../../shared/time';
 import { levelSegments } from '../../shared/level';
+import { CTRL } from '../../core/keyboard/shortcuts';
 
 /** Custom title bar: drag area, audio state, recording, update, dialogs and window buttons. */
 @Component({
@@ -21,6 +22,7 @@ import { levelSegments } from '../../shared/level';
   imports: [TPipe],
 })
 export class Titlebar {
+  protected readonly CTRL = CTRL;
   protected readonly settings = inject(SettingsService);
   protected readonly engine = inject(EngineService);
   protected readonly recording = inject(RecordingService);
@@ -53,7 +55,7 @@ export class Titlebar {
   }
 
   backendName(backend: AudioBackend): string {
-    return backend === 'asio' ? 'ASIO' : 'WASAPI';
+    return BACKEND_NAMES[backend];
   }
 
   /** `1:02:05` or `12:34`. */

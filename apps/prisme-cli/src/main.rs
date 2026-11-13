@@ -117,8 +117,9 @@ enum Cmd {
 
 #[derive(clap::Args, Clone)]
 struct AudioArgs {
-    #[arg(long, value_enum, default_value_t = BackendArg::Wasapi)]
-    backend: BackendArg,
+    /// How the sound card is reached (the system's own audio if omitted).
+    #[arg(long, value_enum)]
+    backend: Option<BackendArg>,
     /// Part of the output device name (default device if omitted).
     #[arg(long)]
     output: Option<String>,
@@ -134,6 +135,9 @@ struct AudioArgs {
 enum BackendArg {
     Wasapi,
     Asio,
+    CoreAudio,
+    Alsa,
+    Jack,
 }
 
 impl From<BackendArg> for Backend {
@@ -141,6 +145,9 @@ impl From<BackendArg> for Backend {
         match b {
             BackendArg::Wasapi => Backend::Wasapi,
             BackendArg::Asio => Backend::Asio,
+            BackendArg::CoreAudio => Backend::CoreAudio,
+            BackendArg::Alsa => Backend::Alsa,
+            BackendArg::Jack => Backend::Jack,
         }
     }
 }
@@ -205,7 +212,7 @@ fn main() -> Result<()> {
         }
         Cmd::Latency { input, out_channel, in_channel, seconds, audio } => {
             let settings = StreamSettings {
-                backend: audio.backend.into(),
+                backend: audio.backend.map_or(Backend::SYSTEM, Into::into),
                 output_device: audio.output.clone(),
                 input_device: Some(input),
                 buffer_frames: audio.buffer,
@@ -256,7 +263,7 @@ fn run(
     );
 
     let settings = StreamSettings {
-        backend: audio.backend.into(),
+        backend: audio.backend.map_or(Backend::SYSTEM, Into::into),
         output_device: audio.output.clone(),
         input_device: input.as_ref().map(|(name, _)| name.clone()),
         buffer_frames: audio.buffer,

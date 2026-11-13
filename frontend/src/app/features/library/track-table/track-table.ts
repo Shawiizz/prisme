@@ -32,12 +32,13 @@ import { COLUMNS, Column, ColumnId, gridTemplate } from './columns';
 import { TrackMenu, TrackMenuPanel } from '../track-menu/track-menu';
 import { t } from '../../../core/i18n/i18n';
 import { TPipe } from '../../../core/i18n/t.pipe';
+import { CTRL } from '../../../core/keyboard/shortcuts';
 
 const EMPTY_LIST: Record<TrackSource['kind'], string> = {
   folder: t('No audio file in this folder'),
   crate: t('This crate is empty: drag tracks onto it'),
   history: t('No track in this set'),
-  prepare: t('Drag tracks here or press Ctrl + P to line them up for the set'),
+  prepare: t('Drag tracks here or press {ctrl} + P to line them up for the set', { ctrl: CTRL }),
   duplicates: t('No two tracks share an artist and a title'),
 };
 

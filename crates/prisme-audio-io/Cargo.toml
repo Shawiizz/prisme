@@ -15,3 +15,6 @@ tracing.workspace = true
 
 [target.'cfg(windows)'.dependencies]
 cpal = { workspace = true, features = ["realtime", "asio"] }
+
+[target.'cfg(target_os = "linux")'.dependencies]
+cpal = { workspace = true, features = ["realtime", "jack"] }

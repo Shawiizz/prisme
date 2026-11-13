@@ -19,9 +19,20 @@ libm = "0.2"
 half = { version = "2", features = ["bytemuck"] }
 flacenc = "0.5"
 rubato = "5"
-wgpu = { version = "30", default-features = false, features = ["std", "parking_lot", "dx12", "static-dxc", "vulkan", "wgsl"] }
+wgpu = { version = "30", default-features = false, features = ["std", "parking_lot", "wgsl"] }
 bytemuck = { version = "1", features = ["derive"] }
 pollster = "0.4"
+
+# the graphics APIs of each system; on Windows, DXC is linked in to compile the shaders of
+# DirectX 12 (FXC takes minutes)
+[target.'cfg(windows)'.dependencies]
+wgpu = { version = "30", default-features = false, features = ["dx12", "static-dxc", "vulkan"] }
+
+[target.'cfg(target_os = "linux")'.dependencies]
+wgpu = { version = "30", default-features = false, features = ["vulkan"] }
+
+[target.'cfg(target_os = "macos")'.dependencies]
+wgpu = { version = "30", default-features = false, features = ["metal"] }
 
 [dev-dependencies]
 hound.workspace = true

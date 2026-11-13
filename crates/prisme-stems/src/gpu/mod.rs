@@ -426,7 +426,9 @@ fn worthy_adapter(options: GpuOptions) -> Result<(wgpu::Adapter, bool), StemsErr
         return Err(StemsError::NoGpu(format!("{} is a software renderer", info.name)));
     }
     let matrix_units = !options.without_matrix_units && has_matrix_units(&adapter);
-    if info.device_type == wgpu::DeviceType::IntegratedGpu && !matrix_units && !picked {
+    // Apple's own GPUs are integrated, and anything but slow
+    let slow = info.device_type == wgpu::DeviceType::IntegratedGpu && info.vendor != APPLE;
+    if slow && !matrix_units && !picked {
         return Err(StemsError::NoGpu(format!("{} is an integrated GPU, slower than the CPU", info.name)));
     }
     Ok((adapter, matrix_units))
@@ -464,8 +466,9 @@ fn adapter() -> Result<(wgpu::Adapter, bool), StemsError> {
         .map_err(|e| StemsError::NoGpu(e.to_string()))
 }
 
-/// NVIDIA's PCI vendor id.
+/// PCI vendor ids.
 const NVIDIA: u32 = 0x10de;
+const APPLE: u32 = 0x106b;
 
 const MATRIX_FEATURES: wgpu::Features = wgpu::Features::SHADER_F16
     .union(wgpu::Features::SUBGROUP)

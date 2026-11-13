@@ -148,7 +148,7 @@ fn follow_default_output(
     device: &str,
     last: &mut Option<String>,
 ) -> bool {
-    if settings.output_device.is_some() || settings.backend != BackendDto::Wasapi {
+    if settings.output_device.is_some() || settings.backend != BackendDto::default() {
         return false;
     }
     let now = default_output_name();

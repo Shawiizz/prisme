@@ -8,6 +8,7 @@ import { TrackTable } from './track-table/track-table';
 import { t } from '../../core/i18n/i18n';
 import { TPipe } from '../../core/i18n/t.pipe';
 import { deckLetter } from '../../shared/time';
+import { CTRL } from '../../core/keyboard/shortcuts';
 
 const LIST_LABEL: Record<TrackSource['kind'], string> = {
   folder: t('Folder'),
@@ -33,6 +34,7 @@ const SEARCH_PLACEHOLDER: Record<TrackSource['kind'], string> = {
   imports: [ImportDialog, LibrarySidebar, TrackTable, TPipe],
 })
 export class Library {
+  protected readonly CTRL = CTRL;
   protected readonly library = inject(LibraryService);
   protected readonly engine = inject(EngineService);
   protected readonly stems = inject(StemsService);

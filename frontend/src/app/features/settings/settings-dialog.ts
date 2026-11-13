@@ -16,7 +16,7 @@ import { MixerService } from '../../core/services/mixer.service';
 import { UpdateService } from '../../core/services/update.service';
 import { StemsService } from '../../core/services/stems.service';
 import { NavigationService, SettingsCategory } from '../../core/services/navigation.service';
-import { AudioBackend, AudioSettings, BUFFER_SIZES } from '../../core/models/audio';
+import { AudioBackend, AudioSettings, BACKEND_NAMES, BUFFER_SIZES } from '../../core/models/audio';
 import { MAX_DECKS, MixMode } from '../../core/models/engine';
 import { DjPreferences, PITCH_RANGES } from '../../core/models/preferences';
 import { LANGUAGE, LANGUAGES, Language, setLanguage, t } from '../../core/i18n/i18n';
@@ -52,6 +52,7 @@ export class SettingsDialog implements OnInit {
   protected readonly languages = LANGUAGES;
   protected readonly decks = this.engine.deckIndexes;
   protected readonly MAX_DECKS = MAX_DECKS;
+  protected readonly BACKEND_NAMES = BACKEND_NAMES;
 
   protected readonly category = computed(() => this.navigation.settings()?.category ?? 'audio');
   protected readonly page = computed(

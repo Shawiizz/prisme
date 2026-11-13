@@ -251,8 +251,8 @@ export const FR: Record<string, string> = {
   'No audio file in this folder': 'Aucun fichier audio dans ce dossier',
   'This crate is empty: drag tracks onto it': 'Cette crate est vide : glissez-y des morceaux',
   'No track in this set': 'Aucun morceau dans ce set',
-  'Drag tracks here or press Ctrl + P to line them up for the set':
-    'Glissez des morceaux ici ou appuyez sur Ctrl + P pour les préparer pour le set',
+  'Drag tracks here or press {ctrl} + P to line them up for the set':
+    'Glissez des morceaux ici ou appuyez sur {ctrl} + P pour les préparer pour le set',
   'No two tracks share an artist and a title': "Aucun morceau n'a le même artiste et le même titre",
   'No analysed track matches': 'Aucun morceau analysé ne correspond',
   'Type to search every analysed track': 'Tapez pour chercher parmi tous les morceaux analysés',
@@ -458,8 +458,8 @@ export const FR: Record<string, string> = {
   'Language of Prisme.': 'La langue de Prisme.',
   About: 'À propos',
   'Version, updates and help with a problem.': 'Version, mises à jour et aide en cas de problème.',
-  'ASIO answers fastest; WASAPI works with every Windows device.':
-    'ASIO répond le plus vite ; WASAPI marche avec tous les périphériques Windows.',
+  'ASIO and JACK answer fastest; the others work with every device.':
+    'ASIO et JACK répondent le plus vite ; les autres marchent avec tous les périphériques.',
   'Where the decks come out.': 'Où sortent les decks.',
   'The timecode pressed on your records.': 'Le timecode gravé sur vos disques.',
   'Simulated turntable': 'Platine simulée',
@@ -500,7 +500,7 @@ export const FR: Record<string, string> = {
   Undo: 'Annuler',
   'Prisme starts again in the new language.': 'Prisme redémarre dans la nouvelle langue.',
   'The audio restarts to apply these changes.': "L'audio redémarre pour appliquer ces changements.",
-  'Settings (Ctrl + ,)': 'Réglages (Ctrl + ,)',
+  'Settings ({ctrl} + ,)': 'Réglages ({ctrl} + ,)',
   // stem separation
   Vocals: 'Voix',
   Instrumental: 'Instru',

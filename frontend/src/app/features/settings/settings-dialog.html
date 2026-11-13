@@ -129,7 +129,7 @@
                           [attr.aria-checked]="d.backend === b"
                           (click)="setBackend(b)"
                         >
-                          {{ b === 'asio' ? 'ASIO' : 'WASAPI' }}
+                          {{ BACKEND_NAMES[b] }}
                         </button>
                       }
                     </div>

@@ -26,6 +26,8 @@ const CLIENT: &str = "Prisme";
 /// How often the controllers in use are looked for, to open again one plugged back: less
 /// than a controller takes to come back on the USB bus, so that none goes unseen.
 const WATCH_EVERY: Duration = Duration::from_millis(500);
+/// On a system whose MIDI does not answer (no sequencer loaded, on Linux).
+const WATCH_WITHOUT_MIDI_EVERY: Duration = Duration::from_secs(10);
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 #[serde(default, rename_all = "camelCase")]
@@ -86,8 +88,7 @@ impl Controllers {
 
     /// The MIDI ports plugged in.
     pub fn plugged() -> AppResult<Vec<String>> {
-        let input = MidiInput::new(CLIENT).map_err(midi_error)?;
-        Ok(input.ports().iter().filter_map(|p| input.port_name(p).ok()).collect())
+        Ok(port_names(&MidiInput::new(CLIENT).map_err(midi_error)?))
     }
 
     pub fn setup(&self) -> ControllerSetup {
@@ -108,9 +109,15 @@ impl Controllers {
     pub fn watch(app: AppHandle) {
         let spawned = std::thread::Builder::new().name("prisme-midi-watch".into()).spawn(move || {
             let mut missing: Vec<String> = Vec::new();
+            // one client for looking, kept: a new one each time would come and go in every
+            // MIDI patchbay of the system
+            let mut looking: Option<MidiInput> = None;
             loop {
-                std::thread::sleep(WATCH_EVERY);
-                let Ok(plugged) = Self::plugged() else { continue };
+                std::thread::sleep(if looking.is_some() { WATCH_EVERY } else { WATCH_WITHOUT_MIDI_EVERY });
+                if looking.is_none() {
+                    looking = MidiInput::new(CLIENT).ok();
+                }
+                let Some(plugged) = looking.as_ref().map(port_names) else { continue };
                 let controllers = app.state::<Controllers>();
                 lock(&controllers.connections).retain(|c| plugged.contains(&c.port));
                 for device in controllers.setup.read(|s| s.enabled.clone()) {
@@ -337,13 +344,30 @@ fn open_output(device: &str) -> Option<MidiOutputConnection> {
     output.connect(port, CLIENT).ok()
 }
 
+fn port_names(input: &MidiInput) -> Vec<String> {
+    input.ports().iter().filter_map(|p| input.port_name(p).ok()).collect()
+}
+
 /// Of the ports `names`, the one of the controller saved as `device`: its name, else the
-/// same once the numbers Windows adds are left out (plugged into another USB port).
+/// same wherever it is plugged (see [`base_port_name`]).
 fn port_of(names: &[String], device: &str) -> Option<usize> {
     names.iter().position(|n| n == device).or_else(|| {
-        let base = base_device_name(device);
-        names.iter().position(|n| base_device_name(n) == base)
+        let base = base_port_name(device);
+        names.iter().position(|n| base_port_name(n) == base)
     })
+}
+
+/// A port's name wherever its controller is plugged: without the numbers Windows puts in,
+/// nor the address ALSA ends it with (`DDJ-400 MIDI 1 24:0`).
+fn base_port_name(name: &str) -> String {
+    let number = |n: &str| !n.is_empty() && n.bytes().all(|b| b.is_ascii_digit());
+    let address =
+        |end: &str| end.split_once(':').is_some_and(|(client, port)| number(client) && number(port));
+    let name = match name.rsplit_once(' ') {
+        Some((name, end)) if address(end) => name,
+        _ => name,
+    };
+    base_device_name(name)
 }
 
 fn midi_error(e: impl std::fmt::Display) -> AppError {
@@ -353,6 +377,14 @@ fn midi_error(e: impl std::fmt::Display) -> AppError {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_controller_is_found_under_another_alsa_address() {
+        let plugged =
+            ["Midi Through:Midi Through Port-0 14:0".to_owned(), "DDJ-400:DDJ-400 MIDI 1 28:0".to_owned()];
+        assert_eq!(port_of(&plugged, "DDJ-400:DDJ-400 MIDI 1 24:0"), Some(1));
+        assert_eq!(port_of(&plugged, "DDJ-400:DDJ-400 MIDI 2 24:0"), None);
+    }
 
     #[test]
     fn a_controller_is_found_on_another_usb_port() {

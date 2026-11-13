@@ -5,7 +5,7 @@ use crate::{join_relative, Import, ImportedCrate, ImportedCue, ImportedGrid, Imp
 use quick_xml::events::{BytesStart, Event};
 use quick_xml::Reader;
 use std::collections::HashMap;
-use std::path::{Path, PathBuf};
+use std::path::{Path, PathBuf, MAIN_SEPARATOR};
 
 #[derive(Debug, thiserror::Error)]
 pub enum RekordboxError {
@@ -127,12 +127,17 @@ fn position_mark(a: &HashMap<String, String>) -> Option<ImportedCue> {
     })
 }
 
-/// `file://localhost/C:/Music/a%20b.mp3` -> `C:\Music\a b.mp3`
+/// `file://localhost/C:/Music/a%20b.mp3` -> `C:\Music\a b.mp3` (rekordbox on Windows);
+/// `file://localhost/Users/me/Music/a%20b.mp3` -> `/Users/me/Music/a b.mp3` (on macOS).
 fn location_path(location: &str) -> Option<PathBuf> {
     let rest = location.strip_prefix("file://localhost/").or_else(|| location.strip_prefix("file:///"))?;
     let decoded = percent_encoding::percent_decode_str(rest).decode_utf8().ok()?;
-    let (drive, path) = decoded.split_once('/')?;
-    Some(join_relative(&PathBuf::from(format!("{drive}\\")), path))
+    let on_a_drive = decoded.as_bytes().get(1) == Some(&b':');
+    let (root, path) = match decoded.split_once('/') {
+        Some((drive, path)) if on_a_drive => (format!("{drive}{MAIN_SEPARATOR}"), path),
+        _ => (MAIN_SEPARATOR.to_string(), &*decoded),
+    };
+    Some(join_relative(Path::new(&root), path))
 }
 
 fn attributes(element: &BytesStart<'_>) -> HashMap<String, String> {
@@ -154,18 +159,31 @@ fn number(a: &HashMap<String, String>, name: &str) -> Option<f64> {
 mod tests {
     use super::*;
 
+    /// Where the library of the tests is: on a drive on Windows, at the root elsewhere.
+    const ROOT: &str = if cfg!(windows) { "C:/" } else { "" };
+
+    /// The export of that library.
+    fn xml() -> String {
+        XML.replace("{ROOT}", ROOT)
+    }
+
+    /// A file of that library.
+    fn file(path: &str) -> PathBuf {
+        join_relative(Path::new(if cfg!(windows) { r"C:\" } else { "/" }), path)
+    }
+
     const XML: &str = r#"<?xml version="1.0" encoding="UTF-8"?>
 <DJ_PLAYLISTS Version="1.0.0">
   <PRODUCT Name="rekordbox" Version="6.8.5" Company="AlphaTheta"/>
   <COLLECTION Entries="2">
     <TRACK TrackID="11" Name="Strobe" Artist="deadmau5" Rating="204" Colour="0xFF007F"
-           Location="file://localhost/C:/Users/Me/Music/Strobe%20(Club).mp3">
+           Location="file://localhost/{ROOT}Users/Me/Music/Strobe%20(Club).mp3">
       <TEMPO Inizio="0.050" Bpm="128.00" Metro="4/4" Battito="1"/>
       <POSITION_MARK Name="drop" Type="0" Start="64.000" Num="0" Red="40" Green="226" Blue="20"/>
       <POSITION_MARK Name="" Type="0" Start="1.500" Num="-1"/>
       <POSITION_MARK Name="build" Type="4" Start="32.000" End="40.000" Num="2" Red="255" Green="140" Blue="0"/>
     </TRACK>
-    <TRACK TrackID="12" Name="Live" Location="file://localhost/D:/Sets/live.flac" Rating="0">
+    <TRACK TrackID="12" Name="Live" Location="file://localhost/{ROOT}Sets/live.flac" Rating="0">
       <TEMPO Inizio="0.1" Bpm="120.0" Metro="4/4" Battito="1"/>
       <TEMPO Inizio="30.0" Bpm="121.5" Metro="4/4" Battito="1"/>
     </TRACK>
@@ -185,9 +203,9 @@ mod tests {
 
     #[test]
     fn tracks_cues_grids_and_marks() {
-        let import = parse(XML).unwrap();
+        let import = parse(&xml()).unwrap();
         let strobe = &import.tracks[0];
-        assert_eq!(strobe.path, PathBuf::from(r"C:\Users\Me\Music\Strobe (Club).mp3"));
+        assert_eq!(strobe.path, file("Users/Me/Music/Strobe (Club).mp3"));
         assert_eq!(strobe.grid, Some(ImportedGrid { bpm: 128.0, beat_s: 0.05 }));
         assert_eq!((strobe.color, strobe.rating), (Some(0xff007f), Some(4)));
         assert_eq!(
@@ -222,12 +240,12 @@ mod tests {
 
     #[test]
     fn playlists_become_crates_named_after_their_folders() {
-        let import = parse(XML).unwrap();
+        let import = parse(&xml()).unwrap();
         let names: Vec<_> = import.crates.iter().map(|c| c.name.as_str()).collect();
         assert_eq!(names, ["Festivals / Main stage", "Empty"]);
         assert_eq!(
             import.crates[0].paths,
-            [PathBuf::from(r"D:\Sets\live.flac"), PathBuf::from(r"C:\Users\Me\Music\Strobe (Club).mp3")]
+            [file("Sets/live.flac"), file("Users/Me/Music/Strobe (Club).mp3")]
         );
     }
 }

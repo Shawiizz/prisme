@@ -9,7 +9,7 @@ use cpal::traits::{DeviceTrait, StreamTrait};
 use std::panic::{catch_unwind, AssertUnwindSafe};
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::Arc;
-use std::time::Instant;
+use std::time::{Duration, Instant};
 use tracing::warn;
 
 #[derive(Debug, Clone, Default)]
@@ -74,9 +74,9 @@ pub fn start<C: AudioCallback>(
     let mut sample_rate = out_default.sample_rate();
     let output_channels = out_default.channels() as usize;
     let mut out_config = out_default.config();
-    // A WASAPI output takes any rate (Windows converts it): it follows the input, whose
-    // rate the timecode needs as it is, when Windows set them apart.
-    if settings.backend == Backend::Wasapi {
+    // The system's shared output takes any rate (the system converts it): it follows the
+    // input, whose rate the timecode needs as it is, when the system set them apart.
+    if settings.backend == Backend::SYSTEM {
         if let Some(rate) = settings.input_device.as_deref().and_then(input_rate) {
             sample_rate = rate;
             out_config.sample_rate = rate;
@@ -131,9 +131,9 @@ impl Drop for RunningStream {
     }
 }
 
-/// The rate WASAPI runs input `name` at, if it is there.
+/// The rate the system runs input `name` at, if it is there.
 fn input_rate(name: &str) -> Option<u32> {
-    let device = find(Backend::Wasapi, DeviceKind::Input, Some(name)).ok()?;
+    let device = find(Backend::SYSTEM, DeviceKind::Input, Some(name)).ok()?;
     Some(device.default_input_config().ok()?.sample_rate())
 }
 
@@ -150,8 +150,8 @@ fn open_input(
     sample_rate: u32,
     stats: &Arc<StreamStats>,
 ) -> Result<Input, AudioError> {
-    // an ASIO driver is one device for both directions: open it once
-    let same_driver = backend == Backend::Asio
+    // an ASIO driver, as the JACK server, is one device for both directions: open it once
+    let same_driver = matches!(backend, Backend::Asio | Backend::Jack)
         && device_name(out_device).is_some_and(|n| n.to_lowercase().contains(&name.to_lowercase()));
     let device = if same_driver { out_device.clone() } else { find(backend, DeviceKind::Input, Some(name))? };
     let default = device.default_input_config()?;
@@ -261,12 +261,26 @@ fn supported_buffer(frames: u32, supported: &cpal::SupportedBufferSize) -> u32 {
     }
 }
 
+/// A driver in trouble tells the same error thousands of times a second: the log takes one
+/// line a second, with how many it stands for.
+const ERRORS_LOGGED_EVERY: Duration = Duration::from_secs(1);
+
 fn error_handler(stats: Arc<StreamStats>) -> impl FnMut(cpal::Error) + Send + 'static {
+    let mut logged: Option<Instant> = None;
+    let mut unlogged = 0u32;
     move |e| {
         if matches!(e.kind(), cpal::ErrorKind::DeviceNotAvailable | cpal::ErrorKind::StreamInvalidated) {
             stats.device_lost.store(true, Ordering::Relaxed);
         }
-        warn!("audio stream error: {e}");
+        if logged.is_some_and(|at| at.elapsed() < ERRORS_LOGGED_EVERY) {
+            unlogged += 1;
+            return;
+        }
+        match std::mem::take(&mut unlogged) {
+            0 => warn!("audio stream error: {e}"),
+            more => warn!("audio stream error: {e} (and {more} more since the last one told)"),
+        }
+        logged = Some(Instant::now());
     }
 }
 

@@ -1,6 +1,7 @@
 //! Browsing music folders.
 
 use crate::dto::{DirEntryDto, DirListingDto, TrackDetailsDto};
+use std::io::ErrorKind;
 use std::path::{Path, PathBuf};
 
 /// The user's music folder: where Windows keeps it (moved to another drive, a NAS or
@@ -14,14 +15,19 @@ pub fn music_root() -> PathBuf {
 }
 
 /// Sub-folders and playable files of `dir`, sorted by name (hidden entries skipped).
-/// `details` gives what the library knows of a track, if anything.
+/// `details` gives what the library knows of a track, if anything. The music folder of a
+/// system that has none yet is empty.
 pub fn list_dir(
     dir: &Path,
     details: impl Fn(&Path, &std::fs::Metadata) -> Option<TrackDetailsDto>,
 ) -> std::io::Result<DirListingDto> {
     let mut folders = Vec::new();
     let mut tracks = Vec::new();
-    for entry in std::fs::read_dir(dir)? {
+    let entries = match std::fs::read_dir(dir) {
+        Err(e) if e.kind() == ErrorKind::NotFound && dir == music_root() => None,
+        entries => Some(entries?),
+    };
+    for entry in entries.into_iter().flatten() {
         let Ok(entry) = entry else { continue };
         let name = entry.file_name().to_string_lossy().into_owned();
         if name.starts_with('.') {

@@ -79,7 +79,7 @@
       <path d="M11 11l4 4" />
     </svg>
     <span>{{ 'Search actions, tracks, settings…' | t }}</span>
-    <kbd class="pr-kbd">Ctrl K</kbd>
+    <kbd class="pr-kbd">{{ CTRL }} K</kbd>
   </button>
 
   <nav class="actions">
@@ -140,7 +140,7 @@
     <button
       class="pr-btn pr-btn--ghost"
       (click)="navigation.openSettings()"
-      [title]="'Settings (Ctrl + ,)' | t"
+      [title]="'Settings ({ctrl} + ,)' | t: { ctrl: CTRL }"
     >
       {{ 'Settings' | t }}
     </button>

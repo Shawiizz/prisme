@@ -13,18 +13,39 @@ pub(crate) fn drivers() -> MutexGuard<'static, ()> {
     DRIVERS.lock().unwrap_or_else(|e| e.into_inner())
 }
 
-/// How the sound card is reached.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
+/// How the sound card is reached. Each system has its own: the one that works with every
+/// device ([`Backend::SYSTEM`]), and for some a low latency one.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Backend {
     /// Windows' shared audio: works with every device, adds latency.
-    #[default]
     Wasapi,
-    /// The sound card's own low latency driver.
+    /// Windows: the sound card's own low latency driver.
     Asio,
+    /// macOS' audio, low latency as it is.
+    CoreAudio,
+    /// Linux: the sound card itself, or the sound server through its `default` device.
+    Alsa,
+    /// Linux: the JACK server (or PipeWire in its place), low latency and shared.
+    Jack,
+}
+
+impl Default for Backend {
+    fn default() -> Self {
+        Self::SYSTEM
+    }
 }
 
 impl Backend {
-    pub const ALL: [Backend; 2] = [Backend::Wasapi, Backend::Asio];
+    pub const ALL: [Backend; 5] =
+        [Backend::Wasapi, Backend::Asio, Backend::CoreAudio, Backend::Alsa, Backend::Jack];
+
+    /// The backend of this system that works with every device.
+    #[cfg(windows)]
+    pub const SYSTEM: Backend = Backend::Wasapi;
+    #[cfg(target_os = "macos")]
+    pub const SYSTEM: Backend = Backend::CoreAudio;
+    #[cfg(not(any(windows, target_os = "macos")))]
+    pub const SYSTEM: Backend = Backend::Alsa;
 
     /// Backends this computer offers.
     pub fn available() -> Vec<Backend> {
@@ -43,7 +64,14 @@ impl Backend {
             Backend::Wasapi => Some(cpal::HostId::Wasapi),
             #[cfg(windows)]
             Backend::Asio => Some(cpal::HostId::Asio),
-            #[cfg(not(windows))]
+            #[cfg(target_os = "macos")]
+            Backend::CoreAudio => Some(cpal::HostId::CoreAudio),
+            #[cfg(target_os = "linux")]
+            Backend::Alsa => Some(cpal::HostId::Alsa),
+            #[cfg(target_os = "linux")]
+            Backend::Jack => Some(cpal::HostId::Jack),
+            // the backends of the other systems
+            #[allow(unreachable_patterns)]
             _ => None,
         }
     }
@@ -54,6 +82,9 @@ impl fmt::Display for Backend {
         f.pad(match self {
             Backend::Wasapi => "WASAPI",
             Backend::Asio => "ASIO",
+            Backend::CoreAudio => "Core Audio",
+            Backend::Alsa => "ALSA",
+            Backend::Jack => "JACK",
         })
     }
 }
@@ -119,18 +150,18 @@ pub fn is_available(backend: Backend, kind: DeviceKind, name: Option<&str>) -> b
     find(backend, kind, name).is_ok()
 }
 
-/// The output Windows plays on by default now: it changes when a headset connects, say.
+/// The output the system plays on by default now: it changes when a headset connects, say.
 pub fn default_output_name() -> Option<String> {
     let _drivers = drivers();
-    let host = Backend::Wasapi.host().ok()?;
+    let host = Backend::SYSTEM.host().ok()?;
     device_name(&host.default_output_device()?)
 }
 
-/// Names of the devices Windows offers now, read without loading any driver: they change
+/// Names of the devices the system offers now, read without loading any driver: they change
 /// when an interface is plugged in or switched on.
 pub fn system_devices() -> Vec<String> {
     let _drivers = drivers();
-    let Ok(host) = Backend::Wasapi.host() else { return Vec::new() };
+    let Ok(host) = Backend::SYSTEM.host() else { return Vec::new() };
     host.devices().map(|devices| devices.filter_map(|d| device_name(&d)).collect()).unwrap_or_default()
 }
 

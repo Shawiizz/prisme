@@ -1,4 +1,13 @@
-export type AudioBackend = 'wasapi' | 'asio';
+export type AudioBackend = 'wasapi' | 'asio' | 'coreAudio' | 'alsa' | 'jack';
+
+/** The backends as their systems call them. */
+export const BACKEND_NAMES: Record<AudioBackend, string> = {
+  wasapi: 'WASAPI',
+  asio: 'ASIO',
+  coreAudio: 'Core Audio',
+  alsa: 'ALSA',
+  jack: 'JACK',
+};
 
 export interface AudioDevice {
   name: string;

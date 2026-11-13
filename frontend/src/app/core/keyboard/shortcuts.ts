@@ -1,7 +1,13 @@
+/** On a Mac the shortcuts take Command where the others take Control. */
+export const MAC = /Mac/.test(navigator.platform);
+/** The name of that key. */
+export const CTRL = MAC ? '⌘' : 'Ctrl';
+
 /** A key bound to a control (see `buildControls`). */
 export interface Shortcut {
   /** Physical key (`KeyboardEvent.code`), so the layout does not matter. */
   code: string;
+  /** With Control (Command on a Mac). */
   ctrl?: boolean;
   shift?: boolean;
   control: string;
@@ -61,11 +67,11 @@ export const SHORTCUTS: Shortcut[] = [
 /** `true` if the event is the shortcut's key with exactly its modifiers. */
 export function matches(
   shortcut: Shortcut,
-  event: Pick<KeyboardEvent, 'code' | 'ctrlKey' | 'shiftKey' | 'altKey'>,
+  event: Pick<KeyboardEvent, 'code' | 'ctrlKey' | 'metaKey' | 'shiftKey' | 'altKey'>,
 ): boolean {
   return (
     shortcut.code === event.code &&
-    !!shortcut.ctrl === event.ctrlKey &&
+    !!shortcut.ctrl === (MAC ? event.metaKey : event.ctrlKey) &&
     !!shortcut.shift === event.shiftKey &&
     !event.altKey
   );

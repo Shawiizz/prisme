@@ -13,7 +13,7 @@ import {
 /** Audio settings (backend, devices, buffer, timecode format, simulation) and diagnostics. */
 @Injectable({ providedIn: 'root' })
 export class SettingsService {
-  readonly backends = signal<AudioBackend[]>(['wasapi']);
+  readonly backends = signal<AudioBackend[]>([]);
   readonly devices = signal<AudioDevice[]>([]);
   readonly formats = signal<TimecodeFormat[]>([]);
   readonly settings = signal<AudioSettings | null>(null);

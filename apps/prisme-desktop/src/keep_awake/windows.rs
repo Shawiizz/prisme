@@ -1,5 +1,4 @@
-//! Keeps the computer and its screen awake while the audio runs: with turntables nobody
-//! touches the keyboard or the mouse during a set. And keeps Prisme at full speed.
+//! Windows: a power request (`powercfg /requests` lists it), and no power throttling.
 
 use windows_sys::Win32::Foundation::{CloseHandle, HANDLE, INVALID_HANDLE_VALUE};
 use windows_sys::Win32::System::Power::{

@@ -4,6 +4,7 @@ import { matches, SHORTCUTS } from './shortcuts';
 const key = (code: string, mods: { ctrl?: boolean; shift?: boolean } = {}) => ({
   code,
   ctrlKey: !!mods.ctrl,
+  metaKey: false,
   shiftKey: !!mods.shift,
   altKey: false,
 });

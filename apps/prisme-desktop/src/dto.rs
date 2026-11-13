@@ -20,12 +20,20 @@ pub struct DeviceDto {
     pub is_default: bool,
 }
 
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub enum BackendDto {
-    #[default]
     Wasapi,
     Asio,
+    CoreAudio,
+    Alsa,
+    Jack,
+}
+
+impl Default for BackendDto {
+    fn default() -> Self {
+        Backend::SYSTEM.into()
+    }
 }
 
 impl From<BackendDto> for Backend {
@@ -33,6 +41,9 @@ impl From<BackendDto> for Backend {
         match b {
             BackendDto::Wasapi => Backend::Wasapi,
             BackendDto::Asio => Backend::Asio,
+            BackendDto::CoreAudio => Backend::CoreAudio,
+            BackendDto::Alsa => Backend::Alsa,
+            BackendDto::Jack => Backend::Jack,
         }
     }
 }
@@ -42,6 +53,9 @@ impl From<Backend> for BackendDto {
         match b {
             Backend::Wasapi => BackendDto::Wasapi,
             Backend::Asio => BackendDto::Asio,
+            Backend::CoreAudio => BackendDto::CoreAudio,
+            Backend::Alsa => BackendDto::Alsa,
+            Backend::Jack => BackendDto::Jack,
         }
     }
 }
@@ -242,7 +256,7 @@ pub struct AudioSettings {
 impl Default for AudioSettings {
     fn default() -> Self {
         Self {
-            backend: BackendDto::Wasapi,
+            backend: BackendDto::default(),
             output_device: None,
             input_device: None,
             simulate: false,

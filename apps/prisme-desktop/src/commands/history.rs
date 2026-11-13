@@ -5,7 +5,6 @@ use prisme_library::{HistoryPlay, SessionId};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use tauri::State;
-use windows_sys::Win32::Globalization::{GetLocaleInfoEx, LOCALE_SDECIMAL, LOCALE_SLIST};
 
 type Library<'a> = State<'a, Arc<LibraryService>>;
 
@@ -33,8 +32,9 @@ pub fn export_history(library: Library<'_>, id: i64, path: PathBuf) -> AppResult
     Ok(())
 }
 
-/// The separators of a CSV file: those of the regional settings, as Excel writes and reads
-/// it (`;` and `,` in French).
+/// The separators of a CSV file: on Windows those of the regional settings, as Excel writes
+/// and reads it (`;` and `,` in French); elsewhere the usual ones, which the spreadsheets
+/// there ask about as they open the file.
 #[derive(Clone, Copy)]
 struct CsvFormat {
     separator: char,
@@ -44,7 +44,9 @@ struct CsvFormat {
 impl CsvFormat {
     const ENGLISH: Self = Self { separator: ',', decimal: '.' };
 
+    #[cfg(windows)]
     fn of_this_computer() -> Self {
+        use windows_sys::Win32::Globalization::{LOCALE_SDECIMAL, LOCALE_SLIST};
         match (locale_char(LOCALE_SLIST), locale_char(LOCALE_SDECIMAL)) {
             (Some(separator), Some(decimal)) if separator != decimal && !"\"\r\n".contains(separator) => {
                 Self { separator, decimal }
@@ -52,10 +54,17 @@ impl CsvFormat {
             _ => Self::ENGLISH,
         }
     }
+
+    #[cfg(not(windows))]
+    fn of_this_computer() -> Self {
+        Self::ENGLISH
+    }
 }
 
 /// A setting of the user's regional settings that is a single character.
+#[cfg(windows)]
 fn locale_char(setting: u32) -> Option<char> {
+    use windows_sys::Win32::Globalization::GetLocaleInfoEx;
     let mut text = [0u16; 8];
     // SAFETY: the length given is that of the buffer; no name is the user's locale
     let written = unsafe { GetLocaleInfoEx(std::ptr::null(), setting, text.as_mut_ptr(), text.len() as i32) };

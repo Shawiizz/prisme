@@ -3,7 +3,7 @@
 //! corrections, marks, crates, history) follows it.
 
 use crate::db::{path_key, DbError, FileStamp, LibraryDb};
-use std::path::{Component, Path, PathBuf};
+use std::path::{Path, PathBuf};
 
 /// How far [`adopt`] looks for the file a new one may be.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -77,18 +77,46 @@ fn single<T>(mut items: impl Iterator<Item = T>) -> Option<T> {
     items.next().filter(|_| items.next().is_none())
 }
 
-/// Whether the drive (or the share) of `path` is there.
-pub(crate) fn drive_is_there(path: &Path) -> bool {
-    path.ancestors().last().is_some_and(|root| root.has_root() && root.exists())
+/// The folders removable drives and shares are mounted in, on Linux and macOS, with how
+/// many folders down the drive itself is (`/media/<user>/<drive>`).
+#[cfg(not(windows))]
+const MOUNTS: [(&str, usize); 4] = [("/Volumes", 1), ("/media", 2), ("/run/media", 2), ("/mnt", 1)];
+
+/// The drive `path` is on, and the path under it: a drive letter or a share on Windows, the
+/// folder a drive is mounted in elsewhere (the root for the others).
+fn drive_of(path: &Path) -> (PathBuf, &Path) {
+    #[cfg(windows)]
+    let drive = path.ancestors().last().unwrap_or(path).to_path_buf();
+    #[cfg(not(windows))]
+    let drive = MOUNTS
+        .iter()
+        .find_map(|(mounts, depth)| {
+            let under = path.strip_prefix(mounts).ok()?;
+            (under.components().count() > *depth).then(|| {
+                under.components().take(*depth).fold(PathBuf::from(mounts), |drive, c| drive.join(c))
+            })
+        })
+        .unwrap_or_else(|| PathBuf::from("/"));
+    let under = path.strip_prefix(&drive).unwrap_or(path);
+    (drive, under)
 }
 
-/// Whether two paths are the same under their drives.
+/// Whether the drive (or the share) of `path` is there.
+pub(crate) fn drive_is_there(path: &Path) -> bool {
+    let drive = drive_of(path).0;
+    drive.has_root() && drive.exists()
+}
+
+/// Whether two paths are the same under their drives (whatever the case, where the system
+/// does not tell it).
 fn same_but_for_the_drive(a: &Path, b: &Path) -> bool {
-    let under = |path: &Path| -> Vec<String> {
-        path.components()
-            .filter(|c| !matches!(c, Component::Prefix(_)))
-            .map(|c| c.as_os_str().to_string_lossy().to_lowercase())
-            .collect()
+    let under = |path: &Path| {
+        let under = drive_of(path).1.to_string_lossy().into_owned();
+        if cfg!(windows) {
+            under.to_lowercase()
+        } else {
+            under
+        }
     };
     under(a) == under(b)
 }
@@ -173,6 +201,7 @@ mod tests {
     }
 
     /// The root of a drive that is not there.
+    #[cfg(windows)]
     fn drive_away() -> PathBuf {
         ('D'..='Z')
             .map(|letter| PathBuf::from(format!(r"{letter}:\")))
@@ -180,10 +209,34 @@ mod tests {
             .expect("a drive letter not in use")
     }
 
+    #[cfg(not(windows))]
+    fn drive_away() -> PathBuf {
+        PathBuf::from(format!("/mnt/prisme-no-such-drive-{}", std::process::id()))
+    }
+
     #[test]
+    #[cfg(windows)]
     fn the_same_path_on_another_drive_is_the_same_file() {
         assert!(same_but_for_the_drive(Path::new(r"E:\Sets\Track.mp3"), Path::new(r"F:\sets\track.mp3")));
         assert!(!same_but_for_the_drive(Path::new(r"E:\Sets\track.mp3"), Path::new(r"F:\Other\track.mp3")));
+    }
+
+    #[test]
+    #[cfg(not(windows))]
+    fn the_same_path_on_another_drive_is_the_same_file() {
+        let same = |a: &str, b: &str| same_but_for_the_drive(Path::new(a), Path::new(b));
+        assert!(same("/Volumes/STICK/Sets/track.mp3", "/Volumes/STICK 1/Sets/track.mp3"));
+        assert!(same("/media/me/STICK/Sets/track.mp3", "/run/media/me/STICK1/Sets/track.mp3"));
+        assert!(!same("/Volumes/STICK/Sets/track.mp3", "/Volumes/STICK/Other/track.mp3"));
+        assert!(!same("/Volumes/STICK/Sets/track.mp3", "/home/me/Sets/Track.mp3"));
+        assert_eq!(drive_of(Path::new("/home/me/Music/track.mp3")).0, Path::new("/"));
+        assert_eq!(drive_of(Path::new("/media/me/STICK/track.mp3")).0, Path::new("/media/me/STICK"));
+        // the folder of the drives is no drive itself
+        assert_eq!(drive_of(Path::new("/media/me")).0, Path::new("/"));
+    }
+
+    #[test]
+    fn a_drive_is_there_or_away() {
         assert!(!drive_is_there(&drive_away().join("track.mp3")));
         assert!(drive_is_there(&std::env::temp_dir().join("gone.mp3")));
     }
@@ -194,8 +247,7 @@ mod tests {
         let db = LibraryDb::open_in_memory().unwrap();
         let new = dir.join("track.mp3");
         let stamp = file(&new);
-        let under_the_drive = new.strip_prefix(new.ancestors().last().unwrap()).unwrap();
-        let away = drive_away().join(under_the_drive);
+        let away = drive_away().join(drive_of(&new).1);
         known(&db, &away, stamp);
         // elsewhere on the drive that is away: it may come back, and keeps what it has
         let other = drive_away().join("Elsewhere").join("track.mp3");
