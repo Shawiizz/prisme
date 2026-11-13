@@ -110,7 +110,7 @@ export class SettingsDialog implements OnInit {
     () => this.preferences.library().pauseWhilePlaying,
   );
   protected readonly separateOnLoad = computed(
-    () => this.preferences.library().separateOnLoad ?? this.stems.gpu() ?? false,
+    () => this.preferences.library().stemsOnLoad ?? this.stems.gpu() ?? false,
   );
   protected readonly busy = signal(false);
   protected readonly error = signal<string | null>(null);
@@ -271,8 +271,8 @@ export class SettingsDialog implements OnInit {
     this.preferences.updateLibrary({ replaceTags });
   }
 
-  setSeparateOnLoad(separateOnLoad: boolean) {
-    this.preferences.updateLibrary({ separateOnLoad });
+  setSeparateOnLoad(stemsOnLoad: boolean) {
+    this.preferences.updateLibrary({ stemsOnLoad });
   }
 
   /** Another backend has other devices: start again from its defaults. */

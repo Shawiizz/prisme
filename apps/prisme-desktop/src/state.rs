@@ -189,6 +189,10 @@ pub struct AppState {
     pub samplers: Mutex<Samplers>,
 }
 
+/// The speed (1: as recorded) from which a track counts as moving: a record at rest
+/// trembles under its needle.
+const MOVING_SPEED: f64 = 0.05;
+
 /// Locks a mutex, recovering from a poisoned lock (a panicking command must not take
 /// the whole application down).
 pub fn lock<T>(m: &Mutex<T>) -> MutexGuard<'_, T> {
@@ -197,6 +201,9 @@ pub fn lock<T>(m: &Mutex<T>) -> MutexGuard<'_, T> {
 
 impl AppState {
     pub fn new(preferences: JsonFile<Preferences>) -> Self {
+        if preferences.read(|p| p.library.clone().settle()) {
+            let _ = preferences.update(|p| p.library.settle());
+        }
         let saved = preferences.get().decks;
         Self {
             preferences,
@@ -241,9 +248,12 @@ impl AppState {
         status.decks[..status.deck_count].iter().map(|d| (d.position_s, d.playing)).collect()
     }
 
-    /// Whether a deck plays.
+    /// Whether a deck plays: its track moves, by itself or under a record.
     pub fn is_playing(&self) -> bool {
-        self.transport_snapshot().iter().any(|&(_, playing)| playing)
+        let mut session = lock(&self.session);
+        let Some(session) = session.as_mut() else { return false };
+        let status = session.controller.status();
+        status.decks[..status.deck_count].iter().any(|d| d.loaded && d.speed.abs() > MOVING_SPEED)
     }
 
     /// Runs `f` on the track on `deck` if it is still the load `load_id`.

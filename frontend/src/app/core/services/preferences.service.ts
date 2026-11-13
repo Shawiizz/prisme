@@ -18,7 +18,7 @@ export class PreferencesService {
     writeTags: true,
     replaceTags: false,
     pauseWhilePlaying: true,
-    separateOnLoad: null,
+    stemsOnLoad: null,
   });
 
   async load(): Promise<void> {

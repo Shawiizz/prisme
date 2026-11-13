@@ -127,11 +127,14 @@ struct Download {
     error: Option<String>,
 }
 
-/// Whether a graphics card can separate, looked for once (which takes a moment: not from
-/// the window's thread).
+/// The graphics card could not be opened, or failed twice: the separation runs on the CPU.
+static GPU_GAVE_UP: AtomicBool = AtomicBool::new(false);
+
+/// Whether a graphics card can separate: one is there (looked for once, which takes a
+/// moment: not from the window's thread) and did not give up since.
 pub fn has_gpu() -> bool {
     static HAS_GPU: OnceLock<bool> = OnceLock::new();
-    *HAS_GPU.get_or_init(Gpu::available)
+    *HAS_GPU.get_or_init(Gpu::available) && !GPU_GAVE_UP.load(Ordering::Relaxed)
 }
 
 /// Whether tracks are separated as they are loaded or prepared: as the DJ chose, else with
@@ -435,8 +438,11 @@ impl Worker {
         prisme_library::background_priority();
         let _stopped = Stopped { id: self.id, app: self.app.clone(), queue: self.queue.clone() };
         let mut separators: Vec<Option<BoxedSeparator>> = (0..MODELS.len()).map(|_| None).collect();
-        let open_gpu =
-            || Gpu::open(Default::default()).inspect_err(|e| warn!("separating on the CPU: {e}")).ok();
+        let open_gpu = || {
+            let gpu = Gpu::open(Default::default()).inspect_err(|e| warn!("separating on the CPU: {e}")).ok();
+            GPU_GAVE_UP.store(gpu.is_none(), Ordering::Relaxed);
+            gpu
+        };
         let mut gpu = open_gpu();
         let mut gpu_failed = false;
         while let Some(job) = self.next() {
@@ -485,6 +491,7 @@ impl Worker {
                     warn!("separation of {} failed on the GPU: {e}", job.path.display());
                     separators.iter_mut().for_each(|s| *s = None);
                     gpu = if gpu_failed { None } else { open_gpu() };
+                    GPU_GAVE_UP.store(gpu.is_none(), Ordering::Relaxed);
                     gpu_failed = true;
                     let mut queue = lock(&self.queue);
                     let line = if job.played { &mut queue.played } else { &mut queue.waiting };

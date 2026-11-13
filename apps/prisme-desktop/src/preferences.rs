@@ -123,7 +123,26 @@ pub struct LibraryPreferences {
     /// A track loaded on a deck is separated right away, before the library's; one put in
     /// the prepare list in the background. Not chosen: with a graphics card only (see
     /// `stems_service::separates_on_load`).
+    #[serde(rename = "stemsOnLoad")]
     pub separate_on_load: Option<bool>,
+    /// The same as saved before it could be left open, when on was what nobody chose (see
+    /// [`LibraryPreferences::settle`]).
+    #[serde(rename = "separateOnLoad", skip_serializing)]
+    separate_on_load_before: Option<bool>,
+}
+
+impl LibraryPreferences {
+    /// Takes over the choice of a file saved before it could be left open: off was chosen
+    /// and stays, on was the default and is left open. `true` if something changed.
+    pub fn settle(&mut self) -> bool {
+        match self.separate_on_load_before.take() {
+            Some(false) if self.separate_on_load.is_none() => {
+                self.separate_on_load = Some(false);
+                true
+            }
+            before => before.is_some(),
+        }
+    }
 }
 
 impl Default for LibraryPreferences {
@@ -135,6 +154,7 @@ impl Default for LibraryPreferences {
             replace_tags: false,
             pause_while_playing: true,
             separate_on_load: None,
+            separate_on_load_before: None,
         }
     }
 }
@@ -155,6 +175,26 @@ mod tests {
         assert!(!p.library.replace_tags);
         assert!(p.library.pause_while_playing);
         assert_eq!(p.library.separate_on_load, None);
+    }
+
+    #[test]
+    fn separating_on_load_stays_off_where_it_was_chosen_and_open_where_it_was_the_default() {
+        let saved = |json: &str| {
+            let mut p: Preferences = serde_json::from_str(json).unwrap();
+            p.library.settle();
+            p.library.separate_on_load
+        };
+        assert_eq!(saved(r#"{ "library": { "separateOnLoad": true } }"#), None);
+        assert_eq!(saved(r#"{ "library": { "separateOnLoad": false } }"#), Some(false));
+        assert_eq!(saved(r#"{ "library": { "separateOnLoad": false, "stemsOnLoad": true } }"#), Some(true));
+        assert_eq!(saved(r#"{ "library": { "stemsOnLoad": true } }"#), Some(true));
+        // what is saved from now on holds the choice alone
+        let mut p: Preferences =
+            serde_json::from_str(r#"{ "library": { "separateOnLoad": false } }"#).unwrap();
+        assert!(p.library.settle());
+        assert!(!p.library.settle());
+        let json = serde_json::to_string(&p).unwrap();
+        assert!(json.contains(r#""stemsOnLoad":false"#) && !json.contains("separateOnLoad"));
     }
 
     #[test]

@@ -153,6 +153,11 @@ const MIGRATIONS: &[&str] = &[
     "CREATE TABLE audio_ids (path TEXT PRIMARY KEY NOT NULL, audio_id INTEGER NOT NULL) WITHOUT ROWID;
      CREATE INDEX audio_ids_by_id ON audio_ids (audio_id);
      CREATE INDEX tracks_by_stamp ON tracks (size, modified_ms);",
+    // the tempo and key Prisme wrote go out of `tracks` (its columns stay, unused), whose
+    // rows go with their files: they follow a file renamed as its cues do
+    "CREATE TABLE written_tags (path TEXT PRIMARY KEY NOT NULL, bpm REAL, key TEXT) WITHOUT ROWID;
+     INSERT INTO written_tags
+         SELECT path, tag_bpm, tag_key FROM tracks WHERE tag_bpm IS NOT NULL OR tag_key IS NOT NULL;",
 ];
 
 pub fn now_ms() -> i64 {

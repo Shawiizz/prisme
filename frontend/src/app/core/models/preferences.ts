@@ -26,7 +26,7 @@ export interface LibraryPreferences {
   /** A track loaded on a deck is separated right away, before the library's; one put in the
    * prepare list in the background. */
   /** `null`: not chosen, on with a graphics card that can separate. */
-  separateOnLoad: boolean | null;
+  stemsOnLoad: boolean | null;
 }
 
 export interface Preferences {

@@ -45,8 +45,9 @@ impl LibraryDb {
     pub fn own_tags_written(&self, path: &Path, values: TempoAndKey<'_>) -> Result<(), DbError> {
         self.conn()
             .prepare_cached(
-                "UPDATE tracks SET tag_bpm = COALESCE(?2, tag_bpm), tag_key = COALESCE(?3, tag_key)
-                 WHERE path = ?1",
+                "INSERT INTO written_tags (path, bpm, key) VALUES (?1, ?2, ?3)
+                 ON CONFLICT (path) DO UPDATE
+                     SET bpm = COALESCE(excluded.bpm, bpm), key = COALESCE(excluded.key, key)",
             )?
             .execute(params![path_key(path), values.bpm, values.key])?;
         Ok(())
@@ -56,7 +57,7 @@ impl LibraryDb {
     pub fn own_tags(&self, path: &Path) -> Result<WrittenTags, DbError> {
         let own = self
             .conn()
-            .prepare_cached("SELECT tag_bpm, tag_key FROM tracks WHERE path = ?1")?
+            .prepare_cached("SELECT bpm, key FROM written_tags WHERE path = ?1")?
             .query_row([path_key(path)], |r| Ok(WrittenTags { bpm: r.get(0)?, key: r.get(1)? }))
             .optional()?;
         Ok(own.unwrap_or_default())
@@ -162,7 +163,13 @@ mod tests {
         db.own_tags_written(path, TempoAndKey { bpm: None, key: Some("Am") }).unwrap();
         // the file changed (another program tagged it): analysed again
         save(&db, "a.mp3", AFTER, TrackAnalysis::default());
-        assert_eq!(db.own_tags(path).unwrap(), WrittenTags { bpm: Some(124.0), key: Some("Am".into()) });
+        let own = WrittenTags { bpm: Some(124.0), key: Some("Am".into()) };
+        assert_eq!(db.own_tags(path).unwrap(), own);
+        // renamed and tagged again: forgotten where it was, known again where it is
+        db.forget(&["a.mp3".into()]).unwrap();
+        db.relocate(path, Path::new("b.mp3")).unwrap();
+        assert_eq!(db.own_tags(Path::new("b.mp3")).unwrap(), own);
+        assert_eq!(db.own_tags(path).unwrap(), WrittenTags::default());
     }
 
     #[test]
@@ -186,9 +193,12 @@ mod tests {
         db.tags_written(Path::new("corrected.mp3"), BEFORE, BEFORE).unwrap();
         save(&db, "unwritten.mp3", BEFORE, TrackAnalysis::default());
 
-        let migration = MIGRATIONS.iter().find(|sql| sql.contains("ADD COLUMN tag_bpm")).unwrap();
-        let backfill = migration.split_once("UPDATE").unwrap().1;
-        db.conn().execute(&format!("UPDATE{backfill}"), []).unwrap();
+        let part = |of: &str, from: &str| {
+            let migration = MIGRATIONS.iter().find(|sql| sql.contains(of)).unwrap();
+            format!("{from}{}", migration.split_once(from).unwrap().1)
+        };
+        db.conn().execute(&part("ADD COLUMN tag_bpm", "UPDATE"), []).unwrap();
+        db.conn().execute(&part("CREATE TABLE written_tags", "INSERT"), []).unwrap();
 
         for (i, key) in keys.enumerate() {
             let own = db.own_tags(Path::new(&format!("{i}.mp3"))).unwrap();

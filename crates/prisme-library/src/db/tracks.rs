@@ -20,8 +20,9 @@ pub const TAGS_VERSION: u32 = 1;
 /// forgotten whole.
 const KEPT: [&str; 6] = ["cues", "track_edits", "track_marks", "crate_tracks", "history_plays", "prepare"];
 
-const RELOCATED: [&str; 10] = [
+const RELOCATED: [&str; 11] = [
     "audio_ids",
+    "written_tags",
     "tracks",
     "covers",
     "waveforms",
@@ -178,10 +179,9 @@ impl LibraryDb {
         tx.prepare_cached(
             "INSERT OR REPLACE INTO tracks (path, size, modified_ms, analysis_version, duration_s, bpm,
                  first_beat_s, tempo_confidence, key_tonic, key_minor, key_confidence, tuning_cents, error,
-                 analyzed_at_ms, title, artist, album, genre, year, comment, tags_version, tag_bpm, tag_key)
+                 analyzed_at_ms, title, artist, album, genre, year, comment, tags_version)
              VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19,
-                 ?20, ?21, (SELECT tag_bpm FROM tracks WHERE path = ?1),
-                 (SELECT tag_key FROM tracks WHERE path = ?1))",
+                 ?20, ?21)",
         )?
         .execute(params![
             record.path,

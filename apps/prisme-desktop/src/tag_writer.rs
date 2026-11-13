@@ -101,7 +101,7 @@ fn write_pending(app: &AppHandle) {
         if decoding(app, path) {
             continue;
         }
-        let replace_all = app.state::<AppState>().preferences.read(|p| p.library.replace_tags);
+        let replace_all = || app.state::<AppState>().preferences.read(|p| p.library.replace_tags);
         if let Err(e) = write(&library.db, path, &record, replace_all) {
             warn!("tempo and key not written into {}: {e}", path.display());
         }
@@ -109,8 +109,8 @@ fn write_pending(app: &AppHandle) {
 }
 
 /// Writes the tempo and key of `path` as stored now (corrected since `record` was read,
-/// perhaps), over those Prisme wrote before, or over any with `replace_all`.
-fn write(db: &LibraryDb, path: &Path, record: &TrackRecord, replace_all: bool) -> AppResult<()> {
+/// perhaps), over those Prisme wrote before, or over any when `replace_all` says so.
+fn write(db: &LibraryDb, path: &Path, record: &TrackRecord, replace_all: impl Fn() -> bool) -> AppResult<()> {
     let before = FileStamp::of(path)?;
     // changed since it was analysed: the analysis comes first
     if before != record.version.stamp {
@@ -119,7 +119,8 @@ fn write(db: &LibraryDb, path: &Path, record: &TrackRecord, replace_all: bool) -
     let Some(record) = db.get(path)? else { return Ok(()) };
     let values = tempo_and_key(&record);
     let own = db.own_tags(path)?;
-    let replacing = if replace_all { Replacing::Any } else { Replacing::Own(own.values()) };
+    let replaced_all = replace_all();
+    let replacing = if replaced_all { Replacing::Any } else { Replacing::Own(own.values()) };
     let written = match prisme_media::write_tempo_and_key(path, values, replacing) {
         Ok(written) => written,
         Err(e) => {
@@ -133,10 +134,12 @@ fn write(db: &LibraryDb, path: &Path, record: &TrackRecord, replace_all: bool) -
         TempoAndKey { bpm: values.bpm.filter(|_| written.bpm), key: values.key.filter(|_| written.key) },
     )?;
     let after = FileStamp::of(path)?;
-    if db.get(path)?.is_some_and(|now| tempo_and_key(&now) == values) {
+    let asked_the_same = replace_all() == replaced_all;
+    if asked_the_same && db.get(path)?.is_some_and(|now| tempo_and_key(&now) == values) {
         db.tags_written(path, before, after)?;
     } else {
-        // corrected while it was written: the next pass writes the correction
+        // corrected, or all tags asked to be replaced, while it was written: the next pass
+        // writes it again
         db.tags_outdated(path, before, after)?;
     }
     Ok(())

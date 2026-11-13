@@ -144,7 +144,7 @@ fn run(
         for _ in 0..workers.min(total) {
             s.spawn(|| {
                 background_priority();
-                while !cancel.load(Ordering::Relaxed) {
+                while !cancel.load(Ordering::Relaxed) && next.load(Ordering::Relaxed) < total {
                     // told once, by the worker that sees it first
                     let held_back = listener.holds_back();
                     if paused.swap(held_back, Ordering::Relaxed) != held_back {
@@ -191,10 +191,16 @@ fn run(
     let mut drives: HashMap<PathBuf, bool> = HashMap::new();
     for path in db.paths_without_audio_id().unwrap_or_default() {
         while listener.holds_back() && !cancel.load(Ordering::Relaxed) {
+            if !paused.swap(true, Ordering::Relaxed) {
+                report(true);
+            }
             std::thread::sleep(HELD_BACK_POLL);
         }
         if cancel.load(Ordering::Relaxed) {
             break;
+        }
+        if paused.swap(false, Ordering::Relaxed) {
+            report(true);
         }
         let file = Path::new(&path);
         let drive = file.ancestors().last().unwrap_or(file);
