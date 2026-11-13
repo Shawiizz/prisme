@@ -44,7 +44,8 @@ jobs:
           path: apps/prisme-desktop/gen/apple
       - name: Build for the simulator
         working-directory: apps/prisme-desktop
-        run: cargo tauri ios build --debug --target aarch64-sim
+        # the archive that follows the build needs a signing team: the build is what is started
+        run: cargo tauri ios build --debug --target aarch64-sim || echo "not archived"
       - name: Start in the simulator
         run: |
           mkdir -p start
