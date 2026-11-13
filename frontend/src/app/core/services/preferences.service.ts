@@ -9,7 +9,7 @@ export class PreferencesService {
     vinylSync: 'once',
     quantize: true,
     pitchRange: 0.08,
-    autoGain: false,
+    autoGain: true,
     deckCount: 2,
   });
   readonly library = signal<LibraryPreferences>({

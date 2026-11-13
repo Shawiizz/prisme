@@ -76,7 +76,7 @@ impl Default for DjPreferences {
             vinyl_sync: VinylSync::Once,
             quantize: true,
             pitch_range: 0.08,
-            auto_gain: false,
+            auto_gain: true,
             deck_count: 2,
         }
     }
@@ -148,6 +148,7 @@ mod tests {
         let p: Preferences = serde_json::from_str(r#"{ "dj": { "vinylSync": "locked" } }"#).unwrap();
         assert_eq!(p.dj.vinyl_sync, VinylSync::Locked);
         assert!(p.dj.quantize);
+        assert!(p.dj.auto_gain);
         assert_eq!(p.dj.pitch_range, 0.08);
         assert_eq!(p.audio, AudioSettings::default());
         assert!(p.library.write_tags);
