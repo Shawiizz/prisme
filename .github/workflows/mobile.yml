@@ -27,12 +27,16 @@ jobs:
         run: pnpm build
       - name: Check
         run: cargo check -p prisme-desktop --target "$TARGET"
+      # as a cargo command: the Xcode project calls it back the way it was called
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: tauri-cli@2.12.2
       - name: Xcode project
         if: always()
         working-directory: apps/prisme-desktop
         run: |
           brew install xcodegen
-          npx --yes @tauri-apps/cli@2.12.2 ios init
+          cargo tauri ios init
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -40,7 +44,7 @@ jobs:
           path: apps/prisme-desktop/gen/apple
       - name: Build for the simulator
         working-directory: apps/prisme-desktop
-        run: npx --yes @tauri-apps/cli@2.12.2 ios build --debug --target aarch64-sim
+        run: cargo tauri ios build --debug --target aarch64-sim
       - name: Start in the simulator
         run: |
           mkdir -p start
