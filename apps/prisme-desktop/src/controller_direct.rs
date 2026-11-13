@@ -62,7 +62,8 @@ impl Performer {
             Direct::Jog(deck) => {
                 Some(Command::Jog { deck, turns: f64::from(value) / JOG_STEPS_PER_TURN, at_s })
             }
-            Direct::JogTouch(deck) => Some(Command::JogTouch { deck, touched: value > 0.5, at_s }),
+            // however lightly: some wheels tell how hard they are touched
+            Direct::JogTouch(deck) => Some(Command::JogTouch { deck, touched: value > 0.0, at_s }),
             Direct::Pitch(deck) => {
                 if self.pitch_pickups.len() <= deck {
                     self.pitch_pickups.resize_with(deck + 1, Pickup::default);
@@ -98,8 +99,10 @@ mod tests {
         assert!(
             matches!(turned, Some(Command::Jog { deck: 1, turns, at_s }) if turns == -0.25 && at_s == 2.5)
         );
-        let touched = performer.command(Direct::JogTouch(0), 1.0, 3.0, TEMPO);
+        let touched = performer.command(Direct::JogTouch(0), 0.2, 3.0, TEMPO);
         assert!(matches!(touched, Some(Command::JogTouch { deck: 0, touched: true, .. })));
+        let let_go = performer.command(Direct::JogTouch(0), 0.0, 3.5, TEMPO);
+        assert!(matches!(let_go, Some(Command::JogTouch { deck: 0, touched: false, .. })));
     }
 
     #[test]

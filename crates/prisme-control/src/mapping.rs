@@ -5,6 +5,10 @@ use std::collections::HashMap;
 /// The action that turns a controller's other controls into their second layer while held.
 pub const SHIFT: &str = "shift";
 
+/// The end of the actions that take several controls of a controller: a jog wheel sends
+/// its top and its edge apart.
+const JOG: &str = ".jog";
+
 /// How a control's values are read.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -83,7 +87,7 @@ impl Mapping {
 }
 
 /// The mappings of all the controllers: on each controller and layer, a control drives
-/// one action, and an action has one control.
+/// one action, and an action has one control (a jog wheel, its top and its edge).
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 #[serde(transparent)]
 pub struct Mappings(Vec<Mapping>);
@@ -103,11 +107,13 @@ impl Mappings {
     }
 
     /// Adds `mapping`, replacing what its control did in its layer and the control its
-    /// action had on that controller.
+    /// action had on that controller (a jog wheel keeps its other one).
     pub fn learn(&mut self, mapping: Mapping) {
+        let several = mapping.target.ends_with(JOG);
         self.0.retain(|m| {
-            m.device != mapping.device
-                || ((m.control != mapping.control || m.shift != mapping.shift) && m.target != mapping.target)
+            let same_control = m.control == mapping.control && m.shift == mapping.shift;
+            let replaced = same_control || (m.target == mapping.target && !several);
+            m.device != mapping.device || !replaced
         });
         self.0.push(mapping);
     }
@@ -133,11 +139,13 @@ impl Mappings {
 }
 
 /// Turns events into values: holds the high half of 14-bit controls until their low half
-/// comes, and whether each controller's shift is held.
+/// comes, whether each controller's shift is held, and the layer each key held down was
+/// pressed in (its release ends that press, wherever shift is by then).
 #[derive(Debug, Default)]
 pub struct Reader {
     coarse: HashMap<(String, Control), u16>,
     shifted: HashMap<String, bool>,
+    pressed: HashMap<(String, Control), bool>,
 }
 
 impl Reader {
@@ -149,8 +157,14 @@ impl Reader {
         device: &str,
         event: Event,
     ) -> Option<(&'m Mapping, f32)> {
-        let shifted = self.shifted(device);
+        let key = event.control.kind == ControlKind::Note;
+        let released = key && event.raw == 0;
+        let layer = released.then(|| self.pressed.remove(&(device.to_owned(), event.control))).flatten();
+        let shifted = layer.unwrap_or_else(|| self.shifted(device));
         let mapping = mappings.find(device, event.control, shifted)?;
+        if key && !released {
+            self.pressed.insert((device.to_owned(), event.control), shifted);
+        }
         if mapping.target == SHIFT {
             self.shifted.insert(device.to_owned(), event.raw > 0);
             return None;
@@ -171,6 +185,11 @@ impl Reader {
     /// Whether the shift of `device` is held.
     pub fn shifted(&self, device: &str) -> bool {
         self.shifted.get(device).copied().unwrap_or(false)
+    }
+
+    /// The keys of `device` held down.
+    pub fn held(&self, device: &str) -> Vec<Control> {
+        self.pressed.keys().filter(|(d, _)| d == device).map(|(_, control)| *control).collect()
     }
 }
 
@@ -283,6 +302,40 @@ mod tests {
         read(&mut reader, &mappings, &[0x90, 63, 0]);
         assert!(!reader.shifted("DDJ"));
         assert_eq!(read(&mut reader, &mappings, &[0x90, 36, 127]).unwrap().0, "deck1.hotcue1");
+    }
+
+    #[test]
+    fn a_key_is_released_in_the_layer_it_was_pressed_in() {
+        let mut mappings = Mappings::default();
+        mappings.learn(mapping("DDJ", SHIFT_KEY, SHIFT));
+        mappings.learn(mapping("DDJ", PAD, "deck1.cue"));
+        mappings.learn(Mapping { shift: true, ..mapping("DDJ", PAD, "deck1.censor") });
+        let mut reader = Reader::default();
+        read(&mut reader, &mappings, &[0x90, 63, 127]);
+        assert_eq!(read(&mut reader, &mappings, &[0x90, 36, 90]).unwrap().0, "deck1.censor");
+        assert_eq!(reader.held("DDJ").len(), 2);
+        // shift let go first: the pad still ends what it began
+        read(&mut reader, &mappings, &[0x90, 63, 0]);
+        assert_eq!(read(&mut reader, &mappings, &[0x80, 36, 0]), Some(("deck1.censor".into(), 0.0)));
+        assert!(reader.held("DDJ").is_empty());
+        // and the other way round: pressed plain, released under shift
+        read(&mut reader, &mappings, &[0x90, 36, 90]);
+        read(&mut reader, &mappings, &[0x90, 63, 127]);
+        assert_eq!(read(&mut reader, &mappings, &[0x90, 36, 0]), Some(("deck1.cue".into(), 0.0)));
+    }
+
+    #[test]
+    fn a_jog_wheel_keeps_its_top_and_its_edge() {
+        let edge = Control { number: 33, ..KNOB };
+        let mut mappings = Mappings::default();
+        mappings.learn(mapping("DDJ", KNOB, "deck1.jog"));
+        mappings.learn(mapping("DDJ", edge, "deck1.jog"));
+        assert_eq!(mappings.all().len(), 2);
+        // the same control learnt again is not there twice, and still drives one action
+        mappings.learn(mapping("DDJ", edge, "deck1.jog"));
+        assert_eq!(mappings.all().len(), 2);
+        mappings.learn(mapping("DDJ", edge, "deck2.jog"));
+        assert_eq!(mappings.all(), [mapping("DDJ", KNOB, "deck1.jog"), mapping("DDJ", edge, "deck2.jog")]);
     }
 
     #[test]

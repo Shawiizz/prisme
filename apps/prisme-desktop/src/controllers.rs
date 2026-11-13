@@ -119,7 +119,16 @@ impl Controllers {
                 }
                 let Some(plugged) = looking.as_ref().map(port_names) else { continue };
                 let controllers = app.state::<Controllers>();
-                lock(&controllers.connections).retain(|c| plugged.contains(&c.port));
+                let unplugged: Vec<String> = {
+                    let mut connections = lock(&controllers.connections);
+                    let gone = |c: &Connection| !plugged.contains(&c.port);
+                    let devices = connections.iter().filter(|c| gone(c)).map(|c| c.device.clone()).collect();
+                    connections.retain(|c| !gone(c));
+                    devices
+                };
+                for device in &unplugged {
+                    controllers.let_go(&app, device);
+                }
                 for device in controllers.setup.read(|s| s.enabled.clone()) {
                     let open = lock(&controllers.connections).iter().any(|c| c.device == device);
                     if open || port_of(&plugged, &device).is_none() {
@@ -156,6 +165,7 @@ impl Controllers {
             self.open(app, device)?;
         } else {
             lock(&self.connections).retain(|c| c.device != device);
+            self.let_go(app, device);
         }
         self.save(|s| {
             s.enabled.retain(|d| d != device);
@@ -247,6 +257,25 @@ impl Controllers {
             }
             None => Ok(()),
         };
+    }
+
+    /// A controller gone lets go of what it held: its keys (shift among them) are released,
+    /// and so are the jog wheels it touched, however they tell it.
+    fn let_go(&self, app: &AppHandle, device: &str) {
+        let held = lock(&self.reader).held(device);
+        for control in held {
+            self.receive(app, device, Event { control, raw: 0 }, 0.0);
+        }
+        let touches: Vec<Direct> = self.setup.read(|s| {
+            let mappings = s.mappings.all().iter().filter(|m| m.device == device);
+            mappings
+                .filter_map(|m| Direct::of(&m.target))
+                .filter(|d| matches!(d, Direct::JogTouch(_)))
+                .collect()
+        });
+        for touch in touches {
+            self.perform(app, touch, 0.0, 0.0);
+        }
     }
 
     /// Learns the control if a target waits for one, else finds what it drives.

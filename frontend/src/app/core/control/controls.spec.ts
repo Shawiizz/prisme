@@ -51,6 +51,15 @@ describe('controls', () => {
     ]);
   });
 
+  it('a pad hit softly is pressed all the same', () => {
+    const { calls, find } = recorder();
+    const soft = 20 / 127;
+    find('deck1.hotcue3').apply(soft);
+    find('deck2.cue').apply(soft);
+    find('deck2.cue').apply(0);
+    expect(calls).toEqual(['hotCue(0,2)', 'cue(1,true)', 'cue(1,false)']);
+  });
+
   it('faders and encoders pass their value on', () => {
     const { calls, find } = recorder();
     find('deck2.eq.low').apply(0.25);

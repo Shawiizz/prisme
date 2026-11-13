@@ -95,6 +95,9 @@ const EQ_LABEL: Record<Band, string> = {
   high: t('EQ high'),
 };
 
+/** A button is down at any value but zero: a pad hit softly is hit all the same. */
+const down = (value: number) => value > 0;
+
 /** A button acting when pressed. */
 function button(id: string, group: string, label: string, run: () => void): Control {
   return {
@@ -103,14 +106,14 @@ function button(id: string, group: string, label: string, run: () => void): Cont
     label,
     kind: 'button',
     apply: (v) => {
-      if (v >= 0.5) run();
+      if (down(v)) run();
     },
   };
 }
 
 /** A button acting while held. */
 function hold(id: string, group: string, label: string, run: (held: boolean) => void): Control {
-  return { id, group, label, kind: 'button', apply: (v) => run(v >= 0.5) };
+  return { id, group, label, kind: 'button', apply: (v) => run(down(v)) };
 }
 
 function fader(
