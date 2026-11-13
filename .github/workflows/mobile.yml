@@ -54,11 +54,18 @@ jobs:
           phone=$(xcrun simctl list devices available | grep -m1 -oE "iPhone [^(]+\(([0-9A-F-]{36})\)" | grep -oE "[0-9A-F-]{36}")
           xcrun simctl boot "$phone"
           xcrun simctl bootstatus "$phone" -b
+          # signed for this machine only: the simulator refuses to open an application that is not
+          codesign --force --deep --sign - "$app"
           xcrun simctl install "$phone" "$app"
-          xcrun simctl launch --stdout=start/output.log --stderr=start/errors.log "$phone" com.shawiizz.prisme &
-          sleep 60
+          # the home screen takes a moment to accept applications after the boot
+          for attempt in 1 2 3 4; do
+            sleep 20
+            xcrun simctl launch "$phone" com.shawiizz.prisme && break
+          done
+          sleep 45
           xcrun simctl io "$phone" screenshot start/screen.png
-          cat start/output.log start/errors.log | tail -n 60
+          xcrun simctl spawn "$phone" log show --last 3m --style compact --predicate 'process == "Prisme"' > start/log.txt || true
+          tail -n 40 start/log.txt
       - uses: actions/upload-artifact@v4
         if: always()
         with:
