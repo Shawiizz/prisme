@@ -7,6 +7,7 @@ mod crates;
 mod cues;
 mod edits;
 mod history;
+mod identity;
 mod marks;
 mod prepare;
 mod tag_sync;
@@ -147,6 +148,11 @@ const MIGRATIONS: &[&str] = &[
              END
          FROM track_view WHERE track_view.path = tracks.path
      ) WHERE tags_written = 1;",
+    // what tells a file again elsewhere (see identity): the identity of its audio, kept
+    // after the track is forgotten as its cues are, and its size and time
+    "CREATE TABLE audio_ids (path TEXT PRIMARY KEY NOT NULL, audio_id INTEGER NOT NULL) WITHOUT ROWID;
+     CREATE INDEX audio_ids_by_id ON audio_ids (audio_id);
+     CREATE INDEX tracks_by_stamp ON tracks (size, modified_ms);",
 ];
 
 pub fn now_ms() -> i64 {

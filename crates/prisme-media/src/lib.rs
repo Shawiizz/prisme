@@ -7,10 +7,12 @@
 //! being decoded ([`LoadingTrack`]). [`DecodeStream`] decodes chunk by chunk for work
 //! that only scans the audio once (library analysis).
 
+mod audio_id;
 mod tag_writing;
 mod tags;
 mod track;
 
+pub use audio_id::audio_id;
 pub use tag_writing::{write_genre, write_tempo_and_key, Replacing, TagFields, TempoAndKey};
 pub use tags::{read_tags, CoverArt, TrackTags};
 
@@ -19,7 +21,7 @@ use std::path::Path;
 use symphonia::core::audio::SampleBuffer;
 use symphonia::core::codecs::DecoderOptions;
 use symphonia::core::errors::Error as SymphoniaError;
-use symphonia::core::formats::FormatOptions;
+use symphonia::core::formats::{FormatOptions, FormatReader};
 use symphonia::core::io::MediaSourceStream;
 use symphonia::core::meta::MetadataOptions;
 use symphonia::core::probe::Hint;
@@ -79,23 +81,28 @@ pub struct DecodeStream {
 /// More frames than any codec gets out of a byte (16 kb/s Opus gives about 22).
 const MAX_FRAMES_PER_BYTE: u64 = 64;
 
+/// The container of `path`, ready to give its packets, and the size of the file.
+fn open_format(path: &Path) -> Result<(Box<dyn FormatReader>, u64), MediaError> {
+    let file =
+        File::open(path).map_err(|source| MediaError::Open { path: path.display().to_string(), source })?;
+    let file_bytes = file.metadata().map_or(u64::MAX, |m| m.len());
+    let stream = MediaSourceStream::new(Box::new(file), Default::default());
+    let mut hint = Hint::new();
+    if let Some(ext) = path.extension().and_then(|e| e.to_str()) {
+        hint.with_extension(ext);
+    }
+    let probed = symphonia::default::get_probe().format(
+        &hint,
+        stream,
+        &FormatOptions::default(),
+        &MetadataOptions::default(),
+    )?;
+    Ok((probed.format, file_bytes))
+}
+
 impl DecodeStream {
     pub fn open(path: &Path) -> Result<Self, MediaError> {
-        let file = File::open(path)
-            .map_err(|source| MediaError::Open { path: path.display().to_string(), source })?;
-        let file_bytes = file.metadata().map_or(u64::MAX, |m| m.len());
-        let stream = MediaSourceStream::new(Box::new(file), Default::default());
-        let mut hint = Hint::new();
-        if let Some(ext) = path.extension().and_then(|e| e.to_str()) {
-            hint.with_extension(ext);
-        }
-        let probed = symphonia::default::get_probe().format(
-            &hint,
-            stream,
-            &FormatOptions::default(),
-            &MetadataOptions::default(),
-        )?;
-        let format = probed.format;
+        let (format, file_bytes) = open_format(path)?;
         let track = format.default_track().ok_or(MediaError::NoAudio)?;
         let decoder =
             symphonia::default::get_codecs().make(&track.codec_params, &DecoderOptions::default())?;

@@ -22,7 +22,8 @@ engine in Rust and a Tauri + Angular interface. Windows only for now.
 - **Library**: MP3, AAC, ALAC, FLAC, Ogg Vorbis, WAV and AIFF; tempo, beat grid and key
   analysis in the background, instant search,
   crates and smart crates, prepare list, set history, duplicates, Serato and rekordbox
-  import, beat grid and key editing.
+  import, beat grid and key editing. A file renamed, moved, tagged again or on a drive
+  under another letter is known again, by its audio if need be, and keeps its cues.
 - **Control**: keyboard shortcuts, MIDI controllers with MIDI learn and lights, MIDI
   clock out.
 - **Reliability**: the audio restarts after a device loss or an engine failure, decks

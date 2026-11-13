@@ -16,7 +16,8 @@ use std::path::Path;
 pub const TAGS_VERSION: u32 = 1;
 
 /// Tables keyed by a file's path (`track_search`, a virtual table, is apart).
-const RELOCATED: [&str; 9] = [
+const RELOCATED: [&str; 10] = [
+    "audio_ids",
     "tracks",
     "covers",
     "waveforms",

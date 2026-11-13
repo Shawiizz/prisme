@@ -9,12 +9,12 @@ use crate::library_service::LibraryService;
 use crate::state::{lock, AppState, LoadedTrack};
 use prisme_analysis::{AnalysisOptions, TrackAnalysis};
 use prisme_engine::{Command, StemTracks};
-use prisme_library::{FileStamp, TrackRecord};
+use prisme_library::{FileStamp, Search, TrackRecord};
 use prisme_media::LoadingTrack;
 use std::path::PathBuf;
 use std::sync::Arc;
 use tauri::{AppHandle, Emitter, Manager};
-use tracing::{error, warn};
+use tracing::{error, info, warn};
 
 pub const DECK_TRACK_UPDATE_EVENT: &str = "deck-track-update";
 /// Waveform resolution: enough for a zoomed, scrolling view.
@@ -50,6 +50,14 @@ pub fn preload(
 pub fn prepare(path: PathBuf, library: &LibraryService) -> AppResult<(LoadedTrack, Completion)> {
     let loading = LoadingTrack::open(&path)?;
     let stamp = FileStamp::of(&path).ok();
+    // a file the library knew elsewhere (renamed, moved, another drive letter) has its cues
+    if let Some(stamp) = stamp {
+        match prisme_library::adopt(&library.db, &path, stamp, Search::Audio) {
+            Ok(Some(from)) => info!("{} was {}", path.display(), from.display()),
+            Ok(None) => {}
+            Err(e) => warn!("{} not looked for elsewhere: {e}", path.display()),
+        }
+    }
     let stored = stamp
         .and_then(|s| library.db.get(&path).ok().flatten().filter(|r| r.is_current(s) && r.error.is_none()));
     let waveform = stamp.and_then(|s| library.db.waveform(&path, s).ok().flatten());
@@ -148,6 +156,10 @@ impl Completion {
                 let _ = state.send_if_running(Command::SetBeatGrid { deck, grid });
                 updates.of(deck, load_id).analysis = Some(dto);
             }
+        }
+        // a track loaded from outside the music folder is told again by its audio too
+        if library.db.audio_id(&self.path).is_ok_and(|id| id.is_none()) {
+            prisme_library::remember_audio(&library.db, &self.path);
         }
         for update in updates.0 {
             if update.waveform_ready || update.analysis.is_some() || update.separation.is_some() {

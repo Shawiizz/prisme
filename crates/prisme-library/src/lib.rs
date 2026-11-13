@@ -14,12 +14,14 @@ pub mod covers;
 pub mod cues;
 pub mod db;
 pub mod duplicates;
+pub mod identity;
 pub mod metadata;
 pub mod scan;
 pub mod smart;
 
 pub use analyzer::{
-    background_priority, default_workers, AnalysisListener, AnalysisProgress, BackgroundAnalyzer,
+    background_priority, default_workers, remember_audio, AnalysisListener, AnalysisProgress,
+    BackgroundAnalyzer,
 };
 pub use cues::{Cue, CueSlot, HOT_CUES};
 pub use db::{
@@ -28,6 +30,7 @@ pub use db::{
     TAGS_VERSION,
 };
 pub use duplicates::duplicate_groups;
+pub use identity::{adopt, Search};
 pub use metadata::{read_metadata, Metadata};
 pub use scan::{scan_folder, Scan, ScannedFile};
 pub use smart::{Rule, SmartRules, TextField};

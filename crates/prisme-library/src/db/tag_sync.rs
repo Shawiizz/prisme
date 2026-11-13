@@ -186,7 +186,8 @@ mod tests {
         db.tags_written(Path::new("corrected.mp3"), BEFORE, BEFORE).unwrap();
         save(&db, "unwritten.mp3", BEFORE, TrackAnalysis::default());
 
-        let backfill = MIGRATIONS.last().unwrap().split_once("UPDATE").unwrap().1;
+        let migration = MIGRATIONS.iter().find(|sql| sql.contains("ADD COLUMN tag_bpm")).unwrap();
+        let backfill = migration.split_once("UPDATE").unwrap().1;
         db.conn().execute(&format!("UPDATE{backfill}"), []).unwrap();
 
         for (i, key) in keys.enumerate() {

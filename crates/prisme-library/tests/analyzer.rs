@@ -177,3 +177,52 @@ fn no_file_is_started_while_the_analysis_is_held_back() {
     assert_eq!(last, AnalysisProgress { total: 1, done: 1, failed: 0, running: false, paused: false });
     std::fs::remove_dir_all(root).ok();
 }
+
+#[test]
+fn a_file_renamed_and_tagged_again_keeps_its_cues() {
+    let root = std::env::temp_dir().join(format!("prisme-analyzer-renamed-{}", std::process::id()));
+    std::fs::create_dir_all(&root).unwrap();
+    let (before, after) = (root.join("before.wav"), root.join("Artist - Title.wav"));
+    write_kicks(&before, 124.0, 12.0);
+    write_kicks(&root.join("other.wav"), 130.0, 12.0);
+    let db = Arc::new(LibraryDb::open_in_memory().unwrap());
+    run(&db, &root);
+    db.save_cue(&before, &Cue::point(CueSlot::Hot(0), 3.0)).unwrap();
+
+    // by another program, while Prisme is closed: neither its name nor its size and time stay
+    std::fs::rename(&before, &after).unwrap();
+    assert!(prisme_media::write_genre(&after, Some("House")).unwrap());
+    let second = run(&db, &root);
+    assert_eq!(db.cues(&after).unwrap().len(), 1);
+    assert!(db.cues(&before).unwrap().is_empty());
+    assert!(db.get(&before).unwrap().is_none());
+    assert_eq!(bpm_of(&second.records.lock().unwrap(), "Artist - Title.wav"), Some(124.0));
+    assert_eq!(db.track_count().unwrap(), 2);
+    std::fs::remove_dir_all(root).ok();
+}
+
+#[test]
+fn the_cues_of_a_file_forgotten_come_back_with_its_audio() {
+    let root = std::env::temp_dir().join(format!("prisme-analyzer-back-{}", std::process::id()));
+    let aside = std::env::temp_dir().join(format!("prisme-analyzer-aside-{}.wav", std::process::id()));
+    std::fs::create_dir_all(&root).unwrap();
+    let (before, after) = (root.join("before.wav"), root.join("after.wav"));
+    write_kicks(&before, 124.0, 12.0);
+    let db = Arc::new(LibraryDb::open_in_memory().unwrap());
+    run(&db, &root);
+    db.save_cue(&before, &Cue::point(CueSlot::Hot(0), 3.0)).unwrap();
+
+    // out of the folder: forgotten, its cues kept
+    std::fs::rename(&before, &aside).unwrap();
+    run(&db, &root);
+    assert_eq!(db.track_count().unwrap(), 0);
+    assert_eq!(db.cues(&before).unwrap().len(), 1);
+
+    // back under another name, tagged meanwhile
+    assert!(prisme_media::write_genre(&aside, Some("House")).unwrap());
+    std::fs::rename(&aside, &after).unwrap();
+    run(&db, &root);
+    assert_eq!(db.cues(&after).unwrap().len(), 1);
+    assert!(db.cues(&before).unwrap().is_empty());
+    std::fs::remove_dir_all(root).ok();
+}

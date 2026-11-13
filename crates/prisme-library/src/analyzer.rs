@@ -8,6 +8,7 @@
 //! each worker holds a few MB, not a track.
 
 use crate::db::{path_key, FileStamp, LibraryDb, RecordVersion, TrackRecord};
+use crate::identity::drive_is_there;
 use crate::metadata::read_metadata;
 use crate::scan::{scan_folder, Scan, ScannedFile};
 use prisme_analysis::AnalysisOptions;
@@ -166,6 +167,9 @@ fn run(
                     if let Err(e) = saved {
                         error!("analysis of {} not saved: {e}", file.path.display());
                     }
+                    if record.error.is_none() {
+                        remember_audio(db, &file.path);
+                    }
                     listener.track_analyzed(&record);
                     done.fetch_add(1, Ordering::Relaxed);
                     report(true);
@@ -174,13 +178,38 @@ fn run(
         }
     });
 
+    // the tracks stored before their audio had an identity, or loaded from outside the
+    // folder; a drive that is away is asked once, not for each of its files
+    let mut drives: HashMap<PathBuf, bool> = HashMap::new();
+    for path in db.paths_without_audio_id().unwrap_or_default() {
+        if cancel.load(Ordering::Relaxed) {
+            break;
+        }
+        let file = Path::new(&path);
+        let drive = file.ancestors().last().unwrap_or(file);
+        if *drives.entry(drive.to_path_buf()).or_insert_with(|| drive_is_there(file)) {
+            remember_audio(db, file);
+        }
+    }
+
     report(false);
 }
 
+/// Stores the identity of the audio of `path`, if the file is there and can be read.
+pub fn remember_audio(db: &LibraryDb, path: &Path) {
+    if let Ok(id) = prisme_media::audio_id(path) {
+        if let Err(e) = db.set_audio_id(path, id) {
+            error!("identity of {} not saved: {e}", path.display());
+        }
+    }
+}
+
 /// Follows the stored files under `root` that the scan did not find: one that reappears
-/// elsewhere with the same size and modification time (moved or renamed) keeps all it
-/// had; the others are forgotten. Those under a folder the scan could not list (a drive
-/// unplugged) are kept as they are. `stored` is updated to match.
+/// elsewhere with the same size and modification time (moved or renamed), or else with the
+/// same audio (renamed and tagged again), keeps all it had; the others are forgotten, but
+/// for their cues and corrections, which a file with their audio finds again later. Those
+/// under a folder the scan could not list (a drive unplugged) are kept as they are.
+/// `stored` is updated to match.
 fn follow_moves(
     db: &LibraryDb,
     root: &Path,
@@ -203,27 +232,69 @@ fn follow_moves(
     for file in found.files.iter().filter(|f| !stored.contains_key(&path_key(&f.path))) {
         arrivals.entry(file.stamp).or_default().push(file);
     }
-    let mut forgotten = Vec::new();
+    // whether what was known at `old` went to `file`
+    let relocate = |old: &str, file: &ScannedFile| match db.relocate(Path::new(old), &file.path) {
+        Ok(()) => {
+            if let Ok(Some(record)) = db.get(&file.path) {
+                listener.track_analyzed(&record);
+            }
+            true
+        }
+        Err(e) => {
+            error!("{old} not moved to {}: {e}", file.path.display());
+            false
+        }
+    };
+    let mut unmatched = Vec::new();
     for old in gone {
-        let version = stored.remove(&old).expect("a stored path");
         // two arrivals with the same stamp cannot be told apart
-        let moved_to = arrivals.get(&version.stamp).filter(|files| files.len() == 1).map(|files| files[0]);
-        let Some(file) = moved_to else {
-            forgotten.push(old);
-            continue;
-        };
-        match db.relocate(Path::new(&old), &file.path) {
-            Ok(()) => {
-                stored.insert(path_key(&file.path), version);
+        let version = stored[&old];
+        match arrivals.get(&version.stamp).filter(|files| files.len() == 1).map(|files| files[0]) {
+            Some(file) => {
+                stored.remove(&old);
                 arrivals.remove(&version.stamp);
-                if let Ok(Some(record)) = db.get(&file.path) {
-                    listener.track_analyzed(&record);
+                if relocate(&old, file) {
+                    stored.insert(path_key(&file.path), version);
                 }
             }
-            Err(e) => error!("{old} not moved to {}: {e}", file.path.display()),
+            None => unmatched.push(old),
         }
     }
-    if let Err(e) = db.forget(&forgotten) {
+
+    // by their audio: the files gone now, and those forgotten before whose cues stayed
+    let ids = db.audio_ids().unwrap_or_default();
+    let away = |path: &str| {
+        let file = Path::new(path);
+        file.starts_with(root) && !present.contains(path) && !found.may_hold(file)
+    };
+    let mut sounding: HashMap<u64, Vec<&str>> = HashMap::new();
+    for (path, &id) in ids.iter().filter(|(path, _)| away(path)) {
+        sounding.entry(id).or_default().push(path);
+    }
+    if !sounding.is_empty() {
+        let mut heard: HashMap<u64, Vec<&ScannedFile>> = HashMap::new();
+        for file in arrivals.values().flatten().copied() {
+            if let Ok(id) = prisme_media::audio_id(&file.path) {
+                heard.entry(id).or_default().push(file);
+            }
+        }
+        for (id, files) in heard {
+            // one file gone, one file come, with the same audio
+            let (Some(&[old]), &[file]) = (sounding.get(&id).map(Vec::as_slice), files.as_slice()) else {
+                continue;
+            };
+            unmatched.retain(|path| path != old);
+            let version = stored.remove(old);
+            if let (true, Some(version)) = (relocate(old, file), version) {
+                stored.insert(path_key(&file.path), version);
+            }
+        }
+    }
+
+    for old in &unmatched {
+        stored.remove(old);
+    }
+    if let Err(e) = db.forget(&unmatched) {
         error!("removed files not forgotten: {e}");
     }
 }
