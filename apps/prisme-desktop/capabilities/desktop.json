@@ -1,0 +1,8 @@
+{
+  "$schema": "../../../target/schemas/desktop-schema.json",
+  "identifier": "desktop",
+  "description": "What only a computer has",
+  "platforms": ["windows", "linux", "macOS"],
+  "windows": ["main"],
+  "permissions": ["updater:default"]
+}

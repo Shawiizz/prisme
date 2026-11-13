@@ -63,6 +63,7 @@ use tauri::Manager;
 use tracing::{error, warn};
 
 /// The window maximised where its first size does not fit the screen (a laptop at 150 %).
+#[cfg(desktop)]
 fn fit_window(app: &tauri::App) {
     let Some(window) = app.get_webview_window("main") else { return };
     let (Ok(Some(monitor)), Ok(size)) = (window.current_monitor(), window.outer_size()) else { return };
@@ -83,9 +84,10 @@ fn models_dir(app: &tauri::App, data_dir: Option<&Path>) -> PathBuf {
     }
 }
 
-pub fn run() {
-    let builder = tauri::Builder::default();
-    // a second launch on the same data shows the running one: two would share the library
+/// What only a computer has: a second launch on the same data shows the running one (two
+/// would share the library), and updates come from the releases, not from a store.
+#[cfg(desktop)]
+fn desktop_plugins(builder: tauri::Builder<tauri::Wry>) -> tauri::Builder<tauri::Wry> {
     let builder = if dev_startup::data_dir().is_none() {
         builder.plugin(tauri_plugin_single_instance::init(|app, _, _| {
             if let Some(window) = app.get_webview_window("main") {
@@ -96,13 +98,21 @@ pub fn run() {
     } else {
         builder
     };
+    builder.plugin(tauri_plugin_updater::Builder::new().build())
+}
+
+#[cfg_attr(mobile, tauri::mobile_entry_point)]
+pub fn run() {
+    let builder = tauri::Builder::default();
+    #[cfg(desktop)]
+    let builder = desktop_plugins(builder);
     builder
         .plugin(tauri_plugin_dialog::init())
-        .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_process::init())
         .register_asynchronous_uri_scheme_protocol(cover_protocol::SCHEME, cover_protocol::handle)
         .setup(|app| {
             app.manage(logging::init(app.path().app_log_dir().ok().as_deref()));
+            #[cfg(desktop)]
             fit_window(app);
             if !keep_awake::run_at_full_speed() {
                 warn!("the system may slow Prisme down when its window is behind others");

@@ -21,12 +21,14 @@ pub enum Backend {
     Wasapi,
     /// Windows: the sound card's own low latency driver.
     Asio,
-    /// macOS' audio, low latency as it is.
+    /// The audio of macOS and iOS, low latency as it is.
     CoreAudio,
     /// Linux: the sound card itself, or the sound server through its `default` device.
     Alsa,
     /// Linux: the JACK server (or PipeWire in its place), low latency and shared.
     Jack,
+    /// Android's audio: the phone itself, or the sound card plugged into it.
+    AAudio,
 }
 
 impl Default for Backend {
@@ -36,15 +38,17 @@ impl Default for Backend {
 }
 
 impl Backend {
-    pub const ALL: [Backend; 5] =
-        [Backend::Wasapi, Backend::Asio, Backend::CoreAudio, Backend::Alsa, Backend::Jack];
+    pub const ALL: [Backend; 6] =
+        [Backend::Wasapi, Backend::Asio, Backend::CoreAudio, Backend::Alsa, Backend::Jack, Backend::AAudio];
 
     /// The backend of this system that works with every device.
     #[cfg(windows)]
     pub const SYSTEM: Backend = Backend::Wasapi;
-    #[cfg(target_os = "macos")]
+    #[cfg(target_vendor = "apple")]
     pub const SYSTEM: Backend = Backend::CoreAudio;
-    #[cfg(not(any(windows, target_os = "macos")))]
+    #[cfg(target_os = "android")]
+    pub const SYSTEM: Backend = Backend::AAudio;
+    #[cfg(not(any(windows, target_vendor = "apple", target_os = "android")))]
     pub const SYSTEM: Backend = Backend::Alsa;
 
     /// Backends this computer offers.
@@ -64,8 +68,10 @@ impl Backend {
             Backend::Wasapi => Some(cpal::HostId::Wasapi),
             #[cfg(windows)]
             Backend::Asio => Some(cpal::HostId::Asio),
-            #[cfg(target_os = "macos")]
+            #[cfg(target_vendor = "apple")]
             Backend::CoreAudio => Some(cpal::HostId::CoreAudio),
+            #[cfg(target_os = "android")]
+            Backend::AAudio => Some(cpal::HostId::AAudio),
             #[cfg(target_os = "linux")]
             Backend::Alsa => Some(cpal::HostId::Alsa),
             #[cfg(target_os = "linux")]
@@ -85,6 +91,7 @@ impl fmt::Display for Backend {
             Backend::CoreAudio => "Core Audio",
             Backend::Alsa => "ALSA",
             Backend::Jack => "JACK",
+            Backend::AAudio => "AAudio",
         })
     }
 }

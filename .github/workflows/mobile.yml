@@ -1,0 +1,60 @@
+name: Mobile
+
+# The phone builds, while they are being made: compiles Prisme for iOS, starts it in the
+# iPhone simulator, and keeps a screenshot, the logs and the Xcode project it generated.
+on:
+  workflow_dispatch:
+  push:
+    branches: [mobile]
+
+jobs:
+  ios:
+    runs-on: macos-latest
+    env:
+      TARGET: aarch64-apple-ios-sim
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup
+      - name: Rust for the iPhone and its simulator
+        run: rustup target add aarch64-apple-ios aarch64-apple-ios-sim
+      - name: The headers of the simulator, for the bindings
+        run: |
+          sdk=$(xcrun --sdk iphonesimulator --show-sdk-path)
+          echo "BINDGEN_EXTRA_CLANG_ARGS_aarch64_apple_ios_sim=-isysroot $sdk" >> "$GITHUB_ENV"
+      - name: Frontend build
+        working-directory: frontend
+        run: pnpm build
+      - name: Check
+        run: cargo check -p prisme-desktop --target "$TARGET"
+      - name: Xcode project
+        if: always()
+        working-directory: apps/prisme-desktop
+        run: |
+          brew install xcodegen
+          npx --yes @tauri-apps/cli@2.12.2 ios init
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: xcode-project
+          path: apps/prisme-desktop/gen/apple
+      - name: Build for the simulator
+        working-directory: apps/prisme-desktop
+        run: npx --yes @tauri-apps/cli@2.12.2 ios build --debug --target aarch64-sim
+      - name: Start in the simulator
+        run: |
+          mkdir -p start
+          app=$(find apps/prisme-desktop/gen/apple/build "$HOME/Library/Developer/Xcode/DerivedData" -name "*.app" -path "*simulator*" 2>/dev/null | head -1)
+          echo "app: $app"
+          phone=$(xcrun simctl list devices available | grep -m1 -oE "iPhone [^(]+\(([0-9A-F-]{36})\)" | grep -oE "[0-9A-F-]{36}")
+          xcrun simctl boot "$phone"
+          xcrun simctl bootstatus "$phone" -b
+          xcrun simctl install "$phone" "$app"
+          xcrun simctl launch --stdout=start/output.log --stderr=start/errors.log "$phone" com.shawiizz.prisme &
+          sleep 60
+          xcrun simctl io "$phone" screenshot start/screen.png
+          cat start/output.log start/errors.log | tail -n 60
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: start-ios
+          path: start

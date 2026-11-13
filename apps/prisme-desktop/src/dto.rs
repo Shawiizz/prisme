@@ -28,6 +28,7 @@ pub enum BackendDto {
     CoreAudio,
     Alsa,
     Jack,
+    Aaudio,
 }
 
 impl Default for BackendDto {
@@ -44,6 +45,7 @@ impl From<BackendDto> for Backend {
             BackendDto::CoreAudio => Backend::CoreAudio,
             BackendDto::Alsa => Backend::Alsa,
             BackendDto::Jack => Backend::Jack,
+            BackendDto::Aaudio => Backend::AAudio,
         }
     }
 }
@@ -56,6 +58,7 @@ impl From<Backend> for BackendDto {
             Backend::CoreAudio => BackendDto::CoreAudio,
             Backend::Alsa => BackendDto::Alsa,
             Backend::Jack => BackendDto::Jack,
+            Backend::AAudio => BackendDto::Aaudio,
         }
     }
 }

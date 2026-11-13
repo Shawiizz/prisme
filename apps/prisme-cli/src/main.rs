@@ -138,6 +138,7 @@ enum BackendArg {
     CoreAudio,
     Alsa,
     Jack,
+    Aaudio,
 }
 
 impl From<BackendArg> for Backend {
@@ -148,6 +149,7 @@ impl From<BackendArg> for Backend {
             BackendArg::CoreAudio => Backend::CoreAudio,
             BackendArg::Alsa => Backend::Alsa,
             BackendArg::Jack => Backend::Jack,
+            BackendArg::Aaudio => Backend::AAudio,
         }
     }
 }
