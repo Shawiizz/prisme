@@ -1,24 +1,14 @@
 import { Component, computed, inject, input, signal } from '@angular/core';
 import { EngineService } from '../../../core/services/engine.service';
 import { MixerService } from '../../../core/services/mixer.service';
-import { SignalState, VinylMode } from '../../../core/models/engine';
 import { deckReadouts } from '../../../core/deck-readouts';
+import { DECK_MODES, deckVinyl } from '../../../core/deck-vinyl';
 import { decimal, deckLetter, formatTime } from '../../../shared/time';
 import { camelotHue, camelotMajor, keyName } from '../../../shared/camelot';
 import { levelSegments } from '../../../shared/level';
 import { Cover } from '../../../shared/cover/cover';
 import { GridEditor } from '../grid-editor/grid-editor';
-import { t } from '../../../core/i18n/i18n';
 import { TPipe } from '../../../core/i18n/t.pipe';
-
-const SIGNAL_TITLE: Record<SignalState, string> = {
-  none: t('No timecode signal'),
-  bounce: t('Timecode signal unsteady'),
-  ok: t('Timecode signal locked'),
-};
-
-/** Who drives the deck: itself (INT), or the record in relative or absolute mode. */
-type DeckMode = 'int' | VinylMode;
 
 /** Segments of the meter of what goes to the external mixer. */
 const SEND_SEGMENTS = 10;
@@ -51,21 +41,16 @@ export class DeckCard {
   private readonly readouts = deckReadouts(this.deck);
   protected readonly track = this.readouts.track;
   protected readonly status = this.readouts.status;
-  protected readonly settings = computed(() => this.engine.decks()[this.deck()]);
   protected readonly loading = computed(() => this.engine.loading()[this.deck()]);
   /** The grid and key editor is open. */
   protected readonly editing = signal(false);
 
-  protected readonly modes: { id: DeckMode; label: string; title: string }[] = [
-    { id: 'int', label: 'INT', title: t('The deck plays by itself') },
-    { id: 'relative', label: 'REL', title: t('The record drives the speed') },
-    { id: 'absolute', label: 'ABS', title: t('The record drives the speed and the position') },
-  ];
-  /** After the end of the record the deck plays on by itself until handed back. */
-  protected readonly mode = computed<DeckMode>(() => {
-    const settings = this.settings();
-    return settings.vinylEnabled && !this.status()?.vinyl.runOut ? settings.vinylMode : 'int';
-  });
+  private readonly vinyl = deckVinyl(this.deck);
+  protected readonly modes = DECK_MODES;
+  protected readonly mode = this.vinyl.mode;
+  protected readonly signal = this.vinyl.signal;
+  protected readonly signalTitle = this.vinyl.signalTitle;
+  protected readonly setMode = this.vinyl.setMode;
 
   protected readonly elapsed = computed(() => formatTime(this.status()?.positionS ?? 0));
   protected readonly length = computed(() => formatTime(this.status()?.durationS ?? 0));
@@ -84,26 +69,4 @@ export class DeckCard {
   protected readonly hue = camelotHue;
   protected readonly major = camelotMajor;
   protected readonly keyName = keyName;
-
-  protected readonly signal = computed(() => this.status()?.vinyl.signal ?? 'none');
-  protected readonly crossed = computed(() => this.status()?.vinyl.crossed ?? false);
-  protected readonly signalTitle = computed(() => {
-    if (!this.settings().vinylEnabled) return t('The deck plays by itself');
-    if (this.status()?.vinyl.runOut) {
-      return t(
-        'The needle reached the end of the record: the deck plays on by itself. Choose REL or ABS to hand it back to the record.',
-      );
-    }
-    return this.crossed()
-      ? t('Left and right cables crossed? See Settings, Turntables')
-      : SIGNAL_TITLE[this.signal()];
-  });
-
-  setMode(mode: DeckMode) {
-    if (mode === 'int') {
-      this.engine.setVinyl(this.deck(), { enabled: false });
-    } else {
-      this.engine.setVinyl(this.deck(), { enabled: true, mode });
-    }
-  }
 }

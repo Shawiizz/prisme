@@ -4,6 +4,8 @@
     <!-- the music the phone shares between applications -->
     <uses-permission android:name="android.permission.READ_MEDIA_AUDIO" />
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32" />
+    <!-- the timecode of the turntables, from the inputs of the sound card -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
 
     <!-- a controller and its sound card, plugged in -->
     <uses-feature android:name="android.hardware.usb.host" android:required="false" />

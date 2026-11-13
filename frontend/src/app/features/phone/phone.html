@@ -20,6 +20,9 @@
     </button>
   }
 </header>
+@if (engine.error() ?? library.error(); as error) {
+  <p class="error">{{ error }}</p>
+}
 
 <main class="screen" [class]="tab()">
   @switch (tab()) {

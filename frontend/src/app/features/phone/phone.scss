@@ -31,6 +31,15 @@
   color: var(--pr-text-2);
 }
 
+.error {
+  flex: none;
+  margin: 0;
+  padding: 6px 12px;
+  font-size: var(--pr-size-small);
+  color: var(--pr-alert);
+  border-bottom: 1px solid var(--pr-line);
+}
+
 .screen {
   flex: 1;
   min-height: 0;
@@ -77,8 +86,11 @@ app-library-sidebar {
     grid-template-columns: minmax(0, 1fr) 92px;
     grid-template-rows: auto minmax(0, 1fr);
   }
-  .bar {
+  .bar,
+  .error {
     grid-column: 1 / -1;
+  }
+  .bar {
     height: 32px;
   }
   .screen.mix {

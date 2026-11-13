@@ -76,8 +76,8 @@ const PAGES: readonly SettingsPage[] = [
   },
 ];
 
-/** The pages a phone has no use for: no turntables are plugged into it, and it has no keyboard. */
-const COMPUTER_ONLY: readonly SettingsCategory[] = ['turntables', 'shortcuts'];
+/** The pages a phone has no use for: it has no keyboard. */
+const COMPUTER_ONLY: readonly SettingsCategory[] = ['shortcuts'];
 
 export const SETTINGS_PAGES = PHONE ? PAGES.filter((p) => !COMPUTER_ONLY.includes(p.id)) : PAGES;
 

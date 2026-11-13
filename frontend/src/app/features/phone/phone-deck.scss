@@ -4,7 +4,7 @@
   grid-template-areas:
     'letter title key'
     'wave wave wave'
-    'remaining tempo tempo';
+    'remaining vinyl tempo';
   align-items: center;
   gap: 6px 8px;
   padding: 8px 12px;
@@ -35,6 +35,7 @@
 }
 .pr-key {
   grid-area: key;
+  justify-self: end;
 }
 app-deck-waveform {
   grid-area: wave;
@@ -52,6 +53,13 @@ app-deck-waveform {
     animation: pr-blink 0.5s steps(1) infinite;
   }
 }
+.vinyl {
+  grid-area: vinyl;
+  justify-self: center;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
 .tempo {
   grid-area: tempo;
   justify-self: end;
@@ -67,9 +75,9 @@ app-deck-waveform {
 // a phone held sideways: the readouts join the title, the waveform takes the height
 @media (orientation: landscape) {
   :host {
-    grid-template-columns: auto minmax(0, 1fr) auto auto auto;
+    grid-template-columns: auto minmax(0, 1fr) auto auto auto auto;
     grid-template-areas:
-      'letter title key tempo remaining'
-      'wave wave wave wave wave';
+      'letter title key vinyl tempo remaining'
+      'wave wave wave wave wave wave';
   }
 }

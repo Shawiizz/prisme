@@ -31,7 +31,7 @@ export class Phone {
   protected readonly engine = inject(EngineService);
   protected readonly navigation = inject(NavigationService);
   protected readonly recording = inject(RecordingService);
-  private readonly library = inject(LibraryService);
+  protected readonly library = inject(LibraryService);
   private readonly settings = inject(SettingsService);
 
   protected readonly decks = this.engine.deckIndexes;

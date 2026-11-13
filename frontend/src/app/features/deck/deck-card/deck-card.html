@@ -25,9 +25,9 @@
     <div class="vinyl">
       <span
         class="pr-sig"
-        [class.pr-sig--ok]="settings().vinylEnabled && signal() === 'ok' && !crossed()"
-        [class.pr-sig--weak]="settings().vinylEnabled && signal() === 'bounce' && !crossed()"
-        [class.pr-sig--none]="settings().vinylEnabled && (signal() === 'none' || crossed())"
+        [class.pr-sig--ok]="signal() === 'ok'"
+        [class.pr-sig--weak]="signal() === 'bounce'"
+        [class.pr-sig--none]="signal() === 'none'"
         [title]="signalTitle()"
       ></span>
       <div class="pr-seg" role="radiogroup" [attr.aria-label]="'Vinyl control' | t">

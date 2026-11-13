@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <!-- iOS asks before an application listens to an input: the turntables' timecode -->
+  <key>NSMicrophoneUsageDescription</key>
+  <string>Prisme reads the timecode of your turntables from the inputs of your sound card.</string>
+  <!-- the music is put into the documents of Prisme from the Files application -->
+  <key>UIFileSharingEnabled</key>
+  <true/>
+  <key>LSSupportsOpeningDocumentsInPlace</key>
+  <true/>
+</dict>
+</plist>
