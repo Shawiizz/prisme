@@ -10,6 +10,11 @@
   gap: 18px;
   padding-left: var(--pr-space-3);
   border-bottom: 1px solid var(--pr-line);
+  // macOS keeps its own window buttons, at the left
+  &.mac {
+    padding-left: 78px;
+    padding-right: var(--pr-space-2);
+  }
 }
 
 .brand {

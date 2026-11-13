@@ -12,7 +12,7 @@ import { TPipe } from '../../core/i18n/t.pipe';
 import { AudioBackend, BACKEND_NAMES } from '../../core/models/audio';
 import { decimal } from '../../shared/time';
 import { levelSegments } from '../../shared/level';
-import { CTRL } from '../../core/keyboard/shortcuts';
+import { CTRL, MAC } from '../../core/keyboard/shortcuts';
 
 /** Custom title bar: drag area, audio state, recording, update, dialogs and window buttons. */
 @Component({
@@ -23,6 +23,7 @@ import { CTRL } from '../../core/keyboard/shortcuts';
 })
 export class Titlebar {
   protected readonly CTRL = CTRL;
+  protected readonly MAC = MAC;
   protected readonly settings = inject(SettingsService);
   protected readonly engine = inject(EngineService);
   protected readonly recording = inject(RecordingService);
