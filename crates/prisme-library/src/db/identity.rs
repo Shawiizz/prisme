@@ -64,3 +64,63 @@ impl LibraryDb {
         Ok(self.conn().prepare_cached("SELECT 1 FROM tracks WHERE path = ?1")?.exists([path_key(path)])?)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::db::{FileStamp, LibraryDb, TrackRecord};
+    use crate::{Cue, CueSlot};
+    use prisme_analysis::TrackAnalysis;
+    use prisme_media::TrackTags;
+    use std::path::Path;
+
+    fn track(db: &LibraryDb, path: &Path, audio: u64) {
+        let stamp = FileStamp { size: 1, modified_ms: 1 };
+        db.save(&TrackRecord::analyzed(path, stamp, 1.0, TrackAnalysis::default(), TrackTags::default()))
+            .unwrap();
+        db.set_audio_id(path, audio).unwrap();
+    }
+
+    #[test]
+    fn a_forgotten_file_is_known_by_its_audio_while_it_leaves_something() {
+        let db = LibraryDb::open_in_memory().unwrap();
+        let (cued, bare) = (Path::new("cued.mp3"), Path::new("bare.mp3"));
+        track(&db, cued, 7);
+        track(&db, bare, 7);
+        db.save_cue(cued, &Cue::point(CueSlot::Hot(0), 1.0)).unwrap();
+        db.forget(&["cued.mp3".into(), "bare.mp3".into()]).unwrap();
+        assert_eq!(db.paths_sounding_like(7).unwrap(), ["cued.mp3"]);
+        assert!(db.paths_without_audio_id().unwrap().is_empty());
+    }
+
+    #[test]
+    fn what_another_file_left_at_a_path_does_not_mix_with_the_file_moved_there() {
+        let db = LibraryDb::open_in_memory().unwrap();
+        let (from, to) = (Path::new("old/track.mp3"), Path::new("new/track.mp3"));
+        // another file was at the new path, and left a cue there
+        track(&db, to, 1);
+        db.save_cue(to, &Cue::point(CueSlot::Hot(0), 99.0)).unwrap();
+        db.forget(&["new/track.mp3".into()]).unwrap();
+        track(&db, from, 2);
+        db.save_cue(from, &Cue::point(CueSlot::Hot(0), 3.0)).unwrap();
+
+        db.relocate(from, to).unwrap();
+        let cues = db.cues(to).unwrap();
+        assert_eq!(cues.iter().map(|c| c.position_s).collect::<Vec<_>>(), [3.0]);
+        assert_eq!(db.audio_id(to).unwrap(), Some(2));
+        assert_eq!(db.audio_id(from).unwrap(), None);
+    }
+
+    #[test]
+    fn the_same_file_met_again_at_its_path_keeps_what_was_there() {
+        let db = LibraryDb::open_in_memory().unwrap();
+        let (from, to) = (Path::new("old/track.mp3"), Path::new("new/track.mp3"));
+        track(&db, to, 5);
+        db.save_cue(to, &Cue::point(CueSlot::Hot(1), 8.0)).unwrap();
+        db.forget(&["new/track.mp3".into()]).unwrap();
+        track(&db, from, 5);
+        db.save_cue(from, &Cue::point(CueSlot::Hot(0), 3.0)).unwrap();
+
+        db.relocate(from, to).unwrap();
+        assert_eq!(db.cues(to).unwrap().len(), 2);
+    }
+}

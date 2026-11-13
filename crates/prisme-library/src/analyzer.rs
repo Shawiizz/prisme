@@ -8,7 +8,7 @@
 //! each worker holds a few MB, not a track.
 
 use crate::db::{path_key, FileStamp, LibraryDb, RecordVersion, TrackRecord};
-use crate::identity::drive_is_there;
+use crate::identity::{adopt_unless, drive_is_there, Search};
 use crate::metadata::read_metadata;
 use crate::scan::{scan_folder, Scan, ScannedFile};
 use prisme_analysis::AnalysisOptions;
@@ -117,6 +117,7 @@ fn run(
     if !cancel.load(Ordering::Relaxed) {
         follow_moves(db, root, &mut stored, &found, listener);
     }
+    let (unreadable, online_only) = (found.unreadable, found.online_only);
     let todo: Vec<ScannedFile> = found
         .files
         .into_iter()
@@ -156,6 +157,12 @@ fn run(
                     let Some(file) = todo.get(next.fetch_add(1, Ordering::Relaxed)) else {
                         break;
                     };
+                    // a file never seen there may be one known elsewhere: renamed and tagged
+                    // again, or moved in from outside the folder
+                    let may_be_back = |old: &Path| unreadable.iter().any(|dir| old.starts_with(dir));
+                    if let Err(e) = adopt_unless(db, &file.path, file.stamp, Search::Audio, may_be_back) {
+                        error!("{} not looked for elsewhere: {e}", file.path.display());
+                    }
                     let (record, cover) = process(db, file, options);
                     if record.error.is_some() {
                         failed.fetch_add(1, Ordering::Relaxed);
@@ -179,15 +186,20 @@ fn run(
     });
 
     // the tracks stored before their audio had an identity, or loaded from outside the
-    // folder; a drive that is away is asked once, not for each of its files
+    // folder: read while no deck plays, but for those kept online (reading would download
+    // them); a drive that is away is asked once, not for each of its files
     let mut drives: HashMap<PathBuf, bool> = HashMap::new();
     for path in db.paths_without_audio_id().unwrap_or_default() {
+        while listener.holds_back() && !cancel.load(Ordering::Relaxed) {
+            std::thread::sleep(HELD_BACK_POLL);
+        }
         if cancel.load(Ordering::Relaxed) {
             break;
         }
         let file = Path::new(&path);
         let drive = file.ancestors().last().unwrap_or(file);
-        if *drives.entry(drive.to_path_buf()).or_insert_with(|| drive_is_there(file)) {
+        let there = *drives.entry(drive.to_path_buf()).or_insert_with(|| drive_is_there(file));
+        if there && !online_only.iter().any(|kept_online| kept_online == file) {
             remember_audio(db, file);
         }
     }
@@ -205,11 +217,10 @@ pub fn remember_audio(db: &LibraryDb, path: &Path) {
 }
 
 /// Follows the stored files under `root` that the scan did not find: one that reappears
-/// elsewhere with the same size and modification time (moved or renamed), or else with the
-/// same audio (renamed and tagged again), keeps all it had; the others are forgotten, but
-/// for their cues and corrections, which a file with their audio finds again later. Those
-/// under a folder the scan could not list (a drive unplugged) are kept as they are.
-/// `stored` is updated to match.
+/// elsewhere with the same size and modification time (moved or renamed) keeps all it
+/// had; the others are forgotten, but for their cues and corrections, which a file with
+/// their audio takes as it is analysed (see [`adopt_unless`]). Those under a folder the scan
+/// could not list (a drive unplugged) are kept as they are. `stored` is updated to match.
 fn follow_moves(
     db: &LibraryDb,
     root: &Path,
@@ -258,36 +269,6 @@ fn follow_moves(
                 }
             }
             None => unmatched.push(old),
-        }
-    }
-
-    // by their audio: the files gone now, and those forgotten before whose cues stayed
-    let ids = db.audio_ids().unwrap_or_default();
-    let away = |path: &str| {
-        let file = Path::new(path);
-        file.starts_with(root) && !present.contains(path) && !found.may_hold(file)
-    };
-    let mut sounding: HashMap<u64, Vec<&str>> = HashMap::new();
-    for (path, &id) in ids.iter().filter(|(path, _)| away(path)) {
-        sounding.entry(id).or_default().push(path);
-    }
-    if !sounding.is_empty() {
-        let mut heard: HashMap<u64, Vec<&ScannedFile>> = HashMap::new();
-        for file in arrivals.values().flatten().copied() {
-            if let Ok(id) = prisme_media::audio_id(&file.path) {
-                heard.entry(id).or_default().push(file);
-            }
-        }
-        for (id, files) in heard {
-            // one file gone, one file come, with the same audio
-            let (Some(&[old]), &[file]) = (sounding.get(&id).map(Vec::as_slice), files.as_slice()) else {
-                continue;
-            };
-            unmatched.retain(|path| path != old);
-            let version = stored.remove(old);
-            if let (true, Some(version)) = (relocate(old, file), version) {
-                stored.insert(path_key(&file.path), version);
-            }
         }
     }
 

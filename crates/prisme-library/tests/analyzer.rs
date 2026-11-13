@@ -226,3 +226,48 @@ fn the_cues_of_a_file_forgotten_come_back_with_its_audio() {
     assert!(db.cues(&before).unwrap().is_empty());
     std::fs::remove_dir_all(root).ok();
 }
+
+#[test]
+fn a_track_cued_outside_the_folder_keeps_its_cues_once_moved_in() {
+    let base = std::env::temp_dir().join(format!("prisme-analyzer-in-{}", std::process::id()));
+    let (root, downloads) = (base.join("Music"), base.join("Downloads"));
+    std::fs::create_dir_all(&root).unwrap();
+    std::fs::create_dir_all(&downloads).unwrap();
+    let (outside, inside) = (downloads.join("track.wav"), root.join("Artist - Title.wav"));
+    write_kicks(&outside, 124.0, 12.0);
+    let db = Arc::new(LibraryDb::open_in_memory().unwrap());
+    // loaded from the downloads: known there, with its audio
+    run(&db, &downloads);
+    db.save_cue(&outside, &Cue::point(CueSlot::Hot(0), 3.0)).unwrap();
+
+    std::fs::rename(&outside, &inside).unwrap();
+    assert!(prisme_media::write_genre(&inside, Some("House")).unwrap());
+    run(&db, &root);
+    assert_eq!(db.cues(&inside).unwrap().len(), 1);
+    assert!(db.get(&outside).unwrap().is_none());
+    std::fs::remove_dir_all(base).ok();
+}
+
+#[test]
+fn a_duplicate_deleted_does_not_hide_the_track_that_stays() {
+    let root = std::env::temp_dir().join(format!("prisme-analyzer-duplicate-{}", std::process::id()));
+    std::fs::create_dir_all(&root).unwrap();
+    let (track, duplicate, renamed) =
+        (root.join("track.wav"), root.join("track (1).wav"), root.join("Artist - Title.wav"));
+    write_kicks(&track, 124.0, 12.0);
+    std::fs::copy(&track, &duplicate).unwrap();
+    let db = Arc::new(LibraryDb::open_in_memory().unwrap());
+    run(&db, &root);
+    db.save_cue(&track, &Cue::point(CueSlot::Hot(0), 3.0)).unwrap();
+
+    // the duplicate, which nothing was made of, is deleted: it leaves nothing
+    std::fs::remove_file(&duplicate).unwrap();
+    run(&db, &root);
+    assert_eq!(db.audio_id(&duplicate).unwrap(), None);
+
+    std::fs::rename(&track, &renamed).unwrap();
+    assert!(prisme_media::write_genre(&renamed, Some("House")).unwrap());
+    run(&db, &root);
+    assert_eq!(db.cues(&renamed).unwrap().len(), 1);
+    std::fs::remove_dir_all(root).ok();
+}

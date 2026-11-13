@@ -30,7 +30,7 @@ pub use db::{
     TAGS_VERSION,
 };
 pub use duplicates::duplicate_groups;
-pub use identity::{adopt, Search};
+pub use identity::{adopt, adopt_unless, Search};
 pub use metadata::{read_metadata, Metadata};
 pub use scan::{scan_folder, Scan, ScannedFile};
 pub use smart::{Rule, SmartRules, TextField};

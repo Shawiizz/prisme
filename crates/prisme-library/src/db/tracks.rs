@@ -16,6 +16,10 @@ use std::path::Path;
 pub const TAGS_VERSION: u32 = 1;
 
 /// Tables keyed by a file's path (`track_search`, a virtual table, is apart).
+/// What the DJ made of a track, kept when its file goes: a path holding none of it is
+/// forgotten whole.
+const KEPT: [&str; 6] = ["cues", "track_edits", "track_marks", "crate_tracks", "history_plays", "prepare"];
+
 const RELOCATED: [&str; 10] = [
     "audio_ids",
     "tracks",
@@ -239,11 +243,25 @@ impl LibraryDb {
 
     /// Moves everything known about a file to its new path (moved or renamed): record,
     /// search entry, cover, cues, corrections, marks, crate entries, history and prepare
-    /// list.
+    /// list. What another file, gone since, left at the new path (its audio was not this
+    /// one's) goes first.
     pub fn relocate(&self, from: &Path, to: &Path) -> Result<(), DbError> {
         let (from, to) = (path_key(from), path_key(to));
         let conn = self.conn();
         let tx = conn.unchecked_transaction()?;
+        let of_another_file: bool = tx
+            .prepare_cached(
+                "SELECT EXISTS (SELECT 1 FROM audio_ids old JOIN audio_ids new
+                     ON old.audio_id <> new.audio_id WHERE old.path = ?1 AND new.path = ?2)",
+            )?
+            .query_row([&from, &to], |r| r.get(0))?;
+        if of_another_file {
+            tx.prepare_cached(DELETE_SEARCH_ROW)?.execute([&to])?;
+            tx.prepare_cached("DELETE FROM search_rows WHERE path = ?1")?.execute([&to])?;
+            for table in RELOCATED {
+                tx.prepare_cached(&format!("DELETE FROM {table} WHERE path = ?1"))?.execute([&to])?;
+            }
+        }
         for table in RELOCATED {
             // a row already at the new path wins; the old one goes
             tx.prepare_cached(&format!("UPDATE OR IGNORE {table} SET path = ?2 WHERE path = ?1"))?
@@ -267,8 +285,9 @@ impl LibraryDb {
     }
 
     /// Forgets what was read from files that are gone (deleted or moved): their records,
-    /// search entries, covers and waveforms. Their cues, corrections and crate entries stay, for when
-    /// they come back.
+    /// search entries, covers and waveforms. Their cues, corrections and crate entries stay,
+    /// for when they come back, with the identity of their audio to know them by; a file
+    /// that leaves none of those leaves nothing.
     pub fn forget(&self, paths: &[String]) -> Result<(), DbError> {
         let conn = self.conn();
         let tx = conn.unchecked_transaction()?;
@@ -280,6 +299,19 @@ impl LibraryDb {
         }
         for table in ["tracks", "search_rows", "covers", "waveforms"] {
             let mut delete = tx.prepare_cached(&format!("DELETE FROM {table} WHERE path = ?1"))?;
+            for path in paths {
+                delete.execute([path])?;
+            }
+        }
+        {
+            let kept: Vec<String> = KEPT
+                .iter()
+                .map(|table| format!("NOT EXISTS (SELECT 1 FROM {table} WHERE path = ?1)"))
+                .collect();
+            let mut delete = tx.prepare_cached(&format!(
+                "DELETE FROM audio_ids WHERE path = ?1 AND {}",
+                kept.join(" AND ")
+            ))?;
             for path in paths {
                 delete.execute([path])?;
             }

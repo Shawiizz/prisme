@@ -30,11 +30,26 @@ pub fn adopt(
     stamp: FileStamp,
     search: Search,
 ) -> Result<Option<PathBuf>, DbError> {
+    adopt_unless(db, path, stamp, search, |_| false)
+}
+
+/// [`adopt`], leaving alone the paths that `may_be_back` (under a folder that could not be
+/// listed).
+pub fn adopt_unless(
+    db: &LibraryDb,
+    path: &Path,
+    stamp: FileStamp,
+    search: Search,
+    may_be_back: impl Fn(&Path) -> bool,
+) -> Result<Option<PathBuf>, DbError> {
     if db.has_track(path)? {
         return Ok(None);
     }
     let own = path_key(path);
-    let elsewhere = |old: &String| *old != own && !Path::new(old).exists();
+    let elsewhere = |old: &String| {
+        let file = Path::new(old);
+        *old != own && !file.exists() && !may_be_back(file)
+    };
     let stamped: Vec<String> = db.paths_stamped(stamp)?.into_iter().filter(elsewhere).collect();
     let moved = |old: &&String| {
         let old = Path::new(old.as_str());
