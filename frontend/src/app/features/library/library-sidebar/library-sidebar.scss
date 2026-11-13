@@ -190,3 +190,15 @@ section {
   font-size: var(--pr-size-small);
   color: var(--pr-text-3);
 }
+
+// on a phone: lines the height of a finger, the lists as tall as they need
+:host-context(app-phone) {
+  .item {
+    height: 44px;
+    font-size: 14px;
+  }
+  .crates,
+  .history {
+    max-height: 40%;
+  }
+}
