@@ -60,12 +60,16 @@ jobs:
           # the home screen takes a moment to accept applications after the boot
           for attempt in 1 2 3 4; do
             sleep 20
-            xcrun simctl launch "$phone" com.shawiizz.prisme && break
+            xcrun simctl launch --stdout="$PWD/start/output.log" --stderr="$PWD/start/errors.log" "$phone" com.shawiizz.prisme && break
           done
-          sleep 45
+          sleep 20
+          xcrun simctl io "$phone" screenshot start/early.png
+          sleep 40
           xcrun simctl io "$phone" screenshot start/screen.png
-          xcrun simctl spawn "$phone" log show --last 3m --style compact --predicate 'processImagePath CONTAINS "Prisme.app"' > start/log.txt || true
-          tail -n 40 start/log.txt
+          # what Prisme wrote: its own log files, and what it said
+          data=$(xcrun simctl get_app_container "$phone" com.shawiizz.prisme data)
+          find "$data" -name "*.log" -exec cp {} start/ \; || true
+          tail -n 40 start/*.log || true
       - uses: actions/upload-artifact@v4
         if: always()
         with:
