@@ -245,7 +245,7 @@
         background: var(--pr-base);
       }
       .fader::before {
-        content: '';
+        content: "";
         position: absolute;
         inset: 17px 14px auto;
         height: 1px;
@@ -280,24 +280,30 @@
   <body>
     <h1>Prisme sur téléphone</h1>
     <p class="lead">
-      Avec un contrôleur branché, les mains sont sur le contrôleur : l'écran montre ce qu'il n'a pas (les formes
-      d'onde, les temps, la bibliothèque). Sans contrôleur, un deuxième écran donne les commandes au doigt. Trois
-      écrans à juger : le mix en portrait, les commandes au doigt, et le mix en paysage.
+      Avec un contrôleur branché, les mains sont sur le contrôleur : l'écran
+      montre ce qu'il n'a pas (les formes d'onde, les temps, la bibliothèque).
+      Sans contrôleur, un deuxième écran donne les commandes au doigt. Trois
+      écrans à juger : le mix en portrait, les commandes au doigt, et le mix en
+      paysage.
     </p>
 
     <div class="row">
       <figure>
         <figcaption>
           <b>1 · Portrait, contrôleur branché</b>
-          Les deux decks en haut, l'un sous l'autre comme dans Couloirs, la bibliothèque dessous. Un morceau se charge
-          avec les boutons A et B de sa ligne, ou depuis le contrôleur.
+          Les deux decks en haut, l'un sous l'autre comme dans Couloirs, la
+          bibliothèque dessous. Un morceau se charge avec les boutons A et B de
+          sa ligne, ou depuis le contrôleur.
         </figcaption>
         <div class="phone">
           <div class="status"><span>21:42</span><span>82 %</span></div>
           <div class="bar">
-            <span class="dot"></span><span class="small">DDJ-FLX2 · 4 sorties · 5,3 ms</span>
+            <span class="dot"></span
+            ><span class="small">DDJ-FLX2 · 4 sorties · 5,3 ms</span>
             <span class="grow"></span>
-            <button class="pr-btn pr-btn--sm pr-btn--rec"><span class="pr-btn__dot"></span>Rec</button>
+            <button class="pr-btn pr-btn--sm pr-btn--rec">
+              <span class="pr-btn__dot"></span>Rec
+            </button>
           </div>
           <div class="deck">
             <div class="deck__head">
@@ -307,7 +313,8 @@
             </div>
             <canvas data-wave="a" height="64"></canvas>
             <div class="deck__head" style="margin-top: 6px">
-              <span class="time">−1:42.6</span><span class="grow" style="flex: 1"></span>
+              <span class="time">−1:42.6</span
+              ><span class="grow" style="flex: 1"></span>
               <span class="num">128.00</span><span class="small">+1.6 %</span>
             </div>
           </div>
@@ -319,7 +326,8 @@
             </div>
             <canvas data-wave="b" height="64"></canvas>
             <div class="deck__head" style="margin-top: 6px">
-              <span class="time">−3:05.1</span><span class="grow" style="flex: 1"></span>
+              <span class="time">−3:05.1</span
+              ><span class="grow" style="flex: 1"></span>
               <span class="num">128.00</span><span class="small">−0.4 %</span>
             </div>
           </div>
@@ -337,15 +345,20 @@
       <figure>
         <figcaption>
           <b>2 · Portrait, sans contrôleur</b>
-          L'onglet Commandes : un deck à la fois, choisi en haut, avec ses boutons à la taille du doigt, ses pads et le
-          crossfader. Les deux formes d'onde restent visibles.
+          L'onglet Commandes : un deck à la fois, choisi en haut, avec ses
+          boutons à la taille du doigt, ses pads et le crossfader. Les deux
+          formes d'onde restent visibles.
         </figcaption>
         <div class="phone">
           <div class="status"><span>21:42</span><span>82 %</span></div>
           <div class="bar">
-            <span class="dot"></span><span class="small">Haut-parleur du téléphone</span>
+            <span class="dot"></span
+            ><span class="small">Haut-parleur du téléphone</span>
             <span class="grow"></span>
-            <div class="pr-seg"><button class="on" aria-pressed="true">A</button><button>B</button></div>
+            <div class="pr-seg">
+              <button class="on" aria-pressed="true">A</button
+              ><button>B</button>
+            </div>
           </div>
           <div class="deck">
             <div class="deck__head">
@@ -364,19 +377,34 @@
             </div>
             <div class="line">
               <button class="pr-btn">−</button>
-              <div class="pr-readout" style="text-align: center"><span class="num">128.00 · +1.6 %</span></div>
+              <div class="pr-readout" style="text-align: center">
+                <span class="num">128.00 · +1.6 %</span>
+              </div>
               <button class="pr-btn">+</button>
             </div>
-            <div class="pr-seg" style="display: grid; grid-auto-flow: column; grid-auto-columns: 1fr">
-              <button class="on" aria-pressed="true">CUES</button><button>LOOP</button><button>ROLL</button
-              ><button>FX</button>
+            <div
+              class="pr-seg"
+              style="
+                display: grid;
+                grid-auto-flow: column;
+                grid-auto-columns: 1fr;
+              "
+            >
+              <button class="on" aria-pressed="true">CUES</button
+              ><button>LOOP</button><button>ROLL</button><button>FX</button>
             </div>
             <div class="pads">
-              <button class="pr-pad pr-pad--set">1</button><button class="pr-pad pr-pad--set">2</button
-              ><button class="pr-pad">3</button><button class="pr-pad">4</button><button class="pr-pad">5</button
-              ><button class="pr-pad">6</button><button class="pr-pad">7</button><button class="pr-pad">8</button>
+              <button class="pr-pad pr-pad--set">1</button
+              ><button class="pr-pad pr-pad--set">2</button
+              ><button class="pr-pad">3</button><button class="pr-pad">4</button
+              ><button class="pr-pad">5</button><button class="pr-pad">6</button
+              ><button class="pr-pad">7</button
+              ><button class="pr-pad">8</button>
             </div>
-            <div class="line" style="grid-auto-columns: auto 1fr auto; align-items: center">
+            <div
+              class="line"
+              style="grid-auto-columns: auto 1fr auto; align-items: center"
+            >
               <span class="small">A</span>
               <div class="fader"><i></i></div>
               <span class="small">B</span>
@@ -402,12 +430,14 @@
       <figure>
         <figcaption>
           <b>3 · Paysage, contrôleur branché</b>
-          Le téléphone posé derrière le contrôleur : les formes d'onde sur toute la largeur, la bibliothèque à droite.
-          Les mêmes écrans, tournés ; Prisme suit le sens du téléphone.
+          Le téléphone posé derrière le contrôleur : les formes d'onde sur toute
+          la largeur, la bibliothèque à droite. Les mêmes écrans, tournés ;
+          Prisme suit le sens du téléphone.
         </figcaption>
         <div class="phone wide">
           <div class="bar">
-            <span class="dot"></span><span class="small">DDJ-FLX2 · 4 sorties · 5,3 ms</span>
+            <span class="dot"></span
+            ><span class="small">DDJ-FLX2 · 4 sorties · 5,3 ms</span>
             <span class="grow"></span>
             <span class="small">21:42</span>
           </div>
@@ -416,8 +446,11 @@
               <div class="deck">
                 <div class="deck__head">
                   <span class="letter">A</span>
-                  <span class="title">Afraid To Feel <span>· LF SYSTEM</span></span>
-                  <span class="key">9A</span><span class="num">128.00</span><span class="time">−1:42.6</span>
+                  <span class="title"
+                    >Afraid To Feel <span>· LF SYSTEM</span></span
+                  >
+                  <span class="key">9A</span><span class="num">128.00</span
+                  ><span class="time">−1:42.6</span>
                 </div>
                 <canvas data-wave="a" height="84"></canvas>
               </div>
@@ -425,7 +458,8 @@
                 <div class="deck__head">
                   <span class="letter">B</span>
                   <span class="title">Running <span>· Kate Bush</span></span>
-                  <span class="key b">2A</span><span class="num">128.00</span><span class="time">−3:05.1</span>
+                  <span class="key b">2A</span><span class="num">128.00</span
+                  ><span class="time">−3:05.1</span>
                 </div>
                 <canvas data-wave="b" height="84"></canvas>
               </div>
@@ -441,49 +475,49 @@
 
     <script>
       const TRACKS = [
-        ['Afraid To Feel', 'LF SYSTEM', '128', '9A'],
-        ['Running', 'Kate Bush', '108', '2A'],
-        ['Dans ma rue', 'Zaz', '124', '5A'],
-        ['Caile', 'Luar La L', '126', '8A'],
-        ['Strobe (Club)', 'deadmau5', '128', '4B'],
-        ['Mi Casa', '2fox', '125', '10A'],
-        ['Opus', 'Eric Prydz', '126', '6A'],
-        ['Innerbloom', 'RÜFÜS DU SOL', '122', '7A'],
+        ["Afraid To Feel", "LF SYSTEM", "128", "9A"],
+        ["Running", "Kate Bush", "108", "2A"],
+        ["Dans ma rue", "Zaz", "124", "5A"],
+        ["Caile", "Luar La L", "126", "8A"],
+        ["Strobe (Club)", "deadmau5", "128", "4B"],
+        ["Mi Casa", "2fox", "125", "10A"],
+        ["Opus", "Eric Prydz", "126", "6A"],
+        ["Innerbloom", "RÜFÜS DU SOL", "122", "7A"],
       ];
-      for (const list of document.querySelectorAll('[data-tracks]')) {
-        const short = list.dataset.tracks === 'short';
+      for (const list of document.querySelectorAll("[data-tracks]")) {
+        const short = list.dataset.tracks === "short";
         list.innerHTML = TRACKS.slice(0, short ? 6 : 8)
           .map(
             ([title, artist, bpm, key], i) => `
-          <div class="track${i === 2 ? ' on' : ''}">
+          <div class="track${i === 2 ? " on" : ""}">
             <div class="names"><div>${title}</div><div>${artist}</div></div>
             <span class="num">${bpm}</span><span class="small">${key}</span>
-            ${short ? '' : '<div class="load"><button class="pr-btn pr-btn--sm">A</button><button class="pr-btn pr-btn--sm">B</button></div>'}
+            ${short ? "" : '<div class="load"><button class="pr-btn pr-btn--sm">A</button><button class="pr-btn pr-btn--sm">B</button></div>'}
           </div>`,
           )
-          .join('');
+          .join("");
       }
 
       /** A waveform as the decks draw it: bass, mids and highs, the playhead a third in. */
-      for (const canvas of document.querySelectorAll('canvas[data-wave]')) {
+      for (const canvas of document.querySelectorAll("canvas[data-wave]")) {
         const width = canvas.clientWidth;
         const height = canvas.height;
         const scale = window.devicePixelRatio || 1;
         canvas.width = width * scale;
         canvas.height = height * scale;
         canvas.style.height = `${height}px`;
-        const ctx = canvas.getContext('2d');
+        const ctx = canvas.getContext("2d");
         ctx.scale(scale, scale);
-        let seed = canvas.dataset.wave === 'a' ? 7 : 23;
-        const random = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
-        const beat = canvas.dataset.wave === 'a' ? 30 : 34;
+        let seed = canvas.dataset.wave === "a" ? 7 : 23;
+        const random = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+        const beat = canvas.dataset.wave === "a" ? 30 : 34;
         for (let x = 0; x < width; x += 2) {
           const kick = Math.exp(-((x % beat) / beat) * 5);
           const body = 0.25 + 0.3 * random();
           const levels = [
-            ['#ff5442', (0.35 + 0.65 * kick) * 0.95],
-            ['#a6e25c', body + 0.2 * kick],
-            ['#8f7bff', 0.12 + 0.2 * random()],
+            ["#ff5442", (0.35 + 0.65 * kick) * 0.95],
+            ["#a6e25c", body + 0.2 * kick],
+            ["#8f7bff", 0.12 + 0.2 * random()],
           ];
           for (const [color, level] of levels) {
             const h = level * height * 0.5;
@@ -493,7 +527,7 @@
           }
         }
         ctx.globalAlpha = 1;
-        ctx.fillStyle = '#f3f1eb';
+        ctx.fillStyle = "#f3f1eb";
         ctx.fillRect(Math.round(width / 3), 0, 2, height);
       }
     </script>
