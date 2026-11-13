@@ -215,6 +215,7 @@ export const FR: Record<string, string> = {
   Controls: 'Commandes',
   Deck: 'Deck',
   'Parent folder': 'Dossier parent',
+  'Look again': 'Regarder à nouveau',
   'New smart crate: tracks picked by rules':
     'Nouvelle crate intelligente : morceaux choisis par des règles',
   Smart: 'Intelligente',

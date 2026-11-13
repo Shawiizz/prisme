@@ -97,6 +97,12 @@ export class PhoneTracks {
     this.scrollTop.set(this.list().nativeElement.scrollTop);
   }
 
+  /** The folder read again: the phone may only now let its music be read. */
+  protected async lookAgain() {
+    const folder = this.library.listing()?.path ?? this.library.root();
+    if (folder && (await this.library.open(folder))) await this.library.rescan();
+  }
+
   protected bpm(track: DirEntry): string {
     const bpm = track.details?.bpm;
     return bpm == null ? '' : decimal(bpm, 0);
