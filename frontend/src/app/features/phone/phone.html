@@ -1,0 +1,39 @@
+<header class="bar">
+  @if (audio(); as audio) {
+    <span class="pr-sig pr-sig--ok"></span>
+    <span class="audio">{{ audio }}</span>
+  } @else {
+    <span class="pr-sig pr-sig--none"></span>
+    <span class="audio">{{
+      engine.status()?.health?.deviceLost
+        ? ('audio device lost, reconnecting…' | t)
+        : ('audio stopped' | t)
+    }}</span>
+  }
+</header>
+
+<main class="screen" [class]="tab()">
+  @switch (tab()) {
+    @case ('mix') {
+      <section class="decks">
+        @for (deck of decks(); track deck) {
+          <app-phone-deck [deck]="deck" />
+        }
+      </section>
+      <app-phone-tracks />
+    }
+    @case ('controls') {
+      <app-phone-controls />
+    }
+    @case ('crates') {
+      <app-library-sidebar />
+    }
+  }
+</main>
+
+<nav class="tabs">
+  @for (item of tabs; track item.id) {
+    <button [class.on]="tab() === item.id" (click)="tab.set(item.id)">{{ item.label }}</button>
+  }
+  <button (click)="navigation.openSettings()">{{ 'Settings' | t }}</button>
+</nav>

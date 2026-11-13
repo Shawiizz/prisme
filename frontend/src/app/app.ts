@@ -6,6 +6,8 @@ import { PhaseStrip } from './features/deck/phase-strip/phase-strip';
 import { Library } from './features/library/library';
 import { SettingsDialog } from './features/settings/settings-dialog';
 import { CommandPalette } from './features/command-palette/command-palette';
+import { Phone } from './features/phone/phone';
+import { PHONE } from './core/platform';
 import { KeyboardService } from './core/keyboard/keyboard.service';
 import { ControllerService } from './core/control/controller.service';
 import { UpdateService } from './core/services/update.service';
@@ -18,11 +20,11 @@ import { NavigationService } from './core/services/navigation.service';
 
 /**
  * Main window layout: title bar, a lane per deck (compact ones for four decks) with the
- * phase strip after the first, the library; and the dialogs.
+ * phase strip after the first, the library; and the dialogs. On a phone, its own screens.
  */
 @Component({
   selector: 'app-root',
-  imports: [Titlebar, DeckLane, PhaseStrip, Library, SettingsDialog, CommandPalette],
+  imports: [Titlebar, DeckLane, PhaseStrip, Library, SettingsDialog, CommandPalette, Phone],
   templateUrl: './app.html',
   styleUrl: './app.scss',
 })
@@ -38,6 +40,7 @@ export class App implements OnInit {
   private readonly controllers = inject(ControllerService);
   private readonly updates = inject(UpdateService);
   protected readonly navigation = inject(NavigationService);
+  protected readonly PHONE = PHONE;
 
   async ngOnInit() {
     await this.preferences.load();

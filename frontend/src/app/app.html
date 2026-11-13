@@ -1,19 +1,23 @@
-<app-titlebar />
+@if (PHONE) {
+  <app-phone />
+} @else {
+  <app-titlebar />
 
-<main class="layout">
-  <section class="decks" [class.mix]="mixer.internal()" [class.four]="decks().length > 2">
-    @for (deck of decks(); track deck) {
-      <app-deck-lane [deck]="deck" [compact]="decks().length > 2" />
-      @if (deck === 0) {
-        <app-phase-strip />
+  <main class="layout">
+    <section class="decks" [class.mix]="mixer.internal()" [class.four]="decks().length > 2">
+      @for (deck of decks(); track deck) {
+        <app-deck-lane [deck]="deck" [compact]="decks().length > 2" />
+        @if (deck === 0) {
+          <app-phase-strip />
+        }
       }
-    }
-  </section>
+    </section>
 
-  <section class="library">
-    <app-library />
-  </section>
-</main>
+    <section class="library">
+      <app-library />
+    </section>
+  </main>
+}
 
 @if (navigation.settings()) {
   <app-settings-dialog />

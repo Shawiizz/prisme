@@ -211,6 +211,10 @@ export const FR: Record<string, string> = {
   'Tracks that look like the same song: same artist and title, or file name':
     'Morceaux qui semblent être le même titre : même artiste et titre, ou même nom de fichier',
   Crates: 'Crates',
+  Mix: 'Mix',
+  Controls: 'Commandes',
+  Deck: 'Deck',
+  'Parent folder': 'Dossier parent',
   'New smart crate: tracks picked by rules':
     'Nouvelle crate intelligente : morceaux choisis par des règles',
   Smart: 'Intelligente',

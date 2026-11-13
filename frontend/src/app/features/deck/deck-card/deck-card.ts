@@ -2,13 +2,8 @@ import { Component, computed, inject, input, signal } from '@angular/core';
 import { EngineService } from '../../../core/services/engine.service';
 import { MixerService } from '../../../core/services/mixer.service';
 import { SignalState, VinylMode } from '../../../core/models/engine';
-import {
-  decimal,
-  deckLetter,
-  formatPitch,
-  formatRemaining,
-  formatTime,
-} from '../../../shared/time';
+import { deckReadouts } from '../../../core/deck-readouts';
+import { decimal, deckLetter, formatTime } from '../../../shared/time';
 import { camelotHue, camelotMajor, keyName } from '../../../shared/camelot';
 import { levelSegments } from '../../../shared/level';
 import { Cover } from '../../../shared/cover/cover';
@@ -25,9 +20,6 @@ const SIGNAL_TITLE: Record<SignalState, string> = {
 /** Who drives the deck: itself (INT), or the record in relative or absolute mode. */
 type DeckMode = 'int' | VinylMode;
 
-/** The remaining time turns amber, then red and blinking, near the end of the track. */
-const WARN_S = 30;
-const ALERT_S = 10;
 /** Segments of the meter of what goes to the external mixer. */
 const SEND_SEGMENTS = 10;
 
@@ -56,8 +48,9 @@ export class DeckCard {
       : levelSegments(this.engine.status()?.decks[this.deck()]?.peak ?? 0, SEND_SEGMENTS),
   );
   protected readonly outputs = computed(() => this.mixer.outputsOf(this.deck()));
-  protected readonly track = computed(() => this.engine.tracks()[this.deck()]);
-  protected readonly status = computed(() => this.engine.status()?.decks[this.deck()] ?? null);
+  private readonly readouts = deckReadouts(this.deck);
+  protected readonly track = this.readouts.track;
+  protected readonly status = this.readouts.status;
   protected readonly settings = computed(() => this.engine.decks()[this.deck()]);
   protected readonly loading = computed(() => this.engine.loading()[this.deck()]);
   /** The grid and key editor is open. */
@@ -76,32 +69,15 @@ export class DeckCard {
 
   protected readonly elapsed = computed(() => formatTime(this.status()?.positionS ?? 0));
   protected readonly length = computed(() => formatTime(this.status()?.durationS ?? 0));
-  private readonly remainingS = computed(() => {
-    const s = this.status();
-    return s?.loaded ? Math.max(0, s.durationS - s.positionS) : null;
-  });
-  protected readonly remaining = computed(() => {
-    const s = this.remainingS();
-    return s === null ? '—' : formatRemaining(s);
-  });
-  protected readonly ending = computed(() => {
-    const s = this.remainingS();
-    if (s === null || !this.status()?.playing) return null;
-    return s < ALERT_S ? 'alert' : s < WARN_S ? 'warn' : null;
-  });
-
-  private readonly rate = computed(() => this.engine.playbackRate(this.deck()));
-  protected readonly bpm = computed(() => {
-    const tempo = this.track()?.tempo;
-    return tempo ? decimal(tempo.bpm * this.rate(), 2) : null;
-  });
+  protected readonly remaining = this.readouts.remaining;
+  protected readonly ending = this.readouts.ending;
+  protected readonly bpm = this.readouts.bpm;
   /** The track's own tempo and the pitch applied to it. */
   protected readonly tempoDetail = computed(() => {
     const tempo = this.track()?.tempo;
-    return tempo ? `${decimal(tempo.bpm, 2)} ${formatPitch(this.rate())}` : '';
+    return tempo ? `${decimal(tempo.bpm, 2)} ${this.readouts.pitch()}` : '';
   });
-  /** The key heard: shifted by the pitch unless the key lock holds it. */
-  protected readonly key = computed(() => this.engine.heardKey(this.deck()));
+  protected readonly key = this.readouts.key;
   protected readonly keyShifted = computed(
     () => this.key()?.camelot !== this.track()?.key?.camelot,
   );

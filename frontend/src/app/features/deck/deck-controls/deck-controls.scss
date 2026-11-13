@@ -118,3 +118,40 @@
     }
   }
 }
+
+// on a phone: keys the size of a finger on a line, the pitch under them
+:host-context(app-phone-controls) {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  height: auto;
+  .transport {
+    display: contents;
+  }
+  .key {
+    width: auto;
+    height: 56px;
+    font-size: 14px;
+  }
+  // a phone does not separate
+  .separate {
+    display: none;
+  }
+  .sync {
+    grid-area: 1 / 3;
+  }
+  .stems {
+    grid-area: 2 / 1 / auto / -1;
+    grid-auto-columns: 1fr;
+  }
+  .pitch {
+    grid-column: 1 / -1;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .key-lock {
+    height: var(--pr-h);
+    padding: 0 12px;
+  }
+}

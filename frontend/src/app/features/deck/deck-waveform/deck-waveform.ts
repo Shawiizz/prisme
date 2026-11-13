@@ -237,10 +237,13 @@ export class DeckWaveform {
     }
   }
 
-  /** The canvas at its size in device pixels, and its context. */
+  /** The canvas at its size in device pixels, and its context; nothing until it is laid out. */
   private fit(canvas: HTMLCanvasElement) {
     const { width, height } = fitToDevicePixels(canvas);
     const ctx = canvas.getContext('2d');
-    return ctx ? { ctx, size: { width, height, ratio: window.devicePixelRatio || 1 } } : null;
+    const laidOut = width > 0 && height > 0;
+    return ctx && laidOut
+      ? { ctx, size: { width, height, ratio: window.devicePixelRatio || 1 } }
+      : null;
   }
 }

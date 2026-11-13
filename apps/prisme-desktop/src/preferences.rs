@@ -98,7 +98,9 @@ pub struct MixerPreferences {
 impl Default for MixerPreferences {
     fn default() -> Self {
         Self {
-            mode: MixModeDto::External,
+            // a phone mixes itself: the controller plugged into it only sends what its
+            // faders and knobs do
+            mode: if cfg!(mobile) { MixModeDto::Internal } else { MixModeDto::External },
             headphones: HeadphonesOutputDto::Auto,
             cue_mix: 0.0,
             headphone_gain: 1.0,

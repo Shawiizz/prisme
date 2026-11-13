@@ -1,0 +1,75 @@
+:host {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-areas:
+    'letter title key'
+    'wave wave wave'
+    'remaining tempo tempo';
+  align-items: center;
+  gap: 6px 8px;
+  padding: 8px 12px;
+  min-width: 0;
+}
+
+.pr-tile {
+  grid-area: letter;
+  width: 24px;
+  height: 24px;
+  font-size: 13px;
+}
+.title {
+  grid-area: title;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-size: 14px;
+  font-weight: 600;
+  span {
+    font-weight: 400;
+    color: var(--pr-text-2);
+  }
+  &.empty {
+    font-weight: 400;
+    color: var(--pr-text-3);
+  }
+}
+.pr-key {
+  grid-area: key;
+}
+app-deck-waveform {
+  grid-area: wave;
+  height: var(--phone-wave, 84px);
+}
+.remaining {
+  grid-area: remaining;
+  font-size: 19px;
+  font-weight: 600;
+  &.warn {
+    color: var(--pr-warn);
+  }
+  &.alert {
+    color: var(--pr-alert);
+    animation: pr-blink 0.5s steps(1) infinite;
+  }
+}
+.tempo {
+  grid-area: tempo;
+  justify-self: end;
+  font-size: 13px;
+  font-weight: 500;
+  span {
+    font-size: 11px;
+    font-weight: 400;
+    color: var(--pr-text-2);
+  }
+}
+
+// a phone held sideways: the readouts join the title, the waveform takes the height
+@media (orientation: landscape) {
+  :host {
+    grid-template-columns: auto minmax(0, 1fr) auto auto auto;
+    grid-template-areas:
+      'letter title key tempo remaining'
+      'wave wave wave wave wave';
+  }
+}

@@ -123,3 +123,32 @@
     padding: 0 5px;
   }
 }
+
+// on a phone: the modes on a line, the pads on two, the rest under them
+:host-context(app-phone-controls) {
+  flex-wrap: wrap;
+  gap: 8px;
+  height: auto;
+  .modes {
+    flex: 1 0 100%;
+    display: grid;
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+    > button {
+      height: var(--pr-h);
+    }
+  }
+  .pads {
+    flex: 1 0 100%;
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 8px;
+    .pr-pad {
+      height: 52px;
+      font-size: var(--pr-size);
+    }
+  }
+  .side {
+    flex: 1;
+    justify-content: space-between;
+  }
+}

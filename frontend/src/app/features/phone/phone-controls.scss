@@ -1,0 +1,26 @@
+:host {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.decks {
+  flex: none;
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
+  margin: 8px 12px 0;
+}
+app-phone-deck {
+  flex: none;
+  border-bottom: 1px solid var(--pr-line);
+}
+.touch {
+  display: grid;
+  gap: 10px;
+  padding: 10px 12px 14px;
+}
+app-crossfader {
+  height: 48px;
+}

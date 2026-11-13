@@ -1,0 +1,58 @@
+<input
+  class="pr-input search"
+  type="search"
+  [placeholder]="'Search' | t"
+  [value]="library.filter()"
+  (input)="library.setFilter($any($event.target).value)"
+/>
+<div #list class="list" (scroll)="scrolled()">
+  <div [style.height.px]="window().before"></div>
+  @for (row of window().rows; track row.kind === 'folder' ? row.path : row.track.path) {
+    @if (row.kind === 'folder') {
+      <button class="row folder" [style.height.px]="ROW_PX" (click)="library.open(row.path)">
+        <svg viewBox="0 0 16 16" aria-hidden="true">
+          @if (row.up) {
+            <path d="M10 3L5 8l5 5" />
+          } @else {
+            <path d="M1.5 4h4.5l1.5 1.5h7v7h-13z" />
+          }
+        </svg>
+        <span class="names">{{ row.up ? ('Parent folder' | t) : row.name }}</span>
+      </button>
+    } @else {
+      <div
+        class="row"
+        [class.selected]="row.track.path === library.selected()"
+        [style.height.px]="ROW_PX"
+        (click)="library.selected.set(row.track.path)"
+      >
+        <div class="names">
+          <div>{{ title(row.track) }}</div>
+          <div>{{ row.track.details?.tags?.artist }}</div>
+        </div>
+        <span class="pr-num">{{ bpm(row.track) }}</span>
+        @if (row.track.details?.key; as k) {
+          <span
+            class="pr-key"
+            [class.pr-key--maj]="major(k.camelot)"
+            [style.--h]="hue(k.camelot)"
+            >{{ k.camelot }}</span
+          >
+        }
+        @for (deck of decks(); track deck) {
+          <button
+            class="pr-btn load"
+            (click)="library.load(row.track.path, deck)"
+            [attr.aria-label]="'Load on deck {deck}' | t: { deck: letter(deck) }"
+          >
+            {{ letter(deck) }}
+          </button>
+        }
+      </div>
+    }
+  }
+  <div [style.height.px]="window().after"></div>
+  @if (empty()) {
+    <p class="empty">{{ library.error() ?? ('No audio file in this folder' | t) }}</p>
+  }
+</div>

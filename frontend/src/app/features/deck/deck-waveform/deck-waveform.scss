@@ -69,3 +69,8 @@
     display: none;
   }
 }
+
+// on a phone: the overview thinner, the height to the waveform
+:host-context(app-phone-deck) .waveform {
+  grid-template-rows: minmax(0, 1fr) 14px;
+}

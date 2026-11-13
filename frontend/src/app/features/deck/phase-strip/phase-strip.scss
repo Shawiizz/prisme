@@ -5,16 +5,7 @@
   min-height: 0;
 }
 // the crossfader between the two channels of the software mixer
-.crossfade {
-  display: flex;
-  align-items: center;
-  gap: var(--pr-space-2);
-  padding: 0 var(--pr-space-2) 0 var(--pr-space-3);
-  app-fader {
-    flex: 1;
-  }
-}
-:host:has(.crossfade) .lane {
+:host:has(app-crossfader) .lane {
   margin-block: 7px;
 }
 .info {

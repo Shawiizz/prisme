@@ -1,0 +1,104 @@
+:host {
+  display: flex;
+  flex-direction: column;
+  height: 100dvh;
+  // clear of the notch, the status bar and the gesture bar
+  padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom)
+    env(safe-area-inset-left);
+  background: var(--pr-void);
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.bar {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 40px;
+  padding: 0 12px;
+  border-bottom: 1px solid var(--pr-line);
+}
+.audio {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-size: 11.5px;
+  color: var(--pr-text-2);
+}
+
+.screen {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+.decks {
+  flex: none;
+  app-phone-deck {
+    border-bottom: 1px solid var(--pr-line);
+  }
+}
+app-phone-tracks,
+app-phone-controls,
+app-library-sidebar {
+  flex: 1;
+  min-height: 0;
+}
+
+.tabs {
+  flex: none;
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
+  border-top: 1px solid var(--pr-line);
+  button {
+    height: 48px;
+    border: 0;
+    background: none;
+    font: inherit;
+    font-size: var(--pr-size-small);
+    color: var(--pr-text-3);
+    &.on {
+      color: var(--pr-text);
+      box-shadow: inset 0 2px var(--pr-light);
+    }
+  }
+}
+
+// held sideways: the decks take the width, the tracks the side, the tabs a column
+@media (orientation: landscape) {
+  :host {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 92px;
+    grid-template-rows: auto minmax(0, 1fr);
+  }
+  .bar {
+    grid-column: 1 / -1;
+    height: 32px;
+  }
+  .screen.mix {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(220px, 34%);
+    .decks {
+      display: grid;
+      align-content: center;
+      border-right: 1px solid var(--pr-line);
+      --phone-wave: 20dvh;
+      app-phone-deck:last-child {
+        border-bottom: 0;
+      }
+    }
+  }
+  .tabs {
+    grid-auto-flow: row;
+    grid-auto-rows: 1fr;
+    border-top: 0;
+    border-left: 1px solid var(--pr-line);
+    button.on {
+      box-shadow: inset 2px 0 var(--pr-light);
+    }
+  }
+}

@@ -15,8 +15,7 @@ import { TPipe } from '../../../core/i18n/t.pipe';
 import { ZOOM_SPAN_S } from '../deck-waveform/deck-waveform';
 import { fitToDevicePixels, forgetCanvas } from '../../../shared/device-pixels';
 import { deckLetter } from '../../../shared/time';
-import { Fader } from '../../../shared/fader/fader';
-import { MixerMenu } from '../../mixer/mixer-menu/mixer-menu';
+import { Crossfader } from '../../mixer/crossfader/crossfader';
 
 /** Beat offset under which the two decks count as matched. */
 const MATCHED_BEATS = 0.02;
@@ -34,7 +33,7 @@ const FORECAST_S = 60;
   selector: 'app-phase-strip',
   templateUrl: './phase-strip.html',
   styleUrl: './phase-strip.scss',
-  imports: [Fader, MixerMenu, TPipe],
+  imports: [Crossfader, TPipe],
 })
 export class PhaseStrip {
   private readonly engine = inject(EngineService);
