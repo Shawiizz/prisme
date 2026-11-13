@@ -3,6 +3,7 @@
 }
 .pr-dialog__body {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: var(--pr-space-5);
 }
 h3 {
@@ -19,6 +20,7 @@ p {
 }
 section {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: var(--pr-space-2);
 }
 .row {
@@ -52,4 +54,14 @@ section {
 }
 .error {
   color: var(--pr-alert);
+}
+
+// a phone: the folder on its own line, its buttons under it
+@media (max-width: 720px) {
+  .row {
+    flex-wrap: wrap;
+  }
+  .path {
+    flex-basis: 100%;
+  }
 }

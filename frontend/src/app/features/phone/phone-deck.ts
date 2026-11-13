@@ -1,4 +1,4 @@
-import { Component, computed, inject, input } from '@angular/core';
+import { Component, computed, inject, input, signal } from '@angular/core';
 import { deckReadouts } from '../../core/deck-readouts';
 import { DECK_MODES, deckVinyl } from '../../core/deck-vinyl';
 import { EngineService } from '../../core/services/engine.service';
@@ -6,6 +6,7 @@ import { TPipe } from '../../core/i18n/t.pipe';
 import { camelotHue, camelotMajor } from '../../shared/camelot';
 import { deckLetter } from '../../shared/time';
 import { DeckWaveform } from '../deck/deck-waveform/deck-waveform';
+import { GridEditor } from '../deck/grid-editor/grid-editor';
 
 /**
  * A deck on a phone: its letter (lit while playing), its track and its key, its waveform,
@@ -57,12 +58,20 @@ import { DeckWaveform } from '../deck/deck-waveform/deck-waveform';
       [class.alert]="ending() === 'alert'"
       >{{ remaining() }}</span
     >
-    <span class="tempo pr-num"
-      >{{ bpm() ?? '—' }} <span>{{ pitch() }}</span></span
+    <button
+      class="tempo pr-num"
+      [disabled]="!track()"
+      (click)="editing.set(true)"
+      [attr.aria-label]="'Beat grid, key and key shift' | t"
     >
+      {{ bpm() ?? '—' }} <span>{{ pitch() }}</span>
+    </button>
+    @if (editing() && track()) {
+      <app-grid-editor [deck]="deck()" (closed)="editing.set(false)" />
+    }
   `,
   styleUrl: './phone-deck.scss',
-  imports: [DeckWaveform, TPipe],
+  imports: [DeckWaveform, GridEditor, TPipe],
 })
 export class PhoneDeck {
   readonly deck = input.required<number>();
@@ -78,6 +87,8 @@ export class PhoneDeck {
   protected readonly bpm = this.readouts.bpm;
   protected readonly pitch = this.readouts.pitch;
   protected readonly key = this.readouts.key;
+  /** The grid and key editor is open. */
+  protected readonly editing = signal(false);
   private readonly vinyl = deckVinyl(this.deck);
   protected readonly modes = DECK_MODES;
   protected readonly mode = this.vinyl.mode;

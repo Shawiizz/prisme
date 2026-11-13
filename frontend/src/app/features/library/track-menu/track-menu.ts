@@ -18,6 +18,7 @@ import { TRACK_COLORS, hexColor } from '../../../shared/track-colors';
 import { deckLetter } from '../../../shared/time';
 import { t } from '../../../core/i18n/i18n';
 import { TPipe } from '../../../core/i18n/t.pipe';
+import { PHONE } from '../../../core/platform';
 
 export type TrackMenuPanel = 'main' | 'crates' | 'color' | 'genre';
 
@@ -39,6 +40,8 @@ function folderName(path: string): string {
   imports: [TPipe],
 })
 export class TrackMenu {
+  /** A phone does not separate. */
+  protected readonly PHONE = PHONE;
   protected readonly library = inject(LibraryService);
   private readonly engine = inject(EngineService);
   protected readonly stems = inject(StemsService);

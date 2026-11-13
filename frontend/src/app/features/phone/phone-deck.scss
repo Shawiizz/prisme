@@ -63,6 +63,10 @@ app-deck-waveform {
 .tempo {
   grid-area: tempo;
   justify-self: end;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
   font-size: 13px;
   font-weight: 500;
   span {

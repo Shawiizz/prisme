@@ -5,13 +5,15 @@ import { TPipe } from '../../core/i18n/t.pipe';
 import { deckLetter } from '../../shared/time';
 import { DeckControls } from '../deck/deck-controls/deck-controls';
 import { DeckPads } from '../deck/deck-pads/deck-pads';
+import { PitchFader } from '../deck/pitch-fader/pitch-fader';
 import { ChannelSlot } from '../mixer/channel-slot/channel-slot';
 import { Crossfader } from '../mixer/crossfader/crossfader';
 import { PhoneDeck } from './phone-deck';
 
 /**
  * A deck under the fingers, for a phone without a controller: the deck chosen at the top,
- * what plays it, its pads, and its channel and the crossfader of the software mixer.
+ * what plays it, its pads, its pitch fader down the side, and its channel and the
+ * crossfader of the software mixer.
  */
 @Component({
   selector: 'app-phone-controls',
@@ -25,6 +27,7 @@ import { PhoneDeck } from './phone-deck';
     </div>
     <app-phone-deck [deck]="deck()" />
     <div class="touch">
+      <app-pitch-fader [deck]="deck()" />
       <app-deck-controls [deck]="deck()" />
       <app-deck-pads [deck]="deck()" />
       @if (mixer.internal()) {
@@ -34,7 +37,7 @@ import { PhoneDeck } from './phone-deck';
     </div>
   `,
   styleUrl: './phone-controls.scss',
-  imports: [ChannelSlot, Crossfader, DeckControls, DeckPads, PhoneDeck, TPipe],
+  imports: [ChannelSlot, Crossfader, DeckControls, DeckPads, PhoneDeck, PitchFader, TPipe],
 })
 export class PhoneControls {
   protected readonly decks = inject(EngineService).deckIndexes;

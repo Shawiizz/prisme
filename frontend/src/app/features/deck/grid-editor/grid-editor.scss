@@ -63,3 +63,19 @@ header {
     color: var(--pr-warn);
   }
 }
+
+// on a phone: risen from the bottom, over the width
+:host-context(app-phone-deck) {
+  .backdrop {
+    background: rgb(0 0 0 / 0.5);
+  }
+  .panel {
+    position: fixed;
+    inset: auto 0 0;
+    width: auto;
+    max-height: 80%;
+    overflow-y: auto;
+    padding-bottom: calc(var(--pr-space-3) + env(safe-area-inset-bottom));
+    border-radius: 0;
+  }
+}

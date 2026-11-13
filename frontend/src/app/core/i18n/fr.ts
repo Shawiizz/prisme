@@ -216,6 +216,10 @@ export const FR: Record<string, string> = {
   Deck: 'Deck',
   'Parent folder': 'Dossier parent',
   'Look again': 'Regarder à nouveau',
+  'Sort by': 'Trier par',
+  'Import from Serato or rekordbox': 'Importer depuis Serato ou rekordbox',
+  'Reverse the order': "Inverser l'ordre",
+  'Order of the list': 'Ordre de la liste',
   'New smart crate: tracks picked by rules':
     'Nouvelle crate intelligente : morceaux choisis par des règles',
   Smart: 'Intelligente',

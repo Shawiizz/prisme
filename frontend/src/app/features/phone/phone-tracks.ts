@@ -10,28 +10,39 @@ import {
 } from '@angular/core';
 import { DirEntry } from '../../core/models/library';
 import { EngineService } from '../../core/services/engine.service';
-import { LibraryService, trackTitle } from '../../core/services/library.service';
+import { LibraryService, SortColumn, trackTitle } from '../../core/services/library.service';
+import { t } from '../../core/i18n/i18n';
 import { TPipe } from '../../core/i18n/t.pipe';
 import { camelotHue, camelotMajor } from '../../shared/camelot';
 import { decimal, deckLetter } from '../../shared/time';
+import { LIST_LABEL } from '../library/list-labels';
+import { TrackMenu } from '../library/track-menu/track-menu';
+import { COLUMNS } from '../library/track-table/columns';
 
 /** Height of a row: a finger's. */
 const ROW_PX = 52;
 /** Rows drawn beyond the view, each way. */
 const OVERSCAN = 6;
 
+/** What the tracks can be ordered by, as the columns of the table name it. */
+const SORTS: readonly { sort: SortColumn; name: string }[] = COLUMNS.flatMap((c) =>
+  c.sort ? [{ sort: c.sort, name: c.name }] : [],
+);
+const LIST_ORDER = { sort: 'order', name: t('Order of the list') } as const;
+
 type Row =
   { kind: 'folder'; name: string; path: string; up: boolean } | { kind: 'track'; track: DirEntry };
 
 /**
- * The tracks on a phone: a search, then the folders of the folder being browsed and its
- * tracks, each with a button per deck to load it. Only the rows in view are drawn.
+ * The tracks on a phone: a search, where it looks and the order, then the folders of the
+ * folder being browsed and its tracks, each with a button per deck to load it; touched, a
+ * track opens what can be done with it. Only the rows in view are drawn.
  */
 @Component({
   selector: 'app-phone-tracks',
   templateUrl: './phone-tracks.html',
   styleUrl: './phone-tracks.scss',
-  imports: [TPipe],
+  imports: [TPipe, TrackMenu],
 })
 export class PhoneTracks {
   protected readonly library = inject(LibraryService);
@@ -63,6 +74,16 @@ export class PhoneTracks {
     ...this.library.visibleTracks().map((track): Row => ({ kind: 'track', track })),
   ]);
   protected readonly empty = computed(() => this.rows().length === 0);
+  protected readonly listLabel = computed(() => LIST_LABEL[this.library.source().kind]);
+  protected readonly sorts = computed(() =>
+    this.library.ordered() ? [LIST_ORDER, ...SORTS] : SORTS,
+  );
+  /** The track whose menu is open. */
+  protected readonly menu = signal<string | null>(null);
+  protected readonly menuPaths = computed(() => {
+    const path = this.menu();
+    return path ? [path] : [];
+  });
   protected readonly window = computed(() => {
     const rows = this.rows();
     const first = Math.max(0, Math.floor(this.scrollTop() / ROW_PX) - OVERSCAN);

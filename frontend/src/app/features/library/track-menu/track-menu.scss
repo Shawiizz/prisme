@@ -98,3 +98,12 @@
     padding: 2px var(--pr-space-2) 2px;
   }
 }
+
+// on a phone: lines the height of a finger
+:host-context(app-phone-tracks) .menu {
+  button,
+  .empty {
+    min-height: 44px;
+    font-size: 14px;
+  }
+}

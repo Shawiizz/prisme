@@ -1,30 +1,14 @@
 import { Component, ElementRef, computed, effect, inject, signal, viewChild } from '@angular/core';
 import { EngineService } from '../../core/services/engine.service';
-import { LibraryService, TrackSource } from '../../core/services/library.service';
+import { LibraryService } from '../../core/services/library.service';
 import { StemsService } from '../../core/services/stems.service';
 import { ImportDialog } from './import-dialog/import-dialog';
 import { LibrarySidebar } from './library-sidebar/library-sidebar';
 import { TrackTable } from './track-table/track-table';
-import { t } from '../../core/i18n/i18n';
 import { TPipe } from '../../core/i18n/t.pipe';
 import { deckLetter } from '../../shared/time';
 import { CTRL } from '../../core/keyboard/shortcuts';
-
-const LIST_LABEL: Record<TrackSource['kind'], string> = {
-  folder: t('Folder'),
-  crate: t('Crate'),
-  history: t('Set'),
-  prepare: t('Prepare'),
-  duplicates: t('Duplicates'),
-};
-/** Whole sentences: the words around the list's name change with it in other languages. */
-const SEARCH_PLACEHOLDER: Record<TrackSource['kind'], string> = {
-  folder: t('Search in this folder'),
-  crate: t('Search in this crate'),
-  history: t('Search in this set'),
-  prepare: t('Search in the prepare list'),
-  duplicates: t('Search in the duplicates'),
-};
+import { LIST_LABEL, SEARCH_PLACEHOLDER } from './list-labels';
 
 /** Crates, history and folders (left); search, analysis progress and tracks (right). */
 @Component({

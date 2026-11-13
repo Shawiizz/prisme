@@ -30,6 +30,9 @@
       <section class="decks">
         @for (deck of decks(); track deck) {
           <app-phone-deck [deck]="deck" />
+          @if (deck === 0) {
+            <app-phase-strip />
+          }
         }
       </section>
       <app-phone-tracks />
@@ -39,9 +42,15 @@
     }
     @case ('crates') {
       <app-library-sidebar />
+      <button class="pr-btn import" (click)="importing.set(true)">
+        {{ 'Import from Serato or rekordbox' | t }}
+      </button>
     }
   }
 </main>
+@if (importing()) {
+  <app-import-dialog (closed)="importing.set(false)" />
+}
 
 <nav class="tabs">
   @for (item of tabs; track item.id) {

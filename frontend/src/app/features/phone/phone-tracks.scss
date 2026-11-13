@@ -10,6 +10,30 @@
   height: var(--pr-h-lg);
   margin: 8px 12px;
 }
+.tools {
+  flex: none;
+  display: flex;
+  gap: 8px;
+  margin: 0 12px 8px;
+  .pr-seg {
+    flex: none;
+  }
+  .pr-select {
+    flex: 1;
+    min-width: 0;
+  }
+  .direction {
+    flex: none;
+    width: var(--pr-h);
+    padding: 0;
+  }
+}
+.progress {
+  flex: none;
+  margin: 0 12px 6px;
+  font-size: var(--pr-size-small);
+  color: var(--pr-text-2);
+}
 .list {
   flex: 1;
   min-height: 0;
@@ -75,4 +99,25 @@
 .again {
   height: var(--pr-h-lg);
   margin: 0 12px;
+}
+
+// what can be done with a track, risen from the bottom
+.backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  background: rgb(0 0 0 / 0.5);
+}
+app-track-menu.sheet {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 21;
+  max-width: none;
+  max-height: 75%;
+  overflow-y: auto;
+  padding: 8px 8px calc(8px + env(safe-area-inset-bottom));
+  background: var(--pr-base);
+  border-top: 1px solid var(--pr-line-2);
 }

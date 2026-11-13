@@ -276,6 +276,7 @@
 }
 .pr-dialog {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   grid-template-rows: auto minmax(0, 1fr) auto;
   width: min(720px, calc(100vw - 48px));
   max-height: calc(100vh - 96px);

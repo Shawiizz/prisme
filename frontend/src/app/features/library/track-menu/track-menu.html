@@ -16,25 +16,27 @@
       <hr />
       <button role="menuitem" class="more" (click)="show('color')">{{ 'Colour' | t }}</button>
       <button role="menuitem" class="more" (click)="show('genre')">{{ 'Genre' | t }}</button>
-      <hr />
-      @if (stems.reach() === 'none') {
-        <button
-          role="menuitem"
-          (click)="installModel()"
-          [title]="'The separation models are downloaded once, in the settings' | t"
-        >
-          {{ 'Separate the stems…' | t }}
-        </button>
-      } @else {
-        <button role="menuitem" [disabled]="toSeparate().length === 0" (click)="separate()">
-          @if (paths().length > 1 && toSeparate().length > 0) {
-            {{ 'Separate the stems ({n})' | t: { n: toSeparate().length } }}
-          } @else if (toSeparate().length === 0) {
-            {{ 'Stems separated' | t }}
-          } @else {
-            {{ 'Separate the stems' | t }}
-          }
-        </button>
+      @if (!PHONE) {
+        <hr />
+        @if (stems.reach() === 'none') {
+          <button
+            role="menuitem"
+            (click)="installModel()"
+            [title]="'The separation models are downloaded once, in the settings' | t"
+          >
+            {{ 'Separate the stems…' | t }}
+          </button>
+        } @else {
+          <button role="menuitem" [disabled]="toSeparate().length === 0" (click)="separate()">
+            @if (paths().length > 1 && toSeparate().length > 0) {
+              {{ 'Separate the stems ({n})' | t: { n: toSeparate().length } }}
+            } @else if (toSeparate().length === 0) {
+              {{ 'Stems separated' | t }}
+            } @else {
+              {{ 'Separate the stems' | t }}
+            }
+          </button>
+        }
       }
       @if (library.removable()) {
         <hr />

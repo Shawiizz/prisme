@@ -8,6 +8,8 @@ import { SettingsService } from '../../core/services/settings.service';
 import { t } from '../../core/i18n/i18n';
 import { TPipe } from '../../core/i18n/t.pipe';
 import { decimal, formatClock } from '../../shared/time';
+import { PhaseStrip } from '../deck/phase-strip/phase-strip';
+import { ImportDialog } from '../library/import-dialog/import-dialog';
 import { LibrarySidebar } from '../library/library-sidebar/library-sidebar';
 import { PhoneControls } from './phone-controls';
 import { PhoneDeck } from './phone-deck';
@@ -25,7 +27,7 @@ type Tab = 'mix' | 'controls' | 'crates';
   selector: 'app-phone',
   templateUrl: './phone.html',
   styleUrl: './phone.scss',
-  imports: [LibrarySidebar, PhoneControls, PhoneDeck, PhoneTracks, TPipe],
+  imports: [ImportDialog, LibrarySidebar, PhaseStrip, PhoneControls, PhoneDeck, PhoneTracks, TPipe],
 })
 export class Phone {
   protected readonly engine = inject(EngineService);
@@ -36,6 +38,7 @@ export class Phone {
 
   protected readonly decks = this.engine.deckIndexes;
   protected readonly tab = signal<Tab>('mix');
+  protected readonly importing = signal(false);
   protected readonly tabs: { id: Tab; label: string }[] = [
     { id: 'mix', label: t('Mix') },
     { id: 'controls', label: t('Controls') },
