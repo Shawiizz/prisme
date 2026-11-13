@@ -1,6 +1,11 @@
 [env]
 # libclang for the bindings of the C++ libraries (bindgen); installed by scripts/setup-dev
 LIBCLANG_PATH = { value = ".tools/libclang/clang/native", relative = true }
+# Android: the C++ runtime inside the library, as on Windows
+CXXSTDLIB_aarch64_linux_android = "c++_static"
+CXXSTDLIB_armv7_linux_androideabi = "c++_static"
+CXXSTDLIB_x86_64_linux_android = "c++_static"
+CXXSTDLIB_i686_linux_android = "c++_static"
 
 # The C and C++ runtimes inside the executable: a computer without the Visual C++
 # redistributable runs it too (the ASIO SDK and the key lock are C++)

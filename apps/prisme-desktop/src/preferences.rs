@@ -150,7 +150,8 @@ impl Default for LibraryPreferences {
         Self {
             last_folder: None,
             hidden_columns: Vec::new(),
-            write_tags: true,
+            // a phone lets an application read the music of the others, not rewrite it
+            write_tags: cfg!(desktop),
             replace_tags: false,
             pause_while_playing: true,
             separate_on_load: None,

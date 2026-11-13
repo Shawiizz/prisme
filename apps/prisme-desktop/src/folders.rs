@@ -7,11 +7,18 @@ use std::path::{Path, PathBuf};
 /// The user's music folder: where Windows keeps it (moved to another drive, a NAS or
 /// OneDrive as well), else `Music` in the home folder. Never the home folder itself, whose
 /// scan would read the whole profile. Not looked at: a NAS offline would hold the start for
-/// as long as the network waits.
+/// as long as the network waits. On a phone: the music folder Android shares between
+/// applications, and on iOS the documents of Prisme, which the Files application fills.
 pub fn music_root() -> PathBuf {
-    dirs::audio_dir()
-        .or_else(|| dirs::home_dir().map(|home| home.join("Music")))
-        .unwrap_or_else(|| PathBuf::from("Music"))
+    if cfg!(target_os = "android") {
+        return PathBuf::from("/storage/emulated/0/Music");
+    }
+    let home =
+        |folder: &str| dirs::home_dir().map_or_else(|| PathBuf::from(folder), |home| home.join(folder));
+    if cfg!(target_os = "ios") {
+        return home("Documents");
+    }
+    dirs::audio_dir().unwrap_or_else(|| home("Music"))
 }
 
 /// Sub-folders and playable files of `dir`, sorted by name (hidden entries skipped).

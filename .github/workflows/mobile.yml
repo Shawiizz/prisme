@@ -20,7 +20,8 @@ jobs:
       - name: The headers of the simulator, for the bindings
         run: |
           sdk=$(xcrun --sdk iphonesimulator --show-sdk-path)
-          echo "BINDGEN_EXTRA_CLANG_ARGS_aarch64_apple_ios_sim=-isysroot $sdk" >> "$GITHUB_ENV"
+          compiler=$(xcrun clang -print-resource-dir)/include
+          echo "BINDGEN_EXTRA_CLANG_ARGS_aarch64_apple_ios_sim=-isysroot $sdk -isystem $compiler" >> "$GITHUB_ENV"
       - name: Frontend build
         working-directory: frontend
         run: pnpm build
