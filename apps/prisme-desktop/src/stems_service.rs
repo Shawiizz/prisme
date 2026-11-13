@@ -130,11 +130,15 @@ struct Download {
 /// The graphics card could not be opened, or failed twice: the separation runs on the CPU.
 static GPU_GAVE_UP: AtomicBool = AtomicBool::new(false);
 
+/// The graphics chip of a phone is left alone for now: the models were sized for the card
+/// of a computer.
+const USES_GPU: bool = cfg!(desktop);
+
 /// Whether a graphics card can separate: one is there (looked for once, which takes a
 /// moment: not from the window's thread) and did not give up since.
 pub fn has_gpu() -> bool {
     static HAS_GPU: OnceLock<bool> = OnceLock::new();
-    *HAS_GPU.get_or_init(Gpu::available) && !GPU_GAVE_UP.load(Ordering::Relaxed)
+    USES_GPU && *HAS_GPU.get_or_init(Gpu::available) && !GPU_GAVE_UP.load(Ordering::Relaxed)
 }
 
 /// Whether tracks are separated as they are loaded or prepared: as the DJ chose, else with
@@ -439,7 +443,11 @@ impl Worker {
         let _stopped = Stopped { id: self.id, app: self.app.clone(), queue: self.queue.clone() };
         let mut separators: Vec<Option<BoxedSeparator>> = (0..MODELS.len()).map(|_| None).collect();
         let open_gpu = || {
-            let gpu = Gpu::open(Default::default()).inspect_err(|e| warn!("separating on the CPU: {e}")).ok();
+            let gpu = USES_GPU
+                .then(|| {
+                    Gpu::open(Default::default()).inspect_err(|e| warn!("separating on the CPU: {e}")).ok()
+                })
+                .flatten();
             GPU_GAVE_UP.store(gpu.is_none(), Ordering::Relaxed);
             gpu
         };
