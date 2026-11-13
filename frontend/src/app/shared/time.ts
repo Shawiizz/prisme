@@ -35,3 +35,10 @@ export function formatSpeed(speed: number): string {
 export function deckLetter(deck: number): string {
   return String.fromCharCode(65 + deck);
 }
+
+/** How long something has run: `1:02:05` or `12:34`. */
+export function formatClock(seconds: number): string {
+  const s = Math.floor(seconds);
+  const mmss = `${String(Math.floor(s / 60) % 60).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`;
+  return s >= 3600 ? `${Math.floor(s / 3600)}:${mmss}` : mmss;
+}

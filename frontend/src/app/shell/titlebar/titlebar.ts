@@ -10,7 +10,7 @@ import { NavigationService } from '../../core/services/navigation.service';
 import { t } from '../../core/i18n/i18n';
 import { TPipe } from '../../core/i18n/t.pipe';
 import { AudioBackend, BACKEND_NAMES } from '../../core/models/audio';
-import { decimal } from '../../shared/time';
+import { decimal, formatClock } from '../../shared/time';
 import { levelSegments } from '../../shared/level';
 import { CTRL, MAC } from '../../core/keyboard/shortcuts';
 
@@ -37,7 +37,7 @@ export class Titlebar {
     return last
       ? t('Last recording: {path} ({time}, {tracks} tracks)', {
           path: last.path,
-          time: this.clock(last.seconds),
+          time: formatClock(last.seconds),
           tracks: last.tracks,
         })
       : t('Record the mix (WAV and tracklist in Documents/Prisme Recordings)');
@@ -59,12 +59,7 @@ export class Titlebar {
     return BACKEND_NAMES[backend];
   }
 
-  /** `1:02:05` or `12:34`. */
-  clock(seconds: number): string {
-    const s = Math.floor(seconds);
-    const mmss = `${String(Math.floor(s / 60) % 60).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`;
-    return s >= 3600 ? `${Math.floor(s / 3600)}:${mmss}` : mmss;
-  }
+  protected readonly clock = formatClock;
 
   private readonly window = getCurrentWindow();
 

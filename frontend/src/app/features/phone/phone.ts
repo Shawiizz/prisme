@@ -3,10 +3,11 @@ import { BACKEND_NAMES } from '../../core/models/audio';
 import { EngineService } from '../../core/services/engine.service';
 import { LibraryService } from '../../core/services/library.service';
 import { NavigationService } from '../../core/services/navigation.service';
+import { RecordingService } from '../../core/services/recording.service';
 import { SettingsService } from '../../core/services/settings.service';
 import { t } from '../../core/i18n/i18n';
 import { TPipe } from '../../core/i18n/t.pipe';
-import { decimal } from '../../shared/time';
+import { decimal, formatClock } from '../../shared/time';
 import { LibrarySidebar } from '../library/library-sidebar/library-sidebar';
 import { PhoneControls } from './phone-controls';
 import { PhoneDeck } from './phone-deck';
@@ -29,6 +30,7 @@ type Tab = 'mix' | 'controls' | 'crates';
 export class Phone {
   protected readonly engine = inject(EngineService);
   protected readonly navigation = inject(NavigationService);
+  protected readonly recording = inject(RecordingService);
   private readonly library = inject(LibraryService);
   private readonly settings = inject(SettingsService);
 
@@ -49,6 +51,8 @@ export class Phone {
     return [BACKEND_NAMES[info.backend], info.device, ...period].join(' · ');
   });
 
+  protected readonly clock = formatClock;
+
   constructor() {
     // a list chosen among the crates is shown where the tracks are
     effect(() => {
@@ -56,5 +60,11 @@ export class Phone {
       this.library.listing();
       if (untracked(this.tab) === 'crates') this.tab.set('mix');
     });
+  }
+
+  /** Records what the phone offers first: the master of its software mixer. */
+  protected record() {
+    const [first] = this.recording.options();
+    if (first) this.recording.start(first.source);
   }
 }

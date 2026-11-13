@@ -10,6 +10,15 @@
         : ('audio stopped' | t)
     }}</span>
   }
+  @if (recording.status(); as r) {
+    <button class="pr-btn pr-btn--sm pr-btn--rec is-on" (click)="recording.stop()">
+      <span class="pr-btn__dot"></span><span class="pr-num">{{ clock(r.seconds) }}</span>
+    </button>
+  } @else if (recording.options().length) {
+    <button class="pr-btn pr-btn--sm pr-btn--ghost pr-btn--rec" (click)="record()">
+      <span class="pr-btn__dot"></span>{{ 'Rec' | t }}
+    </button>
+  }
 </header>
 
 <main class="screen" [class]="tab()">
