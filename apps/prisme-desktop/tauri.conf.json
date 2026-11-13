@@ -18,7 +18,8 @@
         "minHeight": 640,
         "decorations": false,
         "center": true,
-        "dragDropEnabled": false
+        "dragDropEnabled": false,
+        "backgroundColor": "#0a0b0d"
       }
     ],
     "security": { "csp": null }
