@@ -626,13 +626,46 @@
                   </button>
                 </div>
               }
+              @if (row('library.stemsFast')) {
+                @let e = entry('library.stemsFast');
+                <div
+                  class="pr-row"
+                  data-setting="library.stemsFast"
+                  [class.is-pointed]="pointed() === e.id"
+                >
+                  <div>
+                    <span class="pr-row__name">{{ e.label }}</span>
+                    <span class="pr-row__help">{{ e.description }}</span>
+                  </div>
+                  <div class="pr-seg pr-seg--lg" role="radiogroup" [attr.aria-label]="e.label">
+                    <button
+                      role="radio"
+                      [attr.aria-checked]="!stemsFast()"
+                      (click)="setStemsFast(false)"
+                    >
+                      {{ 'Quality' | t }}
+                    </button>
+                    <button
+                      role="radio"
+                      [attr.aria-checked]="stemsFast()"
+                      (click)="setStemsFast(true)"
+                    >
+                      {{ 'Fast' | t }}
+                    </button>
+                  </div>
+                </div>
+              }
               @for (
                 m of [
-                  { id: 'library.stemsModel', model: stems.vocalsModel(), ready: true },
+                  {
+                    id: 'library.stemsModel',
+                    model: stemsFast() ? stems.vocalsFastModel() : stems.vocalsModel(),
+                    ready: true,
+                  },
                   {
                     id: 'library.stemsDrumsBass',
                     model: stems.drumsBassModel(),
-                    ready: stems.vocalsModel().installed,
+                    ready: stems.vocalsReady(),
                   },
                 ];
                 track m.id

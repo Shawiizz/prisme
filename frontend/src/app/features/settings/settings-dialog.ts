@@ -279,6 +279,12 @@ export class SettingsDialog implements OnInit {
     () => (this.stems.gpu() ?? false) && this.preferences.library().stemsGpu,
   );
 
+  protected readonly stemsFast = computed(() => this.preferences.library().stemsFast);
+
+  setStemsFast(stemsFast: boolean) {
+    void this.preferences.updateLibrary({ stemsFast });
+  }
+
   setStemsGpu(stemsGpu: boolean) {
     void this.preferences.updateLibrary({ stemsGpu });
   }

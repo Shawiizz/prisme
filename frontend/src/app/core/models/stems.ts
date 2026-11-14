@@ -31,8 +31,9 @@ export interface StemsProgress {
   device: string | null;
 }
 
-/** The two separation models: the vocals one, then the drums and bass one. */
-export type ModelId = 'vocals' | 'drums-bass';
+/** The separation models: the vocals one, the drums and bass one, and a small vocals one,
+ * faster. */
+export type ModelId = 'vocals' | 'drums-bass' | 'vocals-fast';
 
 /** A separation model: installed, or how far its download is (0 to 1). */
 export interface ModelStatus {

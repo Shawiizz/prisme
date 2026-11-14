@@ -31,6 +31,8 @@ export interface LibraryPreferences {
   stemsOnLoad: boolean | null;
   /** The separation runs on the graphics chip when there is one worth it. */
   stemsGpu: boolean;
+  /** The small separation models, faster, rather than the large ones. */
+  stemsFast: boolean;
 }
 
 export interface Preferences {

@@ -1,5 +1,6 @@
 import { Injectable, signal } from '@angular/core';
 import { invoke } from '@tauri-apps/api/core';
+import { PHONE } from '../platform';
 import { DjPreferences, LibraryPreferences, Preferences } from '../models/preferences';
 
 /** Preferences kept by the backend from one start to the next. */
@@ -21,6 +22,7 @@ export class PreferencesService {
     pauseWhilePlaying: true,
     stemsOnLoad: null,
     stemsGpu: true,
+    stemsFast: PHONE,
   });
 
   async load(): Promise<void> {

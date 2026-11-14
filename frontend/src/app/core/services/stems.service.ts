@@ -39,6 +39,11 @@ export class StemsService {
 
   readonly vocalsModel = signal<ModelStatus>(MISSING('vocals'));
   readonly drumsBassModel = signal<ModelStatus>(MISSING('drums-bass'));
+  readonly vocalsFastModel = signal<ModelStatus>(MISSING('vocals-fast'));
+  /** A model for the vocals is there, large or small. */
+  readonly vocalsReady = computed(
+    () => this.vocalsModel().installed || this.vocalsFastModel().installed,
+  );
   readonly progress = signal<StemsProgress>(IDLE);
   /** Whether a graphics card can separate; `null` until known. */
   readonly gpu = signal<boolean | null>(null);
@@ -48,7 +53,7 @@ export class StemsService {
 
   /** How far the installed models separate a track. */
   readonly reach = computed<Separation>(() => {
-    if (!this.vocalsModel().installed) return 'none';
+    if (!this.vocalsReady()) return 'none';
     return this.drumsBassModel().installed ? 'full' : 'vocals';
   });
 
@@ -79,7 +84,7 @@ export class StemsService {
   }
 
   downloadModel(id: ModelId) {
-    const model = id === 'vocals' ? this.vocalsModel : this.drumsBassModel;
+    const model = this.model(id);
     model.update((m) => ({ ...m, downloading: m.downloading ?? 0, error: null }));
     return this.call('download_stems_model', { id });
   }
@@ -99,7 +104,15 @@ export class StemsService {
   }
 
   private setModel(status: ModelStatus) {
-    (status.id === 'vocals' ? this.vocalsModel : this.drumsBassModel).set(status);
+    this.model(status.id).set(status);
+  }
+
+  private model(id: ModelId) {
+    return {
+      vocals: this.vocalsModel,
+      'drums-bass': this.drumsBassModel,
+      'vocals-fast': this.vocalsFastModel,
+    }[id];
   }
 
   private onProgress(progress: StemsProgress) {

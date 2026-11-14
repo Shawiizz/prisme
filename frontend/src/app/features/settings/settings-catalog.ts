@@ -321,6 +321,18 @@ const ALL_SETTINGS: readonly SettingEntry[] = [
     },
   },
   {
+    id: 'library.stemsFast',
+    page: 'library',
+    get label() {
+      return t('Separation');
+    },
+    get description() {
+      return t(
+        'Quality: the large models, the cleanest stems. Fast: a model a seventh of the size for the vocals, two to three times faster, for a phone or a computer without a graphics card worth it.',
+      );
+    },
+  },
+  {
     id: 'library.stemsModel',
     page: 'library',
     get label() {

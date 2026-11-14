@@ -137,6 +137,8 @@ pub struct LibraryPreferences {
     /// The separation runs on the graphics chip when there is one worth it (else on the
     /// processor alone, minutes a track).
     pub stems_gpu: bool,
+    /// The small separation models, faster, rather than the large ones (a phone's default).
+    pub stems_fast: bool,
 }
 
 impl LibraryPreferences {
@@ -165,6 +167,7 @@ impl Default for LibraryPreferences {
             separate_on_load: None,
             separate_on_load_before: None,
             stems_gpu: true,
+            stems_fast: cfg!(mobile),
         }
     }
 }

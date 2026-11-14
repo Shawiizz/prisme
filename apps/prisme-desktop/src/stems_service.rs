@@ -58,9 +58,11 @@ struct Model {
     bytes: u64,
     /// What it separates, in the order of its masks.
     stems: &'static [Stem],
+    /// A small model, faster, for stems a large one separates too.
+    fast: bool,
 }
 
-const MODELS: [Model; 2] = [
+const MODELS: [Model; 3] = [
     // the Mel-Band RoFormer vocals model of Kimberley Jensen (MIT licence)
     Model {
         id: "vocals",
@@ -69,6 +71,7 @@ const MODELS: [Model; 2] = [
         sha256: "90397548e9e427b2645ba33a71f5e3de3f1e01997f7c28fc4b0914fee7ba21ee",
         bytes: 456_488_724,
         stems: &[Stem::Vocals],
+        fast: false,
     },
     // the drums and bass of SYH99999's four-stem Mel-Band RoFormer (Apache 2.0 licence),
     // `--stems drums,bass --overlap 4`
@@ -79,8 +82,34 @@ const MODELS: [Model; 2] = [
         sha256: "b25942f2582deaac642b87697fff71a4a7e980358b85f27e5f8a00709944e3c1",
         bytes: 978_627_756,
         stems: &[Stem::Drums, Stem::Bass],
+        fast: false,
+    },
+    // Roman Solovyev's (ZFTurbo) small Mel-Band RoFormer for the vocals, a seventh of the
+    // first one (MIT licence): two to three times faster, for a phone or a computer without
+    // a graphics card worth it
+    Model {
+        id: "vocals-fast",
+        file: "roformer-vocals-small-f16-1.safetensors",
+        url: "https://github.com/Shawiizz/prisme/releases/download/model-roformer-vocals-small-1/roformer-vocals-small-f16-1.safetensors",
+        sha256: "538ffb5aff5a4802fc6e5f03d1988ea06ef9843b7fd5bd402e4624ec678539ef",
+        bytes: 67_424_044,
+        stems: &[Stem::Vocals],
+        fast: true,
     },
 ];
+
+/// Of the installed models, those the separation uses: for stems two of them separate (the
+/// vocals), the one the DJ prefers if it is there (`fast`: the smaller), else the other.
+fn in_use(installed: &[usize], fast: bool) -> Vec<usize> {
+    installed
+        .iter()
+        .copied()
+        .filter(|&m| {
+            let rival = installed.iter().any(|&r| r != m && MODELS[r].stems == MODELS[m].stems);
+            !rival || MODELS[m].fast == fast
+        })
+        .collect()
+}
 
 pub struct StemsService {
     app: AppHandle,
@@ -152,6 +181,11 @@ pub fn has_gpu(state: &AppState) -> bool {
     gpu_allowed(state) && gpu_found() && !GPU_GAVE_UP.load(Ordering::Relaxed)
 }
 
+/// Whether the DJ prefers the small models, faster, to the large ones.
+fn prefers_fast(state: &AppState) -> bool {
+    state.preferences.read(|p| p.library.stems_fast)
+}
+
 /// Whether tracks are separated as they are loaded or prepared: as the DJ chose, else with
 /// a graphics card only (the processor alone takes minutes a track, on all its cores).
 pub fn separates_on_load(state: &AppState) -> bool {
@@ -182,8 +216,10 @@ impl StemsService {
         self.folder.join(MODELS[model].file)
     }
 
+    /// The installed models the separation uses (see [`in_use`]).
     fn installed(&self) -> Vec<usize> {
-        (0..MODELS.len()).filter(|&m| self.model_path(m).is_file()).collect()
+        let installed: Vec<usize> = (0..MODELS.len()).filter(|&m| self.model_path(m).is_file()).collect();
+        in_use(&installed, prefers_fast(&self.app.state::<AppState>()))
     }
 
     fn model_status(&self, model: usize) -> ModelStatusDto {
@@ -478,6 +514,7 @@ impl Worker {
                 gpu = if allowed() { open_gpu() } else { None };
             }
             let installed: Vec<usize> = (0..MODELS.len()).filter(|&m| self.models[m].is_file()).collect();
+            let installed = in_use(&installed, prefers_fast(&self.app.state::<AppState>()));
             let needed = missing(&installed, &job.path);
             if needed.is_empty() {
                 continue;
@@ -885,4 +922,25 @@ fn tell(app: &AppHandle, deck: usize, load_id: u64, separation: SeparationDto) {
         separation: Some(separation),
     };
     let _ = app.emit(DECK_TRACK_UPDATE_EVENT, update);
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    const VOCALS: usize = 0;
+    const DRUMS_BASS: usize = 1;
+    const VOCALS_FAST: usize = 2;
+
+    #[test]
+    fn the_vocals_come_from_the_model_preferred_when_both_are_there() {
+        assert_eq!(in_use(&[VOCALS, DRUMS_BASS, VOCALS_FAST], false), [VOCALS, DRUMS_BASS]);
+        assert_eq!(in_use(&[VOCALS, DRUMS_BASS, VOCALS_FAST], true), [DRUMS_BASS, VOCALS_FAST]);
+    }
+
+    #[test]
+    fn else_from_the_one_there() {
+        assert_eq!(in_use(&[VOCALS], true), [VOCALS]);
+        assert_eq!(in_use(&[DRUMS_BASS, VOCALS_FAST], false), [DRUMS_BASS, VOCALS_FAST]);
+    }
 }
