@@ -17,6 +17,9 @@ import { PhoneSettings } from './phone-settings';
 
 type Tab = 'decks' | 'library' | 'settings';
 
+/** What Android hears from the page: while a deck plays, the sound goes on out of sight. */
+const android = (window as { prismeDecks?: { playing(playing: boolean): void } }).prismeDecks;
+
 /**
  * Prisme on a phone: the decks, the library and the settings, a screen each. The decks
  * follow what is plugged in: a controller, or records through a sound card, and they only
@@ -80,6 +83,10 @@ export class Phone {
   private readonly chosen = signal<boolean | null>(null);
   protected readonly touch = computed(() => this.chosen() ?? !this.hardware());
 
+  private readonly playing = computed(
+    () => this.engine.status()?.decks.some((d) => d.playing) ?? false,
+  );
+
   protected readonly clock = formatClock;
 
   constructor() {
@@ -87,6 +94,7 @@ export class Phone {
     document.addEventListener('visibilitychange', () => {
       void invoke('set_hidden', { hidden: document.hidden });
     });
+    effect(() => android?.playing(this.playing()));
     // a page of the settings asked for from elsewhere is shown on their screen
     effect(() => {
       if (this.navigation.settings()) this.tab.set('settings');
