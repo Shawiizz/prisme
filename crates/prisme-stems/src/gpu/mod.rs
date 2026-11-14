@@ -17,7 +17,7 @@ use std::sync::{Arc, Mutex};
 
 use wgpu::util::DeviceExt;
 
-use crate::model::{Config, Geometry, Linear, Weights};
+use crate::model::{Config, Geometry, Linear, Values, Weights};
 use crate::network::{Axis, MaskNetwork};
 use crate::StemsError;
 
@@ -139,8 +139,12 @@ struct Params {
     /// Per stem, per band.
     masks: Vec<Vec<Vec<GpuLinear>>>,
     no_bias: wgpu::Buffer,
+    /// The widest hidden features of a feed-forward, as stored.
     ff_hidden: usize,
     mask_hidden: usize,
+    /// On the shader cores, the first product of each gated feed-forward gives its hidden
+    /// features itself ([`Act::Gated`]).
+    gated_products: bool,
 }
 
 struct GpuLinear {
@@ -215,6 +219,9 @@ enum Act {
     None = 0,
     Gelu = 1,
     Tanh = 2,
+    /// `gelu(gate) * value` of the columns in groups of 4 gates then their 4 values
+    /// ([`gates_beside_values`]), half as many: on the shader cores' blocked products only.
+    Gated = 3,
 }
 
 impl Gpu {
@@ -863,6 +870,11 @@ impl Pipelines {
 
 impl Params {
     fn upload(device: &wgpu::Device, w: &Weights, matrix: bool) -> Self {
+        let c = &w.geometry.config;
+        let layers = || w.transformers.iter().flat_map(|t| &t.layers);
+        // the blocked products read the norms of the stream four values at a time
+        let gated_products =
+            !matrix && c.ff_glu && c.dim.is_multiple_of(4) && layers().all(|l| l.ff1.out.is_multiple_of(8));
         let linear = |l: &Linear| {
             // the matrix units read rows of whole groups of 4, which the networks they run
             // have (`fits_matrix_units`); the shader cores read pairs of values,
@@ -886,14 +898,18 @@ impl Params {
                     .map(|l| GpuLayer {
                         qkvg: linear(&l.qkvg),
                         out: linear(&l.out),
-                        ff1: linear(&l.ff1),
+                        ff1: if gated_products {
+                            linear(&gates_beside_values(&l.ff1))
+                        } else {
+                            linear(&l.ff1)
+                        },
                         ff2: linear(&l.ff2),
                     })
                     .collect();
                 (layers, tr.norm.as_ref().map(|n| storage(device, bytemuck::cast_slice(n))))
             })
             .collect();
-        let ff_hidden = w.transformers.iter().flat_map(|t| &t.layers).map(|l| l.ff1.out).max().unwrap_or(0);
+        let ff_hidden = layers().map(|l| l.ff1.out / if gated_products { 2 } else { 1 }).max().unwrap_or(0);
         let mask_hidden = w
             .masks
             .iter()
@@ -917,7 +933,24 @@ impl Params {
             no_bias: storage(device, bytemuck::cast_slice(&[0.0f32; 4])),
             ff_hidden,
             mask_hidden,
+            gated_products,
         }
+    }
+}
+
+/// The first product of a gated feed-forward, its `out / 2` gates then their values, with its
+/// rows in groups of 4 gates then their 4 values: the columns of a thread of
+/// `matmul_blocked.wgsl`, which then gives `gelu(gate) * value` itself.
+fn gates_beside_values(l: &Linear) -> Linear {
+    let half = l.out / 2;
+    let rows: Vec<usize> =
+        (0..half).step_by(4).flat_map(|g| (g..g + 4).chain(half + g..half + g + 4)).collect();
+    let weight = l.weight.to_f16();
+    Linear {
+        weight: Values::F16(rows.iter().flat_map(|&r| &weight[r * l.inp..][..l.inp]).copied().collect()),
+        bias: l.bias.as_ref().map(|b| rows.iter().map(|&r| b[r]).collect()),
+        out: l.out,
+        inp: l.inp,
     }
 }
 
@@ -1033,8 +1066,11 @@ impl Planner<'_> {
                 let input = Input { buffer: &attended, store: Store::Act, ld: c.inner_dim(), off: 0 };
                 steps.extend(self.matmul(&l.out, input, tokens, x_rows, Act::None, true));
                 steps.push(self.norm(&x, &normed, tokens, c.dim, (c.dim, 0), (c.dim, 0)));
-                let into = Input { buffer: &hidden, store: Store::Act, ld: l.ff1.out, off: 0 };
-                if c.ff_glu {
+                let width = if p.gated_products { l.ff1.out / 2 } else { l.ff1.out };
+                let into = Input { buffer: &hidden, store: Store::Act, ld: width, off: 0 };
+                if p.gated_products {
+                    steps.extend(self.matmul(&l.ff1, normed_in, tokens, into, Act::Gated, false));
+                } else if c.ff_glu {
                     steps.extend(self.matmul(&l.ff1, normed_in, tokens, into, Act::None, false));
                     steps.push(self.geglu(&hidden, tokens, l.ff1.out / 2));
                 } else {
@@ -1182,7 +1218,10 @@ impl Planner<'_> {
         let aligned = l.inp % 4 == 0 && a.ld % 4 == 0 && a.off % 4 == 0;
         let (pipeline, tile) = match pipelines.blocked.as_ref().filter(|_| aligned) {
             Some(blocked) => (blocked, BLOCKED_TILE),
-            None => (pipelines.matmul(a.store, out.store), pipelines.matmul_tile),
+            None => {
+                assert!(!matches!(act, Act::Gated), "the gated products are blocked");
+                (pipelines.matmul(a.store, out.store), pipelines.matmul_tile)
+            }
         };
         let groups = (l.out.div_ceil(tile) as u32, rows.div_ceil(tile) as u32);
         let uniform = [
