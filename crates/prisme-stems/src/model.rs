@@ -29,8 +29,9 @@ pub struct Config {
     pub chunk_frames: usize,
     /// Each transformer pair also takes the sum of the outputs of the pairs before it.
     pub skip: bool,
-    /// How many chunks cover each sample of a track: 1 cuts it back to back.
-    pub overlap: usize,
+    /// How many chunks cover each sample of a track, on average: 1 cuts it back to back, 2
+    /// starts a chunk halfway through the one before, 8/7 an eighth from its end.
+    pub overlap: f64,
     /// Added to the mean square under the RMS norms' root; without it, they only keep off zero.
     pub norm_eps: f32,
     /// The first product of each feed-forward gives a gate and a value per hidden feature,
@@ -245,13 +246,13 @@ impl Weights {
             sample_rate: file.meta("sample_rate")?,
             chunk_frames: file.meta("chunk_frames")?,
             skip: file.meta_or("skip_connection", 0u8)? == 1,
-            overlap: file.meta_or("overlap", 1)?,
+            overlap: file.meta_or("overlap", 1.0)?,
             norm_eps: file.meta_or("norm_eps", 0.0)?,
             ff_glu: file.meta_or("ff_glu", 0u8)? == 1,
             mask_glu: file.meta_or("mask_glu", 1u8)? == 1,
             registers: file.meta_or("registers", 0)?,
         };
-        if config.overlap == 0 || config.overlap > config.chunk_samples() {
+        if !(1.0..=config.chunk_samples() as f64).contains(&config.overlap) {
             return Err(StemsError::Model("overlap out of range".into()));
         }
         let time_depth: usize = file.meta("time_depth")?;
@@ -486,4 +487,31 @@ impl Reader<'_> {
 
 fn missing(name: &str) -> StemsError {
     StemsError::Model(format!("missing tensor {name}"))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// The tiny BS-RoFormer of the tests, its overlap set to `overlap` (none if `None`).
+    fn with_overlap(overlap: Option<&str>) -> Result<Weights, StemsError> {
+        let path = Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/data/tiny_bs_roformer.safetensors");
+        let bytes = std::fs::read(path)?;
+        let (_, header) = SafeTensors::read_metadata(&bytes)?;
+        let mut meta = header.metadata().clone().unwrap_or_default();
+        meta.remove("overlap");
+        meta.extend(overlap.map(|o| ("overlap".to_owned(), o.to_owned())));
+        let tensors = SafeTensors::deserialize(&bytes)?;
+        Weights::parse(&safetensors::serialize(tensors.tensors(), Some(meta))?)
+    }
+
+    #[test]
+    fn the_overlap_may_be_a_fraction() {
+        let overlap = |o| with_overlap(o).map(|w| w.geometry.config.overlap);
+        assert_eq!(overlap(None).unwrap(), 1.0);
+        assert_eq!(overlap(Some("4")).unwrap(), 4.0);
+        assert_eq!(overlap(Some("1.1428571428571428")).unwrap(), 8.0 / 7.0);
+        assert!(overlap(Some("0.5")).is_err(), "chunks with gaps between them");
+        assert!(overlap(Some("NaN")).is_err());
+    }
 }

@@ -1,8 +1,10 @@
 //! Separates a stereo WAV at the model's rate, on the GPU when there is one
 //! (`PRISME_STEMS_CPU=1` forces the CPU, `PRISME_STEMS_FLOAT=1` f32 arithmetic on the GPU,
 //! `PRISME_STEMS_MAX_BINDING=<bytes>` the buffers of a smaller GPU, `PRISME_STEMS_PROFILE=1`
-//! the time of each kind of work, `PRISME_STEMS_SHARE=0.5` half the GPU's time at most): `separate <model.safetensors> <in.wav> <out>`
-//! writes `<out>.<stem>.wav` for each stem of the model.
+//! the time of each kind of work, `PRISME_STEMS_SHARE=0.5` half the GPU's time at most,
+//! `PRISME_STEMS_OVERLAP=1.5` that many chunks over each sample instead of the model's):
+//! `separate <model.safetensors> <in.wav> <out>` writes `<out>.<stem>.wav` for each stem of
+//! the model.
 
 use std::path::PathBuf;
 use std::time::Instant;
@@ -15,7 +17,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         return Err("usage: separate <model.safetensors> <in.wav> <out>".into());
     };
     let t = Instant::now();
-    let weights = Weights::load(model)?;
+    let mut weights = Weights::load(model)?;
+    if let Some(overlap) = std::env::var("PRISME_STEMS_OVERLAP").ok().and_then(|o| o.parse().ok()) {
+        weights.geometry.config.overlap = overlap;
+    }
     eprintln!("model loaded in {:.1} s", t.elapsed().as_secs_f64());
 
     let mut reader = hound::WavReader::open(input)?;

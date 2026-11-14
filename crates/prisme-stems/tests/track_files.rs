@@ -132,7 +132,7 @@ fn a_played_track_gets_its_stems_around_where_it_plays() {
             &Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/data/tiny_roformer_stems.safetensors"),
         )
         .unwrap();
-        overlapping.geometry.config.overlap = 4;
+        overlapping.geometry.config.overlap = 4.0;
         let (mut vocals, mut others) = (separator(), Separator::new(CpuNetwork::new(overlapping)));
         let separators = &mut [&mut vocals, &mut others];
         let (around, jumped) = (50_000, 5_000);
@@ -220,15 +220,49 @@ fn fewer_overlapping_chunks_can_be_asked_for() {
     let weights = || {
         let path = Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/data/tiny_roformer.safetensors");
         let mut weights = Weights::load(&path).unwrap();
-        weights.geometry.config.overlap = 4;
+        weights.geometry.config.overlap = 4.0;
         weights
     };
     let chunk = weights().geometry.config.chunk_samples();
     let len = chunk * 8;
     let full = Separator::new(CpuNetwork::new(weights()));
-    let halved = Separator::new(CpuNetwork::new(weights())).overlapping_at_most(2);
-    let more = Separator::new(CpuNetwork::new(weights())).overlapping_at_most(8);
+    let halved = Separator::new(CpuNetwork::new(weights())).overlapping_at_most(2.0);
+    let more = Separator::new(CpuNetwork::new(weights())).overlapping_at_most(8.0);
     assert_eq!(full.chunks(len), 29);
     assert_eq!(halved.chunks(len), 15);
     assert_eq!(more.chunks(len), full.chunks(len), "never more than the model asks for");
+}
+
+/// Separated from where a deck plays, then from where it jumps to, the chunks blend into the
+/// stems they make separated in order, however much they overlap.
+#[test]
+fn chunks_separated_out_of_order_blend_as_in_order() {
+    let len = 10_000;
+    let left: Vec<f32> = (0..len).map(|i| ((i * 7919 % 2003) as f32 / 1001.5 - 1.0) * 0.8).collect();
+    let right: Vec<f32> = left.iter().rev().copied().collect();
+    for overlap in [1.0, 8.0 / 7.0, 4.0 / 3.0, 2.0] {
+        let mut weights = Weights::load(
+            &Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/data/tiny_bs_roformer.safetensors"),
+        )
+        .unwrap();
+        weights.geometry.config.overlap = overlap;
+        let mut separator = Separator::new(CpuNetwork::new(weights));
+        let in_order = separator.separate(&left, &right, |_, _| true).unwrap();
+
+        let mut separation = separator.begin(len, 6_000);
+        let steps = std::cell::Cell::new(0);
+        let playing = || Some(if steps.get() < 3 { 6_000 } else { 1_500 });
+        while separator.step(&mut separation, &left, &right, playing).unwrap() {
+            steps.set(steps.get() + 1);
+        }
+        assert_eq!(steps.get(), separator.chunks(len));
+        let out_of_order = separation.into_stems();
+        let err = in_order
+            .iter()
+            .flatten()
+            .zip(out_of_order.iter().flatten())
+            .flat_map(|(a, b)| a.iter().zip(b).map(|(a, b)| (a - b).abs()))
+            .fold(0.0, f32::max);
+        assert!(err < 1e-6, "overlap {overlap}: {err}");
+    }
 }
