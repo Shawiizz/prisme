@@ -14,6 +14,13 @@
   <aside class="wing a">
     <ng-container *ngTemplateOutlet="which; context: { $implicit: 'a' }" />
     <app-phone-pads side [deck]="left()" />
+    <button
+      class="pr-btn stems"
+      [class.is-on]="isOpen('stems', 'a')"
+      (click)="toggle('stems', 'a')"
+    >
+      STEMS
+    </button>
     <app-deck-controls [deck]="left()" />
   </aside>
 }
@@ -42,8 +49,17 @@
           [deck]="floatingDeck()!"
           (closed)="floating.set(null)"
         />
-      } @else {
+      } @else if (open.kind === 'pitch') {
         <app-phone-pitch
+          class="float"
+          animate.enter="pr-pop-in"
+          animate.leave="pr-pop-out"
+          [class.b]="open.side === 'b'"
+          [deck]="floatingDeck()!"
+          (closed)="floating.set(null)"
+        />
+      } @else {
+        <app-phone-stems
           class="float"
           animate.enter="pr-pop-in"
           animate.leave="pr-pop-out"
@@ -77,6 +93,13 @@
     <aside class="wing b">
       <ng-container *ngTemplateOutlet="which; context: { $implicit: 'b' }" />
       <app-phone-pads side [deck]="right()" />
+      <button
+        class="pr-btn stems"
+        [class.is-on]="isOpen('stems', 'b')"
+        (click)="toggle('stems', 'b')"
+      >
+        STEMS
+      </button>
       <app-deck-controls class="b" [deck]="right()" />
     </aside>
   }
@@ -90,11 +113,17 @@
       <button class="pr-btn" [class.is-on]="isOpen('pitch', 'a')" (click)="toggle('pitch', 'a')">
         PITCH
       </button>
+      <button class="pr-btn" [class.is-on]="isOpen('stems', 'a')" (click)="toggle('stems', 'a')">
+        STEMS
+      </button>
       <button class="pr-btn" (click)="opened.emit(left())">DECK</button>
     </div>
     @if (rights().length) {
       <div class="more b">
         <button class="pr-btn" (click)="opened.emit(right())">DECK</button>
+        <button class="pr-btn" [class.is-on]="isOpen('stems', 'b')" (click)="toggle('stems', 'b')">
+          STEMS
+        </button>
         <button class="pr-btn" [class.is-on]="isOpen('pitch', 'b')" (click)="toggle('pitch', 'b')">
           PITCH
         </button>

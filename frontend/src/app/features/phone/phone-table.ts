@@ -12,9 +12,10 @@ import { PhoneChannel } from './phone-channel';
 import { PhoneDeck } from './phone-deck';
 import { PhonePads } from './phone-pads';
 import { PhonePitch } from './phone-pitch';
+import { PhoneStems } from './phone-stems';
 
 type Side = 'a' | 'b';
-type Floating = { kind: 'pads' | 'pitch'; side: Side };
+type Floating = { kind: 'pads' | 'pitch' | 'stems'; side: Side };
 
 /** The deck of a side: its first, until another of that side is chosen (while it is there). */
 function sideDeck(decks: () => number[]) {
@@ -28,7 +29,7 @@ function sideDeck(decks: () => number[]) {
 /**
  * A phone nothing is plugged into, played as a table: the waveforms of both sides, a
  * channel each, the crossfader, and under each thumb the keys of its deck. Its pads and its
- * pitch float over the table when asked for. Held sideways, the pads and the keys of each
+ * pitch and its stems float over the table when asked for. Held sideways, the pads and the keys of each
  * deck go down its side of the screen.
  */
 @Component({
@@ -43,6 +44,7 @@ function sideDeck(decks: () => number[]) {
     PhoneDeck,
     PhonePads,
     PhonePitch,
+    PhoneStems,
     TPipe,
   ],
 })

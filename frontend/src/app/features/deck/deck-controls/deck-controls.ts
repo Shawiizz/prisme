@@ -6,10 +6,9 @@ import { pitchToMatch } from '../../../core/sync';
 import { formatPitch } from '../../../shared/time';
 import { t } from '../../../core/i18n/i18n';
 import { TPipe } from '../../../core/i18n/t.pipe';
-import { StemPart, partIn, partLevel, partPlaying } from '../../../core/stem-parts';
+import { deckStems } from '../../../core/deck-stems';
 import { Knob } from '../../../shared/knob/knob';
 import { readouts } from '../../../shared/mixer-scales';
-import { StemsService } from '../../../core/services/stems.service';
 
 /** Holding SYNC this long (ms) matches the leader once instead of locking to it. */
 const SYNC_HOLD_MS = 450;
@@ -29,7 +28,6 @@ export class DeckControls {
   readonly deck = input.required<number>();
 
   protected readonly engine = inject(EngineService);
-  private readonly stems = inject(StemsService);
   private readonly preferences = inject(PreferencesService);
   private readonly tempo = deckTempo(this.deck);
   protected readonly status = this.tempo.status;
@@ -37,46 +35,14 @@ export class DeckControls {
   protected readonly vinyl = this.tempo.vinyl;
   protected readonly syncState = this.tempo.syncState;
   protected readonly track = computed(() => this.engine.tracks()[this.deck()]);
-  protected readonly separation = computed(() => this.track()?.separation ?? 'none');
-  /** Vocals and instrumental, or the four stems of a fully separated track: a knob each,
-   * its name muting it at its level. */
-  protected readonly stemKnobs = computed(() => {
-    const mix = this.track()?.stemMix;
-    const waiting = this.engine.status()?.decks[this.deck()]?.stemsWaiting ?? 0;
-    const knob = (part: StemPart, label: string, name: string) => ({
-      part,
-      label,
-      get title() {
-        return t('{part}: turn for the level, click the name to mute', { part: name });
-      },
-      level: mix ? partLevel(mix, part) : 1,
-      on: !mix || partPlaying(mix, part),
-      waiting: partIn(waiting, part),
-    });
-    return this.separation() === 'full'
-      ? [
-          knob('vocals', 'VOX', t('Vocals')),
-          knob('drums', 'DRUM', t('Drums')),
-          knob('bass', 'BASS', t('Bass')),
-          knob('other', 'MELO', t('Melody (the other instruments)')),
-        ]
-      : [knob('vocals', 'VOX', t('Vocals')), knob('instrumental', 'INST', t('Instrumental'))];
-  });
-  /** How far this track's separation is, while it is being separated. */
-  protected readonly separating = computed(() => {
-    const progress = this.stems.progress();
-    const path = this.track()?.path;
-    return path && progress.current === path ? progress.fraction : null;
-  });
-  protected readonly canSeparate = computed(
-    () => !!this.track() && this.stems.canAdd('none') && this.separating() === null,
-  );
+  private readonly stemsOf = deckStems(this.deck);
+  protected readonly separation = this.stemsOf.separation;
+  protected readonly stemKnobs = this.stemsOf.knobs;
+  protected readonly separating = this.stemsOf.separating;
+  protected readonly canSeparate = this.stemsOf.canSeparate;
+  protected readonly separate = this.stemsOf.separate;
   protected readonly percent = readouts.percent;
 
-  separate() {
-    const path = this.track()?.path;
-    if (path) this.stems.separate([path]);
-  }
   private readonly absolute = computed(
     () => this.vinyl() && this.settings().vinylMode === 'absolute',
   );
