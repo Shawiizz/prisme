@@ -206,7 +206,11 @@ impl Gpu {
     pub fn open(options: GpuOptions) -> Result<Arc<Self>, StemsError> {
         let (adapter, matrix_units) = worthy_adapter(options)?;
         let info = adapter.get_info();
-        let profile = if options.profile { adapter.features() & wgpu::Features::TIMESTAMP_QUERY } else { wgpu::Features::empty() };
+        let profile = if options.profile {
+            adapter.features() & wgpu::Features::TIMESTAMP_QUERY
+        } else {
+            wgpu::Features::empty()
+        };
         let large_tiles = info.vendor == NVIDIA;
         let (device, queue) = pollster::block_on(adapter.request_device(&wgpu::DeviceDescriptor {
             label: Some("prisme-stems"),
@@ -332,7 +336,9 @@ impl GpuNetwork {
             if fit < *chunks / SHORTEST_CHUNK {
                 return Err(StemsError::Gpu(format!(
                     "{} binds buffers of {} bytes at most, too few for chunks of {} frames",
-                    gpu.name, gpu.max_binding, *chunks / SHORTEST_CHUNK
+                    gpu.name,
+                    gpu.max_binding,
+                    *chunks / SHORTEST_CHUNK
                 )));
             }
             *chunks = fit;
@@ -371,7 +377,11 @@ impl GpuNetwork {
     fn profile_steps_of(&mut self, steps: &[&Step]) -> Result<(), StemsError> {
         let gpu = &self.gpu;
         let device = &gpu.device;
-        let set = device.create_query_set(&wgpu::QuerySetDescriptor { label: None, ty: wgpu::QueryType::Timestamp, count: 2 });
+        let set = device.create_query_set(&wgpu::QuerySetDescriptor {
+            label: None,
+            ty: wgpu::QueryType::Timestamp,
+            count: 2,
+        });
         let resolved = device.create_buffer(&wgpu::BufferDescriptor {
             label: None,
             size: 16,
@@ -406,7 +416,8 @@ impl GpuNetwork {
             gpu.queue.submit([encoder.finish()]);
             read.slice(..).map_async(wgpu::MapMode::Read, |_| ());
             device.poll(wgpu::PollType::wait_indefinitely()).map_err(|e| failed(&e))?;
-            let ticks: Vec<u64> = bytemuck::cast_slice(&read.slice(..).get_mapped_range().map_err(|e| failed(&e))?).to_vec();
+            let ticks: Vec<u64> =
+                bytemuck::cast_slice(&read.slice(..).get_mapped_range().map_err(|e| failed(&e))?).to_vec();
             read.unmap();
             let entry = self.profiled.entry(step.kind).or_default();
             entry.0 += ticks[1].saturating_sub(ticks[0]) as f64 * period;
@@ -873,7 +884,8 @@ impl Planner<'_> {
             [Axis::Time, Axis::Freq]
                 .map(|axis| {
                     let len = axis.len(frames, bands);
-                    self.scores_slice(len, axis.groups(frames, bands) * c.heads) as u64 * (len * len * 4) as u64
+                    self.scores_slice(len, axis.groups(frames, bands) * c.heads) as u64
+                        * (len * len * 4) as u64
                 })
                 .into_iter()
                 .max()
@@ -1011,15 +1023,31 @@ impl Planner<'_> {
             layout: &pipeline.get_bind_group_layout(0),
             entries: &entries,
         });
-        Step { pipeline: pipeline.clone(), bind_group, groups, kind: self.net.pipelines.kind(pipeline), flops: 0 }
+        Step {
+            pipeline: pipeline.clone(),
+            bind_group,
+            groups,
+            kind: self.net.pipelines.kind(pipeline),
+            flops: 0,
+        }
     }
 
     /// `out` (+)= act(`a` · `l`) over `rows` rows: in pieces of [`PACED_FLOPS`] when the GPU is
     /// shared ([`GpuOptions::share`]), else at once.
-    fn matmul(&self, l: &GpuLinear, a: Input, rows: usize, out: Input, act: Act, accumulate: bool) -> Vec<Step> {
+    fn matmul(
+        &self,
+        l: &GpuLinear,
+        a: Input,
+        rows: usize,
+        out: Input,
+        act: Act,
+        accumulate: bool,
+    ) -> Vec<Step> {
         let per_row = 2 * l.out * l.inp;
         let piece = match self.net.gpu.share {
-            Some(_) => (PACED_FLOPS / per_row.max(1)).max(1).next_multiple_of(BLOCKED_TILE.max(self.net.pipelines.matmul_tile)),
+            Some(_) => (PACED_FLOPS / per_row.max(1))
+                .max(1)
+                .next_multiple_of(BLOCKED_TILE.max(self.net.pipelines.matmul_tile)),
             None => rows,
         };
         (0..rows)
@@ -1032,7 +1060,15 @@ impl Planner<'_> {
             .collect()
     }
 
-    fn matmul_rows(&self, l: &GpuLinear, a: Input, rows: usize, out: Input, act: Act, accumulate: bool) -> Step {
+    fn matmul_rows(
+        &self,
+        l: &GpuLinear,
+        a: Input,
+        rows: usize,
+        out: Input,
+        act: Act,
+        accumulate: bool,
+    ) -> Step {
         let bias = l.bias.as_ref().unwrap_or(&self.net.params.no_bias);
         let pipelines = &self.net.pipelines;
         let aligned = l.inp % 4 == 0 && a.ld % 4 == 0 && a.off % 4 == 0;
@@ -1138,7 +1174,8 @@ impl Planner<'_> {
                 };
                 let blocks = (query_groups * count) as u32;
                 let flops = 2 * count * len * len * c.dim_head;
-                let scored = self.step(products, (len.div_ceil(64) as u32, blocks), &[qkvg, scores], &uniform(0));
+                let scored =
+                    self.step(products, (len.div_ceil(64) as u32, blocks), &[qkvg, scores], &uniform(0));
                 steps.push(Step { flops, ..scored });
                 steps.push(self.step(softmax, rows, &[scores], &uniform(rows_x)));
                 let valued = self.step(values, (1, blocks), &[qkvg, scores, out], &uniform(0));

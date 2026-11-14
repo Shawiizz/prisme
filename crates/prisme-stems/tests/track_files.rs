@@ -146,7 +146,7 @@ fn a_played_track_gets_its_stems_around_where_it_plays() {
         while !separation.is_done() {
             let all_there = reached.iter().all(Option::is_some);
             let playing = if all_there { jumped } else { around };
-            separation.step(separators, Some(playing)).unwrap();
+            separation.step(separators, || Some(playing)).unwrap();
             for (stem, (_, finished)) in separation.stems().into_iter().enumerate() {
                 for (before, _) in &seen[stem] {
                     assert!(

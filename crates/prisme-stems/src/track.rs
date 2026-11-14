@@ -66,7 +66,7 @@ pub fn separate_file<N: MaskNetwork>(
     let mut separation = TrackSeparation::open(separators, track, None, None)?;
     let mut stored = Vec::new();
     while !separation.is_done() {
-        separation.step(separators, None)?;
+        separation.step(separators, || None)?;
         stored.extend(separation.store_through()?);
         if !progress(separation.done(), separation.chunks()) {
             return Err(StemsError::Cancelled);
@@ -181,7 +181,7 @@ impl TrackSeparation {
     pub fn step<N: MaskNetwork>(
         &mut self,
         separators: &mut [&mut Separator<N>],
-        at: Option<usize>,
+        at: impl Fn() -> Option<usize>,
     ) -> Result<(), StemsError> {
         let unfinished = |(_, run): &(usize, &Run)| run.done() < run.chunks;
         let behind = if self.abreast {
@@ -194,8 +194,9 @@ impl TrackSeparation {
         let run = &mut self.runs[index];
         let [left, right] = &self.inputs[run.input].1;
         let separation = run.separation.as_mut().expect("an unfinished run has its separation");
-        let at = at.map(|frame| at_rate(frame, self.sample_rate, run.sample_rate));
-        separators[index].step(separation, left, right, at)?;
+        let rates = (self.sample_rate, run.sample_rate);
+        separators[index]
+            .step(separation, left, right, || at().map(|frame| at_rate(frame, rates.0, rates.1)))?;
         Ok(())
     }
 

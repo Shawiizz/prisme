@@ -48,7 +48,11 @@ fn gpu_time(
     if !device.features().contains(wgpu::Features::TIMESTAMP_QUERY) {
         return None;
     }
-    let set = device.create_query_set(&wgpu::QuerySetDescriptor { label: None, ty: wgpu::QueryType::Timestamp, count: 2 });
+    let set = device.create_query_set(&wgpu::QuerySetDescriptor {
+        label: None,
+        ty: wgpu::QueryType::Timestamp,
+        count: 2,
+    });
     let resolved = device.create_buffer(&wgpu::BufferDescriptor {
         label: None,
         size: 16,
@@ -113,10 +117,16 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         ..Default::default()
     }))?;
 
-    let mut kernels = vec![Kernel { name: "engine small tiles".into(), source: SMALL.into(), rows: 64, cols: 64 }];
+    let mut kernels =
+        vec![Kernel { name: "engine small tiles".into(), source: SMALL.into(), rows: 64, cols: 64 }];
     // the large tiles spill on a GPU with fewer registers than NVIDIA's, and take minutes there
     if std::env::var_os("MATMUL_LARGE").is_some() {
-        kernels.push(Kernel { name: "engine large tiles".into(), source: LARGE.into(), rows: 128, cols: 128 });
+        kernels.push(Kernel {
+            name: "engine large tiles".into(),
+            source: LARGE.into(),
+            rows: 128,
+            cols: 128,
+        });
     }
     for path in std::env::args().skip(1) {
         let source = std::fs::read_to_string(&path)?;
@@ -126,8 +136,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     for (shape, m, n, k) in SHAPES {
         let a: Vec<f32> = (0..m * k).map(|i| ((i * 7919 % 1000) as f32 / 1000.0) - 0.5).collect();
-        let w: Vec<half::f16> =
-            (0..n * k).map(|i| half::f16::from_f32(((i * 104_729 % 1000) as f32 / 1000.0 - 0.5) * 0.1)).collect();
+        let w: Vec<half::f16> = (0..n * k)
+            .map(|i| half::f16::from_f32(((i * 104_729 % 1000) as f32 / 1000.0 - 0.5) * 0.1))
+            .collect();
         let bias: Vec<f32> = (0..n).map(|i| (i % 17) as f32 * 0.01).collect();
         let storage = |bytes: &[u8]| {
             device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
@@ -136,9 +147,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 usage: wgpu::BufferUsages::STORAGE,
             })
         };
-        let (a_buf, w_buf, b_buf) =
-            (storage(bytemuck::cast_slice(&a)), storage(bytemuck::cast_slice(&w)), storage(bytemuck::cast_slice(&bias)));
-        let params: [u32; 12] = [m as u32, n as u32, k as u32, k as u32, 0, n as u32, 0, 0, 0, 1, k as u32, 0];
+        let (a_buf, w_buf, b_buf) = (
+            storage(bytemuck::cast_slice(&a)),
+            storage(bytemuck::cast_slice(&w)),
+            storage(bytemuck::cast_slice(&bias)),
+        );
+        let params: [u32; 12] =
+            [m as u32, n as u32, k as u32, k as u32, 0, n as u32, 0, 0, 0, 1, k as u32, 0];
         let uniform = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: None,
             contents: bytemuck::cast_slice(&params),

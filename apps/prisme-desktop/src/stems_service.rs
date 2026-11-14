@@ -510,9 +510,7 @@ impl Worker {
         let allowed = || gpu_allowed(&self.app.state::<AppState>());
         let open_gpu = || {
             let gpu = allowed()
-                .then(|| {
-                    Gpu::open(GPU_OPTIONS).inspect_err(|e| warn!("separating on the CPU: {e}")).ok()
-                })
+                .then(|| Gpu::open(GPU_OPTIONS).inspect_err(|e| warn!("separating on the CPU: {e}")).ok())
                 .flatten();
             GPU_GAVE_UP.store(gpu.is_none(), Ordering::Relaxed);
             gpu
@@ -648,7 +646,8 @@ impl Worker {
             if on_decks && live.is_none() {
                 live = Some(Live::start(&self.app, &separation, &self.queue)?);
             }
-            separation.step(separators, at)?;
+            // where the deck plays when the next chunk is chosen: it may jump meanwhile
+            separation.step(separators, || self.on_decks(&job.path).map(|(_, frame)| frame))?;
             if let Some(live) = &mut live {
                 live.publish(&separation)?;
             }

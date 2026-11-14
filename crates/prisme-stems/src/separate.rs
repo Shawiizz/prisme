@@ -65,7 +65,7 @@ impl<N: MaskNetwork> Separator<N> {
         mut progress: impl FnMut(usize, usize) -> bool,
     ) -> Result<Vec<[Vec<f32>; 2]>, StemsError> {
         let mut separation = self.begin(left.len().min(right.len()), 0);
-        while self.step(&mut separation, left, right, None)? {
+        while self.step(&mut separation, left, right, || None)? {
             if !progress(separation.done(), separation.chunks()) {
                 return Err(StemsError::Cancelled);
             }
@@ -100,31 +100,36 @@ impl<N: MaskNetwork> Separator<N> {
 
     /// Separates the next chunk of `separation`, a separation of the stereo track `left`,
     /// `right` begun by this separator, which separates nothing else until it is through:
-    /// the chunks over sample `at` and [`LEAD_S`] after it first, where the track is played,
-    /// else the next ones of [`Separation::fill_from`]. The network works on the chunk after
-    /// it meanwhile, and the STFTs are worked out while it runs. `false` once every chunk is
-    /// through.
+    /// the chunks over the sample `at` tells and [`LEAD_S`] after it first, where the track
+    /// is played, else the next ones of [`Separation::fill_from`]. The network works on the
+    /// chunk after it meanwhile, and the STFTs are worked out while it runs. `false` once
+    /// every chunk is through.
     pub fn step(
         &mut self,
         separation: &mut Separation,
         left: &[f32],
         right: &[f32],
-        at: Option<usize>,
+        at: impl Fn() -> Option<usize>,
     ) -> Result<bool, StemsError> {
         let (index, current) = match separation.running.take() {
             Some(running) => running,
             None => {
-                let Some(index) = separation.next(at, None) else { return Ok(false) };
+                let Some(index) = separation.next(at(), None) else { return Ok(false) };
                 let analysis = self.analyse_padded(separation.part(index, left, right), separation.chunk);
                 self.net.start(&analysis.bins, analysis.frames)?;
                 (index, analysis)
             }
         };
-        let next = separation
-            .next(at, Some(index))
-            .map(|next| (next, self.analyse_padded(separation.part(next, left, right), separation.chunk)));
+        let guessed = separation
+            .next(at(), Some(index))
+            .map(|next| (next, self.analysis(separation, next, left, right)));
         let mut masks = vec![0.0; self.net.geometry().mask_len(current.frames)];
         self.net.finish(&mut masks)?;
+        // the deck may have jumped while the network worked: the chunk where it plays now
+        let next = match (separation.next(at(), Some(index)), guessed) {
+            (Some(wanted), Some(guessed)) if wanted == guessed.0 => Some(guessed),
+            (wanted, _) => wanted.map(|next| (next, self.analysis(separation, next, left, right))),
+        };
         if let Some((_, next)) = &next {
             self.net.start(&next.bins, next.frames)?;
         }
@@ -148,6 +153,11 @@ impl<N: MaskNetwork> Separator<N> {
         self.net.masks(&analysis.bins, analysis.frames, &mut masks)?;
         self.synthesise(&analysis, &masks, out);
         Ok(())
+    }
+
+    /// The analysis of chunk `index` of `separation`.
+    fn analysis(&self, separation: &Separation, index: usize, left: &[f32], right: &[f32]) -> Analysis {
+        self.analyse_padded(separation.part(index, left, right), separation.chunk)
     }
 
     /// [`Self::analyse`] of a chunk padded with silence to `len` samples.
