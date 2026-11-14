@@ -1,83 +1,80 @@
-import { Component, computed, inject, input, signal } from '@angular/core';
+import { Component, booleanAttribute, computed, inject, input, output } from '@angular/core';
 import { deckReadouts } from '../../core/deck-readouts';
-import { DECK_MODES, deckVinyl } from '../../core/deck-vinyl';
+import { deckVinyl } from '../../core/deck-vinyl';
 import { EngineService } from '../../core/services/engine.service';
 import { TPipe } from '../../core/i18n/t.pipe';
 import { camelotHue, camelotMajor } from '../../shared/camelot';
+import { Cover } from '../../shared/cover/cover';
 import { deckLetter } from '../../shared/time';
 import { DeckWaveform } from '../deck/deck-waveform/deck-waveform';
-import { GridEditor } from '../deck/grid-editor/grid-editor';
+
+/** The record's two ways of driving a deck, as its light names them. */
+const VINYL_LABEL = { relative: 'REL', absolute: 'ABS' } as const;
 
 /**
- * A deck on a phone: its letter (lit while playing), its track and its key, its waveform,
- * and the time left, who drives it (itself or its record), the tempo and the pitch. On a
- * wide screen, all but the waveform on one line.
+ * A deck on a phone, for eyes that are a step away: its track, a wide waveform, the time
+ * left in large figures, its tempo and its key. Touched, it opens what is set less often.
+ * `compact` leaves the waveform and one line, when the thumbs need the screen.
  */
 @Component({
   selector: 'app-phone-deck',
   template: `
-    <span class="pr-tile" [class.pr-tile--outline]="!status()?.playing">{{ letter() }}</span>
-    @if (track(); as t) {
-      <span class="title"
-        >{{ t.title }}
-        @if (t.artist) {
-          <span>· {{ t.artist }}</span>
+    <button class="head" (click)="opened.emit()" [attr.aria-label]="'Deck settings' | t">
+      <span class="letter" [class.playing]="status()?.playing">{{ letter() }}</span>
+      @if (track(); as t) {
+        @if (!compact()) {
+          <app-cover [path]="t.path" />
         }
-      </span>
-    } @else {
-      <span class="title empty">{{ loading() ? ('Loading…' | t) : ('No track loaded' | t) }}</span>
-    }
-    @if (key(); as k) {
-      <span
-        class="pr-key pr-key--fill"
-        [class.pr-key--maj]="major(k.camelot)"
-        [style.--h]="hue(k.camelot)"
-        >{{ k.camelot }}</span
-      >
-    }
-    <app-deck-waveform [deck]="deck()" />
-    <div class="vinyl">
-      <span
-        class="pr-sig"
-        [class.pr-sig--ok]="signal() === 'ok'"
-        [class.pr-sig--weak]="signal() === 'bounce'"
-        [class.pr-sig--none]="signal() === 'none'"
-        [title]="signalTitle()"
-      ></span>
-      <div class="pr-seg" role="radiogroup" [attr.aria-label]="'Vinyl control' | t">
-        @for (m of modes; track m.id) {
-          <button role="radio" [attr.aria-checked]="mode() === m.id" (click)="setMode(m.id)">
-            {{ m.label }}
-          </button>
-        }
-      </div>
-    </div>
-    <span
-      class="remaining pr-num"
-      [class.warn]="ending() === 'warn'"
-      [class.alert]="ending() === 'alert'"
-      >{{ remaining() }}</span
-    >
-    <button
-      class="tempo pr-num"
-      [disabled]="!track()"
-      (click)="editing.set(true)"
-      [attr.aria-label]="'Beat grid, key and key shift' | t"
-    >
-      {{ bpm() ?? '—' }} <span>{{ pitch() }}</span>
+        <span class="names">
+          <span class="title">{{ t.title }}</span>
+          @if (!compact() && t.artist) {
+            <span class="artist">{{ t.artist }}</span>
+          }
+        </span>
+      } @else {
+        <span class="names empty">{{
+          loading() ? ('Loading…' | t) : ('No track loaded' | t)
+        }}</span>
+      }
+      @if (compact()) {
+        <span class="bpm pr-num">{{ bpm() ?? '' }}</span>
+      }
+      @if (key(); as k) {
+        <span
+          class="pr-key pr-key--fill"
+          [class.pr-key--maj]="major(k.camelot)"
+          [style.--h]="hue(k.camelot)"
+          >{{ k.camelot }}</span
+        >
+      }
+      @if (compact()) {
+        <span class="time pr-num" [class]="ending() ?? ''">{{ remaining() }}</span>
+      }
     </button>
-    @if (editing() && track()) {
-      <app-grid-editor [deck]="deck()" (closed)="editing.set(false)" />
+    <app-deck-waveform [deck]="deck()" />
+    @if (!compact()) {
+      <button class="readouts" (click)="opened.emit()" [attr.aria-label]="'Deck settings' | t">
+        <span class="time pr-num" [class]="ending() ?? ''">{{ remaining() }}</span>
+        @if (vinyl(); as v) {
+          <span class="vinyl" [class]="signal()" [title]="signalTitle()">{{ v }}</span>
+        }
+        <span class="bpm pr-num">{{ bpm() ?? '—' }}</span>
+        <span class="pitch pr-num">{{ pitch() }}</span>
+      </button>
     }
   `,
   styleUrl: './phone-deck.scss',
-  imports: [DeckWaveform, GridEditor, TPipe],
+  host: { '[class.compact]': 'compact()' },
+  imports: [Cover, DeckWaveform, TPipe],
 })
 export class PhoneDeck {
   readonly deck = input.required<number>();
+  readonly compact = input(false, { transform: booleanAttribute });
+  readonly opened = output<void>();
 
   private readonly engine = inject(EngineService);
   private readonly readouts = deckReadouts(this.deck);
+  private readonly driven = deckVinyl(this.deck);
   protected readonly letter = computed(() => deckLetter(this.deck()));
   protected readonly loading = computed(() => this.engine.loading()[this.deck()]);
   protected readonly track = this.readouts.track;
@@ -87,14 +84,13 @@ export class PhoneDeck {
   protected readonly bpm = this.readouts.bpm;
   protected readonly pitch = this.readouts.pitch;
   protected readonly key = this.readouts.key;
-  /** The grid and key editor is open. */
-  protected readonly editing = signal(false);
-  private readonly vinyl = deckVinyl(this.deck);
-  protected readonly modes = DECK_MODES;
-  protected readonly mode = this.vinyl.mode;
-  protected readonly signal = this.vinyl.signal;
-  protected readonly signalTitle = this.vinyl.signalTitle;
-  protected readonly setMode = this.vinyl.setMode;
+  /** `REL` or `ABS` while a record drives the deck. */
+  protected readonly vinyl = computed(() => {
+    const mode = this.driven.mode();
+    return mode === 'int' ? null : VINYL_LABEL[mode];
+  });
+  protected readonly signal = this.driven.signal;
+  protected readonly signalTitle = this.driven.signalTitle;
   protected readonly hue = camelotHue;
   protected readonly major = camelotMajor;
 }

@@ -11,6 +11,8 @@ import {
 
 /** Size of the cap along the travel (pixels): the track runs between its two centres. */
 const CAP = 14;
+/** Under a finger: a wide cap along a horizontal travel, a line across a vertical one. */
+const TOUCH_CAP = { horizontal: 44, vertical: 4 };
 /** Shift: a gesture moves the fader four times less. */
 const FINE = 0.25;
 /** Steps of the keyboard and the wheel, as a share of the travel. */
@@ -21,7 +23,8 @@ const PAGE = 0.1;
  * A fader like a mixer's: a thin track, a cap with a line of light, the travel filled from
  * the start or, when `centered`, from the middle where it has a detent. Drag it (Shift for
  * fine moves), click the track to jump, scroll, use the arrow keys, double-click to go back
- * to `defaultValue`.
+ * to `defaultValue`. With `touch`, a wide cap in a groove, which a finger moves from where it
+ * lands without making it jump there.
  */
 @Component({
   selector: 'app-fader',
@@ -43,7 +46,6 @@ const PAGE = 0.1;
       touch-action: none;
       cursor: pointer;
       outline: none;
-      --cap: 14px; /* CAP */
     }
     :host(:not(.vertical)) {
       height: 24px;
@@ -157,6 +159,56 @@ const PAGE = 0.1;
         transition: none;
       }
     }
+    :host(.touch) {
+      background: var(--pr-raise);
+      .detent,
+      .cap i {
+        display: none;
+      }
+      .cap {
+        border: 0;
+        background: var(--pr-light);
+      }
+    }
+    :host(.touch.disabled) .cap {
+      background: var(--pr-text-3);
+    }
+    :host(.touch:not(.vertical)) {
+      height: 40px;
+      border-radius: 20px;
+      .track {
+        left: 18px;
+        right: 18px;
+        top: calc(50% - 1px);
+        height: 2px;
+      }
+      .fill {
+        display: none;
+      }
+      .cap {
+        top: 4px;
+        bottom: 4px;
+        border-radius: 16px;
+      }
+    }
+    :host(.touch.vertical) {
+      width: 44px;
+      border-radius: 12px;
+      overflow: hidden;
+      .track {
+        inset: 0;
+        width: auto;
+        border-radius: 0;
+        background: none;
+      }
+      .fill {
+        border-radius: 0;
+        background: var(--pr-raise-2);
+      }
+      .cap {
+        border-radius: 0;
+      }
+    }
   `,
   host: {
     role: 'slider',
@@ -169,6 +221,8 @@ const PAGE = 0.1;
     '[attr.aria-disabled]': 'disabled()',
     '[class.vertical]': "orientation() === 'vertical'",
     '[class.disabled]': 'disabled()',
+    '[class.touch]': 'touch()',
+    '[style.--cap.px]': 'cap()',
     '[class.grabbed]': 'grabbed !== null',
     '(pointerdown)': 'grab($event)',
     '(pointermove)': 'drag($event)',
@@ -188,6 +242,8 @@ export class Fader {
   readonly centered = input(false, { transform: booleanAttribute });
   readonly orientation = input<'horizontal' | 'vertical'>('horizontal');
   readonly disabled = input(false, { transform: booleanAttribute });
+  /** For a finger. */
+  readonly touch = input(false, { transform: booleanAttribute });
   readonly label = input('');
   readonly valueChange = output<number>();
 
@@ -195,6 +251,7 @@ export class Fader {
   /** Follows the input, and moves at once with the gestures. */
   protected readonly current = linkedSignal(() => this.value());
   protected readonly fraction = computed(() => this.toFraction(this.current()));
+  protected readonly cap = computed(() => (this.touch() ? TOUCH_CAP[this.orientation()] : CAP));
   private readonly origin = computed(() => (this.centered() ? 0.5 : 0));
   protected readonly fillFrom = computed(() => Math.min(this.origin(), this.fraction()));
   protected readonly fillTo = computed(() => Math.max(this.origin(), this.fraction()));
@@ -204,7 +261,7 @@ export class Fader {
   grab(event: PointerEvent) {
     if (this.disabled() || event.button !== 0) return;
     this.host.nativeElement.setPointerCapture(event.pointerId);
-    const onCap = (event.target as Element).closest('.cap') !== null;
+    const onCap = this.touch() || (event.target as Element).closest('.cap') !== null;
     const pointer = this.pointerFraction(event);
     // grabbing the cap keeps it under the pointer; the track makes it jump there
     if (!onCap) this.setFraction(pointer);
@@ -274,8 +331,9 @@ export class Fader {
   /** Where the pointer is along the travel, 0 at the start (left, or bottom). */
   private pointerFraction(event: PointerEvent): number {
     const rect = this.host.nativeElement.getBoundingClientRect();
+    const cap = this.cap();
     return this.orientation() === 'vertical'
-      ? (rect.bottom - CAP / 2 - event.clientY) / (rect.height - CAP)
-      : (event.clientX - rect.left - CAP / 2) / (rect.width - CAP);
+      ? (rect.bottom - cap / 2 - event.clientY) / (rect.height - cap)
+      : (event.clientX - rect.left - cap / 2) / (rect.width - cap);
   }
 }

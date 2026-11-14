@@ -1,0 +1,106 @@
+<div class="veil" (click)="closed.emit()"></div>
+<section class="panel" role="dialog" [attr.aria-label]="'Deck settings' | t">
+  <button class="grip" (click)="closed.emit()" [attr.aria-label]="'Close' | t"></button>
+
+  <h4>{{ 'Deck {deck} · driven by' | t: { deck: letter() } }}</h4>
+  <div class="choice" role="radiogroup">
+    @for (d of drivers; track d.id) {
+      <button role="radio" [attr.aria-checked]="mode() === d.id" (click)="setMode(d.id)">
+        {{ d.label }}
+      </button>
+    }
+  </div>
+  @if (signalTitle(); as told) {
+    <p class="told">{{ told }}</p>
+  }
+
+  <h4>
+    Pitch · <span class="pr-num">{{ pitch() }}</span>
+    @if (target(); as to) {
+      <span class="target pr-num" [title]="'Pitch to set on the turntable to match' | t"
+        >→ {{ to }}</span
+      >
+    }
+  </h4>
+  <div class="pitch">
+    <span class="pr-num">−{{ rangePercent() }}</span>
+    <app-fader
+      touch
+      centered
+      [min]="-range()"
+      [max]="range()"
+      [value]="offset()"
+      (valueChange)="engine.setPitch(deck(), 1 + $event)"
+      [disabled]="tempo.held()"
+      [label]="'Tempo' | t"
+    />
+    <span class="pr-num">+{{ rangePercent() }}</span>
+  </div>
+
+  @if (mixer.internal()) {
+    <h4>{{ 'Mixer' | t }}</h4>
+    <div class="faders">
+      @for (b of eq; track b.band) {
+        <label>
+          <app-fader
+            touch
+            centered
+            orientation="vertical"
+            [value]="eqKnob(b.band)"
+            [defaultValue]="0.5"
+            (valueChange)="setEq(b.band, $event)"
+            [label]="b.label"
+          />
+          {{ b.label }}
+        </label>
+      }
+      <label>
+        <app-fader
+          touch
+          centered
+          orientation="vertical"
+          [value]="filterKnob()"
+          [defaultValue]="0.5"
+          (valueChange)="mixer.setFilter(deck(), $event * 2 - 1)"
+          label="FILTER"
+        />
+        FILTER
+      </label>
+      <label>
+        <app-fader
+          touch
+          orientation="vertical"
+          [value]="settings().volume"
+          [defaultValue]="1"
+          (valueChange)="mixer.setVolume(deck(), $event)"
+          label="VOL"
+        />
+        VOL
+      </label>
+    </div>
+  }
+
+  <h4>{{ 'Track' | t }}</h4>
+  <div class="choice">
+    <button
+      [attr.aria-pressed]="settings().keyLock"
+      (click)="engine.setKeyLock(deck(), !settings().keyLock)"
+    >
+      KEY LOCK
+    </button>
+    <button [disabled]="!track()" (click)="editing.set(true)">
+      {{ 'Grid and key' | t }}
+    </button>
+    @if (mixer.internal()) {
+      <button
+        [attr.aria-pressed]="settings().cue"
+        (click)="mixer.setDeckCue(deck(), !settings().cue)"
+      >
+        {{ 'Headphones' | t }}
+      </button>
+    }
+  </div>
+</section>
+@if (editing() && track()) {
+  <app-grid-editor [deck]="deck()" (closed)="editing.set(false)" />
+}

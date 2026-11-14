@@ -100,10 +100,10 @@
 }
 
 // on a phone: lines the height of a finger
-:host-context(app-phone-tracks) .menu {
+:host-context(app-phone-library) .menu {
   button,
   .empty {
-    min-height: 44px;
-    font-size: 14px;
+    min-height: 46px;
+    font-size: 15px;
   }
 }

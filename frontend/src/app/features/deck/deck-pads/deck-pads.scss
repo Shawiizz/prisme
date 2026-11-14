@@ -124,17 +124,26 @@
   }
 }
 
-// on a phone: the modes on a line, the pads on two, the rest under them
-:host-context(app-phone-controls) {
+// under the thumbs of a phone: the modes as a line of pills, the pads on two rows of four,
+// what goes with the mode under them
+:host-context(app-phone-touch) {
   flex-wrap: wrap;
   gap: 8px;
   height: auto;
   .modes {
     flex: 1 0 100%;
-    display: grid;
-    grid-template-columns: repeat(6, minmax(0, 1fr));
+    gap: 4px;
+    padding: 0;
+    border: 0;
     > button {
-      height: var(--pr-h);
+      flex: 1;
+      height: 30px;
+      padding: 0;
+      border-radius: 99px;
+      &[aria-checked='true'] {
+        background: var(--pr-raise-2);
+        color: var(--pr-text);
+      }
     }
   }
   .pads {
@@ -143,12 +152,52 @@
     grid-template-columns: repeat(4, minmax(0, 1fr));
     gap: 8px;
     .pr-pad {
-      height: 52px;
+      justify-items: center;
+      height: 54px;
+      border: 0;
+      border-radius: 10px;
+      background: var(--pr-raise);
       font-size: var(--pr-size);
+      &.pr-pad--set {
+        background: color-mix(in oklab, var(--tag) 24%, var(--pr-raise));
+        box-shadow: inset 0 -3px var(--tag);
+        &::after {
+          content: none;
+        }
+      }
+      &.is-hot {
+        background: var(--pr-light);
+      }
     }
   }
   .side {
     flex: 1;
     justify-content: space-between;
+    .pr-btn {
+      border-radius: 10px;
+    }
+  }
+}
+// a side of a phone held sideways: the pads two by two
+:host-context(app-phone-touch.left),
+:host-context(app-phone-touch.right) {
+  gap: 6px;
+  .modes {
+    flex-wrap: wrap;
+    > button {
+      flex: 1 0 30%;
+      height: 22px;
+      font-size: 10px;
+    }
+  }
+  .pads {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 6px;
+    .pr-pad {
+      height: 34px;
+    }
+  }
+  .side {
+    display: none;
   }
 }

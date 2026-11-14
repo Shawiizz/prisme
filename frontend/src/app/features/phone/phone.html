@@ -10,51 +10,62 @@
         : ('audio stopped' | t)
     }}</span>
   }
+  @if (tab() === 'decks') {
+    <button
+      class="key"
+      [attr.aria-pressed]="touch()"
+      (click)="toggleTouch()"
+      [attr.aria-label]="'Controls under the thumbs' | t"
+    >
+      <svg viewBox="0 0 16 16" aria-hidden="true">
+        <rect x="2" y="2" width="5" height="5" rx="1" />
+        <rect x="9" y="2" width="5" height="5" rx="1" />
+        <rect x="2" y="9" width="5" height="5" rx="1" />
+        <rect x="9" y="9" width="5" height="5" rx="1" />
+      </svg>
+    </button>
+  }
   @if (recording.status(); as r) {
-    <button class="pr-btn pr-btn--sm pr-btn--rec is-on" (click)="recording.stop()">
-      <span class="pr-btn__dot"></span><span class="pr-num">{{ clock(r.seconds) }}</span>
+    <button class="key rec on" (click)="recording.stop()" [attr.aria-label]="'Stop recording' | t">
+      <i></i><span class="pr-num">{{ clock(r.seconds) }}</span>
     </button>
   } @else if (recording.options().length) {
-    <button class="pr-btn pr-btn--sm pr-btn--ghost pr-btn--rec" (click)="record()">
-      <span class="pr-btn__dot"></span>{{ 'Rec' | t }}
-    </button>
+    <button class="key rec" (click)="record()"><i></i>{{ 'Rec' | t }}</button>
   }
 </header>
 @if (engine.error() ?? library.error(); as error) {
   <p class="error">{{ error }}</p>
 }
 
-<main class="screen" [class]="tab()">
+<main class="screen">
   @switch (tab()) {
-    @case ('mix') {
-      <section class="decks">
-        @for (deck of decks(); track deck) {
-          <app-phone-deck [deck]="deck" />
-          @if (deck === 0) {
-            <app-phase-strip />
-          }
-        }
-      </section>
-      <app-phone-tracks />
+    @case ('decks') {
+      <app-phone-decks [touch]="touch()" />
     }
-    @case ('controls') {
-      <app-phone-controls />
-    }
-    @case ('crates') {
-      <app-library-sidebar />
-      <button class="pr-btn import" (click)="importing.set(true)">
-        {{ 'Import from Serato or rekordbox' | t }}
-      </button>
+    @case ('library') {
+      <app-phone-library />
     }
   }
 </main>
-@if (importing()) {
-  <app-import-dialog (closed)="importing.set(false)" />
-}
 
 <nav class="tabs">
   @for (item of tabs; track item.id) {
-    <button [class.on]="tab() === item.id" (click)="tab.set(item.id)">{{ item.label }}</button>
+    <button [class.on]="tab() === item.id" (click)="tab.set(item.id)">
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        @if (item.id === 'decks') {
+          <circle cx="12" cy="12" r="8.5" />
+          <circle cx="12" cy="12" r="2" />
+        } @else {
+          <path d="M4 6h16M4 12h16M4 18h10" />
+        }
+      </svg>
+      {{ item.label }}
+    </button>
   }
-  <button (click)="navigation.openSettings()">{{ 'Settings' | t }}</button>
+  <button (click)="navigation.openSettings()">
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M5 4v6M5 14v6M12 4v2M12 10v10M19 4v10M19 18v2M3 12h4M10 8h4M17 16h4" />
+    </svg>
+    {{ 'Settings' | t }}
+  </button>
 </nav>

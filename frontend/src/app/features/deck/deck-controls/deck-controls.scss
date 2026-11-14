@@ -119,39 +119,67 @@
   }
 }
 
-// on a phone: keys the size of a finger on a line, the pitch under them
-:host-context(app-phone-controls) {
+// under the thumbs of a phone: CUE, PLAY and SYNC, wide and low; the rest is in the panel
+// of the deck
+:host-context(app-phone-touch) {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 8px;
+  grid-template-columns: 1fr 1.5fr 1fr;
+  gap: 10px;
   height: auto;
   .transport {
     display: contents;
   }
   .key {
     width: auto;
-    height: 56px;
+    height: 64px;
+    border: 0;
+    border-radius: 14px;
+    background: var(--pr-raise);
     font-size: 14px;
+    font-weight: 700;
+    color: var(--pr-text);
+    &.is-on {
+      color: var(--pr-text);
+      box-shadow: inset 0 0 0 2px var(--pr-light);
+    }
   }
-  // a phone does not separate
-  .separate {
-    display: none;
+  // PLAY, the one a thumb looks for
+  .transport .key:last-child {
+    background: var(--pr-light);
+    color: var(--pr-on-light);
   }
   .sync {
-    grid-area: 1 / 3;
+    color: var(--pr-text-2);
+    &.is-on {
+      background: var(--pr-light);
+      color: var(--pr-on-light);
+    }
   }
-  .stems {
-    grid-area: 2 / 1 / auto / -1;
-    grid-auto-columns: 1fr;
-  }
+  .separate,
+  .stems,
   .pitch {
-    grid-column: 1 / -1;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
+    display: none;
   }
-  .key-lock {
-    height: var(--pr-h);
-    padding: 0 12px;
+}
+// a side of a phone held sideways: SYNC over CUE and PLAY, PLAY towards the middle
+:host-context(app-phone-touch.left),
+:host-context(app-phone-touch.right) {
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  .key {
+    height: 52px;
   }
+  .sync {
+    grid-area: 1 / 1 / auto / -1;
+    height: 38px;
+  }
+  .transport .key {
+    grid-row: 2;
+  }
+}
+:host-context(app-phone-touch.right) .transport .key:first-child {
+  grid-column: 2;
+}
+:host-context(app-phone-touch.right) .transport .key:last-child {
+  grid-column: 1;
 }

@@ -1,4 +1,5 @@
-import { Component, computed, effect, inject, signal, untracked } from '@angular/core';
+import { Component, computed, inject, signal } from '@angular/core';
+import { ControllerService } from '../../core/control/controller.service';
 import { BACKEND_NAMES } from '../../core/models/audio';
 import { EngineService } from '../../core/services/engine.service';
 import { LibraryService } from '../../core/services/library.service';
@@ -8,41 +9,35 @@ import { SettingsService } from '../../core/services/settings.service';
 import { t } from '../../core/i18n/i18n';
 import { TPipe } from '../../core/i18n/t.pipe';
 import { decimal, formatClock } from '../../shared/time';
-import { PhaseStrip } from '../deck/phase-strip/phase-strip';
-import { ImportDialog } from '../library/import-dialog/import-dialog';
-import { LibrarySidebar } from '../library/library-sidebar/library-sidebar';
-import { PhoneControls } from './phone-controls';
-import { PhoneDeck } from './phone-deck';
-import { PhoneTracks } from './phone-tracks';
+import { PhoneDecks } from './phone-decks';
+import { PhoneLibrary } from './phone-library';
 
-type Tab = 'mix' | 'controls' | 'crates';
+type Tab = 'decks' | 'library';
 
 /**
- * Prisme on a phone. With a controller the hands are on it: the Mix screen shows what it
- * has not, the decks one under the other and the tracks to load. Without one, Controls
- * puts a deck under the fingers. Crates leads to the lists of the library. Held sideways,
- * the decks take the width and the tracks the side.
+ * Prisme on a phone: the decks and the library, a screen each, and the settings. The decks
+ * follow what is plugged in: a controller, or records through a sound card, and they only
+ * show what is read from afar; nothing, and their controls come under the thumbs (the key
+ * at the top says otherwise).
  */
 @Component({
   selector: 'app-phone',
   templateUrl: './phone.html',
   styleUrl: './phone.scss',
-  imports: [ImportDialog, LibrarySidebar, PhaseStrip, PhoneControls, PhoneDeck, PhoneTracks, TPipe],
+  imports: [PhoneDecks, PhoneLibrary, TPipe],
 })
 export class Phone {
   protected readonly engine = inject(EngineService);
+  protected readonly library = inject(LibraryService);
   protected readonly navigation = inject(NavigationService);
   protected readonly recording = inject(RecordingService);
-  protected readonly library = inject(LibraryService);
   private readonly settings = inject(SettingsService);
+  private readonly controllers = inject(ControllerService);
 
-  protected readonly decks = this.engine.deckIndexes;
-  protected readonly tab = signal<Tab>('mix');
-  protected readonly importing = signal(false);
+  protected readonly tab = signal<Tab>('decks');
   protected readonly tabs: { id: Tab; label: string }[] = [
-    { id: 'mix', label: t('Mix') },
-    { id: 'controls', label: t('Controls') },
-    { id: 'crates', label: t('Crates') },
+    { id: 'decks', label: t('Decks') },
+    { id: 'library', label: t('Library') },
   ];
 
   /** The sound card and how long it waits: `AAudio · DDJ-FLX2 · 5.3 ms`. */
@@ -54,15 +49,20 @@ export class Phone {
     return [BACKEND_NAMES[info.backend], info.device, ...period].join(' · ');
   });
 
+  /** The hands are elsewhere: on a controller in use, or on the records that drive a deck. */
+  private readonly hardware = computed(
+    () =>
+      this.controllers.controllers().some((c) => c.enabled && c.plugged) ||
+      this.engine.deckIndexes().some((d) => this.engine.decks()[d].vinylEnabled),
+  );
+  /** What the DJ chose instead, with the key at the top. */
+  private readonly chosen = signal<boolean | null>(null);
+  protected readonly touch = computed(() => this.chosen() ?? !this.hardware());
+
   protected readonly clock = formatClock;
 
-  constructor() {
-    // a list chosen among the crates is shown where the tracks are
-    effect(() => {
-      this.library.source();
-      this.library.listing();
-      if (untracked(this.tab) === 'crates') this.tab.set('mix');
-    });
+  protected toggleTouch() {
+    this.chosen.set(!this.touch());
   }
 
   /** Records what the phone offers first: the master of its software mixer. */

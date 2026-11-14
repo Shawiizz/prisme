@@ -1,0 +1,131 @@
+<div class="head">
+  <label class="search">
+    <svg viewBox="0 0 16 16" aria-hidden="true">
+      <circle cx="7" cy="7" r="5" />
+      <path d="M11 11l4 4" />
+    </svg>
+    <input
+      type="search"
+      [placeholder]="
+        library.scope() === 'list' ? searchPlaceholder() : ('Search the whole library' | t)
+      "
+      [value]="library.filter()"
+      (input)="library.setFilter($any($event.target).value)"
+    />
+  </label>
+  <label class="round" [attr.aria-label]="'Sort by' | t">
+    <svg viewBox="0 0 16 16" aria-hidden="true">
+      <path d="M5 3v10M2.5 10.5L5 13l2.5-2.5M11 13V3M8.5 5.5L11 3l2.5 2.5" />
+    </svg>
+    <select (change)="library.sortBy($any($event.target).value)">
+      @for (s of sorts(); track s.sort) {
+        <option [value]="s.sort" [selected]="library.sort().column === s.sort">{{ s.name }}</option>
+      }
+    </select>
+  </label>
+</div>
+
+@if (!peek()) {
+  <div class="lists">
+    <button [class.on]="library.scope() === 'list'" (click)="library.setScope('list')">
+      {{ listName() }}
+    </button>
+    <button [class.on]="library.scope() === 'library'" (click)="library.setScope('library')">
+      {{ 'Library' | t }}
+    </button>
+    <button (click)="library.openPrepare()">{{ 'Prepare' | t }} · {{ prepared().length }}</button>
+    <button (click)="browsing.set(true)">{{ 'Browse…' | t }}</button>
+  </div>
+  @if (library.progress(); as p) {
+    @if (p.running) {
+      <p class="progress">
+        {{
+          (p.paused ? 'Analysis paused {done} / {total}' : 'Analysing {done} / {total}')
+            | t: { done: p.done, total: p.total }
+        }}
+      </p>
+    }
+  }
+}
+
+<div #list class="list" (scroll)="scrolled()">
+  <div [style.height.px]="window().before"></div>
+  @for (row of window().rows; track row.kind === 'folder' ? row.path : row.track.path) {
+    @if (row.kind === 'folder') {
+      <button class="row folder" [style.height.px]="ROW_PX" (click)="library.open(row.path)">
+        <svg viewBox="0 0 16 16" aria-hidden="true">
+          @if (row.up) {
+            <path d="M10 3L5 8l5 5" />
+          } @else {
+            <path d="M1.5 4h4.5l1.5 1.5h7v7h-13z" />
+          }
+        </svg>
+        <span class="names">{{ row.up ? ('Parent folder' | t) : row.name }}</span>
+      </button>
+    } @else {
+      @let moved = slid(row.track);
+      <div
+        class="row"
+        [class.sliding]="moved"
+        [style.height.px]="ROW_PX"
+        (pointerdown)="press(row.track, $event)"
+        (pointermove)="move($event)"
+        (pointerup)="release(row.track)"
+        (pointercancel)="cancel()"
+      >
+        @if (moved) {
+          <div class="under" [class.right]="moved.dx > 0" [class.armed]="moved.deck !== null">
+            {{ letter(moved.dx > 0 ? right() : left()!) }}
+          </div>
+        }
+        <div class="over" [style.translate.px]="moved?.dx ?? 0">
+          <app-cover [path]="row.track.path" />
+          <div class="names">
+            <div>{{ title(row.track) }}</div>
+            <div>{{ row.track.details?.tags?.artist }}</div>
+          </div>
+          <div class="meta">
+            <div class="pr-num">{{ bpm(row.track) }}</div>
+            <div class="key pr-num" [class.fits]="fits(row.track)">
+              {{ row.track.details?.key?.camelot }}
+            </div>
+          </div>
+        </div>
+      </div>
+    }
+  }
+  <div [style.height.px]="window().after"></div>
+  @if (empty()) {
+    <p class="empty">{{ library.error() ?? ('No audio file in this folder' | t) }}</p>
+    <button class="again" (click)="lookAgain()">{{ 'Look again' | t }}</button>
+  }
+</div>
+
+@if (!peek() && !empty()) {
+  <p class="hint">
+    @if (left() !== null) {
+      {{
+        'Slide a track right for {a}, left for {b}' | t: { a: letter(right()), b: letter(left()!) }
+      }}
+    } @else {
+      {{ 'Slide a track right to load it' | t }}
+    }
+  </p>
+}
+
+@if (menu()) {
+  <div class="veil" (click)="menu.set(null)"></div>
+  <app-track-menu class="sheet" [paths]="menuPaths()" (closed)="menu.set(null)" />
+}
+@if (browsing()) {
+  <div class="veil" (click)="browsing.set(false)"></div>
+  <div class="sheet lists-sheet">
+    <app-library-sidebar />
+    <button class="import" (click)="browsing.set(false); importing.set(true)">
+      {{ 'Import from Serato or rekordbox' | t }}
+    </button>
+  </div>
+}
+@if (importing()) {
+  <app-import-dialog (closed)="importing.set(false)" />
+}

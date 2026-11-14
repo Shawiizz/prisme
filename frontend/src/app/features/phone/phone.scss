@@ -1,6 +1,7 @@
 :host {
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: auto auto minmax(0, 1fr) auto;
   height: 100dvh;
   // clear of the notch, the status bar and the gesture bar
   padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom)
@@ -10,14 +11,27 @@
   -webkit-user-select: none;
 }
 
+button {
+  border: 0;
+  background: none;
+  font: inherit;
+  color: inherit;
+}
+svg {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
 .bar {
-  flex: none;
+  grid-row: 1;
   display: flex;
   align-items: center;
   gap: 8px;
-  height: 40px;
-  padding: 0 12px;
-  border-bottom: 1px solid var(--pr-line);
+  height: 36px;
+  padding: 0 16px;
 }
 .audio {
   flex: 1;
@@ -26,104 +40,109 @@
   white-space: nowrap;
   text-overflow: ellipsis;
   font-size: 11.5px;
-  color: var(--pr-text-2);
+  color: var(--pr-text-3);
 }
-
-.error {
+.key {
   flex: none;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 28px;
+  padding: 0 10px;
+  border-radius: 99px;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--pr-text-2);
+  svg {
+    width: 14px;
+    height: 14px;
+  }
+  &[aria-pressed='true'] {
+    background: var(--pr-raise-2);
+    color: var(--pr-text);
+  }
+}
+.rec {
+  i {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--pr-alert);
+  }
+  &.on {
+    background: color-mix(in oklab, var(--pr-alert) 22%, transparent);
+    color: var(--pr-text);
+  }
+}
+.error {
+  grid-row: 2;
   margin: 0;
-  padding: 6px 12px;
+  padding: 6px 16px;
   font-size: var(--pr-size-small);
   color: var(--pr-alert);
-  border-bottom: 1px solid var(--pr-line);
 }
 
 .screen {
-  flex: 1;
+  grid-row: 3;
   min-height: 0;
-  display: flex;
-  flex-direction: column;
-}
-.decks {
-  flex: none;
-  --pr-lane-columns: auto minmax(0, 1fr);
-  app-phone-deck,
-  app-phase-strip {
-    border-bottom: 1px solid var(--pr-line);
+  display: grid;
+  > * {
+    min-height: 0;
   }
-  app-phase-strip {
-    height: 26px;
-    padding: 4px 12px 4px 0;
-  }
-}
-app-phone-tracks,
-app-phone-controls,
-app-library-sidebar {
-  flex: 1;
-  min-height: 0;
-}
-
-.import {
-  flex: none;
-  height: var(--pr-h-lg);
-  margin: 8px 12px;
 }
 
 .tabs {
-  flex: none;
+  grid-row: 4;
   display: grid;
   grid-auto-flow: column;
   grid-auto-columns: 1fr;
+  padding: 6px 12px 8px;
   border-top: 1px solid var(--pr-line);
   button {
-    height: 48px;
-    border: 0;
-    background: none;
-    font: inherit;
-    font-size: var(--pr-size-small);
+    display: grid;
+    justify-items: center;
+    gap: 3px;
+    padding: 2px 0;
+    font-size: 11px;
     color: var(--pr-text-3);
+    svg {
+      width: 22px;
+      height: 22px;
+    }
     &.on {
       color: var(--pr-text);
-      box-shadow: inset 0 2px var(--pr-light);
     }
   }
 }
 
-// held sideways: the decks take the width, the tracks the side, the tabs a column
+// held sideways: the height goes to the screen, the tabs join the bar
 @media (orientation: landscape) {
   :host {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) 92px;
-    grid-template-rows: auto minmax(0, 1fr);
-  }
-  .bar,
-  .error {
-    grid-column: 1 / -1;
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-rows: auto auto minmax(0, 1fr);
   }
   .bar {
+    grid-column: 1;
     height: 32px;
   }
-  .screen.mix {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) minmax(220px, 34%);
-    .decks {
-      display: grid;
-      align-content: center;
-      border-right: 1px solid var(--pr-line);
-      --phone-wave: 20dvh;
-      app-phone-deck:last-child {
-        border-bottom: 0;
+  .tabs {
+    grid-area: 1 / 2;
+    grid-auto-columns: auto;
+    gap: 14px;
+    padding: 0 16px 0 0;
+    border-top: 0;
+    button {
+      grid-auto-flow: column;
+      align-items: center;
+      gap: 5px;
+      svg {
+        width: 15px;
+        height: 15px;
       }
     }
   }
-  .tabs {
-    grid-auto-flow: row;
-    grid-auto-rows: 48px;
-    align-content: start;
-    border-top: 0;
-    border-left: 1px solid var(--pr-line);
-    button.on {
-      box-shadow: inset 2px 0 var(--pr-light);
-    }
+  .error,
+  .screen {
+    grid-column: 1 / -1;
   }
 }

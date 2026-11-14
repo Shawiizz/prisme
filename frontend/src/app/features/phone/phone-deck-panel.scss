@@ -1,0 +1,122 @@
+.veil {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  background: rgb(0 0 0 / 0.55);
+}
+.panel {
+  position: fixed;
+  inset: auto 0 0;
+  z-index: 21;
+  max-height: 92%;
+  overflow-y: auto;
+  padding: 0 16px calc(18px + env(safe-area-inset-bottom));
+  border-top: 1px solid var(--pr-line-2);
+  border-radius: 18px 18px 0 0;
+  background: var(--pr-base);
+}
+.grip {
+  display: block;
+  width: 100%;
+  height: 20px;
+  padding: 0;
+  border: 0;
+  background: none;
+  &::after {
+    content: '';
+    display: block;
+    width: 36px;
+    height: 4px;
+    margin: 0 auto;
+    border-radius: 2px;
+    background: var(--pr-line-2);
+  }
+}
+
+h4 {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  margin: 12px 0 8px;
+  font: 600 var(--pr-size-label) / 1 var(--pr-font);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--pr-text-3);
+  .pr-num {
+    font-size: var(--pr-size-small);
+    letter-spacing: 0;
+    color: var(--pr-text);
+  }
+  .target {
+    color: var(--pr-light);
+  }
+}
+.told {
+  margin: 8px 0 0;
+  font-size: var(--pr-size-small);
+  color: var(--pr-text-2);
+}
+
+.choice {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
+  gap: 6px;
+  button {
+    height: 44px;
+    padding: 0 6px;
+    border: 0;
+    border-radius: 10px;
+    background: var(--pr-raise);
+    font: 600 var(--pr-size-small) / 1.1 var(--pr-font);
+    color: var(--pr-text-2);
+    &[aria-checked='true'],
+    &[aria-pressed='true'] {
+      background: var(--pr-light);
+      color: var(--pr-on-light);
+    }
+    &:disabled {
+      color: var(--pr-text-3);
+    }
+  }
+}
+
+.pitch {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: var(--pr-size-small);
+  color: var(--pr-text-3);
+  app-fader {
+    flex: 1;
+  }
+}
+
+.faders {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
+  label {
+    display: grid;
+    justify-items: center;
+    gap: 6px;
+    font: 600 10px / 1 var(--pr-font);
+    letter-spacing: 0.05em;
+    color: var(--pr-text-3);
+  }
+  app-fader {
+    height: 124px;
+  }
+}
+
+// held sideways: the faders are shorter, the panel keeps to the height
+@media (orientation: landscape) {
+  .panel {
+    left: 12%;
+    right: 12%;
+    border-inline: 1px solid var(--pr-line-2);
+  }
+  .faders app-fader {
+    height: 84px;
+  }
+}

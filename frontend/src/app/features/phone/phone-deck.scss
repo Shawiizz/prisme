@@ -1,50 +1,84 @@
 :host {
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
-  grid-template-areas:
-    'letter title key'
-    'wave wave wave'
-    'remaining vinyl tempo';
-  align-items: center;
-  gap: 6px 8px;
-  padding: 8px 12px;
+  gap: 8px;
+  padding: 10px 16px 12px;
   min-width: 0;
 }
 
-.pr-tile {
-  grid-area: letter;
-  width: 24px;
-  height: 24px;
-  font-size: 13px;
+button {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: start;
 }
-.title {
-  grid-area: title;
-  overflow: hidden;
-  white-space: nowrap;
-  text-overflow: ellipsis;
-  font-size: 14px;
-  font-weight: 600;
-  span {
-    font-weight: 400;
-    color: var(--pr-text-2);
+.head,
+.readouts {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.letter {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border: 1px solid var(--pr-line-2);
+  border-radius: var(--pr-radius-sm);
+  font: 700 12px / 1 var(--pr-font-mono);
+  color: var(--pr-text-2);
+  &.playing {
+    border-color: var(--pr-light);
+    background: var(--pr-light);
+    color: var(--pr-on-light);
   }
+}
+app-cover {
+  flex: none;
+  width: 40px;
+  height: 40px;
+  border-radius: var(--pr-radius);
+  overflow: hidden;
+}
+.names {
+  flex: 1;
+  min-width: 0;
+  display: grid;
   &.empty {
-    font-weight: 400;
     color: var(--pr-text-3);
   }
 }
-.pr-key {
-  grid-area: key;
-  justify-self: end;
+.title,
+.artist {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
 }
-app-deck-waveform {
-  grid-area: wave;
-  height: var(--phone-wave, 84px);
-}
-.remaining {
-  grid-area: remaining;
-  font-size: 19px;
+.title {
+  font-size: 15px;
   font-weight: 600;
+}
+.artist {
+  font-size: var(--pr-size-small);
+  color: var(--pr-text-2);
+}
+
+app-deck-waveform {
+  height: var(--phone-wave, 118px);
+}
+
+.readouts {
+  align-items: baseline;
+}
+.time {
+  font-size: 30px;
+  font-weight: 600;
+  line-height: 1;
+  letter-spacing: -0.01em;
   &.warn {
     color: var(--pr-warn);
   }
@@ -53,35 +87,52 @@ app-deck-waveform {
     animation: pr-blink 0.5s steps(1) infinite;
   }
 }
-.vinyl {
-  grid-area: vinyl;
-  justify-self: center;
-  display: flex;
-  align-items: center;
-  gap: 8px;
+.readouts .time {
+  margin-right: auto;
 }
-.tempo {
-  grid-area: tempo;
-  justify-self: end;
-  padding: 0;
-  border: 0;
-  background: none;
-  color: inherit;
-  font-size: 13px;
-  font-weight: 500;
-  span {
-    font-size: 11px;
-    font-weight: 400;
-    color: var(--pr-text-2);
+.bpm {
+  font-size: 19px;
+  font-weight: 600;
+  line-height: 1;
+}
+.pitch {
+  min-width: 52px;
+  font-size: var(--pr-size-small);
+  color: var(--pr-text-2);
+  text-align: end;
+}
+// who drives the deck, in the colour of what its record says
+.vinyl {
+  align-self: center;
+  padding: 3px 7px;
+  border: 1px solid var(--pr-line-2);
+  border-radius: 99px;
+  font: 600 10.5px / 1 var(--pr-font);
+  letter-spacing: 0.05em;
+  color: var(--pr-text-2);
+  &.ok {
+    border-color: transparent;
+    background: color-mix(in oklab, var(--pr-ok) 22%, transparent);
+    color: var(--pr-ok);
+  }
+  &.bounce {
+    border-color: var(--pr-warn);
+    color: var(--pr-warn);
+  }
+  &.none {
+    border-color: var(--pr-alert);
+    color: var(--pr-alert);
   }
 }
 
-// a phone held sideways: the readouts join the title, the waveform takes the height
-@media (orientation: landscape) {
-  :host {
-    grid-template-columns: auto minmax(0, 1fr) auto auto auto auto;
-    grid-template-areas:
-      'letter title key vinyl tempo remaining'
-      'wave wave wave wave wave wave';
+// one line and the waveform: the thumbs have the rest of the screen
+:host(.compact) {
+  gap: 6px;
+  padding-block: 8px;
+  .time {
+    font-size: 20px;
+  }
+  .bpm {
+    font-size: 15px;
   }
 }
