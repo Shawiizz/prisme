@@ -59,16 +59,6 @@
   color: var(--pr-text-2);
   font: 500 var(--pr-size) / 1 var(--pr-font);
   text-align: left;
-  svg {
-    flex: none;
-    width: 17px;
-    height: 17px;
-    fill: none;
-    stroke: currentColor;
-    stroke-width: 1.5;
-    stroke-linecap: round;
-    stroke-linejoin: round;
-  }
   &:hover {
     background: var(--pr-raise);
     color: var(--pr-text);
@@ -173,59 +163,5 @@
   .pending.nudged {
     animation: none;
     border-color: var(--pr-warn);
-  }
-}
-
-// a phone: the whole screen, the pages on a line at the top, each setting over its control
-@media (max-width: 720px), (max-height: 520px) {
-  .settings {
-    grid-template-columns: minmax(0, 1fr);
-    grid-template-rows: auto minmax(0, 1fr);
-    width: 100vw;
-    height: 100dvh;
-    padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom)
-      env(safe-area-inset-left);
-    border: 0;
-    border-radius: 0;
-  }
-  .sidebar {
-    gap: var(--pr-space-2);
-    padding: var(--pr-space-3) var(--pr-space-3) var(--pr-space-2);
-    border-right: 0;
-    border-bottom: 1px solid var(--pr-line);
-    h2 {
-      display: none;
-    }
-    nav {
-      grid-auto-flow: column;
-      justify-content: start;
-      margin-top: 0;
-      overflow-x: auto;
-    }
-  }
-  .item {
-    white-space: nowrap;
-  }
-  .head {
-    padding: var(--pr-space-3) var(--pr-space-4) var(--pr-space-2);
-    h2 {
-      font-size: 22px;
-    }
-  }
-  .body {
-    padding: var(--pr-space-2) var(--pr-space-3) var(--pr-space-5);
-  }
-  .pr-row {
-    grid-template-columns: minmax(0, 1fr);
-    gap: var(--pr-space-2);
-  }
-  .pr-select {
-    width: 100%;
-  }
-  .turntables {
-    grid-template-columns: minmax(0, 1fr);
-  }
-  .pending {
-    margin-inline: var(--pr-space-3);
   }
 }

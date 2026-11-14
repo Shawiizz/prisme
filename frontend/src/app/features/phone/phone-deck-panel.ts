@@ -1,4 +1,5 @@
 import { Component, computed, inject, input, output, signal } from '@angular/core';
+import { closedByBack } from '../../core/back';
 import { deckTempo } from '../../core/deck-tempo';
 import { DeckMode, deckVinyl } from '../../core/deck-vinyl';
 import { BANDS, Band } from '../../core/models/engine';
@@ -70,6 +71,10 @@ export class PhoneDeckPanel {
   protected readonly eq = EQ;
   /** The grid and key editor is open. */
   protected readonly editing = signal(false);
+
+  constructor() {
+    closedByBack(this.editing, () => this.editing.set(false));
+  }
 
   protected eqKnob(band: Band): number {
     return eqKnob(this.mixer.strip(this.deck()).eq[BANDS.indexOf(band)]);

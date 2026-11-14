@@ -24,19 +24,21 @@ import { TPipe } from '../../core/i18n/t.pipe';
 import { TurntablePanel } from '../turntables/turntable-panel';
 import { ControllersSettings } from '../controllers/controllers-settings';
 import { ShortcutsSettings } from '../shortcuts/shortcuts-settings';
+import { PHONE } from '../../core/platform';
 import { SETTINGS, SETTINGS_PAGES, SettingEntry, normalize } from './settings-catalog';
+import { SettingsIcon } from './settings-icon';
 
 /**
  * The settings: a sidebar of pages with a search over every setting, the page or the
  * results as rows grouped in cards. Most settings apply at once; those that restart the
  * audio or the interface wait in a bar until applied, and the window does not close
- * over them.
+ * over them. On a phone, a page of its settings screen (`app-phone-settings`).
  */
 @Component({
   selector: 'app-settings-dialog',
   templateUrl: './settings-dialog.html',
-  styleUrl: './settings-dialog.scss',
-  imports: [TPipe, TurntablePanel, ControllersSettings, ShortcutsSettings],
+  styleUrls: ['./settings-dialog.scss', './settings-dialog.phone.scss'],
+  imports: [TPipe, TurntablePanel, ControllersSettings, SettingsIcon, ShortcutsSettings],
 })
 export class SettingsDialog implements OnInit {
   protected readonly service = inject(SettingsService);
@@ -48,6 +50,8 @@ export class SettingsDialog implements OnInit {
   private readonly navigation = inject(NavigationService);
 
   protected readonly pages = SETTINGS_PAGES;
+  /** On a phone the settings are a screen with its pages: this is one of them. */
+  protected readonly PHONE = PHONE;
   protected readonly pitchRanges = PITCH_RANGES;
   protected readonly languages = LANGUAGES;
   protected readonly decks = this.engine.deckIndexes;

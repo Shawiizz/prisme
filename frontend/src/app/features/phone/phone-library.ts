@@ -12,6 +12,7 @@ import {
   untracked,
   viewChild,
 } from '@angular/core';
+import { closedByBack } from '../../core/back';
 import { DirEntry } from '../../core/models/library';
 import { CratesService } from '../../core/services/crates.service';
 import { EngineService } from '../../core/services/engine.service';
@@ -162,6 +163,11 @@ export class PhoneLibrary {
       resized.observe(list);
       destroyed.onDestroy(() => resized.disconnect());
     });
+    closedByBack(
+      () => this.menu() !== null,
+      () => this.menu.set(null),
+    );
+    closedByBack(this.browsing, () => this.browsing.set(false));
     // a list chosen among those of the library is the one shown: its panel closes
     effect(() => {
       this.library.source();

@@ -1,5 +1,8 @@
 @if (PHONE) {
-  <app-phone />
+  <!-- loaded apart: a computer never needs the screens of a phone -->
+  @defer (on immediate) {
+    <app-phone />
+  }
 } @else {
   <app-titlebar />
 
@@ -19,10 +22,15 @@
   </main>
 }
 
-@if (navigation.settings()) {
-  <app-settings-dialog />
+<!-- loaded when first opened -->
+@if (!PHONE && navigation.settings()) {
+  @defer (on immediate) {
+    <app-settings-dialog />
+  }
 }
 
-@if (navigation.palette()) {
-  <app-command-palette />
+@if (!PHONE && navigation.palette()) {
+  @defer (on immediate) {
+    <app-command-palette />
+  }
 }

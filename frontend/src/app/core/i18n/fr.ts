@@ -222,6 +222,8 @@ export const FR: Record<string, string> = {
   'Grid and key': 'Grille et tonalité',
   'Browse…': 'Parcourir…',
   'Controls under the thumbs': 'Commandes sous les pouces',
+  Controls: 'Commandes',
+  Back: 'Retour',
   'Slide a track right for {a}, left for {b}':
     'Glissez un morceau à droite pour {a}, à gauche pour {b}',
   'Slide a track right to load it': 'Glissez un morceau à droite pour le charger',

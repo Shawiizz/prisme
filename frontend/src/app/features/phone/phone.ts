@@ -1,4 +1,4 @@
-import { Component, computed, inject, signal } from '@angular/core';
+import { Component, computed, effect, inject, signal } from '@angular/core';
 import { ControllerService } from '../../core/control/controller.service';
 import { BACKEND_NAMES } from '../../core/models/audio';
 import { EngineService } from '../../core/services/engine.service';
@@ -11,11 +11,12 @@ import { TPipe } from '../../core/i18n/t.pipe';
 import { decimal, formatClock } from '../../shared/time';
 import { PhoneDecks } from './phone-decks';
 import { PhoneLibrary } from './phone-library';
+import { PhoneSettings } from './phone-settings';
 
-type Tab = 'decks' | 'library';
+type Tab = 'decks' | 'library' | 'settings';
 
 /**
- * Prisme on a phone: the decks and the library, a screen each, and the settings. The decks
+ * Prisme on a phone: the decks, the library and the settings, a screen each. The decks
  * follow what is plugged in: a controller, or records through a sound card, and they only
  * show what is read from afar; nothing, and their controls come under the thumbs (the key
  * at the top says otherwise).
@@ -24,7 +25,7 @@ type Tab = 'decks' | 'library';
   selector: 'app-phone',
   templateUrl: './phone.html',
   styleUrl: './phone.scss',
-  imports: [PhoneDecks, PhoneLibrary, TPipe],
+  imports: [PhoneDecks, PhoneLibrary, PhoneSettings, TPipe],
 })
 export class Phone {
   protected readonly engine = inject(EngineService);
@@ -38,6 +39,7 @@ export class Phone {
   protected readonly tabs: { id: Tab; label: string }[] = [
     { id: 'decks', label: t('Decks') },
     { id: 'library', label: t('Library') },
+    { id: 'settings', label: t('Settings') },
   ];
 
   /** The sound card and how long it waits: `AAudio · DDJ-FLX2 · 5.3 ms`. */
@@ -60,6 +62,13 @@ export class Phone {
   protected readonly touch = computed(() => this.chosen() ?? !this.hardware());
 
   protected readonly clock = formatClock;
+
+  constructor() {
+    // a page of the settings asked for from elsewhere is shown on their screen
+    effect(() => {
+      if (this.navigation.settings()) this.tab.set('settings');
+    });
+  }
 
   protected toggleTouch() {
     this.chosen.set(!this.touch());

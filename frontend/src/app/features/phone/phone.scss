@@ -86,6 +86,8 @@ svg {
   grid-row: 3;
   min-height: 0;
   display: grid;
+  // no wider than the phone, whatever a long title would take
+  grid-template-columns: minmax(0, 1fr);
   > * {
     min-height: 0;
   }

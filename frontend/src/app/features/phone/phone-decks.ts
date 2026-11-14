@@ -1,4 +1,5 @@
 import { Component, booleanAttribute, computed, inject, input, signal } from '@angular/core';
+import { closedByBack } from '../../core/back';
 import { landscape } from '../../core/orientation';
 import { EngineService } from '../../core/services/engine.service';
 import { MixerService } from '../../core/services/mixer.service';
@@ -76,4 +77,11 @@ export class PhoneDecks {
   protected readonly rights = computed(() => this.decks().filter((d) => d % 2 === 1));
   /** The deck whose panel is open. */
   protected readonly panel = signal<{ deck: number } | null>(null);
+
+  constructor() {
+    closedByBack(
+      () => this.panel() !== null,
+      () => this.panel.set(null),
+    );
+  }
 }
