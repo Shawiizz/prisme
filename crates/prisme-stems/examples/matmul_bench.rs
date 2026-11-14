@@ -9,7 +9,11 @@ use wgpu::util::DeviceExt;
 
 const SMALL: &str = include_str!("../src/gpu/matmul_small.wgsl");
 const LARGE: &str = include_str!("../src/gpu/matmul.wgsl");
-const RUNS: u32 = 10;
+const RUNS: u32 = 4;
+/// Products timed by the GPU in one submission: a phone's GPU stalls on long ones.
+const TIMED: u32 = 3;
+/// The GPU is kept busy this long before timing, for its clock to come up.
+const WARM_UP_S: f64 = 1.5;
 
 /// The products of a chunk of the small vocals model (258 frames x 60 bands), and of the band
 /// split into its first features.
@@ -33,6 +37,56 @@ fn header_tile(source: &str) -> Option<(usize, usize)> {
     Some((value("rows=")?, value("cols=")?))
 }
 
+/// The time of one product as the GPU counts it, over [`TIMED`] of them, if it can.
+fn gpu_time(
+    device: &wgpu::Device,
+    queue: &wgpu::Queue,
+    pipeline: &wgpu::ComputePipeline,
+    bind: &wgpu::BindGroup,
+    groups: (u32, u32),
+) -> Option<f64> {
+    if !device.features().contains(wgpu::Features::TIMESTAMP_QUERY) {
+        return None;
+    }
+    let set = device.create_query_set(&wgpu::QuerySetDescriptor { label: None, ty: wgpu::QueryType::Timestamp, count: 2 });
+    let resolved = device.create_buffer(&wgpu::BufferDescriptor {
+        label: None,
+        size: 16,
+        usage: wgpu::BufferUsages::QUERY_RESOLVE | wgpu::BufferUsages::COPY_SRC,
+        mapped_at_creation: false,
+    });
+    let read = device.create_buffer(&wgpu::BufferDescriptor {
+        label: None,
+        size: 16,
+        usage: wgpu::BufferUsages::MAP_READ | wgpu::BufferUsages::COPY_DST,
+        mapped_at_creation: false,
+    });
+    let mut encoder = device.create_command_encoder(&Default::default());
+    {
+        let mut pass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor {
+            label: None,
+            timestamp_writes: Some(wgpu::ComputePassTimestampWrites {
+                query_set: &set,
+                beginning_of_pass_write_index: Some(0),
+                end_of_pass_write_index: Some(1),
+            }),
+        });
+        pass.set_pipeline(pipeline);
+        pass.set_bind_group(0, bind, &[]);
+        for _ in 0..TIMED {
+            pass.dispatch_workgroups(groups.0, groups.1, 1);
+        }
+    }
+    encoder.resolve_query_set(&set, 0..2, &resolved, 0);
+    encoder.copy_buffer_to_buffer(&resolved, 0, &read, 0, 16);
+    queue.submit([encoder.finish()]);
+    read.slice(..).map_async(wgpu::MapMode::Read, |_| ());
+    device.poll(wgpu::PollType::wait_indefinitely()).ok()?;
+    let ticks: Vec<u64> = bytemuck::cast_slice(&read.slice(..).get_mapped_range().ok()?).to_vec();
+    let elapsed = ticks[1].checked_sub(ticks[0])? as f64 * f64::from(queue.get_timestamp_period()) * 1e-9;
+    (elapsed > 0.0).then(|| elapsed / f64::from(TIMED))
+}
+
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let instance = wgpu::Instance::new(wgpu::InstanceDescriptor::new_without_display_handle().with_env());
     let adapter = pollster::block_on(instance.request_adapter(&wgpu::RequestAdapterOptions {
@@ -40,12 +94,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         ..Default::default()
     }))?;
     let info = adapter.get_info();
-    let features = adapter.features() & wgpu::Features::SHADER_F16;
+    let features = adapter.features() & (wgpu::Features::SHADER_F16 | wgpu::Features::TIMESTAMP_QUERY);
     let limits = adapter.limits();
     eprintln!(
-        "{} ({:?}) · f16 {} · subgroups {}-{} · workgroup storage {} · binding {}",
+        "{} ({:?}) · timestamps {} · f16 {} · subgroups {}-{} · workgroup storage {} · binding {}",
         info.name,
         info.backend,
+        features.contains(wgpu::Features::TIMESTAMP_QUERY),
         features.contains(wgpu::Features::SHADER_F16),
         info.subgroup_min_size,
         info.subgroup_max_size,
@@ -137,10 +192,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 queue.submit([encoder.finish()]);
                 device.poll(wgpu::PollType::wait_indefinitely()).expect("the GPU answers");
             };
-            run(2);
+            let warm = Instant::now();
+            while warm.elapsed().as_secs_f64() < WARM_UP_S {
+                run(2);
+            }
             let start = Instant::now();
             run(RUNS);
-            let seconds = start.elapsed().as_secs_f64() / f64::from(RUNS);
+            let wall = start.elapsed().as_secs_f64() / f64::from(RUNS);
+            let seconds = gpu_time(&device, &queue, &pipeline, &bind, groups).unwrap_or(wall);
             let gflops = 2.0 * (m * n * k) as f64 / seconds / 1e9;
 
             let mut encoder = device.create_command_encoder(&Default::default());

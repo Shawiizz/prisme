@@ -1,6 +1,7 @@
 //! Separates a stereo WAV at the model's rate, on the GPU when there is one
 //! (`PRISME_STEMS_CPU=1` forces the CPU, `PRISME_STEMS_FLOAT=1` f32 arithmetic on the GPU,
-//! `PRISME_STEMS_MAX_BINDING=<bytes>` the buffers of a smaller GPU): `separate <model.safetensors> <in.wav> <out>`
+//! `PRISME_STEMS_MAX_BINDING=<bytes>` the buffers of a smaller GPU, `PRISME_STEMS_PROFILE=1`
+//! the time of each kind of work): `separate <model.safetensors> <in.wav> <out>`
 //! writes `<out>.<stem>.wav` for each stem of the model.
 
 use std::path::PathBuf;
@@ -24,22 +25,30 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let right: Vec<f32> = samples.iter().skip(1).step_by(2).copied().collect();
 
     if std::env::var_os("PRISME_STEMS_CPU").is_some() {
-        run(Separator::new(CpuNetwork::new(weights)), &left, &right, spec, output)
+        run(&mut Separator::new(CpuNetwork::new(weights)), &left, &right, spec, output)
     } else {
         let t = Instant::now();
         let options = GpuOptions {
             without_matrix_units: std::env::var_os("PRISME_STEMS_FLOAT").is_some(),
             max_binding: std::env::var("PRISME_STEMS_MAX_BINDING").ok().and_then(|b| b.parse().ok()),
+            profile: std::env::var_os("PRISME_STEMS_PROFILE").is_some(),
             ..Default::default()
         };
         let gpu = GpuNetwork::with_options(weights, options)?;
         eprintln!("{} ready in {:.1} s", gpu.adapter(), t.elapsed().as_secs_f64());
-        run(Separator::new(gpu), &left, &right, spec, output)
+        let mut separator = Separator::new(gpu);
+        run(&mut separator, &left, &right, spec, output)?;
+        let profile = separator.network().profile();
+        let total: f64 = profile.iter().map(|(_, s, _)| s).sum();
+        for (kind, seconds, steps) in profile {
+            eprintln!("{kind:>20} {seconds:8.2} s {:5.1} %  {steps} steps", 100.0 * seconds / total);
+        }
+        Ok(())
     }
 }
 
 fn run(
-    mut separator: Separator<impl MaskNetwork>,
+    separator: &mut Separator<impl MaskNetwork>,
     left: &[f32],
     right: &[f32],
     spec: hound::WavSpec,

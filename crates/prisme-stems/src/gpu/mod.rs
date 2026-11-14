@@ -33,6 +33,9 @@ pub struct GpuOptions {
     /// Binds no buffer larger than this (bytes), below the GPU's own limit: to try on a large
     /// GPU how a small one cuts a track.
     pub max_binding: Option<u64>,
+    /// Times the work by kind ([`GpuNetwork::profile`]), where the GPU tells the time: each
+    /// step then waits for the one before, which makes the whole slower.
+    pub profile: bool,
 }
 
 /// The GPU the networks run on.
@@ -51,6 +54,8 @@ pub struct Gpu {
     software: bool,
     /// The largest buffer a shader binds (bytes).
     max_binding: u64,
+    /// Each step is timed ([`GpuOptions::profile`]).
+    profile: bool,
     scratch: Mutex<Scratch>,
 }
 
@@ -94,6 +99,8 @@ pub struct GpuNetwork {
     plans: HashMap<usize, Plan>,
     /// The frames of the chunk started, and its last submission.
     started: Option<(usize, wgpu::SubmissionIndex)>,
+    /// Seconds and steps of each kind of work so far, when profiling.
+    profiled: HashMap<&'static str, (f64, usize)>,
 }
 
 /// The weights, on the GPU.
@@ -138,6 +145,9 @@ struct Pipelines {
     matmul: [wgpu::ComputePipeline; 4],
     /// The side of the square of outputs a workgroup of `matmul` computes.
     matmul_tile: usize,
+    /// On the shader cores, the products whose rows are read four values at a time: from
+    /// registers alone, several times faster (`matmul_blocked.wgsl`).
+    blocked: Option<wgpu::ComputePipeline>,
     norm: wgpu::ComputePipeline,
     norm_in_place: wgpu::ComputePipeline,
     rotary: wgpu::ComputePipeline,
@@ -163,6 +173,8 @@ struct Step {
     pipeline: wgpu::ComputePipeline,
     bind_group: wgpu::BindGroup,
     groups: (u32, u32),
+    /// What the step does, for [`GpuNetwork::profile`].
+    kind: &'static str,
 }
 
 #[derive(Clone, Copy)]
@@ -180,10 +192,11 @@ impl Gpu {
     pub fn open(options: GpuOptions) -> Result<Arc<Self>, StemsError> {
         let (adapter, matrix_units) = worthy_adapter(options)?;
         let info = adapter.get_info();
+        let profile = if options.profile { adapter.features() & wgpu::Features::TIMESTAMP_QUERY } else { wgpu::Features::empty() };
         let large_tiles = info.vendor == NVIDIA;
         let (device, queue) = pollster::block_on(adapter.request_device(&wgpu::DeviceDescriptor {
             label: Some("prisme-stems"),
-            required_features: if matrix_units { MATRIX_FEATURES } else { wgpu::Features::empty() },
+            required_features: if matrix_units { MATRIX_FEATURES } else { wgpu::Features::empty() } | profile,
             required_limits: adapter.limits(),
             // SAFETY: the cooperative matrices are the only experimental feature in use; the
             // tests hold the networks on them to the f32 ones.
@@ -216,6 +229,7 @@ impl Gpu {
             large_tiles,
             software: info.device_type == wgpu::DeviceType::Cpu,
             max_binding,
+            profile: !profile.is_empty(),
             scratch: Mutex::default(),
         }))
     }
@@ -323,10 +337,67 @@ impl GpuNetwork {
             params,
             plans: HashMap::new(),
             started: None,
+            profiled: HashMap::new(),
         };
         gpu.check_errors()?;
         network.prepare(network.geometry.config.chunk_frames)?;
         Ok(network)
+    }
+
+    /// Seconds and steps of each kind of work so far, the longest first: empty unless the
+    /// GPU was opened to profile ([`GpuOptions::profile`]) and can.
+    pub fn profile(&self) -> Vec<(&'static str, f64, usize)> {
+        let mut kinds: Vec<_> = self.profiled.iter().map(|(&kind, &(s, n))| (kind, s, n)).collect();
+        kinds.sort_by(|a, b| b.1.total_cmp(&a.1));
+        kinds
+    }
+
+    /// Runs `steps` one by one, timing each.
+    fn profile_steps_of(&mut self, steps: &[&Step]) -> Result<(), StemsError> {
+        let gpu = &self.gpu;
+        let device = &gpu.device;
+        let set = device.create_query_set(&wgpu::QuerySetDescriptor { label: None, ty: wgpu::QueryType::Timestamp, count: 2 });
+        let resolved = device.create_buffer(&wgpu::BufferDescriptor {
+            label: None,
+            size: 16,
+            usage: wgpu::BufferUsages::QUERY_RESOLVE | wgpu::BufferUsages::COPY_SRC,
+            mapped_at_creation: false,
+        });
+        let read = device.create_buffer(&wgpu::BufferDescriptor {
+            label: None,
+            size: 16,
+            usage: wgpu::BufferUsages::MAP_READ | wgpu::BufferUsages::COPY_DST,
+            mapped_at_creation: false,
+        });
+        let period = f64::from(gpu.queue.get_timestamp_period()) * 1e-9;
+        let failed = |e: &dyn std::fmt::Display| StemsError::Gpu(e.to_string());
+        for step in steps {
+            let mut encoder = device.create_command_encoder(&Default::default());
+            {
+                let mut pass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor {
+                    label: None,
+                    timestamp_writes: Some(wgpu::ComputePassTimestampWrites {
+                        query_set: &set,
+                        beginning_of_pass_write_index: Some(0),
+                        end_of_pass_write_index: Some(1),
+                    }),
+                });
+                pass.set_pipeline(&step.pipeline);
+                pass.set_bind_group(0, &step.bind_group, &[]);
+                pass.dispatch_workgroups(step.groups.0, step.groups.1, 1);
+            }
+            encoder.resolve_query_set(&set, 0..2, &resolved, 0);
+            encoder.copy_buffer_to_buffer(&resolved, 0, &read, 0, 16);
+            gpu.queue.submit([encoder.finish()]);
+            read.slice(..).map_async(wgpu::MapMode::Read, |_| ());
+            device.poll(wgpu::PollType::wait_indefinitely()).map_err(|e| failed(&e))?;
+            let ticks: Vec<u64> = bytemuck::cast_slice(&read.slice(..).get_mapped_range().map_err(|e| failed(&e))?).to_vec();
+            read.unmap();
+            let entry = self.profiled.entry(step.kind).or_default();
+            entry.0 += ticks[1].saturating_sub(ticks[0]) as f64 * period;
+            entry.1 += 1;
+        }
+        Ok(())
     }
 
     /// The GPU and graphics API in use, and its matrix units if the network runs on them.
@@ -392,6 +463,14 @@ impl MaskNetwork for GpuNetwork {
     fn start(&mut self, bins: &[f32], frames: usize) -> Result<(), StemsError> {
         assert!(bins.len() == frames * self.geometry.features(), "bins hold `frames` rows of features");
         self.prepare(frames)?;
+        if self.gpu.profile {
+            let plan = self.plans.remove(&frames).expect("prepared");
+            self.gpu.queue.write_buffer(&plan.bins, 0, bytemuck::cast_slice(bins));
+            let steps: Vec<&Step> = plan.submissions.iter().flatten().collect();
+            let result = self.profile_steps_of(&steps);
+            self.plans.insert(frames, plan);
+            result?;
+        }
         let plan = &self.plans[&frames];
         let gpu = &self.gpu;
         gpu.queue.write_buffer(&plan.bins, 0, bytemuck::cast_slice(bins));
@@ -489,6 +568,9 @@ fn adapter() -> Result<(wgpu::Adapter, bool), StemsError> {
         .map(|a| (a, false))
         .map_err(|e| StemsError::NoGpu(e.to_string()))
 }
+
+/// The side of the square of outputs a workgroup of `matmul_blocked.wgsl` computes.
+const BLOCKED_TILE: usize = 64;
 
 /// A GPU binding too little for a chunk the length the model was made for takes shorter
 /// ones, down to this fraction of it: shorter, a chunk would hear too little of the music.
@@ -593,6 +675,7 @@ impl Pipelines {
             [f32.clone(), f32.clone(), f32.clone(), f32]
         };
         let matmul_tile = if matrix || gpu.large_tiles { 128 } else { 64 };
+        let blocked = (!matrix).then(|| make(include_str!("matmul_blocked.wgsl"), "main", &[]));
         let matrix_attention = matrix && matrix_attention(device, geometry);
         let attention = if matrix_attention {
             make(include_str!("attention_coop.wgsl"), "main", &[])
@@ -602,6 +685,7 @@ impl Pipelines {
         Self {
             matmul,
             matmul_tile,
+            blocked,
             norm: make(include_str!("norm.wgsl"), "normalize", &[]),
             norm_in_place: make(include_str!("norm_in_place.wgsl"), "normalize_in_place", &[]),
             rotary: make(include_str!("rotary.wgsl"), "main", &[]),
@@ -614,6 +698,20 @@ impl Pipelines {
 
     fn matmul(&self, input: Store, output: Store) -> &wgpu::ComputePipeline {
         &self.matmul[2 * usize::from(input == Store::Act) + usize::from(output == Store::Act)]
+    }
+
+    /// What `pipeline` does, for [`GpuNetwork::profile`].
+    fn kind(&self, pipeline: &wgpu::ComputePipeline) -> &'static str {
+        let named = [
+            (Some(&self.norm), "norm"),
+            (Some(&self.norm_in_place), "norm"),
+            (Some(&self.rotary), "rotary"),
+            (Some(&self.attention), "attention"),
+            (Some(&self.glu), "glu"),
+            (Some(&self.add), "add"),
+            (self.blocked.as_ref(), "products (blocked)"),
+        ];
+        named.into_iter().find(|(p, _)| *p == Some(pipeline)).map_or("products (tiles)", |(_, kind)| kind)
     }
 }
 
@@ -833,13 +931,18 @@ impl Planner<'_> {
             layout: &pipeline.get_bind_group_layout(0),
             entries: &entries,
         });
-        Step { pipeline: pipeline.clone(), bind_group, groups }
+        Step { pipeline: pipeline.clone(), bind_group, groups, kind: self.net.pipelines.kind(pipeline) }
     }
 
     /// `out` (+)= act(`a` · `l`) over `rows` rows.
     fn matmul(&self, l: &GpuLinear, a: Input, rows: usize, out: Input, act: Act, accumulate: bool) -> Step {
         let bias = l.bias.as_ref().unwrap_or(&self.net.params.no_bias);
-        let tile = self.net.pipelines.matmul_tile;
+        let pipelines = &self.net.pipelines;
+        let aligned = l.inp % 4 == 0 && a.ld % 4 == 0 && a.off % 4 == 0;
+        let (pipeline, tile) = match pipelines.blocked.as_ref().filter(|_| aligned) {
+            Some(blocked) => (blocked, BLOCKED_TILE),
+            None => (pipelines.matmul(a.store, out.store), pipelines.matmul_tile),
+        };
         let groups = (l.out.div_ceil(tile) as u32, rows.div_ceil(tile) as u32);
         let uniform = [
             rows,
@@ -854,7 +957,6 @@ impl Planner<'_> {
             usize::from(l.bias.is_some()),
             l.ld,
         ];
-        let pipeline = self.net.pipelines.matmul(a.store, out.store);
         self.step(pipeline, groups, &[a.buffer, &l.weight, bias, out.buffer], &words(&uniform))
     }
 

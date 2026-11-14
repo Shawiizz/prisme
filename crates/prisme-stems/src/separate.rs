@@ -31,6 +31,11 @@ impl<N: MaskNetwork> Separator<N> {
         self
     }
 
+    /// The network separating.
+    pub fn network(&self) -> &N {
+        &self.net
+    }
+
     pub fn sample_rate(&self) -> u32 {
         self.net.geometry().config.sample_rate
     }
