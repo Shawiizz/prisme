@@ -130,9 +130,9 @@ struct Download {
 /// The graphics card could not be opened, or failed twice: the separation runs on the CPU.
 static GPU_GAVE_UP: AtomicBool = AtomicBool::new(false);
 
-/// The graphics chip of a phone is left alone for now: the models were sized for the card
-/// of a computer.
-const USES_GPU: bool = cfg!(desktop);
+/// The graphics chip separates on a computer and on Android (Vulkan); an iPhone's is left
+/// alone until it has been tried.
+const USES_GPU: bool = cfg!(any(desktop, target_os = "android"));
 
 /// Whether a graphics card can separate: one is there (looked for once, which takes a
 /// moment: not from the window's thread) and did not give up since.
@@ -331,9 +331,15 @@ async fn fetch_model(
     let client = reqwest::Client::builder()
         .user_agent("Prisme")
         .connect_timeout(DOWNLOAD_TIMEOUT)
-        .read_timeout(DOWNLOAD_TIMEOUT)
-        .build()
-        .map_err(|e| e.to_string())?;
+        .read_timeout(DOWNLOAD_TIMEOUT);
+    // Android's own certificates are reached through Java only: Mozilla's are shipped instead
+    #[cfg(target_os = "android")]
+    let client = client.tls_certs_only(
+        webpki_root_certs::TLS_SERVER_ROOT_CERTS
+            .iter()
+            .filter_map(|der| reqwest::Certificate::from_der(der).ok()),
+    );
+    let client = client.build().map_err(|e| e.to_string())?;
     for attempt in 1.. {
         match fetch_rest(app, &client, model, &partial, downloads).await {
             Ok(()) => break,

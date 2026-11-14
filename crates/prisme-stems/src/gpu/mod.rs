@@ -426,8 +426,10 @@ fn worthy_adapter(options: GpuOptions) -> Result<(wgpu::Adapter, bool), StemsErr
         return Err(StemsError::NoGpu(format!("{} is a software renderer", info.name)));
     }
     let matrix_units = !options.without_matrix_units && has_matrix_units(&adapter);
-    // Apple's own GPUs are integrated, and anything but slow
-    let slow = info.device_type == wgpu::DeviceType::IntegratedGpu && info.vendor != APPLE;
+    // Apple's own GPUs are integrated, and anything but slow; so is a phone's, beside its CPU
+    let slow = info.device_type == wgpu::DeviceType::IntegratedGpu
+        && info.vendor != APPLE
+        && !cfg!(target_os = "android");
     if slow && !matrix_units && !picked {
         return Err(StemsError::NoGpu(format!("{} is an integrated GPU, slower than the CPU", info.name)));
     }
