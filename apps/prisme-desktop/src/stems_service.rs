@@ -88,13 +88,13 @@ const MODELS: [Model; 3] = [
     },
     // HiDolen's Mini-BS-RoFormer-18M (MIT licence): vocals, drums and bass in one pass of a
     // model a fortieth of the two others, for a phone or a computer without a graphics card
-    // worth it; `--stems vocals,drums,bass --overlap 2`
+    // worth it; `--stems vocals,drums,bass`
     Model {
         id: "four-fast",
         file: "bs-roformer-four-small-f16-1.safetensors",
         url: "https://github.com/Shawiizz/prisme/releases/download/model-bs-roformer-four-small-1/bs-roformer-four-small-f16-1.safetensors",
-        sha256: "7a0a3ab9e9f29e0edb4723fc8bc47e3672d7c77f7b08e43f33c48ddd8c118f76",
-        bytes: 33_698_556,
+        sha256: "88cb0c6a6a40f436abfbe3a495e4dfe15f860adc6b2963d56f31156138ac6222",
+        bytes: 33_698_572,
         stems: &[Stem::Vocals, Stem::Drums, Stem::Bass],
         fast: true,
     },
