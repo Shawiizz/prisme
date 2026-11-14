@@ -1,3 +1,4 @@
+import { invoke } from '@tauri-apps/api/core';
 import { Component, computed, effect, inject, signal } from '@angular/core';
 import { ControllerService } from '../../core/control/controller.service';
 import { BACKEND_NAMES } from '../../core/models/audio';
@@ -82,6 +83,10 @@ export class Phone {
   protected readonly clock = formatClock;
 
   constructor() {
+    // the system may stop calling the audio of an application out of sight: Prisme knows
+    document.addEventListener('visibilitychange', () => {
+      void invoke('set_hidden', { hidden: document.hidden });
+    });
     // a page of the settings asked for from elsewhere is shown on their screen
     effect(() => {
       if (this.navigation.settings()) this.tab.set('settings');

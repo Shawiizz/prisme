@@ -195,6 +195,7 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             commands::audio::audio_backends,
+            commands::audio::set_hidden,
             commands::audio::list_devices,
             commands::audio::timecode_formats,
             commands::audio::get_audio_settings,

@@ -20,7 +20,7 @@ use prisme_library::{Cue, CueSlot, TrackEdits};
 use prisme_media::{TrackAudio, TrackTags};
 use prisme_session::JsonFile;
 use std::path::{Path, PathBuf};
-use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex, MutexGuard};
 use tracing::error;
 
@@ -187,6 +187,9 @@ pub struct AppState {
     /// Held while the audio starts: the watchdog and the user never start it at once.
     pub audio_start: Mutex<()>,
     pub samplers: Mutex<Samplers>,
+    /// The interface is out of sight: a phone's application in the background, which the
+    /// system may stop calling for audio.
+    pub hidden: AtomicBool,
 }
 
 /// The speed (1: as recorded) from which a track counts as moving: a record at rest
@@ -214,6 +217,7 @@ impl AppState {
             recorder: Mutex::new(None),
             audio_start: Mutex::new(()),
             samplers: Mutex::default(),
+            hidden: AtomicBool::new(false),
         }
     }
 

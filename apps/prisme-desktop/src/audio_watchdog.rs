@@ -86,7 +86,13 @@ pub fn start(app: AppHandle) {
                 }
                 let stalled = last_periods == Some(periods);
                 last_periods = Some(periods);
-                if (failed || stalled) && restarts.allow(Instant::now()) {
+                // a phone's system stops calling an application in the background: its audio
+                // starts again when it comes back, unless a deck plays meanwhile
+                let paused = stalled
+                    && !failed
+                    && state.hidden.load(std::sync::atomic::Ordering::Relaxed)
+                    && !state.is_playing();
+                if (failed || stalled) && !paused && restarts.allow(Instant::now()) {
                     warn!("audio {}, restarting it", if failed { "engine failed" } else { "stalled" });
                     if let Err(e) = start_audio(&state, &settings) {
                         error!("audio could not restart: {e}");
