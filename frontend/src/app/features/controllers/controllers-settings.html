@@ -8,6 +8,11 @@
           <span class="pr-row__help">{{
             c.plugged ? ('Plugged in' | t) : ('not plugged in' | t)
           }}</span>
+          @if (c.profile) {
+            <span class="pr-row__help">{{
+              'Mapped as a {model}: learn a control to change it' | t: { model: c.profile }
+            }}</span>
+          }
         </div>
         <button
           class="pr-switch"

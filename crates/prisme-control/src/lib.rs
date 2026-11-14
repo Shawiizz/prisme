@@ -3,12 +3,15 @@
 //!
 //! The actions are only names here (`target`): the application performs them. This
 //! crate turns a control's messages into a value for its action, and the state of an
-//! action back into the message that lights the control.
+//! action back into the message that lights the control. A controller's [`Profile`] maps a
+//! known model before anything is learnt on it.
 
 mod mapping;
 mod message;
 mod pickup;
+mod profile;
 
 pub use mapping::{light, Encoding, Mapping, Mappings, Reader, SHIFT};
 pub use message::{parse, Control, ControlKind, Event};
 pub use pickup::Pickup;
+pub use profile::{Profile, ProfileControl, ProfileLight};

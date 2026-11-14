@@ -136,6 +136,17 @@ impl Mappings {
     pub fn forget(&mut self, target: &str) {
         self.0.retain(|m| m.target != target);
     }
+
+    /// The mappings of the controllers' models (their profiles) with those learnt over
+    /// them: a control or an action learnt on a controller takes the model's place, and an
+    /// action forgotten (`unmapped`) loses the model's controls too.
+    pub fn layered(model: impl IntoIterator<Item = Mapping>, learnt: &Mappings, unmapped: &[String]) -> Self {
+        let mut layered = Mappings(model.into_iter().filter(|m| !unmapped.contains(&m.target)).collect());
+        for mapping in learnt.all() {
+            layered.learn(mapping.clone());
+        }
+        layered
+    }
 }
 
 /// Turns events into values: holds the high half of 14-bit controls until their low half
@@ -352,6 +363,28 @@ mod tests {
         mappings.learn(mapping("Pads", PAD, "deck1.volume"));
         mappings.forget("deck1.volume");
         assert_eq!(mappings.all().len(), 1);
+    }
+
+    #[test]
+    fn learnt_mappings_take_the_place_of_the_model() {
+        let shifted_pad = Control { number: 37, ..PAD };
+        let model = [
+            mapping("DDJ", PAD, "deck1.play"),
+            mapping("DDJ", shifted_pad, "deck1.play"),
+            mapping("DDJ", KNOB, "deck1.volume"),
+            mapping("DDJ", SHIFT_KEY, "deck1.sync"),
+        ];
+        let mut learnt = Mappings::default();
+        // the pad learnt for another action, the knob's action learnt on another control
+        learnt.learn(mapping("DDJ", PAD, "deck1.cue"));
+        learnt.learn(mapping("DDJ", Control { number: 21, ..KNOB }, "deck1.volume"));
+        let layered = Mappings::layered(model, &learnt, &["deck1.sync".to_owned()]);
+        let target = |control| layered.find("DDJ", control, false).map(|m| m.target.as_str());
+        assert_eq!(target(PAD), Some("deck1.cue"));
+        assert_eq!(target(shifted_pad), Some("deck1.play"));
+        assert_eq!(target(KNOB), None);
+        assert_eq!(target(Control { number: 21, ..KNOB }), Some("deck1.volume"));
+        assert_eq!(target(SHIFT_KEY), None, "forgotten");
     }
 
     #[test]

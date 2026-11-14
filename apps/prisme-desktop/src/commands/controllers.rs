@@ -1,5 +1,6 @@
 //! MIDI controllers (see `controllers`).
 
+use crate::controller_profiles;
 use crate::controllers::Controllers;
 use crate::dto::{ControllerDto, LightDto};
 use crate::error::AppResult;
@@ -13,7 +14,12 @@ pub fn list_controllers(controllers: State<'_, Controllers>) -> AppResult<Vec<Co
     let plugged = Controllers::plugged()?;
     let enabled = controllers.setup().enabled;
     let missing = enabled.iter().filter(|name| !plugged.contains(name)).cloned().collect::<Vec<_>>();
-    let dto = |name: String, plugged: bool| ControllerDto { enabled: enabled.contains(&name), name, plugged };
+    let dto = |name: String, plugged: bool| ControllerDto {
+        enabled: enabled.contains(&name),
+        profile: controller_profiles::of(&name).map(|p| p.name.clone()),
+        name,
+        plugged,
+    };
     Ok(plugged.into_iter().map(|n| dto(n, true)).chain(missing.into_iter().map(|n| dto(n, false))).collect())
 }
 
@@ -27,9 +33,10 @@ pub fn set_controller_enabled(
     controllers.set_enabled(&app, &name, enabled)
 }
 
+/// What drives what: the profiles of the controllers in use, and what was learnt.
 #[tauri::command]
 pub fn controller_mappings(controllers: State<'_, Controllers>) -> Vec<Mapping> {
-    controllers.setup().mappings.all().to_vec()
+    controllers.mappings().all().to_vec()
 }
 
 /// The next control moved on a controller in use will drive `target`

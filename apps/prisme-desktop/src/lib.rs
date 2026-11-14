@@ -25,6 +25,7 @@ mod audio_host;
 mod audio_watchdog;
 mod commands;
 mod controller_direct;
+mod controller_profiles;
 mod controllers;
 mod cover_protocol;
 mod crash_recovery;

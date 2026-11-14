@@ -7,6 +7,8 @@ export interface Controller {
   name: string;
   enabled: boolean;
   plugged: boolean;
+  /** The model Prisme knows it as: its controls come mapped. */
+  profile: string | null;
 }
 
 export interface MidiControl {

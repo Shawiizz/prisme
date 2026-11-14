@@ -498,5 +498,6 @@
   "The whole interface changes at once.": "Toute l'interface change aussitôt.",
   "Decks on the screen below": "Platines sur l'écran du bas",
   "On a laptop with two screens, or with a screen set under the main one: the library above, the decks below, under the fingers.": "Sur un portable à deux écrans, ou avec un écran posé sous le principal : la bibliothèque en haut, les platines en bas, sous les doigts.",
-  "No screen under this one.": "Aucun écran sous celui-ci."
+  "No screen under this one.": "Aucun écran sous celui-ci.",
+  "Mapped as a {model}: learn a control to change it": "Reconnu comme {model} : apprenez une commande pour la changer"
 }
