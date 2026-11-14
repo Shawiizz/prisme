@@ -57,6 +57,8 @@ pub struct DjPreferences {
     pub auto_gain: bool,
     /// Two decks, or four.
     pub deck_count: usize,
+    /// The knobs of the mixer hold at their middle when turned through it.
+    pub knob_magnet: bool,
 }
 
 impl DjPreferences {
@@ -78,6 +80,7 @@ impl Default for DjPreferences {
             pitch_range: 0.08,
             auto_gain: true,
             deck_count: 2,
+            knob_magnet: true,
         }
     }
 }

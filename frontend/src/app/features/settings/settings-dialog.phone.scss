@@ -4,6 +4,8 @@
   .pr-backdrop {
     position: static;
     display: block;
+    // the page as wide as the screen, whatever it holds
+    place-items: normal;
     height: 100%;
     background: none;
   }
@@ -64,8 +66,12 @@
     height: 44px;
     font-size: 15px;
   }
-  .pr-seg > button {
-    height: 38px;
+  .pr-seg {
+    display: flex;
+    > button {
+      flex: 1;
+      height: 38px;
+    }
   }
   .turntables {
     grid-template-columns: minmax(0, 1fr);

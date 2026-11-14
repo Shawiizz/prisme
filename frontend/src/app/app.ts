@@ -6,6 +6,7 @@ import { PhaseStrip } from './features/deck/phase-strip/phase-strip';
 import { Library } from './features/library/library';
 import { SettingsDialog } from './features/settings/settings-dialog';
 import { CommandPalette } from './features/command-palette/command-palette';
+import { SelectPicker } from './shared/select-picker/select-picker';
 import { Phone } from './features/phone/phone';
 import { PHONE } from './core/platform';
 import { KeyboardService } from './core/keyboard/keyboard.service';
@@ -24,7 +25,16 @@ import { NavigationService } from './core/services/navigation.service';
  */
 @Component({
   selector: 'app-root',
-  imports: [Titlebar, DeckLane, PhaseStrip, Library, SettingsDialog, CommandPalette, Phone],
+  imports: [
+    SelectPicker,
+    Titlebar,
+    DeckLane,
+    PhaseStrip,
+    Library,
+    SettingsDialog,
+    CommandPalette,
+    Phone,
+  ],
   templateUrl: './app.html',
   styleUrl: './app.scss',
 })

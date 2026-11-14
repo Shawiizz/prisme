@@ -181,6 +181,14 @@ export const SETTINGS: readonly SettingEntry[] = [
     ),
   },
   {
+    id: 'dj.knobMagnet',
+    page: 'dj',
+    label: t('Magnetic knobs'),
+    description: t(
+      'The EQ and filter knobs hold at their middle when turned through it, to find it again without looking.',
+    ),
+  },
+  {
     id: 'library.tags',
     page: 'library',
     label: t('Write the tempo and key into the tags of the files'),
@@ -263,4 +271,10 @@ export const SETTINGS: readonly SettingEntry[] = [
 /** Lower case without accents, to compare what is typed with what is written. */
 export function normalize(text: string): string {
   return text.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+}
+
+/** The words typed (normalized) are all in `text`. */
+export function matches(words: string[], text: string): boolean {
+  const haystack = normalize(text);
+  return words.every((w) => haystack.includes(w));
 }

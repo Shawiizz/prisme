@@ -35,10 +35,18 @@
     }
     @if (floating(); as open) {
       @if (open.kind === 'pads') {
-        <app-phone-pads class="float" [deck]="floatingDeck()!" (closed)="floating.set(null)" />
+        <app-phone-pads
+          class="float"
+          animate.enter="pr-pop-in"
+          animate.leave="pr-pop-out"
+          [deck]="floatingDeck()!"
+          (closed)="floating.set(null)"
+        />
       } @else {
         <app-phone-pitch
           class="float"
+          animate.enter="pr-pop-in"
+          animate.leave="pr-pop-out"
           [class.b]="open.side === 'b'"
           [deck]="floatingDeck()!"
           (closed)="floating.set(null)"

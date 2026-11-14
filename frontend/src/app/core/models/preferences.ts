@@ -11,6 +11,8 @@ export interface DjPreferences {
   autoGain: boolean;
   /** Two decks, or four. */
   deckCount: number;
+  /** The knobs of the mixer hold at their middle when turned through it. */
+  knobMagnet: boolean;
 }
 
 export interface LibraryPreferences {

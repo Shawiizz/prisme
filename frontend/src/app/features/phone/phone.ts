@@ -1,5 +1,6 @@
 import { Component, computed, effect, inject, signal } from '@angular/core';
 import { ControllerService } from '../../core/control/controller.service';
+import { clickWithEveryFinger } from '../../core/every-finger';
 import { BACKEND_NAMES } from '../../core/models/audio';
 import { EngineService } from '../../core/services/engine.service';
 import { LibraryService } from '../../core/services/library.service';
@@ -64,6 +65,7 @@ export class Phone {
   protected readonly clock = formatClock;
 
   constructor() {
+    clickWithEveryFinger();
     // a page of the settings asked for from elsewhere is shown on their screen
     effect(() => {
       if (this.navigation.settings()) this.tab.set('settings');

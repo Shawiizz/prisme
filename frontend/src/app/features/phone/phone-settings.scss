@@ -17,6 +17,42 @@ h2 {
   font: 600 26px / 1.1 var(--pr-font);
   font-stretch: var(--pr-narrow);
 }
+.search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 44px;
+  margin: 0 12px 12px;
+  padding: 0 12px;
+  border: 1px solid var(--pr-line-2);
+  border-radius: var(--pr-radius);
+  background: var(--pr-raise);
+  color: var(--pr-text-3);
+  &:focus-within {
+    border-color: var(--pr-light);
+  }
+  svg {
+    stroke: currentColor;
+  }
+  input {
+    flex: 1;
+    min-width: 0;
+    border: 0;
+    outline: 0;
+    background: none;
+    font: inherit;
+    font-size: 15px;
+    color: var(--pr-text);
+    &::placeholder {
+      color: var(--pr-text-3);
+    }
+  }
+}
+.none {
+  margin: 0;
+  padding: 12px 20px;
+  color: var(--pr-text-3);
+}
 .pages {
   display: grid;
   margin: 0 12px 16px;

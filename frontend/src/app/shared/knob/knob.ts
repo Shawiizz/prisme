@@ -2,11 +2,13 @@ import {
   Component,
   booleanAttribute,
   computed,
+  inject,
   input,
   linkedSignal,
   output,
   signal,
 } from '@angular/core';
+import { PreferencesService } from '../../core/services/preferences.service';
 
 /** The knob turns through 270 degrees, from bottom left to bottom right. */
 const SWEEP = 270;
@@ -14,6 +16,8 @@ const START = -135;
 /** Vertical drag for the whole travel (pixels); Shift is four times finer. */
 const DRAG_PX = 160;
 const STEP = 0.02;
+/** A magnetic knob holds at its middle across this much of a drag (share of the travel). */
+const MAGNET = 0.06;
 /** Geometry of the 36 × 36 drawing: the value ring around the cap. */
 const CENTRE = 18;
 const RING = 15;
@@ -212,6 +216,9 @@ export class Knob {
   }));
   protected readonly hovered = signal(false);
   protected readonly grabbed = signal<{ y: number; value: number } | null>(null);
+  private readonly preferences = inject(PreferencesService);
+  /** Holds at its middle when turned through it. */
+  private readonly magnetic = computed(() => this.bipolar() && this.preferences.dj().knobMagnet);
   protected readonly reading = computed(
     () => this.format() !== null && (this.hovered() || this.grabbed() !== null),
   );
@@ -225,7 +232,20 @@ export class Knob {
     const grabbed = this.grabbed();
     if (!grabbed) return;
     const scale = event.shiftKey ? DRAG_PX * 4 : DRAG_PX;
-    this.set(grabbed.value + (grabbed.y - event.clientY) / scale);
+    const moved = (grabbed.y - event.clientY) / scale;
+    this.set(this.magnetic() ? this.through(grabbed.value, moved) : grabbed.value + moved);
+  }
+
+  /** Where a drag of `moved` from `from` brings a magnetic knob: its middle is a stretch
+   * of the drag wide, crossed before the knob turns on. */
+  private through(from: number, moved: number): number {
+    const middle = this.defaultValue();
+    const half = MAGNET / 2;
+    // the drag measured as if the middle were a stretch: from where it started on it
+    const start = from < middle ? from - half : from > middle ? from + half : middle;
+    const at = start + moved;
+    if (Math.abs(at - middle) <= half) return middle;
+    return at < middle ? at + half : at - half;
   }
 
   release(event: PointerEvent) {

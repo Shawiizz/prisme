@@ -25,7 +25,7 @@ import { TurntablePanel } from '../turntables/turntable-panel';
 import { ControllersSettings } from '../controllers/controllers-settings';
 import { ShortcutsSettings } from '../shortcuts/shortcuts-settings';
 import { PHONE } from '../../core/platform';
-import { SETTINGS, SETTINGS_PAGES, SettingEntry, normalize } from './settings-catalog';
+import { SETTINGS, SETTINGS_PAGES, SettingEntry, matches, normalize } from './settings-catalog';
 import { SettingsIcon } from './settings-icon';
 
 /**
@@ -345,7 +345,3 @@ export class SettingsDialog implements OnInit {
 }
 
 /** Every word typed is found in the text. */
-function matches(words: string[], text: string): boolean {
-  const haystack = normalize(text);
-  return words.every((w) => haystack.includes(w));
-}

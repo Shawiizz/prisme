@@ -48,13 +48,13 @@
 <main class="screen">
   @switch (tab()) {
     @case ('decks') {
-      <app-phone-decks [touch]="touch()" />
+      <app-phone-decks animate.enter="pr-fade-in" [touch]="touch()" />
     }
     @case ('library') {
-      <app-phone-library />
+      <app-phone-library animate.enter="pr-fade-in" />
     }
     @case ('settings') {
-      <app-phone-settings />
+      <app-phone-settings animate.enter="pr-fade-in" />
     }
   }
 </main>

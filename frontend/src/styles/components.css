@@ -665,3 +665,89 @@
     transition: none;
   }
 }
+
+/* ---------- Motion: what opens and what closes ---------- */
+
+@keyframes pr-fade-in {
+  from {
+    opacity: 0;
+  }
+}
+@keyframes pr-fade-out {
+  to {
+    opacity: 0;
+  }
+}
+/* a sheet rising from the bottom of the screen */
+@keyframes pr-rise-in {
+  from {
+    transform: translateY(100%);
+  }
+}
+@keyframes pr-rise-out {
+  to {
+    transform: translateY(100%);
+  }
+}
+/* a panel floating up over what it belongs to */
+@keyframes pr-pop-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.98);
+  }
+}
+@keyframes pr-pop-out {
+  to {
+    opacity: 0;
+    transform: translateY(10px) scale(0.98);
+  }
+}
+/* a page coming in from the side it is reached from */
+@keyframes pr-push-in {
+  from {
+    opacity: 0;
+    transform: translateX(28px);
+  }
+}
+@keyframes pr-back-in {
+  from {
+    opacity: 0;
+    transform: translateX(-28px);
+  }
+}
+.pr-fade-in {
+  animation: pr-fade-in 180ms ease-out;
+}
+.pr-fade-out {
+  animation: pr-fade-out 160ms ease-in forwards;
+}
+.pr-rise-in {
+  animation: pr-rise-in 240ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.pr-rise-out {
+  animation: pr-rise-out 180ms ease-in forwards;
+}
+.pr-pop-in {
+  animation: pr-pop-in 160ms ease-out;
+}
+.pr-pop-out {
+  animation: pr-pop-out 120ms ease-in forwards;
+}
+.pr-push-in {
+  animation: pr-push-in 220ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.pr-back-in {
+  animation: pr-back-in 220ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+@media (prefers-reduced-motion: reduce) {
+  .pr-fade-in,
+  .pr-fade-out,
+  .pr-rise-in,
+  .pr-rise-out,
+  .pr-pop-in,
+  .pr-pop-out,
+  .pr-push-in,
+  .pr-back-in {
+    animation: none;
+  }
+}

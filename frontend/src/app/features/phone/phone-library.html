@@ -124,12 +124,28 @@
 }
 
 @if (menu()) {
-  <div class="veil" (click)="menu.set(null)"></div>
-  <app-track-menu class="sheet" [paths]="menuPaths()" (closed)="menu.set(null)" />
+  <div
+    class="veil"
+    animate.enter="pr-fade-in"
+    animate.leave="pr-fade-out"
+    (click)="menu.set(null)"
+  ></div>
+  <app-track-menu
+    class="sheet"
+    animate.enter="pr-rise-in"
+    animate.leave="pr-rise-out"
+    [paths]="menuPaths()"
+    (closed)="menu.set(null)"
+  />
 }
 @if (browsing()) {
-  <div class="veil" (click)="browsing.set(false)"></div>
-  <div class="sheet lists-sheet">
+  <div
+    class="veil"
+    animate.enter="pr-fade-in"
+    animate.leave="pr-fade-out"
+    (click)="browsing.set(false)"
+  ></div>
+  <div class="sheet lists-sheet" animate.enter="pr-rise-in" animate.leave="pr-rise-out">
     <app-library-sidebar />
     <button class="pr-btn pr-btn--lg import" (click)="browsing.set(false); importing.set(true)">
       {{ 'Import from Serato or rekordbox' | t }}

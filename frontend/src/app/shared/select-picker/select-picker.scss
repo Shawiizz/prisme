@@ -1,0 +1,108 @@
+.veil {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  &.dim {
+    background: rgb(0 0 0 / 0.55);
+  }
+}
+
+// under the field, on a computer
+.picker {
+  position: fixed;
+  z-index: 61;
+  display: grid;
+  max-width: min(420px, calc(100vw - 16px));
+  max-height: 320px;
+  overflow-y: auto;
+  padding: 4px;
+  border: 1px solid var(--pr-line-2);
+  border-radius: var(--pr-radius);
+  background: var(--pr-raise);
+  box-shadow: 0 12px 32px rgb(0 0 0 / 0.5);
+}
+button {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 30px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: var(--pr-radius-sm);
+  background: none;
+  font: inherit;
+  color: var(--pr-text);
+  text-align: start;
+  white-space: nowrap;
+  span {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  &:hover:enabled,
+  &:focus-visible {
+    outline: none;
+    background: var(--pr-raise-2);
+  }
+  &:disabled {
+    color: var(--pr-text-3);
+  }
+}
+svg {
+  flex: none;
+  width: 14px;
+  height: 14px;
+  fill: none;
+  stroke: var(--pr-light);
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.group {
+  padding: 8px 10px 4px;
+  font: 600 var(--pr-size-label) / 1.2 var(--pr-font);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--pr-text-3);
+}
+
+// rising from the bottom, on a phone
+.picker.sheet {
+  inset: auto 0 0;
+  max-width: none;
+  max-height: 70%;
+  padding: 8px 8px calc(12px + env(safe-area-inset-bottom));
+  border: 0;
+  border-top: 1px solid var(--pr-line-2);
+  border-radius: 0;
+  background: var(--pr-base);
+  box-shadow: none;
+  h4 {
+    margin: 0;
+    padding: 10px 12px 8px;
+    font: 600 13px / 1.3 var(--pr-font);
+    color: var(--pr-text-2);
+  }
+  button {
+    height: 52px;
+    padding: 0 14px;
+    font-size: 16px;
+    white-space: normal;
+    &.is-on {
+      font-weight: 600;
+    }
+  }
+  svg {
+    width: 18px;
+    height: 18px;
+  }
+}
+@media (orientation: landscape) {
+  .picker.sheet {
+    left: 20%;
+    right: 20%;
+    max-height: 86%;
+    border-inline: 1px solid var(--pr-line-2);
+  }
+}

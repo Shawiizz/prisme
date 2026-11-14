@@ -3,7 +3,7 @@ import { EngineService } from '../../../core/services/engine.service';
 import { MixerService } from '../../../core/services/mixer.service';
 import { TPipe } from '../../../core/i18n/t.pipe';
 import { Fader } from '../../../shared/fader/fader';
-import { levelSegments } from '../../../shared/level';
+import { levelMeter } from '../../../shared/level';
 import { deckLetter } from '../../../shared/time';
 import { ChannelStrip } from '../channel-strip/channel-strip';
 
@@ -101,7 +101,8 @@ export class ChannelSlot {
   protected readonly letter = computed(() => deckLetter(this.deck()));
   protected readonly cued = computed(() => this.engine.decks()[this.deck()].cue);
   protected readonly volume = computed(() => this.engine.decks()[this.deck()].volume);
-  protected readonly level = computed(() =>
-    levelSegments(this.engine.status()?.decks[this.deck()]?.peak ?? 0, METER_SEGMENTS),
+  protected readonly level = levelMeter(
+    () => this.engine.status()?.decks[this.deck()]?.peak ?? 0,
+    METER_SEGMENTS,
   );
 }

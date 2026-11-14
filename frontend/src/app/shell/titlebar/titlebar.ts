@@ -11,7 +11,7 @@ import { t } from '../../core/i18n/i18n';
 import { TPipe } from '../../core/i18n/t.pipe';
 import { AudioBackend, BACKEND_NAMES } from '../../core/models/audio';
 import { decimal, formatClock } from '../../shared/time';
-import { levelSegments } from '../../shared/level';
+import { levelMeter } from '../../shared/level';
 import { CTRL, MAC } from '../../core/keyboard/shortcuts';
 
 /** Custom title bar: drag area, audio state, recording, update, dialogs and window buttons. */
@@ -48,7 +48,7 @@ export class Titlebar {
     const rate = this.settings.info()?.sampleRate;
     return frames && rate ? decimal((frames / rate) * 1000, 1) : null;
   });
-  protected readonly level = computed(() => levelSegments(this.engine.status()?.mainPeak ?? 0, 24));
+  protected readonly level = levelMeter(() => this.engine.status()?.mainPeak ?? 0, 24);
 
   record(option: RecordOption) {
     this.recordMenu.set(false);

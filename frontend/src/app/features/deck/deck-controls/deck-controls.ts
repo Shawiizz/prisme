@@ -101,8 +101,14 @@ export class DeckControls {
     return target === null ? null : formatPitch(target);
   });
 
-  togglePlay() {
-    this.engine.togglePlay(this.deck());
+  /** Pressed: plays or stops at once, as on a deck. */
+  playDown(event: PointerEvent) {
+    if (event.button === 0) this.engine.togglePlay(this.deck());
+  }
+
+  /** From the keyboard (a click with no pointer behind it). */
+  playKey(event: MouseEvent) {
+    if (event.detail === 0) this.engine.togglePlay(this.deck());
   }
 
   cueDown() {

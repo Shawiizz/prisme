@@ -500,6 +500,9 @@ export const FR: Record<string, string> = {
   'Auto gain': 'Gain automatique',
   'Every track plays at the same loudness, measured as it loads: no trim to touch between a quiet one and a loud one.':
     'Chaque morceau joue au même volume, mesuré au chargement : plus de gain à retoucher entre un morceau calme et un fort.',
+  'Magnetic knobs': 'Potards aimantés',
+  'The EQ and filter knobs hold at their middle when turned through it, to find it again without looking.':
+    "Les potards d'égaliseur et de filtre marquent un arrêt au milieu quand on passe dessus, pour le retrouver sans regarder.",
   Quantize: 'Quantize',
   'Cues, loops and jumps land on the beat; stems are cut and brought back on the bar.':
     'Cues, boucles et sauts tombent sur le temps ; les stems se coupent et reviennent sur la mesure.',

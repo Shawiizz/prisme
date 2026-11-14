@@ -28,10 +28,15 @@ function chosenLanguage(): Language {
   return navigator.language.toLowerCase().startsWith('fr') ? 'fr' : 'en';
 }
 
-/** Switches the language: the UI starts again in it (the audio keeps playing). */
+/** Where the UI starts again after a change of language: the page of the settings. */
+export const REOPEN_KEY = 'prisme.reopen';
+
+/** Switches the language: the UI starts again in it, back on the language setting (the
+ * audio keeps playing). */
 export function setLanguage(language: Language) {
   try {
     localStorage.setItem(STORAGE_KEY, language);
+    sessionStorage.setItem(REOPEN_KEY, 'interface');
   } catch {
     return;
   }

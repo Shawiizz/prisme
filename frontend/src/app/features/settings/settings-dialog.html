@@ -528,6 +528,28 @@
                   </button>
                 </div>
               }
+              @if (row('dj.knobMagnet')) {
+                @let e = entry('dj.knobMagnet');
+                <div
+                  class="pr-row"
+                  data-setting="dj.knobMagnet"
+                  [class.is-pointed]="pointed() === e.id"
+                >
+                  <div>
+                    <span class="pr-row__name">{{ e.label }}</span>
+                    <span class="pr-row__help">{{ e.description }}</span>
+                  </div>
+                  <button
+                    class="pr-switch"
+                    role="switch"
+                    [attr.aria-checked]="dj().knobMagnet"
+                    [attr.aria-label]="e.label"
+                    (click)="updateDj({ knobMagnet: !dj().knobMagnet })"
+                  >
+                    <span></span>
+                  </button>
+                </div>
+              }
             </div>
           </section>
         }

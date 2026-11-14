@@ -9,7 +9,12 @@
     >
       CUE
     </button>
-    <button class="pr-btn pr-btn--lg key" [class.is-on]="status()?.playing" (click)="togglePlay()">
+    <button
+      class="pr-btn pr-btn--lg key"
+      [class.is-on]="status()?.playing"
+      (pointerdown)="playDown($event)"
+      (click)="playKey($event)"
+    >
       {{ status()?.playing ? 'PAUSE' : 'PLAY' }}
     </button>
   </div>

@@ -1,5 +1,10 @@
-<div class="veil" (click)="closed.emit()"></div>
-<section class="panel" role="dialog" [attr.aria-label]="'Deck settings' | t">
+<div class="veil" animate.enter="pr-fade-in" (click)="closed.emit()"></div>
+<section
+  class="panel"
+  animate.enter="pr-rise-in"
+  role="dialog"
+  [attr.aria-label]="'Deck settings' | t"
+>
   <button class="grip" (click)="closed.emit()" [attr.aria-label]="'Close' | t"></button>
 
   <h4>{{ 'Deck {deck} · driven by' | t: { deck: letter() } }}</h4>
