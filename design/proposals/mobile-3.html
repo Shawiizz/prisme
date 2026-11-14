@@ -1,0 +1,765 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="utf-8" />
+    <title>Prisme · téléphone, la table</title>
+    <link rel="stylesheet" href="../../frontend/src/styles/fonts.css" />
+    <link rel="stylesheet" href="../../frontend/src/styles/tokens.css" />
+    <link rel="stylesheet" href="../../frontend/src/styles/components.css" />
+    <style>
+      /* Prisme on a phone nothing is plugged into: a mixer, both decks at once. */
+      *,
+      *::before,
+      *::after {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        padding: 28px 32px 56px;
+        background: #050506;
+        font: var(--pr-size) / 1.35 var(--pr-font);
+        color: var(--pr-text);
+        -webkit-font-smoothing: antialiased;
+      }
+      h1 {
+        margin: 0 0 4px;
+        font: 600 22px / 1.2 var(--pr-font);
+      }
+      .lead {
+        margin: 0 0 30px;
+        max-width: 900px;
+        font-size: 14px;
+        line-height: 1.6;
+        color: var(--pr-text-2);
+      }
+      .row {
+        display: flex;
+        gap: 40px;
+        align-items: flex-start;
+        flex-wrap: wrap;
+        margin-bottom: 48px;
+      }
+      figure {
+        margin: 0;
+      }
+      figcaption {
+        width: 0;
+        min-width: 100%;
+        min-height: 100px;
+        margin-bottom: 12px;
+        font-size: 13px;
+        line-height: 1.5;
+        color: var(--pr-text-2);
+      }
+      figcaption b {
+        display: block;
+        margin-bottom: 2px;
+        font: 600 15px / 1.3 var(--pr-font);
+        color: var(--pr-text);
+      }
+
+      /* ---------- Phone ---------- */
+      .phone {
+        position: relative;
+        display: flex;
+        flex-direction: column;
+        width: 380px;
+        height: 800px;
+        border: 1px solid var(--pr-line-2);
+        border-radius: 30px;
+        background: var(--pr-void);
+        overflow: hidden;
+      }
+      .phone.wide {
+        width: 820px;
+        height: 380px;
+      }
+      .status {
+        flex: none;
+        display: flex;
+        justify-content: space-between;
+        padding: 11px 24px 4px;
+        font: 500 11px / 1 var(--pr-font-mono);
+        color: var(--pr-text-3);
+      }
+      .bar {
+        flex: none;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        height: 34px;
+        padding: 0 12px;
+        font-size: 11.5px;
+        color: var(--pr-text-3);
+      }
+      .bar .grow {
+        flex: 1;
+      }
+      .bar .pr-btn {
+        height: 26px;
+      }
+      canvas {
+        display: block;
+        width: 100%;
+      }
+      .tabs {
+        flex: none;
+        display: grid;
+        grid-auto-flow: column;
+        grid-auto-columns: 1fr;
+        padding: 9px 12px 14px;
+        border-top: 1px solid var(--pr-line);
+        font-size: 11px;
+        text-align: center;
+        color: var(--pr-text-3);
+      }
+      .tabs .on {
+        color: var(--pr-text);
+      }
+
+      /* ---------- A deck, read at a glance ---------- */
+      .deck {
+        padding: 6px 12px 8px;
+        border-top: 1px solid var(--pr-line);
+      }
+      .deck__line {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        min-width: 0;
+        margin-bottom: 5px;
+      }
+      .pr-tile {
+        width: 22px;
+        height: 22px;
+        font-size: 12px;
+      }
+      .title {
+        flex: 1;
+        min-width: 0;
+        overflow: hidden;
+        white-space: nowrap;
+        text-overflow: ellipsis;
+        font-weight: 600;
+        font-size: 14px;
+      }
+      .title span {
+        font-weight: 400;
+        color: var(--pr-text-2);
+      }
+      .num {
+        font: 600 14px / 1 var(--pr-font-mono);
+        font-stretch: 75%;
+      }
+      .time {
+        font: 600 19px / 1 var(--pr-font-mono);
+        font-stretch: 75%;
+      }
+      .pr-key {
+        min-width: 32px;
+      }
+
+      /* ---------- The mixer: a channel a deck, side by side ---------- */
+      .mixer {
+        flex: 1;
+        min-height: 0;
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        border-top: 1px solid var(--pr-line);
+        background: var(--pr-base);
+      }
+      .channel {
+        display: grid;
+        grid-template-columns: 50px 1fr 44px 7px;
+        gap: 8px;
+        padding: 10px 10px 10px 12px;
+      }
+      .channel.b {
+        grid-template-columns: 7px 44px 1fr 50px;
+        padding: 10px 12px 10px 10px;
+        border-left: 1px solid var(--pr-line);
+      }
+      .channel.b .keys {
+        order: 4;
+      }
+      .channel.b .knobs {
+        order: 3;
+      }
+      .channel.b .fader {
+        order: 2;
+      }
+      .channel.b .meter {
+        order: 1;
+      }
+      .keys,
+      .knobs {
+        display: grid;
+        grid-auto-rows: 1fr;
+        gap: 6px;
+      }
+      .keys .pr-btn {
+        width: 100%;
+        height: 100%;
+        padding: 0;
+        font: 600 10.5px / 1 var(--pr-font);
+        letter-spacing: 0.05em;
+      }
+      .knob {
+        display: grid;
+        justify-items: center;
+        align-content: center;
+        gap: 1px;
+        font: 600 var(--pr-size-label) / 1.2 var(--pr-font);
+        letter-spacing: 0.06em;
+        color: var(--pr-text-3);
+      }
+      .knob svg {
+        width: 42px;
+        height: 42px;
+      }
+      .knob path {
+        fill: none;
+        stroke-width: 2.5;
+        stroke-linecap: round;
+      }
+      .knob .track {
+        stroke: var(--pr-line-2);
+      }
+      .knob .value {
+        stroke: var(--pr-light);
+      }
+      .knob circle {
+        fill: var(--pr-raise-2);
+        stroke: var(--pr-line-2);
+      }
+      .knob line {
+        stroke: var(--pr-light);
+        stroke-width: 2;
+        stroke-linecap: round;
+      }
+      .fader {
+        position: relative;
+        border: 1px solid var(--pr-line-2);
+        border-radius: var(--pr-radius);
+        background: var(--pr-void);
+        overflow: hidden;
+      }
+      .fader::after {
+        content: "";
+        position: absolute;
+        inset: auto 0 0;
+        height: var(--v);
+        background: var(--pr-raise-2);
+        border-top: 3px solid var(--pr-light);
+      }
+      .meter {
+        display: grid;
+        grid-auto-rows: 1fr;
+        gap: 1px;
+      }
+      .meter i {
+        background: var(--pr-raise-2);
+      }
+      .meter i.lit {
+        background: var(--pr-text-2);
+      }
+      .meter i.hot {
+        background: var(--pr-warn);
+      }
+
+      /* ---------- The crossfader and what plays the decks ---------- */
+      .cross {
+        flex: none;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 10px 12px 0;
+        background: var(--pr-base);
+        font: 600 11px / 1 var(--pr-font);
+        color: var(--pr-text-3);
+      }
+      .slide {
+        position: relative;
+        flex: 1;
+        height: 38px;
+        border: 1px solid var(--pr-line-2);
+        border-radius: var(--pr-radius);
+        background: var(--pr-void);
+      }
+      .slide::before {
+        content: "";
+        position: absolute;
+        inset: 17px 18px auto;
+        height: 2px;
+        background: var(--pr-line-2);
+      }
+      .slide i {
+        position: absolute;
+        top: 3px;
+        bottom: 3px;
+        left: calc(var(--at) - 22px);
+        width: 44px;
+        display: grid;
+        place-items: center;
+        border: 1px solid var(--pr-line-2);
+        border-radius: var(--pr-radius-sm);
+        background: var(--pr-raise-2);
+      }
+      .slide i::after {
+        content: "";
+        width: 2px;
+        height: 16px;
+        background: var(--pr-light);
+      }
+      .transport {
+        flex: none;
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 14px;
+        padding: 10px 12px 12px;
+        background: var(--pr-base);
+      }
+      .transport div {
+        display: grid;
+        grid-template-columns: 1.3fr 1fr 1fr;
+        gap: 6px;
+      }
+      .transport div + div {
+        grid-template-columns: 1fr 1fr 1.3fr;
+      }
+      .transport .pr-btn {
+        height: 54px;
+        padding: 0;
+        font-size: 13px;
+        font-weight: 700;
+        letter-spacing: 0.04em;
+      }
+
+      /* ---------- What floats over the mixer ---------- */
+      .float {
+        position: absolute;
+        z-index: 2;
+        display: grid;
+        gap: 8px;
+        padding: 10px;
+        border: 1px solid var(--pr-line-2);
+        border-radius: var(--pr-radius);
+        background: var(--pr-base);
+        box-shadow: 0 16px 40px rgb(0 0 0 / 0.6);
+      }
+      .float__head {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .float__head .grow {
+        flex: 1;
+      }
+      .float .pr-seg {
+        display: grid;
+        grid-auto-flow: column;
+        grid-auto-columns: 1fr;
+      }
+      .float .pr-seg > button {
+        height: 30px;
+        padding: 0;
+      }
+      .pads {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 6px;
+      }
+      .pads .pr-pad {
+        width: 100%;
+        height: 52px;
+      }
+      .line {
+        display: flex;
+        gap: 6px;
+      }
+      .line .pr-btn {
+        flex: 1;
+        height: 36px;
+        padding: 0;
+        font-size: 11.5px;
+      }
+      .dim {
+        opacity: 0.35;
+      }
+
+      /* ---------- Sideways ---------- */
+      .wide .cols {
+        flex: 1;
+        min-height: 0;
+        display: grid;
+        grid-template-columns: 152px minmax(0, 1fr) 152px;
+      }
+      .wide .side {
+        display: grid;
+        align-content: space-between;
+        gap: 6px;
+        padding: 8px 10px 10px;
+        background: var(--pr-base);
+      }
+      .wide .side .pr-seg {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+      }
+      .wide .side .pr-seg > button {
+        height: 22px;
+        padding: 0;
+        font-size: 10px;
+      }
+      .wide .side .pads {
+        grid-template-columns: repeat(2, 1fr);
+      }
+      .wide .side .pr-pad {
+        height: 32px;
+      }
+      .wide .side .two {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 6px;
+      }
+      .wide .side .pr-btn {
+        height: 44px;
+        padding: 0;
+        font-size: 12.5px;
+        font-weight: 700;
+      }
+      .wide .side .sync {
+        height: 32px;
+      }
+      .wide .middle {
+        display: flex;
+        flex-direction: column;
+        min-width: 0;
+        border-inline: 1px solid var(--pr-line);
+      }
+      .wide .deck {
+        padding: 5px 10px 6px;
+      }
+      .wide .deck:first-child {
+        border-top: 0;
+      }
+      .wide .mixer {
+        grid-template-columns: 1fr 1fr;
+      }
+      .wide .channel {
+        grid-template-columns: 1fr 44px 7px;
+        padding: 6px 10px;
+      }
+      .wide .channel.b {
+        grid-template-columns: 7px 44px 1fr;
+      }
+      .wide .knobs {
+        grid-template-columns: repeat(4, 1fr);
+        grid-auto-rows: auto;
+        align-content: center;
+      }
+      .wide .knob svg {
+        width: 36px;
+        height: 36px;
+      }
+      .wide .cross {
+        padding: 6px 10px 8px;
+      }
+      .wide .slide {
+        height: 32px;
+      }
+      .wide .slide::before {
+        inset: 14px 18px auto;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Prisme sur téléphone · la table</h1>
+    <p class="lead">
+      Quand rien n'est branché, l'écran Decks devient une table de mixage : les
+      deux decks en même temps, une voie chacun, côte à côte — égaliseur,
+      filtre, fader de volume, niveau — puis le crossfader et les touches de
+      lecture de chaque deck. Les pads et le pitch ne prennent plus la place :
+      ils s'ouvrent dans un panneau flottant, au-dessus de la table, et se
+      referment. Mêmes formes que sur ordinateur.
+    </p>
+
+    <div class="row">
+      <figure>
+        <figcaption>
+          <b>1 · La table</b>
+          En haut, les deux formes d'onde l'une sous l'autre, pour caler à
+          l'œil. Au milieu, la voie de A à gauche et celle de B à droite, en
+          miroir. En bas, le crossfader, puis PLAY, CUE et SYNC de chaque deck :
+          PLAY dans les coins, sous les pouces.
+        </figcaption>
+        <div class="phone" data-screen="table"></div>
+      </figure>
+
+      <figure>
+        <figcaption>
+          <b>2 · Les pads, en flottant</b>
+          La touche PADS d'un deck ouvre ses pads par-dessus la table : cues,
+          boucles, rolls, sauts, effets, sampler. Les formes d'onde, le
+          crossfader et les touches de lecture restent sous la main. × ou la
+          même touche le referme.
+        </figcaption>
+        <div class="phone" data-screen="pads"></div>
+      </figure>
+
+      <figure>
+        <figcaption>
+          <b>3 · Le pitch, en flottant</b>
+          La touche PITCH d'un deck ouvre son fader de tempo, avec − et + pour
+          pousser ou retenir, et le key lock. Le panneau flotte du côté de son
+          deck et laisse l'autre voie visible.
+        </figcaption>
+        <div class="phone" data-screen="pitch"></div>
+      </figure>
+    </div>
+
+    <div class="row">
+      <figure>
+        <figcaption style="min-height: 60px">
+          <b>4 · Tenu de côté</b>
+          La même table, plus large : les pads et les touches de lecture de
+          chaque deck sur son côté, sous son pouce ; au milieu les formes
+          d'onde, les deux voies et le crossfader. Plus besoin de panneau pour
+          les pads.
+        </figcaption>
+        <div class="phone wide" data-screen="wide"></div>
+      </figure>
+    </div>
+
+    <script>
+      /** A knob as the computer draws it: its ring, how far it is turned, its cap and its pointer. */
+      function knob(label, value) {
+        const at = (v) => {
+          const angle = ((135 + v * 270) * Math.PI) / 180;
+          return [18 + 14.5 * Math.cos(angle), 18 + 14.5 * Math.sin(angle)];
+        };
+        const arc = (from, to) => {
+          const [x1, y1] = at(from);
+          const [x2, y2] = at(to);
+          const large = Math.abs(to - from) * 270 > 180 ? 1 : 0;
+          const sweep = to > from ? 1 : 0;
+          return `M${x1} ${y1}A14.5 14.5 0 ${large} ${sweep} ${x2} ${y2}`;
+        };
+        const angle = ((135 + value * 270) * Math.PI) / 180;
+        const point = (r) =>
+          `${18 + r * Math.cos(angle)}" y="${18 + r * Math.sin(angle)}`;
+        return `<div class="knob"><svg viewBox="0 0 36 36">
+          <path class="track" d="${arc(0, 1)}" />
+          <path class="value" d="${arc(0.5, value === 0.5 ? 0.501 : value)}" />
+          <circle cx="18" cy="18" r="10.5" />
+          <line x1="${18 + 4 * Math.cos(angle)}" y1="${18 + 4 * Math.sin(angle)}" x2="${18 + 9 * Math.cos(angle)}" y2="${18 + 9 * Math.sin(angle)}" />
+        </svg>${label}</div>`;
+      }
+      const meter = (level) =>
+        `<div class="meter">${Array.from({ length: 14 }, (_, i) => {
+          const at = 14 - i;
+          return `<i class="${at <= level ? (at > 11 ? "hot" : "lit") : ""}"></i>`;
+        }).join("")}</div>`;
+      const channel = (side, knobs, volume, level, keys) => `
+        <div class="channel ${side}">
+          ${keys === null ? "" : `<div class="keys">${keys}</div>`}
+          <div class="knobs">${knobs}</div>
+          <div class="fader" style="--v: ${volume}%"></div>
+          ${meter(level)}
+        </div>`;
+      const keys = (on = []) =>
+        ["CASQUE", "PADS", "PITCH", "DECK"]
+          .map(
+            (k) =>
+              `<button class="pr-btn${on.includes(k) ? " is-on" : ""}">${k}</button>`,
+          )
+          .join("");
+      const eqA =
+        knob("HI", 0.5) +
+        knob("MID", 0.5) +
+        knob("LOW", 0.18) +
+        knob("FILTER", 0.5);
+      const eqB =
+        knob("HI", 0.62) +
+        knob("MID", 0.5) +
+        knob("LOW", 0.5) +
+        knob("FILTER", 0.5);
+      const deck = (
+        letter,
+        title,
+        artist,
+        bpm,
+        key,
+        hue,
+        time,
+        playing,
+        wave,
+      ) => `
+        <div class="deck">
+          <div class="deck__line">
+            <span class="pr-tile${playing ? "" : " pr-tile--outline"}">${letter}</span>
+            <span class="title">${title} <span>· ${artist}</span></span>
+            <span class="num">${bpm}</span>
+            <span class="pr-key pr-key--fill" style="--h: ${hue}">${key}</span>
+            <span class="time">${time}</span>
+          </div>
+          <canvas data-wave="${letter.toLowerCase()}" height="${wave}"></canvas>
+        </div>`;
+      const decks = (wave) =>
+        deck(
+          "A",
+          "Afraid To Feel",
+          "LF SYSTEM",
+          "128.00",
+          "9A",
+          "var(--pr-key-hue-9)",
+          "−1:42",
+          true,
+          wave,
+        ) +
+        deck(
+          "B",
+          "Running",
+          "Kate Bush",
+          "128.00",
+          "2A",
+          "var(--pr-key-hue-2)",
+          "−3:05",
+          false,
+          wave,
+        );
+      const head = (audio) => `
+        <div class="status"><span>21:42</span><span>82 %</span></div>
+        <div class="bar"><span class="pr-sig pr-sig--ok"></span>${audio}<span class="grow"></span>
+          <button class="pr-btn pr-btn--sm is-on">Commandes</button>
+          <button class="pr-btn pr-btn--sm pr-btn--ghost pr-btn--rec"><span class="pr-btn__dot"></span>Rec</button>
+        </div>`;
+      const foot = `
+        <div class="cross"><span>A</span><div class="slide" style="--at: 42%"><i></i></div><span>B</span></div>
+        <div class="transport">
+          <div><button class="pr-btn is-on">PAUSE</button><button class="pr-btn">CUE</button><button class="pr-btn">SYNC</button></div>
+          <div><button class="pr-btn is-on">SYNC</button><button class="pr-btn is-on">CUE</button><button class="pr-btn">PLAY</button></div>
+        </div>
+        <div class="tabs"><div class="on">Decks</div><div>Bibliothèque</div><div>Réglages</div></div>`;
+      const mixer = (onA, onB, dim = "") => `
+        <div class="mixer ${dim}">
+          ${channel("a", eqA, 82, 10, keys(onA))}
+          ${channel("b", eqB, 64, 0, keys(onB))}
+        </div>`;
+      const pad = (n, colour) =>
+        colour
+          ? `<button class="pr-pad pr-pad--set" style="--tag: ${colour}"><span>${n}</span></button>`
+          : `<button class="pr-pad"><span>${n}</span></button>`;
+      const pads = (count) =>
+        [
+          pad(1, "#ff5442"),
+          pad(2, "#f5d547"),
+          pad(3, "#4aa8ff"),
+          pad(4),
+          pad(5),
+          pad(6),
+          pad(7),
+          pad(8),
+        ]
+          .slice(0, count)
+          .join("");
+      const modes = `<div class="pr-seg" role="radiogroup">${[
+        "CUES",
+        "LOOP",
+        "ROLL",
+        "JUMP",
+        "FX",
+        "SMPL",
+      ]
+        .map(
+          (m, i) =>
+            `<button role="radio" aria-checked="${i === 0}">${m}</button>`,
+        )
+        .join("")}</div>`;
+
+      const screens = {
+        table: () =>
+          head("AAudio · 3,8 ms") + decks(70) + mixer(["CASQUE"], []) + foot,
+        pads: () =>
+          head("AAudio · 3,8 ms") +
+          decks(70) +
+          mixer(["CASQUE", "PADS"], [], "") +
+          `<div class="float" style="left: 8px; right: 8px; top: 286px">
+            <div class="float__head"><span class="pr-tile">A</span><b>Pads</b><span class="grow"></span>
+              <button class="pr-btn pr-btn--sm pr-btn--ghost">B</button>
+              <button class="pr-btn pr-btn--sm pr-btn--icon pr-btn--ghost">×</button></div>
+            ${modes}
+            <div class="pads">${pads(8)}</div>
+            <div class="line"><button class="pr-btn">SLIP</button><button class="pr-btn">CENSOR</button></div>
+          </div>` +
+          foot,
+        pitch: () =>
+          head("AAudio · 3,8 ms") +
+          decks(70) +
+          mixer([], ["PITCH"]) +
+          `<div class="float" style="right: 8px; width: 184px; top: 318px">
+            <div class="float__head"><span class="pr-tile pr-tile--outline">B</span>
+              <span class="num" style="white-space: nowrap">Pitch −0.40 %</span><span class="grow"></span>
+              <button class="pr-btn pr-btn--sm pr-btn--icon pr-btn--ghost">×</button></div>
+            <div class="slide" style="--at: 45%; height: 44px"><i></i></div>
+            <div class="line"><button class="pr-btn">−</button><button class="pr-btn">0</button><button class="pr-btn">+</button></div>
+            <div class="line"><button class="pr-btn is-on">KEY LOCK</button><button class="pr-btn">± 8 %</button></div>
+          </div>` +
+          foot,
+        wide: () => `
+          <div class="bar"><span class="pr-sig pr-sig--ok"></span>AAudio · 3,8 ms<span class="grow"></span>
+            <button class="pr-btn pr-btn--sm is-on">Commandes</button>
+            <button class="pr-btn pr-btn--sm pr-btn--ghost pr-btn--rec"><span class="pr-btn__dot"></span>Rec</button>
+            <span style="color: var(--pr-text)">Decks</span><span>Bibliothèque</span><span>Réglages</span>
+          </div>
+          <div class="cols">
+            <div class="side">${modes}<div class="pads">${pads(8)}</div>
+              <button class="pr-btn sync">SYNC</button>
+              <div class="two"><button class="pr-btn">CUE</button><button class="pr-btn is-on">PAUSE</button></div></div>
+            <div class="middle">${decks(46)}
+              <div class="mixer">${channel("a", eqA, 82, 10, null)}${channel("b", eqB, 64, 0, null)}</div>
+              <div class="cross"><span>A</span><div class="slide" style="--at: 42%"><i></i></div><span>B</span></div>
+            </div>
+            <div class="side">${modes}<div class="pads">${pads(8).replaceAll("pr-pad--set", "")}</div>
+              <button class="pr-btn sync is-on">SYNC</button>
+              <div class="two"><button class="pr-btn">PLAY</button><button class="pr-btn is-on">CUE</button></div></div>
+          </div>`,
+      };
+      for (const phone of document.querySelectorAll("[data-screen]")) {
+        phone.innerHTML = screens[phone.dataset.screen]();
+      }
+
+      /** A waveform as the decks draw it: bass, mids and highs, the playhead a third in. */
+      for (const canvas of document.querySelectorAll("canvas[data-wave]")) {
+        const width = canvas.clientWidth;
+        const height = canvas.height;
+        const scale = window.devicePixelRatio || 1;
+        canvas.width = width * scale;
+        canvas.height = height * scale;
+        canvas.style.height = `${height}px`;
+        const ctx = canvas.getContext("2d");
+        ctx.scale(scale, scale);
+        let seed = canvas.dataset.wave === "a" ? 7 : 23;
+        const random = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+        const beat = canvas.dataset.wave === "a" ? 30 : 34;
+        for (let x = 0; x < width; x += 2) {
+          const kick = Math.exp(-((x % beat) / beat) * 5);
+          const body = 0.25 + 0.3 * random();
+          const levels = [
+            ["#ff5442", (0.35 + 0.65 * kick) * 0.95],
+            ["#a6e25c", body + 0.2 * kick],
+            ["#8f7bff", 0.12 + 0.2 * random()],
+          ];
+          for (const [color, level] of levels) {
+            const h = level * height * 0.5;
+            ctx.fillStyle = color;
+            ctx.globalAlpha = x < width / 3 ? 0.3 : 0.9;
+            ctx.fillRect(x, height / 2 - h, 1.4, h * 2);
+          }
+        }
+        ctx.globalAlpha = 1;
+        ctx.fillStyle = "#f3f1eb";
+        ctx.fillRect(Math.round(width / 3), 0, 2, height);
+      }
+    </script>
+  </body>
+</html>
