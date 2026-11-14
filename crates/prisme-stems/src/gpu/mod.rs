@@ -36,6 +36,10 @@ pub struct GpuOptions {
     /// Times the work by kind ([`GpuNetwork::profile`]), where the GPU tells the time: each
     /// step then waits for the one before, which makes the whole slower.
     pub profile: bool,
+    /// Leaves the GPU to others (a phone's screen, drawn by the same GPU): the work goes in
+    /// steps of a few milliseconds, each waited for, and takes at most this share of the
+    /// GPU's time.
+    pub share: Option<f64>,
 }
 
 /// The GPU the networks run on.
@@ -56,6 +60,8 @@ pub struct Gpu {
     max_binding: u64,
     /// Each step is timed ([`GpuOptions::profile`]).
     profile: bool,
+    /// The share of the GPU's time the work takes at most ([`GpuOptions::share`]).
+    share: Option<f64>,
     scratch: Mutex<Scratch>,
 }
 
@@ -181,6 +187,8 @@ struct Step {
     groups: (u32, u32),
     /// What the step does, for [`GpuNetwork::profile`].
     kind: &'static str,
+    /// Its arithmetic, where it weighs (products, attention), for pacing the work.
+    flops: usize,
 }
 
 #[derive(Clone, Copy)]
@@ -236,6 +244,7 @@ impl Gpu {
             software: info.device_type == wgpu::DeviceType::Cpu,
             max_binding,
             profile: !profile.is_empty(),
+            share: options.share.map(|s| s.clamp(0.05, 1.0)),
             scratch: Mutex::default(),
         }))
     }
@@ -480,6 +489,38 @@ impl MaskNetwork for GpuNetwork {
         let plan = &self.plans[&frames];
         let gpu = &self.gpu;
         gpu.queue.write_buffer(&plan.bins, 0, bytemuck::cast_slice(bins));
+        if let Some(share) = gpu.share {
+            // packets of steps of about PACED_FLOPS, each waited for, then a pause
+            let mut packet: Vec<&Step> = Vec::new();
+            let mut flops = 0;
+            let steps: Vec<&Step> = plan.submissions.iter().flatten().collect();
+            for (i, step) in steps.iter().enumerate() {
+                packet.push(step);
+                flops += step.flops;
+                if flops < PACED_FLOPS && i + 1 < steps.len() {
+                    continue;
+                }
+                let mut encoder = gpu.device.create_command_encoder(&Default::default());
+                {
+                    let mut pass = encoder.begin_compute_pass(&Default::default());
+                    for step in packet.drain(..) {
+                        pass.set_pipeline(&step.pipeline);
+                        pass.set_bind_group(0, &step.bind_group, &[]);
+                        pass.dispatch_workgroups(step.groups.0, step.groups.1, 1);
+                    }
+                }
+                flops = 0;
+                let began = std::time::Instant::now();
+                let submitted = gpu.queue.submit([encoder.finish()]);
+                let done = wgpu::PollType::Wait { submission_index: Some(submitted), timeout: None };
+                gpu.device.poll(done).map_err(|e| StemsError::Gpu(e.to_string()))?;
+                std::thread::sleep(began.elapsed().mul_f64((1.0 - share) / share));
+            }
+            let mut encoder = gpu.device.create_command_encoder(&Default::default());
+            encoder.copy_buffer_to_buffer(&plan.mask, 0, &plan.readback, 0, plan.mask.size());
+            self.started = Some((frames, gpu.queue.submit([encoder.finish()])));
+            return self.check_errors();
+        }
         let mut last = None;
         for (i, steps) in plan.submissions.iter().enumerate() {
             let mut encoder = gpu.device.create_command_encoder(&Default::default());
@@ -578,6 +619,11 @@ fn adapter() -> Result<(wgpu::Adapter, bool), StemsError> {
 /// The scores of the attention as products are worked out a slice of the sequences and heads
 /// at a time, in this much memory at most (one sequence and head at least).
 const SCORES_BYTES: u64 = 32 << 20;
+
+/// When the GPU is shared ([`GpuOptions::share`]): a piece of a product, about 3 ms on an
+/// Adreno 740, and the scores of the attention worked out at once.
+const PACED_FLOPS: usize = 1 << 30;
+const PACED_SCORES_BYTES: u64 = 8 << 20;
 
 /// The side of the square of outputs a workgroup of `matmul_blocked.wgsl` computes.
 const BLOCKED_TILE: usize = 64;
@@ -873,7 +919,7 @@ impl Planner<'_> {
             ));
             let input = Input { buffer: &band_in, store: Store::Act, ld: band.width, off: 0 };
             let into = Input { buffer: &x, store: Store::F32, ld: bands * c.dim, off: b * c.dim };
-            steps.push(self.matmul(proj, input, frames, into, Act::None, false));
+            steps.extend(self.matmul(proj, input, frames, into, Act::None, false));
         }
         submissions.push(std::mem::take(&mut steps));
 
@@ -888,17 +934,17 @@ impl Planner<'_> {
             for l in layers {
                 steps.push(self.norm(&x, &normed, tokens, c.dim, (c.dim, 0), (c.dim, 0)));
                 let into = Input { buffer: &qkvg, store: Store::Act, ld: c.qkvg_width(), off: 0 };
-                steps.push(self.matmul(&l.qkvg, normed_in, tokens, into, Act::None, false));
+                steps.extend(self.matmul(&l.qkvg, normed_in, tokens, into, Act::None, false));
                 if !self.net.pipelines.matrix_attention {
                     steps.push(self.rotary(&qkvg, angles, axis, tokens));
                 }
                 steps.extend(self.attention(&qkvg, angles, &attended, &scores, axis));
                 let input = Input { buffer: &attended, store: Store::Act, ld: c.inner_dim(), off: 0 };
-                steps.push(self.matmul(&l.out, input, tokens, x_rows, Act::None, true));
+                steps.extend(self.matmul(&l.out, input, tokens, x_rows, Act::None, true));
                 steps.push(self.norm(&x, &normed, tokens, c.dim, (c.dim, 0), (c.dim, 0)));
                 let into = Input { buffer: &hidden, store: Store::Act, ld: l.ff1.out, off: 0 };
-                steps.push(self.matmul(&l.ff1, normed_in, tokens, into, Act::Gelu, false));
-                steps.push(self.matmul(&l.ff2, into, tokens, x_rows, Act::None, true));
+                steps.extend(self.matmul(&l.ff1, normed_in, tokens, into, Act::Gelu, false));
+                steps.extend(self.matmul(&l.ff2, into, tokens, x_rows, Act::None, true));
             }
             steps.push(self.norm_in_place(&x, gain, tokens, c.dim));
             if let Some(earlier) = earlier.as_ref().filter(|_| axis == Axis::Freq) {
@@ -917,7 +963,7 @@ impl Planner<'_> {
                         if last { (&mlp_out, Store::F32) } else { (&mlp[k % 2], Store::Act) };
                     let into = Input { buffer, store, ld: l.out, off: 0 };
                     let act = if last { Act::None } else { Act::Tanh };
-                    steps.push(self.matmul(l, input, frames, into, act, false));
+                    steps.extend(self.matmul(l, input, frames, into, act, false));
                     input = into;
                 }
                 steps.push(self.glu(&mlp_out, &mask, frames, band.width, features, stem_off + band.offset));
@@ -965,11 +1011,28 @@ impl Planner<'_> {
             layout: &pipeline.get_bind_group_layout(0),
             entries: &entries,
         });
-        Step { pipeline: pipeline.clone(), bind_group, groups, kind: self.net.pipelines.kind(pipeline) }
+        Step { pipeline: pipeline.clone(), bind_group, groups, kind: self.net.pipelines.kind(pipeline), flops: 0 }
     }
 
-    /// `out` (+)= act(`a` · `l`) over `rows` rows.
-    fn matmul(&self, l: &GpuLinear, a: Input, rows: usize, out: Input, act: Act, accumulate: bool) -> Step {
+    /// `out` (+)= act(`a` · `l`) over `rows` rows: in pieces of [`PACED_FLOPS`] when the GPU is
+    /// shared ([`GpuOptions::share`]), else at once.
+    fn matmul(&self, l: &GpuLinear, a: Input, rows: usize, out: Input, act: Act, accumulate: bool) -> Vec<Step> {
+        let per_row = 2 * l.out * l.inp;
+        let piece = match self.net.gpu.share {
+            Some(_) => (PACED_FLOPS / per_row.max(1)).max(1).next_multiple_of(BLOCKED_TILE.max(self.net.pipelines.matmul_tile)),
+            None => rows,
+        };
+        (0..rows)
+            .step_by(piece.max(1))
+            .map(|first| {
+                let a = Input { off: a.off + first * a.ld, ..a };
+                let out = Input { off: out.off + first * out.ld, ..out };
+                self.matmul_rows(l, a, piece.min(rows - first), out, act, accumulate)
+            })
+            .collect()
+    }
+
+    fn matmul_rows(&self, l: &GpuLinear, a: Input, rows: usize, out: Input, act: Act, accumulate: bool) -> Step {
         let bias = l.bias.as_ref().unwrap_or(&self.net.params.no_bias);
         let pipelines = &self.net.pipelines;
         let aligned = l.inp % 4 == 0 && a.ld % 4 == 0 && a.off % 4 == 0;
@@ -991,7 +1054,8 @@ impl Planner<'_> {
             usize::from(l.bias.is_some()),
             l.ld,
         ];
-        self.step(pipeline, groups, &[a.buffer, &l.weight, bias, out.buffer], &words(&uniform))
+        let step = self.step(pipeline, groups, &[a.buffer, &l.weight, bias, out.buffer], &words(&uniform));
+        Step { flops: 2 * rows * l.out * l.inp, ..step }
     }
 
     fn norm(
@@ -1029,7 +1093,8 @@ impl Planner<'_> {
     /// How many sequences and heads of `len` tokens, of `pairs`, have their scores at once:
     /// as many as [`SCORES_BYTES`] and the GPU's binding hold, one at least.
     fn scores_slice(&self, len: usize, pairs: usize) -> usize {
-        let budget = SCORES_BYTES.min(self.net.gpu.max_binding);
+        let bytes = if self.net.gpu.share.is_some() { PACED_SCORES_BYTES } else { SCORES_BYTES };
+        let budget = bytes.min(self.net.gpu.max_binding);
         let per_pair = (len * len * 4) as u64;
         usize::try_from(budget / per_pair).unwrap_or(usize::MAX).clamp(1, pairs.max(1))
     }
@@ -1072,9 +1137,12 @@ impl Planner<'_> {
                     ])
                 };
                 let blocks = (query_groups * count) as u32;
-                steps.push(self.step(products, (len.div_ceil(64) as u32, blocks), &[qkvg, scores], &uniform(0)));
+                let flops = 2 * count * len * len * c.dim_head;
+                let scored = self.step(products, (len.div_ceil(64) as u32, blocks), &[qkvg, scores], &uniform(0));
+                steps.push(Step { flops, ..scored });
                 steps.push(self.step(softmax, rows, &[scores], &uniform(rows_x)));
-                steps.push(self.step(values, (1, blocks), &[qkvg, scores, out], &uniform(0)));
+                let valued = self.step(values, (1, blocks), &[qkvg, scores, out], &uniform(0));
+                steps.push(Step { flops, ..valued });
             }
             return steps;
         }

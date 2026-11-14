@@ -1,7 +1,7 @@
 //! Separates a stereo WAV at the model's rate, on the GPU when there is one
 //! (`PRISME_STEMS_CPU=1` forces the CPU, `PRISME_STEMS_FLOAT=1` f32 arithmetic on the GPU,
 //! `PRISME_STEMS_MAX_BINDING=<bytes>` the buffers of a smaller GPU, `PRISME_STEMS_PROFILE=1`
-//! the time of each kind of work): `separate <model.safetensors> <in.wav> <out>`
+//! the time of each kind of work, `PRISME_STEMS_SHARE=0.5` half the GPU's time at most): `separate <model.safetensors> <in.wav> <out>`
 //! writes `<out>.<stem>.wav` for each stem of the model.
 
 use std::path::PathBuf;
@@ -32,6 +32,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             without_matrix_units: std::env::var_os("PRISME_STEMS_FLOAT").is_some(),
             max_binding: std::env::var("PRISME_STEMS_MAX_BINDING").ok().and_then(|b| b.parse().ok()),
             profile: std::env::var_os("PRISME_STEMS_PROFILE").is_some(),
+            share: std::env::var("PRISME_STEMS_SHARE").ok().and_then(|s| s.parse().ok()),
             ..Default::default()
         };
         let gpu = GpuNetwork::with_options(weights, options)?;

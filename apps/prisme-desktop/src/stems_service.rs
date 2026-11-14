@@ -23,7 +23,7 @@ use crate::track_loading::DECK_TRACK_UPDATE_EVENT;
 use prisme_engine::{Command, Stem, StemTracks};
 use prisme_media::TrackAudio;
 use prisme_stems::track::TrackSeparation;
-use prisme_stems::{CpuNetwork, Gpu, GpuNetwork, MaskNetwork, Separator, StemsError, Weights};
+use prisme_stems::{CpuNetwork, Gpu, GpuNetwork, GpuOptions, MaskNetwork, Separator, StemsError, Weights};
 use sha2::{Digest, Sha256};
 use std::collections::{HashSet, VecDeque};
 use std::io::Write;
@@ -162,6 +162,17 @@ static GPU_GAVE_UP: AtomicBool = AtomicBool::new(false);
 /// The graphics chip separates on a computer and on Android (Vulkan); an iPhone's is left
 /// alone until it has been tried.
 const USES_GPU: bool = cfg!(any(desktop, target_os = "android"));
+
+/// A phone's GPU draws its screen too: the separation goes to it in packets of a few
+/// milliseconds, between which the screen gets its turn (pausing between them would let the
+/// GPU slow its clock, and the whole with it).
+const GPU_OPTIONS: GpuOptions = GpuOptions {
+    software: false,
+    without_matrix_units: false,
+    max_binding: None,
+    profile: false,
+    share: if cfg!(mobile) { Some(1.0) } else { None },
+};
 
 /// Whether the DJ lets the separation use the graphics chip.
 fn gpu_allowed(state: &AppState) -> bool {
@@ -499,7 +510,7 @@ impl Worker {
         let open_gpu = || {
             let gpu = allowed()
                 .then(|| {
-                    Gpu::open(Default::default()).inspect_err(|e| warn!("separating on the CPU: {e}")).ok()
+                    Gpu::open(GPU_OPTIONS).inspect_err(|e| warn!("separating on the CPU: {e}")).ok()
                 })
                 .flatten();
             GPU_GAVE_UP.store(gpu.is_none(), Ordering::Relaxed);
