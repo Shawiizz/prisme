@@ -1,5 +1,5 @@
-// attention.wgsl on the matrix units, for heads of 64 values, with the rotary embedding of
-// the queries and keys (rotary.wgsl) done on the way in. A workgroup takes 64 queries of one
+// attention.wgsl on the matrix units, for heads of 64 or 32 values, with the rotary embedding
+// of the queries and keys (rotary.wgsl) done on the way in. A workgroup takes 64 queries of one
 // sequence and one head, 16 per subgroup, and walks the keys 16 at a time: scores and
 // weighted values are f16 products summed in f32, the softmax runs in f32 through shared
 // memory, two lanes per query row.
@@ -20,6 +20,10 @@ struct Params {
     // sequences * heads * query_blocks
     blocks: u32,
     groups_x: u32,
+    // heads of queries per head of keys and values
+    kv_share: u32,
+    // width of a token's keys, or values
+    kv_inner: u32,
 }
 
 @group(0) @binding(0) var<storage, read> qkvg: array<Act>;
@@ -30,19 +34,20 @@ struct Params {
 @group(0) @binding(3) var<storage, read> angles: array<f32>;
 @group(0) @binding(4) var<uniform> p: Params;
 
-const DH: u32 = 64u;
-const PAIRS: u32 = 32u;
+// DH, the values of a head (64 or 32), DH4, its groups of 4 values, and GATED, whether the
+// heads have gates, are defined before this source
 const KEYS: u32 = 16u;
 // row strides: the queries and the key and value tiles, the probabilities (f16), the scores
 // and the output on its way out (f32)
-const LD: u32 = 72u;
+const LD: u32 = DH + 8u;
 const LDP: u32 = 24u;
 const LDS: u32 = 36u;
 // how far above the reference maximum a score may go before the output is rescaled (the
 // probabilities, below e^8, fit an f16 comfortably)
 const SLACK: f32 = 8.0;
 
-// the 64 rotated queries, then each subgroup's 16 rows of probabilities
+// the 64 rotated queries, then each subgroup's 16 rows of probabilities (sized for heads of
+// 64 values, as the tiles of keys and values)
 var<workgroup> qp_sh: array<f16, 4608>;
 var<workgroup> k_sh: array<f16, 1152>;
 var<workgroup> v_sh: array<f16, 1152>;
@@ -57,9 +62,10 @@ fn token(group: u32, i: u32) -> u32 {
 
 // Values 4 q to 4 q + 3 of a query or key at `pos` in its sequence, rotated: two pairs.
 fn rotate(v: vec4<Act>, pos: u32, q: u32) -> vec4<f32> {
+    let pairs = DH / 2u;
     let pair = 2u * q;
-    let c = vec2(angles[pos * PAIRS + pair], angles[pos * PAIRS + pair + 1u]);
-    let s = vec2(angles[(p.len + pos) * PAIRS + pair], angles[(p.len + pos) * PAIRS + pair + 1u]);
+    let c = vec2(angles[pos * pairs + pair], angles[pos * pairs + pair + 1u]);
+    let s = vec2(angles[(p.len + pos) * pairs + pair], angles[(p.len + pos) * pairs + pair + 1u]);
     let x = vec2(f32(v.x), f32(v.z));
     let y = vec2(f32(v.y), f32(v.w));
     let rx = x * c - y * s;
@@ -68,7 +74,7 @@ fn rotate(v: vec4<Act>, pos: u32, q: u32) -> vec4<f32> {
 }
 
 // The rotated keys and the values of the block from k0 this thread moves: 4 values from
-// 4 (e % 16) of key e / 16, for e = li + 128 t.
+// 4 (e % DH4) of key e / DH4, for e = li + 128 t.
 fn fetch(
     kr: ptr<function, array<vec4<f32>, 2>>,
     vr: ptr<function, array<vec4<f32>, 2>>,
@@ -77,15 +83,15 @@ fn fetch(
     k0: u32,
     li: u32,
 ) {
-    for (var t = 0u; t < 2u; t++) {
+    for (var t = 0u; t < DH / 32u; t++) {
         let e = li + 128u * t;
-        let key = k0 + e / 16u;
+        let key = k0 + e / DH4;
         var k = vec4<f32>();
         var v = vec4<f32>();
         if (key < p.len) {
-            let at = (token(group, key) * p.width + head * DH) / 4u + e % 16u;
-            k = rotate(qkvg4[at + p.inner / 4u], key, e % 16u);
-            v = vec4<f32>(qkvg4[at + p.inner / 2u]);
+            let at = (token(group, key) * p.width + p.inner + head / p.kv_share * DH) / 4u + e % DH4;
+            k = rotate(qkvg4[at], key, e % DH4);
+            v = vec4<f32>(qkvg4[at + p.kv_inner / 4u]);
         }
         (*kr)[t] = k;
         (*vr)[t] = v;
@@ -109,15 +115,15 @@ fn main(
     let group = group_head / p.heads;
     let q0 = query_block * 64u;
 
-    for (var t = 0u; t < 8u; t++) {
+    for (var t = 0u; t < DH / 8u; t++) {
         let e = li + 128u * t;
-        let r = e / 16u;
+        let r = e / DH4;
         let i = q0 + r;
         var v = vec4<f32>();
         if (i < p.len) {
-            v = rotate(qkvg4[(token(group, i) * p.width + head * DH) / 4u + e % 16u], i, e % 16u);
+            v = rotate(qkvg4[(token(group, i) * p.width + head * DH) / 4u + e % DH4], i, e % DH4);
         }
-        let at = r * LD + (e % 16u) * 4u;
+        let at = r * LD + (e % DH4) * 4u;
         qp_sh[at] = f16(v.x);
         qp_sh[at + 1u] = f16(v.y);
         qp_sh[at + 2u] = f16(v.z);
@@ -127,8 +133,12 @@ fn main(
     let mine = sg * 16u * LD;
     let q_0 = coopLoadT<coop_mat16x16<f16, A>>(&qp_sh[mine], LD);
     let q_1 = coopLoadT<coop_mat16x16<f16, A>>(&qp_sh[mine + 16u], LD);
-    let q_2 = coopLoadT<coop_mat16x16<f16, A>>(&qp_sh[mine + 32u], LD);
-    let q_3 = coopLoadT<coop_mat16x16<f16, A>>(&qp_sh[mine + 48u], LD);
+    var q_2 = coop_mat16x16<f16, A>();
+    var q_3 = coop_mat16x16<f16, A>();
+    if (DH == 64u) {
+        q_2 = coopLoadT<coop_mat16x16<f16, A>>(&qp_sh[mine + 32u], LD);
+        q_3 = coopLoadT<coop_mat16x16<f16, A>>(&qp_sh[mine + 48u], LD);
+    }
     var o_0 = coop_mat16x16<f32, C>();
     var o_1 = coop_mat16x16<f32, C>();
     var o_2 = coop_mat16x16<f32, C>();
@@ -154,9 +164,9 @@ fn main(
     fetch(&kr, &vr, group, head, 0u, li);
     for (var k0 = 0u; k0 < p.len; k0 += KEYS) {
         workgroupBarrier();
-        for (var t = 0u; t < 2u; t++) {
+        for (var t = 0u; t < DH / 32u; t++) {
             let e = li + 128u * t;
-            let at = (e / 16u) * LD + (e % 16u) * 4u;
+            let at = (e / DH4) * LD + (e % DH4) * 4u;
             let k = kr[t];
             let v = vr[t];
             k_sh[at] = f16(k.x);
@@ -179,8 +189,10 @@ fn main(
         var s = coop_mat16x16<f32, C>();
         s = coopMultiplyAdd(q_0, coopLoad<coop_mat16x16<f16, B>>(&k_sh[0], LD), s);
         s = coopMultiplyAdd(q_1, coopLoad<coop_mat16x16<f16, B>>(&k_sh[16], LD), s);
-        s = coopMultiplyAdd(q_2, coopLoad<coop_mat16x16<f16, B>>(&k_sh[32], LD), s);
-        s = coopMultiplyAdd(q_3, coopLoad<coop_mat16x16<f16, B>>(&k_sh[48], LD), s);
+        if (DH == 64u) {
+            s = coopMultiplyAdd(q_2, coopLoad<coop_mat16x16<f16, B>>(&k_sh[32], LD), s);
+            s = coopMultiplyAdd(q_3, coopLoad<coop_mat16x16<f16, B>>(&k_sh[48], LD), s);
+        }
         coopStoreT(s, &s_sh[s_base], LDS);
         workgroupBarrier();
 
@@ -223,28 +235,35 @@ fn main(
             workgroupBarrier();
             o_0 = coopLoadT<coop_mat16x16<f32, C>>(&s_sh[s_base], LDS);
             o_1 = coopLoadT<coop_mat16x16<f32, C>>(&s_sh[s_base + 16u], LDS);
-            workgroupBarrier();
-            coopStoreT(o_2, &s_sh[s_base], LDS);
-            coopStoreT(o_3, &s_sh[s_base + 16u], LDS);
-            workgroupBarrier();
-            for (var j = 0u; j < 16u; j++) {
-                s_sh[s_row + 2u * j + half] *= rescale;
+            if (DH == 64u) {
+                workgroupBarrier();
+                coopStoreT(o_2, &s_sh[s_base], LDS);
+                coopStoreT(o_3, &s_sh[s_base + 16u], LDS);
+                workgroupBarrier();
+                for (var j = 0u; j < 16u; j++) {
+                    s_sh[s_row + 2u * j + half] *= rescale;
+                }
+                workgroupBarrier();
+                o_2 = coopLoadT<coop_mat16x16<f32, C>>(&s_sh[s_base], LDS);
+                o_3 = coopLoadT<coop_mat16x16<f32, C>>(&s_sh[s_base + 16u], LDS);
             }
-            workgroupBarrier();
-            o_2 = coopLoadT<coop_mat16x16<f32, C>>(&s_sh[s_base], LDS);
-            o_3 = coopLoadT<coop_mat16x16<f32, C>>(&s_sh[s_base + 16u], LDS);
         }
 
         let pa = coopLoadT<coop_mat16x16<f16, A>>(&qp_sh[p_base], LDP);
         o_0 = coopMultiplyAdd(pa, coopLoadT<coop_mat16x16<f16, B>>(&v_sh[0], LD), o_0);
         o_1 = coopMultiplyAdd(pa, coopLoadT<coop_mat16x16<f16, B>>(&v_sh[16], LD), o_1);
-        o_2 = coopMultiplyAdd(pa, coopLoadT<coop_mat16x16<f16, B>>(&v_sh[32], LD), o_2);
-        o_3 = coopMultiplyAdd(pa, coopLoadT<coop_mat16x16<f16, B>>(&v_sh[48], LD), o_3);
+        if (DH == 64u) {
+            o_2 = coopMultiplyAdd(pa, coopLoadT<coop_mat16x16<f16, B>>(&v_sh[32], LD), o_2);
+            o_3 = coopMultiplyAdd(pa, coopLoadT<coop_mat16x16<f16, B>>(&v_sh[48], LD), o_3);
+        }
     }
 
     let i = q0 + sg * 16u + row;
     let me = token(group, min(i, p.len - 1u));
-    let gate = 1.0 / (1.0 + exp(-f32(qkvg[me * p.width + 3u * p.inner + head])));
+    var gate = 1.0;
+    if (GATED) {
+        gate = 1.0 / (1.0 + exp(-f32(qkvg[me * p.width + p.inner + 2u * p.kv_inner + head])));
+    }
     let scale = gate / l;
     let to = me * p.inner + head * DH;
     workgroupBarrier();
@@ -257,14 +276,16 @@ fn main(
             out[to + c] = Act(s_sh[s_row + c] * scale);
         }
     }
-    workgroupBarrier();
-    coopStoreT(o_2, &s_sh[s_base], LDS);
-    coopStoreT(o_3, &s_sh[s_base + 16u], LDS);
-    workgroupBarrier();
-    if (i < p.len) {
-        for (var j = 0u; j < 16u; j++) {
-            let c = 2u * j + half;
-            out[to + 32u + c] = Act(s_sh[s_row + c] * scale);
+    if (DH == 64u) {
+        workgroupBarrier();
+        coopStoreT(o_2, &s_sh[s_base], LDS);
+        coopStoreT(o_3, &s_sh[s_base + 16u], LDS);
+        workgroupBarrier();
+        if (i < p.len) {
+            for (var j = 0u; j < 16u; j++) {
+                let c = 2u * j + half;
+                out[to + 32u + c] = Act(s_sh[s_row + c] * scale);
+            }
         }
     }
 }

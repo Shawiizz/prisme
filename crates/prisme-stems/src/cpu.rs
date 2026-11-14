@@ -62,16 +62,21 @@ impl CpuNetwork {
         assert!(bins.len() == frames * features, "bins hold `frames` rows of features");
         assert!(out.len() == g.mask_len(frames), "masks hold `frames` rows per stem");
         let c = &g.config;
+        let eps = c.norm_eps;
         let bands = g.bands.len();
-        let tokens = frames * bands;
+        let (seq_frames, seq_bands) = (c.seq_frames(frames), g.seq_bands());
+        let tokens = seq_frames * seq_bands;
 
         let mut x = vec![0.0; tokens * c.dim];
+        for (r, register) in w.registers.chunks_exact(c.dim).enumerate() {
+            x[g.register_token(frames, r) * c.dim..][..c.dim].copy_from_slice(register);
+        }
         for (b, (band, proj)) in g.bands.iter().zip(&w.band_proj).enumerate() {
             let mut normed: Vec<f32> = (0..frames)
                 .flat_map(|t| bins[t * features + band.offset..][..band.width].iter().copied())
                 .collect();
-            normed.chunks_exact_mut(band.width).for_each(rms_normalize);
-            linear(proj, frames, &normed, band.width, &mut x[b * c.dim..], bands * c.dim, false);
+            normed.chunks_exact_mut(band.width).for_each(|row| rms_normalize(row, eps));
+            linear(proj, frames, &normed, band.width, &mut x[b * c.dim..], seq_bands * c.dim, false);
         }
 
         let mut scratch = Scratch::new(tokens, c);
@@ -84,30 +89,40 @@ impl CpuNetwork {
             let rotary = Rotary::new(
                 if axis == Axis::Time { &w.rotary_time } else { &w.rotary_freq },
                 axis.len(frames, bands),
+                axis.len(seq_frames, seq_bands),
             );
             for layer in &tr.layers {
                 scratch.normed.copy_from_slice(&x);
-                scratch.normed.chunks_exact_mut(c.dim).for_each(rms_normalize);
+                scratch.normed.chunks_exact_mut(c.dim).for_each(|row| rms_normalize(row, eps));
                 let width = c.qkvg_width();
                 linear(&layer.qkvg, tokens, &scratch.normed, c.dim, &mut scratch.qkvg, width, false);
-                attention(&mut scratch, c, axis, frames, bands, &rotary);
+                attention(&mut scratch, c, axis, seq_frames, seq_bands, &rotary);
                 linear(&layer.out, tokens, &scratch.attended, c.inner_dim(), &mut x, c.dim, true);
 
                 scratch.normed.copy_from_slice(&x);
-                scratch.normed.chunks_exact_mut(c.dim).for_each(rms_normalize);
+                scratch.normed.chunks_exact_mut(c.dim).for_each(|row| rms_normalize(row, eps));
                 let hidden = layer.ff1.out;
                 scratch.hidden.resize(tokens * hidden, 0.0);
                 linear(&layer.ff1, tokens, &scratch.normed, c.dim, &mut scratch.hidden, hidden, false);
-                scratch.hidden.par_iter_mut().for_each(|v| *v = gelu(*v));
+                if c.ff_glu {
+                    scratch.hidden.par_chunks_exact_mut(hidden).for_each(|row| {
+                        let (gate, value) = row.split_at_mut(hidden / 2);
+                        gate.iter_mut().zip(value).for_each(|(g, v)| *g = gelu(*g) * *v);
+                    });
+                } else {
+                    scratch.hidden.par_iter_mut().for_each(|v| *v = gelu(*v));
+                }
                 linear(&layer.ff2, tokens, &scratch.hidden, hidden, &mut x, c.dim, true);
             }
-            x.par_chunks_exact_mut(c.dim).for_each(|row| {
-                rms_normalize(row);
-                row.iter_mut().zip(&tr.norm).for_each(|(v, g)| *v *= g);
-            });
+            if let Some(norm) = &tr.norm {
+                x.par_chunks_exact_mut(c.dim).for_each(|row| scale_normalize(row, norm, eps));
+            }
             if c.skip && axis == Axis::Freq {
                 earlier.par_iter_mut().zip(&x).for_each(|(e, x)| *e += x);
             }
+        }
+        if let Some(norm) = &w.final_norm {
+            x.par_chunks_exact_mut(c.dim).for_each(|row| scale_normalize(row, norm, eps));
         }
 
         let size = frames * features;
@@ -120,8 +135,9 @@ impl CpuNetwork {
 /// One stem's masks from the transformers' output.
 fn stem_masks(g: &Geometry, stem: &[Vec<Linear>], x: &[f32], frames: usize, out: &mut [f32]) {
     let dim = g.config.dim;
-    let bands = g.bands.len();
+    let bands = g.seq_bands();
     let features = g.features();
+    let glu = g.config.mask_glu;
     let per_band: Vec<Vec<f32>> = g
         .bands
         .par_iter()
@@ -137,6 +153,9 @@ fn stem_masks(g: &Geometry, stem: &[Vec<Linear>], x: &[f32], frames: usize, out:
                     y.iter_mut().for_each(|v| *v = v.tanh());
                 }
                 input = y;
+            }
+            if !glu {
+                return input;
             }
             input
                 .chunks_exact(band.width * 2)
@@ -180,8 +199,10 @@ struct Rotary {
 }
 
 impl Rotary {
-    fn new(freqs: &[f32], positions: usize) -> Self {
-        let angles = (0..positions).flat_map(|p| freqs.iter().map(move |f| p as f32 * f));
+    /// At `positions` positions, the registers' past the `real` ones left as they are.
+    fn new(freqs: &[f32], real: usize, positions: usize) -> Self {
+        let angles =
+            (0..positions).flat_map(|p| freqs.iter().map(move |f| if p < real { p as f32 * f } else { 0.0 }));
         let (cos, sin) = angles.map(|a| (a.cos(), a.sin())).unzip();
         Self { cos, sin, pairs: freqs.len() }
     }
@@ -198,14 +219,15 @@ impl Rotary {
     }
 }
 
-/// Gated multi-head attention along `axis`: rotary queries and keys, softmax, each head's
-/// output scaled by the sigmoid of its gate.
+/// Multi-head attention along `axis`: rotary queries and keys, softmax, each head's output
+/// scaled by the sigmoid of its gate if gated.
 fn attention(s: &mut Scratch, c: &Config, axis: Axis, frames: usize, bands: usize, rotary: &Rotary) {
     let width = c.qkvg_width();
-    let (inner, dh, heads) = (c.inner_dim(), c.dim_head, c.heads);
+    let (inner, kv, dh, heads) = (c.inner_dim(), c.kv_dim(), c.dim_head, c.heads);
+    let shared = heads / c.kv_heads;
     s.qkvg.par_chunks_exact_mut(width).enumerate().for_each(|(token, row)| {
         let pos = axis.position(token, bands);
-        for h in 0..2 * heads {
+        for h in 0..heads + c.kv_heads {
             rotary.apply(&mut row[h * dh..][..dh], pos);
         }
     });
@@ -222,8 +244,8 @@ fn attention(s: &mut Scratch, c: &Config, axis: Axis, frames: usize, bands: usiz
             let mut scores = vec![0.0; len * len];
             for h in 0..heads {
                 let q = qkvg[token(0) * width + h * dh..].as_ptr();
-                let k = qkvg[token(0) * width + inner + h * dh..].as_ptr();
-                let v = qkvg[token(0) * width + 2 * inner + h * dh..].as_ptr();
+                let k = qkvg[token(0) * width + inner + h / shared * dh..].as_ptr();
+                let v = qkvg[token(0) * width + inner + kv + h / shared * dh..].as_ptr();
                 let row = stride * width as isize;
                 // SAFETY: every row read is a token of this group, inside `qkvg`.
                 unsafe {
@@ -274,9 +296,11 @@ fn attention(s: &mut Scratch, c: &Config, axis: Axis, frames: usize, bands: usiz
                         Parallelism::None,
                     );
                 }
-                for i in 0..len {
-                    let gate = sigmoid(qkvg[token(i) * width + 3 * inner + h]);
-                    out[i * inner + h * dh..][..dh].iter_mut().for_each(|o| *o *= gate);
+                if c.gates {
+                    for i in 0..len {
+                        let gate = sigmoid(qkvg[token(i) * width + inner + 2 * kv + h]);
+                        out[i * inner + h * dh..][..dh].iter_mut().for_each(|o| *o *= gate);
+                    }
                 }
             }
             out
@@ -339,10 +363,17 @@ fn linear_with(
     }
 }
 
-/// `x / max(‖x‖, 1e-12)`: the RMS norm without its gain (`F.normalize`).
-pub(crate) fn rms_normalize(x: &mut [f32]) {
-    let norm = x.iter().map(|v| v * v).sum::<f32>().sqrt().max(1e-12);
+/// `x / max(√(‖x‖² + len·eps), 1e-12)`: the RMS norm without its gain, nor its `√len`
+/// (`F.normalize` when `eps` is 0).
+pub(crate) fn rms_normalize(x: &mut [f32], eps: f32) {
+    let norm = (x.iter().map(|v| v * v).sum::<f32>() + x.len() as f32 * eps).sqrt().max(1e-12);
     x.iter_mut().for_each(|v| *v /= norm);
+}
+
+/// The RMS norm, times `gain`.
+fn scale_normalize(x: &mut [f32], gain: &[f32], eps: f32) {
+    rms_normalize(x, eps);
+    x.iter_mut().zip(gain).for_each(|(v, g)| *v *= g);
 }
 
 fn softmax(row: &mut [f32]) {

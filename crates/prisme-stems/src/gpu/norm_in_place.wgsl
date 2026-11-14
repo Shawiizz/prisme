@@ -9,6 +9,8 @@ struct Params {
     dst_off: u32,
     has_gain: u32,
     groups_x: u32,
+    // added to the sum of squares (the mean's epsilon, times the width)
+    eps: f32,
 }
 
 @group(0) @binding(0) var<storage, read_write> x: array<f32>;
@@ -27,7 +29,7 @@ fn reduce(lid: u32, value: f32) -> f32 {
         }
         workgroupBarrier();
     }
-    return max(sqrt(partial[0]), 1e-12);
+    return max(sqrt(partial[0] + p.eps), 1e-12);
 }
 
 @compute @workgroup_size(128)

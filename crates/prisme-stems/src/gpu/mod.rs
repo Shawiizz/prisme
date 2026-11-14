@@ -17,7 +17,7 @@ use std::sync::{Arc, Mutex};
 
 use wgpu::util::DeviceExt;
 
-use crate::model::{Geometry, Linear, Weights};
+use crate::model::{Config, Geometry, Linear, Weights};
 use crate::network::{Axis, MaskNetwork};
 use crate::StemsError;
 
@@ -117,7 +117,10 @@ struct Params {
     rotary_time: Vec<f32>,
     rotary_freq: Vec<f32>,
     band_proj: Vec<GpuLinear>,
-    transformers: Vec<(Vec<GpuLayer>, wgpu::Buffer)>,
+    /// Each transformer's layers, and the gain of its output norm if it has one.
+    transformers: Vec<(Vec<GpuLayer>, Option<wgpu::Buffer>)>,
+    final_norm: Option<wgpu::Buffer>,
+    registers: Vec<f32>,
     /// Per stem, per band.
     masks: Vec<Vec<Vec<GpuLinear>>>,
     no_bias: wgpu::Buffer,
@@ -167,6 +170,7 @@ struct Pipelines {
     /// softmax, values), several times faster where `attention` spills its registers.
     attention_products: Option<[wgpu::ComputePipeline; 3]>,
     glu: wgpu::ComputePipeline,
+    geglu: wgpu::ComputePipeline,
     add: wgpu::ComputePipeline,
 }
 
@@ -447,7 +451,8 @@ impl GpuNetwork {
 
     /// Whether the largest activation fits in one buffer binding.
     fn check_limits(&self, frames: usize) -> Result<(), StemsError> {
-        let bytes = frames as u64 * frame_bytes(&self.geometry, &self.params, self.matrix);
+        let seq_frames = self.geometry.config.seq_frames(frames) as u64;
+        let bytes = seq_frames * frame_bytes(&self.geometry, &self.params, self.matrix);
         if bytes > self.gpu.max_binding {
             return Err(StemsError::Gpu(format!("{bytes} byte buffers exceed this GPU's limits")));
         }
@@ -648,18 +653,19 @@ fn binding_limit(limits: &wgpu::Limits) -> u64 {
     limits.max_storage_buffer_binding_size.min(limits.max_buffer_size)
 }
 
-/// The bytes of the largest activation, for each frame of a chunk.
+/// The bytes of the largest activation, for each frame of the transformers' sequences.
 fn frame_bytes(geometry: &Geometry, params: &Params, matrix: bool) -> u64 {
     let c = &geometry.config;
     let act = if matrix { 2 } else { 4 };
     let widest = c.qkvg_width().max(params.ff_hidden);
-    (geometry.bands.len() * (widest * act).max(c.dim * 4)) as u64
+    (geometry.seq_bands() * (widest * act).max(c.dim * 4)) as u64
 }
 
 /// The most frames a chunk can take on a GPU binding `max_binding` bytes, at most the model's.
 fn frames_that_fit(max_binding: u64, geometry: &Geometry, params: &Params, matrix: bool) -> usize {
     let fit = max_binding / frame_bytes(geometry, params, matrix);
-    usize::try_from(fit).unwrap_or(usize::MAX).min(geometry.config.chunk_frames)
+    let c = &geometry.config;
+    usize::try_from(fit).unwrap_or(usize::MAX).saturating_sub(c.registers).min(c.chunk_frames)
 }
 
 /// PCI vendor ids.
@@ -693,13 +699,29 @@ fn fits_matrix_units(weights: &Weights) -> bool {
     weights.geometry.config.dim.is_multiple_of(4) && weights.linears().all(|l| l.inp.is_multiple_of(4))
 }
 
-/// Whether the attention runs on the matrix units: heads of 64 values, and the queries, keys
-/// and values of a token read 4 values at a time.
+/// Whether the attention runs on the matrix units: heads of 64 or 32 values, and the queries,
+/// keys and values of a token read 4 values at a time.
 fn matrix_attention(device: &wgpu::Device, geometry: &Geometry) -> bool {
     let c = &geometry.config;
-    c.dim_head == 64
-        && c.heads.is_multiple_of(4)
+    matches!(c.dim_head, 32 | 64)
+        && c.qkvg_width().is_multiple_of(4)
         && device.limits().max_compute_workgroup_storage_size >= MATRIX_ATTENTION_SHARED
+}
+
+/// Whether the attention on the shader cores runs as products: gated heads of 64 values, each
+/// with its own keys and values. Smaller heads hold less in their registers, and their scores
+/// would weigh more beside their products (on an RTX 4060, the products take 2.9 times as
+/// long as `attention.wgsl` for heads of 32 values).
+fn attention_as_products(c: &Config) -> bool {
+    c.dim_head == 64 && c.kv_heads == c.heads && c.gates
+}
+
+/// The heads the attentions are compiled for, defined before their sources: constants rather
+/// than overrides or parameters, so that the gated heads of 64 values compile as they did
+/// before the others came.
+fn heads_shape(c: &Config) -> String {
+    let (dh, gated) = (c.dim_head, c.gates);
+    format!("const DH: u32 = {dh}u;\nconst DH4: u32 = {}u;\nconst GATED: bool = {gated};\n", dh / 4)
 }
 
 impl Pipelines {
@@ -710,7 +732,7 @@ impl Pipelines {
         } else {
             "alias Act = f32;\n"
         };
-        let make = |source: &str, entry: &str, constants: &[(&str, f64)]| {
+        let make = |source: &str, entry: &str| {
             let descriptor = wgpu::ShaderModuleDescriptor {
                 label: Some(entry),
                 source: wgpu::ShaderSource::Wgsl(format!("{header}{source}").into()),
@@ -726,48 +748,48 @@ impl Pipelines {
                 layout: None,
                 module: &module,
                 entry_point: Some(entry),
-                compilation_options: wgpu::PipelineCompilationOptions { constants, ..Default::default() },
+                compilation_options: Default::default(),
                 cache: None,
             })
         };
         let matmul = if matrix {
             [("f32", "f32"), ("f32", "f16"), ("f16", "f32"), ("f16", "f16")].map(|(input, output)| {
                 let types = format!("alias In = {input};\nalias Out = {output};\n");
-                make(&format!("{types}{}", include_str!("matmul_coop.wgsl")), "main", &[])
+                make(&format!("{types}{}", include_str!("matmul_coop.wgsl")), "main")
             })
         } else {
             let source =
                 if gpu.large_tiles { include_str!("matmul.wgsl") } else { include_str!("matmul_small.wgsl") };
-            let f32 = make(source, "main", &[]);
+            let f32 = make(source, "main");
             [f32.clone(), f32.clone(), f32.clone(), f32]
         };
         let matmul_tile = if matrix || gpu.large_tiles { 128 } else { 64 };
-        let blocked = (!matrix).then(|| make(include_str!("matmul_blocked.wgsl"), "main", &[]));
+        let blocked = (!matrix).then(|| make(include_str!("matmul_blocked.wgsl"), "main"));
         let matrix_attention = matrix && matrix_attention(device, geometry);
-        let attention_products = (!matrix && geometry.config.dim_head == 64).then(|| {
+        let attention_products = (!matrix && attention_as_products(&geometry.config)).then(|| {
             [
-                make(include_str!("attention_scores.wgsl"), "main", &[]),
-                make(include_str!("attention_softmax.wgsl"), "main", &[]),
-                make(include_str!("attention_values.wgsl"), "main", &[]),
+                make(include_str!("attention_scores.wgsl"), "main"),
+                make(include_str!("attention_softmax.wgsl"), "main"),
+                make(include_str!("attention_values.wgsl"), "main"),
             ]
         });
-        let attention = if matrix_attention {
-            make(include_str!("attention_coop.wgsl"), "main", &[])
-        } else {
-            make(include_str!("attention.wgsl"), "main", &[("DH", geometry.config.dim_head as f64)])
-        };
+        let shape = heads_shape(&geometry.config);
+        let source =
+            if matrix_attention { include_str!("attention_coop.wgsl") } else { include_str!("attention.wgsl") };
+        let attention = make(&format!("{shape}{source}"), "main");
         Self {
             matmul,
             matmul_tile,
             blocked,
-            norm: make(include_str!("norm.wgsl"), "normalize", &[]),
-            norm_in_place: make(include_str!("norm_in_place.wgsl"), "normalize_in_place", &[]),
-            rotary: make(include_str!("rotary.wgsl"), "main", &[]),
+            norm: make(include_str!("norm.wgsl"), "normalize"),
+            norm_in_place: make(include_str!("norm_in_place.wgsl"), "normalize_in_place"),
+            rotary: make(include_str!("rotary.wgsl"), "main"),
             attention,
             matrix_attention,
             attention_products,
-            glu: make(include_str!("glu.wgsl"), "main", &[]),
-            add: make(include_str!("add.wgsl"), "main", &[]),
+            glu: make(include_str!("glu.wgsl"), "main"),
+            geglu: make(include_str!("geglu.wgsl"), "main"),
+            add: make(include_str!("add.wgsl"), "main"),
         }
     }
 
@@ -783,6 +805,7 @@ impl Pipelines {
             (Some(&self.rotary), "rotary"),
             (Some(&self.attention), "attention"),
             (Some(&self.glu), "glu"),
+            (Some(&self.geglu), "glu"),
             (Some(&self.add), "add"),
             (self.blocked.as_ref(), "products (blocked)"),
             (self.attention_products.as_ref().map(|p| &p[0]), "attention scores"),
@@ -822,7 +845,7 @@ impl Params {
                         ff2: linear(&l.ff2),
                     })
                     .collect();
-                (layers, storage(device, bytemuck::cast_slice(&tr.norm)))
+                (layers, tr.norm.as_ref().map(|n| storage(device, bytemuck::cast_slice(n))))
             })
             .collect();
         let ff_hidden = w.transformers.iter().flat_map(|t| &t.layers).map(|l| l.ff1.out).max().unwrap_or(0);
@@ -839,6 +862,8 @@ impl Params {
             rotary_freq: w.rotary_freq.clone(),
             band_proj: w.band_proj.iter().map(linear).collect(),
             transformers,
+            final_norm: w.final_norm.as_ref().map(|n| storage(device, bytemuck::cast_slice(n))),
+            registers: w.registers.clone(),
             masks: w
                 .masks
                 .iter()
@@ -862,8 +887,8 @@ impl Planner<'_> {
         let c = &g.config;
         let p = &self.net.params;
         let frames = self.frames;
-        let bands = g.bands.len();
-        let tokens = frames * bands;
+        let (seq_frames, seq_bands) = self.seq();
+        let tokens = seq_frames * seq_bands;
         let features = g.features();
         let widest_band = g.bands.iter().map(|b| b.width).max().unwrap_or(0);
         let mask_out = p.masks.iter().flatten().filter_map(|m| m.last()).map(|l| l.out).max().unwrap_or(0);
@@ -879,13 +904,13 @@ impl Planner<'_> {
         bytes[Slot::BandIn as usize] = acts(frames * widest_band);
         bytes[Slot::Mlp0 as usize] = acts(frames * p.mask_hidden);
         bytes[Slot::Mlp1 as usize] = acts(frames * p.mask_hidden);
-        bytes[Slot::MlpOut as usize] = f32s(frames * mask_out);
+        bytes[Slot::MlpOut as usize] = if c.mask_glu { f32s(frames * mask_out) } else { 0 };
         bytes[Slot::Scores as usize] = if self.net.pipelines.attention_products.is_some() {
             [Axis::Time, Axis::Freq]
                 .map(|axis| {
-                    let len = axis.len(frames, bands);
-                    self.scores_slice(len, axis.groups(frames, bands) * c.heads) as u64
-                        * (len * len * 4) as u64
+                    let len = axis.len(seq_frames, seq_bands);
+                    let pairs = axis.groups(seq_frames, seq_bands) * c.heads;
+                    self.scores_slice(len, pairs) as u64 * (len * len * 4) as u64
                 })
                 .into_iter()
                 .max()
@@ -914,12 +939,21 @@ impl Planner<'_> {
         let mlp = [slot(Slot::Mlp0), slot(Slot::Mlp1)];
         let mlp_out = slot(Slot::MlpOut);
         let scores = slot(Slot::Scores);
-        let angles_time =
-            storage(&self.net.gpu.device, bytemuck::cast_slice(&angles(&p.rotary_time, frames)));
-        let angles_freq = storage(&self.net.gpu.device, bytemuck::cast_slice(&angles(&p.rotary_freq, bands)));
+        let device = &self.net.gpu.device;
+        let bands = g.bands.len();
+        let angles_time = storage(device, bytemuck::cast_slice(&angles(&p.rotary_time, frames, seq_frames)));
+        let angles_freq = storage(device, bytemuck::cast_slice(&angles(&p.rotary_freq, bands, seq_bands)));
 
         let mut submissions = Vec::new();
         let mut steps = Vec::new();
+        if c.registers > 0 {
+            // the registers in their corner, zeros elsewhere: the band split fills the rest
+            let mut start = vec![0.0; tokens * c.dim];
+            for (r, register) in p.registers.chunks_exact(c.dim).enumerate() {
+                start[g.register_token(frames, r) * c.dim..][..c.dim].copy_from_slice(register);
+            }
+            steps.push(self.add(&storage(device, bytemuck::cast_slice(&start)), &x, start.len(), false));
+        }
         for (b, (band, proj)) in g.bands.iter().zip(&p.band_proj).enumerate() {
             steps.push(self.norm(
                 &bins,
@@ -930,7 +964,7 @@ impl Planner<'_> {
                 (band.width, 0),
             ));
             let input = Input { buffer: &band_in, store: Store::Act, ld: band.width, off: 0 };
-            let into = Input { buffer: &x, store: Store::F32, ld: bands * c.dim, off: b * c.dim };
+            let into = Input { buffer: &x, store: Store::F32, ld: seq_bands * c.dim, off: b * c.dim };
             steps.extend(self.matmul(proj, input, frames, into, Act::None, false));
         }
         submissions.push(std::mem::take(&mut steps));
@@ -955,35 +989,64 @@ impl Planner<'_> {
                 steps.extend(self.matmul(&l.out, input, tokens, x_rows, Act::None, true));
                 steps.push(self.norm(&x, &normed, tokens, c.dim, (c.dim, 0), (c.dim, 0)));
                 let into = Input { buffer: &hidden, store: Store::Act, ld: l.ff1.out, off: 0 };
-                steps.extend(self.matmul(&l.ff1, normed_in, tokens, into, Act::Gelu, false));
+                if c.ff_glu {
+                    steps.extend(self.matmul(&l.ff1, normed_in, tokens, into, Act::None, false));
+                    steps.push(self.geglu(&hidden, tokens, l.ff1.out / 2));
+                } else {
+                    steps.extend(self.matmul(&l.ff1, normed_in, tokens, into, Act::Gelu, false));
+                }
                 steps.extend(self.matmul(&l.ff2, into, tokens, x_rows, Act::None, true));
             }
-            steps.push(self.norm_in_place(&x, gain, tokens, c.dim));
+            if let Some(gain) = gain {
+                steps.push(self.norm_in_place(&x, gain, tokens, c.dim));
+            }
             if let Some(earlier) = earlier.as_ref().filter(|_| axis == Axis::Freq) {
                 steps.push(self.add(&x, earlier, tokens * c.dim, i > 1));
             }
             submissions.push(std::mem::take(&mut steps));
         }
+        if let Some(gain) = &p.final_norm {
+            steps.push(self.norm_in_place(&x, gain, tokens, c.dim));
+        }
 
         for (s, stem) in p.masks.iter().enumerate() {
             let stem_off = s * frames * features;
             for (b, (band, mlp_layers)) in g.bands.iter().zip(stem).enumerate() {
-                let mut input = Input { buffer: &x, store: Store::F32, ld: bands * c.dim, off: b * c.dim };
+                let mut input =
+                    Input { buffer: &x, store: Store::F32, ld: seq_bands * c.dim, off: b * c.dim };
                 for (k, l) in mlp_layers.iter().enumerate() {
                     let last = k + 1 == mlp_layers.len();
-                    let (buffer, store) =
-                        if last { (&mlp_out, Store::F32) } else { (&mlp[k % 2], Store::Act) };
-                    let into = Input { buffer, store, ld: l.out, off: 0 };
+                    let into = if !last {
+                        Input { buffer: &mlp[k % 2], store: Store::Act, ld: l.out, off: 0 }
+                    } else if c.mask_glu {
+                        Input { buffer: &mlp_out, store: Store::F32, ld: l.out, off: 0 }
+                    } else {
+                        Input { buffer: &mask, store: Store::F32, ld: features, off: stem_off + band.offset }
+                    };
                     let act = if last { Act::None } else { Act::Tanh };
                     steps.extend(self.matmul(l, input, frames, into, act, false));
                     input = into;
                 }
-                steps.push(self.glu(&mlp_out, &mask, frames, band.width, features, stem_off + band.offset));
+                if c.mask_glu {
+                    steps.push(self.glu(
+                        &mlp_out,
+                        &mask,
+                        frames,
+                        band.width,
+                        features,
+                        stem_off + band.offset,
+                    ));
+                }
             }
             submissions.push(std::mem::take(&mut steps));
         }
 
         Plan { generation, bins, mask, readback, submissions }
+    }
+
+    /// Frames and bands of the transformers' sequences.
+    fn seq(&self) -> (usize, usize) {
+        (self.net.geometry.config.seq_frames(self.frames), self.net.geometry.seq_bands())
     }
 
     /// Room for `count` values stored as `store`, in whole groups of 4.
@@ -1104,25 +1167,31 @@ impl Planner<'_> {
         (dst_ld, dst_off): (usize, usize),
     ) -> Step {
         let (groups, groups_x) = grid(rows);
-        let uniform = [rows, width, src_ld, src_off, dst_ld, dst_off, 0, groups_x];
+        let uniform = [rows, width, src_ld, src_off, dst_ld, dst_off, 0, groups_x, self.norm_eps(width)];
         let buffers = [src, dst, &self.net.params.no_bias];
         self.step(&self.net.pipelines.norm, groups, &buffers, &words(&uniform))
     }
 
     fn norm_in_place(&self, x: &wgpu::Buffer, gain: &wgpu::Buffer, rows: usize, width: usize) -> Step {
         let (groups, groups_x) = grid(rows);
-        let uniform = [rows, width, width, 0, width, 0, 1, groups_x];
+        let uniform = [rows, width, width, 0, width, 0, 1, groups_x, self.norm_eps(width)];
         self.step(&self.net.pipelines.norm_in_place, groups, &[x, gain], &words(&uniform))
     }
 
+    /// What the norms of rows of `width` add to their sums of squares, as the bits of an f32.
+    fn norm_eps(&self, width: usize) -> usize {
+        (self.net.geometry.config.norm_eps * width as f32).to_bits() as usize
+    }
+
     fn rotary(&self, qkvg: &wgpu::Buffer, angles: &wgpu::Buffer, axis: Axis, tokens: usize) -> Step {
-        let g = &self.net.geometry;
-        let c = &g.config;
-        let bands = g.bands.len();
+        let c = &self.net.geometry.config;
+        let (seq_frames, seq_bands) = self.seq();
         let pairs = c.dim_head / 2;
-        let (groups, groups_x) = grid((tokens * 2 * c.heads * pairs).div_ceil(256));
-        let positions = axis.len(self.frames, bands);
-        let uniform = [tokens, 2 * c.heads, pairs, c.qkvg_width(), bands, axis_id(axis), positions, groups_x];
+        // the queries' heads then the keys', one after the other
+        let heads = c.heads + c.kv_heads;
+        let (groups, groups_x) = grid((tokens * heads * pairs).div_ceil(256));
+        let positions = axis.len(seq_frames, seq_bands);
+        let uniform = [tokens, heads, pairs, c.qkvg_width(), seq_bands, axis_id(axis), positions, groups_x];
         self.step(&self.net.pipelines.rotary, groups, &[qkvg, angles], &words(&uniform))
     }
 
@@ -1143,12 +1212,11 @@ impl Planner<'_> {
         scores: &wgpu::Buffer,
         axis: Axis,
     ) -> Vec<Step> {
-        let g = &self.net.geometry;
-        let c = &g.config;
-        let bands = g.bands.len();
-        let len = axis.len(self.frames, bands);
+        let c = &self.net.geometry.config;
+        let (frames, bands) = self.seq();
+        let len = axis.len(frames, bands);
         if let Some([products, softmax, values]) = &self.net.pipelines.attention_products {
-            let pairs = axis.groups(self.frames, bands) * c.heads;
+            let pairs = axis.groups(frames, bands) * c.heads;
             // as many as the scores buffer holds, and the GPU binds
             let held = scores.size().min(self.net.gpu.max_binding) / (len * len * 4) as u64;
             assert!(held > 0, "the scores of a sequence and head fit in their buffer");
@@ -1184,7 +1252,7 @@ impl Planner<'_> {
             return steps;
         }
         let query_blocks = len.div_ceil(64);
-        let blocks = axis.groups(self.frames, bands) * c.heads * query_blocks;
+        let blocks = axis.groups(frames, bands) * c.heads * query_blocks;
         let (groups, groups_x) = grid(blocks);
         let uniform = [
             len,
@@ -1196,6 +1264,9 @@ impl Planner<'_> {
             query_blocks,
             blocks,
             groups_x,
+            c.heads / c.kv_heads,
+            c.kv_dim(),
+            usize::from(c.gates),
         ];
         let pipelines = &self.net.pipelines;
         let buffers: &[&wgpu::Buffer] =
@@ -1220,6 +1291,12 @@ impl Planner<'_> {
     ) -> Step {
         let (groups, groups_x) = grid((rows * width).div_ceil(256));
         self.step(&self.net.pipelines.glu, groups, &[y, mask], &words(&[rows, width, ld, off, groups_x]))
+    }
+
+    /// `gelu(gate) * value` in place of the gates, each row `width` gates then `width` values.
+    fn geglu(&self, hidden: &wgpu::Buffer, rows: usize, width: usize) -> Step {
+        let (groups, groups_x) = grid((rows * width).div_ceil(256));
+        self.step(&self.net.pipelines.geglu, groups, &[hidden], &words(&[rows, width, groups_x]))
     }
 }
 
@@ -1251,9 +1328,12 @@ fn words(values: &[usize]) -> Vec<u32> {
     values.iter().map(|&v| u32::try_from(v).expect("GPU sizes fit in 32 bits")).collect()
 }
 
-/// `cos` of every (position, pair) angle, then `sin`.
-fn angles(freqs: &[f32], positions: usize) -> Vec<f32> {
-    let all: Vec<f32> = (0..positions).flat_map(|p| freqs.iter().map(move |f| p as f32 * f)).collect();
+/// `cos` of every (position, pair) angle, then `sin`: at `positions` positions, the registers'
+/// past the `real` ones left as they are.
+fn angles(freqs: &[f32], real: usize, positions: usize) -> Vec<f32> {
+    let all: Vec<f32> = (0..positions)
+        .flat_map(|p| freqs.iter().map(move |f| if p < real { p as f32 * f } else { 0.0 }))
+        .collect();
     all.iter().map(|a| a.cos()).chain(all.iter().map(|a| a.sin())).collect()
 }
 
@@ -1271,15 +1351,25 @@ mod tests {
     use super::*;
     use crate::model::{Band, Config, Layer, Transformer, Values};
 
-    /// A network of 4 heads of 64 values on `bands` bands, as the attention on the matrix
-    /// units takes them (its weights play no part here); `None` without such units.
-    /// A network of heads of 64 values, its attention on the matrix units (`matrix`) or on
-    /// the shader cores as products; `None` where this machine cannot.
-    fn network(bands: usize, matrix: bool) -> Option<GpuNetwork> {
+    /// The heads of the attentions under test: `(dim_head, kv_heads, gates)` of 4 heads. Of 64
+    /// values, gated, each with its own keys and values, as the Mel-Band RoFormers'; of 32,
+    /// without gates, pairs of them sharing their keys and values, as the BS-RoFormers'.
+    const HEADS: [(usize, usize, bool); 2] = [(64, 4, true), (32, 2, false)];
+
+    /// A network of 4 heads shaped as `heads` on `bands` bands (its weights play no part
+    /// here), its attention on the matrix units (`matrix`) or on the shader cores; `None` where
+    /// this machine cannot.
+    fn network(
+        bands: usize,
+        matrix: bool,
+        (dim_head, kv_heads, gates): (usize, usize, bool),
+    ) -> Option<GpuNetwork> {
         let config = Config {
             dim: 64,
             heads: 4,
-            dim_head: 64,
+            kv_heads,
+            dim_head,
+            gates,
             depth: 1,
             n_fft: 2 * bands,
             hop: 4,
@@ -1287,6 +1377,10 @@ mod tests {
             chunk_frames: 9,
             skip: false,
             overlap: 1,
+            norm_eps: 0.0,
+            ff_glu: false,
+            mask_glu: true,
+            registers: 0,
         };
         let zero = |out: usize, inp: usize| Linear {
             weight: Values::F32(vec![0.0; out * inp]),
@@ -1300,7 +1394,8 @@ mod tests {
             ff1: zero(128, 64),
             ff2: zero(64, 128),
         };
-        let freqs: Vec<f32> = (0..32).map(|i| 10_000f32.powf(-(i as f32) / 32.0)).collect();
+        let pairs = dim_head / 2;
+        let freqs: Vec<f32> = (0..pairs).map(|i| 10_000f32.powf(-(i as f32) / pairs as f32)).collect();
         let weights = Weights {
             geometry: Geometry {
                 config: config.clone(),
@@ -1313,9 +1408,11 @@ mod tests {
             rotary_freq: freqs,
             band_proj: (0..bands).map(|_| zero(64, 4)).collect(),
             transformers: (0..2)
-                .map(|_| Transformer { layers: vec![layer()], norm: vec![1.0; 64] })
+                .map(|_| Transformer { layers: vec![layer()], norm: Some(vec![1.0; 64]) })
                 .collect(),
             masks: vec![(0..bands).map(|_| vec![zero(8, 64)]).collect()],
+            final_norm: None,
+            registers: Vec::new(),
             extra: Default::default(),
         };
         let options = GpuOptions { software: true, without_matrix_units: !matrix, ..Default::default() };
@@ -1336,7 +1433,7 @@ mod tests {
 
     /// Projections whose keys grow along the sequences: the scores rise block after block.
     fn projections(c: &Config, axis: Axis, frames: usize, bands: usize) -> Vec<f32> {
-        let (width, inner) = (c.qkvg_width(), c.inner_dim());
+        let (width, inner, kv) = (c.qkvg_width(), c.inner_dim(), c.kv_dim());
         let mut state = 0x9e37_79b9_7f4a_7c15u64;
         (0..frames * bands * width)
             .map(|i| {
@@ -1346,7 +1443,7 @@ mod tests {
                 let growth = 1.0 + axis.position(token, bands) as f32 / 16.0;
                 let v = if at < inner {
                     4.0 * r
-                } else if at < 2 * inner {
+                } else if at < inner + kv {
                     r * growth
                 } else {
                     r
@@ -1388,7 +1485,7 @@ mod tests {
         (num / den).sqrt()
     }
 
-    /// The gated attention of rotated queries and keys, in f64.
+    /// The attention of rotated queries and keys, gated if the network is, in f64.
     fn reference(
         qkvg: &[f32],
         c: &Config,
@@ -1397,7 +1494,7 @@ mod tests {
         frames: usize,
         bands: usize,
     ) -> Vec<f32> {
-        let (width, inner, dh) = (c.qkvg_width(), c.inner_dim(), c.dim_head);
+        let (width, inner, kv, dh) = (c.qkvg_width(), c.inner_dim(), c.kv_dim(), c.dim_head);
         let len = axis.len(frames, bands);
         let rotated = |token: usize, at: usize| -> Vec<f64> {
             let pos = axis.position(token, bands) as f64;
@@ -1415,7 +1512,8 @@ mod tests {
         for group in 0..axis.groups(frames, bands) {
             let token = |i| axis.token(group, i, bands);
             for head in 0..c.heads {
-                let keys: Vec<Vec<f64>> = (0..len).map(|j| rotated(token(j), inner + head * dh)).collect();
+                let shared = head / (c.heads / c.kv_heads) * dh;
+                let keys: Vec<Vec<f64>> = (0..len).map(|j| rotated(token(j), inner + shared)).collect();
                 for i in 0..len {
                     let q = rotated(token(i), head * dh);
                     let scores: Vec<f64> =
@@ -1423,12 +1521,14 @@ mod tests {
                     let max = scores.iter().copied().fold(f64::MIN, f64::max);
                     let weights: Vec<f64> = scores.iter().map(|s| (s - max).exp()).collect();
                     let total: f64 = weights.iter().sum();
-                    let gate = 1.0 / (1.0 + (-f64::from(qkvg[token(i) * width + 3 * inner + head])).exp());
+                    let gate = if c.gates {
+                        1.0 / (1.0 + (-f64::from(qkvg[token(i) * width + inner + 2 * kv + head])).exp())
+                    } else {
+                        1.0
+                    };
                     for d in 0..dh {
                         let v: f64 = (0..len)
-                            .map(|j| {
-                                weights[j] * f64::from(qkvg[token(j) * width + 2 * inner + head * dh + d])
-                            })
+                            .map(|j| weights[j] * f64::from(qkvg[token(j) * width + inner + kv + shared + d]))
                             .sum();
                         out[token(i) * inner + head * dh + d] = (v / total * gate) as f32;
                     }
@@ -1438,15 +1538,18 @@ mod tests {
         out
     }
 
+    /// `(axis, frames, bands)` of the sequences under test.
+    const SEQUENCES: [(Axis, usize, usize); 2] = [(Axis::Time, 150, 3), (Axis::Freq, 5, 70)];
+
     /// Along both axes, over sequences that end in partial blocks of queries and keys, with
     /// keys growing along them: the scores rise block after block, and the attention rescales
     /// what it summed again and again.
     #[test]
     fn the_attention_on_the_matrix_units_matches_a_plain_one() {
-        for (axis, frames, bands) in [(Axis::Time, 150, 3), (Axis::Freq, 5, 70)] {
-            let Some(net) = network(bands, true) else { return };
+        for ((axis, frames, bands), heads) in SEQUENCES.into_iter().flat_map(|s| HEADS.map(|h| (s, h))) {
+            let Some(net) = network(bands, true, heads) else { return };
             let c = &net.geometry.config;
-            let tokens = frames * bands;
+            let (tokens, len) = (frames * bands, axis.len(frames, bands));
             let qkvg = projections(c, axis, frames, bands);
             let freqs = if axis == Axis::Time { &net.params.rotary_time } else { &net.params.rotary_freq };
             let expected = reference(&qkvg, c, freqs, axis, frames, bands);
@@ -1454,37 +1557,36 @@ mod tests {
             let planner = Planner { net: &net, frames };
             let halves: Vec<half::f16> = qkvg.iter().map(|&v| half::f16::from_f32(v)).collect();
             let input = storage(&net.gpu.device, bytemuck::cast_slice(&halves));
-            let angles =
-                storage(&net.gpu.device, bytemuck::cast_slice(&angles(freqs, axis.len(frames, bands))));
+            let angles = storage(&net.gpu.device, bytemuck::cast_slice(&angles(freqs, len, len)));
             let out = planner.buffer(Store::Act, tokens * c.inner_dim(), wgpu::BufferUsages::COPY_SRC);
             let scores = planner.buffer(Store::F32, 1, wgpu::BufferUsages::empty());
             let steps = planner.attention(&input, &angles, &out, &scores, axis);
             let bytes = run(&net, &steps, &out);
             let got = &bytemuck::cast_slice::<u8, half::f16>(&bytes)[..tokens * c.inner_dim()];
             let err = relative_error(got.iter().map(|v| v.to_f32()), &expected);
-            assert!(err < 2e-3, "{axis:?}: relative error {err:e}");
+            assert!(err < 2e-3, "{axis:?}, {heads:?}: relative error {err:e}");
         }
     }
 
-    /// Over sequences that end in partial blocks of queries and keys, several slices of
-    /// sequences and heads among them where the scores do not fit at once.
+    /// Over sequences that end in partial blocks of queries and keys; for the attention as
+    /// products, several slices of sequences and heads among them where the scores do not fit
+    /// at once.
     #[test]
-    fn the_attention_as_products_matches_a_plain_one() {
-        for (axis, frames, bands) in [(Axis::Time, 150, 3), (Axis::Freq, 5, 70)] {
-            let Some(net) = network(bands, false) else { return };
-            assert!(net.pipelines.attention_products.is_some(), "heads of 64 values take the products");
+    fn the_attention_on_the_shader_cores_matches_a_plain_one() {
+        for ((axis, frames, bands), heads) in SEQUENCES.into_iter().flat_map(|s| HEADS.map(|h| (s, h))) {
+            let Some(net) = network(bands, false, heads) else { return };
+            let products = net.pipelines.attention_products.is_some();
+            assert_eq!(products, heads == HEADS[0], "the gated heads of 64 values take the products");
             let c = &net.geometry.config;
-            let tokens = frames * bands;
+            let (tokens, len) = (frames * bands, axis.len(frames, bands));
             let qkvg = projections(c, axis, frames, bands);
             let freqs = if axis == Axis::Time { &net.params.rotary_time } else { &net.params.rotary_freq };
             let expected = reference(&qkvg, c, freqs, axis, frames, bands);
 
             let planner = Planner { net: &net, frames };
             let input = storage(&net.gpu.device, bytemuck::cast_slice(&qkvg));
-            let angles =
-                storage(&net.gpu.device, bytemuck::cast_slice(&angles(freqs, axis.len(frames, bands))));
+            let angles = storage(&net.gpu.device, bytemuck::cast_slice(&angles(freqs, len, len)));
             let out = planner.buffer(Store::F32, tokens * c.inner_dim(), wgpu::BufferUsages::COPY_SRC);
-            let len = axis.len(frames, bands);
             // two sequences and heads a slice: the slices take turns in the same scores
             let scores = planner.buffer(Store::F32, 2 * len * len, wgpu::BufferUsages::empty());
             let mut steps = vec![planner.rotary(&input, &angles, axis, tokens)];
@@ -1492,7 +1594,7 @@ mod tests {
             let bytes = run(&net, &steps, &out);
             let got = &bytemuck::cast_slice::<u8, f32>(&bytes)[..tokens * c.inner_dim()];
             let err = relative_error(got.iter().copied(), &expected);
-            assert!(err < 1e-4, "{axis:?}: relative error {err:e}");
+            assert!(err < 1e-4, "{axis:?}, {heads:?}: relative error {err:e}");
         }
     }
 }
