@@ -12,15 +12,17 @@
 
 @if (wide()) {
   <aside class="wing a">
-    <ng-container *ngTemplateOutlet="which; context: { $implicit: 'a' }" />
     <app-phone-pads side [deck]="left()" />
-    <button
-      class="pr-btn stems"
-      [class.is-on]="isOpen('stems', 'a')"
-      (click)="toggle('stems', 'a')"
-    >
-      STEMS
-    </button>
+    <div class="tools">
+      <ng-container *ngTemplateOutlet="which; context: { $implicit: 'a' }" />
+      <button
+        class="pr-btn stems"
+        [class.is-on]="isOpen('stems', 'a')"
+        (click)="toggle('stems', 'a')"
+      >
+        STEMS
+      </button>
+    </div>
     <app-deck-controls [deck]="left()" />
   </aside>
 }
@@ -71,19 +73,29 @@
     }
   </div>
 
-  @if (mixer.internal()) {
+  @if (mixer.internal() || choosing()) {
     <div class="cross">
-      <span>A</span>
-      <app-fader
-        touch
-        centered
-        [min]="-1"
-        [max]="1"
-        [value]="mixer.crossfader()"
-        (valueChange)="mixer.setCrossfader($event)"
-        [label]="'Crossfader' | t"
-      />
-      <span>B</span>
+      @if (choosing()) {
+        <ng-container *ngTemplateOutlet="which; context: { $implicit: 'a' }" />
+      } @else {
+        <span>A</span>
+      }
+      @if (mixer.internal()) {
+        <app-fader
+          touch
+          centered
+          [min]="-1"
+          [max]="1"
+          [value]="mixer.crossfader()"
+          (valueChange)="mixer.setCrossfader($event)"
+          [label]="'Crossfader' | t"
+        />
+      }
+      @if (choosing()) {
+        <ng-container *ngTemplateOutlet="which; context: { $implicit: 'b' }" />
+      } @else {
+        <span>B</span>
+      }
     </div>
   }
 </div>
@@ -91,22 +103,23 @@
 @if (wide()) {
   @if (rights().length) {
     <aside class="wing b">
-      <ng-container *ngTemplateOutlet="which; context: { $implicit: 'b' }" />
       <app-phone-pads side [deck]="right()" />
-      <button
-        class="pr-btn stems"
-        [class.is-on]="isOpen('stems', 'b')"
-        (click)="toggle('stems', 'b')"
-      >
-        STEMS
-      </button>
+      <div class="tools">
+        <button
+          class="pr-btn stems"
+          [class.is-on]="isOpen('stems', 'b')"
+          (click)="toggle('stems', 'b')"
+        >
+          STEMS
+        </button>
+        <ng-container *ngTemplateOutlet="which; context: { $implicit: 'b' }" />
+      </div>
       <app-deck-controls class="b" [deck]="right()" />
     </aside>
   }
 } @else {
   <div class="play">
     <div class="more">
-      <ng-container *ngTemplateOutlet="which; context: { $implicit: 'a' }" />
       <button class="pr-btn pads" [class.is-on]="isOpen('pads', 'a')" (click)="toggle('pads', 'a')">
         PADS
       </button>
@@ -134,7 +147,6 @@
         >
           PADS
         </button>
-        <ng-container *ngTemplateOutlet="which; context: { $implicit: 'b' }" />
       </div>
     }
     <app-deck-controls [deck]="left()" />

@@ -60,6 +60,8 @@ export class PhoneTable {
   protected readonly rights = computed(() => this.decks().filter((d) => d % 2 === 1));
   protected readonly left = sideDeck(this.lefts);
   protected readonly right = sideDeck(this.rights);
+  /** Upright with four decks: the ends of the crossfader choose the deck of each side. */
+  protected readonly choosing = computed(() => !this.wide() && this.lefts().length > 1);
   protected readonly letter = deckLetter;
   /** What floats over the table. */
   protected readonly floating = signal<Floating | null>(null);

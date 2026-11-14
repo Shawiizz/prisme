@@ -74,8 +74,12 @@ app-phone-stems.float {
   background: var(--pr-base);
   font: 600 11px / 1 var(--pr-font);
   color: var(--pr-text-3);
+  justify-content: space-between;
   app-fader {
     flex: 1;
+  }
+  .which > button {
+    height: 28px;
   }
 }
 
@@ -83,7 +87,7 @@ app-phone-stems.float {
 .play {
   flex: none;
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   gap: 6px 14px;
   padding: 6px 12px 12px;
   background: var(--pr-base);
@@ -142,14 +146,17 @@ app-phone-stems.float {
     padding: 8px 10px 10px;
     background: var(--pr-base);
   }
-  .wing.b .which {
-    align-self: flex-end;
+  .tools {
+    display: flex;
+    align-items: center;
+    gap: 6px;
   }
   .which > button {
     height: 24px;
   }
   .wing .stems {
-    flex: none;
+    flex: 1;
+    min-width: 0;
     height: 30px;
     padding: 0;
     font: 600 10.5px / 1 var(--pr-font);
