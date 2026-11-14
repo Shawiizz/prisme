@@ -34,3 +34,22 @@
     background: var(--pr-light);
   }
 }
+
+// the separation under way: the knobs act where its stems are there already
+.coming {
+  position: relative;
+  display: flex;
+  justify-content: space-between;
+  margin: 0;
+  padding-bottom: 6px;
+  font-size: var(--pr-size-small);
+  color: var(--pr-text-2);
+  i {
+    position: absolute;
+    left: 0;
+    bottom: 0;
+    height: 2px;
+    width: calc(var(--done) * 100%);
+    background: var(--pr-light);
+  }
+}

@@ -8,8 +8,9 @@ import { deckLetter } from '../../shared/time';
 
 /**
  * The stems of a deck, floating over the table of a phone: a knob for the level of each
- * part, its name muting it at that level. A track not separated yet offers its separation,
- * and shows how far it is.
+ * part, its name muting it at that level. A track not separated yet offers its separation;
+ * one being separated plays its stems where they are there already, the rest as it is, and
+ * says how far it is.
  */
 @Component({
   selector: 'app-phone-stems',
@@ -55,6 +56,13 @@ import { deckLetter } from '../../shared/time';
           />
         }
       </div>
+      @if (stems.separating(); as done) {
+        <p class="coming">
+          <span>{{ 'Separating…' | t }}</span>
+          <span class="pr-num">{{ percent(done) }}</span>
+          <i [style.--done]="done"></i>
+        </p>
+      }
     }
   `,
   styleUrls: ['./phone-float.scss', './phone-stems.scss'],
