@@ -258,6 +258,12 @@ export class EngineService {
     return this.call('hand', { deck, seconds: at, atMs });
   }
 
+  /** The edge of a jog wheel turned by `turns` (positive forwards) at `atMs`: a playing
+   * track pushed or held back for a moment, a stopped one moved. */
+  jog(deck: number, turns: number, atMs = performance.now()) {
+    return this.call('jog', { deck, turns, atMs });
+  }
+
   setPitch(deck: number, ratio: number) {
     this.patchDeck(deck, { pitch: ratio });
     return this.call('set_pitch', { deck, ratio });

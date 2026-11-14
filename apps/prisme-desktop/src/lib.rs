@@ -211,6 +211,7 @@ pub fn run() {
             commands::decks::set_playing,
             commands::decks::seek,
             commands::decks::hand,
+            commands::decks::jog,
             commands::decks::set_pitch,
             commands::decks::set_vinyl,
             commands::decks::set_vinyl_swap,

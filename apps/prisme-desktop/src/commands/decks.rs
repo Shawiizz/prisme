@@ -26,6 +26,14 @@ pub fn hand(state: State<'_, AppState>, deck: usize, seconds: Option<f64>, at_ms
     state.send(Command::Hand { deck, position_s: seconds, at_s: at_ms / 1000.0 })
 }
 
+/// The edge of a jog wheel turned by `turns` (positive forwards) at `at_ms`: a playing track
+/// pushed or held back for a moment, a stopped one moved.
+#[tauri::command]
+pub fn jog(state: State<'_, AppState>, deck: usize, turns: f64, at_ms: f64) -> AppResult<()> {
+    AppState::check_deck(deck)?;
+    state.send(Command::Jog { deck, turns, at_s: at_ms / 1000.0 })
+}
+
 #[tauri::command]
 pub fn set_pitch(state: State<'_, AppState>, deck: usize, ratio: f64) -> AppResult<()> {
     AppState::check_deck(deck)?;

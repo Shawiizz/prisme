@@ -11,6 +11,7 @@ import {
   viewChild,
 } from '@angular/core';
 import { invoke } from '@tauri-apps/api/core';
+import { PHONE } from '../../../core/platform';
 import { StemsService } from '../../../core/services/stems.service';
 import { t } from '../../../core/i18n/i18n';
 import { fitToDevicePixels, forgetCanvas } from '../../../shared/device-pixels';
@@ -25,6 +26,10 @@ const CLICK_PX = 3;
 /** The hand's positions go to the engine at most this often (ms), with the time the
  * pointer was there: the engine replays the hand's path from those times. */
 const HAND_EVERY_MS = 4;
+/** Track time in one turn of a jog wheel (as the engine counts it, `jog.rs`). */
+const JOG_TURN_S = 1.8;
+/** On a phone, a finger held still this long (ms) puts the hand on the record. */
+const HOLD_MS = 280;
 
 /** A press on a waveform, from where it started. */
 interface Drag {
@@ -35,6 +40,13 @@ interface Drag {
   moved: boolean;
   /** When the hand's position last went out (event time, ms). */
   sentAt: number;
+  /** On a phone: the finger slides the edge of the jog, or holds the record (after a
+   * moment still); `null` until it is known. */
+  touch: 'edge' | 'hand' | null;
+  /** Where the edge was last turned from (CSS px). */
+  lastX: number;
+  /** The hand is on the record: it lets go with the press. */
+  held: boolean;
 }
 
 /**
@@ -72,6 +84,8 @@ export class DeckWaveform {
   );
   private frame = 0;
   private drag: Drag | null = null;
+  /** On a phone, until the finger has been still long enough to hold the record. */
+  private holding: ReturnType<typeof setTimeout> | null = null;
   /** What the last frame showed: a frame showing the same is not drawn again (a deck at
    * rest costs nothing). */
   private shown: unknown[] = [];
@@ -135,7 +149,22 @@ export class DeckWaveform {
       startS = this.overviewTime(event);
       this.engine.seek(this.deck(), startS);
     }
-    this.drag = { view, startX: event.clientX, startS, moved: false, sentAt: event.timeStamp };
+    const jog = PHONE && view === 'zoom';
+    this.drag = {
+      view,
+      startX: event.clientX,
+      startS,
+      moved: false,
+      sentAt: event.timeStamp,
+      touch: null,
+      lastX: event.clientX,
+      held: !jog,
+    };
+    if (jog) {
+      // a finger held still takes the record; one that slides at once turns the edge
+      this.holding = setTimeout(() => this.holdRecord(), HOLD_MS);
+      return;
+    }
     this.engine.hand(this.deck(), startS, event.timeStamp); // the hand on the record holds it
   }
 
@@ -143,6 +172,15 @@ export class DeckWaveform {
     const drag = this.drag;
     if (!drag) return;
     drag.moved ||= Math.abs(event.clientX - drag.startX) > CLICK_PX;
+    if (drag.moved && drag.touch === null && drag.view === 'zoom' && PHONE) {
+      this.stopHolding();
+      drag.touch = 'edge';
+    }
+    if (drag.touch === 'edge') {
+      this.turnEdge(drag, event);
+      return;
+    }
+    if (drag.touch === null && PHONE && drag.view === 'zoom') return;
     if (!drag.moved || event.timeStamp - drag.sentAt < HAND_EVERY_MS) return;
     drag.sentAt = event.timeStamp;
     const width = (event.currentTarget as HTMLElement).clientWidth;
@@ -157,7 +195,8 @@ export class DeckWaveform {
     const drag = this.drag;
     if (!drag) return;
     this.cancel();
-    if (drag.view !== 'zoom' || drag.moved) return;
+    // a finger on a phone never makes the track jump: it might be on it by mistake
+    if (drag.view !== 'zoom' || drag.moved || PHONE) return;
     const rect = (event.currentTarget as HTMLElement).getBoundingClientRect();
     const fromCentre = (event.clientX - rect.left) / rect.width - 0.5;
     const duration = this.track()?.durationS ?? 0;
@@ -167,9 +206,37 @@ export class DeckWaveform {
 
   /** The hand off the track: play goes on as before. */
   cancel() {
-    if (!this.drag) return;
+    const drag = this.drag;
+    if (!drag) return;
+    this.stopHolding();
     this.drag = null;
-    this.engine.hand(this.deck(), null);
+    if (drag.held) this.engine.hand(this.deck(), null);
+  }
+
+  /** The finger has stayed still: it holds the record, and moves it from now on. */
+  private holdRecord() {
+    this.holding = null;
+    const drag = this.drag;
+    if (!drag || drag.touch !== null) return;
+    drag.touch = 'hand';
+    drag.held = true;
+    drag.startS = this.engine.livePosition(this.deck()) ?? drag.startS;
+    drag.moved = true;
+    this.engine.hand(this.deck(), drag.startS);
+  }
+
+  private stopHolding() {
+    if (this.holding !== null) clearTimeout(this.holding);
+    this.holding = null;
+  }
+
+  /** The finger slides the edge of the jog: the waveform follows it as far as the track
+   * goes, pushing a playing track for a moment, moving a stopped one. */
+  private turnEdge(drag: Drag, event: PointerEvent) {
+    const width = (event.currentTarget as HTMLElement).clientWidth;
+    const seconds = -((event.clientX - drag.lastX) / width) * this.zoomSpan();
+    drag.lastX = event.clientX;
+    if (seconds !== 0) this.engine.jog(this.deck(), seconds / JOG_TURN_S, event.timeStamp);
   }
 
   private overviewTime(event: PointerEvent): number {
