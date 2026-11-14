@@ -23,8 +23,8 @@ const PAGE = 0.1;
  * A fader like a mixer's: a thin track, a cap with a line of light, the travel filled from
  * the start or, when `centered`, from the middle where it has a detent. Drag it (Shift for
  * fine moves), click the track to jump, scroll, use the arrow keys, double-click to go back
- * to `defaultValue`. With `touch`, a wide cap in a groove, which a finger moves from where it
- * lands without making it jump there.
+ * to `defaultValue`. With `touch`, a wide cap in a framed groove, which a finger moves from
+ * where it lands without making it jump there.
  */
 @Component({
   selector: 'app-fader',
@@ -160,22 +160,15 @@ const PAGE = 0.1;
       }
     }
     :host(.touch) {
-      background: var(--pr-raise);
-      .detent,
-      .cap i {
+      border: 1px solid var(--pr-line-2);
+      border-radius: var(--pr-radius);
+      background: var(--pr-base);
+      .detent {
         display: none;
       }
-      .cap {
-        border: 0;
-        background: var(--pr-light);
-      }
-    }
-    :host(.touch.disabled) .cap {
-      background: var(--pr-text-3);
     }
     :host(.touch:not(.vertical)) {
       height: 40px;
-      border-radius: 20px;
       .track {
         left: 18px;
         right: 18px;
@@ -186,14 +179,15 @@ const PAGE = 0.1;
         display: none;
       }
       .cap {
-        top: 4px;
-        bottom: 4px;
-        border-radius: 16px;
+        top: 3px;
+        bottom: 3px;
+        i {
+          height: 16px;
+        }
       }
     }
     :host(.touch.vertical) {
       width: 44px;
-      border-radius: 12px;
       overflow: hidden;
       .track {
         inset: 0;
@@ -206,7 +200,12 @@ const PAGE = 0.1;
         background: var(--pr-raise-2);
       }
       .cap {
+        border: 0;
         border-radius: 0;
+        background: var(--pr-light);
+        i {
+          display: none;
+        }
       }
     }
   `,

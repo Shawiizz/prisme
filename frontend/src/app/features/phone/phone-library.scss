@@ -6,11 +6,6 @@
   background: var(--pr-base);
 }
 
-button {
-  border: 0;
-  font: inherit;
-  color: inherit;
-}
 svg {
   flex: none;
   width: 16px;
@@ -35,10 +30,14 @@ svg {
   align-items: center;
   gap: 8px;
   height: 40px;
-  padding: 0 14px;
-  border-radius: 20px;
+  padding: 0 12px;
+  border: 1px solid var(--pr-line-2);
+  border-radius: var(--pr-radius);
   background: var(--pr-raise);
   color: var(--pr-text-3);
+  &:focus-within {
+    border-color: var(--pr-light);
+  }
   input {
     flex: 1;
     min-width: 0;
@@ -53,16 +52,12 @@ svg {
     }
   }
 }
-// the order: a round key, the picker of the phone under it
-.round {
+// the order: a key, the picker of the phone under it
+.sort {
   position: relative;
   flex: none;
-  display: grid;
-  place-items: center;
   width: 40px;
   height: 40px;
-  border-radius: 50%;
-  background: var(--pr-raise);
   color: var(--pr-text-2);
   select {
     position: absolute;
@@ -78,19 +73,9 @@ svg {
   padding: 0 16px 10px;
   overflow-x: auto;
   scrollbar-width: none;
-  button {
+  .pr-btn {
     flex: none;
-    height: 32px;
-    padding: 0 13px;
-    border-radius: 99px;
-    background: var(--pr-raise);
     font-size: 12.5px;
-    color: var(--pr-text-2);
-    &.on {
-      background: var(--pr-light);
-      color: var(--pr-on-light);
-      font-weight: 600;
-    }
   }
 }
 .progress {
@@ -111,7 +96,10 @@ svg {
   display: block;
   width: 100%;
   padding: 0;
+  border: 0;
   background: none;
+  font: inherit;
+  color: inherit;
   text-align: start;
   // up and down scroll the list; sideways is the row's
   touch-action: pan-y;
@@ -208,10 +196,6 @@ app-cover {
 .import {
   height: 44px;
   margin: 0 16px;
-  padding: 0 16px;
-  border-radius: 10px;
-  background: var(--pr-raise);
-  font-weight: 600;
 }
 .hint {
   flex: none;
@@ -238,7 +222,6 @@ app-cover {
   overflow-y: auto;
   padding: 10px 8px calc(10px + env(safe-area-inset-bottom));
   border-top: 1px solid var(--pr-line-2);
-  border-radius: 18px 18px 0 0;
   background: var(--pr-base);
 }
 .lists-sheet {

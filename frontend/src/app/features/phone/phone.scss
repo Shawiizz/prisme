@@ -11,12 +11,6 @@
   -webkit-user-select: none;
 }
 
-button {
-  border: 0;
-  background: none;
-  font: inherit;
-  color: inherit;
-}
 svg {
   fill: none;
   stroke: currentColor;
@@ -42,36 +36,12 @@ svg {
   font-size: 11.5px;
   color: var(--pr-text-3);
 }
-.key {
+.bar .pr-btn {
   flex: none;
-  display: flex;
-  align-items: center;
-  gap: 6px;
   height: 28px;
-  padding: 0 10px;
-  border-radius: 99px;
-  font-size: 11.5px;
-  font-weight: 600;
-  color: var(--pr-text-2);
   svg {
-    width: 14px;
-    height: 14px;
-  }
-  &[aria-pressed='true'] {
-    background: var(--pr-raise-2);
-    color: var(--pr-text);
-  }
-}
-.rec {
-  i {
-    width: 8px;
-    height: 8px;
-    border-radius: 50%;
-    background: var(--pr-alert);
-  }
-  &.on {
-    background: color-mix(in oklab, var(--pr-alert) 22%, transparent);
-    color: var(--pr-text);
+    width: 13px;
+    height: 13px;
   }
 }
 .error {
@@ -105,6 +75,9 @@ svg {
     justify-items: center;
     gap: 3px;
     padding: 2px 0;
+    border: 0;
+    background: none;
+    font: inherit;
     font-size: 11px;
     color: var(--pr-text-3);
     svg {

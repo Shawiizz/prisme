@@ -20,8 +20,9 @@ h2 {
 .pages {
   display: grid;
   margin: 0 12px 16px;
-  border-radius: 16px;
-  background: var(--pr-raise);
+  border: 1px solid var(--pr-line);
+  border-radius: var(--pr-radius);
+  background: var(--pr-void);
   overflow: hidden;
 }
 button {
@@ -43,8 +44,8 @@ app-settings-icon {
   --icon: 22px;
   box-sizing: content-box;
   padding: 9px;
-  border-radius: 12px;
-  background: var(--pr-raise-2);
+  border: 1px solid var(--pr-line-2);
+  border-radius: var(--pr-radius);
   color: var(--pr-text);
 }
 .names {

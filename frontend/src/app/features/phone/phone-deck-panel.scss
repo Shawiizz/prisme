@@ -12,7 +12,6 @@
   overflow-y: auto;
   padding: 0 16px calc(18px + env(safe-area-inset-bottom));
   border-top: 1px solid var(--pr-line-2);
-  border-radius: 18px 18px 0 0;
   background: var(--pr-base);
 }
 .grip {
@@ -26,9 +25,8 @@
     content: '';
     display: block;
     width: 36px;
-    height: 4px;
+    height: 3px;
     margin: 0 auto;
-    border-radius: 2px;
     background: var(--pr-line-2);
   }
 }
@@ -57,27 +55,23 @@ h4 {
   color: var(--pr-text-2);
 }
 
-.choice {
+// the choices of a line share its width
+.wide,
+.keys {
   display: grid;
   grid-auto-flow: column;
   grid-auto-columns: 1fr;
+}
+.wide > button {
+  height: 40px;
+  padding: 0;
+}
+.keys {
   gap: 6px;
-  button {
+  .pr-btn {
     height: 44px;
     padding: 0 6px;
-    border: 0;
-    border-radius: 10px;
-    background: var(--pr-raise);
-    font: 600 var(--pr-size-small) / 1.1 var(--pr-font);
-    color: var(--pr-text-2);
-    &[aria-checked='true'],
-    &[aria-pressed='true'] {
-      background: var(--pr-light);
-      color: var(--pr-on-light);
-    }
-    &:disabled {
-      color: var(--pr-text-3);
-    }
+    font-size: var(--pr-size-small);
   }
 }
 

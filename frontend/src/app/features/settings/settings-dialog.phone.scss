@@ -47,11 +47,6 @@
     gap: var(--pr-space-4);
     padding: 8px 12px 24px;
   }
-  .pr-card {
-    border: 0;
-    border-radius: 16px;
-    background: var(--pr-raise);
-  }
   .pr-row {
     grid-template-columns: minmax(0, 1fr);
     gap: 10px;

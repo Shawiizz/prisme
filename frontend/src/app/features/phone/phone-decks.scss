@@ -21,7 +21,6 @@ app-phone-library {
   min-height: 0;
   margin-top: -1px;
   border-top: 1px solid var(--pr-line-2);
-  border-radius: 18px 18px 0 0;
 }
 
 // the thumbs play: the decks give them the height
@@ -65,7 +64,6 @@ app-phone-library {
     margin: 0;
     border-top: 0;
     border-left: 1px solid var(--pr-line);
-    border-radius: 0;
   }
   // a deck under each thumb, the waveforms and the crossfader between them
   :host(.touch) {

@@ -13,7 +13,7 @@
       (input)="library.setFilter($any($event.target).value)"
     />
   </label>
-  <label class="round" [attr.aria-label]="'Sort by' | t">
+  <label class="pr-btn pr-btn--icon sort" [attr.aria-label]="'Sort by' | t">
     <svg viewBox="0 0 16 16" aria-hidden="true">
       <path d="M5 3v10M2.5 10.5L5 13l2.5-2.5M11 13V3M8.5 5.5L11 3l2.5 2.5" />
     </svg>
@@ -27,14 +27,24 @@
 
 @if (!peek()) {
   <div class="lists">
-    <button [class.on]="library.scope() === 'list'" (click)="library.setScope('list')">
+    <button
+      class="pr-btn"
+      [class.is-on]="library.scope() === 'list'"
+      (click)="library.setScope('list')"
+    >
       {{ listName() }}
     </button>
-    <button [class.on]="library.scope() === 'library'" (click)="library.setScope('library')">
+    <button
+      class="pr-btn"
+      [class.is-on]="library.scope() === 'library'"
+      (click)="library.setScope('library')"
+    >
       {{ 'Library' | t }}
     </button>
-    <button (click)="library.openPrepare()">{{ 'Prepare' | t }} · {{ prepared().length }}</button>
-    <button (click)="browsing.set(true)">{{ 'Browse…' | t }}</button>
+    <button class="pr-btn" (click)="library.openPrepare()">
+      {{ 'Prepare' | t }} · {{ prepared().length }}
+    </button>
+    <button class="pr-btn" (click)="browsing.set(true)">{{ 'Browse…' | t }}</button>
   </div>
   @if (library.progress(); as p) {
     @if (p.running) {
@@ -97,7 +107,7 @@
   <div [style.height.px]="window().after"></div>
   @if (empty()) {
     <p class="empty">{{ library.error() ?? ('No audio file in this folder' | t) }}</p>
-    <button class="again" (click)="lookAgain()">{{ 'Look again' | t }}</button>
+    <button class="pr-btn pr-btn--lg again" (click)="lookAgain()">{{ 'Look again' | t }}</button>
   }
 </div>
 
@@ -121,7 +131,7 @@
   <div class="veil" (click)="browsing.set(false)"></div>
   <div class="sheet lists-sheet">
     <app-library-sidebar />
-    <button class="import" (click)="browsing.set(false); importing.set(true)">
+    <button class="pr-btn pr-btn--lg import" (click)="browsing.set(false); importing.set(true)">
       {{ 'Import from Serato or rekordbox' | t }}
     </button>
   </div>

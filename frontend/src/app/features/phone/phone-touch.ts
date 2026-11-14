@@ -15,7 +15,7 @@ import { DeckPads } from '../deck/deck-pads/deck-pads';
   selector: 'app-phone-touch',
   template: `
     @if (decks().length > 1) {
-      <div class="which" role="radiogroup" [attr.aria-label]="'Deck' | t">
+      <div class="pr-seg which" role="radiogroup" [attr.aria-label]="'Deck' | t">
         @for (d of decks(); track d) {
           <button role="radio" [attr.aria-checked]="deck() === d" (click)="deck.set(d)">
             {{ letter(d) }}

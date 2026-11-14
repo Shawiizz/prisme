@@ -12,7 +12,8 @@
   }
   @if (tab() === 'decks') {
     <button
-      class="key"
+      class="pr-btn pr-btn--sm"
+      [class.is-on]="touch()"
       [attr.aria-pressed]="touch()"
       (click)="toggleTouch()"
       [title]="'Controls under the thumbs' | t"
@@ -27,11 +28,17 @@
     </button>
   }
   @if (recording.status(); as r) {
-    <button class="key rec on" (click)="recording.stop()" [attr.aria-label]="'Stop recording' | t">
-      <i></i><span class="pr-num">{{ clock(r.seconds) }}</span>
+    <button
+      class="pr-btn pr-btn--sm pr-btn--rec is-on"
+      (click)="recording.stop()"
+      [attr.aria-label]="'Stop recording' | t"
+    >
+      <span class="pr-btn__dot"></span><span class="pr-num">{{ clock(r.seconds) }}</span>
     </button>
   } @else if (recording.options().length) {
-    <button class="key rec" (click)="record()"><i></i>{{ 'Rec' | t }}</button>
+    <button class="pr-btn pr-btn--sm pr-btn--ghost pr-btn--rec" (click)="record()">
+      <span class="pr-btn__dot"></span>{{ 'Rec' | t }}
+    </button>
   }
 </header>
 @if (engine.error() ?? library.error(); as error) {

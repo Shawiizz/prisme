@@ -1,37 +1,19 @@
 :host {
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr);
   align-content: end;
   gap: 10px;
   padding: 12px 16px 14px;
   border-top: 1px solid var(--pr-line);
   background: var(--pr-base);
-  > * {
-    grid-column: 1 / -1;
-  }
 }
 
-// which deck: beside the modes of its pads
 .which {
-  display: grid;
-  grid-auto-flow: column;
-  grid-auto-columns: 44px;
   justify-self: start;
-  padding: 3px;
-  border-radius: 99px;
-  background: var(--pr-raise);
-  button {
-    height: 26px;
+  > button {
+    width: 48px;
+    height: 28px;
     padding: 0;
-    border: 0;
-    border-radius: 99px;
-    background: none;
-    font: 600 var(--pr-size-small) / 1 var(--pr-font-mono);
-    color: var(--pr-text-3);
-    &[aria-checked='true'] {
-      background: var(--pr-light);
-      color: var(--pr-on-light);
-    }
   }
 }
 
@@ -49,14 +31,10 @@
 // held sideways: a column down a side of the screen
 :host(.left),
 :host(.right) {
-  grid-template-columns: minmax(0, 1fr);
   align-content: space-between;
   gap: 8px;
   padding: 8px 12px 12px;
   border-top: 0;
-  .which {
-    justify-self: start;
-  }
 }
 :host(.right) .which {
   justify-self: end;

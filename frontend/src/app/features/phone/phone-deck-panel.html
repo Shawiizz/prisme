@@ -3,7 +3,7 @@
   <button class="grip" (click)="closed.emit()" [attr.aria-label]="'Close' | t"></button>
 
   <h4>{{ 'Deck {deck} · driven by' | t: { deck: letter() } }}</h4>
-  <div class="choice" role="radiogroup">
+  <div class="pr-seg pr-seg--lg wide" role="radiogroup">
     @for (d of drivers; track d.id) {
       <button role="radio" [attr.aria-checked]="mode() === d.id" (click)="setMode(d.id)">
         {{ d.label }}
@@ -81,19 +81,21 @@
   }
 
   <h4>{{ 'Track' | t }}</h4>
-  <div class="choice">
+  <div class="keys">
     <button
-      [attr.aria-pressed]="settings().keyLock"
+      class="pr-btn pr-btn--lg"
+      [class.is-on]="settings().keyLock"
       (click)="engine.setKeyLock(deck(), !settings().keyLock)"
     >
       KEY LOCK
     </button>
-    <button [disabled]="!track()" (click)="editing.set(true)">
+    <button class="pr-btn pr-btn--lg" [disabled]="!track()" (click)="editing.set(true)">
       {{ 'Grid and key' | t }}
     </button>
     @if (mixer.internal()) {
       <button
-        [attr.aria-pressed]="settings().cue"
+        class="pr-btn pr-btn--lg"
+        [class.is-on]="settings().cue"
         (click)="mixer.setDeckCue(deck(), !settings().cue)"
       >
         {{ 'Headphones' | t }}

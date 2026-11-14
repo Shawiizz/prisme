@@ -79,6 +79,6 @@ header {
     overflow-y: auto;
     padding: var(--pr-space-4) var(--pr-space-4)
       calc(var(--pr-space-4) + env(safe-area-inset-bottom));
-    border-radius: 18px 18px 0 0;
+    border-radius: 0;
   }
 }
