@@ -101,6 +101,32 @@ fn desktop_plugins(builder: tauri::Builder<tauri::Wry>) -> tauri::Builder<tauri:
     builder.plugin(tauri_plugin_updater::Builder::new().build())
 }
 
+/// The page over the whole screen of an iPhone, under the notch and the home bar (it keeps
+/// clear of them itself): left alone, the web view counts them out of its height and leaves
+/// a band empty at the bottom.
+#[cfg(target_os = "ios")]
+fn fill_the_screen(app: &tauri::App) {
+    use objc2::msg_send;
+    use objc2::runtime::AnyObject;
+
+    /// `UIScrollViewContentInsetAdjustmentNever`
+    const NEVER: isize = 2;
+
+    let Some(window) = app.get_webview_window("main") else { return };
+    let filled = window.with_webview(|webview| {
+        let webview = webview.inner().cast::<AnyObject>();
+        // SAFETY: `inner` is the WKWebView of the window, alive during this call on the main
+        // thread; both messages are UIKit's, with the types it declares.
+        unsafe {
+            let scroll: *mut AnyObject = msg_send![webview, scrollView];
+            let () = msg_send![scroll, setContentInsetAdjustmentBehavior: NEVER];
+        }
+    });
+    if let Err(e) = filled {
+        warn!("the page keeps out of the notch and the home bar: {e}");
+    }
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let builder = tauri::Builder::default();
@@ -114,6 +140,8 @@ pub fn run() {
             app.manage(logging::init(app.path().app_log_dir().ok().as_deref()));
             #[cfg(desktop)]
             fit_window(app);
+            #[cfg(target_os = "ios")]
+            fill_the_screen(app);
             if !keep_awake::run_at_full_speed() {
                 warn!("the system may slow Prisme down when its window is behind others");
             }

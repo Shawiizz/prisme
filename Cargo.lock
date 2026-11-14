@@ -4217,6 +4217,7 @@ dependencies = [
  "hound",
  "midir",
  "notify",
+ "objc2",
  "percent-encoding",
  "prisme-analysis",
  "prisme-audio-io",
