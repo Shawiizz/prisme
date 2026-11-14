@@ -1147,6 +1147,11 @@
           <span class="hint">glisser : pousser ou retenir · appui long puis glisser : la main sur le disque</span>`;
         },
       };
+      // a window narrower than the laptop sees all of it, smaller
+      const fit = () => (document.body.style.zoom = String(Math.min(1, (innerWidth - 24) / 1540)));
+      fit();
+      addEventListener("resize", fit);
+
       for (const screen of document.querySelectorAll("[data-screen]")) {
         screen.innerHTML = screens[screen.dataset.screen]();
       }
