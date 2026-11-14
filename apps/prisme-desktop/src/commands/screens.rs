@@ -60,10 +60,13 @@ pub fn span_screens(window: WebviewWindow, span: bool) -> AppResult<Option<SpanD
     let Some((main, below)) = screens(&window) else {
         return Ok(None);
     };
+    // a phone has one screen: none is ever found under it
+    #[cfg(desktop)]
     if !span {
         window.maximize().map_err(failed)?;
         return Ok(None);
     }
+    #[cfg(desktop)]
     window.unmaximize().map_err(failed)?;
     let (top, size) = (main.position(), main.size());
     window.set_position(PhysicalPosition::new(top.x, top.y)).map_err(failed)?;

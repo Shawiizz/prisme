@@ -20,6 +20,7 @@ export class PreferencesService {
     replaceTags: false,
     pauseWhilePlaying: true,
     stemsOnLoad: null,
+    stemsGpu: true,
   });
 
   async load(): Promise<void> {

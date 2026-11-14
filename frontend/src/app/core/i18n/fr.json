@@ -498,5 +498,8 @@
   "The whole interface changes at once.": "Toute l'interface change aussitôt.",
   "Decks on the screen below": "Platines sur l'écran du bas",
   "On a laptop with two screens, or with a screen set under the main one: the library above, the decks below, under the fingers.": "Sur un portable à deux écrans, ou avec un écran posé sous le principal : la bibliothèque en haut, les platines en bas, sous les doigts.",
-  "No screen under this one.": "Aucun écran sous celui-ci."
+  "No screen under this one.": "Aucun écran sous celui-ci.",
+  "Hardware acceleration": "Accélération matérielle",
+  "The graphics chip separates the tracks, many times faster than the processor alone. Off, a track takes minutes: none is separated as it loads unless asked.": "La puce graphique sépare les morceaux, bien plus vite que le processeur seul. Désactivée, un morceau prend plusieurs minutes : aucun n'est séparé au chargement, sauf si on le demande.",
+  "No graphics chip worth it here: the processor separates.": "Pas de puce graphique adaptée ici : le processeur sépare."
 }

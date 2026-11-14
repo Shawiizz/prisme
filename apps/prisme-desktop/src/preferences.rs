@@ -134,6 +134,9 @@ pub struct LibraryPreferences {
     /// [`LibraryPreferences::settle`]).
     #[serde(rename = "separateOnLoad", skip_serializing)]
     separate_on_load_before: Option<bool>,
+    /// The separation runs on the graphics chip when there is one worth it (else on the
+    /// processor alone, minutes a track).
+    pub stems_gpu: bool,
 }
 
 impl LibraryPreferences {
@@ -161,6 +164,7 @@ impl Default for LibraryPreferences {
             pause_while_playing: true,
             separate_on_load: None,
             separate_on_load_before: None,
+            stems_gpu: true,
         }
     }
 }

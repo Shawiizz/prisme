@@ -18,7 +18,7 @@ pub fn stems_status(stems: State<'_, StemsService>) -> StemsStatusDto {
 /// Whether a graphics card can separate (looked for once, off the window's thread).
 #[tauri::command(async)]
 pub fn stems_gpu() -> bool {
-    stems_service::has_gpu()
+    stems_service::gpu_found()
 }
 
 /// Starts downloading the separation model `id` (`stems-model` events).

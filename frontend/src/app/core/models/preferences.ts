@@ -29,6 +29,8 @@ export interface LibraryPreferences {
    * prepare list in the background. */
   /** `null`: not chosen, on with a graphics card that can separate. */
   stemsOnLoad: boolean | null;
+  /** The separation runs on the graphics chip when there is one worth it. */
+  stemsGpu: boolean;
 }
 
 export interface Preferences {

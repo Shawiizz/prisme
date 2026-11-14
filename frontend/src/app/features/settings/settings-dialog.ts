@@ -44,7 +44,7 @@ import { SettingsIcon } from './settings-icon';
 export class SettingsDialog implements OnInit {
   protected readonly service = inject(SettingsService);
   private readonly engine = inject(EngineService);
-  private readonly preferences = inject(PreferencesService);
+  protected readonly preferences = inject(PreferencesService);
   protected readonly mixer = inject(MixerService);
   protected readonly updates = inject(UpdateService);
   protected readonly stems = inject(StemsService);
@@ -118,7 +118,7 @@ export class SettingsDialog implements OnInit {
     () => this.preferences.library().pauseWhilePlaying,
   );
   protected readonly separateOnLoad = computed(
-    () => this.preferences.library().stemsOnLoad ?? this.stems.gpu() ?? false,
+    () => this.preferences.library().stemsOnLoad ?? this.separatesOnGpu(),
   );
   protected readonly busy = signal(false);
   protected readonly error = signal<string | null>(null);
@@ -272,6 +272,15 @@ export class SettingsDialog implements OnInit {
 
   setReplaceTags(replaceTags: boolean) {
     this.preferences.updateLibrary({ replaceTags });
+  }
+
+  /** A graphics chip worth it is there, and the DJ lets it separate. */
+  protected readonly separatesOnGpu = computed(
+    () => (this.stems.gpu() ?? false) && this.preferences.library().stemsGpu,
+  );
+
+  setStemsGpu(stemsGpu: boolean) {
+    void this.preferences.updateLibrary({ stemsGpu });
   }
 
   setSeparateOnLoad(stemsOnLoad: boolean) {

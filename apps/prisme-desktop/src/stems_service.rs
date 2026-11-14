@@ -134,17 +134,28 @@ static GPU_GAVE_UP: AtomicBool = AtomicBool::new(false);
 /// alone until it has been tried.
 const USES_GPU: bool = cfg!(any(desktop, target_os = "android"));
 
-/// Whether a graphics card can separate: one is there (looked for once, which takes a
-/// moment: not from the window's thread) and did not give up since.
-pub fn has_gpu() -> bool {
+/// Whether the DJ lets the separation use the graphics chip.
+fn gpu_allowed(state: &AppState) -> bool {
+    USES_GPU && state.preferences.read(|p| p.library.stems_gpu)
+}
+
+/// Whether there is a graphics card worth separating on (looked for once, which takes a
+/// moment: not from the window's thread), whether or not the DJ lets it.
+pub fn gpu_found() -> bool {
     static HAS_GPU: OnceLock<bool> = OnceLock::new();
-    USES_GPU && *HAS_GPU.get_or_init(Gpu::available) && !GPU_GAVE_UP.load(Ordering::Relaxed)
+    USES_GPU && *HAS_GPU.get_or_init(Gpu::available)
+}
+
+/// Whether the separation runs on a graphics card: one is there, the DJ lets it, and it did
+/// not give up since.
+pub fn has_gpu(state: &AppState) -> bool {
+    gpu_allowed(state) && gpu_found() && !GPU_GAVE_UP.load(Ordering::Relaxed)
 }
 
 /// Whether tracks are separated as they are loaded or prepared: as the DJ chose, else with
 /// a graphics card only (the processor alone takes minutes a track, on all its cores).
 pub fn separates_on_load(state: &AppState) -> bool {
-    state.preferences.read(|p| p.library.separate_on_load).unwrap_or_else(has_gpu)
+    state.preferences.read(|p| p.library.separate_on_load).unwrap_or_else(|| has_gpu(state))
 }
 
 impl StemsService {
@@ -448,8 +459,9 @@ impl Worker {
         prisme_library::background_priority();
         let _stopped = Stopped { id: self.id, app: self.app.clone(), queue: self.queue.clone() };
         let mut separators: Vec<Option<BoxedSeparator>> = (0..MODELS.len()).map(|_| None).collect();
+        let allowed = || gpu_allowed(&self.app.state::<AppState>());
         let open_gpu = || {
-            let gpu = USES_GPU
+            let gpu = allowed()
                 .then(|| {
                     Gpu::open(Default::default()).inspect_err(|e| warn!("separating on the CPU: {e}")).ok()
                 })
@@ -460,6 +472,11 @@ impl Worker {
         let mut gpu = open_gpu();
         let mut gpu_failed = false;
         while let Some(job) = self.next() {
+            // the graphics chip let or taken off since: the models open again where they may
+            if allowed() != gpu.is_some() && !(gpu.is_none() && gpu_failed) {
+                separators.iter_mut().for_each(|s| *s = None);
+                gpu = if allowed() { open_gpu() } else { None };
+            }
             let installed: Vec<usize> = (0..MODELS.len()).filter(|&m| self.models[m].is_file()).collect();
             let needed = missing(&installed, &job.path);
             if needed.is_empty() {

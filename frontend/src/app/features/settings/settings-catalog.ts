@@ -345,6 +345,18 @@ const ALL_SETTINGS: readonly SettingEntry[] = [
     },
   },
   {
+    id: 'library.stemsGpu',
+    page: 'library',
+    get label() {
+      return t('Hardware acceleration');
+    },
+    get description() {
+      return t(
+        'The graphics chip separates the tracks, many times faster than the processor alone. Off, a track takes minutes: none is separated as it loads unless asked.',
+      );
+    },
+  },
+  {
     id: 'library.stemsOnLoad',
     page: 'library',
     get label() {

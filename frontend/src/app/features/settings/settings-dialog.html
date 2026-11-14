@@ -667,6 +667,33 @@
                   </div>
                 }
               }
+              @if (row('library.stemsGpu')) {
+                @let e = entry('library.stemsGpu');
+                <div
+                  class="pr-row"
+                  data-setting="library.stemsGpu"
+                  [class.is-pointed]="pointed() === e.id"
+                >
+                  <div>
+                    <span class="pr-row__name">{{ e.label }}</span>
+                    <span class="pr-row__help">{{
+                      stems.gpu() === false
+                        ? ('No graphics chip worth it here: the processor separates.' | t)
+                        : e.description
+                    }}</span>
+                  </div>
+                  <button
+                    class="pr-switch"
+                    role="switch"
+                    [attr.aria-checked]="separatesOnGpu()"
+                    [attr.aria-label]="e.label"
+                    [disabled]="stems.gpu() === false"
+                    (click)="setStemsGpu(!preferences.library().stemsGpu)"
+                  >
+                    <span></span>
+                  </button>
+                </div>
+              }
               @if (row('library.stemsOnLoad')) {
                 @let e = entry('library.stemsOnLoad');
                 <div
