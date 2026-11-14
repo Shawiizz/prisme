@@ -17,7 +17,7 @@ use std::sync::{Arc, Mutex};
 
 use wgpu::util::DeviceExt;
 
-use crate::model::{Config, Geometry, Linear, Weights};
+use crate::model::{Config, Geometry, Linear, Pool, Weights};
 use crate::network::{Axis, MaskNetwork};
 use crate::StemsError;
 
@@ -91,6 +91,9 @@ enum Slot {
     Mlp1,
     /// The last layer of a mask estimator, f32.
     MlpOut,
+    /// The band split's frames grouped into tokens, then the frames the tokens give back, f32
+    /// ([`crate::model::Grouping`]).
+    Frames,
     /// The scores of the attention computed as products, a slice of the sequences and heads
     /// at a time, f32.
     Scores,
@@ -117,17 +120,40 @@ struct Params {
     rotary_time: Vec<f32>,
     rotary_freq: Vec<f32>,
     band_proj: Vec<GpuLinear>,
+    band_dim: usize,
+    grouping: Option<GpuGrouping>,
     /// Each transformer's layers, and the gain of its output norm if it has one.
     transformers: Vec<(Vec<GpuLayer>, Option<wgpu::Buffer>)>,
     final_norm: Option<wgpu::Buffer>,
     registers: Vec<f32>,
-    /// Per stem, per band.
+    /// Over the bands, then the tokens.
+    pools: Option<[GpuPool; 2]>,
+    /// Per stem (one for all, with stem queries), per band.
     masks: Vec<Vec<Vec<GpuLinear>>>,
     no_bias: wgpu::Buffer,
+    /// The widest first product of the gated feed-forwards.
     ff_hidden: usize,
     mask_hidden: usize,
 }
 
+struct GpuGrouping {
+    input: [GpuLinear; 2],
+    output: GpuLinear,
+    /// The second product giving the frames back, cut frame by frame.
+    frames: Vec<GpuLinear>,
+}
+
+struct GpuPool {
+    /// f32, pre-scaled.
+    queries: wgpu::Buffer,
+    /// How many queries.
+    count: usize,
+    kv: GpuLinear,
+    out: GpuLinear,
+    ff: [GpuLinear; 2],
+}
+
+#[derive(Clone)]
 struct GpuLinear {
     /// f16 rows: of `inp` values, or for the matrix units padded to `ld` groups of 4.
     weight: wgpu::Buffer,
@@ -170,8 +196,10 @@ struct Pipelines {
     /// softmax, values), several times faster where `attention` spills its registers.
     attention_products: Option<[wgpu::ComputePipeline; 3]>,
     glu: wgpu::ComputePipeline,
-    geglu: wgpu::ComputePipeline,
+    gated: wgpu::ComputePipeline,
     add: wgpu::ComputePipeline,
+    /// With stem queries.
+    pool: Option<wgpu::ComputePipeline>,
 }
 
 /// The dispatches for one frame count, in submissions short enough not to trip the
@@ -180,9 +208,24 @@ struct Plan {
     /// Of the scratch buffers it binds.
     generation: u64,
     bins: wgpu::Buffer,
+    /// Zeroed before the work: where the band split leaves the frames padding the last token,
+    /// and the registers' columns.
+    cleared: Option<wgpu::Buffer>,
     mask: wgpu::Buffer,
     readback: wgpu::Buffer,
     submissions: Vec<Vec<Step>>,
+}
+
+impl Plan {
+    /// Writes the bins of a chunk, and clears what has to be.
+    fn load(&self, gpu: &Gpu, bins: &[f32]) {
+        gpu.queue.write_buffer(&self.bins, 0, bytemuck::cast_slice(bins));
+        if let Some(buffer) = &self.cleared {
+            let mut encoder = gpu.device.create_command_encoder(&Default::default());
+            encoder.clear_buffer(buffer, 0, None);
+            gpu.queue.submit([encoder.finish()]);
+        }
+    }
 }
 
 struct Step {
@@ -298,7 +341,7 @@ impl Gpu {
         self.device.create_buffer(&wgpu::BufferDescriptor {
             label: None,
             size: bytes.max(16),
-            usage: wgpu::BufferUsages::STORAGE,
+            usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST,
             mapped_at_creation: false,
         })
     }
@@ -496,7 +539,7 @@ impl MaskNetwork for GpuNetwork {
         self.prepare(frames)?;
         if self.gpu.profile {
             let plan = self.plans.remove(&frames).expect("prepared");
-            self.gpu.queue.write_buffer(&plan.bins, 0, bytemuck::cast_slice(bins));
+            plan.load(&self.gpu, bins);
             let steps: Vec<&Step> = plan.submissions.iter().flatten().collect();
             let result = self.profile_steps_of(&steps);
             self.plans.insert(frames, plan);
@@ -504,7 +547,7 @@ impl MaskNetwork for GpuNetwork {
         }
         let plan = &self.plans[&frames];
         let gpu = &self.gpu;
-        gpu.queue.write_buffer(&plan.bins, 0, bytemuck::cast_slice(bins));
+        plan.load(gpu, bins);
         if let Some(share) = gpu.share {
             // packets of steps of about PACED_FLOPS, each waited for, then a pause
             let mut packet: Vec<&Step> = Vec::new();
@@ -653,19 +696,22 @@ fn binding_limit(limits: &wgpu::Limits) -> u64 {
     limits.max_storage_buffer_binding_size.min(limits.max_buffer_size)
 }
 
-/// The bytes of the largest activation, for each frame of the transformers' sequences.
+/// The bytes of the largest activation, for each token along the time of the transformers'
+/// sequences.
 fn frame_bytes(geometry: &Geometry, params: &Params, matrix: bool) -> u64 {
     let c = &geometry.config;
     let act = if matrix { 2 } else { 4 };
     let widest = c.qkvg_width().max(params.ff_hidden);
-    (geometry.seq_bands() * (widest * act).max(c.dim * 4)) as u64
+    let frames = if params.grouping.is_some() { c.group * params.band_dim * 4 } else { 0 };
+    (geometry.seq_bands() * (widest * act).max(c.dim * 4).max(frames)) as u64
 }
 
 /// The most frames a chunk can take on a GPU binding `max_binding` bytes, at most the model's.
 fn frames_that_fit(max_binding: u64, geometry: &Geometry, params: &Params, matrix: bool) -> usize {
     let fit = max_binding / frame_bytes(geometry, params, matrix);
     let c = &geometry.config;
-    usize::try_from(fit).unwrap_or(usize::MAX).saturating_sub(c.registers).min(c.chunk_frames)
+    let tokens = usize::try_from(fit).unwrap_or(usize::MAX).saturating_sub(c.registers);
+    tokens.saturating_mul(c.group).min(c.chunk_frames)
 }
 
 /// PCI vendor ids.
@@ -777,6 +823,10 @@ impl Pipelines {
         let source =
             if matrix_attention { include_str!("attention_coop.wgsl") } else { include_str!("attention.wgsl") };
         let attention = make(&format!("{shape}{source}"), "main");
+        let pool = geometry
+            .config
+            .stem_queries
+            .then(|| make(&format!("{shape}{}", include_str!("pool.wgsl")), "main"));
         Self {
             matmul,
             matmul_tile,
@@ -788,8 +838,9 @@ impl Pipelines {
             matrix_attention,
             attention_products,
             glu: make(include_str!("glu.wgsl"), "main"),
-            geglu: make(include_str!("geglu.wgsl"), "main"),
+            gated: make(include_str!("gated.wgsl"), "main"),
             add: make(include_str!("add.wgsl"), "main"),
+            pool,
         }
     }
 
@@ -805,8 +856,9 @@ impl Pipelines {
             (Some(&self.rotary), "rotary"),
             (Some(&self.attention), "attention"),
             (Some(&self.glu), "glu"),
-            (Some(&self.geglu), "glu"),
+            (Some(&self.gated), "glu"),
             (Some(&self.add), "add"),
+            (self.pool.as_ref(), "pool"),
             (self.blocked.as_ref(), "products (blocked)"),
             (self.attention_products.as_ref().map(|p| &p[0]), "attention scores"),
             (self.attention_products.as_ref().map(|p| &p[1]), "attention softmax"),
@@ -848,7 +900,34 @@ impl Params {
                 (layers, tr.norm.as_ref().map(|n| storage(device, bytemuck::cast_slice(n))))
             })
             .collect();
-        let ff_hidden = w.transformers.iter().flat_map(|t| &t.layers).map(|l| l.ff1.out).max().unwrap_or(0);
+        let feed_forwards = w
+            .grouping
+            .iter()
+            .flat_map(|g| [&g.input, &g.output])
+            .chain(w.stem_queries.iter().flat_map(|q| [&q.bands.ff, &q.tokens.ff]));
+        let ff_hidden = w
+            .transformers
+            .iter()
+            .flat_map(|t| &t.layers)
+            .map(|l| l.ff1.out)
+            .chain(feed_forwards.map(|f| f.ff1.out))
+            .max()
+            .unwrap_or(0);
+        let band_dim = w.band_dim();
+        let grouping = w.grouping.as_ref().map(|g| GpuGrouping {
+            input: [linear(&g.input.ff1), linear(&g.input.ff2)],
+            output: linear(&g.output.ff1),
+            frames: (0..w.geometry.config.group)
+                .map(|f| linear(&g.output.ff2.rows(f * band_dim, band_dim)))
+                .collect(),
+        });
+        let pool = |p: &Pool| GpuPool {
+            queries: storage(device, bytemuck::cast_slice(&p.queries)),
+            count: p.queries.len() / w.geometry.config.inner_dim(),
+            kv: linear(&p.kv),
+            out: linear(&p.out),
+            ff: [linear(&p.ff.ff1), linear(&p.ff.ff2)],
+        };
         let mask_hidden = w
             .masks
             .iter()
@@ -861,9 +940,12 @@ impl Params {
             rotary_time: w.rotary_time.clone(),
             rotary_freq: w.rotary_freq.clone(),
             band_proj: w.band_proj.iter().map(linear).collect(),
+            band_dim,
+            grouping,
             transformers,
             final_norm: w.final_norm.as_ref().map(|n| storage(device, bytemuck::cast_slice(n))),
             registers: w.registers.clone(),
+            pools: w.stem_queries.as_ref().map(|q| [pool(&q.bands), pool(&q.tokens)]),
             masks: w
                 .masks
                 .iter()
@@ -887,9 +969,17 @@ impl Planner<'_> {
         let c = &g.config;
         let p = &self.net.params;
         let frames = self.frames;
+        let token_frames = c.token_frames(frames);
         let (seq_frames, seq_bands) = self.seq();
         let tokens = seq_frames * seq_bands;
+        // the tokens of the frames (the registers' columns among them), and their frames' values
+        let frame_tokens = token_frames * seq_bands;
+        let grouped = frame_tokens * c.group * p.band_dim;
         let features = g.features();
+        let mask_features = g.mask_features();
+        // the rows of the mask estimators: every frame of the tokens
+        let mask_rows = token_frames * c.group;
+        let closing = c.mask_glu || c.pair_gates || p.grouping.is_some();
         let widest_band = g.bands.iter().map(|b| b.width).max().unwrap_or(0);
         let mask_out = p.masks.iter().flatten().filter_map(|m| m.last()).map(|l| l.out).max().unwrap_or(0);
         let f32s = |n: usize| (n.max(1).next_multiple_of(4) * 4) as u64;
@@ -897,14 +987,15 @@ impl Planner<'_> {
         let mut bytes = [0; SLOTS];
         bytes[Slot::X as usize] = f32s(tokens * c.dim);
         bytes[Slot::Earlier as usize] = if c.skip { f32s(tokens * c.dim) } else { 0 };
-        bytes[Slot::Normed as usize] = acts(tokens * c.dim);
+        bytes[Slot::Normed as usize] = acts((tokens * c.dim).max(grouped));
         bytes[Slot::Qkvg as usize] = acts(tokens * c.qkvg_width());
         bytes[Slot::Attended as usize] = acts(tokens * c.inner_dim());
         bytes[Slot::Hidden as usize] = acts(tokens * p.ff_hidden);
         bytes[Slot::BandIn as usize] = acts(frames * widest_band);
-        bytes[Slot::Mlp0 as usize] = acts(frames * p.mask_hidden);
-        bytes[Slot::Mlp1 as usize] = acts(frames * p.mask_hidden);
-        bytes[Slot::MlpOut as usize] = if c.mask_glu { f32s(frames * mask_out) } else { 0 };
+        bytes[Slot::Mlp0 as usize] = acts(mask_rows * p.mask_hidden);
+        bytes[Slot::Mlp1 as usize] = acts(mask_rows * p.mask_hidden);
+        bytes[Slot::MlpOut as usize] = if closing { f32s(mask_rows * mask_out) } else { 0 };
+        bytes[Slot::Frames as usize] = if p.grouping.is_some() { f32s(grouped) } else { 0 };
         bytes[Slot::Scores as usize] = if self.net.pipelines.attention_products.is_some() {
             [Axis::Time, Axis::Freq]
                 .map(|axis| {
@@ -938,11 +1029,14 @@ impl Planner<'_> {
         let band_in = slot(Slot::BandIn);
         let mlp = [slot(Slot::Mlp0), slot(Slot::Mlp1)];
         let mlp_out = slot(Slot::MlpOut);
+        let split = slot(Slot::Frames);
         let scores = slot(Slot::Scores);
         let device = &self.net.gpu.device;
         let bands = g.bands.len();
-        let angles_time = storage(device, bytemuck::cast_slice(&angles(&p.rotary_time, frames, seq_frames)));
+        let angles_time =
+            storage(device, bytemuck::cast_slice(&angles(&p.rotary_time, token_frames, seq_frames)));
         let angles_freq = storage(device, bytemuck::cast_slice(&angles(&p.rotary_freq, bands, seq_bands)));
+        let x_rows = Input { buffer: &x, store: Store::F32, ld: c.dim, off: 0 };
 
         let mut submissions = Vec::new();
         let mut steps = Vec::new();
@@ -963,14 +1057,31 @@ impl Planner<'_> {
                 (features, band.offset),
                 (band.width, 0),
             ));
-            let input = Input { buffer: &band_in, store: Store::Act, ld: band.width, off: 0 };
-            let into = Input { buffer: &x, store: Store::F32, ld: seq_bands * c.dim, off: b * c.dim };
-            steps.extend(self.matmul(proj, input, frames, into, Act::None, false));
+            if p.grouping.is_none() {
+                let input = Input { buffer: &band_in, store: Store::Act, ld: band.width, off: 0 };
+                let into = Input { buffer: &x, store: Store::F32, ld: seq_bands * c.dim, off: b * c.dim };
+                steps.extend(self.matmul(proj, input, frames, into, Act::None, false));
+                continue;
+            }
+            // frame f of the band to frame f % group of token f / group
+            for f in 0..c.group.min(frames) {
+                let (ld, off) = (c.group * band.width, f * band.width);
+                let input = Input { buffer: &band_in, store: Store::Act, ld, off };
+                let (ld, off) = (seq_bands * c.group * p.band_dim, (b * c.group + f) * p.band_dim);
+                let into = Input { buffer: &split, store: Store::F32, ld, off };
+                let rows = (frames - f).div_ceil(c.group);
+                steps.extend(self.matmul(proj, input, rows, into, Act::None, false));
+            }
+        }
+        if let Some(grouping) = &p.grouping {
+            let rows = (p.band_dim, 0);
+            steps.push(self.norm(&split, &normed, frame_tokens * c.group, p.band_dim, rows, rows));
+            let input = Input { buffer: &normed, store: Store::Act, ld: c.group * p.band_dim, off: 0 };
+            steps.extend(self.feed_forward(&grouping.input, input, frame_tokens, &hidden, x_rows, false));
         }
         submissions.push(std::mem::take(&mut steps));
 
         let normed_in = Input { buffer: &normed, store: Store::Act, ld: c.dim, off: 0 };
-        let x_rows = Input { buffer: &x, store: Store::F32, ld: c.dim, off: 0 };
         for (i, (layers, gain)) in p.transformers.iter().enumerate() {
             let axis = if i % 2 == 0 { Axis::Time } else { Axis::Freq };
             let angles = if axis == Axis::Time { &angles_time } else { &angles_freq };
@@ -991,7 +1102,7 @@ impl Planner<'_> {
                 let into = Input { buffer: &hidden, store: Store::Act, ld: l.ff1.out, off: 0 };
                 if c.ff_glu {
                     steps.extend(self.matmul(&l.ff1, normed_in, tokens, into, Act::None, false));
-                    steps.push(self.geglu(&hidden, tokens, l.ff1.out / 2));
+                    steps.push(self.gated(&hidden, tokens, l.ff1.out / 2));
                 } else {
                     steps.extend(self.matmul(&l.ff1, normed_in, tokens, into, Act::Gelu, false));
                 }
@@ -1009,31 +1120,77 @@ impl Planner<'_> {
             steps.push(self.norm_in_place(&x, gain, tokens, c.dim));
         }
 
-        for (s, stem) in p.masks.iter().enumerate() {
-            let stem_off = s * frames * features;
-            for (b, (band, mlp_layers)) in g.bands.iter().zip(stem).enumerate() {
-                let mut input =
-                    Input { buffer: &x, store: Store::F32, ld: seq_bands * c.dim, off: b * c.dim };
+        // with stem queries, each stem's row as the bias of the first product of the frames back
+        let mut frames_back: Vec<Option<GpuLinear>> = vec![None; g.stems.len()];
+        if let (Some([bands_pool, tokens_pool]), Some(grouping)) = (&p.pools, &p.grouping) {
+            let work = PoolWork { keys: &qkvg, attended: &attended, normed: &normed, hidden: &hidden };
+            let pooled = self.buffer(Store::F32, token_frames * c.dim, wgpu::BufferUsages::empty());
+            let stems = self.buffer(Store::F32, g.stems.len() * c.dim, wgpu::BufferUsages::empty());
+            steps.extend(self.pool(bands_pool, x_rows, (token_frames, bands, seq_bands), &pooled, &work));
+            let pooled_rows = Input { buffer: &pooled, store: Store::F32, ld: c.dim, off: 0 };
+            steps.extend(self.pool(tokens_pool, pooled_rows, (1, token_frames, 0), &stems, &work));
+            for (s, back) in frames_back.iter_mut().enumerate() {
+                let out = grouping.output.out;
+                let bias = self.buffer(Store::F32, out, wgpu::BufferUsages::empty());
+                let row = Input { buffer: &stems, store: Store::F32, ld: c.dim, off: s * c.dim };
+                let into = Input { buffer: &bias, store: Store::F32, ld: out, off: 0 };
+                steps.extend(self.matmul(&grouping.output, row, 1, into, Act::None, false));
+                *back = Some(GpuLinear { bias: Some(bias), ..grouping.output.clone() });
+            }
+        }
+
+        for (s, back) in frames_back.iter().enumerate() {
+            let stem_off = s * frames * mask_features;
+            let estimators = &p.masks[if c.stem_queries { 0 } else { s }];
+            let (rows, width, base) = match &p.grouping {
+                None => {
+                    (frames, c.dim, Input { buffer: &x, store: Store::F32, ld: seq_bands * c.dim, off: 0 })
+                }
+                Some(grouping) => {
+                    let ff1 = back.as_ref().unwrap_or(&grouping.output);
+                    let into = Input { buffer: &hidden, store: Store::Act, ld: ff1.out, off: 0 };
+                    steps.extend(self.matmul(ff1, x_rows, frame_tokens, into, Act::None, false));
+                    steps.push(self.gated(&hidden, frame_tokens, ff1.out / 2));
+                    // frame f of every token in the f-th block of rows: the estimators read the
+                    // frames of a band in one stride, the glu step puts them back in order
+                    for (f, l) in grouping.frames.iter().enumerate() {
+                        let off = f * frame_tokens * p.band_dim;
+                        let out = Input { buffer: &split, store: Store::F32, ld: p.band_dim, off };
+                        steps.extend(self.matmul(l, into, frame_tokens, out, Act::None, false));
+                    }
+                    let rows = (p.band_dim, 0);
+                    steps.push(self.norm(&split, &normed, frame_tokens * c.group, p.band_dim, rows, rows));
+                    let ld = seq_bands * p.band_dim;
+                    (mask_rows, p.band_dim, Input { buffer: &normed, store: Store::Act, ld, off: 0 })
+                }
+            };
+            for (b, (band, mlp_layers)) in g.mask_bands.iter().zip(estimators).enumerate() {
+                let mut input = Input { off: b * width, ..base };
                 for (k, l) in mlp_layers.iter().enumerate() {
                     let last = k + 1 == mlp_layers.len();
                     let into = if !last {
                         Input { buffer: &mlp[k % 2], store: Store::Act, ld: l.out, off: 0 }
-                    } else if c.mask_glu {
+                    } else if closing {
                         Input { buffer: &mlp_out, store: Store::F32, ld: l.out, off: 0 }
                     } else {
-                        Input { buffer: &mask, store: Store::F32, ld: features, off: stem_off + band.offset }
+                        Input {
+                            buffer: &mask,
+                            store: Store::F32,
+                            ld: mask_features,
+                            off: stem_off + band.offset,
+                        }
                     };
                     let act = if last { Act::None } else { Act::Tanh };
-                    steps.extend(self.matmul(l, input, frames, into, act, false));
+                    steps.extend(self.matmul(l, input, rows, into, act, false));
                     input = into;
                 }
-                if c.mask_glu {
+                if closing {
                     steps.push(self.glu(
                         &mlp_out,
                         &mask,
                         frames,
                         band.width,
-                        features,
+                        mask_features,
                         stem_off + band.offset,
                     ));
                 }
@@ -1041,7 +1198,8 @@ impl Planner<'_> {
             submissions.push(std::mem::take(&mut steps));
         }
 
-        Plan { generation, bins, mask, readback, submissions }
+        let cleared = p.grouping.is_some().then_some(split);
+        Plan { generation, bins, cleared, mask, readback, submissions }
     }
 
     /// Frames and bands of the transformers' sequences.
@@ -1289,15 +1447,91 @@ impl Planner<'_> {
         ld: usize,
         off: usize,
     ) -> Step {
+        let c = &self.net.geometry.config;
+        let gates = if c.mask_glu {
+            1
+        } else if c.pair_gates {
+            2
+        } else {
+            0
+        };
         let (groups, groups_x) = grid((rows * width).div_ceil(256));
-        self.step(&self.net.pipelines.glu, groups, &[y, mask], &words(&[rows, width, ld, off, groups_x]))
+        let uniform = [rows, width, ld, off, groups_x, gates, c.group, c.token_frames(rows)];
+        self.step(&self.net.pipelines.glu, groups, &[y, mask], &words(&uniform))
     }
 
-    /// `gelu(gate) * value` in place of the gates, each row `width` gates then `width` values.
-    fn geglu(&self, hidden: &wgpu::Buffer, rows: usize, width: usize) -> Step {
+    /// `act(gate) * value` in place of the gates, each row `width` gates then `width` values.
+    fn gated(&self, hidden: &wgpu::Buffer, rows: usize, width: usize) -> Step {
         let (groups, groups_x) = grid((rows * width).div_ceil(256));
-        self.step(&self.net.pipelines.geglu, groups, &[hidden], &words(&[rows, width, groups_x]))
+        let silu = usize::from(self.net.geometry.config.silu);
+        self.step(&self.net.pipelines.gated, groups, &[hidden], &words(&[rows, width, groups_x, silu]))
     }
+
+    /// The gated feed-forward `ff` of `rows` rows of `a`, through `hidden`, into `out`.
+    fn feed_forward(
+        &self,
+        [ff1, ff2]: &[GpuLinear; 2],
+        a: Input,
+        rows: usize,
+        hidden: &wgpu::Buffer,
+        out: Input,
+        accumulate: bool,
+    ) -> Vec<Step> {
+        let into = Input { buffer: hidden, store: Store::Act, ld: ff1.out, off: 0 };
+        let mut steps = self.matmul(ff1, a, rows, into, Act::None, false);
+        steps.push(self.gated(hidden, rows, ff1.out / 2));
+        steps.extend(self.matmul(ff2, into, rows, out, Act::None, accumulate));
+        steps
+    }
+
+    /// The attention of `pool`'s queries over `sequences` sequences of `len` tokens of `a`, the
+    /// first tokens of two `stride` apart, then its feed-forward: a row of `dim` per sequence
+    /// and query into `out`, f32.
+    fn pool(
+        &self,
+        pool: &GpuPool,
+        a: Input,
+        (sequences, len, stride): (usize, usize, usize),
+        out: &wgpu::Buffer,
+        work: &PoolWork,
+    ) -> Vec<Step> {
+        let c = &self.net.geometry.config;
+        let width = 2 * c.kv_dim();
+        let keys = Input { buffer: work.keys, store: Store::Act, ld: width, off: 0 };
+        let mut steps = self.matmul(&pool.kv, a, (sequences - 1) * stride + len, keys, Act::None, false);
+        let blocks = sequences * pool.count * c.heads;
+        let (groups, groups_x) = grid(blocks);
+        let uniform = [
+            len,
+            stride,
+            width,
+            c.kv_dim(),
+            pool.count,
+            c.heads,
+            c.heads / c.kv_heads,
+            c.inner_dim(),
+            blocks,
+            groups_x,
+        ];
+        let pipeline = self.net.pipelines.pool.as_ref().expect("compiled for the stem queries");
+        steps.push(self.step(pipeline, groups, &[&pool.queries, work.keys, work.attended], &words(&uniform)));
+        let rows = sequences * pool.count;
+        let attended = Input { buffer: work.attended, store: Store::Act, ld: c.inner_dim(), off: 0 };
+        let out_rows = Input { buffer: out, store: Store::F32, ld: c.dim, off: 0 };
+        steps.extend(self.matmul(&pool.out, attended, rows, out_rows, Act::None, false));
+        steps.push(self.norm(out, work.normed, rows, c.dim, (c.dim, 0), (c.dim, 0)));
+        let normed = Input { buffer: work.normed, store: Store::Act, ld: c.dim, off: 0 };
+        steps.extend(self.feed_forward(&pool.ff, normed, rows, work.hidden, out_rows, true));
+        steps
+    }
+}
+
+/// The scratch buffers a pooling works in.
+struct PoolWork<'a> {
+    keys: &'a wgpu::Buffer,
+    attended: &'a wgpu::Buffer,
+    normed: &'a wgpu::Buffer,
+    hidden: &'a wgpu::Buffer,
 }
 
 /// Rows of a matrix in a buffer: `ld` values apart, from `off`.
@@ -1372,6 +1606,7 @@ mod tests {
             gates,
             depth: 1,
             n_fft: 2 * bands,
+            n_fft_out: 2 * bands,
             hop: 4,
             sample_rate: 44_100,
             chunk_frames: 9,
@@ -1379,8 +1614,12 @@ mod tests {
             overlap: 1,
             norm_eps: 0.0,
             ff_glu: false,
+            silu: false,
             mask_glu: true,
+            pair_gates: false,
             registers: 0,
+            group: 1,
+            stem_queries: false,
         };
         let zero = |out: usize, inp: usize| Linear {
             weight: Values::F32(vec![0.0; out * inp]),
@@ -1401,18 +1640,22 @@ mod tests {
                 config: config.clone(),
                 stems: vec!["vocals".into()],
                 freq_indices: (0..2 * bands as u32).collect(),
+                mask_indices: (0..2 * bands as u32).collect(),
                 bands_per_freq: vec![1; bands + 1],
                 bands: (0..bands).map(|b| Band { offset: 4 * b, width: 4 }).collect(),
+                mask_bands: (0..bands).map(|b| Band { offset: 4 * b, width: 4 }).collect(),
             },
             rotary_time: freqs.clone(),
             rotary_freq: freqs,
             band_proj: (0..bands).map(|_| zero(64, 4)).collect(),
+            grouping: None,
             transformers: (0..2)
                 .map(|_| Transformer { layers: vec![layer()], norm: Some(vec![1.0; 64]) })
                 .collect(),
             masks: vec![(0..bands).map(|_| vec![zero(8, 64)]).collect()],
             final_norm: None,
             registers: Vec::new(),
+            stem_queries: None,
             extra: Default::default(),
         };
         let options = GpuOptions { software: true, without_matrix_units: !matrix, ..Default::default() };

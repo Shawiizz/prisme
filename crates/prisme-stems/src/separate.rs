@@ -14,6 +14,8 @@ pub const LEAD_S: f64 = 20.0;
 pub struct Separator<N: MaskNetwork> {
     net: N,
     stft: Stft,
+    /// The STFT the masks apply to, when not `stft`.
+    mask_stft: Option<Stft>,
     /// How many chunks cover each sample.
     overlap: usize,
 }
@@ -22,8 +24,9 @@ impl<N: MaskNetwork> Separator<N> {
     pub fn new(net: N) -> Self {
         let c = &net.geometry().config;
         let stft = Stft::new(c.n_fft, c.hop);
+        let mask_stft = (c.n_fft_out != c.n_fft).then(|| Stft::new(c.n_fft_out, c.hop));
         let overlap = c.overlap;
-        Self { net, stft, overlap }
+        Self { net, stft, mask_stft, overlap }
     }
 
     /// With at most `overlap` chunks over each sample, when the model asks for more: that
@@ -175,9 +178,7 @@ impl<N: MaskNetwork> Separator<N> {
         let stft = &self.stft;
         let frames = stft.frames(left.len());
         let bins = stft.bins();
-        let mut spec = [vec![Complex32::default(); frames * bins], vec![Complex32::default(); frames * bins]];
-        stft.forward(left, &mut spec[0]);
-        stft.forward(right, &mut spec[1]);
+        let spec = spectrum(stft, left, right);
 
         let w = self.net.geometry();
         let features = w.features();
@@ -189,22 +190,26 @@ impl<N: MaskNetwork> Separator<N> {
                 pair.copy_from_slice(&[c.re, c.im]);
             }
         }
+        let spec = match &self.mask_stft {
+            Some(mask_stft) => spectrum(mask_stft, left, right),
+            None => spec,
+        };
         Analysis { spec, bins: gathered, frames }
     }
 
     /// Each stem of a chunk from its masks: the chunk's STFT masked, then inverted.
     fn synthesise(&self, analysis: &Analysis, masks: &[f32], out: &mut [[Vec<f32>; 2]]) {
-        let stft = &self.stft;
+        let stft = self.mask_stft.as_ref().unwrap_or(&self.stft);
         let Analysis { spec, frames, .. } = analysis;
         let bins = stft.bins();
         let w = self.net.geometry();
-        let features = w.features();
+        let features = w.mask_features();
         let mut masked =
             [vec![Complex32::default(); frames * bins], vec![Complex32::default(); frames * bins]];
         for (stem_masks, stem_out) in masks.chunks_exact(frames * features).zip(out) {
             masked.iter_mut().for_each(|m| m.fill(Complex32::default()));
             for (t, row) in stem_masks.chunks_exact(features).enumerate() {
-                for (pair, &index) in row.chunks_exact(2).zip(&w.freq_indices) {
+                for (pair, &index) in row.chunks_exact(2).zip(&w.mask_indices) {
                     let (ch, bin) = source(index);
                     masked[ch][t * bins + bin] += Complex32::new(pair[0], pair[1]);
                 }
@@ -343,7 +348,16 @@ impl Separation {
     }
 }
 
-/// A chunk's STFT (left and right) and the bins the network takes.
+/// The STFT of a stereo chunk, left and right.
+fn spectrum(stft: &Stft, left: &[f32], right: &[f32]) -> [Vec<Complex32>; 2] {
+    let len = stft.frames(left.len()) * stft.bins();
+    let mut spec = [vec![Complex32::default(); len], vec![Complex32::default(); len]];
+    stft.forward(left, &mut spec[0]);
+    stft.forward(right, &mut spec[1]);
+    spec
+}
+
+/// A chunk's STFT (left and right) the masks apply to, and the bins the network takes.
 struct Analysis {
     spec: [Vec<Complex32>; 2],
     bins: Vec<f32>,
