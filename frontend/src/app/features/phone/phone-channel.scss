@@ -1,0 +1,102 @@
+:host {
+  display: grid;
+  grid-template-rows: auto auto minmax(0, 1fr);
+  gap: 8px;
+  min-width: 0;
+  min-height: 0;
+  padding: 10px 14px 8px;
+}
+
+app-channel-strip {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px 0;
+  justify-items: center;
+  --knob-size: 44px;
+}
+
+.cue {
+  height: 30px;
+  padding: 0;
+  font: 600 10.5px / 1 var(--pr-font);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+// the fader between its marks and its level
+.strip {
+  display: grid;
+  grid-template-columns: 1fr 44px 1fr;
+  gap: 6px;
+  min-height: 0;
+}
+.marks {
+  display: grid;
+  align-content: space-between;
+  justify-items: end;
+  padding-block: 10px;
+  i {
+    width: 7px;
+    height: 1px;
+    background: var(--pr-line-2);
+    &.long {
+      width: 12px;
+      background: var(--pr-text-3);
+    }
+  }
+}
+app-fader {
+  height: auto;
+}
+.pr-meter {
+  justify-self: start;
+  padding-block: 10px;
+}
+
+// the mirror, on the right of the table
+:host(.b) {
+  .marks {
+    order: 1;
+    justify-items: start;
+  }
+  .pr-meter {
+    order: -1;
+    justify-self: end;
+  }
+}
+
+// held sideways: the knobs, the headphones and the fader side by side
+@media (orientation: landscape) {
+  :host {
+    grid-template-rows: none;
+    grid-template-columns: 1fr auto 74px;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 10px;
+  }
+  :host(.b) {
+    grid-template-columns: 74px auto 1fr;
+    .strip {
+      order: -2;
+    }
+    .cue {
+      order: -1;
+    }
+  }
+  app-channel-strip {
+    --knob-size: 34px;
+  }
+  .cue {
+    width: 30px;
+    height: 100%;
+    writing-mode: vertical-rl;
+  }
+  .strip {
+    height: 100%;
+    grid-template-columns: 1fr 36px 1fr;
+    gap: 4px;
+  }
+  app-fader {
+    width: 36px;
+  }
+}

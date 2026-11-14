@@ -22,24 +22,8 @@ app-phone-library {
   margin-top: -1px;
   border-top: 1px solid var(--pr-line-2);
 }
-
-// the thumbs play: the decks give them the height
-:host(.touch) {
-  .decks {
-    flex: 1;
-    min-height: 0;
-    display: flex;
-    flex-direction: column;
-    --phone-wave: auto;
-    app-phone-deck {
-      flex: 1;
-      min-height: 0;
-      grid-template-rows: auto minmax(40px, 1fr);
-    }
-  }
-  app-phone-touch {
-    flex: none;
-  }
+app-phone-table {
+  flex: 1;
 }
 
 // held sideways
@@ -64,26 +48,5 @@ app-phone-library {
     margin: 0;
     border-top: 0;
     border-left: 1px solid var(--pr-line);
-  }
-  // a deck under each thumb, the waveforms and the crossfader between them
-  :host(.touch) {
-    .decks {
-      border-inline: 1px solid var(--pr-line);
-    }
-    app-phone-touch {
-      width: 156px;
-    }
-  }
-  .cross {
-    flex: none;
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    padding: 8px 14px 12px;
-    font: 600 11px / 1 var(--pr-font);
-    color: var(--pr-text-3);
-    app-fader {
-      flex: 1;
-    }
   }
 }

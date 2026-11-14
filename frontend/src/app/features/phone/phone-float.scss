@@ -1,0 +1,67 @@
+// a panel floating over the table of a phone
+:host {
+  display: grid;
+  gap: 8px;
+  padding: 10px;
+  border: 1px solid var(--pr-line-2);
+  border-radius: var(--pr-radius);
+  background: var(--pr-base);
+  box-shadow: 0 16px 40px rgb(0 0 0 / 0.6);
+}
+
+.head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  b {
+    flex: 1;
+  }
+}
+.pr-tile {
+  width: 22px;
+  height: 22px;
+  font-size: 12px;
+}
+.value {
+  font-size: 14px;
+  font-weight: 600;
+}
+.target {
+  margin: 0;
+  font-size: var(--pr-size-small);
+  color: var(--pr-light);
+}
+
+.fader {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--pr-size-small);
+  color: var(--pr-text-3);
+  app-fader {
+    flex: 1;
+  }
+}
+.keys {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+}
+.keys .pr-btn,
+.lock {
+  height: 36px;
+  padding: 0;
+  font-size: 12px;
+  font-weight: 600;
+}
+.keys .pr-btn {
+  font-size: 16px;
+}
+
+// held sideways, down a side of the screen: no frame
+:host(.side) {
+  padding: 0;
+  border: 0;
+  background: none;
+  box-shadow: none;
+}

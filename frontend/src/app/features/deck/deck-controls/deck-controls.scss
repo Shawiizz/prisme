@@ -119,21 +119,30 @@
   }
 }
 
-// under the thumbs of a phone: CUE, PLAY and SYNC, wide and low; the rest is in the panel
-// of the deck
-:host-context(app-phone-touch) {
+// on the table of a phone: PLAY, CUE and SYNC, PLAY in the corner under the thumb (the
+// `b` side is the mirror); the rest floats over the table
+:host-context(app-phone-table) {
   display: grid;
-  grid-template-columns: 1fr 1.5fr 1fr;
-  gap: 10px;
+  grid-template-columns: 1.3fr 1fr 1fr;
+  gap: 6px;
   height: auto;
   .transport {
     display: contents;
   }
   .key {
     width: auto;
-    height: 64px;
-    font-size: 14px;
+    height: 54px;
+    font-size: 13px;
     font-weight: 700;
+  }
+  .transport .key:first-child {
+    grid-area: 1 / 2;
+  }
+  .transport .key:last-child {
+    grid-area: 1 / 1;
+  }
+  .sync {
+    grid-area: 1 / 3;
   }
   .separate,
   .stems,
@@ -141,25 +150,43 @@
     display: none;
   }
 }
-// a side of a phone held sideways: SYNC over CUE and PLAY, PLAY towards the middle
-:host-context(app-phone-touch.left),
-:host-context(app-phone-touch.right) {
-  grid-template-columns: 1fr 1fr;
-  gap: 8px;
-  .key {
-    height: 52px;
+:host(.b) {
+  grid-template-columns: 1fr 1fr 1.3fr;
+  .transport .key:last-child {
+    grid-area: 1 / 3;
   }
   .sync {
-    grid-area: 1 / 1 / auto / -1;
-    height: 38px;
-  }
-  .transport .key {
-    grid-row: 2;
+    grid-area: 1 / 1;
   }
 }
-:host-context(app-phone-touch.right) .transport .key:first-child {
-  grid-column: 2;
-}
-:host-context(app-phone-touch.right) .transport .key:last-child {
-  grid-column: 1;
+// held sideways, down a side: SYNC over CUE and PLAY, PLAY towards the middle
+@media (orientation: landscape) {
+  :host-context(app-phone-table) {
+    grid-template-columns: 1fr 1fr;
+    .key {
+      height: 46px;
+    }
+    .sync {
+      grid-area: 1 / 1 / auto / -1;
+      height: 34px;
+    }
+    .transport .key:first-child {
+      grid-area: 2 / 1;
+    }
+    .transport .key:last-child {
+      grid-area: 2 / 2;
+    }
+  }
+  :host(.b) {
+    grid-template-columns: 1fr 1fr;
+    .sync {
+      grid-area: 1 / 1 / auto / -1;
+    }
+    .transport .key:first-child {
+      grid-area: 2 / 2;
+    }
+    .transport .key:last-child {
+      grid-area: 2 / 1;
+    }
+  }
 }

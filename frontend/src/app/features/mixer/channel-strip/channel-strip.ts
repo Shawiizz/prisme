@@ -10,14 +10,16 @@ import { TPipe } from '../../../core/i18n/t.pipe';
 @Component({
   selector: 'app-channel-strip',
   template: `
-    <app-knob
-      label="TRIM"
-      [labelTitle]="'Gain before the EQ (±12 dB)' | t"
-      bipolar
-      [format]="readouts.trim"
-      [value]="trimKnob()"
-      (valueChange)="setTrim($event)"
-    />
+    @if (trim()) {
+      <app-knob
+        label="TRIM"
+        [labelTitle]="'Gain before the EQ (±12 dB)' | t"
+        bipolar
+        [format]="readouts.trim"
+        [value]="trimKnob()"
+        (valueChange)="setTrim($event)"
+      />
+    }
     @for (b of bands; track b.band) {
       <app-knob
         [label]="b.label"
@@ -49,6 +51,8 @@ import { TPipe } from '../../../core/i18n/t.pipe';
 })
 export class ChannelStrip {
   readonly deck = input.required<number>();
+  /** With its trim knob (a phone leaves it out). */
+  readonly trim = input(true);
   protected readonly mixer = inject(MixerService);
   protected readonly readouts = readouts;
   protected readonly bands: { band: Band; label: string; killTitle: string }[] = [

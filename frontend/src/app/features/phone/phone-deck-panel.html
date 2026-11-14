@@ -37,7 +37,7 @@
     <span class="pr-num">+{{ rangePercent() }}</span>
   </div>
 
-  @if (mixer.internal()) {
+  @if (mixer.internal() && !table()) {
     <h4>{{ 'Mixer' | t }}</h4>
     <div class="faders">
       @for (b of eq; track b.band) {
@@ -92,7 +92,7 @@
     <button class="pr-btn pr-btn--lg" [disabled]="!track()" (click)="editing.set(true)">
       {{ 'Grid and key' | t }}
     </button>
-    @if (mixer.internal()) {
+    @if (mixer.internal() && !table()) {
       <button
         class="pr-btn pr-btn--lg"
         [class.is-on]="settings().cue"

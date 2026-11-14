@@ -11,8 +11,8 @@ import {
 
 /** Size of the cap along the travel (pixels): the track runs between its two centres. */
 const CAP = 14;
-/** Under a finger: a wide cap along a horizontal travel, a line across a vertical one. */
-const TOUCH_CAP = { horizontal: 44, vertical: 4 };
+/** Under a finger: the cap of a mixer's fader, in a slot. */
+const TOUCH_CAP = { horizontal: 22, vertical: 22 };
 /** Shift: a gesture moves the fader four times less. */
 const FINE = 0.25;
 /** Steps of the keyboard and the wheel, as a share of the travel. */
@@ -23,8 +23,8 @@ const PAGE = 0.1;
  * A fader like a mixer's: a thin track, a cap with a line of light, the travel filled from
  * the start or, when `centered`, from the middle where it has a detent. Drag it (Shift for
  * fine moves), click the track to jump, scroll, use the arrow keys, double-click to go back
- * to `defaultValue`. With `touch`, a wide cap in a framed groove, which a finger moves from
- * where it lands without making it jump there.
+ * to `defaultValue`. With `touch`, the cap of a real fader in a recessed slot, which a
+ * finger moves from where it lands without making it jump there.
  */
 @Component({
   selector: 'app-fader',
@@ -160,51 +160,55 @@ const PAGE = 0.1;
       }
     }
     :host(.touch) {
-      border: 1px solid var(--pr-line-2);
-      border-radius: var(--pr-radius);
-      background: var(--pr-base);
+      .fill,
       .detent {
         display: none;
+      }
+      .track {
+        border: 1px solid var(--pr-line-2);
+        border-radius: 3px;
+        background: var(--pr-void);
+      }
+      .cap {
+        border-color: var(--pr-text-3);
+        background: linear-gradient(var(--pr-raise-2), var(--pr-raise));
+        box-shadow: 0 2px 6px rgb(0 0 0 / 0.5);
+        i {
+          border-radius: 0;
+        }
       }
     }
     :host(.touch:not(.vertical)) {
       height: 40px;
       .track {
-        left: 18px;
-        right: 18px;
-        top: calc(50% - 1px);
-        height: 2px;
-      }
-      .fill {
-        display: none;
+        left: 0;
+        right: 0;
+        top: calc(50% - 3px);
+        height: 6px;
       }
       .cap {
-        top: 3px;
-        bottom: 3px;
+        top: 2px;
+        bottom: 2px;
         i {
-          height: 16px;
+          width: 2px;
+          height: calc(100% - 8px);
         }
       }
     }
     :host(.touch.vertical) {
       width: 44px;
-      overflow: hidden;
       .track {
-        inset: 0;
-        width: auto;
-        border-radius: 0;
-        background: none;
-      }
-      .fill {
-        border-radius: 0;
-        background: var(--pr-raise-2);
+        top: 0;
+        bottom: 0;
+        left: calc(50% - 3px);
+        width: 6px;
       }
       .cap {
-        border: 0;
-        border-radius: 0;
-        background: var(--pr-light);
+        left: 2px;
+        right: 2px;
         i {
-          display: none;
+          width: calc(100% - 8px);
+          height: 2px;
         }
       }
     }

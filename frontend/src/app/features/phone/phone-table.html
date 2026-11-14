@@ -1,0 +1,108 @@
+<ng-template #which let-side>
+  @if (decksOf(side).length > 1) {
+    <div class="pr-seg which" role="radiogroup" [attr.aria-label]="'Deck' | t">
+      @for (d of decksOf(side); track d) {
+        <button role="radio" [attr.aria-checked]="deckOf(side) === d" (click)="choose(side, d)">
+          {{ letter(d) }}
+        </button>
+      }
+    </div>
+  }
+</ng-template>
+
+@if (wide()) {
+  <aside class="side a">
+    <ng-container *ngTemplateOutlet="which; context: { $implicit: 'a' }" />
+    <app-phone-pads side [deck]="left()" />
+    <app-deck-controls [deck]="left()" />
+  </aside>
+}
+
+<div class="middle" [class.free]="!mixer.internal()">
+  <section class="decks">
+    <app-phone-deck [deck]="left()" compact (opened)="opened.emit(left())" />
+    @if (rights().length) {
+      <app-phone-deck [deck]="right()" compact (opened)="opened.emit(right())" />
+    }
+  </section>
+
+  <div class="stage">
+    @if (mixer.internal()) {
+      <app-phone-channel side="a" [deck]="left()" />
+      @if (rights().length) {
+        <app-phone-channel side="b" [deck]="right()" />
+      }
+    }
+    @if (floating(); as open) {
+      @if (open.kind === 'pads') {
+        <app-phone-pads class="float" [deck]="floatingDeck()!" (closed)="floating.set(null)" />
+      } @else {
+        <app-phone-pitch
+          class="float"
+          [class.b]="open.side === 'b'"
+          [deck]="floatingDeck()!"
+          (closed)="floating.set(null)"
+        />
+      }
+    }
+  </div>
+
+  @if (mixer.internal()) {
+    <div class="cross">
+      <span>A</span>
+      <app-fader
+        touch
+        centered
+        [min]="-1"
+        [max]="1"
+        [value]="mixer.crossfader()"
+        (valueChange)="mixer.setCrossfader($event)"
+        [label]="'Crossfader' | t"
+      />
+      <span>B</span>
+    </div>
+  }
+</div>
+
+@if (wide()) {
+  @if (rights().length) {
+    <aside class="side b">
+      <ng-container *ngTemplateOutlet="which; context: { $implicit: 'b' }" />
+      <app-phone-pads side [deck]="right()" />
+      <app-deck-controls class="b" [deck]="right()" />
+    </aside>
+  }
+} @else {
+  <div class="play">
+    <div class="more">
+      <ng-container *ngTemplateOutlet="which; context: { $implicit: 'a' }" />
+      <button class="pr-btn pads" [class.is-on]="isOpen('pads', 'a')" (click)="toggle('pads', 'a')">
+        PADS
+      </button>
+      <button class="pr-btn" [class.is-on]="isOpen('pitch', 'a')" (click)="toggle('pitch', 'a')">
+        PITCH
+      </button>
+      <button class="pr-btn" (click)="opened.emit(left())">DECK</button>
+    </div>
+    @if (rights().length) {
+      <div class="more b">
+        <button class="pr-btn" (click)="opened.emit(right())">DECK</button>
+        <button class="pr-btn" [class.is-on]="isOpen('pitch', 'b')" (click)="toggle('pitch', 'b')">
+          PITCH
+        </button>
+        <button
+          class="pr-btn pads"
+          [class.is-on]="isOpen('pads', 'b')"
+          (click)="toggle('pads', 'b')"
+        >
+          PADS
+        </button>
+        <ng-container *ngTemplateOutlet="which; context: { $implicit: 'b' }" />
+      </div>
+    }
+    <app-deck-controls [deck]="left()" />
+    @if (rights().length) {
+      <app-deck-controls class="b" [deck]="right()" />
+    }
+  </div>
+}

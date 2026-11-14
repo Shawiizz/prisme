@@ -36,6 +36,8 @@ const EQ: readonly { band: Band; label: string }[] = [
 })
 export class PhoneDeckPanel {
   readonly deck = input.required<number>();
+  /** Opened from the table, which has the channel already. */
+  readonly table = input(false);
   readonly closed = output<void>();
 
   protected readonly engine = inject(EngineService);

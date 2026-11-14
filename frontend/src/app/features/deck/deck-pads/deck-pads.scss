@@ -124,9 +124,9 @@
   }
 }
 
-// under the thumbs of a phone: the modes on a line, the pads on two rows of four, what goes
-// with the mode under them
-:host-context(app-phone-touch) {
+// floating over the table of a phone: the modes on a line, the pads on two rows of four,
+// what goes with the mode under them
+:host-context(app-phone-pads) {
   flex-wrap: wrap;
   gap: 8px;
   height: auto;
@@ -143,9 +143,9 @@
     flex: 1 0 100%;
     display: grid;
     grid-template-columns: repeat(4, minmax(0, 1fr));
-    gap: 8px;
+    gap: 6px;
     .pr-pad {
-      height: 54px;
+      height: 52px;
       font-size: var(--pr-size);
     }
   }
@@ -154,9 +154,8 @@
     justify-content: space-between;
   }
 }
-// a side of a phone held sideways: the pads two by two
-:host-context(app-phone-touch.left),
-:host-context(app-phone-touch.right) {
+// down a side of a phone held sideways: the pads two by two
+:host-context(app-phone-pads.side) {
   gap: 6px;
   .modes {
     grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -167,9 +166,8 @@
   }
   .pads {
     grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 6px;
     .pr-pad {
-      height: 34px;
+      height: 32px;
     }
   }
   .side {
