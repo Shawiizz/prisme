@@ -17,7 +17,7 @@ use std::sync::{Arc, Mutex};
 
 use wgpu::util::DeviceExt;
 
-use crate::model::{Config, Geometry, Linear, Weights};
+use crate::model::{Config, Geometry, Linear, Values, Weights};
 use crate::network::{Axis, MaskNetwork};
 use crate::StemsError;
 
@@ -40,6 +40,20 @@ pub struct GpuOptions {
     /// steps of a few milliseconds, each waited for, and takes at most this share of the
     /// GPU's time.
     pub share: Option<f64>,
+    /// The attention on the shader cores, else the one they run best for the network's heads
+    /// (the matrix units have their own).
+    pub attention: Option<Attention>,
+}
+
+/// How the shader cores work out the attention.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Attention {
+    /// In one pass over the keys, a query per thread (`attention.wgsl`).
+    OnePass,
+    /// As products: the scores of a slice of the sequences and heads, their softmax, then the
+    /// values (`attention_scores.wgsl` and the others). Heads of 8, 16, 32 or 64 values, a
+    /// token's projections in whole groups of 4.
+    Products,
 }
 
 /// The GPU the networks run on.
@@ -62,6 +76,7 @@ pub struct Gpu {
     profile: bool,
     /// The share of the GPU's time the work takes at most ([`GpuOptions::share`]).
     share: Option<f64>,
+    attention: Option<Attention>,
     scratch: Mutex<Scratch>,
 }
 
@@ -124,8 +139,12 @@ struct Params {
     /// Per stem, per band.
     masks: Vec<Vec<Vec<GpuLinear>>>,
     no_bias: wgpu::Buffer,
+    /// The widest hidden features of a feed-forward, as stored.
     ff_hidden: usize,
     mask_hidden: usize,
+    /// On the shader cores, the first product of each gated feed-forward gives its hidden
+    /// features itself ([`Act::Gated`]).
+    gated_products: bool,
 }
 
 struct GpuLinear {
@@ -166,8 +185,8 @@ struct Pipelines {
     attention: wgpu::ComputePipeline,
     /// The attention runs on the matrix units, rotating the queries and keys itself.
     matrix_attention: bool,
-    /// On the shader cores, for heads of 64 values: the attention as products (scores,
-    /// softmax, values), several times faster where `attention` spills its registers.
+    /// On the shader cores, where chosen ([`attention_as_products`]): the attention as products
+    /// (scores, softmax, values), several times faster where `attention` spills its registers.
     attention_products: Option<[wgpu::ComputePipeline; 3]>,
     glu: wgpu::ComputePipeline,
     geglu: wgpu::ComputePipeline,
@@ -200,6 +219,9 @@ enum Act {
     None = 0,
     Gelu = 1,
     Tanh = 2,
+    /// `gelu(gate) * value` of the columns in groups of 4 gates then their 4 values
+    /// ([`gates_beside_values`]), half as many: on the shader cores' blocked products only.
+    Gated = 3,
 }
 
 impl Gpu {
@@ -253,6 +275,7 @@ impl Gpu {
             max_binding,
             profile: !profile.is_empty(),
             share: options.share.map(|s| s.clamp(0.05, 1.0)),
+            attention: options.attention,
             scratch: Mutex::default(),
         }))
     }
@@ -329,6 +352,12 @@ impl GpuNetwork {
             ));
         }
         let matrix = gpu.matrix_units && fits_matrix_units(weights);
+        if !matrix && gpu.attention == Some(Attention::Products) && !products_take(c) {
+            return Err(StemsError::Model(
+                "the attention as products takes heads of 8, 16, 32 or 64 values, projections in groups of 4"
+                    .into(),
+            ));
+        }
         let pipelines = Pipelines::new(gpu, &weights.geometry, matrix);
         let params = Params::upload(&gpu.device, weights, matrix);
         let units = if matrix { ", tensor cores" } else { "" };
@@ -708,12 +737,30 @@ fn matrix_attention(device: &wgpu::Device, geometry: &Geometry) -> bool {
         && device.limits().max_compute_workgroup_storage_size >= MATRIX_ATTENTION_SHARED
 }
 
-/// Whether the attention on the shader cores runs as products: gated heads of 64 values, each
-/// with its own keys and values. Smaller heads hold less in their registers, and their scores
-/// would weigh more beside their products (on an RTX 4060, the products take 2.9 times as
-/// long as `attention.wgsl` for heads of 32 values).
+/// Whether the attention on the shader cores runs as products, unless chosen
+/// ([`GpuOptions::attention`]): for gated heads of 64 values, each with its own keys and
+/// values. Smaller heads hold less in their registers, and their scores would weigh more beside
+/// their products (on an RTX 4060, the products take 1.5 times as long as `attention.wgsl` for
+/// Mini-BS-RoFormer-18M's heads of 32 values).
 fn attention_as_products(c: &Config) -> bool {
     c.dim_head == 64 && c.kv_heads == c.heads && c.gates
+}
+
+/// Whether the attention as products takes the network's heads: each thread of
+/// `attention_values.wgsl` takes 8 of a head's values, a workgroup 64 threads.
+fn products_take(c: &Config) -> bool {
+    matches!(c.dim_head, 8 | 16 | 32 | 64) && c.qkvg_width().is_multiple_of(4)
+}
+
+/// The bytes of the scores of a sequence and head of `len` tokens, each query's padded to whole
+/// vectors of 4.
+fn scores_bytes(len: usize) -> u64 {
+    (len * len.next_multiple_of(4) * 4) as u64
+}
+
+/// The queries a workgroup of `attention_values.wgsl` takes, for heads of `dim_head` values.
+fn value_queries(dim_head: usize) -> usize {
+    8 * 64 / (dim_head / 8)
 }
 
 /// The heads the attentions are compiled for, defined before their sources: constants rather
@@ -766,16 +813,21 @@ impl Pipelines {
         let matmul_tile = if matrix || gpu.large_tiles { 128 } else { 64 };
         let blocked = (!matrix).then(|| make(include_str!("matmul_blocked.wgsl"), "main"));
         let matrix_attention = matrix && matrix_attention(device, geometry);
-        let attention_products = (!matrix && attention_as_products(&geometry.config)).then(|| {
+        let c = &geometry.config;
+        let shape = heads_shape(c);
+        let products = gpu.attention.map_or(attention_as_products(c), |a| a == Attention::Products);
+        let attention_products = (!matrix && products).then(|| {
             [
-                make(include_str!("attention_scores.wgsl"), "main"),
+                make(&format!("{shape}{}", include_str!("attention_scores.wgsl")), "main"),
                 make(include_str!("attention_softmax.wgsl"), "main"),
-                make(include_str!("attention_values.wgsl"), "main"),
+                make(&format!("{shape}{}", include_str!("attention_values.wgsl")), "main"),
             ]
         });
-        let shape = heads_shape(&geometry.config);
-        let source =
-            if matrix_attention { include_str!("attention_coop.wgsl") } else { include_str!("attention.wgsl") };
+        let source = if matrix_attention {
+            include_str!("attention_coop.wgsl")
+        } else {
+            include_str!("attention.wgsl")
+        };
         let attention = make(&format!("{shape}{source}"), "main");
         Self {
             matmul,
@@ -818,6 +870,11 @@ impl Pipelines {
 
 impl Params {
     fn upload(device: &wgpu::Device, w: &Weights, matrix: bool) -> Self {
+        let c = &w.geometry.config;
+        let layers = || w.transformers.iter().flat_map(|t| &t.layers);
+        // the blocked products read the norms of the stream four values at a time
+        let gated_products =
+            !matrix && c.ff_glu && c.dim.is_multiple_of(4) && layers().all(|l| l.ff1.out.is_multiple_of(8));
         let linear = |l: &Linear| {
             // the matrix units read rows of whole groups of 4, which the networks they run
             // have (`fits_matrix_units`); the shader cores read pairs of values,
@@ -841,14 +898,18 @@ impl Params {
                     .map(|l| GpuLayer {
                         qkvg: linear(&l.qkvg),
                         out: linear(&l.out),
-                        ff1: linear(&l.ff1),
+                        ff1: if gated_products {
+                            linear(&gates_beside_values(&l.ff1))
+                        } else {
+                            linear(&l.ff1)
+                        },
                         ff2: linear(&l.ff2),
                     })
                     .collect();
                 (layers, tr.norm.as_ref().map(|n| storage(device, bytemuck::cast_slice(n))))
             })
             .collect();
-        let ff_hidden = w.transformers.iter().flat_map(|t| &t.layers).map(|l| l.ff1.out).max().unwrap_or(0);
+        let ff_hidden = layers().map(|l| l.ff1.out / if gated_products { 2 } else { 1 }).max().unwrap_or(0);
         let mask_hidden = w
             .masks
             .iter()
@@ -872,7 +933,24 @@ impl Params {
             no_bias: storage(device, bytemuck::cast_slice(&[0.0f32; 4])),
             ff_hidden,
             mask_hidden,
+            gated_products,
         }
+    }
+}
+
+/// The first product of a gated feed-forward, its `out / 2` gates then their values, with its
+/// rows in groups of 4 gates then their 4 values: the columns of a thread of
+/// `matmul_blocked.wgsl`, which then gives `gelu(gate) * value` itself.
+fn gates_beside_values(l: &Linear) -> Linear {
+    let half = l.out / 2;
+    let rows: Vec<usize> =
+        (0..half).step_by(4).flat_map(|g| (g..g + 4).chain(half + g..half + g + 4)).collect();
+    let weight = l.weight.to_f16();
+    Linear {
+        weight: Values::F16(rows.iter().flat_map(|&r| &weight[r * l.inp..][..l.inp]).copied().collect()),
+        bias: l.bias.as_ref().map(|b| rows.iter().map(|&r| b[r]).collect()),
+        out: l.out,
+        inp: l.inp,
     }
 }
 
@@ -910,7 +988,7 @@ impl Planner<'_> {
                 .map(|axis| {
                     let len = axis.len(seq_frames, seq_bands);
                     let pairs = axis.groups(seq_frames, seq_bands) * c.heads;
-                    self.scores_slice(len, pairs) as u64 * (len * len * 4) as u64
+                    self.scores_slice(len, pairs) as u64 * scores_bytes(len)
                 })
                 .into_iter()
                 .max()
@@ -988,8 +1066,11 @@ impl Planner<'_> {
                 let input = Input { buffer: &attended, store: Store::Act, ld: c.inner_dim(), off: 0 };
                 steps.extend(self.matmul(&l.out, input, tokens, x_rows, Act::None, true));
                 steps.push(self.norm(&x, &normed, tokens, c.dim, (c.dim, 0), (c.dim, 0)));
-                let into = Input { buffer: &hidden, store: Store::Act, ld: l.ff1.out, off: 0 };
-                if c.ff_glu {
+                let width = if p.gated_products { l.ff1.out / 2 } else { l.ff1.out };
+                let into = Input { buffer: &hidden, store: Store::Act, ld: width, off: 0 };
+                if p.gated_products {
+                    steps.extend(self.matmul(&l.ff1, normed_in, tokens, into, Act::Gated, false));
+                } else if c.ff_glu {
                     steps.extend(self.matmul(&l.ff1, normed_in, tokens, into, Act::None, false));
                     steps.push(self.geglu(&hidden, tokens, l.ff1.out / 2));
                 } else {
@@ -1137,7 +1218,10 @@ impl Planner<'_> {
         let aligned = l.inp % 4 == 0 && a.ld % 4 == 0 && a.off % 4 == 0;
         let (pipeline, tile) = match pipelines.blocked.as_ref().filter(|_| aligned) {
             Some(blocked) => (blocked, BLOCKED_TILE),
-            None => (pipelines.matmul(a.store, out.store), pipelines.matmul_tile),
+            None => {
+                assert!(!matches!(act, Act::Gated), "the gated products are blocked");
+                (pipelines.matmul(a.store, out.store), pipelines.matmul_tile)
+            }
         };
         let groups = (l.out.div_ceil(tile) as u32, rows.div_ceil(tile) as u32);
         let uniform = [
@@ -1200,8 +1284,7 @@ impl Planner<'_> {
     fn scores_slice(&self, len: usize, pairs: usize) -> usize {
         let bytes = if self.net.gpu.share.is_some() { PACED_SCORES_BYTES } else { SCORES_BYTES };
         let budget = bytes.min(self.net.gpu.max_binding);
-        let per_pair = (len * len * 4) as u64;
-        usize::try_from(budget / per_pair).unwrap_or(usize::MAX).clamp(1, pairs.max(1))
+        usize::try_from(budget / scores_bytes(len)).unwrap_or(usize::MAX).clamp(1, pairs.max(1))
     }
 
     fn attention(
@@ -1218,35 +1301,38 @@ impl Planner<'_> {
         if let Some([products, softmax, values]) = &self.net.pipelines.attention_products {
             let pairs = axis.groups(frames, bands) * c.heads;
             // as many as the scores buffer holds, and the GPU binds
-            let held = scores.size().min(self.net.gpu.max_binding) / (len * len * 4) as u64;
+            let held = scores.size().min(self.net.gpu.max_binding) / scores_bytes(len);
             assert!(held > 0, "the scores of a sequence and head fit in their buffer");
             let slice = usize::try_from(held).unwrap_or(usize::MAX).min(pairs);
-            let query_groups = len.div_ceil(64);
+            let (query_groups, value_groups) = (len.div_ceil(64), len.div_ceil(value_queries(c.dim_head)));
             let mut steps = Vec::new();
             for first in (0..pairs).step_by(slice) {
                 let count = slice.min(pairs - first);
                 let (rows, rows_x) = grid(count * len);
-                let uniform = |groups_x: usize| {
+                let uniform = |query_groups: usize, groups_x: usize| {
                     words(&[
                         len,
+                        len.div_ceil(4),
                         bands,
                         axis_id(axis),
                         c.qkvg_width() / 4,
                         c.inner_dim() / 4,
+                        c.kv_dim() / 4,
                         c.heads,
+                        c.heads / c.kv_heads,
                         first,
                         count,
                         query_groups,
                         groups_x,
                     ])
                 };
-                let blocks = (query_groups * count) as u32;
                 let flops = 2 * count * len * len * c.dim_head;
-                let scored =
-                    self.step(products, (len.div_ceil(64) as u32, blocks), &[qkvg, scores], &uniform(0));
+                let groups = (len.div_ceil(64) as u32, (query_groups * count) as u32);
+                let scored = self.step(products, groups, &[qkvg, scores], &uniform(query_groups, 0));
                 steps.push(Step { flops, ..scored });
-                steps.push(self.step(softmax, rows, &[scores], &uniform(rows_x)));
-                let valued = self.step(values, (1, blocks), &[qkvg, scores, out], &uniform(0));
+                steps.push(self.step(softmax, rows, &[scores], &uniform(query_groups, rows_x)));
+                let groups = (1, (value_groups * count) as u32);
+                let valued = self.step(values, groups, &[qkvg, scores, out], &uniform(value_groups, 0));
                 steps.push(Step { flops, ..valued });
             }
             return steps;
@@ -1357,12 +1443,13 @@ mod tests {
     const HEADS: [(usize, usize, bool); 2] = [(64, 4, true), (32, 2, false)];
 
     /// A network of 4 heads shaped as `heads` on `bands` bands (its weights play no part
-    /// here), its attention on the matrix units (`matrix`) or on the shader cores; `None` where
-    /// this machine cannot.
+    /// here), its attention on the matrix units (`matrix`) or on the shader cores, as `attention`
+    /// if given; `None` where this machine cannot.
     fn network(
         bands: usize,
         matrix: bool,
         (dim_head, kv_heads, gates): (usize, usize, bool),
+        attention: Option<Attention>,
     ) -> Option<GpuNetwork> {
         let config = Config {
             dim: 64,
@@ -1415,7 +1502,8 @@ mod tests {
             registers: Vec::new(),
             extra: Default::default(),
         };
-        let options = GpuOptions { software: true, without_matrix_units: !matrix, ..Default::default() };
+        let options =
+            GpuOptions { software: true, without_matrix_units: !matrix, attention, ..Default::default() };
         let net = match GpuNetwork::with_options(weights, options) {
             Ok(net) => net,
             Err(StemsError::NoGpu(e)) => {
@@ -1547,7 +1635,7 @@ mod tests {
     #[test]
     fn the_attention_on_the_matrix_units_matches_a_plain_one() {
         for ((axis, frames, bands), heads) in SEQUENCES.into_iter().flat_map(|s| HEADS.map(|h| (s, h))) {
-            let Some(net) = network(bands, true, heads) else { return };
+            let Some(net) = network(bands, true, heads, None) else { return };
             let c = &net.geometry.config;
             let (tokens, len) = (frames * bands, axis.len(frames, bands));
             let qkvg = projections(c, axis, frames, bands);
@@ -1568,15 +1656,31 @@ mod tests {
         }
     }
 
-    /// Over sequences that end in partial blocks of queries and keys; for the attention as
-    /// products, several slices of sequences and heads among them where the scores do not fit
-    /// at once.
+    /// The gated heads of 64 values take the products unless told otherwise, the others the
+    /// attention in one pass.
+    #[test]
+    fn the_shader_cores_choose_the_attention_by_the_heads() {
+        for heads in HEADS {
+            for (attention, products) in [
+                (None, heads == HEADS[0]),
+                (Some(Attention::Products), true),
+                (Some(Attention::OnePass), false),
+            ] {
+                let Some(net) = network(3, false, heads, attention) else { return };
+                assert_eq!(net.pipelines.attention_products.is_some(), products, "{heads:?}, {attention:?}");
+            }
+        }
+    }
+
+    /// Both attentions, over sequences that end in partial blocks of queries and keys; for the
+    /// attention as products, several slices of sequences and heads among them where the scores
+    /// do not fit at once.
     #[test]
     fn the_attention_on_the_shader_cores_matches_a_plain_one() {
-        for ((axis, frames, bands), heads) in SEQUENCES.into_iter().flat_map(|s| HEADS.map(|h| (s, h))) {
-            let Some(net) = network(bands, false, heads) else { return };
-            let products = net.pipelines.attention_products.is_some();
-            assert_eq!(products, heads == HEADS[0], "the gated heads of 64 values take the products");
+        let cases = SEQUENCES.into_iter().flat_map(|s| HEADS.map(|h| (s, h)));
+        let cases = cases.flat_map(|c| [Attention::OnePass, Attention::Products].map(|a| (c, a)));
+        for (((axis, frames, bands), heads), attention) in cases {
+            let Some(net) = network(bands, false, heads, Some(attention)) else { return };
             let c = &net.geometry.config;
             let (tokens, len) = (frames * bands, axis.len(frames, bands));
             let qkvg = projections(c, axis, frames, bands);
@@ -1588,13 +1692,14 @@ mod tests {
             let angles = storage(&net.gpu.device, bytemuck::cast_slice(&angles(freqs, len, len)));
             let out = planner.buffer(Store::F32, tokens * c.inner_dim(), wgpu::BufferUsages::COPY_SRC);
             // two sequences and heads a slice: the slices take turns in the same scores
-            let scores = planner.buffer(Store::F32, 2 * len * len, wgpu::BufferUsages::empty());
+            let scores =
+                planner.buffer(Store::F32, 2 * len * len.next_multiple_of(4), wgpu::BufferUsages::empty());
             let mut steps = vec![planner.rotary(&input, &angles, axis, tokens)];
             steps.extend(planner.attention(&input, &angles, &out, &scores, axis));
             let bytes = run(&net, &steps, &out);
             let got = &bytemuck::cast_slice::<u8, f32>(&bytes)[..tokens * c.inner_dim()];
             let err = relative_error(got.iter().copied(), &expected);
-            assert!(err < 1e-4, "{axis:?}, {heads:?}: relative error {err:e}");
+            assert!(err < 1e-4, "{axis:?}, {heads:?}, {attention:?}: relative error {err:e}");
         }
     }
 }

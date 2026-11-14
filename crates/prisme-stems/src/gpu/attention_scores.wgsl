@@ -5,13 +5,19 @@
 
 struct Params {
     len: u32,
+    // the scores of a query, padded to whole vectors of 4
+    ld4: u32,
     bands: u32,
     // 0: sequences along the frames (one per band), 1: along the bands (one per frame)
     axis: u32,
-    // the widths of the projections and of the output, in vectors of 4
+    // the widths of a token's projections, of its queries (and output) and of its keys (or
+    // values), in vectors of 4
     width4: u32,
     inner4: u32,
+    kv4: u32,
     heads: u32,
+    // heads of queries per head of keys and values
+    kv_share: u32,
     // the sequences and heads of this slice: from `first`, `count` of them
     first: u32,
     count: u32,
@@ -25,7 +31,7 @@ fn token(group: u32, i: u32) -> u32 {
 }
 
 @group(0) @binding(0) var<storage, read> qkvg: array<vec4<f32>>;
-@group(0) @binding(1) var<storage, read_write> scores: array<f32>;
+@group(0) @binding(1) var<storage, read_write> scores: array<vec4<f32>>;
 @group(0) @binding(2) var<uniform> p: Params;
 
 @compute @workgroup_size(8, 8)
@@ -40,23 +46,24 @@ fn main(@builtin(workgroup_id) wg: vec3<u32>, @builtin(local_invocation_id) lid:
     let i0 = ((wg.y % p.query_groups) * 8u + lid.y) * 8u;
     let j0 = (wg.x * 8u + lid.x) * 8u;
     let last = p.len - 1u;
-    let head4 = head * 16u;
-    let qr0 = token(group, min(i0 + 0u, last)) * p.width4 + head4;
-    let qr1 = token(group, min(i0 + 1u, last)) * p.width4 + head4;
-    let qr2 = token(group, min(i0 + 2u, last)) * p.width4 + head4;
-    let qr3 = token(group, min(i0 + 3u, last)) * p.width4 + head4;
-    let qr4 = token(group, min(i0 + 4u, last)) * p.width4 + head4;
-    let qr5 = token(group, min(i0 + 5u, last)) * p.width4 + head4;
-    let qr6 = token(group, min(i0 + 6u, last)) * p.width4 + head4;
-    let qr7 = token(group, min(i0 + 7u, last)) * p.width4 + head4;
-    let kr0 = token(group, min(j0 + 0u, last)) * p.width4 + p.inner4 + head4;
-    let kr1 = token(group, min(j0 + 1u, last)) * p.width4 + p.inner4 + head4;
-    let kr2 = token(group, min(j0 + 2u, last)) * p.width4 + p.inner4 + head4;
-    let kr3 = token(group, min(j0 + 3u, last)) * p.width4 + p.inner4 + head4;
-    let kr4 = token(group, min(j0 + 4u, last)) * p.width4 + p.inner4 + head4;
-    let kr5 = token(group, min(j0 + 5u, last)) * p.width4 + p.inner4 + head4;
-    let kr6 = token(group, min(j0 + 6u, last)) * p.width4 + p.inner4 + head4;
-    let kr7 = token(group, min(j0 + 7u, last)) * p.width4 + p.inner4 + head4;
+    let q4 = head * DH4;
+    let k4 = p.inner4 + head / p.kv_share * DH4;
+    let qr0 = token(group, min(i0 + 0u, last)) * p.width4 + q4;
+    let qr1 = token(group, min(i0 + 1u, last)) * p.width4 + q4;
+    let qr2 = token(group, min(i0 + 2u, last)) * p.width4 + q4;
+    let qr3 = token(group, min(i0 + 3u, last)) * p.width4 + q4;
+    let qr4 = token(group, min(i0 + 4u, last)) * p.width4 + q4;
+    let qr5 = token(group, min(i0 + 5u, last)) * p.width4 + q4;
+    let qr6 = token(group, min(i0 + 6u, last)) * p.width4 + q4;
+    let qr7 = token(group, min(i0 + 7u, last)) * p.width4 + q4;
+    let kr0 = token(group, min(j0 + 0u, last)) * p.width4 + k4;
+    let kr1 = token(group, min(j0 + 1u, last)) * p.width4 + k4;
+    let kr2 = token(group, min(j0 + 2u, last)) * p.width4 + k4;
+    let kr3 = token(group, min(j0 + 3u, last)) * p.width4 + k4;
+    let kr4 = token(group, min(j0 + 4u, last)) * p.width4 + k4;
+    let kr5 = token(group, min(j0 + 5u, last)) * p.width4 + k4;
+    let kr6 = token(group, min(j0 + 6u, last)) * p.width4 + k4;
+    let kr7 = token(group, min(j0 + 7u, last)) * p.width4 + k4;
     var acc0_0 = vec4<f32>(0.0);
     var acc0_1 = vec4<f32>(0.0);
     var acc1_0 = vec4<f32>(0.0);
@@ -73,7 +80,7 @@ fn main(@builtin(workgroup_id) wg: vec3<u32>, @builtin(local_invocation_id) lid:
     var acc6_1 = vec4<f32>(0.0);
     var acc7_0 = vec4<f32>(0.0);
     var acc7_1 = vec4<f32>(0.0);
-    for (var d = 0u; d < 16u; d++) {
+    for (var d = 0u; d < DH4; d++) {
         let k0 = qkvg[kr0 + d];
         let k1 = qkvg[kr1 + d];
         let k2 = qkvg[kr2 + d];
@@ -165,91 +172,43 @@ fn main(@builtin(workgroup_id) wg: vec3<u32>, @builtin(local_invocation_id) lid:
     }
     let rows = local * p.len;
     if (i0 + 0u < p.len) {
-        let at = (rows + i0 + 0u) * p.len;
-        if (j0 + 0u < p.len) { scores[at + j0 + 0u] = acc0_0.x; }
-        if (j0 + 1u < p.len) { scores[at + j0 + 1u] = acc0_0.y; }
-        if (j0 + 2u < p.len) { scores[at + j0 + 2u] = acc0_0.z; }
-        if (j0 + 3u < p.len) { scores[at + j0 + 3u] = acc0_0.w; }
-        if (j0 + 4u < p.len) { scores[at + j0 + 4u] = acc0_1.x; }
-        if (j0 + 5u < p.len) { scores[at + j0 + 5u] = acc0_1.y; }
-        if (j0 + 6u < p.len) { scores[at + j0 + 6u] = acc0_1.z; }
-        if (j0 + 7u < p.len) { scores[at + j0 + 7u] = acc0_1.w; }
+        let at = (rows + i0 + 0u) * p.ld4 + j0 / 4u;
+        if (j0 + 0u < p.len) { scores[at + 0u] = acc0_0; }
+        if (j0 + 4u < p.len) { scores[at + 1u] = acc0_1; }
     }
     if (i0 + 1u < p.len) {
-        let at = (rows + i0 + 1u) * p.len;
-        if (j0 + 0u < p.len) { scores[at + j0 + 0u] = acc1_0.x; }
-        if (j0 + 1u < p.len) { scores[at + j0 + 1u] = acc1_0.y; }
-        if (j0 + 2u < p.len) { scores[at + j0 + 2u] = acc1_0.z; }
-        if (j0 + 3u < p.len) { scores[at + j0 + 3u] = acc1_0.w; }
-        if (j0 + 4u < p.len) { scores[at + j0 + 4u] = acc1_1.x; }
-        if (j0 + 5u < p.len) { scores[at + j0 + 5u] = acc1_1.y; }
-        if (j0 + 6u < p.len) { scores[at + j0 + 6u] = acc1_1.z; }
-        if (j0 + 7u < p.len) { scores[at + j0 + 7u] = acc1_1.w; }
+        let at = (rows + i0 + 1u) * p.ld4 + j0 / 4u;
+        if (j0 + 0u < p.len) { scores[at + 0u] = acc1_0; }
+        if (j0 + 4u < p.len) { scores[at + 1u] = acc1_1; }
     }
     if (i0 + 2u < p.len) {
-        let at = (rows + i0 + 2u) * p.len;
-        if (j0 + 0u < p.len) { scores[at + j0 + 0u] = acc2_0.x; }
-        if (j0 + 1u < p.len) { scores[at + j0 + 1u] = acc2_0.y; }
-        if (j0 + 2u < p.len) { scores[at + j0 + 2u] = acc2_0.z; }
-        if (j0 + 3u < p.len) { scores[at + j0 + 3u] = acc2_0.w; }
-        if (j0 + 4u < p.len) { scores[at + j0 + 4u] = acc2_1.x; }
-        if (j0 + 5u < p.len) { scores[at + j0 + 5u] = acc2_1.y; }
-        if (j0 + 6u < p.len) { scores[at + j0 + 6u] = acc2_1.z; }
-        if (j0 + 7u < p.len) { scores[at + j0 + 7u] = acc2_1.w; }
+        let at = (rows + i0 + 2u) * p.ld4 + j0 / 4u;
+        if (j0 + 0u < p.len) { scores[at + 0u] = acc2_0; }
+        if (j0 + 4u < p.len) { scores[at + 1u] = acc2_1; }
     }
     if (i0 + 3u < p.len) {
-        let at = (rows + i0 + 3u) * p.len;
-        if (j0 + 0u < p.len) { scores[at + j0 + 0u] = acc3_0.x; }
-        if (j0 + 1u < p.len) { scores[at + j0 + 1u] = acc3_0.y; }
-        if (j0 + 2u < p.len) { scores[at + j0 + 2u] = acc3_0.z; }
-        if (j0 + 3u < p.len) { scores[at + j0 + 3u] = acc3_0.w; }
-        if (j0 + 4u < p.len) { scores[at + j0 + 4u] = acc3_1.x; }
-        if (j0 + 5u < p.len) { scores[at + j0 + 5u] = acc3_1.y; }
-        if (j0 + 6u < p.len) { scores[at + j0 + 6u] = acc3_1.z; }
-        if (j0 + 7u < p.len) { scores[at + j0 + 7u] = acc3_1.w; }
+        let at = (rows + i0 + 3u) * p.ld4 + j0 / 4u;
+        if (j0 + 0u < p.len) { scores[at + 0u] = acc3_0; }
+        if (j0 + 4u < p.len) { scores[at + 1u] = acc3_1; }
     }
     if (i0 + 4u < p.len) {
-        let at = (rows + i0 + 4u) * p.len;
-        if (j0 + 0u < p.len) { scores[at + j0 + 0u] = acc4_0.x; }
-        if (j0 + 1u < p.len) { scores[at + j0 + 1u] = acc4_0.y; }
-        if (j0 + 2u < p.len) { scores[at + j0 + 2u] = acc4_0.z; }
-        if (j0 + 3u < p.len) { scores[at + j0 + 3u] = acc4_0.w; }
-        if (j0 + 4u < p.len) { scores[at + j0 + 4u] = acc4_1.x; }
-        if (j0 + 5u < p.len) { scores[at + j0 + 5u] = acc4_1.y; }
-        if (j0 + 6u < p.len) { scores[at + j0 + 6u] = acc4_1.z; }
-        if (j0 + 7u < p.len) { scores[at + j0 + 7u] = acc4_1.w; }
+        let at = (rows + i0 + 4u) * p.ld4 + j0 / 4u;
+        if (j0 + 0u < p.len) { scores[at + 0u] = acc4_0; }
+        if (j0 + 4u < p.len) { scores[at + 1u] = acc4_1; }
     }
     if (i0 + 5u < p.len) {
-        let at = (rows + i0 + 5u) * p.len;
-        if (j0 + 0u < p.len) { scores[at + j0 + 0u] = acc5_0.x; }
-        if (j0 + 1u < p.len) { scores[at + j0 + 1u] = acc5_0.y; }
-        if (j0 + 2u < p.len) { scores[at + j0 + 2u] = acc5_0.z; }
-        if (j0 + 3u < p.len) { scores[at + j0 + 3u] = acc5_0.w; }
-        if (j0 + 4u < p.len) { scores[at + j0 + 4u] = acc5_1.x; }
-        if (j0 + 5u < p.len) { scores[at + j0 + 5u] = acc5_1.y; }
-        if (j0 + 6u < p.len) { scores[at + j0 + 6u] = acc5_1.z; }
-        if (j0 + 7u < p.len) { scores[at + j0 + 7u] = acc5_1.w; }
+        let at = (rows + i0 + 5u) * p.ld4 + j0 / 4u;
+        if (j0 + 0u < p.len) { scores[at + 0u] = acc5_0; }
+        if (j0 + 4u < p.len) { scores[at + 1u] = acc5_1; }
     }
     if (i0 + 6u < p.len) {
-        let at = (rows + i0 + 6u) * p.len;
-        if (j0 + 0u < p.len) { scores[at + j0 + 0u] = acc6_0.x; }
-        if (j0 + 1u < p.len) { scores[at + j0 + 1u] = acc6_0.y; }
-        if (j0 + 2u < p.len) { scores[at + j0 + 2u] = acc6_0.z; }
-        if (j0 + 3u < p.len) { scores[at + j0 + 3u] = acc6_0.w; }
-        if (j0 + 4u < p.len) { scores[at + j0 + 4u] = acc6_1.x; }
-        if (j0 + 5u < p.len) { scores[at + j0 + 5u] = acc6_1.y; }
-        if (j0 + 6u < p.len) { scores[at + j0 + 6u] = acc6_1.z; }
-        if (j0 + 7u < p.len) { scores[at + j0 + 7u] = acc6_1.w; }
+        let at = (rows + i0 + 6u) * p.ld4 + j0 / 4u;
+        if (j0 + 0u < p.len) { scores[at + 0u] = acc6_0; }
+        if (j0 + 4u < p.len) { scores[at + 1u] = acc6_1; }
     }
     if (i0 + 7u < p.len) {
-        let at = (rows + i0 + 7u) * p.len;
-        if (j0 + 0u < p.len) { scores[at + j0 + 0u] = acc7_0.x; }
-        if (j0 + 1u < p.len) { scores[at + j0 + 1u] = acc7_0.y; }
-        if (j0 + 2u < p.len) { scores[at + j0 + 2u] = acc7_0.z; }
-        if (j0 + 3u < p.len) { scores[at + j0 + 3u] = acc7_0.w; }
-        if (j0 + 4u < p.len) { scores[at + j0 + 4u] = acc7_1.x; }
-        if (j0 + 5u < p.len) { scores[at + j0 + 5u] = acc7_1.y; }
-        if (j0 + 6u < p.len) { scores[at + j0 + 6u] = acc7_1.z; }
-        if (j0 + 7u < p.len) { scores[at + j0 + 7u] = acc7_1.w; }
+        let at = (rows + i0 + 7u) * p.ld4 + j0 / 4u;
+        if (j0 + 0u < p.len) { scores[at + 0u] = acc7_0; }
+        if (j0 + 4u < p.len) { scores[at + 1u] = acc7_1; }
     }
 }

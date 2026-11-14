@@ -176,6 +176,7 @@ const GPU_OPTIONS: GpuOptions = GpuOptions {
     max_binding: None,
     profile: false,
     share: if cfg!(mobile) { Some(1.0) } else { None },
+    attention: None,
 };
 
 /// Whether the DJ lets the separation use the graphics chip.
