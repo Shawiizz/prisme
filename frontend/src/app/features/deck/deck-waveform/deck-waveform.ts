@@ -185,7 +185,7 @@ export class DeckWaveform {
     if (drag.jog && drag.touch === null) return;
     if (!drag.moved || event.timeStamp - drag.sentAt < HAND_EVERY_MS) return;
     drag.sentAt = event.timeStamp;
-    const width = (event.currentTarget as HTMLElement).clientWidth;
+    const width = (event.currentTarget as HTMLElement).getBoundingClientRect().width;
     const at =
       drag.view === 'overview'
         ? this.overviewTime(event)
@@ -235,7 +235,7 @@ export class DeckWaveform {
   /** The finger slides the edge of the jog: the waveform follows it as far as the track
    * goes, pushing a playing track for a moment, moving a stopped one. */
   private turnEdge(drag: Drag, event: PointerEvent) {
-    const width = (event.currentTarget as HTMLElement).clientWidth;
+    const width = (event.currentTarget as HTMLElement).getBoundingClientRect().width;
     const seconds = -((event.clientX - drag.lastX) / width) * this.zoomSpan();
     drag.lastX = event.clientX;
     if (seconds !== 0) this.engine.jog(this.deck(), seconds / JOG_TURN_S, event.timeStamp);

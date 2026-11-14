@@ -773,10 +773,10 @@
                   <button
                     class="pr-switch"
                     role="switch"
-                    [attr.aria-checked]="screens.split() !== null"
+                    [attr.aria-checked]="screens.span() !== null"
                     [attr.aria-label]="e.label"
                     [disabled]="!screens.below()"
-                    (click)="screens.span(screens.split() === null)"
+                    (click)="screens.spread(screens.span() === null)"
                   >
                     <span></span>
                   </button>

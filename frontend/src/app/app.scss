@@ -68,6 +68,8 @@ app-phase-strip {
     min-height: 0;
     padding: var(--pr-space-2) 10px;
     border-top: 1px solid var(--pr-line);
+    // at the scale of the screen below, though the window draws at the main screen's
+    zoom: var(--under-zoom);
     --pr-lane-top: minmax(124px, 1fr);
     --pr-lane-top-compact: minmax(44px, 1fr);
     app-deck-lane {

@@ -6,7 +6,12 @@
 } @else {
   <app-titlebar />
 
-  <main class="layout" [class.split]="under() !== null" [style.--under.px]="under()">
+  <main
+    class="layout"
+    [class.split]="under() !== null"
+    [style.--under.px]="under()"
+    [style.--under-zoom]="underZoom()"
+  >
     @if (under() !== null) {
       <app-now-playing />
     }

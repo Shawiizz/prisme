@@ -65,13 +65,15 @@ export class App implements OnInit {
   /** Four decks, or a screen below too short for whole lanes: compact lanes. */
   protected readonly compact = computed(() => {
     const under = this.under();
-    return this.decks().length > 2 || (under !== null && under < WHOLE_LANES_PX);
+    return this.decks().length > 2 || (under !== null && under / this.underZoom() < WHOLE_LANES_PX);
   });
   /** Spread over a screen below: the height the decks have on it (CSS px). */
   protected readonly under = computed(() => {
-    const split = this.screens.split();
-    return split === null ? null : Math.max(this.height() - split, 0);
+    const span = this.screens.span();
+    return span === null ? null : Math.max(this.height() - span.split, 0);
   });
+  /** The scale of the screen below against the main one's (see `ScreensService`). */
+  protected readonly underZoom = computed(() => this.screens.span()?.zoom ?? 1);
 
   constructor() {
     // a touch screen, a phone's or a laptop's, takes several fingers at once
