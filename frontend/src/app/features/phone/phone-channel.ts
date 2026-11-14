@@ -12,20 +12,32 @@ const METER_SEGMENTS = 16;
 const MARKS = Array.from({ length: 11 }, (_, i) => i % 5 === 0);
 
 /**
- * A deck's channel on the table of a phone, as a mixer lays one out: its EQ and filter, the
- * headphones, then its fader between its marks and its level. The `b` side is its mirror.
+ * A deck's channel on the table of a phone, as a mixer lays one out: its EQ and filter, then
+ * its fader between its marks and its level, the headphones beside it. The `b` side is its
+ * mirror.
  */
 @Component({
   selector: 'app-phone-channel',
   template: `
     <app-channel-strip [deck]="deck()" [trim]="false" />
     <button
-      class="pr-btn cue"
+      class="pr-btn pr-btn--icon cue"
       [class.is-on]="cued()"
       [attr.aria-pressed]="cued()"
       (click)="mixer.setDeckCue(deck(), !cued())"
+      [title]="'Hear this deck in the headphones' | t"
+      [attr.aria-label]="'Hear this deck in the headphones' | t"
     >
-      {{ 'Headphones' | t }}
+      <svg viewBox="0 0 16 16" aria-hidden="true">
+        <path
+          d="M2.5 10V8a5.5 5.5 0 0 1 11 0v2"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.5"
+        />
+        <rect x="1.5" y="9" width="3.5" height="5" rx="1" fill="currentColor" />
+        <rect x="11" y="9" width="3.5" height="5" rx="1" fill="currentColor" />
+      </svg>
     </button>
     <div class="strip">
       <div class="marks">

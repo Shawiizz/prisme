@@ -68,10 +68,17 @@ h4 {
 }
 .keys {
   gap: 6px;
+  // the headphones, an icon, after the two keys that share the line
+  grid-template-columns: 1fr 1fr;
+  grid-auto-columns: 44px;
   .pr-btn {
     height: 44px;
     padding: 0 6px;
     font-size: var(--pr-size-small);
+  }
+  .cue svg {
+    width: 16px;
+    height: 16px;
   }
 }
 
