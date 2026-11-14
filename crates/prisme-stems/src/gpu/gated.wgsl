@@ -1,10 +1,11 @@
 // The gated feed-forward's hidden features, in place of its gates: each row holds `width`
-// gates then `width` values, and its gates become gelu(gate) * value.
+// gates then `width` values, and its gates become act(gate) * value, GELU or SiLU.
 
 struct Params {
     rows: u32,
     width: u32,
     groups_x: u32,
+    silu: u32,
 }
 
 @group(0) @binding(0) var<storage, read_write> hidden: array<Act>;
@@ -25,5 +26,9 @@ fn main(@builtin(workgroup_id) wg: vec3<u32>, @builtin(local_invocation_index) l
     }
     let at = id / p.width * 2u * p.width + id % p.width;
     let gate = f32(hidden[at]);
-    hidden[at] = Act(0.5 * gate * (1.0 + erf(gate * 0.70710678118654752)) * f32(hidden[at + p.width]));
+    if (p.silu != 0u) {
+        hidden[at] = Act(gate / (1.0 + exp(-gate)) * f32(hidden[at + p.width]));
+    } else {
+        hidden[at] = Act(0.5 * gate * (1.0 + erf(gate * 0.70710678118654752)) * f32(hidden[at + p.width]));
+    }
 }

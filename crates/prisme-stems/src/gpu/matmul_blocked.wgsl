@@ -6,8 +6,8 @@
 // are multiples of 4 (the plan falls back on matmul_small.wgsl otherwise). Rows and columns
 // past the ends read the last ones, and are not written.
 //
-// For a gated feed-forward (act 3) the columns come in groups of 4 gates then their 4 values,
-// and the layer writes gelu(gate) * value, n / 2 columns.
+// For a gated feed-forward (act 3, or 4 for SiLU) the columns come in groups of 4 gates then
+// their 4 values, and the layer writes act(gate) * value, n / 2 columns.
 
 struct Params {
     m: u32,
@@ -17,7 +17,7 @@ struct Params {
     a_off: u32,
     ldc: u32,
     c_off: u32,
-    // 0: none, 1: GELU, 2: tanh, 3: gated GELU
+    // 0: none, 1: GELU, 2: tanh, 3: gated GELU, 4: gated SiLU
     act: u32,
     accumulate: u32,
     has_bias: u32,
@@ -76,7 +76,13 @@ fn store_gated(r: u32, col: u32, gate: f32, value: f32) {
         g += bias[col];
         v += bias[col + 4u];
     }
-    c[p.c_off + r * p.ldc + col / 8u * 4u + col % 8u] = gelu(g) * v;
+    var gated = 0.0;
+    if (p.act == 4u) {
+        gated = g / (1.0 + exp(-g)) * v;
+    } else {
+        gated = gelu(g) * v;
+    }
+    c[p.c_off + r * p.ldc + col / 8u * 4u + col % 8u] = gated;
 }
 
 @compute @workgroup_size(8, 8)
@@ -216,7 +222,7 @@ fn main(@builtin(global_invocation_id) g: vec3<u32>) {
         acc7_1 = fma(vec4(a7.z), t1_2, acc7_1);
         acc7_1 = fma(vec4(a7.w), t1_3, acc7_1);
     }
-    if (p.act == 3u) {
+    if (p.act >= 3u) {
         store_gated(row0 + 0u, col0 + 0u, acc0_0.x, acc0_1.x);
         store_gated(row0 + 0u, col0 + 1u, acc0_0.y, acc0_1.y);
         store_gated(row0 + 0u, col0 + 2u, acc0_0.z, acc0_1.z);

@@ -8,7 +8,7 @@
 use gemm::Parallelism;
 use rayon::prelude::*;
 
-use crate::model::{Config, Geometry, Linear, Weights};
+use crate::model::{Band, Config, FeedForward, Geometry, Linear, Pool, Weights};
 use crate::network::{Axis, MaskNetwork};
 use crate::StemsError;
 
@@ -64,6 +64,7 @@ impl CpuNetwork {
         let c = &g.config;
         let eps = c.norm_eps;
         let bands = g.bands.len();
+        let token_frames = c.token_frames(frames);
         let (seq_frames, seq_bands) = (c.seq_frames(frames), g.seq_bands());
         let tokens = seq_frames * seq_bands;
 
@@ -71,12 +72,50 @@ impl CpuNetwork {
         for (r, register) in w.registers.chunks_exact(c.dim).enumerate() {
             x[g.register_token(frames, r) * c.dim..][..c.dim].copy_from_slice(register);
         }
-        for (b, (band, proj)) in g.bands.iter().zip(&w.band_proj).enumerate() {
+        let band_frames = |band: &Band| -> Vec<f32> {
             let mut normed: Vec<f32> = (0..frames)
                 .flat_map(|t| bins[t * features + band.offset..][..band.width].iter().copied())
                 .collect();
             normed.chunks_exact_mut(band.width).for_each(|row| rms_normalize(row, eps));
-            linear(proj, frames, &normed, band.width, &mut x[b * c.dim..], seq_bands * c.dim, false);
+            normed
+        };
+        match &w.grouping {
+            None => {
+                for (b, (band, proj)) in g.bands.iter().zip(&w.band_proj).enumerate() {
+                    let normed = band_frames(band);
+                    linear(proj, frames, &normed, band.width, &mut x[b * c.dim..], seq_bands * c.dim, false);
+                }
+            }
+            Some(grouping) => {
+                let band_dim = w.band_dim();
+                let per_band: Vec<Vec<f32>> = g
+                    .bands
+                    .par_iter()
+                    .zip(&w.band_proj)
+                    .map(|(band, proj)| {
+                        // the frames padding the last token stay silent
+                        let mut split = vec![0.0; token_frames * c.group * band_dim];
+                        let normed = band_frames(band);
+                        linear_with(
+                            proj,
+                            frames,
+                            &normed,
+                            band.width,
+                            &mut split,
+                            band_dim,
+                            false,
+                            Parallelism::None,
+                        );
+                        split.chunks_exact_mut(band_dim).for_each(|row| rms_normalize(row, eps));
+                        feed_forward(&grouping.input, token_frames, &split, c.silu)
+                    })
+                    .collect();
+                for (b, band_tokens) in per_band.iter().enumerate() {
+                    for (t, token) in band_tokens.chunks_exact(c.dim).enumerate() {
+                        x[(t * seq_bands + b) * c.dim..][..c.dim].copy_from_slice(token);
+                    }
+                }
+            }
         }
 
         let mut scratch = Scratch::new(tokens, c);
@@ -88,7 +127,7 @@ impl CpuNetwork {
             }
             let rotary = Rotary::new(
                 if axis == Axis::Time { &w.rotary_time } else { &w.rotary_freq },
-                axis.len(frames, bands),
+                axis.len(token_frames, bands),
                 axis.len(seq_frames, seq_bands),
             );
             for layer in &tr.layers {
@@ -105,10 +144,7 @@ impl CpuNetwork {
                 scratch.hidden.resize(tokens * hidden, 0.0);
                 linear(&layer.ff1, tokens, &scratch.normed, c.dim, &mut scratch.hidden, hidden, false);
                 if c.ff_glu {
-                    scratch.hidden.par_chunks_exact_mut(hidden).for_each(|row| {
-                        let (gate, value) = row.split_at_mut(hidden / 2);
-                        gate.iter_mut().zip(value).for_each(|(g, v)| *g = gelu(*g) * *v);
-                    });
+                    gated(&mut scratch.hidden, hidden, c.silu);
                 } else {
                     scratch.hidden.par_iter_mut().for_each(|v| *v = gelu(*v));
                 }
@@ -125,52 +161,136 @@ impl CpuNetwork {
             x.par_chunks_exact_mut(c.dim).for_each(|row| scale_normalize(row, norm, eps));
         }
 
-        let size = frames * features;
-        for (stem, out) in w.masks.iter().zip(out.chunks_exact_mut(size)) {
-            stem_masks(g, stem, &x, frames, out);
+        let stems = w.stem_queries.as_ref().map(|queries| {
+            let pooled = pool(&queries.bands, c, &x, token_frames, bands, seq_bands);
+            pool(&queries.tokens, c, &pooled, 1, token_frames, 0)
+        });
+        let size = frames * g.mask_features();
+        for (s, out) in out.chunks_exact_mut(size).enumerate() {
+            let stem = stems.as_ref().map(|stems| &stems[s * c.dim..][..c.dim]);
+            let per_band: Vec<Vec<f32>> = g
+                .mask_bands
+                .par_iter()
+                .zip(w.stem_masks(s))
+                .enumerate()
+                .map(|(b, (band, mlp))| {
+                    let mut tokens: Vec<f32> = (0..token_frames)
+                        .flat_map(|t| x[(t * seq_bands + b) * c.dim..][..c.dim].iter().copied())
+                        .collect();
+                    let Some(grouping) = &w.grouping else { return band_masks(c, mlp, tokens, band.width) };
+                    if let Some(stem) = stem {
+                        tokens
+                            .chunks_exact_mut(c.dim)
+                            .for_each(|t| t.iter_mut().zip(stem).for_each(|(t, s)| *t += s));
+                    }
+                    let mut frames_back = feed_forward(&grouping.output, token_frames, &tokens, c.silu);
+                    frames_back.truncate(frames * w.band_dim());
+                    frames_back.chunks_exact_mut(w.band_dim()).for_each(|row| rms_normalize(row, eps));
+                    band_masks(c, mlp, frames_back, band.width)
+                })
+                .collect();
+            for (band, masks) in g.mask_bands.iter().zip(per_band) {
+                for (t, row) in masks.chunks_exact(band.width).enumerate() {
+                    out[t * g.mask_features() + band.offset..][..band.width].copy_from_slice(row);
+                }
+            }
         }
     }
 }
 
-/// One stem's masks from the transformers' output.
-fn stem_masks(g: &Geometry, stem: &[Vec<Linear>], x: &[f32], frames: usize, out: &mut [f32]) {
-    let dim = g.config.dim;
-    let bands = g.seq_bands();
-    let features = g.features();
-    let glu = g.config.mask_glu;
-    let per_band: Vec<Vec<f32>> = g
-        .bands
-        .par_iter()
-        .zip(stem)
-        .enumerate()
-        .map(|(b, (band, mlp))| {
-            let mut input: Vec<f32> =
-                (0..frames).flat_map(|t| x[(t * bands + b) * dim..][..dim].iter().copied()).collect();
-            for (k, l) in mlp.iter().enumerate() {
-                let mut y = vec![0.0; frames * l.out];
-                linear_with(l, frames, &input, l.inp, &mut y, l.out, false, Parallelism::None);
-                if k + 1 < mlp.len() {
-                    y.iter_mut().for_each(|v| *v = v.tanh());
-                }
-                input = y;
-            }
-            if !glu {
-                return input;
-            }
-            input
-                .chunks_exact(band.width * 2)
-                .flat_map(|row| {
-                    let (a, gate) = row.split_at(band.width);
-                    a.iter().zip(gate).map(|(a, g)| a * sigmoid(*g))
+/// A band's masks from the rows of `input`, one per frame, through its estimator `mlp`.
+fn band_masks(c: &Config, mlp: &[Linear], mut input: Vec<f32>, width: usize) -> Vec<f32> {
+    let rows = input.len() / mlp.first().map_or(1, |l| l.inp);
+    for (k, l) in mlp.iter().enumerate() {
+        let mut y = vec![0.0; rows * l.out];
+        linear_with(l, rows, &input, l.inp, &mut y, l.out, false, Parallelism::None);
+        if k + 1 < mlp.len() {
+            y.iter_mut().for_each(|v| *v = v.tanh());
+        }
+        input = y;
+    }
+    if c.mask_glu {
+        input
+            .chunks_exact(width * 2)
+            .flat_map(|row| {
+                let (a, gate) = row.split_at(width);
+                a.iter().zip(gate).map(|(a, g)| a * sigmoid(*g))
+            })
+            .collect()
+    } else if c.pair_gates {
+        input
+            .chunks_exact(width + width / 2)
+            .flat_map(|row| {
+                let (a, gates) = row.split_at(width);
+                a.chunks_exact(2).zip(gates).flat_map(|(pair, g)| pair.iter().map(move |a| a * sigmoid(*g)))
+            })
+            .collect()
+    } else {
+        input
+    }
+}
+
+/// The attention of `pool`'s queries over `groups` sequences of `len` rows of `input` (the
+/// rows of a sequence follow each other, `stride` rows from those of the one before), then its
+/// feed-forward: a row of `dim` per sequence and query.
+fn pool(p: &Pool, c: &Config, input: &[f32], groups: usize, len: usize, stride: usize) -> Vec<f32> {
+    let (inner, kv, dh) = (c.inner_dim(), c.kv_dim(), c.dim_head);
+    let shared = c.heads / c.kv_heads;
+    let rows = (groups - 1) * stride + len;
+    let mut keys_values = vec![0.0; rows * 2 * kv];
+    linear(&p.kv, rows, input, c.dim, &mut keys_values, 2 * kv, false);
+    let queries = p.queries.len() / inner;
+    let attended: Vec<f32> = (0..groups * queries)
+        .into_par_iter()
+        .flat_map_iter(|row| {
+            let tokens = &keys_values[row / queries * stride * 2 * kv..][..len * 2 * kv];
+            let query = &p.queries[row % queries * inner..][..inner];
+            (0..c.heads).flat_map(move |h| {
+                let q = &query[h * dh..][..dh];
+                let at = h / shared * dh;
+                let mut scores: Vec<f32> = tokens
+                    .chunks_exact(2 * kv)
+                    .map(|t| q.iter().zip(&t[at..][..dh]).map(|(a, b)| a * b).sum())
+                    .collect();
+                softmax(&mut scores);
+                (0..dh).map(move |d| {
+                    tokens.chunks_exact(2 * kv).zip(&scores).map(|(t, s)| s * t[kv + at + d]).sum::<f32>()
                 })
-                .collect()
+            })
         })
         .collect();
-    for (band, mask) in g.bands.iter().zip(per_band) {
-        for (t, row) in mask.chunks_exact(band.width).enumerate() {
-            out[t * features + band.offset..][..band.width].copy_from_slice(row);
+    let n = groups * queries;
+    let mut y = vec![0.0; n * c.dim];
+    linear(&p.out, n, &attended, inner, &mut y, c.dim, false);
+    let mut normed = y.clone();
+    normed.chunks_exact_mut(c.dim).for_each(|row| rms_normalize(row, c.norm_eps));
+    let ff = feed_forward(&p.ff, n, &normed, c.silu);
+    y.iter_mut().zip(ff).for_each(|(y, f)| *y += f);
+    y
+}
+
+/// The gated feed-forward `ff` of `rows` rows of `input`.
+fn feed_forward(ff: &FeedForward, rows: usize, input: &[f32], silu: bool) -> Vec<f32> {
+    let hidden = ff.ff1.out;
+    let mut h = vec![0.0; rows * hidden];
+    linear_with(&ff.ff1, rows, input, ff.ff1.inp, &mut h, hidden, false, Parallelism::None);
+    gated(&mut h, hidden, silu);
+    let mut y = vec![0.0; rows * ff.ff2.out];
+    linear_with(&ff.ff2, rows, &h, hidden, &mut y, ff.ff2.out, false, Parallelism::None);
+    y
+}
+
+/// `act(gate) * value` in place of the gates of each row of `hidden` values, its gates then
+/// its values.
+fn gated(hidden: &mut [f32], width: usize, silu: bool) {
+    hidden.par_chunks_exact_mut(width).for_each(|row| {
+        let (gate, value) = row.split_at_mut(width / 2);
+        if silu {
+            gate.iter_mut().zip(value).for_each(|(g, v)| *g = *g * sigmoid(*g) * *v);
+        } else {
+            gate.iter_mut().zip(value).for_each(|(g, v)| *g = gelu(*g) * *v);
         }
-    }
+    });
 }
 
 struct Scratch {

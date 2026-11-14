@@ -1,7 +1,8 @@
 //! The separation against the reference implementation (PyTorch), on tiny random models
 //! written by `tools/export_roformer.py --fixture`: one of the vocals alone, as the first
 //! vocals model is laid out, and one of two stems with skip connections; and by
-//! `tools/export_bs_roformer.py --fixture`: a BS-RoFormer with grouped heads and registers.
+//! `tools/export_bs_roformer.py --fixture`: a BS-RoFormer with grouped heads and registers, and
+//! one of the V2.5 models, its frames grouped in tokens, its stems queries.
 
 use std::path::Path;
 
@@ -24,6 +25,10 @@ fn stems_fixture() -> Weights {
 
 fn bs_fixture() -> Weights {
     load("tiny_bs_roformer.safetensors")
+}
+
+fn v25_fixture() -> Weights {
+    load("tiny_bs_roformer_v25.safetensors")
 }
 
 /// The fixture's input and the reference's stems, one after the other.
@@ -51,7 +56,7 @@ fn separates_like_the_reference(net: impl MaskNetwork, audio: &[f32], expected: 
 
 #[test]
 fn the_cpu_network_separates_like_the_reference() {
-    for weights in [fixture(), stems_fixture(), bs_fixture()] {
+    for weights in [fixture(), stems_fixture(), bs_fixture(), v25_fixture()] {
         let (audio, expected) = reference(&weights);
         separates_like_the_reference(CpuNetwork::new(weights), &audio, &expected, 1e-4);
     }
@@ -107,7 +112,7 @@ fn matrix_units(weights: Weights) -> Option<GpuNetwork> {
 
 #[test]
 fn the_gpu_network_separates_like_the_reference() {
-    for weights in [fixture(), stems_fixture(), bs_fixture()] {
+    for weights in [fixture(), stems_fixture(), bs_fixture(), v25_fixture()] {
         let (audio, expected) = reference(&weights);
         let Some(net) = gpu(weights, true) else { return };
         separates_like_the_reference(net, &audio, &expected, F16_TOLERANCE);
@@ -137,7 +142,7 @@ fn networks_sharing_a_gpu_give_what_they_give_alone() {
         Err(e) => panic!("{e}"),
     };
     let frames = 150;
-    let weights = [fixture(), stems_fixture(), bs_fixture()];
+    let weights = [fixture(), stems_fixture(), bs_fixture(), v25_fixture()];
     let alone: Vec<Vec<f32>> = weights
         .iter()
         .map(|w| {
@@ -148,7 +153,7 @@ fn networks_sharing_a_gpu_give_what_they_give_alone() {
     // the later ones grow the buffers the first planned with
     let mut nets = weights.map(|w| GpuNetwork::on(&shared, &w).unwrap());
     let inputs: Vec<Vec<f32>> = nets.iter().map(|n| bins(n.geometry(), frames)).collect();
-    for order in [[0, 1, 2], [2, 1, 0], [1, 2, 0]] {
+    for order in [[0, 1, 2, 3], [3, 2, 1, 0], [1, 3, 0, 2]] {
         let mut outs: Vec<Vec<f32>> = nets.iter().map(|n| vec![0.0; n.geometry().mask_len(frames)]).collect();
         for &i in &order {
             nets[i].start(&inputs[i], frames).unwrap();
@@ -187,7 +192,7 @@ fn gpu_and_cpu_masks(gpu: &mut GpuNetwork, weights: Weights) -> (Vec<f32>, Vec<f
 
 #[test]
 fn the_gpu_network_matches_the_cpu_on_longer_chunks() {
-    for weights in [fixture(), stems_fixture(), bs_fixture()].map(in_f16) {
+    for weights in [fixture(), stems_fixture(), bs_fixture(), v25_fixture()].map(in_f16) {
         let Some(mut gpu) = gpu(weights.clone(), true) else { return };
         // a GPU is held to the CPU; Windows' software renderer, whose arithmetic on the
         // shaders DXC compiles is looser (1.2e-3 here), to the tolerance of the f16 path
@@ -204,18 +209,19 @@ const F16_TOLERANCE: f64 = 5e-3;
 
 /// The heads of the separation models: of 64 values, gated, each with its own keys and values,
 /// as the Mel-Band RoFormers'; of 32, without gates, pairs of them sharing their keys and
-/// values, as the BS-RoFormers'.
+/// values, as the Mini-BS-RoFormer-18M's; of 64 so shared, without gates, as the V2.5's.
 const MEL_BAND_HEADS: (usize, usize, bool) = (64, 4, true);
 const BS_HEADS: (usize, usize, bool) = (32, 2, false);
+const V25_HEADS: (usize, usize, bool) = (64, 2, false);
 
 /// Both attentions of the shader cores, whichever their heads would take: on the BS-RoFormer
-/// fixture (heads of 8 values sharing their keys and values, gated feed-forwards, registers)
-/// and on the heads of the separation models.
+/// fixtures (heads of 8 values sharing their keys and values, gated feed-forwards, registers;
+/// for the V2.5's, through SiLU, frames grouped in tokens and stem queries) and on the heads of
+/// the separation models.
 #[test]
 fn both_attentions_of_the_shader_cores_match_the_cpu() {
-    let networks =
-        [in_f16(bs_fixture()), wide_heads(&fixture(), MEL_BAND_HEADS), wide_heads(&fixture(), BS_HEADS)];
-    for weights in networks {
+    let wide = [MEL_BAND_HEADS, BS_HEADS, V25_HEADS].map(|heads| wide_heads(&fixture(), heads));
+    for weights in [in_f16(bs_fixture()), in_f16(v25_fixture())].into_iter().chain(wide) {
         for attention in [Attention::OnePass, Attention::Products] {
             let Some(mut gpu) = shader_cores(weights.clone(), attention) else { return };
             let tolerance = if gpu.on_software_renderer() { F16_TOLERANCE } else { 1e-4 };
@@ -228,16 +234,17 @@ fn both_attentions_of_the_shader_cores_match_the_cpu() {
 
 #[test]
 fn the_attention_as_products_separates_like_the_reference() {
-    let weights = bs_fixture();
-    let (audio, expected) = reference(&weights);
-    let Some(net) = shader_cores(weights, Attention::Products) else { return };
-    separates_like_the_reference(net, &audio, &expected, F16_TOLERANCE);
+    for weights in [bs_fixture(), v25_fixture()] {
+        let (audio, expected) = reference(&weights);
+        let Some(net) = shader_cores(weights, Attention::Products) else { return };
+        separates_like_the_reference(net, &audio, &expected, F16_TOLERANCE);
+    }
 }
 
 #[test]
 fn the_matrix_units_match_the_cpu() {
-    let wide = [MEL_BAND_HEADS, BS_HEADS].map(|heads| wide_heads(&fixture(), heads));
-    for weights in [fixture(), stems_fixture(), bs_fixture()].into_iter().chain(wide) {
+    let wide = [MEL_BAND_HEADS, BS_HEADS, V25_HEADS].map(|heads| wide_heads(&fixture(), heads));
+    for weights in [fixture(), stems_fixture(), bs_fixture(), v25_fixture()].into_iter().chain(wide) {
         let Some(mut gpu) = matrix_units(weights.clone()) else { return };
         let (got, expected) = gpu_and_cpu_masks(&mut gpu, weights);
         let err = relative_error(&got, &expected);
@@ -247,7 +254,7 @@ fn the_matrix_units_match_the_cpu() {
 
 #[test]
 fn the_matrix_units_separate_like_the_reference() {
-    for weights in [fixture(), stems_fixture(), bs_fixture()] {
+    for weights in [fixture(), stems_fixture(), bs_fixture(), v25_fixture()] {
         let (audio, expected) = reference(&weights);
         let Some(net) = matrix_units(weights) else { return };
         separates_like_the_reference(net, &audio, &expected, F16_TOLERANCE);
@@ -308,9 +315,11 @@ fn wide_heads(base: &Weights, (dim_head, kv_heads, gates): (usize, usize, bool))
         rotary_time: rotary.clone(),
         rotary_freq: rotary,
         band_proj,
+        grouping: None,
         transformers,
         final_norm: None,
         registers: Vec::new(),
+        stem_queries: None,
         masks,
         extra: Default::default(),
     }
