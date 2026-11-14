@@ -656,18 +656,16 @@
                 </div>
               }
               @for (
-                m of [
-                  {
-                    id: 'library.stemsModel',
-                    model: stemsFast() ? stems.vocalsFastModel() : stems.vocalsModel(),
-                    ready: true,
-                  },
-                  {
-                    id: 'library.stemsDrumsBass',
-                    model: stems.drumsBassModel(),
-                    ready: stems.vocalsReady(),
-                  },
-                ];
+                m of stemsFast()
+                  ? [{ id: 'library.stemsFour', model: stems.fourFastModel(), ready: true }]
+                  : [
+                      { id: 'library.stemsModel', model: stems.vocalsModel(), ready: true },
+                      {
+                        id: 'library.stemsDrumsBass',
+                        model: stems.drumsBassModel(),
+                        ready: stems.vocalsModel().installed,
+                      },
+                    ];
                 track m.id
               ) {
                 @if (row(m.id)) {

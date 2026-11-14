@@ -50,7 +50,8 @@ const IDLE: Duration = Duration::from_secs(300);
 /// a blind test hardly heard.
 const SLOW_OVERLAP: usize = 2;
 
-/// A separation model, converted by `crates/prisme-stems/tools/export_roformer.py --half`.
+/// A separation model, converted by `crates/prisme-stems/tools/export_roformer.py --half` (or
+/// `export_bs_roformer.py`).
 struct Model {
     id: &'static str,
     file: &'static str,
@@ -59,7 +60,7 @@ struct Model {
     bytes: u64,
     /// What it separates, in the order of its masks.
     stems: &'static [Stem],
-    /// A small model, faster, for stems a large one separates too.
+    /// A small model, faster, for stems large ones separate too.
     fast: bool,
 }
 
@@ -85,31 +86,33 @@ const MODELS: [Model; 3] = [
         stems: &[Stem::Drums, Stem::Bass],
         fast: false,
     },
-    // Roman Solovyev's (ZFTurbo) small Mel-Band RoFormer for the vocals, a seventh of the
-    // first one (MIT licence): two to three times faster, for a phone or a computer without
-    // a graphics card worth it
+    // HiDolen's Mini-BS-RoFormer-18M (MIT licence): vocals, drums and bass in one pass of a
+    // model a fortieth of the two others, for a phone or a computer without a graphics card
+    // worth it; `--stems vocals,drums,bass --overlap 2`
     Model {
-        id: "vocals-fast",
-        file: "roformer-vocals-small-f16-1.safetensors",
-        url: "https://github.com/Shawiizz/prisme/releases/download/model-roformer-vocals-small-1/roformer-vocals-small-f16-1.safetensors",
-        sha256: "538ffb5aff5a4802fc6e5f03d1988ea06ef9843b7fd5bd402e4624ec678539ef",
-        bytes: 67_424_044,
-        stems: &[Stem::Vocals],
+        id: "four-fast",
+        file: "bs-roformer-four-small-f16-1.safetensors",
+        url: "https://github.com/Shawiizz/prisme/releases/download/model-bs-roformer-four-small-1/bs-roformer-four-small-f16-1.safetensors",
+        sha256: "7a0a3ab9e9f29e0edb4723fc8bc47e3672d7c77f7b08e43f33c48ddd8c118f76",
+        bytes: 33_698_556,
+        stems: &[Stem::Vocals, Stem::Drums, Stem::Bass],
         fast: true,
     },
 ];
 
-/// Of the installed models, those the separation uses: for stems two of them separate (the
-/// vocals), the one the DJ prefers if it is there (`fast`: the smaller), else the other.
+/// Of the installed models, those the separation uses, no stem separated twice: first those
+/// the DJ prefers (`fast`: the small ones), of those the ones separating the most stems.
 fn in_use(installed: &[usize], fast: bool) -> Vec<usize> {
-    installed
-        .iter()
-        .copied()
-        .filter(|&m| {
-            let rival = installed.iter().any(|&r| r != m && MODELS[r].stems == MODELS[m].stems);
-            !rival || MODELS[m].fast == fast
-        })
-        .collect()
+    let mut ranked = installed.to_vec();
+    ranked.sort_by_key(|&m| (MODELS[m].fast != fast, std::cmp::Reverse(MODELS[m].stems.len())));
+    let mut chosen: Vec<usize> = Vec::new();
+    for m in ranked {
+        if chosen.iter().all(|&c| MODELS[c].stems.iter().all(|s| !MODELS[m].stems.contains(s))) {
+            chosen.push(m);
+        }
+    }
+    chosen.sort_unstable();
+    chosen
 }
 
 pub struct StemsService {
@@ -972,18 +975,21 @@ mod tests {
 
     const VOCALS: usize = 0;
     const DRUMS_BASS: usize = 1;
-    const VOCALS_FAST: usize = 2;
+    const FOUR_FAST: usize = 2;
 
     #[test]
-    fn the_vocals_come_from_the_model_preferred_when_both_are_there() {
-        assert_eq!(in_use(&[VOCALS, DRUMS_BASS, VOCALS_FAST], false), [VOCALS, DRUMS_BASS]);
-        assert_eq!(in_use(&[VOCALS, DRUMS_BASS, VOCALS_FAST], true), [DRUMS_BASS, VOCALS_FAST]);
+    fn the_stems_come_from_the_models_preferred_when_all_are_there() {
+        assert_eq!(in_use(&[VOCALS, DRUMS_BASS, FOUR_FAST], false), [VOCALS, DRUMS_BASS]);
+        assert_eq!(in_use(&[VOCALS, DRUMS_BASS, FOUR_FAST], true), [FOUR_FAST]);
     }
 
     #[test]
-    fn else_from_the_one_there() {
+    fn else_from_those_there_no_stem_twice() {
         assert_eq!(in_use(&[VOCALS], true), [VOCALS]);
-        assert_eq!(in_use(&[DRUMS_BASS, VOCALS_FAST], false), [DRUMS_BASS, VOCALS_FAST]);
+        assert_eq!(in_use(&[FOUR_FAST], false), [FOUR_FAST]);
+        assert_eq!(in_use(&[VOCALS, FOUR_FAST], false), [VOCALS]);
+        assert_eq!(in_use(&[DRUMS_BASS, FOUR_FAST], false), [DRUMS_BASS]);
+        assert_eq!(in_use(&[VOCALS, DRUMS_BASS], true), [VOCALS, DRUMS_BASS]);
     }
 
     #[test]

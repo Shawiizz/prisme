@@ -328,7 +328,7 @@ const ALL_SETTINGS: readonly SettingEntry[] = [
     },
     get description() {
       return t(
-        'Quality: the large models, the cleanest stems. Fast: a model a seventh of the size for the vocals, two to three times faster, for a phone or a computer without a graphics card worth it.',
+        'Quality: the large models, the cleanest stems. Fast: one small model for every stem, several times faster, for a phone or a computer without a graphics card worth it.',
       );
     },
   },
@@ -341,6 +341,18 @@ const ALL_SETTINGS: readonly SettingEntry[] = [
     get description() {
       return t(
         'Downloaded once. A track takes a few seconds with a recent graphics card, a few minutes on the processor alone.',
+      );
+    },
+  },
+  {
+    id: 'library.stemsFour',
+    page: 'library',
+    get label() {
+      return t('Separation into stems');
+    },
+    get description() {
+      return t(
+        'Vocals, drums, bass and melody from one small model, downloaded once, to mute each on its own.',
       );
     },
   },

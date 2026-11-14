@@ -10,6 +10,7 @@ import {
   StemsStatus,
 } from '../models/stems';
 import { LibraryService } from './library.service';
+import { PreferencesService } from './preferences.service';
 
 const IDLE: StemsProgress = {
   running: false,
@@ -36,14 +37,11 @@ const MISSING = (id: ModelId): ModelStatus => ({
 @Injectable({ providedIn: 'root' })
 export class StemsService {
   private readonly library = inject(LibraryService);
+  private readonly preferences = inject(PreferencesService);
 
   readonly vocalsModel = signal<ModelStatus>(MISSING('vocals'));
   readonly drumsBassModel = signal<ModelStatus>(MISSING('drums-bass'));
-  readonly vocalsFastModel = signal<ModelStatus>(MISSING('vocals-fast'));
-  /** A model for the vocals is there, large or small. */
-  readonly vocalsReady = computed(
-    () => this.vocalsModel().installed || this.vocalsFastModel().installed,
-  );
+  readonly fourFastModel = signal<ModelStatus>(MISSING('four-fast'));
   readonly progress = signal<StemsProgress>(IDLE);
   /** Whether a graphics card can separate; `null` until known. */
   readonly gpu = signal<boolean | null>(null);
@@ -51,10 +49,17 @@ export class StemsService {
   readonly pending = signal<ReadonlySet<string>>(new Set());
   readonly error = signal<string | null>(null);
 
-  /** How far the installed models separate a track. */
+  /**
+   * How far the installed models separate a track: the small one for every stem when the DJ
+   * prefers it or no large one is there, else the large ones.
+   */
   readonly reach = computed<Separation>(() => {
-    if (!this.vocalsReady()) return 'none';
-    return this.drumsBassModel().installed ? 'full' : 'vocals';
+    const vocals = this.vocalsModel().installed;
+    const drumsBass = this.drumsBassModel().installed;
+    const fast = this.preferences.library().stemsFast;
+    if (this.fourFastModel().installed && (fast || !(vocals || drumsBass))) return 'full';
+    if (!vocals) return 'none';
+    return drumsBass ? 'full' : 'vocals';
   });
 
   /** The whole queue, as a share of the tracks it held (0 to 1). */
@@ -111,7 +116,7 @@ export class StemsService {
     return {
       vocals: this.vocalsModel,
       'drums-bass': this.drumsBassModel,
-      'vocals-fast': this.vocalsFastModel,
+      'four-fast': this.fourFastModel,
     }[id];
   }
 
