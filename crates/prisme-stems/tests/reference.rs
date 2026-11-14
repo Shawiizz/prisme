@@ -6,6 +6,7 @@
 
 use std::path::Path;
 
+use prisme_stems::gpu::Attention;
 use prisme_stems::model::{Geometry, Layer, Linear, Transformer, Values};
 use prisme_stems::{CpuNetwork, Gpu, GpuNetwork, GpuOptions, MaskNetwork, Separator, StemsError, Weights};
 
@@ -69,8 +70,20 @@ fn a_file_names_its_stems() {
 }
 
 fn gpu(weights: Weights, without_matrix_units: bool) -> Option<GpuNetwork> {
-    let options =
-        GpuOptions { software: true, without_matrix_units, max_binding: None, profile: false, share: None };
+    shader_cores_or_units(weights, GpuOptions { without_matrix_units, ..SOFTWARE_TOO })
+}
+
+/// Accepts a software renderer, where there is no GPU.
+const SOFTWARE_TOO: GpuOptions = GpuOptions {
+    software: true,
+    without_matrix_units: false,
+    max_binding: None,
+    profile: false,
+    share: None,
+    attention: None,
+};
+
+fn shader_cores_or_units(weights: Weights, options: GpuOptions) -> Option<GpuNetwork> {
     match GpuNetwork::with_options(weights, options) {
         Ok(net) => Some(net),
         Err(StemsError::NoGpu(e)) => {
@@ -79,6 +92,12 @@ fn gpu(weights: Weights, without_matrix_units: bool) -> Option<GpuNetwork> {
         }
         Err(e) => panic!("{e}"),
     }
+}
+
+/// The network on the shader cores, its attention as `attention`.
+fn shader_cores(weights: Weights, attention: Attention) -> Option<GpuNetwork> {
+    let options = GpuOptions { without_matrix_units: true, attention: Some(attention), ..SOFTWARE_TOO };
+    shader_cores_or_units(weights, options)
 }
 
 /// The network on the GPU's matrix units, if it has some.
@@ -117,14 +136,7 @@ fn masks_of(net: &mut GpuNetwork, bins: &[f32], frames: usize) -> Vec<f32> {
 /// interleaved, each gives what it gives alone.
 #[test]
 fn networks_sharing_a_gpu_give_what_they_give_alone() {
-    let options = GpuOptions {
-        software: true,
-        without_matrix_units: true,
-        max_binding: None,
-        profile: false,
-        share: None,
-    };
-    let shared = match Gpu::open(options) {
+    let shared = match Gpu::open(GpuOptions { without_matrix_units: true, ..SOFTWARE_TOO }) {
         Ok(gpu) => gpu,
         Err(StemsError::NoGpu(e)) => return eprintln!("skipped: {e}"),
         Err(e) => panic!("{e}"),
@@ -195,9 +207,44 @@ fn the_gpu_network_matches_the_cpu_on_longer_chunks() {
 /// a few thousandths of the reference.
 const F16_TOLERANCE: f64 = 5e-3;
 
+/// The heads of the separation models: of 64 values, gated, each with its own keys and values,
+/// as the Mel-Band RoFormers'; of 32, without gates, pairs of them sharing their keys and
+/// values, as the Mini-BS-RoFormer-18M's; of 64 so shared, without gates, as the V2.5's.
+const MEL_BAND_HEADS: (usize, usize, bool) = (64, 4, true);
+const BS_HEADS: (usize, usize, bool) = (32, 2, false);
+const V25_HEADS: (usize, usize, bool) = (64, 2, false);
+
+/// Both attentions of the shader cores, whichever their heads would take: on the BS-RoFormer
+/// fixtures (heads of 8 values sharing their keys and values, gated feed-forwards, registers;
+/// for the V2.5's, through SiLU, frames grouped in tokens and stem queries) and on the heads of
+/// the separation models.
+#[test]
+fn both_attentions_of_the_shader_cores_match_the_cpu() {
+    let wide = [MEL_BAND_HEADS, BS_HEADS, V25_HEADS].map(|heads| wide_heads(&fixture(), heads));
+    for weights in [in_f16(bs_fixture()), in_f16(v25_fixture())].into_iter().chain(wide) {
+        for attention in [Attention::OnePass, Attention::Products] {
+            let Some(mut gpu) = shader_cores(weights.clone(), attention) else { return };
+            let tolerance = if gpu.on_software_renderer() { F16_TOLERANCE } else { 1e-4 };
+            let (got, expected) = gpu_and_cpu_masks(&mut gpu, weights.clone());
+            let err = relative_error(&got, &expected);
+            assert!(err < tolerance, "{attention:?}: relative error {err:e}");
+        }
+    }
+}
+
+#[test]
+fn the_attention_as_products_separates_like_the_reference() {
+    for weights in [bs_fixture(), v25_fixture()] {
+        let (audio, expected) = reference(&weights);
+        let Some(net) = shader_cores(weights, Attention::Products) else { return };
+        separates_like_the_reference(net, &audio, &expected, F16_TOLERANCE);
+    }
+}
+
 #[test]
 fn the_matrix_units_match_the_cpu() {
-    for weights in [fixture(), stems_fixture(), bs_fixture(), v25_fixture(), wide_heads(&fixture())] {
+    let wide = [MEL_BAND_HEADS, BS_HEADS, V25_HEADS].map(|heads| wide_heads(&fixture(), heads));
+    for weights in [fixture(), stems_fixture(), bs_fixture(), v25_fixture()].into_iter().chain(wide) {
         let Some(mut gpu) = matrix_units(weights.clone()) else { return };
         let (got, expected) = gpu_and_cpu_masks(&mut gpu, weights);
         let err = relative_error(&got, &expected);
@@ -214,10 +261,10 @@ fn the_matrix_units_separate_like_the_reference() {
     }
 }
 
-/// The fixture's bands under a network with the separation models' heads, which the
-/// attention on the matrix units takes (4 heads of 64 values): weights from a fixed sequence,
-/// rounded to f16 as the GPU stores them.
-fn wide_heads(base: &Weights) -> Weights {
+/// The fixture's bands under a network of 4 heads shaped as `heads` (as [`MEL_BAND_HEADS`]),
+/// which the attention on the matrix units takes: weights from a fixed sequence, rounded to
+/// f16 as the GPU stores them.
+fn wide_heads(base: &Weights, (dim_head, kv_heads, gates): (usize, usize, bool)) -> Weights {
     let mut state = 0x2545_f491_4f6c_dd1du64;
     let mut next = move || {
         state ^= state << 13;
@@ -235,7 +282,8 @@ fn wide_heads(base: &Weights) -> Weights {
         }
     };
     let mut config = base.geometry.config.clone();
-    (config.dim, config.heads, config.dim_head, config.depth) = (64, 4, 64, 1);
+    (config.dim, config.heads, config.depth) = (64, 4, 1);
+    (config.dim_head, config.kv_heads, config.gates) = (dim_head, kv_heads, gates);
     let (dim, hidden) = (config.dim, 2 * config.dim);
     let band_proj = base.geometry.bands.iter().map(|b| linear(dim, b.width)).collect();
     let transformers = (0..2)
@@ -260,7 +308,8 @@ fn wide_heads(base: &Weights) -> Weights {
                 .collect()
         })
         .collect();
-    let rotary: Vec<f32> = (0..config.dim_head / 2).map(|i| 10_000f32.powf(-2.0 * i as f32 / 64.0)).collect();
+    let rotary: Vec<f32> =
+        (0..dim_head / 2).map(|i| 10_000f32.powf(-2.0 * i as f32 / dim_head as f32)).collect();
     Weights {
         geometry: Geometry { config, ..base.geometry.clone() },
         rotary_time: rotary.clone(),

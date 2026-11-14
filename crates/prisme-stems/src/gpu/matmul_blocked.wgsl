@@ -5,6 +5,9 @@
 // is slow), reading A and the f16 weights four values of k at a time. `k`, `lda` and `a_off`
 // are multiples of 4 (the plan falls back on matmul_small.wgsl otherwise). Rows and columns
 // past the ends read the last ones, and are not written.
+//
+// For a gated feed-forward (act 3, or 4 for SiLU) the columns come in groups of 4 gates then
+// their 4 values, and the layer writes act(gate) * value, n / 2 columns.
 
 struct Params {
     m: u32,
@@ -14,7 +17,7 @@ struct Params {
     a_off: u32,
     ldc: u32,
     c_off: u32,
-    // 0: none, 1: GELU, 2: tanh
+    // 0: none, 1: GELU, 2: tanh, 3: gated GELU, 4: gated SiLU
     act: u32,
     accumulate: u32,
     has_bias: u32,
@@ -34,9 +37,13 @@ fn erf(x: f32) -> f32 {
     return select(-y, y, x >= 0.0);
 }
 
+fn gelu(x: f32) -> f32 {
+    return 0.5 * x * (1.0 + erf(x * 0.70710678118654752));
+}
+
 fn activate(x: f32) -> f32 {
     switch p.act {
-        case 1u: { return 0.5 * x * (1.0 + erf(x * 0.70710678118654752)); }
+        case 1u: { return gelu(x); }
         case 2u: { return tanh(clamp(x, -15.0, 15.0)); }
         default: { return x; }
     }
@@ -56,6 +63,26 @@ fn store(r: u32, col: u32, x: f32) {
         v += c[at];
     }
     c[at] = v;
+}
+
+// the gate of column `col` and its value 4 columns on, into column col / 8 * 4 + col % 8
+fn store_gated(r: u32, col: u32, gate: f32, value: f32) {
+    if (r >= p.m || col >= p.n) {
+        return;
+    }
+    var g = gate;
+    var v = value;
+    if (p.has_bias != 0u) {
+        g += bias[col];
+        v += bias[col + 4u];
+    }
+    var gated = 0.0;
+    if (p.act == 4u) {
+        gated = g / (1.0 + exp(-g)) * v;
+    } else {
+        gated = gelu(g) * v;
+    }
+    c[p.c_off + r * p.ldc + col / 8u * 4u + col % 8u] = gated;
 }
 
 @compute @workgroup_size(8, 8)
@@ -194,6 +221,41 @@ fn main(@builtin(global_invocation_id) g: vec3<u32>) {
         acc7_1 = fma(vec4(a7.y), t1_1, acc7_1);
         acc7_1 = fma(vec4(a7.z), t1_2, acc7_1);
         acc7_1 = fma(vec4(a7.w), t1_3, acc7_1);
+    }
+    if (p.act >= 3u) {
+        store_gated(row0 + 0u, col0 + 0u, acc0_0.x, acc0_1.x);
+        store_gated(row0 + 0u, col0 + 1u, acc0_0.y, acc0_1.y);
+        store_gated(row0 + 0u, col0 + 2u, acc0_0.z, acc0_1.z);
+        store_gated(row0 + 0u, col0 + 3u, acc0_0.w, acc0_1.w);
+        store_gated(row0 + 1u, col0 + 0u, acc1_0.x, acc1_1.x);
+        store_gated(row0 + 1u, col0 + 1u, acc1_0.y, acc1_1.y);
+        store_gated(row0 + 1u, col0 + 2u, acc1_0.z, acc1_1.z);
+        store_gated(row0 + 1u, col0 + 3u, acc1_0.w, acc1_1.w);
+        store_gated(row0 + 2u, col0 + 0u, acc2_0.x, acc2_1.x);
+        store_gated(row0 + 2u, col0 + 1u, acc2_0.y, acc2_1.y);
+        store_gated(row0 + 2u, col0 + 2u, acc2_0.z, acc2_1.z);
+        store_gated(row0 + 2u, col0 + 3u, acc2_0.w, acc2_1.w);
+        store_gated(row0 + 3u, col0 + 0u, acc3_0.x, acc3_1.x);
+        store_gated(row0 + 3u, col0 + 1u, acc3_0.y, acc3_1.y);
+        store_gated(row0 + 3u, col0 + 2u, acc3_0.z, acc3_1.z);
+        store_gated(row0 + 3u, col0 + 3u, acc3_0.w, acc3_1.w);
+        store_gated(row0 + 4u, col0 + 0u, acc4_0.x, acc4_1.x);
+        store_gated(row0 + 4u, col0 + 1u, acc4_0.y, acc4_1.y);
+        store_gated(row0 + 4u, col0 + 2u, acc4_0.z, acc4_1.z);
+        store_gated(row0 + 4u, col0 + 3u, acc4_0.w, acc4_1.w);
+        store_gated(row0 + 5u, col0 + 0u, acc5_0.x, acc5_1.x);
+        store_gated(row0 + 5u, col0 + 1u, acc5_0.y, acc5_1.y);
+        store_gated(row0 + 5u, col0 + 2u, acc5_0.z, acc5_1.z);
+        store_gated(row0 + 5u, col0 + 3u, acc5_0.w, acc5_1.w);
+        store_gated(row0 + 6u, col0 + 0u, acc6_0.x, acc6_1.x);
+        store_gated(row0 + 6u, col0 + 1u, acc6_0.y, acc6_1.y);
+        store_gated(row0 + 6u, col0 + 2u, acc6_0.z, acc6_1.z);
+        store_gated(row0 + 6u, col0 + 3u, acc6_0.w, acc6_1.w);
+        store_gated(row0 + 7u, col0 + 0u, acc7_0.x, acc7_1.x);
+        store_gated(row0 + 7u, col0 + 1u, acc7_0.y, acc7_1.y);
+        store_gated(row0 + 7u, col0 + 2u, acc7_0.z, acc7_1.z);
+        store_gated(row0 + 7u, col0 + 3u, acc7_0.w, acc7_1.w);
+        return;
     }
     store(row0 + 0u, col0 + 0u, acc0_0.x);
     store(row0 + 0u, col0 + 1u, acc0_0.y);

@@ -1,29 +1,37 @@
 """Writes the attention of the shader cores as products: src/gpu/attention_scores.wgsl (the
 queries times the keys), attention_softmax.wgsl (each row of scores into weights) and
-attention_values.wgsl (the weights times the values, gated).
+attention_values.wgsl (the weights times the values, gated if the heads are).
 
     python attention_products.py OUT_DIR
 
 The products keep their blocks in registers, as matmul_blocked.wgsl does: on an Adreno 740
 the attention walking the keys query by query (attention.wgsl) took 70 % of a separation.
-Heads of 64 values; the rows of the projections are read four values at a time.
+Heads of 8, 16, 32 or 64 values (DH, defined before the sources with DH4 and GATED, as for
+attention.wgsl), heads of queries sharing their keys and values or not; the rows of the
+projections, and of the scores (padded to whole vectors of 4, the padding weighing nothing),
+are read four values at a time.
 """
 
 import sys
 from pathlib import Path
 
-DH4 = 16
 BLOCK = 8
 
 COMMON = """struct Params {
     len: u32,
+    // the scores of a query, padded to whole vectors of 4
+    ld4: u32,
     bands: u32,
     // 0: sequences along the frames (one per band), 1: along the bands (one per frame)
     axis: u32,
-    // the widths of the projections and of the output, in vectors of 4
+    // the widths of a token's projections, of its queries (and output) and of its keys (or
+    // values), in vectors of 4
     width4: u32,
     inner4: u32,
+    kv4: u32,
     heads: u32,
+    // heads of queries per head of keys and values
+    kv_share: u32,
     // the sequences and heads of this slice: from `first`, `count` of them
     first: u32,
     count: u32,
@@ -44,7 +52,7 @@ def scores():
     lines = [GENERATED + """// The scores of the attention: the queries (pre-scaled and rotated) times the keys, each
 // thread a block of 8 queries by 8 keys, for the sequences and heads of a slice.
 """, COMMON, """@group(0) @binding(0) var<storage, read> qkvg: array<vec4<f32>>;
-@group(0) @binding(1) var<storage, read_write> scores: array<f32>;
+@group(0) @binding(1) var<storage, read_write> scores: array<vec4<f32>>;
 @group(0) @binding(2) var<uniform> p: Params;
 
 @compute @workgroup_size(8, 8)
@@ -59,11 +67,12 @@ fn main(@builtin(workgroup_id) wg: vec3<u32>, @builtin(local_invocation_id) lid:
     let i0 = ((wg.y % p.query_groups) * 8u + lid.y) * 8u;
     let j0 = (wg.x * 8u + lid.x) * 8u;
     let last = p.len - 1u;
-    let head4 = head * 16u;"""]
-    lines += [f"    let qr{i} = token(group, min(i0 + {i}u, last)) * p.width4 + head4;" for i in range(BLOCK)]
-    lines += [f"    let kr{j} = token(group, min(j0 + {j}u, last)) * p.width4 + p.inner4 + head4;" for j in range(BLOCK)]
+    let q4 = head * DH4;
+    let k4 = p.inner4 + head / p.kv_share * DH4;"""]
+    lines += [f"    let qr{i} = token(group, min(i0 + {i}u, last)) * p.width4 + q4;" for i in range(BLOCK)]
+    lines += [f"    let kr{j} = token(group, min(j0 + {j}u, last)) * p.width4 + k4;" for j in range(BLOCK)]
     lines += [f"    var acc{i}_{g} = vec4<f32>(0.0);" for i in range(BLOCK) for g in range(BLOCK // 4)]
-    lines.append("    for (var d = 0u; d < 16u; d++) {")
+    lines.append("    for (var d = 0u; d < DH4; d++) {")
     lines += [f"        let k{j} = qkvg[kr{j} + d];" for j in range(BLOCK)]
     for g in range(BLOCK // 4):
         for kk, comp in enumerate("xyzw"):
@@ -77,11 +86,9 @@ fn main(@builtin(workgroup_id) wg: vec3<u32>, @builtin(local_invocation_id) lid:
     lines.append("    let rows = local * p.len;")
     for i in range(BLOCK):
         lines.append(f"    if (i0 + {i}u < p.len) {{")
-        lines.append(f"        let at = (rows + i0 + {i}u) * p.len;")
+        lines.append(f"        let at = (rows + i0 + {i}u) * p.ld4 + j0 / 4u;")
         for g in range(BLOCK // 4):
-            for jj, comp in enumerate("xyzw"):
-                j = 4 * g + jj
-                lines.append(f"        if (j0 + {j}u < p.len) {{ scores[at + j0 + {j}u] = acc{i}_{g}.{comp}; }}")
+            lines.append(f"        if (j0 + {4 * g}u < p.len) {{ scores[at + {g}u] = acc{i}_{g}; }}")
         lines.append("    }")
     lines.append("}")
     return "\n".join(lines) + "\n"
@@ -89,7 +96,8 @@ fn main(@builtin(workgroup_id) wg: vec3<u32>, @builtin(local_invocation_id) lid:
 
 def softmax():
     return GENERATED + """// Each row of scores of a slice into the weights of its keys, in place: a workgroup a row,
-// its threads reading it 64 values apart and pooling its maximum, then its sum.
+// its threads reading it 64 values apart and pooling its maximum, then its sum. The padding
+// past the last key weighs nothing.
 """ + COMMON + """@group(0) @binding(0) var<storage, read_write> scores: array<f32>;
 @group(0) @binding(1) var<uniform> p: Params;
 
@@ -114,7 +122,8 @@ fn main(@builtin(workgroup_id) wg: vec3<u32>, @builtin(local_invocation_index) l
     if (row >= p.count * p.len) {
         return;
     }
-    let at = row * p.len;
+    let ld = 4u * p.ld4;
+    let at = row * ld;
     var m = -3.0e38;
     for (var j = lid; j < p.len; j += 64u) {
         m = max(m, scores[at + j]);
@@ -122,14 +131,14 @@ fn main(@builtin(workgroup_id) wg: vec3<u32>, @builtin(local_invocation_index) l
     pool[lid] = m;
     m = pooled(lid, true);
     var l = 0.0;
-    for (var j = lid; j < p.len; j += 64u) {
-        let e = exp(scores[at + j] - m);
+    for (var j = lid; j < ld; j += 64u) {
+        let e = select(0.0, exp(scores[at + j] - m), j < p.len);
         scores[at + j] = e;
         l += e;
     }
     pool[lid] = l;
     let scale = 1.0 / pooled(lid, false);
-    for (var j = lid; j < p.len; j += 64u) {
+    for (var j = lid; j < ld; j += 64u) {
         scores[at + j] *= scale;
     }
 }
@@ -138,14 +147,18 @@ fn main(@builtin(workgroup_id) wg: vec3<u32>, @builtin(local_invocation_index) l
 
 def values():
     lines = [GENERATED + """// The output of the attention: the weights of the keys times their values, scaled by the
-// sigmoid of each head's gate. Each thread takes 8 queries by 8 values of a head; a workgroup
-// the 64 values of a head for 64 queries.
+// sigmoid of each head's gate if gated. Each thread takes 8 queries by 8 values of a head, 4
+// keys at a time; a workgroup of 64 threads all the values of a head, for 4096 / DH queries.
 """, COMMON, """@group(0) @binding(0) var<storage, read> qkvg: array<vec4<f32>>;
-@group(0) @binding(1) var<storage, read> scores: array<f32>;
+@group(0) @binding(1) var<storage, read> scores: array<vec4<f32>>;
 @group(0) @binding(2) var<storage, read_write> out: array<vec4<f32>>;
 @group(0) @binding(3) var<uniform> p: Params;
 
-@compute @workgroup_size(8, 8)
+// the threads of a workgroup along the values of a head, then along the queries
+const WX: u32 = DH / 8u;
+const WY: u32 = 64u / WX;
+
+@compute @workgroup_size(WX, WY)
 fn main(@builtin(workgroup_id) wg: vec3<u32>, @builtin(local_invocation_id) lid: vec3<u32>) {
     let local = wg.y / p.query_groups;
     if (local >= p.count) {
@@ -154,31 +167,38 @@ fn main(@builtin(workgroup_id) wg: vec3<u32>, @builtin(local_invocation_id) lid:
     let pair = p.first + local;
     let group = pair / p.heads;
     let head = pair % p.heads;
-    let i0 = ((wg.y % p.query_groups) * 8u + lid.y) * 8u;
-    let d0 = head * 16u + lid.x * 2u;
+    let i0 = ((wg.y % p.query_groups) * WY + lid.y) * 8u;
+    let d0 = lid.x * 2u;
+    let v4 = p.inner4 + p.kv4 + head / p.kv_share * DH4 + d0;
+    let o4 = head * DH4 + d0;
     let last = p.len - 1u;
     let rows = local * p.len;"""]
-    lines += [f"    let sr{i} = (rows + min(i0 + {i}u, last)) * p.len;" for i in range(BLOCK)]
+    lines += [f"    let sr{i} = (rows + min(i0 + {i}u, last)) * p.ld4;" for i in range(BLOCK)]
     lines += [f"    var acc{i}_{h} = vec4<f32>(0.0);" for i in range(BLOCK) for h in range(2)]
-    lines += [
-        "    for (var j = 0u; j < p.len; j++) {",
-        "        let vr = token(group, j) * p.width4 + 2u * p.inner4 + d0;",
-        "        let v0 = qkvg[vr];",
-        "        let v1 = qkvg[vr + 1u];",
-    ]
+    lines.append("    for (var j4 = 0u; j4 < p.ld4; j4++) {")
+    for t in range(4):
+        lines += [
+            f"        let vr{t} = token(group, min(4u * j4 + {t}u, last)) * p.width4 + v4;",
+            f"        let v{t}_0 = qkvg[vr{t}];",
+            f"        let v{t}_1 = qkvg[vr{t} + 1u];",
+        ]
     for i in range(BLOCK):
-        lines.append(f"        let s{i} = vec4(scores[sr{i} + j]);")
-        lines.append(f"        acc{i}_0 = fma(s{i}, v0, acc{i}_0);")
-        lines.append(f"        acc{i}_1 = fma(s{i}, v1, acc{i}_1);")
+        lines.append(f"        let s{i} = scores[sr{i} + j4];")
+        for t, comp in enumerate("xyzw"):
+            lines.append(f"        acc{i}_0 = fma(vec4(s{i}.{comp}), v{t}_0, acc{i}_0);")
+            lines.append(f"        acc{i}_1 = fma(vec4(s{i}.{comp}), v{t}_1, acc{i}_1);")
     lines.append("    }")
     for i in range(BLOCK):
         lines += [
             f"    if (i0 + {i}u < p.len) {{",
             f"        let me = token(group, i0 + {i}u);",
-            "        let g = qkvg[me * p.width4 + 3u * p.inner4 + head / 4u][head % 4u];",
-            "        let gate = 1.0 / (1.0 + exp(-g));",
-            f"        out[me * p.inner4 + d0] = acc{i}_0 * gate;",
-            f"        out[me * p.inner4 + d0 + 1u] = acc{i}_1 * gate;",
+            "        var gate = 1.0;",
+            "        if (GATED) {",
+            "            let g = qkvg[me * p.width4 + p.inner4 + 2u * p.kv4 + head / 4u][head % 4u];",
+            "            gate = 1.0 / (1.0 + exp(-g));",
+            "        }",
+            f"        out[me * p.inner4 + o4] = acc{i}_0 * gate;",
+            f"        out[me * p.inner4 + o4 + 1u] = acc{i}_1 * gate;",
             "    }",
         ]
     lines.append("}")
