@@ -70,7 +70,7 @@
   }
 }
 
-// on a phone: the overview thinner, the height to the waveform
+// on a phone: the overview as tall as the screen of the phone gives it
 :host-context(app-phone-deck) .waveform {
-  grid-template-rows: minmax(0, 1fr) 12px;
+  grid-template-rows: minmax(0, 1fr) var(--phone-overview, 12px);
 }

@@ -14,6 +14,7 @@
 .decks {
   flex: none;
   --phone-wave: 110px;
+  --phone-overview: 20px;
   app-phone-deck {
     border-bottom: 1px solid var(--pr-line);
   }
@@ -121,6 +122,7 @@ app-phone-pitch.float {
   }
   .decks {
     --phone-wave: 44px;
+    --phone-overview: 12px;
   }
   .stage {
     background: var(--pr-base);
