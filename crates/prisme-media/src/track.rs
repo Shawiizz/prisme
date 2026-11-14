@@ -6,8 +6,10 @@
 //! `f32` bits in `AtomicU32`s: plain loads and stores on x86 and ARM, no locks, no
 //! `unsafe`.
 //!
-//! A stem being separated is written the same way, but from anywhere in the track: what can
-//! be read is a span that grows at either end ([`TrackAudio::pending`]).
+//! A stem being separated is written in parts from anywhere in the track, islands that grow
+//! and meet ([`TrackAudio::pending`]): a frame can be read once the block of
+//! [`PENDING_BLOCK`] frames around it is all written, which the writer counts after the
+//! samples (release) and readers check before them (acquire).
 
 use crate::{DecodeStream, MediaError};
 use std::ops::Range;
@@ -17,6 +19,9 @@ use std::sync::Arc;
 
 /// Room for more frames than the header announces (it can be slightly off).
 const HEADER_MARGIN_S: usize = 2;
+
+/// The frames of a [`TrackAudio::pending`] track that become readable together.
+pub const PENDING_BLOCK: usize = 1024;
 
 pub struct TrackAudio {
     sample_rate: u32,
@@ -28,6 +33,11 @@ pub struct TrackAudio {
     decoded: AtomicUsize,
     /// The track's length: the header's estimate while decoding, exact afterwards.
     frames: AtomicUsize,
+    /// For a [`TrackAudio::pending`] track, the frames written of each block of
+    /// [`PENDING_BLOCK`]; empty for the others.
+    filled: Box<[AtomicU32]>,
+    /// For a [`TrackAudio::pending`] track, its blocks not all written yet.
+    unfilled: AtomicUsize,
 }
 
 impl TrackAudio {
@@ -41,6 +51,8 @@ impl TrackAudio {
             first: AtomicUsize::new(0),
             decoded: AtomicUsize::new(frames),
             frames: AtomicUsize::new(frames),
+            filled: Box::new([]),
+            unfilled: AtomicUsize::new(0),
         }
     }
 
@@ -49,10 +61,16 @@ impl TrackAudio {
         Self::with_capacity(sample_rate, capacity, expected_frames)
     }
 
-    /// A track of `frames` frames written later in parts by [`Self::publish`], each next to
-    /// those before: a stem being separated, played as it comes.
+    /// A track of `frames` frames written later in parts by [`Self::publish`], anywhere in
+    /// it: a stem being separated, played as it comes.
     pub fn pending(sample_rate: u32, frames: usize) -> Self {
-        Self::with_capacity(sample_rate, frames, frames)
+        let blocks = frames.div_ceil(PENDING_BLOCK);
+        Self {
+            filled: (0..blocks).map(|_| AtomicU32::new(0)).collect(),
+            unfilled: AtomicUsize::new(blocks),
+            decoded: AtomicUsize::new(frames),
+            ..Self::with_capacity(sample_rate, frames, frames)
+        }
     }
 
     fn with_capacity(sample_rate: u32, capacity: usize, frames: usize) -> Self {
@@ -62,7 +80,13 @@ impl TrackAudio {
             first: AtomicUsize::new(0),
             decoded: AtomicUsize::new(0),
             frames: AtomicUsize::new(frames),
+            filled: Box::new([]),
+            unfilled: AtomicUsize::new(0),
         }
+    }
+
+    fn is_pending(&self) -> bool {
+        !self.filled.is_empty()
     }
 
     pub fn sample_rate(&self) -> u32 {
@@ -78,21 +102,34 @@ impl TrackAudio {
         self.frames() as f64 / self.sample_rate as f64
     }
 
-    /// The end of the frames that can be read: all of them from the start but for a
-    /// [`Self::pending`] track ([`Self::readable`]).
+    /// The end of the frames decoded from the start; a [`Self::pending`] track holds its
+    /// length there, and tells what can be read block by block ([`Self::readable`]).
     pub fn decoded_frames(&self) -> usize {
         self.decoded.load(Ordering::Acquire)
     }
 
-    /// The frames that can be read.
+    /// The frames that can be read from the start on.
     pub fn readable(&self) -> Range<usize> {
+        if self.is_pending() && !self.is_complete() {
+            let blocks = self.filled.iter().enumerate();
+            let first_gap = blocks.take_while(|&(b, _)| self.block_filled(b)).count();
+            return 0..(first_gap * PENDING_BLOCK).min(self.frames());
+        }
         let end = self.decoded_frames();
         self.first.load(Ordering::Acquire).min(end)..end
     }
 
     pub fn is_complete(&self) -> bool {
+        if self.is_pending() {
+            return self.unfilled.load(Ordering::Acquire) == 0;
+        }
         let readable = self.readable();
         readable.start == 0 && readable.end >= self.frames()
+    }
+
+    fn block_filled(&self, block: usize) -> bool {
+        let len = (self.frames() - block * PENDING_BLOCK).min(PENDING_BLOCK);
+        self.filled[block].load(Ordering::Acquire) as usize == len
     }
 
     /// Frame `i` as (left, right); silence outside the track or not decoded yet.
@@ -102,11 +139,15 @@ impl TrackAudio {
     }
 
     /// The frames that can be read so far, for reading many of them (two atomic loads per
-    /// view rather than per frame).
+    /// view rather than per frame; one more per frame of a pending track not complete).
     #[inline]
     pub fn view(&self) -> TrackView<'_> {
-        let readable = self.readable();
-        TrackView { samples: &self.samples[..readable.end * 2], first: readable.start }
+        if self.is_pending() && !self.is_complete() {
+            return TrackView { samples: &self.samples, first: 0, filled: Some(&self.filled) };
+        }
+        let end = self.decoded_frames();
+        let first = self.first.load(Ordering::Acquire).min(end);
+        TrackView { samples: &self.samples[..end * 2], first, filled: None }
     }
 
     /// Calls `f` with the samples that can be read, interleaved, `block_frames` frames at a
@@ -124,23 +165,28 @@ impl TrackAudio {
         }
     }
 
-    /// Writes interleaved frames from frame `start` of a [`Self::pending`] track, next to
-    /// or over those already there, and makes them readable. Single writer.
+    /// Writes interleaved frames from frame `start` of a [`Self::pending`] track, none of them
+    /// written before, and makes readable the blocks they complete. Single writer.
     pub fn publish(&self, start: usize, interleaved: &[f32]) {
+        assert!(self.is_pending(), "only a pending track is written in parts");
         let end = start + interleaved.len() / 2;
-        assert!(end <= self.samples.len() / 2, "the frames lie within the track");
-        let readable = self.readable();
-        assert!(
-            readable.is_empty() || (start <= readable.end && end >= readable.start),
-            "published frames join those already there"
-        );
+        assert!(end <= self.frames(), "the frames lie within the track");
         for (slot, &value) in self.samples[start * 2..end * 2].iter().zip(interleaved) {
             slot.store(value.to_bits(), Ordering::Relaxed);
         }
-        let joined =
-            if readable.is_empty() { start..end } else { start.min(readable.start)..end.max(readable.end) };
-        self.first.store(joined.start, Ordering::Release);
-        self.decoded.store(joined.end, Ordering::Release);
+        let mut at = start;
+        while at < end {
+            let block = at / PENDING_BLOCK;
+            let upto = ((block + 1) * PENDING_BLOCK).min(end);
+            let len = (self.frames() - block * PENDING_BLOCK).min(PENDING_BLOCK);
+            let filled =
+                self.filled[block].fetch_add((upto - at) as u32, Ordering::Release) as usize + upto - at;
+            assert!(filled <= len, "frames are written once");
+            if filled == len {
+                self.unfilled.fetch_sub(1, Ordering::Release);
+            }
+            at = upto;
+        }
     }
 
     /// Appends interleaved frames; those beyond the buffer are dropped. Single writer.
@@ -169,12 +215,15 @@ impl std::fmt::Debug for TrackAudio {
     }
 }
 
-/// The frames of a track that could be read when the view was taken.
+/// The frames of a track that could be read when the view was taken: for a pending track,
+/// those whose block is written when they are read.
 #[derive(Clone, Copy)]
 pub struct TrackView<'a> {
     /// Up to the last readable frame.
     samples: &'a [AtomicU32],
     first: usize,
+    /// The frames written of each block, while a pending track is not complete.
+    filled: Option<&'a [AtomicU32]>,
 }
 
 impl TrackView<'_> {
@@ -188,6 +237,13 @@ impl TrackView<'_> {
     #[inline]
     pub fn get(&self, i: isize) -> Option<(f32, f32)> {
         let i = usize::try_from(i).ok().filter(|&i| i >= self.first)?;
+        if let Some(filled) = self.filled {
+            let block = i / PENDING_BLOCK;
+            let len = (self.samples.len() / 2).checked_sub(block * PENDING_BLOCK)?.min(PENDING_BLOCK);
+            if filled.get(block)?.load(Ordering::Acquire) as usize != len {
+                return None;
+            }
+        }
         let k = i.checked_mul(2)?;
         match self.samples.get(k..k + 2) {
             Some([l, r]) => {
@@ -289,29 +345,34 @@ mod tests {
     }
 
     #[test]
-    fn a_pending_track_reads_the_span_published() {
-        let t = TrackAudio::pending(10, 6);
-        assert_eq!(t.frame(2), (0.0, 0.0));
-        assert!(t.view().get(2).is_none());
-        t.publish(2, &[0.1, 0.2, 0.3, 0.4]);
-        assert_eq!(t.readable(), 2..4);
-        assert_eq!(t.view().get(3), Some((0.3, 0.4)));
-        assert!(t.view().get(1).is_none() && t.view().get(4).is_none());
-        t.publish(4, &[0.5, 0.6]);
-        t.publish(0, &[0.7, 0.8, 0.9, 1.0]);
+    fn a_pending_track_reads_the_blocks_written() {
+        let frames = 3 * PENDING_BLOCK + 10;
+        let t = TrackAudio::pending(10, frames);
+        assert!(t.view().get(5).is_none());
+        // an island in the second block, then one over the third and the short last one
+        t.publish(PENDING_BLOCK, &vec![0.5; 2 * PENDING_BLOCK]);
+        t.publish(2 * PENDING_BLOCK, &vec![0.25; 2 * (PENDING_BLOCK + 10)]);
+        assert_eq!(t.view().get(PENDING_BLOCK as isize), Some((0.5, 0.5)));
+        assert_eq!(t.frame((3 * PENDING_BLOCK + 9) as isize), (0.25, 0.25));
+        assert!(t.view().get(3).is_none(), "the first block is not written");
+        assert_eq!(t.readable(), 0..0, "the frames read from the start");
         assert!(!t.is_complete());
-        t.publish(5, &[1.1, 1.2]);
+        // the first block in two parts: readable once both are there
+        t.publish(0, &vec![1.0; 2 * 100]);
+        assert!(t.view().get(3).is_none());
+        t.publish(100, &vec![1.0; 2 * (PENDING_BLOCK - 100)]);
+        assert_eq!(t.view().get(3), Some((1.0, 1.0)));
         assert!(t.is_complete());
-        assert_eq!(t.frame(0), (0.7, 0.8));
-        assert_eq!(t.frame(5), (1.1, 1.2));
+        assert_eq!(t.readable(), 0..frames);
+        assert!(t.view().get(frames as isize).is_none());
     }
 
     #[test]
-    #[should_panic(expected = "join")]
-    fn a_pending_track_refuses_a_gap() {
-        let t = TrackAudio::pending(10, 6);
-        t.publish(0, &[0.0; 2]);
-        t.publish(3, &[0.0; 2]);
+    #[should_panic(expected = "once")]
+    fn a_pending_track_refuses_frames_written_twice() {
+        let t = TrackAudio::pending(10, 2 * PENDING_BLOCK);
+        t.publish(0, &vec![0.0; 2 * PENDING_BLOCK]);
+        t.publish(10, &[0.0; 2]);
     }
 
     #[test]
