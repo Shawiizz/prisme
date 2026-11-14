@@ -38,8 +38,8 @@ pub struct GpuOptions {
     /// step then waits for the one before, which makes the whole slower.
     pub profile: bool,
     /// Leaves the GPU to others (a phone's screen, drawn by the same GPU): the work goes in
-    /// steps of a few milliseconds, each waited for, and takes at most this share of the
-    /// GPU's time.
+    /// steps of a few milliseconds, the screen's drawing slipping in between, and takes at
+    /// most this share of the GPU's time.
     pub share: Option<f64>,
     /// The attention on the shader cores, else the one they run best for the network's heads
     /// (the matrix units have their own).
@@ -581,9 +581,16 @@ impl MaskNetwork for GpuNetwork {
         let gpu = &self.gpu;
         plan.load(gpu, bins);
         if let Some(share) = gpu.share {
-            // packets of steps of about PACED_FLOPS, each waited for, then a pause
+            // packets of steps of about PACED_FLOPS, each waited for, then a pause; without
+            // pauses, one packet waits queued behind the one running, so that the GPU is never
+            // idle while the CPU hears of a packet's end and sends the next one
             let mut packet: Vec<&Step> = Vec::new();
             let mut flops = 0;
+            let mut queued = None;
+            let wait = |submission| {
+                let done = wgpu::PollType::Wait { submission_index: Some(submission), timeout: None };
+                gpu.device.poll(done).map(drop).map_err(|e| StemsError::Gpu(e.to_string()))
+            };
             let steps: Vec<&Step> = plan.submissions.iter().flatten().collect();
             for (i, step) in steps.iter().enumerate() {
                 packet.push(step);
@@ -603,9 +610,12 @@ impl MaskNetwork for GpuNetwork {
                 flops = 0;
                 let began = std::time::Instant::now();
                 let submitted = gpu.queue.submit([encoder.finish()]);
-                let done = wgpu::PollType::Wait { submission_index: Some(submitted), timeout: None };
-                gpu.device.poll(done).map_err(|e| StemsError::Gpu(e.to_string()))?;
-                std::thread::sleep(began.elapsed().mul_f64((1.0 - share) / share));
+                if share < 1.0 {
+                    wait(submitted)?;
+                    std::thread::sleep(began.elapsed().mul_f64((1.0 - share) / share));
+                } else if let Some(previous) = queued.replace(submitted) {
+                    wait(previous)?;
+                }
             }
             let mut encoder = gpu.device.create_command_encoder(&Default::default());
             encoder.copy_buffer_to_buffer(&plan.mask, 0, &plan.readback, 0, plan.mask.size());
