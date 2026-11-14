@@ -22,6 +22,7 @@ use crate::state::{lock, AppState};
 use crate::track_loading::DECK_TRACK_UPDATE_EVENT;
 use prisme_engine::{Command, Stem, StemTracks};
 use prisme_media::TrackAudio;
+use prisme_stems::gpu::Attention;
 use prisme_stems::track::TrackSeparation;
 use prisme_stems::{CpuNetwork, Gpu, GpuNetwork, GpuOptions, MaskNetwork, Separator, StemsError, Weights};
 use sha2::{Digest, Sha256};
@@ -86,15 +87,15 @@ const MODELS: [Model; 3] = [
         stems: &[Stem::Drums, Stem::Bass],
         fast: false,
     },
-    // HiDolen's Mini-BS-RoFormer-18M (MIT licence): vocals, drums and bass in one pass of a
-    // model a fortieth of the two others, for a phone or a computer without a graphics card
-    // worth it; `--stems vocals,drums,bass`
+    // HiDolen's Mini-BS-RoFormer-V2.5-46.2M (CC BY-NC 4.0 licence): vocals, drums and bass in
+    // one pass of a model a sixteenth of the two others, for a phone or a computer without a
+    // graphics card worth it; `--stems vocals,drums,bass`
     Model {
         id: "four-fast",
-        file: "bs-roformer-four-small-f16-1.safetensors",
-        url: "https://github.com/Shawiizz/prisme/releases/download/model-bs-roformer-four-small-1/bs-roformer-four-small-f16-1.safetensors",
-        sha256: "88cb0c6a6a40f436abfbe3a495e4dfe15f860adc6b2963d56f31156138ac6222",
-        bytes: 33_698_572,
+        file: "bs-roformer-four-f16-1.safetensors",
+        url: "https://github.com/Shawiizz/prisme/releases/download/model-bs-roformer-four-1/bs-roformer-four-f16-1.safetensors",
+        sha256: "fbdc57c3f02def5358feae39e5cb8e4ff01c4be86b2f89d97ae51059a04935e7",
+        bytes: 91_323_924,
         stems: &[Stem::Vocals, Stem::Drums, Stem::Bass],
         fast: true,
     },
@@ -169,14 +170,16 @@ const USES_GPU: bool = cfg!(any(desktop, target_os = "android"));
 
 /// A phone's GPU draws its screen too: the separation goes to it in packets of a few
 /// milliseconds, between which the screen gets its turn (pausing between them would let the
-/// GPU slow its clock, and the whole with it).
+/// GPU slow its clock, and the whole with it). Its attention goes as products: on an Adreno 740,
+/// a fifth faster than in one pass for Mini-BS-RoFormer-V2.5, when an RTX 4060's shader cores
+/// find it slower.
 const GPU_OPTIONS: GpuOptions = GpuOptions {
     software: false,
     without_matrix_units: false,
     max_binding: None,
     profile: false,
     share: if cfg!(mobile) { Some(1.0) } else { None },
-    attention: None,
+    attention: if cfg!(mobile) { Some(Attention::Products) } else { None },
 };
 
 /// Whether the DJ lets the separation use the graphics chip.

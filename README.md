@@ -114,4 +114,6 @@ The separation models, downloaded separately, are Kimberley Jensen's
 [Mel-Band RoFormer](https://huggingface.co/KimberleyJSN/melbandroformer) (MIT licence) for
 the vocals, and SYH99999's
 [four-stem Mel-Band RoFormer](https://huggingface.co/SYH99999/MelBandRoformer4StemFTLarge)
-(Apache 2.0 licence) for the drums and bass.
+(Apache 2.0 licence) for the drums and bass. The fast separation is HiDolen's
+[Mini-BS-RoFormer-V2.5](https://huggingface.co/HiDolen/Mini-BS-RoFormer-V2.5-46.2M)
+(CC BY-NC 4.0 licence: not for commercial use).
