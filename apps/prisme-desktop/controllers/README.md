@@ -32,14 +32,19 @@ left out, to be completed by hand. Its tests: `python -m unittest discover tools
 ## Pioneer DDJ-SB2
 
 `pioneer-ddj-sb2.json` comes from the Mixxx mapping by Be and Michael Stahl (DG3NEC),
-GPL-2.0-or-later. The converter gave 259 of its 432 controls. Added by hand:
+GPL-2.0-or-later. The converter gives 318 of its 432 controls: the transport, the mixer
+(EQ, kills held, filter, trim, faders, crossfader, headphones mix), the jog wheels, the pads
+(hot cues, auto loops, loop rolls held, manual loops), the effect units (unit 1 on deck A, 2
+on deck B: on/off and level), the browse knob and its click (load on a free deck). Added by
+hand:
 
 - `init`: the request for the positions of the knobs and faders (`9B 09 7F`).
 - The jog wheels under shift (controllers 0x1F and 0x26), which still turn the deck.
 - Shift + KEY LOCK (note 0x60): the tempo back to the track's.
 - The sampler pads (0x30-0x33 on each deck's pad channel): that deck's sounds 1 to 4.
+- Shift + the browse knob's click (note 0x42): the track to the prepare list.
 - The light of the headphones key under shift (note 0x68).
 
-Left out, Prisme having no action for them: the effect units, the EQ kills and mute, the
-loop rolls, the vinyl key, the master headphones mix, the level meters, the Auto DJ keys and
-the browse key's click. Decks 3 and 4 answer in four-deck mode.
+Left out, Prisme having no action for them: the mute, the vinyl key, the effects' second
+and third keys, the level meters, the Auto DJ keys and the other uses under shift (the
+headphones of the deck behind, the playlists). Decks 3 and 4 answer in four-deck mode.

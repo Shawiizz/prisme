@@ -6,7 +6,7 @@ import { EngineService } from '../../../core/services/engine.service';
 import { PerformanceService } from '../../../core/services/performance.service';
 import { EffectKind, HOT_CUES } from '../../../core/models/engine';
 import { Knob } from '../../../shared/knob/knob';
-import { formatBeats, loopBeats } from '../../../shared/beats';
+import { ROLL_BEATS, formatBeats, loopBeats } from '../../../shared/beats';
 import { readouts } from '../../../shared/mixer-scales';
 import { t } from '../../../core/i18n/i18n';
 import { TPipe } from '../../../core/i18n/t.pipe';
@@ -92,7 +92,6 @@ const EFFECTS: { kind: EffectKind; label: string; title: string }[] = [
   },
 ];
 const LOOP_BEATS = [0.25, 0.5, 1, 2, 4, 8, 16, 32];
-const ROLL_BEATS = [1 / 16, 1 / 8, 1 / 4, 1 / 2, 1, 2, 4, 8];
 const JUMP_BEATS = [-32, -16, -4, -1, 1, 4, 16, 32];
 
 /**

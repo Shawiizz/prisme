@@ -28,6 +28,13 @@ MAPPING = """<?xml version="1.0" encoding="UTF-8"?>
       <control><group>[Channel1]</group><key>DJ1.hotCueButtons</key><status>0x97</status><midino>0x00</midino><options><script-binding/></options></control>
       <control><group>[Channel1]</group><key>hotcue_3_clear</key><status>0x97</status><midino>0x0A</midino><options><normal/></options></control>
       <control><group>[Channel1]</group><key>DJ1.lowKillButton</key><status>0x97</status><midino>0x60</midino><options><script-binding/></options></control>
+      <control><group>[Channel1]</group><key>DJ1.vinylButton</key><status>0x90</status><midino>0x17</midino><options><script-binding/></options></control>
+      <control><group>[Channel1]</group><key>DJ1.beatloopRollButtons</key><status>0x97</status><midino>0x51</midino><options><script-binding/></options></control>
+      <control><group>[Channel1]</group><key>DJ1.beatloopRollButtons</key><status>0x97</status><midino>0x50</midino><options><script-binding/></options></control>
+      <control><group>[Channel2]</group><key>beatlooproll_0.5_activate</key><status>0x98</status><midino>0x53</midino><options><normal/></options></control>
+      <control><group>[EffectRack1_EffectUnit2]</group><key>mix</key><status>0xB5</status><midino>0x02</midino><options><normal/></options></control>
+      <control><group>[Master]</group><key>headMix</key><status>0xB6</status><midino>0x05</midino><options><normal/></options></control>
+      <control><group>[Playlist]</group><key>DJ1.rotarySelectorClick</key><status>0x96</status><midino>0x41</midino><options><script-binding/></options></control>
       <control><group>[Playlist]</group><key>SelectTrackKnob</key><status>0xB6</status><midino>0x40</midino><options><selectknob/></options></control>
     </controls>
     <outputs>
@@ -70,7 +77,20 @@ class Conversion(unittest.TestCase):
     def test_a_second_use_under_shift_is_left_to_the_hand(self):
         self.assertIsNone(target(self.profile, 'controlChange', 0, 0x26))
         self.assertIn('DJ1.jogRingTickShift', self.report['leftOut'])
-        self.assertIn('DJ1.lowKillButton', self.report['leftOut'])
+        self.assertIn('DJ1.vinylButton', self.report['leftOut'])
+
+    def test_kills_rolls_effects_and_the_headphones_mix(self):
+        self.assertEqual(target(self.profile, 'note', 7, 0x60)['target'], 'deck1.eq.low.kill')
+        self.assertEqual(target(self.profile, 'note', 7, 0x50)['target'], 'deck1.roll1')
+        self.assertEqual(target(self.profile, 'note', 7, 0x51)['target'], 'deck1.roll2')
+        self.assertEqual(target(self.profile, 'note', 8, 0x53)['target'], 'deck2.roll4')
+        self.assertEqual(target(self.profile, 'controlChange', 5, 0x02)['target'], 'deck2.fx.mix')
+        self.assertEqual(target(self.profile, 'controlChange', 6, 0x05)['target'], 'mixer.cueMix')
+
+    def test_the_browse_knob_loads_what_it_points_at(self):
+        click = target(self.profile, 'note', 6, 0x41)
+        self.assertEqual(click['target'], 'library.load')
+        self.assertNotIn('encoding', click)
 
     def test_encoders_read_their_steps(self):
         jog = target(self.profile, 'controlChange', 0, 0x21)
@@ -95,8 +115,8 @@ class Conversion(unittest.TestCase):
         self.assertEqual((lights[(0x1A, 'deck1.keylock')]['on'], lights[(0x1A, 'deck1.keylock')]['off']), (0x40, 1))
 
     def test_the_report_counts_what_was_converted(self):
-        self.assertEqual(self.report['controls'], 15)
-        self.assertEqual(self.report['converted'], 13)
+        self.assertEqual(self.report['controls'], 22)
+        self.assertEqual(self.report['converted'], 20)
 
     def test_the_profile_is_written_as_json_a_control_a_line(self):
         text = write(self.profile)

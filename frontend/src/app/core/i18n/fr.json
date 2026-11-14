@@ -506,5 +506,9 @@
   "Separation": "Séparation",
   "Quality": "Qualité",
   "Fast": "Rapide",
-  "Quality: the large models, the cleanest stems. Fast: a model a seventh of the size for the vocals, two to three times faster, for a phone or a computer without a graphics card worth it.": "Qualité : les grands modèles, les stems les plus propres. Rapide : un modèle sept fois plus petit pour les voix, deux à trois fois plus rapide, pour un téléphone ou un ordinateur sans carte graphique adaptée."
+  "Quality: the large models, the cleanest stems. Fast: a model a seventh of the size for the vocals, two to three times faster, for a phone or a computer without a graphics card worth it.": "Qualité : les grands modèles, les stems les plus propres. Rapide : un modèle sept fois plus petit pour les voix, deux à trois fois plus rapide, pour un téléphone ou un ordinateur sans carte graphique adaptée.",
+  "Effect amount": "Intensité de l'effet",
+  "Kill the bass while held": "Couper les basses tant que maintenu",
+  "Kill the mids while held": "Couper les médiums tant que maintenu",
+  "Kill the highs while held": "Couper les aigus tant que maintenu"
 }
