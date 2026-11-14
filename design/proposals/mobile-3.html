@@ -64,7 +64,7 @@
         display: flex;
         flex-direction: column;
         width: 380px;
-        height: 800px;
+        height: 820px;
         border: 1px solid var(--pr-line-2);
         border-radius: 30px;
         background: var(--pr-void);
@@ -150,6 +150,7 @@
       .num {
         font: 600 14px / 1 var(--pr-font-mono);
         font-stretch: 75%;
+        white-space: nowrap;
       }
       .time {
         font: 600 19px / 1 var(--pr-font-mono);
@@ -159,7 +160,7 @@
         min-width: 32px;
       }
 
-      /* ---------- The mixer: a channel a deck, side by side ---------- */
+      /* ---------- The mixer: a channel a deck, as a mixer lays one out ---------- */
       .mixer {
         flex: 1;
         min-height: 0;
@@ -170,52 +171,29 @@
       }
       .channel {
         display: grid;
-        grid-template-columns: 50px 1fr 44px 7px;
+        grid-template-rows: auto auto minmax(0, 1fr);
         gap: 8px;
-        padding: 10px 10px 10px 12px;
+        padding: 10px 14px 8px;
       }
-      .channel.b {
-        grid-template-columns: 7px 44px 1fr 50px;
-        padding: 10px 12px 10px 10px;
+      .channel + .channel {
         border-left: 1px solid var(--pr-line);
       }
-      .channel.b .keys {
-        order: 4;
-      }
-      .channel.b .knobs {
-        order: 3;
-      }
-      .channel.b .fader {
-        order: 2;
-      }
-      .channel.b .meter {
-        order: 1;
-      }
-      .keys,
       .knobs {
         display: grid;
-        grid-auto-rows: 1fr;
-        gap: 6px;
-      }
-      .keys .pr-btn {
-        width: 100%;
-        height: 100%;
-        padding: 0;
-        font: 600 10.5px / 1 var(--pr-font);
-        letter-spacing: 0.05em;
+        grid-template-columns: 1fr 1fr;
+        gap: 6px 0;
       }
       .knob {
         display: grid;
         justify-items: center;
-        align-content: center;
         gap: 1px;
         font: 600 var(--pr-size-label) / 1.2 var(--pr-font);
         letter-spacing: 0.06em;
         color: var(--pr-text-3);
       }
       .knob svg {
-        width: 42px;
-        height: 42px;
+        width: 44px;
+        height: 44px;
       }
       .knob path {
         fill: none;
@@ -237,25 +215,75 @@
         stroke-width: 2;
         stroke-linecap: round;
       }
+      .cue {
+        height: 30px;
+        padding: 0;
+        font: 600 10.5px / 1 var(--pr-font);
+        letter-spacing: 0.06em;
+      }
+      /* the fader of a channel: a slot, its marks, a cap that slides */
+      .strip {
+        display: grid;
+        grid-template-columns: 1fr 44px 1fr;
+        gap: 6px;
+        min-height: 0;
+      }
+      .marks {
+        display: grid;
+        align-content: space-between;
+        padding-block: 10px;
+      }
+      .marks i {
+        height: 1px;
+        width: 7px;
+        background: var(--pr-line-2);
+      }
+      .marks i.long {
+        width: 12px;
+        background: var(--pr-text-3);
+      }
+      .marks:first-child {
+        justify-items: end;
+      }
       .fader {
         position: relative;
-        border: 1px solid var(--pr-line-2);
-        border-radius: var(--pr-radius);
-        background: var(--pr-void);
-        overflow: hidden;
       }
-      .fader::after {
+      .fader::before {
         content: "";
         position: absolute;
-        inset: auto 0 0;
-        height: var(--v);
-        background: var(--pr-raise-2);
-        border-top: 3px solid var(--pr-light);
+        inset: 0 calc(50% - 3px);
+        border: 1px solid var(--pr-line-2);
+        border-radius: 3px;
+        background: var(--pr-void);
+      }
+      .cap {
+        position: absolute;
+        left: 2px;
+        right: 2px;
+        bottom: calc(var(--v) - 11px);
+        height: 22px;
+        border: 1px solid var(--pr-text-3);
+        border-radius: var(--pr-radius);
+        background: linear-gradient(var(--pr-raise-2), var(--pr-raise));
+        box-shadow: 0 2px 6px rgb(0 0 0 / 0.5);
+      }
+      .cap::after {
+        content: "";
+        position: absolute;
+        inset: 9px 4px auto;
+        height: 2px;
+        background: var(--pr-light);
       }
       .meter {
+        justify-self: start;
         display: grid;
         grid-auto-rows: 1fr;
         gap: 1px;
+        width: 6px;
+        padding-block: 10px;
+      }
+      .channel.b .meter {
+        justify-self: end;
       }
       .meter i {
         background: var(--pr-raise-2);
@@ -267,67 +295,72 @@
         background: var(--pr-warn);
       }
 
-      /* ---------- The crossfader and what plays the decks ---------- */
+      /* ---------- The crossfader: the same fader, lying down ---------- */
       .cross {
         flex: none;
-        display: flex;
+        display: grid;
+        grid-template-columns: auto 1fr auto;
         align-items: center;
         gap: 10px;
-        padding: 10px 12px 0;
+        padding: 8px 14px 4px;
         background: var(--pr-base);
         font: 600 11px / 1 var(--pr-font);
         color: var(--pr-text-3);
       }
       .slide {
         position: relative;
-        flex: 1;
-        height: 38px;
-        border: 1px solid var(--pr-line-2);
-        border-radius: var(--pr-radius);
-        background: var(--pr-void);
+        height: 40px;
       }
       .slide::before {
         content: "";
         position: absolute;
-        inset: 17px 18px auto;
-        height: 2px;
-        background: var(--pr-line-2);
-      }
-      .slide i {
-        position: absolute;
-        top: 3px;
-        bottom: 3px;
-        left: calc(var(--at) - 22px);
-        width: 44px;
-        display: grid;
-        place-items: center;
+        inset: calc(50% - 3px) 0;
         border: 1px solid var(--pr-line-2);
-        border-radius: var(--pr-radius-sm);
-        background: var(--pr-raise-2);
+        border-radius: 3px;
+        background: var(--pr-void);
       }
-      .slide i::after {
-        content: "";
+      .slide .cap {
+        top: 2px;
+        bottom: 2px;
+        left: calc(var(--at) - 11px);
+        right: auto;
+        width: 22px;
+        height: auto;
+      }
+      .slide .cap::after {
+        inset: 4px auto 4px 9px;
         width: 2px;
-        height: 16px;
-        background: var(--pr-light);
+        height: auto;
       }
-      .transport {
+
+      /* ---------- What each deck is played with ---------- */
+      .play {
         flex: none;
         display: grid;
         grid-template-columns: 1fr 1fr;
-        gap: 14px;
-        padding: 10px 12px 12px;
+        gap: 6px 14px;
+        padding: 6px 12px 12px;
         background: var(--pr-base);
       }
-      .transport div {
+      .play div {
         display: grid;
         grid-template-columns: 1.3fr 1fr 1fr;
         gap: 6px;
       }
-      .transport div + div {
+      .play div.b {
         grid-template-columns: 1fr 1fr 1.3fr;
       }
-      .transport .pr-btn {
+      .play .more .pr-btn {
+        height: 30px;
+        padding: 0;
+        font: 600 10.5px / 1 var(--pr-font);
+        letter-spacing: 0.06em;
+        color: var(--pr-text-2);
+      }
+      .play .more .pr-btn.is-on {
+        color: var(--pr-on-light);
+      }
+      .play .keys .pr-btn {
         height: 54px;
         padding: 0;
         font-size: 13px;
@@ -382,9 +415,6 @@
         height: 36px;
         padding: 0;
         font-size: 11.5px;
-      }
-      .dim {
-        opacity: 0.35;
       }
 
       /* ---------- Sideways ---------- */
@@ -442,33 +472,41 @@
       .wide .deck:first-child {
         border-top: 0;
       }
-      .wide .mixer {
-        grid-template-columns: 1fr 1fr;
-      }
       .wide .channel {
-        grid-template-columns: 1fr 44px 7px;
-        padding: 6px 10px;
+        grid-template-rows: none;
+        grid-template-columns: 1fr auto 74px;
+        align-items: center;
+        gap: 8px;
+        padding: 4px 10px;
       }
       .wide .channel.b {
-        grid-template-columns: 7px 44px 1fr;
+        grid-template-columns: 74px auto 1fr;
       }
-      .wide .knobs {
-        grid-template-columns: repeat(4, 1fr);
-        grid-auto-rows: auto;
-        align-content: center;
+      .wide .channel.b .strip {
+        order: -2;
+      }
+      .wide .channel.b .cue {
+        order: -1;
       }
       .wide .knob svg {
-        width: 36px;
-        height: 36px;
+        width: 34px;
+        height: 34px;
+      }
+      .wide .cue {
+        width: 30px;
+        height: 100%;
+        writing-mode: vertical-rl;
+      }
+      .wide .strip {
+        height: 100%;
+        grid-template-columns: 1fr 36px 1fr;
+        gap: 4px;
       }
       .wide .cross {
-        padding: 6px 10px 8px;
+        padding: 2px 10px 6px;
       }
       .wide .slide {
         height: 32px;
-      }
-      .wide .slide::before {
-        inset: 14px 18px auto;
       }
     </style>
   </head>
@@ -476,21 +514,22 @@
     <h1>Prisme sur téléphone · la table</h1>
     <p class="lead">
       Quand rien n'est branché, l'écran Decks devient une table de mixage : les
-      deux decks en même temps, une voie chacun, côte à côte — égaliseur,
-      filtre, fader de volume, niveau — puis le crossfader et les touches de
-      lecture de chaque deck. Les pads et le pitch ne prennent plus la place :
-      ils s'ouvrent dans un panneau flottant, au-dessus de la table, et se
-      referment. Mêmes formes que sur ordinateur.
+      deux decks en même temps, une voie chacun, comme sur une vraie table —
+      égaliseur et filtre en haut, pré-écoute, puis un vrai fader de volume avec
+      son niveau. Dessous, le crossfader et les touches de chaque deck. Les pads
+      et le pitch s'ouvrent dans un panneau flottant par-dessus la table. Mêmes
+      formes que sur ordinateur.
     </p>
 
     <div class="row">
       <figure>
         <figcaption>
           <b>1 · La table</b>
-          En haut, les deux formes d'onde l'une sous l'autre, pour caler à
-          l'œil. Au milieu, la voie de A à gauche et celle de B à droite, en
-          miroir. En bas, le crossfader, puis PLAY, CUE et SYNC de chaque deck :
-          PLAY dans les coins, sous les pouces.
+          Les deux formes d'onde l'une sous l'autre, pour caler à l'œil. Puis
+          une voie par deck : HI, MID, LOW et FILTER, la pré-écoute au casque,
+          le fader. En bas, le crossfader, puis pour chaque deck PADS, PITCH et
+          DECK au-dessus de PLAY, CUE et SYNC — PLAY dans les coins, sous les
+          pouces.
         </figcaption>
         <div class="phone" data-screen="table"></div>
       </figure>
@@ -498,10 +537,9 @@
       <figure>
         <figcaption>
           <b>2 · Les pads, en flottant</b>
-          La touche PADS d'un deck ouvre ses pads par-dessus la table : cues,
-          boucles, rolls, sauts, effets, sampler. Les formes d'onde, le
-          crossfader et les touches de lecture restent sous la main. × ou la
-          même touche le referme.
+          PADS ouvre les pads de son deck par-dessus la table : cues, boucles,
+          rolls, sauts, effets, sampler. Les formes d'onde, le crossfader et la
+          lecture restent sous la main. × ou la même touche le referme.
         </figcaption>
         <div class="phone" data-screen="pads"></div>
       </figure>
@@ -509,9 +547,9 @@
       <figure>
         <figcaption>
           <b>3 · Le pitch, en flottant</b>
-          La touche PITCH d'un deck ouvre son fader de tempo, avec − et + pour
-          pousser ou retenir, et le key lock. Le panneau flotte du côté de son
-          deck et laisse l'autre voie visible.
+          PITCH ouvre le fader de tempo de son deck, avec − et + pour pousser ou
+          retenir, et le key lock. Le panneau flotte du côté de son deck et
+          laisse l'autre voie visible.
         </figcaption>
         <div class="phone" data-screen="pitch"></div>
       </figure>
@@ -521,10 +559,9 @@
       <figure>
         <figcaption style="min-height: 60px">
           <b>4 · Tenu de côté</b>
-          La même table, plus large : les pads et les touches de lecture de
-          chaque deck sur son côté, sous son pouce ; au milieu les formes
-          d'onde, les deux voies et le crossfader. Plus besoin de panneau pour
-          les pads.
+          La même table, plus large : les pads et la lecture de chaque deck sur
+          son côté, sous son pouce ; au milieu les formes d'onde, les deux voies
+          et le crossfader. Plus besoin de panneau pour les pads.
         </figcaption>
         <div class="phone wide" data-screen="wide"></div>
       </figure>
@@ -541,38 +578,36 @@
           const [x1, y1] = at(from);
           const [x2, y2] = at(to);
           const large = Math.abs(to - from) * 270 > 180 ? 1 : 0;
-          const sweep = to > from ? 1 : 0;
-          return `M${x1} ${y1}A14.5 14.5 0 ${large} ${sweep} ${x2} ${y2}`;
+          return `M${x1} ${y1}A14.5 14.5 0 ${large} ${to > from ? 1 : 0} ${x2} ${y2}`;
         };
         const angle = ((135 + value * 270) * Math.PI) / 180;
-        const point = (r) =>
-          `${18 + r * Math.cos(angle)}" y="${18 + r * Math.sin(angle)}`;
+        const end = (r) => [18 + r * Math.cos(angle), 18 + r * Math.sin(angle)];
+        const [x1, y1] = end(4);
+        const [x2, y2] = end(9);
         return `<div class="knob"><svg viewBox="0 0 36 36">
           <path class="track" d="${arc(0, 1)}" />
           <path class="value" d="${arc(0.5, value === 0.5 ? 0.501 : value)}" />
           <circle cx="18" cy="18" r="10.5" />
-          <line x1="${18 + 4 * Math.cos(angle)}" y1="${18 + 4 * Math.sin(angle)}" x2="${18 + 9 * Math.cos(angle)}" y2="${18 + 9 * Math.sin(angle)}" />
+          <line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" />
         </svg>${label}</div>`;
       }
+      const marks = () =>
+        `<div class="marks">${Array.from({ length: 11 }, (_, i) => `<i class="${i % 5 === 0 ? "long" : ""}"></i>`).join("")}</div>`;
       const meter = (level) =>
         `<div class="meter">${Array.from({ length: 14 }, (_, i) => {
           const at = 14 - i;
           return `<i class="${at <= level ? (at > 11 ? "hot" : "lit") : ""}"></i>`;
         }).join("")}</div>`;
-      const channel = (side, knobs, volume, level, keys) => `
+      const strip = (side, volume, level) =>
+        side === "a"
+          ? `<div class="strip">${marks()}<div class="fader"><i class="cap" style="--v: ${volume}%"></i></div>${meter(level)}</div>`
+          : `<div class="strip">${meter(level)}<div class="fader"><i class="cap" style="--v: ${volume}%"></i></div>${marks()}</div>`;
+      const channel = (side, knobs, volume, level, cued) => `
         <div class="channel ${side}">
-          ${keys === null ? "" : `<div class="keys">${keys}</div>`}
           <div class="knobs">${knobs}</div>
-          <div class="fader" style="--v: ${volume}%"></div>
-          ${meter(level)}
+          <button class="pr-btn cue${cued ? " is-on" : ""}">CASQUE</button>
+          ${strip(side, volume, level)}
         </div>`;
-      const keys = (on = []) =>
-        ["CASQUE", "PADS", "PITCH", "DECK"]
-          .map(
-            (k) =>
-              `<button class="pr-btn${on.includes(k) ? " is-on" : ""}">${k}</button>`,
-          )
-          .join("");
       const eqA =
         knob("HI", 0.5) +
         knob("MID", 0.5) +
@@ -583,6 +618,8 @@
         knob("MID", 0.5) +
         knob("LOW", 0.5) +
         knob("FILTER", 0.5);
+      const mixer = () =>
+        `<div class="mixer">${channel("a", eqA, 82, 10, true)}${channel("b", eqB, 58, 0, false)}</div>`;
       const deck = (
         letter,
         title,
@@ -627,41 +664,44 @@
           false,
           wave,
         );
-      const head = (audio) => `
+      const head = `
         <div class="status"><span>21:42</span><span>82 %</span></div>
-        <div class="bar"><span class="pr-sig pr-sig--ok"></span>${audio}<span class="grow"></span>
+        <div class="bar"><span class="pr-sig pr-sig--ok"></span>AAudio · 3,8 ms<span class="grow"></span>
           <button class="pr-btn pr-btn--sm is-on">Commandes</button>
           <button class="pr-btn pr-btn--sm pr-btn--ghost pr-btn--rec"><span class="pr-btn__dot"></span>Rec</button>
         </div>`;
-      const foot = `
-        <div class="cross"><span>A</span><div class="slide" style="--at: 42%"><i></i></div><span>B</span></div>
-        <div class="transport">
-          <div><button class="pr-btn is-on">PAUSE</button><button class="pr-btn">CUE</button><button class="pr-btn">SYNC</button></div>
-          <div><button class="pr-btn is-on">SYNC</button><button class="pr-btn is-on">CUE</button><button class="pr-btn">PLAY</button></div>
+      const cross = `<div class="cross"><span>A</span><div class="slide"><i class="cap" style="--at: 42%"></i></div><span>B</span></div>`;
+      const more = (side, on) =>
+        (side === "a" ? ["PADS", "PITCH", "DECK"] : ["DECK", "PITCH", "PADS"])
+          .map(
+            (k) =>
+              `<button class="pr-btn${k === on ? " is-on" : ""}">${k}</button>`,
+          )
+          .join("");
+      const foot = (onA, onB) => `
+        ${cross}
+        <div class="play">
+          <div class="more">${more("a", onA)}</div>
+          <div class="more b">${more("b", onB)}</div>
+          <div class="keys"><button class="pr-btn is-on">PAUSE</button><button class="pr-btn">CUE</button><button class="pr-btn">SYNC</button></div>
+          <div class="keys b"><button class="pr-btn is-on">SYNC</button><button class="pr-btn is-on">CUE</button><button class="pr-btn">PLAY</button></div>
         </div>
         <div class="tabs"><div class="on">Decks</div><div>Bibliothèque</div><div>Réglages</div></div>`;
-      const mixer = (onA, onB, dim = "") => `
-        <div class="mixer ${dim}">
-          ${channel("a", eqA, 82, 10, keys(onA))}
-          ${channel("b", eqB, 64, 0, keys(onB))}
-        </div>`;
       const pad = (n, colour) =>
         colour
           ? `<button class="pr-pad pr-pad--set" style="--tag: ${colour}"><span>${n}</span></button>`
           : `<button class="pr-pad"><span>${n}</span></button>`;
-      const pads = (count) =>
+      const pads = (set) =>
         [
-          pad(1, "#ff5442"),
-          pad(2, "#f5d547"),
-          pad(3, "#4aa8ff"),
+          pad(1, set && "#ff5442"),
+          pad(2, set && "#f5d547"),
+          pad(3, set && "#4aa8ff"),
           pad(4),
           pad(5),
           pad(6),
           pad(7),
           pad(8),
-        ]
-          .slice(0, count)
-          .join("");
+        ].join("");
       const modes = `<div class="pr-seg" role="radiogroup">${[
         "CUES",
         "LOOP",
@@ -677,34 +717,32 @@
         .join("")}</div>`;
 
       const screens = {
-        table: () =>
-          head("AAudio · 3,8 ms") + decks(70) + mixer(["CASQUE"], []) + foot,
+        table: () => head + decks(62) + mixer() + foot(),
         pads: () =>
-          head("AAudio · 3,8 ms") +
-          decks(70) +
-          mixer(["CASQUE", "PADS"], [], "") +
-          `<div class="float" style="left: 8px; right: 8px; top: 286px">
+          head +
+          decks(62) +
+          mixer() +
+          `<div class="float" style="left: 8px; right: 8px; top: 272px">
             <div class="float__head"><span class="pr-tile">A</span><b>Pads</b><span class="grow"></span>
-              <button class="pr-btn pr-btn--sm pr-btn--ghost">B</button>
               <button class="pr-btn pr-btn--sm pr-btn--icon pr-btn--ghost">×</button></div>
             ${modes}
-            <div class="pads">${pads(8)}</div>
+            <div class="pads">${pads(true)}</div>
             <div class="line"><button class="pr-btn">SLIP</button><button class="pr-btn">CENSOR</button></div>
           </div>` +
-          foot,
+          foot("PADS"),
         pitch: () =>
-          head("AAudio · 3,8 ms") +
-          decks(70) +
-          mixer([], ["PITCH"]) +
-          `<div class="float" style="right: 8px; width: 184px; top: 318px">
+          head +
+          decks(62) +
+          mixer() +
+          `<div class="float" style="right: 8px; width: 184px; top: 400px">
             <div class="float__head"><span class="pr-tile pr-tile--outline">B</span>
-              <span class="num" style="white-space: nowrap">Pitch −0.40 %</span><span class="grow"></span>
+              <b>Pitch</b><span class="grow"></span><span class="num">−0.40 %</span>
               <button class="pr-btn pr-btn--sm pr-btn--icon pr-btn--ghost">×</button></div>
-            <div class="slide" style="--at: 45%; height: 44px"><i></i></div>
+            <div class="slide"><i class="cap" style="--at: 45%"></i></div>
             <div class="line"><button class="pr-btn">−</button><button class="pr-btn">0</button><button class="pr-btn">+</button></div>
             <div class="line"><button class="pr-btn is-on">KEY LOCK</button><button class="pr-btn">± 8 %</button></div>
           </div>` +
-          foot,
+          foot(null, "PITCH"),
         wide: () => `
           <div class="bar"><span class="pr-sig pr-sig--ok"></span>AAudio · 3,8 ms<span class="grow"></span>
             <button class="pr-btn pr-btn--sm is-on">Commandes</button>
@@ -712,14 +750,11 @@
             <span style="color: var(--pr-text)">Decks</span><span>Bibliothèque</span><span>Réglages</span>
           </div>
           <div class="cols">
-            <div class="side">${modes}<div class="pads">${pads(8)}</div>
+            <div class="side">${modes}<div class="pads">${pads(true)}</div>
               <button class="pr-btn sync">SYNC</button>
               <div class="two"><button class="pr-btn">CUE</button><button class="pr-btn is-on">PAUSE</button></div></div>
-            <div class="middle">${decks(46)}
-              <div class="mixer">${channel("a", eqA, 82, 10, null)}${channel("b", eqB, 64, 0, null)}</div>
-              <div class="cross"><span>A</span><div class="slide" style="--at: 42%"><i></i></div><span>B</span></div>
-            </div>
-            <div class="side">${modes}<div class="pads">${pads(8).replaceAll("pr-pad--set", "")}</div>
+            <div class="middle">${decks(44)}${mixer()}${cross}</div>
+            <div class="side">${modes}<div class="pads">${pads(false)}</div>
               <button class="pr-btn sync is-on">SYNC</button>
               <div class="two"><button class="pr-btn">PLAY</button><button class="pr-btn is-on">CUE</button></div></div>
           </div>`,
