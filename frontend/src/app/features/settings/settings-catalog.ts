@@ -115,7 +115,7 @@ const COMPUTER_ONLY: readonly SettingsCategory[] = ['shortcuts'];
 
 export const SETTINGS_PAGES = PHONE ? PAGES.filter((p) => !COMPUTER_ONLY.includes(p.id)) : PAGES;
 
-export const SETTINGS: readonly SettingEntry[] = [
+const ALL_SETTINGS: readonly SettingEntry[] = [
   {
     id: 'audio.driver',
     page: 'audio',
@@ -379,6 +379,18 @@ export const SETTINGS: readonly SettingEntry[] = [
     },
   },
   {
+    id: 'interface.screenBelow',
+    page: 'interface',
+    get label() {
+      return t('Decks on the screen below');
+    },
+    get description() {
+      return t(
+        'On a laptop with two screens, or with a screen set under the main one: the library above, the decks below, under the fingers.',
+      );
+    },
+  },
+  {
     id: 'about.version',
     page: 'about',
     get label() {
@@ -409,6 +421,13 @@ export const SETTINGS: readonly SettingEntry[] = [
     },
   },
 ];
+
+/** The settings a phone has no use for: it has one screen. */
+const COMPUTER_ONLY_SETTINGS: readonly string[] = ['interface.screenBelow'];
+
+export const SETTINGS = PHONE
+  ? ALL_SETTINGS.filter((s) => !COMPUTER_ONLY_SETTINGS.includes(s.id))
+  : ALL_SETTINGS;
 
 /** Lower case without accents, to compare what is typed with what is written. */
 export function normalize(text: string): string {

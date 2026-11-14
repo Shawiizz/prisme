@@ -1,0 +1,64 @@
+:host {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  padding: 10px 16px 12px;
+}
+
+.pr-tile {
+  flex: none;
+  width: 28px;
+  height: 28px;
+  font-size: 15px;
+}
+.names {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-size: 15px;
+  font-weight: 600;
+  span {
+    font-weight: 400;
+    color: var(--pr-text-2);
+  }
+  &.empty {
+    font-weight: 400;
+    color: var(--pr-text-3);
+  }
+}
+.bpm {
+  font-size: 15px;
+  font-weight: 600;
+}
+.time {
+  min-width: 96px;
+  font-size: 22px;
+  font-weight: 600;
+  line-height: 1;
+  text-align: end;
+  &.warn {
+    color: var(--pr-warn);
+  }
+  &.alert {
+    color: var(--pr-alert);
+    animation: pr-blink 0.5s steps(1) infinite;
+  }
+}
+
+// how far into its track the deck is
+.played {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 2px;
+  background: linear-gradient(
+    to right,
+    var(--pr-text-3) calc(var(--played) * 100%),
+    transparent calc(var(--played) * 100%)
+  );
+}

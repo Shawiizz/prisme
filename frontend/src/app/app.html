@@ -6,7 +6,10 @@
 } @else {
   <app-titlebar />
 
-  <main class="layout">
+  <main class="layout" [class.split]="under() !== null" [style.--under.px]="under()">
+    @if (under() !== null) {
+      <app-now-playing />
+    }
     <section class="decks" [class.mix]="mixer.internal()" [class.four]="decks().length > 2">
       @for (deck of decks(); track deck) {
         <app-deck-lane [deck]="deck" [compact]="decks().length > 2" />

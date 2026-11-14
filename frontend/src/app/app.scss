@@ -45,3 +45,26 @@ app-phase-strip {
   flex: 1;
   min-height: 0;
 }
+
+// spread over a screen below: the library on the main screen, what plays recalled above
+// it, the decks on the screen below, under the fingers
+.layout.split {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) var(--under);
+  gap: 0;
+  padding: 0;
+  app-now-playing {
+    grid-row: 1;
+  }
+  .library {
+    grid-row: 2;
+    padding: var(--pr-space-2) 10px;
+  }
+  .decks {
+    grid-row: 3;
+    align-content: center;
+    padding: var(--pr-space-2) 10px;
+    border-top: 1px solid var(--pr-line);
+    background: var(--pr-void);
+  }
+}

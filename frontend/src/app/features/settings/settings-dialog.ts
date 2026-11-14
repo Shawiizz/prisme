@@ -25,6 +25,7 @@ import { TurntablePanel } from '../turntables/turntable-panel';
 import { ControllersSettings } from '../controllers/controllers-settings';
 import { ShortcutsSettings } from '../shortcuts/shortcuts-settings';
 import { PHONE } from '../../core/platform';
+import { ScreensService } from '../../core/services/screens.service';
 import { SETTINGS, SETTINGS_PAGES, SettingEntry, matches, normalize } from './settings-catalog';
 import { SettingsIcon } from './settings-icon';
 
@@ -48,6 +49,7 @@ export class SettingsDialog implements OnInit {
   protected readonly updates = inject(UpdateService);
   protected readonly stems = inject(StemsService);
   private readonly navigation = inject(NavigationService);
+  protected readonly screens = inject(ScreensService);
 
   protected readonly pages = SETTINGS_PAGES;
   /** On a phone the settings are a screen with its pages: this is one of them. */

@@ -1,4 +1,4 @@
-import { Component, OnInit, inject } from '@angular/core';
+import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { StemsService } from './core/services/stems.service';
 import { Titlebar } from './shell/titlebar/titlebar';
 import { DeckLane } from './features/deck/deck-lane/deck-lane';
@@ -8,6 +8,9 @@ import { SettingsDialog } from './features/settings/settings-dialog';
 import { CommandPalette } from './features/command-palette/command-palette';
 import { SelectPicker } from './shared/select-picker/select-picker';
 import { Phone } from './features/phone/phone';
+import { NowPlaying } from './shell/now-playing/now-playing';
+import { ScreensService } from './core/services/screens.service';
+import { clickWithEveryFinger } from './core/every-finger';
 import { PHONE } from './core/platform';
 import { KeyboardService } from './core/keyboard/keyboard.service';
 import { ControllerService } from './core/control/controller.service';
@@ -21,7 +24,8 @@ import { NavigationService } from './core/services/navigation.service';
 
 /**
  * Main window layout: title bar, a lane per deck (compact ones for four decks) with the
- * phase strip after the first, the library; and the dialogs. On a phone, its own screens.
+ * phase strip after the first, the library; and the dialogs. Spread over a screen below, the
+ * library above and the decks on the screen below. On a phone, its own screens.
  */
 @Component({
   selector: 'app-root',
@@ -34,9 +38,11 @@ import { NavigationService } from './core/services/navigation.service';
     SettingsDialog,
     CommandPalette,
     Phone,
+    NowPlaying,
   ],
   templateUrl: './app.html',
   styleUrl: './app.scss',
+  host: { '(window:resize)': 'height.set($any($event.target).innerHeight)' },
 })
 export class App implements OnInit {
   private readonly engine = inject(EngineService);
@@ -51,6 +57,18 @@ export class App implements OnInit {
   private readonly updates = inject(UpdateService);
   protected readonly navigation = inject(NavigationService);
   protected readonly PHONE = PHONE;
+  private readonly screens = inject(ScreensService);
+  protected readonly height = signal(innerHeight);
+  /** Spread over a screen below: the height the decks have on it (CSS px). */
+  protected readonly under = computed(() => {
+    const split = this.screens.split();
+    return split === null ? null : Math.max(this.height() - split, 0);
+  });
+
+  constructor() {
+    // a touch screen, a phone's or a laptop's, takes several fingers at once
+    clickWithEveryFinger();
+  }
 
   async ngOnInit() {
     await this.preferences.load();
@@ -61,6 +79,7 @@ export class App implements OnInit {
       this.settings.init(),
       this.keyboard.start(),
       this.controllers.start(),
+      this.screens.init(),
     ]);
     this.mixer.apply(mixer);
     this.updates.look();

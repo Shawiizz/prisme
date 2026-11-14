@@ -757,6 +757,31 @@
                   </div>
                 </div>
               }
+              @if (!PHONE && row('interface.screenBelow')) {
+                @let e = entry('interface.screenBelow');
+                <div
+                  class="pr-row"
+                  data-setting="interface.screenBelow"
+                  [class.is-pointed]="pointed() === e.id"
+                >
+                  <div>
+                    <span class="pr-row__name">{{ e.label }}</span>
+                    <span class="pr-row__help">{{
+                      screens.below() ? e.description : ('No screen under this one.' | t)
+                    }}</span>
+                  </div>
+                  <button
+                    class="pr-switch"
+                    role="switch"
+                    [attr.aria-checked]="screens.split() !== null"
+                    [attr.aria-label]="e.label"
+                    [disabled]="!screens.below()"
+                    (click)="screens.span(screens.split() === null)"
+                  >
+                    <span></span>
+                  </button>
+                </div>
+              }
             </div>
           </section>
         }

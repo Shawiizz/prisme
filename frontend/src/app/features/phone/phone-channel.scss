@@ -12,7 +12,7 @@ app-channel-strip {
   grid-template-columns: 1fr 1fr;
   gap: 6px 0;
   justify-items: center;
-  --knob-size: 44px;
+  --knob-size: 52px;
 }
 
 .cue {
@@ -48,8 +48,9 @@ app-channel-strip {
 app-fader {
   height: auto;
 }
+// the level stands apart from the fader, in the middle of its side
 .pr-meter {
-  justify-self: start;
+  justify-self: center;
   padding-block: 10px;
 }
 
@@ -61,7 +62,6 @@ app-fader {
   }
   .pr-meter {
     order: -1;
-    justify-self: end;
   }
 }
 
@@ -69,13 +69,13 @@ app-fader {
 @media (orientation: landscape) {
   :host {
     grid-template-rows: none;
-    grid-template-columns: 1fr auto 74px;
+    grid-template-columns: 1fr auto 108px;
     align-items: center;
     gap: 8px;
     padding: 4px 10px;
   }
   :host(.b) {
-    grid-template-columns: 74px auto 1fr;
+    grid-template-columns: 108px auto 1fr;
     .strip {
       order: -2;
     }
@@ -84,7 +84,7 @@ app-fader {
     }
   }
   app-channel-strip {
-    --knob-size: 34px;
+    --knob-size: 46px;
   }
   .cue {
     width: 30px;
@@ -94,7 +94,7 @@ app-fader {
   .strip {
     height: 100%;
     grid-template-columns: 1fr 36px 1fr;
-    gap: 4px;
+    gap: 6px;
   }
   app-fader {
     width: 36px;
