@@ -155,6 +155,9 @@ pub fn run() {
                 Arc::new(LibraryService::open(app.handle(), data_dir.as_deref(), folders::music_root()));
             app.manage(library.clone());
             app.manage(TagWriter::start(app.handle().clone()));
+            // a phone lets Prisme read the shared music, not write beside it
+            #[cfg(mobile)]
+            prisme_stems::track::store_under(models_dir(app, data_dir.as_deref()).with_file_name("stems"));
             app.manage(stems_service::StemsService::new(
                 app.handle().clone(),
                 models_dir(app, data_dir.as_deref()),

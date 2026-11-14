@@ -1,5 +1,7 @@
 //! Separated stems stored next to their track, in a `.prisme` folder: copying a music folder
-//! to another computer brings its separations along.
+//! to another computer brings its separations along. Where nothing may be written beside the
+//! tracks (a phone's shared music), they go under a folder of the application instead
+//! ([`store_under`]).
 //!
 //! Each stem is a 16-bit FLAC at the track's own rate and length, at half its level (a track
 //! mastered over full scale leaves stems above it too). What no stem holds is never stored:
@@ -7,7 +9,8 @@
 
 use std::borrow::Cow;
 use std::ops::Range;
-use std::path::{Path, PathBuf};
+use std::path::{Component, Path, PathBuf};
+use std::sync::OnceLock;
 
 use prisme_media::{DecodeStream, TrackAudio};
 use rubato::audioadapter_buffers::direct::InterleavedSlice;
@@ -21,10 +24,29 @@ use crate::StemsError;
 pub const FOLDER: &str = ".prisme";
 const STORED_GAIN: f32 = 0.5;
 
+/// The folder the separations go under, by their tracks' paths, instead of beside them.
+static ELSEWHERE: OnceLock<PathBuf> = OnceLock::new();
+
+/// Stores the separations under `folder` from now on, rather than beside their tracks: for a
+/// system that lets an application read the shared music but not write next to it.
+pub fn store_under(folder: PathBuf) {
+    let _ = ELSEWHERE.set(folder);
+}
+
 /// Where `stem` of `track` is stored.
 pub fn stem_path(track: &Path, stem: &str) -> Option<PathBuf> {
     let name = track.file_name()?.to_string_lossy();
-    Some(track.parent()?.join(FOLDER).join(format!("{name}.{stem}.flac")))
+    let parent = track.parent()?;
+    let folder = match ELSEWHERE.get() {
+        Some(root) => root.join(mirrored(parent)),
+        None => parent.join(FOLDER),
+    };
+    Some(folder.join(format!("{name}.{stem}.flac")))
+}
+
+/// `folder` as a relative path: its drive and root left out.
+fn mirrored(folder: &Path) -> PathBuf {
+    folder.components().filter(|c| matches!(c, Component::Normal(_))).collect()
 }
 
 /// Whether `track` has `stem` stored (not checking that it still matches the track).
@@ -392,6 +414,12 @@ mod tests {
     fn the_stems_live_in_a_folder_beside_the_track() {
         let path = stem_path(Path::new("C:/Music/House/a b.mp3"), "vocals").unwrap();
         assert_eq!(path, Path::new("C:/Music/House/.prisme/a b.mp3.vocals.flac"));
+    }
+
+    #[test]
+    fn a_folder_seen_from_elsewhere_keeps_its_path() {
+        assert_eq!(mirrored(Path::new("/storage/emulated/0/Music")), Path::new("storage/emulated/0/Music"));
+        assert_eq!(mirrored(Path::new("C:/Music/House")), Path::new("Music/House"));
     }
 
     #[test]
