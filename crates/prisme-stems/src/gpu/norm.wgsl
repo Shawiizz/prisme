@@ -1,5 +1,5 @@
-// RMS normalisation of rows, one workgroup per row: x / max(|x|, 1e-12), times a gain. The
-// rows go where a matrix product reads them (`Act`).
+// RMS normalisation of rows, one workgroup per row: x / max(sqrt(|x|^2 + eps), 1e-12), times
+// a gain. The rows go where a matrix product reads them (`Act`).
 
 struct Params {
     rows: u32,
@@ -10,6 +10,8 @@ struct Params {
     dst_off: u32,
     has_gain: u32,
     groups_x: u32,
+    // added to the sum of squares (the mean's epsilon, times the width)
+    eps: f32,
 }
 
 @group(0) @binding(0) var<storage, read> src: array<f32>;
@@ -29,7 +31,7 @@ fn reduce(lid: u32, value: f32) -> f32 {
         }
         workgroupBarrier();
     }
-    return max(sqrt(partial[0]), 1e-12);
+    return max(sqrt(partial[0] + p.eps), 1e-12);
 }
 
 @compute @workgroup_size(128)

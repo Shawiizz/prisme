@@ -1,4 +1,4 @@
-//! The network's weights, as written by `tools/export_roformer.py`.
+//! The network's weights, as written by `tools/export_roformer.py` or `tools/export_bs_roformer.py`.
 
 use std::borrow::Cow;
 use std::collections::HashMap;
@@ -15,7 +15,11 @@ pub struct Config {
     /// Width of the features between the band split and the mask estimators.
     pub dim: usize,
     pub heads: usize,
+    /// Heads of keys and values, each shared by `heads / kv_heads` heads of queries.
+    pub kv_heads: usize,
     pub dim_head: usize,
+    /// Each head's output is scaled by the sigmoid of its gate.
+    pub gates: bool,
     /// Pairs of (time, frequency) transformers.
     pub depth: usize,
     pub n_fft: usize,
@@ -27,16 +31,36 @@ pub struct Config {
     pub skip: bool,
     /// How many chunks cover each sample of a track: 1 cuts it back to back.
     pub overlap: usize,
+    /// Added to the mean square under the RMS norms' root; without it, they only keep off zero.
+    pub norm_eps: f32,
+    /// The first product of each feed-forward gives a gate and a value per hidden feature,
+    /// `gelu(gate) * value`; else the hidden features themselves, through `gelu`.
+    pub ff_glu: bool,
+    /// The mask estimators close on a GLU; else on their last product.
+    pub mask_glu: bool,
+    /// Side of the square of learned tokens past the last frame and the last band, which the
+    /// transformers' sequences carry along.
+    pub registers: usize,
 }
 
 impl Config {
-    /// Width of one token's query, key and value projections together, plus one gate per head.
+    /// Width of one token's queries, keys and values together, then its gates.
     pub fn qkvg_width(&self) -> usize {
-        3 * self.heads * self.dim_head + self.heads
+        self.inner_dim() + 2 * self.kv_dim() + if self.gates { self.heads } else { 0 }
     }
 
     pub fn inner_dim(&self) -> usize {
         self.heads * self.dim_head
+    }
+
+    /// Width of one token's keys, or of its values.
+    pub fn kv_dim(&self) -> usize {
+        self.kv_heads * self.dim_head
+    }
+
+    /// Frames of the transformers' sequences over `frames` frames: the registers' follow.
+    pub fn seq_frames(&self, frames: usize) -> usize {
+        frames + self.registers
     }
 
     /// Samples per chunk: the frames span `chunk_frames - 1` hops (the STFT is centred).
@@ -127,6 +151,18 @@ impl Geometry {
     pub fn mask_len(&self, frames: usize) -> usize {
         self.stems.len() * frames * self.features()
     }
+
+    /// Bands of the transformers' sequences: the registers' follow.
+    pub fn seq_bands(&self) -> usize {
+        self.bands.len() + self.config.registers
+    }
+
+    /// Token of register `r` (row after row of the square) in the sequences over `frames`
+    /// frames: the square follows the last frame and the last band.
+    pub fn register_token(&self, frames: usize, r: usize) -> usize {
+        let side = self.config.registers;
+        (frames + r / side) * self.seq_bands() + self.bands.len() + r % side
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -141,8 +177,8 @@ pub struct Layer {
 #[derive(Debug, Clone)]
 pub struct Transformer {
     pub layers: Vec<Layer>,
-    /// Gain of the output RMS norm.
-    pub norm: Vec<f32>,
+    /// Gain of the output RMS norm, if there is one.
+    pub norm: Option<Vec<f32>>,
 }
 
 #[derive(Debug, Clone)]
@@ -154,7 +190,12 @@ pub struct Weights {
     pub band_proj: Vec<Linear>,
     /// Time then frequency transformer, `depth` times.
     pub transformers: Vec<Transformer>,
-    /// For each stem, then each band, its mask MLP (tanh between layers, a GLU after the last).
+    /// Gain of the RMS norm after the last transformer, if there is one.
+    pub final_norm: Option<Vec<f32>>,
+    /// `registers` rows of `registers` tokens of `dim` features.
+    pub registers: Vec<f32>,
+    /// For each stem, then each band, its mask MLP (tanh between layers, a GLU after the last
+    /// if `mask_glu`).
     pub masks: Vec<Vec<Vec<Linear>>>,
     /// Tensors of the file the network does not use (test vectors of the fixtures).
     pub extra: HashMap<String, Vec<f32>>,
@@ -191,10 +232,13 @@ impl Weights {
         let tensors = SafeTensors::deserialize(bytes)?;
         let file = Reader { tensors: &tensors, meta: &meta };
 
+        let heads = file.meta("heads")?;
         let config = Config {
             dim: file.meta("dim")?,
-            heads: file.meta("heads")?,
+            heads,
+            kv_heads: file.meta_or("kv_heads", heads)?,
             dim_head: file.meta("dim_head")?,
+            gates: file.meta_or("gates", 1u8)? == 1,
             depth: file.meta("depth")?,
             n_fft: file.meta("n_fft")?,
             hop: file.meta("hop")?,
@@ -202,6 +246,10 @@ impl Weights {
             chunk_frames: file.meta("chunk_frames")?,
             skip: file.meta_or("skip_connection", 0u8)? == 1,
             overlap: file.meta_or("overlap", 1)?,
+            norm_eps: file.meta_or("norm_eps", 0.0)?,
+            ff_glu: file.meta_or("ff_glu", 0u8)? == 1,
+            mask_glu: file.meta_or("mask_glu", 1u8)? == 1,
+            registers: file.meta_or("registers", 0)?,
         };
         if config.overlap == 0 || config.overlap > config.chunk_samples() {
             return Err(StemsError::Model("overlap out of range".into()));
@@ -243,7 +291,8 @@ impl Weights {
                     })
                 })
                 .collect::<Result<_, StemsError>>()?;
-            transformers.push(Transformer { layers, norm: file.f32s(&format!("transformer.{i}.norm"))? });
+            transformers
+                .push(Transformer { layers, norm: file.optional_f32s(&format!("transformer.{i}.norm"))? });
         }
 
         // A file without a list of stems holds the vocals' masks, unnamed.
@@ -275,6 +324,8 @@ impl Weights {
             rotary_freq: file.f32s("rotary.freq")?,
             band_proj,
             transformers,
+            final_norm: file.optional_f32s("final_norm")?,
+            registers: file.optional_f32s("registers")?.unwrap_or_default(),
             masks,
             extra,
         };
@@ -294,6 +345,10 @@ impl Weights {
                 return bad("band split");
             }
         }
+        if c.kv_heads == 0 || !c.heads.is_multiple_of(c.kv_heads) {
+            return bad("heads of keys and values");
+        }
+        let hidden_of = |l: &Layer| if c.ff_glu { l.ff1.out / 2 } else { l.ff1.out };
         for tr in &self.transformers {
             for l in &tr.layers {
                 if l.qkvg.inp != c.dim
@@ -301,15 +356,20 @@ impl Weights {
                     || l.out.inp != c.inner_dim()
                     || l.out.out != c.dim
                     || l.ff1.inp != c.dim
-                    || l.ff2.inp != l.ff1.out
+                    || (c.ff_glu && !l.ff1.out.is_multiple_of(2))
+                    || l.ff2.inp != hidden_of(l)
                     || l.ff2.out != c.dim
                 {
                     return bad("transformer layer");
                 }
             }
-            if tr.norm.len() != c.dim {
-                return bad("transformer norm");
-            }
+        }
+        let mut norms = self.transformers.iter().filter_map(|t| t.norm.as_ref()).chain(&self.final_norm);
+        if norms.any(|n| n.len() != c.dim) {
+            return bad("transformer norm");
+        }
+        if self.registers.len() != c.registers * c.registers * c.dim {
+            return bad("registers");
         }
         if g.stems.is_empty() || g.stems.iter().any(|s| s.is_empty()) {
             return bad("stems");
@@ -322,7 +382,7 @@ impl Weights {
                 }
                 inp = l.out;
             }
-            if inp != band.width * 2 {
+            if inp != band.width * if c.mask_glu { 2 } else { 1 } {
                 return bad("mask estimator output");
             }
         }
@@ -356,6 +416,14 @@ impl Reader<'_> {
 
     fn has(&self, name: &str) -> bool {
         self.tensors.tensor(name).is_ok()
+    }
+
+    fn optional_f32s(&self, name: &str) -> Result<Option<Vec<f32>>, StemsError> {
+        if self.has(name) {
+            self.f32s(name).map(Some)
+        } else {
+            Ok(None)
+        }
     }
 
     /// A float tensor, widened to f32 when stored as f16.
