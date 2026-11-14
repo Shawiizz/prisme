@@ -74,3 +74,9 @@
 :host-context(app-phone-deck) .waveform {
   grid-template-rows: minmax(0, 1fr) var(--phone-overview, 12px);
 }
+// a phone held sideways: no room for the stem lanes, the height to the waveform
+@media (orientation: landscape) {
+  :host-context(app-phone-deck) .lanes {
+    display: none;
+  }
+}

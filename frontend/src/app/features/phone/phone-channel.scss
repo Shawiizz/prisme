@@ -95,7 +95,8 @@ app-fader {
     grid-template-columns: 108px 34px 1fr;
   }
   app-channel-strip {
-    --knob-size: 46px;
+    gap: 2px 0;
+    --knob-size: 40px;
   }
   .cue {
     align-self: center;
