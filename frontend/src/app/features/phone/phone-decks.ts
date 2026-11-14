@@ -17,9 +17,9 @@ import { PhoneTable } from './phone-table';
   selector: 'app-phone-decks',
   template: `
     @if (touch()) {
-      <app-phone-table (opened)="panel.set({ deck: $event })" />
+      <app-phone-table animate.enter="pr-fade-in" (opened)="panel.set({ deck: $event })" />
     } @else {
-      <section class="decks">
+      <section class="decks" animate.enter="pr-fade-in">
         @for (deck of decks(); track deck) {
           <app-phone-deck [deck]="deck" [compact]="wide()" (opened)="panel.set({ deck })" />
           @if (deck === 0) {
@@ -27,7 +27,7 @@ import { PhoneTable } from './phone-table';
           }
         }
       </section>
-      <app-phone-library peek />
+      <app-phone-library peek animate.enter="pr-fade-in" />
     }
     @if (panel(); as open) {
       <app-phone-deck-panel [deck]="open.deck" [table]="touch()" (closed)="panel.set(null)" />

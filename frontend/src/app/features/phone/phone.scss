@@ -10,6 +10,10 @@
   user-select: none;
   -webkit-user-select: none;
 }
+// Android keeps the page clear of what it must itself, and lets it under the camera sideways
+:host(.android) {
+  padding: 0;
+}
 
 svg {
   fill: none;

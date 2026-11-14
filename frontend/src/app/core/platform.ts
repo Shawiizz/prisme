@@ -5,3 +5,6 @@
 export const PHONE =
   /Android|iPhone|iPad|iPod/.test(navigator.userAgent) ||
   (/Mac/.test(navigator.platform) && navigator.maxTouchPoints > 1);
+
+/** Android lays the page out clear of its bars and its camera itself (`MainActivity.kt`). */
+export const ANDROID = /Android/.test(navigator.userAgent);

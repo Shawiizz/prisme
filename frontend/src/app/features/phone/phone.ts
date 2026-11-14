@@ -2,6 +2,7 @@ import { Component, computed, effect, inject, signal } from '@angular/core';
 import { ControllerService } from '../../core/control/controller.service';
 import { clickWithEveryFinger } from '../../core/every-finger';
 import { BACKEND_NAMES } from '../../core/models/audio';
+import { ANDROID } from '../../core/platform';
 import { EngineService } from '../../core/services/engine.service';
 import { LibraryService } from '../../core/services/library.service';
 import { NavigationService } from '../../core/services/navigation.service';
@@ -26,9 +27,11 @@ type Tab = 'decks' | 'library' | 'settings';
   selector: 'app-phone',
   templateUrl: './phone.html',
   styleUrl: './phone.scss',
+  host: { '[class.android]': 'ANDROID' },
   imports: [PhoneDecks, PhoneLibrary, PhoneSettings, TPipe],
 })
 export class Phone {
+  protected readonly ANDROID = ANDROID;
   protected readonly engine = inject(EngineService);
   protected readonly library = inject(LibraryService);
   protected readonly navigation = inject(NavigationService);

@@ -11,7 +11,7 @@
 </ng-template>
 
 @if (wide()) {
-  <aside class="side a">
+  <aside class="wing a">
     <ng-container *ngTemplateOutlet="which; context: { $implicit: 'a' }" />
     <app-phone-pads side [deck]="left()" />
     <app-deck-controls [deck]="left()" />
@@ -74,7 +74,7 @@
 
 @if (wide()) {
   @if (rights().length) {
-    <aside class="side b">
+    <aside class="wing b">
       <ng-container *ngTemplateOutlet="which; context: { $implicit: 'b' }" />
       <app-phone-pads side [deck]="right()" />
       <app-deck-controls class="b" [deck]="right()" />

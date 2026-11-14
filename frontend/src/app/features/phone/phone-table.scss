@@ -128,7 +128,7 @@ app-phone-pitch.float {
   .cross {
     padding: 2px 10px 6px;
   }
-  .side {
+  .wing {
     flex: none;
     width: 156px;
     display: flex;
@@ -138,7 +138,7 @@ app-phone-pitch.float {
     padding: 8px 10px 10px;
     background: var(--pr-base);
   }
-  .side.b .which {
+  .wing.b .which {
     align-self: flex-end;
   }
   .which > button {

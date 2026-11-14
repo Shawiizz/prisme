@@ -58,14 +58,18 @@ class MainActivity : TauriActivity() {
     }
   }
 
-  /** The page stays clear of the bars of the system while they are there, and of the camera. */
+  /**
+   * The page stays clear of the bars of the system while they are there. Upright, it stays
+   * below the camera too; sideways, it goes under it to the very edge, as the camera only
+   * takes a hole there.
+   */
   private fun keepClearOfTheBars() {
     val content = findViewById<View>(android.R.id.content)
     ViewCompat.setOnApplyWindowInsetsListener(content) { view, insets ->
+      val sideways = resources.configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
+      val bars = WindowInsetsCompat.Type.systemBars()
       val taken =
-        insets.getInsets(
-          WindowInsetsCompat.Type.systemBars() or WindowInsetsCompat.Type.displayCutout()
-        )
+        insets.getInsets(if (sideways) bars else bars or WindowInsetsCompat.Type.displayCutout())
       view.setPadding(taken.left, taken.top, taken.right, taken.bottom)
       WindowInsetsCompat.CONSUMED
     }
