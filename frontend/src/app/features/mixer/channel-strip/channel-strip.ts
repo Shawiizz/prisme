@@ -56,9 +56,27 @@ export class ChannelStrip {
   protected readonly mixer = inject(MixerService);
   protected readonly readouts = readouts;
   protected readonly bands: { band: Band; label: string; killTitle: string }[] = [
-    { band: 'high', label: 'HI', killTitle: t('Click to kill the highs') },
-    { band: 'mid', label: 'MID', killTitle: t('Click to kill the mids') },
-    { band: 'low', label: 'LOW', killTitle: t('Click to kill the bass') },
+    {
+      band: 'high',
+      label: 'HI',
+      get killTitle() {
+        return t('Click to kill the highs');
+      },
+    },
+    {
+      band: 'mid',
+      label: 'MID',
+      get killTitle() {
+        return t('Click to kill the mids');
+      },
+    },
+    {
+      band: 'low',
+      label: 'LOW',
+      get killTitle() {
+        return t('Click to kill the bass');
+      },
+    },
   ];
 
   protected strip() {

@@ -19,7 +19,7 @@ import { NavigationService, SettingsCategory } from '../../core/services/navigat
 import { AudioBackend, AudioSettings, BACKEND_NAMES, BUFFER_SIZES } from '../../core/models/audio';
 import { MAX_DECKS, MixMode } from '../../core/models/engine';
 import { DjPreferences, PITCH_RANGES } from '../../core/models/preferences';
-import { LANGUAGE, LANGUAGES, Language, setLanguage, t } from '../../core/i18n/i18n';
+import { LANGUAGES, language, setLanguage, t } from '../../core/i18n/i18n';
 import { TPipe } from '../../core/i18n/t.pipe';
 import { TurntablePanel } from '../turntables/turntable-panel';
 import { ControllersSettings } from '../controllers/controllers-settings';
@@ -89,7 +89,8 @@ export class SettingsDialog implements OnInit {
   /** The setting pointed out (from the command palette), lit once. */
   protected readonly pointed = signal<string | null>(null);
 
-  protected readonly language = signal<Language>(LANGUAGE);
+  protected readonly language = language;
+  protected readonly setLanguage = setLanguage;
   protected readonly draft = signal<AudioSettings | null>(null);
   protected readonly mixMode = signal<MixMode>(this.mixer.mode());
   protected readonly dj = this.preferences.dj;
@@ -147,14 +148,9 @@ export class SettingsDialog implements OnInit {
     return !!d && JSON.stringify(d) !== JSON.stringify(this.service.settings());
   });
   protected readonly pending = computed(
-    () =>
-      this.audioChanged() || this.mixMode() !== this.mixer.mode() || this.language() !== LANGUAGE,
+    () => this.audioChanged() || this.mixMode() !== this.mixer.mode(),
   );
-  protected readonly pendingText = computed(() =>
-    this.language() !== LANGUAGE && !this.audioChanged() && this.mixMode() === this.mixer.mode()
-      ? t('Prisme starts again in the new language.')
-      : t('The audio restarts to apply these changes.'),
-  );
+  protected readonly pendingText = computed(() => t('The audio restarts to apply these changes.'));
 
   constructor() {
     afterRenderEffect(() => {
@@ -296,7 +292,7 @@ export class SettingsDialog implements OnInit {
     this.update({ inputDevice: enabled ? (this.draft()?.outputDevice ?? null) : null });
   }
 
-  /** Restarts the audio if its settings changed, then the interface if the language did. */
+  /** Restarts the audio if its settings changed. */
   async apply() {
     const d = this.draft();
     if (!d) return;
@@ -305,7 +301,6 @@ export class SettingsDialog implements OnInit {
     try {
       if (this.audioChanged()) await this.service.apply(d);
       if (this.mixMode() !== this.mixer.mode()) await this.mixer.setMode(this.mixMode());
-      if (this.language() !== LANGUAGE) setLanguage(this.language());
       this.draft.set(structuredClone(this.service.settings()));
     } catch (e) {
       this.error.set(String(e));
@@ -317,7 +312,6 @@ export class SettingsDialog implements OnInit {
   async discard() {
     this.error.set(null);
     this.mixMode.set(this.mixer.mode());
-    this.language.set(LANGUAGE);
     const settings = this.service.settings();
     if (settings) {
       await this.service.loadDevices(settings.backend);

@@ -1,7 +1,8 @@
 import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { FR } from './fr';
 import { translate } from './i18n';
+
+const FR: Record<string, string> = JSON.parse(readFileSync('src/app/core/i18n/fr.json', 'utf8'));
 
 /** Every text the UI translates: `t('…')` in the code, `'…' | t` in the templates (inline ones too). */
 function textsInSources(): Set<string> {
@@ -43,7 +44,8 @@ describe('translations', () => {
   });
 
   it('fill the placeholders, and fall back to English', () => {
-    expect(translate('en', 'Hot cue {n}', { n: 3 })).toBe('Hot cue 3');
-    expect(translate('fr', 'Not a UI text {x}', { x: 1 })).toBe('Not a UI text 1');
+    expect(translate({}, 'Hot cue {n}', { n: 3 })).toBe('Hot cue 3');
+    expect(translate(FR, 'Hot cue {n}', { n: 3 })).toBe(FR['Hot cue {n}'].replace('{n}', '3'));
+    expect(translate(FR, 'Not a UI text {x}', { x: 1 })).toBe('Not a UI text 1');
   });
 });

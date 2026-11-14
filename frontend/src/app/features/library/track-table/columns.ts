@@ -30,27 +30,130 @@ export interface Column {
 }
 
 export const COLUMNS: readonly Column[] = [
-  { id: 'color', name: t('Colour'), header: '', width: '10px' },
-  { id: 'cover', name: t('Cover'), header: '', width: '24px' },
+  {
+    id: 'color',
+    get name() {
+      return t('Colour');
+    },
+    header: '',
+    width: '10px',
+  },
+  {
+    id: 'cover',
+    get name() {
+      return t('Cover');
+    },
+    header: '',
+    width: '24px',
+  },
   {
     id: 'title',
-    name: t('Title'),
-    header: t('Title'),
+    get name() {
+      return t('Title');
+    },
+    get header() {
+      return t('Title');
+    },
     width: 'minmax(0, 1.6fr)',
     sort: 'title',
     fixed: true,
   },
-  { id: 'artist', name: t('Artist'), header: t('Artist'), width: 'minmax(0, 1fr)', sort: 'artist' },
-  { id: 'album', name: t('Album'), header: t('Album'), width: 'minmax(0, 1fr)', sort: 'album' },
-  { id: 'genre', name: t('Genre'), header: t('Genre'), width: 'minmax(0, 0.6fr)', sort: 'genre' },
-  { id: 'year', name: t('Year'), header: t('Year'), width: '40px', sort: 'year' },
+  {
+    id: 'artist',
+    get name() {
+      return t('Artist');
+    },
+    get header() {
+      return t('Artist');
+    },
+    width: 'minmax(0, 1fr)',
+    sort: 'artist',
+  },
+  {
+    id: 'album',
+    get name() {
+      return t('Album');
+    },
+    get header() {
+      return t('Album');
+    },
+    width: 'minmax(0, 1fr)',
+    sort: 'album',
+  },
+  {
+    id: 'genre',
+    get name() {
+      return t('Genre');
+    },
+    get header() {
+      return t('Genre');
+    },
+    width: 'minmax(0, 0.6fr)',
+    sort: 'genre',
+  },
+  {
+    id: 'year',
+    get name() {
+      return t('Year');
+    },
+    get header() {
+      return t('Year');
+    },
+    width: '40px',
+    sort: 'year',
+  },
   { id: 'bpm', name: 'BPM', header: 'BPM', width: '60px', sort: 'bpm' },
   // its header names the reference deck
-  { id: 'pitch', name: t('Pitch to match'), header: '', width: '72px', sort: 'mix' },
-  { id: 'key', name: t('Key'), header: t('Key'), width: '52px', sort: 'key' },
-  { id: 'rating', name: t('Rating'), header: t('Rating'), width: '74px', sort: 'rating' },
-  { id: 'plays', name: t('Plays'), header: t('Plays'), width: '52px', sort: 'plays' },
-  { id: 'stems', name: t('Separated stems'), header: 'STEMS', width: '48px' },
+  {
+    id: 'pitch',
+    get name() {
+      return t('Pitch to match');
+    },
+    header: '',
+    width: '72px',
+    sort: 'mix',
+  },
+  {
+    id: 'key',
+    get name() {
+      return t('Key');
+    },
+    get header() {
+      return t('Key');
+    },
+    width: '52px',
+    sort: 'key',
+  },
+  {
+    id: 'rating',
+    get name() {
+      return t('Rating');
+    },
+    get header() {
+      return t('Rating');
+    },
+    width: '74px',
+    sort: 'rating',
+  },
+  {
+    id: 'plays',
+    get name() {
+      return t('Plays');
+    },
+    get header() {
+      return t('Plays');
+    },
+    width: '52px',
+    sort: 'plays',
+  },
+  {
+    id: 'stems',
+    get name() {
+      return t('Separated stems');
+    },
+    header: 'STEMS',
+    width: '48px',
+  },
 ];
 
 /** Grid tracks of a row: the play order of ordered lists, the columns, a load button for

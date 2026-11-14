@@ -90,9 +90,15 @@ export interface ControlActions {
 
 const JUMP_BEATS = 4;
 const EQ_LABEL: Record<Band, string> = {
-  low: t('EQ low'),
-  mid: t('EQ mid'),
-  high: t('EQ high'),
+  get low() {
+    return t('EQ low');
+  },
+  get mid() {
+    return t('EQ mid');
+  },
+  get high() {
+    return t('EQ high');
+  },
 };
 
 /** A button is down at any value but zero: a pad hit softly is hit all the same. */
@@ -290,7 +296,9 @@ export function buildControls(a: ControlActions): Control[] {
     {
       id: 'library.browse',
       group: library,
-      label: t('Browse'),
+      get label() {
+        return t('Browse');
+      },
       kind: 'encoder',
       apply: (steps) => a.browse(steps),
     },

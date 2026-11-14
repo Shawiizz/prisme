@@ -41,7 +41,12 @@ const LOAD_PX = 84;
 const SORTS: readonly { sort: SortColumn; name: string }[] = COLUMNS.flatMap((c) =>
   c.sort ? [{ sort: c.sort, name: c.name }] : [],
 );
-const LIST_ORDER = { sort: 'order', name: t('Order of the list') } as const;
+const LIST_ORDER = {
+  sort: 'order',
+  get name() {
+    return t('Order of the list');
+  },
+} as const;
 
 type Row =
   { kind: 'folder'; name: string; path: string; up: boolean } | { kind: 'track'; track: DirEntry };

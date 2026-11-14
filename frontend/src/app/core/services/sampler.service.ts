@@ -6,7 +6,9 @@ import { EngineService } from './engine.service';
 
 /** What `prisme_media::decode_file` reads. */
 const AUDIO_FILES = {
-  name: t('Audio'),
+  get name() {
+    return t('Audio');
+  },
   extensions: ['mp3', 'flac', 'wav', 'aif', 'aiff', 'm4a', 'aac', 'mp4', 'ogg', 'oga'],
 };
 

@@ -38,9 +38,24 @@ export class Phone {
 
   protected readonly tab = signal<Tab>('decks');
   protected readonly tabs: { id: Tab; label: string }[] = [
-    { id: 'decks', label: t('Decks') },
-    { id: 'library', label: t('Library') },
-    { id: 'settings', label: t('Settings') },
+    {
+      id: 'decks',
+      get label() {
+        return t('Decks');
+      },
+    },
+    {
+      id: 'library',
+      get label() {
+        return t('Library');
+      },
+    },
+    {
+      id: 'settings',
+      get label() {
+        return t('Settings');
+      },
+    },
   ];
 
   /** The sound card and how long it waits: `AAudio · DDJ-FLX2 · 5.3 ms`. */

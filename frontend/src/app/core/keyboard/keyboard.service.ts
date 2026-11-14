@@ -72,7 +72,9 @@ const KEY_NAMES: Record<string, string> = {
   ArrowRight: '→',
   Comma: ',',
   Period: '.',
-  Delete: t('Del'),
+  get Delete() {
+    return t('Del');
+  },
 };
 
 function isTyping(event: KeyboardEvent): boolean {

@@ -1,4 +1,4 @@
-import { LANGUAGE, t } from '../core/i18n/i18n';
+import { language, t } from '../core/i18n/i18n';
 
 /** Camelot wheel helpers ("8A" = A minor, "8B" = C major). */
 
@@ -100,7 +100,7 @@ export function keyName(code: string): string {
   const c = parse(code);
   if (!c) return '';
   const name = (c.minor ? MINOR_NAMES : MAJOR_NAMES)[c.number].replace(/m$/, '');
-  const note = LANGUAGE === 'fr' ? NOTES[name[0]] : name[0];
+  const note = language() === 'fr' ? NOTES[name[0]] : name[0];
   const accidental = name.slice(1).replace('#', '♯').replace('b', '♭');
   return `${note}${accidental} ${c.minor ? t('minor') : t('major')}`;
 }

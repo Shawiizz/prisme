@@ -37,10 +37,34 @@ interface Item {
 }
 
 const SECTIONS: { id: Section; label: string; limit: number }[] = [
-  { id: 'actions', label: t('Actions'), limit: 8 },
-  { id: 'settings', label: t('Settings'), limit: 6 },
-  { id: 'crates', label: t('Crates'), limit: 5 },
-  { id: 'tracks', label: t('Tracks'), limit: 8 },
+  {
+    id: 'actions',
+    get label() {
+      return t('Actions');
+    },
+    limit: 8,
+  },
+  {
+    id: 'settings',
+    get label() {
+      return t('Settings');
+    },
+    limit: 6,
+  },
+  {
+    id: 'crates',
+    get label() {
+      return t('Crates');
+    },
+    limit: 5,
+  },
+  {
+    id: 'tracks',
+    get label() {
+      return t('Tracks');
+    },
+    limit: 8,
+  },
 ];
 /** Tracks are looked up once this many characters are typed, after a pause. */
 const TRACK_QUERY_MIN = 2;
@@ -77,12 +101,14 @@ export class CommandPalette {
   protected readonly decimal = decimal;
 
   /** The pages of the settings: what the palette offers before anything is typed. */
-  private readonly pages: Item[] = SETTINGS_PAGES.map((p) => ({
-    section: 'settings',
-    title: p.label,
-    detail: p.description,
-    run: () => this.navigation.openSettings(p.id),
-  }));
+  private readonly pages = computed<Item[]>(() =>
+    SETTINGS_PAGES.map((p) => ({
+      section: 'settings',
+      title: p.label,
+      detail: p.description,
+      run: () => this.navigation.openSettings(p.id),
+    })),
+  );
 
   /** Everything the palette can do, before the search. */
   private readonly everything = computed<Item[]>(() => [
@@ -101,17 +127,25 @@ export class CommandPalette {
       })),
     {
       section: 'actions',
-      title: t('Analyse new and changed files'),
-      detail: t('Library'),
+      get title() {
+        return t('Analyse new and changed files');
+      },
+      get detail() {
+        return t('Library');
+      },
       run: () => this.library.rescan(),
     },
     ...this.engine.deckIndexes().map((deck) => ({
       section: 'actions' as const,
-      title: t('Compare the tracks with deck {deck}', { deck: deckLetter(deck) }),
-      detail: t('Library'),
+      get title() {
+        return t('Compare the tracks with deck {deck}', { deck: deckLetter(deck) });
+      },
+      get detail() {
+        return t('Library');
+      },
       run: () => this.library.reference.set(deck),
     })),
-    ...this.pages,
+    ...this.pages(),
     ...SETTINGS.map((s) => ({
       section: 'settings' as const,
       title: s.label,
@@ -121,7 +155,9 @@ export class CommandPalette {
     ...this.crates.crates().map((c) => ({
       section: 'crates' as const,
       title: c.name,
-      detail: t('{n} tracks', { n: c.trackCount }),
+      get detail() {
+        return t('{n} tracks', { n: c.trackCount });
+      },
       run: () => this.library.openCrate(c.id),
     })),
   ]);
@@ -131,7 +167,7 @@ export class CommandPalette {
     const words = normalize(this.query()).split(/\s+/).filter(Boolean);
     const items = words.length
       ? [...this.everything(), ...this.tracks().map((track) => this.trackItem(track))]
-      : this.pages;
+      : this.pages();
     const scored = items
       .map((item) => ({ item, score: words.length ? score(words, item) : 1 }))
       .filter((s) => s.score > 0);

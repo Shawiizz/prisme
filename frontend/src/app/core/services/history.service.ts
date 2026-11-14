@@ -49,7 +49,9 @@ export class HistoryService {
   /** Asks where to save the tracklist (CSV); `false` if cancelled. */
   async export(session: HistorySession): Promise<boolean> {
     const path = await save({
-      defaultPath: t('Set {date}.csv', { date: fileDate(session.startedAtMs) }),
+      get defaultPath() {
+        return t('Set {date}.csv', { date: fileDate(session.startedAtMs) });
+      },
       filters: [{ name: 'CSV', extensions: ['csv'] }],
     });
     if (!path) return false;

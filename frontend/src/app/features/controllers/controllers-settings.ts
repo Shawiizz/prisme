@@ -19,9 +19,24 @@ interface Row {
 
 /** How an encoder may send its steps, as offered when the guess was wrong. */
 const STEP_ENCODINGS: { value: StepEncoding; label: string }[] = [
-  { value: 'relative', label: t('Steps 1 and 127') },
-  { value: 'relativeOffset', label: t('Steps around 64') },
-  { value: 'relativeSigned', label: t('Steps 1 and 65') },
+  {
+    value: 'relative',
+    get label() {
+      return t('Steps 1 and 127');
+    },
+  },
+  {
+    value: 'relativeOffset',
+    get label() {
+      return t('Steps around 64');
+    },
+  },
+  {
+    value: 'relativeSigned',
+    get label() {
+      return t('Steps 1 and 65');
+    },
+  },
 ];
 
 /** Settings page: MIDI controllers in use, and the mapping of the app's controls (learnt by moving them). */

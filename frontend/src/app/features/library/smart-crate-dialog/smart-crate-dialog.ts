@@ -7,15 +7,55 @@ import { TPipe } from '../../../core/i18n/t.pipe';
 type Choice = TextField | 'bpm' | 'year' | 'key';
 
 const CHOICES: { id: Choice; label: string }[] = [
-  { id: 'genre', label: t('Genre') },
-  { id: 'artist', label: t('Artist') },
-  { id: 'title', label: t('Title') },
-  { id: 'album', label: t('Album') },
-  { id: 'comment', label: t('Comment') },
-  { id: 'fileName', label: t('File name') },
+  {
+    id: 'genre',
+    get label() {
+      return t('Genre');
+    },
+  },
+  {
+    id: 'artist',
+    get label() {
+      return t('Artist');
+    },
+  },
+  {
+    id: 'title',
+    get label() {
+      return t('Title');
+    },
+  },
+  {
+    id: 'album',
+    get label() {
+      return t('Album');
+    },
+  },
+  {
+    id: 'comment',
+    get label() {
+      return t('Comment');
+    },
+  },
+  {
+    id: 'fileName',
+    get label() {
+      return t('File name');
+    },
+  },
   { id: 'bpm', label: 'BPM' },
-  { id: 'year', label: t('Year') },
-  { id: 'key', label: t('Key') },
+  {
+    id: 'year',
+    get label() {
+      return t('Year');
+    },
+  },
+  {
+    id: 'key',
+    get label() {
+      return t('Key');
+    },
+  },
 ];
 
 function newRule(choice: Choice): Rule {

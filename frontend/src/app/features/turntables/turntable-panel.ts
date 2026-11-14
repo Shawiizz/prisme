@@ -20,9 +20,15 @@ const SCOPE_SIZE = 220;
 /** Carrier level shown as a full bar: a healthy line-level timecode reaches it. */
 const FULL_LEVEL = 0.5;
 const SIGNAL_TEXT: Record<SignalState, string> = {
-  none: t('none'),
-  bounce: t('unsteady'),
-  ok: t('locked'),
+  get none() {
+    return t('none');
+  },
+  get bounce() {
+    return t('unsteady');
+  },
+  get ok() {
+    return t('locked');
+  },
 };
 
 /** One turntable: its signal on a scope, what the decoder reads, the vinyl settings. */

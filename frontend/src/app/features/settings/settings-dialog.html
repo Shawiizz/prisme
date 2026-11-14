@@ -749,7 +749,7 @@
                       <button
                         role="radio"
                         [attr.aria-checked]="language() === l.id"
-                        (click)="language.set(l.id)"
+                        (click)="setLanguage(l.id)"
                       >
                         {{ l.name }}
                       </button>

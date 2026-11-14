@@ -14,9 +14,24 @@ import { deckLetter, formatPitch } from '../../shared/time';
 import { GridEditor } from '../deck/grid-editor/grid-editor';
 
 const DRIVERS: readonly { id: DeckMode; label: string }[] = [
-  { id: 'int', label: t('Itself') },
-  { id: 'relative', label: t('Vinyl REL') },
-  { id: 'absolute', label: t('Vinyl ABS') },
+  {
+    id: 'int',
+    get label() {
+      return t('Itself');
+    },
+  },
+  {
+    id: 'relative',
+    get label() {
+      return t('Vinyl REL');
+    },
+  },
+  {
+    id: 'absolute',
+    get label() {
+      return t('Vinyl ABS');
+    },
+  },
 ];
 const EQ: readonly { band: Band; label: string }[] = [
   { band: 'low', label: 'LOW' },

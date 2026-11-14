@@ -33,16 +33,24 @@ export class RecordingService {
     if (this.mixer.internal()) {
       options.push({
         source: { kind: 'master' },
-        label: t('Master'),
-        title: t('What the software mixer plays'),
+        get label() {
+          return t('Master');
+        },
+        get title() {
+          return t('What the software mixer plays');
+        },
       });
     }
     const inputs = this.settings.info()?.inputChannels ?? 0;
     for (let first = 0; first + 1 < inputs; first += 2) {
       options.push({
         source: { kind: 'input', first },
-        label: t('Inputs {from}-{to}', { from: first + 1, to: first + 2 }),
-        title: t("What comes into these inputs: plug the hardware mixer's record output there"),
+        get label() {
+          return t('Inputs {from}-{to}', { from: first + 1, to: first + 2 });
+        },
+        get title() {
+          return t("What comes into these inputs: plug the hardware mixer's record output there");
+        },
       });
     }
     return options;

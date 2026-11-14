@@ -6,7 +6,7 @@ import { PrepareService } from '../../../core/services/prepare.service';
 import { TRACKS_DRAG_TYPE } from '../../../shared/drag';
 import { Crate } from '../../../core/models/library';
 import { SmartCrateDialog } from '../smart-crate-dialog/smart-crate-dialog';
-import { LOCALE, t } from '../../../core/i18n/i18n';
+import { locale, t } from '../../../core/i18n/i18n';
 import { TPipe } from '../../../core/i18n/t.pipe';
 
 type Deletable = 'crate' | 'session';
@@ -27,13 +27,16 @@ function savedFolded(): Foldable[] {
   }
 }
 
-const SESSION_DATE = new Intl.DateTimeFormat(LOCALE, {
-  weekday: 'short',
-  day: 'numeric',
-  month: 'short',
-  hour: '2-digit',
-  minute: '2-digit',
-});
+const SESSION_DATE = computed(
+  () =>
+    new Intl.DateTimeFormat(locale(), {
+      weekday: 'short',
+      day: 'numeric',
+      month: 'short',
+      hour: '2-digit',
+      minute: '2-digit',
+    }),
+);
 
 /**
  * Left panel of the library: the prepare list, the folders, the crates (tracks are dropped
@@ -118,7 +121,7 @@ export class LibrarySidebar {
 
   /** `Sat 10 Oct, 21:30` */
   sessionLabel(ms: number): string {
-    return SESSION_DATE.format(ms);
+    return SESSION_DATE().format(ms);
   }
 
   async commitEdit(text: string) {

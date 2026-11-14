@@ -10,7 +10,7 @@ import { NavigationService } from '../services/navigation.service';
 import { eqGain, eqKnob, trimGain, trimKnob } from '../../shared/mixer-scales';
 import { BANDS } from '../models/engine';
 import { hasPart, partLevel, partPlaying } from '../stem-parts';
-import { Control, buildControls } from './controls';
+import { Control, ControlActions, buildControls } from './controls';
 
 const LOOP_BEATS = 4;
 
@@ -26,7 +26,7 @@ export class ControlService {
   private readonly preferences = inject(PreferencesService);
   private readonly navigation = inject(NavigationService);
 
-  readonly controls: Control[] = buildControls({
+  private readonly actions: ControlActions = {
     togglePlay: (deck) => this.engine.togglePlay(deck),
     playing: (deck) => this.deck(deck)?.playing ?? false,
     cue: (deck, pressed) => (pressed ? this.engine.cueDown(deck) : this.engine.cueUp(deck)),
@@ -96,9 +96,18 @@ export class ControlService {
     toggleHelp: () => this.navigation.toggleSettings('shortcuts'),
     togglePalette: () => this.navigation.togglePalette(),
     openSettings: () => this.navigation.openSettings(),
+  };
+
+  /** Built again when the language changes: their names are in it. */
+  private readonly built = computed(() => {
+    const controls = buildControls(this.actions);
+    return { controls, byId: new Map(controls.map((c) => [c.id, c])) };
   });
 
-  private readonly byId = new Map(this.controls.map((c) => [c.id, c]));
+  /** Every control, named in the UI's language. */
+  get controls(): Control[] {
+    return this.built().controls;
+  }
 
   /** The controls that act now: those of the decks shown, and those of no deck. */
   readonly inUse = computed(() => {
@@ -108,12 +117,12 @@ export class ControlService {
 
   /** The control `id`, whatever its deck (to name it, to map it). */
   find(id: string): Control | undefined {
-    return this.byId.get(id);
+    return this.built().byId.get(id);
   }
 
   /** The control `id` if it acts now: a control of a deck not shown does nothing. */
   findInUse(id: string): Control | undefined {
-    const control = this.byId.get(id);
+    const control = this.built().byId.get(id);
     return control && this.inUse().includes(control) ? control : undefined;
   }
 

@@ -1,5 +1,4 @@
 import { Injectable, computed, signal } from '@angular/core';
-import { REOPEN_KEY } from '../i18n/i18n';
 
 /** The pages of the settings. */
 export type SettingsCategory =
@@ -19,21 +18,10 @@ export interface SettingsPlace {
   setting: string | null;
 }
 
-/** The page of the settings the UI was on when it started again in another language. */
-function reopened(): SettingsPlace | null {
-  try {
-    const category = sessionStorage.getItem(REOPEN_KEY) as SettingsCategory | null;
-    sessionStorage.removeItem(REOPEN_KEY);
-    return category ? { category, setting: null } : null;
-  } catch {
-    return null;
-  }
-}
-
 /** What is open over the main screen: the settings, the command palette. */
 @Injectable({ providedIn: 'root' })
 export class NavigationService {
-  readonly settings = signal<SettingsPlace | null>(reopened());
+  readonly settings = signal<SettingsPlace | null>(null);
   readonly palette = signal(false);
   /** The main screen is covered: its keyboard shortcuts wait. */
   readonly covered = computed(() => this.settings() !== null || this.palette());

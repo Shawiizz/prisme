@@ -34,22 +34,62 @@ const MODES: { id: PadMode; label: string }[] = [
 const SAMPLE_COLOR = 'var(--pr-tag-violet)';
 /** The effects on the pads, with what their AMOUNT knob does. */
 const EFFECTS: { kind: EffectKind; label: string; title: string }[] = [
-  { kind: 'echo', label: 'ECHO', title: t('Echo on the beat · amount: feedback') },
+  {
+    kind: 'echo',
+    label: 'ECHO',
+    get title() {
+      return t('Echo on the beat · amount: feedback');
+    },
+  },
   {
     kind: 'pingPong',
     label: 'PING',
-    title: t('Echo bouncing left and right · amount: feedback'),
+    get title() {
+      return t('Echo bouncing left and right · amount: feedback');
+    },
   },
-  { kind: 'reverb', label: 'VERB', title: t('Reverb · amount: room size') },
-  { kind: 'flanger', label: 'FLANGE', title: t('Flanger · amount: feedback') },
-  { kind: 'phaser', label: 'PHASE', title: t('Phaser · amount: feedback') },
+  {
+    kind: 'reverb',
+    label: 'VERB',
+    get title() {
+      return t('Reverb · amount: room size');
+    },
+  },
+  {
+    kind: 'flanger',
+    label: 'FLANGE',
+    get title() {
+      return t('Flanger · amount: feedback');
+    },
+  },
+  {
+    kind: 'phaser',
+    label: 'PHASE',
+    get title() {
+      return t('Phaser · amount: feedback');
+    },
+  },
   {
     kind: 'filter',
     label: 'FILTER',
-    title: t('Filter sweeping on the beat · amount: depth'),
+    get title() {
+      return t('Filter sweeping on the beat · amount: depth');
+    },
   },
-  { kind: 'gate', label: 'GATE', title: t('Cuts the sound on the beat · amount: depth') },
-  { kind: 'bitcrusher', label: 'CRUSH', title: t('Lower resolution · amount: crush') },
+  {
+    kind: 'gate',
+    label: 'GATE',
+    get title() {
+      return t('Cuts the sound on the beat · amount: depth');
+    },
+  },
+  {
+    kind: 'bitcrusher',
+    label: 'CRUSH',
+    get title() {
+      return t('Lower resolution · amount: crush');
+    },
+  },
 ];
 const LOOP_BEATS = [0.25, 0.5, 1, 2, 4, 8, 16, 32];
 const ROLL_BEATS = [1 / 16, 1 / 8, 1 / 4, 1 / 2, 1, 2, 4, 8];
@@ -216,7 +256,9 @@ export class DeckPads {
         set: false,
         color: null,
         active: false,
-        title: t('Click: set · Shift-click or right click: delete'),
+        get title() {
+          return t('Click: set · Shift-click or right click: delete');
+        },
       };
     const loop = cue.loopLengthS !== null;
     return {
@@ -237,7 +279,9 @@ export class DeckPads {
         set: false,
         color: null,
         active: false,
-        title: t('Click: choose a sound'),
+        get title() {
+          return t('Click: choose a sound');
+        },
       };
     }
     return {
@@ -245,9 +289,11 @@ export class DeckPads {
       set: true,
       color: SAMPLE_COLOR,
       active: this.samplePlaying(slot),
-      title: t('{name} · Click: play · Right click: stop, then remove · Shift-click: remove', {
-        name,
-      }),
+      get title() {
+        return t('{name} · Click: play · Right click: stop, then remove · Shift-click: remove', {
+          name,
+        });
+      },
     };
   }
 

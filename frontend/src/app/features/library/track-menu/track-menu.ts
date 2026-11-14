@@ -73,10 +73,10 @@ export class TrackMenu {
       .map((t) => t.path)
       .filter((p) => !this.stems.pending().has(p)),
   );
-  private readonly removeFromPrepare = t('Remove from the prepare list');
-  private readonly removeFromCrate = t('Remove from the crate');
   protected readonly removeLabel = computed(() =>
-    this.library.source().kind === 'prepare' ? this.removeFromPrepare : this.removeFromCrate,
+    this.library.source().kind === 'prepare'
+      ? t('Remove from the prepare list')
+      : t('Remove from the crate'),
   );
 
   constructor() {

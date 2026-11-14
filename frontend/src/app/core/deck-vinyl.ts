@@ -4,18 +4,42 @@ import { EngineService } from './services/engine.service';
 import { t } from './i18n/i18n';
 
 const SIGNAL_TITLE: Record<SignalState, string> = {
-  none: t('No timecode signal'),
-  bounce: t('Timecode signal unsteady'),
-  ok: t('Timecode signal locked'),
+  get none() {
+    return t('No timecode signal');
+  },
+  get bounce() {
+    return t('Timecode signal unsteady');
+  },
+  get ok() {
+    return t('Timecode signal locked');
+  },
 };
 
 /** Who drives the deck: itself (INT), or the record in relative or absolute mode. */
 export type DeckMode = 'int' | VinylMode;
 
 export const DECK_MODES: readonly { id: DeckMode; label: string; title: string }[] = [
-  { id: 'int', label: 'INT', title: t('The deck plays by itself') },
-  { id: 'relative', label: 'REL', title: t('The record drives the speed') },
-  { id: 'absolute', label: 'ABS', title: t('The record drives the speed and the position') },
+  {
+    id: 'int',
+    label: 'INT',
+    get title() {
+      return t('The deck plays by itself');
+    },
+  },
+  {
+    id: 'relative',
+    label: 'REL',
+    get title() {
+      return t('The record drives the speed');
+    },
+  },
+  {
+    id: 'absolute',
+    label: 'ABS',
+    get title() {
+      return t('The record drives the speed and the position');
+    },
+  },
 ];
 
 /**

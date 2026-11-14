@@ -46,7 +46,9 @@ export class DeckControls {
     const knob = (part: StemPart, label: string, name: string) => ({
       part,
       label,
-      title: t('{part}: turn for the level, click the name to mute', { part: name }),
+      get title() {
+        return t('{part}: turn for the level, click the name to mute', { part: name });
+      },
       level: mix ? partLevel(mix, part) : 1,
       on: !mix || partPlaying(mix, part),
       waiting: partIn(waiting, part),

@@ -1,10 +1,11 @@
-import { LOCALE } from '../core/i18n/i18n';
+import { computed } from '@angular/core';
+import { locale } from '../core/i18n/i18n';
 
-const separator = (1.5).toLocaleString(LOCALE).charAt(1);
+const separator = computed(() => (1.5).toLocaleString(locale()).charAt(1));
 
 /** 126.004, 2 -> "126.00" ("126,00" in French). */
 export function decimal(value: number, digits: number): string {
-  return value.toFixed(digits).replace('.', separator);
+  return value.toFixed(digits).replace('.', separator());
 }
 
 /** 83.4 -> "1:23.4" */
