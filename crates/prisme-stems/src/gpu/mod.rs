@@ -13,6 +13,7 @@
 //! holding the activations of the one running.
 
 use std::collections::HashMap;
+use std::ops::Range;
 use std::sync::{Arc, Mutex};
 
 use wgpu::util::DeviceExt;
@@ -131,7 +132,8 @@ struct Params {
     /// Per stem (one for all, with stem queries), per band.
     masks: Vec<Vec<Vec<GpuLinear>>>,
     no_bias: wgpu::Buffer,
-    /// The widest first product of the gated feed-forwards.
+    /// The widest first product of the transformers' feed-forwards: the others take turns in
+    /// its buffer, a slice of their rows at a time.
     ff_hidden: usize,
     mask_hidden: usize,
 }
@@ -900,19 +902,7 @@ impl Params {
                 (layers, tr.norm.as_ref().map(|n| storage(device, bytemuck::cast_slice(n))))
             })
             .collect();
-        let feed_forwards = w
-            .grouping
-            .iter()
-            .flat_map(|g| [&g.input, &g.output])
-            .chain(w.stem_queries.iter().flat_map(|q| [&q.bands.ff, &q.tokens.ff]));
-        let ff_hidden = w
-            .transformers
-            .iter()
-            .flat_map(|t| &t.layers)
-            .map(|l| l.ff1.out)
-            .chain(feed_forwards.map(|f| f.ff1.out))
-            .max()
-            .unwrap_or(0);
+        let ff_hidden = w.transformers.iter().flat_map(|t| &t.layers).map(|l| l.ff1.out).max().unwrap_or(0);
         let band_dim = w.band_dim();
         let grouping = w.grouping.as_ref().map(|g| GpuGrouping {
             input: [linear(&g.input.ff1), linear(&g.input.ff2)],
@@ -990,7 +980,10 @@ impl Planner<'_> {
         bytes[Slot::Normed as usize] = acts((tokens * c.dim).max(grouped));
         bytes[Slot::Qkvg as usize] = acts(tokens * c.qkvg_width());
         bytes[Slot::Attended as usize] = acts(tokens * c.inner_dim());
-        bytes[Slot::Hidden as usize] = acts(tokens * p.ff_hidden);
+        let sliced = p.grouping.iter().flat_map(|g| [&g.input[0], &g.output]);
+        let sliced = sliced.chain(p.pools.iter().flatten().map(|pool| &pool.ff[0]));
+        let row = sliced.map(|l| l.out).max().unwrap_or(0);
+        bytes[Slot::Hidden as usize] = acts((tokens * p.ff_hidden).max(row));
         bytes[Slot::BandIn as usize] = acts(frames * widest_band);
         bytes[Slot::Mlp0 as usize] = acts(mask_rows * p.mask_hidden);
         bytes[Slot::Mlp1 as usize] = acts(mask_rows * p.mask_hidden);
@@ -1149,14 +1142,18 @@ impl Planner<'_> {
                 Some(grouping) => {
                     let ff1 = back.as_ref().unwrap_or(&grouping.output);
                     let into = Input { buffer: &hidden, store: Store::Act, ld: ff1.out, off: 0 };
-                    steps.extend(self.matmul(ff1, x_rows, frame_tokens, into, Act::None, false));
-                    steps.push(self.gated(&hidden, frame_tokens, ff1.out / 2));
-                    // frame f of every token in the f-th block of rows: the estimators read the
-                    // frames of a band in one stride, the glu step puts them back in order
-                    for (f, l) in grouping.frames.iter().enumerate() {
-                        let off = f * frame_tokens * p.band_dim;
-                        let out = Input { buffer: &split, store: Store::F32, ld: p.band_dim, off };
-                        steps.extend(self.matmul(l, into, frame_tokens, out, Act::None, false));
+                    for tokens in self.hidden_slices(frame_tokens, ff1.out, &hidden) {
+                        let n = tokens.len();
+                        let input = Input { off: tokens.start * c.dim, ..x_rows };
+                        steps.extend(self.matmul(ff1, input, n, into, Act::None, false));
+                        steps.push(self.gated(&hidden, n, ff1.out / 2));
+                        // frame f of every token in the f-th block of rows: the estimators read
+                        // the frames of a band in one stride, the glu step puts them in order
+                        for (f, l) in grouping.frames.iter().enumerate() {
+                            let off = (f * frame_tokens + tokens.start) * p.band_dim;
+                            let out = Input { buffer: &split, store: Store::F32, ld: p.band_dim, off };
+                            steps.extend(self.matmul(l, into, n, out, Act::None, false));
+                        }
                     }
                     let rows = (p.band_dim, 0);
                     steps.push(self.norm(&split, &normed, frame_tokens * c.group, p.band_dim, rows, rows));
@@ -1478,10 +1475,27 @@ impl Planner<'_> {
         accumulate: bool,
     ) -> Vec<Step> {
         let into = Input { buffer: hidden, store: Store::Act, ld: ff1.out, off: 0 };
-        let mut steps = self.matmul(ff1, a, rows, into, Act::None, false);
-        steps.push(self.gated(hidden, rows, ff1.out / 2));
-        steps.extend(self.matmul(ff2, into, rows, out, Act::None, accumulate));
+        let mut steps = Vec::new();
+        for slice in self.hidden_slices(rows, ff1.out, hidden) {
+            let a = Input { off: a.off + slice.start * a.ld, ..a };
+            let out = Input { off: out.off + slice.start * out.ld, ..out };
+            steps.extend(self.matmul(ff1, a, slice.len(), into, Act::None, false));
+            steps.push(self.gated(hidden, slice.len(), ff1.out / 2));
+            steps.extend(self.matmul(ff2, into, slice.len(), out, Act::None, accumulate));
+        }
         steps
+    }
+
+    /// The rows of a feed-forward whose first product gives `width` values a row, in slices
+    /// that `hidden` holds.
+    fn hidden_slices(
+        &self,
+        rows: usize,
+        width: usize,
+        hidden: &wgpu::Buffer,
+    ) -> impl Iterator<Item = Range<usize>> {
+        let held = (hidden.size() as usize / self.net.act_bytes() / width).max(1);
+        (0..rows).step_by(held).map(move |first| first..(first + held).min(rows))
     }
 
     /// The attention of `pool`'s queries over `sequences` sequences of `len` tokens of `a`, the
