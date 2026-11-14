@@ -54,6 +54,9 @@ DECK_KEYS = {
     'LoadSelectedTrack': 'library.load{deck}',
 }
 HOTCUE_KEY = re.compile(r'^hotcue_(\d+)_(activate|clear)$')
+# the loop rolls of a deck, as long as Prisme's pads and controls have them
+ROLL_BEATS = [1 / 16, 1 / 8, 1 / 4, 1 / 2, 1, 2, 4, 8]
+ROLL_KEY = re.compile(r'^beatlooproll_([\d.]+)_activate$')
 
 GLOBAL_KEYS = {
     ('[Master]', 'crossfader'): 'mixer.crossfader',
@@ -63,9 +66,23 @@ GLOBAL_KEYS = {
     ('[Library]', 'MoveVertical'): 'library.browse',
     ('[Library]', 'MoveDown'): 'library.next',
     ('[Library]', 'MoveUp'): 'library.previous',
+    ('[Library]', 'GoToItem'): 'library.load',
+    ('[Playlist]', 'LoadSelectedIntoFirstStopped'): 'library.load',
+    ('[Master]', 'headMix'): 'mixer.cueMix',
 }
 EQ_GROUP = re.compile(r'^\[EqualizerRack1_\[Channel(\d)\]_Effect1\]$')
-EQ_KEYS = {'parameter1': 'eq.low', 'parameter2': 'eq.mid', 'parameter3': 'eq.high'}
+EQ_KEYS = {
+    'parameter1': 'eq.low',
+    'parameter2': 'eq.mid',
+    'parameter3': 'eq.high',
+    'button_parameter1': 'eq.low.kill',
+    'button_parameter2': 'eq.mid.kill',
+    'button_parameter3': 'eq.high.kill',
+}
+# an effect unit of Mixxx drives the effect of the deck of the same number
+EFFECT_GROUP = re.compile(r'^\[EffectRack1_EffectUnit(\d)\]$')
+EFFECT_KEYS = {'mix': 'fx.mix', 'super1': 'fx.amount', 'enabled': 'fx'}
+EFFECT_SCRIPT = re.compile(r'effectunit\[(\d)\]\.(knob|button\[1\])')
 FILTER_GROUP = re.compile(r'^\[QuickEffectRack1_\[Channel(\d)\]\]$')
 
 # what a script's handlers do, read from their names, first match first
@@ -76,6 +93,11 @@ SCRIPT_NAMES = [
     (r'headphone|pfl', 'headphones'),
     (r'clearhotcue|hotcue.*(clear|delete)', 'hotcue{n}.delete'),
     (r'hotcue', 'hotcue{n}'),
+    (r'roll', 'roll{n}'),
+    (r'lowkill|killlow', 'eq.low.kill'),
+    (r'midkill|killmid', 'eq.mid.kill'),
+    (r'hi(gh)?kill|killhi', 'eq.high.kill'),
+    (r'headmix|cuemix', 'mixer.cueMix'),
     (r'keylock', 'keylock'),
     (r'loopin', 'loop.in'),
     (r'loopout', 'loop.out'),
@@ -97,11 +119,12 @@ SCRIPT_NAMES = [
     (r'quickeffect|filter', 'filter'),
     (r'deckfader|channelfader|volume', 'volume'),
     (r'load', 'library.load{deck}'),
+    (r'(rotaryselector|browse|selecttrack).*(click|press|push)', 'library.load'),
     (r'rotaryselector|browse|selecttrack', 'library.browse'),
 ]
 # what Prisme has no action for, or what a script does that its name does not tell
 NOT_ACTIONS = re.compile(
-    r'kill|mute|sampler|(?<!quick)effect|fx|roll|vinyl|autodj|preview|vu|meter|tap|click', re.I
+    r'mute|sampler|(?<!quick)effect|fx|vinyl|autodj|preview|vu|meter|tap', re.I
 )
 SHIFT_BUTTON = re.compile(r'(^|\.)shift(button)?(\.input)?$', re.I)
 SHIFTED = re.compile(r'shift', re.I)
@@ -174,7 +197,13 @@ def action_of(entry: Entry) -> str | None:
     quick = FILTER_GROUP.match(group)
     if quick and key == 'super1':
         return f'deck{quick.group(1)}.filter'
+    unit = EFFECT_GROUP.match(group)
+    if unit and key in EFFECT_KEYS:
+        return f'deck{unit.group(1)}.{EFFECT_KEYS[key]}'
     deck = deck_of(entry)
+    roll = ROLL_KEY.match(key)
+    if roll and deck and float(roll.group(1)) in ROLL_BEATS:
+        return f'deck{deck}.roll{ROLL_BEATS.index(float(roll.group(1))) + 1}'
     hotcue = HOTCUE_KEY.match(key)
     if hotcue and deck and int(hotcue.group(1)) <= PADS:
         suffix = '.delete' if hotcue.group(2) == 'clear' else ''
@@ -185,9 +214,14 @@ def action_of(entry: Entry) -> str | None:
         return None
     if SHIFT_BUTTON.search(key):
         return 'shift'
-    if SHIFTED.search(key) or NOT_ACTIONS.search(key):
+    if SHIFTED.search(key):
         return None
     lowered = key.lower()
+    effect = EFFECT_SCRIPT.search(lowered)
+    if effect:
+        return f"deck{effect.group(1)}.{'fx.mix' if effect.group(2) == 'knob' else 'fx'}"
+    if NOT_ACTIONS.search(key):
+        return None
     for pattern, action in SCRIPT_NAMES:
         if re.search(pattern, lowered):
             return named(action, deck)

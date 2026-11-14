@@ -1,5 +1,6 @@
 import { BANDS, Band, MAX_DECKS, HOT_CUES, SAMPLE_SLOTS } from '../models/engine';
 import { t } from '../i18n/i18n';
+import { ROLL_BEATS, formatBeats } from '../../shared/beats';
 import { deckLetter } from '../../shared/time';
 import { StemPart } from '../stem-parts';
 
@@ -53,12 +54,23 @@ export interface ControlActions {
   toggleFx(deck: number): void;
   fxOn(deck: number): boolean;
   setFxMix(deck: number, position: number): void;
+  /** The effect's main knob (feedback, room size, depth: see each effect). */
+  setFxAmount(deck: number, position: number): void;
+  fxAmountPosition(deck: number): number;
+  /** Cuts a band of the deck's EQ, or brings it back. */
+  setKill(deck: number, band: Band, kill: boolean): void;
+  killed(deck: number, band: Band): boolean;
+  /** Rolls a loop of `beats` over the track, the track going on beneath; `null` ends it. */
+  roll(deck: number, beats: number | null): void;
   setPitch(deck: number, position: number): void;
   setVolume(deck: number, position: number): void;
   setEq(deck: number, band: Band, position: number): void;
   setFilter(deck: number, position: number): void;
   setTrim(deck: number, position: number): void;
   setCrossfader(position: number): void;
+  /** What the headphones play: the cued decks (0) to the master (1). */
+  setCueMix(position: number): void;
+  cueMixPosition(): number;
   /** Where the faders' settings stand (0 to 1). */
   fxMixPosition(deck: number): number;
   volumePosition(deck: number): number;
@@ -98,6 +110,18 @@ const EQ_LABEL: Record<Band, string> = {
   },
   get high() {
     return t('EQ high');
+  },
+};
+/** A kill acts while held, as the kill keys of a controller do. */
+const KILL_LABEL: Record<Band, string> = {
+  get low() {
+    return t('Kill the bass while held');
+  },
+  get mid() {
+    return t('Kill the mids while held');
+  },
+  get high() {
+    return t('Kill the highs while held');
   },
 };
 
@@ -241,6 +265,21 @@ function deckControls(a: ControlActions, deck: number): Control[] {
       (v) => a.setFxMix(deck, v),
       () => a.fxMixPosition(deck),
     ),
+    fader(
+      id('fx.amount'),
+      group,
+      t('Effect amount'),
+      (v) => a.setFxAmount(deck, v),
+      () => a.fxAmountPosition(deck),
+    ),
+    ...ROLL_BEATS.map((beats, i) =>
+      hold(
+        id(`roll${i + 1}`),
+        group,
+        t('Roll {beats} while held', { beats: formatBeats(beats) }),
+        (held) => a.roll(deck, held ? beats : null),
+      ),
+    ),
     direct(id('pitch'), group, t('Tempo'), 'fader'),
     fader(
       id('volume'),
@@ -263,6 +302,12 @@ function deckControls(a: ControlActions, deck: number): Control[] {
         EQ_LABEL[band],
         (v) => a.setEq(deck, band, v),
         () => a.eqPosition(deck, band),
+      ),
+    ),
+    ...BANDS.map((band) =>
+      lit(
+        hold(id(`eq.${band}.kill`), group, KILL_LABEL[band], (held) => a.setKill(deck, band, held)),
+        () => a.killed(deck, band),
       ),
     ),
     fader(
@@ -291,6 +336,13 @@ export function buildControls(a: ControlActions): Control[] {
       t('Crossfader'),
       (v) => a.setCrossfader(v),
       () => a.crossfaderPosition(),
+    ),
+    fader(
+      'mixer.cueMix',
+      t('Mixer'),
+      t('Headphones: cued decks or master'),
+      (v) => a.setCueMix(v),
+      () => a.cueMixPosition(),
     ),
     direct('shift', t('Controller'), t('Shift (second use of the controls)'), 'button'),
     {

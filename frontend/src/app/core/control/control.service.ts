@@ -62,6 +62,11 @@ export class ControlService {
     toggleFx: (deck) => this.fx.setEnabled(deck, !this.fx.settings(deck).enabled),
     fxOn: (deck) => this.fx.settings(deck).enabled,
     setFxMix: (deck, position) => this.fx.setMix(deck, position),
+    setFxAmount: (deck, position) => this.fx.setAmount(deck, position),
+    fxAmountPosition: (deck) => this.fx.settings(deck).amount,
+    setKill: (deck, band, kill) => this.mixer.setKill(deck, band, kill),
+    killed: (deck, band) => this.mixer.strip(deck).kills[BANDS.indexOf(band)],
+    roll: (deck, beats) => this.performance.loopRoll(deck, beats),
     setPitch: (deck, position) => {
       const range = this.preferences.dj().pitchRange;
       this.engine.setPitch(deck, 1 + (position * 2 - 1) * range);
@@ -71,6 +76,8 @@ export class ControlService {
     setFilter: (deck, position) => this.mixer.setFilter(deck, position * 2 - 1),
     setTrim: (deck, position) => this.mixer.setTrim(deck, trimGain(position)),
     setCrossfader: (position) => this.mixer.setCrossfader(position * 2 - 1),
+    setCueMix: (position) => this.mixer.setCueMix(position),
+    cueMixPosition: () => this.mixer.cueMix(),
     fxMixPosition: (deck) => this.fx.settings(deck).mix,
     volumePosition: (deck) => this.engine.decks()[deck].volume,
     eqPosition: (deck, band) => eqKnob(this.mixer.strip(deck).eq[BANDS.indexOf(band)]),
