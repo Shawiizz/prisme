@@ -31,7 +31,7 @@ import { PitchFader } from '../pitch-fader/pitch-fader';
     :host {
       display: grid;
       grid-template-columns: var(--pr-lane-columns);
-      grid-template-rows: 124px 44px;
+      grid-template-rows: var(--pr-lane-top, 124px) 44px;
       gap: 4px 10px;
       min-width: 0;
     }
@@ -41,7 +41,7 @@ import { PitchFader } from '../pitch-fader/pitch-fader';
     }
     // four decks: half the height, the channel of the software mixer over both rows
     :host(.compact) {
-      grid-template-rows: 44px 44px;
+      grid-template-rows: var(--pr-lane-top-compact, 44px) 44px;
       app-channel-slot {
         grid-column: 3;
         grid-row: 1 / span 2;

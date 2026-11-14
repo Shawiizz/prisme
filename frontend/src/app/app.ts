@@ -22,6 +22,9 @@ import { PreferencesService } from './core/services/preferences.service';
 import { MixerService } from './core/services/mixer.service';
 import { NavigationService } from './core/services/navigation.service';
 
+/** The height whole lanes for two decks take on a screen below (CSS px). */
+const WHOLE_LANES_PX = 420;
+
 /**
  * Main window layout: title bar, a lane per deck (compact ones for four decks) with the
  * phase strip after the first, the library; and the dialogs. Spread over a screen below, the
@@ -59,6 +62,11 @@ export class App implements OnInit {
   protected readonly PHONE = PHONE;
   private readonly screens = inject(ScreensService);
   protected readonly height = signal(innerHeight);
+  /** Four decks, or a screen below too short for whole lanes: compact lanes. */
+  protected readonly compact = computed(() => {
+    const under = this.under();
+    return this.decks().length > 2 || (under !== null && under < WHOLE_LANES_PX);
+  });
   /** Spread over a screen below: the height the decks have on it (CSS px). */
   protected readonly under = computed(() => {
     const split = this.screens.split();

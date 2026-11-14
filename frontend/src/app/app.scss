@@ -21,8 +21,8 @@
   &.mix {
     --pr-lane-columns: var(--pr-deck-panel) minmax(0, 1fr) 210px 32px;
   }
-  // four decks: compact lanes, their panel on one line
-  &.four {
+  // four decks, or the screen below: compact lanes, their panel on one line
+  &.compact {
     --pr-lane-columns: 540px minmax(0, 1fr) 32px;
     gap: 6px;
     &.mix {
@@ -33,7 +33,7 @@
 app-phase-strip {
   height: 26px;
   padding-block: var(--pr-space-1);
-  .four & {
+  .compact & {
     margin-block: -3px;
   }
   .mix & {
@@ -60,11 +60,20 @@ app-phase-strip {
     grid-row: 2;
     padding: var(--pr-space-2) 10px;
   }
+  // the lanes share the height of the screen below: their waveforms grow with it
   .decks {
     grid-row: 3;
-    align-content: center;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
     padding: var(--pr-space-2) 10px;
     border-top: 1px solid var(--pr-line);
+    --pr-lane-top: minmax(124px, 1fr);
+    --pr-lane-top-compact: minmax(44px, 1fr);
+    app-deck-lane {
+      flex: 1;
+      min-height: 0;
+    }
     background: var(--pr-void);
   }
 }

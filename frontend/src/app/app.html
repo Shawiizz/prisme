@@ -10,9 +10,9 @@
     @if (under() !== null) {
       <app-now-playing />
     }
-    <section class="decks" [class.mix]="mixer.internal()" [class.four]="decks().length > 2">
+    <section class="decks" [class.mix]="mixer.internal()" [class.compact]="compact()">
       @for (deck of decks(); track deck) {
-        <app-deck-lane [deck]="deck" [compact]="decks().length > 2" />
+        <app-deck-lane [deck]="deck" [compact]="compact()" />
         @if (deck === 0) {
           <app-phase-strip />
         }
