@@ -2,9 +2,11 @@
 //! the UI, which performs the actions and says which lights are on, except for the jog
 //! wheels and tempo faders, which drive the engine from here (`controller_direct`).
 //! Mappings are learnt from the controller itself and kept in `controllers.json`, with the
-//! controllers in use.
+//! controllers in use; a model Prisme knows comes mapped by its profile
+//! (`controller_profiles`), what is learnt on it taking the profile's place.
 
 use crate::controller_direct::{Direct, Performer, Tempo};
+use crate::controller_profiles;
 use crate::dto::{ControllerInputDto, DeckPitchDto, LightDto};
 use crate::error::{AppError, AppResult};
 use crate::state::{lock, AppState};
@@ -38,6 +40,9 @@ pub struct ControllerSetup {
     pub mappings: Mappings,
     /// Where the MIDI clock goes (see `midi_clock`).
     pub clock_output: Option<String>,
+    /// Actions the DJ took off every controller: the profiles' controls no longer drive
+    /// them either.
+    pub unmapped: Vec<String>,
 }
 
 /// The next control moved will drive `target`; an encoder's steps are read as it sends
@@ -66,6 +71,8 @@ struct Connection {
 
 pub struct Controllers {
     setup: JsonFile<ControllerSetup>,
+    /// The profiles of the controllers in use, with what was learnt over them.
+    mappings: Mutex<Mappings>,
     learning: Mutex<Option<Learning>>,
     /// The mapping just learnt: it becomes a 14-bit one if its low half follows.
     just_learnt: Mutex<Option<(Mapping, Instant)>>,
@@ -76,14 +83,17 @@ pub struct Controllers {
 
 impl Controllers {
     pub fn new(setup: JsonFile<ControllerSetup>) -> Self {
-        Self {
+        let controllers = Self {
             setup,
+            mappings: Mutex::new(Mappings::default()),
             learning: Mutex::new(None),
             just_learnt: Mutex::new(None),
             reader: Mutex::new(Reader::default()),
             performer: Mutex::new(Performer::default()),
             connections: Mutex::new(Vec::new()),
-        }
+        };
+        controllers.layer();
+        controllers
     }
 
     /// The MIDI ports plugged in.
@@ -93,6 +103,11 @@ impl Controllers {
 
     pub fn setup(&self) -> ControllerSetup {
         self.setup.get()
+    }
+
+    /// What drives what: the profiles of the controllers in use, and what was learnt.
+    pub fn mappings(&self) -> Mappings {
+        lock(&self.mappings).clone()
     }
 
     /// Opens the controllers in use that are plugged in.
@@ -180,9 +195,19 @@ impl Controllers {
         *lock(&self.learning) = Some(Learning { target, encoder });
     }
 
-    /// Changes how the control of `target` on `device` is read (an encoder's steps).
+    /// Changes how the control of `target` on `device` is read (an encoder's steps). A
+    /// control of a profile becomes the DJ's own, read that way.
     pub fn set_encoding(&self, device: &str, target: &str, encoding: Encoding) {
-        self.save(|s| s.mappings.set_encoding(device, target, encoding));
+        let of_target = |m: &&Mapping| m.device == device && m.target == target;
+        let profiled: Vec<Mapping> = lock(&self.mappings).all().iter().filter(of_target).cloned().collect();
+        self.save(|s| {
+            if !s.mappings.all().iter().any(|m| of_target(&m)) {
+                for mapping in profiled {
+                    s.mappings.learn(mapping);
+                }
+            }
+            s.mappings.set_encoding(device, target, encoding);
+        });
     }
 
     pub fn cancel_learning(&self) {
@@ -194,25 +219,37 @@ impl Controllers {
     }
 
     pub fn forget(&self, target: &str) {
-        self.save(|s| s.mappings.forget(target));
-    }
-
-    /// Switches the lights of the controls mapped to the `lights` targets.
-    pub fn set_lights(&self, lights: &[LightDto]) {
-        let mut connections = lock(&self.connections);
-        self.setup.read(|s| {
-            for mapping in s.mappings.all() {
-                let Some(light) = lights.iter().find(|l| l.target == mapping.target) else { continue };
-                let Some(message) = prisme_control::light(mapping.control, light.on) else { continue };
-                let output = connections
-                    .iter_mut()
-                    .find(|c| c.device == mapping.device)
-                    .and_then(|c| c.output.as_mut());
-                if let Some(output) = output {
-                    let _ = output.send(&message);
-                }
+        self.save(|s| {
+            s.mappings.forget(target);
+            if !s.unmapped.iter().any(|t| t == target) {
+                s.unmapped.push(target.to_owned());
             }
         });
+    }
+
+    /// Switches the lights of the controls mapped to the `lights` targets, and the other
+    /// lights the profiles give them.
+    pub fn set_lights(&self, lights: &[LightDto]) {
+        let mut connections = lock(&self.connections);
+        let mut send = |device: &str, message: Option<[u8; 3]>| {
+            let output = connections.iter_mut().find(|c| c.device == device).and_then(|c| c.output.as_mut());
+            if let (Some(output), Some(message)) = (output, message) {
+                let _ = output.send(&message);
+            }
+        };
+        for mapping in lock(&self.mappings).all() {
+            if let Some(light) = lights.iter().find(|l| l.target == mapping.target) {
+                send(&mapping.device, prisme_control::light(mapping.control, light.on));
+            }
+        }
+        for device in self.setup.read(|s| s.enabled.clone()) {
+            let Some(profile) = controller_profiles::of(&device) else { continue };
+            for extra in &profile.lights {
+                if let Some(light) = lights.iter().find(|l| l.target == extra.target) {
+                    send(&device, extra.message(light.on));
+                }
+            }
+        }
     }
 
     fn open(&self, app: &AppHandle, device: &str) -> AppResult<()> {
@@ -239,7 +276,12 @@ impl Controllers {
                 (),
             )
             .map_err(midi_error)?;
-        let output = open_output(&port_name);
+        let mut output = open_output(&port_name);
+        if let (Some(output), Some(profile)) = (output.as_mut(), controller_profiles::of(device)) {
+            for message in &profile.init {
+                let _ = output.send(message);
+            }
+        }
         let connection =
             Connection { device: device.to_owned(), port: port_name, _input: connection, output };
         lock(&self.connections).push(connection);
@@ -266,13 +308,13 @@ impl Controllers {
         for control in held {
             self.receive(app, device, Event { control, raw: 0 }, 0.0);
         }
-        let touches: Vec<Direct> = self.setup.read(|s| {
-            let mappings = s.mappings.all().iter().filter(|m| m.device == device);
-            mappings
-                .filter_map(|m| Direct::of(&m.target))
-                .filter(|d| matches!(d, Direct::JogTouch(_)))
-                .collect()
-        });
+        let touches: Vec<Direct> = lock(&self.mappings)
+            .all()
+            .iter()
+            .filter(|m| m.device == device)
+            .filter_map(|m| Direct::of(&m.target))
+            .filter(|d| matches!(d, Direct::JogTouch(_)))
+            .collect();
         for touch in touches {
             self.perform(app, touch, 0.0, 0.0);
         }
@@ -284,9 +326,8 @@ impl Controllers {
             return Some(Routed::Learned(learnt));
         }
         let mut reader = lock(&self.reader);
-        let shift = self
-            .setup
-            .read(|s| s.mappings.find(device, event.control, false).is_some_and(|m| m.target == SHIFT));
+        let shift =
+            lock(&self.mappings).find(device, event.control, false).is_some_and(|m| m.target == SHIFT);
         // a release is the end of the previous press, not the control to learn; nor is shift
         let released = event.control.kind == ControlKind::Note && event.raw == 0;
         let learning = lock(&self.learning).take_if(|_| !released && !shift);
@@ -299,16 +340,18 @@ impl Controllers {
                 fine: None,
                 shift: reader.shifted(device),
             };
-            self.save(|s| s.mappings.learn(mapping.clone()));
+            self.save(|s| {
+                s.unmapped.retain(|t| *t != mapping.target);
+                s.mappings.learn(mapping.clone());
+            });
             *lock(&self.just_learnt) = Some((mapping.clone(), Instant::now()));
             return Some(Routed::Learned(mapping));
         }
-        self.setup.read(|s| {
-            let (mapping, value) = reader.read(&s.mappings, device, event)?;
-            Some(match Direct::of(&mapping.target) {
-                Some(action) => Routed::Direct(action, value),
-                None => Routed::Input(ControllerInputDto { target: mapping.target.clone(), value }),
-            })
+        let mappings = lock(&self.mappings);
+        let (mapping, value) = reader.read(&mappings, device, event)?;
+        Some(match Direct::of(&mapping.target) {
+            Some(action) => Routed::Direct(action, value),
+            None => Routed::Input(ControllerInputDto { target: mapping.target.clone(), value }),
         })
     }
 
@@ -361,6 +404,23 @@ impl Controllers {
         if let (_, Err(e)) = self.setup.update(change) {
             error!("controllers not saved: {e}");
         }
+        self.layer();
+    }
+
+    /// Lays what was learnt over the profiles of the controllers in use.
+    fn layer(&self) {
+        let layered = self.setup.read(|s| {
+            let profiled: Vec<Mapping> = s
+                .enabled
+                .iter()
+                .filter_map(|device| {
+                    Some(controller_profiles::of(device)?.mappings(device).collect::<Vec<_>>())
+                })
+                .flatten()
+                .collect();
+            Mappings::layered(profiled, &s.mappings, &s.unmapped)
+        });
+        *lock(&self.mappings) = layered;
     }
 }
 
@@ -505,6 +565,51 @@ mod tests {
         );
         route(&c, &[0x90, 63, 0]);
         assert_eq!(route(&c, &[0x90, 36, 127]), input("deck1.cue", 1.0));
+    }
+
+    fn sb2() -> Controllers {
+        let c = controllers();
+        c.save(|s| s.enabled.push("DDJ-SB2".into()));
+        c
+    }
+
+    #[test]
+    fn a_known_model_comes_mapped() {
+        let c = sb2();
+        let play = |c: &Controllers| c.route("DDJ-SB2", parse(&[0x90, 0x0b, 127]).unwrap());
+        assert_eq!(play(&c), input("deck1.play", 1.0));
+        // learnt over the profile, the control drives what was learnt
+        c.learn("deck1.cue".into(), false);
+        play(&c);
+        assert_eq!(play(&c), input("deck1.cue", 1.0));
+        // forgotten, an action leaves the profile's controls too
+        c.forget("deck1.cue");
+        c.forget("deck1.play");
+        assert_eq!(play(&c), None);
+        assert!(c.setup().unmapped.contains(&"deck1.play".to_owned()));
+        // learnt again, it is mapped again
+        c.learn("deck1.play".into(), false);
+        play(&c);
+        assert_eq!(play(&c), input("deck1.play", 1.0));
+    }
+
+    #[test]
+    fn a_profiled_encoder_read_another_way_becomes_the_djs() {
+        let c = sb2();
+        let jog = |m: &Mapping| m.device == "DDJ-SB2" && m.target == "deck1.jog";
+        assert!(c.setup().mappings.all().is_empty());
+        c.set_encoding("DDJ-SB2", "deck1.jog", Encoding::Relative);
+        let learnt = c.setup().mappings;
+        assert!(!learnt.all().is_empty());
+        assert!(learnt.all().iter().filter(|m| jog(m)).all(|m| m.encoding == Encoding::Relative));
+        assert!(c.mappings().all().iter().filter(|m| jog(m)).all(|m| m.encoding == Encoding::Relative));
+    }
+
+    #[test]
+    fn a_profile_waits_for_its_controller_to_be_in_use() {
+        let c = controllers();
+        assert_eq!(c.route("DDJ-SB2", parse(&[0x90, 0x0b, 127]).unwrap()), None);
+        assert!(c.mappings().all().is_empty());
     }
 
     #[test]

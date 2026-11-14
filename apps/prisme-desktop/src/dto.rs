@@ -975,6 +975,8 @@ pub struct ControllerDto {
     pub name: String,
     pub enabled: bool,
     pub plugged: bool,
+    /// The model Prisme knows it as, its controls mapped by its profile.
+    pub profile: Option<String>,
 }
 
 /// A mapped control moved: the action and its value (see `prisme_control::Encoding`).
