@@ -8,6 +8,9 @@ use crate::network::MaskNetwork;
 use crate::stft::Stft;
 use crate::StemsError;
 
+/// How far ahead of the frame played the stems are separated before anything else (s).
+pub const LEAD_S: f64 = 20.0;
+
 pub struct Separator<N: MaskNetwork> {
     net: N,
     stft: Stft,
@@ -62,7 +65,7 @@ impl<N: MaskNetwork> Separator<N> {
         mut progress: impl FnMut(usize, usize) -> bool,
     ) -> Result<Vec<[Vec<f32>; 2]>, StemsError> {
         let mut separation = self.begin(left.len().min(right.len()), 0);
-        while self.step(&mut separation, left, right)? {
+        while self.step(&mut separation, left, right, None)? {
             if !progress(separation.done(), separation.chunks()) {
                 return Err(StemsError::Cancelled);
             }
@@ -73,52 +76,56 @@ impl<N: MaskNetwork> Separator<N> {
     /// A separation of a track of `len` samples, to be worked through by [`Self::step`]. The
     /// track is cut in chunks the size the network was made for, as many over each sample as
     /// the model asks ([`crate::Config::overlap`], or [`Self::overlapping_at_most`]), the
-    /// last one ending with the track; where chunks
-    /// overlap they are blended with Hamming weights. The chunks over sample `anchor` come
-    /// first, then those after it, then those before it.
+    /// last one ending with the track; where chunks overlap they are blended with Hamming
+    /// weights. Unless a frame played says otherwise ([`Self::step`]), the chunks come from
+    /// the one over sample `anchor` to the end, then from the start.
     pub fn begin(&self, len: usize, anchor: usize) -> Separation {
         let chunk = self.net.geometry().config.chunk_samples();
         let starts = chunk_starts(len, chunk, chunk / self.overlap);
-        let order = order(&starts, chunk, anchor.min(len.saturating_sub(1)));
+        let first = starts.iter().position(|&s| anchor < s + chunk).unwrap_or(starts.len() - 1);
         Separation {
             len,
             chunk,
             window: hamming(chunk),
             sum: vec![[vec![0.0; len], vec![0.0; len]]; self.stems().len()],
             weight: vec![0.0; len],
+            through: vec![false; starts.len()],
+            fill_from: starts[first],
+            lead: (LEAD_S * f64::from(self.sample_rate())) as usize,
             starts,
-            order,
             done: 0,
             running: None,
         }
     }
 
     /// Separates the next chunk of `separation`, a separation of the stereo track `left`,
-    /// `right` begun by this separator, which separates nothing else until it is through.
-    /// The network works on the chunk after it meanwhile, and the STFTs are worked out while
-    /// it runs. `false` once every chunk is through.
+    /// `right` begun by this separator, which separates nothing else until it is through:
+    /// the chunks over sample `at` and [`LEAD_S`] after it first, where the track is played,
+    /// else the next ones of [`Separation::fill_from`]. The network works on the chunk after
+    /// it meanwhile, and the STFTs are worked out while it runs. `false` once every chunk is
+    /// through.
     pub fn step(
         &mut self,
         separation: &mut Separation,
         left: &[f32],
         right: &[f32],
+        at: Option<usize>,
     ) -> Result<bool, StemsError> {
-        let Some(&index) = separation.order.get(separation.done) else { return Ok(false) };
-        let current = match separation.running.take() {
+        let (index, current) = match separation.running.take() {
             Some(running) => running,
             None => {
+                let Some(index) = separation.next(at, None) else { return Ok(false) };
                 let analysis = self.analyse_padded(separation.part(index, left, right), separation.chunk);
                 self.net.start(&analysis.bins, analysis.frames)?;
-                analysis
+                (index, analysis)
             }
         };
         let next = separation
-            .order
-            .get(separation.done + 1)
-            .map(|&next| self.analyse_padded(separation.part(next, left, right), separation.chunk));
+            .next(at, Some(index))
+            .map(|next| (next, self.analyse_padded(separation.part(next, left, right), separation.chunk)));
         let mut masks = vec![0.0; self.net.geometry().mask_len(current.frames)];
         self.net.finish(&mut masks)?;
-        if let Some(next) = &next {
+        if let Some((_, next)) = &next {
             self.net.start(&next.bins, next.frames)?;
         }
         let mut out = vec![[vec![0.0; separation.chunk], vec![0.0; separation.chunk]]; self.stems().len()];
@@ -207,8 +214,7 @@ impl<N: MaskNetwork> Separator<N> {
 }
 
 /// A track being separated chunk by chunk ([`Separator::begin`]). The stems are final where
-/// every chunk over them is through: [`Self::finished`], a span that grows at either end as
-/// the chunks come in order.
+/// every chunk over them is through: [`Self::finished`], islands that grow and meet.
 pub struct Separation {
     len: usize,
     chunk: usize,
@@ -217,17 +223,21 @@ pub struct Separation {
     sum: Vec<[Vec<f32>; 2]>,
     weight: Vec<f32>,
     starts: Vec<usize>,
-    /// The chunks (indices into `starts`) in the order they are separated.
-    order: Vec<usize>,
-    /// How many of `order` are through.
+    /// Which chunks (by their index into `starts`) are through.
+    through: Vec<bool>,
     done: usize,
-    /// The analysis of the chunk the network is working on: `order[done]`.
-    running: Option<Analysis>,
+    /// Where the chunks not wanted where the track is played go on from: the start of the
+    /// last of them, so that they resume where they stopped.
+    fill_from: usize,
+    /// How far after the sample played the chunks come first ([`LEAD_S`], in samples).
+    lead: usize,
+    /// The chunk the network is working on, and its analysis.
+    running: Option<(usize, Analysis)>,
 }
 
 impl Separation {
     pub fn chunks(&self) -> usize {
-        self.order.len()
+        self.starts.len()
     }
 
     /// How many chunks are through.
@@ -236,18 +246,53 @@ impl Separation {
     }
 
     pub fn is_done(&self) -> bool {
-        self.done == self.order.len()
+        self.done == self.starts.len()
     }
 
-    /// The samples whose stems are final: those no chunk still to come lies over.
-    pub fn finished(&self) -> Range<usize> {
-        let through = &self.order[..self.done];
-        let (Some(&first), Some(&last)) = (through.iter().min(), through.iter().max()) else {
-            return 0..0;
-        };
-        let start = first.checked_sub(1).map_or(0, |before| self.starts[before] + self.chunk);
-        let end = self.starts.get(last + 1).copied().unwrap_or(self.len);
-        start.min(end)..end
+    /// The samples whose stems are final, those no chunk still to come lies over: islands in
+    /// order, apart.
+    pub fn finished(&self) -> Vec<Range<usize>> {
+        let mut bounds: Vec<usize> =
+            self.starts.iter().flat_map(|&s| [s, self.end(s)]).chain([0, self.len]).collect();
+        bounds.sort_unstable();
+        bounds.dedup();
+        let mut islands: Vec<Range<usize>> = Vec::new();
+        for pair in bounds.windows(2) {
+            let (from, to) = (pair[0], pair[1]);
+            let over: Vec<usize> = (0..self.starts.len())
+                .filter(|&i| self.starts[i] <= from && from < self.end(self.starts[i]))
+                .collect();
+            if over.is_empty() || !over.iter().all(|&i| self.through[i]) {
+                continue;
+            }
+            match islands.last_mut().filter(|last| last.end == from) {
+                Some(last) => last.end = to,
+                None => islands.push(from..to),
+            }
+        }
+        islands
+    }
+
+    /// The end of the chunk starting at `start`.
+    fn end(&self, start: usize) -> usize {
+        (start + self.chunk).min(self.len)
+    }
+
+    /// The next chunk to separate, not `busy` (the network has it already): the first one not
+    /// through over sample `at` and the [`LEAD_S`] after it, else the first one from
+    /// [`Self::fill_from`] on, then from the start.
+    fn next(&mut self, at: Option<usize>, busy: Option<usize>) -> Option<usize> {
+        let mut open = (0..self.starts.len()).filter(|&i| !self.through[i] && Some(i) != busy);
+        if let Some(at) = at.filter(|&at| at < self.len) {
+            let wanted = at..at.saturating_add(self.lead).min(self.len);
+            let over = |&i: &usize| self.starts[i] < wanted.end && self.end(self.starts[i]) > wanted.start;
+            if let Some(i) = open.clone().find(over) {
+                return Some(i);
+            }
+        }
+        let i = open.clone().find(|&i| self.starts[i] >= self.fill_from).or_else(|| open.next())?;
+        self.fill_from = self.starts[i];
+        Some(i)
     }
 
     /// Stem `stem` over `range` (final samples), left and right.
@@ -283,6 +328,7 @@ impl Separation {
             }
         }
         self.weight[start..start + n].iter_mut().zip(&self.window).for_each(|(a, w)| *a += w);
+        self.through[index] = true;
         self.done += 1;
     }
 }
@@ -292,13 +338,6 @@ struct Analysis {
     spec: [Vec<Complex32>; 2],
     bins: Vec<f32>,
     frames: usize,
-}
-
-/// The chunks over `anchor`, then those after them, then those before them backwards: the
-/// chunks through always follow each other, so the final samples make one span.
-fn order(starts: &[usize], chunk: usize, anchor: usize) -> Vec<usize> {
-    let first = starts.iter().position(|&s| anchor < s + chunk).unwrap_or(starts.len() - 1);
-    (first..starts.len()).chain((0..first).rev()).collect()
 }
 
 /// The channel and STFT bin of a gathered bin.
@@ -340,35 +379,82 @@ mod tests {
         assert_eq!(chunk_starts(27, 10, 5), vec![0, 5, 10, 15, 17]);
     }
 
-    #[test]
-    fn the_chunks_over_the_anchor_come_first_then_those_after_then_those_before() {
-        let starts = [0, 5, 10, 15, 20];
-        assert_eq!(order(&starts, 10, 0), [0, 1, 2, 3, 4]);
-        assert_eq!(order(&starts, 10, 12), [1, 2, 3, 4, 0]);
-        assert_eq!(order(&starts, 10, 29), [4, 3, 2, 1, 0]);
-    }
-
-    #[test]
-    fn the_final_samples_grow_from_the_anchor() {
-        let starts = vec![0, 5, 10, 15];
-        let mut separation = Separation {
-            len: 25,
+    /// A separation of 50 samples in chunks of 10 overlapping by half, leading by 15.
+    fn separation(anchor: usize) -> Separation {
+        let starts = chunk_starts(50, 10, 5);
+        let first = starts.iter().position(|&s| anchor < s + 10).unwrap_or(starts.len() - 1);
+        Separation {
+            len: 50,
             chunk: 10,
             window: vec![1.0; 10],
-            sum: vec![[vec![0.0; 25], vec![0.0; 25]]],
-            weight: vec![0.0; 25],
-            order: order(&starts, 10, 12),
+            sum: vec![[vec![0.0; 50], vec![0.0; 50]]],
+            weight: vec![0.0; 50],
+            through: vec![false; starts.len()],
+            fill_from: starts[first],
+            lead: 15,
             starts,
             done: 0,
             running: None,
-        };
-        assert_eq!(separation.order, [1, 2, 3, 0]);
-        let out = [[vec![1.0; 10], vec![1.0; 10]]];
-        let mut finished = vec![separation.finished()];
-        while let Some(&index) = separation.order.get(separation.done) {
-            separation.add(index, &out);
-            finished.push(separation.finished());
         }
-        assert_eq!(finished, [0..0, 10..10, 10..15, 10..25, 0..25]);
+    }
+
+    /// Separates the chunk [`Separation::next`] picks for a track played at `at`.
+    fn take(separation: &mut Separation, at: Option<usize>) -> Option<usize> {
+        let index = separation.next(at, None)?;
+        separation.add(index, &[[vec![1.0; 10], vec![1.0; 10]]]);
+        Some(index)
+    }
+
+    #[test]
+    fn the_chunks_where_the_track_plays_come_first_then_the_rest_from_where_it_stopped() {
+        let mut s = separation(0);
+        assert_eq!(s.starts, [0, 5, 10, 15, 20, 25, 30, 35, 40]);
+        // played from 12: the chunks over 12 to 27 first
+        let first: Vec<_> = (0..5).map_while(|_| take(&mut s, Some(12))).collect();
+        assert_eq!(first, [1, 2, 3, 4, 5]);
+        // the lead is there: the rest from the start, where nothing was filled yet
+        assert_eq!(take(&mut s, Some(12)), Some(0));
+        assert_eq!(take(&mut s, Some(12)), Some(6));
+        // the play jumps: the chunks over the new place, then the filling resumes
+        assert_eq!(take(&mut s, Some(42)), Some(7));
+        assert_eq!(take(&mut s, Some(42)), Some(8));
+        assert_eq!(take(&mut s, None), None);
+        assert!(s.is_done());
+    }
+
+    #[test]
+    fn not_played_the_chunks_go_from_the_anchor_to_the_end_then_from_the_start() {
+        let mut s = separation(23);
+        let order: Vec<_> = std::iter::from_fn(|| take(&mut s, None)).collect();
+        assert_eq!(order, [3, 4, 5, 6, 7, 8, 0, 1, 2]);
+    }
+
+    #[test]
+    fn the_busy_chunk_is_not_picked_twice() {
+        let mut s = separation(0);
+        assert_eq!(s.next(Some(0), None), Some(0));
+        assert_eq!(s.next(Some(0), Some(0)), Some(1));
+    }
+
+    #[test]
+    #[allow(clippy::single_range_in_vec_init)]
+    fn the_final_samples_are_islands_that_meet() {
+        let mut s = separation(0);
+        assert!(s.finished().is_empty());
+        // chunk 0 alone: only what no other chunk lies over
+        s.add(0, &[[vec![1.0; 10], vec![1.0; 10]]]);
+        assert_eq!(s.finished(), [0..5]);
+        s.add(1, &[[vec![1.0; 10], vec![1.0; 10]]]);
+        assert_eq!(s.finished(), [0..10]);
+        // an island further on
+        for i in [6, 7] {
+            s.add(i, &[[vec![1.0; 10], vec![1.0; 10]]]);
+        }
+        assert_eq!(s.finished(), [0..10, 35..40]);
+        for i in [2, 3, 4, 5, 8] {
+            s.add(i, &[[vec![1.0; 10], vec![1.0; 10]]]);
+        }
+        assert_eq!(s.finished(), [0..50]);
+        assert_eq!(s.read(0, 0..50), [vec![1.0; 50], vec![1.0; 50]], "the overlaps are blended back");
     }
 }

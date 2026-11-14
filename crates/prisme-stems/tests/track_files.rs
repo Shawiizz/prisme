@@ -119,8 +119,8 @@ fn several_separators_store_all_their_stems_and_count_all_their_chunks() {
     std::fs::remove_dir_all(dir).unwrap();
 }
 
-/// Played from its middle, a track gets its stems there first, then on either side: what is
-/// final reads as it ends up, and as it is stored.
+/// Played from its middle, a track gets its stems there first; played then from near its
+/// start, there next: what is final reads as it ends up, and as it is stored.
 #[test]
 fn a_played_track_gets_its_stems_around_where_it_plays() {
     for rate in [44_100, 48_000] {
@@ -135,28 +135,45 @@ fn a_played_track_gets_its_stems_around_where_it_plays() {
         overlapping.geometry.config.overlap = 4;
         let (mut vocals, mut others) = (separator(), Separator::new(CpuNetwork::new(overlapping)));
         let separators = &mut [&mut vocals, &mut others];
-        let around = 50_000;
+        let (around, jumped) = (50_000, 5_000);
         let mut separation = TrackSeparation::open(separators, &track, None, Some(around)).unwrap();
 
+        let holds =
+            |islands: &[std::ops::Range<usize>], frame: usize| islands.iter().any(|i| i.contains(&frame));
         let mut seen: Vec<Vec<(std::ops::Range<usize>, Vec<f32>)>> = vec![Vec::new(); 3];
         let mut reached = [None; 3];
+        let mut jumps = [None; 3];
         while !separation.is_done() {
-            separation.step(separators).unwrap();
+            let all_there = reached.iter().all(Option::is_some);
+            let playing = if all_there { jumped } else { around };
+            separation.step(separators, Some(playing)).unwrap();
             for (stem, (_, finished)) in separation.stems().into_iter().enumerate() {
-                if let Some((before, _)) = seen[stem].last() {
+                for (before, _) in &seen[stem] {
                     assert!(
-                        finished.start <= before.start && finished.end >= before.end,
+                        finished.iter().any(|i| i.start <= before.start && i.end >= before.end),
                         "the final frames grow"
                     );
                 }
-                if finished.contains(&around) && reached[stem].is_none() {
+                if holds(&finished, around) && reached[stem].is_none() {
                     reached[stem] = Some(separation.done());
                 }
-                if !finished.is_empty() {
-                    let read = separation.read(stem, finished.clone()).unwrap();
-                    seen[stem].push((finished, read));
+                if all_there && holds(&finished, jumped) && jumps[stem].is_none() {
+                    jumps[stem] = Some(separation.done());
+                }
+                for island in finished {
+                    let read = separation.read(stem, island.clone()).unwrap();
+                    seen[stem].push((island, read));
                 }
             }
+        }
+        let last_reached = reached.iter().flatten().max().copied().expect("the frame played gets its stems");
+        for done in jumps {
+            let done = done.expect("the frame jumped to gets its stems");
+            assert!(
+                (done - last_reached) * 4 < separation.chunks(),
+                "the frame jumped to next: {done} of {}, from {last_reached}",
+                separation.chunks()
+            );
         }
         for done in reached {
             let done = done.expect("the frame played gets its stems");

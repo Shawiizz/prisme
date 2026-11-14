@@ -248,6 +248,11 @@ impl AppState {
         status.decks[..status.deck_count].iter().map(|d| (d.position_s, d.playing)).collect()
     }
 
+    /// Whether `deck` plays: its track moves, by itself or under a record.
+    pub fn deck_plays(&self, deck: usize) -> bool {
+        self.deck_status(deck).is_ok_and(|d| d.loaded && d.speed.abs() > MOVING_SPEED)
+    }
+
     /// Whether a deck plays: its track moves, by itself or under a record.
     pub fn is_playing(&self) -> bool {
         let mut session = lock(&self.session);

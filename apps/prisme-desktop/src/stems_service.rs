@@ -27,6 +27,7 @@ use prisme_stems::{CpuNetwork, Gpu, GpuNetwork, GpuOptions, MaskNetwork, Separat
 use sha2::{Digest, Sha256};
 use std::collections::{HashSet, VecDeque};
 use std::io::Write;
+use std::ops::Range;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Condvar, Mutex, OnceLock};
@@ -584,11 +585,14 @@ impl Worker {
         }
     }
 
-    /// The next track, the decks' first: waits for one up to [`IDLE`].
+    /// The next track, the decks' first, and of those a playing one's: waits for one up to
+    /// [`IDLE`].
     fn next(&self) -> Option<Job> {
+        let playing = self.playing();
         let mut queue = lock(&self.queue);
         let job = loop {
-            if let Some(path) = queue.played.pop_front() {
+            let first = queue.played.iter().position(|p| playing.contains(p)).unwrap_or(0);
+            if let Some(path) = queue.played.remove(first) {
                 let before = queue.waiting.len();
                 queue.waiting.retain(|p| *p != path);
                 let requested = queue.waiting.len() < before;
@@ -626,12 +630,13 @@ impl Worker {
             deck.as_ref().map(|(audio, _)| (audio.sample_rate(), samples(audio))),
             deck.map(|(_, frame)| frame),
         )?;
-        let mut live = None;
+        let mut live: Option<Live> = None;
         while !separation.is_done() {
             if self.cancel.load(Ordering::Relaxed) {
                 return Err(StemsError::Cancelled);
             }
-            let on_decks = self.on_decks(&job.path).is_some();
+            let at = self.on_decks(&job.path).map(|(_, frame)| frame);
+            let on_decks = at.is_some();
             if !on_decks {
                 if job.played && !job.requested {
                     return Ok(Ended::Dropped);
@@ -643,14 +648,25 @@ impl Worker {
             if on_decks && live.is_none() {
                 live = Some(Live::start(&self.app, &separation, &self.queue)?);
             }
-            separation.step(separators)?;
-            if let Some(live) = &live {
+            separation.step(separators, at)?;
+            if let Some(live) = &mut live {
                 live.publish(&separation)?;
             }
             separation.store_through()?;
             self.update(|p| p.fraction = separation.done() as f64 / separation.chunks() as f64);
         }
         Ok(Ended::Through)
+    }
+
+    /// The tracks on the decks that play.
+    fn playing(&self) -> Vec<PathBuf> {
+        let state = self.app.state::<AppState>();
+        let loaded: Vec<(usize, PathBuf)> = lock(&state.tracks)
+            .iter()
+            .enumerate()
+            .filter_map(|(deck, t)| t.as_ref().map(|t| (deck, t.path.clone())))
+            .collect();
+        loaded.into_iter().filter(|&(deck, _)| state.deck_plays(deck)).map(|(_, path)| path).collect()
     }
 
     /// The audio of `path` on a deck, fully decoded, and the frame the deck plays.
@@ -736,6 +752,8 @@ impl Worker {
 struct Live {
     /// The stems being separated, by their index in `TrackSeparation::stems`.
     filling: Vec<Option<Arc<TrackAudio>>>,
+    /// The frames of each given to the decks so far: islands in order, apart.
+    published: Vec<Vec<Range<usize>>>,
 }
 
 impl Live {
@@ -763,7 +781,7 @@ impl Live {
             })
         });
         lock(queue).live = Some((path.to_owned(), stems.clone()));
-        let live = Self { filling };
+        let mut live = Self { published: vec![Vec::new(); filling.len()], filling };
         live.publish(separation)?;
         let state = app.state::<AppState>();
         let decks: Vec<(usize, u64)> = lock(&state.tracks)
@@ -780,21 +798,35 @@ impl Live {
     }
 
     /// Fills in what is final of the stems since last time.
-    fn publish(&self, separation: &TrackSeparation) -> Result<(), StemsError> {
-        for (index, ((_, finished), audio)) in separation.stems().into_iter().zip(&self.filling).enumerate() {
+    fn publish(&mut self, separation: &TrackSeparation) -> Result<(), StemsError> {
+        let stems = separation.stems().into_iter().zip(&self.filling).zip(&mut self.published);
+        for (index, (((_, finished), audio), published)) in stems.enumerate() {
             let Some(audio) = audio else { continue };
-            let readable = audio.readable();
-            let parts = if readable.is_empty() {
-                [finished.clone(), 0..0]
-            } else {
-                [finished.start..readable.start, readable.end..finished.end]
-            };
-            for part in parts.into_iter().filter(|p| !p.is_empty()) {
-                audio.publish(part.start, &separation.read(index, part)?);
+            for island in &finished {
+                for part in outside(island, published) {
+                    audio.publish(part.start, &separation.read(index, part)?);
+                }
             }
+            *published = finished;
         }
         Ok(())
     }
+}
+
+/// The frames of `island` outside the islands `known`, in order and apart.
+fn outside(island: &Range<usize>, known: &[Range<usize>]) -> Vec<Range<usize>> {
+    let mut parts = Vec::new();
+    let mut from = island.start;
+    for k in known.iter().filter(|k| k.start < island.end && k.end > island.start) {
+        if from < k.start {
+            parts.push(from..k.start);
+        }
+        from = from.max(k.end);
+    }
+    if from < island.end {
+        parts.push(from..island.end);
+    }
+    parts
 }
 
 /// Tells the queue the worker stopped, whether it returned or panicked: the next track starts
@@ -953,5 +985,14 @@ mod tests {
     fn else_from_the_one_there() {
         assert_eq!(in_use(&[VOCALS], true), [VOCALS]);
         assert_eq!(in_use(&[DRUMS_BASS, VOCALS_FAST], false), [DRUMS_BASS, VOCALS_FAST]);
+    }
+
+    #[test]
+    #[allow(clippy::single_range_in_vec_init)]
+    fn an_island_grown_and_joined_gives_only_its_new_frames() {
+        assert_eq!(outside(&(0..10), &[]), [0..10]);
+        assert_eq!(outside(&(0..30), &[5..10, 20..25]), [0..5, 10..20, 25..30]);
+        assert_eq!(outside(&(5..25), &[5..10, 20..25]), [10..20]);
+        assert!(outside(&(5..10), &[0..10, 40..50]).is_empty());
     }
 }

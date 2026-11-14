@@ -42,7 +42,7 @@ pub enum MediaError {
     WriteTags { path: String, message: String },
 }
 
-pub use track::{LoadingTrack, TrackAudio, TrackView};
+pub use track::{LoadingTrack, TrackAudio, TrackView, PENDING_BLOCK};
 
 /// Extensions of the files [`decode_file`] can read.
 pub const SUPPORTED_EXTENSIONS: &[&str] =

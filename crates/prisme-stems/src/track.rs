@@ -66,7 +66,7 @@ pub fn separate_file<N: MaskNetwork>(
     let mut separation = TrackSeparation::open(separators, track, None, None)?;
     let mut stored = Vec::new();
     while !separation.is_done() {
-        separation.step(separators)?;
+        separation.step(separators, None)?;
         stored.extend(separation.store_through()?);
         if !progress(separation.done(), separation.chunks()) {
             return Err(StemsError::Cancelled);
@@ -77,10 +77,10 @@ pub fn separate_file<N: MaskNetwork>(
 
 /// A track being separated by several separators, whose stems can be read as they come.
 ///
-/// Played, the track is separated around a frame: every separator works on the chunks over
-/// it first ([`Separator::begin`]), in turns that keep them abreast, so that all the stems
-/// come there at once. Otherwise the separators work one after the other from the start,
-/// and the stems of each are stored as soon as it is through.
+/// Played, the track is separated where it plays: every separator works on the chunks there
+/// first, and on those ahead of it ([`Separator::step`]), in turns that keep them abreast, so
+/// that all the stems come there at once. Otherwise the separators work one after the other
+/// from the start, and the stems of each are stored as soon as it is through.
 pub struct TrackSeparation {
     track: PathBuf,
     sample_rate: u32,
@@ -130,13 +130,7 @@ impl TrackSeparation {
                 }
             };
             let len = inputs[input].1[0].len();
-            // from far enough before the frame played for it to be resampled
-            let anchor = around.map_or(0, |frame| {
-                let at = (frame as u64 * u64::from(rate) / u64::from(sample_rate)) as usize;
-                let margin =
-                    if rate == sample_rate { 0 } else { RESAMPLING_MARGIN + aligned_step(rate, sample_rate) };
-                at.saturating_sub(margin)
-            });
+            let anchor = around.map_or(0, |frame| at_rate(frame, sample_rate, rate));
             let separation = separator.begin(len, anchor);
             let stems = separator.stems().to_vec();
             let targets = stems
@@ -182,8 +176,13 @@ impl TrackSeparation {
         self.done() == self.chunks()
     }
 
-    /// Separates one more chunk, with the separators given to [`Self::open`].
-    pub fn step<N: MaskNetwork>(&mut self, separators: &mut [&mut Separator<N>]) -> Result<(), StemsError> {
+    /// Separates one more chunk, with the separators given to [`Self::open`]: where frame
+    /// `at` of the track is played, if it is.
+    pub fn step<N: MaskNetwork>(
+        &mut self,
+        separators: &mut [&mut Separator<N>],
+        at: Option<usize>,
+    ) -> Result<(), StemsError> {
         let unfinished = |(_, run): &(usize, &Run)| run.done() < run.chunks;
         let behind = if self.abreast {
             let share = |run: &Run| run.done() as f64 / run.chunks as f64;
@@ -195,19 +194,25 @@ impl TrackSeparation {
         let run = &mut self.runs[index];
         let [left, right] = &self.inputs[run.input].1;
         let separation = run.separation.as_mut().expect("an unfinished run has its separation");
-        separators[index].step(separation, left, right)?;
+        let at = at.map(|frame| at_rate(frame, self.sample_rate, run.sample_rate));
+        separators[index].step(separation, left, right, at)?;
         Ok(())
     }
 
     /// Each stem, in the order of the separators then of their stems, and the frames of the
-    /// track where it is final.
-    pub fn stems(&self) -> Vec<(&str, Range<usize>)> {
+    /// track where it is final: islands in order, apart.
+    pub fn stems(&self) -> Vec<(&str, Vec<Range<usize>>)> {
         self.runs
             .iter()
             .flat_map(|run| {
-                let finished = match &run.separation {
-                    Some(separation) => self.track_frames(run, separation.finished()),
-                    None => 0..self.frames,
+                let finished: Vec<Range<usize>> = match &run.separation {
+                    Some(separation) => separation
+                        .finished()
+                        .into_iter()
+                        .map(|island| self.track_frames(run, island))
+                        .filter(|frames| !frames.is_empty())
+                        .collect(),
+                    None => std::iter::once(0..self.frames).collect(),
                 };
                 run.stems.iter().map(move |stem| (stem.as_str(), finished.clone()))
             })
@@ -306,6 +311,13 @@ impl Run {
 
 /// Samples a resampled stretch needs on either side to come out as in the whole signal.
 const RESAMPLING_MARGIN: usize = 4096;
+
+/// Frame `frame` of a track at `from` as a sample at `to`, early enough to be resampled.
+fn at_rate(frame: usize, from: u32, to: u32) -> usize {
+    let at = (frame as u64 * u64::from(to) / u64::from(from)) as usize;
+    let margin = if to == from { 0 } else { RESAMPLING_MARGIN + aligned_step(to, from) };
+    at.saturating_sub(margin)
+}
 
 /// The step at which the samples at `from` and the frames at `to` fall at the same time.
 fn aligned_step(from: u32, to: u32) -> usize {

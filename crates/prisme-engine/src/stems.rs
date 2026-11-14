@@ -225,6 +225,7 @@ impl Ramp {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use prisme_media::PENDING_BLOCK;
 
     fn constant(value: f32, frames: usize) -> Arc<TrackAudio> {
         Arc::new(TrackAudio::from_interleaved(48_000, vec![value; frames * 2]))
@@ -290,33 +291,40 @@ mod tests {
 
     #[test]
     fn stems_play_where_they_are_separated_already() {
-        let track = constant(1.0, 10);
-        let vocals = Arc::new(TrackAudio::pending(48_000, 10));
-        vocals.publish(4, &[0.5; 4]);
-        let drums = Arc::new(TrackAudio::pending(48_000, 10));
-        drums.publish(5, &[0.25; 2]);
+        const B: usize = PENDING_BLOCK;
+        let track = constant(1.0, 4 * B);
+        // the vocals in two islands, the drums in the second one only
+        let vocals = Arc::new(TrackAudio::pending(48_000, 4 * B));
+        vocals.publish(B, &vec![0.5; 2 * B]);
+        vocals.publish(3 * B, &vec![0.5; 2 * B]);
+        let drums = Arc::new(TrackAudio::pending(48_000, 4 * B));
+        drums.publish(3 * B, &vec![0.25; 2 * B]);
         let mut stems = Stems::new();
         stems.set_tracks([Some(vocals), Some(drums), None]);
         stems.set_mix(mix(false, false, true, true));
-        assert_eq!(settle_at(&mut stems, &track, 3), (1.0, 1.0), "nothing separated: the whole track");
-        assert_eq!(settle_at(&mut stems, &track, 4), (0.5, 0.5), "the drums not separated yet stay");
-        assert_eq!(settle_at(&mut stems, &track, 5), (0.25, 0.25), "both muted");
+        let at = |i: usize| i as isize;
+        assert_eq!(settle_at(&mut stems, &track, at(0)), (1.0, 1.0), "nothing separated: the whole track");
+        assert_eq!(settle_at(&mut stems, &track, at(B)), (0.5, 0.5), "the drums not separated yet stay");
+        assert_eq!(settle_at(&mut stems, &track, at(2 * B)), (1.0, 1.0), "between the islands");
+        assert_eq!(settle_at(&mut stems, &track, at(3 * B)), (0.25, 0.25), "both muted");
     }
 
     #[test]
     fn playing_into_the_separated_part_fades_into_the_mix() {
-        let track = constant(1.0, 2000);
-        let vocals = Arc::new(TrackAudio::pending(48_000, 2000));
-        vocals.publish(1000, &[0.5; 2000]);
+        const B: usize = PENDING_BLOCK;
+        let track = constant(1.0, 4 * B);
+        let vocals = Arc::new(TrackAudio::pending(48_000, 4 * B));
+        vocals.publish(2 * B, &vec![0.5; 4 * B]);
         let mut stems = Stems::new();
         stems.set_tracks([Some(vocals), None, None]);
         stems.set_mix(mix(false, true, true, true));
-        settle_at(&mut stems, &track, 999);
+        let before = (2 * B - 1) as isize;
+        settle_at(&mut stems, &track, before);
         let mut reader = stems.reader(&track);
-        let mut last = reader.frame(999).0;
+        let mut last = reader.frame(before).0;
         assert_eq!(last, 1.0, "the vocals not separated yet play");
-        for i in 1000..2000 {
-            let now = reader.frame(i).0;
+        for i in 2 * B..4 * B {
+            let now = reader.frame(i as isize).0;
             assert!((now - last).abs() <= 0.5 * RAMP_STEP + 1e-6, "frame {i}: {last} -> {now}");
             reader.advance();
             last = now;
