@@ -1463,7 +1463,7 @@ mod tests {
             sample_rate: 44_100,
             chunk_frames: 9,
             skip: false,
-            overlap: 1,
+            overlap: 1.0,
             norm_eps: 0.0,
             ff_glu: false,
             mask_glu: true,

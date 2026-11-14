@@ -23,14 +23,21 @@ The rotary embedding rotates the halves of each head, where Prisme rotates its p
 query and key rows of each head are interleaved so that its pairs are the halves' elements.
 The attention scale is folded into the query weights.
 
-`--half`, `--stems` and `--overlap` are as in `export_roformer.py`. `--fixture` writes a tiny
-model with random weights, a random input and the reference model's output (`test.*`).
+`--half` and `--stems` are as in `export_roformer.py`. `--overlap` is how many chunks cover
+each sample on average, a fraction if need be: 8/7 by default, chunks of 8 s every 7 s, each
+fading into the next over a second. Back to back, the stems change around each cut far more
+than elsewhere; every 7 s no more than elsewhere, for 4/7 of the work of HiDolen's chunks
+every 4 s.
+
+`--fixture` writes a tiny model with random weights, a random input and the reference
+model's output (`test.*`).
 """
 
 import argparse
 import json
 import math
 import sys
+from fractions import Fraction
 from pathlib import Path
 
 import torch
@@ -148,7 +155,7 @@ def export(model_dir, out, half, stems, overlap, chunk_seconds):
     chosen = [(name, names.index(name)) for name in stems.split(",")] if stems else list(zip(names, range(len(names))))
     hop = model.config.stft_hop_length
     chunk = round(chunk_seconds * 44100)
-    meta = dict(sample_rate=44100, chunk_frames=chunk // hop + 1, overlap=overlap)
+    meta = dict(sample_rate=44100, chunk_frames=chunk // hop + 1, overlap=float(overlap))
     save(model, out, meta, chosen, half=half)
 
 
@@ -178,8 +185,8 @@ if __name__ == "__main__":
     ap.add_argument("--fixture")
     ap.add_argument("--half", action="store_true")
     ap.add_argument("--stems")
-    ap.add_argument("--overlap", type=int, default=1)
-    ap.add_argument("--chunk-seconds", type=float, default=8.0, help="as the model was trained")
+    ap.add_argument("--overlap", type=Fraction, default=Fraction(8, 7))
+    ap.add_argument("--chunk-seconds", type=float, default=8.0, help="as HiDolen's inference cuts them; the 6 s chunks it was trained on separate worse")
     a = ap.parse_args()
     if a.fixture:
         fixture(a.model_dir, a.fixture)

@@ -14,8 +14,8 @@ pub const LEAD_S: f64 = 20.0;
 pub struct Separator<N: MaskNetwork> {
     net: N,
     stft: Stft,
-    /// How many chunks cover each sample.
-    overlap: usize,
+    /// How many chunks cover each sample, on average.
+    overlap: f64,
 }
 
 impl<N: MaskNetwork> Separator<N> {
@@ -29,8 +29,8 @@ impl<N: MaskNetwork> Separator<N> {
     /// With at most `overlap` chunks over each sample, when the model asks for more: that
     /// many times fewer chunks to work through, for a little less of the quality (a
     /// difference of -25 to -35 dB on drums and bass from 4 to 2).
-    pub fn overlapping_at_most(mut self, overlap: usize) -> Self {
-        self.overlap = self.overlap.min(overlap.max(1));
+    pub fn overlapping_at_most(mut self, overlap: f64) -> Self {
+        self.overlap = self.overlap.min(overlap.max(1.0));
         self
     }
 
@@ -46,7 +46,7 @@ impl<N: MaskNetwork> Separator<N> {
     /// How many chunks [`Self::separate`] cuts a track of `len` samples in.
     pub fn chunks(&self, len: usize) -> usize {
         let chunk = self.net.geometry().config.chunk_samples();
-        chunk_starts(len, chunk, chunk / self.overlap).len()
+        chunk_starts(len, chunk, chunk_step(chunk, self.overlap)).len()
     }
 
     /// The stems the network separates, in the order [`Self::separate`] returns them.
@@ -77,11 +77,12 @@ impl<N: MaskNetwork> Separator<N> {
     /// track is cut in chunks the size the network was made for, as many over each sample as
     /// the model asks ([`crate::Config::overlap`], or [`Self::overlapping_at_most`]), the
     /// last one ending with the track; where chunks overlap they are blended with Hamming
-    /// weights. Unless a frame played says otherwise ([`Self::step`]), the chunks come from
-    /// the one over sample `anchor` to the end, then from the start.
+    /// weights, which fade each one out as the next fades in. Unless a frame played says
+    /// otherwise ([`Self::step`]), the chunks come from the one over sample `anchor` to the
+    /// end, then from the start.
     pub fn begin(&self, len: usize, anchor: usize) -> Separation {
         let chunk = self.net.geometry().config.chunk_samples();
-        let starts = chunk_starts(len, chunk, chunk / self.overlap);
+        let starts = chunk_starts(len, chunk, chunk_step(chunk, self.overlap));
         let first = starts.iter().position(|&s| anchor < s + chunk).unwrap_or(starts.len() - 1);
         Separation {
             len,
@@ -355,6 +356,12 @@ fn source(index: u32) -> (usize, usize) {
     (index as usize % 2, index as usize / 2)
 }
 
+/// Samples from the start of a chunk to the start of the next, `overlap` chunks covering each
+/// sample: `chunk / overlap` exactly when `overlap` is whole.
+fn chunk_step(chunk: usize, overlap: f64) -> usize {
+    (chunk as f64 / overlap) as usize
+}
+
 /// Where the chunks start: `step` apart, the last one moved back to end with the track.
 fn chunk_starts(len: usize, chunk: usize, step: usize) -> Vec<usize> {
     let mut starts: Vec<usize> = (0..len.saturating_sub(chunk)).step_by(step).collect();
@@ -387,6 +394,22 @@ mod tests {
     fn overlapping_chunks_start_a_step_apart() {
         assert_eq!(chunk_starts(25, 10, 5), vec![0, 5, 10, 15]);
         assert_eq!(chunk_starts(27, 10, 5), vec![0, 5, 10, 15, 17]);
+    }
+
+    #[test]
+    fn a_whole_overlap_divides_the_chunk() {
+        for chunk in [640, 352_767, 352_768, 485_100] {
+            for overlap in 1..=8 {
+                assert_eq!(chunk_step(chunk, overlap as f64), chunk / overlap);
+            }
+        }
+    }
+
+    #[test]
+    fn an_overlap_of_8_7_starts_each_chunk_an_eighth_before_the_last_one_ends() {
+        assert_eq!(chunk_step(80, 8.0 / 7.0), 70);
+        assert_eq!(chunk_step(352_768, 8.0 / 7.0), 308_672);
+        assert_eq!(chunk_starts(300, 80, 70), vec![0, 70, 140, 210, 220]);
     }
 
     /// A separation of 50 samples in chunks of 10 overlapping by half, leading by 15.

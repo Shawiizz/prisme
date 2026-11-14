@@ -48,7 +48,7 @@ const IDLE: Duration = Duration::from_secs(300);
 /// Chunks over each sample off the matrix units of a graphics card (another card, the
 /// processor), where a model asking for four takes minutes: half the time for a difference
 /// a blind test hardly heard.
-const SLOW_OVERLAP: usize = 2;
+const SLOW_OVERLAP: f64 = 2.0;
 
 /// A separation model, converted by `crates/prisme-stems/tools/export_roformer.py --half` (or
 /// `export_bs_roformer.py`).
