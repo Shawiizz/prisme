@@ -67,8 +67,10 @@ app-cover {
   color: var(--pr-text-2);
 }
 
+// the waveforms from one edge of the screen to the other
 app-deck-waveform {
   height: var(--phone-wave, 118px);
+  margin-inline: -16px;
 }
 
 .readouts {
