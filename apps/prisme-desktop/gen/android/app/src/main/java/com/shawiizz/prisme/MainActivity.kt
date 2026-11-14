@@ -21,7 +21,7 @@ class MainActivity : TauriActivity() {
     // a set is played without touching the phone: its screen stays on
     window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
     keepClearOfTheBars()
-    askForTheMusicAndTheInputs()
+    askForTheMusic()
   }
 
   /** The page stays clear of the status bar, the notch and the gesture bar. */
@@ -38,19 +38,15 @@ class MainActivity : TauriActivity() {
   }
 
   /**
-   * The music the phone shares between applications is read, and the inputs of a sound card
-   * listened to (the timecode of the turntables), once the DJ allows it.
+   * The music the phone shares between applications is read once the DJ allows it. (The
+   * inputs of a sound card are asked for when one is first wanted: see `input_access.rs`.)
    */
-  private fun askForTheMusicAndTheInputs() {
+  private fun askForTheMusic() {
     val music =
       if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) Manifest.permission.READ_MEDIA_AUDIO
       else Manifest.permission.READ_EXTERNAL_STORAGE
-    val missing =
-      listOf(music, Manifest.permission.RECORD_AUDIO).filter {
-        checkSelfPermission(it) != PackageManager.PERMISSION_GRANTED
-      }
-    if (missing.isNotEmpty()) {
-      requestPermissions(missing.toTypedArray(), 0)
+    if (checkSelfPermission(music) != PackageManager.PERMISSION_GRANTED) {
+      requestPermissions(arrayOf(music), 0)
     }
   }
 }

@@ -36,6 +36,8 @@ pub enum AppError {
     UnknownFormat(String),
     #[error("the engine is busy, try again")]
     EngineBusy,
+    #[error("allow Prisme to listen to the inputs of the sound card, then apply again")]
+    InputsNotAllowed,
     #[error(transparent)]
     Media(#[from] prisme_media::MediaError),
     #[error(transparent)]

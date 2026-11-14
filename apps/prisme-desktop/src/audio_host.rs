@@ -4,6 +4,7 @@
 
 use crate::dto::{AudioInfo, AudioSettings};
 use crate::error::{AppError, AppResult};
+use crate::input_access;
 use prisme_audio_io::{is_available, AudioCallback, DeviceKind, StreamSettings, StreamStats};
 use prisme_engine::{Engine, EngineConfig, EngineController};
 use prisme_timecode::testing::{Pattern, SimulatedTurntable};
@@ -111,6 +112,9 @@ pub fn start(settings: &AudioSettings, decks: usize) -> AppResult<AudioSession> 
         input_device: if settings.simulate { None } else { settings.input_device.clone() },
         buffer_frames: settings.buffer_frames,
     };
+    if stream_settings.input_device.is_some() && !input_access::allowed() {
+        return Err(AppError::InputsNotAllowed);
+    }
     let simulate = settings.simulate;
     let backend = settings.backend;
 
