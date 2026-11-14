@@ -30,6 +30,9 @@ pub struct GpuOptions {
     pub software: bool,
     /// Keeps to f32 arithmetic on the shader cores even where there are matrix units.
     pub without_matrix_units: bool,
+    /// Binds no buffer larger than this (bytes), below the GPU's own limit: to try on a large
+    /// GPU how a small one cuts a track.
+    pub max_binding: Option<u64>,
 }
 
 /// The GPU the networks run on.
@@ -46,6 +49,8 @@ pub struct Gpu {
     large_tiles: bool,
     /// A software renderer, accepted for tests on machines without a GPU.
     software: bool,
+    /// The largest buffer a shader binds (bytes).
+    max_binding: u64,
     scratch: Mutex<Scratch>,
 }
 
@@ -191,6 +196,7 @@ impl Gpu {
             ..Default::default()
         }))
         .map_err(|e| StemsError::Gpu(e.to_string()))?;
+        let max_binding = options.max_binding.unwrap_or(u64::MAX).min(binding_limit(&device.limits()));
         let errors = Arc::new(Mutex::new(None));
         let sink = errors.clone();
         device.on_uncaptured_error(Arc::new(move |e: wgpu::Error| {
@@ -209,6 +215,7 @@ impl Gpu {
             matrix_units,
             large_tiles,
             software: info.device_type == wgpu::DeviceType::Cpu,
+            max_binding,
             scratch: Mutex::default(),
         }))
     }
@@ -288,10 +295,29 @@ impl GpuNetwork {
         let pipelines = Pipelines::new(gpu, &weights.geometry, matrix);
         let params = Params::upload(&gpu.device, weights, matrix);
         let units = if matrix { ", tensor cores" } else { "" };
+        let mut geometry = weights.geometry.clone();
+        let fit = frames_that_fit(gpu.max_binding, &geometry, &params, matrix);
+        let chunks = &mut geometry.config.chunk_frames;
+        let shortened = fit < *chunks;
+        if shortened {
+            if fit < *chunks / SHORTEST_CHUNK {
+                return Err(StemsError::Gpu(format!(
+                    "{} binds buffers of {} bytes at most, too few for chunks of {} frames",
+                    gpu.name, gpu.max_binding, *chunks / SHORTEST_CHUNK
+                )));
+            }
+            *chunks = fit;
+        }
+        let c = &geometry.config;
+        let cut = if shortened {
+            format!(", chunks of {:.1} s", c.chunk_samples() as f64 / f64::from(c.sample_rate))
+        } else {
+            String::new()
+        };
         let mut network = Self {
             gpu: gpu.clone(),
-            geometry: weights.geometry.clone(),
-            adapter: format!("{}{units}", gpu.name),
+            geometry,
+            adapter: format!("{}{units}{cut}", gpu.name),
             matrix,
             pipelines,
             params,
@@ -324,12 +350,8 @@ impl GpuNetwork {
 
     /// Whether the largest activation fits in one buffer binding.
     fn check_limits(&self, frames: usize) -> Result<(), StemsError> {
-        let c = &self.geometry.config;
-        let tokens = frames * self.geometry.bands.len();
-        let widest = c.qkvg_width().max(self.params.ff_hidden);
-        let bytes = (tokens * widest * self.act_bytes()).max(tokens * c.dim * 4) as u64;
-        let limits = self.gpu.device.limits();
-        if bytes > limits.max_storage_buffer_binding_size || bytes > limits.max_buffer_size {
+        let bytes = frames as u64 * frame_bytes(&self.geometry, &self.params, self.matrix);
+        if bytes > self.gpu.max_binding {
             return Err(StemsError::Gpu(format!("{bytes} byte buffers exceed this GPU's limits")));
         }
         Ok(())
@@ -466,6 +488,29 @@ fn adapter() -> Result<(wgpu::Adapter, bool), StemsError> {
         .map_or_else(|| request(wgpu::Backends::PRIMARY), Ok)
         .map(|a| (a, false))
         .map_err(|e| StemsError::NoGpu(e.to_string()))
+}
+
+/// A GPU binding too little for a chunk the length the model was made for takes shorter
+/// ones, down to this fraction of it: shorter, a chunk would hear too little of the music.
+const SHORTEST_CHUNK: usize = 4;
+
+/// The largest buffer the device lets a shader bind.
+fn binding_limit(limits: &wgpu::Limits) -> u64 {
+    limits.max_storage_buffer_binding_size.min(limits.max_buffer_size)
+}
+
+/// The bytes of the largest activation, for each frame of a chunk.
+fn frame_bytes(geometry: &Geometry, params: &Params, matrix: bool) -> u64 {
+    let c = &geometry.config;
+    let act = if matrix { 2 } else { 4 };
+    let widest = c.qkvg_width().max(params.ff_hidden);
+    (geometry.bands.len() * (widest * act).max(c.dim * 4)) as u64
+}
+
+/// The most frames a chunk can take on a GPU binding `max_binding` bytes, at most the model's.
+fn frames_that_fit(max_binding: u64, geometry: &Geometry, params: &Params, matrix: bool) -> usize {
+    let fit = max_binding / frame_bytes(geometry, params, matrix);
+    usize::try_from(fit).unwrap_or(usize::MAX).min(geometry.config.chunk_frames)
 }
 
 /// PCI vendor ids.

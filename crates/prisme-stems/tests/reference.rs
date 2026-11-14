@@ -58,7 +58,7 @@ fn a_file_names_its_stems() {
 }
 
 fn gpu(weights: Weights, without_matrix_units: bool) -> Option<GpuNetwork> {
-    let options = GpuOptions { software: true, without_matrix_units };
+    let options = GpuOptions { software: true, without_matrix_units, max_binding: None };
     match GpuNetwork::with_options(weights, options) {
         Ok(net) => Some(net),
         Err(StemsError::NoGpu(e)) => {
@@ -105,7 +105,7 @@ fn masks_of(net: &mut GpuNetwork, bins: &[f32], frames: usize) -> Vec<f32> {
 /// interleaved, each gives what it gives alone.
 #[test]
 fn networks_sharing_a_gpu_give_what_they_give_alone() {
-    let options = GpuOptions { software: true, without_matrix_units: true };
+    let options = GpuOptions { software: true, without_matrix_units: true, max_binding: None };
     let shared = match Gpu::open(options) {
         Ok(gpu) => gpu,
         Err(StemsError::NoGpu(e)) => return eprintln!("skipped: {e}"),
