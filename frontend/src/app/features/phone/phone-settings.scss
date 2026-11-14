@@ -18,6 +18,7 @@ h2 {
   font-stretch: var(--pr-narrow);
 }
 .search {
+  flex: none;
   display: flex;
   align-items: center;
   gap: 8px;
@@ -54,6 +55,8 @@ h2 {
   color: var(--pr-text-3);
 }
 .pages {
+  // as tall as its pages: the screen scrolls, sideways too
+  flex: none;
   display: grid;
   margin: 0 12px 16px;
   border: 1px solid var(--pr-line);
