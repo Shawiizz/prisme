@@ -5,6 +5,8 @@
 //! frame then band by band: the time transformer attends along frames within a band, the
 //! frequency transformer along bands within a frame, both by striding over the same rows.
 
+use std::borrow::Cow;
+
 use gemm::Parallelism;
 use rayon::prelude::*;
 
@@ -165,6 +167,28 @@ impl CpuNetwork {
             let pooled = pool(&queries.bands, c, &x, token_frames, bands, seq_bands);
             pool(&queries.tokens, c, &pooled, 1, token_frames, 0)
         });
+        // the rows band `b`'s estimator reads for a stem: its tokens, or the frames they give back
+        let band_input = |b: usize, stem: Option<&[f32]>| -> Vec<f32> {
+            let mut tokens: Vec<f32> = (0..token_frames)
+                .flat_map(|t| x[(t * seq_bands + b) * c.dim..][..c.dim].iter().copied())
+                .collect();
+            let Some(grouping) = &w.grouping else { return tokens };
+            if let Some(stem) = stem {
+                tokens
+                    .chunks_exact_mut(c.dim)
+                    .for_each(|t| t.iter_mut().zip(stem).for_each(|(t, s)| *t += s));
+            }
+            let mut frames_back = feed_forward(&grouping.output, token_frames, &tokens, c.silu);
+            frames_back.truncate(frames * w.band_dim());
+            frames_back.chunks_exact_mut(w.band_dim()).for_each(|row| rms_normalize(row, eps));
+            frames_back
+        };
+        // without stem queries, the frames given back are the same for every stem
+        let shared: Vec<Vec<f32>> = if w.grouping.is_some() && stems.is_none() {
+            (0..g.mask_bands.len()).into_par_iter().map(|b| band_input(b, None)).collect()
+        } else {
+            Vec::new()
+        };
         let size = frames * g.mask_features();
         for (s, out) in out.chunks_exact_mut(size).enumerate() {
             let stem = stems.as_ref().map(|stems| &stems[s * c.dim..][..c.dim]);
@@ -173,20 +197,9 @@ impl CpuNetwork {
                 .par_iter()
                 .zip(w.stem_masks(s))
                 .enumerate()
-                .map(|(b, (band, mlp))| {
-                    let mut tokens: Vec<f32> = (0..token_frames)
-                        .flat_map(|t| x[(t * seq_bands + b) * c.dim..][..c.dim].iter().copied())
-                        .collect();
-                    let Some(grouping) = &w.grouping else { return band_masks(c, mlp, tokens, band.width) };
-                    if let Some(stem) = stem {
-                        tokens
-                            .chunks_exact_mut(c.dim)
-                            .for_each(|t| t.iter_mut().zip(stem).for_each(|(t, s)| *t += s));
-                    }
-                    let mut frames_back = feed_forward(&grouping.output, token_frames, &tokens, c.silu);
-                    frames_back.truncate(frames * w.band_dim());
-                    frames_back.chunks_exact_mut(w.band_dim()).for_each(|row| rms_normalize(row, eps));
-                    band_masks(c, mlp, frames_back, band.width)
+                .map(|(b, (band, mlp))| match shared.get(b) {
+                    Some(input) => band_masks(c, mlp, input, band.width),
+                    None => band_masks(c, mlp, &band_input(b, stem), band.width),
                 })
                 .collect();
             for (band, masks) in g.mask_bands.iter().zip(per_band) {
@@ -199,15 +212,16 @@ impl CpuNetwork {
 }
 
 /// A band's masks from the rows of `input`, one per frame, through its estimator `mlp`.
-fn band_masks(c: &Config, mlp: &[Linear], mut input: Vec<f32>, width: usize) -> Vec<f32> {
+fn band_masks(c: &Config, mlp: &[Linear], input: &[f32], width: usize) -> Vec<f32> {
     let rows = input.len() / mlp.first().map_or(1, |l| l.inp);
+    let mut input = Cow::Borrowed(input);
     for (k, l) in mlp.iter().enumerate() {
         let mut y = vec![0.0; rows * l.out];
         linear_with(l, rows, &input, l.inp, &mut y, l.out, false, Parallelism::None);
         if k + 1 < mlp.len() {
             y.iter_mut().for_each(|v| *v = v.tanh());
         }
-        input = y;
+        input = Cow::Owned(y);
     }
     if c.mask_glu {
         input
@@ -226,7 +240,7 @@ fn band_masks(c: &Config, mlp: &[Linear], mut input: Vec<f32>, width: usize) -> 
             })
             .collect()
     } else {
-        input
+        input.into_owned()
     }
 }
 
