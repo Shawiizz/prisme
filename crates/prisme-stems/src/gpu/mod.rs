@@ -1382,7 +1382,7 @@ impl Planner<'_> {
     ) -> Step {
         let bias = l.bias.as_ref().unwrap_or(&self.net.params.no_bias);
         let pipelines = &self.net.pipelines;
-        let aligned = l.inp % 4 == 0 && a.ld % 4 == 0 && a.off % 4 == 0;
+        let aligned = l.inp.is_multiple_of(4) && a.ld.is_multiple_of(4) && a.off.is_multiple_of(4);
         let (pipeline, tile) = match pipelines.blocked.as_ref().filter(|_| aligned) {
             Some(blocked) => (blocked, BLOCKED_TILE),
             None => {
