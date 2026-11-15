@@ -237,7 +237,7 @@ fn open_input_with(
 /// callback, keeps the statistics.
 pub(crate) struct Renderer<C> {
     callback: C,
-    ring: Option<rtrb::Consumer<f32>>,
+    ring: Option<InputRing>,
     input: Vec<f32>,
     input_channels: usize,
     output_channels: usize,
@@ -263,7 +263,7 @@ impl<C: AudioCallback> Renderer<C> {
     ) -> Self {
         Self {
             callback,
-            ring,
+            ring: ring.map(|ring| InputRing { ring, cushion: 0, slack: None, primed: true }),
             input: vec![0.0; MAX_PERIOD * format.input_channels.max(1)],
             input_channels: format.input_channels,
             output_channels: format.output_channels,
@@ -273,6 +273,29 @@ impl<C: AudioCallback> Renderer<C> {
             hint: None,
             hinted: false,
             failed: false,
+        }
+    }
+
+    /// Keeps `cushion` frames of the input ahead of what the callback reads, and lets up to
+    /// `slack` more wait before any is dropped: an input coming in bursts of its own, on the
+    /// clock of the output but apart from it, would otherwise run short at times or overflow,
+    /// and the turntables' signal skip.
+    #[cfg(any(target_os = "linux", target_os = "android"))]
+    pub(crate) fn input_cushion(mut self, cushion: usize, slack: usize) -> Self {
+        if let Some(ring) = self.ring.as_mut() {
+            ring.cushion = cushion * self.input_channels;
+            ring.slack = Some(slack * self.input_channels);
+            ring.primed = ring.cushion == 0;
+        }
+        self
+    }
+
+    /// Takes the input up again from its cushion (the output skipped a while: the input that
+    /// came meanwhile is not to be played late).
+    #[cfg(any(target_os = "linux", target_os = "android"))]
+    pub(crate) fn resync_input(&mut self) {
+        if let Some(ring) = self.ring.as_mut().filter(|r| r.cushion > 0) {
+            ring.primed = false;
         }
     }
 
@@ -316,7 +339,7 @@ impl<C: AudioCallback> Renderer<C> {
         match self.ring.as_mut() {
             Some(ring) => {
                 let want = (frames * self.input_channels).min(self.input.len());
-                read_input(ring, &mut self.input[..want], self.input_channels, &self.stats);
+                ring.read(&mut self.input[..want], self.input_channels, &self.stats);
                 self.callback.process(&self.input[..want], self.input_channels, output, self.output_channels);
             }
             None => self.callback.process(&[], 0, output, self.output_channels),
@@ -324,31 +347,60 @@ impl<C: AudioCallback> Renderer<C> {
     }
 }
 
-/// Fills `into` from the ring, padding with silence; more than two periods waiting are
-/// dropped, oldest first, to keep the input latency low.
-fn read_input(ring: &mut rtrb::Consumer<f32>, into: &mut [f32], channels: usize, stats: &StreamStats) {
-    let want = into.len();
-    let excess = ring.slots().saturating_sub(want * 2);
-    let excess = excess - excess % channels;
-    if excess > 0 {
-        if let Ok(chunk) = ring.read_chunk(excess) {
-            chunk.commit_all();
+/// What came in from the input, waiting for the output.
+pub(crate) struct InputRing {
+    ring: rtrb::Consumer<f32>,
+    /// Samples kept ahead of what is read, and more let wait before any is dropped (a period
+    /// when `None`) ([`Renderer::input_cushion`]).
+    cushion: usize,
+    slack: Option<usize>,
+    /// The cushion is there: the input is read. Until then, silence.
+    primed: bool,
+}
+
+impl InputRing {
+    /// Fills `into` from the ring, padding with silence; more than the cushion, a period and the
+    /// slack waiting are dropped, oldest first, to keep the input latency low. Run short, the
+    /// ring builds its cushion again, and starts from it.
+    fn read(&mut self, into: &mut [f32], channels: usize, stats: &StreamStats) {
+        let want = into.len();
+        if !self.primed {
+            into.fill(0.0);
+            let waiting = self.ring.slots();
+            if waiting < want + self.cushion {
+                return;
+            }
+            // from the cushion on: what came before is older than the cushion allows, and kept
+            // it would leave the input that much later, and a burst the less room
+            let older = waiting - want - self.cushion;
+            if let Ok(chunk) = self.ring.read_chunk(older - older % channels) {
+                chunk.commit_all();
+            }
+            self.primed = true;
         }
-        stats.input_dropped.fetch_add((excess / channels) as u64, Ordering::Relaxed);
-    }
-    let available = ring.slots().min(want);
-    let available = available - available % channels;
-    let mut got = 0;
-    if let Ok(chunk) = ring.read_chunk(available) {
-        let (a, b) = chunk.as_slices();
-        into[..a.len()].copy_from_slice(a);
-        into[a.len()..a.len() + b.len()].copy_from_slice(b);
-        chunk.commit_all();
-        got = available;
-    }
-    if got < want {
-        into[got..].fill(0.0);
-        stats.input_underruns.fetch_add(((want - got) / channels) as u64, Ordering::Relaxed);
+        let excess = self.ring.slots().saturating_sub(want + self.cushion + self.slack.unwrap_or(want));
+        let excess = excess - excess % channels;
+        if excess > 0 {
+            if let Ok(chunk) = self.ring.read_chunk(excess) {
+                chunk.commit_all();
+            }
+            stats.input_dropped.fetch_add((excess / channels) as u64, Ordering::Relaxed);
+        }
+        let available = self.ring.slots().min(want);
+        let available = available - available % channels;
+        let mut got = 0;
+        if let Ok(chunk) = self.ring.read_chunk(available) {
+            let (a, b) = chunk.as_slices();
+            into[..a.len()].copy_from_slice(a);
+            into[a.len()..a.len() + b.len()].copy_from_slice(b);
+            chunk.commit_all();
+            got = available;
+        }
+        if got < want {
+            into[got..].fill(0.0);
+            stats.input_underruns.fetch_add(((want - got) / channels) as u64, Ordering::Relaxed);
+            self.primed = self.cushion == 0;
+        }
     }
 }
 
@@ -399,6 +451,72 @@ mod tests {
             assert!(self.calls != self.fail_at, "engine bug");
             output.fill(0.5);
         }
+    }
+
+    /// An input in bursts of `burst` frames, read a period of `period` at a time, the bursts
+    /// and the reads out of step by turns: the underruns and the frames dropped.
+    fn bursty(cushion: usize, burst: usize, period: usize) -> (u64, u64) {
+        let (mut tx, rx) = rtrb::RingBuffer::<f32>::new(4096);
+        let mut ring = InputRing { ring: rx, cushion, slack: None, primed: cushion == 0 };
+        let stats = StreamStats::default();
+        let mut into = vec![0.0; period];
+        for step in 0..1000 {
+            // a burst then a read, then the other way round: two reads in a row, and two bursts
+            let order: &[bool] = if step % 2 == 0 { &[true, false] } else { &[false, true] };
+            for &burst_comes in order {
+                if burst_comes {
+                    tx.write_chunk_uninit(burst).unwrap().fill_from_iter(std::iter::repeat(0.5));
+                } else {
+                    ring.read(&mut into, 1, &stats);
+                }
+            }
+        }
+        (stats.input_underruns.load(Ordering::Relaxed), stats.input_dropped.load(Ordering::Relaxed))
+    }
+
+    #[test]
+    fn an_input_out_of_step_with_the_output_runs_short_without_a_cushion() {
+        assert!(bursty(0, 48, 48).0 > 0);
+    }
+
+    #[test]
+    fn a_cushion_of_a_burst_takes_the_steps_out() {
+        assert_eq!(bursty(48, 48, 48), (0, 0));
+    }
+
+    #[test]
+    fn the_input_starts_from_its_cushion_whatever_came_before() {
+        let (mut tx, rx) = rtrb::RingBuffer::<f32>::new(4096);
+        let mut ring = InputRing { ring: rx, cushion: 48, slack: Some(3 * 48), primed: false };
+        let stats = StreamStats::default();
+        tx.write_chunk_uninit(5 * 48).unwrap().fill_from_iter(std::iter::repeat(0.5));
+        ring.read(&mut [0.0; 48], 1, &stats);
+        assert_eq!(ring.ring.slots(), 48, "the cushion left");
+        assert_eq!(stats.input_dropped.load(Ordering::Relaxed), 0, "a start drops nothing");
+    }
+
+    #[test]
+    fn bursts_within_the_slack_are_kept() {
+        let (mut tx, rx) = rtrb::RingBuffer::<f32>::new(4096);
+        let mut ring = InputRing { ring: rx, cushion: 48, slack: Some(3 * 48), primed: false };
+        let stats = StreamStats::default();
+        let mut into = vec![0.0; 48];
+        for step in 0..1000 {
+            // now and then the reader is held up, and four bursts come before it reads four times
+            let (bursts, reads) = match step % 10 {
+                5 => (4, 0),
+                6 => (0, 4),
+                _ => (1, 1),
+            };
+            for _ in 0..bursts {
+                tx.write_chunk_uninit(48).unwrap().fill_from_iter(std::iter::repeat(0.5));
+            }
+            for _ in 0..reads {
+                ring.read(&mut into, 1, &stats);
+            }
+        }
+        assert_eq!(stats.input_dropped.load(Ordering::Relaxed), 0);
+        assert_eq!(stats.input_underruns.load(Ordering::Relaxed), 0);
     }
 
     fn renderer(fail_at: usize) -> Renderer<Faulty> {
