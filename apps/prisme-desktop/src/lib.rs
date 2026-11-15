@@ -21,6 +21,8 @@
 //! * `cover_protocol`: cover thumbnails served to the UI;
 //! * `dto`: JSON shapes shared with the frontend.
 
+#[cfg(target_os = "android")]
+mod android_jni;
 mod audio_host;
 mod audio_watchdog;
 mod commands;

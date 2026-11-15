@@ -19,6 +19,8 @@ pub fn stem_activity(track: &TrackAudio, stems: &[&TrackAudio]) -> Option<Vec<Ve
     }
     let slice = (f64::from(track.sample_rate()) / ACTIVITY_SLICES_PER_S).round() as usize;
     let slices = frames.div_ceil(slice);
+    // complete: their views hold every frame
+    let (track, stems): (_, Vec<_>) = (track.view(), stems.iter().map(|s| s.view()).collect());
     let mut rows = vec![Vec::with_capacity(slices); stems.len() + 1];
     let mut power = vec![0.0f64; stems.len() + 1];
     for start in (0..frames).step_by(slice) {

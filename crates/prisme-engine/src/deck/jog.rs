@@ -7,7 +7,7 @@
 pub(crate) const TURN_S: f64 = 1.8;
 /// Speed added by a turn of the edge (+100 % for a whole turn), fading away.
 const NUDGE_PER_TURN: f64 = 1.0;
-/// How long a nudge takes to fade to a third (exponential decay).
+/// How long a nudge takes to fade to 1/e of itself (exponential decay).
 const NUDGE_FADE_S: f64 = 0.1;
 const MAX_NUDGE: f64 = 0.5;
 

@@ -176,11 +176,7 @@ pub fn list_devices(backend: Backend) -> Result<Vec<DeviceInfo>, AudioError> {
 pub fn is_available(backend: Backend, kind: DeviceKind, name: Option<&str>) -> bool {
     let _drivers = drivers();
     if backend == Backend::Usb {
-        let cards = crate::usb::host().map(|h| h.cards()).unwrap_or_default();
-        return match name {
-            Some(name) => cards.iter().any(|c| c.to_lowercase().contains(&name.to_lowercase())),
-            None => !cards.is_empty(),
-        };
+        return crate::usb::find(name).is_some();
     }
     find(backend, kind, name).is_ok()
 }

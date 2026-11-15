@@ -10,15 +10,58 @@ use std::path::{Path, PathBuf};
 /// as long as the network waits. On a phone: the music folder Android shares between
 /// applications, and on iOS the documents of Prisme, which the Files application fills.
 pub fn music_root() -> PathBuf {
-    if cfg!(target_os = "android") {
-        return PathBuf::from("/storage/emulated/0/Music");
+    #[cfg(target_os = "android")]
+    return android::music_root().clone();
+    #[cfg(not(target_os = "android"))]
+    {
+        let home =
+            |folder: &str| dirs::home_dir().map_or_else(|| PathBuf::from(folder), |home| home.join(folder));
+        if cfg!(target_os = "ios") {
+            return home("Documents");
+        }
+        dirs::audio_dir().unwrap_or_else(|| home("Music"))
     }
-    let home =
-        |folder: &str| dirs::home_dir().map_or_else(|| PathBuf::from(folder), |home| home.join(folder));
-    if cfg!(target_os = "ios") {
-        return home("Documents");
+}
+
+#[cfg(target_os = "android")]
+mod android {
+    use crate::android_jni;
+    use jni::objects::{JString, JValue};
+    use std::path::PathBuf;
+    use std::sync::OnceLock;
+
+    /// Where Android usually keeps it, if it cannot be asked.
+    const USUAL: &str = "/storage/emulated/0/Music";
+
+    /// The music folder Android shares, asked once.
+    pub fn music_root() -> &'static PathBuf {
+        static ROOT: OnceLock<PathBuf> = OnceLock::new();
+        ROOT.get_or_init(|| asked().unwrap_or_else(|| PathBuf::from(USUAL)))
     }
-    dirs::audio_dir().unwrap_or_else(|| home("Music"))
+
+    /// `Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_MUSIC)`.
+    fn asked() -> Option<PathBuf> {
+        android_jni::call("find the music folder", |env, _| {
+            const ENVIRONMENT: &str = "android/os/Environment";
+            let music = env.get_static_field(ENVIRONMENT, "DIRECTORY_MUSIC", "Ljava/lang/String;")?.l()?;
+            let folder = env
+                .call_static_method(
+                    ENVIRONMENT,
+                    "getExternalStoragePublicDirectory",
+                    "(Ljava/lang/String;)Ljava/io/File;",
+                    &[JValue::Object(&music)],
+                )?
+                .l()?;
+            if folder.is_null() {
+                return Ok(None);
+            }
+            let path =
+                JString::from(env.call_method(&folder, "getAbsolutePath", "()Ljava/lang/String;", &[])?.l()?);
+            let path: String = env.get_string(&path)?.into();
+            Ok(Some(PathBuf::from(path)))
+        })
+        .flatten()
+    }
 }
 
 /// Sub-folders and playable files of `dir`, sorted by name (hidden entries skipped).

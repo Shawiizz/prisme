@@ -8,7 +8,7 @@
 //! stems of a track being separated come as they are made); where none is, the track plays
 //! whole. Crossing from one to the other fades in about 10 ms, as a gain does.
 
-use prisme_media::{TrackAudio, TrackView};
+use prisme_media::{TrackAudio, TrackView, PENDING_BLOCK};
 use std::cell::Cell;
 use std::sync::Arc;
 
@@ -126,10 +126,11 @@ impl Stems {
     pub(crate) fn reader<'a>(&'a mut self, track: &'a TrackAudio) -> Reader<'a> {
         let mixing = !(self.other.is_one() && self.gains.iter().all(Ramp::is_one));
         self.settle_presence |= !mixing;
-        let stems =
+        let stems: [_; 3] =
             std::array::from_fn(|i| self.tracks[i].as_deref().filter(|_| mixing).map(TrackAudio::view));
         Reader {
             track: track.view(),
+            mixing: stems.iter().any(Option::is_some),
             stems,
             gains: &mut self.gains,
             other: &mut self.other,
@@ -137,6 +138,7 @@ impl Stems {
             separated: &mut self.separated,
             settle_presence: &mut self.settle_presence,
             last: Cell::new(0),
+            seen: None,
             sample_rate: track.sample_rate(),
         }
     }
@@ -147,6 +149,8 @@ pub(crate) struct Reader<'a> {
     track: TrackView<'a>,
     /// All `None` while everything plays fully: the track as it is.
     stems: [Option<TrackView<'a>>; 3],
+    /// Some stem is mixed in.
+    mixing: bool,
     gains: &'a mut [Ramp; 3],
     other: &'a mut Ramp,
     present: &'a mut [Ramp; 3],
@@ -154,6 +158,9 @@ pub(crate) struct Reader<'a> {
     settle_presence: &'a mut bool,
     /// The last frame read: where the deck plays, for the presence of the stems.
     last: Cell<isize>,
+    /// The block of [`PENDING_BLOCK`] frames where the presence of the stems was last looked
+    /// at, and which were there: it changes block by block.
+    seen: Option<(isize, [bool; 3])>,
     sample_rate: u32,
 }
 
@@ -166,7 +173,7 @@ impl Reader<'_> {
     #[inline]
     pub(crate) fn frame(&self, i: isize) -> (f32, f32) {
         let (l, r) = self.track.frame(i);
-        if self.stems.iter().all(Option::is_none) {
+        if !self.mixing {
             return (l, r);
         }
         self.last.set(i);
@@ -187,20 +194,31 @@ impl Reader<'_> {
     /// towards what is separated where the deck plays.
     #[inline]
     pub(crate) fn advance(&mut self) {
-        if self.stems.iter().all(Option::is_none) {
+        if !self.mixing {
             return;
         }
         self.gains.iter_mut().for_each(Ramp::step);
         self.other.step();
-        let at = self.last.get();
         let settle = std::mem::take(self.settle_presence);
-        let mut any = false;
-        for (stem, present) in self.stems.iter().zip(self.present.iter_mut()) {
-            let there = stem.is_some_and(|s| s.get(at).is_some());
+        let there = self.there();
+        for (present, there) in self.present.iter_mut().zip(there) {
             present.move_to(if there { 1.0 } else { 0.0 }, settle);
-            any |= there;
         }
-        self.separated.move_to(if any { 1.0 } else { 0.0 }, settle);
+        self.separated.move_to(if there.contains(&true) { 1.0 } else { 0.0 }, settle);
+    }
+
+    /// Which stems are separated where the deck plays, looked at again in each new block.
+    fn there(&mut self) -> [bool; 3] {
+        let at = self.last.get();
+        let block = at.div_euclid(PENDING_BLOCK as isize);
+        match self.seen {
+            Some((seen, there)) if seen == block => there,
+            _ => {
+                let there = self.stems.map(|s| s.is_some_and(|s| s.get(at).is_some()));
+                self.seen = Some((block, there));
+                there
+            }
+        }
     }
 }
 
@@ -239,7 +257,6 @@ impl Ramp {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use prisme_media::PENDING_BLOCK;
 
     fn constant(value: f32, frames: usize) -> Arc<TrackAudio> {
         Arc::new(TrackAudio::from_interleaved(48_000, vec![value; frames * 2]))

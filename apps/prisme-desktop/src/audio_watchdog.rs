@@ -1,13 +1,15 @@
 //! Keeps the audio going, with the decks where they were: restarts it when its device
 //! comes back after a loss, when the engine failed, or when the driver stopped calling it,
 //! moves it to the saved devices once they appear (the audio started on the default ones
-//! because the interface was off), follows Windows' default output when it plays on it, and
-//! starts it when devices appear if there was none.
+//! because the interface was off), follows Windows' default output when it plays on it,
+//! starts it when devices appear if there was none, and on the saved devices once the DJ lets
+//! Prisme listen to their inputs.
 
 use crate::audio_host::devices_available;
 use crate::commands::audio::{start_audio, start_audio_unless_running};
 use crate::dto::AudioSettings;
 use crate::dto::BackendDto;
+use crate::input_access;
 use crate::state::{lock, AppState};
 use prisme_audio_io::{default_output_name, system_devices};
 use std::collections::VecDeque;
@@ -45,6 +47,10 @@ pub fn start(app: AppHandle) {
             let mut default_output = default_output_name();
             loop {
                 std::thread::sleep(CHECK);
+                if input_access::newly_allowed() {
+                    take_the_inputs(&state, &app);
+                    last_periods = None;
+                }
                 let session = lock(&state.session).as_ref().map(|s| {
                     let device = s.info.device.clone();
                     (s.device_lost(), s.engine_failed(), s.periods(), s.settings.clone(), device)
@@ -190,6 +196,24 @@ fn start_when_devices_change(state: &AppState, app: &AppHandle, devices: &mut Op
     if let Ok(Some(_)) = started {
         info!("audio started on the devices there are");
         let _ = app.emit(AUDIO_CHANGED_EVENT, ());
+    }
+}
+
+/// The DJ let Prisme listen to the inputs: the saved audio, which was refused them, starts
+/// unless it runs.
+fn take_the_inputs(state: &AppState, app: &AppHandle) {
+    let saved = state.preferences.get().audio;
+    let running = lock(&state.session).as_ref().map(|s| s.settings.clone());
+    let saved = AudioSettings { simulate: running.as_ref().map_or(saved.simulate, |r| r.simulate), ..saved };
+    if running.as_ref() == Some(&saved) {
+        return;
+    }
+    match start_audio(state, &saved) {
+        Ok(_) => {
+            info!("the inputs allowed, the saved audio starts");
+            let _ = app.emit(AUDIO_CHANGED_EVENT, ());
+        }
+        Err(e) => warn!("the inputs allowed, but the saved audio could not start: {e}"),
     }
 }
 

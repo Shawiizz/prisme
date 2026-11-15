@@ -363,6 +363,26 @@ fn a_touched_jog_carries_the_track_like_a_record() {
 }
 
 #[test]
+fn the_jog_and_the_screen_hold_the_track_each_on_its_own() {
+    let mut rig = Rig::new();
+    rig.send(Command::LoadTrack { deck: 0, track: silent_track(60.0) });
+    rig.send(Command::Seek { deck: 0, seconds: 10.0 });
+    rig.send(Command::SetPlaying { deck: 0, playing: true });
+    rig.run(0.2);
+    let held = rig.deck(0).position_s;
+    rig.send(Command::JogTouch { deck: 0, touched: true, at_s: 100.0 });
+    rig.send(Command::Hand { deck: 0, position_s: Some(held), at_s: 50.0 });
+    rig.run(0.3);
+    rig.send(Command::Hand { deck: 0, position_s: None, at_s: 50.3 });
+    rig.run(0.3);
+    assert!((rig.deck(0).position_s - held).abs() < 0.01, "the jog still holds it");
+
+    rig.send(Command::JogTouch { deck: 0, touched: false, at_s: 100.6 });
+    rig.run(0.5);
+    assert!((rig.deck(0).position_s - (held + 0.5)).abs() < 0.03, "let go, it plays on");
+}
+
+#[test]
 fn the_jog_edge_nudges_a_playing_track() {
     let mut rig = Rig::new();
     rig.send(Command::LoadTrack { deck: 0, track: silent_track(60.0) });

@@ -10,6 +10,9 @@ pub(crate) struct PerformanceHint {
     session: android::Session,
 }
 
+/// The system has hints, but gave the thread none.
+pub(crate) struct Refused;
+
 impl PerformanceHint {
     /// Looks the system's functions up, away from the audio thread that makes its session.
     pub(crate) fn prepare() {
@@ -18,14 +21,14 @@ impl PerformanceHint {
     }
 
     /// A session for the calling thread, whose periods last `budget`; `None` where the system
-    /// has none.
-    pub(crate) fn for_this_thread(budget: Duration) -> Option<Self> {
+    /// has none. Nothing is logged: the thread is the audio's.
+    pub(crate) fn for_this_thread(budget: Duration) -> Result<Option<Self>, Refused> {
         #[cfg(target_os = "android")]
-        return android::Session::new(budget).map(|session| Self { session });
+        return android::Session::new(budget).map(|session| session.map(|session| Self { session }));
         #[cfg(not(target_os = "android"))]
         {
             let _ = budget;
-            None
+            Ok(None)
         }
     }
 
@@ -40,10 +43,10 @@ impl PerformanceHint {
 
 #[cfg(target_os = "android")]
 mod android {
+    use super::Refused;
     use std::ffi::{c_int, c_void, CStr};
     use std::sync::OnceLock;
     use std::time::Duration;
-    use tracing::warn;
 
     type GetManager = unsafe extern "C" fn() -> *mut c_void;
     type CreateSession = unsafe extern "C" fn(*mut c_void, *const i32, usize, i64) -> *mut c_void;
@@ -101,21 +104,20 @@ mod android {
     unsafe impl Send for Session {}
 
     impl Session {
-        pub(super) fn new(budget: Duration) -> Option<Self> {
-            let api = api()?;
+        pub(super) fn new(budget: Duration) -> Result<Option<Self>, Refused> {
+            let Some(api) = api() else { return Ok(None) };
             // SAFETY: the calls of the API, with the calling thread's id.
             unsafe {
                 let manager = (api.get_manager)();
                 if manager.is_null() {
-                    return None;
+                    return Ok(None);
                 }
                 let thread = libc::gettid();
                 let session = (api.create_session)(manager, &thread, 1, budget.as_nanos() as i64);
                 if session.is_null() {
-                    warn!("the system gave the audio thread no performance hints");
-                    return None;
+                    return Err(Refused);
                 }
-                Some(Self { api, session })
+                Ok(Some(Self { api, session }))
             }
         }
 

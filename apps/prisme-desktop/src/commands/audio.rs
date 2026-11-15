@@ -59,7 +59,8 @@ pub fn audio_info(state: State<'_, AppState>) -> Option<AudioInfo> {
     lock(&state.session).as_ref().map(|s| s.info.clone())
 }
 
-/// Restarts the audio with new settings and keeps them for the next start.
+/// Restarts the audio with new settings and keeps them for the next start. Off the commands'
+/// threads: a USB card may wait for the DJ to let Prisme open it.
 #[tauri::command]
 pub async fn apply_audio_settings(app: AppHandle, settings: AudioSettings) -> AppResult<AudioInfo> {
     blocking(move || {
