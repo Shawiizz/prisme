@@ -36,6 +36,18 @@ fn past_the_end_the_deck_plays_on_at_the_record_speed() {
 }
 
 #[test]
+fn playing_on_the_deck_stops_at_the_end_of_its_track() {
+    let mut rig = near_the_end(VinylMode::Absolute);
+    rig.turntables[0] = None;
+    // the track's 60 s end past, with time to spare
+    rig.run(60.0);
+    let d = rig.deck(0);
+    assert!(d.vinyl.run_out, "{d:?}");
+    assert!(d.speed.abs() < 1e-9, "{d:?}");
+    assert!((d.position_s - 60.0).abs() < 0.01, "{d:?}");
+}
+
+#[test]
 fn absolute_mode_waits_for_the_vinyl_control_to_be_set_again() {
     let mut rig = near_the_end(VinylMode::Absolute);
     // a needle dropped back at the start would make the track jump: still playing on

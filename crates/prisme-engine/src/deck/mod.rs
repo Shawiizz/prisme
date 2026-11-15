@@ -225,11 +225,18 @@ impl Deck {
         }
     }
 
-    /// Internal play stops at the end of the track (a record, on the other hand, turns on).
+    /// Internal play stops at the end of the track, and so does a deck playing on past the end
+    /// of its record (a record, on the other hand, turns on).
     fn stop_at_the_end(&mut self) {
         let end_s = self.playhead.duration_s();
-        if self.drive_mode() == DriveMode::Internal && self.playing && self.playhead.position_s() >= end_s {
+        if self.playhead.position_s() < end_s {
+            return;
+        }
+        if self.drive_mode() == DriveMode::Internal && self.playing {
             self.playing = false;
+            self.playhead.seek_s(end_s);
+        } else if self.vinyl.plays_on() {
+            self.vinyl.stand();
             self.playhead.seek_s(end_s);
         }
     }

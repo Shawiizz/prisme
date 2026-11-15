@@ -118,6 +118,19 @@ impl VinylControl {
         }
     }
 
+    /// Whether the deck plays on by itself, past the end of the record.
+    pub(crate) fn plays_on(&self) -> bool {
+        matches!(self.run_out, RunOut::PlayingOn(speed) if speed != 0.0)
+    }
+
+    /// Playing on, the deck stands from now on (its track has ended), until the record takes
+    /// it back.
+    pub(crate) fn stand(&mut self) {
+        if let RunOut::PlayingOn(speed) = &mut self.run_out {
+            *speed = 0.0;
+        }
+    }
+
     /// The record drives the deck again (after the end of the record was reached).
     pub(crate) fn take_back(&mut self) {
         self.run_out = RunOut::Unarmed;
