@@ -13,6 +13,7 @@
 use crate::command::{Command, DeckId, Garbage, RecordSource};
 use crate::deck::Deck;
 use crate::mixer::{DeckMix, MixMode, Mixer};
+use crate::preview::Preview;
 use crate::recording::{input_pair, Recording};
 use crate::scope::{self, ScopeTap};
 use crate::status::{EngineStatus, RecordingStatus, MAX_DECKS};
@@ -90,6 +91,7 @@ pub fn create(config: EngineConfig) -> (Engine, EngineController) {
         status_interval: (config.sample_rate as f64 / config.status_rate_hz) as usize,
         recording: None,
         record_buffer: vec![0.0; config.max_block_frames * 2],
+        preview: Preview::new(config.max_block_frames),
     };
     let controller = EngineController { commands: cmd_tx, status: status_rx, garbage: garbage_rx, scopes };
     (engine, controller)
@@ -117,6 +119,7 @@ pub struct Engine {
     recording: Option<Recording>,
     /// Scratch space for what is recorded.
     record_buffer: Vec<f32>,
+    preview: Preview,
 }
 
 impl Engine {
@@ -198,6 +201,12 @@ impl Engine {
         }
         for s in out.iter() {
             self.peak = self.peak.max(s.abs());
+        }
+        // after the recording and the meter: the audience never hears it
+        let (preview, ended) = self.preview.render(frames, rate);
+        self.mixer.add_preview(preview, self.decks.len(), out, out_ch);
+        if let Some(track) = ended {
+            self.discard(Garbage::Track(track));
         }
     }
 
@@ -372,6 +381,19 @@ impl Engine {
             SetFxParts { deck, parts } if valid(deck) => self.decks[deck].set_fx_parts(parts),
             SetCrossfaderCurve { curve } => self.mixer.curve = curve,
             SetLimiter { enabled } => self.mixer.limiter.set_enabled(enabled),
+            Preview { id, track, start_s } => {
+                let start_s = if start_s.is_finite() { start_s } else { 0.0 };
+                if let Some(old) = self.preview.start(id, track, start_s) {
+                    self.discard(Garbage::Track(old));
+                }
+            }
+            SeekPreview { seconds } if seconds.is_finite() => self.preview.seek(seconds),
+            SkipPreview { seconds } if seconds.is_finite() => self.preview.skip(seconds),
+            StopPreview => {
+                if let Some(old) = self.preview.stop() {
+                    self.discard(Garbage::Track(old));
+                }
+            }
             _ => {} // command for a deck that does not exist
         }
     }
@@ -396,6 +418,7 @@ impl Engine {
             deck_count: self.decks.len(),
             main_peak: self.peak,
             recording,
+            preview: self.preview.status(),
             ..Default::default()
         };
         for (d, (slot, deck)) in status.decks.iter_mut().zip(&mut self.decks).enumerate() {

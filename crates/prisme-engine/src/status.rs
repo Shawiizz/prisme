@@ -114,6 +114,19 @@ pub struct EngineStatus {
     /// Peak level of the main output since the previous snapshot.
     pub main_peak: f32,
     pub recording: Option<RecordingStatus>,
+    /// The track heard in the headphones before it goes on a deck, if any.
+    pub preview: Option<PreviewStatus>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct PreviewStatus {
+    /// As given when it started.
+    pub id: u64,
+    pub position_s: f64,
+    /// Estimated until the track is all decoded.
+    pub duration_s: f64,
+    /// Its audio is not decoded that far yet: it waits, silent.
+    pub waiting: bool,
 }
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]

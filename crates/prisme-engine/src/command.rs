@@ -343,6 +343,21 @@ pub enum Command {
     SetLimiter {
         enabled: bool,
     },
+    /// Plays `track` in the headphones alone from `start_s`, in place of the one previewed;
+    /// `id` tells it in the status.
+    Preview {
+        id: u64,
+        track: Arc<TrackAudio>,
+        start_s: f64,
+    },
+    SeekPreview {
+        seconds: f64,
+    },
+    /// Moves the preview by `seconds`, forwards or back.
+    SkipPreview {
+        seconds: f64,
+    },
+    StopPreview,
 }
 
 /// What a recording takes.
