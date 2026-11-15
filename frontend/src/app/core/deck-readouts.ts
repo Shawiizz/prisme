@@ -7,8 +7,9 @@ const WARN_S = 30;
 const ALERT_S = 10;
 
 /**
- * What a deck tells from afar, as its card and its strip on a phone share it: the time
- * left, the tempo heard and the key heard. To be called where `inject` works.
+ * What a deck tells from afar, as its card, its strip on a phone and its line of what plays
+ * share it: the time left, the tempo heard and the key heard. To be called where `inject`
+ * works.
  */
 export function deckReadouts(deck: Signal<number>) {
   const engine = inject(EngineService);
