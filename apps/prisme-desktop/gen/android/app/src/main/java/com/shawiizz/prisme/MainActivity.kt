@@ -3,6 +3,7 @@ package com.shawiizz.prisme
 import android.Manifest
 import android.content.pm.PackageManager
 import android.content.res.Configuration
+import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.Color
 import android.os.Build
@@ -21,6 +22,20 @@ import androidx.core.view.WindowInsetsControllerCompat
 
 /** How long the screen stays on once every deck stopped. */
 private const val SCREEN_LINGER_MS = 60 * 1000L
+
+/** About the size the player shows a cover at. */
+private const val COVER_PX = 512
+
+/** The picture of `bytes`, halved as long as it stays as large as [COVER_PX]: a cover of
+ * thousands of pixels would weigh megabytes, copied to the system with each change of it. */
+private fun decodeCover(bytes: ByteArray): Bitmap? {
+  val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+  BitmapFactory.decodeByteArray(bytes, 0, bytes.size, bounds)
+  var sample = 1
+  while (maxOf(bounds.outWidth, bounds.outHeight) / (sample * 2) >= COVER_PX) sample *= 2
+  val options = BitmapFactory.Options().apply { inSampleSize = sample }
+  return BitmapFactory.decodeByteArray(bytes, 0, bytes.size, options)
+}
 
 class MainActivity : TauriActivity() {
   /** Lets the screen sleep, a moment after the last deck stopped. */
@@ -132,7 +147,7 @@ class MainActivity : TauriActivity() {
     @JavascriptInterface
     fun cover(path: String, base64: String) {
       val bytes = if (base64.isEmpty()) null else Base64.decode(base64, Base64.DEFAULT)
-      val bitmap = bytes?.let { BitmapFactory.decodeByteArray(it, 0, it.size) }
+      val bitmap = bytes?.let(::decodeCover)
       runOnUiThread { Player.cover(this@MainActivity, path, bitmap) }
     }
   }
