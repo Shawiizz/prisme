@@ -271,6 +271,7 @@ impl<C: AudioCallback> Renderer<C> {
     }
 
     /// Leaves telling a late period to the device ([`Renderer::times_itself`]).
+    #[cfg(any(target_os = "linux", target_os = "android"))]
     pub(crate) fn late_told_by_the_device(mut self) -> Self {
         self.times_itself = false;
         self
