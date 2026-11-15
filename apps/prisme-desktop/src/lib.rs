@@ -319,6 +319,8 @@ pub fn run() {
             commands::controllers::cancel_learning,
             commands::controllers::forget_control,
             commands::controllers::set_lights,
+            commands::controllers::controller_output_targets,
+            commands::controllers::set_controller_outputs,
             commands::controllers::controller_profiles,
             commands::controllers::reload_controller_profiles,
             commands::controllers::update_controller_profiles,

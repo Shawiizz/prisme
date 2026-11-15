@@ -8,13 +8,31 @@ const SHIPPED = '../apps/prisme-desktop/controllers';
  * written). */
 const FOLDER = process.env['PRISME_PROFILES'] ?? SHIPPED;
 
+interface ProfileControl {
+  target: string;
+  encoding?: string;
+  also?: string[];
+  down?: string;
+  hold?: { target: string };
+  double?: { target: string };
+  chord?: { target: string };
+  set?: unknown;
+}
+
 interface Profile {
   name: string;
-  controls: { target: string; encoding?: string }[];
+  controls: ProfileControl[];
   lights?: { target: string }[];
   modes?: { group: string; modes: string[]; select: { mode: string }[] }[];
   meters?: { source: string }[];
+  outputs?: { source: string }[];
 }
+
+/** Every action a control drives: its own, those along, its other uses. */
+const targetsOf = (c: ProfileControl) =>
+  [c.target, ...(c.also ?? []), c.down, c.hold?.target, c.double?.target, c.chord?.target].filter(
+    (t): t is string => t !== undefined,
+  );
 
 /** The files beside the profiles: their index, their schema and the actions it names. */
 const NOT_PROFILES = new Set(['index.json', 'profile.schema.json', 'targets.json']);
@@ -48,26 +66,34 @@ describe('controller profiles', () => {
 
   it('drive the controls of the app', () => {
     for (const p of profiles) {
-      const unknown = [...p.controls, ...(p.lights ?? [])].filter((c) => !known(p, c.target));
-      expect(unknown.map((c) => `${p.name}: ${c.target}`)).toEqual([]);
+      const targets = [...p.controls.flatMap(targetsOf), ...(p.lights ?? []).map((l) => l.target)];
+      const unknown = targets.filter((t) => !known(p, t));
+      expect(unknown.map((t) => `${p.name}: ${t}`)).toEqual([]);
     }
   });
 
-  it('choose among the modes they have, and show levels the app has', () => {
+  it('choose among the modes they have, and show levels and values the app has', () => {
+    const faders = new Set(controls.filter((c) => c.kind === 'fader').map((c) => c.id));
     for (const p of profiles) {
       const strays = (p.modes ?? []).flatMap((g) =>
         g.select.filter((s) => !g.modes.includes(s.mode)).map((s) => `${g.group}.${s.mode}`),
       );
-      const sources = (p.meters ?? []).filter((m) => !/^(deck[1-4]|main)$/.test(m.source));
-      expect([...strays, ...sources.map((m) => m.source)]).toEqual([]);
+      const levels = (p.meters ?? [])
+        .map((m) => m.source)
+        .filter((s) => !/^(deck[1-4]|main|main\.left|main\.right)$/.test(s));
+      const values = (p.outputs ?? [])
+        .map((o) => o.source)
+        .filter((s) => !faders.has(s) && !/^deck[1-4]\.(position|turn)$/.test(s));
+      expect([...strays, ...levels, ...values]).toEqual([]);
     }
   });
 
-  it('read steps for encoders, and for faders an encoder turns, never for keys', () => {
+  it('read steps for encoders, and for faders and keys an encoder turns, never for keys alone', () => {
     for (const p of profiles) {
       const misread = p.controls.filter((c) => {
         const kind = controls.find((k) => k.id === c.target)?.kind;
         if (encoders.has(c.target)) return c.encoding === undefined;
+        if (c.down !== undefined) return c.encoding === undefined;
         return c.encoding !== undefined && kind !== 'fader';
       });
       expect(misread.map((c) => `${p.name}: ${c.target}`)).toEqual([]);

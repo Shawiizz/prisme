@@ -10,8 +10,9 @@ use std::collections::BTreeMap;
 #[serde(transparent)]
 pub struct LightValues(BTreeMap<String, LightValue>);
 
-/// A light's value in a state: steady, or two in turn.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+/// A light's value in a state: steady, two in turn, or a whole message of its own (for the
+/// models addressing their lights otherwise than by a value on the control's note).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(untagged)]
 pub enum LightValue {
     Steady(u8),
@@ -20,6 +21,7 @@ pub enum LightValue {
         blink: [u8; 2],
         ms: u32,
     },
+    Message(Vec<u8>),
 }
 
 pub const ON: &str = "on";
@@ -30,11 +32,16 @@ impl LightValues {
         self.0.is_empty()
     }
 
+    /// Whether it names `state`.
+    pub fn has(&self, state: &str) -> bool {
+        self.0.contains_key(state)
+    }
+
     /// The value of `state`.
     pub fn value(&self, state: &str) -> LightValue {
         let off = state == OFF;
         let named = self.0.get(state).or_else(|| (!off).then(|| self.0.get(ON)).flatten());
-        named.copied().unwrap_or(LightValue::Steady(if off { 0 } else { 127 }))
+        named.cloned().unwrap_or(LightValue::Steady(if off { 0 } else { 127 }))
     }
 }
 
@@ -42,6 +49,17 @@ impl FromIterator<(String, LightValue)> for LightValues {
     fn from_iter<I: IntoIterator<Item = (String, LightValue)>>(values: I) -> Self {
         Self(values.into_iter().collect())
     }
+}
+
+/// The value of `palette` (`"#rrggbb"`: value) whose colour is the nearest `colour`.
+pub fn nearest(palette: &BTreeMap<String, u8>, colour: &str) -> Option<u8> {
+    let rgb = |hex: &str| {
+        let n = u32::from_str_radix(hex.trim_start_matches('#'), 16).ok()?;
+        Some([n >> 16 & 0xff, n >> 8 & 0xff, n & 0xff].map(|c| c as i32))
+    };
+    let wanted = rgb(colour)?;
+    let distance = |c: [i32; 3]| (0..3).map(|i| (c[i] - wanted[i]).pow(2)).sum::<i32>();
+    palette.iter().filter_map(|(c, &value)| Some((distance(rgb(c)?), value))).min().map(|(_, value)| value)
 }
 
 /// The message that sets a control's light to `value`, as controllers expect it: the
@@ -84,5 +102,24 @@ mod tests {
         let knob = Control { kind: ControlKind::ControlChange, ..PAD };
         assert_eq!(light(knob, 0), Some([0xb0, 36, 0]));
         assert_eq!(light(Control { kind: ControlKind::PitchBend, channel: 0, number: 0 }, 127), None);
+    }
+
+    #[test]
+    fn a_light_value_is_a_value_two_in_turn_or_a_message() {
+        let values: LightValues = serde_json::from_str(
+            r#"{ "on": 5, "playing": { "blink": [5, 0], "ms": 250 }, "off": [176, 75, 12] }"#,
+        )
+        .unwrap();
+        assert_eq!(values.value("on"), LightValue::Steady(5));
+        assert_eq!(values.value("playing"), LightValue::Blink { blink: [5, 0], ms: 250 });
+        assert_eq!(values.value("off"), LightValue::Message(vec![176, 75, 12]));
+    }
+
+    #[test]
+    fn a_colour_takes_the_nearest_of_a_palette() {
+        let palette = BTreeMap::from([("#ff0000".to_owned(), 5), ("#0000ff".to_owned(), 45)]);
+        assert_eq!(nearest(&palette, "#e01010"), Some(5));
+        assert_eq!(nearest(&palette, "#2020c0"), Some(45));
+        assert_eq!(nearest(&palette, "not a colour"), None);
     }
 }

@@ -47,6 +47,10 @@ export class ControlService {
     synced: (deck) => this.deck(deck)?.sync.locked ?? false,
     hotCue: (deck, slot) => this.performance.pressHotCue(deck, slot),
     hotCueSet: (deck, slot) => this.performance.hotCue(deck, slot) !== null,
+    hotCueColor: (deck, slot) => {
+      const cue = this.performance.hotCue(deck, slot);
+      return cue ? `#${cue.color.toString(16).padStart(6, '0')}` : null;
+    },
     toggleLoop: (deck) =>
       this.deck(deck)?.looping.active
         ? this.performance.exitLoop(deck)

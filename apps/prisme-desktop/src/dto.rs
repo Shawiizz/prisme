@@ -1061,6 +1061,16 @@ pub struct ControllerInputDto {
     pub value: f32,
     /// The value is steps of an encoder (a fader's action then moves by them).
     pub steps: bool,
+    /// How far a step moves a fader's action, when the profile says.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub step: Option<f32>,
+}
+
+impl ControllerInputDto {
+    /// `target` driven to `value`, as a key or a fader.
+    pub fn of(target: &str, value: f32) -> Self {
+        Self { target: target.to_owned(), value, steps: false, step: None }
+    }
 }
 
 /// A deck's tempo, set from a controller (`deck-pitch`).
@@ -1078,6 +1088,17 @@ pub struct LightDto {
     pub target: String,
     /// `on`, `off`, or the action's own (`loaded`, `playing`…).
     pub state: String,
+    /// The colour of what it shows (a hot cue's), `#rrggbb`.
+    #[serde(default)]
+    pub color: Option<String>,
+}
+
+/// A value shown on the controllers (see `prisme_control::Output`): `target`'s, from 0 to 1.
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct OutputDto {
+    pub target: String,
+    pub value: f32,
 }
 
 #[cfg(test)]

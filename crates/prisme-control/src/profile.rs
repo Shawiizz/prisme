@@ -1,8 +1,9 @@
 use crate::light::{LightValue, LightValues};
-use crate::mapping::{Mapping, Modes, ProfileControl, When, MODE};
+use crate::mapping::{Mapping, Modes, ProfileControl, Shift, When, MODE};
 use crate::message::Control;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
+use std::collections::BTreeMap;
 
 /// The version of the profile format, raised when profiles may use what an older Prisme does
 /// not read: a profile published after it was raised is left to the Prisme that reads it.
@@ -34,9 +35,10 @@ pub struct Profile {
     /// Tried on the controller itself, not only read from another program's mapping.
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub verified: bool,
-    /// Sent when the controller is opened (a request for its knobs' positions, say).
+    /// Sent when the controller is opened (a request for its knobs' positions, say), some a
+    /// while after.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub init: Vec<Vec<u8>>,
+    pub init: Vec<InitMessage>,
     /// Sent when it is closed, after its lights went off.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub close: Vec<Vec<u8>>,
@@ -52,6 +54,60 @@ pub struct Profile {
     pub lights: Vec<ProfileLight>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub meters: Vec<Meter>,
+    /// Values shown on the controller: a ring around a jog wheel, a knob's ring of lights.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub outputs: Vec<Output>,
+}
+
+/// A message sent when a controller is opened: at once, or `after_ms` later (once a light
+/// show it plays by itself is over, say).
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(untagged)]
+pub enum InitMessage {
+    Now(Vec<u8>),
+    Later(LaterMessage),
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct LaterMessage {
+    pub after_ms: u32,
+    pub message: Vec<u8>,
+}
+
+impl InitMessage {
+    /// When it goes after the controller is opened (ms), and what.
+    pub fn when_and_what(&self) -> (u32, &[u8]) {
+        match self {
+            InitMessage::Now(message) => (0, message),
+            InitMessage::Later(later) => (later.after_ms, &later.message),
+        }
+    }
+}
+
+/// A value shown on `control`: `source`'s position from 0 to 1 (`deck1.position` of its
+/// track, `deck1.turn` of its record at 33⅓, or a fader's: `deck1.fx.mix`), from `min` to
+/// `max`.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct Output {
+    pub source: String,
+    pub control: Control,
+    #[serde(default, skip_serializing_if = "is_zero")]
+    pub min: u8,
+    #[serde(default = "full", skip_serializing_if = "is_full")]
+    pub max: u8,
+    /// While its group is in this mode only.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub when: Option<When>,
+}
+
+impl Output {
+    /// The value showing `position` (0 to 1).
+    pub fn value(&self, position: f32) -> u8 {
+        let span = f32::from(self.max) - f32::from(self.min);
+        (f32::from(self.min) + position.clamp(0.0, 1.0) * span).round() as u8
+    }
 }
 
 /// A message sent every `every_ms` milliseconds.
@@ -77,30 +133,52 @@ pub struct ModeGroup {
 pub struct ModeSelect {
     pub control: Control,
     pub mode: String,
-    /// Chosen while the controller's shift is held.
-    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
-    pub shift: bool,
+    /// Chosen while the controller's shift is held, or a named shift.
+    #[serde(default, skip_serializing_if = "Shift::is_none")]
+    pub shift: Shift,
     #[serde(default, skip_serializing_if = "LightValues::is_empty")]
     pub light: LightValues,
+    /// Its mode only while the key is held: let go, the group is back in the mode before.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub held: bool,
+    /// Its mode for one action of the group, which then goes back to its first mode.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub once: bool,
 }
 
-/// A level shown on the controller: `source`'s (`deck1`…, `main`), from 0 to `max` on
-/// `control`, along `curve` (the level raised to it: 1 straight).
+/// A level shown on the controller: `source`'s (`deck1`…, `main`, `main.left`,
+/// `main.right`), from `min` to `max` on `control` along `curve` (the level raised to it: 1
+/// straight), or as one of `steps` (the values at silence, then at each equal share of the
+/// level); `clip` for a while after the level reached full scale.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct Meter {
     pub source: String,
     pub control: Control,
+    #[serde(default, skip_serializing_if = "is_zero")]
+    pub min: u8,
     #[serde(default = "full", skip_serializing_if = "is_full")]
     pub max: u8,
     #[serde(default = "straight", skip_serializing_if = "is_straight")]
     pub curve: f32,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub steps: Vec<u8>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub clip: Option<u8>,
+    /// While its group is in this mode only.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub when: Option<When>,
 }
 
 impl Meter {
     /// The value showing `level` (full scale 1).
     pub fn value(&self, level: f32) -> u8 {
-        (level.clamp(0.0, 1.0).powf(self.curve) * f32::from(self.max)).round() as u8
+        let shaped = level.clamp(0.0, 1.0).powf(self.curve);
+        if let Some(last) = self.steps.len().checked_sub(1) {
+            return self.steps[(shaped * last as f32).round() as usize];
+        }
+        let span = f32::from(self.max) - f32::from(self.min);
+        (f32::from(self.min) + shaped * span).round() as u8
     }
 }
 
@@ -114,6 +192,9 @@ pub struct ProfileLight {
     /// While its group is in this mode only.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub when: Option<When>,
+    /// Its values by the colour of its action, the nearest colour's (see the controls').
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub palette: BTreeMap<String, u8>,
     #[serde(flatten)]
     pub values: LightValues,
 }
@@ -124,6 +205,10 @@ fn full() -> u8 {
 
 fn is_full(value: &u8) -> bool {
     *value == 127
+}
+
+fn is_zero(value: &u8) -> bool {
+    *value == 0
 }
 
 fn straight() -> f32 {
@@ -179,8 +264,10 @@ impl Profile {
                 let binding = ProfileControl {
                     control: s.control,
                     target: format!("{MODE}{}.{}", g.group, s.mode),
-                    shift: s.shift,
+                    shift: s.shift.clone(),
                     light: s.light.clone(),
+                    held: s.held,
+                    once: s.once,
                     ..Default::default()
                 };
                 Mapping::new(device, binding)
@@ -256,7 +343,7 @@ mod tests {
         assert_eq!(mappings[0].device, "DDJ-SB2");
         assert_eq!(mappings[1].fine, Some(32));
         assert_eq!(mappings[2].encoding, Encoding::RelativeOffset);
-        assert_eq!(p.init, [vec![155, 9, 127]]);
+        assert_eq!(p.init, [InitMessage::Now(vec![155, 9, 127])]);
     }
 
     #[test]
@@ -307,12 +394,45 @@ mod tests {
         assert_eq!(p.keep_alive.as_ref().map(|k| k.every_ms), Some(200));
     }
 
+    fn meter(json: &str) -> Meter {
+        serde_json::from_str(json).unwrap()
+    }
+
     #[test]
     fn a_meter_follows_its_curve() {
-        let meter = Meter { source: "main".into(), control: PLAY, max: 127, curve: 2.5 };
+        let meter = meter(
+            r#"{ "source": "main", "control": { "kind": "note", "channel": 0, "number": 11 }, "curve": 2.5 }"#,
+        );
         assert_eq!(meter.value(1.0), 127);
         assert_eq!(meter.value(0.5), 22);
         assert_eq!(meter.value(2.0), 127, "past full scale, full");
+    }
+
+    #[test]
+    fn a_meter_starts_at_its_least_value_or_shows_steps() {
+        let control = r#""control": { "kind": "controlChange", "channel": 0, "number": 126 }"#;
+        let offset = meter(&format!(r#"{{ "source": "deck1", {control}, "min": 48, "max": 63 }}"#));
+        assert_eq!((offset.value(0.0), offset.value(1.0)), (48, 63));
+        let stepped =
+            meter(&format!(r#"{{ "source": "deck1", {control}, "steps": [0, 1, 21, 41, 61, 81] }}"#));
+        assert_eq!([0.0, 0.2, 0.5, 1.0].map(|l| stepped.value(l)), [0, 1, 41, 81]);
+    }
+
+    #[test]
+    fn init_messages_go_at_once_or_later() {
+        let init: Vec<InitMessage> =
+            serde_json::from_str(r#"[[176, 1, 2], { "afterMs": 1500, "message": [240, 1, 247] }]"#).unwrap();
+        assert_eq!(init[0].when_and_what(), (0, &[176, 1, 2][..]));
+        assert_eq!(init[1].when_and_what(), (1500, &[240, 1, 247][..]));
+    }
+
+    #[test]
+    fn an_output_spans_its_values() {
+        let output: Output = serde_json::from_str(
+            r#"{ "source": "deck1.position", "control": { "kind": "controlChange", "channel": 0, "number": 6 }, "min": 1, "max": 21 }"#,
+        )
+        .unwrap();
+        assert_eq!([0.0, 0.5, 1.0].map(|p| output.value(p)), [1, 11, 21]);
     }
 
     #[test]

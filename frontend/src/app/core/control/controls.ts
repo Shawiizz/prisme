@@ -23,6 +23,9 @@ export interface Control {
   /** The state its light shows when it has more than on and off (`loaded`, `playing`): the
    * profiles of the controllers give each its value. */
   state?(): string;
+  /** The colour its light shows (a hot cue's), `#rrggbb`: the profiles give the nearest
+   * value their controller has. */
+  color?(): string | null;
   /** A fader's setting now (0 to 1): a controller's fader takes it over from there. */
   position?(): number;
 }
@@ -39,6 +42,8 @@ export interface ControlActions {
   synced(deck: number): boolean;
   hotCue(deck: number, slot: number): void;
   hotCueSet(deck: number, slot: number): boolean;
+  /** The colour of a hot cue set, `#rrggbb`. */
+  hotCueColor(deck: number, slot: number): string | null;
   toggleLoop(deck: number): void;
   looping(deck: number): boolean;
   /** The length in beats of the loop the deck plays, if it plays one. */
@@ -180,6 +185,10 @@ function deckControls(a: ControlActions, deck: number): Control[] {
   const group = t('Deck {deck}', { deck: deckLetter(deck) });
   const id = (name: string) => `deck${deck + 1}.${name}`;
   const lit = (control: Control, on: () => boolean): Control => ({ ...control, lit: on });
+  const coloured = (control: Control, color: () => string | null): Control => ({
+    ...control,
+    color,
+  });
   // the parts of a separated track: a button muting each, a fader for its level
   const stems: [string, StemPart, string, string][] = [
     ['vocals', 'vocals', t('Vocals'), t('Vocals level')],
@@ -203,11 +212,14 @@ function deckControls(a: ControlActions, deck: number): Control[] {
       () => a.synced(deck),
     ),
     ...Array.from({ length: HOT_CUES }, (_, slot) =>
-      lit(
-        button(id(`hotcue${slot + 1}`), group, t('Hot cue {n}', { n: slot + 1 }), () =>
-          a.hotCue(deck, slot),
+      coloured(
+        lit(
+          button(id(`hotcue${slot + 1}`), group, t('Hot cue {n}', { n: slot + 1 }), () =>
+            a.hotCue(deck, slot),
+          ),
+          () => a.hotCueSet(deck, slot),
         ),
-        () => a.hotCueSet(deck, slot),
+        () => a.hotCueColor(deck, slot),
       ),
     ),
     ...Array.from({ length: HOT_CUES }, (_, slot) =>

@@ -45,8 +45,9 @@ export interface ControllerMapping {
   encoding?: 'absolute' | StepEncoding;
   /** The controller sending the low half of a 14-bit fader. */
   fine?: number;
-  /** In the second layer: while the controller's shift is held. */
-  shift?: boolean;
+  /** In the second layer: while the controller's shift is held (`true`), or a named
+   * shift (`"left"`). */
+  shift?: boolean | string;
 }
 
 /** A mapped control moved. */
@@ -55,6 +56,8 @@ export interface ControllerInput {
   value: number;
   /** `value` is steps of an encoder: a fader's control moves by them. */
   steps: boolean;
+  /** How far a step moves a fader, when the controller's profile says. */
+  step?: number;
 }
 
 export function describeControl(c: MidiControl): string {
@@ -70,5 +73,6 @@ export function describeControl(c: MidiControl): string {
 /** "Shift + CC 0 · ch 1 · 14 bits" */
 export function describeMapping(m: ControllerMapping): string {
   const fine = m.fine !== undefined ? ` · ${t('14 bits')}` : '';
-  return `${m.shift ? t('Shift') + ' + ' : ''}${describeControl(m.control)}${fine}`;
+  const shift = m.shift === true ? t('Shift') : m.shift ? `${t('Shift')} ${m.shift}` : null;
+  return `${shift ? shift + ' + ' : ''}${describeControl(m.control)}${fine}`;
 }

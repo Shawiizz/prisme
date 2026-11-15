@@ -9,19 +9,19 @@
 
 use crate::controller_direct::{Direct, Performer, Tempo};
 use crate::controller_profiles;
-use crate::dto::{ControllerInputDto, DeckPitchDto, LightDto};
+use crate::dto::{ControllerInputDto, DeckPitchDto, LightDto, OutputDto};
 use crate::error::{AppError, AppResult};
 use crate::state::{lock, AppState};
 use midir::{Ignore, MidiInput, MidiInputConnection, MidiOutput, MidiOutputConnection};
 use prisme_audio_io::base_device_name;
 use prisme_control::{
-    selected_mode, Control, ControlKind, Encoding, Event, Hold, LightValue, Mapping, Mappings, Modes,
-    Profile, ProfileControl, Reader, JOG_STEPS_PER_TURN, OFF, ON, SHIFT,
+    nearest, selected_mode, Control, ControlKind, Encoding, Event, FaderSet, Hold, LightValue, Mapping,
+    Mappings, Modes, Profile, ProfileControl, Reader, Shifts, JOG_STEPS_PER_TURN, OFF, ON, SHIFT,
 };
 use prisme_engine::Command;
 use prisme_session::JsonFile;
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap, HashSet};
 use std::sync::Mutex;
 use std::time::{Duration, Instant};
 use tauri::{AppHandle, Emitter, Manager};
@@ -40,6 +40,12 @@ const WATCH_WITHOUT_MIDI_EVERY: Duration = Duration::from_secs(10);
 const OUTPUT_EVERY: Duration = Duration::from_millis(20);
 /// How often the levels shown on the controllers are sent.
 const METERS_EVERY: Duration = Duration::from_millis(40);
+/// How long a meter shows its clip value after its level reached full scale.
+const CLIP_SHOWN: Duration = Duration::from_secs(1);
+/// The most steps of an encoder driving keys pressed for one of its messages.
+const MOST_KEY_STEPS: i32 = 16;
+/// The state a light shows while its key is held, if its profile gives it one.
+const PRESSED: &str = "pressed";
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 #[serde(default, rename_all = "camelCase")]
@@ -64,7 +70,7 @@ struct Learning {
 
 #[derive(Debug, PartialEq)]
 enum Routed {
-    Learned(Mapping),
+    Learned(Box<Mapping>),
     /// What the UI performs, in order.
     Input(Vec<ControllerInputDto>),
     Direct(Direct, f32),
@@ -95,6 +101,12 @@ struct Connection {
     shown: HashMap<[u8; 2], u8>,
     /// The lights blinking, by their message's first two bytes.
     blinking: HashMap<[u8; 2], Blink>,
+    /// The lights shown by a message of their own, by their control's first two bytes.
+    messages: HashMap<[u8; 2], Vec<u8>>,
+    /// The messages of its profile to send later, and when.
+    later: Vec<(Instant, Vec<u8>)>,
+    /// When each of its meters last reached full scale.
+    clipped: HashMap<usize, Instant>,
 }
 
 /// A light showing its two values in turn, since `since`.
@@ -116,10 +128,21 @@ impl Connection {
     /// Sets the light of `control` to `value`, blinking or not.
     fn light(&mut self, control: Control, value: LightValue) {
         let Some([status, number, _]) = prisme_control::light(control, 0) else { return };
+        if !matches!(value, LightValue::Message(_)) {
+            self.messages.remove(&[status, number]);
+        }
         match value {
             LightValue::Steady(v) => {
                 self.blinking.remove(&[status, number]);
                 self.show([status, number, v]);
+            }
+            LightValue::Message(message) => {
+                self.blinking.remove(&[status, number]);
+                self.shown.remove(&[status, number]);
+                if self.messages.get(&[status, number]) != Some(&message) {
+                    self.send(&message);
+                    self.messages.insert([status, number], message);
+                }
             }
             LightValue::Blink { blink, ms } => {
                 let same =
@@ -153,6 +176,37 @@ impl Connection {
             let _ = output.send(message);
         }
     }
+
+    /// Sends the messages of its profile whose time came.
+    fn send_due(&mut self) {
+        let now = Instant::now();
+        let (due, later): (Vec<_>, Vec<_>) =
+            std::mem::take(&mut self.later).into_iter().partition(|(at, _)| *at <= now);
+        self.later = later;
+        for (_, message) in due {
+            self.send(&message);
+        }
+    }
+}
+
+/// The state of an action the UI last told, and the colour it shows.
+struct Shown {
+    state: String,
+    color: Option<String>,
+}
+
+/// What the keys of the controllers do beyond driving their action, by controller and key.
+#[derive(Default)]
+struct Keys {
+    /// Keys latched down.
+    latched: HashSet<(String, Control)>,
+    /// Keys putting a fader at two positions in turn, at their second.
+    second: HashSet<(String, Control)>,
+    /// When each key was last pressed.
+    pressed_at: HashMap<(String, Control), Instant>,
+    /// Keys whose press drove another action than their own (pressed twice, or with another
+    /// key held): their release lets that one go.
+    instead: HashMap<(String, Control), String>,
 }
 
 pub struct Controllers {
@@ -166,8 +220,11 @@ pub struct Controllers {
     performer: Mutex<Performer>,
     connections: Mutex<Vec<Connection>>,
     /// The state of each action the UI last told (`on`, `off`, `playing`…).
-    states: Mutex<HashMap<String, String>>,
+    states: Mutex<HashMap<String, Shown>>,
+    /// The value of each source of the profiles' outputs the UI last told.
+    values: Mutex<HashMap<String, f32>>,
     holdings: Mutex<Vec<Holding>>,
+    keys: Mutex<Keys>,
 }
 
 impl Controllers {
@@ -181,7 +238,9 @@ impl Controllers {
             performer: Mutex::new(Performer::default()),
             connections: Mutex::new(Vec::new()),
             states: Mutex::new(HashMap::new()),
+            values: Mutex::new(HashMap::new()),
             holdings: Mutex::new(Vec::new()),
+            keys: Mutex::new(Keys::default()),
         };
         controllers.layer();
         controllers
@@ -220,6 +279,7 @@ impl Controllers {
             controls: Vec::new(),
             lights: Vec::new(),
             meters: Vec::new(),
+            outputs: Vec::new(),
         });
         Profile { controls, verified: false, ..profile }
     }
@@ -394,11 +454,37 @@ impl Controllers {
         targets
     }
 
+    /// The sources of the outputs of the profiles of the controllers in use, whose values the
+    /// UI tells (`set_outputs`).
+    pub fn output_targets(&self) -> Vec<String> {
+        let mut targets: Vec<String> = self
+            .setup
+            .read(|s| s.enabled.clone())
+            .iter()
+            .filter_map(|device| controller_profiles::of(device))
+            .flat_map(|p| p.outputs.iter().map(|o| o.source.clone()).collect::<Vec<_>>())
+            .collect();
+        targets.sort();
+        targets.dedup();
+        targets
+    }
+
+    /// Keeps the values of the outputs' sources, shown on the controllers as they go.
+    pub fn set_outputs(&self, values: &[OutputDto]) {
+        let mut kept = lock(&self.values);
+        for value in values {
+            kept.insert(value.target.clone(), value.value);
+        }
+    }
+
     /// Keeps the state of the `lights` targets, and shows it on the controllers.
     pub fn set_lights(&self, lights: &[LightDto]) {
         let mut states = lock(&self.states);
         for light in lights {
-            states.insert(light.target.clone(), light.state.clone());
+            states.insert(
+                light.target.clone(),
+                Shown { state: light.state.clone(), color: light.color.clone() },
+            );
         }
         drop(states);
         let devices: Vec<String> = lock(&self.connections).iter().map(|c| c.device.clone()).collect();
@@ -410,25 +496,46 @@ impl Controllers {
     /// Shows on `device`'s lights the state of their actions, in the modes it is in: its
     /// mapped controls', its mode keys', and the other lights its profile gives.
     fn show_lights(&self, device: &str) {
-        let modes = lock(&self.reader).modes(device);
+        let (modes, held) = {
+            let reader = lock(&self.reader);
+            (reader.modes(device), reader.held(device))
+        };
         let states = lock(&self.states);
+        let keys = lock(&self.keys);
         let state_of = |target: &str| match selected_mode(target) {
             Some((group, mode)) => Some(if modes.get(group).is_some_and(|m| m == mode) { ON } else { OFF }),
-            None => states.get(target).map(String::as_str),
+            None => states.get(target).map(|s| s.state.as_str()),
+        };
+        let coloured = |target: &str, palette: &BTreeMap<String, u8>, value: LightValue| {
+            let colour = states.get(target).and_then(|s| s.color.as_deref());
+            match colour.and_then(|c| nearest(palette, c)) {
+                Some(v) if state_of(target).is_some_and(|s| s != OFF) => LightValue::Steady(v),
+                _ => value,
+            }
         };
         let mut lights: Vec<(Control, LightValue)> = Vec::new();
         for mapping in lock(&self.mappings).all().iter().filter(|m| m.device == device && m.applies(&modes)) {
-            if let Some(state) = state_of(&mapping.target) {
-                lights.push((mapping.control, mapping.light.value(state)));
+            let key = (device.to_owned(), mapping.control);
+            let state = if mapping.light.has(PRESSED) && held.contains(&mapping.control) {
+                Some(PRESSED)
+            } else if matches!(mapping.set, Some(FaderSet::InTurn(_))) {
+                Some(if keys.second.contains(&key) { ON } else { OFF })
+            } else {
+                state_of(&mapping.target)
+            };
+            if let Some(state) = state {
+                let value = coloured(&mapping.target, &mapping.palette, mapping.light.value(state));
+                lights.push((mapping.control, value));
             }
         }
         if let Some(profile) = controller_profiles::of(device) {
             for extra in &profile.lights {
                 if let Some(value) = state_of(&extra.target).and_then(|s| extra.value(s, &modes)) {
-                    lights.push((extra.control, value));
+                    lights.push((extra.control, coloured(&extra.target, &extra.palette, value)));
                 }
             }
         }
+        drop(keys);
         drop(states);
         if let Some(connection) = lock(&self.connections).iter_mut().find(|c| c.device == device) {
             for (control, value) in lights {
@@ -480,9 +587,15 @@ impl Controllers {
                     metered = Instant::now();
                     levels(&app.state::<AppState>())
                 });
+                let values = lock(&controllers.values).clone();
                 for connection in lock(&controllers.connections).iter_mut() {
                     connection.blink();
+                    connection.send_due();
                     let Some(profile) = controller_profiles::of(&connection.device) else { continue };
+                    let modes = lock(&controllers.reader).modes(&connection.device);
+                    let shown = |when: &Option<prisme_control::When>| {
+                        when.as_ref().is_none_or(|w| modes.get(&w.group) == Some(&w.mode))
+                    };
                     if let Some(keep) = &profile.keep_alive {
                         if connection.kept_alive.elapsed() >= Duration::from_millis(u64::from(keep.every_ms))
                         {
@@ -490,11 +603,24 @@ impl Controllers {
                             connection.send(&keep.message);
                         }
                     }
-                    for meter in profile.meters.iter() {
+                    for (at, meter) in profile.meters.iter().enumerate().filter(|(_, m)| shown(&m.when)) {
                         let level = levels.as_ref().and_then(|l| l.get(&meter.source)).copied();
                         let message = prisme_control::light(meter.control, 0);
                         if let (Some(level), Some([status, number, _])) = (level, message) {
-                            connection.show([status, number, meter.value(level)]);
+                            if level >= 1.0 {
+                                connection.clipped.insert(at, Instant::now());
+                            }
+                            let clipping =
+                                connection.clipped.get(&at).is_some_and(|t| t.elapsed() < CLIP_SHOWN);
+                            let value = meter.clip.filter(|_| clipping).unwrap_or_else(|| meter.value(level));
+                            connection.show([status, number, value]);
+                        }
+                    }
+                    for output in profile.outputs.iter().filter(|o| shown(&o.when)) {
+                        let value = values.get(&output.source).copied();
+                        let message = prisme_control::light(output.control, 0);
+                        if let (Some(value), Some([status, number, _])) = (value, message) {
+                            connection.show([status, number, output.value(value)]);
                         }
                     }
                 }
@@ -531,9 +657,17 @@ impl Controllers {
             )
             .map_err(midi_error)?;
         let mut output = open_output(&port_name);
+        let mut later = Vec::new();
         if let (Some(output), Some(profile)) = (output.as_mut(), controller_profiles::of(device)) {
-            for message in &profile.init {
-                let _ = output.send(message);
+            for (after_ms, message) in profile.init.iter().map(|m| m.when_and_what()) {
+                if after_ms == 0 {
+                    let _ = output.send(message);
+                } else {
+                    later.push((
+                        Instant::now() + Duration::from_millis(u64::from(after_ms)),
+                        message.to_vec(),
+                    ));
+                }
             }
         }
         let connection = Connection {
@@ -544,6 +678,9 @@ impl Controllers {
             kept_alive: Instant::now(),
             shown: HashMap::new(),
             blinking: HashMap::new(),
+            messages: HashMap::new(),
+            later,
+            clipped: HashMap::new(),
         };
         let modes = controller_profiles::of(device).map(|p| p.first_modes()).unwrap_or_default();
         lock(&self.reader).set_modes(device, modes);
@@ -555,7 +692,12 @@ impl Controllers {
     /// An event of `device`, whose jog wheels turn by `jog_steps_per_turn`, at `at_s` on its
     /// clock.
     fn receive(&self, app: &AppHandle, device: &str, jog_steps_per_turn: f64, event: Event, at_s: f64) {
-        let _ = match self.route(device, event) {
+        let routed = self.route(device, event);
+        // a key's light may show it held, latched or at the second of its two positions
+        if event.control.kind == ControlKind::Note {
+            self.show_lights(device);
+        }
+        let _ = match routed {
             Some(Routed::Learned(mapping)) => app.emit("controller-learned", mapping),
             Some(Routed::Input(inputs)) => inputs.iter().try_for_each(|i| app.emit("controller-input", i)),
             Some(Routed::Direct(action, value)) => {
@@ -589,11 +731,11 @@ impl Controllers {
     /// Learns the control if a target waits for one, else finds what it drives.
     fn route(&self, device: &str, event: Event) -> Option<Routed> {
         if let Some(learnt) = self.complete_fine(device, event) {
-            return Some(Routed::Learned(learnt));
+            return Some(Routed::Learned(Box::new(learnt)));
         }
         let mut reader = lock(&self.reader);
         let shift = lock(&self.mappings)
-            .find(device, Event { raw: 127, ..event }, false, &Modes::new())
+            .find(device, Event { raw: 127, ..event }, &Shifts::default(), &Modes::new())
             .is_some_and(|m| m.target == SHIFT);
         // a release is the end of the previous press, not the control to learn; nor is shift
         let released = event.control.kind == ControlKind::Note && event.raw == 0;
@@ -603,7 +745,7 @@ impl Controllers {
                 control: event.control,
                 target,
                 encoding: if encoder { Encoding::guess(event.raw) } else { Encoding::Absolute },
-                shift: reader.shifted(device),
+                shift: reader.shifted(device).into(),
                 ..Default::default()
             };
             let mapping = Mapping::new(device, binding);
@@ -612,7 +754,7 @@ impl Controllers {
                 s.mappings.learn(mapping.clone(), Direct::takes_several(&mapping.target));
             });
             *lock(&self.just_learnt) = Some((mapping.clone(), Instant::now()));
-            return Some(Routed::Learned(mapping));
+            return Some(Routed::Learned(Box::new(mapping)));
         }
         let mappings = lock(&self.mappings);
         let changes = reader.mode_changes(device);
@@ -623,6 +765,13 @@ impl Controllers {
             }
             return None;
         };
+        if let Some(routed) = self.instead(device, event, mapping, &reader) {
+            return routed;
+        }
+        if let Some(down) = &mapping.down {
+            let steps = reader.whole_steps(device, mapping.control, value);
+            return key_steps(&mapping.target, down, steps);
+        }
         if let Some(hold) = &mapping.hold {
             return self.hold(device, event, mapping, hold);
         }
@@ -630,6 +779,63 @@ impl Controllers {
             Some(action) => Routed::Direct(action, value),
             None => Routed::Input(inputs(mapping, value)),
         })
+    }
+
+    /// What a key drives instead of its action as it is: another action pressed twice or
+    /// with another key held, a fader put at a position, its action latched. `None` when it
+    /// drives its action as it is.
+    fn instead(
+        &self,
+        device: &str,
+        event: Event,
+        mapping: &Mapping,
+        reader: &Reader,
+    ) -> Option<Option<Routed>> {
+        let key = (device.to_owned(), mapping.control);
+        let pressed = event.raw > 0;
+        let mut keys = lock(&self.keys);
+        let press =
+            |target: &str, value| Some(Some(Routed::Input(vec![ControllerInputDto::of(target, value)])));
+        if !pressed {
+            if let Some(target) = keys.instead.remove(&key) {
+                return press(&target, 0.0);
+            }
+        }
+        if pressed {
+            if let Some(chord) = mapping.chord.as_ref().filter(|c| reader.held(device).contains(&c.with)) {
+                keys.instead.insert(key, chord.target.clone());
+                return press(&chord.target, 1.0);
+            }
+            let before = keys.pressed_at.insert(key.clone(), Instant::now());
+            let again =
+                |ms: u32| before.is_some_and(|at| at.elapsed() < Duration::from_millis(u64::from(ms)));
+            if let Some(double) = mapping.double.as_ref().filter(|d| again(d.ms)) {
+                keys.instead.insert(key, double.target.clone());
+                return press(&double.target, 1.0);
+            }
+        }
+        if let Some(set) = mapping.set {
+            if !pressed {
+                return Some(None);
+            }
+            let position = match set {
+                FaderSet::At(position) => position,
+                FaderSet::InTurn([first, second]) if keys.second.remove(&key) => first,
+                FaderSet::InTurn([_, second]) => {
+                    keys.second.insert(key);
+                    second
+                }
+            };
+            return press(&mapping.target, position);
+        }
+        if mapping.latch {
+            if !pressed {
+                return Some(None);
+            }
+            let down = keys.latched.insert(key.clone()) || !keys.latched.remove(&key);
+            return press(&mapping.target, if down { 1.0 } else { 0.0 });
+        }
+        None
     }
 
     /// A key whose action waits to know whether it is held: pressed, nothing yet; let go
@@ -649,8 +855,10 @@ impl Controllers {
         }
         let at = holdings.iter().position(|h| h.device == device && h.control == event.control)?;
         let held = holdings.remove(at);
-        let input =
-            |target: &str, value| ControllerInputDto { target: target.to_owned(), value, steps: false };
+        if held.fired && selected_mode(&held.hold.target).is_some() {
+            return None;
+        }
+        let input = ControllerInputDto::of;
         Some(Routed::Input(if held.fired {
             vec![input(&held.hold.target, 0.0)]
         } else {
@@ -658,14 +866,25 @@ impl Controllers {
         }))
     }
 
-    /// The keys held long enough: their hold's action pressed.
+    /// The keys held long enough: their hold's action pressed, or its mode chosen.
     fn fire_holds(&self, app: &AppHandle) {
+        let mut modes_changed = Vec::new();
         for held in lock(&self.holdings).iter_mut() {
             if !held.fired && held.since.elapsed() >= Duration::from_millis(u64::from(held.hold.ms)) {
                 held.fired = true;
-                let input = ControllerInputDto { target: held.hold.target.clone(), value: 1.0, steps: false };
-                let _ = app.emit("controller-input", input);
+                match selected_mode(&held.hold.target) {
+                    Some((group, mode)) => {
+                        lock(&self.reader).set_mode(&held.device, group, mode);
+                        modes_changed.push(held.device.clone());
+                    }
+                    None => {
+                        drop(app.emit("controller-input", ControllerInputDto::of(&held.hold.target, 1.0)))
+                    }
+                }
             }
+        }
+        for device in modes_changed {
+            self.show_lights(&device);
         }
     }
 
@@ -748,8 +967,19 @@ fn inputs(mapping: &Mapping, value: f32) -> Vec<ControllerInputDto> {
     let steps = mapping.encoding.is_relative();
     std::iter::once(&mapping.target)
         .chain(&mapping.also)
-        .map(|target| ControllerInputDto { target: target.clone(), value, steps })
+        .map(|target| ControllerInputDto { target: target.clone(), value, steps, step: mapping.step })
         .collect()
+}
+
+/// An encoder's `steps` driving keys: each a press and a release of `up`, or of `down` for
+/// those to the left.
+fn key_steps(up: &str, down: &str, steps: i32) -> Option<Routed> {
+    let target = if steps > 0 { up } else { down };
+    let presses = steps.unsigned_abs().min(MOST_KEY_STEPS.unsigned_abs());
+    let inputs: Vec<ControllerInputDto> = (0..presses)
+        .flat_map(|_| [ControllerInputDto::of(target, 1.0), ControllerInputDto::of(target, 0.0)])
+        .collect();
+    (!inputs.is_empty()).then_some(Routed::Input(inputs))
 }
 
 /// The level of each source of a meter (`deck1`…, `main`) at the moment; none when the audio
@@ -824,7 +1054,7 @@ mod tests {
         assert_eq!(port_of(&both, "2- DJControl Inpulse 200"), Some(1), "the same name first");
         assert_eq!(port_of(&names, "FLX4"), None);
     }
-    use prisme_control::{parse, Control};
+    use prisme_control::{parse, Chord, Control};
 
     const PAD: Control = Control { kind: ControlKind::Note, channel: 0, number: 36 };
 
@@ -834,7 +1064,7 @@ mod tests {
 
     fn input(target: &str, value: f32) -> Option<Routed> {
         let steps = target == "library.browse";
-        Some(Routed::Input(vec![ControllerInputDto { target: target.into(), value, steps }]))
+        Some(Routed::Input(vec![ControllerInputDto { steps, ..ControllerInputDto::of(target, value) }]))
     }
 
     fn mapping(control: Control, target: &str) -> Mapping {
@@ -858,7 +1088,7 @@ mod tests {
         // the release of a press made before Learn is not learnt
         assert_eq!(c.route("DDJ", parse(&[0x80, 40, 0]).unwrap()), None);
         let learnt = c.route("DDJ", parse(&[0x90, 36, 127]).unwrap());
-        assert_eq!(learnt, Some(Routed::Learned(mapping(PAD, "deck1.play"))));
+        assert_eq!(learnt, Some(Routed::Learned(Box::new(mapping(PAD, "deck1.play")))));
         assert_eq!(c.route("DDJ", parse(&[0x80, 36, 0]).unwrap()), input("deck1.play", 0.0));
         assert_eq!(c.route("DDJ", parse(&[0x90, 36, 127]).unwrap()), input("deck1.play", 1.0));
         assert_eq!(c.route("Other", parse(&[0x90, 36, 127]).unwrap()), None);
@@ -883,7 +1113,10 @@ mod tests {
         route(&c, &[0xb0, 0, 64]);
         let fine = route(&c, &[0xb0, 32, 0]);
         let tempo = Control { kind: ControlKind::ControlChange, channel: 0, number: 0 };
-        assert_eq!(fine, Some(Routed::Learned(with(mapping(tempo, "deck1.pitch"), |b| b.fine = Some(32)))));
+        assert_eq!(
+            fine,
+            Some(Routed::Learned(Box::new(with(mapping(tempo, "deck1.pitch"), |b| b.fine = Some(32)))))
+        );
         assert_eq!(route(&c, &[0xb0, 0, 64]), None);
         assert_eq!(route(&c, &[0xb0, 32, 64]), Some(Routed::Direct(Direct::Pitch(0), 8256.0 / 16383.0)));
     }
@@ -902,7 +1135,9 @@ mod tests {
         let learnt = route(&c, &[0x90, 36, 127]);
         assert_eq!(
             learnt,
-            Some(Routed::Learned(with(mapping(PAD, "deck1.hotcue1.delete"), |b| b.shift = true)))
+            Some(Routed::Learned(Box::new(with(mapping(PAD, "deck1.hotcue1.delete"), |b| {
+                b.shift = prisme_control::Shift::Any
+            }))))
         );
         route(&c, &[0x90, 63, 0]);
         assert_eq!(route(&c, &[0x90, 36, 127]), input("deck1.cue", 1.0));
@@ -960,5 +1195,75 @@ mod tests {
         c.cancel_learning();
         assert_eq!(c.route("DDJ", parse(&[0x90, 36, 127]).unwrap()), None);
         assert!(c.setup().mappings.all().is_empty());
+    }
+
+    /// Controllers whose `DDJ` has `mappings`.
+    fn with_mappings(mappings: impl IntoIterator<Item = Mapping>) -> Controllers {
+        let c = controllers();
+        c.save(|s| mappings.into_iter().for_each(|m| s.mappings.learn(m, false)));
+        c
+    }
+
+    fn inputs_of(pairs: &[(&str, f32)]) -> Option<Routed> {
+        Some(Routed::Input(pairs.iter().map(|&(t, v)| ControllerInputDto::of(t, v)).collect()))
+    }
+
+    #[test]
+    fn a_key_pressed_twice_drives_its_double() {
+        let double = Hold { ms: 300, target: "deck1.slip".into() };
+        let c = with_mappings([with(mapping(PAD, "deck1.sync"), |b| b.double = Some(double))]);
+        assert_eq!(route(&c, &[0x90, 36, 127]), input("deck1.sync", 1.0));
+        assert_eq!(route(&c, &[0x90, 36, 0]), input("deck1.sync", 0.0));
+        assert_eq!(route(&c, &[0x90, 36, 127]), input("deck1.slip", 1.0));
+        assert_eq!(route(&c, &[0x90, 36, 0]), input("deck1.slip", 0.0), "its release lets the double go");
+    }
+
+    #[test]
+    fn a_key_pressed_with_another_drives_their_chord() {
+        let other = Control { number: 37, ..PAD };
+        let chord = Chord { with: other, target: "deck1.tempo.reset".into() };
+        let c = with_mappings([
+            mapping(other, "deck1.bend.up"),
+            with(mapping(PAD, "deck1.bend.down"), |b| b.chord = Some(chord)),
+        ]);
+        assert_eq!(route(&c, &[0x90, 36, 127]), input("deck1.bend.down", 1.0), "alone, its own");
+        route(&c, &[0x90, 36, 0]);
+        route(&c, &[0x90, 37, 127]);
+        assert_eq!(route(&c, &[0x90, 36, 127]), input("deck1.tempo.reset", 1.0));
+        assert_eq!(route(&c, &[0x90, 36, 0]), input("deck1.tempo.reset", 0.0));
+    }
+
+    #[test]
+    fn a_key_sets_a_fader_at_a_position_or_two_in_turn() {
+        let c = with_mappings([with(mapping(PAD, "mixer.cueMix"), |b| {
+            b.set = Some(FaderSet::InTurn([0.0, 1.0]))
+        })]);
+        assert_eq!(route(&c, &[0x90, 36, 127]), input("mixer.cueMix", 1.0));
+        assert_eq!(route(&c, &[0x90, 36, 0]), None, "a release sets nothing");
+        assert_eq!(route(&c, &[0x90, 36, 127]), input("mixer.cueMix", 0.0));
+    }
+
+    #[test]
+    fn a_latched_key_holds_its_action_until_pressed_again() {
+        let c = with_mappings([with(mapping(PAD, "deck1.eq.low.kill"), |b| b.latch = true)]);
+        assert_eq!(route(&c, &[0x90, 36, 127]), input("deck1.eq.low.kill", 1.0));
+        assert_eq!(route(&c, &[0x90, 36, 0]), None);
+        assert_eq!(route(&c, &[0x90, 36, 127]), input("deck1.eq.low.kill", 0.0));
+    }
+
+    #[test]
+    fn an_encoder_presses_keys_a_step_each() {
+        let knob = Control { kind: ControlKind::ControlChange, channel: 0, number: 20 };
+        let loops = |b: &mut ProfileControl| {
+            b.encoding = Encoding::RelativeOffset;
+            b.down = Some("deck1.loop.halve".into());
+        };
+        let c = with_mappings([with(mapping(knob, "deck1.loop.double"), loops)]);
+        let twice = [("deck1.loop.double", 1.0), ("deck1.loop.double", 0.0)];
+        assert_eq!(route(&c, &[0xb0, 20, 66]), inputs_of(&[twice[0], twice[1], twice[0], twice[1]]));
+        assert_eq!(
+            route(&c, &[0xb0, 20, 63]),
+            inputs_of(&[("deck1.loop.halve", 1.0), ("deck1.loop.halve", 0.0)])
+        );
     }
 }

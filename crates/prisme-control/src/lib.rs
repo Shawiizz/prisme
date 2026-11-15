@@ -13,13 +13,15 @@ mod pickup;
 mod profile;
 mod schema;
 
-pub use light::{light, LightValue, LightValues, OFF, ON};
+pub use light::{light, nearest, LightValue, LightValues, OFF, ON};
 pub use mapping::{
-    selected_mode, Encoding, Hold, Mapping, Mappings, Modes, ProfileControl, Reader, When, MODE, SHIFT,
+    selected_mode, Chord, Encoding, FaderSet, Hold, Mapping, Mappings, Modes, ProfileControl, Reader, Shift,
+    Shifts, When, MODE, SHIFT,
 };
 pub use message::{parse, Control, ControlKind, Event};
 pub use pickup::Pickup;
 pub use profile::{
-    KeepAlive, Meter, ModeGroup, ModeSelect, Profile, ProfileLight, JOG_STEPS_PER_TURN, PROFILE_FORMAT,
+    InitMessage, KeepAlive, LaterMessage, Meter, ModeGroup, ModeSelect, Output, Profile, ProfileLight,
+    JOG_STEPS_PER_TURN, PROFILE_FORMAT,
 };
 pub use schema::{profile_schema, Target, SCHEMA_URL};

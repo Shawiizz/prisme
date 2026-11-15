@@ -10,6 +10,7 @@ import {
   StepEncoding,
 } from '../models/controllers';
 import { EngineService } from '../services/engine.service';
+import { EngineStatus } from '../models/engine';
 import { ControlService } from './control.service';
 import { errorText } from '../errors';
 
@@ -19,6 +20,11 @@ import { errorText } from '../errors';
  */
 /** How far a step of an encoder moves a fader's setting (from 0 to 1). */
 const ENCODER_STEP = 1 / 64;
+
+/** A value shown on a controller is sent again once it changed this much (of 0 to 1). */
+const OUTPUT_CHANGE = 1 / 256;
+/** Turns a minute of the record a jog wheel's ring shows. */
+const RECORD_RPM = 100 / 3;
 
 @Injectable({ providedIn: 'root' })
 export class ControllerService {
@@ -42,9 +48,16 @@ export class ControllerService {
   private readonly relight = signal(0);
   /** The soft takeover of each fader, by control. */
   private readonly pickups = new Map<string, Pickup>();
+  /** What is left of each encoder's steps short of a whole one. */
+  private readonly partSteps = new Map<string, number>();
+  /** The sources of the values the controllers show (`controller_output_targets`). */
+  private readonly outputTargets = signal<string[]>([]);
+  /** The value of each source last sent. */
+  private readonly sentValues = new Map<string, number>();
 
   constructor() {
     effect(() => this.updateLights());
+    effect(() => this.updateOutputs());
   }
 
   async start() {
@@ -64,13 +77,20 @@ export class ControllerService {
   }
 
   /** A mapped control moved; a fader acts once it has picked its setting up, an encoder's
-   * steps move it from where it is. */
-  private input({ target, value, steps }: ControllerInput) {
+   * steps move it from where it is (a profile may scale them below one step: they add up). */
+  private input({ target, value, steps, step }: ControllerInput) {
     const control = this.controls.findInUse(target);
     const current = control?.position?.();
     if (steps && control?.kind !== 'encoder') {
       if (current !== undefined)
-        control?.apply(Math.min(Math.max(current + value * ENCODER_STEP, 0), 1));
+        control?.apply(Math.min(Math.max(current + value * (step ?? ENCODER_STEP), 0), 1));
+      return;
+    }
+    if (steps) {
+      const total = (this.partSteps.get(target) ?? 0) + value;
+      const whole = Math.trunc(total);
+      this.partSteps.set(target, total - whole);
+      if (whole !== 0) control?.apply(whole);
       return;
     }
     if (current !== undefined) {
@@ -169,12 +189,15 @@ export class ControllerService {
   }
 
   private async reloadMappings() {
-    const [mappings, lightTargets] = await Promise.all([
+    const [mappings, lightTargets, outputTargets] = await Promise.all([
       invoke<ControllerMapping[]>('controller_mappings'),
       invoke<string[]>('controller_light_targets'),
+      invoke<string[]>('controller_output_targets'),
     ]);
     this.mappings.set(mappings);
     this.lightTargets.set(lightTargets);
+    this.outputTargets.set(outputTargets);
+    this.sentValues.clear();
     this.sendAllLights();
   }
 
@@ -186,7 +209,7 @@ export class ControllerService {
   /** Sends the lights that changed: the state of each mapped control that shows one. */
   private updateLights() {
     this.relight();
-    const lights: { target: string; state: string }[] = [];
+    const lights: { target: string; state: string; color: string | null }[] = [];
     for (const target of new Set([
       ...this.mappings().map((m) => m.target),
       ...this.lightTargets(),
@@ -194,11 +217,40 @@ export class ControllerService {
       const control = this.controls.findInUse(target);
       const on = control?.lit?.();
       const state = control?.state?.() ?? (on === undefined ? undefined : on ? 'on' : 'off');
-      if (state === undefined || this.sent.get(target) === state) continue;
-      this.sent.set(target, state);
-      lights.push({ target, state });
+      const color = control?.color?.() ?? null;
+      const shown = `${state} ${color}`;
+      if (state === undefined || this.sent.get(target) === shown) continue;
+      this.sent.set(target, shown);
+      lights.push({ target, state, color });
     }
     if (lights.length > 0) this.run(() => invoke('set_lights', { lights }));
+  }
+
+  /** Sends the values the controllers show that changed: a fader's position, the place in
+   * its track or the turn of its record of a deck (`deck1.position`, `deck1.turn`). */
+  private updateOutputs() {
+    const targets = this.outputTargets();
+    if (targets.length === 0) return;
+    const status = this.engine.status();
+    const values: { target: string; value: number }[] = [];
+    for (const target of targets) {
+      const value = this.outputValue(target, status);
+      if (value === null || Math.abs((this.sentValues.get(target) ?? -1) - value) < OUTPUT_CHANGE)
+        continue;
+      this.sentValues.set(target, value);
+      values.push({ target, value });
+    }
+    if (values.length > 0) this.run(() => invoke('set_controller_outputs', { values }));
+  }
+
+  private outputValue(target: string, status: EngineStatus | null): number | null {
+    const measured = /^deck(\d)\.(position|turn)$/.exec(target);
+    if (!measured) return this.controls.findInUse(target)?.position?.() ?? null;
+    const deck = status?.decks[Number(measured[1]) - 1];
+    if (!deck?.loaded) return null;
+    if (measured[2] === 'position') return deck.durationS > 0 ? deck.positionS / deck.durationS : 0;
+    const turns = (deck.positionS * RECORD_RPM) / 60;
+    return turns - Math.floor(turns);
   }
 
   private async run(action: () => Promise<unknown>) {

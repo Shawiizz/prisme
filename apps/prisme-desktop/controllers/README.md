@@ -46,13 +46,38 @@ One JSON file per model:
 | `credits` | Where the mapping comes from, when it is not Prisme's own. |
 | `verified` | `true` once tried on the controller itself; the settings tell a profile that is not. |
 | `jogStepsPerTurn` | Steps in a turn of its jog wheels (720 when left out). |
-| `init` | MIDI messages sent when the controller is opened (SysEx included). |
+| `init` | MIDI messages sent when the controller is opened (SysEx included); `{ "afterMs": n, "message": [...] }` for one sent that much later (once a light show the model plays by itself is over). |
 | `close` | MIDI messages sent when it is closed, after its lights went off. |
 | `keepAlive` | `everyMs` and `message`: sent again and again while it is open, for the models that want it. |
-| `modes` | Groups of controls that drive other actions in each mode, when the controls send the same in each (the pad pages of a side): `group`, `modes` (the first is where it begins), `select` (a key choosing each mode: `control`, `mode`, optionally `shift` and `light`). A mode key lights `on` while its mode is the one. |
-| `controls` | A control and the action it drives, in the shape of a learnt mapping (`controllers.json`): `control` (`kind` `note`, `controlChange` or `pitchBend`, `channel` 0-15, `number`), `target`, and optionally `encoding` for encoders (`relative`, `relativeOffset`, `relativeSigned`), `fine` (the controller sending the low half of a 14-bit control), `shift` (in the second layer), `when` (`group`, `mode`: only in that mode), `invert` (a fader whose lowest value is at its top), `light` (its values by state), `onValue` (drives its action as a key pressed when the control sends this value: a switch's position, one entry per position), `also` (other actions it drives along) and `hold` (`ms`, `target`: another action for the key held that long; let go sooner, its own). An encoder (`encoding`) may drive a fader's action: its steps move the setting. |
+| `modes` | Groups of controls that drive other actions in each mode, when the controls send the same in each (the pad pages of a side): `group`, `modes` (the first is where it begins), `select` (a key choosing each mode: `control`, `mode`, optionally `shift`, `light`, `held` (the mode only while the key is held: let go, the group is back in the mode before; with `shift`, a supershift) and `once` (the mode for one action of the group, then back to its first). A mode key lights `on` while its mode is the one. A key flipping between two modes is two controls aimed at `mode.<group>.<other>`, each with `when` on one of them: a release is read in the modes of its press, so it does not flip back. |
+| `controls` | A control and the action it drives, in the shape of a learnt mapping (`controllers.json`), see below. |
 | `lights` | Lights other than the controls' own: `target`, `control`, optionally `when`, and its values by state beside them. |
-| `meters` | Levels shown on the controller: `source` (`deck1`…`deck4`, `main`), `control`, optionally `max` (127) and `curve` (the level raised to it, 1 straight). |
+| `meters` | Levels shown on the controller: `source` (`deck1`…`deck4`, `main`, `main.left`, `main.right`), `control`, optionally `min` (0, the value at silence), `max` (127), `curve` (the level raised to it, 1 straight), `steps` (the values at silence, then at each equal share of the level, in place of `min` and `max`), `clip` (the value shown for a second after the level reached full scale) and `when`. |
+| `outputs` | Values shown on the controller (a jog wheel's ring, a knob's ring of lights): `source` (a fader's action, `deck1.position` of its track, `deck1.turn` of its record at 33⅓), `control`, optionally `min`, `max` and `when`. |
+
+### Controls
+
+| Field | |
+| --- | --- |
+| `control` | `kind` (`note`, `controlChange`, `pitchBend`), `channel` 0-15, `number`. |
+| `target` | The action it drives (see Targets). |
+| `encoding` | For encoders: `relative` (two's complement), `relativeOffset` (around 64), `relativeSigned` (a sign bit), `relativeZero` (0 one step right, 127 one left), `absoluteWrap` (a position wrapping around, a jog's angle: its changes are the steps). An encoder may drive a fader's action: its steps move the setting. |
+| `scale` | An encoder's steps multiplied by this; below 1 they add up to whole steps (`0.1`: a track browsed every ten steps). |
+| `step` | How far a step of an encoder moves a fader's action, a share of its travel (1/64 when left out). |
+| `invert` | A fader whose lowest value is at its top; an encoder turning the other way. |
+| `fine` | The controller sending the low half of a 14-bit control. |
+| `shift` | In the second layer: `true` while any shift is held, or a named shift (`"left"`) while the key aimed at `shift.left` is. |
+| `when` | `group`, `mode`: only in that mode. |
+| `onValue` | Drives its action as a key pressed when the control sends this value: a switch's position, one entry per position. |
+| `also` | Other actions it drives along. |
+| `down` | An encoder pressing keys: a step to the right presses `target`, a step to the left this action. |
+| `hold` | `ms`, `target`: another action (or mode) for the key held that long; let go sooner, its own. |
+| `double` | `ms`, `target`: another action for the key pressed twice within `ms`. |
+| `chord` | `with` (a control), `target`: another action for the key pressed while `with` is held. |
+| `set` | A key putting a fader's action at a position (`0.5`), or at each of two in turn (`[0, 1]`, lit at the second). |
+| `latch` | A key driving an action while held, latched: a press holds it, the next lets it go. |
+| `light` | Its values by state (see Lights). |
+| `palette` | Its values by the colour of its action, a hot cue's (`{ "#ff0000": 5, "#0000ff": 45 }`): the nearest colour's. |
 
 ### Targets
 
@@ -66,8 +91,10 @@ key moved so many semitones (`deck1.key.+2`), a sample played as hard as its pad
 
 A light shows the state of its action: `on` and `off` for most, `off`, `loaded` and `playing`
 for the sampler's pads, `on` (on the cue point), `paused` (stopped elsewhere) and `off` for
-the cue key. Its values by state are numbers, or `{ "blink": [a, b], "ms": n }` for
-two in turn. A state it does not name shows as `on`, but `off`; without values, 127 and 0:
+the cue key, and `pressed` for any key while it is held, if it names it. Its values by state
+are numbers, `{ "blink": [a, b], "ms": n }` for two in turn, or a whole message (`[176, 74,
+12]`) for the models addressing their lights otherwise than by a value on the control's
+note. A state it does not name shows as `on`, but `off`; without values, 127 and 0:
 
 ```json
 "light": { "on": 127, "off": 1, "loaded": 56, "playing": { "blink": [9, 0], "ms": 250 } }

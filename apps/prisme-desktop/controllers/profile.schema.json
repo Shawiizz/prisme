@@ -1,5 +1,21 @@
 {
   "$defs": {
+    "Chord": {
+      "description": "Another action for a key pressed while the key `with` is held.",
+      "properties": {
+        "target": {
+          "type": "string"
+        },
+        "with": {
+          "$ref": "#/$defs/Control"
+        }
+      },
+      "required": [
+        "with",
+        "target"
+      ],
+      "type": "object"
+    },
     "Control": {
       "description": "A physical control of a controller.",
       "properties": {
@@ -70,8 +86,36 @@
           "const": "relativeSigned",
           "description": "Steps with a sign bit: 1 to 63 to the right, 65 (one step) to 127 to the left.",
           "type": "string"
+        },
+        {
+          "const": "relativeZero",
+          "description": "Steps from zero: 0 is one step to the right, 127 one to the left (Denon).",
+          "type": "string"
+        },
+        {
+          "const": "absoluteWrap",
+          "description": "A position that wraps around (a jog wheel's angle): its changes are the steps.",
+          "type": "string"
         }
       ]
+    },
+    "FaderSet": {
+      "anyOf": [
+        {
+          "format": "float",
+          "type": "number"
+        },
+        {
+          "items": {
+            "format": "float",
+            "type": "number"
+          },
+          "maxItems": 2,
+          "minItems": 2,
+          "type": "array"
+        }
+      ],
+      "description": "Where a key puts a fader's action: at a position, or at each of two in turn."
     },
     "Hold": {
       "description": "A second action for a key held down for `ms` milliseconds: pressed and let go sooner, it\ndrives its own.",
@@ -90,6 +134,23 @@
         "target"
       ],
       "type": "object"
+    },
+    "InitMessage": {
+      "anyOf": [
+        {
+          "items": {
+            "format": "uint8",
+            "maximum": 255,
+            "minimum": 0,
+            "type": "integer"
+          },
+          "type": "array"
+        },
+        {
+          "$ref": "#/$defs/LaterMessage"
+        }
+      ],
+      "description": "A message sent when a controller is opened: at once, or `after_ms` later (once a light\nshow it plays by itself is over, say)."
     },
     "KeepAlive": {
       "description": "A message sent every `every_ms` milliseconds.",
@@ -111,6 +172,29 @@
       },
       "required": [
         "everyMs",
+        "message"
+      ],
+      "type": "object"
+    },
+    "LaterMessage": {
+      "properties": {
+        "afterMs": {
+          "format": "uint32",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "message": {
+          "items": {
+            "format": "uint8",
+            "maximum": 255,
+            "minimum": 0,
+            "type": "integer"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "afterMs",
         "message"
       ],
       "type": "object"
@@ -148,9 +232,18 @@
             "ms"
           ],
           "type": "object"
+        },
+        {
+          "items": {
+            "format": "uint8",
+            "maximum": 255,
+            "minimum": 0,
+            "type": "integer"
+          },
+          "type": "array"
         }
       ],
-      "description": "A light's value in a state: steady, or two in turn."
+      "description": "A light's value in a state: steady, two in turn, or a whole message of its own (for the\nmodels addressing their lights otherwise than by a value on the control's note)."
     },
     "LightValues": {
       "additionalProperties": {
@@ -160,8 +253,17 @@
       "type": "object"
     },
     "Meter": {
-      "description": "A level shown on the controller: `source`'s (`deck1`…, `main`), from 0 to `max` on\n`control`, along `curve` (the level raised to it: 1 straight).",
+      "description": "A level shown on the controller: `source`'s (`deck1`…, `main`, `main.left`,\n`main.right`), from `min` to `max` on `control` along `curve` (the level raised to it: 1\nstraight), or as one of `steps` (the values at silence, then at each equal share of the\nlevel); `clip` for a while after the level reached full scale.",
       "properties": {
+        "clip": {
+          "format": "uint8",
+          "maximum": 255,
+          "minimum": 0,
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
         "control": {
           "$ref": "#/$defs/Control"
         },
@@ -170,6 +272,12 @@
           "type": "number"
         },
         "max": {
+          "format": "uint8",
+          "maximum": 255,
+          "minimum": 0,
+          "type": "integer"
+        },
+        "min": {
           "format": "uint8",
           "maximum": 255,
           "minimum": 0,
@@ -184,6 +292,26 @@
             "main"
           ],
           "type": "string"
+        },
+        "steps": {
+          "items": {
+            "format": "uint8",
+            "maximum": 255,
+            "minimum": 0,
+            "type": "integer"
+          },
+          "type": "array"
+        },
+        "when": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/When"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "While its group is in this mode only."
         }
       },
       "required": [
@@ -223,20 +351,67 @@
         "control": {
           "$ref": "#/$defs/Control"
         },
+        "held": {
+          "description": "Its mode only while the key is held: let go, the group is back in the mode before.",
+          "type": "boolean"
+        },
         "light": {
           "$ref": "#/$defs/LightValues"
         },
         "mode": {
           "type": "string"
         },
-        "shift": {
-          "description": "Chosen while the controller's shift is held.",
+        "once": {
+          "description": "Its mode for one action of the group, which then goes back to its first mode.",
           "type": "boolean"
+        },
+        "shift": {
+          "$ref": "#/$defs/Shift",
+          "description": "Chosen while the controller's shift is held, or a named shift."
         }
       },
       "required": [
         "control",
         "mode"
+      ],
+      "type": "object"
+    },
+    "Output": {
+      "description": "A value shown on `control`: `source`'s position from 0 to 1 (`deck1.position` of its\ntrack, `deck1.turn` of its record at 33⅓, or a fader's: `deck1.fx.mix`), from `min` to\n`max`.",
+      "properties": {
+        "control": {
+          "$ref": "#/$defs/Control"
+        },
+        "max": {
+          "format": "uint8",
+          "maximum": 255,
+          "minimum": 0,
+          "type": "integer"
+        },
+        "min": {
+          "format": "uint8",
+          "maximum": 255,
+          "minimum": 0,
+          "type": "integer"
+        },
+        "source": {
+          "type": "string"
+        },
+        "when": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/When"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "While its group is in this mode only."
+        }
+      },
+      "required": [
+        "source",
+        "control"
       ],
       "type": "object"
     },
@@ -250,8 +425,37 @@
           },
           "type": "array"
         },
+        "chord": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Chord"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Another action for the key pressed while another is held."
+        },
         "control": {
           "$ref": "#/$defs/Control"
+        },
+        "double": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Hold"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Another action for the key pressed twice within `ms`."
+        },
+        "down": {
+          "description": "An encoder driving a key's action: a step to the right presses `target`, a step to the\nleft this one.",
+          "type": [
+            "string",
+            "null"
+          ]
         },
         "encoding": {
           "$ref": "#/$defs/Encoding"
@@ -265,6 +469,10 @@
             "integer",
             "null"
           ]
+        },
+        "held": {
+          "description": "A mode key choosing its mode while held: let go, its group is back in the mode before.",
+          "type": "boolean"
         },
         "hold": {
           "anyOf": [
@@ -281,6 +489,10 @@
           "description": "A fader whose lowest value is at its top.",
           "type": "boolean"
         },
+        "latch": {
+          "description": "A key driving an action while held, latched: a press holds it, the next lets it go.",
+          "type": "boolean"
+        },
         "light": {
           "$ref": "#/$defs/LightValues",
           "description": "What its light shows in each state of its action, when it is not 127 and 0."
@@ -295,9 +507,47 @@
             "null"
           ]
         },
-        "shift": {
-          "description": "Drives its action while the controller's shift is held (its second layer).",
+        "once": {
+          "description": "A mode key choosing its mode for one action of its group, which then goes back to its\nfirst mode.",
           "type": "boolean"
+        },
+        "palette": {
+          "additionalProperties": {
+            "format": "uint8",
+            "maximum": 255,
+            "minimum": 0,
+            "type": "integer"
+          },
+          "description": "Its light's values by the colour of its action (a hot cue's, `\"#ff0000\": 5`): the\nnearest colour's.",
+          "type": "object"
+        },
+        "scale": {
+          "description": "An encoder's steps multiplied by this; below 1 they add up to whole steps.",
+          "format": "float",
+          "type": "number"
+        },
+        "set": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/FaderSet"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "A key putting a fader's action at a position, or at each of two in turn (lit at the\nsecond)."
+        },
+        "shift": {
+          "$ref": "#/$defs/Shift",
+          "description": "Drives its action while the controller's shift is held (its second layer), or a\nnamed shift."
+        },
+        "step": {
+          "description": "How far a step of an encoder moves a fader's action, a share of its travel.",
+          "format": "float",
+          "type": [
+            "number",
+            "null"
+          ]
         },
         "target": {
           "$ref": "#/$defs/Target"
@@ -329,6 +579,16 @@
         "control": {
           "$ref": "#/$defs/Control"
         },
+        "palette": {
+          "additionalProperties": {
+            "format": "uint8",
+            "maximum": 255,
+            "minimum": 0,
+            "type": "integer"
+          },
+          "description": "Its values by the colour of its action, the nearest colour's (see the controls').",
+          "type": "object"
+        },
         "target": {
           "$ref": "#/$defs/Target"
         },
@@ -349,6 +609,17 @@
         "control"
       ],
       "type": "object"
+    },
+    "Shift": {
+      "anyOf": [
+        {
+          "type": "boolean"
+        },
+        {
+          "type": "string"
+        }
+      ],
+      "description": "The layer of a control: the first, the second while any shift is held (`true`), or a named\nshift's while that one is held (`\"left\"`)."
     },
     "Target": {
       "anyOf": [
@@ -1152,15 +1423,9 @@
       "type": "string"
     },
     "init": {
-      "description": "Sent when the controller is opened (a request for its knobs' positions, say).",
+      "description": "Sent when the controller is opened (a request for its knobs' positions, say), some a\nwhile after.",
       "items": {
-        "items": {
-          "format": "uint8",
-          "maximum": 255,
-          "minimum": 0,
-          "type": "integer"
-        },
-        "type": "array"
+        "$ref": "#/$defs/InitMessage"
       },
       "type": "array"
     },
@@ -1202,6 +1467,13 @@
     "name": {
       "description": "The model, as the settings show it.",
       "type": "string"
+    },
+    "outputs": {
+      "description": "Values shown on the controller: a ring around a jog wheel, a knob's ring of lights.",
+      "items": {
+        "$ref": "#/$defs/Output"
+      },
+      "type": "array"
     },
     "ports": {
       "description": "The controller is the MIDI port whose name holds one of these (case aside); of\nseveral models, the one whose name is the longest (a DDJ-SB2 is no DDJ-SB).",
