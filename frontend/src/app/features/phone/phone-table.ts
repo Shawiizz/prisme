@@ -1,5 +1,5 @@
 import { NgTemplateOutlet } from '@angular/common';
-import { Component, computed, inject, linkedSignal, output, signal } from '@angular/core';
+import { Component, computed, inject, linkedSignal, output } from '@angular/core';
 import { closedByBack } from '../../core/back';
 import { landscape } from '../../core/orientation';
 import { EngineService } from '../../core/services/engine.service';
@@ -63,8 +63,15 @@ export class PhoneTable {
   /** Upright with four decks: the ends of the crossfader choose the deck of each side. */
   protected readonly choosing = computed(() => !this.wide() && this.lefts().length > 1);
   protected readonly letter = deckLetter;
-  /** What floats over the table. */
-  protected readonly floating = signal<Floating | null>(null);
+  /** What floats over the table. Held sideways, the pads are down the sides already and the
+   * pitch has no key: only the stems stay open. */
+  protected readonly floating = linkedSignal<boolean, Floating | null>({
+    source: this.wide,
+    computation: (wide, previous) => {
+      const open = previous?.value ?? null;
+      return wide && open?.kind !== 'stems' ? null : open;
+    },
+  });
   protected readonly floatingDeck = computed(() => {
     const floating = this.floating();
     return floating && this.deckOf(floating.side);
