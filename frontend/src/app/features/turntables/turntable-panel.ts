@@ -66,13 +66,8 @@ export class TurntablePanel {
     const destroyRef = inject(DestroyRef);
     afterNextRender(() => {
       const ctx = this.canvas().nativeElement.getContext('2d');
-      const style = getComputedStyle(document.documentElement);
-      const colors = {
-        dots: style.getPropertyValue('--pr-light').trim(),
-        guides: style.getPropertyValue('--pr-line-2').trim(),
-      };
       const channel = new Channel<[number, number][]>();
-      channel.onmessage = (points) => ctx && this.painter.draw(ctx, points, SCOPE_SIZE, colors);
+      channel.onmessage = (points) => ctx && this.painter.draw(ctx, points, SCOPE_SIZE);
       invoke('subscribe_scope', { deck: this.deck(), channel }).catch((e) =>
         this.engine.error.set(String(e)),
       );

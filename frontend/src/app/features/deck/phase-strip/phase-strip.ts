@@ -1,12 +1,4 @@
-import {
-  Component,
-  DestroyRef,
-  ElementRef,
-  afterNextRender,
-  computed,
-  inject,
-  viewChild,
-} from '@angular/core';
+import { Component, DestroyRef, ElementRef, computed, inject, viewChild } from '@angular/core';
 import { EngineService } from '../../../core/services/engine.service';
 import { MixerService } from '../../../core/services/mixer.service';
 import { driftTime, phaseOffset } from '../../../core/sync';
@@ -14,6 +6,8 @@ import { t } from '../../../core/i18n/i18n';
 import { TPipe } from '../../../core/i18n/t.pipe';
 import { ZOOM_SPAN_S } from '../deck-waveform/deck-waveform';
 import { fitToDevicePixels, forgetCanvas } from '../../../shared/device-pixels';
+import { Showing, everyFrame } from '../../../shared/frames';
+import { palette } from '../../../shared/palette';
 import { deckLetter } from '../../../shared/time';
 import { Crossfader } from '../../mixer/crossfader/crossfader';
 
@@ -26,8 +20,8 @@ const FORECAST_S = 60;
 
 /**
  * Between the first two decks: the beats of one deck at the top and of the other at the
- * bottom, around their playheads and at the scale of the waveforms. Matched, they meet. The software mixer has
- * its crossfader there, between its two channels.
+ * bottom, around their playheads and at the scale of the waveforms. Matched, they meet.
+ * The software mixer has its crossfader there, between its two channels.
  */
 @Component({
   selector: 'app-phase-strip',
@@ -39,15 +33,8 @@ export class PhaseStrip {
   private readonly engine = inject(EngineService);
   protected readonly mixer = inject(MixerService);
   private readonly lane = viewChild.required<ElementRef<HTMLCanvasElement>>('lane');
-  private readonly style = getComputedStyle(document.documentElement);
-  private readonly colors = {
-    light: this.token('--pr-light'),
-    beat: this.token('--pr-text-2'),
-    line: this.token('--pr-line'),
-  };
-  private frame = 0;
-  /** What the last frame showed: a frame showing the same is not drawn again. */
-  private shown: unknown[] = [];
+  private readonly palette = palette();
+  private readonly showing = new Showing();
 
   /** The two decks compared: with four decks, the first two that play; else A and B. */
   protected readonly pair = computed<[number, number]>(() => {
@@ -87,18 +74,8 @@ export class PhaseStrip {
   });
 
   constructor() {
-    const destroyRef = inject(DestroyRef);
-    afterNextRender(() => {
-      const loop = () => {
-        this.draw();
-        this.frame = requestAnimationFrame(loop);
-      };
-      this.frame = requestAnimationFrame(loop);
-    });
-    destroyRef.onDestroy(() => {
-      cancelAnimationFrame(this.frame);
-      forgetCanvas(this.lane().nativeElement);
-    });
+    everyFrame(() => this.draw());
+    inject(DestroyRef).onDestroy(() => forgetCanvas(this.lane().nativeElement));
   }
 
   private draw() {
@@ -106,10 +83,10 @@ export class PhaseStrip {
     const ratio = window.devicePixelRatio || 1;
     const { width, height } = fitToDevicePixels(canvas);
     const [first, second] = this.pair();
-    const showing = [width, height, ...[first, second].flatMap((deck) => this.shownOf(deck))];
-    if (showing.length === this.shown.length && showing.every((v, i) => v === this.shown[i]))
-      return;
-    this.shown = showing;
+    this.showing.start().with(width).with(height);
+    this.show(first);
+    this.show(second);
+    if (!this.showing.isNew()) return;
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
     ctx.clearRect(0, 0, width, height);
@@ -117,19 +94,18 @@ export class PhaseStrip {
     const gap = 3 * ratio;
     this.drawBeats(ctx, first, width, gap, mid - ratio, ratio);
     this.drawBeats(ctx, second, width, mid + ratio, height - gap, ratio);
-    ctx.fillStyle = this.colors.line;
+    ctx.fillStyle = this.palette.line;
     ctx.fillRect(0, mid, width, ratio);
-    ctx.fillStyle = this.colors.light;
+    ctx.fillStyle = this.palette.light;
     ctx.fillRect(Math.round(width / 2) - ratio, 0, 2 * ratio, height);
   }
 
   /** What the beats of `deck` are drawn from. */
-  private shownOf(deck: number): unknown[] {
-    return [
-      this.engine.tracks()[deck]?.tempo,
-      this.engine.livePosition(deck),
-      this.engine.tempoRate(deck),
-    ];
+  private show(deck: number) {
+    this.showing
+      .with(this.engine.tracks()[deck]?.tempo)
+      .with(this.engine.livePosition(deck))
+      .with(this.engine.tempoRate(deck));
   }
 
   /** The beats of `deck` around its playhead, between `top` and `bottom`. */
@@ -151,12 +127,8 @@ export class PhaseStrip {
     const last = Math.floor((from + span - tempo.firstBeatS) / period);
     for (let n = first; n <= last; n++) {
       const x = Math.round(((tempo.firstBeatS + n * period - from) / span) * width);
-      ctx.fillStyle = n % 4 === 0 ? this.colors.light : this.colors.beat;
+      ctx.fillStyle = n % 4 === 0 ? this.palette.light : this.palette.text2;
       ctx.fillRect(x, top, ratio, bottom - top);
     }
-  }
-
-  private token(name: string): string {
-    return this.style.getPropertyValue(name).trim();
   }
 }

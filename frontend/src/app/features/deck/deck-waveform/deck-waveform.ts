@@ -2,7 +2,6 @@ import {
   Component,
   DestroyRef,
   ElementRef,
-  afterNextRender,
   booleanAttribute,
   computed,
   effect,
@@ -15,6 +14,7 @@ import { invoke } from '@tauri-apps/api/core';
 import { StemsService } from '../../../core/services/stems.service';
 import { t } from '../../../core/i18n/i18n';
 import { fitToDevicePixels, forgetCanvas } from '../../../shared/device-pixels';
+import { Showing, everyFrame } from '../../../shared/frames';
 import { EngineService } from '../../../core/services/engine.service';
 import { WaveformOverlay, WaveformPainter } from './waveform-painter';
 import { TPipe } from '../../../core/i18n/t.pipe';
@@ -89,25 +89,14 @@ export class DeckWaveform {
       ? t('Vocals, drums, bass and melody along the track')
       : t('Vocals and instrumental along the track'),
   );
-  private frame = 0;
   private drag: Drag | null = null;
-  /** On a phone, until the finger has been still long enough to hold the record. */
+  /** A finger, until it has been still long enough to hold the record. */
   private holding: ReturnType<typeof setTimeout> | null = null;
-  /** What the last frame showed: a frame showing the same is not drawn again (a deck at
-   * rest costs nothing). */
-  private shown: unknown[] = [];
+  private readonly showing = new Showing();
 
   constructor() {
-    const destroyRef = inject(DestroyRef);
-    afterNextRender(() => {
-      const loop = () => {
-        this.draw();
-        this.frame = requestAnimationFrame(loop);
-      };
-      this.frame = requestAnimationFrame(loop);
-    });
-    destroyRef.onDestroy(() => {
-      cancelAnimationFrame(this.frame);
+    everyFrame(() => this.draw());
+    inject(DestroyRef).onDestroy(() => {
       forgetCanvas(this.zoomCanvas().nativeElement);
       forgetCanvas(this.overviewCanvas().nativeElement);
     });
@@ -279,34 +268,32 @@ export class DeckWaveform {
     if (!track) {
       zoom.ctx.clearRect(0, 0, zoom.size.width, zoom.size.height);
       overview.ctx.clearRect(0, 0, overview.size.width, overview.size.height);
-      this.shown = [];
+      this.showing.forget();
       return;
     }
     const position = this.engine.livePosition(this.deck()) ?? 0;
     const loop = this.engine.status()?.decks[this.deck()]?.looping ?? null;
-    const overlay: WaveformOverlay = { tempo: track.tempo, cues: track.cues, loop };
     const span = this.zoomSpan();
     const waveform = this.engine.waveforms()[this.deck()];
-    const showing = [
-      track,
-      waveform,
-      position,
-      span,
-      loop?.active,
-      loop?.loopInS,
-      loop?.startS,
-      loop?.endS,
-      zoom.size.width,
-      zoom.size.height,
-      overview.size.width,
-      overview.size.height,
-      activity,
-      lanes?.size.width,
-      lanes?.size.height,
-    ];
-    if (showing.length === this.shown.length && showing.every((v, i) => v === this.shown[i]))
-      return;
-    this.shown = showing;
+    this.showing
+      .start()
+      .with(track)
+      .with(waveform)
+      .with(position)
+      .with(span)
+      .with(loop?.active)
+      .with(loop?.loopInS)
+      .with(loop?.startS)
+      .with(loop?.endS)
+      .with(zoom.size.width)
+      .with(zoom.size.height)
+      .with(overview.size.width)
+      .with(overview.size.height)
+      .with(activity)
+      .with(lanes?.size.width)
+      .with(lanes?.size.height);
+    if (!this.showing.isNew()) return;
+    const overlay: WaveformOverlay = { tempo: track.tempo, cues: track.cues, loop };
     this.painter.drawZoomed(zoom.ctx, waveform, overlay, position, span, ZOOM_SPAN_S, zoom.size);
     this.painter.drawOverview(
       overview.ctx,
