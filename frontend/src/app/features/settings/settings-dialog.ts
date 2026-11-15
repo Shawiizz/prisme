@@ -133,7 +133,17 @@ export class SettingsDialog implements OnInit {
   protected readonly inputs = computed(() =>
     this.service.devices().filter((d) => d.kind === 'input'),
   );
-  protected readonly asio = computed(() => this.draft()?.backend === 'asio');
+  /** One device for the outputs and, if the turntables are on it, the inputs: an ASIO driver,
+   * a USB card Prisme drives itself. */
+  protected readonly oneDevice = computed(() =>
+    ['asio', 'usb'].includes(this.draft()?.backend ?? ''),
+  );
+  protected readonly driverLabel = computed(() =>
+    this.draft()?.backend === 'usb' ? t('USB sound card') : t('ASIO driver'),
+  );
+  protected readonly firstDriverLabel = computed(() =>
+    this.draft()?.backend === 'usb' ? t('The first plugged in') : t('Default driver'),
+  );
   /** Buffer sizes the chosen output's driver accepts. */
   protected readonly bufferSizes = computed(() => {
     const d = this.draft();
@@ -299,14 +309,15 @@ export class SettingsDialog implements OnInit {
     await this.service.loadDevices(backend);
   }
 
-  /** ASIO: one driver for the outputs and, if the turntables are on it, the inputs. */
+  /** One device (`oneDevice`) for the outputs and, if the turntables are on it, the inputs. */
   setDriver(name: string | null) {
     const d = this.draft();
     this.update({ outputDevice: name, inputDevice: d?.inputDevice ? name : null });
   }
 
   setTurntablesOnDriver(enabled: boolean) {
-    this.update({ inputDevice: enabled ? (this.draft()?.outputDevice ?? null) : null });
+    const device = this.draft()?.outputDevice ?? this.outputs()[0]?.name ?? null;
+    this.update({ inputDevice: enabled ? device : null });
   }
 
   /** Restarts the audio if its settings changed. */

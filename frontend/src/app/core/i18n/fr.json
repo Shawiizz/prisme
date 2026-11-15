@@ -266,6 +266,8 @@
   "Driver type": "Type de pilote",
   "ASIO driver": "Pilote ASIO",
   "Default driver": "Pilote par défaut",
+  "USB sound card": "Carte son USB",
+  "The first plugged in": "La première branchée",
   "{n} out": "{n} sorties",
   "Output": "Sortie",
   "Default device": "Périphérique par défaut",

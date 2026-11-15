@@ -110,21 +110,24 @@
                     [class.is-pointed]="pointed() === e.id"
                   >
                     <div>
-                      <span class="pr-row__name">{{ asio() ? ('ASIO driver' | t) : e.label }}</span>
+                      <span class="pr-row__name">{{ oneDevice() ? driverLabel() : e.label }}</span>
                       <span class="pr-row__help">{{ e.description }}</span>
                     </div>
-                    @if (asio()) {
+                    @if (oneDevice()) {
                       <select
                         class="pr-select"
                         [value]="d.outputDevice ?? ''"
                         (change)="setDriver(orNull($any($event.target).value))"
-                        [attr.aria-label]="'ASIO driver' | t"
+                        [attr.aria-label]="driverLabel()"
                       >
-                        <option value="">{{ 'Default driver' | t }}</option>
+                        <option value="">{{ firstDriverLabel() }}</option>
                         @for (o of outputs(); track o.name) {
                           <option [value]="o.name" [selected]="o.name === d.outputDevice">
-                            {{ o.name }} · {{ '{n} out' | t: { n: o.channels } }} ·
-                            {{ o.sampleRate }} Hz
+                            {{ o.name }}
+                            @if (o.channels) {
+                              · {{ '{n} out' | t: { n: o.channels } }}
+                            }
+                            · {{ o.sampleRate }} Hz
                           </option>
                         }
                       </select>
@@ -202,11 +205,13 @@
                   >
                     <div>
                       <span class="pr-row__name">{{
-                        asio() ? ('Turntables plugged into the inputs of this driver' | t) : e.label
+                        oneDevice()
+                          ? ('Turntables plugged into the inputs of this driver' | t)
+                          : e.label
                       }}</span>
                       <span class="pr-row__help">{{ e.description }}</span>
                     </div>
-                    @if (asio()) {
+                    @if (oneDevice()) {
                       <button
                         class="pr-switch"
                         role="switch"
