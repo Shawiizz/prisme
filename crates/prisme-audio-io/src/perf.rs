@@ -11,6 +11,12 @@ pub(crate) struct PerformanceHint {
 }
 
 impl PerformanceHint {
+    /// Looks the system's functions up, away from the audio thread that makes its session.
+    pub(crate) fn prepare() {
+        #[cfg(target_os = "android")]
+        android::api();
+    }
+
     /// A session for the calling thread, whose periods last `budget`; `None` where the system
     /// has none.
     pub(crate) fn for_this_thread(budget: Duration) -> Option<Self> {
@@ -44,7 +50,7 @@ mod android {
     type Report = unsafe extern "C" fn(*mut c_void, i64) -> c_int;
     type Close = unsafe extern "C" fn(*mut c_void);
 
-    struct Api {
+    pub(super) struct Api {
         get_manager: GetManager,
         create_session: CreateSession,
         report: Report,
@@ -53,7 +59,7 @@ mod android {
 
     /// The functions of `libandroid`, looked up rather than linked: they came with Android 13,
     /// and Prisme runs from Android 10.
-    fn api() -> Option<&'static Api> {
+    pub(super) fn api() -> Option<&'static Api> {
         static API: OnceLock<Option<Api>> = OnceLock::new();
         API.get_or_init(|| {
             // SAFETY: a library of the system, opened by name; the symbols, when there, have

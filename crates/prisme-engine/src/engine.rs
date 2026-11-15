@@ -251,7 +251,9 @@ impl Engine {
             SetStemMix { deck, mix, on_bar } if valid(deck) => self.decks[deck].set_stem_mix(mix, on_bar),
             SetPlaying { deck, playing } if valid(deck) => self.decks[deck].playing = playing,
             SetPitch { deck, ratio } if valid(deck) && ratio.is_finite() => self.decks[deck].pitch = ratio,
-            SetPitchBend { deck, amount } if valid(deck) => self.decks[deck].bend = amount,
+            SetPitchBend { deck, amount } if valid(deck) && amount.is_finite() => {
+                self.decks[deck].bend = amount
+            }
             Seek { deck, seconds } if valid(deck) && seconds.is_finite() => {
                 self.decks[deck].playhead.seek_s(seconds)
             }
@@ -259,9 +261,17 @@ impl Engine {
                 let place = self.decks[from].place();
                 self.decks[deck].take_place(place);
             }
-            Hand { deck, position_s, at_s } if valid(deck) => self.decks[deck].hand(position_s, at_s),
-            JogTouch { deck, touched, at_s } if valid(deck) => self.decks[deck].jog_touch(touched, at_s),
-            Jog { deck, turns, at_s } if valid(deck) => self.decks[deck].jog_turn(turns, at_s),
+            Hand { deck, position_s, at_s }
+                if valid(deck) && position_s.is_none_or(f64::is_finite) && at_s.is_finite() =>
+            {
+                self.decks[deck].hand(position_s, at_s)
+            }
+            JogTouch { deck, touched, at_s } if valid(deck) && at_s.is_finite() => {
+                self.decks[deck].jog_touch(touched, at_s)
+            }
+            Jog { deck, turns, at_s } if valid(deck) && turns.is_finite() && at_s.is_finite() => {
+                self.decks[deck].jog_turn(turns, at_s)
+            }
             Jump { deck, seconds } if valid(deck) && seconds.is_finite() => {
                 self.decks[deck].jump(seconds, self.quantize)
             }
@@ -278,6 +288,8 @@ impl Engine {
             SetSlip { deck, enabled } if valid(deck) => self.decks[deck].set_slip(enabled),
             Censor { deck, active } if valid(deck) => self.decks[deck].censor(active),
             SetVinylEnabled { deck, enabled } if valid(deck) => {
+                // a jog held meanwhile is let go: its release would no longer reach the deck
+                self.decks[deck].jog_touch(false, 0.0);
                 self.decks[deck].vinyl.enabled = enabled;
                 self.decks[deck].vinyl.take_back();
                 self.decks[deck].sync.reset();

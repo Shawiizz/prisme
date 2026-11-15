@@ -89,9 +89,8 @@ mod running {
     use crate::{AudioCallback, AudioError};
     use std::sync::Arc;
 
-    /// Transfers of a millisecond kept in flight each way when no period is asked for. A phone
-    /// separating stems kept the callback below 0.9 ms with the performance hints (up to 3.1
-    /// without): a UMC404HD then measures 6.1 to 6.8 ms of round trip, 5.2 to 5.5 with two.
+    /// Transfers of a millisecond kept in flight each way when no period is asked for: a phone
+    /// separating stems renders in under one, the third leaves room for its scheduling.
     const DEFAULT_URBS: usize = 3;
 
     /// A card streaming; dropping it stops it and gives the card back to the system.
@@ -132,8 +131,9 @@ mod running {
         let capture = card.capture.filter(|_| settings.input_device.is_some());
 
         let frames_per_ms = SAMPLE_RATE as usize / 1000;
-        let urbs =
-            settings.buffer_frames.map_or(DEFAULT_URBS, |f| (f as usize).div_ceil(frames_per_ms).clamp(2, 8));
+        let urbs = settings
+            .buffer_frames
+            .map_or(DEFAULT_URBS, |f| (f as usize).div_ceil(frames_per_ms).clamp(2, MAX_URBS));
         let format = StreamFormat {
             sample_rate: SAMPLE_RATE,
             input_channels: capture.map_or(0, |c| c.channels),

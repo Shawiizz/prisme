@@ -115,8 +115,10 @@ impl Driver {
         let feedback_urbs: Vec<Urb> = playback
             .feedback
             .filter(|_| !follows_inputs)
-            .map(|endpoint| {
-                (0..FEEDBACK_URBS).map(|i| Urb::new(endpoint, 1, 4, FEEDBACK << 16 | i)).collect()
+            .map(|f| {
+                (0..FEEDBACK_URBS)
+                    .map(|i| Urb::new(f.endpoint, 1, f.max_packet, FEEDBACK << 16 | i))
+                    .collect()
             })
             .unwrap_or_default();
 
@@ -137,7 +139,8 @@ impl Driver {
             capture_urbs,
             feedback_urbs,
             pending: 0,
-            lost: false,
+            failed: false,
+            gone: false,
             started: now,
             last_played: None,
             calm_since: now,
@@ -153,6 +156,7 @@ impl Driver {
             let stop = stop.clone();
             move |mut state: Box<State<C>>| {
                 state.run(&stop);
+                drop(state);
                 let _ = done.send(());
             }
         };
@@ -248,13 +252,11 @@ struct Helper {
 #[cfg(target_os = "android")]
 unsafe impl Send for Helper {}
 
-/// Packets a second of an endpoint polled every `interval`.
+/// Packets a second of an isochronous endpoint polled every `interval`: every 2^(n-1)
+/// microframes at high speed, frames at full speed.
 fn packets_per_second(interval: u8, high_speed: bool) -> u32 {
-    if high_speed {
-        8_000 >> interval.clamp(1, 4).saturating_sub(1)
-    } else {
-        1_000 / u32::from(interval.max(1))
-    }
+    let polls: u32 = if high_speed { 8_000 } else { 1_000 };
+    polls >> (interval.clamp(1, 4) - 1)
 }
 
 /// The floats a transfer's samples take at most: an output transfer's, a captured packet's.
@@ -300,8 +302,9 @@ struct State<C> {
     feedback_urbs: Vec<Urb>,
     /// Transfers with the kernel.
     pending: usize,
-    /// The card went away.
-    lost: bool,
+    /// The stream broke down; and the card went away with it, taking its transfers along.
+    failed: bool,
+    gone: bool,
     started: Instant,
     /// When an output transfer last came back, and since when none came back late.
     last_played: Option<Instant>,
@@ -322,19 +325,19 @@ impl<C: AudioCallback> State<C> {
             for i in 0..count {
                 if let Err(e) = self.start_urb(role, i) {
                     warn!("the USB card refused a transfer: {e}");
-                    self.lost = true;
+                    self.fail(&e);
                 }
             }
         }
     }
 
-    /// Streams until `stop`, or the card gone: waits for each transfer to come back, then reaps
-    /// those back with it. Gone, the card's interfaces are back at rest.
+    /// Streams until `stop`, or a breakdown: waits for each transfer to come back, then reaps
+    /// those back with it.
     fn run(&mut self, stop: &AtomicBool) {
         if !stop.load(Ordering::Relaxed) {
             self.prime();
         }
-        while self.pending > 0 && !self.lost {
+        while self.pending > 0 && !self.failed {
             match usbfs::reap(self.fd) {
                 Ok(context) => {
                     let stop = stop.load(Ordering::Relaxed);
@@ -343,9 +346,8 @@ impl<C: AudioCallback> State<C> {
                 }
                 Err(e) if e.kind() == io::ErrorKind::Interrupted => {}
                 Err(e) => {
-                    // the device went away: the transfers with it
                     warn!("the USB card stopped answering: {e}");
-                    self.lost = true;
+                    self.fail(&e);
                 }
             }
         }
@@ -353,14 +355,20 @@ impl<C: AudioCallback> State<C> {
 
     /// Reaps the transfers back already, without waiting.
     fn drain(&mut self, stop: bool) {
-        while !self.lost {
+        while !self.failed {
             match usbfs::reap_now(self.fd) {
                 Ok(Some(context)) => self.complete(context, stop),
                 Ok(None) => break,
                 Err(e) if e.kind() == io::ErrorKind::Interrupted => {}
-                Err(_) => self.lost = true,
+                Err(e) => self.fail(&e),
             }
         }
+    }
+
+    /// The stream stops on `error`; the card is gone if it says so.
+    fn fail(&mut self, error: &io::Error) {
+        self.failed = true;
+        self.gone |= error.raw_os_error().is_some_and(|errno| is_gone(-errno));
     }
 
     /// A transfer came back: what it brought taken, it is filled again and submitted, unless
@@ -373,9 +381,10 @@ impl<C: AudioCallback> State<C> {
             self.keep_time();
         }
         if is_gone(self.urb(role, i).status()) {
-            self.lost = true;
+            self.failed = true;
+            self.gone = true;
         }
-        if self.lost || stop {
+        if self.failed || stop {
             return;
         }
         // a transfer above those held now is not submitted again
@@ -391,8 +400,10 @@ impl<C: AudioCallback> State<C> {
             _ if retired => {}
             _ => self.fill(i),
         }
-        if !retired && self.submit(role, i).is_err() {
-            self.lost = true;
+        if !retired {
+            if let Err(e) = self.submit(role, i) {
+                self.fail(&e);
+            }
         }
     }
 
@@ -434,8 +445,10 @@ impl<C: AudioCallback> State<C> {
         let capture = self.capture.is_some();
         // one retired not back yet is held again as it comes back
         for (role, used) in [(PLAYBACK, true), (CAPTURE, capture)] {
-            if used && !self.urb(role, i).in_flight && self.start_urb(role, i).is_err() {
-                self.lost = true;
+            if used && !self.urb(role, i).in_flight {
+                if let Err(e) = self.start_urb(role, i) {
+                    self.fail(&e);
+                }
             }
         }
     }
@@ -506,11 +519,13 @@ impl<C: AudioCallback> State<C> {
 }
 
 impl<C> Drop for State<C> {
-    /// The transfers the kernel still holds taken back before they go, the card's interfaces
-    /// back at rest, and the card told gone if it is.
+    /// The stream told lost if it broke down; unless the card is gone, the transfers the kernel
+    /// still holds taken back before they go, and the card's interfaces back at rest.
     fn drop(&mut self) {
-        if self.lost {
+        if self.failed {
             self.stats.device_lost.store(true, Ordering::Relaxed);
+        }
+        if self.gone {
             return;
         }
         for list in [&mut self.playback_urbs, &mut self.capture_urbs, &mut self.feedback_urbs] {
@@ -571,9 +586,10 @@ mod tests {
     }
 
     #[test]
-    fn high_speed_endpoints_poll_by_microframes() {
+    fn endpoints_poll_by_microframes_or_frames() {
         assert_eq!(packets_per_second(1, true), 8_000);
         assert_eq!(packets_per_second(4, true), 1_000);
         assert_eq!(packets_per_second(1, false), 1_000);
+        assert_eq!(packets_per_second(2, false), 500);
     }
 }

@@ -261,6 +261,7 @@ impl<C: AudioCallback> Renderer<C> {
         format: StreamFormat,
         stats: Arc<StreamStats>,
     ) -> Self {
+        PerformanceHint::prepare();
         Self {
             callback,
             ring: ring.map(|ring| InputRing { ring, cushion: 0, slack: None, primed: true }),

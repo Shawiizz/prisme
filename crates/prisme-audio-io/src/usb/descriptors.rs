@@ -38,12 +38,20 @@ pub(crate) struct Stream {
     pub endpoint: u8,
     /// Bytes a packet holds at most.
     pub max_packet: usize,
-    /// `bInterval`: a packet every 2^(n-1) microframes at high speed, every n frames at full.
+    /// `bInterval`: a packet every 2^(n-1) microframes at high speed, frames at full speed.
     pub interval: u8,
     /// The endpoint the card tells through how many frames it wants (an asynchronous output).
-    pub feedback: Option<u8>,
+    pub feedback: Option<Feedback>,
     /// The clock source that paces it.
     pub clock: u8,
+}
+
+/// An output's feedback endpoint.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct Feedback {
+    pub endpoint: u8,
+    /// Bytes its packet holds: 3 at full speed, 4 at high speed.
+    pub max_packet: usize,
 }
 
 impl Stream {
@@ -211,7 +219,7 @@ struct Partial {
     endpoint: Option<u8>,
     max_packet: usize,
     interval: u8,
-    feedback: Option<u8>,
+    feedback: Option<Feedback>,
 }
 
 impl Partial {
@@ -241,7 +249,10 @@ impl Partial {
                 self.max_packet = (size & 0x7ff) * (1 + ((size >> 11) & 0b11));
                 self.interval = d[6];
             }
-            1 if isochronous => self.feedback = Some(address),
+            1 if isochronous => {
+                let max_packet = (u16::from_le_bytes([d[4], d[5]]) & 0x7ff) as usize;
+                self.feedback = Some(Feedback { endpoint: address, max_packet });
+            }
             _ => {}
         }
     }
@@ -274,7 +285,7 @@ mod tests {
                 endpoint: 0x01,
                 max_packet: 400,
                 interval: 1,
-                feedback: Some(0x81),
+                feedback: Some(Feedback { endpoint: 0x81, max_packet: 4 }),
                 clock: 0x29,
             }
         );
