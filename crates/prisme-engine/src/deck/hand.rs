@@ -43,6 +43,15 @@ impl Hand {
         Self { path: [Point::default(); KEPT], newest: 0, len: 0, clock_s: 0.0, offset_s: None }
     }
 
+    /// The hand in `hand` at `position_s` at `at_s` on its clock, put on the track if it was
+    /// not; or taken off it (`None`).
+    pub(crate) fn put(hand: &mut Option<Hand>, position_s: Option<f64>, at_s: f64) {
+        match position_s {
+            Some(p) => hand.get_or_insert_with(Hand::new).move_to(p, at_s),
+            None => *hand = None,
+        }
+    }
+
     /// The hand was at `position_s` at `at_s` on the pointer's clock.
     pub(crate) fn move_to(&mut self, position_s: f64, at_s: f64) {
         // the earliest a point arrives sets how the clocks line up

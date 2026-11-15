@@ -73,6 +73,8 @@ pub(crate) struct Deck {
     speed: f64,
     /// The track dragged on the screen: it drives the deck while there.
     hand: Option<Hand>,
+    /// The track held by the jog wheel: it drives the deck while there, unless the screen does.
+    jog_hand: Option<Hand>,
     jog: Jog,
     /// Gain of the track, following its motion.
     motion: Smoothed,
@@ -105,6 +107,7 @@ impl Deck {
             correction: 0.0,
             speed: 0.0,
             hand: None,
+            jog_hand: None,
             jog: Jog::default(),
             motion: Smoothed::new(0.0, MOTION_FADE_S, sample_rate as f32),
             level: Smoothed::new(1.0, LEVEL_GLIDE_S, sample_rate as f32),
@@ -156,7 +159,10 @@ impl Deck {
         let seconds = (out.len() / 2) as f64 / out_rate;
         let by_hand = self.drive_mode() != DriveMode::Absolute;
         let playhead_s = self.playhead.position_s();
-        let speed = match self.hand.as_mut().filter(|_| by_hand).map(|h| h.step(playhead_s, seconds)) {
+        // both hands keep their clocks going, the screen's leading
+        let [screen, jog] = [&mut self.hand, &mut self.jog_hand]
+            .map(|hand| hand.as_mut().filter(|_| by_hand).map(|h| h.step(playhead_s, seconds)));
+        let speed = match screen.or(jog) {
             Some(Step::Play(speed)) => speed,
             Some(Step::Jump(to)) => {
                 self.playhead.seek_s(to);
@@ -190,10 +196,7 @@ impl Deck {
     /// it (`None`) and play goes on as before. A record in absolute mode keeps the track
     /// where it is.
     pub(crate) fn hand(&mut self, position_s: Option<f64>, at_s: f64) {
-        match position_s {
-            Some(p) => self.hand.get_or_insert_with(Hand::new).move_to(p, at_s),
-            None => self.hand = None,
-        }
+        Hand::put(&mut self.hand, position_s, at_s);
     }
 
     /// The jog wheel touched (at `at_s` on the controller's clock) or let go. A record in
@@ -204,7 +207,7 @@ impl Deck {
         }
         let position = touched.then(|| self.playhead.position_s());
         self.jog.touch(position);
-        self.hand(position, at_s);
+        Hand::put(&mut self.jog_hand, position, at_s);
     }
 
     /// The jog wheel turned by `turns` (positive forwards) at `at_s`.
@@ -213,7 +216,7 @@ impl Deck {
             return;
         }
         match self.jog.turn(turns, self.playing) {
-            Turn::Hand(position_s) => self.hand(Some(position_s), at_s),
+            Turn::Hand(position_s) => Hand::put(&mut self.jog_hand, Some(position_s), at_s),
             Turn::Move(seconds) => {
                 let position = (self.playhead.position_s() + seconds).clamp(0.0, self.playhead.duration_s());
                 self.playhead.seek_s(position);

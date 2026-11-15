@@ -55,6 +55,7 @@ impl Deck {
         self.playhead.set_loop(None);
         self.jog = Default::default();
         self.hand = None;
+        self.jog_hand = None;
         self.bar_mix.reset();
     }
 
