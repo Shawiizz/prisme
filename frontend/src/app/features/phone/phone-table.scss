@@ -13,7 +13,7 @@
 }
 .decks {
   flex: none;
-  --phone-wave: 110px;
+  --phone-wave: clamp(110px, 12dvh, 180px);
   --phone-overview: 20px;
   --lane: 5px;
   app-phone-deck {
@@ -35,9 +35,10 @@
   }
 }
 
-// the channels, and what floats over them
+// the channels, and what floats over them; a channel lays itself out for the height left
 .stage {
   position: relative;
+  container: stage / size;
   flex: 1;
   min-height: 0;
   display: grid;
@@ -62,7 +63,8 @@ app-phone-stems.float {
   top: auto;
   bottom: 8px;
   right: auto;
-  width: min(220px, calc(100% - 16px));
+  width: clamp(220px, 30%, 320px);
+  max-width: calc(100% - 16px);
   &.b {
     left: auto;
     right: 8px;
@@ -122,7 +124,7 @@ app-phone-stems.float {
   padding: 0;
 }
 
-// held sideways: each deck's pads and keys down its side, the table between them
+// wider than tall: each deck's pads and keys down its side, the table between them
 @media (orientation: landscape) {
   :host {
     flex-direction: row;
@@ -131,18 +133,15 @@ app-phone-stems.float {
     border-inline: 1px solid var(--pr-line);
   }
   .decks {
-    --phone-wave: 60px;
-    --phone-overview: 14px;
-  }
-  .stage {
-    background: var(--pr-base);
+    --phone-wave: clamp(60px, 14dvh, 140px);
+    --phone-overview: clamp(14px, 3dvh, 24px);
   }
   .cross {
     padding: 2px 10px 6px;
   }
   .wing {
     flex: none;
-    width: 156px;
+    width: clamp(156px, 17vw, 240px);
     display: flex;
     flex-direction: column;
     justify-content: space-between;

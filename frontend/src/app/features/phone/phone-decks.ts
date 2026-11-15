@@ -1,6 +1,6 @@
 import { Component, booleanAttribute, inject, input, signal } from '@angular/core';
 import { closedByBack } from '../../core/back';
-import { landscape } from '../../core/orientation';
+import { short } from '../../core/orientation';
 import { EngineService } from '../../core/services/engine.service';
 import { PhaseStrip } from '../deck/phase-strip/phase-strip';
 import { PhoneDeck } from './phone-deck';
@@ -21,7 +21,7 @@ import { PhoneTable } from './phone-table';
     } @else {
       <section class="decks" animate.enter="pr-fade-in">
         @for (deck of decks(); track deck) {
-          <app-phone-deck [deck]="deck" [compact]="wide()" (opened)="panel.set({ deck })" />
+          <app-phone-deck [deck]="deck" [compact]="low()" (opened)="panel.set({ deck })" />
           @if (deck === 0) {
             <app-phase-strip />
           }
@@ -41,7 +41,8 @@ export class PhoneDecks {
   readonly touch = input(false, { transform: booleanAttribute });
 
   protected readonly decks = inject(EngineService).deckIndexes;
-  protected readonly wide = landscape();
+  /** The screen leaves each deck a line over its waveform. */
+  protected readonly low = short();
   /** The deck whose panel is open. */
   protected readonly panel = signal<{ deck: number } | null>(null);
 

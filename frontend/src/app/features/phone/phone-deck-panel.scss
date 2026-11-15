@@ -99,18 +99,15 @@ app-phone-tempo {
     color: var(--pr-text-3);
   }
   app-fader {
-    height: 124px;
+    height: clamp(84px, 20dvh, 124px);
   }
 }
 
-// held sideways: the faders are shorter, the panel keeps to the height
+// wider than tall: the panel keeps to the middle
 @media (orientation: landscape) {
   .panel {
     left: 12%;
     right: 12%;
     border-inline: 1px solid var(--pr-line-2);
-  }
-  .faders app-fader {
-    height: 84px;
   }
 }

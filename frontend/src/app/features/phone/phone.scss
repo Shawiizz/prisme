@@ -94,7 +94,7 @@ svg {
   }
 }
 
-// held sideways: the height goes to the screen, the tabs join the bar
+// wider than tall: the height goes to the screen, the tabs join the bar
 @media (orientation: landscape) {
   :host {
     grid-template-columns: minmax(0, 1fr) auto;

@@ -27,10 +27,10 @@ function sideDeck(decks: () => number[]) {
 }
 
 /**
- * A phone nothing is plugged into, played as a table: the waveforms of both sides, a
- * channel each, the crossfader, and under each thumb the keys of its deck. Its pads and its
- * pitch and its stems float over the table when asked for. Held sideways, the pads and the keys of each
- * deck go down its side of the screen.
+ * A phone or a tablet nothing is plugged into, played as a table: the waveforms of both sides,
+ * a channel each, the crossfader, and under each thumb the keys of its deck. Its pads and its
+ * pitch and its stems float over the table when asked for. Wider than tall, the pads and the
+ * keys of each deck go down its side of the screen.
  */
 @Component({
   selector: 'app-phone-table',

@@ -75,8 +75,8 @@ app-fader {
   }
 }
 
-// held sideways: the knobs, the headphones and the fader side by side
-@media (orientation: landscape) {
+// a table too low to stack them: the knobs, the headphones and the fader side by side
+@container stage (max-height: 200px) {
   :host {
     grid-template-rows: none;
     grid-template-areas: 'knobs cue strip';
