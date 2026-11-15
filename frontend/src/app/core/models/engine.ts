@@ -1,5 +1,6 @@
 /** Shapes exchanged with the Rust side (see apps/prisme-desktop/src/dto.rs). */
 
+import { StemPart } from '../stem-parts';
 import { Separation, StemMix } from './stems';
 
 export type SignalState = 'none' | 'bounce' | 'ok';
@@ -246,6 +247,8 @@ export interface FxSettings {
   amount: number;
   /** The effect's period in beats. */
   beats: number;
+  /** The part of the track it is on, where separated; `null`: the whole deck. */
+  part: StemPart | null;
 }
 
 export const DEFAULT_FX: FxSettings = {
@@ -254,6 +257,7 @@ export const DEFAULT_FX: FxSettings = {
   mix: 0.5,
   amount: 0.5,
   beats: 1,
+  part: null,
 };
 /** Shortest and longest effect period, in beats. */
 export const FX_BEATS = { min: 1 / 8, max: 8 };

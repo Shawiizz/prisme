@@ -41,6 +41,10 @@
   display: flex;
   align-items: center;
   gap: 4px;
+  // where the effect is: the deck, or one part of the track
+  .part {
+    min-width: 48px;
+  }
   .pr-btn {
     padding: 0 8px;
     font: 600 11px / 1 var(--pr-font);

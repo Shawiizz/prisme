@@ -4,8 +4,8 @@
 
 use crate::audio_host::{deck_pair, layer_partner, AudioSession};
 use crate::dto::{
-    AudioInfo, BackendDto, BandDto, ChannelStripDto, CueDto, FxDto, HeadphonesOutputDto, KeyDto, MixModeDto,
-    RpmDto, SeparationDto, StemMixDto, TempoDto, TrackInfoDto, VinylModeDto,
+    AudioInfo, BackendDto, BandDto, ChannelStripDto, CueDto, FxDto, FxPartDto, HeadphonesOutputDto, KeyDto,
+    MixModeDto, RpmDto, SeparationDto, StemMixDto, TempoDto, TrackInfoDto, VinylModeDto,
 };
 use crate::error::{AppError, AppResult};
 use crate::folders;
@@ -477,6 +477,7 @@ pub fn deck_commands(deck: usize, s: &DeckSettings) -> Vec<Command> {
         Command::SetFxMix { deck, mix: s.fx.mix },
         Command::SetFxAmount { deck, amount: s.fx.amount },
         Command::SetFxBeats { deck, beats: s.fx.beats },
+        Command::SetFxParts { deck, parts: FxPartDto::parts(s.fx.part) },
         Command::SetFxEnabled { deck, enabled: s.fx.enabled },
         Command::SetSamplerGain { deck, gain: s.sampler_gain },
     ];

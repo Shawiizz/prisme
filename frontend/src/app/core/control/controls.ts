@@ -70,6 +70,8 @@ export interface ControlActions {
   setFxOn(deck: number, on: boolean): void;
   /** The effect `step` places after this one (before it, negative). */
   cycleFx(deck: number, step: number): void;
+  /** The effect on the next part of the track it can be on (the whole deck after the last). */
+  nextFxPart(deck: number): void;
   fxOn(deck: number): boolean;
   setFxMix(deck: number, position: number): void;
   /** The effect's main knob (feedback, room size, depth: see each effect). */
@@ -297,6 +299,7 @@ function deckControls(a: ControlActions, deck: number): Control[] {
     ),
     button(id('fx.next'), group, t('Next effect'), () => a.cycleFx(deck, 1)),
     button(id('fx.previous'), group, t('Previous effect'), () => a.cycleFx(deck, -1)),
+    button(id('fx.part'), group, t('Effect on the next part'), () => a.nextFxPart(deck)),
     fader(
       id('fx.mix'),
       group,

@@ -86,6 +86,7 @@ export class ControlService {
     toggleFx: (deck) => this.fx.setEnabled(deck, !this.fx.settings(deck).enabled),
     setFxOn: (deck, on) => this.fx.setEnabled(deck, on),
     cycleFx: (deck, step) => this.fx.cycle(deck, step),
+    nextFxPart: (deck) => this.fx.nextPart(deck),
     fxOn: (deck) => this.fx.settings(deck).enabled,
     setFxMix: (deck, position) => this.fx.setMix(deck, position),
     setFxAmount: (deck, position) => this.fx.setAmount(deck, position),

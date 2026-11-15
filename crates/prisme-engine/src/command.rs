@@ -3,7 +3,7 @@
 use crate::grid::BeatGrid;
 use crate::looping::LoopRegion;
 use crate::mixer::{CrossfaderCurve, OutputRouting};
-use crate::stems::{StemMix, StemTracks};
+use crate::stems::{Parts, StemMix, StemTracks};
 use prisme_dsp::{Band, EffectKind};
 use prisme_media::TrackAudio;
 use prisme_timecode::TimecodeDecoder;
@@ -295,6 +295,12 @@ pub enum Command {
     SetFxBeats {
         deck: DeckId,
         beats: f32,
+    },
+    /// The parts of the track the effect is on, where they are separated; none: the whole
+    /// deck, after its channel strip.
+    SetFxParts {
+        deck: DeckId,
+        parts: Parts,
     },
     /// Puts a sound in a sampler slot of the deck (`None` empties it).
     SetSample {

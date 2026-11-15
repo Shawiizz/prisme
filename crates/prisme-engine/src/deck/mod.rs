@@ -12,7 +12,7 @@ use crate::keylock::KeyLock;
 use crate::playhead::Playhead;
 use crate::sampler::Sampler;
 use crate::status::{DeckStatus, LoopStatus, SyncStatus};
-use crate::stems::StemMix;
+use crate::stems::{Parts, StemMix};
 use crate::strip::ChannelStrip;
 use crate::sync::{self, DeckSync, LeaderBeat, SyncTarget};
 use crate::tempo::PlatterTempo;
@@ -66,6 +66,9 @@ pub(crate) struct Deck {
     pub(crate) key_lock_enabled: bool,
     key_lock: KeyLock,
     pub(crate) fx: FxSlot,
+    /// The parts of the track the effect is on (none: the whole deck), and room for them.
+    fx_parts: Parts,
+    apart: Vec<f32>,
     pub(crate) sampler: Sampler,
     pub(crate) sync: DeckSync,
     transport: Transport,
@@ -101,6 +104,8 @@ impl Deck {
             key_lock_enabled: false,
             key_lock: KeyLock::new(sample_rate, max_block_frames),
             fx: FxSlot::new(sample_rate as f32, max_block_frames),
+            fx_parts: Parts::NONE,
+            apart: vec![0.0; max_block_frames * 2],
             sampler: Sampler::new(),
             sync: DeckSync::new(),
             transport: Transport::default(),
@@ -175,11 +180,12 @@ impl Deck {
         if let Some(mix) = self.bar_mix.follow(playhead_s, seconds * speed.max(0.0), self.next_bar_s()) {
             self.playhead.set_stem_mix(mix);
         }
+        let apart = (!self.fx_parts.is_empty()).then(|| &mut self.apart[..out.len()]);
         if (self.key_lock_enabled || self.key_lock.key_shift() != 0) && KeyLock::applies(speed) {
-            self.playhead.render_key_locked(&mut self.key_lock, out, out_rate, speed);
+            self.playhead.render_key_locked(&mut self.key_lock, out, apart, out_rate, speed);
         } else {
             self.key_lock.disengage();
-            self.playhead.render(out, out_rate, speed);
+            self.playhead.render(out, apart, out_rate, speed);
         }
         self.speed = speed;
         self.leap_stems_to_their_bar(playhead_s, seconds * speed);
@@ -241,19 +247,45 @@ impl Deck {
         }
     }
 
-    /// Applies the track's gain: its motion's (a fade as it stops and moves again) and its
-    /// level's.
+    /// Applies the track's gain, to the parts apart too: its motion's (a fade as it stops
+    /// and moves again) and its level's.
     fn fade_with_motion(&mut self, out: &mut [f32]) {
         self.motion.set((self.speed.abs() / FULL_LEVEL_SPEED).min(1.0) as f32);
         let at_unity = |s: &Smoothed| s.is_settled() && s.target() == 1.0;
         if at_unity(&self.motion) && at_unity(&self.level) {
             return;
         }
+        let apart = &mut self.apart[..if self.fx_parts.is_empty() { 0 } else { out.len() }];
+        let mut apart = apart.chunks_exact_mut(2);
         for frame in out.chunks_exact_mut(2) {
             let gain = self.motion.tick() * self.level.tick();
             frame[0] *= gain;
             frame[1] *= gain;
+            if let Some(part) = apart.next() {
+                part[0] *= gain;
+                part[1] *= gain;
+            }
         }
+    }
+
+    /// Puts the effect on `parts` of the track, or on the whole deck (none).
+    pub(crate) fn set_fx_parts(&mut self, parts: Parts) {
+        self.fx_parts = parts;
+        self.playhead.set_apart(parts);
+    }
+
+    /// The effect on the parts it is on, mixed back into `out` (before the sampler and the
+    /// channel strip); false when it is on the whole deck, to be applied after them.
+    pub(crate) fn fx_on_parts(&mut self, out: &mut [f32], beat: Beat) -> bool {
+        if self.fx_parts.is_empty() {
+            return false;
+        }
+        let apart = &mut self.apart[..out.len()];
+        self.fx.process(apart, beat);
+        for (sample, part) in out.iter_mut().zip(apart.iter()) {
+            *sample += part;
+        }
+        true
     }
 
     /// Transposes the track; this goes through the key lock's stretcher, on or off.

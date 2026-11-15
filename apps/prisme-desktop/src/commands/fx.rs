@@ -1,6 +1,6 @@
 //! A deck's beat effect.
 
-use crate::dto::EffectKindDto;
+use crate::dto::{EffectKindDto, FxPartDto};
 use crate::error::AppResult;
 use crate::state::{lock, AppState};
 use prisme_engine::Command;
@@ -42,4 +42,12 @@ pub fn set_fx_beats(state: State<'_, AppState>, deck: usize, beats: f32) -> AppR
     AppState::check_deck(deck)?;
     lock(&state.decks)[deck].fx.beats = beats;
     state.send_if_running(Command::SetFxBeats { deck, beats })
+}
+
+/// The part of the track the effect is on, where separated (`None`: the whole deck).
+#[tauri::command]
+pub fn set_fx_part(state: State<'_, AppState>, deck: usize, part: Option<FxPartDto>) -> AppResult<()> {
+    AppState::check_deck(deck)?;
+    lock(&state.decks)[deck].fx.part = part;
+    state.send_if_running(Command::SetFxParts { deck, parts: FxPartDto::parts(part) })
 }

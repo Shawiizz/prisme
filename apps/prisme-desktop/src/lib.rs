@@ -237,6 +237,7 @@ pub fn run() {
             commands::fx::set_fx_mix,
             commands::fx::set_fx_amount,
             commands::fx::set_fx_beats,
+            commands::fx::set_fx_part,
             commands::decks::set_sync_locked,
             commands::mixer::mixer_state,
             commands::mixer::set_mix_mode,

@@ -28,6 +28,16 @@
 @switch (keys()) {
   @case ('fx') {
     <div class="side knobs">
+      @let on = effectPart();
+      <button
+        class="pr-btn pr-btn--sm part"
+        [class.is-on]="effect().part !== null"
+        [disabled]="!on.choice"
+        [title]="on.title"
+        (click)="fx.nextPart(deck())"
+      >
+        {{ on.label }}
+      </button>
       <app-knob
         small
         label="MIX"

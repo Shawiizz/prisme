@@ -10,6 +10,7 @@ import { ROLL_BEATS, formatBeats, loopBeats } from '../../../shared/beats';
 import { readouts } from '../../../shared/mixer-scales';
 import { Text, t } from '../../../core/i18n/i18n';
 import { TPipe } from '../../../core/i18n/t.pipe';
+import { deckStems } from '../../../core/deck-stems';
 
 type PadMode = 'cues' | 'loops' | 'roll' | 'jump' | 'fx' | 'sampler';
 
@@ -117,6 +118,20 @@ export class DeckPads {
   protected readonly loopInSet = computed(() => this.status()?.looping.loopInS != null);
   protected readonly slip = computed(() => this.status()?.slipMode ?? false);
   protected readonly effect = computed(() => this.engine.decks()[this.deck()].fx);
+  private readonly stemKnobs = deckStems(this.deck).knobs;
+  /** Where the effect is: the whole deck, or a part of the track as its stems call it. */
+  protected readonly effectPart = computed(() => {
+    const part = this.effect().part;
+    const stem = this.stemKnobs().find((k) => k.part === part);
+    const parts = this.fx.parts(this.deck());
+    return {
+      label: stem?.label ?? 'DECK',
+      title: t('Effect on: {part}. Click for the next part', {
+        part: stem ? stem.name : t('the whole deck'),
+      }),
+      choice: parts.length > 1,
+    };
+  });
   protected readonly samplerGain = computed(() => this.engine.decks()[this.deck()].samplerGain);
   private readonly samples = computed(() => this.engine.decks()[this.deck()].samples);
   /** Effects and samples work on any deck; the rest needs a track that can move. */

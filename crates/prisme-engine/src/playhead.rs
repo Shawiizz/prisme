@@ -2,7 +2,7 @@
 
 use crate::keylock::KeyLock;
 use crate::looping::LoopRegion;
-use crate::stems::{StemMix, StemTracks, Stems};
+use crate::stems::{Parts, StemMix, StemTracks, Stems};
 use prisme_media::TrackAudio;
 use std::sync::Arc;
 
@@ -53,6 +53,11 @@ impl Playhead {
         self.stems.set_mix(mix);
     }
 
+    /// Renders `parts` apart from the rest, where `render` is given room for them.
+    pub(crate) fn set_apart(&mut self, parts: Parts) {
+        self.stems.set_apart(parts);
+    }
+
     /// Makes the playhead wrap around `region` (`None`: no loop).
     pub(crate) fn set_loop(&mut self, region: Option<LoopRegion>) {
         let rate = self.sample_rate();
@@ -80,26 +85,43 @@ impl Playhead {
     }
 
     /// Renders interleaved stereo into `out` while moving at `speed` (1.0 = original
-    /// tempo) at the output rate `out_rate`. Uses 4-point Catmull-Rom interpolation;
-    /// outside the track it plays silence (the needle can go before the start).
-    pub(crate) fn render(&mut self, out: &mut [f32], out_rate: f64, speed: f64) {
+    /// tempo) at the output rate `out_rate`; with `apart`, the parts set apart go there and
+    /// the rest to `out`. Uses 4-point Catmull-Rom interpolation; outside the track it plays
+    /// silence (the needle can go before the start).
+    pub(crate) fn render(
+        &mut self,
+        out: &mut [f32],
+        mut apart: Option<&mut [f32]>,
+        out_rate: f64,
+        speed: f64,
+    ) {
         let Some(track) = self.track.as_ref() else {
             out.fill(0.0);
+            if let Some(apart) = apart {
+                apart.fill(0.0);
+            }
             self.position += speed * (out.len() / 2) as f64; // keeps moving, harmless
             return;
         };
         let step = speed * track.sample_rate() as f64 / out_rate;
         let mut source = self.stems.reader(track);
-        for frame in out.chunks_exact_mut(2) {
+        for (n, frame) in out.chunks_exact_mut(2).enumerate() {
             let i = self.position.floor();
             let t = (self.position - i) as f32;
             let i = i as isize;
-            let (l0, r0) = source.frame(i - 1);
-            let (l1, r1) = source.frame(i);
-            let (l2, r2) = source.frame(i + 1);
-            let (l3, r3) = source.frame(i + 2);
-            frame[0] = catmull_rom(l0, l1, l2, l3, t);
-            frame[1] = catmull_rom(r0, r1, r2, r3, t);
+            match apart.as_deref_mut() {
+                None => {
+                    let [p0, p1, p2, p3] = [-1, 0, 1, 2].map(|d| source.frame(i + d));
+                    frame[0] = catmull_rom(p0.0, p1.0, p2.0, p3.0, t);
+                    frame[1] = catmull_rom(p0.1, p1.1, p2.1, p3.1, t);
+                }
+                Some(apart) => {
+                    let [p0, p1, p2, p3] = [-1, 0, 1, 2].map(|d| source.frame_apart(i + d));
+                    let [l, r, al, ar] = std::array::from_fn(|c| catmull_rom(p0[c], p1[c], p2[c], p3[c], t));
+                    (frame[0], frame[1]) = (l, r);
+                    (apart[2 * n], apart[2 * n + 1]) = (al, ar);
+                }
+            }
             source.advance();
             self.position = wrap_in_loop(self.position, self.position + step, self.loop_frames);
         }
@@ -110,12 +132,13 @@ impl Playhead {
         &mut self,
         key_lock: &mut KeyLock,
         out: &mut [f32],
+        apart: Option<&mut [f32]>,
         out_rate: f64,
         speed: f64,
     ) {
-        let Some(track) = self.track.as_ref() else { return self.render(out, out_rate, speed) };
+        let Some(track) = self.track.as_ref() else { return self.render(out, apart, out_rate, speed) };
         let mut source = self.stems.reader(track);
-        self.position = key_lock.render(&mut source, self.position, self.loop_frames, out, out_rate, speed);
+        self.position = key_lock.render(&mut source, self.position, self.loop_frames, out, apart, speed);
     }
 }
 
@@ -153,7 +176,7 @@ mod tests {
         p.load(ramp(100));
         p.seek_s(10.0 / 48_000.0);
         let mut out = [0.0f32; 8];
-        p.render(&mut out, 48_000.0, 0.5);
+        p.render(&mut out, None, 48_000.0, 0.5);
         // a linear ramp is reproduced exactly by Catmull-Rom
         assert_eq!(out, [10.0, -10.0, 10.5, -10.5, 11.0, -11.0, 11.5, -11.5]);
         assert!((p.position_s() * 48_000.0 - 12.0).abs() < 1e-9);
@@ -166,11 +189,11 @@ mod tests {
         p.set_loop(Some(LoopRegion { start_s: 10.0 / 48_000.0, end_s: 20.0 / 48_000.0 }));
         p.seek_s(18.0 / 48_000.0);
         let mut out = [0.0f32; 8];
-        p.render(&mut out, 48_000.0, 1.0);
+        p.render(&mut out, None, 48_000.0, 1.0);
         assert_eq!([out[0], out[2], out[4], out[6]], [18.0, 19.0, 10.0, 11.0]);
 
         p.seek_s(11.0 / 48_000.0);
-        p.render(&mut out, 48_000.0, -1.0);
+        p.render(&mut out, None, 48_000.0, -1.0);
         assert_eq!([out[0], out[2], out[4], out[6]], [11.0, 10.0, 19.0, 18.0]);
     }
 
@@ -181,7 +204,7 @@ mod tests {
         p.set_loop(Some(LoopRegion { start_s: 10.0 / 48_000.0, end_s: 20.0 / 48_000.0 }));
         p.seek_s(30.0 / 48_000.0);
         let mut out = [0.0f32; 4];
-        p.render(&mut out, 48_000.0, 1.0);
+        p.render(&mut out, None, 48_000.0, 1.0);
         assert_eq!([out[0], out[2]], [30.0, 31.0]);
     }
 
@@ -190,7 +213,7 @@ mod tests {
         let mut p = Playhead::new();
         p.load(ramp(10));
         let mut out = [0.0f32; 4];
-        p.render(&mut out, 48_000.0, -1.0);
+        p.render(&mut out, None, 48_000.0, -1.0);
         assert_eq!(out[0], 0.0);
         assert_eq!(out[2], 0.0, "before the start of the track is silence");
     }

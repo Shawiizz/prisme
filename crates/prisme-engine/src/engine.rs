@@ -175,11 +175,14 @@ impl Engine {
             let deck = &mut self.decks[d];
             let beat = deck.effect_beat();
             deck.process(deck_in, deck_out, rate, target);
+            let fx_done = deck.fx_on_parts(deck_out, beat);
             deck.sampler.render(deck_out, rate);
             if self.mixer.routing.mode == MixMode::Internal {
                 deck.strip.process(deck_out);
             }
-            deck.fx.process(deck_out, beat);
+            if !fx_done {
+                deck.fx.process(deck_out, beat);
+            }
             deck.peak = deck_out.iter().fold(deck.peak, |p, s| p.max(s.abs()));
             let mix = DeckMix { audio: deck_out, volume: deck.volume, side: deck.side, cue: deck.cue };
             self.mixer.add_deck(d, mix, out, out_ch);
@@ -366,6 +369,7 @@ impl Engine {
             SetFxMix { deck, mix } if valid(deck) => self.decks[deck].fx.set_mix(mix),
             SetFxAmount { deck, amount } if valid(deck) => self.decks[deck].fx.set_amount(amount),
             SetFxBeats { deck, beats } if valid(deck) => self.decks[deck].fx.set_beats(beats),
+            SetFxParts { deck, parts } if valid(deck) => self.decks[deck].set_fx_parts(parts),
             SetCrossfaderCurve { curve } => self.mixer.curve = curve,
             SetLimiter { enabled } => self.mixer.limiter.set_enabled(enabled),
             _ => {} // command for a deck that does not exist

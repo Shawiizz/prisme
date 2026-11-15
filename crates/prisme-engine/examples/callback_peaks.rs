@@ -2,9 +2,11 @@
 //! on a turntable, through the software mixer. The average hides what matters in real
 //! time: the slowest callback must fit in the buffer's duration.
 //!
-//! `cargo run --release -p prisme-engine --example callback_peaks [frames] [key-locked decks] [reverbs]`
+//! `cargo run --release -p prisme-engine --example callback_peaks [frames] [key-locked decks] [reverbs] [on vocals]`
+//!
+//! With `on vocals` at 1, the first deck's reverb is on its vocals alone.
 
-use prisme_engine::{create, Command, EffectKind, EngineConfig, VinylMode};
+use prisme_engine::{create, Command, EffectKind, EngineConfig, Parts, Stem, VinylMode};
 use prisme_media::TrackAudio;
 use prisme_timecode::testing::SignalGenerator;
 use prisme_timecode::SERATO_CV02_A;
@@ -16,7 +18,7 @@ const RATE: u32 = 48_000;
 fn main() {
     let arg =
         |i: usize, default: usize| std::env::args().nth(i).and_then(|a| a.parse().ok()).unwrap_or(default);
-    let (frames, key_locked, reverbs) = (arg(1, 64), arg(2, 1), arg(3, 0));
+    let (frames, key_locked, reverbs, on_vocals) = (arg(1, 64), arg(2, 1), arg(3, 0), arg(4, 0) == 1);
     let track = |seconds: usize| {
         let samples = (0..seconds * RATE as usize * 2).map(|i| ((i as f32) * 0.001).sin() * 0.5).collect();
         Arc::new(TrackAudio::from_interleaved(RATE, samples))
@@ -33,6 +35,8 @@ fn main() {
         Command::SetKeyLock { deck: 1, enabled: key_locked >= 2 },
         Command::SetFx { deck: 0, kind: EffectKind::Reverb },
         Command::SetFxEnabled { deck: 0, enabled: reverbs >= 1 },
+        Command::SetStems { deck: 0, stems: [Some(track(90)), None, None] },
+        Command::SetFxParts { deck: 0, parts: if on_vocals { Parts::of(Stem::Vocals) } else { Parts::NONE } },
         Command::SetFx { deck: 1, kind: EffectKind::Reverb },
         Command::SetFxEnabled { deck: 1, enabled: reverbs >= 2 },
     ] {
@@ -66,7 +70,7 @@ fn main() {
     let (p99, p999, worst) = (at(0.99), at(0.999), at(1.0));
     // the worst callbacks include the times the OS preempted this (non real-time) thread
     println!(
-        "{frames} frames ({budget:.0} us), {key_locked} key-locked, {reverbs} reverbs: average {average:.1} us, 99 % {p99:.0} us, 99.9 % {p999:.0} us ({:.0} % of the buffer), worst {worst:.0} us",
+        "{frames} frames ({budget:.0} us), {key_locked} key-locked, {reverbs} reverbs, on vocals {on_vocals}: average {average:.1} us, 99 % {p99:.0} us, 99.9 % {p999:.0} us ({:.0} % of the buffer), worst {worst:.0} us",
         p999 / budget * 100.0
     );
 }

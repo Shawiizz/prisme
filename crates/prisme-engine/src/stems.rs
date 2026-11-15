@@ -7,6 +7,9 @@
 //! instruments and follow their gain. So does a stem where it is not separated yet (the
 //! stems of a track being separated come as they are made); where none is, the track plays
 //! whole. Crossing from one to the other fades in about 10 ms, as a gain does.
+//!
+//! Some parts can be read apart from the rest ([`Stems::set_apart`]), for an effect on them
+//! alone: the two add up to the mix. A part is apart only where it is separated.
 
 use prisme_media::{TrackAudio, TrackView, PENDING_BLOCK};
 use std::cell::Cell;
@@ -38,6 +41,33 @@ impl Stem {
 
 /// The separated stems of a track, frame for frame at its rate, indexed by [`Stem`].
 pub type StemTracks = [Option<Arc<TrackAudio>>; 3];
+
+/// Some parts of a track: a bit each, in the order of [`StemMix::parts`] (the stems, then the
+/// other instruments).
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct Parts(u8);
+
+impl Parts {
+    pub const NONE: Parts = Parts(0);
+    pub const OTHER: Parts = Parts(1 << Stem::ALL.len());
+
+    pub const fn of(stem: Stem) -> Parts {
+        Parts(1 << stem as u8)
+    }
+
+    pub const fn and(self, other: Parts) -> Parts {
+        Parts(self.0 | other.0)
+    }
+
+    pub fn is_empty(self) -> bool {
+        self.0 == 0
+    }
+
+    /// Whether it holds the part at `index` of [`StemMix::parts`].
+    fn has(self, index: usize) -> bool {
+        self.0 & 1 << index != 0
+    }
+}
 
 /// How loud a deck plays each part of the track, from 0 (muted) to 1 (as in the track).
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -76,6 +106,7 @@ pub(crate) struct Stems {
     /// Every part played as in the track until now: the presence takes the truth at once,
     /// as it changes nothing heard yet.
     settle_presence: bool,
+    apart: Parts,
 }
 
 impl Stems {
@@ -87,7 +118,13 @@ impl Stems {
             present: [Ramp::at(0.0), Ramp::at(0.0), Ramp::at(0.0)],
             separated: Ramp::at(0.0),
             settle_presence: true,
+            apart: Parts::NONE,
         }
+    }
+
+    /// Reads `parts` apart from the rest ([`Reader::frame_apart`]).
+    pub(crate) fn set_apart(&mut self, parts: Parts) {
+        self.apart = parts;
     }
 
     pub(crate) fn set_mix(&mut self, mix: StemMix) {
@@ -105,7 +142,9 @@ impl Stems {
     /// Forgets the stems and plays the whole track again (a new track is loaded).
     pub(crate) fn clear(&mut self) -> StemTracks {
         let tracks = std::mem::take(&mut self.tracks);
+        let apart = self.apart;
         *self = Self::new();
+        self.apart = apart;
         tracks
     }
 
@@ -124,7 +163,7 @@ impl Stems {
     }
 
     pub(crate) fn reader<'a>(&'a mut self, track: &'a TrackAudio) -> Reader<'a> {
-        let mixing = !(self.other.is_one() && self.gains.iter().all(Ramp::is_one));
+        let mixing = !(self.apart.is_empty() && self.other.is_one() && self.gains.iter().all(Ramp::is_one));
         self.settle_presence |= !mixing;
         let stems: [_; 3] =
             std::array::from_fn(|i| self.tracks[i].as_deref().filter(|_| mixing).map(TrackAudio::view));
@@ -137,6 +176,7 @@ impl Stems {
             present: &mut self.present,
             separated: &mut self.separated,
             settle_presence: &mut self.settle_presence,
+            apart: self.apart,
             last: Cell::new(0),
             seen: None,
             sample_rate: track.sample_rate(),
@@ -156,6 +196,7 @@ pub(crate) struct Reader<'a> {
     present: &'a mut [Ramp; 3],
     separated: &'a mut Ramp,
     settle_presence: &'a mut bool,
+    apart: Parts,
     /// The last frame read: where the deck plays, for the presence of the stems.
     last: Cell<isize>,
     /// The block of [`PENDING_BLOCK`] frames where the presence of the stems was last looked
@@ -172,22 +213,50 @@ impl Reader<'_> {
     /// Frame `i` with the current gains; silence outside the track.
     #[inline]
     pub(crate) fn frame(&self, i: isize) -> (f32, f32) {
+        let [l, r, ..] = self.mixed(i, Parts::NONE);
+        (l, r)
+    }
+
+    /// Frame `i` as the rest, then the parts set apart: they add up to [`Reader::frame`].
+    #[inline]
+    pub(crate) fn frame_apart(&self, i: isize) -> [f32; 4] {
+        self.mixed(i, self.apart)
+    }
+
+    #[inline(always)]
+    fn mixed(&self, i: isize, apart: Parts) -> [f32; 4] {
         let (l, r) = self.track.frame(i);
         if !self.mixing {
-            return (l, r);
+            return [l, r, 0.0, 0.0];
         }
         self.last.set(i);
         // the other instruments at their gain where stems are, the whole track where none is
         let other = 1.0 + self.separated.value * (self.other.value - 1.0);
         let (mut ml, mut mr) = (other * l, other * r);
-        for ((stem, gain), present) in self.stems.iter().zip(self.gains.iter()).zip(self.present.iter()) {
+        // what no stem there holds, and the parts set apart
+        let (mut ol, mut or) = (l, r);
+        let (mut al, mut ar) = (0.0, 0.0);
+        let stems = self.stems.iter().zip(self.gains.iter()).zip(self.present.iter()).enumerate();
+        for (part, ((stem, gain), present)) in stems {
             if let Some((sl, sr)) = stem.and_then(|s| s.get(i)) {
                 let delta = present.value * (gain.value - other);
                 ml += delta * sl;
                 mr += delta * sr;
+                ol -= present.value * sl;
+                or -= present.value * sr;
+                if apart.has(part) {
+                    let played = present.value * gain.value;
+                    al += played * sl;
+                    ar += played * sr;
+                }
             }
         }
-        (ml, mr)
+        if apart.has(Stem::ALL.len()) {
+            let played = self.separated.value * other;
+            al += played * ol;
+            ar += played * or;
+        }
+        [ml - al, mr - ar, al, ar]
     }
 
     /// Moves the gains one frame towards their targets, and the presence of the stems
@@ -413,6 +482,56 @@ mod tests {
         let mut stems = Stems::new();
         stems.set_mix(mix(false, false, true, true));
         assert_eq!(settle(&mut stems, &track), (0.75, 0.75));
+    }
+
+    /// The rest and the parts apart once settled at frame `i`.
+    fn settle_apart(stems: &mut Stems, track: &TrackAudio, i: isize) -> [f32; 4] {
+        settle_at(stems, track, i);
+        stems.reader(track).frame_apart(i)
+    }
+
+    #[test]
+    fn parts_set_apart_add_up_to_the_mix() {
+        let (track, mut stems) = separated();
+        stems.set_mix(StemMix { drums: 0.5, ..StemMix::default() });
+        let cases = [
+            (Parts::of(Stem::Vocals), 0.5),
+            (Parts::of(Stem::Drums), 0.125),
+            (Parts::OTHER, 0.125),
+            (Parts::of(Stem::Drums).and(Parts::of(Stem::Bass)).and(Parts::OTHER), 0.375),
+        ];
+        for (parts, apart) in cases {
+            stems.set_apart(parts);
+            let [rest, _, part, _] = settle_apart(&mut stems, &track, 0);
+            assert_eq!(part, apart, "{parts:?}");
+            assert_eq!(rest + part, 0.875, "{parts:?}");
+        }
+    }
+
+    #[test]
+    fn the_instrumental_of_the_vocals_alone_is_the_track_without_them() {
+        let mut stems = Stems::new();
+        stems.set_tracks([Some(constant(0.25, 10)), None, None]);
+        stems.set_apart(Parts::of(Stem::Drums).and(Parts::of(Stem::Bass)).and(Parts::OTHER));
+        assert_eq!(settle_apart(&mut stems, &constant(0.75, 10), 0), [0.25, 0.25, 0.5, 0.5]);
+    }
+
+    #[test]
+    fn a_part_not_separated_there_stays_in_the_rest() {
+        const B: usize = PENDING_BLOCK;
+        let track = constant(1.0, 4 * B);
+        let vocals = Arc::new(TrackAudio::pending(48_000, 4 * B));
+        vocals.publish(2 * B, &vec![0.5; 4 * B]);
+        let mut stems = Stems::new();
+        stems.set_tracks([Some(vocals), None, None]);
+        stems.set_apart(Parts::of(Stem::Vocals));
+        assert_eq!(settle_apart(&mut stems, &track, 0), [1.0, 1.0, 0.0, 0.0]);
+        assert_eq!(settle_apart(&mut stems, &track, (2 * B) as isize), [0.5, 0.5, 0.5, 0.5]);
+        assert_eq!(
+            settle_apart(&mut Stems { apart: Parts::of(Stem::Vocals), ..Stems::new() }, &track, 0),
+            [1.0, 1.0, 0.0, 0.0],
+            "no stems at all"
+        );
     }
 
     #[test]

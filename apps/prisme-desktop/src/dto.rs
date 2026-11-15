@@ -210,11 +210,42 @@ pub struct FxDto {
     pub amount: f32,
     /// The effect's period in beats.
     pub beats: f32,
+    /// The part of the track it is on, where separated; none: the whole deck.
+    #[serde(default)]
+    pub part: Option<FxPartDto>,
 }
 
 impl Default for FxDto {
     fn default() -> Self {
-        Self { kind: EffectKindDto::Echo, enabled: false, mix: 0.5, amount: 0.5, beats: 1.0 }
+        Self { kind: EffectKindDto::Echo, enabled: false, mix: 0.5, amount: 0.5, beats: 1.0, part: None }
+    }
+}
+
+/// A part of a track an effect can be on alone.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum FxPartDto {
+    Vocals,
+    Drums,
+    Bass,
+    /// What no stem holds (the melody).
+    Other,
+    /// Everything but the vocals.
+    Instrumental,
+}
+
+impl FxPartDto {
+    /// The parts the engine puts the effect on for `part` (none: the whole deck).
+    pub fn parts(part: Option<Self>) -> prisme_engine::Parts {
+        use prisme_engine::{Parts, Stem};
+        match part {
+            None => Parts::NONE,
+            Some(Self::Vocals) => Parts::of(Stem::Vocals),
+            Some(Self::Drums) => Parts::of(Stem::Drums),
+            Some(Self::Bass) => Parts::of(Stem::Bass),
+            Some(Self::Other) => Parts::OTHER,
+            Some(Self::Instrumental) => Parts::of(Stem::Drums).and(Parts::of(Stem::Bass)).and(Parts::OTHER),
+        }
     }
 }
 
