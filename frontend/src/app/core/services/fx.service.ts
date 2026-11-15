@@ -1,68 +1,96 @@
-import { Injectable, effect, inject, untracked } from '@angular/core';
-import { EFFECT_KINDS, EffectKind, FX_BEATS, FxSettings } from '../models/engine';
+import { Injectable, effect, inject, signal, untracked } from '@angular/core';
+import {
+  EFFECT_KINDS,
+  EffectKind,
+  FX_BEATS,
+  FxChain,
+  FxSettings,
+  MAX_DECKS,
+} from '../models/engine';
 import { StemPart, hasPart } from '../stem-parts';
 import { EngineService } from './engine.service';
 
 /**
- * Each deck's beat effect: which one, on or off, its level, its knob, its period, and the
- * part of the track it is on. A track loaded without that part puts it back on the whole
- * deck, where it is heard.
+ * Each deck's chain of beat effects: in each slot, which effect, on or off, its level, its
+ * knob and its period; the part of the track the chain is on; and the slot the pads and
+ * knobs of the screen act on. A track loaded without that part puts the chain back on the
+ * whole deck, where it is heard.
  */
 @Injectable({ providedIn: 'root' })
 export class FxService {
   private readonly engine = inject(EngineService);
+  private readonly chosenSlots = signal<number[]>(Array(MAX_DECKS).fill(0));
 
   constructor() {
     effect(() => {
       const tracks = this.engine.tracks();
       untracked(() => {
         tracks.forEach((track, deck) => {
-          const part = this.settings(deck)?.part;
+          const part = this.chain(deck).part;
           if (track && part && !hasPart(track.separation, part)) void this.setPart(deck, null);
         });
       });
     });
   }
 
-  settings(deck: number): FxSettings {
+  chain(deck: number): FxChain {
     return this.engine.decks()[deck].fx;
   }
 
-  /** Switches to `kind` and on; pressed again, switches it off. */
-  press(deck: number, kind: EffectKind) {
-    const fx = this.settings(deck);
-    if (fx.kind === kind && fx.enabled) return this.setEnabled(deck, false);
-    if (fx.kind !== kind) {
-      this.patch(deck, { kind });
-      this.engine.call('set_fx', { deck, kind });
-    }
-    return this.setEnabled(deck, true);
+  settings(deck: number, slot: number): FxSettings {
+    return this.chain(deck).slots[slot];
   }
 
-  /** The effect `step` places after this one (before it, negative), on or off as it was. */
-  cycle(deck: number, step: number) {
-    const at = EFFECT_KINDS.indexOf(this.settings(deck).kind);
+  /** The slot the pads and knobs of the screen act on. */
+  chosen(deck: number): number {
+    return this.chosenSlots()[deck];
+  }
+
+  choose(deck: number, slot: number) {
+    this.chosenSlots.update((slots) => slots.map((s, d) => (d === deck ? slot : s)));
+  }
+
+  /** Puts `kind` in the slot and switches it on; pressed again, switches it off. */
+  press(deck: number, slot: number, kind: EffectKind) {
+    const fx = this.settings(deck, slot);
+    if (fx.kind === kind && fx.enabled) return this.setEnabled(deck, slot, false);
+    if (fx.kind !== kind) this.setKind(deck, slot, kind);
+    return this.setEnabled(deck, slot, true);
+  }
+
+  /** The effect `step` places after the slot's (before it, negative), on or off as it was. */
+  cycle(deck: number, slot: number, step: number) {
+    const at = EFFECT_KINDS.indexOf(this.settings(deck, slot).kind);
     const kind = EFFECT_KINDS[(at + step + EFFECT_KINDS.length * 2) % EFFECT_KINDS.length];
-    this.patch(deck, { kind });
-    return this.engine.call('set_fx', { deck, kind });
+    return this.setKind(deck, slot, kind);
   }
 
-  setEnabled(deck: number, enabled: boolean) {
-    this.patch(deck, { enabled });
-    return this.engine.call('set_fx_enabled', { deck, enabled });
+  setEnabled(deck: number, slot: number, enabled: boolean) {
+    this.patch(deck, slot, { enabled });
+    return this.engine.call('set_fx_enabled', { deck, slot, enabled });
   }
 
-  setMix(deck: number, mix: number) {
-    this.patch(deck, { mix });
-    return this.engine.call('set_fx_mix', { deck, mix });
+  setMix(deck: number, slot: number, mix: number) {
+    this.patch(deck, slot, { mix });
+    return this.engine.call('set_fx_mix', { deck, slot, mix });
   }
 
-  setAmount(deck: number, amount: number) {
-    this.patch(deck, { amount });
-    return this.engine.call('set_fx_amount', { deck, amount });
+  setAmount(deck: number, slot: number, amount: number) {
+    this.patch(deck, slot, { amount });
+    return this.engine.call('set_fx_amount', { deck, slot, amount });
   }
 
-  /** The parts the effect can be on alone, as the deck's track is separated, after the
+  /** Halves (0.5) or doubles (2) the slot's period. */
+  scaleBeats(deck: number, slot: number, factor: number) {
+    const beats = Math.min(
+      Math.max(this.settings(deck, slot).beats * factor, FX_BEATS.min),
+      FX_BEATS.max,
+    );
+    this.patch(deck, slot, { beats });
+    return this.engine.call('set_fx_beats', { deck, slot, beats });
+  }
+
+  /** The parts the chain can be on alone, as the deck's track is separated, after the
    * whole deck (`null`). */
   parts(deck: number): (StemPart | null)[] {
     switch (this.engine.tracks()[deck]?.separation ?? 'none') {
@@ -76,28 +104,25 @@ export class FxService {
   }
 
   setPart(deck: number, part: StemPart | null) {
-    this.patch(deck, { part });
+    this.engine.patchDeck(deck, { fx: { ...this.chain(deck), part } });
     return this.engine.call('set_fx_part', { deck, part });
   }
 
-  /** The effect on the next part it can be on, after the last on the whole deck again. */
+  /** The chain on the next part it can be on, after the last on the whole deck again. */
   nextPart(deck: number) {
     const parts = this.parts(deck);
-    const at = parts.indexOf(this.settings(deck).part);
+    const at = parts.indexOf(this.chain(deck).part);
     return this.setPart(deck, parts[(at + 1) % parts.length]);
   }
 
-  /** Halves (0.5) or doubles (2) the effect's period. */
-  scaleBeats(deck: number, factor: number) {
-    const beats = Math.min(
-      Math.max(this.settings(deck).beats * factor, FX_BEATS.min),
-      FX_BEATS.max,
-    );
-    this.patch(deck, { beats });
-    return this.engine.call('set_fx_beats', { deck, beats });
+  private setKind(deck: number, slot: number, kind: EffectKind) {
+    this.patch(deck, slot, { kind });
+    return this.engine.call('set_fx', { deck, slot, kind });
   }
 
-  private patch(deck: number, changes: Partial<FxSettings>) {
-    this.engine.patchDeck(deck, { fx: { ...this.settings(deck), ...changes } });
+  private patch(deck: number, slot: number, changes: Partial<FxSettings>) {
+    const chain = this.chain(deck);
+    const slots = chain.slots.map((fx, s) => (s === slot ? { ...fx, ...changes } : fx));
+    this.engine.patchDeck(deck, { fx: { ...chain, slots } });
   }
 }

@@ -35,6 +35,35 @@
   }
 }
 
+// the slots of the effect chain: the one the pads and knobs act on in the light, a bar
+// under each one sounding
+.slots {
+  flex: none;
+  > button {
+    display: grid;
+    align-content: center;
+    justify-items: center;
+    gap: 3px;
+    padding: 0 8px;
+    font-family: var(--pr-font-mono);
+    &::after {
+      content: '';
+      width: 10px;
+      height: 3px;
+      border-radius: 1px;
+    }
+    &.is-lit {
+      color: var(--pr-text);
+    }
+    &.is-lit::after {
+      background: currentColor;
+    }
+    &[aria-checked='true'] {
+      color: var(--pr-on-light);
+    }
+  }
+}
+
 // the keys that go with the pads' mode
 .side {
   flex: none;
@@ -123,7 +152,8 @@
       font-size: 10.5px;
     }
   }
-  .side .pr-btn {
+  .side .pr-btn,
+  .slots > button {
     padding: 0 5px;
   }
 }
@@ -153,6 +183,15 @@
       font-size: var(--pr-size);
     }
   }
+  // a row of three keys as wide as a finger
+  .slots {
+    flex: 1 0 100%;
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    > button {
+      height: 36px;
+    }
+  }
   .side {
     flex: 1;
     justify-content: space-between;
@@ -173,6 +212,9 @@
     .pr-pad {
       height: 32px;
     }
+  }
+  .slots > button {
+    height: 26px;
   }
   .side {
     display: none;

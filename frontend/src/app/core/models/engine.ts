@@ -219,7 +219,7 @@ export interface DeckSettings {
   /** The pitch stays when the speed changes. */
   keyLock: boolean;
   strip: ChannelStrip;
-  fx: FxSettings;
+  fx: FxChain;
   /** Name of the sound in each sampler slot. */
   samples: (string | null)[];
   samplerGain: number;
@@ -237,7 +237,7 @@ export const EFFECT_KINDS = [
 ] as const;
 export type EffectKind = (typeof EFFECT_KINDS)[number];
 
-/** A deck's beat effect. */
+/** A slot of a deck's effect chain. */
 export interface FxSettings {
   kind: EffectKind;
   enabled: boolean;
@@ -247,16 +247,26 @@ export interface FxSettings {
   amount: number;
   /** The effect's period in beats. */
   beats: number;
-  /** The part of the track it is on, where separated; `null`: the whole deck. */
+}
+
+/** A deck's beat effects, played one slot after the other. */
+export interface FxChain {
+  /** `FX_SLOTS` of them. */
+  slots: FxSettings[];
+  /** The part of the track the chain is on, where separated; `null`: the whole deck. */
   part: StemPart | null;
 }
 
-export const DEFAULT_FX: FxSettings = {
+export const FX_SLOTS = 3;
+const DEFAULT_FX_SLOT: FxSettings = {
   kind: 'echo',
   enabled: false,
   mix: 0.5,
   amount: 0.5,
   beats: 1,
+};
+export const DEFAULT_FX: FxChain = {
+  slots: Array(FX_SLOTS).fill(DEFAULT_FX_SLOT),
   part: null,
 };
 /** Shortest and longest effect period, in beats. */

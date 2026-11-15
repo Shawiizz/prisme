@@ -35,12 +35,12 @@ fn main() {
         Command::SetVinylEnabled { deck: 1, enabled: true },
         Command::SetVinylMode { deck: 1, mode: VinylMode::Relative },
         Command::SetKeyLock { deck: 1, enabled: key_locked >= 2 },
-        Command::SetFx { deck: 0, kind: EffectKind::Reverb },
-        Command::SetFxEnabled { deck: 0, enabled: reverbs >= 1 },
+        Command::SetFx { deck: 0, slot: 0, kind: EffectKind::Reverb },
+        Command::SetFxEnabled { deck: 0, slot: 0, enabled: reverbs >= 1 },
         Command::SetStems { deck: 0, stems: [Some(track(90)), None, None] },
         Command::SetFxParts { deck: 0, parts: if on_vocals { Parts::of(Stem::Vocals) } else { Parts::NONE } },
-        Command::SetFx { deck: 1, kind: EffectKind::Reverb },
-        Command::SetFxEnabled { deck: 1, enabled: reverbs >= 2 },
+        Command::SetFx { deck: 1, slot: 0, kind: EffectKind::Reverb },
+        Command::SetFxEnabled { deck: 1, slot: 0, enabled: reverbs >= 2 },
     ] {
         assert!(controller.send(command).is_ok());
     }

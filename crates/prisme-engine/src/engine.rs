@@ -17,7 +17,7 @@ use crate::recording::{input_pair, Recording};
 use crate::scope::{self, ScopeTap};
 use crate::status::{EngineStatus, RecordingStatus, MAX_DECKS};
 use crate::sync::LeaderClock;
-use prisme_dsp::DenormalGuard;
+use prisme_dsp::{DenormalGuard, FxSlot};
 use prisme_timecode::{DecoderConfig, TimecodeDecoder, TimecodeFormat};
 
 const COMMAND_QUEUE: usize = 256;
@@ -364,15 +364,22 @@ impl Engine {
                     self.discard(Garbage::Recording(old.sink));
                 }
             }
-            SetFx { deck, kind } if valid(deck) => self.decks[deck].fx.set_kind(kind),
-            SetFxEnabled { deck, enabled } if valid(deck) => self.decks[deck].fx.set_enabled(enabled),
-            SetFxMix { deck, mix } if valid(deck) => self.decks[deck].fx.set_mix(mix),
-            SetFxAmount { deck, amount } if valid(deck) => self.decks[deck].fx.set_amount(amount),
-            SetFxBeats { deck, beats } if valid(deck) => self.decks[deck].fx.set_beats(beats),
+            SetFx { deck, slot, kind } => self.fx_slot(deck, slot, |s| s.set_kind(kind)),
+            SetFxEnabled { deck, slot, enabled } => self.fx_slot(deck, slot, |s| s.set_enabled(enabled)),
+            SetFxMix { deck, slot, mix } => self.fx_slot(deck, slot, |s| s.set_mix(mix)),
+            SetFxAmount { deck, slot, amount } => self.fx_slot(deck, slot, |s| s.set_amount(amount)),
+            SetFxBeats { deck, slot, beats } => self.fx_slot(deck, slot, |s| s.set_beats(beats)),
             SetFxParts { deck, parts } if valid(deck) => self.decks[deck].set_fx_parts(parts),
             SetCrossfaderCurve { curve } => self.mixer.curve = curve,
             SetLimiter { enabled } => self.mixer.limiter.set_enabled(enabled),
             _ => {} // command for a deck that does not exist
+        }
+    }
+
+    /// Changes a slot of a deck's effect chain, if both exist.
+    fn fx_slot(&mut self, deck: usize, slot: usize, change: impl FnOnce(&mut FxSlot)) {
+        if let Some(slot) = self.decks.get_mut(deck).and_then(|d| d.fx.slot_mut(slot)) {
+            change(slot);
         }
     }
 

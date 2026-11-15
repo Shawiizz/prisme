@@ -4,8 +4,8 @@
 
 use crate::audio_host::{deck_pair, layer_partner, AudioSession};
 use crate::dto::{
-    AudioInfo, BackendDto, BandDto, ChannelStripDto, CueDto, FxDto, FxPartDto, HeadphonesOutputDto, KeyDto,
-    MixModeDto, RpmDto, SeparationDto, StemMixDto, TempoDto, TrackInfoDto, VinylModeDto,
+    AudioInfo, BackendDto, BandDto, ChannelStripDto, CueDto, FxChainDto, FxPartDto, HeadphonesOutputDto,
+    KeyDto, MixModeDto, RpmDto, SeparationDto, StemMixDto, TempoDto, TrackInfoDto, VinylModeDto,
 };
 use crate::error::{AppError, AppResult};
 use crate::folders;
@@ -155,7 +155,7 @@ pub struct DeckSettings {
     pub swap_channels: bool,
     pub key_lock: bool,
     pub strip: ChannelStripDto,
-    pub fx: FxDto,
+    pub fx: FxChainDto,
     pub sampler_gain: f32,
 }
 
@@ -172,7 +172,7 @@ impl From<DeckPreferences> for DeckSettings {
             swap_channels: p.swap_channels,
             key_lock: p.key_lock,
             strip: ChannelStripDto::default(),
-            fx: FxDto::default(),
+            fx: FxChainDto::default(),
             sampler_gain: 1.0,
         }
     }
@@ -473,14 +473,18 @@ pub fn deck_commands(deck: usize, s: &DeckSettings) -> Vec<Command> {
         Command::SetKeyLock { deck, enabled: s.key_lock },
         Command::SetTrim { deck, gain: strip.trim },
         Command::SetFilter { deck, position: strip.filter },
-        Command::SetFx { deck, kind: s.fx.kind.into() },
-        Command::SetFxMix { deck, mix: s.fx.mix },
-        Command::SetFxAmount { deck, amount: s.fx.amount },
-        Command::SetFxBeats { deck, beats: s.fx.beats },
         Command::SetFxParts { deck, parts: FxPartDto::parts(s.fx.part) },
-        Command::SetFxEnabled { deck, enabled: s.fx.enabled },
         Command::SetSamplerGain { deck, gain: s.sampler_gain },
     ];
+    for (slot, fx) in s.fx.slots.iter().enumerate() {
+        commands.extend([
+            Command::SetFx { deck, slot, kind: fx.kind.into() },
+            Command::SetFxMix { deck, slot, mix: fx.mix },
+            Command::SetFxAmount { deck, slot, amount: fx.amount },
+            Command::SetFxBeats { deck, slot, beats: fx.beats },
+            Command::SetFxEnabled { deck, slot, enabled: fx.enabled },
+        ]);
+    }
     for (i, band) in BandDto::ALL.into_iter().enumerate() {
         commands.push(Command::SetEq { deck, band: band.into(), gain: strip.eq[i] });
         commands.push(Command::SetEqKill { deck, band: band.into(), kill: strip.kills[i] });

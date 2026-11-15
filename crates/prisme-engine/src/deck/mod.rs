@@ -20,7 +20,7 @@ use crate::vinyl::{VinylControl, VinylDrive};
 use bar_mix::BarMix;
 use hand::{Hand, Step};
 use jog::{Jog, Turn};
-use prisme_dsp::{Beat, FxSlot, Smoothed};
+use prisme_dsp::{Beat, FxChain, Smoothed};
 use prisme_timecode::TimecodeDecoder;
 use transport::Transport;
 
@@ -65,8 +65,8 @@ pub(crate) struct Deck {
     /// The pitch stays when the speed changes (within [`KeyLock::applies`]).
     pub(crate) key_lock_enabled: bool,
     key_lock: KeyLock,
-    pub(crate) fx: FxSlot,
-    /// The parts of the track the effect is on (none: the whole deck), and room for them.
+    pub(crate) fx: FxChain,
+    /// The parts of the track the effects are on (none: the whole deck), and room for them.
     fx_parts: Parts,
     apart: Vec<f32>,
     pub(crate) sampler: Sampler,
@@ -103,7 +103,7 @@ impl Deck {
             strip: ChannelStrip::new(sample_rate as f32),
             key_lock_enabled: false,
             key_lock: KeyLock::new(sample_rate, max_block_frames),
-            fx: FxSlot::new(sample_rate as f32, max_block_frames),
+            fx: FxChain::new(sample_rate as f32, max_block_frames),
             fx_parts: Parts::NONE,
             apart: vec![0.0; max_block_frames * 2],
             sampler: Sampler::new(),
@@ -268,14 +268,14 @@ impl Deck {
         }
     }
 
-    /// Puts the effect on `parts` of the track, or on the whole deck (none).
+    /// Puts the effects on `parts` of the track, or on the whole deck (none).
     pub(crate) fn set_fx_parts(&mut self, parts: Parts) {
         self.fx_parts = parts;
         self.playhead.set_apart(parts);
     }
 
-    /// The effect on the parts it is on, mixed back into `out` (before the sampler and the
-    /// channel strip); false when it is on the whole deck, to be applied after them.
+    /// The effects on the parts they are on, mixed back into `out` (before the sampler and the
+    /// channel strip); false when they are on the whole deck, to be applied after them.
     pub(crate) fn fx_on_parts(&mut self, out: &mut [f32], beat: Beat) -> bool {
         if self.fx_parts.is_empty() {
             return false;

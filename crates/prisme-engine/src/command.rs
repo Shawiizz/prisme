@@ -272,32 +272,37 @@ pub enum Command {
         deck: DeckId,
         position: f32,
     },
-    /// The deck's beat effect.
+    /// The effect in a slot of the deck's chain (`slot` < [`FX_SLOTS`](crate::FX_SLOTS)).
     SetFx {
         deck: DeckId,
+        slot: usize,
         kind: EffectKind,
     },
     SetFxEnabled {
         deck: DeckId,
+        slot: usize,
         enabled: bool,
     },
-    /// Level of the effect, 0..1.
+    /// Level of the slot's effect, 0..1.
     SetFxMix {
         deck: DeckId,
+        slot: usize,
         mix: f32,
     },
-    /// The effect's main knob (feedback, depth...), 0..1.
+    /// The slot's main knob (feedback, depth...), 0..1.
     SetFxAmount {
         deck: DeckId,
+        slot: usize,
         amount: f32,
     },
-    /// The effect's period in beats.
+    /// The slot's period in beats.
     SetFxBeats {
         deck: DeckId,
+        slot: usize,
         beats: f32,
     },
-    /// The parts of the track the effect is on, where they are separated; none: the whole
-    /// deck, after its channel strip.
+    /// The parts of the track the deck's effects are on, where they are separated; none: the
+    /// whole deck, after its channel strip.
     SetFxParts {
         deck: DeckId,
         parts: Parts,

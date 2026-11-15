@@ -14,10 +14,10 @@ fn heard(stems: StemTracks, gate: Option<Parts>, key_lock: bool) -> f32 {
     rig.send(Command::SetKeyLock { deck: 0, enabled: key_lock });
     rig.send(Command::SetPitch { deck: 0, ratio: 1.04 });
     if let Some(parts) = gate {
-        rig.send(Command::SetFx { deck: 0, kind: EffectKind::Gate });
-        rig.send(Command::SetFxMix { deck: 0, mix: 1.0 });
+        rig.send(Command::SetFx { deck: 0, slot: 0, kind: EffectKind::Gate });
+        rig.send(Command::SetFxMix { deck: 0, slot: 0, mix: 1.0 });
         rig.send(Command::SetFxParts { deck: 0, parts });
-        rig.send(Command::SetFxEnabled { deck: 0, enabled: true });
+        rig.send(Command::SetFxEnabled { deck: 0, slot: 0, enabled: true });
     }
     rig.send(Command::SetPlaying { deck: 0, playing: true });
     rig.run(1.0);

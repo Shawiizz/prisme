@@ -1,50 +1,58 @@
-//! A deck's beat effect.
+//! A deck's chain of beat effects: each slot's effect and settings, and the part of the track
+//! the chain is on.
 
-use crate::dto::{EffectKindDto, FxPartDto};
-use crate::error::AppResult;
+use crate::dto::{EffectKindDto, FxDto, FxPartDto};
+use crate::error::{AppError, AppResult};
 use crate::state::{lock, AppState};
-use prisme_engine::Command;
+use prisme_engine::{Command, FX_SLOTS};
 use tauri::State;
 
-#[tauri::command]
-pub fn set_fx(state: State<'_, AppState>, deck: usize, kind: EffectKindDto) -> AppResult<()> {
+/// Changes a slot of the deck's chain as the backend keeps it, then sends `command` to the
+/// engine.
+fn set_slot(
+    state: &AppState,
+    deck: usize,
+    slot: usize,
+    change: impl FnOnce(&mut FxDto),
+    command: Command,
+) -> AppResult<()> {
     AppState::check_deck(deck)?;
-    lock(&state.decks)[deck].fx.kind = kind;
-    state.send_if_running(Command::SetFx { deck, kind: kind.into() })
+    if slot >= FX_SLOTS {
+        return Err(AppError::Other(format!("no effect slot {}", slot + 1)));
+    }
+    change(&mut lock(&state.decks)[deck].fx.slots[slot]);
+    state.send_if_running(command)
 }
 
 #[tauri::command]
-pub fn set_fx_enabled(state: State<'_, AppState>, deck: usize, enabled: bool) -> AppResult<()> {
-    AppState::check_deck(deck)?;
-    lock(&state.decks)[deck].fx.enabled = enabled;
-    state.send_if_running(Command::SetFxEnabled { deck, enabled })
+pub fn set_fx(state: State<'_, AppState>, deck: usize, slot: usize, kind: EffectKindDto) -> AppResult<()> {
+    set_slot(&state, deck, slot, |fx| fx.kind = kind, Command::SetFx { deck, slot, kind: kind.into() })
 }
 
-/// Level of the effect, 0..1.
 #[tauri::command]
-pub fn set_fx_mix(state: State<'_, AppState>, deck: usize, mix: f32) -> AppResult<()> {
-    AppState::check_deck(deck)?;
-    lock(&state.decks)[deck].fx.mix = mix;
-    state.send_if_running(Command::SetFxMix { deck, mix })
+pub fn set_fx_enabled(state: State<'_, AppState>, deck: usize, slot: usize, enabled: bool) -> AppResult<()> {
+    set_slot(&state, deck, slot, |fx| fx.enabled = enabled, Command::SetFxEnabled { deck, slot, enabled })
 }
 
-/// The effect's main knob, 0..1.
+/// Level of the slot's effect, 0..1.
 #[tauri::command]
-pub fn set_fx_amount(state: State<'_, AppState>, deck: usize, amount: f32) -> AppResult<()> {
-    AppState::check_deck(deck)?;
-    lock(&state.decks)[deck].fx.amount = amount;
-    state.send_if_running(Command::SetFxAmount { deck, amount })
+pub fn set_fx_mix(state: State<'_, AppState>, deck: usize, slot: usize, mix: f32) -> AppResult<()> {
+    set_slot(&state, deck, slot, |fx| fx.mix = mix, Command::SetFxMix { deck, slot, mix })
 }
 
-/// The effect's period in beats.
+/// The slot's main knob, 0..1.
 #[tauri::command]
-pub fn set_fx_beats(state: State<'_, AppState>, deck: usize, beats: f32) -> AppResult<()> {
-    AppState::check_deck(deck)?;
-    lock(&state.decks)[deck].fx.beats = beats;
-    state.send_if_running(Command::SetFxBeats { deck, beats })
+pub fn set_fx_amount(state: State<'_, AppState>, deck: usize, slot: usize, amount: f32) -> AppResult<()> {
+    set_slot(&state, deck, slot, |fx| fx.amount = amount, Command::SetFxAmount { deck, slot, amount })
 }
 
-/// The part of the track the effect is on, where separated (`None`: the whole deck).
+/// The slot's period in beats.
+#[tauri::command]
+pub fn set_fx_beats(state: State<'_, AppState>, deck: usize, slot: usize, beats: f32) -> AppResult<()> {
+    set_slot(&state, deck, slot, |fx| fx.beats = beats, Command::SetFxBeats { deck, slot, beats })
+}
+
+/// The part of the track the chain is on, where separated (`None`: the whole deck).
 #[tauri::command]
 pub fn set_fx_part(state: State<'_, AppState>, deck: usize, part: Option<FxPartDto>) -> AppResult<()> {
     AppState::check_deck(deck)?;
