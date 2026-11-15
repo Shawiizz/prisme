@@ -73,7 +73,7 @@ export class SettingsDialog implements OnInit {
   protected readonly search = inject(SettingsSearch);
 
   protected readonly pages = SETTINGS_PAGES;
-  /** On a phone the settings are a screen with its pages: this is one of them. */
+  /** On a phone the head's button goes back to the pages, and there is no screen below. */
   protected readonly PHONE = PHONE;
   protected readonly ANDROID = ANDROID;
   protected readonly pitchRanges = PITCH_RANGES;
