@@ -114,6 +114,11 @@ fn run(
 
     let mut stored = db.versions().unwrap_or_default();
     let found = scan_folder(root, cancel);
+    for copy in &found.tag_copies {
+        if let Err(e) = std::fs::remove_file(copy) {
+            error!("{} left behind by a tag write, not removed: {e}", copy.display());
+        }
+    }
     if !cancel.load(Ordering::Relaxed) {
         follow_moves(db, root, &mut stored, &found, listener);
     }
