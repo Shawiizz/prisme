@@ -798,11 +798,11 @@ fn matrix_attention(device: &wgpu::Device, geometry: &Geometry) -> bool {
 
 /// Whether the attention on the shader cores runs as products, unless chosen
 /// ([`GpuOptions::attention`]): for gated heads of 64 values, each with its own keys and
-/// values. Smaller heads hold less in their registers, and their scores would weigh more beside
+/// values, if it takes them. Smaller heads hold less in their registers, and their scores would weigh more beside
 /// their products (on an RTX 4060, the products take 1.5 times as long as `attention.wgsl` for
 /// Mini-BS-RoFormer-18M's heads of 32 values).
 fn attention_as_products(c: &Config) -> bool {
-    c.dim_head == 64 && c.kv_heads == c.heads && c.gates
+    c.dim_head == 64 && c.kv_heads == c.heads && c.gates && products_take(c)
 }
 
 /// Whether the attention as products takes the network's heads: each thread of
