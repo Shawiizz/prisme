@@ -1,11 +1,5 @@
-<div class="pr-backdrop" (click)="busy() || closed.emit()">
-  <div
-    class="pr-dialog"
-    role="dialog"
-    aria-modal="true"
-    [attr.aria-label]="'Import' | t"
-    (click)="$event.stopPropagation()"
-  >
+<div class="pr-backdrop" (dismiss)="close()">
+  <div class="pr-dialog" role="dialog" aria-modal="true" [attr.aria-label]="'Import' | t">
     <header class="pr-dialog__head">
       <h2>{{ 'Import' | t }}</h2>
       <button

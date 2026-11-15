@@ -1,9 +1,10 @@
-import { Component, DestroyRef, computed, inject, input } from '@angular/core';
+import { Component, DestroyRef, booleanAttribute, computed, inject, input } from '@angular/core';
 import { deckTempo } from '../../../core/deck-tempo';
 import { EngineService } from '../../../core/services/engine.service';
 import { PreferencesService } from '../../../core/services/preferences.service';
 import { TPipe } from '../../../core/i18n/t.pipe';
 import { Fader } from '../../../shared/fader/fader';
+import { Press } from '../../../shared/press';
 
 /** A press of − or + moves the tempo this much; held, it goes on, a step this often (ms)
  * after the first wait. (The temporary bend is on the keyboard and the controllers.) */
@@ -19,17 +20,15 @@ const STEP_EVERY_MS = 60;
 @Component({
   selector: 'app-pitch-fader',
   template: `
-    <span class="pr-label">Pitch</span>
+    <span class="pr-label">{{ 'Pitch' | t }}</span>
     @if (!tempo.vinyl()) {
       <button
         class="pr-btn pr-btn--sm pr-btn--icon"
         [title]="'Tempo down 0.1 % (held, on down)' | t"
         [attr.aria-label]="'Tempo down 0.1 % (held, on down)' | t"
         [disabled]="tempo.held()"
-        (pointerdown)="stepDown($event, -1)"
-        (pointerup)="stepStop()"
-        (pointercancel)="stepStop()"
-        (click)="stepKey($event, -1)"
+        (press)="stepDown(-1)"
+        (release)="stepStop()"
       >
         −
       </button>
@@ -62,10 +61,8 @@ const STEP_EVERY_MS = 60;
         [title]="'Tempo up 0.1 % (held, on up)' | t"
         [attr.aria-label]="'Tempo up 0.1 % (held, on up)' | t"
         [disabled]="tempo.held()"
-        (pointerdown)="stepDown($event, 1)"
-        (pointerup)="stepStop()"
-        (pointercancel)="stepStop()"
-        (click)="stepKey($event, 1)"
+        (press)="stepDown(1)"
+        (release)="stepStop()"
       >
         +
       </button>
@@ -107,7 +104,7 @@ const STEP_EVERY_MS = 60;
       }
     }
     // four decks: the fader and its keys alone
-    :host-context(app-deck-lane.compact) {
+    :host(.compact) {
       gap: 2px;
       .pr-label,
       .range {
@@ -133,10 +130,13 @@ const STEP_EVERY_MS = 60;
       );
     }
   `,
-  imports: [Fader, TPipe],
+  host: { '[class.compact]': 'compact()' },
+  imports: [Fader, TPipe, Press],
 })
 export class PitchFader {
   readonly deck = input.required<number>();
+  /** Half the height, for four decks. */
+  readonly compact = input(false, { transform: booleanAttribute });
 
   protected readonly engine = inject(EngineService);
   private readonly preferences = inject(PreferencesService);
@@ -162,16 +162,13 @@ export class PitchFader {
     inject(DestroyRef).onDestroy(() => this.stepStop());
   }
 
-  stepDown(event: PointerEvent, direction: -1 | 1) {
-    if (event.button !== 0) return;
-    // the release comes to the key even from off it
-    (event.currentTarget as Element).setPointerCapture(event.pointerId);
+  stepDown(direction: -1 | 1) {
     this.stepStop();
     this.step(direction);
     const goOn = (wait: number) => {
       this.stepping = setTimeout(() => {
-        // the key gone under the finger (a record took the deck): its release never comes
-        if (this.tempo.held() || this.tempo.vinyl()) return this.stepStop();
+        // the key disabled under the finger (sync took the tempo): its release may not come
+        if (this.tempo.held()) return this.stepStop();
         this.step(direction);
         goOn(STEP_EVERY_MS);
       }, wait);
@@ -182,11 +179,6 @@ export class PitchFader {
   stepStop() {
     if (this.stepping !== null) clearTimeout(this.stepping);
     this.stepping = null;
-  }
-
-  /** From the keyboard (a click with no pointer behind it): one step. */
-  stepKey(event: MouseEvent, direction: -1 | 1) {
-    if (event.detail === 0) this.step(direction);
   }
 
   private step(direction: -1 | 1) {

@@ -8,11 +8,12 @@
     @if (engine.audioRunning()) {
       @if (settings.info(); as info) {
         <span class="pr-chip device" [title]="info.device">
-          <span class="pr-sig pr-sig--ok"></span>{{ backendName(info.backend) }} · {{ info.device }}
+          <span class="pr-sig pr-sig--ok"></span>{{ BACKEND_NAMES[info.backend] }} ·
+          {{ info.device }}
         </span>
-        @if (bufferMs(); as ms) {
+        @if (settings.period(); as period) {
           <span class="pr-chip" [title]="'Length of an audio period' | t">
-            {{ 'Buffer' | t }} <span class="pr-num">{{ ms }} ms</span>
+            {{ 'Buffer' | t }} <span class="pr-num">{{ period }}</span>
           </span>
         }
         @if (info.simulated) {
@@ -124,8 +125,8 @@
           <span class="pr-btn__dot"></span>{{ 'Rec' | t }}
         </button>
         @if (recordMenu()) {
-          <div class="backdrop" (click)="recordMenu.set(false)"></div>
-          <div class="menu">
+          <div class="pr-veil" (dismiss)="recordMenu.set(false)"></div>
+          <div class="menu pr-popover">
             @for (o of recording.options(); track o.label) {
               <button class="pr-btn pr-btn--ghost" [title]="o.title" (click)="record(o)">
                 {{ o.label }}

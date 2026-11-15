@@ -12,7 +12,7 @@ import {
 /** Size of the cap along the travel (pixels): the track runs between its two centres. */
 const CAP = 14;
 /** Under a finger: the cap of a mixer's fader, in a slot. */
-const TOUCH_CAP = { horizontal: 22, vertical: 22 };
+const TOUCH_CAP = 22;
 /** Shift: a gesture moves the fader four times less. */
 const FINE = 0.25;
 /** Steps of the keyboard and the wheel, as a share of the travel. */
@@ -254,7 +254,7 @@ export class Fader {
   /** Follows the input, and moves at once with the gestures. */
   protected readonly current = linkedSignal(() => this.value());
   protected readonly fraction = computed(() => this.toFraction(this.current()));
-  protected readonly cap = computed(() => (this.touch() ? TOUCH_CAP[this.orientation()] : CAP));
+  protected readonly cap = computed(() => (this.touch() ? TOUCH_CAP : CAP));
   private readonly origin = computed(() => (this.centered() ? 0.5 : 0));
   protected readonly fillFrom = computed(() => Math.min(this.origin(), this.fraction()));
   protected readonly fillTo = computed(() => Math.max(this.origin(), this.fraction()));

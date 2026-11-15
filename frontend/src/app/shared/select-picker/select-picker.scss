@@ -1,23 +1,15 @@
-.veil {
-  position: fixed;
-  inset: 0;
-  z-index: var(--pr-z-picker);
-  &.dim {
-    background: rgb(0 0 0 / 0.55);
-  }
+:host {
+  --pr-layer: var(--pr-z-picker);
 }
 
 // under the field, on a computer
-.picker {
+.pr-popover {
   position: fixed;
-  z-index: calc(var(--pr-z-picker) + 1);
   display: grid;
   max-width: min(420px, calc(100vw - 16px));
   max-height: 320px;
   overflow-y: auto;
   padding: 4px;
-  border: 1px solid var(--pr-line-2);
-  border-radius: var(--pr-radius);
   background: var(--pr-raise);
   box-shadow: 0 12px 32px rgb(0 0 0 / 0.5);
 }
@@ -68,16 +60,10 @@ svg {
 }
 
 // rising from the bottom, on a phone
-.picker.sheet {
-  inset: auto 0 0;
-  max-width: none;
+.pr-sheet {
+  display: grid;
   max-height: 70%;
   padding: 8px 8px calc(12px + env(safe-area-inset-bottom));
-  border: 0;
-  border-top: 1px solid var(--pr-line-2);
-  border-radius: 0;
-  background: var(--pr-base);
-  box-shadow: none;
   h4 {
     margin: 0;
     padding: 10px 12px 8px;
@@ -99,7 +85,7 @@ svg {
   }
 }
 @media (orientation: landscape) {
-  .picker.sheet {
+  .pr-sheet {
     left: 20%;
     right: 20%;
     max-height: 86%;

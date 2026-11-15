@@ -5,6 +5,8 @@ import { TrackEditService } from '../../../core/services/track-edit.service';
 import { TapTempo } from '../../../shared/tap-tempo';
 import { TPipe } from '../../../core/i18n/t.pipe';
 import { camelotHue, camelotMajor, keyName } from '../../../shared/camelot';
+import { Dismiss, overlay } from '../../../shared/overlay';
+import { PHONE } from '../../../core/platform';
 
 /** Grid moves of the arrow buttons: fine and coarse (seconds). */
 const FINE_SHIFT_S = 0.002;
@@ -15,9 +17,11 @@ const COARSE_SHIFT_S = 0.02;
   selector: 'app-grid-editor',
   templateUrl: './grid-editor.html',
   styleUrl: './grid-editor.scss',
-  imports: [TPipe],
+  imports: [TPipe, Dismiss],
 })
 export class GridEditor {
+  /** On a phone it rises from the bottom, over the panel of its deck. */
+  protected readonly PHONE = PHONE;
   protected readonly hue = camelotHue;
   protected readonly major = camelotMajor;
   protected readonly keyName = keyName;
@@ -53,6 +57,12 @@ export class GridEditor {
 
   constructor() {
     this.edits.loadKeys();
+    // the deck that opens it answers the back gesture
+    overlay(
+      () => true,
+      () => this.closed.emit(),
+      { back: false },
+    );
   }
 
   grid(change: GridChange) {

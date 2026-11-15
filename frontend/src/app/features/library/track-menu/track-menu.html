@@ -61,8 +61,8 @@
         @for (c of trackColors; track c.value) {
           <button
             [style.--swatch]="hexColor(c.value)"
-            [title]="c.name"
-            [attr.aria-label]="c.name"
+            [title]="c.name()"
+            [attr.aria-label]="c.name()"
             (click)="setColor(c.value)"
           ></button>
         }

@@ -3,17 +3,15 @@
     <button
       class="pr-btn pr-btn--lg key"
       [class.is-on]="status()?.playing === false && status()?.loaded"
-      (pointerdown)="cueDown()"
-      (pointerup)="cueUp()"
-      (pointercancel)="cueUp()"
+      (press)="cueDown()"
+      (release)="cueUp()"
     >
       CUE
     </button>
     <button
       class="pr-btn pr-btn--lg key"
       [class.is-on]="status()?.playing"
-      (pointerdown)="playDown($event)"
-      (click)="playKey($event)"
+      (press)="engine.togglePlay(deck())"
     >
       {{ status()?.playing ? 'PAUSE' : 'PLAY' }}
     </button>
@@ -58,10 +56,8 @@
   class="pr-btn pr-btn--lg key sync"
   [class.is-on]="syncState() === 'locked'"
   [class.matched]="syncState() === 'matched'"
-  (pointerdown)="syncDown($event)"
-  (pointerup)="syncUp()"
-  (pointercancel)="syncCancel()"
-  (click)="syncKey($event)"
+  (press)="syncDown()"
+  (release)="$event ? syncUp() : syncCancel()"
   [disabled]="!canSync()"
   [title]="syncTitle()"
 >

@@ -3,7 +3,7 @@ import { ControlService } from '../../core/control/control.service';
 import { ControllerService } from '../../core/control/controller.service';
 import { Control } from '../../core/control/controls';
 import { ControllerMapping, StepEncoding, describeMapping } from '../../core/models/controllers';
-import { t } from '../../core/i18n/i18n';
+import { Text, t } from '../../core/i18n/i18n';
 import { TPipe } from '../../core/i18n/t.pipe';
 
 interface Binding {
@@ -18,24 +18,18 @@ interface Row {
 }
 
 /** How an encoder may send its steps, as offered when the guess was wrong. */
-const STEP_ENCODINGS: { value: StepEncoding; label: string }[] = [
+const STEP_ENCODINGS: { value: StepEncoding; label: Text }[] = [
   {
     value: 'relative',
-    get label() {
-      return t('Steps 1 and 127');
-    },
+    label: () => t('Steps 1 and 127'),
   },
   {
     value: 'relativeOffset',
-    get label() {
-      return t('Steps around 64');
-    },
+    label: () => t('Steps around 64'),
   },
   {
     value: 'relativeSigned',
-    get label() {
-      return t('Steps 1 and 65');
-    },
+    label: () => t('Steps 1 and 65'),
   },
 ];
 

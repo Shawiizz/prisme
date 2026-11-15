@@ -1,4 +1,4 @@
-import { Injectable, signal } from '@angular/core';
+import { Injectable, computed, inject, signal } from '@angular/core';
 import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
 import { save } from '@tauri-apps/plugin-dialog';
@@ -9,6 +9,8 @@ import {
   AudioSettings,
   TimecodeFormat,
 } from '../models/audio';
+import { decimal } from '../../shared/time';
+import { EngineService } from './engine.service';
 
 /** Audio settings (backend, devices, buffer, timecode format, simulation) and diagnostics. */
 @Injectable({ providedIn: 'root' })
@@ -18,6 +20,14 @@ export class SettingsService {
   readonly formats = signal<TimecodeFormat[]>([]);
   readonly settings = signal<AudioSettings | null>(null);
   readonly info = signal<AudioInfo | null>(null);
+  private readonly engine = inject(EngineService);
+  /** The length of an audio period, `5.3 ms`, once the driver has called the engine. */
+  readonly period = computed(() => {
+    const frames = this.engine.status()?.health?.periodFrames;
+    const rate = this.info()?.sampleRate;
+    return frames && rate ? `${decimal((frames / rate) * 1000, 1)} ms` : null;
+  });
+  private devicesAsked = 0;
 
   /** Loads the settings, and again whenever the audio moves to other devices by itself. */
   async init(): Promise<void> {
@@ -39,8 +49,11 @@ export class SettingsService {
     await this.loadDevices(settings.backend);
   }
 
+  /** The devices of the backend asked for last: a slower answer for another one is dropped. */
   async loadDevices(backend: AudioBackend): Promise<void> {
-    this.devices.set(await invoke<AudioDevice[]>('list_devices', { backend }));
+    const asked = ++this.devicesAsked;
+    const devices = await invoke<AudioDevice[]>('list_devices', { backend });
+    if (asked === this.devicesAsked) this.devices.set(devices);
   }
 
   /** Asks where to save a diagnostic report and writes it; `false` if cancelled. */

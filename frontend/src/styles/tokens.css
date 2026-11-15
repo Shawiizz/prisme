@@ -2,7 +2,12 @@
    Components never hard-code a value: they read these. See design/DESIGN.md. */
 
 :root {
-  /* layers over everything: a dialog, a list opened from it, a question over both */
+  /* what sticks to the edge of a scrolling list, over its rows */
+  --pr-z-sticky: 1;
+  /* layers over the page, each a veil with what it holds just above it: a menu, a sheet
+     risen over a phone's panel, a dialog, a list opened from it, a question over all */
+  --pr-z-menu: 20;
+  --pr-z-sheet: 22;
   --pr-z-dialog: 100;
   --pr-z-picker: 110;
   --pr-z-question: 120;

@@ -39,7 +39,7 @@ const LOAD_PX = 84;
 
 /** What the tracks can be ordered by, as the columns of the table name it. */
 const SORTS: readonly { sort: SortColumn; name: string }[] = COLUMNS.flatMap((c) =>
-  c.sort ? [{ sort: c.sort, name: c.name }] : [],
+  c.sort ? [{ sort: c.sort, name: c.name() }] : [],
 );
 const LIST_ORDER = {
   sort: 'order',
@@ -92,13 +92,13 @@ export class PhoneLibrary {
   /** What the list being browsed is called: its folder, its crate, else its kind. */
   protected readonly listName = computed(() => {
     const source = this.library.source();
-    if (source.kind === 'crate') return this.crates.name(source.id) ?? LIST_LABEL.crate;
-    if (source.kind !== 'folder') return LIST_LABEL[source.kind];
+    if (source.kind === 'crate') return this.crates.name(source.id) ?? LIST_LABEL.crate();
+    if (source.kind !== 'folder') return LIST_LABEL[source.kind]();
     const path = this.library.listing()?.path;
-    return path?.split(/[\\/]/).filter(Boolean).pop() ?? LIST_LABEL.folder;
+    return path?.split(/[\\/]/).filter(Boolean).pop() ?? LIST_LABEL.folder();
   });
-  protected readonly searchPlaceholder = computed(
-    () => SEARCH_PLACEHOLDER[this.library.source().kind],
+  protected readonly searchPlaceholder = computed(() =>
+    SEARCH_PLACEHOLDER[this.library.source().kind](),
   );
   protected readonly sorts = computed(() =>
     this.library.ordered() ? [LIST_ORDER, ...SORTS] : SORTS,

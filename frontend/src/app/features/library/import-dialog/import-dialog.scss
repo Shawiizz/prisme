@@ -57,7 +57,7 @@ section {
 }
 
 // a phone: the folder on its own line, its buttons under it
-@media (max-width: 720px) {
+:host-context(.phone) {
   .row {
     flex-wrap: wrap;
   }

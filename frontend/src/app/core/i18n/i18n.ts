@@ -59,10 +59,14 @@ export async function setLanguage(language: Language) {
 
 export type Params = Record<string, string | number>;
 
+/** A text of the UI kept in a constant, in the language of the moment it is read:
+ * `() => t('…')`. */
+export type Text = () => string;
+
 /**
  * `text` in the UI's language, its `{name}` placeholders filled from `params`. Called once
  * at load (in a constant), it would stay in the language of the start: call it where the
- * text is shown (a template, a `computed`, a getter).
+ * text is shown (a template, a `computed`), or keep it in a constant as a `Text`.
  */
 export function t(text: string, params?: Params): string {
   return fill(current().texts[text] || text, params);

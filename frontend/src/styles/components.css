@@ -266,6 +266,39 @@
   border-radius: var(--pr-radius);
 }
 
+/* ---------- Overlays ---------- */
+/* What opens over the page: a veil catching the presses around it, and what it holds one
+   layer above. Its host names the layer: --pr-layer: var(--pr-z-picker); a menu without. */
+
+.pr-veil {
+  position: fixed;
+  inset: 0;
+  z-index: var(--pr-layer, var(--pr-z-menu));
+}
+.pr-veil--dim {
+  background: rgb(0 0 0 / 0.55);
+}
+/* floating over what it belongs to */
+.pr-popover {
+  z-index: calc(var(--pr-layer, var(--pr-z-menu)) + 1);
+  background: var(--pr-base);
+  border: 1px solid var(--pr-line-2);
+  border-radius: var(--pr-radius);
+}
+/* risen from the bottom of a phone's screen */
+.pr-sheet {
+  position: fixed;
+  inset: auto 0 0;
+  z-index: calc(var(--pr-layer, var(--pr-z-menu)) + 1);
+  overflow-y: auto;
+  background: var(--pr-base);
+  border: 0;
+  border-top: 1px solid var(--pr-line-2);
+  border-radius: 0;
+  box-shadow: none;
+}
+
+/* a dialog's veil, the dialog in its middle */
 .pr-backdrop {
   position: fixed;
   inset: 0;
@@ -332,7 +365,8 @@
   min-height: 56px;
   padding: var(--pr-space-3) var(--pr-space-4);
 }
-.pr-row + .pr-row {
+/* a line over every row after the first: a row a search hides is no longer a .pr-row */
+.pr-row ~ .pr-row {
   border-top: 1px solid var(--pr-line);
 }
 .pr-row > div:first-child {

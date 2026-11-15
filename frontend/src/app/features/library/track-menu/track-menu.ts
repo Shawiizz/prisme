@@ -40,7 +40,7 @@ function folderName(path: string): string {
   imports: [TPipe],
 })
 export class TrackMenu {
-  /** A phone does not separate. */
+  /** On a phone the menu leaves the separation out. */
   protected readonly PHONE = PHONE;
   protected readonly library = inject(LibraryService);
   private readonly engine = inject(EngineService);

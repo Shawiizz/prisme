@@ -7,8 +7,11 @@ import { DestroyRef, Injectable, effect, inject } from '@angular/core';
 @Injectable({ providedIn: 'root' })
 export class BackService {
   private readonly closers: (() => void)[] = [];
-  /** Steps back taken here, for what was closed another way: not the DJ's gesture. */
+  /** Walks back taken here, for what was closed another way: not the DJ's gesture. */
   private own = 0;
+  /** Steps of what was closed another way in this task, walked back at once at its end: a
+   * WebView may merge several walks into one, and the DJ's next gesture would be lost. */
+  private closing = 0;
 
   constructor() {
     addEventListener('popstate', () => {
@@ -25,8 +28,13 @@ export class BackService {
       const at = this.closers.indexOf(close);
       if (at < 0) return;
       this.closers.splice(at, 1);
-      this.own++;
-      history.back();
+      if (this.closing++ > 0) return;
+      queueMicrotask(() => {
+        const steps = this.closing;
+        this.closing = 0;
+        this.own++;
+        history.go(-steps);
+      });
     };
   }
 }

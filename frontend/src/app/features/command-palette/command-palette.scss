@@ -126,7 +126,7 @@ footer {
 }
 
 // a phone: the whole screen, lines for a finger, the title above what it is
-:host(.phone) {
+:host-context(.phone) {
   // out of the grid of the phone's screens
   position: fixed;
   inset: 0;

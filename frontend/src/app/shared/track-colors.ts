@@ -1,53 +1,37 @@
-import { t } from '../core/i18n/i18n';
+import { Text, t } from '../core/i18n/i18n';
 
 /** Colours a track can be marked with (as in rekordbox), 0xRRGGBB: the tags of tokens.css. */
-export const TRACK_COLORS: readonly { name: string; value: number }[] = [
+export const TRACK_COLORS: readonly { name: Text; value: number }[] = [
   {
-    get name() {
-      return t('Pink');
-    },
+    name: () => t('Pink'),
     value: 0xe86bd6,
   },
   {
-    get name() {
-      return t('Red');
-    },
+    name: () => t('Red'),
     value: 0xff5442,
   },
   {
-    get name() {
-      return t('Orange');
-    },
+    name: () => t('Orange'),
     value: 0xff9a3c,
   },
   {
-    get name() {
-      return t('Yellow');
-    },
+    name: () => t('Yellow'),
     value: 0xf5d547,
   },
   {
-    get name() {
-      return t('Green');
-    },
+    name: () => t('Green'),
     value: 0xa6e25c,
   },
   {
-    get name() {
-      return t('Aqua');
-    },
+    name: () => t('Aqua'),
     value: 0x3fd3b5,
   },
   {
-    get name() {
-      return t('Blue');
-    },
+    name: () => t('Blue'),
     value: 0x4aa8ff,
   },
   {
-    get name() {
-      return t('Purple');
-    },
+    name: () => t('Purple'),
     value: 0x8f7bff,
   },
 ];

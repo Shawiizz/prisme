@@ -126,7 +126,7 @@
 
 // floating over the table of a phone: the modes on a line, the pads on two rows of four,
 // what goes with the mode under them
-:host-context(app-phone-pads) {
+:host-context(.phone) {
   flex-wrap: wrap;
   gap: 8px;
   height: auto;

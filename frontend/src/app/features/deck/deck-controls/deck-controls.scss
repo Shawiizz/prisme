@@ -121,7 +121,7 @@
 
 // on the table of a phone: PLAY, CUE and SYNC, PLAY in the corner under the thumb (the
 // `b` side is the mirror); the rest floats over the table
-:host-context(app-phone-table) {
+:host-context(.phone) {
   display: grid;
   grid-template-columns: 1.3fr 1fr 1fr;
   gap: 6px;
@@ -161,7 +161,7 @@
 }
 // held sideways, down a side: SYNC over CUE and PLAY, PLAY towards the middle
 @media (orientation: landscape) {
-  :host-context(app-phone-table) {
+  :host-context(.phone) {
     grid-template-columns: 1fr 1fr;
     .key {
       height: 46px;

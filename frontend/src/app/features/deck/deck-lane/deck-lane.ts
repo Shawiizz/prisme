@@ -15,12 +15,12 @@ import { PitchFader } from '../pitch-fader/pitch-fader';
 @Component({
   selector: 'app-deck-lane',
   template: `
-    <app-deck-card [deck]="deck()" />
-    <app-deck-waveform [deck]="deck()" />
+    <app-deck-card [deck]="deck()" [compact]="compact()" />
+    <app-deck-waveform [deck]="deck()" [compact]="compact()" />
     @if (mixer.internal()) {
-      <app-channel-slot [deck]="deck()" />
+      <app-channel-slot [deck]="deck()" [compact]="compact()" />
     }
-    <app-pitch-fader [deck]="deck()" />
+    <app-pitch-fader [deck]="deck()" [compact]="compact()" />
     <div class="rail pr-panel">
       <app-deck-controls [deck]="deck()" />
       <i class="divider"></i>

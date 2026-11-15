@@ -1,18 +1,13 @@
-.backdrop {
-  position: fixed;
-  inset: 0;
-  z-index: 20;
-}
 .panel {
+  display: grid;
+  gap: var(--pr-space-2);
+}
+.pr-popover {
   position: absolute;
-  z-index: 21;
   top: calc(100% + 4px);
   left: 0;
   width: 420px;
   padding: var(--pr-space-3);
-  display: grid;
-  gap: var(--pr-space-2);
-  border-color: var(--pr-line-2);
   box-shadow: 0 16px 40px rgb(0 0 0 / 0.5);
 }
 header {
@@ -65,20 +60,10 @@ header {
 }
 
 // on a phone: risen from the bottom, over the panel of its deck
-:host-context(app-phone-deck-panel) {
-  .backdrop {
-    z-index: 22;
-    background: rgb(0 0 0 / 0.55);
-  }
-  .panel {
-    position: fixed;
-    inset: auto 0 0;
-    z-index: 23;
-    width: auto;
-    max-height: 85%;
-    overflow-y: auto;
-    padding: var(--pr-space-4) var(--pr-space-4)
-      calc(var(--pr-space-4) + env(safe-area-inset-bottom));
-    border-radius: 0;
-  }
+:host-context(.phone) {
+  --pr-layer: var(--pr-z-sheet);
+}
+.pr-sheet {
+  max-height: 85%;
+  padding: var(--pr-space-4) var(--pr-space-4) calc(var(--pr-space-4) + env(safe-area-inset-bottom));
 }

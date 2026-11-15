@@ -1,3 +1,5 @@
+import { palette } from '../../shared/palette';
+
 /** Leaves room around the circle. */
 const FILL = 0.88;
 /** How fast the zoom follows the signal level (per frame). */
@@ -10,23 +12,19 @@ const SMALLEST_SIGNAL = 0.02;
  * zoom follows the level so the circle fills the scope whatever the input gain.
  */
 export class ScopePainter {
+  private readonly palette = palette();
   private radius = 0.2;
 
-  draw(
-    ctx: CanvasRenderingContext2D,
-    points: [number, number][],
-    size: number,
-    colors: { dots: string; guides: string },
-  ) {
+  draw(ctx: CanvasRenderingContext2D, points: [number, number][], size: number) {
     const centre = size / 2;
     ctx.clearRect(0, 0, size, size);
-    this.drawGuides(ctx, centre, colors.guides);
+    this.drawGuides(ctx, centre, this.palette.line2);
 
     const loudest = points.reduce((m, [l, r]) => Math.max(m, Math.hypot(l, r)), 0);
     this.radius += (Math.max(loudest, SMALLEST_SIGNAL) - this.radius) * ZOOM_SMOOTHING;
     const scale = (centre * FILL) / this.radius;
 
-    ctx.fillStyle = colors.dots;
+    ctx.fillStyle = this.palette.light;
     ctx.globalAlpha = 0.55;
     for (const [l, r] of points) {
       ctx.fillRect(centre + l * scale, centre - r * scale, 1.5, 1.5);

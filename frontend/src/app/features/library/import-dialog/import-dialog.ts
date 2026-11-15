@@ -2,13 +2,14 @@ import { Component, inject, output, signal } from '@angular/core';
 import { ImportService, ImportSummary } from '../../../core/services/import.service';
 import { TPipe } from '../../../core/i18n/t.pipe';
 import { errorText } from '../../../core/errors';
+import { Dismiss, overlay } from '../../../shared/overlay';
 
 /** Import from Serato or rekordbox, with what it brought. */
 @Component({
   selector: 'app-import-dialog',
   templateUrl: './import-dialog.html',
   styleUrl: './import-dialog.scss',
-  imports: [TPipe],
+  imports: [TPipe, Dismiss],
 })
 export class ImportDialog {
   readonly closed = output();
@@ -21,6 +22,15 @@ export class ImportDialog {
 
   constructor() {
     this.imports.seratoFolder().then((dir) => this.seratoFolder.set(dir));
+    overlay(
+      () => true,
+      () => this.close(),
+    );
+  }
+
+  /** Closes, unless an import runs. */
+  protected close() {
+    if (!this.busy()) this.closed.emit();
   }
 
   async pickSeratoFolder() {

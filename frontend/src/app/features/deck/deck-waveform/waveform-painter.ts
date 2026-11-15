@@ -1,4 +1,6 @@
 import { Cue, LoopStatus, Tempo, Waveform } from '../../../core/models/engine';
+import { palette } from '../../../shared/palette';
+import { hexColor } from '../../../shared/track-colors';
 
 /** What is drawn over the waveform. */
 export interface WaveformOverlay {
@@ -25,31 +27,15 @@ const LANE_FLOOR = 80;
 /** Width of the tiles the scrolling view's audio is drawn in once (device pixels). */
 const TILE_PX = 1024;
 
-/** The colours of the design system (tokens.css), read once. */
-class Palette {
-  private readonly style = getComputedStyle(document.documentElement);
-  readonly low = this.token('--pr-f-low');
-  readonly high = this.token('--pr-f-high');
-  readonly light = this.token('--pr-light');
-  readonly base = this.token('--pr-base');
-  readonly veil = this.token('--pr-light-veil');
-  readonly onLight = this.token('--pr-on-light');
-  readonly text = this.token('--pr-text');
-  readonly text3 = this.token('--pr-text-3');
-  readonly mono = this.token('--pr-font-mono');
-
-  private token(name: string): string {
-    return this.style.getPropertyValue(name).trim();
-  }
-}
-
 /**
  * Draws the waveforms (design/DESIGN.md, Waveform): one envelope coloured slice by slice by
  * the balance of its bands, the beat grid as short ticks, cues as flags in their tag colour,
  * the loop as a band of light and the playhead, the only white line, dispersed on its edges.
  */
 export class WaveformPainter {
-  private readonly palette = new Palette();
+  private readonly palette = palette();
+  /** The colour of each tag of a cue, written once. */
+  private readonly cueColors = new Map<number, string>();
   /** Colour of each slice, cached per waveform. */
   private colors: string[] = [];
   private source: Waveform | null = null;
@@ -197,35 +183,31 @@ export class WaveformPainter {
     for (const k of tiles.images.keys()) {
       if (k < first - 1 || k > last + 1) tiles.images.delete(k);
     }
-    // each tile from its left edge to the next one's, rounded alike: no seam between them
-    const visible: [OffscreenCanvas, number, number][] = [];
     for (let k = first; k <= last; k++) {
-      let image = tiles.images.get(k);
-      if (!image) {
-        image = new OffscreenCanvas(TILE_PX, view.height);
-        const tile = { ...view, fromS: k * tileS, spanS: tileS, width: TILE_PX };
-        this.drawColumns(image.getContext('2d')!, w, tile);
-        tiles.images.set(k, image);
-      }
-      visible.push([
-        image,
-        Math.round(xOf(k * tileS, view)),
-        Math.round(xOf((k + 1) * tileS, view)),
-      ]);
+      if (tiles.images.has(k)) continue;
+      const image = new OffscreenCanvas(TILE_PX, view.height);
+      const tile = { ...view, fromS: k * tileS, spanS: tileS, width: TILE_PX };
+      this.drawColumns(image.getContext('2d')!, w, tile);
+      tiles.images.set(k, image);
     }
     // whole columns copied, not blended across pixels as they scroll
     ctx.imageSmoothingEnabled = false;
     const playhead = Math.round(view.width / 2);
-    for (const [from, to, alpha] of [
-      [0, playhead, PLAYED],
-      [playhead, view.width, 1],
-    ]) {
+    // what has played (left of the playhead) dimmed, then what is to play
+    for (let side = 0; side < 2; side++) {
+      const from = side === 0 ? 0 : playhead;
+      const to = side === 0 ? playhead : view.width;
       ctx.save();
       ctx.beginPath();
       ctx.rect(from, 0, to - from, view.height);
       ctx.clip();
-      ctx.globalAlpha = alpha;
-      for (const [image, x0, x1] of visible) ctx.drawImage(image, x0, 0, x1 - x0, view.height);
+      ctx.globalAlpha = side === 0 ? PLAYED : 1;
+      // each tile from its left edge to the next one's, rounded alike: no seam between them
+      for (let k = first; k <= last; k++) {
+        const x0 = Math.round(xOf(k * tileS, view));
+        const x1 = Math.round(xOf((k + 1) * tileS, view));
+        ctx.drawImage(tiles.images.get(k)!, x0, 0, x1 - x0, view.height);
+      }
       ctx.restore();
     }
   }
@@ -365,9 +347,7 @@ export class WaveformPainter {
     for (const cue of cues) {
       const x = Math.round(xOf(cue.positionS, view));
       if (x < -20 * r || x > view.width) continue;
-      const color =
-        cue.hot === null ? this.palette.light : `#${cue.color.toString(16).padStart(6, '0')}`;
-      ctx.fillStyle = color;
+      ctx.fillStyle = cue.hot === null ? this.palette.light : this.cueColor(cue.color);
       ctx.fillRect(x, 0, r, flags ? view.height : 5 * r);
       if (flags) {
         ctx.fillRect(x, 0, 14 * r, 13 * r);
@@ -375,6 +355,15 @@ export class WaveformPainter {
         ctx.fillText(cue.hot === null ? 'C' : `${cue.hot + 1}`, x + 3.5 * r, 7 * r);
       }
     }
+  }
+
+  private cueColor(color: number): string {
+    let written = this.cueColors.get(color);
+    if (written === undefined) {
+      written = hexColor(color);
+      this.cueColors.set(color, written);
+    }
+    return written;
   }
 
   /** The only white line of the screen, dispersed on its edges like light through a prism. */

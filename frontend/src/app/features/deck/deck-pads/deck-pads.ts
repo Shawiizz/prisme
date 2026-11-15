@@ -8,7 +8,7 @@ import { EffectKind, HOT_CUES } from '../../../core/models/engine';
 import { Knob } from '../../../shared/knob/knob';
 import { ROLL_BEATS, formatBeats, loopBeats } from '../../../shared/beats';
 import { readouts } from '../../../shared/mixer-scales';
-import { t } from '../../../core/i18n/i18n';
+import { Text, t } from '../../../core/i18n/i18n';
 import { TPipe } from '../../../core/i18n/t.pipe';
 
 type PadMode = 'cues' | 'loops' | 'roll' | 'jump' | 'fx' | 'sampler';
@@ -33,62 +33,46 @@ const MODES: { id: PadMode; label: string }[] = [
 ];
 const SAMPLE_COLOR = 'var(--pr-tag-violet)';
 /** The effects on the pads, with what their AMOUNT knob does. */
-const EFFECTS: { kind: EffectKind; label: string; title: string }[] = [
+const EFFECTS: { kind: EffectKind; label: string; title: Text }[] = [
   {
     kind: 'echo',
     label: 'ECHO',
-    get title() {
-      return t('Echo on the beat · amount: feedback');
-    },
+    title: () => t('Echo on the beat · amount: feedback'),
   },
   {
     kind: 'pingPong',
     label: 'PING',
-    get title() {
-      return t('Echo bouncing left and right · amount: feedback');
-    },
+    title: () => t('Echo bouncing left and right · amount: feedback'),
   },
   {
     kind: 'reverb',
     label: 'VERB',
-    get title() {
-      return t('Reverb · amount: room size');
-    },
+    title: () => t('Reverb · amount: room size'),
   },
   {
     kind: 'flanger',
     label: 'FLANGE',
-    get title() {
-      return t('Flanger · amount: feedback');
-    },
+    title: () => t('Flanger · amount: feedback'),
   },
   {
     kind: 'phaser',
     label: 'PHASE',
-    get title() {
-      return t('Phaser · amount: feedback');
-    },
+    title: () => t('Phaser · amount: feedback'),
   },
   {
     kind: 'filter',
     label: 'FILTER',
-    get title() {
-      return t('Filter sweeping on the beat · amount: depth');
-    },
+    title: () => t('Filter sweeping on the beat · amount: depth'),
   },
   {
     kind: 'gate',
     label: 'GATE',
-    get title() {
-      return t('Cuts the sound on the beat · amount: depth');
-    },
+    title: () => t('Cuts the sound on the beat · amount: depth'),
   },
   {
     kind: 'bitcrusher',
     label: 'CRUSH',
-    get title() {
-      return t('Lower resolution · amount: crush');
-    },
+    title: () => t('Lower resolution · amount: crush'),
   },
 ];
 const LOOP_BEATS = [0.25, 0.5, 1, 2, 4, 8, 16, 32];
@@ -176,7 +160,7 @@ export class DeckPads {
           set: true,
           color: null,
           active: fx.enabled && fx.kind === e.kind,
-          title: e.title,
+          title: e.title(),
         }));
       }
       case 'sampler':
@@ -257,9 +241,7 @@ export class DeckPads {
         set: false,
         color: null,
         active: false,
-        get title() {
-          return t('Click: set · Shift-click or right click: delete');
-        },
+        title: t('Click: set · Shift-click or right click: delete'),
       };
     const loop = cue.loopLengthS !== null;
     return {
@@ -280,9 +262,7 @@ export class DeckPads {
         set: false,
         color: null,
         active: false,
-        get title() {
-          return t('Click: choose a sound');
-        },
+        title: t('Click: choose a sound'),
       };
     }
     return {
@@ -290,11 +270,9 @@ export class DeckPads {
       set: true,
       color: SAMPLE_COLOR,
       active: this.samplePlaying(slot),
-      get title() {
-        return t('{name} · Click: play · Right click: stop, then remove · Shift-click: remove', {
-          name,
-        });
-      },
+      title: t('{name} · Click: play · Right click: stop, then remove · Shift-click: remove', {
+        name,
+      }),
     };
   }
 

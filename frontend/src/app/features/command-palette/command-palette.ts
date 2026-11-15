@@ -17,11 +17,12 @@ import { LibraryService, trackTitle } from '../../core/services/library.service'
 import { NavigationService } from '../../core/services/navigation.service';
 import { EngineService } from '../../core/services/engine.service';
 import { DirEntry } from '../../core/models/library';
-import { t } from '../../core/i18n/i18n';
+import { Text, t } from '../../core/i18n/i18n';
 import { TPipe } from '../../core/i18n/t.pipe';
 import { camelotHue, camelotMajor } from '../../shared/camelot';
 import { decimal, deckLetter } from '../../shared/time';
 import { PHONE } from '../../core/platform';
+import { Dismiss, overlay } from '../../shared/overlay';
 import { SETTINGS, SETTINGS_PAGES, normalize } from '../settings/settings-catalog';
 
 type Section = 'actions' | 'settings' | 'crates' | 'tracks';
@@ -37,33 +38,25 @@ interface Item {
   run(): void;
 }
 
-const SECTIONS: { id: Section; label: string; limit: number }[] = [
+const SECTIONS: { id: Section; label: Text; limit: number }[] = [
   {
     id: 'actions',
-    get label() {
-      return t('Actions');
-    },
+    label: () => t('Actions'),
     limit: 8,
   },
   {
     id: 'settings',
-    get label() {
-      return t('Settings');
-    },
+    label: () => t('Settings'),
     limit: 6,
   },
   {
     id: 'crates',
-    get label() {
-      return t('Crates');
-    },
+    label: () => t('Crates'),
     limit: 5,
   },
   {
     id: 'tracks',
-    get label() {
-      return t('Tracks');
-    },
+    label: () => t('Tracks'),
     limit: 8,
   },
 ];
@@ -80,8 +73,7 @@ const TRACK_SEARCH_DELAY_MS = 120;
   selector: 'app-command-palette',
   templateUrl: './command-palette.html',
   styleUrl: './command-palette.scss',
-  host: { '[class.phone]': 'PHONE' },
-  imports: [TPipe],
+  imports: [TPipe, Dismiss],
 })
 export class CommandPalette {
   private readonly navigation = inject(NavigationService);
@@ -109,8 +101,8 @@ export class CommandPalette {
   private readonly pages = computed<Item[]>(() =>
     SETTINGS_PAGES.map((p) => ({
       section: 'settings',
-      title: p.label,
-      detail: p.description,
+      title: p.label(),
+      detail: p.description(),
       run: () => this.navigation.openSettings(p.id),
     })),
   );
@@ -132,37 +124,27 @@ export class CommandPalette {
       })),
     {
       section: 'actions',
-      get title() {
-        return t('Analyse new and changed files');
-      },
-      get detail() {
-        return t('Library');
-      },
+      title: t('Analyse new and changed files'),
+      detail: t('Library'),
       run: () => this.library.rescan(),
     },
     ...this.engine.deckIndexes().map((deck) => ({
       section: 'actions' as const,
-      get title() {
-        return t('Compare the tracks with deck {deck}', { deck: deckLetter(deck) });
-      },
-      get detail() {
-        return t('Library');
-      },
+      title: t('Compare the tracks with deck {deck}', { deck: deckLetter(deck) }),
+      detail: t('Library'),
       run: () => this.library.reference.set(deck),
     })),
     ...this.pages(),
     ...SETTINGS.map((s) => ({
       section: 'settings' as const,
-      title: s.label,
-      detail: SETTINGS_PAGES.find((p) => p.id === s.page)?.label ?? '',
+      title: s.label(),
+      detail: SETTINGS_PAGES.find((p) => p.id === s.page)?.label() ?? '',
       run: () => this.navigation.openSettings(s.page, s.id),
     })),
     ...this.crates.crates().map((c) => ({
       section: 'crates' as const,
       title: c.name,
-      get detail() {
-        return t('{n} tracks', { n: c.trackCount });
-      },
+      detail: t('{n} tracks', { n: c.trackCount }),
       run: () => {
         this.library.openCrate(c.id);
         this.navigation.showLibrary();
@@ -192,6 +174,12 @@ export class CommandPalette {
   protected readonly flat = computed(() => this.groups().flatMap((g) => g.items));
 
   constructor() {
+    // what opens it answers the back gesture
+    overlay(
+      () => true,
+      () => this.close(),
+      { back: false },
+    );
     afterNextRender(() => this.input().nativeElement.focus());
     afterRenderEffect(() => {
       const index = this.active();
@@ -229,9 +217,6 @@ export class CommandPalette {
       event.preventDefault();
       const item = this.flat()[this.active()];
       if (item) this.run(item);
-    } else if (event.key === 'Escape') {
-      event.preventDefault();
-      this.close();
     } else if (event.altKey && /^[ab]$/i.test(event.key)) {
       const item = this.flat()[this.active()];
       if (!item?.track) return;

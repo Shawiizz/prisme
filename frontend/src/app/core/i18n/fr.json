@@ -552,5 +552,8 @@
   "The input runs at {input} Hz but the output at {output} Hz: set both devices to the same rate": "L'entrée tourne à {input} Hz mais la sortie à {output} Hz : réglez les deux interfaces à la même fréquence",
   "No click came back from output {output} to input {input}: is the cable there?": "Aucun clic n'est revenu de la sortie {output} à l'entrée {input} : le câble est-il branché ?",
   "Cannot open {path}": "Impossible d'ouvrir {path}",
-  "Unsupported or damaged file": "Fichier non pris en charge ou abîmé"
+  "Unsupported or damaged file": "Fichier non pris en charge ou abîmé",
+  "Pitch": "Pitch",
+  "SMOOTH": "DOUCE",
+  "SHARP": "FRANCHE"
 }

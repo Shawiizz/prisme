@@ -17,7 +17,7 @@
 .head {
   position: sticky;
   top: 0;
-  z-index: 1;
+  z-index: var(--pr-z-sticky);
   height: 28px;
   background: var(--pr-void);
   border-bottom: 1px solid var(--pr-line);
@@ -177,18 +177,9 @@
   padding: var(--pr-space-4);
   color: var(--pr-text-3);
 }
-.backdrop {
-  position: fixed;
-  inset: 0;
-  z-index: 20;
-}
 .popover {
   position: fixed;
-  z-index: 21;
   padding: 6px;
-  background: var(--pr-base);
-  border: 1px solid var(--pr-line-2);
-  border-radius: var(--pr-radius);
 }
 .columns {
   display: grid;
@@ -258,7 +249,7 @@
 .selection-bar {
   position: sticky;
   bottom: 0;
-  z-index: 2;
+  z-index: calc(var(--pr-z-sticky) + 1);
   display: flex;
   align-items: center;
   gap: var(--pr-space-1);
