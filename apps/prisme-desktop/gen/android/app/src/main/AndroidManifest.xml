@@ -9,6 +9,7 @@
     <!-- the sound goes on while a deck plays, the screen locked -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
     <!-- a controller and its sound card, plugged in -->
     <uses-feature android:name="android.hardware.usb.host" android:required="false" />
