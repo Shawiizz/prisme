@@ -2,8 +2,9 @@ import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { buildControls, ControlActions, measuredControl } from './controls';
 
-/** The controller profiles shipped with the app (`apps/prisme-desktop/controllers`). */
-const FOLDER = '../apps/prisme-desktop/controllers';
+/** The controller profiles shipped with the app, or those of the folder `PRISME_PROFILES`
+ * (a profile being written). */
+const FOLDER = process.env['PRISME_PROFILES'] ?? '../apps/prisme-desktop/controllers';
 
 interface Profile {
   name: string;
