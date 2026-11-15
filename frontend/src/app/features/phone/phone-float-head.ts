@@ -26,6 +26,8 @@ import { deckLetter } from '../../shared/time';
       display: flex;
       align-items: center;
       gap: 8px;
+      /* the reach of × stops short of the row under it */
+      margin-bottom: 2px;
     }
     b {
       flex: 1;

@@ -56,8 +56,8 @@ section {
   color: var(--pr-alert);
 }
 
-// a phone: the folder on its own line, its buttons under it
-:host-context(.phone) {
+// narrow: the folder on its own line, its buttons under it
+@media (max-width: 720px) {
   .row {
     flex-wrap: wrap;
   }

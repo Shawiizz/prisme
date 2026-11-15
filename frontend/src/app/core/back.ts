@@ -1,4 +1,4 @@
-import { DestroyRef, Injectable, effect, inject } from '@angular/core';
+import { DestroyRef, Injectable, effect, inject, untracked } from '@angular/core';
 
 /**
  * The back gesture of a phone closes what was opened last over the screen: each thing
@@ -39,16 +39,21 @@ export class BackService {
   }
 }
 
-/** While `open`, the back gesture calls `close`. To be called where `inject` works. */
+/** While `open`, the back gesture calls `close`; refused (a dialog busy), the next gesture
+ * asks again. To be called where `inject` works. */
 export function closedByBack(open: () => boolean, close: () => void) {
   const back = inject(BackService);
   let closedOtherwise: (() => void) | null = null;
+  const listen = () => {
+    closedOtherwise = back.opened(() => {
+      closedOtherwise = null;
+      close();
+      if (untracked(open)) listen();
+    });
+  };
   effect(() => {
     if (open() && !closedOtherwise) {
-      closedOtherwise = back.opened(() => {
-        closedOtherwise = null;
-        close();
-      });
+      listen();
     } else if (!open() && closedOtherwise) {
       closedOtherwise();
       closedOtherwise = null;

@@ -82,7 +82,7 @@
         class="name-input pr-input"
         [placeholder]="'Crate name' | t"
         (keydown.enter)="commitEdit($any($event.target).value)"
-        (keydown.escape)="editing.set(null)"
+        (keydown.escape)="editing.set(null); $event.stopPropagation()"
         (blur)="editing.set(null)"
       />
     }
@@ -93,7 +93,7 @@
           class="name-input pr-input"
           [value]="c.name"
           (keydown.enter)="commitEdit($any($event.target).value)"
-          (keydown.escape)="editing.set(null)"
+          (keydown.escape)="editing.set(null); $event.stopPropagation()"
           (blur)="editing.set(null)"
         />
       } @else {

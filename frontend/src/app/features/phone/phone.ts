@@ -12,6 +12,7 @@ import { RecordingService } from '../../core/services/recording.service';
 import { SettingsService } from '../../core/services/settings.service';
 import { Text, t } from '../../core/i18n/i18n';
 import { TPipe } from '../../core/i18n/t.pipe';
+import { errorText } from '../../core/errors';
 import { decimal, formatClock } from '../../shared/time';
 import { CommandPalette } from '../command-palette/command-palette';
 import { PhoneDecks } from './phone-decks';
@@ -82,7 +83,7 @@ export class Phone {
     // the system may stop calling the audio of an application out of sight: Prisme knows
     const hidden = () =>
       invoke('set_hidden', { hidden: document.hidden }).catch((e) =>
-        this.engine.error.set(String(e)),
+        this.engine.error.set(errorText(e)),
       );
     document.addEventListener('visibilitychange', hidden);
     inject(DestroyRef).onDestroy(() => document.removeEventListener('visibilitychange', hidden));

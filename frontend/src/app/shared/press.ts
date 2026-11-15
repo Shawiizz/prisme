@@ -13,6 +13,7 @@ import { Directive, OnDestroy, output } from '@angular/core';
     '(pointerdown)': 'down($event)',
     '(pointerup)': 'up($event, true)',
     '(pointercancel)': 'up($event, false)',
+    '(lostpointercapture)': 'up($event, false)',
     '(click)': 'key($event)',
   },
 })
@@ -23,6 +24,8 @@ export class Press implements OnDestroy {
   private held: number | null = null;
 
   protected down(event: PointerEvent) {
+    // a press whose release never came (the key disabled under it) gives way to the next
+    if (this.held === event.pointerId) this.up(event, false);
     if (event.button !== 0 || this.held !== null) return;
     (event.currentTarget as Element).setPointerCapture(event.pointerId);
     this.held = event.pointerId;
