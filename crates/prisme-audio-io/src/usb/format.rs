@@ -1,6 +1,8 @@
 //! The samples of a USB audio stream, and how many frames each packet of an asynchronous
 //! output carries.
 
+use std::collections::VecDeque;
+
 /// Samples of `subslot` bytes (little endian, the sound in their high bits) to floats.
 pub(crate) fn decode(bytes: &[u8], subslot: usize, out: &mut [f32]) {
     match subslot {
@@ -32,9 +34,13 @@ pub(crate) fn encode(samples: &[f32], subslot: usize, out: &mut [u8]) {
     }
 }
 
-/// How many frames each packet of an output carries: the rate over the packets a second,
-/// as the card asks through its feedback endpoint when it has one (its own clock paces it).
+/// How many frames each packet of an output carries: as many as the card captured in the
+/// matching packet when the output follows its inputs (implicit feedback, the surest measure
+/// of its clock); else the rate over the packets a second, as the card asks through its
+/// feedback endpoint when it has one.
 pub(crate) struct PacketSizer {
+    /// The frames of the packets captured, not carried yet.
+    captured: VecDeque<usize>,
     nominal: f64,
     per_packet: f64,
     /// Packets of the data endpoint per second.
@@ -48,6 +54,7 @@ impl PacketSizer {
     pub fn new(sample_rate: u32, packets_per_second: u32, max_frames: usize) -> Self {
         let nominal = f64::from(sample_rate) / f64::from(packets_per_second);
         Self {
+            captured: VecDeque::with_capacity(CAPTURED_KEPT),
             nominal,
             per_packet: nominal,
             packets_per_second: f64::from(packets_per_second),
@@ -76,8 +83,26 @@ impl PacketSizer {
         }
     }
 
+    /// A packet of `frames` captured, for an output that follows the inputs. Packets left
+    /// waiting too long are forgotten, the oldest first.
+    pub fn captured(&mut self, frames: usize) {
+        if self.captured.len() == self.captured.capacity() {
+            self.captured.pop_front();
+        }
+        self.captured.push_back(frames);
+    }
+
+    /// The outputs start again after the card ran out of sound: the packets captured meanwhile
+    /// are not carried, and the outputs follow the inputs from the latest on.
+    pub fn realign(&mut self) {
+        self.captured.clear();
+    }
+
     /// The frames of the next packet.
     pub fn next(&mut self) -> usize {
+        if let Some(frames) = self.captured.pop_front() {
+            return frames.min(self.max_frames);
+        }
         let exact = self.per_packet + self.remainder;
         let frames = (exact.floor() as usize).min(self.max_frames);
         self.remainder = (exact - frames as f64).clamp(0.0, 1.0);
@@ -85,9 +110,25 @@ impl PacketSizer {
     }
 }
 
+/// Captured packets an output following the inputs keeps waiting at most: a quarter of a
+/// second at high speed, far more than it ever lags.
+const CAPTURED_KEPT: usize = 2048;
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn an_output_following_the_inputs_carries_what_they_brought() {
+        let mut sizer = PacketSizer::new(48_000, 8_000, 25);
+        // a card whose clock runs a little fast: a seventh frame every fourth packet
+        for n in 0..8 {
+            sizer.captured(if n % 4 == 3 { 7 } else { 6 });
+        }
+        let frames: Vec<usize> = (0..8).map(|_| sizer.next()).collect();
+        assert_eq!(frames, [6, 6, 6, 7, 6, 6, 6, 7]);
+        assert_eq!(sizer.next(), 6, "then the rate, until more comes");
+    }
 
     #[test]
     fn samples_come_back_as_they_went() {
