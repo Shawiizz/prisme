@@ -1,8 +1,8 @@
-import { Component, DestroyRef, computed, inject, input, output } from '@angular/core';
+import { Component, DestroyRef, inject, input, output } from '@angular/core';
 import { deckTempo } from '../../core/deck-tempo';
 import { EngineService } from '../../core/services/engine.service';
 import { TPipe } from '../../core/i18n/t.pipe';
-import { deckLetter } from '../../shared/time';
+import { PhoneFloatHead } from './phone-float-head';
 import { PhoneTempo } from './phone-tempo';
 
 /**
@@ -12,20 +12,9 @@ import { PhoneTempo } from './phone-tempo';
 @Component({
   selector: 'app-phone-pitch',
   template: `
-    <div class="head">
-      <span class="pr-tile" [class.pr-tile--outline]="!tempo.status()?.playing">{{
-        letter()
-      }}</span>
-      <b>Pitch</b>
+    <app-phone-float-head [deck]="deck()" name="Pitch" (closed)="closed.emit()">
       <span class="value pr-num">{{ tempo.pitch() }}</span>
-      <button
-        class="pr-btn pr-btn--sm pr-btn--icon pr-btn--ghost"
-        (click)="closed.emit()"
-        [attr.aria-label]="'Close' | t"
-      >
-        ×
-      </button>
-    </div>
+    </app-phone-float-head>
     @if (tempo.toMatch(); as to) {
       <p class="target pr-num">{{ 'Pitch to match' | t }} → {{ to }}</p>
     }
@@ -62,7 +51,7 @@ import { PhoneTempo } from './phone-tempo';
     </button>
   `,
   styleUrl: './phone-float.scss',
-  imports: [PhoneTempo, TPipe],
+  imports: [PhoneFloatHead, PhoneTempo, TPipe],
 })
 export class PhonePitch {
   readonly deck = input.required<number>();
@@ -70,7 +59,6 @@ export class PhonePitch {
 
   protected readonly engine = inject(EngineService);
   protected readonly tempo = deckTempo(this.deck);
-  protected readonly letter = computed(() => deckLetter(this.deck()));
   /** The deck pushed or held back: the one let go, even if the float changed decks since. */
   private bent: number | null = null;
 

@@ -9,19 +9,6 @@
   box-shadow: 0 16px 40px rgb(0 0 0 / 0.6);
 }
 
-.head {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  b {
-    flex: 1;
-  }
-}
-.pr-tile {
-  width: 22px;
-  height: 22px;
-  font-size: 12px;
-}
 .value {
   font-size: 14px;
   font-weight: 600;

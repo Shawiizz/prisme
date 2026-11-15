@@ -7,6 +7,7 @@ import { EngineService } from '../../core/services/engine.service';
 import { MixerService } from '../../core/services/mixer.service';
 import { t } from '../../core/i18n/i18n';
 import { TPipe } from '../../core/i18n/t.pipe';
+import { CueButton } from '../../shared/cue-button/cue-button';
 import { Fader } from '../../shared/fader/fader';
 import { eqGain, eqKnob } from '../../shared/mixer-scales';
 import { deckLetter } from '../../shared/time';
@@ -47,7 +48,7 @@ const EQ: readonly { band: Band; label: string }[] = [
   selector: 'app-phone-deck-panel',
   templateUrl: './phone-deck-panel.html',
   styleUrl: './phone-deck-panel.scss',
-  imports: [Fader, GridEditor, PhoneTempo, TPipe],
+  imports: [CueButton, Fader, GridEditor, PhoneTempo, TPipe],
 })
 export class PhoneDeckPanel {
   readonly deck = input.required<number>();
