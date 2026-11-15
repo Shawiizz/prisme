@@ -137,7 +137,7 @@ describe('controls', () => {
     ]);
   });
 
-  it('brake, spin back while held, repeat', () => {
+  it('brake, spin back while held, repeat, fader start', () => {
     const { calls, find } = recorder();
     find('deck1.brake').apply(1);
     find('deck1.brake').apply(0);
@@ -145,12 +145,14 @@ describe('controls', () => {
     find('deck2.spinback').apply(0);
     find('deck1.repeat').apply(1);
     expect(find('deck2.repeat').lit!()).toBe(true);
+    find('deck2.faderStart').apply(1);
     expect(calls).toEqual([
       'brake(0)',
       'spinBack(1,true)',
       'spinBack(1,false)',
       'toggleRepeat(0)',
       'repeating(1)',
+      'toggleFaderStart(1)',
     ]);
   });
 

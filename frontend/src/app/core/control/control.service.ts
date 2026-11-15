@@ -151,6 +151,9 @@ export class ControlService {
     spinBack: (deck, held) => this.performance.spinBack(deck, held),
     toggleRepeat: (deck) => this.engine.setRepeat(deck, !this.engine.decks()[deck].repeat),
     repeating: (deck) => this.engine.decks()[deck].repeat,
+    toggleFaderStart: (deck) =>
+      this.engine.setFaderStart(deck, !this.engine.decks()[deck].faderStart),
+    faderStart: (deck) => this.engine.decks()[deck].faderStart,
     reloop: (deck) => this.performance.reloop(deck),
     deleteHotCue: (deck, slot) => this.performance.deleteHotCue(deck, slot),
     resetTempo: (deck) => this.engine.setPitch(deck, 1),

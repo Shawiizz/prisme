@@ -654,5 +654,7 @@
   "Spinback: the record spun back while held, then it plays on": "Spinback : le disque lancé en arrière tant que la touche est tenue, puis la lecture reprend",
   "Repeat the track": "Répéter le morceau",
   "At the end, the track plays on from its start": "À la fin, le morceau reprend à son début",
-  "Deck options: motor, repeat": "Options de la platine : moteur, répétition"
+  "Fader start": "Fader start",
+  "The channel fader raised plays the deck; closed, it stops it on its cue": "Le fader de voie levé lance la platine ; fermé, il l’arrête sur son cue",
+  "Deck options: motor, repeat, fader start": "Options de la platine : moteur, répétition, fader start"
 }

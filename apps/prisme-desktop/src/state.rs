@@ -155,6 +155,8 @@ pub struct DeckSettings {
     pub lead_in_s: Option<f64>,
     pub swap_channels: bool,
     pub key_lock: bool,
+    /// Software mixer: the channel fader starts and stops the deck.
+    pub fader_start: bool,
     pub strip: ChannelStripDto,
     pub fx: FxChainDto,
     pub sampler_gain: f32,
@@ -176,6 +178,7 @@ impl From<DeckPreferences> for DeckSettings {
             lead_in_s: p.lead_in_s,
             swap_channels: p.swap_channels,
             key_lock: p.key_lock,
+            fader_start: p.fader_start,
             strip: ChannelStripDto::default(),
             fx: FxChainDto::default(),
             sampler_gain: 1.0,
@@ -374,6 +377,12 @@ impl AppState {
     /// Sample rate of the running audio.
     pub fn sample_rate(&self) -> Option<u32> {
         lock(&self.session).as_ref().map(|s| s.engine_config.sample_rate)
+    }
+
+    /// Whether the software mixer runs: the channel faders are Prisme's.
+    pub fn mixes_itself(&self) -> bool {
+        let info = lock(&self.session).as_ref().map(|s| s.info.clone());
+        info.is_some_and(|info| self.routing(&info).mode == MixMode::Internal)
     }
 
     /// The routing for the running device (see [`routing_for`]).

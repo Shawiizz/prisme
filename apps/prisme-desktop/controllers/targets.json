@@ -246,6 +246,12 @@
   "kind": "button"
  },
  {
+  "id": "deck1.faderStart",
+  "group": "Deck A",
+  "label": "Fader start",
+  "kind": "button"
+ },
+ {
   "id": "deck1.keylock",
   "group": "Deck A",
   "label": "Key lock",
@@ -1017,6 +1023,12 @@
   "id": "deck2.repeat",
   "group": "Deck B",
   "label": "Repeat the track",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.faderStart",
+  "group": "Deck B",
+  "label": "Fader start",
   "kind": "button"
  },
  {
@@ -1794,6 +1806,12 @@
   "kind": "button"
  },
  {
+  "id": "deck3.faderStart",
+  "group": "Deck C",
+  "label": "Fader start",
+  "kind": "button"
+ },
+ {
   "id": "deck3.keylock",
   "group": "Deck C",
   "label": "Key lock",
@@ -2565,6 +2583,12 @@
   "id": "deck4.repeat",
   "group": "Deck D",
   "label": "Repeat the track",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.faderStart",
+  "group": "Deck D",
+  "label": "Fader start",
   "kind": "button"
  },
  {

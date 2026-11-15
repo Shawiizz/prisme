@@ -1,13 +1,15 @@
 import { Component, DestroyRef, computed, inject, input } from '@angular/core';
 import { PHONE } from '../../../core/platform';
 import { EngineService } from '../../../core/services/engine.service';
+import { MixerService } from '../../../core/services/mixer.service';
 import { PerformanceService } from '../../../core/services/performance.service';
 import { TPipe } from '../../../core/i18n/t.pipe';
 import { Press } from '../../../shared/press';
 
 /**
  * What a deck does now and then rather than all the time, a row each: its motor (a brake, a
- * soft start, a spinback while held), the track repeated.
+ * soft start, a spinback while held), the track repeated, and on the software mixer the
+ * channel fader starting and stopping it.
  */
 @Component({
   selector: 'app-deck-options',
@@ -49,6 +51,21 @@ import { Press } from '../../../shared/press';
         <span></span>
       </button>
     </div>
+    @if (mixer.internal()) {
+      <div class="row">
+        <span>{{ 'Fader start' | t }}</span>
+        <button
+          class="pr-switch"
+          role="switch"
+          [attr.aria-checked]="settings().faderStart"
+          [attr.aria-label]="'Fader start' | t"
+          [title]="'The channel fader raised plays the deck; closed, it stops it on its cue' | t"
+          (click)="engine.setFaderStart(deck(), !settings().faderStart)"
+        >
+          <span></span>
+        </button>
+      </div>
+    }
   `,
   styles: `
     :host {
@@ -88,6 +105,7 @@ export class DeckOptions {
 
   protected readonly engine = inject(EngineService);
   protected readonly performance = inject(PerformanceService);
+  protected readonly mixer = inject(MixerService);
   protected readonly PHONE = PHONE;
   protected readonly settings = computed(() => this.engine.decks()[this.deck()]);
 

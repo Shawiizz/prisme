@@ -258,6 +258,7 @@ pub fn run() {
             commands::mixer::set_mix_mode,
             commands::mixer::set_headphones_output,
             commands::mixer::set_volume,
+            commands::mixer::set_fader_start,
             commands::mixer::set_crossfader,
             commands::mixer::set_deck_cue,
             commands::mixer::set_cue_mix,

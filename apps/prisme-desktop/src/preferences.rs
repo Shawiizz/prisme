@@ -39,6 +39,9 @@ pub struct DeckPreferences {
     pub swap_channels: bool,
     /// The pitch stays when the speed changes.
     pub key_lock: bool,
+    /// Software mixer: the channel fader raised from closed plays the deck, closed it stops
+    /// it on its cue point.
+    pub fader_start: bool,
     /// Sound file in each sampler slot.
     pub samples: Vec<Option<String>>,
 }
@@ -291,6 +294,7 @@ mod tests {
         assert!(p.decks[0].key_lock);
         assert_eq!(p.decks[1].rpm, RpmDto::Rpm45);
         assert_eq!(p.decks[2], DeckPreferences::default());
+        assert!(!p.decks[0].fader_start, "fader start is off unless chosen");
         assert_eq!(p.dj.decks(), 2);
     }
 
@@ -316,6 +320,7 @@ mod tests {
             lead_in_s: Some(2.5),
             swap_channels: true,
             key_lock: true,
+            fader_start: true,
             samples: vec![Some("C:/Samples/horn.wav".into()), None],
         };
         p.library.last_folder = Some("C:/Music/House".into());

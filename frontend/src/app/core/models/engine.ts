@@ -245,6 +245,9 @@ export interface DeckSettings {
   swapChannels: boolean;
   /** The pitch stays when the speed changes. */
   keyLock: boolean;
+  /** Software mixer: the channel fader raised from closed plays the deck, closed it stops it
+   * on its cue point. */
+  faderStart: boolean;
   strip: ChannelStrip;
   fx: FxChain;
   /** Name of the sound in each sampler slot. */

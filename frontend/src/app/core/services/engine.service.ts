@@ -48,6 +48,7 @@ const DEFAULT_DECK: DeckSettings = {
   leadInS: null,
   swapChannels: false,
   keyLock: false,
+  faderStart: false,
   strip: FLAT_STRIP,
   fx: DEFAULT_FX,
   samples: Array(SAMPLE_SLOTS).fill(null),
@@ -226,6 +227,12 @@ export class EngineService {
   setPassthrough(deck: number, enabled: boolean) {
     this.patchDeck(deck, { passthrough: enabled });
     return this.call('set_passthrough', { deck, enabled });
+  }
+
+  /** Software mixer: the channel fader starts and stops the deck. */
+  setFaderStart(deck: number, enabled: boolean) {
+    this.patchDeck(deck, { faderStart: enabled });
+    return this.call('set_fader_start', { deck, enabled });
   }
 
   /** At the end, the track goes on from its start. */

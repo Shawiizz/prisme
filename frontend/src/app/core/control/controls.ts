@@ -151,6 +151,9 @@ export interface ControlActions {
   /** At the end, the track goes on from its start, or stops there. */
   toggleRepeat(deck: number): void;
   repeating(deck: number): boolean;
+  /** Software mixer: the channel fader starts and stops the deck, or not. */
+  toggleFaderStart(deck: number): void;
+  faderStart(deck: number): boolean;
   reloop(deck: number): void;
   deleteHotCue(deck: number, slot: number): void;
   resetTempo(deck: number): void;
@@ -378,6 +381,10 @@ function deckControls(a: ControlActions, deck: number): Control[] {
     lit(
       button(id('repeat'), group, t('Repeat the track'), () => a.toggleRepeat(deck)),
       () => a.repeating(deck),
+    ),
+    lit(
+      button(id('faderStart'), group, t('Fader start'), () => a.toggleFaderStart(deck)),
+      () => a.faderStart(deck),
     ),
     lit(
       button(id('keylock'), group, t('Key lock'), () => a.toggleKeyLock(deck)),
