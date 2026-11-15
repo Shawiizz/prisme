@@ -1,6 +1,7 @@
 import { invoke } from '@tauri-apps/api/core';
 import { Component, computed, effect, inject, signal } from '@angular/core';
 import { ControllerService } from '../../core/control/controller.service';
+import { closedByBack } from '../../core/back';
 import { LockPlayer } from '../../core/lock-player';
 import { BACKEND_NAMES } from '../../core/models/audio';
 import { ANDROID } from '../../core/platform';
@@ -12,6 +13,7 @@ import { SettingsService } from '../../core/services/settings.service';
 import { t } from '../../core/i18n/i18n';
 import { TPipe } from '../../core/i18n/t.pipe';
 import { decimal, formatClock } from '../../shared/time';
+import { CommandPalette } from '../command-palette/command-palette';
 import { PhoneDecks } from './phone-decks';
 import { PhoneLibrary } from './phone-library';
 import { PhoneSettings } from './phone-settings';
@@ -29,7 +31,7 @@ type Tab = 'decks' | 'library' | 'settings';
   templateUrl: './phone.html',
   styleUrl: './phone.scss',
   host: { '[class.android]': 'ANDROID' },
-  imports: [PhoneDecks, PhoneLibrary, PhoneSettings, TPipe],
+  imports: [CommandPalette, PhoneDecks, PhoneLibrary, PhoneSettings, TPipe],
 })
 export class Phone {
   protected readonly ANDROID = ANDROID;
@@ -89,10 +91,17 @@ export class Phone {
       void invoke('set_hidden', { hidden: document.hidden });
     });
     inject(LockPlayer).start();
-    // a page of the settings asked for from elsewhere is shown on their screen
+    // a page of the settings asked for from elsewhere is shown on their screen, as the library
     effect(() => {
       if (this.navigation.settings()) this.tab.set('settings');
     });
+    effect(() => {
+      if (this.navigation.libraryAsked()) this.tab.set('library');
+    });
+    closedByBack(
+      () => this.navigation.palette(),
+      () => this.navigation.palette.set(false),
+    );
   }
 
   protected toggleTouch() {

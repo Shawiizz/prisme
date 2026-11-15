@@ -124,3 +124,47 @@ footer {
     font-size: 10.5px;
   }
 }
+
+// a phone: the whole screen, lines for a finger, the title above what it is
+:host(.phone) {
+  // out of the grid of the phone's screens
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  .pr-backdrop {
+    align-items: stretch;
+    padding: 0;
+  }
+  .palette {
+    grid-template-rows: auto minmax(0, 1fr);
+    width: 100%;
+    max-height: none;
+    border: none;
+    border-radius: 0;
+    box-shadow: none;
+  }
+  .field {
+    height: 56px;
+  }
+  .close {
+    width: 44px;
+    height: 44px;
+    margin-right: calc(-1 * var(--pr-space-2));
+  }
+  .item {
+    min-height: 52px;
+    padding: 6px var(--pr-space-2);
+  }
+  .text {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 2px;
+  }
+  .title {
+    max-width: none;
+  }
+  .meta .pr-btn {
+    width: 36px;
+    height: 32px;
+  }
+}

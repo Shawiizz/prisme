@@ -21,6 +21,7 @@ import { t } from '../../core/i18n/i18n';
 import { TPipe } from '../../core/i18n/t.pipe';
 import { camelotHue, camelotMajor } from '../../shared/camelot';
 import { decimal, deckLetter } from '../../shared/time';
+import { PHONE } from '../../core/platform';
 import { SETTINGS, SETTINGS_PAGES, normalize } from '../settings/settings-catalog';
 
 type Section = 'actions' | 'settings' | 'crates' | 'tracks';
@@ -72,12 +73,14 @@ const TRACK_SEARCH_DELAY_MS = 120;
 
 /**
  * Command palette (Ctrl + K): type to find an action, a setting, a crate or a track, and
- * Enter runs it. A track goes on a free deck, or on A or B with Alt + A / Alt + B.
+ * Enter runs it. A track goes on a free deck, or on A or B with Alt + A / Alt + B, or on the
+ * deck of its button. On a phone it takes the whole screen, its lines made for a finger.
  */
 @Component({
   selector: 'app-command-palette',
   templateUrl: './command-palette.html',
   styleUrl: './command-palette.scss',
+  host: { '[class.phone]': 'PHONE' },
   imports: [TPipe],
 })
 export class CommandPalette {
@@ -86,7 +89,7 @@ export class CommandPalette {
   private readonly keyboard = inject(KeyboardService);
   private readonly crates = inject(CratesService);
   private readonly library = inject(LibraryService);
-  private readonly engine = inject(EngineService);
+  protected readonly engine = inject(EngineService);
 
   private readonly input = viewChild.required<ElementRef<HTMLInputElement>>('input');
   private readonly list = viewChild.required<ElementRef<HTMLElement>>('list');
@@ -96,6 +99,8 @@ export class CommandPalette {
   private searchTimer = 0;
   private searchId = 0;
 
+  protected readonly PHONE = PHONE;
+  protected readonly letter = deckLetter;
   protected readonly hue = camelotHue;
   protected readonly major = camelotMajor;
   protected readonly decimal = decimal;
@@ -158,7 +163,10 @@ export class CommandPalette {
       get detail() {
         return t('{n} tracks', { n: c.trackCount });
       },
-      run: () => this.library.openCrate(c.id),
+      run: () => {
+        this.library.openCrate(c.id);
+        this.navigation.showLibrary();
+      },
     })),
   ]);
 

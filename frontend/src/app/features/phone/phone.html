@@ -27,6 +27,16 @@
       {{ 'Controls' | t }}
     </button>
   }
+  <button
+    class="pr-btn pr-btn--sm pr-btn--ghost pr-btn--icon"
+    (click)="navigation.palette.set(true)"
+    [attr.aria-label]="'Search actions, tracks, settings…' | t"
+  >
+    <svg viewBox="0 0 16 16" aria-hidden="true">
+      <circle cx="7" cy="7" r="5" />
+      <path d="M11 11l4 4" />
+    </svg>
+  </button>
   @if (recording.status(); as r) {
     <button
       class="pr-btn pr-btn--sm pr-btn--rec is-on"
@@ -43,6 +53,10 @@
 </header>
 @if (engine.error() ?? library.error(); as error) {
   <p class="error">{{ error }}</p>
+}
+
+@if (navigation.palette()) {
+  <app-command-palette animate.enter="pr-fade-in" />
 }
 
 <main class="screen">

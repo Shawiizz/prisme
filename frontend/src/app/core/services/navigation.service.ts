@@ -23,6 +23,8 @@ export interface SettingsPlace {
 export class NavigationService {
   readonly settings = signal<SettingsPlace | null>(null);
   readonly palette = signal(false);
+  /** Times the library was asked for from elsewhere: a phone shows it then. */
+  readonly libraryAsked = signal(0);
   /** The main screen is covered: its keyboard shortcuts wait. */
   readonly covered = computed(() => this.settings() !== null || this.palette());
 
@@ -43,5 +45,10 @@ export class NavigationService {
 
   togglePalette() {
     this.palette.update((open) => !open);
+  }
+
+  /** The library is wanted in sight (a crate opened from the palette). */
+  showLibrary() {
+    this.libraryAsked.update((n) => n + 1);
   }
 }
