@@ -361,8 +361,6 @@
   "Loop 4 beats / exit": "Boucle de 4 temps / sortie",
   "Loop in": "Loop in",
   "Loop out": "Loop out",
-  "Jump back {n} beats": "Reculer de {n} temps",
-  "Jump {n} beats ahead": "Avancer de {n} temps",
   "Jump {n} beats": "Sauter de {n} temps",
   "the whole deck": "tout le deck",
   "Jog wheel (search through the track)": "Jog (parcourir le morceau)",
@@ -656,5 +654,12 @@
   "At the end, the track plays on from its start": "À la fin, le morceau reprend à son début",
   "Fader start": "Fader start",
   "The channel fader raised plays the deck; closed, it stops it on its cue": "Le fader de voie levé lance la platine ; fermé, il l’arrête sur son cue",
-  "Deck options: motor, repeat, fader start": "Options de la platine : moteur, répétition, fader start"
+  "Deck options: motor, repeat, fader start": "Options de la platine : moteur, répétition, fader start",
+  "Jump back by the size": "Saut arrière de la taille",
+  "Jump ahead by the size": "Saut avant de la taille",
+  "Loop of the size / exit": "Boucle de la taille / sortie",
+  "Halve the size": "Diviser la taille par deux",
+  "Double the size": "Doubler la taille",
+  "Size of the jumps and the loop (a step halves or doubles it)": "Taille des sauts et de la boucle (un cran la divise ou la double)",
+  "Size of the jumps and of the sized loop, in beats": "Taille des sauts et de la boucle à la taille, en temps"
 }

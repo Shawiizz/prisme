@@ -34,6 +34,8 @@ const MODES: { id: PadMode; label: string }[] = [
   { id: 'sampler', label: 'SMPL' },
 ];
 const SAMPLE_COLOR = 'var(--pr-tag-violet)';
+/** The bar of a loop or jump pad of the deck's size. */
+const SIZE_COLOR = 'var(--pr-light)';
 /** The bar of an effect pad whose effect sounds in another slot of the chain. */
 const ELSEWHERE_COLOR = 'var(--pr-text-3)';
 /** The effects on the pads, with what their AMOUNT knob does. */
@@ -85,8 +87,9 @@ const JUMP_BEATS = [-32, -16, -4, -1, 1, 4, 16, 32];
 /**
  * Eight performance pads per deck, at the end of its rail (hot cues, loops, rolls, beat
  * jumps, beat effects, sampler), with the keys that go with their mode: slip and censor
- * (and the way out of a loop while one plays), all the loop keys, the slots of the effect
- * chain with the level, knob and period of the one chosen, or the sampler's level.
+ * (and the way out of a loop while one plays), all the loop keys, the deck's size for the
+ * jumps, the slots of the effect chain with the level, knob and period of the one chosen,
+ * or the sampler's level.
  */
 @Component({
   selector: 'app-deck-pads',
@@ -98,7 +101,7 @@ export class DeckPads {
   readonly deck = input.required<number>();
 
   private readonly engine = inject(EngineService);
-  private readonly performance = inject(PerformanceService);
+  protected readonly performance = inject(PerformanceService);
   protected readonly fx = inject(FxService);
   protected readonly sampler = inject(SamplerService);
   protected readonly modes = MODES;
@@ -107,6 +110,7 @@ export class DeckPads {
   protected readonly keys = computed(() => {
     const mode = this.mode();
     if (mode === 'loops' || mode === 'roll') return 'loop';
+    if (mode === 'jump') return 'jump';
     return mode === 'fx' || mode === 'sampler' ? mode : 'slip';
   });
   private readonly status = computed(() => this.engine.status()?.decks[this.deck()] ?? null);
@@ -154,6 +158,8 @@ export class DeckPads {
   protected readonly padsEnabled = computed(
     () => this.mode() === 'fx' || this.mode() === 'sampler' || this.canMove(),
   );
+  /** The deck's size: what its jumps go by; the pads of that size have a bar in the light. */
+  protected readonly size = computed(() => this.performance.sizes()[this.deck()]);
   protected readonly formatBeats = formatBeats;
   protected readonly readouts = readouts;
 
@@ -174,6 +180,7 @@ export class DeckPads {
             b,
             this.activeLoopBeats() === b,
             t('Loop {beats}', { beats: formatBeats(b) }),
+            b === this.size(),
           ),
         );
       case 'roll':
@@ -182,7 +189,12 @@ export class DeckPads {
         );
       case 'jump':
         return JUMP_BEATS.map((b) =>
-          this.beatPad(b, false, t('Jump {beats} beats', { beats: formatBeats(b) })),
+          this.beatPad(
+            b,
+            false,
+            t('Jump {beats} beats', { beats: formatBeats(b) }),
+            Math.abs(b) === this.size(),
+          ),
         );
       case 'fx': {
         const [slots, chosen] = [this.chain().slots, this.slot()];
@@ -312,7 +324,9 @@ export class DeckPads {
     return ((this.status()?.samplesPlaying ?? 0) & (1 << slot)) !== 0;
   }
 
-  private beatPad(beats: number, active: boolean, title: string): Pad {
-    return { label: formatBeats(beats), set: true, color: null, active, title };
+  /** A pad of so many beats; one of the deck's size has a bar in the light. */
+  private beatPad(beats: number, active: boolean, title: string, sized = false): Pad {
+    const color = sized ? SIZE_COLOR : null;
+    return { label: formatBeats(beats), set: true, color, active, title };
   }
 }

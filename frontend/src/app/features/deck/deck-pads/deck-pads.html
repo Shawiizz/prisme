@@ -91,6 +91,17 @@
       />
     </div>
   }
+  @case ('jump') {
+    <div class="side">
+      <div class="beats" [title]="'Size of the jumps and of the sized loop, in beats' | t">
+        <button class="pr-btn pr-btn--sm" (click)="performance.scaleSize(deck(), 0.5)">½</button>
+        <button class="pr-btn pr-btn--sm" (click)="performance.scaleSize(deck(), 2)">×2</button>
+        <span class="pr-num">{{ formatBeats(size()) }}</span>
+      </div>
+      <ng-container [ngTemplateOutlet]="slipKey" />
+      <ng-container [ngTemplateOutlet]="censorKey" />
+    </div>
+  }
   @case ('loop') {
     <div class="side loop">
       <button

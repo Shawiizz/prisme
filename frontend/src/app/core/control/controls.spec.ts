@@ -156,6 +156,42 @@ describe('controls', () => {
     ]);
   });
 
+  it('jump and loop by the size of the deck, which a step halves or doubles', () => {
+    const calls: string[] = [];
+    const actions = new Proxy(
+      {},
+      {
+        get:
+          (_, name: string) =>
+          (...args: unknown[]) => {
+            calls.push(`${name}(${args.join(',')})`);
+            return name === 'size' || name === 'loopBeats' ? 8 : true;
+          },
+      },
+    ) as ControlActions;
+    const find = (id: string) => buildControls(actions).find((c) => c.id === id)!;
+    find('deck2.jump.back').apply(1);
+    find('deck1.jump.forward').apply(1);
+    find('deck1.loop.size').apply(1);
+    find('deck1.size.halve').apply(1);
+    find('deck2.size.double').apply(1);
+    find('deck2.size').apply(-2);
+    expect(find('deck1.size').kind).toBe('encoder');
+    expect(find('deck1.loop.size').lit!()).toBe(true);
+    expect(calls).toEqual([
+      'size(1)',
+      'beatJump(1,-8)',
+      'size(0)',
+      'beatJump(0,8)',
+      'sizedLoop(0)',
+      'scaleSize(0,0.5)',
+      'scaleSize(1,2)',
+      'scaleSize(1,0.25)',
+      'loopBeats(0)',
+      'size(0)',
+    ]);
+  });
+
   it('read a jump or a loop of so many beats from its id', () => {
     const { calls, actions } = recorder();
     measuredControl(actions, 'deck2.jump.-8')!.apply(1);

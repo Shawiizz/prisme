@@ -170,14 +170,38 @@
  {
   "id": "deck1.jump.back",
   "group": "Deck A",
-  "label": "Jump back 4 beats",
+  "label": "Jump back by the size",
   "kind": "button"
  },
  {
   "id": "deck1.jump.forward",
   "group": "Deck A",
-  "label": "Jump 4 beats ahead",
+  "label": "Jump ahead by the size",
   "kind": "button"
+ },
+ {
+  "id": "deck1.loop.size",
+  "group": "Deck A",
+  "label": "Loop of the size / exit",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.size.halve",
+  "group": "Deck A",
+  "label": "Halve the size",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.size.double",
+  "group": "Deck A",
+  "label": "Double the size",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.size",
+  "group": "Deck A",
+  "label": "Size of the jumps and the loop (a step halves or doubles it)",
+  "kind": "encoder"
  },
  {
   "id": "deck1.bend.down",
@@ -950,14 +974,38 @@
  {
   "id": "deck2.jump.back",
   "group": "Deck B",
-  "label": "Jump back 4 beats",
+  "label": "Jump back by the size",
   "kind": "button"
  },
  {
   "id": "deck2.jump.forward",
   "group": "Deck B",
-  "label": "Jump 4 beats ahead",
+  "label": "Jump ahead by the size",
   "kind": "button"
+ },
+ {
+  "id": "deck2.loop.size",
+  "group": "Deck B",
+  "label": "Loop of the size / exit",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.size.halve",
+  "group": "Deck B",
+  "label": "Halve the size",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.size.double",
+  "group": "Deck B",
+  "label": "Double the size",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.size",
+  "group": "Deck B",
+  "label": "Size of the jumps and the loop (a step halves or doubles it)",
+  "kind": "encoder"
  },
  {
   "id": "deck2.bend.down",
@@ -1730,14 +1778,38 @@
  {
   "id": "deck3.jump.back",
   "group": "Deck C",
-  "label": "Jump back 4 beats",
+  "label": "Jump back by the size",
   "kind": "button"
  },
  {
   "id": "deck3.jump.forward",
   "group": "Deck C",
-  "label": "Jump 4 beats ahead",
+  "label": "Jump ahead by the size",
   "kind": "button"
+ },
+ {
+  "id": "deck3.loop.size",
+  "group": "Deck C",
+  "label": "Loop of the size / exit",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.size.halve",
+  "group": "Deck C",
+  "label": "Halve the size",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.size.double",
+  "group": "Deck C",
+  "label": "Double the size",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.size",
+  "group": "Deck C",
+  "label": "Size of the jumps and the loop (a step halves or doubles it)",
+  "kind": "encoder"
  },
  {
   "id": "deck3.bend.down",
@@ -2510,14 +2582,38 @@
  {
   "id": "deck4.jump.back",
   "group": "Deck D",
-  "label": "Jump back 4 beats",
+  "label": "Jump back by the size",
   "kind": "button"
  },
  {
   "id": "deck4.jump.forward",
   "group": "Deck D",
-  "label": "Jump 4 beats ahead",
+  "label": "Jump ahead by the size",
   "kind": "button"
+ },
+ {
+  "id": "deck4.loop.size",
+  "group": "Deck D",
+  "label": "Loop of the size / exit",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.size.halve",
+  "group": "Deck D",
+  "label": "Halve the size",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.size.double",
+  "group": "Deck D",
+  "label": "Double the size",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.size",
+  "group": "Deck D",
+  "label": "Size of the jumps and the loop (a step halves or doubles it)",
+  "kind": "encoder"
  },
  {
   "id": "deck4.bend.down",

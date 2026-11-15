@@ -64,6 +64,12 @@ export interface ControlActions {
   loopInSet(deck: number): boolean;
   loopOut(deck: number): void;
   beatJump(deck: number, beats: number): void;
+  /** The deck's size in beats: what its jumps go by, what its sized loop lasts. */
+  size(deck: number): number;
+  /** Multiplies the deck's size by `factor`. */
+  scaleSize(deck: number, factor: number): void;
+  /** A loop of the deck's size, or out of the loop it plays. */
+  sizedLoop(deck: number): void;
   /** A loop of `beats` from where the deck plays, or out of the loop it is in. */
   beatLoop(deck: number, beats: number): void;
   bend(deck: number, direction: -1 | 0 | 1): void;
@@ -183,7 +189,6 @@ export interface ControlActions {
   openSettings(): void;
 }
 
-const JUMP_BEATS = 4;
 const EQ_LABEL: Record<Band, Text> = {
   low: () => t('EQ low'),
   mid: () => t('EQ mid'),
@@ -352,12 +357,28 @@ function deckControls(a: ControlActions, deck: number): Control[] {
     button(id('reloop'), group, t('Reloop'), () => a.reloop(deck)),
     button(id('loop.halve'), group, t('Halve the loop'), () => a.scaleLoop(deck, 0.5)),
     button(id('loop.double'), group, t('Double the loop'), () => a.scaleLoop(deck, 2)),
-    button(id('jump.back'), group, t('Jump back {n} beats', { n: JUMP_BEATS }), () =>
-      a.beatJump(deck, -JUMP_BEATS),
+    button(id('jump.back'), group, t('Jump back by the size'), () =>
+      a.beatJump(deck, -a.size(deck)),
     ),
-    button(id('jump.forward'), group, t('Jump {n} beats ahead', { n: JUMP_BEATS }), () =>
-      a.beatJump(deck, JUMP_BEATS),
+    button(id('jump.forward'), group, t('Jump ahead by the size'), () =>
+      a.beatJump(deck, a.size(deck)),
     ),
+    lit(
+      button(id('loop.size'), group, t('Loop of the size / exit'), () => a.sizedLoop(deck)),
+      () => {
+        const playing = a.loopBeats(deck);
+        return playing !== null && Math.abs(playing / a.size(deck) - 1) < 0.01;
+      },
+    ),
+    button(id('size.halve'), group, t('Halve the size'), () => a.scaleSize(deck, 0.5)),
+    button(id('size.double'), group, t('Double the size'), () => a.scaleSize(deck, 2)),
+    {
+      id: id('size'),
+      group,
+      label: t('Size of the jumps and the loop (a step halves or doubles it)'),
+      kind: 'encoder',
+      apply: (steps) => a.scaleSize(deck, 2 ** steps),
+    },
     hold(id('bend.down'), group, t('Slow down while held'), (held) => a.bend(deck, held ? -1 : 0)),
     hold(id('bend.up'), group, t('Speed up while held'), (held) => a.bend(deck, held ? 1 : 0)),
     button(id('tempo.reset'), group, t('Tempo back to the track'), () => a.resetTempo(deck)),
