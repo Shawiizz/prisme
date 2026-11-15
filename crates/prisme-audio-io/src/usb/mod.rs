@@ -22,8 +22,8 @@ pub struct OpenedCard {
     pub descriptors: Vec<u8>,
 }
 
-/// A card plugged in: the system's name for it, its own while it is plugged in (its place on
-/// the bus), and its product's, shown to the DJ.
+/// A card plugged in: the system's name for it, its own until it is unplugged (given as it is
+/// plugged in), and its product's, shown to the DJ.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct UsbCard {
     pub id: String,
@@ -61,8 +61,9 @@ fn cards() -> Vec<UsbCard> {
     host().map_or_else(Vec::new, |host| told_apart(host.cards()))
 }
 
-/// `cards` in the order of their places on the bus, a second card of a product already there
-/// named after it with a number ("UMC404HD 192k 2").
+/// `cards` in the order the system named them, a second card of a product already there named
+/// after it with a number ("UMC404HD 192k 2"). Plugged in again, two such cards may trade
+/// their numbers: the system names them anew.
 fn told_apart(mut cards: Vec<UsbCard>) -> Vec<UsbCard> {
     cards.sort_by(|a, b| a.id.cmp(&b.id));
     let products: Vec<String> = cards.iter().map(|c| c.name.clone()).collect();
@@ -81,13 +82,17 @@ pub(crate) fn find(wanted: Option<&str>) -> Option<UsbCard> {
 }
 
 /// The card of `cards` that `wanted` names, case aside: the one of that name, else the first
-/// whose name holds it (a name saved before a second card was there); the first of all
-/// without a name.
+/// whose name holds it (a name saved before a second card was there), else the first of its
+/// product (a second card saved, alone now); the first of all without a name.
 fn pick(mut cards: Vec<UsbCard>, wanted: Option<&str>) -> Option<UsbCard> {
     let Some(wanted) = wanted.map(str::to_lowercase) else { return cards.into_iter().next() };
     let names: Vec<String> = cards.iter().map(|c| c.name.to_lowercase()).collect();
-    let at =
-        names.iter().position(|n| *n == wanted).or_else(|| names.iter().position(|n| n.contains(&wanted)))?;
+    let product = wanted.trim_end_matches(|c: char| c.is_ascii_digit()).trim_end();
+    let at = names
+        .iter()
+        .position(|n| *n == wanted)
+        .or_else(|| names.iter().position(|n| n.contains(&wanted)))
+        .or_else(|| names.iter().position(|n| !product.is_empty() && n.starts_with(product)))?;
     Some(cards.swap_remove(at))
 }
 
@@ -211,7 +216,7 @@ mod tests {
     }
 
     #[test]
-    fn two_cards_of_a_product_are_told_apart_by_their_places() {
+    fn two_cards_of_a_product_are_told_apart_in_the_order_they_were_named() {
         let cards = told_apart(vec![
             card("/dev/bus/usb/001/007", "UMC404HD 192k"),
             card("/dev/bus/usb/001/003", "UMC404HD 192k"),
@@ -237,5 +242,11 @@ mod tests {
         assert_eq!(found(Some("UMC404")).as_deref(), Some("a"));
         assert_eq!(found(None).as_deref(), Some("a"));
         assert_eq!(found(Some("SL3")), None);
+    }
+
+    #[test]
+    fn a_second_card_saved_is_found_alone_by_its_product() {
+        let alone = vec![card("b", "UMC404HD 192k")];
+        assert_eq!(pick(alone, Some("UMC404HD 192k 2")).map(|c| c.id).as_deref(), Some("b"));
     }
 }
