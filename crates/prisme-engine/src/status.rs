@@ -69,6 +69,8 @@ pub struct DeckStatus {
     pub slip_position_s: Option<f64>,
     /// The parts whose change waits for the next bar, a bit each: vocals, drums, bass, other.
     pub stems_waiting: u8,
+    /// The parts separated where the deck plays, the same bits.
+    pub stems_here: u8,
     pub vinyl: VinylStatus,
 }
 
@@ -90,6 +92,7 @@ impl Default for DeckStatus {
             slip_mode: false,
             slip_position_s: None,
             stems_waiting: 0,
+            stems_here: 0,
             vinyl: VinylStatus {
                 enabled: false,
                 mode: VinylMode::Absolute,

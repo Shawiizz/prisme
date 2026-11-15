@@ -665,6 +665,8 @@ pub struct DeckStatusDto {
     pub samples_playing: u8,
     /// The parts whose change waits for the next bar, a bit each: vocals, drums, bass, other.
     pub stems_waiting: u8,
+    /// The parts separated where the deck plays, the same bits.
+    pub stems_here: u8,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -706,6 +708,7 @@ impl From<&DeckStatus> for DeckStatusDto {
             slip_position_s: d.slip_position_s,
             samples_playing: d.samples_playing,
             stems_waiting: d.stems_waiting,
+            stems_here: d.stems_here,
             vinyl: VinylDto {
                 enabled: d.vinyl.enabled,
                 mode: d.vinyl.mode.into(),

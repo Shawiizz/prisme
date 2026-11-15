@@ -28,6 +28,7 @@ function deck(bpm: number | null, beatPhase: number | null): DeckStatus {
     },
     samplesPlaying: 0,
     stemsWaiting: 0,
+    stemsHere: 0,
   };
 }
 

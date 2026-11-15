@@ -15,10 +15,12 @@ export function deckStems(deck: Signal<number>) {
   const track = computed(() => engine.tracks()[deck()]);
   const separation = computed(() => track()?.separation ?? 'none');
   /** Vocals and instrumental, or the four stems of a fully separated track: a knob each,
-   * its name muting it at its level. */
+   * its name muting it at its level, greyed where the deck plays a part not separated yet. */
   const knobs = computed(() => {
     const mix = track()?.stemMix;
-    const waiting = engine.status()?.decks[deck()]?.stemsWaiting ?? 0;
+    const status = engine.status()?.decks[deck()];
+    const waiting = status?.stemsWaiting ?? 0;
+    const here = status?.stemsHere ?? 0;
     const knob = (part: StemPart, label: string, name: string) => ({
       part,
       label,
@@ -28,6 +30,7 @@ export function deckStems(deck: Signal<number>) {
       level: mix ? partLevel(mix, part) : 1,
       on: !mix || partPlaying(mix, part),
       waiting: partIn(waiting, part),
+      ready: partIn(here, part),
     });
     return separation() === 'full'
       ? [

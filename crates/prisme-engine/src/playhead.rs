@@ -44,6 +44,11 @@ impl Playhead {
         self.stems.clear()
     }
 
+    /// The parts of the track separated where it plays ([`Stems::separated_at`]).
+    pub(crate) fn stems_here(&self) -> u8 {
+        self.stems.separated_at(self.position as isize)
+    }
+
     pub(crate) fn set_stem_mix(&mut self, mix: StemMix) {
         self.stems.set_mix(mix);
     }

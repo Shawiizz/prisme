@@ -59,6 +59,8 @@ export interface DeckStatus {
   samplesPlaying: number;
   /** The stems whose change waits for the next bar, a bit each: vocals, drums, bass, other. */
   stemsWaiting: number;
+  /** The parts separated where the deck plays, the same bits. */
+  stemsHere: number;
 }
 
 export interface Cue {

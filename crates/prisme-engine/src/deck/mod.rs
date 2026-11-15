@@ -458,6 +458,7 @@ impl Deck {
             slip_mode: self.transport.slip_mode,
             slip_position_s: self.transport.shadow_s,
             stems_waiting: self.bar_mix.waiting(),
+            stems_here: self.playhead.stems_here(),
             vinyl: self.vinyl.status(),
         }
     }

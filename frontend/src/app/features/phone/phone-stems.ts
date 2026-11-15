@@ -45,6 +45,7 @@ import { deckLetter } from '../../shared/time';
           <app-knob
             [class.waiting]="k.waiting"
             [dimmed]="!k.on"
+            [disabled]="!k.ready"
             [value]="k.level"
             [defaultValue]="1"
             [label]="k.label"
