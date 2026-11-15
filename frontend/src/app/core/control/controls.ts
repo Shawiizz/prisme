@@ -366,14 +366,15 @@ export function buildControls(a: ControlActions): Control[] {
       deck,
     })),
     button('library.load', library, t('Load on a free deck'), () => a.loadSelected(null)),
-    ...Array.from({ length: MAX_DECKS }, (_, deck) =>
-      button(
+    ...Array.from({ length: MAX_DECKS }, (_, deck) => ({
+      ...button(
         `library.double${deck + 1}`,
         library,
         t('Instant double on deck {deck}', { deck: deckLetter(deck) }),
         () => a.double(deck),
       ),
-    ),
+      deck,
+    })),
     button('library.remove', library, t('Remove from the crate or prepare list'), () =>
       a.removeSelected(),
     ),
