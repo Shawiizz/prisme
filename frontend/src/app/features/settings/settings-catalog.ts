@@ -147,6 +147,18 @@ const ALL_SETTINGS: readonly SettingEntry[] = [
     },
   },
   {
+    id: 'audio.latency',
+    page: 'audio',
+    get label() {
+      return t('Latency');
+    },
+    get description() {
+      return t(
+        'Join an output to an input with a cable and measure: the time from the turntables to the speakers through Prisme, with the devices in use.',
+      );
+    },
+  },
+  {
     id: 'turntables.input',
     page: 'turntables',
     get label() {

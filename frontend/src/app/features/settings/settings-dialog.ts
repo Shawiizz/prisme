@@ -9,6 +9,7 @@ import {
   viewChild,
 } from '@angular/core';
 import { getVersion } from '@tauri-apps/api/app';
+import { invoke } from '@tauri-apps/api/core';
 import { SettingsService } from '../../core/services/settings.service';
 import { EngineService } from '../../core/services/engine.service';
 import { PreferencesService } from '../../core/services/preferences.service';
@@ -28,6 +29,12 @@ import { PHONE } from '../../core/platform';
 import { ScreensService } from '../../core/services/screens.service';
 import { SETTINGS, SETTINGS_PAGES, SettingEntry, matches, normalize } from './settings-catalog';
 import { SettingsIcon } from './settings-icon';
+import { decimal } from '../../shared/time';
+
+/** `1, 2, … n` */
+function numbers(n: number): number[] {
+  return Array.from({ length: n }, (_, i) => i + 1);
+}
 
 /**
  * The settings: a sidebar of pages with a search over every setting, the page or the
@@ -144,6 +151,20 @@ export class SettingsDialog implements OnInit {
   protected readonly firstDriverLabel = computed(() =>
     this.draft()?.backend === 'usb' ? t('The first plugged in') : t('Default driver'),
   );
+  /** The output and the input a latency measurement joins, from 1. */
+  protected readonly latencyOutput = signal(1);
+  protected readonly latencyInput = signal(1);
+  protected readonly latency = signal<'measuring' | { ms: number } | { error: string } | null>(
+    null,
+  );
+  protected readonly latencyOutputs = computed(() =>
+    numbers(this.service.info()?.outputChannels ?? 2),
+  );
+  protected readonly latencyInputs = computed(() => {
+    const d = this.service.settings();
+    const device = this.inputs().find((i) => i.name === (d?.inputDevice ?? d?.outputDevice));
+    return numbers(Math.max(this.service.info()?.inputChannels ?? 0, device?.channels ?? 0, 2));
+  });
   /** Buffer sizes the chosen output's driver accepts. */
   protected readonly bufferSizes = computed(() => {
     const d = this.draft();
@@ -318,6 +339,25 @@ export class SettingsDialog implements OnInit {
   setTurntablesOnDriver(enabled: boolean) {
     const device = this.draft()?.outputDevice ?? this.outputs()[0]?.name ?? null;
     this.update({ inputDevice: enabled ? device : null });
+  }
+
+  /** Plays clicks on the output chosen and times their return on the input chosen. */
+  async measureLatency() {
+    this.latency.set('measuring');
+    try {
+      const measured = await invoke<{ roundTripMs: number }>('measure_latency', {
+        output: this.latencyOutput(),
+        input: this.latencyInput(),
+      });
+      this.latency.set({ ms: measured.roundTripMs });
+    } catch (e) {
+      this.latency.set({ error: String(e) });
+    }
+  }
+
+  /** `12.3 ms` */
+  latencyLabel(ms: number): string {
+    return `${decimal(ms, 1)} ms`;
   }
 
   /** Restarts the audio if its settings changed. */

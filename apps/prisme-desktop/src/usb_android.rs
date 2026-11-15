@@ -18,7 +18,9 @@ struct AndroidUsb;
 impl UsbHost for AndroidUsb {
     fn cards(&self) -> Vec<String> {
         call("list the USB cards", |env, class| {
-            let array = JObjectArray::from(env.call_static_method(class, "cards", "()[Ljava/lang/String;", &[])?.l()?);
+            let array = JObjectArray::from(
+                env.call_static_method(class, "cards", "()[Ljava/lang/String;", &[])?.l()?,
+            );
             (0..env.get_array_length(&array)?)
                 .map(|i| {
                     let name = JString::from(env.get_object_array_element(&array, i)?);
@@ -33,12 +35,20 @@ impl UsbHost for AndroidUsb {
     fn open(&self, name: &str) -> Option<OpenedCard> {
         call("open a USB card", |env, class| {
             let jname = JObject::from(env.new_string(name)?);
-            let fd = env.call_static_method(class, "open", "(Ljava/lang/String;)I", &[JValue::Object(&jname)])?.i()?;
+            let fd = env
+                .call_static_method(class, "open", "(Ljava/lang/String;)I", &[JValue::Object(&jname)])?
+                .i()?;
             if fd < 0 {
                 return Ok(None);
             }
             let raw = JByteArray::from(
-                env.call_static_method(class, "descriptors", "(Ljava/lang/String;)[B", &[JValue::Object(&jname)])?.l()?,
+                env.call_static_method(
+                    class,
+                    "descriptors",
+                    "(Ljava/lang/String;)[B",
+                    &[JValue::Object(&jname)],
+                )?
+                .l()?,
             );
             if raw.is_null() {
                 return Ok(None);
@@ -77,8 +87,13 @@ fn call<T>(what: &str, f: impl FnOnce(&mut JNIEnv, &JClass) -> jni::errors::Resu
         let loader = env.call_method(&activity, "getClassLoader", "()Ljava/lang/ClassLoader;", &[])?.l()?;
         let name = JObject::from(env.new_string(CLASS)?);
         let class = JClass::from(
-            env.call_method(&loader, "loadClass", "(Ljava/lang/String;)Ljava/lang/Class;", &[JValue::Object(&name)])?
-                .l()?,
+            env.call_method(
+                &loader,
+                "loadClass",
+                "(Ljava/lang/String;)Ljava/lang/Class;",
+                &[JValue::Object(&name)],
+            )?
+            .l()?,
         );
         f(env, &class)
     });

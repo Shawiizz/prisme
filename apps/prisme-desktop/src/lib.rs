@@ -205,6 +205,7 @@ pub fn run() {
             commands::audio::get_audio_settings,
             commands::audio::audio_info,
             commands::audio::apply_audio_settings,
+            commands::audio::measure_latency,
             commands::tracks::load_track,
             commands::tracks::double_deck,
             commands::stems::stems_status,

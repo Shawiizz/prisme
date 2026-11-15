@@ -182,6 +182,64 @@
                     </select>
                   </div>
                 }
+                @if (row('audio.latency')) {
+                  @let e = entry('audio.latency');
+                  <div
+                    class="pr-row"
+                    data-setting="audio.latency"
+                    [class.is-pointed]="pointed() === e.id"
+                  >
+                    <div>
+                      <span class="pr-row__name">{{ e.label }}</span>
+                      <span class="pr-row__help">{{ e.description }}</span>
+                      @if (latency(); as l) {
+                        @if (l !== 'measuring' && 'error' in l) {
+                          <span class="pr-row__help latency-error">{{ l.error }}</span>
+                        }
+                      }
+                    </div>
+                    <div class="latency">
+                      <select
+                        class="pr-select"
+                        (change)="latencyOutput.set(+$any($event.target).value)"
+                        [attr.aria-label]="'Output' | t"
+                      >
+                        @for (n of latencyOutputs(); track n) {
+                          <option [value]="n" [selected]="n === latencyOutput()">
+                            {{ 'Out {n}' | t: { n } }}
+                          </option>
+                        }
+                      </select>
+                      <select
+                        class="pr-select"
+                        (change)="latencyInput.set(+$any($event.target).value)"
+                        [attr.aria-label]="'Input' | t"
+                      >
+                        @for (n of latencyInputs(); track n) {
+                          <option [value]="n" [selected]="n === latencyInput()">
+                            {{ 'In {n}' | t: { n } }}
+                          </option>
+                        }
+                      </select>
+                      <button
+                        class="pr-btn"
+                        [disabled]="latency() === 'measuring' || pending()"
+                        (click)="measureLatency()"
+                      >
+                        @if (latency() === 'measuring') {
+                          {{ 'Measuring…' | t }}
+                        } @else {
+                          {{ 'Measure' | t }}
+                        }
+                      </button>
+                      @if (latency(); as l) {
+                        @if (l !== 'measuring' && 'ms' in l) {
+                          <span class="pr-num">{{ latencyLabel(l.ms) }}</span>
+                        }
+                      }
+                    </div>
+                  </div>
+                }
               </div>
             } @else {
               <p class="loading">{{ 'Reading devices…' | t }}</p>

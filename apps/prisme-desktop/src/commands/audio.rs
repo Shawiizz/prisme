@@ -1,9 +1,10 @@
 use crate::audio_host;
-use crate::dto::{AudioInfo, AudioSettings, BackendDto, DeviceDto, TimecodeFormatDto};
+use crate::dto::{AudioInfo, AudioSettings, BackendDto, DeviceDto, LatencyDto, TimecodeFormatDto};
 use crate::error::AppResult;
 use crate::state::{lock, AppState};
-use prisme_audio_io::{Backend, DeviceKind};
+use prisme_audio_io::{latency, Backend, DeviceKind};
 use prisme_engine::Command;
+use std::time::Duration;
 use tauri::State;
 use tracing::error;
 
@@ -81,11 +82,51 @@ pub fn start_audio_unless_running(
     start(state, settings).map(Some)
 }
 
+/// How long the clicks of a latency measurement play.
+const LATENCY_MEASURE: Duration = Duration::from_secs(3);
+
+/// The round trip from output `output` to input `input` (from 1, as printed on the card),
+/// joined by a cable: the devices of the audio, free of it for the measurement, which then
+/// starts again where it was.
+#[tauri::command]
+pub async fn measure_latency(
+    state: State<'_, AppState>,
+    output: usize,
+    input: usize,
+) -> AppResult<LatencyDto> {
+    let _starting = lock(&state.audio_start);
+    let settings = state.preferences.read(|p| p.audio.clone());
+    let mut devices = audio_host::stream_settings(&settings);
+    // a card or a driver both ways listens where it plays
+    if matches!(devices.backend, Backend::Asio | Backend::Usb) {
+        devices.input_device = devices.input_device.or_else(|| devices.output_device.clone());
+    }
+    let (_, measured) = restart(&state, &settings, || {
+        latency::measure(&devices, output.saturating_sub(1), input.saturating_sub(1), LATENCY_MEASURE)
+    })?;
+    let measured = measured?;
+    Ok(LatencyDto {
+        round_trip_ms: measured.round_trip.as_secs_f64() * 1000.0,
+        sample_rate: measured.format.sample_rate,
+    })
+}
+
 fn start(state: &AppState, settings: &AudioSettings) -> AppResult<AudioInfo> {
+    restart(state, settings, || ()).map(|(info, ())| info)
+}
+
+/// Starts the audio with `settings`, the one running stopped; `between` runs in the meantime,
+/// the devices free.
+fn restart<T>(
+    state: &AppState,
+    settings: &AudioSettings,
+    between: impl FnOnce() -> T,
+) -> AppResult<(AudioInfo, T)> {
     let transport = state.transport_snapshot();
     // the device may not open twice; closed outside the lock, as it waits for the audio thread
     let previous = lock(&state.session).take();
     drop(previous);
+    let between = between();
     if settings.simulate {
         // the simulated needle starts 10 s into the record: start the track there
         let mut decks = lock(&state.decks);
@@ -110,5 +151,5 @@ fn start(state: &AppState, settings: &AudioSettings) -> AppResult<AudioInfo> {
             error!("recording not ended: {e}");
         }
     }
-    Ok(info)
+    Ok((info, between))
 }

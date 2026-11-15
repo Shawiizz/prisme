@@ -2,7 +2,62 @@
 //! back to an input, and the delay is how late they arrive. It includes everything the
 //! turntables go through: input, processing, output.
 
-use crate::AudioCallback;
+use crate::{AudioCallback, AudioError, StreamFormat, StreamSettings};
+use std::time::{Duration, Instant};
+
+/// Time between clicks: longer than any plausible round trip.
+const CLICK_PERIOD_S: f64 = 0.25;
+/// A click coming back is louder than this.
+const THRESHOLD: f32 = 0.05;
+
+#[derive(Debug, thiserror::Error)]
+pub enum LatencyError {
+    #[error(transparent)]
+    Audio(#[from] AudioError),
+    #[error("no click came back from output {output} to input {input}: is the cable there?")]
+    NoClick { output: usize, input: usize },
+}
+
+/// A round trip measured, and the format it was measured in.
+#[derive(Debug, Clone, Copy)]
+pub struct Measured {
+    pub round_trip: Duration,
+    pub format: StreamFormat,
+}
+
+/// Plays clicks on `output_channel` for `length` and listens for them on `input_channel` (both
+/// from 0), the devices of `settings` opened for this alone.
+pub fn measure(
+    settings: &StreamSettings,
+    output_channel: usize,
+    input_channel: usize,
+    length: Duration,
+) -> Result<Measured, LatencyError> {
+    let mut reader = None;
+    let mut period = 0;
+    let stream = crate::start(settings, |format| {
+        period = (f64::from(format.sample_rate) * CLICK_PERIOD_S) as usize;
+        let capacity = (f64::from(format.sample_rate) * (length.as_secs_f64() + 1.0)) as usize;
+        let (probe, r) = LatencyProbe::new(output_channel, input_channel, period, capacity);
+        reader = Some(r);
+        probe
+    })?;
+    let mut reader = reader.expect("the probe is made as the stream starts");
+    let mut recorded = Vec::new();
+    let end = Instant::now() + length;
+    while Instant::now() < end {
+        std::thread::sleep(Duration::from_millis(50));
+        recorded.extend(std::iter::from_fn(|| reader.pop().ok()));
+    }
+    let format = stream.format;
+    drop(stream);
+    let frames = round_trip_frames(&recorded, period, THRESHOLD)
+        .ok_or(LatencyError::NoClick { output: output_channel + 1, input: input_channel + 1 })?;
+    Ok(Measured {
+        round_trip: Duration::from_secs_f64(frames as f64 / f64::from(format.sample_rate)),
+        format,
+    })
+}
 
 /// Plays a click every `period` frames on one output channel and records one input
 /// channel into a lock-free ring.

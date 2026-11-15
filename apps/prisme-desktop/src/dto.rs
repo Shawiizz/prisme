@@ -272,6 +272,14 @@ impl Default for AudioSettings {
     }
 }
 
+/// A round trip measured from an output to an input.
+#[derive(Debug, Clone, Copy, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LatencyDto {
+    pub round_trip_ms: f64,
+    pub sample_rate: u32,
+}
+
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AudioInfo {

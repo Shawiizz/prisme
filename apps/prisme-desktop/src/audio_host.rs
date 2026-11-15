@@ -102,16 +102,21 @@ pub fn devices_available(settings: &AudioSettings) -> bool {
         && input.is_none_or(|name| is_available(backend, DeviceKind::Input, Some(name)))
 }
 
-/// Starts the audio with `settings`, for `decks` decks.
-pub fn start(settings: &AudioSettings, decks: usize) -> AppResult<AudioSession> {
-    let format = TimecodeFormat::by_id(&settings.timecode_format)
-        .ok_or_else(|| AppError::UnknownFormat(settings.timecode_format.clone()))?;
-    let stream_settings = StreamSettings {
+/// The devices `settings` open.
+pub fn stream_settings(settings: &AudioSettings) -> StreamSettings {
+    StreamSettings {
         backend: settings.backend.into(),
         output_device: settings.output_device.clone(),
         input_device: if settings.simulate { None } else { settings.input_device.clone() },
         buffer_frames: settings.buffer_frames,
-    };
+    }
+}
+
+/// Starts the audio with `settings`, for `decks` decks.
+pub fn start(settings: &AudioSettings, decks: usize) -> AppResult<AudioSession> {
+    let format = TimecodeFormat::by_id(&settings.timecode_format)
+        .ok_or_else(|| AppError::UnknownFormat(settings.timecode_format.clone()))?;
+    let stream_settings = stream_settings(settings);
     if stream_settings.input_device.is_some() && !input_access::allowed() {
         return Err(AppError::InputsNotAllowed);
     }

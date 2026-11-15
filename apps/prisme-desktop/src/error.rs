@@ -30,6 +30,8 @@ pub enum AppError {
     Rekordbox(#[from] prisme_import::rekordbox::RekordboxError),
     #[error("MIDI: {0}")]
     Midi(String),
+    #[error(transparent)]
+    Latency(#[from] prisme_audio_io::latency::LatencyError),
     #[error("controller {0} is not plugged in")]
     ControllerUnplugged(String),
     #[error("unknown timecode format {0}")]
