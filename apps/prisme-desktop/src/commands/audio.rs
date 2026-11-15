@@ -65,7 +65,9 @@ pub fn audio_info(state: State<'_, AppState>) -> Option<AudioInfo> {
 pub async fn apply_audio_settings(app: AppHandle, settings: AudioSettings) -> AppResult<AudioInfo> {
     blocking(move || {
         let state = app.state::<AppState>();
-        let info = start_audio(&state, &settings)?;
+        // kept as they start: no other start comes between
+        let _starting = lock(&state.audio_start);
+        let info = start(&state, &settings)?;
         state.update_preferences(|p| p.audio = settings);
         Ok(info)
     })
@@ -89,6 +91,19 @@ pub fn start_audio_unless_running(
         return Ok(None);
     }
     start(state, settings).map(Some)
+}
+
+/// Starts the saved audio again unless it is what runs (the inputs it was refused were allowed
+/// meanwhile); whether it started.
+pub fn restart_saved_audio(state: &AppState) -> AppResult<bool> {
+    let _starting = lock(&state.audio_start);
+    let saved = state.preferences.get().audio;
+    let running = lock(&state.session).as_ref().map(|s| s.settings.clone());
+    let saved = AudioSettings { simulate: running.as_ref().map_or(saved.simulate, |r| r.simulate), ..saved };
+    if running.as_ref() == Some(&saved) {
+        return Ok(false);
+    }
+    start(state, &saved).map(|_| true)
 }
 
 /// How long the clicks of a latency measurement play.

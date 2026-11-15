@@ -6,7 +6,7 @@
 //! Prisme listen to their inputs.
 
 use crate::audio_host::devices_available;
-use crate::commands::audio::{start_audio, start_audio_unless_running};
+use crate::commands::audio::{restart_saved_audio, start_audio, start_audio_unless_running};
 use crate::dto::AudioSettings;
 use crate::dto::BackendDto;
 use crate::input_access;
@@ -202,14 +202,9 @@ fn start_when_devices_change(state: &AppState, app: &AppHandle, devices: &mut Op
 /// The DJ let Prisme listen to the inputs: the saved audio, which was refused them, starts
 /// unless it runs.
 fn take_the_inputs(state: &AppState, app: &AppHandle) {
-    let saved = state.preferences.get().audio;
-    let running = lock(&state.session).as_ref().map(|s| s.settings.clone());
-    let saved = AudioSettings { simulate: running.as_ref().map_or(saved.simulate, |r| r.simulate), ..saved };
-    if running.as_ref() == Some(&saved) {
-        return;
-    }
-    match start_audio(state, &saved) {
-        Ok(_) => {
+    match restart_saved_audio(state) {
+        Ok(false) => {}
+        Ok(true) => {
             info!("the inputs allowed, the saved audio starts");
             let _ = app.emit(AUDIO_CHANGED_EVENT, ());
         }
