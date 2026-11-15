@@ -148,6 +148,7 @@ export class WaveformPainter {
     ctx.clearRect(0, 0, view.width, view.height);
     this.drawLoop(ctx, overlay.loop, view);
     if (w) this.drawZoomedAudio(ctx, w, view, view.width / ownSpanS);
+    this.drawRolls(ctx, w && w.peak.length / w.slicesPerSecond, view);
     if (overlay.tempo) this.drawBeatGrid(ctx, overlay.tempo, view);
     this.drawCues(ctx, overlay.cues, view, true);
     this.drawPlayhead(ctx, Math.round(view.width / 2), view);
@@ -285,6 +286,35 @@ export class WaveformPainter {
       if (w.peak[i] > w.peak[best]) best = i;
     }
     return best;
+  }
+
+  /** Before the track and after it, outlined arrows pointing to it: they scroll by as the
+   * silence there plays (a record's lead-in). */
+  private drawRolls(ctx: CanvasRenderingContext2D, durationS: number | null, view: View) {
+    const r = view.ratio;
+    const width = 6 * r;
+    const step = 16 * r;
+    const mid = view.height / 2;
+    const half = 5 * r;
+    const arrow = (tip: number, toTheRight: boolean) => {
+      const base = toTheRight ? tip - width : tip + width;
+      ctx.moveTo(tip, mid);
+      ctx.lineTo(base, mid - half);
+      ctx.lineTo(base, mid + half);
+      ctx.closePath();
+    };
+    ctx.beginPath();
+    let tip = xOf(0, view) - 4 * r;
+    if (tip > view.width) tip -= Math.floor((tip - view.width) / step) * step;
+    for (; tip > 0; tip -= step) arrow(tip, true);
+    if (durationS !== null) {
+      tip = xOf(durationS, view) + 4 * r;
+      if (tip < 0) tip += Math.floor(-tip / step) * step;
+      for (; tip < view.width; tip += step) arrow(tip, false);
+    }
+    ctx.strokeStyle = this.palette.text3;
+    ctx.lineWidth = r;
+    ctx.stroke();
   }
 
   /** Short ticks at the top and the bottom, longer and brighter on each bar. */
