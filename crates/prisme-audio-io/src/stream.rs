@@ -55,12 +55,32 @@ pub struct StreamFormat {
 
 /// A running audio setup. Dropping it stops the audio.
 pub struct RunningStream {
-    /// The output and input streams, closed under the drivers' lock.
-    streams: Option<(cpal::Stream, Option<cpal::Stream>)>,
+    /// Closed under the drivers' lock.
+    streams: Option<Streams>,
     pub format: StreamFormat,
     pub stats: Arc<StreamStats>,
     /// Name of the output device.
     pub output_device: String,
+}
+
+/// What keeps the sound going.
+pub(crate) enum Streams {
+    /// The system's, playing as long as they are kept.
+    Cpal { _output: cpal::Stream, _input: Option<cpal::Stream> },
+    /// A USB card Prisme drives itself.
+    #[cfg(any(target_os = "linux", target_os = "android"))]
+    Usb { _card: crate::usb::Running },
+}
+
+impl RunningStream {
+    pub(crate) fn new(
+        streams: Streams,
+        format: StreamFormat,
+        stats: Arc<StreamStats>,
+        output_device: String,
+    ) -> Self {
+        Self { streams: Some(streams), format, stats, output_device }
+    }
 }
 
 /// Opens the devices, builds the callback for their format and starts calling it (again
@@ -70,6 +90,12 @@ pub fn start<C: AudioCallback>(
     mut make_callback: impl FnMut(StreamFormat) -> C,
 ) -> Result<RunningStream, AudioError> {
     let _drivers = drivers();
+    if settings.backend == Backend::Usb {
+        #[cfg(any(target_os = "linux", target_os = "android"))]
+        return crate::usb::start(settings, make_callback);
+        #[cfg(not(any(target_os = "linux", target_os = "android")))]
+        return Err(AudioError::BackendUnavailable(Backend::Usb));
+    }
     let out_device = find(settings.backend, DeviceKind::Output, settings.output_device.as_deref())?;
     let mut tried = configs(&out_device, DeviceKind::Output)?.into_iter().peekable();
     loop {
@@ -116,16 +142,7 @@ fn start_with<C: AudioCallback>(
     };
 
     let format = StreamFormat { sample_rate, input_channels, output_channels, buffer_frames };
-    let mut renderer = Renderer {
-        callback: make_callback(format),
-        ring,
-        input: vec![0.0; MAX_PERIOD * input_channels.max(1)],
-        input_channels,
-        output_channels,
-        sample_rate,
-        stats: stats.clone(),
-        failed: false,
-    };
+    let mut renderer = Renderer::new(make_callback(format), ring, format, stats.clone());
     let output = output_stream(
         out_device,
         out_config,
@@ -139,7 +156,12 @@ fn start_with<C: AudioCallback>(
     }
     output.play()?;
     let output_device = device_name(out_device).unwrap_or_default();
-    Ok(RunningStream { streams: Some((output, input_stream)), format, stats, output_device })
+    Ok(RunningStream::new(
+        Streams::Cpal { _output: output, _input: input_stream },
+        format,
+        stats,
+        output_device,
+    ))
 }
 
 impl Drop for RunningStream {
@@ -212,7 +234,7 @@ fn open_input_with(
 
 /// What runs in the output callback: gathers the input that arrived, calls the
 /// callback, keeps the statistics.
-struct Renderer<C> {
+pub(crate) struct Renderer<C> {
     callback: C,
     ring: Option<rtrb::Consumer<f32>>,
     input: Vec<f32>,
@@ -220,12 +242,41 @@ struct Renderer<C> {
     output_channels: usize,
     sample_rate: u32,
     stats: Arc<StreamStats>,
+    /// A callback longer than its period is late: not where the device holds several periods
+    /// and tells itself when it ran out of them.
+    times_itself: bool,
     /// The callback panicked: its state cannot be trusted any more.
     failed: bool,
 }
 
 impl<C: AudioCallback> Renderer<C> {
-    fn render(&mut self, output: &mut [f32]) {
+    /// Calls `callback` for the output of `format`, with what came into `ring` from its input.
+    pub(crate) fn new(
+        callback: C,
+        ring: Option<rtrb::Consumer<f32>>,
+        format: StreamFormat,
+        stats: Arc<StreamStats>,
+    ) -> Self {
+        Self {
+            callback,
+            ring,
+            input: vec![0.0; MAX_PERIOD * format.input_channels.max(1)],
+            input_channels: format.input_channels,
+            output_channels: format.output_channels,
+            sample_rate: format.sample_rate,
+            stats,
+            times_itself: true,
+            failed: false,
+        }
+    }
+
+    /// Leaves telling a late period to the device ([`Renderer::times_itself`]).
+    pub(crate) fn late_told_by_the_device(mut self) -> Self {
+        self.times_itself = false;
+        self
+    }
+
+    pub(crate) fn render(&mut self, output: &mut [f32]) {
         let start = Instant::now();
         let frames = output.len() / self.output_channels;
         // a panic must not unwind into the driver (that aborts the whole program)
@@ -241,7 +292,7 @@ impl<C: AudioCallback> Renderer<C> {
         self.stats.callbacks.fetch_add(1, Ordering::Relaxed);
         self.stats.frames.fetch_add(frames as u64, Ordering::Relaxed);
         self.stats.max_callback_ns.fetch_max(ns, Ordering::Relaxed);
-        if ns > budget {
+        if self.times_itself && ns > budget {
             self.stats.over_budget.fetch_add(1, Ordering::Relaxed);
         }
     }
@@ -346,6 +397,7 @@ mod tests {
             output_channels: 2,
             sample_rate: 48_000,
             stats: Arc::new(StreamStats::default()),
+            times_itself: true,
             failed: false,
         }
     }

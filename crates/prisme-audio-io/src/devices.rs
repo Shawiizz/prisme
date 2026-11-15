@@ -29,6 +29,9 @@ pub enum Backend {
     Jack,
     /// Android's audio: the phone itself, or the sound card plugged into it.
     AAudio,
+    /// A USB sound card driven by Prisme itself, whole where the system's audio reaches only
+    /// some of its channels.
+    Usb,
 }
 
 impl Default for Backend {
@@ -38,8 +41,15 @@ impl Default for Backend {
 }
 
 impl Backend {
-    pub const ALL: [Backend; 6] =
-        [Backend::Wasapi, Backend::Asio, Backend::CoreAudio, Backend::Alsa, Backend::Jack, Backend::AAudio];
+    pub const ALL: [Backend; 7] = [
+        Backend::Wasapi,
+        Backend::Asio,
+        Backend::CoreAudio,
+        Backend::Alsa,
+        Backend::Jack,
+        Backend::AAudio,
+        Backend::Usb,
+    ];
 
     /// The backend of this system that works with every device.
     #[cfg(windows)]
@@ -54,7 +64,13 @@ impl Backend {
     /// Backends this computer offers.
     pub fn available() -> Vec<Backend> {
         let hosts = cpal::available_hosts();
-        Self::ALL.into_iter().filter(|b| b.host_id().is_some_and(|id| hosts.contains(&id))).collect()
+        Self::ALL
+            .into_iter()
+            .filter(|b| match b {
+                Backend::Usb => crate::usb::host().is_some(),
+                b => b.host_id().is_some_and(|id| hosts.contains(&id)),
+            })
+            .collect()
     }
 
     pub(crate) fn host(self) -> Result<cpal::Host, AudioError> {
@@ -92,6 +108,7 @@ impl fmt::Display for Backend {
             Backend::Alsa => "ALSA",
             Backend::Jack => "JACK",
             Backend::AAudio => "AAudio",
+            Backend::Usb => "USB",
         })
     }
 }
@@ -117,6 +134,9 @@ pub struct DeviceInfo {
 /// Input and output devices of `backend` (an ASIO driver appears once in each list).
 pub fn list_devices(backend: Backend) -> Result<Vec<DeviceInfo>, AudioError> {
     let _drivers = drivers();
+    if backend == Backend::Usb {
+        return Ok(crate::usb::list());
+    }
     let host = backend.host()?;
     let default_in = host.default_input_device().as_ref().and_then(device_name);
     let default_out = host.default_output_device().as_ref().and_then(device_name);
@@ -155,6 +175,13 @@ pub fn list_devices(backend: Backend) -> Result<Vec<DeviceInfo>, AudioError> {
 /// there: an interface plugged in or switched on.
 pub fn is_available(backend: Backend, kind: DeviceKind, name: Option<&str>) -> bool {
     let _drivers = drivers();
+    if backend == Backend::Usb {
+        let cards = crate::usb::host().map(|h| h.cards()).unwrap_or_default();
+        return match name {
+            Some(name) => cards.iter().any(|c| c.to_lowercase().contains(&name.to_lowercase())),
+            None => !cards.is_empty(),
+        };
+    }
     find(backend, kind, name).is_ok()
 }
 

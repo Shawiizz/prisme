@@ -8,12 +8,14 @@ mod devices;
 mod formats;
 pub mod latency;
 mod stream;
+mod usb;
 
 pub use devices::{
     base_device_name, default_output_name, is_available, list_devices, system_devices, Backend, DeviceInfo,
     DeviceKind,
 };
 pub use stream::{start, RunningStream, StreamFormat, StreamSettings, StreamStats};
+pub use usb::{set_usb_host, OpenedCard, UsbHost};
 
 /// Called on the audio thread once per period. Must be real-time safe.
 pub trait AudioCallback: Send + 'static {
@@ -35,6 +37,8 @@ pub enum AudioError {
     UnsupportedFormat(cpal::SampleFormat),
     #[error("the input runs at {input} Hz but the output at {output} Hz; set both devices to the same rate")]
     SampleRateMismatch { input: u32, output: u32 },
+    #[error("USB card: {0}")]
+    Usb(String),
     #[error(transparent)]
     Backend(#[from] cpal::Error),
 }
