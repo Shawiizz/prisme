@@ -110,9 +110,12 @@ function arc(from: number, to: number): string {
       opacity: 0.4;
     }
     :host(.disabled) {
-      opacity: 0.3;
       svg {
+        opacity: 0.3;
         cursor: default;
+      }
+      .label {
+        opacity: 0.65;
       }
     }
     svg {
