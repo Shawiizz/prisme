@@ -79,3 +79,8 @@ app-phase-strip {
     background: var(--pr-void);
   }
 }
+
+// the library over the whole window (from a controller's key): what plays recalled above it
+.layout.library-only .decks {
+  display: none;
+}

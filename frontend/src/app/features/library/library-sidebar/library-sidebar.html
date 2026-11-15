@@ -3,6 +3,7 @@
     <div
       class="item"
       [class.current]="library.source().kind === 'prepare'"
+      [class.pointed]="library.focus() === 'lists' && library.pointedList() === 'prepare'"
       [class.drop]="dropTarget() === 'prepare'"
       [title]="'Tracks lined up for the set; a played track leaves the list' | t"
       (click)="library.openPrepare()"
@@ -100,6 +101,7 @@
         <div
           class="item"
           [class.current]="library.currentCrate() === c.id"
+          [class.pointed]="library.focus() === 'lists' && library.pointedList() === c.id"
           [class.drop]="dropTarget() === c.id"
           (click)="open(c.id)"
           (dblclick)="c.rules ? smartDialog.set({ crate: c }) : editing.set(c.id)"

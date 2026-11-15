@@ -103,7 +103,8 @@ export class ControllersSettings implements OnInit, OnDestroy {
 
   protected readonly groups = computed(() => {
     const groups = new Map<string, Row[]>();
-    for (const control of this.controls.controls) {
+    // a light only shows: nothing is learnt for it
+    for (const control of this.controls.controls.filter((c) => c.kind !== 'light')) {
       const bindings = this.service
         .mappings()
         .filter((m) => m.target === control.id)

@@ -93,3 +93,11 @@ pub fn stem_activity(state: State<'_, AppState>, deck: usize, load_id: u64) -> R
 pub fn loaded_tracks(state: State<'_, AppState>) -> Vec<Option<TrackInfoDto>> {
     lock(&state.tracks).iter().enumerate().map(|(deck, t)| t.as_ref().map(|t| t.info(deck))).collect()
 }
+
+/// Takes the track off `deck`.
+#[tauri::command]
+pub fn eject_track(state: State<'_, AppState>, deck: usize) -> AppResult<()> {
+    state.has_deck(deck)?;
+    lock(&state.tracks)[deck] = None;
+    state.send_if_running(Command::Eject { deck })
+}

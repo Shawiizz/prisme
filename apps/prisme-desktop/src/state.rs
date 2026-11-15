@@ -4,9 +4,9 @@
 
 use crate::audio_host::{deck_pair, layer_partner, AudioSession};
 use crate::dto::{
-    AudioInfo, BackendDto, BandDto, ChannelStripDto, CueDto, FxChainDto, FxPartDto, HeadphonesOutputDto,
-    InputChannelsDto, KeyDto, LiveSourceDto, MixModeDto, RpmDto, SeparationDto, StemMixDto, TempoDto,
-    TrackInfoDto, VinylModeDto,
+    AudioInfo, BackendDto, BandDto, ChannelStripDto, CrossfaderSideDto, CueDto, FxChainDto, FxPartDto,
+    HeadphonesOutputDto, InputChannelsDto, KeyDto, LiveSourceDto, MixModeDto, RpmDto, SeparationDto,
+    StemMixDto, TempoDto, TrackInfoDto, VinylModeDto,
 };
 use crate::error::{AppError, AppResult};
 use crate::folders;
@@ -14,9 +14,7 @@ use crate::preferences::{DeckPreferences, LivePreferences, MixerPreferences, Pre
 use crate::recording::Recorder;
 use crate::sampler::Samplers;
 use prisme_analysis::{TrackAnalysis, Waveform};
-use prisme_engine::{
-    BeatGrid, Command, CrossfaderSide, DeckStatus, MixMode, OutputRouting, StemTracks, MAX_DECKS,
-};
+use prisme_engine::{BeatGrid, Command, DeckStatus, MixMode, OutputRouting, StemTracks, MAX_DECKS};
 use prisme_library::{Cue, CueSlot, TrackEdits};
 use prisme_media::{TrackAudio, TrackTags};
 use prisme_session::JsonFile;
@@ -160,6 +158,10 @@ pub struct DeckSettings {
     pub sampler_gain: f32,
     /// The deck plays its input instead of its track.
     pub passthrough: bool,
+    /// Its side of the crossfader, if the DJ chose another than its letter's.
+    pub side: Option<CrossfaderSideDto>,
+    /// A touch of its controller's jog wheel holds the record.
+    pub jog_scratch: bool,
 }
 
 impl From<DeckPreferences> for DeckSettings {
@@ -178,6 +180,8 @@ impl From<DeckPreferences> for DeckSettings {
             fx: FxChainDto::default(),
             sampler_gain: 1.0,
             passthrough: false,
+            side: None,
+            jog_scratch: true,
         }
     }
 }
@@ -398,6 +402,7 @@ impl AppState {
         let mixer = self.preferences.read(|p| p.mixer);
         let switches = *lock(&self.live);
         let mut commands = vec![
+            Command::SetMasterGain { gain: mixer.main_gain },
             Command::SetBalance { balance: mixer.balance },
             Command::SetBoothGain { gain: mixer.booth_gain },
             Command::SetTalkover { enabled: mixer.talkover, depth_db: mixer.talkover_depth_db },
@@ -528,8 +533,7 @@ fn moves(d: &DeckStatus) -> bool {
 /// Commands that put a deck in the state described by `s`.
 pub fn deck_commands(deck: usize, s: &DeckSettings) -> Vec<Command> {
     let strip = s.strip;
-    // A and C on the left of the crossfader, B and D on its right
-    let side = if deck.is_multiple_of(2) { CrossfaderSide::Left } else { CrossfaderSide::Right };
+    let side = s.side.unwrap_or(CrossfaderSideDto::of_deck(deck)).into();
     let mut commands = vec![
         Command::SetCrossfaderSide { deck, side },
         Command::SetDeckCue { deck, enabled: s.cue },
@@ -620,7 +624,7 @@ fn booth_output(chosen: Option<usize>, headphones: Option<usize>, outputs: usize
 mod tests {
     use super::*;
     use prisme_analysis::Loudness;
-    use CrossfaderSide::{Left, Right};
+    use prisme_engine::CrossfaderSide::{Left, Right};
 
     #[test]
     fn the_decks_are_on_either_side_of_the_crossfader() {

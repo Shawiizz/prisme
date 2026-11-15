@@ -21,6 +21,8 @@ export interface SettingsPlace {
 /** What is open over the main screen: the settings, the command palette. */
 @Injectable({ providedIn: 'root' })
 export class NavigationService {
+  /** The library over the whole window, the decks out of sight. */
+  readonly libraryOnly = signal(false);
   readonly settings = signal<SettingsPlace | null>(null);
   readonly palette = signal(false);
   /** Times the library was asked for from elsewhere: a phone shows it then. */

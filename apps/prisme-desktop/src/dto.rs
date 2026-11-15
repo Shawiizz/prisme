@@ -681,6 +681,40 @@ pub struct DeckSettingsDto {
     pub sampler_gain: f32,
     /// The deck plays its input instead of its track.
     pub passthrough: bool,
+    /// Its side of the crossfader.
+    pub side: CrossfaderSideDto,
+    /// A touch of its controller's jog wheel holds the record (else the wheel only nudges).
+    pub jog_scratch: bool,
+}
+
+/// The side of the crossfader a deck is on, or neither (heard whatever the crossfader).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum CrossfaderSideDto {
+    Left,
+    Center,
+    Right,
+}
+
+impl CrossfaderSideDto {
+    /// A and C on the left, B and D on the right.
+    pub fn of_deck(deck: usize) -> Self {
+        if deck.is_multiple_of(2) {
+            Self::Left
+        } else {
+            Self::Right
+        }
+    }
+}
+
+impl From<CrossfaderSideDto> for prisme_engine::CrossfaderSide {
+    fn from(side: CrossfaderSideDto) -> Self {
+        match side {
+            CrossfaderSideDto::Left => Self::Left,
+            CrossfaderSideDto::Center => Self::Center,
+            CrossfaderSideDto::Right => Self::Right,
+        }
+    }
 }
 
 /// The input channels a live source comes in on: one, heard in the middle, or a stereo pair.
@@ -757,6 +791,7 @@ pub struct MixerStateDto {
     pub headphone_gain: f32,
     pub crossfader_curve: CrossfaderCurveDto,
     pub limiter: bool,
+    pub main_gain: f32,
     pub balance: f32,
     /// The first output of the booth chosen, and the one in use if it is heard.
     pub booth: Option<usize>,

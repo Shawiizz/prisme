@@ -64,3 +64,18 @@ fn send(state: &AppState, deck: usize, command: Command) -> AppResult<()> {
     state.has_deck(deck)?;
     state.send(command)
 }
+
+/// Stores the loop of `deck` from `start_s` to `end_s`, playing it if `active`; without them,
+/// forgets it.
+#[tauri::command]
+pub fn set_loop(
+    state: State<'_, AppState>,
+    deck: usize,
+    start_s: Option<f64>,
+    end_s: Option<f64>,
+    active: bool,
+) -> AppResult<()> {
+    let region = start_s.zip(end_s).filter(|(s, e)| s.is_finite() && e > s);
+    let region = region.map(|(start_s, end_s)| prisme_engine::LoopRegion { start_s, end_s });
+    send(&state, deck, Command::SetLoop { deck, region, active: active && region.is_some() })
+}

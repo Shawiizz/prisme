@@ -252,6 +252,10 @@ export interface DeckSettings {
   samplerGain: number;
   /** The deck plays its input as it comes instead of its track. */
   passthrough: boolean;
+  /** Its side of the crossfader. */
+  side: CrossfaderSide;
+  /** A touch of its controller's jog wheel holds the record (else it only nudges). */
+  jogScratch: boolean;
 }
 
 export const EFFECT_KINDS = [
@@ -324,6 +328,8 @@ export const FLAT_STRIP: ChannelStrip = {
 
 /** Smooth: equal power, for blending. Sharp: cuts only at the very ends, for scratching. */
 export type CrossfaderCurve = 'smooth' | 'sharp';
+/** The side of the crossfader a deck is on, or neither. */
+export type CrossfaderSide = 'left' | 'center' | 'right';
 
 /** External: each deck on its own outputs for a hardware mixer. Internal: the software mixer. */
 export type MixMode = 'external' | 'internal';
@@ -373,6 +379,8 @@ export interface MixerState {
   crossfaderCurve: CrossfaderCurve;
   /** Master limiter. */
   limiter: boolean;
+  /** The master's level (linear). */
+  mainGain: number;
   /** -1 = the master on the left only, 1 = on the right only. */
   balance: number;
   /** First output (0-based) of the booth chosen, and of the booth in use. */

@@ -113,6 +113,9 @@ pub struct EngineStatus {
     pub decks: [DeckStatus; MAX_DECKS],
     /// Peak level of the main output since the previous snapshot.
     pub main_peak: f32,
+    /// Peak levels of the software mixer's master, left and right, since the previous
+    /// snapshot (silence with an external mixer).
+    pub master_peaks: [f32; 2],
     /// Peak level of the microphone and of the aux line at their levels, on or not.
     pub mic_peak: f32,
     pub aux_peak: f32,

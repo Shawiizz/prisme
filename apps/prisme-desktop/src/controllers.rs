@@ -921,6 +921,10 @@ impl Controllers {
         if state.has_deck(deck).is_err() {
             return;
         }
+        // a wheel that only nudges: its top is no hand on the record
+        if matches!(action, Direct::JogTouch(_)) && !lock(&state.decks)[deck].jog_scratch {
+            return;
+        }
         let tempo = Tempo {
             ratio: lock(&state.decks)[deck].pitch,
             range: state.preferences.read(|p| p.dj.pitch_range),
@@ -991,7 +995,11 @@ fn levels(state: &AppState) -> HashMap<String, f32> {
     let decks = status.decks[..status.deck_count].iter().enumerate();
     decks
         .map(|(d, deck)| (format!("deck{}", d + 1), deck.peak))
-        .chain([("main".to_owned(), status.main_peak)])
+        .chain([
+            ("main".to_owned(), status.main_peak),
+            ("main.left".to_owned(), status.master_peaks[0]),
+            ("main.right".to_owned(), status.master_peaks[1]),
+        ])
         .collect()
 }
 

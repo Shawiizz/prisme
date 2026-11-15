@@ -48,6 +48,15 @@ fn the_balance_and_the_booth_level_go_to_their_outputs() {
 }
 
 #[test]
+fn the_master_is_metered_left_and_right() {
+    let mut rig = Rig::with_outputs(6);
+    deck_playing(&mut rig, 0.5);
+    rig.run(0.1);
+    let peaks = rig.controller.status().master_peaks;
+    assert!(peaks.iter().all(|p| (p - 0.5).abs() < 0.01), "{peaks:?}");
+}
+
+#[test]
 fn the_microphone_and_the_aux_line_are_mixed_in_at_their_levels() {
     // the turntables on inputs 1-4, the microphone on 5, the aux line on 7-8
     let mut rig = Rig::with_channels(8, 4);

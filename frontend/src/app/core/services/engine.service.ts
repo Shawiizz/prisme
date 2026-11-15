@@ -53,6 +53,8 @@ const DEFAULT_DECK: DeckSettings = {
   samples: Array(SAMPLE_SLOTS).fill(null),
   samplerGain: 1,
   passthrough: false,
+  side: 'left',
+  jogScratch: true,
 };
 
 /**
@@ -71,7 +73,11 @@ export class EngineService {
   /** Waveform of each deck's track, once fetched. */
   readonly waveforms = signal<(Waveform | null)[]>(Array(MAX_DECKS).fill(null));
   readonly decks = signal<DeckSettings[]>(
-    Array.from({ length: MAX_DECKS }, () => ({ ...DEFAULT_DECK })),
+    // A and C on the left of the crossfader, B and D on its right
+    Array.from({ length: MAX_DECKS }, (_, d) => ({
+      ...DEFAULT_DECK,
+      side: d % 2 === 0 ? ('left' as const) : ('right' as const),
+    })),
   );
   /** The decks shown and played: two, or four. */
   readonly deckIndexes = computed(() =>
@@ -241,6 +247,27 @@ export class EngineService {
   }
 
   /** The track of deck `from` on `deck`, where it is and playing if it plays. */
+  /** Takes the track off `deck`. */
+  async eject(deck: number): Promise<void> {
+    if (!(await this.mayReplace(deck))) return;
+    await this.call('eject_track', { deck });
+    const without = <T>(values: T[]) => values.map((v, d) => (d === deck ? null : v));
+    this.tracks.update(without);
+    this.waveforms.update(without);
+  }
+
+  /** Whether a touch of the controller's jog wheel of `deck` holds the record. */
+  setJogScratch(deck: number, on: boolean) {
+    this.patchDeck(deck, { jogScratch: on });
+    return this.call('set_jog_scratch', { deck, on });
+  }
+
+  /** Stores the loop of `deck` from `startS` to `endS`, playing it if `active`; without them,
+   * forgets it. */
+  setLoop(deck: number, startS: number | null, endS: number | null, active: boolean) {
+    return this.call('set_loop', { deck, startS, endS, active });
+  }
+
   async double(from: number, deck: number): Promise<void> {
     if (!this.tracks()[from] || !(await this.mayReplace(deck))) return;
     await this.put(deck, () => invoke<TrackInfo>('double_deck', { from, deck }));
@@ -401,7 +428,7 @@ export class EngineService {
   }
 
   /** Stores the cue point (the backend may move it onto the beat) and goes there. */
-  private async setMainCue(deck: number, seconds: number) {
+  async setMainCue(deck: number, seconds: number) {
     try {
       const positionS = await invoke<number>('set_main_cue', { deck, seconds });
       const main: Cue = {

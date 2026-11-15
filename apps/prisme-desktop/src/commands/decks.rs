@@ -34,6 +34,15 @@ pub fn jog(state: State<'_, AppState>, deck: usize, turns: f64, at_ms: f64) -> A
     state.send(Command::Jog { deck, turns, at_s: at_ms / 1000.0 })
 }
 
+/// Whether a touch of the controller's jog wheel of `deck` holds the record (else the wheel
+/// only nudges it).
+#[tauri::command]
+pub fn set_jog_scratch(state: State<'_, AppState>, deck: usize, on: bool) -> AppResult<()> {
+    AppState::check_deck(deck)?;
+    lock(&state.decks)[deck].jog_scratch = on;
+    Ok(())
+}
+
 #[tauri::command]
 pub fn set_pitch(state: State<'_, AppState>, deck: usize, ratio: f64) -> AppResult<()> {
     state.has_deck(deck)?;

@@ -138,6 +138,14 @@ export class LibraryService {
   });
   /** Incremented to ask the view to focus the search field. */
   readonly searchRequests = signal(0);
+  /** Where a controller's browse knob moves: the tracks, or the lists on the left. */
+  readonly focus = signal<'tracks' | 'lists'>('tracks');
+  /** The list on the left a controller points at: the prepare list, or a crate (its id). */
+  readonly pointedList = signal<'prepare' | number>('prepare');
+  private readonly lists = computed<('prepare' | number)[]>(() => [
+    'prepare',
+    ...this.crates.crates().map((c) => c.id),
+  ]);
 
   /** Tracks of the crate or history session being browsed. */
   private readonly sourceTracks = signal<DirEntry[]>([]);
@@ -474,6 +482,22 @@ export class LibraryService {
   }
 
   /** Moves the selection through the visible tracks. */
+  /** The pointer on the lists of the left moved by `steps`, the knob on them. */
+  movePointedList(steps: number) {
+    const lists = this.lists();
+    const at = Math.max(lists.indexOf(this.pointedList()), 0);
+    this.pointedList.set(lists[Math.min(Math.max(at + steps, 0), lists.length - 1)]);
+    this.focus.set('lists');
+  }
+
+  /** Opens the list pointed at; the knob back on its tracks. */
+  openPointedList() {
+    const list = this.pointedList();
+    if (list === 'prepare') this.openPrepare();
+    else void this.openCrate(list);
+    this.focus.set('tracks');
+  }
+
   moveSelection(delta: number) {
     this.clearSelection();
     const tracks = this.visibleTracks();

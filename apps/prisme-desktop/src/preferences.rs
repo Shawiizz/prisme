@@ -129,6 +129,8 @@ pub struct MixerPreferences {
     pub crossfader_curve: CrossfaderCurveDto,
     /// Master limiter (adds 1 ms of latency to the software mixer).
     pub limiter: bool,
+    /// The master's level (linear).
+    pub main_gain: f32,
     /// -1 = the master on the left only, 1 = on the right only.
     pub balance: f32,
     /// The first output of the booth monitors, if they are plugged in.
@@ -166,6 +168,7 @@ impl Default for MixerPreferences {
             headphone_gain: 1.0,
             crossfader_curve: CrossfaderCurveDto::Smooth,
             limiter: true,
+            main_gain: 1.0,
             balance: 0.0,
             booth: None,
             booth_gain: 1.0,

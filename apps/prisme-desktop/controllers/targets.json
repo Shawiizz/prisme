@@ -756,6 +756,492 @@
   "kind": "button"
  },
  {
+  "id": "deck1.cue.play",
+  "group": "Deck A",
+  "label": "To the cue and play",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.cue.stop",
+  "group": "Deck A",
+  "label": "To the cue, stopped",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.cue.goto",
+  "group": "Deck A",
+  "label": "To the cue",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.cue.set",
+  "group": "Deck A",
+  "label": "The cue here",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.start",
+  "group": "Deck A",
+  "label": "To the start, stopped",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.start.play",
+  "group": "Deck A",
+  "label": "To the start and play",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.eject",
+  "group": "Deck A",
+  "label": "Eject the track",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.sync.once",
+  "group": "Deck A",
+  "label": "Match the tempo and beats once",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.sync.leader",
+  "group": "Deck A",
+  "label": "Lead the other decks",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.search.back",
+  "group": "Deck A",
+  "label": "Run back through the track while held",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.search.forward",
+  "group": "Deck A",
+  "label": "Run through the track while held",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.tempo.up",
+  "group": "Deck A",
+  "label": "Tempo up 0.1 %",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.tempo.down",
+  "group": "Deck A",
+  "label": "Tempo down 0.1 %",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.tempo",
+  "group": "Deck A",
+  "label": "Tempo, 0.1 % a step",
+  "kind": "encoder"
+ },
+ {
+  "id": "deck1.bend.down.small",
+  "group": "Deck A",
+  "label": "Slow down a little while held",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.bend.up.small",
+  "group": "Deck A",
+  "label": "Speed up a little while held",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.position",
+  "group": "Deck A",
+  "label": "Place in the track (a touch strip)",
+  "kind": "fader"
+ },
+ {
+  "id": "deck1.key.sync",
+  "group": "Deck A",
+  "label": "Key matched to the other deck",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.key",
+  "group": "Deck A",
+  "label": "Key, from 12 semitones down to 12 up",
+  "kind": "fader"
+ },
+ {
+  "id": "deck1.loop.clear",
+  "group": "Deck A",
+  "label": "Forget the loop",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.reloop.stop",
+  "group": "Deck A",
+  "label": "Back to the loop, stopped",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.loop.in.goto",
+  "group": "Deck A",
+  "label": "To the start of the loop",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.loop.out.goto",
+  "group": "Deck A",
+  "label": "To the end of the loop",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.loop.move.back",
+  "group": "Deck A",
+  "label": "Loop a beat back",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.loop.move.forward",
+  "group": "Deck A",
+  "label": "Loop a beat forward",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.loop.move",
+  "group": "Deck A",
+  "label": "Loop moved, a beat a step",
+  "kind": "encoder"
+ },
+ {
+  "id": "deck1.grid.here",
+  "group": "Deck A",
+  "label": "A beat of the grid here",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.grid.earlier",
+  "group": "Deck A",
+  "label": "Beat grid earlier",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.grid.later",
+  "group": "Deck A",
+  "label": "Beat grid later",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.grid.faster",
+  "group": "Deck A",
+  "label": "Beat grid faster",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.grid.slower",
+  "group": "Deck A",
+  "label": "Beat grid slower",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.grid.move",
+  "group": "Deck A",
+  "label": "Beat grid moved, a few milliseconds a step",
+  "kind": "encoder"
+ },
+ {
+  "id": "deck1.tap",
+  "group": "Deck A",
+  "label": "Tap the tempo",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.fx.held",
+  "group": "Deck A",
+  "label": "Effect 1 on while held",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.slip.held",
+  "group": "Deck A",
+  "label": "Slip while held",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.filter.toggle",
+  "group": "Deck A",
+  "label": "Filter heard or not",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.crossfader.left",
+  "group": "Deck A",
+  "label": "On the left of the crossfader",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.crossfader.center",
+  "group": "Deck A",
+  "label": "Heard whatever the crossfader",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.crossfader.right",
+  "group": "Deck A",
+  "label": "On the right of the crossfader",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.sampler.gain",
+  "group": "Deck A",
+  "label": "Sampler level",
+  "kind": "fader"
+ },
+ {
+  "id": "deck1.sample1.stop",
+  "group": "Deck A",
+  "label": "Stop sample 1",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.sample1.eject",
+  "group": "Deck A",
+  "label": "Empty sample slot 1",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.sample1.load",
+  "group": "Deck A",
+  "label": "The selected track into sample slot 1",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.sample1.held",
+  "group": "Deck A",
+  "label": "Sample 1 while held",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.sample2.stop",
+  "group": "Deck A",
+  "label": "Stop sample 2",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.sample2.eject",
+  "group": "Deck A",
+  "label": "Empty sample slot 2",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.sample2.load",
+  "group": "Deck A",
+  "label": "The selected track into sample slot 2",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.sample2.held",
+  "group": "Deck A",
+  "label": "Sample 2 while held",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.sample3.stop",
+  "group": "Deck A",
+  "label": "Stop sample 3",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.sample3.eject",
+  "group": "Deck A",
+  "label": "Empty sample slot 3",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.sample3.load",
+  "group": "Deck A",
+  "label": "The selected track into sample slot 3",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.sample3.held",
+  "group": "Deck A",
+  "label": "Sample 3 while held",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.sample4.stop",
+  "group": "Deck A",
+  "label": "Stop sample 4",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.sample4.eject",
+  "group": "Deck A",
+  "label": "Empty sample slot 4",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.sample4.load",
+  "group": "Deck A",
+  "label": "The selected track into sample slot 4",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.sample4.held",
+  "group": "Deck A",
+  "label": "Sample 4 while held",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.sample5.stop",
+  "group": "Deck A",
+  "label": "Stop sample 5",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.sample5.eject",
+  "group": "Deck A",
+  "label": "Empty sample slot 5",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.sample5.load",
+  "group": "Deck A",
+  "label": "The selected track into sample slot 5",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.sample5.held",
+  "group": "Deck A",
+  "label": "Sample 5 while held",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.sample6.stop",
+  "group": "Deck A",
+  "label": "Stop sample 6",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.sample6.eject",
+  "group": "Deck A",
+  "label": "Empty sample slot 6",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.sample6.load",
+  "group": "Deck A",
+  "label": "The selected track into sample slot 6",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.sample6.held",
+  "group": "Deck A",
+  "label": "Sample 6 while held",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.sample7.stop",
+  "group": "Deck A",
+  "label": "Stop sample 7",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.sample7.eject",
+  "group": "Deck A",
+  "label": "Empty sample slot 7",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.sample7.load",
+  "group": "Deck A",
+  "label": "The selected track into sample slot 7",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.sample7.held",
+  "group": "Deck A",
+  "label": "Sample 7 while held",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.sample8.stop",
+  "group": "Deck A",
+  "label": "Stop sample 8",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.sample8.eject",
+  "group": "Deck A",
+  "label": "Empty sample slot 8",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.sample8.load",
+  "group": "Deck A",
+  "label": "The selected track into sample slot 8",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.sample8.held",
+  "group": "Deck A",
+  "label": "Sample 8 while held",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.vinyl",
+  "group": "Deck A",
+  "label": "Vinyl control on / off",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.jog.scratch",
+  "group": "Deck A",
+  "label": "Jog wheel: a touch scratches, or only nudges",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.beat",
+  "group": "Deck A",
+  "label": "Light: on the beat",
+  "kind": "light"
+ },
+ {
+  "id": "deck1.clip",
+  "group": "Deck A",
+  "label": "Light: the level past full scale",
+  "kind": "light"
+ },
+ {
+  "id": "deck1.ending",
+  "group": "Deck A",
+  "label": "Light: the end of the track near (soon: 10 s)",
+  "kind": "light"
+ },
+ {
+  "id": "deck1.tempo.zero",
+  "group": "Deck A",
+  "label": "Light: at the track's tempo",
+  "kind": "light"
+ },
+ {
+  "id": "deck1.tempo.slower",
+  "group": "Deck A",
+  "label": "Light: slower than the deck it mixes with",
+  "kind": "light"
+ },
+ {
+  "id": "deck1.tempo.faster",
+  "group": "Deck A",
+  "label": "Light: faster than the deck it mixes with",
+  "kind": "light"
+ },
+ {
+  "id": "deck1.phase",
+  "group": "Deck A",
+  "label": "Light: in phase with the deck it mixes with",
+  "kind": "light"
+ },
+ {
   "id": "deck2.play",
   "group": "Deck B",
   "label": "Play / pause",
@@ -1510,6 +1996,492 @@
   "group": "Deck B",
   "label": "Passthrough: the deck plays its input",
   "kind": "button"
+ },
+ {
+  "id": "deck2.cue.play",
+  "group": "Deck B",
+  "label": "To the cue and play",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.cue.stop",
+  "group": "Deck B",
+  "label": "To the cue, stopped",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.cue.goto",
+  "group": "Deck B",
+  "label": "To the cue",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.cue.set",
+  "group": "Deck B",
+  "label": "The cue here",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.start",
+  "group": "Deck B",
+  "label": "To the start, stopped",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.start.play",
+  "group": "Deck B",
+  "label": "To the start and play",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.eject",
+  "group": "Deck B",
+  "label": "Eject the track",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.sync.once",
+  "group": "Deck B",
+  "label": "Match the tempo and beats once",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.sync.leader",
+  "group": "Deck B",
+  "label": "Lead the other decks",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.search.back",
+  "group": "Deck B",
+  "label": "Run back through the track while held",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.search.forward",
+  "group": "Deck B",
+  "label": "Run through the track while held",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.tempo.up",
+  "group": "Deck B",
+  "label": "Tempo up 0.1 %",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.tempo.down",
+  "group": "Deck B",
+  "label": "Tempo down 0.1 %",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.tempo",
+  "group": "Deck B",
+  "label": "Tempo, 0.1 % a step",
+  "kind": "encoder"
+ },
+ {
+  "id": "deck2.bend.down.small",
+  "group": "Deck B",
+  "label": "Slow down a little while held",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.bend.up.small",
+  "group": "Deck B",
+  "label": "Speed up a little while held",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.position",
+  "group": "Deck B",
+  "label": "Place in the track (a touch strip)",
+  "kind": "fader"
+ },
+ {
+  "id": "deck2.key.sync",
+  "group": "Deck B",
+  "label": "Key matched to the other deck",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.key",
+  "group": "Deck B",
+  "label": "Key, from 12 semitones down to 12 up",
+  "kind": "fader"
+ },
+ {
+  "id": "deck2.loop.clear",
+  "group": "Deck B",
+  "label": "Forget the loop",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.reloop.stop",
+  "group": "Deck B",
+  "label": "Back to the loop, stopped",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.loop.in.goto",
+  "group": "Deck B",
+  "label": "To the start of the loop",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.loop.out.goto",
+  "group": "Deck B",
+  "label": "To the end of the loop",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.loop.move.back",
+  "group": "Deck B",
+  "label": "Loop a beat back",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.loop.move.forward",
+  "group": "Deck B",
+  "label": "Loop a beat forward",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.loop.move",
+  "group": "Deck B",
+  "label": "Loop moved, a beat a step",
+  "kind": "encoder"
+ },
+ {
+  "id": "deck2.grid.here",
+  "group": "Deck B",
+  "label": "A beat of the grid here",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.grid.earlier",
+  "group": "Deck B",
+  "label": "Beat grid earlier",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.grid.later",
+  "group": "Deck B",
+  "label": "Beat grid later",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.grid.faster",
+  "group": "Deck B",
+  "label": "Beat grid faster",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.grid.slower",
+  "group": "Deck B",
+  "label": "Beat grid slower",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.grid.move",
+  "group": "Deck B",
+  "label": "Beat grid moved, a few milliseconds a step",
+  "kind": "encoder"
+ },
+ {
+  "id": "deck2.tap",
+  "group": "Deck B",
+  "label": "Tap the tempo",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.fx.held",
+  "group": "Deck B",
+  "label": "Effect 1 on while held",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.slip.held",
+  "group": "Deck B",
+  "label": "Slip while held",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.filter.toggle",
+  "group": "Deck B",
+  "label": "Filter heard or not",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.crossfader.left",
+  "group": "Deck B",
+  "label": "On the left of the crossfader",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.crossfader.center",
+  "group": "Deck B",
+  "label": "Heard whatever the crossfader",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.crossfader.right",
+  "group": "Deck B",
+  "label": "On the right of the crossfader",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.sampler.gain",
+  "group": "Deck B",
+  "label": "Sampler level",
+  "kind": "fader"
+ },
+ {
+  "id": "deck2.sample1.stop",
+  "group": "Deck B",
+  "label": "Stop sample 1",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.sample1.eject",
+  "group": "Deck B",
+  "label": "Empty sample slot 1",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.sample1.load",
+  "group": "Deck B",
+  "label": "The selected track into sample slot 1",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.sample1.held",
+  "group": "Deck B",
+  "label": "Sample 1 while held",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.sample2.stop",
+  "group": "Deck B",
+  "label": "Stop sample 2",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.sample2.eject",
+  "group": "Deck B",
+  "label": "Empty sample slot 2",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.sample2.load",
+  "group": "Deck B",
+  "label": "The selected track into sample slot 2",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.sample2.held",
+  "group": "Deck B",
+  "label": "Sample 2 while held",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.sample3.stop",
+  "group": "Deck B",
+  "label": "Stop sample 3",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.sample3.eject",
+  "group": "Deck B",
+  "label": "Empty sample slot 3",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.sample3.load",
+  "group": "Deck B",
+  "label": "The selected track into sample slot 3",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.sample3.held",
+  "group": "Deck B",
+  "label": "Sample 3 while held",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.sample4.stop",
+  "group": "Deck B",
+  "label": "Stop sample 4",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.sample4.eject",
+  "group": "Deck B",
+  "label": "Empty sample slot 4",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.sample4.load",
+  "group": "Deck B",
+  "label": "The selected track into sample slot 4",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.sample4.held",
+  "group": "Deck B",
+  "label": "Sample 4 while held",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.sample5.stop",
+  "group": "Deck B",
+  "label": "Stop sample 5",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.sample5.eject",
+  "group": "Deck B",
+  "label": "Empty sample slot 5",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.sample5.load",
+  "group": "Deck B",
+  "label": "The selected track into sample slot 5",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.sample5.held",
+  "group": "Deck B",
+  "label": "Sample 5 while held",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.sample6.stop",
+  "group": "Deck B",
+  "label": "Stop sample 6",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.sample6.eject",
+  "group": "Deck B",
+  "label": "Empty sample slot 6",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.sample6.load",
+  "group": "Deck B",
+  "label": "The selected track into sample slot 6",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.sample6.held",
+  "group": "Deck B",
+  "label": "Sample 6 while held",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.sample7.stop",
+  "group": "Deck B",
+  "label": "Stop sample 7",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.sample7.eject",
+  "group": "Deck B",
+  "label": "Empty sample slot 7",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.sample7.load",
+  "group": "Deck B",
+  "label": "The selected track into sample slot 7",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.sample7.held",
+  "group": "Deck B",
+  "label": "Sample 7 while held",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.sample8.stop",
+  "group": "Deck B",
+  "label": "Stop sample 8",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.sample8.eject",
+  "group": "Deck B",
+  "label": "Empty sample slot 8",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.sample8.load",
+  "group": "Deck B",
+  "label": "The selected track into sample slot 8",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.sample8.held",
+  "group": "Deck B",
+  "label": "Sample 8 while held",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.vinyl",
+  "group": "Deck B",
+  "label": "Vinyl control on / off",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.jog.scratch",
+  "group": "Deck B",
+  "label": "Jog wheel: a touch scratches, or only nudges",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.beat",
+  "group": "Deck B",
+  "label": "Light: on the beat",
+  "kind": "light"
+ },
+ {
+  "id": "deck2.clip",
+  "group": "Deck B",
+  "label": "Light: the level past full scale",
+  "kind": "light"
+ },
+ {
+  "id": "deck2.ending",
+  "group": "Deck B",
+  "label": "Light: the end of the track near (soon: 10 s)",
+  "kind": "light"
+ },
+ {
+  "id": "deck2.tempo.zero",
+  "group": "Deck B",
+  "label": "Light: at the track's tempo",
+  "kind": "light"
+ },
+ {
+  "id": "deck2.tempo.slower",
+  "group": "Deck B",
+  "label": "Light: slower than the deck it mixes with",
+  "kind": "light"
+ },
+ {
+  "id": "deck2.tempo.faster",
+  "group": "Deck B",
+  "label": "Light: faster than the deck it mixes with",
+  "kind": "light"
+ },
+ {
+  "id": "deck2.phase",
+  "group": "Deck B",
+  "label": "Light: in phase with the deck it mixes with",
+  "kind": "light"
  },
  {
   "id": "deck3.play",
@@ -2268,6 +3240,492 @@
   "kind": "button"
  },
  {
+  "id": "deck3.cue.play",
+  "group": "Deck C",
+  "label": "To the cue and play",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.cue.stop",
+  "group": "Deck C",
+  "label": "To the cue, stopped",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.cue.goto",
+  "group": "Deck C",
+  "label": "To the cue",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.cue.set",
+  "group": "Deck C",
+  "label": "The cue here",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.start",
+  "group": "Deck C",
+  "label": "To the start, stopped",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.start.play",
+  "group": "Deck C",
+  "label": "To the start and play",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.eject",
+  "group": "Deck C",
+  "label": "Eject the track",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.sync.once",
+  "group": "Deck C",
+  "label": "Match the tempo and beats once",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.sync.leader",
+  "group": "Deck C",
+  "label": "Lead the other decks",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.search.back",
+  "group": "Deck C",
+  "label": "Run back through the track while held",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.search.forward",
+  "group": "Deck C",
+  "label": "Run through the track while held",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.tempo.up",
+  "group": "Deck C",
+  "label": "Tempo up 0.1 %",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.tempo.down",
+  "group": "Deck C",
+  "label": "Tempo down 0.1 %",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.tempo",
+  "group": "Deck C",
+  "label": "Tempo, 0.1 % a step",
+  "kind": "encoder"
+ },
+ {
+  "id": "deck3.bend.down.small",
+  "group": "Deck C",
+  "label": "Slow down a little while held",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.bend.up.small",
+  "group": "Deck C",
+  "label": "Speed up a little while held",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.position",
+  "group": "Deck C",
+  "label": "Place in the track (a touch strip)",
+  "kind": "fader"
+ },
+ {
+  "id": "deck3.key.sync",
+  "group": "Deck C",
+  "label": "Key matched to the other deck",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.key",
+  "group": "Deck C",
+  "label": "Key, from 12 semitones down to 12 up",
+  "kind": "fader"
+ },
+ {
+  "id": "deck3.loop.clear",
+  "group": "Deck C",
+  "label": "Forget the loop",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.reloop.stop",
+  "group": "Deck C",
+  "label": "Back to the loop, stopped",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.loop.in.goto",
+  "group": "Deck C",
+  "label": "To the start of the loop",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.loop.out.goto",
+  "group": "Deck C",
+  "label": "To the end of the loop",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.loop.move.back",
+  "group": "Deck C",
+  "label": "Loop a beat back",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.loop.move.forward",
+  "group": "Deck C",
+  "label": "Loop a beat forward",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.loop.move",
+  "group": "Deck C",
+  "label": "Loop moved, a beat a step",
+  "kind": "encoder"
+ },
+ {
+  "id": "deck3.grid.here",
+  "group": "Deck C",
+  "label": "A beat of the grid here",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.grid.earlier",
+  "group": "Deck C",
+  "label": "Beat grid earlier",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.grid.later",
+  "group": "Deck C",
+  "label": "Beat grid later",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.grid.faster",
+  "group": "Deck C",
+  "label": "Beat grid faster",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.grid.slower",
+  "group": "Deck C",
+  "label": "Beat grid slower",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.grid.move",
+  "group": "Deck C",
+  "label": "Beat grid moved, a few milliseconds a step",
+  "kind": "encoder"
+ },
+ {
+  "id": "deck3.tap",
+  "group": "Deck C",
+  "label": "Tap the tempo",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.fx.held",
+  "group": "Deck C",
+  "label": "Effect 1 on while held",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.slip.held",
+  "group": "Deck C",
+  "label": "Slip while held",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.filter.toggle",
+  "group": "Deck C",
+  "label": "Filter heard or not",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.crossfader.left",
+  "group": "Deck C",
+  "label": "On the left of the crossfader",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.crossfader.center",
+  "group": "Deck C",
+  "label": "Heard whatever the crossfader",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.crossfader.right",
+  "group": "Deck C",
+  "label": "On the right of the crossfader",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.sampler.gain",
+  "group": "Deck C",
+  "label": "Sampler level",
+  "kind": "fader"
+ },
+ {
+  "id": "deck3.sample1.stop",
+  "group": "Deck C",
+  "label": "Stop sample 1",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.sample1.eject",
+  "group": "Deck C",
+  "label": "Empty sample slot 1",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.sample1.load",
+  "group": "Deck C",
+  "label": "The selected track into sample slot 1",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.sample1.held",
+  "group": "Deck C",
+  "label": "Sample 1 while held",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.sample2.stop",
+  "group": "Deck C",
+  "label": "Stop sample 2",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.sample2.eject",
+  "group": "Deck C",
+  "label": "Empty sample slot 2",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.sample2.load",
+  "group": "Deck C",
+  "label": "The selected track into sample slot 2",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.sample2.held",
+  "group": "Deck C",
+  "label": "Sample 2 while held",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.sample3.stop",
+  "group": "Deck C",
+  "label": "Stop sample 3",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.sample3.eject",
+  "group": "Deck C",
+  "label": "Empty sample slot 3",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.sample3.load",
+  "group": "Deck C",
+  "label": "The selected track into sample slot 3",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.sample3.held",
+  "group": "Deck C",
+  "label": "Sample 3 while held",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.sample4.stop",
+  "group": "Deck C",
+  "label": "Stop sample 4",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.sample4.eject",
+  "group": "Deck C",
+  "label": "Empty sample slot 4",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.sample4.load",
+  "group": "Deck C",
+  "label": "The selected track into sample slot 4",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.sample4.held",
+  "group": "Deck C",
+  "label": "Sample 4 while held",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.sample5.stop",
+  "group": "Deck C",
+  "label": "Stop sample 5",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.sample5.eject",
+  "group": "Deck C",
+  "label": "Empty sample slot 5",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.sample5.load",
+  "group": "Deck C",
+  "label": "The selected track into sample slot 5",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.sample5.held",
+  "group": "Deck C",
+  "label": "Sample 5 while held",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.sample6.stop",
+  "group": "Deck C",
+  "label": "Stop sample 6",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.sample6.eject",
+  "group": "Deck C",
+  "label": "Empty sample slot 6",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.sample6.load",
+  "group": "Deck C",
+  "label": "The selected track into sample slot 6",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.sample6.held",
+  "group": "Deck C",
+  "label": "Sample 6 while held",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.sample7.stop",
+  "group": "Deck C",
+  "label": "Stop sample 7",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.sample7.eject",
+  "group": "Deck C",
+  "label": "Empty sample slot 7",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.sample7.load",
+  "group": "Deck C",
+  "label": "The selected track into sample slot 7",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.sample7.held",
+  "group": "Deck C",
+  "label": "Sample 7 while held",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.sample8.stop",
+  "group": "Deck C",
+  "label": "Stop sample 8",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.sample8.eject",
+  "group": "Deck C",
+  "label": "Empty sample slot 8",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.sample8.load",
+  "group": "Deck C",
+  "label": "The selected track into sample slot 8",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.sample8.held",
+  "group": "Deck C",
+  "label": "Sample 8 while held",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.vinyl",
+  "group": "Deck C",
+  "label": "Vinyl control on / off",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.jog.scratch",
+  "group": "Deck C",
+  "label": "Jog wheel: a touch scratches, or only nudges",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.beat",
+  "group": "Deck C",
+  "label": "Light: on the beat",
+  "kind": "light"
+ },
+ {
+  "id": "deck3.clip",
+  "group": "Deck C",
+  "label": "Light: the level past full scale",
+  "kind": "light"
+ },
+ {
+  "id": "deck3.ending",
+  "group": "Deck C",
+  "label": "Light: the end of the track near (soon: 10 s)",
+  "kind": "light"
+ },
+ {
+  "id": "deck3.tempo.zero",
+  "group": "Deck C",
+  "label": "Light: at the track's tempo",
+  "kind": "light"
+ },
+ {
+  "id": "deck3.tempo.slower",
+  "group": "Deck C",
+  "label": "Light: slower than the deck it mixes with",
+  "kind": "light"
+ },
+ {
+  "id": "deck3.tempo.faster",
+  "group": "Deck C",
+  "label": "Light: faster than the deck it mixes with",
+  "kind": "light"
+ },
+ {
+  "id": "deck3.phase",
+  "group": "Deck C",
+  "label": "Light: in phase with the deck it mixes with",
+  "kind": "light"
+ },
+ {
   "id": "deck4.play",
   "group": "Deck D",
   "label": "Play / pause",
@@ -3024,6 +4482,492 @@
   "kind": "button"
  },
  {
+  "id": "deck4.cue.play",
+  "group": "Deck D",
+  "label": "To the cue and play",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.cue.stop",
+  "group": "Deck D",
+  "label": "To the cue, stopped",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.cue.goto",
+  "group": "Deck D",
+  "label": "To the cue",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.cue.set",
+  "group": "Deck D",
+  "label": "The cue here",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.start",
+  "group": "Deck D",
+  "label": "To the start, stopped",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.start.play",
+  "group": "Deck D",
+  "label": "To the start and play",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.eject",
+  "group": "Deck D",
+  "label": "Eject the track",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.sync.once",
+  "group": "Deck D",
+  "label": "Match the tempo and beats once",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.sync.leader",
+  "group": "Deck D",
+  "label": "Lead the other decks",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.search.back",
+  "group": "Deck D",
+  "label": "Run back through the track while held",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.search.forward",
+  "group": "Deck D",
+  "label": "Run through the track while held",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.tempo.up",
+  "group": "Deck D",
+  "label": "Tempo up 0.1 %",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.tempo.down",
+  "group": "Deck D",
+  "label": "Tempo down 0.1 %",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.tempo",
+  "group": "Deck D",
+  "label": "Tempo, 0.1 % a step",
+  "kind": "encoder"
+ },
+ {
+  "id": "deck4.bend.down.small",
+  "group": "Deck D",
+  "label": "Slow down a little while held",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.bend.up.small",
+  "group": "Deck D",
+  "label": "Speed up a little while held",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.position",
+  "group": "Deck D",
+  "label": "Place in the track (a touch strip)",
+  "kind": "fader"
+ },
+ {
+  "id": "deck4.key.sync",
+  "group": "Deck D",
+  "label": "Key matched to the other deck",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.key",
+  "group": "Deck D",
+  "label": "Key, from 12 semitones down to 12 up",
+  "kind": "fader"
+ },
+ {
+  "id": "deck4.loop.clear",
+  "group": "Deck D",
+  "label": "Forget the loop",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.reloop.stop",
+  "group": "Deck D",
+  "label": "Back to the loop, stopped",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.loop.in.goto",
+  "group": "Deck D",
+  "label": "To the start of the loop",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.loop.out.goto",
+  "group": "Deck D",
+  "label": "To the end of the loop",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.loop.move.back",
+  "group": "Deck D",
+  "label": "Loop a beat back",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.loop.move.forward",
+  "group": "Deck D",
+  "label": "Loop a beat forward",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.loop.move",
+  "group": "Deck D",
+  "label": "Loop moved, a beat a step",
+  "kind": "encoder"
+ },
+ {
+  "id": "deck4.grid.here",
+  "group": "Deck D",
+  "label": "A beat of the grid here",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.grid.earlier",
+  "group": "Deck D",
+  "label": "Beat grid earlier",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.grid.later",
+  "group": "Deck D",
+  "label": "Beat grid later",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.grid.faster",
+  "group": "Deck D",
+  "label": "Beat grid faster",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.grid.slower",
+  "group": "Deck D",
+  "label": "Beat grid slower",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.grid.move",
+  "group": "Deck D",
+  "label": "Beat grid moved, a few milliseconds a step",
+  "kind": "encoder"
+ },
+ {
+  "id": "deck4.tap",
+  "group": "Deck D",
+  "label": "Tap the tempo",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.fx.held",
+  "group": "Deck D",
+  "label": "Effect 1 on while held",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.slip.held",
+  "group": "Deck D",
+  "label": "Slip while held",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.filter.toggle",
+  "group": "Deck D",
+  "label": "Filter heard or not",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.crossfader.left",
+  "group": "Deck D",
+  "label": "On the left of the crossfader",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.crossfader.center",
+  "group": "Deck D",
+  "label": "Heard whatever the crossfader",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.crossfader.right",
+  "group": "Deck D",
+  "label": "On the right of the crossfader",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.sampler.gain",
+  "group": "Deck D",
+  "label": "Sampler level",
+  "kind": "fader"
+ },
+ {
+  "id": "deck4.sample1.stop",
+  "group": "Deck D",
+  "label": "Stop sample 1",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.sample1.eject",
+  "group": "Deck D",
+  "label": "Empty sample slot 1",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.sample1.load",
+  "group": "Deck D",
+  "label": "The selected track into sample slot 1",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.sample1.held",
+  "group": "Deck D",
+  "label": "Sample 1 while held",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.sample2.stop",
+  "group": "Deck D",
+  "label": "Stop sample 2",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.sample2.eject",
+  "group": "Deck D",
+  "label": "Empty sample slot 2",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.sample2.load",
+  "group": "Deck D",
+  "label": "The selected track into sample slot 2",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.sample2.held",
+  "group": "Deck D",
+  "label": "Sample 2 while held",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.sample3.stop",
+  "group": "Deck D",
+  "label": "Stop sample 3",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.sample3.eject",
+  "group": "Deck D",
+  "label": "Empty sample slot 3",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.sample3.load",
+  "group": "Deck D",
+  "label": "The selected track into sample slot 3",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.sample3.held",
+  "group": "Deck D",
+  "label": "Sample 3 while held",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.sample4.stop",
+  "group": "Deck D",
+  "label": "Stop sample 4",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.sample4.eject",
+  "group": "Deck D",
+  "label": "Empty sample slot 4",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.sample4.load",
+  "group": "Deck D",
+  "label": "The selected track into sample slot 4",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.sample4.held",
+  "group": "Deck D",
+  "label": "Sample 4 while held",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.sample5.stop",
+  "group": "Deck D",
+  "label": "Stop sample 5",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.sample5.eject",
+  "group": "Deck D",
+  "label": "Empty sample slot 5",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.sample5.load",
+  "group": "Deck D",
+  "label": "The selected track into sample slot 5",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.sample5.held",
+  "group": "Deck D",
+  "label": "Sample 5 while held",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.sample6.stop",
+  "group": "Deck D",
+  "label": "Stop sample 6",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.sample6.eject",
+  "group": "Deck D",
+  "label": "Empty sample slot 6",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.sample6.load",
+  "group": "Deck D",
+  "label": "The selected track into sample slot 6",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.sample6.held",
+  "group": "Deck D",
+  "label": "Sample 6 while held",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.sample7.stop",
+  "group": "Deck D",
+  "label": "Stop sample 7",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.sample7.eject",
+  "group": "Deck D",
+  "label": "Empty sample slot 7",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.sample7.load",
+  "group": "Deck D",
+  "label": "The selected track into sample slot 7",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.sample7.held",
+  "group": "Deck D",
+  "label": "Sample 7 while held",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.sample8.stop",
+  "group": "Deck D",
+  "label": "Stop sample 8",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.sample8.eject",
+  "group": "Deck D",
+  "label": "Empty sample slot 8",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.sample8.load",
+  "group": "Deck D",
+  "label": "The selected track into sample slot 8",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.sample8.held",
+  "group": "Deck D",
+  "label": "Sample 8 while held",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.vinyl",
+  "group": "Deck D",
+  "label": "Vinyl control on / off",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.jog.scratch",
+  "group": "Deck D",
+  "label": "Jog wheel: a touch scratches, or only nudges",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.beat",
+  "group": "Deck D",
+  "label": "Light: on the beat",
+  "kind": "light"
+ },
+ {
+  "id": "deck4.clip",
+  "group": "Deck D",
+  "label": "Light: the level past full scale",
+  "kind": "light"
+ },
+ {
+  "id": "deck4.ending",
+  "group": "Deck D",
+  "label": "Light: the end of the track near (soon: 10 s)",
+  "kind": "light"
+ },
+ {
+  "id": "deck4.tempo.zero",
+  "group": "Deck D",
+  "label": "Light: at the track's tempo",
+  "kind": "light"
+ },
+ {
+  "id": "deck4.tempo.slower",
+  "group": "Deck D",
+  "label": "Light: slower than the deck it mixes with",
+  "kind": "light"
+ },
+ {
+  "id": "deck4.tempo.faster",
+  "group": "Deck D",
+  "label": "Light: faster than the deck it mixes with",
+  "kind": "light"
+ },
+ {
+  "id": "deck4.phase",
+  "group": "Deck D",
+  "label": "Light: in phase with the deck it mixes with",
+  "kind": "light"
+ },
+ {
   "id": "mixer.crossfader",
   "group": "Mixer",
   "label": "Crossfader",
@@ -3237,6 +5181,114 @@
   "id": "library.search",
   "group": "Library",
   "label": "Search",
+  "kind": "button"
+ },
+ {
+  "id": "library.focus",
+  "group": "Library",
+  "label": "Browse the lists or the tracks",
+  "kind": "button"
+ },
+ {
+  "id": "library.lists",
+  "group": "Library",
+  "label": "Browse the lists (prepare, crates)",
+  "kind": "encoder"
+ },
+ {
+  "id": "library.list.open",
+  "group": "Library",
+  "label": "Open the list pointed at",
+  "kind": "button"
+ },
+ {
+  "id": "library.page.previous",
+  "group": "Library",
+  "label": "A page of tracks up",
+  "kind": "button"
+ },
+ {
+  "id": "library.page.next",
+  "group": "Library",
+  "label": "A page of tracks down",
+  "kind": "button"
+ },
+ {
+  "id": "library.sort.title",
+  "group": "Library",
+  "label": "Tracks by title",
+  "kind": "button"
+ },
+ {
+  "id": "library.sort.artist",
+  "group": "Library",
+  "label": "Tracks by artist",
+  "kind": "button"
+ },
+ {
+  "id": "library.sort.bpm",
+  "group": "Library",
+  "label": "Tracks by tempo",
+  "kind": "button"
+ },
+ {
+  "id": "library.sort.key",
+  "group": "Library",
+  "label": "Tracks by key",
+  "kind": "button"
+ },
+ {
+  "id": "general.library",
+  "group": "General",
+  "label": "The library over the whole window",
+  "kind": "button"
+ },
+ {
+  "id": "mixer.headphones",
+  "group": "Mixer",
+  "label": "Headphones level",
+  "kind": "fader"
+ },
+ {
+  "id": "mixer.main",
+  "group": "Mixer",
+  "label": "Master level",
+  "kind": "fader"
+ },
+ {
+  "id": "mixer.crossfaderCurve",
+  "group": "Mixer",
+  "label": "Crossfader curve: smooth, then sharp",
+  "kind": "fader"
+ },
+ {
+  "id": "mixer.crossfaderCurve.next",
+  "group": "Mixer",
+  "label": "The other crossfader curve",
+  "kind": "button"
+ },
+ {
+  "id": "mixer.crossfader.reverse",
+  "group": "Mixer",
+  "label": "Crossfader sides swapped",
+  "kind": "button"
+ },
+ {
+  "id": "sampler.gain",
+  "group": "Mixer",
+  "label": "Level of every deck's sampler",
+  "kind": "fader"
+ },
+ {
+  "id": "main.clip",
+  "group": "Mixer",
+  "label": "Light: the master past full scale",
+  "kind": "light"
+ },
+ {
+  "id": "general.record",
+  "group": "General",
+  "label": "Record the mix",
   "kind": "button"
  },
  {

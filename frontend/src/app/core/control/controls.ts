@@ -1,6 +1,7 @@
 import {
   BANDS,
   Band,
+  CrossfaderSide,
   EFFECT_KINDS,
   EffectKind,
   FX_SLOTS,
@@ -16,7 +17,8 @@ import { deckLetter } from '../../shared/time';
 import { StemPart } from '../stem-parts';
 
 /** The physical control an action suits. */
-export type ControlKind = 'button' | 'fader' | 'encoder';
+/** A light shows a state only: nothing drives it (the beat, a clip, the end of a track). */
+export type ControlKind = 'button' | 'fader' | 'encoder' | 'light';
 
 /** Something a key or a controller can do. */
 export interface Control {
@@ -171,9 +173,107 @@ export interface ControlActions {
   toggleHelp(): void;
   togglePalette(): void;
   openSettings(): void;
+  /** To the main cue, then playing (`play`), stopped (`stop`) or as it was (`goto`). */
+  toCue(deck: number, then: 'play' | 'stop' | 'goto'): void;
+  /** The main cue where the deck plays. */
+  setCueHere(deck: number): void;
+  /** To the start of the track, playing or stopped. */
+  toStart(deck: number, play: boolean): void;
+  eject(deck: number): void;
+  /** The leader's tempo and beats, once: the deck stays free. */
+  syncOnce(deck: number): void;
+  /** The deck leads the others, or back to the leader Prisme picks. */
+  toggleLeader(deck: number): void;
+  leading(deck: number): boolean;
+  /** Runs through the track while held, forwards or back. */
+  search(deck: number, direction: -1 | 1, held: boolean): void;
+  /** The tempo moved by so many tenths of a percent, and kept. */
+  stepTempo(deck: number, steps: number): void;
+  /** A smaller bend while held. */
+  bendSmall(deck: number, direction: -1 | 0 | 1): void;
+  /** Where the deck plays in its track (0 to 1). */
+  setPosition(deck: number, position: number): void;
+  positionInTrack(deck: number): number;
+  /** The key of the deck brought to the key of the deck it mixes with. */
+  syncKey(deck: number): void;
+  /** Takes the stored loop away. */
+  clearLoop(deck: number): void;
+  /** Back to the start of the stored loop, playing it, stopped. */
+  reloopStopped(deck: number): void;
+  /** To the start or the end of the stored loop. */
+  toLoopEdge(deck: number, edge: 'in' | 'out'): void;
+  /** The loop moved by so many beats. */
+  moveLoop(deck: number, beats: number): void;
+  loopOutSet(deck: number): boolean;
+  loopStored(deck: number): boolean;
+  /** Whether a roll of `beats` plays. */
+  rolling(deck: number, beats: number): boolean;
+  /** A correction of the beat grid: a beat here, earlier or later, faster or slower. */
+  gridHere(deck: number): void;
+  moveGrid(deck: number, steps: number): void;
+  stretchGrid(deck: number, steps: number): void;
+  /** One tap of the tempo: the track's tempo once there are enough. */
+  tapTempo(deck: number): void;
+  /** The deck's first effect on while held. */
+  holdFx(deck: number, held: boolean): void;
+  /** Slip on while held. */
+  holdSlip(deck: number, held: boolean): void;
+  /** The filter left where it is but heard or not. */
+  toggleFilter(deck: number): void;
+  filtering(deck: number): boolean;
+  setCrossfaderSide(deck: number, side: CrossfaderSide): void;
+  crossfaderSide(deck: number): CrossfaderSide;
+  /** Swaps the sides of the crossfader of every deck. */
+  reverseCrossfader(): void;
+  setCrossfaderCurve(position: number): void;
+  crossfaderCurvePosition(): number;
+  nextCrossfaderCurve(): void;
+  setSamplerGain(deck: number | null, position: number): void;
+  samplerGainPosition(deck: number | null): number;
+  stopSample(deck: number, slot: number): void;
+  ejectSample(deck: number, slot: number): void;
+  /** The selected track into the slot. */
+  loadSample(deck: number, slot: number): void;
+  /** Plays the sample while held. */
+  holdSample(deck: number, slot: number, held: boolean): void;
+  /** Vinyl control of the deck on or off. */
+  toggleVinyl(deck: number): void;
+  vinylOn(deck: number): boolean;
+  /** Whether a touch of its controller's jog wheel holds the record. */
+  toggleJogScratch(deck: number): void;
+  jogScratching(deck: number): boolean;
+  toggleRecording(): void;
+  recording(): boolean;
+  setHeadphonesLevel(position: number): void;
+  headphonesLevelPosition(): number;
+  setMainLevel(position: number): void;
+  mainLevelPosition(): number;
+  /** What a load key shows: `off` empty, `loaded`, `playing`. */
+  deckState(deck: number): 'off' | 'loaded' | 'playing';
+  /** The browse knob on the lists of the left, or on the tracks. */
+  moveFocus(): void;
+  /** The pointer on the lists of the left moved, or the list it points at opened. */
+  browseLists(steps: number): void;
+  openPointedList(): void;
+  sortBy(column: 'title' | 'artist' | 'bpm' | 'key'): void;
+  /** The library over the whole window, or back. */
+  toggleLibraryOnly(): void;
+  libraryOnly(): boolean;
+  /** States only lights show: on the beat, past full scale, near the end of the track, at
+   * the track's tempo or slower or faster than the deck it mixes with, in phase with it. */
+  onTheBeat(deck: number): boolean;
+  clipping(deck: number | null): boolean;
+  ending(deck: number): 'off' | 'on' | 'soon';
+  tempoState(deck: number): 'zero' | 'slower' | 'faster' | 'off';
+  inPhase(deck: number): boolean;
 }
 
 const JUMP_BEATS = 4;
+const CROSSFADER_SIDE: Record<CrossfaderSide, Text> = {
+  left: () => t('On the left of the crossfader'),
+  center: () => t('Heard whatever the crossfader'),
+  right: () => t('On the right of the crossfader'),
+};
 const EQ_LABEL: Record<Band, Text> = {
   low: () => t('EQ low'),
   mid: () => t('EQ mid'),
@@ -184,6 +284,15 @@ const KILL_LABEL: Record<Band, Text> = {
   low: () => t('Kill the bass while held'),
   mid: () => t('Kill the mids while held'),
   high: () => t('Kill the highs while held'),
+};
+
+/** Tracks a page of the library moves by. */
+const PAGE = 12;
+const SORT_LABEL: Record<'title' | 'artist' | 'bpm' | 'key', Text> = {
+  title: () => t('Tracks by title'),
+  artist: () => t('Tracks by artist'),
+  bpm: () => t('Tracks by tempo'),
+  key: () => t('Tracks by key'),
 };
 
 /** A button is down at any value but zero: a pad hit softly is hit all the same. */
@@ -227,6 +336,22 @@ function direct(id: string, group: string, label: string, kind: ControlKind): Co
 
 /** A control with a light, on when `on` says. */
 const lit = (control: Control, on: () => boolean): Control => ({ ...control, lit: on });
+/** A light that only shows: on, or the state it names. */
+function light(id: string, group: string, label: string, state: () => boolean | string): Control {
+  const shown = () => {
+    const s = state();
+    return typeof s === 'string' ? s : s ? 'on' : 'off';
+  };
+  return {
+    id,
+    group,
+    label,
+    kind: 'light',
+    apply: () => undefined,
+    lit: () => shown() !== 'off',
+    state: shown,
+  };
+}
 const coloured = (control: Control, color: () => string | null): Control => ({ ...control, color });
 
 /** The controls of a slot of a deck's effect chain: `deck1.fx…` for the first, `deck1.fx2…`
@@ -456,6 +581,179 @@ function deckControls(a: ControlActions, deck: number): Control[] {
       ),
       () => a.passthrough(deck),
     ),
+    ...moreDeckControls(a, deck, group, id),
+  ];
+}
+
+/** The deck's other uses: where its controllers have keys for them. */
+function moreDeckControls(
+  a: ControlActions,
+  deck: number,
+  group: string,
+  id: (name: string) => string,
+): Control[] {
+  const encoder = (name: string, label: string, apply: (steps: number) => void): Control => ({
+    id: id(name),
+    group,
+    label,
+    kind: 'encoder',
+    apply,
+  });
+  return [
+    button(id('cue.play'), group, t('To the cue and play'), () => a.toCue(deck, 'play')),
+    button(id('cue.stop'), group, t('To the cue, stopped'), () => a.toCue(deck, 'stop')),
+    button(id('cue.goto'), group, t('To the cue'), () => a.toCue(deck, 'goto')),
+    button(id('cue.set'), group, t('The cue here'), () => a.setCueHere(deck)),
+    button(id('start'), group, t('To the start, stopped'), () => a.toStart(deck, false)),
+    button(id('start.play'), group, t('To the start and play'), () => a.toStart(deck, true)),
+    button(id('eject'), group, t('Eject the track'), () => a.eject(deck)),
+    button(id('sync.once'), group, t('Match the tempo and beats once'), () => a.syncOnce(deck)),
+    lit(
+      button(id('sync.leader'), group, t('Lead the other decks'), () => a.toggleLeader(deck)),
+      () => a.leading(deck),
+    ),
+    hold(id('search.back'), group, t('Run back through the track while held'), (held) =>
+      a.search(deck, -1, held),
+    ),
+    hold(id('search.forward'), group, t('Run through the track while held'), (held) =>
+      a.search(deck, 1, held),
+    ),
+    button(id('tempo.up'), group, t('Tempo up 0.1 %'), () => a.stepTempo(deck, 1)),
+    button(id('tempo.down'), group, t('Tempo down 0.1 %'), () => a.stepTempo(deck, -1)),
+    encoder('tempo', t('Tempo, 0.1 % a step'), (steps) => a.stepTempo(deck, steps)),
+    hold(id('bend.down.small'), group, t('Slow down a little while held'), (held) =>
+      a.bendSmall(deck, held ? -1 : 0),
+    ),
+    hold(id('bend.up.small'), group, t('Speed up a little while held'), (held) =>
+      a.bendSmall(deck, held ? 1 : 0),
+    ),
+    fader(
+      id('position'),
+      group,
+      t('Place in the track (a touch strip)'),
+      (v) => a.setPosition(deck, v),
+      () => a.positionInTrack(deck),
+    ),
+    button(id('key.sync'), group, t('Key matched to the other deck'), () => a.syncKey(deck)),
+    fader(
+      id('key'),
+      group,
+      t('Key, from 12 semitones down to 12 up'),
+      (v) => a.setKeyShift(deck, Math.round(v * 24 - 12)),
+      () => (a.keyShift(deck) + 12) / 24,
+    ),
+    button(id('loop.clear'), group, t('Forget the loop'), () => a.clearLoop(deck)),
+    lit(
+      button(id('reloop.stop'), group, t('Back to the loop, stopped'), () => a.reloopStopped(deck)),
+      () => a.loopStored(deck),
+    ),
+    button(id('loop.in.goto'), group, t('To the start of the loop'), () =>
+      a.toLoopEdge(deck, 'in'),
+    ),
+    button(id('loop.out.goto'), group, t('To the end of the loop'), () =>
+      a.toLoopEdge(deck, 'out'),
+    ),
+    button(id('loop.move.back'), group, t('Loop a beat back'), () => a.moveLoop(deck, -1)),
+    button(id('loop.move.forward'), group, t('Loop a beat forward'), () => a.moveLoop(deck, 1)),
+    encoder('loop.move', t('Loop moved, a beat a step'), (steps) => a.moveLoop(deck, steps)),
+    button(id('grid.here'), group, t('A beat of the grid here'), () => a.gridHere(deck)),
+    button(id('grid.earlier'), group, t('Beat grid earlier'), () => a.moveGrid(deck, -1)),
+    button(id('grid.later'), group, t('Beat grid later'), () => a.moveGrid(deck, 1)),
+    button(id('grid.faster'), group, t('Beat grid faster'), () => a.stretchGrid(deck, 1)),
+    button(id('grid.slower'), group, t('Beat grid slower'), () => a.stretchGrid(deck, -1)),
+    encoder('grid.move', t('Beat grid moved, a few milliseconds a step'), (steps) =>
+      a.moveGrid(deck, steps),
+    ),
+    button(id('tap'), group, t('Tap the tempo'), () => a.tapTempo(deck)),
+    lit(
+      hold(id('fx.held'), group, t('Effect 1 on while held'), (held) => a.holdFx(deck, held)),
+      () => a.fxOn(deck, 0),
+    ),
+    lit(
+      hold(id('slip.held'), group, t('Slip while held'), (held) => a.holdSlip(deck, held)),
+      () => a.slipping(deck),
+    ),
+    lit(
+      button(id('filter.toggle'), group, t('Filter heard or not'), () => a.toggleFilter(deck)),
+      () => a.filtering(deck),
+    ),
+    ...(['left', 'center', 'right'] as const).map((side) =>
+      lit(
+        button(id(`crossfader.${side}`), group, CROSSFADER_SIDE[side](), () =>
+          a.setCrossfaderSide(deck, side),
+        ),
+        () => a.crossfaderSide(deck) === side,
+      ),
+    ),
+    fader(
+      id('sampler.gain'),
+      group,
+      t('Sampler level'),
+      (v) => a.setSamplerGain(deck, v),
+      () => a.samplerGainPosition(deck),
+    ),
+    ...Array.from({ length: SAMPLE_SLOTS }, (_, slot) => [
+      button(id(`sample${slot + 1}.stop`), group, t('Stop sample {n}', { n: slot + 1 }), () =>
+        a.stopSample(deck, slot),
+      ),
+      button(
+        id(`sample${slot + 1}.eject`),
+        group,
+        t('Empty sample slot {n}', { n: slot + 1 }),
+        () => a.ejectSample(deck, slot),
+      ),
+      button(
+        id(`sample${slot + 1}.load`),
+        group,
+        t('The selected track into sample slot {n}', { n: slot + 1 }),
+        () => a.loadSample(deck, slot),
+      ),
+      lit(
+        hold(
+          id(`sample${slot + 1}.held`),
+          group,
+          t('Sample {n} while held', { n: slot + 1 }),
+          (held) => a.holdSample(deck, slot, held),
+        ),
+        () => a.samplePlaying(deck, slot),
+      ),
+    ]).flat(),
+    lit(
+      button(id('vinyl'), group, t('Vinyl control on / off'), () => a.toggleVinyl(deck)),
+      () => a.vinylOn(deck),
+    ),
+    lit(
+      button(id('jog.scratch'), group, t('Jog wheel: a touch scratches, or only nudges'), () =>
+        a.toggleJogScratch(deck),
+      ),
+      () => a.jogScratching(deck),
+    ),
+    light(id('beat'), group, t('Light: on the beat'), () => a.onTheBeat(deck)),
+    light(id('clip'), group, t('Light: the level past full scale'), () => a.clipping(deck)),
+    light(id('ending'), group, t('Light: the end of the track near (soon: 10 s)'), () =>
+      a.ending(deck),
+    ),
+    light(
+      id('tempo.zero'),
+      group,
+      t("Light: at the track's tempo"),
+      () => a.tempoState(deck) === 'zero',
+    ),
+    light(
+      id('tempo.slower'),
+      group,
+      t('Light: slower than the deck it mixes with'),
+      () => a.tempoState(deck) === 'slower',
+    ),
+    light(
+      id('tempo.faster'),
+      group,
+      t('Light: faster than the deck it mixes with'),
+      () => a.tempoState(deck) === 'faster',
+    ),
+    light(id('phase'), group, t('Light: in phase with the deck it mixes with'), () =>
+      a.inPhase(deck),
+    ),
   ];
 }
 
@@ -508,7 +806,8 @@ export function measuredControl(a: ControlActions, id: string): Control | undefi
       deck,
     };
   }
-  const [, d, kind, amount] = /^deck(\d)\.(jump|loop|key)\.([+-]?\d+(?:\.\d+)?)$/.exec(id) ?? [];
+  const [, d, kind, amount] =
+    /^deck(\d)\.(jump|loop|key|roll)\.([+-]?\d+(?:\.\d+)?)$/.exec(id) ?? [];
   const deck = Number(d) - 1;
   const beats = Number(amount);
   if (kind === undefined || deck < 0 || deck >= MAX_DECKS) return undefined;
@@ -531,6 +830,15 @@ export function measuredControl(a: ControlActions, id: string): Control | undefi
     };
   }
   if (beats < 0) return undefined;
+  if (kind === 'roll') {
+    return {
+      ...hold(id, group, t('Roll {n} beats while held', { n: beats }), (held) =>
+        a.roll(deck, held ? beats : null),
+      ),
+      lit: () => a.rolling(deck, beats),
+      deck,
+    };
+  }
   return {
     ...button(id, group, t('Loop {n} beats', { n: beats }), () => a.beatLoop(deck, beats)),
     lit: () => {
@@ -602,6 +910,8 @@ export function buildControls(a: ControlActions): Control[] {
         t('Load on deck {deck}', { deck: deckLetter(deck) }),
         () => a.loadSelected(deck),
       ),
+      lit: () => a.deckState(deck) !== 'off',
+      state: () => a.deckState(deck),
       deck,
     })),
     button('library.load', library, t('Load on a free deck'), () => a.loadSelected(null)),
@@ -644,6 +954,65 @@ export function buildControls(a: ControlActions): Control[] {
     button('library.selectAll', library, t('Select all the tracks'), () => a.selectAll()),
     button('library.clearSelection', library, t('Clear the selection'), () => a.clearSelection()),
     button('library.search', library, t('Search'), () => a.focusSearch()),
+    button('library.focus', library, t('Browse the lists or the tracks'), () => a.moveFocus()),
+    {
+      id: 'library.lists',
+      group: library,
+      label: t('Browse the lists (prepare, crates)'),
+      kind: 'encoder',
+      apply: (steps) => a.browseLists(steps),
+    },
+    button('library.list.open', library, t('Open the list pointed at'), () => a.openPointedList()),
+    button('library.page.previous', library, t('A page of tracks up'), () => a.browse(-PAGE)),
+    button('library.page.next', library, t('A page of tracks down'), () => a.browse(PAGE)),
+    ...(['title', 'artist', 'bpm', 'key'] as const).map((column) =>
+      button(`library.sort.${column}`, library, SORT_LABEL[column](), () => a.sortBy(column)),
+    ),
+    {
+      ...button('general.library', t('General'), t('The library over the whole window'), () =>
+        a.toggleLibraryOnly(),
+      ),
+      lit: () => a.libraryOnly(),
+    },
+    fader(
+      'mixer.headphones',
+      t('Mixer'),
+      t('Headphones level'),
+      (v) => a.setHeadphonesLevel(v),
+      () => a.headphonesLevelPosition(),
+    ),
+    fader(
+      'mixer.main',
+      t('Mixer'),
+      t('Master level'),
+      (v) => a.setMainLevel(v),
+      () => a.mainLevelPosition(),
+    ),
+    fader(
+      'mixer.crossfaderCurve',
+      t('Mixer'),
+      t('Crossfader curve: smooth, then sharp'),
+      (v) => a.setCrossfaderCurve(v),
+      () => a.crossfaderCurvePosition(),
+    ),
+    button('mixer.crossfaderCurve.next', t('Mixer'), t('The other crossfader curve'), () =>
+      a.nextCrossfaderCurve(),
+    ),
+    button('mixer.crossfader.reverse', t('Mixer'), t('Crossfader sides swapped'), () =>
+      a.reverseCrossfader(),
+    ),
+    fader(
+      'sampler.gain',
+      t('Mixer'),
+      t("Level of every deck's sampler"),
+      (v) => a.setSamplerGain(null, v),
+      () => a.samplerGainPosition(null),
+    ),
+    light('main.clip', t('Mixer'), t('Light: the master past full scale'), () => a.clipping(null)),
+    {
+      ...button('general.record', t('General'), t('Record the mix'), () => a.toggleRecording()),
+      lit: () => a.recording(),
+    },
     {
       ...button('general.quantize', t('General'), t('Quantize'), () => a.toggleQuantize()),
       lit: () => a.quantized(),

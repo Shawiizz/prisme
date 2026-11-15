@@ -83,6 +83,7 @@ pub fn create(config: EngineConfig) -> (Engine, EngineController) {
         scope_taps,
         deck_out: vec![0.0; config.max_block_frames * 2],
         peak: 0.0,
+        master_peaks: [0.0; 2],
         quantize: true,
         chosen_leader: None,
         leader: None,
@@ -109,6 +110,7 @@ pub struct Engine {
     scope_taps: Vec<ScopeTap>,
     deck_out: Vec<f32>,
     peak: f32,
+    master_peaks: [f32; 2],
     quantize: bool,
     /// Leader picked by the user, if any.
     chosen_leader: Option<DeckId>,
@@ -201,6 +203,10 @@ impl Engine {
         }
         for s in out.iter() {
             self.peak = self.peak.max(s.abs());
+        }
+        for frame in self.mixer.master(frames).chunks_exact(2) {
+            self.master_peaks[0] = self.master_peaks[0].max(frame[0].abs());
+            self.master_peaks[1] = self.master_peaks[1].max(frame[1].abs());
         }
         // after the recording and the meter: the audience never hears it
         let (preview, ended) = self.preview.render(frames, rate);
@@ -435,6 +441,7 @@ impl Engine {
         let mut status = EngineStatus {
             deck_count: self.decks.len(),
             main_peak: self.peak,
+            master_peaks: std::mem::take(&mut self.master_peaks),
             mic_peak: std::mem::take(&mut self.mixer.mic.peak),
             aux_peak: std::mem::take(&mut self.mixer.aux.peak),
             recording,

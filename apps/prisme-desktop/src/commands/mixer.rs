@@ -1,6 +1,6 @@
 use crate::dto::{
-    BandDto, CrossfaderCurveDto, DeckSettingsDto, HeadphonesOutputDto, LiveSourceDto, LiveStateDto,
-    MixModeDto, MixerStateDto,
+    BandDto, CrossfaderCurveDto, CrossfaderSideDto, DeckSettingsDto, HeadphonesOutputDto, LiveSourceDto,
+    LiveStateDto, MixModeDto, MixerStateDto,
 };
 use crate::error::AppResult;
 use crate::sampler;
@@ -32,7 +32,8 @@ pub fn mixer_state(state: State<'_, AppState>) -> MixerStateDto {
             .decks_in_use(info.as_ref())
             .iter()
             .zip(samplers.iter())
-            .map(|(d, samples)| DeckSettingsDto {
+            .enumerate()
+            .map(|(deck, (d, samples))| DeckSettingsDto {
                 pitch: d.pitch,
                 volume: d.volume,
                 cue: d.cue,
@@ -47,6 +48,8 @@ pub fn mixer_state(state: State<'_, AppState>) -> MixerStateDto {
                 samples: samples.iter().map(|s| s.as_ref().map(|s| sampler::name(&s.path))).collect(),
                 sampler_gain: d.sampler_gain,
                 passthrough: d.passthrough,
+                side: d.side.unwrap_or(CrossfaderSideDto::of_deck(deck)),
+                jog_scratch: d.jog_scratch,
             })
             .collect(),
         crossfader: *lock(&state.crossfader),
@@ -59,6 +62,7 @@ pub fn mixer_state(state: State<'_, AppState>) -> MixerStateDto {
         headphone_gain: mixer.headphone_gain,
         crossfader_curve: mixer.crossfader_curve,
         limiter: mixer.limiter,
+        main_gain: mixer.main_gain,
         balance: mixer.balance,
         booth: mixer.booth,
         booth_in_use: routing.and_then(|r| r.booth),
@@ -101,6 +105,25 @@ pub fn set_booth_output(state: State<'_, AppState>, first: Option<usize>) -> App
 pub fn set_booth_gain(state: State<'_, AppState>, gain: f32) -> AppResult<()> {
     state.update_preferences(|p| p.mixer.booth_gain = gain);
     state.send_if_running(Command::SetBoothGain { gain })
+}
+
+/// The master's level (linear); kept for the next start.
+#[tauri::command]
+pub fn set_main_gain(state: State<'_, AppState>, gain: f32) -> AppResult<()> {
+    state.update_preferences(|p| p.mixer.main_gain = gain);
+    state.send_if_running(Command::SetMasterGain { gain })
+}
+
+/// The side of the crossfader `deck` is on.
+#[tauri::command]
+pub fn set_crossfader_side(
+    state: State<'_, AppState>,
+    deck: usize,
+    side: CrossfaderSideDto,
+) -> AppResult<()> {
+    AppState::check_deck(deck)?;
+    lock(&state.decks)[deck].side = Some(side);
+    state.send_if_running(Command::SetCrossfaderSide { deck, side: side.into() })
 }
 
 /// -1 = the master on the left only, 1 = on the right only; kept for the next start.

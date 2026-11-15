@@ -9,10 +9,11 @@
   <main
     class="layout"
     [class.split]="under() !== null"
+    [class.library-only]="navigation.libraryOnly()"
     [style.--under.px]="under()"
     [style.--under-zoom]="underZoom()"
   >
-    @if (under() !== null) {
+    @if (under() !== null || navigation.libraryOnly()) {
       <app-now-playing />
     }
     <section class="decks" [class.mix]="mixer.internal()" [class.compact]="compact()">

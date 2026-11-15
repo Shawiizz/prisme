@@ -5,6 +5,7 @@ import {
   Band,
   ChannelStrip,
   CrossfaderCurve,
+  CrossfaderSide,
   HeadphonesOutput,
   InputChannels,
   LiveSource,
@@ -45,6 +46,7 @@ export class MixerService {
   readonly headphoneGain = signal(1);
   readonly crossfaderCurve = signal<CrossfaderCurve>('smooth');
   readonly limiter = signal(true);
+  readonly mainGain = signal(1);
   /** -1 = the master on the left only, 1 = on the right only. */
   readonly balance = signal(0);
   /** First output (0-based) of the booth the DJ wants, and of the booth in use. */
@@ -108,6 +110,7 @@ export class MixerService {
     this.headphoneGain.set(state.headphoneGain);
     this.crossfaderCurve.set(state.crossfaderCurve);
     this.limiter.set(state.limiter);
+    this.mainGain.set(state.mainGain);
     this.balance.set(state.balance);
     this.boothGain.set(state.boothGain);
     this.talkover.set(state.talkover);
@@ -141,6 +144,16 @@ export class MixerService {
     } catch (e) {
       this.engine.error.set(errorText(e));
     }
+  }
+
+  setMainGain(gain: number) {
+    this.mainGain.set(gain);
+    return this.engine.call('set_main_gain', { gain });
+  }
+
+  setCrossfaderSide(deck: number, side: CrossfaderSide) {
+    this.engine.patchDeck(deck, { side });
+    return this.engine.call('set_crossfader_side', { deck, side });
   }
 
   setBoothGain(gain: number) {

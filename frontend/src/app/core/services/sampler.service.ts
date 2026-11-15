@@ -22,7 +22,11 @@ export class SamplerService {
       title: t('Sampler sound'),
       filters: [{ ...AUDIO_FILES, name: AUDIO_FILES.name() }],
     });
-    if (!path) return;
+    if (path) await this.load(deck, slot, path);
+  }
+
+  /** Puts the sound of `path` in `slot`. */
+  async load(deck: number, slot: number, path: string) {
     try {
       this.setName(deck, slot, await invoke<string>('load_sample', { deck, slot, path }));
       this.engine.error.set(null);
