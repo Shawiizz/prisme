@@ -21,16 +21,11 @@ app-channel-strip {
 }
 
 // the headphones beside the top of the fader
-.cue {
+app-cue-button {
   grid-area: cue;
   align-self: start;
   width: 34px;
   height: 34px;
-  padding: 0;
-  svg {
-    width: 16px;
-    height: 16px;
-  }
 }
 
 // the fader between its marks and its level
@@ -80,8 +75,8 @@ app-fader {
   }
 }
 
-// held sideways: the knobs, the headphones and the fader side by side
-@media (orientation: landscape) {
+// a table too low to stack them: the knobs, the headphones and the fader side by side
+@container stage (max-height: 200px) {
   :host {
     grid-template-rows: none;
     grid-template-areas: 'knobs cue strip';
@@ -98,7 +93,7 @@ app-fader {
     gap: 2px 0;
     --knob-size: 40px;
   }
-  .cue {
+  app-cue-button {
     align-self: center;
   }
   .strip {

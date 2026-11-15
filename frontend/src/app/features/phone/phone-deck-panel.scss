@@ -76,21 +76,14 @@ h4 {
     padding: 0 6px;
     font-size: var(--pr-size-small);
   }
-  .cue svg {
-    width: 16px;
-    height: 16px;
+  app-cue-button {
+    width: 44px;
+    height: 44px;
   }
 }
 
-.pitch {
-  display: flex;
-  align-items: center;
+app-phone-tempo {
   gap: 10px;
-  font-size: var(--pr-size-small);
-  color: var(--pr-text-3);
-  app-fader {
-    flex: 1;
-  }
 }
 
 .faders {
@@ -106,18 +99,15 @@ h4 {
     color: var(--pr-text-3);
   }
   app-fader {
-    height: 124px;
+    height: clamp(84px, 20dvh, 124px);
   }
 }
 
-// held sideways: the faders are shorter, the panel keeps to the height
+// wider than tall: the panel keeps to the middle
 @media (orientation: landscape) {
   .panel {
     left: 12%;
     right: 12%;
     border-inline: 1px solid var(--pr-line-2);
-  }
-  .faders app-fader {
-    height: 84px;
   }
 }

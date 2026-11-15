@@ -3,8 +3,8 @@ import { deckReadouts } from '../../core/deck-readouts';
 import { deckVinyl } from '../../core/deck-vinyl';
 import { EngineService } from '../../core/services/engine.service';
 import { TPipe } from '../../core/i18n/t.pipe';
-import { camelotHue, camelotMajor } from '../../shared/camelot';
 import { Cover } from '../../shared/cover/cover';
+import { KeyChip } from '../../shared/key-chip/key-chip';
 import { deckLetter } from '../../shared/time';
 import { DeckWaveform } from '../deck/deck-waveform/deck-waveform';
 
@@ -40,12 +40,7 @@ const VINYL_LABEL = { relative: 'REL', absolute: 'ABS' } as const;
         <span class="bpm pr-num">{{ bpm() ?? '' }}</span>
       }
       @if (key(); as k) {
-        <span
-          class="pr-key pr-key--fill"
-          [class.pr-key--maj]="major(k.camelot)"
-          [style.--h]="hue(k.camelot)"
-          >{{ k.camelot }}</span
-        >
+        <app-key-chip fill [camelot]="k.camelot" />
       }
       @if (compact()) {
         <span class="time pr-num" [class]="ending() ?? ''">{{ remaining() }}</span>
@@ -65,7 +60,7 @@ const VINYL_LABEL = { relative: 'REL', absolute: 'ABS' } as const;
   `,
   styleUrl: './phone-deck.scss',
   host: { '[class.compact]': 'compact()' },
-  imports: [Cover, DeckWaveform, TPipe],
+  imports: [Cover, DeckWaveform, KeyChip, TPipe],
 })
 export class PhoneDeck {
   readonly deck = input.required<number>();
@@ -91,6 +86,4 @@ export class PhoneDeck {
   });
   protected readonly signal = this.driven.signal;
   protected readonly signalTitle = this.driven.signalTitle;
-  protected readonly hue = camelotHue;
-  protected readonly major = camelotMajor;
 }

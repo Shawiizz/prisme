@@ -2,6 +2,7 @@ import { Component, booleanAttribute, computed, inject, input } from '@angular/c
 import { EngineService } from '../../../core/services/engine.service';
 import { MixerService } from '../../../core/services/mixer.service';
 import { TPipe } from '../../../core/i18n/t.pipe';
+import { CueButton } from '../../../shared/cue-button/cue-button';
 import { Fader } from '../../../shared/fader/fader';
 import { levelMeter } from '../../../shared/level';
 import { deckLetter } from '../../../shared/time';
@@ -18,24 +19,7 @@ const METER_SEGMENTS = 24;
   template: `
     <div class="strip">
       <app-channel-strip [deck]="deck()" />
-      <button
-        class="pr-btn pr-btn--icon cue"
-        [class.is-on]="cued()"
-        (click)="mixer.setDeckCue(deck(), !cued())"
-        [title]="'Hear this deck in the headphones' | t"
-        [attr.aria-label]="'Hear this deck in the headphones' | t"
-      >
-        <svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true">
-          <path
-            d="M2.5 10V8a5.5 5.5 0 0 1 11 0v2"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="1.5"
-          />
-          <rect x="1.5" y="9" width="3.5" height="5" rx="1" fill="currentColor" />
-          <rect x="11" y="9" width="3.5" height="5" rx="1" fill="currentColor" />
-        </svg>
-      </button>
+      <app-cue-button [deck]="deck()" />
     </div>
     <div class="pr-meter pr-meter--vertical">
       @for (segment of level(); track $index) {
@@ -72,10 +56,9 @@ const METER_SEGMENTS = 24;
         display: contents;
       }
     }
-    .cue {
+    app-cue-button {
       width: 28px;
       height: 28px;
-      padding: 0;
     }
     :host(.compact) {
       padding-block: 4px;
@@ -91,7 +74,7 @@ const METER_SEGMENTS = 24;
     }
   `,
   host: { class: 'pr-panel', '[class.compact]': 'compact()' },
-  imports: [ChannelStrip, Fader, TPipe],
+  imports: [ChannelStrip, CueButton, Fader, TPipe],
 })
 export class ChannelSlot {
   readonly deck = input.required<number>();
@@ -101,7 +84,6 @@ export class ChannelSlot {
   private readonly engine = inject(EngineService);
   protected readonly mixer = inject(MixerService);
   protected readonly letter = computed(() => deckLetter(this.deck()));
-  protected readonly cued = computed(() => this.engine.decks()[this.deck()].cue);
   protected readonly volume = computed(() => this.engine.decks()[this.deck()].volume);
   protected readonly level = levelMeter(
     () => this.engine.status()?.decks[this.deck()]?.peak ?? 0,

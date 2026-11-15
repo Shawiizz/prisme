@@ -9,19 +9,6 @@
   box-shadow: 0 16px 40px rgb(0 0 0 / 0.6);
 }
 
-.head {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  b {
-    flex: 1;
-  }
-}
-.pr-tile {
-  width: 22px;
-  height: 22px;
-  font-size: 12px;
-}
 .value {
   font-size: 14px;
   font-weight: 600;
@@ -30,17 +17,6 @@
   margin: 0;
   font-size: var(--pr-size-small);
   color: var(--pr-light);
-}
-
-.fader {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: var(--pr-size-small);
-  color: var(--pr-text-3);
-  app-fader {
-    flex: 1;
-  }
 }
 .keys {
   display: grid;

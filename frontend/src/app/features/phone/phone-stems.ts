@@ -1,10 +1,10 @@
-import { Component, computed, inject, input, output } from '@angular/core';
+import { Component, inject, input, output } from '@angular/core';
 import { deckStems } from '../../core/deck-stems';
 import { EngineService } from '../../core/services/engine.service';
 import { TPipe } from '../../core/i18n/t.pipe';
 import { Knob } from '../../shared/knob/knob';
 import { readouts } from '../../shared/mixer-scales';
-import { deckLetter } from '../../shared/time';
+import { PhoneFloatHead } from './phone-float-head';
 
 /**
  * The stems of a deck, floating over the table of a phone: a knob for the level of each
@@ -15,17 +15,7 @@ import { deckLetter } from '../../shared/time';
 @Component({
   selector: 'app-phone-stems',
   template: `
-    <div class="head">
-      <span class="pr-tile" [class.pr-tile--outline]="!playing()">{{ letter() }}</span>
-      <b>Stems</b>
-      <button
-        class="pr-btn pr-btn--sm pr-btn--icon pr-btn--ghost"
-        (click)="closed.emit()"
-        [attr.aria-label]="'Close' | t"
-      >
-        ×
-      </button>
-    </div>
+    <app-phone-float-head [deck]="deck()" name="Stems" (closed)="closed.emit()" />
     @if (stems.separation() === 'none') {
       <button
         class="pr-btn separate"
@@ -67,7 +57,7 @@ import { deckLetter } from '../../shared/time';
     }
   `,
   styleUrls: ['./phone-float.scss', './phone-stems.scss'],
-  imports: [Knob, TPipe],
+  imports: [Knob, PhoneFloatHead, TPipe],
 })
 export class PhoneStems {
   readonly deck = input.required<number>();
@@ -75,9 +65,5 @@ export class PhoneStems {
 
   protected readonly engine = inject(EngineService);
   protected readonly stems = deckStems(this.deck);
-  protected readonly letter = computed(() => deckLetter(this.deck()));
-  protected readonly playing = computed(
-    () => this.engine.status()?.decks[this.deck()]?.playing ?? false,
-  );
   protected readonly percent = readouts.percent;
 }

@@ -12,7 +12,7 @@
   }
   @if (tab() === 'decks') {
     <button
-      class="pr-btn pr-btn--sm"
+      class="pr-btn pr-btn--sm pr-reach"
       [class.is-on]="touch()"
       [attr.aria-pressed]="touch()"
       (click)="toggleTouch()"
@@ -28,7 +28,7 @@
     </button>
   }
   <button
-    class="pr-btn pr-btn--sm pr-btn--ghost pr-btn--icon"
+    class="pr-btn pr-btn--sm pr-btn--ghost pr-btn--icon pr-reach"
     (click)="navigation.palette.set(true)"
     [attr.aria-label]="'Search actions, tracks, settings…' | t"
   >
@@ -39,14 +39,14 @@
   </button>
   @if (recording.status(); as r) {
     <button
-      class="pr-btn pr-btn--sm pr-btn--rec is-on"
+      class="pr-btn pr-btn--sm pr-btn--rec pr-reach is-on"
       (click)="recording.stop()"
       [attr.aria-label]="'Stop recording' | t"
     >
       <span class="pr-btn__dot"></span><span class="pr-num">{{ clock(r.seconds) }}</span>
     </button>
   } @else if (recording.options().length) {
-    <button class="pr-btn pr-btn--sm pr-btn--ghost pr-btn--rec" (click)="record()">
+    <button class="pr-btn pr-btn--sm pr-btn--ghost pr-btn--rec pr-reach" (click)="record()">
       <span class="pr-btn__dot"></span>{{ 'Rec' | t }}
     </button>
   }
@@ -75,7 +75,11 @@
 
 <nav class="tabs">
   @for (item of tabs; track item.id) {
-    <button [class.on]="tab() === item.id" (click)="tab.set(item.id)">
+    <button
+      [class.on]="tab() === item.id"
+      [attr.aria-current]="tab() === item.id ? 'page' : null"
+      (click)="tab.set(item.id)"
+    >
       <svg viewBox="0 0 24 24" aria-hidden="true">
         @switch (item.id) {
           @case ('decks') {

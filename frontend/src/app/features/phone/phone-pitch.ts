@@ -1,10 +1,9 @@
-import { Component, DestroyRef, computed, inject, input, output } from '@angular/core';
+import { Component, DestroyRef, inject, input, output } from '@angular/core';
 import { deckTempo } from '../../core/deck-tempo';
 import { EngineService } from '../../core/services/engine.service';
-import { PreferencesService } from '../../core/services/preferences.service';
 import { TPipe } from '../../core/i18n/t.pipe';
-import { Fader } from '../../shared/fader/fader';
-import { deckLetter, formatPitch } from '../../shared/time';
+import { PhoneFloatHead } from './phone-float-head';
+import { PhoneTempo } from './phone-tempo';
 
 /**
  * The tempo of a deck, floating over the table of a phone: its fader, − and + held to push
@@ -13,40 +12,16 @@ import { deckLetter, formatPitch } from '../../shared/time';
 @Component({
   selector: 'app-phone-pitch',
   template: `
-    <div class="head">
-      <span class="pr-tile" [class.pr-tile--outline]="!tempo.status()?.playing">{{
-        letter()
-      }}</span>
-      <b>Pitch</b>
-      <span class="value pr-num">{{ pitch() }}</span>
-      <button
-        class="pr-btn pr-btn--sm pr-btn--icon pr-btn--ghost"
-        (click)="closed.emit()"
-        [attr.aria-label]="'Close' | t"
-      >
-        ×
-      </button>
-    </div>
-    @if (target(); as to) {
+    <app-phone-float-head [deck]="deck()" name="Pitch" (closed)="closed.emit()">
+      <span class="value pr-num">{{ tempo.pitch() }}</span>
+    </app-phone-float-head>
+    @if (tempo.toMatch(); as to) {
       <p class="target pr-num">{{ 'Pitch to match' | t }} → {{ to }}</p>
     }
-    <div class="fader">
-      <span class="pr-num">−{{ rangePercent() }}</span>
-      <app-fader
-        touch
-        centered
-        [min]="-range()"
-        [max]="range()"
-        [value]="offset()"
-        (valueChange)="engine.setPitch(deck(), 1 + $event)"
-        [disabled]="tempo.held()"
-        [label]="'Tempo' | t"
-      />
-      <span class="pr-num">+{{ rangePercent() }}</span>
-    </div>
+    <app-phone-tempo [deck]="deck()" />
     <div class="keys">
       <button
-        class="pr-btn"
+        class="pr-btn pr-reach"
         (pointerdown)="bend(-1, $event)"
         (pointerup)="unbend()"
         (lostpointercapture)="unbend()"
@@ -54,11 +29,15 @@ import { deckLetter, formatPitch } from '../../shared/time';
       >
         −
       </button>
-      <button class="pr-btn" [disabled]="tempo.held()" (click)="engine.setPitch(deck(), 1)">
+      <button
+        class="pr-btn pr-reach"
+        [disabled]="tempo.held()"
+        (click)="engine.setPitch(deck(), 1)"
+      >
         0
       </button>
       <button
-        class="pr-btn"
+        class="pr-btn pr-reach"
         (pointerdown)="bend(1, $event)"
         (pointerup)="unbend()"
         (lostpointercapture)="unbend()"
@@ -68,7 +47,7 @@ import { deckLetter, formatPitch } from '../../shared/time';
       </button>
     </div>
     <button
-      class="pr-btn lock"
+      class="pr-btn pr-reach lock"
       [class.is-on]="tempo.settings().keyLock"
       (click)="engine.setKeyLock(deck(), !tempo.settings().keyLock)"
     >
@@ -76,27 +55,14 @@ import { deckLetter, formatPitch } from '../../shared/time';
     </button>
   `,
   styleUrl: './phone-float.scss',
-  imports: [Fader, TPipe],
+  imports: [PhoneFloatHead, PhoneTempo, TPipe],
 })
 export class PhonePitch {
   readonly deck = input.required<number>();
   readonly closed = output<void>();
 
   protected readonly engine = inject(EngineService);
-  private readonly preferences = inject(PreferencesService);
   protected readonly tempo = deckTempo(this.deck);
-  protected readonly letter = computed(() => deckLetter(this.deck()));
-  protected readonly range = computed(() => this.preferences.dj().pitchRange);
-  protected readonly rangePercent = computed(() => Math.round(this.range() * 100));
-  /** A fader the deck does not obey shows the rate it plays at. */
-  protected readonly offset = computed(
-    () => (this.tempo.held() ? this.tempo.rate() : this.tempo.settings().pitch) - 1,
-  );
-  protected readonly pitch = computed(() => formatPitch(1 + this.offset()));
-  protected readonly target = computed(() => {
-    const target = this.tempo.target();
-    return target === null ? null : formatPitch(target);
-  });
   /** The deck pushed or held back: the one let go, even if the float changed decks since. */
   private bent: number | null = null;
 

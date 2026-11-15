@@ -1,16 +1,19 @@
 import { Signal, computed, inject } from '@angular/core';
 import { EngineService } from './services/engine.service';
+import { PreferencesService } from './services/preferences.service';
 import { pitchToMatch } from './sync';
+import { formatPitch } from '../shared/time';
 
 export type SyncState = 'off' | 'matched' | 'locked';
 
 /**
  * The tempo of a deck as its controls share it: the rate it plays at, what holds it (a
- * record, sync) and, on a record, the rate that would match the other deck. To be called
- * where `inject` works.
+ * record, sync), where its fader stands in its range and, on a record, the rate that would
+ * match the other deck. To be called where `inject` works.
  */
 export function deckTempo(deck: Signal<number>) {
   const engine = inject(EngineService);
+  const preferences = inject(PreferencesService);
   const status = computed(() => engine.status()?.decks[deck()] ?? null);
   const settings = computed(() => engine.decks()[deck()]);
   const vinyl = computed(() => settings().vinylEnabled);
@@ -28,6 +31,14 @@ export function deckTempo(deck: Signal<number>) {
   const rate = computed(() => engine.tempoRate(deck()) ?? settings().pitch);
   /** The fader does not set the tempo: a record does, or sync. */
   const held = computed(() => vinyl() || syncState() === 'locked');
+  /** How far the fader goes either way: 0.08 for ±8 %. */
+  const range = computed(() => preferences.dj().pitchRange);
+  const rangePercent = computed(() => Math.round(range() * 100));
+  /** Where the fader stands from the centre: one the deck does not obey shows the rate it
+   * plays at. */
+  const offset = computed(() => (held() ? rate() : settings().pitch) - 1);
+  /** The fader's position as read: `+1.20 %`. */
+  const pitch = computed(() => formatPitch(1 + offset()));
   /** On a record not locked by sync: the rate that would match the other deck. */
   const target = computed(() => {
     const own = status();
@@ -36,5 +47,24 @@ export function deckTempo(deck: Signal<number>) {
     const change = pitchToMatch(own, other);
     return change === null ? null : rate() * (1 + change);
   });
-  return { status, settings, vinyl, syncState, reference, rate, held, target };
+  /** The target as read, to bring the turntable's pitch to. */
+  const toMatch = computed(() => {
+    const at = target();
+    return at === null ? null : formatPitch(at);
+  });
+  return {
+    status,
+    settings,
+    vinyl,
+    syncState,
+    reference,
+    rate,
+    held,
+    range,
+    rangePercent,
+    offset,
+    pitch,
+    target,
+    toMatch,
+  };
 }

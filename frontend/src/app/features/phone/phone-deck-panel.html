@@ -20,27 +20,14 @@
   }
 
   <h4>
-    Pitch · <span class="pr-num">{{ pitch() }}</span>
-    @if (target(); as to) {
+    Pitch · <span class="pr-num">{{ tempo.pitch() }}</span>
+    @if (tempo.toMatch(); as to) {
       <span class="target pr-num" [title]="'Pitch to set on the turntable to match' | t"
         >→ {{ to }}</span
       >
     }
   </h4>
-  <div class="pitch">
-    <span class="pr-num">−{{ rangePercent() }}</span>
-    <app-fader
-      touch
-      centered
-      [min]="-range()"
-      [max]="range()"
-      [value]="offset()"
-      (valueChange)="engine.setPitch(deck(), 1 + $event)"
-      [disabled]="tempo.held()"
-      [label]="'Tempo' | t"
-    />
-    <span class="pr-num">+{{ rangePercent() }}</span>
-  </div>
+  <app-phone-tempo [deck]="deck()" />
 
   @if (mixer.internal() && !table()) {
     <h4>{{ 'Mixer' | t }}</h4>
@@ -66,7 +53,7 @@
           orientation="vertical"
           [value]="filterKnob()"
           [defaultValue]="0.5"
-          (valueChange)="mixer.setFilter(deck(), $event * 2 - 1)"
+          (valueChange)="setFilter($event)"
           label="FILTER"
         />
         FILTER
@@ -98,24 +85,7 @@
       {{ 'Grid and key' | t }}
     </button>
     @if (mixer.internal() && !table()) {
-      <button
-        class="pr-btn pr-btn--lg pr-btn--icon cue"
-        [class.is-on]="settings().cue"
-        (click)="mixer.setDeckCue(deck(), !settings().cue)"
-        [title]="'Hear this deck in the headphones' | t"
-        [attr.aria-label]="'Hear this deck in the headphones' | t"
-      >
-        <svg viewBox="0 0 16 16" aria-hidden="true">
-          <path
-            d="M2.5 10V8a5.5 5.5 0 0 1 11 0v2"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="1.5"
-          />
-          <rect x="1.5" y="9" width="3.5" height="5" rx="1" fill="currentColor" />
-          <rect x="11" y="9" width="3.5" height="5" rx="1" fill="currentColor" />
-        </svg>
-      </button>
+      <app-cue-button [deck]="deck()" />
     }
   </div>
 </section>

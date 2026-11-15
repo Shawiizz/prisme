@@ -101,6 +101,19 @@
 .pr-btn--icon.pr-btn--lg {
   width: var(--pr-h-lg);
 }
+/* a key smaller than a finger answers one as large, around its middle, without looking larger;
+   --y only above and below, between keys close side by side */
+.pr-reach {
+  position: relative;
+}
+.pr-reach::after {
+  content: '';
+  position: absolute;
+  inset: min(0px, (100% - var(--pr-h-touch)) / 2);
+}
+.pr-reach--y::after {
+  inset-inline: 0;
+}
 /* recording: a red dot, the whole button red while it records */
 .pr-btn__dot {
   width: 8px;

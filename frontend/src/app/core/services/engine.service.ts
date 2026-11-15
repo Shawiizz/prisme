@@ -146,7 +146,7 @@ export class EngineService {
     if (tempoRate !== null) return tempoRate;
     const settings = this.decks()[deck];
     const speed = Math.abs(this.status()?.decks[deck]?.speed ?? 0);
-    return settings.vinylEnabled && speed > 0.05 ? speed : settings.pitch;
+    return settings.vinylEnabled && speed > MOVING_SPEED ? speed : settings.pitch;
   }
 
   /**

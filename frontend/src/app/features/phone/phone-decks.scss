@@ -29,7 +29,7 @@ app-phone-table {
   flex: 1;
 }
 
-// held sideways
+// wider than tall: the library beside the decks
 @media (orientation: landscape) {
   :host {
     flex-direction: row;

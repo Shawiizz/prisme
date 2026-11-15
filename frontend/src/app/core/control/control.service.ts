@@ -7,7 +7,14 @@ import { PerformanceService } from '../services/performance.service';
 import { PreferencesService } from '../services/preferences.service';
 import { SamplerService } from '../services/sampler.service';
 import { NavigationService } from '../services/navigation.service';
-import { eqGain, eqKnob, trimGain, trimKnob } from '../../shared/mixer-scales';
+import {
+  bandKnob,
+  eqGain,
+  filterAmount,
+  filterKnob,
+  trimGain,
+  trimKnob,
+} from '../../shared/mixer-scales';
 import { BANDS } from '../models/engine';
 import { hasPart, partLevel, partPlaying } from '../stem-parts';
 import { Control, ControlActions, buildControls } from './controls';
@@ -73,15 +80,15 @@ export class ControlService {
     },
     setVolume: (deck, position) => this.mixer.setVolume(deck, position),
     setEq: (deck, band, position) => this.mixer.setEq(deck, band, eqGain(position)),
-    setFilter: (deck, position) => this.mixer.setFilter(deck, position * 2 - 1),
+    setFilter: (deck, position) => this.mixer.setFilter(deck, filterAmount(position)),
     setTrim: (deck, position) => this.mixer.setTrim(deck, trimGain(position)),
     setCrossfader: (position) => this.mixer.setCrossfader(position * 2 - 1),
     setCueMix: (position) => this.mixer.setCueMix(position),
     cueMixPosition: () => this.mixer.cueMix(),
     fxMixPosition: (deck) => this.fx.settings(deck).mix,
     volumePosition: (deck) => this.engine.decks()[deck].volume,
-    eqPosition: (deck, band) => eqKnob(this.mixer.strip(deck).eq[BANDS.indexOf(band)]),
-    filterPosition: (deck) => (this.mixer.strip(deck).filter + 1) / 2,
+    eqPosition: (deck, band) => bandKnob(this.mixer.strip(deck), band),
+    filterPosition: (deck) => filterKnob(this.mixer.strip(deck).filter),
     trimPosition: (deck) => trimKnob(this.mixer.strip(deck).trim),
     crossfaderPosition: () => (this.mixer.crossfader() + 1) / 2,
     toggleHeadphones: (deck) => this.mixer.setDeckCue(deck, !this.engine.decks()[deck].cue),
@@ -121,6 +128,8 @@ export class ControlService {
     const decks = this.engine.deckIndexes().length;
     return this.controls.filter((c) => c.deck === undefined || c.deck < decks);
   });
+  /** `inUse` as a set: looked into at every message of a controller. */
+  private readonly inUseSet = computed(() => new Set(this.inUse()));
 
   /** The control `id`, whatever its deck (to name it, to map it). */
   find(id: string): Control | undefined {
@@ -130,7 +139,7 @@ export class ControlService {
   /** The control `id` if it acts now: a control of a deck not shown does nothing. */
   findInUse(id: string): Control | undefined {
     const control = this.built().byId.get(id);
-    return control && this.inUse().includes(control) ? control : undefined;
+    return control && this.inUseSet().has(control) ? control : undefined;
   }
 
   private deck(deck: number) {
