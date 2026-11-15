@@ -89,6 +89,12 @@ fn scan_folder_at(root: &Path, cancel: &AtomicBool, now: SystemTime) -> Scan {
     scan
 }
 
+/// Whether the file at `path` is kept online only by a cloud folder: reading it would
+/// download it.
+pub(crate) fn is_online_only(path: &Path) -> bool {
+    std::fs::metadata(path).is_ok_and(|meta| Attributes::of(&meta).online_only)
+}
+
 /// How long the file of `meta` has gone unwritten at `now`: since it was created, or written
 /// last, whichever came later (a copy may keep the time its original was written).
 fn untouched_for(meta: &Metadata, now: SystemTime) -> Duration {

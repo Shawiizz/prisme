@@ -10,8 +10,10 @@ use std::path::{Path, PathBuf};
 pub enum Search {
     /// By its name, size and time: a query, for a whole folder being listed.
     Stamp,
-    /// And by its audio, read from the file: for a track being loaded.
+    /// And by its audio, read from the file if need be: for a track being loaded.
     Audio,
+    /// And by its audio, of this identity ([`prisme_media::audio_id`]) read already.
+    AudioId(u64),
 }
 
 /// Gives the file at `path`, which the library does not know, what it knew of the same file
@@ -20,8 +22,8 @@ pub enum Search {
 /// - one of the same size and time under the same path on another drive (a USB stick that
 ///   came back under another letter);
 /// - one of the same name, size and time that is gone from a drive still there (moved);
-/// - with [`Search::Audio`], one of the same audio gone from a drive still there (renamed
-///   and tagged again).
+/// - with [`Search::Audio`] or [`Search::AudioId`], one of the same audio gone from a drive
+///   still there (renamed and tagged again).
 ///
 /// A file on a drive that is away is otherwise left what it has: it may come back.
 pub fn adopt(
@@ -60,8 +62,13 @@ pub fn adopt_unless(
         }
     };
     let mut from = single(stamped.iter().filter(moved).cloned());
-    if from.is_none() && search == Search::Audio {
-        if let Ok(id) = prisme_media::audio_id(path) {
+    if from.is_none() {
+        let audio_id = match search {
+            Search::Stamp => None,
+            Search::Audio => prisme_media::audio_id(path).ok(),
+            Search::AudioId(id) => Some(id),
+        };
+        if let Some(id) = audio_id {
             let sounding = db.paths_sounding_like(id)?;
             from =
                 single(sounding.into_iter().filter(|old| elsewhere(old) && drive_is_there(Path::new(old))));
@@ -174,6 +181,20 @@ mod tests {
         known(&db, &original, stamp);
         assert_eq!(adopt(&db, &copy, stamp, Search::Audio).unwrap(), None);
         assert_eq!(db.cues(&original).unwrap().len(), 1);
+        std::fs::remove_dir_all(dir).ok();
+    }
+
+    #[test]
+    fn a_file_renamed_and_tagged_again_is_known_by_the_identity_of_its_audio() {
+        let dir = folder("audio");
+        let db = LibraryDb::open_in_memory().unwrap();
+        let (old, new) = (dir.join("track.mp3"), dir.join("Artist - Track.mp3"));
+        let stamp = file(&new);
+        known(&db, &old, FileStamp { size: stamp.size + 1, ..stamp });
+        db.set_audio_id(&old, 42).unwrap();
+        assert_eq!(adopt(&db, &new, stamp, Search::AudioId(7)).unwrap(), None);
+        assert_eq!(adopt(&db, &new, stamp, Search::AudioId(42)).unwrap(), Some(old));
+        assert_eq!(db.cues(&new).unwrap().len(), 1);
         std::fs::remove_dir_all(dir).ok();
     }
 
