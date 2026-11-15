@@ -5292,6 +5292,24 @@
   "kind": "button"
  },
  {
+  "id": "autodj.toggle",
+  "group": "Auto DJ",
+  "label": "Auto DJ on / off",
+  "kind": "button"
+ },
+ {
+  "id": "autodj.fade",
+  "group": "Auto DJ",
+  "label": "Mix into the next track now",
+  "kind": "button"
+ },
+ {
+  "id": "autodj.skip",
+  "group": "Auto DJ",
+  "label": "Skip the next track",
+  "kind": "button"
+ },
+ {
   "id": "general.quantize",
   "group": "General",
   "label": "Quantize",

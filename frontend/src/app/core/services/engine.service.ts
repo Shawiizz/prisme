@@ -110,6 +110,8 @@ export class EngineService {
     };
     await invoke('subscribe_status', { channel });
     await listen<DeckTrackUpdate>('deck-track-update', (e) => this.completeTrack(e.payload));
+    // a track the Auto DJ put on a deck
+    await listen<TrackInfo>('deck-loaded', ({ payload }) => this.show(payload.deck, payload));
     // a controller's tempo fader, performed by the backend
     await listen<{ deck: number; ratio: number }>('deck-pitch', ({ payload }) =>
       this.patchDeck(payload.deck, { pitch: payload.ratio }),
@@ -290,10 +292,7 @@ export class EngineService {
   private async put(deck: number, load: () => Promise<TrackInfo>): Promise<boolean> {
     this.patch(this.loading, deck, true);
     try {
-      const info = await load();
-      this.patch(this.tracks, deck, info);
-      this.patch(this.waveforms, deck, null);
-      if (info.waveformReady) this.fetchWaveform(deck, info.loadId);
+      this.show(deck, await load());
       this.error.set(null);
       return true;
     } catch (e) {
@@ -302,6 +301,13 @@ export class EngineService {
     } finally {
       this.patch(this.loading, deck, false);
     }
+  }
+
+  /** `info` is on `deck` now: its waveform follows. */
+  private show(deck: number, info: TrackInfo) {
+    this.patch(this.tracks, deck, info);
+    this.patch(this.waveforms, deck, null);
+    if (info.waveformReady) this.fetchWaveform(deck, info.loadId);
   }
 
   togglePlay(deck: number) {

@@ -1,3 +1,4 @@
+use crate::auto_dj::{AutoDj, Takeover};
 use crate::dto::{
     BandDto, CrossfaderCurveDto, CrossfaderSideDto, DeckSettingsDto, HeadphonesOutputDto, LiveSourceDto,
     LiveStateDto, MixModeDto, MixerStateDto,
@@ -149,7 +150,12 @@ pub fn set_volume(state: State<'_, AppState>, deck: usize, gain: f32) -> AppResu
 }
 
 #[tauri::command]
-pub fn set_crossfader(state: State<'_, AppState>, position: f32) -> AppResult<()> {
+pub fn set_crossfader(
+    state: State<'_, AppState>,
+    auto_dj: State<'_, AutoDj>,
+    position: f32,
+) -> AppResult<()> {
+    auto_dj.take_over(Takeover::Crossfader);
     *lock(&state.crossfader) = position;
     state.send(Command::SetCrossfader { position })
 }

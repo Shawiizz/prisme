@@ -3,9 +3,10 @@
 //! worker thread, the rest of the audio and whatever was missing (waveform, analysis),
 //! sent to the UI as it comes (`deck-track-update`).
 
-use crate::dto::{DeckTrackUpdateDto, TrackAnalysisDto};
+use crate::dto::{DeckTrackUpdateDto, TrackAnalysisDto, TrackInfoDto};
 use crate::error::AppResult;
 use crate::library_service::LibraryService;
+use crate::preview::Previews;
 use crate::state::{lock, AppState, LoadedTrack};
 use prisme_analysis::{AnalysisOptions, TrackAnalysis};
 use prisme_engine::{Command, StemTracks};
@@ -44,6 +45,28 @@ pub fn preload(
     let app = app.clone();
     std::thread::spawn(move || completion.run(&app));
     Ok(())
+}
+
+/// Puts `path` on `deck` as soon as it can play (blocks while its start is read); its
+/// waveform and analysis follow. The preview of the same file stops: it is on a deck now.
+pub fn load_on_deck(app: &AppHandle, deck: usize, path: PathBuf) -> AppResult<TrackInfoDto> {
+    let state = app.state::<AppState>();
+    state.has_deck(deck)?;
+    let (track, completion) = prepare(path, &app.state::<Arc<LibraryService>>())?;
+    let info = track.info(deck);
+    let commands = track.load_commands(deck, state.preferences.read(|p| p.dj.auto_gain));
+    let file = track.path.clone();
+    // kept for audio restarts
+    lock(&state.tracks)[deck] = Some(track);
+    for c in commands {
+        state.send_if_running(c)?;
+    }
+    if let Err(e) = app.state::<Previews>().stop_previewing(&state, &file) {
+        warn!("the preview of {} goes on: {e}", file.display());
+    }
+    let app = app.clone();
+    tauri::async_runtime::spawn_blocking(move || completion.run(&app));
+    Ok(info)
 }
 
 /// The track, playable, and what is left to do ([`Completion::run`]).

@@ -3,6 +3,7 @@ import { CratesService } from '../../../core/services/crates.service';
 import { HistoryService } from '../../../core/services/history.service';
 import { LibraryService } from '../../../core/services/library.service';
 import { PrepareService } from '../../../core/services/prepare.service';
+import { AutoDjService } from '../../../core/services/auto-dj.service';
 import { TRACKS_DRAG_TYPE } from '../../../shared/drag';
 import { Crate } from '../../../core/models/library';
 import { SmartCrateDialog } from '../smart-crate-dialog/smart-crate-dialog';
@@ -54,6 +55,8 @@ export class LibrarySidebar {
   protected readonly sessions = inject(HistoryService).sessions;
   private readonly prepare = inject(PrepareService).list;
   protected readonly prepareCount = computed(() => this.prepare().length);
+  /** Playing the prepare list, said beside it wherever the library is. */
+  protected readonly autoDj = inject(AutoDjService);
 
   /** The smart crate dialog, open on a crate (`null`: a new one). */
   protected readonly smartDialog = signal<{ crate: Crate | null } | null>(null);

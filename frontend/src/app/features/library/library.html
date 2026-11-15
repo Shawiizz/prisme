@@ -109,6 +109,9 @@
         </button>
       </div>
     </div>
+    @if (library.source().kind === 'prepare') {
+      <app-auto-dj-bar />
+    }
     <app-track-table />
     @if (preview.track()) {
       <app-preview-strip />

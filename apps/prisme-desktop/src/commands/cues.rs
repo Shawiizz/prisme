@@ -1,3 +1,4 @@
+use crate::auto_dj::{AutoDj, Takeover};
 use crate::dto::CueDto;
 use crate::error::{AppError, AppResult};
 use crate::library_service::LibraryService;
@@ -32,8 +33,14 @@ pub fn set_hot_cue(
 
 /// Jumps to hot cue `slot`; a saved loop starts looping.
 #[tauri::command]
-pub fn trigger_hot_cue(state: State<'_, AppState>, deck: usize, slot: u8) -> AppResult<()> {
+pub fn trigger_hot_cue(
+    state: State<'_, AppState>,
+    auto_dj: State<'_, AutoDj>,
+    deck: usize,
+    slot: u8,
+) -> AppResult<()> {
     let slot = hot_slot(slot)?;
+    auto_dj.take_over(Takeover::Transport(deck));
     let Some(cue) = state.with_track(deck, |track| track.cue(slot).cloned())? else { return Ok(()) };
     if let Some(length_s) = cue.loop_length_s {
         let region = LoopRegion { start_s: cue.position_s, end_s: cue.position_s + length_s };

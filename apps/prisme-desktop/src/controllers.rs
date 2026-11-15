@@ -7,6 +7,7 @@
 //! controllers in use; a model Prisme knows comes mapped by its profile
 //! (`controller_profiles`), what is learnt on it taking the profile's place.
 
+use crate::auto_dj::{AutoDj, Takeover};
 use crate::controller_direct::{Direct, Performer, Tempo};
 use crate::controller_profiles;
 use crate::dto::{ControllerInputDto, DeckPitchDto, LightDto, OutputDto};
@@ -933,6 +934,11 @@ impl Controllers {
         else {
             return;
         };
+        if !matches!(action, Direct::Pitch(_)) {
+            if let Some(auto_dj) = app.try_state::<AutoDj>() {
+                auto_dj.take_over(Takeover::Transport(deck));
+            }
+        }
         if let Command::SetPitch { ratio, .. } = command {
             lock(&state.decks)[deck].pitch = ratio;
             let _ = app.emit("deck-pitch", DeckPitchDto { deck, ratio });

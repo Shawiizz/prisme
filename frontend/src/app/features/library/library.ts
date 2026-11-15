@@ -12,6 +12,7 @@ import { EngineService } from '../../core/services/engine.service';
 import { LibraryService } from '../../core/services/library.service';
 import { StemsService } from '../../core/services/stems.service';
 import { PreviewService } from '../../core/services/preview.service';
+import { AutoDjBar } from './auto-dj-bar/auto-dj-bar';
 import { ImportDialog } from './import-dialog/import-dialog';
 import { LibrarySidebar } from './library-sidebar/library-sidebar';
 import { PreviewStrip } from './preview-strip/preview-strip';
@@ -29,7 +30,7 @@ const RESCANNED_MS = 3000;
   selector: 'app-library',
   templateUrl: './library.html',
   styleUrl: './library.scss',
-  imports: [ImportDialog, LibrarySidebar, PreviewStrip, TrackTable, TPipe],
+  imports: [AutoDjBar, ImportDialog, LibrarySidebar, PreviewStrip, TrackTable, TPipe],
 })
 export class Library {
   protected readonly CTRL = CTRL;

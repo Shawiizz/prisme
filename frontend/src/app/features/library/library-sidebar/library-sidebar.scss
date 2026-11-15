@@ -137,6 +137,12 @@ section {
     overflow: hidden;
     text-overflow: ellipsis;
   }
+  .auto {
+    color: var(--pr-text);
+    &.paused {
+      color: var(--pr-warn);
+    }
+  }
   .count {
     font: 11px var(--pr-font-mono);
     font-stretch: var(--pr-mono-width);

@@ -1,0 +1,79 @@
+<button
+  class="pr-btn toggle"
+  [class.pr-btn--sm]="!phone()"
+  [class.pr-btn--lg]="phone()"
+  [class.is-on]="autoDj.running()"
+  [attr.aria-pressed]="autoDj.running()"
+  [disabled]="!autoDj.available() && !autoDj.on()"
+  [title]="'Auto DJ on / off' | t"
+  (click)="autoDj.toggle()"
+>
+  {{ 'Auto DJ' | t }}
+</button>
+<div class="state">
+  <span class="line" [class.paused]="autoDj.paused()" [title]="line()">{{ line() }}</span>
+  @if (warning(); as w) {
+    <span class="warning" [title]="w">{{ w }}</span>
+  }
+</div>
+@if (autoDj.on()) {
+  <div class="actions">
+    <button
+      class="pr-btn pr-btn--ghost"
+      [class.pr-btn--sm]="!phone()"
+      [class.pr-btn--lg]="phone()"
+      [disabled]="autoDj.mixing() || !autoDj.next()"
+      [title]="'Mix into the next track now' | t"
+      (click)="autoDj.fadeNow()"
+    >
+      {{ 'Fade now' | t }}
+    </button>
+    <button
+      class="pr-btn pr-btn--ghost"
+      [class.pr-btn--sm]="!phone()"
+      [class.pr-btn--lg]="phone()"
+      [disabled]="!autoDj.next()"
+      [title]="'Skip the next track' | t"
+      (click)="autoDj.skip()"
+    >
+      {{ 'Skip' | t }}
+    </button>
+  </div>
+}
+<div class="fade">
+  <span class="pr-label">{{ 'Fade' | t }}</span>
+  <div
+    class="pr-seg"
+    [class.pr-seg--lg]="phone()"
+    role="radiogroup"
+    [attr.aria-label]="'Beats, when both tracks have a beat grid' | t"
+    [title]="'Beats, when both tracks have a beat grid' | t"
+  >
+    @for (beats of FADE_BEATS; track beats) {
+      <button
+        role="radio"
+        [attr.aria-checked]="autoDj.status().fadeBeats === beats"
+        (click)="setBeats(beats)"
+      >
+        {{ beats }}
+      </button>
+    }
+  </div>
+  <div
+    class="pr-seg"
+    [class.pr-seg--lg]="phone()"
+    role="radiogroup"
+    [attr.aria-label]="'Seconds, when a track has no beat grid' | t"
+    [title]="'Seconds, when a track has no beat grid' | t"
+  >
+    @for (seconds of FADE_SECONDS; track seconds) {
+      <button
+        role="radio"
+        [attr.aria-checked]="autoDj.status().fadeS === seconds"
+        (click)="setSeconds(seconds)"
+      >
+        {{ '{n} s' | t: { n: seconds } }}
+      </button>
+    }
+  </div>
+</div>

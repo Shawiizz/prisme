@@ -1,5 +1,7 @@
 //! Data exchanged with the frontend (camelCase JSON).
 
+use crate::auto_dj::machine::{Reason, State, Status, Takeover};
+use crate::auto_dj::plan::FadeLength;
 use prisme_audio_io::{Backend, StreamStats};
 use prisme_engine::{
     DeckStatus, EngineStatus, InputChannels, LiveSource, LoopStatus, MixMode, Rpm, VinylMode, FX_SLOTS,
@@ -1262,12 +1264,87 @@ impl ControllerInputDto {
     }
 }
 
-/// A deck's tempo, set from a controller (`deck-pitch`).
+/// A deck's tempo, set from a controller or the Auto DJ (`deck-pitch`).
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct DeckPitchDto {
     pub deck: usize,
     pub ratio: f64,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub enum AutoDjStateDto {
+    Off,
+    On,
+    Mixing,
+    Paused,
+}
+
+/// Why the Auto DJ stopped, paused or left a track out.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub enum AutoDjReasonDto {
+    ExternalMixer,
+    Records,
+    ListEmpty,
+    ListEnded,
+    /// The DJ played, stopped or moved a deck (`reasonDeck`).
+    Transport,
+    Crossfader,
+    /// The DJ loaded a deck (`reasonDeck`).
+    Load,
+    Unloadable,
+}
+
+/// The Auto DJ as the interface shows it (`auto-dj`).
+#[derive(Debug, Clone, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AutoDjStatusDto {
+    pub state: AutoDjStateDto,
+    pub reason: Option<AutoDjReasonDto>,
+    pub reason_deck: Option<usize>,
+    /// The deck heard.
+    pub current: Option<usize>,
+    /// The deck being mixed in.
+    pub incoming: Option<usize>,
+    /// Where on the deck heard the next mix starts (to the hundredth of a second).
+    pub mix_at_s: Option<f64>,
+    pub fade_beats: u32,
+    pub fade_s: f64,
+}
+
+impl AutoDjStatusDto {
+    pub fn of(status: Status, fade: FadeLength) -> Self {
+        let (reason, reason_deck) = match status.reason {
+            None => (None, None),
+            Some(Reason::ExternalMixer) => (Some(AutoDjReasonDto::ExternalMixer), None),
+            Some(Reason::Records) => (Some(AutoDjReasonDto::Records), None),
+            Some(Reason::ListEmpty) => (Some(AutoDjReasonDto::ListEmpty), None),
+            Some(Reason::ListEnded) => (Some(AutoDjReasonDto::ListEnded), None),
+            Some(Reason::Unloadable) => (Some(AutoDjReasonDto::Unloadable), None),
+            Some(Reason::TakenOver(Takeover::Transport(deck))) => {
+                (Some(AutoDjReasonDto::Transport), Some(deck))
+            }
+            Some(Reason::TakenOver(Takeover::Load(deck))) => (Some(AutoDjReasonDto::Load), Some(deck)),
+            Some(Reason::TakenOver(Takeover::Crossfader)) => (Some(AutoDjReasonDto::Crossfader), None),
+        };
+        Self {
+            state: match status.state {
+                State::Off => AutoDjStateDto::Off,
+                State::On => AutoDjStateDto::On,
+                State::Mixing => AutoDjStateDto::Mixing,
+                State::Paused => AutoDjStateDto::Paused,
+            },
+            reason,
+            reason_deck,
+            current: status.current,
+            incoming: status.incoming,
+            mix_at_s: status.mix_at_s.map(|s| (s * 100.0).round() / 100.0),
+            fade_beats: fade.beats,
+            fade_s: fade.seconds,
+        }
+    }
 }
 
 /// Whether the controls of an action are lit.
