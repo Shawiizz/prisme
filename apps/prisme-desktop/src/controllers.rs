@@ -386,7 +386,7 @@ impl Controllers {
         let deck = match action {
             Direct::Jog(d) | Direct::JogTouch(d) | Direct::Pitch(d) => d,
         };
-        if AppState::check_deck(deck).is_err() {
+        if state.has_deck(deck).is_err() {
             return;
         }
         let tempo = Tempo {

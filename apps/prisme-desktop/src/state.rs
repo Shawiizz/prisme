@@ -222,6 +222,8 @@ impl AppState {
         }
     }
 
+    /// Whether `deck` is one the engine can have, kept for when it is in use (its settings);
+    /// [`AppState::has_deck`] for one in use.
     pub fn check_deck(deck: usize) -> AppResult<()> {
         if deck < MAX_DECKS {
             Ok(())
