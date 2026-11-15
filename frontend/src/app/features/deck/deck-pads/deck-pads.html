@@ -27,11 +27,28 @@
 
 @switch (keys()) {
   @case ('fx') {
+    <div
+      class="pr-seg pr-seg--lg slots"
+      role="radiogroup"
+      [attr.aria-label]="'Effect the pads and knobs act on' | t"
+    >
+      @for (key of slotKeys(); track $index) {
+        <button
+          role="radio"
+          [attr.aria-checked]="slot() === $index"
+          [class.is-lit]="key.on"
+          [title]="key.title"
+          (click)="fx.choose(deck(), $index)"
+        >
+          {{ $index + 1 }}
+        </button>
+      }
+    </div>
     <div class="side knobs">
       @let on = effectPart();
       <button
         class="pr-btn pr-btn--sm part"
-        [class.is-on]="effect().part !== null"
+        [class.is-on]="on.on"
         [disabled]="!on.choice"
         [title]="on.title"
         (click)="fx.nextPart(deck())"
@@ -44,7 +61,7 @@
         [labelTitle]="'Level of the effect' | t"
         [format]="readouts.percent"
         [value]="effect().mix"
-        (valueChange)="fx.setMix(deck(), $event)"
+        (valueChange)="fx.setMix(deck(), slot(), $event)"
       />
       <app-knob
         small
@@ -52,11 +69,11 @@
         [labelTitle]="'Main knob of the effect (see each pad)' | t"
         [format]="readouts.percent"
         [value]="effect().amount"
-        (valueChange)="fx.setAmount(deck(), $event)"
+        (valueChange)="fx.setAmount(deck(), slot(), $event)"
       />
       <div class="beats" [title]="'Period of the effect, in beats' | t">
-        <button class="pr-btn pr-btn--sm" (click)="fx.scaleBeats(deck(), 0.5)">½</button>
-        <button class="pr-btn pr-btn--sm" (click)="fx.scaleBeats(deck(), 2)">×2</button>
+        <button class="pr-btn pr-btn--sm" (click)="fx.scaleBeats(deck(), slot(), 0.5)">½</button>
+        <button class="pr-btn pr-btn--sm" (click)="fx.scaleBeats(deck(), slot(), 2)">×2</button>
         <span class="pr-num">{{ formatBeats(effect().beats) }}</span>
       </div>
     </div>

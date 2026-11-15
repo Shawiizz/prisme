@@ -4,13 +4,14 @@ import { FxService } from '../../../core/services/fx.service';
 import { SamplerService } from '../../../core/services/sampler.service';
 import { EngineService } from '../../../core/services/engine.service';
 import { PerformanceService } from '../../../core/services/performance.service';
-import { EffectKind, HOT_CUES } from '../../../core/models/engine';
+import { EffectKind, FxSettings, HOT_CUES } from '../../../core/models/engine';
 import { Knob } from '../../../shared/knob/knob';
 import { ROLL_BEATS, formatBeats, loopBeats } from '../../../shared/beats';
 import { readouts } from '../../../shared/mixer-scales';
 import { Text, t } from '../../../core/i18n/i18n';
 import { TPipe } from '../../../core/i18n/t.pipe';
 import { deckStems } from '../../../core/deck-stems';
+import { EFFECT_NAMES } from '../../../core/effects';
 
 type PadMode = 'cues' | 'loops' | 'roll' | 'jump' | 'fx' | 'sampler';
 
@@ -33,6 +34,8 @@ const MODES: { id: PadMode; label: string }[] = [
   { id: 'sampler', label: 'SMPL' },
 ];
 const SAMPLE_COLOR = 'var(--pr-tag-violet)';
+/** The bar of an effect pad whose effect sounds in another slot of the chain. */
+const ELSEWHERE_COLOR = 'var(--pr-text-3)';
 /** The effects on the pads, with what their AMOUNT knob does. */
 const EFFECTS: { kind: EffectKind; label: string; title: Text }[] = [
   {
@@ -82,8 +85,8 @@ const JUMP_BEATS = [-32, -16, -4, -1, 1, 4, 16, 32];
 /**
  * Eight performance pads per deck, at the end of its rail (hot cues, loops, rolls, beat
  * jumps, beat effects, sampler), with the keys that go with their mode: slip and censor
- * (and the way out of a loop while one plays), all the loop keys, the level, knob and
- * period of the effects, or the sampler's level.
+ * (and the way out of a loop while one plays), all the loop keys, the slots of the effect
+ * chain with the level, knob and period of the one chosen, or the sampler's level.
  */
 @Component({
   selector: 'app-deck-pads',
@@ -117,16 +120,29 @@ export class DeckPads {
   protected readonly loopActive = computed(() => this.status()?.looping.active ?? false);
   protected readonly loopInSet = computed(() => this.status()?.looping.loopInS != null);
   protected readonly slip = computed(() => this.status()?.slipMode ?? false);
-  protected readonly effect = computed(() => this.engine.decks()[this.deck()].fx);
+  private readonly chain = computed(() => this.engine.decks()[this.deck()].fx);
+  /** The slot of the chain the pads and knobs act on, and its effect. */
+  protected readonly slot = computed(() => this.fx.chosen(this.deck()));
+  protected readonly effect = computed(() => this.chain().slots[this.slot()]);
+  /** A key per slot of the chain: chosen in the light, marked while its effect sounds. */
+  protected readonly slotKeys = computed(() =>
+    this.chain().slots.map((fx, slot) => ({
+      on: fx.enabled,
+      title: fx.enabled
+        ? t('Effect {n}: {effect}', { n: slot + 1, effect: EFFECT_NAMES[fx.kind]() })
+        : t('Effect {n}: off', { n: slot + 1 }),
+    })),
+  );
   private readonly stemKnobs = deckStems(this.deck).knobs;
-  /** Where the effect is: the whole deck, or a part of the track as its stems call it. */
+  /** Where the effects are: the whole deck, or a part of the track as its stems call it. */
   protected readonly effectPart = computed(() => {
-    const part = this.effect().part;
+    const part = this.chain().part;
     const stem = this.stemKnobs().find((k) => k.part === part);
     const parts = this.fx.parts(this.deck());
     return {
+      on: part !== null,
       label: stem?.label ?? 'DECK',
-      title: t('Effect on: {part}. Click for the next part', {
+      title: t('Effects on: {part}. Click for the next part', {
         part: stem ? stem.name : t('the whole deck'),
       }),
       choice: parts.length > 1,
@@ -169,12 +185,13 @@ export class DeckPads {
           this.beatPad(b, false, t('Jump {beats} beats', { beats: formatBeats(b) })),
         );
       case 'fx': {
-        const fx = this.effect();
+        const [slots, chosen] = [this.chain().slots, this.slot()];
+        const sounds = (fx: FxSettings, kind: EffectKind) => fx.enabled && fx.kind === kind;
         return EFFECTS.map((e) => ({
           label: e.label,
           set: true,
-          color: null,
-          active: fx.enabled && fx.kind === e.kind,
+          color: slots.some((fx, s) => s !== chosen && sounds(fx, e.kind)) ? ELSEWHERE_COLOR : null,
+          active: sounds(slots[chosen], e.kind),
           title: e.title(),
         }));
       }
@@ -202,7 +219,7 @@ export class DeckPads {
       case 'jump':
         return this.performance.beatJump(deck, JUMP_BEATS[index]);
       case 'fx':
-        return this.fx.press(deck, EFFECTS[index].kind);
+        return this.fx.press(deck, this.slot(), EFFECTS[index].kind);
       case 'sampler':
         if (!this.samples()[index]) return this.sampler.choose(deck, index);
         return event.shiftKey ? this.sampler.clear(deck, index) : this.sampler.trigger(deck, index);

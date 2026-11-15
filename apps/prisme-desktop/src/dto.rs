@@ -1,7 +1,7 @@
 //! Data exchanged with the frontend (camelCase JSON).
 
 use prisme_audio_io::{Backend, StreamStats};
-use prisme_engine::{DeckStatus, EngineStatus, LoopStatus, MixMode, Rpm, VinylMode};
+use prisme_engine::{DeckStatus, EngineStatus, LoopStatus, MixMode, Rpm, VinylMode, FX_SLOTS};
 use prisme_library::{Cue, CueSlot};
 use prisme_timecode::SignalState;
 use serde::{Deserialize, Serialize};
@@ -198,7 +198,7 @@ pub struct RecordingDto {
     pub tracks: usize,
 }
 
-/// A deck's beat effect.
+/// A slot of a deck's effect chain.
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct FxDto {
@@ -210,14 +210,50 @@ pub struct FxDto {
     pub amount: f32,
     /// The effect's period in beats.
     pub beats: f32,
-    /// The part of the track it is on, where separated; none: the whole deck.
-    #[serde(default)]
-    pub part: Option<FxPartDto>,
 }
 
 impl Default for FxDto {
     fn default() -> Self {
-        Self { kind: EffectKindDto::Echo, enabled: false, mix: 0.5, amount: 0.5, beats: 1.0, part: None }
+        Self { kind: EffectKindDto::Echo, enabled: false, mix: 0.5, amount: 0.5, beats: 1.0 }
+    }
+}
+
+/// A deck's beat effects, in series.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", from = "FxChainFile")]
+pub struct FxChainDto {
+    pub slots: [FxDto; FX_SLOTS],
+    /// The part of the track the chain is on, where separated; none: the whole deck.
+    pub part: Option<FxPartDto>,
+}
+
+/// A chain as written, or a single effect as written before the chain: its first slot.
+#[derive(Deserialize)]
+#[serde(untagged)]
+enum FxChainFile {
+    Chain {
+        slots: [FxDto; FX_SLOTS],
+        #[serde(default)]
+        part: Option<FxPartDto>,
+    },
+    Single {
+        #[serde(flatten)]
+        slot: FxDto,
+        #[serde(default)]
+        part: Option<FxPartDto>,
+    },
+}
+
+impl From<FxChainFile> for FxChainDto {
+    fn from(file: FxChainFile) -> Self {
+        match file {
+            FxChainFile::Chain { slots, part } => Self { slots, part },
+            FxChainFile::Single { slot, part } => {
+                let mut slots = [FxDto::default(); FX_SLOTS];
+                slots[0] = slot;
+                Self { slots, part }
+            }
+        }
     }
 }
 
@@ -636,7 +672,7 @@ pub struct DeckSettingsDto {
     pub swap_channels: bool,
     pub key_lock: bool,
     pub strip: ChannelStripDto,
-    pub fx: FxDto,
+    pub fx: FxChainDto,
     /// Name of the sound in each sampler slot.
     pub samples: Vec<Option<String>>,
     pub sampler_gain: f32,
@@ -1083,6 +1119,17 @@ pub struct LightDto {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_single_effect_written_before_the_chain_reads_as_its_first_slot() {
+        let old = r#"{"kind":"gate","enabled":true,"mix":0.8,"amount":0.3,"beats":2.0,"part":"vocals"}"#;
+        let chain: FxChainDto = serde_json::from_str(old).unwrap();
+        let gate = FxDto { kind: EffectKindDto::Gate, enabled: true, mix: 0.8, amount: 0.3, beats: 2.0 };
+        assert_eq!(chain.slots, [gate, FxDto::default(), FxDto::default()]);
+        assert_eq!(chain.part, Some(FxPartDto::Vocals));
+        let written = serde_json::to_string(&chain).unwrap();
+        assert_eq!(serde_json::from_str::<FxChainDto>(&written).unwrap(), chain);
+    }
 
     #[test]
     fn a_stem_knob_follows_a_volume_taper_and_a_mute_keeps_its_level() {

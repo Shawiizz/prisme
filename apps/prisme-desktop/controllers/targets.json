@@ -344,50 +344,296 @@
  {
   "id": "deck1.fx",
   "group": "Deck A",
-  "label": "Effect on / off",
+  "label": "Effect 1 on / off",
   "kind": "button"
  },
  {
   "id": "deck1.fx.on",
   "group": "Deck A",
-  "label": "Effect on",
+  "label": "Effect 1 on",
   "kind": "button"
  },
  {
   "id": "deck1.fx.off",
   "group": "Deck A",
-  "label": "Effect off",
+  "label": "Effect 1 off",
   "kind": "button"
  },
  {
   "id": "deck1.fx.next",
   "group": "Deck A",
-  "label": "Next effect",
+  "label": "Effect 1: next effect",
   "kind": "button"
  },
  {
   "id": "deck1.fx.previous",
   "group": "Deck A",
-  "label": "Previous effect",
+  "label": "Effect 1: previous effect",
   "kind": "button"
  },
  {
-  "id": "deck1.fx.part",
+  "id": "deck1.fx.echo",
   "group": "Deck A",
-  "label": "Effect on the next part",
+  "label": "Effect 1: Echo on / off",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.fx.pingPong",
+  "group": "Deck A",
+  "label": "Effect 1: Ping-pong echo on / off",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.fx.reverb",
+  "group": "Deck A",
+  "label": "Effect 1: Reverb on / off",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.fx.flanger",
+  "group": "Deck A",
+  "label": "Effect 1: Flanger on / off",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.fx.phaser",
+  "group": "Deck A",
+  "label": "Effect 1: Phaser on / off",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.fx.filter",
+  "group": "Deck A",
+  "label": "Effect 1: Filter on / off",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.fx.gate",
+  "group": "Deck A",
+  "label": "Effect 1: Gate on / off",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.fx.bitcrusher",
+  "group": "Deck A",
+  "label": "Effect 1: Bitcrusher on / off",
   "kind": "button"
  },
  {
   "id": "deck1.fx.mix",
   "group": "Deck A",
-  "label": "Effect level",
+  "label": "Effect 1 level",
   "kind": "fader"
  },
  {
   "id": "deck1.fx.amount",
   "group": "Deck A",
-  "label": "Effect amount",
+  "label": "Effect 1 amount",
   "kind": "fader"
+ },
+ {
+  "id": "deck1.fx.beats",
+  "group": "Deck A",
+  "label": "Effect 1 period (a step halves or doubles it)",
+  "kind": "encoder"
+ },
+ {
+  "id": "deck1.fx2",
+  "group": "Deck A",
+  "label": "Effect 2 on / off",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.fx2.on",
+  "group": "Deck A",
+  "label": "Effect 2 on",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.fx2.off",
+  "group": "Deck A",
+  "label": "Effect 2 off",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.fx2.next",
+  "group": "Deck A",
+  "label": "Effect 2: next effect",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.fx2.previous",
+  "group": "Deck A",
+  "label": "Effect 2: previous effect",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.fx2.echo",
+  "group": "Deck A",
+  "label": "Effect 2: Echo on / off",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.fx2.pingPong",
+  "group": "Deck A",
+  "label": "Effect 2: Ping-pong echo on / off",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.fx2.reverb",
+  "group": "Deck A",
+  "label": "Effect 2: Reverb on / off",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.fx2.flanger",
+  "group": "Deck A",
+  "label": "Effect 2: Flanger on / off",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.fx2.phaser",
+  "group": "Deck A",
+  "label": "Effect 2: Phaser on / off",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.fx2.filter",
+  "group": "Deck A",
+  "label": "Effect 2: Filter on / off",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.fx2.gate",
+  "group": "Deck A",
+  "label": "Effect 2: Gate on / off",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.fx2.bitcrusher",
+  "group": "Deck A",
+  "label": "Effect 2: Bitcrusher on / off",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.fx2.mix",
+  "group": "Deck A",
+  "label": "Effect 2 level",
+  "kind": "fader"
+ },
+ {
+  "id": "deck1.fx2.amount",
+  "group": "Deck A",
+  "label": "Effect 2 amount",
+  "kind": "fader"
+ },
+ {
+  "id": "deck1.fx2.beats",
+  "group": "Deck A",
+  "label": "Effect 2 period (a step halves or doubles it)",
+  "kind": "encoder"
+ },
+ {
+  "id": "deck1.fx3",
+  "group": "Deck A",
+  "label": "Effect 3 on / off",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.fx3.on",
+  "group": "Deck A",
+  "label": "Effect 3 on",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.fx3.off",
+  "group": "Deck A",
+  "label": "Effect 3 off",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.fx3.next",
+  "group": "Deck A",
+  "label": "Effect 3: next effect",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.fx3.previous",
+  "group": "Deck A",
+  "label": "Effect 3: previous effect",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.fx3.echo",
+  "group": "Deck A",
+  "label": "Effect 3: Echo on / off",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.fx3.pingPong",
+  "group": "Deck A",
+  "label": "Effect 3: Ping-pong echo on / off",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.fx3.reverb",
+  "group": "Deck A",
+  "label": "Effect 3: Reverb on / off",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.fx3.flanger",
+  "group": "Deck A",
+  "label": "Effect 3: Flanger on / off",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.fx3.phaser",
+  "group": "Deck A",
+  "label": "Effect 3: Phaser on / off",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.fx3.filter",
+  "group": "Deck A",
+  "label": "Effect 3: Filter on / off",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.fx3.gate",
+  "group": "Deck A",
+  "label": "Effect 3: Gate on / off",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.fx3.bitcrusher",
+  "group": "Deck A",
+  "label": "Effect 3: Bitcrusher on / off",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.fx3.mix",
+  "group": "Deck A",
+  "label": "Effect 3 level",
+  "kind": "fader"
+ },
+ {
+  "id": "deck1.fx3.amount",
+  "group": "Deck A",
+  "label": "Effect 3 amount",
+  "kind": "fader"
+ },
+ {
+  "id": "deck1.fx3.beats",
+  "group": "Deck A",
+  "label": "Effect 3 period (a step halves or doubles it)",
+  "kind": "encoder"
+ },
+ {
+  "id": "deck1.fx.part",
+  "group": "Deck A",
+  "label": "Effects on the next part",
+  "kind": "button"
  },
  {
   "id": "deck1.roll1",
@@ -848,50 +1094,296 @@
  {
   "id": "deck2.fx",
   "group": "Deck B",
-  "label": "Effect on / off",
+  "label": "Effect 1 on / off",
   "kind": "button"
  },
  {
   "id": "deck2.fx.on",
   "group": "Deck B",
-  "label": "Effect on",
+  "label": "Effect 1 on",
   "kind": "button"
  },
  {
   "id": "deck2.fx.off",
   "group": "Deck B",
-  "label": "Effect off",
+  "label": "Effect 1 off",
   "kind": "button"
  },
  {
   "id": "deck2.fx.next",
   "group": "Deck B",
-  "label": "Next effect",
+  "label": "Effect 1: next effect",
   "kind": "button"
  },
  {
   "id": "deck2.fx.previous",
   "group": "Deck B",
-  "label": "Previous effect",
+  "label": "Effect 1: previous effect",
   "kind": "button"
  },
  {
-  "id": "deck2.fx.part",
+  "id": "deck2.fx.echo",
   "group": "Deck B",
-  "label": "Effect on the next part",
+  "label": "Effect 1: Echo on / off",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.fx.pingPong",
+  "group": "Deck B",
+  "label": "Effect 1: Ping-pong echo on / off",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.fx.reverb",
+  "group": "Deck B",
+  "label": "Effect 1: Reverb on / off",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.fx.flanger",
+  "group": "Deck B",
+  "label": "Effect 1: Flanger on / off",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.fx.phaser",
+  "group": "Deck B",
+  "label": "Effect 1: Phaser on / off",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.fx.filter",
+  "group": "Deck B",
+  "label": "Effect 1: Filter on / off",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.fx.gate",
+  "group": "Deck B",
+  "label": "Effect 1: Gate on / off",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.fx.bitcrusher",
+  "group": "Deck B",
+  "label": "Effect 1: Bitcrusher on / off",
   "kind": "button"
  },
  {
   "id": "deck2.fx.mix",
   "group": "Deck B",
-  "label": "Effect level",
+  "label": "Effect 1 level",
   "kind": "fader"
  },
  {
   "id": "deck2.fx.amount",
   "group": "Deck B",
-  "label": "Effect amount",
+  "label": "Effect 1 amount",
   "kind": "fader"
+ },
+ {
+  "id": "deck2.fx.beats",
+  "group": "Deck B",
+  "label": "Effect 1 period (a step halves or doubles it)",
+  "kind": "encoder"
+ },
+ {
+  "id": "deck2.fx2",
+  "group": "Deck B",
+  "label": "Effect 2 on / off",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.fx2.on",
+  "group": "Deck B",
+  "label": "Effect 2 on",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.fx2.off",
+  "group": "Deck B",
+  "label": "Effect 2 off",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.fx2.next",
+  "group": "Deck B",
+  "label": "Effect 2: next effect",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.fx2.previous",
+  "group": "Deck B",
+  "label": "Effect 2: previous effect",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.fx2.echo",
+  "group": "Deck B",
+  "label": "Effect 2: Echo on / off",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.fx2.pingPong",
+  "group": "Deck B",
+  "label": "Effect 2: Ping-pong echo on / off",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.fx2.reverb",
+  "group": "Deck B",
+  "label": "Effect 2: Reverb on / off",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.fx2.flanger",
+  "group": "Deck B",
+  "label": "Effect 2: Flanger on / off",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.fx2.phaser",
+  "group": "Deck B",
+  "label": "Effect 2: Phaser on / off",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.fx2.filter",
+  "group": "Deck B",
+  "label": "Effect 2: Filter on / off",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.fx2.gate",
+  "group": "Deck B",
+  "label": "Effect 2: Gate on / off",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.fx2.bitcrusher",
+  "group": "Deck B",
+  "label": "Effect 2: Bitcrusher on / off",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.fx2.mix",
+  "group": "Deck B",
+  "label": "Effect 2 level",
+  "kind": "fader"
+ },
+ {
+  "id": "deck2.fx2.amount",
+  "group": "Deck B",
+  "label": "Effect 2 amount",
+  "kind": "fader"
+ },
+ {
+  "id": "deck2.fx2.beats",
+  "group": "Deck B",
+  "label": "Effect 2 period (a step halves or doubles it)",
+  "kind": "encoder"
+ },
+ {
+  "id": "deck2.fx3",
+  "group": "Deck B",
+  "label": "Effect 3 on / off",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.fx3.on",
+  "group": "Deck B",
+  "label": "Effect 3 on",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.fx3.off",
+  "group": "Deck B",
+  "label": "Effect 3 off",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.fx3.next",
+  "group": "Deck B",
+  "label": "Effect 3: next effect",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.fx3.previous",
+  "group": "Deck B",
+  "label": "Effect 3: previous effect",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.fx3.echo",
+  "group": "Deck B",
+  "label": "Effect 3: Echo on / off",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.fx3.pingPong",
+  "group": "Deck B",
+  "label": "Effect 3: Ping-pong echo on / off",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.fx3.reverb",
+  "group": "Deck B",
+  "label": "Effect 3: Reverb on / off",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.fx3.flanger",
+  "group": "Deck B",
+  "label": "Effect 3: Flanger on / off",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.fx3.phaser",
+  "group": "Deck B",
+  "label": "Effect 3: Phaser on / off",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.fx3.filter",
+  "group": "Deck B",
+  "label": "Effect 3: Filter on / off",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.fx3.gate",
+  "group": "Deck B",
+  "label": "Effect 3: Gate on / off",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.fx3.bitcrusher",
+  "group": "Deck B",
+  "label": "Effect 3: Bitcrusher on / off",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.fx3.mix",
+  "group": "Deck B",
+  "label": "Effect 3 level",
+  "kind": "fader"
+ },
+ {
+  "id": "deck2.fx3.amount",
+  "group": "Deck B",
+  "label": "Effect 3 amount",
+  "kind": "fader"
+ },
+ {
+  "id": "deck2.fx3.beats",
+  "group": "Deck B",
+  "label": "Effect 3 period (a step halves or doubles it)",
+  "kind": "encoder"
+ },
+ {
+  "id": "deck2.fx.part",
+  "group": "Deck B",
+  "label": "Effects on the next part",
+  "kind": "button"
  },
  {
   "id": "deck2.roll1",
@@ -1352,50 +1844,296 @@
  {
   "id": "deck3.fx",
   "group": "Deck C",
-  "label": "Effect on / off",
+  "label": "Effect 1 on / off",
   "kind": "button"
  },
  {
   "id": "deck3.fx.on",
   "group": "Deck C",
-  "label": "Effect on",
+  "label": "Effect 1 on",
   "kind": "button"
  },
  {
   "id": "deck3.fx.off",
   "group": "Deck C",
-  "label": "Effect off",
+  "label": "Effect 1 off",
   "kind": "button"
  },
  {
   "id": "deck3.fx.next",
   "group": "Deck C",
-  "label": "Next effect",
+  "label": "Effect 1: next effect",
   "kind": "button"
  },
  {
   "id": "deck3.fx.previous",
   "group": "Deck C",
-  "label": "Previous effect",
+  "label": "Effect 1: previous effect",
   "kind": "button"
  },
  {
-  "id": "deck3.fx.part",
+  "id": "deck3.fx.echo",
   "group": "Deck C",
-  "label": "Effect on the next part",
+  "label": "Effect 1: Echo on / off",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.fx.pingPong",
+  "group": "Deck C",
+  "label": "Effect 1: Ping-pong echo on / off",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.fx.reverb",
+  "group": "Deck C",
+  "label": "Effect 1: Reverb on / off",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.fx.flanger",
+  "group": "Deck C",
+  "label": "Effect 1: Flanger on / off",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.fx.phaser",
+  "group": "Deck C",
+  "label": "Effect 1: Phaser on / off",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.fx.filter",
+  "group": "Deck C",
+  "label": "Effect 1: Filter on / off",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.fx.gate",
+  "group": "Deck C",
+  "label": "Effect 1: Gate on / off",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.fx.bitcrusher",
+  "group": "Deck C",
+  "label": "Effect 1: Bitcrusher on / off",
   "kind": "button"
  },
  {
   "id": "deck3.fx.mix",
   "group": "Deck C",
-  "label": "Effect level",
+  "label": "Effect 1 level",
   "kind": "fader"
  },
  {
   "id": "deck3.fx.amount",
   "group": "Deck C",
-  "label": "Effect amount",
+  "label": "Effect 1 amount",
   "kind": "fader"
+ },
+ {
+  "id": "deck3.fx.beats",
+  "group": "Deck C",
+  "label": "Effect 1 period (a step halves or doubles it)",
+  "kind": "encoder"
+ },
+ {
+  "id": "deck3.fx2",
+  "group": "Deck C",
+  "label": "Effect 2 on / off",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.fx2.on",
+  "group": "Deck C",
+  "label": "Effect 2 on",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.fx2.off",
+  "group": "Deck C",
+  "label": "Effect 2 off",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.fx2.next",
+  "group": "Deck C",
+  "label": "Effect 2: next effect",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.fx2.previous",
+  "group": "Deck C",
+  "label": "Effect 2: previous effect",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.fx2.echo",
+  "group": "Deck C",
+  "label": "Effect 2: Echo on / off",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.fx2.pingPong",
+  "group": "Deck C",
+  "label": "Effect 2: Ping-pong echo on / off",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.fx2.reverb",
+  "group": "Deck C",
+  "label": "Effect 2: Reverb on / off",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.fx2.flanger",
+  "group": "Deck C",
+  "label": "Effect 2: Flanger on / off",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.fx2.phaser",
+  "group": "Deck C",
+  "label": "Effect 2: Phaser on / off",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.fx2.filter",
+  "group": "Deck C",
+  "label": "Effect 2: Filter on / off",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.fx2.gate",
+  "group": "Deck C",
+  "label": "Effect 2: Gate on / off",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.fx2.bitcrusher",
+  "group": "Deck C",
+  "label": "Effect 2: Bitcrusher on / off",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.fx2.mix",
+  "group": "Deck C",
+  "label": "Effect 2 level",
+  "kind": "fader"
+ },
+ {
+  "id": "deck3.fx2.amount",
+  "group": "Deck C",
+  "label": "Effect 2 amount",
+  "kind": "fader"
+ },
+ {
+  "id": "deck3.fx2.beats",
+  "group": "Deck C",
+  "label": "Effect 2 period (a step halves or doubles it)",
+  "kind": "encoder"
+ },
+ {
+  "id": "deck3.fx3",
+  "group": "Deck C",
+  "label": "Effect 3 on / off",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.fx3.on",
+  "group": "Deck C",
+  "label": "Effect 3 on",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.fx3.off",
+  "group": "Deck C",
+  "label": "Effect 3 off",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.fx3.next",
+  "group": "Deck C",
+  "label": "Effect 3: next effect",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.fx3.previous",
+  "group": "Deck C",
+  "label": "Effect 3: previous effect",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.fx3.echo",
+  "group": "Deck C",
+  "label": "Effect 3: Echo on / off",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.fx3.pingPong",
+  "group": "Deck C",
+  "label": "Effect 3: Ping-pong echo on / off",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.fx3.reverb",
+  "group": "Deck C",
+  "label": "Effect 3: Reverb on / off",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.fx3.flanger",
+  "group": "Deck C",
+  "label": "Effect 3: Flanger on / off",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.fx3.phaser",
+  "group": "Deck C",
+  "label": "Effect 3: Phaser on / off",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.fx3.filter",
+  "group": "Deck C",
+  "label": "Effect 3: Filter on / off",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.fx3.gate",
+  "group": "Deck C",
+  "label": "Effect 3: Gate on / off",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.fx3.bitcrusher",
+  "group": "Deck C",
+  "label": "Effect 3: Bitcrusher on / off",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.fx3.mix",
+  "group": "Deck C",
+  "label": "Effect 3 level",
+  "kind": "fader"
+ },
+ {
+  "id": "deck3.fx3.amount",
+  "group": "Deck C",
+  "label": "Effect 3 amount",
+  "kind": "fader"
+ },
+ {
+  "id": "deck3.fx3.beats",
+  "group": "Deck C",
+  "label": "Effect 3 period (a step halves or doubles it)",
+  "kind": "encoder"
+ },
+ {
+  "id": "deck3.fx.part",
+  "group": "Deck C",
+  "label": "Effects on the next part",
+  "kind": "button"
  },
  {
   "id": "deck3.roll1",
@@ -1856,50 +2594,296 @@
  {
   "id": "deck4.fx",
   "group": "Deck D",
-  "label": "Effect on / off",
+  "label": "Effect 1 on / off",
   "kind": "button"
  },
  {
   "id": "deck4.fx.on",
   "group": "Deck D",
-  "label": "Effect on",
+  "label": "Effect 1 on",
   "kind": "button"
  },
  {
   "id": "deck4.fx.off",
   "group": "Deck D",
-  "label": "Effect off",
+  "label": "Effect 1 off",
   "kind": "button"
  },
  {
   "id": "deck4.fx.next",
   "group": "Deck D",
-  "label": "Next effect",
+  "label": "Effect 1: next effect",
   "kind": "button"
  },
  {
   "id": "deck4.fx.previous",
   "group": "Deck D",
-  "label": "Previous effect",
+  "label": "Effect 1: previous effect",
   "kind": "button"
  },
  {
-  "id": "deck4.fx.part",
+  "id": "deck4.fx.echo",
   "group": "Deck D",
-  "label": "Effect on the next part",
+  "label": "Effect 1: Echo on / off",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.fx.pingPong",
+  "group": "Deck D",
+  "label": "Effect 1: Ping-pong echo on / off",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.fx.reverb",
+  "group": "Deck D",
+  "label": "Effect 1: Reverb on / off",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.fx.flanger",
+  "group": "Deck D",
+  "label": "Effect 1: Flanger on / off",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.fx.phaser",
+  "group": "Deck D",
+  "label": "Effect 1: Phaser on / off",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.fx.filter",
+  "group": "Deck D",
+  "label": "Effect 1: Filter on / off",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.fx.gate",
+  "group": "Deck D",
+  "label": "Effect 1: Gate on / off",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.fx.bitcrusher",
+  "group": "Deck D",
+  "label": "Effect 1: Bitcrusher on / off",
   "kind": "button"
  },
  {
   "id": "deck4.fx.mix",
   "group": "Deck D",
-  "label": "Effect level",
+  "label": "Effect 1 level",
   "kind": "fader"
  },
  {
   "id": "deck4.fx.amount",
   "group": "Deck D",
-  "label": "Effect amount",
+  "label": "Effect 1 amount",
   "kind": "fader"
+ },
+ {
+  "id": "deck4.fx.beats",
+  "group": "Deck D",
+  "label": "Effect 1 period (a step halves or doubles it)",
+  "kind": "encoder"
+ },
+ {
+  "id": "deck4.fx2",
+  "group": "Deck D",
+  "label": "Effect 2 on / off",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.fx2.on",
+  "group": "Deck D",
+  "label": "Effect 2 on",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.fx2.off",
+  "group": "Deck D",
+  "label": "Effect 2 off",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.fx2.next",
+  "group": "Deck D",
+  "label": "Effect 2: next effect",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.fx2.previous",
+  "group": "Deck D",
+  "label": "Effect 2: previous effect",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.fx2.echo",
+  "group": "Deck D",
+  "label": "Effect 2: Echo on / off",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.fx2.pingPong",
+  "group": "Deck D",
+  "label": "Effect 2: Ping-pong echo on / off",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.fx2.reverb",
+  "group": "Deck D",
+  "label": "Effect 2: Reverb on / off",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.fx2.flanger",
+  "group": "Deck D",
+  "label": "Effect 2: Flanger on / off",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.fx2.phaser",
+  "group": "Deck D",
+  "label": "Effect 2: Phaser on / off",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.fx2.filter",
+  "group": "Deck D",
+  "label": "Effect 2: Filter on / off",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.fx2.gate",
+  "group": "Deck D",
+  "label": "Effect 2: Gate on / off",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.fx2.bitcrusher",
+  "group": "Deck D",
+  "label": "Effect 2: Bitcrusher on / off",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.fx2.mix",
+  "group": "Deck D",
+  "label": "Effect 2 level",
+  "kind": "fader"
+ },
+ {
+  "id": "deck4.fx2.amount",
+  "group": "Deck D",
+  "label": "Effect 2 amount",
+  "kind": "fader"
+ },
+ {
+  "id": "deck4.fx2.beats",
+  "group": "Deck D",
+  "label": "Effect 2 period (a step halves or doubles it)",
+  "kind": "encoder"
+ },
+ {
+  "id": "deck4.fx3",
+  "group": "Deck D",
+  "label": "Effect 3 on / off",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.fx3.on",
+  "group": "Deck D",
+  "label": "Effect 3 on",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.fx3.off",
+  "group": "Deck D",
+  "label": "Effect 3 off",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.fx3.next",
+  "group": "Deck D",
+  "label": "Effect 3: next effect",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.fx3.previous",
+  "group": "Deck D",
+  "label": "Effect 3: previous effect",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.fx3.echo",
+  "group": "Deck D",
+  "label": "Effect 3: Echo on / off",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.fx3.pingPong",
+  "group": "Deck D",
+  "label": "Effect 3: Ping-pong echo on / off",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.fx3.reverb",
+  "group": "Deck D",
+  "label": "Effect 3: Reverb on / off",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.fx3.flanger",
+  "group": "Deck D",
+  "label": "Effect 3: Flanger on / off",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.fx3.phaser",
+  "group": "Deck D",
+  "label": "Effect 3: Phaser on / off",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.fx3.filter",
+  "group": "Deck D",
+  "label": "Effect 3: Filter on / off",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.fx3.gate",
+  "group": "Deck D",
+  "label": "Effect 3: Gate on / off",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.fx3.bitcrusher",
+  "group": "Deck D",
+  "label": "Effect 3: Bitcrusher on / off",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.fx3.mix",
+  "group": "Deck D",
+  "label": "Effect 3 level",
+  "kind": "fader"
+ },
+ {
+  "id": "deck4.fx3.amount",
+  "group": "Deck D",
+  "label": "Effect 3 amount",
+  "kind": "fader"
+ },
+ {
+  "id": "deck4.fx3.beats",
+  "group": "Deck D",
+  "label": "Effect 3 period (a step halves or doubles it)",
+  "kind": "encoder"
+ },
+ {
+  "id": "deck4.fx.part",
+  "group": "Deck D",
+  "label": "Effects on the next part",
+  "kind": "button"
  },
  {
   "id": "deck4.roll1",

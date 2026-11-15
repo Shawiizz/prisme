@@ -1,4 +1,14 @@
-import { BANDS, Band, MAX_DECKS, HOT_CUES, SAMPLE_SLOTS } from '../models/engine';
+import {
+  BANDS,
+  Band,
+  EFFECT_KINDS,
+  EffectKind,
+  FX_SLOTS,
+  MAX_DECKS,
+  HOT_CUES,
+  SAMPLE_SLOTS,
+} from '../models/engine';
+import { EFFECT_NAMES } from '../effects';
 import { Text, t } from '../i18n/i18n';
 import { ROLL_BEATS, formatBeats } from '../../shared/beats';
 import { deckLetter } from '../../shared/time';
@@ -66,17 +76,24 @@ export interface ControlActions {
   triggerSample(deck: number, slot: number, gain?: number): void;
   sampleLoaded(deck: number, slot: number): boolean;
   samplePlaying(deck: number, slot: number): boolean;
-  toggleFx(deck: number): void;
-  setFxOn(deck: number, on: boolean): void;
-  /** The effect `step` places after this one (before it, negative). */
-  cycleFx(deck: number, step: number): void;
-  /** The effect on the next part of the track it can be on (the whole deck after the last). */
+  /** The effects of a deck are in a chain of slots, played one after the other. */
+  toggleFx(deck: number, slot: number): void;
+  setFxOn(deck: number, slot: number, on: boolean): void;
+  /** Puts `kind` in the slot and switches it on; pressed again, switches it off. */
+  pressFx(deck: number, slot: number, kind: EffectKind): void;
+  /** Whether the slot holds `kind` and is on. */
+  fxHolds(deck: number, slot: number, kind: EffectKind): boolean;
+  /** The effect `step` places after the slot's (before it, negative). */
+  cycleFx(deck: number, slot: number, step: number): void;
+  /** The chain on the next part of the track it can be on (the whole deck after the last). */
   nextFxPart(deck: number): void;
-  fxOn(deck: number): boolean;
-  setFxMix(deck: number, position: number): void;
-  /** The effect's main knob (feedback, room size, depth: see each effect). */
-  setFxAmount(deck: number, position: number): void;
-  fxAmountPosition(deck: number): number;
+  fxOn(deck: number, slot: number): boolean;
+  setFxMix(deck: number, slot: number, position: number): void;
+  /** The slot's main knob (feedback, room size, depth: see each effect). */
+  setFxAmount(deck: number, slot: number, position: number): void;
+  fxAmountPosition(deck: number, slot: number): number;
+  /** Multiplies the slot's period by `factor`. */
+  scaleFxBeats(deck: number, slot: number, factor: number): void;
   /** Cuts a band of the deck's EQ, or brings it back. */
   setKill(deck: number, band: Band, kill: boolean): void;
   killed(deck: number, band: Band): boolean;
@@ -92,7 +109,7 @@ export interface ControlActions {
   setCueMix(position: number): void;
   cueMixPosition(): number;
   /** Where the faders' settings stand (0 to 1). */
-  fxMixPosition(deck: number): number;
+  fxMixPosition(deck: number, slot: number): number;
   volumePosition(deck: number): number;
   eqPosition(deck: number, band: Band): number;
   filterPosition(deck: number): number;
@@ -176,10 +193,69 @@ function direct(id: string, group: string, label: string, kind: ControlKind): Co
   return { id, group, label, kind, apply: () => undefined };
 }
 
+/** A control with a light, on when `on` says. */
+const lit = (control: Control, on: () => boolean): Control => ({ ...control, lit: on });
+
+/** The controls of a slot of a deck's effect chain: `deck1.fx…` for the first, `deck1.fx2…`
+ * and `deck1.fx3…` for the next. */
+function fxControls(a: ControlActions, deck: number, slot: number, group: string): Control[] {
+  const n = slot + 1;
+  const id = (name: string) => `deck${deck + 1}.${slot === 0 ? 'fx' : `fx${n}`}${name}`;
+  return [
+    lit(
+      button(id(''), group, t('Effect {n} on / off', { n }), () => a.toggleFx(deck, slot)),
+      () => a.fxOn(deck, slot),
+    ),
+    lit(
+      button(id('.on'), group, t('Effect {n} on', { n }), () => a.setFxOn(deck, slot, true)),
+      () => a.fxOn(deck, slot),
+    ),
+    lit(
+      button(id('.off'), group, t('Effect {n} off', { n }), () => a.setFxOn(deck, slot, false)),
+      () => !a.fxOn(deck, slot),
+    ),
+    button(id('.next'), group, t('Effect {n}: next effect', { n }), () => a.cycleFx(deck, slot, 1)),
+    button(id('.previous'), group, t('Effect {n}: previous effect', { n }), () =>
+      a.cycleFx(deck, slot, -1),
+    ),
+    ...EFFECT_KINDS.map((kind) =>
+      lit(
+        button(
+          id(`.${kind}`),
+          group,
+          t('Effect {n}: {effect} on / off', { n, effect: EFFECT_NAMES[kind]() }),
+          () => a.pressFx(deck, slot, kind),
+        ),
+        () => a.fxHolds(deck, slot, kind),
+      ),
+    ),
+    fader(
+      id('.mix'),
+      group,
+      t('Effect {n} level', { n }),
+      (v) => a.setFxMix(deck, slot, v),
+      () => a.fxMixPosition(deck, slot),
+    ),
+    fader(
+      id('.amount'),
+      group,
+      t('Effect {n} amount', { n }),
+      (v) => a.setFxAmount(deck, slot, v),
+      () => a.fxAmountPosition(deck, slot),
+    ),
+    {
+      id: id('.beats'),
+      group,
+      label: t('Effect {n} period (a step halves or doubles it)', { n }),
+      kind: 'encoder',
+      apply: (steps) => a.scaleFxBeats(deck, slot, 2 ** steps),
+    },
+  ];
+}
+
 function deckControls(a: ControlActions, deck: number): Control[] {
   const group = t('Deck {deck}', { deck: deckLetter(deck) });
   const id = (name: string) => `deck${deck + 1}.${name}`;
-  const lit = (control: Control, on: () => boolean): Control => ({ ...control, lit: on });
   // the parts of a separated track: a button muting each, a fader for its level
   const stems: [string, StemPart, string, string][] = [
     ['vocals', 'vocals', t('Vocals'), t('Vocals level')],
@@ -285,35 +361,8 @@ function deckControls(a: ControlActions, deck: number): Control[] {
         return a.sampleLoaded(deck, slot) ? 'loaded' : 'off';
       },
     })),
-    lit(
-      button(id('fx'), group, t('Effect on / off'), () => a.toggleFx(deck)),
-      () => a.fxOn(deck),
-    ),
-    lit(
-      button(id('fx.on'), group, t('Effect on'), () => a.setFxOn(deck, true)),
-      () => a.fxOn(deck),
-    ),
-    lit(
-      button(id('fx.off'), group, t('Effect off'), () => a.setFxOn(deck, false)),
-      () => !a.fxOn(deck),
-    ),
-    button(id('fx.next'), group, t('Next effect'), () => a.cycleFx(deck, 1)),
-    button(id('fx.previous'), group, t('Previous effect'), () => a.cycleFx(deck, -1)),
-    button(id('fx.part'), group, t('Effect on the next part'), () => a.nextFxPart(deck)),
-    fader(
-      id('fx.mix'),
-      group,
-      t('Effect level'),
-      (v) => a.setFxMix(deck, v),
-      () => a.fxMixPosition(deck),
-    ),
-    fader(
-      id('fx.amount'),
-      group,
-      t('Effect amount'),
-      (v) => a.setFxAmount(deck, v),
-      () => a.fxAmountPosition(deck),
-    ),
+    ...Array.from({ length: FX_SLOTS }, (_, slot) => fxControls(a, deck, slot, group)).flat(),
+    button(id('fx.part'), group, t('Effects on the next part'), () => a.nextFxPart(deck)),
     ...ROLL_BEATS.map((beats, i) =>
       hold(
         id(`roll${i + 1}`),

@@ -1,4 +1,4 @@
-//! Beat effects: one effect at a time on a deck, timed on its tempo.
+//! Beat effects timed on a deck's tempo: a chain of slots in series, one effect in each.
 //!
 //! Two kinds of effects:
 //! * sent (echo, ping-pong, reverb): the dry signal stays whole and the effect is added
@@ -6,8 +6,8 @@
 //! * inserted (flanger, phaser, filter, gate, bitcrusher): the signal crossfades to its
 //!   processed version, and back when switched off.
 //!
-//! Every effect's memory is allocated when the slot is built: nothing is allocated on
-//! the audio thread, even when switching effects.
+//! Every effect's memory is allocated when the chain is built: nothing is allocated on
+//! the audio thread, even when switching effects, and a slot left off costs nothing.
 
 mod delay;
 mod echo;
@@ -54,6 +54,8 @@ impl Beat {
     pub const DEFAULT: Beat = Beat { seconds: 0.5, phase: None };
 }
 
+/// Slots in a deck's chain.
+pub const FX_SLOTS: usize = 3;
 /// Shortest and longest effect period, in beats.
 pub const MIN_BEATS: f32 = 1.0 / 8.0;
 pub const MAX_BEATS: f32 = 8.0;
@@ -73,7 +75,7 @@ pub(crate) struct Params {
     pub sample_rate: f32,
 }
 
-/// One deck's effect.
+/// One effect of a deck's chain.
 pub struct FxSlot {
     sample_rate: f32,
     kind: EffectKind,
@@ -218,6 +220,29 @@ impl FxSlot {
     }
 }
 
+/// A deck's effects, one slot after the other: each takes what the one before gives.
+pub struct FxChain {
+    slots: [FxSlot; FX_SLOTS],
+}
+
+impl FxChain {
+    pub fn new(sample_rate: f32, max_block_frames: usize) -> Self {
+        Self { slots: std::array::from_fn(|_| FxSlot::new(sample_rate, max_block_frames)) }
+    }
+
+    /// The slot at `index`, if the chain has it.
+    pub fn slot_mut(&mut self, index: usize) -> Option<&mut FxSlot> {
+        self.slots.get_mut(index)
+    }
+
+    /// Applies the slots in order to interleaved stereo, in place.
+    pub fn process(&mut self, stereo: &mut [f32], beat: Beat) {
+        for slot in &mut self.slots {
+            slot.process(stereo, beat);
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -289,6 +314,41 @@ mod tests {
         run(&mut crusher, &input);
         let clean = run(&mut crusher, &input);
         assert!(clean.iter().zip(&input).all(|(c, i)| (c - i).abs() < 1e-6));
+    }
+
+    #[test]
+    fn a_chain_left_off_changes_nothing() {
+        let mut chain = FxChain::new(RATE, 256);
+        let input: Vec<f32> = (0..4096).map(|i| (i as f32 * 0.03).sin() * 0.5).collect();
+        let mut stereo = input.clone();
+        for block in stereo.chunks_mut(512) {
+            chain.process(block, Beat::DEFAULT);
+        }
+        assert_eq!(stereo, input);
+    }
+
+    #[test]
+    fn a_chain_runs_its_slots_one_after_the_other() {
+        let setups = [(EffectKind::Echo, 0.5), (EffectKind::Gate, 1.0), (EffectKind::Bitcrusher, 0.25)];
+        let mut chain = FxChain::new(RATE, 256);
+        let mut alone: Vec<FxSlot> = setups.iter().map(|&(kind, _)| slot(kind)).collect();
+        for (i, &(kind, beats)) in setups.iter().enumerate() {
+            let in_chain = chain.slot_mut(i).unwrap();
+            in_chain.set_kind(kind);
+            in_chain.set_mix(1.0);
+            in_chain.set_enabled(true);
+            in_chain.set_beats(beats);
+            alone[i].set_beats(beats);
+        }
+        assert!(chain.slot_mut(FX_SLOTS).is_none());
+        let input: Vec<f32> = (0..RATE as usize).map(|i| (i as f32 * 0.02).sin() * 0.5).collect();
+        let mut chained: Vec<f32> = input.iter().flat_map(|&v| [v, v]).collect();
+        for block in chained.chunks_mut(512) {
+            chain.process(block, Beat::DEFAULT);
+        }
+        let in_turn = alone.iter_mut().fold(input, |signal, slot| run(slot, &signal));
+        let chained: Vec<f32> = chained.chunks_exact(2).map(|f| f[0]).collect();
+        assert_eq!(chained, in_turn);
     }
 
     #[test]

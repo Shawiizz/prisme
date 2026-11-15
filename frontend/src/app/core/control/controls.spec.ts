@@ -75,6 +75,29 @@ describe('controls', () => {
     expect(find('deck1.loop.halve').lit).toBeUndefined();
   });
 
+  it('give each effect slot its controls, the first under the ids of a single effect', () => {
+    const { calls, find } = recorder();
+    find('deck1.fx').apply(1);
+    find('deck2.fx3.on').apply(1);
+    find('deck1.fx2.reverb').apply(1);
+    find('deck1.fx.beats').apply(-1);
+    find('deck2.fx2.beats').apply(2);
+    find('deck2.fx2.mix').apply(0.5);
+    find('deck1.fx.part').apply(1);
+    expect(find('deck1.fx3.gate').lit!()).toBe(true);
+    expect(calls).toEqual([
+      'toggleFx(0,0)',
+      'setFxOn(1,2,true)',
+      'pressFx(0,1,reverb)',
+      'scaleFxBeats(0,0,0.5)',
+      'scaleFxBeats(1,1,4)',
+      'setFxMix(1,1,0.5)',
+      'nextFxPart(0)',
+      'fxHolds(0,2,gate)',
+    ]);
+    expect(find('deck1.fx2.part')).toBeUndefined();
+  });
+
   it('read a jump or a loop of so many beats from its id', () => {
     const { calls, actions } = recorder();
     measuredControl(actions, 'deck2.jump.-8')!.apply(1);
