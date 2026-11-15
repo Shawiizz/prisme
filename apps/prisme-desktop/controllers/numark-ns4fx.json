@@ -1,4 +1,5 @@
 {
+  "$schema": "https://raw.githubusercontent.com/Shawiizz/prisme/main/apps/prisme-desktop/controllers/profile.schema.json",
   "name": "Numark NS4FX",
   "ports": ["NS4FX"],
   "credits": "From the Numark NS4FX mapping of Mixxx by Tomáš Bažant, Erik Puschendorf, Matthew Nicholson (GPL-2.0-or-later).",

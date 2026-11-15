@@ -1,4 +1,5 @@
 {
+  "$schema": "https://raw.githubusercontent.com/Shawiizz/prisme/main/apps/prisme-desktop/controllers/profile.schema.json",
   "name": "Pioneer DDJ-400",
   "ports": ["DDJ-400"],
   "credits": "From the Pioneer DDJ-400 mapping of Mixxx by Warker, nschloe, dj3730, jusko, tiesjan (GPL-2.0-or-later).",

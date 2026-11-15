@@ -1,4 +1,5 @@
 {
+  "$schema": "https://raw.githubusercontent.com/Shawiizz/prisme/main/apps/prisme-desktop/controllers/profile.schema.json",
   "name": "Numark NS7",
   "ports": ["Numark NS7"],
   "credits": "From the Numark NS7 mapping of Mixxx by Anders Gunnarsson (GPL-2.0-or-later).",

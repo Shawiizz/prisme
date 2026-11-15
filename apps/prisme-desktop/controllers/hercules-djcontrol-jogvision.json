@@ -1,4 +1,5 @@
 {
+  "$schema": "https://raw.githubusercontent.com/Shawiizz/prisme/main/apps/prisme-desktop/controllers/profile.schema.json",
   "name": "Hercules DJControl Jogvision",
   "ports": ["DJControl Jogvision"],
   "credits": "From the Hercules DJControl Jogvision mapping of Mixxx by DJ Phatso for Hercules Technical Support, Kerrick Staley, David TV (GPL-2.0-or-later).",

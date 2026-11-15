@@ -37,6 +37,7 @@ mod error;
 mod folder_watch;
 mod folders;
 mod history;
+mod http;
 mod input_access;
 mod keep_awake;
 mod library_service;
@@ -154,7 +155,11 @@ pub fn run() {
             let data_dir = dev_startup::data_dir()
                 .or_else(|| app.path().app_data_dir().inspect_err(|e| warn!("no data folder: {e}")).ok());
             app.manage(AppState::new(open_json(data_dir.as_deref(), "preferences.json")));
+            if let Some(data_dir) = data_dir.as_deref() {
+                controller_profiles::install(data_dir);
+            }
             app.manage(Controllers::new(open_json(data_dir.as_deref(), "controllers.json")));
+            Controllers::keep_profiles_up_to_date(app.handle().clone());
             let library =
                 Arc::new(LibraryService::open(app.handle(), data_dir.as_deref(), folders::music_root()));
             app.manage(library.clone());
@@ -314,6 +319,11 @@ pub fn run() {
             commands::controllers::cancel_learning,
             commands::controllers::forget_control,
             commands::controllers::set_lights,
+            commands::controllers::controller_profiles,
+            commands::controllers::reload_controller_profiles,
+            commands::controllers::update_controller_profiles,
+            commands::controllers::export_controller_profile,
+            commands::controllers::open_controller_profiles_folder,
             commands::diagnostics::save_diagnostics,
             commands::controllers::midi_outputs,
             commands::controllers::midi_clock_output,

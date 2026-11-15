@@ -1,4 +1,5 @@
 {
+  "$schema": "https://raw.githubusercontent.com/Shawiizz/prisme/main/apps/prisme-desktop/controllers/profile.schema.json",
   "name": "Numark Mixtrack Platinum",
   "ports": ["Mixtrack Platinum"],
   "credits": "From the Numark Mixtrack Platinum mapping of Mixxx by Matthew Nicholson (GPL-2.0-or-later).",

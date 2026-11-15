@@ -1,4 +1,5 @@
 {
+  "$schema": "https://raw.githubusercontent.com/Shawiizz/prisme/main/apps/prisme-desktop/controllers/profile.schema.json",
   "name": "Pioneer DDJ-FLX4",
   "ports": ["DDJ-FLX4"],
   "credits": "From the Pioneer DDJ-FLX4 mapping of Mixxx by Robert904 (GPL-2.0-or-later).",

@@ -1,4 +1,5 @@
 {
+  "$schema": "https://raw.githubusercontent.com/Shawiizz/prisme/main/apps/prisme-desktop/controllers/profile.schema.json",
   "name": "Numark Mixtrack Pro 3",
   "ports": ["Mixtrack Pro 3", "Mixtrack 3"],
   "credits": "From the Numark Mixtrack (Pro) 3 mapping of Mixxx by Stéphane Morin (GPL-2.0-or-later).",

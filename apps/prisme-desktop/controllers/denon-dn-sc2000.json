@@ -1,4 +1,5 @@
 {
+  "$schema": "https://raw.githubusercontent.com/Shawiizz/prisme/main/apps/prisme-desktop/controllers/profile.schema.json",
   "name": "Denon DN-SC2000",
   "ports": ["SC2000"],
   "credits": "From the Denon DN-SC2000 mapping of Mixxx by Jan Riewe, Moba (GPL-2.0-or-later).",

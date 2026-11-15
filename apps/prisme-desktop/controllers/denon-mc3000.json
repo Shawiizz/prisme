@@ -1,4 +1,5 @@
 {
+  "$schema": "https://raw.githubusercontent.com/Shawiizz/prisme/main/apps/prisme-desktop/controllers/profile.schema.json",
   "name": "Denon MC3000",
   "ports": ["MC3000"],
   "credits": "From the Denon MC3000 mapping of Mixxx by BeMixxx (Bertrand Espern) (GPL-2.0-or-later).",

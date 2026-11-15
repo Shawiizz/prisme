@@ -8,7 +8,6 @@ publish.workspace = true
 license.workspace = true
 
 [dependencies]
+schemars = "1"
 serde.workspace = true
-
-[dev-dependencies]
 serde_json.workspace = true

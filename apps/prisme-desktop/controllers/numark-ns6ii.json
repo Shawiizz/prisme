@@ -1,4 +1,5 @@
 {
+  "$schema": "https://raw.githubusercontent.com/Shawiizz/prisme/main/apps/prisme-desktop/controllers/profile.schema.json",
   "name": "Numark NS6II",
   "ports": ["NS6II"],
   "credits": "From the Numark NS6II mapping of Mixxx by Swiftb0y (GPL-2.0-or-later).",

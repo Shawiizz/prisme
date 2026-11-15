@@ -1,4 +1,5 @@
 {
+  "$schema": "https://raw.githubusercontent.com/Shawiizz/prisme/main/apps/prisme-desktop/controllers/profile.schema.json",
   "name": "Reloop Terminal Mix 2/4",
   "ports": ["Terminal Mix 2", "Terminal Mix 4"],
   "credits": "From the Reloop Terminal Mix 2/4 mapping of Mixxx by Sean M. Pappalardo and ronso0 (GPL-2.0-or-later).",

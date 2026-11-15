@@ -1,4 +1,5 @@
 {
+  "$schema": "https://raw.githubusercontent.com/Shawiizz/prisme/main/apps/prisme-desktop/controllers/profile.schema.json",
   "name": "Numark Party Mix",
   "ports": ["Party Mix"],
   "credits": "From the Numark Party Mix mapping of Mixxx by olaf (GPL-2.0-or-later).",

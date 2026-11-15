@@ -1,4 +1,5 @@
 {
+  "$schema": "https://raw.githubusercontent.com/Shawiizz/prisme/main/apps/prisme-desktop/controllers/profile.schema.json",
   "name": "Behringer CMD Micro",
   "ports": ["CMD Micro"],
   "credits": "From the Behringer CMD Micro mapping of Mixxx by tecywiz121 (GPL-2.0-or-later).",

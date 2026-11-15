@@ -373,24 +373,10 @@ async fn fetch_model(
     downloads: &Mutex<[Download; MODELS.len()]>,
 ) -> Result<(), String> {
     let Model { sha256, bytes, .. } = MODELS[model];
-    if rustls::crypto::CryptoProvider::get_default().is_none() {
-        let _ = rustls::crypto::ring::default_provider().install_default();
-    }
     let folder = target.parent().ok_or("no folder for the model")?;
     std::fs::create_dir_all(folder).map_err(|e| e.to_string())?;
     let partial = target.with_extension("part");
-    let client = reqwest::Client::builder()
-        .user_agent("Prisme")
-        .connect_timeout(DOWNLOAD_TIMEOUT)
-        .read_timeout(DOWNLOAD_TIMEOUT);
-    // Android's own certificates are reached through Java only: Mozilla's are shipped instead
-    #[cfg(target_os = "android")]
-    let client = client.tls_certs_only(
-        webpki_root_certs::TLS_SERVER_ROOT_CERTS
-            .iter()
-            .filter_map(|der| reqwest::Certificate::from_der(der).ok()),
-    );
-    let client = client.build().map_err(|e| e.to_string())?;
+    let client = crate::http::client(DOWNLOAD_TIMEOUT)?;
     for attempt in 1.. {
         match fetch_rest(app, &client, model, &partial, downloads).await {
             Ok(()) => break,

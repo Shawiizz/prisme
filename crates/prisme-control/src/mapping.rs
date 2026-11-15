@@ -1,5 +1,6 @@
 use crate::light::LightValues;
 use crate::message::{Control, ControlKind, Event};
+use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
@@ -19,21 +20,21 @@ pub fn selected_mode(target: &str) -> Option<(&str, &str)> {
 
 /// A second action for a key held down for `ms` milliseconds: pressed and let go sooner, it
 /// drives its own.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 pub struct Hold {
     pub ms: u32,
     pub target: String,
 }
 
 /// A mode of a controller: `mode` of its group `group`.
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, JsonSchema)]
 pub struct When {
     pub group: String,
     pub mode: String,
 }
 
 /// How a control's values are read.
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub enum Encoding {
     /// A position, from 0 to 1 (a button: 1 pressed, 0 released).

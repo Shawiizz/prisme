@@ -1,4 +1,5 @@
 {
+  "$schema": "https://raw.githubusercontent.com/Shawiizz/prisme/main/apps/prisme-desktop/controllers/profile.schema.json",
   "name": "Native Instruments Traktor Kontrol X1",
   "ports": ["Traktor Kontrol X1"],
   "credits": "From the Native Instruments Traktor Kontrol X1 mapping of Mixxx by Ilkka Tuohela (GPL-2.0-or-later).",

@@ -15,8 +15,8 @@ use crate::state::{lock, AppState};
 use midir::{Ignore, MidiInput, MidiInputConnection, MidiOutput, MidiOutputConnection};
 use prisme_audio_io::base_device_name;
 use prisme_control::{
-    selected_mode, Control, ControlKind, Encoding, Event, Hold, LightValue, Mapping, Mappings, Modes, Reader,
-    OFF, ON, SHIFT,
+    selected_mode, Control, ControlKind, Encoding, Event, Hold, LightValue, Mapping, Mappings, Modes,
+    Profile, ProfileControl, Reader, JOG_STEPS_PER_TURN, OFF, ON, SHIFT,
 };
 use prisme_engine::Command;
 use prisme_session::JsonFile;
@@ -187,6 +187,66 @@ impl Controllers {
         controllers
     }
 
+    /// The profiles were read again: what they map, and the lights they give.
+    pub fn profiles_changed(&self) {
+        self.layer();
+        let devices: Vec<String> = lock(&self.connections).iter().map(|c| c.device.clone()).collect();
+        for device in devices {
+            self.show_lights(&device);
+        }
+    }
+
+    /// What `device` drives now, as the profile of its model: its own profile's, what was
+    /// learnt over it in place of what it maps.
+    pub fn as_profile(&self, device: &str) -> Profile {
+        let controls: Vec<ProfileControl> = lock(&self.mappings)
+            .all()
+            .iter()
+            .filter(|m| m.device == device && selected_mode(&m.target).is_none())
+            .map(ProfileControl::from)
+            .collect();
+        let name = base_port_name(device);
+        let profile = controller_profiles::of(device).map(|p| (*p).clone()).unwrap_or_else(|| Profile {
+            schema: None,
+            name: name.clone(),
+            ports: vec![name],
+            jog_steps_per_turn: JOG_STEPS_PER_TURN,
+            credits: String::new(),
+            verified: false,
+            init: Vec::new(),
+            close: Vec::new(),
+            keep_alive: None,
+            modes: Vec::new(),
+            controls: Vec::new(),
+            lights: Vec::new(),
+            meters: Vec::new(),
+        });
+        Profile { controls, verified: false, ..profile }
+    }
+
+    /// Looks a while after Prisme starts, once a day at most, for the controller profiles
+    /// published since: those that came drive their controllers at once.
+    pub fn keep_profiles_up_to_date(app: AppHandle) {
+        const AFTER_START: Duration = Duration::from_secs(20);
+        let spawned = std::thread::Builder::new().name("prisme-profiles".into()).spawn(move || {
+            std::thread::sleep(AFTER_START);
+            if !controller_profiles::update_due() {
+                return;
+            }
+            match tauri::async_runtime::block_on(controller_profiles::update()) {
+                Ok(0) => {}
+                Ok(came) => {
+                    app.state::<Controllers>().profiles_changed();
+                    let _ = app.emit("controller-profiles-changed", came);
+                }
+                Err(e) => warn!("controller profiles not looked for: {e}"),
+            }
+        });
+        if let Err(e) = spawned {
+            warn!("controller profiles not looked for: {e}");
+        }
+    }
+
     /// The MIDI ports plugged in.
     pub fn plugged() -> AppResult<Vec<String>> {
         Ok(port_names(&MidiInput::new(CLIENT).map_err(midi_error)?))
@@ -326,7 +386,7 @@ impl Controllers {
             .read(|s| s.enabled.clone())
             .iter()
             .filter_map(|device| controller_profiles::of(device))
-            .flat_map(|p| p.lights.iter().map(|l| l.target.clone()))
+            .flat_map(|p| p.lights.iter().map(|l| l.target.clone()).collect::<Vec<_>>())
             .filter(|t| selected_mode(t).is_none())
             .collect();
         targets.sort();

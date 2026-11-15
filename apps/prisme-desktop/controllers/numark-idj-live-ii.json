@@ -1,4 +1,5 @@
 {
+  "$schema": "https://raw.githubusercontent.com/Shawiizz/prisme/main/apps/prisme-desktop/controllers/profile.schema.json",
   "name": "Numark iDJ Live II",
   "ports": ["iDJ Live II"],
   "credits": "From the Numark iDJ Live II mapping of Mixxx by Nathan Korth (GPL-2.0-or-later).",

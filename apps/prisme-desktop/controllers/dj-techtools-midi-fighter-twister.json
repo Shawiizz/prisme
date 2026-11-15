@@ -1,4 +1,5 @@
 {
+  "$schema": "https://raw.githubusercontent.com/Shawiizz/prisme/main/apps/prisme-desktop/controllers/profile.schema.json",
   "name": "DJ TechTools MIDI Fighter Twister",
   "ports": ["Midi Fighter Twister"],
   "credits": "From the DJ TechTools MIDI Fighter Twister mapping of Mixxx by tock203, Sam Whited (GPL-2.0-or-later).",

@@ -1,0 +1,2168 @@
+[
+ {
+  "id": "deck1.play",
+  "group": "Deck A",
+  "label": "Play / pause",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.cue",
+  "group": "Deck A",
+  "label": "Cue (hold to preview)",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.sync",
+  "group": "Deck A",
+  "label": "Sync",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.hotcue1",
+  "group": "Deck A",
+  "label": "Hot cue 1",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.hotcue2",
+  "group": "Deck A",
+  "label": "Hot cue 2",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.hotcue3",
+  "group": "Deck A",
+  "label": "Hot cue 3",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.hotcue4",
+  "group": "Deck A",
+  "label": "Hot cue 4",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.hotcue5",
+  "group": "Deck A",
+  "label": "Hot cue 5",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.hotcue6",
+  "group": "Deck A",
+  "label": "Hot cue 6",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.hotcue7",
+  "group": "Deck A",
+  "label": "Hot cue 7",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.hotcue8",
+  "group": "Deck A",
+  "label": "Hot cue 8",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.hotcue1.delete",
+  "group": "Deck A",
+  "label": "Delete hot cue 1",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.hotcue2.delete",
+  "group": "Deck A",
+  "label": "Delete hot cue 2",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.hotcue3.delete",
+  "group": "Deck A",
+  "label": "Delete hot cue 3",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.hotcue4.delete",
+  "group": "Deck A",
+  "label": "Delete hot cue 4",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.hotcue5.delete",
+  "group": "Deck A",
+  "label": "Delete hot cue 5",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.hotcue6.delete",
+  "group": "Deck A",
+  "label": "Delete hot cue 6",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.hotcue7.delete",
+  "group": "Deck A",
+  "label": "Delete hot cue 7",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.hotcue8.delete",
+  "group": "Deck A",
+  "label": "Delete hot cue 8",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.jog",
+  "group": "Deck A",
+  "label": "Jog wheel (turn)",
+  "kind": "encoder"
+ },
+ {
+  "id": "deck1.jog.touch",
+  "group": "Deck A",
+  "label": "Jog wheel (touch: scratch)",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.jog.search",
+  "group": "Deck A",
+  "label": "Jog wheel (search through the track)",
+  "kind": "encoder"
+ },
+ {
+  "id": "deck1.loop",
+  "group": "Deck A",
+  "label": "Loop 4 beats / exit",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.loop.in",
+  "group": "Deck A",
+  "label": "Loop in",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.loop.out",
+  "group": "Deck A",
+  "label": "Loop out",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.reloop",
+  "group": "Deck A",
+  "label": "Reloop",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.loop.halve",
+  "group": "Deck A",
+  "label": "Halve the loop",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.loop.double",
+  "group": "Deck A",
+  "label": "Double the loop",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.jump.back",
+  "group": "Deck A",
+  "label": "Jump back 4 beats",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.jump.forward",
+  "group": "Deck A",
+  "label": "Jump 4 beats ahead",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.bend.down",
+  "group": "Deck A",
+  "label": "Slow down while held",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.bend.up",
+  "group": "Deck A",
+  "label": "Speed up while held",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.tempo.reset",
+  "group": "Deck A",
+  "label": "Tempo back to the track",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.key.up",
+  "group": "Deck A",
+  "label": "Key up a semitone",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.key.down",
+  "group": "Deck A",
+  "label": "Key down a semitone",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.key.reset",
+  "group": "Deck A",
+  "label": "Key back to the track",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.slip",
+  "group": "Deck A",
+  "label": "Slip",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.censor",
+  "group": "Deck A",
+  "label": "Censor while held",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.keylock",
+  "group": "Deck A",
+  "label": "Key lock",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.vocals",
+  "group": "Deck A",
+  "label": "Vocals",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.instrumental",
+  "group": "Deck A",
+  "label": "Instrumental",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.drums",
+  "group": "Deck A",
+  "label": "Drums",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.bass",
+  "group": "Deck A",
+  "label": "Bass",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.melody",
+  "group": "Deck A",
+  "label": "Melody (the other instruments)",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.vocals.level",
+  "group": "Deck A",
+  "label": "Vocals level",
+  "kind": "fader"
+ },
+ {
+  "id": "deck1.instrumental.level",
+  "group": "Deck A",
+  "label": "Instrumental level",
+  "kind": "fader"
+ },
+ {
+  "id": "deck1.drums.level",
+  "group": "Deck A",
+  "label": "Drums level",
+  "kind": "fader"
+ },
+ {
+  "id": "deck1.bass.level",
+  "group": "Deck A",
+  "label": "Bass level",
+  "kind": "fader"
+ },
+ {
+  "id": "deck1.melody.level",
+  "group": "Deck A",
+  "label": "Melody level",
+  "kind": "fader"
+ },
+ {
+  "id": "deck1.sample1",
+  "group": "Deck A",
+  "label": "Sample 1",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.sample2",
+  "group": "Deck A",
+  "label": "Sample 2",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.sample3",
+  "group": "Deck A",
+  "label": "Sample 3",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.sample4",
+  "group": "Deck A",
+  "label": "Sample 4",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.sample5",
+  "group": "Deck A",
+  "label": "Sample 5",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.sample6",
+  "group": "Deck A",
+  "label": "Sample 6",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.sample7",
+  "group": "Deck A",
+  "label": "Sample 7",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.sample8",
+  "group": "Deck A",
+  "label": "Sample 8",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.fx",
+  "group": "Deck A",
+  "label": "Effect on / off",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.fx.on",
+  "group": "Deck A",
+  "label": "Effect on",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.fx.off",
+  "group": "Deck A",
+  "label": "Effect off",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.fx.next",
+  "group": "Deck A",
+  "label": "Next effect",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.fx.previous",
+  "group": "Deck A",
+  "label": "Previous effect",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.fx.part",
+  "group": "Deck A",
+  "label": "Effect on the next part",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.fx.mix",
+  "group": "Deck A",
+  "label": "Effect level",
+  "kind": "fader"
+ },
+ {
+  "id": "deck1.fx.amount",
+  "group": "Deck A",
+  "label": "Effect amount",
+  "kind": "fader"
+ },
+ {
+  "id": "deck1.roll1",
+  "group": "Deck A",
+  "label": "Roll 1/16 while held",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.roll2",
+  "group": "Deck A",
+  "label": "Roll 1/8 while held",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.roll3",
+  "group": "Deck A",
+  "label": "Roll 1/4 while held",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.roll4",
+  "group": "Deck A",
+  "label": "Roll 1/2 while held",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.roll5",
+  "group": "Deck A",
+  "label": "Roll 1 while held",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.roll6",
+  "group": "Deck A",
+  "label": "Roll 2 while held",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.roll7",
+  "group": "Deck A",
+  "label": "Roll 4 while held",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.roll8",
+  "group": "Deck A",
+  "label": "Roll 8 while held",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.pitch",
+  "group": "Deck A",
+  "label": "Tempo",
+  "kind": "fader"
+ },
+ {
+  "id": "deck1.volume",
+  "group": "Deck A",
+  "label": "Volume",
+  "kind": "fader"
+ },
+ {
+  "id": "deck1.trim",
+  "group": "Deck A",
+  "label": "Gain",
+  "kind": "fader"
+ },
+ {
+  "id": "deck1.eq.low",
+  "group": "Deck A",
+  "label": "EQ low",
+  "kind": "fader"
+ },
+ {
+  "id": "deck1.eq.mid",
+  "group": "Deck A",
+  "label": "EQ mid",
+  "kind": "fader"
+ },
+ {
+  "id": "deck1.eq.high",
+  "group": "Deck A",
+  "label": "EQ high",
+  "kind": "fader"
+ },
+ {
+  "id": "deck1.eq.low.kill",
+  "group": "Deck A",
+  "label": "Kill the bass while held",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.eq.mid.kill",
+  "group": "Deck A",
+  "label": "Kill the mids while held",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.eq.high.kill",
+  "group": "Deck A",
+  "label": "Kill the highs while held",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.filter",
+  "group": "Deck A",
+  "label": "Filter",
+  "kind": "fader"
+ },
+ {
+  "id": "deck1.headphones",
+  "group": "Deck A",
+  "label": "Headphones (pre-listen)",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.play",
+  "group": "Deck B",
+  "label": "Play / pause",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.cue",
+  "group": "Deck B",
+  "label": "Cue (hold to preview)",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.sync",
+  "group": "Deck B",
+  "label": "Sync",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.hotcue1",
+  "group": "Deck B",
+  "label": "Hot cue 1",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.hotcue2",
+  "group": "Deck B",
+  "label": "Hot cue 2",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.hotcue3",
+  "group": "Deck B",
+  "label": "Hot cue 3",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.hotcue4",
+  "group": "Deck B",
+  "label": "Hot cue 4",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.hotcue5",
+  "group": "Deck B",
+  "label": "Hot cue 5",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.hotcue6",
+  "group": "Deck B",
+  "label": "Hot cue 6",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.hotcue7",
+  "group": "Deck B",
+  "label": "Hot cue 7",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.hotcue8",
+  "group": "Deck B",
+  "label": "Hot cue 8",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.hotcue1.delete",
+  "group": "Deck B",
+  "label": "Delete hot cue 1",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.hotcue2.delete",
+  "group": "Deck B",
+  "label": "Delete hot cue 2",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.hotcue3.delete",
+  "group": "Deck B",
+  "label": "Delete hot cue 3",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.hotcue4.delete",
+  "group": "Deck B",
+  "label": "Delete hot cue 4",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.hotcue5.delete",
+  "group": "Deck B",
+  "label": "Delete hot cue 5",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.hotcue6.delete",
+  "group": "Deck B",
+  "label": "Delete hot cue 6",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.hotcue7.delete",
+  "group": "Deck B",
+  "label": "Delete hot cue 7",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.hotcue8.delete",
+  "group": "Deck B",
+  "label": "Delete hot cue 8",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.jog",
+  "group": "Deck B",
+  "label": "Jog wheel (turn)",
+  "kind": "encoder"
+ },
+ {
+  "id": "deck2.jog.touch",
+  "group": "Deck B",
+  "label": "Jog wheel (touch: scratch)",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.jog.search",
+  "group": "Deck B",
+  "label": "Jog wheel (search through the track)",
+  "kind": "encoder"
+ },
+ {
+  "id": "deck2.loop",
+  "group": "Deck B",
+  "label": "Loop 4 beats / exit",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.loop.in",
+  "group": "Deck B",
+  "label": "Loop in",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.loop.out",
+  "group": "Deck B",
+  "label": "Loop out",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.reloop",
+  "group": "Deck B",
+  "label": "Reloop",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.loop.halve",
+  "group": "Deck B",
+  "label": "Halve the loop",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.loop.double",
+  "group": "Deck B",
+  "label": "Double the loop",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.jump.back",
+  "group": "Deck B",
+  "label": "Jump back 4 beats",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.jump.forward",
+  "group": "Deck B",
+  "label": "Jump 4 beats ahead",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.bend.down",
+  "group": "Deck B",
+  "label": "Slow down while held",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.bend.up",
+  "group": "Deck B",
+  "label": "Speed up while held",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.tempo.reset",
+  "group": "Deck B",
+  "label": "Tempo back to the track",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.key.up",
+  "group": "Deck B",
+  "label": "Key up a semitone",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.key.down",
+  "group": "Deck B",
+  "label": "Key down a semitone",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.key.reset",
+  "group": "Deck B",
+  "label": "Key back to the track",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.slip",
+  "group": "Deck B",
+  "label": "Slip",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.censor",
+  "group": "Deck B",
+  "label": "Censor while held",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.keylock",
+  "group": "Deck B",
+  "label": "Key lock",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.vocals",
+  "group": "Deck B",
+  "label": "Vocals",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.instrumental",
+  "group": "Deck B",
+  "label": "Instrumental",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.drums",
+  "group": "Deck B",
+  "label": "Drums",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.bass",
+  "group": "Deck B",
+  "label": "Bass",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.melody",
+  "group": "Deck B",
+  "label": "Melody (the other instruments)",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.vocals.level",
+  "group": "Deck B",
+  "label": "Vocals level",
+  "kind": "fader"
+ },
+ {
+  "id": "deck2.instrumental.level",
+  "group": "Deck B",
+  "label": "Instrumental level",
+  "kind": "fader"
+ },
+ {
+  "id": "deck2.drums.level",
+  "group": "Deck B",
+  "label": "Drums level",
+  "kind": "fader"
+ },
+ {
+  "id": "deck2.bass.level",
+  "group": "Deck B",
+  "label": "Bass level",
+  "kind": "fader"
+ },
+ {
+  "id": "deck2.melody.level",
+  "group": "Deck B",
+  "label": "Melody level",
+  "kind": "fader"
+ },
+ {
+  "id": "deck2.sample1",
+  "group": "Deck B",
+  "label": "Sample 1",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.sample2",
+  "group": "Deck B",
+  "label": "Sample 2",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.sample3",
+  "group": "Deck B",
+  "label": "Sample 3",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.sample4",
+  "group": "Deck B",
+  "label": "Sample 4",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.sample5",
+  "group": "Deck B",
+  "label": "Sample 5",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.sample6",
+  "group": "Deck B",
+  "label": "Sample 6",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.sample7",
+  "group": "Deck B",
+  "label": "Sample 7",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.sample8",
+  "group": "Deck B",
+  "label": "Sample 8",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.fx",
+  "group": "Deck B",
+  "label": "Effect on / off",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.fx.on",
+  "group": "Deck B",
+  "label": "Effect on",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.fx.off",
+  "group": "Deck B",
+  "label": "Effect off",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.fx.next",
+  "group": "Deck B",
+  "label": "Next effect",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.fx.previous",
+  "group": "Deck B",
+  "label": "Previous effect",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.fx.part",
+  "group": "Deck B",
+  "label": "Effect on the next part",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.fx.mix",
+  "group": "Deck B",
+  "label": "Effect level",
+  "kind": "fader"
+ },
+ {
+  "id": "deck2.fx.amount",
+  "group": "Deck B",
+  "label": "Effect amount",
+  "kind": "fader"
+ },
+ {
+  "id": "deck2.roll1",
+  "group": "Deck B",
+  "label": "Roll 1/16 while held",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.roll2",
+  "group": "Deck B",
+  "label": "Roll 1/8 while held",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.roll3",
+  "group": "Deck B",
+  "label": "Roll 1/4 while held",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.roll4",
+  "group": "Deck B",
+  "label": "Roll 1/2 while held",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.roll5",
+  "group": "Deck B",
+  "label": "Roll 1 while held",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.roll6",
+  "group": "Deck B",
+  "label": "Roll 2 while held",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.roll7",
+  "group": "Deck B",
+  "label": "Roll 4 while held",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.roll8",
+  "group": "Deck B",
+  "label": "Roll 8 while held",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.pitch",
+  "group": "Deck B",
+  "label": "Tempo",
+  "kind": "fader"
+ },
+ {
+  "id": "deck2.volume",
+  "group": "Deck B",
+  "label": "Volume",
+  "kind": "fader"
+ },
+ {
+  "id": "deck2.trim",
+  "group": "Deck B",
+  "label": "Gain",
+  "kind": "fader"
+ },
+ {
+  "id": "deck2.eq.low",
+  "group": "Deck B",
+  "label": "EQ low",
+  "kind": "fader"
+ },
+ {
+  "id": "deck2.eq.mid",
+  "group": "Deck B",
+  "label": "EQ mid",
+  "kind": "fader"
+ },
+ {
+  "id": "deck2.eq.high",
+  "group": "Deck B",
+  "label": "EQ high",
+  "kind": "fader"
+ },
+ {
+  "id": "deck2.eq.low.kill",
+  "group": "Deck B",
+  "label": "Kill the bass while held",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.eq.mid.kill",
+  "group": "Deck B",
+  "label": "Kill the mids while held",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.eq.high.kill",
+  "group": "Deck B",
+  "label": "Kill the highs while held",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.filter",
+  "group": "Deck B",
+  "label": "Filter",
+  "kind": "fader"
+ },
+ {
+  "id": "deck2.headphones",
+  "group": "Deck B",
+  "label": "Headphones (pre-listen)",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.play",
+  "group": "Deck C",
+  "label": "Play / pause",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.cue",
+  "group": "Deck C",
+  "label": "Cue (hold to preview)",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.sync",
+  "group": "Deck C",
+  "label": "Sync",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.hotcue1",
+  "group": "Deck C",
+  "label": "Hot cue 1",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.hotcue2",
+  "group": "Deck C",
+  "label": "Hot cue 2",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.hotcue3",
+  "group": "Deck C",
+  "label": "Hot cue 3",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.hotcue4",
+  "group": "Deck C",
+  "label": "Hot cue 4",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.hotcue5",
+  "group": "Deck C",
+  "label": "Hot cue 5",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.hotcue6",
+  "group": "Deck C",
+  "label": "Hot cue 6",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.hotcue7",
+  "group": "Deck C",
+  "label": "Hot cue 7",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.hotcue8",
+  "group": "Deck C",
+  "label": "Hot cue 8",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.hotcue1.delete",
+  "group": "Deck C",
+  "label": "Delete hot cue 1",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.hotcue2.delete",
+  "group": "Deck C",
+  "label": "Delete hot cue 2",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.hotcue3.delete",
+  "group": "Deck C",
+  "label": "Delete hot cue 3",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.hotcue4.delete",
+  "group": "Deck C",
+  "label": "Delete hot cue 4",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.hotcue5.delete",
+  "group": "Deck C",
+  "label": "Delete hot cue 5",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.hotcue6.delete",
+  "group": "Deck C",
+  "label": "Delete hot cue 6",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.hotcue7.delete",
+  "group": "Deck C",
+  "label": "Delete hot cue 7",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.hotcue8.delete",
+  "group": "Deck C",
+  "label": "Delete hot cue 8",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.jog",
+  "group": "Deck C",
+  "label": "Jog wheel (turn)",
+  "kind": "encoder"
+ },
+ {
+  "id": "deck3.jog.touch",
+  "group": "Deck C",
+  "label": "Jog wheel (touch: scratch)",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.jog.search",
+  "group": "Deck C",
+  "label": "Jog wheel (search through the track)",
+  "kind": "encoder"
+ },
+ {
+  "id": "deck3.loop",
+  "group": "Deck C",
+  "label": "Loop 4 beats / exit",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.loop.in",
+  "group": "Deck C",
+  "label": "Loop in",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.loop.out",
+  "group": "Deck C",
+  "label": "Loop out",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.reloop",
+  "group": "Deck C",
+  "label": "Reloop",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.loop.halve",
+  "group": "Deck C",
+  "label": "Halve the loop",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.loop.double",
+  "group": "Deck C",
+  "label": "Double the loop",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.jump.back",
+  "group": "Deck C",
+  "label": "Jump back 4 beats",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.jump.forward",
+  "group": "Deck C",
+  "label": "Jump 4 beats ahead",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.bend.down",
+  "group": "Deck C",
+  "label": "Slow down while held",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.bend.up",
+  "group": "Deck C",
+  "label": "Speed up while held",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.tempo.reset",
+  "group": "Deck C",
+  "label": "Tempo back to the track",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.key.up",
+  "group": "Deck C",
+  "label": "Key up a semitone",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.key.down",
+  "group": "Deck C",
+  "label": "Key down a semitone",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.key.reset",
+  "group": "Deck C",
+  "label": "Key back to the track",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.slip",
+  "group": "Deck C",
+  "label": "Slip",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.censor",
+  "group": "Deck C",
+  "label": "Censor while held",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.keylock",
+  "group": "Deck C",
+  "label": "Key lock",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.vocals",
+  "group": "Deck C",
+  "label": "Vocals",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.instrumental",
+  "group": "Deck C",
+  "label": "Instrumental",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.drums",
+  "group": "Deck C",
+  "label": "Drums",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.bass",
+  "group": "Deck C",
+  "label": "Bass",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.melody",
+  "group": "Deck C",
+  "label": "Melody (the other instruments)",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.vocals.level",
+  "group": "Deck C",
+  "label": "Vocals level",
+  "kind": "fader"
+ },
+ {
+  "id": "deck3.instrumental.level",
+  "group": "Deck C",
+  "label": "Instrumental level",
+  "kind": "fader"
+ },
+ {
+  "id": "deck3.drums.level",
+  "group": "Deck C",
+  "label": "Drums level",
+  "kind": "fader"
+ },
+ {
+  "id": "deck3.bass.level",
+  "group": "Deck C",
+  "label": "Bass level",
+  "kind": "fader"
+ },
+ {
+  "id": "deck3.melody.level",
+  "group": "Deck C",
+  "label": "Melody level",
+  "kind": "fader"
+ },
+ {
+  "id": "deck3.sample1",
+  "group": "Deck C",
+  "label": "Sample 1",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.sample2",
+  "group": "Deck C",
+  "label": "Sample 2",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.sample3",
+  "group": "Deck C",
+  "label": "Sample 3",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.sample4",
+  "group": "Deck C",
+  "label": "Sample 4",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.sample5",
+  "group": "Deck C",
+  "label": "Sample 5",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.sample6",
+  "group": "Deck C",
+  "label": "Sample 6",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.sample7",
+  "group": "Deck C",
+  "label": "Sample 7",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.sample8",
+  "group": "Deck C",
+  "label": "Sample 8",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.fx",
+  "group": "Deck C",
+  "label": "Effect on / off",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.fx.on",
+  "group": "Deck C",
+  "label": "Effect on",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.fx.off",
+  "group": "Deck C",
+  "label": "Effect off",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.fx.next",
+  "group": "Deck C",
+  "label": "Next effect",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.fx.previous",
+  "group": "Deck C",
+  "label": "Previous effect",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.fx.part",
+  "group": "Deck C",
+  "label": "Effect on the next part",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.fx.mix",
+  "group": "Deck C",
+  "label": "Effect level",
+  "kind": "fader"
+ },
+ {
+  "id": "deck3.fx.amount",
+  "group": "Deck C",
+  "label": "Effect amount",
+  "kind": "fader"
+ },
+ {
+  "id": "deck3.roll1",
+  "group": "Deck C",
+  "label": "Roll 1/16 while held",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.roll2",
+  "group": "Deck C",
+  "label": "Roll 1/8 while held",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.roll3",
+  "group": "Deck C",
+  "label": "Roll 1/4 while held",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.roll4",
+  "group": "Deck C",
+  "label": "Roll 1/2 while held",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.roll5",
+  "group": "Deck C",
+  "label": "Roll 1 while held",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.roll6",
+  "group": "Deck C",
+  "label": "Roll 2 while held",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.roll7",
+  "group": "Deck C",
+  "label": "Roll 4 while held",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.roll8",
+  "group": "Deck C",
+  "label": "Roll 8 while held",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.pitch",
+  "group": "Deck C",
+  "label": "Tempo",
+  "kind": "fader"
+ },
+ {
+  "id": "deck3.volume",
+  "group": "Deck C",
+  "label": "Volume",
+  "kind": "fader"
+ },
+ {
+  "id": "deck3.trim",
+  "group": "Deck C",
+  "label": "Gain",
+  "kind": "fader"
+ },
+ {
+  "id": "deck3.eq.low",
+  "group": "Deck C",
+  "label": "EQ low",
+  "kind": "fader"
+ },
+ {
+  "id": "deck3.eq.mid",
+  "group": "Deck C",
+  "label": "EQ mid",
+  "kind": "fader"
+ },
+ {
+  "id": "deck3.eq.high",
+  "group": "Deck C",
+  "label": "EQ high",
+  "kind": "fader"
+ },
+ {
+  "id": "deck3.eq.low.kill",
+  "group": "Deck C",
+  "label": "Kill the bass while held",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.eq.mid.kill",
+  "group": "Deck C",
+  "label": "Kill the mids while held",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.eq.high.kill",
+  "group": "Deck C",
+  "label": "Kill the highs while held",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.filter",
+  "group": "Deck C",
+  "label": "Filter",
+  "kind": "fader"
+ },
+ {
+  "id": "deck3.headphones",
+  "group": "Deck C",
+  "label": "Headphones (pre-listen)",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.play",
+  "group": "Deck D",
+  "label": "Play / pause",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.cue",
+  "group": "Deck D",
+  "label": "Cue (hold to preview)",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.sync",
+  "group": "Deck D",
+  "label": "Sync",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.hotcue1",
+  "group": "Deck D",
+  "label": "Hot cue 1",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.hotcue2",
+  "group": "Deck D",
+  "label": "Hot cue 2",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.hotcue3",
+  "group": "Deck D",
+  "label": "Hot cue 3",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.hotcue4",
+  "group": "Deck D",
+  "label": "Hot cue 4",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.hotcue5",
+  "group": "Deck D",
+  "label": "Hot cue 5",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.hotcue6",
+  "group": "Deck D",
+  "label": "Hot cue 6",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.hotcue7",
+  "group": "Deck D",
+  "label": "Hot cue 7",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.hotcue8",
+  "group": "Deck D",
+  "label": "Hot cue 8",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.hotcue1.delete",
+  "group": "Deck D",
+  "label": "Delete hot cue 1",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.hotcue2.delete",
+  "group": "Deck D",
+  "label": "Delete hot cue 2",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.hotcue3.delete",
+  "group": "Deck D",
+  "label": "Delete hot cue 3",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.hotcue4.delete",
+  "group": "Deck D",
+  "label": "Delete hot cue 4",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.hotcue5.delete",
+  "group": "Deck D",
+  "label": "Delete hot cue 5",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.hotcue6.delete",
+  "group": "Deck D",
+  "label": "Delete hot cue 6",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.hotcue7.delete",
+  "group": "Deck D",
+  "label": "Delete hot cue 7",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.hotcue8.delete",
+  "group": "Deck D",
+  "label": "Delete hot cue 8",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.jog",
+  "group": "Deck D",
+  "label": "Jog wheel (turn)",
+  "kind": "encoder"
+ },
+ {
+  "id": "deck4.jog.touch",
+  "group": "Deck D",
+  "label": "Jog wheel (touch: scratch)",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.jog.search",
+  "group": "Deck D",
+  "label": "Jog wheel (search through the track)",
+  "kind": "encoder"
+ },
+ {
+  "id": "deck4.loop",
+  "group": "Deck D",
+  "label": "Loop 4 beats / exit",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.loop.in",
+  "group": "Deck D",
+  "label": "Loop in",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.loop.out",
+  "group": "Deck D",
+  "label": "Loop out",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.reloop",
+  "group": "Deck D",
+  "label": "Reloop",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.loop.halve",
+  "group": "Deck D",
+  "label": "Halve the loop",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.loop.double",
+  "group": "Deck D",
+  "label": "Double the loop",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.jump.back",
+  "group": "Deck D",
+  "label": "Jump back 4 beats",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.jump.forward",
+  "group": "Deck D",
+  "label": "Jump 4 beats ahead",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.bend.down",
+  "group": "Deck D",
+  "label": "Slow down while held",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.bend.up",
+  "group": "Deck D",
+  "label": "Speed up while held",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.tempo.reset",
+  "group": "Deck D",
+  "label": "Tempo back to the track",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.key.up",
+  "group": "Deck D",
+  "label": "Key up a semitone",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.key.down",
+  "group": "Deck D",
+  "label": "Key down a semitone",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.key.reset",
+  "group": "Deck D",
+  "label": "Key back to the track",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.slip",
+  "group": "Deck D",
+  "label": "Slip",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.censor",
+  "group": "Deck D",
+  "label": "Censor while held",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.keylock",
+  "group": "Deck D",
+  "label": "Key lock",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.vocals",
+  "group": "Deck D",
+  "label": "Vocals",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.instrumental",
+  "group": "Deck D",
+  "label": "Instrumental",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.drums",
+  "group": "Deck D",
+  "label": "Drums",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.bass",
+  "group": "Deck D",
+  "label": "Bass",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.melody",
+  "group": "Deck D",
+  "label": "Melody (the other instruments)",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.vocals.level",
+  "group": "Deck D",
+  "label": "Vocals level",
+  "kind": "fader"
+ },
+ {
+  "id": "deck4.instrumental.level",
+  "group": "Deck D",
+  "label": "Instrumental level",
+  "kind": "fader"
+ },
+ {
+  "id": "deck4.drums.level",
+  "group": "Deck D",
+  "label": "Drums level",
+  "kind": "fader"
+ },
+ {
+  "id": "deck4.bass.level",
+  "group": "Deck D",
+  "label": "Bass level",
+  "kind": "fader"
+ },
+ {
+  "id": "deck4.melody.level",
+  "group": "Deck D",
+  "label": "Melody level",
+  "kind": "fader"
+ },
+ {
+  "id": "deck4.sample1",
+  "group": "Deck D",
+  "label": "Sample 1",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.sample2",
+  "group": "Deck D",
+  "label": "Sample 2",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.sample3",
+  "group": "Deck D",
+  "label": "Sample 3",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.sample4",
+  "group": "Deck D",
+  "label": "Sample 4",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.sample5",
+  "group": "Deck D",
+  "label": "Sample 5",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.sample6",
+  "group": "Deck D",
+  "label": "Sample 6",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.sample7",
+  "group": "Deck D",
+  "label": "Sample 7",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.sample8",
+  "group": "Deck D",
+  "label": "Sample 8",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.fx",
+  "group": "Deck D",
+  "label": "Effect on / off",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.fx.on",
+  "group": "Deck D",
+  "label": "Effect on",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.fx.off",
+  "group": "Deck D",
+  "label": "Effect off",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.fx.next",
+  "group": "Deck D",
+  "label": "Next effect",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.fx.previous",
+  "group": "Deck D",
+  "label": "Previous effect",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.fx.part",
+  "group": "Deck D",
+  "label": "Effect on the next part",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.fx.mix",
+  "group": "Deck D",
+  "label": "Effect level",
+  "kind": "fader"
+ },
+ {
+  "id": "deck4.fx.amount",
+  "group": "Deck D",
+  "label": "Effect amount",
+  "kind": "fader"
+ },
+ {
+  "id": "deck4.roll1",
+  "group": "Deck D",
+  "label": "Roll 1/16 while held",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.roll2",
+  "group": "Deck D",
+  "label": "Roll 1/8 while held",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.roll3",
+  "group": "Deck D",
+  "label": "Roll 1/4 while held",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.roll4",
+  "group": "Deck D",
+  "label": "Roll 1/2 while held",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.roll5",
+  "group": "Deck D",
+  "label": "Roll 1 while held",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.roll6",
+  "group": "Deck D",
+  "label": "Roll 2 while held",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.roll7",
+  "group": "Deck D",
+  "label": "Roll 4 while held",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.roll8",
+  "group": "Deck D",
+  "label": "Roll 8 while held",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.pitch",
+  "group": "Deck D",
+  "label": "Tempo",
+  "kind": "fader"
+ },
+ {
+  "id": "deck4.volume",
+  "group": "Deck D",
+  "label": "Volume",
+  "kind": "fader"
+ },
+ {
+  "id": "deck4.trim",
+  "group": "Deck D",
+  "label": "Gain",
+  "kind": "fader"
+ },
+ {
+  "id": "deck4.eq.low",
+  "group": "Deck D",
+  "label": "EQ low",
+  "kind": "fader"
+ },
+ {
+  "id": "deck4.eq.mid",
+  "group": "Deck D",
+  "label": "EQ mid",
+  "kind": "fader"
+ },
+ {
+  "id": "deck4.eq.high",
+  "group": "Deck D",
+  "label": "EQ high",
+  "kind": "fader"
+ },
+ {
+  "id": "deck4.eq.low.kill",
+  "group": "Deck D",
+  "label": "Kill the bass while held",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.eq.mid.kill",
+  "group": "Deck D",
+  "label": "Kill the mids while held",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.eq.high.kill",
+  "group": "Deck D",
+  "label": "Kill the highs while held",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.filter",
+  "group": "Deck D",
+  "label": "Filter",
+  "kind": "fader"
+ },
+ {
+  "id": "deck4.headphones",
+  "group": "Deck D",
+  "label": "Headphones (pre-listen)",
+  "kind": "button"
+ },
+ {
+  "id": "mixer.crossfader",
+  "group": "Mixer",
+  "label": "Crossfader",
+  "kind": "fader"
+ },
+ {
+  "id": "mixer.cueMix",
+  "group": "Mixer",
+  "label": "Headphones: cued decks or master",
+  "kind": "fader"
+ },
+ {
+  "id": "shift",
+  "group": "Controller",
+  "label": "Shift (second use of the controls)",
+  "kind": "button"
+ },
+ {
+  "id": "library.browse",
+  "group": "Library",
+  "label": "Browse",
+  "kind": "encoder"
+ },
+ {
+  "id": "library.previous",
+  "group": "Library",
+  "label": "Previous track",
+  "kind": "button"
+ },
+ {
+  "id": "library.next",
+  "group": "Library",
+  "label": "Next track",
+  "kind": "button"
+ },
+ {
+  "id": "library.load1",
+  "group": "Library",
+  "label": "Load on deck A",
+  "kind": "button"
+ },
+ {
+  "id": "library.load2",
+  "group": "Library",
+  "label": "Load on deck B",
+  "kind": "button"
+ },
+ {
+  "id": "library.load3",
+  "group": "Library",
+  "label": "Load on deck C",
+  "kind": "button"
+ },
+ {
+  "id": "library.load4",
+  "group": "Library",
+  "label": "Load on deck D",
+  "kind": "button"
+ },
+ {
+  "id": "library.load",
+  "group": "Library",
+  "label": "Load on a free deck",
+  "kind": "button"
+ },
+ {
+  "id": "library.double1",
+  "group": "Library",
+  "label": "Instant double on deck A",
+  "kind": "button"
+ },
+ {
+  "id": "library.double2",
+  "group": "Library",
+  "label": "Instant double on deck B",
+  "kind": "button"
+ },
+ {
+  "id": "library.double3",
+  "group": "Library",
+  "label": "Instant double on deck C",
+  "kind": "button"
+ },
+ {
+  "id": "library.double4",
+  "group": "Library",
+  "label": "Instant double on deck D",
+  "kind": "button"
+ },
+ {
+  "id": "library.remove",
+  "group": "Library",
+  "label": "Remove from the crate or prepare list",
+  "kind": "button"
+ },
+ {
+  "id": "library.prepare",
+  "group": "Library",
+  "label": "Add to the prepare list",
+  "kind": "button"
+ },
+ {
+  "id": "library.selectAll",
+  "group": "Library",
+  "label": "Select all the tracks",
+  "kind": "button"
+ },
+ {
+  "id": "library.clearSelection",
+  "group": "Library",
+  "label": "Clear the selection",
+  "kind": "button"
+ },
+ {
+  "id": "library.search",
+  "group": "Library",
+  "label": "Search",
+  "kind": "button"
+ },
+ {
+  "id": "general.quantize",
+  "group": "General",
+  "label": "Quantize",
+  "kind": "button"
+ },
+ {
+  "id": "general.tempoRange",
+  "group": "General",
+  "label": "Tempo fader range",
+  "kind": "button"
+ },
+ {
+  "id": "general.help",
+  "group": "General",
+  "label": "Keyboard shortcuts",
+  "kind": "button"
+ },
+ {
+  "id": "general.palette",
+  "group": "General",
+  "label": "Command palette",
+  "kind": "button"
+ },
+ {
+  "id": "general.settings",
+  "group": "General",
+  "label": "Settings",
+  "kind": "button"
+ }
+]

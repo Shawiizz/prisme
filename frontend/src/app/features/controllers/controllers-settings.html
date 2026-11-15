@@ -12,13 +12,29 @@
             <span class="pr-row__help">{{
               'Mapped as a {model}: learn a control to change it' | t: { model: c.profile }
             }}</span>
-            @if (!c.verified) {
+            @if (c.profileSource === 'own') {
+              <span class="pr-row__help">{{ 'With your own profile' | t }}</span>
+            } @else if (!c.verified) {
               <span class="pr-row__help">{{
                 'Converted from the mapping of Mixxx, not yet tried on this controller' | t
               }}</span>
             }
           }
+          @if (exported()[c.name]; as e) {
+            <span class="pr-row__help" [class.failed]="!e.done">{{
+              e.done ? ('Exported to {path}' | t: { path: e.text }) : e.text
+            }}</span>
+          }
         </div>
+        @if (c.enabled && c.plugged) {
+          <button
+            class="pr-btn pr-btn--sm"
+            (click)="exportProfile(c.name)"
+            [title]="'Write what it drives now as a profile of your own, to share or edit' | t"
+          >
+            {{ 'Export as a profile' | t }}
+          </button>
+        }
         <button
           class="pr-switch"
           role="switch"
@@ -57,6 +73,58 @@
         }
       </select>
     </div>
+  </div>
+</section>
+
+<section class="pr-group">
+  <h3 class="pr-label">{{ 'Controller profiles' | t }}</h3>
+  <div class="pr-card">
+    <div class="pr-row">
+      <div>
+        <span class="pr-row__name">{{ '{n} models known' | t: { n: counts().all } }}</span>
+        <span class="pr-row__help">{{
+          '{updated} updated since this version, {own} of your own'
+            | t: { updated: counts().updated, own: counts().own }
+        }}</span>
+        @if (looked(); as said) {
+          <span class="pr-row__help" [class.failed]="said.failed">{{ said.text }}</span>
+        }
+      </div>
+      <button
+        class="pr-btn pr-btn--sm"
+        [disabled]="look()?.state === 'looking'"
+        (click)="updateProfiles()"
+        [title]="'Fetch the profiles published since, as Prisme does once a day' | t"
+      >
+        {{ look()?.state === 'looking' ? ('Looking…' | t) : ('Look for updates' | t) }}
+      </button>
+    </div>
+    @if (!PHONE && service.profiles()?.folder) {
+      <div class="pr-row">
+        <div>
+          <span class="pr-row__name">{{ 'Your own profiles' | t }}</span>
+          <span class="pr-row__help">{{
+            'A JSON file put in this folder replaces the profile of the same name, or adds a model. Its format is open: an editor checks and completes it from its schema.'
+              | t
+          }}</span>
+          @for (problem of service.profiles()?.unreadable; track problem) {
+            <span class="pr-row__help failed">{{ problem }}</span>
+          }
+        </div>
+        <div class="keys">
+          <button class="pr-btn pr-btn--sm" (click)="service.openProfilesFolder()">
+            {{ 'Open the folder' | t }}
+          </button>
+          <button
+            class="pr-btn pr-btn--sm"
+            (click)="service.reloadProfiles()"
+            [title]="'Read the folder again after changing a file' | t"
+          >
+            {{ 'Read again' | t }}
+          </button>
+        </div>
+      </div>
+    }
   </div>
 </section>
 

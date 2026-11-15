@@ -1,10 +1,12 @@
-import { readdirSync, readFileSync } from 'node:fs';
+import { readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { buildControls, ControlActions, measuredControl } from './controls';
 
-/** The controller profiles shipped with the app, or those of the folder `PRISME_PROFILES`
- * (a profile being written). */
-const FOLDER = process.env['PRISME_PROFILES'] ?? '../apps/prisme-desktop/controllers';
+/** The controller profiles shipped with the app. */
+const SHIPPED = '../apps/prisme-desktop/controllers';
+/** Those checked: the shipped ones, or those of the folder `PRISME_PROFILES` (a profile being
+ * written). */
+const FOLDER = process.env['PRISME_PROFILES'] ?? SHIPPED;
 
 interface Profile {
   name: string;
@@ -14,8 +16,11 @@ interface Profile {
   meters?: { source: string }[];
 }
 
+/** The files beside the profiles: their index, their schema and the actions it names. */
+const NOT_PROFILES = new Set(['index.json', 'profile.schema.json', 'targets.json']);
+
 const profiles: Profile[] = readdirSync(FOLDER)
-  .filter((f) => f.endsWith('.json'))
+  .filter((f) => f.endsWith('.json') && !NOT_PROFILES.has(f))
   .map((f) => JSON.parse(readFileSync(join(FOLDER, f), 'utf8')));
 
 const actions = new Proxy({}, { get: () => () => true }) as ControlActions;
@@ -29,6 +34,14 @@ const known = (p: Profile, target: string) =>
 const encoders = new Set(controls.filter((c) => c.kind === 'encoder').map((c) => c.id));
 
 describe('controller profiles', () => {
+  it('name the actions of the app in their schema (PRISME_WRITE_TARGETS=1 writes them)', () => {
+    const targets = controls.map(({ id, group, label, kind }) => ({ id, group, label, kind }));
+    const text = JSON.stringify(targets, null, 1) + '\n';
+    const file = join(SHIPPED, 'targets.json');
+    if (process.env['PRISME_WRITE_TARGETS']) writeFileSync(file, text);
+    expect(readFileSync(file, 'utf8').replace(/\r\n/g, '\n')).toEqual(text);
+  });
+
   it('are shipped', () => {
     expect(profiles.length).toBeGreaterThan(0);
   });

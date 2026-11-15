@@ -1,4 +1,5 @@
 {
+  "$schema": "https://raw.githubusercontent.com/Shawiizz/prisme/main/apps/prisme-desktop/controllers/profile.schema.json",
   "name": "Stanton DJC.4",
   "ports": ["DJC.4", "DJC-4", "DJC4"],
   "credits": "From the Stanton DJC.4 mapping of Mixxx by Martin Bruset Solberg, Christoph Zimmermann (GPL-2.0-or-later).",

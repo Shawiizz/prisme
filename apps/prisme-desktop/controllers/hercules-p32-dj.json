@@ -1,4 +1,5 @@
 {
+  "$schema": "https://raw.githubusercontent.com/Shawiizz/prisme/main/apps/prisme-desktop/controllers/profile.schema.json",
   "name": "Hercules P32 DJ",
   "ports": ["P32 DJ"],
   "credits": "From the Hercules P32 DJ mapping of Mixxx by Be (GPL-2.0-or-later).",

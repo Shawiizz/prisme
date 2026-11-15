@@ -1,4 +1,5 @@
 {
+  "$schema": "https://raw.githubusercontent.com/Shawiizz/prisme/main/apps/prisme-desktop/controllers/profile.schema.json",
   "name": "Numark Scratch",
   "ports": ["Numark Scratch"],
   "credits": "From the Numark Scratch mapping of Mixxx by Al Hadebe (NotYourAverageAl) (GPL-2.0-or-later).",

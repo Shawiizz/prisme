@@ -1,16 +1,17 @@
 use crate::message::{Control, ControlKind};
+use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 
 /// What a light shows for each state of its action: `on` and `off`, or the action's own
 /// (`loaded`, `playing`…). A state it does not name shows as `on`, but `off`: 127 and 0
 /// when it names neither.
-#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(transparent)]
 pub struct LightValues(BTreeMap<String, LightValue>);
 
 /// A light's value in a state: steady, or two in turn.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(untagged)]
 pub enum LightValue {
     Steady(u8),

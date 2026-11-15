@@ -11,6 +11,19 @@ export interface Controller {
   profile: string | null;
   /** Its profile was tried on the controller itself, not only read from another program's. */
   verified: boolean;
+  /** Where its profile comes from. */
+  profileSource: ProfileSource | null;
+}
+
+/** Shipped with Prisme, published since and fetched, or the DJ's own. */
+export type ProfileSource = 'shipped' | 'updated' | 'own';
+
+/** The controller models Prisme knows, and where the DJ's own profiles go. */
+export interface ControllerProfiles {
+  profiles: { file: string; name: string; source: ProfileSource; verified: boolean }[];
+  /** The DJ's files that could not be read: `file: why`. */
+  unreadable: string[];
+  folder: string | null;
 }
 
 export interface MidiControl {

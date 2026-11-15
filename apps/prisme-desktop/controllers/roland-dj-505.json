@@ -1,4 +1,5 @@
 {
+  "$schema": "https://raw.githubusercontent.com/Shawiizz/prisme/main/apps/prisme-desktop/controllers/profile.schema.json",
   "name": "Roland DJ-505",
   "ports": ["DJ-505"],
   "credits": "From the Roland DJ-505 mapping of Mixxx by Jan Holthuis (GPL-2.0-or-later).",

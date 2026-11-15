@@ -1,4 +1,5 @@
 {
+  "$schema": "https://raw.githubusercontent.com/Shawiizz/prisme/main/apps/prisme-desktop/controllers/profile.schema.json",
   "name": "Reloop Beatpad",
   "ports": ["Beatpad"],
   "credits": "From the Reloop Beatpad mapping of Mixxx by Chloé Avrillon (DJ Chloé) (GPL-2.0-or-later).",

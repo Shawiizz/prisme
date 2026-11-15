@@ -1,4 +1,5 @@
 {
+  "$schema": "https://raw.githubusercontent.com/Shawiizz/prisme/main/apps/prisme-desktop/controllers/profile.schema.json",
   "name": "Reloop Jockey 3 ME",
   "ports": ["Jockey 3 ME", "Jockey 3 Master Edition"],
   "credits": "From the Reloop Jockey 3 ME mapping of Mixxx by Chris2000SP (GPL-2.0-or-later).",

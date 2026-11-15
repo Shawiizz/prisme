@@ -51,3 +51,12 @@
     color: var(--pr-text-3);
   }
 }
+
+// what went wrong: a profile unreadable, an export or a look that failed
+.failed {
+  color: var(--pr-alert);
+}
+.keys {
+  display: flex;
+  gap: 6px;
+}

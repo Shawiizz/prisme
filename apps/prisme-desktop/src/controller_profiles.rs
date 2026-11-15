@@ -1,11 +1,23 @@
-//! The controller models Prisme knows (`controllers/*.json`): the profile of one maps it as
-//! soon as it is turned on, before anything is learnt on it.
+//! The controller models Prisme knows, each by its profile (`controllers/*.json`): as shipped
+//! with this version, as published since where Prisme is made (fetched into the data folder's
+//! `controller-updates`), and the DJ's own (the data folder's `controllers`), each replacing
+//! the one before it of the same file name.
+//!
+//! The published profiles are listed in `controllers/index.json`: of each, its digest, its
+//! revision (raised at each change) and the version of the format it was written in. A
+//! profile fetched is taken over the shipped one only if it is a later revision, in a format
+//! this Prisme reads.
 
-use prisme_control::{Profile, JOG_STEPS_PER_TURN};
-use std::sync::OnceLock;
-use tracing::error;
+use prisme_control::{Profile, JOG_STEPS_PER_TURN, PROFILE_FORMAT, SCHEMA_URL};
+use serde::{Deserialize, Serialize};
+use sha2::{Digest, Sha256};
+use std::collections::BTreeMap;
+use std::path::{Path, PathBuf};
+use std::sync::{Arc, OnceLock, PoisonError, RwLock};
+use std::time::{Duration, SystemTime};
+use tracing::{info, warn};
 
-const BUNDLED: &[(&str, &str)] = &[
+const SHIPPED: &[(&str, &str)] = &[
     ("allen-and-heath-xone-k2.json", include_str!("../controllers/allen-and-heath-xone-k2.json")),
     ("behringer-cmd-micro.json", include_str!("../controllers/behringer-cmd-micro.json")),
     ("behringer-cmd-mm-1.json", include_str!("../controllers/behringer-cmd-mm-1.json")),
@@ -81,24 +93,117 @@ const BUNDLED: &[(&str, &str)] = &[
     ("roland-dj-505.json", include_str!("../controllers/roland-dj-505.json")),
     ("stanton-djc-4.json", include_str!("../controllers/stanton-djc-4.json")),
 ];
+/// The index of the shipped profiles.
+const SHIPPED_INDEX: &str = include_str!("../controllers/index.json");
+/// Where the profiles and their index are published.
+const PUBLISHED: &str =
+    "https://raw.githubusercontent.com/Shawiizz/prisme/main/apps/prisme-desktop/controllers/";
+const INDEX: &str = "index.json";
+/// The DJ's own profiles, and those fetched, in the data folder.
+const OWN: &str = "controllers";
+const UPDATES: &str = "controller-updates";
+/// How long a fetch of the published profiles holds: they are looked for again after.
+const UPDATE_EVERY: Duration = Duration::from_secs(24 * 3600);
+const FETCH_TIMEOUT: Duration = Duration::from_secs(20);
 
-fn bundled() -> &'static [Profile] {
-    static PROFILES: OnceLock<Vec<Profile>> = OnceLock::new();
-    PROFILES.get_or_init(|| {
-        BUNDLED
-            .iter()
-            .filter_map(|(file, json)| {
-                serde_json::from_str(json)
-                    .inspect_err(|e| error!("controller profile {file} unreadable: {e}"))
-                    .ok()
-            })
-            .collect()
-    })
+/// Where a profile comes from.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub enum Source {
+    Shipped,
+    Updated,
+    Own,
 }
 
-/// The profile of the controller on the MIDI port `port`, if Prisme knows its model.
-pub fn of(port: &str) -> Option<&'static Profile> {
-    Profile::of_port(bundled(), port)
+/// A model Prisme knows.
+#[derive(Debug, Clone)]
+pub struct Known {
+    pub file: String,
+    pub source: Source,
+    pub profile: Arc<Profile>,
+}
+
+/// The profiles published, by file name.
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+pub struct Index {
+    pub profiles: BTreeMap<String, Published>,
+}
+
+/// A profile published: its digest (of its text, lines ended by `\n`), its revision and the
+/// format it was written in.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct Published {
+    pub sha256: String,
+    pub revision: u32,
+    pub format: u32,
+}
+
+/// The models Prisme knows, by file name, and the DJ's files it could not read.
+#[derive(Debug, Default)]
+pub struct Library {
+    pub known: Vec<Known>,
+    /// `file: why`.
+    pub unreadable: Vec<String>,
+}
+
+/// The folders of the profiles beside those shipped.
+#[derive(Debug, Clone)]
+struct Folders {
+    own: PathBuf,
+    updates: PathBuf,
+}
+
+static FOLDERS: OnceLock<Folders> = OnceLock::new();
+
+fn library() -> &'static RwLock<Arc<Library>> {
+    static LIBRARY: OnceLock<RwLock<Arc<Library>>> = OnceLock::new();
+    LIBRARY.get_or_init(|| RwLock::new(Arc::new(read_library(FOLDERS.get()))))
+}
+
+/// Reads the profiles of the data folder `data` too, from now on.
+pub fn install(data: &Path) {
+    let folders = Folders { own: data.join(OWN), updates: data.join(UPDATES) };
+    if FOLDERS.set(folders).is_ok() {
+        reload();
+    }
+}
+
+/// Reads the profiles again (the DJ's own changed, or updates came).
+pub fn reload() -> Arc<Library> {
+    let read = Arc::new(read_library(FOLDERS.get()));
+    *library().write().unwrap_or_else(PoisonError::into_inner) = read.clone();
+    read
+}
+
+/// The models Prisme knows now.
+pub fn current() -> Arc<Library> {
+    library().read().unwrap_or_else(PoisonError::into_inner).clone()
+}
+
+/// The folder of the DJ's own profiles, if Prisme has a data folder.
+pub fn own_folder() -> Option<PathBuf> {
+    FOLDERS.get().map(|f| f.own.clone())
+}
+
+/// The profile of the controller on the MIDI port `port`, if Prisme knows its model: the one
+/// whose name the port holds that is the longest, the first of those as long.
+pub fn of(port: &str) -> Option<Arc<Profile>> {
+    let library = current();
+    let mut best: Option<(usize, &Known)> = None;
+    for known in &library.known {
+        if let Some(fit) = known.profile.fits(port) {
+            if best.is_none_or(|(longest, _)| fit > longest) {
+                best = Some((fit, known));
+            }
+        }
+    }
+    best.map(|(_, known)| known.profile.clone())
+}
+
+/// Where the profile of the controller on `port` comes from.
+pub fn source_of(port: &str) -> Option<Source> {
+    let profile = of(port)?;
+    current().known.iter().find(|k| Arc::ptr_eq(&k.profile, &profile)).map(|k| k.source)
 }
 
 /// Steps in a turn of the jog wheels of the controller on `port`.
@@ -106,14 +211,215 @@ pub fn jog_steps_per_turn(port: &str) -> f64 {
     of(port).map_or(JOG_STEPS_PER_TURN, |p| p.jog_steps_per_turn)
 }
 
+/// The profiles shipped, then those fetched that are later, then the DJ's own.
+fn read_library(folders: Option<&Folders>) -> Library {
+    let mut files: BTreeMap<String, Known> = BTreeMap::new();
+    let mut take = |file: &str, source, profile| {
+        files.insert(file.to_owned(), Known { file: file.to_owned(), source, profile: Arc::new(profile) });
+    };
+    for (file, text) in SHIPPED {
+        match serde_json::from_str(text) {
+            Ok(profile) => take(file, Source::Shipped, profile),
+            Err(e) => warn!("controller profile {file} unreadable: {e}"),
+        }
+    }
+    let mut unreadable = Vec::new();
+    if let Some(folders) = folders {
+        let shipped = shipped_index();
+        for (file, published) in read_index(&folders.updates).profiles {
+            if !later(&published, shipped.profiles.get(&file)) {
+                continue;
+            }
+            let text = std::fs::read_to_string(folders.updates.join(&file)).unwrap_or_default();
+            match serde_json::from_str(&text) {
+                Ok(profile) if digest(&text) == published.sha256 => take(&file, Source::Updated, profile),
+                _ => warn!("controller profile {file} fetched is damaged: the shipped one stays"),
+            }
+        }
+        for (file, read) in own_files(&folders.own) {
+            match read.and_then(|text| serde_json::from_str(&text).map_err(|e| e.to_string())) {
+                Ok(profile) => take(&file, Source::Own, profile),
+                Err(e) => unreadable.push(format!("{file}: {e}")),
+            }
+        }
+    }
+    Library { known: files.into_values().collect(), unreadable }
+}
+
+/// The JSON files of `folder`, read.
+fn own_files(folder: &Path) -> Vec<(String, Result<String, String>)> {
+    let Ok(entries) = std::fs::read_dir(folder) else { return Vec::new() };
+    let mut files: Vec<_> = entries
+        .flatten()
+        .map(|e| e.path())
+        .filter(|p| p.extension().is_some_and(|e| e.eq_ignore_ascii_case("json")))
+        .filter_map(|p| {
+            let name = p.file_name()?.to_string_lossy().into_owned();
+            Some((name, std::fs::read_to_string(&p).map_err(|e| e.to_string())))
+        })
+        .collect();
+    files.sort_by(|a, b| a.0.cmp(&b.0));
+    files
+}
+
+fn shipped_index() -> Index {
+    serde_json::from_str(SHIPPED_INDEX).unwrap_or_default()
+}
+
+fn read_index(folder: &Path) -> Index {
+    std::fs::read(folder.join(INDEX))
+        .ok()
+        .and_then(|bytes| serde_json::from_slice(&bytes).ok())
+        .unwrap_or_default()
+}
+
+/// Whether `published` is to be taken over what this version ships of it.
+fn later(published: &Published, shipped: Option<&Published>) -> bool {
+    published.format <= PROFILE_FORMAT && shipped.is_none_or(|s| published.revision > s.revision)
+}
+
+/// The digest of a profile's text, whatever ends its lines.
+fn digest(text: &str) -> String {
+    let hash = Sha256::digest(text.replace("\r\n", "\n").as_bytes());
+    hash.iter().map(|b| format!("{b:02x}")).collect()
+}
+
+/// Whether the published profiles were last looked for long enough ago.
+pub fn update_due() -> bool {
+    let Some(folders) = FOLDERS.get() else { return false };
+    let fetched = std::fs::metadata(folders.updates.join(INDEX)).and_then(|m| m.modified());
+    fetched.map_or(true, |at| SystemTime::now().duration_since(at).unwrap_or_default() >= UPDATE_EVERY)
+}
+
+/// Fetches the profiles published since this version, or since they were last fetched, and
+/// reads the profiles again: how many came.
+pub async fn update() -> Result<usize, String> {
+    let folders = FOLDERS.get().ok_or("Prisme has no data folder")?;
+    let client = crate::http::client(FETCH_TIMEOUT)?;
+    let index = crate::http::fetch(&client, &format!("{PUBLISHED}{INDEX}")).await?;
+    let index: Index = serde_json::from_slice(&index).map_err(|e| e.to_string())?;
+    std::fs::create_dir_all(&folders.updates).map_err(|e| e.to_string())?;
+    let (shipped, had) = (shipped_index(), read_index(&folders.updates));
+    let mut came = 0;
+    for (file, published) in &index.profiles {
+        let fetched = had.profiles.get(file) == Some(published) && folders.updates.join(file).exists();
+        if !plain_file_name(file) || !later(published, shipped.profiles.get(file)) || fetched {
+            continue;
+        }
+        let bytes = crate::http::fetch(&client, &format!("{PUBLISHED}{file}")).await?;
+        let text = String::from_utf8(bytes).map_err(|e| e.to_string())?;
+        if digest(&text) != published.sha256 || serde_json::from_str::<Profile>(&text).is_err() {
+            warn!("controller profile {file} published is not the one its index tells");
+            continue;
+        }
+        write_whole(&folders.updates.join(file), text.as_bytes())?;
+        came += 1;
+    }
+    let index = serde_json::to_vec_pretty(&index).map_err(|e| e.to_string())?;
+    write_whole(&folders.updates.join(INDEX), &index)?;
+    if came > 0 {
+        info!("{came} controller profiles updated");
+    }
+    reload();
+    Ok(came)
+}
+
+/// A name of a file in the folder itself (an index names no other place).
+fn plain_file_name(name: &str) -> bool {
+    name.ends_with(".json") && name.chars().all(|c| c.is_ascii_alphanumeric() || matches!(c, '-' | '_' | '.'))
+}
+
+/// Writes `bytes` to `path` whole, or leaves what was there.
+fn write_whole(path: &Path, bytes: &[u8]) -> Result<(), String> {
+    let partial = path.with_extension("part");
+    std::fs::write(&partial, bytes).map_err(|e| e.to_string())?;
+    std::fs::rename(&partial, path).map_err(|e| e.to_string())
+}
+
+/// Writes `profile` among the DJ's own, as the file its model names, and reads the profiles
+/// again: where it went.
+pub fn save_own(profile: &Profile) -> Result<PathBuf, String> {
+    let folder = own_folder().ok_or("Prisme has no data folder")?;
+    std::fs::create_dir_all(&folder).map_err(|e| e.to_string())?;
+    let profile = Profile { schema: Some(SCHEMA_URL.to_owned()), ..profile.clone() };
+    let path = folder.join(format!("{}.json", file_stem(&profile.name)));
+    let text = serde_json::to_string_pretty(&profile).map_err(|e| e.to_string())?;
+    write_whole(&path, format!("{text}\n").as_bytes())?;
+    reload();
+    Ok(path)
+}
+
+/// `Pioneer DDJ-400` → `pioneer-ddj-400`.
+fn file_stem(name: &str) -> String {
+    let stem: String =
+        name.to_lowercase().chars().map(|c| if c.is_ascii_alphanumeric() { c } else { '-' }).collect();
+    let stem = stem.split('-').filter(|s| !s.is_empty()).collect::<Vec<_>>().join("-");
+    if stem.is_empty() {
+        "controller".into()
+    } else {
+        stem
+    }
+}
+
+/// The index of `files` (name, text), the revisions of `before` kept where a file did not
+/// change and raised where it did.
+#[cfg(test)]
+fn index_of(files: &[(&str, &str)], before: &Index) -> Index {
+    let profiles = files
+        .iter()
+        .map(|(file, text)| {
+            let sha256 = digest(text);
+            let published = match before.profiles.get(*file) {
+                Some(p) if p.sha256 == sha256 => p.clone(),
+                Some(p) => Published { sha256, revision: p.revision + 1, format: PROFILE_FORMAT },
+                None => Published { sha256, revision: 1, format: PROFILE_FORMAT },
+            };
+            ((*file).to_owned(), published)
+        })
+        .collect();
+    Index { profiles }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+    use prisme_control::{profile_schema, Target};
+
+    const FOLDER: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/controllers");
+
+    /// A folder of its own for a test.
+    fn scratch(name: &str) -> Folders {
+        let root = std::env::temp_dir().join(format!("prisme-profiles-{name}-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&root);
+        Folders { own: root.join(OWN), updates: root.join(UPDATES) }
+    }
+
+    fn known<'l>(library: &'l Library, file: &str) -> &'l Known {
+        library.known.iter().find(|k| k.file == file).expect("the profile")
+    }
+
+    /// The DDJ-400's profile renamed, as text.
+    fn ddj_400_named(name: &str) -> String {
+        let text = SHIPPED.iter().find(|(f, _)| *f == "pioneer-ddj-400.json").expect("shipped").1;
+        let mut profile: Profile = serde_json::from_str(text).unwrap();
+        profile.name = name.into();
+        serde_json::to_string(&profile).unwrap()
+    }
+
+    /// `text` fetched as `file`, published at `revision` in `format`.
+    fn fetched(folders: &Folders, file: &str, text: &str, revision: u32, format: u32) {
+        std::fs::create_dir_all(&folders.updates).unwrap();
+        std::fs::write(folders.updates.join(file), text).unwrap();
+        let published = Published { sha256: digest(text), revision, format };
+        let index = Index { profiles: BTreeMap::from([(file.to_owned(), published)]) };
+        std::fs::write(folders.updates.join(INDEX), serde_json::to_vec(&index).unwrap()).unwrap();
+    }
 
     #[test]
-    fn every_bundled_profile_reads() {
-        assert_eq!(bundled().len(), BUNDLED.len());
-        for profile in bundled() {
+    fn every_shipped_profile_reads() {
+        let library = read_library(None);
+        assert_eq!(library.known.len(), SHIPPED.len());
+        for Known { profile, .. } in &library.known {
             assert!(!profile.ports.is_empty(), "{} names no port", profile.name);
             assert!(!profile.controls.is_empty(), "{} maps nothing", profile.name);
         }
@@ -121,24 +427,109 @@ mod tests {
 
     #[test]
     fn a_controller_finds_its_profile() {
-        assert_eq!(of("DDJ-SB2").map(|p| p.name.as_str()), Some("Pioneer DDJ-SB2"));
-        assert_eq!(
-            of("PIONEER DDJ-SB2:PIONEER DDJ-SB2 MIDI 1 20:0").map(|p| p.name.as_str()),
-            Some("Pioneer DDJ-SB2")
-        );
-        assert_eq!(of("DDJ-400").map(|p| p.name.as_str()), Some("Pioneer DDJ-400"));
+        assert_eq!(of("DDJ-SB2").map(|p| p.name.clone()).as_deref(), Some("Pioneer DDJ-SB2"));
+        let port = "PIONEER DDJ-SB2:PIONEER DDJ-SB2 MIDI 1 20:0";
+        assert_eq!(of(port).map(|p| p.name.clone()).as_deref(), Some("Pioneer DDJ-SB2"));
+        assert_eq!(of("DDJ-400").map(|p| p.name.clone()).as_deref(), Some("Pioneer DDJ-400"));
         assert!(of("DDJ-1000").is_none());
     }
 
     #[test]
     fn each_model_is_found_by_its_own_ports() {
-        for profile in bundled() {
+        for Known { profile, .. } in &current().known {
             let brand = profile.name.split(' ').next().unwrap_or_default();
             for port in &profile.ports {
                 for name in [port.clone(), format!("{brand} {port}"), format!("{brand} {port} MIDI 1")] {
-                    assert_eq!(of(&name).map(|p| p.name.as_str()), Some(profile.name.as_str()), "{name}");
+                    assert_eq!(
+                        of(&name).map(|p| p.name.clone()).as_deref(),
+                        Some(profile.name.as_str()),
+                        "{name}"
+                    );
                 }
             }
+        }
+    }
+
+    #[test]
+    fn a_later_profile_fetched_replaces_the_shipped_one_and_the_djs_own_both() {
+        let folders = scratch("layers");
+        let shipped = shipped_index().profiles["pioneer-ddj-400.json"].revision;
+        fetched(&folders, "pioneer-ddj-400.json", &ddj_400_named("Updated"), shipped + 1, PROFILE_FORMAT);
+        let library = read_library(Some(&folders));
+        assert_eq!(known(&library, "pioneer-ddj-400.json").source, Source::Updated);
+        assert_eq!(known(&library, "pioneer-ddj-400.json").profile.name, "Updated");
+
+        std::fs::create_dir_all(&folders.own).unwrap();
+        std::fs::write(folders.own.join("pioneer-ddj-400.json"), ddj_400_named("Mine")).unwrap();
+        std::fs::write(folders.own.join("my-own.json"), ddj_400_named("New model")).unwrap();
+        std::fs::write(folders.own.join("broken.json"), "{ \"name\": ").unwrap();
+        let library = read_library(Some(&folders));
+        assert_eq!(known(&library, "pioneer-ddj-400.json").profile.name, "Mine");
+        assert_eq!(known(&library, "my-own.json").source, Source::Own);
+        assert_eq!(library.known.len(), SHIPPED.len() + 1);
+        assert!(library.unreadable.len() == 1 && library.unreadable[0].starts_with("broken.json: "));
+    }
+
+    #[test]
+    fn a_profile_fetched_is_left_when_older_damaged_or_of_a_later_format() {
+        let shipped = shipped_index().profiles["pioneer-ddj-400.json"].revision;
+        let text = ddj_400_named("Fetched");
+        for (case, revision, format, damaged) in [
+            ("older", shipped, PROFILE_FORMAT, false),
+            ("later format", shipped + 1, PROFILE_FORMAT + 1, false),
+            ("damaged", shipped + 1, PROFILE_FORMAT, true),
+        ] {
+            let folders = scratch(&case.replace(' ', "-"));
+            fetched(&folders, "pioneer-ddj-400.json", &text, revision, format);
+            if damaged {
+                std::fs::write(folders.updates.join("pioneer-ddj-400.json"), ddj_400_named("Changed"))
+                    .unwrap();
+            }
+            let library = read_library(Some(&folders));
+            assert_eq!(known(&library, "pioneer-ddj-400.json").source, Source::Shipped, "{case}");
+        }
+    }
+
+    #[test]
+    fn a_changed_profile_is_published_as_a_later_revision() {
+        let before = index_of(&[("a.json", "{}"), ("b.json", "[]")], &Index::default());
+        assert_eq!(before.profiles["a.json"].revision, 1);
+        let after = index_of(&[("a.json", "{}"), ("b.json", "[1]"), ("c.json", "")], &before);
+        assert_eq!(after.profiles["a.json"], before.profiles["a.json"]);
+        assert_eq!(after.profiles["b.json"].revision, 2);
+        assert_eq!(after.profiles["c.json"].revision, 1);
+        assert_eq!(digest("{\r\n}"), digest("{\n}"));
+    }
+
+    #[test]
+    fn names_of_files_stay_in_their_folder() {
+        assert!(plain_file_name("pioneer-ddj-400.json"));
+        assert!(
+            !plain_file_name("../preferences.json")
+                && !plain_file_name("a/b.json")
+                && !plain_file_name("x.exe")
+        );
+        assert_eq!(file_stem("Allen & Heath Xone:K2"), "allen-heath-xone-k2");
+        assert_eq!(file_stem("***"), "controller");
+    }
+
+    /// The index and the schema published beside the profiles follow them and the format;
+    /// `PRISME_WRITE_PROFILES=1` writes them (`targets.json` comes from the page's tests).
+    #[test]
+    fn the_published_index_and_schema_are_up_to_date() {
+        let index = index_of(SHIPPED, &shipped_index());
+        let index = format!("{}\n", serde_json::to_string_pretty(&index).unwrap());
+        let targets: Vec<Target> =
+            serde_json::from_str(&std::fs::read_to_string(format!("{FOLDER}/targets.json")).unwrap())
+                .unwrap();
+        let schema = format!("{}\n", serde_json::to_string_pretty(&profile_schema(&targets)).unwrap());
+        for (file, text) in [(INDEX, index), ("profile.schema.json", schema)] {
+            let path = format!("{FOLDER}/{file}");
+            if std::env::var_os("PRISME_WRITE_PROFILES").is_some() {
+                std::fs::write(&path, &text).unwrap();
+            }
+            let written = std::fs::read_to_string(&path).unwrap_or_default().replace("\r\n", "\n");
+            assert!(written == text, "{file} is behind: run the test again with PRISME_WRITE_PROFILES=1");
         }
     }
 }

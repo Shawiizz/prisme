@@ -1,4 +1,5 @@
 {
+  "$schema": "https://raw.githubusercontent.com/Shawiizz/prisme/main/apps/prisme-desktop/controllers/profile.schema.json",
   "name": "Behringer CMD MM-1",
   "ports": ["CMD MM-1"],
   "credits": "From the Behringer CMD MM-1 mapping of Mixxx by Swiftb0y (GPL-2.0-or-later).",

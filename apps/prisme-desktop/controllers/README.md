@@ -3,7 +3,37 @@
 A profile maps a controller model as soon as it is turned on in Settings → MIDI
 controllers, before anything is learnt on it. Learning a control on it takes the profile's
 place for that control and that action; removing an action removes it from the profile's
-controls too. Profiles are compiled into the app (`src/controller_profiles.rs`).
+controls too.
+
+## Where profiles come from
+
+Three layers, each replacing the one before it for the same file name
+(`src/controller_profiles.rs`):
+
+1. The profiles shipped with the version of Prisme (this folder, compiled in).
+2. The profiles published since, fetched from this folder on GitHub once a day (or from
+   Settings → MIDI controllers → Look for updates) into the data folder's
+   `controller-updates`. `index.json` lists them: of each file, the digest of its text, its
+   revision (raised at each change) and the version of the format it was written in. A
+   Prisme takes a published profile only if it is a later revision than the one it ships, in
+   a format it reads (`PROFILE_FORMAT` in `crates/prisme-control`).
+3. The DJ's own, in the data folder's `controllers` (Settings → MIDI controllers → Open the
+   folder): a file of the same name as a shipped one replaces it, another adds a model.
+   **Export as a profile**, beside a controller in use, writes there what it drives now, what
+   was learnt included: a start for a profile of one's own, or one to send.
+
+## Schema
+
+`profile.schema.json` is the format as a JSON Schema, generated from the types Prisme reads
+(`crates/prisme-control`) with the actions of the app (`targets.json`, from
+`frontend/src/app/core/control/controls.ts`). A profile naming it as its `"$schema"` is
+checked and completed by editors such as VS Code: misspelt fields, unknown actions, MIDI
+values out of range.
+
+The tests keep the published files in step: `PRISME_WRITE_TARGETS=1 npm test` in `frontend`
+writes `targets.json`, then `PRISME_WRITE_PROFILES=1 cargo test -p prisme-desktop
+controller_profiles` writes `index.json` and `profile.schema.json`. A profile changed or added
+gets a later revision in the index then.
 
 ## Format
 

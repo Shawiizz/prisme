@@ -1,4 +1,5 @@
 {
+  "$schema": "https://raw.githubusercontent.com/Shawiizz/prisme/main/apps/prisme-desktop/controllers/profile.schema.json",
   "name": "Denon MC6000MK2",
   "ports": ["MC6000MK2"],
   "credits": "From the Denon MC6000MK2 mapping of Mixxx by Uwe Klotz a/k/a tapir (GPL-2.0-or-later).",

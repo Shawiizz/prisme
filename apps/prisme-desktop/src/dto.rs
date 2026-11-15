@@ -1029,6 +1029,28 @@ pub struct ControllerDto {
     pub profile: Option<String>,
     /// Its profile was tried on the controller itself, not only read from another program's.
     pub verified: bool,
+    /// Where its profile comes from.
+    pub profile_source: Option<crate::controller_profiles::Source>,
+}
+
+/// The controller models Prisme knows, and where the DJ's own profiles go.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ControllerProfilesDto {
+    pub profiles: Vec<ControllerProfileDto>,
+    /// The DJ's files that could not be read, and why (`file: why`).
+    pub unreadable: Vec<String>,
+    /// The folder of the DJ's own profiles, if Prisme has a data folder.
+    pub folder: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ControllerProfileDto {
+    pub file: String,
+    pub name: String,
+    pub source: crate::controller_profiles::Source,
+    pub verified: bool,
 }
 
 /// A mapped control moved: the action and its value (see `prisme_control::Encoding`).

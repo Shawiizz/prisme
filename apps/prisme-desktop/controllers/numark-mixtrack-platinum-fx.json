@@ -1,4 +1,5 @@
 {
+  "$schema": "https://raw.githubusercontent.com/Shawiizz/prisme/main/apps/prisme-desktop/controllers/profile.schema.json",
   "name": "Numark Mixtrack Platinum FX",
   "ports": ["Mixtrack Platinum FX"],
   "credits": "From the Numark Mixtrack Platinum FX mapping of Mixxx by Evoixmr, QGazQ, Octopussy, h67ma, bad1dea5, photoenix, Matthew Nicholson, Ending, Kaj Bostrom (GPL-2.0-or-later).",

@@ -1,4 +1,5 @@
 {
+  "$schema": "https://raw.githubusercontent.com/Shawiizz/prisme/main/apps/prisme-desktop/controllers/profile.schema.json",
   "name": "Numark Mixtrack Pro FX",
   "ports": ["Mixtrack Pro FX"],
   "credits": "From the Numark Mixtrack Pro FX mapping of Mixxx by h67ma, bad1dea5, photoenix (GPL-2.0-or-later).",

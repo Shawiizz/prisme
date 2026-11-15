@@ -1,7 +1,12 @@
 use crate::light::{LightValue, LightValues};
 use crate::mapping::{Encoding, Hold, Mapping, Modes, When, MODE};
 use crate::message::Control;
+use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
+
+/// The version of the profile format, raised when profiles may use what an older Prisme does
+/// not read: a profile published after it was raised is left to the Prisme that reads it.
+pub const PROFILE_FORMAT: u32 = 1;
 
 /// Steps in a turn of a jog wheel whose model does not tell. Most controllers send
 /// hundreds; the number only scales scratches and nudges.
@@ -9,9 +14,13 @@ pub const JOG_STEPS_PER_TURN: f64 = 720.0;
 
 /// What Prisme knows of a controller model before anything is learnt on it: the controls
 /// it maps, the lights beyond those controls' own, and what it is sent once opened.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct Profile {
+    /// The schema of the format, for editors: [`crate::SCHEMA_URL`].
+    #[serde(rename = "$schema", default, skip_serializing_if = "Option::is_none")]
+    pub schema: Option<String>,
+    /// The model, as the settings show it.
     pub name: String,
     /// The controller is the MIDI port whose name holds one of these (case aside); of
     /// several models, the one whose name is the longest (a DDJ-SB2 is no DDJ-SB).
@@ -46,7 +55,7 @@ pub struct Profile {
 }
 
 /// A message sent every `every_ms` milliseconds.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct KeepAlive {
     pub every_ms: u32,
@@ -55,7 +64,7 @@ pub struct KeepAlive {
 
 /// A group of controls and its modes, the first one to begin with, each chosen by a key
 /// whose light shows whether it is the one (`on`, `off`).
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct ModeGroup {
     pub group: String,
@@ -63,7 +72,7 @@ pub struct ModeGroup {
     pub select: Vec<ModeSelect>,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct ModeSelect {
     pub control: Control,
@@ -77,7 +86,7 @@ pub struct ModeSelect {
 
 /// A level shown on the controller: `source`'s (`deck1`…, `main`), from 0 to `max` on
 /// `control`, along `curve` (the level raised to it: 1 straight).
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct Meter {
     pub source: String,
@@ -96,7 +105,7 @@ impl Meter {
 }
 
 /// A control of the model and the action it drives: a [`Mapping`] before a device has it.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct ProfileControl {
     pub control: Control,
@@ -127,7 +136,7 @@ pub struct ProfileControl {
 
 /// A light that is not the control of its action: its values by state beside it (`"on":
 /// 100`, `"playing": {"blink": [9, 0], "ms": 250}`).
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct ProfileLight {
     pub target: String,
@@ -180,8 +189,13 @@ impl Profile {
             .map(|(_, p)| p)
     }
 
-    /// How closely the port `port` (in lower case) is this model: the length of the longest
-    /// of its names the port holds; `None` if it holds none.
+    /// How closely the port `port` is this model: the length of the longest of its names the
+    /// port holds, case aside; `None` if it holds none.
+    pub fn fits(&self, port: &str) -> Option<usize> {
+        self.fit(&port.to_lowercase())
+    }
+
+    /// [`Profile::fits`], `port` in lower case.
     fn fit(&self, port: &str) -> Option<usize> {
         self.ports
             .iter()
@@ -229,6 +243,25 @@ impl Profile {
     /// The modes its groups begin in.
     pub fn first_modes(&self) -> Modes {
         self.modes.iter().filter_map(|g| Some((g.group.clone(), g.modes.first()?.clone()))).collect()
+    }
+}
+
+impl From<&Mapping> for ProfileControl {
+    /// What a device's mapping is in a profile: the same, for any device of the model.
+    fn from(m: &Mapping) -> Self {
+        Self {
+            control: m.control,
+            target: m.target.clone(),
+            encoding: m.encoding,
+            fine: m.fine,
+            shift: m.shift,
+            when: m.when.clone(),
+            invert: m.invert,
+            light: m.light.clone(),
+            on_value: m.on_value,
+            also: m.also.clone(),
+            hold: m.hold.clone(),
+        }
     }
 }
 

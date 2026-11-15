@@ -1,4 +1,5 @@
 {
+  "$schema": "https://raw.githubusercontent.com/Shawiizz/prisme/main/apps/prisme-desktop/controllers/profile.schema.json",
   "name": "Hercules DJControl Compact",
   "ports": ["DJControl Compact"],
   "credits": "From the Hercules DJControl Compact mapping of Mixxx by Owen Williams (GPL-2.0-or-later).",

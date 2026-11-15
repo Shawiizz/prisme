@@ -1,4 +1,5 @@
 {
+  "$schema": "https://raw.githubusercontent.com/Shawiizz/prisme/main/apps/prisme-desktop/controllers/profile.schema.json",
   "name": "Hercules DJ Control Instinct",
   "ports": ["DJControl Instinct"],
   "credits": "From the Hercules DJ Control Instinct mapping of Mixxx by Mich Wyser (GPL-2.0-or-later).",

@@ -1,17 +1,20 @@
+use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 /// A physical control of a controller.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct Control {
     pub kind: ControlKind,
     /// 0 to 15.
+    #[schemars(range(max = 15))]
     pub channel: u8,
     /// Note or controller number; 0 for the pitch bend.
+    #[schemars(range(max = 127))]
     pub number: u8,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub enum ControlKind {
     /// Buttons and pads.

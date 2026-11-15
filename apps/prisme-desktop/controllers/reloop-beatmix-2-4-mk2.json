@@ -1,4 +1,5 @@
 {
+  "$schema": "https://raw.githubusercontent.com/Shawiizz/prisme/main/apps/prisme-desktop/controllers/profile.schema.json",
   "name": "Reloop Beatmix 2/4 MK2",
   "ports": ["Beatmix 2", "Beatmix 4"],
   "credits": "From the Reloop Beatmix 2/4 MK2 mapping of Mixxx by Sébastien Blaisot (GPL-2.0-or-later).",

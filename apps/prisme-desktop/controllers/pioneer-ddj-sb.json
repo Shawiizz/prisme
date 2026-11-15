@@ -1,4 +1,5 @@
 {
+  "$schema": "https://raw.githubusercontent.com/Shawiizz/prisme/main/apps/prisme-desktop/controllers/profile.schema.json",
   "name": "Pioneer DDJ-SB",
   "ports": ["DDJ-SB"],
   "credits": "From the Pioneer DDJ-SB mapping of Mixxx by Joan Ardiaca Jové (GPL-2.0-or-later).",

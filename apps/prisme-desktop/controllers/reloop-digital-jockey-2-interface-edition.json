@@ -1,4 +1,5 @@
 {
+  "$schema": "https://raw.githubusercontent.com/Shawiizz/prisme/main/apps/prisme-desktop/controllers/profile.schema.json",
   "name": "Reloop Digital Jockey 2 Interface Edition",
   "ports": ["Digital Jockey 2 Interface", "Digital Jockey 2 IE", "DIGITALJOCKEY2"],
   "credits": "From the Reloop Digital Jockey 2 Interface Edition mapping of Mixxx by DJ aK (GPL-2.0-or-later).",

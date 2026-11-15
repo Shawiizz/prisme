@@ -1,4 +1,5 @@
 {
+  "$schema": "https://raw.githubusercontent.com/Shawiizz/prisme/main/apps/prisme-desktop/controllers/profile.schema.json",
   "name": "Hercules DJControl Inpulse 500",
   "ports": ["DJControl Inpulse 500"],
   "credits": "From the Hercules DJControl Inpulse 500 mapping of Mixxx by DJ Phatso, Event1ne and Reset Reboot (GPL-2.0-or-later).",

@@ -1,4 +1,5 @@
 {
+  "$schema": "https://raw.githubusercontent.com/Shawiizz/prisme/main/apps/prisme-desktop/controllers/profile.schema.json",
   "name": "Numark DJ2Go",
   "ports": ["Numark DJ2Go"],
   "credits": "From the Numark DJ2Go mapping of Mixxx by Alimantado, mod by Coval (GPL-2.0-or-later).",

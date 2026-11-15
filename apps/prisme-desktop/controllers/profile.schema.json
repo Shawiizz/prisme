@@ -1,0 +1,1221 @@
+{
+  "$defs": {
+    "Control": {
+      "description": "A physical control of a controller.",
+      "properties": {
+        "channel": {
+          "description": "0 to 15.",
+          "format": "uint8",
+          "maximum": 15,
+          "minimum": 0,
+          "type": "integer"
+        },
+        "kind": {
+          "$ref": "#/$defs/ControlKind"
+        },
+        "number": {
+          "description": "Note or controller number; 0 for the pitch bend.",
+          "format": "uint8",
+          "maximum": 127,
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "kind",
+        "channel",
+        "number"
+      ],
+      "type": "object"
+    },
+    "ControlKind": {
+      "oneOf": [
+        {
+          "enum": [
+            "pitchBend"
+          ],
+          "type": "string"
+        },
+        {
+          "const": "note",
+          "description": "Buttons and pads.",
+          "type": "string"
+        },
+        {
+          "const": "controlChange",
+          "description": "Knobs, faders, encoders (and the buttons of some controllers).",
+          "type": "string"
+        }
+      ]
+    },
+    "Encoding": {
+      "description": "How a control's values are read.",
+      "oneOf": [
+        {
+          "const": "absolute",
+          "description": "A position, from 0 to 1 (a button: 1 pressed, 0 released).",
+          "type": "string"
+        },
+        {
+          "const": "relative",
+          "description": "An endless encoder sending steps in two's complement: 1 to 63 to the right, 127\n(one step) down to 65 to the left.",
+          "type": "string"
+        },
+        {
+          "const": "relativeOffset",
+          "description": "Steps around 64: 65 is one step to the right, 63 one to the left (Pioneer, Numark).",
+          "type": "string"
+        },
+        {
+          "const": "relativeSigned",
+          "description": "Steps with a sign bit: 1 to 63 to the right, 65 (one step) to 127 to the left.",
+          "type": "string"
+        }
+      ]
+    },
+    "Hold": {
+      "description": "A second action for a key held down for `ms` milliseconds: pressed and let go sooner, it\ndrives its own.",
+      "properties": {
+        "ms": {
+          "format": "uint32",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "target": {
+          "$ref": "#/$defs/Target"
+        }
+      },
+      "required": [
+        "ms",
+        "target"
+      ],
+      "type": "object"
+    },
+    "KeepAlive": {
+      "description": "A message sent every `every_ms` milliseconds.",
+      "properties": {
+        "everyMs": {
+          "format": "uint32",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "message": {
+          "items": {
+            "format": "uint8",
+            "maximum": 255,
+            "minimum": 0,
+            "type": "integer"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "everyMs",
+        "message"
+      ],
+      "type": "object"
+    },
+    "LightValue": {
+      "anyOf": [
+        {
+          "format": "uint8",
+          "maximum": 255,
+          "minimum": 0,
+          "type": "integer"
+        },
+        {
+          "description": "Each of the two values for `ms` milliseconds.",
+          "properties": {
+            "blink": {
+              "items": {
+                "format": "uint8",
+                "maximum": 255,
+                "minimum": 0,
+                "type": "integer"
+              },
+              "maxItems": 2,
+              "minItems": 2,
+              "type": "array"
+            },
+            "ms": {
+              "format": "uint32",
+              "minimum": 0,
+              "type": "integer"
+            }
+          },
+          "required": [
+            "blink",
+            "ms"
+          ],
+          "type": "object"
+        }
+      ],
+      "description": "A light's value in a state: steady, or two in turn."
+    },
+    "LightValues": {
+      "additionalProperties": {
+        "$ref": "#/$defs/LightValue"
+      },
+      "description": "What a light shows for each state of its action: `on` and `off`, or the action's own\n(`loaded`, `playing`…). A state it does not name shows as `on`, but `off`: 127 and 0\nwhen it names neither.",
+      "type": "object"
+    },
+    "Meter": {
+      "description": "A level shown on the controller: `source`'s (`deck1`…, `main`), from 0 to `max` on\n`control`, along `curve` (the level raised to it: 1 straight).",
+      "properties": {
+        "control": {
+          "$ref": "#/$defs/Control"
+        },
+        "curve": {
+          "format": "float",
+          "type": "number"
+        },
+        "max": {
+          "format": "uint8",
+          "maximum": 255,
+          "minimum": 0,
+          "type": "integer"
+        },
+        "source": {
+          "enum": [
+            "deck1",
+            "deck2",
+            "deck3",
+            "deck4",
+            "main"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "source",
+        "control"
+      ],
+      "type": "object"
+    },
+    "ModeGroup": {
+      "description": "A group of controls and its modes, the first one to begin with, each chosen by a key\nwhose light shows whether it is the one (`on`, `off`).",
+      "properties": {
+        "group": {
+          "type": "string"
+        },
+        "modes": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "select": {
+          "items": {
+            "$ref": "#/$defs/ModeSelect"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "group",
+        "modes",
+        "select"
+      ],
+      "type": "object"
+    },
+    "ModeSelect": {
+      "properties": {
+        "control": {
+          "$ref": "#/$defs/Control"
+        },
+        "light": {
+          "$ref": "#/$defs/LightValues"
+        },
+        "mode": {
+          "type": "string"
+        },
+        "shift": {
+          "description": "Chosen while the controller's shift is held.",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "control",
+        "mode"
+      ],
+      "type": "object"
+    },
+    "ProfileControl": {
+      "description": "A control of the model and the action it drives: a [`Mapping`] before a device has it.",
+      "properties": {
+        "also": {
+          "description": "Other actions it drives along with its own.",
+          "items": {
+            "$ref": "#/$defs/Target"
+          },
+          "type": "array"
+        },
+        "control": {
+          "$ref": "#/$defs/Control"
+        },
+        "encoding": {
+          "$ref": "#/$defs/Encoding"
+        },
+        "fine": {
+          "format": "uint8",
+          "maximum": 255,
+          "minimum": 0,
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "hold": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Hold"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Another action for the key held down a while."
+        },
+        "invert": {
+          "type": "boolean"
+        },
+        "light": {
+          "$ref": "#/$defs/LightValues",
+          "description": "Its light's values, when they are not 127 and 0."
+        },
+        "onValue": {
+          "description": "Drives its action, as a key pressed, when the control sends this value.",
+          "format": "uint16",
+          "maximum": 65535,
+          "minimum": 0,
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "shift": {
+          "type": "boolean"
+        },
+        "target": {
+          "$ref": "#/$defs/Target"
+        },
+        "when": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/When"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "control",
+        "target"
+      ],
+      "type": "object"
+    },
+    "ProfileLight": {
+      "additionalProperties": {
+        "$ref": "#/$defs/LightValue"
+      },
+      "description": "A light that is not the control of its action: its values by state beside it (`\"on\":\n100`, `\"playing\": {\"blink\": [9, 0], \"ms\": 250}`).",
+      "properties": {
+        "control": {
+          "$ref": "#/$defs/Control"
+        },
+        "target": {
+          "$ref": "#/$defs/Target"
+        },
+        "when": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/When"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "While its group is in this mode only."
+        }
+      },
+      "required": [
+        "target",
+        "control"
+      ],
+      "type": "object"
+    },
+    "Target": {
+      "anyOf": [
+        {
+          "enum": [
+            "deck1.play",
+            "deck1.cue",
+            "deck1.sync",
+            "deck1.hotcue1",
+            "deck1.hotcue2",
+            "deck1.hotcue3",
+            "deck1.hotcue4",
+            "deck1.hotcue5",
+            "deck1.hotcue6",
+            "deck1.hotcue7",
+            "deck1.hotcue8",
+            "deck1.hotcue1.delete",
+            "deck1.hotcue2.delete",
+            "deck1.hotcue3.delete",
+            "deck1.hotcue4.delete",
+            "deck1.hotcue5.delete",
+            "deck1.hotcue6.delete",
+            "deck1.hotcue7.delete",
+            "deck1.hotcue8.delete",
+            "deck1.jog",
+            "deck1.jog.touch",
+            "deck1.jog.search",
+            "deck1.loop",
+            "deck1.loop.in",
+            "deck1.loop.out",
+            "deck1.reloop",
+            "deck1.loop.halve",
+            "deck1.loop.double",
+            "deck1.jump.back",
+            "deck1.jump.forward",
+            "deck1.bend.down",
+            "deck1.bend.up",
+            "deck1.tempo.reset",
+            "deck1.key.up",
+            "deck1.key.down",
+            "deck1.key.reset",
+            "deck1.slip",
+            "deck1.censor",
+            "deck1.keylock",
+            "deck1.vocals",
+            "deck1.instrumental",
+            "deck1.drums",
+            "deck1.bass",
+            "deck1.melody",
+            "deck1.vocals.level",
+            "deck1.instrumental.level",
+            "deck1.drums.level",
+            "deck1.bass.level",
+            "deck1.melody.level",
+            "deck1.sample1",
+            "deck1.sample2",
+            "deck1.sample3",
+            "deck1.sample4",
+            "deck1.sample5",
+            "deck1.sample6",
+            "deck1.sample7",
+            "deck1.sample8",
+            "deck1.fx",
+            "deck1.fx.on",
+            "deck1.fx.off",
+            "deck1.fx.next",
+            "deck1.fx.previous",
+            "deck1.fx.part",
+            "deck1.fx.mix",
+            "deck1.fx.amount",
+            "deck1.roll1",
+            "deck1.roll2",
+            "deck1.roll3",
+            "deck1.roll4",
+            "deck1.roll5",
+            "deck1.roll6",
+            "deck1.roll7",
+            "deck1.roll8",
+            "deck1.pitch",
+            "deck1.volume",
+            "deck1.trim",
+            "deck1.eq.low",
+            "deck1.eq.mid",
+            "deck1.eq.high",
+            "deck1.eq.low.kill",
+            "deck1.eq.mid.kill",
+            "deck1.eq.high.kill",
+            "deck1.filter",
+            "deck1.headphones",
+            "deck2.play",
+            "deck2.cue",
+            "deck2.sync",
+            "deck2.hotcue1",
+            "deck2.hotcue2",
+            "deck2.hotcue3",
+            "deck2.hotcue4",
+            "deck2.hotcue5",
+            "deck2.hotcue6",
+            "deck2.hotcue7",
+            "deck2.hotcue8",
+            "deck2.hotcue1.delete",
+            "deck2.hotcue2.delete",
+            "deck2.hotcue3.delete",
+            "deck2.hotcue4.delete",
+            "deck2.hotcue5.delete",
+            "deck2.hotcue6.delete",
+            "deck2.hotcue7.delete",
+            "deck2.hotcue8.delete",
+            "deck2.jog",
+            "deck2.jog.touch",
+            "deck2.jog.search",
+            "deck2.loop",
+            "deck2.loop.in",
+            "deck2.loop.out",
+            "deck2.reloop",
+            "deck2.loop.halve",
+            "deck2.loop.double",
+            "deck2.jump.back",
+            "deck2.jump.forward",
+            "deck2.bend.down",
+            "deck2.bend.up",
+            "deck2.tempo.reset",
+            "deck2.key.up",
+            "deck2.key.down",
+            "deck2.key.reset",
+            "deck2.slip",
+            "deck2.censor",
+            "deck2.keylock",
+            "deck2.vocals",
+            "deck2.instrumental",
+            "deck2.drums",
+            "deck2.bass",
+            "deck2.melody",
+            "deck2.vocals.level",
+            "deck2.instrumental.level",
+            "deck2.drums.level",
+            "deck2.bass.level",
+            "deck2.melody.level",
+            "deck2.sample1",
+            "deck2.sample2",
+            "deck2.sample3",
+            "deck2.sample4",
+            "deck2.sample5",
+            "deck2.sample6",
+            "deck2.sample7",
+            "deck2.sample8",
+            "deck2.fx",
+            "deck2.fx.on",
+            "deck2.fx.off",
+            "deck2.fx.next",
+            "deck2.fx.previous",
+            "deck2.fx.part",
+            "deck2.fx.mix",
+            "deck2.fx.amount",
+            "deck2.roll1",
+            "deck2.roll2",
+            "deck2.roll3",
+            "deck2.roll4",
+            "deck2.roll5",
+            "deck2.roll6",
+            "deck2.roll7",
+            "deck2.roll8",
+            "deck2.pitch",
+            "deck2.volume",
+            "deck2.trim",
+            "deck2.eq.low",
+            "deck2.eq.mid",
+            "deck2.eq.high",
+            "deck2.eq.low.kill",
+            "deck2.eq.mid.kill",
+            "deck2.eq.high.kill",
+            "deck2.filter",
+            "deck2.headphones",
+            "deck3.play",
+            "deck3.cue",
+            "deck3.sync",
+            "deck3.hotcue1",
+            "deck3.hotcue2",
+            "deck3.hotcue3",
+            "deck3.hotcue4",
+            "deck3.hotcue5",
+            "deck3.hotcue6",
+            "deck3.hotcue7",
+            "deck3.hotcue8",
+            "deck3.hotcue1.delete",
+            "deck3.hotcue2.delete",
+            "deck3.hotcue3.delete",
+            "deck3.hotcue4.delete",
+            "deck3.hotcue5.delete",
+            "deck3.hotcue6.delete",
+            "deck3.hotcue7.delete",
+            "deck3.hotcue8.delete",
+            "deck3.jog",
+            "deck3.jog.touch",
+            "deck3.jog.search",
+            "deck3.loop",
+            "deck3.loop.in",
+            "deck3.loop.out",
+            "deck3.reloop",
+            "deck3.loop.halve",
+            "deck3.loop.double",
+            "deck3.jump.back",
+            "deck3.jump.forward",
+            "deck3.bend.down",
+            "deck3.bend.up",
+            "deck3.tempo.reset",
+            "deck3.key.up",
+            "deck3.key.down",
+            "deck3.key.reset",
+            "deck3.slip",
+            "deck3.censor",
+            "deck3.keylock",
+            "deck3.vocals",
+            "deck3.instrumental",
+            "deck3.drums",
+            "deck3.bass",
+            "deck3.melody",
+            "deck3.vocals.level",
+            "deck3.instrumental.level",
+            "deck3.drums.level",
+            "deck3.bass.level",
+            "deck3.melody.level",
+            "deck3.sample1",
+            "deck3.sample2",
+            "deck3.sample3",
+            "deck3.sample4",
+            "deck3.sample5",
+            "deck3.sample6",
+            "deck3.sample7",
+            "deck3.sample8",
+            "deck3.fx",
+            "deck3.fx.on",
+            "deck3.fx.off",
+            "deck3.fx.next",
+            "deck3.fx.previous",
+            "deck3.fx.part",
+            "deck3.fx.mix",
+            "deck3.fx.amount",
+            "deck3.roll1",
+            "deck3.roll2",
+            "deck3.roll3",
+            "deck3.roll4",
+            "deck3.roll5",
+            "deck3.roll6",
+            "deck3.roll7",
+            "deck3.roll8",
+            "deck3.pitch",
+            "deck3.volume",
+            "deck3.trim",
+            "deck3.eq.low",
+            "deck3.eq.mid",
+            "deck3.eq.high",
+            "deck3.eq.low.kill",
+            "deck3.eq.mid.kill",
+            "deck3.eq.high.kill",
+            "deck3.filter",
+            "deck3.headphones",
+            "deck4.play",
+            "deck4.cue",
+            "deck4.sync",
+            "deck4.hotcue1",
+            "deck4.hotcue2",
+            "deck4.hotcue3",
+            "deck4.hotcue4",
+            "deck4.hotcue5",
+            "deck4.hotcue6",
+            "deck4.hotcue7",
+            "deck4.hotcue8",
+            "deck4.hotcue1.delete",
+            "deck4.hotcue2.delete",
+            "deck4.hotcue3.delete",
+            "deck4.hotcue4.delete",
+            "deck4.hotcue5.delete",
+            "deck4.hotcue6.delete",
+            "deck4.hotcue7.delete",
+            "deck4.hotcue8.delete",
+            "deck4.jog",
+            "deck4.jog.touch",
+            "deck4.jog.search",
+            "deck4.loop",
+            "deck4.loop.in",
+            "deck4.loop.out",
+            "deck4.reloop",
+            "deck4.loop.halve",
+            "deck4.loop.double",
+            "deck4.jump.back",
+            "deck4.jump.forward",
+            "deck4.bend.down",
+            "deck4.bend.up",
+            "deck4.tempo.reset",
+            "deck4.key.up",
+            "deck4.key.down",
+            "deck4.key.reset",
+            "deck4.slip",
+            "deck4.censor",
+            "deck4.keylock",
+            "deck4.vocals",
+            "deck4.instrumental",
+            "deck4.drums",
+            "deck4.bass",
+            "deck4.melody",
+            "deck4.vocals.level",
+            "deck4.instrumental.level",
+            "deck4.drums.level",
+            "deck4.bass.level",
+            "deck4.melody.level",
+            "deck4.sample1",
+            "deck4.sample2",
+            "deck4.sample3",
+            "deck4.sample4",
+            "deck4.sample5",
+            "deck4.sample6",
+            "deck4.sample7",
+            "deck4.sample8",
+            "deck4.fx",
+            "deck4.fx.on",
+            "deck4.fx.off",
+            "deck4.fx.next",
+            "deck4.fx.previous",
+            "deck4.fx.part",
+            "deck4.fx.mix",
+            "deck4.fx.amount",
+            "deck4.roll1",
+            "deck4.roll2",
+            "deck4.roll3",
+            "deck4.roll4",
+            "deck4.roll5",
+            "deck4.roll6",
+            "deck4.roll7",
+            "deck4.roll8",
+            "deck4.pitch",
+            "deck4.volume",
+            "deck4.trim",
+            "deck4.eq.low",
+            "deck4.eq.mid",
+            "deck4.eq.high",
+            "deck4.eq.low.kill",
+            "deck4.eq.mid.kill",
+            "deck4.eq.high.kill",
+            "deck4.filter",
+            "deck4.headphones",
+            "mixer.crossfader",
+            "mixer.cueMix",
+            "shift",
+            "library.browse",
+            "library.previous",
+            "library.next",
+            "library.load1",
+            "library.load2",
+            "library.load3",
+            "library.load4",
+            "library.load",
+            "library.double1",
+            "library.double2",
+            "library.double3",
+            "library.double4",
+            "library.remove",
+            "library.prepare",
+            "library.selectAll",
+            "library.clearSelection",
+            "library.search",
+            "general.quantize",
+            "general.tempoRange",
+            "general.help",
+            "general.palette",
+            "general.settings"
+          ],
+          "enumDescriptions": [
+            "Deck A: Play / pause (button)",
+            "Deck A: Cue (hold to preview) (button)",
+            "Deck A: Sync (button)",
+            "Deck A: Hot cue 1 (button)",
+            "Deck A: Hot cue 2 (button)",
+            "Deck A: Hot cue 3 (button)",
+            "Deck A: Hot cue 4 (button)",
+            "Deck A: Hot cue 5 (button)",
+            "Deck A: Hot cue 6 (button)",
+            "Deck A: Hot cue 7 (button)",
+            "Deck A: Hot cue 8 (button)",
+            "Deck A: Delete hot cue 1 (button)",
+            "Deck A: Delete hot cue 2 (button)",
+            "Deck A: Delete hot cue 3 (button)",
+            "Deck A: Delete hot cue 4 (button)",
+            "Deck A: Delete hot cue 5 (button)",
+            "Deck A: Delete hot cue 6 (button)",
+            "Deck A: Delete hot cue 7 (button)",
+            "Deck A: Delete hot cue 8 (button)",
+            "Deck A: Jog wheel (turn) (encoder)",
+            "Deck A: Jog wheel (touch: scratch) (button)",
+            "Deck A: Jog wheel (search through the track) (encoder)",
+            "Deck A: Loop 4 beats / exit (button)",
+            "Deck A: Loop in (button)",
+            "Deck A: Loop out (button)",
+            "Deck A: Reloop (button)",
+            "Deck A: Halve the loop (button)",
+            "Deck A: Double the loop (button)",
+            "Deck A: Jump back 4 beats (button)",
+            "Deck A: Jump 4 beats ahead (button)",
+            "Deck A: Slow down while held (button)",
+            "Deck A: Speed up while held (button)",
+            "Deck A: Tempo back to the track (button)",
+            "Deck A: Key up a semitone (button)",
+            "Deck A: Key down a semitone (button)",
+            "Deck A: Key back to the track (button)",
+            "Deck A: Slip (button)",
+            "Deck A: Censor while held (button)",
+            "Deck A: Key lock (button)",
+            "Deck A: Vocals (button)",
+            "Deck A: Instrumental (button)",
+            "Deck A: Drums (button)",
+            "Deck A: Bass (button)",
+            "Deck A: Melody (the other instruments) (button)",
+            "Deck A: Vocals level (fader)",
+            "Deck A: Instrumental level (fader)",
+            "Deck A: Drums level (fader)",
+            "Deck A: Bass level (fader)",
+            "Deck A: Melody level (fader)",
+            "Deck A: Sample 1 (button)",
+            "Deck A: Sample 2 (button)",
+            "Deck A: Sample 3 (button)",
+            "Deck A: Sample 4 (button)",
+            "Deck A: Sample 5 (button)",
+            "Deck A: Sample 6 (button)",
+            "Deck A: Sample 7 (button)",
+            "Deck A: Sample 8 (button)",
+            "Deck A: Effect on / off (button)",
+            "Deck A: Effect on (button)",
+            "Deck A: Effect off (button)",
+            "Deck A: Next effect (button)",
+            "Deck A: Previous effect (button)",
+            "Deck A: Effect on the next part (button)",
+            "Deck A: Effect level (fader)",
+            "Deck A: Effect amount (fader)",
+            "Deck A: Roll 1/16 while held (button)",
+            "Deck A: Roll 1/8 while held (button)",
+            "Deck A: Roll 1/4 while held (button)",
+            "Deck A: Roll 1/2 while held (button)",
+            "Deck A: Roll 1 while held (button)",
+            "Deck A: Roll 2 while held (button)",
+            "Deck A: Roll 4 while held (button)",
+            "Deck A: Roll 8 while held (button)",
+            "Deck A: Tempo (fader)",
+            "Deck A: Volume (fader)",
+            "Deck A: Gain (fader)",
+            "Deck A: EQ low (fader)",
+            "Deck A: EQ mid (fader)",
+            "Deck A: EQ high (fader)",
+            "Deck A: Kill the bass while held (button)",
+            "Deck A: Kill the mids while held (button)",
+            "Deck A: Kill the highs while held (button)",
+            "Deck A: Filter (fader)",
+            "Deck A: Headphones (pre-listen) (button)",
+            "Deck B: Play / pause (button)",
+            "Deck B: Cue (hold to preview) (button)",
+            "Deck B: Sync (button)",
+            "Deck B: Hot cue 1 (button)",
+            "Deck B: Hot cue 2 (button)",
+            "Deck B: Hot cue 3 (button)",
+            "Deck B: Hot cue 4 (button)",
+            "Deck B: Hot cue 5 (button)",
+            "Deck B: Hot cue 6 (button)",
+            "Deck B: Hot cue 7 (button)",
+            "Deck B: Hot cue 8 (button)",
+            "Deck B: Delete hot cue 1 (button)",
+            "Deck B: Delete hot cue 2 (button)",
+            "Deck B: Delete hot cue 3 (button)",
+            "Deck B: Delete hot cue 4 (button)",
+            "Deck B: Delete hot cue 5 (button)",
+            "Deck B: Delete hot cue 6 (button)",
+            "Deck B: Delete hot cue 7 (button)",
+            "Deck B: Delete hot cue 8 (button)",
+            "Deck B: Jog wheel (turn) (encoder)",
+            "Deck B: Jog wheel (touch: scratch) (button)",
+            "Deck B: Jog wheel (search through the track) (encoder)",
+            "Deck B: Loop 4 beats / exit (button)",
+            "Deck B: Loop in (button)",
+            "Deck B: Loop out (button)",
+            "Deck B: Reloop (button)",
+            "Deck B: Halve the loop (button)",
+            "Deck B: Double the loop (button)",
+            "Deck B: Jump back 4 beats (button)",
+            "Deck B: Jump 4 beats ahead (button)",
+            "Deck B: Slow down while held (button)",
+            "Deck B: Speed up while held (button)",
+            "Deck B: Tempo back to the track (button)",
+            "Deck B: Key up a semitone (button)",
+            "Deck B: Key down a semitone (button)",
+            "Deck B: Key back to the track (button)",
+            "Deck B: Slip (button)",
+            "Deck B: Censor while held (button)",
+            "Deck B: Key lock (button)",
+            "Deck B: Vocals (button)",
+            "Deck B: Instrumental (button)",
+            "Deck B: Drums (button)",
+            "Deck B: Bass (button)",
+            "Deck B: Melody (the other instruments) (button)",
+            "Deck B: Vocals level (fader)",
+            "Deck B: Instrumental level (fader)",
+            "Deck B: Drums level (fader)",
+            "Deck B: Bass level (fader)",
+            "Deck B: Melody level (fader)",
+            "Deck B: Sample 1 (button)",
+            "Deck B: Sample 2 (button)",
+            "Deck B: Sample 3 (button)",
+            "Deck B: Sample 4 (button)",
+            "Deck B: Sample 5 (button)",
+            "Deck B: Sample 6 (button)",
+            "Deck B: Sample 7 (button)",
+            "Deck B: Sample 8 (button)",
+            "Deck B: Effect on / off (button)",
+            "Deck B: Effect on (button)",
+            "Deck B: Effect off (button)",
+            "Deck B: Next effect (button)",
+            "Deck B: Previous effect (button)",
+            "Deck B: Effect on the next part (button)",
+            "Deck B: Effect level (fader)",
+            "Deck B: Effect amount (fader)",
+            "Deck B: Roll 1/16 while held (button)",
+            "Deck B: Roll 1/8 while held (button)",
+            "Deck B: Roll 1/4 while held (button)",
+            "Deck B: Roll 1/2 while held (button)",
+            "Deck B: Roll 1 while held (button)",
+            "Deck B: Roll 2 while held (button)",
+            "Deck B: Roll 4 while held (button)",
+            "Deck B: Roll 8 while held (button)",
+            "Deck B: Tempo (fader)",
+            "Deck B: Volume (fader)",
+            "Deck B: Gain (fader)",
+            "Deck B: EQ low (fader)",
+            "Deck B: EQ mid (fader)",
+            "Deck B: EQ high (fader)",
+            "Deck B: Kill the bass while held (button)",
+            "Deck B: Kill the mids while held (button)",
+            "Deck B: Kill the highs while held (button)",
+            "Deck B: Filter (fader)",
+            "Deck B: Headphones (pre-listen) (button)",
+            "Deck C: Play / pause (button)",
+            "Deck C: Cue (hold to preview) (button)",
+            "Deck C: Sync (button)",
+            "Deck C: Hot cue 1 (button)",
+            "Deck C: Hot cue 2 (button)",
+            "Deck C: Hot cue 3 (button)",
+            "Deck C: Hot cue 4 (button)",
+            "Deck C: Hot cue 5 (button)",
+            "Deck C: Hot cue 6 (button)",
+            "Deck C: Hot cue 7 (button)",
+            "Deck C: Hot cue 8 (button)",
+            "Deck C: Delete hot cue 1 (button)",
+            "Deck C: Delete hot cue 2 (button)",
+            "Deck C: Delete hot cue 3 (button)",
+            "Deck C: Delete hot cue 4 (button)",
+            "Deck C: Delete hot cue 5 (button)",
+            "Deck C: Delete hot cue 6 (button)",
+            "Deck C: Delete hot cue 7 (button)",
+            "Deck C: Delete hot cue 8 (button)",
+            "Deck C: Jog wheel (turn) (encoder)",
+            "Deck C: Jog wheel (touch: scratch) (button)",
+            "Deck C: Jog wheel (search through the track) (encoder)",
+            "Deck C: Loop 4 beats / exit (button)",
+            "Deck C: Loop in (button)",
+            "Deck C: Loop out (button)",
+            "Deck C: Reloop (button)",
+            "Deck C: Halve the loop (button)",
+            "Deck C: Double the loop (button)",
+            "Deck C: Jump back 4 beats (button)",
+            "Deck C: Jump 4 beats ahead (button)",
+            "Deck C: Slow down while held (button)",
+            "Deck C: Speed up while held (button)",
+            "Deck C: Tempo back to the track (button)",
+            "Deck C: Key up a semitone (button)",
+            "Deck C: Key down a semitone (button)",
+            "Deck C: Key back to the track (button)",
+            "Deck C: Slip (button)",
+            "Deck C: Censor while held (button)",
+            "Deck C: Key lock (button)",
+            "Deck C: Vocals (button)",
+            "Deck C: Instrumental (button)",
+            "Deck C: Drums (button)",
+            "Deck C: Bass (button)",
+            "Deck C: Melody (the other instruments) (button)",
+            "Deck C: Vocals level (fader)",
+            "Deck C: Instrumental level (fader)",
+            "Deck C: Drums level (fader)",
+            "Deck C: Bass level (fader)",
+            "Deck C: Melody level (fader)",
+            "Deck C: Sample 1 (button)",
+            "Deck C: Sample 2 (button)",
+            "Deck C: Sample 3 (button)",
+            "Deck C: Sample 4 (button)",
+            "Deck C: Sample 5 (button)",
+            "Deck C: Sample 6 (button)",
+            "Deck C: Sample 7 (button)",
+            "Deck C: Sample 8 (button)",
+            "Deck C: Effect on / off (button)",
+            "Deck C: Effect on (button)",
+            "Deck C: Effect off (button)",
+            "Deck C: Next effect (button)",
+            "Deck C: Previous effect (button)",
+            "Deck C: Effect on the next part (button)",
+            "Deck C: Effect level (fader)",
+            "Deck C: Effect amount (fader)",
+            "Deck C: Roll 1/16 while held (button)",
+            "Deck C: Roll 1/8 while held (button)",
+            "Deck C: Roll 1/4 while held (button)",
+            "Deck C: Roll 1/2 while held (button)",
+            "Deck C: Roll 1 while held (button)",
+            "Deck C: Roll 2 while held (button)",
+            "Deck C: Roll 4 while held (button)",
+            "Deck C: Roll 8 while held (button)",
+            "Deck C: Tempo (fader)",
+            "Deck C: Volume (fader)",
+            "Deck C: Gain (fader)",
+            "Deck C: EQ low (fader)",
+            "Deck C: EQ mid (fader)",
+            "Deck C: EQ high (fader)",
+            "Deck C: Kill the bass while held (button)",
+            "Deck C: Kill the mids while held (button)",
+            "Deck C: Kill the highs while held (button)",
+            "Deck C: Filter (fader)",
+            "Deck C: Headphones (pre-listen) (button)",
+            "Deck D: Play / pause (button)",
+            "Deck D: Cue (hold to preview) (button)",
+            "Deck D: Sync (button)",
+            "Deck D: Hot cue 1 (button)",
+            "Deck D: Hot cue 2 (button)",
+            "Deck D: Hot cue 3 (button)",
+            "Deck D: Hot cue 4 (button)",
+            "Deck D: Hot cue 5 (button)",
+            "Deck D: Hot cue 6 (button)",
+            "Deck D: Hot cue 7 (button)",
+            "Deck D: Hot cue 8 (button)",
+            "Deck D: Delete hot cue 1 (button)",
+            "Deck D: Delete hot cue 2 (button)",
+            "Deck D: Delete hot cue 3 (button)",
+            "Deck D: Delete hot cue 4 (button)",
+            "Deck D: Delete hot cue 5 (button)",
+            "Deck D: Delete hot cue 6 (button)",
+            "Deck D: Delete hot cue 7 (button)",
+            "Deck D: Delete hot cue 8 (button)",
+            "Deck D: Jog wheel (turn) (encoder)",
+            "Deck D: Jog wheel (touch: scratch) (button)",
+            "Deck D: Jog wheel (search through the track) (encoder)",
+            "Deck D: Loop 4 beats / exit (button)",
+            "Deck D: Loop in (button)",
+            "Deck D: Loop out (button)",
+            "Deck D: Reloop (button)",
+            "Deck D: Halve the loop (button)",
+            "Deck D: Double the loop (button)",
+            "Deck D: Jump back 4 beats (button)",
+            "Deck D: Jump 4 beats ahead (button)",
+            "Deck D: Slow down while held (button)",
+            "Deck D: Speed up while held (button)",
+            "Deck D: Tempo back to the track (button)",
+            "Deck D: Key up a semitone (button)",
+            "Deck D: Key down a semitone (button)",
+            "Deck D: Key back to the track (button)",
+            "Deck D: Slip (button)",
+            "Deck D: Censor while held (button)",
+            "Deck D: Key lock (button)",
+            "Deck D: Vocals (button)",
+            "Deck D: Instrumental (button)",
+            "Deck D: Drums (button)",
+            "Deck D: Bass (button)",
+            "Deck D: Melody (the other instruments) (button)",
+            "Deck D: Vocals level (fader)",
+            "Deck D: Instrumental level (fader)",
+            "Deck D: Drums level (fader)",
+            "Deck D: Bass level (fader)",
+            "Deck D: Melody level (fader)",
+            "Deck D: Sample 1 (button)",
+            "Deck D: Sample 2 (button)",
+            "Deck D: Sample 3 (button)",
+            "Deck D: Sample 4 (button)",
+            "Deck D: Sample 5 (button)",
+            "Deck D: Sample 6 (button)",
+            "Deck D: Sample 7 (button)",
+            "Deck D: Sample 8 (button)",
+            "Deck D: Effect on / off (button)",
+            "Deck D: Effect on (button)",
+            "Deck D: Effect off (button)",
+            "Deck D: Next effect (button)",
+            "Deck D: Previous effect (button)",
+            "Deck D: Effect on the next part (button)",
+            "Deck D: Effect level (fader)",
+            "Deck D: Effect amount (fader)",
+            "Deck D: Roll 1/16 while held (button)",
+            "Deck D: Roll 1/8 while held (button)",
+            "Deck D: Roll 1/4 while held (button)",
+            "Deck D: Roll 1/2 while held (button)",
+            "Deck D: Roll 1 while held (button)",
+            "Deck D: Roll 2 while held (button)",
+            "Deck D: Roll 4 while held (button)",
+            "Deck D: Roll 8 while held (button)",
+            "Deck D: Tempo (fader)",
+            "Deck D: Volume (fader)",
+            "Deck D: Gain (fader)",
+            "Deck D: EQ low (fader)",
+            "Deck D: EQ mid (fader)",
+            "Deck D: EQ high (fader)",
+            "Deck D: Kill the bass while held (button)",
+            "Deck D: Kill the mids while held (button)",
+            "Deck D: Kill the highs while held (button)",
+            "Deck D: Filter (fader)",
+            "Deck D: Headphones (pre-listen) (button)",
+            "Mixer: Crossfader (fader)",
+            "Mixer: Headphones: cued decks or master (fader)",
+            "Controller: Shift (second use of the controls) (button)",
+            "Library: Browse (encoder)",
+            "Library: Previous track (button)",
+            "Library: Next track (button)",
+            "Library: Load on deck A (button)",
+            "Library: Load on deck B (button)",
+            "Library: Load on deck C (button)",
+            "Library: Load on deck D (button)",
+            "Library: Load on a free deck (button)",
+            "Library: Instant double on deck A (button)",
+            "Library: Instant double on deck B (button)",
+            "Library: Instant double on deck C (button)",
+            "Library: Instant double on deck D (button)",
+            "Library: Remove from the crate or prepare list (button)",
+            "Library: Add to the prepare list (button)",
+            "Library: Select all the tracks (button)",
+            "Library: Clear the selection (button)",
+            "Library: Search (button)",
+            "General: Quantize (button)",
+            "General: Tempo fader range (button)",
+            "General: Keyboard shortcuts (button)",
+            "General: Command palette (button)",
+            "General: Settings (button)"
+          ]
+        },
+        {
+          "description": "Jumps or loops of so many beats (`deck1.jump.-8`, `deck1.loop.0.25`)",
+          "pattern": "^deck[1-4]\\.(jump|loop)\\.[+-]?\\d+(\\.\\d+)?$"
+        },
+        {
+          "description": "The key moved by so many semitones (`deck1.key.+2`)",
+          "pattern": "^deck[1-4]\\.key\\.[+-]?\\d+$"
+        },
+        {
+          "description": "A sample played as loud as the pad is hit",
+          "pattern": "^deck[1-4]\\.sample[1-8]\\.velocity$"
+        },
+        {
+          "description": "A mode of one of the profile's groups (`mode.<group>.<mode>`)",
+          "pattern": "^mode\\.[^.]+\\.[^.]+$"
+        }
+      ],
+      "description": "An action of Prisme",
+      "type": "string"
+    },
+    "When": {
+      "description": "A mode of a controller: `mode` of its group `group`.",
+      "properties": {
+        "group": {
+          "type": "string"
+        },
+        "mode": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "group",
+        "mode"
+      ],
+      "type": "object"
+    }
+  },
+  "$id": "https://raw.githubusercontent.com/Shawiizz/prisme/main/apps/prisme-desktop/controllers/profile.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "What Prisme knows of a controller model before anything is learnt on it: the controls\nit maps, the lights beyond those controls' own, and what it is sent once opened.",
+  "properties": {
+    "$schema": {
+      "description": "The schema of the format, for editors: [`crate::SCHEMA_URL`].",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "close": {
+      "description": "Sent when it is closed, after its lights went off.",
+      "items": {
+        "items": {
+          "format": "uint8",
+          "maximum": 255,
+          "minimum": 0,
+          "type": "integer"
+        },
+        "type": "array"
+      },
+      "type": "array"
+    },
+    "controls": {
+      "items": {
+        "$ref": "#/$defs/ProfileControl"
+      },
+      "type": "array"
+    },
+    "credits": {
+      "description": "Where the mapping comes from, when it is not Prisme's own.",
+      "type": "string"
+    },
+    "init": {
+      "description": "Sent when the controller is opened (a request for its knobs' positions, say).",
+      "items": {
+        "items": {
+          "format": "uint8",
+          "maximum": 255,
+          "minimum": 0,
+          "type": "integer"
+        },
+        "type": "array"
+      },
+      "type": "array"
+    },
+    "jogStepsPerTurn": {
+      "description": "Steps in a turn of its jog wheels, measured on the controller.",
+      "format": "double",
+      "type": "number"
+    },
+    "keepAlive": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/KeepAlive"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "Sent again and again while it is open: some models stop answering without it."
+    },
+    "lights": {
+      "items": {
+        "$ref": "#/$defs/ProfileLight"
+      },
+      "type": "array"
+    },
+    "meters": {
+      "items": {
+        "$ref": "#/$defs/Meter"
+      },
+      "type": "array"
+    },
+    "modes": {
+      "description": "Groups of its controls that drive other actions in each of their modes (the pad\npages of a side, chosen by its mode keys), when the controls send the same in each.",
+      "items": {
+        "$ref": "#/$defs/ModeGroup"
+      },
+      "type": "array"
+    },
+    "name": {
+      "description": "The model, as the settings show it.",
+      "type": "string"
+    },
+    "ports": {
+      "description": "The controller is the MIDI port whose name holds one of these (case aside); of\nseveral models, the one whose name is the longest (a DDJ-SB2 is no DDJ-SB).",
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "verified": {
+      "description": "Tried on the controller itself, not only read from another program's mapping.",
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "name",
+    "ports",
+    "controls"
+  ],
+  "title": "Prisme controller profile",
+  "type": "object"
+}

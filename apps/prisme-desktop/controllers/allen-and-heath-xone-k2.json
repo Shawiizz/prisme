@@ -1,4 +1,5 @@
 {
+  "$schema": "https://raw.githubusercontent.com/Shawiizz/prisme/main/apps/prisme-desktop/controllers/profile.schema.json",
   "name": "Allen & Heath Xone:K2",
   "ports": ["XONE:K2"],
   "credits": "From the Allen & Heath Xone:K2 mapping of Mixxx by Be (GPL-2.0-or-later).",

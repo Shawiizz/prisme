@@ -6,6 +6,7 @@ import {
   Controller,
   ControllerInput,
   ControllerMapping,
+  ControllerProfiles,
   StepEncoding,
 } from '../models/controllers';
 import { EngineService } from '../services/engine.service';
@@ -25,6 +26,7 @@ export class ControllerService {
   private readonly engine = inject(EngineService);
 
   readonly controllers = signal<Controller[]>([]);
+  readonly profiles = signal<ControllerProfiles | null>(null);
   readonly mappings = signal<ControllerMapping[]>([]);
   /** Actions the profiles show on lights of their own, beside the controls that drive them. */
   private readonly lightTargets = signal<string[]>([]);
@@ -56,6 +58,8 @@ export class ControllerService {
       await this.refresh();
       this.sendAllLights();
     });
+    // profiles published since came
+    await listen<number>('controller-profiles-changed', () => this.profilesChanged());
     await this.reloadMappings();
   }
 
@@ -88,6 +92,44 @@ export class ControllerService {
       this.outputs.set(outputs);
       this.clockOutput.set(clockOutput);
     });
+  }
+
+  async loadProfiles() {
+    await this.run(async () =>
+      this.profiles.set(await invoke<ControllerProfiles>('controller_profiles')),
+    );
+  }
+
+  /** Reads the profiles again (the DJ's own changed). */
+  async reloadProfiles() {
+    await this.run(async () =>
+      this.profiles.set(await invoke<ControllerProfiles>('reload_controller_profiles')),
+    );
+    await this.profilesChanged();
+  }
+
+  /** Fetches the profiles published since: how many came. */
+  async updateProfiles(): Promise<number> {
+    const came = await invoke<number>('update_controller_profiles');
+    await this.profilesChanged();
+    return came;
+  }
+
+  /** Writes what `device` drives now as a profile of the DJ's own: where it went. */
+  async exportProfile(device: string): Promise<string> {
+    const path = await invoke<string>('export_controller_profile', { device });
+    await this.profilesChanged();
+    return path;
+  }
+
+  openProfilesFolder() {
+    return this.run(() => invoke('open_controller_profiles_folder'));
+  }
+
+  /** The profiles drive the controllers otherwise: their list, their mappings, their lights. */
+  private async profilesChanged() {
+    await Promise.all([this.refresh(), this.loadProfiles(), this.reloadMappings()]);
+    this.sendAllLights();
   }
 
   async setEnabled(name: string, enabled: boolean) {

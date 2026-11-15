@@ -1,4 +1,5 @@
 {
+  "$schema": "https://raw.githubusercontent.com/Shawiizz/prisme/main/apps/prisme-desktop/controllers/profile.schema.json",
   "name": "Reloop Mixage",
   "ports": ["Mixage"],
   "credits": "From the Reloop Mixage mapping of Mixxx by HorstBaerbel & gqzomer (GPL-2.0-or-later).",
