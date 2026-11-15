@@ -250,9 +250,8 @@ pub fn is_tag_copy(name: &str) -> bool {
 /// Saves `file`'s tags into `copy`, a copy of `path`, then puts it in `path`'s place once it
 /// reads back and is on the disk: a crash, a full disk or a file held open by another
 /// program leaves the track as it was, never half written (lofty saves in place, moving the
-/// audio behind the tags it grows). A file under other names too (hard links) is written
-/// over with the copy instead, so that every name keeps it: there only, a crash midway
-/// would leave it half written.
+/// audio behind the tags it grows). A file under other names too (hard links) keeps its old
+/// tags under those: never written over in place, it could not be left half written.
 fn save_in_copy<F: AudioFile>(
     file: &F,
     path: &Path,
@@ -263,28 +262,8 @@ fn save_in_copy<F: AudioFile>(
     file.save_to_path(copy, options)?;
     F::read_from(&mut File::open(copy)?, ParseOptions::new())?;
     std::fs::OpenOptions::new().write(true).open(copy)?.sync_all()?;
-    if has_other_names(path)? {
-        std::fs::copy(copy, path)?;
-        std::fs::OpenOptions::new().write(true).open(path)?.sync_all()?;
-        std::fs::remove_file(copy)?;
-    } else {
-        std::fs::rename(copy, path)?;
-    }
+    std::fs::rename(copy, path)?;
     Ok(())
-}
-
-/// Whether the file of `path` has other names (hard links), which a file put in its place
-/// would leave on the old one.
-#[cfg(unix)]
-fn has_other_names(path: &Path) -> std::io::Result<bool> {
-    use std::os::unix::fs::MetadataExt;
-    Ok(std::fs::metadata(path)?.nlink() > 1)
-}
-
-/// Windows tells the names of a file through no stable call of Rust's: one is assumed.
-#[cfg(not(unix))]
-fn has_other_names(_: &Path) -> std::io::Result<bool> {
-    Ok(false)
 }
 
 fn set_id3v2(tag: &mut Id3v2Tag, values: TempoAndKey<'_>, replacing: Replacing<'_>) -> TagFields {

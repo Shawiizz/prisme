@@ -177,15 +177,13 @@ fn a_copy_left_behind_is_known_by_its_name() {
 
 #[cfg(unix)]
 #[test]
-fn a_file_is_written_under_all_its_names() {
+fn a_file_tagged_through_a_link_is_the_one_it_leads_to() {
     let file = Scratch::of("silence.mp3");
     let link = Scratch::path("link.mp3");
     std::os::unix::fs::symlink(&file.0, &link.0).unwrap();
-    let other_name = Scratch::path("other-name.mp3");
-    std::fs::hard_link(&file.0, &other_name.0).unwrap();
     assert!(write_tempo_and_key(&link.0, VALUES, Replacing::Any).unwrap().any());
     assert!(std::fs::symlink_metadata(&link.0).unwrap().file_type().is_symlink());
-    for path in [&file.0, &link.0, &other_name.0] {
+    for path in [&file.0, &link.0] {
         assert_eq!(read(path, ItemKey::IntegerBpm).as_deref(), Some("124"), "{}", path.display());
     }
 }
