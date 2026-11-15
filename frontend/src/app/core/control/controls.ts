@@ -163,6 +163,14 @@ export interface ControlActions {
   selectAll(): void;
   clearSelection(): void;
   prepareSelected(): void;
+  /** The Auto DJ on, off, or on again after the DJ took over. */
+  toggleAutoDj(): void;
+  /** Whether the Auto DJ plays the prepare list. */
+  autoDjOn(): boolean;
+  /** The Auto DJ mixes into the next track at once. */
+  autoDjFade(): void;
+  /** The Auto DJ leaves the next track out: the one after comes next. */
+  autoDjSkip(): void;
   focusSearch(): void;
   toggleQuantize(): void;
   quantized(): boolean;
@@ -644,6 +652,12 @@ export function buildControls(a: ControlActions): Control[] {
     button('library.selectAll', library, t('Select all the tracks'), () => a.selectAll()),
     button('library.clearSelection', library, t('Clear the selection'), () => a.clearSelection()),
     button('library.search', library, t('Search'), () => a.focusSearch()),
+    {
+      ...button('autodj.toggle', t('Auto DJ'), t('Auto DJ on / off'), () => a.toggleAutoDj()),
+      lit: () => a.autoDjOn(),
+    },
+    button('autodj.fade', t('Auto DJ'), t('Mix into the next track now'), () => a.autoDjFade()),
+    button('autodj.skip', t('Auto DJ'), t('Skip the next track'), () => a.autoDjSkip()),
     {
       ...button('general.quantize', t('General'), t('Quantize'), () => a.toggleQuantize()),
       lit: () => a.quantized(),

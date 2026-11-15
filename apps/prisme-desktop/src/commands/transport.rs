@@ -1,3 +1,4 @@
+use crate::auto_dj::{AutoDj, Takeover};
 use crate::error::AppResult;
 use crate::state::AppState;
 use prisme_engine::Command;
@@ -46,7 +47,13 @@ pub fn scale_loop(state: State<'_, AppState>, deck: usize, factor: f64) -> AppRe
 }
 
 #[tauri::command]
-pub fn beat_jump(state: State<'_, AppState>, deck: usize, beats: f64) -> AppResult<()> {
+pub fn beat_jump(
+    state: State<'_, AppState>,
+    auto_dj: State<'_, AutoDj>,
+    deck: usize,
+    beats: f64,
+) -> AppResult<()> {
+    auto_dj.take_over(Takeover::Transport(deck));
     send(&state, deck, Command::BeatJump { deck, beats })
 }
 

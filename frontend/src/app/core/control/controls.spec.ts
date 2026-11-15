@@ -137,6 +137,17 @@ describe('controls', () => {
     ]);
   });
 
+  it('turn the Auto DJ on and off, fade now, skip', () => {
+    const { calls, find } = recorder();
+    find('autodj.toggle').apply(1);
+    find('autodj.toggle').apply(0);
+    find('autodj.fade').apply(1);
+    find('autodj.skip').apply(1);
+    expect(find('autodj.toggle').lit!()).toBe(true);
+    expect(find('autodj.toggle').kind).toBe('button');
+    expect(calls).toEqual(['toggleAutoDj()', 'autoDjFade()', 'autoDjSkip()', 'autoDjOn()']);
+  });
+
   it('read a jump or a loop of so many beats from its id', () => {
     const { calls, actions } = recorder();
     measuredControl(actions, 'deck2.jump.-8')!.apply(1);

@@ -16,6 +16,7 @@ pub struct Preferences {
     pub dj: DjPreferences,
     pub mixer: MixerPreferences,
     pub library: LibraryPreferences,
+    pub auto_dj: AutoDjPreferences,
 }
 
 /// The decks a file holds, fewer than there are (two, before there could be four): the
@@ -115,6 +116,33 @@ impl Default for DjPreferences {
             knob_magnet: true,
             lock_controls: true,
         }
+    }
+}
+
+/// How the Auto DJ mixes (it is off at each start).
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+#[serde(default, rename_all = "camelCase")]
+pub struct AutoDjPreferences {
+    /// Length of a mix between two tracks with a beat grid.
+    pub fade_beats: u32,
+    /// Length of a mix when one has none.
+    pub fade_s: f64,
+}
+
+impl AutoDjPreferences {
+    pub const MAX_BEATS: u32 = 128;
+    pub const MAX_S: f64 = 60.0;
+
+    /// The lengths a mix can have: at least a beat or a second, at most a long blend.
+    pub fn bounded(self) -> Self {
+        let fade_s = if self.fade_s.is_finite() { self.fade_s.clamp(1.0, Self::MAX_S) } else { 10.0 };
+        Self { fade_beats: self.fade_beats.clamp(1, Self::MAX_BEATS), fade_s }
+    }
+}
+
+impl Default for AutoDjPreferences {
+    fn default() -> Self {
+        Self { fade_beats: 16, fade_s: 10.0 }
     }
 }
 
@@ -252,6 +280,15 @@ mod tests {
         assert!(!p.library.replace_tags);
         assert!(p.library.pause_while_playing);
         assert_eq!(p.library.separate_on_load, None);
+        assert_eq!(p.auto_dj, AutoDjPreferences { fade_beats: 16, fade_s: 10.0 });
+    }
+
+    #[test]
+    fn a_fade_length_out_of_reach_is_brought_back() {
+        let bounded = AutoDjPreferences { fade_beats: 0, fade_s: f64::NAN }.bounded();
+        assert_eq!(bounded, AutoDjPreferences { fade_beats: 1, fade_s: 10.0 });
+        let long = AutoDjPreferences { fade_beats: 1000, fade_s: 600.0 }.bounded();
+        assert_eq!(long, AutoDjPreferences { fade_beats: 128, fade_s: 60.0 });
     }
 
     #[test]
@@ -320,6 +357,7 @@ mod tests {
         };
         p.library.last_folder = Some("C:/Music/House".into());
         p.mixer.booth = Some(4);
+        p.auto_dj = AutoDjPreferences { fade_beats: 32, fade_s: 15.0 };
         p.mixer.mic =
             LivePreferences { input: Some(InputChannelsDto { first: 4, stereo: false }), level: 0.5 };
         let json = serde_json::to_string(&p).unwrap();

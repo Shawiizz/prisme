@@ -12,6 +12,9 @@
     >
       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 7h14M5 12h14M5 17h9" /></svg>
       <span class="name">{{ 'Prepare' | t }}</span>
+      @if (autoDj.on()) {
+        <span class="auto pr-label" [class.paused]="autoDj.paused()">{{ 'Auto DJ' | t }}</span>
+      }
       <span class="count">{{ prepareCount() }}</span>
     </div>
     <div

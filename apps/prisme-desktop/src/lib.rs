@@ -1,5 +1,6 @@
 //! Prisme desktop application: Tauri shell around the engine.
 //!
+//! * `auto_dj`: plays the prepare list, each track mixed into the next;
 //! * `audio_host`: runs the sound card stream and the engine on a dedicated thread;
 //! * `audio_watchdog`: restarts the audio when its device comes back after a loss;
 //! * `controllers`: MIDI controllers and their mappings;
@@ -26,6 +27,7 @@
 mod android_jni;
 mod audio_host;
 mod audio_watchdog;
+mod auto_dj;
 mod commands;
 mod controller_direct;
 mod controller_profiles;
@@ -191,6 +193,9 @@ pub fn run() {
             #[cfg(desktop)]
             keep_awake::while_playing(app.handle().clone());
             history::start(app.handle().clone());
+            let auto_dj = state.preferences.read(|p| p.auto_dj);
+            app.manage(auto_dj::AutoDj::new(app.handle().clone(), auto_dj));
+            auto_dj::AutoDj::start(app.handle().clone());
             sampler::load_saved(app.handle().clone());
             let controllers = app.state::<Controllers>();
             controllers.open_enabled(app.handle());
@@ -354,6 +359,11 @@ pub fn run() {
             commands::prepare::add_to_prepare,
             commands::prepare::remove_from_prepare,
             commands::prepare::move_in_prepare,
+            commands::auto_dj::auto_dj_status,
+            commands::auto_dj::toggle_auto_dj,
+            commands::auto_dj::auto_dj_fade_now,
+            commands::auto_dj::auto_dj_skip,
+            commands::auto_dj::set_auto_dj_fade,
             commands::preferences::get_preferences,
             commands::preferences::set_dj_preferences,
             commands::preferences::set_library_preferences,

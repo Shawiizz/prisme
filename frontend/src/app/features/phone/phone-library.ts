@@ -24,6 +24,7 @@ import { camelotCompatible } from '../../shared/camelot';
 import { Cover } from '../../shared/cover/cover';
 import { Dismiss, overlay } from '../../shared/overlay';
 import { decimal, deckLetter } from '../../shared/time';
+import { AutoDjBar } from '../library/auto-dj-bar/auto-dj-bar';
 import { ImportDialog } from '../library/import-dialog/import-dialog';
 import { LibrarySidebar } from '../library/library-sidebar/library-sidebar';
 import { PreviewStrip } from '../library/preview-strip/preview-strip';
@@ -72,7 +73,16 @@ interface Slide {
   selector: 'app-phone-library',
   templateUrl: './phone-library.html',
   styleUrl: './phone-library.scss',
-  imports: [Cover, Dismiss, ImportDialog, LibrarySidebar, PreviewStrip, TPipe, TrackMenu],
+  imports: [
+    AutoDjBar,
+    Cover,
+    Dismiss,
+    ImportDialog,
+    LibrarySidebar,
+    PreviewStrip,
+    TPipe,
+    TrackMenu,
+  ],
 })
 export class PhoneLibrary {
   readonly peek = input(false, { transform: booleanAttribute });

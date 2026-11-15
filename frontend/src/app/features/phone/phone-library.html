@@ -47,6 +47,9 @@
     </button>
     <button class="pr-btn" (click)="browsing.set(true)">{{ 'Browse…' | t }}</button>
   </div>
+  @if (library.source().kind === 'prepare') {
+    <app-auto-dj-bar phone />
+  }
   @if (library.progress(); as p) {
     @if (p.running) {
       <p class="progress">

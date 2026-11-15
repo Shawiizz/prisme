@@ -1,0 +1,78 @@
+// a band over the prepare list: the key, what it does, fade now and skip, the fade's length
+:host {
+  display: flex;
+  align-items: center;
+  gap: var(--pr-space-3);
+  height: 40px;
+  padding: 0 var(--pr-space-3);
+  background: var(--pr-base);
+  border-bottom: 1px solid var(--pr-line);
+}
+.toggle {
+  flex: none;
+}
+.state {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: baseline;
+  gap: var(--pr-space-3);
+  span {
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+  }
+}
+.line {
+  color: var(--pr-text-2);
+  &.paused {
+    color: var(--pr-warn);
+  }
+}
+.warning {
+  flex: none;
+  max-width: 50%;
+  font-size: var(--pr-size-small);
+  color: var(--pr-warn);
+}
+.actions,
+.fade {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: var(--pr-space-2);
+}
+
+// a phone: the key and what it does, the actions under them, then the fade, each for a finger
+:host(.phone) {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 10px 12px;
+  height: auto;
+  padding: 0 16px 12px;
+  border-bottom: 0;
+  .state {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 2px;
+    span {
+      white-space: normal;
+    }
+  }
+  .line {
+    font-size: 14px;
+  }
+  .warning {
+    max-width: none;
+  }
+  .actions {
+    grid-column: 1 / -1;
+    .pr-btn {
+      flex: 1;
+    }
+  }
+  .fade {
+    grid-column: 1 / -1;
+    flex-wrap: wrap;
+  }
+}

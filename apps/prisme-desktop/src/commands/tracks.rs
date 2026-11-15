@@ -1,55 +1,43 @@
+use crate::auto_dj::{AutoDj, Takeover};
 use crate::dto::{waveform_bytes, SeparationDto, TrackInfoDto};
 use crate::error::{AppError, AppResult};
-use crate::library_service::LibraryService;
-use crate::preview::Previews;
 use crate::state::{lock, AppState};
 use crate::track_loading;
 use prisme_engine::{Command, Stem};
 use std::path::PathBuf;
-use std::sync::Arc;
 use tauri::ipc::Response;
 use tauri::{AppHandle, State};
-use tracing::warn;
 
 /// Puts a track on a deck as soon as it can play; its waveform and analysis follow if
-/// they were not known (see `track_loading`).
+/// they were not known (see `track_loading`). The Auto DJ gives way.
 #[tauri::command]
 pub async fn load_track(
     app: AppHandle,
     state: State<'_, AppState>,
-    library: State<'_, Arc<LibraryService>>,
-    previews: State<'_, Previews>,
+    auto_dj: State<'_, AutoDj>,
     deck: usize,
     path: String,
 ) -> AppResult<TrackInfoDto> {
     state.has_deck(deck)?;
+    auto_dj.take_over(Takeover::Load(deck));
     let file = PathBuf::from(&path);
-    let library = library.inner().clone();
-    let (track, completion) =
-        tauri::async_runtime::spawn_blocking(move || track_loading::prepare(file, &library))
-            .await
-            .map_err(|e| AppError::Other(e.to_string()))??;
-    let info = track.info(deck);
-    let commands = track.load_commands(deck, state.preferences.read(|p| p.dj.auto_gain));
-    let file = track.path.clone();
-    // kept for audio restarts
-    lock(&state.tracks)[deck] = Some(track);
-    for c in commands {
-        state.send_if_running(c)?;
-    }
-    if let Err(e) = previews.stop_previewing(&state, &file) {
-        warn!("the preview of {} goes on: {e}", file.display());
-    }
-    tauri::async_runtime::spawn_blocking(move || completion.run(&app));
-    Ok(info)
+    tauri::async_runtime::spawn_blocking(move || track_loading::load_on_deck(&app, deck, file))
+        .await
+        .map_err(|e| AppError::Other(e.to_string()))?
 }
 
 /// Puts the track of deck `from` on `deck` where it is, playing if it plays (an instant
 /// double): nothing is read again.
 #[tauri::command]
-pub fn double_deck(state: State<'_, AppState>, from: usize, deck: usize) -> AppResult<TrackInfoDto> {
+pub fn double_deck(
+    state: State<'_, AppState>,
+    auto_dj: State<'_, AutoDj>,
+    from: usize,
+    deck: usize,
+) -> AppResult<TrackInfoDto> {
     state.has_deck(from)?;
     state.has_deck(deck)?;
+    auto_dj.take_over(Takeover::Load(deck));
     let track = state.with_track(from, |t| t.double())?;
     let info = track.info(deck);
     let commands = track.load_commands(deck, state.preferences.read(|p| p.dj.auto_gain));

@@ -1,5 +1,6 @@
 import { PITCH_RANGES } from '../models/preferences';
 import { computed, Injectable, inject } from '@angular/core';
+import { AutoDjService } from '../services/auto-dj.service';
 import { EngineService } from '../services/engine.service';
 import { FxService } from '../services/fx.service';
 import { LibraryService } from '../services/library.service';
@@ -39,6 +40,7 @@ export class ControlService {
   private readonly preferences = inject(PreferencesService);
   private readonly navigation = inject(NavigationService);
   private readonly preview = inject(PreviewService);
+  private readonly autoDj = inject(AutoDjService);
 
   private readonly actions: ControlActions = {
     togglePlay: (deck) => this.engine.togglePlay(deck),
@@ -165,6 +167,10 @@ export class ControlService {
     selectAll: () => this.library.selectAll(),
     clearSelection: () => this.library.clearSelection(),
     prepareSelected: () => this.library.addSelectedToPrepare(),
+    toggleAutoDj: () => this.autoDj.toggle(),
+    autoDjOn: () => this.autoDj.running(),
+    autoDjFade: () => this.autoDj.fadeNow(),
+    autoDjSkip: () => this.autoDj.skip(),
     focusSearch: () => this.library.searchRequests.update((n) => n + 1),
     keyShift: (deck) => this.engine.tracks()[deck]?.keyShift ?? 0,
     setKeyShift: (deck, semitones) => this.engine.setKeyShift(deck, semitones),

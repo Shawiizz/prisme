@@ -3,6 +3,7 @@
 use crate::error::{AppError, AppResult};
 
 pub mod audio;
+pub mod auto_dj;
 pub mod controllers;
 pub mod crates;
 pub mod cues;

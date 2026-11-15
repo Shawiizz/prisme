@@ -1,3 +1,4 @@
+use crate::auto_dj::{AutoDj, Takeover};
 use crate::dto::{RpmDto, VinylModeDto};
 use crate::error::{AppError, AppResult};
 use crate::state::{deck_commands, lock, AppState};
@@ -7,30 +8,56 @@ use tauri::State;
 const MAX_KEY_SHIFT: u8 = 12;
 
 #[tauri::command]
-pub fn set_playing(state: State<'_, AppState>, deck: usize, playing: bool) -> AppResult<()> {
+pub fn set_playing(
+    state: State<'_, AppState>,
+    auto_dj: State<'_, AutoDj>,
+    deck: usize,
+    playing: bool,
+) -> AppResult<()> {
     state.has_deck(deck)?;
+    auto_dj.take_over(Takeover::Transport(deck));
     state.send(Command::SetPlaying { deck, playing })
 }
 
 #[tauri::command]
-pub fn seek(state: State<'_, AppState>, deck: usize, seconds: f64) -> AppResult<()> {
+pub fn seek(
+    state: State<'_, AppState>,
+    auto_dj: State<'_, AutoDj>,
+    deck: usize,
+    seconds: f64,
+) -> AppResult<()> {
     state.has_deck(deck)?;
+    auto_dj.take_over(Takeover::Transport(deck));
     state.send(Command::Seek { deck, seconds })
 }
 
 /// The track dragged by hand to `seconds` on the scrolling waveform at `at_ms` on the
 /// pointer's clock, or let go (`None`).
 #[tauri::command]
-pub fn hand(state: State<'_, AppState>, deck: usize, seconds: Option<f64>, at_ms: f64) -> AppResult<()> {
+pub fn hand(
+    state: State<'_, AppState>,
+    auto_dj: State<'_, AutoDj>,
+    deck: usize,
+    seconds: Option<f64>,
+    at_ms: f64,
+) -> AppResult<()> {
     state.has_deck(deck)?;
+    auto_dj.take_over(Takeover::Transport(deck));
     state.send(Command::Hand { deck, position_s: seconds, at_s: at_ms / 1000.0 })
 }
 
 /// The edge of a jog wheel turned by `turns` (positive forwards) at `at_ms`: a playing track
 /// pushed or held back for a moment, a stopped one moved.
 #[tauri::command]
-pub fn jog(state: State<'_, AppState>, deck: usize, turns: f64, at_ms: f64) -> AppResult<()> {
+pub fn jog(
+    state: State<'_, AppState>,
+    auto_dj: State<'_, AutoDj>,
+    deck: usize,
+    turns: f64,
+    at_ms: f64,
+) -> AppResult<()> {
     state.has_deck(deck)?;
+    auto_dj.take_over(Takeover::Transport(deck));
     state.send(Command::Jog { deck, turns, at_s: at_ms / 1000.0 })
 }
 
