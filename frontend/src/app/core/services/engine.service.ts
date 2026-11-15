@@ -227,15 +227,16 @@ export class EngineService {
     return bpm && trackBpm ? bpm / trackBpm : null;
   }
 
-  async load(deck: number, path: string): Promise<void> {
-    if (!(await this.mayReplace(deck))) return;
+  /** Loads `path` on `deck`; whether it was. */
+  async load(deck: number, path: string): Promise<boolean> {
+    if (!(await this.mayReplace(deck))) return false;
     return this.put(deck, () => invoke<TrackInfo>('load_track', { deck, path }));
   }
 
   /** The track of deck `from` on `deck`, where it is and playing if it plays. */
   async double(from: number, deck: number): Promise<void> {
     if (!this.tracks()[from] || !(await this.mayReplace(deck))) return;
-    return this.put(deck, () => invoke<TrackInfo>('double_deck', { from, deck }));
+    await this.put(deck, () => invoke<TrackInfo>('double_deck', { from, deck }));
   }
 
   /** The track of a deck that plays, by itself or under its record, gives way only if the
@@ -251,7 +252,8 @@ export class EngineService {
     });
   }
 
-  private async put(deck: number, load: () => Promise<TrackInfo>): Promise<void> {
+  /** Puts on `deck` what `load` gives; whether it came. */
+  private async put(deck: number, load: () => Promise<TrackInfo>): Promise<boolean> {
     this.patch(this.loading, deck, true);
     try {
       const info = await load();
@@ -259,8 +261,10 @@ export class EngineService {
       this.patch(this.waveforms, deck, null);
       if (info.waveformReady) this.fetchWaveform(deck, info.loadId);
       this.error.set(null);
+      return true;
     } catch (e) {
       this.error.set(errorText(e));
+      return false;
     } finally {
       this.patch(this.loading, deck, false);
     }

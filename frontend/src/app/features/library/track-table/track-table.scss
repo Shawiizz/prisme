@@ -173,6 +173,13 @@
     padding: 0;
   }
 }
+// the preview key: there with the row, lit while its track plays; dim without headphones apart
+.preview:not(.is-on, :focus-visible) {
+  opacity: 0;
+}
+.unheard {
+  color: var(--pr-text-3);
+}
 .none {
   padding: var(--pr-space-4);
   color: var(--pr-text-3);
@@ -240,8 +247,7 @@
     }
   }
 }
-.row:hover .stems .separate,
-.row.selected .stems .separate {
+.row:is(:hover, .selected) :is(.stems .separate, .preview) {
   opacity: 1;
 }
 

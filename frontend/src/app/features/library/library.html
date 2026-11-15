@@ -110,6 +110,9 @@
       </div>
     </div>
     <app-track-table />
+    @if (preview.track()) {
+      <app-preview-strip />
+    }
   </div>
 </section>
 

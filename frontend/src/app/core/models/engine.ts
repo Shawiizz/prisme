@@ -103,6 +103,30 @@ export interface EngineStatus {
   mainPeak: number;
   health: AudioHealth | null;
   recording: RecordingStatus | null;
+  /** The track heard in the headphones before it goes on a deck. */
+  preview: PreviewStatus | null;
+}
+
+export interface PreviewStatus {
+  /** The preview's (`PreviewTrack.id`). */
+  id: number;
+  positionS: number;
+  /** Estimated until the track is all read. */
+  durationS: number;
+  /** Its audio is not read that far yet: it waits, silent. */
+  waiting: boolean;
+}
+
+/** A track previewed in the headphones (`preview_track`). */
+export interface PreviewTrack {
+  id: number;
+  path: string;
+  title: string;
+  artist: string | null;
+  /** Estimated until the track is all read. */
+  durationS: number;
+  /** The waveform can be fetched; otherwise a `preview-update` with the id says when. */
+  waveformReady: boolean;
 }
 
 export interface RecordingStatus {
@@ -310,7 +334,8 @@ export interface MixerState {
   /** An external mixer needs an output pair per deck; `null` without audio. */
   modeInUse: MixMode | null;
   headphones: HeadphonesOutput;
-  /** First output (0-based) of the headphones in use; `null` when they are not heard. */
+  /** First output (0-based) of the headphones in use; `null` when they are not heard. With an
+   * external mixer, a pair no deck uses, for the preview alone. */
   headphonesInUse: number | null;
   /** Outputs of the running device; `null` without audio. */
   outputChannels: number | null;

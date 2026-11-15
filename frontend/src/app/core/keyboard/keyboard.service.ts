@@ -36,9 +36,10 @@ export class KeyboardService {
 
   /** "Ctrl + F", "Shift + →", "A" as printed on the user's keyboard. */
   label(shortcut: Shortcut): string {
+    // a layout may print the space bar as a space: named all the same
     const key =
-      this.layout().get(shortcut.code)?.toUpperCase() ??
-      KEY_NAMES[shortcut.code] ??
+      this.layout().get(shortcut.code)?.trim().toUpperCase() ||
+      KEY_NAMES[shortcut.code] ||
       shortcut.code.replace(/^(Key|Digit)/, '');
     return [shortcut.ctrl && CTRL, shortcut.shift && 'Shift', key].filter(Boolean).join(' + ');
   }
@@ -72,6 +73,9 @@ const KEY_NAMES: Record<string, string> = {
   ArrowRight: '→',
   Comma: ',',
   Period: '.',
+  get Space() {
+    return t('Space');
+  },
   get Delete() {
     return t('Del');
   },

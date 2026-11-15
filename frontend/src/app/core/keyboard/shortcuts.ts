@@ -53,6 +53,7 @@ export const SHORTCUTS: Shortcut[] = [
   { code: 'ArrowLeft', ctrl: true, shift: true, control: 'library.double1' },
   { code: 'ArrowRight', ctrl: true, shift: true, control: 'library.double2' },
   { code: 'Enter', control: 'library.load' },
+  { code: 'Space', control: 'library.preview' },
   { code: 'Delete', control: 'library.remove' },
   { code: 'KeyP', ctrl: true, control: 'library.prepare' },
   { code: 'KeyA', ctrl: true, control: 'library.selectAll' },

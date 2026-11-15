@@ -18,6 +18,7 @@ pub mod marks;
 pub mod mixer;
 pub mod preferences;
 pub mod prepare;
+pub mod preview;
 pub mod recording;
 pub mod sampler;
 pub mod screens;

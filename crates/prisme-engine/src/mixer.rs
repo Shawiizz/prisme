@@ -23,7 +23,23 @@ pub struct OutputRouting {
     pub deck_outputs: [Option<usize>; MAX_DECKS],
     /// Internal mode.
     pub master: Option<usize>,
+    /// Internal mode: the cued decks and the preview. External mode: the preview alone, on a
+    /// pair no deck uses.
     pub headphones: Option<usize>,
+}
+
+impl OutputRouting {
+    /// The first output of the preview with `decks` decks: the headphones, unless they share
+    /// an output with what the audience hears (the master, or a deck to the external mixer).
+    pub fn preview_output(&self, decks: usize) -> Option<usize> {
+        let first = self.headphones?;
+        let heard = match self.mode {
+            MixMode::Internal => std::slice::from_ref(&self.master),
+            MixMode::External => &self.deck_outputs[..decks.min(MAX_DECKS)],
+        };
+        let shared = heard.iter().flatten().any(|&pair| pair < first + 2 && first < pair + 2);
+        (!shared).then_some(first)
+    }
 }
 
 impl Default for OutputRouting {
@@ -145,6 +161,14 @@ impl Mixer {
                 first,
             );
             add_pair(master, mix * self.headphone_gain, out, out_channels, first);
+        }
+    }
+
+    /// Adds the preview (stereo, interleaved) to the headphones, at their level, in either
+    /// mode; nowhere if they share an output with what the audience hears.
+    pub(crate) fn add_preview(&self, audio: &[f32], decks: usize, out: &mut [f32], out_channels: usize) {
+        if let Some(first) = self.routing.preview_output(decks) {
+            add_pair(audio, self.headphone_gain, out, out_channels, first);
         }
     }
 
@@ -284,6 +308,18 @@ mod tests {
         assert_eq!(master_at, m.limiter.latency());
         assert_eq!(phones_at, master_at, "one click in the headphones, not two");
         assert!((heard[phones_at].1 - 0.5).abs() < 1e-6, "cue and master add up");
+    }
+
+    #[test]
+    fn the_preview_never_shares_an_output_with_what_the_audience_hears() {
+        let routing = |mode, headphones| OutputRouting { mode, headphones, ..OutputRouting::default() };
+        assert_eq!(routing(MixMode::Internal, Some(2)).preview_output(2), Some(2));
+        assert_eq!(routing(MixMode::Internal, Some(0)).preview_output(2), None, "on the master");
+        assert_eq!(routing(MixMode::Internal, Some(1)).preview_output(2), None, "half on it");
+        assert_eq!(routing(MixMode::Internal, None).preview_output(2), None);
+        assert_eq!(routing(MixMode::External, Some(2)).preview_output(2), None, "deck B's pair");
+        assert_eq!(routing(MixMode::External, Some(4)).preview_output(2), Some(4));
+        assert_eq!(routing(MixMode::External, Some(4)).preview_output(4), None, "deck C's pair");
     }
 
     #[test]

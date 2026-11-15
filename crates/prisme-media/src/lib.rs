@@ -224,6 +224,17 @@ mod tests {
     }
 
     #[test]
+    fn a_track_no_longer_wanted_ends_where_its_decoding_was_left() {
+        let path = wav("given-up", 88_200, 88_200 * 4);
+        let loading = LoadingTrack::open(&path).unwrap();
+        let (audio, result) = loading.decode_rest_while(|| false);
+        let _ = std::fs::remove_file(&path);
+        assert!(result.is_ok());
+        assert!(audio.is_complete());
+        assert!(audio.frames() < 88_200, "{} frames", audio.frames());
+    }
+
+    #[test]
     fn an_aiff_file_decodes() {
         let frames = 1000u32;
         let mut comm = Vec::new();

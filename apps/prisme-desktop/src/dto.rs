@@ -85,7 +85,8 @@ impl From<MixMode> for MixModeDto {
     }
 }
 
-/// Where the software mixer sends the headphones.
+/// Where the headphones go: those of the software mixer, or with an external mixer those of
+/// the preview.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "camelCase")]
 pub enum HeadphonesOutputDto {
@@ -689,7 +690,8 @@ pub struct MixerStateDto {
     /// The mode in use: an external mixer needs an output pair per deck.
     pub mode_in_use: Option<MixModeDto>,
     pub headphones: HeadphonesOutputDto,
-    /// The first output of the headphones in use, if they are heard.
+    /// The first output of the headphones in use, if they are heard: with an external mixer,
+    /// a pair no deck uses, for the preview alone.
     pub headphones_in_use: Option<usize>,
     /// Outputs of the running device.
     pub output_channels: Option<usize>,
@@ -815,6 +817,34 @@ pub struct StatusDto {
     pub main_peak: f32,
     pub health: Option<AudioHealthDto>,
     pub recording: Option<RecordingStatusDto>,
+    pub preview: Option<PreviewStatusDto>,
+}
+
+#[derive(Debug, Clone, Copy, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PreviewStatusDto {
+    pub id: u64,
+    pub position_s: f64,
+    /// Estimated until the track is all read.
+    pub duration_s: f64,
+    /// Its audio is not read that far yet: it waits, silent.
+    pub waiting: bool,
+}
+
+/// A track previewed in the headphones (`preview_track`).
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PreviewDto {
+    /// What the status tells it by.
+    pub id: u64,
+    pub path: String,
+    pub title: String,
+    pub artist: Option<String>,
+    /// Estimated until the track is all read.
+    pub duration_s: f64,
+    /// The waveform can be fetched (`preview_waveform`); otherwise a `preview-update` says
+    /// when it can.
+    pub waveform_ready: bool,
 }
 
 #[derive(Debug, Clone, Copy, Serialize)]
@@ -868,11 +898,24 @@ impl StatusDto {
                 seconds: r.frames as f64 / sample_rate as f64,
                 dropped_seconds: r.dropped as f64 / sample_rate as f64,
             }),
+            preview: s.preview.map(|p| PreviewStatusDto {
+                id: p.id,
+                position_s: p.position_s,
+                duration_s: p.duration_s,
+                waiting: p.waiting,
+            }),
         }
     }
 
     pub fn stopped() -> Self {
-        Self { audio_running: false, decks: Vec::new(), main_peak: 0.0, health: None, recording: None }
+        Self {
+            audio_running: false,
+            decks: Vec::new(),
+            main_peak: 0.0,
+            health: None,
+            recording: None,
+            preview: None,
+        }
     }
 }
 

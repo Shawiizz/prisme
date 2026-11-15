@@ -9,7 +9,7 @@ use crate::dto::{
 };
 use crate::error::{AppError, AppResult};
 use crate::folders;
-use crate::preferences::{DeckPreferences, Preferences};
+use crate::preferences::{DeckPreferences, MixerPreferences, Preferences};
 use crate::recording::Recorder;
 use crate::sampler::Samplers;
 use prisme_analysis::{TrackAnalysis, Waveform};
@@ -357,17 +357,16 @@ impl AppState {
         lock(&self.session).as_ref().map(|s| s.engine_config.sample_rate)
     }
 
-    /// The routing for the running device: an external mixer needs two output pairs (four
-    /// decks share them if there are no more, see `deck_pair`), else the software mixer is
-    /// used, its headphones where the DJ wants them.
+    /// The routing for the running device (see [`routing_for`]).
     pub fn routing(&self, info: &AudioInfo) -> OutputRouting {
-        let mixer = self.preferences.read(|p| p.mixer);
-        let outputs = info.output_channels;
-        let external = mixer.mode == MixModeDto::External && outputs >= 4;
-        let mode = if external { MixMode::External } else { MixMode::Internal };
-        let headphones = headphones_output(mixer.headphones, info.backend, outputs);
-        let deck_outputs = std::array::from_fn(|deck| Some(2 * deck_pair(deck, info.decks, outputs)));
-        OutputRouting { mode, deck_outputs, headphones, ..Default::default() }
+        routing_for(self.preferences.read(|p| p.mixer), info)
+    }
+
+    /// The first output the preview is heard on: the headphones, on the running device, if
+    /// they are apart from what the audience hears.
+    pub fn preview_output(&self) -> AppResult<usize> {
+        let info = lock(&self.session).as_ref().map(|s| s.info.clone()).ok_or(AppError::AudioNotRunning)?;
+        self.routing(&info).preview_output(info.decks).ok_or(AppError::NoPreviewOutput)
     }
 
     /// Gives the turntable of `deck` to it alone: the deck layered with it on the running
@@ -492,6 +491,32 @@ pub fn deck_commands(deck: usize, s: &DeckSettings) -> Vec<Command> {
     commands
 }
 
+/// The routing `mixer` asks for on the device of `info`: an external mixer needs two output
+/// pairs (four decks share them if there are no more, see `deck_pair`), its headphones a pair
+/// of their own for the preview, after the decks' on an ASIO interface by default; else the
+/// software mixer is used, its headphones where the DJ wants them.
+fn routing_for(mixer: MixerPreferences, info: &AudioInfo) -> OutputRouting {
+    let outputs = info.output_channels;
+    let deck_outputs = std::array::from_fn(|deck| Some(2 * deck_pair(deck, info.decks, outputs)));
+    if mixer.mode != MixModeDto::External || outputs < 4 {
+        let headphones = headphones_output(mixer.headphones, info.backend, outputs);
+        return OutputRouting { mode: MixMode::Internal, deck_outputs, headphones, ..Default::default() };
+    }
+    let after_decks = 2 * (deck_pair(info.decks - 1, info.decks, outputs) + 1);
+    let headphones = match mixer.headphones {
+        HeadphonesOutputDto::Auto => (info.backend == BackendDto::Asio).then_some(after_decks),
+        HeadphonesOutputDto::Off => None,
+        HeadphonesOutputDto::Pair { first } => Some(first),
+    };
+    let routing = OutputRouting {
+        mode: MixMode::External,
+        deck_outputs,
+        headphones: headphones.filter(|first| first + 2 <= outputs),
+        ..Default::default()
+    };
+    OutputRouting { headphones: routing.preview_output(info.decks), ..routing }
+}
+
 /// The first output of the headphones on a device with `outputs`, reached through
 /// `backend`: the pair chosen if the device has it, by default 3-4 of a DJ interface (four
 /// outputs, or ASIO) and none on the surround outputs of a computer, where 3-4 are the
@@ -537,6 +562,35 @@ mod tests {
         assert_eq!(headphones_output(Pair { first: 4 }, Wasapi, 8), Some(4), "chosen on purpose");
         assert_eq!(headphones_output(Pair { first: 4 }, Wasapi, 4), None, "not on this device");
         assert_eq!(headphones_output(Off, Wasapi, 4), None);
+    }
+
+    #[test]
+    fn with_an_external_mixer_the_headphones_take_a_pair_no_deck_uses() {
+        use BackendDto::{Asio, Wasapi};
+        use HeadphonesOutputDto::{Auto, Pair};
+        let headphones = |backend, outputs, decks, headphones| {
+            let mixer = MixerPreferences { mode: MixModeDto::External, headphones, ..Default::default() };
+            let info = AudioInfo {
+                backend,
+                device: String::new(),
+                sample_rate: 48_000,
+                output_channels: outputs,
+                input_channels: 4,
+                decks,
+                simulated: false,
+            };
+            let routing = routing_for(mixer, &info);
+            assert_eq!(routing.mode, MixMode::External);
+            routing.headphones
+        };
+        assert_eq!(headphones(Asio, 4, 2, Auto), None, "both pairs go to the mixer");
+        assert_eq!(headphones(Asio, 6, 2, Auto), Some(4));
+        assert_eq!(headphones(Asio, 8, 4, Auto), None);
+        assert_eq!(headphones(Asio, 10, 4, Auto), Some(8));
+        assert_eq!(headphones(Wasapi, 6, 2, Auto), None, "maybe a computer's surround");
+        assert_eq!(headphones(Wasapi, 6, 2, Pair { first: 4 }), Some(4), "chosen on purpose");
+        assert_eq!(headphones(Asio, 6, 2, Pair { first: 2 }), None, "deck B's");
+        assert_eq!(headphones(Asio, 4, 4, Pair { first: 2 }), None, "decks B and D's");
     }
 
     fn db(gain: f32) -> f32 {

@@ -10,6 +10,8 @@
 //!   effects timed on its tempo and a sampler playing through its channel.
 //! * The software mixer gives each deck a channel (trim, EQ with kills, filter, fader)
 //!   and applies the crossfader, the master gain and a limiter.
+//! * A track of the library can be heard in the headphones alone before it goes on a deck
+//!   (`preview`).
 //!
 //! Real-time rules: the audio thread never allocates, locks or frees memory. Objects it
 //! replaces (tracks, decoders) are handed back to the controller to be freed there.
@@ -22,6 +24,7 @@ mod keylock;
 mod looping;
 mod mixer;
 mod playhead;
+mod preview;
 mod recording;
 mod sampler;
 mod scope;
@@ -39,5 +42,7 @@ pub use looping::LoopRegion;
 pub use mixer::{CrossfaderCurve, MixMode, OutputRouting};
 pub use prisme_dsp::{Band, EffectKind, FX_SLOTS};
 pub use sampler::SAMPLE_SLOTS;
-pub use status::{DeckStatus, EngineStatus, LoopStatus, RecordingStatus, SyncStatus, VinylStatus, MAX_DECKS};
+pub use status::{
+    DeckStatus, EngineStatus, LoopStatus, PreviewStatus, RecordingStatus, SyncStatus, VinylStatus, MAX_DECKS,
+};
 pub use stems::{Parts, Stem, StemMix, StemTracks};

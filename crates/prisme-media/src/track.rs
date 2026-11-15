@@ -285,11 +285,23 @@ impl LoadingTrack {
 
     /// Decodes the rest of the track. A file damaged further on keeps what was decoded,
     /// and the error says why it stops there.
-    pub fn decode_rest(mut self) -> (Arc<TrackAudio>, Result<(), MediaError>) {
+    pub fn decode_rest(self) -> (Arc<TrackAudio>, Result<(), MediaError>) {
+        self.decode_rest_while(|| true)
+    }
+
+    /// Decodes the rest of the track while `go_on` says so, asked between packets: a track
+    /// no longer wanted ends where its decoding was left.
+    pub fn decode_rest_while(
+        mut self,
+        go_on: impl Fn() -> bool,
+    ) -> (Arc<TrackAudio>, Result<(), MediaError>) {
         let result = match self.stream.take() {
             Some(mut stream) => {
                 let mut chunk = Vec::new();
                 loop {
+                    if !go_on() {
+                        break Ok(());
+                    }
                     chunk.clear();
                     match stream.next_chunk(&mut chunk) {
                         Ok(true) => self.audio.append(&chunk),

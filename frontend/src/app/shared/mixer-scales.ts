@@ -51,6 +51,9 @@ export function trimKnob(gain: number): number {
 }
 
 /** What a knob reads while it is touched. */
+/** The headphone volume knob goes up to +3.5 dB. */
+export const MAX_HEADPHONE_GAIN = 1.5;
+
 export const readouts = {
   /** "+3.0 dB", "−∞ dB" when the band is removed. */
   eq: (knob: number) => decibels(eqGain(knob)),

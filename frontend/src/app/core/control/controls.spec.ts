@@ -98,6 +98,24 @@ describe('controls', () => {
     expect(find('deck1.fx2.part')).toBeUndefined();
   });
 
+  it('preview the selected track, move through it, stop it, or load and play', () => {
+    const { calls, find } = recorder();
+    find('library.preview').apply(1);
+    find('library.preview').apply(0);
+    find('library.preview.seek').apply(-2);
+    find('library.preview.stop').apply(1);
+    find('library.load2.play').apply(1);
+    expect(find('library.preview.seek').kind).toBe('encoder');
+    expect(find('library.preview').lit!()).toBe(true);
+    expect(calls).toEqual([
+      'togglePreview()',
+      'seekPreview(-2)',
+      'stopPreview()',
+      'loadSelectedAndPlay(1)',
+      'previewing()',
+    ]);
+  });
+
   it('read a jump or a loop of so many beats from its id', () => {
     const { calls, actions } = recorder();
     measuredControl(actions, 'deck2.jump.-8')!.apply(1);

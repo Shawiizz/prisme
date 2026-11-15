@@ -113,9 +113,9 @@ export const COLUMNS: readonly Column[] = [
   },
 ];
 
-/** Grid tracks of a row: the play order of ordered lists, the columns, a load button for
- * each of the `decks`. */
+/** Grid tracks of a row: the play order of ordered lists, the columns, the preview key and a
+ * load key for each of the `decks`. */
 export function gridTemplate(columns: readonly Column[], ordered: boolean, decks: number): string {
-  const load = `${decks * 28 + 2}px`;
+  const load = `${(decks + 1) * 28 + 2}px`;
   return [...(ordered ? ['30px'] : []), ...columns.map((c) => c.width), load].join(' ');
 }

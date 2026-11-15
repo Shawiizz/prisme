@@ -2,11 +2,8 @@ import { Component, inject, signal } from '@angular/core';
 import { MixerService } from '../../../core/services/mixer.service';
 import { TPipe } from '../../../core/i18n/t.pipe';
 import { Knob } from '../../../shared/knob/knob';
-import { readouts } from '../../../shared/mixer-scales';
+import { MAX_HEADPHONE_GAIN, readouts } from '../../../shared/mixer-scales';
 import { Dismiss, overlay } from '../../../shared/overlay';
-
-/** The headphone volume knob goes up to +3.5 dB. */
-const MAX_HEADPHONE_GAIN = 1.5;
 
 /**
  * What is set once an evening on the software mixer, off the screen until asked for: the
