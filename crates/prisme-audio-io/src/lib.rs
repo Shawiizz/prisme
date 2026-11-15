@@ -7,6 +7,7 @@
 mod devices;
 mod formats;
 pub mod latency;
+mod perf;
 mod stream;
 mod usb;
 

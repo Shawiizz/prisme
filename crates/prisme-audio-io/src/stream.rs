@@ -4,6 +4,7 @@
 
 use crate::devices::{configs, device_name, drivers, find, Backend, DeviceKind};
 use crate::formats::{input_stream, output_stream, MAX_PERIOD};
+use crate::perf::PerformanceHint;
 use crate::{AudioCallback, AudioError};
 use cpal::traits::{DeviceTrait, StreamTrait};
 use std::panic::{catch_unwind, AssertUnwindSafe};
@@ -245,6 +246,9 @@ pub(crate) struct Renderer<C> {
     /// A callback longer than its period is late: not where the device holds several periods
     /// and tells itself when it ran out of them.
     times_itself: bool,
+    /// The system told how long each period takes, from the first one (on the audio thread).
+    hint: Option<PerformanceHint>,
+    hinted: bool,
     /// The callback panicked: its state cannot be trusted any more.
     failed: bool,
 }
@@ -266,6 +270,8 @@ impl<C: AudioCallback> Renderer<C> {
             sample_rate: format.sample_rate,
             stats,
             times_itself: true,
+            hint: None,
+            hinted: false,
             failed: false,
         }
     }
@@ -290,6 +296,12 @@ impl<C: AudioCallback> Renderer<C> {
         }
         let ns = start.elapsed().as_nanos() as u64;
         let budget = (frames as f64 / self.sample_rate as f64 * 1e9) as u64;
+        if !std::mem::replace(&mut self.hinted, true) {
+            self.hint = PerformanceHint::for_this_thread(Duration::from_nanos(budget));
+        }
+        if let Some(hint) = self.hint.as_mut() {
+            hint.report(Duration::from_nanos(ns));
+        }
         self.stats.callbacks.fetch_add(1, Ordering::Relaxed);
         self.stats.frames.fetch_add(frames as u64, Ordering::Relaxed);
         self.stats.max_callback_ns.fetch_max(ns, Ordering::Relaxed);
@@ -399,6 +411,8 @@ mod tests {
             sample_rate: 48_000,
             stats: Arc::new(StreamStats::default()),
             times_itself: true,
+            hint: None,
+            hinted: false,
             failed: false,
         }
     }

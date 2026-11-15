@@ -328,13 +328,39 @@ fn is_gone(status: i32) -> bool {
 }
 
 /// The streaming thread as urgent as audio may be for an application (Android lets it ask
-/// for this much).
+/// for this much), on the fastest cores: on a small one a period takes several times as long.
 fn raise_priority() {
     const URGENT_AUDIO: i32 = -19;
     // SAFETY: on Linux, 0 is the calling thread.
     if unsafe { libc::setpriority(libc::PRIO_PROCESS, 0, URGENT_AUDIO) } != 0 {
         warn!("the USB audio thread kept its priority: {}", io::Error::last_os_error());
     }
+    let fast = fast_cores();
+    if fast.is_empty() {
+        return;
+    }
+    // SAFETY: a set of cores filled here, for the calling thread (0).
+    unsafe {
+        let mut set: libc::cpu_set_t = std::mem::zeroed();
+        fast.iter().for_each(|&core| libc::CPU_SET(core, &mut set));
+        // the cores of an application out of sight may be others: it keeps them then
+        libc::sched_setaffinity(0, size_of::<libc::cpu_set_t>(), &set);
+    }
+}
+
+/// More cores than a phone has.
+const MAX_CORES: usize = 64;
+
+/// The cores at least three quarters as fast as the fastest, by their top frequency.
+fn fast_cores() -> Vec<usize> {
+    let top = |core: usize| {
+        std::fs::read_to_string(format!("/sys/devices/system/cpu/cpu{core}/cpufreq/cpuinfo_max_freq"))
+            .ok()
+            .and_then(|f| f.trim().parse::<u64>().ok())
+    };
+    let cores: Vec<(usize, u64)> = (0..MAX_CORES).map_while(|c| Some((c, top(c)?))).collect();
+    let fastest = cores.iter().map(|&(_, f)| f).max().unwrap_or(0);
+    cores.into_iter().filter(|&(_, f)| f * 4 >= fastest * 3).map(|(c, _)| c).collect()
 }
 
 #[cfg(test)]
