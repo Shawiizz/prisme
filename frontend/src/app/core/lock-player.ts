@@ -1,4 +1,4 @@
-import { Injectable, computed, effect, inject, signal, untracked } from '@angular/core';
+import { Injectable, Injector, computed, effect, inject, signal } from '@angular/core';
 import { convertFileSrc } from '@tauri-apps/api/core';
 import { CrossfaderCurve } from './models/engine';
 import { EngineService } from './services/engine.service';
@@ -26,6 +26,17 @@ export interface PlayerState {
   controls: boolean;
 }
 
+/** What the player shows but where the deck shown is, which Android moves on by itself. */
+export type PlayerShowing = Omit<PlayerState, 'positionS' | 'speed'>;
+
+/** What Android was last told, and when (`performance.now()`). */
+export interface PlayerTold {
+  showing: PlayerShowing;
+  positionS: number;
+  speed: number;
+  at: number;
+}
+
 /** What `MainActivity.kt` offers the page on Android. */
 interface AndroidPlayer {
   update(state: string): void;
@@ -38,6 +49,8 @@ const SHARP_CUT = 0.04;
 const MOVING_SPEED = 0.25;
 /** Android moves the position on by itself: told again past this much of a drift. */
 const DRIFT_S = 1;
+/** A change of speed smaller than this is not told. */
+const SPEED_STEP = 0.005;
 
 /** The crossfader's gain on `deck`, as `mixer.rs` has it: A and C on its left, B and D on its
  * right. */
@@ -63,6 +76,36 @@ export function heardDeck(
   return moving.length ? moving.reduce(louder) : null;
 }
 
+/** Whether the player shows the same in both, where the deck shown is aside. */
+export function sameShowing(a: PlayerShowing, b: PlayerShowing): boolean {
+  return (
+    a.shown === b.shown &&
+    a.path === b.path &&
+    a.durationS === b.durationS &&
+    a.controls === b.controls &&
+    a.decks.length === b.decks.length &&
+    a.decks.every(
+      (d, i) =>
+        d.deck === b.decks[i].deck &&
+        d.title === b.decks[i].title &&
+        d.artist === b.decks[i].artist &&
+        d.playing === b.decks[i].playing,
+    )
+  );
+}
+
+/** Whether Android, told `told`, still shows the deck at `positionS` and `speed` at `now` (ms):
+ * the same speed, and the position it moved on by itself close to the deck's. */
+export function stillTrue(
+  told: PlayerTold,
+  positionS: number,
+  speed: number,
+  now: number,
+): boolean {
+  const moved = told.positionS + (told.speed * (now - told.at)) / 1000;
+  return Math.abs(told.speed - speed) < SPEED_STEP && Math.abs(moved - positionS) < DRIFT_S;
+}
+
 /**
  * The player of Android's lock screen and notifications: the track heard, its cover and where
  * it is, a button for each deck. Android keeps the sound going while a deck plays, and a while
@@ -73,6 +116,7 @@ export class LockPlayer {
   private readonly engine = inject(EngineService);
   private readonly mixer = inject(MixerService);
   private readonly preferences = inject(PreferencesService);
+  private readonly injector = inject(Injector);
   private readonly android = (window as { prismeDecks?: AndroidPlayer }).prismeDecks;
 
   /** When each deck last started to move. */
@@ -107,87 +151,94 @@ export class LockPlayer {
       null
     );
   });
+  private readonly showing = computed<PlayerShowing>(
+    () => {
+      const tracks = this.engine.tracks();
+      const moving = this.moving();
+      const shown = this.shown();
+      const deck = shown === null ? null : this.engine.status()?.decks[shown];
+      return {
+        decks: this.engine
+          .deckIndexes()
+          .filter((d) => tracks[d])
+          .map((d) => ({
+            deck: d,
+            title: tracks[d]!.title,
+            artist: tracks[d]!.artist,
+            playing: moving.includes(d),
+          })),
+        shown,
+        path: shown === null ? null : tracks[shown]!.path,
+        durationS: deck?.durationS ?? 0,
+        controls: this.preferences.dj().lockControls,
+      };
+    },
+    { equal: sameShowing },
+  );
 
-  private sent: PlayerState | null = null;
-  private sentAt = 0;
+  private told: PlayerTold | null = null;
   private coverPath: string | null = null;
+  private started = false;
 
   /** Tells Android, as long as Prisme runs, what its player shows. */
   start() {
     const android = this.android;
-    if (!android) return;
+    if (!android || this.started) return;
+    this.started = true;
     (window as { prismePlayer?: unknown }).prismePlayer = {
       toggle: (deck: number) => this.engine.togglePlay(deck),
     };
+    const injector = this.injector;
     let wasMoving = new Set<number>();
-    effect(() => {
-      const moving = new Set(this.moving());
-      const started = [...moving].filter((d) => !wasMoving.has(d));
-      wasMoving = moving;
-      if (started.length) {
+    effect(
+      () => {
+        const moving = new Set(this.moving());
+        const started = [...moving].filter((d) => !wasMoving.has(d));
+        wasMoving = moving;
+        if (!started.length) return;
         const now = performance.now();
-        untracked(() =>
-          this.startedAt.update((at) => {
-            const next = [...at];
-            started.forEach((d) => (next[d] = now));
-            return next;
-          }),
-        );
-      }
-    });
-    effect(() => {
-      const heard = this.heard();
-      if (heard !== null) untracked(() => this.lastHeard.set(heard));
-    });
-    effect(() => this.tell(android, this.state()));
-    effect(() => {
-      const shown = this.shown();
-      const path = shown === null ? null : (this.engine.tracks()[shown]?.path ?? null);
-      if (path !== this.coverPath) void this.sendCover(android, path);
-    });
-  }
-
-  private state(): PlayerState {
-    const tracks = this.engine.tracks();
-    const status = this.engine.status()?.decks ?? [];
-    const moving = this.moving();
-    const decks = this.engine
-      .deckIndexes()
-      .filter((d) => tracks[d])
-      .map((d) => ({
-        deck: d,
-        title: tracks[d]!.title,
-        artist: tracks[d]!.artist,
-        playing: moving.includes(d),
-      }));
-    const shown = this.shown();
-    const deck = shown === null ? null : status[shown];
-    return {
-      decks,
-      shown,
-      path: shown === null ? null : tracks[shown]!.path,
-      positionS: deck?.positionS ?? 0,
-      durationS: deck?.durationS ?? 0,
-      speed: shown !== null && moving.includes(shown) ? (deck?.speed ?? 0) : 0,
-      controls: this.preferences.dj().lockControls,
-    };
+        this.startedAt.update((at) => {
+          const next = [...at];
+          started.forEach((d) => (next[d] = now));
+          return next;
+        });
+      },
+      { injector },
+    );
+    effect(
+      () => {
+        const heard = this.heard();
+        if (heard !== null) this.lastHeard.set(heard);
+      },
+      { injector },
+    );
+    effect(
+      () => {
+        const showing = this.showing();
+        const shown = showing.shown;
+        const deck = shown === null ? null : this.engine.status()?.decks[shown];
+        const speed = shown !== null && this.moving().includes(shown) ? (deck?.speed ?? 0) : 0;
+        this.tell(android, showing, deck?.positionS ?? 0, speed);
+      },
+      { injector },
+    );
+    effect(
+      () => {
+        const path = this.showing().path;
+        if (path !== this.coverPath) void this.sendCover(android, path);
+      },
+      { injector },
+    );
   }
 
   /** Tells Android when what it shows changed, or when the position it moves on by itself
    * drifted from the deck's (a jump, a loop, a scratch). */
-  private tell(android: AndroidPlayer, state: PlayerState) {
+  private tell(android: AndroidPlayer, showing: PlayerShowing, positionS: number, speed: number) {
     const now = performance.now();
-    const sent = this.sent;
-    const same =
-      sent !== null &&
-      JSON.stringify({ ...sent, positionS: 0, speed: 0 }) ===
-        JSON.stringify({ ...state, positionS: 0, speed: 0 }) &&
-      Math.abs(sent.speed - state.speed) < 0.005 &&
-      Math.abs(sent.positionS + (sent.speed * (now - this.sentAt)) / 1000 - state.positionS) <
-        DRIFT_S;
-    if (same) return;
-    this.sent = state;
-    this.sentAt = now;
+    const told = this.told;
+    if (told?.showing === showing && stillTrue(told, positionS, speed, now)) return;
+    this.told = { showing, positionS, speed, at: now };
+    const state: PlayerState = { ...showing, positionS, speed };
     android.update(JSON.stringify(state));
   }
 
