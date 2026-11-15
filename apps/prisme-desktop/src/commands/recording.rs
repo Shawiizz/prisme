@@ -1,5 +1,6 @@
 //! Recording the mix (see `recording`).
 
+use crate::commands::blocking;
 use crate::dto::{RecordSourceDto, RecordingDto};
 use crate::error::{AppError, AppResult};
 use crate::library_service::LibraryService;
@@ -31,14 +32,19 @@ pub fn start_recording(
     Ok(path)
 }
 
-/// Ends the recording and writes its tracklist next to it.
+/// Ends the recording and writes its tracklist next to it, off the main thread: the end of
+/// the recording is written first.
 #[tauri::command]
-pub fn stop_recording(state: State<'_, AppState>) -> AppResult<Option<RecordingDto>> {
-    let Some(recorder) = lock(&state.recorder).take() else { return Ok(None) };
-    let summary = recorder.stop(&state)?;
-    Ok(Some(RecordingDto {
-        path: summary.path.display().to_string(),
-        seconds: summary.seconds,
-        tracks: summary.tracks,
-    }))
+pub async fn stop_recording(app: AppHandle) -> AppResult<Option<RecordingDto>> {
+    blocking(move || {
+        let state = app.state::<AppState>();
+        let Some(recorder) = lock(&state.recorder).take() else { return Ok(None) };
+        let summary = recorder.stop(&state)?;
+        Ok(Some(RecordingDto {
+            path: summary.path.display().to_string(),
+            seconds: summary.seconds,
+            tracks: summary.tracks,
+        }))
+    })
+    .await
 }

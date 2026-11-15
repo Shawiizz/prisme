@@ -1,6 +1,7 @@
 use crate::audio_host;
+use crate::commands::blocking;
 use crate::dto::{AudioInfo, AudioSettings, BackendDto, DeviceDto, LatencyDto, TimecodeFormatDto};
-use crate::error::{AppError, AppResult};
+use crate::error::AppResult;
 use crate::state::{lock, AppState};
 use prisme_audio_io::{latency, Backend, DeviceKind};
 use prisme_engine::Command;
@@ -60,10 +61,14 @@ pub fn audio_info(state: State<'_, AppState>) -> Option<AudioInfo> {
 
 /// Restarts the audio with new settings and keeps them for the next start.
 #[tauri::command]
-pub fn apply_audio_settings(state: State<'_, AppState>, settings: AudioSettings) -> AppResult<AudioInfo> {
-    let info = start_audio(&state, &settings)?;
-    state.update_preferences(|p| p.audio = settings);
-    Ok(info)
+pub async fn apply_audio_settings(app: AppHandle, settings: AudioSettings) -> AppResult<AudioInfo> {
+    blocking(move || {
+        let state = app.state::<AppState>();
+        let info = start_audio(&state, &settings)?;
+        state.update_preferences(|p| p.audio = settings);
+        Ok(info)
+    })
+    .await
 }
 
 /// (Re)starts the audio and restores the decks where they were, playing if they were.
@@ -90,10 +95,10 @@ const LATENCY_MEASURE: Duration = Duration::from_secs(3);
 
 /// The round trip from output `output` to input `input` (from 1, as printed on the card),
 /// joined by a cable: the devices of the audio running, free of it for the measurement, which
-/// then starts again where it was. Off the commands' threads: the clicks play for seconds.
+/// then starts again where it was.
 #[tauri::command]
 pub async fn measure_latency(app: AppHandle, output: usize, input: usize) -> AppResult<LatencyDto> {
-    tauri::async_runtime::spawn_blocking(move || {
+    blocking(move || {
         let state = app.state::<AppState>();
         let _starting = lock(&state.audio_start);
         let running = lock(&state.session).as_ref().map(|s| s.settings.clone());
@@ -113,7 +118,6 @@ pub async fn measure_latency(app: AppHandle, output: usize, input: usize) -> App
         })
     })
     .await
-    .map_err(|e| AppError::Other(e.to_string()))?
 }
 
 fn start(state: &AppState, settings: &AudioSettings) -> AppResult<AudioInfo> {

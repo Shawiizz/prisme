@@ -1,7 +1,8 @@
 //! Import from Serato and rekordbox (see `prisme_import`).
 
+use crate::commands::blocking;
 use crate::dto::ImportSummaryDto;
-use crate::error::{AppError, AppResult};
+use crate::error::AppResult;
 use crate::folders;
 use crate::library_service::LibraryService;
 use prisme_import::{rekordbox, serato, Import};
@@ -52,7 +53,7 @@ async fn run(
     library: Arc<LibraryService>,
     read: impl FnOnce() -> AppResult<Import> + Send + 'static,
 ) -> AppResult<ImportSummaryDto> {
-    tauri::async_runtime::spawn_blocking(move || {
+    blocking(move || {
         let import = read()?;
         let summary = prisme_import::apply(&library.db, &import)?;
         for track in &import.tracks {
@@ -61,5 +62,4 @@ async fn run(
         Ok(summary.into())
     })
     .await
-    .map_err(|e| AppError::Other(e.to_string()))?
 }
