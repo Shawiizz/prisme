@@ -8,7 +8,7 @@
 //! each worker holds a few MB, not a track.
 
 use crate::db::{path_key, FileStamp, LibraryDb, RecordVersion, TrackRecord};
-use crate::identity::{adopt_unless, drive_is_there, Search};
+use crate::identity::{adopt_unless, drive_is_there, drive_of, Search};
 use crate::metadata::read_metadata;
 use crate::scan::{scan_folder, Scan, ScannedFile};
 use prisme_analysis::AnalysisOptions;
@@ -203,8 +203,7 @@ fn run(
             report(true);
         }
         let file = Path::new(&path);
-        let drive = file.ancestors().last().unwrap_or(file);
-        let there = *drives.entry(drive.to_path_buf()).or_insert_with(|| drive_is_there(file));
+        let there = *drives.entry(drive_of(file).0).or_insert_with(|| drive_is_there(file));
         if there && !online_only.iter().any(|kept_online| kept_online == file) {
             remember_audio(db, file);
         }

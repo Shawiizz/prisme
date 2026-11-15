@@ -34,25 +34,33 @@ mod android {
         let (vm, activity) =
             unsafe { (JavaVM::from_raw(context.vm().cast())?, JObject::from_raw(context.context().cast())) };
         let mut env = vm.attach_current_thread()?;
-        let permission = env.new_string(RECORD_AUDIO)?;
-        let state = env
-            .call_method(
+        let asked = env.with_local_frame(4, |env| {
+            let permission = env.new_string(RECORD_AUDIO)?;
+            let state = env
+                .call_method(
+                    &activity,
+                    "checkSelfPermission",
+                    "(Ljava/lang/String;)I",
+                    &[JValue::Object(&permission)],
+                )?
+                .i()?;
+            if state == GRANTED {
+                return Ok(true);
+            }
+            let wanted = env.new_object_array(1, "java/lang/String", &permission)?;
+            env.call_method(
                 &activity,
-                "checkSelfPermission",
-                "(Ljava/lang/String;)I",
-                &[JValue::Object(&permission)],
-            )?
-            .i()?;
-        if state == GRANTED {
-            return Ok(true);
+                "requestPermissions",
+                "([Ljava/lang/String;I)V",
+                &[JValue::Object(&wanted), JValue::Int(0)],
+            )?;
+            Ok(false)
+        });
+        // left pending, an exception would bring the next call of this thread down
+        if env.exception_check().unwrap_or(false) {
+            let _ = env.exception_describe();
+            let _ = env.exception_clear();
         }
-        let wanted = env.new_object_array(1, "java/lang/String", &permission)?;
-        env.call_method(
-            &activity,
-            "requestPermissions",
-            "([Ljava/lang/String;I)V",
-            &[JValue::Object(&wanted), JValue::Int(0)],
-        )?;
-        Ok(false)
+        asked
     }
 }

@@ -144,7 +144,7 @@ fn move_to_saved(
     true
 }
 
-/// Audio on Windows' default output (no device chosen) moves when the default changes from
+/// Audio on the system's default output (no device chosen) moves when the default changes from
 /// `last` to another device than `device`: a headset connected takes the sound, as in every
 /// other program. True once moved.
 fn follow_default_output(
@@ -164,7 +164,7 @@ fn follow_default_output(
     *last = now.clone();
     match now {
         Some(default) if default != device => {
-            info!("Windows plays on {default} now, the audio follows");
+            info!("the system plays on {default} now, the audio follows");
             if let Err(e) = start_audio(state, settings) {
                 error!("audio could not follow the default output: {e}");
             }

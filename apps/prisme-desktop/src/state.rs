@@ -255,7 +255,7 @@ impl AppState {
 
     /// Whether `deck` plays: its track moves, by itself or under a record.
     pub fn deck_plays(&self, deck: usize) -> bool {
-        self.deck_status(deck).is_ok_and(|d| d.loaded && d.speed.abs() > MOVING_SPEED)
+        self.deck_status(deck).is_ok_and(|d| moves(&d))
     }
 
     /// Whether a deck plays: its track moves, by itself or under a record.
@@ -263,7 +263,7 @@ impl AppState {
         let mut session = lock(&self.session);
         let Some(session) = session.as_mut() else { return false };
         let status = session.controller.status();
-        status.decks[..status.deck_count].iter().any(|d| d.loaded && d.speed.abs() > MOVING_SPEED)
+        status.decks[..status.deck_count].iter().any(moves)
     }
 
     /// Runs `f` on the track on `deck` if it is still the load `load_id`.
@@ -447,6 +447,11 @@ impl AppState {
             controller.send(Command::SetCrossfaderCurve { curve: preferences.mixer.crossfader_curve.into() });
         let _ = controller.send(Command::SetLimiter { enabled: preferences.mixer.limiter });
     }
+}
+
+/// A deck's track moves, by itself or under a record.
+fn moves(d: &DeckStatus) -> bool {
+    d.loaded && d.speed.abs() > MOVING_SPEED
 }
 
 /// Commands that put a deck in the state described by `s`.

@@ -41,7 +41,8 @@ pub async fn load_track(
 /// double): nothing is read again.
 #[tauri::command]
 pub fn double_deck(state: State<'_, AppState>, from: usize, deck: usize) -> AppResult<TrackInfoDto> {
-    AppState::check_deck(deck)?;
+    state.has_deck(from)?;
+    state.has_deck(deck)?;
     let track = state.with_track(from, |t| t.double())?;
     let info = track.info(deck);
     let commands = track.load_commands(deck, state.preferences.read(|p| p.dj.auto_gain));

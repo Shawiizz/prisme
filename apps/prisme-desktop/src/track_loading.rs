@@ -29,7 +29,6 @@ pub struct Completion {
     analysis_missing: bool,
 }
 
-/// The track, playable, and what is left to do ([`Completion::run`]).
 /// Puts a track on `deck` before the audio starts (`AppState::restore` hands it to the
 /// engine); its waveform and analysis follow.
 pub fn preload(
@@ -47,6 +46,7 @@ pub fn preload(
     Ok(())
 }
 
+/// The track, playable, and what is left to do ([`Completion::run`]).
 pub fn prepare(path: PathBuf, library: &LibraryService) -> AppResult<(LoadedTrack, Completion)> {
     let loading = LoadingTrack::open(&path)?;
     let stamp = FileStamp::of(&path).ok();

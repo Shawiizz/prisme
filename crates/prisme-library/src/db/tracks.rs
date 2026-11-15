@@ -15,11 +15,11 @@ use std::path::Path;
 /// Version of what is read from the tags: bump it to read every file's tags again.
 pub const TAGS_VERSION: u32 = 1;
 
-/// Tables keyed by a file's path (`track_search`, a virtual table, is apart).
 /// What the DJ made of a track, kept when its file goes: a path holding none of it is
 /// forgotten whole.
 const KEPT: [&str; 6] = ["cues", "track_edits", "track_marks", "crate_tracks", "history_plays", "prepare"];
 
+/// Tables keyed by a file's path (`track_search`, a virtual table, is apart).
 const RELOCATED: [&str; 11] = [
     "audio_ids",
     "written_tags",

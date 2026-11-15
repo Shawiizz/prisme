@@ -1,20 +1,20 @@
 use crate::audio_host;
 use crate::dto::{AudioInfo, AudioSettings, BackendDto, DeviceDto, LatencyDto, TimecodeFormatDto};
-use crate::error::AppResult;
+use crate::error::{AppError, AppResult};
 use crate::state::{lock, AppState};
 use prisme_audio_io::{latency, Backend, DeviceKind};
 use prisme_engine::Command;
 use std::time::Duration;
-use tauri::State;
+use tauri::{AppHandle, Manager, State};
 use tracing::error;
 
-/// Backends this computer offers (ASIO only with an ASIO driver installed).
 /// The interface went out of sight, or came back.
 #[tauri::command]
 pub fn set_hidden(state: State<'_, AppState>, hidden: bool) {
     state.hidden.store(hidden, std::sync::atomic::Ordering::Relaxed);
 }
 
+/// Backends this computer offers (ASIO only with an ASIO driver installed).
 #[tauri::command]
 pub fn audio_backends() -> Vec<BackendDto> {
     Backend::available().into_iter().map(BackendDto::from).collect()
@@ -89,29 +89,31 @@ pub fn start_audio_unless_running(
 const LATENCY_MEASURE: Duration = Duration::from_secs(3);
 
 /// The round trip from output `output` to input `input` (from 1, as printed on the card),
-/// joined by a cable: the devices of the audio, free of it for the measurement, which then
-/// starts again where it was.
+/// joined by a cable: the devices of the audio running, free of it for the measurement, which
+/// then starts again where it was. Off the commands' threads: the clicks play for seconds.
 #[tauri::command]
-pub async fn measure_latency(
-    state: State<'_, AppState>,
-    output: usize,
-    input: usize,
-) -> AppResult<LatencyDto> {
-    let _starting = lock(&state.audio_start);
-    let settings = state.preferences.read(|p| p.audio.clone());
-    let mut devices = audio_host::stream_settings(&settings);
-    // a card or a driver both ways listens where it plays
-    if matches!(devices.backend, Backend::Asio | Backend::Usb) {
-        devices.input_device = devices.input_device.or_else(|| devices.output_device.clone());
-    }
-    let (_, measured) = restart(&state, &settings, || {
-        latency::measure(&devices, output.saturating_sub(1), input.saturating_sub(1), LATENCY_MEASURE)
-    })?;
-    let measured = measured?;
-    Ok(LatencyDto {
-        round_trip_ms: measured.round_trip.as_secs_f64() * 1000.0,
-        sample_rate: measured.format.sample_rate,
+pub async fn measure_latency(app: AppHandle, output: usize, input: usize) -> AppResult<LatencyDto> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let state = app.state::<AppState>();
+        let _starting = lock(&state.audio_start);
+        let running = lock(&state.session).as_ref().map(|s| s.settings.clone());
+        let settings = running.unwrap_or_else(|| state.preferences.read(|p| p.audio.clone()));
+        let mut devices = audio_host::stream_settings(&settings);
+        // a card or a driver both ways listens where it plays
+        if matches!(devices.backend, Backend::Asio | Backend::Usb) {
+            devices.input_device = devices.input_device.or_else(|| devices.output_device.clone());
+        }
+        let (_, measured) = restart(&state, &settings, || {
+            latency::measure(&devices, output.saturating_sub(1), input.saturating_sub(1), LATENCY_MEASURE)
+        })?;
+        let measured = measured?;
+        Ok(LatencyDto {
+            round_trip_ms: measured.round_trip.as_secs_f64() * 1000.0,
+            sample_rate: measured.format.sample_rate,
+        })
     })
+    .await
+    .map_err(|e| AppError::Other(e.to_string()))?
 }
 
 fn start(state: &AppState, settings: &AudioSettings) -> AppResult<AudioInfo> {

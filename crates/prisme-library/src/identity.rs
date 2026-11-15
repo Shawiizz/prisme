@@ -84,7 +84,7 @@ const MOUNTS: [(&str, usize); 4] = [("/Volumes", 1), ("/media", 2), ("/run/media
 
 /// The drive `path` is on, and the path under it: a drive letter or a share on Windows, the
 /// folder a drive is mounted in elsewhere (the root for the others).
-fn drive_of(path: &Path) -> (PathBuf, &Path) {
+pub(crate) fn drive_of(path: &Path) -> (PathBuf, &Path) {
     #[cfg(windows)]
     let drive = path.ancestors().last().unwrap_or(path).to_path_buf();
     #[cfg(not(windows))]
