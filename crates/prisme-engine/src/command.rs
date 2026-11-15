@@ -1,6 +1,7 @@
 //! Messages between the control side (UI, controllers) and the audio thread.
 
 use crate::grid::BeatGrid;
+use crate::live::{InputChannels, LiveSource};
 use crate::looping::LoopRegion;
 use crate::mixer::{CrossfaderCurve, OutputRouting};
 use crate::stems::{Parts, StemMix, StemTracks};
@@ -341,6 +342,45 @@ pub enum Command {
         curve: CrossfaderCurve,
     },
     SetLimiter {
+        enabled: bool,
+    },
+    /// Software mixer: -1 = the master on the left only, 0 = both sides, 1 = the right only.
+    SetBalance {
+        balance: f32,
+    },
+    /// Software mixer: the level of the booth monitors (linear).
+    SetBoothGain {
+        gain: f32,
+    },
+    /// Software mixer: the input channels a live source comes in on (`None`: not plugged).
+    SetLiveInput {
+        source: LiveSource,
+        channels: Option<InputChannels>,
+    },
+    /// The level of a live source (linear).
+    SetLiveLevel {
+        source: LiveSource,
+        gain: f32,
+    },
+    /// A live source heard in the master, or not.
+    SetLiveOn {
+        source: LiveSource,
+        on: bool,
+    },
+    /// A live source heard in the headphones, on or not.
+    SetLiveCue {
+        source: LiveSource,
+        cue: bool,
+    },
+    /// While the microphone is on, the music ducks by `depth_db`, if `enabled`.
+    SetTalkover {
+        enabled: bool,
+        depth_db: f32,
+    },
+    /// The deck plays its input as it comes (a record, a CD player) instead of its track,
+    /// through its channel.
+    SetPassthrough {
+        deck: DeckId,
         enabled: bool,
     },
 }

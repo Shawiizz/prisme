@@ -42,6 +42,9 @@ pub struct Rig {
     pub turntables: [Option<Turntable>; DECKS],
     deck_signal: Vec<f32>,
     input: Vec<f32>,
+    input_channels: usize,
+    /// A constant level on input channels, beside the turntables (a microphone, a line).
+    input_levels: Vec<(usize, f32)>,
     output: Vec<f32>,
     output_channels: usize,
     /// Frames run so far.
@@ -54,6 +57,11 @@ impl Rig {
     }
 
     pub fn with_outputs(output_channels: usize) -> Self {
+        Self::with_channels(DECKS * 2, output_channels)
+    }
+
+    /// A device with `input_channels` (the turntables on the first ones) and `output_channels`.
+    pub fn with_channels(input_channels: usize, output_channels: usize) -> Self {
         // a snapshot after every block, so that positions read by the tests are exact
         let config =
             EngineConfig { status_rate_hz: f64::INFINITY, ..EngineConfig::new(SR, DECKS, &SERATO_CV02_A) };
@@ -63,7 +71,9 @@ impl Rig {
             controller,
             turntables: [None, None],
             deck_signal: Vec::new(),
-            input: vec![0.0; BLOCK * DECKS * 2],
+            input: vec![0.0; BLOCK * input_channels],
+            input_channels,
+            input_levels: Vec::new(),
             output: vec![0.0; BLOCK * output_channels],
             output_channels,
             frames: 0,
@@ -87,9 +97,14 @@ impl Rig {
     /// Runs whole blocks for about `seconds`; returns the exact time run.
     pub fn run(&mut self, seconds: f64) -> f64 {
         let blocks = (seconds * SR as f64 / BLOCK as f64).round() as usize;
-        let channels = DECKS * 2;
+        let channels = self.input_channels;
         for _ in 0..blocks {
             self.input.fill(0.0);
+            for frame in self.input.chunks_exact_mut(channels) {
+                for &(channel, level) in &self.input_levels {
+                    frame[channel] = level;
+                }
+            }
             for (deck, turntable) in self.turntables.iter_mut().enumerate() {
                 let Some(t) = turntable else { continue };
                 self.deck_signal.clear();
@@ -112,6 +127,12 @@ impl Rig {
             self.frames += BLOCK;
         }
         (blocks * BLOCK) as f64 / SR as f64
+    }
+
+    /// Puts a constant `level` on input `channel` from now on.
+    pub fn set_input_level(&mut self, channel: usize, level: f32) {
+        self.input_levels.retain(|&(c, _)| c != channel);
+        self.input_levels.push((channel, level));
     }
 
     /// Gives `deck`'s record a motion of its own (see [`Turntable::motion`]).
