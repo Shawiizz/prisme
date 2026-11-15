@@ -49,6 +49,8 @@ mod status_stream;
 mod stems_service;
 mod tag_writer;
 mod track_loading;
+#[cfg(target_os = "android")]
+mod usb_android;
 
 use controllers::Controllers;
 use crash_recovery::CrashRecovery;
@@ -166,6 +168,8 @@ pub fn run() {
             app.manage(CrashRecovery::new(open_json(data_dir.as_deref(), "session.json")));
             let restored = app.state::<CrashRecovery>().decks_to_restore();
 
+            #[cfg(target_os = "android")]
+            usb_android::install();
             let state = app.state::<AppState>();
             dev_startup::preload_tracks(app.handle(), &state, &library);
             CrashRecovery::preload(app.handle(), &state, &library, &restored);

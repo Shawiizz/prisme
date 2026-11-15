@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- the sound cards of the second USB audio class, which Prisme drives itself -->
+<resources>
+    <usb-device class="1" subclass="2" protocol="32" />
+</resources>

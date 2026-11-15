@@ -24,6 +24,8 @@ class MainActivity : TauriActivity() {
     // light icons over the dark background of Prisme, whatever the theme of the phone
     val bars = SystemBarStyle.dark(Color.TRANSPARENT)
     enableEdgeToEdge(bars, bars)
+    // the audio starts with the native side, which may open a USB card at once
+    UsbAudio.init(this)
     super.onCreate(savedInstanceState)
     // a set is played without touching the phone: its screen stays on
     window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
