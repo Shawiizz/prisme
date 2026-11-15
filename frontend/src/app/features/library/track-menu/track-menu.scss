@@ -100,7 +100,7 @@
 }
 
 // on a phone: lines the height of a finger
-:host-context(app-phone-library) .menu {
+:host-context(.phone) .menu {
   button,
   .empty {
     min-height: 46px;

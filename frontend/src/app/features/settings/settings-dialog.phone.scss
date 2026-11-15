@@ -1,5 +1,5 @@
 // on a phone: a page of the settings screen, under its name and the way back
-:host-context(app-phone-settings) {
+:host-context(.phone) {
   display: block;
   .pr-backdrop {
     position: static;

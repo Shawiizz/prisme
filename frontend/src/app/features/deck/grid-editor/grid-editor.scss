@@ -60,7 +60,7 @@ header {
 }
 
 // on a phone: risen from the bottom, over the panel of its deck
-:host-context(app-phone-deck-panel) {
+:host-context(.phone) {
   --pr-layer: var(--pr-z-sheet);
 }
 .pr-sheet {

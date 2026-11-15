@@ -58,7 +58,7 @@
 }
 
 // four decks: the overview as a thin line, no room for the stem lanes
-:host-context(app-deck-lane.compact) {
+:host(.compact) {
   .waveform {
     grid-template-rows: minmax(0, 1fr) 5px;
     gap: 2px;
@@ -72,12 +72,12 @@
 }
 
 // on a phone: the overview as tall as the screen of the phone gives it
-:host-context(app-phone-deck) .waveform {
+:host-context(.phone) .waveform {
   grid-template-rows: minmax(0, 1fr) var(--phone-overview, 12px);
 }
 // a phone held sideways: no room for the stem lanes, the height to the waveform
 @media (orientation: landscape) {
-  :host-context(app-phone-deck) .lanes {
+  :host-context(.phone) .lanes {
     display: none;
   }
 }

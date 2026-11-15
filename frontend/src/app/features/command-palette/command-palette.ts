@@ -81,7 +81,6 @@ const TRACK_SEARCH_DELAY_MS = 120;
   selector: 'app-command-palette',
   templateUrl: './command-palette.html',
   styleUrl: './command-palette.scss',
-  host: { '[class.phone]': 'PHONE' },
   imports: [TPipe, Dismiss],
 })
 export class CommandPalette {

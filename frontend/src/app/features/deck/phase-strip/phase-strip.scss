@@ -38,6 +38,6 @@
 }
 
 // on a phone the crossfader is with the controls
-:host-context(app-phone) app-crossfader {
+:host-context(.phone) app-crossfader {
   display: none;
 }

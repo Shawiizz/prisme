@@ -3,6 +3,7 @@ import {
   DestroyRef,
   ElementRef,
   afterNextRender,
+  booleanAttribute,
   computed,
   effect,
   inject,
@@ -63,10 +64,13 @@ interface Drag {
   selector: 'app-deck-waveform',
   templateUrl: './deck-waveform.html',
   styleUrl: './deck-waveform.scss',
+  host: { '[class.compact]': 'compact()' },
   imports: [TPipe],
 })
 export class DeckWaveform {
   readonly deck = input.required<number>();
+  /** Half the height, for four decks. */
+  readonly compact = input(false, { transform: booleanAttribute });
 
   private readonly engine = inject(EngineService);
   private readonly zoomCanvas = viewChild.required<ElementRef<HTMLCanvasElement>>('zoom');

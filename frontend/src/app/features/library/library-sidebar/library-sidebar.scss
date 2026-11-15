@@ -192,7 +192,7 @@ section {
 }
 
 // on a phone: lines the height of a finger, the lists as tall as they need
-:host-context(app-phone) {
+:host-context(.phone) {
   .item {
     height: 44px;
     font-size: 14px;

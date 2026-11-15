@@ -1,4 +1,4 @@
-import { Component, computed, inject, input } from '@angular/core';
+import { Component, booleanAttribute, computed, inject, input } from '@angular/core';
 import { EngineService } from '../../../core/services/engine.service';
 import { MixerService } from '../../../core/services/mixer.service';
 import { TPipe } from '../../../core/i18n/t.pipe';
@@ -77,7 +77,7 @@ const METER_SEGMENTS = 24;
       height: 28px;
       padding: 0;
     }
-    :host-context(app-deck-lane.compact) {
+    :host(.compact) {
       padding-block: 4px;
       .strip {
         row-gap: 0;
@@ -90,11 +90,13 @@ const METER_SEGMENTS = 24;
       height: auto;
     }
   `,
-  host: { class: 'pr-panel' },
+  host: { class: 'pr-panel', '[class.compact]': 'compact()' },
   imports: [ChannelStrip, Fader, TPipe],
 })
 export class ChannelSlot {
   readonly deck = input.required<number>();
+  /** Half the height, for four decks. */
+  readonly compact = input(false, { transform: booleanAttribute });
 
   private readonly engine = inject(EngineService);
   protected readonly mixer = inject(MixerService);

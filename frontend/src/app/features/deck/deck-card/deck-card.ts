@@ -1,4 +1,4 @@
-import { Component, computed, inject, input, signal } from '@angular/core';
+import { Component, booleanAttribute, computed, inject, input, signal } from '@angular/core';
 import { EngineService } from '../../../core/services/engine.service';
 import { MixerService } from '../../../core/services/mixer.service';
 import { deckReadouts } from '../../../core/deck-readouts';
@@ -22,10 +22,13 @@ const SEND_SEGMENTS = 10;
   selector: 'app-deck-card',
   templateUrl: './deck-card.html',
   styleUrl: './deck-card.scss',
+  host: { '[class.compact]': 'compact()' },
   imports: [Cover, GridEditor, TPipe],
 })
 export class DeckCard {
   readonly deck = input.required<number>();
+  /** Half the height, for four decks. */
+  readonly compact = input(false, { transform: booleanAttribute });
 
   protected readonly engine = inject(EngineService);
   private readonly mixer = inject(MixerService);

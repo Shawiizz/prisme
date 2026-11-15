@@ -104,7 +104,7 @@
 }
 
 // four decks: the panel on one line, the readouts without their labels
-:host-context(app-deck-lane.compact) {
+:host(.compact) {
   .card {
     grid-template-rows: none;
     grid-template-columns: minmax(0, 1fr) auto;

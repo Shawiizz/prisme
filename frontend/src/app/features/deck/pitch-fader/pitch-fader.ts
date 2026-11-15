@@ -1,4 +1,4 @@
-import { Component, DestroyRef, computed, inject, input } from '@angular/core';
+import { Component, DestroyRef, booleanAttribute, computed, inject, input } from '@angular/core';
 import { deckTempo } from '../../../core/deck-tempo';
 import { EngineService } from '../../../core/services/engine.service';
 import { PreferencesService } from '../../../core/services/preferences.service';
@@ -107,7 +107,7 @@ const STEP_EVERY_MS = 60;
       }
     }
     // four decks: the fader and its keys alone
-    :host-context(app-deck-lane.compact) {
+    :host(.compact) {
       gap: 2px;
       .pr-label,
       .range {
@@ -133,10 +133,13 @@ const STEP_EVERY_MS = 60;
       );
     }
   `,
+  host: { '[class.compact]': 'compact()' },
   imports: [Fader, TPipe],
 })
 export class PitchFader {
   readonly deck = input.required<number>();
+  /** Half the height, for four decks. */
+  readonly compact = input(false, { transform: booleanAttribute });
 
   protected readonly engine = inject(EngineService);
   private readonly preferences = inject(PreferencesService);
