@@ -1,13 +1,17 @@
 package com.shawiizz.prisme
 
 import android.Manifest
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.content.res.Configuration
 import android.graphics.Color
 import android.os.Build
 import android.os.Bundle
+import android.util.Log
 import android.view.View
 import android.view.WindowManager
+import android.webkit.JavascriptInterface
+import android.webkit.WebView
 import androidx.activity.SystemBarStyle
 import androidx.activity.enableEdgeToEdge
 import androidx.core.view.ViewCompat
@@ -31,6 +35,10 @@ class MainActivity : TauriActivity() {
     keepClearOfTheBars()
     takeTheScreen(resources.configuration)
     askForTheMusic()
+  }
+
+  override fun onWebViewCreate(webView: WebView) {
+    webView.addJavascriptInterface(Decks(), "prismeDecks")
   }
 
   override fun onConfigurationChanged(newConfig: Configuration) {
@@ -72,6 +80,27 @@ class MainActivity : TauriActivity() {
         insets.getInsets(if (sideways) bars else bars or WindowInsetsCompat.Type.displayCutout())
       view.setPadding(taken.left, taken.top, taken.right, taken.bottom)
       WindowInsetsCompat.CONSUMED
+    }
+  }
+
+  /** What the page says of the decks. */
+  private inner class Decks {
+    /** Whether one plays: while it does, [PlaybackService] keeps the sound going. */
+    @JavascriptInterface
+    fun playing(playing: Boolean) {
+      runOnUiThread {
+        val service = Intent(this@MainActivity, PlaybackService::class.java)
+        if (!playing) {
+          stopService(service)
+        } else {
+          try {
+            startForegroundService(service)
+          } catch (e: IllegalStateException) {
+            // a deck started from a controller while Prisme was out of sight
+            Log.w("Prisme", "the sound may stop with the screen locked: ${e.message}")
+          }
+        }
+      }
     }
   }
 

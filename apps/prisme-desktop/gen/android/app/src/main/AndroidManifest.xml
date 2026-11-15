@@ -6,6 +6,9 @@
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32" />
     <!-- the timecode of the turntables, from the inputs of the sound card -->
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    <!-- the sound goes on while a deck plays, the screen locked -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
 
     <!-- a controller and its sound card, plugged in -->
     <uses-feature android:name="android.hardware.usb.host" android:required="false" />
@@ -32,6 +35,11 @@
                 <category android:name="android.intent.category.LEANBACK_LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <service
+            android:name=".PlaybackService"
+            android:foregroundServiceType="mediaPlayback"
+            android:exported="false" />
 
         <provider
           android:name="androidx.core.content.FileProvider"
