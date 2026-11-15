@@ -4,7 +4,8 @@ import { Cue } from '../models/engine';
 import { EngineService } from './engine.service';
 import { errorText } from '../errors';
 
-/** Performance actions on a deck: hot cues, loops, rolls, beat jumps, slip, censor. */
+/** Performance actions on a deck: hot cues, loops, rolls, beat jumps, slip, censor, the
+ * motor (brake, spinback). */
 @Injectable({ providedIn: 'root' })
 export class PerformanceService {
   private readonly engine = inject(EngineService);
@@ -65,6 +66,16 @@ export class PerformanceService {
 
   censor(deck: number, active: boolean) {
     return this.engine.call('censor', { deck, active });
+  }
+
+  /** A playing deck slows to a stop as a turntable switched off; a stopped one starts softly. */
+  brake(deck: number) {
+    return this.engine.call('brake', { deck });
+  }
+
+  /** The record spun back while held; let go, it plays on from there. */
+  spinBack(deck: number, held: boolean) {
+    return this.engine.call('spin_back', { deck, held });
   }
 
   private async updateCues(deck: number, command: string, slot: number) {

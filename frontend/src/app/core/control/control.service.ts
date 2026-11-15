@@ -147,6 +147,8 @@ export class ControlService {
     toggleSlip: (deck) => this.performance.setSlip(deck, !(this.deck(deck)?.slipMode ?? false)),
     slipping: (deck) => this.deck(deck)?.slipMode ?? false,
     censor: (deck, held) => this.performance.censor(deck, held),
+    brake: (deck) => this.performance.brake(deck),
+    spinBack: (deck, held) => this.performance.spinBack(deck, held),
     reloop: (deck) => this.performance.reloop(deck),
     deleteHotCue: (deck, slot) => this.performance.deleteHotCue(deck, slot),
     resetTempo: (deck) => this.engine.setPitch(deck, 1),

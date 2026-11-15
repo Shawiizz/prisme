@@ -137,6 +137,15 @@ describe('controls', () => {
     ]);
   });
 
+  it('brake, and spin back while held', () => {
+    const { calls, find } = recorder();
+    find('deck1.brake').apply(1);
+    find('deck1.brake').apply(0);
+    find('deck2.spinback').apply(1);
+    find('deck2.spinback').apply(0);
+    expect(calls).toEqual(['brake(0)', 'spinBack(1,true)', 'spinBack(1,false)']);
+  });
+
   it('read a jump or a loop of so many beats from its id', () => {
     const { calls, actions } = recorder();
     measuredControl(actions, 'deck2.jump.-8')!.apply(1);

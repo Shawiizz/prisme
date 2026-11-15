@@ -7,6 +7,7 @@ import { decimal, deckLetter, formatTime } from '../../../shared/time';
 import { camelotHue, camelotMajor, keyName } from '../../../shared/camelot';
 import { levelMeter } from '../../../shared/level';
 import { Cover } from '../../../shared/cover/cover';
+import { DeckMenu } from '../deck-menu/deck-menu';
 import { GridEditor } from '../grid-editor/grid-editor';
 import { TPipe } from '../../../core/i18n/t.pipe';
 
@@ -15,15 +16,15 @@ const SEND_SEGMENTS = 10;
 
 /**
  * Deck header: letter (lit while playing) with the level sent to an external mixer, cover
- * and title, who drives the deck, and the three readouts seen from afar: remaining time,
- * BPM, key.
+ * and title, who drives the deck, its menu, and the three readouts seen from afar: remaining
+ * time, BPM, key.
  */
 @Component({
   selector: 'app-deck-card',
   templateUrl: './deck-card.html',
   styleUrl: './deck-card.scss',
   host: { '[class.compact]': 'compact()' },
-  imports: [Cover, GridEditor, TPipe],
+  imports: [Cover, DeckMenu, GridEditor, TPipe],
 })
 export class DeckCard {
   readonly deck = input.required<number>();

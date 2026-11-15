@@ -93,6 +93,16 @@ pub enum Command {
         deck: DeckId,
         amount: f64,
     },
+    /// Internal play: a playing deck slows to a stop in about a second, as a turntable
+    /// switched off; a stopped one gets up to speed in half a second (a soft start).
+    Brake {
+        deck: DeckId,
+    },
+    /// Internal play: the record spun back fast while `held`; let go, it plays on from there.
+    SpinBack {
+        deck: DeckId,
+        held: bool,
+    },
     /// Moves the playhead there, as is (needle search).
     Seek {
         deck: DeckId,

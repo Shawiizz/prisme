@@ -246,7 +246,7 @@ impl Engine {
             }
             Eject { deck } if valid(deck) => {
                 let d = &mut self.decks[deck];
-                d.playing = false;
+                d.set_playing(false);
                 d.reset_track_state();
                 let stems = d.playhead.take_stems();
                 let old = d.playhead.eject();
@@ -261,7 +261,9 @@ impl Engine {
                 }
             }
             SetStemMix { deck, mix, on_bar } if valid(deck) => self.decks[deck].set_stem_mix(mix, on_bar),
-            SetPlaying { deck, playing } if valid(deck) => self.decks[deck].playing = playing,
+            SetPlaying { deck, playing } if valid(deck) => self.decks[deck].set_playing(playing),
+            Brake { deck } if valid(deck) => self.decks[deck].brake(),
+            SpinBack { deck, held } if valid(deck) => self.decks[deck].spin_back(held),
             SetPitch { deck, ratio } if valid(deck) && ratio.is_finite() => self.decks[deck].pitch = ratio,
             SetPitchBend { deck, amount } if valid(deck) && amount.is_finite() => {
                 self.decks[deck].bend = amount

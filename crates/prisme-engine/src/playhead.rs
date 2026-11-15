@@ -88,22 +88,31 @@ impl Playhead {
     /// tempo) at the output rate `out_rate`; with `apart`, the parts set apart go there and
     /// the rest to `out`. Uses 4-point Catmull-Rom interpolation; outside the track it plays
     /// silence (the needle can go before the start).
-    pub(crate) fn render(
+    pub(crate) fn render(&mut self, out: &mut [f32], apart: Option<&mut [f32]>, out_rate: f64, speed: f64) {
+        self.render_with(out, apart, out_rate, || speed);
+    }
+
+    /// Like [`Playhead::render`], at the speed `speed` gives for each frame in turn: a speed
+    /// changing within the block, as a turntable's motor brings it up or down.
+    pub(crate) fn render_with(
         &mut self,
         out: &mut [f32],
         mut apart: Option<&mut [f32]>,
         out_rate: f64,
-        speed: f64,
+        mut speed: impl FnMut() -> f64,
     ) {
         let Some(track) = self.track.as_ref() else {
             out.fill(0.0);
             if let Some(apart) = apart {
                 apart.fill(0.0);
             }
-            self.position += speed * (out.len() / 2) as f64; // keeps moving, harmless
+            // keeps moving, harmless
+            for _ in 0..out.len() / 2 {
+                self.position += speed();
+            }
             return;
         };
-        let step = speed * track.sample_rate() as f64 / out_rate;
+        let ratio = track.sample_rate() as f64 / out_rate;
         let mut source = self.stems.reader(track);
         for (n, frame) in out.chunks_exact_mut(2).enumerate() {
             let i = self.position.floor();
@@ -123,7 +132,7 @@ impl Playhead {
                 }
             }
             source.advance();
-            self.position = wrap_in_loop(self.position, self.position + step, self.loop_frames);
+            self.position = wrap_in_loop(self.position, self.position + speed() * ratio, self.loop_frames);
         }
     }
 
@@ -180,6 +189,18 @@ mod tests {
         // a linear ramp is reproduced exactly by Catmull-Rom
         assert_eq!(out, [10.0, -10.0, 10.5, -10.5, 11.0, -11.0, 11.5, -11.5]);
         assert!((p.position_s() * 48_000.0 - 12.0).abs() < 1e-9);
+    }
+
+    #[test]
+    fn the_speed_can_change_at_every_frame() {
+        let mut p = Playhead::new();
+        p.load(ramp(100));
+        p.seek_s(10.0 / 48_000.0);
+        let mut out = [0.0f32; 8];
+        let mut speeds = [0.0, 1.0, 2.0, 3.0].into_iter();
+        p.render_with(&mut out, None, 48_000.0, || speeds.next().unwrap());
+        assert_eq!([out[0], out[2], out[4], out[6]], [10.0, 10.0, 11.0, 13.0]);
+        assert!((p.position_s() * 48_000.0 - 16.0).abs() < 1e-9);
     }
 
     #[test]

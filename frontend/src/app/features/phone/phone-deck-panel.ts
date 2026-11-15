@@ -11,6 +11,7 @@ import { CueButton } from '../../shared/cue-button/cue-button';
 import { Fader } from '../../shared/fader/fader';
 import { bandKnob, eqGain, filterAmount, filterKnob } from '../../shared/mixer-scales';
 import { deckLetter } from '../../shared/time';
+import { DeckOptions } from '../deck/deck-options/deck-options';
 import { GridEditor } from '../deck/grid-editor/grid-editor';
 import { Dismiss, overlay } from '../../shared/overlay';
 import { PhoneTempo } from './phone-tempo';
@@ -41,13 +42,14 @@ const EQ: readonly { band: Band; label: string }[] = [
 
 /**
  * What is set on a deck now and then, risen over the screen: who drives it, its pitch, its
- * channel of the software mixer as wide faders, its key lock, its grid and its headphones.
+ * channel of the software mixer as wide faders, its key lock, its grid and its headphones,
+ * and its options (see `DeckOptions`).
  */
 @Component({
   selector: 'app-phone-deck-panel',
   templateUrl: './phone-deck-panel.html',
   styleUrl: './phone-deck-panel.scss',
-  imports: [CueButton, Dismiss, Fader, GridEditor, PhoneTempo, TPipe],
+  imports: [CueButton, DeckOptions, Dismiss, Fader, GridEditor, PhoneTempo, TPipe],
 })
 export class PhoneDeckPanel {
   readonly deck = input.required<number>();

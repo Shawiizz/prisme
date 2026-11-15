@@ -60,6 +60,18 @@ pub fn censor(state: State<'_, AppState>, deck: usize, active: bool) -> AppResul
     send(&state, deck, Command::Censor { deck, active })
 }
 
+/// A playing deck slows to a stop as a turntable switched off; a stopped one starts softly.
+#[tauri::command]
+pub fn brake(state: State<'_, AppState>, deck: usize) -> AppResult<()> {
+    send(&state, deck, Command::Brake { deck })
+}
+
+/// The record spun back fast while `held`; let go, it plays on from there.
+#[tauri::command]
+pub fn spin_back(state: State<'_, AppState>, deck: usize, held: bool) -> AppResult<()> {
+    send(&state, deck, Command::SpinBack { deck, held })
+}
+
 fn send(state: &AppState, deck: usize, command: Command) -> AppResult<()> {
     state.has_deck(deck)?;
     state.send(command)

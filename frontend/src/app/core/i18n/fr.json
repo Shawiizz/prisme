@@ -646,5 +646,11 @@
   "Microphone on / off: the music ducks while it is on": "Micro ouvert / fermé : la musique baisse tant qu’il est ouvert",
   "Level of the input": "Niveau de l’entrée",
   "Talkover: the music ducks while the microphone is on": "Talkover : la musique baisse tant que le micro est ouvert",
-  "Master, limiter, headphones, microphone and aux line": "Master, limiteur, casque, micro et ligne aux"
+  "Master, limiter, headphones, microphone and aux line": "Master, limiteur, casque, micro et ligne aux",
+  "Brake (stopped: soft start)": "Frein (à l’arrêt : démarrage doux)",
+  "Spinback while held": "Spinback (maintenu)",
+  "Motor": "Moteur",
+  "Brake: the deck slows to a stop; stopped, it starts softly": "Frein : la platine ralentit jusqu’à l’arrêt ; à l’arrêt, elle démarre en douceur",
+  "Spinback: the record spun back while held, then it plays on": "Spinback : le disque lancé en arrière tant que la touche est tenue, puis la lecture reprend",
+  "Deck options: motor": "Options de la platine : moteur"
 }

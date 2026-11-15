@@ -289,6 +289,8 @@ pub fn run() {
             commands::transport::beat_jump,
             commands::transport::set_slip,
             commands::transport::censor,
+            commands::transport::brake,
+            commands::transport::spin_back,
             commands::cues::set_hot_cue,
             commands::cues::trigger_hot_cue,
             commands::cues::delete_hot_cue,

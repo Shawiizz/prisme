@@ -228,6 +228,18 @@
   "kind": "button"
  },
  {
+  "id": "deck1.brake",
+  "group": "Deck A",
+  "label": "Brake (stopped: soft start)",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.spinback",
+  "group": "Deck A",
+  "label": "Spinback while held",
+  "kind": "button"
+ },
+ {
   "id": "deck1.keylock",
   "group": "Deck A",
   "label": "Key lock",
@@ -981,6 +993,18 @@
   "id": "deck2.censor",
   "group": "Deck B",
   "label": "Censor while held",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.brake",
+  "group": "Deck B",
+  "label": "Brake (stopped: soft start)",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.spinback",
+  "group": "Deck B",
+  "label": "Spinback while held",
   "kind": "button"
  },
  {
@@ -1740,6 +1764,18 @@
   "kind": "button"
  },
  {
+  "id": "deck3.brake",
+  "group": "Deck C",
+  "label": "Brake (stopped: soft start)",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.spinback",
+  "group": "Deck C",
+  "label": "Spinback while held",
+  "kind": "button"
+ },
+ {
   "id": "deck3.keylock",
   "group": "Deck C",
   "label": "Key lock",
@@ -2493,6 +2529,18 @@
   "id": "deck4.censor",
   "group": "Deck D",
   "label": "Censor while held",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.brake",
+  "group": "Deck D",
+  "label": "Brake (stopped: soft start)",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.spinback",
+  "group": "Deck D",
+  "label": "Spinback while held",
   "kind": "button"
  },
  {

@@ -144,6 +144,10 @@ export interface ControlActions {
   toggleSlip(deck: number): void;
   slipping(deck: number): boolean;
   censor(deck: number, held: boolean): void;
+  /** A playing deck slows to a stop as a turntable switched off; a stopped one starts softly. */
+  brake(deck: number): void;
+  /** The record spun back while held; let go, it plays on from there. */
+  spinBack(deck: number, held: boolean): void;
   reloop(deck: number): void;
   deleteHotCue(deck: number, slot: number): void;
   resetTempo(deck: number): void;
@@ -366,6 +370,8 @@ function deckControls(a: ControlActions, deck: number): Control[] {
       () => a.slipping(deck),
     ),
     hold(id('censor'), group, t('Censor while held'), (held) => a.censor(deck, held)),
+    button(id('brake'), group, t('Brake (stopped: soft start)'), () => a.brake(deck)),
+    hold(id('spinback'), group, t('Spinback while held'), (held) => a.spinBack(deck, held)),
     lit(
       button(id('keylock'), group, t('Key lock'), () => a.toggleKeyLock(deck)),
       () => a.keyLocked(deck),
