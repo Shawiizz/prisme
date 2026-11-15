@@ -203,7 +203,7 @@ impl Controllers {
         self.save(|s| {
             if !s.mappings.all().iter().any(|m| of_target(&m)) {
                 for mapping in profiled {
-                    s.mappings.learn(mapping);
+                    s.mappings.learn(mapping, Direct::takes_several(target));
                 }
             }
             s.mappings.set_encoding(device, target, encoding);
@@ -263,6 +263,7 @@ impl Controllers {
         let at = port_of(&names, device).ok_or_else(|| AppError::ControllerUnplugged(device.to_owned()))?;
         let (port, port_name) = (&ports[at], names[at].clone());
         let (app, name) = (app.clone(), device.to_owned());
+        let jog_steps_per_turn = controller_profiles::jog_steps_per_turn(device);
         let connection = input
             .connect(
                 port,
@@ -270,7 +271,7 @@ impl Controllers {
                 move |stamp_us, bytes, _| {
                     if let Some(event) = prisme_control::parse(bytes) {
                         let at_s = stamp_us as f64 / 1e6;
-                        app.state::<Controllers>().receive(&app, &name, event, at_s);
+                        app.state::<Controllers>().receive(&app, &name, jog_steps_per_turn, event, at_s);
                     }
                 },
                 (),
@@ -288,13 +289,14 @@ impl Controllers {
         Ok(())
     }
 
-    /// An event of `device`, at `at_s` on its clock.
-    fn receive(&self, app: &AppHandle, device: &str, event: Event, at_s: f64) {
+    /// An event of `device`, whose jog wheels turn by `jog_steps_per_turn`, at `at_s` on its
+    /// clock.
+    fn receive(&self, app: &AppHandle, device: &str, jog_steps_per_turn: f64, event: Event, at_s: f64) {
         let _ = match self.route(device, event) {
             Some(Routed::Learned(mapping)) => app.emit("controller-learned", mapping),
             Some(Routed::Input(input)) => app.emit("controller-input", input),
             Some(Routed::Direct(action, value)) => {
-                self.perform(app, action, value, at_s);
+                self.perform(app, action, value, at_s, jog_steps_per_turn);
                 Ok(())
             }
             None => Ok(()),
@@ -304,9 +306,10 @@ impl Controllers {
     /// A controller gone lets go of what it held: its keys (shift among them) are released,
     /// and so are the jog wheels it touched, however they tell it.
     fn let_go(&self, app: &AppHandle, device: &str) {
+        let jog_steps_per_turn = controller_profiles::jog_steps_per_turn(device);
         let held = lock(&self.reader).held(device);
         for control in held {
-            self.receive(app, device, Event { control, raw: 0 }, 0.0);
+            self.receive(app, device, jog_steps_per_turn, Event { control, raw: 0 }, 0.0);
         }
         let touches: Vec<Direct> = lock(&self.mappings)
             .all()
@@ -316,7 +319,7 @@ impl Controllers {
             .filter(|d| matches!(d, Direct::JogTouch(_)))
             .collect();
         for touch in touches {
-            self.perform(app, touch, 0.0, 0.0);
+            self.perform(app, touch, 0.0, 0.0, jog_steps_per_turn);
         }
     }
 
@@ -342,7 +345,7 @@ impl Controllers {
             };
             self.save(|s| {
                 s.unmapped.retain(|t| *t != mapping.target);
-                s.mappings.learn(mapping.clone());
+                s.mappings.learn(mapping.clone(), Direct::takes_several(&mapping.target));
             });
             *lock(&self.just_learnt) = Some((mapping.clone(), Instant::now()));
             return Some(Routed::Learned(mapping));
@@ -378,7 +381,7 @@ impl Controllers {
     }
 
     /// Drives the engine for a direct action; the UI hears of a new tempo.
-    fn perform(&self, app: &AppHandle, action: Direct, value: f32, at_s: f64) {
+    fn perform(&self, app: &AppHandle, action: Direct, value: f32, at_s: f64, jog_steps_per_turn: f64) {
         let state = app.state::<AppState>();
         let deck = match action {
             Direct::Jog(d) | Direct::JogTouch(d) | Direct::Pitch(d) => d,
@@ -390,7 +393,10 @@ impl Controllers {
             ratio: lock(&state.decks)[deck].pitch,
             range: state.preferences.read(|p| p.dj.pitch_range),
         };
-        let Some(command) = lock(&self.performer).command(action, value, at_s, tempo) else { return };
+        let Some(command) = lock(&self.performer).command(action, value, at_s, jog_steps_per_turn, tempo)
+        else {
+            return;
+        };
         if let Command::SetPitch { ratio, .. } = command {
             lock(&state.decks)[deck].pitch = ratio;
             let _ = app.emit("deck-pitch", DeckPitchDto { deck, ratio });
@@ -418,7 +424,7 @@ impl Controllers {
                 })
                 .flatten()
                 .collect();
-            Mappings::layered(profiled, &s.mappings, &s.unmapped)
+            Mappings::layered(profiled, &s.mappings, &s.unmapped, Direct::takes_several)
         });
         *lock(&self.mappings) = layered;
     }
