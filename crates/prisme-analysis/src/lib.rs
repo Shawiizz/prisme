@@ -65,8 +65,10 @@ pub fn analyze_file(path: &Path, options: &AnalysisOptions) -> Result<FileAnalys
     let rate = f64::from(stream.sample_rate());
     let analysed = (MAX_ANALYSED_S * rate) as usize;
     let mut decimator = dsp::Decimator::new(stream.sample_rate());
+    // past the limit, frames are decoded only to be counted: not when the header gives them
+    let announced = stream.estimated_frames();
     let (mut chunk, mut frames) = (Vec::new(), 0);
-    while stream.next_chunk(&mut chunk)? {
+    while (frames < analysed || announced == 0) && stream.next_chunk(&mut chunk)? {
         let room = 2 * analysed.saturating_sub(frames);
         decimator.push(&chunk[..chunk.len().min(room)]);
         frames += chunk.len() / 2;
@@ -76,6 +78,7 @@ pub fn analyze_file(path: &Path, options: &AnalysisOptions) -> Result<FileAnalys
     if signal.samples.is_empty() {
         return Err(MediaError::NoAudio);
     }
+    let frames = if frames < analysed { frames } else { frames.max(announced) };
     Ok(FileAnalysis { duration_s: frames as f64 / rate, analysis: analyze_signal(&signal, options) })
 }
 
