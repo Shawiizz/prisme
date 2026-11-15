@@ -58,12 +58,18 @@ pub fn audio_info(state: State<'_, AppState>) -> Option<AudioInfo> {
     lock(&state.session).as_ref().map(|s| s.info.clone())
 }
 
-/// Restarts the audio with new settings and keeps them for the next start.
+/// Restarts the audio with new settings and keeps them for the next start. Off the commands'
+/// threads: a USB card may wait for the DJ to let Prisme open it.
 #[tauri::command]
-pub fn apply_audio_settings(state: State<'_, AppState>, settings: AudioSettings) -> AppResult<AudioInfo> {
-    let info = start_audio(&state, &settings)?;
-    state.update_preferences(|p| p.audio = settings);
-    Ok(info)
+pub async fn apply_audio_settings(app: AppHandle, settings: AudioSettings) -> AppResult<AudioInfo> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let state = app.state::<AppState>();
+        let info = start_audio(&state, &settings)?;
+        state.update_preferences(|p| p.audio = settings);
+        Ok(info)
+    })
+    .await
+    .map_err(|e| AppError::Other(e.to_string()))?
 }
 
 /// (Re)starts the audio and restores the decks where they were, playing if they were.
