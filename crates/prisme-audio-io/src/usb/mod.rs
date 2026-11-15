@@ -153,7 +153,7 @@ mod running {
         let renderer = Renderer::new(make_callback(format), ring, format, stats.clone())
             .late_told_by_the_device()
             .input_cushion(frames_per_ms, MAX_URBS * frames_per_ms);
-        let options = Options { sample_rate: SAMPLE_RATE, urbs, capture: capture.is_some() };
+        let options = Options { sample_rate: SAMPLE_RATE, urbs };
         running.driver = Some(
             Driver::start(opened.fd, &card, &options, renderer, producer, stats.clone())
                 .map_err(|e| AudioError::Usb(format!("{name}: {e}")))?,

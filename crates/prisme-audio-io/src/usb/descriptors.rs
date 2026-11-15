@@ -63,6 +63,9 @@ impl Stream {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct Card {
+    /// The ids of its vendor and its product.
+    pub vendor: u16,
+    pub product: u16,
     /// The audio control interface, through which the clock is set.
     pub control: u8,
     pub playback: Option<Stream>,
@@ -88,7 +91,10 @@ pub(crate) fn parse(raw: &[u8]) -> Result<Card, DescriptorError> {
     let mut seen_configuration = false;
     for d in descriptors(raw)? {
         match d[1] {
-            DEVICE => {}
+            DEVICE if d.len() >= 12 => {
+                parsed.vendor = u16::from_le_bytes([d[8], d[9]]);
+                parsed.product = u16::from_le_bytes([d[10], d[11]]);
+            }
             CONFIGURATION if seen_configuration => break,
             CONFIGURATION => seen_configuration = true,
             INTERFACE if d.len() >= 9 => {
@@ -139,6 +145,8 @@ fn descriptors(raw: &[u8]) -> Result<Vec<&[u8]>, DescriptorError> {
 
 #[derive(Default)]
 struct Parsed {
+    vendor: u16,
+    product: u16,
     control: Option<u8>,
     /// Terminal → its clock entity; selector → its first input; the clock sources.
     terminal_clocks: Vec<(u8, u8)>,
@@ -177,11 +185,12 @@ impl Parsed {
 
     fn card(self) -> Result<Card, DescriptorError> {
         let control = self.control.ok_or(DescriptorError::NotClass2)?;
+        // the most channels (a turntable each pair), then the finest samples
         let best = |input: bool| {
             self.streams
                 .iter()
                 .filter(|s| s.endpoint.is_some_and(|e| (e & 0x80 != 0) == input))
-                .max_by_key(|s| (s.bits, s.channels, std::cmp::Reverse(s.alt)))
+                .max_by_key(|s| (s.channels, s.bits, std::cmp::Reverse(s.alt)))
                 .and_then(|s| {
                     let clock = self.terminal_clocks.iter().find(|(t, _)| *t == s.terminal)?.1;
                     Some(Stream {
@@ -202,7 +211,7 @@ impl Parsed {
         if playback.is_none() && capture.is_none() {
             return Err(DescriptorError::NoStream);
         }
-        Ok(Card { control, playback, capture })
+        Ok(Card { vendor: self.vendor, product: self.product, control, playback, capture })
     }
 }
 
@@ -241,8 +250,9 @@ impl Partial {
     fn endpoint(&mut self, d: &[u8]) {
         let (address, attributes) = (d[2], d[3]);
         let isochronous = attributes & 0b11 == 1;
+        // data, or data an output follows (implicit feedback); else an output's feedback
         match (attributes >> 4) & 0b11 {
-            0 if isochronous => {
+            0 | 2 if isochronous => {
                 self.endpoint = Some(address);
                 // bits 0..10: the bytes of a transaction; 11..12: more transactions per microframe
                 let size = u16::from_le_bytes([d[4], d[5]]) as usize;
@@ -272,7 +282,7 @@ mod tests {
     #[test]
     fn a_umc404hd_has_four_channels_each_way_in_24_bits() {
         let card = parse(UMC404HD).unwrap();
-        assert_eq!(card.control, 0);
+        assert_eq!((card.vendor, card.product, card.control), (0x1397, 0x0509, 0));
         let playback = card.playback.unwrap();
         assert_eq!(
             playback,
@@ -295,6 +305,35 @@ mod tests {
             (capture.endpoint, capture.max_packet, capture.feedback, capture.clock),
             (0x82, 400, None, 0x29)
         );
+    }
+
+    /// A streaming setting of `channels` in `subslot` bytes, as its endpoint `0x82` describes.
+    fn setting(alt: u8, channels: u8, subslot: u8, usage: u8) -> Partial {
+        let mut s = Partial { alt, ..Partial::default() };
+        let mut general = [0; 16];
+        general[..7].copy_from_slice(&[16, CLASS_INTERFACE, AS_GENERAL, 1, 0, FORMAT_TYPE_I, PCM as u8]);
+        general[10] = channels;
+        s.general(&general);
+        s.general(&[6, CLASS_INTERFACE, FORMAT_TYPE, FORMAT_TYPE_I, subslot, subslot * 8]);
+        s.endpoint(&[7, ENDPOINT, 0x82, 0b0101 | usage << 4, 0x90, 0x01, 1]);
+        s
+    }
+
+    #[test]
+    fn the_setting_with_the_most_channels_is_chosen() {
+        let mut parsed = Parsed { control: Some(0), sources: vec![0x29], ..Parsed::default() };
+        parsed.terminal_clocks.push((1, 0x29));
+        for s in [setting(1, 2, 3, 0), setting(2, 4, 2, 0), setting(3, 4, 2, 0)] {
+            parsed.close(Some(Partial { terminal: 1, ..s }));
+        }
+        let capture = parsed.card().unwrap().capture.unwrap();
+        assert_eq!((capture.alt, capture.channels, capture.bits), (2, 4, 16));
+    }
+
+    #[test]
+    fn an_input_an_output_follows_is_streamed() {
+        assert!(setting(1, 4, 3, 2).playable());
+        assert!(!setting(1, 4, 3, 1).playable(), "a feedback endpoint carries no sound");
     }
 
     #[test]

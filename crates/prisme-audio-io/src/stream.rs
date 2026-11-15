@@ -4,7 +4,7 @@
 
 use crate::devices::{configs, device_name, drivers, find, Backend, DeviceKind};
 use crate::formats::{input_stream, output_stream, MAX_PERIOD};
-use crate::perf::PerformanceHint;
+use crate::perf::{PerformanceHint, Refused};
 use crate::{AudioCallback, AudioError};
 use cpal::traits::{DeviceTrait, StreamTrait};
 use std::panic::{catch_unwind, AssertUnwindSafe};
@@ -42,6 +42,9 @@ pub struct StreamStats {
     pub device_lost: AtomicBool,
     /// The callback panicked: it is no longer called, the output is silent.
     pub callback_failed: AtomicBool,
+    /// The system has performance hints but gave the audio thread none (told when the stream
+    /// stops, away from the audio thread).
+    pub hints_refused: AtomicBool,
 }
 
 /// What the opened devices actually run at.
@@ -90,13 +93,14 @@ pub fn start<C: AudioCallback>(
     settings: &StreamSettings,
     mut make_callback: impl FnMut(StreamFormat) -> C,
 ) -> Result<RunningStream, AudioError> {
-    let _drivers = drivers();
+    // a USB card loads no driver, and its opening may wait for the user: the lock is not held
     if settings.backend == Backend::Usb {
         #[cfg(any(target_os = "linux", target_os = "android"))]
         return crate::usb::start(settings, make_callback);
         #[cfg(not(any(target_os = "linux", target_os = "android")))]
         return Err(AudioError::BackendUnavailable(Backend::Usb));
     }
+    let _drivers = drivers();
     let out_device = find(settings.backend, DeviceKind::Output, settings.output_device.as_deref())?;
     let mut tried = configs(&out_device, DeviceKind::Output)?.into_iter().peekable();
     loop {
@@ -169,6 +173,9 @@ impl Drop for RunningStream {
     fn drop(&mut self) {
         let _drivers = drivers();
         self.streams = None;
+        if self.stats.hints_refused.load(Ordering::Relaxed) {
+            warn!("the system gave the audio thread no performance hints");
+        }
     }
 }
 
@@ -321,7 +328,10 @@ impl<C: AudioCallback> Renderer<C> {
         let ns = start.elapsed().as_nanos() as u64;
         let budget = (frames as f64 / self.sample_rate as f64 * 1e9) as u64;
         if !std::mem::replace(&mut self.hinted, true) {
-            self.hint = PerformanceHint::for_this_thread(Duration::from_nanos(budget));
+            match PerformanceHint::for_this_thread(Duration::from_nanos(budget)) {
+                Ok(hint) => self.hint = hint,
+                Err(Refused) => self.stats.hints_refused.store(true, Ordering::Relaxed),
+            }
         }
         if let Some(hint) = self.hint.as_mut() {
             hint.report(Duration::from_nanos(ns));
