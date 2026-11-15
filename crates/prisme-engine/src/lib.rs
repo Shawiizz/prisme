@@ -7,9 +7,11 @@
 //!   record ([`VinylMode::Absolute`] or [`VinylMode::Relative`]).
 //! * Decks with a beat grid can follow a leader deck's tempo and beats (`sync`).
 //! * A deck can keep its pitch when its speed changes (`keylock`), has a chain of beat
-//!   effects timed on its tempo and a sampler playing through its channel.
-//! * The software mixer gives each deck a channel (trim, EQ with kills, filter, fader)
-//!   and applies the crossfader, the master gain and a limiter.
+//!   effects timed on its tempo and a sampler playing through its channel, and can play its
+//!   input as it comes instead of its track (passthrough).
+//! * The software mixer gives each deck a channel (trim, EQ with kills, filter, fader),
+//!   applies the crossfader, mixes in a microphone and an aux line, and gives the master its
+//!   gain, a limiter and a balance, and a copy to the booth.
 //! * A track of the library can be heard in the headphones alone before it goes on a deck
 //!   (`preview`).
 //!
@@ -21,6 +23,7 @@ mod deck;
 mod engine;
 mod grid;
 mod keylock;
+mod live;
 mod looping;
 mod mixer;
 mod playhead;
@@ -38,6 +41,7 @@ mod vinyl;
 pub use command::{Command, CrossfaderSide, DeckId, Garbage, RecordSource, Rpm, VinylMode};
 pub use engine::{create, Engine, EngineConfig, EngineController};
 pub use grid::BeatGrid;
+pub use live::{InputChannels, LiveSource};
 pub use looping::LoopRegion;
 pub use mixer::{CrossfaderCurve, MixMode, OutputRouting};
 pub use prisme_dsp::{Band, EffectKind, FX_SLOTS};

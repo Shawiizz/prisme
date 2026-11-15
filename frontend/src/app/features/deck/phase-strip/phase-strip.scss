@@ -8,6 +8,10 @@
 :host:has(app-crossfader) .lane {
   margin-block: 7px;
 }
+// with the microphone's key, it takes the room under the pitch faders too
+app-crossfader.live {
+  grid-column: span 2;
+}
 .info {
   display: flex;
   align-items: center;

@@ -14,6 +14,7 @@ pub mod fx;
 pub mod history;
 pub mod import;
 pub mod library;
+pub mod live;
 pub mod marks;
 pub mod mixer;
 pub mod preferences;

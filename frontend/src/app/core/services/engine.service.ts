@@ -52,6 +52,7 @@ const DEFAULT_DECK: DeckSettings = {
   fx: DEFAULT_FX,
   samples: Array(SAMPLE_SLOTS).fill(null),
   samplerGain: 1,
+  passthrough: false,
 };
 
 /**
@@ -218,6 +219,12 @@ export class EngineService {
   setKeyLock(deck: number, enabled: boolean) {
     this.patchDeck(deck, { keyLock: enabled });
     return this.call('set_key_lock', { deck, enabled });
+  }
+
+  /** The deck plays its input as it comes (a record, a CD player) instead of its track. */
+  setPassthrough(deck: number, enabled: boolean) {
+    this.patchDeck(deck, { passthrough: enabled });
+    return this.call('set_passthrough', { deck, enabled });
   }
 
   /** Playback rate of the tempo the engine reports (sync and platter included), if the track has a beat grid. */

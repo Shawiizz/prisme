@@ -1,9 +1,10 @@
 use crate::dto::{
-    BandDto, CrossfaderCurveDto, DeckSettingsDto, HeadphonesOutputDto, MixModeDto, MixerStateDto,
+    BandDto, CrossfaderCurveDto, DeckSettingsDto, HeadphonesOutputDto, LiveSourceDto, LiveStateDto,
+    MixModeDto, MixerStateDto,
 };
 use crate::error::AppResult;
 use crate::sampler;
-use crate::state::{lock, AppState};
+use crate::state::{free_inputs, live_preferences, lock, AppState};
 use prisme_engine::{Command, OutputRouting};
 use tauri::State;
 
@@ -14,6 +15,18 @@ pub fn mixer_state(state: State<'_, AppState>) -> MixerStateDto {
     let info = lock(&state.session).as_ref().map(|s| s.info.clone());
     let routing = info.as_ref().map(|info| state.routing(info));
     let samplers = lock(&state.samplers);
+    let switches = *lock(&state.live);
+    let live = |source: LiveSourceDto| {
+        let chosen = live_preferences(&mixer, source);
+        let switches = switches[source as usize];
+        LiveStateDto {
+            input: chosen.input,
+            in_use: state.live_input(source, info.as_ref()).is_some(),
+            level: chosen.level,
+            on: switches.on,
+            cue: switches.cue,
+        }
+    };
     MixerStateDto {
         decks: state
             .decks_in_use(info.as_ref())
@@ -33,6 +46,7 @@ pub fn mixer_state(state: State<'_, AppState>) -> MixerStateDto {
                 fx: d.fx,
                 samples: samples.iter().map(|s| s.as_ref().map(|s| sampler::name(&s.path))).collect(),
                 sampler_gain: d.sampler_gain,
+                passthrough: d.passthrough,
             })
             .collect(),
         crossfader: *lock(&state.crossfader),
@@ -40,11 +54,20 @@ pub fn mixer_state(state: State<'_, AppState>) -> MixerStateDto {
         mode_in_use: routing.map(|r| r.mode.into()),
         headphones: mixer.headphones,
         headphones_in_use: routing.and_then(|r| r.headphones),
-        output_channels: info.map(|info| info.output_channels),
+        output_channels: info.as_ref().map(|info| info.output_channels),
         cue_mix: mixer.cue_mix,
         headphone_gain: mixer.headphone_gain,
         crossfader_curve: mixer.crossfader_curve,
         limiter: mixer.limiter,
+        balance: mixer.balance,
+        booth: mixer.booth,
+        booth_in_use: routing.and_then(|r| r.booth),
+        booth_gain: mixer.booth_gain,
+        mic: live(LiveSourceDto::Mic),
+        aux: live(LiveSourceDto::Aux),
+        talkover: mixer.talkover,
+        talkover_depth_db: mixer.talkover_depth_db,
+        free_inputs: info.as_ref().map(free_inputs).unwrap_or_default(),
     }
 }
 
@@ -63,6 +86,28 @@ pub fn set_headphones_output(
 ) -> AppResult<Option<usize>> {
     state.update_preferences(|p| p.mixer.headphones = output);
     Ok(route(&state)?.and_then(|routing| routing.headphones))
+}
+
+/// The booth monitors' outputs (the first of the pair), kept for the next start; returns the
+/// first in use.
+#[tauri::command]
+pub fn set_booth_output(state: State<'_, AppState>, first: Option<usize>) -> AppResult<Option<usize>> {
+    state.update_preferences(|p| p.mixer.booth = first);
+    Ok(route(&state)?.and_then(|routing| routing.booth))
+}
+
+/// Kept for the next start.
+#[tauri::command]
+pub fn set_booth_gain(state: State<'_, AppState>, gain: f32) -> AppResult<()> {
+    state.update_preferences(|p| p.mixer.booth_gain = gain);
+    state.send_if_running(Command::SetBoothGain { gain })
+}
+
+/// -1 = the master on the left only, 1 = on the right only; kept for the next start.
+#[tauri::command]
+pub fn set_balance(state: State<'_, AppState>, balance: f32) -> AppResult<()> {
+    state.update_preferences(|p| p.mixer.balance = balance);
+    state.send_if_running(Command::SetBalance { balance })
 }
 
 /// Applies the routing the preferences give to the running audio, if any.

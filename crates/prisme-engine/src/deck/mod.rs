@@ -46,6 +46,8 @@ const BEATS_PER_BAR: f64 = 4.0;
 const LEAP_S: f64 = 1e-3;
 /// How fast the track fades with the motion (s).
 const MOTION_FADE_S: f32 = 0.005;
+/// The crossfade between the track and the input passed through (s).
+const THROUGH_FADE_S: f32 = 0.01;
 
 pub(crate) struct Deck {
     pub(crate) playhead: Playhead,
@@ -85,6 +87,8 @@ pub(crate) struct Deck {
     pub(crate) level: Smoothed,
     /// The stem mix, and its changes waiting for a bar.
     bar_mix: BarMix,
+    /// Share of the input passed through in place of the track: 1 in passthrough.
+    through: Smoothed,
 }
 
 impl Deck {
@@ -117,7 +121,47 @@ impl Deck {
             motion: Smoothed::new(0.0, MOTION_FADE_S, sample_rate as f32),
             level: Smoothed::new(1.0, LEVEL_GLIDE_S, sample_rate as f32),
             bar_mix: BarMix::default(),
+            through: Smoothed::new(0.0, THROUGH_FADE_S, sample_rate as f32),
         }
+    }
+
+    /// Plays the deck's input as it comes (a record, a CD player) instead of its track, which
+    /// waits where it is; or the track again.
+    pub(crate) fn set_passthrough(&mut self, enabled: bool) {
+        self.through.set(if enabled { 1.0 } else { 0.0 });
+    }
+
+    fn passes_through(&self) -> bool {
+        self.through.target() == 1.0
+    }
+
+    /// Renders one block from the input (see [`Deck::process`]) with the effect on the parts
+    /// of the track it is on; in passthrough, the input itself. Returns whether the effect is
+    /// done, else it goes on the whole deck after its channel strip.
+    pub(crate) fn render(
+        &mut self,
+        input: &[f32],
+        out: &mut [f32],
+        out_rate: f64,
+        target: Option<SyncTarget>,
+        beat: Beat,
+    ) -> bool {
+        let settled = |s: &Smoothed, value: f32| s.is_settled() && s.target() == value;
+        if settled(&self.through, 1.0) {
+            out.copy_from_slice(input);
+            self.speed = 0.0;
+            return false;
+        }
+        self.process(input, out, out_rate, target);
+        let fx_done = self.fx_on_parts(out, beat);
+        if !settled(&self.through, 0.0) {
+            for (o, i) in out.chunks_exact_mut(2).zip(input.chunks_exact(2)) {
+                let through = self.through.tick();
+                o[0] += (i[0] - o[0]) * through;
+                o[1] += (i[1] - o[1]) * through;
+            }
+        }
+        fx_done
     }
 
     /// Plays the parts of the track as `mix` says: the parts it changes from the next bar if
@@ -151,13 +195,7 @@ impl Deck {
 
     /// Renders one block from the turntable signal `input`; `target` is given when the
     /// deck follows a leader.
-    pub(crate) fn process(
-        &mut self,
-        input: &[f32],
-        out: &mut [f32],
-        out_rate: f64,
-        target: Option<SyncTarget>,
-    ) {
+    fn process(&mut self, input: &[f32], out: &mut [f32], out_rate: f64, target: Option<SyncTarget>) {
         // decoded even with vinyl control off, for the signal indicator
         let drive = self.vinyl.process(input);
         let target = target.map(|t| self.engage(t));
@@ -276,7 +314,7 @@ impl Deck {
 
     /// The effects on the parts they are on, mixed back into `out` (before the sampler and the
     /// channel strip); false when they are on the whole deck, to be applied after them.
-    pub(crate) fn fx_on_parts(&mut self, out: &mut [f32], beat: Beat) -> bool {
+    fn fx_on_parts(&mut self, out: &mut [f32], beat: Beat) -> bool {
         if self.fx_parts.is_empty() {
             return false;
         }
@@ -299,9 +337,11 @@ impl Deck {
     }
 
     /// A deck stopped no longer leads at once (paused, its beats stand still: followers
-    /// would chase them); a record, as soon as its averaged speed says it slowed.
+    /// would chase them); a record, as soon as its averaged speed says it slowed; nor does a
+    /// deck passing its input through.
     pub(crate) fn can_lead(&self) -> bool {
-        self.grid.is_some()
+        !self.passes_through()
+            && self.grid.is_some()
             && self.playhead.is_loaded()
             && !self.sync.locked
             && self.is_moving()

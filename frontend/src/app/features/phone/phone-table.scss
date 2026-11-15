@@ -87,6 +87,17 @@ app-phone-stems.float {
   .which > button {
     height: 28px;
   }
+  .key {
+    flex: none;
+    height: 28px;
+    padding: 0 9px;
+    font: 600 10.5px / 1 var(--pr-font);
+    letter-spacing: 0.06em;
+    color: var(--pr-text-2);
+    &.is-on {
+      color: var(--pr-on-light);
+    }
+  }
 }
 
 // under the thumbs: what opens over the table, then the keys, PLAY in the corners

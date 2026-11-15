@@ -8,8 +8,9 @@ import { KeyChip } from '../../shared/key-chip/key-chip';
 import { deckLetter } from '../../shared/time';
 import { DeckWaveform } from '../deck/deck-waveform/deck-waveform';
 
-/** The record's two ways of driving a deck, as its light names them. */
-const VINYL_LABEL = { relative: 'REL', absolute: 'ABS' } as const;
+/** The record's two ways of driving a deck, and its input played as it comes, as its light
+ * names them. */
+const VINYL_LABEL = { relative: 'REL', absolute: 'ABS', thru: 'THRU' } as const;
 
 /**
  * A deck on a phone, for eyes that are a step away: its track, a wide waveform, the time
@@ -79,7 +80,7 @@ export class PhoneDeck {
   protected readonly bpm = this.readouts.bpm;
   protected readonly pitch = this.readouts.pitch;
   protected readonly key = this.readouts.key;
-  /** `REL` or `ABS` while a record drives the deck. */
+  /** `REL` or `ABS` while a record drives the deck, `THRU` while it plays its input. */
   protected readonly vinyl = computed(() => {
     const mode = this.driven.mode();
     return mode === 'int' ? null : VINYL_LABEL[mode];

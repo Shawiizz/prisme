@@ -68,6 +68,27 @@ describe('controls', () => {
     expect(calls).toEqual(['setEq(1,low,0.25)', 'setCrossfader(1)', 'browse(-3)']);
   });
 
+  it('drive the master, the live sources and passthrough', () => {
+    const { calls, find } = recorder();
+    find('mixer.balance').apply(0.25);
+    find('mixer.booth').apply(0.8);
+    find('mixer.aux').apply(0.5);
+    find('mixer.mic.on').apply(1);
+    find('mixer.mic.on').apply(0);
+    find('mixer.talkover').apply(1);
+    find('deck2.passthrough').apply(1);
+    expect(find('mixer.mic.cue').lit!()).toBe(true);
+    expect(calls).toEqual([
+      'setBalance(0.25)',
+      'setBoothLevel(0.8)',
+      'setLiveLevel(aux,0.5)',
+      'toggleLive(mic)',
+      'toggleTalkover()',
+      'togglePassthrough(1)',
+      'liveCued(mic)',
+    ]);
+  });
+
   it('light what is on', () => {
     const { calls, find } = recorder();
     expect(find('deck1.sample4').lit!()).toBe(true);

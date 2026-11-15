@@ -28,6 +28,10 @@ const DRIVERS: readonly { id: DeckMode; label: Text }[] = [
     id: 'absolute',
     label: () => t('Vinyl ABS'),
   },
+  {
+    id: 'thru',
+    label: () => t('Its input'),
+  },
 ];
 const EQ: readonly { band: Band; label: string }[] = [
   { band: 'low', label: 'LOW' },

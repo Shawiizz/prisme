@@ -18,7 +18,7 @@ use crate::recording::{input_pair, Recording};
 use crate::scope::{self, ScopeTap};
 use crate::status::{EngineStatus, RecordingStatus, MAX_DECKS};
 use crate::sync::LeaderClock;
-use prisme_dsp::{DenormalGuard, FxSlot};
+use prisme_dsp::{db_to_gain, DenormalGuard, FxSlot};
 use prisme_timecode::{DecoderConfig, TimecodeDecoder, TimecodeFormat};
 
 const COMMAND_QUEUE: usize = 256;
@@ -177,8 +177,7 @@ impl Engine {
             let deck_out = &mut self.deck_out[..frames * 2];
             let deck = &mut self.decks[d];
             let beat = deck.effect_beat();
-            deck.process(deck_in, deck_out, rate, target);
-            let fx_done = deck.fx_on_parts(deck_out, beat);
+            let fx_done = deck.render(deck_in, deck_out, rate, target, beat);
             deck.sampler.render(deck_out, rate);
             if self.mixer.routing.mode == MixMode::Internal {
                 deck.strip.process(deck_out);
@@ -190,6 +189,7 @@ impl Engine {
             let mix = DeckMix { audio: deck_out, volume: deck.volume, side: deck.side, cue: deck.cue };
             self.mixer.add_deck(d, mix, out, out_ch);
         }
+        self.mixer.read_live(input, in_ch, offset, frames);
         self.mixer.finish(frames, out, out_ch);
         if let Some(recording) = self.recording.as_mut() {
             let buffer = &mut self.record_buffer[..frames * 2];
@@ -380,7 +380,18 @@ impl Engine {
             SetFxBeats { deck, slot, beats } => self.fx_slot(deck, slot, |s| s.set_beats(beats)),
             SetFxParts { deck, parts } if valid(deck) => self.decks[deck].set_fx_parts(parts),
             SetCrossfaderCurve { curve } => self.mixer.curve = curve,
-            SetLimiter { enabled } => self.mixer.limiter.set_enabled(enabled),
+            SetLimiter { enabled } => self.mixer.set_limiter(enabled),
+            SetBalance { balance } if balance.is_finite() => self.mixer.set_balance(balance),
+            SetBoothGain { gain } if gain.is_finite() => self.mixer.set_booth_gain(gain),
+            SetLiveInput { source, channels } => self.mixer.live(source).set_channels(channels),
+            SetLiveLevel { source, gain } if gain.is_finite() => self.mixer.live(source).set_level(gain),
+            SetLiveOn { source, on } => self.mixer.live(source).set_on(on),
+            SetLiveCue { source, cue } => self.mixer.live(source).set_cue(cue),
+            SetTalkover { enabled, depth_db } if depth_db.is_finite() => {
+                self.mixer.talkover.enabled = enabled;
+                self.mixer.talkover.depth = db_to_gain(depth_db.min(0.0));
+            }
+            SetPassthrough { deck, enabled } if valid(deck) => self.decks[deck].set_passthrough(enabled),
             Preview { id, track, start_s } => {
                 let start_s = if start_s.is_finite() { start_s } else { 0.0 };
                 if let Some(old) = self.preview.start(id, track, start_s) {
@@ -424,6 +435,8 @@ impl Engine {
         let mut status = EngineStatus {
             deck_count: self.decks.len(),
             main_peak: self.peak,
+            mic_peak: std::mem::take(&mut self.mixer.mic.peak),
+            aux_peak: std::mem::take(&mut self.mixer.aux.peak),
             recording,
             preview: self.preview.status(),
             ..Default::default()

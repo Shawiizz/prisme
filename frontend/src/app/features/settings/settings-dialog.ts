@@ -18,7 +18,7 @@ import { UpdateService } from '../../core/services/update.service';
 import { StemsService } from '../../core/services/stems.service';
 import { NavigationService, SettingsCategory } from '../../core/services/navigation.service';
 import { AudioBackend, AudioSettings, BACKEND_NAMES, BUFFER_SIZES } from '../../core/models/audio';
-import { MAX_DECKS, MixMode } from '../../core/models/engine';
+import { InputChannels, LiveSource, MAX_DECKS, MixMode } from '../../core/models/engine';
 import { DjPreferences, LibraryPreferences, PITCH_RANGES } from '../../core/models/preferences';
 import { LANGUAGES, language, setLanguage, t } from '../../core/i18n/i18n';
 import { TPipe } from '../../core/i18n/t.pipe';
@@ -38,6 +38,34 @@ import { Dismiss, overlay } from '../../shared/overlay';
 /** `1, 2, … n` */
 function numbers(n: number): number[] {
   return Array.from({ length: n }, (_, i) => i + 1);
+}
+
+/** Talkover: how far the music can duck under the microphone (dB). */
+const TALKOVER_DEPTHS = [-6, -12, -18, -24];
+
+/** A choice of input channels as the value of an option. */
+function inputKey(input: InputChannels | null): string {
+  return input ? `${input.stereo ? 'pair' : 'one'}${input.first}` : '';
+}
+
+/** What a live source can come in on among the `free` inputs the `other` source leaves: each
+ * pair, and each input alone if it can be `mono`; the one `chosen` as well, on this device or
+ * not. */
+function inputChoices(
+  free: number[],
+  other: InputChannels | null,
+  chosen: InputChannels | null,
+  mono: boolean,
+): InputChannels[] {
+  if (other)
+    free = free.filter((c) => c !== other.first && !(other.stereo && c === other.first + 1));
+  const choices: InputChannels[] = [];
+  for (const first of free) {
+    if (mono) choices.push({ first, stereo: false });
+    if (first % 2 === 0 && free.includes(first + 1)) choices.push({ first, stereo: true });
+  }
+  if (chosen && !choices.some((c) => inputKey(c) === inputKey(chosen))) choices.push(chosen);
+  return choices;
 }
 
 /**
@@ -116,6 +144,34 @@ export class SettingsDialog implements OnInit {
       ? `${help} ${t('Not heard on this device.')}`
       : `${help} ${t('Now on outputs {a}-{b}.', { a: first + 1, b: first + 2 })}`;
   });
+  /** The pairs the booth can take on the running device (the master has 1-2), with the one
+   * chosen. */
+  protected readonly boothPairs = computed(() => {
+    const pairs = new Set<number>();
+    for (let first = 2; first + 2 <= (this.mixer.outputChannels() ?? 0); first += 2)
+      pairs.add(first);
+    const chosen = this.mixer.booth();
+    if (chosen !== null) pairs.add(chosen);
+    return [...pairs].sort((a, b) => a - b);
+  });
+  protected readonly boothHelp = computed(() => {
+    const help = SETTING_BY_ID.get('mixing.booth')!.description();
+    if (!this.mixer.internal() || this.mixer.outputChannels() === null) return help;
+    const first = this.mixer.boothInUse();
+    if (first !== null)
+      return `${help} ${t('Now on outputs {a}-{b}.', { a: first + 1, b: first + 2 })}`;
+    return this.mixer.booth() === null ? help : `${help} ${t('Not on this device.')}`;
+  });
+  protected readonly micChoices = computed(() =>
+    inputChoices(this.mixer.freeInputs(), this.mixer.aux().input, this.mixer.mic().input, true),
+  );
+  protected readonly auxChoices = computed(() =>
+    inputChoices(this.mixer.freeInputs(), this.mixer.mic().input, this.mixer.aux().input, false),
+  );
+  protected readonly micHelp = computed(() => this.liveHelp('mic', 'mixing.mic'));
+  protected readonly auxHelp = computed(() => this.liveHelp('aux', 'mixing.aux'));
+  protected readonly talkoverDepths = TALKOVER_DEPTHS;
+  protected readonly inputKey = inputKey;
   protected readonly writeTags = computed(() => this.preferences.library().writeTags);
   protected readonly replaceTags = computed(() => this.preferences.library().replaceTags);
   protected readonly pauseWhilePlaying = computed(
@@ -277,6 +333,32 @@ export class SettingsDialog implements OnInit {
 
   megabytes(bytes: number): number {
     return Math.round(bytes / 1e6);
+  }
+
+  setBooth(value: string) {
+    this.mixer.setBooth(value === '' ? null : Number(value));
+  }
+
+  /** `Input 5`, `Inputs 5-6` */
+  inputLabel(input: InputChannels): string {
+    const n = input.first + 1;
+    return input.stereo ? t('Inputs {a}-{b}', { a: n, b: n + 1 }) : t('Input {n}', { n });
+  }
+
+  setLiveInput(source: LiveSource, key: string) {
+    const choices = source === 'mic' ? this.micChoices() : this.auxChoices();
+    this.mixer.setLiveInput(source, choices.find((c) => inputKey(c) === key) ?? null);
+  }
+
+  /** What a live source does, and why it is not heard on the running device. */
+  private liveHelp(source: LiveSource, setting: string): string {
+    const help = SETTING_BY_ID.get(setting)!.description();
+    if (this.mixer.outputChannels() === null) return help;
+    const state = this.mixer.live(source)();
+    if (state.input && !state.inUse) return `${help} ${t('Not on this device.')}`;
+    if (!state.input && this.mixer.freeInputs().length === 0)
+      return `${help} ${t('The turntables take every input of this device.')}`;
+    return help;
   }
 
   setHeadphones(value: string) {

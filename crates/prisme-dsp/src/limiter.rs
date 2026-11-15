@@ -71,10 +71,24 @@ impl Limiter {
 
     /// Processes interleaved stereo in place.
     pub fn process(&mut self, stereo: &mut [f32]) {
+        self.run(stereo, None);
+    }
+
+    /// Processes as [`Limiter::process`] does and writes the gain given to each frame into
+    /// `gains` (1 when off): a signal delayed by [`Limiter::latency`] and given the same
+    /// gains is limited as if it had been part of `stereo`.
+    pub fn process_reporting(&mut self, stereo: &mut [f32], gains: &mut [f32]) {
+        self.run(stereo, Some(gains));
+    }
+
+    fn run(&mut self, stereo: &mut [f32], mut gains: Option<&mut [f32]>) {
         if !self.enabled {
+            if let Some(gains) = gains {
+                gains.fill(1.0);
+            }
             return;
         }
-        for frame in stereo.chunks_exact_mut(2) {
+        for (i, frame) in stereo.chunks_exact_mut(2).enumerate() {
             let peak = frame[0].abs().max(frame[1].abs());
             let needed = if peak > self.threshold { self.threshold / peak } else { 1.0 };
             let lowest = self.push_minimum(needed);
@@ -91,6 +105,9 @@ impl Limiter {
             self.delay.process(frame);
             frame[0] *= gain;
             frame[1] *= gain;
+            if let Some(slot) = gains.as_deref_mut().and_then(|g| g.get_mut(i)) {
+                *slot = gain;
+            }
             self.position += 1;
         }
     }
@@ -142,6 +159,32 @@ mod tests {
         }
         let peak = loud.iter().fold(0.0f32, |m, s| m.max(s.abs()));
         assert!(peak <= 0.9 + 1e-4, "{peak}");
+    }
+
+    #[test]
+    fn a_signal_given_the_reported_gains_is_limited_with_the_rest() {
+        let mut l = Limiter::new(48_000.0, 0.9);
+        let part: Vec<f32> = sine(100.0, 48_000.0, 4_800).iter().map(|s| s * 1.5).collect();
+        let rest: Vec<f32> = sine(300.0, 48_000.0, 4_800).iter().map(|s| s * 0.5).collect();
+        let mut whole: Vec<f32> = part.iter().zip(&rest).map(|(a, b)| a + b).collect();
+        let mut gains = vec![0.0; 4_800];
+        l.process_reporting(&mut whole, &mut gains);
+        let mut delayed_part = part.clone();
+        DelayLine::new(l.latency()).process(&mut delayed_part);
+        let mut delayed_rest = rest.clone();
+        DelayLine::new(l.latency()).process(&mut delayed_rest);
+        for (i, gain) in gains.iter().enumerate() {
+            for c in 0..2 {
+                let k = i * 2 + c;
+                let rebuilt = (delayed_part[k] + delayed_rest[k]) * gain;
+                assert!((whole[k] - rebuilt).abs() < 1e-5, "frame {i}");
+            }
+        }
+        assert!(gains.iter().any(|g| *g < 0.9), "it limited");
+
+        l.set_enabled(false);
+        l.process_reporting(&mut whole, &mut gains);
+        assert!(gains.iter().all(|g| *g == 1.0));
     }
 
     #[test]
