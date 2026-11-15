@@ -8,6 +8,8 @@
 //
 // For a gated feed-forward (act 3, or 4 for SiLU) the columns come in groups of 4 gates then
 // their 4 values, and the layer writes act(gate) * value, n / 2 columns.
+//
+// bench: rows=64 cols=64
 
 struct Params {
     m: u32,

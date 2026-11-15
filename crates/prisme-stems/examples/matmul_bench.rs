@@ -1,12 +1,18 @@
-//! Times the matrix products of the separation on this GPU, kernel by kernel, at the sizes of
-//! a chunk: `matmul_bench [kernel.wgsl]...`. Besides the engine's two kernels, any WGSL file
-//! with the same bindings is timed; its first line says how much of the output a workgroup
-//! takes: `// bench: rows=64 cols=64`. Its result is checked against the engine's kernel.
+//! Times the products of a chunk of a model on this GPU's shader cores, kernel by kernel:
+//! `matmul_bench <model.safetensors> [kernel.wgsl]...`. Timed are the engine's kernels (the
+//! blocked one, the small tiles, and the large ones with `MATMUL_LARGE=1`), then any WGSL file
+//! with their bindings and parameters, bounding its indices itself as they do, whose header
+//! says how much of the output a workgroup takes, on a line of its own among the comments it
+//! opens with: `// bench: rows=64 cols=64` (a generated kernel gets it from its generator).
+//! Each result is checked against the first kernel's.
 
+use std::path::Path;
 use std::time::Instant;
 
+use prisme_stems::Weights;
 use wgpu::util::DeviceExt;
 
+const BLOCKED: &str = include_str!("../src/gpu/matmul_blocked.wgsl");
 const SMALL: &str = include_str!("../src/gpu/matmul_small.wgsl");
 const LARGE: &str = include_str!("../src/gpu/matmul.wgsl");
 const RUNS: u32 = 4;
@@ -15,26 +21,32 @@ const TIMED: u32 = 3;
 /// The GPU is kept busy this long before timing, for its clock to come up.
 const WARM_UP_S: f64 = 1.5;
 
-/// The products of a chunk of the small vocals model (258 frames x 60 bands), and of the band
-/// split into its first features.
-const SHAPES: [(&str, usize, usize, usize); 4] = [
-    ("qkvg", 15_480, 1544, 192),
-    ("out", 15_480, 192, 512),
-    ("ff1", 15_480, 768, 192),
-    ("ff2", 15_480, 192, 768),
-];
-
 struct Kernel {
     name: String,
     source: String,
     rows: usize,
     cols: usize,
+    /// It reads its inputs four values at a time: `k` a multiple of 4.
+    by_four: bool,
 }
 
+/// The rows and columns of the output a workgroup takes, from the `// bench:` line among the
+/// comments `source` opens with.
 fn header_tile(source: &str) -> Option<(usize, usize)> {
-    let line = source.lines().next()?.strip_prefix("// bench:")?;
+    let header = source.lines().take_while(|l| l.starts_with("//"));
+    let line = header.filter_map(|l| l.strip_prefix("// bench:")).next()?;
     let value = |key: &str| line.split_whitespace().find_map(|w| w.strip_prefix(key)?.parse().ok());
     Some((value("rows=")?, value("cols=")?))
+}
+
+/// The products of a chunk: of the first layer of the first transformer, as `(name, m, n, k)`.
+fn shapes(weights: &Weights) -> Vec<(&'static str, usize, usize, usize)> {
+    let g = &weights.geometry;
+    let tokens = g.config.seq_frames(g.config.chunk_frames) * g.seq_bands();
+    let layer = &weights.transformers.first().and_then(|t| t.layers.first()).expect("a transformer layer");
+    [("qkvg", &layer.qkvg), ("out", &layer.out), ("ff1", &layer.ff1), ("ff2", &layer.ff2)]
+        .map(|(name, l)| (name, tokens, l.out, l.inp))
+        .into()
 }
 
 /// The time of one product as the GPU counts it, over [`TIMED`] of them, if it can.
@@ -92,6 +104,10 @@ fn gpu_time(
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let mut args = std::env::args().skip(1);
+    let model = args.next().ok_or("usage: matmul_bench <model.safetensors> [kernel.wgsl]...")?;
+    let weights = Weights::load(Path::new(&model))?;
+
     let instance = wgpu::Instance::new(wgpu::InstanceDescriptor::new_without_display_handle().with_env());
     let adapter = pollster::block_on(instance.request_adapter(&wgpu::RequestAdapterOptions {
         power_preference: wgpu::PowerPreference::HighPerformance,
@@ -117,24 +133,26 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         ..Default::default()
     }))?;
 
+    let engine = |name: &str, source: &str, tile: usize, by_four: bool| Kernel {
+        name: name.into(),
+        source: source.into(),
+        rows: tile,
+        cols: tile,
+        by_four,
+    };
     let mut kernels =
-        vec![Kernel { name: "engine small tiles".into(), source: SMALL.into(), rows: 64, cols: 64 }];
+        vec![engine("engine blocked", BLOCKED, 64, true), engine("engine small tiles", SMALL, 64, false)];
     // the large tiles spill on a GPU with fewer registers than NVIDIA's, and take minutes there
     if std::env::var_os("MATMUL_LARGE").is_some() {
-        kernels.push(Kernel {
-            name: "engine large tiles".into(),
-            source: LARGE.into(),
-            rows: 128,
-            cols: 128,
-        });
+        kernels.push(engine("engine large tiles", LARGE, 128, false));
     }
-    for path in std::env::args().skip(1) {
+    for path in args {
         let source = std::fs::read_to_string(&path)?;
         let (rows, cols) = header_tile(&source).ok_or(format!("{path}: no `// bench: rows= cols=` line"))?;
-        kernels.push(Kernel { name: path, source, rows, cols });
+        kernels.push(Kernel { name: path, source, rows, cols, by_four: false });
     }
 
-    for (shape, m, n, k) in SHAPES {
+    for (shape, m, n, k) in shapes(&weights) {
         let a: Vec<f32> = (0..m * k).map(|i| ((i * 7919 % 1000) as f32 / 1000.0) - 0.5).collect();
         let w: Vec<half::f16> = (0..n * k)
             .map(|i| half::f16::from_f32(((i * 104_729 % 1000) as f32 / 1000.0 - 0.5) * 0.1))
@@ -152,8 +170,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             storage(bytemuck::cast_slice(&w)),
             storage(bytemuck::cast_slice(&bias)),
         );
-        let params: [u32; 12] =
-            [m as u32, n as u32, k as u32, k as u32, 0, n as u32, 0, 0, 0, 1, k as u32, 0];
+        // m, n, k, lda, a_off, ldc, c_off, no activation, no accumulation, a bias
+        let params: [u32; 12] = [m as u32, n as u32, k as u32, k as u32, 0, n as u32, 0, 0, 0, 1, 0, 0];
         let uniform = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: None,
             contents: bytemuck::cast_slice(&params),
@@ -167,11 +185,16 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             mapped_at_creation: false,
         });
         let mut reference: Option<Vec<f32>> = None;
-        for kernel in &kernels {
-            let module = device.create_shader_module(wgpu::ShaderModuleDescriptor {
+        for kernel in kernels.iter().filter(|kernel| !kernel.by_four || k.is_multiple_of(4)) {
+            let descriptor = wgpu::ShaderModuleDescriptor {
                 label: Some(&kernel.name),
                 source: wgpu::ShaderSource::Wgsl(kernel.source.as_str().into()),
-            });
+            };
+            // SAFETY: the kernels bound every index themselves, as the engine's do; created as
+            // the engine creates them, without the checks that would slow them many times over
+            let module = unsafe {
+                device.create_shader_module_trusted(descriptor, wgpu::ShaderRuntimeChecks::unchecked())
+            };
             let pipeline = device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
                 label: None,
                 layout: None,
