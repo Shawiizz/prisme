@@ -31,9 +31,13 @@ const JUMP_THRESHOLD_S: f64 = 0.1;
 const PULL_PER_S: f64 = 50.0;
 const MAX_CORRECTION: f64 = 0.2;
 const MAX_CORRECTION_PER_SPEED: f64 = 0.5;
-/// Below this speed the track fades out: a stopped playhead holds its last sample, a
-/// constant level the speakers would thump on whenever it changed.
+/// Below this speed the track stands still (stem changes on the bar wait for it to move).
 const STILL_SPEED: f64 = 0.02;
+/// Below this speed the track is as loud as it moves, as a cartridge plays a groove: a record
+/// held by a finger over the turning platter barely sounds (a stopped playhead holds its last
+/// sample, which a level jumping at each jolt of the finger turns into thumps), a record
+/// dragged slowly to find an attack sounds softer, a scratch at full level.
+const FULL_LEVEL_SPEED: f64 = 0.25;
 /// How fast the level of a track glides to its auto gain (s): no click when it comes.
 const LEVEL_GLIDE_S: f32 = 0.05;
 /// Stem changes on the bar wait for the next group of this many beats.
@@ -230,7 +234,7 @@ impl Deck {
     /// Applies the track's gain: its motion's (a fade as it stops and moves again) and its
     /// level's.
     fn fade_with_motion(&mut self, out: &mut [f32]) {
-        self.motion.set((self.speed.abs() / STILL_SPEED).min(1.0) as f32);
+        self.motion.set((self.speed.abs() / FULL_LEVEL_SPEED).min(1.0) as f32);
         let at_unity = |s: &Smoothed| s.is_settled() && s.target() == 1.0;
         if at_unity(&self.motion) && at_unity(&self.level) {
             return;
@@ -375,7 +379,9 @@ impl Deck {
             if gap.abs() > JUMP_THRESHOLD_S {
                 self.playhead.seek_s(target);
             } else {
-                let cap = MAX_CORRECTION + MAX_CORRECTION_PER_SPEED * drive.speed.abs();
+                // held still, a record's position reads only the jolts of the finger
+                let trusted = (drive.speed.abs() / FULL_LEVEL_SPEED).min(1.0);
+                let cap = (MAX_CORRECTION + MAX_CORRECTION_PER_SPEED * drive.speed.abs()) * trusted;
                 self.correction = (gap * PULL_PER_S).clamp(-cap, cap);
             }
         }

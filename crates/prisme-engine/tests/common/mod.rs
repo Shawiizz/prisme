@@ -28,10 +28,12 @@ pub fn sine_track(seconds: f64, level: f32) -> Arc<TrackAudio> {
     Arc::new(TrackAudio::from_interleaved(44_100, sine.flat_map(|v| [v, v]).collect()))
 }
 
-/// A record on a turntable, turning at `speed`.
+/// A record on a turntable, turning at `speed`, or as `motion` says at each instant (seconds
+/// since the rig started).
 pub struct Turntable {
     pub generator: SignalGenerator,
     pub speed: f64,
+    pub motion: Option<Box<dyn FnMut(f64) -> f64>>,
 }
 
 pub struct Rig {
@@ -42,6 +44,8 @@ pub struct Rig {
     input: Vec<f32>,
     output: Vec<f32>,
     output_channels: usize,
+    /// Frames run so far.
+    frames: usize,
 }
 
 impl Rig {
@@ -62,13 +66,14 @@ impl Rig {
             input: vec![0.0; BLOCK * DECKS * 2],
             output: vec![0.0; BLOCK * output_channels],
             output_channels,
+            frames: 0,
         }
     }
 
     /// Puts a record on `deck`'s turntable at `start_s` on the record.
     pub fn turntable(&mut self, deck: usize, start_s: f64, speed: f64) {
         let generator = SignalGenerator::new(&SERATO_CV02_A, SR, start_s * 1000.0, 600_000.0);
-        self.turntables[deck] = Some(Turntable { generator, speed });
+        self.turntables[deck] = Some(Turntable { generator, speed, motion: None });
     }
 
     pub fn set_turntable_speed(&mut self, deck: usize, speed: f64) {
@@ -88,8 +93,15 @@ impl Rig {
             for (deck, turntable) in self.turntables.iter_mut().enumerate() {
                 let Some(t) = turntable else { continue };
                 self.deck_signal.clear();
-                let speed = t.speed;
-                t.generator.render(BLOCK, |_| speed, &mut self.deck_signal);
+                let (speed, start) = (t.speed, self.frames);
+                match t.motion.as_mut() {
+                    Some(motion) => t.generator.render(
+                        BLOCK,
+                        |i| motion((start + i) as f64 / SR as f64),
+                        &mut self.deck_signal,
+                    ),
+                    None => t.generator.render(BLOCK, |_| speed, &mut self.deck_signal),
+                }
                 for (frame, lr) in self.input.chunks_exact_mut(channels).zip(self.deck_signal.chunks_exact(2))
                 {
                     frame[deck * 2] = lr[0];
@@ -97,8 +109,19 @@ impl Rig {
                 }
             }
             self.engine.process(&self.input, channels, &mut self.output, self.output_channels);
+            self.frames += BLOCK;
         }
         (blocks * BLOCK) as f64 / SR as f64
+    }
+
+    /// Gives `deck`'s record a motion of its own (see [`Turntable::motion`]).
+    pub fn set_turntable_motion(&mut self, deck: usize, motion: impl FnMut(f64) -> f64 + 'static) {
+        self.turntables[deck].as_mut().expect("a turntable").motion = Some(Box::new(motion));
+    }
+
+    /// The last block, interleaved over the output channels.
+    pub fn output(&self) -> &[f32] {
+        &self.output
     }
 
     /// The first frame of the last block, one value per output channel.
