@@ -2,9 +2,10 @@
 //! on a turntable, through the software mixer. The average hides what matters in real
 //! time: the slowest callback must fit in the buffer's duration.
 //!
-//! `cargo run --release -p prisme-engine --example callback_peaks [frames] [key-locked decks] [reverbs] [on vocals]`
+//! `cargo run --release -p prisme-engine --example callback_peaks [frames] [key-locked decks] [reverbs] [on vocals] [jumps]`
 //!
-//! With `on vocals` at 1, the first deck's reverb is on its vocals alone.
+//! With `on vocals` at 1, the first deck's reverb is on its vocals alone; with `jumps` at 1,
+//! the first deck jumps every second (a hot cue), its key lock starting again.
 
 use prisme_engine::{create, Command, EffectKind, EngineConfig, Parts, Stem, VinylMode};
 use prisme_media::TrackAudio;
@@ -18,7 +19,8 @@ const RATE: u32 = 48_000;
 fn main() {
     let arg =
         |i: usize, default: usize| std::env::args().nth(i).and_then(|a| a.parse().ok()).unwrap_or(default);
-    let (frames, key_locked, reverbs, on_vocals) = (arg(1, 64), arg(2, 1), arg(3, 0), arg(4, 0) == 1);
+    let (frames, key_locked, reverbs, on_vocals, jumps) =
+        (arg(1, 64), arg(2, 1), arg(3, 0), arg(4, 0) == 1, arg(5, 0) == 1);
     let track = |seconds: usize| {
         let samples = (0..seconds * RATE as usize * 2).map(|i| ((i as f32) * 0.001).sin() * 0.5).collect();
         Arc::new(TrackAudio::from_interleaved(RATE, samples))
@@ -55,7 +57,12 @@ fn main() {
     let mut output = vec![0.0; frames * 4];
     let callbacks = 60 * RATE as usize / frames;
     let mut times = Vec::with_capacity(callbacks);
+    let second = RATE as usize / frames;
     for i in 0..callbacks {
+        if jumps && i % second == 0 {
+            let seconds = (i / second % 60) as f64;
+            assert!(controller.send(Command::Seek { deck: 0, seconds }).is_ok());
+        }
         let t = Instant::now();
         engine.process(&blocks[i % blocks.len()], 4, &mut output, 4);
         times.push(t.elapsed().as_secs_f64() * 1e6);
@@ -70,7 +77,7 @@ fn main() {
     let (p99, p999, worst) = (at(0.99), at(0.999), at(1.0));
     // the worst callbacks include the times the OS preempted this (non real-time) thread
     println!(
-        "{frames} frames ({budget:.0} us), {key_locked} key-locked, {reverbs} reverbs, on vocals {on_vocals}: average {average:.1} us, 99 % {p99:.0} us, 99.9 % {p999:.0} us ({:.0} % of the buffer), worst {worst:.0} us",
+        "{frames} frames ({budget:.0} us), {key_locked} key-locked, {reverbs} reverbs, on vocals {on_vocals}, jumps {jumps}: average {average:.1} us, 99 % {p99:.0} us, 99.9 % {p999:.0} us ({:.0} % of the buffer), worst {worst:.0} us",
         p999 / budget * 100.0
     );
 }

@@ -3,15 +3,16 @@
 //! the original pitch, or transposed by whole semitones (key shift).
 //!
 //! The stretcher delays what it is given; it is fed ahead of the playhead by that delay
-//! so that what is heard is where the playhead is. After a jump the feed starts again
-//! from the new place; in a loop it wraps with the playhead. Out of
-//! [`KeyLock::applies`] (scratching, backwards, very slow or fast) the deck plays
-//! without it.
+//! so that what is heard is where the playhead is. After a jump it starts again from the
+//! new place, behind the feed by its delay, and catches up a little more each block: it is
+//! silent for a few milliseconds instead of the whole delay, and no block does all the work
+//! of the delay at once. In a loop the feed wraps with the playhead. Out of
+//! [`KeyLock::applies`] (scratching, backwards, very slow or fast) the deck plays without it.
 //!
 //! Parts of the track read apart from the rest (for an effect on them alone) go through a
 //! stretcher of four channels, the rest and the parts, which stretches both alike so that
 //! they still add up. Going from one stretcher to the other crossfades, once the one coming
-//! in, started silent for its latency, plays.
+//! in has caught up.
 
 use crate::stems::Reader;
 use signalsmith_stretch::Stretch;
@@ -23,6 +24,10 @@ const JUMP_FRAMES: f64 = 64.0;
 /// The highest sample rate of a track the input is sized for (studio masters reach 384 kHz):
 /// a block reads that many more track frames than it plays at the output rate.
 const MAX_TRACK_RATE: f64 = 384_000.0;
+/// A stretcher catching up runs through at most this many times a block's frames of its
+/// delay a block: silent about 7 ms after a jump, each block's extra work small enough for
+/// the slower processor of a phone.
+const CATCH_UP_PER_FRAME: usize = 12;
 /// How long going from the whole track to parts apart, or back, crossfades (output frames).
 const SWITCH_FRAMES: usize = 1024;
 /// Channels of the whole track, and of the rest with the parts apart.
@@ -34,6 +39,10 @@ struct Stretcher {
     stretch: Stretch,
     channels: usize,
     engaged: bool,
+    /// Output frames of its delay it has still to run through, silent.
+    behind: usize,
+    /// How far its input is behind the feed meanwhile (track frames).
+    lag: f64,
     /// Track sample rate and key shift the transposition was set for.
     transposed_for: Option<(u32, i8)>,
 }
@@ -44,6 +53,8 @@ impl Stretcher {
             stretch: Stretch::preset_cheaper(channels as u32, out_rate),
             channels,
             engaged: false,
+            behind: 0,
+            lag: 0.0,
             transposed_for: None,
         }
     }
@@ -58,11 +69,19 @@ impl Stretcher {
         }
     }
 
-    /// Restarts with `preroll`, what comes before the feed.
-    fn start(&mut self, preroll: &[f32], speed: f64) {
+    /// Restarts with `preroll`, what comes before its input, its delay to run through while
+    /// `step` track frames are read an output frame.
+    fn start(&mut self, preroll: &[f32], speed: f64, step: f64) {
         self.stretch.reset();
         self.stretch.seek(preroll, speed);
+        self.behind = self.stretch.output_latency();
+        self.lag = self.behind as f64 * step;
         self.engaged = true;
+    }
+
+    /// The output frames of its delay it runs through in a block of `frames`.
+    fn catching_up(&self, frames: usize) -> usize {
+        self.behind.min(frames * CATCH_UP_PER_FRAME)
     }
 }
 
@@ -71,15 +90,16 @@ pub(crate) struct KeyLock {
     apart: Stretcher,
     /// Parts are read apart from the rest now.
     setting_apart: bool,
-    /// Output frames left until the other stretcher is no longer heard: the one coming in
-    /// gets going, then the two crossfade over the last [`SWITCH_FRAMES`].
+    /// Output frames left of the crossfade from the other stretcher.
     switching: usize,
     /// Interleaved input, four channels wide, sized for the longest block at the highest
-    /// speed and track rate.
+    /// speed and track rate, a stretcher catching up.
     input: Vec<f32>,
     /// The rest and the parts added up, for the whole track's stretcher while both run.
     added: Vec<f32>,
-    /// What the stretcher of the parts apart gives, four channels wide.
+    /// What a stretcher gives, its delay run through included, four channels wide.
+    given: Vec<f32>,
+    /// What the stretcher of the parts apart gives for the block, four channels wide.
     stretched: Vec<f32>,
     /// Source frame (fractional) of the next input.
     feed: f64,
@@ -90,9 +110,12 @@ pub(crate) struct KeyLock {
 impl KeyLock {
     pub(crate) fn new(out_rate: u32, max_block_frames: usize) -> Self {
         let whole = Stretcher::new(WHOLE, out_rate);
+        let delay = whole.stretch.output_latency();
+        let given = max_block_frames + delay.min(max_block_frames * CATCH_UP_PER_FRAME);
+        // a block reads from where a stretcher catching up is to where the feed goes
         let rates = (MAX_TRACK_RATE / f64::from(out_rate)).max(1.0);
-        let longest = (max_block_frames as f64 * MAX_SPEED * rates).ceil() as usize + 2;
-        let frames = longest.max(whole.stretch.input_latency() * 2);
+        let longest = ((max_block_frames + delay) as f64 * MAX_SPEED * rates).ceil() as usize + 2;
+        let frames = longest.max(whole.stretch.input_latency());
         Self {
             whole,
             apart: Stretcher::new(APART, out_rate),
@@ -100,6 +123,7 @@ impl KeyLock {
             switching: 0,
             input: vec![0.0; frames * APART],
             added: vec![0.0; frames * WHOLE],
+            given: vec![0.0; given * APART],
             stretched: vec![0.0; max_block_frames * APART],
             feed: 0.0,
             key_shift: 0,
@@ -140,15 +164,14 @@ impl KeyLock {
         speed: f64,
     ) -> f64 {
         let ratio = source.sample_rate() as f64 / self.out_rate;
+        let step = speed * ratio;
         for stretcher in [&mut self.whole, &mut self.apart] {
             stretcher.transpose(source.sample_rate(), self.key_shift, ratio);
         }
         let stretch = &self.whole.stretch;
-        let lead = stretch.input_latency() as f64 + stretch.output_latency() as f64 * speed * ratio;
-        let wanted = position + lead;
+        let wanted = position + stretch.input_latency() as f64 + stretch.output_latency() as f64 * step;
         let setting_apart = apart.is_some();
-        let jumped = (self.feed - wanted).abs() > JUMP_FRAMES;
-        if jumped || !(self.whole.engaged || self.apart.engaged) {
+        if (self.feed - wanted).abs() > JUMP_FRAMES || !(self.whole.engaged || self.apart.engaged) {
             self.disengage();
             self.feed = wanted.floor();
             self.setting_apart = setting_apart;
@@ -156,34 +179,37 @@ impl KeyLock {
         if setting_apart != self.setting_apart {
             // the other stretcher still plays while this one comes in
             self.setting_apart = setting_apart;
-            self.switching = self.whole.stretch.output_latency() + SWITCH_FRAMES;
+            self.switching = SWITCH_FRAMES;
         }
         if !self.stretchers().0.engaged {
-            self.start(source, loop_frames, speed);
+            self.start(source, loop_frames, speed, step);
         }
         if self.switching == 0 {
             self.stretchers().1.engaged = false;
         }
 
-        let out_frames = out.len() / 2;
-        let advance = out_frames as f64 * speed * ratio;
-        let start = self.feed.floor() as isize;
+        let frames = out.len() / 2;
+        let advance = frames as f64 * step;
+        let lag = self.whole.lag.max(self.apart.lag);
+        let start = (self.feed - lag).floor() as isize;
         // a track above MAX_TRACK_RATE is read short rather than overflowing the input
-        let frames = (((self.feed + advance).floor() - start as f64) as usize).min(self.input.len() / APART);
+        let read_frames =
+            (((self.feed + advance).floor() as isize - start) as usize).min(self.input.len() / APART);
         let channels = if self.apart.engaged { APART } else { WHOLE };
-        let input = &mut self.input[..frames * channels];
-        read(source, start, loop_frames, input, channels, true);
+        let input = &mut self.input[..read_frames * channels];
+        read(source, start, loop_frames, input, channels, self.feed.floor() as isize);
+        let at = Input { start, feed: self.feed, advance, step };
         if self.apart.engaged {
-            self.apart.stretch.process(&*input, &mut self.stretched[..out_frames * APART]);
+            stretch_block(&mut self.apart, input, at, &mut self.given, &mut self.stretched[..frames * APART]);
         }
         if self.whole.engaged {
             let whole_input = if channels == APART {
-                add_up(input, &mut self.added[..frames * WHOLE]);
-                &self.added[..frames * WHOLE]
+                add_up(input, &mut self.added[..read_frames * WHOLE]);
+                &self.added[..read_frames * WHOLE]
             } else {
                 &*input
             };
-            self.whole.stretch.process(whole_input, &mut *out);
+            stretch_block(&mut self.whole, whole_input, at, &mut self.given, out);
         }
         self.mix(out, apart);
         self.feed += advance;
@@ -203,31 +229,37 @@ impl KeyLock {
         }
     }
 
-    /// Restarts the stretcher of the way the track is read now with what comes before the
-    /// feed.
-    fn start(&mut self, source: &mut Reader, loop_frames: Option<(f64, f64)>, speed: f64) {
-        let feed = self.feed as isize;
-        let Self { whole, apart, input, setting_apart, .. } = self;
+    /// Restarts the stretcher of the way the track is read now, behind the feed by its delay,
+    /// with what comes before.
+    fn start(&mut self, source: &mut Reader, loop_frames: Option<(f64, f64)>, speed: f64, step: f64) {
+        let Self { whole, apart, input, setting_apart, feed, .. } = self;
         let now = if *setting_apart { apart } else { whole };
+        let channels = now.channels;
         let preroll = now.stretch.input_latency();
-        let input = &mut input[..preroll * now.channels];
-        read(source, feed - preroll as isize, loop_frames, input, now.channels, false);
-        now.start(input, speed);
+        let behind = now.stretch.output_latency() as f64 * step;
+        let preroll_input = &mut input[..preroll * channels];
+        let from = (*feed - behind).floor() as isize - preroll as isize;
+        read(source, from, loop_frames, preroll_input, channels, isize::MAX);
+        now.start(preroll_input, speed, step);
     }
 
     /// What the stretchers gave into `out` and `apart`: the rest and the parts apart, or the
     /// whole track, crossfading from one to the other while switching.
     fn mix(&mut self, out: &mut [f32], mut apart: Option<&mut [f32]>) {
-        let stretched = &self.stretched[..out.len() * 2];
         if !self.apart.engaged {
             if let Some(apart) = apart {
                 apart.fill(0.0);
             }
             return;
         }
+        // the crossfade waits for the stretcher coming in to catch up
+        let ready = self.stretchers().0.behind == 0;
+        let stretched = &self.stretched[..out.len() * 2];
         for (i, (frame, parts)) in out.chunks_exact_mut(2).zip(stretched.chunks_exact(APART)).enumerate() {
             // how much the parts apart are heard: 1 once switched to them, 0 once switched away
-            let left = self.switching.saturating_sub(i).min(SWITCH_FRAMES) as f32 / SWITCH_FRAMES as f32;
+            let left =
+                if ready { self.switching.saturating_sub(i).min(SWITCH_FRAMES) } else { SWITCH_FRAMES };
+            let left = left as f32 / SWITCH_FRAMES as f32;
             let heard = if self.setting_apart { 1.0 - left } else { left };
             let whole = if self.whole.engaged { 1.0 - heard } else { 0.0 };
             match apart.as_deref_mut() {
@@ -243,24 +275,55 @@ impl KeyLock {
                 }
             }
         }
-        self.switching = self.switching.saturating_sub(out.len() / 2);
+        if ready {
+            self.switching = self.switching.saturating_sub(out.len() / 2);
+        }
     }
+}
+
+/// The input read for a block: from track frame `start`, up to the feed moved by `advance`,
+/// `step` track frames an output frame.
+#[derive(Clone, Copy)]
+struct Input {
+    start: isize,
+    feed: f64,
+    advance: f64,
+    step: f64,
+}
+
+/// Runs `stretcher` over its part of `input` for a block of `out`, catching up a little of
+/// its delay if it is behind: what it gives goes to `given`, the block's end to `out`.
+fn stretch_block(stretcher: &mut Stretcher, input: &[f32], at: Input, given: &mut [f32], out: &mut [f32]) {
+    let channels = stretcher.channels;
+    let frames = out.len() / channels;
+    let caught_up = stretcher.catching_up(frames);
+    stretcher.behind -= caught_up;
+    let lag_before = stretcher.lag;
+    stretcher.lag = if stretcher.behind == 0 { 0.0 } else { lag_before - caught_up as f64 * at.step };
+    let input_frames = input.len() / channels;
+    let first = (((at.feed - lag_before).floor() as isize - at.start).max(0) as usize).min(input_frames);
+    let end = (at.feed + at.advance - stretcher.lag).floor() as isize - at.start;
+    let end = (end.max(first as isize) as usize).min(input_frames);
+    let given = &mut given[..(frames + caught_up) * channels];
+    stretcher.stretch.process(&input[first * channels..end * channels], &mut *given);
+    out.copy_from_slice(&given[caught_up * channels..]);
 }
 
 /// Reads interleaved frames from `start`, two channels (the whole track) or four (the rest,
 /// then the parts apart); frames past the end of an active loop come from its start, as the
-/// playhead will play them. The stem gains move with the frames read, except for a pre-roll
-/// (already heard, or never).
+/// playhead will play them. The stem gains move with the frames read from `heard_from`
+/// (those before were heard already, or will never be).
 fn read(
     source: &mut Reader,
     start: isize,
     loop_frames: Option<(f64, f64)>,
     out: &mut [f32],
     channels: usize,
-    advance: bool,
+    heard_from: isize,
 ) {
     for (i, frame) in out.chunks_exact_mut(channels).enumerate() {
-        let mut index = start + i as isize;
+        let at = start + i as isize;
+        let mut index = at;
         if let Some((loop_start, loop_end)) = loop_frames {
             let (s, e) = (loop_start as isize, loop_end as isize);
             if e > s && index >= e {
@@ -272,7 +335,7 @@ fn read(
         } else {
             (frame[0], frame[1]) = source.frame(index);
         }
-        if advance {
+        if at >= heard_from {
             source.advance();
         }
     }
@@ -364,6 +427,40 @@ mod tests {
                 .abs()
                 < 2.0
         );
+    }
+
+    #[test]
+    fn a_jump_in_large_blocks_sounds_at_once() {
+        let track = sine(440.0, 6.0);
+        let mut lock = KeyLock::new(RATE, 1024);
+        play(&mut lock, &track, 1.04, 0.5);
+        let mut block = vec![0.0f32; 512 * 2];
+        let mut position = 4.0 * RATE as f64;
+        for _ in 0..8 {
+            position = lock.render(&mut Stems::new().reader(&track), position, None, &mut block, None, 1.04);
+            let level = block.iter().fold(0.0f32, |m, s| m.max(s.abs()));
+            assert!(level > 0.8, "{level}");
+        }
+    }
+
+    #[test]
+    fn a_jump_in_small_blocks_is_silent_some_milliseconds() {
+        let track = sine(440.0, 6.0);
+        let mut lock = KeyLock::new(RATE, 1024);
+        play(&mut lock, &track, 1.04, 0.5);
+        let mut block = vec![0.0f32; 64 * 2];
+        let mut position = 4.0 * RATE as f64;
+        let levels: Vec<f32> = (0..40)
+            .map(|_| {
+                position =
+                    lock.render(&mut Stems::new().reader(&track), position, None, &mut block, None, 1.04);
+                block.iter().fold(0.0f32, |m, s| m.max(s.abs()))
+            })
+            .collect();
+        let sounding = levels.iter().position(|&l| l > 0.8).expect("it sounds");
+        assert!(sounding <= 6, "{sounding} blocks of 64 frames silent");
+        assert!(levels[sounding..].iter().all(|&l| l > 0.8), "{levels:?}");
+        assert!((frequency(&play(&mut lock, &track, 1.04, 0.5).0) - 440.0).abs() < 3.0);
     }
 
     #[test]
