@@ -4,7 +4,7 @@
 //
 // 128 x 128 output tiles, 8 subgroups each computing 64 x 32 outputs as 4 x 2 cooperative
 // 16 x 16 matrices. The tiles of `a` and `w` go through shared memory as f16; `k` and the
-// rows of `a` come in multiples of 4, `w` rows padded to `ldw` groups of 4.
+// rows of `a` come in multiples of 4.
 
 struct Params {
     m: u32,
@@ -18,7 +18,6 @@ struct Params {
     act: u32,
     accumulate: u32,
     has_bias: u32,
-    ldw: u32,
 }
 
 @group(0) @binding(0) var<storage, read> a: array<vec4<In>>;
@@ -112,7 +111,7 @@ fn main(
             a_sh[at + 3u] = f16(v.w);
             var u = vec4<f16>();
             if (col0 + r < p.n && k < p.k) {
-                u = w[(col0 + r) * p.ldw + k / 4u];
+                u = w[((col0 + r) * p.k + k) / 4u];
             }
             w_sh[at] = u.x;
             w_sh[at + 1u] = u.y;

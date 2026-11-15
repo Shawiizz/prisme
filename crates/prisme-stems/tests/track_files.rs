@@ -214,6 +214,29 @@ fn a_played_track_gets_its_stems_around_where_it_plays() {
     }
 }
 
+/// A track handed over decoded, as a deck holds it, separates as when it is read from its file.
+#[test]
+fn a_decoded_track_separates_as_its_file() {
+    for rate in [44_100, 48_000] {
+        let dir = folder(&format!("decoded-{rate}"));
+        let track = dir.join("track.wav");
+        let frames = 20_000;
+        write_track(&track, rate, frames);
+        let decoded = prisme_media::decode_file(&track).unwrap();
+        let stems = |audio: Option<&prisme_media::TrackAudio>| {
+            let mut separator = separator();
+            let separators = &mut [&mut separator];
+            let mut separation = TrackSeparation::open(separators, &track, audio, Some(frames / 2)).unwrap();
+            while !separation.is_done() {
+                separation.step(separators, || None).unwrap();
+            }
+            separation.read(0, 0..frames).unwrap()
+        };
+        assert_eq!(stems(Some(&decoded)), stems(None), "at {rate} Hz");
+        std::fs::remove_dir_all(dir).unwrap();
+    }
+}
+
 /// A model asking for four chunks over each sample can be held to two: half the chunks.
 #[test]
 fn fewer_overlapping_chunks_can_be_asked_for() {

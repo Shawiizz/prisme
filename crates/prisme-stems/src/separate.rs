@@ -266,25 +266,19 @@ impl Separation {
     }
 
     /// The samples whose stems are final, those no chunk still to come lies over: islands in
-    /// order, apart.
+    /// order, apart. The chunks cover the track, their starts and ends in order: the islands
+    /// are the gaps between the chunks to come.
     pub fn finished(&self) -> Vec<Range<usize>> {
-        let mut bounds: Vec<usize> =
-            self.starts.iter().flat_map(|&s| [s, self.end(s)]).chain([0, self.len]).collect();
-        bounds.sort_unstable();
-        bounds.dedup();
-        let mut islands: Vec<Range<usize>> = Vec::new();
-        for pair in bounds.windows(2) {
-            let (from, to) = (pair[0], pair[1]);
-            let over: Vec<usize> = (0..self.starts.len())
-                .filter(|&i| self.starts[i] <= from && from < self.end(self.starts[i]))
-                .collect();
-            if over.is_empty() || !over.iter().all(|&i| self.through[i]) {
-                continue;
+        let mut islands = Vec::new();
+        let mut from = 0;
+        for (&start, _) in self.starts.iter().zip(&self.through).filter(|(_, &through)| !through) {
+            if from < start {
+                islands.push(from..start);
             }
-            match islands.last_mut().filter(|last| last.end == from) {
-                Some(last) => last.end = to,
-                None => islands.push(from..to),
-            }
+            from = from.max(self.end(start));
+        }
+        if from < self.len {
+            islands.push(from..self.len);
         }
         islands
     }
@@ -503,5 +497,28 @@ mod tests {
         }
         assert_eq!(s.finished(), [0..50]);
         assert_eq!(s.read(0, 0..50), [vec![1.0; 50], vec![1.0; 50]], "the overlaps are blended back");
+    }
+
+    /// Whichever chunks are through, the last one moved back among them: final are the samples
+    /// every chunk over which is through.
+    #[test]
+    fn the_final_samples_are_those_every_chunk_over_is_through() {
+        let starts = chunk_starts(27, 10, 5);
+        for through in 0..1u32 << starts.len() {
+            let s = Separation {
+                through: (0..starts.len()).map(|i| through >> i & 1 == 1).collect(),
+                len: 27,
+                weight: vec![0.0; 27],
+                starts: starts.clone(),
+                ..separation(0)
+            };
+            let islands = s.finished();
+            assert!(islands.windows(2).all(|w| w[0].end < w[1].start), "{islands:?} apart");
+            for at in 0..27 {
+                let mut over = (0..starts.len()).filter(|&i| starts[i] <= at && at < starts[i] + 10);
+                let is_final = over.all(|i| s.through[i]);
+                assert_eq!(islands.iter().any(|i| i.contains(&at)), is_final, "{at} with {through:05b}");
+            }
+        }
     }
 }

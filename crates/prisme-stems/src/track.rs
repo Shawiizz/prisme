@@ -10,10 +10,10 @@
 use std::borrow::Cow;
 use std::ops::Range;
 use std::path::{Component, Path, PathBuf};
-use std::sync::OnceLock;
+use std::sync::{Mutex, OnceLock};
 
 use prisme_media::{DecodeStream, TrackAudio};
-use rubato::audioadapter_buffers::direct::InterleavedSlice;
+use rubato::audioadapter_buffers::direct::{InterleavedSlice, SequentialSliceOfVecs};
 use rubato::{Fft, FixedSync, Resampler};
 
 use crate::network::MaskNetwork;
@@ -101,34 +101,50 @@ struct Run {
     /// `None` once its stems are stored.
     separation: Option<Separation>,
     chunks: usize,
+    /// Brings what is final of its stems back to the track's rate, when it separates at
+    /// another: one for every read, as building one takes longer than what it reads.
+    back: Option<Mutex<Fft<f32>>>,
 }
 
 impl TrackSeparation {
-    /// The separation of `track` by `separators`: `audio` is the track decoded already
-    /// (its rate and interleaved stereo samples), else it is decoded here; `around` is the
-    /// frame it is played from.
+    /// The separation of `track` by `separators`: `audio` is the track decoded already,
+    /// else it is decoded here; `around` is the frame it is played from.
     pub fn open<N: MaskNetwork>(
         separators: &[&mut Separator<N>],
         track: &Path,
-        audio: Option<(u32, Vec<f32>)>,
+        audio: Option<&TrackAudio>,
         around: Option<usize>,
     ) -> Result<Self, StemsError> {
-        let (sample_rate, samples) = match audio {
-            Some(audio) => audio,
-            None => decode(track)?,
+        let (sample_rate, channels) = match audio {
+            Some(audio) => (audio.sample_rate(), planar(audio)),
+            None => decode(track).map(|(rate, samples)| (rate, deinterleave(&samples)))?,
         };
-        let frames = samples.len() / 2;
-        let mut inputs: Vec<(u32, [Vec<f32>; 2])> = Vec::new();
+        let frames = channels[0].len();
+        let mut rates: Vec<u32> = Vec::new();
+        for separator in separators {
+            if !rates.contains(&separator.sample_rate()) {
+                rates.push(separator.sample_rate());
+            }
+        }
+        // the other rates resampled from the track, which then goes to its own rate as it is
+        let resampled = rates
+            .iter()
+            .map(|&rate| {
+                (rate != sample_rate).then(|| resample_planar(&channels, sample_rate, rate)).transpose()
+            })
+            .collect::<Result<Vec<_>, _>>()?;
+        let mut channels = Some(channels);
+        let inputs: Vec<(u32, [Vec<f32>; 2])> = rates
+            .iter()
+            .zip(resampled)
+            .map(|(&rate, input)| {
+                (rate, input.unwrap_or_else(|| channels.take().expect("one rate is the track's")))
+            })
+            .collect();
         let mut runs = Vec::new();
         for separator in separators {
             let rate = separator.sample_rate();
-            let input = match inputs.iter().position(|(r, _)| *r == rate) {
-                Some(input) => input,
-                None => {
-                    inputs.push((rate, deinterleave(&resample(&samples, sample_rate, rate)?)));
-                    inputs.len() - 1
-                }
-            };
+            let input = rates.iter().position(|&r| r == rate).expect("every rate has its input");
             let len = inputs[input].1[0].len();
             let anchor = around.map_or(0, |frame| at_rate(frame, sample_rate, rate));
             let separation = separator.begin(len, anchor);
@@ -138,6 +154,8 @@ impl TrackSeparation {
                 .map(|stem| stem_path(track, stem))
                 .collect::<Option<Vec<_>>>()
                 .ok_or_else(|| StemsError::Track(format!("{} is not a file", track.display())))?;
+            let back =
+                (rate != sample_rate).then(|| resampler(rate, sample_rate).map(Mutex::new)).transpose()?;
             runs.push(Run {
                 input,
                 sample_rate: rate,
@@ -145,6 +163,7 @@ impl TrackSeparation {
                 targets,
                 chunks: separation.chunks(),
                 separation: Some(separation),
+                back,
             });
         }
         Ok(Self { track: track.to_owned(), sample_rate, frames, inputs, runs, abreast: around.is_some() })
@@ -231,14 +250,14 @@ impl TrackSeparation {
     pub fn read(&self, stem: usize, frames: Range<usize>) -> Result<Vec<f32>, StemsError> {
         let (run, local) = self.stem(stem);
         let separation = run.separation.as_ref().expect("a stored stem is not read back");
-        if run.sample_rate == self.sample_rate {
+        let Some(back) = &run.back else {
             let [l, r] = separation.read(local, frames);
             return Ok(interleave(&l, &r));
-        }
+        };
         let span = input_span(&frames, run.sample_rate, self.sample_rate, self.input_len(run));
         let [l, r] = separation.read(local, span.clone());
         let read = interleave(&l, &r);
-        let resampled = resample(&read, run.sample_rate, self.sample_rate)?;
+        let resampled = resample_with(&mut back.lock().expect("resampler"), &read)?;
         let offset = (span.start as u64 * u64::from(self.sample_rate) / u64::from(run.sample_rate)) as usize;
         let mut out = vec![0.0; frames.len() * 2];
         let from = (frames.start - offset) * 2;
@@ -382,18 +401,49 @@ fn resample(samples: &[f32], from: u32, to: u32) -> Result<Cow<'_, [f32]>, Stems
     if from == to {
         return Ok(Cow::Borrowed(samples));
     }
-    let error = |e: &dyn std::fmt::Display| StemsError::Track(format!("resampling: {e}"));
+    resample_with(&mut resampler(from, to)?, samples).map(Cow::Owned)
+}
+
+/// A stereo resampler from one rate to another.
+fn resampler(from: u32, to: u32) -> Result<Fft<f32>, StemsError> {
+    Fft::new(from as usize, to as usize, 1024, 2, FixedSync::Both).map_err(|e| resampling(&e))
+}
+
+/// Interleaved stereo through `resampler`, aligned (its delay removed).
+fn resample_with(resampler: &mut Fft<f32>, samples: &[f32]) -> Result<Vec<f32>, StemsError> {
     let frames = samples.len() / 2;
-    let mut resampler =
-        Fft::<f32>::new(from as usize, to as usize, 1024, 2, FixedSync::Both).map_err(|e| error(&e))?;
-    let input = InterleavedSlice::new(samples, 2, frames).map_err(|e| error(&e))?;
-    let output = resampler.process_all(&input, frames, None).map_err(|e| error(&e))?;
-    Ok(Cow::Owned(output.take_data()))
+    let input = InterleavedSlice::new(samples, 2, frames).map_err(|e| resampling(&e))?;
+    let output = resampler.process_all(&input, frames, None).map_err(|e| resampling(&e))?;
+    Ok(output.take_data())
+}
+
+/// [`resample`] of a left and a right channel.
+fn resample_planar(channels: &[Vec<f32>; 2], from: u32, to: u32) -> Result<[Vec<f32>; 2], StemsError> {
+    let frames = channels[0].len();
+    let input = SequentialSliceOfVecs::new(channels, 2, frames).map_err(|e| resampling(&e))?;
+    let output = resampler(from, to)?.process_all(&input, frames, None).map_err(|e| resampling(&e))?;
+    Ok(deinterleave(&output.take_data()))
+}
+
+fn resampling(e: &dyn std::fmt::Display) -> StemsError {
+    StemsError::Track(format!("resampling: {e}"))
 }
 
 fn deinterleave(samples: &[f32]) -> [Vec<f32>; 2] {
     let (left, right) = samples.chunks_exact(2).map(|f| (f[0], f[1])).unzip();
     [left, right]
+}
+
+/// A decoded track as left and right, read a block at a time.
+fn planar(audio: &TrackAudio) -> [Vec<f32>; 2] {
+    let mut channels = [Vec::with_capacity(audio.frames()), Vec::with_capacity(audio.frames())];
+    audio.for_each_block(1 << 16, |block| {
+        for frame in block.chunks_exact(2) {
+            channels[0].push(frame[0]);
+            channels[1].push(frame[1]);
+        }
+    });
+    channels
 }
 
 fn encode(samples: &[f32], sample_rate: u32) -> Result<Vec<u8>, StemsError> {

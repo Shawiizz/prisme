@@ -22,7 +22,6 @@ use crate::state::{lock, AppState};
 use crate::track_loading::DECK_TRACK_UPDATE_EVENT;
 use prisme_engine::{Command, Stem, StemTracks};
 use prisme_media::TrackAudio;
-use prisme_stems::gpu::Attention;
 use prisme_stems::track::TrackSeparation;
 use prisme_stems::{CpuNetwork, Gpu, GpuNetwork, GpuOptions, MaskNetwork, Separator, StemsError, Weights};
 use sha2::{Digest, Sha256};
@@ -167,20 +166,6 @@ static GPU_GAVE_UP: AtomicBool = AtomicBool::new(false);
 /// The graphics chip separates on a computer and on Android (Vulkan); an iPhone's is left
 /// alone until it has been tried.
 const USES_GPU: bool = cfg!(any(desktop, target_os = "android"));
-
-/// A phone's GPU draws its screen too: the separation goes to it in packets of a few
-/// milliseconds, between which the screen gets its turn (pausing between them would let the
-/// GPU slow its clock, and the whole with it). Its attention goes as products: on an Adreno 740,
-/// a fifth faster than in one pass for Mini-BS-RoFormer-V2.5, when an RTX 4060's shader cores
-/// find it slower.
-const GPU_OPTIONS: GpuOptions = GpuOptions {
-    software: false,
-    without_matrix_units: false,
-    max_binding: None,
-    profile: false,
-    share: if cfg!(mobile) { Some(1.0) } else { None },
-    attention: if cfg!(mobile) { Some(Attention::Products) } else { None },
-};
 
 /// Whether the DJ lets the separation use the graphics chip.
 fn gpu_allowed(state: &AppState) -> bool {
@@ -517,7 +502,9 @@ impl Worker {
         let allowed = || gpu_allowed(&self.app.state::<AppState>());
         let open_gpu = || {
             let gpu = allowed()
-                .then(|| Gpu::open(GPU_OPTIONS).inspect_err(|e| warn!("separating on the CPU: {e}")).ok())
+                .then(|| {
+                    Gpu::open(GpuOptions::default()).inspect_err(|e| warn!("separating on the CPU: {e}")).ok()
+                })
                 .flatten();
             GPU_GAVE_UP.store(gpu.is_none(), Ordering::Relaxed);
             gpu
@@ -632,8 +619,8 @@ impl Worker {
         let mut separation = TrackSeparation::open(
             separators,
             &job.path,
-            deck.as_ref().map(|(audio, _)| (audio.sample_rate(), samples(audio))),
-            deck.map(|(_, frame)| frame),
+            deck.as_ref().map(|(audio, _)| &**audio),
+            deck.as_ref().map(|&(_, frame)| frame),
         )?;
         let mut live: Option<Live> = None;
         while !separation.is_done() {
@@ -873,13 +860,6 @@ fn idle(progress: &mut StemsProgressDto) {
     progress.running = false;
     progress.current = None;
     progress.queued = 0;
-}
-
-/// The interleaved samples of a decoded track.
-fn samples(audio: &TrackAudio) -> Vec<f32> {
-    let mut samples = Vec::with_capacity(audio.frames() * 2);
-    audio.for_each_block(1 << 16, |block| samples.extend_from_slice(block));
-    samples
 }
 
 /// Gives the stored stems of `path` to the decks it is loaded on (once fully decoded:
