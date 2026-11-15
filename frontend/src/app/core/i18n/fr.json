@@ -345,6 +345,8 @@
   "Loop out": "Loop out",
   "Jump back {n} beats": "Reculer de {n} temps",
   "Jump {n} beats ahead": "Avancer de {n} temps",
+  "Jump {n} beats": "Sauter de {n} temps",
+  "Loop {n} beats": "Boucle de {n} temps",
   "Key lock": "Key lock",
   "Sample {n}": "Sample {n}",
   "Effect on / off": "Effet actif / coupé",

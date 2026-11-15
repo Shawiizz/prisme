@@ -17,7 +17,7 @@ import {
 } from '../../shared/mixer-scales';
 import { BANDS } from '../models/engine';
 import { hasPart, partLevel, partPlaying } from '../stem-parts';
-import { Control, ControlActions, buildControls } from './controls';
+import { Control, ControlActions, buildControls, measuredControl } from './controls';
 
 const LOOP_BEATS = 4;
 
@@ -51,6 +51,7 @@ export class ControlService {
     loopInSet: (deck) => this.deck(deck)?.looping.loopInS != null,
     loopOut: (deck) => this.performance.loopOut(deck),
     beatJump: (deck, beats) => this.performance.beatJump(deck, beats),
+    beatLoop: (deck, beats) => this.performance.beatLoop(deck, beats),
     bend: (deck, direction) => this.engine.pitchBend(deck, direction),
     toggleKeyLock: (deck) => this.engine.setKeyLock(deck, !this.engine.decks()[deck].keyLock),
     keyLocked: (deck) => this.engine.decks()[deck].keyLock,
@@ -65,6 +66,7 @@ export class ControlService {
       return track ? partLevel(track.stemMix, part) : 1;
     },
     triggerSample: (deck, slot) => this.sampler.trigger(deck, slot),
+    sampleLoaded: (deck, slot) => !!this.engine.decks()[deck].samples[slot],
     samplePlaying: (deck, slot) => ((this.deck(deck)?.samplesPlaying ?? 0) & (1 << slot)) !== 0,
     toggleFx: (deck) => this.fx.setEnabled(deck, !this.fx.settings(deck).enabled),
     fxOn: (deck) => this.fx.settings(deck).enabled,
@@ -139,7 +141,17 @@ export class ControlService {
   /** The control `id` if it acts now: a control of a deck not shown does nothing. */
   findInUse(id: string): Control | undefined {
     const control = this.built().byId.get(id);
-    return control && this.inUseSet().has(control) ? control : undefined;
+    if (control) return this.inUseSet().has(control) ? control : undefined;
+    const measured = this.measured(id);
+    return measured && measured.deck! < this.engine.deckIndexes().length ? measured : undefined;
+  }
+
+  /** The controls named by their measure (`deck1.jump.-8`), made once each. */
+  private readonly measuredById = new Map<string, Control | undefined>();
+
+  private measured(id: string): Control | undefined {
+    if (!this.measuredById.has(id)) this.measuredById.set(id, measuredControl(this.actions, id));
+    return this.measuredById.get(id);
   }
 
   private deck(deck: number) {

@@ -1,4 +1,5 @@
-use crate::mapping::{Encoding, Mapping};
+use crate::light::{LightValue, LightValues};
+use crate::mapping::{Encoding, Mapping, Modes, When, MODE};
 use crate::message::Control;
 use serde::{Deserialize, Serialize};
 
@@ -24,9 +25,71 @@ pub struct Profile {
     /// Sent when the controller is opened (a request for its knobs' positions, say).
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub init: Vec<Vec<u8>>,
+    /// Sent when it is closed, after its lights went off.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub close: Vec<Vec<u8>>,
+    /// Sent again and again while it is open: some models stop answering without it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub keep_alive: Option<KeepAlive>,
+    /// Groups of its controls that drive other actions in each of their modes (the pad
+    /// pages of a side, chosen by its mode keys), when the controls send the same in each.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub modes: Vec<ModeGroup>,
     pub controls: Vec<ProfileControl>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub lights: Vec<ProfileLight>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub meters: Vec<Meter>,
+}
+
+/// A message sent every `every_ms` milliseconds.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct KeepAlive {
+    pub every_ms: u32,
+    pub message: Vec<u8>,
+}
+
+/// A group of controls and its modes, the first one to begin with, each chosen by a key
+/// whose light shows whether it is the one (`on`, `off`).
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ModeGroup {
+    pub group: String,
+    pub modes: Vec<String>,
+    pub select: Vec<ModeSelect>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ModeSelect {
+    pub control: Control,
+    pub mode: String,
+    /// Chosen while the controller's shift is held.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub shift: bool,
+    #[serde(default, skip_serializing_if = "LightValues::is_empty")]
+    pub light: LightValues,
+}
+
+/// A level shown on the controller: `source`'s (`deck1`…, `main`), from 0 to `max` on
+/// `control`, along `curve` (the level raised to it: 1 straight).
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Meter {
+    pub source: String,
+    pub control: Control,
+    #[serde(default = "full", skip_serializing_if = "is_full")]
+    pub max: u8,
+    #[serde(default = "straight", skip_serializing_if = "is_straight")]
+    pub curve: f32,
+}
+
+impl Meter {
+    /// The value showing `level` (full scale 1).
+    pub fn value(&self, level: f32) -> u8 {
+        (level.clamp(0.0, 1.0).powf(self.curve) * f32::from(self.max)).round() as u8
+    }
 }
 
 /// A control of the model and the action it drives: a [`Mapping`] before a device has it.
@@ -41,18 +104,27 @@ pub struct ProfileControl {
     pub fine: Option<u8>,
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub shift: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub when: Option<When>,
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub invert: bool,
+    /// Its light's values, when they are not 127 and 0.
+    #[serde(default, skip_serializing_if = "LightValues::is_empty")]
+    pub light: LightValues,
 }
 
-/// A light that is not the control of its action, or that takes other values than 127 and 0.
+/// A light that is not the control of its action: its values by state beside it (`"on":
+/// 100`, `"playing": {"blink": [9, 0], "ms": 250}`).
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ProfileLight {
     pub target: String,
     pub control: Control,
-    #[serde(default = "full", skip_serializing_if = "is_full")]
-    pub on: u8,
-    #[serde(default, skip_serializing_if = "is_zero")]
-    pub off: u8,
+    /// While its group is in this mode only.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub when: Option<When>,
+    #[serde(flatten)]
+    pub values: LightValues,
 }
 
 fn is_absolute(encoding: &Encoding) -> bool {
@@ -67,8 +139,12 @@ fn is_full(value: &u8) -> bool {
     *value == 127
 }
 
-fn is_zero(value: &u8) -> bool {
-    *value == 0
+fn straight() -> f32 {
+    1.0
+}
+
+fn is_straight(curve: &f32) -> bool {
+    *curve == 1.0
 }
 
 fn jog_steps_per_turn() -> f64 {
@@ -103,24 +179,46 @@ impl Profile {
             .max()
     }
 
-    /// The mappings of this model on `device`.
+    /// The mappings of this model on `device`: its controls, and its mode keys.
     pub fn mappings<'p>(&'p self, device: &'p str) -> impl Iterator<Item = Mapping> + 'p {
-        self.controls.iter().map(move |c| Mapping {
+        let controls = self.controls.iter().map(move |c| Mapping {
             device: device.to_owned(),
             control: c.control,
             target: c.target.clone(),
             encoding: c.encoding,
             fine: c.fine,
             shift: c.shift,
-        })
+            when: c.when.clone(),
+            invert: c.invert,
+            light: c.light.clone(),
+        });
+        let selects = self.modes.iter().flat_map(move |g| {
+            g.select.iter().map(move |s| Mapping {
+                device: device.to_owned(),
+                control: s.control,
+                target: format!("{MODE}{}.{}", g.group, s.mode),
+                encoding: Encoding::Absolute,
+                fine: None,
+                shift: s.shift,
+                when: None,
+                invert: false,
+                light: s.light.clone(),
+            })
+        });
+        controls.chain(selects)
+    }
+
+    /// The modes its groups begin in.
+    pub fn first_modes(&self) -> Modes {
+        self.modes.iter().filter_map(|g| Some((g.group.clone(), g.modes.first()?.clone()))).collect()
     }
 }
 
 impl ProfileLight {
-    /// The message that switches this light on or off.
-    pub fn message(&self, on: bool) -> Option<[u8; 3]> {
-        let value = if on { self.on } else { self.off };
-        crate::mapping::light(self.control, true).map(|[status, number, _]| [status, number, value])
+    /// Its value in `state`, while its group is in `modes`.
+    pub fn value(&self, state: &str, modes: &Modes) -> Option<LightValue> {
+        let applies = self.when.as_ref().is_none_or(|w| modes.get(&w.group) == Some(&w.mode));
+        applies.then(|| self.values.value(state))
     }
 }
 
@@ -191,8 +289,48 @@ mod tests {
     #[test]
     fn a_light_takes_its_own_values() {
         let light = &profile().lights[0];
-        assert_eq!(light.message(true), Some([0x90, 71, 100]));
-        assert_eq!(light.message(false), Some([0x90, 71, 0]));
+        assert_eq!(light.value("on", &Modes::new()), Some(LightValue::Steady(100)));
+        assert_eq!(light.value("off", &Modes::new()), Some(LightValue::Steady(0)));
+    }
+
+    #[test]
+    fn mode_keys_become_mappings_and_the_first_mode_is_where_a_group_begins() {
+        let p: Profile = serde_json::from_str(
+            r#"{
+                "name": "Numark Mixtrack Pro FX",
+                "ports": ["Mixtrack Pro FX"],
+                "modes": [{
+                    "group": "padsA",
+                    "modes": ["hotcue", "roll"],
+                    "select": [
+                        { "control": { "kind": "note", "channel": 4, "number": 0 }, "mode": "hotcue" },
+                        { "control": { "kind": "note", "channel": 4, "number": 13 }, "mode": "roll", "light": { "off": 1 } }
+                    ]
+                }],
+                "controls": [
+                    { "control": { "kind": "note", "channel": 4, "number": 20 }, "target": "deck1.hotcue1", "when": { "group": "padsA", "mode": "hotcue" } },
+                    { "control": { "kind": "note", "channel": 4, "number": 20 }, "target": "deck1.roll1", "when": { "group": "padsA", "mode": "roll" } }
+                ],
+                "meters": [{ "source": "deck1", "control": { "kind": "controlChange", "channel": 0, "number": 31 }, "max": 90 }],
+                "keepAlive": { "everyMs": 200, "message": [240, 0, 64, 5, 247] }
+            }"#,
+        )
+        .unwrap();
+        let mappings: Vec<Mapping> = p.mappings("Mixtrack").collect();
+        let targets: Vec<&str> = mappings.iter().map(|m| m.target.as_str()).collect();
+        assert_eq!(targets, ["deck1.hotcue1", "deck1.roll1", "mode.padsA.hotcue", "mode.padsA.roll"]);
+        assert_eq!(mappings[3].light.value("off"), LightValue::Steady(1));
+        assert_eq!(p.first_modes(), Modes::from([("padsA".into(), "hotcue".into())]));
+        assert_eq!(p.meters[0].value(0.5), 45);
+        assert_eq!(p.keep_alive.as_ref().map(|k| k.every_ms), Some(200));
+    }
+
+    #[test]
+    fn a_meter_follows_its_curve() {
+        let meter = Meter { source: "main".into(), control: PLAY, max: 127, curve: 2.5 };
+        assert_eq!(meter.value(1.0), 127);
+        assert_eq!(meter.value(0.5), 22);
+        assert_eq!(meter.value(2.0), 127, "past full scale, full");
     }
 
     #[test]

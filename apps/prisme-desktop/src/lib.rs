@@ -187,6 +187,7 @@ pub fn run() {
             let controllers = app.state::<Controllers>();
             controllers.open_enabled(app.handle());
             Controllers::watch(app.handle().clone());
+            Controllers::drive_outputs(app.handle().clone());
             app.manage(MidiClock::new());
             if let Some(output) = controllers.setup().clock_output {
                 if let Err(e) = app.state::<MidiClock>().set_output(Some(&output)) {
@@ -340,6 +341,7 @@ pub fn run() {
                         error!("recording not ended: {e}");
                     }
                 }
+                app.state::<Controllers>().close_all();
                 app.state::<CrashRecovery>().closed_normally();
             }
         });

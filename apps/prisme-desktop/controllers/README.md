@@ -12,14 +12,36 @@ One JSON file per model:
 | Field | |
 | --- | --- |
 | `name` | The model, as the settings show it. |
-| `ports` | The controller is the MIDI port whose name holds one of these, case aside. |
+| `ports` | The controller is the MIDI port whose name holds one of these, case aside; of several models, the longest name wins. |
 | `credits` | Where the mapping comes from, when it is not Prisme's own. |
-| `init` | MIDI messages sent when the controller is opened. |
-| `controls` | A control and the action it drives, in the shape of a learnt mapping (`controllers.json`): `control` (`kind` `note`, `controlChange` or `pitchBend`, `channel` 0-15, `number`), `target` (an action id of `frontend/src/app/core/control/controls.ts`), and optionally `encoding` for encoders (`relative`, `relativeOffset`, `relativeSigned`), `fine` (the controller sending the low half of a 14-bit control) and `shift` (in the second layer). |
-| `lights` | Lights other than the controls' own, or with values other than 127 and 0: `target`, `control`, `on`, `off`. A mapped control lights itself with its own note or controller. |
+| `jogStepsPerTurn` | Steps in a turn of its jog wheels (720 when left out). |
+| `init` | MIDI messages sent when the controller is opened (SysEx included). |
+| `close` | MIDI messages sent when it is closed, after its lights went off. |
+| `keepAlive` | `everyMs` and `message`: sent again and again while it is open, for the models that want it. |
+| `modes` | Groups of controls that drive other actions in each mode, when the controls send the same in each (the pad pages of a side): `group`, `modes` (the first is where it begins), `select` (a key choosing each mode: `control`, `mode`, optionally `shift` and `light`). A mode key lights `on` while its mode is the one. |
+| `controls` | A control and the action it drives, in the shape of a learnt mapping (`controllers.json`): `control` (`kind` `note`, `controlChange` or `pitchBend`, `channel` 0-15, `number`), `target`, and optionally `encoding` for encoders (`relative`, `relativeOffset`, `relativeSigned`), `fine` (the controller sending the low half of a 14-bit control), `shift` (in the second layer), `when` (`group`, `mode`: only in that mode), `invert` (a fader whose lowest value is at its top) and `light` (its values by state). |
+| `lights` | Lights other than the controls' own: `target`, `control`, optionally `when`, and its values by state beside them. |
+| `meters` | Levels shown on the controller: `source` (`deck1`…`deck4`, `main`), `control`, optionally `max` (127) and `curve` (the level raised to it, 1 straight). |
 
-`frontend/src/app/core/control/profiles.spec.ts` checks that every target exists and that
-only encoders read steps.
+### Targets
+
+An action id of `frontend/src/app/core/control/controls.ts` (`deck1.play`, `deck2.hotcue3`,
+`mixer.crossfader`…), a jump or a loop of so many beats (`deck1.jump.-8`, `deck1.jump.16`,
+`deck1.loop.0.25`), or a mode key (`mode.<group>.<mode>`, made from `modes`).
+
+### Lights
+
+A light shows the state of its action: `on` and `off` for most, `off`, `loaded` and `playing`
+for the sampler's pads. Its values by state are numbers, or `{ "blink": [a, b], "ms": n }` for
+two in turn. A state it does not name shows as `on`, but `off`; without values, 127 and 0:
+
+```json
+"light": { "on": 127, "off": 1, "loaded": 56, "playing": { "blink": [9, 0], "ms": 250 } }
+```
+
+`frontend/src/app/core/control/profiles.spec.ts` checks that every target exists, that only
+encoders read steps, that mode keys choose modes their group has and that meters show
+levels the app has.
 
 ## From a Mixxx mapping
 

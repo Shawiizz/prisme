@@ -6,12 +6,16 @@
 //! action back into the message that lights the control. A controller's [`Profile`] maps a
 //! known model before anything is learnt on it.
 
+mod light;
 mod mapping;
 mod message;
 mod pickup;
 mod profile;
 
-pub use mapping::{light, Encoding, Mapping, Mappings, Reader, SHIFT};
+pub use light::{light, LightValue, LightValues, OFF, ON};
+pub use mapping::{selected_mode, Encoding, Mapping, Mappings, Modes, Reader, When, MODE, SHIFT};
 pub use message::{parse, Control, ControlKind, Event};
 pub use pickup::Pickup;
-pub use profile::{Profile, ProfileControl, ProfileLight, JOG_STEPS_PER_TURN};
+pub use profile::{
+    KeepAlive, Meter, ModeGroup, ModeSelect, Profile, ProfileControl, ProfileLight, JOG_STEPS_PER_TURN,
+};

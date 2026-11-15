@@ -30,7 +30,7 @@ export class ControllerService {
   readonly learning = signal<string | null>(null);
 
   /** Light state last sent, by control. */
-  private readonly sent = new Map<string, boolean>();
+  private readonly sent = new Map<string, string>();
   /** Bumped to send every light again (a controller was opened). */
   private readonly relight = signal(0);
   /** The soft takeover of each fader, by control. */
@@ -125,15 +125,17 @@ export class ControllerService {
     this.relight.update((n) => n + 1);
   }
 
-  /** Sends the lights that changed. */
+  /** Sends the lights that changed: the state of each mapped control that shows one. */
   private updateLights() {
     this.relight();
-    const lights: { target: string; on: boolean }[] = [];
+    const lights: { target: string; state: string }[] = [];
     for (const target of new Set(this.mappings().map((m) => m.target))) {
-      const on = this.controls.findInUse(target)?.lit?.();
-      if (on === undefined || this.sent.get(target) === on) continue;
-      this.sent.set(target, on);
-      lights.push({ target, on });
+      const control = this.controls.findInUse(target);
+      const on = control?.lit?.();
+      const state = control?.state?.() ?? (on === undefined ? undefined : on ? 'on' : 'off');
+      if (state === undefined || this.sent.get(target) === state) continue;
+      this.sent.set(target, state);
+      lights.push({ target, state });
     }
     if (lights.length > 0) this.run(() => invoke('set_lights', { lights }));
   }

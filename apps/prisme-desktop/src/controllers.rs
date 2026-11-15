@@ -1,6 +1,8 @@
 //! MIDI controllers. A mapped control's messages become `controller-input` events for
-//! the UI, which performs the actions and says which lights are on, except for the jog
-//! wheels and tempo faders, which drive the engine from here (`controller_direct`).
+//! the UI, which performs the actions and tells the state of each (its lights show it),
+//! except for the jog wheels and tempo faders, which drive the engine from here
+//! (`controller_direct`). The lights that blink, the levels a controller shows and the
+//! messages some models want again and again go out from a thread of their own.
 //! Mappings are learnt from the controller itself and kept in `controllers.json`, with the
 //! controllers in use; a model Prisme knows comes mapped by its profile
 //! (`controller_profiles`), what is learnt on it taking the profile's place.
@@ -12,10 +14,14 @@ use crate::error::{AppError, AppResult};
 use crate::state::{lock, AppState};
 use midir::{Ignore, MidiInput, MidiInputConnection, MidiOutput, MidiOutputConnection};
 use prisme_audio_io::base_device_name;
-use prisme_control::{ControlKind, Encoding, Event, Mapping, Mappings, Reader, SHIFT};
+use prisme_control::{
+    selected_mode, Control, ControlKind, Encoding, Event, LightValue, Mapping, Mappings, Modes, Reader, OFF,
+    ON, SHIFT,
+};
 use prisme_engine::Command;
 use prisme_session::JsonFile;
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 use std::sync::Mutex;
 use std::time::{Duration, Instant};
 use tauri::{AppHandle, Emitter, Manager};
@@ -30,6 +36,10 @@ const CLIENT: &str = "Prisme";
 const WATCH_EVERY: Duration = Duration::from_millis(500);
 /// On a system whose MIDI does not answer (no sequencer loaded, on Linux).
 const WATCH_WITHOUT_MIDI_EVERY: Duration = Duration::from_secs(10);
+/// How often blinking lights and keep-alive messages are seen to.
+const OUTPUT_EVERY: Duration = Duration::from_millis(20);
+/// How often the levels shown on the controllers are sent.
+const METERS_EVERY: Duration = Duration::from_millis(40);
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 #[serde(default, rename_all = "camelCase")]
@@ -67,6 +77,70 @@ struct Connection {
     _input: MidiInputConnection<()>,
     /// Lights; not every controller has them.
     output: Option<MidiOutputConnection>,
+    /// When its keep-alive message last went.
+    kept_alive: Instant,
+    /// The value each light and meter shows, by its message's first two bytes.
+    shown: HashMap<[u8; 2], u8>,
+    /// The lights blinking, by their message's first two bytes.
+    blinking: HashMap<[u8; 2], Blink>,
+}
+
+/// A light showing its two values in turn, since `since`.
+struct Blink {
+    values: [u8; 2],
+    ms: u32,
+    since: Instant,
+}
+
+impl Connection {
+    /// Sends `message` unless it shows what is shown already.
+    fn show(&mut self, [status, number, value]: [u8; 3]) {
+        let Some(output) = self.output.as_mut() else { return };
+        if self.shown.insert([status, number], value) != Some(value) {
+            let _ = output.send(&[status, number, value]);
+        }
+    }
+
+    /// Sets the light of `control` to `value`, blinking or not.
+    fn light(&mut self, control: Control, value: LightValue) {
+        let Some([status, number, _]) = prisme_control::light(control, 0) else { return };
+        match value {
+            LightValue::Steady(v) => {
+                self.blinking.remove(&[status, number]);
+                self.show([status, number, v]);
+            }
+            LightValue::Blink { blink, ms } => {
+                let same =
+                    self.blinking.get(&[status, number]).is_some_and(|b| b.values == blink && b.ms == ms);
+                if !same {
+                    self.blinking
+                        .insert([status, number], Blink { values: blink, ms, since: Instant::now() });
+                    self.show([status, number, blink[0]]);
+                }
+            }
+        }
+    }
+
+    /// Each blinking light at the value of the moment.
+    fn blink(&mut self) {
+        let now: Vec<[u8; 3]> = self
+            .blinking
+            .iter()
+            .map(|(&[status, number], b)| {
+                let half = (b.since.elapsed().as_millis() / u128::from(b.ms.max(1))) % 2;
+                [status, number, b.values[half as usize]]
+            })
+            .collect();
+        for message in now {
+            self.show(message);
+        }
+    }
+
+    fn send(&mut self, message: &[u8]) {
+        if let Some(output) = self.output.as_mut() {
+            let _ = output.send(message);
+        }
+    }
 }
 
 pub struct Controllers {
@@ -79,6 +153,8 @@ pub struct Controllers {
     reader: Mutex<Reader>,
     performer: Mutex<Performer>,
     connections: Mutex<Vec<Connection>>,
+    /// The state of each action the UI last told (`on`, `off`, `playing`…).
+    states: Mutex<HashMap<String, String>>,
 }
 
 impl Controllers {
@@ -91,6 +167,7 @@ impl Controllers {
             reader: Mutex::new(Reader::default()),
             performer: Mutex::new(Performer::default()),
             connections: Mutex::new(Vec::new()),
+            states: Mutex::new(HashMap::new()),
         };
         controllers.layer();
         controllers
@@ -179,7 +256,7 @@ impl Controllers {
         if enabled {
             self.open(app, device)?;
         } else {
-            lock(&self.connections).retain(|c| c.device != device);
+            self.close(device);
             self.let_go(app, device);
         }
         self.save(|s| {
@@ -227,28 +304,113 @@ impl Controllers {
         });
     }
 
-    /// Switches the lights of the controls mapped to the `lights` targets, and the other
-    /// lights the profiles give them.
+    /// Keeps the state of the `lights` targets, and shows it on the controllers.
     pub fn set_lights(&self, lights: &[LightDto]) {
-        let mut connections = lock(&self.connections);
-        let mut send = |device: &str, message: Option<[u8; 3]>| {
-            let output = connections.iter_mut().find(|c| c.device == device).and_then(|c| c.output.as_mut());
-            if let (Some(output), Some(message)) = (output, message) {
-                let _ = output.send(&message);
-            }
+        let mut states = lock(&self.states);
+        for light in lights {
+            states.insert(light.target.clone(), light.state.clone());
+        }
+        drop(states);
+        let devices: Vec<String> = lock(&self.connections).iter().map(|c| c.device.clone()).collect();
+        for device in devices {
+            self.show_lights(&device);
+        }
+    }
+
+    /// Shows on `device`'s lights the state of their actions, in the modes it is in: its
+    /// mapped controls', its mode keys', and the other lights its profile gives.
+    fn show_lights(&self, device: &str) {
+        let modes = lock(&self.reader).modes(device);
+        let states = lock(&self.states);
+        let state_of = |target: &str| match selected_mode(target) {
+            Some((group, mode)) => Some(if modes.get(group).is_some_and(|m| m == mode) { ON } else { OFF }),
+            None => states.get(target).map(String::as_str),
         };
-        for mapping in lock(&self.mappings).all() {
-            if let Some(light) = lights.iter().find(|l| l.target == mapping.target) {
-                send(&mapping.device, prisme_control::light(mapping.control, light.on));
+        let mut lights: Vec<(Control, LightValue)> = Vec::new();
+        for mapping in lock(&self.mappings).all().iter().filter(|m| m.device == device && m.applies(&modes)) {
+            if let Some(state) = state_of(&mapping.target) {
+                lights.push((mapping.control, mapping.light.value(state)));
             }
         }
-        for device in self.setup.read(|s| s.enabled.clone()) {
-            let Some(profile) = controller_profiles::of(&device) else { continue };
+        if let Some(profile) = controller_profiles::of(device) {
             for extra in &profile.lights {
-                if let Some(light) = lights.iter().find(|l| l.target == extra.target) {
-                    send(&device, extra.message(light.on));
+                if let Some(value) = state_of(&extra.target).and_then(|s| extra.value(s, &modes)) {
+                    lights.push((extra.control, value));
                 }
             }
+        }
+        drop(states);
+        if let Some(connection) = lock(&self.connections).iter_mut().find(|c| c.device == device) {
+            for (control, value) in lights {
+                connection.light(control, value);
+            }
+        }
+    }
+
+    /// Closes `device`: its lights go off, and its profile's last messages go out.
+    fn close(&self, device: &str) {
+        let connection = {
+            let mut connections = lock(&self.connections);
+            let at = connections.iter().position(|c| c.device == device);
+            at.map(|at| connections.remove(at))
+        };
+        let Some(mut connection) = connection else { return };
+        let mappings = lock(&self.mappings);
+        for mapping in mappings.all().iter().filter(|m| m.device == device) {
+            connection.light(mapping.control, mapping.light.value(OFF));
+        }
+        if let Some(profile) = controller_profiles::of(device) {
+            for extra in &profile.lights {
+                connection.light(extra.control, extra.values.value(OFF));
+            }
+            for message in &profile.close {
+                connection.send(message);
+            }
+        }
+    }
+
+    /// Closes every controller, as Prisme quits.
+    pub fn close_all(&self) {
+        let devices: Vec<String> = lock(&self.connections).iter().map(|c| c.device.clone()).collect();
+        for device in devices {
+            self.close(&device);
+        }
+    }
+
+    /// Sends what goes out by itself: the lights that blink, the keep-alive messages, and
+    /// the levels the controllers show.
+    pub fn drive_outputs(app: AppHandle) {
+        let spawned = std::thread::Builder::new().name("prisme-midi-out".into()).spawn(move || {
+            let mut metered = Instant::now();
+            loop {
+                std::thread::sleep(OUTPUT_EVERY);
+                let controllers = app.state::<Controllers>();
+                let levels = (metered.elapsed() >= METERS_EVERY).then(|| {
+                    metered = Instant::now();
+                    levels(&app.state::<AppState>())
+                });
+                for connection in lock(&controllers.connections).iter_mut() {
+                    connection.blink();
+                    let Some(profile) = controller_profiles::of(&connection.device) else { continue };
+                    if let Some(keep) = &profile.keep_alive {
+                        if connection.kept_alive.elapsed() >= Duration::from_millis(u64::from(keep.every_ms))
+                        {
+                            connection.kept_alive = Instant::now();
+                            connection.send(&keep.message);
+                        }
+                    }
+                    for meter in profile.meters.iter() {
+                        let level = levels.as_ref().and_then(|l| l.get(&meter.source)).copied();
+                        let message = prisme_control::light(meter.control, 0);
+                        if let (Some(level), Some([status, number, _])) = (level, message) {
+                            connection.show([status, number, meter.value(level)]);
+                        }
+                    }
+                }
+            }
+        });
+        if let Err(e) = spawned {
+            error!("controller lights and levels not sent: {e}");
         }
     }
 
@@ -283,9 +445,19 @@ impl Controllers {
                 let _ = output.send(message);
             }
         }
-        let connection =
-            Connection { device: device.to_owned(), port: port_name, _input: connection, output };
+        let connection = Connection {
+            device: device.to_owned(),
+            port: port_name,
+            _input: connection,
+            output,
+            kept_alive: Instant::now(),
+            shown: HashMap::new(),
+            blinking: HashMap::new(),
+        };
+        let modes = controller_profiles::of(device).map(|p| p.first_modes()).unwrap_or_default();
+        lock(&self.reader).set_modes(device, modes);
         lock(&self.connections).push(connection);
+        self.show_lights(device);
         Ok(())
     }
 
@@ -329,8 +501,9 @@ impl Controllers {
             return Some(Routed::Learned(learnt));
         }
         let mut reader = lock(&self.reader);
-        let shift =
-            lock(&self.mappings).find(device, event.control, false).is_some_and(|m| m.target == SHIFT);
+        let shift = lock(&self.mappings)
+            .find(device, event.control, false, &Modes::new())
+            .is_some_and(|m| m.target == SHIFT);
         // a release is the end of the previous press, not the control to learn; nor is shift
         let released = event.control.kind == ControlKind::Note && event.raw == 0;
         let learning = lock(&self.learning).take_if(|_| !released && !shift);
@@ -342,6 +515,9 @@ impl Controllers {
                 encoding: if encoder { Encoding::guess(event.raw) } else { Encoding::Absolute },
                 fine: None,
                 shift: reader.shifted(device),
+                when: None,
+                invert: false,
+                light: Default::default(),
             };
             self.save(|s| {
                 s.unmapped.retain(|t| *t != mapping.target);
@@ -351,7 +527,14 @@ impl Controllers {
             return Some(Routed::Learned(mapping));
         }
         let mappings = lock(&self.mappings);
-        let (mapping, value) = reader.read(&mappings, device, event)?;
+        let changes = reader.mode_changes(device);
+        let Some((mapping, value)) = reader.read(&mappings, device, event) else {
+            if reader.mode_changes(device) != changes {
+                drop((mappings, reader));
+                self.show_lights(device);
+            }
+            return None;
+        };
         Some(match Direct::of(&mapping.target) {
             Some(action) => Routed::Direct(action, value),
             None => Routed::Input(ControllerInputDto { target: mapping.target.clone(), value }),
@@ -428,6 +611,19 @@ impl Controllers {
         });
         *lock(&self.mappings) = layered;
     }
+}
+
+/// The level of each source of a meter (`deck1`…, `main`) at the moment; none when the audio
+/// is not running.
+fn levels(state: &AppState) -> HashMap<String, f32> {
+    let mut session = lock(&state.session);
+    let Some(session) = session.as_mut() else { return HashMap::new() };
+    let status = session.controller.status();
+    let decks = status.decks[..status.deck_count].iter().enumerate();
+    decks
+        .map(|(d, deck)| (format!("deck{}", d + 1), deck.peak))
+        .chain([("main".to_owned(), status.main_peak)])
+        .collect()
 }
 
 /// The output of the same name, for the lights.
@@ -509,6 +705,9 @@ mod tests {
             encoding: Encoding::Absolute,
             fine: None,
             shift: false,
+            when: None,
+            invert: false,
+            light: Default::default(),
         }
     }
 

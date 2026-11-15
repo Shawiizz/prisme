@@ -1,9 +1,28 @@
+use crate::light::LightValues;
 use crate::message::{Control, ControlKind, Event};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
 /// The action that turns a controller's other controls into their second layer while held.
 pub const SHIFT: &str = "shift";
+
+/// The actions that put a controller's group of controls in a mode: `mode.<group>.<mode>`.
+pub const MODE: &str = "mode.";
+
+/// The mode of each group of a controller's controls (the page of a side's pads, say).
+pub type Modes = HashMap<String, String>;
+
+/// The group and the mode an action selects, if it is a mode's.
+pub fn selected_mode(target: &str) -> Option<(&str, &str)> {
+    target.strip_prefix(MODE)?.split_once('.')
+}
+
+/// A mode of a controller: `mode` of its group `group`.
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub struct When {
+    pub group: String,
+    pub mode: String,
+}
 
 /// How a control's values are read.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
@@ -69,6 +88,15 @@ pub struct Mapping {
     /// Drives its action while the controller's shift is held (its second layer).
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub shift: bool,
+    /// Drives its action only while its group is in this mode.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub when: Option<When>,
+    /// A fader whose lowest value is at its top.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub invert: bool,
+    /// What its light shows in each state of its action.
+    #[serde(default, skip_serializing_if = "LightValues::is_empty")]
+    pub light: LightValues,
 }
 
 impl Mapping {
@@ -79,6 +107,20 @@ impl Mapping {
 
     fn fine_control(&self) -> Option<Control> {
         self.fine.map(|number| Control { number, ..self.control })
+    }
+
+    /// Whether it drives its action in `modes`.
+    pub fn applies(&self, modes: &Modes) -> bool {
+        self.when.as_ref().is_none_or(|w| modes.get(&w.group) == Some(&w.mode))
+    }
+
+    /// Its value of a position from 0 to 1.
+    fn position(&self, value: f32) -> f32 {
+        if self.invert {
+            1.0 - value
+        } else {
+            value
+        }
     }
 }
 
@@ -94,11 +136,13 @@ impl Mappings {
         &self.0
     }
 
-    /// The mapping an event of `device` belongs to: in the shift layer while shift is held
-    /// (else in the first layer, as a control without a second use keeps its first).
-    pub fn find(&self, device: &str, control: Control, shifted: bool) -> Option<&Mapping> {
+    /// The mapping an event of `device` belongs to in `modes`: in the shift layer while shift
+    /// is held (else in the first layer, as a control without a second use keeps its first).
+    pub fn find(&self, device: &str, control: Control, shifted: bool, modes: &Modes) -> Option<&Mapping> {
         let find = |shift: bool| {
-            self.0.iter().find(|m| m.device == device && m.shift == shift && m.sent_by(control))
+            self.0
+                .iter()
+                .find(|m| m.device == device && m.shift == shift && m.applies(modes) && m.sent_by(control))
         };
         find(shifted).or_else(|| find(false).filter(|_| shifted))
     }
@@ -107,7 +151,8 @@ impl Mappings {
     /// action had on that controller, unless the action takes `several`.
     pub fn learn(&mut self, mapping: Mapping, several: bool) {
         self.0.retain(|m| {
-            let same_control = m.control == mapping.control && m.shift == mapping.shift;
+            let same_control =
+                m.control == mapping.control && m.shift == mapping.shift && m.when == mapping.when;
             let replaced = same_control || (m.target == mapping.target && !several);
             m.device != mapping.device || !replaced
         });
@@ -158,18 +203,22 @@ pub struct Reader {
 }
 
 /// What is read of a controller: the high half of its 14-bit controls until their low half
-/// comes, whether its shift is held, and the layer each key held down was pressed in (its
-/// release ends that press, wherever shift is by then).
+/// comes, whether its shift is held, the mode of each group of its controls, and the layer
+/// and modes each key held down was pressed in (its release ends that press, wherever shift
+/// and the modes are by then).
 #[derive(Debug, Default)]
 struct DeviceReader {
     coarse: HashMap<Control, u16>,
     shifted: bool,
-    pressed: HashMap<Control, bool>,
+    modes: Modes,
+    /// How many times a mode key changed a mode.
+    mode_changes: u32,
+    pressed: HashMap<Control, (bool, Modes)>,
 }
 
 impl Reader {
     /// The action an event of `device` drives and its value; `None` when it drives none
-    /// or is the first half of a 14-bit value. Shift itself is read here.
+    /// or is the first half of a 14-bit value. Shift and the modes are read here.
     pub fn read<'m>(
         &mut self,
         mappings: &'m Mappings,
@@ -180,31 +229,56 @@ impl Reader {
         let key = event.control.kind == ControlKind::Note;
         let released = key && event.raw == 0;
         let layer = released.then(|| reader.pressed.remove(&event.control)).flatten();
-        let shifted = layer.unwrap_or(reader.shifted);
-        let mapping = mappings.find(device, event.control, shifted)?;
+        let mapping = match &layer {
+            Some((shifted, modes)) => mappings.find(device, event.control, *shifted, modes),
+            None => mappings.find(device, event.control, reader.shifted, &reader.modes),
+        }?;
         if key && !released {
-            reader.pressed.insert(event.control, shifted);
+            reader.pressed.insert(event.control, (reader.shifted, reader.modes.clone()));
         }
         if mapping.target == SHIFT {
             reader.shifted = event.raw > 0;
             return None;
         }
+        if let Some((group, mode)) = selected_mode(&mapping.target) {
+            if event.raw > 0 && reader.modes.get(group).is_none_or(|m| m != mode) {
+                reader.modes.insert(group.to_owned(), mode.to_owned());
+                reader.mode_changes = reader.mode_changes.wrapping_add(1);
+            }
+            return None;
+        }
         match mapping.fine_control() {
             Some(fine) if event.control == fine => {
                 let coarse = reader.coarse.get(&mapping.control).copied().unwrap_or(0);
-                Some((mapping, f32::from(coarse << 7 | event.raw) / 16383.0))
+                Some((mapping, mapping.position(f32::from(coarse << 7 | event.raw) / 16383.0)))
             }
             Some(_) => {
                 reader.coarse.insert(mapping.control, event.raw);
                 None
             }
-            None => Some((mapping, mapping.encoding.value(event))),
+            None if mapping.encoding.is_relative() => Some((mapping, mapping.encoding.value(event))),
+            None => Some((mapping, mapping.position(mapping.encoding.value(event)))),
         }
     }
 
     /// Whether the shift of `device` is held.
     pub fn shifted(&self, device: &str) -> bool {
         self.devices.get(device).is_some_and(|d| d.shifted)
+    }
+
+    /// The modes `device`'s groups are in.
+    pub fn modes(&self, device: &str) -> Modes {
+        self.devices.get(device).map(|d| d.modes.clone()).unwrap_or_default()
+    }
+
+    /// How many times `device`'s mode keys changed a mode: a change shows in another count.
+    pub fn mode_changes(&self, device: &str) -> u32 {
+        self.devices.get(device).map_or(0, |d| d.mode_changes)
+    }
+
+    /// Puts `device`'s groups in `modes`, those it starts in.
+    pub fn set_modes(&mut self, device: &str, modes: Modes) {
+        self.device(device).modes = modes;
     }
 
     /// The keys of `device` held down.
@@ -218,17 +292,6 @@ impl Reader {
             self.devices.insert(device.to_owned(), DeviceReader::default());
         }
         self.devices.get_mut(device).expect("inserted above")
-    }
-}
-
-/// The message that switches a control's light on or off, as most controllers expect it:
-/// the control's own note or controller, at 127 or 0.
-pub fn light(control: Control, on: bool) -> Option<[u8; 3]> {
-    let value = if on { 127 } else { 0 };
-    match control.kind {
-        ControlKind::Note => Some([0x90 | control.channel, control.number, value]),
-        ControlKind::ControlChange => Some([0xb0 | control.channel, control.number, value]),
-        ControlKind::PitchBend => None,
     }
 }
 
@@ -249,6 +312,9 @@ mod tests {
             encoding: Encoding::Absolute,
             fine: None,
             shift: false,
+            when: None,
+            invert: false,
+            light: LightValues::default(),
         }
     }
 
@@ -397,7 +463,7 @@ mod tests {
         learnt.learn(mapping("DDJ", PAD, "deck1.cue"), false);
         learnt.learn(mapping("DDJ", Control { number: 21, ..KNOB }, "deck1.volume"), false);
         let layered = Mappings::layered(model, &learnt, &["deck1.sync".to_owned()], |_| false);
-        let target = |control| layered.find("DDJ", control, false).map(|m| m.target.as_str());
+        let target = |control| layered.find("DDJ", control, false, &Modes::new()).map(|m| m.target.as_str());
         assert_eq!(target(PAD), Some("deck1.cue"));
         assert_eq!(target(shifted_pad), Some("deck1.play"));
         assert_eq!(target(KNOB), None);
@@ -406,10 +472,32 @@ mod tests {
     }
 
     #[test]
-    fn lights_answer_on_the_same_control() {
-        assert_eq!(light(Control { channel: 2, ..PAD }, true), Some([0x92, 36, 127]));
-        assert_eq!(light(KNOB, false), Some([0xb0, 20, 0]));
-        assert_eq!(light(Control { kind: ControlKind::PitchBend, channel: 0, number: 0 }, true), None);
+    fn a_mode_selects_what_its_controls_drive() {
+        let mode = |name: &str| When { group: "padsA".into(), mode: name.into() };
+        let roll_key = Control { number: 7, ..PAD };
+        let mut mappings = Mappings::default();
+        mappings.learn(mapping("DDJ", Control { number: 0, ..PAD }, "mode.padsA.hotcue"), false);
+        mappings.learn(mapping("DDJ", roll_key, "mode.padsA.roll"), false);
+        mappings.learn(Mapping { when: Some(mode("hotcue")), ..mapping("DDJ", PAD, "deck1.hotcue1") }, false);
+        mappings.learn(Mapping { when: Some(mode("roll")), ..mapping("DDJ", PAD, "deck1.roll1") }, false);
+        assert_eq!(mappings.all().len(), 4, "one pad, a use in each mode");
+        let mut reader = Reader::default();
+        reader.set_modes("DDJ", Modes::from([("padsA".into(), "hotcue".into())]));
+        assert_eq!(read(&mut reader, &mappings, &[0x90, 36, 127]).unwrap().0, "deck1.hotcue1");
+        assert_eq!(read(&mut reader, &mappings, &[0x90, 7, 127]), None, "the mode key is read here");
+        assert_eq!(reader.modes("DDJ")["padsA"], "roll");
+        // the pad pressed in the other mode ends what it began there
+        assert_eq!(read(&mut reader, &mappings, &[0x90, 36, 0]), Some(("deck1.hotcue1".into(), 0.0)));
+        assert_eq!(read(&mut reader, &mappings, &[0x90, 36, 127]).unwrap().0, "deck1.roll1");
+    }
+
+    #[test]
+    fn an_inverted_fader_reads_from_its_top() {
+        let mut mappings = Mappings::default();
+        mappings.learn(Mapping { invert: true, ..mapping("DDJ", KNOB, "deck1.pitch") }, false);
+        let mut reader = Reader::default();
+        assert_eq!(read(&mut reader, &mappings, &[0xb0, 20, 127]), Some(("deck1.pitch".into(), 0.0)));
+        assert_eq!(read(&mut reader, &mappings, &[0xb0, 20, 0]), Some(("deck1.pitch".into(), 1.0)));
     }
 
     #[test]

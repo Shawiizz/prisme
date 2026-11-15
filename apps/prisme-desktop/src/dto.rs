@@ -1019,7 +1019,8 @@ pub struct DeckPitchDto {
 #[serde(rename_all = "camelCase")]
 pub struct LightDto {
     pub target: String,
-    pub on: bool,
+    /// `on`, `off`, or the action's own (`loaded`, `playing`…).
+    pub state: String,
 }
 
 #[cfg(test)]

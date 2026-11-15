@@ -1,4 +1,4 @@
-import { buildControls, Control, ControlActions } from './controls';
+import { buildControls, Control, ControlActions, measuredControl } from './controls';
 
 /** Controls whose actions record their calls; queries answer `true`. */
 function recorder() {
@@ -16,7 +16,7 @@ function recorder() {
   ) as ControlActions;
   const controls = buildControls(actions);
   const find = (id: string): Control => controls.find((c) => c.id === id)!;
-  return { calls, controls, find };
+  return { calls, controls, find, actions };
 }
 
 describe('controls', () => {
@@ -73,5 +73,15 @@ describe('controls', () => {
     expect(find('deck1.sample4').lit!()).toBe(true);
     expect(calls).toEqual(['samplePlaying(0,3)']);
     expect(find('deck1.loop.halve').lit).toBeUndefined();
+  });
+
+  it('read a jump or a loop of so many beats from its id', () => {
+    const { calls, actions } = recorder();
+    measuredControl(actions, 'deck2.jump.-8')!.apply(1);
+    measuredControl(actions, 'deck1.loop.0.5')!.apply(1);
+    expect(calls).toEqual(['beatJump(1,-8)', 'beatLoop(0,0.5)']);
+    expect(measuredControl(actions, 'deck1.loop')).toBeUndefined();
+    expect(measuredControl(actions, 'deck1.loop.-1')).toBeUndefined();
+    expect(measuredControl(actions, 'deck9.jump.4')).toBeUndefined();
   });
 });

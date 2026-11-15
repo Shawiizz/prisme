@@ -20,6 +20,9 @@ export interface Control {
   apply(value: number): void;
   /** Whether the control's light is on. */
   lit?(): boolean;
+  /** The state its light shows when it has more than on and off (`loaded`, `playing`): the
+   * profiles of the controllers give each its value. */
+  state?(): string;
   /** A fader's setting now (0 to 1): a controller's fader takes it over from there. */
   position?(): number;
 }
@@ -40,6 +43,8 @@ export interface ControlActions {
   loopInSet(deck: number): boolean;
   loopOut(deck: number): void;
   beatJump(deck: number, beats: number): void;
+  /** A loop of `beats` from where the deck plays, or out of the loop it is in. */
+  beatLoop(deck: number, beats: number): void;
   bend(deck: number, direction: -1 | 0 | 1): void;
   toggleKeyLock(deck: number): void;
   keyLocked(deck: number): boolean;
@@ -50,6 +55,7 @@ export interface ControlActions {
   setStemLevel(deck: number, part: StemPart, position: number): void;
   stemLevel(deck: number, part: StemPart): number;
   triggerSample(deck: number, slot: number): void;
+  sampleLoaded(deck: number, slot: number): boolean;
   samplePlaying(deck: number, slot: number): boolean;
   toggleFx(deck: number): void;
   fxOn(deck: number): boolean;
@@ -234,14 +240,18 @@ function deckControls(a: ControlActions, deck: number): Control[] {
         () => a.stemLevel(deck, part),
       ),
     ),
-    ...Array.from({ length: SAMPLE_SLOTS }, (_, slot) =>
-      lit(
+    ...Array.from({ length: SAMPLE_SLOTS }, (_, slot) => ({
+      ...lit(
         button(id(`sample${slot + 1}`), group, t('Sample {n}', { n: slot + 1 }), () =>
           a.triggerSample(deck, slot),
         ),
         () => a.samplePlaying(deck, slot),
       ),
-    ),
+      state: () => {
+        if (a.samplePlaying(deck, slot)) return 'playing';
+        return a.sampleLoaded(deck, slot) ? 'loaded' : 'off';
+      },
+    })),
     lit(
       button(id('fx'), group, t('Effect on / off'), () => a.toggleFx(deck)),
       () => a.fxOn(deck),
@@ -312,6 +322,31 @@ function deckControls(a: ControlActions, deck: number): Control[] {
       () => a.inHeadphones(deck),
     ),
   ];
+}
+
+/**
+ * The controls a controller's profile names by their number rather than one by one: a jump
+ * of `deck1.jump.-8` beats (back), a loop of `deck1.loop.0.5` beats. `undefined` for an id
+ * of another shape.
+ */
+export function measuredControl(a: ControlActions, id: string): Control | undefined {
+  const [, d, kind, amount] = /^deck(\d)\.(jump|loop)\.(-?\d+(?:\.\d+)?)$/.exec(id) ?? [];
+  const deck = Number(d) - 1;
+  const beats = Number(amount);
+  if (kind === undefined || deck < 0 || deck >= MAX_DECKS || beats === 0) return undefined;
+  const group = t('Deck {deck}', { deck: deckLetter(deck) });
+  if (kind === 'jump') {
+    return {
+      ...button(id, group, t('Jump {n} beats', { n: beats }), () => a.beatJump(deck, beats)),
+      deck,
+    };
+  }
+  if (beats < 0) return undefined;
+  return {
+    ...button(id, group, t('Loop {n} beats', { n: beats }), () => a.beatLoop(deck, beats)),
+    lit: () => a.looping(deck),
+    deck,
+  };
 }
 
 export function buildControls(a: ControlActions): Control[] {
