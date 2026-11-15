@@ -40,16 +40,22 @@ function arc(from: number, to: number): string {
  * Rotary knob: a cap with a line of light inside a ring that fills with the value, from the
  * centre for a bipolar knob (with a detent at the top). Drag up or down (Shift for fine
  * moves), scroll, use the arrow keys, double-click to go back to the default. While it is
- * touched, its label shows the value (`format`). Its value goes from 0 to 1.
+ * touched, its label shows the value (`format`). Its value goes from 0 to 1. Disabled, it is
+ * greyed and nothing moves it.
  */
 @Component({
   selector: 'app-knob',
-  host: { '[class.small]': 'small()', '[class.dimmed]': 'dimmed()' },
+  host: {
+    '[class.small]': 'small()',
+    '[class.dimmed]': 'dimmed()',
+    '[class.disabled]': 'disabled()',
+  },
   template: `
     <svg
       viewBox="0 0 36 36"
       role="slider"
-      tabindex="0"
+      [attr.tabindex]="disabled() ? -1 : 0"
+      [attr.aria-disabled]="disabled() || null"
       aria-valuemin="0"
       aria-valuemax="1"
       [attr.aria-valuenow]="current()"
@@ -85,6 +91,7 @@ function arc(from: number, to: number): string {
         class="label"
         [class.active]="active()"
         [class.reading]="reading()"
+        [disabled]="disabled()"
         (click)="labelClick.emit()"
         [title]="labelTitle()"
       >
@@ -101,6 +108,12 @@ function arc(from: number, to: number): string {
     }
     :host(.dimmed) svg {
       opacity: 0.4;
+    }
+    :host(.disabled) {
+      opacity: 0.3;
+      svg {
+        cursor: default;
+      }
     }
     svg {
       width: var(--knob-size, 34px);
@@ -197,6 +210,7 @@ export class Knob {
   readonly small = input(false, { transform: booleanAttribute });
   /** Drawn dimmed, its value kept (a stem muted at its level). */
   readonly dimmed = input(false, { transform: booleanAttribute });
+  readonly disabled = input(false, { transform: booleanAttribute });
   readonly valueChange = output<number>();
   readonly labelClick = output();
 
@@ -224,6 +238,7 @@ export class Knob {
   );
 
   grab(event: PointerEvent) {
+    if (this.disabled()) return;
     (event.target as Element).setPointerCapture(event.pointerId);
     this.grabbed.set({ y: event.clientY, value: this.current() });
   }
@@ -254,11 +269,13 @@ export class Knob {
   }
 
   scroll(event: WheelEvent) {
+    if (this.disabled()) return;
     event.preventDefault();
     this.set(this.current() - Math.sign(event.deltaY) * STEP);
   }
 
   key(event: KeyboardEvent) {
+    if (this.disabled()) return;
     const steps: Record<string, number> = {
       ArrowUp: STEP,
       ArrowRight: STEP,
@@ -272,6 +289,7 @@ export class Knob {
   }
 
   set(value: number) {
+    if (this.disabled()) return;
     const clamped = Math.min(Math.max(value, 0), 1);
     if (clamped === this.current()) return;
     this.current.set(clamped);

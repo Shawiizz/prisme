@@ -109,6 +109,20 @@ impl Stems {
         tracks
     }
 
+    /// The parts separated at `frame`, a bit each: vocals, drums, bass, then the other
+    /// instruments, there as soon as any stem is.
+    pub(crate) fn separated_at(&self, frame: isize) -> u8 {
+        let there =
+            |track: &Option<Arc<TrackAudio>>| track.as_ref().is_some_and(|t| t.view().get(frame).is_some());
+        let bits =
+            self.tracks.iter().enumerate().filter(|(_, t)| there(t)).fold(0, |bits, (i, _)| bits | 1 << i);
+        if bits == 0 {
+            0
+        } else {
+            bits | 1 << Stem::ALL.len()
+        }
+    }
+
     pub(crate) fn reader<'a>(&'a mut self, track: &'a TrackAudio) -> Reader<'a> {
         let mixing = !(self.other.is_one() && self.gains.iter().all(Ramp::is_one));
         self.settle_presence |= !mixing;
@@ -307,6 +321,25 @@ mod tests {
         assert_eq!(settle_at(&mut stems, &track, at(B)), (0.5, 0.5), "the drums not separated yet stay");
         assert_eq!(settle_at(&mut stems, &track, at(2 * B)), (1.0, 1.0), "between the islands");
         assert_eq!(settle_at(&mut stems, &track, at(3 * B)), (0.25, 0.25), "both muted");
+    }
+
+    #[test]
+    fn the_parts_separated_are_told_where_the_deck_plays() {
+        const B: usize = PENDING_BLOCK;
+        let vocals = Arc::new(TrackAudio::pending(48_000, 4 * B));
+        vocals.publish(B, &vec![0.5; 2 * B]);
+        vocals.publish(3 * B, &vec![0.5; 2 * B]);
+        let drums = Arc::new(TrackAudio::pending(48_000, 4 * B));
+        drums.publish(3 * B, &vec![0.25; 2 * B]);
+        let mut stems = Stems::new();
+        assert_eq!(stems.separated_at(0), 0, "no stems");
+        stems.set_tracks([Some(vocals), Some(drums), None]);
+        let at = |i: usize| stems.separated_at(i as isize);
+        assert_eq!(at(0), 0, "nothing separated");
+        assert_eq!(at(B), 0b1001, "the vocals, and so the rest");
+        assert_eq!(at(2 * B), 0, "between the islands");
+        assert_eq!(at(3 * B), 0b1011, "the vocals and the drums");
+        assert_eq!(stems.separated_at(-1), 0, "before the track");
     }
 
     #[test]
