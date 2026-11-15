@@ -30,6 +30,7 @@ import { ScreensService } from '../../core/services/screens.service';
 import { SETTINGS, SETTINGS_PAGES, SettingEntry, matches, normalize } from './settings-catalog';
 import { SettingsIcon } from './settings-icon';
 import { decimal } from '../../shared/time';
+import { Dismiss, overlay } from '../../shared/overlay';
 
 /** `1, 2, … n` */
 function numbers(n: number): number[] {
@@ -46,7 +47,7 @@ function numbers(n: number): number[] {
   selector: 'app-settings-dialog',
   templateUrl: './settings-dialog.html',
   styleUrls: ['./settings-dialog.scss', './settings-dialog.phone.scss'],
-  imports: [TPipe, TurntablePanel, ControllersSettings, SettingsIcon, ShortcutsSettings],
+  imports: [TPipe, TurntablePanel, ControllersSettings, SettingsIcon, ShortcutsSettings, Dismiss],
 })
 export class SettingsDialog implements OnInit {
   protected readonly service = inject(SettingsService);
@@ -186,6 +187,12 @@ export class SettingsDialog implements OnInit {
   protected readonly pendingText = computed(() => t('The audio restarts to apply these changes.'));
 
   constructor() {
+    // what opens it answers the back gesture
+    overlay(
+      () => true,
+      () => this.requestClose(),
+      { back: false },
+    );
     afterRenderEffect(() => {
       const setting = this.navigation.settings()?.setting;
       if (!setting) return;

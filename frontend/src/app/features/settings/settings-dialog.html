@@ -1,12 +1,5 @@
-<div class="pr-backdrop" (click)="requestClose()">
-  <div
-    class="settings"
-    role="dialog"
-    aria-modal="true"
-    [attr.aria-label]="'Settings' | t"
-    (click)="$event.stopPropagation()"
-    (keydown.escape)="requestClose()"
-  >
+<div class="pr-backdrop" (dismiss)="requestClose()">
+  <div class="settings" role="dialog" aria-modal="true" [attr.aria-label]="'Settings' | t">
     <aside class="sidebar">
       <h2>{{ 'Settings' | t }}</h2>
       <label class="search">

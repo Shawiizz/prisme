@@ -3,6 +3,7 @@ import { MixerService } from '../../../core/services/mixer.service';
 import { TPipe } from '../../../core/i18n/t.pipe';
 import { Knob } from '../../../shared/knob/knob';
 import { readouts } from '../../../shared/mixer-scales';
+import { Dismiss, overlay } from '../../../shared/overlay';
 
 /** The headphone volume knob goes up to +3.5 dB. */
 const MAX_HEADPHONE_GAIN = 1.5;
@@ -24,8 +25,8 @@ const MAX_HEADPHONE_GAIN = 1.5;
       ⋯
     </button>
     @if (open()) {
-      <div class="backdrop" (click)="open.set(false)"></div>
-      <div class="menu pr-panel">
+      <div class="pr-veil" (dismiss)="open.set(false)"></div>
+      <div class="menu pr-popover">
         <div class="row">
           <span>{{ 'Master limiter' | t }}</span>
           <button
@@ -94,20 +95,13 @@ const MAX_HEADPHONE_GAIN = 1.5;
       position: relative;
       flex: none;
     }
-    .backdrop {
-      position: fixed;
-      inset: 0;
-      z-index: 20;
-    }
     .menu {
       position: absolute;
-      z-index: 21;
       top: calc(100% + 6px);
       right: 0;
       width: 264px;
       padding: var(--pr-space-2) var(--pr-space-3);
       display: grid;
-      border-color: var(--pr-line-2);
       box-shadow: 0 16px 40px rgb(0 0 0 / 0.5);
     }
     .row {
@@ -129,7 +123,7 @@ const MAX_HEADPHONE_GAIN = 1.5;
       --knob-label-width: 50px;
     }
   `,
-  imports: [Knob, TPipe],
+  imports: [Knob, TPipe, Dismiss],
 })
 export class MixerMenu {
   protected readonly mixer = inject(MixerService);
@@ -137,4 +131,8 @@ export class MixerMenu {
   protected readonly MAX_HEADPHONE_GAIN = MAX_HEADPHONE_GAIN;
   protected readonly readouts = readouts;
   protected readonly phonesReadout = (knob: number) => readouts.gain(knob * MAX_HEADPHONE_GAIN);
+
+  constructor() {
+    overlay(this.open, () => this.open.set(false));
+  }
 }

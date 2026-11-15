@@ -1,11 +1,5 @@
-<div class="pr-backdrop" (click)="close()">
-  <div
-    class="palette"
-    role="dialog"
-    aria-modal="true"
-    [attr.aria-label]="'Command palette' | t"
-    (click)="$event.stopPropagation()"
-  >
+<div class="pr-backdrop" (dismiss)="close()">
+  <div class="palette" role="dialog" aria-modal="true" [attr.aria-label]="'Command palette' | t">
     <label class="field">
       <svg viewBox="0 0 16 16" aria-hidden="true">
         <circle cx="7" cy="7" r="5" />

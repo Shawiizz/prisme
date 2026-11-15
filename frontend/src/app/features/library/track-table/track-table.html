@@ -238,12 +238,12 @@
 
 @if (trackMenu(); as menu) {
   <div
-    class="backdrop"
-    (click)="trackMenu.set(null)"
+    class="pr-veil"
+    (dismiss)="trackMenu.set(null)"
     (contextmenu)="$event.preventDefault(); trackMenu.set(null)"
   ></div>
   <app-track-menu
-    class="popover"
+    class="pr-popover popover"
     [style.left.px]="menu.left"
     [style.right.px]="menu.right"
     [style.top.px]="menu.top"
@@ -256,12 +256,12 @@
 
 @if (columnMenu(); as menu) {
   <div
-    class="backdrop"
-    (click)="columnMenu.set(null)"
+    class="pr-veil"
+    (dismiss)="columnMenu.set(null)"
     (contextmenu)="$event.preventDefault(); columnMenu.set(null)"
   ></div>
   <div
-    class="popover columns"
+    class="pr-popover popover columns"
     [style.left.px]="menu.left"
     [style.right.px]="menu.right"
     [style.top.px]="menu.top"
@@ -279,9 +279,9 @@
 }
 
 @if (palette(); as p) {
-  <div class="backdrop" (click)="palette.set(null)"></div>
+  <div class="pr-veil" (dismiss)="palette.set(null)"></div>
   <div
-    class="popover palette"
+    class="pr-popover popover palette"
     [style.left.px]="p.left"
     [style.right.px]="p.right"
     [style.top.px]="p.top"

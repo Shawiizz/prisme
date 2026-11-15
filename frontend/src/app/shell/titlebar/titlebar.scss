@@ -117,23 +117,14 @@
 
 .rec {
   position: relative;
-  .backdrop {
-    position: fixed;
-    inset: 0;
-    z-index: 30;
-  }
   .menu {
     position: absolute;
     top: calc(100% + 4px);
     right: 0;
-    z-index: 31;
     display: grid;
     gap: 2px;
     min-width: 180px;
     padding: var(--pr-space-1);
-    background: var(--pr-base);
-    border: 1px solid var(--pr-line-2);
-    border-radius: var(--pr-radius);
     .pr-btn {
       justify-content: flex-start;
     }

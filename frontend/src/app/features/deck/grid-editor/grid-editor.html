@@ -1,5 +1,5 @@
-<div class="backdrop" (click)="closed.emit()"></div>
-<div class="panel pr-panel" (keydown.escape)="closed.emit()">
+<div class="pr-veil" [class.pr-veil--dim]="PHONE" (dismiss)="closed.emit()"></div>
+<div class="panel" [class.pr-popover]="!PHONE" [class.pr-sheet]="PHONE">
   <header>
     <span class="pr-label">{{ 'Beat grid' | t }}</span>
     @if (track()?.gridEdited) {

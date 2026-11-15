@@ -8,8 +8,8 @@ import {
   inject,
   signal,
 } from '@angular/core';
-import { closedByBack } from '../../core/back';
 import { PHONE } from '../../core/platform';
+import { Dismiss, overlay } from '../overlay';
 
 /** What is asked: a title, what follows, and the word that does it. */
 export interface Question {
@@ -49,14 +49,14 @@ export class ConfirmService {
   template: `
     @if (service.asking(); as a) {
       <div
-        class="veil"
+        class="pr-veil pr-veil--dim"
         animate.enter="pr-fade-in"
         animate.leave="pr-fade-out"
-        (pointerdown)="service.answer(false)"
+        (dismiss)="service.answer(false)"
       ></div>
       <div
-        class="box"
-        [class.sheet]="PHONE"
+        [class.pr-popover]="!PHONE"
+        [class.pr-sheet]="PHONE"
         [animate.enter]="PHONE ? 'pr-rise-in' : 'pr-pop-in'"
         [animate.leave]="PHONE ? 'pr-rise-out' : 'pr-pop-out'"
         role="alertdialog"
@@ -75,7 +75,7 @@ export class ConfirmService {
     }
   `,
   styleUrl: './confirm.scss',
-  host: { '(document:keydown.escape)': 'service.answer(false)' },
+  imports: [Dismiss],
 })
 export class Confirm {
   protected readonly PHONE = PHONE;
@@ -92,11 +92,9 @@ export class Confirm {
         });
       }
     });
-    if (PHONE) {
-      closedByBack(
-        () => this.service.asking() !== null,
-        () => this.service.answer(false),
-      );
-    }
+    overlay(
+      () => this.service.asking() !== null,
+      () => this.service.answer(false),
+    );
   }
 }

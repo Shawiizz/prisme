@@ -7,8 +7,8 @@ import {
   Injector,
   signal,
 } from '@angular/core';
-import { closedByBack } from '../../core/back';
 import { PHONE } from '../../core/platform';
+import { Dismiss, overlay } from '../overlay';
 
 interface Choice {
   index: number;
@@ -72,15 +72,16 @@ function choicesOf(select: HTMLSelectElement): Choice[] {
   template: `
     @if (picking(); as p) {
       <div
-        class="veil"
+        class="pr-veil"
         animate.enter="pr-fade-in"
         animate.leave="pr-fade-out"
-        [class.dim]="PHONE"
-        (pointerdown)="close()"
+        [class.pr-veil--dim]="PHONE"
+        (dismiss)="close()"
       ></div>
       <div
         class="picker"
-        [class.sheet]="PHONE"
+        [class.pr-popover]="!PHONE"
+        [class.pr-sheet]="PHONE"
         [animate.enter]="PHONE ? 'pr-rise-in' : 'pr-pop-in'"
         [animate.leave]="PHONE ? 'pr-rise-out' : 'pr-pop-out'"
         role="listbox"
@@ -115,7 +116,7 @@ function choicesOf(select: HTMLSelectElement): Choice[] {
     }
   `,
   styleUrl: './select-picker.scss',
-  host: { '(document:keydown.escape)': 'close()' },
+  imports: [Dismiss],
 })
 export class SelectPicker {
   protected readonly PHONE = PHONE;
@@ -141,12 +142,10 @@ export class SelectPicker {
       document.removeEventListener('mousedown', hold, true);
       document.removeEventListener('click', open, true);
     });
-    if (PHONE) {
-      closedByBack(
-        () => this.picking() !== null,
-        () => this.picking.set(null),
-      );
-    }
+    overlay(
+      () => this.picking() !== null,
+      () => this.close(),
+    );
   }
 
   protected pick(choice: Choice) {
@@ -184,6 +183,8 @@ export class SelectPicker {
     const choices = choicesOf(select);
     const height = Math.min(MAX_PX, choices.length * ROW_PX + 8);
     const below = innerHeight - rect.bottom - 8 >= height || rect.top < height;
+    // the keys come back to the list once closed, as from the system's
+    if (!PHONE) select.focus({ preventScroll: true });
     this.picking.set({
       select,
       title: titleOf(select),

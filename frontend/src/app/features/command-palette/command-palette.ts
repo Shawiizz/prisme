@@ -22,6 +22,7 @@ import { TPipe } from '../../core/i18n/t.pipe';
 import { camelotHue, camelotMajor } from '../../shared/camelot';
 import { decimal, deckLetter } from '../../shared/time';
 import { PHONE } from '../../core/platform';
+import { Dismiss, overlay } from '../../shared/overlay';
 import { SETTINGS, SETTINGS_PAGES, normalize } from '../settings/settings-catalog';
 
 type Section = 'actions' | 'settings' | 'crates' | 'tracks';
@@ -81,7 +82,7 @@ const TRACK_SEARCH_DELAY_MS = 120;
   templateUrl: './command-palette.html',
   styleUrl: './command-palette.scss',
   host: { '[class.phone]': 'PHONE' },
-  imports: [TPipe],
+  imports: [TPipe, Dismiss],
 })
 export class CommandPalette {
   private readonly navigation = inject(NavigationService);
@@ -192,6 +193,12 @@ export class CommandPalette {
   protected readonly flat = computed(() => this.groups().flatMap((g) => g.items));
 
   constructor() {
+    // what opens it answers the back gesture
+    overlay(
+      () => true,
+      () => this.close(),
+      { back: false },
+    );
     afterNextRender(() => this.input().nativeElement.focus());
     afterRenderEffect(() => {
       const index = this.active();
@@ -229,9 +236,6 @@ export class CommandPalette {
       event.preventDefault();
       const item = this.flat()[this.active()];
       if (item) this.run(item);
-    } else if (event.key === 'Escape') {
-      event.preventDefault();
-      this.close();
     } else if (event.altKey && /^[ab]$/i.test(event.key)) {
       const item = this.flat()[this.active()];
       if (!item?.track) return;

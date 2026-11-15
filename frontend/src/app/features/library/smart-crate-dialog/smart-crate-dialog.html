@@ -1,11 +1,9 @@
-<div class="pr-backdrop" (click)="closed.emit()">
+<div class="pr-backdrop" (dismiss)="closed.emit()">
   <div
     class="pr-dialog"
     role="dialog"
     aria-modal="true"
     [attr.aria-label]="crate() ? ('Smart crate' | t) : ('New smart crate' | t)"
-    (click)="$event.stopPropagation()"
-    (keydown.escape)="closed.emit()"
   >
     <header class="pr-dialog__head">
       <h2>{{ crate() ? ('Smart crate' | t) : ('New smart crate' | t) }}</h2>

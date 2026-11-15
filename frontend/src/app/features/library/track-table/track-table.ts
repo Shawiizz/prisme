@@ -33,6 +33,7 @@ import { TrackMenu, TrackMenuPanel } from '../track-menu/track-menu';
 import { t } from '../../../core/i18n/i18n';
 import { TPipe } from '../../../core/i18n/t.pipe';
 import { CTRL } from '../../../core/keyboard/shortcuts';
+import { Dismiss, overlay } from '../../../shared/overlay';
 
 const EMPTY_LIST: Record<TrackSource['kind'], string> = {
   get folder() {
@@ -96,7 +97,7 @@ function popoverAbove(element: HTMLElement): Popover {
   selector: 'app-track-table',
   templateUrl: './track-table.html',
   styleUrl: './track-table.scss',
-  imports: [Cover, TrackMenu, TPipe],
+  imports: [Cover, TrackMenu, TPipe, Dismiss],
 })
 export class TrackTable {
   protected readonly library = inject(LibraryService);
@@ -200,6 +201,18 @@ export class TrackTable {
   });
 
   constructor() {
+    overlay(
+      () => this.columnMenu() !== null,
+      () => this.columnMenu.set(null),
+    );
+    overlay(
+      () => this.palette() !== null,
+      () => this.palette.set(null),
+    );
+    overlay(
+      () => this.trackMenu() !== null,
+      () => this.trackMenu.set(null),
+    );
     effect(() => {
       const path = this.library.selected();
       if (path) untracked(() => this.scrollTo(path));

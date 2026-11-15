@@ -3,6 +3,7 @@ import { Crate, Rule, SmartRules, TextField } from '../../../core/models/library
 import { LibraryService } from '../../../core/services/library.service';
 import { t } from '../../../core/i18n/i18n';
 import { TPipe } from '../../../core/i18n/t.pipe';
+import { Dismiss, overlay } from '../../../shared/overlay';
 
 type Choice = TextField | 'bpm' | 'year' | 'key';
 
@@ -75,7 +76,7 @@ function newRule(choice: Choice): Rule {
   selector: 'app-smart-crate-dialog',
   templateUrl: './smart-crate-dialog.html',
   styleUrl: './smart-crate-dialog.scss',
-  imports: [TPipe],
+  imports: [TPipe, Dismiss],
 })
 export class SmartCrateDialog {
   /** The crate to change; `null` to create one. */
@@ -89,6 +90,13 @@ export class SmartCrateDialog {
   protected readonly rules = linkedSignal<Rule[]>(
     () => this.crate()?.rules?.rules ?? [newRule('genre')],
   );
+
+  constructor() {
+    overlay(
+      () => true,
+      () => this.closed.emit(),
+    );
+  }
 
   choiceOf(rule: Rule): Choice {
     return rule.kind === 'text' ? rule.field : rule.kind;

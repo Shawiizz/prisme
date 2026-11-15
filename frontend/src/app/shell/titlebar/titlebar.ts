@@ -13,13 +13,14 @@ import { AudioBackend, BACKEND_NAMES } from '../../core/models/audio';
 import { decimal, formatClock } from '../../shared/time';
 import { levelMeter } from '../../shared/level';
 import { CTRL, MAC } from '../../core/keyboard/shortcuts';
+import { Dismiss, overlay } from '../../shared/overlay';
 
 /** Custom title bar: drag area, audio state, recording, update, dialogs and window buttons. */
 @Component({
   selector: 'app-titlebar',
   templateUrl: './titlebar.html',
   styleUrl: './titlebar.scss',
-  imports: [TPipe],
+  imports: [TPipe, Dismiss],
 })
 export class Titlebar {
   protected readonly CTRL = CTRL;
@@ -49,6 +50,10 @@ export class Titlebar {
     return frames && rate ? decimal((frames / rate) * 1000, 1) : null;
   });
   protected readonly level = levelMeter(() => this.engine.status()?.mainPeak ?? 0, 24);
+
+  constructor() {
+    overlay(this.recordMenu, () => this.recordMenu.set(false));
+  }
 
   record(option: RecordOption) {
     this.recordMenu.set(false);
