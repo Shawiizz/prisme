@@ -550,6 +550,28 @@
                   </button>
                 </div>
               }
+              @if (row('dj.lockControls')) {
+                @let e = entry('dj.lockControls');
+                <div
+                  class="pr-row"
+                  data-setting="dj.lockControls"
+                  [class.is-pointed]="pointed() === e.id"
+                >
+                  <div>
+                    <span class="pr-row__name">{{ e.label }}</span>
+                    <span class="pr-row__help">{{ e.description }}</span>
+                  </div>
+                  <button
+                    class="pr-switch"
+                    role="switch"
+                    [attr.aria-checked]="dj().lockControls"
+                    [attr.aria-label]="e.label"
+                    (click)="updateDj({ lockControls: !dj().lockControls })"
+                  >
+                    <span></span>
+                  </button>
+                </div>
+              }
             </div>
           </section>
         }

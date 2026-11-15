@@ -1,4 +1,4 @@
-import { PHONE } from '../../core/platform';
+import { ANDROID, PHONE } from '../../core/platform';
 import { t } from '../../core/i18n/i18n';
 import { SettingsCategory } from '../../core/services/navigation.service';
 
@@ -287,6 +287,18 @@ const ALL_SETTINGS: readonly SettingEntry[] = [
     },
   },
   {
+    id: 'dj.lockControls',
+    page: 'dj',
+    get label() {
+      return t('Controls on the lock screen');
+    },
+    get description() {
+      return t(
+        'Play and pause each deck from the player of the lock screen. Off for a gig: nothing a pocket can press.',
+      );
+    },
+  },
+  {
     id: 'library.tags',
     page: 'library',
     get label() {
@@ -460,10 +472,14 @@ const ALL_SETTINGS: readonly SettingEntry[] = [
 
 /** The settings a phone has no use for: it has one screen. */
 const COMPUTER_ONLY_SETTINGS: readonly string[] = ['interface.screenBelow'];
+/** The settings only Android has the means of yet. */
+const ANDROID_ONLY_SETTINGS: readonly string[] = ['dj.lockControls'];
 
-export const SETTINGS = PHONE
-  ? ALL_SETTINGS.filter((s) => !COMPUTER_ONLY_SETTINGS.includes(s.id))
-  : ALL_SETTINGS;
+export const SETTINGS = ALL_SETTINGS.filter(
+  (s) =>
+    !(PHONE && COMPUTER_ONLY_SETTINGS.includes(s.id)) &&
+    (ANDROID || !ANDROID_ONLY_SETTINGS.includes(s.id)),
+);
 
 /** Lower case without accents, to compare what is typed with what is written. */
 export function normalize(text: string): string {

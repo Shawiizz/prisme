@@ -3,4 +3,7 @@
     <string name="main_activity_title">"Prisme"</string>
     <string name="playback_channel">"Playback"</string>
     <string name="playback_text">"A deck is playing"</string>
+    <string name="player_deck">"Deck %1$s"</string>
+    <string name="player_play">"Play deck %1$s"</string>
+    <string name="player_pause">"Pause deck %1$s"</string>
 </resources>

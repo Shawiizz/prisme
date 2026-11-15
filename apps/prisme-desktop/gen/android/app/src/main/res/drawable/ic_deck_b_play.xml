@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- play deck B on the player of the lock screen: the glyph of any player, the deck's
+     letter (Instrument Sans Bold) in a ring at its foot -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:fillType="evenOdd"
+        android:pathData="M2.88,2.45L11.04,7.26Q12.12,7.80 11.04,8.34L2.88,13.15Q1.80,13.80 1.80,12.07L1.80,3.53Q1.80,1.80 2.88,2.45ZM12.00,17.80A5.80,5.80 0 1 1 23.60,17.80A5.80,5.80 0 1 1 12.00,17.80ZM13.30,17.80A4.50,4.50 0 1 1 22.30,17.80A4.50,4.50 0 1 1 13.30,17.80Z" />
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M16.52 20.7V19.81H18.02Q18.42 19.81 18.63 19.59Q18.84 19.37 18.84 18.98Q18.84 18.57 18.61 18.34Q18.39 18.11 17.98 18.11H16.52V17.22H17.92Q18.3 17.22 18.49 17.04Q18.69 16.86 18.69 16.5Q18.69 16.15 18.5 15.97Q18.31 15.79 17.94 15.79H16.52V14.9H18.21Q18.98 14.9 19.46 15.29Q19.93 15.69 19.93 16.37Q19.93 16.79 19.73 17.1Q19.53 17.41 19.19 17.57Q18.85 17.73 18.43 17.73L18.47 17.56Q18.92 17.56 19.29 17.75Q19.66 17.95 19.87 18.3Q20.09 18.65 20.09 19.12Q20.09 19.6 19.87 19.95Q19.65 20.31 19.25 20.51Q18.85 20.7 18.31 20.7ZM15.51 20.7V14.9H16.75V20.7Z" />
+</vector>

@@ -59,6 +59,8 @@ pub struct DjPreferences {
     pub deck_count: usize,
     /// The knobs of the mixer hold at their middle when turned through it.
     pub knob_magnet: bool,
+    /// On a phone, the decks play and pause from its lock screen and its notifications.
+    pub lock_controls: bool,
 }
 
 impl DjPreferences {
@@ -81,6 +83,7 @@ impl Default for DjPreferences {
             auto_gain: true,
             deck_count: 2,
             knob_magnet: true,
+            lock_controls: true,
         }
     }
 }

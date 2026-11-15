@@ -1,6 +1,7 @@
 import { invoke } from '@tauri-apps/api/core';
 import { Component, computed, effect, inject, signal } from '@angular/core';
 import { ControllerService } from '../../core/control/controller.service';
+import { LockPlayer } from '../../core/lock-player';
 import { BACKEND_NAMES } from '../../core/models/audio';
 import { ANDROID } from '../../core/platform';
 import { EngineService } from '../../core/services/engine.service';
@@ -16,9 +17,6 @@ import { PhoneLibrary } from './phone-library';
 import { PhoneSettings } from './phone-settings';
 
 type Tab = 'decks' | 'library' | 'settings';
-
-/** What Android hears from the page: while a deck plays, the sound goes on out of sight. */
-const android = (window as { prismeDecks?: { playing(playing: boolean): void } }).prismeDecks;
 
 /**
  * Prisme on a phone: the decks, the library and the settings, a screen each. The decks
@@ -83,10 +81,6 @@ export class Phone {
   private readonly chosen = signal<boolean | null>(null);
   protected readonly touch = computed(() => this.chosen() ?? !this.hardware());
 
-  private readonly playing = computed(
-    () => this.engine.status()?.decks.some((d) => d.playing) ?? false,
-  );
-
   protected readonly clock = formatClock;
 
   constructor() {
@@ -94,7 +88,7 @@ export class Phone {
     document.addEventListener('visibilitychange', () => {
       void invoke('set_hidden', { hidden: document.hidden });
     });
-    effect(() => android?.playing(this.playing()));
+    inject(LockPlayer).start();
     // a page of the settings asked for from elsewhere is shown on their screen
     effect(() => {
       if (this.navigation.settings()) this.tab.set('settings');

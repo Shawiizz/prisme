@@ -1,13 +1,13 @@
 package com.shawiizz.prisme
 
 import android.Manifest
-import android.content.Intent
 import android.content.pm.PackageManager
 import android.content.res.Configuration
+import android.graphics.BitmapFactory
 import android.graphics.Color
 import android.os.Build
 import android.os.Bundle
-import android.util.Log
+import android.util.Base64
 import android.view.View
 import android.view.WindowManager
 import android.webkit.JavascriptInterface
@@ -39,6 +39,7 @@ class MainActivity : TauriActivity() {
 
   override fun onWebViewCreate(webView: WebView) {
     webView.addJavascriptInterface(Decks(), "prismeDecks")
+    Player.toggle = { deck -> webView.evaluateJavascript("window.prismePlayer?.toggle($deck)", null) }
   }
 
   override fun onConfigurationChanged(newConfig: Configuration) {
@@ -83,24 +84,20 @@ class MainActivity : TauriActivity() {
     }
   }
 
-  /** What the page says of the decks. */
+  /** What the page says of the decks, for the [Player] (`lock-player.ts`). */
   private inner class Decks {
-    /** Whether one plays: while it does, [PlaybackService] keeps the sound going. */
     @JavascriptInterface
-    fun playing(playing: Boolean) {
-      runOnUiThread {
-        val service = Intent(this@MainActivity, PlaybackService::class.java)
-        if (!playing) {
-          stopService(service)
-        } else {
-          try {
-            startForegroundService(service)
-          } catch (e: IllegalStateException) {
-            // a deck started from a controller while Prisme was out of sight
-            Log.w("Prisme", "the sound may stop with the screen locked: ${e.message}")
-          }
-        }
-      }
+    fun update(state: String) {
+      val parsed = PlayerState.parse(state)
+      runOnUiThread { Player.update(this@MainActivity, parsed) }
+    }
+
+    /** The cover of `path`, in base64; empty when it has none. */
+    @JavascriptInterface
+    fun cover(path: String, base64: String) {
+      val bytes = if (base64.isEmpty()) null else Base64.decode(base64, Base64.DEFAULT)
+      val bitmap = bytes?.let { BitmapFactory.decodeByteArray(it, 0, it.size) }
+      runOnUiThread { Player.cover(this@MainActivity, path, bitmap) }
     }
   }
 

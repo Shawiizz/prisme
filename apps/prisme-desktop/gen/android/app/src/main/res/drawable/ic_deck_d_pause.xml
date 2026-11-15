@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- pause deck D on the player of the lock screen: the glyph of any player, the deck's
+     letter (Instrument Sans Bold) in a ring at its foot -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:fillType="evenOdd"
+        android:pathData="M2.76,1.80H4.44Q5.40,1.80 5.40,2.76V12.84Q5.40,13.80 4.44,13.80H2.76Q1.80,13.80 1.80,12.84V2.76Q1.80,1.80 2.76,1.80ZM9.00,1.80H10.68Q11.64,1.80 11.64,2.76V12.84Q11.64,13.80 10.68,13.80H9.00Q8.04,13.80 8.04,12.84V2.76Q8.04,1.80 9.00,1.80ZM12.00,17.80A5.80,5.80 0 1 1 23.60,17.80A5.80,5.80 0 1 1 12.00,17.80ZM13.30,17.80A4.50,4.50 0 1 1 22.30,17.80A4.50,4.50 0 1 1 13.30,17.80Z" />
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M15.83 20.7V19.73H17.3Q17.93 19.73 18.37 19.48Q18.81 19.23 19.04 18.78Q19.27 18.34 19.27 17.77Q19.27 17.2 19.04 16.78Q18.82 16.35 18.38 16.11Q17.94 15.87 17.3 15.87H15.86V14.9H17.3Q18.28 14.9 19 15.25Q19.73 15.6 20.12 16.25Q20.52 16.9 20.52 17.78Q20.52 18.67 20.12 19.33Q19.72 19.98 19 20.34Q18.28 20.7 17.31 20.7ZM15.08 20.7V14.9H16.32V20.7Z" />
+</vector>

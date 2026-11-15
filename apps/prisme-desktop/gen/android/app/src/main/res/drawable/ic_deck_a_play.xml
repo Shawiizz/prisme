@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- play deck A on the player of the lock screen: the glyph of any player, the deck's
+     letter (Instrument Sans Bold) in a ring at its foot -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:fillType="evenOdd"
+        android:pathData="M2.88,2.45L11.04,7.26Q12.12,7.80 11.04,8.34L2.88,13.15Q1.80,13.80 1.80,12.07L1.80,3.53Q1.80,1.80 2.88,2.45ZM12.00,17.80A5.80,5.80 0 1 1 23.60,17.80A5.80,5.80 0 1 1 12.00,17.80ZM13.30,17.80A4.50,4.50 0 1 1 22.30,17.80A4.50,4.50 0 1 1 13.30,17.80Z" />
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M15.03 20.7 17.11 14.9H18.17L16.26 20.7ZM19.28 20.7 17.38 14.9H18.49L20.57 20.7ZM16.12 18.45H19.38V19.42H16.12Z" />
+</vector>

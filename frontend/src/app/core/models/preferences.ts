@@ -13,6 +13,8 @@ export interface DjPreferences {
   deckCount: number;
   /** The knobs of the mixer hold at their middle when turned through it. */
   knobMagnet: boolean;
+  /** On a phone, the decks play and pause from its lock screen and its notifications. */
+  lockControls: boolean;
 }
 
 export interface LibraryPreferences {

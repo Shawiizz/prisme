@@ -13,6 +13,7 @@ export class PreferencesService {
     autoGain: true,
     deckCount: 2,
     knobMagnet: true,
+    lockControls: true,
   });
   readonly library = signal<LibraryPreferences>({
     lastFolder: null,
