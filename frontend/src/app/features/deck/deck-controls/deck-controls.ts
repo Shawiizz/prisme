@@ -1,4 +1,4 @@
-import { Component, computed, inject, input } from '@angular/core';
+import { Component, DestroyRef, computed, inject, input } from '@angular/core';
 import { deckTempo } from '../../../core/deck-tempo';
 import { EngineService } from '../../../core/services/engine.service';
 import { PreferencesService } from '../../../core/services/preferences.service';
@@ -9,6 +9,7 @@ import { TPipe } from '../../../core/i18n/t.pipe';
 import { deckStems } from '../../../core/deck-stems';
 import { Knob } from '../../../shared/knob/knob';
 import { readouts } from '../../../shared/mixer-scales';
+import { Press } from '../../../shared/press';
 
 /** Holding SYNC this long (ms) matches the leader once instead of locking to it. */
 const SYNC_HOLD_MS = 450;
@@ -21,7 +22,7 @@ const SYNC_HOLD_MS = 450;
   selector: 'app-deck-controls',
   templateUrl: './deck-controls.html',
   styleUrl: './deck-controls.scss',
-  imports: [Knob, TPipe],
+  imports: [Knob, TPipe, Press],
   host: { '[class.plays]': '!vinyl()' },
 })
 export class DeckControls {
@@ -69,14 +70,8 @@ export class DeckControls {
     return target === null ? null : formatPitch(target);
   });
 
-  /** Pressed: plays or stops at once, as on a deck. */
-  playDown(event: PointerEvent) {
-    if (event.button === 0) this.engine.togglePlay(this.deck());
-  }
-
-  /** From the keyboard (a click with no pointer behind it). */
-  playKey(event: MouseEvent) {
-    if (event.detail === 0) this.engine.togglePlay(this.deck());
+  constructor() {
+    inject(DestroyRef).onDestroy(() => this.syncCancel());
   }
 
   cueDown() {
@@ -87,8 +82,7 @@ export class DeckControls {
     this.engine.cueUp(this.deck());
   }
 
-  syncDown(event: PointerEvent) {
-    if (event.button !== 0) return;
+  syncDown() {
     this.syncCancel();
     this.syncHold = setTimeout(() => {
       this.syncHold = null;
@@ -106,11 +100,6 @@ export class DeckControls {
   syncCancel() {
     if (this.syncHold !== null) clearTimeout(this.syncHold);
     this.syncHold = null;
-  }
-
-  /** From the keyboard (a click with no pointer behind it): a tap. */
-  syncKey(event: MouseEvent) {
-    if (event.detail === 0) this.engine.toggleSync(this.deck());
   }
 
   /** The leader's tempo and beats, once: the deck stays free. Internal play takes the
