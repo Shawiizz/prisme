@@ -14,7 +14,7 @@ import { deckLetter } from '../../shared/time';
     <b>{{ name() }}</b>
     <ng-content />
     <button
-      class="pr-btn pr-btn--sm pr-btn--icon pr-btn--ghost"
+      class="pr-btn pr-btn--sm pr-btn--icon pr-btn--ghost pr-reach"
       (click)="closed.emit()"
       [attr.aria-label]="'Close' | t"
     >

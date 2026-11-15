@@ -21,7 +21,7 @@ const MARKS = Array.from({ length: 11 }, (_, i) => i % 5 === 0);
   selector: 'app-phone-channel',
   template: `
     <app-channel-strip [deck]="deck()" [trim]="false" />
-    <app-cue-button [deck]="deck()" />
+    <app-cue-button touch [deck]="deck()" />
     <div class="strip">
       <div class="marks">
         @for (long of marks; track $index) {

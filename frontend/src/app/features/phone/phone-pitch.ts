@@ -21,7 +21,7 @@ import { PhoneTempo } from './phone-tempo';
     <app-phone-tempo [deck]="deck()" />
     <div class="keys">
       <button
-        class="pr-btn"
+        class="pr-btn pr-reach"
         (pointerdown)="bend(-1, $event)"
         (pointerup)="unbend()"
         (lostpointercapture)="unbend()"
@@ -29,11 +29,15 @@ import { PhoneTempo } from './phone-tempo';
       >
         −
       </button>
-      <button class="pr-btn" [disabled]="tempo.held()" (click)="engine.setPitch(deck(), 1)">
+      <button
+        class="pr-btn pr-reach"
+        [disabled]="tempo.held()"
+        (click)="engine.setPitch(deck(), 1)"
+      >
         0
       </button>
       <button
-        class="pr-btn"
+        class="pr-btn pr-reach"
         (pointerdown)="bend(1, $event)"
         (pointerup)="unbend()"
         (lostpointercapture)="unbend()"
@@ -43,7 +47,7 @@ import { PhoneTempo } from './phone-tempo';
       </button>
     </div>
     <button
-      class="pr-btn lock"
+      class="pr-btn pr-reach lock"
       [class.is-on]="tempo.settings().keyLock"
       (click)="engine.setKeyLock(deck(), !tempo.settings().keyLock)"
     >

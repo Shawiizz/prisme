@@ -2,7 +2,12 @@
   @if (decksOf(side).length > 1) {
     <div class="pr-seg which" role="radiogroup" [attr.aria-label]="'Deck' | t">
       @for (d of decksOf(side); track d) {
-        <button role="radio" [attr.aria-checked]="deckOf(side) === d" (click)="choose(side, d)">
+        <button
+          class="pr-reach pr-reach--y"
+          role="radio"
+          [attr.aria-checked]="deckOf(side) === d"
+          (click)="choose(side, d)"
+        >
           {{ letter(d) }}
         </button>
       }
@@ -16,7 +21,7 @@
     <div class="tools">
       <ng-container *ngTemplateOutlet="which; context: { $implicit: 'a' }" />
       <button
-        class="pr-btn stems"
+        class="pr-btn pr-reach stems"
         [class.is-on]="isOpen('stems', 'a')"
         (click)="toggle('stems', 'a')"
       >
@@ -106,7 +111,7 @@
       <app-phone-pads side [deck]="right()" />
       <div class="tools">
         <button
-          class="pr-btn stems"
+          class="pr-btn pr-reach stems"
           [class.is-on]="isOpen('stems', 'b')"
           (click)="toggle('stems', 'b')"
         >
@@ -120,28 +125,48 @@
 } @else {
   <div class="play">
     <div class="more">
-      <button class="pr-btn pads" [class.is-on]="isOpen('pads', 'a')" (click)="toggle('pads', 'a')">
+      <button
+        class="pr-btn pr-reach pads"
+        [class.is-on]="isOpen('pads', 'a')"
+        (click)="toggle('pads', 'a')"
+      >
         PADS
       </button>
-      <button class="pr-btn" [class.is-on]="isOpen('pitch', 'a')" (click)="toggle('pitch', 'a')">
+      <button
+        class="pr-btn pr-reach"
+        [class.is-on]="isOpen('pitch', 'a')"
+        (click)="toggle('pitch', 'a')"
+      >
         PITCH
       </button>
-      <button class="pr-btn" [class.is-on]="isOpen('stems', 'a')" (click)="toggle('stems', 'a')">
+      <button
+        class="pr-btn pr-reach"
+        [class.is-on]="isOpen('stems', 'a')"
+        (click)="toggle('stems', 'a')"
+      >
         STEMS
       </button>
-      <button class="pr-btn" (click)="opened.emit(left())">DECK</button>
+      <button class="pr-btn pr-reach" (click)="opened.emit(left())">DECK</button>
     </div>
     @if (rights().length) {
       <div class="more b">
-        <button class="pr-btn" (click)="opened.emit(right())">DECK</button>
-        <button class="pr-btn" [class.is-on]="isOpen('stems', 'b')" (click)="toggle('stems', 'b')">
+        <button class="pr-btn pr-reach" (click)="opened.emit(right())">DECK</button>
+        <button
+          class="pr-btn pr-reach"
+          [class.is-on]="isOpen('stems', 'b')"
+          (click)="toggle('stems', 'b')"
+        >
           STEMS
         </button>
-        <button class="pr-btn" [class.is-on]="isOpen('pitch', 'b')" (click)="toggle('pitch', 'b')">
+        <button
+          class="pr-btn pr-reach"
+          [class.is-on]="isOpen('pitch', 'b')"
+          (click)="toggle('pitch', 'b')"
+        >
           PITCH
         </button>
         <button
-          class="pr-btn pads"
+          class="pr-btn pr-reach pads"
           [class.is-on]="isOpen('pads', 'b')"
           (click)="toggle('pads', 'b')"
         >

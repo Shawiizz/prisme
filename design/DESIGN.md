@@ -102,6 +102,7 @@ Three heights, one per use. Two buttons side by side always share one.
 | `.pr-btn--danger` | Deleting |
 | `.pr-btn--rec` | Recording; red with `.is-on` while it records |
 | `.pr-btn--icon` | A square symbol button: always an `aria-label` |
+| `.pr-reach` (`--y`) | On a touch screen, a key smaller than a finger: it answers 44 px around its middle (`--y`: above and below only), looking the same |
 
 A toggle is a button with `.is-on` when on. Radius 3 px, no shadow, no glow.
 

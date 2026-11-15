@@ -97,8 +97,10 @@ export class PhoneLibrary {
     const path = this.library.listing()?.path;
     return path?.split(/[\\/]/).filter(Boolean).pop() ?? LIST_LABEL.folder;
   });
-  protected readonly searchPlaceholder = computed(
-    () => SEARCH_PLACEHOLDER[this.library.source().kind],
+  protected readonly searchPlaceholder = computed(() =>
+    this.library.scope() === 'list'
+      ? SEARCH_PLACEHOLDER[this.library.source().kind]
+      : t('Search the whole library'),
   );
   protected readonly sorts = computed(() =>
     this.library.ordered() ? [LIST_ORDER, ...SORTS] : SORTS,

@@ -84,6 +84,7 @@
   --pr-h-lg: 40px; /* what is touched while mixing */
   --pr-h: 32px;
   --pr-h-sm: 24px; /* dialogs and toolbars only */
+  --pr-h-touch: 44px; /* the least a finger presses */
   --pr-row: 29px; /* library rows */
   --pr-titlebar: 36px;
   --pr-deck-panel: 380px;

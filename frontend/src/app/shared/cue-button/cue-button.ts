@@ -1,14 +1,16 @@
-import { Component, computed, inject, input } from '@angular/core';
+import { Component, booleanAttribute, computed, inject, input } from '@angular/core';
 import { EngineService } from '../../core/services/engine.service';
 import { MixerService } from '../../core/services/mixer.service';
 import { TPipe } from '../../core/i18n/t.pipe';
 
-/** The headphones of a deck's channel: lit while the deck is heard in them. Sized by its host. */
+/** The headphones of a deck's channel: lit while the deck is heard in them. Sized by its host;
+ * `touch` reaches a finger beyond it. */
 @Component({
   selector: 'app-cue-button',
   template: `
     <button
       class="pr-btn pr-btn--icon"
+      [class.pr-reach]="touch()"
       [class.is-on]="cued()"
       [attr.aria-pressed]="cued()"
       (click)="mixer.setDeckCue(deck(), !cued())"
@@ -48,6 +50,7 @@ import { TPipe } from '../../core/i18n/t.pipe';
 })
 export class CueButton {
   readonly deck = input.required<number>();
+  readonly touch = input(false, { transform: booleanAttribute });
 
   private readonly engine = inject(EngineService);
   protected readonly mixer = inject(MixerService);
