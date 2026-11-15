@@ -45,8 +45,9 @@ interface AndroidPlayer {
 
 /** As `mixer.rs`: how far the sharp curve cuts. */
 const SHARP_CUT = 0.04;
-/** A deck turning slower than this stands (a record held, a jog let go). */
-const MOVING_SPEED = 0.25;
+/** Slower than this, a deck is not heard as playing: a record held or nudged, a jog let go;
+ * the engine counts a deck still only far below (its `MOVING_SPEED`). */
+const PLAYING_SPEED = 0.25;
 /** Android moves the position on by itself: told again past this much of a drift. */
 const DRIFT_S = 1;
 /** A change of speed smaller than this is not told. */
@@ -127,7 +128,7 @@ export class LockPlayer {
     return this.engine
       .deckIndexes()
       .filter(
-        (d) => tracks[d] && (decks[d]?.playing || Math.abs(decks[d]?.speed ?? 0) > MOVING_SPEED),
+        (d) => tracks[d] && (decks[d]?.playing || Math.abs(decks[d]?.speed ?? 0) > PLAYING_SPEED),
       );
   });
   private readonly heard = computed(() => {
