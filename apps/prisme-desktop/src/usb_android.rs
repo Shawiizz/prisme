@@ -1,10 +1,10 @@
 //! The USB sound cards of an Android phone, which `UsbAudio.kt` opens for the audio to drive
 //! them itself ([`prisme_audio_io::UsbHost`]).
 
+use crate::android_jni;
 use jni::objects::{JByteArray, JClass, JObject, JObjectArray, JString, JValue};
-use jni::{JNIEnv, JavaVM};
-use prisme_audio_io::{OpenedCard, UsbHost};
-use tracing::warn;
+use jni::JNIEnv;
+use prisme_audio_io::{OpenedCard, UsbCard, UsbHost};
 
 const CLASS: &str = "com.shawiizz.prisme.UsbAudio";
 
@@ -16,27 +16,29 @@ pub fn install() {
 struct AndroidUsb;
 
 impl UsbHost for AndroidUsb {
-    fn cards(&self) -> Vec<String> {
+    fn cards(&self) -> Vec<UsbCard> {
         call("list the USB cards", |env, class| {
+            // the system's name of each card, then its product's
             let array = JObjectArray::from(
                 env.call_static_method(class, "cards", "()[Ljava/lang/String;", &[])?.l()?,
             );
-            (0..env.get_array_length(&array)?)
-                .map(|i| {
-                    let name = JString::from(env.get_object_array_element(&array, i)?);
-                    let name: String = env.get_string(&name)?.into();
-                    Ok(name)
-                })
-                .collect()
+            let length = env.get_array_length(&array)?;
+            let mut text = |i| -> jni::errors::Result<String> {
+                let text = JString::from(env.get_object_array_element(&array, i)?);
+                let string: String = env.get_string(&text)?.into();
+                env.delete_local_ref(text)?;
+                Ok(string)
+            };
+            (0..length / 2).map(|i| Ok(UsbCard { id: text(2 * i)?, name: text(2 * i + 1)? })).collect()
         })
         .unwrap_or_default()
     }
 
-    fn open(&self, name: &str) -> Option<OpenedCard> {
+    fn open(&self, id: &str) -> Option<OpenedCard> {
         call("open a USB card", |env, class| {
-            let jname = JObject::from(env.new_string(name)?);
+            let id = JObject::from(env.new_string(id)?);
             let fd = env
-                .call_static_method(class, "open", "(Ljava/lang/String;)I", &[JValue::Object(&jname)])?
+                .call_static_method(class, "open", "(Ljava/lang/String;)I", &[JValue::Object(&id)])?
                 .i()?;
             if fd < 0 {
                 return Ok(None);
@@ -46,7 +48,7 @@ impl UsbHost for AndroidUsb {
                     class,
                     "descriptors",
                     "(Ljava/lang/String;)[B",
-                    &[JValue::Object(&jname)],
+                    &[JValue::Object(&id)],
                 )?
                 .l()?,
             );
@@ -58,48 +60,19 @@ impl UsbHost for AndroidUsb {
         .flatten()
     }
 
-    fn close(&self, name: &str) {
+    fn close(&self, id: &str) {
         call("give a USB card back", |env, class| {
-            let jname = JObject::from(env.new_string(name)?);
-            env.call_static_method(class, "close", "(Ljava/lang/String;)V", &[JValue::Object(&jname)])?;
+            let id = JObject::from(env.new_string(id)?);
+            env.call_static_method(class, "close", "(Ljava/lang/String;)V", &[JValue::Object(&id)])?;
             Ok(())
         });
     }
 }
 
-/// Runs `f` with `UsbAudio`, found through the application's class loader (a native thread's
-/// own sees the system's classes only); `None`, the failure logged, if anything went wrong.
+/// Runs `f` with `UsbAudio` ([`android_jni::call`]).
 fn call<T>(what: &str, f: impl FnOnce(&mut JNIEnv, &JClass) -> jni::errors::Result<T>) -> Option<T> {
-    let context = ndk_context::android_context();
-    // SAFETY: the virtual machine and the activity are those the application runs in, which
-    // keeps both alive.
-    let (vm, activity) = unsafe {
-        match JavaVM::from_raw(context.vm().cast()) {
-            Ok(vm) => (vm, JObject::from_raw(context.context().cast())),
-            Err(e) => {
-                warn!("could not {what}: {e}");
-                return None;
-            }
-        }
-    };
-    let mut env = vm.attach_current_thread().inspect_err(|e| warn!("could not {what}: {e}")).ok()?;
-    let result = env.with_local_frame(16, |env| {
-        let loader = env.call_method(&activity, "getClassLoader", "()Ljava/lang/ClassLoader;", &[])?.l()?;
-        let name = JObject::from(env.new_string(CLASS)?);
-        let class = JClass::from(
-            env.call_method(
-                &loader,
-                "loadClass",
-                "(Ljava/lang/String;)Ljava/lang/Class;",
-                &[JValue::Object(&name)],
-            )?
-            .l()?,
-        );
+    android_jni::call(what, |env, context| {
+        let class = android_jni::class(env, context, CLASS)?;
         f(env, &class)
-    });
-    if env.exception_check().unwrap_or(false) {
-        let _ = env.exception_describe();
-        let _ = env.exception_clear();
-    }
-    result.inspect_err(|e| warn!("could not {what}: {e}")).ok()
+    })
 }

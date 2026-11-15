@@ -16,7 +16,7 @@ pub use devices::{
     DeviceKind,
 };
 pub use stream::{start, RunningStream, StreamFormat, StreamSettings, StreamStats};
-pub use usb::{set_usb_host, OpenedCard, UsbHost};
+pub use usb::{set_usb_host, OpenedCard, UsbCard, UsbHost};
 
 /// Called on the audio thread once per period. Must be real-time safe.
 pub trait AudioCallback: Send + 'static {

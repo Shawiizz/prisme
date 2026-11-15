@@ -20,7 +20,8 @@ import java.util.concurrent.TimeUnit
 /**
  * The USB sound cards Prisme drives itself (`usb` in prisme-audio-io), as Android reaches some
  * of their channels only. The native side asks, from its audio thread: the cards plugged in,
- * then one of them opened, its audio taken from Android's driver.
+ * then one of them opened, its audio taken from Android's driver. A card is known by the name
+ * Android gives it, its own while it is plugged in (two of a product have the same name).
  */
 object UsbAudio {
   private const val PERMISSION = "com.shawiizz.prisme.USB_PERMISSION"
@@ -32,6 +33,7 @@ object UsbAudio {
   private const val ANSWER_SECONDS = 120L
 
   private lateinit var context: Context
+  /** The cards opened, by the name Android gives them. */
   private val opened = HashMap<String, UsbDeviceConnection>()
   /** Where Android's answer comes: not the main thread, which may be the one waiting for it. */
   private val answers by lazy { Handler(HandlerThread("prisme-usb-answers").apply { start() }.looper) }
@@ -43,40 +45,46 @@ object UsbAudio {
   private val manager: UsbManager
     get() = context.getSystemService(UsbManager::class.java)
 
-  /** The cards plugged in that speak the second USB audio class, by name. */
+  /**
+   * The cards plugged in that speak the second USB audio class: the name Android gives each,
+   * then the name of its product, shown to the DJ.
+   */
   @JvmStatic
-  fun cards(): Array<String> = manager.deviceList.values.filter(::isAudioClass2).map(::nameOf).toTypedArray()
+  fun cards(): Array<String> =
+    manager.deviceList.values
+      .filter(::isAudioClass2)
+      .flatMap { listOf(it.deviceName, it.productName ?: it.deviceName) }
+      .toTypedArray()
 
   /**
-   * Opens `name`, asking the DJ the first time, and takes its audio from Android: its file
+   * Opens card `id`, asking the DJ the first time, and takes its audio from Android: its file
    * descriptor, -1 if it is not there or the DJ said no. Blocks until the DJ answered; never
    * to be called on the main thread.
    */
   @JvmStatic
-  fun open(name: String): Int {
-    val device = manager.deviceList.values.find { isAudioClass2(it) && nameOf(it) == name } ?: return -1
+  fun open(id: String): Int {
+    val device = manager.deviceList[id]?.takeIf(::isAudioClass2) ?: return -1
     if (!manager.hasPermission(device) && !ask(device)) return -1
     val connection = manager.openDevice(device) ?: return -1
     val audio = interfaces(device).filter { it.interfaceClass == UsbConstants.USB_CLASS_AUDIO }
     if (!audio.all { connection.claimInterface(it, true) }) {
-      Log.w("Prisme", "the audio of $name could not be taken from Android")
+      Log.w("Prisme", "the audio of ${device.productName ?: id} could not be taken from Android")
       connection.close()
       return -1
     }
-    synchronized(opened) { opened.put(name, connection)?.close() }
+    synchronized(opened) { opened.put(id, connection)?.close() }
     return connection.fileDescriptor
   }
 
-  /** The descriptors of `name`, opened: the device's, then its configuration's. */
+  /** The descriptors of card `id`, opened: the device's, then its configuration's. */
   @JvmStatic
-  fun descriptors(name: String): ByteArray? = synchronized(opened) { opened[name]?.rawDescriptors }
+  fun descriptors(id: String): ByteArray? = synchronized(opened) { opened[id]?.rawDescriptors }
 
-  /** Gives `name` back to Android. */
+  /** Gives card `id` back to Android. */
   @JvmStatic
-  fun close(name: String) {
-    val connection = synchronized(opened) { opened.remove(name) } ?: return
-    val device = manager.deviceList.values.find { nameOf(it) == name }
-    device?.let { interfaces(it).forEach(connection::releaseInterface) }
+  fun close(id: String) {
+    val connection = synchronized(opened) { opened.remove(id) } ?: return
+    manager.deviceList[id]?.let { interfaces(it).forEach(connection::releaseInterface) }
     connection.close()
   }
 
@@ -115,6 +123,4 @@ object UsbAudio {
         it.interfaceSubclass == AUDIO_STREAMING &&
         it.interfaceProtocol == AUDIO_CLASS_2
     } && interfaces(device).any { it.interfaceSubclass == AUDIO_CONTROL }
-
-  private fun nameOf(device: UsbDevice): String = device.productName ?: device.deviceName
 }
