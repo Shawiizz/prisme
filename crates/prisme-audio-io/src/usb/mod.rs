@@ -89,9 +89,10 @@ mod running {
     use crate::{AudioCallback, AudioError};
     use std::sync::Arc;
 
-    /// Transfers of a millisecond kept in flight each way when no period is asked for: a
-    /// phone separating stems keeps the callback up to 3 ms at times.
-    const DEFAULT_URBS: usize = 4;
+    /// Transfers of a millisecond kept in flight each way when no period is asked for. A phone
+    /// separating stems kept the callback below 0.9 ms with the performance hints (up to 3.1
+    /// without): a UMC404HD then measures 6.1 to 6.8 ms of round trip, 5.2 to 5.5 with two.
+    const DEFAULT_URBS: usize = 3;
 
     /// A card streaming; dropping it stops it and gives the card back to the system.
     pub(crate) struct Running {
