@@ -87,6 +87,8 @@ export interface AudioHealth {
   overBudget: number;
   worstCallbackUs: number;
   inputUnderruns: number;
+  /** Input frames dropped: more had come than the output took. */
+  inputDropped: number;
   deviceLost: boolean;
   /** The engine failed and could not be restarted: the audio is silent. */
   engineFailed: boolean;
