@@ -1,14 +1,82 @@
 name: Mobile
 
 # The phone builds: a mobile version tag (mobile-1.2.3), apart from the computers' tags, or on
-# demand. Compiles Prisme for iOS, starts it in the iPhone simulator, and keeps a screenshot,
-# the logs and the Xcode project it generated.
+# demand. Android: the signed APK, attached to a draft release for a tag (publishing it offers
+# the download). iOS: only checked, compiled and started in the iPhone simulator, with a
+# screenshot, the logs and the Xcode project it generated (an App Store release needs Apple's
+# paid membership).
 on:
   workflow_dispatch:
   push:
     tags: ["mobile-[0-9]+.[0-9]+.[0-9]+"]
 
 jobs:
+  android:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      NDK_VERSION: 30.0.16248370
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup
+      - name: The tag is the app version
+        if: startsWith(github.ref, 'refs/tags/')
+        run: |
+          version=$(cargo metadata --no-deps --format-version 1 | jq -r '.packages[] | select(.name == "prisme-desktop") | .version')
+          [ "mobile-$version" = "$GITHUB_REF_NAME" ] || { echo "tag $GITHUB_REF_NAME, app version $version"; exit 1; }
+          echo "VERSION=$version" >> "$GITHUB_ENV"
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+      - name: The NDK of the project, and Rust for the phones' processors
+        run: |
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "ndk;$NDK_VERSION" > /dev/null
+          ndk="$ANDROID_HOME/ndk/$NDK_VERSION"
+          toolchain="$ndk/toolchains/llvm/prebuilt/linux-x86_64"
+          clang=$(ls "$toolchain/lib/clang" | head -1)
+          echo "NDK_HOME=$ndk" >> "$GITHUB_ENV"
+          echo "BINDGEN_EXTRA_CLANG_ARGS_aarch64_linux_android=--sysroot=$toolchain/sysroot -isystem $toolchain/lib/clang/$clang/include" >> "$GITHUB_ENV"
+          rustup target add aarch64-linux-android
+      - name: The release key (kept out of the repository)
+        working-directory: apps/prisme-desktop/gen/android
+        env:
+          KEYSTORE: ${{ secrets.ANDROID_KEYSTORE }}
+          PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+        run: |
+          echo "$KEYSTORE" | base64 -d > "$RUNNER_TEMP/release.jks"
+          {
+            echo "storeFile=$RUNNER_TEMP/release.jks"
+            echo "keyAlias=$ALIAS"
+            echo "password=$PASSWORD"
+          } > keystore.properties
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: tauri-cli@2.12.2
+      - name: APK
+        working-directory: apps/prisme-desktop
+        run: |
+          cargo tauri android build --apk true --target aarch64
+          apk=gen/android/app/build/outputs/apk/universal/release/app-universal-release.apk
+          apksigner=$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)/apksigner
+          "$apksigner" verify "$apk"
+          mkdir -p "$RUNNER_TEMP/out"
+          cp "$apk" "$RUNNER_TEMP/out/Prisme_${VERSION:-$GITHUB_SHA}_android-arm64.apk"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: android
+          path: ${{ runner.temp }}/out
+      - name: Draft release
+        if: startsWith(github.ref, 'refs/tags/')
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release view "$GITHUB_REF_NAME" > /dev/null 2>&1 ||
+            gh release create "$GITHUB_REF_NAME" --draft --verify-tag --title "Prisme mobile $VERSION" --notes ""
+          gh release upload "$GITHUB_REF_NAME" "$RUNNER_TEMP"/out/*.apk --clobber
+
   ios:
     runs-on: macos-latest
     env:
