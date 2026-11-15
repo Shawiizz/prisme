@@ -11,7 +11,7 @@ fn near_the_end(mode: VinylMode) -> Rig {
     let mut rig = Rig::new();
     rig.turntable(0, 622.0, 1.03);
     rig.send(Command::LoadTrack { deck: 0, track: silent_track(60.0) });
-    rig.send(Command::SetLeadIn { deck: 0, seconds: 600.0 });
+    rig.send(Command::SetLeadIn { deck: 0, seconds: Some(600.0) });
     rig.send(Command::SetVinylMode { deck: 0, mode });
     rig.send(Command::SetVinylEnabled { deck: 0, enabled: true });
     rig.run(1.0);

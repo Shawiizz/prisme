@@ -40,7 +40,10 @@ pub fn list_devices(backend: BackendDto) -> AppResult<Vec<DeviceDto>> {
 
 #[tauri::command]
 pub fn timecode_formats() -> Vec<TimecodeFormatDto> {
-    prisme_timecode::FORMATS.iter().map(|f| TimecodeFormatDto { id: f.id, name: f.name }).collect()
+    prisme_timecode::FORMATS
+        .iter()
+        .map(|f| TimecodeFormatDto { id: f.id, name: f.name, lead_in_s: f.lead_in_s })
+        .collect()
 }
 
 /// The audio settings the user chose (they may differ from the running ones if the
@@ -131,7 +134,7 @@ fn restart<T>(
         // the simulated needle starts 10 s into the record: start the track there
         let mut decks = lock(&state.decks);
         decks[0].vinyl_enabled = true;
-        decks[0].lead_in_s = prisme_timecode::testing::SimulatedTurntable::START_S;
+        decks[0].lead_in_s = Some(prisme_timecode::testing::SimulatedTurntable::START_S);
     }
     let mut session = audio_host::start(settings, state.preferences.read(|p| p.dj.decks()))?;
     state.restore(&mut session);

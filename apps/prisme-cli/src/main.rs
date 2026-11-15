@@ -65,9 +65,9 @@ enum Cmd {
         /// Timecode format id (serato_cv02_a, serato_cv02_b, serato_cd).
         #[arg(long, default_value = "serato_cv02_a")]
         format: String,
-        /// Position of the track start on the record, in seconds.
-        #[arg(long, default_value_t = 0.0)]
-        lead_in: f64,
+        /// Position of the track start on the record, in seconds; else the record's own.
+        #[arg(long)]
+        lead_in: Option<f64>,
         #[arg(long, default_value_t = 60)]
         seconds: u64,
         #[command(flatten)]
@@ -199,7 +199,7 @@ fn main() -> Result<()> {
             let format = &prisme_timecode::SERATO_CV02_A;
             run(&file, &audio, None, Some((format, pattern)), seconds, |c| {
                 c.send(Command::SetVinylMode { deck: 0, mode: mode.into() }).ok();
-                c.send(Command::SetLeadIn { deck: 0, seconds: SimulatedTurntable::START_S }).ok();
+                c.send(Command::SetLeadIn { deck: 0, seconds: Some(SimulatedTurntable::START_S) }).ok();
                 c.send(Command::SetVinylEnabled { deck: 0, enabled: true }).ok();
             })
         }

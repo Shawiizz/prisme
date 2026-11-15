@@ -184,10 +184,10 @@ pub enum Command {
         mode: VinylMode,
     },
     /// Position of the start of the track on the record, in seconds at its [`Rpm`]
-    /// (lead-in).
+    /// (lead-in); `None`, the record's own.
     SetLeadIn {
         deck: DeckId,
-        seconds: f64,
+        seconds: Option<f64>,
     },
     SetRpm {
         deck: DeckId,

@@ -10,6 +10,7 @@ import {
 } from '@angular/core';
 import { Channel, invoke } from '@tauri-apps/api/core';
 import { EngineService } from '../../core/services/engine.service';
+import { SettingsService } from '../../core/services/settings.service';
 import { Rpm, SignalState, VinylMode } from '../../core/models/engine';
 import { deckLetter, formatSpeed, formatTime } from '../../shared/time';
 import { ScopePainter } from './scope-painter';
@@ -42,9 +43,15 @@ export class TurntablePanel {
   readonly deck = input.required<number>();
 
   protected readonly engine = inject(EngineService);
+  private readonly audio = inject(SettingsService);
   protected readonly size = SCOPE_SIZE;
   protected readonly letter = computed(() => deckLetter(this.deck()));
   protected readonly settings = computed(() => this.engine.decks()[this.deck()]);
+  /** Where the track starts on the record when no lead-in is chosen. */
+  protected readonly recordLeadIn = computed(() => {
+    const id = this.audio.settings()?.timecodeFormat;
+    return String(this.audio.formats().find((f) => f.id === id)?.leadInS ?? 0);
+  });
   protected readonly vinyl = computed(
     () => this.engine.status()?.decks[this.deck()]?.vinyl ?? null,
   );
@@ -91,9 +98,12 @@ export class TurntablePanel {
     this.engine.setVinyl(this.deck(), { rpm });
   }
 
+  /** Emptied, the record's own lead-in again. */
   setLeadIn(event: Event) {
-    const seconds = Number((event.target as HTMLInputElement).value);
-    if (Number.isFinite(seconds) && seconds >= 0)
+    const value = (event.target as HTMLInputElement).value.trim();
+    const seconds = Number(value);
+    if (value === '') this.engine.setVinyl(this.deck(), { leadInS: null });
+    else if (Number.isFinite(seconds) && seconds >= 0)
       this.engine.setVinyl(this.deck(), { leadInS: seconds });
   }
 

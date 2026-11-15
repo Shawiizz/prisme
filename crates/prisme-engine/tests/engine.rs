@@ -51,7 +51,7 @@ fn absolute_vinyl_follows_the_record_position() {
     let mut rig = Rig::new();
     rig.turntable(0, 12.0, 1.0);
     rig.send(Command::LoadTrack { deck: 0, track: silent_track(40.0) });
-    rig.send(Command::SetLeadIn { deck: 0, seconds: 2.0 });
+    rig.send(Command::SetLeadIn { deck: 0, seconds: Some(2.0) });
     rig.send(Command::SetVinylEnabled { deck: 0, enabled: true });
     rig.run(1.0);
     let d = rig.deck(0);
@@ -73,7 +73,7 @@ fn a_record_at_45_rpm_plays_the_track_at_its_own_speed() {
     rig.turntable(0, 13.5, 1.35);
     rig.send(Command::LoadTrack { deck: 0, track: silent_track(40.0) });
     rig.send(Command::SetRpm { deck: 0, rpm: Rpm::Rpm45 });
-    rig.send(Command::SetLeadIn { deck: 0, seconds: 2.0 });
+    rig.send(Command::SetLeadIn { deck: 0, seconds: Some(2.0) });
     rig.send(Command::SetVinylEnabled { deck: 0, enabled: true });
     rig.run(1.0);
     let d = rig.deck(0);
@@ -97,7 +97,7 @@ fn absolute_vinyl_closes_a_small_gap_quickly() {
     rig.send(Command::SetVinylEnabled { deck: 0, enabled: true });
     rig.run(1.0);
     // the track 20 ms behind the record: too little to jump, it catches up
-    rig.send(Command::SetLeadIn { deck: 0, seconds: -0.02 });
+    rig.send(Command::SetLeadIn { deck: 0, seconds: Some(-0.02) });
     rig.run(0.1);
     let d = rig.deck(0);
     let record = d.vinyl.record_position_s.expect("locked");

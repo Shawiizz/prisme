@@ -145,6 +145,7 @@ fn a_record_in_absolute_mode_keeps_control_of_the_position() {
     let mut rig = playing_deck(10.0);
     rig.turntable(0, 12.0, 1.0);
     rig.send(Command::SetVinylMode { deck: 0, mode: VinylMode::Absolute });
+    rig.send(Command::SetLeadIn { deck: 0, seconds: Some(0.0) });
     rig.send(Command::SetVinylEnabled { deck: 0, enabled: true });
     rig.run(0.5);
     rig.send(Command::BeatLoop { deck: 0, beats: 1.0 });
@@ -153,6 +154,17 @@ fn a_record_in_absolute_mode_keeps_control_of_the_position() {
     let d = rig.deck(0);
     assert!(!d.looping.active);
     assert_close(d.position_s, 13.0, 0.05);
+}
+
+#[test]
+fn a_record_in_absolute_mode_starts_the_track_past_its_own_lead_in() {
+    let mut rig = playing_deck(10.0);
+    // a Serato record: the track starts 28 s into it
+    rig.turntable(0, 30.0, 1.0);
+    rig.send(Command::SetVinylMode { deck: 0, mode: VinylMode::Absolute });
+    rig.send(Command::SetVinylEnabled { deck: 0, enabled: true });
+    rig.run(0.5);
+    assert_close(rig.deck(0).position_s, 2.5, 0.05);
 }
 
 #[test]

@@ -34,6 +34,9 @@ pub struct TimecodeFormat {
     pub safe: u32,
     /// Carrier cycles per second at nominal speed.
     pub resolution: f64,
+    /// Where a track starts on the record, in seconds at 33 1/3 rpm: the grooves before
+    /// are where the needle is put down (Mixxx's values).
+    pub lead_in_s: f64,
     /// Channel carrying the bits.
     pub primary: Channel,
     /// Sign of the carrier phase rotation (atan2(primary, secondary)) for forward play.
@@ -50,6 +53,7 @@ pub const SERATO_CV02_A: TimecodeFormat = TimecodeFormat {
     length: 712_000,
     safe: 625_000,
     resolution: 1000.0,
+    lead_in_s: 28.0,
     primary: Channel::Right,
     phase_sign: -1.0,
 };
@@ -64,6 +68,7 @@ pub const SERATO_CV02_B: TimecodeFormat = TimecodeFormat {
     length: 922_000,
     safe: 908_000,
     resolution: 1000.0,
+    lead_in_s: 28.0,
     primary: Channel::Right,
     phase_sign: -1.0,
 };
@@ -78,6 +83,7 @@ pub const SERATO_CD: TimecodeFormat = TimecodeFormat {
     length: 950_000,
     safe: 890_000,
     resolution: 1000.0,
+    lead_in_s: 0.0,
     primary: Channel::Right,
     phase_sign: -1.0,
 };

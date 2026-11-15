@@ -35,8 +35,9 @@ pub(crate) struct VinylControl {
     pub(crate) enabled: bool,
     pub(crate) mode: VinylMode,
     pub(crate) rpm: Rpm,
-    /// Position of the track start on the record (seconds of music).
-    pub(crate) lead_in_s: f64,
+    /// Position of the track start on the record (seconds of music), if chosen: else the
+    /// record's own.
+    pub(crate) lead_in_s: Option<f64>,
     run_out: RunOut,
     reversed_frames: usize,
     crossed_after_frames: usize,
@@ -59,7 +60,7 @@ impl VinylControl {
             enabled: false,
             mode: VinylMode::Absolute,
             rpm: Rpm::default(),
-            lead_in_s: 0.0,
+            lead_in_s: None,
             run_out: RunOut::Unarmed,
             reversed_frames: 0,
             crossed_after_frames: (CROSSED_AFTER_S * f64::from(sample_rate)) as usize,
@@ -80,10 +81,15 @@ impl VinylControl {
             return VinylDrive { speed, target_position_s: None };
         }
         let target_position_s = match self.mode {
-            VinylMode::Absolute => self.position_s(position_ms).map(|s| s - self.lead_in_s),
+            VinylMode::Absolute => self.position_s(position_ms).map(|s| s - self.lead_in_s()),
             VinylMode::Relative => None,
         };
         VinylDrive { speed, target_position_s }
+    }
+
+    /// Where the track starts on the record, in seconds of music.
+    fn lead_in_s(&self) -> f64 {
+        self.lead_in_s.unwrap_or_else(|| self.decoder.format().lead_in_s / self.rpm.record_speed())
     }
 
     /// A position read from the record, in seconds of music.

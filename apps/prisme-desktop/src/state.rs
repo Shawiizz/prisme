@@ -150,7 +150,8 @@ pub struct DeckSettings {
     pub vinyl_enabled: bool,
     pub vinyl_mode: VinylModeDto,
     pub rpm: RpmDto,
-    pub lead_in_s: f64,
+    /// Chosen, else the record's own.
+    pub lead_in_s: Option<f64>,
     pub swap_channels: bool,
     pub key_lock: bool,
     pub strip: ChannelStripDto,

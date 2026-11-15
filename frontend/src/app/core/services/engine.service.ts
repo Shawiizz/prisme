@@ -39,7 +39,7 @@ const DEFAULT_DECK: DeckSettings = {
   vinylEnabled: false,
   vinylMode: 'absolute',
   rpm: '33',
-  leadInS: 0,
+  leadInS: null,
   swapChannels: false,
   keyLock: false,
   strip: FLAT_STRIP,
@@ -271,13 +271,13 @@ export class EngineService {
 
   setVinyl(
     deck: number,
-    changes: { enabled?: boolean; mode?: VinylMode; rpm?: Rpm; leadInS?: number },
+    changes: { enabled?: boolean; mode?: VinylMode; rpm?: Rpm; leadInS?: number | null },
   ) {
     const d = this.patchDeck(deck, {
       vinylEnabled: changes.enabled ?? this.decks()[deck].vinylEnabled,
       vinylMode: changes.mode ?? this.decks()[deck].vinylMode,
       rpm: changes.rpm ?? this.decks()[deck].rpm,
-      leadInS: changes.leadInS ?? this.decks()[deck].leadInS,
+      leadInS: changes.leadInS !== undefined ? changes.leadInS : this.decks()[deck].leadInS,
     });
     return this.takeTurntable(deck, d);
   }

@@ -28,7 +28,10 @@ pub struct DeckPreferences {
     pub vinyl_enabled: bool,
     pub vinyl_mode: VinylModeDto,
     pub rpm: RpmDto,
-    pub lead_in_s: f64,
+    /// A lead-in chosen for the deck's record, else the record's own. Under a name of its
+    /// own: before records had theirs, every file held a lead-in of 0.
+    #[serde(rename = "chosenLeadInS")]
+    pub lead_in_s: Option<f64>,
     /// The turntable's left and right channels are crossed.
     pub swap_channels: bool,
     /// The pitch stays when the speed changes.
@@ -230,7 +233,7 @@ mod tests {
             vinyl_enabled: true,
             vinyl_mode: VinylModeDto::Relative,
             rpm: RpmDto::Rpm45,
-            lead_in_s: 2.5,
+            lead_in_s: Some(2.5),
             swap_channels: true,
             key_lock: true,
             samples: vec![Some("C:/Samples/horn.wav".into()), None],

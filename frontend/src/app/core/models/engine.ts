@@ -211,7 +211,8 @@ export interface DeckSettings {
   vinylEnabled: boolean;
   vinylMode: VinylMode;
   rpm: Rpm;
-  leadInS: number;
+  /** Where the track starts on the record, if chosen: else the record's own. */
+  leadInS: number | null;
   /** The turntable's left and right channels are crossed. */
   swapChannels: boolean;
   /** The pitch stays when the speed changes. */

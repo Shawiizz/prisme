@@ -45,6 +45,8 @@ export interface AudioInfo {
 export interface TimecodeFormat {
   id: string;
   name: string;
+  /** Where a track starts on the record, in seconds. */
+  leadInS: number;
 }
 
 export const BUFFER_SIZES = [32, 64, 128, 256, 512, 1024, 2048];

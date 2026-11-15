@@ -298,6 +298,7 @@ pub struct AudioInfo {
 pub struct TimecodeFormatDto {
     pub id: &'static str,
     pub name: &'static str,
+    pub lead_in_s: f64,
 }
 
 /// A waveform as sent to the UI, in binary (as JSON, a track's waveform is several
@@ -599,7 +600,8 @@ pub struct DeckSettingsDto {
     pub vinyl_enabled: bool,
     pub vinyl_mode: VinylModeDto,
     pub rpm: RpmDto,
-    pub lead_in_s: f64,
+    /// Chosen, else the record's own.
+    pub lead_in_s: Option<f64>,
     pub swap_channels: bool,
     pub key_lock: bool,
     pub strip: ChannelStripDto,

@@ -50,7 +50,7 @@ pub fn set_vinyl(
     enabled: bool,
     mode: VinylModeDto,
     rpm: RpmDto,
-    lead_in_s: f64,
+    lead_in_s: Option<f64>,
 ) -> AppResult<Option<usize>> {
     AppState::check_deck(deck)?;
     let settings = {

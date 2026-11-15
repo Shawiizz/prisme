@@ -89,7 +89,8 @@
         type="number"
         min="0"
         step="0.5"
-        [value]="settings().leadInS"
+        [value]="settings().leadInS ?? ''"
+        [placeholder]="recordLeadIn()"
         (change)="setLeadIn($event)"
         [title]="'Where the track starts on the record' | t"
       />
