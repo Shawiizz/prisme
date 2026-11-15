@@ -2,6 +2,7 @@
   "name": "Pioneer DDJ-SB2",
   "ports": ["DDJ-SB2"],
   "credits": "From the Pioneer DDJ-SB2 mapping of Mixxx by Be, Michael Stahl (DG3NEC) (GPL-2.0-or-later).",
+  "verified": true,
   "init": [[155, 9, 127]],
   "controls": [
     {"control": {"kind": "note", "channel": 0, "number": 11}, "target": "deck1.play"},

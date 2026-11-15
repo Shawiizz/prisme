@@ -17,6 +17,14 @@ pub fn selected_mode(target: &str) -> Option<(&str, &str)> {
     target.strip_prefix(MODE)?.split_once('.')
 }
 
+/// A second action for a key held down for `ms` milliseconds: pressed and let go sooner, it
+/// drives its own.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Hold {
+    pub ms: u32,
+    pub target: String,
+}
+
 /// A mode of a controller: `mode` of its group `group`.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct When {
@@ -97,6 +105,15 @@ pub struct Mapping {
     /// What its light shows in each state of its action.
     #[serde(default, skip_serializing_if = "LightValues::is_empty")]
     pub light: LightValues,
+    /// Drives its action, as a key pressed, when the control sends this value (a switch in
+    /// one of its positions).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub on_value: Option<u16>,
+    /// Other actions it drives along with its own.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub also: Vec<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub hold: Option<Hold>,
 }
 
 impl Mapping {
@@ -112,6 +129,11 @@ impl Mapping {
     /// Whether it drives its action in `modes`.
     pub fn applies(&self, modes: &Modes) -> bool {
         self.when.as_ref().is_none_or(|w| modes.get(&w.group) == Some(&w.mode))
+    }
+
+    /// Whether `event` is one of its own: a switch's mapping takes its position only.
+    fn takes(&self, event: Event) -> bool {
+        self.sent_by(event.control) && self.on_value.is_none_or(|v| v == event.raw)
     }
 
     /// Its value of a position from 0 to 1.
@@ -136,13 +158,13 @@ impl Mappings {
         &self.0
     }
 
-    /// The mapping an event of `device` belongs to in `modes`: in the shift layer while shift
+    /// The mapping `event` of `device` belongs to in `modes`: in the shift layer while shift
     /// is held (else in the first layer, as a control without a second use keeps its first).
-    pub fn find(&self, device: &str, control: Control, shifted: bool, modes: &Modes) -> Option<&Mapping> {
+    pub fn find(&self, device: &str, event: Event, shifted: bool, modes: &Modes) -> Option<&Mapping> {
         let find = |shift: bool| {
             self.0
                 .iter()
-                .find(|m| m.device == device && m.shift == shift && m.applies(modes) && m.sent_by(control))
+                .find(|m| m.device == device && m.shift == shift && m.applies(modes) && m.takes(event))
         };
         find(shifted).or_else(|| find(false).filter(|_| shifted))
     }
@@ -151,8 +173,10 @@ impl Mappings {
     /// action had on that controller, unless the action takes `several`.
     pub fn learn(&mut self, mapping: Mapping, several: bool) {
         self.0.retain(|m| {
-            let same_control =
-                m.control == mapping.control && m.shift == mapping.shift && m.when == mapping.when;
+            let same_control = m.control == mapping.control
+                && m.shift == mapping.shift
+                && m.when == mapping.when
+                && m.on_value == mapping.on_value;
             let replaced = same_control || (m.target == mapping.target && !several);
             m.device != mapping.device || !replaced
         });
@@ -230,8 +254,8 @@ impl Reader {
         let released = key && event.raw == 0;
         let layer = released.then(|| reader.pressed.remove(&event.control)).flatten();
         let mapping = match &layer {
-            Some((shifted, modes)) => mappings.find(device, event.control, *shifted, modes),
-            None => mappings.find(device, event.control, reader.shifted, &reader.modes),
+            Some((shifted, modes)) => mappings.find(device, event, *shifted, modes),
+            None => mappings.find(device, event, reader.shifted, &reader.modes),
         }?;
         if key && !released {
             reader.pressed.insert(event.control, (reader.shifted, reader.modes.clone()));
@@ -256,6 +280,7 @@ impl Reader {
                 reader.coarse.insert(mapping.control, event.raw);
                 None
             }
+            None if mapping.on_value.is_some() => Some((mapping, 1.0)),
             None if mapping.encoding.is_relative() => Some((mapping, mapping.encoding.value(event))),
             None => Some((mapping, mapping.position(mapping.encoding.value(event)))),
         }
@@ -315,6 +340,9 @@ mod tests {
             when: None,
             invert: false,
             light: LightValues::default(),
+            on_value: None,
+            also: Vec::new(),
+            hold: None,
         }
     }
 
@@ -463,7 +491,10 @@ mod tests {
         learnt.learn(mapping("DDJ", PAD, "deck1.cue"), false);
         learnt.learn(mapping("DDJ", Control { number: 21, ..KNOB }, "deck1.volume"), false);
         let layered = Mappings::layered(model, &learnt, &["deck1.sync".to_owned()], |_| false);
-        let target = |control| layered.find("DDJ", control, false, &Modes::new()).map(|m| m.target.as_str());
+        let target = |control| {
+            let pressed = Event { control, raw: 127 };
+            layered.find("DDJ", pressed, false, &Modes::new()).map(|m| m.target.as_str())
+        };
         assert_eq!(target(PAD), Some("deck1.cue"));
         assert_eq!(target(shifted_pad), Some("deck1.play"));
         assert_eq!(target(KNOB), None);
@@ -489,6 +520,20 @@ mod tests {
         // the pad pressed in the other mode ends what it began there
         assert_eq!(read(&mut reader, &mappings, &[0x90, 36, 0]), Some(("deck1.hotcue1".into(), 0.0)));
         assert_eq!(read(&mut reader, &mappings, &[0x90, 36, 127]).unwrap().0, "deck1.roll1");
+    }
+
+    #[test]
+    fn a_switch_drives_the_action_of_its_position() {
+        let switch = Control { number: 3, ..KNOB };
+        // as a profile gives them: two positions may drive the same action
+        let positions = [(0, "deck1.fx.off"), (1, "deck1.fx.on"), (2, "deck1.fx.on")]
+            .map(|(value, target)| Mapping { on_value: Some(value), ..mapping("DDJ", switch, target) });
+        let mappings = Mappings::layered(positions, &Mappings::default(), &[], |_| false);
+        assert_eq!(mappings.all().len(), 3, "a position each");
+        let mut reader = Reader::default();
+        assert_eq!(read(&mut reader, &mappings, &[0xb0, 3, 1]), Some(("deck1.fx.on".into(), 1.0)));
+        assert_eq!(read(&mut reader, &mappings, &[0xb0, 3, 0]), Some(("deck1.fx.off".into(), 1.0)));
+        assert_eq!(read(&mut reader, &mappings, &[0xb0, 3, 5]), None);
     }
 
     #[test]

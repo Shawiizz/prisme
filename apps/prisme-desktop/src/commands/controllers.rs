@@ -14,11 +14,15 @@ pub fn list_controllers(controllers: State<'_, Controllers>) -> AppResult<Vec<Co
     let plugged = Controllers::plugged()?;
     let enabled = controllers.setup().enabled;
     let missing = enabled.iter().filter(|name| !plugged.contains(name)).cloned().collect::<Vec<_>>();
-    let dto = |name: String, plugged: bool| ControllerDto {
-        enabled: enabled.contains(&name),
-        profile: controller_profiles::of(&name).map(|p| p.name.clone()),
-        name,
-        plugged,
+    let dto = |name: String, plugged: bool| {
+        let profile = controller_profiles::of(&name);
+        ControllerDto {
+            enabled: enabled.contains(&name),
+            profile: profile.map(|p| p.name.clone()),
+            verified: profile.is_some_and(|p| p.verified),
+            name,
+            plugged,
+        }
     };
     Ok(plugged.into_iter().map(|n| dto(n, true)).chain(missing.into_iter().map(|n| dto(n, false))).collect())
 }

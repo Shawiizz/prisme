@@ -16,6 +16,9 @@ import { errorText } from '../errors';
  * MIDI controllers: their mapped controls play the app's controls, the controls that
  * are on light up on the controller, and a control is mapped by moving it (learn).
  */
+/** How far a step of an encoder moves a fader's setting (from 0 to 1). */
+const ENCODER_STEP = 1 / 64;
+
 @Injectable({ providedIn: 'root' })
 export class ControllerService {
   private readonly controls = inject(ControlService);
@@ -56,10 +59,16 @@ export class ControllerService {
     await this.reloadMappings();
   }
 
-  /** A mapped control moved; a fader acts once it has picked its setting up. */
-  private input({ target, value }: ControllerInput) {
+  /** A mapped control moved; a fader acts once it has picked its setting up, an encoder's
+   * steps move it from where it is. */
+  private input({ target, value, steps }: ControllerInput) {
     const control = this.controls.findInUse(target);
     const current = control?.position?.();
+    if (steps && control?.kind !== 'encoder') {
+      if (current !== undefined)
+        control?.apply(Math.min(Math.max(current + value * ENCODER_STEP, 0), 1));
+      return;
+    }
     if (current !== undefined) {
       const pickup = this.pickups.get(target) ?? new Pickup();
       this.pickups.set(target, pickup);

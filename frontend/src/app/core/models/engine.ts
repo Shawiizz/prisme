@@ -224,8 +224,17 @@ export interface DeckSettings {
   samplerGain: number;
 }
 
-export type EffectKind =
-  'echo' | 'pingPong' | 'reverb' | 'flanger' | 'phaser' | 'filter' | 'gate' | 'bitcrusher';
+export const EFFECT_KINDS = [
+  'echo',
+  'pingPong',
+  'reverb',
+  'flanger',
+  'phaser',
+  'filter',
+  'gate',
+  'bitcrusher',
+] as const;
+export type EffectKind = (typeof EFFECT_KINDS)[number];
 
 /** A deck's beat effect. */
 export interface FxSettings {

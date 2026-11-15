@@ -1,3 +1,4 @@
+import { PITCH_RANGES } from '../models/preferences';
 import { computed, Injectable, inject } from '@angular/core';
 import { EngineService } from '../services/engine.service';
 import { FxService } from '../services/fx.service';
@@ -76,10 +77,15 @@ export class ControlService {
       const track = this.engine.tracks()[deck];
       return track ? partLevel(track.stemMix, part) : 1;
     },
-    triggerSample: (deck, slot) => this.sampler.trigger(deck, slot),
+    triggerSample: (deck, slot, gain) => {
+      if (gain !== undefined) this.sampler.setGain(deck, gain);
+      this.sampler.trigger(deck, slot);
+    },
     sampleLoaded: (deck, slot) => !!this.engine.decks()[deck].samples[slot],
     samplePlaying: (deck, slot) => ((this.deck(deck)?.samplesPlaying ?? 0) & (1 << slot)) !== 0,
     toggleFx: (deck) => this.fx.setEnabled(deck, !this.fx.settings(deck).enabled),
+    setFxOn: (deck, on) => this.fx.setEnabled(deck, on),
+    cycleFx: (deck, step) => this.fx.cycle(deck, step),
     fxOn: (deck) => this.fx.settings(deck).enabled,
     setFxMix: (deck, position) => this.fx.setMix(deck, position),
     setFxAmount: (deck, position) => this.fx.setAmount(deck, position),
@@ -120,6 +126,16 @@ export class ControlService {
     clearSelection: () => this.library.clearSelection(),
     prepareSelected: () => this.library.addSelectedToPrepare(),
     focusSearch: () => this.library.searchRequests.update((n) => n + 1),
+    keyShift: (deck) => this.engine.tracks()[deck]?.keyShift ?? 0,
+    setKeyShift: (deck, semitones) => this.engine.setKeyShift(deck, semitones),
+    toggleQuantize: () => this.preferences.updateDj({ quantize: !this.preferences.dj().quantize }),
+    quantized: () => this.preferences.dj().quantize,
+    cycleTempoRange: () => {
+      const at = PITCH_RANGES.indexOf(
+        this.preferences.dj().pitchRange as (typeof PITCH_RANGES)[number],
+      );
+      this.preferences.updateDj({ pitchRange: PITCH_RANGES[(at + 1) % PITCH_RANGES.length] });
+    },
     toggleHelp: () => this.navigation.toggleSettings('shortcuts'),
     togglePalette: () => this.navigation.togglePalette(),
     openSettings: () => this.navigation.openSettings(),

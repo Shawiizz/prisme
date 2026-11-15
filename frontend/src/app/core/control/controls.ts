@@ -53,16 +53,23 @@ export interface ControlActions {
   bend(deck: number, direction: -1 | 0 | 1): void;
   toggleKeyLock(deck: number): void;
   keyLocked(deck: number): boolean;
+  /** The track's key moved by so many semitones. */
+  keyShift(deck: number): number;
+  setKeyShift(deck: number, semitones: number): void;
   /** Mutes or plays a part of a separated track. */
   toggleStem(deck: number, part: StemPart): void;
   stemPlaying(deck: number, part: StemPart): boolean;
   /** Sets how loud a part of a separated track plays. */
   setStemLevel(deck: number, part: StemPart, position: number): void;
   stemLevel(deck: number, part: StemPart): number;
-  triggerSample(deck: number, slot: number): void;
+  /** Plays a sample, as loud as `gain` (0 to 1) when the pad tells how hard it was hit. */
+  triggerSample(deck: number, slot: number, gain?: number): void;
   sampleLoaded(deck: number, slot: number): boolean;
   samplePlaying(deck: number, slot: number): boolean;
   toggleFx(deck: number): void;
+  setFxOn(deck: number, on: boolean): void;
+  /** The effect `step` places after this one (before it, negative). */
+  cycleFx(deck: number, step: number): void;
   fxOn(deck: number): boolean;
   setFxMix(deck: number, position: number): void;
   /** The effect's main knob (feedback, room size, depth: see each effect). */
@@ -106,6 +113,10 @@ export interface ControlActions {
   clearSelection(): void;
   prepareSelected(): void;
   focusSearch(): void;
+  toggleQuantize(): void;
+  quantized(): boolean;
+  /** The tempo faders' next range (±8, ±16, ±50 %), back to the first after the last. */
+  cycleTempoRange(): void;
   toggleHelp(): void;
   togglePalette(): void;
   openSettings(): void;
@@ -204,6 +215,7 @@ function deckControls(a: ControlActions, deck: number): Control[] {
     ),
     direct(id('jog'), group, t('Jog wheel (turn)'), 'encoder'),
     direct(id('jog.touch'), group, t('Jog wheel (touch: scratch)'), 'button'),
+    direct(id('jog.search'), group, t('Jog wheel (search through the track)'), 'encoder'),
     lit(
       button(id('loop'), group, t('Loop 4 beats / exit'), () => a.toggleLoop(deck)),
       () => a.looping(deck),
@@ -225,6 +237,16 @@ function deckControls(a: ControlActions, deck: number): Control[] {
     hold(id('bend.down'), group, t('Slow down while held'), (held) => a.bend(deck, held ? -1 : 0)),
     hold(id('bend.up'), group, t('Speed up while held'), (held) => a.bend(deck, held ? 1 : 0)),
     button(id('tempo.reset'), group, t('Tempo back to the track'), () => a.resetTempo(deck)),
+    button(id('key.up'), group, t('Key up a semitone'), () =>
+      a.setKeyShift(deck, a.keyShift(deck) + 1),
+    ),
+    button(id('key.down'), group, t('Key down a semitone'), () =>
+      a.setKeyShift(deck, a.keyShift(deck) - 1),
+    ),
+    lit(
+      button(id('key.reset'), group, t('Key back to the track'), () => a.setKeyShift(deck, 0)),
+      () => a.keyShift(deck) !== 0,
+    ),
     lit(
       button(id('slip'), group, t('Slip'), () => a.toggleSlip(deck)),
       () => a.slipping(deck),
@@ -265,6 +287,16 @@ function deckControls(a: ControlActions, deck: number): Control[] {
       button(id('fx'), group, t('Effect on / off'), () => a.toggleFx(deck)),
       () => a.fxOn(deck),
     ),
+    lit(
+      button(id('fx.on'), group, t('Effect on'), () => a.setFxOn(deck, true)),
+      () => a.fxOn(deck),
+    ),
+    lit(
+      button(id('fx.off'), group, t('Effect off'), () => a.setFxOn(deck, false)),
+      () => !a.fxOn(deck),
+    ),
+    button(id('fx.next'), group, t('Next effect'), () => a.cycleFx(deck, 1)),
+    button(id('fx.previous'), group, t('Previous effect'), () => a.cycleFx(deck, -1)),
     fader(
       id('fx.mix'),
       group,
@@ -335,15 +367,42 @@ function deckControls(a: ControlActions, deck: number): Control[] {
 
 /**
  * The controls a controller's profile names by their number rather than one by one: a jump
- * of `deck1.jump.-8` beats (back), a loop of `deck1.loop.0.5` beats. `undefined` for an id
- * of another shape.
+ * of `deck1.jump.-8` beats (back), a loop of `deck1.loop.0.5` beats, the key moved
+ * `deck1.key.+2` semitones, a sample played as hard as its pad is hit
+ * (`deck1.sample3.velocity`). `undefined` for an id of another shape.
  */
 export function measuredControl(a: ControlActions, id: string): Control | undefined {
-  const [, d, kind, amount] = /^deck(\d)\.(jump|loop)\.(-?\d+(?:\.\d+)?)$/.exec(id) ?? [];
+  const velocity = /^deck(\d)\.sample(\d+)\.velocity$/.exec(id);
+  if (velocity) {
+    const [deck, slot] = [Number(velocity[1]) - 1, Number(velocity[2]) - 1];
+    if (deck < 0 || deck >= MAX_DECKS || slot < 0 || slot >= SAMPLE_SLOTS) return undefined;
+    const group = t('Deck {deck}', { deck: deckLetter(deck) });
+    const label = t('Sample {n} (as hard as the pad is hit)', { n: slot + 1 });
+    return {
+      ...button(id, group, label, () => undefined),
+      apply: (v) => {
+        if (v > 0) a.triggerSample(deck, slot, v);
+      },
+      lit: () => a.samplePlaying(deck, slot),
+      deck,
+    };
+  }
+  const [, d, kind, amount] = /^deck(\d)\.(jump|loop|key)\.([+-]?\d+(?:\.\d+)?)$/.exec(id) ?? [];
   const deck = Number(d) - 1;
   const beats = Number(amount);
-  if (kind === undefined || deck < 0 || deck >= MAX_DECKS || beats === 0) return undefined;
+  if (kind === undefined || deck < 0 || deck >= MAX_DECKS) return undefined;
   const group = t('Deck {deck}', { deck: deckLetter(deck) });
+  if (kind === 'key') {
+    if (!Number.isInteger(beats)) return undefined;
+    return {
+      ...button(id, group, t('Key moved {n} semitones', { n: beats }), () =>
+        a.setKeyShift(deck, beats),
+      ),
+      lit: () => a.keyShift(deck) === beats,
+      deck,
+    };
+  }
+  if (beats === 0) return undefined;
   if (kind === 'jump') {
     return {
       ...button(id, group, t('Jump {n} beats', { n: beats }), () => a.beatJump(deck, beats)),
@@ -417,6 +476,11 @@ export function buildControls(a: ControlActions): Control[] {
     button('library.selectAll', library, t('Select all the tracks'), () => a.selectAll()),
     button('library.clearSelection', library, t('Clear the selection'), () => a.clearSelection()),
     button('library.search', library, t('Search'), () => a.focusSearch()),
+    {
+      ...button('general.quantize', t('General'), t('Quantize'), () => a.toggleQuantize()),
+      lit: () => a.quantized(),
+    },
+    button('general.tempoRange', t('General'), t('Tempo fader range'), () => a.cycleTempoRange()),
     button('general.help', t('General'), t('Keyboard shortcuts'), () => a.toggleHelp()),
     button('general.palette', t('General'), t('Command palette'), () => a.togglePalette()),
     button('general.settings', t('General'), t('Settings'), () => a.openSettings()),

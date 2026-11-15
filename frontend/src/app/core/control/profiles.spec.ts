@@ -49,11 +49,13 @@ describe('controller profiles', () => {
     }
   });
 
-  it('read the steps of encoders only', () => {
+  it('read steps for encoders, and for faders an encoder turns, never for keys', () => {
     for (const p of profiles) {
-      const misread = p.controls.filter(
-        (c) => (c.encoding !== undefined) !== encoders.has(c.target),
-      );
+      const misread = p.controls.filter((c) => {
+        const kind = controls.find((k) => k.id === c.target)?.kind;
+        if (encoders.has(c.target)) return c.encoding === undefined;
+        return c.encoding !== undefined && kind !== 'fader';
+      });
       expect(misread.map((c) => `${p.name}: ${c.target}`)).toEqual([]);
     }
   });

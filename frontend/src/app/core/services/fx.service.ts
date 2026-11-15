@@ -1,5 +1,5 @@
 import { Injectable, inject } from '@angular/core';
-import { EffectKind, FX_BEATS, FxSettings } from '../models/engine';
+import { EFFECT_KINDS, EffectKind, FX_BEATS, FxSettings } from '../models/engine';
 import { EngineService } from './engine.service';
 
 /** Each deck's beat effect: which one, on or off, its level, its knob and its period. */
@@ -20,6 +20,14 @@ export class FxService {
       this.engine.call('set_fx', { deck, kind });
     }
     return this.setEnabled(deck, true);
+  }
+
+  /** The effect `step` places after this one (before it, negative), on or off as it was. */
+  cycle(deck: number, step: number) {
+    const at = EFFECT_KINDS.indexOf(this.settings(deck).kind);
+    const kind = EFFECT_KINDS[(at + step + EFFECT_KINDS.length * 2) % EFFECT_KINDS.length];
+    this.patch(deck, { kind });
+    return this.engine.call('set_fx', { deck, kind });
   }
 
   setEnabled(deck: number, enabled: boolean) {

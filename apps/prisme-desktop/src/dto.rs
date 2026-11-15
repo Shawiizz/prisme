@@ -996,6 +996,8 @@ pub struct ControllerDto {
     pub plugged: bool,
     /// The model Prisme knows it as, its controls mapped by its profile.
     pub profile: Option<String>,
+    /// Its profile was tried on the controller itself, not only read from another program's.
+    pub verified: bool,
 }
 
 /// A mapped control moved: the action and its value (see `prisme_control::Encoding`).
@@ -1004,6 +1006,8 @@ pub struct ControllerDto {
 pub struct ControllerInputDto {
     pub target: String,
     pub value: f32,
+    /// The value is steps of an encoder (a fader's action then moves by them).
+    pub steps: bool,
 }
 
 /// A deck's tempo, set from a controller (`deck-pitch`).

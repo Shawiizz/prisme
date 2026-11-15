@@ -9,6 +9,8 @@ export interface Controller {
   plugged: boolean;
   /** The model Prisme knows it as: its controls come mapped. */
   profile: string | null;
+  /** Its profile was tried on the controller itself, not only read from another program's. */
+  verified: boolean;
 }
 
 export interface MidiControl {
@@ -37,6 +39,8 @@ export interface ControllerMapping {
 export interface ControllerInput {
   target: string;
   value: number;
+  /** `value` is steps of an encoder: a fader's control moves by them. */
+  steps: boolean;
 }
 
 export function describeControl(c: MidiControl): string {

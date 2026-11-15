@@ -9,8 +9,13 @@ use prisme_engine::Command;
 pub enum Direct {
     Jog(usize),
     JogTouch(usize),
+    /// The jog turned to move through the track quickly (under shift, say).
+    JogSearch(usize),
     Pitch(usize),
 }
+
+/// Seconds of track a turn of a jog wheel goes through in a search.
+const SEARCH_SECONDS_PER_TURN: f64 = 10.0;
 
 impl Direct {
     /// The direct action named `target` (`deck1.jog`, `deck2.pitch`…), if it is one.
@@ -20,6 +25,7 @@ impl Direct {
         match action {
             "jog" => Some(Direct::Jog(deck)),
             "jog.touch" => Some(Direct::JogTouch(deck)),
+            "jog.search" => Some(Direct::JogSearch(deck)),
             "pitch" => Some(Direct::Pitch(deck)),
             _ => None,
         }
@@ -28,7 +34,7 @@ impl Direct {
     /// Whether the action `target` takes several controls of a controller: a jog wheel
     /// sends its top and its edge apart.
     pub fn takes_several(target: &str) -> bool {
-        matches!(Self::of(target), Some(Direct::Jog(_)))
+        matches!(Self::of(target), Some(Direct::Jog(_) | Direct::JogSearch(_)))
     }
 }
 
@@ -74,6 +80,10 @@ impl Performer {
             }
             // however lightly: some wheels tell how hard they are touched
             Direct::JogTouch(deck) => Some(Command::JogTouch { deck, touched: value > 0.0, at_s }),
+            Direct::JogSearch(deck) => Some(Command::Jump {
+                deck,
+                seconds: f64::from(value) / jog_steps_per_turn * SEARCH_SECONDS_PER_TURN,
+            }),
             Direct::Pitch(deck) => {
                 if self.pitch_pickups.len() <= deck {
                     self.pitch_pickups.resize_with(deck + 1, Pickup::default);
@@ -98,6 +108,7 @@ mod tests {
         assert_eq!(Direct::of("deck1.jog"), Some(Direct::Jog(0)));
         assert_eq!(Direct::of("deck2.jog.touch"), Some(Direct::JogTouch(1)));
         assert_eq!(Direct::of("deck2.pitch"), Some(Direct::Pitch(1)));
+        assert_eq!(Direct::of("deck1.jog.search"), Some(Direct::JogSearch(0)));
         assert_eq!(Direct::of("deck1.play"), None);
         assert_eq!(Direct::of("deck0.jog"), None);
         assert_eq!(Direct::of("mixer.crossfader"), None);
@@ -117,6 +128,13 @@ mod tests {
         assert!(matches!(touched, Some(Command::JogTouch { deck: 0, touched: true, .. })));
         let let_go = performer.command(Direct::JogTouch(0), 0.0, 3.5, STEPS, TEMPO);
         assert!(matches!(let_go, Some(Command::JogTouch { deck: 0, touched: false, .. })));
+    }
+
+    #[test]
+    fn a_jog_searches_seconds_a_turn() {
+        let mut performer = Performer::default();
+        let searched = performer.command(Direct::JogSearch(0), 360.0, 0.0, STEPS, TEMPO);
+        assert!(matches!(searched, Some(Command::Jump { deck: 0, seconds }) if seconds == 5.0));
     }
 
     #[test]

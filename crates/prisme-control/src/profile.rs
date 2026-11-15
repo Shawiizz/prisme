@@ -1,5 +1,5 @@
 use crate::light::{LightValue, LightValues};
-use crate::mapping::{Encoding, Mapping, Modes, When, MODE};
+use crate::mapping::{Encoding, Hold, Mapping, Modes, When, MODE};
 use crate::message::Control;
 use serde::{Deserialize, Serialize};
 
@@ -22,6 +22,9 @@ pub struct Profile {
     /// Where the mapping comes from, when it is not Prisme's own.
     #[serde(default, skip_serializing_if = "String::is_empty")]
     pub credits: String,
+    /// Tried on the controller itself, not only read from another program's mapping.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub verified: bool,
     /// Sent when the controller is opened (a request for its knobs' positions, say).
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub init: Vec<Vec<u8>>,
@@ -111,6 +114,15 @@ pub struct ProfileControl {
     /// Its light's values, when they are not 127 and 0.
     #[serde(default, skip_serializing_if = "LightValues::is_empty")]
     pub light: LightValues,
+    /// Drives its action, as a key pressed, when the control sends this value.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub on_value: Option<u16>,
+    /// Other actions it drives along with its own.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub also: Vec<String>,
+    /// Another action for the key held down a while.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub hold: Option<Hold>,
 }
 
 /// A light that is not the control of its action: its values by state beside it (`"on":
@@ -191,6 +203,9 @@ impl Profile {
             when: c.when.clone(),
             invert: c.invert,
             light: c.light.clone(),
+            on_value: c.on_value,
+            also: c.also.clone(),
+            hold: c.hold.clone(),
         });
         let selects = self.modes.iter().flat_map(move |g| {
             g.select.iter().map(move |s| Mapping {
@@ -203,6 +218,9 @@ impl Profile {
                 when: None,
                 invert: false,
                 light: s.light.clone(),
+                on_value: None,
+                also: Vec::new(),
+                hold: None,
             })
         });
         controls.chain(selects)

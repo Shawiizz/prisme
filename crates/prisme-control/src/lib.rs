@@ -13,7 +13,7 @@ mod pickup;
 mod profile;
 
 pub use light::{light, LightValue, LightValues, OFF, ON};
-pub use mapping::{selected_mode, Encoding, Mapping, Mappings, Modes, Reader, When, MODE, SHIFT};
+pub use mapping::{selected_mode, Encoding, Hold, Mapping, Mappings, Modes, Reader, When, MODE, SHIFT};
 pub use message::{parse, Control, ControlKind, Event};
 pub use pickup::Pickup;
 pub use profile::{

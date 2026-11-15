@@ -12,6 +12,11 @@
             <span class="pr-row__help">{{
               'Mapped as a {model}: learn a control to change it' | t: { model: c.profile }
             }}</span>
+            @if (!c.verified) {
+              <span class="pr-row__help">{{
+                'Converted from the mapping of Mixxx, not yet tried on this controller' | t
+              }}</span>
+            }
           }
         </div>
         <button

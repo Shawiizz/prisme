@@ -15,8 +15,8 @@ use crate::state::{lock, AppState};
 use midir::{Ignore, MidiInput, MidiInputConnection, MidiOutput, MidiOutputConnection};
 use prisme_audio_io::base_device_name;
 use prisme_control::{
-    selected_mode, Control, ControlKind, Encoding, Event, LightValue, Mapping, Mappings, Modes, Reader, OFF,
-    ON, SHIFT,
+    selected_mode, Control, ControlKind, Encoding, Event, Hold, LightValue, Mapping, Mappings, Modes, Reader,
+    OFF, ON, SHIFT,
 };
 use prisme_engine::Command;
 use prisme_session::JsonFile;
@@ -65,8 +65,20 @@ struct Learning {
 #[derive(Debug, PartialEq)]
 enum Routed {
     Learned(Mapping),
-    Input(ControllerInputDto),
+    /// What the UI performs, in order.
+    Input(Vec<ControllerInputDto>),
     Direct(Direct, f32),
+}
+
+/// A key pressed whose action waits to know whether it is held: held for `hold.ms`, it drives
+/// `hold.target` (`fired`), let go sooner its own.
+struct Holding {
+    device: String,
+    control: Control,
+    target: String,
+    hold: Hold,
+    since: Instant,
+    fired: bool,
 }
 
 struct Connection {
@@ -155,6 +167,7 @@ pub struct Controllers {
     connections: Mutex<Vec<Connection>>,
     /// The state of each action the UI last told (`on`, `off`, `playing`…).
     states: Mutex<HashMap<String, String>>,
+    holdings: Mutex<Vec<Holding>>,
 }
 
 impl Controllers {
@@ -168,6 +181,7 @@ impl Controllers {
             performer: Mutex::new(Performer::default()),
             connections: Mutex::new(Vec::new()),
             states: Mutex::new(HashMap::new()),
+            holdings: Mutex::new(Vec::new()),
         };
         controllers.layer();
         controllers
@@ -401,6 +415,7 @@ impl Controllers {
             loop {
                 std::thread::sleep(OUTPUT_EVERY);
                 let controllers = app.state::<Controllers>();
+                controllers.fire_holds(&app);
                 let levels = (metered.elapsed() >= METERS_EVERY).then(|| {
                     metered = Instant::now();
                     levels(&app.state::<AppState>())
@@ -482,7 +497,7 @@ impl Controllers {
     fn receive(&self, app: &AppHandle, device: &str, jog_steps_per_turn: f64, event: Event, at_s: f64) {
         let _ = match self.route(device, event) {
             Some(Routed::Learned(mapping)) => app.emit("controller-learned", mapping),
-            Some(Routed::Input(input)) => app.emit("controller-input", input),
+            Some(Routed::Input(inputs)) => inputs.iter().try_for_each(|i| app.emit("controller-input", i)),
             Some(Routed::Direct(action, value)) => {
                 self.perform(app, action, value, at_s, jog_steps_per_turn);
                 Ok(())
@@ -518,7 +533,7 @@ impl Controllers {
         }
         let mut reader = lock(&self.reader);
         let shift = lock(&self.mappings)
-            .find(device, event.control, false, &Modes::new())
+            .find(device, Event { raw: 127, ..event }, false, &Modes::new())
             .is_some_and(|m| m.target == SHIFT);
         // a release is the end of the previous press, not the control to learn; nor is shift
         let released = event.control.kind == ControlKind::Note && event.raw == 0;
@@ -534,6 +549,9 @@ impl Controllers {
                 when: None,
                 invert: false,
                 light: Default::default(),
+                on_value: None,
+                also: Vec::new(),
+                hold: None,
             };
             self.save(|s| {
                 s.unmapped.retain(|t| *t != mapping.target);
@@ -551,10 +569,50 @@ impl Controllers {
             }
             return None;
         };
+        if let Some(hold) = &mapping.hold {
+            return self.hold(device, event, mapping, hold);
+        }
         Some(match Direct::of(&mapping.target) {
             Some(action) => Routed::Direct(action, value),
-            None => Routed::Input(ControllerInputDto { target: mapping.target.clone(), value }),
+            None => Routed::Input(inputs(mapping, value)),
         })
+    }
+
+    /// A key whose action waits to know whether it is held: pressed, nothing yet; let go
+    /// before its time, its own action pressed and let go; after, the hold's let go.
+    fn hold(&self, device: &str, event: Event, mapping: &Mapping, hold: &Hold) -> Option<Routed> {
+        let mut holdings = lock(&self.holdings);
+        if event.raw > 0 {
+            holdings.push(Holding {
+                device: device.to_owned(),
+                control: event.control,
+                target: mapping.target.clone(),
+                hold: hold.clone(),
+                since: Instant::now(),
+                fired: false,
+            });
+            return None;
+        }
+        let at = holdings.iter().position(|h| h.device == device && h.control == event.control)?;
+        let held = holdings.remove(at);
+        let input =
+            |target: &str, value| ControllerInputDto { target: target.to_owned(), value, steps: false };
+        Some(Routed::Input(if held.fired {
+            vec![input(&held.hold.target, 0.0)]
+        } else {
+            vec![input(&held.target, 1.0), input(&held.target, 0.0)]
+        }))
+    }
+
+    /// The keys held long enough: their hold's action pressed.
+    fn fire_holds(&self, app: &AppHandle) {
+        for held in lock(&self.holdings).iter_mut() {
+            if !held.fired && held.since.elapsed() >= Duration::from_millis(u64::from(held.hold.ms)) {
+                held.fired = true;
+                let input = ControllerInputDto { target: held.hold.target.clone(), value: 1.0, steps: false };
+                let _ = app.emit("controller-input", input);
+            }
+        }
     }
 
     /// A fader just learnt whose low half follows on the controller numbered 32 higher is
@@ -583,7 +641,7 @@ impl Controllers {
     fn perform(&self, app: &AppHandle, action: Direct, value: f32, at_s: f64, jog_steps_per_turn: f64) {
         let state = app.state::<AppState>();
         let deck = match action {
-            Direct::Jog(d) | Direct::JogTouch(d) | Direct::Pitch(d) => d,
+            Direct::Jog(d) | Direct::JogTouch(d) | Direct::JogSearch(d) | Direct::Pitch(d) => d,
         };
         if state.has_deck(deck).is_err() {
             return;
@@ -627,6 +685,15 @@ impl Controllers {
         });
         *lock(&self.mappings) = layered;
     }
+}
+
+/// What `mapping` driven to `value` gives the UI: its action, and those it drives along.
+fn inputs(mapping: &Mapping, value: f32) -> Vec<ControllerInputDto> {
+    let steps = mapping.encoding.is_relative();
+    std::iter::once(&mapping.target)
+        .chain(&mapping.also)
+        .map(|target| ControllerInputDto { target: target.clone(), value, steps })
+        .collect()
 }
 
 /// The level of each source of a meter (`deck1`…, `main`) at the moment; none when the audio
@@ -710,7 +777,8 @@ mod tests {
     }
 
     fn input(target: &str, value: f32) -> Option<Routed> {
-        Some(Routed::Input(ControllerInputDto { target: target.into(), value }))
+        let steps = target == "library.browse";
+        Some(Routed::Input(vec![ControllerInputDto { target: target.into(), value, steps }]))
     }
 
     fn mapping(control: Control, target: &str) -> Mapping {
@@ -724,6 +792,9 @@ mod tests {
             when: None,
             invert: false,
             light: Default::default(),
+            on_value: None,
+            also: Vec::new(),
+            hold: None,
         }
     }
 
