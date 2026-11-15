@@ -1,0 +1,60 @@
+.veil {
+  position: fixed;
+  inset: 0;
+  z-index: 70;
+  background: rgb(0 0 0 / 0.55);
+}
+
+// in the middle, on a computer
+.box {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  z-index: 71;
+  width: min(380px, calc(100vw - 32px));
+  translate: -50% -50%;
+  padding: var(--pr-space-5);
+  border: 1px solid var(--pr-line-2);
+  border-radius: var(--pr-radius);
+  background: var(--pr-base);
+  box-shadow: 0 24px 64px rgb(0 0 0 / 0.5);
+}
+h4 {
+  margin: 0;
+  font: 600 17px / 1.25 var(--pr-font);
+  color: var(--pr-text);
+}
+p {
+  margin: var(--pr-space-2) 0 0;
+  font-size: var(--pr-size-small);
+  line-height: 1.45;
+  color: var(--pr-text-2);
+}
+.actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--pr-space-2);
+  margin-top: var(--pr-space-5);
+}
+
+// rising from the bottom, on a phone: two answers under the thumb
+.box.sheet {
+  inset: auto 0 0;
+  width: auto;
+  translate: none;
+  padding: 20px 16px calc(16px + env(safe-area-inset-bottom));
+  border: 0;
+  border-top: 1px solid var(--pr-line-2);
+  border-radius: 0;
+  box-shadow: none;
+  .actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin-top: 20px;
+  }
+  .pr-btn {
+    height: 52px;
+    font-size: 16px;
+  }
+}

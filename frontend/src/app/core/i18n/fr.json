@@ -244,6 +244,8 @@
   "Remove this rule": "Retirer cette règle",
   "Add a rule": "Ajouter une règle",
   "Cancel": "Annuler",
+  "Deck {deck} is playing": "Le deck {deck} joue",
+  "The track playing stops, and the new one takes its place.": "Le morceau en cours s'arrête et le nouveau prend sa place.",
   "Save": "Enregistrer",
   "Create": "Créer",
   "Genre": "Genre",

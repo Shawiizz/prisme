@@ -25,12 +25,17 @@ import {
 } from '../models/engine';
 import { PreferencesService } from './preferences.service';
 import { Playhead, followPlayhead } from '../playhead';
+import { ConfirmService } from '../../shared/confirm/confirm';
+import { deckLetter } from '../../shared/time';
+import { t } from '../i18n/i18n';
 
 /** A deck this close to its cue point counts as sitting on it. */
 const CUE_TOLERANCE_S = 0.02;
 const MAIN_CUE_COLOR = 0xffb02e;
 /** Speed change while a bend key is held. */
 const PITCH_BEND = 0.03;
+/** Slower than this, a deck under its record is still: a hand holding it, the record stopped. */
+const MOVING_SPEED = 0.05;
 
 const DEFAULT_DECK: DeckSettings = {
   pitch: 1,
@@ -55,6 +60,7 @@ const DEFAULT_DECK: DeckSettings = {
 @Injectable({ providedIn: 'root' })
 export class EngineService {
   private readonly preferences = inject(PreferencesService);
+  private readonly confirm = inject(ConfirmService);
 
   /** Latest engine state (drives the templates). */
   readonly status = signal<EngineStatus | null>(null);
@@ -214,13 +220,27 @@ export class EngineService {
   }
 
   async load(deck: number, path: string): Promise<void> {
+    if (!(await this.mayReplace(deck))) return;
     return this.put(deck, () => invoke<TrackInfo>('load_track', { deck, path }));
   }
 
   /** The track of deck `from` on `deck`, where it is and playing if it plays. */
   async double(from: number, deck: number): Promise<void> {
-    if (!this.tracks()[from]) return;
+    if (!this.tracks()[from] || !(await this.mayReplace(deck))) return;
     return this.put(deck, () => invoke<TrackInfo>('double_deck', { from, deck }));
+  }
+
+  /** The track of a deck that plays, by itself or under its record, gives way only if the
+   * DJ says so. */
+  private async mayReplace(deck: number): Promise<boolean> {
+    const d = this.status()?.decks[deck];
+    if (!d?.loaded || (!d.playing && Math.abs(d.speed) < MOVING_SPEED)) return true;
+    return this.confirm.ask({
+      title: t('Deck {deck} is playing', { deck: deckLetter(deck) }),
+      detail: t('The track playing stops, and the new one takes its place.'),
+      confirm: t('Load'),
+      cancel: t('Cancel'),
+    });
   }
 
   private async put(deck: number, load: () => Promise<TrackInfo>): Promise<void> {
