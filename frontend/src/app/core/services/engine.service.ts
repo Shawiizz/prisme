@@ -1,4 +1,4 @@
-import { Injectable, computed, inject, signal } from '@angular/core';
+import { Injectable, computed, effect, inject, signal, untracked } from '@angular/core';
 import { StemPart, hasPart, setPartLevel, togglePart } from '../stem-parts';
 import { StemMix } from '../models/stems';
 import { Channel, invoke } from '@tauri-apps/api/core';
@@ -81,6 +81,13 @@ export class EngineService {
   readonly error = signal<string | null>(null);
 
   readonly audioRunning = computed(() => this.status()?.audioRunning ?? false);
+
+  constructor() {
+    // what failed while the audio was away is behind once it runs again
+    effect(() => {
+      if (this.audioRunning()) untracked(() => this.error.set(null));
+    });
+  }
 
   private readonly previewing = new Set<number>();
   /** Where each deck's playhead was when, and its speed: what it is drawn from. */
@@ -442,10 +449,11 @@ export class EngineService {
     s.set(copy);
   }
 
-  /** Runs a backend command; a failure is shown rather than thrown. */
+  /** Runs a backend command; a failure is shown rather than thrown, until one goes through. */
   async call(command: string, args: Record<string, unknown>): Promise<void> {
     try {
       await invoke(command, args);
+      this.error.set(null);
     } catch (e) {
       this.error.set(String(e));
     }
