@@ -23,6 +23,8 @@ export class ControllerService {
 
   readonly controllers = signal<Controller[]>([]);
   readonly mappings = signal<ControllerMapping[]>([]);
+  /** Actions the profiles show on lights of their own, beside the controls that drive them. */
+  private readonly lightTargets = signal<string[]>([]);
   /** MIDI outputs, for the clock. */
   readonly outputs = signal<string[]>([]);
   readonly clockOutput = signal<string | null>(null);
@@ -82,7 +84,7 @@ export class ControllerService {
   async setEnabled(name: string, enabled: boolean) {
     await this.run(() => invoke('set_controller_enabled', { name, enabled }));
     await this.refresh();
-    this.sendAllLights();
+    await this.reloadMappings();
   }
 
   /** Sends the MIDI clock, in time with the sync leader, to `name` (`null`: nowhere). */
@@ -116,7 +118,12 @@ export class ControllerService {
   }
 
   private async reloadMappings() {
-    this.mappings.set(await invoke<ControllerMapping[]>('controller_mappings'));
+    const [mappings, lightTargets] = await Promise.all([
+      invoke<ControllerMapping[]>('controller_mappings'),
+      invoke<string[]>('controller_light_targets'),
+    ]);
+    this.mappings.set(mappings);
+    this.lightTargets.set(lightTargets);
     this.sendAllLights();
   }
 
@@ -129,7 +136,10 @@ export class ControllerService {
   private updateLights() {
     this.relight();
     const lights: { target: string; state: string }[] = [];
-    for (const target of new Set(this.mappings().map((m) => m.target))) {
+    for (const target of new Set([
+      ...this.mappings().map((m) => m.target),
+      ...this.lightTargets(),
+    ])) {
       const control = this.controls.findInUse(target);
       const on = control?.lit?.();
       const state = control?.state?.() ?? (on === undefined ? undefined : on ? 'on' : 'off');

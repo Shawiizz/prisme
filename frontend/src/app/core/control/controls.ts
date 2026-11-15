@@ -32,12 +32,17 @@ export interface ControlActions {
   togglePlay(deck: number): void;
   playing(deck: number): boolean;
   cue(deck: number, pressed: boolean): void;
+  /** What the cue key shows, as on a CDJ: `on` on the cue point, `paused` stopped elsewhere
+   * (where a press sets it), `off` while playing. */
+  cueState(deck: number): 'on' | 'paused' | 'off';
   sync(deck: number): void;
   synced(deck: number): boolean;
   hotCue(deck: number, slot: number): void;
   hotCueSet(deck: number, slot: number): boolean;
   toggleLoop(deck: number): void;
   looping(deck: number): boolean;
+  /** The length in beats of the loop the deck plays, if it plays one. */
+  loopBeats(deck: number): number | null;
   scaleLoop(deck: number, factor: number): void;
   loopIn(deck: number): void;
   loopInSet(deck: number): boolean;
@@ -175,7 +180,11 @@ function deckControls(a: ControlActions, deck: number): Control[] {
       button(id('play'), group, t('Play / pause'), () => a.togglePlay(deck)),
       () => a.playing(deck),
     ),
-    hold(id('cue'), group, t('Cue (hold to preview)'), (held) => a.cue(deck, held)),
+    {
+      ...hold(id('cue'), group, t('Cue (hold to preview)'), (held) => a.cue(deck, held)),
+      lit: () => a.cueState(deck) !== 'off',
+      state: () => a.cueState(deck),
+    },
     lit(
       button(id('sync'), group, t('Sync'), () => a.sync(deck)),
       () => a.synced(deck),
@@ -344,7 +353,10 @@ export function measuredControl(a: ControlActions, id: string): Control | undefi
   if (beats < 0) return undefined;
   return {
     ...button(id, group, t('Loop {n} beats', { n: beats }), () => a.beatLoop(deck, beats)),
-    lit: () => a.looping(deck),
+    lit: () => {
+      const playing = a.loopBeats(deck);
+      return playing !== null && Math.abs(playing - beats) < 0.01;
+    },
     deck,
   };
 }

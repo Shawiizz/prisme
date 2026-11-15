@@ -37,6 +37,11 @@ export class ControlService {
     togglePlay: (deck) => this.engine.togglePlay(deck),
     playing: (deck) => this.deck(deck)?.playing ?? false,
     cue: (deck, pressed) => (pressed ? this.engine.cueDown(deck) : this.engine.cueUp(deck)),
+    cueState: (deck) => {
+      if (!this.deck(deck)?.loaded || this.engine.atCue(deck))
+        return this.deck(deck)?.loaded ? 'on' : 'off';
+      return this.deck(deck)?.playing ? 'off' : 'paused';
+    },
     sync: (deck) => this.engine.toggleSync(deck),
     synced: (deck) => this.deck(deck)?.sync.locked ?? false,
     hotCue: (deck, slot) => this.performance.pressHotCue(deck, slot),
@@ -46,6 +51,12 @@ export class ControlService {
         ? this.performance.exitLoop(deck)
         : this.performance.beatLoop(deck, LOOP_BEATS),
     looping: (deck) => this.deck(deck)?.looping.active ?? false,
+    loopBeats: (deck) => {
+      const loop = this.deck(deck)?.looping;
+      const bpm = this.engine.tracks()[deck]?.tempo?.bpm;
+      if (!loop?.active || !bpm || loop.startS === null || loop.endS === null) return null;
+      return ((loop.endS - loop.startS) * bpm) / 60;
+    },
     scaleLoop: (deck, factor) => this.performance.scaleLoop(deck, factor),
     loopIn: (deck) => this.performance.loopIn(deck),
     loopInSet: (deck) => this.deck(deck)?.looping.loopInS != null,

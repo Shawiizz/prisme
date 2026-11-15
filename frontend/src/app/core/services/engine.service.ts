@@ -348,6 +348,14 @@ export class EngineService {
       : this.call('set_sync_locked', { deck, locked: true });
   }
 
+  /** Whether the deck sits on its cue point. */
+  atCue(deck: number): boolean {
+    const d = this.status()?.decks[deck];
+    return (
+      !!d?.loaded && Math.abs(d.positionS - (this.mainCue(deck)?.positionS ?? 0)) < CUE_TOLERANCE_S
+    );
+  }
+
   /**
    * CDJ cue, pressed: while playing, back to the cue point and stop; stopped on the cue
    * point, play while held; stopped elsewhere, set the cue point there.

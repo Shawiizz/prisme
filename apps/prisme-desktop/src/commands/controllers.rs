@@ -39,6 +39,13 @@ pub fn controller_mappings(controllers: State<'_, Controllers>) -> Vec<Mapping> 
     controllers.mappings().all().to_vec()
 }
 
+/// The actions whose state the profiles of the controllers in use show on lights of their
+/// own, beside the controls that drive them.
+#[tauri::command]
+pub fn controller_light_targets(controllers: State<'_, Controllers>) -> Vec<String> {
+    controllers.light_targets()
+}
+
 /// The next control moved on a controller in use will drive `target`
 /// (`controller-learned` says which).
 #[tauri::command]

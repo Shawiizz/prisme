@@ -307,6 +307,7 @@ pub fn run() {
             commands::controllers::list_controllers,
             commands::controllers::set_controller_enabled,
             commands::controllers::controller_mappings,
+            commands::controllers::controller_light_targets,
             commands::controllers::learn_control,
             commands::controllers::set_control_encoding,
             commands::controllers::cancel_learning,

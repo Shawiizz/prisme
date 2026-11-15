@@ -5,8 +5,17 @@ use prisme_control::{Profile, JOG_STEPS_PER_TURN};
 use std::sync::OnceLock;
 use tracing::error;
 
-const BUNDLED: &[(&str, &str)] =
-    &[("pioneer-ddj-sb2.json", include_str!("../controllers/pioneer-ddj-sb2.json"))];
+const BUNDLED: &[(&str, &str)] = &[
+    ("denon-mc7000.json", include_str!("../controllers/denon-mc7000.json")),
+    (
+        "hercules-djcontrol-inpulse-300.json",
+        include_str!("../controllers/hercules-djcontrol-inpulse-300.json"),
+    ),
+    ("numark-mixtrack-pro-fx.json", include_str!("../controllers/numark-mixtrack-pro-fx.json")),
+    ("pioneer-ddj-400.json", include_str!("../controllers/pioneer-ddj-400.json")),
+    ("pioneer-ddj-flx4.json", include_str!("../controllers/pioneer-ddj-flx4.json")),
+    ("pioneer-ddj-sb2.json", include_str!("../controllers/pioneer-ddj-sb2.json")),
+];
 
 fn bundled() -> &'static [Profile] {
     static PROFILES: OnceLock<Vec<Profile>> = OnceLock::new();
@@ -52,6 +61,7 @@ mod tests {
             of("PIONEER DDJ-SB2:PIONEER DDJ-SB2 MIDI 1 20:0").map(|p| p.name.as_str()),
             Some("Pioneer DDJ-SB2")
         );
-        assert!(of("DDJ-400").is_none());
+        assert_eq!(of("DDJ-400").map(|p| p.name.as_str()), Some("Pioneer DDJ-400"));
+        assert!(of("DDJ-1000").is_none());
     }
 }

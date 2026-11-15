@@ -304,6 +304,22 @@ impl Controllers {
         });
     }
 
+    /// The actions whose state the profiles of the controllers in use show on lights of
+    /// their own.
+    pub fn light_targets(&self) -> Vec<String> {
+        let mut targets: Vec<String> = self
+            .setup
+            .read(|s| s.enabled.clone())
+            .iter()
+            .filter_map(|device| controller_profiles::of(device))
+            .flat_map(|p| p.lights.iter().map(|l| l.target.clone()))
+            .filter(|t| selected_mode(t).is_none())
+            .collect();
+        targets.sort();
+        targets.dedup();
+        targets
+    }
+
     /// Keeps the state of the `lights` targets, and shows it on the controllers.
     pub fn set_lights(&self, lights: &[LightDto]) {
         let mut states = lock(&self.states);
