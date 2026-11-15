@@ -1,6 +1,6 @@
-<div class="veil" animate.enter="pr-fade-in" (click)="closed.emit()"></div>
+<div class="pr-veil pr-veil--dim" animate.enter="pr-fade-in" (dismiss)="closed.emit()"></div>
 <section
-  class="panel"
+  class="pr-sheet panel"
   animate.enter="pr-rise-in"
   role="dialog"
   [attr.aria-label]="'Deck settings' | t"
@@ -11,7 +11,7 @@
   <div class="pr-seg pr-seg--lg wide" role="radiogroup">
     @for (d of drivers; track d.id) {
       <button role="radio" [attr.aria-checked]="mode() === d.id" (click)="setMode(d.id)">
-        {{ d.label }}
+        {{ d.label() }}
       </button>
     }
   </div>

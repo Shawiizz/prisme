@@ -5,33 +5,28 @@ import { DeckMode, deckVinyl } from '../../core/deck-vinyl';
 import { Band } from '../../core/models/engine';
 import { EngineService } from '../../core/services/engine.service';
 import { MixerService } from '../../core/services/mixer.service';
-import { t } from '../../core/i18n/i18n';
+import { Text, t } from '../../core/i18n/i18n';
 import { TPipe } from '../../core/i18n/t.pipe';
 import { CueButton } from '../../shared/cue-button/cue-button';
 import { Fader } from '../../shared/fader/fader';
 import { bandKnob, eqGain, filterAmount, filterKnob } from '../../shared/mixer-scales';
 import { deckLetter } from '../../shared/time';
 import { GridEditor } from '../deck/grid-editor/grid-editor';
+import { Dismiss, overlay } from '../../shared/overlay';
 import { PhoneTempo } from './phone-tempo';
 
-const DRIVERS: readonly { id: DeckMode; label: string }[] = [
+const DRIVERS: readonly { id: DeckMode; label: Text }[] = [
   {
     id: 'int',
-    get label() {
-      return t('Itself');
-    },
+    label: () => t('Itself'),
   },
   {
     id: 'relative',
-    get label() {
-      return t('Vinyl REL');
-    },
+    label: () => t('Vinyl REL'),
   },
   {
     id: 'absolute',
-    get label() {
-      return t('Vinyl ABS');
-    },
+    label: () => t('Vinyl ABS'),
   },
 ];
 const EQ: readonly { band: Band; label: string }[] = [
@@ -48,7 +43,7 @@ const EQ: readonly { band: Band; label: string }[] = [
   selector: 'app-phone-deck-panel',
   templateUrl: './phone-deck-panel.html',
   styleUrl: './phone-deck-panel.scss',
-  imports: [CueButton, Fader, GridEditor, PhoneTempo, TPipe],
+  imports: [CueButton, Dismiss, Fader, GridEditor, PhoneTempo, TPipe],
 })
 export class PhoneDeckPanel {
   readonly deck = input.required<number>();
@@ -77,6 +72,10 @@ export class PhoneDeckPanel {
   protected readonly editing = signal(false);
 
   constructor() {
+    overlay(
+      () => true,
+      () => this.closed.emit(),
+    );
     closedByBack(this.editing, () => this.editing.set(false));
   }
 

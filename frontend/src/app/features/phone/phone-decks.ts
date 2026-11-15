@@ -1,5 +1,4 @@
 import { Component, booleanAttribute, inject, input, signal } from '@angular/core';
-import { closedByBack } from '../../core/back';
 import { short } from '../../core/orientation';
 import { EngineService } from '../../core/services/engine.service';
 import { PhaseStrip } from '../deck/phase-strip/phase-strip';
@@ -45,11 +44,4 @@ export class PhoneDecks {
   protected readonly low = short();
   /** The deck whose panel is open. */
   protected readonly panel = signal<{ deck: number } | null>(null);
-
-  constructor() {
-    closedByBack(
-      () => this.panel() !== null,
-      () => this.panel.set(null),
-    );
-  }
 }

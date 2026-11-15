@@ -12,16 +12,16 @@ import {
   untracked,
   viewChild,
 } from '@angular/core';
-import { closedByBack } from '../../core/back';
 import { DirEntry } from '../../core/models/library';
 import { CratesService } from '../../core/services/crates.service';
 import { EngineService } from '../../core/services/engine.service';
 import { LibraryService, SortColumn, trackTitle } from '../../core/services/library.service';
 import { PrepareService } from '../../core/services/prepare.service';
-import { t } from '../../core/i18n/i18n';
+import { Text, t } from '../../core/i18n/i18n';
 import { TPipe } from '../../core/i18n/t.pipe';
 import { camelotCompatible } from '../../shared/camelot';
 import { Cover } from '../../shared/cover/cover';
+import { Dismiss, overlay } from '../../shared/overlay';
 import { decimal, deckLetter } from '../../shared/time';
 import { ImportDialog } from '../library/import-dialog/import-dialog';
 import { LibrarySidebar } from '../library/library-sidebar/library-sidebar';
@@ -38,14 +38,12 @@ const MOVED_PX = 10;
 const LOAD_PX = 84;
 
 /** What the tracks can be ordered by, as the columns of the table name it. */
-const SORTS: readonly { sort: SortColumn; name: string }[] = COLUMNS.flatMap((c) =>
-  c.sort ? [{ sort: c.sort, name: c.name() }] : [],
+const SORTS: readonly { sort: SortColumn; name: Text }[] = COLUMNS.flatMap((c) =>
+  c.sort ? [{ sort: c.sort, name: c.name }] : [],
 );
 const LIST_ORDER = {
   sort: 'order',
-  get name() {
-    return t('Order of the list');
-  },
+  name: () => t('Order of the list'),
 } as const;
 
 type Row =
@@ -72,7 +70,7 @@ interface Slide {
   selector: 'app-phone-library',
   templateUrl: './phone-library.html',
   styleUrl: './phone-library.scss',
-  imports: [Cover, ImportDialog, LibrarySidebar, TPipe, TrackMenu],
+  imports: [Cover, Dismiss, ImportDialog, LibrarySidebar, TPipe, TrackMenu],
 })
 export class PhoneLibrary {
   readonly peek = input(false, { transform: booleanAttribute });
@@ -170,11 +168,11 @@ export class PhoneLibrary {
       resized.observe(list);
       destroyed.onDestroy(() => resized.disconnect());
     });
-    closedByBack(
+    overlay(
       () => this.menu() !== null,
       () => this.menu.set(null),
     );
-    closedByBack(this.browsing, () => this.browsing.set(false));
+    overlay(this.browsing, () => this.browsing.set(false));
     // a list chosen among those of the library is the one shown: its panel closes
     const shown = computed(() =>
       JSON.stringify([this.library.source(), this.library.listing()?.path]),

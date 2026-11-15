@@ -18,7 +18,9 @@
     </svg>
     <select [attr.aria-label]="'Sort by' | t" (change)="library.sortBy($any($event.target).value)">
       @for (s of sorts(); track s.sort) {
-        <option [value]="s.sort" [selected]="library.sort().column === s.sort">{{ s.name }}</option>
+        <option [value]="s.sort" [selected]="library.sort().column === s.sort">
+          {{ s.name() }}
+        </option>
       }
     </select>
   </label>
@@ -124,13 +126,13 @@
 
 @if (menu()) {
   <div
-    class="veil"
+    class="pr-veil pr-veil--dim"
     animate.enter="pr-fade-in"
     animate.leave="pr-fade-out"
-    (click)="menu.set(null)"
+    (dismiss)="menu.set(null)"
   ></div>
   <app-track-menu
-    class="sheet"
+    class="pr-sheet sheet"
     animate.enter="pr-rise-in"
     animate.leave="pr-rise-out"
     [paths]="menuPaths()"
@@ -139,12 +141,12 @@
 }
 @if (browsing()) {
   <div
-    class="veil"
+    class="pr-veil pr-veil--dim"
     animate.enter="pr-fade-in"
     animate.leave="pr-fade-out"
-    (click)="browsing.set(false)"
+    (dismiss)="browsing.set(false)"
   ></div>
-  <div class="sheet lists-sheet" animate.enter="pr-rise-in" animate.leave="pr-rise-out">
+  <div class="pr-sheet sheet lists-sheet" animate.enter="pr-rise-in" animate.leave="pr-rise-out">
     <app-library-sidebar />
     <button class="pr-btn pr-btn--lg import" (click)="browsing.set(false); importing.set(true)">
       {{ 'Import from Serato or rekordbox' | t }}
