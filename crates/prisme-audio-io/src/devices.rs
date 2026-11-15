@@ -122,7 +122,7 @@ pub fn list_devices(backend: Backend) -> Result<Vec<DeviceInfo>, AudioError> {
     let default_out = host.default_output_device().as_ref().and_then(device_name);
     let mut list = Vec::new();
     for device in host.output_devices()? {
-        if let (Some(name), Ok(config)) = (device_name(&device), device.default_output_config()) {
+        if let (Some(name), Some(config)) = (device_name(&device), first_config(&device, DeviceKind::Output)) {
             list.push(DeviceInfo {
                 is_default: Some(&name) == default_out.as_ref(),
                 name,
@@ -135,7 +135,7 @@ pub fn list_devices(backend: Backend) -> Result<Vec<DeviceInfo>, AudioError> {
         }
     }
     for device in host.input_devices()? {
-        if let (Some(name), Ok(config)) = (device_name(&device), device.default_input_config()) {
+        if let (Some(name), Some(config)) = (device_name(&device), first_config(&device, DeviceKind::Input)) {
             list.push(DeviceInfo {
                 is_default: Some(&name) == default_in.as_ref(),
                 name,
@@ -236,6 +236,48 @@ fn buffer_range(supported: &cpal::SupportedBufferSize) -> Option<(u32, u32)> {
         cpal::SupportedBufferSize::Range { min, max } => Some((min, max)),
         cpal::SupportedBufferSize::Unknown => None,
     }
+}
+
+/// The configurations to open `device` with, the system's default last. A sound card plugged
+/// into a phone comes first with all its channels: Android offers it in stereo, which would
+/// leave out the outputs past the master and the second turntable's inputs.
+pub(crate) fn configs(device: &cpal::Device, kind: DeviceKind) -> Result<Vec<cpal::SupportedStreamConfig>, AudioError> {
+    let default = match kind {
+        DeviceKind::Output => device.default_output_config()?,
+        DeviceKind::Input => device.default_input_config()?,
+    };
+    #[cfg(target_os = "android")]
+    if let Some(widest) = widest(device, kind, &default) {
+        return Ok(vec![widest, default]);
+    }
+    Ok(vec![default])
+}
+
+/// The configuration `device` is first tried with.
+fn first_config(device: &cpal::Device, kind: DeviceKind) -> Option<cpal::SupportedStreamConfig> {
+    configs(device, kind).ok()?.into_iter().next()
+}
+
+/// The configuration of a USB sound card with the most channels, more than `default`, at its
+/// rate and in its format.
+#[cfg(target_os = "android")]
+fn widest(
+    device: &cpal::Device,
+    kind: DeviceKind,
+    default: &cpal::SupportedStreamConfig,
+) -> Option<cpal::SupportedStreamConfig> {
+    if device.description().ok()?.interface_type() != cpal::InterfaceType::Usb {
+        return None;
+    }
+    let ranges: Vec<_> = match kind {
+        DeviceKind::Output => device.supported_output_configs().ok()?.collect(),
+        DeviceKind::Input => device.supported_input_configs().ok()?.collect(),
+    };
+    ranges
+        .into_iter()
+        .filter(|r| r.sample_format() == default.sample_format() && r.channels() > default.channels())
+        .filter_map(|r| r.try_with_sample_rate(default.sample_rate()))
+        .max_by_key(|c| c.channels())
 }
 
 pub(crate) fn device_name(device: &cpal::Device) -> Option<String> {

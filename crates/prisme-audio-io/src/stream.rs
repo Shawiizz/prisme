@@ -2,7 +2,7 @@
 //! feeds it through a lock-free ring buffer. With ASIO both streams come from the same
 //! driver period, so the ring never holds more than a period.
 
-use crate::devices::{device_name, drivers, find, Backend, DeviceKind};
+use crate::devices::{configs, device_name, drivers, find, Backend, DeviceKind};
 use crate::formats::{input_stream, output_stream, MAX_PERIOD};
 use crate::{AudioCallback, AudioError};
 use cpal::traits::{DeviceTrait, StreamTrait};
@@ -63,14 +63,30 @@ pub struct RunningStream {
     pub output_device: String,
 }
 
-/// Opens the devices, builds the callback for their format and starts calling it.
+/// Opens the devices, builds the callback for their format and starts calling it (again
+/// for each configuration of the output tried, if the first is refused).
 pub fn start<C: AudioCallback>(
     settings: &StreamSettings,
-    make_callback: impl FnOnce(StreamFormat) -> C,
+    mut make_callback: impl FnMut(StreamFormat) -> C,
 ) -> Result<RunningStream, AudioError> {
     let _drivers = drivers();
     let out_device = find(settings.backend, DeviceKind::Output, settings.output_device.as_deref())?;
-    let out_default = out_device.default_output_config()?;
+    let mut tried = configs(&out_device, DeviceKind::Output)?.into_iter().peekable();
+    loop {
+        let config = tried.next().expect("a device has a configuration");
+        match start_with(settings, &out_device, config, &mut make_callback) {
+            Err(e) if tried.peek().is_some() => warn!("output refused with all its channels ({e}): trying fewer"),
+            started => return started,
+        }
+    }
+}
+
+fn start_with<C: AudioCallback>(
+    settings: &StreamSettings,
+    out_device: &cpal::Device,
+    out_default: cpal::SupportedStreamConfig,
+    make_callback: &mut impl FnMut(StreamFormat) -> C,
+) -> Result<RunningStream, AudioError> {
     let mut sample_rate = out_default.sample_rate();
     let output_channels = out_default.channels() as usize;
     let mut out_config = out_default.config();
@@ -91,7 +107,7 @@ pub fn start<C: AudioCallback>(
     let stats = Arc::new(StreamStats::default());
     let (input_stream, ring, input_channels) = match settings.input_device.as_deref() {
         Some(name) => {
-            let input = open_input(settings.backend, name, &out_device, sample_rate, &stats)?;
+            let input = open_input(settings.backend, name, out_device, sample_rate, &stats)?;
             (Some(input.stream), Some(input.ring), input.channels)
         }
         None => (None, None, 0),
@@ -109,7 +125,7 @@ pub fn start<C: AudioCallback>(
         failed: false,
     };
     let output = output_stream(
-        &out_device,
+        out_device,
         out_config,
         out_default.sample_format(),
         move |data| renderer.render(data),
@@ -120,7 +136,7 @@ pub fn start<C: AudioCallback>(
         i.play()?;
     }
     output.play()?;
-    let output_device = device_name(&out_device).unwrap_or_default();
+    let output_device = device_name(out_device).unwrap_or_default();
     Ok(RunningStream { streams: Some((output, input_stream)), format, stats, output_device })
 }
 
@@ -154,7 +170,22 @@ fn open_input(
     let same_driver = matches!(backend, Backend::Asio | Backend::Jack)
         && device_name(out_device).is_some_and(|n| n.to_lowercase().contains(&name.to_lowercase()));
     let device = if same_driver { out_device.clone() } else { find(backend, DeviceKind::Input, Some(name))? };
-    let default = device.default_input_config()?;
+    let mut tried = configs(&device, DeviceKind::Input)?.into_iter().peekable();
+    loop {
+        let config = tried.next().expect("a device has a configuration");
+        match open_input_with(&device, config, sample_rate, stats) {
+            Err(e) if tried.peek().is_some() => warn!("input refused with all its channels ({e}): trying fewer"),
+            opened => return opened,
+        }
+    }
+}
+
+fn open_input_with(
+    device: &cpal::Device,
+    default: cpal::SupportedStreamConfig,
+    sample_rate: u32,
+    stats: &Arc<StreamStats>,
+) -> Result<Input, AudioError> {
     if default.sample_rate() != sample_rate {
         return Err(AudioError::SampleRateMismatch { input: default.sample_rate(), output: sample_rate });
     }
@@ -171,7 +202,7 @@ fn open_input(
         }
     };
     let stream =
-        input_stream(&device, default.config(), default.sample_format(), push, error_handler(stats.clone()))?;
+        input_stream(device, default.config(), default.sample_format(), push, error_handler(stats.clone()))?;
     Ok(Input { stream, ring, channels })
 }
 
