@@ -18,13 +18,15 @@ struct Params {
     inner: u32,
     heads: u32,
     query_blocks: u32,
-    // sequences * heads * query_blocks
+    // the blocks of this step, from `first` to `blocks` (of sequences * heads * query_blocks,
+    // sequence after sequence)
     blocks: u32,
     groups_x: u32,
     // heads of queries per head of keys and values
     kv_share: u32,
     // width of a token's keys, or values
     kv_inner: u32,
+    first: u32,
 }
 
 @group(0) @binding(0) var<storage, read> qkvg: array<Act>;
@@ -51,7 +53,7 @@ fn load4(at: u32) -> vec4<f32> {
 
 @compute @workgroup_size(64)
 fn main(@builtin(workgroup_id) wg: vec3<u32>, @builtin(local_invocation_index) lid: u32) {
-    let block = wg.x + wg.y * p.groups_x;
+    let block = p.first + wg.x + wg.y * p.groups_x;
     if (block >= p.blocks) {
         return;
     }

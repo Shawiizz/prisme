@@ -1,5 +1,5 @@
-//! The network on the GPU, through wgpu (Direct3D 12 or Vulkan): any recent GPU, no runtime
-//! to install.
+//! The network on the GPU, through wgpu (Vulkan, Direct3D 12 or Metal): any recent GPU, no
+//! runtime to install.
 //!
 //! Where wgpu reaches the GPU's matrix units (the tensor cores, through Vulkan's cooperative
 //! matrices), the matrix products and the attention run on them: f16 operands, f32 sums. The
@@ -11,10 +11,15 @@
 //! then replayed: only the input bins change between chunks. Networks opened on one [`Gpu`]
 //! share its queue: their chunks take turns instead of contending, and so share the buffers
 //! holding the activations of the one running.
+//!
+//! A GPU that draws the screen too gets the work in packets of a few milliseconds
+//! ([`Pacing`]), the screen's drawing slipping in between: the plan cuts its steps small
+//! enough, and the packets hold as many as the GPU's throughput, measured as they go, lets.
 
 use std::collections::HashMap;
 use std::ops::Range;
 use std::sync::{Arc, Mutex};
+use std::time::{Duration, Instant};
 
 use wgpu::util::DeviceExt;
 
@@ -35,15 +40,29 @@ pub struct GpuOptions {
     /// GPU how a small one cuts a track.
     pub max_binding: Option<u64>,
     /// Times the work by kind ([`GpuNetwork::profile`]), where the GPU tells the time: each
-    /// step then waits for the one before, which makes the whole slower.
+    /// step then goes alone and is waited for, which makes the whole slower.
     pub profile: bool,
-    /// Leaves the GPU to others (a phone's screen, drawn by the same GPU): the work goes in
-    /// steps of a few milliseconds, the screen's drawing slipping in between, and takes at
-    /// most this share of the GPU's time.
-    pub share: Option<f64>,
+    /// How the work goes to the GPU, else as it suits the GPU: in packets where it draws the
+    /// screen too (an integrated GPU, a phone's), whole otherwise.
+    pub pacing: Option<Pacing>,
     /// The attention on the shader cores, else the one they run best for the network's heads
     /// (the matrix units have their own).
     pub attention: Option<Attention>,
+}
+
+/// How the work of a chunk goes to the GPU.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum Pacing {
+    /// In a submission per transformer, each as long as the GPU takes: for a GPU nothing else
+    /// waits on.
+    Whole,
+    /// In packets of a few milliseconds, the screen's drawing slipping in between, one queued
+    /// behind the one running: the GPU never idles while the CPU hears of a packet's end
+    /// (pausing would let it lower its clock, and the whole with it).
+    Packets,
+    /// In packets, each waited for then followed by a pause, for the work to take at most this
+    /// share of the GPU's time (from 0.05 to 1).
+    Share(f64),
 }
 
 /// How the shader cores work out the attention.
@@ -67,16 +86,21 @@ pub struct Gpu {
     /// The shaders for the matrix units run on it.
     matrix_units: bool,
     /// NVIDIA's GPUs take the f32 products in large tiles; others would spill their
-    /// registers, and take them in small ones.
+    /// registers, and take them in small ones (wgpu tells nothing of a GPU's registers).
     large_tiles: bool,
+    /// It draws the screen too, beside the processor (an integrated GPU, a phone's).
+    draws_the_screen: bool,
     /// A software renderer, accepted for tests on machines without a GPU.
     software: bool,
     /// The largest buffer a shader binds (bytes).
     max_binding: u64,
     /// Each step is timed ([`GpuOptions::profile`]).
     profile: bool,
-    /// The share of the GPU's time the work takes at most ([`GpuOptions::share`]).
-    share: Option<f64>,
+    pacing: Pacing,
+    /// The most arithmetic a step takes when the work goes in packets: [`PIECE_FLOPS`].
+    piece_flops: usize,
+    /// The arithmetic it does in a second, as the packets so far took it.
+    throughput: Mutex<f64>,
     attention: Option<Attention>,
     scratch: Mutex<Scratch>,
 }
@@ -141,7 +165,8 @@ struct Params {
     /// Each transformer's layers, and the gain of its output norm if it has one.
     transformers: Vec<(Vec<GpuLayer>, Option<wgpu::Buffer>)>,
     final_norm: Option<wgpu::Buffer>,
-    registers: Vec<f32>,
+    /// Copied to their corner of the stream before each chunk.
+    registers: Option<wgpu::Buffer>,
     /// Over the bands, then the tokens.
     pools: Option<[GpuPool; 2]>,
     /// Per stem (one for all, with stem queries), per band.
@@ -175,12 +200,11 @@ struct GpuPool {
 
 #[derive(Clone)]
 struct GpuLinear {
-    /// f16 rows: of `inp` values, or for the matrix units padded to `ld` groups of 4.
+    /// `out` rows of `inp` values, f16.
     weight: wgpu::Buffer,
     bias: Option<wgpu::Buffer>,
     out: usize,
     inp: usize,
-    ld: usize,
 }
 
 struct GpuLayer {
@@ -228,23 +252,58 @@ struct Plan {
     /// Of the scratch buffers it binds.
     generation: u64,
     bins: wgpu::Buffer,
-    /// Zeroed before the work: where the band split leaves the frames padding the last token,
-    /// and the registers' columns.
-    cleared: Option<wgpu::Buffer>,
+    /// Zeroed by the first submission, each its first bytes: the stream where the registers'
+    /// rows and columns cross the frames and the bands, and where the band split leaves the
+    /// frames padding the last token.
+    cleared: Vec<(wgpu::Buffer, u64)>,
+    /// Then copied in place: each row of the registers' square into the stream.
+    copies: Vec<Copied>,
     mask: wgpu::Buffer,
     readback: wgpu::Buffer,
     submissions: Vec<Vec<Step>>,
 }
 
+/// `bytes` from `from_offset` in `from` to `to_offset` in `to`.
+struct Copied {
+    from: wgpu::Buffer,
+    from_offset: u64,
+    to: wgpu::Buffer,
+    to_offset: u64,
+    bytes: u64,
+}
+
 impl Plan {
-    /// Writes the bins of a chunk, and clears what has to be.
+    /// Writes the bins of a chunk.
     fn load(&self, gpu: &Gpu, bins: &[f32]) {
         gpu.queue.write_buffer(&self.bins, 0, bytemuck::cast_slice(bins));
-        if let Some(buffer) = &self.cleared {
-            let mut encoder = gpu.device.create_command_encoder(&Default::default());
-            encoder.clear_buffer(buffer, 0, None);
-            gpu.queue.submit([encoder.finish()]);
+    }
+
+    /// Every step, in order.
+    fn steps(&self) -> impl Iterator<Item = &Step> {
+        self.submissions.iter().flatten()
+    }
+
+    /// The encoder of a submission of the chunk: the first one clears what has to be and puts
+    /// the registers in place.
+    fn encoder(&self, gpu: &Gpu, first: bool) -> wgpu::CommandEncoder {
+        let mut encoder = gpu.device.create_command_encoder(&Default::default());
+        if first {
+            for (buffer, bytes) in &self.cleared {
+                encoder.clear_buffer(buffer, 0, Some(*bytes));
+            }
+            for c in &self.copies {
+                encoder.copy_buffer_to_buffer(&c.from, c.from_offset, &c.to, c.to_offset, c.bytes);
+            }
         }
+        encoder
+    }
+
+    /// Submits `encoder`: the last submission of the chunk copies its masks out to be read.
+    fn submit(&self, gpu: &Gpu, mut encoder: wgpu::CommandEncoder, last: bool) -> wgpu::SubmissionIndex {
+        if last {
+            encoder.copy_buffer_to_buffer(&self.mask, 0, &self.readback, 0, self.mask.size());
+        }
+        gpu.queue.submit([encoder.finish()])
     }
 }
 
@@ -254,8 +313,39 @@ struct Step {
     groups: (u32, u32),
     /// What the step does, for [`GpuNetwork::profile`].
     kind: &'static str,
-    /// Its arithmetic, where it weighs (products, attention), for pacing the work.
+    /// Its arithmetic, where it weighs (products, attention, pooling), for pacing the work.
     flops: usize,
+}
+
+impl Step {
+    fn record(&self, pass: &mut wgpu::ComputePass<'_>) {
+        pass.set_pipeline(&self.pipeline);
+        pass.set_bind_group(0, &self.bind_group, &[]);
+        pass.dispatch_workgroups(self.groups.0, self.groups.1, 1);
+    }
+}
+
+/// Records `steps` in one compute pass of `encoder`.
+fn record<'a>(encoder: &mut wgpu::CommandEncoder, steps: impl IntoIterator<Item = &'a Step>) {
+    let mut pass = encoder.begin_compute_pass(&Default::default());
+    steps.into_iter().for_each(|step| step.record(&mut pass));
+}
+
+/// `steps` in packets of at least `budget` flops each but the last, with their flops.
+fn packets<'a>(steps: impl IntoIterator<Item = &'a Step>, budget: usize) -> Vec<(Vec<&'a Step>, usize)> {
+    let mut packets = Vec::new();
+    let (mut packet, mut flops) = (Vec::new(), 0);
+    for step in steps {
+        packet.push(step);
+        flops += step.flops;
+        if flops >= budget {
+            packets.push((std::mem::take(&mut packet), std::mem::take(&mut flops)));
+        }
+    }
+    if !packet.is_empty() {
+        packets.push((packet, flops));
+    }
+    packets
 }
 
 #[derive(Clone, Copy)]
@@ -310,6 +400,13 @@ impl Gpu {
             sink.lock().expect("error sink").get_or_insert(message);
         }));
         let name = format!("{} ({:?})", info.name, info.backend);
+        let draws_the_screen = draws_the_screen(&info);
+        let pacing = match options.pacing {
+            Some(Pacing::Share(share)) => Pacing::Share(share.clamp(0.05, 1.0)),
+            Some(pacing) => pacing,
+            None if draws_the_screen => Pacing::Packets,
+            None => Pacing::Whole,
+        };
         Ok(Arc::new(Self {
             device,
             queue,
@@ -317,10 +414,14 @@ impl Gpu {
             errors,
             matrix_units,
             large_tiles,
+            draws_the_screen,
             software: info.device_type == wgpu::DeviceType::Cpu,
             max_binding,
             profile: !profile.is_empty(),
-            share: options.share.map(|s| s.clamp(0.05, 1.0)),
+            pacing,
+            piece_flops: PIECE_FLOPS,
+            // a piece a packet, until the first packets tell more
+            throughput: Mutex::new(PIECE_FLOPS as f64 / PACKET.as_secs_f64()),
             attention: options.attention,
             scratch: Mutex::default(),
         }))
@@ -371,6 +472,139 @@ impl Gpu {
             mapped_at_creation: false,
         })
     }
+
+    /// How many pieces of work of `flops` each a step takes when the work goes in packets: as
+    /// many as [`Gpu::piece_flops`] hold, one at least. `None` when it goes whole.
+    fn per_step(&self, flops: usize) -> Option<usize> {
+        (self.pacing != Pacing::Whole).then(|| (self.piece_flops / flops.max(1)).max(1))
+    }
+
+    /// Submits the work of `plan`, its bins loaded, as the GPU is paced.
+    fn submit(&self, plan: &Plan) -> Result<wgpu::SubmissionIndex, StemsError> {
+        match self.pacing {
+            Pacing::Whole => Ok(self.submit_whole(plan)),
+            Pacing::Packets => self.submit_paced(plan, None),
+            Pacing::Share(share) => self.submit_paced(plan, Some(share)),
+        }
+    }
+
+    fn submit_whole(&self, plan: &Plan) -> wgpu::SubmissionIndex {
+        let count = plan.submissions.len();
+        let mut submitted = None;
+        for (i, steps) in plan.submissions.iter().enumerate() {
+            let mut encoder = plan.encoder(self, i == 0);
+            record(&mut encoder, steps);
+            submitted = Some(plan.submit(self, encoder, i + 1 == count));
+        }
+        submitted.expect("a plan has submissions")
+    }
+
+    /// Submits the work in packets of about [`PACKET`] at the throughput measured so far, and
+    /// measures them: each waited for, then a pause leaving the GPU its `share`; without one,
+    /// a packet queued behind the one running.
+    fn submit_paced(&self, plan: &Plan, share: Option<f64>) -> Result<wgpu::SubmissionIndex, StemsError> {
+        let budget = (*self.throughput.lock().expect("throughput") * PACKET.as_secs_f64()) as usize;
+        let packets = packets(plan.steps(), budget.max(1));
+        // the packet running, when it began at the latest, and its flops if it is a whole one
+        // (the last one's time is mostly the waiting)
+        let mut running: Option<(wgpu::SubmissionIndex, Instant, Option<usize>)> = None;
+        let mut submitted = None;
+        for (i, (steps, flops)) in packets.iter().enumerate() {
+            let mut encoder = plan.encoder(self, i == 0);
+            record(&mut encoder, steps.iter().copied());
+            let submission = plan.submit(self, encoder, i + 1 == packets.len());
+            let began = Instant::now();
+            let whole = (*flops >= budget).then_some(*flops);
+            if let Some(share) = share {
+                self.wait(submission.clone())?;
+                let took = began.elapsed();
+                if let Some(flops) = whole {
+                    self.measured(flops, took);
+                }
+                std::thread::sleep(took.mul_f64((1.0 - share) / share));
+            } else if let Some((previous, began, flops)) = running.replace((submission.clone(), began, whole))
+            {
+                self.wait(previous)?;
+                if let Some(flops) = flops {
+                    self.measured(flops, began.elapsed());
+                }
+                // the packet queued starts as the one before ends
+                if let Some(next) = running.as_mut() {
+                    next.1 = Instant::now();
+                }
+            }
+            submitted = Some(submission);
+        }
+        Ok(submitted.expect("a plan has steps"))
+    }
+
+    /// Takes in that a packet of `flops` took `took`: the throughput moves a quarter of the
+    /// way to what it did.
+    fn measured(&self, flops: usize, took: Duration) {
+        let did = flops as f64 / took.as_secs_f64().max(1e-6);
+        let mut throughput = self.throughput.lock().expect("throughput");
+        *throughput += (did - *throughput) / 4.0;
+    }
+
+    /// Submits the work of `plan` a step at a time, each waited for and timed: `timed` gets
+    /// the kind and the seconds of each step. The masks come as from the whole.
+    fn submit_profiled(
+        &self,
+        plan: &Plan,
+        mut timed: impl FnMut(&'static str, f64),
+    ) -> Result<wgpu::SubmissionIndex, StemsError> {
+        let device = &self.device;
+        let set = device.create_query_set(&wgpu::QuerySetDescriptor {
+            label: None,
+            ty: wgpu::QueryType::Timestamp,
+            count: 2,
+        });
+        let resolved = device.create_buffer(&wgpu::BufferDescriptor {
+            label: None,
+            size: 16,
+            usage: wgpu::BufferUsages::QUERY_RESOLVE | wgpu::BufferUsages::COPY_SRC,
+            mapped_at_creation: false,
+        });
+        let read = device.create_buffer(&wgpu::BufferDescriptor {
+            label: None,
+            size: 16,
+            usage: wgpu::BufferUsages::MAP_READ | wgpu::BufferUsages::COPY_DST,
+            mapped_at_creation: false,
+        });
+        let period = f64::from(self.queue.get_timestamp_period()) * 1e-9;
+        let failed = |e: &dyn std::fmt::Display| StemsError::Gpu(e.to_string());
+        let steps: Vec<&Step> = plan.steps().collect();
+        let mut submitted = None;
+        for (i, step) in steps.iter().enumerate() {
+            let mut encoder = plan.encoder(self, i == 0);
+            {
+                let mut pass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor {
+                    label: None,
+                    timestamp_writes: Some(wgpu::ComputePassTimestampWrites {
+                        query_set: &set,
+                        beginning_of_pass_write_index: Some(0),
+                        end_of_pass_write_index: Some(1),
+                    }),
+                });
+                step.record(&mut pass);
+            }
+            encoder.resolve_query_set(&set, 0..2, &resolved, 0);
+            encoder.copy_buffer_to_buffer(&resolved, 0, &read, 0, 16);
+            submitted = Some(plan.submit(self, encoder, i + 1 == steps.len()));
+            read.slice(..).map_async(wgpu::MapMode::Read, |_| ());
+            device.poll(wgpu::PollType::wait_indefinitely()).map_err(|e| failed(&e))?;
+            let ticks: Vec<u64> =
+                bytemuck::cast_slice(&read.slice(..).get_mapped_range().map_err(|e| failed(&e))?).to_vec();
+            read.unmap();
+            timed(step.kind, ticks[1].saturating_sub(ticks[0]) as f64 * period);
+        }
+        Ok(submitted.expect("a plan has steps"))
+    }
+
+    fn wait(&self, submission: wgpu::SubmissionIndex) -> Result<(), StemsError> {
+        let done = wgpu::PollType::Wait { submission_index: Some(submission), timeout: None };
+        self.device.poll(done).map(drop).map_err(|e| StemsError::Gpu(e.to_string()))
+    }
 }
 
 impl GpuNetwork {
@@ -404,43 +638,38 @@ impl GpuNetwork {
                     .into(),
             ));
         }
-        let pipelines = Pipelines::new(gpu, &weights.geometry, matrix);
-        let params = Params::upload(&gpu.device, weights, matrix);
-        let units = if matrix { ", tensor cores" } else { "" };
-        let mut geometry = weights.geometry.clone();
-        let fit = frames_that_fit(gpu.max_binding, &geometry, &params, matrix);
-        let chunks = &mut geometry.config.chunk_frames;
-        let shortened = fit < *chunks;
-        if shortened {
-            if fit < *chunks / SHORTEST_CHUNK {
-                return Err(StemsError::Gpu(format!(
-                    "{} binds buffers of {} bytes at most, too few for chunks of {} frames",
-                    gpu.name,
-                    gpu.max_binding,
-                    *chunks / SHORTEST_CHUNK
-                )));
-            }
-            *chunks = fit;
-        }
-        let c = &geometry.config;
-        let cut = if shortened {
-            format!(", chunks of {:.1} s", c.chunk_samples() as f64 / f64::from(c.sample_rate))
-        } else {
-            String::new()
-        };
         let mut network = Self {
             gpu: gpu.clone(),
-            geometry,
-            adapter: format!("{}{units}{cut}", gpu.name),
+            geometry: weights.geometry.clone(),
+            adapter: String::new(),
             matrix,
-            pipelines,
-            params,
+            pipelines: Pipelines::new(gpu, &weights.geometry, matrix),
+            params: Params::upload(&gpu.device, weights, matrix),
             plans: HashMap::new(),
             started: None,
             profiled: HashMap::new(),
         };
+        let chunks = network.geometry.config.chunk_frames;
+        let fit = network.frames_that_fit();
+        if fit < chunks / SHORTEST_CHUNK {
+            return Err(StemsError::Gpu(format!(
+                "{} binds buffers of {} bytes at most, too few for chunks of {} frames",
+                gpu.name,
+                gpu.max_binding,
+                chunks / SHORTEST_CHUNK
+            )));
+        }
+        network.geometry.config.chunk_frames = fit;
+        let c = &network.geometry.config;
+        let units = if matrix { ", tensor cores" } else { "" };
+        let cut = if fit < chunks {
+            format!(", chunks of {:.1} s", c.chunk_samples() as f64 / f64::from(c.sample_rate))
+        } else {
+            String::new()
+        };
+        network.adapter = format!("{}{units}{cut}", gpu.name);
         gpu.check_errors()?;
-        network.prepare(network.geometry.config.chunk_frames)?;
+        network.prepare(fit)?;
         Ok(network)
     }
 
@@ -450,59 +679,6 @@ impl GpuNetwork {
         let mut kinds: Vec<_> = self.profiled.iter().map(|(&kind, &(s, n))| (kind, s, n)).collect();
         kinds.sort_by(|a, b| b.1.total_cmp(&a.1));
         kinds
-    }
-
-    /// Runs `steps` one by one, timing each.
-    fn profile_steps_of(&mut self, steps: &[&Step]) -> Result<(), StemsError> {
-        let gpu = &self.gpu;
-        let device = &gpu.device;
-        let set = device.create_query_set(&wgpu::QuerySetDescriptor {
-            label: None,
-            ty: wgpu::QueryType::Timestamp,
-            count: 2,
-        });
-        let resolved = device.create_buffer(&wgpu::BufferDescriptor {
-            label: None,
-            size: 16,
-            usage: wgpu::BufferUsages::QUERY_RESOLVE | wgpu::BufferUsages::COPY_SRC,
-            mapped_at_creation: false,
-        });
-        let read = device.create_buffer(&wgpu::BufferDescriptor {
-            label: None,
-            size: 16,
-            usage: wgpu::BufferUsages::MAP_READ | wgpu::BufferUsages::COPY_DST,
-            mapped_at_creation: false,
-        });
-        let period = f64::from(gpu.queue.get_timestamp_period()) * 1e-9;
-        let failed = |e: &dyn std::fmt::Display| StemsError::Gpu(e.to_string());
-        for step in steps {
-            let mut encoder = device.create_command_encoder(&Default::default());
-            {
-                let mut pass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor {
-                    label: None,
-                    timestamp_writes: Some(wgpu::ComputePassTimestampWrites {
-                        query_set: &set,
-                        beginning_of_pass_write_index: Some(0),
-                        end_of_pass_write_index: Some(1),
-                    }),
-                });
-                pass.set_pipeline(&step.pipeline);
-                pass.set_bind_group(0, &step.bind_group, &[]);
-                pass.dispatch_workgroups(step.groups.0, step.groups.1, 1);
-            }
-            encoder.resolve_query_set(&set, 0..2, &resolved, 0);
-            encoder.copy_buffer_to_buffer(&resolved, 0, &read, 0, 16);
-            gpu.queue.submit([encoder.finish()]);
-            read.slice(..).map_async(wgpu::MapMode::Read, |_| ());
-            device.poll(wgpu::PollType::wait_indefinitely()).map_err(|e| failed(&e))?;
-            let ticks: Vec<u64> =
-                bytemuck::cast_slice(&read.slice(..).get_mapped_range().map_err(|e| failed(&e))?).to_vec();
-            read.unmap();
-            let entry = self.profiled.entry(step.kind).or_default();
-            entry.0 += ticks[1].saturating_sub(ticks[0]) as f64 * period;
-            entry.1 += 1;
-        }
-        Ok(())
     }
 
     /// The GPU and graphics API in use, and its matrix units if the network runs on them.
@@ -524,14 +700,96 @@ impl GpuNetwork {
         self.gpu.check_errors()
     }
 
-    /// Whether the largest activation fits in one buffer binding.
+    /// Whether every buffer a chunk of `frames` frames binds fits in one binding.
     fn check_limits(&self, frames: usize) -> Result<(), StemsError> {
-        let seq_frames = self.geometry.config.seq_frames(frames) as u64;
-        let bytes = seq_frames * frame_bytes(&self.geometry, &self.params, self.matrix);
-        if bytes > self.gpu.max_binding {
-            return Err(StemsError::Gpu(format!("{bytes} byte buffers exceed this GPU's limits")));
+        let largest = self.sizes(frames).largest();
+        if largest > self.gpu.max_binding {
+            return Err(StemsError::Gpu(format!("{largest} byte buffers exceed this GPU's limits")));
         }
         Ok(())
+    }
+
+    /// The most frames a chunk can take, in whole tokens, for every buffer it binds to fit in
+    /// one binding: at most the model's.
+    fn frames_that_fit(&self) -> usize {
+        let c = &self.geometry.config;
+        let frames = |tokens: usize| (tokens * c.group).min(c.chunk_frames);
+        let fits = |tokens: usize| self.sizes(frames(tokens)).largest() <= self.gpu.max_binding;
+        // the buffers grow with the tokens: the most that fit lie between `fit` and `over`
+        let (mut fit, mut over) = (0, c.token_frames(c.chunk_frames) + 1);
+        while over - fit > 1 {
+            let tokens = (fit + over) / 2;
+            if fits(tokens) {
+                fit = tokens;
+            } else {
+                over = tokens;
+            }
+        }
+        frames(fit)
+    }
+
+    /// The bytes of every buffer a chunk of `frames` frames binds, but the small ones (the
+    /// weights, the angles of the rotary embeddings, what the stem queries pool).
+    fn sizes(&self, frames: usize) -> Sizes {
+        let g = &self.geometry;
+        let c = &g.config;
+        let p = &self.params;
+        let token_frames = c.token_frames(frames);
+        let (seq_frames, seq_bands) = (c.seq_frames(frames), g.seq_bands());
+        let tokens = seq_frames * seq_bands;
+        let grouped = token_frames * seq_bands * c.group * p.band_dim;
+        // the rows of the mask estimators: every frame of the tokens
+        let mask_rows = token_frames * c.group;
+        let widest_band = g.bands.iter().map(|b| b.width).max().unwrap_or(0);
+        let mask_out = p.masks.iter().flatten().filter_map(|m| m.last()).map(|l| l.out).max().unwrap_or(0);
+        let f32s = |n: usize| (n.max(1).next_multiple_of(4) * 4) as u64;
+        let acts = |n: usize| (n.max(1).next_multiple_of(4) * self.act_bytes()) as u64;
+        let sliced = p.grouping.iter().flat_map(|g| [&g.input[0], &g.output]);
+        let sliced = sliced.chain(p.pools.iter().flatten().map(|pool| &pool.ff[0]));
+        let row = sliced.map(|l| l.out).max().unwrap_or(0);
+        let mut scratch = [0; SLOTS];
+        scratch[Slot::X as usize] = f32s(tokens * c.dim);
+        scratch[Slot::Earlier as usize] = if c.skip { f32s(tokens * c.dim) } else { 0 };
+        scratch[Slot::Normed as usize] = acts((tokens * c.dim).max(grouped));
+        scratch[Slot::Qkvg as usize] = acts(tokens * c.qkvg_width());
+        scratch[Slot::Attended as usize] = acts(tokens * c.inner_dim());
+        scratch[Slot::Hidden as usize] = acts((tokens * p.ff_hidden).max(row));
+        scratch[Slot::BandIn as usize] = acts(frames * widest_band);
+        scratch[Slot::Mlp0 as usize] = acts(mask_rows * p.mask_hidden);
+        scratch[Slot::Mlp1 as usize] = acts(mask_rows * p.mask_hidden);
+        scratch[Slot::MlpOut as usize] = if self.closing() { f32s(mask_rows * mask_out) } else { 0 };
+        scratch[Slot::Frames as usize] = if p.grouping.is_some() { f32s(grouped) } else { 0 };
+        scratch[Slot::Scores as usize] = if self.pipelines.attention_products.is_some() {
+            [Axis::Time, Axis::Freq]
+                .map(|axis| {
+                    let len = axis.len(seq_frames, seq_bands);
+                    let pairs = axis.groups(seq_frames, seq_bands) * c.heads;
+                    self.scores_slice(len, pairs) as u64 * scores_bytes(len)
+                })
+                .into_iter()
+                .max()
+                .unwrap_or(0)
+        } else {
+            0
+        };
+        Sizes { scratch, bins: f32s(frames * g.features()), mask: f32s(g.mask_len(frames)) }
+    }
+
+    /// How many sequences and heads of `len` tokens, of `pairs`, have their scores at once: as
+    /// many as [`SCORES_BYTES`] and the GPU's binding hold, and a step takes when the work
+    /// goes in packets ([`Gpu::per_step`]), one at least.
+    fn scores_slice(&self, len: usize, pairs: usize) -> usize {
+        let budget = SCORES_BYTES.min(self.gpu.max_binding);
+        let held = usize::try_from(budget / scores_bytes(len)).unwrap_or(usize::MAX);
+        let paced = self.gpu.per_step(2 * len * len * self.geometry.config.dim_head).unwrap_or(usize::MAX);
+        held.min(paced).clamp(1, pairs.max(1))
+    }
+
+    /// Whether the last products of the mask estimators go through the glu step into the
+    /// masks: gated, or frames given back out of order.
+    fn closing(&self) -> bool {
+        let c = &self.geometry.config;
+        c.mask_glu || c.pair_gates || self.params.grouping.is_some()
     }
 
     fn act_bytes(&self) -> usize {
@@ -569,76 +827,19 @@ impl MaskNetwork for GpuNetwork {
     fn start(&mut self, bins: &[f32], frames: usize) -> Result<(), StemsError> {
         assert!(bins.len() == frames * self.geometry.features(), "bins hold `frames` rows of features");
         self.prepare(frames)?;
-        if self.gpu.profile {
-            let plan = self.plans.remove(&frames).expect("prepared");
-            plan.load(&self.gpu, bins);
-            let steps: Vec<&Step> = plan.submissions.iter().flatten().collect();
-            let result = self.profile_steps_of(&steps);
-            self.plans.insert(frames, plan);
-            result?;
-        }
-        let plan = &self.plans[&frames];
         let gpu = &self.gpu;
+        let plan = &self.plans[&frames];
         plan.load(gpu, bins);
-        if let Some(share) = gpu.share {
-            // packets of steps of about PACED_FLOPS, each waited for, then a pause; without
-            // pauses, one packet waits queued behind the one running, so that the GPU is never
-            // idle while the CPU hears of a packet's end and sends the next one
-            let mut packet: Vec<&Step> = Vec::new();
-            let mut flops = 0;
-            let mut queued = None;
-            let wait = |submission| {
-                let done = wgpu::PollType::Wait { submission_index: Some(submission), timeout: None };
-                gpu.device.poll(done).map(drop).map_err(|e| StemsError::Gpu(e.to_string()))
-            };
-            let steps: Vec<&Step> = plan.submissions.iter().flatten().collect();
-            for (i, step) in steps.iter().enumerate() {
-                packet.push(step);
-                flops += step.flops;
-                if flops < PACED_FLOPS && i + 1 < steps.len() {
-                    continue;
-                }
-                let mut encoder = gpu.device.create_command_encoder(&Default::default());
-                {
-                    let mut pass = encoder.begin_compute_pass(&Default::default());
-                    for step in packet.drain(..) {
-                        pass.set_pipeline(&step.pipeline);
-                        pass.set_bind_group(0, &step.bind_group, &[]);
-                        pass.dispatch_workgroups(step.groups.0, step.groups.1, 1);
-                    }
-                }
-                flops = 0;
-                let began = std::time::Instant::now();
-                let submitted = gpu.queue.submit([encoder.finish()]);
-                if share < 1.0 {
-                    wait(submitted)?;
-                    std::thread::sleep(began.elapsed().mul_f64((1.0 - share) / share));
-                } else if let Some(previous) = queued.replace(submitted) {
-                    wait(previous)?;
-                }
-            }
-            let mut encoder = gpu.device.create_command_encoder(&Default::default());
-            encoder.copy_buffer_to_buffer(&plan.mask, 0, &plan.readback, 0, plan.mask.size());
-            self.started = Some((frames, gpu.queue.submit([encoder.finish()])));
-            return self.check_errors();
-        }
-        let mut last = None;
-        for (i, steps) in plan.submissions.iter().enumerate() {
-            let mut encoder = gpu.device.create_command_encoder(&Default::default());
-            {
-                let mut pass = encoder.begin_compute_pass(&Default::default());
-                for step in steps {
-                    pass.set_pipeline(&step.pipeline);
-                    pass.set_bind_group(0, &step.bind_group, &[]);
-                    pass.dispatch_workgroups(step.groups.0, step.groups.1, 1);
-                }
-            }
-            if i + 1 == plan.submissions.len() {
-                encoder.copy_buffer_to_buffer(&plan.mask, 0, &plan.readback, 0, plan.mask.size());
-            }
-            last = Some(gpu.queue.submit([encoder.finish()]));
-        }
-        self.started = Some((frames, last.expect("a plan has submissions")));
+        let submission = if gpu.profile {
+            gpu.submit_profiled(plan, |kind, seconds| {
+                let entry = self.profiled.entry(kind).or_default();
+                entry.0 += seconds;
+                entry.1 += 1;
+            })?
+        } else {
+            gpu.submit(plan)?
+        };
+        self.started = Some((frames, submission));
         self.check_errors()
     }
 
@@ -663,10 +864,6 @@ impl MaskNetwork for GpuNetwork {
     }
 }
 
-/// The most capable GPU, through Vulkan when it reaches a hardware one (its compiler makes
-/// the matrix products faster than Direct3D 12's, and it reaches the matrix units), else
-/// whatever API reaches one, and whether it was picked by name. `WGPU_BACKEND` restricts the APIs,
-/// `WGPU_ADAPTER_NAME` picks a GPU by (part of) its name.
 /// The adapter worth separating on and whether its matrix units are used: see [`Gpu::open`].
 fn worthy_adapter(options: GpuOptions) -> Result<(wgpu::Adapter, bool), StemsError> {
     let (adapter, picked) = adapter()?;
@@ -685,6 +882,10 @@ fn worthy_adapter(options: GpuOptions) -> Result<(wgpu::Adapter, bool), StemsErr
     Ok((adapter, matrix_units))
 }
 
+/// The most capable GPU, through Vulkan when it reaches a hardware one (its compiler makes
+/// the matrix products faster than Direct3D 12's, and it reaches the matrix units), else
+/// whatever API reaches one, and whether it was picked by name. `WGPU_BACKEND` restricts the
+/// APIs, `WGPU_ADAPTER_NAME` picks a GPU by (part of) its name.
 fn adapter() -> Result<(wgpu::Adapter, bool), StemsError> {
     let instance = |backends: wgpu::Backends| {
         let mut desc = wgpu::InstanceDescriptor::new_without_display_handle();
@@ -721,10 +922,11 @@ fn adapter() -> Result<(wgpu::Adapter, bool), StemsError> {
 /// at a time, in this much memory at most (one sequence and head at least).
 const SCORES_BYTES: u64 = 32 << 20;
 
-/// When the GPU is shared ([`GpuOptions::share`]): a piece of a product, about 3 ms on an
-/// Adreno 740, and the scores of the attention worked out at once.
-const PACED_FLOPS: usize = 1 << 30;
-const PACED_SCORES_BYTES: u64 = 8 << 20;
+/// When the work goes in packets ([`Pacing`]): the most arithmetic a step takes, under a
+/// millisecond on a phone's GPU (an Adreno 740 does about 350 GFLOP/s), and how long a packet
+/// of steps takes.
+const PIECE_FLOPS: usize = 1 << 28;
+const PACKET: Duration = Duration::from_millis(3);
 
 /// The side of the square of outputs a workgroup of `matmul_blocked.wgsl` computes.
 const BLOCKED_TILE: usize = 64;
@@ -738,22 +940,23 @@ fn binding_limit(limits: &wgpu::Limits) -> u64 {
     limits.max_storage_buffer_binding_size.min(limits.max_buffer_size)
 }
 
-/// The bytes of the largest activation, for each token along the time of the transformers'
-/// sequences.
-fn frame_bytes(geometry: &Geometry, params: &Params, matrix: bool) -> u64 {
-    let c = &geometry.config;
-    let act = if matrix { 2 } else { 4 };
-    let widest = c.qkvg_width().max(params.ff_hidden);
-    let frames = if params.grouping.is_some() { c.group * params.band_dim * 4 } else { 0 };
-    (geometry.seq_bands() * (widest * act).max(c.dim * 4).max(frames)) as u64
+/// The bytes of the buffers a chunk binds ([`GpuNetwork::sizes`]): the scratch buffers by
+/// [`Slot`], its bins and its masks.
+struct Sizes {
+    scratch: [u64; SLOTS],
+    bins: u64,
+    mask: u64,
 }
 
-/// The most frames a chunk can take on a GPU binding `max_binding` bytes, at most the model's.
-fn frames_that_fit(max_binding: u64, geometry: &Geometry, params: &Params, matrix: bool) -> usize {
-    let fit = max_binding / frame_bytes(geometry, params, matrix);
-    let c = &geometry.config;
-    let tokens = usize::try_from(fit).unwrap_or(usize::MAX).saturating_sub(c.registers);
-    tokens.saturating_mul(c.group).min(c.chunk_frames)
+impl Sizes {
+    fn largest(&self) -> u64 {
+        self.scratch.iter().copied().chain([self.bins, self.mask]).max().unwrap_or(0)
+    }
+}
+
+/// Whether the GPU draws the screen too, beside the processor: an integrated GPU, a phone's.
+fn draws_the_screen(info: &wgpu::AdapterInfo) -> bool {
+    info.device_type == wgpu::DeviceType::IntegratedGpu || cfg!(any(target_os = "android", target_os = "ios"))
 }
 
 /// PCI vendor ids.
@@ -764,11 +967,14 @@ const MATRIX_FEATURES: wgpu::Features = wgpu::Features::SHADER_F16
     .union(wgpu::Features::SUBGROUP)
     .union(wgpu::Features::EXPERIMENTAL_COOPERATIVE_MATRIX);
 
-/// Shared memory the attention on the matrix units takes.
+/// Shared memory the attention on the matrix units takes: the workgroup arrays of
+/// `attention_coop.wgsl`.
 const MATRIX_ATTENTION_SHARED: u32 = 23_056;
 
 /// Whether the shaders written for the matrix units run here: 16 x 16 x 16 products of f16
-/// summed in f32, by subgroups of 32 invocations.
+/// summed in f32, by subgroups of 32 invocations. The shaders count on 32 (8 subgroups to a
+/// workgroup of 256, 32 lanes over a tile's rows), and wgpu lets the driver choose the size
+/// within the GPU's range: a GPU whose subgroups may be of 64 too (AMD's RDNA) is left out.
 fn has_matrix_units(adapter: &wgpu::Adapter) -> bool {
     let info = adapter.get_info();
     adapter.features().contains(MATRIX_FEATURES)
@@ -797,12 +1003,14 @@ fn matrix_attention(device: &wgpu::Device, geometry: &Geometry) -> bool {
 }
 
 /// Whether the attention on the shader cores runs as products, unless chosen
-/// ([`GpuOptions::attention`]): for gated heads of 64 values, each with its own keys and
-/// values, if it takes them. Smaller heads hold less in their registers, and their scores would weigh more beside
-/// their products (on an RTX 4060, the products take 1.5 times as long as `attention.wgsl` for
-/// Mini-BS-RoFormer-18M's heads of 32 values).
-fn attention_as_products(c: &Config) -> bool {
-    c.dim_head == 64 && c.kv_heads == c.heads && c.gates && products_take(c)
+/// ([`GpuOptions::attention`]), where it takes the heads: on a GPU drawing the screen too,
+/// whose shader cores hold fewer registers than a graphics card's (on an Adreno 740, a fifth
+/// faster than in one pass for Mini-BS-RoFormer-V2.5); elsewhere, for gated heads of 64 values
+/// each with its own keys and values. Smaller heads hold less in their registers, and their
+/// scores would weigh more beside their products (on an RTX 4060, the products take 1.5 times
+/// as long as `attention.wgsl` for Mini-BS-RoFormer-18M's heads of 32 values).
+fn attention_as_products(c: &Config, draws_the_screen: bool) -> bool {
+    products_take(c) && (draws_the_screen || c.dim_head == 64 && c.kv_heads == c.heads && c.gates)
 }
 
 /// Whether the attention as products takes the network's heads: each thread of
@@ -823,8 +1031,8 @@ fn value_queries(dim_head: usize) -> usize {
 }
 
 /// The heads the attentions are compiled for, defined before their sources: constants rather
-/// than overrides or parameters, so that the gated heads of 64 values compile as they did
-/// before the others came.
+/// than overrides or parameters, as they size the arrays a thread holds a head in
+/// (`attention.wgsl`'s query and output), which only constants can outside workgroup memory.
 fn heads_shape(c: &Config) -> String {
     let (dh, gated) = (c.dim_head, c.gates);
     format!("const DH: u32 = {dh}u;\nconst DH4: u32 = {}u;\nconst GATED: bool = {gated};\n", dh / 4)
@@ -874,7 +1082,9 @@ impl Pipelines {
         let matrix_attention = matrix && matrix_attention(device, geometry);
         let c = &geometry.config;
         let shape = heads_shape(c);
-        let products = gpu.attention.map_or(attention_as_products(c), |a| a == Attention::Products);
+        let products = gpu
+            .attention
+            .map_or(attention_as_products(c, gpu.draws_the_screen), |a| a == Attention::Products);
         let attention_products = (!matrix && products).then(|| {
             [
                 make(&format!("{shape}{}", include_str!("attention_scores.wgsl")), "main"),
@@ -940,18 +1150,12 @@ impl Params {
         // the blocked products read the norms of the stream four values at a time
         let gated_products =
             !matrix && c.ff_glu && c.dim.is_multiple_of(4) && layers().all(|l| l.ff1.out.is_multiple_of(8));
-        let linear = |l: &Linear| {
-            // the matrix units read rows of whole groups of 4, which the networks they run
-            // have (`fits_matrix_units`); the shader cores read pairs of values,
-            // the last one padded by `storage`
-            let ld = if matrix { l.inp / 4 } else { l.inp };
-            GpuLinear {
-                weight: storage(device, bytemuck::cast_slice(&l.weight.to_f16())),
-                bias: l.bias.as_ref().map(|b| storage(device, bytemuck::cast_slice(b))),
-                out: l.out,
-                inp: l.inp,
-                ld,
-            }
+        // the shader cores read the weights in pairs, the last one padded by `storage`
+        let linear = |l: &Linear| GpuLinear {
+            weight: storage(device, bytemuck::cast_slice(&l.weight.to_f16())),
+            bias: l.bias.as_ref().map(|b| storage(device, bytemuck::cast_slice(b))),
+            out: l.out,
+            inp: l.inp,
         };
         let transformers = w
             .transformers
@@ -1006,7 +1210,13 @@ impl Params {
             grouping,
             transformers,
             final_norm: w.final_norm.as_ref().map(|n| storage(device, bytemuck::cast_slice(n))),
-            registers: w.registers.clone(),
+            registers: (!w.registers.is_empty()).then(|| {
+                device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                    label: None,
+                    contents: bytemuck::cast_slice(&w.registers),
+                    usage: wgpu::BufferUsages::COPY_SRC,
+                })
+            }),
             pools: w.stem_queries.as_ref().map(|q| [pool(&q.bands), pool(&q.tokens)]),
             masks: w
                 .masks
@@ -1042,254 +1252,354 @@ struct Planner<'a> {
     frames: usize,
 }
 
+/// The buffers the steps of a chunk bind.
+struct Work {
+    bins: wgpu::Buffer,
+    mask: wgpu::Buffer,
+    /// The residual stream ([`Slot::X`]).
+    x: wgpu::Buffer,
+    /// With skip connections, [`Slot::Earlier`].
+    earlier: Option<wgpu::Buffer>,
+    normed: wgpu::Buffer,
+    qkvg: wgpu::Buffer,
+    attended: wgpu::Buffer,
+    hidden: wgpu::Buffer,
+    band_in: wgpu::Buffer,
+    mlp: [wgpu::Buffer; 2],
+    mlp_out: wgpu::Buffer,
+    /// [`Slot::Frames`].
+    frames: wgpu::Buffer,
+    scores: wgpu::Buffer,
+    /// Of the rotary embeddings along the time, then along the bands.
+    angles: [wgpu::Buffer; 2],
+}
+
+impl Work {
+    /// The stream, a token a row of `dim`.
+    fn stream(&self, dim: usize) -> Input<'_> {
+        Input { buffer: &self.x, store: Store::F32, ld: dim, off: 0 }
+    }
+}
+
 impl Planner<'_> {
     fn build(self) -> Plan {
-        let g = &self.net.geometry;
-        let c = &g.config;
-        let p = &self.net.params;
-        let frames = self.frames;
-        let token_frames = c.token_frames(frames);
-        let (seq_frames, seq_bands) = self.seq();
-        let tokens = seq_frames * seq_bands;
-        // the tokens of the frames (the registers' columns among them), and their frames' values
-        let frame_tokens = token_frames * seq_bands;
-        let grouped = frame_tokens * c.group * p.band_dim;
-        let features = g.features();
-        let mask_features = g.mask_features();
-        // the rows of the mask estimators: every frame of the tokens
-        let mask_rows = token_frames * c.group;
-        let closing = c.mask_glu || c.pair_gates || p.grouping.is_some();
-        let widest_band = g.bands.iter().map(|b| b.width).max().unwrap_or(0);
-        let mask_out = p.masks.iter().flatten().filter_map(|m| m.last()).map(|l| l.out).max().unwrap_or(0);
-        let f32s = |n: usize| (n.max(1).next_multiple_of(4) * 4) as u64;
-        let acts = |n: usize| (n.max(1).next_multiple_of(4) * self.net.act_bytes()) as u64;
-        let mut bytes = [0; SLOTS];
-        bytes[Slot::X as usize] = f32s(tokens * c.dim);
-        bytes[Slot::Earlier as usize] = if c.skip { f32s(tokens * c.dim) } else { 0 };
-        bytes[Slot::Normed as usize] = acts((tokens * c.dim).max(grouped));
-        bytes[Slot::Qkvg as usize] = acts(tokens * c.qkvg_width());
-        bytes[Slot::Attended as usize] = acts(tokens * c.inner_dim());
-        let sliced = p.grouping.iter().flat_map(|g| [&g.input[0], &g.output]);
-        let sliced = sliced.chain(p.pools.iter().flatten().map(|pool| &pool.ff[0]));
-        let row = sliced.map(|l| l.out).max().unwrap_or(0);
-        bytes[Slot::Hidden as usize] = acts((tokens * p.ff_hidden).max(row));
-        bytes[Slot::BandIn as usize] = acts(frames * widest_band);
-        bytes[Slot::Mlp0 as usize] = acts(mask_rows * p.mask_hidden);
-        bytes[Slot::Mlp1 as usize] = acts(mask_rows * p.mask_hidden);
-        bytes[Slot::MlpOut as usize] = if closing { f32s(mask_rows * mask_out) } else { 0 };
-        bytes[Slot::Frames as usize] = if p.grouping.is_some() { f32s(grouped) } else { 0 };
-        bytes[Slot::Scores as usize] = if self.net.pipelines.attention_products.is_some() {
-            [Axis::Time, Axis::Freq]
-                .map(|axis| {
-                    let len = axis.len(seq_frames, seq_bands);
-                    let pairs = axis.groups(seq_frames, seq_bands) * c.heads;
-                    self.scores_slice(len, pairs) as u64 * scores_bytes(len)
-                })
-                .into_iter()
-                .max()
-                .unwrap_or(0)
-        } else {
-            0
-        };
-        let (generation, scratch) = self.net.gpu.scratch(bytes);
-        let slot = |s: Slot| scratch[s as usize].clone();
+        let net = self.net;
+        let (c, p) = (&net.geometry.config, &net.params);
+        let sizes = net.sizes(self.frames);
+        let (generation, scratch) = net.gpu.scratch(sizes.scratch);
+        let w = self.work(&sizes, &scratch);
 
-        let bins = self.buffer(Store::F32, frames * features, wgpu::BufferUsages::COPY_DST);
-        let mask = self.buffer(Store::F32, g.mask_len(frames), wgpu::BufferUsages::COPY_SRC);
-        let readback = self.net.gpu.device.create_buffer(&wgpu::BufferDescriptor {
+        let mut submissions = vec![self.band_split(&w)];
+        for (i, (layers, gain)) in p.transformers.iter().enumerate() {
+            submissions.push(self.transformer(i, layers, gain.as_ref(), &w));
+        }
+        let mut steps = Vec::new();
+        if let Some(gain) = &p.final_norm {
+            steps.push(self.norm_in_place(&w.x, gain, self.tokens(), c.dim));
+        }
+        let (pooled, frames_back) = self.stem_queries(&w);
+        steps.extend(pooled);
+        for (s, back) in frames_back.iter().enumerate() {
+            // without stem queries, the frames the tokens give back are the same for every stem
+            if let Some(grouping) = p.grouping.as_ref().filter(|_| s == 0 || back.is_some()) {
+                steps.extend(self.frames_back(back.as_ref().unwrap_or(&grouping.output), &w));
+            }
+            steps.extend(self.masks(s, &w));
+            submissions.push(std::mem::take(&mut steps));
+        }
+
+        let mut cleared = Vec::new();
+        if c.registers > 0 {
+            cleared.push((w.x.clone(), (self.tokens() * c.dim * 4) as u64));
+        }
+        if p.grouping.is_some() {
+            cleared.push((w.frames.clone(), sizes.scratch[Slot::Frames as usize]));
+        }
+        let readback = net.gpu.device.create_buffer(&wgpu::BufferDescriptor {
             label: None,
-            size: mask.size(),
+            size: w.mask.size(),
             usage: wgpu::BufferUsages::MAP_READ | wgpu::BufferUsages::COPY_DST,
             mapped_at_creation: false,
         });
-        let x = slot(Slot::X);
-        let earlier = c.skip.then(|| slot(Slot::Earlier));
-        let normed = slot(Slot::Normed);
-        let qkvg = slot(Slot::Qkvg);
-        let attended = slot(Slot::Attended);
-        let hidden = slot(Slot::Hidden);
-        let band_in = slot(Slot::BandIn);
-        let mlp = [slot(Slot::Mlp0), slot(Slot::Mlp1)];
-        let mlp_out = slot(Slot::MlpOut);
-        let split = slot(Slot::Frames);
-        let scores = slot(Slot::Scores);
-        let device = &self.net.gpu.device;
-        let bands = g.bands.len();
-        let angles_time =
-            storage(device, bytemuck::cast_slice(&angles(&p.rotary_time, token_frames, seq_frames)));
-        let angles_freq = storage(device, bytemuck::cast_slice(&angles(&p.rotary_freq, bands, seq_bands)));
-        let x_rows = Input { buffer: &x, store: Store::F32, ld: c.dim, off: 0 };
-
-        let mut submissions = Vec::new();
-        let mut steps = Vec::new();
-        if c.registers > 0 {
-            // the registers in their corner, zeros elsewhere: the band split fills the rest
-            let mut start = vec![0.0; tokens * c.dim];
-            for (r, register) in p.registers.chunks_exact(c.dim).enumerate() {
-                start[g.register_token(frames, r) * c.dim..][..c.dim].copy_from_slice(register);
-            }
-            steps.push(self.add(&storage(device, bytemuck::cast_slice(&start)), &x, start.len(), false));
+        Plan {
+            generation,
+            copies: self.registers(&w.x),
+            cleared,
+            bins: w.bins,
+            mask: w.mask,
+            readback,
+            submissions,
         }
+    }
+
+    fn work(&self, sizes: &Sizes, scratch: &[wgpu::Buffer]) -> Work {
+        let g = &self.net.geometry;
+        let p = &self.net.params;
+        let slot = |s: Slot| scratch[s as usize].clone();
+        let (seq_frames, seq_bands) = self.seq();
+        let angles = |freqs: &[f32], real: usize, positions: usize| {
+            storage(&self.net.gpu.device, bytemuck::cast_slice(&angles(freqs, real, positions)))
+        };
+        Work {
+            bins: self.buffer_of(sizes.bins, wgpu::BufferUsages::COPY_DST),
+            mask: self.buffer_of(sizes.mask, wgpu::BufferUsages::COPY_SRC),
+            x: slot(Slot::X),
+            earlier: g.config.skip.then(|| slot(Slot::Earlier)),
+            normed: slot(Slot::Normed),
+            qkvg: slot(Slot::Qkvg),
+            attended: slot(Slot::Attended),
+            hidden: slot(Slot::Hidden),
+            band_in: slot(Slot::BandIn),
+            mlp: [slot(Slot::Mlp0), slot(Slot::Mlp1)],
+            mlp_out: slot(Slot::MlpOut),
+            frames: slot(Slot::Frames),
+            scores: slot(Slot::Scores),
+            angles: [
+                angles(&p.rotary_time, g.config.token_frames(self.frames), seq_frames),
+                angles(&p.rotary_freq, g.bands.len(), seq_bands),
+            ],
+        }
+    }
+
+    /// The rows of the registers' square, each from the registers into its place in the stream
+    /// `x`.
+    fn registers(&self, x: &wgpu::Buffer) -> Vec<Copied> {
+        let g = &self.net.geometry;
+        let (side, dim) = (g.config.registers, g.config.dim);
+        let row = (side * dim * 4) as u64;
+        let Some(registers) = &self.net.params.registers else { return Vec::new() };
+        (0..side)
+            .map(|r| Copied {
+                from: registers.clone(),
+                from_offset: r as u64 * row,
+                to: x.clone(),
+                to_offset: (g.register_token(self.frames, r * side) * dim * 4) as u64,
+                bytes: row,
+            })
+            .collect()
+    }
+
+    /// Each band's frames normed, then projected into the stream; with grouping, into the
+    /// frames grouped in tokens, which a feed-forward then takes into the stream.
+    fn band_split(&self, w: &Work) -> Vec<Step> {
+        let g = &self.net.geometry;
+        let c = &g.config;
+        let p = &self.net.params;
+        let (frames, features) = (self.frames, g.features());
+        let (_, seq_bands) = self.seq();
+        let mut steps = Vec::new();
         for (b, (band, proj)) in g.bands.iter().zip(&p.band_proj).enumerate() {
             steps.push(self.norm(
-                &bins,
-                &band_in,
+                &w.bins,
+                &w.band_in,
                 frames,
                 band.width,
                 (features, band.offset),
                 (band.width, 0),
             ));
             if p.grouping.is_none() {
-                let input = Input { buffer: &band_in, store: Store::Act, ld: band.width, off: 0 };
-                let into = Input { buffer: &x, store: Store::F32, ld: seq_bands * c.dim, off: b * c.dim };
+                let input = Input { buffer: &w.band_in, store: Store::Act, ld: band.width, off: 0 };
+                let into = Input { buffer: &w.x, store: Store::F32, ld: seq_bands * c.dim, off: b * c.dim };
                 steps.extend(self.matmul(proj, input, frames, into, Act::None, false));
                 continue;
             }
             // frame f of the band to frame f % group of token f / group
             for f in 0..c.group.min(frames) {
                 let (ld, off) = (c.group * band.width, f * band.width);
-                let input = Input { buffer: &band_in, store: Store::Act, ld, off };
+                let input = Input { buffer: &w.band_in, store: Store::Act, ld, off };
                 let (ld, off) = (seq_bands * c.group * p.band_dim, (b * c.group + f) * p.band_dim);
-                let into = Input { buffer: &split, store: Store::F32, ld, off };
+                let into = Input { buffer: &w.frames, store: Store::F32, ld, off };
                 let rows = (frames - f).div_ceil(c.group);
                 steps.extend(self.matmul(proj, input, rows, into, Act::None, false));
             }
         }
         if let Some(grouping) = &p.grouping {
+            let frame_tokens = self.frame_tokens();
             let rows = (p.band_dim, 0);
-            steps.push(self.norm(&split, &normed, frame_tokens * c.group, p.band_dim, rows, rows));
-            let input = Input { buffer: &normed, store: Store::Act, ld: c.group * p.band_dim, off: 0 };
-            steps.extend(self.feed_forward(&grouping.input, input, frame_tokens, &hidden, x_rows, false));
+            steps.push(self.norm(&w.frames, &w.normed, frame_tokens * c.group, p.band_dim, rows, rows));
+            let input = Input { buffer: &w.normed, store: Store::Act, ld: c.group * p.band_dim, off: 0 };
+            steps.extend(self.feed_forward(
+                &grouping.input,
+                input,
+                frame_tokens,
+                &w.hidden,
+                w.stream(c.dim),
+                false,
+            ));
         }
-        submissions.push(std::mem::take(&mut steps));
+        steps
+    }
 
-        let normed_in = Input { buffer: &normed, store: Store::Act, ld: c.dim, off: 0 };
-        for (i, (layers, gain)) in p.transformers.iter().enumerate() {
-            let axis = if i % 2 == 0 { Axis::Time } else { Axis::Freq };
-            let angles = if axis == Axis::Time { &angles_time } else { &angles_freq };
-            if let Some(earlier) = earlier.as_ref().filter(|_| axis == Axis::Time && i > 0) {
-                steps.push(self.add(earlier, &x, tokens * c.dim, true));
+    /// Transformer `i` over the stream, along the time if `i` is even, else along the bands;
+    /// `gain` that of its output norm.
+    fn transformer(&self, i: usize, layers: &[GpuLayer], gain: Option<&wgpu::Buffer>, w: &Work) -> Vec<Step> {
+        let c = &self.net.geometry.config;
+        let p = &self.net.params;
+        let tokens = self.tokens();
+        let axis = if i.is_multiple_of(2) { Axis::Time } else { Axis::Freq };
+        let angles = &w.angles[axis_id(axis)];
+        let x_rows = w.stream(c.dim);
+        let normed_in = Input { buffer: &w.normed, store: Store::Act, ld: c.dim, off: 0 };
+        let mut steps = Vec::new();
+        if let Some(earlier) = w.earlier.as_ref().filter(|_| axis == Axis::Time && i > 0) {
+            steps.push(self.add(earlier, &w.x, tokens * c.dim, true));
+        }
+        for l in layers {
+            steps.push(self.norm(&w.x, &w.normed, tokens, c.dim, (c.dim, 0), (c.dim, 0)));
+            let into = Input { buffer: &w.qkvg, store: Store::Act, ld: c.qkvg_width(), off: 0 };
+            steps.extend(self.matmul(&l.qkvg, normed_in, tokens, into, Act::None, false));
+            if !self.net.pipelines.matrix_attention {
+                steps.push(self.rotary(&w.qkvg, angles, axis, tokens));
             }
-            for l in layers {
-                steps.push(self.norm(&x, &normed, tokens, c.dim, (c.dim, 0), (c.dim, 0)));
-                let into = Input { buffer: &qkvg, store: Store::Act, ld: c.qkvg_width(), off: 0 };
-                steps.extend(self.matmul(&l.qkvg, normed_in, tokens, into, Act::None, false));
-                if !self.net.pipelines.matrix_attention {
-                    steps.push(self.rotary(&qkvg, angles, axis, tokens));
-                }
-                steps.extend(self.attention(&qkvg, angles, &attended, &scores, axis));
-                let input = Input { buffer: &attended, store: Store::Act, ld: c.inner_dim(), off: 0 };
-                steps.extend(self.matmul(&l.out, input, tokens, x_rows, Act::None, true));
-                steps.push(self.norm(&x, &normed, tokens, c.dim, (c.dim, 0), (c.dim, 0)));
-                let width = if p.gated_products { l.ff1.out / 2 } else { l.ff1.out };
-                let into = Input { buffer: &hidden, store: Store::Act, ld: width, off: 0 };
-                if p.gated_products {
-                    let act = if c.silu { Act::GatedSilu } else { Act::Gated };
-                    steps.extend(self.matmul(&l.ff1, normed_in, tokens, into, act, false));
-                } else if c.ff_glu {
-                    steps.extend(self.matmul(&l.ff1, normed_in, tokens, into, Act::None, false));
-                    steps.push(self.gated(&hidden, tokens, l.ff1.out / 2));
+            steps.extend(self.attention(&w.qkvg, angles, &w.attended, &w.scores, axis));
+            let input = Input { buffer: &w.attended, store: Store::Act, ld: c.inner_dim(), off: 0 };
+            steps.extend(self.matmul(&l.out, input, tokens, x_rows, Act::None, true));
+            steps.push(self.norm(&w.x, &w.normed, tokens, c.dim, (c.dim, 0), (c.dim, 0)));
+            let width = if p.gated_products { l.ff1.out / 2 } else { l.ff1.out };
+            let into = Input { buffer: &w.hidden, store: Store::Act, ld: width, off: 0 };
+            if p.gated_products {
+                let act = if c.silu { Act::GatedSilu } else { Act::Gated };
+                steps.extend(self.matmul(&l.ff1, normed_in, tokens, into, act, false));
+            } else if c.ff_glu {
+                steps.extend(self.matmul(&l.ff1, normed_in, tokens, into, Act::None, false));
+                steps.push(self.gated(&w.hidden, tokens, l.ff1.out / 2));
+            } else {
+                steps.extend(self.matmul(&l.ff1, normed_in, tokens, into, Act::Gelu, false));
+            }
+            steps.extend(self.matmul(&l.ff2, into, tokens, x_rows, Act::None, true));
+        }
+        if let Some(gain) = gain {
+            steps.push(self.norm_in_place(&w.x, gain, tokens, c.dim));
+        }
+        if let Some(earlier) = w.earlier.as_ref().filter(|_| axis == Axis::Freq) {
+            steps.push(self.add(&w.x, earlier, tokens * c.dim, i > 1));
+        }
+        steps
+    }
+
+    /// With stem queries, their pooling of the stream, then for each stem the first product of
+    /// the frames given back with the stem's row as its bias; otherwise nothing and none.
+    fn stem_queries(&self, w: &Work) -> (Vec<Step>, Vec<Option<GpuLinear>>) {
+        let g = &self.net.geometry;
+        let c = &g.config;
+        let stems = g.stems.len();
+        let (Some([bands_pool, tokens_pool]), Some(grouping)) =
+            (&self.net.params.pools, &self.net.params.grouping)
+        else {
+            return (Vec::new(), vec![None; stems]);
+        };
+        let token_frames = c.token_frames(self.frames);
+        let (_, seq_bands) = self.seq();
+        let work = PoolWork { keys: &w.qkvg, attended: &w.attended, normed: &w.normed, hidden: &w.hidden };
+        let pooled = self.buffer(Store::F32, token_frames * c.dim, wgpu::BufferUsages::empty());
+        let stem_rows = self.buffer(Store::F32, stems * c.dim, wgpu::BufferUsages::empty());
+        let x_rows = w.stream(c.dim);
+        let mut steps =
+            self.pool(bands_pool, x_rows, (token_frames, g.bands.len(), seq_bands), &pooled, &work);
+        let pooled_rows = Input { buffer: &pooled, store: Store::F32, ld: c.dim, off: 0 };
+        steps.extend(self.pool(tokens_pool, pooled_rows, (1, token_frames, 0), &stem_rows, &work));
+        let mut frames_back = Vec::with_capacity(stems);
+        for s in 0..stems {
+            let out = grouping.output.out;
+            let bias = self.buffer(Store::F32, out, wgpu::BufferUsages::empty());
+            let row = Input { buffer: &stem_rows, store: Store::F32, ld: c.dim, off: s * c.dim };
+            let into = Input { buffer: &bias, store: Store::F32, ld: out, off: 0 };
+            steps.extend(self.matmul(&grouping.output, row, 1, into, Act::None, false));
+            frames_back.push(Some(GpuLinear { bias: Some(bias), ..grouping.output.clone() }));
+        }
+        (steps, frames_back)
+    }
+
+    /// The frames the tokens give back through the grouping's output feed-forward, its first
+    /// product `ff1`, normed for the mask estimators.
+    fn frames_back(&self, ff1: &GpuLinear, w: &Work) -> Vec<Step> {
+        let c = &self.net.geometry.config;
+        let p = &self.net.params;
+        let grouping = p.grouping.as_ref().expect("the frames come back from tokens grouping them");
+        let frame_tokens = self.frame_tokens();
+        let into = Input { buffer: &w.hidden, store: Store::Act, ld: ff1.out, off: 0 };
+        let mut steps = Vec::new();
+        for tokens in self.hidden_slices(frame_tokens, ff1.out, &w.hidden) {
+            let n = tokens.len();
+            let input = Input { off: tokens.start * c.dim, ..w.stream(c.dim) };
+            steps.extend(self.matmul(ff1, input, n, into, Act::None, false));
+            steps.push(self.gated(&w.hidden, n, ff1.out / 2));
+            // frame f of every token in the f-th block of rows: the estimators read the frames
+            // of a band in one stride, the glu step puts them in order
+            for (f, l) in grouping.frames.iter().enumerate() {
+                let off = (f * frame_tokens + tokens.start) * p.band_dim;
+                let out = Input { buffer: &w.frames, store: Store::F32, ld: p.band_dim, off };
+                steps.extend(self.matmul(l, into, n, out, Act::None, false));
+            }
+        }
+        let rows = (p.band_dim, 0);
+        steps.push(self.norm(&w.frames, &w.normed, frame_tokens * c.group, p.band_dim, rows, rows));
+        steps
+    }
+
+    /// The masks of stem `s`, each band's from its estimator over the stream, or over the
+    /// frames given back.
+    fn masks(&self, s: usize, w: &Work) -> Vec<Step> {
+        let g = &self.net.geometry;
+        let c = &g.config;
+        let p = &self.net.params;
+        let (frames, mask_features) = (self.frames, g.mask_features());
+        let (_, seq_bands) = self.seq();
+        let closing = self.net.closing();
+        let stem_off = s * frames * mask_features;
+        let (rows, width, base) = match &p.grouping {
+            None => (frames, c.dim, Input { buffer: &w.x, store: Store::F32, ld: seq_bands * c.dim, off: 0 }),
+            Some(_) => {
+                let ld = seq_bands * p.band_dim;
+                let normed = Input { buffer: &w.normed, store: Store::Act, ld, off: 0 };
+                (c.token_frames(frames) * c.group, p.band_dim, normed)
+            }
+        };
+        let estimators = &p.masks[if c.stem_queries { 0 } else { s }];
+        let mut steps = Vec::new();
+        for (b, (band, mlp_layers)) in g.mask_bands.iter().zip(estimators).enumerate() {
+            let mut input = Input { off: b * width, ..base };
+            for (k, l) in mlp_layers.iter().enumerate() {
+                let last = k + 1 == mlp_layers.len();
+                let into = if !last {
+                    Input { buffer: &w.mlp[k % 2], store: Store::Act, ld: l.out, off: 0 }
+                } else if closing {
+                    Input { buffer: &w.mlp_out, store: Store::F32, ld: l.out, off: 0 }
                 } else {
-                    steps.extend(self.matmul(&l.ff1, normed_in, tokens, into, Act::Gelu, false));
-                }
-                steps.extend(self.matmul(&l.ff2, into, tokens, x_rows, Act::None, true));
-            }
-            if let Some(gain) = gain {
-                steps.push(self.norm_in_place(&x, gain, tokens, c.dim));
-            }
-            if let Some(earlier) = earlier.as_ref().filter(|_| axis == Axis::Freq) {
-                steps.push(self.add(&x, earlier, tokens * c.dim, i > 1));
-            }
-            submissions.push(std::mem::take(&mut steps));
-        }
-        if let Some(gain) = &p.final_norm {
-            steps.push(self.norm_in_place(&x, gain, tokens, c.dim));
-        }
-
-        // with stem queries, each stem's row as the bias of the first product of the frames back
-        let mut frames_back: Vec<Option<GpuLinear>> = vec![None; g.stems.len()];
-        if let (Some([bands_pool, tokens_pool]), Some(grouping)) = (&p.pools, &p.grouping) {
-            let work = PoolWork { keys: &qkvg, attended: &attended, normed: &normed, hidden: &hidden };
-            let pooled = self.buffer(Store::F32, token_frames * c.dim, wgpu::BufferUsages::empty());
-            let stems = self.buffer(Store::F32, g.stems.len() * c.dim, wgpu::BufferUsages::empty());
-            steps.extend(self.pool(bands_pool, x_rows, (token_frames, bands, seq_bands), &pooled, &work));
-            let pooled_rows = Input { buffer: &pooled, store: Store::F32, ld: c.dim, off: 0 };
-            steps.extend(self.pool(tokens_pool, pooled_rows, (1, token_frames, 0), &stems, &work));
-            for (s, back) in frames_back.iter_mut().enumerate() {
-                let out = grouping.output.out;
-                let bias = self.buffer(Store::F32, out, wgpu::BufferUsages::empty());
-                let row = Input { buffer: &stems, store: Store::F32, ld: c.dim, off: s * c.dim };
-                let into = Input { buffer: &bias, store: Store::F32, ld: out, off: 0 };
-                steps.extend(self.matmul(&grouping.output, row, 1, into, Act::None, false));
-                *back = Some(GpuLinear { bias: Some(bias), ..grouping.output.clone() });
-            }
-        }
-
-        for (s, back) in frames_back.iter().enumerate() {
-            let stem_off = s * frames * mask_features;
-            let estimators = &p.masks[if c.stem_queries { 0 } else { s }];
-            let (rows, width, base) = match &p.grouping {
-                None => {
-                    (frames, c.dim, Input { buffer: &x, store: Store::F32, ld: seq_bands * c.dim, off: 0 })
-                }
-                Some(grouping) => {
-                    let ff1 = back.as_ref().unwrap_or(&grouping.output);
-                    let into = Input { buffer: &hidden, store: Store::Act, ld: ff1.out, off: 0 };
-                    for tokens in self.hidden_slices(frame_tokens, ff1.out, &hidden) {
-                        let n = tokens.len();
-                        let input = Input { off: tokens.start * c.dim, ..x_rows };
-                        steps.extend(self.matmul(ff1, input, n, into, Act::None, false));
-                        steps.push(self.gated(&hidden, n, ff1.out / 2));
-                        // frame f of every token in the f-th block of rows: the estimators read
-                        // the frames of a band in one stride, the glu step puts them in order
-                        for (f, l) in grouping.frames.iter().enumerate() {
-                            let off = (f * frame_tokens + tokens.start) * p.band_dim;
-                            let out = Input { buffer: &split, store: Store::F32, ld: p.band_dim, off };
-                            steps.extend(self.matmul(l, into, n, out, Act::None, false));
-                        }
+                    Input {
+                        buffer: &w.mask,
+                        store: Store::F32,
+                        ld: mask_features,
+                        off: stem_off + band.offset,
                     }
-                    let rows = (p.band_dim, 0);
-                    steps.push(self.norm(&split, &normed, frame_tokens * c.group, p.band_dim, rows, rows));
-                    let ld = seq_bands * p.band_dim;
-                    (mask_rows, p.band_dim, Input { buffer: &normed, store: Store::Act, ld, off: 0 })
-                }
-            };
-            for (b, (band, mlp_layers)) in g.mask_bands.iter().zip(estimators).enumerate() {
-                let mut input = Input { off: b * width, ..base };
-                for (k, l) in mlp_layers.iter().enumerate() {
-                    let last = k + 1 == mlp_layers.len();
-                    let into = if !last {
-                        Input { buffer: &mlp[k % 2], store: Store::Act, ld: l.out, off: 0 }
-                    } else if closing {
-                        Input { buffer: &mlp_out, store: Store::F32, ld: l.out, off: 0 }
-                    } else {
-                        Input {
-                            buffer: &mask,
-                            store: Store::F32,
-                            ld: mask_features,
-                            off: stem_off + band.offset,
-                        }
-                    };
-                    let act = if last { Act::None } else { Act::Tanh };
-                    steps.extend(self.matmul(l, input, rows, into, act, false));
-                    input = into;
-                }
-                if closing {
-                    steps.push(self.glu(
-                        &mlp_out,
-                        &mask,
-                        frames,
-                        band.width,
-                        mask_features,
-                        stem_off + band.offset,
-                    ));
-                }
+                };
+                let act = if last { Act::None } else { Act::Tanh };
+                steps.extend(self.matmul(l, input, rows, into, act, false));
+                input = into;
             }
-            submissions.push(std::mem::take(&mut steps));
+            if closing {
+                steps.push(self.glu(
+                    &w.mlp_out,
+                    &w.mask,
+                    frames,
+                    band.width,
+                    mask_features,
+                    stem_off + band.offset,
+                ));
+            }
         }
+        steps
+    }
 
-        let cleared = p.grouping.is_some().then_some(split);
-        Plan { generation, bins, cleared, mask, readback, submissions }
+    /// The tokens of the transformers' sequences.
+    fn tokens(&self) -> usize {
+        let (seq_frames, seq_bands) = self.seq();
+        seq_frames * seq_bands
+    }
+
+    /// The tokens of the frames, the registers' columns among them.
+    fn frame_tokens(&self) -> usize {
+        self.net.geometry.config.token_frames(self.frames) * self.net.geometry.seq_bands()
     }
 
     /// Frames and bands of the transformers' sequences.
@@ -1300,9 +1610,13 @@ impl Planner<'_> {
     /// Room for `count` values stored as `store`, in whole groups of 4.
     fn buffer(&self, store: Store, count: usize, usage: wgpu::BufferUsages) -> wgpu::Buffer {
         let bytes = if store == Store::Act { self.net.act_bytes() } else { 4 };
+        self.buffer_of((count.max(1).next_multiple_of(4) * bytes) as u64, usage)
+    }
+
+    fn buffer_of(&self, bytes: u64, usage: wgpu::BufferUsages) -> wgpu::Buffer {
         self.net.gpu.device.create_buffer(&wgpu::BufferDescriptor {
             label: None,
-            size: (count.max(1).next_multiple_of(4) * bytes) as u64,
+            size: bytes,
             usage: wgpu::BufferUsages::STORAGE | usage,
             mapped_at_creation: false,
         })
@@ -1343,8 +1657,8 @@ impl Planner<'_> {
         }
     }
 
-    /// `out` (+)= act(`a` · `l`) over `rows` rows: in pieces of [`PACED_FLOPS`] when the GPU is
-    /// shared ([`GpuOptions::share`]), else at once.
+    /// `out` (+)= act(`a` · `l`) over `rows` rows: in pieces of about [`Gpu::piece_flops`]
+    /// when the work goes in packets, else at once.
     fn matmul(
         &self,
         l: &GpuLinear,
@@ -1354,13 +1668,8 @@ impl Planner<'_> {
         act: Act,
         accumulate: bool,
     ) -> Vec<Step> {
-        let per_row = 2 * l.out * l.inp;
-        let piece = match self.net.gpu.share {
-            Some(_) => (PACED_FLOPS / per_row.max(1))
-                .max(1)
-                .next_multiple_of(BLOCKED_TILE.max(self.net.pipelines.matmul_tile)),
-            None => rows,
-        };
+        let tile = BLOCKED_TILE.max(self.net.pipelines.matmul_tile);
+        let piece = self.net.gpu.per_step(2 * l.out * l.inp).map_or(rows, |rows| rows.next_multiple_of(tile));
         (0..rows)
             .step_by(piece.max(1))
             .map(|first| {
@@ -1402,7 +1711,6 @@ impl Planner<'_> {
             act as usize,
             usize::from(accumulate),
             usize::from(l.bias.is_some()),
-            l.ld,
         ];
         let step = self.step(pipeline, groups, &[a.buffer, &l.weight, bias, out.buffer], &words(&uniform));
         Step { flops: 2 * rows * l.out * l.inp, ..step }
@@ -1446,14 +1754,6 @@ impl Planner<'_> {
         self.step(&self.net.pipelines.rotary, groups, &[qkvg, angles], &words(&uniform))
     }
 
-    /// How many sequences and heads of `len` tokens, of `pairs`, have their scores at once:
-    /// as many as [`SCORES_BYTES`] and the GPU's binding hold, one at least.
-    fn scores_slice(&self, len: usize, pairs: usize) -> usize {
-        let bytes = if self.net.gpu.share.is_some() { PACED_SCORES_BYTES } else { SCORES_BYTES };
-        let budget = bytes.min(self.net.gpu.max_binding);
-        usize::try_from(budget / scores_bytes(len)).unwrap_or(usize::MAX).clamp(1, pairs.max(1))
-    }
-
     fn attention(
         &self,
         qkvg: &wgpu::Buffer,
@@ -1463,15 +1763,23 @@ impl Planner<'_> {
         axis: Axis,
     ) -> Vec<Step> {
         let c = &self.net.geometry.config;
+        let gpu = &self.net.gpu;
         let (frames, bands) = self.seq();
         let len = axis.len(frames, bands);
+        // the arithmetic of the scores of a sequence and head, and of its values
+        let flops = 2 * len * len * c.dim_head;
         if let Some([products, softmax, values]) = &self.net.pipelines.attention_products {
             let pairs = axis.groups(frames, bands) * c.heads;
-            // as many as the scores buffer holds, and the GPU binds
-            let held = scores.size().min(self.net.gpu.max_binding) / scores_bytes(len);
+            let held = scores.size().min(gpu.max_binding) / scores_bytes(len);
             assert!(held > 0, "the scores of a sequence and head fit in their buffer");
-            let slice = usize::try_from(held).unwrap_or(usize::MAX).min(pairs);
             let (query_groups, value_groups) = (len.div_ceil(64), len.div_ceil(value_queries(c.dim_head)));
+            // as many as the scores buffer holds and the GPU binds, a step takes when the work
+            // goes in packets, and a dispatch has workgroups along its second dimension
+            let slice = usize::try_from(held)
+                .unwrap_or(usize::MAX)
+                .min(gpu.per_step(flops).unwrap_or(usize::MAX))
+                .min(MAX_GROUPS as usize / query_groups.max(value_groups))
+                .min(pairs);
             let mut steps = Vec::new();
             for first in (0..pairs).step_by(slice) {
                 let count = slice.min(pairs - first);
@@ -1493,7 +1801,7 @@ impl Planner<'_> {
                         groups_x,
                     ])
                 };
-                let flops = 2 * count * len * len * c.dim_head;
+                let flops = count * flops;
                 let groups = (len.div_ceil(64) as u32, (query_groups * count) as u32);
                 let scored = self.step(products, groups, &[qkvg, scores], &uniform(query_groups, 0));
                 steps.push(Step { flops, ..scored });
@@ -1504,27 +1812,38 @@ impl Planner<'_> {
             }
             return steps;
         }
+        // the blocks of queries of a sequence's heads follow each other: a step takes whole
+        // sequences, all of them unless the work goes in packets
+        let sequences = axis.groups(frames, bands);
         let query_blocks = len.div_ceil(64);
-        let blocks = axis.groups(frames, bands) * c.heads * query_blocks;
-        let (groups, groups_x) = grid(blocks);
-        let uniform = [
-            len,
-            bands,
-            axis_id(axis),
-            c.qkvg_width(),
-            c.inner_dim(),
-            c.heads,
-            query_blocks,
-            blocks,
-            groups_x,
-            c.heads / c.kv_heads,
-            c.kv_dim(),
-            usize::from(c.gates),
-        ];
+        let blocks = c.heads * query_blocks;
+        let slice = gpu.per_step(2 * flops * c.heads).unwrap_or(sequences);
         let pipelines = &self.net.pipelines;
         let buffers: &[&wgpu::Buffer] =
             if pipelines.matrix_attention { &[qkvg, out, qkvg, angles] } else { &[qkvg, out] };
-        vec![self.step(&pipelines.attention, groups, buffers, &words(&uniform))]
+        (0..sequences)
+            .step_by(slice)
+            .map(|first| {
+                let count = slice.min(sequences - first);
+                let (groups, groups_x) = grid(count * blocks);
+                let uniform = [
+                    len,
+                    bands,
+                    axis_id(axis),
+                    c.qkvg_width(),
+                    c.inner_dim(),
+                    c.heads,
+                    query_blocks,
+                    (first + count) * blocks,
+                    groups_x,
+                    c.heads / c.kv_heads,
+                    c.kv_dim(),
+                    first * blocks,
+                ];
+                let step = self.step(&pipelines.attention, groups, buffers, &words(&uniform));
+                Step { flops: 2 * count * c.heads * flops, ..step }
+            })
+            .collect()
     }
 
     fn add(&self, src: &wgpu::Buffer, dst: &wgpu::Buffer, len: usize, accumulate: bool) -> Step {
@@ -1611,22 +1930,32 @@ impl Planner<'_> {
         let width = 2 * c.kv_dim();
         let keys = Input { buffer: work.keys, store: Store::Act, ld: width, off: 0 };
         let mut steps = self.matmul(&pool.kv, a, (sequences - 1) * stride + len, keys, Act::None, false);
-        let blocks = sequences * pool.count * c.heads;
-        let (groups, groups_x) = grid(blocks);
-        let uniform = [
-            len,
-            stride,
-            width,
-            c.kv_dim(),
-            pool.count,
-            c.heads,
-            c.heads / c.kv_heads,
-            c.inner_dim(),
-            blocks,
-            groups_x,
-        ];
+        // the blocks of a sequence's queries and heads follow each other: a step takes whole
+        // sequences, all of them unless the work goes in packets
+        let blocks = pool.count * c.heads;
+        let flops = 4 * blocks * len * c.dim_head;
+        let slice = self.net.gpu.per_step(flops).unwrap_or(sequences);
         let pipeline = self.net.pipelines.pool.as_ref().expect("compiled for the stem queries");
-        steps.push(self.step(pipeline, groups, &[&pool.queries, work.keys, work.attended], &words(&uniform)));
+        for first in (0..sequences).step_by(slice) {
+            let count = slice.min(sequences - first);
+            let (groups, groups_x) = grid(count * blocks);
+            let uniform = [
+                len,
+                stride,
+                width,
+                c.kv_dim(),
+                pool.count,
+                c.heads,
+                c.heads / c.kv_heads,
+                c.inner_dim(),
+                (first + count) * blocks,
+                groups_x,
+                first * blocks,
+            ];
+            let buffers = [&pool.queries, work.keys, work.attended];
+            let step = self.step(pipeline, groups, &buffers, &words(&uniform));
+            steps.push(Step { flops: count * flops, ..step });
+        }
         let rows = sequences * pool.count;
         let attended = Input { buffer: work.attended, store: Store::Act, ld: c.inner_dim(), off: 0 };
         let out_rows = Input { buffer: out, store: Store::F32, ld: c.dim, off: 0 };
@@ -1821,14 +2150,7 @@ mod tests {
             mapped_at_creation: false,
         });
         let mut encoder = net.gpu.device.create_command_encoder(&Default::default());
-        {
-            let mut pass = encoder.begin_compute_pass(&Default::default());
-            for step in steps {
-                pass.set_pipeline(&step.pipeline);
-                pass.set_bind_group(0, &step.bind_group, &[]);
-                pass.dispatch_workgroups(step.groups.0, step.groups.1, 1);
-            }
-        }
+        record(&mut encoder, steps);
         encoder.copy_buffer_to_buffer(out, 0, &read, 0, out.size());
         net.gpu.queue.submit([encoder.finish()]);
         read.slice(..).map_async(wgpu::MapMode::Read, |r| r.expect("mapped"));
@@ -1971,5 +2293,104 @@ mod tests {
             let err = relative_error(got.iter().copied(), &expected);
             assert!(err < 1e-4, "{axis:?}, {heads:?}, {attention:?}: relative error {err:e}");
         }
+    }
+
+    /// The bytes of the workgroup arrays of a shader, each `var<workgroup> name: array<T, N>;`.
+    fn workgroup_bytes(source: &str) -> u32 {
+        source
+            .lines()
+            .filter_map(|line| line.trim().strip_prefix("var<workgroup>"))
+            .map(|declared| {
+                let array = declared.split_once("array<").expect("an array").1;
+                let (element, count) = array.trim_end_matches(">;").split_once(", ").expect("sized");
+                let bytes = match element {
+                    "f16" => 2,
+                    "f32" | "u32" => 4,
+                    other => panic!("an element of {other}"),
+                };
+                bytes * count.parse::<u32>().expect("a literal count")
+            })
+            .sum()
+    }
+
+    #[test]
+    fn the_shared_memory_of_the_attention_on_the_matrix_units_is_its_arrays() {
+        assert_eq!(workgroup_bytes(include_str!("attention_coop.wgsl")), MATRIX_ATTENTION_SHARED);
+    }
+
+    fn fixture(name: &str) -> Weights {
+        Weights::load(&std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/data").join(name))
+            .expect("fixture loads")
+    }
+
+    /// Cut in steps of a few thousand flops, in packets of a few of them, the work of the small
+    /// networks of the fixtures: every product in pieces of rows, the attentions and the
+    /// pooling sequence by sequence, they give the masks they give whole.
+    #[test]
+    fn the_work_in_packets_gives_what_it_gives_whole() {
+        let names = [
+            "tiny_roformer.safetensors",
+            "tiny_roformer_stems.safetensors",
+            "tiny_bs_roformer.safetensors",
+            "tiny_bs_roformer_v25.safetensors",
+        ];
+        let ways = [(true, Some(Attention::OnePass)), (true, Some(Attention::Products)), (false, None)];
+        for (name, (without_matrix_units, attention)) in names.into_iter().flat_map(|n| ways.map(|w| (n, w)))
+        {
+            let weights = fixture(name);
+            if attention == Some(Attention::Products) && !products_take(&weights.geometry.config) {
+                continue;
+            }
+            let frames = 150;
+            let bins: Vec<f32> = (0..frames * weights.geometry.features())
+                .map(|i| ((i * 7919 % 2003) as f32 / 1001.5 - 1.0) * 3.0)
+                .collect();
+            let masks = |pacing: Pacing, piece_flops: usize| {
+                let options = GpuOptions {
+                    software: true,
+                    without_matrix_units,
+                    pacing: Some(pacing),
+                    attention,
+                    ..Default::default()
+                };
+                let mut gpu = match Gpu::open(options) {
+                    Ok(gpu) => gpu,
+                    Err(StemsError::NoGpu(e)) => {
+                        eprintln!("skipped: {e}");
+                        return None;
+                    }
+                    Err(e) => panic!("{e}"),
+                };
+                let alone = Arc::get_mut(&mut gpu).expect("alone");
+                alone.piece_flops = piece_flops;
+                *alone.throughput.get_mut().expect("throughput") = piece_flops as f64 / PACKET.as_secs_f64();
+                let mut net = GpuNetwork::on(&gpu, &weights).unwrap();
+                let mut out = vec![0.0; weights.geometry.mask_len(frames)];
+                net.masks(&bins, frames, &mut out).unwrap();
+                Some((out, net.plans[&frames].steps().count()))
+            };
+            let Some((whole, whole_steps)) = masks(Pacing::Whole, PIECE_FLOPS) else { return };
+            let (paced, paced_steps) = masks(Pacing::Packets, 1 << 16).expect("the same GPU");
+            assert!(paced_steps > whole_steps, "{name}: {paced_steps} steps from {whole_steps}");
+            assert_eq!(paced, whole, "{name}, {attention:?}");
+        }
+    }
+
+    /// A packet closes on the step reaching its budget; the last one takes what is left.
+    #[test]
+    fn packets_hold_their_budget_of_work() {
+        let Some(net) = network(3, false, HEADS[1], None) else { return };
+        let plan = &net.plans[&net.geometry.config.chunk_frames];
+        let step = plan.steps().next().expect("a step");
+        let steps: Vec<Step> = [5, 0, 3, 4, 0, 0, 9, 1]
+            .map(|flops| Step {
+                pipeline: step.pipeline.clone(),
+                bind_group: step.bind_group.clone(),
+                flops,
+                ..*step
+            })
+            .into();
+        let flops: Vec<(usize, usize)> = packets(&steps, 6).iter().map(|(p, f)| (p.len(), *f)).collect();
+        assert_eq!(flops, [(3, 8), (4, 13), (1, 1)]);
     }
 }

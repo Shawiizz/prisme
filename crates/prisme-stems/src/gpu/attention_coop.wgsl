@@ -17,13 +17,15 @@ struct Params {
     inner: u32,
     heads: u32,
     query_blocks: u32,
-    // sequences * heads * query_blocks
+    // the blocks of this step, from `first` to `blocks` (of sequences * heads * query_blocks,
+    // sequence after sequence)
     blocks: u32,
     groups_x: u32,
     // heads of queries per head of keys and values
     kv_share: u32,
     // width of a token's keys, or values
     kv_inner: u32,
+    first: u32,
 }
 
 @group(0) @binding(0) var<storage, read> qkvg: array<Act>;
@@ -105,7 +107,7 @@ fn main(
     @builtin(subgroup_id) sg: u32,
     @builtin(subgroup_invocation_id) lane: u32,
 ) {
-    let block = wg.x + wg.y * p.groups_x;
+    let block = p.first + wg.x + wg.y * p.groups_x;
     if (block >= p.blocks) {
         return;
     }

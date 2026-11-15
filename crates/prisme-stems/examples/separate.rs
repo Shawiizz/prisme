@@ -1,7 +1,8 @@
 //! Separates a stereo WAV at the model's rate, on the GPU when there is one
 //! (`PRISME_STEMS_CPU=1` forces the CPU, `PRISME_STEMS_FLOAT=1` f32 arithmetic on the GPU,
 //! `PRISME_STEMS_MAX_BINDING=<bytes>` the buffers of a smaller GPU, `PRISME_STEMS_PROFILE=1`
-//! the time of each kind of work, `PRISME_STEMS_SHARE=0.5` half the GPU's time at most,
+//! the time of each kind of work, `PRISME_STEMS_PACING=whole|packets|0.5` the work whole, in
+//! packets, or in packets taking half the GPU's time at most,
 //! `PRISME_STEMS_ATTENTION=products|one-pass` the attention on the shader cores,
 //! `PRISME_STEMS_OVERLAP=1.5` that many chunks over each sample instead of the model's):
 //! `separate <model.safetensors> <in.wav> <out>` writes `<out>.<stem>.wav` for each stem of
@@ -10,7 +11,7 @@
 use std::path::PathBuf;
 use std::time::Instant;
 
-use prisme_stems::gpu::Attention;
+use prisme_stems::gpu::{Attention, Pacing};
 use prisme_stems::{CpuNetwork, GpuNetwork, GpuOptions, MaskNetwork, Separator, Weights};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -43,11 +44,21 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             }
             Err(_) => None,
         };
+        let pacing = match std::env::var("PRISME_STEMS_PACING").as_deref() {
+            Ok("whole") => Some(Pacing::Whole),
+            Ok("packets") => Some(Pacing::Packets),
+            Ok(share) => Some(Pacing::Share(
+                share
+                    .parse()
+                    .map_err(|_| format!("PRISME_STEMS_PACING: whole, packets or a share, not {share}"))?,
+            )),
+            Err(_) => None,
+        };
         let options = GpuOptions {
             without_matrix_units: std::env::var_os("PRISME_STEMS_FLOAT").is_some(),
             max_binding: std::env::var("PRISME_STEMS_MAX_BINDING").ok().and_then(|b| b.parse().ok()),
             profile: std::env::var_os("PRISME_STEMS_PROFILE").is_some(),
-            share: std::env::var("PRISME_STEMS_SHARE").ok().and_then(|s| s.parse().ok()),
+            pacing,
             attention,
             ..Default::default()
         };

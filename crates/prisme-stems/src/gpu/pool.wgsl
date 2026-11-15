@@ -14,9 +14,11 @@ struct Params {
     heads: u32,
     kv_share: u32,
     inner: u32,
-    // sequences * queries * heads
+    // the blocks of this step, from `first` to `blocks` (of sequences * queries * heads,
+    // sequence after sequence)
     blocks: u32,
     groups_x: u32,
+    first: u32,
 }
 
 @group(0) @binding(0) var<storage, read> query: array<f32>;
@@ -31,7 +33,7 @@ var<workgroup> scores: array<f32, KEYS>;
 
 @compute @workgroup_size(64)
 fn main(@builtin(workgroup_id) wg: vec3<u32>, @builtin(local_invocation_index) lid: u32) {
-    let block = wg.x + wg.y * p.groups_x;
+    let block = p.first + wg.x + wg.y * p.groups_x;
     if (block >= p.blocks) {
         return;
     }

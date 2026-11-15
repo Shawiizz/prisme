@@ -6,7 +6,7 @@
 
 use std::path::Path;
 
-use prisme_stems::gpu::Attention;
+use prisme_stems::gpu::{Attention, Pacing};
 use prisme_stems::model::{Geometry, Layer, Linear, Transformer, Values};
 use prisme_stems::{CpuNetwork, Gpu, GpuNetwork, GpuOptions, MaskNetwork, Separator, StemsError, Weights};
 
@@ -29,6 +29,25 @@ fn bs_fixture() -> Weights {
 
 fn v25_fixture() -> Weights {
     load("tiny_bs_roformer_v25.safetensors")
+}
+
+/// The V2.5 fixture without its stem queries: each stem has estimators of its own, and the
+/// frames its tokens give back are the same for every stem.
+fn grouped_fixture() -> Weights {
+    let mut weights = v25_fixture();
+    weights.stem_queries = None;
+    weights.geometry.config.stem_queries = false;
+    let estimators = weights.masks.remove(0);
+    weights.masks = (0..weights.geometry.stems.len())
+        .map(|s| {
+            let mut own = estimators.clone();
+            for bias in own.iter_mut().flatten().filter_map(|l| l.bias.as_mut()) {
+                bias.iter_mut().for_each(|b| *b += 0.25 * s as f32);
+            }
+            own
+        })
+        .collect();
+    weights
 }
 
 /// The fixture's input and the reference's stems, one after the other.
@@ -79,7 +98,7 @@ const SOFTWARE_TOO: GpuOptions = GpuOptions {
     without_matrix_units: false,
     max_binding: None,
     profile: false,
-    share: None,
+    pacing: Some(Pacing::Whole),
     attention: None,
 };
 
@@ -190,9 +209,25 @@ fn gpu_and_cpu_masks(gpu: &mut GpuNetwork, weights: Weights) -> (Vec<f32>, Vec<f
     (b, a)
 }
 
+/// The work whole, in packets, and in packets leaving the GPU half its time.
+#[test]
+fn every_pacing_separates_like_the_reference() {
+    for pacing in [Pacing::Whole, Pacing::Packets, Pacing::Share(0.5)] {
+        for without_matrix_units in [true, false] {
+            for weights in [fixture(), stems_fixture(), bs_fixture(), v25_fixture()] {
+                let (audio, expected) = reference(&weights);
+                let options = GpuOptions { without_matrix_units, pacing: Some(pacing), ..SOFTWARE_TOO };
+                let Some(net) = shader_cores_or_units(weights, options) else { return };
+                separates_like_the_reference(net, &audio, &expected, F16_TOLERANCE);
+            }
+        }
+    }
+}
+
 #[test]
 fn the_gpu_network_matches_the_cpu_on_longer_chunks() {
-    for weights in [fixture(), stems_fixture(), bs_fixture(), v25_fixture()].map(in_f16) {
+    let all = [fixture(), stems_fixture(), bs_fixture(), v25_fixture(), grouped_fixture()];
+    for weights in all.map(in_f16) {
         let Some(mut gpu) = gpu(weights.clone(), true) else { return };
         // a GPU is held to the CPU; Windows' software renderer, whose arithmetic on the
         // shaders DXC compiles is looser (1.2e-3 here), to the tolerance of the f16 path
@@ -244,7 +279,8 @@ fn the_attention_as_products_separates_like_the_reference() {
 #[test]
 fn the_matrix_units_match_the_cpu() {
     let wide = [MEL_BAND_HEADS, BS_HEADS, V25_HEADS].map(|heads| wide_heads(&fixture(), heads));
-    for weights in [fixture(), stems_fixture(), bs_fixture(), v25_fixture()].into_iter().chain(wide) {
+    let all = [fixture(), stems_fixture(), bs_fixture(), v25_fixture(), grouped_fixture()];
+    for weights in all.into_iter().chain(wide) {
         let Some(mut gpu) = matrix_units(weights.clone()) else { return };
         let (got, expected) = gpu_and_cpu_masks(&mut gpu, weights);
         let err = relative_error(&got, &expected);
