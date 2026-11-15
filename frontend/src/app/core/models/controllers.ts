@@ -41,7 +41,8 @@ export interface ControllerMapping {
   device: string;
   control: MidiControl;
   target: string;
-  encoding: 'absolute' | StepEncoding;
+  /** How its values are read; left out: positions (`absolute`). */
+  encoding?: 'absolute' | StepEncoding;
   /** The controller sending the low half of a 14-bit fader. */
   fine?: number;
   /** In the second layer: while the controller's shift is held. */

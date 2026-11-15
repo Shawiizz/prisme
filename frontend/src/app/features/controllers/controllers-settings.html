@@ -146,7 +146,7 @@
           <span class="binding">
             @for (b of row.bindings; track b.text) {
               <span>{{ b.text }}</span>
-              @if (b.mapping.encoding !== 'absolute') {
+              @if (b.mapping.encoding && b.mapping.encoding !== 'absolute') {
                 <select
                   class="pr-select steps"
                   [value]="b.mapping.encoding"

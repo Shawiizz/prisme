@@ -1,5 +1,5 @@
 use crate::light::{LightValue, LightValues};
-use crate::mapping::{Encoding, Hold, Mapping, Modes, When, MODE};
+use crate::mapping::{Mapping, Modes, ProfileControl, When, MODE};
 use crate::message::Control;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -104,36 +104,6 @@ impl Meter {
     }
 }
 
-/// A control of the model and the action it drives: a [`Mapping`] before a device has it.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
-#[serde(rename_all = "camelCase")]
-pub struct ProfileControl {
-    pub control: Control,
-    pub target: String,
-    #[serde(default, skip_serializing_if = "is_absolute")]
-    pub encoding: Encoding,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub fine: Option<u8>,
-    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
-    pub shift: bool,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub when: Option<When>,
-    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
-    pub invert: bool,
-    /// Its light's values, when they are not 127 and 0.
-    #[serde(default, skip_serializing_if = "LightValues::is_empty")]
-    pub light: LightValues,
-    /// Drives its action, as a key pressed, when the control sends this value.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub on_value: Option<u16>,
-    /// Other actions it drives along with its own.
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub also: Vec<String>,
-    /// Another action for the key held down a while.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub hold: Option<Hold>,
-}
-
 /// A light that is not the control of its action: its values by state beside it (`"on":
 /// 100`, `"playing": {"blink": [9, 0], "ms": 250}`).
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
@@ -146,10 +116,6 @@ pub struct ProfileLight {
     pub when: Option<When>,
     #[serde(flatten)]
     pub values: LightValues,
-}
-
-fn is_absolute(encoding: &Encoding) -> bool {
-    *encoding == Encoding::Absolute
 }
 
 fn full() -> u8 {
@@ -207,34 +173,17 @@ impl Profile {
 
     /// The mappings of this model on `device`: its controls, and its mode keys.
     pub fn mappings<'p>(&'p self, device: &'p str) -> impl Iterator<Item = Mapping> + 'p {
-        let controls = self.controls.iter().map(move |c| Mapping {
-            device: device.to_owned(),
-            control: c.control,
-            target: c.target.clone(),
-            encoding: c.encoding,
-            fine: c.fine,
-            shift: c.shift,
-            when: c.when.clone(),
-            invert: c.invert,
-            light: c.light.clone(),
-            on_value: c.on_value,
-            also: c.also.clone(),
-            hold: c.hold.clone(),
-        });
+        let controls = self.controls.iter().map(move |c| Mapping::new(device, c.clone()));
         let selects = self.modes.iter().flat_map(move |g| {
-            g.select.iter().map(move |s| Mapping {
-                device: device.to_owned(),
-                control: s.control,
-                target: format!("{MODE}{}.{}", g.group, s.mode),
-                encoding: Encoding::Absolute,
-                fine: None,
-                shift: s.shift,
-                when: None,
-                invert: false,
-                light: s.light.clone(),
-                on_value: None,
-                also: Vec::new(),
-                hold: None,
+            g.select.iter().map(move |s| {
+                let binding = ProfileControl {
+                    control: s.control,
+                    target: format!("{MODE}{}.{}", g.group, s.mode),
+                    shift: s.shift,
+                    light: s.light.clone(),
+                    ..Default::default()
+                };
+                Mapping::new(device, binding)
             })
         });
         controls.chain(selects)
@@ -243,25 +192,6 @@ impl Profile {
     /// The modes its groups begin in.
     pub fn first_modes(&self) -> Modes {
         self.modes.iter().filter_map(|g| Some((g.group.clone(), g.modes.first()?.clone()))).collect()
-    }
-}
-
-impl From<&Mapping> for ProfileControl {
-    /// What a device's mapping is in a profile: the same, for any device of the model.
-    fn from(m: &Mapping) -> Self {
-        Self {
-            control: m.control,
-            target: m.target.clone(),
-            encoding: m.encoding,
-            fine: m.fine,
-            shift: m.shift,
-            when: m.when.clone(),
-            invert: m.invert,
-            light: m.light.clone(),
-            on_value: m.on_value,
-            also: m.also.clone(),
-            hold: m.hold.clone(),
-        }
     }
 }
 
@@ -276,6 +206,7 @@ impl ProfileLight {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::mapping::Encoding;
     use crate::message::ControlKind;
 
     const PLAY: Control = Control { kind: ControlKind::Note, channel: 0, number: 11 };

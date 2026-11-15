@@ -241,7 +241,7 @@
       "type": "object"
     },
     "ProfileControl": {
-      "description": "A control of the model and the action it drives: a [`Mapping`] before a device has it.",
+      "description": "A control and the action it drives, and how: a control of a profile, or one learnt.",
       "properties": {
         "also": {
           "description": "Other actions it drives along with its own.",
@@ -257,6 +257,7 @@
           "$ref": "#/$defs/Encoding"
         },
         "fine": {
+          "description": "The controller sending the low 7 bits of a 14-bit control (its high 7 bits on\n`control`, by convention the number 32 lower).",
           "format": "uint8",
           "maximum": 255,
           "minimum": 0,
@@ -277,14 +278,15 @@
           "description": "Another action for the key held down a while."
         },
         "invert": {
+          "description": "A fader whose lowest value is at its top.",
           "type": "boolean"
         },
         "light": {
           "$ref": "#/$defs/LightValues",
-          "description": "Its light's values, when they are not 127 and 0."
+          "description": "What its light shows in each state of its action, when it is not 127 and 0."
         },
         "onValue": {
-          "description": "Drives its action, as a key pressed, when the control sends this value.",
+          "description": "Drives its action, as a key pressed, when the control sends this value (a switch in\none of its positions).",
           "format": "uint16",
           "maximum": 65535,
           "minimum": 0,
@@ -294,6 +296,7 @@
           ]
         },
         "shift": {
+          "description": "Drives its action while the controller's shift is held (its second layer).",
           "type": "boolean"
         },
         "target": {
@@ -307,7 +310,8 @@
             {
               "type": "null"
             }
-          ]
+          ],
+          "description": "Drives its action only while its group is in this mode."
         }
       },
       "required": [

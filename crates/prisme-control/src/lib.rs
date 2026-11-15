@@ -14,11 +14,12 @@ mod profile;
 mod schema;
 
 pub use light::{light, LightValue, LightValues, OFF, ON};
-pub use mapping::{selected_mode, Encoding, Hold, Mapping, Mappings, Modes, Reader, When, MODE, SHIFT};
+pub use mapping::{
+    selected_mode, Encoding, Hold, Mapping, Mappings, Modes, ProfileControl, Reader, When, MODE, SHIFT,
+};
 pub use message::{parse, Control, ControlKind, Event};
 pub use pickup::Pickup;
 pub use profile::{
-    KeepAlive, Meter, ModeGroup, ModeSelect, Profile, ProfileControl, ProfileLight, JOG_STEPS_PER_TURN,
-    PROFILE_FORMAT,
+    KeepAlive, Meter, ModeGroup, ModeSelect, Profile, ProfileLight, JOG_STEPS_PER_TURN, PROFILE_FORMAT,
 };
 pub use schema::{profile_schema, Target, SCHEMA_URL};

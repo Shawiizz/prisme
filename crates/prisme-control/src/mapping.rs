@@ -80,15 +80,13 @@ impl Encoding {
     }
 }
 
-/// A control of a controller driving one of the application's actions.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+/// A control and the action it drives, and how: a control of a profile, or one learnt.
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
-pub struct Mapping {
-    /// The controller's MIDI port name.
-    pub device: String,
+pub struct ProfileControl {
     pub control: Control,
     pub target: String,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "is_absolute")]
     pub encoding: Encoding,
     /// The controller sending the low 7 bits of a 14-bit control (its high 7 bits on
     /// `control`, by convention the number 32 lower).
@@ -103,7 +101,7 @@ pub struct Mapping {
     /// A fader whose lowest value is at its top.
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub invert: bool,
-    /// What its light shows in each state of its action.
+    /// What its light shows in each state of its action, when it is not 127 and 0.
     #[serde(default, skip_serializing_if = "LightValues::is_empty")]
     pub light: LightValues,
     /// Drives its action, as a key pressed, when the control sends this value (a switch in
@@ -113,11 +111,16 @@ pub struct Mapping {
     /// Other actions it drives along with its own.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub also: Vec<String>,
+    /// Another action for the key held down a while.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub hold: Option<Hold>,
 }
 
-impl Mapping {
+fn is_absolute(encoding: &Encoding) -> bool {
+    *encoding == Encoding::Absolute
+}
+
+impl ProfileControl {
     /// Whether `control` sends this mapping's values.
     fn sent_by(&self, control: Control) -> bool {
         self.control == control || self.fine_control() == Some(control)
@@ -144,6 +147,35 @@ impl Mapping {
         } else {
             value
         }
+    }
+}
+
+/// A control of a controller driving one of the application's actions.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct Mapping {
+    /// The controller's MIDI port name.
+    pub device: String,
+    #[serde(flatten)]
+    pub binding: ProfileControl,
+}
+
+impl Mapping {
+    pub fn new(device: &str, binding: ProfileControl) -> Self {
+        Self { device: device.to_owned(), binding }
+    }
+}
+
+impl std::ops::Deref for Mapping {
+    type Target = ProfileControl;
+
+    fn deref(&self) -> &ProfileControl {
+        &self.binding
+    }
+}
+
+impl std::ops::DerefMut for Mapping {
+    fn deref_mut(&mut self) -> &mut ProfileControl {
+        &mut self.binding
     }
 }
 
@@ -331,20 +363,13 @@ mod tests {
     const SHIFT_KEY: Control = Control { kind: ControlKind::Note, channel: 0, number: 63 };
 
     fn mapping(device: &str, control: Control, target: &str) -> Mapping {
-        Mapping {
-            device: device.into(),
-            control,
-            target: target.into(),
-            encoding: Encoding::Absolute,
-            fine: None,
-            shift: false,
-            when: None,
-            invert: false,
-            light: LightValues::default(),
-            on_value: None,
-            also: Vec::new(),
-            hold: None,
-        }
+        Mapping::new(device, ProfileControl { control, target: target.into(), ..Default::default() })
+    }
+
+    /// `mapping` changed by `change`.
+    fn with(mut mapping: Mapping, change: impl FnOnce(&mut ProfileControl)) -> Mapping {
+        change(&mut mapping.binding);
+        mapping
     }
 
     fn read(reader: &mut Reader, mappings: &Mappings, bytes: &[u8]) -> Option<(String, f32)> {
@@ -414,7 +439,7 @@ mod tests {
         let mut mappings = Mappings::default();
         mappings.learn(mapping("DDJ", SHIFT_KEY, SHIFT), false);
         mappings.learn(mapping("DDJ", PAD, "deck1.hotcue1"), false);
-        mappings.learn(Mapping { shift: true, ..mapping("DDJ", PAD, "deck1.hotcue1.delete") }, false);
+        mappings.learn(with(mapping("DDJ", PAD, "deck1.hotcue1.delete"), |b| b.shift = true), false);
         mappings.learn(mapping("DDJ", KNOB, "deck1.volume"), false);
         let mut reader = Reader::default();
         assert_eq!(read(&mut reader, &mappings, &[0x90, 36, 127]).unwrap().0, "deck1.hotcue1");
@@ -433,7 +458,7 @@ mod tests {
         let mut mappings = Mappings::default();
         mappings.learn(mapping("DDJ", SHIFT_KEY, SHIFT), false);
         mappings.learn(mapping("DDJ", PAD, "deck1.cue"), false);
-        mappings.learn(Mapping { shift: true, ..mapping("DDJ", PAD, "deck1.censor") }, false);
+        mappings.learn(with(mapping("DDJ", PAD, "deck1.censor"), |b| b.shift = true), false);
         let mut reader = Reader::default();
         read(&mut reader, &mappings, &[0x90, 63, 127]);
         assert_eq!(read(&mut reader, &mappings, &[0x90, 36, 90]).unwrap().0, "deck1.censor");
@@ -471,7 +496,7 @@ mod tests {
         mappings.learn(mapping("DDJ", KNOB, "deck1.volume"), false);
         assert_eq!(mappings.all(), [mapping("DDJ", KNOB, "deck1.volume")]);
         // the same control in the shift layer is another use of it
-        mappings.learn(Mapping { shift: true, ..mapping("DDJ", KNOB, "deck1.filter") }, false);
+        mappings.learn(with(mapping("DDJ", KNOB, "deck1.filter"), |b| b.shift = true), false);
         assert_eq!(mappings.all().len(), 2);
         mappings.learn(mapping("Pads", PAD, "deck1.volume"), false);
         mappings.forget("deck1.volume");
@@ -510,8 +535,8 @@ mod tests {
         let mut mappings = Mappings::default();
         mappings.learn(mapping("DDJ", Control { number: 0, ..PAD }, "mode.padsA.hotcue"), false);
         mappings.learn(mapping("DDJ", roll_key, "mode.padsA.roll"), false);
-        mappings.learn(Mapping { when: Some(mode("hotcue")), ..mapping("DDJ", PAD, "deck1.hotcue1") }, false);
-        mappings.learn(Mapping { when: Some(mode("roll")), ..mapping("DDJ", PAD, "deck1.roll1") }, false);
+        mappings.learn(with(mapping("DDJ", PAD, "deck1.hotcue1"), |b| b.when = Some(mode("hotcue"))), false);
+        mappings.learn(with(mapping("DDJ", PAD, "deck1.roll1"), |b| b.when = Some(mode("roll"))), false);
         assert_eq!(mappings.all().len(), 4, "one pad, a use in each mode");
         let mut reader = Reader::default();
         reader.set_modes("DDJ", Modes::from([("padsA".into(), "hotcue".into())]));
@@ -528,7 +553,7 @@ mod tests {
         let switch = Control { number: 3, ..KNOB };
         // as a profile gives them: two positions may drive the same action
         let positions = [(0, "deck1.fx.off"), (1, "deck1.fx.on"), (2, "deck1.fx.on")]
-            .map(|(value, target)| Mapping { on_value: Some(value), ..mapping("DDJ", switch, target) });
+            .map(|(value, target)| with(mapping("DDJ", switch, target), |b| b.on_value = Some(value)));
         let mappings = Mappings::layered(positions, &Mappings::default(), &[], |_| false);
         assert_eq!(mappings.all().len(), 3, "a position each");
         let mut reader = Reader::default();
@@ -540,7 +565,7 @@ mod tests {
     #[test]
     fn an_inverted_fader_reads_from_its_top() {
         let mut mappings = Mappings::default();
-        mappings.learn(Mapping { invert: true, ..mapping("DDJ", KNOB, "deck1.pitch") }, false);
+        mappings.learn(with(mapping("DDJ", KNOB, "deck1.pitch"), |b| b.invert = true), false);
         let mut reader = Reader::default();
         assert_eq!(read(&mut reader, &mappings, &[0xb0, 20, 127]), Some(("deck1.pitch".into(), 0.0)));
         assert_eq!(read(&mut reader, &mappings, &[0xb0, 20, 0]), Some(("deck1.pitch".into(), 1.0)));
@@ -549,11 +574,15 @@ mod tests {
     #[test]
     fn mappings_survive_a_round_trip() {
         let mut mappings = Mappings::default();
+        mappings
+            .learn(with(mapping("DDJ", KNOB, "deck1.jog"), |b| b.encoding = Encoding::RelativeOffset), false);
         mappings.learn(
-            Mapping { encoding: Encoding::RelativeOffset, ..mapping("DDJ", KNOB, "deck1.jog") },
+            with(mapping("DDJ", PAD, "deck1.pitch"), |b| {
+                b.fine = Some(32);
+                b.shift = true
+            }),
             false,
         );
-        mappings.learn(Mapping { fine: Some(32), shift: true, ..mapping("DDJ", PAD, "deck1.pitch") }, false);
         let json = serde_json::to_string(&mappings).unwrap();
         assert_eq!(serde_json::from_str::<Mappings>(&json).unwrap(), mappings);
         // mappings saved before 14-bit controls and layers existed

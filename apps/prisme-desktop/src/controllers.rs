@@ -203,7 +203,7 @@ impl Controllers {
             .all()
             .iter()
             .filter(|m| m.device == device && selected_mode(&m.target).is_none())
-            .map(ProfileControl::from)
+            .map(|m| m.binding.clone())
             .collect();
         let name = base_port_name(device);
         let profile = controller_profiles::of(device).map(|p| (*p).clone()).unwrap_or_else(|| Profile {
@@ -599,20 +599,14 @@ impl Controllers {
         let released = event.control.kind == ControlKind::Note && event.raw == 0;
         let learning = lock(&self.learning).take_if(|_| !released && !shift);
         if let Some(Learning { target, encoder }) = learning {
-            let mapping = Mapping {
-                device: device.to_owned(),
+            let binding = ProfileControl {
                 control: event.control,
                 target,
                 encoding: if encoder { Encoding::guess(event.raw) } else { Encoding::Absolute },
-                fine: None,
                 shift: reader.shifted(device),
-                when: None,
-                invert: false,
-                light: Default::default(),
-                on_value: None,
-                also: Vec::new(),
-                hold: None,
+                ..Default::default()
             };
+            let mapping = Mapping::new(device, binding);
             self.save(|s| {
                 s.unmapped.retain(|t| *t != mapping.target);
                 s.mappings.learn(mapping.clone(), Direct::takes_several(&mapping.target));
@@ -694,7 +688,9 @@ impl Controllers {
             return None;
         }
         self.save(|s| s.mappings.make_fine(&mapping, fine));
-        Some(Mapping { fine: Some(fine), ..mapping })
+        let mut fine_mapping = mapping;
+        fine_mapping.fine = Some(fine);
+        Some(fine_mapping)
     }
 
     /// Drives the engine for a direct action; the UI hears of a new tempo.
@@ -842,20 +838,13 @@ mod tests {
     }
 
     fn mapping(control: Control, target: &str) -> Mapping {
-        Mapping {
-            device: "DDJ".into(),
-            control,
-            target: target.into(),
-            encoding: Encoding::Absolute,
-            fine: None,
-            shift: false,
-            when: None,
-            invert: false,
-            light: Default::default(),
-            on_value: None,
-            also: Vec::new(),
-            hold: None,
-        }
+        Mapping::new("DDJ", ProfileControl { control, target: target.into(), ..Default::default() })
+    }
+
+    /// `mapping` changed by `change`.
+    fn with(mut mapping: Mapping, change: impl FnOnce(&mut ProfileControl)) -> Mapping {
+        change(&mut mapping.binding);
+        mapping
     }
 
     fn route(c: &Controllers, bytes: &[u8]) -> Option<Routed> {
@@ -894,7 +883,7 @@ mod tests {
         route(&c, &[0xb0, 0, 64]);
         let fine = route(&c, &[0xb0, 32, 0]);
         let tempo = Control { kind: ControlKind::ControlChange, channel: 0, number: 0 };
-        assert_eq!(fine, Some(Routed::Learned(Mapping { fine: Some(32), ..mapping(tempo, "deck1.pitch") })));
+        assert_eq!(fine, Some(Routed::Learned(with(mapping(tempo, "deck1.pitch"), |b| b.fine = Some(32)))));
         assert_eq!(route(&c, &[0xb0, 0, 64]), None);
         assert_eq!(route(&c, &[0xb0, 32, 64]), Some(Routed::Direct(Direct::Pitch(0), 8256.0 / 16383.0)));
     }
@@ -913,7 +902,7 @@ mod tests {
         let learnt = route(&c, &[0x90, 36, 127]);
         assert_eq!(
             learnt,
-            Some(Routed::Learned(Mapping { shift: true, ..mapping(PAD, "deck1.hotcue1.delete") }))
+            Some(Routed::Learned(with(mapping(PAD, "deck1.hotcue1.delete"), |b| b.shift = true)))
         );
         route(&c, &[0x90, 63, 0]);
         assert_eq!(route(&c, &[0x90, 36, 127]), input("deck1.cue", 1.0));
