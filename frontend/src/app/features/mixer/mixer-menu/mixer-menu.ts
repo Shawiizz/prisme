@@ -53,14 +53,14 @@ const MAX_HEADPHONE_GAIN = 1.5;
               [attr.aria-checked]="mixer.crossfaderCurve() === 'smooth'"
               (click)="mixer.setCrossfaderCurve('smooth')"
             >
-              SMOOTH
+              {{ 'SMOOTH' | t }}
             </button>
             <button
               role="radio"
               [attr.aria-checked]="mixer.crossfaderCurve() === 'sharp'"
               (click)="mixer.setCrossfaderCurve('sharp')"
             >
-              SHARP
+              {{ 'SHARP' | t }}
             </button>
           </div>
         </div>

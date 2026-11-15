@@ -527,5 +527,8 @@
   "Effect amount": "Intensité de l'effet",
   "Kill the bass while held": "Couper les basses tant que maintenu",
   "Kill the mids while held": "Couper les médiums tant que maintenu",
-  "Kill the highs while held": "Couper les aigus tant que maintenu"
+  "Kill the highs while held": "Couper les aigus tant que maintenu",
+  "Pitch": "Pitch",
+  "SMOOTH": "DOUCE",
+  "SHARP": "FRANCHE"
 }

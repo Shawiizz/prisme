@@ -20,7 +20,7 @@ const STEP_EVERY_MS = 60;
 @Component({
   selector: 'app-pitch-fader',
   template: `
-    <span class="pr-label">Pitch</span>
+    <span class="pr-label">{{ 'Pitch' | t }}</span>
     @if (!tempo.vinyl()) {
       <button
         class="pr-btn pr-btn--sm pr-btn--icon"
