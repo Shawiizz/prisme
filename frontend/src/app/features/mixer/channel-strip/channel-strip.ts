@@ -1,6 +1,7 @@
-import { Component, inject, input } from '@angular/core';
+import { Component, computed, inject, input } from '@angular/core';
 import { BANDS, Band } from '../../../core/models/engine';
 import { MixerService } from '../../../core/services/mixer.service';
+import { PreferencesService } from '../../../core/services/preferences.service';
 import { Knob } from '../../../shared/knob/knob';
 import { eqGain, eqKnob, readouts, trimGain, trimKnob } from '../../../shared/mixer-scales';
 import { Text, t } from '../../../core/i18n/i18n';
@@ -15,6 +16,7 @@ import { TPipe } from '../../../core/i18n/t.pipe';
         label="TRIM"
         [labelTitle]="'Gain before the EQ (±12 dB)' | t"
         bipolar
+        [magnetic]="magnetic()"
         [format]="readouts.trim"
         [value]="trimKnob()"
         (valueChange)="setTrim($event)"
@@ -25,6 +27,7 @@ import { TPipe } from '../../../core/i18n/t.pipe';
         [label]="b.label"
         [labelTitle]="b.killTitle()"
         bipolar
+        [magnetic]="magnetic()"
         [format]="readouts.eq"
         [value]="eqKnob(b.band)"
         [active]="killed(b.band)"
@@ -36,6 +39,7 @@ import { TPipe } from '../../../core/i18n/t.pipe';
       label="FILTER"
       [labelTitle]="'Left: low-pass, right: high-pass' | t"
       bipolar
+      [magnetic]="magnetic()"
       [format]="readouts.filter"
       [value]="(strip().filter + 1) / 2"
       (valueChange)="mixer.setFilter(deck(), $event * 2 - 1)"
@@ -54,6 +58,9 @@ export class ChannelStrip {
   /** With its trim knob (a phone leaves it out). */
   readonly trim = input(true);
   protected readonly mixer = inject(MixerService);
+  private readonly preferences = inject(PreferencesService);
+  /** The knobs hold at their middle, as the DJ chose. */
+  protected readonly magnetic = computed(() => this.preferences.dj().knobMagnet);
   protected readonly readouts = readouts;
   protected readonly bands: { band: Band; label: string; killTitle: Text }[] = [
     {

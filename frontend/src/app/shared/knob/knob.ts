@@ -2,13 +2,11 @@ import {
   Component,
   booleanAttribute,
   computed,
-  inject,
   input,
   linkedSignal,
   output,
   signal,
 } from '@angular/core';
-import { PreferencesService } from '../../core/services/preferences.service';
 
 /** The knob turns through 270 degrees, from bottom left to bottom right. */
 const SWEEP = 270;
@@ -204,6 +202,8 @@ export class Knob {
   readonly value = input.required<number>();
   readonly defaultValue = input(0.5);
   readonly bipolar = input(false, { transform: booleanAttribute });
+  /** A bipolar knob that holds at its middle when turned through it. */
+  readonly magnetic = input(false, { transform: booleanAttribute });
   readonly label = input('');
   readonly labelTitle = input('');
   /** The value as read under the knob while it is touched (dB, %…). */
@@ -233,9 +233,6 @@ export class Knob {
   }));
   protected readonly hovered = signal(false);
   protected readonly grabbed = signal<{ y: number; value: number } | null>(null);
-  private readonly preferences = inject(PreferencesService);
-  /** Holds at its middle when turned through it. */
-  private readonly magnetic = computed(() => this.bipolar() && this.preferences.dj().knobMagnet);
   protected readonly reading = computed(
     () => this.format() !== null && (this.hovered() || this.grabbed() !== null),
   );
@@ -251,7 +248,11 @@ export class Knob {
     if (!grabbed) return;
     const scale = event.shiftKey ? DRAG_PX * 4 : DRAG_PX;
     const moved = (grabbed.y - event.clientY) / scale;
-    this.set(this.magnetic() ? this.through(grabbed.value, moved) : grabbed.value + moved);
+    this.set(
+      this.bipolar() && this.magnetic()
+        ? this.through(grabbed.value, moved)
+        : grabbed.value + moved,
+    );
   }
 
   /** Where a drag of `moved` from `from` brings a magnetic knob: its middle is a stretch
