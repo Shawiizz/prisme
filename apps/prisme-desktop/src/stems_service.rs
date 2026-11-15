@@ -632,8 +632,8 @@ impl Worker {
         let mut separation = TrackSeparation::open(
             separators,
             &job.path,
-            deck.as_ref().map(|(audio, _)| (audio.sample_rate(), samples(audio))),
-            deck.map(|(_, frame)| frame),
+            deck.as_ref().map(|(audio, _)| &**audio),
+            deck.as_ref().map(|&(_, frame)| frame),
         )?;
         let mut live: Option<Live> = None;
         while !separation.is_done() {
@@ -873,13 +873,6 @@ fn idle(progress: &mut StemsProgressDto) {
     progress.running = false;
     progress.current = None;
     progress.queued = 0;
-}
-
-/// The interleaved samples of a decoded track.
-fn samples(audio: &TrackAudio) -> Vec<f32> {
-    let mut samples = Vec::with_capacity(audio.frames() * 2);
-    audio.for_each_block(1 << 16, |block| samples.extend_from_slice(block));
-    samples
 }
 
 /// Gives the stored stems of `path` to the decks it is loaded on (once fully decoded:
