@@ -14,18 +14,39 @@ import android.webkit.JavascriptInterface
 import android.webkit.WebView
 import androidx.activity.SystemBarStyle
 import androidx.activity.enableEdgeToEdge
+import androidx.activity.result.ActivityResultLauncher
+import androidx.activity.result.contract.ActivityResultContracts.RequestMultiplePermissions
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 
 class MainActivity : TauriActivity() {
+  /** The music shared between applications, and the notification of a deck playing. */
+  private val musicAndNotifications =
+    registerForActivityResult(RequestMultiplePermissions()) { answered() }
+
+  /** The inputs of a sound card: once the DJ says yes, the native side takes them. */
+  private val inputs =
+    registerForActivityResult(RequestMultiplePermissions()) { granted ->
+      if (granted[Manifest.permission.RECORD_AUDIO] == true) inputsAllowed()
+      answered()
+    }
+
+  /**
+   * The questions to the DJ, the one Android is asking first: it asks one at a time, and
+   * refuses another meanwhile.
+   */
+  private val questions = ArrayDeque<Pair<ActivityResultLauncher<Array<String>>, Array<String>>>()
+
   override fun onCreate(savedInstanceState: Bundle?) {
     // light icons over the dark background of Prisme, whatever the theme of the phone
     val bars = SystemBarStyle.dark(Color.TRANSPARENT)
     enableEdgeToEdge(bars, bars)
     // the audio starts with the native side, which may open a USB card at once
     UsbAudio.init(this)
+    // which asks for the inputs of a sound card through this activity
+    shown = this
     super.onCreate(savedInstanceState)
     // a set is played without touching the phone: its screen stays on
     window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
@@ -47,6 +68,7 @@ class MainActivity : TauriActivity() {
   override fun onDestroy() {
     // the page goes with the activity: the player's buttons no longer reach it
     Player.toggle = null
+    if (shown === this) shown = null
     super.onDestroy()
   }
 
@@ -123,6 +145,39 @@ class MainActivity : TauriActivity() {
         arrayOf(Manifest.permission.READ_EXTERNAL_STORAGE)
       }
     val missing = wanted.filter { checkSelfPermission(it) != PackageManager.PERMISSION_GRANTED }
-    if (missing.isNotEmpty()) requestPermissions(missing.toTypedArray(), 0)
+    if (missing.isNotEmpty()) ask(musicAndNotifications, missing.toTypedArray())
+  }
+
+  /** Asks the DJ through `question`, once any question asked before is answered. */
+  private fun ask(question: ActivityResultLauncher<Array<String>>, permissions: Array<String>) {
+    if (questions.any { it.first === question }) return
+    questions.addLast(question to permissions)
+    if (questions.size == 1) question.launch(permissions)
+  }
+
+  /** The question Android was asking is answered: the next one, if any. */
+  private fun answered() {
+    questions.removeFirstOrNull()
+    questions.firstOrNull()?.let { (question, permissions) -> question.launch(permissions) }
+  }
+
+  /** The DJ let Prisme listen to the inputs (`input_access.rs`): the audio takes them. */
+  private external fun inputsAllowed()
+
+  companion object {
+    /** The activity on screen, for the native side. */
+    @Volatile private var shown: MainActivity? = null
+
+    /**
+     * Asks the DJ to let Prisme listen to the inputs of the sound card, from any thread
+     * (`input_access.rs`): on the main thread, where Android asks.
+     */
+    @JvmStatic
+    fun askForTheInputs() {
+      val activity = shown ?: return
+      activity.runOnUiThread {
+        activity.ask(activity.inputs, arrayOf(Manifest.permission.RECORD_AUDIO))
+      }
+    }
   }
 }

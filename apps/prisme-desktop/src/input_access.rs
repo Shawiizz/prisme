@@ -4,41 +4,43 @@
 //! the input opens, and a computer does not ask.
 
 /// Whether the inputs may be listened to. Where they may not yet, the DJ is asked: the
-/// answer comes later, and the audio is to be applied again then.
+/// answer comes later ([`newly_allowed`]), and the audio is to be applied again then.
 #[cfg(not(target_os = "android"))]
 pub fn allowed() -> bool {
     true
 }
 
-#[cfg(target_os = "android")]
-pub fn allowed() -> bool {
-    android::allowed().unwrap_or_else(|e| {
-        tracing::warn!("the inputs could not be asked for: {e}");
-        false
-    })
+/// Whether the DJ let Prisme listen to the inputs since this was last asked.
+#[cfg(not(target_os = "android"))]
+pub fn newly_allowed() -> bool {
+    false
 }
 
 #[cfg(target_os = "android")]
+pub use android::{allowed, newly_allowed};
+
+#[cfg(target_os = "android")]
 mod android {
+    use crate::android_jni;
     use jni::objects::{JObject, JValue};
-    use jni::JavaVM;
+    use jni::JNIEnv;
+    use std::sync::atomic::{AtomicBool, Ordering};
 
     const RECORD_AUDIO: &str = "android.permission.RECORD_AUDIO";
     /// `PackageManager.PERMISSION_GRANTED`
     const GRANTED: i32 = 0;
+    /// Where the DJ is asked (`MainActivity.kt`).
+    const ACTIVITY: &str = "com.shawiizz.prisme.MainActivity";
 
-    pub fn allowed() -> jni::errors::Result<bool> {
-        let context = ndk_context::android_context();
-        // SAFETY: the virtual machine and the activity are those the application runs in,
-        // which keeps both alive.
-        let (vm, activity) =
-            unsafe { (JavaVM::from_raw(context.vm().cast())?, JObject::from_raw(context.context().cast())) };
-        let mut env = vm.attach_current_thread()?;
-        let asked = env.with_local_frame(4, |env| {
+    /// The DJ let Prisme listen to the inputs, and the audio has not looked since.
+    static ALLOWED: AtomicBool = AtomicBool::new(false);
+
+    pub fn allowed() -> bool {
+        android_jni::call("ask for the inputs", |env, context| {
             let permission = env.new_string(RECORD_AUDIO)?;
             let state = env
                 .call_method(
-                    &activity,
+                    context,
                     "checkSelfPermission",
                     "(Ljava/lang/String;)I",
                     &[JValue::Object(&permission)],
@@ -47,20 +49,23 @@ mod android {
             if state == GRANTED {
                 return Ok(true);
             }
-            let wanted = env.new_object_array(1, "java/lang/String", &permission)?;
-            env.call_method(
-                &activity,
-                "requestPermissions",
-                "([Ljava/lang/String;I)V",
-                &[JValue::Object(&wanted), JValue::Int(0)],
-            )?;
+            let activity = android_jni::class(env, context, ACTIVITY)?;
+            env.call_static_method(&activity, "askForTheInputs", "()V", &[])?;
             Ok(false)
-        });
-        // left pending, an exception would bring the next call of this thread down
-        if env.exception_check().unwrap_or(false) {
-            let _ = env.exception_describe();
-            let _ = env.exception_clear();
-        }
-        asked
+        })
+        .unwrap_or(false)
+    }
+
+    pub fn newly_allowed() -> bool {
+        ALLOWED.swap(false, Ordering::AcqRel)
+    }
+
+    /// `MainActivity.inputsAllowed`: the DJ said yes.
+    #[no_mangle]
+    pub extern "system" fn Java_com_shawiizz_prisme_MainActivity_inputsAllowed(
+        _env: JNIEnv,
+        _activity: JObject,
+    ) {
+        ALLOWED.store(true, Ordering::Release);
     }
 }
