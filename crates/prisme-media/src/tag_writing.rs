@@ -218,7 +218,8 @@ fn update<F: AudioFile>(
     let error = |e: &dyn std::fmt::Display| MediaError::WriteTags { path: name(), message: e.to_string() };
     let open = |source| MediaError::Open { path: name(), source };
     // through a symbolic link, the file it leads to is written, and the link stays
-    let path = std::fs::canonicalize(path).map_err(open)?;
+    let link = std::fs::symlink_metadata(path).map_err(open)?.file_type().is_symlink();
+    let path = if link { std::fs::canonicalize(path).map_err(open)? } else { path.to_path_buf() };
     let mut reader = File::open(&path).map_err(open)?;
     let mut file = F::read_from(&mut reader, ParseOptions::new()).map_err(|e| error(&e))?;
     drop(reader);

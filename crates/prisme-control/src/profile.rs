@@ -81,10 +81,15 @@ fn is_jog_steps_per_turn(steps: &f64) -> bool {
 
 impl Profile {
     /// The profile of the model on the MIDI port `port`, of `profiles`: the one whose name
-    /// the port holds that is the longest.
+    /// the port holds that is the longest, the first of those as long.
     pub fn of_port<'p>(profiles: &'p [Profile], port: &str) -> Option<&'p Profile> {
         let port = port.to_lowercase();
-        profiles.iter().filter_map(|p| Some((p.fit(&port)?, p))).max_by_key(|&(fit, _)| fit).map(|(_, p)| p)
+        profiles
+            .iter()
+            .rev()
+            .filter_map(|p| Some((p.fit(&port)?, p)))
+            .max_by_key(|&(fit, _)| fit)
+            .map(|(_, p)| p)
     }
 
     /// How closely the port `port` (in lower case) is this model: the length of the longest

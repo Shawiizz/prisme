@@ -87,6 +87,7 @@ class MainActivity : TauriActivity() {
   override fun onDestroy() {
     // the page goes with the activity: the player's buttons no longer reach it
     Player.toggle = null
+    lettingTheScreenSleep?.let(window.decorView::removeCallbacks)
     if (shown === this) shown = null
     super.onDestroy()
   }
