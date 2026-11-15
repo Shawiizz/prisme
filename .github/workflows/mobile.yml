@@ -58,7 +58,7 @@ jobs:
       - name: APK
         working-directory: apps/prisme-desktop
         run: |
-          cargo tauri android build --apk true --target aarch64
+          cargo tauri android build --apk --target aarch64
           apk=gen/android/app/build/outputs/apk/universal/release/app-universal-release.apk
           apksigner=$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)/apksigner
           "$apksigner" verify "$apk"
