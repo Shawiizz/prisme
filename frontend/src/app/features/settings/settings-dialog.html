@@ -122,7 +122,7 @@
                       >
                         <option value="">{{ 'Default driver' | t }}</option>
                         @for (o of outputs(); track o.name) {
-                          <option [value]="o.name">
+                          <option [value]="o.name" [selected]="o.name === d.outputDevice">
                             {{ o.name }} · {{ '{n} out' | t: { n: o.channels } }} ·
                             {{ o.sampleRate }} Hz
                           </option>
@@ -137,7 +137,7 @@
                       >
                         <option value="">{{ 'Default device' | t }}</option>
                         @for (o of outputs(); track o.name) {
-                          <option [value]="o.name">
+                          <option [value]="o.name" [selected]="o.name === d.outputDevice">
                             {{ o.name }} · {{ '{n} ch' | t: { n: o.channels } }} ·
                             {{ o.sampleRate }} Hz
                           </option>
@@ -172,7 +172,9 @@
                     >
                       <option value="">{{ 'Driver default' | t }}</option>
                       @for (n of bufferSizes(); track n) {
-                        <option [value]="n">{{ bufferLabel(n) }}</option>
+                        <option [value]="n" [selected]="n === d.bufferFrames">
+                          {{ bufferLabel(n) }}
+                        </option>
                       }
                     </select>
                   </div>
@@ -225,7 +227,7 @@
                       >
                         <option value="">{{ 'None' | t }}</option>
                         @for (i of inputs(); track i.name) {
-                          <option [value]="i.name">
+                          <option [value]="i.name" [selected]="i.name === d.inputDevice">
                             {{ i.name }} · {{ '{n} ch' | t: { n: i.channels } }} ·
                             {{ i.sampleRate }} Hz
                           </option>
@@ -252,7 +254,9 @@
                       [attr.aria-label]="e.label"
                     >
                       @for (f of service.formats(); track f.id) {
-                        <option [value]="f.id">{{ f.name }}</option>
+                        <option [value]="f.id" [selected]="f.id === d.timecodeFormat">
+                          {{ f.name }}
+                        </option>
                       }
                     </select>
                   </div>
