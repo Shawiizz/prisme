@@ -31,17 +31,6 @@
   font-size: var(--pr-size-small);
   color: var(--pr-light);
 }
-
-.fader {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: var(--pr-size-small);
-  color: var(--pr-text-3);
-  app-fader {
-    flex: 1;
-  }
-}
 .keys {
   display: grid;
   grid-template-columns: repeat(3, 1fr);

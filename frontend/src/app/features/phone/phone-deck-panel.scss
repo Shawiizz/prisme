@@ -82,15 +82,8 @@ h4 {
   }
 }
 
-.pitch {
-  display: flex;
-  align-items: center;
+app-phone-tempo {
   gap: 10px;
-  font-size: var(--pr-size-small);
-  color: var(--pr-text-3);
-  app-fader {
-    flex: 1;
-  }
 }
 
 .faders {

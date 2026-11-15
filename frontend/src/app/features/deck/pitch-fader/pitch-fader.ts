@@ -1,7 +1,6 @@
 import { Component, DestroyRef, computed, inject, input } from '@angular/core';
 import { deckTempo } from '../../../core/deck-tempo';
 import { EngineService } from '../../../core/services/engine.service';
-import { PreferencesService } from '../../../core/services/preferences.service';
 import { TPipe } from '../../../core/i18n/t.pipe';
 import { Fader } from '../../../shared/fader/fader';
 
@@ -39,9 +38,9 @@ const STEP_EVERY_MS = 60;
       <app-fader
         orientation="vertical"
         centered
-        [min]="-range()"
-        [max]="range()"
-        [value]="-offset()"
+        [min]="-tempo.range()"
+        [max]="tempo.range()"
+        [value]="-tempo.offset()"
         (valueChange)="engine.setPitch(deck(), 1 - $event)"
         [disabled]="tempo.held()"
         [label]="'Tempo' | t"
@@ -55,7 +54,7 @@ const STEP_EVERY_MS = 60;
       }
     </div>
     @if (tempo.vinyl()) {
-      <span class="range pr-num">±{{ rangePercent() }}</span>
+      <span class="range pr-num">±{{ tempo.rangePercent() }}</span>
     } @else {
       <button
         class="pr-btn pr-btn--sm pr-btn--icon"
@@ -139,20 +138,13 @@ export class PitchFader {
   readonly deck = input.required<number>();
 
   protected readonly engine = inject(EngineService);
-  private readonly preferences = inject(PreferencesService);
   protected readonly tempo = deckTempo(this.deck);
-  protected readonly range = computed(() => this.preferences.dj().pitchRange);
-  protected readonly rangePercent = computed(() => Math.round(this.range() * 100));
-  /** A fader the deck does not obey shows the rate it plays at. */
-  protected readonly offset = computed(
-    () => (this.tempo.held() ? this.tempo.rate() : this.tempo.settings().pitch) - 1,
-  );
   /** Where the rate to reach is along the travel, from the top; `null` without one or out
    * of the fader's range. */
   protected readonly targetAt = computed(() => {
     const target = this.tempo.target();
     if (target === null) return null;
-    const fraction = 0.5 + (target - 1) / (2 * this.range());
+    const fraction = 0.5 + (target - 1) / (2 * this.tempo.range());
     return fraction >= 0 && fraction <= 1 ? { fraction } : null;
   });
 
@@ -190,7 +182,7 @@ export class PitchFader {
   }
 
   private step(direction: -1 | 1) {
-    const range = this.range();
+    const range = this.tempo.range();
     const pitch = this.tempo.settings().pitch + direction * PITCH_STEP;
     const kept = Math.min(Math.max(pitch, 1 - range), 1 + range);
     this.engine.setPitch(this.deck(), Math.round(kept * 1e4) / 1e4);

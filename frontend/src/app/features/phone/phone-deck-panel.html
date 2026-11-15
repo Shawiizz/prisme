@@ -20,27 +20,14 @@
   }
 
   <h4>
-    Pitch · <span class="pr-num">{{ pitch() }}</span>
-    @if (target(); as to) {
+    Pitch · <span class="pr-num">{{ tempo.pitch() }}</span>
+    @if (tempo.toMatch(); as to) {
       <span class="target pr-num" [title]="'Pitch to set on the turntable to match' | t"
         >→ {{ to }}</span
       >
     }
   </h4>
-  <div class="pitch">
-    <span class="pr-num">−{{ rangePercent() }}</span>
-    <app-fader
-      touch
-      centered
-      [min]="-range()"
-      [max]="range()"
-      [value]="offset()"
-      (valueChange)="engine.setPitch(deck(), 1 + $event)"
-      [disabled]="tempo.held()"
-      [label]="'Tempo' | t"
-    />
-    <span class="pr-num">+{{ rangePercent() }}</span>
-  </div>
+  <app-phone-tempo [deck]="deck()" />
 
   @if (mixer.internal() && !table()) {
     <h4>{{ 'Mixer' | t }}</h4>
