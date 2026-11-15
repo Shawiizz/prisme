@@ -58,6 +58,7 @@ const SET_INTERFACE: u64 = ioctl(READ, 4, size_of::<SetInterface>());
 const SUBMIT_URB: u64 = ioctl(READ, 10, size_of::<UrbHeader>());
 const DISCARD_URB: u64 = ioctl(0, 11, 0);
 const REAP_URB: u64 = ioctl(WRITE, 12, size_of::<*mut c_void>());
+const REAP_URB_NOW: u64 = ioctl(WRITE, 13, size_of::<*mut c_void>());
 const GET_SPEED: u64 = ioctl(0, 31, 0);
 const URB_TYPE_ISO: u8 = 0;
 const URB_ISO_ASAP: u32 = 0x02;
@@ -110,6 +111,8 @@ pub(crate) fn high_speed(fd: RawFd) -> io::Result<bool> {
 /// An isochronous transfer of `packets` packets on an endpoint, with its buffer. Once
 /// submitted it belongs to the kernel until reaped: it must stay where it is until then.
 pub(crate) struct Urb {
+    /// Submitted, not reaped yet (the caller keeps it).
+    pub in_flight: bool,
     /// The header, then its packets, as the kernel reads them.
     memory: Box<[u64]>,
     data: Box<[u8]>,
@@ -120,6 +123,7 @@ impl Urb {
     pub fn new(endpoint: u8, packets: usize, packet_bytes: usize, context: usize) -> Self {
         let bytes = size_of::<UrbHeader>() + packets * size_of::<IsoPacket>();
         let mut urb = Self {
+            in_flight: false,
             memory: vec![0u64; bytes.div_ceil(8)].into_boxed_slice(),
             data: vec![0u8; packets * packet_bytes].into_boxed_slice(),
             packets,
@@ -206,6 +210,18 @@ pub(crate) fn discard(fd: RawFd, address: usize) {
     unsafe { libc::ioctl(fd, DISCARD_URB as _, address as *mut c_void) };
 }
 
+/// The context of a transfer completed already, if one is.
+pub(crate) fn reap_now(fd: RawFd) -> io::Result<Option<usize>> {
+    let mut done: *mut UrbHeader = std::ptr::null_mut();
+    // SAFETY: as in `reap`, without waiting.
+    if unsafe { libc::ioctl(fd, REAP_URB_NOW as _, &mut done) } < 0 {
+        let e = io::Error::last_os_error();
+        return if e.raw_os_error() == Some(libc::EAGAIN) { Ok(None) } else { Err(e) };
+    }
+    // SAFETY: the header of one of our transfers, given back.
+    Ok(Some(unsafe { (*done).context } as usize))
+}
+
 /// Waits for a transfer to complete and gives its context back.
 pub(crate) fn reap(fd: RawFd) -> io::Result<usize> {
     let mut done: *mut UrbHeader = std::ptr::null_mut();
@@ -227,6 +243,7 @@ mod tests {
         assert_eq!(SUBMIT_URB, 0x8038_550a);
         assert_eq!(DISCARD_URB, 0x550b);
         assert_eq!(REAP_URB, 0x4008_550c);
+        assert_eq!(REAP_URB_NOW, 0x4008_550d);
         assert_eq!(GET_SPEED, 0x551f);
     }
 

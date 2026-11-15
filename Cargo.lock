@@ -4183,6 +4183,7 @@ version = "0.3.2"
 dependencies = [
  "cpal",
  "libc",
+ "ndk",
  "rtrb",
  "thiserror 2.0.21",
  "tracing",

@@ -83,7 +83,7 @@ pub(crate) use running::{start, Running};
 
 #[cfg(any(target_os = "linux", target_os = "android"))]
 mod running {
-    use super::driver::{Driver, Options};
+    use super::driver::{Driver, Options, MAX_URBS};
     use super::{descriptors, host, remember, SAMPLE_RATE};
     use crate::stream::{Renderer, RunningStream, StreamFormat, StreamSettings, StreamStats, Streams};
     use crate::{AudioCallback, AudioError};
@@ -148,8 +148,11 @@ mod running {
             }
             None => (None, None),
         };
-        let renderer =
-            Renderer::new(make_callback(format), ring, format, stats.clone()).late_told_by_the_device();
+        // the input comes a transfer at a time, out of step with the output's: one ahead, and as
+        // many as may be in flight let wait (on the card's clock both ways, none is too many)
+        let renderer = Renderer::new(make_callback(format), ring, format, stats.clone())
+            .late_told_by_the_device()
+            .input_cushion(frames_per_ms, MAX_URBS * frames_per_ms);
         let options = Options { sample_rate: SAMPLE_RATE, urbs, capture: capture.is_some() };
         running.driver = Some(
             Driver::start(opened.fd, &card, &options, renderer, producer, stats.clone())
