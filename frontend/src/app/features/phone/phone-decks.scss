@@ -7,6 +7,9 @@
 .decks {
   flex: none;
   --pr-lane-columns: auto minmax(0, 1fr);
+  --phone-wave: 104px;
+  --phone-overview: 26px;
+  --lane: 6px;
   app-phone-deck,
   app-phase-strip {
     border-bottom: 1px solid var(--pr-line);

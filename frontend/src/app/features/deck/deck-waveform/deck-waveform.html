@@ -20,7 +20,7 @@
   @if (activity(); as activity) {
     <div
       class="lanes"
-      [style.height.px]="activity.length * 4 - 1"
+      [style.--lanes]="activity.length"
       [title]="lanesTitle()"
       (pointerdown)="press($event, 'overview')"
       (pointermove)="move($event)"
