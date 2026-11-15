@@ -1,11 +1,12 @@
 name: Mobile
 
-# The phone builds, while they are being made: compiles Prisme for iOS, starts it in the
-# iPhone simulator, and keeps a screenshot, the logs and the Xcode project it generated.
+# The phone builds: a mobile version tag (mobile-1.2.3), apart from the computers' tags, or on
+# demand. Compiles Prisme for iOS, starts it in the iPhone simulator, and keeps a screenshot,
+# the logs and the Xcode project it generated.
 on:
   workflow_dispatch:
   push:
-    branches: [mobile]
+    tags: ["mobile-[0-9]+.[0-9]+.[0-9]+"]
 
 jobs:
   ios:
