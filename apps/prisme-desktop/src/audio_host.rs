@@ -62,8 +62,6 @@ pub struct AudioSession {
     pub settings: AudioSettings,
     stop: Option<mpsc::Sender<()>>,
     thread: Option<JoinHandle<()>>,
-    /// The computer stays awake while the audio runs.
-    _awake: Option<crate::keep_awake::KeepAwake>,
 }
 
 impl AudioSession {
@@ -170,7 +168,6 @@ pub fn start(settings: &AudioSettings, decks: usize) -> AppResult<AudioSession> 
         settings: settings.clone(),
         stop: Some(stop_tx),
         thread: Some(thread),
-        _awake: crate::keep_awake::KeepAwake::new(),
     })
 }
 

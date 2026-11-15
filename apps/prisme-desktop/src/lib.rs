@@ -178,6 +178,8 @@ pub fn run() {
                 let _ = state.send(prisme_engine::Command::SetMasterGain { gain });
             }
             audio_watchdog::start(app.handle().clone());
+            #[cfg(desktop)]
+            keep_awake::while_playing(app.handle().clone());
             history::start(app.handle().clone());
             sampler::load_saved(app.handle().clone());
             let controllers = app.state::<Controllers>();
