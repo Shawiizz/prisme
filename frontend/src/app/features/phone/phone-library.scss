@@ -187,6 +187,28 @@ app-cover {
   }
 }
 
+// hears the track in the headphones: a finger's width at the end of the row
+.listen {
+  flex: none;
+  width: var(--pr-h-touch);
+  height: var(--pr-h-touch);
+  margin-right: -10px;
+  color: var(--pr-text-3);
+  svg {
+    width: 18px;
+    height: 18px;
+  }
+  &.is-on svg rect {
+    fill: currentColor;
+  }
+  &.unheard:not(.is-on) {
+    opacity: 0.5;
+  }
+}
+app-preview-strip {
+  flex: none;
+}
+
 .empty {
   margin: 0;
   padding: 18px 16px 12px;

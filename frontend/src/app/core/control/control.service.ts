@@ -8,6 +8,7 @@ import { PerformanceService } from '../services/performance.service';
 import { PreferencesService } from '../services/preferences.service';
 import { SamplerService } from '../services/sampler.service';
 import { NavigationService } from '../services/navigation.service';
+import { PREVIEW_STEP_S, PreviewService } from '../services/preview.service';
 import {
   bandKnob,
   eqGain,
@@ -33,6 +34,7 @@ export class ControlService {
   private readonly library = inject(LibraryService);
   private readonly preferences = inject(PreferencesService);
   private readonly navigation = inject(NavigationService);
+  private readonly preview = inject(PreviewService);
 
   private readonly actions: ControlActions = {
     togglePlay: (deck) => this.engine.togglePlay(deck),
@@ -121,6 +123,14 @@ export class ControlService {
     resetTempo: (deck) => this.engine.setPitch(deck, 1),
     browse: (steps) => this.library.moveSelection(steps),
     loadSelected: (deck) => this.library.loadSelected(deck),
+    loadSelectedAndPlay: (deck) => this.library.loadSelectedAndPlay(deck),
+    togglePreview: () => {
+      const path = this.library.selected();
+      if (path) this.preview.toggle(path);
+    },
+    previewing: () => this.preview.active(),
+    stopPreview: () => this.preview.stop(),
+    seekPreview: (steps) => this.preview.skip(steps * PREVIEW_STEP_S),
     double: (deck) => this.engine.double(deck ^ 1, deck),
     removeSelected: () => this.library.removeSelected(),
     selectAll: () => this.library.selectAll(),

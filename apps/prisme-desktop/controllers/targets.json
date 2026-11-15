@@ -2082,6 +2082,48 @@
   "kind": "button"
  },
  {
+  "id": "library.load1.play",
+  "group": "Library",
+  "label": "Load on deck A and play",
+  "kind": "button"
+ },
+ {
+  "id": "library.load2.play",
+  "group": "Library",
+  "label": "Load on deck B and play",
+  "kind": "button"
+ },
+ {
+  "id": "library.load3.play",
+  "group": "Library",
+  "label": "Load on deck C and play",
+  "kind": "button"
+ },
+ {
+  "id": "library.load4.play",
+  "group": "Library",
+  "label": "Load on deck D and play",
+  "kind": "button"
+ },
+ {
+  "id": "library.preview",
+  "group": "Library",
+  "label": "Preview in the headphones / stop",
+  "kind": "button"
+ },
+ {
+  "id": "library.preview.stop",
+  "group": "Library",
+  "label": "Stop the preview",
+  "kind": "button"
+ },
+ {
+  "id": "library.preview.seek",
+  "group": "Library",
+  "label": "Move through the preview",
+  "kind": "encoder"
+ },
+ {
   "id": "library.double1",
   "group": "Library",
   "label": "Instant double on deck A",

@@ -11,8 +11,10 @@ import {
 import { EngineService } from '../../core/services/engine.service';
 import { LibraryService } from '../../core/services/library.service';
 import { StemsService } from '../../core/services/stems.service';
+import { PreviewService } from '../../core/services/preview.service';
 import { ImportDialog } from './import-dialog/import-dialog';
 import { LibrarySidebar } from './library-sidebar/library-sidebar';
+import { PreviewStrip } from './preview-strip/preview-strip';
 import { TrackTable } from './track-table/track-table';
 import { TPipe } from '../../core/i18n/t.pipe';
 import { deckLetter } from '../../shared/time';
@@ -27,13 +29,14 @@ const RESCANNED_MS = 3000;
   selector: 'app-library',
   templateUrl: './library.html',
   styleUrl: './library.scss',
-  imports: [ImportDialog, LibrarySidebar, TrackTable, TPipe],
+  imports: [ImportDialog, LibrarySidebar, PreviewStrip, TrackTable, TPipe],
 })
 export class Library {
   protected readonly CTRL = CTRL;
   protected readonly library = inject(LibraryService);
   protected readonly engine = inject(EngineService);
   protected readonly stems = inject(StemsService);
+  protected readonly preview = inject(PreviewService);
   protected readonly separationTotal = computed(() => {
     const p = this.stems.progress();
     return p.done + p.failed + p.queued;

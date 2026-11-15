@@ -489,10 +489,17 @@ export class LibraryService {
     if (path) this.load(path, deck);
   }
 
-  load(path: string, deck: number | null) {
+  /** Loads the selected track on `deck` and plays it (if it was loaded). */
+  async loadSelectedAndPlay(deck: number) {
+    const path = this.selected();
+    if (path && (await this.load(path, deck))) await this.engine.setPlaying(deck, true);
+  }
+
+  /** Loads `path` on `deck`, or on the first free deck (deck A if none); whether it was. */
+  load(path: string, deck: number | null): Promise<boolean> {
     this.selected.set(path);
     const free = this.engine.deckIndexes().find((d) => !this.engine.tracks()[d]);
-    this.engine.load(deck ?? free ?? 0, path);
+    return this.engine.load(deck ?? free ?? 0, path);
   }
 
   private async loadSource(tracks: () => Promise<DirEntry[]>): Promise<void> {

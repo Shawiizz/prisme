@@ -184,6 +184,33 @@
         }
       }
       <span class="load">
+        @let previewed = preview.previewing(t.path);
+        <button
+          class="pr-btn pr-btn--sm pr-btn--ghost preview"
+          [class.is-on]="previewed"
+          [class.unheard]="!preview.heard()"
+          (click)="preview.toggle(t.path); $event.stopPropagation()"
+          (dblclick)="$event.stopPropagation()"
+          [title]="previewTitle(previewed)"
+          [attr.aria-label]="previewTitle(previewed)"
+          [attr.aria-pressed]="previewed"
+        >
+          <svg
+            viewBox="0 0 16 16"
+            width="13"
+            height="13"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.4"
+            aria-hidden="true"
+          >
+            <path d="M3 11V8a5 5 0 0 1 10 0v3" />
+            <g [attr.fill]="previewed ? 'currentColor' : 'none'">
+              <rect x="2" y="10" width="3" height="4" rx="1" />
+              <rect x="11" y="10" width="3" height="4" rx="1" />
+            </g>
+          </svg>
+        </button>
         @for (d of deckIndexes(); track d) {
           <button
             class="pr-btn pr-btn--sm"

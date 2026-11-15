@@ -27,6 +27,7 @@ import { decimal, deckLetter } from '../../../shared/time';
 import { octaveRatio } from '../../../core/sync';
 import { HistoryService } from '../../../core/services/history.service';
 import { StemsService } from '../../../core/services/stems.service';
+import { PreviewService } from '../../../core/services/preview.service';
 import { TRACK_COLORS, hexColor } from '../../../shared/track-colors';
 import { COLUMNS, Column, ColumnId, gridTemplate } from './columns';
 import { TrackMenu, TrackMenuPanel } from '../track-menu/track-menu';
@@ -94,6 +95,7 @@ export class TrackTable {
   protected readonly library = inject(LibraryService);
   protected readonly engine = inject(EngineService);
   protected readonly stems = inject(StemsService);
+  protected readonly preview = inject(PreviewService);
   private readonly preferences = inject(PreferencesService);
   private readonly history = inject(HistoryService);
   private readonly table = viewChild.required<ElementRef<HTMLElement>>('table');
@@ -267,6 +269,14 @@ export class TrackTable {
   /** The decks a track is loaded on. */
   decksOf(path: string): number[] {
     return this.deckPaths().flatMap((p, deck) => (p === path ? [deck] : []));
+  }
+
+  /** What the preview key of a row does, or why it cannot. */
+  previewTitle(previewed: boolean): string {
+    if (previewed) return t('Stop the preview');
+    return this.preview.heard()
+      ? t('Preview in the headphones')
+      : t('No headphones of their own to preview in: choose their outputs in the settings');
   }
 
   played(path: string): boolean {

@@ -106,8 +106,11 @@ export class SettingsDialog implements OnInit {
   });
   /** What the choice of the headphones does, and where they are heard on the running device. */
   protected readonly headphonesHelp = computed(() => {
-    const help = SETTING_BY_ID.get('mixing.headphones')!.description();
-    if (!this.mixer.internal() || this.mixer.outputChannels() === null) return help;
+    const described = SETTING_BY_ID.get('mixing.headphones')!.description();
+    const help = this.mixer.internal()
+      ? described
+      : `${described} ${t('With an external mixer, only the preview plays there, on a pair no deck uses; Automatic takes the pair after the decks’ on an ASIO interface.')}`;
+    if (this.mixer.outputChannels() === null) return help;
     const first = this.mixer.headphonesInUse();
     return first === null
       ? `${help} ${t('Not heard on this device.')}`

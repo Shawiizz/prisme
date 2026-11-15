@@ -1,0 +1,39 @@
+<button
+  class="pr-btn pr-btn--icon stop"
+  (click)="preview.stop()"
+  [title]="'Stop the preview' | t"
+  [attr.aria-label]="'Stop the preview' | t"
+>
+  <svg viewBox="0 0 16 16" aria-hidden="true"><rect x="4" y="4" width="8" height="8" rx="1" /></svg>
+</button>
+<div class="names">
+  <span class="title">{{ preview.track()?.title }}</span>
+  <span class="artist">{{ preview.track()?.artist }}</span>
+</div>
+<span class="time pr-num" [class.waiting]="preview.status()?.waiting ?? true">
+  @if (preview.status()?.waiting ?? true) {
+    {{ 'Reading…' | t }}
+  } @else {
+    {{ time() }}
+  }
+</span>
+<div
+  class="bar"
+  [class.bare]="!preview.waveform()"
+  [title]="'Click to listen from there' | t"
+  (pointerdown)="press($event)"
+  (pointermove)="move($event)"
+  (pointerup)="release($event)"
+  (pointercancel)="release($event)"
+>
+  <canvas #bar></canvas>
+</div>
+<app-knob
+  small
+  label="PHONES"
+  [labelTitle]="'Headphone volume' | t"
+  [defaultValue]="1 / MAX_HEADPHONE_GAIN"
+  [format]="phonesReadout"
+  [value]="mixer.headphoneGain() / MAX_HEADPHONE_GAIN"
+  (valueChange)="mixer.setHeadphoneGain($event * MAX_HEADPHONE_GAIN)"
+/>

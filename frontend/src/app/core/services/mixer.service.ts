@@ -27,9 +27,11 @@ export class MixerService {
   readonly mode = signal<MixMode>('external');
   /** The mode in use: an external mixer needs an output pair per deck. */
   readonly modeInUse = signal<MixMode | null>(null);
-  /** Where the user wants the headphones of the software mixer. */
+  /** Where the user wants the headphones: those of the software mixer, or with an external
+   * mixer those of the preview. */
   readonly headphones = signal<HeadphonesOutput>({ kind: 'auto' });
-  /** First output (0-based) of the headphones in use; `null` when they are not heard. */
+  /** First output (0-based) of the headphones in use; `null` when they are not heard. With an
+   * external mixer, a pair no deck uses, for the preview alone. */
   readonly headphonesInUse = signal<number | null>(null);
   /** Outputs of the running device. */
   readonly outputChannels = signal<number | null>(null);
@@ -88,6 +90,8 @@ export class MixerService {
     this.mode.set(mode);
     try {
       this.modeInUse.set(await invoke<MixMode | null>('set_mix_mode', { mode }));
+      // the headphones too: with an external mixer they need a pair of their own
+      await this.followDevice();
     } catch (e) {
       this.engine.error.set(errorText(e));
     }

@@ -594,5 +594,15 @@
   "Unsupported or damaged file": "Fichier non pris en charge ou abîmé",
   "Pitch": "Pitch",
   "SMOOTH": "DOUCE",
-  "SHARP": "FRANCHE"
+  "SHARP": "FRANCHE",
+  "Load on deck {deck} and play": "Charger sur le deck {deck} et lancer",
+  "Preview in the headphones / stop": "Écouter au casque / arrêter",
+  "Preview in the headphones": "Écouter au casque",
+  "Stop the preview": "Arrêter l’écoute au casque",
+  "Move through the preview": "Avancer ou reculer dans l’écoute au casque",
+  "Reading…": "Lecture du fichier…",
+  "Click to listen from there": "Cliquer pour écouter à partir d’ici",
+  "No headphones of their own to preview in: choose their outputs in the settings": "Pas de casque à part pour écouter : choisissez ses sorties dans les réglages",
+  "Space": "Espace",
+  "With an external mixer, only the preview plays there, on a pair no deck uses; Automatic takes the pair after the decks’ on an ASIO interface.": "Avec une table de mixage externe, seule l’écoute au casque y joue, sur une paire qu’aucun deck n’utilise ; Automatique prend la paire après celles des decks sur une interface ASIO."
 }

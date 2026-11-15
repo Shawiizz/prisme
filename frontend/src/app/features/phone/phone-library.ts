@@ -17,6 +17,7 @@ import { CratesService } from '../../core/services/crates.service';
 import { EngineService } from '../../core/services/engine.service';
 import { LibraryService, SortColumn, trackTitle } from '../../core/services/library.service';
 import { PrepareService } from '../../core/services/prepare.service';
+import { PreviewService } from '../../core/services/preview.service';
 import { Text, t } from '../../core/i18n/i18n';
 import { TPipe } from '../../core/i18n/t.pipe';
 import { camelotCompatible } from '../../shared/camelot';
@@ -25,6 +26,7 @@ import { Dismiss, overlay } from '../../shared/overlay';
 import { decimal, deckLetter } from '../../shared/time';
 import { ImportDialog } from '../library/import-dialog/import-dialog';
 import { LibrarySidebar } from '../library/library-sidebar/library-sidebar';
+import { PreviewStrip } from '../library/preview-strip/preview-strip';
 import { LIST_LABEL, SEARCH_PLACEHOLDER } from '../library/list-labels';
 import { TrackMenu } from '../library/track-menu/track-menu';
 import { COLUMNS } from '../library/track-table/columns';
@@ -61,16 +63,16 @@ interface Slide {
 
 /**
  * The library on a phone: a search and the order, the lists to go to, then large rows, a
- * cover, the tempo and the key (lit when it fits the deck). A row slid to the right loads
- * on the first deck, to the left on the second; touched, it opens what can be done with the
- * track. `peek` leaves the search and the rows, under the decks. Only the rows in view are
- * drawn.
+ * cover, the tempo and the key (lit when it fits the deck), a key to hear the track in the
+ * headphones. A row slid to the right loads on the first deck, to the left on the second;
+ * touched, it opens what can be done with the track. `peek` leaves the search and the rows,
+ * under the decks. Only the rows in view are drawn; the track previewed plays under them.
  */
 @Component({
   selector: 'app-phone-library',
   templateUrl: './phone-library.html',
   styleUrl: './phone-library.scss',
-  imports: [Cover, Dismiss, ImportDialog, LibrarySidebar, TPipe, TrackMenu],
+  imports: [Cover, Dismiss, ImportDialog, LibrarySidebar, PreviewStrip, TPipe, TrackMenu],
 })
 export class PhoneLibrary {
   readonly peek = input(false, { transform: booleanAttribute });
@@ -79,6 +81,7 @@ export class PhoneLibrary {
   private readonly engine = inject(EngineService);
   private readonly crates = inject(CratesService);
   protected readonly prepared = inject(PrepareService).list;
+  protected readonly preview = inject(PreviewService);
   private readonly list = viewChild.required<ElementRef<HTMLElement>>('list');
   private readonly scrollTop = signal(0);
   private readonly viewHeight = signal(0);

@@ -108,6 +108,14 @@ export interface ControlActions {
   resetTempo(deck: number): void;
   browse(steps: number): void;
   loadSelected(deck: number | null): void;
+  /** Loads the selected track on `deck` and plays it. */
+  loadSelectedAndPlay(deck: number): void;
+  /** Previews the selected track in the headphones, or stops it if it is the one previewed. */
+  togglePreview(): void;
+  previewing(): boolean;
+  stopPreview(): void;
+  /** Moves the preview by so many steps of a few seconds, back if negative. */
+  seekPreview(steps: number): void;
   /** Loads on `deck` the track of the other deck of its pair, where it is. */
   double(deck: number): void;
   removeSelected(): void;
@@ -463,6 +471,29 @@ export function buildControls(a: ControlActions): Control[] {
       deck,
     })),
     button('library.load', library, t('Load on a free deck'), () => a.loadSelected(null)),
+    ...Array.from({ length: MAX_DECKS }, (_, deck) => ({
+      ...button(
+        `library.load${deck + 1}.play`,
+        library,
+        t('Load on deck {deck} and play', { deck: deckLetter(deck) }),
+        () => a.loadSelectedAndPlay(deck),
+      ),
+      deck,
+    })),
+    {
+      ...button('library.preview', library, t('Preview in the headphones / stop'), () =>
+        a.togglePreview(),
+      ),
+      lit: () => a.previewing(),
+    },
+    button('library.preview.stop', library, t('Stop the preview'), () => a.stopPreview()),
+    {
+      id: 'library.preview.seek',
+      group: library,
+      label: t('Move through the preview'),
+      kind: 'encoder',
+      apply: (steps) => a.seekPreview(steps),
+    },
     ...Array.from({ length: MAX_DECKS }, (_, deck) => ({
       ...button(
         `library.double${deck + 1}`,
