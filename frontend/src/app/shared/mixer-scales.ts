@@ -1,3 +1,4 @@
+import { BANDS, Band, ChannelStrip } from '../core/models/engine';
 import { decimal } from './time';
 
 /** Knob positions (0 = full left, 0.5 = centre, 1 = full right) and the gains they set. */
@@ -23,6 +24,21 @@ export function eqKnob(gain: number): number {
   const db = toDb(gain);
   const knob = db < 0 ? 0.5 + (db / EQ_CUT_DB) * 0.5 : 0.5 + (db / EQ_BOOST_DB) * 0.5;
   return Math.min(Math.max(knob, EQ_OFF_BELOW + 1e-6), 1);
+}
+
+/** Where the EQ knob of `band` stands on a channel. */
+export function bandKnob(strip: ChannelStrip, band: Band): number {
+  return eqKnob(strip.eq[BANDS.indexOf(band)]);
+}
+
+/** Filter: full left closes the low-pass (-1), centre is open (0), full right closes the
+ * high-pass (1). */
+export function filterAmount(knob: number): number {
+  return knob * 2 - 1;
+}
+
+export function filterKnob(amount: number): number {
+  return (amount + 1) / 2;
 }
 
 /** Trim: -12 dB to +12 dB, flat at the centre. */

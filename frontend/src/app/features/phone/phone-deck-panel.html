@@ -53,7 +53,7 @@
           orientation="vertical"
           [value]="filterKnob()"
           [defaultValue]="0.5"
-          (valueChange)="mixer.setFilter(deck(), $event * 2 - 1)"
+          (valueChange)="setFilter($event)"
           label="FILTER"
         />
         FILTER

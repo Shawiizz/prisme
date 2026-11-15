@@ -2,14 +2,14 @@ import { Component, computed, inject, input, output, signal } from '@angular/cor
 import { closedByBack } from '../../core/back';
 import { deckTempo } from '../../core/deck-tempo';
 import { DeckMode, deckVinyl } from '../../core/deck-vinyl';
-import { BANDS, Band } from '../../core/models/engine';
+import { Band } from '../../core/models/engine';
 import { EngineService } from '../../core/services/engine.service';
 import { MixerService } from '../../core/services/mixer.service';
 import { t } from '../../core/i18n/i18n';
 import { TPipe } from '../../core/i18n/t.pipe';
 import { CueButton } from '../../shared/cue-button/cue-button';
 import { Fader } from '../../shared/fader/fader';
-import { eqGain, eqKnob } from '../../shared/mixer-scales';
+import { bandKnob, eqGain, filterAmount, filterKnob } from '../../shared/mixer-scales';
 import { deckLetter } from '../../shared/time';
 import { GridEditor } from '../deck/grid-editor/grid-editor';
 import { PhoneTempo } from './phone-tempo';
@@ -81,7 +81,7 @@ export class PhoneDeckPanel {
   }
 
   protected eqKnob(band: Band): number {
-    return eqKnob(this.mixer.strip(this.deck()).eq[BANDS.indexOf(band)]);
+    return bandKnob(this.mixer.strip(this.deck()), band);
   }
 
   protected setEq(band: Band, knob: number) {
@@ -89,6 +89,10 @@ export class PhoneDeckPanel {
   }
 
   protected filterKnob(): number {
-    return (this.mixer.strip(this.deck()).filter + 1) / 2;
+    return filterKnob(this.mixer.strip(this.deck()).filter);
+  }
+
+  protected setFilter(knob: number) {
+    this.mixer.setFilter(this.deck(), filterAmount(knob));
   }
 }
