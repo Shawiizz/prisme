@@ -148,6 +148,9 @@ export interface ControlActions {
   brake(deck: number): void;
   /** The record spun back while held; let go, it plays on from there. */
   spinBack(deck: number, held: boolean): void;
+  /** At the end, the track goes on from its start, or stops there. */
+  toggleRepeat(deck: number): void;
+  repeating(deck: number): boolean;
   reloop(deck: number): void;
   deleteHotCue(deck: number, slot: number): void;
   resetTempo(deck: number): void;
@@ -372,6 +375,10 @@ function deckControls(a: ControlActions, deck: number): Control[] {
     hold(id('censor'), group, t('Censor while held'), (held) => a.censor(deck, held)),
     button(id('brake'), group, t('Brake (stopped: soft start)'), () => a.brake(deck)),
     hold(id('spinback'), group, t('Spinback while held'), (held) => a.spinBack(deck, held)),
+    lit(
+      button(id('repeat'), group, t('Repeat the track'), () => a.toggleRepeat(deck)),
+      () => a.repeating(deck),
+    ),
     lit(
       button(id('keylock'), group, t('Key lock'), () => a.toggleKeyLock(deck)),
       () => a.keyLocked(deck),

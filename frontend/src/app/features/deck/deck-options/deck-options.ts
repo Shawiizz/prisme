@@ -7,7 +7,7 @@ import { Press } from '../../../shared/press';
 
 /**
  * What a deck does now and then rather than all the time, a row each: its motor (a brake, a
- * soft start, a spinback while held).
+ * soft start, a spinback while held), the track repeated.
  */
 @Component({
   selector: 'app-deck-options',
@@ -35,6 +35,19 @@ import { Press } from '../../../shared/press';
           SPINBACK
         </button>
       </div>
+    </div>
+    <div class="row">
+      <span>{{ 'Repeat the track' | t }}</span>
+      <button
+        class="pr-switch"
+        role="switch"
+        [attr.aria-checked]="settings().repeat"
+        [attr.aria-label]="'Repeat the track' | t"
+        [title]="'At the end, the track plays on from its start' | t"
+        (click)="engine.setRepeat(deck(), !settings().repeat)"
+      >
+        <span></span>
+      </button>
     </div>
   `,
   styles: `
@@ -73,10 +86,10 @@ import { Press } from '../../../shared/press';
 export class DeckOptions {
   readonly deck = input.required<number>();
 
-  private readonly engine = inject(EngineService);
+  protected readonly engine = inject(EngineService);
   protected readonly performance = inject(PerformanceService);
   protected readonly PHONE = PHONE;
-  private readonly settings = computed(() => this.engine.decks()[this.deck()]);
+  protected readonly settings = computed(() => this.engine.decks()[this.deck()]);
 
   /** The motor moves a track that plays by itself: a record drives its own. */
   protected readonly movable = computed(

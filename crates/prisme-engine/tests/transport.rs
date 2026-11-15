@@ -217,3 +217,21 @@ fn loop_out_on_the_loop_in_beat_does_nothing() {
     assert!(!looping.active && looping.region.is_none());
     assert_eq!(looping.loop_in_s, Some(10.0));
 }
+
+#[test]
+fn with_repeat_the_track_plays_on_from_its_start() {
+    let mut rig = Rig::new();
+    rig.send(Command::LoadTrack { deck: 0, track: silent_track(10.0) });
+    rig.send(Command::SetRepeat { deck: 0, enabled: true });
+    rig.send(Command::Seek { deck: 0, seconds: 9.5 });
+    rig.send(Command::SetPlaying { deck: 0, playing: true });
+    let elapsed = rig.run(1.0);
+    let d = rig.deck(0);
+    assert!(d.playing);
+    assert_close(d.position_s, 9.5 + elapsed - 10.0, 0.001);
+
+    rig.send(Command::SetRepeat { deck: 0, enabled: false });
+    rig.send(Command::Seek { deck: 0, seconds: 9.5 });
+    rig.run(1.0);
+    assert!(!rig.deck(0).playing, "without it, the end stops the deck");
+}

@@ -103,6 +103,11 @@ pub enum Command {
         deck: DeckId,
         held: bool,
     },
+    /// At the end, the track goes on from its start, seamlessly: it plays on.
+    SetRepeat {
+        deck: DeckId,
+        enabled: bool,
+    },
     /// Moves the playhead there, as is (needle search).
     Seek {
         deck: DeckId,

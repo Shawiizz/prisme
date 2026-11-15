@@ -53,6 +53,7 @@ const DEFAULT_DECK: DeckSettings = {
   samples: Array(SAMPLE_SLOTS).fill(null),
   samplerGain: 1,
   passthrough: false,
+  repeat: false,
 };
 
 /**
@@ -225,6 +226,12 @@ export class EngineService {
   setPassthrough(deck: number, enabled: boolean) {
     this.patchDeck(deck, { passthrough: enabled });
     return this.call('set_passthrough', { deck, enabled });
+  }
+
+  /** At the end, the track goes on from its start. */
+  setRepeat(deck: number, enabled: boolean) {
+    this.patchDeck(deck, { repeat: enabled });
+    return this.call('set_repeat', { deck, enabled });
   }
 
   /** Playback rate of the tempo the engine reports (sync and platter included), if the track has a beat grid. */

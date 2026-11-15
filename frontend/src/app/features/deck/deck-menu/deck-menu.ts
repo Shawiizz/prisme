@@ -11,8 +11,8 @@ import { DeckOptions } from '../deck-options/deck-options';
       class="pr-btn pr-btn--sm pr-btn--icon"
       [class.is-on]="open()"
       (click)="open.set(!open())"
-      [title]="'Deck options: motor' | t"
-      [attr.aria-label]="'Deck options: motor' | t"
+      [title]="'Deck options: motor, repeat' | t"
+      [attr.aria-label]="'Deck options: motor, repeat' | t"
     >
       ⋯
     </button>

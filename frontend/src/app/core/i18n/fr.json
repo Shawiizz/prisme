@@ -652,5 +652,7 @@
   "Motor": "Moteur",
   "Brake: the deck slows to a stop; stopped, it starts softly": "Frein : la platine ralentit jusqu’à l’arrêt ; à l’arrêt, elle démarre en douceur",
   "Spinback: the record spun back while held, then it plays on": "Spinback : le disque lancé en arrière tant que la touche est tenue, puis la lecture reprend",
-  "Deck options: motor": "Options de la platine : moteur"
+  "Repeat the track": "Répéter le morceau",
+  "At the end, the track plays on from its start": "À la fin, le morceau reprend à son début",
+  "Deck options: motor, repeat": "Options de la platine : moteur, répétition"
 }

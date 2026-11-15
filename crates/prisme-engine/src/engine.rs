@@ -264,6 +264,7 @@ impl Engine {
             SetPlaying { deck, playing } if valid(deck) => self.decks[deck].set_playing(playing),
             Brake { deck } if valid(deck) => self.decks[deck].brake(),
             SpinBack { deck, held } if valid(deck) => self.decks[deck].spin_back(held),
+            SetRepeat { deck, enabled } if valid(deck) => self.decks[deck].playhead.set_repeat(enabled),
             SetPitch { deck, ratio } if valid(deck) && ratio.is_finite() => self.decks[deck].pitch = ratio,
             SetPitchBend { deck, amount } if valid(deck) && amount.is_finite() => {
                 self.decks[deck].bend = amount

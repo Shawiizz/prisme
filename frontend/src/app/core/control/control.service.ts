@@ -149,6 +149,8 @@ export class ControlService {
     censor: (deck, held) => this.performance.censor(deck, held),
     brake: (deck) => this.performance.brake(deck),
     spinBack: (deck, held) => this.performance.spinBack(deck, held),
+    toggleRepeat: (deck) => this.engine.setRepeat(deck, !this.engine.decks()[deck].repeat),
+    repeating: (deck) => this.engine.decks()[deck].repeat,
     reloop: (deck) => this.performance.reloop(deck),
     deleteHotCue: (deck, slot) => this.performance.deleteHotCue(deck, slot),
     resetTempo: (deck) => this.engine.setPitch(deck, 1),

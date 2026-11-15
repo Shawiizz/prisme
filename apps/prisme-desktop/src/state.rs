@@ -160,6 +160,8 @@ pub struct DeckSettings {
     pub sampler_gain: f32,
     /// The deck plays its input instead of its track.
     pub passthrough: bool,
+    /// At the end, the track goes on from its start.
+    pub repeat: bool,
 }
 
 impl From<DeckPreferences> for DeckSettings {
@@ -178,6 +180,7 @@ impl From<DeckPreferences> for DeckSettings {
             fx: FxChainDto::default(),
             sampler_gain: 1.0,
             passthrough: false,
+            repeat: false,
         }
     }
 }
@@ -545,6 +548,7 @@ pub fn deck_commands(deck: usize, s: &DeckSettings) -> Vec<Command> {
         Command::SetFxParts { deck, parts: FxPartDto::parts(s.fx.part) },
         Command::SetSamplerGain { deck, gain: s.sampler_gain },
         Command::SetPassthrough { deck, enabled: s.passthrough },
+        Command::SetRepeat { deck, enabled: s.repeat },
     ];
     for (slot, fx) in s.fx.slots.iter().enumerate() {
         commands.extend([

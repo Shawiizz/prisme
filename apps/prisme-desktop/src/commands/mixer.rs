@@ -47,6 +47,7 @@ pub fn mixer_state(state: State<'_, AppState>) -> MixerStateDto {
                 samples: samples.iter().map(|s| s.as_ref().map(|s| sampler::name(&s.path))).collect(),
                 sampler_gain: d.sampler_gain,
                 passthrough: d.passthrough,
+                repeat: d.repeat,
             })
             .collect(),
         crossfader: *lock(&state.crossfader),

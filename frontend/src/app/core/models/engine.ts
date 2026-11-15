@@ -252,6 +252,8 @@ export interface DeckSettings {
   samplerGain: number;
   /** The deck plays its input as it comes instead of its track. */
   passthrough: boolean;
+  /** At the end, the track goes on from its start. */
+  repeat: boolean;
 }
 
 export const EFFECT_KINDS = [

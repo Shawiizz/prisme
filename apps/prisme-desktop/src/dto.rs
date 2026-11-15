@@ -681,6 +681,8 @@ pub struct DeckSettingsDto {
     pub sampler_gain: f32,
     /// The deck plays its input instead of its track.
     pub passthrough: bool,
+    /// At the end, the track goes on from its start.
+    pub repeat: bool,
 }
 
 /// The input channels a live source comes in on: one, heard in the middle, or a stereo pair.

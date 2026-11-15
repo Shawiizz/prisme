@@ -245,6 +245,7 @@ pub fn run() {
             commands::decks::set_vinyl_swap,
             commands::decks::set_key_lock,
             commands::decks::set_passthrough,
+            commands::decks::set_repeat,
             commands::decks::set_key_shift,
             commands::fx::set_fx,
             commands::fx::set_fx_enabled,

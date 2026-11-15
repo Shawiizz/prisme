@@ -240,6 +240,12 @@
   "kind": "button"
  },
  {
+  "id": "deck1.repeat",
+  "group": "Deck A",
+  "label": "Repeat the track",
+  "kind": "button"
+ },
+ {
   "id": "deck1.keylock",
   "group": "Deck A",
   "label": "Key lock",
@@ -1005,6 +1011,12 @@
   "id": "deck2.spinback",
   "group": "Deck B",
   "label": "Spinback while held",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.repeat",
+  "group": "Deck B",
+  "label": "Repeat the track",
   "kind": "button"
  },
  {
@@ -1776,6 +1788,12 @@
   "kind": "button"
  },
  {
+  "id": "deck3.repeat",
+  "group": "Deck C",
+  "label": "Repeat the track",
+  "kind": "button"
+ },
+ {
   "id": "deck3.keylock",
   "group": "Deck C",
   "label": "Key lock",
@@ -2541,6 +2559,12 @@
   "id": "deck4.spinback",
   "group": "Deck D",
   "label": "Spinback while held",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.repeat",
+  "group": "Deck D",
+  "label": "Repeat the track",
   "kind": "button"
  },
  {

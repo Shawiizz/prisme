@@ -137,13 +137,21 @@ describe('controls', () => {
     ]);
   });
 
-  it('brake, and spin back while held', () => {
+  it('brake, spin back while held, repeat', () => {
     const { calls, find } = recorder();
     find('deck1.brake').apply(1);
     find('deck1.brake').apply(0);
     find('deck2.spinback').apply(1);
     find('deck2.spinback').apply(0);
-    expect(calls).toEqual(['brake(0)', 'spinBack(1,true)', 'spinBack(1,false)']);
+    find('deck1.repeat').apply(1);
+    expect(find('deck2.repeat').lit!()).toBe(true);
+    expect(calls).toEqual([
+      'brake(0)',
+      'spinBack(1,true)',
+      'spinBack(1,false)',
+      'toggleRepeat(0)',
+      'repeating(1)',
+    ]);
   });
 
   it('read a jump or a loop of so many beats from its id', () => {
