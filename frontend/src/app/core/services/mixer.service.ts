@@ -6,6 +6,9 @@ import {
   ChannelStrip,
   CrossfaderCurve,
   HeadphonesOutput,
+  InputChannels,
+  LiveSource,
+  LiveState,
   MixMode,
   MixerState,
 } from '../models/engine';
@@ -13,9 +16,12 @@ import { EngineService } from './engine.service';
 import { SettingsService } from './settings.service';
 import { errorText } from '../errors';
 
+const LIVE_OFF: LiveState = { input: null, inUse: false, level: 1, on: false, cue: false };
+
 /**
  * Where the decks are heard: a hardware mixer, or the software mixer (channel strips,
- * faders, crossfader, master limiter) and its headphones.
+ * faders, crossfader, the microphone and the aux line, master limiter and balance, booth)
+ * and its headphones.
  */
 @Injectable({ providedIn: 'root' })
 export class MixerService {
@@ -37,6 +43,19 @@ export class MixerService {
   readonly headphoneGain = signal(1);
   readonly crossfaderCurve = signal<CrossfaderCurve>('smooth');
   readonly limiter = signal(true);
+  /** -1 = the master on the left only, 1 = on the right only. */
+  readonly balance = signal(0);
+  /** First output (0-based) of the booth the DJ wants, and of the booth in use. */
+  readonly booth = signal<number | null>(null);
+  readonly boothInUse = signal<number | null>(null);
+  readonly boothGain = signal(1);
+  readonly mic = signal<LiveState>(LIVE_OFF);
+  readonly aux = signal<LiveState>(LIVE_OFF);
+  /** While the microphone is on, the music ducks by `talkoverDepthDb`. */
+  readonly talkover = signal(false);
+  readonly talkoverDepthDb = signal(-18);
+  /** The inputs of the running device the turntables leave free (0-based). */
+  readonly freeInputs = signal<number[]>([]);
   /** The software mixer is in use. */
   readonly internal = computed(() => (this.modeInUse() ?? this.mode()) === 'internal');
   /** External mode asked for, but the device has too few outputs: the software mixer runs. */
@@ -72,6 +91,11 @@ export class MixerService {
     this.headphones.set(state.headphones);
     this.headphonesInUse.set(state.headphonesInUse);
     this.outputChannels.set(state.outputChannels);
+    this.booth.set(state.booth);
+    this.boothInUse.set(state.boothInUse);
+    this.mic.set(state.mic);
+    this.aux.set(state.aux);
+    this.freeInputs.set(state.freeInputs);
   }
 
   apply(state: MixerState) {
@@ -82,6 +106,10 @@ export class MixerService {
     this.headphoneGain.set(state.headphoneGain);
     this.crossfaderCurve.set(state.crossfaderCurve);
     this.limiter.set(state.limiter);
+    this.balance.set(state.balance);
+    this.boothGain.set(state.boothGain);
+    this.talkover.set(state.talkover);
+    this.talkoverDepthDb.set(state.talkoverDepthDb);
   }
 
   async setMode(mode: MixMode) {
@@ -100,6 +128,69 @@ export class MixerService {
     } catch (e) {
       this.engine.error.set(errorText(e));
     }
+  }
+
+  async setBooth(first: number | null) {
+    this.booth.set(first);
+    try {
+      this.boothInUse.set(await invoke<number | null>('set_booth_output', { first }));
+    } catch (e) {
+      this.engine.error.set(errorText(e));
+    }
+  }
+
+  setBoothGain(gain: number) {
+    this.boothGain.set(gain);
+    return this.engine.call('set_booth_gain', { gain });
+  }
+
+  setBalance(balance: number) {
+    this.balance.set(balance);
+    return this.engine.call('set_balance', { balance });
+  }
+
+  live(source: LiveSource) {
+    return source === 'mic' ? this.mic : this.aux;
+  }
+
+  /** The inputs `source` comes in on, `null` for none. */
+  async setLiveInput(source: LiveSource, input: InputChannels | null) {
+    this.patchLive(source, { input, inUse: false });
+    try {
+      const inUse = await invoke<boolean>('set_live_input', { source, input });
+      this.patchLive(source, { inUse });
+    } catch (e) {
+      this.engine.error.set(errorText(e));
+    }
+  }
+
+  setLiveLevel(source: LiveSource, gain: number) {
+    this.patchLive(source, { level: gain });
+    return this.engine.call('set_live_level', { source, gain });
+  }
+
+  setLiveOn(source: LiveSource, on: boolean) {
+    this.patchLive(source, { on });
+    return this.engine.call('set_live_on', { source, on });
+  }
+
+  setLiveCue(source: LiveSource, cue: boolean) {
+    this.patchLive(source, { cue });
+    return this.engine.call('set_live_cue', { source, cue });
+  }
+
+  setTalkover(enabled: boolean) {
+    this.talkover.set(enabled);
+    return this.engine.call('set_talkover', { enabled });
+  }
+
+  setTalkoverDepth(db: number) {
+    this.talkoverDepthDb.set(db);
+    return this.engine.call('set_talkover_depth', { db });
+  }
+
+  private patchLive(source: LiveSource, changes: Partial<LiveState>) {
+    this.live(source).update((state) => ({ ...state, ...changes }));
   }
 
   setVolume(deck: number, gain: number) {

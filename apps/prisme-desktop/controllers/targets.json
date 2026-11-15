@@ -504,6 +504,12 @@
   "kind": "button"
  },
  {
+  "id": "deck1.passthrough",
+  "group": "Deck A",
+  "label": "Passthrough: the deck plays its input",
+  "kind": "button"
+ },
+ {
   "id": "deck2.play",
   "group": "Deck B",
   "label": "Play / pause",
@@ -1005,6 +1011,12 @@
   "id": "deck2.headphones",
   "group": "Deck B",
   "label": "Headphones (pre-listen)",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.passthrough",
+  "group": "Deck B",
+  "label": "Passthrough: the deck plays its input",
   "kind": "button"
  },
  {
@@ -1512,6 +1524,12 @@
   "kind": "button"
  },
  {
+  "id": "deck3.passthrough",
+  "group": "Deck C",
+  "label": "Passthrough: the deck plays its input",
+  "kind": "button"
+ },
+ {
   "id": "deck4.play",
   "group": "Deck D",
   "label": "Play / pause",
@@ -2016,6 +2034,12 @@
   "kind": "button"
  },
  {
+  "id": "deck4.passthrough",
+  "group": "Deck D",
+  "label": "Passthrough: the deck plays its input",
+  "kind": "button"
+ },
+ {
   "id": "mixer.crossfader",
   "group": "Mixer",
   "label": "Crossfader",
@@ -2026,6 +2050,60 @@
   "group": "Mixer",
   "label": "Headphones: cued decks or master",
   "kind": "fader"
+ },
+ {
+  "id": "mixer.balance",
+  "group": "Mixer",
+  "label": "Master balance",
+  "kind": "fader"
+ },
+ {
+  "id": "mixer.booth",
+  "group": "Mixer",
+  "label": "Booth level",
+  "kind": "fader"
+ },
+ {
+  "id": "mixer.mic",
+  "group": "Mixer",
+  "label": "Microphone level",
+  "kind": "fader"
+ },
+ {
+  "id": "mixer.mic.on",
+  "group": "Mixer",
+  "label": "Microphone on / off",
+  "kind": "button"
+ },
+ {
+  "id": "mixer.mic.cue",
+  "group": "Mixer",
+  "label": "Microphone in the headphones",
+  "kind": "button"
+ },
+ {
+  "id": "mixer.aux",
+  "group": "Mixer",
+  "label": "Aux line level",
+  "kind": "fader"
+ },
+ {
+  "id": "mixer.aux.on",
+  "group": "Mixer",
+  "label": "Aux line on / off",
+  "kind": "button"
+ },
+ {
+  "id": "mixer.aux.cue",
+  "group": "Mixer",
+  "label": "Aux line in the headphones",
+  "kind": "button"
+ },
+ {
+  "id": "mixer.talkover",
+  "group": "Mixer",
+  "label": "Talkover: the music ducks under the microphone",
+  "kind": "button"
  },
  {
   "id": "shift",

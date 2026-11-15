@@ -1,4 +1,4 @@
-import { BANDS, Band, MAX_DECKS, HOT_CUES, SAMPLE_SLOTS } from '../models/engine';
+import { BANDS, Band, MAX_DECKS, HOT_CUES, LiveSource, SAMPLE_SLOTS } from '../models/engine';
 import { Text, t } from '../i18n/i18n';
 import { ROLL_BEATS, formatBeats } from '../../shared/beats';
 import { deckLetter } from '../../shared/time';
@@ -91,6 +91,24 @@ export interface ControlActions {
   /** What the headphones play: the cued decks (0) to the master (1). */
   setCueMix(position: number): void;
   cueMixPosition(): number;
+  /** The master's balance: left only (0), both sides (0.5), right only (1). */
+  setBalance(position: number): void;
+  balancePosition(): number;
+  setBoothLevel(position: number): void;
+  boothLevelPosition(): number;
+  setLiveLevel(source: LiveSource, position: number): void;
+  liveLevelPosition(source: LiveSource): number;
+  /** A live source heard in the master, or not. */
+  toggleLive(source: LiveSource): void;
+  liveOn(source: LiveSource): boolean;
+  toggleLiveCue(source: LiveSource): void;
+  liveCued(source: LiveSource): boolean;
+  /** The music ducks under the microphone, or not. */
+  toggleTalkover(): void;
+  talkover(): boolean;
+  /** The deck plays its input as it comes instead of its track. */
+  togglePassthrough(deck: number): void;
+  passthrough(deck: number): boolean;
   /** Where the faders' settings stand (0 to 1). */
   fxMixPosition(deck: number): number;
   volumePosition(deck: number): number;
@@ -365,7 +383,40 @@ function deckControls(a: ControlActions, deck: number): Control[] {
       button(id('headphones'), group, t('Headphones (pre-listen)'), () => a.toggleHeadphones(deck)),
       () => a.inHeadphones(deck),
     ),
+    lit(
+      button(id('passthrough'), group, t('Passthrough: the deck plays its input'), () =>
+        a.togglePassthrough(deck),
+      ),
+      () => a.passthrough(deck),
+    ),
   ];
+}
+
+/** The microphone and the aux line: a level each, a key to open it, one to hear it in the
+ * headphones. */
+function liveControls(a: ControlActions): Control[] {
+  const group = t('Mixer');
+  const sources: [LiveSource, string, string, string][] = [
+    ['mic', t('Microphone level'), t('Microphone on / off'), t('Microphone in the headphones')],
+    ['aux', t('Aux line level'), t('Aux line on / off'), t('Aux line in the headphones')],
+  ];
+  return sources.flatMap(([source, level, on, cue]) => [
+    fader(
+      `mixer.${source}`,
+      group,
+      level,
+      (v) => a.setLiveLevel(source, v),
+      () => a.liveLevelPosition(source),
+    ),
+    {
+      ...button(`mixer.${source}.on`, group, on, () => a.toggleLive(source)),
+      lit: () => a.liveOn(source),
+    },
+    {
+      ...button(`mixer.${source}.cue`, group, cue, () => a.toggleLiveCue(source)),
+      lit: () => a.liveCued(source),
+    },
+  ]);
 }
 
 /**
@@ -443,6 +494,30 @@ export function buildControls(a: ControlActions): Control[] {
       (v) => a.setCueMix(v),
       () => a.cueMixPosition(),
     ),
+    fader(
+      'mixer.balance',
+      t('Mixer'),
+      t('Master balance'),
+      (v) => a.setBalance(v),
+      () => a.balancePosition(),
+    ),
+    fader(
+      'mixer.booth',
+      t('Mixer'),
+      t('Booth level'),
+      (v) => a.setBoothLevel(v),
+      () => a.boothLevelPosition(),
+    ),
+    ...liveControls(a),
+    {
+      ...button(
+        'mixer.talkover',
+        t('Mixer'),
+        t('Talkover: the music ducks under the microphone'),
+        () => a.toggleTalkover(),
+      ),
+      lit: () => a.talkover(),
+    },
     direct('shift', t('Controller'), t('Shift (second use of the controls)'), 'button'),
     {
       id: 'library.browse',

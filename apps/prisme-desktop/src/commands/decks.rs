@@ -89,6 +89,14 @@ pub fn set_vinyl_swap(state: State<'_, AppState>, deck: usize, swap: bool) -> Ap
     Ok(())
 }
 
+/// The deck plays its input as it comes (a record, a CD player) instead of its track.
+#[tauri::command]
+pub fn set_passthrough(state: State<'_, AppState>, deck: usize, enabled: bool) -> AppResult<()> {
+    AppState::check_deck(deck)?;
+    lock(&state.decks)[deck].passthrough = enabled;
+    state.send_if_running(Command::SetPassthrough { deck, enabled })
+}
+
 /// The pitch stays when the speed changes; kept for the next start.
 #[tauri::command]
 pub fn set_key_lock(state: State<'_, AppState>, deck: usize, enabled: bool) -> AppResult<()> {

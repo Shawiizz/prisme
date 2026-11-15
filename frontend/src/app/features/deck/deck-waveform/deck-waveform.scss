@@ -56,6 +56,27 @@
   color: var(--pr-text-3);
   pointer-events: none;
 }
+// passthrough: the track waits under a veil, the input plays
+.through {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--pr-space-2);
+  background: color-mix(in oklab, var(--pr-void) 78%, transparent);
+  font-size: var(--pr-size-small);
+  color: var(--pr-text-2);
+  pointer-events: none;
+  .tag {
+    padding: 3px 7px;
+    border-radius: var(--pr-radius-sm);
+    background: var(--pr-light);
+    font: 600 10.5px / 1 var(--pr-font);
+    letter-spacing: 0.06em;
+    color: var(--pr-on-light);
+  }
+}
 
 // four decks: the overview as a thin line, no room for the stem lanes
 :host(.compact) {

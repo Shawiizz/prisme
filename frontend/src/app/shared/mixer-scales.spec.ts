@@ -1,9 +1,13 @@
 import {
+  balanceAmount,
+  balanceKnob,
   bandKnob,
   eqGain,
   eqKnob,
   filterAmount,
   filterKnob,
+  liveGain,
+  liveKnob,
   readouts,
   trimGain,
   trimKnob,
@@ -44,7 +48,23 @@ describe('mixer scales', () => {
     expect(trimKnob(trimGain(0.2))).toBeCloseTo(0.2);
   });
 
+  it('live input: silent, 0 dB at three quarters, +12 dB at the end', () => {
+    expect(liveGain(0)).toBe(0);
+    expect(liveGain(0.75)).toBeCloseTo(1);
+    expect(liveGain(1)).toBeCloseTo(10 ** (12 / 20));
+    expect(liveKnob(liveGain(0.4))).toBeCloseTo(0.4);
+    expect(liveKnob(0)).toBe(0);
+  });
+
+  it('balance: left only, both sides, right only', () => {
+    expect([0, 0.5, 1].map(balanceAmount)).toEqual([-1, 0, 1]);
+    expect(balanceKnob(balanceAmount(0.3))).toBeCloseTo(0.3);
+  });
+
   it('reads the knobs in decibels and percents', () => {
+    expect(readouts.live(0.75)).toBe('0.0 dB');
+    expect(readouts.balance(0.5)).toBe('L = R');
+    expect(readouts.balance(0.3)).toBe('L 40 %');
     expect(readouts.eq(0.5)).toBe('0.0 dB');
     expect(readouts.eq(0)).toBe('−∞ dB');
     expect(readouts.trim(1)).toBe('+12.0 dB');

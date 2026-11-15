@@ -8,6 +8,9 @@ const EQ_OFF_BELOW = 0.02;
 const EQ_CUT_DB = 40;
 const EQ_BOOST_DB = 6;
 const TRIM_RANGE_DB = 12;
+/** A live input's knob: 0 dB three quarters of the way, +12 dB at the end. */
+const LIVE_UNITY = 0.75;
+const LIVE_BOOST_DB = 12;
 
 const toGain = (db: number) => 10 ** (db / 20);
 const toDb = (gain: number) => 20 * Math.log10(gain);
@@ -50,11 +53,39 @@ export function trimKnob(gain: number): number {
   return Math.min(Math.max(0.5 + toDb(gain) / (2 * TRIM_RANGE_DB), 0), 1);
 }
 
+/** A live input's level: silent full left, 0 dB at three quarters, +12 dB full right. */
+export function liveGain(knob: number): number {
+  if (knob <= EQ_OFF_BELOW) return 0;
+  return toGain(((knob - LIVE_UNITY) / (1 - LIVE_UNITY)) * LIVE_BOOST_DB);
+}
+
+export function liveKnob(gain: number): number {
+  if (gain <= 0) return 0;
+  const knob = LIVE_UNITY + (toDb(gain) / LIVE_BOOST_DB) * (1 - LIVE_UNITY);
+  return Math.min(Math.max(knob, EQ_OFF_BELOW + 1e-6), 1);
+}
+
+/** Balance: full left plays the master on the left only (-1), full right on the right (1). */
+export function balanceAmount(knob: number): number {
+  return knob * 2 - 1;
+}
+
+export function balanceKnob(amount: number): number {
+  return (amount + 1) / 2;
+}
+
 /** What a knob reads while it is touched. */
 export const readouts = {
   /** "+3.0 dB", "−∞ dB" when the band is removed. */
   eq: (knob: number) => decibels(eqGain(knob)),
   trim: (knob: number) => decibels(trimGain(knob)),
+  live: (knob: number) => decibels(liveGain(knob)),
+  /** The side the master leans to, and how far the other is turned down. */
+  balance: (knob: number) => {
+    const amount = Math.round(balanceAmount(knob) * 100);
+    if (amount === 0) return 'L = R';
+    return `${amount < 0 ? 'L' : 'R'} ${Math.abs(amount)} %`;
+  },
   /** Left of the centre a low-pass, right of it a high-pass. */
   filter: (knob: number) => {
     const amount = Math.round(Math.abs(knob - 0.5) * 200);

@@ -1,5 +1,5 @@
 import { NgTemplateOutlet } from '@angular/common';
-import { Component, computed, inject, linkedSignal, output } from '@angular/core';
+import { Component, computed, inject, linkedSignal, output, signal } from '@angular/core';
 import { closedByBack } from '../../core/back';
 import { landscape } from '../../core/orientation';
 import { EngineService } from '../../core/services/engine.service';
@@ -10,6 +10,7 @@ import { deckLetter } from '../../shared/time';
 import { DeckControls } from '../deck/deck-controls/deck-controls';
 import { PhoneChannel } from './phone-channel';
 import { PhoneDeck } from './phone-deck';
+import { PhoneMixer } from './phone-mixer';
 import { PhonePads } from './phone-pads';
 import { PhonePitch } from './phone-pitch';
 import { PhoneStems } from './phone-stems';
@@ -42,6 +43,7 @@ function sideDeck(decks: () => number[]) {
     NgTemplateOutlet,
     PhoneChannel,
     PhoneDeck,
+    PhoneMixer,
     PhonePads,
     PhonePitch,
     PhoneStems,
@@ -63,6 +65,8 @@ export class PhoneTable {
   /** Upright with four decks: the ends of the crossfader choose the deck of each side. */
   protected readonly choosing = computed(() => !this.wide() && this.lefts().length > 1);
   protected readonly letter = deckLetter;
+  /** The sheet of the mixer is open. */
+  protected readonly mixing = signal(false);
   /** What floats over the table. Held sideways, the pads are down the sides already and the
    * pitch has no key: only the stems stay open. */
   protected readonly floating = linkedSignal<boolean, Floating | null>({

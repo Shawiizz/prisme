@@ -1,6 +1,9 @@
 //! What the user chooses once and finds again at the next start.
 
-use crate::dto::{AudioSettings, CrossfaderCurveDto, HeadphonesOutputDto, MixModeDto, RpmDto, VinylModeDto};
+use crate::dto::{
+    AudioSettings, CrossfaderCurveDto, HeadphonesOutputDto, InputChannelsDto, MixModeDto, RpmDto,
+    VinylModeDto,
+};
 use prisme_engine::MAX_DECKS;
 use serde::{Deserialize, Deserializer, Serialize};
 
@@ -126,6 +129,30 @@ pub struct MixerPreferences {
     pub crossfader_curve: CrossfaderCurveDto,
     /// Master limiter (adds 1 ms of latency to the software mixer).
     pub limiter: bool,
+    /// -1 = the master on the left only, 1 = on the right only.
+    pub balance: f32,
+    /// The first output of the booth monitors, if they are plugged in.
+    pub booth: Option<usize>,
+    pub booth_gain: f32,
+    pub mic: LivePreferences,
+    pub aux: LivePreferences,
+    /// While the microphone is on, the music ducks by [`MixerPreferences::talkover_depth_db`].
+    pub talkover: bool,
+    pub talkover_depth_db: f32,
+}
+
+/// Where a live source comes in, and how loud. Off again at each start.
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+#[serde(default, rename_all = "camelCase")]
+pub struct LivePreferences {
+    pub input: Option<InputChannelsDto>,
+    pub level: f32,
+}
+
+impl Default for LivePreferences {
+    fn default() -> Self {
+        Self { input: None, level: 1.0 }
+    }
 }
 
 impl Default for MixerPreferences {
@@ -139,6 +166,13 @@ impl Default for MixerPreferences {
             headphone_gain: 1.0,
             crossfader_curve: CrossfaderCurveDto::Smooth,
             limiter: true,
+            balance: 0.0,
+            booth: None,
+            booth_gain: 1.0,
+            mic: LivePreferences::default(),
+            aux: LivePreferences::default(),
+            talkover: false,
+            talkover_depth_db: -18.0,
         }
     }
 }
@@ -221,6 +255,16 @@ mod tests {
     }
 
     #[test]
+    fn a_file_from_before_the_live_inputs_reads_them_off() {
+        let p: Preferences = serde_json::from_str(r#"{ "mixer": { "limiter": false } }"#).unwrap();
+        assert!(!p.mixer.limiter);
+        assert_eq!((p.mixer.balance, p.mixer.booth, p.mixer.booth_gain), (0.0, None, 1.0));
+        assert_eq!(p.mixer.mic, LivePreferences::default());
+        assert!(!p.mixer.talkover);
+        assert_eq!(p.mixer.talkover_depth_db, -18.0);
+    }
+
+    #[test]
     fn separating_on_load_stays_off_where_it_was_chosen_and_open_where_it_was_the_default() {
         let saved = |json: &str| {
             let mut p: Preferences = serde_json::from_str(json).unwrap();
@@ -275,6 +319,9 @@ mod tests {
             samples: vec![Some("C:/Samples/horn.wav".into()), None],
         };
         p.library.last_folder = Some("C:/Music/House".into());
+        p.mixer.booth = Some(4);
+        p.mixer.mic =
+            LivePreferences { input: Some(InputChannelsDto { first: 4, stereo: false }), level: 0.5 };
         let json = serde_json::to_string(&p).unwrap();
         assert_eq!(serde_json::from_str::<Preferences>(&json).unwrap(), p);
     }

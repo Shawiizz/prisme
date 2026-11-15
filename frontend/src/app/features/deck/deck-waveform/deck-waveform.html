@@ -30,7 +30,12 @@
       <canvas #lanes></canvas>
     </div>
   }
-  @if (!track()) {
+  @if (through(); as inputs) {
+    <div class="through">
+      <span class="tag">THRU</span>
+      <span>{{ 'Plays inputs {inputs} as they come' | t: { inputs } }}</span>
+    </div>
+  } @else if (!track()) {
     <div class="hint">{{ 'Load a track from the library' | t }}</div>
   }
 </div>

@@ -101,9 +101,32 @@
       } @else {
         <span>B</span>
       }
+      @if (mixer.internal()) {
+        @if (mixer.mic().inUse) {
+          <button
+            class="pr-btn pr-reach key"
+            [class.is-on]="mixer.mic().on"
+            [attr.aria-pressed]="mixer.mic().on"
+            (click)="mixer.setLiveOn('mic', !mixer.mic().on)"
+          >
+            MIC
+          </button>
+        }
+        <button
+          class="pr-btn pr-btn--icon pr-reach key"
+          [class.is-on]="mixing()"
+          (click)="mixing.set(true)"
+          [attr.aria-label]="'Mixer' | t"
+        >
+          ⋯
+        </button>
+      }
     </div>
   }
 </div>
+@if (mixing()) {
+  <app-phone-mixer (closed)="mixing.set(false)" />
+}
 
 @if (wide()) {
   @if (rights().length) {

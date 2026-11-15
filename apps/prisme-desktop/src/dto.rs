@@ -1,7 +1,9 @@
 //! Data exchanged with the frontend (camelCase JSON).
 
 use prisme_audio_io::{Backend, StreamStats};
-use prisme_engine::{DeckStatus, EngineStatus, LoopStatus, MixMode, Rpm, VinylMode};
+use prisme_engine::{
+    DeckStatus, EngineStatus, InputChannels, LiveSource, LoopStatus, MixMode, Rpm, VinylMode,
+};
 use prisme_library::{Cue, CueSlot};
 use prisme_timecode::SignalState;
 use serde::{Deserialize, Serialize};
@@ -640,6 +642,62 @@ pub struct DeckSettingsDto {
     /// Name of the sound in each sampler slot.
     pub samples: Vec<Option<String>>,
     pub sampler_gain: f32,
+    /// The deck plays its input instead of its track.
+    pub passthrough: bool,
+}
+
+/// The input channels a live source comes in on: one, heard in the middle, or a stereo pair.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct InputChannelsDto {
+    /// The first (0-based).
+    pub first: usize,
+    pub stereo: bool,
+}
+
+impl InputChannelsDto {
+    pub fn channels(self) -> impl Iterator<Item = usize> {
+        self.first..=self.first + usize::from(self.stereo)
+    }
+}
+
+impl From<InputChannelsDto> for InputChannels {
+    fn from(c: InputChannelsDto) -> Self {
+        Self { first: c.first, stereo: c.stereo }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum LiveSourceDto {
+    Mic,
+    Aux,
+}
+
+impl LiveSourceDto {
+    pub const ALL: [LiveSourceDto; 2] = [LiveSourceDto::Mic, LiveSourceDto::Aux];
+}
+
+impl From<LiveSourceDto> for LiveSource {
+    fn from(s: LiveSourceDto) -> Self {
+        match s {
+            LiveSourceDto::Mic => LiveSource::Mic,
+            LiveSourceDto::Aux => LiveSource::Aux,
+        }
+    }
+}
+
+/// A live source of the software mixer as the backend knows it.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LiveStateDto {
+    /// The input channels chosen.
+    pub input: Option<InputChannelsDto>,
+    /// They are on the running device, left free by the turntables.
+    pub in_use: bool,
+    pub level: f32,
+    pub on: bool,
+    pub cue: bool,
 }
 
 /// Settings the backend applies to the engine (the UI mirrors them at startup).
@@ -661,6 +719,17 @@ pub struct MixerStateDto {
     pub headphone_gain: f32,
     pub crossfader_curve: CrossfaderCurveDto,
     pub limiter: bool,
+    pub balance: f32,
+    /// The first output of the booth chosen, and the one in use if it is heard.
+    pub booth: Option<usize>,
+    pub booth_in_use: Option<usize>,
+    pub booth_gain: f32,
+    pub mic: LiveStateDto,
+    pub aux: LiveStateDto,
+    pub talkover: bool,
+    pub talkover_depth_db: f32,
+    /// The inputs of the running device the turntables leave free (0-based).
+    pub free_inputs: Vec<usize>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -777,6 +846,8 @@ pub struct StatusDto {
     pub audio_running: bool,
     pub decks: Vec<DeckStatusDto>,
     pub main_peak: f32,
+    pub mic_peak: f32,
+    pub aux_peak: f32,
     pub health: Option<AudioHealthDto>,
     pub recording: Option<RecordingStatusDto>,
 }
@@ -827,6 +898,8 @@ impl StatusDto {
             audio_running: !health.device_lost,
             decks: s.decks[..s.deck_count].iter().map(DeckStatusDto::from).collect(),
             main_peak: s.main_peak,
+            mic_peak: s.mic_peak,
+            aux_peak: s.aux_peak,
             health: Some(health),
             recording: s.recording.map(|r| RecordingStatusDto {
                 seconds: r.frames as f64 / sample_rate as f64,
@@ -836,7 +909,15 @@ impl StatusDto {
     }
 
     pub fn stopped() -> Self {
-        Self { audio_running: false, decks: Vec::new(), main_peak: 0.0, health: None, recording: None }
+        Self {
+            audio_running: false,
+            decks: Vec::new(),
+            main_peak: 0.0,
+            mic_peak: 0.0,
+            aux_peak: 0.0,
+            health: None,
+            recording: None,
+        }
     }
 }
 

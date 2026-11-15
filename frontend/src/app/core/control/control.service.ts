@@ -9,10 +9,14 @@ import { PreferencesService } from '../services/preferences.service';
 import { SamplerService } from '../services/sampler.service';
 import { NavigationService } from '../services/navigation.service';
 import {
+  balanceAmount,
+  balanceKnob,
   bandKnob,
   eqGain,
   filterAmount,
   filterKnob,
+  liveGain,
+  liveKnob,
   trimGain,
   trimKnob,
 } from '../../shared/mixer-scales';
@@ -105,6 +109,21 @@ export class ControlService {
     setCrossfader: (position) => this.mixer.setCrossfader(position * 2 - 1),
     setCueMix: (position) => this.mixer.setCueMix(position),
     cueMixPosition: () => this.mixer.cueMix(),
+    setBalance: (position) => this.mixer.setBalance(balanceAmount(position)),
+    balancePosition: () => balanceKnob(this.mixer.balance()),
+    setBoothLevel: (position) => this.mixer.setBoothGain(position),
+    boothLevelPosition: () => this.mixer.boothGain(),
+    setLiveLevel: (source, position) => this.mixer.setLiveLevel(source, liveGain(position)),
+    liveLevelPosition: (source) => liveKnob(this.mixer.live(source)().level),
+    toggleLive: (source) => this.mixer.setLiveOn(source, !this.mixer.live(source)().on),
+    liveOn: (source) => this.mixer.live(source)().on,
+    toggleLiveCue: (source) => this.mixer.setLiveCue(source, !this.mixer.live(source)().cue),
+    liveCued: (source) => this.mixer.live(source)().cue,
+    toggleTalkover: () => this.mixer.setTalkover(!this.mixer.talkover()),
+    talkover: () => this.mixer.talkover(),
+    togglePassthrough: (deck) =>
+      this.engine.setPassthrough(deck, !this.engine.decks()[deck].passthrough),
+    passthrough: (deck) => this.engine.decks()[deck].passthrough,
     fxMixPosition: (deck) => this.fx.settings(deck).mix,
     volumePosition: (deck) => this.engine.decks()[deck].volume,
     eqPosition: (deck, band) => bandKnob(this.mixer.strip(deck), band),

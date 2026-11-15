@@ -36,7 +36,7 @@ const PAGES: readonly SettingsPage[] = [
     id: 'mixing',
     label: () => t('Mixing'),
     description: () => t('Your mixer or the one in Prisme, and how it sounds.'),
-    keywords: 'crossfader limiter mixer',
+    keywords: 'crossfader limiter mixer booth microphone mic aux line talkover balance',
   },
   {
     id: 'dj',
@@ -142,6 +142,35 @@ const ALL_SETTINGS: readonly SettingEntry[] = [
       t(
         'Where the software mixer plays the cued decks. Automatic takes outputs 3-4 of a DJ interface, never the surround channels of a computer.',
       ),
+  },
+  {
+    id: 'mixing.booth',
+    page: 'mixing',
+    label: () => t('Booth'),
+    description: () =>
+      t('The monitors of the booth: the master on a pair of its own, at its own level.'),
+  },
+  {
+    id: 'mixing.mic',
+    page: 'mixing',
+    label: () => t('Microphone'),
+    description: () =>
+      t(
+        'On an input the turntables leave free, mixed into the master; its key is beside the crossfader. Heard in the headphones only when cued there.',
+      ),
+  },
+  {
+    id: 'mixing.aux',
+    page: 'mixing',
+    label: () => t('Aux line'),
+    description: () =>
+      t('A phone, a CD player or a second mixer on a free pair of inputs, mixed into the master.'),
+  },
+  {
+    id: 'mixing.talkover',
+    page: 'mixing',
+    label: () => t('Talkover'),
+    description: () => t('While the microphone is on with TALK, the music ducks by this much.'),
   },
   {
     id: 'mixing.curve',

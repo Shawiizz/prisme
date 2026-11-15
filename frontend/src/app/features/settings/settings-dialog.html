@@ -316,6 +316,75 @@
                   </option>
                 </select>
               </app-setting-row>
+              @if (boothPairs().length) {
+                <app-setting-row id="mixing.booth" [help]="boothHelp()">
+                  <select
+                    class="pr-select"
+                    (change)="setBooth($any($event.target).value)"
+                    settingControl
+                  >
+                    <option value="" [selected]="mixer.booth() === null">
+                      {{ 'No booth' | t }}
+                    </option>
+                    @for (first of boothPairs(); track first) {
+                      <option [value]="first" [selected]="mixer.booth() === first">
+                        {{ 'Outputs {a}-{b}' | t: { a: first + 1, b: first + 2 } }}
+                      </option>
+                    }
+                  </select>
+                </app-setting-row>
+              }
+              @let mic = mixer.mic();
+              <app-setting-row id="mixing.mic" [help]="micHelp()">
+                <select
+                  class="pr-select"
+                  [disabled]="!micChoices().length"
+                  (change)="setLiveInput('mic', $any($event.target).value)"
+                  settingControl
+                >
+                  <option value="" [selected]="!mic.input">{{ 'None' | t }}</option>
+                  @for (input of micChoices(); track inputKey(input)) {
+                    <option
+                      [value]="inputKey(input)"
+                      [selected]="inputKey(input) === inputKey(mic.input)"
+                    >
+                      {{ inputLabel(input) }}
+                    </option>
+                  }
+                </select>
+              </app-setting-row>
+              @let aux = mixer.aux();
+              <app-setting-row id="mixing.aux" [help]="auxHelp()">
+                <select
+                  class="pr-select"
+                  [disabled]="!auxChoices().length"
+                  (change)="setLiveInput('aux', $any($event.target).value)"
+                  settingControl
+                >
+                  <option value="" [selected]="!aux.input">{{ 'None' | t }}</option>
+                  @for (input of auxChoices(); track inputKey(input)) {
+                    <option
+                      [value]="inputKey(input)"
+                      [selected]="inputKey(input) === inputKey(aux.input)"
+                    >
+                      {{ inputLabel(input) }}
+                    </option>
+                  }
+                </select>
+              </app-setting-row>
+              <app-setting-row id="mixing.talkover">
+                <div class="pr-seg pr-seg--lg" role="radiogroup" settingControl>
+                  @for (db of talkoverDepths; track db) {
+                    <button
+                      role="radio"
+                      [attr.aria-checked]="mixer.talkoverDepthDb() === db"
+                      (click)="mixer.setTalkoverDepth(db)"
+                    >
+                      −{{ -db }} dB
+                    </button>
+                  }
+                </div>
+              </app-setting-row>
               <app-setting-row id="mixing.curve">
                 <div class="pr-seg pr-seg--lg" role="radiogroup" settingControl>
                   <button

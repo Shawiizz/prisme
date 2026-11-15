@@ -4,12 +4,13 @@
 
 use crate::audio_host::{deck_pair, layer_partner, AudioSession};
 use crate::dto::{
-    AudioInfo, BackendDto, BandDto, ChannelStripDto, CueDto, FxDto, FxPartDto, HeadphonesOutputDto, KeyDto,
-    MixModeDto, RpmDto, SeparationDto, StemMixDto, TempoDto, TrackInfoDto, VinylModeDto,
+    AudioInfo, BackendDto, BandDto, ChannelStripDto, CueDto, FxDto, FxPartDto, HeadphonesOutputDto,
+    InputChannelsDto, KeyDto, LiveSourceDto, MixModeDto, RpmDto, SeparationDto, StemMixDto, TempoDto,
+    TrackInfoDto, VinylModeDto,
 };
 use crate::error::{AppError, AppResult};
 use crate::folders;
-use crate::preferences::{DeckPreferences, Preferences};
+use crate::preferences::{DeckPreferences, LivePreferences, MixerPreferences, Preferences};
 use crate::recording::Recorder;
 use crate::sampler::Samplers;
 use prisme_analysis::{TrackAnalysis, Waveform};
@@ -157,6 +158,8 @@ pub struct DeckSettings {
     pub strip: ChannelStripDto,
     pub fx: FxDto,
     pub sampler_gain: f32,
+    /// The deck plays its input instead of its track.
+    pub passthrough: bool,
 }
 
 impl From<DeckPreferences> for DeckSettings {
@@ -174,8 +177,18 @@ impl From<DeckPreferences> for DeckSettings {
             strip: ChannelStripDto::default(),
             fx: FxDto::default(),
             sampler_gain: 1.0,
+            passthrough: false,
         }
     }
+}
+
+/// A live source's switches as the DJ left them (off at each start).
+#[derive(Debug, Clone, Copy, Default)]
+pub struct LiveSwitches {
+    /// Heard in the master.
+    pub on: bool,
+    /// Heard in the headphones.
+    pub cue: bool,
 }
 
 pub struct AppState {
@@ -184,6 +197,8 @@ pub struct AppState {
     pub tracks: Mutex<[Option<LoadedTrack>; MAX_DECKS]>,
     pub decks: Mutex<[DeckSettings; MAX_DECKS]>,
     pub crossfader: Mutex<f32>,
+    /// The microphone's and the aux line's, in the order of [`LiveSourceDto::ALL`].
+    pub live: Mutex<[LiveSwitches; 2]>,
     pub recorder: Mutex<Option<Recorder>>,
     /// Held while the audio starts: the watchdog and the user never start it at once.
     pub audio_start: Mutex<()>,
@@ -215,6 +230,7 @@ impl AppState {
             tracks: Mutex::default(),
             decks: Mutex::new(saved.map(DeckSettings::from)),
             crossfader: Mutex::new(0.0),
+            live: Mutex::default(),
             recorder: Mutex::new(None),
             audio_start: Mutex::new(()),
             samplers: Mutex::default(),
@@ -359,15 +375,47 @@ impl AppState {
 
     /// The routing for the running device: an external mixer needs two output pairs (four
     /// decks share them if there are no more, see `deck_pair`), else the software mixer is
-    /// used, its headphones where the DJ wants them.
+    /// used, its headphones and booth where the DJ wants them.
     pub fn routing(&self, info: &AudioInfo) -> OutputRouting {
         let mixer = self.preferences.read(|p| p.mixer);
         let outputs = info.output_channels;
         let external = mixer.mode == MixModeDto::External && outputs >= 4;
         let mode = if external { MixMode::External } else { MixMode::Internal };
         let headphones = headphones_output(mixer.headphones, info.backend, outputs);
+        let booth = booth_output(mixer.booth, headphones, outputs);
         let deck_outputs = std::array::from_fn(|deck| Some(2 * deck_pair(deck, info.decks, outputs)));
-        OutputRouting { mode, deck_outputs, headphones, ..Default::default() }
+        OutputRouting { mode, deck_outputs, headphones, booth, ..Default::default() }
+    }
+
+    /// Where `source` comes in on the device of `info`: the inputs chosen, if the turntables
+    /// leave them free.
+    pub fn live_input(&self, source: LiveSourceDto, info: Option<&AudioInfo>) -> Option<InputChannelsDto> {
+        let chosen = self.preferences.read(|p| live_preferences(&p.mixer, source).input);
+        live_channels(chosen, &free_inputs(info?))
+    }
+
+    /// Commands that put the master's balance, the booth and the live sources as the DJ left
+    /// them, on the device of `info`.
+    pub fn live_commands(&self, info: Option<&AudioInfo>) -> Vec<Command> {
+        let mixer = self.preferences.read(|p| p.mixer);
+        let switches = *lock(&self.live);
+        let mut commands = vec![
+            Command::SetBalance { balance: mixer.balance },
+            Command::SetBoothGain { gain: mixer.booth_gain },
+            Command::SetTalkover { enabled: mixer.talkover, depth_db: mixer.talkover_depth_db },
+        ];
+        for (source, switches) in LiveSourceDto::ALL.into_iter().zip(switches) {
+            let channels = self.live_input(source, info).map(Into::into);
+            let gain = live_preferences(&mixer, source).level;
+            let source = source.into();
+            commands.extend([
+                Command::SetLiveInput { source, channels },
+                Command::SetLiveLevel { source, gain },
+                Command::SetLiveOn { source, on: switches.on },
+                Command::SetLiveCue { source, cue: switches.cue },
+            ]);
+        }
+        commands
     }
 
     /// Gives the turntable of `deck` to it alone: the deck layered with it on the running
@@ -448,7 +496,30 @@ impl AppState {
         let _ =
             controller.send(Command::SetCrossfaderCurve { curve: preferences.mixer.crossfader_curve.into() });
         let _ = controller.send(Command::SetLimiter { enabled: preferences.mixer.limiter });
+        for c in self.live_commands(Some(&session.info)) {
+            let _ = controller.send(c);
+        }
     }
+}
+
+pub fn live_preferences(mixer: &MixerPreferences, source: LiveSourceDto) -> &LivePreferences {
+    match source {
+        LiveSourceDto::Mic => &mixer.mic,
+        LiveSourceDto::Aux => &mixer.aux,
+    }
+}
+
+/// The input channels of the device of `info` the turntables do not take (0-based): where a
+/// microphone or a line can come in.
+pub fn free_inputs(info: &AudioInfo) -> Vec<usize> {
+    let taken: Vec<usize> =
+        (0..info.decks).map(|deck| 2 * deck_pair(deck, info.decks, info.input_channels)).collect();
+    (0..info.input_channels).filter(|c| !taken.contains(&(c - c % 2))).collect()
+}
+
+/// The channels chosen for a live source, if they are all `free`.
+fn live_channels(chosen: Option<InputChannelsDto>, free: &[usize]) -> Option<InputChannelsDto> {
+    chosen.filter(|c| c.channels().all(|channel| free.contains(&channel)))
 }
 
 /// A deck's track moves, by itself or under a record.
@@ -480,6 +551,7 @@ pub fn deck_commands(deck: usize, s: &DeckSettings) -> Vec<Command> {
         Command::SetFxParts { deck, parts: FxPartDto::parts(s.fx.part) },
         Command::SetFxEnabled { deck, enabled: s.fx.enabled },
         Command::SetSamplerGain { deck, gain: s.sampler_gain },
+        Command::SetPassthrough { deck, enabled: s.passthrough },
     ];
     for (i, band) in BandDto::ALL.into_iter().enumerate() {
         commands.push(Command::SetEq { deck, band: band.into(), gain: strip.eq[i] });
@@ -499,6 +571,14 @@ fn headphones_output(choice: HeadphonesOutputDto, backend: BackendDto, outputs: 
         HeadphonesOutputDto::Pair { first } => Some(first),
     };
     first.filter(|first| first + 2 <= outputs)
+}
+
+/// The first output of the booth on a device with `outputs`: the pair chosen if the device has
+/// it, apart from the master (1-2) and the headphones.
+fn booth_output(chosen: Option<usize>, headphones: Option<usize>, outputs: usize) -> Option<usize> {
+    chosen.filter(|&first| {
+        first >= 2 && first + 2 <= outputs && headphones.is_none_or(|h| first.abs_diff(h) >= 2)
+    })
 }
 
 #[cfg(test)]
@@ -533,6 +613,44 @@ mod tests {
         assert_eq!(headphones_output(Pair { first: 4 }, Wasapi, 8), Some(4), "chosen on purpose");
         assert_eq!(headphones_output(Pair { first: 4 }, Wasapi, 4), None, "not on this device");
         assert_eq!(headphones_output(Off, Wasapi, 4), None);
+    }
+
+    #[test]
+    fn the_booth_takes_a_pair_of_its_own() {
+        assert_eq!(booth_output(Some(4), Some(2), 6), Some(4));
+        assert_eq!(booth_output(Some(2), None, 4), Some(2), "no headphones: 3-4 are free");
+        assert_eq!(booth_output(Some(2), Some(2), 4), None, "the headphones are there");
+        assert_eq!(booth_output(Some(4), Some(2), 4), None, "not on this device");
+        assert_eq!(booth_output(Some(0), None, 4), None, "the master is there");
+        assert_eq!(booth_output(None, None, 8), None);
+    }
+
+    fn info(decks: usize, input_channels: usize) -> AudioInfo {
+        AudioInfo {
+            backend: BackendDto::Asio,
+            device: String::new(),
+            sample_rate: 48_000,
+            output_channels: 4,
+            input_channels,
+            decks,
+            simulated: false,
+        }
+    }
+
+    #[test]
+    fn the_live_inputs_are_those_the_turntables_leave() {
+        assert_eq!(free_inputs(&info(2, 4)), Vec::<usize>::new(), "a turntable on each pair");
+        assert_eq!(free_inputs(&info(2, 8)), [4, 5, 6, 7]);
+        assert_eq!(free_inputs(&info(4, 8)), Vec::<usize>::new());
+        assert_eq!(free_inputs(&info(4, 4)), Vec::<usize>::new(), "C and D layered on A and B");
+        assert_eq!(free_inputs(&info(2, 6)), [4, 5]);
+        let mono = |first| Some(InputChannelsDto { first, stereo: false });
+        let pair = |first| Some(InputChannelsDto { first, stereo: true });
+        let free = free_inputs(&info(2, 7));
+        assert_eq!(live_channels(mono(6), &free), mono(6));
+        assert_eq!(live_channels(pair(4), &free), pair(4));
+        assert_eq!(live_channels(pair(6), &free), None, "input 8 is not there");
+        assert_eq!(live_channels(mono(1), &free), None, "a turntable is there");
     }
 
     fn db(gain: f32) -> f32 {

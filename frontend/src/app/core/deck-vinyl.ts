@@ -16,8 +16,9 @@ const SIGNAL_TITLE: Record<SignalState, string> = {
   },
 };
 
-/** Who drives the deck: itself (INT), or the record in relative or absolute mode. */
-export type DeckMode = 'int' | VinylMode;
+/** Who drives the deck: itself (INT), the record in relative or absolute mode, or no one: it
+ * plays its input as it comes (THRU, a real record or a CD player). */
+export type DeckMode = 'int' | VinylMode | 'thru';
 
 export const DECK_MODES: readonly { id: DeckMode; label: string; title: Text }[] = [
   {
@@ -35,6 +36,11 @@ export const DECK_MODES: readonly { id: DeckMode; label: string; title: Text }[]
     label: 'ABS',
     title: () => t('The record drives the speed and the position'),
   },
+  {
+    id: 'thru',
+    label: 'THRU',
+    title: () => t('The deck plays its input as it comes: a real record, a CD player'),
+  },
 ];
 
 /**
@@ -48,7 +54,8 @@ export function deckVinyl(deck: Signal<number>) {
   const settings = computed(() => engine.decks()[deck()]);
   /** After the end of the record the deck plays on by itself until handed back. */
   const mode = computed<DeckMode>(() => {
-    const { vinylEnabled, vinylMode } = settings();
+    const { vinylEnabled, vinylMode, passthrough } = settings();
+    if (passthrough) return 'thru';
     return vinylEnabled && !vinyl()?.runOut ? vinylMode : 'int';
   });
   /** Records can be chosen to drive it: turntables are plugged, or it is still handed to
@@ -57,10 +64,11 @@ export function deckVinyl(deck: Signal<number>) {
   const crossed = computed(() => vinyl()?.crossed ?? false);
   /** The timecode as its light tells it; `null` while the deck plays by itself. */
   const signal = computed<SignalState | null>(() => {
-    if (!settings().vinylEnabled) return null;
+    if (!settings().vinylEnabled || settings().passthrough) return null;
     return crossed() ? 'none' : (vinyl()?.signal ?? 'none');
   });
   const signalTitle = computed(() => {
+    if (settings().passthrough) return t('The deck plays its input as it comes');
     if (!settings().vinylEnabled) return t('The deck plays by itself');
     if (vinyl()?.runOut) {
       return t(
@@ -71,7 +79,11 @@ export function deckVinyl(deck: Signal<number>) {
       ? t('Left and right cables crossed? See Settings, Turntables')
       : SIGNAL_TITLE[vinyl()?.signal ?? 'none'];
   });
-  const setMode = (to: DeckMode) =>
+  /** THRU leaves the record as it was, for when the deck plays its track again. */
+  const setMode = (to: DeckMode) => {
+    if ((to === 'thru') !== settings().passthrough) engine.setPassthrough(deck(), to === 'thru');
+    if (to === 'thru') return;
     engine.setVinyl(deck(), to === 'int' ? { enabled: false } : { enabled: true, mode: to });
+  };
   return { mode, offered, signal, signalTitle, setMode };
 }

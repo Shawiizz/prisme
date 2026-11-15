@@ -16,6 +16,7 @@ import { t } from '../../../core/i18n/i18n';
 import { fitToDevicePixels, forgetCanvas } from '../../../shared/device-pixels';
 import { Showing, everyFrame } from '../../../shared/frames';
 import { EngineService } from '../../../core/services/engine.service';
+import { SettingsService } from '../../../core/services/settings.service';
 import { WaveformOverlay, WaveformPainter } from './waveform-painter';
 import { TPipe } from '../../../core/i18n/t.pipe';
 
@@ -79,8 +80,18 @@ export class DeckWaveform {
   private readonly overviewCanvas = viewChild.required<ElementRef<HTMLCanvasElement>>('overview');
   private readonly lanesCanvas = viewChild<ElementRef<HTMLCanvasElement>>('lanes');
   private readonly stems = inject(StemsService);
+  private readonly audio = inject(SettingsService);
   private readonly painter = new WaveformPainter();
   protected readonly track = computed(() => this.engine.tracks()[this.deck()]);
+  /** In passthrough, the inputs the deck plays instead of its track (`3-4`): its own pair, or
+   * that of the deck it is layered over on a device without a pair for each deck. */
+  protected readonly through = computed(() => {
+    if (!this.engine.decks()[this.deck()].passthrough) return null;
+    const decks = this.engine.deckIndexes().length;
+    const own = (this.audio.info()?.inputChannels ?? 0) >= 2 * decks;
+    const pair = own ? this.deck() : this.deck() % 2;
+    return `${pair * 2 + 1}-${pair * 2 + 2}`;
+  });
   /** Where each part of the separated track plays (`stem_activity`), once it is all
    * separated. */
   protected readonly activity = signal<Uint8Array[] | null>(null);

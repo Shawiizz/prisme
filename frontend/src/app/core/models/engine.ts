@@ -101,6 +101,9 @@ export interface EngineStatus {
   audioRunning: boolean;
   decks: DeckStatus[];
   mainPeak: number;
+  /** The microphone and the aux line at their levels, on or not. */
+  micPeak: number;
+  auxPeak: number;
   health: AudioHealth | null;
   recording: RecordingStatus | null;
 }
@@ -223,6 +226,8 @@ export interface DeckSettings {
   /** Name of the sound in each sampler slot. */
   samples: (string | null)[];
   samplerGain: number;
+  /** The deck plays its input as it comes instead of its track. */
+  passthrough: boolean;
 }
 
 export const EFFECT_KINDS = [
@@ -292,6 +297,29 @@ export type MixMode = 'external' | 'internal';
 /** Where the software mixer sends the headphones; `first` is 0-based. */
 export type HeadphonesOutput = { kind: 'auto' } | { kind: 'off' } | { kind: 'pair'; first: number };
 
+/** The input channels a live source comes in on (`first` 0-based): one, heard in the middle,
+ * or a stereo pair. */
+export interface InputChannels {
+  first: number;
+  stereo: boolean;
+}
+
+/** The live sources of the software mixer. */
+export type LiveSource = 'mic' | 'aux';
+
+export interface LiveState {
+  /** The inputs chosen. */
+  input: InputChannels | null;
+  /** They are on the running device, left free by the turntables. */
+  inUse: boolean;
+  /** Linear gain. */
+  level: number;
+  /** Heard in the master. */
+  on: boolean;
+  /** Heard in the headphones. */
+  cue: boolean;
+}
+
 /** Settings as the backend applies them. */
 export interface MixerState {
   decks: DeckSettings[];
@@ -310,6 +338,19 @@ export interface MixerState {
   crossfaderCurve: CrossfaderCurve;
   /** Master limiter. */
   limiter: boolean;
+  /** -1 = the master on the left only, 1 = on the right only. */
+  balance: number;
+  /** First output (0-based) of the booth chosen, and of the booth in use. */
+  booth: number | null;
+  boothInUse: number | null;
+  boothGain: number;
+  mic: LiveState;
+  aux: LiveState;
+  /** While the microphone is on, the music ducks by `talkoverDepthDb`. */
+  talkover: boolean;
+  talkoverDepthDb: number;
+  /** The inputs of the running device the turntables leave free (0-based). */
+  freeInputs: number[];
 }
 
 /** The decks there can be: two are shown, or all four (a preference). */
