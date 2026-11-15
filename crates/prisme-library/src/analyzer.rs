@@ -10,7 +10,7 @@
 use crate::db::{path_key, FileStamp, LibraryDb, RecordVersion, TrackRecord};
 use crate::identity::{adopt_unless, drive_is_there, drive_of, Search};
 use crate::metadata::read_metadata;
-use crate::scan::{scan_folder, Scan, ScannedFile};
+use crate::scan::{is_online_only, scan_folder, Scan, ScannedFile};
 use prisme_analysis::AnalysisOptions;
 use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
@@ -114,10 +114,15 @@ fn run(
 
     let mut stored = db.versions().unwrap_or_default();
     let found = scan_folder(root, cancel);
+    for copy in &found.tag_copies {
+        if let Err(e) = std::fs::remove_file(copy) {
+            error!("{} left behind by a tag write, not removed: {e}", copy.display());
+        }
+    }
     if !cancel.load(Ordering::Relaxed) {
         follow_moves(db, root, &mut stored, &found, listener);
     }
-    let (unreadable, online_only) = (found.unreadable, found.online_only);
+    let unreadable = found.unreadable;
     let todo: Vec<ScannedFile> = found
         .files
         .into_iter()
@@ -158,9 +163,12 @@ fn run(
                         break;
                     };
                     // a file never seen there may be one known elsewhere: renamed and tagged
-                    // again, or moved in from outside the folder
+                    // again, or moved in from outside the folder; its audio is read once, for
+                    // this and to be known again later
+                    let audio_id = prisme_media::audio_id(&file.path).ok();
+                    let search = audio_id.map_or(Search::Stamp, Search::AudioId);
                     let may_be_back = |old: &Path| unreadable.iter().any(|dir| old.starts_with(dir));
-                    if let Err(e) = adopt_unless(db, &file.path, file.stamp, Search::Audio, may_be_back) {
+                    if let Err(e) = adopt_unless(db, &file.path, file.stamp, search, may_be_back) {
                         error!("{} not looked for elsewhere: {e}", file.path.display());
                     }
                     let (record, cover) = process(db, file, options);
@@ -174,8 +182,8 @@ fn run(
                     if let Err(e) = saved {
                         error!("analysis of {} not saved: {e}", file.path.display());
                     }
-                    if record.error.is_none() {
-                        remember_audio(db, &file.path);
+                    if let Some(id) = audio_id.filter(|_| record.error.is_none()) {
+                        keep_audio_id(db, &file.path, id);
                     }
                     listener.track_analyzed(&record);
                     done.fetch_add(1, Ordering::Relaxed);
@@ -186,8 +194,9 @@ fn run(
     });
 
     // the tracks stored before their audio had an identity, or loaded from outside the
-    // folder: read while no deck plays, but for those kept online (reading would download
-    // them); a drive that is away is asked once, not for each of its files
+    // folder: read while no deck plays, but for those kept online, here or wherever they were
+    // loaded from (reading would download them); a drive that is away is asked once, not for
+    // each of its files
     let mut drives: HashMap<PathBuf, bool> = HashMap::new();
     for path in db.paths_without_audio_id().unwrap_or_default() {
         while listener.holds_back() && !cancel.load(Ordering::Relaxed) {
@@ -204,7 +213,7 @@ fn run(
         }
         let file = Path::new(&path);
         let there = *drives.entry(drive_of(file).0).or_insert_with(|| drive_is_there(file));
-        if there && !online_only.iter().any(|kept_online| kept_online == file) {
+        if there && !is_online_only(file) {
             remember_audio(db, file);
         }
     }
@@ -215,9 +224,13 @@ fn run(
 /// Stores the identity of the audio of `path`, if the file is there and can be read.
 pub fn remember_audio(db: &LibraryDb, path: &Path) {
     if let Ok(id) = prisme_media::audio_id(path) {
-        if let Err(e) = db.set_audio_id(path, id) {
-            error!("identity of {} not saved: {e}", path.display());
-        }
+        keep_audio_id(db, path, id);
+    }
+}
+
+fn keep_audio_id(db: &LibraryDb, path: &Path, id: u64) {
+    if let Err(e) = db.set_audio_id(path, id) {
+        error!("identity of {} not saved: {e}", path.display());
     }
 }
 

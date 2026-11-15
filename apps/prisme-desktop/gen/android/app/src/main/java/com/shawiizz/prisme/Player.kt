@@ -66,6 +66,19 @@ data class PlayerState(
   }
 }
 
+/** What the metadata of the player says: set again only when it changes, its cover being
+ * copied to the system each time. */
+private data class Described(val title: String, val artist: String, val durationMs: Long, val art: Bitmap?)
+
+/** What the notification shows: posted again only when it changes. */
+private data class Shown(
+  val title: String,
+  val text: String,
+  val art: Bitmap?,
+  /** The decks with a button, and whether each plays. */
+  val buttons: List<Pair<Int, Boolean>>,
+)
+
 /**
  * The player of the lock screen and of the notifications: the track heard, its cover and
  * where it is, and a button to play or pause each deck. [PlaybackService] holds it while a
@@ -80,6 +93,8 @@ object Player {
   /** The cover of a file, null when it has none. */
   private var cover: Pair<String, Bitmap?>? = null
   private var session: MediaSession? = null
+  private var described: Described? = null
+  private var notified: Shown? = null
   private var art: Bitmap? = null
   private val main = Handler(Looper.getMainLooper())
   private var stopping: Runnable? = null
@@ -114,7 +129,7 @@ object Player {
       channel = true
     }
     val state = state
-    val shown = state?.shownDeck
+    val shown = showing(context, state).also { notified = it }
     val back =
       PendingIntent.getActivity(
         context,
@@ -129,9 +144,9 @@ object Player {
         .setShowActionsInCompactView(*buttons.indices.take(3).toIntArray())
     return Notification.Builder(context, CHANNEL)
       .setSmallIcon(R.drawable.ic_stat_playing)
-      .setContentTitle(shown?.title ?: context.getString(R.string.app_name))
-      .setContentText(shown?.let { subtitle(context, it) } ?: context.getString(R.string.playback_text))
-      .setLargeIcon(artwork(context))
+      .setContentTitle(shown.title)
+      .setContentText(shown.text)
+      .setLargeIcon(shown.art)
       .setContentIntent(back)
       .setOngoing(true)
       .setVisibility(Notification.VISIBILITY_PUBLIC)
@@ -164,12 +179,18 @@ object Player {
     }
   }
 
+  /** Tells the system what changed: where the deck is every time, the track and the
+   * notification when they change (a scratch moves the deck often, not the rest). */
   private fun show(context: Context) {
     val state = state ?: return
     val session = session(context)
-    session.setMetadata(metadata(context, state))
+    val described = describe(context, state)
+    if (described != this.described) {
+      session.setMetadata(metadata(described))
+      this.described = described
+    }
     session.setPlaybackState(playback(context, state))
-    if (PlaybackService.running) {
+    if (PlaybackService.running && showing(context, state) != notified) {
       context.getSystemService(NotificationManager::class.java).notify(PlaybackService.NOTIFICATION, notification(context))
     }
   }
@@ -178,6 +199,7 @@ object Player {
   fun release() {
     session?.release()
     session = null
+    described = null
   }
 
   private fun session(context: Context): MediaSession =
@@ -194,14 +216,32 @@ object Player {
         session = it
       }
 
-  private fun metadata(context: Context, state: PlayerState): MediaMetadata {
+  private fun describe(context: Context, state: PlayerState): Described {
     val shown = state.shownDeck
-    return MediaMetadata.Builder()
-      .putString(MediaMetadata.METADATA_KEY_TITLE, shown?.title ?: context.getString(R.string.app_name))
-      .putString(MediaMetadata.METADATA_KEY_ARTIST, shown?.let { subtitle(context, it) } ?: "")
-      .putLong(MediaMetadata.METADATA_KEY_DURATION, (state.durationS * 1000).toLong())
-      .putBitmap(MediaMetadata.METADATA_KEY_ART, artwork(context))
+    return Described(
+      title = shown?.title ?: context.getString(R.string.app_name),
+      artist = shown?.let { subtitle(context, it) } ?: "",
+      durationMs = (state.durationS * 1000).toLong(),
+      art = artwork(context),
+    )
+  }
+
+  private fun metadata(described: Described): MediaMetadata =
+    MediaMetadata.Builder()
+      .putString(MediaMetadata.METADATA_KEY_TITLE, described.title)
+      .putString(MediaMetadata.METADATA_KEY_ARTIST, described.artist)
+      .putLong(MediaMetadata.METADATA_KEY_DURATION, described.durationMs)
+      .putBitmap(MediaMetadata.METADATA_KEY_ART, described.art)
       .build()
+
+  private fun showing(context: Context, state: PlayerState?): Shown {
+    val deck = state?.shownDeck
+    return Shown(
+      title = deck?.title ?: context.getString(R.string.app_name),
+      text = deck?.let { subtitle(context, it) } ?: context.getString(R.string.playback_text),
+      art = artwork(context),
+      buttons = state?.takeIf { it.controls }?.decks?.map { it.deck to it.playing }.orEmpty(),
+    )
   }
 
   private fun playback(context: Context, state: PlayerState): PlaybackState {

@@ -4,7 +4,6 @@
 
 use super::{path_key, DbError, FileStamp, LibraryDb};
 use rusqlite::{params, OptionalExtension};
-use std::collections::HashMap;
 use std::path::Path;
 
 impl LibraryDb {
@@ -23,14 +22,6 @@ impl LibraryDb {
             .query_row([path_key(path)], |r| r.get(0))
             .optional()?;
         Ok(id.map(|id| id as u64))
-    }
-
-    /// Every path whose audio is known, with its identity.
-    pub fn audio_ids(&self) -> Result<HashMap<String, u64>, DbError> {
-        let conn = self.conn();
-        let mut stmt = conn.prepare("SELECT path, audio_id FROM audio_ids")?;
-        let rows = stmt.query_map([], |r| Ok((r.get(0)?, r.get::<_, i64>(1)? as u64)))?;
-        Ok(rows.collect::<Result<_, _>>()?)
     }
 
     /// The paths whose file sounded like `id`.

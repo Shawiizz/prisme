@@ -26,6 +26,7 @@ import { EngineService } from './engine.service';
 import { HistoryService } from './history.service';
 import { PrepareService } from './prepare.service';
 import { PreferencesService } from './preferences.service';
+import { errorText } from '../errors';
 
 /** `order`: the order of the list itself (play order of a set). */
 /** `mix`: how well the tracks follow the reference deck (see `mixRank`). */
@@ -260,7 +261,7 @@ export class LibraryService {
       await this.preferences.updateLibrary({ lastFolder: path });
       return true;
     } catch (e) {
-      this.error.set(String(e));
+      this.error.set(errorText(e));
       return false;
     }
   }
@@ -515,7 +516,7 @@ export class LibraryService {
       await action();
       this.error.set(null);
     } catch (e) {
-      this.error.set(String(e));
+      this.error.set(errorText(e));
     }
   }
 
@@ -541,7 +542,7 @@ export class LibraryService {
         const results = await invoke<DirEntry[]>('search_library', { query });
         if (id === this.searchId) this.libraryResults.set(results);
       } catch (e) {
-        this.error.set(String(e));
+        this.error.set(errorText(e));
       }
     }, LIBRARY_SEARCH_DELAY_MS);
   }

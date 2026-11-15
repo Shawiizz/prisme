@@ -27,8 +27,6 @@ pub struct TrackAudio {
     sample_rate: u32,
     /// Interleaved stereo samples (`f32` bits).
     samples: Box<[AtomicU32]>,
-    /// The first frame that can be read: 0 but for a [`TrackAudio::pending`] one.
-    first: AtomicUsize,
     /// The end of the frames that can be read.
     decoded: AtomicUsize,
     /// The track's length: the header's estimate while decoding, exact afterwards.
@@ -48,7 +46,6 @@ impl TrackAudio {
         Self {
             sample_rate,
             samples: samples.into_iter().map(|s| AtomicU32::new(s.to_bits())).collect(),
-            first: AtomicUsize::new(0),
             decoded: AtomicUsize::new(frames),
             frames: AtomicUsize::new(frames),
             filled: Box::new([]),
@@ -77,7 +74,6 @@ impl TrackAudio {
         Self {
             sample_rate,
             samples: (0..capacity * 2).map(|_| AtomicU32::new(0)).collect(),
-            first: AtomicUsize::new(0),
             decoded: AtomicUsize::new(0),
             frames: AtomicUsize::new(frames),
             filled: Box::new([]),
@@ -115,16 +111,14 @@ impl TrackAudio {
             let first_gap = blocks.take_while(|&(b, _)| self.block_filled(b)).count();
             return 0..(first_gap * PENDING_BLOCK).min(self.frames());
         }
-        let end = self.decoded_frames();
-        self.first.load(Ordering::Acquire).min(end)..end
+        0..self.decoded_frames()
     }
 
     pub fn is_complete(&self) -> bool {
         if self.is_pending() {
             return self.unfilled.load(Ordering::Acquire) == 0;
         }
-        let readable = self.readable();
-        readable.start == 0 && readable.end >= self.frames()
+        self.decoded_frames() >= self.frames()
     }
 
     fn block_filled(&self, block: usize) -> bool {
@@ -138,16 +132,15 @@ impl TrackAudio {
         self.view().frame(i)
     }
 
-    /// The frames that can be read so far, for reading many of them (two atomic loads per
-    /// view rather than per frame; one more per frame of a pending track not complete).
+    /// The frames that can be read so far, for reading many of them (one atomic load per
+    /// view rather than per frame, two for a pending track; one more per frame of a pending
+    /// track not complete).
     #[inline]
     pub fn view(&self) -> TrackView<'_> {
         if self.is_pending() && !self.is_complete() {
-            return TrackView { samples: &self.samples, first: 0, filled: Some(&self.filled) };
+            return TrackView { samples: &self.samples, filled: Some(&self.filled) };
         }
-        let end = self.decoded_frames();
-        let first = self.first.load(Ordering::Acquire).min(end);
-        TrackView { samples: &self.samples[..end * 2], first, filled: None }
+        TrackView { samples: &self.samples[..self.decoded_frames() * 2], filled: None }
     }
 
     /// Calls `f` with the samples that can be read, interleaved, `block_frames` frames at a
@@ -221,7 +214,6 @@ impl std::fmt::Debug for TrackAudio {
 pub struct TrackView<'a> {
     /// Up to the last readable frame.
     samples: &'a [AtomicU32],
-    first: usize,
     /// The frames written of each block, while a pending track is not complete.
     filled: Option<&'a [AtomicU32]>,
 }
@@ -236,7 +228,7 @@ impl TrackView<'_> {
     /// Frame `i` as (left, right), if the view holds it.
     #[inline]
     pub fn get(&self, i: isize) -> Option<(f32, f32)> {
-        let i = usize::try_from(i).ok().filter(|&i| i >= self.first)?;
+        let i = usize::try_from(i).ok()?;
         if let Some(filled) = self.filled {
             let block = i / PENDING_BLOCK;
             let len = (self.samples.len() / 2).checked_sub(block * PENDING_BLOCK)?.min(PENDING_BLOCK);

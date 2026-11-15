@@ -13,7 +13,7 @@ mod tags;
 mod track;
 
 pub use audio_id::audio_id;
-pub use tag_writing::{write_genre, write_tempo_and_key, Replacing, TagFields, TempoAndKey};
+pub use tag_writing::{is_tag_copy, write_genre, write_tempo_and_key, Replacing, TagFields, TempoAndKey};
 pub use tags::{read_tags, CoverArt, TrackTags};
 
 use std::fs::File;

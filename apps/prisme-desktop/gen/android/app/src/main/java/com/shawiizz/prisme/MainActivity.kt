@@ -3,6 +3,7 @@ package com.shawiizz.prisme
 import android.Manifest
 import android.content.pm.PackageManager
 import android.content.res.Configuration
+import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.Color
 import android.os.Build
@@ -19,7 +20,27 @@ import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 
+/** How long the screen stays on once every deck stopped. */
+private const val SCREEN_LINGER_MS = 60 * 1000L
+
+/** About the size the player shows a cover at. */
+private const val COVER_PX = 512
+
+/** The picture of `bytes`, halved as long as it stays as large as [COVER_PX]: a cover of
+ * thousands of pixels would weigh megabytes, copied to the system with each change of it. */
+private fun decodeCover(bytes: ByteArray): Bitmap? {
+  val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+  BitmapFactory.decodeByteArray(bytes, 0, bytes.size, bounds)
+  var sample = 1
+  while (maxOf(bounds.outWidth, bounds.outHeight) / (sample * 2) >= COVER_PX) sample *= 2
+  val options = BitmapFactory.Options().apply { inSampleSize = sample }
+  return BitmapFactory.decodeByteArray(bytes, 0, bytes.size, options)
+}
+
 class MainActivity : TauriActivity() {
+  /** Lets the screen sleep, a moment after the last deck stopped. */
+  private var lettingTheScreenSleep: Runnable? = null
+
   override fun onCreate(savedInstanceState: Bundle?) {
     // light icons over the dark background of Prisme, whatever the theme of the phone
     val bars = SystemBarStyle.dark(Color.TRANSPARENT)
@@ -27,8 +48,6 @@ class MainActivity : TauriActivity() {
     // the audio starts with the native side, which may open a USB card at once
     UsbAudio.init(this)
     super.onCreate(savedInstanceState)
-    // a set is played without touching the phone: its screen stays on
-    window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
     // the screen is Prisme's up to its short edges, beside the camera too
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
       window.attributes.layoutInDisplayCutoutMode =
@@ -92,19 +111,43 @@ class MainActivity : TauriActivity() {
     }
   }
 
+  /**
+   * A set is played without touching the phone: its screen stays on while a deck plays, and a
+   * moment after the last one stopped, the time to pick the next track.
+   */
+  private fun keepTheScreenOn(playing: Boolean) {
+    val view = window.decorView
+    val keptOn = (window.attributes.flags and WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON) != 0
+    if (playing) {
+      lettingTheScreenSleep?.let(view::removeCallbacks)
+      lettingTheScreenSleep = null
+      window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+    } else if (keptOn && lettingTheScreenSleep == null) {
+      val sleep = Runnable {
+        window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        lettingTheScreenSleep = null
+      }
+      view.postDelayed(sleep, SCREEN_LINGER_MS)
+      lettingTheScreenSleep = sleep
+    }
+  }
+
   /** What the page says of the decks, for the [Player] (`lock-player.ts`). */
   private inner class Decks {
     @JavascriptInterface
     fun update(state: String) {
       val parsed = PlayerState.parse(state)
-      runOnUiThread { Player.update(this@MainActivity, parsed) }
+      runOnUiThread {
+        Player.update(this@MainActivity, parsed)
+        keepTheScreenOn(parsed.playing)
+      }
     }
 
     /** The cover of `path`, in base64; empty when it has none. */
     @JavascriptInterface
     fun cover(path: String, base64: String) {
       val bytes = if (base64.isEmpty()) null else Base64.decode(base64, Base64.DEFAULT)
-      val bitmap = bytes?.let { BitmapFactory.decodeByteArray(it, 0, it.size) }
+      val bitmap = bytes?.let(::decodeCover)
       runOnUiThread { Player.cover(this@MainActivity, path, bitmap) }
     }
   }

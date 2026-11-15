@@ -6,8 +6,9 @@ use std::io::ErrorKind;
 use std::path::Path;
 use symphonia::core::errors::Error as SymphoniaError;
 
-/// Packets the identity is made of: about half a minute of a compressed file. Read without
-/// decoding, in a few milliseconds.
+/// Packets the identity is made of: about half a minute of an MP3, a minute and a half of a
+/// FLAC. Read without decoding: milliseconds from a fast disk, but the megabytes of a FLAC
+/// take up to seconds from a slow drive or a share.
 const PACKETS: usize = 1024;
 
 const FNV_OFFSET: u64 = 0xcbf2_9ce4_8422_2325;

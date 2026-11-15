@@ -11,6 +11,7 @@ import {
 } from '../models/engine';
 import { EngineService } from './engine.service';
 import { SettingsService } from './settings.service';
+import { errorText } from '../errors';
 
 /**
  * Where the decks are heard: a hardware mixer, or the software mixer (channel strips,
@@ -60,7 +61,7 @@ export class MixerService {
     try {
       this.applyRouting(await invoke<MixerState>('mixer_state'));
     } catch (e) {
-      this.engine.error.set(String(e));
+      this.engine.error.set(errorText(e));
     }
   }
 
@@ -88,7 +89,7 @@ export class MixerService {
     try {
       this.modeInUse.set(await invoke<MixMode | null>('set_mix_mode', { mode }));
     } catch (e) {
-      this.engine.error.set(String(e));
+      this.engine.error.set(errorText(e));
     }
   }
 
@@ -97,7 +98,7 @@ export class MixerService {
     try {
       this.headphonesInUse.set(await invoke<number | null>('set_headphones_output', { output }));
     } catch (e) {
-      this.engine.error.set(String(e));
+      this.engine.error.set(errorText(e));
     }
   }
 

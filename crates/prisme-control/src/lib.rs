@@ -14,4 +14,4 @@ mod profile;
 pub use mapping::{light, Encoding, Mapping, Mappings, Reader, SHIFT};
 pub use message::{parse, Control, ControlKind, Event};
 pub use pickup::Pickup;
-pub use profile::{Profile, ProfileControl, ProfileLight};
+pub use profile::{Profile, ProfileControl, ProfileLight, JOG_STEPS_PER_TURN};

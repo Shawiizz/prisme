@@ -1,8 +1,14 @@
 //! Finding the audio files of a music folder.
 
 use crate::db::FileStamp;
+use std::fs::Metadata;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
+use std::time::{Duration, SystemTime};
+
+/// The copy a tag write makes beside its file lives for a moment: one untouched for this
+/// long was left behind by a write cut short.
+const TAG_COPY_LEFT_AFTER: Duration = Duration::from_secs(60);
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ScannedFile {
@@ -21,6 +27,9 @@ pub struct Scan {
     /// Folders that could not be listed (a drive unplugged, a share offline, no access):
     /// what they hold is unknown, not gone.
     pub unreadable: Vec<PathBuf>,
+    /// Copies of files being tagged that writes cut short left behind (see
+    /// [`prisme_media::is_tag_copy`]): of no use, their files being as they were.
+    pub tag_copies: Vec<PathBuf>,
 }
 
 impl Scan {
@@ -31,9 +40,13 @@ impl Scan {
 }
 
 /// Every decodable file under `root`, recursively. Hidden files, system folders (the
-/// recycle bin) and symbolic links to folders are skipped (no loops). Stops early, with what
-/// it found so far, when `cancel` is set.
+/// recycle bin) and symbolic links to folders are skipped (no loops), but for the copies tag
+/// writes left behind. Stops early, with what it found so far, when `cancel` is set.
 pub fn scan_folder(root: &Path, cancel: &AtomicBool) -> Scan {
+    scan_folder_at(root, cancel, SystemTime::now())
+}
+
+fn scan_folder_at(root: &Path, cancel: &AtomicBool, now: SystemTime) -> Scan {
     let mut scan = Scan::default();
     let mut folders = vec![root.to_path_buf()];
     while let Some(dir) = folders.pop() {
@@ -45,7 +58,13 @@ pub fn scan_folder(root: &Path, cancel: &AtomicBool) -> Scan {
             continue;
         };
         for entry in entries.flatten() {
-            if entry.file_name().to_string_lossy().starts_with('.') {
+            let name = entry.file_name();
+            let name = name.to_string_lossy();
+            if name.starts_with('.') {
+                let left = |meta: Metadata| untouched_for(&meta, now) >= TAG_COPY_LEFT_AFTER;
+                if prisme_media::is_tag_copy(&name) && entry.metadata().is_ok_and(left) {
+                    scan.tag_copies.push(entry.path());
+                }
                 continue;
             }
             let (Ok(kind), Ok(meta)) = (entry.file_type(), entry.metadata()) else { continue };
@@ -68,6 +87,19 @@ pub fn scan_folder(root: &Path, cancel: &AtomicBool) -> Scan {
     }
     scan.files.sort_by(|a, b| a.path.cmp(&b.path));
     scan
+}
+
+/// Whether the file at `path` is kept online only by a cloud folder: reading it would
+/// download it.
+pub(crate) fn is_online_only(path: &Path) -> bool {
+    std::fs::metadata(path).is_ok_and(|meta| Attributes::of(&meta).online_only)
+}
+
+/// How long the file of `meta` has gone unwritten at `now`: since it was created, or written
+/// last, whichever came later (a copy may keep the time its original was written).
+fn untouched_for(meta: &Metadata, now: SystemTime) -> Duration {
+    let touched = [meta.created(), meta.modified()].into_iter().flatten().max();
+    touched.and_then(|t| now.duration_since(t).ok()).unwrap_or_default()
 }
 
 /// What the file system says of an entry beyond its kind.
@@ -123,6 +155,23 @@ mod tests {
             .map(|f| f.path.strip_prefix(&root).unwrap().to_string_lossy().replace('\\', "/"))
             .collect();
         assert_eq!(found, ["House/Deep/c.wav", "House/b.FLAC", "a.mp3"]);
+        std::fs::remove_dir_all(root).ok();
+    }
+
+    #[test]
+    fn copies_left_behind_by_tag_writes_are_found_once_untouched_for_a_while() {
+        let root = std::env::temp_dir().join(format!("prisme-scan-copies-{}", std::process::id()));
+        std::fs::create_dir_all(&root).unwrap();
+        let copy = root.join(".a.mp3.prisme-tags");
+        for f in [&copy, &root.join(".notes")] {
+            std::fs::write(f, b"x").unwrap();
+        }
+        let cancel = AtomicBool::new(false);
+        assert!(scan_folder_at(&root, &cancel, SystemTime::now()).tag_copies.is_empty(), "being written");
+        let later = SystemTime::now() + 2 * TAG_COPY_LEFT_AFTER;
+        let scan = scan_folder_at(&root, &cancel, later);
+        assert_eq!(scan.tag_copies, [copy]);
+        assert!(scan.files.is_empty());
         std::fs::remove_dir_all(root).ok();
     }
 

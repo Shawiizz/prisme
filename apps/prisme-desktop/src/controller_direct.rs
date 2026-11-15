@@ -5,10 +5,6 @@
 use prisme_control::Pickup;
 use prisme_engine::Command;
 
-/// Steps in a turn of a jog wheel. Most controllers send hundreds; the exact number only
-/// scales scratches and nudges, and is measured on each model when its preset is made.
-const JOG_STEPS_PER_TURN: f64 = 720.0;
-
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Direct {
     Jog(usize),
@@ -27,6 +23,12 @@ impl Direct {
             "pitch" => Some(Direct::Pitch(deck)),
             _ => None,
         }
+    }
+
+    /// Whether the action `target` takes several controls of a controller: a jog wheel
+    /// sends its top and its edge apart.
+    pub fn takes_several(target: &str) -> bool {
+        matches!(Self::of(target), Some(Direct::Jog(_)))
     }
 }
 
@@ -55,12 +57,20 @@ pub struct Performer {
 }
 
 impl Performer {
-    /// The command for `action` driven to `value` at `at_s` on the controller's clock;
-    /// `tempo` the deck's, for its fader. `None` while a fader has not picked the tempo up.
-    pub fn command(&mut self, action: Direct, value: f32, at_s: f64, tempo: Tempo) -> Option<Command> {
+    /// The command for `action` driven to `value` at `at_s` on the clock of a controller
+    /// whose jog wheels turn by `jog_steps_per_turn`; `tempo` the deck's, for its fader.
+    /// `None` while a fader has not picked the tempo up.
+    pub fn command(
+        &mut self,
+        action: Direct,
+        value: f32,
+        at_s: f64,
+        jog_steps_per_turn: f64,
+        tempo: Tempo,
+    ) -> Option<Command> {
         match action {
             Direct::Jog(deck) => {
-                Some(Command::Jog { deck, turns: f64::from(value) / JOG_STEPS_PER_TURN, at_s })
+                Some(Command::Jog { deck, turns: f64::from(value) / jog_steps_per_turn, at_s })
             }
             // however lightly: some wheels tell how hard they are touched
             Direct::JogTouch(deck) => Some(Command::JogTouch { deck, touched: value > 0.0, at_s }),
@@ -81,6 +91,7 @@ mod tests {
     use super::*;
 
     const TEMPO: Tempo = Tempo { ratio: 1.0, range: 0.08 };
+    const STEPS: f64 = 720.0;
 
     #[test]
     fn direct_actions_are_the_jogs_and_the_tempo_faders() {
@@ -90,18 +101,21 @@ mod tests {
         assert_eq!(Direct::of("deck1.play"), None);
         assert_eq!(Direct::of("deck0.jog"), None);
         assert_eq!(Direct::of("mixer.crossfader"), None);
+        assert!(Direct::takes_several("deck2.jog"));
+        assert!(!Direct::takes_several("deck2.jog.touch"));
+        assert!(!Direct::takes_several("deck2.play"));
     }
 
     #[test]
     fn a_jog_turns_by_its_steps() {
         let mut performer = Performer::default();
-        let turned = performer.command(Direct::Jog(1), -180.0, 2.5, TEMPO);
+        let turned = performer.command(Direct::Jog(1), -180.0, 2.5, STEPS, TEMPO);
         assert!(
             matches!(turned, Some(Command::Jog { deck: 1, turns, at_s }) if turns == -0.25 && at_s == 2.5)
         );
-        let touched = performer.command(Direct::JogTouch(0), 0.2, 3.0, TEMPO);
+        let touched = performer.command(Direct::JogTouch(0), 0.2, 3.0, STEPS, TEMPO);
         assert!(matches!(touched, Some(Command::JogTouch { deck: 0, touched: true, .. })));
-        let let_go = performer.command(Direct::JogTouch(0), 0.0, 3.5, TEMPO);
+        let let_go = performer.command(Direct::JogTouch(0), 0.0, 3.5, STEPS, TEMPO);
         assert!(matches!(let_go, Some(Command::JogTouch { deck: 0, touched: false, .. })));
     }
 
@@ -112,6 +126,7 @@ mod tests {
             Direct::Pitch(0),
             value,
             0.0,
+            STEPS,
             Tempo { ratio, ..TEMPO },
         ) {
             Some(Command::SetPitch { ratio, .. }) => Some(ratio),

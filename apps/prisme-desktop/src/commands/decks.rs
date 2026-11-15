@@ -8,13 +8,13 @@ const MAX_KEY_SHIFT: u8 = 12;
 
 #[tauri::command]
 pub fn set_playing(state: State<'_, AppState>, deck: usize, playing: bool) -> AppResult<()> {
-    AppState::check_deck(deck)?;
+    state.has_deck(deck)?;
     state.send(Command::SetPlaying { deck, playing })
 }
 
 #[tauri::command]
 pub fn seek(state: State<'_, AppState>, deck: usize, seconds: f64) -> AppResult<()> {
-    AppState::check_deck(deck)?;
+    state.has_deck(deck)?;
     state.send(Command::Seek { deck, seconds })
 }
 
@@ -22,7 +22,7 @@ pub fn seek(state: State<'_, AppState>, deck: usize, seconds: f64) -> AppResult<
 /// pointer's clock, or let go (`None`).
 #[tauri::command]
 pub fn hand(state: State<'_, AppState>, deck: usize, seconds: Option<f64>, at_ms: f64) -> AppResult<()> {
-    AppState::check_deck(deck)?;
+    state.has_deck(deck)?;
     state.send(Command::Hand { deck, position_s: seconds, at_s: at_ms / 1000.0 })
 }
 
@@ -30,13 +30,13 @@ pub fn hand(state: State<'_, AppState>, deck: usize, seconds: Option<f64>, at_ms
 /// pushed or held back for a moment, a stopped one moved.
 #[tauri::command]
 pub fn jog(state: State<'_, AppState>, deck: usize, turns: f64, at_ms: f64) -> AppResult<()> {
-    AppState::check_deck(deck)?;
+    state.has_deck(deck)?;
     state.send(Command::Jog { deck, turns, at_s: at_ms / 1000.0 })
 }
 
 #[tauri::command]
 pub fn set_pitch(state: State<'_, AppState>, deck: usize, ratio: f64) -> AppResult<()> {
-    AppState::check_deck(deck)?;
+    state.has_deck(deck)?;
     lock(&state.decks)[deck].pitch = ratio;
     state.send(Command::SetPitch { deck, ratio })
 }
@@ -110,13 +110,13 @@ pub fn set_key_shift(state: State<'_, AppState>, deck: usize, semitones: i8) -> 
 
 #[tauri::command]
 pub fn set_sync_locked(state: State<'_, AppState>, deck: usize, locked: bool) -> AppResult<()> {
-    AppState::check_deck(deck)?;
+    state.has_deck(deck)?;
     state.send(Command::SetSyncLocked { deck, locked })
 }
 
 #[tauri::command]
 pub fn sync_once(state: State<'_, AppState>, deck: usize) -> AppResult<()> {
-    AppState::check_deck(deck)?;
+    state.has_deck(deck)?;
     state.send(Command::SyncOnce { deck })
 }
 
@@ -124,7 +124,7 @@ pub fn sync_once(state: State<'_, AppState>, deck: usize) -> AppResult<()> {
 #[tauri::command]
 pub fn set_sync_leader(state: State<'_, AppState>, deck: Option<usize>) -> AppResult<()> {
     if let Some(d) = deck {
-        AppState::check_deck(d)?;
+        state.has_deck(d)?;
     }
     state.send(Command::SetSyncLeader { deck })
 }

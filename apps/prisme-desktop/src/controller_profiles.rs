@@ -1,7 +1,7 @@
 //! The controller models Prisme knows (`controllers/*.json`): the profile of one maps it as
 //! soon as it is turned on, before anything is learnt on it.
 
-use prisme_control::Profile;
+use prisme_control::{Profile, JOG_STEPS_PER_TURN};
 use std::sync::OnceLock;
 use tracing::error;
 
@@ -24,7 +24,12 @@ fn bundled() -> &'static [Profile] {
 
 /// The profile of the controller on the MIDI port `port`, if Prisme knows its model.
 pub fn of(port: &str) -> Option<&'static Profile> {
-    bundled().iter().find(|p| p.fits(port))
+    Profile::of_port(bundled(), port)
+}
+
+/// Steps in a turn of the jog wheels of the controller on `port`.
+pub fn jog_steps_per_turn(port: &str) -> f64 {
+    of(port).map_or(JOG_STEPS_PER_TURN, |p| p.jog_steps_per_turn)
 }
 
 #[cfg(test)]

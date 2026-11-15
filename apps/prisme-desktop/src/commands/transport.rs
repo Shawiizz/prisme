@@ -61,6 +61,6 @@ pub fn censor(state: State<'_, AppState>, deck: usize, active: bool) -> AppResul
 }
 
 fn send(state: &AppState, deck: usize, command: Command) -> AppResult<()> {
-    AppState::check_deck(deck)?;
+    state.has_deck(deck)?;
     state.send(command)
 }

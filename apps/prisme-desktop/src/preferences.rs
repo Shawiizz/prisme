@@ -58,8 +58,7 @@ pub struct DjPreferences {
     pub pitch_range: f64,
     /// Every track played at the same loudness (see `LoadedTrack::level`).
     pub auto_gain: bool,
-    /// Two decks, or four.
-    pub deck_count: usize,
+    pub deck_count: DeckCount,
     /// The knobs of the mixer hold at their middle when turned through it.
     pub knob_magnet: bool,
     /// On a phone, the decks play and pause from its lock screen and its notifications.
@@ -67,12 +66,37 @@ pub struct DjPreferences {
 }
 
 impl DjPreferences {
-    /// The decks of the engine: four if asked for, else two.
+    /// The decks of the engine.
     pub fn decks(&self) -> usize {
-        if self.deck_count == MAX_DECKS {
-            MAX_DECKS
+        self.deck_count.into()
+    }
+}
+
+/// Two decks, or four. Saved as the number, as the interface has it: any other than four
+/// reads as two.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(from = "usize", into = "usize")]
+pub enum DeckCount {
+    #[default]
+    Two,
+    Four,
+}
+
+impl From<usize> for DeckCount {
+    fn from(count: usize) -> Self {
+        if count == 4 {
+            DeckCount::Four
         } else {
-            2
+            DeckCount::Two
+        }
+    }
+}
+
+impl From<DeckCount> for usize {
+    fn from(count: DeckCount) -> Self {
+        match count {
+            DeckCount::Two => 2,
+            DeckCount::Four => 4,
         }
     }
 }
@@ -84,7 +108,7 @@ impl Default for DjPreferences {
             quantize: true,
             pitch_range: 0.08,
             auto_gain: true,
-            deck_count: 2,
+            deck_count: DeckCount::Two,
             knob_magnet: true,
             lock_controls: true,
         }
@@ -224,6 +248,18 @@ mod tests {
         assert_eq!(p.decks[1].rpm, RpmDto::Rpm45);
         assert_eq!(p.decks[2], DeckPreferences::default());
         assert_eq!(p.dj.decks(), 2);
+    }
+
+    #[test]
+    fn two_decks_or_four_are_saved_as_their_number() {
+        let read = |json: &str| serde_json::from_str::<DjPreferences>(json).unwrap().deck_count;
+        assert_eq!(read(r#"{ "deckCount": 4 }"#), DeckCount::Four);
+        assert_eq!(read(r#"{ "deckCount": 2 }"#), DeckCount::Two);
+        assert_eq!(read(r#"{ "deckCount": 3 }"#), DeckCount::Two);
+        assert_eq!(read("{}"), DeckCount::Two);
+        let four = DjPreferences { deck_count: DeckCount::Four, ..Default::default() };
+        assert!(serde_json::to_string(&four).unwrap().contains(r#""deckCount":4"#));
+        assert_eq!(four.decks(), 4);
     }
 
     #[test]

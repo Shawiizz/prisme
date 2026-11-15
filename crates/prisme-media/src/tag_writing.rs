@@ -19,7 +19,10 @@ use lofty::TextEncoding;
 use std::borrow::Cow;
 use std::cell::Cell;
 use std::fs::File;
-use std::path::Path;
+use std::path::{Path, PathBuf};
+
+/// What the copy of a file being tagged is called after it (see [`save_in_copy`]).
+const COPY_END: &str = ".prisme-tags";
 
 /// What to write: a missing value leaves the file's own as it is.
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -213,17 +216,17 @@ fn update<F: AudioFile>(
 ) -> Result<bool, MediaError> {
     let name = || path.display().to_string();
     let error = |e: &dyn std::fmt::Display| MediaError::WriteTags { path: name(), message: e.to_string() };
-    let mut reader = File::open(path).map_err(|source| MediaError::Open { path: name(), source })?;
+    let open = |source| MediaError::Open { path: name(), source };
+    // through a symbolic link, the file it leads to is written, and the link stays
+    let path = std::fs::canonicalize(path).map_err(open)?;
+    let mut reader = File::open(&path).map_err(open)?;
     let mut file = F::read_from(&mut reader, ParseOptions::new()).map_err(|e| error(&e))?;
     drop(reader);
     let (changed, version) = change(&mut file);
     if changed {
         let options = WriteOptions::new().use_id3v23(version == Some(Id3v2Version::V3));
-        let copy = path.with_file_name(format!(
-            ".{}.prisme-tags",
-            path.file_name().map(|n| n.to_string_lossy()).unwrap_or_default()
-        ));
-        let saved = save_in_copy(&file, path, &copy, options);
+        let copy = copy_of(&path);
+        let saved = save_in_copy(&file, &path, &copy, options);
         if saved.is_err() {
             let _ = std::fs::remove_file(&copy);
         }
@@ -232,10 +235,24 @@ fn update<F: AudioFile>(
     Ok(changed)
 }
 
+/// The copy `path` is tagged in, hidden beside it.
+fn copy_of(path: &Path) -> PathBuf {
+    let name = path.file_name().map(|n| n.to_string_lossy()).unwrap_or_default();
+    path.with_file_name(format!(".{name}{COPY_END}"))
+}
+
+/// Whether the file named `name` is the copy of a file being tagged, or one a write cut
+/// short left behind (Prisme stopped before the copy took its file's place).
+pub fn is_tag_copy(name: &str) -> bool {
+    name.starts_with('.') && name.ends_with(COPY_END)
+}
+
 /// Saves `file`'s tags into `copy`, a copy of `path`, then puts it in `path`'s place once it
 /// reads back and is on the disk: a crash, a full disk or a file held open by another
 /// program leaves the track as it was, never half written (lofty saves in place, moving the
-/// audio behind the tags it grows).
+/// audio behind the tags it grows). A file under other names too (hard links) is written
+/// over with the copy instead, so that every name keeps it: there only, a crash midway
+/// would leave it half written.
 fn save_in_copy<F: AudioFile>(
     file: &F,
     path: &Path,
@@ -246,8 +263,28 @@ fn save_in_copy<F: AudioFile>(
     file.save_to_path(copy, options)?;
     F::read_from(&mut File::open(copy)?, ParseOptions::new())?;
     std::fs::OpenOptions::new().write(true).open(copy)?.sync_all()?;
-    std::fs::rename(copy, path)?;
+    if has_other_names(path)? {
+        std::fs::copy(copy, path)?;
+        std::fs::OpenOptions::new().write(true).open(path)?.sync_all()?;
+        std::fs::remove_file(copy)?;
+    } else {
+        std::fs::rename(copy, path)?;
+    }
     Ok(())
+}
+
+/// Whether the file of `path` has other names (hard links), which a file put in its place
+/// would leave on the old one.
+#[cfg(unix)]
+fn has_other_names(path: &Path) -> std::io::Result<bool> {
+    use std::os::unix::fs::MetadataExt;
+    Ok(std::fs::metadata(path)?.nlink() > 1)
+}
+
+/// Windows tells the names of a file through no stable call of Rust's: one is assumed.
+#[cfg(not(unix))]
+fn has_other_names(_: &Path) -> std::io::Result<bool> {
+    Ok(false)
 }
 
 fn set_id3v2(tag: &mut Id3v2Tag, values: TempoAndKey<'_>, replacing: Replacing<'_>) -> TagFields {

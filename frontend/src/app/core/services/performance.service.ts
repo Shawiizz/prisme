@@ -2,6 +2,7 @@ import { Injectable, inject } from '@angular/core';
 import { invoke } from '@tauri-apps/api/core';
 import { Cue } from '../models/engine';
 import { EngineService } from './engine.service';
+import { errorText } from '../errors';
 
 /** Performance actions on a deck: hot cues, loops, rolls, beat jumps, slip, censor. */
 @Injectable({ providedIn: 'root' })
@@ -70,7 +71,7 @@ export class PerformanceService {
     try {
       this.engine.setCues(deck, await invoke<Cue[]>(command, { deck, slot }));
     } catch (e) {
-      this.engine.error.set(String(e));
+      this.engine.error.set(errorText(e));
     }
   }
 }

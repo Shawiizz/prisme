@@ -28,6 +28,7 @@ import { Playhead, followPlayhead } from '../playhead';
 import { ConfirmService } from '../../shared/confirm/confirm';
 import { deckLetter } from '../../shared/time';
 import { t } from '../i18n/i18n';
+import { errorText } from '../errors';
 
 /** A deck this close to its cue point counts as sitting on it. */
 const CUE_TOLERANCE_S = 0.02;
@@ -259,7 +260,7 @@ export class EngineService {
       if (info.waveformReady) this.fetchWaveform(deck, info.loadId);
       this.error.set(null);
     } catch (e) {
-      this.error.set(String(e));
+      this.error.set(errorText(e));
     } finally {
       this.patch(this.loading, deck, false);
     }
@@ -322,7 +323,7 @@ export class EngineService {
       });
       if (freed !== null) this.patchDeck(freed, { vinylEnabled: false });
     } catch (e) {
-      this.error.set(String(e));
+      this.error.set(errorText(e));
     }
   }
 
@@ -397,7 +398,7 @@ export class EngineService {
       ]);
       this.seek(deck, positionS);
     } catch (e) {
-      this.error.set(String(e));
+      this.error.set(errorText(e));
     }
   }
 
@@ -455,7 +456,7 @@ export class EngineService {
       await invoke(command, args);
       this.error.set(null);
     } catch (e) {
-      this.error.set(String(e));
+      this.error.set(errorText(e));
     }
   }
 }
