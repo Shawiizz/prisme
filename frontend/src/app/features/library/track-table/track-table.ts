@@ -30,27 +30,18 @@ import { StemsService } from '../../../core/services/stems.service';
 import { TRACK_COLORS, hexColor } from '../../../shared/track-colors';
 import { COLUMNS, Column, ColumnId, gridTemplate } from './columns';
 import { TrackMenu, TrackMenuPanel } from '../track-menu/track-menu';
-import { t } from '../../../core/i18n/i18n';
+import { Text, t } from '../../../core/i18n/i18n';
 import { TPipe } from '../../../core/i18n/t.pipe';
 import { CTRL } from '../../../core/keyboard/shortcuts';
 import { Dismiss, overlay } from '../../../shared/overlay';
 
-const EMPTY_LIST: Record<TrackSource['kind'], string> = {
-  get folder() {
-    return t('No audio file in this folder');
-  },
-  get crate() {
-    return t('This crate is empty: drag tracks onto it');
-  },
-  get history() {
-    return t('No track in this set');
-  },
-  get prepare() {
-    return t('Drag tracks here or press {ctrl} + P to line them up for the set', { ctrl: CTRL });
-  },
-  get duplicates() {
-    return t('No two tracks share an artist and a title');
-  },
+const EMPTY_LIST: Record<TrackSource['kind'], Text> = {
+  folder: () => t('No audio file in this folder'),
+  crate: () => t('This crate is empty: drag tracks onto it'),
+  history: () => t('No track in this set'),
+  prepare: () =>
+    t('Drag tracks here or press {ctrl} + P to line them up for the set', { ctrl: CTRL }),
+  duplicates: () => t('No two tracks share an artist and a title'),
 };
 
 const STARS = [1, 2, 3, 4, 5];
@@ -194,7 +185,7 @@ export class TrackTable {
   private readonly deckPaths = computed(() => this.engine.tracks().map((track) => track?.path));
 
   protected readonly emptyMessage = computed(() => {
-    if (this.library.scope() === 'list') return EMPTY_LIST[this.library.source().kind];
+    if (this.library.scope() === 'list') return EMPTY_LIST[this.library.source().kind]();
     return this.library.filter().trim()
       ? t('No analysed track matches')
       : t('Type to search every analysed track');

@@ -34,7 +34,7 @@
 
     <div class="list" id="palette-list" role="listbox" #list>
       @for (g of groups(); track g.id) {
-        <div class="pr-label section">{{ g.label }}</div>
+        <div class="pr-label section">{{ g.label() }}</div>
         @for (item of g.items; track $index) {
           @let index = flat().indexOf(item);
           <div

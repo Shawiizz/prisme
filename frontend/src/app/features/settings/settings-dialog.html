@@ -27,7 +27,7 @@
             (click)="go(p.id)"
           >
             <app-settings-icon [page]="p.id" />
-            <span>{{ p.label }}</span>
+            <span>{{ p.label() }}</span>
           </button>
         }
       </nav>
@@ -48,8 +48,8 @@
               }}
             </p>
           } @else {
-            <h2>{{ page().label }}</h2>
-            <p>{{ page().description }}</p>
+            <h2>{{ page().label() }}</h2>
+            <p>{{ page().description() }}</p>
           }
         </div>
         <button
@@ -79,10 +79,10 @@
                     [class.is-pointed]="pointed() === e.id"
                   >
                     <div>
-                      <span class="pr-row__name">{{ e.label }}</span>
-                      <span class="pr-row__help">{{ e.description }}</span>
+                      <span class="pr-row__name">{{ e.label() }}</span>
+                      <span class="pr-row__help">{{ e.description() }}</span>
                     </div>
-                    <div class="pr-seg pr-seg--lg" role="radiogroup" [attr.aria-label]="e.label">
+                    <div class="pr-seg pr-seg--lg" role="radiogroup" [attr.aria-label]="e.label()">
                       @for (b of service.backends(); track b) {
                         <button
                           role="radio"
@@ -103,8 +103,10 @@
                     [class.is-pointed]="pointed() === e.id"
                   >
                     <div>
-                      <span class="pr-row__name">{{ oneDevice() ? driverLabel() : e.label }}</span>
-                      <span class="pr-row__help">{{ e.description }}</span>
+                      <span class="pr-row__name">{{
+                        oneDevice() ? driverLabel() : e.label()
+                      }}</span>
+                      <span class="pr-row__help">{{ e.description() }}</span>
                     </div>
                     @if (oneDevice()) {
                       <select
@@ -129,7 +131,7 @@
                         class="pr-select"
                         [value]="d.outputDevice ?? ''"
                         (change)="update({ outputDevice: orNull($any($event.target).value) })"
-                        [attr.aria-label]="e.label"
+                        [attr.aria-label]="e.label()"
                       >
                         <option value="">{{ 'Default device' | t }}</option>
                         @for (o of outputs(); track o.name) {
@@ -150,8 +152,8 @@
                     [class.is-pointed]="pointed() === e.id"
                   >
                     <div>
-                      <span class="pr-row__name">{{ e.label }}</span>
-                      <span class="pr-row__help">{{ e.description }}</span>
+                      <span class="pr-row__name">{{ e.label() }}</span>
+                      <span class="pr-row__help">{{ e.description() }}</span>
                     </div>
                     <select
                       class="pr-select"
@@ -164,7 +166,7 @@
                               : +$any($event.target).value,
                         })
                       "
-                      [attr.aria-label]="e.label"
+                      [attr.aria-label]="e.label()"
                     >
                       <option value="">{{ 'Driver default' | t }}</option>
                       @for (n of bufferSizes(); track n) {
@@ -183,8 +185,8 @@
                     [class.is-pointed]="pointed() === e.id"
                   >
                     <div>
-                      <span class="pr-row__name">{{ e.label }}</span>
-                      <span class="pr-row__help">{{ e.description }}</span>
+                      <span class="pr-row__name">{{ e.label() }}</span>
+                      <span class="pr-row__help">{{ e.description() }}</span>
                       @if (latency(); as l) {
                         @if (l !== 'measuring' && 'error' in l) {
                           <span class="pr-row__help latency-error">{{ l.error }}</span>
@@ -258,9 +260,9 @@
                       <span class="pr-row__name">{{
                         oneDevice()
                           ? ('Turntables plugged into the inputs of this driver' | t)
-                          : e.label
+                          : e.label()
                       }}</span>
-                      <span class="pr-row__help">{{ e.description }}</span>
+                      <span class="pr-row__help">{{ e.description() }}</span>
                     </div>
                     @if (oneDevice()) {
                       <button
@@ -279,7 +281,7 @@
                         [value]="d.inputDevice ?? ''"
                         (change)="update({ inputDevice: orNull($any($event.target).value) })"
                         [disabled]="d.simulate"
-                        [attr.aria-label]="e.label"
+                        [attr.aria-label]="e.label()"
                       >
                         <option value="">{{ 'None' | t }}</option>
                         @for (i of inputs(); track i.name) {
@@ -300,14 +302,14 @@
                     [class.is-pointed]="pointed() === e.id"
                   >
                     <div>
-                      <span class="pr-row__name">{{ e.label }}</span>
-                      <span class="pr-row__help">{{ e.description }}</span>
+                      <span class="pr-row__name">{{ e.label() }}</span>
+                      <span class="pr-row__help">{{ e.description() }}</span>
                     </div>
                     <select
                       class="pr-select"
                       [value]="d.timecodeFormat"
                       (change)="update({ timecodeFormat: $any($event.target).value })"
-                      [attr.aria-label]="e.label"
+                      [attr.aria-label]="e.label()"
                     >
                       @for (f of service.formats(); track f.id) {
                         <option [value]="f.id" [selected]="f.id === d.timecodeFormat">
@@ -325,14 +327,14 @@
                     [class.is-pointed]="pointed() === e.id"
                   >
                     <div>
-                      <span class="pr-row__name">{{ e.label }}</span>
-                      <span class="pr-row__help">{{ e.description }}</span>
+                      <span class="pr-row__name">{{ e.label() }}</span>
+                      <span class="pr-row__help">{{ e.description() }}</span>
                     </div>
                     <button
                       class="pr-switch"
                       role="switch"
                       [attr.aria-checked]="d.simulate"
-                      [attr.aria-label]="e.label"
+                      [attr.aria-label]="e.label()"
                       (click)="update({ simulate: !d.simulate })"
                     >
                       <span></span>
@@ -365,14 +367,14 @@
                   [class.is-pointed]="pointed() === e.id"
                 >
                   <div>
-                    <span class="pr-row__name">{{ e.label }}</span>
-                    <span class="pr-row__help">{{ e.description }}</span>
+                    <span class="pr-row__name">{{ e.label() }}</span>
+                    <span class="pr-row__help">{{ e.description() }}</span>
                   </div>
                   <select
                     class="pr-select"
                     [value]="mixMode()"
                     (change)="mixMode.set($any($event.target).value)"
-                    [attr.aria-label]="e.label"
+                    [attr.aria-label]="e.label()"
                   >
                     <option value="external">
                       {{ 'External mixer: deck A on outputs 1-2, deck B on 3-4' | t }}
@@ -392,13 +394,13 @@
                   [class.is-pointed]="pointed() === e.id"
                 >
                   <div>
-                    <span class="pr-row__name">{{ e.label }}</span>
-                    <span class="pr-row__help">{{ e.description }} {{ headphonesState() }}</span>
+                    <span class="pr-row__name">{{ e.label() }}</span>
+                    <span class="pr-row__help">{{ e.description() }} {{ headphonesState() }}</span>
                   </div>
                   <select
                     class="pr-select"
                     (change)="setHeadphones($any($event.target).value)"
-                    [attr.aria-label]="e.label"
+                    [attr.aria-label]="e.label()"
                   >
                     <option value="auto" [selected]="chosen.kind === 'auto'">
                       {{ 'Automatic' | t }}
@@ -425,10 +427,10 @@
                   [class.is-pointed]="pointed() === e.id"
                 >
                   <div>
-                    <span class="pr-row__name">{{ e.label }}</span>
-                    <span class="pr-row__help">{{ e.description }}</span>
+                    <span class="pr-row__name">{{ e.label() }}</span>
+                    <span class="pr-row__help">{{ e.description() }}</span>
                   </div>
-                  <div class="pr-seg pr-seg--lg" role="radiogroup" [attr.aria-label]="e.label">
+                  <div class="pr-seg pr-seg--lg" role="radiogroup" [attr.aria-label]="e.label()">
                     <button
                       role="radio"
                       [attr.aria-checked]="mixer.crossfaderCurve() === 'smooth'"
@@ -454,14 +456,14 @@
                   [class.is-pointed]="pointed() === e.id"
                 >
                   <div>
-                    <span class="pr-row__name">{{ e.label }}</span>
-                    <span class="pr-row__help">{{ e.description }}</span>
+                    <span class="pr-row__name">{{ e.label() }}</span>
+                    <span class="pr-row__help">{{ e.description() }}</span>
                   </div>
                   <button
                     class="pr-switch"
                     role="switch"
                     [attr.aria-checked]="mixer.limiter()"
-                    [attr.aria-label]="e.label"
+                    [attr.aria-label]="e.label()"
                     (click)="mixer.setLimiter(!mixer.limiter())"
                   >
                     <span></span>
@@ -482,14 +484,14 @@
                 @let e = entry('dj.sync');
                 <div class="pr-row" data-setting="dj.sync" [class.is-pointed]="pointed() === e.id">
                   <div>
-                    <span class="pr-row__name">{{ e.label }}</span>
-                    <span class="pr-row__help">{{ e.description }}</span>
+                    <span class="pr-row__name">{{ e.label() }}</span>
+                    <span class="pr-row__help">{{ e.description() }}</span>
                   </div>
                   <select
                     class="pr-select"
                     [value]="dj().vinylSync"
                     (change)="updateDj({ vinylSync: $any($event.target).value })"
-                    [attr.aria-label]="e.label"
+                    [attr.aria-label]="e.label()"
                   >
                     <option value="once">
                       {{ 'One shot: matches once, the pitch fader keeps working' | t }}
@@ -508,10 +510,10 @@
                   [class.is-pointed]="pointed() === e.id"
                 >
                   <div>
-                    <span class="pr-row__name">{{ e.label }}</span>
-                    <span class="pr-row__help">{{ e.description }}</span>
+                    <span class="pr-row__name">{{ e.label() }}</span>
+                    <span class="pr-row__help">{{ e.description() }}</span>
                   </div>
-                  <div class="pr-seg pr-seg--lg" role="radiogroup" [attr.aria-label]="e.label">
+                  <div class="pr-seg pr-seg--lg" role="radiogroup" [attr.aria-label]="e.label()">
                     @for (r of pitchRanges; track r) {
                       <button
                         role="radio"
@@ -532,14 +534,14 @@
                   [class.is-pointed]="pointed() === e.id"
                 >
                   <div>
-                    <span class="pr-row__name">{{ e.label }}</span>
-                    <span class="pr-row__help">{{ e.description }}</span>
+                    <span class="pr-row__name">{{ e.label() }}</span>
+                    <span class="pr-row__help">{{ e.description() }}</span>
                   </div>
                   <button
                     class="pr-switch"
                     role="switch"
                     [attr.aria-checked]="dj().quantize"
-                    [attr.aria-label]="e.label"
+                    [attr.aria-label]="e.label()"
                     (click)="updateDj({ quantize: !dj().quantize })"
                   >
                     <span></span>
@@ -550,10 +552,10 @@
                 @let e = entry('dj.decks');
                 <div class="pr-row" data-setting="dj.decks" [class.is-pointed]="pointed() === e.id">
                   <div>
-                    <span class="pr-row__name">{{ e.label }}</span>
-                    <span class="pr-row__help">{{ e.description }}</span>
+                    <span class="pr-row__name">{{ e.label() }}</span>
+                    <span class="pr-row__help">{{ e.description() }}</span>
                   </div>
-                  <div class="pr-seg pr-seg--lg" role="radiogroup" [attr.aria-label]="e.label">
+                  <div class="pr-seg pr-seg--lg" role="radiogroup" [attr.aria-label]="e.label()">
                     @for (count of [2, MAX_DECKS]; track count) {
                       <button
                         role="radio"
@@ -574,14 +576,14 @@
                   [class.is-pointed]="pointed() === e.id"
                 >
                   <div>
-                    <span class="pr-row__name">{{ e.label }}</span>
-                    <span class="pr-row__help">{{ e.description }}</span>
+                    <span class="pr-row__name">{{ e.label() }}</span>
+                    <span class="pr-row__help">{{ e.description() }}</span>
                   </div>
                   <button
                     class="pr-switch"
                     role="switch"
                     [attr.aria-checked]="dj().autoGain"
-                    [attr.aria-label]="e.label"
+                    [attr.aria-label]="e.label()"
                     (click)="updateDj({ autoGain: !dj().autoGain })"
                   >
                     <span></span>
@@ -596,14 +598,14 @@
                   [class.is-pointed]="pointed() === e.id"
                 >
                   <div>
-                    <span class="pr-row__name">{{ e.label }}</span>
-                    <span class="pr-row__help">{{ e.description }}</span>
+                    <span class="pr-row__name">{{ e.label() }}</span>
+                    <span class="pr-row__help">{{ e.description() }}</span>
                   </div>
                   <button
                     class="pr-switch"
                     role="switch"
                     [attr.aria-checked]="dj().knobMagnet"
-                    [attr.aria-label]="e.label"
+                    [attr.aria-label]="e.label()"
                     (click)="updateDj({ knobMagnet: !dj().knobMagnet })"
                   >
                     <span></span>
@@ -618,14 +620,14 @@
                   [class.is-pointed]="pointed() === e.id"
                 >
                   <div>
-                    <span class="pr-row__name">{{ e.label }}</span>
-                    <span class="pr-row__help">{{ e.description }}</span>
+                    <span class="pr-row__name">{{ e.label() }}</span>
+                    <span class="pr-row__help">{{ e.description() }}</span>
                   </div>
                   <button
                     class="pr-switch"
                     role="switch"
                     [attr.aria-checked]="dj().lockControls"
-                    [attr.aria-label]="e.label"
+                    [attr.aria-label]="e.label()"
                     (click)="updateDj({ lockControls: !dj().lockControls })"
                   >
                     <span></span>
@@ -650,14 +652,14 @@
                   [class.is-pointed]="pointed() === e.id"
                 >
                   <div>
-                    <span class="pr-row__name">{{ e.label }}</span>
-                    <span class="pr-row__help">{{ e.description }}</span>
+                    <span class="pr-row__name">{{ e.label() }}</span>
+                    <span class="pr-row__help">{{ e.description() }}</span>
                   </div>
                   <button
                     class="pr-switch"
                     role="switch"
                     [attr.aria-checked]="writeTags()"
-                    [attr.aria-label]="e.label"
+                    [attr.aria-label]="e.label()"
                     (click)="setWriteTags(!writeTags())"
                   >
                     <span></span>
@@ -672,14 +674,14 @@
                   [class.is-pointed]="pointed() === e.id"
                 >
                   <div>
-                    <span class="pr-row__name">{{ e.label }}</span>
-                    <span class="pr-row__help">{{ e.description }}</span>
+                    <span class="pr-row__name">{{ e.label() }}</span>
+                    <span class="pr-row__help">{{ e.description() }}</span>
                   </div>
                   <button
                     class="pr-switch"
                     role="switch"
                     [attr.aria-checked]="replaceTags()"
-                    [attr.aria-label]="e.label"
+                    [attr.aria-label]="e.label()"
                     (click)="setReplaceTags(!replaceTags())"
                   >
                     <span></span>
@@ -694,14 +696,14 @@
                   [class.is-pointed]="pointed() === e.id"
                 >
                   <div>
-                    <span class="pr-row__name">{{ e.label }}</span>
-                    <span class="pr-row__help">{{ e.description }}</span>
+                    <span class="pr-row__name">{{ e.label() }}</span>
+                    <span class="pr-row__help">{{ e.description() }}</span>
                   </div>
                   <button
                     class="pr-switch"
                     role="switch"
                     [attr.aria-checked]="pauseWhilePlaying()"
-                    [attr.aria-label]="e.label"
+                    [attr.aria-label]="e.label()"
                     (click)="setPauseWhilePlaying(!pauseWhilePlaying())"
                   >
                     <span></span>
@@ -716,10 +718,10 @@
                   [class.is-pointed]="pointed() === e.id"
                 >
                   <div>
-                    <span class="pr-row__name">{{ e.label }}</span>
-                    <span class="pr-row__help">{{ e.description }}</span>
+                    <span class="pr-row__name">{{ e.label() }}</span>
+                    <span class="pr-row__help">{{ e.description() }}</span>
                   </div>
-                  <div class="pr-seg pr-seg--lg" role="radiogroup" [attr.aria-label]="e.label">
+                  <div class="pr-seg pr-seg--lg" role="radiogroup" [attr.aria-label]="e.label()">
                     <button
                       role="radio"
                       [attr.aria-checked]="!stemsFast()"
@@ -758,8 +760,8 @@
                     [class.is-pointed]="pointed() === e.id"
                   >
                     <div>
-                      <span class="pr-row__name">{{ e.label }}</span>
-                      <span class="pr-row__help">{{ e.description }}</span>
+                      <span class="pr-row__name">{{ e.label() }}</span>
+                      <span class="pr-row__help">{{ e.description() }}</span>
                       @if (m.model.error; as error) {
                         <span class="pr-row__help error">{{ error }}</span>
                       }
@@ -788,18 +790,18 @@
                   [class.is-pointed]="pointed() === e.id"
                 >
                   <div>
-                    <span class="pr-row__name">{{ e.label }}</span>
+                    <span class="pr-row__name">{{ e.label() }}</span>
                     <span class="pr-row__help">{{
                       stems.gpu() === false
                         ? ('No graphics chip worth it here: the processor separates.' | t)
-                        : e.description
+                        : e.description()
                     }}</span>
                   </div>
                   <button
                     class="pr-switch"
                     role="switch"
                     [attr.aria-checked]="separatesOnGpu()"
-                    [attr.aria-label]="e.label"
+                    [attr.aria-label]="e.label()"
                     [disabled]="stems.gpu() === false"
                     (click)="setStemsGpu(!preferences.library().stemsGpu)"
                   >
@@ -815,14 +817,14 @@
                   [class.is-pointed]="pointed() === e.id"
                 >
                   <div>
-                    <span class="pr-row__name">{{ e.label }}</span>
-                    <span class="pr-row__help">{{ e.description }}</span>
+                    <span class="pr-row__name">{{ e.label() }}</span>
+                    <span class="pr-row__help">{{ e.description() }}</span>
                   </div>
                   <button
                     class="pr-switch"
                     role="switch"
                     [attr.aria-checked]="separateOnLoad()"
-                    [attr.aria-label]="e.label"
+                    [attr.aria-label]="e.label()"
                     (click)="setSeparateOnLoad(!separateOnLoad())"
                   >
                     <span></span>
@@ -837,8 +839,8 @@
                   [class.is-pointed]="pointed() === e.id"
                 >
                   <div>
-                    <span class="pr-row__name">{{ e.label }}</span>
-                    <span class="pr-row__help">{{ e.description }}</span>
+                    <span class="pr-row__name">{{ e.label() }}</span>
+                    <span class="pr-row__help">{{ e.description() }}</span>
                   </div>
                   <button
                     class="pr-btn pr-btn--sm"
@@ -881,10 +883,10 @@
                   [class.is-pointed]="pointed() === e.id"
                 >
                   <div>
-                    <span class="pr-row__name">{{ e.label }}</span>
-                    <span class="pr-row__help">{{ e.description }}</span>
+                    <span class="pr-row__name">{{ e.label() }}</span>
+                    <span class="pr-row__help">{{ e.description() }}</span>
                   </div>
-                  <div class="pr-seg pr-seg--lg" role="radiogroup" [attr.aria-label]="e.label">
+                  <div class="pr-seg pr-seg--lg" role="radiogroup" [attr.aria-label]="e.label()">
                     @for (l of languages; track l.id) {
                       <button
                         role="radio"
@@ -905,16 +907,16 @@
                   [class.is-pointed]="pointed() === e.id"
                 >
                   <div>
-                    <span class="pr-row__name">{{ e.label }}</span>
+                    <span class="pr-row__name">{{ e.label() }}</span>
                     <span class="pr-row__help">{{
-                      screens.below() ? e.description : ('No screen under this one.' | t)
+                      screens.below() ? e.description() : ('No screen under this one.' | t)
                     }}</span>
                   </div>
                   <button
                     class="pr-switch"
                     role="switch"
                     [attr.aria-checked]="screens.span() !== null"
-                    [attr.aria-label]="e.label"
+                    [attr.aria-label]="e.label()"
                     [disabled]="!screens.below()"
                     (click)="screens.spread(screens.span() === null)"
                   >
@@ -943,7 +945,7 @@
                     <span class="pr-row__name"
                       >Prisme <span class="pr-num">{{ version() }}</span></span
                     >
-                    <span class="pr-row__help">{{ e.description }}</span>
+                    <span class="pr-row__help">{{ e.description() }}</span>
                   </div>
                 </div>
               }
@@ -955,14 +957,14 @@
                   [class.is-pointed]="pointed() === e.id"
                 >
                   <div>
-                    <span class="pr-row__name">{{ e.label }}</span>
+                    <span class="pr-row__name">{{ e.label() }}</span>
                     <span class="pr-row__help">
                       @if (updates.available(); as update) {
                         {{
                           'Prisme {version} is ready to install.' | t: { version: update.version }
                         }}
                       } @else {
-                        {{ e.description }}
+                        {{ e.description() }}
                       }
                     </span>
                   </div>
@@ -987,8 +989,8 @@
                   [class.is-pointed]="pointed() === e.id"
                 >
                   <div>
-                    <span class="pr-row__name">{{ e.label }}</span>
-                    <span class="pr-row__help">{{ e.description }}</span>
+                    <span class="pr-row__name">{{ e.label() }}</span>
+                    <span class="pr-row__help">{{ e.description() }}</span>
                   </div>
                   <button class="pr-btn" (click)="saveDiagnostics()">
                     {{

@@ -1,61 +1,45 @@
 import { Component, inject, input, linkedSignal, output } from '@angular/core';
 import { Crate, Rule, SmartRules, TextField } from '../../../core/models/library';
 import { LibraryService } from '../../../core/services/library.service';
-import { t } from '../../../core/i18n/i18n';
+import { Text, t } from '../../../core/i18n/i18n';
 import { TPipe } from '../../../core/i18n/t.pipe';
 import { Dismiss, overlay } from '../../../shared/overlay';
 
 type Choice = TextField | 'bpm' | 'year' | 'key';
 
-const CHOICES: { id: Choice; label: string }[] = [
+const CHOICES: { id: Choice; label: Text }[] = [
   {
     id: 'genre',
-    get label() {
-      return t('Genre');
-    },
+    label: () => t('Genre'),
   },
   {
     id: 'artist',
-    get label() {
-      return t('Artist');
-    },
+    label: () => t('Artist'),
   },
   {
     id: 'title',
-    get label() {
-      return t('Title');
-    },
+    label: () => t('Title'),
   },
   {
     id: 'album',
-    get label() {
-      return t('Album');
-    },
+    label: () => t('Album'),
   },
   {
     id: 'comment',
-    get label() {
-      return t('Comment');
-    },
+    label: () => t('Comment'),
   },
   {
     id: 'fileName',
-    get label() {
-      return t('File name');
-    },
+    label: () => t('File name'),
   },
-  { id: 'bpm', label: 'BPM' },
+  { id: 'bpm', label: () => 'BPM' },
   {
     id: 'year',
-    get label() {
-      return t('Year');
-    },
+    label: () => t('Year'),
   },
   {
     id: 'key',
-    get label() {
-      return t('Key');
-    },
+    label: () => t('Key'),
   },
 ];
 

@@ -3,7 +3,7 @@ import { BANDS, Band } from '../../../core/models/engine';
 import { MixerService } from '../../../core/services/mixer.service';
 import { Knob } from '../../../shared/knob/knob';
 import { eqGain, eqKnob, readouts, trimGain, trimKnob } from '../../../shared/mixer-scales';
-import { t } from '../../../core/i18n/i18n';
+import { Text, t } from '../../../core/i18n/i18n';
 import { TPipe } from '../../../core/i18n/t.pipe';
 
 /** A deck's channel of the software mixer, before its fader: trim, EQ with kills, filter. */
@@ -23,7 +23,7 @@ import { TPipe } from '../../../core/i18n/t.pipe';
     @for (b of bands; track b.band) {
       <app-knob
         [label]="b.label"
-        [labelTitle]="b.killTitle"
+        [labelTitle]="b.killTitle()"
         bipolar
         [format]="readouts.eq"
         [value]="eqKnob(b.band)"
@@ -55,27 +55,21 @@ export class ChannelStrip {
   readonly trim = input(true);
   protected readonly mixer = inject(MixerService);
   protected readonly readouts = readouts;
-  protected readonly bands: { band: Band; label: string; killTitle: string }[] = [
+  protected readonly bands: { band: Band; label: string; killTitle: Text }[] = [
     {
       band: 'high',
       label: 'HI',
-      get killTitle() {
-        return t('Click to kill the highs');
-      },
+      killTitle: () => t('Click to kill the highs'),
     },
     {
       band: 'mid',
       label: 'MID',
-      get killTitle() {
-        return t('Click to kill the mids');
-      },
+      killTitle: () => t('Click to kill the mids'),
     },
     {
       band: 'low',
       label: 'LOW',
-      get killTitle() {
-        return t('Click to kill the bass');
-      },
+      killTitle: () => t('Click to kill the bass'),
     },
   ];
 

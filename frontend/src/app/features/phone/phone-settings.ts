@@ -38,7 +38,7 @@ import { SettingsIcon } from '../settings/settings-icon';
               <button (click)="navigation.openSettings(s.page, s.id)">
                 <app-settings-icon [page]="s.page" />
                 <span class="names">
-                  <span>{{ s.label }}</span>
+                  <span>{{ s.label() }}</span>
                   <span>{{ s.pageLabel }}</span>
                 </span>
                 <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M6 3l5 5-5 5" /></svg>
@@ -54,8 +54,8 @@ import { SettingsIcon } from '../settings/settings-icon';
             <button (click)="navigation.openSettings(page.id)">
               <app-settings-icon [page]="page.id" />
               <span class="names">
-                <span>{{ page.label }}</span>
-                <span>{{ page.description }}</span>
+                <span>{{ page.label() }}</span>
+                <span>{{ page.description() }}</span>
               </span>
               <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M6 3l5 5-5 5" /></svg>
             </button>
@@ -79,8 +79,8 @@ export class PhoneSettings {
     return SETTINGS.flatMap((s) => {
       const page = this.pages.find((p) => p.id === s.page);
       if (!page) return [];
-      const text = `${s.label} ${s.description} ${page.label} ${page.keywords}`;
-      return matches(words, text) ? [{ ...s, pageLabel: page.label }] : [];
+      const text = `${s.label()} ${s.description()} ${page.label()} ${page.keywords}`;
+      return matches(words, text) ? [{ ...s, pageLabel: page.label() }] : [];
     });
   });
 

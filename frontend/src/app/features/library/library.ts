@@ -38,9 +38,9 @@ export class Library {
     return p.total > 0 ? (p.done / p.total) * 100 : 0;
   });
 
-  protected readonly listLabel = computed(() => LIST_LABEL[this.library.source().kind]);
-  protected readonly searchPlaceholder = computed(
-    () => SEARCH_PLACEHOLDER[this.library.source().kind],
+  protected readonly listLabel = computed(() => LIST_LABEL[this.library.source().kind]());
+  protected readonly searchPlaceholder = computed(() =>
+    SEARCH_PLACEHOLDER[this.library.source().kind](),
   );
 
   constructor() {

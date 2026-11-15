@@ -42,7 +42,7 @@
               (change)="setChoice(i, $any($event.target).value)"
             >
               @for (c of choices; track c.id) {
-                <option [value]="c.id">{{ c.label }}</option>
+                <option [value]="c.id">{{ c.label() }}</option>
               }
             </select>
             @if (r.kind === 'text') {

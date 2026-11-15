@@ -80,11 +80,11 @@ export class SettingsDialog implements OnInit {
     if (!words.length) return null;
     const pagesFound = new Set(
       this.pages
-        .filter((p) => matches(words, `${p.label} ${p.description} ${p.keywords}`))
+        .filter((p) => matches(words, `${p.label()} ${p.description()} ${p.keywords}`))
         .map((p) => p.id),
     );
     const settings = new Set(
-      SETTINGS.filter((s) => matches(words, `${s.label} ${s.description}`)).map((s) => s.id),
+      SETTINGS.filter((s) => matches(words, `${s.label()} ${s.description()}`)).map((s) => s.id),
     );
     return { pages: pagesFound, settings };
   });
@@ -245,7 +245,7 @@ export class SettingsDialog implements OnInit {
   }
 
   pageLabel(category: SettingsCategory): string {
-    return this.pages.find((p) => p.id === category)?.label ?? '';
+    return this.pages.find((p) => p.id === category)?.label() ?? '';
   }
 
   /** Pages that are panels rather than rows: shown whole when the search finds them. */

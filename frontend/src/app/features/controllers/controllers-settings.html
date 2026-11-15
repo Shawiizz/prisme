@@ -83,7 +83,7 @@
                   [attr.aria-label]="'Steps' | t"
                 >
                   @for (e of stepEncodings; track e.value) {
-                    <option [value]="e.value">{{ e.label }}</option>
+                    <option [value]="e.value">{{ e.label() }}</option>
                   }
                 </select>
               }
