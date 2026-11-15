@@ -75,7 +75,9 @@ pub fn start<C: AudioCallback>(
     loop {
         let config = tried.next().expect("a device has a configuration");
         match start_with(settings, &out_device, config, &mut make_callback) {
-            Err(e) if tried.peek().is_some() => warn!("output refused with all its channels ({e}): trying fewer"),
+            Err(e) if tried.peek().is_some() => {
+                warn!("output refused with all its channels ({e}): trying fewer")
+            }
             started => return started,
         }
     }
@@ -174,7 +176,9 @@ fn open_input(
     loop {
         let config = tried.next().expect("a device has a configuration");
         match open_input_with(&device, config, sample_rate, stats) {
-            Err(e) if tried.peek().is_some() => warn!("input refused with all its channels ({e}): trying fewer"),
+            Err(e) if tried.peek().is_some() => {
+                warn!("input refused with all its channels ({e}): trying fewer")
+            }
             opened => return opened,
         }
     }

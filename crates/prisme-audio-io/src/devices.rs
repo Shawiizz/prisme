@@ -122,7 +122,8 @@ pub fn list_devices(backend: Backend) -> Result<Vec<DeviceInfo>, AudioError> {
     let default_out = host.default_output_device().as_ref().and_then(device_name);
     let mut list = Vec::new();
     for device in host.output_devices()? {
-        if let (Some(name), Some(config)) = (device_name(&device), first_config(&device, DeviceKind::Output)) {
+        if let (Some(name), Some(config)) = (device_name(&device), first_config(&device, DeviceKind::Output))
+        {
             list.push(DeviceInfo {
                 is_default: Some(&name) == default_out.as_ref(),
                 name,
@@ -241,7 +242,10 @@ fn buffer_range(supported: &cpal::SupportedBufferSize) -> Option<(u32, u32)> {
 /// The configurations to open `device` with, the system's default last. A sound card plugged
 /// into a phone comes first with all its channels: Android offers it in stereo, which would
 /// leave out the outputs past the master and the second turntable's inputs.
-pub(crate) fn configs(device: &cpal::Device, kind: DeviceKind) -> Result<Vec<cpal::SupportedStreamConfig>, AudioError> {
+pub(crate) fn configs(
+    device: &cpal::Device,
+    kind: DeviceKind,
+) -> Result<Vec<cpal::SupportedStreamConfig>, AudioError> {
     let default = match kind {
         DeviceKind::Output => device.default_output_config()?,
         DeviceKind::Input => device.default_input_config()?,
@@ -258,8 +262,8 @@ fn first_config(device: &cpal::Device, kind: DeviceKind) -> Option<cpal::Support
     configs(device, kind).ok()?.into_iter().next()
 }
 
-/// The configuration of a USB sound card with the most channels, more than `default`, at its
-/// rate and in its format.
+/// The configuration of a USB sound card with all its channels, when it has more than
+/// `default`, at its rate and in its format.
 #[cfg(target_os = "android")]
 fn widest(
     device: &cpal::Device,
@@ -269,19 +273,70 @@ fn widest(
     if device.description().ok()?.interface_type() != cpal::InterfaceType::Usb {
         return None;
     }
-    let ranges: Vec<_> = match kind {
-        DeviceKind::Output => device.supported_output_configs().ok()?.collect(),
-        DeviceKind::Input => device.supported_input_configs().ok()?.collect(),
+    let ranges = supported(device, kind)?;
+    let own: Vec<u16> = ranges.iter().map(|r| r.channels()).collect();
+    let other = || {
+        let other = match kind {
+            DeviceKind::Output => DeviceKind::Input,
+            DeviceKind::Input => DeviceKind::Output,
+        };
+        let device = find(Backend::AAudio, other, Some(&device_name(device)?)).ok()?;
+        Some(supported(&device, other)?.iter().map(|r| r.channels()).collect::<Vec<_>>())
     };
+    let channels = card_channels(&own, other).filter(|&c| c > default.channels())?;
     ranges
         .into_iter()
-        .filter(|r| r.sample_format() == default.sample_format() && r.channels() > default.channels())
-        .filter_map(|r| r.try_with_sample_rate(default.sample_rate()))
-        .max_by_key(|c| c.channels())
+        .filter(|r| r.sample_format() == default.sample_format() && r.channels() == channels)
+        .find_map(|r| r.try_with_sample_rate(default.sample_rate()))
+}
+
+#[cfg(target_os = "android")]
+fn supported(device: &cpal::Device, kind: DeviceKind) -> Option<Vec<cpal::SupportedStreamConfigRange>> {
+    match kind {
+        DeviceKind::Output => device.supported_output_configs().ok().map(Iterator::collect),
+        DeviceKind::Input => device.supported_input_configs().ok().map(Iterator::collect),
+    }
+}
+
+/// The channel counts the AAudio host of cpal offers for a side of a device Android
+/// describes nothing of: guesses, not the device's.
+#[cfg(any(target_os = "android", test))]
+const GUESSED_CHANNELS: [u16; 5] = [1, 2, 4, 6, 8];
+
+/// The channels of a side of a sound card that offers `own` channel counts: the most of
+/// them, or, when they are cpal's guesses, the most of the `other` side's. Android describes
+/// no input of a UMC404HD, and opened in eight channels its four arrive mixed up.
+#[cfg(any(target_os = "android", test))]
+fn card_channels(own: &[u16], other: impl FnOnce() -> Option<Vec<u16>>) -> Option<u16> {
+    let known = |counts: &[u16]| {
+        let mut set = counts.to_vec();
+        set.sort_unstable();
+        set.dedup();
+        (set != GUESSED_CHANNELS).then(|| set.last().copied()).flatten()
+    };
+    known(own).or_else(|| known(&other()?))
 }
 
 pub(crate) fn device_name(device: &cpal::Device) -> Option<String> {
     device.description().ok().map(|d| d.name().to_string())
+}
+
+#[cfg(test)]
+mod card_channels_tests {
+    use super::{card_channels, GUESSED_CHANNELS};
+
+    #[test]
+    fn a_side_described_has_its_most_channels() {
+        assert_eq!(card_channels(&[2, 4, 2, 4], || panic!("the other side is not asked")), Some(4));
+    }
+
+    #[test]
+    fn a_side_described_by_guesses_has_the_channels_of_the_other() {
+        let guessed: Vec<u16> = GUESSED_CHANNELS.iter().copied().cycle().take(15).collect();
+        assert_eq!(card_channels(&guessed, || Some(vec![2, 3, 4])), Some(4));
+        assert_eq!(card_channels(&guessed, || Some(guessed.clone())), None);
+        assert_eq!(card_channels(&guessed, || None), None);
+    }
 }
 
 #[cfg(test)]
