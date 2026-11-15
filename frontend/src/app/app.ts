@@ -8,6 +8,7 @@ import { SettingsDialog } from './features/settings/settings-dialog';
 import { CommandPalette } from './features/command-palette/command-palette';
 import { SelectPicker } from './shared/select-picker/select-picker';
 import { Confirm } from './shared/confirm/confirm';
+import { Tooltip } from './shared/tooltip/tooltip';
 import { Phone } from './features/phone/phone';
 import { NowPlaying } from './shell/now-playing/now-playing';
 import { ScreensService } from './core/services/screens.service';
@@ -36,6 +37,7 @@ const WHOLE_LANES_PX = 420;
   imports: [
     SelectPicker,
     Confirm,
+    Tooltip,
     Titlebar,
     DeckLane,
     PhaseStrip,

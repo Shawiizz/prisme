@@ -51,6 +51,7 @@ export class DeckCard {
   private readonly vinyl = deckVinyl(this.deck);
   protected readonly modes = DECK_MODES;
   protected readonly mode = this.vinyl.mode;
+  protected readonly vinylOffered = this.vinyl.offered;
   protected readonly signal = this.vinyl.signal;
   protected readonly signalTitle = this.vinyl.signalTitle;
   protected readonly setMode = this.vinyl.setMode;

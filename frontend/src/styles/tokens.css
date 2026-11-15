@@ -5,12 +5,14 @@
   /* what sticks to the edge of a scrolling list, over its rows */
   --pr-z-sticky: 1;
   /* layers over the page, each a veil with what it holds just above it: a menu, a sheet
-     risen over a phone's panel, a dialog, a list opened from it, a question over all */
+     risen over a phone's panel, a dialog, a list opened from it, a question over all, and
+     the tip of what the mouse rests on */
   --pr-z-menu: 20;
   --pr-z-sheet: 22;
   --pr-z-dialog: 100;
   --pr-z-picker: 110;
   --pr-z-question: 120;
+  --pr-z-tip: 130;
 
   color-scheme: dark;
 

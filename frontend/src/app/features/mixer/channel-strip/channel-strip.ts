@@ -15,21 +15,11 @@ import {
 import { Text, t } from '../../../core/i18n/i18n';
 import { TPipe } from '../../../core/i18n/t.pipe';
 
-/** A deck's channel of the software mixer, before its fader: trim, EQ with kills, filter. */
+/** A deck's channel of the software mixer, before its fader: EQ with kills, trim, filter. The
+ * three bands come first, side by side as on a mixer. */
 @Component({
   selector: 'app-channel-strip',
   template: `
-    @if (trim()) {
-      <app-knob
-        label="TRIM"
-        [labelTitle]="'Gain before the EQ (±12 dB)' | t"
-        bipolar
-        [magnetic]="magnetic()"
-        [format]="readouts.trim"
-        [value]="trimKnob()"
-        (valueChange)="setTrim($event)"
-      />
-    }
     @for (b of bands; track b.band) {
       <app-knob
         [label]="b.label"
@@ -41,6 +31,17 @@ import { TPipe } from '../../../core/i18n/t.pipe';
         [active]="killed(b.band)"
         (valueChange)="setEq(b.band, $event)"
         (labelClick)="toggleKill(b.band)"
+      />
+    }
+    @if (trim()) {
+      <app-knob
+        label="TRIM"
+        [labelTitle]="'Gain before the EQ (±12 dB)' | t"
+        bipolar
+        [magnetic]="magnetic()"
+        [format]="readouts.trim"
+        [value]="trimKnob()"
+        (valueChange)="setTrim($event)"
       />
     }
     <app-knob

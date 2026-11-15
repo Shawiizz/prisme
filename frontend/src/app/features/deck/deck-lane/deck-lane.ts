@@ -1,5 +1,7 @@
-import { Component, booleanAttribute, inject, input } from '@angular/core';
+import { Component, ElementRef, booleanAttribute, inject, input, signal } from '@angular/core';
+import { LibraryService } from '../../../core/services/library.service';
 import { MixerService } from '../../../core/services/mixer.service';
+import { TRACKS_DRAG_TYPE } from '../../../shared/drag';
 import { ChannelSlot } from '../../mixer/channel-slot/channel-slot';
 import { DeckCard } from '../deck-card/deck-card';
 import { DeckControls } from '../deck-controls/deck-controls';
@@ -10,7 +12,8 @@ import { PitchFader } from '../pitch-fader/pitch-fader';
 /**
  * Everything about a deck in one band, read from left to right: its panel, its waveform,
  * its channel when the software mixer runs, its pitch fader at the end where a turntable
- * has it; below, a rail with what plays it and its pads.
+ * has it; below, a rail with what plays it and its pads. A track dragged from the library
+ * onto it is loaded there.
  */
 @Component({
   selector: 'app-deck-lane',
@@ -60,6 +63,11 @@ import { PitchFader } from '../pitch-fader/pitch-fader';
       padding: 0 4px;
       min-width: 0;
     }
+    :host(.dropping) {
+      outline: 1px solid var(--pr-light);
+      outline-offset: 2px;
+      border-radius: var(--pr-radius);
+    }
     .divider {
       align-self: stretch;
       width: 1px;
@@ -67,7 +75,13 @@ import { PitchFader } from '../pitch-fader/pitch-fader';
       background: var(--pr-line);
     }
   `,
-  host: { '[class.compact]': 'compact()' },
+  host: {
+    '[class.compact]': 'compact()',
+    '[class.dropping]': 'dropping()',
+    '(dragover)': 'dragOver($event)',
+    '(dragleave)': 'dragLeave($event)',
+    '(drop)': 'drop($event)',
+  },
   imports: [ChannelSlot, DeckCard, DeckControls, DeckPads, DeckWaveform, PitchFader],
 })
 export class DeckLane {
@@ -75,4 +89,28 @@ export class DeckLane {
   /** Half the height, for four decks. */
   readonly compact = input(false, { transform: booleanAttribute });
   protected readonly mixer = inject(MixerService);
+  private readonly library = inject(LibraryService);
+  private readonly host = inject<ElementRef<HTMLElement>>(ElementRef).nativeElement;
+  protected readonly dropping = signal(false);
+
+  protected dragOver(event: DragEvent) {
+    if (!event.dataTransfer?.types.includes(TRACKS_DRAG_TYPE)) return;
+    event.preventDefault();
+    event.dataTransfer.dropEffect = 'copy';
+    this.dropping.set(true);
+  }
+
+  protected dragLeave(event: DragEvent) {
+    if (!this.host.contains(event.relatedTarget as Node | null)) this.dropping.set(false);
+  }
+
+  /** The first of the tracks dragged: a deck plays one. */
+  protected drop(event: DragEvent) {
+    this.dropping.set(false);
+    const data = event.dataTransfer?.getData(TRACKS_DRAG_TYPE);
+    if (!data) return;
+    event.preventDefault();
+    const [path] = JSON.parse(data) as string[];
+    if (path) this.library.load(path, this.deck());
+  }
 }

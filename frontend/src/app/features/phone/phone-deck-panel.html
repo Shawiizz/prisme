@@ -7,16 +7,18 @@
 >
   <button class="grip" (click)="closed.emit()" [attr.aria-label]="'Close' | t"></button>
 
-  <h4>{{ 'Deck {deck} · driven by' | t: { deck: letter() } }}</h4>
-  <div class="pr-seg pr-seg--lg wide" role="radiogroup">
-    @for (d of drivers; track d.id) {
-      <button role="radio" [attr.aria-checked]="mode() === d.id" (click)="setMode(d.id)">
-        {{ d.label() }}
-      </button>
+  @if (vinylOffered()) {
+    <h4>{{ 'Deck {deck} · driven by' | t: { deck: letter() } }}</h4>
+    <div class="pr-seg pr-seg--lg wide" role="radiogroup">
+      @for (d of drivers; track d.id) {
+        <button role="radio" [attr.aria-checked]="mode() === d.id" (click)="setMode(d.id)">
+          {{ d.label() }}
+        </button>
+      }
+    </div>
+    @if (signalTitle(); as told) {
+      <p class="told">{{ told }}</p>
     }
-  </div>
-  @if (signalTitle(); as told) {
-    <p class="told">{{ told }}</p>
   }
 
   <h4>

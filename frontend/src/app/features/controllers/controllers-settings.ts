@@ -1,4 +1,4 @@
-import { Component, OnDestroy, OnInit, computed, inject } from '@angular/core';
+import { Component, OnDestroy, OnInit, computed, inject, signal } from '@angular/core';
 import { ControlService } from '../../core/control/control.service';
 import { ControllerService } from '../../core/control/controller.service';
 import { Control } from '../../core/control/controls';
@@ -33,6 +33,9 @@ const STEP_ENCODINGS: { value: StepEncoding; label: Text }[] = [
   },
 ];
 
+/** The least time "Looking…" shows (ms). */
+const LOOKING_MS = 600;
+
 /** Settings page: MIDI controllers in use, and the mapping of the app's controls (learnt by moving them). */
 @Component({
   selector: 'app-controllers-settings',
@@ -43,6 +46,7 @@ const STEP_ENCODINGS: { value: StepEncoding; label: Text }[] = [
 })
 export class ControllersSettings implements OnInit, OnDestroy {
   protected readonly service = inject(ControllerService);
+  protected readonly refreshing = signal(false);
   private readonly controls = inject(ControlService);
 
   protected readonly stepEncodings = STEP_ENCODINGS;
@@ -66,6 +70,13 @@ export class ControllersSettings implements OnInit, OnDestroy {
 
   ngOnInit() {
     this.service.refresh();
+  }
+
+  /** Looked for long enough to be seen looking, even when nothing new is found. */
+  protected async refresh() {
+    this.refreshing.set(true);
+    await Promise.all([this.service.refresh(), new Promise((r) => setTimeout(r, LOOKING_MS))]);
+    this.refreshing.set(false);
   }
 
   ngOnDestroy() {

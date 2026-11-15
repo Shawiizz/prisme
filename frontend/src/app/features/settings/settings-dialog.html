@@ -651,7 +651,11 @@
                 [help]="
                   update
                     ? ('Prisme {version} is ready to install.' | t: { version: update.version })
-                    : null
+                    : updates.looked() === 'latest'
+                      ? ('This is the latest version.' | t)
+                      : updates.looked() === 'unreachable'
+                        ? ('Could not reach GitHub to check.' | t)
+                        : null
                 "
               >
                 @if (update) {
@@ -663,7 +667,13 @@
                     {{ updates.installing() ? ('Installing…' | t) : ('Install and restart' | t) }}
                   </button>
                 } @else {
-                  <button class="pr-btn" (click)="updates.look()">{{ 'Check now' | t }}</button>
+                  <button
+                    class="pr-btn"
+                    [disabled]="updates.looked() === 'looking'"
+                    (click)="updates.look()"
+                  >
+                    {{ updates.looked() === 'looking' ? ('Checking…' | t) : ('Check now' | t) }}
+                  </button>
                 }
               </app-setting-row>
               <app-setting-row id="about.diagnostics">

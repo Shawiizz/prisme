@@ -77,12 +77,16 @@
               'Analysis paused {done} / {total}'
                 | t: { done: progress().done, total: progress().total }
             }}</span>
+          } @else if (progress().total === 0) {
+            <span class="status">{{ 'Looking for new files…' | t }}</span>
           } @else {
             <span class="status">{{
               'Analysing {done} / {total}' | t: { done: progress().done, total: progress().total }
             }}</span>
           }
           <div class="bar"><div [style.width.%]="progressPercent()"></div></div>
+        } @else if (rescanned()) {
+          <span class="status">{{ 'Library up to date' | t }}</span>
         } @else if (progress().failed > 0) {
           <span class="status" [title]="'Files that could not be decoded' | t">{{
             '{n} unreadable' | t: { n: progress().failed }
@@ -97,8 +101,8 @@
         </button>
         <button
           class="pr-btn pr-btn--sm pr-btn--ghost"
-          (click)="library.rescan()"
-          [disabled]="progress().running"
+          (click)="rescan()"
+          [disabled]="progress().running || rescanning()"
           [title]="'Analyse new and changed files' | t"
         >
           {{ 'Rescan' | t }}

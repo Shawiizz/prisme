@@ -27,6 +27,12 @@ export class SettingsService {
     const rate = this.info()?.sampleRate;
     return frames && rate ? `${decimal((frames / rate) * 1000, 1)} ms` : null;
   });
+  /** Turntables can drive the decks: the audio reads their timecode from inputs, or
+   * simulates it. */
+  readonly turntables = computed(() => {
+    const info = this.info();
+    return !!info && (info.simulated || info.inputChannels >= 2);
+  });
   private devicesAsked = 0;
 
   /** Loads the settings, and again whenever the audio moves to other devices by itself. */

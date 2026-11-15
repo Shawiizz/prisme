@@ -72,21 +72,29 @@
       [title]="vinyl() ? ('Pitch of the turntable' | t) : ('Double-click to reset' | t)"
       >{{ pitchText() }}</span
     >
-    @if (pitchTarget(); as target) {
-      <span class="target pr-num" [title]="'Pitch to set on the turntable to match' | t"
-        >→ {{ target }}</span
+    @if (vinyl()) {
+      <span
+        class="target pr-num"
+        [class.unseen]="!pitchTarget()"
+        [title]="'Pitch to set on the turntable to match' | t"
+        >→ {{ pitchTarget() }}</span
       >
     }
-    @if (status()?.sync?.leader) {
-      <span class="pr-chip" [title]="'The other decks follow this one' | t">LEADER</span>
-    }
   </div>
-  <button
-    class="pr-btn pr-btn--sm key-lock"
-    [class.is-on]="settings().keyLock"
-    (click)="engine.setKeyLock(deck(), !settings().keyLock)"
-    [title]="'Key lock: the pitch stays when the tempo changes' | t"
-  >
-    KEY LOCK
-  </button>
+  <div class="line">
+    <button
+      class="pr-btn pr-btn--sm key-lock"
+      [class.is-on]="settings().keyLock"
+      (click)="engine.setKeyLock(deck(), !settings().keyLock)"
+      [title]="'Key lock: the pitch stays when the tempo changes' | t"
+    >
+      KEY LOCK
+    </button>
+    <span
+      class="pr-chip"
+      [class.unseen]="!status()?.sync?.leader"
+      [title]="'The other decks follow this one' | t"
+      >LEADER</span
+    >
+  </div>
 </div>

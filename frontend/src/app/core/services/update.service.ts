@@ -13,16 +13,21 @@ export class UpdateService {
   private readonly engine = inject(EngineService);
 
   readonly available = signal<Update | null>(null);
+  /** How the last look went, until the next. */
+  readonly looked = signal<'looking' | 'latest' | 'unreachable' | null>(null);
   readonly installing = signal(false);
   readonly decksPlaying = computed(
     () => this.engine.status()?.decks.some((d) => d.playing || Math.abs(d.speed) > 0.1) ?? false,
   );
 
   async look(): Promise<void> {
+    this.looked.set('looking');
     try {
-      this.available.set(await check());
+      const update = await check();
+      this.available.set(update);
+      this.looked.set(update ? null : 'latest');
     } catch {
-      // offline, or nothing published yet: nothing to offer
+      this.looked.set('unreachable');
     }
   }
 

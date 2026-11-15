@@ -104,6 +104,8 @@ export class LibraryService {
     running: false,
     paused: false,
   });
+  /** How many scans of the folder have ended. */
+  readonly scansEnded = signal(0);
   /** The library's database could not be opened: what changes is lost at exit. */
   readonly inMemory = signal(false);
   readonly filter = signal('');
@@ -239,7 +241,10 @@ export class LibraryService {
   async init(): Promise<void> {
     await Promise.all([
       listen<TrackAnalyzed>('track-analyzed', (e) => this.patch(e.payload)),
-      listen<AnalysisProgress>('library-progress', (e) => this.progress.set(e.payload)),
+      listen<AnalysisProgress>('library-progress', (e) => {
+        this.progress.set(e.payload);
+        if (!e.payload.running) this.scansEnded.update((n) => n + 1);
+      }),
       listen<string[]>('library-files-changed', (e) => this.relist(e.payload)),
     ]);
     this.progress.set(await invoke<AnalysisProgress>('library_progress'));

@@ -61,6 +61,7 @@ export class PhoneDeckPanel {
   protected readonly settings = computed(() => this.engine.decks()[this.deck()]);
   protected readonly drivers = DRIVERS;
   protected readonly mode = this.vinyl.mode;
+  protected readonly vinylOffered = this.vinyl.offered;
   protected readonly setMode = this.vinyl.setMode;
   /** What the record says, while it drives the deck. */
   protected readonly signalTitle = computed(() =>

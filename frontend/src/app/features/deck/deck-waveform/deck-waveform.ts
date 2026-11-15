@@ -28,7 +28,7 @@ const CLICK_PX = 3;
 const HAND_EVERY_MS = 4;
 /** Track time in one turn of a jog wheel (as the engine counts it, `jog.rs`). */
 const JOG_TURN_S = 1.8;
-/** A finger held still this long (ms) puts the hand on the record. */
+/** A press held still this long (ms) puts the hand on the record. */
 const HOLD_MS = 280;
 
 /** A press on a waveform, from where it started. */
@@ -42,9 +42,9 @@ interface Drag {
   moved: boolean;
   /** When the hand's position last went out (event time, ms). */
   sentAt: number;
-  /** A finger on the scrolling view: it slides the edge of the jog, or holds the record. */
+  /** A press on the scrolling view: it slides the edge of the jog, or holds the record. */
   jog: boolean;
-  /** What the finger does: slides the edge, or holds the record (after a moment still);
+  /** What the press does: slides the edge, or holds the record (after a moment still);
    * `null` until it is known. */
   touch: 'edge' | 'hand' | null;
   /** Where the edge was last turned from (CSS px). */
@@ -56,9 +56,11 @@ interface Drag {
 /**
  * Scrolling waveform around the playhead plus an overview of the whole track. Drawn on
  * every animation frame from the extrapolated position, outside change detection.
- * A click on either jumps there. Either is held and moved like a record: the deck plays
- * through the hand's motion, as a record scratched (the engine jumps after a hand too
- * fast to play, as along the overview of a whole track).
+ * A click on either jumps there (a finger only moves the scrolling view). Slid at once, the
+ * scrolling view nudges the track as the edge of a jog; held still a moment first, and the
+ * overview at once, it is moved like a record: the deck plays through the hand's motion, as a
+ * record scratched (the engine jumps after a hand too fast to play, as along the overview of a
+ * whole track).
  */
 @Component({
   selector: 'app-deck-waveform',
@@ -148,7 +150,7 @@ export class DeckWaveform {
       startS = this.overviewTime(event);
       this.engine.seek(this.deck(), startS);
     }
-    const jog = view === 'zoom' && event.pointerType === 'touch';
+    const jog = view === 'zoom';
     this.drag = {
       pointer: event.pointerId,
       view,
@@ -162,7 +164,7 @@ export class DeckWaveform {
       held: !jog,
     };
     if (jog) {
-      // a finger held still takes the record; one that slides at once turns the edge
+      // held still, it takes the record; slid at once, it turns the edge
       this.holding = setTimeout(() => this.holdRecord(), HOLD_MS);
       return;
     }
@@ -197,7 +199,7 @@ export class DeckWaveform {
     if (drag?.pointer !== event.pointerId) return;
     this.cancel();
     // a finger never makes the track jump: it might be on it by mistake
-    if (drag.view !== 'zoom' || drag.moved || drag.jog) return;
+    if (drag.view !== 'zoom' || drag.moved || event.pointerType === 'touch') return;
     const rect = (event.currentTarget as HTMLElement).getBoundingClientRect();
     const fromCentre = (event.clientX - rect.left) / rect.width - 0.5;
     const duration = this.track()?.durationS ?? 0;
@@ -219,7 +221,7 @@ export class DeckWaveform {
     if (drag.held) this.engine.hand(this.deck(), null);
   }
 
-  /** The finger has stayed still: it holds the record, and moves it from now on. */
+  /** The press has stayed still: it holds the record, and moves it from now on. */
   private holdRecord() {
     this.holding = null;
     const drag = this.drag;
@@ -236,7 +238,7 @@ export class DeckWaveform {
     this.holding = null;
   }
 
-  /** The finger slides the edge of the jog: the waveform follows it as far as the track
+  /** The press slides the edge of the jog: the waveform follows it as far as the track
    * goes, pushing a playing track for a moment, moving a stopped one. */
   private turnEdge(drag: Drag, event: PointerEvent) {
     const width = (event.currentTarget as HTMLElement).getBoundingClientRect().width;

@@ -35,7 +35,9 @@
           <span class="pr-row__name">{{ 'No MIDI controller plugged in.' | t }}</span>
           <span class="pr-row__help">{{ 'Plug one in, then refresh.' | t }}</span>
         </div>
-        <button class="pr-btn pr-btn--sm" (click)="service.refresh()">{{ 'Refresh' | t }}</button>
+        <button class="pr-btn pr-btn--sm" [disabled]="refreshing()" (click)="refresh()">
+          {{ refreshing() ? ('Looking…' | t) : ('Refresh' | t) }}
+        </button>
       </div>
     }
     <div class="pr-row">

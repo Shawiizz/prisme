@@ -58,13 +58,16 @@
   }
 }
 
-// the pitch, the pitch to reach on the turntable, key lock
+// the pitch, the pitch to reach on the turntable, key lock, leader: their room kept while
+// they are not shown, so that what follows stays put
 .pitch {
   display: grid;
   grid-template-rows: 16px 22px;
   row-gap: 2px;
   justify-items: start;
-  min-width: 78px;
+}
+.unseen {
+  visibility: hidden;
 }
 .line {
   display: flex;
@@ -84,6 +87,7 @@
 }
 .target {
   display: inline-flex;
+  min-width: 62px;
   align-items: center;
   height: 16px;
   padding: 0 4px;

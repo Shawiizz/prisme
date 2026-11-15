@@ -1,4 +1,13 @@
-import { Component, ElementRef, computed, effect, inject, signal, viewChild } from '@angular/core';
+import {
+  Component,
+  DestroyRef,
+  ElementRef,
+  computed,
+  effect,
+  inject,
+  signal,
+  viewChild,
+} from '@angular/core';
 import { EngineService } from '../../core/services/engine.service';
 import { LibraryService } from '../../core/services/library.service';
 import { StemsService } from '../../core/services/stems.service';
@@ -9,6 +18,9 @@ import { TPipe } from '../../core/i18n/t.pipe';
 import { deckLetter } from '../../shared/time';
 import { CTRL } from '../../core/keyboard/shortcuts';
 import { LIST_LABEL, SEARCH_PLACEHOLDER } from './list-labels';
+
+/** How long "up to date" stays once a rescan asked for has ended (ms). */
+const RESCANNED_MS = 3000;
 
 /** Crates, history and folders (left); search, analysis progress and tracks (right). */
 @Component({
@@ -33,6 +45,14 @@ export class Library {
 
   protected readonly importOpen = signal(false);
   protected readonly progress = this.library.progress;
+  /** The scans ended when a rescan was asked for, while it runs. */
+  private readonly rescanFrom = signal<number | null>(null);
+  protected readonly rescanning = computed(() => {
+    const from = this.rescanFrom();
+    return from !== null && this.library.scansEnded() === from;
+  });
+  protected readonly rescanned = signal(false);
+  private rescannedTimer: ReturnType<typeof setTimeout> | undefined;
   protected readonly progressPercent = computed(() => {
     const p = this.progress();
     return p.total > 0 ? (p.done / p.total) * 100 : 0;
@@ -47,5 +67,20 @@ export class Library {
     effect(() => {
       if (this.library.searchRequests() > 0) this.search().nativeElement.focus();
     });
+    effect(() => {
+      const from = this.rescanFrom();
+      if (from === null || this.library.scansEnded() === from) return;
+      this.rescanFrom.set(null);
+      this.rescanned.set(true);
+      clearTimeout(this.rescannedTimer);
+      this.rescannedTimer = setTimeout(() => this.rescanned.set(false), RESCANNED_MS);
+    });
+    inject(DestroyRef).onDestroy(() => clearTimeout(this.rescannedTimer));
+  }
+
+  protected rescan() {
+    this.rescanned.set(false);
+    this.rescanFrom.set(this.library.scansEnded());
+    this.library.rescan().catch(() => this.rescanFrom.set(null));
   }
 }

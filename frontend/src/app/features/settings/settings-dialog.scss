@@ -172,6 +172,9 @@
   align-items: center;
   justify-content: flex-end;
   gap: 6px;
+  .pr-select {
+    width: 112px;
+  }
 }
 
 .latency-error {

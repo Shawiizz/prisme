@@ -28,6 +28,9 @@
   flex: none;
   padding: 0 var(--pr-space-3);
   border-bottom: 1px solid var(--pr-line);
+  .pr-label {
+    white-space: nowrap;
+  }
   .count {
     font-size: var(--pr-size-small);
     color: var(--pr-text-3);
@@ -49,7 +52,8 @@
   svg {
     position: absolute;
     left: 10px;
-    top: 9px;
+    top: 50%;
+    translate: 0 -50%;
     width: 13px;
     height: 13px;
     fill: none;
@@ -58,13 +62,15 @@
   }
   .pr-input {
     width: 100%;
-    height: 30px;
+    // as high as the selectors beside it
+    height: 28px;
     padding: 0 60px 0 30px;
   }
   .pr-kbd {
     position: absolute;
     right: 8px;
-    top: 7px;
+    top: 50%;
+    translate: 0 -50%;
   }
 }
 

@@ -22,27 +22,29 @@
     } @else {
       <div class="meta empty">{{ loading() ? ('Loading…' | t) : ('No track loaded' | t) }}</div>
     }
-    <div class="vinyl">
-      <span
-        class="pr-sig"
-        [class.pr-sig--ok]="signal() === 'ok'"
-        [class.pr-sig--weak]="signal() === 'bounce'"
-        [class.pr-sig--none]="signal() === 'none'"
-        [title]="signalTitle()"
-      ></span>
-      <div class="pr-seg" role="radiogroup" [attr.aria-label]="'Vinyl control' | t">
-        @for (m of modes; track m.id) {
-          <button
-            role="radio"
-            [attr.aria-checked]="mode() === m.id"
-            [title]="m.title()"
-            (click)="setMode(m.id)"
-          >
-            {{ m.label }}
-          </button>
-        }
+    @if (vinylOffered()) {
+      <div class="vinyl">
+        <span
+          class="pr-sig"
+          [class.pr-sig--ok]="signal() === 'ok'"
+          [class.pr-sig--weak]="signal() === 'bounce'"
+          [class.pr-sig--none]="signal() === 'none'"
+          [title]="signalTitle()"
+        ></span>
+        <div class="pr-seg" role="radiogroup" [attr.aria-label]="'Vinyl control' | t">
+          @for (m of modes; track m.id) {
+            <button
+              role="radio"
+              [attr.aria-checked]="mode() === m.id"
+              [title]="m.title()"
+              (click)="setMode(m.id)"
+            >
+              {{ m.label }}
+            </button>
+          }
+        </div>
       </div>
-    </div>
+    }
   </div>
 
   <div class="readouts">
