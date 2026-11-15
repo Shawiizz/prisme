@@ -1,7 +1,7 @@
 import { Signal, computed, inject } from '@angular/core';
 import { SignalState, VinylMode } from './models/engine';
 import { EngineService } from './services/engine.service';
-import { t } from './i18n/i18n';
+import { Text, t } from './i18n/i18n';
 
 const SIGNAL_TITLE: Record<SignalState, string> = {
   get none() {
@@ -18,27 +18,21 @@ const SIGNAL_TITLE: Record<SignalState, string> = {
 /** Who drives the deck: itself (INT), or the record in relative or absolute mode. */
 export type DeckMode = 'int' | VinylMode;
 
-export const DECK_MODES: readonly { id: DeckMode; label: string; title: string }[] = [
+export const DECK_MODES: readonly { id: DeckMode; label: string; title: Text }[] = [
   {
     id: 'int',
     label: 'INT',
-    get title() {
-      return t('The deck plays by itself');
-    },
+    title: () => t('The deck plays by itself'),
   },
   {
     id: 'relative',
     label: 'REL',
-    get title() {
-      return t('The record drives the speed');
-    },
+    title: () => t('The record drives the speed'),
   },
   {
     id: 'absolute',
     label: 'ABS',
-    get title() {
-      return t('The record drives the speed and the position');
-    },
+    title: () => t('The record drives the speed and the position'),
   },
 ];
 

@@ -35,7 +35,7 @@
           <button
             role="radio"
             [attr.aria-checked]="mode() === m.id"
-            [title]="m.title"
+            [title]="m.title()"
             (click)="setMode(m.id)"
           >
             {{ m.label }}

@@ -7,9 +7,7 @@ import { errorText } from '../errors';
 
 /** What `prisme_media::decode_file` reads. */
 const AUDIO_FILES = {
-  get name() {
-    return t('Audio');
-  },
+  name: () => t('Audio'),
   extensions: ['mp3', 'flac', 'wav', 'aif', 'aiff', 'm4a', 'aac', 'mp4', 'ogg', 'oga'],
 };
 
@@ -20,7 +18,10 @@ export class SamplerService {
 
   /** Asks for a sound and puts it in `slot`. */
   async choose(deck: number, slot: number) {
-    const path = await open({ title: t('Sampler sound'), filters: [AUDIO_FILES] });
+    const path = await open({
+      title: t('Sampler sound'),
+      filters: [{ ...AUDIO_FILES, name: AUDIO_FILES.name() }],
+    });
     if (!path) return;
     try {
       this.setName(deck, slot, await invoke<string>('load_sample', { deck, slot, path }));

@@ -1,5 +1,5 @@
 import { BANDS, Band, MAX_DECKS, HOT_CUES, SAMPLE_SLOTS } from '../models/engine';
-import { t } from '../i18n/i18n';
+import { Text, t } from '../i18n/i18n';
 import { ROLL_BEATS, formatBeats } from '../../shared/beats';
 import { deckLetter } from '../../shared/time';
 import { StemPart } from '../stem-parts';
@@ -101,28 +101,16 @@ export interface ControlActions {
 }
 
 const JUMP_BEATS = 4;
-const EQ_LABEL: Record<Band, string> = {
-  get low() {
-    return t('EQ low');
-  },
-  get mid() {
-    return t('EQ mid');
-  },
-  get high() {
-    return t('EQ high');
-  },
+const EQ_LABEL: Record<Band, Text> = {
+  low: () => t('EQ low'),
+  mid: () => t('EQ mid'),
+  high: () => t('EQ high'),
 };
 /** A kill acts while held, as the kill keys of a controller do. */
-const KILL_LABEL: Record<Band, string> = {
-  get low() {
-    return t('Kill the bass while held');
-  },
-  get mid() {
-    return t('Kill the mids while held');
-  },
-  get high() {
-    return t('Kill the highs while held');
-  },
+const KILL_LABEL: Record<Band, Text> = {
+  low: () => t('Kill the bass while held'),
+  mid: () => t('Kill the mids while held'),
+  high: () => t('Kill the highs while held'),
 };
 
 /** A button is down at any value but zero: a pad hit softly is hit all the same. */
@@ -299,14 +287,16 @@ function deckControls(a: ControlActions, deck: number): Control[] {
       fader(
         id(`eq.${band}`),
         group,
-        EQ_LABEL[band],
+        EQ_LABEL[band](),
         (v) => a.setEq(deck, band, v),
         () => a.eqPosition(deck, band),
       ),
     ),
     ...BANDS.map((band) =>
       lit(
-        hold(id(`eq.${band}.kill`), group, KILL_LABEL[band], (held) => a.setKill(deck, band, held)),
+        hold(id(`eq.${band}.kill`), group, KILL_LABEL[band](), (held) =>
+          a.setKill(deck, band, held),
+        ),
         () => a.killed(deck, band),
       ),
     ),
@@ -348,9 +338,7 @@ export function buildControls(a: ControlActions): Control[] {
     {
       id: 'library.browse',
       group: library,
-      get label() {
-        return t('Browse');
-      },
+      label: t('Browse'),
       kind: 'encoder',
       apply: (steps) => a.browse(steps),
     },

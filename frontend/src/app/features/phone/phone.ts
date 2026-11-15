@@ -10,7 +10,7 @@ import { LibraryService } from '../../core/services/library.service';
 import { NavigationService } from '../../core/services/navigation.service';
 import { RecordingService } from '../../core/services/recording.service';
 import { SettingsService } from '../../core/services/settings.service';
-import { t } from '../../core/i18n/i18n';
+import { Text, t } from '../../core/i18n/i18n';
 import { TPipe } from '../../core/i18n/t.pipe';
 import { decimal, formatClock } from '../../shared/time';
 import { CommandPalette } from '../command-palette/command-palette';
@@ -43,24 +43,18 @@ export class Phone {
   private readonly controllers = inject(ControllerService);
 
   protected readonly tab = signal<Tab>('decks');
-  protected readonly tabs: { id: Tab; label: string }[] = [
+  protected readonly tabs: { id: Tab; label: Text }[] = [
     {
       id: 'decks',
-      get label() {
-        return t('Decks');
-      },
+      label: () => t('Decks'),
     },
     {
       id: 'library',
-      get label() {
-        return t('Library');
-      },
+      label: () => t('Library'),
     },
     {
       id: 'settings',
-      get label() {
-        return t('Settings');
-      },
+      label: () => t('Settings'),
     },
   ];
 
@@ -68,9 +62,8 @@ export class Phone {
   protected readonly audio = computed(() => {
     const info = this.settings.info();
     if (!this.engine.audioRunning() || !info) return null;
-    const frames = this.engine.status()?.health?.periodFrames;
-    const period = frames ? [`${decimal((frames / info.sampleRate) * 1000, 1)} ms`] : [];
-    return [BACKEND_NAMES[info.backend], info.device, ...period].join(' · ');
+    const period = this.settings.period();
+    return [BACKEND_NAMES[info.backend], info.device, ...(period ? [period] : [])].join(' · ');
   });
 
   /** The hands are elsewhere: on a controller in use, or on the records that drive a deck. */
