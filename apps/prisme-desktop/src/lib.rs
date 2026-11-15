@@ -16,6 +16,7 @@
 //! * `status_stream`: engine state pushed to the frontend at ~60 Hz;
 //! * `scope_stream`: a turntable's signal pushed while its oscilloscope is shown;
 //! * `track_loading`: putting a track on a deck, playable before it is fully decoded;
+//! * `preview`: a track of the library heard in the headphones before it goes on a deck;
 //! * `folders`: browsing music folders;
 //! * `library_service`: track database (analysis, tags, cues) and background analysis;
 //! * `cover_protocol`: cover thumbnails served to the UI;
@@ -44,6 +45,7 @@ mod library_service;
 mod logging;
 mod midi_clock;
 mod preferences;
+mod preview;
 mod recording;
 mod sampler;
 mod scope_stream;
@@ -164,6 +166,7 @@ pub fn run() {
                 Arc::new(LibraryService::open(app.handle(), data_dir.as_deref(), folders::music_root()));
             app.manage(library.clone());
             app.manage(TagWriter::start(app.handle().clone()));
+            app.manage(preview::Previews::default());
             let models = models_dir(app, data_dir.as_deref());
             // a phone lets Prisme read the shared music, not write beside it
             #[cfg(mobile)]
@@ -226,6 +229,11 @@ pub fn run() {
             commands::stems::cancel_separation,
             commands::stems::set_stem_mix,
             commands::tracks::loaded_tracks,
+            commands::preview::preview_track,
+            commands::preview::stop_preview,
+            commands::preview::seek_preview,
+            commands::preview::skip_preview,
+            commands::preview::preview_waveform,
             commands::tracks::deck_waveform,
             commands::tracks::stem_activity,
             commands::decks::set_playing,

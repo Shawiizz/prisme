@@ -1,6 +1,7 @@
 use crate::dto::{waveform_bytes, SeparationDto, TrackInfoDto};
 use crate::error::{AppError, AppResult};
 use crate::library_service::LibraryService;
+use crate::preview::Previews;
 use crate::state::{lock, AppState};
 use crate::track_loading;
 use prisme_engine::{Command, Stem};
@@ -8,6 +9,7 @@ use std::path::PathBuf;
 use std::sync::Arc;
 use tauri::ipc::Response;
 use tauri::{AppHandle, State};
+use tracing::warn;
 
 /// Puts a track on a deck as soon as it can play; its waveform and analysis follow if
 /// they were not known (see `track_loading`).
@@ -16,6 +18,7 @@ pub async fn load_track(
     app: AppHandle,
     state: State<'_, AppState>,
     library: State<'_, Arc<LibraryService>>,
+    previews: State<'_, Previews>,
     deck: usize,
     path: String,
 ) -> AppResult<TrackInfoDto> {
@@ -28,10 +31,14 @@ pub async fn load_track(
             .map_err(|e| AppError::Other(e.to_string()))??;
     let info = track.info(deck);
     let commands = track.load_commands(deck, state.preferences.read(|p| p.dj.auto_gain));
+    let file = track.path.clone();
     // kept for audio restarts
     lock(&state.tracks)[deck] = Some(track);
     for c in commands {
         state.send_if_running(c)?;
+    }
+    if let Err(e) = previews.stop_previewing(&state, &file) {
+        warn!("the preview of {} goes on: {e}", file.display());
     }
     tauri::async_runtime::spawn_blocking(move || completion.run(&app));
     Ok(info)
