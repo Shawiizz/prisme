@@ -170,6 +170,8 @@ export class PitchFader {
     this.step(direction);
     const goOn = (wait: number) => {
       this.stepping = setTimeout(() => {
+        // the key gone under the finger (a record took the deck): its release never comes
+        if (this.tempo.held() || this.tempo.vinyl()) return this.stepStop();
         this.step(direction);
         goOn(STEP_EVERY_MS);
       }, wait);

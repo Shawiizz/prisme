@@ -32,6 +32,8 @@ const HOLD_MS = 280;
 
 /** A press on a waveform, from where it started. */
 interface Drag {
+  /** The finger or button that pressed: another one does nothing meanwhile. */
+  pointer: number;
   view: 'zoom' | 'overview';
   startX: number;
   /** The track position when the press started (s). */
@@ -139,11 +141,14 @@ export class DeckWaveform {
           Array.from({ length: parts }, (_, i) => bytes.subarray(i * slices, (i + 1) * slices)),
         );
       },
+      () => {
+        if (this.activityOf === of) this.activityOf = '';
+      },
     );
   }
 
   press(event: PointerEvent, view: Drag['view']) {
-    if (!this.track() || event.button !== 0) return;
+    if (!this.track() || event.button !== 0 || this.drag) return;
     (event.currentTarget as HTMLElement).setPointerCapture(event.pointerId);
     let startS = this.engine.livePosition(this.deck()) ?? 0;
     if (view === 'overview') {
@@ -152,6 +157,7 @@ export class DeckWaveform {
     }
     const jog = view === 'zoom' && event.pointerType === 'touch';
     this.drag = {
+      pointer: event.pointerId,
       view,
       startX: event.clientX,
       startS,
@@ -172,7 +178,7 @@ export class DeckWaveform {
 
   move(event: PointerEvent) {
     const drag = this.drag;
-    if (!drag) return;
+    if (drag?.pointer !== event.pointerId) return;
     drag.moved ||= Math.abs(event.clientX - drag.startX) > CLICK_PX;
     if (drag.jog && drag.moved && drag.touch === null) {
       this.stopHolding();
@@ -195,7 +201,7 @@ export class DeckWaveform {
 
   release(event: PointerEvent) {
     const drag = this.drag;
-    if (!drag) return;
+    if (drag?.pointer !== event.pointerId) return;
     this.cancel();
     // a finger never makes the track jump: it might be on it by mistake
     if (drag.view !== 'zoom' || drag.moved || drag.jog) return;
@@ -206,8 +212,13 @@ export class DeckWaveform {
     this.engine.seek(this.deck(), Math.min(Math.max(at, 0), duration));
   }
 
+  /** The press taken by the system (a scroll, a gesture). */
+  cancelled(event: PointerEvent) {
+    if (this.drag?.pointer === event.pointerId) this.cancel();
+  }
+
   /** The hand off the track: play goes on as before. */
-  cancel() {
+  private cancel() {
     const drag = this.drag;
     if (!drag) return;
     this.stopHolding();

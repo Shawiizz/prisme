@@ -1,7 +1,7 @@
 .veil {
   position: fixed;
   inset: 0;
-  z-index: 70;
+  z-index: var(--pr-z-question);
   background: rgb(0 0 0 / 0.55);
 }
 
@@ -10,7 +10,7 @@
   position: fixed;
   top: 50%;
   left: 50%;
-  z-index: 71;
+  z-index: calc(var(--pr-z-question) + 1);
   width: min(380px, calc(100vw - 32px));
   translate: -50% -50%;
   padding: var(--pr-space-5);

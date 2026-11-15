@@ -197,7 +197,8 @@ export class WaveformPainter {
     for (const k of tiles.images.keys()) {
       if (k < first - 1 || k > last + 1) tiles.images.delete(k);
     }
-    const visible: [OffscreenCanvas, number][] = [];
+    // each tile from its left edge to the next one's, rounded alike: no seam between them
+    const visible: [OffscreenCanvas, number, number][] = [];
     for (let k = first; k <= last; k++) {
       let image = tiles.images.get(k);
       if (!image) {
@@ -206,11 +207,14 @@ export class WaveformPainter {
         this.drawColumns(image.getContext('2d')!, w, tile);
         tiles.images.set(k, image);
       }
-      visible.push([image, Math.round(xOf(k * tileS, view))]);
+      visible.push([
+        image,
+        Math.round(xOf(k * tileS, view)),
+        Math.round(xOf((k + 1) * tileS, view)),
+      ]);
     }
     // whole columns copied, not blended across pixels as they scroll
     ctx.imageSmoothingEnabled = false;
-    const width = Math.round((tileS / view.spanS) * view.width);
     const playhead = Math.round(view.width / 2);
     for (const [from, to, alpha] of [
       [0, playhead, PLAYED],
@@ -221,7 +225,7 @@ export class WaveformPainter {
       ctx.rect(from, 0, to - from, view.height);
       ctx.clip();
       ctx.globalAlpha = alpha;
-      for (const [image, x] of visible) ctx.drawImage(image, x, 0, width, view.height);
+      for (const [image, x0, x1] of visible) ctx.drawImage(image, x0, 0, x1 - x0, view.height);
       ctx.restore();
     }
   }

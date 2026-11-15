@@ -185,6 +185,8 @@ export class DeckPads {
   });
 
   press(index: number, event: PointerEvent) {
+    // the right button is the pad's menu, not a press
+    if (event.button !== 0) return;
     (event.currentTarget as Element).setPointerCapture(event.pointerId);
     const deck = this.deck();
     switch (this.mode()) {

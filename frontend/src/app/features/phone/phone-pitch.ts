@@ -1,4 +1,4 @@
-import { Component, computed, inject, input, output } from '@angular/core';
+import { Component, DestroyRef, computed, inject, input, output } from '@angular/core';
 import { deckTempo } from '../../core/deck-tempo';
 import { EngineService } from '../../core/services/engine.service';
 import { PreferencesService } from '../../core/services/preferences.service';
@@ -47,10 +47,10 @@ import { deckLetter, formatPitch } from '../../shared/time';
     <div class="keys">
       <button
         class="pr-btn"
-        (pointerdown)="engine.pitchBend(deck(), -1)"
-        (pointerup)="engine.pitchBend(deck(), 0)"
-        (pointercancel)="engine.pitchBend(deck(), 0)"
-        [attr.aria-label]="'Pitch bend' | t"
+        (pointerdown)="bend(-1, $event)"
+        (pointerup)="unbend()"
+        (lostpointercapture)="unbend()"
+        [attr.aria-label]="'Pitch bend down' | t"
       >
         −
       </button>
@@ -59,10 +59,10 @@ import { deckLetter, formatPitch } from '../../shared/time';
       </button>
       <button
         class="pr-btn"
-        (pointerdown)="engine.pitchBend(deck(), 1)"
-        (pointerup)="engine.pitchBend(deck(), 0)"
-        (pointercancel)="engine.pitchBend(deck(), 0)"
-        [attr.aria-label]="'Pitch bend' | t"
+        (pointerdown)="bend(1, $event)"
+        (pointerup)="unbend()"
+        (lostpointercapture)="unbend()"
+        [attr.aria-label]="'Pitch bend up' | t"
       >
         +
       </button>
@@ -97,4 +97,23 @@ export class PhonePitch {
     const target = this.tempo.target();
     return target === null ? null : formatPitch(target);
   });
+  /** The deck pushed or held back: the one let go, even if the float changed decks since. */
+  private bent: number | null = null;
+
+  constructor() {
+    inject(DestroyRef).onDestroy(() => this.unbend());
+  }
+
+  protected bend(direction: -1 | 1, event: PointerEvent) {
+    (event.currentTarget as Element).setPointerCapture(event.pointerId);
+    this.unbend();
+    this.bent = this.deck();
+    this.engine.pitchBend(this.bent, direction);
+  }
+
+  protected unbend() {
+    if (this.bent === null) return;
+    this.engine.pitchBend(this.bent, 0);
+    this.bent = null;
+  }
 }

@@ -269,7 +269,7 @@
 .pr-backdrop {
   position: fixed;
   inset: 0;
-  z-index: 100;
+  z-index: var(--pr-z-dialog);
   display: grid;
   place-items: center;
   background: rgb(10 11 13 / 0.72);

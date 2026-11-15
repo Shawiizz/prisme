@@ -2,6 +2,11 @@
    Components never hard-code a value: they read these. See design/DESIGN.md. */
 
 :root {
+  /* layers over everything: a dialog, a list opened from it, a question over both */
+  --pr-z-dialog: 100;
+  --pr-z-picker: 110;
+  --pr-z-question: 120;
+
   color-scheme: dark;
 
   /* Glass: the colourless interface, from the darkest to the lightest */

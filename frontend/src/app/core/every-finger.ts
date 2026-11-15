@@ -17,7 +17,8 @@ export function clickWithEveryFinger() {
     (event) => {
       if (event.pointerType !== 'touch' || event.isPrimary) return;
       const key = (event.target as Element).closest(KEYS);
-      if (key) pressed.set(event.pointerId, key);
+      if (key && !key.matches(':disabled, [aria-disabled="true"]'))
+        pressed.set(event.pointerId, key);
     },
     true,
   );
@@ -25,9 +26,10 @@ export function clickWithEveryFinger() {
     'pointerup',
     (event) => {
       const key = pressed.get(event.pointerId);
+      if (!key) return;
       pressed.delete(event.pointerId);
       const under = document.elementFromPoint(event.clientX, event.clientY);
-      if (!key || !under || !key.contains(under)) return;
+      if (!under || !key.contains(under) || key.matches(':disabled')) return;
       clicked.set(key, event.timeStamp);
       key.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, detail: 1 }));
     },

@@ -1,7 +1,7 @@
 .veil {
   position: fixed;
   inset: 0;
-  z-index: 60;
+  z-index: var(--pr-z-picker);
   &.dim {
     background: rgb(0 0 0 / 0.55);
   }
@@ -10,7 +10,7 @@
 // under the field, on a computer
 .picker {
   position: fixed;
-  z-index: 61;
+  z-index: calc(var(--pr-z-picker) + 1);
   display: grid;
   max-width: min(420px, calc(100vw - 16px));
   max-height: 320px;

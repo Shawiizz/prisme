@@ -174,9 +174,11 @@ export class PhoneLibrary {
     );
     closedByBack(this.browsing, () => this.browsing.set(false));
     // a list chosen among those of the library is the one shown: its panel closes
+    const shown = computed(() =>
+      JSON.stringify([this.library.source(), this.library.listing()?.path]),
+    );
     effect(() => {
-      this.library.source();
-      this.library.listing();
+      shown();
       untracked(() => this.browsing.set(false));
     });
   }
@@ -210,7 +212,7 @@ export class PhoneLibrary {
   }
 
   protected press(track: DirEntry, event: PointerEvent) {
-    if (event.button !== 0) return;
+    if (event.button !== 0 || this.slide()?.sliding) return;
     const { clientX: x, clientY: y, pointerId: pointer } = event;
     this.slide.set({ path: track.path, pointer, x, y, dx: 0, sliding: false });
   }
@@ -228,16 +230,17 @@ export class PhoneLibrary {
     this.slide.set({ ...slide, sliding: true, dx: this.left() === null ? Math.max(dx, 0) : dx });
   }
 
-  protected release(track: DirEntry) {
+  /** The row pressed is the one the finger lifted from; another finger lifting does nothing. */
+  protected release(event: PointerEvent) {
     const slide = this.slide();
+    if (!slide || slide.pointer !== event.pointerId) return;
     this.slide.set(null);
-    if (!slide) return;
     if (!slide.sliding) {
-      this.menu.set(track.path);
+      this.menu.set(slide.path);
       return;
     }
     const deck = this.deckAt(slide.dx);
-    if (deck !== null) this.library.load(track.path, deck);
+    if (deck !== null) this.library.load(slide.path, deck);
   }
 
   /** The finger went on to scroll the list: nothing was touched. */

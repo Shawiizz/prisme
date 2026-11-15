@@ -130,7 +130,7 @@ footer {
   // out of the grid of the phone's screens
   position: fixed;
   inset: 0;
-  z-index: 100;
+  z-index: var(--pr-z-dialog);
   .pr-backdrop {
     align-items: stretch;
     padding: 0;

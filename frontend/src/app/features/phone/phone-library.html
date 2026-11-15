@@ -80,7 +80,7 @@
         [style.height.px]="ROW_PX"
         (pointerdown)="press(row.track, $event)"
         (pointermove)="move($event)"
-        (pointerup)="release(row.track)"
+        (pointerup)="release($event)"
         (pointercancel)="cancel()"
       >
         @if (moved) {
