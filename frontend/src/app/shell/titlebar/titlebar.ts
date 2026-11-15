@@ -9,8 +9,8 @@ import { MixerService } from '../../core/services/mixer.service';
 import { NavigationService } from '../../core/services/navigation.service';
 import { t } from '../../core/i18n/i18n';
 import { TPipe } from '../../core/i18n/t.pipe';
-import { AudioBackend, BACKEND_NAMES } from '../../core/models/audio';
-import { decimal, formatClock } from '../../shared/time';
+import { BACKEND_NAMES } from '../../core/models/audio';
+import { formatClock } from '../../shared/time';
 import { levelMeter } from '../../shared/level';
 import { CTRL, MAC } from '../../core/keyboard/shortcuts';
 import { Dismiss, overlay } from '../../shared/overlay';
@@ -25,6 +25,7 @@ import { Dismiss, overlay } from '../../shared/overlay';
 export class Titlebar {
   protected readonly CTRL = CTRL;
   protected readonly MAC = MAC;
+  protected readonly BACKEND_NAMES = BACKEND_NAMES;
   protected readonly settings = inject(SettingsService);
   protected readonly engine = inject(EngineService);
   protected readonly recording = inject(RecordingService);
@@ -43,12 +44,6 @@ export class Titlebar {
         })
       : t('Record the mix (WAV and tracklist in Documents/Prisme Recordings)');
   });
-  /** The period in milliseconds, once the driver has called the engine. */
-  protected readonly bufferMs = computed(() => {
-    const frames = this.engine.status()?.health?.periodFrames;
-    const rate = this.settings.info()?.sampleRate;
-    return frames && rate ? decimal((frames / rate) * 1000, 1) : null;
-  });
   protected readonly level = levelMeter(() => this.engine.status()?.mainPeak ?? 0, 24);
 
   constructor() {
@@ -58,10 +53,6 @@ export class Titlebar {
   record(option: RecordOption) {
     this.recordMenu.set(false);
     this.recording.start(option.source);
-  }
-
-  backendName(backend: AudioBackend): string {
-    return BACKEND_NAMES[backend];
   }
 
   protected readonly clock = formatClock;
