@@ -83,6 +83,7 @@ object Player {
   private var art: Bitmap? = null
   private val main = Handler(Looper.getMainLooper())
   private var stopping: Runnable? = null
+  private var channel = false
 
   private const val CHANNEL = "playback"
   private const val TOGGLE = "toggle"
@@ -106,10 +107,12 @@ object Player {
   }
 
   fun notification(context: Context): Notification {
-    val manager = context.getSystemService(NotificationManager::class.java)
-    manager.createNotificationChannel(
-      NotificationChannel(CHANNEL, context.getString(R.string.playback_channel), NotificationManager.IMPORTANCE_LOW)
-    )
+    if (!channel) {
+      context.getSystemService(NotificationManager::class.java).createNotificationChannel(
+        NotificationChannel(CHANNEL, context.getString(R.string.playback_channel), NotificationManager.IMPORTANCE_LOW)
+      )
+      channel = true
+    }
     val state = state
     val shown = state?.shownDeck
     val back =
@@ -143,19 +146,21 @@ object Player {
   private fun follow(context: Context, state: PlayerState) {
     stopping?.let(main::removeCallbacks)
     stopping = null
-    val service = Intent(context, PlaybackService::class.java)
+    // the service outlives the activity that asked for it
+    val app = context.applicationContext
+    val service = Intent(app, PlaybackService::class.java)
     when {
       state.playing ->
         if (!PlaybackService.running) {
           try {
-            context.startForegroundService(service)
+            app.startForegroundService(service)
           } catch (e: IllegalStateException) {
             // a deck started from a controller while Prisme was out of sight
             Log.w("Prisme", "the sound may stop with the screen locked: ${e.message}")
           }
         }
-      state.decks.isEmpty() -> context.stopService(service)
-      else -> stopping = Runnable { context.stopService(service) }.also { main.postDelayed(it, LINGER_MS) }
+      state.decks.isEmpty() -> app.stopService(service)
+      else -> stopping = Runnable { app.stopService(service) }.also { main.postDelayed(it, LINGER_MS) }
     }
   }
 
@@ -167,6 +172,12 @@ object Player {
     if (PlaybackService.running) {
       context.getSystemService(NotificationManager::class.java).notify(PlaybackService.NOTIFICATION, notification(context))
     }
+  }
+
+  /** The service gone: the media buttons go back to the other players. */
+  fun release() {
+    session?.release()
+    session = null
   }
 
   private fun session(context: Context): MediaSession =

@@ -44,6 +44,12 @@ class MainActivity : TauriActivity() {
     Player.toggle = { deck -> webView.evaluateJavascript("window.prismePlayer?.toggle($deck)", null) }
   }
 
+  override fun onDestroy() {
+    // the page goes with the activity: the player's buttons no longer reach it
+    Player.toggle = null
+    super.onDestroy()
+  }
+
   override fun onConfigurationChanged(newConfig: Configuration) {
     super.onConfigurationChanged(newConfig)
     takeTheScreen(newConfig)

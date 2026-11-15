@@ -23,6 +23,7 @@ class PlaybackService : Service() {
 
   override fun onDestroy() {
     running = false
+    Player.release()
     super.onDestroy()
   }
 
