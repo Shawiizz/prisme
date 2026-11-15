@@ -38,10 +38,10 @@ pub async fn set_track_genre(
     let failed = tauri::async_runtime::spawn_blocking(move || answer.recv().unwrap_or_default())
         .await
         .map_err(|e| AppError::Other(e.to_string()))?;
-    match failed.as_slice() {
-        [] => Ok(()),
-        [one] => Err(AppError::Other(format!("genre not written into {one}"))),
-        many => Err(AppError::Other(format!("genre not written into {} files", many.len()))),
+    if failed.is_empty() {
+        Ok(())
+    } else {
+        Err(AppError::GenreNotWritten(failed))
     }
 }
 

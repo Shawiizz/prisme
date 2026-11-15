@@ -16,6 +16,7 @@ import { deckLetter, formatSpeed, formatTime } from '../../shared/time';
 import { ScopePainter } from './scope-painter';
 import { t } from '../../core/i18n/i18n';
 import { TPipe } from '../../core/i18n/t.pipe';
+import { errorText } from '../../core/errors';
 
 const SCOPE_SIZE = 220;
 /** Carrier level shown as a full bar: a healthy line-level timecode reaches it. */
@@ -80,7 +81,7 @@ export class TurntablePanel {
       const channel = new Channel<[number, number][]>();
       channel.onmessage = (points) => ctx && this.painter.draw(ctx, points, SCOPE_SIZE, colors);
       invoke('subscribe_scope', { deck: this.deck(), channel }).catch((e) =>
-        this.engine.error.set(String(e)),
+        this.engine.error.set(errorText(e)),
       );
     });
     destroyRef.onDestroy(() => invoke('unsubscribe_scope', { deck: this.deck() }));

@@ -30,6 +30,7 @@ import { ScreensService } from '../../core/services/screens.service';
 import { SETTINGS, SETTINGS_PAGES, SettingEntry, matches, normalize } from './settings-catalog';
 import { SettingsIcon } from './settings-icon';
 import { decimal } from '../../shared/time';
+import { errorText } from '../../core/errors';
 
 /** `1, 2, … n` */
 function numbers(n: number): number[] {
@@ -270,7 +271,7 @@ export class SettingsDialog implements OnInit {
     try {
       await this.updateDj({ deckCount });
     } catch (e) {
-      this.engine.error.set(String(e));
+      this.engine.error.set(errorText(e));
     } finally {
       await Promise.all([this.service.refresh(), this.engine.refreshTracks()]);
     }
@@ -351,7 +352,7 @@ export class SettingsDialog implements OnInit {
       });
       this.latency.set({ ms: measured.roundTripMs });
     } catch (e) {
-      this.latency.set({ error: String(e) });
+      this.latency.set({ error: errorText(e) });
     }
   }
 
@@ -371,7 +372,7 @@ export class SettingsDialog implements OnInit {
       if (this.mixMode() !== this.mixer.mode()) await this.mixer.setMode(this.mixMode());
       this.draft.set(structuredClone(this.service.settings()));
     } catch (e) {
-      this.error.set(String(e));
+      this.error.set(errorText(e));
     } finally {
       this.busy.set(false);
     }
@@ -391,7 +392,7 @@ export class SettingsDialog implements OnInit {
     try {
       this.diagnosticsSaved.set(await this.service.saveDiagnostics());
     } catch (e) {
-      this.error.set(String(e));
+      this.error.set(errorText(e));
     }
   }
 

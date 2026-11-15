@@ -10,6 +10,7 @@ import {
 } from '../models/controllers';
 import { EngineService } from '../services/engine.service';
 import { ControlService } from './control.service';
+import { errorText } from '../errors';
 
 /**
  * MIDI controllers: their mapped controls play the app's controls, the controls that
@@ -141,7 +142,7 @@ export class ControllerService {
     try {
       await action();
     } catch (e) {
-      this.engine.error.set(String(e));
+      this.engine.error.set(errorText(e));
     }
   }
 }

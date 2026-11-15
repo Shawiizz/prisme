@@ -1,6 +1,7 @@
 import { Component, inject, output, signal } from '@angular/core';
 import { ImportService, ImportSummary } from '../../../core/services/import.service';
 import { TPipe } from '../../../core/i18n/t.pipe';
+import { errorText } from '../../../core/errors';
 
 /** Import from Serato or rekordbox, with what it brought. */
 @Component({
@@ -42,7 +43,7 @@ export class ImportDialog {
       const summary = await action();
       if (summary) this.summary.set(summary);
     } catch (e) {
-      this.error.set(String(e));
+      this.error.set(errorText(e));
     } finally {
       this.busy.set(false);
     }

@@ -23,7 +23,7 @@ pub fn start_recording(
 ) -> AppResult<String> {
     let mut recorder = lock(&state.recorder);
     if recorder.is_some() {
-        return Err(AppError::Other("already recording".into()));
+        return Err(AppError::AlreadyRecording);
     }
     let documents = app.path().document_dir().map_err(|e| AppError::Other(e.to_string()))?;
     let started = Recorder::start(&state, source.into(), &documents.join(FOLDER), library.db.clone())?;

@@ -11,6 +11,7 @@ import {
 } from '../models/stems';
 import { LibraryService } from './library.service';
 import { PreferencesService } from './preferences.service';
+import { errorText } from '../errors';
 
 const IDLE: StemsProgress = {
   running: false,
@@ -140,7 +141,7 @@ export class StemsService {
       await invoke(command, args);
       return true;
     } catch (e) {
-      this.error.set(String(e));
+      this.error.set(errorText(e));
       return false;
     }
   }

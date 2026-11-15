@@ -5,6 +5,7 @@ import { t } from '../i18n/i18n';
 import { EngineService } from './engine.service';
 import { MixerService } from './mixer.service';
 import { SettingsService } from './settings.service';
+import { errorText } from '../errors';
 
 /** A source to record, as offered to the DJ. */
 export interface RecordOption {
@@ -61,7 +62,7 @@ export class RecordingService {
       await invoke<string>('start_recording', { source });
       this.engine.error.set(null);
     } catch (e) {
-      this.engine.error.set(String(e));
+      this.engine.error.set(errorText(e));
     }
   }
 
@@ -69,7 +70,7 @@ export class RecordingService {
     try {
       this.last.set(await invoke<Recording | null>('stop_recording'));
     } catch (e) {
-      this.engine.error.set(String(e));
+      this.engine.error.set(errorText(e));
     }
   }
 }

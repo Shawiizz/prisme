@@ -2,6 +2,7 @@ import { Injectable, inject, signal } from '@angular/core';
 import { invoke } from '@tauri-apps/api/core';
 import { GridChange, MusicalKey, TrackAnalysis } from '../models/engine';
 import { EngineService } from './engine.service';
+import { errorText } from '../errors';
 
 /** Corrections of a loaded track's beat grid and key (kept by the library). */
 @Injectable({ providedIn: 'root' })
@@ -29,7 +30,7 @@ export class TrackEditService {
       this.engine.setAnalysis(deck, await invoke<TrackAnalysis>(command, args));
       this.engine.error.set(null);
     } catch (e) {
-      this.engine.error.set(String(e));
+      this.engine.error.set(errorText(e));
     }
   }
 }

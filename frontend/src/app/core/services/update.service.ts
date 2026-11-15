@@ -2,6 +2,7 @@ import { Injectable, computed, inject, signal } from '@angular/core';
 import { relaunch } from '@tauri-apps/plugin-process';
 import { Update, check } from '@tauri-apps/plugin-updater';
 import { EngineService } from './engine.service';
+import { errorText } from '../errors';
 
 /**
  * New versions published on GitHub, signed: offered in the title bar, installed only when
@@ -33,7 +34,7 @@ export class UpdateService {
       await update.downloadAndInstall();
       await relaunch();
     } catch (e) {
-      this.engine.error.set(String(e));
+      this.engine.error.set(errorText(e));
       this.installing.set(false);
     }
   }

@@ -3,6 +3,7 @@ import { invoke } from '@tauri-apps/api/core';
 import { open } from '@tauri-apps/plugin-dialog';
 import { t } from '../i18n/i18n';
 import { EngineService } from './engine.service';
+import { errorText } from '../errors';
 
 /** What `prisme_media::decode_file` reads. */
 const AUDIO_FILES = {
@@ -25,7 +26,7 @@ export class SamplerService {
       this.setName(deck, slot, await invoke<string>('load_sample', { deck, slot, path }));
       this.engine.error.set(null);
     } catch (e) {
-      this.engine.error.set(String(e));
+      this.engine.error.set(errorText(e));
     }
   }
 
