@@ -524,8 +524,10 @@ impl Gpu {
                 std::thread::sleep(took.mul_f64((1.0 - share) / share));
             } else if let Some((previous, began, flops)) = running.replace((submission.clone(), began, whole))
             {
+                let waiting = Instant::now();
                 self.wait(previous)?;
-                if let Some(flops) = flops {
+                // one done before it was waited for ended at some unknown moment: not timed
+                if let Some(flops) = flops.filter(|_| waiting.elapsed() > SURE_WAIT) {
                     self.measured(flops, began.elapsed());
                 }
                 // the packet queued starts as the one before ends
@@ -539,10 +541,11 @@ impl Gpu {
     }
 
     /// Takes in that a packet of `flops` took `took`: the throughput moves a quarter of the
-    /// way to what it did.
+    /// way to what it did, taken as at most twice or half what it was (one odd packet, a
+    /// thread woken late, does not throw it off).
     fn measured(&self, flops: usize, took: Duration) {
-        let did = flops as f64 / took.as_secs_f64().max(1e-6);
         let mut throughput = self.throughput.lock().expect("throughput");
+        let did = (flops as f64 / took.as_secs_f64().max(1e-6)).clamp(*throughput / 2.0, *throughput * 2.0);
         *throughput += (did - *throughput) / 4.0;
     }
 
@@ -927,6 +930,8 @@ const SCORES_BYTES: u64 = 32 << 20;
 /// of steps takes.
 const PIECE_FLOPS: usize = 1 << 28;
 const PACKET: Duration = Duration::from_millis(3);
+/// A wait for a packet shorter than this found it done already: when it ended is not known.
+const SURE_WAIT: Duration = Duration::from_micros(200);
 
 /// The side of the square of outputs a workgroup of `matmul_blocked.wgsl` computes.
 const BLOCKED_TILE: usize = 64;
