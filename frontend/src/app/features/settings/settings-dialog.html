@@ -11,8 +11,8 @@
           class="pr-input"
           type="search"
           [placeholder]="'Search the settings' | t"
-          [value]="query()"
-          (input)="query.set($any($event.target).value)"
+          [value]="search.query()"
+          (input)="search.query.set($any($event.target).value)"
           (keydown.escape)="clearSearch($event)"
           [attr.aria-label]="'Search the settings' | t"
         />
@@ -21,9 +21,9 @@
         @for (p of pages; track p.id) {
           <button
             class="item"
-            [class.is-current]="!found() && category() === p.id"
-            [class.is-found]="found() && shows(p.id)"
-            [attr.aria-current]="!found() && category() === p.id ? 'page' : null"
+            [class.is-current]="!search.found() && category() === p.id"
+            [class.is-found]="search.found() && shows(p.id)"
+            [attr.aria-current]="!search.found() && category() === p.id ? 'page' : null"
             (click)="go(p.id)"
           >
             <app-settings-icon [page]="p.id" />
@@ -36,15 +36,15 @@
     <section class="content">
       <header class="head">
         <div>
-          @if (found()) {
+          @if (search.found()) {
             <h2>{{ 'Results' | t }}</h2>
             <p>
               {{
-                foundCount() === 0
-                  ? ('Nothing matches “{q}”' | t: { q: query() })
-                  : foundCount() === 1
+                search.count() === 0
+                  ? ('Nothing matches “{q}”' | t: { q: search.query() })
+                  : search.count() === 1
                     ? ('1 setting found' | t)
-                    : ('{n} settings found' | t: { n: foundCount() })
+                    : ('{n} settings found' | t: { n: search.count() })
               }}
             </p>
           } @else {
@@ -66,175 +66,126 @@
       <div class="body" #body>
         @if (shows('audio')) {
           <section class="pr-group">
-            @if (found()) {
+            @if (search.found()) {
               <h3 class="pr-label">{{ pageLabel('audio') }}</h3>
             }
             @if (draft(); as d) {
               <div class="pr-card">
-                @if (row('audio.driver')) {
-                  @let e = entry('audio.driver');
-                  <div
-                    class="pr-row"
-                    data-setting="audio.driver"
-                    [class.is-pointed]="pointed() === e.id"
-                  >
-                    <div>
-                      <span class="pr-row__name">{{ e.label() }}</span>
-                      <span class="pr-row__help">{{ e.description() }}</span>
-                    </div>
-                    <div class="pr-seg pr-seg--lg" role="radiogroup" [attr.aria-label]="e.label()">
-                      @for (b of service.backends(); track b) {
-                        <button
-                          role="radio"
-                          [attr.aria-checked]="d.backend === b"
-                          (click)="setBackend(b)"
-                        >
-                          {{ BACKEND_NAMES[b] }}
-                        </button>
-                      }
-                    </div>
-                  </div>
-                }
-                @if (row('audio.output')) {
-                  @let e = entry('audio.output');
-                  <div
-                    class="pr-row"
-                    data-setting="audio.output"
-                    [class.is-pointed]="pointed() === e.id"
-                  >
-                    <div>
-                      <span class="pr-row__name">{{
-                        oneDevice() ? driverLabel() : e.label()
-                      }}</span>
-                      <span class="pr-row__help">{{ e.description() }}</span>
-                    </div>
-                    @if (oneDevice()) {
-                      <select
-                        class="pr-select"
-                        [value]="d.outputDevice ?? ''"
-                        (change)="setDriver(orNull($any($event.target).value))"
-                        [attr.aria-label]="driverLabel()"
+                <app-setting-row id="audio.driver">
+                  <div class="pr-seg pr-seg--lg" role="radiogroup" settingControl>
+                    @for (b of service.backends(); track b) {
+                      <button
+                        role="radio"
+                        [attr.aria-checked]="d.backend === b"
+                        (click)="setBackend(b)"
                       >
-                        <option value="">{{ firstDriverLabel() }}</option>
-                        @for (o of outputs(); track o.name) {
-                          <option [value]="o.name" [selected]="o.name === d.outputDevice">
-                            {{ o.name }}
-                            @if (o.channels) {
-                              · {{ '{n} out' | t: { n: o.channels } }}
-                            }
-                            · {{ o.sampleRate }} Hz
-                          </option>
-                        }
-                      </select>
-                    } @else {
-                      <select
-                        class="pr-select"
-                        [value]="d.outputDevice ?? ''"
-                        (change)="update({ outputDevice: orNull($any($event.target).value) })"
-                        [attr.aria-label]="e.label()"
-                      >
-                        <option value="">{{ 'Default device' | t }}</option>
-                        @for (o of outputs(); track o.name) {
-                          <option [value]="o.name" [selected]="o.name === d.outputDevice">
-                            {{ o.name }} · {{ '{n} ch' | t: { n: o.channels } }} ·
-                            {{ o.sampleRate }} Hz
-                          </option>
-                        }
-                      </select>
+                        {{ BACKEND_NAMES[b] }}
+                      </button>
                     }
                   </div>
-                }
-                @if (row('audio.buffer')) {
-                  @let e = entry('audio.buffer');
-                  <div
-                    class="pr-row"
-                    data-setting="audio.buffer"
-                    [class.is-pointed]="pointed() === e.id"
-                  >
-                    <div>
-                      <span class="pr-row__name">{{ e.label() }}</span>
-                      <span class="pr-row__help">{{ e.description() }}</span>
-                    </div>
+                </app-setting-row>
+                <app-setting-row id="audio.output" [name]="oneDevice() ? driverLabel() : null">
+                  @if (oneDevice()) {
                     <select
                       class="pr-select"
-                      [value]="d.bufferFrames ?? ''"
-                      (change)="
-                        update({
-                          bufferFrames:
-                            orNull($any($event.target).value) === null
-                              ? null
-                              : +$any($event.target).value,
-                        })
-                      "
-                      [attr.aria-label]="e.label()"
+                      [value]="d.outputDevice ?? ''"
+                      (change)="setDriver(orNull($any($event.target).value))"
+                      settingControl
                     >
-                      <option value="">{{ 'Driver default' | t }}</option>
-                      @for (n of bufferSizes(); track n) {
-                        <option [value]="n" [selected]="n === d.bufferFrames">
-                          {{ bufferLabel(n) }}
+                      <option value="">{{ firstDriverLabel() }}</option>
+                      @for (o of outputs(); track o.name) {
+                        <option [value]="o.name" [selected]="o.name === d.outputDevice">
+                          {{ o.name }}
+                          @if (o.channels) {
+                            · {{ '{n} out' | t: { n: o.channels } }}
+                          }
+                          · {{ o.sampleRate }} Hz
                         </option>
                       }
                     </select>
-                  </div>
-                }
-                @if (row('audio.latency')) {
-                  @let e = entry('audio.latency');
-                  <div
-                    class="pr-row"
-                    data-setting="audio.latency"
-                    [class.is-pointed]="pointed() === e.id"
+                  } @else {
+                    <select
+                      class="pr-select"
+                      [value]="d.outputDevice ?? ''"
+                      (change)="update({ outputDevice: orNull($any($event.target).value) })"
+                      settingControl
+                    >
+                      <option value="">{{ 'Default device' | t }}</option>
+                      @for (o of outputs(); track o.name) {
+                        <option [value]="o.name" [selected]="o.name === d.outputDevice">
+                          {{ o.name }} · {{ '{n} ch' | t: { n: o.channels } }} ·
+                          {{ o.sampleRate }} Hz
+                        </option>
+                      }
+                    </select>
+                  }
+                </app-setting-row>
+                <app-setting-row id="audio.buffer">
+                  <select
+                    class="pr-select"
+                    [value]="d.bufferFrames ?? ''"
+                    (change)="
+                      update({
+                        bufferFrames:
+                          orNull($any($event.target).value) === null
+                            ? null
+                            : +$any($event.target).value,
+                      })
+                    "
+                    settingControl
                   >
-                    <div>
-                      <span class="pr-row__name">{{ e.label() }}</span>
-                      <span class="pr-row__help">{{ e.description() }}</span>
-                      @if (latency(); as l) {
-                        @if (l !== 'measuring' && 'error' in l) {
-                          <span class="pr-row__help latency-error">{{ l.error }}</span>
-                        }
+                    <option value="">{{ 'Driver default' | t }}</option>
+                    @for (n of bufferSizes(); track n) {
+                      <option [value]="n" [selected]="n === d.bufferFrames">
+                        {{ bufferLabel(n) }}
+                      </option>
+                    }
+                  </select>
+                </app-setting-row>
+                <app-setting-row id="audio.latency">
+                  @let measured = latency();
+                  @if (measured && measured !== 'measuring' && 'error' in measured) {
+                    <span class="pr-row__help latency-error">{{ measured.error }}</span>
+                  }
+                  <div class="latency">
+                    <select
+                      class="pr-select"
+                      (change)="latencyOutput.set(+$any($event.target).value)"
+                      [attr.aria-label]="'Output' | t"
+                    >
+                      @for (n of latencyOutputs(); track n) {
+                        <option [value]="n" [selected]="n === latencyOutput()">
+                          {{ 'Out {n}' | t: { n } }}
+                        </option>
                       }
-                    </div>
-                    <div class="latency">
-                      <select
-                        class="pr-select"
-                        (change)="latencyOutput.set(+$any($event.target).value)"
-                        [attr.aria-label]="'Output' | t"
-                      >
-                        @for (n of latencyOutputs(); track n) {
-                          <option [value]="n" [selected]="n === latencyOutput()">
-                            {{ 'Out {n}' | t: { n } }}
-                          </option>
-                        }
-                      </select>
-                      <select
-                        class="pr-select"
-                        (change)="latencyInput.set(+$any($event.target).value)"
-                        [attr.aria-label]="'Input' | t"
-                      >
-                        @for (n of latencyInputs(); track n) {
-                          <option [value]="n" [selected]="n === latencyInput()">
-                            {{ 'In {n}' | t: { n } }}
-                          </option>
-                        }
-                      </select>
-                      <button
-                        class="pr-btn"
-                        [disabled]="latency() === 'measuring' || pending()"
-                        (click)="measureLatency()"
-                      >
-                        @if (latency() === 'measuring') {
-                          {{ 'Measuring…' | t }}
-                        } @else {
-                          {{ 'Measure' | t }}
-                        }
-                      </button>
-                      @if (latency(); as l) {
-                        @if (l !== 'measuring' && 'ms' in l) {
-                          <span class="pr-num">{{ latencyLabel(l.ms) }}</span>
-                        }
+                    </select>
+                    <select
+                      class="pr-select"
+                      (change)="latencyInput.set(+$any($event.target).value)"
+                      [attr.aria-label]="'Input' | t"
+                    >
+                      @for (n of latencyInputs(); track n) {
+                        <option [value]="n" [selected]="n === latencyInput()">
+                          {{ 'In {n}' | t: { n } }}
+                        </option>
                       }
-                    </div>
+                    </select>
+                    <button
+                      class="pr-btn"
+                      [disabled]="measured === 'measuring' || pending()"
+                      (click)="measureLatency()"
+                    >
+                      @if (measured === 'measuring') {
+                        {{ 'Measuring…' | t }}
+                      } @else {
+                        {{ 'Measure' | t }}
+                      }
+                    </button>
+                    @if (measured && measured !== 'measuring' && 'ms' in measured) {
+                      <span class="pr-num">{{ latencyLabel(measured.ms) }}</span>
+                    }
                   </div>
-                }
+                </app-setting-row>
               </div>
             } @else {
               <p class="loading">{{ 'Reading devices…' | t }}</p>
@@ -244,106 +195,74 @@
 
         @if (shows('turntables')) {
           <section class="pr-group">
-            @if (found()) {
+            @if (search.found()) {
               <h3 class="pr-label">{{ pageLabel('turntables') }}</h3>
             }
             @if (draft(); as d) {
               <div class="pr-card">
-                @if (row('turntables.input')) {
-                  @let e = entry('turntables.input');
-                  <div
-                    class="pr-row"
-                    data-setting="turntables.input"
-                    [class.is-pointed]="pointed() === e.id"
-                  >
-                    <div>
-                      <span class="pr-row__name">{{
-                        oneDevice()
-                          ? ('Turntables plugged into the inputs of this driver' | t)
-                          : e.label()
-                      }}</span>
-                      <span class="pr-row__help">{{ e.description() }}</span>
-                    </div>
-                    @if (oneDevice()) {
-                      <button
-                        class="pr-switch"
-                        role="switch"
-                        [attr.aria-checked]="!!d.inputDevice"
-                        [disabled]="d.simulate"
-                        [attr.aria-label]="'Turntables plugged into the inputs of this driver' | t"
-                        (click)="setTurntablesOnDriver(!d.inputDevice)"
-                      >
-                        <span></span>
-                      </button>
-                    } @else {
-                      <select
-                        class="pr-select"
-                        [value]="d.inputDevice ?? ''"
-                        (change)="update({ inputDevice: orNull($any($event.target).value) })"
-                        [disabled]="d.simulate"
-                        [attr.aria-label]="e.label()"
-                      >
-                        <option value="">{{ 'None' | t }}</option>
-                        @for (i of inputs(); track i.name) {
-                          <option [value]="i.name" [selected]="i.name === d.inputDevice">
-                            {{ i.name }} · {{ '{n} ch' | t: { n: i.channels } }} ·
-                            {{ i.sampleRate }} Hz
-                          </option>
-                        }
-                      </select>
-                    }
-                  </div>
-                }
-                @if (row('turntables.vinyl')) {
-                  @let e = entry('turntables.vinyl');
-                  <div
-                    class="pr-row"
-                    data-setting="turntables.vinyl"
-                    [class.is-pointed]="pointed() === e.id"
-                  >
-                    <div>
-                      <span class="pr-row__name">{{ e.label() }}</span>
-                      <span class="pr-row__help">{{ e.description() }}</span>
-                    </div>
-                    <select
-                      class="pr-select"
-                      [value]="d.timecodeFormat"
-                      (change)="update({ timecodeFormat: $any($event.target).value })"
-                      [attr.aria-label]="e.label()"
-                    >
-                      @for (f of service.formats(); track f.id) {
-                        <option [value]="f.id" [selected]="f.id === d.timecodeFormat">
-                          {{ f.name }}
-                        </option>
-                      }
-                    </select>
-                  </div>
-                }
-                @if (row('turntables.simulate')) {
-                  @let e = entry('turntables.simulate');
-                  <div
-                    class="pr-row"
-                    data-setting="turntables.simulate"
-                    [class.is-pointed]="pointed() === e.id"
-                  >
-                    <div>
-                      <span class="pr-row__name">{{ e.label() }}</span>
-                      <span class="pr-row__help">{{ e.description() }}</span>
-                    </div>
+                <app-setting-row
+                  id="turntables.input"
+                  [name]="
+                    oneDevice() ? ('Turntables plugged into the inputs of this driver' | t) : null
+                  "
+                >
+                  @if (oneDevice()) {
                     <button
                       class="pr-switch"
                       role="switch"
-                      [attr.aria-checked]="d.simulate"
-                      [attr.aria-label]="e.label()"
-                      (click)="update({ simulate: !d.simulate })"
+                      [attr.aria-checked]="!!d.inputDevice"
+                      [disabled]="d.simulate"
+                      settingControl
+                      (click)="setTurntablesOnDriver(!d.inputDevice)"
                     >
                       <span></span>
                     </button>
-                  </div>
-                }
+                  } @else {
+                    <select
+                      class="pr-select"
+                      [value]="d.inputDevice ?? ''"
+                      (change)="update({ inputDevice: orNull($any($event.target).value) })"
+                      [disabled]="d.simulate"
+                      settingControl
+                    >
+                      <option value="">{{ 'None' | t }}</option>
+                      @for (i of inputs(); track i.name) {
+                        <option [value]="i.name" [selected]="i.name === d.inputDevice">
+                          {{ i.name }} · {{ '{n} ch' | t: { n: i.channels } }} ·
+                          {{ i.sampleRate }} Hz
+                        </option>
+                      }
+                    </select>
+                  }
+                </app-setting-row>
+                <app-setting-row id="turntables.vinyl">
+                  <select
+                    class="pr-select"
+                    [value]="d.timecodeFormat"
+                    (change)="update({ timecodeFormat: $any($event.target).value })"
+                    settingControl
+                  >
+                    @for (f of service.formats(); track f.id) {
+                      <option [value]="f.id" [selected]="f.id === d.timecodeFormat">
+                        {{ f.name }}
+                      </option>
+                    }
+                  </select>
+                </app-setting-row>
+                <app-setting-row id="turntables.simulate">
+                  <button
+                    class="pr-switch"
+                    role="switch"
+                    [attr.aria-checked]="d.simulate"
+                    settingControl
+                    (click)="update({ simulate: !d.simulate })"
+                  >
+                    <span></span>
+                  </button>
+                </app-setting-row>
               </div>
             }
-            @if (!found() || found()!.pages.has('turntables')) {
+            @if (!search.found() || search.found()!.pages.has('turntables')) {
               <div class="pr-card turntables">
                 @for (deck of decks(); track deck) {
                   <app-turntable-panel [deck]="deck" />
@@ -355,284 +274,173 @@
 
         @if (shows('mixing')) {
           <section class="pr-group">
-            @if (found()) {
+            @if (search.found()) {
               <h3 class="pr-label">{{ pageLabel('mixing') }}</h3>
             }
             <div class="pr-card">
-              @if (row('mixing.mode')) {
-                @let e = entry('mixing.mode');
-                <div
-                  class="pr-row"
-                  data-setting="mixing.mode"
-                  [class.is-pointed]="pointed() === e.id"
+              <app-setting-row id="mixing.mode">
+                <select
+                  class="pr-select"
+                  [value]="mixMode()"
+                  (change)="mixMode.set($any($event.target).value)"
+                  settingControl
                 >
-                  <div>
-                    <span class="pr-row__name">{{ e.label() }}</span>
-                    <span class="pr-row__help">{{ e.description() }}</span>
-                  </div>
-                  <select
-                    class="pr-select"
-                    [value]="mixMode()"
-                    (change)="mixMode.set($any($event.target).value)"
-                    [attr.aria-label]="e.label()"
-                  >
-                    <option value="external">
-                      {{ 'External mixer: deck A on outputs 1-2, deck B on 3-4' | t }}
-                    </option>
-                    <option value="internal">
-                      {{ 'Software mixer: master on outputs 1-2' | t }}
-                    </option>
-                  </select>
-                </div>
-              }
-              @if (row('mixing.headphones')) {
-                @let e = entry('mixing.headphones');
-                @let chosen = mixer.headphones();
-                <div
-                  class="pr-row"
-                  data-setting="mixing.headphones"
-                  [class.is-pointed]="pointed() === e.id"
+                  <option value="external">
+                    {{ 'External mixer: deck A on outputs 1-2, deck B on 3-4' | t }}
+                  </option>
+                  <option value="internal">
+                    {{ 'Software mixer: master on outputs 1-2' | t }}
+                  </option>
+                </select>
+              </app-setting-row>
+              @let chosen = mixer.headphones();
+              <app-setting-row id="mixing.headphones" [help]="headphonesHelp()">
+                <select
+                  class="pr-select"
+                  (change)="setHeadphones($any($event.target).value)"
+                  settingControl
                 >
-                  <div>
-                    <span class="pr-row__name">{{ e.label() }}</span>
-                    <span class="pr-row__help">{{ e.description() }} {{ headphonesState() }}</span>
-                  </div>
-                  <select
-                    class="pr-select"
-                    (change)="setHeadphones($any($event.target).value)"
-                    [attr.aria-label]="e.label()"
-                  >
-                    <option value="auto" [selected]="chosen.kind === 'auto'">
-                      {{ 'Automatic' | t }}
-                    </option>
-                    @for (first of headphonesPairs(); track first) {
-                      <option
-                        [value]="first"
-                        [selected]="chosen.kind === 'pair' && chosen.first === first"
-                      >
-                        {{ 'Outputs {a}-{b}' | t: { a: first + 1, b: first + 2 } }}
-                      </option>
-                    }
-                    <option value="off" [selected]="chosen.kind === 'off'">
-                      {{ 'No headphones' | t }}
-                    </option>
-                  </select>
-                </div>
-              }
-              @if (row('mixing.curve')) {
-                @let e = entry('mixing.curve');
-                <div
-                  class="pr-row"
-                  data-setting="mixing.curve"
-                  [class.is-pointed]="pointed() === e.id"
-                >
-                  <div>
-                    <span class="pr-row__name">{{ e.label() }}</span>
-                    <span class="pr-row__help">{{ e.description() }}</span>
-                  </div>
-                  <div class="pr-seg pr-seg--lg" role="radiogroup" [attr.aria-label]="e.label()">
-                    <button
-                      role="radio"
-                      [attr.aria-checked]="mixer.crossfaderCurve() === 'smooth'"
-                      (click)="mixer.setCrossfaderCurve('smooth')"
+                  <option value="auto" [selected]="chosen.kind === 'auto'">
+                    {{ 'Automatic' | t }}
+                  </option>
+                  @for (first of headphonesPairs(); track first) {
+                    <option
+                      [value]="first"
+                      [selected]="chosen.kind === 'pair' && chosen.first === first"
                     >
-                      SMOOTH
-                    </button>
-                    <button
-                      role="radio"
-                      [attr.aria-checked]="mixer.crossfaderCurve() === 'sharp'"
-                      (click)="mixer.setCrossfaderCurve('sharp')"
-                    >
-                      SHARP
-                    </button>
-                  </div>
-                </div>
-              }
-              @if (row('mixing.limiter')) {
-                @let e = entry('mixing.limiter');
-                <div
-                  class="pr-row"
-                  data-setting="mixing.limiter"
-                  [class.is-pointed]="pointed() === e.id"
-                >
-                  <div>
-                    <span class="pr-row__name">{{ e.label() }}</span>
-                    <span class="pr-row__help">{{ e.description() }}</span>
-                  </div>
+                      {{ 'Outputs {a}-{b}' | t: { a: first + 1, b: first + 2 } }}
+                    </option>
+                  }
+                  <option value="off" [selected]="chosen.kind === 'off'">
+                    {{ 'No headphones' | t }}
+                  </option>
+                </select>
+              </app-setting-row>
+              <app-setting-row id="mixing.curve">
+                <div class="pr-seg pr-seg--lg" role="radiogroup" settingControl>
                   <button
-                    class="pr-switch"
-                    role="switch"
-                    [attr.aria-checked]="mixer.limiter()"
-                    [attr.aria-label]="e.label()"
-                    (click)="mixer.setLimiter(!mixer.limiter())"
+                    role="radio"
+                    [attr.aria-checked]="mixer.crossfaderCurve() === 'smooth'"
+                    (click)="mixer.setCrossfaderCurve('smooth')"
                   >
-                    <span></span>
+                    SMOOTH
+                  </button>
+                  <button
+                    role="radio"
+                    [attr.aria-checked]="mixer.crossfaderCurve() === 'sharp'"
+                    (click)="mixer.setCrossfaderCurve('sharp')"
+                  >
+                    SHARP
                   </button>
                 </div>
-              }
+              </app-setting-row>
+              <app-setting-row id="mixing.limiter">
+                <button
+                  class="pr-switch"
+                  role="switch"
+                  [attr.aria-checked]="mixer.limiter()"
+                  settingControl
+                  (click)="mixer.setLimiter(!mixer.limiter())"
+                >
+                  <span></span>
+                </button>
+              </app-setting-row>
             </div>
           </section>
         }
 
         @if (shows('dj')) {
           <section class="pr-group">
-            @if (found()) {
+            @if (search.found()) {
               <h3 class="pr-label">DJ</h3>
             }
             <div class="pr-card">
-              @if (row('dj.sync')) {
-                @let e = entry('dj.sync');
-                <div class="pr-row" data-setting="dj.sync" [class.is-pointed]="pointed() === e.id">
-                  <div>
-                    <span class="pr-row__name">{{ e.label() }}</span>
-                    <span class="pr-row__help">{{ e.description() }}</span>
-                  </div>
-                  <select
-                    class="pr-select"
-                    [value]="dj().vinylSync"
-                    (change)="updateDj({ vinylSync: $any($event.target).value })"
-                    [attr.aria-label]="e.label()"
-                  >
-                    <option value="once">
-                      {{ 'One shot: matches once, the pitch fader keeps working' | t }}
-                    </option>
-                    <option value="locked">
-                      {{ 'Locked: follows the leader, the pitch fader is ignored' | t }}
-                    </option>
-                  </select>
-                </div>
-              }
-              @if (row('dj.pitchRange')) {
-                @let e = entry('dj.pitchRange');
-                <div
-                  class="pr-row"
-                  data-setting="dj.pitchRange"
-                  [class.is-pointed]="pointed() === e.id"
+              <app-setting-row id="dj.sync">
+                <select
+                  class="pr-select"
+                  [value]="dj().vinylSync"
+                  (change)="setDj({ vinylSync: $any($event.target).value })"
+                  settingControl
                 >
-                  <div>
-                    <span class="pr-row__name">{{ e.label() }}</span>
-                    <span class="pr-row__help">{{ e.description() }}</span>
-                  </div>
-                  <div class="pr-seg pr-seg--lg" role="radiogroup" [attr.aria-label]="e.label()">
-                    @for (r of pitchRanges; track r) {
-                      <button
-                        role="radio"
-                        [attr.aria-checked]="dj().pitchRange === r"
-                        (click)="updateDj({ pitchRange: r })"
-                      >
-                        ±{{ r * 100 }} %
-                      </button>
-                    }
-                  </div>
+                  <option value="once">
+                    {{ 'One shot: matches once, the pitch fader keeps working' | t }}
+                  </option>
+                  <option value="locked">
+                    {{ 'Locked: follows the leader, the pitch fader is ignored' | t }}
+                  </option>
+                </select>
+              </app-setting-row>
+              <app-setting-row id="dj.pitchRange">
+                <div class="pr-seg pr-seg--lg" role="radiogroup" settingControl>
+                  @for (r of pitchRanges; track r) {
+                    <button
+                      role="radio"
+                      [attr.aria-checked]="dj().pitchRange === r"
+                      (click)="setDj({ pitchRange: r })"
+                    >
+                      ±{{ r * 100 }} %
+                    </button>
+                  }
                 </div>
-              }
-              @if (row('dj.quantize')) {
-                @let e = entry('dj.quantize');
-                <div
-                  class="pr-row"
-                  data-setting="dj.quantize"
-                  [class.is-pointed]="pointed() === e.id"
+              </app-setting-row>
+              <app-setting-row id="dj.quantize">
+                <button
+                  class="pr-switch"
+                  role="switch"
+                  [attr.aria-checked]="dj().quantize"
+                  settingControl
+                  (click)="setDj({ quantize: !dj().quantize })"
                 >
-                  <div>
-                    <span class="pr-row__name">{{ e.label() }}</span>
-                    <span class="pr-row__help">{{ e.description() }}</span>
-                  </div>
-                  <button
-                    class="pr-switch"
-                    role="switch"
-                    [attr.aria-checked]="dj().quantize"
-                    [attr.aria-label]="e.label()"
-                    (click)="updateDj({ quantize: !dj().quantize })"
-                  >
-                    <span></span>
-                  </button>
+                  <span></span>
+                </button>
+              </app-setting-row>
+              <app-setting-row id="dj.decks">
+                <div class="pr-seg pr-seg--lg" role="radiogroup" settingControl>
+                  @for (count of [2, MAX_DECKS]; track count) {
+                    <button
+                      role="radio"
+                      [attr.aria-checked]="decks().length === count"
+                      (click)="setDeckCount(count)"
+                    >
+                      {{ count }}
+                    </button>
+                  }
                 </div>
-              }
-              @if (row('dj.decks')) {
-                @let e = entry('dj.decks');
-                <div class="pr-row" data-setting="dj.decks" [class.is-pointed]="pointed() === e.id">
-                  <div>
-                    <span class="pr-row__name">{{ e.label() }}</span>
-                    <span class="pr-row__help">{{ e.description() }}</span>
-                  </div>
-                  <div class="pr-seg pr-seg--lg" role="radiogroup" [attr.aria-label]="e.label()">
-                    @for (count of [2, MAX_DECKS]; track count) {
-                      <button
-                        role="radio"
-                        [attr.aria-checked]="decks().length === count"
-                        (click)="setDeckCount(count)"
-                      >
-                        {{ count }}
-                      </button>
-                    }
-                  </div>
-                </div>
-              }
-              @if (row('dj.autoGain')) {
-                @let e = entry('dj.autoGain');
-                <div
-                  class="pr-row"
-                  data-setting="dj.autoGain"
-                  [class.is-pointed]="pointed() === e.id"
+              </app-setting-row>
+              <app-setting-row id="dj.autoGain">
+                <button
+                  class="pr-switch"
+                  role="switch"
+                  [attr.aria-checked]="dj().autoGain"
+                  settingControl
+                  (click)="setDj({ autoGain: !dj().autoGain })"
                 >
-                  <div>
-                    <span class="pr-row__name">{{ e.label() }}</span>
-                    <span class="pr-row__help">{{ e.description() }}</span>
-                  </div>
-                  <button
-                    class="pr-switch"
-                    role="switch"
-                    [attr.aria-checked]="dj().autoGain"
-                    [attr.aria-label]="e.label()"
-                    (click)="updateDj({ autoGain: !dj().autoGain })"
-                  >
-                    <span></span>
-                  </button>
-                </div>
-              }
-              @if (row('dj.knobMagnet')) {
-                @let e = entry('dj.knobMagnet');
-                <div
-                  class="pr-row"
-                  data-setting="dj.knobMagnet"
-                  [class.is-pointed]="pointed() === e.id"
+                  <span></span>
+                </button>
+              </app-setting-row>
+              <app-setting-row id="dj.knobMagnet">
+                <button
+                  class="pr-switch"
+                  role="switch"
+                  [attr.aria-checked]="dj().knobMagnet"
+                  settingControl
+                  (click)="setDj({ knobMagnet: !dj().knobMagnet })"
                 >
-                  <div>
-                    <span class="pr-row__name">{{ e.label() }}</span>
-                    <span class="pr-row__help">{{ e.description() }}</span>
-                  </div>
-                  <button
-                    class="pr-switch"
-                    role="switch"
-                    [attr.aria-checked]="dj().knobMagnet"
-                    [attr.aria-label]="e.label()"
-                    (click)="updateDj({ knobMagnet: !dj().knobMagnet })"
-                  >
-                    <span></span>
-                  </button>
-                </div>
-              }
-              @if (row('dj.lockControls')) {
-                @let e = entry('dj.lockControls');
-                <div
-                  class="pr-row"
-                  data-setting="dj.lockControls"
-                  [class.is-pointed]="pointed() === e.id"
-                >
-                  <div>
-                    <span class="pr-row__name">{{ e.label() }}</span>
-                    <span class="pr-row__help">{{ e.description() }}</span>
-                  </div>
+                  <span></span>
+                </button>
+              </app-setting-row>
+              @if (ANDROID) {
+                <app-setting-row id="dj.lockControls">
                   <button
                     class="pr-switch"
                     role="switch"
                     [attr.aria-checked]="dj().lockControls"
-                    [attr.aria-label]="e.label()"
-                    (click)="updateDj({ lockControls: !dj().lockControls })"
+                    settingControl
+                    (click)="setDj({ lockControls: !dj().lockControls })"
                   >
                     <span></span>
                   </button>
-                </div>
+                </app-setting-row>
               }
             </div>
           </section>
@@ -640,105 +448,63 @@
 
         @if (shows('library')) {
           <section class="pr-group">
-            @if (found()) {
+            @if (search.found()) {
               <h3 class="pr-label">{{ pageLabel('library') }}</h3>
             }
             <div class="pr-card">
-              @if (row('library.tags')) {
-                @let e = entry('library.tags');
-                <div
-                  class="pr-row"
-                  data-setting="library.tags"
-                  [class.is-pointed]="pointed() === e.id"
+              <app-setting-row id="library.tags">
+                <button
+                  class="pr-switch"
+                  role="switch"
+                  [attr.aria-checked]="writeTags()"
+                  settingControl
+                  (click)="setLibrary({ writeTags: !writeTags() })"
                 >
-                  <div>
-                    <span class="pr-row__name">{{ e.label() }}</span>
-                    <span class="pr-row__help">{{ e.description() }}</span>
-                  </div>
-                  <button
-                    class="pr-switch"
-                    role="switch"
-                    [attr.aria-checked]="writeTags()"
-                    [attr.aria-label]="e.label()"
-                    (click)="setWriteTags(!writeTags())"
-                  >
-                    <span></span>
-                  </button>
-                </div>
-              }
-              @if (writeTags() && row('library.tagsReplace')) {
-                @let e = entry('library.tagsReplace');
-                <div
-                  class="pr-row"
-                  data-setting="library.tagsReplace"
-                  [class.is-pointed]="pointed() === e.id"
-                >
-                  <div>
-                    <span class="pr-row__name">{{ e.label() }}</span>
-                    <span class="pr-row__help">{{ e.description() }}</span>
-                  </div>
+                  <span></span>
+                </button>
+              </app-setting-row>
+              @if (writeTags()) {
+                <app-setting-row id="library.tagsReplace">
                   <button
                     class="pr-switch"
                     role="switch"
                     [attr.aria-checked]="replaceTags()"
-                    [attr.aria-label]="e.label()"
-                    (click)="setReplaceTags(!replaceTags())"
+                    settingControl
+                    (click)="setLibrary({ replaceTags: !replaceTags() })"
                   >
                     <span></span>
                   </button>
-                </div>
+                </app-setting-row>
               }
-              @if (row('library.pauseWhilePlaying')) {
-                @let e = entry('library.pauseWhilePlaying');
-                <div
-                  class="pr-row"
-                  data-setting="library.pauseWhilePlaying"
-                  [class.is-pointed]="pointed() === e.id"
+              <app-setting-row id="library.pauseWhilePlaying">
+                <button
+                  class="pr-switch"
+                  role="switch"
+                  [attr.aria-checked]="pauseWhilePlaying()"
+                  settingControl
+                  (click)="setLibrary({ pauseWhilePlaying: !pauseWhilePlaying() })"
                 >
-                  <div>
-                    <span class="pr-row__name">{{ e.label() }}</span>
-                    <span class="pr-row__help">{{ e.description() }}</span>
-                  </div>
+                  <span></span>
+                </button>
+              </app-setting-row>
+              <app-setting-row id="library.stemsFast">
+                <div class="pr-seg pr-seg--lg" role="radiogroup" settingControl>
                   <button
-                    class="pr-switch"
-                    role="switch"
-                    [attr.aria-checked]="pauseWhilePlaying()"
-                    [attr.aria-label]="e.label()"
-                    (click)="setPauseWhilePlaying(!pauseWhilePlaying())"
+                    role="radio"
+                    [attr.aria-checked]="!stemsFast()"
+                    (click)="setLibrary({ stemsFast: false })"
                   >
-                    <span></span>
+                    {{ 'Quality' | t }}
+                  </button>
+                  <button
+                    role="radio"
+                    [attr.aria-checked]="stemsFast()"
+                    (click)="setLibrary({ stemsFast: true })"
+                  >
+                    {{ 'Fast' | t }}
                   </button>
                 </div>
-              }
-              @if (row('library.stemsFast')) {
-                @let e = entry('library.stemsFast');
-                <div
-                  class="pr-row"
-                  data-setting="library.stemsFast"
-                  [class.is-pointed]="pointed() === e.id"
-                >
-                  <div>
-                    <span class="pr-row__name">{{ e.label() }}</span>
-                    <span class="pr-row__help">{{ e.description() }}</span>
-                  </div>
-                  <div class="pr-seg pr-seg--lg" role="radiogroup" [attr.aria-label]="e.label()">
-                    <button
-                      role="radio"
-                      [attr.aria-checked]="!stemsFast()"
-                      (click)="setStemsFast(false)"
-                    >
-                      {{ 'Quality' | t }}
-                    </button>
-                    <button
-                      role="radio"
-                      [attr.aria-checked]="stemsFast()"
-                      (click)="setStemsFast(true)"
-                    >
-                      {{ 'Fast' | t }}
-                    </button>
-                  </div>
-                </div>
-              }
+              </app-setting-row>
               @for (
                 m of stemsFast()
                   ? [{ id: 'library.stemsFour', model: stems.fourFastModel(), ready: true }]
@@ -752,118 +518,77 @@
                     ];
                 track m.id
               ) {
-                @if (row(m.id)) {
-                  @let e = entry(m.id);
-                  <div
-                    class="pr-row"
-                    [attr.data-setting]="m.id"
-                    [class.is-pointed]="pointed() === e.id"
-                  >
-                    <div>
-                      <span class="pr-row__name">{{ e.label() }}</span>
-                      <span class="pr-row__help">{{ e.description() }}</span>
-                      @if (m.model.error; as error) {
-                        <span class="pr-row__help error">{{ error }}</span>
-                      }
-                    </div>
-                    @if (m.model.installed) {
-                      <span class="pr-label">{{ 'Installed' | t }}</span>
-                    } @else if (m.model.downloading !== null) {
-                      <span class="pr-num">{{ percent(m.model.downloading) }}</span>
-                    } @else {
-                      <button
-                        class="pr-btn pr-btn--sm"
-                        [disabled]="!m.ready"
-                        (click)="stems.downloadModel(m.model.id)"
-                      >
-                        {{ 'Download ({size} MB)' | t: { size: megabytes(m.model.bytes) } }}
-                      </button>
-                    }
-                  </div>
-                }
+                <app-setting-row [id]="m.id">
+                  @if (m.model.error; as error) {
+                    <span class="pr-row__help error">{{ error }}</span>
+                  }
+                  @if (m.model.installed) {
+                    <span class="pr-label">{{ 'Installed' | t }}</span>
+                  } @else if (m.model.downloading !== null) {
+                    <span class="pr-num">{{ percent(m.model.downloading) }}</span>
+                  } @else {
+                    <button
+                      class="pr-btn pr-btn--sm"
+                      [disabled]="!m.ready"
+                      (click)="stems.downloadModel(m.model.id)"
+                    >
+                      {{ 'Download ({size} MB)' | t: { size: megabytes(m.model.bytes) } }}
+                    </button>
+                  }
+                </app-setting-row>
               }
-              @if (row('library.stemsGpu')) {
-                @let e = entry('library.stemsGpu');
-                <div
-                  class="pr-row"
-                  data-setting="library.stemsGpu"
-                  [class.is-pointed]="pointed() === e.id"
+              <app-setting-row
+                id="library.stemsGpu"
+                [help]="
+                  stems.gpu() === false
+                    ? ('No graphics chip worth it here: the processor separates.' | t)
+                    : null
+                "
+              >
+                <button
+                  class="pr-switch"
+                  role="switch"
+                  [attr.aria-checked]="separatesOnGpu()"
+                  settingControl
+                  [disabled]="stems.gpu() === false"
+                  (click)="setLibrary({ stemsGpu: !preferences.library().stemsGpu })"
                 >
-                  <div>
-                    <span class="pr-row__name">{{ e.label() }}</span>
-                    <span class="pr-row__help">{{
-                      stems.gpu() === false
-                        ? ('No graphics chip worth it here: the processor separates.' | t)
-                        : e.description()
-                    }}</span>
-                  </div>
-                  <button
-                    class="pr-switch"
-                    role="switch"
-                    [attr.aria-checked]="separatesOnGpu()"
-                    [attr.aria-label]="e.label()"
-                    [disabled]="stems.gpu() === false"
-                    (click)="setStemsGpu(!preferences.library().stemsGpu)"
-                  >
-                    <span></span>
-                  </button>
-                </div>
-              }
-              @if (row('library.stemsOnLoad')) {
-                @let e = entry('library.stemsOnLoad');
-                <div
-                  class="pr-row"
-                  data-setting="library.stemsOnLoad"
-                  [class.is-pointed]="pointed() === e.id"
+                  <span></span>
+                </button>
+              </app-setting-row>
+              <app-setting-row id="library.stemsOnLoad">
+                <button
+                  class="pr-switch"
+                  role="switch"
+                  [attr.aria-checked]="separateOnLoad()"
+                  settingControl
+                  (click)="setLibrary({ stemsOnLoad: !separateOnLoad() })"
                 >
-                  <div>
-                    <span class="pr-row__name">{{ e.label() }}</span>
-                    <span class="pr-row__help">{{ e.description() }}</span>
-                  </div>
-                  <button
-                    class="pr-switch"
-                    role="switch"
-                    [attr.aria-checked]="separateOnLoad()"
-                    [attr.aria-label]="e.label()"
-                    (click)="setSeparateOnLoad(!separateOnLoad())"
-                  >
-                    <span></span>
-                  </button>
-                </div>
-              }
-              @if (row('library.stemsAll')) {
-                @let e = entry('library.stemsAll');
-                <div
-                  class="pr-row"
-                  data-setting="library.stemsAll"
-                  [class.is-pointed]="pointed() === e.id"
+                  <span></span>
+                </button>
+              </app-setting-row>
+              <app-setting-row id="library.stemsAll">
+                <button
+                  class="pr-btn pr-btn--sm"
+                  (click)="stems.separateLibrary()"
+                  [disabled]="stems.reach() === 'none' || stems.progress().running"
                 >
-                  <div>
-                    <span class="pr-row__name">{{ e.label() }}</span>
-                    <span class="pr-row__help">{{ e.description() }}</span>
-                  </div>
-                  <button
-                    class="pr-btn pr-btn--sm"
-                    (click)="stems.separateLibrary()"
-                    [disabled]="stems.reach() === 'none' || stems.progress().running"
-                  >
-                    {{ stems.progress().running ? ('Separating…' | t) : ('Separate' | t) }}
-                  </button>
-                </div>
-              }
+                  {{ stems.progress().running ? ('Separating…' | t) : ('Separate' | t) }}
+                </button>
+              </app-setting-row>
             </div>
           </section>
         }
 
         @if (shows('controllers')) {
-          @if (found()) {
+          @if (search.found()) {
             <h3 class="pr-label">{{ pageLabel('controllers') }}</h3>
           }
           <app-controllers-settings />
         }
 
         @if (shows('shortcuts')) {
-          @if (found()) {
+          @if (search.found()) {
             <h3 class="pr-label">{{ pageLabel('shortcuts') }}</h3>
           }
           <app-shortcuts-settings />
@@ -871,58 +596,39 @@
 
         @if (shows('interface')) {
           <section class="pr-group">
-            @if (found()) {
+            @if (search.found()) {
               <h3 class="pr-label">{{ pageLabel('interface') }}</h3>
             }
             <div class="pr-card">
-              @if (row('interface.language')) {
-                @let e = entry('interface.language');
-                <div
-                  class="pr-row"
-                  data-setting="interface.language"
-                  [class.is-pointed]="pointed() === e.id"
-                >
-                  <div>
-                    <span class="pr-row__name">{{ e.label() }}</span>
-                    <span class="pr-row__help">{{ e.description() }}</span>
-                  </div>
-                  <div class="pr-seg pr-seg--lg" role="radiogroup" [attr.aria-label]="e.label()">
-                    @for (l of languages; track l.id) {
-                      <button
-                        role="radio"
-                        [attr.aria-checked]="language() === l.id"
-                        (click)="setLanguage(l.id)"
-                      >
-                        {{ l.name }}
-                      </button>
-                    }
-                  </div>
+              <app-setting-row id="interface.language">
+                <div class="pr-seg pr-seg--lg" role="radiogroup" settingControl>
+                  @for (l of languages; track l.id) {
+                    <button
+                      role="radio"
+                      [attr.aria-checked]="language() === l.id"
+                      (click)="setLanguage(l.id)"
+                    >
+                      {{ l.name }}
+                    </button>
+                  }
                 </div>
-              }
-              @if (!PHONE && row('interface.screenBelow')) {
-                @let e = entry('interface.screenBelow');
-                <div
-                  class="pr-row"
-                  data-setting="interface.screenBelow"
-                  [class.is-pointed]="pointed() === e.id"
+              </app-setting-row>
+              @if (!PHONE) {
+                <app-setting-row
+                  id="interface.screenBelow"
+                  [help]="screens.below() ? null : ('No screen under this one.' | t)"
                 >
-                  <div>
-                    <span class="pr-row__name">{{ e.label() }}</span>
-                    <span class="pr-row__help">{{
-                      screens.below() ? e.description() : ('No screen under this one.' | t)
-                    }}</span>
-                  </div>
                   <button
                     class="pr-switch"
                     role="switch"
                     [attr.aria-checked]="screens.span() !== null"
-                    [attr.aria-label]="e.label()"
+                    settingControl
                     [disabled]="!screens.below()"
                     (click)="screens.spread(screens.span() === null)"
                   >
                     <span></span>
                   </button>
-                </div>
+                </app-setting-row>
               }
             </div>
           </section>
@@ -930,75 +636,43 @@
 
         @if (shows('about')) {
           <section class="pr-group">
-            @if (found()) {
+            @if (search.found()) {
               <h3 class="pr-label">{{ pageLabel('about') }}</h3>
             }
             <div class="pr-card">
-              @if (row('about.version')) {
-                @let e = entry('about.version');
-                <div
-                  class="pr-row"
-                  data-setting="about.version"
-                  [class.is-pointed]="pointed() === e.id"
+              <app-setting-row id="about.version">
+                <span class="pr-row__name"
+                  >Prisme <span class="pr-num">{{ version() }}</span></span
                 >
-                  <div>
-                    <span class="pr-row__name"
-                      >Prisme <span class="pr-num">{{ version() }}</span></span
-                    >
-                    <span class="pr-row__help">{{ e.description() }}</span>
-                  </div>
-                </div>
-              }
-              @if (row('about.updates')) {
-                @let e = entry('about.updates');
-                <div
-                  class="pr-row"
-                  data-setting="about.updates"
-                  [class.is-pointed]="pointed() === e.id"
-                >
-                  <div>
-                    <span class="pr-row__name">{{ e.label() }}</span>
-                    <span class="pr-row__help">
-                      @if (updates.available(); as update) {
-                        {{
-                          'Prisme {version} is ready to install.' | t: { version: update.version }
-                        }}
-                      } @else {
-                        {{ e.description() }}
-                      }
-                    </span>
-                  </div>
-                  @if (updates.available()) {
-                    <button
-                      class="pr-btn pr-btn--light"
-                      [disabled]="updates.decksPlaying() || updates.installing()"
-                      (click)="updates.install()"
-                    >
-                      {{ updates.installing() ? ('Installing…' | t) : ('Install and restart' | t) }}
-                    </button>
-                  } @else {
-                    <button class="pr-btn" (click)="updates.look()">{{ 'Check now' | t }}</button>
-                  }
-                </div>
-              }
-              @if (row('about.diagnostics')) {
-                @let e = entry('about.diagnostics');
-                <div
-                  class="pr-row"
-                  data-setting="about.diagnostics"
-                  [class.is-pointed]="pointed() === e.id"
-                >
-                  <div>
-                    <span class="pr-row__name">{{ e.label() }}</span>
-                    <span class="pr-row__help">{{ e.description() }}</span>
-                  </div>
-                  <button class="pr-btn" (click)="saveDiagnostics()">
-                    {{
-                      diagnosticsSaved() ? ('Report saved' | t) : ('Save a diagnostic report…' | t)
-                    }}
+              </app-setting-row>
+              @let update = updates.available();
+              <app-setting-row
+                id="about.updates"
+                [help]="
+                  update
+                    ? ('Prisme {version} is ready to install.' | t: { version: update.version })
+                    : null
+                "
+              >
+                @if (update) {
+                  <button
+                    class="pr-btn pr-btn--light"
+                    [disabled]="updates.decksPlaying() || updates.installing()"
+                    (click)="updates.install()"
+                  >
+                    {{ updates.installing() ? ('Installing…' | t) : ('Install and restart' | t) }}
                   </button>
-                </div>
-              }
+                } @else {
+                  <button class="pr-btn" (click)="updates.look()">{{ 'Check now' | t }}</button>
+                }
+              </app-setting-row>
+              <app-setting-row id="about.diagnostics">
+                <button class="pr-btn" (click)="saveDiagnostics()">
+                  {{
+                    diagnosticsSaved() ? ('Report saved' | t) : ('Save a diagnostic report…' | t)
+                  }}
+                </button>
+              </app-setting-row>
             </div>
           </section>
         }
@@ -1010,7 +684,7 @@
 
       @if (pending()) {
         <footer class="pending" [class.nudged]="nudged()" (animationend)="nudged.set(false)">
-          <span>{{ pendingText() }}</span>
+          <span>{{ 'The audio restarts to apply these changes.' | t }}</span>
           <button class="pr-btn pr-btn--ghost" [disabled]="busy()" (click)="discard()">
             {{ 'Undo' | t }}
           </button>

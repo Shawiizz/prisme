@@ -18,6 +18,7 @@ export class SettingsService {
   readonly formats = signal<TimecodeFormat[]>([]);
   readonly settings = signal<AudioSettings | null>(null);
   readonly info = signal<AudioInfo | null>(null);
+  private devicesAsked = 0;
 
   /** Loads the settings, and again whenever the audio moves to other devices by itself. */
   async init(): Promise<void> {
@@ -39,8 +40,11 @@ export class SettingsService {
     await this.loadDevices(settings.backend);
   }
 
+  /** The devices of the backend asked for last: a slower answer for another one is dropped. */
   async loadDevices(backend: AudioBackend): Promise<void> {
-    this.devices.set(await invoke<AudioDevice[]>('list_devices', { backend }));
+    const asked = ++this.devicesAsked;
+    const devices = await invoke<AudioDevice[]>('list_devices', { backend });
+    if (asked === this.devicesAsked) this.devices.set(devices);
   }
 
   /** Asks where to save a diagnostic report and writes it; `false` if cancelled. */

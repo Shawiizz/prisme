@@ -365,7 +365,8 @@
   min-height: 56px;
   padding: var(--pr-space-3) var(--pr-space-4);
 }
-.pr-row + .pr-row {
+/* a line over every row after the first: a row a search hides is no longer a .pr-row */
+.pr-row ~ .pr-row {
   border-top: 1px solid var(--pr-line);
 }
 .pr-row > div:first-child {

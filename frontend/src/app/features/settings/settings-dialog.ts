@@ -19,15 +19,17 @@ import { StemsService } from '../../core/services/stems.service';
 import { NavigationService, SettingsCategory } from '../../core/services/navigation.service';
 import { AudioBackend, AudioSettings, BACKEND_NAMES, BUFFER_SIZES } from '../../core/models/audio';
 import { MAX_DECKS, MixMode } from '../../core/models/engine';
-import { DjPreferences, PITCH_RANGES } from '../../core/models/preferences';
+import { DjPreferences, LibraryPreferences, PITCH_RANGES } from '../../core/models/preferences';
 import { LANGUAGES, language, setLanguage, t } from '../../core/i18n/i18n';
 import { TPipe } from '../../core/i18n/t.pipe';
 import { TurntablePanel } from '../turntables/turntable-panel';
 import { ControllersSettings } from '../controllers/controllers-settings';
 import { ShortcutsSettings } from '../shortcuts/shortcuts-settings';
-import { PHONE } from '../../core/platform';
+import { ANDROID, PHONE } from '../../core/platform';
 import { ScreensService } from '../../core/services/screens.service';
-import { SETTINGS, SETTINGS_PAGES, SettingEntry, matches, normalize } from './settings-catalog';
+import { SETTINGS_PAGES, SETTING_BY_ID } from './settings-catalog';
+import { SettingsSearch } from './settings-search';
+import { SettingControl, SettingRow } from './setting-row';
 import { SettingsIcon } from './settings-icon';
 import { decimal } from '../../shared/time';
 import { Dismiss, overlay } from '../../shared/overlay';
@@ -47,7 +49,17 @@ function numbers(n: number): number[] {
   selector: 'app-settings-dialog',
   templateUrl: './settings-dialog.html',
   styleUrls: ['./settings-dialog.scss', './settings-dialog.phone.scss'],
-  imports: [TPipe, TurntablePanel, ControllersSettings, SettingsIcon, ShortcutsSettings, Dismiss],
+  imports: [
+    TPipe,
+    TurntablePanel,
+    ControllersSettings,
+    SettingsIcon,
+    ShortcutsSettings,
+    Dismiss,
+    SettingRow,
+    SettingControl,
+  ],
+  providers: [SettingsSearch],
 })
 export class SettingsDialog implements OnInit {
   protected readonly service = inject(SettingsService);
@@ -58,10 +70,12 @@ export class SettingsDialog implements OnInit {
   protected readonly stems = inject(StemsService);
   private readonly navigation = inject(NavigationService);
   protected readonly screens = inject(ScreensService);
+  protected readonly search = inject(SettingsSearch);
 
   protected readonly pages = SETTINGS_PAGES;
   /** On a phone the settings are a screen with its pages: this is one of them. */
   protected readonly PHONE = PHONE;
+  protected readonly ANDROID = ANDROID;
   protected readonly pitchRanges = PITCH_RANGES;
   protected readonly languages = LANGUAGES;
   protected readonly decks = this.engine.deckIndexes;
@@ -72,32 +86,8 @@ export class SettingsDialog implements OnInit {
   protected readonly page = computed(
     () => this.pages.find((p) => p.id === this.category()) ?? this.pages[0],
   );
-  protected readonly query = signal('');
-  private readonly words = computed(() => normalize(this.query()).split(/\s+/).filter(Boolean));
-  /** The settings the search finds, `null` without a search. */
-  protected readonly found = computed(() => {
-    const words = this.words();
-    if (!words.length) return null;
-    const pagesFound = new Set(
-      this.pages
-        .filter((p) => matches(words, `${p.label()} ${p.description()} ${p.keywords}`))
-        .map((p) => p.id),
-    );
-    const settings = new Set(
-      SETTINGS.filter((s) => matches(words, `${s.label()} ${s.description()}`)).map((s) => s.id),
-    );
-    return { pages: pagesFound, settings };
-  });
-  protected readonly foundCount = computed(() => {
-    const found = this.found();
-    return found
-      ? found.settings.size + this.panelPages().filter((p) => found.pages.has(p)).length
-      : 0;
-  });
 
   private readonly body = viewChild.required<ElementRef<HTMLElement>>('body');
-  /** The setting pointed out (from the command palette), lit once. */
-  protected readonly pointed = signal<string | null>(null);
 
   protected readonly language = language;
   protected readonly setLanguage = setLanguage;
@@ -113,12 +103,14 @@ export class SettingsDialog implements OnInit {
     if (chosen.kind === 'pair') pairs.add(chosen.first);
     return [...pairs].sort((a, b) => a - b);
   });
-  protected readonly headphonesState = computed(() => {
-    if (!this.mixer.internal() || this.mixer.outputChannels() === null) return '';
+  /** What the choice of the headphones does, and where they are heard on the running device. */
+  protected readonly headphonesHelp = computed(() => {
+    const help = SETTING_BY_ID.get('mixing.headphones')!.description();
+    if (!this.mixer.internal() || this.mixer.outputChannels() === null) return help;
     const first = this.mixer.headphonesInUse();
     return first === null
-      ? t('Not heard on this device.')
-      : t('Now on outputs {a}-{b}.', { a: first + 1, b: first + 2 });
+      ? `${help} ${t('Not heard on this device.')}`
+      : `${help} ${t('Now on outputs {a}-{b}.', { a: first + 1, b: first + 2 })}`;
   });
   protected readonly writeTags = computed(() => this.preferences.library().writeTags);
   protected readonly replaceTags = computed(() => this.preferences.library().replaceTags);
@@ -184,7 +176,6 @@ export class SettingsDialog implements OnInit {
   protected readonly pending = computed(
     () => this.audioChanged() || this.mixMode() !== this.mixer.mode(),
   );
-  protected readonly pendingText = computed(() => t('The audio restarts to apply these changes.'));
 
   constructor() {
     // what opens it answers the back gesture
@@ -198,59 +189,42 @@ export class SettingsDialog implements OnInit {
       if (!setting) return;
       const row = this.body().nativeElement.querySelector(`[data-setting="${setting}"]`);
       row?.scrollIntoView({ block: 'center' });
-      this.pointed.set(setting);
+      this.search.pointed.set(setting);
     });
   }
 
   async ngOnInit() {
-    this.version.set(await getVersion().catch(() => ''));
-    await this.service.refresh();
+    const [version] = await Promise.all([
+      getVersion().catch(() => ''),
+      this.service.refresh().catch((e) => this.error.set(String(e))),
+    ]);
+    this.version.set(version);
     this.draft.set(structuredClone(this.service.settings()));
   }
 
   /** Shows a page (and leaves the search). */
   go(category: SettingsCategory) {
-    this.query.set('');
+    this.search.query.set('');
     this.navigation.openSettings(category);
     this.body().nativeElement.scrollTop = 0;
   }
 
   /** Escape empties the search first, then closes. */
   clearSearch(event: Event) {
-    if (!this.query()) return;
+    if (!this.search.query()) return;
     event.stopPropagation();
-    this.query.set('');
+    this.search.query.set('');
   }
 
   /** Whether a page shows: the current one, or any page with something found. */
   shows(category: SettingsCategory): boolean {
-    const found = this.found();
+    const found = this.search.found();
     if (!found) return this.category() === category;
-    return (
-      found.pages.has(category) ||
-      SETTINGS.some((s) => s.page === category && found.settings.has(s.id))
-    );
-  }
-
-  /** Whether a setting's row shows. */
-  row(id: string): boolean {
-    const found = this.found();
-    if (!found) return true;
-    const entry = SETTINGS.find((s) => s.id === id);
-    return found.settings.has(id) || (!!entry && found.pages.has(entry.page));
-  }
-
-  entry(id: string): SettingEntry {
-    return SETTINGS.find((s) => s.id === id)!;
+    return found.pages.has(category) || found.holding.has(category);
   }
 
   pageLabel(category: SettingsCategory): string {
     return this.pages.find((p) => p.id === category)?.label() ?? '';
-  }
-
-  /** Pages that are panels rather than rows: shown whole when the search finds them. */
-  private panelPages(): SettingsCategory[] {
-    return ['controllers', 'shortcuts'];
   }
 
   /** Closes, unless changes wait for Apply: then their bar flashes. */
@@ -268,14 +242,23 @@ export class SettingsDialog implements OnInit {
     if (d) this.draft.set({ ...d, ...changes });
   }
 
-  updateDj(changes: Partial<DjPreferences>) {
-    return this.preferences.updateDj({ ...this.dj(), ...changes });
+  setDj(changes: Partial<DjPreferences>) {
+    this.saved(this.preferences.updateDj(changes));
+  }
+
+  setLibrary(changes: Partial<LibraryPreferences>) {
+    this.saved(this.preferences.updateLibrary(changes));
+  }
+
+  /** A preference saving: what fails is told under the page. */
+  private saved(saving: Promise<void>) {
+    saving.catch((e) => this.error.set(String(e)));
   }
 
   /** Another number of decks is another engine: the audio starts again with it. */
   async setDeckCount(deckCount: number) {
     try {
-      await this.updateDj({ deckCount });
+      await this.preferences.updateDj({ deckCount });
     } catch (e) {
       this.engine.error.set(String(e));
     } finally {
@@ -292,10 +275,6 @@ export class SettingsDialog implements OnInit {
     return Math.round(bytes / 1e6);
   }
 
-  setWriteTags(writeTags: boolean) {
-    this.preferences.updateLibrary({ writeTags });
-  }
-
   setHeadphones(value: string) {
     this.mixer.setHeadphones(
       value === 'auto' || value === 'off'
@@ -304,32 +283,12 @@ export class SettingsDialog implements OnInit {
     );
   }
 
-  setPauseWhilePlaying(pauseWhilePlaying: boolean) {
-    this.preferences.updateLibrary({ pauseWhilePlaying });
-  }
-
-  setReplaceTags(replaceTags: boolean) {
-    this.preferences.updateLibrary({ replaceTags });
-  }
-
   /** A graphics chip worth it is there, and the DJ lets it separate. */
   protected readonly separatesOnGpu = computed(
     () => (this.stems.gpu() ?? false) && this.preferences.library().stemsGpu,
   );
 
   protected readonly stemsFast = computed(() => this.preferences.library().stemsFast);
-
-  setStemsFast(stemsFast: boolean) {
-    void this.preferences.updateLibrary({ stemsFast });
-  }
-
-  setStemsGpu(stemsGpu: boolean) {
-    void this.preferences.updateLibrary({ stemsGpu });
-  }
-
-  setSeparateOnLoad(stemsOnLoad: boolean) {
-    this.preferences.updateLibrary({ stemsOnLoad });
-  }
 
   /** Another backend has other devices: start again from its defaults. */
   async setBackend(backend: AudioBackend) {

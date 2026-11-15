@@ -344,6 +344,10 @@ export const SETTINGS = ALL_SETTINGS.filter(
     (ANDROID || !ANDROID_ONLY_SETTINGS.includes(s.id)),
 );
 
+export const SETTING_BY_ID: ReadonlyMap<string, SettingEntry> = new Map(
+  SETTINGS.map((s) => [s.id, s]),
+);
+
 /** Lower case without accents, to compare what is typed with what is written. */
 export function normalize(text: string): string {
   return text.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
