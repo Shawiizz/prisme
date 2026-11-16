@@ -4,7 +4,7 @@ const en = {
 	meta: {
 		title: 'Prisme: free DJ software for controllers and turntables',
 		description:
-			'Free DJ software for timecode vinyl, stems, 56 controllers and four decks, on Windows, macOS, Linux and Android.',
+			'Free DJ software for timecode vinyl, stems, {n} controllers and four decks, on Windows, macOS, Linux and Android.',
 	},
 	nav: { features: 'Features', docs: 'Docs', download: 'Download' },
 	hero: {
@@ -20,7 +20,7 @@ const en = {
 		kicker: 'Play your way',
 		title: 'A controller, turntables, or just your laptop.',
 		items: [
-			['Controller', 'Plug in one of 56 controllers and play: pads, jog wheels, lights and screens are ready.', 'controllers'],
+			['Controller', 'Plug in one of {n} controllers and play: pads, jog wheels, lights and screens are ready.', 'controllers'],
 			['Turntables', 'Timecode records on your turntables drive the tracks, scratches and needle drops included.', 'vinyl'],
 			['Laptop or phone', 'Every action from the keyboard, the mouse or your fingers, with nothing else plugged in.', 'touch'],
 		],
@@ -66,7 +66,7 @@ const en = {
 	ctrl: {
 		kicker: 'Controllers',
 		title: 'Plug it in. It plays.',
-		body: '56 controllers work the moment you plug them in, lights, meters, jog wheels and screens included. Their mappings keep improving, and the fixes reach you without waiting for a new version.',
+		body: '{n} controllers work the moment you plug them in, lights, meters, jog wheels and screens included. Their mappings keep improving, and the fixes reach you without waiting for a new version.',
 		count: 'models',
 		brands: 'brands',
 		more: 'and {n} more',
@@ -123,7 +123,7 @@ const fr: typeof en = {
 	meta: {
 		title: 'Prisme : logiciel de DJ gratuit pour contrôleurs et platines',
 		description:
-			'Logiciel de DJ gratuit pour le vinyle timecode, les stems, 56 contrôleurs et quatre decks, sur Windows, macOS, Linux et Android.',
+			'Logiciel de DJ gratuit pour le vinyle timecode, les stems, {n} contrôleurs et quatre decks, sur Windows, macOS, Linux et Android.',
 	},
 	nav: { features: 'Fonctions', docs: 'Documentation', download: 'Télécharger' },
 	hero: {
@@ -139,7 +139,7 @@ const fr: typeof en = {
 		kicker: 'À votre façon',
 		title: 'Un contrôleur, des platines, ou juste votre ordinateur.',
 		items: [
-			['Contrôleur', 'Branchez l’un des 56 contrôleurs et jouez : pads, jog wheels, lumières et écrans sont prêts.', 'controllers'],
+			['Contrôleur', 'Branchez l’un des {n} contrôleurs et jouez : pads, jog wheels, lumières et écrans sont prêts.', 'controllers'],
 			['Platines', 'Des disques timecode sur vos platines pilotent les morceaux, scratchs et diamant posé compris.', 'vinyl'],
 			['Ordinateur ou téléphone', 'Chaque action au clavier, à la souris ou au doigt, sans rien brancher d’autre.', 'touch'],
 		],
@@ -185,7 +185,7 @@ const fr: typeof en = {
 	ctrl: {
 		kicker: 'Contrôleurs',
 		title: 'Branchez. Ça joue.',
-		body: '56 contrôleurs marchent dès qu’on les branche, lumières, vumètres, jog wheels et écrans compris. Leurs mappings s’améliorent avec le temps, et les corrections vous arrivent sans attendre une nouvelle version.',
+		body: '{n} contrôleurs marchent dès qu’on les branche, lumières, vumètres, jog wheels et écrans compris. Leurs mappings s’améliorent avec le temps, et les corrections vous arrivent sans attendre une nouvelle version.',
 		count: 'modèles',
 		brands: 'marques',
 		more: 'et {n} autres',
