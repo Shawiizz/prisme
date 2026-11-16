@@ -84,6 +84,37 @@ fn fit_window(app: &tauri::App) {
     }
 }
 
+/// The keys of the browser under the page off in a release (reload, print, find, zoom, its
+/// developer tools): Prisme is an application, its keys are its own. Kept in development.
+#[cfg(windows)]
+fn browser_keys_off(app: &tauri::App) {
+    use webview2_com::Microsoft::Web::WebView2::Win32::ICoreWebView2Settings3;
+    use windows_core::Interface;
+
+    if cfg!(debug_assertions) {
+        return;
+    }
+    let Some(window) = app.get_webview_window("main") else { return };
+    let done = window.with_webview(|webview| {
+        // SAFETY: the controller of the window's WebView2, alive during this call on the main
+        // thread; the settings are its own, changed through their COM interface
+        let off = unsafe {
+            webview
+                .controller()
+                .CoreWebView2()
+                .and_then(|core| core.Settings())
+                .and_then(|settings| settings.cast::<ICoreWebView2Settings3>())
+                .and_then(|settings| settings.SetAreBrowserAcceleratorKeysEnabled(false))
+        };
+        if let Err(e) = off {
+            warn!("the browser's keys stay on: {e}");
+        }
+    });
+    if let Err(e) = done {
+        warn!("the browser's keys stay on: {e}");
+    }
+}
+
 /// Where the separation models go: with the data in development, else in the local data
 /// folder, kept out of roaming profiles (they weigh 1.4 GB). Models a version before put
 /// with the roaming data move there.
@@ -151,6 +182,8 @@ pub fn run() {
             app.manage(logging::init(app.path().app_log_dir().ok().as_deref()));
             #[cfg(desktop)]
             fit_window(app);
+            #[cfg(windows)]
+            browser_keys_off(app);
             #[cfg(target_os = "ios")]
             fill_the_screen(app);
             if !keep_awake::run_at_full_speed() {

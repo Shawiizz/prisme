@@ -4252,6 +4252,8 @@ dependencies = [
  "tracing-appender",
  "tracing-subscriber",
  "webpki-root-certs",
+ "webview2-com",
+ "windows-core",
  "windows-sys 0.61.2",
 ]
 

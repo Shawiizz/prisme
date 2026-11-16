@@ -59,4 +59,6 @@ webpki-root-certs = "1"
 objc2 = "0.6"
 
 [target.'cfg(windows)'.dependencies]
+webview2-com = "0.39"
+windows-core = "0.62"
 windows-sys = { workspace = true, features = ["Win32_Foundation", "Win32_Globalization", "Win32_System_Power", "Win32_System_SystemServices", "Win32_System_Threading"] }
