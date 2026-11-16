@@ -1085,10 +1085,10 @@
     {"target": "mode.padsD.slicerLoop", "control": {"kind": "note", "channel": 7, "number": 35}, "when": {"group": "padsD", "mode": "slicerLoop"}, "on": 1}
   ],
   "meters": [
-    {"source": "deck1", "control": {"kind": "controlChange", "channel": 0, "number": 31}, "curve": 2.5, "steps": [0, 13, 26, 39, 52, 65, 78, 91, 104, 117], "clip": 118},
-    {"source": "deck2", "control": {"kind": "controlChange", "channel": 1, "number": 31}, "curve": 2.5, "steps": [0, 13, 26, 39, 52, 65, 78, 91, 104, 117], "clip": 118},
-    {"source": "deck3", "control": {"kind": "controlChange", "channel": 2, "number": 31}, "curve": 2.5, "steps": [0, 13, 26, 39, 52, 65, 78, 91, 104, 117], "clip": 118},
-    {"source": "deck4", "control": {"kind": "controlChange", "channel": 3, "number": 31}, "curve": 2.5, "steps": [0, 13, 26, 39, 52, 65, 78, 91, 104, 117], "clip": 118}
+    {"source": "deck1", "control": {"kind": "controlChange", "channel": 0, "number": 31}, "curve": 1.125, "steps": [0, 13, 26, 39, 52, 65, 78, 91, 104, 117], "clip": 118},
+    {"source": "deck2", "control": {"kind": "controlChange", "channel": 1, "number": 31}, "curve": 1.125, "steps": [0, 13, 26, 39, 52, 65, 78, 91, 104, 117], "clip": 118},
+    {"source": "deck3", "control": {"kind": "controlChange", "channel": 2, "number": 31}, "curve": 1.125, "steps": [0, 13, 26, 39, 52, 65, 78, 91, 104, 117], "clip": 118},
+    {"source": "deck4", "control": {"kind": "controlChange", "channel": 3, "number": 31}, "curve": 1.125, "steps": [0, 13, 26, 39, 52, 65, 78, 91, 104, 117], "clip": 118}
   ],
   "outputs": [
     {"source": "deck1.turn", "control": {"kind": "note", "channel": 0, "number": 6}, "max": 96},

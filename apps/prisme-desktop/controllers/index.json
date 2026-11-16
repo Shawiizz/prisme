@@ -16,9 +16,9 @@
       "format": 1
     },
     "behringer-cmd-studio-4a.json": {
-      "sha256": "fd67f6153d65aadc1442cfba15670279f3d0eca054c24cb9833eb469195753ab",
-      "revision": 2,
-      "format": 1
+      "sha256": "d064c0ed5bcab1ad5e804559503fa5a6af8c2e6026be1292caeaf88ca43cfd97",
+      "revision": 3,
+      "format": 2
     },
     "denon-dn-sc2000.json": {
       "sha256": "60a28f10eb8d087164a57c6a7bedfb24224a8e14f8c279288ba0523c95edd11f",
@@ -26,8 +26,8 @@
       "format": 1
     },
     "denon-mc3000.json": {
-      "sha256": "406d4cfdcac205a88aefa6915be83890ca72ac7ec6afb8f85244b1df417e8942",
-      "revision": 3,
+      "sha256": "ee05667b5d00607cf0df99fa49344c915a6c03b39779c9cf7f9b4872d780682b",
+      "revision": 4,
       "format": 2
     },
     "denon-mc4000.json": {
@@ -36,14 +36,14 @@
       "format": 1
     },
     "denon-mc6000mk2.json": {
-      "sha256": "98436e12040d6e8ff30fe5cc700cd04193fb04fea8a889466d42d6d7aa5b6380",
-      "revision": 3,
+      "sha256": "f5eebfe432faf4e29ff8be2a59f1dc02da218ed40941f1260dda95c6e1ee6616",
+      "revision": 4,
       "format": 2
     },
     "denon-mc7000.json": {
-      "sha256": "ef99805cd61c7b83eceb211b03f01da46860b3c46a9ee50339f6aa210c33b52f",
-      "revision": 2,
-      "format": 1
+      "sha256": "cdfc47ede38e076b4fb4f26e3b78e6784a56a446a0f9d9c977dd899456a19963",
+      "revision": 3,
+      "format": 2
     },
     "dj-techtools-midi-fighter-twister.json": {
       "sha256": "07a8b998e52d7f7e7c1baa8883e3f9268978202c4f08c2dd319863bad40fbb22",
@@ -56,8 +56,8 @@
       "format": 1
     },
     "hercules-dj-console-rmx-2.json": {
-      "sha256": "1201db84e466b5e235737089664c5cc0788672d2b0079bca27ec9a1026ff3028",
-      "revision": 3,
+      "sha256": "1f0c494a8527668067b3601703d095b87d95c24e19129b043ede0f07b49ea9f4",
+      "revision": 4,
       "format": 2
     },
     "hercules-dj-control-air.json": {
@@ -106,9 +106,9 @@
       "format": 1
     },
     "hercules-djcontrol-starlight.json": {
-      "sha256": "5148dac3bec49990f7de6492a7818ee96619ecb2a85a129c4e86815aa94f6a66",
-      "revision": 2,
-      "format": 1
+      "sha256": "51e7fcf8b3b330c2a210e9179fbf2028f753a6bfde39aa1c8c064406b77c8b9f",
+      "revision": 3,
+      "format": 2
     },
     "hercules-p32-dj.json": {
       "sha256": "ca3013cc56d701f6c31646c8d4eac36839c3b81c73343b5dfd377d192c7a2a7b",
@@ -141,9 +141,9 @@
       "format": 1
     },
     "numark-mixstream-pro.json": {
-      "sha256": "58b3632b4b263d284660850f59df96625e6caf66af5315886a95f334dd964150",
-      "revision": 2,
-      "format": 1
+      "sha256": "744813d682469074e723bb1ac005993004d97d4c6e2eeab88b1a490289df1950",
+      "revision": 3,
+      "format": 2
     },
     "numark-mixtrack-2.json": {
       "sha256": "acb988f74228bb88e601f8418d21fe959dd0336d25a1e30b41fde557c0014619",
@@ -156,9 +156,9 @@
       "format": 1
     },
     "numark-mixtrack-platinum.json": {
-      "sha256": "0331da8ff0d09ee07874606c836c5ce566736f682cd675f11f56828b2e783324",
-      "revision": 3,
-      "format": 1
+      "sha256": "a7b0e0e8e098e1e3157601839b37c485330877b9811f322de5b40604ccf8eb97",
+      "revision": 4,
+      "format": 2
     },
     "numark-mixtrack-pro-3.json": {
       "sha256": "eedeceea5424704b0662a0194071ca12f2f987b40c04c33692c3ea35302ae0a0",
@@ -186,14 +186,14 @@
       "format": 1
     },
     "numark-ns6ii.json": {
-      "sha256": "948e542ea04757888ef91adcf071ddb0b39af97bcf9886478ce1edae43376953",
-      "revision": 3,
-      "format": 1
+      "sha256": "d99799d1bd79e563e5e3d151d660db055a9b3a628df4b8d5d1cd815f2c54b144",
+      "revision": 4,
+      "format": 2
     },
     "numark-ns7.json": {
-      "sha256": "e7bf4bcad6b4e0a531b56cc56116f0a293071dfb82558dd19e17c34a414c5936",
-      "revision": 2,
-      "format": 1
+      "sha256": "74fe622356ff2e3b1297182b2a715680f2558baaddf1e0091e5ffa06111fedb9",
+      "revision": 3,
+      "format": 2
     },
     "numark-party-mix.json": {
       "sha256": "d0d4ac57615c7850beff7f0402ada79db5240fee801e1dcece48f337e2dee4d3",
@@ -201,9 +201,9 @@
       "format": 1
     },
     "numark-scratch.json": {
-      "sha256": "8cf01bf51fda2ff1543189c2becc173eb5adf00a545664f527ebcbdeef5e0aa3",
-      "revision": 2,
-      "format": 1
+      "sha256": "9e742eafd6dbfc28ed76c317a7a67010c2b717fb0111a1f62cce22292822bbcc",
+      "revision": 3,
+      "format": 2
     },
     "pioneer-ddj-200.json": {
       "sha256": "285ef377aabc5f6cf056795bfb911b0e09d8327509542b9d1c338847edbb2863",
@@ -246,9 +246,9 @@
       "format": 1
     },
     "reloop-beatpad.json": {
-      "sha256": "1fbadebc9df6c057527e24d3e8fef630c90b89f12bed15a8deac5ec02acd95c8",
-      "revision": 2,
-      "format": 1
+      "sha256": "8e25ccae34e9be5f376fd715abc67521a359fb55fe2a200dcafaa1d65d34bb5b",
+      "revision": 3,
+      "format": 2
     },
     "reloop-digital-jockey-2-interface-edition.json": {
       "sha256": "dc1aef892287ccb3beebd8bda8fe41bafa2508ae65a69a0b469810edcb8301b4",
@@ -256,14 +256,14 @@
       "format": 1
     },
     "reloop-jockey-3-me.json": {
-      "sha256": "d79ae303df39ccdb9f92126633b0859e050003f0be9ef9fd1e535e3f16c7538a",
-      "revision": 2,
-      "format": 1
+      "sha256": "f9cc6d9084a41dc4540e19300c6ccde50dd8efb8b4f12bdcda35b5a54fa23f85",
+      "revision": 3,
+      "format": 2
     },
     "reloop-mixage.json": {
-      "sha256": "59f3db5199a9e5e3ed1d20ffb1b1d93c42ffc1337329e49a29061213905272a6",
-      "revision": 2,
-      "format": 1
+      "sha256": "ead51f977c750a553f8baa72e82fb8fca79b3fad1d668a7bc0003a1f0f494fa2",
+      "revision": 3,
+      "format": 2
     },
     "reloop-terminal-mix-2-4.json": {
       "sha256": "6be422397ad7735982e0bf92baa20d4395040fe2137f099a1be622f3cc80935c",
@@ -271,9 +271,9 @@
       "format": 1
     },
     "roland-dj-505.json": {
-      "sha256": "2218d4302f763ae6df7d19974b2efa90fa304445277499ae9b6fd27710b9d0f4",
-      "revision": 2,
-      "format": 1
+      "sha256": "99b355fae4fe21bdde8c348cfcdb7d1460c96284001cb160af0b3d2bcce15cd6",
+      "revision": 3,
+      "format": 2
     },
     "stanton-djc-4.json": {
       "sha256": "f8ae15e14a2a3b6969509d219e49c34cd60c2811c7ac7e835b84647f33611987",

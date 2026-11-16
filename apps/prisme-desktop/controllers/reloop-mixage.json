@@ -173,7 +173,7 @@
     {"target": "deck2.loop", "control": {"kind": "note", "channel": 0, "number": 20}}
   ],
   "meters": [
-    {"source": "deck1", "control": {"kind": "note", "channel": 0, "number": 29}, "max": 7, "curve": 1},
-    {"source": "deck2", "control": {"kind": "note", "channel": 0, "number": 30}, "max": 7, "curve": 1}
+    {"source": "deck1", "control": {"kind": "note", "channel": 0, "number": 29}, "max": 7, "curve": 0.45},
+    {"source": "deck2", "control": {"kind": "note", "channel": 0, "number": 30}, "max": 7, "curve": 0.45}
   ]
 }

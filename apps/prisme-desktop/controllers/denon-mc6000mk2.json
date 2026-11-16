@@ -340,36 +340,36 @@
   ],
   "meters": [
     {"source": "deck1", "leds": [
-      {"control": {"kind": "controlChange", "channel": 0, "number": 83}, "from": 0.2, "on": 1},
-      {"control": {"kind": "controlChange", "channel": 0, "number": 84}, "from": 0.4, "on": 1},
-      {"control": {"kind": "controlChange", "channel": 0, "number": 85}, "from": 0.6, "on": 1},
-      {"control": {"kind": "controlChange", "channel": 0, "number": 86}, "from": 0.75, "on": 1},
-      {"control": {"kind": "controlChange", "channel": 0, "number": 87}, "from": 0.85, "on": 1},
-      {"control": {"kind": "controlChange", "channel": 0, "number": 88}, "from": 0.92, "on": 1}
+      {"control": {"kind": "controlChange", "channel": 0, "number": 83}, "from": 0.065, "on": 1},
+      {"control": {"kind": "controlChange", "channel": 0, "number": 84}, "from": 0.168, "on": 1},
+      {"control": {"kind": "controlChange", "channel": 0, "number": 85}, "from": 0.331, "on": 1},
+      {"control": {"kind": "controlChange", "channel": 0, "number": 86}, "from": 0.514, "on": 1},
+      {"control": {"kind": "controlChange", "channel": 0, "number": 87}, "from": 0.675, "on": 1},
+      {"control": {"kind": "controlChange", "channel": 0, "number": 88}, "from": 0.813, "on": 1}
     ]},
     {"source": "deck3", "leds": [
-      {"control": {"kind": "controlChange", "channel": 1, "number": 83}, "from": 0.2, "on": 1},
-      {"control": {"kind": "controlChange", "channel": 1, "number": 84}, "from": 0.4, "on": 1},
-      {"control": {"kind": "controlChange", "channel": 1, "number": 85}, "from": 0.6, "on": 1},
-      {"control": {"kind": "controlChange", "channel": 1, "number": 86}, "from": 0.75, "on": 1},
-      {"control": {"kind": "controlChange", "channel": 1, "number": 87}, "from": 0.85, "on": 1},
-      {"control": {"kind": "controlChange", "channel": 1, "number": 88}, "from": 0.92, "on": 1}
+      {"control": {"kind": "controlChange", "channel": 1, "number": 83}, "from": 0.065, "on": 1},
+      {"control": {"kind": "controlChange", "channel": 1, "number": 84}, "from": 0.168, "on": 1},
+      {"control": {"kind": "controlChange", "channel": 1, "number": 85}, "from": 0.331, "on": 1},
+      {"control": {"kind": "controlChange", "channel": 1, "number": 86}, "from": 0.514, "on": 1},
+      {"control": {"kind": "controlChange", "channel": 1, "number": 87}, "from": 0.675, "on": 1},
+      {"control": {"kind": "controlChange", "channel": 1, "number": 88}, "from": 0.813, "on": 1}
     ]},
     {"source": "deck2", "leds": [
-      {"control": {"kind": "controlChange", "channel": 2, "number": 83}, "from": 0.2, "on": 1},
-      {"control": {"kind": "controlChange", "channel": 2, "number": 84}, "from": 0.4, "on": 1},
-      {"control": {"kind": "controlChange", "channel": 2, "number": 85}, "from": 0.6, "on": 1},
-      {"control": {"kind": "controlChange", "channel": 2, "number": 86}, "from": 0.75, "on": 1},
-      {"control": {"kind": "controlChange", "channel": 2, "number": 87}, "from": 0.85, "on": 1},
-      {"control": {"kind": "controlChange", "channel": 2, "number": 88}, "from": 0.92, "on": 1}
+      {"control": {"kind": "controlChange", "channel": 2, "number": 83}, "from": 0.065, "on": 1},
+      {"control": {"kind": "controlChange", "channel": 2, "number": 84}, "from": 0.168, "on": 1},
+      {"control": {"kind": "controlChange", "channel": 2, "number": 85}, "from": 0.331, "on": 1},
+      {"control": {"kind": "controlChange", "channel": 2, "number": 86}, "from": 0.514, "on": 1},
+      {"control": {"kind": "controlChange", "channel": 2, "number": 87}, "from": 0.675, "on": 1},
+      {"control": {"kind": "controlChange", "channel": 2, "number": 88}, "from": 0.813, "on": 1}
     ]},
     {"source": "deck4", "leds": [
-      {"control": {"kind": "controlChange", "channel": 3, "number": 83}, "from": 0.2, "on": 1},
-      {"control": {"kind": "controlChange", "channel": 3, "number": 84}, "from": 0.4, "on": 1},
-      {"control": {"kind": "controlChange", "channel": 3, "number": 85}, "from": 0.6, "on": 1},
-      {"control": {"kind": "controlChange", "channel": 3, "number": 86}, "from": 0.75, "on": 1},
-      {"control": {"kind": "controlChange", "channel": 3, "number": 87}, "from": 0.85, "on": 1},
-      {"control": {"kind": "controlChange", "channel": 3, "number": 88}, "from": 0.92, "on": 1}
+      {"control": {"kind": "controlChange", "channel": 3, "number": 83}, "from": 0.065, "on": 1},
+      {"control": {"kind": "controlChange", "channel": 3, "number": 84}, "from": 0.168, "on": 1},
+      {"control": {"kind": "controlChange", "channel": 3, "number": 85}, "from": 0.331, "on": 1},
+      {"control": {"kind": "controlChange", "channel": 3, "number": 86}, "from": 0.514, "on": 1},
+      {"control": {"kind": "controlChange", "channel": 3, "number": 87}, "from": 0.675, "on": 1},
+      {"control": {"kind": "controlChange", "channel": 3, "number": 88}, "from": 0.813, "on": 1}
     ]}
   ]
 }

@@ -104,6 +104,9 @@ as `on`, but `off`; without values, 127 and 0:
 
 ### Meters
 
+The level is linear, the peak (1 at full scale). Mixxx's `vu_meter` is on a log scale: its
+value t is the level (10^t − 1)/9, which `curve` 0.45 (times a script's own) follows closely.
+
 A meter on one `control` shows the level by its value: from `min` (0, the value at silence)
 to `max` (127), or as one of `steps` (the values at silence, then at each equal share of the
 level, in place of `min` and `max`), and `clip` for a second after the level reached full
@@ -118,8 +121,8 @@ change are sent:
 
 ```json
 { "source": "deck1", "leds": [
-  { "control": { "kind": "controlChange", "channel": 0, "number": 83 }, "from": 0.2, "on": 1 },
-  { "control": { "kind": "note", "channel": 0, "number": 10 }, "from": 0.6, "on": [176, 80, 10], "off": [176, 81, 10] },
+  { "control": { "kind": "controlChange", "channel": 0, "number": 83 }, "from": 0.065, "on": 1 },
+  { "control": { "kind": "note", "channel": 0, "number": 10 }, "from": 0.331, "on": [176, 80, 10], "off": [176, 81, 10] },
   { "control": { "kind": "controlChange", "channel": 0, "number": 85 }, "from": 1, "on": 1, "clip": 1 }
 ] }
 ```

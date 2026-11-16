@@ -975,9 +975,9 @@
     {"target": "mode.padsD.roll", "control": {"kind": "note", "channel": 7, "number": 35}, "when": {"group": "padsD", "mode": "roll"}, "on": 1}
   ],
   "meters": [
-    {"source": "deck1", "control": {"kind": "controlChange", "channel": 0, "number": 31}, "max": 36, "clip": 40},
-    {"source": "deck2", "control": {"kind": "controlChange", "channel": 1, "number": 31}, "max": 36, "clip": 40},
-    {"source": "deck3", "control": {"kind": "controlChange", "channel": 2, "number": 31}, "max": 36, "clip": 40},
-    {"source": "deck4", "control": {"kind": "controlChange", "channel": 3, "number": 31}, "max": 36, "clip": 40}
+    {"source": "deck1", "control": {"kind": "controlChange", "channel": 0, "number": 31}, "max": 36, "curve": 0.45, "clip": 40},
+    {"source": "deck2", "control": {"kind": "controlChange", "channel": 1, "number": 31}, "max": 36, "curve": 0.45, "clip": 40},
+    {"source": "deck3", "control": {"kind": "controlChange", "channel": 2, "number": 31}, "max": 36, "curve": 0.45, "clip": 40},
+    {"source": "deck4", "control": {"kind": "controlChange", "channel": 3, "number": 31}, "max": 36, "curve": 0.45, "clip": 40}
   ]
 }

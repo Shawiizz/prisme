@@ -301,7 +301,7 @@
     {"target": "deck4.key.reset", "control": {"kind": "note", "channel": 3, "number": 65}, "on": 2, "off": 1}
   ],
   "meters": [
-    {"source": "main.left", "control": {"kind": "controlChange", "channel": 0, "number": 126}, "min": 48, "max": 63},
-    {"source": "main.right", "control": {"kind": "controlChange", "channel": 0, "number": 127}, "min": 48, "max": 63}
+    {"source": "main.left", "control": {"kind": "controlChange", "channel": 0, "number": 126}, "min": 48, "max": 63, "curve": 0.45},
+    {"source": "main.right", "control": {"kind": "controlChange", "channel": 0, "number": 127}, "min": 48, "max": 63, "curve": 0.45}
   ]
 }
