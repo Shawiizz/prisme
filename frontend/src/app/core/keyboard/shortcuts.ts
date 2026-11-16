@@ -15,7 +15,8 @@ export interface Shortcut {
   global?: boolean;
 }
 
-/** Physical keys of each deck: the left hand plays deck A, the right hand deck B. */
+/** Physical keys of each deck: the left hand plays deck A, the right hand deck B; Shift held,
+ * the same keys play decks C and D, as the second layer of a four-deck controller. */
 const DECK_KEYS = [
   {
     hotCues: ['Digit1', 'Digit2', 'Digit3', 'Digit4', 'KeyQ', 'KeyW', 'KeyE', 'KeyR'],
@@ -42,10 +43,22 @@ const DECK_KEYS = [
 ];
 
 export const SHORTCUTS: Shortcut[] = [
-  ...DECK_KEYS.flatMap(({ hotCues, ...keys }, deck) => [
-    ...hotCues.map((code, slot) => ({ code, control: `deck${deck + 1}.hotcue${slot + 1}` })),
-    ...Object.entries(keys).map(([name, code]) => ({ code, control: `deck${deck + 1}.${name}` })),
-  ]),
+  ...[0, 1, 2, 3].flatMap((deck) => {
+    const { hotCues, ...keys } = DECK_KEYS[deck % 2];
+    const shift = deck >= 2 || undefined;
+    return [
+      ...hotCues.map((code, slot) => ({
+        code,
+        shift,
+        control: `deck${deck + 1}.hotcue${slot + 1}`,
+      })),
+      ...Object.entries(keys).map(([name, code]) => ({
+        code,
+        shift,
+        control: `deck${deck + 1}.${name}`,
+      })),
+    ];
+  }),
   { code: 'ArrowUp', control: 'library.previous' },
   { code: 'ArrowDown', control: 'library.next' },
   { code: 'ArrowLeft', shift: true, control: 'library.load1' },

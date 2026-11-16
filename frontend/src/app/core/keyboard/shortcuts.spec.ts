@@ -24,11 +24,25 @@ describe('shortcuts', () => {
     expect(SHORTCUTS.filter((s) => !ids.has(s.control))).toEqual([]);
   });
 
-  it('gives both decks the same keys', () => {
+  it('gives every deck the same actions', () => {
     const of = (deck: number) =>
       SHORTCUTS.filter((s) => s.control.startsWith(`deck${deck}.`)).map((s) => s.control.slice(6));
-    expect(of(1)).toEqual(of(2));
     expect(of(1).length).toBe(16);
+    for (const deck of [2, 3, 4]) expect(of(deck)).toEqual(of(1));
+  });
+
+  it('plays decks C and D with the keys of A and B, Shift held', () => {
+    const keyOf = (control: string) => SHORTCUTS.find((s) => s.control === control)!;
+    for (const [upper, lower] of [
+      [3, 1],
+      [4, 2],
+    ])
+      for (const action of ['play', 'cue', 'hotcue1', 'loop.halve']) {
+        const shifted = keyOf(`deck${upper}.${action}`);
+        expect(shifted.code).toBe(keyOf(`deck${lower}.${action}`).code);
+        expect(matches(shifted, key(shifted.code, { shift: true }))).toBe(true);
+        expect(matches(shifted, key(shifted.code))).toBe(false);
+      }
   });
 
   it('requires exactly the modifiers of the shortcut', () => {
