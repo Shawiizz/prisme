@@ -342,6 +342,11 @@ impl Controllers {
         Profile { controls, verified: false, ..profile }
     }
 
+    /// The model of `device`, as its profile names it, else as its port does.
+    pub fn model_name(device: &str) -> String {
+        controller_profiles::of(device).map_or_else(|| base_port_name(device), |p| p.name.clone())
+    }
+
     /// Looks a while after Prisme starts, once a day at most, for the controller profiles
     /// published since: those that came drive their controllers at once.
     pub fn keep_profiles_up_to_date(app: AppHandle) {

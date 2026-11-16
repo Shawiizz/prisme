@@ -44,6 +44,7 @@ Under the controller's name, the settings tell you what Prisme made of it:
 | **Mapped as a Pioneer DDJ-SB2: learn a control to change it** | A profile maps it. Learning a control replaces what the profile gave that control. |
 | **Converted from the mapping of Mixxx, not yet tried on this controller** | The profile was converted from a Mixxx mapping and nobody has tried it on the hardware yet. It should work, but expect a control or a light to be off here and there. See [Supported controllers](/docs/controllers/supported/). |
 | **With your own profile** | The profile comes from your data folder, not from Prisme. See [MIDI learn and your own profile](/docs/controllers/learn/#a-profile-of-your-own). |
+| **Your own profile takes the place of the one Prisme gives the Pioneer DDJ-SB2: the corrections published for it no longer reach this controller.** | In yellow: your own profile is used where Prisme has one of its own for the model, so its updates are set aside. Delete your file to have Prisme's back. |
 | No "Mapped as" line | Prisme does not know the model. Nothing is mapped yet: map it control by control with [MIDI learn](/docs/controllers/learn/). |
 
 ## What the controller does
@@ -101,7 +102,7 @@ Profiles get corrected and new models get added between versions of Prisme. Pris
 The profiles that came drive their controllers at once. To look now, press **Look for updates** under **Controller profiles**: it says **The profiles are up to date.** or how many profiles were updated.
 
 <Aside>
-A profile of your own always wins over the published one of the same name: once you have [your own profile](/docs/controllers/learn/#a-profile-of-your-own) for a model, updates to that model no longer reach you.
+A profile of your own always wins over Prisme's for the same model: once you have [your own profile](/docs/controllers/learn/#a-profile-of-your-own) for a model, updates to that model no longer reach you, and the settings say so in yellow. The controls you learn do not do that: they stay laid over Prisme's profile as it gets updated.
 </Aside>
 
 ## The MIDI controllers settings
@@ -114,7 +115,7 @@ A profile of your own always wins over the published one of the same name: once 
 | --- | --- |
 | A controller's row | Its port name, **Plugged in** or **not plugged in** (a controller you turned on that is not there now), and what Prisme recognised. |
 | Switch | Turns the controller on in Prisme, or off. |
-| **Export as a profile** | Shown for a controller turned on and plugged in: writes what it drives now as a profile of your own. See [Export as a profile](/docs/controllers/learn/#export-as-a-profile). |
+| **Export as a profile…** | Shown for a controller turned on and plugged in: writes what it drives now to a profile file, where you choose, to share or keep. What it drives does not change. See [Export as a profile](/docs/controllers/learn/#export-as-a-profile). |
 | **Refresh** | Shown when no controller is listed: looks for controllers again. |
 | **MIDI clock out** | Sends a MIDI clock, 24 ticks per beat of the sync leader, to the MIDI output you choose, so that a drum machine or a sequencer plays along. **None** sends nothing. It starts on a beat and stops when the leader stops. See [Sync](/docs/decks/sync/). |
 
@@ -124,7 +125,7 @@ A profile of your own always wins over the published one of the same name: once 
 | --- | --- |
 | **… models known** | How many models Prisme knows now, with how many were **updated since this version** and how many are **of your own**. |
 | **Look for updates** | Fetches the profiles published since, as Prisme does once a day. |
-| **Your own profiles** | **Open the folder** shows the folder of your own profiles; **Read again** reads it after you changed a file. A file Prisme cannot read is listed here in red, with the reason. Not shown on a phone. |
+| **Your own profiles** | **Open the folder** shows the folder of your own profiles; **Read again** reads it after you changed a file. A file Prisme cannot read is listed here in red, with the reason; a file that replaces a profile of Prisme's of the same name, in yellow (`pioneer-ddj-400.json replaces the profile Prisme gives the Pioneer DDJ-400`). Not shown on a phone. |
 
 ### The list of actions
 

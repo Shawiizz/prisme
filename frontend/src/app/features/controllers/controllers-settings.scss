@@ -68,3 +68,7 @@
   display: flex;
   gap: 6px;
 }
+// the DJ's own profile in the place of Prisme's: corrections published no longer reach it
+.replaces {
+  color: var(--pr-warn);
+}

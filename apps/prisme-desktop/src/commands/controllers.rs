@@ -6,6 +6,7 @@ use crate::dto::{ControllerDto, ControllerProfileDto, ControllerProfilesDto, Lig
 use crate::error::{AppError, AppResult};
 use crate::midi_clock::MidiClock;
 use prisme_control::{Encoding, Mapping};
+use std::path::PathBuf;
 use tauri::{AppHandle, State};
 
 /// The controllers plugged in, and those in use that are not.
@@ -14,13 +15,16 @@ pub fn list_controllers(controllers: State<'_, Controllers>) -> AppResult<Vec<Co
     let plugged = Controllers::plugged()?;
     let enabled = controllers.setup().enabled;
     let missing = enabled.iter().filter(|name| !plugged.contains(name)).cloned().collect::<Vec<_>>();
+    let library = controller_profiles::current();
     let dto = |name: String, plugged: bool| {
-        let profile = controller_profiles::of(&name);
+        let known = library.of(&name);
         ControllerDto {
             enabled: enabled.contains(&name),
-            profile: profile.as_ref().map(|p| p.name.clone()),
-            verified: profile.is_some_and(|p| p.verified),
-            profile_source: controller_profiles::source_of(&name),
+            profile: known.map(|k| k.profile.name.clone()),
+            verified: known.is_some_and(|k| k.profile.verified),
+            profile_source: known.map(|k| k.source),
+            replaces: library.replaced_on(&name).map(|k| k.profile.name.clone()),
+            export_file: controller_profiles::file_name(&Controllers::model_name(&name)),
             name,
             plugged,
         }
@@ -143,12 +147,15 @@ pub async fn update_controller_profiles(controllers: State<'_, Controllers>) -> 
     Ok(came)
 }
 
-/// Writes what `device` drives now as a profile of the DJ's own: where it went.
+/// Writes what `device` drives now as a profile, to `path`, where the DJ chose: what it drives
+/// does not change.
 #[tauri::command]
-pub fn export_controller_profile(controllers: State<'_, Controllers>, device: String) -> AppResult<String> {
-    let path = controller_profiles::save_own(&controllers.as_profile(&device)).map_err(AppError::Other)?;
-    controllers.profiles_changed();
-    Ok(path.display().to_string())
+pub fn export_controller_profile(
+    controllers: State<'_, Controllers>,
+    device: String,
+    path: PathBuf,
+) -> AppResult<()> {
+    controller_profiles::export(&controllers.as_profile(&device), &path).map_err(AppError::Other)
 }
 
 /// Shows the folder of the DJ's own profiles in the system's file manager.
@@ -186,6 +193,7 @@ fn profiles_dto(library: &controller_profiles::Library) -> ControllerProfilesDto
                 name: k.profile.name.clone(),
                 source: k.source,
                 verified: k.profile.verified,
+                replaces: library.replaced.iter().find(|r| r.file == k.file).map(|r| r.profile.name.clone()),
             })
             .collect(),
         unreadable: library.unreadable.clone(),

@@ -7,7 +7,7 @@ sidebar:
 
 import { Steps, Aside, Tabs, TabItem } from '@astrojs/starlight/components';
 
-You can map any control of any MIDI controller to any of Prisme's actions by moving it: that is MIDI learn. It works on a controller Prisme does not know, and over a [profile](/docs/controllers/supported/) to change what it gives a control. When your mapping suits you, **Export as a profile** keeps it as a file you can edit and share.
+You can map any control of any MIDI controller to any of Prisme's actions by moving it: that is MIDI learn. It works on a controller Prisme does not know, and over a [profile](/docs/controllers/supported/) to change what it gives a control. When your mapping suits you, **Export as a profile…** writes it to a file you can edit and share.
 
 ## Learn a control
 
@@ -98,15 +98,15 @@ You rarely need to go there by hand: **Open the folder**, under **Your own profi
 A profile is a JSON file describing a model: its controls, its lights, its meters, what it is sent when it opens. Your own profiles live in the `controllers` folder of the data folder, and Prisme reads them over those it ships:
 
 - a file of the same name as a shipped profile (`pioneer-ddj-400.json`) replaces it;
-- a file of another name adds a model.
+- a file of another name adds a model, or takes the place of Prisme's profile of a model whose ports it names too.
 
 <Steps>
 
 1. In **Settings** › **MIDI controllers**, under **Your own profiles**, press **Open the folder**.
 
-2. Put your profile there, or edit one. Start from the file **Export as a profile** writes, or from one of the [shipped profiles](https://github.com/Shawiizz/prisme/tree/main/apps/prisme-desktop/controllers).
+2. Put your profile there, or edit one. Start from a file **Export as a profile…** wrote, or from one of the [shipped profiles](https://github.com/Shawiizz/prisme/tree/main/apps/prisme-desktop/controllers).
 
-3. Press **Read again**. The count above it says how many profiles are **of your own**, and a controller using one says **With your own profile**.
+3. Press **Read again**. The count above it says how many profiles are **of your own**, and a controller using one says **With your own profile**, or, if yours takes the place of a profile Prisme has, **Your own profile takes the place of the one Prisme gives the…** and the model.
 
    A file Prisme cannot read is listed in red under **Your own profiles**, with the reason. The other profiles keep working meanwhile.
 
@@ -115,20 +115,24 @@ A profile is a JSON file describing a model: its controls, its lights, its meter
 The format is open and described in full on [The profile format](/docs/controllers/profiles/). An editor such as VS Code checks a profile and completes it as you type, from its schema.
 
 <Aside type="caution">
-Your own profile of a model wins over the profiles published since your version: corrections to that model no longer reach you. To go back to Prisme's, delete your file and press **Read again**. The controls you learnt in the settings also stay laid over your file.
+Your own profile of a model Prisme knows wins over Prisme's, the profiles published since your version included: corrections to that model no longer reach you. The settings say so in yellow, on the controller's row and under **Your own profiles** (`pioneer-ddj-400.json replaces the profile Prisme gives the Pioneer DDJ-400`). To go back to Prisme's, delete your file and press **Read again**. The controls you learnt in the settings stay laid over whichever profile is in use.
+
+To change a few controls of a known model, learning them is enough: they stay laid over Prisme's profile, and its corrections keep coming.
 </Aside>
 
 ## Export as a profile
 
-**Export as a profile** writes what a controller drives now as a profile of your own: a starting point for a profile of your own, or one to send.
+**Export as a profile…** writes what a controller drives now to a profile file, where you choose: one to send, to keep aside, or a starting point for a profile of your own. Exporting changes nothing in Prisme: the controller keeps its profile, Prisme's kept up to date, with what you learnt laid over it.
 
 <Steps>
 
 1. Map the controller the way you want it, with its profile, MIDI learn or both.
 
-2. In **Settings** › **MIDI controllers**, press **Export as a profile** on its row. It shows only while the controller is on and plugged in.
+2. In **Settings** › **MIDI controllers**, press **Export as a profile…** on its row. It shows only while the controller is on and plugged in.
 
-3. The row says **Exported to** and the path of the file.
+3. Choose where to save the file, and its name. Closing the window without saving writes nothing.
+
+4. The row says **Exported to** and the path of the file.
 
 </Steps>
 
@@ -138,7 +142,7 @@ What the file holds:
 - the rest of the model's profile as it was: the messages sent at opening, the lights, meters, screens and pad modes;
 - for a model Prisme did not know, the port's name as the model's name and the name its port goes by: change `name` to the model's real name.
 
-The file is named after the model (`Pioneer DDJ-400` gives `pioneer-ddj-400.json`). For a model Prisme knows, that is the name of the shipped profile, so your export replaces it from then on: see the caution above. The export is never marked as tried on the hardware: set `"verified": true` yourself once you have played it.
+The name offered is the model's (`Pioneer DDJ-400` gives `pioneer-ddj-400.json`): for a model Prisme knows, the name of its profile. Put in your own profiles' folder, the file would take the place of Prisme's profile, as the caution above says. The export is never marked as tried on the hardware: set `"verified": true` yourself once you have played it.
 
 ## Share a profile
 

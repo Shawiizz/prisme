@@ -13,6 +13,10 @@ export interface Controller {
   verified: boolean;
   /** Where its profile comes from. */
   profileSource: ProfileSource | null;
+  /** Prisme's model that the DJ's own profile takes the place of on it. */
+  replaces: string | null;
+  /** The file its profile is exported as, by default. */
+  exportFile: string;
 }
 
 /** Shipped with Prisme, published since and fetched, or the DJ's own. */
@@ -20,7 +24,14 @@ export type ProfileSource = 'shipped' | 'updated' | 'own';
 
 /** The controller models Prisme knows, and where the DJ's own profiles go. */
 export interface ControllerProfiles {
-  profiles: { file: string; name: string; source: ProfileSource; verified: boolean }[];
+  profiles: {
+    file: string;
+    name: string;
+    source: ProfileSource;
+    verified: boolean;
+    /** Prisme's model whose profile of the same file name this one, the DJ's own, replaces. */
+    replaces: string | null;
+  }[];
   /** The DJ's files that could not be read: `file: why`. */
   unreadable: string[];
   folder: string | null;

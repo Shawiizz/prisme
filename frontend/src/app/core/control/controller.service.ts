@@ -1,6 +1,7 @@
 import { Injectable, effect, inject, signal } from '@angular/core';
 import { Pickup } from './pickup';
 import { invoke } from '@tauri-apps/api/core';
+import { save } from '@tauri-apps/plugin-dialog';
 import { listen } from '@tauri-apps/api/event';
 import {
   Controller,
@@ -135,10 +136,15 @@ export class ControllerService {
     return came;
   }
 
-  /** Writes what `device` drives now as a profile of the DJ's own: where it went. */
-  async exportProfile(device: string): Promise<string> {
-    const path = await invoke<string>('export_controller_profile', { device });
-    await this.profilesChanged();
+  /** Asks where to write what `controller` drives now as a profile, to share or keep, and
+   * writes it: where it went, `null` if cancelled. What drives it does not change. */
+  async exportProfile(controller: Controller): Promise<string | null> {
+    const path = await save({
+      defaultPath: controller.exportFile,
+      filters: [{ name: 'JSON', extensions: ['json'] }],
+    });
+    if (!path) return null;
+    await invoke('export_controller_profile', { device: controller.name, path });
     return path;
   }
 

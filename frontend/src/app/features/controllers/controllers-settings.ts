@@ -2,7 +2,12 @@ import { Component, OnDestroy, OnInit, computed, inject, signal } from '@angular
 import { ControlService } from '../../core/control/control.service';
 import { ControllerService } from '../../core/control/controller.service';
 import { Control } from '../../core/control/controls';
-import { ControllerMapping, StepEncoding, describeMapping } from '../../core/models/controllers';
+import {
+  Controller,
+  ControllerMapping,
+  StepEncoding,
+  describeMapping,
+} from '../../core/models/controllers';
 import { Text, t } from '../../core/i18n/i18n';
 import { errorText } from '../../core/errors';
 import { PHONE } from '../../core/platform';
@@ -90,6 +95,13 @@ export class ControllersSettings implements OnInit, OnDestroy {
     }
   });
 
+  /** The DJ's own profiles that replace Prisme's of the same file name. */
+  protected readonly replacing = computed(() =>
+    (this.service.profiles()?.profiles ?? []).flatMap(({ file, replaces }) =>
+      replaces ? [{ file, model: replaces }] : [],
+    ),
+  );
+
   /** How many models come from where. */
   protected readonly counts = computed(() => {
     const profiles = this.service.profiles()?.profiles ?? [];
@@ -135,14 +147,16 @@ export class ControllersSettings implements OnInit, OnDestroy {
     }
   }
 
-  protected async exportProfile(device: string) {
+  protected async exportProfile(controller: Controller) {
     let outcome: Outcome;
     try {
-      outcome = { done: true, text: await this.service.exportProfile(device) };
+      const path = await this.service.exportProfile(controller);
+      if (path === null) return;
+      outcome = { done: true, text: path };
     } catch (e) {
       outcome = { done: false, text: errorText(e) };
     }
-    this.exported.update((all) => ({ ...all, [device]: outcome }));
+    this.exported.update((all) => ({ ...all, [controller.name]: outcome }));
   }
 
   /** Looked for long enough to be seen looking, even when nothing new is found. */
