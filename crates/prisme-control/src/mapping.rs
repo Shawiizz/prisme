@@ -108,6 +108,18 @@ impl Shifts {
     pub fn any(&self) -> bool {
         self.plain || !self.names.is_empty()
     }
+
+    /// How near the layer of `shift` is to the one in use, the nearest first: the named shifts
+    /// held, then the shift layer while any is, then the first layer; `None` for a layer not
+    /// in use.
+    fn rank(&self, shift: &Shift) -> Option<usize> {
+        let named = self.names.len();
+        match shift {
+            Shift::Named(name) => self.names.iter().position(|n| n == name),
+            Shift::Any => self.any().then_some(named),
+            Shift::None => Some(named + 1),
+        }
+    }
 }
 
 /// A mode of a controller: `mode` of its group `group`.
@@ -358,15 +370,28 @@ impl Mappings {
     /// layer, else in the shift layer while a shift is held, else in the first layer (a
     /// control without a second use keeps its first).
     pub fn find(&self, device: &str, event: Event, shifts: &Shifts, modes: &Modes) -> Option<&Mapping> {
-        let find = |layer: &dyn Fn(&Shift) -> bool| {
-            self.0
-                .iter()
-                .find(|m| m.device == device && layer(&m.shift) && m.applies(modes) && m.takes(event))
-        };
-        let named = shifts.names.iter().find_map(|name| find(&|s| matches!(s, Shift::Named(n) if n == name)));
-        named
-            .or_else(|| find(&|s| *s == Shift::Any).filter(|_| shifts.any()))
-            .or_else(|| find(&|s| *s == Shift::None))
+        self.0
+            .iter()
+            .filter(|m| m.device == device && m.applies(modes) && m.takes(event))
+            .filter_map(|m| Some((shifts.rank(&m.shift)?, m)))
+            .min_by_key(|&(rank, _)| rank)
+            .map(|(_, m)| m)
+    }
+
+    /// The mappings of `device` whose lights show in `modes`, `shifts` held: of each control,
+    /// the one it drives (see [`Mappings::find`]).
+    pub fn shown(&self, device: &str, shifts: &Shifts, modes: &Modes) -> Vec<&Mapping> {
+        let mut chosen: HashMap<Control, (usize, usize)> = HashMap::new();
+        for (at, m) in self.0.iter().enumerate().filter(|(_, m)| m.device == device && m.applies(modes)) {
+            let Some(rank) = shifts.rank(&m.shift) else { continue };
+            let best = chosen.entry(m.control).or_insert((rank, at));
+            if rank < best.0 {
+                *best = (rank, at);
+            }
+        }
+        let mut shown: Vec<usize> = chosen.into_values().map(|(_, at)| at).collect();
+        shown.sort_unstable();
+        shown.into_iter().map(|at| &self.0[at]).collect()
     }
 
     /// Adds `mapping`, replacing what its control did in its layer and the control its
@@ -527,6 +552,11 @@ impl Reader {
         let whole = total.trunc();
         *remainder = total - whole;
         whole as i32
+    }
+
+    /// The shifts of `device` held.
+    pub fn shifts(&self, device: &str) -> Shifts {
+        self.devices.get(device).map(|d| d.shifts.clone()).unwrap_or_default()
     }
 
     /// The modes `device`'s groups are in.
@@ -893,6 +923,31 @@ mod tests {
         read(&mut reader, &mappings, &[0x90, 1, 0]);
         read(&mut reader, &mappings, &[0x90, 63, 127]);
         assert_eq!(read(&mut reader, &mappings, &[0x90, 36, 127]).unwrap().0, "deck1.hotcue1.delete");
+    }
+
+    #[test]
+    fn of_a_control_of_several_layers_the_one_in_use_is_shown() {
+        let left = Control { number: 1, ..SHIFT_KEY };
+        let mut mappings = Mappings::default();
+        mappings.learn(mapping("DDJ", SHIFT_KEY, SHIFT), false);
+        mappings.learn(mapping("DDJ", left, "shift.left"), false);
+        mappings.learn(mapping("DDJ", PAD, "deck1.hotcue1"), false);
+        mappings.learn(with(mapping("DDJ", PAD, "deck1.hotcue1.delete"), |b| b.shift = Shift::Any), false);
+        mappings.learn(mapping("DDJ", KNOB, "deck1.volume"), false);
+        let mut reader = Reader::default();
+        let shown = |reader: &Reader| -> Vec<String> {
+            let shown = mappings.shown("DDJ", &reader.shifts("DDJ"), &Modes::new());
+            shown.iter().filter(|m| m.control == PAD || m.control == KNOB).map(|m| m.target.clone()).collect()
+        };
+        assert_eq!(shown(&reader), ["deck1.hotcue1", "deck1.volume"]);
+        read(&mut reader, &mappings, &[0x90, 1, 127]);
+        assert_eq!(
+            shown(&reader),
+            ["deck1.hotcue1.delete", "deck1.volume"],
+            "a named shift falls back on it"
+        );
+        read(&mut reader, &mappings, &[0x90, 1, 0]);
+        assert_eq!(shown(&reader), ["deck1.hotcue1", "deck1.volume"]);
     }
 
     #[test]

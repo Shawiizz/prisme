@@ -67,7 +67,7 @@ One JSON file per model:
 | `step` | How far a step of an encoder moves a fader's action, a share of its travel (1/64 when left out). |
 | `invert` | A fader whose lowest value is at its top; an encoder turning the other way. |
 | `fine` | The controller sending the low half of a 14-bit control. |
-| `shift` | In the second layer: `true` while any shift is held, or a named shift (`"left"`) while the key aimed at `shift.left` is. |
+| `shift` | In the second layer: `true` while any shift is held, or a named shift (`"left"`) while the key aimed at `shift.left` is. A control mapped in several layers lights as the one in use. |
 | `when` | `group`, `mode`: only in that mode. |
 | `onValue` | Drives its action as a key pressed when the control sends this value: a switch's position, one entry per position. |
 | `also` | Other actions it drives along. |

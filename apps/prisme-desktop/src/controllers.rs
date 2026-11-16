@@ -527,13 +527,14 @@ impl Controllers {
         }
     }
 
-    /// What `device`'s lights show, in the modes it is in: the state of the actions of its
-    /// mapped controls and its mode keys, and of the other lights its profile gives. A key
-    /// lit while held, whose action has no state of its own, is off once let go.
+    /// What `device`'s lights show, in the modes it is in and the shifts held: the state of
+    /// the actions its mapped controls and its mode keys drive (of a control mapped in several
+    /// layers, the one in use's), and of the other lights its profile gives. A key lit while
+    /// held, whose action has no state of its own, is off once let go.
     fn lights(&self, device: &str) -> Vec<(Control, LightValue)> {
-        let (modes, held) = {
+        let (modes, shifts, held) = {
             let reader = lock(&self.reader);
-            (reader.modes(device), reader.held(device))
+            (reader.modes(device), reader.shifts(device), reader.held(device))
         };
         // in the order a key read takes them
         let mappings = lock(&self.mappings);
@@ -551,7 +552,7 @@ impl Controllers {
             }
         };
         let mut lights: Vec<(Control, LightValue)> = Vec::new();
-        for mapping in mappings.all().iter().filter(|m| m.device == device && m.applies(&modes)) {
+        for mapping in mappings.shown(device, &shifts, &modes) {
             let key = (device.to_owned(), mapping.control);
             let lit_held = mapping.light.has(PRESSED);
             let state = if lit_held && held.contains(&mapping.control) {
@@ -733,11 +734,15 @@ impl Controllers {
     /// An event of `device`, whose jog wheels turn by `jog_steps_per_turn`, at `at_s` on its
     /// clock.
     fn receive(&self, app: &AppHandle, device: &str, jog_steps_per_turn: f64, event: Event, at_s: f64) {
-        let modes = lock(&self.reader).mode_changes(device);
+        let layer = || {
+            let reader = lock(&self.reader);
+            (reader.mode_changes(device), reader.shifts(device))
+        };
+        let before = layer();
         let routed = self.route(device, event, at_s);
-        // a key's light may show it held, latched or at the second of its two positions, and a
-        // mode chosen (by a switch, say) shows on the keys of its group
-        if event.control.kind == ControlKind::Note || lock(&self.reader).mode_changes(device) != modes {
+        // a key's light may show it held, latched or at the second of its two positions, and
+        // the lights show the layer in use (a mode chosen by a switch, say)
+        if event.control.kind == ControlKind::Note || layer() != before {
             self.show_lights(device);
         }
         match routed {
@@ -1144,7 +1149,7 @@ mod tests {
         assert_eq!(port_of(&both, "2- DJControl Inpulse 200"), Some(1), "the same name first");
         assert_eq!(port_of(&names, "FLX4"), None);
     }
-    use prisme_control::{parse, Chord, Control, LightValues};
+    use prisme_control::{parse, Chord, Control, LightValues, Shift, When};
 
     const PAD: Control = Control { kind: ControlKind::Note, channel: 0, number: 36 };
 
@@ -1443,6 +1448,40 @@ mod tests {
         assert_eq!(c.lights("DDJ"), [(PAD, LightValue::Steady(100))]);
         route(&c, &[0x90, 36, 0]);
         assert_eq!(c.lights("DDJ"), [(PAD, LightValue::Steady(0))]);
+    }
+
+    fn light(target: &str, state: &str) -> LightDto {
+        LightDto { target: target.into(), state: state.into(), color: None }
+    }
+
+    #[test]
+    fn a_key_of_two_layers_shows_the_one_in_use() {
+        let shift_key = Control { number: 63, ..PAD };
+        let c = with_mappings([
+            mapping(shift_key, SHIFT),
+            with(mapping(PAD, "deck1.play"), lit(ON, 10)),
+            with(with(mapping(PAD, "deck1.slip"), lit(ON, 20)), |b| b.shift = Shift::Any),
+        ]);
+        c.set_lights(&[light("deck1.play", ON), light("deck1.slip", OFF)]);
+        assert_eq!(c.lights("DDJ"), [(PAD, LightValue::Steady(10))]);
+        route(&c, &[0x90, 63, 127]);
+        assert_eq!(c.lights("DDJ"), [(PAD, LightValue::Steady(0))], "the shift layer's");
+        route(&c, &[0x90, 63, 0]);
+        assert_eq!(c.lights("DDJ"), [(PAD, LightValue::Steady(10))]);
+    }
+
+    #[test]
+    fn a_key_of_two_modes_shows_the_one_in_use() {
+        let when = |mode: &str| Some(When { group: "pads".into(), mode: mode.into() });
+        let c = with_mappings([
+            with(with(mapping(PAD, "deck1.hotcue1"), lit(ON, 10)), |b| b.when = when("cues")),
+            with(with(mapping(PAD, "deck1.roll1"), lit(ON, 20)), |b| b.when = when("rolls")),
+        ]);
+        lock(&c.reader).set_modes("DDJ", Modes::from([("pads".into(), "cues".into())]));
+        c.set_lights(&[light("deck1.hotcue1", ON), light("deck1.roll1", ON)]);
+        assert_eq!(c.lights("DDJ"), [(PAD, LightValue::Steady(10))]);
+        lock(&c.reader).set_mode("DDJ", "pads", "rolls");
+        assert_eq!(c.lights("DDJ"), [(PAD, LightValue::Steady(20))]);
     }
 
     #[test]
