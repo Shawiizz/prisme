@@ -41,12 +41,20 @@
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 2px 4px;
   .pr-pad {
+    position: relative;
     height: 20px;
     padding: 0 3px;
     display: grid;
     place-items: center;
     font-size: 10.5px;
     letter-spacing: 0.02em;
+    // the bar of an effect sounding lies along the bottom edge, the name centred above it
+    &::after {
+      position: absolute;
+      inset: auto 3px 2px;
+      width: auto;
+      height: 2px;
+    }
   }
 }
 

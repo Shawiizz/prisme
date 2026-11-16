@@ -93,7 +93,13 @@ function arc(from: number, to: number): string {
         (click)="labelClick.emit()"
         [title]="labelTitle()"
       >
-        {{ reading() ? format()!(current()) : label() }}
+        <span class="face" [class.shown]="!reading()">{{ label() }}</span>
+        @if (format(); as format) {
+          @for (sample of widest(); track $index) {
+            <span class="face number" aria-hidden="true">{{ sample }}</span>
+          }
+          <span class="face number" [class.shown]="reading()">{{ format(current()) }}</span>
+        }
       </button>
     }
   `,
@@ -176,11 +182,11 @@ function arc(from: number, to: number): string {
       text-align: center;
       white-space: nowrap;
       cursor: default;
+      // the name and the value in one cell, the cell as wide as the widest of them: reading
+      // the value moves nothing around the knob
+      display: grid;
       &.reading {
         color: var(--pr-text);
-        font-family: var(--pr-font-mono);
-        font-stretch: var(--pr-mono-width);
-        letter-spacing: 0;
       }
       &.active {
         background: var(--pr-light);
@@ -192,6 +198,18 @@ function arc(from: number, to: number): string {
       &.active:hover {
         background: var(--pr-light);
       }
+    }
+    .face {
+      grid-area: 1 / 1;
+      visibility: hidden;
+      &.shown {
+        visibility: visible;
+      }
+    }
+    .number {
+      font-family: var(--pr-font-mono);
+      font-stretch: var(--pr-mono-width);
+      letter-spacing: 0;
     }
     @media (prefers-reduced-motion: reduce) {
       .cap {
@@ -235,6 +253,12 @@ export class Knob {
   }));
   protected readonly hovered = signal(false);
   protected readonly grabbed = signal<{ y: number; value: number } | null>(null);
+  /** Values read at the ends and the middle, laid out unseen: the label keeps the width of the
+   * widest, whatever is read. */
+  protected readonly widest = computed(() => {
+    const format = this.format();
+    return format ? [0, 0.5, 1].map(format) : [];
+  });
   protected readonly reading = computed(
     () => this.format() !== null && (this.hovered() || this.grabbed() !== null),
   );
