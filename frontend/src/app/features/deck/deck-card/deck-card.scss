@@ -16,7 +16,7 @@
 
 .head {
   display: grid;
-  grid-template-columns: auto auto minmax(0, 1fr) auto;
+  grid-template-columns: auto auto minmax(0, 1fr) auto auto;
   align-items: center;
   gap: 10px;
 }
@@ -113,7 +113,7 @@
     padding: 0 12px 0 5px;
   }
   .head {
-    grid-template-columns: auto minmax(0, 1fr) auto;
+    grid-template-columns: auto minmax(0, 1fr) auto auto;
     gap: 8px;
   }
   .cover {

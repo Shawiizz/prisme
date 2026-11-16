@@ -93,6 +93,21 @@ pub enum Command {
         deck: DeckId,
         amount: f64,
     },
+    /// Internal play: a playing deck slows to a stop in about a second, as a turntable
+    /// switched off; a stopped one gets up to speed in half a second (a soft start).
+    Brake {
+        deck: DeckId,
+    },
+    /// Internal play: the record spun back fast while `held`; let go, it plays on from there.
+    SpinBack {
+        deck: DeckId,
+        held: bool,
+    },
+    /// At the end, the track goes on from its start, seamlessly: it plays on.
+    SetRepeat {
+        deck: DeckId,
+        enabled: bool,
+    },
     /// Moves the playhead there, as is (needle search).
     Seek {
         deck: DeckId,
@@ -158,8 +173,20 @@ pub enum Command {
         deck: DeckId,
         beats: Option<f64>,
     },
+    /// `Some(region)`: plays that slice of the track in a loop while held, the track going
+    /// on underneath (in phase with quantize); `None` releases it.
+    Slice {
+        deck: DeckId,
+        region: Option<LoopRegion>,
+    },
     ExitLoop {
         deck: DeckId,
+    },
+    /// While `Some(beats)`, the deck is cut every so many beats on its grid (open the first
+    /// half of each), as a hand flicking its fader; `None` lets it through.
+    FaderCut {
+        deck: DeckId,
+        beats: Option<f64>,
     },
     Reloop {
         deck: DeckId,
@@ -246,6 +273,10 @@ pub enum Command {
     },
     SetHeadphoneGain {
         gain: f32,
+    },
+    /// Headphones: the cue on the left and the master on the right (mono each), or blended.
+    SetSplitCue {
+        enabled: bool,
     },
     /// The level of the track on `deck` (linear): its auto gain, in either mixer mode.
     SetLevel {

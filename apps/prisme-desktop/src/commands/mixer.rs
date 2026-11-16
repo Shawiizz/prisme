@@ -7,7 +7,11 @@ use crate::error::AppResult;
 use crate::sampler;
 use crate::state::{free_inputs, live_preferences, lock, AppState};
 use prisme_engine::{Command, OutputRouting};
+use prisme_library::CueSlot;
 use tauri::State;
+
+/// A channel fader this low is closed: fader start stops its deck there.
+const FADER_CLOSED: f32 = 1e-3;
 
 /// Deck and mixer settings as the backend knows them (to rebuild the UI).
 #[tauri::command]
@@ -44,6 +48,8 @@ pub fn mixer_state(state: State<'_, AppState>) -> MixerStateDto {
                 lead_in_s: d.lead_in_s,
                 swap_channels: d.swap_channels,
                 key_lock: d.key_lock,
+                fader_start: d.fader_start,
+                pitch_range: d.pitch_range,
                 strip: d.strip,
                 fx: d.fx,
                 samples: samples.iter().map(|s| s.as_ref().map(|s| sampler::name(&s.path))).collect(),
@@ -51,6 +57,7 @@ pub fn mixer_state(state: State<'_, AppState>) -> MixerStateDto {
                 passthrough: d.passthrough,
                 side: d.side.unwrap_or(CrossfaderSideDto::of_deck(deck)),
                 jog_scratch: d.jog_scratch,
+                repeat: d.repeat,
             })
             .collect(),
         crossfader: *lock(&state.crossfader),
@@ -60,6 +67,7 @@ pub fn mixer_state(state: State<'_, AppState>) -> MixerStateDto {
         headphones_in_use: routing.and_then(|r| r.headphones),
         output_channels: info.as_ref().map(|info| info.output_channels),
         cue_mix: mixer.cue_mix,
+        split_cue: mixer.split_cue,
         headphone_gain: mixer.headphone_gain,
         crossfader_curve: mixer.crossfader_curve,
         limiter: mixer.limiter,
@@ -142,11 +150,45 @@ fn route(state: &AppState) -> AppResult<Option<OutputRouting>> {
     Ok(Some(routing))
 }
 
+/// With fader start on the software mixer, a fader raised from closed plays its deck, and
+/// closed stops it on its cue point.
 #[tauri::command]
 pub fn set_volume(state: State<'_, AppState>, deck: usize, gain: f32) -> AppResult<()> {
     AppState::check_deck(deck)?;
-    lock(&state.decks)[deck].volume = gain;
-    state.send(Command::SetVolume { deck, gain })
+    let (before, fader_start) = {
+        let mut decks = lock(&state.decks);
+        (std::mem::replace(&mut decks[deck].volume, gain), decks[deck].fader_start)
+    };
+    state.send(Command::SetVolume { deck, gain })?;
+    let Some(play) = fader_start.then(|| opened(before, gain)).flatten() else { return Ok(()) };
+    if !state.mixes_itself() {
+        return Ok(());
+    }
+    let Ok(cue_s) = state.with_track(deck, |t| t.cue(CueSlot::Main).map_or(0.0, |c| c.position_s)) else {
+        return Ok(());
+    };
+    state.send(Command::SetPlaying { deck, playing: play })?;
+    if play {
+        Ok(())
+    } else {
+        state.send(Command::Seek { deck, seconds: cue_s })
+    }
+}
+
+/// Software mixer: the channel fader starts and stops the deck; kept for the next start.
+#[tauri::command]
+pub fn set_fader_start(state: State<'_, AppState>, deck: usize, enabled: bool) -> AppResult<()> {
+    AppState::check_deck(deck)?;
+    lock(&state.decks)[deck].fader_start = enabled;
+    state.update_preferences(|p| p.decks[deck].fader_start = enabled);
+    Ok(())
+}
+
+/// A fader moved from `before` to `after`: `Some(true)` as it opens from closed, `Some(false)`
+/// as it closes.
+fn opened(before: f32, after: f32) -> Option<bool> {
+    let open = after > FADER_CLOSED;
+    (open != (before > FADER_CLOSED)).then_some(open)
 }
 
 #[tauri::command]
@@ -173,6 +215,14 @@ pub fn set_deck_cue(state: State<'_, AppState>, deck: usize, enabled: bool) -> A
 pub fn set_cue_mix(state: State<'_, AppState>, mix: f32) -> AppResult<()> {
     state.update_preferences(|p| p.mixer.cue_mix = mix);
     state.send_if_running(Command::SetCueMix { mix })
+}
+
+/// Headphones: the cue on the left and the master on the right, each in mono, or blended.
+/// Kept for the next start.
+#[tauri::command]
+pub fn set_split_cue(state: State<'_, AppState>, enabled: bool) -> AppResult<()> {
+    state.update_preferences(|p| p.mixer.split_cue = enabled);
+    state.send_if_running(Command::SetSplitCue { enabled })
 }
 
 #[tauri::command]
@@ -224,4 +274,18 @@ pub fn set_crossfader_curve(state: State<'_, AppState>, curve: CrossfaderCurveDt
 pub fn set_limiter(state: State<'_, AppState>, enabled: bool) -> AppResult<()> {
     state.update_preferences(|p| p.mixer.limiter = enabled);
     state.send_if_running(Command::SetLimiter { enabled })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn fader_start_plays_as_the_fader_opens_and_stops_as_it_closes() {
+        assert_eq!(opened(0.0, 0.2), Some(true));
+        assert_eq!(opened(0.2, 0.8), None, "already open");
+        assert_eq!(opened(0.8, 0.0), Some(false));
+        assert_eq!(opened(0.0, 0.0), None);
+        assert_eq!(opened(0.0005, 0.0), None, "a closed fader trembling");
+    }
 }

@@ -3,8 +3,8 @@ import { EngineService } from '../../core/services/engine.service';
 import { MixerService } from '../../core/services/mixer.service';
 import { TPipe } from '../../core/i18n/t.pipe';
 
-/** The headphones of a deck's channel: lit while the deck is heard in them. Sized by its host;
- * `touch` reaches a finger beyond it. */
+/** The headphones of a deck's channel: lit while the deck is heard in them; a double click
+ * leaves it alone in them. Sized by its host; `touch` reaches a finger beyond it. */
 @Component({
   selector: 'app-cue-button',
   template: `
@@ -14,7 +14,8 @@ import { TPipe } from '../../core/i18n/t.pipe';
       [class.is-on]="cued()"
       [attr.aria-pressed]="cued()"
       (click)="mixer.setDeckCue(deck(), !cued())"
-      [title]="'Hear this deck in the headphones' | t"
+      (dblclick)="engine.soloCue(deck())"
+      [title]="'Hear this deck in the headphones · double-click: this deck alone' | t"
       [attr.aria-label]="'Hear this deck in the headphones' | t"
     >
       <svg viewBox="0 0 16 16" aria-hidden="true">
@@ -52,7 +53,7 @@ export class CueButton {
   readonly deck = input.required<number>();
   readonly touch = input(false, { transform: booleanAttribute });
 
-  private readonly engine = inject(EngineService);
+  protected readonly engine = inject(EngineService);
   protected readonly mixer = inject(MixerService);
   protected readonly cued = computed(() => this.engine.decks()[this.deck()].cue);
 }

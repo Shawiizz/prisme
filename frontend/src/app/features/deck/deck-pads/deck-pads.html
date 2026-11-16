@@ -1,6 +1,6 @@
 <div class="pr-seg pr-seg--lg modes" role="radiogroup" [attr.aria-label]="'Pad mode' | t">
   @for (m of modes; track m.id) {
-    <button role="radio" [attr.aria-checked]="mode() === m.id" (click)="mode.set(m.id)">
+    <button role="radio" [attr.aria-checked]="mode() === m.id" (click)="choose(m.id)">
       {{ m.label }}
     </button>
   }
@@ -16,14 +16,24 @@
       [disabled]="!padsEnabled()"
       [title]="pad.title"
       (pointerdown)="press($index, $event)"
-      (pointerup)="release()"
-      (pointercancel)="release()"
+      (pointerup)="release($index)"
+      (pointercancel)="release($index)"
       (contextmenu)="remove($index, $event)"
     >
       <span>{{ pad.label }}</span>
     </button>
   }
 </div>
+
+@if (paged()) {
+  <button
+    class="pr-btn pr-btn--sm page"
+    [title]="'The other page of pads' | t"
+    (click)="page.set(1 - page())"
+  >
+    {{ page() === 0 ? '1–8' : '9–16' }}
+  </button>
+}
 
 @switch (keys()) {
   @case ('fx') {
@@ -89,6 +99,17 @@
         [value]="samplerGain()"
         (valueChange)="sampler.setGain(deck(), $event)"
       />
+    </div>
+  }
+  @case ('jump') {
+    <div class="side">
+      <div class="beats" [title]="'Size of the jumps and of the sized loop, in beats' | t">
+        <button class="pr-btn pr-btn--sm" (click)="performance.scaleSize(deck(), 0.5)">½</button>
+        <button class="pr-btn pr-btn--sm" (click)="performance.scaleSize(deck(), 2)">×2</button>
+        <span class="pr-num">{{ formatBeats(size()) }}</span>
+      </div>
+      <ng-container [ngTemplateOutlet]="slipKey" />
+      <ng-container [ngTemplateOutlet]="censorKey" />
     </div>
   }
   @case ('loop') {

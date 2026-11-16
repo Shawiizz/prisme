@@ -9,10 +9,11 @@ import {
   HOT_CUES,
   LiveSource,
   SAMPLE_SLOTS,
+  SLICES,
 } from '../models/engine';
 import { EFFECT_NAMES } from '../effects';
 import { Text, t } from '../i18n/i18n';
-import { ROLL_BEATS, formatBeats } from '../../shared/beats';
+import { CUT_BEATS, ROLL_BEATS, formatBeats } from '../../shared/beats';
 import { deckLetter } from '../../shared/time';
 import { StemPart } from '../stem-parts';
 
@@ -66,6 +67,20 @@ export interface ControlActions {
   loopInSet(deck: number): boolean;
   loopOut(deck: number): void;
   beatJump(deck: number, beats: number): void;
+  /** The deck's size in beats: what its jumps go by, what its sized loop lasts. */
+  size(deck: number): number;
+  /** Multiplies the deck's size by `factor`. */
+  scaleSize(deck: number, factor: number): void;
+  /** A loop of the deck's size, or out of the loop it plays. */
+  sizedLoop(deck: number): void;
+  /** Plays a slice of the slicer while held, the track going on underneath. */
+  slice(deck: number, index: number, held: boolean): void;
+  /** The slice of its slicer the deck plays in, if it does. */
+  slicePlaying(deck: number): number | null;
+  /** Cuts the deck on the beats of `CUT_BEATS[index]` while held. */
+  cut(deck: number, index: number, held: boolean): void;
+  /** The fader cut the deck plays (an index of `CUT_BEATS`), if any. */
+  cutPlaying(deck: number): number | null;
   /** A loop of `beats` from where the deck plays, or out of the loop it is in. */
   beatLoop(deck: number, beats: number): void;
   bend(deck: number, direction: -1 | 0 | 1): void;
@@ -116,6 +131,9 @@ export interface ControlActions {
   /** What the headphones play: the cued decks (0) to the master (1). */
   setCueMix(position: number): void;
   cueMixPosition(): number;
+  /** The headphones split, the cue on the left and the master on the right, or blended. */
+  toggleSplitCue(): void;
+  splitCue(): boolean;
   /** The master's balance: left only (0), both sides (0.5), right only (1). */
   setBalance(position: number): void;
   balancePosition(): number;
@@ -143,9 +161,23 @@ export interface ControlActions {
   crossfaderPosition(): number;
   toggleHeadphones(deck: number): void;
   inHeadphones(deck: number): boolean;
+  /** The headphones on this deck alone. */
+  soloHeadphones(deck: number): void;
+  /** Whether the deck is alone in the headphones. */
+  aloneInHeadphones(deck: number): boolean;
   toggleSlip(deck: number): void;
   slipping(deck: number): boolean;
   censor(deck: number, held: boolean): void;
+  /** A playing deck slows to a stop as a turntable switched off; a stopped one starts softly. */
+  brake(deck: number): void;
+  /** The record spun back while held; let go, it plays on from there. */
+  spinBack(deck: number, held: boolean): void;
+  /** At the end, the track goes on from its start, or stops there. */
+  toggleRepeat(deck: number): void;
+  repeating(deck: number): boolean;
+  /** Software mixer: the channel fader starts and stops the deck, or not. */
+  toggleFaderStart(deck: number): void;
+  faderStart(deck: number): boolean;
   reloop(deck: number): void;
   deleteHotCue(deck: number, slot: number): void;
   resetTempo(deck: number): void;
@@ -176,8 +208,11 @@ export interface ControlActions {
   focusSearch(): void;
   toggleQuantize(): void;
   quantized(): boolean;
-  /** The tempo faders' next range (±8, ±16, ±50 %), back to the first after the last. */
-  cycleTempoRange(): void;
+  /** Every tempo fader on the range (±8, ±16, ±50 %) `step` places after the general one
+   * (before it, negative), round from the last to the first. */
+  cycleTempoRange(step: number): void;
+  /** The deck's tempo fader on the range `step` places after its own. */
+  cycleDeckTempoRange(deck: number, step: number): void;
   toggleHelp(): void;
   togglePalette(): void;
   openSettings(): void;
@@ -276,7 +311,6 @@ export interface ControlActions {
   inPhase(deck: number): boolean;
 }
 
-const JUMP_BEATS = 4;
 const CROSSFADER_SIDE: Record<CrossfaderSide, Text> = {
   left: () => t('On the left of the crossfader'),
   center: () => t('Heard whatever the crossfader'),
@@ -475,15 +509,37 @@ function deckControls(a: ControlActions, deck: number): Control[] {
     button(id('reloop'), group, t('Reloop'), () => a.reloop(deck)),
     button(id('loop.halve'), group, t('Halve the loop'), () => a.scaleLoop(deck, 0.5)),
     button(id('loop.double'), group, t('Double the loop'), () => a.scaleLoop(deck, 2)),
-    button(id('jump.back'), group, t('Jump back {n} beats', { n: JUMP_BEATS }), () =>
-      a.beatJump(deck, -JUMP_BEATS),
+    button(id('jump.back'), group, t('Jump back by the size'), () =>
+      a.beatJump(deck, -a.size(deck)),
     ),
-    button(id('jump.forward'), group, t('Jump {n} beats ahead', { n: JUMP_BEATS }), () =>
-      a.beatJump(deck, JUMP_BEATS),
+    button(id('jump.forward'), group, t('Jump ahead by the size'), () =>
+      a.beatJump(deck, a.size(deck)),
     ),
+    lit(
+      button(id('loop.size'), group, t('Loop of the size / exit'), () => a.sizedLoop(deck)),
+      () => {
+        const playing = a.loopBeats(deck);
+        return playing !== null && Math.abs(playing / a.size(deck) - 1) < 0.01;
+      },
+    ),
+    button(id('size.halve'), group, t('Halve the size'), () => a.scaleSize(deck, 0.5)),
+    button(id('size.double'), group, t('Double the size'), () => a.scaleSize(deck, 2)),
+    {
+      id: id('size'),
+      group,
+      label: t('Size of the jumps and the loop (a step halves or doubles it)'),
+      kind: 'encoder',
+      apply: (steps) => a.scaleSize(deck, 2 ** steps),
+    },
     hold(id('bend.down'), group, t('Slow down while held'), (held) => a.bend(deck, held ? -1 : 0)),
     hold(id('bend.up'), group, t('Speed up while held'), (held) => a.bend(deck, held ? 1 : 0)),
     button(id('tempo.reset'), group, t('Tempo back to the track'), () => a.resetTempo(deck)),
+    button(id('tempoRange'), group, t('Tempo fader range: next'), () =>
+      a.cycleDeckTempoRange(deck, 1),
+    ),
+    button(id('tempoRange.previous'), group, t('Tempo fader range: previous'), () =>
+      a.cycleDeckTempoRange(deck, -1),
+    ),
     button(id('key.up'), group, t('Key up a semitone'), () =>
       a.setKeyShift(deck, a.keyShift(deck) + 1),
     ),
@@ -499,6 +555,16 @@ function deckControls(a: ControlActions, deck: number): Control[] {
       () => a.slipping(deck),
     ),
     hold(id('censor'), group, t('Censor while held'), (held) => a.censor(deck, held)),
+    button(id('brake'), group, t('Brake (stopped: soft start)'), () => a.brake(deck)),
+    hold(id('spinback'), group, t('Spinback while held'), (held) => a.spinBack(deck, held)),
+    lit(
+      button(id('repeat'), group, t('Repeat the track'), () => a.toggleRepeat(deck)),
+      () => a.repeating(deck),
+    ),
+    lit(
+      button(id('faderStart'), group, t('Fader start'), () => a.toggleFaderStart(deck)),
+      () => a.faderStart(deck),
+    ),
     lit(
       button(id('keylock'), group, t('Key lock'), () => a.toggleKeyLock(deck)),
       () => a.keyLocked(deck),
@@ -538,6 +604,25 @@ function deckControls(a: ControlActions, deck: number): Control[] {
         group,
         t('Roll {beats} while held', { beats: formatBeats(beats) }),
         (held) => a.roll(deck, held ? beats : null),
+      ),
+    ),
+    ...Array.from({ length: SLICES }, (_, slice) =>
+      lit(
+        hold(id(`slice${slice + 1}`), group, t('Slice {n} while held', { n: slice + 1 }), (held) =>
+          a.slice(deck, slice, held),
+        ),
+        () => a.slicePlaying(deck) === slice,
+      ),
+    ),
+    ...CUT_BEATS.map((beats, i) =>
+      lit(
+        hold(
+          id(`cut${i + 1}`),
+          group,
+          t('Fader cut on {beats} while held', { beats: formatBeats(beats) }),
+          (held) => a.cut(deck, i, held),
+        ),
+        () => a.cutPlaying(deck) === i,
       ),
     ),
     direct(id('pitch'), group, t('Tempo'), 'fader'),
@@ -582,6 +667,12 @@ function deckControls(a: ControlActions, deck: number): Control[] {
     lit(
       button(id('headphones'), group, t('Headphones (pre-listen)'), () => a.toggleHeadphones(deck)),
       () => a.inHeadphones(deck),
+    ),
+    lit(
+      button(id('headphones.solo'), group, t('This deck alone in the headphones'), () =>
+        a.soloHeadphones(deck),
+      ),
+      () => a.aloneInHeadphones(deck),
     ),
     lit(
       button(id('passthrough'), group, t('Passthrough: the deck plays its input'), () =>
@@ -877,6 +968,15 @@ export function buildControls(a: ControlActions): Control[] {
       (v) => a.setCueMix(v),
       () => a.cueMixPosition(),
     ),
+    lit(
+      button(
+        'mixer.headphones.split',
+        t('Mixer'),
+        t('Split headphones: cue left, master right'),
+        () => a.toggleSplitCue(),
+      ),
+      () => a.splitCue(),
+    ),
     fader(
       'mixer.balance',
       t('Mixer'),
@@ -1031,7 +1131,15 @@ export function buildControls(a: ControlActions): Control[] {
       ...button('general.quantize', t('General'), t('Quantize'), () => a.toggleQuantize()),
       lit: () => a.quantized(),
     },
-    button('general.tempoRange', t('General'), t('Tempo fader range'), () => a.cycleTempoRange()),
+    button('general.tempoRange', t('General'), t('Range of every tempo fader: next'), () =>
+      a.cycleTempoRange(1),
+    ),
+    button(
+      'general.tempoRange.previous',
+      t('General'),
+      t('Range of every tempo fader: previous'),
+      () => a.cycleTempoRange(-1),
+    ),
     button('general.help', t('General'), t('Keyboard shortcuts'), () => a.toggleHelp()),
     button('general.palette', t('General'), t('Command palette'), () => a.togglePalette()),
     button('general.settings', t('General'), t('Settings'), () => a.openSettings()),

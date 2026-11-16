@@ -13,12 +13,14 @@ pub(crate) struct Playhead {
     position: f64,
     /// Active loop, in source frames.
     loop_frames: Option<(f64, f64)>,
+    /// At the end, the track goes on from its start.
+    repeat: bool,
     stems: Stems,
 }
 
 impl Playhead {
     pub(crate) fn new() -> Self {
-        Self { track: None, position: 0.0, loop_frames: None, stems: Stems::new() }
+        Self { track: None, position: 0.0, loop_frames: None, repeat: false, stems: Stems::new() }
     }
 
     /// Loads a track at its start and returns the previous one (to be freed elsewhere).
@@ -64,6 +66,17 @@ impl Playhead {
         self.loop_frames = region.filter(|r| r.length_s() > 0.0).map(|r| (r.start_s * rate, r.end_s * rate));
     }
 
+    /// At the end, the track goes on from its start, seamlessly.
+    pub(crate) fn set_repeat(&mut self, repeat: bool) {
+        self.repeat = repeat;
+    }
+
+    /// The loop the playhead wraps around: the one set, else with repeat the whole track.
+    fn wrap_frames(&self) -> Option<(f64, f64)> {
+        let whole = self.track.as_ref().filter(|_| self.repeat).map(|t| (0.0, t.frames() as f64));
+        self.loop_frames.or(whole)
+    }
+
     pub(crate) fn is_loaded(&self) -> bool {
         self.track.is_some()
     }
@@ -88,22 +101,32 @@ impl Playhead {
     /// tempo) at the output rate `out_rate`; with `apart`, the parts set apart go there and
     /// the rest to `out`. Uses 4-point Catmull-Rom interpolation; outside the track it plays
     /// silence (the needle can go before the start).
-    pub(crate) fn render(
+    pub(crate) fn render(&mut self, out: &mut [f32], apart: Option<&mut [f32]>, out_rate: f64, speed: f64) {
+        self.render_with(out, apart, out_rate, || speed);
+    }
+
+    /// Like [`Playhead::render`], at the speed `speed` gives for each frame in turn: a speed
+    /// changing within the block, as a turntable's motor brings it up or down.
+    pub(crate) fn render_with(
         &mut self,
         out: &mut [f32],
         mut apart: Option<&mut [f32]>,
         out_rate: f64,
-        speed: f64,
+        mut speed: impl FnMut() -> f64,
     ) {
         let Some(track) = self.track.as_ref() else {
             out.fill(0.0);
             if let Some(apart) = apart {
                 apart.fill(0.0);
             }
-            self.position += speed * (out.len() / 2) as f64; // keeps moving, harmless
+            // keeps moving, harmless
+            for _ in 0..out.len() / 2 {
+                self.position += speed();
+            }
             return;
         };
-        let step = speed * track.sample_rate() as f64 / out_rate;
+        let ratio = track.sample_rate() as f64 / out_rate;
+        let wrap = self.wrap_frames();
         let mut source = self.stems.reader(track);
         for (n, frame) in out.chunks_exact_mut(2).enumerate() {
             let i = self.position.floor();
@@ -123,7 +146,7 @@ impl Playhead {
                 }
             }
             source.advance();
-            self.position = wrap_in_loop(self.position, self.position + step, self.loop_frames);
+            self.position = wrap_in_loop(self.position, self.position + speed() * ratio, wrap);
         }
     }
 
@@ -136,9 +159,10 @@ impl Playhead {
         out_rate: f64,
         speed: f64,
     ) {
+        let wrap = self.wrap_frames();
         let Some(track) = self.track.as_ref() else { return self.render(out, apart, out_rate, speed) };
         let mut source = self.stems.reader(track);
-        self.position = key_lock.render(&mut source, self.position, self.loop_frames, out, apart, speed);
+        self.position = key_lock.render(&mut source, self.position, wrap, out, apart, speed);
     }
 }
 
@@ -183,6 +207,18 @@ mod tests {
     }
 
     #[test]
+    fn the_speed_can_change_at_every_frame() {
+        let mut p = Playhead::new();
+        p.load(ramp(100));
+        p.seek_s(10.0 / 48_000.0);
+        let mut out = [0.0f32; 8];
+        let mut speeds = [0.0, 1.0, 2.0, 3.0].into_iter();
+        p.render_with(&mut out, None, 48_000.0, || speeds.next().unwrap());
+        assert_eq!([out[0], out[2], out[4], out[6]], [10.0, 10.0, 11.0, 13.0]);
+        assert!((p.position_s() * 48_000.0 - 16.0).abs() < 1e-9);
+    }
+
+    #[test]
     fn wraps_around_the_loop_both_ways() {
         let mut p = Playhead::new();
         p.load(ramp(48_000));
@@ -195,6 +231,22 @@ mod tests {
         p.seek_s(11.0 / 48_000.0);
         p.render(&mut out, None, 48_000.0, -1.0);
         assert_eq!([out[0], out[2], out[4], out[6]], [11.0, 10.0, 19.0, 18.0]);
+    }
+
+    #[test]
+    fn with_repeat_the_end_goes_on_from_the_start() {
+        let mut p = Playhead::new();
+        p.load(ramp(100));
+        p.set_repeat(true);
+        p.seek_s(98.0 / 48_000.0);
+        let mut out = [0.0f32; 8];
+        p.render(&mut out, None, 48_000.0, 1.0);
+        assert_eq!([out[0], out[2], out[4], out[6]], [98.0, 99.0, 0.0, 1.0]);
+        p.set_repeat(false);
+        p.seek_s(98.0 / 48_000.0);
+        p.render(&mut out, None, 48_000.0, 1.0);
+        assert_eq!([out[4], out[6]], [0.0, 0.0], "silence past the end");
+        assert!(p.position_s() * 48_000.0 > 100.0);
     }
 
     #[test]

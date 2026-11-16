@@ -40,6 +40,12 @@ pub struct DeckPreferences {
     pub swap_channels: bool,
     /// The pitch stays when the speed changes.
     pub key_lock: bool,
+    /// Software mixer: the channel fader raised from closed plays the deck, closed it stops
+    /// it on its cue point.
+    pub fader_start: bool,
+    /// The range of the deck's tempo fader, if it has one of its own; else the general one
+    /// ([`DjPreferences::pitch_range`]), as every deck had before.
+    pub pitch_range: Option<f64>,
     /// Sound file in each sampler slot.
     pub samples: Vec<Option<String>>,
 }
@@ -58,7 +64,7 @@ pub enum VinylSync {
 pub struct DjPreferences {
     pub vinyl_sync: VinylSync,
     pub quantize: bool,
-    /// Range of the tempo faders (0.08 = ±8 %).
+    /// Range of the tempo faders of the decks without one of their own (0.08 = ±8 %).
     pub pitch_range: f64,
     /// Every track played at the same loudness (see `LoadedTrack::level`).
     pub auto_gain: bool,
@@ -67,6 +73,17 @@ pub struct DjPreferences {
     pub knob_magnet: bool,
     /// On a phone, the decks play and pause from its lock screen and its notifications.
     pub lock_controls: bool,
+    /// The headphones go to the deck a track is loaded on, alone.
+    pub cue_on_load: bool,
+    /// A load onto a deck that plays is refused, rather than asked about.
+    pub protect_playing: bool,
+}
+
+impl Preferences {
+    /// The range of the tempo fader of `deck`: its own, else the general one.
+    pub fn tempo_range(&self, deck: usize) -> f64 {
+        self.decks[deck].pitch_range.unwrap_or(self.dj.pitch_range)
+    }
 }
 
 impl DjPreferences {
@@ -115,6 +132,8 @@ impl Default for DjPreferences {
             deck_count: DeckCount::Two,
             knob_magnet: true,
             lock_controls: true,
+            cue_on_load: false,
+            protect_playing: false,
         }
     }
 }
@@ -153,6 +172,8 @@ pub struct MixerPreferences {
     pub headphones: HeadphonesOutputDto,
     /// Headphones: 0 = cued decks only, 1 = master only.
     pub cue_mix: f32,
+    /// Headphones: the cue on the left and the master on the right, each in mono.
+    pub split_cue: bool,
     pub headphone_gain: f32,
     pub crossfader_curve: CrossfaderCurveDto,
     /// Master limiter (adds 1 ms of latency to the software mixer).
@@ -193,6 +214,7 @@ impl Default for MixerPreferences {
             mode: if cfg!(mobile) { MixModeDto::Internal } else { MixModeDto::External },
             headphones: HeadphonesOutputDto::Auto,
             cue_mix: 0.0,
+            split_cue: false,
             headphone_gain: 1.0,
             crossfader_curve: CrossfaderCurveDto::Smooth,
             limiter: true,
@@ -284,6 +306,8 @@ mod tests {
         assert!(p.library.pause_while_playing);
         assert_eq!(p.library.separate_on_load, None);
         assert_eq!(p.auto_dj, AutoDjPreferences { fade_beats: 16, fade_s: 10.0 });
+        assert!(!p.dj.cue_on_load, "the headphones stay where they are at a load");
+        assert!(!p.dj.protect_playing, "a load onto a deck that plays is asked about");
     }
 
     #[test]
@@ -301,6 +325,7 @@ mod tests {
         assert_eq!((p.mixer.balance, p.mixer.booth, p.mixer.booth_gain), (0.0, None, 1.0));
         assert_eq!(p.mixer.mic, LivePreferences::default());
         assert!(!p.mixer.talkover);
+        assert!(!p.mixer.split_cue, "the headphones blend unless split");
         assert_eq!(p.mixer.talkover_depth_db, -18.0);
     }
 
@@ -331,6 +356,17 @@ mod tests {
         assert!(p.decks[0].key_lock);
         assert_eq!(p.decks[1].rpm, RpmDto::Rpm45);
         assert_eq!(p.decks[2], DeckPreferences::default());
+        assert!(!p.decks[0].fader_start, "fader start is off unless chosen");
+        assert_eq!(p.decks[0].pitch_range, None);
+    }
+
+    #[test]
+    fn a_file_from_before_the_ranges_of_the_decks_gives_them_all_the_general_one() {
+        let p: Preferences =
+            serde_json::from_str(r#"{ "dj": { "pitchRange": 0.16 }, "decks": [{ "pitchRange": 0.5 }] }"#)
+                .unwrap();
+        assert_eq!(p.tempo_range(0), 0.5);
+        assert_eq!([1, 2, 3].map(|deck| p.tempo_range(deck)), [0.16; 3]);
         assert_eq!(p.dj.decks(), 2);
     }
 
@@ -356,11 +392,14 @@ mod tests {
             lead_in_s: Some(2.5),
             swap_channels: true,
             key_lock: true,
+            fader_start: true,
+            pitch_range: Some(0.5),
             samples: vec![Some("C:/Samples/horn.wav".into()), None],
         };
         p.library.last_folder = Some("C:/Music/House".into());
         p.mixer.booth = Some(4);
         p.auto_dj = AutoDjPreferences { fade_beats: 32, fade_s: 15.0 };
+        p.mixer.split_cue = true;
         p.mixer.mic =
             LivePreferences { input: Some(InputChannelsDto { first: 4, stereo: false }), level: 0.5 };
         let json = serde_json::to_string(&p).unwrap();

@@ -926,10 +926,8 @@ impl Controllers {
         if matches!(action, Direct::JogTouch(_)) && !lock(&state.decks)[deck].jog_scratch {
             return;
         }
-        let tempo = Tempo {
-            ratio: lock(&state.decks)[deck].pitch,
-            range: state.preferences.read(|p| p.dj.pitch_range),
-        };
+        let range = state.tempo_range(deck);
+        let tempo = Tempo { ratio: lock(&state.decks)[deck].pitch, range };
         let Some(command) = lock(&self.performer).command(action, value, at_s, jog_steps_per_turn, tempo)
         else {
             return;

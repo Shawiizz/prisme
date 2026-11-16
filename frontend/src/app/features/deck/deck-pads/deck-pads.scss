@@ -35,6 +35,15 @@
   }
 }
 
+// the page of hot cues or sounds on the pads
+.page {
+  flex: none;
+  height: var(--pr-h-lg);
+  padding: 0 6px;
+  font: 600 10.5px / 1 var(--pr-font-mono);
+  color: var(--pr-text-2);
+}
+
 // the slots of the effect chain: the one the pads and knobs act on in the light, a bar
 // under each one sounding
 .slots {
@@ -134,11 +143,11 @@
 }
 
 // the rail of a compact lane beside the channel of the software mixer: the modes on two
-// rows of three, every key at its narrowest
+// rows of four, every key at its narrowest
 @container rail (max-width: 1050px) {
   .modes {
     display: grid;
-    grid-template-columns: repeat(3, auto);
+    grid-template-columns: repeat(4, auto);
     > button {
       height: 19px;
       padding: 0 4px;
@@ -167,7 +176,7 @@
   .modes {
     flex: 1 0 100%;
     display: grid;
-    grid-template-columns: repeat(6, minmax(0, 1fr));
+    grid-template-columns: repeat(4, minmax(0, 1fr));
     > button {
       height: 30px;
       padding: 0;
@@ -201,7 +210,7 @@
 :host-context(app-phone-pads.side) {
   gap: 6px;
   .modes {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(4, minmax(0, 1fr));
     > button {
       height: 22px;
       font-size: 10px;

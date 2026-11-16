@@ -217,3 +217,53 @@ fn loop_out_on_the_loop_in_beat_does_nothing() {
     assert!(!looping.active && looping.region.is_none());
     assert_eq!(looping.loop_in_s, Some(10.0));
 }
+
+#[test]
+fn with_repeat_the_track_plays_on_from_its_start() {
+    let mut rig = Rig::new();
+    rig.send(Command::LoadTrack { deck: 0, track: silent_track(10.0) });
+    rig.send(Command::SetRepeat { deck: 0, enabled: true });
+    rig.send(Command::Seek { deck: 0, seconds: 9.5 });
+    rig.send(Command::SetPlaying { deck: 0, playing: true });
+    let elapsed = rig.run(1.0);
+    let d = rig.deck(0);
+    assert!(d.playing);
+    assert_close(d.position_s, 9.5 + elapsed - 10.0, 0.001);
+
+    rig.send(Command::SetRepeat { deck: 0, enabled: false });
+    rig.send(Command::Seek { deck: 0, seconds: 9.5 });
+    rig.run(1.0);
+    assert!(!rig.deck(0).playing, "without it, the end stops the deck");
+}
+
+#[test]
+fn a_slice_plays_round_while_held_in_phase_then_the_track_comes_back() {
+    let mut rig = playing_deck(10.1);
+    let slice = LoopRegion { start_s: 12.0, end_s: 12.5 };
+    rig.send(Command::Slice { deck: 0, region: Some(slice) });
+    rig.run(0.01);
+    assert_close(rig.deck(0).position_s, 12.12, 0.01);
+    let elapsed = rig.run(2.0);
+    let d = rig.deck(0);
+    assert!(slice.contains(d.position_s), "{}", d.position_s);
+    assert_close(d.slip_position_s.unwrap(), 10.12 + elapsed, 0.01);
+
+    let next = LoopRegion { start_s: 13.0, end_s: 13.5 };
+    rig.send(Command::Slice { deck: 0, region: Some(next) });
+    rig.run(0.01);
+    assert!(next.contains(rig.deck(0).position_s), "another slice taken while held");
+    rig.send(Command::Slice { deck: 0, region: None });
+    rig.run(0.01);
+    let d = rig.deck(0);
+    assert_close(d.position_s, 10.14 + elapsed, 0.01);
+    assert!(!d.looping.active && d.slip_position_s.is_none());
+}
+
+#[test]
+fn without_quantize_a_slice_plays_from_its_start() {
+    let mut rig = playing_deck(10.1);
+    rig.send(Command::SetQuantize { enabled: false });
+    rig.send(Command::Slice { deck: 0, region: Some(LoopRegion { start_s: 12.0, end_s: 12.5 }) });
+    rig.run(0.01);
+    assert_close(rig.deck(0).position_s, 12.01, 0.01);
+}

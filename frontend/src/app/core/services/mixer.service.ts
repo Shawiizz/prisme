@@ -43,6 +43,8 @@ export class MixerService {
   /** Outputs of the running device. */
   readonly outputChannels = signal<number | null>(null);
   readonly cueMix = signal(0);
+  /** Headphones: the cue on the left and the master on the right, each in mono. */
+  readonly splitCue = signal(false);
   readonly headphoneGain = signal(1);
   readonly crossfaderCurve = signal<CrossfaderCurve>('smooth');
   readonly limiter = signal(true);
@@ -107,6 +109,7 @@ export class MixerService {
     this.mode.set(state.mode);
     this.applyRouting(state);
     this.cueMix.set(state.cueMix);
+    this.splitCue.set(state.splitCue);
     this.headphoneGain.set(state.headphoneGain);
     this.crossfaderCurve.set(state.crossfaderCurve);
     this.limiter.set(state.limiter);
@@ -228,6 +231,11 @@ export class MixerService {
   setCueMix(mix: number) {
     this.cueMix.set(mix);
     return this.engine.call('set_cue_mix', { mix });
+  }
+
+  setSplitCue(enabled: boolean) {
+    this.splitCue.set(enabled);
+    return this.engine.call('set_split_cue', { enabled });
   }
 
   setHeadphoneGain(gain: number) {

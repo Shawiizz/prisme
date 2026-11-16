@@ -4,16 +4,16 @@ import { FxService } from '../../../core/services/fx.service';
 import { SamplerService } from '../../../core/services/sampler.service';
 import { EngineService } from '../../../core/services/engine.service';
 import { PerformanceService } from '../../../core/services/performance.service';
-import { EffectKind, FxSettings, HOT_CUES } from '../../../core/models/engine';
+import { EffectKind, FxSettings, PADS, SLICES } from '../../../core/models/engine';
 import { Knob } from '../../../shared/knob/knob';
-import { ROLL_BEATS, formatBeats, loopBeats } from '../../../shared/beats';
+import { CUT_BEATS, ROLL_BEATS, formatBeats, loopBeats } from '../../../shared/beats';
 import { readouts } from '../../../shared/mixer-scales';
 import { Text, t } from '../../../core/i18n/i18n';
 import { TPipe } from '../../../core/i18n/t.pipe';
 import { deckStems } from '../../../core/deck-stems';
 import { EFFECT_NAMES } from '../../../core/effects';
 
-type PadMode = 'cues' | 'loops' | 'roll' | 'jump' | 'fx' | 'sampler';
+type PadMode = 'cues' | 'loops' | 'roll' | 'jump' | 'slice' | 'cut' | 'fx' | 'sampler';
 
 interface Pad {
   label: string;
@@ -30,10 +30,14 @@ const MODES: { id: PadMode; label: string }[] = [
   { id: 'loops', label: 'LOOP' },
   { id: 'roll', label: 'ROLL' },
   { id: 'jump', label: 'JUMP' },
+  { id: 'slice', label: 'SLICE' },
+  { id: 'cut', label: 'CUT' },
   { id: 'fx', label: 'FX' },
   { id: 'sampler', label: 'SMPL' },
 ];
 const SAMPLE_COLOR = 'var(--pr-tag-violet)';
+/** The bar of a loop or jump pad of the deck's size. */
+const SIZE_COLOR = 'var(--pr-light)';
 /** The bar of an effect pad whose effect sounds in another slot of the chain. */
 const ELSEWHERE_COLOR = 'var(--pr-text-3)';
 /** The effects on the pads, with what their AMOUNT knob does. */
@@ -83,10 +87,11 @@ const LOOP_BEATS = [0.25, 0.5, 1, 2, 4, 8, 16, 32];
 const JUMP_BEATS = [-32, -16, -4, -1, 1, 4, 16, 32];
 
 /**
- * Eight performance pads per deck, at the end of its rail (hot cues, loops, rolls, beat
- * jumps, beat effects, sampler), with the keys that go with their mode: slip and censor
- * (and the way out of a loop while one plays), all the loop keys, the slots of the effect
- * chain with the level, knob and period of the one chosen, or the sampler's level.
+ * Eight performance pads per deck (hot cues and sounds on two pages), at the end of its rail (hot cues, loops, rolls, beat
+ * jumps, the slicer, fader cuts, beat effects, sampler), with the keys that go with their mode: slip and censor
+ * (and the way out of a loop while one plays), all the loop keys, the deck's size for the
+ * jumps, the slots of the effect chain with the level, knob and period of the one chosen,
+ * or the sampler's level.
  */
 @Component({
   selector: 'app-deck-pads',
@@ -98,15 +103,21 @@ export class DeckPads {
   readonly deck = input.required<number>();
 
   private readonly engine = inject(EngineService);
-  private readonly performance = inject(PerformanceService);
+  protected readonly performance = inject(PerformanceService);
   protected readonly fx = inject(FxService);
   protected readonly sampler = inject(SamplerService);
   protected readonly modes = MODES;
   protected readonly mode = signal<PadMode>('cues');
+  /** The page of hot cues and sounds on the pads: 1 to 8, or 9 to 16. */
+  protected readonly page = signal(0);
+  /** Hot cues and sounds have two pages. */
+  protected readonly paged = computed(() => this.mode() === 'cues' || this.mode() === 'sampler');
+  private readonly first = computed(() => this.page() * PADS);
   /** The keys beside the pads. */
   protected readonly keys = computed(() => {
     const mode = this.mode();
     if (mode === 'loops' || mode === 'roll') return 'loop';
+    if (mode === 'jump') return 'jump';
     return mode === 'fx' || mode === 'sampler' ? mode : 'slip';
   });
   private readonly status = computed(() => this.engine.status()?.decks[this.deck()] ?? null);
@@ -154,6 +165,8 @@ export class DeckPads {
   protected readonly padsEnabled = computed(
     () => this.mode() === 'fx' || this.mode() === 'sampler' || this.canMove(),
   );
+  /** The deck's size: what its jumps go by; the pads of that size have a bar in the light. */
+  protected readonly size = computed(() => this.performance.sizes()[this.deck()]);
   protected readonly formatBeats = formatBeats;
   protected readonly readouts = readouts;
 
@@ -167,13 +180,14 @@ export class DeckPads {
   protected readonly pads = computed<Pad[]>(() => {
     switch (this.mode()) {
       case 'cues':
-        return Array.from({ length: HOT_CUES }, (_, slot) => this.cuePad(slot));
+        return Array.from({ length: PADS }, (_, pad) => this.cuePad(this.first() + pad));
       case 'loops':
         return LOOP_BEATS.map((b) =>
           this.beatPad(
             b,
             this.activeLoopBeats() === b,
             t('Loop {beats}', { beats: formatBeats(b) }),
+            b === this.size(),
           ),
         );
       case 'roll':
@@ -182,8 +196,33 @@ export class DeckPads {
         );
       case 'jump':
         return JUMP_BEATS.map((b) =>
-          this.beatPad(b, false, t('Jump {beats} beats', { beats: formatBeats(b) })),
+          this.beatPad(
+            b,
+            false,
+            t('Jump {beats} beats', { beats: formatBeats(b) }),
+            Math.abs(b) === this.size(),
+          ),
         );
+      case 'slice': {
+        const playing = this.performance.slicePlaying(this.deck());
+        return Array.from({ length: SLICES }, (_, slice) => ({
+          label: `${slice + 1}`,
+          set: true,
+          color: null,
+          active: playing === slice,
+          title: t('Slice {n} while held', { n: slice + 1 }),
+        }));
+      }
+      case 'cut': {
+        const playing = this.performance.cuts()[this.deck()];
+        return CUT_BEATS.map((b, i) =>
+          this.beatPad(
+            b,
+            playing === i,
+            t('Fader cut on {beats} while held', { beats: formatBeats(b) }),
+          ),
+        );
+      }
       case 'fx': {
         const [slots, chosen] = [this.chain().slots, this.slot()];
         const sounds = (fx: FxSettings, kind: EffectKind) => fx.enabled && fx.kind === kind;
@@ -196,7 +235,10 @@ export class DeckPads {
         }));
       }
       case 'sampler':
-        return this.samples().map((name, slot) => this.samplePad(name, slot));
+        return Array.from({ length: PADS }, (_, pad) => {
+          const slot = this.first() + pad;
+          return this.samplePad(this.samples()[slot] ?? null, slot);
+        });
     }
   });
 
@@ -205,11 +247,12 @@ export class DeckPads {
     if (event.button !== 0) return;
     (event.currentTarget as Element).setPointerCapture(event.pointerId);
     const deck = this.deck();
+    const slot = this.first() + index;
     switch (this.mode()) {
       case 'cues':
         return event.shiftKey
-          ? this.performance.deleteHotCue(deck, index)
-          : this.performance.pressHotCue(deck, index);
+          ? this.performance.deleteHotCue(deck, slot)
+          : this.performance.pressHotCue(deck, slot);
       case 'loops':
         return this.activeLoopBeats() === LOOP_BEATS[index]
           ? this.performance.exitLoop(deck)
@@ -218,26 +261,39 @@ export class DeckPads {
         return this.performance.loopRoll(deck, ROLL_BEATS[index]);
       case 'jump':
         return this.performance.beatJump(deck, JUMP_BEATS[index]);
+      case 'slice':
+        return this.performance.slice(deck, index, true);
+      case 'cut':
+        return this.performance.cut(deck, index, true);
       case 'fx':
         return this.fx.press(deck, this.slot(), EFFECTS[index].kind);
       case 'sampler':
-        if (!this.samples()[index]) return this.sampler.choose(deck, index);
-        return event.shiftKey ? this.sampler.clear(deck, index) : this.sampler.trigger(deck, index);
+        if (!this.samples()[slot]) return this.sampler.choose(deck, slot);
+        return event.shiftKey ? this.sampler.clear(deck, slot) : this.sampler.trigger(deck, slot);
     }
   }
 
-  release() {
+  release(index: number) {
     if (this.mode() === 'roll') this.performance.loopRoll(this.deck(), null);
+    if (this.mode() === 'slice') this.performance.slice(this.deck(), index, false);
+    if (this.mode() === 'cut') this.performance.cut(this.deck(), index, false);
+  }
+
+  /** The slicer is put on the bar the deck plays in as its mode is chosen. */
+  choose(mode: PadMode) {
+    this.mode.set(mode);
+    if (mode === 'slice') this.performance.anchorSlicer(this.deck());
   }
 
   /** Right click deletes a hot cue, stops a sound playing, or else takes it off its pad. */
   remove(index: number, event: MouseEvent) {
     event.preventDefault();
     const deck = this.deck();
-    if (this.mode() === 'cues') this.performance.deleteHotCue(deck, index);
+    const slot = this.first() + index;
+    if (this.mode() === 'cues') this.performance.deleteHotCue(deck, slot);
     if (this.mode() !== 'sampler') return;
-    if (this.samplePlaying(index)) this.sampler.stop(deck, index);
-    else if (this.samples()[index]) this.sampler.clear(deck, index);
+    if (this.samplePlaying(slot)) this.sampler.stop(deck, slot);
+    else if (this.samples()[slot]) this.sampler.clear(deck, slot);
   }
 
   loopIn() {
@@ -312,7 +368,9 @@ export class DeckPads {
     return ((this.status()?.samplesPlaying ?? 0) & (1 << slot)) !== 0;
   }
 
-  private beatPad(beats: number, active: boolean, title: string): Pad {
-    return { label: formatBeats(beats), set: true, color: null, active, title };
+  /** A pad of so many beats; one of the deck's size has a bar in the light. */
+  private beatPad(beats: number, active: boolean, title: string, sized = false): Pad {
+    const color = sized ? SIZE_COLOR : null;
+    return { label: formatBeats(beats), set: true, color, active, title };
   }
 }

@@ -1,6 +1,5 @@
 import { Signal, computed, inject } from '@angular/core';
 import { EngineService } from './services/engine.service';
-import { PreferencesService } from './services/preferences.service';
 import { pitchToMatch } from './sync';
 import { formatPitch } from '../shared/time';
 
@@ -13,7 +12,6 @@ export type SyncState = 'off' | 'matched' | 'locked';
  */
 export function deckTempo(deck: Signal<number>) {
   const engine = inject(EngineService);
-  const preferences = inject(PreferencesService);
   const status = computed(() => engine.status()?.decks[deck()] ?? null);
   const settings = computed(() => engine.decks()[deck()]);
   const vinyl = computed(() => settings().vinylEnabled);
@@ -32,7 +30,7 @@ export function deckTempo(deck: Signal<number>) {
   /** The fader does not set the tempo: a record does, or sync. */
   const held = computed(() => vinyl() || syncState() === 'locked');
   /** How far the fader goes either way: 0.08 for ±8 %. */
-  const range = computed(() => preferences.dj().pitchRange);
+  const range = computed(() => engine.tempoRange(deck()));
   const rangePercent = computed(() => Math.round(range() * 100));
   /** Where the fader stands from the centre: one the deck does not obey shows the rate it
    * plays at. */

@@ -1,4 +1,4 @@
-import { PITCH_RANGES } from '../models/preferences';
+import { nextTempoRange } from '../models/preferences';
 import { computed, Injectable, inject } from '@angular/core';
 import { AutoDjService } from '../services/auto-dj.service';
 import { EngineService } from '../services/engine.service';
@@ -108,6 +108,13 @@ export class ControlService {
     loopInSet: (deck) => this.deck(deck)?.looping.loopInS != null,
     loopOut: (deck) => this.performance.loopOut(deck),
     beatJump: (deck, beats) => this.performance.beatJump(deck, beats),
+    size: (deck) => this.performance.size(deck),
+    scaleSize: (deck, factor) => this.performance.scaleSize(deck, factor),
+    sizedLoop: (deck) => this.performance.toggleSizedLoop(deck),
+    slice: (deck, index, held) => this.performance.slice(deck, index, held),
+    slicePlaying: (deck) => this.performance.slicePlaying(deck),
+    cut: (deck, index, held) => this.performance.cut(deck, index, held),
+    cutPlaying: (deck) => this.performance.cuts()[deck],
     beatLoop: (deck, beats) => this.performance.beatLoop(deck, beats),
     bend: (deck, direction) => this.engine.pitchBend(deck, direction),
     toggleKeyLock: (deck) => this.engine.setKeyLock(deck, !this.engine.decks()[deck].keyLock),
@@ -150,7 +157,7 @@ export class ControlService {
       this.performance.loopRoll(deck, beats);
     },
     setPitch: (deck, position) => {
-      const range = this.preferences.dj().pitchRange;
+      const range = this.engine.tempoRange(deck);
       this.engine.setPitch(deck, 1 + (position * 2 - 1) * range);
     },
     setVolume: (deck, position) => this.mixer.setVolume(deck, position),
@@ -160,6 +167,8 @@ export class ControlService {
     setCrossfader: (position) => this.mixer.setCrossfader(position * 2 - 1),
     setCueMix: (position) => this.mixer.setCueMix(position),
     cueMixPosition: () => this.mixer.cueMix(),
+    toggleSplitCue: () => this.mixer.setSplitCue(!this.mixer.splitCue()),
+    splitCue: () => this.mixer.splitCue(),
     setBalance: (position) => this.mixer.setBalance(balanceAmount(position)),
     balancePosition: () => balanceKnob(this.mixer.balance()),
     setBoothLevel: (position) => this.mixer.setBoothGain(position),
@@ -183,9 +192,19 @@ export class ControlService {
     crossfaderPosition: () => (this.mixer.crossfader() + 1) / 2,
     toggleHeadphones: (deck) => this.mixer.setDeckCue(deck, !this.engine.decks()[deck].cue),
     inHeadphones: (deck) => this.engine.decks()[deck].cue,
+    soloHeadphones: (deck) => this.engine.soloCue(deck),
+    aloneInHeadphones: (deck) =>
+      this.engine.deckIndexes().every((d) => this.engine.decks()[d].cue === (d === deck)),
     toggleSlip: (deck) => this.performance.setSlip(deck, !(this.deck(deck)?.slipMode ?? false)),
     slipping: (deck) => this.deck(deck)?.slipMode ?? false,
     censor: (deck, held) => this.performance.censor(deck, held),
+    brake: (deck) => this.performance.brake(deck),
+    spinBack: (deck, held) => this.performance.spinBack(deck, held),
+    toggleRepeat: (deck) => this.engine.setRepeat(deck, !this.engine.decks()[deck].repeat),
+    repeating: (deck) => this.engine.decks()[deck].repeat,
+    toggleFaderStart: (deck) =>
+      this.engine.setFaderStart(deck, !this.engine.decks()[deck].faderStart),
+    faderStart: (deck) => this.engine.decks()[deck].faderStart,
     reloop: (deck) => this.performance.reloop(deck),
     deleteHotCue: (deck, slot) => this.performance.deleteHotCue(deck, slot),
     resetTempo: (deck) => this.engine.setPitch(deck, 1),
@@ -216,12 +235,10 @@ export class ControlService {
     setKeyShift: (deck, semitones) => this.engine.setKeyShift(deck, semitones),
     toggleQuantize: () => this.preferences.updateDj({ quantize: !this.preferences.dj().quantize }),
     quantized: () => this.preferences.dj().quantize,
-    cycleTempoRange: () => {
-      const at = PITCH_RANGES.indexOf(
-        this.preferences.dj().pitchRange as (typeof PITCH_RANGES)[number],
-      );
-      this.preferences.updateDj({ pitchRange: PITCH_RANGES[(at + 1) % PITCH_RANGES.length] });
-    },
+    cycleTempoRange: (step) =>
+      this.engine.setTempoRange(null, nextTempoRange(this.preferences.dj().pitchRange, step)),
+    cycleDeckTempoRange: (deck, step) =>
+      this.engine.setTempoRange(deck, nextTempoRange(this.engine.tempoRange(deck), step)),
     toggleHelp: () => this.navigation.toggleSettings('shortcuts'),
     togglePalette: () => this.navigation.togglePalette(),
     openSettings: () => this.navigation.openSettings(),

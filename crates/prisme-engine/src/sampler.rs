@@ -5,7 +5,7 @@
 use prisme_media::TrackAudio;
 use std::sync::Arc;
 
-pub const SAMPLE_SLOTS: usize = 8;
+pub const SAMPLE_SLOTS: usize = 16;
 
 #[derive(Default)]
 struct Voice {
@@ -50,8 +50,8 @@ impl Sampler {
     }
 
     /// Slots playing or about to, as bits.
-    pub(crate) fn playing(&self) -> u8 {
-        self.voices.iter().enumerate().fold(0, |bits, (i, v)| bits | (u8::from(v.position.is_some()) << i))
+    pub(crate) fn playing(&self) -> u16 {
+        self.voices.iter().enumerate().fold(0, |bits, (i, v)| bits | (u16::from(v.position.is_some()) << i))
     }
 
     /// Adds the playing sounds to interleaved stereo at `out_rate`.
@@ -109,6 +109,14 @@ mod tests {
         assert!(out[..200].iter().all(|v| (*v - 0.5).abs() < 1e-6), "the sound");
         assert!(out[200..].iter().all(|v| *v == 0.0), "then nothing");
         assert_eq!(s.playing(), 0);
+    }
+
+    #[test]
+    fn the_last_slot_plays_and_says_so() {
+        let mut s = Sampler::new();
+        s.set(SAMPLE_SLOTS - 1, Some(sound(100)));
+        s.trigger(SAMPLE_SLOTS - 1, 0);
+        assert_eq!(s.playing(), 1 << 15);
     }
 
     #[test]

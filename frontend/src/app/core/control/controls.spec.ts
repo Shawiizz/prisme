@@ -1,4 +1,5 @@
 import { buildControls, Control, ControlActions, measuredControl } from './controls';
+import { nextTempoRange } from '../models/preferences';
 
 /** Controls whose actions record their calls; queries answer `true`. */
 function recorder() {
@@ -77,6 +78,8 @@ describe('controls', () => {
     find('mixer.mic.on').apply(0);
     find('mixer.talkover').apply(1);
     find('deck2.passthrough').apply(1);
+    find('mixer.headphones.split').apply(1);
+    find('deck2.headphones.solo').apply(1);
     expect(find('mixer.mic.cue').lit!()).toBe(true);
     expect(calls).toEqual([
       'setBalance(0.25)',
@@ -85,8 +88,19 @@ describe('controls', () => {
       'toggleLive(mic)',
       'toggleTalkover()',
       'togglePassthrough(1)',
+      'toggleSplitCue()',
+      'soloHeadphones(1)',
       'liveCued(mic)',
     ]);
+  });
+
+  it('play sixteen hot cues and sixteen sounds', () => {
+    const { calls, find } = recorder();
+    find('deck1.hotcue16').apply(1);
+    find('deck2.sample9').apply(1);
+    expect(find('deck1.hotcue17')).toBeUndefined();
+    expect(find('deck1.sample17')).toBeUndefined();
+    expect(calls).toEqual(['hotCue(0,15)', 'triggerSample(1,8)']);
   });
 
   it('light what is on', () => {
@@ -146,6 +160,99 @@ describe('controls', () => {
     expect(find('autodj.toggle').lit!()).toBe(true);
     expect(find('autodj.toggle').kind).toBe('button');
     expect(calls).toEqual(['toggleAutoDj()', 'autoDjFade()', 'autoDjSkip()', 'autoDjOn()']);
+  });
+
+  it('brake, spin back while held, repeat, fader start', () => {
+    const { calls, find } = recorder();
+    find('deck1.brake').apply(1);
+    find('deck1.brake').apply(0);
+    find('deck2.spinback').apply(1);
+    find('deck2.spinback').apply(0);
+    find('deck1.repeat').apply(1);
+    expect(find('deck2.repeat').lit!()).toBe(true);
+    find('deck2.faderStart').apply(1);
+    expect(calls).toEqual([
+      'brake(0)',
+      'spinBack(1,true)',
+      'spinBack(1,false)',
+      'toggleRepeat(0)',
+      'repeating(1)',
+      'toggleFaderStart(1)',
+    ]);
+  });
+
+  it('jump and loop by the size of the deck, which a step halves or doubles', () => {
+    const calls: string[] = [];
+    const actions = new Proxy(
+      {},
+      {
+        get:
+          (_, name: string) =>
+          (...args: unknown[]) => {
+            calls.push(`${name}(${args.join(',')})`);
+            return name === 'size' || name === 'loopBeats' ? 8 : true;
+          },
+      },
+    ) as ControlActions;
+    const find = (id: string) => buildControls(actions).find((c) => c.id === id)!;
+    find('deck2.jump.back').apply(1);
+    find('deck1.jump.forward').apply(1);
+    find('deck1.loop.size').apply(1);
+    find('deck1.size.halve').apply(1);
+    find('deck2.size.double').apply(1);
+    find('deck2.size').apply(-2);
+    expect(find('deck1.size').kind).toBe('encoder');
+    expect(find('deck1.loop.size').lit!()).toBe(true);
+    expect(calls).toEqual([
+      'size(1)',
+      'beatJump(1,-8)',
+      'size(0)',
+      'beatJump(0,8)',
+      'sizedLoop(0)',
+      'scaleSize(0,0.5)',
+      'scaleSize(1,2)',
+      'scaleSize(1,0.25)',
+      'loopBeats(0)',
+      'size(0)',
+    ]);
+  });
+
+  it('play a slice while held, lit on the slice playing', () => {
+    const { calls, find } = recorder();
+    find('deck2.slice3').apply(1);
+    find('deck2.slice3').apply(0);
+    expect(find('deck1.slice8').lit!()).toBe(false);
+    expect(find('deck1.slice9')).toBeUndefined();
+    expect(calls).toEqual(['slice(1,2,true)', 'slice(1,2,false)', 'slicePlaying(0)']);
+  });
+
+  it('cut the deck on the beats while held, from a sixteenth to a half', () => {
+    const { calls, find } = recorder();
+    find('deck1.cut1').apply(1);
+    find('deck1.cut1').apply(0);
+    find('deck2.cut4').apply(1);
+    expect(find('deck2.cut4').lit!()).toBe(false);
+    expect(find('deck1.cut5')).toBeUndefined();
+    expect(find('deck1.cut1').label).toBe('Fader cut on 1/16 while held');
+    expect(calls).toEqual(['cut(0,0,true)', 'cut(0,0,false)', 'cut(1,3,true)', 'cutPlaying(1)']);
+  });
+
+  it('move the range of a tempo fader, or of them all, either way', () => {
+    const { calls, find } = recorder();
+    find('deck2.tempoRange').apply(1);
+    find('deck1.tempoRange.previous').apply(1);
+    find('general.tempoRange').apply(1);
+    find('general.tempoRange.previous').apply(1);
+    expect(calls).toEqual([
+      'cycleDeckTempoRange(1,1)',
+      'cycleDeckTempoRange(0,-1)',
+      'cycleTempoRange(1)',
+      'cycleTempoRange(-1)',
+    ]);
+    expect(nextTempoRange(0.08, 1)).toBe(0.16);
+    expect(nextTempoRange(0.5, 1)).toBe(0.08);
+    expect(nextTempoRange(0.08, -1)).toBe(0.5);
+    expect(nextTempoRange(0.1, 1)).toBe(0.08);
   });
 
   it('read a jump or a loop of so many beats from its id', () => {

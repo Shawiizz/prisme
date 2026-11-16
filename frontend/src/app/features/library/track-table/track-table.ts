@@ -262,7 +262,7 @@ export class TrackTable {
     const percent = Math.round(change * 1000) / 10 || 0;
     return {
       text: `${percent >= 0 ? '+' : '−'}${decimal(Math.abs(percent), 1)} %`,
-      reachable: Math.abs(change) <= this.preferences.dj().pitchRange,
+      reachable: Math.abs(change) <= this.engine.tempoRange(this.library.reference() ^ 1),
     };
   }
 

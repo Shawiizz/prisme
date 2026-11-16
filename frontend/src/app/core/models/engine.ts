@@ -56,7 +56,7 @@ export interface DeckStatus {
   /** Where the track would be without the loop, roll or censor in progress. */
   slipPositionS: number | null;
   vinyl: VinylStatus;
-  /** Sampler slots playing, one bit per slot. */
+  /** Sampler slots playing, one bit per slot (16). */
   samplesPlaying: number;
   /** The stems whose change waits for the next bar, a bit each: vocals, drums, bass, other. */
   stemsWaiting: number;
@@ -75,9 +75,14 @@ export interface Cue {
   label: string;
 }
 
-export const HOT_CUES = 8;
+/** Two pages of eight pads. */
+export const HOT_CUES = 16;
 export const MAX_KEY_SHIFT = 12;
-export const SAMPLE_SLOTS = 8;
+export const SAMPLE_SLOTS = 16;
+/** The pads of a deck: a page of hot cues or sounds. */
+export const PADS = 8;
+/** The slicer's slices: two bars of the beat grid, a beat each. */
+export const SLICES = 8;
 
 /** What SYNC does on a record in relative mode. */
 export type VinylSyncMode = 'once' | 'locked';
@@ -245,6 +250,11 @@ export interface DeckSettings {
   swapChannels: boolean;
   /** The pitch stays when the speed changes. */
   keyLock: boolean;
+  /** Software mixer: the channel fader raised from closed plays the deck, closed it stops it
+   * on its cue point. */
+  faderStart: boolean;
+  /** The range of its tempo fader, if it has one of its own (else the general one). */
+  pitchRange: number | null;
   strip: ChannelStrip;
   fx: FxChain;
   /** Name of the sound in each sampler slot. */
@@ -256,6 +266,8 @@ export interface DeckSettings {
   side: CrossfaderSide;
   /** A touch of its controller's jog wheel holds the record (else it only nudges). */
   jogScratch: boolean;
+  /** At the end, the track goes on from its start. */
+  repeat: boolean;
 }
 
 export const EFFECT_KINDS = [
@@ -375,6 +387,8 @@ export interface MixerState {
   outputChannels: number | null;
   /** Headphones: 0 = cued decks only, 1 = master only. */
   cueMix: number;
+  /** Headphones: the cue on the left and the master on the right, each in mono. */
+  splitCue: boolean;
   headphoneGain: number;
   crossfaderCurve: CrossfaderCurve;
   /** Master limiter. */

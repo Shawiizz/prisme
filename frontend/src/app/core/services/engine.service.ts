@@ -48,6 +48,8 @@ const DEFAULT_DECK: DeckSettings = {
   leadInS: null,
   swapChannels: false,
   keyLock: false,
+  faderStart: false,
+  pitchRange: null,
   strip: FLAT_STRIP,
   fx: DEFAULT_FX,
   samples: Array(SAMPLE_SLOTS).fill(null),
@@ -55,6 +57,7 @@ const DEFAULT_DECK: DeckSettings = {
   passthrough: false,
   side: 'left',
   jogScratch: true,
+  repeat: false,
 };
 
 /**
@@ -235,6 +238,43 @@ export class EngineService {
     return this.call('set_passthrough', { deck, enabled });
   }
 
+  /** The range of the tempo fader of `deck`: its own, else the general one (0.08 = ±8 %). */
+  tempoRange(deck: number): number {
+    return this.decks()[deck].pitchRange ?? this.preferences.dj().pitchRange;
+  }
+
+  /** The range of the tempo fader of `deck`, or of every deck (`null`), which then all follow
+   * the general one. */
+  setTempoRange(deck: number | null, range: number) {
+    if (deck !== null) {
+      this.patchDeck(deck, { pitchRange: range });
+    } else {
+      this.preferences.dj.update((dj) => ({ ...dj, pitchRange: range }));
+      this.decks.update((decks) => decks.map((d) => ({ ...d, pitchRange: null })));
+    }
+    return this.call('set_tempo_range', { deck, range });
+  }
+
+  /** The headphones on `deck` alone. */
+  soloCue(deck: number) {
+    for (const d of this.deckIndexes()) {
+      this.patchDeck(d, { cue: d === deck });
+      void this.call('set_deck_cue', { deck: d, enabled: d === deck });
+    }
+  }
+
+  /** Software mixer: the channel fader starts and stops the deck. */
+  setFaderStart(deck: number, enabled: boolean) {
+    this.patchDeck(deck, { faderStart: enabled });
+    return this.call('set_fader_start', { deck, enabled });
+  }
+
+  /** At the end, the track goes on from its start. */
+  setRepeat(deck: number, enabled: boolean) {
+    this.patchDeck(deck, { repeat: enabled });
+    return this.call('set_repeat', { deck, enabled });
+  }
+
   /** Playback rate of the tempo the engine reports (sync and platter included), if the track has a beat grid. */
   tempoRate(deck: number): number | null {
     const bpm = this.status()?.decks[deck]?.bpm;
@@ -276,10 +316,16 @@ export class EngineService {
   }
 
   /** The track of a deck that plays, by itself or under its record, gives way only if the
-   * DJ says so. */
+   * DJ says so; never, if the DJ chose so. */
   private async mayReplace(deck: number): Promise<boolean> {
     const d = this.status()?.decks[deck];
     if (!d?.loaded || (!d.playing && Math.abs(d.speed) < MOVING_SPEED)) return true;
+    if (this.preferences.dj().protectPlaying) {
+      this.error.set(
+        t('Deck {deck} is playing: nothing is loaded on it', { deck: deckLetter(deck) }),
+      );
+      return false;
+    }
     return this.confirm.ask({
       title: t('Deck {deck} is playing', { deck: deckLetter(deck) }),
       detail: t('The track playing stops, and the new one takes its place.'),
@@ -293,6 +339,7 @@ export class EngineService {
     this.patch(this.loading, deck, true);
     try {
       this.show(deck, await load());
+      if (this.preferences.dj().cueOnLoad) this.soloCue(deck);
       this.error.set(null);
       return true;
     } catch (e) {

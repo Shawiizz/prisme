@@ -66,6 +66,54 @@
   "kind": "button"
  },
  {
+  "id": "deck1.hotcue9",
+  "group": "Deck A",
+  "label": "Hot cue 9",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.hotcue10",
+  "group": "Deck A",
+  "label": "Hot cue 10",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.hotcue11",
+  "group": "Deck A",
+  "label": "Hot cue 11",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.hotcue12",
+  "group": "Deck A",
+  "label": "Hot cue 12",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.hotcue13",
+  "group": "Deck A",
+  "label": "Hot cue 13",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.hotcue14",
+  "group": "Deck A",
+  "label": "Hot cue 14",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.hotcue15",
+  "group": "Deck A",
+  "label": "Hot cue 15",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.hotcue16",
+  "group": "Deck A",
+  "label": "Hot cue 16",
+  "kind": "button"
+ },
+ {
   "id": "deck1.hotcue1.delete",
   "group": "Deck A",
   "label": "Delete hot cue 1",
@@ -111,6 +159,54 @@
   "id": "deck1.hotcue8.delete",
   "group": "Deck A",
   "label": "Delete hot cue 8",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.hotcue9.delete",
+  "group": "Deck A",
+  "label": "Delete hot cue 9",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.hotcue10.delete",
+  "group": "Deck A",
+  "label": "Delete hot cue 10",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.hotcue11.delete",
+  "group": "Deck A",
+  "label": "Delete hot cue 11",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.hotcue12.delete",
+  "group": "Deck A",
+  "label": "Delete hot cue 12",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.hotcue13.delete",
+  "group": "Deck A",
+  "label": "Delete hot cue 13",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.hotcue14.delete",
+  "group": "Deck A",
+  "label": "Delete hot cue 14",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.hotcue15.delete",
+  "group": "Deck A",
+  "label": "Delete hot cue 15",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.hotcue16.delete",
+  "group": "Deck A",
+  "label": "Delete hot cue 16",
   "kind": "button"
  },
  {
@@ -170,14 +266,38 @@
  {
   "id": "deck1.jump.back",
   "group": "Deck A",
-  "label": "Jump back 4 beats",
+  "label": "Jump back by the size",
   "kind": "button"
  },
  {
   "id": "deck1.jump.forward",
   "group": "Deck A",
-  "label": "Jump 4 beats ahead",
+  "label": "Jump ahead by the size",
   "kind": "button"
+ },
+ {
+  "id": "deck1.loop.size",
+  "group": "Deck A",
+  "label": "Loop of the size / exit",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.size.halve",
+  "group": "Deck A",
+  "label": "Halve the size",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.size.double",
+  "group": "Deck A",
+  "label": "Double the size",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.size",
+  "group": "Deck A",
+  "label": "Size of the jumps and the loop (a step halves or doubles it)",
+  "kind": "encoder"
  },
  {
   "id": "deck1.bend.down",
@@ -195,6 +315,18 @@
   "id": "deck1.tempo.reset",
   "group": "Deck A",
   "label": "Tempo back to the track",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.tempoRange",
+  "group": "Deck A",
+  "label": "Tempo fader range: next",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.tempoRange.previous",
+  "group": "Deck A",
+  "label": "Tempo fader range: previous",
   "kind": "button"
  },
  {
@@ -225,6 +357,30 @@
   "id": "deck1.censor",
   "group": "Deck A",
   "label": "Censor while held",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.brake",
+  "group": "Deck A",
+  "label": "Brake (stopped: soft start)",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.spinback",
+  "group": "Deck A",
+  "label": "Spinback while held",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.repeat",
+  "group": "Deck A",
+  "label": "Repeat the track",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.faderStart",
+  "group": "Deck A",
+  "label": "Fader start",
   "kind": "button"
  },
  {
@@ -339,6 +495,54 @@
   "id": "deck1.sample8",
   "group": "Deck A",
   "label": "Sample 8",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.sample9",
+  "group": "Deck A",
+  "label": "Sample 9",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.sample10",
+  "group": "Deck A",
+  "label": "Sample 10",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.sample11",
+  "group": "Deck A",
+  "label": "Sample 11",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.sample12",
+  "group": "Deck A",
+  "label": "Sample 12",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.sample13",
+  "group": "Deck A",
+  "label": "Sample 13",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.sample14",
+  "group": "Deck A",
+  "label": "Sample 14",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.sample15",
+  "group": "Deck A",
+  "label": "Sample 15",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.sample16",
+  "group": "Deck A",
+  "label": "Sample 16",
   "kind": "button"
  },
  {
@@ -684,6 +888,78 @@
   "kind": "button"
  },
  {
+  "id": "deck1.slice1",
+  "group": "Deck A",
+  "label": "Slice 1 while held",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.slice2",
+  "group": "Deck A",
+  "label": "Slice 2 while held",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.slice3",
+  "group": "Deck A",
+  "label": "Slice 3 while held",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.slice4",
+  "group": "Deck A",
+  "label": "Slice 4 while held",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.slice5",
+  "group": "Deck A",
+  "label": "Slice 5 while held",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.slice6",
+  "group": "Deck A",
+  "label": "Slice 6 while held",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.slice7",
+  "group": "Deck A",
+  "label": "Slice 7 while held",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.slice8",
+  "group": "Deck A",
+  "label": "Slice 8 while held",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.cut1",
+  "group": "Deck A",
+  "label": "Fader cut on 1/16 while held",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.cut2",
+  "group": "Deck A",
+  "label": "Fader cut on 1/8 while held",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.cut3",
+  "group": "Deck A",
+  "label": "Fader cut on 1/4 while held",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.cut4",
+  "group": "Deck A",
+  "label": "Fader cut on 1/2 while held",
+  "kind": "button"
+ },
+ {
   "id": "deck1.pitch",
   "group": "Deck A",
   "label": "Tempo",
@@ -747,6 +1023,12 @@
   "id": "deck1.headphones",
   "group": "Deck A",
   "label": "Headphones (pre-listen)",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.headphones.solo",
+  "group": "Deck A",
+  "label": "This deck alone in the headphones",
   "kind": "button"
  },
  {
@@ -1188,6 +1470,198 @@
   "kind": "button"
  },
  {
+  "id": "deck1.sample9.stop",
+  "group": "Deck A",
+  "label": "Stop sample 9",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.sample9.eject",
+  "group": "Deck A",
+  "label": "Empty sample slot 9",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.sample9.load",
+  "group": "Deck A",
+  "label": "The selected track into sample slot 9",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.sample9.held",
+  "group": "Deck A",
+  "label": "Sample 9 while held",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.sample10.stop",
+  "group": "Deck A",
+  "label": "Stop sample 10",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.sample10.eject",
+  "group": "Deck A",
+  "label": "Empty sample slot 10",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.sample10.load",
+  "group": "Deck A",
+  "label": "The selected track into sample slot 10",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.sample10.held",
+  "group": "Deck A",
+  "label": "Sample 10 while held",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.sample11.stop",
+  "group": "Deck A",
+  "label": "Stop sample 11",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.sample11.eject",
+  "group": "Deck A",
+  "label": "Empty sample slot 11",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.sample11.load",
+  "group": "Deck A",
+  "label": "The selected track into sample slot 11",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.sample11.held",
+  "group": "Deck A",
+  "label": "Sample 11 while held",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.sample12.stop",
+  "group": "Deck A",
+  "label": "Stop sample 12",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.sample12.eject",
+  "group": "Deck A",
+  "label": "Empty sample slot 12",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.sample12.load",
+  "group": "Deck A",
+  "label": "The selected track into sample slot 12",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.sample12.held",
+  "group": "Deck A",
+  "label": "Sample 12 while held",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.sample13.stop",
+  "group": "Deck A",
+  "label": "Stop sample 13",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.sample13.eject",
+  "group": "Deck A",
+  "label": "Empty sample slot 13",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.sample13.load",
+  "group": "Deck A",
+  "label": "The selected track into sample slot 13",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.sample13.held",
+  "group": "Deck A",
+  "label": "Sample 13 while held",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.sample14.stop",
+  "group": "Deck A",
+  "label": "Stop sample 14",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.sample14.eject",
+  "group": "Deck A",
+  "label": "Empty sample slot 14",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.sample14.load",
+  "group": "Deck A",
+  "label": "The selected track into sample slot 14",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.sample14.held",
+  "group": "Deck A",
+  "label": "Sample 14 while held",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.sample15.stop",
+  "group": "Deck A",
+  "label": "Stop sample 15",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.sample15.eject",
+  "group": "Deck A",
+  "label": "Empty sample slot 15",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.sample15.load",
+  "group": "Deck A",
+  "label": "The selected track into sample slot 15",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.sample15.held",
+  "group": "Deck A",
+  "label": "Sample 15 while held",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.sample16.stop",
+  "group": "Deck A",
+  "label": "Stop sample 16",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.sample16.eject",
+  "group": "Deck A",
+  "label": "Empty sample slot 16",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.sample16.load",
+  "group": "Deck A",
+  "label": "The selected track into sample slot 16",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.sample16.held",
+  "group": "Deck A",
+  "label": "Sample 16 while held",
+  "kind": "button"
+ },
+ {
   "id": "deck1.vinyl",
   "group": "Deck A",
   "label": "Vinyl control on / off",
@@ -1308,6 +1782,54 @@
   "kind": "button"
  },
  {
+  "id": "deck2.hotcue9",
+  "group": "Deck B",
+  "label": "Hot cue 9",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.hotcue10",
+  "group": "Deck B",
+  "label": "Hot cue 10",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.hotcue11",
+  "group": "Deck B",
+  "label": "Hot cue 11",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.hotcue12",
+  "group": "Deck B",
+  "label": "Hot cue 12",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.hotcue13",
+  "group": "Deck B",
+  "label": "Hot cue 13",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.hotcue14",
+  "group": "Deck B",
+  "label": "Hot cue 14",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.hotcue15",
+  "group": "Deck B",
+  "label": "Hot cue 15",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.hotcue16",
+  "group": "Deck B",
+  "label": "Hot cue 16",
+  "kind": "button"
+ },
+ {
   "id": "deck2.hotcue1.delete",
   "group": "Deck B",
   "label": "Delete hot cue 1",
@@ -1353,6 +1875,54 @@
   "id": "deck2.hotcue8.delete",
   "group": "Deck B",
   "label": "Delete hot cue 8",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.hotcue9.delete",
+  "group": "Deck B",
+  "label": "Delete hot cue 9",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.hotcue10.delete",
+  "group": "Deck B",
+  "label": "Delete hot cue 10",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.hotcue11.delete",
+  "group": "Deck B",
+  "label": "Delete hot cue 11",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.hotcue12.delete",
+  "group": "Deck B",
+  "label": "Delete hot cue 12",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.hotcue13.delete",
+  "group": "Deck B",
+  "label": "Delete hot cue 13",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.hotcue14.delete",
+  "group": "Deck B",
+  "label": "Delete hot cue 14",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.hotcue15.delete",
+  "group": "Deck B",
+  "label": "Delete hot cue 15",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.hotcue16.delete",
+  "group": "Deck B",
+  "label": "Delete hot cue 16",
   "kind": "button"
  },
  {
@@ -1412,14 +1982,38 @@
  {
   "id": "deck2.jump.back",
   "group": "Deck B",
-  "label": "Jump back 4 beats",
+  "label": "Jump back by the size",
   "kind": "button"
  },
  {
   "id": "deck2.jump.forward",
   "group": "Deck B",
-  "label": "Jump 4 beats ahead",
+  "label": "Jump ahead by the size",
   "kind": "button"
+ },
+ {
+  "id": "deck2.loop.size",
+  "group": "Deck B",
+  "label": "Loop of the size / exit",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.size.halve",
+  "group": "Deck B",
+  "label": "Halve the size",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.size.double",
+  "group": "Deck B",
+  "label": "Double the size",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.size",
+  "group": "Deck B",
+  "label": "Size of the jumps and the loop (a step halves or doubles it)",
+  "kind": "encoder"
  },
  {
   "id": "deck2.bend.down",
@@ -1437,6 +2031,18 @@
   "id": "deck2.tempo.reset",
   "group": "Deck B",
   "label": "Tempo back to the track",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.tempoRange",
+  "group": "Deck B",
+  "label": "Tempo fader range: next",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.tempoRange.previous",
+  "group": "Deck B",
+  "label": "Tempo fader range: previous",
   "kind": "button"
  },
  {
@@ -1467,6 +2073,30 @@
   "id": "deck2.censor",
   "group": "Deck B",
   "label": "Censor while held",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.brake",
+  "group": "Deck B",
+  "label": "Brake (stopped: soft start)",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.spinback",
+  "group": "Deck B",
+  "label": "Spinback while held",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.repeat",
+  "group": "Deck B",
+  "label": "Repeat the track",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.faderStart",
+  "group": "Deck B",
+  "label": "Fader start",
   "kind": "button"
  },
  {
@@ -1581,6 +2211,54 @@
   "id": "deck2.sample8",
   "group": "Deck B",
   "label": "Sample 8",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.sample9",
+  "group": "Deck B",
+  "label": "Sample 9",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.sample10",
+  "group": "Deck B",
+  "label": "Sample 10",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.sample11",
+  "group": "Deck B",
+  "label": "Sample 11",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.sample12",
+  "group": "Deck B",
+  "label": "Sample 12",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.sample13",
+  "group": "Deck B",
+  "label": "Sample 13",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.sample14",
+  "group": "Deck B",
+  "label": "Sample 14",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.sample15",
+  "group": "Deck B",
+  "label": "Sample 15",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.sample16",
+  "group": "Deck B",
+  "label": "Sample 16",
   "kind": "button"
  },
  {
@@ -1926,6 +2604,78 @@
   "kind": "button"
  },
  {
+  "id": "deck2.slice1",
+  "group": "Deck B",
+  "label": "Slice 1 while held",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.slice2",
+  "group": "Deck B",
+  "label": "Slice 2 while held",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.slice3",
+  "group": "Deck B",
+  "label": "Slice 3 while held",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.slice4",
+  "group": "Deck B",
+  "label": "Slice 4 while held",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.slice5",
+  "group": "Deck B",
+  "label": "Slice 5 while held",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.slice6",
+  "group": "Deck B",
+  "label": "Slice 6 while held",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.slice7",
+  "group": "Deck B",
+  "label": "Slice 7 while held",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.slice8",
+  "group": "Deck B",
+  "label": "Slice 8 while held",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.cut1",
+  "group": "Deck B",
+  "label": "Fader cut on 1/16 while held",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.cut2",
+  "group": "Deck B",
+  "label": "Fader cut on 1/8 while held",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.cut3",
+  "group": "Deck B",
+  "label": "Fader cut on 1/4 while held",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.cut4",
+  "group": "Deck B",
+  "label": "Fader cut on 1/2 while held",
+  "kind": "button"
+ },
+ {
   "id": "deck2.pitch",
   "group": "Deck B",
   "label": "Tempo",
@@ -1989,6 +2739,12 @@
   "id": "deck2.headphones",
   "group": "Deck B",
   "label": "Headphones (pre-listen)",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.headphones.solo",
+  "group": "Deck B",
+  "label": "This deck alone in the headphones",
   "kind": "button"
  },
  {
@@ -2430,6 +3186,198 @@
   "kind": "button"
  },
  {
+  "id": "deck2.sample9.stop",
+  "group": "Deck B",
+  "label": "Stop sample 9",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.sample9.eject",
+  "group": "Deck B",
+  "label": "Empty sample slot 9",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.sample9.load",
+  "group": "Deck B",
+  "label": "The selected track into sample slot 9",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.sample9.held",
+  "group": "Deck B",
+  "label": "Sample 9 while held",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.sample10.stop",
+  "group": "Deck B",
+  "label": "Stop sample 10",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.sample10.eject",
+  "group": "Deck B",
+  "label": "Empty sample slot 10",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.sample10.load",
+  "group": "Deck B",
+  "label": "The selected track into sample slot 10",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.sample10.held",
+  "group": "Deck B",
+  "label": "Sample 10 while held",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.sample11.stop",
+  "group": "Deck B",
+  "label": "Stop sample 11",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.sample11.eject",
+  "group": "Deck B",
+  "label": "Empty sample slot 11",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.sample11.load",
+  "group": "Deck B",
+  "label": "The selected track into sample slot 11",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.sample11.held",
+  "group": "Deck B",
+  "label": "Sample 11 while held",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.sample12.stop",
+  "group": "Deck B",
+  "label": "Stop sample 12",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.sample12.eject",
+  "group": "Deck B",
+  "label": "Empty sample slot 12",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.sample12.load",
+  "group": "Deck B",
+  "label": "The selected track into sample slot 12",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.sample12.held",
+  "group": "Deck B",
+  "label": "Sample 12 while held",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.sample13.stop",
+  "group": "Deck B",
+  "label": "Stop sample 13",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.sample13.eject",
+  "group": "Deck B",
+  "label": "Empty sample slot 13",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.sample13.load",
+  "group": "Deck B",
+  "label": "The selected track into sample slot 13",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.sample13.held",
+  "group": "Deck B",
+  "label": "Sample 13 while held",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.sample14.stop",
+  "group": "Deck B",
+  "label": "Stop sample 14",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.sample14.eject",
+  "group": "Deck B",
+  "label": "Empty sample slot 14",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.sample14.load",
+  "group": "Deck B",
+  "label": "The selected track into sample slot 14",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.sample14.held",
+  "group": "Deck B",
+  "label": "Sample 14 while held",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.sample15.stop",
+  "group": "Deck B",
+  "label": "Stop sample 15",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.sample15.eject",
+  "group": "Deck B",
+  "label": "Empty sample slot 15",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.sample15.load",
+  "group": "Deck B",
+  "label": "The selected track into sample slot 15",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.sample15.held",
+  "group": "Deck B",
+  "label": "Sample 15 while held",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.sample16.stop",
+  "group": "Deck B",
+  "label": "Stop sample 16",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.sample16.eject",
+  "group": "Deck B",
+  "label": "Empty sample slot 16",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.sample16.load",
+  "group": "Deck B",
+  "label": "The selected track into sample slot 16",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.sample16.held",
+  "group": "Deck B",
+  "label": "Sample 16 while held",
+  "kind": "button"
+ },
+ {
   "id": "deck2.vinyl",
   "group": "Deck B",
   "label": "Vinyl control on / off",
@@ -2550,6 +3498,54 @@
   "kind": "button"
  },
  {
+  "id": "deck3.hotcue9",
+  "group": "Deck C",
+  "label": "Hot cue 9",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.hotcue10",
+  "group": "Deck C",
+  "label": "Hot cue 10",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.hotcue11",
+  "group": "Deck C",
+  "label": "Hot cue 11",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.hotcue12",
+  "group": "Deck C",
+  "label": "Hot cue 12",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.hotcue13",
+  "group": "Deck C",
+  "label": "Hot cue 13",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.hotcue14",
+  "group": "Deck C",
+  "label": "Hot cue 14",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.hotcue15",
+  "group": "Deck C",
+  "label": "Hot cue 15",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.hotcue16",
+  "group": "Deck C",
+  "label": "Hot cue 16",
+  "kind": "button"
+ },
+ {
   "id": "deck3.hotcue1.delete",
   "group": "Deck C",
   "label": "Delete hot cue 1",
@@ -2595,6 +3591,54 @@
   "id": "deck3.hotcue8.delete",
   "group": "Deck C",
   "label": "Delete hot cue 8",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.hotcue9.delete",
+  "group": "Deck C",
+  "label": "Delete hot cue 9",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.hotcue10.delete",
+  "group": "Deck C",
+  "label": "Delete hot cue 10",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.hotcue11.delete",
+  "group": "Deck C",
+  "label": "Delete hot cue 11",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.hotcue12.delete",
+  "group": "Deck C",
+  "label": "Delete hot cue 12",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.hotcue13.delete",
+  "group": "Deck C",
+  "label": "Delete hot cue 13",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.hotcue14.delete",
+  "group": "Deck C",
+  "label": "Delete hot cue 14",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.hotcue15.delete",
+  "group": "Deck C",
+  "label": "Delete hot cue 15",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.hotcue16.delete",
+  "group": "Deck C",
+  "label": "Delete hot cue 16",
   "kind": "button"
  },
  {
@@ -2654,14 +3698,38 @@
  {
   "id": "deck3.jump.back",
   "group": "Deck C",
-  "label": "Jump back 4 beats",
+  "label": "Jump back by the size",
   "kind": "button"
  },
  {
   "id": "deck3.jump.forward",
   "group": "Deck C",
-  "label": "Jump 4 beats ahead",
+  "label": "Jump ahead by the size",
   "kind": "button"
+ },
+ {
+  "id": "deck3.loop.size",
+  "group": "Deck C",
+  "label": "Loop of the size / exit",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.size.halve",
+  "group": "Deck C",
+  "label": "Halve the size",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.size.double",
+  "group": "Deck C",
+  "label": "Double the size",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.size",
+  "group": "Deck C",
+  "label": "Size of the jumps and the loop (a step halves or doubles it)",
+  "kind": "encoder"
  },
  {
   "id": "deck3.bend.down",
@@ -2679,6 +3747,18 @@
   "id": "deck3.tempo.reset",
   "group": "Deck C",
   "label": "Tempo back to the track",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.tempoRange",
+  "group": "Deck C",
+  "label": "Tempo fader range: next",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.tempoRange.previous",
+  "group": "Deck C",
+  "label": "Tempo fader range: previous",
   "kind": "button"
  },
  {
@@ -2709,6 +3789,30 @@
   "id": "deck3.censor",
   "group": "Deck C",
   "label": "Censor while held",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.brake",
+  "group": "Deck C",
+  "label": "Brake (stopped: soft start)",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.spinback",
+  "group": "Deck C",
+  "label": "Spinback while held",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.repeat",
+  "group": "Deck C",
+  "label": "Repeat the track",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.faderStart",
+  "group": "Deck C",
+  "label": "Fader start",
   "kind": "button"
  },
  {
@@ -2823,6 +3927,54 @@
   "id": "deck3.sample8",
   "group": "Deck C",
   "label": "Sample 8",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.sample9",
+  "group": "Deck C",
+  "label": "Sample 9",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.sample10",
+  "group": "Deck C",
+  "label": "Sample 10",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.sample11",
+  "group": "Deck C",
+  "label": "Sample 11",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.sample12",
+  "group": "Deck C",
+  "label": "Sample 12",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.sample13",
+  "group": "Deck C",
+  "label": "Sample 13",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.sample14",
+  "group": "Deck C",
+  "label": "Sample 14",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.sample15",
+  "group": "Deck C",
+  "label": "Sample 15",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.sample16",
+  "group": "Deck C",
+  "label": "Sample 16",
   "kind": "button"
  },
  {
@@ -3168,6 +4320,78 @@
   "kind": "button"
  },
  {
+  "id": "deck3.slice1",
+  "group": "Deck C",
+  "label": "Slice 1 while held",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.slice2",
+  "group": "Deck C",
+  "label": "Slice 2 while held",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.slice3",
+  "group": "Deck C",
+  "label": "Slice 3 while held",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.slice4",
+  "group": "Deck C",
+  "label": "Slice 4 while held",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.slice5",
+  "group": "Deck C",
+  "label": "Slice 5 while held",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.slice6",
+  "group": "Deck C",
+  "label": "Slice 6 while held",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.slice7",
+  "group": "Deck C",
+  "label": "Slice 7 while held",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.slice8",
+  "group": "Deck C",
+  "label": "Slice 8 while held",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.cut1",
+  "group": "Deck C",
+  "label": "Fader cut on 1/16 while held",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.cut2",
+  "group": "Deck C",
+  "label": "Fader cut on 1/8 while held",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.cut3",
+  "group": "Deck C",
+  "label": "Fader cut on 1/4 while held",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.cut4",
+  "group": "Deck C",
+  "label": "Fader cut on 1/2 while held",
+  "kind": "button"
+ },
+ {
   "id": "deck3.pitch",
   "group": "Deck C",
   "label": "Tempo",
@@ -3231,6 +4455,12 @@
   "id": "deck3.headphones",
   "group": "Deck C",
   "label": "Headphones (pre-listen)",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.headphones.solo",
+  "group": "Deck C",
+  "label": "This deck alone in the headphones",
   "kind": "button"
  },
  {
@@ -3672,6 +4902,198 @@
   "kind": "button"
  },
  {
+  "id": "deck3.sample9.stop",
+  "group": "Deck C",
+  "label": "Stop sample 9",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.sample9.eject",
+  "group": "Deck C",
+  "label": "Empty sample slot 9",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.sample9.load",
+  "group": "Deck C",
+  "label": "The selected track into sample slot 9",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.sample9.held",
+  "group": "Deck C",
+  "label": "Sample 9 while held",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.sample10.stop",
+  "group": "Deck C",
+  "label": "Stop sample 10",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.sample10.eject",
+  "group": "Deck C",
+  "label": "Empty sample slot 10",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.sample10.load",
+  "group": "Deck C",
+  "label": "The selected track into sample slot 10",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.sample10.held",
+  "group": "Deck C",
+  "label": "Sample 10 while held",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.sample11.stop",
+  "group": "Deck C",
+  "label": "Stop sample 11",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.sample11.eject",
+  "group": "Deck C",
+  "label": "Empty sample slot 11",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.sample11.load",
+  "group": "Deck C",
+  "label": "The selected track into sample slot 11",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.sample11.held",
+  "group": "Deck C",
+  "label": "Sample 11 while held",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.sample12.stop",
+  "group": "Deck C",
+  "label": "Stop sample 12",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.sample12.eject",
+  "group": "Deck C",
+  "label": "Empty sample slot 12",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.sample12.load",
+  "group": "Deck C",
+  "label": "The selected track into sample slot 12",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.sample12.held",
+  "group": "Deck C",
+  "label": "Sample 12 while held",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.sample13.stop",
+  "group": "Deck C",
+  "label": "Stop sample 13",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.sample13.eject",
+  "group": "Deck C",
+  "label": "Empty sample slot 13",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.sample13.load",
+  "group": "Deck C",
+  "label": "The selected track into sample slot 13",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.sample13.held",
+  "group": "Deck C",
+  "label": "Sample 13 while held",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.sample14.stop",
+  "group": "Deck C",
+  "label": "Stop sample 14",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.sample14.eject",
+  "group": "Deck C",
+  "label": "Empty sample slot 14",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.sample14.load",
+  "group": "Deck C",
+  "label": "The selected track into sample slot 14",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.sample14.held",
+  "group": "Deck C",
+  "label": "Sample 14 while held",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.sample15.stop",
+  "group": "Deck C",
+  "label": "Stop sample 15",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.sample15.eject",
+  "group": "Deck C",
+  "label": "Empty sample slot 15",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.sample15.load",
+  "group": "Deck C",
+  "label": "The selected track into sample slot 15",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.sample15.held",
+  "group": "Deck C",
+  "label": "Sample 15 while held",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.sample16.stop",
+  "group": "Deck C",
+  "label": "Stop sample 16",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.sample16.eject",
+  "group": "Deck C",
+  "label": "Empty sample slot 16",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.sample16.load",
+  "group": "Deck C",
+  "label": "The selected track into sample slot 16",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.sample16.held",
+  "group": "Deck C",
+  "label": "Sample 16 while held",
+  "kind": "button"
+ },
+ {
   "id": "deck3.vinyl",
   "group": "Deck C",
   "label": "Vinyl control on / off",
@@ -3792,6 +5214,54 @@
   "kind": "button"
  },
  {
+  "id": "deck4.hotcue9",
+  "group": "Deck D",
+  "label": "Hot cue 9",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.hotcue10",
+  "group": "Deck D",
+  "label": "Hot cue 10",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.hotcue11",
+  "group": "Deck D",
+  "label": "Hot cue 11",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.hotcue12",
+  "group": "Deck D",
+  "label": "Hot cue 12",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.hotcue13",
+  "group": "Deck D",
+  "label": "Hot cue 13",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.hotcue14",
+  "group": "Deck D",
+  "label": "Hot cue 14",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.hotcue15",
+  "group": "Deck D",
+  "label": "Hot cue 15",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.hotcue16",
+  "group": "Deck D",
+  "label": "Hot cue 16",
+  "kind": "button"
+ },
+ {
   "id": "deck4.hotcue1.delete",
   "group": "Deck D",
   "label": "Delete hot cue 1",
@@ -3837,6 +5307,54 @@
   "id": "deck4.hotcue8.delete",
   "group": "Deck D",
   "label": "Delete hot cue 8",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.hotcue9.delete",
+  "group": "Deck D",
+  "label": "Delete hot cue 9",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.hotcue10.delete",
+  "group": "Deck D",
+  "label": "Delete hot cue 10",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.hotcue11.delete",
+  "group": "Deck D",
+  "label": "Delete hot cue 11",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.hotcue12.delete",
+  "group": "Deck D",
+  "label": "Delete hot cue 12",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.hotcue13.delete",
+  "group": "Deck D",
+  "label": "Delete hot cue 13",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.hotcue14.delete",
+  "group": "Deck D",
+  "label": "Delete hot cue 14",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.hotcue15.delete",
+  "group": "Deck D",
+  "label": "Delete hot cue 15",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.hotcue16.delete",
+  "group": "Deck D",
+  "label": "Delete hot cue 16",
   "kind": "button"
  },
  {
@@ -3896,14 +5414,38 @@
  {
   "id": "deck4.jump.back",
   "group": "Deck D",
-  "label": "Jump back 4 beats",
+  "label": "Jump back by the size",
   "kind": "button"
  },
  {
   "id": "deck4.jump.forward",
   "group": "Deck D",
-  "label": "Jump 4 beats ahead",
+  "label": "Jump ahead by the size",
   "kind": "button"
+ },
+ {
+  "id": "deck4.loop.size",
+  "group": "Deck D",
+  "label": "Loop of the size / exit",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.size.halve",
+  "group": "Deck D",
+  "label": "Halve the size",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.size.double",
+  "group": "Deck D",
+  "label": "Double the size",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.size",
+  "group": "Deck D",
+  "label": "Size of the jumps and the loop (a step halves or doubles it)",
+  "kind": "encoder"
  },
  {
   "id": "deck4.bend.down",
@@ -3921,6 +5463,18 @@
   "id": "deck4.tempo.reset",
   "group": "Deck D",
   "label": "Tempo back to the track",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.tempoRange",
+  "group": "Deck D",
+  "label": "Tempo fader range: next",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.tempoRange.previous",
+  "group": "Deck D",
+  "label": "Tempo fader range: previous",
   "kind": "button"
  },
  {
@@ -3951,6 +5505,30 @@
   "id": "deck4.censor",
   "group": "Deck D",
   "label": "Censor while held",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.brake",
+  "group": "Deck D",
+  "label": "Brake (stopped: soft start)",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.spinback",
+  "group": "Deck D",
+  "label": "Spinback while held",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.repeat",
+  "group": "Deck D",
+  "label": "Repeat the track",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.faderStart",
+  "group": "Deck D",
+  "label": "Fader start",
   "kind": "button"
  },
  {
@@ -4065,6 +5643,54 @@
   "id": "deck4.sample8",
   "group": "Deck D",
   "label": "Sample 8",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.sample9",
+  "group": "Deck D",
+  "label": "Sample 9",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.sample10",
+  "group": "Deck D",
+  "label": "Sample 10",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.sample11",
+  "group": "Deck D",
+  "label": "Sample 11",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.sample12",
+  "group": "Deck D",
+  "label": "Sample 12",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.sample13",
+  "group": "Deck D",
+  "label": "Sample 13",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.sample14",
+  "group": "Deck D",
+  "label": "Sample 14",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.sample15",
+  "group": "Deck D",
+  "label": "Sample 15",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.sample16",
+  "group": "Deck D",
+  "label": "Sample 16",
   "kind": "button"
  },
  {
@@ -4410,6 +6036,78 @@
   "kind": "button"
  },
  {
+  "id": "deck4.slice1",
+  "group": "Deck D",
+  "label": "Slice 1 while held",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.slice2",
+  "group": "Deck D",
+  "label": "Slice 2 while held",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.slice3",
+  "group": "Deck D",
+  "label": "Slice 3 while held",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.slice4",
+  "group": "Deck D",
+  "label": "Slice 4 while held",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.slice5",
+  "group": "Deck D",
+  "label": "Slice 5 while held",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.slice6",
+  "group": "Deck D",
+  "label": "Slice 6 while held",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.slice7",
+  "group": "Deck D",
+  "label": "Slice 7 while held",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.slice8",
+  "group": "Deck D",
+  "label": "Slice 8 while held",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.cut1",
+  "group": "Deck D",
+  "label": "Fader cut on 1/16 while held",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.cut2",
+  "group": "Deck D",
+  "label": "Fader cut on 1/8 while held",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.cut3",
+  "group": "Deck D",
+  "label": "Fader cut on 1/4 while held",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.cut4",
+  "group": "Deck D",
+  "label": "Fader cut on 1/2 while held",
+  "kind": "button"
+ },
+ {
   "id": "deck4.pitch",
   "group": "Deck D",
   "label": "Tempo",
@@ -4473,6 +6171,12 @@
   "id": "deck4.headphones",
   "group": "Deck D",
   "label": "Headphones (pre-listen)",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.headphones.solo",
+  "group": "Deck D",
+  "label": "This deck alone in the headphones",
   "kind": "button"
  },
  {
@@ -4914,6 +6618,198 @@
   "kind": "button"
  },
  {
+  "id": "deck4.sample9.stop",
+  "group": "Deck D",
+  "label": "Stop sample 9",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.sample9.eject",
+  "group": "Deck D",
+  "label": "Empty sample slot 9",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.sample9.load",
+  "group": "Deck D",
+  "label": "The selected track into sample slot 9",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.sample9.held",
+  "group": "Deck D",
+  "label": "Sample 9 while held",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.sample10.stop",
+  "group": "Deck D",
+  "label": "Stop sample 10",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.sample10.eject",
+  "group": "Deck D",
+  "label": "Empty sample slot 10",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.sample10.load",
+  "group": "Deck D",
+  "label": "The selected track into sample slot 10",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.sample10.held",
+  "group": "Deck D",
+  "label": "Sample 10 while held",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.sample11.stop",
+  "group": "Deck D",
+  "label": "Stop sample 11",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.sample11.eject",
+  "group": "Deck D",
+  "label": "Empty sample slot 11",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.sample11.load",
+  "group": "Deck D",
+  "label": "The selected track into sample slot 11",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.sample11.held",
+  "group": "Deck D",
+  "label": "Sample 11 while held",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.sample12.stop",
+  "group": "Deck D",
+  "label": "Stop sample 12",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.sample12.eject",
+  "group": "Deck D",
+  "label": "Empty sample slot 12",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.sample12.load",
+  "group": "Deck D",
+  "label": "The selected track into sample slot 12",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.sample12.held",
+  "group": "Deck D",
+  "label": "Sample 12 while held",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.sample13.stop",
+  "group": "Deck D",
+  "label": "Stop sample 13",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.sample13.eject",
+  "group": "Deck D",
+  "label": "Empty sample slot 13",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.sample13.load",
+  "group": "Deck D",
+  "label": "The selected track into sample slot 13",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.sample13.held",
+  "group": "Deck D",
+  "label": "Sample 13 while held",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.sample14.stop",
+  "group": "Deck D",
+  "label": "Stop sample 14",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.sample14.eject",
+  "group": "Deck D",
+  "label": "Empty sample slot 14",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.sample14.load",
+  "group": "Deck D",
+  "label": "The selected track into sample slot 14",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.sample14.held",
+  "group": "Deck D",
+  "label": "Sample 14 while held",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.sample15.stop",
+  "group": "Deck D",
+  "label": "Stop sample 15",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.sample15.eject",
+  "group": "Deck D",
+  "label": "Empty sample slot 15",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.sample15.load",
+  "group": "Deck D",
+  "label": "The selected track into sample slot 15",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.sample15.held",
+  "group": "Deck D",
+  "label": "Sample 15 while held",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.sample16.stop",
+  "group": "Deck D",
+  "label": "Stop sample 16",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.sample16.eject",
+  "group": "Deck D",
+  "label": "Empty sample slot 16",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.sample16.load",
+  "group": "Deck D",
+  "label": "The selected track into sample slot 16",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.sample16.held",
+  "group": "Deck D",
+  "label": "Sample 16 while held",
+  "kind": "button"
+ },
+ {
   "id": "deck4.vinyl",
   "group": "Deck D",
   "label": "Vinyl control on / off",
@@ -4978,6 +6874,12 @@
   "group": "Mixer",
   "label": "Headphones: cued decks or master",
   "kind": "fader"
+ },
+ {
+  "id": "mixer.headphones.split",
+  "group": "Mixer",
+  "label": "Split headphones: cue left, master right",
+  "kind": "button"
  },
  {
   "id": "mixer.balance",
@@ -5318,7 +7220,13 @@
  {
   "id": "general.tempoRange",
   "group": "General",
-  "label": "Tempo fader range",
+  "label": "Range of every tempo fader: next",
+  "kind": "button"
+ },
+ {
+  "id": "general.tempoRange.previous",
+  "group": "General",
+  "label": "Range of every tempo fader: previous",
   "kind": "button"
  },
  {

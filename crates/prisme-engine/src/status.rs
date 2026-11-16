@@ -61,7 +61,7 @@ pub struct DeckStatus {
     /// Loudest sample since the previous snapshot.
     pub peak: f32,
     /// Sampler slots playing (bit per slot).
-    pub samples_playing: u8,
+    pub samples_playing: u16,
     /// Internal mixer: heard in the headphones.
     pub cue: bool,
     pub slip_mode: bool,

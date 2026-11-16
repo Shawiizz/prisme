@@ -2,8 +2,10 @@
 //! on the screen).
 
 mod bar_mix;
+mod cut;
 mod hand;
 mod jog;
+mod motor;
 mod transport;
 
 use crate::command::{CrossfaderSide, Rpm, VinylMode};
@@ -18,8 +20,10 @@ use crate::sync::{self, DeckSync, LeaderBeat, SyncTarget};
 use crate::tempo::PlatterTempo;
 use crate::vinyl::{VinylControl, VinylDrive};
 use bar_mix::BarMix;
+use cut::Cut;
 use hand::{Hand, Step};
 use jog::{Jog, Turn};
+use motor::Motor;
 use prisme_dsp::{Beat, FxChain, Smoothed};
 use prisme_timecode::TimecodeDecoder;
 use transport::Transport;
@@ -81,6 +85,8 @@ pub(crate) struct Deck {
     /// The track held by the jog wheel: it drives the deck while there, unless the screen does.
     jog_hand: Option<Hand>,
     jog: Jog,
+    /// Internal play: the record's speed as a turntable's motor brings it up or down.
+    motor: Motor,
     /// Gain of the track, following its motion.
     motion: Smoothed,
     /// Gain bringing the track to the level of the others (1 without auto gain).
@@ -89,6 +95,8 @@ pub(crate) struct Deck {
     bar_mix: BarMix,
     /// Share of the input passed through in place of the track: 1 in passthrough.
     through: Smoothed,
+    /// The deck chopped in time with its beats while a pad is held.
+    pub(crate) cut: Cut,
 }
 
 impl Deck {
@@ -118,10 +126,12 @@ impl Deck {
             hand: None,
             jog_hand: None,
             jog: Jog::default(),
+            motor: Motor::default(),
             motion: Smoothed::new(0.0, MOTION_FADE_S, sample_rate as f32),
             level: Smoothed::new(1.0, LEVEL_GLIDE_S, sample_rate as f32),
             bar_mix: BarMix::default(),
             through: Smoothed::new(0.0, THROUGH_FADE_S, sample_rate as f32),
+            cut: Cut::new(sample_rate as f32),
         }
     }
 
@@ -205,25 +215,41 @@ impl Deck {
         // both hands keep their clocks going, the screen's leading
         let [screen, jog] = [&mut self.hand, &mut self.jog_hand]
             .map(|hand| hand.as_mut().filter(|_| by_hand).map(|h| h.step(playhead_s, seconds)));
-        let speed = match screen.or(jog) {
-            Some(Step::Play(speed)) => speed,
+        let (speed, by_motor) = match screen.or(jog) {
+            Some(Step::Play(speed)) => (speed, false),
             Some(Step::Jump(to)) => {
                 self.playhead.seek_s(to);
-                0.0
+                (0.0, false)
             }
-            None => self.speed_for(drive, target),
+            None => (self.speed_for(drive, target), self.drive_mode() == DriveMode::Internal),
         };
         self.jog.fade(seconds);
         let speed = if self.transport.censoring { -speed } else { speed };
-        if let Some(mix) = self.bar_mix.follow(playhead_s, seconds * speed.max(0.0), self.next_bar_s()) {
+        let ramp = by_motor && !self.motor.is_steady();
+        let moved = if ramp { speed * self.motor.factor() } else { speed };
+        if let Some(mix) = self.bar_mix.follow(playhead_s, seconds * moved.max(0.0), self.next_bar_s()) {
             self.playhead.set_stem_mix(mix);
         }
         let apart = (!self.fx_parts.is_empty()).then(|| &mut self.apart[..out.len()]);
-        if (self.key_lock_enabled || self.key_lock.key_shift() != 0) && KeyLock::applies(speed) {
+        let key_locked = self.key_lock_enabled || self.key_lock.key_shift() != 0;
+        if ramp {
+            // the key lock lets go while the motor moves the record, as it does under a hand
+            self.key_lock.disengage();
+            let (motor, frame_s) = (&mut self.motor, 1.0 / out_rate);
+            self.playhead.render_with(out, apart, out_rate, || speed * motor.tick(frame_s));
+        } else if key_locked && KeyLock::applies(speed) {
             self.playhead.render_key_locked(&mut self.key_lock, out, apart, out_rate, speed);
         } else {
             self.key_lock.disengage();
             self.playhead.render(out, apart, out_rate, speed);
+        }
+        let speed = if ramp { speed * self.motor.factor() } else { speed };
+        // the beats over the block, for the cuts: from where it started, at the mean speed
+        let beats_per_frame = (moved + speed) / 2.0 / out_rate / 60.0;
+        self.cut.follow(self.grid.map(|g| (g.beats_at(playhead_s), beats_per_frame * g.bpm)));
+        if self.motor.has_stopped() {
+            self.playing = false;
+            self.motor = Motor::default();
         }
         self.speed = speed;
         self.leap_stems_to_their_bar(playhead_s, seconds * speed);
@@ -269,6 +295,36 @@ impl Deck {
         }
     }
 
+    /// Internal play: starts or stops at once.
+    pub(crate) fn set_playing(&mut self, playing: bool) {
+        self.playing = playing;
+        self.motor = Motor::default();
+    }
+
+    /// Internal play: a playing deck slows to a stop as a turntable switched off; a stopped
+    /// one, or one braking, gets up to speed as one switched on.
+    pub(crate) fn brake(&mut self) {
+        if self.drive_mode() != DriveMode::Internal || !self.playhead.is_loaded() {
+            return;
+        }
+        if self.playing && !self.motor.is_braking() {
+            self.motor.brake();
+        } else {
+            self.motor.start(!self.playing);
+            self.playing = true;
+        }
+    }
+
+    /// Internal play: the record spun back fast while `held`; let go, it plays on from where
+    /// it is.
+    pub(crate) fn spin_back(&mut self, held: bool) {
+        if self.drive_mode() != DriveMode::Internal || !self.playhead.is_loaded() {
+            return;
+        }
+        self.motor.spin_back(held, !self.playing);
+        self.playing |= held;
+    }
+
     /// Internal play stops at the end of the track, and so does a deck playing on past the end
     /// of its record (a record, on the other hand, turns on).
     fn stop_at_the_end(&mut self) {
@@ -277,7 +333,7 @@ impl Deck {
             return;
         }
         if self.drive_mode() == DriveMode::Internal && self.playing {
-            self.playing = false;
+            self.set_playing(false);
             self.playhead.seek_s(end_s);
         } else if self.vinyl.plays_on() {
             self.vinyl.stand();

@@ -194,7 +194,10 @@ const ALL_SETTINGS: readonly SettingEntry[] = [
     id: 'dj.pitchRange',
     page: 'dj',
     label: () => t('Tempo fader range'),
-    description: () => t('The travel of the tempo faders, as on your turntables.'),
+    description: () =>
+      t(
+        'The travel of the tempo faders, as on your turntables: of them all, each deck can then have its own in its menu.',
+      ),
   },
   {
     id: 'dj.quantize',
@@ -238,6 +241,20 @@ const ALL_SETTINGS: readonly SettingEntry[] = [
       t(
         'Play and pause each deck from the player of the lock screen. Off for a gig: nothing a pocket can press.',
       ),
+  },
+  {
+    id: 'dj.cueOnLoad',
+    page: 'dj',
+    label: () => t('Headphones on the deck a track is loaded on'),
+    description: () =>
+      t('A track loaded on a deck puts that deck alone in the headphones, to cue it at once.'),
+  },
+  {
+    id: 'dj.protectPlaying',
+    page: 'dj',
+    label: () => t('Never replace a playing deck'),
+    description: () =>
+      t('A track loaded onto a deck that plays is refused with a word, rather than asked about.'),
   },
   {
     id: 'library.tags',

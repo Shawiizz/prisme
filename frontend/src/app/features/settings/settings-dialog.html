@@ -445,7 +445,7 @@
                     <button
                       role="radio"
                       [attr.aria-checked]="dj().pitchRange === r"
-                      (click)="setDj({ pitchRange: r })"
+                      (click)="engine.setTempoRange(null, r)"
                     >
                       ±{{ r * 100 }} %
                     </button>
@@ -494,6 +494,28 @@
                   [attr.aria-checked]="dj().knobMagnet"
                   settingControl
                   (click)="setDj({ knobMagnet: !dj().knobMagnet })"
+                >
+                  <span></span>
+                </button>
+              </app-setting-row>
+              <app-setting-row id="dj.cueOnLoad">
+                <button
+                  class="pr-switch"
+                  role="switch"
+                  [attr.aria-checked]="dj().cueOnLoad"
+                  settingControl
+                  (click)="setDj({ cueOnLoad: !dj().cueOnLoad })"
+                >
+                  <span></span>
+                </button>
+              </app-setting-row>
+              <app-setting-row id="dj.protectPlaying">
+                <button
+                  class="pr-switch"
+                  role="switch"
+                  [attr.aria-checked]="dj().protectPlaying"
+                  settingControl
+                  (click)="setDj({ protectPlaying: !dj().protectPlaying })"
                 >
                   <span></span>
                 </button>

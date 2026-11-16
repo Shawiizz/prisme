@@ -153,6 +153,10 @@ pub struct DeckSettings {
     pub lead_in_s: Option<f64>,
     pub swap_channels: bool,
     pub key_lock: bool,
+    /// Software mixer: the channel fader starts and stops the deck.
+    pub fader_start: bool,
+    /// The range of its tempo fader, if it has one of its own.
+    pub pitch_range: Option<f64>,
     pub strip: ChannelStripDto,
     pub fx: FxChainDto,
     pub sampler_gain: f32,
@@ -162,6 +166,8 @@ pub struct DeckSettings {
     pub side: Option<CrossfaderSideDto>,
     /// A touch of its controller's jog wheel holds the record.
     pub jog_scratch: bool,
+    /// At the end, the track goes on from its start.
+    pub repeat: bool,
 }
 
 impl From<DeckPreferences> for DeckSettings {
@@ -176,12 +182,15 @@ impl From<DeckPreferences> for DeckSettings {
             lead_in_s: p.lead_in_s,
             swap_channels: p.swap_channels,
             key_lock: p.key_lock,
+            fader_start: p.fader_start,
+            pitch_range: p.pitch_range,
             strip: ChannelStripDto::default(),
             fx: FxChainDto::default(),
             sampler_gain: 1.0,
             passthrough: false,
             side: None,
             jog_scratch: true,
+            repeat: false,
         }
     }
 }
@@ -377,6 +386,17 @@ impl AppState {
         lock(&self.session).as_ref().map(|s| s.engine_config.sample_rate)
     }
 
+    /// The range of the tempo fader of `deck`: its own, else the general one.
+    pub fn tempo_range(&self, deck: usize) -> f64 {
+        self.preferences.read(|p| p.tempo_range(deck))
+    }
+
+    /// Whether the software mixer runs: the channel faders are Prisme's.
+    pub fn mixes_itself(&self) -> bool {
+        let info = lock(&self.session).as_ref().map(|s| s.info.clone());
+        info.is_some_and(|info| self.routing(&info).mode == MixMode::Internal)
+    }
+
     /// The routing for the running device (see [`routing_for`]).
     pub fn routing(&self, info: &AudioInfo) -> OutputRouting {
         routing_for(self.preferences.read(|p| p.mixer), info)
@@ -496,6 +516,7 @@ impl AppState {
         let _ = controller.send(Command::SetRouting { routing });
         let _ = controller.send(Command::SetCueMix { mix: preferences.mixer.cue_mix });
         let _ = controller.send(Command::SetHeadphoneGain { gain: preferences.mixer.headphone_gain });
+        let _ = controller.send(Command::SetSplitCue { enabled: preferences.mixer.split_cue });
         let _ =
             controller.send(Command::SetCrossfaderCurve { curve: preferences.mixer.crossfader_curve.into() });
         let _ = controller.send(Command::SetLimiter { enabled: preferences.mixer.limiter });
@@ -549,6 +570,7 @@ pub fn deck_commands(deck: usize, s: &DeckSettings) -> Vec<Command> {
         Command::SetFxParts { deck, parts: FxPartDto::parts(s.fx.part) },
         Command::SetSamplerGain { deck, gain: s.sampler_gain },
         Command::SetPassthrough { deck, enabled: s.passthrough },
+        Command::SetRepeat { deck, enabled: s.repeat },
     ];
     for (slot, fx) in s.fx.slots.iter().enumerate() {
         commands.extend([

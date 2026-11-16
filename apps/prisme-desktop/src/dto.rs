@@ -676,6 +676,10 @@ pub struct DeckSettingsDto {
     pub lead_in_s: Option<f64>,
     pub swap_channels: bool,
     pub key_lock: bool,
+    /// Software mixer: the channel fader starts and stops the deck.
+    pub fader_start: bool,
+    /// The range of its tempo fader, if it has one of its own.
+    pub pitch_range: Option<f64>,
     pub strip: ChannelStripDto,
     pub fx: FxChainDto,
     /// Name of the sound in each sampler slot.
@@ -687,6 +691,8 @@ pub struct DeckSettingsDto {
     pub side: CrossfaderSideDto,
     /// A touch of its controller's jog wheel holds the record (else the wheel only nudges).
     pub jog_scratch: bool,
+    /// At the end, the track goes on from its start.
+    pub repeat: bool,
 }
 
 /// The side of the crossfader a deck is on, or neither (heard whatever the crossfader).
@@ -790,6 +796,8 @@ pub struct MixerStateDto {
     /// Outputs of the running device.
     pub output_channels: Option<usize>,
     pub cue_mix: f32,
+    /// Headphones: the cue on the left and the master on the right.
+    pub split_cue: bool,
     pub headphone_gain: f32,
     pub crossfader_curve: CrossfaderCurveDto,
     pub limiter: bool,
@@ -850,7 +858,7 @@ pub struct DeckStatusDto {
     pub slip_position_s: Option<f64>,
     pub vinyl: VinylDto,
     /// Sampler slots playing (bit per slot).
-    pub samples_playing: u8,
+    pub samples_playing: u16,
     /// The parts whose change waits for the next bar, a bit each: vocals, drums, bass, other.
     pub stems_waiting: u8,
     /// The parts separated where the deck plays, the same bits.

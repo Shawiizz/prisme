@@ -187,6 +187,7 @@ impl Engine {
             if !fx_done {
                 deck.fx.process(deck_out, beat);
             }
+            deck.cut.gate(deck_out);
             deck.peak = deck_out.iter().fold(deck.peak, |p, s| p.max(s.abs()));
             let mix = DeckMix { audio: deck_out, volume: deck.volume, side: deck.side, cue: deck.cue };
             self.mixer.add_deck(d, mix, out, out_ch);
@@ -252,7 +253,7 @@ impl Engine {
             }
             Eject { deck } if valid(deck) => {
                 let d = &mut self.decks[deck];
-                d.playing = false;
+                d.set_playing(false);
                 d.reset_track_state();
                 let stems = d.playhead.take_stems();
                 let old = d.playhead.eject();
@@ -267,7 +268,10 @@ impl Engine {
                 }
             }
             SetStemMix { deck, mix, on_bar } if valid(deck) => self.decks[deck].set_stem_mix(mix, on_bar),
-            SetPlaying { deck, playing } if valid(deck) => self.decks[deck].playing = playing,
+            SetPlaying { deck, playing } if valid(deck) => self.decks[deck].set_playing(playing),
+            Brake { deck } if valid(deck) => self.decks[deck].brake(),
+            SpinBack { deck, held } if valid(deck) => self.decks[deck].spin_back(held),
+            SetRepeat { deck, enabled } if valid(deck) => self.decks[deck].playhead.set_repeat(enabled),
             SetPitch { deck, ratio } if valid(deck) && ratio.is_finite() => self.decks[deck].pitch = ratio,
             SetPitchBend { deck, amount } if valid(deck) && amount.is_finite() => {
                 self.decks[deck].bend = amount
@@ -300,7 +304,13 @@ impl Engine {
             LoopIn { deck } if valid(deck) => self.decks[deck].loop_in(self.quantize),
             LoopOut { deck } if valid(deck) => self.decks[deck].loop_out(self.quantize),
             LoopRoll { deck, beats } if valid(deck) => self.decks[deck].loop_roll(beats, self.quantize),
+            Slice { deck, region }
+                if valid(deck) && region.is_none_or(|r| r.start_s.is_finite() && r.end_s.is_finite()) =>
+            {
+                self.decks[deck].slice(region, self.quantize)
+            }
             ExitLoop { deck } if valid(deck) => self.decks[deck].exit_loop(),
+            FaderCut { deck, beats } if valid(deck) => self.decks[deck].cut.set(beats),
             Reloop { deck } if valid(deck) => self.decks[deck].reloop(),
             ScaleLoop { deck, factor } if valid(deck) => self.decks[deck].scale_loop(factor),
             SetSlip { deck, enabled } if valid(deck) => self.decks[deck].set_slip(enabled),
@@ -344,6 +354,7 @@ impl Engine {
             SetDeckCue { deck, enabled } if valid(deck) => self.decks[deck].cue = enabled,
             SetCueMix { mix } => self.mixer.cue_mix = mix,
             SetHeadphoneGain { gain } => self.mixer.headphone_gain = gain,
+            SetSplitCue { enabled } => self.mixer.split_cue = enabled,
             SetLevel { deck, gain } if valid(deck) => self.decks[deck].level.set(gain.max(0.0)),
             SetTrim { deck, gain } if valid(deck) => self.decks[deck].strip.set_trim(gain),
             SetEq { deck, band, gain } if valid(deck) => self.decks[deck].strip.set_eq(band, gain),
