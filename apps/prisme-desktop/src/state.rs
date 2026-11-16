@@ -454,8 +454,19 @@ impl AppState {
             return None;
         }
         self.update_preferences(|p| p.decks[partner].vinyl_enabled = false);
+        self.let_go_of_record(partner);
         let _ = self.send_if_running(Command::SetVinylEnabled { deck: partner, enabled: false });
         Some(partner)
+    }
+
+    /// Before the vinyl control of `deck` is turned off: the engine has it play on at the
+    /// tempo its record gave it, its tempo fader's from then on. Whether a record drove it.
+    pub fn let_go_of_record(&self, deck: usize) -> bool {
+        let Ok(status) = self.deck_status(deck) else { return false };
+        if status.vinyl.enabled {
+            lock(&self.decks)[deck].pitch = status.rate;
+        }
+        status.vinyl.enabled
     }
 
     /// The settings of the decks as the device of `info` lets them be: of two decks layered

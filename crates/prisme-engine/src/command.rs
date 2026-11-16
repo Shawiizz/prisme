@@ -221,6 +221,7 @@ pub enum Command {
         deck: DeckId,
         held: bool,
     },
+    /// Off, a record that drove the deck leaves it playing by itself as it played it.
     SetVinylEnabled {
         deck: DeckId,
         enabled: bool,
@@ -378,10 +379,12 @@ pub enum Command {
         slot: usize,
         sample: Option<Arc<TrackAudio>>,
     },
-    /// Plays a sampler slot from its start (on the next beat with quantize on).
+    /// Plays a sampler slot from its start (on the next beat with quantize on), at `gain`
+    /// times the sampler's level: how hard its pad was hit, 1 for a key.
     TriggerSample {
         deck: DeckId,
         slot: usize,
+        gain: f32,
     },
     StopSample {
         deck: DeckId,

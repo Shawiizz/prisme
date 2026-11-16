@@ -14,6 +14,8 @@ struct Voice {
     position: Option<f64>,
     /// Frames to wait before starting (quantized trigger).
     wait: usize,
+    /// Of this sound alone: how hard its pad was hit.
+    gain: f32,
 }
 
 #[derive(Default)]
@@ -35,11 +37,13 @@ impl Sampler {
         std::mem::replace(&mut voice.sample, sample)
     }
 
-    /// Starts a slot from the beginning after `wait` frames (again if it is playing).
-    pub(crate) fn trigger(&mut self, slot: usize, wait: usize) {
+    /// Starts a slot from the beginning after `wait` frames (again if it is playing), at `gain`
+    /// times the sampler's level.
+    pub(crate) fn trigger(&mut self, slot: usize, wait: usize, gain: f32) {
         if let Some(voice) = self.voices.get_mut(slot).filter(|v| v.sample.is_some()) {
             voice.position = Some(0.0);
             voice.wait = wait;
+            voice.gain = gain;
         }
     }
 
@@ -65,6 +69,7 @@ impl Sampler {
             let length = sample.frames() as f64;
             let start = voice.wait.min(out.len() / 2);
             voice.wait -= start;
+            let gain = self.gain * voice.gain;
             for frame in out.chunks_exact_mut(2).skip(start) {
                 if position >= length {
                     break;
@@ -73,8 +78,8 @@ impl Sampler {
                 let i = position.floor();
                 let t = (position - i) as f32;
                 let (a, b) = (view.frame(i as isize), view.frame(i as isize + 1));
-                frame[0] += (a.0 + (b.0 - a.0) * t) * self.gain;
-                frame[1] += (a.1 + (b.1 - a.1) * t) * self.gain;
+                frame[0] += (a.0 + (b.0 - a.0) * t) * gain;
+                frame[1] += (a.1 + (b.1 - a.1) * t) * gain;
                 position += step;
             }
             voice.position = (position < length).then_some(position);
@@ -102,7 +107,7 @@ mod tests {
     fn a_trigger_plays_the_sound_once() {
         let mut s = Sampler::new();
         s.set(2, Some(sound(100)));
-        s.trigger(2, 0);
+        s.trigger(2, 0, 1.0);
         assert_eq!(s.playing(), 0b100);
         let mut out = vec![0.0f32; 128 * 2];
         s.render(&mut out, 48_000.0);
@@ -115,7 +120,7 @@ mod tests {
     fn the_last_slot_plays_and_says_so() {
         let mut s = Sampler::new();
         s.set(SAMPLE_SLOTS - 1, Some(sound(100)));
-        s.trigger(SAMPLE_SLOTS - 1, 0);
+        s.trigger(SAMPLE_SLOTS - 1, 0, 1.0);
         assert_eq!(s.playing(), 1 << 15);
     }
 
@@ -123,7 +128,7 @@ mod tests {
     fn a_quantized_trigger_waits() {
         let mut s = Sampler::new();
         s.set(0, Some(sound(1_000)));
-        s.trigger(0, 150);
+        s.trigger(0, 150, 1.0);
         let mut out = vec![0.0f32; 128 * 2];
         s.render(&mut out, 48_000.0);
         assert!(out.iter().all(|v| *v == 0.0), "still waiting");
@@ -134,12 +139,29 @@ mod tests {
     }
 
     #[test]
+    fn a_soft_hit_plays_its_own_sound_softly_and_no_other() {
+        let mut s = Sampler::new();
+        s.gain = 0.8;
+        s.set(0, Some(sound(100)));
+        s.set(1, Some(sound(100)));
+        s.trigger(0, 0, 0.25);
+        let mut out = vec![0.0f32; 64 * 2];
+        s.render(&mut out, 48_000.0);
+        assert!((out[0] - 0.5 * 0.8 * 0.25).abs() < 1e-6, "as hard as its pad was hit");
+        s.trigger(1, 0, 1.0);
+        let mut out = vec![0.0f32; 64 * 2];
+        s.render(&mut out, 48_000.0);
+        assert!((out[0] - 0.5 * 0.8 * 1.25).abs() < 1e-6, "the next one at the sampler's level");
+        assert_eq!(s.gain, 0.8);
+    }
+
+    #[test]
     fn empty_slots_do_nothing_and_stop_stops() {
         let mut s = Sampler::new();
-        s.trigger(1, 0);
+        s.trigger(1, 0, 1.0);
         assert_eq!(s.playing(), 0);
         s.set(1, Some(sound(10_000)));
-        s.trigger(1, 0);
+        s.trigger(1, 0, 1.0);
         s.stop(1);
         assert_eq!(s.playing(), 0);
         assert!(s.set(1, None).is_some(), "the old sound is handed back");

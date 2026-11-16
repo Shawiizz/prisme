@@ -130,10 +130,7 @@ export class ControlService {
       const track = this.engine.tracks()[deck];
       return track ? partLevel(track.stemMix, part) : 1;
     },
-    triggerSample: (deck, slot, gain) => {
-      if (gain !== undefined) this.sampler.setGain(deck, gain);
-      this.sampler.trigger(deck, slot);
-    },
+    triggerSample: (deck, slot, velocity) => this.sampler.trigger(deck, slot, velocity),
     sampleLoaded: (deck, slot) => !!this.engine.decks()[deck].samples[slot],
     samplePlaying: (deck, slot) => ((this.deck(deck)?.samplesPlaying ?? 0) & (1 << slot)) !== 0,
     toggleFx: (deck, slot) => this.fx.setEnabled(deck, slot, !this.fx.settings(deck, slot).enabled),

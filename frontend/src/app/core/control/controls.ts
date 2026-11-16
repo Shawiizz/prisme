@@ -97,8 +97,9 @@ export interface ControlActions {
   /** Sets how loud a part of a separated track plays. */
   setStemLevel(deck: number, part: StemPart, position: number): void;
   stemLevel(deck: number, part: StemPart): number;
-  /** Plays a sample, as loud as `gain` (0 to 1) when the pad tells how hard it was hit. */
-  triggerSample(deck: number, slot: number, gain?: number): void;
+  /** Plays a sample; a pad that tells how hard it was hit gives `velocity` (0 to 1), which
+   * scales that sound alone. */
+  triggerSample(deck: number, slot: number, velocity?: number): void;
   sampleLoaded(deck: number, slot: number): boolean;
   samplePlaying(deck: number, slot: number): boolean;
   /** The effects of a deck are in a chain of slots, played one after the other. */

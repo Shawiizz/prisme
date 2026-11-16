@@ -317,13 +317,7 @@ impl Engine {
             Censor { deck, active } if valid(deck) => self.decks[deck].censor(active),
             SetReverse { deck, enabled } if valid(deck) => self.decks[deck].set_reverse(enabled),
             HoldReverse { deck, held } if valid(deck) => self.decks[deck].hold_reverse(held),
-            SetVinylEnabled { deck, enabled } if valid(deck) => {
-                // a jog held meanwhile is let go: its release would no longer reach the deck
-                self.decks[deck].jog_touch(false, 0.0);
-                self.decks[deck].vinyl.enabled = enabled;
-                self.decks[deck].vinyl.take_back();
-                self.decks[deck].sync.reset();
-            }
+            SetVinylEnabled { deck, enabled } if valid(deck) => self.decks[deck].set_vinyl_enabled(enabled),
             SetVinylMode { deck, mode } if valid(deck) => {
                 self.decks[deck].vinyl.mode = mode;
                 self.decks[deck].vinyl.take_back();
@@ -374,11 +368,11 @@ impl Engine {
                     self.discard(Garbage::Track(old));
                 }
             }
-            TriggerSample { deck, slot } if valid(deck) => {
+            TriggerSample { deck, slot, gain } if valid(deck) && gain.is_finite() => {
                 let rate = self.config.sample_rate as f64;
                 let d = &mut self.decks[deck];
                 let wait = if self.quantize { d.frames_to_next_beat(rate).unwrap_or(0) } else { 0 };
-                d.sampler.trigger(slot, wait);
+                d.sampler.trigger(slot, wait, gain.max(0.0));
             }
             StopSample { deck, slot } if valid(deck) => self.decks[deck].sampler.stop(slot),
             SetSamplerGain { deck, gain } if valid(deck) => self.decks[deck].sampler.gain = gain,

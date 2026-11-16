@@ -8,6 +8,15 @@ export type VinylMode = 'absolute' | 'relative';
 /** The speed the record turns at when the track plays at its own speed. */
 export type Rpm = '33' | '45';
 
+/** How much faster than at 33 rpm a record turns (`Rpm::record_speed`). */
+const RECORD_SPEED: Record<Rpm, number> = { '33': 1, '45': 1.35 };
+
+/** The lead-in of a timecode (`recordLeadInS` of its grooves at 33 rpm) in seconds of music on
+ * a record turning at `rpm`: what the deck uses when no lead-in is chosen. */
+export function recordLeadIn(recordLeadInS: number, rpm: Rpm): number {
+  return recordLeadInS / RECORD_SPEED[rpm];
+}
+
 export interface VinylStatus {
   enabled: boolean;
   mode: VinylMode;
