@@ -52,6 +52,8 @@ pub struct DeckStatus {
     pub duration_s: f64,
     /// Effective playback speed (1.0 = original tempo, negative = backwards).
     pub speed: f64,
+    /// Current tempo as a playback rate, gestures excluded (1.0 = the track's own).
+    pub rate: f64,
     /// Current tempo, gestures excluded (needs a beat grid).
     pub bpm: Option<f64>,
     /// Position within the current beat, `0..1`.
@@ -84,6 +86,7 @@ impl Default for DeckStatus {
             position_s: 0.0,
             duration_s: 0.0,
             speed: 0.0,
+            rate: 1.0,
             bpm: None,
             beat_phase: None,
             sync: SyncStatus { rate_offset: 1.0, ..Default::default() },

@@ -1322,7 +1322,7 @@ impl ControllerInputDto {
     }
 }
 
-/// A deck's tempo, set from a controller or the Auto DJ (`deck-pitch`).
+/// A deck's tempo, set from a controller, the Auto DJ or a record letting go (`deck-pitch`).
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct DeckPitchDto {

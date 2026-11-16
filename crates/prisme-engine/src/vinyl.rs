@@ -14,8 +14,9 @@ use crate::command::{Rpm, VinylMode};
 use crate::status::VinylStatus;
 use prisme_timecode::TimecodeDecoder;
 
-/// Slowest forward speed at which reaching the end of the record counts as playing.
-const PLAYING_SPEED: f64 = 0.5;
+/// Slowest speed at which a record counts as playing: the deck plays on by itself when it
+/// reaches the end of the record (forwards) or lets go of it.
+pub(crate) const PLAYING_SPEED: f64 = 0.5;
 /// A record read backwards at play speed for this long, without a break: its left and
 /// right channels are probably crossed (a turntable's reverse switch could do it too, so
 /// it only makes the UI ask).

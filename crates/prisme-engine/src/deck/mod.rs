@@ -18,7 +18,7 @@ use crate::stems::{Parts, StemMix};
 use crate::strip::ChannelStrip;
 use crate::sync::{self, DeckSync, LeaderBeat, SyncTarget};
 use crate::tempo::PlatterTempo;
-use crate::vinyl::{VinylControl, VinylDrive};
+use crate::vinyl::{self, VinylControl, VinylDrive};
 use bar_mix::BarMix;
 use cut::Cut;
 use hand::{Hand, Step};
@@ -303,6 +303,26 @@ impl Deck {
     pub(crate) fn set_playing(&mut self, playing: bool) {
         self.playing = playing;
         self.motor = Motor::default();
+    }
+
+    /// Vinyl control on or off. A record letting go of the deck leaves it playing by itself as
+    /// the record played it: at its tempo and in its direction, or else stopped.
+    pub(crate) fn set_vinyl_enabled(&mut self, enabled: bool) {
+        // a jog held meanwhile is let go: its release would no longer reach the deck
+        self.jog_touch(false, 0.0);
+        let let_go = self.vinyl.enabled && !enabled;
+        let (rate, speed) = (self.tempo_rate(), self.sync.smoothed_speed);
+        self.vinyl.enabled = enabled;
+        self.vinyl.take_back();
+        self.sync.reset();
+        if let_go {
+            let moving = self.playhead.is_loaded() && speed.abs() >= vinyl::PLAYING_SPEED;
+            self.pitch = rate;
+            self.set_playing(moving);
+            if moving && (speed < 0.0) != self.backwards() {
+                self.set_reverse(!self.transport.reversed);
+            }
+        }
     }
 
     /// Internal play: a playing deck slows to a stop as a turntable switched off; a stopped
@@ -602,13 +622,15 @@ impl Deck {
 
     pub(crate) fn status(&self, leader: bool) -> DeckStatus {
         let position_s = self.playhead.position_s();
+        let rate = self.tempo_rate();
         DeckStatus {
             loaded: self.playhead.is_loaded(),
             playing: self.playing,
             position_s,
             duration_s: self.playhead.duration_s(),
             speed: self.speed,
-            bpm: self.grid.map(|g| g.bpm * self.tempo_rate()),
+            rate,
+            bpm: self.grid.map(|g| g.bpm * rate),
             beat_phase: self.grid.map(|g| g.beats_at(position_s).rem_euclid(1.0)),
             sync: SyncStatus { locked: self.sync.locked, leader, rate_offset: self.sync.rate_offset },
             looping: LoopStatus {

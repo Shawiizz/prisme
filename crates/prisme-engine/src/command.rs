@@ -221,6 +221,7 @@ pub enum Command {
         deck: DeckId,
         held: bool,
     },
+    /// Off, a record that drove the deck leaves it playing by itself as it played it.
     SetVinylEnabled {
         deck: DeckId,
         enabled: bool,

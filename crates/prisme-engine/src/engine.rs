@@ -317,13 +317,7 @@ impl Engine {
             Censor { deck, active } if valid(deck) => self.decks[deck].censor(active),
             SetReverse { deck, enabled } if valid(deck) => self.decks[deck].set_reverse(enabled),
             HoldReverse { deck, held } if valid(deck) => self.decks[deck].hold_reverse(held),
-            SetVinylEnabled { deck, enabled } if valid(deck) => {
-                // a jog held meanwhile is let go: its release would no longer reach the deck
-                self.decks[deck].jog_touch(false, 0.0);
-                self.decks[deck].vinyl.enabled = enabled;
-                self.decks[deck].vinyl.take_back();
-                self.decks[deck].sync.reset();
-            }
+            SetVinylEnabled { deck, enabled } if valid(deck) => self.decks[deck].set_vinyl_enabled(enabled),
             SetVinylMode { deck, mode } if valid(deck) => {
                 self.decks[deck].vinyl.mode = mode;
                 self.decks[deck].vinyl.take_back();

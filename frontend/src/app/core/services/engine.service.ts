@@ -116,7 +116,7 @@ export class EngineService {
     await listen<DeckTrackUpdate>('deck-track-update', (e) => this.completeTrack(e.payload));
     // a track the Auto DJ put on a deck
     await listen<TrackInfo>('deck-loaded', ({ payload }) => this.show(payload.deck, payload));
-    // a controller's tempo fader, performed by the backend
+    // a tempo set by the backend: a controller's tempo fader, the Auto DJ, a record letting go
     await listen<{ deck: number; ratio: number }>('deck-pitch', ({ payload }) =>
       this.patchDeck(payload.deck, { pitch: payload.ratio }),
     );
