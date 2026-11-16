@@ -77,6 +77,7 @@ const SHIPPED: &[(&str, &str)] = &[
     ("numark-scratch.json", include_str!("../controllers/numark-scratch.json")),
     ("pioneer-ddj-200.json", include_str!("../controllers/pioneer-ddj-200.json")),
     ("pioneer-ddj-400.json", include_str!("../controllers/pioneer-ddj-400.json")),
+    ("pioneer-ddj-flx2.json", include_str!("../controllers/pioneer-ddj-flx2.json")),
     ("pioneer-ddj-flx4.json", include_str!("../controllers/pioneer-ddj-flx4.json")),
     ("pioneer-ddj-sb.json", include_str!("../controllers/pioneer-ddj-sb.json")),
     ("pioneer-ddj-sb2.json", include_str!("../controllers/pioneer-ddj-sb2.json")),

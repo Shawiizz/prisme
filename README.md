@@ -42,7 +42,7 @@
   the beat. A file renamed, moved, tagged again or on a drive under another letter is
   known again, by its audio if need be, and keeps its cues.
 - **Control**: every action from the keyboard and from a command palette (Ctrl K). MIDI
-  controllers with MIDI learn, lights, meters and jog wheels; 56 models mapped out of the
+  controllers with MIDI learn, lights, meters and jog wheels; 57 models mapped out of the
   box. MIDI clock out.
 - **Reliability**: the audio restarts after a device loss or an engine failure, decks
   come back after a crash, daily logs and a diagnostic report.
@@ -66,7 +66,7 @@ press moves it; a USB sound card plugged in takes over the outputs.
 
 ## Controllers
 
-Prisme knows 56 controller models from Allen & Heath, Behringer, Denon, DJ TechTools,
+Prisme knows 57 controller models from Allen & Heath, Behringer, Denon, DJ TechTools,
 Hercules, Korg, Native Instruments, Numark, Pioneer, Reloop, Roland and Stanton: plug one
 in and it plays, its lights and meters included. Each model is a JSON file in
 [apps/prisme-desktop/controllers](apps/prisme-desktop/controllers), a format anyone can

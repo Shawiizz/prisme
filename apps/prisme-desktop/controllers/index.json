@@ -215,6 +215,11 @@
       "revision": 3,
       "format": 2
     },
+    "pioneer-ddj-flx2.json": {
+      "sha256": "8a160f78492b13e81239615e9b8f6db1f50fdbb87155173d1d3721357b231d87",
+      "revision": 1,
+      "format": 2
+    },
     "pioneer-ddj-flx4.json": {
       "sha256": "60d5ee953f93b21acb59cc45dbb6e1241457f824b71eabb6ad3badeb0fb1a8fd",
       "revision": 3,

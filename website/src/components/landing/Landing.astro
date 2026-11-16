@@ -28,9 +28,11 @@ const other = lang === 'en' ? { href: '/fr/', label: 'FR', name: 'Français' } :
 const release = await latestRelease();
 const models = controllerModels();
 const makers = brands(models);
+const counted = (text: string) => text.replace('{n}', String(models.length));
 // models DJs know, shown by name; the rest counted
 const FEATURED = [
 	'Pioneer DDJ-FLX4',
+	'Pioneer DDJ-FLX2',
 	'Pioneer DDJ-400',
 	'Hercules DJControl Inpulse 500',
 	'Numark Mixtrack Platinum FX',
@@ -49,7 +51,7 @@ const featured = FEATURED.filter((name) => models.some((m) => m.name === name));
 		<meta charset="utf-8" />
 		<meta name="viewport" content="width=device-width, initial-scale=1" />
 		<title>{s.meta.title}</title>
-		<meta name="description" content={s.meta.description} />
+		<meta name="description" content={counted(s.meta.description)} />
 		<meta name="theme-color" content="#0a0b0d" />
 		<link rel="icon" href="/favicon.svg" type="image/svg+xml" />
 		<link rel="canonical" href={new URL(Astro.url.pathname, Astro.site)} />
@@ -57,7 +59,7 @@ const featured = FEATURED.filter((name) => models.some((m) => m.name === name));
 		<link rel="alternate" hreflang="fr" href={new URL('/fr/', Astro.site)} />
 		<meta property="og:type" content="website" />
 		<meta property="og:title" content={s.meta.title} />
-		<meta property="og:description" content={s.meta.description} />
+		<meta property="og:description" content={counted(s.meta.description)} />
 		<meta property="og:image" content={new URL(decks.src, Astro.site)} />
 		<meta name="twitter:card" content="summary_large_image" />
 	</head>
@@ -118,7 +120,7 @@ const featured = FEATURED.filter((name) => models.some((m) => m.name === name));
 								<a href={to === 'touch' ? `${base}/docs/interface/keyboard/` : `#${to}`}>
 									<span class="index">0{i + 1}</span>
 									<strong>{title}</strong>
-									<span>{body}</span>
+									<span>{counted(body)}</span>
 								</a>
 							</li>
 						))
@@ -130,7 +132,7 @@ const featured = FEATURED.filter((name) => models.some((m) => m.name === name));
 				<div class="text">
 					<p class="kicker">{s.ctrl.kicker}</p>
 					<h2>{s.ctrl.title}</h2>
-					<p>{s.ctrl.body}</p>
+					<p>{counted(s.ctrl.body)}</p>
 					<div class="numbers">
 						<p><strong>{models.length}</strong> {s.ctrl.count}</p>
 						<p><strong>{makers.length}</strong> {s.ctrl.brands}</p>
