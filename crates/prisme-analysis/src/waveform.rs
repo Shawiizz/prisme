@@ -1,6 +1,6 @@
 //! Waveform summary: for each time slice, the peak amplitude and the energy of the low,
-//! mid and high bands. The UI draws the height from the peak and the color from the
-//! band balance.
+//! mid and high bands. The UI draws the height from the band energies and the color from
+//! the band balance.
 
 use prisme_media::TrackAudio;
 use std::f64::consts::TAU;

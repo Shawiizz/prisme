@@ -1,6 +1,7 @@
 import { Cue, LoopStatus, Tempo, Waveform } from '../../../core/models/engine';
 import { palette } from '../../../shared/palette';
 import { hexColor } from '../../../shared/track-colors';
+import { envelopeHeights } from './envelope';
 
 /** What is drawn over the waveform. */
 export interface WaveformOverlay {
@@ -26,7 +27,7 @@ const PLAYED_OVERVIEW = 0.35;
 const LANE_FLOOR = 80;
 /** Width of the tiles the scrolling view's audio is drawn in once (device pixels). */
 const TILE_PX = 1024;
-/** Share of the half height the loudest peak reaches in the scrolling view: the rest holds the
+/** Share of the half height the loudest slices reach in the scrolling view: the rest holds the
  * beat grid's ticks and markers. */
 const HEADROOM = 0.88;
 /** Opacity of a beat's line through the waveform, of its ticks at the edges, and of a bar's
@@ -36,17 +37,19 @@ const GRID_TICK = 0.6;
 const GRID_BAR = 0.5;
 
 /**
- * Draws the waveforms (design/DESIGN.md, Waveform): one envelope coloured slice by slice by
- * the balance of its bands; the beat grid over it, discreet (the bars in red, marked at both
- * edges); cues as flags in their tag colour, the loop as a band of light and the playhead, the
- * only white line, dispersed on its edges.
+ * Draws the waveforms (design/DESIGN.md, Waveform): one envelope, its height the loudness of
+ * each slice against the track's, coloured slice by slice by the balance of its bands; the beat
+ * grid over it, discreet (the bars in red, marked at both edges); cues as flags in their tag
+ * colour, the loop as a band of light and the playhead, the only white line, dispersed on its
+ * edges.
  */
 export class WaveformPainter {
   private readonly palette = palette();
   /** The colour of each tag of a cue, written once. */
   private readonly cueColors = new Map<number, string>();
-  /** Colour of each slice, cached per waveform. */
+  /** Colour and height of each slice, cached per waveform. */
   private colors: string[] = [];
+  private heights: Float32Array = new Float32Array(0);
   private source: Waveform | null = null;
   /** The overview's audio as it plays and as played, drawn once per waveform and size. */
   private overview: {
@@ -222,7 +225,7 @@ export class WaveformPainter {
     }
   }
 
-  /** The loudest slice under each column of `view`, in its colour, the loudest of the track
+  /** The highest slice under each column of `view`, in its colour, the loudest of the track
    * `reach` high. */
   private drawColumns(
     ctx: OffscreenCanvasRenderingContext2D,
@@ -230,16 +233,21 @@ export class WaveformPainter {
     view: View,
     reach: number,
   ) {
+    this.prepare(w);
+    const n = this.heights.length;
     const sps = w.slicesPerSecond;
     const slicesPerPx = (view.spanS * sps) / view.width;
     const mid = view.height / 2;
     for (let x = 0; x < view.width; x++) {
       const first = Math.floor(view.fromS * sps + x * slicesPerPx);
       const last = Math.max(first + 1, Math.floor(view.fromS * sps + (x + 1) * slicesPerPx));
-      if (last <= 0 || first >= w.peak.length) continue;
-      const loudest = this.loudest(w, first, last);
-      const h = (w.peak[loudest] / 255) * reach;
-      ctx.fillStyle = this.colorAt(w, loudest);
+      if (last <= 0 || first >= n) continue;
+      let highest = Math.max(first, 0);
+      for (let i = highest; i < Math.min(last, n); i++) {
+        if (this.heights[i] > this.heights[highest]) highest = i;
+      }
+      const h = this.heights[highest] * reach;
+      ctx.fillStyle = this.colors[highest];
       ctx.fillRect(x, mid - h, 1, h * 2);
     }
   }
@@ -255,33 +263,41 @@ export class WaveformPainter {
     }
     const full = new OffscreenCanvas(view.width, view.height);
     const played = new OffscreenCanvas(view.width, view.height);
-    this.drawOverviewAudio(full.getContext('2d')!, w, view, 1);
-    this.drawOverviewAudio(played.getContext('2d')!, w, view, PLAYED_OVERVIEW);
+    this.drawOverviewAudio(full.getContext('2d')!, w, view);
+    const dimmed = played.getContext('2d')!;
+    dimmed.globalAlpha = PLAYED_OVERVIEW;
+    dimmed.drawImage(full, 0, 0);
     this.overview = { w, width: view.width, height: view.height, full, played };
     return this.overview;
   }
 
-  private drawOverviewAudio(
-    ctx: OffscreenCanvasRenderingContext2D,
-    w: Waveform,
-    view: View,
-    alpha: number,
-  ) {
-    const n = w.peak.length;
+  /** Each column as high as the mean of its slices, so that the parts of the track read by
+   * their loudness, the loudest column across the whole height; in the colour of its loudest
+   * peak. */
+  private drawOverviewAudio(ctx: OffscreenCanvasRenderingContext2D, w: Waveform, view: View) {
+    this.prepare(w);
+    const n = this.heights.length;
+    const means = new Float32Array(view.width);
+    for (let x = 0; x < view.width; x++) {
+      const first = Math.floor((x / view.width) * n);
+      const last = Math.min(Math.max(first + 1, Math.floor(((x + 1) / view.width) * n)), n);
+      let sum = 0;
+      for (let i = first; i < last; i++) sum += this.heights[i];
+      means[x] = last > first ? sum / (last - first) : 0;
+    }
+    const highest = Math.max(...means);
+    if (highest === 0) return;
     const mid = view.height / 2;
-    ctx.globalAlpha = alpha;
     for (let x = 0; x < view.width; x++) {
       const first = Math.floor((x / view.width) * n);
       const last = Math.max(first + 1, Math.floor(((x + 1) / view.width) * n));
-      const loudest = this.loudest(w, first, last);
-      const h = (w.peak[loudest] / 255) * (mid - 1);
-      ctx.fillStyle = this.colorAt(w, loudest);
+      const h = (means[x] / highest) * (mid - 1);
+      ctx.fillStyle = this.colors[this.loudest(w, first, last)];
       ctx.fillRect(x, mid - h, 1, h * 2);
     }
-    ctx.globalAlpha = 1;
   }
 
-  /** The loudest slice from `first` to `last` (excluded), within the track. */
+  /** The slice with the highest peak from `first` to `last` (excluded), within the track. */
   private loudest(w: Waveform, first: number, last: number): number {
     let best = Math.max(first, 0);
     for (let i = best; i < Math.min(last, w.peak.length); i++) {
@@ -430,21 +446,21 @@ export class WaveformPainter {
   }
 
   /**
-   * The bands mixed like light: the low band lights the red, the mid the green, the high
-   * the blue, scaled to the strongest so that the colours stay vivid whatever the level.
+   * The colour and height of each slice, once per waveform. The bands mixed like light: the
+   * low band lights the red, the mid the green, the high the blue, scaled to the strongest so
+   * that the colours stay vivid whatever the level.
    */
-  private colorAt(w: Waveform, i: number): string {
-    if (this.source !== w) {
-      this.source = w;
-      this.colors = Array.from(w.peak, (_, k) => {
-        const max = Math.max(w.low[k], w.mid[k], w.high[k], 1);
-        const r = Math.round((w.low[k] / max) * 255);
-        const g = Math.round((w.mid[k] / max) * 230);
-        const b = Math.round((w.high[k] / max) * 255);
-        return `rgb(${r},${g},${b})`;
-      });
-    }
-    return this.colors[i];
+  private prepare(w: Waveform) {
+    if (this.source === w) return;
+    this.source = w;
+    this.heights = envelopeHeights(w);
+    this.colors = Array.from(w.peak, (_, k) => {
+      const max = Math.max(w.low[k], w.mid[k], w.high[k], 1);
+      const r = Math.round((w.low[k] / max) * 255);
+      const g = Math.round((w.mid[k] / max) * 230);
+      const b = Math.round((w.high[k] / max) * 255);
+      return `rgb(${r},${g},${b})`;
+    });
   }
 }
 

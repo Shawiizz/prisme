@@ -138,12 +138,18 @@ A toggle is a button with `.is-on` when on. Radius 3 px, no shadow, no glow.
 
 ## Waveform
 
-- **One envelope**, its height the peak, its colour the balance of the bands mixed like light:
-  the low band lights the red, the mid the green, the high the blue, scaled to the strongest
-  so the colours stay vivid. A kick reads red, a voice green-yellow, hats blue; the full
-  spectrum goes to white.
-  In the scrolling view the loudest peak reaches 88 % of the half height: the room left at the
-  top and the bottom holds the bar markers.
+- **One envelope**, its colour the balance of the bands mixed like light: the low band lights
+  the red, the mid the green, the high the blue, scaled to the strongest so the colours stay
+  vivid. A kick reads red, a voice green-yellow, hats blue; the full spectrum goes to white.
+- **Its height is loudness, against the track's own**, not the peak, which a limiter holds at
+  the ceiling all along a loud master. Each slice's level is the energy of its bands (the low
+  band averaged over 47 ms, two periods of a kick's fundamental, and counted twice: the kick
+  and the bass carry the groove), to the power 0.6 as loudness grows. Once per track, the
+  median slice with sound is set at 35 % of the height and the loudest 0.5 % at the top, the
+  rest in proportion: a dynamic house track keeps its shape, a wall of schranz unfolds into its
+  kicks.
+  In the scrolling view the top is 88 % of the half height: the room left at the top and the
+  bottom holds the beat grid's ticks and markers.
 - **What has played** (left of the playhead) at 45 % opacity.
 - **The playhead** is the only white line of the screen, 2 px, dispersed on its edges: 1 px of
   `--pr-f-low` on the left, 1 px of `--pr-f-high` on the right.
@@ -156,9 +162,11 @@ A toggle is a button with `.is-on` when on. Radius 3 px, no shadow, no glow.
 - **Hot cues**: a line and a numbered flag in the cue's tag colour, as on its pad; the main
   cue in the light, flagged C. **Loop**: a band of `--pr-light-veil` between two lines in the
   light; a stored loop as two `--pr-text-3` lines.
-- **Overview**: the whole track in the same colours, played part dimmed, cues as ticks,
-  position in the light. Under it, once the track is separated, a lane per part (vocals,
-  drums, bass, melody; or vocals and instrumental) in the light where the part plays.
+- **Overview**: the whole track in the same colours, each column as high as the mean height
+  of its slices (the loudest column across the whole height), so the parts of the track read
+  by their loudness; played part dimmed, cues as ticks, position in the light. Under it, once
+  the track is separated, a lane per part (vocals, drums, bass, melody; or vocals and
+  instrumental) in the light where the part plays.
 - **Phase strip** after the first deck: the beats of A at the top and of B at the bottom
   (with four decks, of the first two that play), around the playheads, with the offset in
   milliseconds. Matched, they meet. While both play, `--pr-warn` tells when the second will
