@@ -5,6 +5,7 @@ export interface Palette {
   light: string;
   onLight: string;
   veil: string;
+  void: string;
   base: string;
   line: string;
   line2: string;
@@ -29,6 +30,7 @@ export function palette(): Palette {
     light: token('--pr-light'),
     onLight: token('--pr-on-light'),
     veil: token('--pr-light-veil'),
+    void: token('--pr-void'),
     base: token('--pr-base'),
     line: token('--pr-line'),
     line2: token('--pr-line-2'),

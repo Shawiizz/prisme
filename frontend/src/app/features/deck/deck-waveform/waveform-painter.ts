@@ -26,10 +26,16 @@ const PLAYED_OVERVIEW = 0.35;
 const LANE_FLOOR = 80;
 /** Width of the tiles the scrolling view's audio is drawn in once (device pixels). */
 const TILE_PX = 1024;
+/** Share of the half height the loudest peak reaches in the scrolling view: the rest holds the
+ * bar markers. */
+const HEADROOM = 0.88;
+/** Opacity of the dark edges of the beat grid's lines, and of a beat's line. */
+const GRID_EDGE = 0.7;
+const GRID_BEAT = 0.55;
 
 /**
  * Draws the waveforms (design/DESIGN.md, Waveform): one envelope coloured slice by slice by
- * the balance of its bands, the beat grid as lines (red on the bars), cues as flags in their tag colour,
+ * the balance of its bands, the beat grid across it (the bars in red, marked at both edges), cues as flags in their tag colour,
  * the loop as a band of light and the playhead, the only white line, dispersed on its edges.
  */
 export class WaveformPainter {
@@ -134,8 +140,9 @@ export class WaveformPainter {
     ctx.clearRect(0, 0, view.width, view.height);
     this.drawLoop(ctx, overlay.loop, view);
     if (w) this.drawZoomedAudio(ctx, w, view, view.width / ownSpanS);
-    this.drawRolls(ctx, w && w.peak.length / w.slicesPerSecond, view);
-    if (overlay.tempo) this.drawBeatGrid(ctx, overlay.tempo, view);
+    const durationS = w && w.peak.length / w.slicesPerSecond;
+    this.drawRolls(ctx, durationS, view);
+    if (overlay.tempo) this.drawBeatGrid(ctx, overlay.tempo, durationS, view);
     this.drawCues(ctx, overlay.cues, view, true);
     this.drawPlayhead(ctx, Math.round(view.width / 2), view);
   }
@@ -187,7 +194,7 @@ export class WaveformPainter {
       if (tiles.images.has(k)) continue;
       const image = new OffscreenCanvas(TILE_PX, view.height);
       const tile = { ...view, fromS: k * tileS, spanS: tileS, width: TILE_PX };
-      this.drawColumns(image.getContext('2d')!, w, tile);
+      this.drawColumns(image.getContext('2d')!, w, tile, (view.height / 2) * HEADROOM);
       tiles.images.set(k, image);
     }
     // whole columns copied, not blended across pixels as they scroll
@@ -212,8 +219,14 @@ export class WaveformPainter {
     }
   }
 
-  /** The loudest slice under each column of `view`, in its colour. */
-  private drawColumns(ctx: OffscreenCanvasRenderingContext2D, w: Waveform, view: View) {
+  /** The loudest slice under each column of `view`, in its colour, the loudest of the track
+   * `reach` high. */
+  private drawColumns(
+    ctx: OffscreenCanvasRenderingContext2D,
+    w: Waveform,
+    view: View,
+    reach: number,
+  ) {
     const sps = w.slicesPerSecond;
     const slicesPerPx = (view.spanS * sps) / view.width;
     const mid = view.height / 2;
@@ -222,7 +235,7 @@ export class WaveformPainter {
       const last = Math.max(first + 1, Math.floor(view.fromS * sps + (x + 1) * slicesPerPx));
       if (last <= 0 || first >= w.peak.length) continue;
       const loudest = this.loudest(w, first, last);
-      const h = (w.peak[loudest] / 255) * (mid - 1);
+      const h = (w.peak[loudest] / 255) * reach;
       ctx.fillStyle = this.colorAt(w, loudest);
       ctx.fillRect(x, mid - h, 1, h * 2);
     }
@@ -303,33 +316,53 @@ export class WaveformPainter {
     ctx.stroke();
   }
 
-  /** As on a CDJ's screen: a fine line across the waveform on each beat, the first beat of
-   * each bar in red, pointed at from the top and the bottom by a small arrow. */
-  private drawBeatGrid(ctx: CanvasRenderingContext2D, tempo: Tempo, view: View) {
+  /** As on a CDJ's screen, across the whole height and over the waveform: a fine line on each
+   * beat, a stronger one in the bar colour on the first beat of each bar, pointed at from the
+   * top and bottom edges, in the room the waveform leaves there. Every line has dark edges, to
+   * stand out on any colour of the waveform. Only along the track, once its length is known. */
+  private drawBeatGrid(
+    ctx: CanvasRenderingContext2D,
+    tempo: Tempo,
+    durationS: number | null,
+    view: View,
+  ) {
     const period = 60 / tempo.bpm;
-    const first = Math.ceil((view.fromS - tempo.firstBeatS) / period);
-    const last = Math.floor((view.fromS + view.spanS - tempo.firstBeatS) / period);
+    const first = Math.max(Math.ceil((view.fromS - tempo.firstBeatS) / period), 0);
+    const toS = Math.min(view.fromS + view.spanS, durationS ?? Infinity);
+    const last = Math.floor((toS - tempo.firstBeatS) / period);
+    if (last < first) return;
     const r = view.ratio;
-    const half = 3.5 * r;
-    for (let n = Math.max(first, 0); n <= last; n++) {
-      const x = Math.round(xOf(tempo.firstBeatS + n * period, view));
-      const bar = n % 4 === 0;
-      ctx.globalAlpha = bar ? 0.75 : 0.3;
-      ctx.fillStyle = bar ? this.palette.bar : this.palette.text;
-      ctx.fillRect(x, 0, r, view.height);
-      if (!bar) continue;
-      const mid = x + r / 2;
-      ctx.globalAlpha = 1;
-      ctx.beginPath();
+    const beatWidth = Math.max(Math.round(r), 1);
+    const barWidth = Math.max(Math.round(2 * r), 2);
+    const edge = Math.max(Math.round(r), 1);
+    const width = (n: number) => (n % 4 === 0 ? barWidth : beatWidth);
+    const left = (n: number) => Math.round(xOf(tempo.firstBeatS + n * period, view) - width(n) / 2);
+    const h = view.height;
+    ctx.globalAlpha = GRID_EDGE;
+    ctx.fillStyle = this.palette.void;
+    for (let n = first; n <= last; n++) ctx.fillRect(left(n) - edge, 0, width(n) + 2 * edge, h);
+    ctx.globalAlpha = GRID_BEAT;
+    ctx.fillStyle = this.palette.text;
+    for (let n = first; n <= last; n++) if (n % 4 !== 0) ctx.fillRect(left(n), 0, beatWidth, h);
+    ctx.globalAlpha = 1;
+    ctx.fillStyle = this.palette.bar;
+    const tall = Math.min(5 * r, ((1 - HEADROOM) / 2) * h);
+    const half = 0.8 * tall;
+    ctx.beginPath();
+    for (let n = Math.ceil(first / 4) * 4; n <= last; n += 4) {
+      const x = left(n);
+      ctx.fillRect(x, 0, barWidth, h);
+      const mid = x + barWidth / 2;
       ctx.moveTo(mid - half, 0);
       ctx.lineTo(mid + half, 0);
-      ctx.lineTo(mid, 1.4 * half);
-      ctx.moveTo(mid - half, view.height);
-      ctx.lineTo(mid + half, view.height);
-      ctx.lineTo(mid, view.height - 1.4 * half);
-      ctx.fill();
+      ctx.lineTo(mid, tall);
+      ctx.closePath();
+      ctx.moveTo(mid - half, h);
+      ctx.lineTo(mid + half, h);
+      ctx.lineTo(mid, h - tall);
+      ctx.closePath();
     }
-    ctx.globalAlpha = 1;
+    ctx.fill();
   }
 
   /** A band of light between two lines; a stored loop as two dim lines. */

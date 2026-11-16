@@ -22,7 +22,7 @@ import { TPipe } from '../../../core/i18n/t.pipe';
 
 /** Seconds of real time shown in the scrolling view (and the phase strip). */
 export const ZOOM_SPAN_S = 10;
-/** A press moving less than this (CSS px) is a click. */
+/** A press moving less than this (CSS px) has not moved: on the scrolling view, it does nothing. */
 const CLICK_PX = 3;
 /** The hand's positions go to the engine at most this often (ms), with the time the
  * pointer was there: the engine replays the hand's path from those times. */
@@ -48,7 +48,7 @@ interface Drag {
   sentAt: number;
   /** A press on the scrolling view: it slides the edge of the jog, or holds the record. */
   jog: boolean;
-  /** What the press does: slides the edge, or holds the record (after a moment still);
+  /** What the press does: slides the edge, or holds the record (still a moment, then moved);
    * `null` until it is known. */
   touch: 'edge' | 'hand' | null;
   /** Where the edge was last turned from (CSS px). */
@@ -60,11 +60,11 @@ interface Drag {
 /**
  * Scrolling waveform around the playhead plus an overview of the whole track. Drawn on
  * every animation frame from the extrapolated position, outside change detection.
- * A click on either jumps there (a finger only moves the scrolling view). Slid at once, the
- * scrolling view nudges the track as the edge of a jog; held still a moment first, and the
- * overview at once, it is moved like a record: the deck plays through the hand's motion, as a
- * record scratched (the engine jumps after a hand too fast to play, as along the overview of a
- * whole track).
+ * On the scrolling view only a slide acts, never a press that stays still: slid at once, it
+ * nudges the track as the edge of a jog; held still a moment and then slid, it moves the track
+ * like a record. A press on the overview jumps there and moves the track like a record at
+ * once: the deck plays through the hand's motion, as a record scratched (the engine jumps after
+ * a hand too fast to play, as along the overview of a whole track).
  */
 @Component({
   selector: 'app-deck-waveform',
@@ -198,7 +198,12 @@ export class DeckWaveform {
       return;
     }
     if (drag.jog && drag.touch === null) return;
-    if (!drag.moved || event.timeStamp - drag.sentAt < HAND_EVERY_MS) return;
+    if (!drag.moved) return;
+    if (!drag.held) {
+      this.takeRecord(drag, event);
+      return;
+    }
+    if (event.timeStamp - drag.sentAt < HAND_EVERY_MS) return;
     drag.sentAt = event.timeStamp;
     const width = (event.currentTarget as HTMLElement).getBoundingClientRect().width;
     const at =
@@ -209,16 +214,7 @@ export class DeckWaveform {
   }
 
   release(event: PointerEvent) {
-    const drag = this.drag;
-    if (drag?.pointer !== event.pointerId) return;
-    this.cancel();
-    // a finger never makes the track jump: it might be on it by mistake
-    if (drag.view !== 'zoom' || drag.moved || event.pointerType === 'touch') return;
-    const rect = (event.currentTarget as HTMLElement).getBoundingClientRect();
-    const fromCentre = (event.clientX - rect.left) / rect.width - 0.5;
-    const duration = this.track()?.durationS ?? 0;
-    const at = drag.startS + fromCentre * this.zoomSpan();
-    this.engine.seek(this.deck(), Math.min(Math.max(at, 0), duration));
+    if (this.drag?.pointer === event.pointerId) this.cancel();
   }
 
   /** The press taken by the system (a scroll, a gesture). */
@@ -235,16 +231,20 @@ export class DeckWaveform {
     if (drag.held) this.engine.hand(this.deck(), null);
   }
 
-  /** The press has stayed still: it holds the record, and moves it from now on. */
+  /** The press has stayed still: once it moves, it takes the record. */
   private holdRecord() {
     this.holding = null;
     const drag = this.drag;
-    if (!drag || drag.touch !== null) return;
-    drag.touch = 'hand';
+    if (drag?.touch === null) drag.touch = 'hand';
+  }
+
+  /** The hand on the record where it is now, moving it from where the press is. */
+  private takeRecord(drag: Drag, event: PointerEvent) {
     drag.held = true;
     drag.startS = this.engine.livePosition(this.deck()) ?? drag.startS;
-    drag.moved = true;
-    this.engine.hand(this.deck(), drag.startS);
+    drag.startX = event.clientX;
+    drag.sentAt = event.timeStamp;
+    this.engine.hand(this.deck(), drag.startS, event.timeStamp);
   }
 
   private stopHolding() {
