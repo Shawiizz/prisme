@@ -162,7 +162,7 @@
   "Loop out: the loop ends here and plays": "Loop out : la boucle finit ici et démarre",
   "Double the loop": "Doubler la boucle",
   "Loops, rolls and censor carry the track on underneath": "Boucles, rolls et censor laissent le morceau avancer en dessous",
-  "Plays backwards while held": "Joue à l'envers tant que maintenu",
+  "Plays backwards while held, then lands where the track would have been": "Joue à l'envers tant que maintenu, puis retombe là où le morceau en serait",
   "Echo on the beat · amount: feedback": "Écho sur le temps · amount : réinjection",
   "Echo bouncing left and right · amount: feedback": "Écho rebondissant de gauche à droite · amount : réinjection",
   "Reverb · amount: room size": "Réverbération · amount : taille de la pièce",

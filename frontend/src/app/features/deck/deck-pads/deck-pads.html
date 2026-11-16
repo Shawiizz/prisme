@@ -199,7 +199,7 @@
   <button
     class="pr-btn censor"
     [disabled]="!canMove()"
-    [title]="'Plays backwards while held' | t"
+    [title]="'Plays backwards while held, then lands where the track would have been' | t"
     (pointerdown)="censor(true)"
     (pointerup)="censor(false)"
     (pointercancel)="censor(false)"
