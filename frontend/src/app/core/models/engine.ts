@@ -381,6 +381,8 @@ export interface MixerState {
   outputChannels: number | null;
   /** Headphones: 0 = cued decks only, 1 = master only. */
   cueMix: number;
+  /** Headphones: the cue on the left and the master on the right, each in mono. */
+  splitCue: boolean;
   headphoneGain: number;
   crossfaderCurve: CrossfaderCurve;
   /** Master limiter. */

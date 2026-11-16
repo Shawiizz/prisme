@@ -128,6 +128,8 @@ export class ControlService {
     setCrossfader: (position) => this.mixer.setCrossfader(position * 2 - 1),
     setCueMix: (position) => this.mixer.setCueMix(position),
     cueMixPosition: () => this.mixer.cueMix(),
+    toggleSplitCue: () => this.mixer.setSplitCue(!this.mixer.splitCue()),
+    splitCue: () => this.mixer.splitCue(),
     setBalance: (position) => this.mixer.setBalance(balanceAmount(position)),
     balancePosition: () => balanceKnob(this.mixer.balance()),
     setBoothLevel: (position) => this.mixer.setBoothGain(position),

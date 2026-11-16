@@ -129,6 +129,9 @@ export interface ControlActions {
   /** What the headphones play: the cued decks (0) to the master (1). */
   setCueMix(position: number): void;
   cueMixPosition(): number;
+  /** The headphones split, the cue on the left and the master on the right, or blended. */
+  toggleSplitCue(): void;
+  splitCue(): boolean;
   /** The master's balance: left only (0), both sides (0.5), right only (1). */
   setBalance(position: number): void;
   balancePosition(): number;
@@ -638,6 +641,15 @@ export function buildControls(a: ControlActions): Control[] {
       t('Headphones: cued decks or master'),
       (v) => a.setCueMix(v),
       () => a.cueMixPosition(),
+    ),
+    lit(
+      button(
+        'mixer.headphones.split',
+        t('Mixer'),
+        t('Split headphones: cue left, master right'),
+        () => a.toggleSplitCue(),
+      ),
+      () => a.splitCue(),
     ),
     fader(
       'mixer.balance',

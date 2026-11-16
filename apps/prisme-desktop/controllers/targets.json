@@ -4140,6 +4140,12 @@
   "kind": "fader"
  },
  {
+  "id": "mixer.headphones.split",
+  "group": "Mixer",
+  "label": "Split headphones: cue left, master right",
+  "kind": "button"
+ },
+ {
   "id": "mixer.balance",
   "group": "Mixer",
   "label": "Master balance",

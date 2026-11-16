@@ -760,6 +760,8 @@ pub struct MixerStateDto {
     /// Outputs of the running device.
     pub output_channels: Option<usize>,
     pub cue_mix: f32,
+    /// Headphones: the cue on the left and the master on the right.
+    pub split_cue: bool,
     pub headphone_gain: f32,
     pub crossfader_curve: CrossfaderCurveDto,
     pub limiter: bool,

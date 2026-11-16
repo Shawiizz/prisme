@@ -93,6 +93,8 @@ pub(crate) struct Mixer {
     booth_gain: Smoothed,
     /// Headphones: 0 = cued decks only, 1 = master only.
     pub(crate) cue_mix: f32,
+    /// Headphones: the cue on the left and the master on the right, each in mono.
+    pub(crate) split_cue: bool,
     pub(crate) headphone_gain: f32,
     pub(crate) mic: LiveInput,
     pub(crate) aux: LiveInput,
@@ -127,6 +129,7 @@ impl Mixer {
             balance: Smoothed::new(0.0, GLIDE_S, sample_rate),
             booth_gain: Smoothed::new(1.0, GLIDE_S, sample_rate),
             cue_mix: 0.0,
+            split_cue: false,
             headphone_gain: 1.0,
             mic: LiveInput::new(max_block_frames, sample_rate),
             aux: LiveInput::new(max_block_frames, sample_rate),
@@ -194,7 +197,8 @@ impl Mixer {
 
     /// Writes the buses of the internal mixer to their outputs: the music (the decks and the
     /// aux line, ducked under the microphone) and the microphone, limited, to the master with
-    /// its balance and to the booth; the cued sources and the music to the headphones.
+    /// its balance and to the booth; the cued sources and the music to the headphones, blended
+    /// or split.
     pub(crate) fn finish(&mut self, frames: usize, out: &mut [f32], out_channels: usize) {
         if self.routing.mode != MixMode::Internal {
             return;
@@ -235,9 +239,17 @@ impl Mixer {
                 frame[0] *= gain;
                 frame[1] *= gain;
             }
-            let mix = self.cue_mix.clamp(0.0, 1.0);
-            add_pair(cue, (1.0 - mix) * self.headphone_gain, out, out_channels, first);
-            add_pair(music, mix * self.headphone_gain * self.master_gain, out, out_channels, first);
+            if self.split_cue {
+                for (c, m) in cue.chunks_exact_mut(2).zip(music.chunks_exact(2)) {
+                    c[0] = (c[0] + c[1]) * 0.5;
+                    c[1] = (m[0] + m[1]) * 0.5 * self.master_gain;
+                }
+                add_pair(cue, self.headphone_gain, out, out_channels, first);
+            } else {
+                let mix = self.cue_mix.clamp(0.0, 1.0);
+                add_pair(cue, (1.0 - mix) * self.headphone_gain, out, out_channels, first);
+                add_pair(music, mix * self.headphone_gain * self.master_gain, out, out_channels, first);
+            }
         }
     }
 
@@ -375,6 +387,22 @@ mod tests {
         m.add_deck(1, deck(&[0.3, 0.3], CrossfaderSide::Right, true), &mut out, 4);
         m.finish(1, &mut out, 4);
         assert!((out[2] - 0.1).abs() < 1e-6, "headphones on the master");
+    }
+
+    #[test]
+    fn split_headphones_have_the_cue_on_the_left_and_the_master_on_the_right() {
+        let mut m = Mixer::new(1, 48_000.0);
+        m.set_limiter(false);
+        m.crossfader = -1.0;
+        m.split_cue = true;
+        m.cue_mix = 0.3;
+        let mut out = [0.0f32; 4];
+        m.begin(1);
+        m.add_deck(0, deck(&[0.1, 0.3], CrossfaderSide::Left, false), &mut out, 4);
+        m.add_deck(1, deck(&[0.4, 0.2], CrossfaderSide::Right, true), &mut out, 4);
+        m.finish(1, &mut out, 4);
+        assert!((out[2] - 0.3).abs() < 1e-6, "the cued deck in mono: {}", out[2]);
+        assert!((out[3] - 0.2).abs() < 1e-6, "the master in mono, whatever the blend: {}", out[3]);
     }
 
     #[test]

@@ -511,6 +511,7 @@ impl AppState {
         let _ = controller.send(Command::SetRouting { routing });
         let _ = controller.send(Command::SetCueMix { mix: preferences.mixer.cue_mix });
         let _ = controller.send(Command::SetHeadphoneGain { gain: preferences.mixer.headphone_gain });
+        let _ = controller.send(Command::SetSplitCue { enabled: preferences.mixer.split_cue });
         let _ =
             controller.send(Command::SetCrossfaderCurve { curve: preferences.mixer.crossfader_curve.into() });
         let _ = controller.send(Command::SetLimiter { enabled: preferences.mixer.limiter });

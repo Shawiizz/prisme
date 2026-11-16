@@ -274,6 +274,10 @@ pub enum Command {
     SetHeadphoneGain {
         gain: f32,
     },
+    /// Headphones: the cue on the left and the master on the right (mono each), or blended.
+    SetSplitCue {
+        enabled: bool,
+    },
     /// The level of the track on `deck` (linear): its auto gain, in either mixer mode.
     SetLevel {
         deck: DeckId,

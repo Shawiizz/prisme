@@ -63,6 +63,7 @@ pub fn mixer_state(state: State<'_, AppState>) -> MixerStateDto {
         headphones_in_use: routing.and_then(|r| r.headphones),
         output_channels: info.as_ref().map(|info| info.output_channels),
         cue_mix: mixer.cue_mix,
+        split_cue: mixer.split_cue,
         headphone_gain: mixer.headphone_gain,
         crossfader_curve: mixer.crossfader_curve,
         limiter: mixer.limiter,
@@ -185,6 +186,14 @@ pub fn set_deck_cue(state: State<'_, AppState>, deck: usize, enabled: bool) -> A
 pub fn set_cue_mix(state: State<'_, AppState>, mix: f32) -> AppResult<()> {
     state.update_preferences(|p| p.mixer.cue_mix = mix);
     state.send_if_running(Command::SetCueMix { mix })
+}
+
+/// Headphones: the cue on the left and the master on the right, each in mono, or blended.
+/// Kept for the next start.
+#[tauri::command]
+pub fn set_split_cue(state: State<'_, AppState>, enabled: bool) -> AppResult<()> {
+    state.update_preferences(|p| p.mixer.split_cue = enabled);
+    state.send_if_running(Command::SetSplitCue { enabled })
 }
 
 #[tauri::command]

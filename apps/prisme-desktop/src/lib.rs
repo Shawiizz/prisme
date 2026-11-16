@@ -263,6 +263,7 @@ pub fn run() {
             commands::mixer::set_crossfader,
             commands::mixer::set_deck_cue,
             commands::mixer::set_cue_mix,
+            commands::mixer::set_split_cue,
             commands::mixer::set_headphone_gain,
             commands::mixer::set_trim,
             commands::mixer::set_eq,

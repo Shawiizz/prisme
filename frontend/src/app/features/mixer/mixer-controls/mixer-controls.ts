@@ -37,7 +37,8 @@ const LIVE_TEXTS: Record<LiveSource, Record<'label' | 'on' | 'cue' | 'level', Te
 
 /**
  * What is set on the software mixer beside its channels, a row each: the master's balance and
- * the booth's level, the limiter, the crossfader's curve, the headphones, and the microphone
+ * the booth's level, the limiter, the crossfader's curve, the headphones (blended or split),
+ * and the microphone
  * and the aux line plugged in (each with its level, its key and its headphones).
  */
 @Component({
@@ -127,6 +128,16 @@ const LIVE_TEXTS: Record<LiveSource, Record<'label' | 'on' | 'cue' | 'level', Te
           [value]="mixer.headphoneGain() / MAX_HEADPHONE_GAIN"
           (valueChange)="mixer.setHeadphoneGain($event * MAX_HEADPHONE_GAIN)"
         />
+        <button
+          class="pr-btn pr-btn--sm split"
+          [class.pr-reach]="PHONE"
+          [class.is-on]="mixer.splitCue()"
+          [attr.aria-pressed]="mixer.splitCue()"
+          [title]="'Split headphones: cue left, master right' | t"
+          (click)="mixer.setSplitCue(!mixer.splitCue())"
+        >
+          SPLIT
+        </button>
       </div>
     </div>
     @for (live of lives(); track live.source) {
@@ -218,6 +229,11 @@ const LIVE_TEXTS: Record<LiveSource, Record<'label' | 'on' | 'cue' | 'level', Te
       gap: var(--pr-space-1);
       padding-block: var(--pr-space-1);
       --knob-label-width: 50px;
+    }
+    .split {
+      padding: 0 7px;
+      font: 600 10.5px / 1 var(--pr-font);
+      letter-spacing: 0.04em;
     }
     .keys {
       --knob-label-width: 40px;

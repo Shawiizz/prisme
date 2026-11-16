@@ -138,6 +138,8 @@ pub struct MixerPreferences {
     pub headphones: HeadphonesOutputDto,
     /// Headphones: 0 = cued decks only, 1 = master only.
     pub cue_mix: f32,
+    /// Headphones: the cue on the left and the master on the right, each in mono.
+    pub split_cue: bool,
     pub headphone_gain: f32,
     pub crossfader_curve: CrossfaderCurveDto,
     /// Master limiter (adds 1 ms of latency to the software mixer).
@@ -176,6 +178,7 @@ impl Default for MixerPreferences {
             mode: if cfg!(mobile) { MixModeDto::Internal } else { MixModeDto::External },
             headphones: HeadphonesOutputDto::Auto,
             cue_mix: 0.0,
+            split_cue: false,
             headphone_gain: 1.0,
             crossfader_curve: CrossfaderCurveDto::Smooth,
             limiter: true,
@@ -274,6 +277,7 @@ mod tests {
         assert_eq!((p.mixer.balance, p.mixer.booth, p.mixer.booth_gain), (0.0, None, 1.0));
         assert_eq!(p.mixer.mic, LivePreferences::default());
         assert!(!p.mixer.talkover);
+        assert!(!p.mixer.split_cue, "the headphones blend unless split");
         assert_eq!(p.mixer.talkover_depth_db, -18.0);
     }
 
@@ -346,6 +350,7 @@ mod tests {
         };
         p.library.last_folder = Some("C:/Music/House".into());
         p.mixer.booth = Some(4);
+        p.mixer.split_cue = true;
         p.mixer.mic =
             LivePreferences { input: Some(InputChannelsDto { first: 4, stereo: false }), level: 0.5 };
         let json = serde_json::to_string(&p).unwrap();
