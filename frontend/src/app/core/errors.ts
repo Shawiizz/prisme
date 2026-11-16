@@ -31,6 +31,8 @@ const TEXTS: Record<string, (p: Params) => string> = {
   inputsNotAllowed: () =>
     t('Allow Prisme to listen to the inputs of the sound card, then apply again'),
   alreadyRecording: () => t('Already recording'),
+  silentMaster: () =>
+    t('Your own mixer mixes: the master of Prisme plays nothing. Record the inputs of your mixer'),
   noPreviewOutput: () =>
     t('No headphones of their own to preview in: choose their outputs in the settings'),
   genreNotWritten: (p) =>

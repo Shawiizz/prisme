@@ -278,6 +278,14 @@ export class LibraryService {
     }
   }
 
+  /** Makes `path` the music folder (`null`: the system's), scanned at once, and opens it. */
+  async setRoot(path: string | null): Promise<void> {
+    const root = await invoke<string>('set_music_folder', { path });
+    await this.preferences.load();
+    this.root.set(root);
+    await this.open(root);
+  }
+
   /** Lists a folder and remembers it; `false` if it cannot be read. */
   async open(path: string): Promise<boolean> {
     try {

@@ -194,13 +194,21 @@ impl From<RecordSourceDto> for prisme_engine::RecordSource {
     }
 }
 
+/// A recording ended: where it went, and what could not be written.
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct RecordingDto {
+    /// Its first file.
     pub path: String,
+    /// Every file it was written in: the first, then `… 2.wav` past 4 GB or an audio restart.
+    pub files: Vec<String>,
     pub seconds: f64,
     /// Tracks in its tracklist.
     pub tracks: usize,
+    /// The tracklist written beside it, if it could be.
+    pub tracklist: Option<String>,
+    /// Why the audio was not written whole (a disk full, a drive gone), if it was not.
+    pub failure: Option<String>,
 }
 
 /// A slot of a deck's effect chain.
@@ -728,6 +736,8 @@ pub struct DeckSettingsDto {
     /// Name of the sound in each sampler slot.
     pub samples: Vec<Option<String>>,
     pub sampler_gain: f32,
+    /// Its size in beats: what its jumps go by, what its sized loop lasts.
+    pub size_beats: f64,
     /// The deck plays its input instead of its track.
     pub passthrough: bool,
     /// Its side of the crossfader.
@@ -860,6 +870,8 @@ pub struct MixerStateDto {
     pub talkover_depth_db: f32,
     /// The inputs of the running device the turntables leave free (0-based).
     pub free_inputs: Vec<usize>,
+    /// What was recorded last.
+    pub record_source: Option<RecordSourceDto>,
 }
 
 #[derive(Debug, Clone, Serialize)]

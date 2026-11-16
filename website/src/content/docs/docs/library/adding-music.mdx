@@ -7,8 +7,8 @@ sidebar:
 
 import { Steps, Aside } from '@astrojs/starlight/components';
 
-Prisme reads one folder: your system's **Music** folder, with everything under it. There is
-nothing to import and no list to build: copy tracks into that folder and they appear in the
+Prisme reads one folder: your system's **Music** folder, or another one you choose, with
+everything under it. There is nothing to import and no list to build: copy tracks into that folder and they appear in the
 library, then get their tempo, beat grid and key in the background.
 
 ## Where your music goes
@@ -28,6 +28,22 @@ Sub-folders are fine, as deep as you like: they show in the side panel of the li
   there: right-click **Music** in the Explorer, **Properties**, **Location** tab. Prisme follows
   wherever Windows says it is.
 </Aside>
+
+## Choosing another folder
+
+On a computer, **Settings** › **Library** › **Music folder** shows the folder Prisme reads.
+**Choose…** picks another one (a folder on an external drive or a NAS, say), **Reset** goes
+back to the system's **Music** folder. The choice is kept for the next start.
+
+The new folder is watched and scanned at once. The tracks of the folder you leave go out of the
+library, as deleted files do:
+
+- those you copied or moved into the new folder keep everything they had (analysis, cues, grid
+  and key corrections, crates, history) without being analysed again;
+- the others are forgotten, but for their cues, corrections and crate entries: if you choose
+  their folder again, they get them back, and are analysed again.
+
+On a phone the music folder is the system's, and cannot be changed.
 
 What is skipped:
 

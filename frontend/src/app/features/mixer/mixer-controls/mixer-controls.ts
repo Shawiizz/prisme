@@ -36,8 +36,8 @@ const LIVE_TEXTS: Record<LiveSource, Record<'label' | 'on' | 'cue' | 'level', Te
 };
 
 /**
- * What is set on the software mixer beside its channels, a row each: the master's balance and
- * the booth's level, the limiter, the crossfader's curve and sides, the headphones (blended or split),
+ * What is set on the software mixer beside its channels, a row each: the master's level and
+ * balance and the booth's level, the limiter, the crossfader's curve and sides, the headphones (blended or split),
  * and the microphone
  * and the aux line plugged in (each with its level, its key and its headphones).
  */
@@ -47,6 +47,15 @@ const LIVE_TEXTS: Record<LiveSource, Record<'label' | 'on' | 'cue' | 'level', Te
     <div class="row">
       <span>{{ 'Master' | t }}</span>
       <div class="knobs">
+        <app-knob
+          [small]="!PHONE"
+          label="LEVEL"
+          [labelTitle]="'Master level' | t"
+          [defaultValue]="1"
+          [format]="readouts.gain"
+          [value]="mixer.mainGain()"
+          (valueChange)="mixer.setMainGain($event)"
+        />
         <app-knob
           [small]="!PHONE"
           bipolar

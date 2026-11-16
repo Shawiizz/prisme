@@ -179,8 +179,8 @@ fn restart<T>(
     // a recording goes on, in a file of its own
     if let Some(Err(e)) = recorder.as_mut().map(|r| r.resume(state)) {
         error!("recording ended, not resumed: {e}");
-        if let Err(e) = recorder.take().map_or(Ok(()), |r| r.stop(state).map(drop)) {
-            error!("recording not ended: {e}");
+        if let Some(recorder) = recorder.take() {
+            recorder.stop(state);
         }
     }
     Ok((info, between))

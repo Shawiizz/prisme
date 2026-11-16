@@ -10,12 +10,14 @@ import {
 } from '@angular/core';
 import { getVersion } from '@tauri-apps/api/app';
 import { invoke } from '@tauri-apps/api/core';
+import { open } from '@tauri-apps/plugin-dialog';
 import { SettingsService } from '../../core/services/settings.service';
 import { EngineService } from '../../core/services/engine.service';
 import { PreferencesService } from '../../core/services/preferences.service';
 import { MixerService } from '../../core/services/mixer.service';
 import { UpdateService } from '../../core/services/update.service';
 import { StemsService } from '../../core/services/stems.service';
+import { LibraryService } from '../../core/services/library.service';
 import { NavigationService, SettingsCategory } from '../../core/services/navigation.service';
 import { AudioBackend, AudioSettings, BACKEND_NAMES, BUFFER_SIZES } from '../../core/models/audio';
 import { InputChannels, LiveSource, MAX_DECKS, MixMode } from '../../core/models/engine';
@@ -32,6 +34,7 @@ import { SettingsSearch } from './settings-search';
 import { SettingControl, SettingRow } from './setting-row';
 import { SettingsIcon } from './settings-icon';
 import { decimal } from '../../shared/time';
+import { boothPairs } from '../../core/outputs';
 import { errorText } from '../../core/errors';
 import { Dismiss, overlay } from '../../shared/overlay';
 
@@ -97,6 +100,7 @@ export class SettingsDialog implements OnInit {
   protected readonly mixer = inject(MixerService);
   protected readonly updates = inject(UpdateService);
   protected readonly stems = inject(StemsService);
+  protected readonly library = inject(LibraryService);
   private readonly navigation = inject(NavigationService);
   protected readonly screens = inject(ScreensService);
   protected readonly search = inject(SettingsSearch);
@@ -144,23 +148,27 @@ export class SettingsDialog implements OnInit {
       ? `${help} ${t('Not heard on this device.')}`
       : `${help} ${t('Now on outputs {a}-{b}.', { a: first + 1, b: first + 2 })}`;
   });
-  /** The pairs the booth can take on the running device (the master has 1-2), with the one
-   * chosen. */
-  protected readonly boothPairs = computed(() => {
-    const pairs = new Set<number>();
-    for (let first = 2; first + 2 <= (this.mixer.outputChannels() ?? 0); first += 2)
-      pairs.add(first);
-    const chosen = this.mixer.booth();
-    if (chosen !== null) pairs.add(chosen);
-    return [...pairs].sort((a, b) => a - b);
-  });
+  /** The headphones' pair on the software mixer of the running device, which the booth
+   * cannot share. */
+  private readonly headphonesPair = computed(() =>
+    this.mixer.internal() ? this.mixer.headphonesInUse() : null,
+  );
+  /** The pairs the booth can take on the running device (the master has 1-2, the headphones
+   * theirs), with the one chosen. */
+  protected readonly boothPairs = computed(() =>
+    boothPairs(this.mixer.outputChannels() ?? 0, this.headphonesPair(), this.mixer.booth()),
+  );
   protected readonly boothHelp = computed(() => {
     const help = SETTING_BY_ID.get('mixing.booth')!.description();
     if (!this.mixer.internal() || this.mixer.outputChannels() === null) return help;
     const first = this.mixer.boothInUse();
     if (first !== null)
       return `${help} ${t('Now on outputs {a}-{b}.', { a: first + 1, b: first + 2 })}`;
-    return this.mixer.booth() === null ? help : `${help} ${t('Not on this device.')}`;
+    const chosen = this.mixer.booth();
+    if (chosen === null) return help;
+    return chosen === this.headphonesPair()
+      ? `${help} ${t('Not heard: the headphones are on outputs {a}-{b}.', { a: chosen + 1, b: chosen + 2 })}`
+      : `${help} ${t('Not on this device.')}`;
   });
   protected readonly micChoices = computed(() =>
     inputChoices(this.mixer.freeInputs(), this.mixer.aux().input, this.mixer.mic().input, true),
@@ -308,6 +316,17 @@ export class SettingsDialog implements OnInit {
 
   setLibrary(changes: Partial<LibraryPreferences>) {
     this.saved(this.preferences.updateLibrary(changes));
+  }
+
+  /** Asks for another music folder; nothing if cancelled. */
+  async chooseMusicFolder() {
+    const path = await open({ directory: true, title: t('Music folder') });
+    if (path) this.saved(this.library.setRoot(path));
+  }
+
+  /** Back to the system's music folder. */
+  systemMusicFolder() {
+    this.saved(this.library.setRoot(null));
   }
 
   /** A preference saving: what fails is told under the page. */

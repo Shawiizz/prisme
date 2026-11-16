@@ -164,8 +164,9 @@ pub fn run() {
             }
             app.manage(Controllers::new(open_json(data_dir.as_deref(), "controllers.json")));
             Controllers::keep_profiles_up_to_date(app.handle().clone());
-            let library =
-                Arc::new(LibraryService::open(app.handle(), data_dir.as_deref(), folders::music_root()));
+            let chosen = app.state::<AppState>().preferences.read(|p| p.library.music_folder.clone());
+            let root = folders::music_root(chosen.as_deref());
+            let library = Arc::new(LibraryService::open(app.handle(), data_dir.as_deref(), root));
             app.manage(library.clone());
             app.manage(TagWriter::start(app.handle().clone()));
             app.manage(preview::Previews::default());
@@ -254,6 +255,7 @@ pub fn run() {
             commands::decks::set_passthrough,
             commands::decks::set_repeat,
             commands::decks::set_tempo_range,
+            commands::decks::set_deck_size,
             commands::decks::set_key_shift,
             commands::fx::set_fx,
             commands::fx::set_fx_enabled,
@@ -321,6 +323,8 @@ pub fn run() {
             commands::edits::set_key,
             commands::edits::key_choices,
             commands::folders::music_root,
+            commands::folders::set_music_folder,
+            commands::recording::show_recording,
             commands::folders::list_dir,
             commands::library::library_progress,
             commands::library::library_in_memory,
@@ -399,9 +403,7 @@ pub fn run() {
                 let state = app.state::<AppState>();
                 let recorder = lock(&state.recorder).take();
                 if let Some(recorder) = recorder {
-                    if let Err(e) = recorder.stop(&state) {
-                        error!("recording not ended: {e}");
-                    }
+                    recorder.stop(&state);
                 }
                 app.state::<Controllers>().close_all();
                 app.state::<CrashRecovery>().closed_normally();

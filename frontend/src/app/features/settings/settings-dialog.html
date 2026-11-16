@@ -326,9 +326,18 @@
                     <option value="" [selected]="mixer.booth() === null">
                       {{ 'No booth' | t }}
                     </option>
-                    @for (first of boothPairs(); track first) {
-                      <option [value]="first" [selected]="mixer.booth() === first">
-                        {{ 'Outputs {a}-{b}' | t: { a: first + 1, b: first + 2 } }}
+                    @for (pair of boothPairs(); track pair.first) {
+                      <option
+                        [value]="pair.first"
+                        [selected]="mixer.booth() === pair.first"
+                        [disabled]="pair.taken"
+                      >
+                        {{
+                          pair.taken
+                            ? ('Outputs {a}-{b}: the headphones'
+                              | t: { a: pair.first + 1, b: pair.first + 2 })
+                            : ('Outputs {a}-{b}' | t: { a: pair.first + 1, b: pair.first + 2 })
+                        }}
                       </option>
                     }
                   </select>
@@ -543,6 +552,21 @@
               <h3 class="pr-label">{{ pageLabel('library') }}</h3>
             }
             <div class="pr-card">
+              @if (!PHONE) {
+                <app-setting-row id="library.musicFolder">
+                  <span class="pr-row__help music-folder">{{ library.root() }}</span>
+                  <div class="row-actions">
+                    @if (preferences.library().musicFolder) {
+                      <button class="pr-btn pr-btn--sm" (click)="systemMusicFolder()">
+                        {{ 'Reset' | t }}
+                      </button>
+                    }
+                    <button class="pr-btn pr-btn--sm" settingControl (click)="chooseMusicFolder()">
+                      {{ 'Choose…' | t }}
+                    </button>
+                  </div>
+                </app-setting-row>
+              }
               <app-setting-row id="library.tags">
                 <button
                   class="pr-switch"

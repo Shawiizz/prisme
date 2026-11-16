@@ -54,6 +54,7 @@ const DEFAULT_DECK: DeckSettings = {
   fx: DEFAULT_FX,
   samples: Array(SAMPLE_SLOTS).fill(null),
   samplerGain: 1,
+  sizeBeats: 4,
   passthrough: false,
   side: 'left',
   jogScratch: true,

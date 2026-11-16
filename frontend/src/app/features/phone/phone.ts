@@ -13,26 +13,31 @@ import { SettingsService } from '../../core/services/settings.service';
 import { Text, t } from '../../core/i18n/i18n';
 import { TPipe } from '../../core/i18n/t.pipe';
 import { errorText } from '../../core/errors';
+import { storeChoice, storedChoice } from '../../core/stored';
 import { decimal, formatClock } from '../../shared/time';
 import { CommandPalette } from '../command-palette/command-palette';
 import { PhoneDecks } from './phone-decks';
 import { PhoneLibrary } from './phone-library';
+import { PhoneRecord } from './phone-record';
 import { PhoneSettings } from './phone-settings';
 
 type Tab = 'decks' | 'library' | 'settings';
+
+/** Where the choice of the controls key is kept. */
+const TOUCH_KEY = 'prisme.phone.touch';
 
 /**
  * Prisme on a phone: the decks, the library and the settings, a screen each. The decks
  * follow what is plugged in: a controller, or records through a sound card, and they only
  * show what is read from afar; nothing, and their controls come under the thumbs (the key
- * at the top says otherwise).
+ * at the top says otherwise, kept from one start to the next).
  */
 @Component({
   selector: 'app-phone',
   templateUrl: './phone.html',
   styleUrl: './phone.scss',
   host: { '[class.android]': 'ANDROID' },
-  imports: [CommandPalette, PhoneDecks, PhoneLibrary, PhoneSettings, TPipe],
+  imports: [CommandPalette, PhoneDecks, PhoneLibrary, PhoneRecord, PhoneSettings, TPipe],
 })
 export class Phone {
   protected readonly ANDROID = ANDROID;
@@ -44,6 +49,8 @@ export class Phone {
   private readonly controllers = inject(ControllerService);
 
   protected readonly tab = signal<Tab>('decks');
+  /** The choice of what to record is open. */
+  protected readonly recordMenu = signal(false);
   protected readonly tabs: { id: Tab; label: Text }[] = [
     {
       id: 'decks',
@@ -74,7 +81,7 @@ export class Phone {
       this.engine.deckIndexes().some((d) => this.engine.decks()[d].vinylEnabled),
   );
   /** What the DJ chose instead, with the key at the top. */
-  private readonly chosen = signal<boolean | null>(null);
+  private readonly chosen = signal(storedChoice(TOUCH_KEY));
   protected readonly touch = computed(() => this.chosen() ?? !this.hardware());
 
   protected readonly clock = formatClock;
@@ -102,13 +109,8 @@ export class Phone {
   }
 
   protected toggleTouch() {
-    this.chosen.set(!this.touch());
-  }
-
-  /** Records what the phone offers first: the master of its software mixer, else the first
-   * inputs of its sound card (a hardware mixer's record out). */
-  protected record() {
-    const [first] = this.recording.options();
-    if (first) this.recording.start(first.source);
+    const touch = !this.touch();
+    this.chosen.set(touch);
+    storeChoice(TOUCH_KEY, touch);
   }
 }

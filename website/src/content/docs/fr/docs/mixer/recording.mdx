@@ -19,10 +19,11 @@ votre carte son depuis la sortie d’enregistrement de la table.
 1. Cliquez sur **Enregistrer** dans la barre de titre. Le bouton est grisé tant que l’audio est
    arrêté.
 
-2. Choisissez ce qu’il faut enregistrer 
-   - **Master**  ce que joue la table logicielle (proposé seulement avec la table logicielle).
-   - **Entrées 1-2**, **Entrées 3-4**…  ce qui arrive sur cette paire d’entrées de votre carte son.
-     Branchez-y la sortie d’enregistrement de votre table.
+2. Choisissez ce qu’il faut enregistrer :
+   - **Master** : ce que joue la table logicielle (proposé seulement avec la table logicielle).
+   - **Entrées 1-2**, **Entrées 3-4**… : ce qui arrive sur cette paire d’entrées de votre carte son.
+     Branchez-y la sortie d’enregistrement de votre table. Une paire sur laquelle arrive une platine
+     s’affiche **Entrées 1-2 : une platine** : elle enregistrerait le timecode du disque.
 
 3. Le bouton passe au rouge et compte le temps. Mixez comme d’habitude.
 
@@ -31,18 +32,35 @@ votre carte son depuis la sortie d’enregistrement de la table.
 
 </Steps>
 
-Survolez ensuite **Enregistrer** pour voir où est parti le dernier enregistrement, combien de temps il
-a duré et combien de morceaux il contient.
+## À l’arrêt
 
-Sur un téléphone, **Enregistrer** en haut de l’écran enregistre directement le master (ou les entrées
-1-2 avec une table externe). Depuis un contrôleur ou la palette de commandes, **Enregistrer le mix**
-lance et arrête un enregistrement du master.
+Quelle que soit la façon dont un enregistrement se termine (depuis **Enregistrer**, un contrôleur ou
+la palette, l’interface audio perdue, ou Prisme fermé), un message en bas de la fenêtre indique où
+il est parti : **Mix enregistré :** et le nom du fichier, puis sa durée, en combien de fichiers
+s’il a été découpé, et le nom de sa tracklist. **Afficher dans le dossier** ouvre le dossier dans le
+gestionnaire de fichiers du système (l’Explorateur, le Finder, ou celui de votre bureau Linux), le
+fichier sélectionné quand c’est possible. Le message disparaît tout seul au bout de 15 secondes.
 
-<Aside type="caution">
-**Enregistrer le mix** depuis un contrôleur ou la palette enregistre toujours le master de la table
-logicielle. Avec une table externe, lancez plutôt l’enregistrement depuis **Enregistrer** et
-choisissez les entrées de votre table.
-</Aside>
+Sur un téléphone, qui n’affiche pas de dossiers, le message indique plutôt dans quel dossier se
+trouve l’enregistrement.
+
+Si le disque s’est rempli ou que le lecteur a disparu pendant l’enregistrement, le message indique
+**Mix interrompu, enregistré jusque-là :** avec la raison : le fichier contient ce qui a été écrit
+jusque-là. Si la tracklist n’a pas pu être écrite, il le dit aussi.
+
+Survolez ensuite **Enregistrer** pour revoir où est parti le dernier enregistrement, combien de
+temps il a duré et combien de morceaux il contient.
+
+Sur un téléphone, **Enregistrer** en haut de l’écran ouvre le même choix, chaque source avec ce
+qu’elle contient.
+
+Depuis un contrôleur ou la palette de commandes, **Enregistrer le mix** lance et arrête un
+enregistrement sans demander. Il enregistre ce que vous avez enregistré la dernière fois, si c’est
+toujours là et qu’aucune platine n’y arrive désormais, sinon le master de la table logicielle. Avec
+une table externe, rien n’est choisi tant que vous n’avez pas enregistré une fois ses entrées depuis
+**Enregistrer** : d’ici là, **Enregistrer le mix** n’enregistre rien et le dit (**Rien à enregistrer
+sans demander : choisissez les entrées de votre table dans le menu Enregistrer**), plutôt que
+d’enregistrer du silence ou un timecode. Votre choix est gardé pour le prochain démarrage.
 
 ## Ce qui est enregistré
 
@@ -54,11 +72,11 @@ enregistrés.
 
 Les **Entrées** enregistrent exactement ce qui arrive sur cette paire, au niveau qu’envoie votre table.
 Réglez la sortie d’enregistrement ou de cabine de votre table pour que ses crêtes les plus fortes
-restent sous le maximum  Prisme ne la limite pas.
+restent sous le maximum : Prisme ne la limite pas.
 
 <Aside type="caution">
-Ne choisissez pas la paire d’entrées sur laquelle une platine est branchée  vous enregistreriez son
-signal timecode. Les platines utilisent les entrées 1-2 pour le deck A et 3-4 pour le deck B.
+Ne choisissez pas une paire d’entrées marquée **une platine** : vous enregistreriez son signal
+timecode. Les platines utilisent les entrées 1-2 pour le deck A et 3-4 pour le deck B.
 </Aside>
 
 ## Le fichier

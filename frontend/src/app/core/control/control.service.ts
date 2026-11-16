@@ -379,7 +379,7 @@ export class ControlService {
     setJogScratch: (deck, on) => this.engine.setJogScratch(deck, on),
     jogScratching: (deck) => this.engine.decks()[deck].jogScratch,
     toggleRecording: () =>
-      this.recordings.status() ? this.recordings.stop() : this.recordings.start({ kind: 'master' }),
+      this.recordings.status() ? this.recordings.stop() : this.recordings.startPreferred(),
     recording: () => this.recordings.status() !== null,
     setHeadphonesLevel: (position) => this.mixer.setHeadphoneGain(position * MAX_HEADPHONE_GAIN),
     headphonesLevelPosition: () => this.mixer.headphoneGain() / MAX_HEADPHONE_GAIN,

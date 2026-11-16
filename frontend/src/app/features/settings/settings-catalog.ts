@@ -258,6 +258,15 @@ const ALL_SETTINGS: readonly SettingEntry[] = [
       t('A track loaded onto a deck that plays is refused with a word, rather than asked about.'),
   },
   {
+    id: 'library.musicFolder',
+    page: 'library',
+    label: () => t('Music folder'),
+    description: () =>
+      t(
+        'Where Prisme finds and analyses your tracks. Another one is scanned at once; the tracks of the one before leave the library, their cues kept for when they come back.',
+      ),
+  },
+  {
     id: 'library.tags',
     page: 'library',
     label: () => t('Write the tempo and key into the tags of the files'),

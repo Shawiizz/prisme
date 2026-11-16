@@ -271,3 +271,64 @@ fn a_duplicate_deleted_does_not_hide_the_track_that_stays() {
     assert_eq!(db.cues(&renamed).unwrap().len(), 1);
     std::fs::remove_dir_all(root).ok();
 }
+
+/// Tells which folders were left.
+#[derive(Default)]
+struct Leaving {
+    collector: Collector,
+    left: Mutex<Vec<PathBuf>>,
+}
+
+impl AnalysisListener for Leaving {
+    fn track_analyzed(&self, record: &TrackRecord) {
+        self.collector.track_analyzed(record);
+    }
+    fn progress(&self, progress: AnalysisProgress) {
+        self.collector.progress(progress);
+    }
+    fn left(&self, folders: &[PathBuf]) {
+        self.left.lock().unwrap().extend_from_slice(folders);
+    }
+}
+
+#[test]
+fn the_tracks_of_a_music_folder_left_follow_into_the_new_one_or_are_forgotten() {
+    let base = std::env::temp_dir().join(format!("prisme-analyzer-left-{}", std::process::id()));
+    let (old, new, elsewhere) = (base.join("Music"), base.join("Drive/Music"), base.join("Downloads"));
+    for dir in [&old, &new, &elsewhere] {
+        std::fs::create_dir_all(dir).unwrap();
+    }
+    let (copied, stays, loaded) =
+        (old.join("copied.wav"), old.join("stays.wav"), elsewhere.join("loaded.wav"));
+    write_kicks(&copied, 124.0, 10.0);
+    write_kicks(&stays, 128.0, 11.0);
+    write_kicks(&loaded, 130.0, 12.0);
+    let db = Arc::new(LibraryDb::open_in_memory().unwrap());
+    run(&db, &old);
+    run(&db, &elsewhere);
+    db.save_cue(&copied, &Cue::point(CueSlot::Hot(0), 2.0)).unwrap();
+    db.save_cue(&stays, &Cue::point(CueSlot::Hot(0), 3.0)).unwrap();
+    let copy = new.join("copied.wav");
+    std::fs::copy(&copied, &copy).unwrap();
+
+    let listener = Arc::new(Leaving::default());
+    BackgroundAnalyzer::leaving(
+        db.clone(),
+        new.clone(),
+        vec![old.clone()],
+        2,
+        AnalysisOptions::default(),
+        listener.clone(),
+    )
+    .wait();
+
+    assert_eq!(*listener.left.lock().unwrap(), std::slice::from_ref(&old));
+    let progress = *listener.collector.progress.lock().unwrap().last().unwrap();
+    assert_eq!(progress.total, 0, "the copy keeps the analysis it had");
+    assert_eq!(db.cues(&copy).unwrap().len(), 1);
+    assert_eq!(db.get(&copied).unwrap(), None);
+    assert_eq!(db.get(&stays).unwrap(), None, "forgotten with the folder");
+    assert_eq!(db.cues(&stays).unwrap().len(), 1, "its cues wait for its audio");
+    assert!(db.get(&loaded).unwrap().is_some(), "a track from neither folder stays");
+    std::fs::remove_dir_all(base).ok();
+}

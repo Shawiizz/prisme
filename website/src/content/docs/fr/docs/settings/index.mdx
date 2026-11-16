@@ -71,7 +71,7 @@ Votre table de mixage ou celle de Prisme, et la façon dont elle sonne. Voir
 | --- | --- | --- |
 | **Mixage** | **Table de mixage externe : deck A sur les sorties 1-2, deck B sur 3-4**, chaque deck sur sa propre voie d’une table de mixage ; ou **Table de mixage logicielle : master sur les sorties 1-2**. Une table externe prend une paire de sorties par deck. Attend **Appliquer**. | Table externe sur ordinateur, table logicielle sur téléphone |
 | **Casque** | Où la table logicielle joue les decks en pré-écoute : **Automatique**, une paire de sorties (**Sorties 3-4**…), ou **Pas de casque**. Automatique prend les sorties 3-4 d’une interface DJ, jamais les canaux surround d’un ordinateur. Avec une table externe, seul le morceau pré-écouté depuis la bibliothèque y joue, sur une paire qu’aucun deck n’utilise. La ligne indique où le casque se fait entendre en ce moment. | Automatique |
-| **Retour cabine** | Les retours cabine : le master sur une paire à lui, à son propre niveau. Affiché quand le périphérique a une paire de libre. | **Pas de retour cabine** |
+| **Retour cabine** | Les retours cabine : le master sur une paire à lui, à son propre niveau. La paire du casque n’est pas proposée. Affiché quand le périphérique a une paire de libre. | **Pas de retour cabine** |
 | **Micro** | L’entrée d’un micro, parmi celles que les platines laissent libres, mélangée au master ; sa touche est à côté du crossfader. Entendu au casque seulement s’il y est mis en pré-écoute. | **Aucune** |
 | **Ligne aux** | Un téléphone, une platine CD ou une seconde table de mixage sur une paire d’entrées libre, mélangée au master. | **Aucune** |
 | **Talkover** | Quand le micro est ouvert avec **TALK**, la musique baisse de **−6 dB**, **−12 dB**, **−18 dB** ou **−24 dB**. | −18 dB |
@@ -104,6 +104,7 @@ et [Stems](/fr/docs/sound/stems/).
 
 | Réglage | Effet | Par défaut |
 | --- | --- | --- |
+| **Dossier de musique** | Ordinateur seulement. Là où Prisme trouve et analyse vos morceaux, affiché sous le nom. **Choisir…** en prend un autre, parcouru aussitôt ; les morceaux du précédent quittent la bibliothèque, leurs cues gardés pour leur retour. **Rétablir** revient à celui du système. Voir [Ajouter votre musique](/fr/docs/library/adding-music/#choisir-un-autre-dossier). | Le dossier **Musique** du système |
 | **Écrire le tempo et la tonalité dans les tags des fichiers** | Pour que Serato, rekordbox et les autres les retrouvent. | Activé sur ordinateur, désactivé sur téléphone |
 | **Remplacer ceux écrits par un autre logiciel** | Un tempo ou une tonalité que Mixed In Key ou un autre logiciel a mis dans un fichier est conservé, sauf si ce réglage est activé. Affiché quand le réglage précédent est activé. | Désactivé |
 | **Mettre l’analyse de la bibliothèque en pause quand un deck joue** | Le processeur et le disque restent au son pendant un set. Un morceau copié entre-temps est analysé une fois les decks arrêtés, ou à son chargement. | Activé |
@@ -165,8 +166,8 @@ conservés pour le prochain démarrage :
 
 | Où | Quoi | Par défaut |
 | --- | --- | --- |
-| Chaque deck | **KEY LOCK** ; dans son menu d’options, le fader start et sa propre plage de fader de tempo | Désactivé, désactivé, la plage générale |
-| Le sampler | Le son de chaque emplacement | Vide |
+| Chaque deck | **KEY LOCK** ; dans son menu d’options, le fader start et sa propre plage de fader de tempo ; sa taille pour les sauts et la boucle de cette taille | Désactivé, désactivé, la plage générale, 4 temps |
+| Le sampler | Le son de chaque emplacement, et le **VOL** de chaque deck | Vide, 100 % |
 | La table de mixage logicielle | Mix et niveau du casque, casque séparé, crossfader inversé, niveau du master, balance, niveau du retour cabine, niveaux du micro et de l’aux, talkover | Cue seul, séparé désactivé, inversion désactivée, talkover désactivé |
 | Auto DJ | La durée d’un enchaînement | 16 temps, ou 10 s entre les morceaux sans grille rythmique |
 | La bibliothèque | Les colonnes affichées | Toutes |

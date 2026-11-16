@@ -163,24 +163,7 @@ pub fn export_controller_profile(
 pub fn open_controller_profiles_folder() -> AppResult<()> {
     let folder = controller_profiles::own_folder().ok_or_else(|| AppError::Other("no data folder".into()))?;
     std::fs::create_dir_all(&folder)?;
-    reveal(&folder)
-}
-
-#[cfg(desktop)]
-fn reveal(folder: &std::path::Path) -> AppResult<()> {
-    #[cfg(target_os = "windows")]
-    let manager = "explorer";
-    #[cfg(target_os = "macos")]
-    let manager = "open";
-    #[cfg(not(any(target_os = "windows", target_os = "macos")))]
-    let manager = "xdg-open";
-    std::process::Command::new(manager).arg(folder).spawn()?;
-    Ok(())
-}
-
-#[cfg(mobile)]
-fn reveal(_folder: &std::path::Path) -> AppResult<()> {
-    Err(AppError::Other("a phone shows no folders".into()))
+    Ok(crate::folders::show(&folder)?)
 }
 
 fn profiles_dto(library: &controller_profiles::Library) -> ControllerProfilesDto {

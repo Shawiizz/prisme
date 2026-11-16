@@ -23,6 +23,8 @@ export interface DjPreferences {
 }
 
 export interface LibraryPreferences {
+  /** The music folder chosen (`null`: the system's); changed with `set_music_folder`. */
+  musicFolder: string | null;
   lastFolder: string | null;
   /** Columns of the track list the DJ hid. */
   hiddenColumns: string[];

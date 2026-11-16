@@ -1,12 +1,13 @@
 //! What the user chooses once and finds again at the next start.
 
 use crate::dto::{
-    AudioSettings, CrossfaderCurveDto, HeadphonesOutputDto, InputChannelsDto, MixModeDto, RpmDto,
-    VinylModeDto,
+    AudioSettings, CrossfaderCurveDto, HeadphonesOutputDto, InputChannelsDto, MixModeDto, RecordSourceDto,
+    RpmDto, VinylModeDto,
 };
 use prisme_engine::MAX_DECKS;
 use serde::{Deserialize, Deserializer, Serialize};
 use std::collections::BTreeMap;
+use std::ops::RangeInclusive;
 
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 #[serde(default, rename_all = "camelCase")]
@@ -42,7 +43,7 @@ fn decks_of<'de, D: Deserializer<'de>>(file: D) -> Result<[DeckPreferences; MAX_
     Ok(std::array::from_fn(|_| saved.next().unwrap_or_default()))
 }
 
-#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(default, rename_all = "camelCase")]
 pub struct DeckPreferences {
     pub vinyl_enabled: bool,
@@ -64,6 +65,52 @@ pub struct DeckPreferences {
     pub pitch_range: Option<f64>,
     /// Sound file in each sampler slot.
     pub samples: Vec<Option<String>>,
+    /// The level of the deck's sampler (linear).
+    pub sampler_gain: f32,
+    /// The deck's size in beats: what its jumps go by, what its sized loop lasts.
+    pub size_beats: f64,
+}
+
+impl DeckPreferences {
+    /// The sizes a deck can have, in beats.
+    pub const SIZE_BEATS: RangeInclusive<f64> = 1.0 / 16.0..=64.0;
+    const DEFAULT_SIZE_BEATS: f64 = 4.0;
+
+    /// The deck's size, the default if the file holds one out of reach.
+    pub fn size(&self) -> f64 {
+        if Self::SIZE_BEATS.contains(&self.size_beats) {
+            self.size_beats
+        } else {
+            Self::DEFAULT_SIZE_BEATS
+        }
+    }
+
+    /// The level of the deck's sampler, unity if the file holds none that can be.
+    pub fn sampler_level(&self) -> f32 {
+        if self.sampler_gain.is_finite() && self.sampler_gain >= 0.0 {
+            self.sampler_gain
+        } else {
+            1.0
+        }
+    }
+}
+
+impl Default for DeckPreferences {
+    fn default() -> Self {
+        Self {
+            vinyl_enabled: false,
+            vinyl_mode: VinylModeDto::default(),
+            rpm: RpmDto::default(),
+            lead_in_s: None,
+            swap_channels: false,
+            key_lock: false,
+            fader_start: false,
+            pitch_range: None,
+            samples: Vec::new(),
+            sampler_gain: 1.0,
+            size_beats: Self::DEFAULT_SIZE_BEATS,
+        }
+    }
 }
 
 /// What SYNC does on a record in relative mode.
@@ -208,6 +255,8 @@ pub struct MixerPreferences {
     /// While the microphone is on, the music ducks by [`MixerPreferences::talkover_depth_db`].
     pub talkover: bool,
     pub talkover_depth_db: f32,
+    /// What was recorded last: what a recording started without asking takes again.
+    pub record_source: Option<RecordSourceDto>,
 }
 
 /// Where a live source comes in, and how loud. Off again at each start.
@@ -245,6 +294,7 @@ impl Default for MixerPreferences {
             aux: LivePreferences::default(),
             talkover: false,
             talkover_depth_db: -18.0,
+            record_source: None,
         }
     }
 }
@@ -252,6 +302,8 @@ impl Default for MixerPreferences {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(default, rename_all = "camelCase")]
 pub struct LibraryPreferences {
+    /// The music folder chosen, else the system's (see `folders::music_root`).
+    pub music_folder: Option<String>,
     pub last_folder: Option<String>,
     /// Columns of the track list the DJ hid (frontend ids).
     pub hidden_columns: Vec<String>,
@@ -294,6 +346,7 @@ impl LibraryPreferences {
 impl Default for LibraryPreferences {
     fn default() -> Self {
         Self {
+            music_folder: None,
             last_folder: None,
             hidden_columns: Vec::new(),
             // a phone lets an application read the music of the others, not rewrite it
@@ -323,6 +376,7 @@ mod tests {
         assert!(p.library.write_tags);
         assert!(!p.library.replace_tags);
         assert!(p.library.pause_while_playing);
+        assert_eq!(p.library.music_folder, None, "the system's music folder");
         assert_eq!(p.library.separate_on_load, None);
         assert_eq!(p.auto_dj, AutoDjPreferences { fade_beats: 16, fade_s: 10.0 });
         assert!(!p.dj.cue_on_load, "the headphones stay where they are at a load");
@@ -348,6 +402,7 @@ mod tests {
         assert!(!p.mixer.split_cue, "the headphones blend unless split");
         assert!(!p.mixer.crossfader_reverse);
         assert_eq!(p.mixer.talkover_depth_db, -18.0);
+        assert_eq!(p.mixer.record_source, None, "nothing recorded yet");
     }
 
     #[test]
@@ -379,6 +434,17 @@ mod tests {
         assert_eq!(p.decks[2], DeckPreferences::default());
         assert!(!p.decks[0].fader_start, "fader start is off unless chosen");
         assert_eq!(p.decks[0].pitch_range, None);
+        assert_eq!((p.decks[0].sampler_level(), p.decks[0].size()), (1.0, 4.0), "as before they were kept");
+    }
+
+    #[test]
+    fn a_size_or_a_sampler_level_out_of_reach_reads_as_the_default() {
+        let p: Preferences = serde_json::from_str(
+            r#"{ "decks": [{ "sizeBeats": 0, "samplerGain": -1 }, { "sizeBeats": 0.0625, "samplerGain": 0 }] }"#,
+        )
+        .unwrap();
+        assert_eq!((p.decks[0].size(), p.decks[0].sampler_level()), (4.0, 1.0));
+        assert_eq!((p.decks[1].size(), p.decks[1].sampler_level()), (0.0625, 0.0));
     }
 
     #[test]
@@ -428,11 +494,15 @@ mod tests {
             fader_start: true,
             pitch_range: Some(0.5),
             samples: vec![Some("C:/Samples/horn.wav".into()), None],
+            sampler_gain: 0.5,
+            size_beats: 0.25,
         };
+        p.library.music_folder = Some("D:/Music".into());
         p.library.last_folder = Some("C:/Music/House".into());
         p.mixer.booth = Some(4);
         p.auto_dj = AutoDjPreferences { fade_beats: 32, fade_s: 15.0 };
         p.mixer.split_cue = true;
+        p.mixer.record_source = Some(RecordSourceDto::Input { first: 4 });
         p.mixer.crossfader_reverse = true;
         p.mixer.mic =
             LivePreferences { input: Some(InputChannelsDto { first: 4, stereo: false }), level: 0.5 };

@@ -160,6 +160,8 @@ pub struct DeckSettings {
     pub strip: ChannelStripDto,
     pub fx: FxChainDto,
     pub sampler_gain: f32,
+    /// Its size in beats: what its jumps go by, what its sized loop lasts.
+    pub size_beats: f64,
     /// The deck plays its input instead of its track.
     pub passthrough: bool,
     /// Its side of the crossfader, if the DJ chose another than its letter's.
@@ -188,7 +190,8 @@ impl From<DeckPreferences> for DeckSettings {
             pitch_range: p.pitch_range,
             strip: ChannelStripDto::default(),
             fx: FxChainDto::default(),
-            sampler_gain: 1.0,
+            sampler_gain: p.sampler_level(),
+            size_beats: p.size(),
             passthrough: false,
             side: None,
             jog_scratch: true,

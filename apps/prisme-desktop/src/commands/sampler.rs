@@ -77,9 +77,14 @@ pub fn stop_sample(state: State<'_, AppState>, deck: usize, slot: usize) -> AppR
     state.send(Command::StopSample { deck, slot })
 }
 
+/// The level of the deck's sampler; kept for the next start.
 #[tauri::command]
 pub fn set_sampler_gain(state: State<'_, AppState>, deck: usize, gain: f32) -> AppResult<()> {
     AppState::check_deck(deck)?;
+    if !(gain.is_finite() && gain >= 0.0) {
+        return Err(AppError::Other("a sampler level is a gain of 0 or more".into()));
+    }
     lock(&state.decks)[deck].sampler_gain = gain;
+    state.update_preferences(|p| p.decks[deck].sampler_gain = gain);
     state.send_if_running(Command::SetSamplerGain { deck, gain })
 }
