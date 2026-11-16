@@ -149,7 +149,18 @@ export class ControlService {
     setFxMix: (deck, slot, position) => this.fx.setMix(deck, slot, position),
     setFxAmount: (deck, slot, position) => this.fx.setAmount(deck, slot, position),
     fxAmountPosition: (deck, slot) => this.fx.settings(deck, slot).amount,
+    setFxAmounts: (deck, position) => this.fx.setAmounts(deck, position),
+    setFxParam2: (deck, slot, position) => this.fx.setParam2(deck, slot, position),
+    fxParam2Position: (deck, slot) => this.fx.settings(deck, slot).param2,
     scaleFxBeats: (deck, slot, factor) => this.fx.scaleBeats(deck, slot, factor),
+    setFxBeats: (deck, slot, beats) => this.fx.setBeats(deck, slot, beats),
+    fxBeats: (deck, slot) => this.fx.settings(deck, slot).beats,
+    setFxKind: (deck, slot, kind) => this.fx.setKind(deck, slot, kind),
+    fxKind: (deck, slot) => this.fx.settings(deck, slot).kind,
+    fxFocused: (deck) => this.fx.focused(deck),
+    toggleFxFocus: (deck, slot) => this.fx.toggleFocus(deck, slot),
+    setFxChainOn: (deck, on) => this.fx.setChainEnabled(deck, on),
+    fxChainOn: (deck) => this.fx.chain(deck).enabled,
     setKill: (deck, band, kill) => this.mixer.setKill(deck, band, kill),
     killed: (deck, band) => this.mixer.strip(deck).kills[BANDS.indexOf(band)],
     roll: (deck, beats) => {
@@ -329,7 +340,7 @@ export class ControlService {
       if (bpm !== null)
         this.trackEdit.editGrid(deck, { kind: 'bpm', bpm: Math.round(bpm * 100) / 100 });
     },
-    holdFx: (deck, held) => this.fx.setEnabled(deck, 0, held),
+    holdFx: (deck, slot, held) => this.fx.setEnabled(deck, slot, held),
     holdSlip: (deck, held) => this.performance.setSlip(deck, held),
     toggleFilter: (deck) => {
       const aside = this.filtersAside.get(deck);

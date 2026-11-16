@@ -1,5 +1,6 @@
 //! Repeats on the beat: echo (both sides together) and ping-pong (alternating sides).
-//! Each repeat goes through a gentle low-pass, so that it gets duller, like tape.
+//! Each repeat goes through a gentle low-pass, so that it gets duller, like tape; the second
+//! knob is its tone, duller turned down, untouched at the top.
 
 use super::delay::DelayBuffer;
 use super::Params;
@@ -7,7 +8,7 @@ use crate::smooth::Smoothed;
 
 const MAX_DELAY_S: f32 = 4.0;
 const MAX_FEEDBACK: f32 = 0.92;
-/// Darkening of each repeat (one-pole coefficient).
+/// Darkening of each repeat (one-pole coefficient), with the tone in the middle.
 const TAPE: f32 = 0.35;
 /// The delay follows tempo changes over this time (a glide, not a jump).
 const DELAY_GLIDE_S: f32 = 0.05;
@@ -34,12 +35,13 @@ impl Echo {
 
     pub fn process(&mut self, stereo: &mut [f32], p: &Params) {
         let feedback = p.amount * MAX_FEEDBACK;
+        let pass = tape_pass(p);
         set_delay(&mut self.delay, p, self.buffer.capacity());
         for frame in stereo.chunks_exact_mut(2) {
             // read before writing: the newest frame in the buffer is already one frame old
             let delayed = self.buffer.read(self.delay.tick() - 1.0);
             for (tone, d) in self.tone.iter_mut().zip(delayed) {
-                *tone += (d - *tone) * (1.0 - TAPE);
+                *tone += (d - *tone) * pass;
             }
             self.buffer.push([frame[0] + self.tone[0] * feedback, frame[1] + self.tone[1] * feedback]);
             frame[0] = delayed[0];
@@ -71,12 +73,13 @@ impl PingPong {
 
     pub fn process(&mut self, stereo: &mut [f32], p: &Params) {
         let feedback = p.amount * MAX_FEEDBACK;
+        let pass = tape_pass(p);
         set_delay(&mut self.delay, p, self.buffer.capacity());
         for frame in stereo.chunks_exact_mut(2) {
             // read before writing: the newest frame in the buffer is already one frame old
             let delayed = self.buffer.read(self.delay.tick() - 1.0);
             for (tone, d) in self.tone.iter_mut().zip(delayed) {
-                *tone += (d - *tone) * (1.0 - TAPE);
+                *tone += (d - *tone) * pass;
             }
             let mono = (frame[0] + frame[1]) * 0.5;
             // each side feeds the other
@@ -85,6 +88,11 @@ impl PingPong {
             frame[1] = delayed[1];
         }
     }
+}
+
+/// How much of each repeat goes through the tape's low-pass.
+fn tape_pass(p: &Params) -> f32 {
+    1.0 - TAPE * 2.0 * (1.0 - p.param2)
 }
 
 fn set_delay(delay: &mut Smoothed, p: &Params, capacity: usize) {

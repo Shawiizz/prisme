@@ -4,6 +4,7 @@ import {
   CrossfaderSide,
   EFFECT_KINDS,
   EffectKind,
+  FX_BEATS,
   FX_SLOTS,
   MAX_DECKS,
   HOT_CUES,
@@ -116,8 +117,26 @@ export interface ControlActions {
   /** The slot's main knob (feedback, room size, depth: see each effect). */
   setFxAmount(deck: number, slot: number, position: number): void;
   fxAmountPosition(deck: number, slot: number): number;
+  /** The three slots' amounts at once (Mixxx's super knob). */
+  setFxAmounts(deck: number, position: number): void;
+  /** The slot's second knob (tone, resonance...: see each effect). */
+  setFxParam2(deck: number, slot: number, position: number): void;
+  fxParam2Position(deck: number, slot: number): number;
   /** Multiplies the slot's period by `factor`. */
   scaleFxBeats(deck: number, slot: number, factor: number): void;
+  /** The slot's period, in beats. */
+  setFxBeats(deck: number, slot: number, beats: number): void;
+  fxBeats(deck: number, slot: number): number;
+  /** Another effect in the slot, on or off as it was. */
+  setFxKind(deck: number, slot: number, kind: EffectKind): void;
+  fxKind(deck: number, slot: number): EffectKind;
+  /** The slot the effect knobs are on (Mixxx's focused effect), or none. */
+  fxFocused(deck: number): number | null;
+  /** Focuses the slot, or lets it go if it is focused. */
+  toggleFxFocus(deck: number, slot: number): void;
+  /** The deck's whole chain on or off, each slot keeping its own switch. */
+  setFxChainOn(deck: number, on: boolean): void;
+  fxChainOn(deck: number): boolean;
   /** Cuts a band of the deck's EQ, or brings it back. */
   setKill(deck: number, band: Band, kill: boolean): void;
   killed(deck: number, band: Band): boolean;
@@ -271,8 +290,8 @@ export interface ControlActions {
   stretchGrid(deck: number, steps: number): void;
   /** One tap of the tempo: the track's tempo once there are enough. */
   tapTempo(deck: number): void;
-  /** The deck's first effect on while held. */
-  holdFx(deck: number, held: boolean): void;
+  /** An effect of the deck on while held. */
+  holdFx(deck: number, slot: number, held: boolean): void;
   /** Slip on while held. */
   holdSlip(deck: number, held: boolean): void;
   /** The filter left where it is but heard or not. */
@@ -392,6 +411,36 @@ function fader(
 }
 
 /**
+ * A fader over a few steps (the effects, the periods), each an equal part of its travel. Its
+ * position is the one it was last given while that still gives the step in use: a
+ * controller's fader moving within a step keeps it.
+ */
+function stepped<T>(
+  id: string,
+  group: string,
+  label: string,
+  steps: readonly T[],
+  current: () => T,
+  set: (step: T) => void,
+): Control {
+  let given: number | null = null;
+  const at = (v: number) => Math.min(Math.max(Math.floor(v * steps.length), 0), steps.length - 1);
+  return fader(
+    id,
+    group,
+    label,
+    (v) => {
+      given = v;
+      if (steps[at(v)] !== current()) set(steps[at(v)]);
+    },
+    () => {
+      const step = Math.max(steps.indexOf(current()), 0);
+      return given !== null && at(given) === step ? given : (step + 0.5) / steps.length;
+    },
+  );
+}
+
+/**
  * A control the backend performs itself, straight from the controller (the jog wheels and
  * tempo faders, `controller_direct.rs`): listed to be mapped, never applied here.
  */
@@ -451,11 +500,21 @@ function switched(
   ];
 }
 
-/** The controls of a slot of a deck's effect chain: `deck1.fx…` for the first, `deck1.fx2…`
- * and `deck1.fx3…` for the next. */
+/** The periods an effect's period fader goes through, in beats. */
+const FX_PERIODS = Array.from(
+  { length: Math.log2(FX_BEATS.max / FX_BEATS.min) + 1 },
+  (_, i) => FX_BEATS.min * 2 ** i,
+);
+
+/** The id of a control of a slot of a deck's effect chain: `deck1.fx…` for the first,
+ * `deck1.fx2…` and `deck1.fx3…` for the next. */
+const fxId = (deck: number, slot: number, name: string) =>
+  `deck${deck + 1}.${slot === 0 ? 'fx' : `fx${slot + 1}`}${name}`;
+
+/** The controls of a slot of a deck's effect chain. */
 function fxControls(a: ControlActions, deck: number, slot: number, group: string): Control[] {
   const n = slot + 1;
-  const id = (name: string) => `deck${deck + 1}.${slot === 0 ? 'fx' : `fx${n}`}${name}`;
+  const id = (name: string) => fxId(deck, slot, name);
   return [
     lit(
       button(id(''), group, t('Effect {n} on / off', { n }), () => a.toggleFx(deck, slot)),
@@ -498,6 +557,13 @@ function fxControls(a: ControlActions, deck: number, slot: number, group: string
       (v) => a.setFxAmount(deck, slot, v),
       () => a.fxAmountPosition(deck, slot),
     ),
+    fader(
+      id('.param2'),
+      group,
+      t('Effect {n} second knob (tone, resonance… as the effect has)', { n }),
+      (v) => a.setFxParam2(deck, slot, v),
+      () => a.fxParam2Position(deck, slot),
+    ),
     {
       id: id('.beats'),
       group,
@@ -505,6 +571,83 @@ function fxControls(a: ControlActions, deck: number, slot: number, group: string
       kind: 'encoder',
       apply: (steps) => a.scaleFxBeats(deck, slot, 2 ** steps),
     },
+    stepped(
+      id('.period'),
+      group,
+      t('Effect {n} period, along the knob', { n }),
+      FX_PERIODS,
+      () => a.fxBeats(deck, slot),
+      (beats) => a.setFxBeats(deck, slot, beats),
+    ),
+    stepped(
+      id('.kind'),
+      group,
+      t('Effect {n}: the effect, along the knob', { n }),
+      EFFECT_KINDS,
+      () => a.fxKind(deck, slot),
+      (kind) => a.setFxKind(deck, slot, kind),
+    ),
+    lit(
+      button(id('.focus'), group, t('Effect {n} focused on the effect knobs / let go', { n }), () =>
+        a.toggleFxFocus(deck, slot),
+      ),
+      () => a.fxFocused(deck) === slot,
+    ),
+    lit(
+      hold(id('.held'), group, t('Effect {n} on while held', { n }), (held) =>
+        a.holdFx(deck, slot, held),
+      ),
+      () => a.fxOn(deck, slot),
+    ),
+  ];
+}
+
+const FX_KNOB_LABEL: Text[] = [
+  () => t("Effect knob 1: effect 1's amount, or the focused effect's"),
+  () => t("Effect knob 2: effect 2's amount, or the focused effect's second knob"),
+  () => t("Effect knob 3: effect 3's amount, or the focused effect's period"),
+];
+
+/** The controls of a deck's whole effect chain: its slots', the chain on or off, the three
+ * amounts together, and three knobs as Mixxx's effect unit has them: with no effect focused,
+ * knob K is effect K's amount; with one focused, they are its amount, second knob and period. */
+function fxChainControls(a: ControlActions, deck: number, group: string): Control[] {
+  const slots = Array.from({ length: FX_SLOTS }, (_, slot) => fxControls(a, deck, slot, group));
+  const of = (slot: number, name: string) =>
+    slots[slot].find((c) => c.id === fxId(deck, slot, name))!;
+  const knob = (k: number) => {
+    const target = () => {
+      const focused = a.fxFocused(deck);
+      if (focused === null) return of(k, '.amount');
+      return of(focused, ['.amount', '.param2', '.period'][k]);
+    };
+    return fader(
+      `deck${deck + 1}.fx.knob${k + 1}`,
+      group,
+      FX_KNOB_LABEL[k](),
+      (v) => target().apply(v),
+      () => target().position!(),
+    );
+  };
+  const amounts = () =>
+    slots.reduce((sum, _, slot) => sum + a.fxAmountPosition(deck, slot), 0) / FX_SLOTS;
+  return [
+    ...slots.flat(),
+    ...switched(
+      `deck${deck + 1}.fx.chain`,
+      group,
+      t('Effects (the whole chain)'),
+      () => a.fxChainOn(deck),
+      (on) => a.setFxChainOn(deck, on),
+    ),
+    ...Array.from({ length: FX_SLOTS }, (_, k) => knob(k)),
+    fader(
+      `deck${deck + 1}.fx.super`,
+      group,
+      t('Effect amounts together (super knob)'),
+      (v) => a.setFxAmounts(deck, v),
+      amounts,
+    ),
   ];
 }
 
@@ -674,7 +817,7 @@ function deckControls(a: ControlActions, deck: number): Control[] {
       ),
       state: () => sampleState(a, deck, slot),
     })),
-    ...Array.from({ length: FX_SLOTS }, (_, slot) => fxControls(a, deck, slot, group)).flat(),
+    ...fxChainControls(a, deck, group),
     button(id('fx.part'), group, t('Effects on the next part'), () => a.nextFxPart(deck)),
     ...ROLL_BEATS.map((beats, i) =>
       hold(
@@ -855,10 +998,6 @@ function moreDeckControls(
       a.moveGrid(deck, steps),
     ),
     button(id('tap'), group, t('Tap the tempo'), () => a.tapTempo(deck)),
-    lit(
-      hold(id('fx.held'), group, t('Effect 1 on while held'), (held) => a.holdFx(deck, held)),
-      () => a.fxOn(deck, 0),
-    ),
     lit(
       hold(id('slip.held'), group, t('Slip while held'), (held) => a.holdSlip(deck, held)),
       () => a.slipping(deck),

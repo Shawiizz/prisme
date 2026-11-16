@@ -141,6 +141,105 @@ describe('controls', () => {
     expect(find('deck1.fx2.part')).toBeUndefined();
   });
 
+  it('give each slot a second knob, its period and its effect along a knob, focus and a hold', () => {
+    const { calls, find } = recorder();
+    find('deck1.fx2.param2').apply(0.3);
+    find('deck2.fx3.held').apply(1);
+    find('deck2.fx3.held').apply(0);
+    find('deck1.fx.focus').apply(1);
+    expect(calls).toEqual([
+      'setFxParam2(0,1,0.3)',
+      'holdFx(1,2,true)',
+      'holdFx(1,2,false)',
+      'toggleFxFocus(0,0)',
+    ]);
+    expect(find('deck1.fx.held').label).toBe('Effect 1 on while held');
+  });
+
+  /** Effect controls over a deck's chain as `fx` holds it. */
+  function chainOf(fx: { kind: string; amount: number; param2: number; beats: number }[]) {
+    const focus = { slot: null as number | null };
+    const chain = { on: true };
+    const actions = {
+      fxFocused: () => focus.slot,
+      toggleFxFocus: (_: number, slot: number) => {
+        focus.slot = focus.slot === slot ? null : slot;
+      },
+      fxAmountPosition: (_: number, slot: number) => fx[slot].amount,
+      setFxAmount: (_: number, slot: number, v: number) => (fx[slot].amount = v),
+      setFxAmounts: (_: number, v: number) => fx.forEach((f) => (f.amount = v)),
+      fxParam2Position: (_: number, slot: number) => fx[slot].param2,
+      setFxParam2: (_: number, slot: number, v: number) => (fx[slot].param2 = v),
+      fxBeats: (_: number, slot: number) => fx[slot].beats,
+      setFxBeats: (_: number, slot: number, beats: number) => (fx[slot].beats = beats),
+      fxKind: (_: number, slot: number) => fx[slot].kind,
+      setFxKind: (_: number, slot: number, kind: string) => (fx[slot].kind = kind),
+      fxChainOn: () => chain.on,
+      setFxChainOn: (_: number, on: boolean) => (chain.on = on),
+    } as unknown as ControlActions;
+    const controls = buildControls(actions);
+    return { find: (id: string) => controls.find((c) => c.id === id)!, chain };
+  }
+
+  const slots = () =>
+    [0.1, 0.2, 0.3].map((amount) => ({ kind: 'echo', amount, param2: 0.5, beats: 1 }));
+
+  it('turn the three effect knobs on the amounts, or on the focused effect', () => {
+    const fx = slots();
+    const { find } = chainOf(fx);
+    const knobs = [1, 2, 3].map((k) => find(`deck1.fx.knob${k}`));
+    expect(knobs.map((k) => k.position!())).toEqual([0.1, 0.2, 0.3]);
+    knobs[2].apply(0.9);
+    expect(fx[2].amount).toBe(0.9);
+
+    find('deck1.fx2.focus').apply(1);
+    expect(find('deck1.fx2.focus').lit!()).toBe(true);
+    expect(find('deck1.fx.focus').lit!()).toBe(false);
+    knobs[0].apply(0.6);
+    knobs[1].apply(0.8);
+    knobs[2].apply(0);
+    expect(fx[1]).toEqual({ kind: 'echo', amount: 0.6, param2: 0.8, beats: 1 / 8 });
+    expect(fx[0].amount).toBe(0.1);
+    expect(knobs[2].position!()).toBe(0);
+
+    find('deck1.fx2.focus').apply(1);
+    expect(knobs[1].position!()).toBe(0.6);
+  });
+
+  it('move the period and the effect along a knob, keeping a controller within a step', () => {
+    const fx = slots();
+    const { find } = chainOf(fx);
+    const period = find('deck1.fx3.period');
+    const kind = find('deck1.fx3.kind');
+    expect(period.position!()).toBeCloseTo(3.5 / 7);
+    period.apply(1);
+    expect(fx[2].beats).toBe(8);
+    period.apply(0.2);
+    expect(fx[2].beats).toBe(1 / 4);
+    expect(period.position!()).toBe(0.2);
+    fx[2].beats = 2;
+    expect(period.position!()).toBeCloseTo(4.5 / 7);
+
+    kind.apply(0.99);
+    expect(fx[2].kind).toBe('bitcrusher');
+    kind.apply(0.4);
+    expect(fx[2].kind).toBe('flanger');
+    expect(kind.position!()).toBe(0.4);
+  });
+
+  it('move the three amounts together, and switch the whole chain', () => {
+    const fx = slots();
+    const { find, chain } = chainOf(fx);
+    expect(find('deck1.fx.super').position!()).toBeCloseTo(0.2);
+    find('deck1.fx.super').apply(0.7);
+    expect(fx.map((f) => f.amount)).toEqual([0.7, 0.7, 0.7]);
+    find('deck1.fx.chain').apply(1);
+    expect(chain.on).toBe(false);
+    expect(find('deck1.fx.chain.off').lit!()).toBe(true);
+    find('deck1.fx.chain.on').apply(1);
+    expect(find('deck1.fx.chain').lit!()).toBe(true);
+  });
+
   it('preview the selected track, move through it, stop it, or load and play', () => {
     const { calls, find } = recorder();
     find('library.preview').apply(1);

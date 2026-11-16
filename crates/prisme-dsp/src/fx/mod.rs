@@ -40,6 +40,9 @@ impl EffectKind {
     }
 }
 
+/// Where a second knob starts: the effect as it sounded before it had one.
+pub const PARAM2_DEFAULT: f32 = 0.5;
+
 /// The beat an effect follows.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Beat {
@@ -67,6 +70,9 @@ const SILENT: f32 = 1e-4;
 pub(crate) struct Params {
     /// The effect's main knob, 0..1.
     pub amount: f32,
+    /// The effect's second knob (tone, resonance, width...), 0..1: in the middle, the effect
+    /// as it sounds without one.
+    pub param2: f32,
     /// The effect's period: delay, modulation cycle, gate length (seconds).
     pub period_s: f32,
     /// Position within the beat at the start of the block, when known.
@@ -80,13 +86,18 @@ pub struct FxSlot {
     sample_rate: f32,
     kind: EffectKind,
     enabled: bool,
-    /// How much of the signal goes to the effect: fades with ``enabled``.
+    /// Its chain is switched off: the slot is silent, its own switch kept.
+    bypassed: bool,
+    /// How much of the signal goes to the effect: fades in and out as the slot sounds or not.
     send: Smoothed,
     mix: Smoothed,
     amount: f32,
+    param2: f32,
     beats: f32,
     /// Something is still coming out of the effect.
     sounding: bool,
+    /// Frames a sent effect has been silent for: a delay is silent between its repeats.
+    quiet_frames: usize,
     sends: Vec<f32>,
     wet: Vec<f32>,
     echo: Echo,
@@ -105,11 +116,14 @@ impl FxSlot {
             sample_rate,
             kind: EffectKind::Echo,
             enabled: false,
+            bypassed: false,
             send: Smoothed::new(0.0, GLIDE_S, sample_rate),
             mix: Smoothed::new(0.5, GLIDE_S, sample_rate),
             amount: 0.5,
+            param2: PARAM2_DEFAULT,
             beats: 1.0,
             sounding: false,
+            quiet_frames: 0,
             sends: vec![0.0; max_block_frames],
             wet: vec![0.0; max_block_frames * 2],
             echo: Echo::new(sample_rate),
@@ -137,8 +151,24 @@ impl FxSlot {
 
     pub fn set_enabled(&mut self, enabled: bool) {
         self.enabled = enabled;
-        self.send.set(if enabled { 1.0 } else { 0.0 });
-        self.sounding |= enabled;
+        self.switch();
+    }
+
+    /// Silences the slot with its chain, or lets it sound again if it is on; a tail rings
+    /// out as when the slot is switched off.
+    fn set_bypassed(&mut self, bypassed: bool) {
+        self.bypassed = bypassed;
+        self.switch();
+    }
+
+    fn sounds(&self) -> bool {
+        self.enabled && !self.bypassed
+    }
+
+    fn switch(&mut self) {
+        let on = self.sounds();
+        self.send.set(if on { 1.0 } else { 0.0 });
+        self.sounding |= on;
     }
 
     /// Level of the effect, 0..1.
@@ -149,6 +179,12 @@ impl FxSlot {
     /// The effect's main knob (feedback, depth...), 0..1.
     pub fn set_amount(&mut self, amount: f32) {
         self.amount = amount.clamp(0.0, 1.0);
+    }
+
+    /// The effect's second knob (tone, damping, width, depth, resonance, length, downsampling:
+    /// see each effect), 0..1.
+    pub fn set_param2(&mut self, param2: f32) {
+        self.param2 = param2.clamp(0.0, 1.0);
     }
 
     /// The effect's period in beats, [``MIN_BEATS``]..[``MAX_BEATS``].
@@ -173,6 +209,7 @@ impl FxSlot {
         }
         let params = Params {
             amount: self.amount,
+            param2: self.param2,
             period_s: self.beats * beat.seconds,
             phase: beat.phase,
             beat_s: beat.seconds,
@@ -201,14 +238,18 @@ impl FxSlot {
                 s[1] += (w[1] - s[1]) * m;
             }
         }
-        let faded_out = !self.enabled && self.send.is_settled();
-        if faded_out && (!sent || loudest < SILENT) {
+        self.quiet_frames = if loudest < SILENT { self.quiet_frames.saturating_add(frames) } else { 0 };
+        // silent for a whole period, nothing is left in a delay to repeat
+        let tail_over = self.quiet_frames as f32 > params.period_s * self.sample_rate;
+        let faded_out = !self.sounds() && self.send.is_settled();
+        if faded_out && (!sent || tail_over) {
             self.reset_effect();
         }
     }
 
     fn reset_effect(&mut self) {
-        self.sounding = self.enabled;
+        self.sounding = self.sounds();
+        self.quiet_frames = 0;
         self.echo.reset();
         self.ping_pong.reset();
         self.reverb.reset();
@@ -223,11 +264,24 @@ impl FxSlot {
 /// A deck's effects, one slot after the other: each takes what the one before gives.
 pub struct FxChain {
     slots: [FxSlot; FX_SLOTS],
+    enabled: bool,
 }
 
 impl FxChain {
     pub fn new(sample_rate: f32, max_block_frames: usize) -> Self {
-        Self { slots: std::array::from_fn(|_| FxSlot::new(sample_rate, max_block_frames)) }
+        Self { slots: std::array::from_fn(|_| FxSlot::new(sample_rate, max_block_frames)), enabled: true }
+    }
+
+    pub fn enabled(&self) -> bool {
+        self.enabled
+    }
+
+    /// The whole chain on, or off: each slot keeps its own switch, heard again with the chain.
+    pub fn set_enabled(&mut self, enabled: bool) {
+        self.enabled = enabled;
+        for slot in &mut self.slots {
+            slot.set_bypassed(!enabled);
+        }
     }
 
     /// The slot at `index`, if the chain has it.
@@ -351,23 +405,97 @@ mod tests {
         assert_eq!(chained, in_turn);
     }
 
+    const KINDS: [EffectKind; 8] = [
+        EffectKind::Echo,
+        EffectKind::PingPong,
+        EffectKind::Reverb,
+        EffectKind::Flanger,
+        EffectKind::Phaser,
+        EffectKind::Filter,
+        EffectKind::Gate,
+        EffectKind::Bitcrusher,
+    ];
+
+    fn sine() -> Vec<f32> {
+        (0..RATE as usize).map(|i| (i as f32 * 0.02).sin() * 0.5).collect()
+    }
+
     #[test]
     fn every_effect_runs() {
-        for kind in [
-            EffectKind::Echo,
-            EffectKind::PingPong,
-            EffectKind::Reverb,
-            EffectKind::Flanger,
-            EffectKind::Phaser,
-            EffectKind::Filter,
-            EffectKind::Gate,
-            EffectKind::Bitcrusher,
-        ] {
+        for kind in KINDS {
             let mut fx = slot(kind);
-            let input: Vec<f32> = (0..RATE as usize).map(|i| (i as f32 * 0.02).sin() * 0.5).collect();
+            let input = sine();
             let out = run(&mut fx, &input);
             assert!(out.iter().all(|v| v.is_finite() && v.abs() < 4.0), "{kind:?}");
             assert!(out.iter().zip(&input).any(|(o, i)| (o - i).abs() > 1e-3), "{kind:?} does something");
         }
+    }
+
+    #[test]
+    fn every_second_knob_changes_its_effect_and_starts_where_it_was() {
+        // a chord, so that tone and resonance have highs to work on; long enough for the
+        // repeats of repeats
+        let input: Vec<f32> = (0..2 * RATE as usize)
+            .map(|i| ((i as f32 * 0.02).sin() + (i as f32 * 0.7).sin()) * 0.3)
+            .collect();
+        for kind in KINDS {
+            let at = |param2: Option<f32>| {
+                let mut fx = slot(kind);
+                fx.set_amount(0.8);
+                if let Some(param2) = param2 {
+                    fx.set_param2(param2);
+                }
+                run(&mut fx, &input)
+            };
+            assert_eq!(at(Some(PARAM2_DEFAULT)), at(None), "{kind:?}");
+            let (low, high) = (at(Some(0.0)), at(Some(1.0)));
+            assert!(high.iter().chain(&low).all(|v| v.is_finite() && v.abs() < 4.0), "{kind:?}");
+            let apart = low.iter().zip(&high).map(|(l, h)| (l - h).abs()).fold(0.0, f32::max);
+            assert!(apart > 0.01, "{kind:?}: {apart}");
+        }
+    }
+
+    #[test]
+    fn the_second_knob_of_the_gate_is_how_long_it_stays_open() {
+        let mut gate = slot(EffectKind::Gate);
+        gate.set_amount(1.0);
+        gate.set_param2(0.25);
+        let out = run(&mut gate, &vec![0.5; 2 * RATE as usize]);
+        let share = out.iter().filter(|v| v.abs() < 0.01).count() as f32 / out.len() as f32;
+        assert!((0.7..0.8).contains(&share), "closed three quarters of the time: {share}");
+    }
+
+    #[test]
+    fn a_chain_switched_off_lets_its_tails_ring_and_keeps_its_slots() {
+        let mut chain = FxChain::new(RATE, 256);
+        let echo = chain.slot_mut(0).unwrap();
+        echo.set_mix(1.0);
+        echo.set_enabled(true);
+        let crusher = chain.slot_mut(1).unwrap();
+        crusher.set_kind(EffectKind::Bitcrusher);
+        crusher.set_amount(1.0);
+        crusher.set_mix(1.0);
+        crusher.set_enabled(true);
+        let process = |chain: &mut FxChain, input: &[f32]| {
+            let mut stereo: Vec<f32> = input.iter().flat_map(|&v| [v, v]).collect();
+            for block in stereo.chunks_mut(256) {
+                chain.process(block, Beat::DEFAULT);
+            }
+            stereo.chunks_exact(2).map(|f| f[0]).collect::<Vec<f32>>()
+        };
+        process(&mut chain, &sine()[..(0.25 * RATE) as usize]);
+
+        chain.set_enabled(false);
+        assert!(!chain.enabled());
+        let tail = process(&mut chain, &vec![0.0; (0.6 * RATE) as usize]);
+        assert!(tail.iter().any(|v| v.abs() > 0.01), "the echo rings out");
+        process(&mut chain, &vec![0.0; 10 * RATE as usize]);
+        let input = sine();
+        assert_eq!(process(&mut chain, &input), input, "nothing sounds once the tails are over");
+        assert!(chain.slots.iter().take(2).all(|s| s.enabled), "the slots stay on");
+
+        chain.set_enabled(true);
+        let back = process(&mut chain, &input);
+        assert!(back.iter().zip(&input).any(|(b, i)| (b - i).abs() > 0.05), "on again, they sound");
     }
 }

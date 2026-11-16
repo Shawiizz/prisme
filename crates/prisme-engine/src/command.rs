@@ -349,11 +349,22 @@ pub enum Command {
         slot: usize,
         amount: f32,
     },
+    /// The slot's second knob (tone, resonance...), 0..1.
+    SetFxParam2 {
+        deck: DeckId,
+        slot: usize,
+        param2: f32,
+    },
     /// The slot's period in beats.
     SetFxBeats {
         deck: DeckId,
         slot: usize,
         beats: f32,
+    },
+    /// The deck's whole chain on or off, each slot keeping its own switch.
+    SetFxChainEnabled {
+        deck: DeckId,
+        enabled: bool,
     },
     /// The parts of the track the deck's effects are on, where they are separated; none: the
     /// whole deck, after its channel strip.

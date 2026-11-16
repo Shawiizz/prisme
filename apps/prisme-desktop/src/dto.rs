@@ -213,23 +213,50 @@ pub struct FxDto {
     pub mix: f32,
     /// The effect's main knob, 0..1.
     pub amount: f32,
+    /// The effect's second knob (tone, resonance...), 0..1; written before it, the middle,
+    /// where the effect sounds as it did without one.
+    #[serde(default = "param2_default")]
+    pub param2: f32,
     /// The effect's period in beats.
     pub beats: f32,
 }
 
+fn param2_default() -> f32 {
+    prisme_engine::PARAM2_DEFAULT
+}
+
 impl Default for FxDto {
     fn default() -> Self {
-        Self { kind: EffectKindDto::Echo, enabled: false, mix: 0.5, amount: 0.5, beats: 1.0 }
+        Self {
+            kind: EffectKindDto::Echo,
+            enabled: false,
+            mix: 0.5,
+            amount: 0.5,
+            param2: param2_default(),
+            beats: 1.0,
+        }
     }
 }
 
 /// A deck's beat effects, in series.
-#[derive(Debug, Clone, Copy, Default, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", from = "FxChainFile")]
 pub struct FxChainDto {
     pub slots: [FxDto; FX_SLOTS],
+    /// The whole chain on, each slot then as its own switch says; off, all silent.
+    pub enabled: bool,
     /// The part of the track the chain is on, where separated; none: the whole deck.
     pub part: Option<FxPartDto>,
+}
+
+impl Default for FxChainDto {
+    fn default() -> Self {
+        Self { slots: Default::default(), enabled: true, part: None }
+    }
+}
+
+fn enabled_default() -> bool {
+    true
 }
 
 /// A chain as written, or a single effect as written before the chain: its first slot.
@@ -238,6 +265,8 @@ pub struct FxChainDto {
 enum FxChainFile {
     Chain {
         slots: [FxDto; FX_SLOTS],
+        #[serde(default = "enabled_default")]
+        enabled: bool,
         #[serde(default)]
         part: Option<FxPartDto>,
     },
@@ -252,11 +281,11 @@ enum FxChainFile {
 impl From<FxChainFile> for FxChainDto {
     fn from(file: FxChainFile) -> Self {
         match file {
-            FxChainFile::Chain { slots, part } => Self { slots, part },
+            FxChainFile::Chain { slots, enabled, part } => Self { slots, enabled, part },
             FxChainFile::Single { slot, part } => {
                 let mut slots = [FxDto::default(); FX_SLOTS];
                 slots[0] = slot;
-                Self { slots, part }
+                Self { slots, enabled: true, part }
             }
         }
     }
@@ -1425,11 +1454,31 @@ mod tests {
     fn a_single_effect_written_before_the_chain_reads_as_its_first_slot() {
         let old = r#"{"kind":"gate","enabled":true,"mix":0.8,"amount":0.3,"beats":2.0,"part":"vocals"}"#;
         let chain: FxChainDto = serde_json::from_str(old).unwrap();
-        let gate = FxDto { kind: EffectKindDto::Gate, enabled: true, mix: 0.8, amount: 0.3, beats: 2.0 };
+        let gate = FxDto {
+            kind: EffectKindDto::Gate,
+            enabled: true,
+            mix: 0.8,
+            amount: 0.3,
+            param2: 0.5,
+            beats: 2.0,
+        };
         assert_eq!(chain.slots, [gate, FxDto::default(), FxDto::default()]);
         assert_eq!(chain.part, Some(FxPartDto::Vocals));
+        assert!(chain.enabled);
         let written = serde_json::to_string(&chain).unwrap();
         assert_eq!(serde_json::from_str::<FxChainDto>(&written).unwrap(), chain);
+    }
+
+    #[test]
+    fn a_chain_written_before_its_switch_and_second_knobs_reads_on_with_them_in_the_middle() {
+        let slot = r#"{"kind":"filter","enabled":true,"mix":1.0,"amount":0.7,"beats":4.0}"#;
+        let old = format!(r#"{{"slots":[{slot},{slot},{slot}],"part":null}}"#);
+        let chain: FxChainDto = serde_json::from_str(&old).unwrap();
+        assert!(chain.enabled);
+        assert!(chain.slots.iter().all(|s| s.param2 == prisme_engine::PARAM2_DEFAULT && s.amount == 0.7));
+        let changed = FxChainDto { enabled: false, ..chain };
+        let written = serde_json::to_string(&changed).unwrap();
+        assert_eq!(serde_json::from_str::<FxChainDto>(&written).unwrap(), changed);
     }
 
     #[test]
