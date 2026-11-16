@@ -364,7 +364,9 @@ export class EngineService {
     if (info.waveformReady) this.fetchWaveform(deck, info.loadId);
   }
 
+  /** PLAY; pressed while CUE previews, the deck plays on once CUE is let go, as on a CDJ. */
   togglePlay(deck: number) {
+    if (this.previewing.delete(deck)) return;
     const status = this.status()?.decks[deck];
     if (status?.loaded) this.setPlaying(deck, !status.playing);
   }
