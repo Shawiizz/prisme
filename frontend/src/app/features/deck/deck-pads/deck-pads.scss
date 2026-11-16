@@ -35,6 +35,21 @@
   }
 }
 
+// the eight effects on two rows of four, their names whole beside the chain's knobs
+.pads.rows {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 2px 4px;
+  .pr-pad {
+    height: 20px;
+    padding: 0 3px;
+    display: grid;
+    place-items: center;
+    font-size: 10.5px;
+    letter-spacing: 0.02em;
+  }
+}
+
 // the page of hot cues or sounds on the pads
 .page {
   flex: none;

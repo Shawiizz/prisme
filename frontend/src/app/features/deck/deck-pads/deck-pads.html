@@ -6,7 +6,7 @@
   }
 </div>
 
-<div class="pads">
+<div class="pads" [class.rows]="keys() === 'fx'">
   @for (pad of pads(); track $index) {
     <button
       class="pr-pad"
