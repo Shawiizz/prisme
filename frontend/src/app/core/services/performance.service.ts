@@ -9,8 +9,6 @@ import { CUT_BEATS } from '../../shared/beats';
 export const SIZE_BEATS = { min: 1 / 16, max: 64 };
 const DEFAULT_SIZE = 4;
 const BEATS_PER_BAR = 4;
-/** How long before the end of its track a jump to the end lands (s). */
-const END_LEAD_S = 5;
 
 /** Performance actions on a deck: hot cues, loops, rolls, beat jumps, the slicer, fader
  * cuts, slip, censor, reverse, the motor (brake, spinback). */
@@ -102,10 +100,10 @@ export class PerformanceService {
     return this.engine.call('censor', { deck, active });
   }
 
-  /** A few seconds before the end of the track, playing or not as it was. */
+  /** The very end of the track: playing, the deck stops there (or starts again on repeat). */
   toEnd(deck: number) {
     const duration = this.engine.status()?.decks[deck]?.durationS ?? 0;
-    if (duration > 0) this.engine.seek(deck, Math.max(duration - END_LEAD_S, 0));
+    if (duration > 0) this.engine.seek(deck, duration);
   }
 
   /** The track played backwards at the deck's rate, or forwards again; with slip, it comes

@@ -56,7 +56,7 @@ import { Press } from '../../../shared/press';
           class="pr-btn pr-btn--sm"
           [class.pr-reach]="PHONE"
           [disabled]="!placeable()"
-          [title]="'A few seconds before the end of the track, playing or not as it was' | t"
+          [title]="'To the very end of the track' | t"
           (click)="performance.toEnd(deck())"
         >
           {{ 'END' | t }}

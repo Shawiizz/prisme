@@ -1208,7 +1208,7 @@
  {
   "id": "deck1.end",
   "group": "Deck A",
-  "label": "A few seconds before the end",
+  "label": "To the end",
   "kind": "button"
  },
  {
@@ -3200,7 +3200,7 @@
  {
   "id": "deck2.end",
   "group": "Deck B",
-  "label": "A few seconds before the end",
+  "label": "To the end",
   "kind": "button"
  },
  {
@@ -5192,7 +5192,7 @@
  {
   "id": "deck3.end",
   "group": "Deck C",
-  "label": "A few seconds before the end",
+  "label": "To the end",
   "kind": "button"
  },
  {
@@ -7184,7 +7184,7 @@
  {
   "id": "deck4.end",
   "group": "Deck D",
-  "label": "A few seconds before the end",
+  "label": "To the end",
   "kind": "button"
  },
  {

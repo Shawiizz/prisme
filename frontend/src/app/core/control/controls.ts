@@ -234,7 +234,7 @@ export interface ControlActions {
   /** To the start of the track, then playing (`play`), stopped (`stop`) or as it was
    * (`goto`). */
   toStart(deck: number, then: 'play' | 'stop' | 'goto'): void;
-  /** A few seconds before the end of the track, as it was. */
+  /** The very end of the track. */
   toEnd(deck: number): void;
   eject(deck: number): void;
   /** The leader's tempo and beats, once: the deck stays free. */
@@ -795,7 +795,7 @@ function moreDeckControls(
     button(id('start'), group, t('To the start, stopped'), () => a.toStart(deck, 'stop')),
     button(id('start.play'), group, t('To the start and play'), () => a.toStart(deck, 'play')),
     button(id('start.keep'), group, t('To the start'), () => a.toStart(deck, 'goto')),
-    button(id('end'), group, t('A few seconds before the end'), () => a.toEnd(deck)),
+    button(id('end'), group, t('To the end'), () => a.toEnd(deck)),
     button(id('eject'), group, t('Eject the track'), () => a.eject(deck)),
     button(id('sync.once'), group, t('Match the tempo and beats once'), () => a.syncOnce(deck)),
     lit(
