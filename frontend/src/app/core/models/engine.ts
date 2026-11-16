@@ -294,6 +294,8 @@ export interface FxSettings {
   mix: number;
   /** The effect's main knob, 0..1. */
   amount: number;
+  /** The effect's second knob (tone, resonance...: `PARAM2` of `effects.ts`), 0..1. */
+  param2: number;
   /** The effect's period in beats. */
   beats: number;
 }
@@ -302,6 +304,8 @@ export interface FxSettings {
 export interface FxChain {
   /** `FX_SLOTS` of them. */
   slots: FxSettings[];
+  /** The whole chain on, each slot then as its own switch says; off, all silent. */
+  enabled: boolean;
   /** The part of the track the chain is on, where separated; `null`: the whole deck. */
   part: StemPart | null;
 }
@@ -312,13 +316,15 @@ const DEFAULT_FX_SLOT: FxSettings = {
   enabled: false,
   mix: 0.5,
   amount: 0.5,
+  param2: 0.5,
   beats: 1,
 };
 export const DEFAULT_FX: FxChain = {
   slots: Array(FX_SLOTS).fill(DEFAULT_FX_SLOT),
+  enabled: true,
   part: null,
 };
-/** Shortest and longest effect period, in beats. */
+/** Shortest and longest effect period, in beats: powers of two. */
 export const FX_BEATS = { min: 1 / 8, max: 8 };
 
 /** EQ bands, in the order of `ChannelStrip.eq`. */

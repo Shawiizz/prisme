@@ -11,7 +11,7 @@ import { readouts } from '../../../shared/mixer-scales';
 import { Text, t } from '../../../core/i18n/i18n';
 import { TPipe } from '../../../core/i18n/t.pipe';
 import { deckStems } from '../../../core/deck-stems';
-import { EFFECT_NAMES } from '../../../core/effects';
+import { EFFECT_NAMES, PARAM2 } from '../../../core/effects';
 
 type PadMode = 'cues' | 'loops' | 'roll' | 'jump' | 'slice' | 'cut' | 'fx' | 'sampler';
 
@@ -135,15 +135,33 @@ export class DeckPads {
   /** The slot of the chain the pads and knobs act on, and its effect. */
   protected readonly slot = computed(() => this.fx.chosen(this.deck()));
   protected readonly effect = computed(() => this.chain().slots[this.slot()]);
-  /** A key per slot of the chain: chosen in the light, marked while its effect sounds. */
-  protected readonly slotKeys = computed(() =>
-    this.chain().slots.map((fx, slot) => ({
-      on: fx.enabled,
-      title: fx.enabled
+  /** A key per slot of the chain: chosen in the light, marked while its effect is on, framed
+   * while a controller's effect knobs are focused on it. */
+  protected readonly slotKeys = computed(() => {
+    const focused = this.fx.focused(this.deck());
+    return this.chain().slots.map((fx, slot) => {
+      const title = fx.enabled
         ? t('Effect {n}: {effect}', { n: slot + 1, effect: EFFECT_NAMES[fx.kind]() })
-        : t('Effect {n}: off', { n: slot + 1 }),
-    })),
+        : t('Effect {n}: off', { n: slot + 1 });
+      return {
+        on: fx.enabled,
+        focused: focused === slot,
+        title: focused === slot ? t('{effect} · on the effect knobs', { effect: title }) : title,
+      };
+    });
+  });
+  /** The whole chain on: off, nothing sounds, each slot keeping its switch for later. */
+  protected readonly chainOn = computed(() => this.chain().enabled);
+  protected readonly chainTitle = computed(() =>
+    this.chainOn()
+      ? t('Effects on, each as its key says. Click to bypass them all')
+      : t('Effects bypassed: none sounds. Click to hear them again'),
   );
+  /** The second knob of the chosen slot's effect. */
+  protected readonly param2 = computed(() => {
+    const knob = PARAM2[this.effect().kind];
+    return { label: knob.label, name: knob.name() };
+  });
   private readonly stemKnobs = deckStems(this.deck).knobs;
   /** Where the effects are: the whole deck, or a part of the track as its stems call it. */
   protected readonly effectPart = computed(() => {

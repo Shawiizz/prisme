@@ -573,6 +573,7 @@ pub fn deck_commands(deck: usize, s: &DeckSettings) -> Vec<Command> {
         Command::SetTrim { deck, gain: strip.trim },
         Command::SetFilter { deck, position: strip.filter },
         Command::SetFxParts { deck, parts: FxPartDto::parts(s.fx.part) },
+        Command::SetFxChainEnabled { deck, enabled: s.fx.enabled },
         Command::SetSamplerGain { deck, gain: s.sampler_gain },
         Command::SetPassthrough { deck, enabled: s.passthrough },
         Command::SetRepeat { deck, enabled: s.repeat },
@@ -583,6 +584,7 @@ pub fn deck_commands(deck: usize, s: &DeckSettings) -> Vec<Command> {
             Command::SetFx { deck, slot, kind: fx.kind.into() },
             Command::SetFxMix { deck, slot, mix: fx.mix },
             Command::SetFxAmount { deck, slot, amount: fx.amount },
+            Command::SetFxParam2 { deck, slot, param2: fx.param2 },
             Command::SetFxBeats { deck, slot, beats: fx.beats },
             Command::SetFxEnabled { deck, slot, enabled: fx.enabled },
         ]);

@@ -1,6 +1,6 @@
 //! Reverb after Freeverb (Jezar at Dreampoint, public domain): eight parallel damped comb
 //! filters then four series all-passes per channel, the right channel slightly detuned
-//! for width. The amount sets the size of the room.
+//! for width. The amount sets the size of the room, the second knob its damping.
 
 use super::Params;
 
@@ -10,6 +10,7 @@ const ALLPASSES: [usize; 4] = [556, 441, 341, 225];
 const STEREO_SPREAD: usize = 23;
 const INPUT_GAIN: f32 = 0.015;
 const OUTPUT_GAIN: f32 = 3.0;
+/// With the second knob in the middle.
 const DAMPING: f32 = 0.3;
 const ROOM: (f32, f32) = (0.7, 0.98);
 const ALLPASS_FEEDBACK: f32 = 0.5;
@@ -22,9 +23,9 @@ struct Comb {
 
 impl Comb {
     #[inline]
-    fn process(&mut self, x: f32, feedback: f32) -> f32 {
+    fn process(&mut self, x: f32, feedback: f32, damping: f32) -> f32 {
         let y = self.buffer[self.index];
-        self.filtered = y * (1.0 - DAMPING) + self.filtered * DAMPING;
+        self.filtered = y * (1.0 - damping) + self.filtered * damping;
         self.buffer[self.index] = x + self.filtered * feedback;
         self.index = (self.index + 1) % self.buffer.len();
         y
@@ -77,8 +78,8 @@ impl Channel {
     }
 
     #[inline]
-    fn process(&mut self, x: f32, feedback: f32) -> f32 {
-        let mut y: f32 = self.combs.iter_mut().map(|c| c.process(x, feedback)).sum();
+    fn process(&mut self, x: f32, feedback: f32, damping: f32) -> f32 {
+        let mut y: f32 = self.combs.iter_mut().map(|c| c.process(x, feedback, damping)).sum();
         for a in &mut self.allpasses {
             y = a.process(y);
         }
@@ -102,10 +103,11 @@ impl Reverb {
 
     pub fn process(&mut self, stereo: &mut [f32], p: &Params) {
         let feedback = ROOM.0 + (ROOM.1 - ROOM.0) * p.amount;
+        let damping = DAMPING * 2.0 * p.param2;
         for frame in stereo.chunks_exact_mut(2) {
             let input = (frame[0] + frame[1]) * INPUT_GAIN;
-            frame[0] = self.channels[0].process(input, feedback) * OUTPUT_GAIN;
-            frame[1] = self.channels[1].process(input, feedback) * OUTPUT_GAIN;
+            frame[0] = self.channels[0].process(input, feedback, damping) * OUTPUT_GAIN;
+            frame[1] = self.channels[1].process(input, feedback, damping) * OUTPUT_GAIN;
         }
     }
 }

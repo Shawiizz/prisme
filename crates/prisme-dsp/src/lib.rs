@@ -23,7 +23,7 @@ pub use delay::DelayLine;
 pub use denormal::DenormalGuard;
 pub use dj_filter::DjFilter;
 pub use eq::{Band, IsolatorEq};
-pub use fx::{Beat, EffectKind, FxChain, FxSlot, FX_SLOTS};
+pub use fx::{Beat, EffectKind, FxChain, FxSlot, FX_SLOTS, PARAM2_DEFAULT};
 pub use limiter::Limiter;
 pub use smooth::Smoothed;
 

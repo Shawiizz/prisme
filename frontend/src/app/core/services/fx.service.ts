@@ -12,14 +12,16 @@ import { EngineService } from './engine.service';
 
 /**
  * Each deck's chain of beat effects: in each slot, which effect, on or off, its level, its
- * knob and its period; the part of the track the chain is on; and the slot the pads and
- * knobs of the screen act on. A track loaded without that part puts the chain back on the
- * whole deck, where it is heard.
+ * two knobs and its period; the whole chain on or off; the part of the track the chain is
+ * on; the slot the pads and knobs of the screen act on, and the slot a controller's knobs
+ * are focused on, if any. A track loaded without that part puts the chain back on the whole
+ * deck, where it is heard.
  */
 @Injectable({ providedIn: 'root' })
 export class FxService {
   private readonly engine = inject(EngineService);
   private readonly chosenSlots = signal<number[]>(Array(MAX_DECKS).fill(0));
+  private readonly focusedSlots = signal<(number | null)[]>(Array(MAX_DECKS).fill(null));
 
   constructor() {
     effect(() => {
@@ -50,6 +52,18 @@ export class FxService {
     this.chosenSlots.update((slots) => slots.map((s, d) => (d === deck ? slot : s)));
   }
 
+  /** The slot a controller's knobs act on as Mixxx's focused effect, if one is. */
+  focused(deck: number): number | null {
+    return this.focusedSlots()[deck];
+  }
+
+  /** Focuses the slot, chosen on the screen too; pressed again, lets it go. */
+  toggleFocus(deck: number, slot: number) {
+    const focused = this.focused(deck) === slot ? null : slot;
+    this.focusedSlots.update((slots) => slots.map((s, d) => (d === deck ? focused : s)));
+    if (focused !== null) this.choose(deck, focused);
+  }
+
   /** Puts `kind` in the slot and switches it on; pressed again, switches it off. */
   press(deck: number, slot: number, kind: EffectKind) {
     const fx = this.settings(deck, slot);
@@ -63,6 +77,13 @@ export class FxService {
     const at = EFFECT_KINDS.indexOf(this.settings(deck, slot).kind);
     const kind = EFFECT_KINDS[(at + step + EFFECT_KINDS.length * 2) % EFFECT_KINDS.length];
     return this.setKind(deck, slot, kind);
+  }
+
+  /** Another effect in the slot, on or off as it was. */
+  setKind(deck: number, slot: number, kind: EffectKind) {
+    if (this.settings(deck, slot).kind === kind) return Promise.resolve();
+    this.patch(deck, slot, { kind });
+    return this.engine.call('set_fx', { deck, slot, kind });
   }
 
   setEnabled(deck: number, slot: number, enabled: boolean) {
@@ -80,14 +101,36 @@ export class FxService {
     return this.engine.call('set_fx_amount', { deck, slot, amount });
   }
 
+  /** The three slots' amounts at once: Mixxx's super knob. */
+  setAmounts(deck: number, amount: number) {
+    const chain = this.chain(deck);
+    const slots = chain.slots.map((fx) => ({ ...fx, amount }));
+    this.engine.patchDeck(deck, { fx: { ...chain, slots } });
+    return Promise.all(
+      slots.map((_, slot) => this.engine.call('set_fx_amount', { deck, slot, amount })),
+    );
+  }
+
+  setParam2(deck: number, slot: number, param2: number) {
+    this.patch(deck, slot, { param2 });
+    return this.engine.call('set_fx_param2', { deck, slot, param2 });
+  }
+
   /** Halves (0.5) or doubles (2) the slot's period. */
   scaleBeats(deck: number, slot: number, factor: number) {
-    const beats = Math.min(
-      Math.max(this.settings(deck, slot).beats * factor, FX_BEATS.min),
-      FX_BEATS.max,
-    );
+    return this.setBeats(deck, slot, this.settings(deck, slot).beats * factor);
+  }
+
+  setBeats(deck: number, slot: number, beats: number) {
+    beats = Math.min(Math.max(beats, FX_BEATS.min), FX_BEATS.max);
     this.patch(deck, slot, { beats });
     return this.engine.call('set_fx_beats', { deck, slot, beats });
+  }
+
+  /** The whole chain on or off, each slot keeping its own switch. */
+  setChainEnabled(deck: number, enabled: boolean) {
+    this.engine.patchDeck(deck, { fx: { ...this.chain(deck), enabled } });
+    return this.engine.call('set_fx_chain_enabled', { deck, enabled });
   }
 
   /** The parts the chain can be on alone, as the deck's track is separated, after the
@@ -113,11 +156,6 @@ export class FxService {
     const parts = this.parts(deck);
     const at = parts.indexOf(this.chain(deck).part);
     return this.setPart(deck, parts[(at + 1) % parts.length]);
-  }
-
-  private setKind(deck: number, slot: number, kind: EffectKind) {
-    this.patch(deck, slot, { kind });
-    return this.engine.call('set_fx', { deck, slot, kind });
   }
 
   private patch(deck: number, slot: number, changes: Partial<FxSettings>) {

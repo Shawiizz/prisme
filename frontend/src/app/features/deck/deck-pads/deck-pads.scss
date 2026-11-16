@@ -70,6 +70,16 @@
     &[aria-checked='true'] {
       color: var(--pr-on-light);
     }
+    // the effect knobs of a controller on it: a ring around the key, chosen or not
+    &.is-focused {
+      outline: 1px solid var(--pr-light);
+      outline-offset: 1px;
+    }
+  }
+  // the chain bypassed: the marks of the effects on, hollow
+  &.bypassed > button.is-lit::after {
+    background: transparent;
+    box-shadow: inset 0 0 0 1px currentColor;
   }
 }
 

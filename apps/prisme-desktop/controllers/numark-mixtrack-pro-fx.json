@@ -101,6 +101,7 @@
     {"control": {"kind": "note", "channel": 15, "number": 3}, "target": "library.load2"},
     {"control": {"kind": "controlChange", "channel": 8, "number": 4}, "target": "deck1.fx.mix", "also": ["deck2.fx.mix"]},
     {"control": {"kind": "controlChange", "channel": 8, "number": 5}, "target": "deck1.fx.amount", "encoding": "relative", "step": 0.05, "also": ["deck2.fx.amount"]},
+    {"control": {"kind": "controlChange", "channel": 8, "number": 5}, "target": "deck1.fx.param2", "encoding": "relative", "step": 0.05, "shift": true, "also": ["deck2.fx.param2"]},
     {"control": {"kind": "controlChange", "channel": 8, "number": 3}, "target": "deck1.fx.off", "onValue": 0},
     {"control": {"kind": "controlChange", "channel": 8, "number": 3}, "target": "deck1.fx.on", "onValue": 1},
     {"control": {"kind": "controlChange", "channel": 8, "number": 3}, "target": "deck1.fx.on", "onValue": 2},

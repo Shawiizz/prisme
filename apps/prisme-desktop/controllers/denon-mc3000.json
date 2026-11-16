@@ -154,7 +154,9 @@
     {"control": {"kind": "controlChange", "channel": 2, "number": 91}, "target": "mixer.balance"},
     {"control": {"kind": "controlChange", "channel": 2, "number": 92}, "target": "mixer.main"},
     {"control": {"kind": "controlChange", "channel": 0, "number": 88}, "target": "mixer.mic"},
-    {"control": {"kind": "controlChange", "channel": 0, "number": 86}, "target": "deck1.fx.amount", "also": ["deck2.fx.amount"]}
+    {"control": {"kind": "controlChange", "channel": 0, "number": 85}, "target": "deck1.fx.period", "also": ["deck2.fx.period"]},
+    {"control": {"kind": "controlChange", "channel": 0, "number": 86}, "target": "deck1.fx.amount", "also": ["deck2.fx.amount"]},
+    {"control": {"kind": "controlChange", "channel": 0, "number": 87}, "target": "deck1.fx.param2", "also": ["deck2.fx.param2"]}
   ],
   "lights": [
     {"target": "deck1.ending", "control": {"kind": "note", "channel": 0, "number": 9}, "on": [176, 76, 9], "soon": [176, 76, 9], "off": [176, 75, 9]},

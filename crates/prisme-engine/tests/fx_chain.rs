@@ -114,3 +114,34 @@ fn the_part_takes_the_whole_chain() {
     let on_vocals = heard(false, Some(Parts::of(Stem::Vocals)));
     assert!((on_vocals / on_deck - 1.0).abs() < 0.05, "{on_vocals} vs {on_deck}");
 }
+
+#[test]
+fn the_second_knob_reaches_its_slot() {
+    let mut rig = steady();
+    put(&mut rig, 1, EffectKind::Gate, 1.0, 1.0);
+    rig.send(Command::SetFxParam2 { deck: 0, slot: 1, param2: 0.25 });
+    rig.run(0.5);
+    let closed = silent_share(&record(&mut rig, 2.0));
+    assert!((0.7..0.8).contains(&closed), "open a quarter of each beat: {closed}");
+}
+
+#[test]
+fn the_chain_switched_off_and_on_again_gives_back_its_slots() {
+    let dry = {
+        let mut rig = steady();
+        rig.run(0.5);
+        record(&mut rig, 1.0)
+    };
+    let mut rig = steady();
+    put(&mut rig, 0, EffectKind::Gate, 1.0, 1.0);
+    put(&mut rig, 2, EffectKind::Bitcrusher, 1.0, 1.0);
+    rig.send(Command::SetFxChainEnabled { deck: 0, enabled: false });
+    rig.run(0.5);
+    let bypassed = record(&mut rig, 1.0);
+    assert_eq!(bypassed, dry, "nothing while the chain is off");
+
+    rig.send(Command::SetFxChainEnabled { deck: 0, enabled: true });
+    rig.run(0.5);
+    let gated = silent_share(&record(&mut rig, 2.0));
+    assert!((0.4..0.6).contains(&gated), "the gate is back: {gated}");
+}

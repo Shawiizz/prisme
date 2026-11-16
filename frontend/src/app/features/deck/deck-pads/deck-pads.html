@@ -39,6 +39,7 @@
   @case ('fx') {
     <div
       class="pr-seg pr-seg--lg slots"
+      [class.bypassed]="!chainOn()"
       role="radiogroup"
       [attr.aria-label]="'Effect the pads and knobs act on' | t"
     >
@@ -47,6 +48,7 @@
           role="radio"
           [attr.aria-checked]="slot() === $index"
           [class.is-lit]="key.on"
+          [class.is-focused]="key.focused"
           [title]="key.title"
           (click)="fx.choose(deck(), $index)"
         >
@@ -55,6 +57,15 @@
       }
     </div>
     <div class="side knobs">
+      <button
+        class="pr-btn pr-btn--sm chain"
+        [class.is-on]="chainOn()"
+        [attr.aria-pressed]="chainOn()"
+        [title]="chainTitle()"
+        (click)="fx.setChainEnabled(deck(), !chainOn())"
+      >
+        FX
+      </button>
       @let on = effectPart();
       <button
         class="pr-btn pr-btn--sm part"
@@ -80,6 +91,16 @@
         [format]="readouts.percent"
         [value]="effect().amount"
         (valueChange)="fx.setAmount(deck(), slot(), $event)"
+      />
+      @let second = param2();
+      <app-knob
+        small
+        [label]="second.label"
+        [labelTitle]="second.name"
+        [defaultValue]="0.5"
+        [format]="readouts.percent"
+        [value]="effect().param2"
+        (valueChange)="fx.setParam2(deck(), slot(), $event)"
       />
       <div class="beats" [title]="'Period of the effect, in beats' | t">
         <button class="pr-btn pr-btn--sm" (click)="fx.scaleBeats(deck(), slot(), 0.5)">½</button>

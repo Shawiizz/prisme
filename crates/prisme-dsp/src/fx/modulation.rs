@@ -1,5 +1,6 @@
 //! Effects that sweep: flanger, phaser and filter, each moved by a slow oscillator whose
-//! cycle lasts a few beats.
+//! cycle lasts a few beats. Their second knob: the flanger's width, the phaser's depth, the
+//! filter's resonance.
 
 use super::delay::DelayBuffer;
 use super::Params;
@@ -23,6 +24,7 @@ impl Lfo {
     }
 }
 
+/// The sweep with the width in the middle; turned up, it goes twice as far.
 const FLANGER_DELAY_MS: (f32, f32) = (0.5, 5.0);
 const FLANGER_FEEDBACK: f32 = 0.85;
 
@@ -34,7 +36,8 @@ pub(crate) struct Flanger {
 
 impl Flanger {
     pub fn new(sample_rate: f32) -> Self {
-        let frames = (FLANGER_DELAY_MS.1 / 1_000.0 * sample_rate) as usize + 4;
+        let longest_ms = FLANGER_DELAY_MS.0 + 2.0 * (FLANGER_DELAY_MS.1 - FLANGER_DELAY_MS.0);
+        let frames = (longest_ms / 1_000.0 * sample_rate) as usize + 4;
         Self { buffer: DelayBuffer::new(frames), lfo: Lfo::default(), last: [0.0; 2] }
     }
 
@@ -46,8 +49,9 @@ impl Flanger {
 
     pub fn process(&mut self, stereo: &mut [f32], p: &Params) {
         let feedback = p.amount * FLANGER_FEEDBACK;
+        let width = 2.0 * p.param2;
         for frame in stereo.chunks_exact_mut(2) {
-            let sweep = self.lfo.tick(p);
+            let sweep = self.lfo.tick(p) * width;
             let ms = FLANGER_DELAY_MS.0 + (FLANGER_DELAY_MS.1 - FLANGER_DELAY_MS.0) * sweep;
             let delayed = self.buffer.read(ms / 1_000.0 * p.sample_rate);
             self.buffer.push([frame[0] + self.last[0] * feedback, frame[1] + self.last[1] * feedback]);
@@ -59,6 +63,8 @@ impl Flanger {
 }
 
 const PHASER_STAGES: usize = 6;
+/// The sweep with the depth in the middle; the depth takes it from half as wide (in octaves,
+/// from its low end) to half as wide again.
 const PHASER_HZ: (f32, f32) = (200.0, 3_000.0);
 const PHASER_FEEDBACK: f32 = 0.7;
 
@@ -72,8 +78,9 @@ pub(crate) struct Phaser {
 impl Phaser {
     pub fn process(&mut self, stereo: &mut [f32], p: &Params) {
         let feedback = p.amount * PHASER_FEEDBACK;
+        let depth = 0.5 + p.param2;
         for frame in stereo.chunks_exact_mut(2) {
-            let sweep = self.lfo.tick(p);
+            let sweep = self.lfo.tick(p) * depth;
             let hz = PHASER_HZ.0 * (PHASER_HZ.1 / PHASER_HZ.0).powf(sweep);
             let t = (PI * hz / p.sample_rate).tan();
             let a = (t - 1.0) / (t + 1.0);
@@ -93,6 +100,7 @@ impl Phaser {
 }
 
 const FILTER_HZ: (f32, f32) = (250.0, 8_000.0);
+/// With the resonance in the middle; it goes from a quarter of it to 1.75 times it.
 const FILTER_Q: f32 = 2.5;
 
 #[derive(Default)]
@@ -105,10 +113,11 @@ impl AutoFilter {
     /// A resonant low-pass sweeping down from the top; the amount is how far down.
     pub fn process(&mut self, stereo: &mut [f32], p: &Params) {
         let depth = 0.2 + 0.8 * p.amount;
+        let q = FILTER_Q * (0.25 + 1.5 * p.param2);
         for frame in stereo.chunks_exact_mut(2) {
             let sweep = 1.0 - depth * self.lfo.tick(p);
             let hz = FILTER_HZ.0 * (FILTER_HZ.1 / FILTER_HZ.0).powf(sweep);
-            let c = Coefficients::new(hz, FILTER_Q, p.sample_rate);
+            let c = Coefficients::new(hz, q, p.sample_rate);
             for (sample, channel) in frame.iter_mut().zip(&mut self.channels) {
                 *sample = channel.process(&c, *sample).low;
             }

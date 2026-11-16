@@ -720,10 +720,40 @@
   "kind": "fader"
  },
  {
+  "id": "deck1.fx.param2",
+  "group": "Deck A",
+  "label": "Effect 1 second knob (tone, resonance… as the effect has)",
+  "kind": "fader"
+ },
+ {
   "id": "deck1.fx.beats",
   "group": "Deck A",
   "label": "Effect 1 period (a step halves or doubles it)",
   "kind": "encoder"
+ },
+ {
+  "id": "deck1.fx.period",
+  "group": "Deck A",
+  "label": "Effect 1 period, along the knob",
+  "kind": "fader"
+ },
+ {
+  "id": "deck1.fx.kind",
+  "group": "Deck A",
+  "label": "Effect 1: the effect, along the knob",
+  "kind": "fader"
+ },
+ {
+  "id": "deck1.fx.focus",
+  "group": "Deck A",
+  "label": "Effect 1 focused on the effect knobs / let go",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.fx.held",
+  "group": "Deck A",
+  "label": "Effect 1 on while held",
+  "kind": "button"
  },
  {
   "id": "deck1.fx2",
@@ -816,10 +846,40 @@
   "kind": "fader"
  },
  {
+  "id": "deck1.fx2.param2",
+  "group": "Deck A",
+  "label": "Effect 2 second knob (tone, resonance… as the effect has)",
+  "kind": "fader"
+ },
+ {
   "id": "deck1.fx2.beats",
   "group": "Deck A",
   "label": "Effect 2 period (a step halves or doubles it)",
   "kind": "encoder"
+ },
+ {
+  "id": "deck1.fx2.period",
+  "group": "Deck A",
+  "label": "Effect 2 period, along the knob",
+  "kind": "fader"
+ },
+ {
+  "id": "deck1.fx2.kind",
+  "group": "Deck A",
+  "label": "Effect 2: the effect, along the knob",
+  "kind": "fader"
+ },
+ {
+  "id": "deck1.fx2.focus",
+  "group": "Deck A",
+  "label": "Effect 2 focused on the effect knobs / let go",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.fx2.held",
+  "group": "Deck A",
+  "label": "Effect 2 on while held",
+  "kind": "button"
  },
  {
   "id": "deck1.fx3",
@@ -912,10 +972,82 @@
   "kind": "fader"
  },
  {
+  "id": "deck1.fx3.param2",
+  "group": "Deck A",
+  "label": "Effect 3 second knob (tone, resonance… as the effect has)",
+  "kind": "fader"
+ },
+ {
   "id": "deck1.fx3.beats",
   "group": "Deck A",
   "label": "Effect 3 period (a step halves or doubles it)",
   "kind": "encoder"
+ },
+ {
+  "id": "deck1.fx3.period",
+  "group": "Deck A",
+  "label": "Effect 3 period, along the knob",
+  "kind": "fader"
+ },
+ {
+  "id": "deck1.fx3.kind",
+  "group": "Deck A",
+  "label": "Effect 3: the effect, along the knob",
+  "kind": "fader"
+ },
+ {
+  "id": "deck1.fx3.focus",
+  "group": "Deck A",
+  "label": "Effect 3 focused on the effect knobs / let go",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.fx3.held",
+  "group": "Deck A",
+  "label": "Effect 3 on while held",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.fx.chain",
+  "group": "Deck A",
+  "label": "Effects (the whole chain)",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.fx.chain.on",
+  "group": "Deck A",
+  "label": "Effects (the whole chain): on",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.fx.chain.off",
+  "group": "Deck A",
+  "label": "Effects (the whole chain): off",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.fx.knob1",
+  "group": "Deck A",
+  "label": "Effect knob 1: effect 1's amount, or the focused effect's",
+  "kind": "fader"
+ },
+ {
+  "id": "deck1.fx.knob2",
+  "group": "Deck A",
+  "label": "Effect knob 2: effect 2's amount, or the focused effect's second knob",
+  "kind": "fader"
+ },
+ {
+  "id": "deck1.fx.knob3",
+  "group": "Deck A",
+  "label": "Effect knob 3: effect 3's amount, or the focused effect's period",
+  "kind": "fader"
+ },
+ {
+  "id": "deck1.fx.super",
+  "group": "Deck A",
+  "label": "Effect amounts together (super knob)",
+  "kind": "fader"
  },
  {
   "id": "deck1.fx.part",
@@ -1371,12 +1503,6 @@
   "id": "deck1.tap",
   "group": "Deck A",
   "label": "Tap the tempo",
-  "kind": "button"
- },
- {
-  "id": "deck1.fx.held",
-  "group": "Deck A",
-  "label": "Effect 1 on while held",
   "kind": "button"
  },
  {
@@ -2712,10 +2838,40 @@
   "kind": "fader"
  },
  {
+  "id": "deck2.fx.param2",
+  "group": "Deck B",
+  "label": "Effect 1 second knob (tone, resonance… as the effect has)",
+  "kind": "fader"
+ },
+ {
   "id": "deck2.fx.beats",
   "group": "Deck B",
   "label": "Effect 1 period (a step halves or doubles it)",
   "kind": "encoder"
+ },
+ {
+  "id": "deck2.fx.period",
+  "group": "Deck B",
+  "label": "Effect 1 period, along the knob",
+  "kind": "fader"
+ },
+ {
+  "id": "deck2.fx.kind",
+  "group": "Deck B",
+  "label": "Effect 1: the effect, along the knob",
+  "kind": "fader"
+ },
+ {
+  "id": "deck2.fx.focus",
+  "group": "Deck B",
+  "label": "Effect 1 focused on the effect knobs / let go",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.fx.held",
+  "group": "Deck B",
+  "label": "Effect 1 on while held",
+  "kind": "button"
  },
  {
   "id": "deck2.fx2",
@@ -2808,10 +2964,40 @@
   "kind": "fader"
  },
  {
+  "id": "deck2.fx2.param2",
+  "group": "Deck B",
+  "label": "Effect 2 second knob (tone, resonance… as the effect has)",
+  "kind": "fader"
+ },
+ {
   "id": "deck2.fx2.beats",
   "group": "Deck B",
   "label": "Effect 2 period (a step halves or doubles it)",
   "kind": "encoder"
+ },
+ {
+  "id": "deck2.fx2.period",
+  "group": "Deck B",
+  "label": "Effect 2 period, along the knob",
+  "kind": "fader"
+ },
+ {
+  "id": "deck2.fx2.kind",
+  "group": "Deck B",
+  "label": "Effect 2: the effect, along the knob",
+  "kind": "fader"
+ },
+ {
+  "id": "deck2.fx2.focus",
+  "group": "Deck B",
+  "label": "Effect 2 focused on the effect knobs / let go",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.fx2.held",
+  "group": "Deck B",
+  "label": "Effect 2 on while held",
+  "kind": "button"
  },
  {
   "id": "deck2.fx3",
@@ -2904,10 +3090,82 @@
   "kind": "fader"
  },
  {
+  "id": "deck2.fx3.param2",
+  "group": "Deck B",
+  "label": "Effect 3 second knob (tone, resonance… as the effect has)",
+  "kind": "fader"
+ },
+ {
   "id": "deck2.fx3.beats",
   "group": "Deck B",
   "label": "Effect 3 period (a step halves or doubles it)",
   "kind": "encoder"
+ },
+ {
+  "id": "deck2.fx3.period",
+  "group": "Deck B",
+  "label": "Effect 3 period, along the knob",
+  "kind": "fader"
+ },
+ {
+  "id": "deck2.fx3.kind",
+  "group": "Deck B",
+  "label": "Effect 3: the effect, along the knob",
+  "kind": "fader"
+ },
+ {
+  "id": "deck2.fx3.focus",
+  "group": "Deck B",
+  "label": "Effect 3 focused on the effect knobs / let go",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.fx3.held",
+  "group": "Deck B",
+  "label": "Effect 3 on while held",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.fx.chain",
+  "group": "Deck B",
+  "label": "Effects (the whole chain)",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.fx.chain.on",
+  "group": "Deck B",
+  "label": "Effects (the whole chain): on",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.fx.chain.off",
+  "group": "Deck B",
+  "label": "Effects (the whole chain): off",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.fx.knob1",
+  "group": "Deck B",
+  "label": "Effect knob 1: effect 1's amount, or the focused effect's",
+  "kind": "fader"
+ },
+ {
+  "id": "deck2.fx.knob2",
+  "group": "Deck B",
+  "label": "Effect knob 2: effect 2's amount, or the focused effect's second knob",
+  "kind": "fader"
+ },
+ {
+  "id": "deck2.fx.knob3",
+  "group": "Deck B",
+  "label": "Effect knob 3: effect 3's amount, or the focused effect's period",
+  "kind": "fader"
+ },
+ {
+  "id": "deck2.fx.super",
+  "group": "Deck B",
+  "label": "Effect amounts together (super knob)",
+  "kind": "fader"
  },
  {
   "id": "deck2.fx.part",
@@ -3363,12 +3621,6 @@
   "id": "deck2.tap",
   "group": "Deck B",
   "label": "Tap the tempo",
-  "kind": "button"
- },
- {
-  "id": "deck2.fx.held",
-  "group": "Deck B",
-  "label": "Effect 1 on while held",
   "kind": "button"
  },
  {
@@ -4704,10 +4956,40 @@
   "kind": "fader"
  },
  {
+  "id": "deck3.fx.param2",
+  "group": "Deck C",
+  "label": "Effect 1 second knob (tone, resonance… as the effect has)",
+  "kind": "fader"
+ },
+ {
   "id": "deck3.fx.beats",
   "group": "Deck C",
   "label": "Effect 1 period (a step halves or doubles it)",
   "kind": "encoder"
+ },
+ {
+  "id": "deck3.fx.period",
+  "group": "Deck C",
+  "label": "Effect 1 period, along the knob",
+  "kind": "fader"
+ },
+ {
+  "id": "deck3.fx.kind",
+  "group": "Deck C",
+  "label": "Effect 1: the effect, along the knob",
+  "kind": "fader"
+ },
+ {
+  "id": "deck3.fx.focus",
+  "group": "Deck C",
+  "label": "Effect 1 focused on the effect knobs / let go",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.fx.held",
+  "group": "Deck C",
+  "label": "Effect 1 on while held",
+  "kind": "button"
  },
  {
   "id": "deck3.fx2",
@@ -4800,10 +5082,40 @@
   "kind": "fader"
  },
  {
+  "id": "deck3.fx2.param2",
+  "group": "Deck C",
+  "label": "Effect 2 second knob (tone, resonance… as the effect has)",
+  "kind": "fader"
+ },
+ {
   "id": "deck3.fx2.beats",
   "group": "Deck C",
   "label": "Effect 2 period (a step halves or doubles it)",
   "kind": "encoder"
+ },
+ {
+  "id": "deck3.fx2.period",
+  "group": "Deck C",
+  "label": "Effect 2 period, along the knob",
+  "kind": "fader"
+ },
+ {
+  "id": "deck3.fx2.kind",
+  "group": "Deck C",
+  "label": "Effect 2: the effect, along the knob",
+  "kind": "fader"
+ },
+ {
+  "id": "deck3.fx2.focus",
+  "group": "Deck C",
+  "label": "Effect 2 focused on the effect knobs / let go",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.fx2.held",
+  "group": "Deck C",
+  "label": "Effect 2 on while held",
+  "kind": "button"
  },
  {
   "id": "deck3.fx3",
@@ -4896,10 +5208,82 @@
   "kind": "fader"
  },
  {
+  "id": "deck3.fx3.param2",
+  "group": "Deck C",
+  "label": "Effect 3 second knob (tone, resonance… as the effect has)",
+  "kind": "fader"
+ },
+ {
   "id": "deck3.fx3.beats",
   "group": "Deck C",
   "label": "Effect 3 period (a step halves or doubles it)",
   "kind": "encoder"
+ },
+ {
+  "id": "deck3.fx3.period",
+  "group": "Deck C",
+  "label": "Effect 3 period, along the knob",
+  "kind": "fader"
+ },
+ {
+  "id": "deck3.fx3.kind",
+  "group": "Deck C",
+  "label": "Effect 3: the effect, along the knob",
+  "kind": "fader"
+ },
+ {
+  "id": "deck3.fx3.focus",
+  "group": "Deck C",
+  "label": "Effect 3 focused on the effect knobs / let go",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.fx3.held",
+  "group": "Deck C",
+  "label": "Effect 3 on while held",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.fx.chain",
+  "group": "Deck C",
+  "label": "Effects (the whole chain)",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.fx.chain.on",
+  "group": "Deck C",
+  "label": "Effects (the whole chain): on",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.fx.chain.off",
+  "group": "Deck C",
+  "label": "Effects (the whole chain): off",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.fx.knob1",
+  "group": "Deck C",
+  "label": "Effect knob 1: effect 1's amount, or the focused effect's",
+  "kind": "fader"
+ },
+ {
+  "id": "deck3.fx.knob2",
+  "group": "Deck C",
+  "label": "Effect knob 2: effect 2's amount, or the focused effect's second knob",
+  "kind": "fader"
+ },
+ {
+  "id": "deck3.fx.knob3",
+  "group": "Deck C",
+  "label": "Effect knob 3: effect 3's amount, or the focused effect's period",
+  "kind": "fader"
+ },
+ {
+  "id": "deck3.fx.super",
+  "group": "Deck C",
+  "label": "Effect amounts together (super knob)",
+  "kind": "fader"
  },
  {
   "id": "deck3.fx.part",
@@ -5355,12 +5739,6 @@
   "id": "deck3.tap",
   "group": "Deck C",
   "label": "Tap the tempo",
-  "kind": "button"
- },
- {
-  "id": "deck3.fx.held",
-  "group": "Deck C",
-  "label": "Effect 1 on while held",
   "kind": "button"
  },
  {
@@ -6696,10 +7074,40 @@
   "kind": "fader"
  },
  {
+  "id": "deck4.fx.param2",
+  "group": "Deck D",
+  "label": "Effect 1 second knob (tone, resonance… as the effect has)",
+  "kind": "fader"
+ },
+ {
   "id": "deck4.fx.beats",
   "group": "Deck D",
   "label": "Effect 1 period (a step halves or doubles it)",
   "kind": "encoder"
+ },
+ {
+  "id": "deck4.fx.period",
+  "group": "Deck D",
+  "label": "Effect 1 period, along the knob",
+  "kind": "fader"
+ },
+ {
+  "id": "deck4.fx.kind",
+  "group": "Deck D",
+  "label": "Effect 1: the effect, along the knob",
+  "kind": "fader"
+ },
+ {
+  "id": "deck4.fx.focus",
+  "group": "Deck D",
+  "label": "Effect 1 focused on the effect knobs / let go",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.fx.held",
+  "group": "Deck D",
+  "label": "Effect 1 on while held",
+  "kind": "button"
  },
  {
   "id": "deck4.fx2",
@@ -6792,10 +7200,40 @@
   "kind": "fader"
  },
  {
+  "id": "deck4.fx2.param2",
+  "group": "Deck D",
+  "label": "Effect 2 second knob (tone, resonance… as the effect has)",
+  "kind": "fader"
+ },
+ {
   "id": "deck4.fx2.beats",
   "group": "Deck D",
   "label": "Effect 2 period (a step halves or doubles it)",
   "kind": "encoder"
+ },
+ {
+  "id": "deck4.fx2.period",
+  "group": "Deck D",
+  "label": "Effect 2 period, along the knob",
+  "kind": "fader"
+ },
+ {
+  "id": "deck4.fx2.kind",
+  "group": "Deck D",
+  "label": "Effect 2: the effect, along the knob",
+  "kind": "fader"
+ },
+ {
+  "id": "deck4.fx2.focus",
+  "group": "Deck D",
+  "label": "Effect 2 focused on the effect knobs / let go",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.fx2.held",
+  "group": "Deck D",
+  "label": "Effect 2 on while held",
+  "kind": "button"
  },
  {
   "id": "deck4.fx3",
@@ -6888,10 +7326,82 @@
   "kind": "fader"
  },
  {
+  "id": "deck4.fx3.param2",
+  "group": "Deck D",
+  "label": "Effect 3 second knob (tone, resonance… as the effect has)",
+  "kind": "fader"
+ },
+ {
   "id": "deck4.fx3.beats",
   "group": "Deck D",
   "label": "Effect 3 period (a step halves or doubles it)",
   "kind": "encoder"
+ },
+ {
+  "id": "deck4.fx3.period",
+  "group": "Deck D",
+  "label": "Effect 3 period, along the knob",
+  "kind": "fader"
+ },
+ {
+  "id": "deck4.fx3.kind",
+  "group": "Deck D",
+  "label": "Effect 3: the effect, along the knob",
+  "kind": "fader"
+ },
+ {
+  "id": "deck4.fx3.focus",
+  "group": "Deck D",
+  "label": "Effect 3 focused on the effect knobs / let go",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.fx3.held",
+  "group": "Deck D",
+  "label": "Effect 3 on while held",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.fx.chain",
+  "group": "Deck D",
+  "label": "Effects (the whole chain)",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.fx.chain.on",
+  "group": "Deck D",
+  "label": "Effects (the whole chain): on",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.fx.chain.off",
+  "group": "Deck D",
+  "label": "Effects (the whole chain): off",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.fx.knob1",
+  "group": "Deck D",
+  "label": "Effect knob 1: effect 1's amount, or the focused effect's",
+  "kind": "fader"
+ },
+ {
+  "id": "deck4.fx.knob2",
+  "group": "Deck D",
+  "label": "Effect knob 2: effect 2's amount, or the focused effect's second knob",
+  "kind": "fader"
+ },
+ {
+  "id": "deck4.fx.knob3",
+  "group": "Deck D",
+  "label": "Effect knob 3: effect 3's amount, or the focused effect's period",
+  "kind": "fader"
+ },
+ {
+  "id": "deck4.fx.super",
+  "group": "Deck D",
+  "label": "Effect amounts together (super knob)",
+  "kind": "fader"
  },
  {
   "id": "deck4.fx.part",
@@ -7347,12 +7857,6 @@
   "id": "deck4.tap",
   "group": "Deck D",
   "label": "Tap the tempo",
-  "kind": "button"
- },
- {
-  "id": "deck4.fx.held",
-  "group": "Deck D",
-  "label": "Effect 1 on while held",
   "kind": "button"
  },
  {
