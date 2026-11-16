@@ -81,6 +81,18 @@
       ▶▶
     </button>
   </div>
+  <div class="row">
+    <button
+      class="pr-btn pr-btn--sm wide"
+      [disabled]="toOther() === null"
+      [title]="
+        'Both decks playing, matched by ear: the grid moves onto the beats of the other deck' | t
+      "
+      (click)="alignToOther()"
+    >
+      {{ 'Grid onto the other deck' | t }}
+    </button>
+  </div>
 
   <header>
     <span class="pr-label">{{ 'Key' | t }}</span>

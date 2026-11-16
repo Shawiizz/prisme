@@ -7,6 +7,7 @@ import { TPipe } from '../../../core/i18n/t.pipe';
 import { camelotHue, camelotMajor, keyName } from '../../../shared/camelot';
 import { Dismiss, overlay } from '../../../shared/overlay';
 import { PHONE } from '../../../core/platform';
+import { phaseOffset } from '../../../core/sync';
 
 /** Grid moves of the arrow buttons: fine and coarse (seconds). */
 const FINE_SHIFT_S = 0.002;
@@ -54,6 +55,17 @@ export class GridEditor {
     return s > 0 ? `+${s}` : s < 0 ? `−${-s}` : '0';
   });
   protected readonly keyMatch = computed(() => this.engine.keyMatch(this.deck()));
+  /** How far to move the grid (seconds of the track) so that its beats fall on the other
+   * deck's, both playing: matched by ear, the deck keeps what is heard and is in phase. */
+  protected readonly toOther = computed(() => {
+    const decks = this.engine.status()?.decks ?? [];
+    const own = decks[this.deck()];
+    const other = decks[this.engine.mixedWith(this.deck())];
+    const bpm = this.track()?.tempo?.bpm;
+    if (!own?.playing || !other?.playing || !bpm) return null;
+    const beats = phaseOffset(own, other);
+    return beats === null ? null : (beats * 60) / bpm;
+  });
 
   constructor() {
     this.edits.loadKeys();
@@ -68,6 +80,11 @@ export class GridEditor {
   grid(change: GridChange) {
     this.tapped.set(null);
     this.edits.editGrid(this.deck(), change);
+  }
+
+  alignToOther() {
+    const seconds = this.toOther();
+    if (seconds !== null) this.grid({ kind: 'shift', seconds });
   }
 
   setBpm(text: string) {
