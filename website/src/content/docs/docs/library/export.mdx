@@ -1,0 +1,156 @@
+---
+title: Exporting to rekordbox and playlists
+description: Take your crates, prepare list and sets to rekordbox and on to CDJs, or to any other software as a playlist file.
+sidebar:
+  order: 6
+---
+
+import { Steps, Aside } from '@astrojs/starlight/components';
+
+A set prepared in Prisme can go on with you: to CDJs through rekordbox, or to any other DJ
+software or player. Prisme has two exports:
+
+- **M3U**: one list as a playlist file, which almost any software opens. It carries the tracks
+  in order, nothing more.
+- **rekordbox XML**: your whole library, or the lists you choose, with the beat grids, keys,
+  colours, ratings, cues and loops. rekordbox reads it, and from rekordbox the tracks go to a
+  USB stick for the CDJs.
+
+Exporting only writes a new file: your music files and Prisme's library stay as they are.
+
+## A list as a playlist (M3U)
+
+<Steps>
+
+1. In the side panel of the library, point at the list: **Prepare**, a crate or a set of the
+   **History**.
+
+2. Click **M3U** at the end of its row (**Export as a playlist (M3U)**).
+
+3. Choose where to save the file. It is named after the list (`Warm-up.m3u8`, or
+   `Set 2026-11-14 22h00.m3u8` for a set) and you can rename it.
+
+</Steps>
+
+{/* screenshot: the side panel with the pointer on a crate, its M3U button showing */}
+
+The file lists the tracks in the list's order, each with its length, artist and title, by its
+full path. A smart crate gives the tracks it picks at that moment; a set gives the tracks in the
+order you played them, a track played twice listed twice.
+
+Open the file in the other software, or drag it there: most DJ software and music players import
+an M3U playlist as a playlist or crate.
+
+<Aside type="note">
+  An M3U file holds no cues, grids or colours: for those, export to rekordbox. And it names each
+  file by its full path, so it works on this computer, or on another one where the music is at
+  the same place.
+</Aside>
+
+## Your library for rekordbox (XML)
+
+<Steps>
+
+1. Click **Export** in the library's toolbar, next to **Import** (**The library or chosen lists
+   for rekordbox**). The **Export to rekordbox** window opens.
+
+2. Choose what goes in:
+   - **Whole library**: every analysed track, even those in no list, with all your crates, the
+     prepare list and every set of the history;
+   - **Chosen lists**: tick the crates, **Prepare** and the sets you want. Only their tracks go
+     in.
+
+3. Click **Export…** and choose where to save the file (`Prisme.xml` by default).
+
+</Steps>
+
+{/* screenshot: the Export to rekordbox window with Chosen lists open and three crates ticked */}
+
+When it is written, the window says what it holds, for example **1204 tracks and 38 playlists
+written to D:\DJ\Prisme.xml.**
+
+What each track carries:
+
+| In Prisme | In rekordbox |
+| --- | --- |
+| Title, artist, album, genre, year, comment | The same tags. A track without a title takes its file name |
+| Length, file size and type | The same |
+| Tempo and beat grid | The beat grid, its bars starting on the first beat as in Prisme. The tempo is kept to a hundredth of a BPM |
+| Key | The key, written `Am`, `F#m`, `Eb`… |
+| Colour | rekordbox's colour at the same place: Pink → Rose, Red → Red, Orange → Orange, Yellow → Lemon, Green → Green, Aqua → Turquoise, Blue → Blue, Purple → Violet |
+| Rating | The same number of stars |
+| Plays in the history | The play count |
+| Main cue | A memory cue, the first of the track |
+| Hot cues 1 to 8, with their colour and name | Hot cues A to H |
+| Looping hot cues 1 to 8 | Hot loops on A to H |
+| Hot cues 9 to 16 | Memory cues (memory loops for looping ones) |
+
+And the lists, as playlists:
+
+| In Prisme | In rekordbox |
+| --- | --- |
+| A crate | A playlist of the same name. A crate imported from a folder, `Festival / Peak time`, goes back into a **Festival** folder |
+| A smart crate | A playlist of the tracks it picks when you export |
+| **Prepare** | A **Prepare** playlist, in its order |
+| A set of the history | A playlist in a **History** folder, named by when it started: `2026-11-14 22:00` |
+
+The tempo and key are those you see in Prisme: your corrections if you made some, else Prisme's
+analysis (see [Tempo, beat grid and key](/docs/library/analysis/)).
+
+## Into rekordbox, then on to a USB stick
+
+The menu names below are those of rekordbox 6 and 7 in English.
+
+<Steps>
+
+1. In rekordbox, open **Preferences** › **Advanced** › **Database**. Under **rekordbox xml**,
+   click **Browse** next to **Imported Library** and pick the file Prisme wrote.
+
+2. In **Preferences** › **View** › **Layout**, tick **rekordbox xml**. A **rekordbox xml** entry
+   appears in the tree view, on the left.
+
+3. Open **rekordbox xml**. Under **All Tracks**, select the tracks (<kbd>Ctrl</kbd> <kbd>A</kbd>),
+   right-click, **Import To Collection**. Under **Playlists**, right-click a playlist or a folder,
+   **Import Playlist**. Your playlists appear under **Playlists**, the tracks in the
+   **Collection** with their grids and cues.
+
+4. Plug in the USB stick. It shows under **Devices** in the tree view (in rekordbox 6 and 7, in
+   **Export** mode). Drag your playlists onto it, or right-click a playlist, **Export Playlist**,
+   and choose the stick. rekordbox copies the files and prepares them for the CDJs.
+
+</Steps>
+
+{/* screenshot: rekordbox's tree view with the rekordbox xml entry open and Import Playlist in its right-click menu */}
+
+After preparing more in Prisme, export again over the same file: rekordbox reads it again, and
+importing a track again brings its new cues and grid.
+
+<Aside type="caution">
+  Importing a track into rekordbox's collection replaces what rekordbox had for it: its cues,
+  its grid and its tags. Export your rekordbox library first (**File** › **Export Collection in
+  xml format**) if you want to keep a copy.
+</Aside>
+
+<Aside type="tip">
+  Before a gig, load a few of the tracks on a CDJ, or in rekordbox, and check that their grid and
+  cues land where they do in Prisme.
+</Aside>
+
+## What does not go
+
+- **Hot cues 9 to 16.** rekordbox and the CDJs have eight hot cues: Prisme's second page becomes
+  memory cues, which you reach with the CDJ's memory buttons.
+- **Smart crates stay as they were.** Each becomes a playlist of the tracks it held when you
+  exported; its rules do not go. Export again to bring the new tracks.
+- **Stems, edits and waveforms.** rekordbox analyses the waveforms itself. The bit rate and
+  sample rate are not in the file either: rekordbox reads them from the music.
+- **Files elsewhere.** Like the M3U file, the XML names each file by its full path: export on the
+  computer rekordbox runs on, or with the music at the same place.
+- **Serato.** There is no export to Serato yet. A crate exported as M3U and dragged into Serato
+  brings the tracks, without cues or grids.
+
+The XML also reads back into Prisme: **Import**, then **Choose the XML file…** brings the grids,
+cues and lists back, the main cue from the first memory cue (see
+[Importing from Serato and rekordbox](/docs/library/import/)). Memory cues after the first do
+not come back, so neither do hot cues 9 to 16, except looping ones, which come back on the first
+free pads.

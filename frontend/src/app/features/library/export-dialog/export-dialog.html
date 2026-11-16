@@ -1,0 +1,87 @@
+<div class="pr-backdrop" (dismiss)="close()">
+  <div
+    class="pr-dialog"
+    role="dialog"
+    aria-modal="true"
+    [attr.aria-label]="'Export to rekordbox' | t"
+  >
+    <header class="pr-dialog__head">
+      <h2>{{ 'Export to rekordbox' | t }}</h2>
+      <button
+        class="pr-btn pr-btn--ghost pr-btn--icon"
+        [attr.aria-label]="'Close' | t"
+        [disabled]="busy()"
+        (click)="closed.emit()"
+      >
+        ×
+      </button>
+    </header>
+    <div class="pr-dialog__body">
+      <p>
+        {{
+          'An XML file rekordbox reads: each track with its tags, beat grid, key, colour, rating, main cue, hot cues and saved loops, and your lists as playlists. Hot cues past the eighth become memory cues.'
+            | t
+        }}
+      </p>
+
+      <div class="pr-seg pr-seg--lg" role="radiogroup" [attr.aria-label]="'What goes in' | t">
+        <button role="radio" [attr.aria-checked]="whole()" (click)="whole.set(true)">
+          {{ 'Whole library' | t }}
+        </button>
+        <button role="radio" [attr.aria-checked]="!whole()" (click)="whole.set(false)">
+          {{ 'Chosen lists' | t }}
+        </button>
+      </div>
+
+      @if (whole()) {
+        <p class="note">
+          {{
+            'Every analysed track, the crates (a smart crate with the tracks it picks now), the prepare list and the sets of the history.'
+              | t
+          }}
+        </p>
+      } @else {
+        <div class="lists">
+          @for (s of sections(); track s.key) {
+            @if (s.choices.length) {
+              <h3 class="pr-label">{{ s.title() }}</h3>
+              @for (c of s.choices; track c.key) {
+                <label class="pr-check choice">
+                  <input type="checkbox" [checked]="chosen().has(c.key)" (change)="toggle(c.key)" />
+                  <span class="name">{{ c.name }}</span>
+                  <span class="count">{{ c.count }}</span>
+                </label>
+              }
+            }
+          }
+        </div>
+      }
+
+      @if (busy()) {
+        <p class="status">{{ 'Exporting…' | t }}</p>
+      } @else if (done(); as d) {
+        <p class="status">
+          {{
+            '{tracks} tracks and {lists} playlists written to {file}.'
+              | t: { tracks: d.summary.tracks, lists: d.summary.lists, file: d.path }
+          }}
+        </p>
+      }
+      @if (error(); as e) {
+        <p class="error">{{ e }}</p>
+      }
+      <p class="note">
+        {{
+          'One list alone as a playlist for any other software: the M3U button on that list, in the side panel.'
+            | t
+        }}
+      </p>
+    </div>
+    <footer class="pr-dialog__foot">
+      <button class="pr-btn" [disabled]="busy()" (click)="closed.emit()">{{ 'Close' | t }}</button>
+      <button class="pr-btn pr-btn--light" [disabled]="busy() || empty()" (click)="export()">
+        {{ 'Export…' | t }}
+      </button>
+    </footer>
+  </div>
+</div>

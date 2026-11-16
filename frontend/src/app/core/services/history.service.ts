@@ -61,7 +61,7 @@ export class HistoryService {
 }
 
 /** `2026-10-10 21h30`: sortable and valid in a file name. */
-function fileDate(ms: number): string {
+export function fileDate(ms: number): string {
   const d = new Date(ms);
   const two = (n: number) => String(n).padStart(2, '0');
   return `${d.getFullYear()}-${two(d.getMonth() + 1)}-${two(d.getDate())} ${two(d.getHours())}h${two(d.getMinutes())}`;

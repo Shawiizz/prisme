@@ -853,5 +853,20 @@
   "Show in folder": "Afficher dans le dossier",
   "{device} not found": "{device} introuvable",
   "Sound card not found": "Carte son introuvable",
-  "The sound card chosen is missing: the sound plays on the default device until it is back": "La carte son choisie est absente : le son passe par l’appareil par défaut jusqu’à son retour"
+  "The sound card chosen is missing: the sound plays on the default device until it is back": "La carte son choisie est absente : le son passe par l’appareil par défaut jusqu’à son retour",
+  "Set {date}": "Set {date}",
+  "Export as a playlist (M3U)": "Exporter en playlist (M3U)",
+  "Export the tracks it picks now as a playlist (M3U)": "Exporter en playlist (M3U) les morceaux qu'elle choisit maintenant",
+  "Export": "Exporter",
+  "The library or chosen lists for rekordbox": "La bibliothèque ou des listes choisies, pour rekordbox",
+  "Export to rekordbox": "Exporter vers rekordbox",
+  "An XML file rekordbox reads: each track with its tags, beat grid, key, colour, rating, main cue, hot cues and saved loops, and your lists as playlists. Hot cues past the eighth become memory cues.": "Un fichier XML que rekordbox lit : chaque morceau avec ses tags, sa grille rythmique, sa tonalité, sa couleur, sa note, son cue principal, ses hot cues et ses boucles enregistrées, et vos listes en playlists. Les hot cues après le huitième deviennent des memory cues.",
+  "What goes in": "Ce qui est exporté",
+  "Whole library": "Toute la bibliothèque",
+  "Chosen lists": "Listes choisies",
+  "Every analysed track, the crates (a smart crate with the tracks it picks now), the prepare list and the sets of the history.": "Tous les morceaux analysés, les crates (une crate intelligente avec les morceaux qu'elle choisit maintenant), la préparation et les sets de l'historique.",
+  "Exporting…": "Export en cours…",
+  "{tracks} tracks and {lists} playlists written to {file}.": "{tracks} morceaux et {lists} playlists écrits dans {file}.",
+  "One list alone as a playlist for any other software: the M3U button on that list, in the side panel.": "Une seule liste en playlist pour n'importe quel autre logiciel : le bouton M3U de cette liste, dans le panneau latéral.",
+  "Export…": "Exporter…"
 }

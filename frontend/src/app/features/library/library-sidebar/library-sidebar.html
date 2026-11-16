@@ -17,6 +17,13 @@
         <span class="auto pr-label" [class.paused]="autoDj.paused()">{{ 'Auto DJ' | t }}</span>
       }
       <span class="count">{{ prepareCount() }}</span>
+      <button
+        class="action"
+        [title]="'Export as a playlist (M3U)' | t"
+        (click)="library.exportList({ kind: 'prepare' }); $event.stopPropagation()"
+      >
+        M3U
+      </button>
     </div>
     <div
       class="item"
@@ -126,6 +133,17 @@
           >
           <span class="count">{{ c.trackCount }}</span>
           <button
+            class="action"
+            [title]="
+              c.rules
+                ? ('Export the tracks it picks now as a playlist (M3U)' | t)
+                : ('Export as a playlist (M3U)' | t)
+            "
+            (click)="library.exportList({ kind: 'crate', id: c.id }); $event.stopPropagation()"
+          >
+            M3U
+          </button>
+          <button
             class="delete"
             [class.armed]="isArmed('crate', c.id)"
             [title]="
@@ -173,6 +191,16 @@
           (click)="library.exportSession(s); $event.stopPropagation()"
         >
           CSV
+        </button>
+        <button
+          class="action"
+          [title]="'Export as a playlist (M3U)' | t"
+          (click)="
+            library.exportList({ kind: 'session', id: s.id, startedAtMs: s.startedAtMs });
+            $event.stopPropagation()
+          "
+        >
+          M3U
         </button>
         <button
           class="delete"

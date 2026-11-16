@@ -13,6 +13,7 @@ import { LibraryService } from '../../core/services/library.service';
 import { StemsService } from '../../core/services/stems.service';
 import { PreviewService } from '../../core/services/preview.service';
 import { AutoDjBar } from './auto-dj-bar/auto-dj-bar';
+import { ExportDialog } from './export-dialog/export-dialog';
 import { ImportDialog } from './import-dialog/import-dialog';
 import { LibrarySidebar } from './library-sidebar/library-sidebar';
 import { PreviewStrip } from './preview-strip/preview-strip';
@@ -30,7 +31,7 @@ const RESCANNED_MS = 3000;
   selector: 'app-library',
   templateUrl: './library.html',
   styleUrl: './library.scss',
-  imports: [AutoDjBar, ImportDialog, LibrarySidebar, PreviewStrip, TrackTable, TPipe],
+  imports: [AutoDjBar, ExportDialog, ImportDialog, LibrarySidebar, PreviewStrip, TrackTable, TPipe],
 })
 export class Library {
   protected readonly keyboard = inject(KeyboardService);
@@ -48,6 +49,7 @@ export class Library {
   private readonly search = viewChild.required<ElementRef<HTMLInputElement>>('search');
 
   protected readonly importOpen = signal(false);
+  protected readonly exportOpen = signal(false);
   protected readonly progress = this.library.progress;
   /** The scans ended when a rescan was asked for, while it runs. */
   private readonly rescanFrom = signal<number | null>(null);

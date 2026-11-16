@@ -1,7 +1,19 @@
-//! rekordbox's XML export (File > Export Collection in xml format): tracks with their
-//! hot and memory cues, loops, beat grid, colour and rating, and the playlists.
+//! rekordbox's XML (File > Export Collection in xml format): tracks with their hot and
+//! memory cues, loops, beat grid, colour and rating, and the playlists. Read here, written
+//! by [`write`] (which rekordbox reads as its "rekordbox xml" library).
+//!
+//! The format is rekordbox's "rekordbox xml format" document (rekordbox.com, for developers);
+//! the hot cues' `Red`, `Green` and `Blue`, which it does not describe, are as rekordbox
+//! writes them.
 
-use crate::{join_relative, Import, ImportedCrate, ImportedCue, ImportedGrid, ImportedTrack};
+mod write;
+
+pub use write::write;
+
+use crate::{
+    join_relative, Import, ImportedCrate, ImportedCue, ImportedGrid, ImportedTrack, FOLDER_SEPARATOR,
+};
+use percent_encoding::{utf8_percent_encode, AsciiSet, NON_ALPHANUMERIC};
 use quick_xml::events::{BytesStart, Event};
 use quick_xml::Reader;
 use std::collections::HashMap;
@@ -17,6 +29,23 @@ pub enum RekordboxError {
 
 /// Ratings are stored as 0, 51, 102, 153, 204 or 255.
 const RATING_STEP: f64 = 51.0;
+
+/// rekordbox's eight track colours (rose, red, orange, lemon, green, turquoise, blue,
+/// violet), and Prisme's in the same order (frontend/src/app/shared/track-colors.ts).
+const REKORDBOX_COLOURS: [u32; 8] =
+    [0xFF007F, 0xFF0000, 0xFFA500, 0xFFFF00, 0x00FF00, 0x25FDE9, 0x0000FF, 0x660099];
+const PRISME_COLOURS: [u32; 8] =
+    [0xE86BD6, 0xFF5442, 0xFF9A3C, 0xF5D547, 0xA6E25C, 0x3FD3B5, 0x4AA8FF, 0x8F7BFF];
+
+/// The place in both palettes of the colour of either nearest to `colour`.
+fn track_colour_index(colour: u32) -> usize {
+    let channels = |c: u32| [c >> 16 & 0xff, c >> 8 & 0xff, c & 0xff].map(|v| v as i32);
+    let distance =
+        |c: u32| channels(c).iter().zip(channels(colour)).map(|(a, b)| (a - b) * (a - b)).sum::<i32>();
+    let nearest =
+        REKORDBOX_COLOURS.iter().chain(&PRISME_COLOURS).enumerate().min_by_key(|(_, c)| distance(**c));
+    nearest.map_or(0, |(i, _)| i % REKORDBOX_COLOURS.len())
+}
 
 pub fn read(path: &Path) -> Result<Import, RekordboxError> {
     parse(&std::fs::read_to_string(path)?)
@@ -65,7 +94,8 @@ pub fn parse(xml: &str) -> Result<Import, RekordboxError> {
                     grid: None,
                     color: a
                         .get("Colour")
-                        .and_then(|c| u32::from_str_radix(c.trim_start_matches("0x"), 16).ok()),
+                        .and_then(|c| u32::from_str_radix(c.trim_start_matches("0x"), 16).ok())
+                        .map(|c| PRISME_COLOURS[track_colour_index(c)]),
                     rating: number(&a, "Rating").map(|r| (r / RATING_STEP).round() as u8).filter(|r| *r > 0),
                 });
             }
@@ -74,7 +104,9 @@ pub fn parse(xml: &str) -> Result<Import, RekordboxError> {
                 if let (Some(track), Some(bpm), Some(beat_s)) =
                     (tracks.last_mut(), number(&a, "Bpm"), number(&a, "Inizio"))
                 {
-                    // a grid that changes tempo is not a single grid
+                    // a grid that changes tempo is not a single grid; `Battito`, the beat of
+                    // the bar `Inizio` falls on, is not kept, Prisme's bars starting on the
+                    // first beat of the track
                     track.grid = (tempos == 1).then_some(ImportedGrid { bpm, beat_s });
                 }
             }
@@ -87,7 +119,13 @@ pub fn parse(xml: &str) -> Result<Import, RekordboxError> {
                 let name = a.get("Name").cloned().unwrap_or_default();
                 if a.get("Type").map(String::as_str) == Some("1") {
                     let by_location = a.get("KeyType").map(String::as_str) == Some("1");
-                    let full = folders.iter().skip(1).chain([&name]).cloned().collect::<Vec<_>>().join(" / ");
+                    let full = folders
+                        .iter()
+                        .skip(1)
+                        .chain([&name])
+                        .cloned()
+                        .collect::<Vec<_>>()
+                        .join(FOLDER_SEPARATOR);
                     let crate_ = ImportedCrate { name: full, paths: Vec::new() };
                     if empty {
                         crates.push(crate_);
@@ -138,6 +176,18 @@ fn location_path(location: &str) -> Option<PathBuf> {
         _ => (MAIN_SEPARATOR.to_string(), &*decoded),
     };
     Some(join_relative(Path::new(&root), path))
+}
+
+/// What a `Location` may hold as it is, as pyrekordbox writes it for rekordbox: letters,
+/// digits, `-._~` and the separators `/` and `:`; the rest is percent-encoded (UTF-8).
+const LOCATION: &AsciiSet =
+    &NON_ALPHANUMERIC.remove(b'-').remove(b'.').remove(b'_').remove(b'~').remove(b'/').remove(b':');
+
+/// The `Location` of a file: the reverse of [`location_path`].
+fn location(path: &Path) -> String {
+    let text = path.to_string_lossy();
+    let text = if MAIN_SEPARATOR == '\\' { text.replace('\\', "/") } else { text.into_owned() };
+    format!("file://localhost/{}", utf8_percent_encode(text.trim_start_matches('/'), LOCATION))
 }
 
 fn attributes(element: &BytesStart<'_>) -> HashMap<String, String> {
@@ -207,7 +257,7 @@ mod tests {
         let strobe = &import.tracks[0];
         assert_eq!(strobe.path, file("Users/Me/Music/Strobe (Club).mp3"));
         assert_eq!(strobe.grid, Some(ImportedGrid { bpm: 128.0, beat_s: 0.05 }));
-        assert_eq!((strobe.color, strobe.rating), (Some(0xff007f), Some(4)));
+        assert_eq!((strobe.color, strobe.rating), (Some(0xe86bd6), Some(4)), "rose is Prisme's pink");
         assert_eq!(
             strobe.cues,
             [
@@ -236,6 +286,26 @@ mod tests {
         );
         let live = &import.tracks[1];
         assert_eq!((live.grid, live.rating), (None, None), "two tempos: no single grid");
+    }
+
+    #[test]
+    fn a_location_is_read_back_as_the_file() {
+        let path = file("Users/Me/Musique/Café & Co/#1 (50%) + 1.mp3");
+        let encoded = location(&path);
+        assert_eq!(
+            encoded,
+            format!("file://localhost/{ROOT}Users/Me/Musique/Caf%C3%A9%20%26%20Co/%231%20%2850%25%29%20%2B%201.mp3")
+        );
+        assert_eq!(location_path(&encoded), Some(path));
+    }
+
+    #[test]
+    fn track_colours_go_to_the_same_place_in_the_other_palette() {
+        for (prisme, rekordbox) in PRISME_COLOURS.iter().zip(REKORDBOX_COLOURS) {
+            assert_eq!(REKORDBOX_COLOURS[track_colour_index(*prisme)], rekordbox);
+            assert_eq!(PRISME_COLOURS[track_colour_index(rekordbox)], *prisme);
+        }
+        assert_eq!(REKORDBOX_COLOURS[track_colour_index(0xEE1111)], 0xFF0000, "the nearest");
     }
 
     #[test]
