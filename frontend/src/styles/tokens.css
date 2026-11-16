@@ -32,6 +32,7 @@
 
   /* White light: the only accent. Active states, the main action, the playhead. */
   --pr-light: #f3f1eb;
+  --pr-light-hover: #ffffff; /* the light under the pointer */
   --pr-on-light: #0b0c0e; /* glyphs on the light */
   --pr-light-veil: rgb(243 241 235 / 0.08); /* loop band */
 

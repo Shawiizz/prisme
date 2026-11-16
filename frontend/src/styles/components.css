@@ -75,6 +75,11 @@
   color: var(--pr-on-light);
   font-weight: 600;
 }
+.pr-btn--light:hover,
+.pr-btn.is-on:hover {
+  background: var(--pr-light-hover);
+  border-color: var(--pr-light-hover);
+}
 .pr-btn--ghost {
   border-color: transparent;
   color: var(--pr-text-2);
