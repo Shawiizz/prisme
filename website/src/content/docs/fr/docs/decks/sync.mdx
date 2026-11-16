@@ -1,0 +1,202 @@
+---
+title: Tempo, sync et tonalité
+description: Le fader de tempo et sa plage, le nudge, SYNC et le leader, le quantize, la bande de phase, le key lock, la transposition et le mix harmonique.
+sidebar:
+  order: 2
+---
+
+import { Steps, Aside } from '@astrojs/starlight/components';
+
+Dans Prisme, on cale les morceaux comme sur des platines : un fader de tempo par deck et de quoi
+pousser ou retenir, avec la bande de phase pour voir où tombent les temps. **SYNC** peut le faire
+à votre place quand vous le voulez, et **KEY LOCK** et la transposition gardent le mix juste. Tout
+repose sur la grille rythmique du morceau : vérifiez-la dans [Analyse](/fr/docs/library/analysis/)
+si un morceau dérive sans raison.
+
+## Le fader de tempo
+
+Le fader **PITCH** se dresse au bout droit de chaque deck, dans le même sens que sur une platine :
+**plus vite, c’est vers le bas**. Son affichage, à côté de **SYNC** sur le rail, montre l’écart
+avec le tempo propre du morceau, `+1,20 %`.
+
+| Pour | Faites ceci |
+| --- | --- |
+| Changer le tempo | Faites glisser le fader, ou faites défiler la molette dessus |
+| Le changer de 0,1 % | Appuyez sur **−** au-dessus du fader ou sur **+** en dessous ; maintenez pour continuer |
+| Revenir au tempo du morceau | Double-cliquez le fader, ou l’affichage du pitch sur le rail |
+
+L’affichage **BPM** du deck montre le tempo que vous entendez, et en dessous le tempo propre du
+morceau avec le pitch appliqué (voir [les affichages](/fr/docs/decks/playing/#les-affichages)).
+
+Quand **SYNC** est verrouillée, ou qu’un disque pilote le deck, le fader ne règle plus le tempo :
+il est grisé et montre le tempo auquel joue le deck.
+
+### Plage de tempo
+
+La plage est la course du fader de chaque côté : **±8 %** (par défaut, comme la plupart des
+platines), **±16 %** ou **±50 %**. Une plage plus petite donne un réglage plus fin sur la même
+course.
+
+- Pour tous les decks : **Réglages** › **DJ** › **Plage du fader de tempo**. La choisir ici remet
+  tous les decks sur cette plage.
+- Pour un seul deck : **Plage du fader de tempo** dans le menu du deck **⋯**. Ce deck garde sa
+  propre plage jusqu’à ce que vous choisissiez de nouveau la plage générale.
+
+Les deux sont conservées pour le prochain démarrage. Sur un contrôleur,
+**Plage du fader de tempo : suivante** et **Plage du fader de tempo : précédente** font défiler
+la plage d’un deck, et **Plage de tous les faders de tempo : suivante** celle de tous.
+
+### Le nudge
+
+Pour pousser un deck en avant ou le retenir un instant sans changer son tempo :
+
+| Comment | Deck A | Deck B |
+| --- | --- | --- |
+| Accélérer tant que la touche est tenue (+3 %) | <kbd>X</kbd> | <kbd>M</kbd> |
+| Ralentir tant que la touche est tenue (−3 %) | <kbd>Z</kbd> | <kbd>N</kbd> |
+
+Vous pouvez aussi faire glisser la forme d’onde qui défile comme le bord d’un jog (voir
+[Se déplacer dans le morceau](/fr/docs/decks/playing/#se-déplacer-dans-le-morceau)), ou utiliser
+le jog d’un contrôleur. Les contrôleurs ont aussi **Accélérer un peu tant que c’est appuyé** et
+**Ralentir un peu tant que c’est appuyé** (1 %), ainsi que **Tempo +0,1 %** / **Tempo −0,1 %**,
+qui changent le tempo et le gardent.
+
+## La bande de phase
+
+Entre les deux premiers decks, la bande de phase dessine les temps d’un deck au-dessus de la ligne
+et ceux de l’autre en dessous, autour de leurs têtes de lecture ; le premier temps de chaque mesure
+est plus lumineux. Quand les deux decks sont en phase, les temps se rejoignent de part et d’autre
+de la ligne.
+
+À côté de **PHASE**, elle vous le dit en toutes lettres :
+
+- **Calés** : les temps tombent ensemble.
+- **B en avance de 12 ms** ou **B en retard de 12 ms** : l’écart entre les temps du second deck et
+  ceux du premier. Poussez-le dans l’autre sens.
+- **Décalé d’1/16 dans 40 s** : aux tempos actuels, les decks auront dérivé d’une double croche
+  (deux kicks au lieu d’un) dans ce délai. Touchez au pitch d’ici là.
+- **Décalé : corrigez le pitch** : c’est déjà fait.
+
+Avec quatre decks, la bande compare les deux premiers decks qui jouent, et les nomme
+(**PHASE A·C**). Un morceau à la moitié ou au double du tempo de l’autre (70 et 140 BPM) est
+comparé temps pour temps.
+
+## SYNC
+
+**SYNC** cale un deck sur le tempo du leader et aligne ses temps. Elle a besoin d’une grille
+rythmique (sans grille, **SYNC** est grisée avec **Pas de grille rythmique**).
+
+| Geste | Sur un deck qui joue seul |
+| --- | --- |
+| Toucher **SYNC** | Le deck se verrouille sur le leader : même tempo, temps tenus en phase, jusqu’à ce que vous touchiez de nouveau **SYNC**. **SYNC** reste allumée. |
+| Maintenir **SYNC** (une demi-seconde environ) | Le deck se cale une fois sur le tempo et les temps du leader, et reste libre. Son fader de tempo se place sur le nouveau tempo. |
+
+Un deck verrouillé se maintient en phase par de petites corrections de vitesse, et se recale d’un
+coup s’il s’écarte de plus de 0,08 temps. Pousser un deck verrouillé ne dure donc pas : pour
+déplacer ses temps à la main, désactivez **SYNC**.
+
+<Aside type="caution">
+Désactiver **SYNC** rend le tempo au fader : le deck revient au tempo sur lequel était son fader
+avant le verrouillage. Pour laisser un deck libre au tempo du leader, maintenez **SYNC** au lieu de
+la toucher : elle cale une fois et place le fader à ce tempo.
+</Aside>
+
+Un morceau à environ la moitié ou le double du tempo du leader s’y verrouille temps pour temps
+(70 BPM suit 140). Charger un nouveau morceau sur un deck désactive sa **SYNC**.
+
+### Le leader
+
+Le leader est le deck que les autres suivent. Prisme le désigne : le deck que vous avez choisi s’il
+peut mener, sinon le deck qui mène déjà s’il le peut encore, sinon le premier deck qui le peut. Un
+deck peut mener quand il joue en avant sur une grille rythmique sans être lui-même verrouillé ; un
+deck qui s’arrête ne mène plus, pour qu’aucun suiveur ne coure après des temps immobiles. Un deck
+verrouillé sans leader garde le dernier tempo qu’il avait.
+
+L’étiquette **LEADER** apparaît sur le rail du deck qui mène. Pour choisir le leader vous-même,
+lancez **Mener les autres decks** pour ce deck depuis la palette de commandes ou un contrôleur ;
+lancez-la sur le deck qui mène pour laisser Prisme choisir de nouveau.
+**Caler le tempo et les temps une fois** revient à maintenir **SYNC**.
+
+### SYNC avec un disque
+
+Un disque en mode absolu décide de la position dans le morceau, donc **SYNC** est grisée avec
+**La sync demande le mode relatif ou la lecture interne**. En mode relatif, **SYNC** suit
+**Réglages** › **DJ** › **Sync sur un disque en mode relatif** :
+
+| Choix | Ce que fait SYNC |
+| --- | --- |
+| **Ponctuelle : cale une fois, le fader de pitch reste actif** (par défaut) | Cale le tempo et les temps une fois. Le fader de pitch de la platine reprend la main à partir de là, et un nouvel appui sur **SYNC** recale après une dérive. |
+| **Verrouillée : suit le leader, le fader de pitch est ignoré** | Verrouille le deck sur le leader : les mouvements du disque s’entendent autour du tempo du leader. |
+
+Sur un disque que **SYNC** ne verrouille pas, l’affichage du pitch indique par une flèche le pitch à
+régler sur votre platine pour caler l’autre deck (`→ +1,40 %`), et le fader porte une marque à cet
+endroit. Voir [Modes de contrôle vinyle](/fr/docs/dvs/modes/).
+
+## Quantize
+
+Le **Quantize** cale vos gestes sur le temps. Il est activé par défaut ; désactivez-le dans
+**Réglages** › **DJ** › **Quantize**, ou assignez **Quantize** sur un contrôleur. Quand il est
+activé :
+
+- un point de cue, un hot cue, un loop in ou un loop out tombe sur le temps le plus proche ;
+- une boucle automatique démarre sur le temps le plus proche (une boucle plus courte qu’un temps,
+  sur le pas le plus proche de sa propre longueur) ;
+- un hot cue déclenché pendant la lecture garde le temps : le deck retombe au même endroit du temps
+  qu’il a quitté ;
+- une slice entre là où est le temps ;
+- un son du sampler attend le prochain temps de son deck, quand ce deck joue ;
+- un stem coupé ou rétabli change à la mesure suivante.
+
+Sans grille rythmique, rien n’est calé.
+
+## Key lock
+
+**KEY LOCK**, sur le rail sous l’affichage du pitch, garde la tonalité quand le tempo change : un
+morceau accéléré de 6 % reste dans sa tonalité au lieu de monter d’un demi-ton. Il se règle par
+deck et est conservé pour le prochain démarrage. Les contrôleurs ont **Key lock**.
+
+Quand le moteur entraîne le disque (un frein, un spinback, un démarrage doux) ou que votre main le
+fait, le key lock lâche prise, pour que ça sonne comme un disque.
+
+## Transposition et mix harmonique
+
+L’affichage **TONALITÉ** montre la tonalité que vous entendez en code Camelot : un nombre de 1 à 12
+autour de la roue, **A** pour les tonalités mineures et **B** pour les majeures. Deux tonalités se
+mixent bien quand elles sont identiques, à un cran l’une de l’autre sur la roue avec la même lettre
+(`8A` et `9A`), ou avec le même nombre et l’autre lettre (`8A` et `8B`).
+
+La transposition déplace le morceau par demi-tons, jusqu’à 12 dans chaque sens, sans changer son
+tempo. Cliquez sur l’affichage **BPM** ou **TONALITÉ** pour ouvrir l’éditeur ; sous
+**Transposition** :
+
+| Bouton | Ce qu’il fait |
+| --- | --- |
+| **♭** / **♯** | Un demi-ton plus bas ou plus haut |
+| **S’accorder à l’autre deck** | La plus petite transposition (de 5 demi-tons en dessous à 6 au-dessus) après laquelle ce deck se mixe harmoniquement avec l’autre |
+| **Rétablir** | Retour à la tonalité du morceau |
+
+L’autre deck est l’autre deck qui joue, ou à défaut son voisin (A avec B, C avec D).
+**S’accorder à l’autre deck** est grisé quand l’une des deux tonalités est inconnue.
+
+La transposition dure jusqu’à ce que vous chargiez un autre morceau sur le deck. L’affichage
+**TONALITÉ** montre la tonalité transposée, avec son étiquette en ambre.
+
+Les contrôleurs ont **Tonalité un demi-ton plus haut**, **Tonalité un demi-ton plus bas**,
+**Tonalité d’origine**, **Tonalité accordée à l’autre deck**, et un fader de tonalité de 12
+demi-tons en dessous à 12 au-dessus.
+
+<Aside type="tip">
+Sans **KEY LOCK**, le pitch déplace aussi la tonalité : environ 6 % de tempo font un demi-ton.
+L’affichage **TONALITÉ** suit le pitch, vous lisez donc toujours la tonalité que vous entendez.
+</Aside>
+
+<Steps>
+
+1. Chargez le morceau suivant sur le deck qui ne joue pas.
+2. Comparez les deux affichages **TONALITÉ**. S’ils ne se mixent pas, ouvrez l’éditeur (cliquez sur
+   **TONALITÉ**) et appuyez sur **S’accorder à l’autre deck**.
+3. Touchez **SYNC** pour verrouiller le tempo et les temps sur le deck qui joue, ou calez-le à
+   l’oreille avec le fader de tempo en surveillant la bande de phase.
+4. Lancez le deck sur le temps et faites-le entrer.
+
+</Steps>

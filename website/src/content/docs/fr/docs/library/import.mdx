@@ -1,0 +1,135 @@
+---
+title: Importer depuis Serato et rekordbox
+description: Récupérer vos crates, playlists, cues, boucles, grilles rythmiques, couleurs et notes depuis Serato DJ ou rekordbox.
+sidebar:
+  order: 5
+---
+
+import { Steps, Aside } from '@astrojs/starlight/components';
+
+Si vous venez de Serato DJ ou de rekordbox, vous gardez le travail fait sur vos morceaux : Prisme
+importe vos crates ou vos playlists, vos points de cue et vos boucles enregistrées, vos grilles
+rythmiques et vos couleurs, et depuis rekordbox vos notes. L’import se contente de lire ; il ne
+modifie jamais votre bibliothèque Serato ou rekordbox.
+
+Votre musique doit déjà être là où Prisme la lit : l’import rattache les cues et les grilles à des
+fichiers présents sur cet ordinateur, et trouve les morceaux dans votre dossier **Musique**. Voir
+[Ajouter votre musique](/fr/docs/library/adding-music/).
+
+## Rien n’est écrasé
+
+L’import ne remplit que ce qui manque. Ce que vous avez déjà réglé dans Prisme ne bouge pas : vous
+pouvez donc réimporter à tout moment, par exemple après une semaine de préparation dans votre
+ancien logiciel :
+
+- un hot cue va sur son pad si ce pad est libre dans Prisme ; un cue déjà au même endroit n’est
+  pas ajouté deux fois ;
+- une grille rythmique n’est importée que pour un morceau dont vous n’avez pas corrigé la grille
+  dans Prisme ;
+- une couleur seulement pour un morceau qui n’en a pas, une note seulement pour un morceau pas
+  encore noté ;
+- une crate dont le nom correspond à l’une de vos crates (pas une crate intelligente) reçoit les
+  morceaux qui lui manquent ; sinon, une nouvelle crate est créée.
+
+## Depuis Serato DJ
+
+Serato range ses crates dans le dossier `_Serato_`, et écrit les cues, les boucles, la couleur du
+morceau et la grille rythmique dans les tags de chaque fichier. Prisme lit les deux.
+
+<Steps>
+
+1. Cliquez sur **Importer** dans la barre d’outils de la bibliothèque (**Crates, cues et grilles
+   depuis Serato ou rekordbox**).
+
+2. Sous **Serato DJ**, vérifiez le dossier affiché. Prisme propose le dossier `_Serato_` de votre
+   dossier **Musique**. Si votre bibliothèque Serato est ailleurs (un disque externe a son propre
+   dossier `_Serato_` à sa racine), cliquez sur **Choisir…** et choisissez ce dossier `_Serato_`.
+
+3. Cliquez sur **Importer**. Lire les tags d’une grosse bibliothèque prend un moment :
+   **Import en cours…** s’affiche pendant ce temps.
+
+</Steps>
+
+Ce qui est récupéré :
+
+| Depuis Serato | Dans Prisme |
+| --- | --- |
+| Crates (`_Serato_/Subcrates`) | Crates. Une sous-crate porte le nom de ses parents : `House / Deep` |
+| Hot cues, avec leur couleur et leur nom | Hot cues sur les mêmes pads |
+| Boucles enregistrées | Hot cues en boucle, sur les premiers pads libres |
+| Couleur du morceau | La couleur du morceau |
+| Grille rythmique | La grille rythmique, pour les grilles à tempo unique |
+
+Les tags sont lus dans chaque fichier de votre dossier de musique, et dans les morceaux des
+crates même s’ils sont ailleurs.
+
+S’il n’y a pas de dossier `_Serato_`, la fenêtre indique **Pas de dossier _Serato_ dans Musique :
+seulement les tags des fichiers** : vous récupérez quand même les cues, boucles, couleurs et
+grilles des fichiers, sans les crates.
+
+<Aside type="note">
+  Les crates intelligentes, l’historique et les notes de Serato ne sont pas importés. Refaites les
+  crates intelligentes dans Prisme : voir
+  [Crates intelligentes](/fr/docs/library/crates/#crates-intelligentes).
+</Aside>
+
+## Depuis rekordbox
+
+rekordbox garde sa bibliothèque dans une base de données que Prisme ne lit pas ; il l’exporte en
+fichier XML.
+
+<Steps>
+
+1. Dans rekordbox, choisissez **Fichier** › **Exporter la collection au format xml**, et
+   enregistrez le fichier.
+
+2. Dans Prisme, cliquez sur **Importer** dans la barre d’outils de la bibliothèque.
+
+3. Sous **rekordbox**, cliquez sur **Choisir le fichier XML…** et choisissez le fichier exporté.
+   L’import démarre aussitôt.
+
+</Steps>
+
+Ce qui est récupéré :
+
+| Depuis rekordbox | Dans Prisme |
+| --- | --- |
+| Playlists | Crates, nommées d’après leurs dossiers : `Festival / Peak time` |
+| Hot cues, avec leur couleur et leur nom | Hot cues sur les mêmes pads |
+| Boucles | Hot cues en boucle : sur leur propre pad s’ils en ont un, sinon sur le premier pad libre |
+| Le premier memory cue | Le cue principal, si le morceau n’en a pas |
+| Grille rythmique | La grille rythmique, pour les morceaux à tempo unique |
+| Couleur | La couleur du morceau |
+| Note | La note, de une à cinq étoiles |
+
+<Aside type="caution">
+  Le XML désigne chaque fichier par son chemin complet. Exportez-le sur l’ordinateur sur lequel
+  vous jouez, là où sont les fichiers, ou avec le disque monté là où rekordbox l’a vu : un fichier
+  à un autre endroit est compté comme manquant.
+</Aside>
+
+## Lire le résultat
+
+À la fin, la fenêtre résume ce qui a été fait, par exemple : **182 morceaux mis à jour : 640
+cues, 175 grilles rythmiques ; 12 crates.** Un morceau compte comme mis à jour quand il a reçu
+des cues, une grille, une couleur ou une note. Si des fichiers cités par Serato ou rekordbox sont
+introuvables, elle ajoute **37 fichiers ne sont pas sur cet ordinateur.**
+
+Les listes de morceaux se mettent à jour au fil de l’import. Ouvrez une crate pour la vérifier,
+puis chargez un morceau pour voir ses cues et sa grille.
+
+## À savoir
+
+- Les valeurs de **tempo et tonalité** ne sont pas importées : Prisme analyse lui-même chaque
+  morceau. La grille rythmique, elle, est bien récupérée, et Prisme utilise alors son tempo. Voir
+  [Tempo, grille rythmique et tonalité](/fr/docs/library/analysis/).
+- Une grille importée compte comme une correction faite à la main. Si elle est moins bonne que
+  celle de Prisme, ouvrez l’éditeur de grille sur le deck et cliquez sur **Rétablir** pour revenir
+  à l’analyse de Prisme.
+- Une grille à plusieurs tempos (un morceau dont la grille change de vitesse) est laissée de côté,
+  car les grilles de Prisme n’ont qu’un tempo.
+- Les memory cues après le premier ne sont pas importés ; Prisme a un cue principal et 16 hot
+  cues par morceau. Voir [Cues et hot cues](/fr/docs/decks/cues/).
+- Une crate peut lister des morceaux hors de votre dossier de musique. Ils se chargent et se
+  jouent, mais l’analyse en tâche de fond ne couvre que le dossier de musique : un tel morceau est
+  analysé au premier chargement.

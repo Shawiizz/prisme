@@ -1,0 +1,134 @@
+---
+title: Timecode troubleshooting
+description: When a record does not drive its deck as it should, what to look at and what to change.
+sidebar:
+  order: 4
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+Most timecode problems show on the turntable's panel before you hear them. Open
+**Settings**, **Turntables**, play the record, and look at the scope and the four readings
+of its panel (see [Read the signal](/docs/dvs/setup/#read-the-signal)). Then find the symptom
+below.
+
+## The REL and ABS buttons are not on the deck
+
+The deck card shows the mode buttons only when Prisme reads turntables. Check, in
+**Settings**, **Turntables**, that **Input (DVS interface)** names your interface (with
+ASIO, that **Turntables plugged into the inputs of this driver** is on) and that you pressed
+**Apply**. The title bar then shows the number of input channels, such as **4 input ch**.
+
+The device needs at least two input channels. If it has none, the outputs and the inputs may
+be two separate devices: on WASAPI, Core Audio and ALSA, choose the inputs under
+**Input (DVS interface)**, separately from the **Output** in **Audio**.
+
+On Android, Prisme has to be allowed to listen to the inputs. If you refused, the settings
+show **allow Prisme to listen to the inputs of the sound card, then apply again**.
+
+## No signal
+
+The panel reads **Signal: none**, the scope shows a dot, the **Level** bar is empty.
+
+- Is the record turning, the needle down?
+- Is the turntable plugged into the right inputs: 1-2 for deck A, 3-4 for deck B? Play the
+  other turntable and watch the other panel.
+- Is the interface's switch on **phono** for a turntable? Is a turntable plugged into a
+  line input without a preamplifier? Its signal is then far too weak, see
+  [Phono or line](/docs/dvs/setup/#phono-or-line).
+- With four decks on a two-turntable interface, deck C reads turntable A and deck D
+  turntable B: the panel of C shows A's signal.
+
+## Weak signal
+
+The **Level** bar barely moves, the signal flickers between **locked** and **unsteady**, the
+track stutters or slows.
+
+- Raise the input gain on the interface, or switch the input to phono.
+- Clean the stylus and the record. Dust under the needle weakens the signal and adds clicks.
+- Check the cartridge: a worn stylus, or one channel of the cartridge failing, gives a
+  flattened ellipse on the scope instead of a circle.
+- Check the cables and the headshell contacts: wiggle them while watching the scope.
+
+## The track plays but never finds its position
+
+**Signal** reads **locked**, the speed is right, but **Record** stays at `—`, needle drops do
+nothing in ABS and the deck never plays on at the end of the record.
+
+The record and the timecode format do not match. The speed comes from the tone of the record,
+which every side shares; the position comes from the bits pressed in it, which differ. In
+**Settings**, **Turntables**, check **Control vinyl**: **Serato CV02 side A** for side A,
+**Serato CV02 side B** for side B, **Serato control CD** for the CD. The format applies to all
+the turntables at once, so put every record on the same side. Apply after changing it.
+
+## The track plays backwards
+
+The record reads backwards while the platter turns forwards: the left and right cables are
+crossed. After about five seconds of it Prisme asks, in the turntable's panel, with a
+**Swap left / right** button. Swap the cables, or press the button.
+
+## The tempo is a third too fast or too slow
+
+The panel's **Speed** reads about `+1.350×` at normal play, or about `+0.741×`: the turntable
+turns at 45 rpm while the deck expects 33, or the other way round. Set **Record speed** in
+the turntable's panel to the speed the platter turns at.
+
+## Hum
+
+The scope shows a thick or wobbling ring instead of a thin circle; you may hear a low buzz in
+THRU.
+
+- Connect the turntable's ground wire to the ground post of the interface or the mixer.
+- Keep the turntable cables away from power cables and power supplies.
+- Plug the computer, the interface and the mixer into the same power strip.
+- A laptop on its charger can bring hum through a USB interface: try it on battery to find
+  out.
+
+## Skipping
+
+The needle jumps grooves when you scratch or when the booth shakes.
+
+- In ABS the track jumps with the needle; in REL it does not. For heavy scratching, REL keeps
+  the track where it is whatever the needle does.
+- Set the turntable's tracking weight and anti-skate as the cartridge maker says, and keep
+  the turntables level and away from the speakers.
+- A short loss of signal is held: Prisme keeps the speed for a moment through a bounce,
+  reading **unsteady** meanwhile. If the signal stays away longer, the deck slows to a stop,
+  as a record would.
+
+## The record feels late
+
+Every nudge or scratch reaches your ears after the time the sound card takes to bring the
+signal in and send the music out. Measure it in **Settings**, **Audio**, **Latency** (see
+[Check the latency](/docs/dvs/setup/#check-the-latency)), then:
+
+- Use the fastest driver of your system: **ASIO** on Windows rather than **WASAPI**,
+  **JACK** on Linux rather than **ALSA** through the sound server. Core Audio on a Mac is fast
+  as it is.
+- Lower the **Buffer** in **Settings**, **Audio**, one step at a time, until the
+  **Dropouts** counter in the title bar starts to climb, then go back one step. The title bar
+  shows the length of a period, such as **Buffer 2.7 ms**.
+- Keep the master limiter in mind: it adds 1 ms to the software mixer. Turn off
+  **Master limiter** in **Settings**, **Mixing** only if you keep your levels in check.
+
+See [Audio dropouts](/docs/help/troubleshooting/#audio-dropouts) if lowering the buffer makes
+the sound crackle.
+
+## The deck goes on without the record
+
+The needle reached the end of the timecode: the deck plays on by itself and shows INT. In REL
+the record takes it back as soon as you put the needle before the end and the platter turns;
+in ABS press **REL** or **ABS** on the deck card. See
+[The end of the record](/docs/dvs/modes/#the-end-of-the-record).
+
+## Cues, loops or SYNC do nothing
+
+The deck is in ABS: the record decides where the track is, so pads that move it are greyed
+out and SYNC is unavailable. Switch to REL. See
+[Absolute and relative modes](/docs/dvs/modes/).
+
+<Aside type="tip" title="Ask for help">
+If none of this helps, save a diagnostic report from **Settings**, **About** and attach it
+when you ask: it holds your audio setup and the end of the log. See
+[Logs and the diagnostic report](/docs/help/troubleshooting/#logs-and-the-diagnostic-report).
+</Aside>

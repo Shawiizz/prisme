@@ -1,0 +1,149 @@
+---
+title: Ligne de commande
+description: La commande prisme fait tourner le moteur, le contrôle vinyle et l’analyse sans l’interface.
+sidebar:
+  order: 3
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+`prisme`, c’est toute la chaîne sans l’interface : le même moteur, le même code de carte son, le même décodeur timecode et la même analyse que l’application. Servez-vous-en pour essayer une carte son ou une platine, mesurer la latence, lire un enregistrement de disque timecode ou analyser un dossier de musique.
+
+## La compiler
+
+Depuis le dépôt (voir [Compiler depuis les sources](/fr/docs/develop/building/)) :
+
+```sh
+cargo build --release -p prisme-cli
+```
+
+Le programme est `target/release/prisme` (`prisme.exe` sous Windows). Vous pouvez aussi le lancer via cargo, les arguments après `--` :
+
+```sh
+cargo run --release -p prisme-cli -- devices
+```
+
+`prisme --help` liste les commandes, et `prisme <command> --help` les options de chacune.
+
+## Les commandes
+
+| Commande | |
+| --- | --- |
+| [`devices`](#devices) | Liste les périphériques audio. |
+| [`play`](#play) | Joue un morceau. |
+| [`simulate`](#simulate) | Joue un morceau piloté par une platine simulée. |
+| [`vinyl`](#vinyl) | Joue un morceau piloté par une vraie platine. |
+| [`latency`](#latency) | Mesure l’aller-retour d’une sortie vers une entrée reliées par un câble. |
+| [`timecode`](#timecode) | Lit un enregistrement de disque timecode et dit avec quelle régularité il se lit. |
+| [`analyze`](#analyze) | Trouve le tempo et la tonalité de fichiers ou de dossiers. |
+
+### Options de carte son
+
+`play`, `simulate`, `vinyl` et `latency` acceptent celles-ci :
+
+| Option | |
+| --- | --- |
+| `--backend <name>` | Comment la carte son est atteinte : `wasapi`, `asio`, `core-audio`, `alsa`, `jack` ou `aaudio`. Par défaut : celui du système (WASAPI sous Windows, CoreAudio sous macOS, ALSA sous Linux). |
+| `--output <name>` | Une partie du nom du périphérique de sortie. Par défaut : le périphérique par défaut. |
+| `--buffer <frames>` | La taille de buffer demandée à la carte son, en frames. |
+| `--gain <gain>` | Le gain du master, 1 pour l’unité. Par défaut 1. |
+
+### devices
+
+```sh
+prisme devices
+```
+
+Liste les périphériques d’entrée et de sortie de chaque moyen d’atteindre une carte son disponible sur le système, avec leurs canaux, leur fréquence d’échantillonnage et lequel est celui par défaut. Prenez une partie d’un nom de cette liste pour `--output` et `--input`.
+
+### play
+
+```sh
+prisme play "track.mp3" --pitch 1.02
+```
+
+Décode le morceau, le charge sur le deck 1 et le joue pendant `--seconds` (par défaut 10) au rapport de tempo `--pitch` (1 est le tempo d’origine du morceau ; par défaut 1). Pendant la lecture, une ligne affiche la position, la vitesse et la crête du master.
+
+### simulate
+
+```sh
+prisme simulate "track.mp3" --pattern scratch --gain 0.3
+```
+
+Joue le morceau en contrôle vinyle, piloté par le signal d’une platine que Prisme génère : Serato CV02 face A, le morceau commençant 10 secondes après le début du disque. Aucun matériel n’est nécessaire.
+
+| Option | |
+| --- | --- |
+| `--pattern` | `steady` : joue à +2 %. `scratch` : joue pendant 4 secondes, puis scratche d’avant en arrière pendant 2. `nudge` : joue avec de petits coups de tempo, comme quand on cale à la main. Par défaut `scratch`. |
+| `--mode` | `absolute` ou `relative` : voir [Absolu et relatif](/fr/docs/dvs/modes/). Par défaut `absolute`. |
+| `--seconds` | Combien de temps il joue. Par défaut 10. |
+
+### vinyl
+
+```sh
+prisme vinyl "track.mp3" --input "interface name" --mode absolute
+```
+
+Joue le morceau sur le deck 1, piloté par une vraie platine sur les deux premiers canaux de l’entrée `--input` (une partie de son nom). La ligne d’état affiche la position sur le disque et la qualité du signal : une vérification rapide d’une platine, d’une cellule et d’une carte son avant un set.
+
+| Option | |
+| --- | --- |
+| `--input` | Une partie du nom du périphérique d’entrée : l’interface DVS. Obligatoire. |
+| `--format` | `serato_cv02_a`, `serato_cv02_b` ou `serato_cd`. Par défaut `serato_cv02_a`. |
+| `--mode` | `absolute` ou `relative`. Par défaut `absolute`. |
+| `--lead-in` | Où le morceau commence sur le disque, en secondes. Par défaut : la valeur propre au disque. |
+| `--seconds` | Combien de temps il joue. Par défaut 60. |
+
+### latency
+
+```sh
+prisme latency --input "interface name"
+```
+
+Reliez une sortie de la carte son à l’une de ses entrées avec un câble. `latency` joue des clics sur la sortie et les écoute sur l’entrée, puis affiche l’aller-retour en millisecondes.
+
+| Option | |
+| --- | --- |
+| `--input` | Une partie du nom du périphérique d’entrée. Avec ASIO, le même pilote que la sortie. Obligatoire. |
+| `--out-channel` | La sortie qui joue les clics, à partir de 1, comme indiqué sur l’interface. Par défaut 1. |
+| `--in-channel` | L’entrée qui les reçoit, à partir de 1. Par défaut 1. |
+| `--seconds` | Combien de temps il mesure. Par défaut 4. |
+
+<Aside type="danger" title="Des clics à plein niveau">
+`latency` joue des clics à plein niveau. Tenez enceintes et casque à l’écart de cette sortie pendant la mesure.
+</Aside>
+
+### timecode
+
+```sh
+prisme timecode "turntable.wav" --format serato_cv02_a
+```
+
+Fait passer le décodeur timecode sur un enregistrement d’une platine qui joue un disque de contrôle, et affiche ce qu’il lit toutes les `--every-ms` millisecondes (par défaut 250) : le signal (`ok`, `bounce` ou `none`), son niveau, la vitesse et la position sur le disque. Puis un résumé de la lecture : en combien de temps la position a été trouvée, à quelle fréquence elle était connue, combien la vitesse a fluctué, à quelle fréquence la position a sauté de plus de 20 ms, et le plus grand écart entre deux lectures.
+
+| Option | |
+| --- | --- |
+| `--format` | `serato_cv02_a`, `serato_cv02_b` ou `serato_cd`. Par défaut `serato_cv02_a`. |
+| `--swap` | Les canaux gauche et droit sont inversés. |
+| `--every-ms` | Les millisecondes entre deux lectures affichées. Par défaut 250. |
+
+Pour obtenir un tel fichier, enregistrez les deux canaux de la platine avec n’importe quel enregistreur audio : il permet d’étudier un [problème de contrôle vinyle](/fr/docs/dvs/troubleshooting/) loin des platines.
+
+### analyze
+
+```sh
+prisme analyze "Music folder" --csv results.csv
+```
+
+Trouve le tempo, le premier temps et la tonalité de chaque fichier audio donné, en parcourant les dossiers en entier, sur tous les cœurs du processeur. Chaque fichier affiche une ligne : le tempo et sa fiabilité, le premier temps, la tonalité avec son code Camelot et sa fiabilité, et le temps que ça a pris.
+
+| Option | |
+| --- | --- |
+| `--min-bpm` | La borne basse de la plage de tempo, qui couvre une octave. Par défaut 88 (88 à 176 BPM). |
+| `--csv` | Écrit aussi les résultats dans ce fichier CSV : `path`, `bpm`, `first_beat_s`, `tempo_confidence`, `key`, `camelot`, `key_confidence`, `tuning_cents`. |
+
+L’analyse est celle que lance la [bibliothèque](/fr/docs/library/analysis/) : `analyze` permet donc de comparer ses résultats avec ceux d’un autre logiciel.
+
+## Après une exécution
+
+`play`, `simulate` et `vinyl` se terminent par les chiffres de l’audio : combien de callbacks la carte son a faits et de combien de frames, le plus long, combien ont dépassé leur temps, et les underruns et frames perdues de l’entrée. Un callback qui dépasse son temps peut s’entendre comme un clic : essayez un `--buffer` plus grand, ou un autre `--backend`.

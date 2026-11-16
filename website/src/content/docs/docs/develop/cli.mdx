@@ -1,0 +1,149 @@
+---
+title: Command line
+description: The prisme command runs the engine, vinyl control and the analysis without the interface.
+sidebar:
+  order: 3
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+`prisme` is the whole chain without the interface: the same engine, sound card code, timecode decoder and analysis as the application. Use it to try a sound card or a turntable, measure the latency, read a recording of a timecode record, or analyse a folder of music.
+
+## Build it
+
+From the repository (see [Building from source](/docs/develop/building/)):
+
+```sh
+cargo build --release -p prisme-cli
+```
+
+The program is `target/release/prisme` (`prisme.exe` on Windows). You can also run it through cargo, the arguments after `--`:
+
+```sh
+cargo run --release -p prisme-cli -- devices
+```
+
+`prisme --help` lists the commands, and `prisme <command> --help` the options of each.
+
+## The commands
+
+| Command | |
+| --- | --- |
+| [`devices`](#devices) | Lists the sound devices. |
+| [`play`](#play) | Plays a track. |
+| [`simulate`](#simulate) | Plays a track driven by a simulated turntable. |
+| [`vinyl`](#vinyl) | Plays a track driven by a real turntable. |
+| [`latency`](#latency) | Measures the round trip from an output to an input joined by a cable. |
+| [`timecode`](#timecode) | Reads a recording of a timecode record and says how steadily it reads. |
+| [`analyze`](#analyze) | Finds the tempo and key of files or folders. |
+
+### Sound card options
+
+`play`, `simulate`, `vinyl` and `latency` take these:
+
+| Option | |
+| --- | --- |
+| `--backend <name>` | How the sound card is reached: `wasapi`, `asio`, `core-audio`, `alsa`, `jack` or `aaudio`. Default: the system's own (WASAPI on Windows, CoreAudio on macOS, ALSA on Linux). |
+| `--output <name>` | Part of the output device's name. Default: the default device. |
+| `--buffer <frames>` | The buffer size asked of the sound card, in frames. |
+| `--gain <gain>` | The master gain, 1 for unity. Default 1. |
+
+### devices
+
+```sh
+prisme devices
+```
+
+Lists the input and output devices of every way to reach a sound card available on the system, with their channels, their sample rate and which is the default. Use a part of a name from this list for `--output` and `--input`.
+
+### play
+
+```sh
+prisme play "track.mp3" --pitch 1.02
+```
+
+Decodes the track, loads it on deck 1 and plays it for `--seconds` (default 10) at the tempo ratio `--pitch` (1 is the track's own tempo; default 1). While it plays, a line shows the position, the speed and the master's peak.
+
+### simulate
+
+```sh
+prisme simulate "track.mp3" --pattern scratch --gain 0.3
+```
+
+Plays the track under vinyl control, driven by the signal of a turntable that Prisme generates: Serato CV02 side A, the track starting 10 seconds into the record. No hardware is needed.
+
+| Option | |
+| --- | --- |
+| `--pattern` | `steady`: plays at +2%. `scratch`: plays for 4 seconds, then scratches back and forth for 2. `nudge`: plays with short tempo nudges, as when beatmatching by hand. Default `scratch`. |
+| `--mode` | `absolute` or `relative`: see [Absolute and relative](/docs/dvs/modes/). Default `absolute`. |
+| `--seconds` | How long it plays. Default 10. |
+
+### vinyl
+
+```sh
+prisme vinyl "track.mp3" --input "interface name" --mode absolute
+```
+
+Plays the track on deck 1 driven by a real turntable on the first two channels of the input `--input` (part of its name). The status line shows the record's position and the quality of the signal: a quick check of a turntable, a cartridge and a sound card before a set.
+
+| Option | |
+| --- | --- |
+| `--input` | Part of the input device's name: the DVS interface. Required. |
+| `--format` | `serato_cv02_a`, `serato_cv02_b` or `serato_cd`. Default `serato_cv02_a`. |
+| `--mode` | `absolute` or `relative`. Default `absolute`. |
+| `--lead-in` | Where the track starts on the record, in seconds. Default: the record's own. |
+| `--seconds` | How long it plays. Default 60. |
+
+### latency
+
+```sh
+prisme latency --input "interface name"
+```
+
+Join an output of the sound card to one of its inputs with a cable. `latency` plays clicks on the output and listens for them on the input, then prints the round trip in milliseconds.
+
+| Option | |
+| --- | --- |
+| `--input` | Part of the input device's name. With ASIO, the same driver as the output. Required. |
+| `--out-channel` | The output playing the clicks, from 1, as printed on the interface. Default 1. |
+| `--in-channel` | The input receiving them, from 1. Default 1. |
+| `--seconds` | How long it measures. Default 4. |
+
+<Aside type="danger" title="Clicks at full level">
+`latency` plays clicks at full level. Keep speakers and headphones away from that output while it measures.
+</Aside>
+
+### timecode
+
+```sh
+prisme timecode "turntable.wav" --format serato_cv02_a
+```
+
+Runs the timecode decoder over a recording of a turntable playing a control record, and prints what it reads every `--every-ms` milliseconds (default 250): the signal (`ok`, `bounce` or `none`), its level, the speed and the position on the record. Then a summary of the playing: how soon the position was found, how often it was known, how much the speed wavered, how often the position jumped by more than 20 ms, and the largest gap between two readings.
+
+| Option | |
+| --- | --- |
+| `--format` | `serato_cv02_a`, `serato_cv02_b` or `serato_cd`. Default `serato_cv02_a`. |
+| `--swap` | The left and right channels are crossed. |
+| `--every-ms` | Milliseconds between two printed readings. Default 250. |
+
+Record the turntable's two channels with any audio recorder to make such a file: it lets you look into a [vinyl control problem](/docs/dvs/troubleshooting/) away from the decks.
+
+### analyze
+
+```sh
+prisme analyze "Music folder" --csv results.csv
+```
+
+Finds the tempo, the first beat and the key of every audio file given, folders searched whole, on all the processor's cores. Each file prints a line: tempo and its confidence, the first beat, the key with its Camelot code and its confidence, and how long it took.
+
+| Option | |
+| --- | --- |
+| `--min-bpm` | The lower bound of the tempo range, which spans one octave. Default 88 (88 to 176 BPM). |
+| `--csv` | Also writes the results to this CSV file: `path`, `bpm`, `first_beat_s`, `tempo_confidence`, `key`, `camelot`, `key_confidence`, `tuning_cents`. |
+
+The analysis is the one the [library](/docs/library/analysis/) runs, so `analyze` is a way to compare its results with another program's.
+
+## After a run
+
+`play`, `simulate` and `vinyl` end with the audio's figures: how many callbacks the sound card made and of how many frames, the longest one, how many went over their time, and the input's underruns and dropped frames. A callback over its time can be heard as a click: try a larger `--buffer`, or another `--backend`.

@@ -1,0 +1,125 @@
+---
+title: Importing from Serato and rekordbox
+description: Bring your crates, playlists, cues, loops, beat grids, colours and ratings over from Serato DJ or rekordbox.
+sidebar:
+  order: 5
+---
+
+import { Steps, Aside } from '@astrojs/starlight/components';
+
+Coming from Serato DJ or rekordbox, you keep the work you put into your tracks: Prisme imports
+your crates or playlists, your cue points and saved loops, your beat grids and colours, and
+from rekordbox your ratings. The import reads; it never changes your Serato or rekordbox library.
+
+Your music must already be where Prisme reads it: the import attaches cues and grids to files
+on this computer, and finds tracks in your **Music** folder. See
+[Adding your music](/docs/library/adding-music/).
+
+## Nothing gets overwritten
+
+The import only fills what is missing. What you already set in Prisme stays as it is, so you
+can import again at any time, for instance after a week of preparing in your old software:
+
+- a hot cue goes to its pad if that pad is free in Prisme; a cue already at the same place is
+  not added twice;
+- a beat grid is imported only for a track whose grid you have not corrected in Prisme;
+- a colour only for a track without one, a rating only for a track not rated yet;
+- a crate whose name matches one of your crates (not a smart one) gets the tracks it lacks;
+  otherwise a new crate is created.
+
+## From Serato DJ
+
+Serato keeps its crates in the `_Serato_` folder, and writes cues, loops, the track colour and
+the beat grid into the tags of each file. Prisme reads both.
+
+<Steps>
+
+1. Click **Import** in the library's toolbar (**Crates, cues and grids from Serato or
+   rekordbox**).
+
+2. Under **Serato DJ**, check the folder shown. Prisme proposes the `_Serato_` folder of your
+   **Music** folder. If your Serato library lives elsewhere (an external drive has its own
+   `_Serato_` folder at its root), click **Choose…** and pick that `_Serato_` folder.
+
+3. Click **Import**. Reading the tags of a large library takes a moment: **Importing…** shows
+   meanwhile.
+
+</Steps>
+
+What comes over:
+
+| From Serato | In Prisme |
+| --- | --- |
+| Crates (`_Serato_/Subcrates`) | Crates. A sub-crate is named after its parents: `House / Deep` |
+| Hot cues, with their colour and name | Hot cues on the same pads |
+| Saved loops | Looping hot cues, on the first free pads |
+| Track colour | The track's colour |
+| Beat grid | The beat grid, for grids with a single tempo |
+
+The tags are read from every file of your music folder, and from the tracks of the crates even
+if they lie elsewhere.
+
+If there is no `_Serato_` folder, the dialog says **No _Serato_ folder in Music: only the tags
+of the files**: you still get the cues, loops, colours and grids from the files, without crates.
+
+<Aside type="note">
+  Serato's smart crates, history and ratings are not imported. Make the smart crates again in
+  Prisme: see [Smart crates](/docs/library/crates/#smart-crates).
+</Aside>
+
+## From rekordbox
+
+rekordbox keeps its library in a database Prisme does not read; it exports it as an XML file.
+
+<Steps>
+
+1. In rekordbox, choose **File** › **Export Collection in xml format**, and save the file.
+
+2. In Prisme, click **Import** in the library's toolbar.
+
+3. Under **rekordbox**, click **Choose the XML file…** and pick the file you exported. The import
+   starts at once.
+
+</Steps>
+
+What comes over:
+
+| From rekordbox | In Prisme |
+| --- | --- |
+| Playlists | Crates, named after their folders: `Festival / Peak time` |
+| Hot cues, with their colour and name | Hot cues on the same pads |
+| Loops | Looping hot cues: on their own pad if they have one, else on the first free pad |
+| The first memory cue | The main cue, if the track has none |
+| Beat grid | The beat grid, for tracks with a single tempo |
+| Colour | The track's colour |
+| Rating | The rating, one to five stars |
+
+<Aside type="caution">
+  The XML names each file by its full path. Export it on the computer you play from, where the
+  files are, or with the drive mounted where rekordbox saw it: a file at another place is
+  counted as missing.
+</Aside>
+
+## Reading the result
+
+When it ends, the dialog sums up what it did, for example: **182 tracks updated: 640 cues, 175
+beat grids; 12 crates.** A track counts as updated when it got cues, a grid, a colour or a
+rating. If some files named by Serato or rekordbox are not found, it adds **37 files are not on
+this computer.**
+
+The track lists update as the import goes. Open a crate to check it, then load a track to see
+its cues and grid.
+
+## Things to know
+
+- **Tempo and key** values are not imported: Prisme analyses every track itself. The beat grid
+  does come over, and Prisme then uses its tempo. See
+  [Tempo, beat grid and key](/docs/library/analysis/).
+- An imported grid counts as a correction made by hand. If it is worse than Prisme's own, open
+  the grid editor on the deck and click **Reset** to go back to Prisme's analysis.
+- A grid with several tempos (a track whose grid changes speed) is left out, as Prisme's grids
+  have one tempo.
+- Memory cues after the first are not imported; Prisme has a main cue and 16 hot cues per
+  track. See [Cues and hot cues](/docs/decks/cues/).
+- A crate can list tracks outside your music folder. They load and play, but the background
+  analysis covers the music folder only: such a track is analysed when you first load it.

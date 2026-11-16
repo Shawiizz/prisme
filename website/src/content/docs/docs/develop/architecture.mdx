@@ -1,0 +1,89 @@
+---
+title: Architecture
+description: How Prisme is put together, the crates of its workspace and the rules of its real-time audio.
+sidebar:
+  order: 2
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+Prisme is a Rust engine that plays the audio, an application around it that holds the library, the settings and the controllers, and an interface that shows it all. The engine never waits for anything else: everything else talks to it without ever holding it up.
+
+## The layout of the repository
+
+```text
+apps/
+  prisme-desktop/    the application (Tauri v2); its interface is in frontend/ (Angular)
+  prisme-cli/        the whole chain from the command line, without the interface
+crates/
+  prisme-timecode/   timecode vinyl decoder: speed, direction, absolute position
+  prisme-engine/     real-time engine: decks, vinyl control, mixer, sampler
+  prisme-dsp/        real-time processing: filters, EQ, effects, limiter
+  prisme-audio-io/   sound cards behind a small interface
+  prisme-media/      audio file decoding, tags and cover art
+  prisme-analysis/   waveforms, tempo and beat grid, musical key
+  prisme-library/    track database, folder scanning, background analysis
+  prisme-stems/      source separation on the GPU or the processor
+  prisme-import/     Serato and rekordbox import
+  prisme-control/    MIDI controller messages, mappings and profiles
+  prisme-session/    settings files with atomic writes
+frontend/            the interface (Angular)
+design/              the design system: DESIGN.md and the reference screens
+tools/controllers/   the converter of Mixxx mappings into profiles
+website/             this site (Astro and Starlight)
+```
+
+## The crates
+
+| Crate | What it does |
+| --- | --- |
+| `prisme-timecode` | Turns the signal of a turntable playing a timecode record into a speed, a direction and a position on the record: Serato CV02 (sides A and B) and Serato CD. A decoder written from scratch, with a simulated turntable for tests and for trying vinyl control without one. |
+| `prisme-engine` | The audio engine. Each deck plays a track through a playhead that moves at any speed in either direction, driven by its own play and tempo or by a timecode record (absolute or relative). Sync to a leader deck, key lock, a chain of beat effects, a sampler and passthrough per deck; the software mixer (trim, EQ with kills, filter, faders, crossfader, microphone, aux, master limiter and balance, booth); the headphones preview; recording. |
+| `prisme-dsp` | The processing the engine uses, all of it real-time safe: the state-variable filter the rest is built from, the 3-band EQ, the one-knob filter, the beat effects, the limiter, parameter smoothing. |
+| `prisme-audio-io` | The sound card. The rest of Prisme sees one callback per audio period, with the interleaved input (the turntables) and output. Behind it: WASAPI and ASIO on Windows, CoreAudio on macOS and iOS, ALSA and JACK on Linux, AAudio on Android, and a USB driver of Prisme's own for the sound cards a phone's system reaches only in part. |
+| `prisme-media` | Decodes a whole track into memory, as stereo 32-bit floats: scratches and needle drops need any point of the track at once. Decoding happens on a worker thread, and a track plays while it is still being decoded. Also the tags and the cover art. |
+| `prisme-analysis` | Waveforms (the level and the low, mid and high energy of each slice), tempo and beat grid, musical key with its Camelot code, loudness, and where each stem plays. |
+| `prisme-library` | The SQLite database of the tracks, their analysis (redone when the file or the algorithms change), cues, crates and set history; scanning the music folders; smart crates; duplicates; the background analysis, at low priority. |
+| `prisme-stems` | Stem separation with RoFormer networks (Mel-Band and BS-RoFormer), on the GPU through wgpu (DirectX 12 or Vulkan, Metal), or on the processor. |
+| `prisme-import` | Crates, cues, loops, beat grids, colours and ratings from Serato and rekordbox, merged without overwriting what Prisme already has. |
+| `prisme-control` | MIDI controllers: what their messages say, which action each control drives, the messages that light them, and the [profiles](/docs/controllers/profiles/) of the models Prisme knows. The actions are only names here: the application performs them. |
+| `prisme-session` | Settings kept in JSON files, written atomically (a temporary file, then a rename), so that a crash never leaves half a file. |
+
+## The real-time rules
+
+The audio thread runs the engine inside the sound card's callback, a few milliseconds at a time. Anything that may wait there, even rarely, is an audible click. So the audio thread **never allocates, locks or frees memory**:
+
+- The application sends the engine **commands** through a lock-free queue (`rtrb`): load this track, play, move the tempo, set this effect.
+- The engine **publishes its state** (positions, speeds, levels, vinyl signal…) in a triple buffer, about a hundred times a second; the application reads the latest whenever it wants, without ever blocking the engine.
+- What the engine **replaces** (a track, a timecode decoder) goes back to the control side through another queue, to be freed there. If that queue is ever full, the object is leaked rather than freed on the audio thread.
+- What the engine needs is built beforehand on the control side, its buffers at the largest size a period can have.
+- The processing of `prisme-dsp` changes its parameters without clicks and keeps the arithmetic fast near silence.
+
+<Aside type="caution">
+A change to `prisme-engine`, `prisme-dsp` or `prisme-timecode` must keep these rules: on the audio path, no `Vec` that grows, no `Box` made or dropped, no `Mutex`.
+</Aside>
+
+## The application
+
+`apps/prisme-desktop` is the Tauri application, the same on a computer and on a phone. It owns the running audio, the library and everything kept from one start to the next:
+
+- **The audio**: the sound card stream lives on a thread of its own, with the engine in its callback. A watchdog restarts it when its device comes back after a loss, when the engine failed or when the driver stopped calling, with the decks where they were.
+- **Commands**: what the interface can ask, by domain (`src/commands`): decks, mixer, effects, library, crates, stems, controllers…
+- **Streams to the interface**: the engine's state about 60 times a second, and a turntable's signal while its oscilloscope is shown, each on a channel of its own; the rest as events.
+- **Controllers**: a mapped control's message becomes an event the interface performs, except the jog wheels and tempo faders, which drive the engine from the MIDI thread, in time, without going through the interface.
+- **Background work**: loading a track in two steps (playable at once, the rest on a worker thread), the analysis of the library, the stem separation queue, writing tags, recording to a file.
+- **Kept on disk**, in the data folder: `preferences.json`, `controllers.json`, `session.json` (what the decks held, to put them back after a crash), `library.sqlite`, the logs (one file a day, a week kept), your own controller profiles.
+
+## The interface
+
+`frontend` is an Angular application. Its parts:
+
+- `core/control/controls.ts` lists every action of the app once, with its id, group, label and kind. The keyboard, the [command palette](/docs/interface/keyboard/) and the [controllers](/docs/controllers/actions/) all drive these same actions.
+- `core/services` talks to the application: the engine's state, the library, the mixer, the effects, the sampler…
+- `features` holds the screens: decks, mixer, library, turntables, settings, the palette, the phone layout.
+- `core/i18n`: the interface is written in English, which is also the key of each text; `fr.json` holds the French.
+- The look comes from the design system in `design/DESIGN.md`: the tokens and ready-made classes in `frontend/src/styles`.
+
+## The command line
+
+`apps/prisme-cli` runs the same engine, sound card and decoder without the interface: to play a track, try vinyl control with a simulated or a real turntable, measure the latency or analyse files. See [Command line](/docs/develop/cli/).

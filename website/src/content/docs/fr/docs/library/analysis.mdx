@@ -1,0 +1,129 @@
+---
+title: Tempo, grille rythmique et tonalité
+description: Ce que l’analyse de Prisme trouve dans chaque morceau, comment corriger une grille ou une tonalité fausse, et ce qui en dépend.
+sidebar:
+  order: 4
+---
+
+import { Steps, Aside } from '@astrojs/starlight/components';
+
+Chaque morceau de votre dossier de musique est analysé une fois, en tâche de fond (voir
+[Ajouter votre musique](/fr/docs/library/adding-music/#la-première-analyse)). L’analyse lui donne
+un tempo, une grille rythmique et une tonalité. C’est sur eux que s’appuient la sync, le
+quantize, l’Auto DJ et les colonnes de tonalité et de pitch de la bibliothèque : une grille
+fausse vaut donc la peine d’être corrigée. Cela prend quelques secondes, et c’est gardé pour de
+bon.
+
+## Ce que trouve l’analyse
+
+**Tempo et grille rythmique.** Prisme cherche un tempo stable sur tout le morceau, à environ un
+millième de BPM près, et l’arrondit à un BPM entier quand celui-ci colle tout aussi bien (les
+morceaux produits dans un DAW en ont généralement un). Il pose ensuite une grille de temps sur
+le morceau, calée sur les kicks. La grille est dessinée sur la forme d’onde : un trait fin sur
+chaque temps, un trait rouge avec de petites flèches tous les quatre temps.
+
+- La grille a **un seul tempo pour tout le morceau**. Cela convient à la plupart des musiques
+  électroniques. Un morceau qui accélère ou ralentit, ou joué par un batteur en live, va dériver
+  de sa grille.
+- Le tempo est donné **entre 88 et 176 BPM**. Cette plage couvre la house, la techno et la drum
+  and bass à leur tempo habituel, mais un morceau de hip-hop à 85 BPM s’affiche à 170, et un
+  morceau à 180 BPM à 90. Corrigez-le avec **÷2** ou **×2** (plus bas).
+- Les morceaux de moins de 10 secondes n’ont pas de tempo.
+
+**Tonalité.** Prisme écoute l’harmonie de tout le morceau, après avoir compensé un morceau
+accordé un peu à côté du diapason, et choisit la plus probable des 24 tonalités majeures et
+mineures. La tonalité s’affiche en code Camelot : des chiffres de 1 à 12 autour de la roue, `A`
+pour mineur et `B` pour majeur (`8A` est la mineur, `8B` do majeur). Survolez une tonalité dans
+la bibliothèque pour voir son nom habituel.
+
+Comme toute détection de tonalité, elle peut confondre une tonalité avec une tonalité voisine, le
+plus souvent son relatif majeur ou mineur (`8A` et `8B`), ou la tonalité à une quinte (`8A` et
+`9A`). Celles-ci se mixent de toute façon ensemble ; quand vos oreilles ne sont pas d’accord,
+corrigez-la.
+
+## Corriger la grille et la tonalité
+
+Les corrections se font sur un deck, avec le morceau chargé.
+
+<Steps>
+
+1. Chargez le morceau et cliquez sur les affichages **BPM** et **Tonalité** du deck (**Grille
+   rythmique, tonalité et transposition**). Sur un téléphone, ouvrez le panneau du deck et
+   touchez **Grille et tonalité**.
+
+2. Corrigez ce qui ne va pas avec les commandes ci-dessous. Chaque changement s’applique
+   aussitôt, sur chaque deck où le morceau est chargé.
+
+3. Fermez le panneau en cliquant à côté.
+
+</Steps>
+
+![L’éditeur de grille ouvert sous le deck A : le champ BPM avec l’application, ÷2, ×2 et Tap, les flèches et le temps ici, les deux rangées de tonalités avec 7A allumé, et le décalage de tonalité](../../../../../assets/screens/docs/grid-editor.png)
+
+### Grille rythmique
+
+| Commande | Effet |
+| --- | --- |
+| Champ BPM et **Appliquer** | Règle le tempo que vous tapez (de 40 à 300 BPM), en gardant le premier temps où il est. <kbd>Enter</kbd> applique aussi |
+| **÷2** / **×2** | **Moitié du tempo** / **Double du tempo** : le tempo divisé ou multiplié par deux |
+| **Tap** | Tapez en rythme avec la musique : après quatre frappes, le tempo que vous tapez s’affiche dans le champ. Cliquez sur **Appliquer** pour le garder |
+| **◀◀** / **▶▶** | Déplace toute la grille 20 ms plus tôt ou plus tard |
+| **◀** / **▶** | Déplace toute la grille 2 ms plus tôt ou plus tard |
+| **Temps ici** | Déplace la grille pour qu’un temps tombe exactement là où est le deck |
+| **Rétablir** | **Revenir à la grille analysée**. Affiché une fois la grille modifiée |
+
+Une bonne méthode pour corriger une grille décalée :
+
+<Steps>
+
+1. Vérifiez d’abord le tempo. Si les traits s’éloignent des kicks au fil du morceau, le tempo est
+   faux : tapez-le avec **Tap**, ou saisissez-le si vous le connaissez, puis **Appliquer**.
+
+2. Mettez en pause sur un kick en début de mesure, près du trait sur lequel il devrait être.
+   Cliquez sur **Temps ici**.
+
+3. Jouez quelques mesures plus loin et écoutez, la forme d’onde zoomée. Ajustez avec **◀** et
+   **▶** jusqu’à ce que les traits tombent sur les kicks.
+
+</Steps>
+
+Si l’analyse n’a trouvé aucun tempo, en taper un crée une grille depuis le début du morceau :
+utilisez ensuite **Temps ici** pour la caler sur les temps.
+
+### Tonalité
+
+Le panneau affiche les 24 tonalités, les mineures (`A`) sur une ligne, les majeures (`B`) sur
+l’autre, la tonalité actuelle pleine. Cliquez sur la bonne. **Rétablir** (**Revenir à la
+tonalité détectée**) annule votre choix.
+
+La section **Transposition** du même panneau transpose le morceau pendant la lecture, sans
+changer sa tonalité dans la bibliothèque : voir [Tempo, sync et tonalité](/fr/docs/decks/sync/).
+
+### Ce que devient une correction
+
+- Un point après le libellé **BPM** ou **Tonalité** sur le deck indique que la grille ou la
+  tonalité a été corrigée à la main.
+- Les corrections sont gardées dans la bibliothèque, à part de l’analyse : réanalyser le fichier
+  ne les annule jamais. Elles suivent le fichier si vous le déplacez ou le renommez.
+- Les colonnes BPM et tonalité de la bibliothèque, les crates intelligentes et les tris utilisent
+  les valeurs corrigées.
+- Si **Écrire le tempo et la tonalité dans les tags des fichiers** est activé, le tempo et la
+  tonalité corrigés sont aussi écrits dans le fichier (voir
+  [Ajouter votre musique](/fr/docs/library/adding-music/#écrire-le-tempo-et-la-tonalité-dans-vos-fichiers)).
+- Une grille rythmique [importée depuis Serato ou rekordbox](/fr/docs/library/import/) compte
+  comme une correction : **Rétablir** vous ramène à la grille de Prisme.
+
+## Ce qui dépend de la grille
+
+| Fonction | Utilise |
+| --- | --- |
+| **Quantize** (**Réglages** › **DJ**, activé par défaut) | Cues, boucles et sauts tombent sur le temps ; les stems se coupent et reviennent sur la mesure ; les pads du sampler partent sur le temps suivant |
+| Sync | Cale le tempo, et aligne les temps sur l’autre deck. Voir [Tempo, sync et tonalité](/fr/docs/decks/sync/) |
+| Boucles, rolls et sauts en temps | Leur longueur en temps. Voir [Boucles, rolls et sauts](/fr/docs/decks/loops/) |
+| Effets synchronisés sur le temps | Leur timing. Voir [Effets](/fr/docs/sound/effects/) |
+| [Auto DJ](/fr/docs/mixer/auto-dj/) | Où commence un enchaînement (sur une phrase), et combien de temps il dure en temps |
+| La colonne **Pitch → A** de la bibliothèque | Le tempo de chaque morceau |
+
+Sans grille, le quantize n’a rien sur quoi se caler : les cues et les points de boucle tombent
+exactement là où vous appuyez. C’est pourquoi un morceau dont l’analyse n’a pas trouvé le tempo
+mérite une grille tapée à la main.

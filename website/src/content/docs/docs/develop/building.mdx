@@ -1,0 +1,185 @@
+---
+title: Building from source
+description: Build and run Prisme from its source on Windows, macOS and Linux, run the tests, and make the packages.
+sidebar:
+  order: 1
+---
+
+import { Steps, Aside, Tabs, TabItem } from '@astrojs/starlight/components';
+
+Prisme is a Rust workspace (the engine and the application) with an Angular interface, put together by [Tauri](https://tauri.app). The same commands build it on Windows, macOS and Linux; the Android package is built by the project's CI.
+
+## What you need
+
+On every system:
+
+- **Rust**, through [rustup](https://rustup.rs). The repository pins its version in `rust-toolchain.toml`: rustup installs that one by itself the first time you build.
+- **Node.js 24** and **pnpm**, for the interface.
+- **Python 3**: the setup script fetches with it the libclang the bindings of the C++ libraries are generated with.
+- **The Tauri command line**, version 2: `cargo install tauri-cli --version "^2"`, or run it with `npx @tauri-apps/cli@2` in place of `cargo tauri` below.
+
+Then, for each system:
+
+<Tabs syncKey="os">
+<TabItem label="Windows">
+
+Windows 10 or 11, with the Microsoft C++ build tools that Rust uses on Windows. The ASIO SDK is downloaded by the build itself.
+
+</TabItem>
+<TabItem label="macOS">
+
+macOS 13.3 or later, with the Xcode command line tools (`xcode-select --install`).
+
+</TabItem>
+<TabItem label="Linux">
+
+A C++ compiler and the libraries of the web view, ALSA and JACK. On Debian and Ubuntu:
+
+```sh
+sudo apt install build-essential libwebkit2gtk-4.1-dev libgtk-3-dev libxdo-dev \
+  libssl-dev libayatana-appindicator3-dev librsvg2-dev libasound2-dev \
+  libjack-jackd2-dev libudev-dev
+```
+
+</TabItem>
+</Tabs>
+
+## Build and run
+
+<Steps>
+
+1. Get the code:
+
+   ```sh
+   git clone https://github.com/Shawiizz/prisme.git
+   cd prisme
+   ```
+
+2. Install the development tools that are not Rust crates:
+
+   <Tabs syncKey="os">
+   <TabItem label="Windows">
+
+   ```powershell
+   scripts\setup-dev.ps1
+   ```
+
+   </TabItem>
+   <TabItem label="macOS and Linux">
+
+   ```sh
+   scripts/setup-dev.sh
+   ```
+
+   </TabItem>
+   </Tabs>
+
+   The script puts libclang in `.tools/libclang`, inside the repository, where `.cargo/config.toml` points the build to, then installs the interface's packages (`pnpm install` in `frontend`).
+
+3. Run the tests:
+
+   ```sh
+   cargo test --workspace
+   ```
+
+4. Start the application:
+
+   ```sh
+   cd apps/prisme-desktop
+   cargo tauri dev
+   ```
+
+   Tauri starts the interface's development server (`pnpm start` in `frontend`, on port 4200), builds the application and opens it. A change to the interface shows at once; a change to the Rust code rebuilds and restarts the application.
+
+</Steps>
+
+### Start in a known state
+
+While you develop, a few environment variables start Prisme without clicking:
+
+| Variable | |
+| --- | --- |
+| `PRISME_DECK1` … `PRISME_DECK4` | An audio file to load on that deck at start. |
+| `PRISME_SIMULATE=1` | Start with the simulated turntable on deck 1: vinyl control without a turntable. |
+| `PRISME_MASTER_GAIN` | The master gain at start, such as `0.2` to try things quietly. |
+| `PRISME_DATA_DIR` | A folder for the settings and the library, in place of your own. |
+| `PRISME_MUSIC_DIR` | A music folder, in place of your own. |
+| `PRISME_FAKE_SPLIT` | Pretend there is a second screen under the window, its top this many pixels down (`560`, or `560@0.8` with its scale): to try the two-screen layout on one screen. |
+
+<Aside type="tip">
+`PRISME_DATA_DIR` keeps your own library and settings out of the way: point it to an empty folder to see Prisme as at its first start.
+</Aside>
+
+## Check your changes
+
+The CI runs these on Windows, Linux and macOS for every pull request; run them before you push:
+
+```sh
+cd frontend
+pnpm exec prettier --check src
+pnpm exec ng test --watch=false
+pnpm build
+cd ..
+cargo fmt --all --check
+cargo clippy --workspace --all-targets -- -D warnings
+cargo test --workspace
+```
+
+Changing the actions of the interface, or a controller profile, also changes files the tests compare: see [The files beside the profiles](/docs/controllers/profiles/#the-files-beside-the-profiles).
+
+## Make the packages
+
+```sh
+cd apps/prisme-desktop
+cargo tauri build
+```
+
+The packages land in `target/release/bundle`:
+
+| System | Package |
+| --- | --- |
+| Windows | An installer (NSIS), installed for the current user. |
+| Linux | A `.deb` and an AppImage. |
+| macOS | The `.app` and a `.dmg`. |
+
+For a Mac build that runs on both Apple and Intel processors, add both targets and build the universal one:
+
+```sh
+rustup target add aarch64-apple-darwin x86_64-apple-darwin
+cargo tauri build --target universal-apple-darwin
+```
+
+A build runs on systems as old as the one it was made on: the project builds its Linux packages on Ubuntu 22.04 for that reason.
+
+<Aside type="caution">
+The macOS build is not notarized by Apple. The first time, macOS refuses to open it: open it from **System Settings** › **Privacy & Security**.
+</Aside>
+
+On Linux, Prisme plays through ALSA, or through JACK (PipeWire's included) for the lowest latency.
+
+## Android and iOS
+
+The Android package is built by the `Mobile` workflow on GitHub, for a tag such as `mobile-1.2.3` or on demand: a signed APK for 64-bit ARM phones, attached to a draft release. To build it yourself, follow that workflow (`.github/workflows/mobile.yml`): Java 21, the Android SDK and its NDK, the Rust target `aarch64-linux-android`, the NDK's headers given to the bindings, then:
+
+```sh
+cd apps/prisme-desktop
+cargo tauri android build --apk --target aarch64
+```
+
+A release APK is signed with the key named in `apps/prisme-desktop/gen/android/keystore.properties`, which stays out of the repository.
+
+The iOS build is only checked: the same workflow compiles it and starts it in the iPhone simulator. There is no iOS release.
+
+## Releasing
+
+<Steps>
+
+1. Set the new version in the workspace's `Cargo.toml` (`[workspace.package] version`).
+
+2. Push a tag with that version, such as `0.2.0`. The CI builds the packages of the three systems and their signed update packages, and attaches them to a draft release.
+
+3. Publish the draft: the installed copies then offer the update.
+
+</Steps>
+
+The `Package` workflow, run on demand, builds the same packages without the update packages, starts each build once and keeps a screenshot and its logs: a way to see a build start on a system you do not have at hand.

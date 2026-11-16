@@ -1,0 +1,177 @@
+/* The documentation in the app's colours: colourless glass, the light as the only accent,
+   the spectrum kept for what is musical. Values from frontend/src/styles/tokens.css. */
+
+:root {
+	--pr-void: #0a0b0d;
+	--pr-base: #111316;
+	--pr-raise: #181b1f;
+	--pr-raise-2: #20242a;
+	--pr-line: #23272d;
+	--pr-line-2: #333840;
+	--pr-text: #e7e8ea;
+	--pr-text-2: #a1a6ae;
+	--pr-text-3: #6b717a;
+	--pr-light: #f3f1eb;
+	--pr-on-light: #0b0c0e;
+	--pr-f-low: #ff5442;
+	--pr-f-mid: #a6e25c;
+	--pr-f-high: #8f7bff;
+	--pr-font: 'Instrument Sans', 'Segoe UI Variable Text', 'Segoe UI', system-ui, sans-serif;
+	--pr-font-mono: 'Martian Mono', 'Cascadia Mono', Consolas, ui-monospace, monospace;
+	--pr-spectrum: linear-gradient(
+		90deg,
+		#ff3d1f,
+		#ff8a1c 22%,
+		#ffd22a 36%,
+		#52e85a 50%,
+		#4fe3c8 62%,
+		#2f8cff 76%,
+		#6a5ff6 90%,
+		#9d93f7
+	);
+}
+
+:root,
+::backdrop {
+	--sl-color-white: var(--pr-light);
+	--sl-color-gray-1: var(--pr-text);
+	--sl-color-gray-2: #c4c8ce;
+	--sl-color-gray-3: var(--pr-text-2);
+	--sl-color-gray-4: var(--pr-text-3);
+	--sl-color-gray-5: var(--pr-line-2);
+	--sl-color-gray-6: var(--pr-raise);
+	--sl-color-black: var(--pr-void);
+
+	--sl-color-accent-low: var(--pr-raise-2);
+	--sl-color-accent: var(--pr-light);
+	--sl-color-accent-high: var(--pr-light);
+	--sl-color-text-invert: var(--pr-on-light);
+
+	--sl-color-bg-nav: var(--pr-void);
+	--sl-color-bg-sidebar: var(--pr-void);
+	--sl-color-bg-inline-code: var(--pr-raise-2);
+	--sl-color-hairline-light: var(--pr-line-2);
+	--sl-color-hairline: var(--pr-line);
+	--sl-color-hairline-shade: var(--pr-void);
+
+	/* asides in quiet tints of the app's states and of the spectrum */
+	--sl-color-orange-low: #251f13;
+	--sl-color-orange: oklch(0.84 0.15 80);
+	--sl-color-orange-high: #f4e6c4;
+	--sl-color-blue-low: #191a2c;
+	--sl-color-blue: var(--pr-f-high);
+	--sl-color-blue-high: #ddd8ff;
+	--sl-color-purple-low: #1d1a2e;
+	--sl-color-purple: var(--pr-f-high);
+	--sl-color-purple-high: #ddd8ff;
+	--sl-color-green-low: #172216;
+	--sl-color-green: var(--pr-f-mid);
+	--sl-color-green-high: #e2f5c8;
+	--sl-color-red-low: #2a1513;
+	--sl-color-red: var(--pr-f-low);
+	--sl-color-red-high: #ffd9d3;
+
+	--sl-font: var(--pr-font);
+	--sl-font-mono: var(--pr-font-mono);
+	--sl-content-width: 48rem;
+}
+
+/* The wordmark as the app writes it: lower case, narrow, beside a small prism. */
+.site-title {
+	gap: 0.6rem;
+	font-size: 1.4rem;
+	font-weight: 600;
+	text-transform: lowercase;
+	color: var(--pr-light);
+}
+.site-title img {
+	height: 1.45rem;
+	width: auto;
+}
+
+/* Titles narrow, as the app's are. */
+.sl-markdown-content :is(h1, h2, h3, h4),
+h1#_top,
+.site-title {
+	font-stretch: 80%;
+	letter-spacing: -0.005em;
+}
+h1#_top {
+	font-weight: 600;
+}
+.sl-markdown-content :is(h2, h3) {
+	font-weight: 600;
+}
+
+/* Code in Martian Mono is wide: a little smaller and narrower. */
+.sl-markdown-content :not(pre) > code,
+.expressive-code pre {
+	font-stretch: 85%;
+}
+.sl-markdown-content :not(pre) > code {
+	font-size: 0.82em;
+	padding: 0.1em 0.35em;
+	border-radius: 3px;
+}
+
+/* Keys pressed on the keyboard. */
+.sl-markdown-content kbd {
+	font: 600 0.78em / 1 var(--pr-font-mono);
+	font-stretch: 80%;
+	padding: 0.2em 0.45em;
+	border: 1px solid var(--pr-line-2);
+	border-bottom-width: 2px;
+	border-radius: 3px;
+	background: var(--pr-raise);
+	color: var(--pr-text);
+	white-space: nowrap;
+}
+
+/* Links: the light, underlined thin. */
+.sl-markdown-content a:not(:where(.not-content *)) {
+	color: var(--pr-light);
+	text-decoration-color: color-mix(in srgb, var(--pr-light) 35%, transparent);
+	text-underline-offset: 0.2em;
+}
+.sl-markdown-content a:not(:where(.not-content *)):hover {
+	text-decoration-color: var(--pr-light);
+}
+
+/* The current page in the sidebar: the light, as a selected choice is in the app. */
+.sidebar-content a[aria-current='page'] {
+	background: var(--pr-light);
+	color: var(--pr-on-light);
+	font-weight: 600;
+}
+
+/* A thin spectrum under the top bar, the one colour of the frame. */
+header.header {
+	border-bottom: 1px solid var(--pr-line);
+	position: relative;
+}
+header.header::after {
+	content: '';
+	position: absolute;
+	inset: auto 0 -1px 0;
+	height: 1px;
+	background: var(--pr-spectrum);
+	opacity: 0.55;
+}
+
+/* Tables in the app's style: lines between rows only. */
+.sl-markdown-content table {
+	font-size: 0.92em;
+}
+.sl-markdown-content th {
+	font-weight: 600;
+	font-size: 0.82em;
+	letter-spacing: 0.06em;
+	text-transform: uppercase;
+	color: var(--pr-text-2);
+}
+
+/* Screenshots framed as the app's window. */
+.sl-markdown-content img {
+	border: 1px solid var(--pr-line);
+	border-radius: 6px;
+}

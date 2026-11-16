@@ -1,0 +1,89 @@
+---
+title: Architecture
+description: Comment Prisme est construit, les crates de son workspace et les règles de son audio temps réel.
+sidebar:
+  order: 2
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+Prisme, c’est un moteur Rust qui joue l’audio, une application autour qui gère la bibliothèque, les réglages et les contrôleurs, et une interface qui affiche le tout. Le moteur n’attend jamais rien d’autre : tout le reste lui parle sans jamais le bloquer.
+
+## L’organisation du dépôt
+
+```text
+apps/
+  prisme-desktop/    l’application (Tauri v2) ; son interface est dans frontend/ (Angular)
+  prisme-cli/        toute la chaîne en ligne de commande, sans l’interface
+crates/
+  prisme-timecode/   décodeur de vinyle timecode : vitesse, sens, position absolue
+  prisme-engine/     moteur temps réel : decks, contrôle vinyle, mixage, sampler
+  prisme-dsp/        traitement temps réel : filtres, EQ, effets, limiteur
+  prisme-audio-io/   les cartes son derrière une petite interface
+  prisme-media/      décodage des fichiers audio, tags et pochettes
+  prisme-analysis/   formes d’onde, tempo et grille rythmique, tonalité
+  prisme-library/    base de données des morceaux, scan des dossiers, analyse en arrière-plan
+  prisme-stems/      séparation des sources sur le GPU ou le processeur
+  prisme-import/     import depuis Serato et rekordbox
+  prisme-control/    messages, mappings et profils des contrôleurs MIDI
+  prisme-session/    fichiers de réglages à écriture atomique
+frontend/            l’interface (Angular)
+design/              le design system : DESIGN.md et les écrans de référence
+tools/controllers/   le convertisseur de mappings Mixxx en profils
+website/             ce site (Astro et Starlight)
+```
+
+## Les crates
+
+| Crate | Ce qu’elle fait |
+| --- | --- |
+| `prisme-timecode` | Transforme le signal d’une platine qui joue un disque timecode en une vitesse, un sens et une position sur le disque : Serato CV02 (faces A et B) et Serato CD. Un décodeur écrit de zéro, avec une platine simulée pour les tests et pour essayer le contrôle vinyle sans platine. |
+| `prisme-engine` | Le moteur audio. Chaque deck joue un morceau via une tête de lecture qui avance à n’importe quelle vitesse, dans les deux sens, pilotée par son propre play et son propre tempo ou par un disque timecode (absolu ou relatif). Sync sur un deck leader, key lock, une chaîne d’effets rythmiques, un sampler et un passthrough par deck ; la table de mixage logicielle (trim, EQ avec kills, filtre, faders, crossfader, micro, aux, limiteur et balance du master, booth) ; la pré-écoute au casque ; l’enregistrement. |
+| `prisme-dsp` | Le traitement qu’utilise le moteur, entièrement sûr en temps réel : le filtre à variables d’état sur lequel tout le reste est construit, l’EQ 3 bandes, le filtre à un potard, les effets rythmiques, le limiteur, le lissage des paramètres. |
+| `prisme-audio-io` | La carte son. Le reste de Prisme voit un callback par période audio, avec l’entrée (les platines) et la sortie entrelacées. Derrière : WASAPI et ASIO sous Windows, CoreAudio sous macOS et iOS, ALSA et JACK sous Linux, AAudio sous Android, et un pilote USB propre à Prisme pour les cartes son que le système d’un téléphone n’atteint qu’en partie. |
+| `prisme-media` | Décode un morceau entier en mémoire, en flottants 32 bits stéréo : les scratchs et les needle drops ont besoin de n’importe quel point du morceau immédiatement. Le décodage se fait sur un thread de travail, et un morceau joue alors qu’il est encore en cours de décodage. Gère aussi les tags et les pochettes. |
+| `prisme-analysis` | Les formes d’onde (le niveau et l’énergie des graves, des médiums et des aigus de chaque tranche), le tempo et la grille rythmique, la tonalité avec son code Camelot, le volume perçu, et où joue chaque stem. |
+| `prisme-library` | La base SQLite des morceaux, leur analyse (refaite quand le fichier ou les algorithmes changent), les cues, les crates et l’historique des sets ; le scan des dossiers de musique ; les crates intelligentes ; les doublons ; l’analyse en arrière-plan, en basse priorité. |
+| `prisme-stems` | La séparation en stems avec des réseaux RoFormer (Mel-Band et BS-RoFormer), sur le GPU via wgpu (DirectX 12 ou Vulkan, Metal), ou sur le processeur. |
+| `prisme-import` | Crates, cues, boucles, grilles rythmiques, couleurs et notes depuis Serato et rekordbox, fusionnées sans écraser ce que Prisme a déjà. |
+| `prisme-control` | Les contrôleurs MIDI : ce que disent leurs messages, quelle action pilote chaque commande, les messages qui les allument, et les [profils](/fr/docs/controllers/profiles/) des modèles que Prisme connaît. Ici, les actions ne sont que des noms : c’est l’application qui les exécute. |
+| `prisme-session` | Les réglages gardés dans des fichiers JSON, écrits de façon atomique (un fichier temporaire, puis un renommage), pour qu’un plantage ne laisse jamais un fichier à moitié écrit. |
+
+## Les règles du temps réel
+
+Le thread audio fait tourner le moteur dans le callback de la carte son, quelques millisecondes à la fois. Tout ce qui peut y attendre, même rarement, s’entend comme un clic. Le thread audio **n’alloue donc jamais de mémoire, ne prend jamais de verrou et ne libère jamais de mémoire** :
+
+- L’application envoie des **commandes** au moteur par une file sans verrou (`rtrb`) : charger ce morceau, lancer la lecture, bouger le tempo, régler cet effet.
+- Le moteur **publie son état** (positions, vitesses, niveaux, signal vinyle…) dans un triple buffer, une centaine de fois par seconde ; l’application lit le plus récent quand elle veut, sans jamais bloquer le moteur.
+- Ce que le moteur **remplace** (un morceau, un décodeur timecode) repart côté contrôle par une autre file, pour y être libéré. Si cette file est un jour pleine, l’objet est laissé en fuite plutôt que libéré sur le thread audio.
+- Ce dont le moteur a besoin est construit à l’avance côté contrôle, ses buffers à la plus grande taille qu’une période puisse avoir.
+- Le traitement de `prisme-dsp` change ses paramètres sans clic et garde des calculs rapides près du silence.
+
+<Aside type="caution">
+Une modification de `prisme-engine`, `prisme-dsp` ou `prisme-timecode` doit respecter ces règles : sur le chemin audio, pas de `Vec` qui grandit, pas de `Box` créée ou détruite, pas de `Mutex`.
+</Aside>
+
+## L’application
+
+`apps/prisme-desktop` est l’application Tauri, la même sur ordinateur et sur téléphone. Elle possède l’audio en cours, la bibliothèque et tout ce qui est gardé d’un démarrage à l’autre :
+
+- **L’audio** : le flux de la carte son vit sur un thread à lui, avec le moteur dans son callback. Un chien de garde le redémarre quand son périphérique revient après une perte, quand le moteur a échoué ou quand le pilote a cessé d’appeler, avec les decks là où ils en étaient.
+- **Les commandes** : ce que l’interface peut demander, par domaine (`src/commands`) : decks, table de mixage, effets, bibliothèque, crates, stems, contrôleurs…
+- **Les flux vers l’interface** : l’état du moteur environ 60 fois par seconde, et le signal d’une platine tant que son oscilloscope est affiché, chacun sur son propre canal ; le reste sous forme d’événements.
+- **Les contrôleurs** : le message d’une commande mappée devient un événement que l’interface exécute, sauf pour les jogs et les faders de pitch, qui pilotent le moteur depuis le thread MIDI, en temps réel, sans passer par l’interface.
+- **Le travail en arrière-plan** : le chargement d’un morceau en deux temps (jouable aussitôt, le reste sur un thread de travail), l’analyse de la bibliothèque, la file de séparation en stems, l’écriture des tags, l’enregistrement dans un fichier.
+- **Ce qui est gardé sur disque**, dans le dossier de données : `preferences.json`, `controllers.json`, `session.json` (ce que contenaient les decks, pour les remettre en place après un plantage), `library.sqlite`, les logs (un fichier par jour, une semaine conservée), vos propres profils de contrôleurs.
+
+## L’interface
+
+`frontend` est une application Angular. Ses parties :
+
+- `core/control/controls.ts` liste une seule fois chaque action de l’application, avec son id, son groupe, son libellé et son type. Le clavier, la [palette de commandes](/fr/docs/interface/keyboard/) et les [contrôleurs](/fr/docs/controllers/actions/) pilotent tous ces mêmes actions.
+- `core/services` dialogue avec l’application : l’état du moteur, la bibliothèque, la table de mixage, les effets, le sampler…
+- `features` contient les écrans : decks, table de mixage, bibliothèque, platines, réglages, la palette, la disposition pour téléphone.
+- `core/i18n` : l’interface est écrite en anglais, qui sert aussi de clé à chaque texte ; `fr.json` contient le français.
+- L’apparence vient du design system de `design/DESIGN.md` : les tokens et les classes toutes prêtes de `frontend/src/styles`.
+
+## La ligne de commande
+
+`apps/prisme-cli` fait tourner le même moteur, la même carte son et le même décodeur sans l’interface : pour jouer un morceau, essayer le contrôle vinyle avec une platine simulée ou réelle, mesurer la latence ou analyser des fichiers. Voir [Ligne de commande](/fr/docs/develop/cli/).

@@ -1,0 +1,190 @@
+---
+title: Parcourir et chercher
+description: Trouver un morceau, lire ses colonnes, le comparer au deck qui joue, et le charger.
+sidebar:
+  order: 2
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+La bibliothèque se trouve sous les decks : les listes à gauche (liste de préparation, dossiers,
+crates, historique), les morceaux de la liste ouverte à droite, avec une barre d’outils
+au-dessus. Pour lui donner toute la fenêtre, ouvrez la palette de commandes
+(<kbd>Ctrl</kbd> <kbd>K</kbd>) et lancez **La bibliothèque sur toute la fenêtre** ; lancez-la de
+nouveau pour faire revenir les decks.
+
+![La bibliothèque sur un ordinateur : à gauche la préparation, les doublons, le dossier de musique, les crates et l’historique ; la barre d’outils avec Dossier et Bibliothèque, la recherche, la comparaison avec A ou B, l’import et le rescan ; la liste des morceaux avec leurs tonalités et la colonne Pitch → A](../../../../../assets/screens/docs/library.png)
+
+## Le panneau latéral
+
+- **Préparation** : les morceaux prévus pour les prochaines minutes de votre set. Voir
+  [Crates, liste de préparation et historique](/fr/docs/library/crates/#la-liste-de-préparation).
+- **Doublons** : les morceaux qui semblent être le même titre.
+- **Dossiers** : le chemin de **Musique** jusqu’au dossier ouvert, puis ses sous-dossiers.
+  Cliquez sur un sous-dossier pour l’ouvrir, sur une partie du chemin pour remonter. Prisme
+  rouvre au démarrage suivant le dernier dossier où vous étiez.
+- **Crates** et **Historique** : cliquez sur leur titre pour les replier.
+
+Cliquez sur n’importe quelle liste pour afficher ses morceaux à droite. Les listes ordonnées
+(liste de préparation, un set de l’historique, doublons) ont une colonne `#` avec leur propre
+ordre.
+
+## Chercher
+
+Appuyez sur <kbd>Ctrl</kbd> <kbd>F</kbd> (<kbd>⌘</kbd> <kbd>F</kbd> sur Mac) ou cliquez dans le
+champ de recherche, et tapez. <kbd>Esc</kbd> quitte le champ.
+
+Les deux boutons à gauche du champ choisissent où vous cherchez :
+
+| Bouton | Cherche dans | Comment |
+| --- | --- | --- |
+| La liste ouverte (**Dossier**, **Crate**, **Set**, **Préparation** ou **Doublons**) | Les morceaux de cette liste | Chaque mot tapé doit figurer dans le titre, l’artiste, l’album, le genre ou le nom du fichier, dans n’importe quel ordre. `daft around` trouve *Around the World* de Daft Punk |
+| **Bibliothèque** | Tous les morceaux analysés | Les mots correspondent au début des mots dans les mêmes champs, sans tenir compte des accents. Jusqu’à 500 résultats |
+
+Aucune syntaxe particulière : ni guillemets, ni champs, ni opérateurs. Ouvrir une autre liste
+efface la recherche et revient à la recherche dans cette liste.
+
+<Aside type="note">
+  La recherche dans la **Bibliothèque** ne couvre que les morceaux analysés. Un fichier copié il
+  y a une minute apparaît une fois son analyse terminée, ce qu’indique la barre d’outils.
+</Aside>
+
+## Les colonnes
+
+Faites un clic droit sur les en-têtes de colonnes pour choisir celles qui s’affichent ; votre
+choix est gardé. Au départ, toutes s’affichent.
+
+| Colonne | Affiche |
+| --- | --- |
+| **Couleur** | La couleur du morceau ; cliquez sur la pastille pour en choisir une parmi huit, ou **Sans couleur** |
+| **Pochette** | La pochette, tirée des tags du fichier |
+| **Titre** | Le tag de titre, ou le nom du fichier. Une lettre devant indique sur quel deck le morceau est chargé |
+| **Artiste**, **Album**, **Genre**, **Année** | Tirés des tags du fichier |
+| BPM | Le tempo. `···` tant que le morceau attend son analyse, `—` s’il n’en a pas ou n’a pas pu être décodé |
+| **Pitch → A** | Le pitch qui amène le morceau au tempo du deck auquel vous comparez (voir plus bas). S’appelle **Pitch pour caler** dans le menu des colonnes |
+| **Tonalité** | La tonalité en code Camelot (`8A`) ; survolez-la pour voir son nom. La pastille est pleine quand elle s’accorde avec la tonalité du deck auquel vous comparez |
+| **Note** | De zéro à cinq étoiles : cliquez sur une étoile pour noter, recliquez sur la même pour effacer |
+| **Lectures** | Le nombre de fois où le morceau a été joué (voir l’[historique](/fr/docs/library/crates/#historique)) |
+| STEMS | Si les stems sont séparés, avec un **+** pour les séparer. S’appelle **Pistes séparées** dans le menu des colonnes. Voir [Stems](/fr/docs/sound/stems/) |
+
+La colonne **Titre** est toujours là. La dernière colonne contient la touche d’écoute au casque
+et une touche de chargement par deck.
+
+Les morceaux déjà joués ce soir sont grisés dans toutes les listes, jamais masqués : vous voyez
+d’un coup d’œil ce qu’il ne faut pas passer deux fois.
+
+## Trier
+
+Cliquez sur le titre d’une colonne pour trier selon elle, une seconde fois pour inverser
+l’ordre. Un `▲` ou un `▼` signale le tri. Les morceaux sans valeur (pas de tag, pas de tempo)
+passent en dernier. **Note** et **Lectures** commencent par les plus élevées.
+
+Dans une liste ordonnée, cliquez sur `#` pour revenir à l’ordre propre de la liste. Vous ne
+pouvez réordonner la liste de préparation par glisser-déposer que lorsqu’elle est triée par `#`,
+du premier au dernier.
+
+## Comparer à un deck
+
+**Comparer à**, dans la barre d’outils, choisit un deck, **A** par défaut. La bibliothèque lit
+alors chaque morceau par rapport à ce que joue ce deck :
+
+- **Tonalité** : la pastille d’un morceau est pleine quand sa tonalité s’accorde avec celle du
+  deck telle que vous l’entendez en ce moment (pitch, **KEY LOCK** et transposition compris).
+  Compatible veut dire le même code, un cran sur la roue avec la même lettre (`8A` avec `7A` ou
+  `9A`), ou le même chiffre avec l’autre lettre (`8A` avec `8B`).
+- **Pitch → A** : le changement de tempo qui amènerait le morceau au tempo de ce deck, comme
+  `+2,4 %`. Les tempos moitié et double comptent : un morceau à 87 BPM face à un deck à 174 BPM
+  affiche `+0,0 %`. Le chiffre est grisé quand il dépasse la plage du fader de tempo du deck où
+  irait le morceau (l’autre deck de la paire : B quand vous comparez à A, D avec C).
+
+Cliquez sur le titre **Pitch → A** pour trier selon ce qui enchaîne le mieux après ce deck.
+L’ordre suit ces critères, l’un après l’autre :
+
+1. les morceaux pas encore joués ce soir (ni celui qui est sur le deck) ;
+2. l’accord de la tonalité du morceau telle qu’elle sonnera une fois son tempo calé (déplacée par
+   le pitch, sauf si **KEY LOCK** est activé sur l’autre deck) : les tonalités compatibles
+   d’abord, puis un energy boost (deux crans plus haut sur la roue, `8A` vers `10A`), puis les
+   autres, puis les tonalités inconnues ;
+3. un tempo que votre fader de tempo peut atteindre ;
+4. le plus petit changement de pitch.
+
+L’ordre est établi quand vous choisissez le tri, puis de nouveau quand un nouveau morceau arrive
+sur le deck. Il ne se rebat pas pendant que vous jouez du pitch.
+
+## Sélectionner des morceaux
+
+- Cliquez sur une ligne pour la sélectionner ; <kbd>↑</kbd> et <kbd>↓</kbd> déplacent la
+  sélection.
+- <kbd>Ctrl</kbd>-clic ajoute ou retire un morceau, <kbd>Shift</kbd>-clic sélectionne une plage,
+  <kbd>Ctrl</kbd> <kbd>A</kbd> les sélectionne tous, <kbd>Esc</kbd> vide la sélection.
+
+Avec plusieurs morceaux sélectionnés, une barre apparaît en bas de la liste : **Préparation**,
+**Crate**, **Couleur**, **Genre** et **Séparer les pistes** s’appliquent à tous.
+
+## Charger un morceau
+
+| Pour | Faites |
+| --- | --- |
+| Charger sur un deck précis | Cliquez sur sa lettre au bout de la ligne, ou glissez la ligne sur le deck |
+| Charger sur le premier deck vide (le deck A si aucun n’est vide) | Double-cliquez sur la ligne, ou appuyez sur <kbd>Enter</kbd> |
+| Charger le morceau sélectionné sur le deck A ou B | <kbd>Shift</kbd> <kbd>←</kbd> ou <kbd>Shift</kbd> <kbd>→</kbd> |
+| Copier le morceau de l’autre deck, là où il joue (double instantané) | <kbd>Ctrl</kbd> <kbd>Shift</kbd> <kbd>←</kbd> vers le deck A, <kbd>Ctrl</kbd> <kbd>Shift</kbd> <kbd>→</kbd> vers le deck B |
+
+Si le deck joue, Prisme demande avant de remplacer son morceau, ou refuse si vous avez activé
+**Ne jamais remplacer une platine qui joue**. Voir [Lire un morceau](/fr/docs/decks/playing/).
+
+Pour entendre un morceau avant de le charger, cliquez sur la touche casque de sa ligne ou
+appuyez sur <kbd>Espace</kbd> : il joue dans votre casque seulement, à partir du tiers environ.
+Voir [Casque et pré-écoute](/fr/docs/mixer/headphones/).
+
+## Glisser-déposer
+
+Glissez une ligne, ou une sélection, sur :
+
+- un deck, pour le charger (le premier morceau de la sélection) ;
+- **Préparation** dans le panneau latéral, pour ajouter les morceaux à la liste de préparation ;
+- une crate du panneau latéral, pour les y ajouter (pas une crate intelligente, qui choisit
+  elle-même ses morceaux) ;
+- un autre endroit de la liste de préparation, pendant que vous la parcourez, pour la réordonner.
+
+## Le menu du morceau
+
+Faites un clic droit sur un morceau (ou sur la sélection) pour ouvrir son menu :
+
+| Entrée | Effet |
+| --- | --- |
+| **Charger sur le deck A**, **B**… | Seulement avec un seul morceau sélectionné |
+| **Ajouter à la préparation** | Aussi <kbd>Ctrl</kbd> <kbd>P</kbd> |
+| **Ajouter à une crate** | Liste vos crates, hors crates intelligentes |
+| **Couleur** | Huit couleurs, ou **Sans couleur** |
+| **Genre** | Tapez un genre, ou choisissez-en un que votre bibliothèque a déjà. Le champ commence par le genre que partagent les morceaux, sinon par le nom de leur dossier. **Appliquer** l’écrit dans les tags des fichiers ; **Aucun genre** l’efface |
+| **Séparer les pistes** | Ou **Séparer les pistes…**, qui ouvre les réglages pour d’abord télécharger les modèles. Pas sur téléphone. Voir [Stems](/fr/docs/sound/stems/) |
+| **Retirer de la crate** / **Retirer de la préparation** | Seulement dans une crate ou dans la liste de préparation ; aussi <kbd>Suppr</kbd>. Le fichier n’est jamais touché |
+
+<Aside type="caution">
+  Écrire un genre modifie vos fichiers. Un fichier en cours de chargement sur un deck à ce
+  moment précis est sauté : réessayez un instant plus tard.
+</Aside>
+
+## Raccourcis clavier
+
+| Touches | Action |
+| --- | --- |
+| <kbd>Ctrl</kbd> <kbd>F</kbd> | Chercher |
+| <kbd>↑</kbd> <kbd>↓</kbd> | Morceau précédent ou suivant |
+| <kbd>Enter</kbd> | Charger sur un deck libre |
+| <kbd>Shift</kbd> <kbd>←</kbd> / <kbd>Shift</kbd> <kbd>→</kbd> | Charger sur le deck A / le deck B |
+| <kbd>Ctrl</kbd> <kbd>Shift</kbd> <kbd>←</kbd> / <kbd>→</kbd> | Double instantané sur le deck A / le deck B |
+| <kbd>Espace</kbd> | Écouter au casque / arrêter |
+| <kbd>Ctrl</kbd> <kbd>P</kbd> | Ajouter à la préparation |
+| <kbd>Suppr</kbd> | Retirer de la crate ou de la préparation |
+| <kbd>Ctrl</kbd> <kbd>A</kbd> | Sélectionner tous les morceaux |
+| <kbd>Esc</kbd> | Vider la sélection |
+
+Sur Mac, <kbd>⌘</kbd> remplace <kbd>Ctrl</kbd>. La liste complète est dans
+[Clavier et palette de commandes](/fr/docs/interface/keyboard/). Le potard de navigation d’un
+contrôleur, ses boutons de chargement et ses boutons de liste marchent de la même façon : voir
+la [référence des actions](/fr/docs/controllers/actions/).
+
+Sur un téléphone, la bibliothèque a sa propre disposition, faite pour le doigt : voir
+[Téléphone et tablette](/fr/docs/interface/phone/).

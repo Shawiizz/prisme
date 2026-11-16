@@ -1,0 +1,138 @@
+---
+title: Utiliser un contrôleur
+description: Branchez un contrôleur MIDI, activez-le dans Prisme et sachez ce qu’il pilote, allume et affiche.
+sidebar:
+  order: 1
+---
+
+import { Steps, Aside, LinkCard, CardGrid } from '@astrojs/starlight/components';
+
+Prisme se joue avec des contrôleurs DJ MIDI. Pour les [modèles qu’il connaît](/fr/docs/controllers/supported/), les touches, les faders, les jogs, les voyants et les vumètres fonctionnent dès que vous activez le contrôleur. Tout autre contrôleur MIDI, vous pouvez le mapper vous-même, une commande à la fois, avec le [MIDI learn](/fr/docs/controllers/learn/).
+
+## Activer un contrôleur
+
+<Steps>
+
+1. Branchez le contrôleur et allumez-le.
+
+2. Ouvrez les **Réglages** (<kbd>Ctrl</kbd> <kbd>,</kbd>, ou <kbd>⌘</kbd> <kbd>,</kbd> sur Mac) et choisissez **Contrôleurs MIDI**.
+
+3. Sous **Contrôleurs**, trouvez votre contrôleur. Il apparaît sous le nom de son port MIDI, avec **Branché** en dessous. Si la liste indique **Aucun contrôleur MIDI branché.**, vérifiez le câble et appuyez sur **Actualiser**.
+
+4. Activez l’interrupteur au bout de sa ligne.
+
+   Quand Prisme connaît le modèle, la ligne indique **Reconnu comme** suivi du nom du modèle : le contrôleur est prêt à jouer.
+
+</Steps>
+
+Prisme se souvient des contrôleurs que vous avez activés. Il les rouvre à chaque démarrage, et si vous en débranchez un en plein mix (un câble arraché, un hub USB qui redémarre), Prisme relâche tout ce que le contrôleur tenait (touches, jog touché), puis le rouvre dès qu’il revient, voyants compris.
+
+<Aside type="caution" title="Un seul logiciel par contrôleur">
+Sous Windows, un seul logiciel à la fois peut ouvrir un port MIDI. Si un autre logiciel DJ a ouvert le contrôleur, Prisme ne peut pas l’ouvrir : fermez d’abord l’autre logiciel, puis réactivez l’interrupteur. C’est aussi pour cela que Prisme ne prend jamais un contrôleur tant que vous ne l’avez pas activé.
+</Aside>
+
+![Réglages, Contrôleurs MIDI, ici sans contrôleur branché : la partie des contrôleurs avec l’actualisation et l’horloge MIDI, puis les profils de contrôleurs, les modèles connus et vos propres profils](../../../../../assets/screens/docs/controllers-settings.png)
+
+## Comment Prisme reconnaît un modèle
+
+Chaque modèle que Prisme connaît a un profil, qui liste les noms sous lesquels son port MIDI se présente. Quand le nom d’un port contient l’un d’eux (majuscules et minuscules confondues), ce profil mappe le contrôleur. Quand plusieurs modèles correspondent, le nom le plus long l’emporte : une DDJ-SB2 n’est donc jamais prise pour une DDJ-SB.
+
+Sous le nom du contrôleur, les réglages vous disent ce que Prisme en a compris :
+
+| Ligne | Signification |
+| --- | --- |
+| **Reconnu comme Pioneer DDJ-SB2 : apprenez une commande pour la changer** | Un profil le mappe. Apprendre une commande remplace ce que le profil donnait à cette commande. |
+| **Converti depuis le mapping de Mixxx, pas encore essayé sur ce contrôleur** | Le profil a été converti depuis un mapping de Mixxx et personne ne l’a encore essayé sur le matériel. Il devrait fonctionner, mais attendez-vous à une commande ou un voyant décalé ici ou là. Voir [Contrôleurs pris en charge](/fr/docs/controllers/supported/). |
+| **Avec votre propre profil** | Le profil vient de votre dossier de données, pas de Prisme. Voir [MIDI learn et votre propre profil](/fr/docs/controllers/learn/#un-profil-à-vous). |
+| Pas de ligne « Reconnu comme » | Prisme ne connaît pas le modèle. Rien n’est encore mappé : mappez-le commande par commande avec le [MIDI learn](/fr/docs/controllers/learn/). |
+
+## Ce que fait le contrôleur
+
+### Touches, faders et potards
+
+Chaque commande pilote une des actions de Prisme : les mêmes que celles du clavier et de la palette de commandes. La [référence des actions](/fr/docs/controllers/actions/) les liste toutes.
+
+Les faders et les potards des contrôleurs reprennent le réglage en douceur. Si vous avez bougé le volume à l’écran, le fader du contrôleur ne fait rien tant qu’il n’a pas atteint la valeur affichée, puis prend la main à partir de là : le son ne saute jamais. Si un fader semble mort, faites-le passer par la valeur affichée à l’écran.
+
+Beaucoup de profils donnent aux commandes une seconde fonction tant que la touche Shift du contrôleur est maintenue, et donnent aux pads plusieurs pages (hot cues, boucles, rolls, sampler…) choisies avec les touches de mode du contrôleur, comme elles y sont sérigraphiées.
+
+### Jogs
+
+- Toucher le dessus d’un jog et le tourner scratche le morceau.
+- Le tourner par la tranche pousse un morceau en lecture, pour le recaler, et fait avancer dans un morceau à l’arrêt.
+- Certains profils parcourent le morceau au jog tant que Shift est maintenu : dix secondes de morceau par tour.
+- Un deck en [contrôle vinyle](/fr/docs/dvs/) suit son disque : son jog ne fait alors rien.
+
+L’action de deck **Jog : un toucher scratche, ou pousse seulement** active ou coupe le scratch au toucher, deck par deck. Elle est activée par défaut.
+
+Les jogs et les faders de pitch n’attendent pas l’interface : Prisme les transmet au moteur audio à mesure qu’ils arrivent, avec l’heure d’arrivée de chaque message, pour qu’un scratch suive votre main.
+
+### Voyants
+
+Les voyants montrent l’état de ce qu’ils pilotent : play allumé pendant que le deck joue, sync tant qu’il est synchronisé, une touche de boucle pendant que sa boucle tourne. En plus d’allumé et éteint, certaines touches ont leurs propres états :
+
+- la touche cue s’allume au point de cue et montre un autre état quand le deck est arrêté ailleurs ;
+- les pads du sampler et les touches de chargement distinguent vide, chargé et en lecture ;
+- sur les pads en couleur, les hot cues s’allument de leur propre couleur ;
+- certaines touches s’allument tant que vous les tenez.
+
+Chaque profil choisit les valeurs que veut son modèle, clignotement compris. Un contrôleur désactivé dans Prisme, ou Prisme qui se ferme, éteint ses voyants.
+
+### Vumètres
+
+Les modèles équipés de vumètres affichent le niveau de chaque deck, ou du master, sur leurs LED. Quand le profil en prévoit une, une LED de saturation s’allume une seconde quand le niveau atteint la pleine échelle.
+
+### Écrans et anneaux
+
+Certains modèles affichent des valeurs sur leurs écrans : le tempo, le temps écoulé ou restant, la variation de tempo. Les anneaux lumineux autour des jogs montrent le disque qui tourne, comme un disque à 33⅓ ; d’autres montrent où en est le morceau, ou la position d’un potard. [Contrôleurs pris en charge](/fr/docs/controllers/supported/) indique quels modèles font quoi.
+
+### Quatre decks
+
+Un contrôleur à quatre decks (ou avec un sélecteur de deck) ne pilote les decks C et D que quand Prisme affiche quatre decks. Avec deux decks affichés, les commandes des decks C et D ne font rien.
+
+## Des profils toujours à jour
+
+Entre deux versions de Prisme, des profils sont corrigés et de nouveaux modèles ajoutés. Prisme les récupère tout seul depuis son dépôt GitHub, sans nouvelle version :
+
+- une fois par jour au plus, vingt secondes après son démarrage ;
+- seulement les profils modifiés depuis votre version, et seulement ceux écrits dans un format que votre version sait lire ;
+- un profil abîmé en route est mis de côté, et celui livré avec votre version reste.
+
+Les profils récupérés pilotent aussitôt leurs contrôleurs. Pour vérifier tout de suite, appuyez sur **Chercher des mises à jour** sous **Profils de contrôleurs** : il indique **Les profils sont à jour.** ou combien de profils ont été mis à jour.
+
+<Aside>
+Votre propre profil l’emporte toujours sur le profil publié du même nom : dès que vous avez [votre propre profil](/fr/docs/controllers/learn/#un-profil-à-vous) pour un modèle, les mises à jour de ce modèle ne vous parviennent plus.
+</Aside>
+
+## Les réglages Contrôleurs MIDI
+
+**Réglages** › **Contrôleurs MIDI** regroupe tout ce qui concerne les contrôleurs, en quatre parties.
+
+### Contrôleurs
+
+| Élément | Ce qu’il fait |
+| --- | --- |
+| La ligne d’un contrôleur | Le nom de son port, **Branché** ou **non branché** (un contrôleur que vous avez activé mais qui n’est pas là en ce moment), et ce que Prisme a reconnu. |
+| Interrupteur | Active le contrôleur dans Prisme, ou le désactive. |
+| **Exporter en profil** | Affiché pour un contrôleur activé et branché : écrit ce qu’il pilote maintenant comme profil à vous. Voir [Exporter en profil](/fr/docs/controllers/learn/#exporter-en-profil). |
+| **Actualiser** | Affiché quand aucun contrôleur n’est listé : cherche à nouveau les contrôleurs. |
+| **Horloge MIDI en sortie** | Envoie une horloge MIDI, 24 impulsions par temps du leader de sync, vers la sortie MIDI de votre choix, pour qu’une boîte à rythmes ou un séquenceur joue avec vous. **Aucune** n’envoie rien. Elle démarre sur un temps et s’arrête quand le leader s’arrête. Voir [Sync](/fr/docs/decks/sync/). |
+
+### Profils de contrôleurs
+
+| Élément | Ce qu’il fait |
+| --- | --- |
+| **… modèles connus** | Combien de modèles Prisme connaît maintenant, dont combien **mis à jour depuis cette version** et combien **à vous**. |
+| **Chercher des mises à jour** | Récupère les profils publiés depuis, comme Prisme le fait une fois par jour. |
+| **Vos propres profils** | **Ouvrir le dossier** montre le dossier de vos propres profils ; **Relire** le relit après que vous avez modifié un fichier. Un fichier que Prisme ne sait pas lire est listé ici en rouge, avec la raison. Absent sur téléphone. |
+
+### La liste des actions
+
+En dessous, toutes les actions qu’une commande peut piloter, par groupe, avec l’endroit où elles sont mappées en ce moment (le contrôleur, puis la commande : `DDJ-SB2 · Note 11 · ch 1`). **Apprendre** y mappe une commande, et **×** la démappe. Pour un encodeur, un menu choisit comment il envoie ses pas. Tout cela est expliqué dans [MIDI learn et votre propre profil](/fr/docs/controllers/learn/).
+
+## Pour continuer
+
+<CardGrid>
+	<LinkCard title="Contrôleurs pris en charge" href="/fr/docs/controllers/supported/" description="Tous les modèles mappés d’origine." />
+	<LinkCard title="MIDI learn et votre propre profil" href="/fr/docs/controllers/learn/" description="Mapper une commande, changer un mapping, le partager." />
+</CardGrid>

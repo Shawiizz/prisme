@@ -1,0 +1,149 @@
+---
+title: Absolute and relative modes
+description: What each vinyl mode does, needle drops, the lead-in, the end of the record, scratching and THRU.
+sidebar:
+  order: 3
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+A deck handed to its turntable follows the record in one of two modes. In absolute mode
+(**ABS**) the record is the track: where the needle sits is where the track plays. In
+relative mode (**REL**) the record only gives the speed, and the deck keeps its own idea of
+where it is, so cues, loops and sync can move it. Two more buttons sit beside them on the
+deck card: **INT**, the deck playing by itself, and **THRU**, the deck playing its inputs.
+
+You switch between them at any time on the deck card, even mid-track. See
+[Hand a deck to its record](/docs/dvs/setup/#hand-a-deck-to-its-record).
+
+## Which mode for what
+
+| You want to | Mode |
+| --- | --- |
+| Play as with real records: needle drops, places found by eye on the record | ABS |
+| Use hot cues, loops, beat jumps, the slicer, slip | REL |
+| Use SYNC on a deck driven by a record | REL |
+| Scratch hard with a needle that may skip | REL |
+| Play a real record or a CD player through a deck | THRU |
+
+## Absolute mode (ABS)
+
+The position of the needle on the record is the position in the track. Lift the needle and
+drop it a minute further in: the track jumps a minute ahead. Spin the record back to the
+start: the track is back at its start.
+
+Prisme follows the record continuously. Small differences between the track and the record
+(a fraction of a second) are closed smoothly by speeding the track up or slowing it down for
+a moment, so nothing clicks; a larger one, a tenth of a second or more, is a needle drop and
+the track jumps.
+
+Because the record decides where the track is, nothing else can move it:
+
+- **SYNC** is unavailable; its button says **Sync needs relative mode or internal play**.
+- The pads are greyed out in every mode but FX and SMPL: no hot cues, loops, rolls, jumps,
+  slices or cuts. So are the loop keys and **CENSOR**.
+- The reverse does not play the track backwards.
+- A controller's jog wheel does nothing.
+
+To match tempos by ear and by eye, next to the deck's pitch readout an arrow shows the pitch
+to set on the turntable to match the other deck, such as **→ +1.20 %**. The phase strip
+between the waveforms tells when the beats drift apart: **Off by 1/16 in 12 s**, then
+**Off the beat: adjust the pitch**. See [Sync and beatmatching](/docs/decks/sync/).
+
+### Needle drops
+
+Put the needle down anywhere and the deck follows once Prisme has read where it is, after a
+short stretch of clean signal. Until then the deck takes the record's speed only. A position
+read after a drop is checked over the same stretch before the track jumps there, so a
+crackle or a scratch on the record does not send the track elsewhere.
+
+### The lead-in
+
+The track does not start at the very edge of the record: on the Serato records it starts 28
+seconds in, on the control CD at once. The grooves before are where you put the needle down;
+the deck plays silence there, its track waiting at the start, and the music begins when the
+needle reaches that point. Set another start in the **Lead-in (s)** field of the turntable's
+panel, see [Lead-in](/docs/dvs/setup/#lead-in).
+
+## Relative mode (REL)
+
+The record gives the speed and the direction only. Where the track is stays the deck's: a
+needle drop, or the needle lifted and put back elsewhere, does not move it, the track just
+goes on from where it was once the record turns again.
+
+Everything that moves the track works on top of the record: hot cues, loops, loop rolls,
+beat jumps, the slicer, slip, censor and reverse. Press a hot cue and the track
+jumps there while the record keeps turning; it carries on from the cue at the speed of the
+platter.
+
+### SYNC on a record
+
+A turntable has its own pitch fader, so SYNC on a record can work two ways. Choose in
+**Settings**, **DJ**, **Sync on a record in relative mode**:
+
+| Choice | SYNC |
+| --- | --- |
+| **One shot: matches once, the pitch fader keeps working** (default) | Pressing SYNC snaps the beats onto the leader's and matches its tempo once. From then on your turntable's pitch fader changes the tempo from there; the beats are not corrected afterwards. |
+| **Locked: follows the leader, the pitch fader is ignored** | Tap SYNC to lock the deck to the leader's tempo; hold it to match once instead. Locked, the turntable's pitch fader no longer changes the tempo, but nudges and scratches on the platter still do. |
+
+In both, the phase stays in your hands once matched: Prisme never pulls the beats back into
+line behind your back. Loading another track, or changing the record speed, forgets the
+match. More in [Sync and beatmatching](/docs/decks/sync/).
+
+## INT
+
+The deck plays by itself with its own PLAY button, CUE and tempo fader, as without
+turntables. Choosing REL or ABS again hands it back to the record.
+
+## THRU
+
+The deck plays what comes into its inputs, as it comes: a real record, a CD player, any line
+source. Its track waits where it was. The deck's effects still act on the sound, and with
+the software mixer so do its channel strip and fader, so a real record can be mixed in with
+the rest. Choose INT, REL or ABS to hear the track again; the vinyl settings are left as they
+were.
+
+## The end of the record
+
+When the needle reaches the end of the timecode while the track plays forward (at least at
+half speed), the deck does not stop with the music: it plays on by itself at the speed the
+record last had. The deck card then shows **INT**, and its light says **The needle reached
+the end of the record: the deck plays on by itself. Choose REL or ABS to hand it back to
+the record.**
+
+How the record takes it back depends on the mode:
+
+- **REL**: as soon as the needle is back before the end and the platter turns, the record
+  drives the deck again, by itself.
+- **ABS**: taking it back would make the track jump to where the needle is, so it waits for
+  you. Press **REL** or **ABS** on the deck card, or load another track.
+
+The deck stops when its track ends. This only happens once the record has been read before
+its end since the track was loaded: a track loaded with the needle already in the run-out
+grooves does not set it off.
+
+The end of the record comes after about 10 minutes on side A at 33 rpm, 15 on side B
+(see [What Prisme reads](/docs/dvs/#what-prisme-reads)). Longer tracks either play on by
+themselves past it, or go on in REL from a needle put back near the start.
+
+## Scratching and backspins
+
+Both modes follow the record forwards and backwards, slow or fast, so scratches and
+backspins sound as they are played. A few things help:
+
+- **Key lock** keeps the pitch while the tempo changes, between half and twice the speed;
+  outside that range, during a scratch or a backspin, the track is pitched as a real record
+  would be.
+- Held still under a finger, the track barely sounds, and dragged slowly it is softer, as a
+  needle in a groove. A scratch is at full level.
+- Needle bounces are held: when the signal drops for a moment while the record turns, the
+  speed is kept until it comes back, and the turntable's panel reads **unsteady**. Clicks of
+  dust on the record are ignored.
+- In ABS a needle that skips makes the track skip by the same amount. REL ignores skips.
+- For cuts, set the crossfader curve to **SHARP** in **Settings**, **Mixing**, or use a
+  hardware mixer's own curve.
+
+<Aside type="tip">
+To try all this without turntables, turn on **Simulated turntable** in **Settings**,
+**Turntables**: deck A is fed a record that plays for four seconds then scratches for two.
+</Aside>

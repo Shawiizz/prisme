@@ -1,0 +1,141 @@
+---
+/**
+ * Every controller model Prisme ships a profile for, grouped by brand, read from
+ * apps/prisme-desktop/controllers at build time.
+ */
+import { Badge } from '@astrojs/starlight/components';
+import { brands, controllerModels, type ControllerModel } from '../../lib/controllers';
+
+interface Props {
+	lang?: 'en' | 'fr';
+}
+
+const TEXT = {
+	en: {
+		model: 'Model',
+		controls: 'Controls',
+		lights: 'Lights',
+		meters: 'Meters',
+		jog: 'Jog',
+		shows: 'Shows',
+		hardware: 'Hardware',
+		yes: 'Yes',
+		tried: 'Tried',
+		notYet: 'Not yet',
+		mappingBy: 'Mixxx mapping by',
+		screen: { tempo: 'tempo', time: 'time', pitch: 'tempo change' },
+		ring: { jog: 'jog rings', position: 'track position', knobs: 'knob rings' },
+	},
+	fr: {
+		model: 'Modèle',
+		controls: 'Commandes',
+		lights: 'Voyants',
+		meters: 'Vumètres',
+		jog: 'Jog',
+		shows: 'Affiche',
+		hardware: 'Matériel',
+		yes: 'Oui',
+		tried: 'Essayé',
+		notYet: 'Pas encore',
+		mappingBy: 'Mapping Mixxx de',
+		screen: { tempo: 'tempo', time: 'temps', pitch: 'variation de tempo' },
+		ring: { jog: 'anneaux des jogs', position: 'position dans le morceau', knobs: 'anneaux des potards' },
+	},
+};
+
+const { lang = 'en' } = Astro.props;
+const text = TEXT[lang];
+
+const models = controllerModels();
+const byBrand = brands(models).map((brand) => ({
+	brand,
+	id: `brand-${brand.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`,
+	models: models.filter((m) => m.brand === brand),
+}));
+
+const SCREEN: Record<string, string> = text.screen;
+const RING: Record<string, string> = text.ring;
+
+/** "Mixxx mapping by …", out of "From the … mapping of Mixxx by … (GPL-2.0-or-later)." */
+const credit = (credits: string) => {
+	const mixxx = / mapping of Mixxx by (.+?)(?: \(([^()]*)\))?\.$/.exec(credits);
+	if (!mixxx) return credits;
+	const [, authors, licence] = mixxx;
+	return `${text.mappingBy} ${authors}${licence && licence !== 'GPL-2.0-or-later' ? ` (${licence})` : ''}`;
+};
+
+const shows = (m: ControllerModel) =>
+	[...m.screens.map((s) => SCREEN[s] ?? s), ...m.rings.map((r) => RING[r] ?? r)].join(', ');
+---
+
+<p class="brands">
+	{byBrand.map((b) => <a href={`#${b.id}`}>{b.brand}</a>)}
+</p>
+
+{
+	byBrand.map((b) => (
+		<section>
+			<h3 id={b.id}>{b.brand}</h3>
+			<table>
+				<thead>
+					<tr>
+						<th>{text.model}</th>
+						<th>{text.controls}</th>
+						<th>{text.lights}</th>
+						<th>{text.meters}</th>
+						<th>{text.jog}</th>
+						<th>{text.shows}</th>
+						<th>{text.hardware}</th>
+					</tr>
+				</thead>
+				<tbody>
+					{b.models.map((m) => (
+						<tr>
+							<td>
+								<strong>{m.model}</strong>
+								{m.credits && <span class="credits">{credit(m.credits)}</span>}
+							</td>
+							<td>{m.controls}</td>
+							<td>{m.litControls || '—'}</td>
+							<td>{m.meters || '—'}</td>
+							<td>{m.jog ? text.yes : '—'}</td>
+							<td>{shows(m) || '—'}</td>
+							<td>
+								{m.verified ? (
+									<Badge text={text.tried} variant="success" />
+								) : (
+									<Badge text={text.notYet} variant="note" />
+								)}
+							</td>
+						</tr>
+					))}
+				</tbody>
+			</table>
+		</section>
+	))
+}
+
+<style>
+	.brands {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 0.25rem 1rem;
+	}
+	td:first-child {
+		min-width: 11rem;
+	}
+	.credits {
+		display: block;
+		margin-top: 0.25rem;
+		font-size: var(--sl-text-xs);
+		color: var(--sl-color-gray-3);
+	}
+	td:not(:first-child, :nth-child(6)),
+	th:not(:first-child, :nth-child(6)) {
+		white-space: nowrap;
+	}
+	td:nth-child(n + 2):nth-child(-n + 4),
+	th:nth-child(n + 2):nth-child(-n + 4) {
+		text-align: end;
+	}
+</style>

@@ -1,0 +1,106 @@
+---
+/**
+ * A waveform scrolling past a playhead at 124 BPM, coloured by frequency as the app's are:
+ * low red, mid green, high violet. Drawn once at build time; the scroll is CSS only.
+ */
+const BARS = 384; // 24 beats: the strip loops on a bar line
+const PER_BEAT = 16;
+const STEP = 4;
+const HEIGHT = 120;
+
+// a seeded noise, so every build draws the same music
+const noise = (i: number) => {
+	const x = Math.sin(i * 12.9898 + 78.233) * 43758.5453;
+	return x - Math.floor(x);
+};
+
+const low = [0xff, 0x54, 0x42];
+const mid = [0xa6, 0xe2, 0x5c];
+const high = [0x8f, 0x7b, 0xff];
+
+const bars = Array.from({ length: BARS }, (_, i) => {
+	const inBeat = (i % PER_BEAT) / PER_BEAT;
+	const bar = Math.floor(i / (PER_BEAT * 4)) % 6;
+	const kick = Math.exp(-inBeat * 9);
+	const hat = (i % 8 === 4 ? 0.55 : 0) + noise(i) * 0.25;
+	const breakdown = bar === 3 ? 0.35 : 1;
+	const l = Math.min(1, kick * breakdown + 0.06);
+	const m = Math.min(1, 0.14 + 0.28 * Math.sin(i / 11) ** 2 + noise(i + 7) * 0.18);
+	const h = Math.min(1, hat * 1.15 * breakdown + 0.06);
+	// squared weights: the band that leads gives its colour, as on the app's waveforms
+	const weights = [l * l, m * m, h * h];
+	const total = weights[0] + weights[1] + weights[2];
+	const rgb = [0, 1, 2].map((c) => Math.round((low[c] * weights[0] + mid[c] * weights[1] + high[c] * weights[2]) / total));
+	const amplitude = Math.max(0.06, Math.min(1, (l * 0.9 + m * 0.6 + h * 0.4) * 0.85));
+	const height = Math.round(amplitude * (HEIGHT / 2 - 6));
+	return { x: i * STEP, height, color: `rgb(${rgb.join(' ')})` };
+});
+const width = BARS * STEP;
+---
+
+<div class="waveform" aria-hidden="true">
+	<div class="strip">
+		{
+			[0, 1].map(() => (
+				<svg viewBox={`0 0 ${width} ${HEIGHT}`} width={width} height={HEIGHT} preserveAspectRatio="none">
+					{Array.from({ length: BARS / PER_BEAT }, (_, b) => (
+						<rect
+							x={b * PER_BEAT * STEP}
+							y="0"
+							width="1"
+							height={HEIGHT}
+							class={b % 4 === 0 ? 'downbeat' : 'beat'}
+						/>
+					))}
+					{bars.map((b) => (
+						<rect x={b.x} y={HEIGHT / 2 - b.height} width={STEP - 1} height={b.height * 2} rx="0.5" fill={b.color} />
+					))}
+				</svg>
+			))
+		}
+	</div>
+	<div class="playhead"></div>
+</div>
+
+<style>
+	.waveform {
+		--beat: 0.48387s; /* 124 BPM */
+		position: relative;
+		height: 120px;
+		overflow: hidden;
+		mask-image: linear-gradient(90deg, transparent, #000 18%, #000 82%, transparent);
+	}
+	.strip {
+		display: flex;
+		width: max-content;
+		animation: scroll calc(var(--beat) * 24) linear infinite;
+	}
+	svg {
+		display: block;
+		flex: none;
+	}
+	.beat {
+		fill: rgb(243 241 235 / 0.07);
+	}
+	.downbeat {
+		fill: rgb(255 84 66 / 0.35);
+	}
+	.playhead {
+		position: absolute;
+		inset: 0 auto 0 50%;
+		width: 2px;
+		margin-left: -1px;
+		background: var(--pr-light);
+		box-shadow: 0 0 12px rgb(243 241 235 / 0.6);
+	}
+	@keyframes scroll {
+		to {
+			transform: translateX(-50%);
+		}
+	}
+	@media (prefers-reduced-motion: reduce) {
+		.strip {
+			animation: none;
+		}
+	}
+</style>

@@ -1,0 +1,118 @@
+---
+title: Casque et écoute au casque
+description: Pré-écouter un deck au casque, mélanger ou séparer la pré-écoute et le master, choisir où joue le casque et écouter un morceau de la bibliothèque.
+sidebar:
+  order: 2
+---
+
+import { Steps, Aside } from '@astrojs/starlight/components';
+
+Le casque vous permet d’entendre un deck avant la salle. Avec la
+[table de mixage logicielle](/fr/docs/mixer/mixer/), Prisme envoie les decks en pré-écoute sur une
+paire de sorties à part, mélangés au master comme vous le voulez. Avec l’une ou l’autre table, vous
+pouvez aussi écouter au casque un morceau de la bibliothèque sans le charger sur un deck.
+
+## Où joue le casque
+
+Le casque a besoin d’une paire stéréo à lui sur votre carte son, distincte du master. Une interface DJ
+à quatre sorties le place en général sur 3-4.
+
+<Steps>
+
+1. Branchez votre casque sur la prise casque de l’interface (ou sur la paire que vous voulez utiliser).
+
+2. Ouvrez **Réglages** > **Mixage** > **Casque**.
+
+3. Choisissez **Automatique**, une paire (**Sorties 3-4**, **Sorties 5-6**…) ou **Pas de casque**. La
+   ligne sous le réglage indique où il se trouve, par exemple **En ce moment sur les sorties 3-4.** ou
+   **Pas de casque sur ce périphérique.**
+
+</Steps>
+
+**Automatique** prend les sorties 3-4 sur une interface qui a exactement quatre sorties et sur toute
+interface ASIO. Il ne prend jamais les canaux surround de la carte son intégrée d’un ordinateur (sur
+une carte 5.1 ou 7.1, 3-4 sont le centre et le caisson de basses de la pièce), et une interface à deux
+sorties seulement n’a pas de casque  choisissez-y une paire à la main si vous en avez une, ou prenez
+une interface à quatre sorties.
+
+Avec une table externe, vous pré-écoutez sur votre table, donc le casque de Prisme ne sert qu’à
+l’[écoute au casque](#écoute-au-casque). Il lui faut une paire qu’aucun deck n’utilise  **Automatique**
+prend la paire qui suit celles des decks sur une interface ASIO  sinon, choisissez-la vous-même.
+
+## Pré-écouter un deck
+
+Chaque voie de la table logicielle a une touche casque, à côté des potards de gain et de filtre.
+
+- Cliquez dessus pour entendre le deck au casque. Elle reste allumée tant que le deck est en
+  pré-écoute. Vous pouvez pré-écouter plusieurs decks à la fois.
+- Double-cliquez dessus pour entendre ce deck **seul**  tous les autres decks quittent le casque.
+
+Le fader de voie et le crossfader ne changent pas ce que vous entendez au casque  un deck en
+pré-écoute y est entendu à plein niveau, après son EQ, son filtre et ses effets, même fader fermé. Une
+voie coupée (**Couper la voie** dans le menu du deck) s’entend toujours au casque.
+
+<Aside type="tip">
+**Réglages** > **DJ** > **Casque sur la platine où un morceau est chargé** met seul au casque chaque
+deck sur lequel vous chargez un morceau, prêt à être calé.
+</Aside>
+
+## Mélange cue/master, split et volume
+
+Les réglages du casque sont dans le menu de la table, la touche **⋯** au bout du crossfader, sur la
+ligne **Casque**.
+
+| Commande | Ce qu’elle fait |
+| --- | --- |
+| **CUE/MST** | Ce que joue le casque  seulement les decks en pré-écoute tout à gauche (`0 %`), seulement le master tout à droite (`100 %`), un mélange des deux entre les deux. |
+| **PHONES** | Le volume du casque, du silence à +3,5 dB. Double-cliquez dessus pour 0 dB. |
+| **SPLIT** | Sépare le casque  les decks en pré-écoute dans l’oreille gauche, le master dans la droite, chacun en mono. **CUE/MST** n’a plus d’effet tant qu’il est activé. |
+
+**SPLIT** permet de mixer sans retour cabine  une oreille sur le morceau suivant, l’autre sur ce
+qu’entend la salle. Désactivez-le pour revenir au mélange.
+
+Le master que vous entendez au casque ne contient pas le micro  vous n’entendez pas votre propre
+voix, en retard, dans vos oreilles. Pour contrôler le micro ou la ligne aux au casque, pré-écoutez-les
+avec leur propre touche casque (voir [Micro, aux et retour cabine](/fr/docs/mixer/inputs/)).
+
+<Aside type="caution">
+Avec **CUE/MST** tout à gauche et aucun deck en pré-écoute, le casque est muet. Si vous n’entendez
+rien, vérifiez que la touche casque d’un deck est allumée ou tournez **CUE/MST** vers le master.
+</Aside>
+
+Depuis un contrôleur, les actions sont **Casque (pré-écoute)**, **Cette platine seule dans le
+casque**, **Casque  decks pré-écoutés ou master**, **Casque séparé  cue à gauche, master à droite**
+et **Niveau du casque**.
+
+## Écoute au casque
+
+L’écoute au casque joue un morceau de la bibliothèque dans le casque uniquement, sans deck. La salle
+ne l’entend jamais et il n’est jamais enregistré. Servez-vous-en pour vérifier l’intro, la tonalité
+ou l’énergie d’un morceau avant de le charger.
+
+<Steps>
+
+1. Dans la liste des morceaux, cliquez sur la touche casque au bout de la ligne d’un morceau, à côté
+   de ses touches de chargement **A** et **B** (**Écouter au casque**), ou sélectionnez le morceau et
+   appuyez sur <kbd>Space</kbd>.
+
+2. Le morceau démarre vers le premier tiers, là où se trouve en général la musique. Une bande s’ouvre
+   sous la bibliothèque avec le titre, le temps, le morceau entier et un potard **PHONES**.
+
+3. Cliquez ou glissez le long de la forme d’onde de la bande pour écouter à partir de là (**Cliquer
+   pour écouter à partir d’ici**).
+
+4. Arrêtez l’écoute avec la touche stop de la bande, de nouveau la touche de la ligne, ou
+   <kbd>Space</kbd>.
+
+</Steps>
+
+L’écoute s’arrête d’elle-même à la fin du morceau, quand vous chargez ce morceau sur un deck et quand
+l’audio redémarre. Écouter un autre morceau la remplace. Un contrôleur peut la lancer et l’arrêter
+(**Écouter au casque / arrêter**) et s’y déplacer de quatre secondes par cran d’un potard (**Avancer
+ou reculer dans l’écoute au casque**).
+
+L’écoute passe par les sorties du casque, avec l’une ou l’autre table. Si ces sorties sont celles que
+la salle entend, ou s’il n’y en a pas, la touche de la ligne affiche **Pas de casque à part pour
+écouter  choisissez ses sorties dans les réglages**  configurez-les comme dans
+[Où joue le casque](#où-joue-le-casque).
+

@@ -1,0 +1,196 @@
+---
+title: Lire un morceau
+description: Charger un morceau sur un deck, le lancer et le caler au cue, lire son temps, son tempo et sa tonalité, et se servir du menu du deck.
+sidebar:
+  order: 1
+---
+
+import { Steps, Aside } from '@astrojs/starlight/components';
+
+Chaque deck occupe une bande sur toute la largeur de la fenêtre : son panneau à gauche, la forme
+d’onde au milieu, le fader de tempo au bout, là où une platine le place. Dessous, un rail réunit
+le transport, les stems, **SYNC**, le pitch et les pads. Cette page décrit ce que fait un deck
+quand vous le jouez seul, sans disque. Avec un vinyle timecode, c’est la platine qui pilote le
+deck : voir [Modes de contrôle vinyle](/fr/docs/dvs/modes/).
+
+![Deux decks : à gauche le panneau avec le temps restant, le BPM et la tonalité, les formes d’onde, et sous chacun les touches CUE et PLAY, les stems, SYNC et les pads](../../../../../assets/screens/decks.png)
+
+## Charger un morceau
+
+Il y a plusieurs façons de mettre un morceau sur un deck :
+
+| Comment | Où il va |
+| --- | --- |
+| Glisser un morceau de la bibliothèque sur un deck | Sur ce deck (le deck s’entoure d’un contour quand vous le survolez) |
+| Cliquer **A** ou **B** dans la colonne **CHARGER** d’un morceau | Sur ce deck |
+| **Charger sur le deck A** dans le menu d’un morceau (clic droit) | Sur ce deck |
+| Double-cliquer un morceau | Sur le premier deck vide, ou sur le deck A si aucun n’est vide |
+| <kbd>Shift</kbd> <kbd>←</kbd> / <kbd>Shift</kbd> <kbd>→</kbd> | Le morceau sélectionné sur le deck A / le deck B |
+| <kbd>Enter</kbd> | Le morceau sélectionné sur le premier deck vide, ou sur le deck A |
+| Dans la [palette de commandes](/fr/docs/interface/keyboard/), <kbd>Alt</kbd> <kbd>A</kbd> / <kbd>Alt</kbd> <kbd>B</kbd> sur un morceau | Deck A / deck B |
+
+Le deck affiche **Chargement…** pendant la lecture du fichier, puis la pochette, le titre et
+l’artiste. Un nouveau morceau démarre toujours à son début, à l’arrêt, et le deck oublie la boucle
+et la **SYNC** du morceau précédent. Le fader de tempo, **KEY LOCK** et **SLIP** restent comme
+vous les avez réglés.
+
+Si le deck joue, Prisme demande avant de remplacer le morceau : **Le deck A joue**, avec
+**Charger** et **Annuler**. Pour rendre intouchable un deck qui joue pendant un set, activez
+**Ne jamais remplacer une platine qui joue** dans **Réglages** › **DJ** : un chargement sur un
+deck qui joue est alors refusé avec un message, sans question.
+
+<Aside type="tip">
+**Casque sur la platine où un morceau est chargé** (**Réglages** › **DJ**) met le deck que vous
+venez de charger seul dans le casque, prêt à être calé. Voir [Casque](/fr/docs/mixer/headphones/).
+</Aside>
+
+Le BPM et la tonalité s’affichent une fois le morceau analysé. Un morceau analysé pour la première
+fois au chargement affiche **—** un instant ; voir [Analyse](/fr/docs/library/analysis/).
+
+## Lecture, pause et cue
+
+Le rail commence par **CUE** et **PLAY**. **PLAY** lance le deck et devient **PAUSE** pendant la
+lecture. **CUE** fonctionne comme sur un CDJ :
+
+| Quand vous appuyez sur CUE | Ce qui se passe |
+| --- | --- |
+| Le deck joue | Il revient au point de cue et s’arrête |
+| Le deck est arrêté sur le point de cue | Il joue tant que vous maintenez **CUE**, et revient au point de cue quand vous relâchez |
+| Le deck est arrêté ailleurs | Le point de cue se place là |
+
+Pour poser un point de cue et lancer le morceau depuis celui-ci :
+
+<Steps>
+
+1. Appuyez sur **PLAY** et laissez filer le morceau jusqu’à la mesure d’où vous voulez partir,
+   puis appuyez sur **PAUSE**. Vous pouvez aussi cliquer sur la forme d’onde pour y aller.
+2. Appuyez sur **CUE** : le point de cue est posé là.
+3. Maintenez **CUE** pour écouter le départ ; relâchez et le deck revient au point de cue.
+4. Le moment venu, appuyez sur **PLAY**.
+
+</Steps>
+
+Avec le quantize activé, le point de cue tombe sur le temps le plus proche et le deck s’y place.
+Un morceau sans point de cue part de son tout début. Le point de cue est enregistré avec le
+morceau dans votre bibliothèque, et apparaît sur la forme d’onde sous la forme d’un drapeau marqué
+**C**. Plus de détails dans [Cues et hot cues](/fr/docs/decks/cues/).
+
+| Touche | Deck A | Deck B |
+| --- | --- | --- |
+| **CUE** (maintenir pour pré-écouter) | <kbd>A</kbd> | <kbd>J</kbd> |
+| **PLAY** / **PAUSE** | <kbd>S</kbd> | <kbd>K</kbd> |
+
+Les touches sont nommées comme sur un clavier QWERTY américain ; Prisme lit leur position, donc
+sur une autre disposition, utilisez la touche au même endroit. La liste complète est dans
+[Raccourcis clavier](/fr/docs/interface/keyboard/).
+
+<Aside type="caution">
+Appuyer sur **PAUSE** pendant que vous maintenez **CUE** arrête le deck : il ne continue pas à
+jouer comme sur certains CDJ. Relâchez d’abord **CUE**, puis appuyez sur **PLAY**.
+</Aside>
+
+## Se déplacer dans le morceau
+
+La forme d’onde a deux parties : la vue qui défile autour de la tête de lecture, et la vue
+d’ensemble du morceau entier en dessous.
+
+- **Cliquez sur la vue qui défile** pour sauter à cet endroit.
+- **Cliquez ou glissez le long de la vue d’ensemble** pour aller n’importe où dans le morceau : le
+  deck suit votre pointeur comme un disque sous la main.
+- **Faites glisser la vue qui défile** tout de suite pour pousser le morceau, comme sur le bord
+  d’un jog : un morceau qui joue est poussé en avant ou retenu un instant, un morceau à l’arrêt se
+  déplace.
+- **Appuyez et restez immobile** un instant sur la vue qui défile, puis bougez : votre main est
+  sur le disque, et le deck suit votre geste comme un scratch. Relâchez et la lecture reprend.
+
+Sur un écran tactile, toucher la vue qui défile ne fait pas sauter la lecture : un doigt posé
+dessus par erreur ne peut pas déplacer le morceau.
+
+## Les affichages
+
+Trois affichages occupent le panneau de chaque deck, assez grands pour être lus avec un pas de
+recul.
+
+**RESTE** est le temps restant, `−2:15,7`, avec en dessous le temps écoulé et la durée
+(`1:23,4 sur 3:39,1`). Pendant la lecture, il passe à l’ambre pour les 30 dernières secondes, puis
+au rouge clignotant pour les 10 dernières.
+
+**BPM** est le tempo que vous entendez : le tempo du morceau multiplié par le pitch. En dessous, le
+tempo propre du morceau et le pitch qui lui est appliqué (`124,00 +1,20 %`). Un point après
+l’étiquette **BPM** (**BPM •**) indique que la grille rythmique a été corrigée à la main.
+
+**TONALITÉ** est la tonalité que vous entendez, en code Camelot, dans la couleur de sa place sur
+la roue, avec son nom en dessous (`8A`, `La mineur`). Sans **KEY LOCK**, le pitch déplace la
+tonalité avec le tempo, et l’affichage suit : l’étiquette **TONALITÉ** passe à l’ambre quand le
+pitch ou une transposition a éloigné la tonalité de celle du morceau. Un point après elle signifie
+que la tonalité a été choisie à la main. Voir [Tempo, sync et tonalité](/fr/docs/decks/sync/).
+
+Avec quatre decks, les panneaux tiennent sur une ligne et les affichages perdent leurs étiquettes.
+
+Cliquez sur l’affichage **BPM** ou **TONALITÉ** pour ouvrir
+**Grille rythmique, tonalité et transposition** : corriger le tempo et la grille, choisir la
+tonalité à la main ou transposer le morceau. Les corrections de grille et de tonalité sont
+expliquées dans [Analyse](/fr/docs/library/analysis/), la transposition dans
+[Tempo, sync et tonalité](/fr/docs/decks/sync/#transposition-et-mix-harmonique).
+
+## Le menu du deck
+
+Le bouton **⋯** en haut à droite du panneau ouvre ce qu’un deck fait de temps en temps. Chaque
+ligne agit immédiatement.
+
+| Ligne | Ce qu’elle fait |
+| --- | --- |
+| **Moteur** : **BRAKE**, **SPINBACK** | Arrête le deck comme une platine qu’on éteint, ou lance le disque en arrière tant que la touche est tenue. Voir [Frein et spinback](/fr/docs/decks/performance/#frein-et-spinback). |
+| **Aller au** : **DÉBUT**, **FIN** | **DÉBUT** va au début du morceau, en lecture ou non comme avant. **FIN** va tout au bout : un deck qui joue s’y arrête, ou repart avec **Répéter le morceau**. |
+| **Lecture inversée** | Le morceau joue à l’envers. Voir [Lecture inversée](/fr/docs/decks/performance/#lecture-inversée). |
+| **Couper la voie** | Le deck est muet dans le master mais s’entend toujours au casque. |
+| **Répéter le morceau** | À la fin, le morceau repart de son début sans blanc. |
+| **Plage du fader de tempo** | **±8**, **±16** ou **±50** : la course du fader de tempo de ce deck. Voir [Plage de tempo](/fr/docs/decks/sync/#plage-de-tempo). |
+| **Fader start** | Avec la table de mixage logicielle uniquement : monter le fader de voie lance le deck, le fermer l’arrête sur son point de cue. Voir [Fader start](/fr/docs/decks/performance/#fader-start). |
+
+Quand le morceau joue à l’envers ou que la voie est coupée, une touche **REV** ou **MUTE** s’allume
+à côté de **⋯**, pour que vous ne l’oubliiez pas : appuyez dessus pour la désactiver.
+
+**BRAKE** et **SPINBACK** sont grisés quand un disque pilote le deck. **DÉBUT** et **FIN** sont
+grisés en mode absolu, où c’est le disque qui décide de la position dans le morceau.
+
+**Lecture inversée**, **Couper la voie** et **Répéter le morceau** durent jusqu’à ce que vous
+quittiez Prisme. **KEY LOCK**, la plage du fader de tempo et **Fader start** sont conservés pour le
+prochain démarrage.
+
+## Doubles instantanés
+
+Un double instantané met sur ce deck le morceau de l’autre deck de la paire, au même endroit : même
+position, en lecture ou non, même boucle. Les decks vont par paires, A avec B et C avec D. Pendant
+un roll ou un censor, le double prend l’endroit où le morceau reviendra.
+
+| Touche | Ce qu’elle fait |
+| --- | --- |
+| <kbd>Ctrl</kbd> <kbd>Shift</kbd> <kbd>←</kbd> | Le deck A prend le morceau du deck B |
+| <kbd>Ctrl</kbd> <kbd>Shift</kbd> <kbd>→</kbd> | Le deck B prend le morceau du deck A |
+
+Sur Mac, utilisez <kbd>⌘</kbd> au lieu de <kbd>Ctrl</kbd>. **Double instantané sur le deck A** (et
+sur les autres decks) se trouve aussi dans la palette de commandes et peut être assigné sur un
+contrôleur. Comme pour tout chargement, Prisme demande d’abord si le deck sur lequel vous doublez
+est en train de jouer.
+
+## Éjecter un morceau
+
+Pour retirer un morceau d’un deck, lancez **Éjecter le morceau** depuis la palette de commandes
+(<kbd>Ctrl</kbd> <kbd>K</kbd>, puis tapez « eject »), ou assignez-le sur un contrôleur. Un deck qui
+joue demande d’abord. Charger un autre morceau remplace aussi celui en place, vous aurez donc
+rarement besoin d’éjecter.
+
+## Autres actions pour le clavier et les contrôleurs
+
+Ces actions n’ont pas de bouton sur le deck. Vous pouvez les assigner sur un contrôleur (voir
+[Actions](/fr/docs/controllers/actions/)), et lancer celles qui sont des boutons depuis la palette
+de commandes :
+
+| Action | Ce qu’elle fait |
+| --- | --- |
+| **Au cue et lecture**, **Au cue, à l’arrêt**, **Au cue** | Va au point de cue, puis joue, s’arrête, ou reste en lecture ou non |
+| **Le cue ici** | Pose le point de cue là où est le deck, sans l’arrêter |
+| **Au début et lecture**, **Au début, à l’arrêt**, **Au début**, **À la fin** | Comme **DÉBUT** et **FIN** dans le menu, avec le choix de la suite |
+| **Avancer vite dans le morceau tant que c’est appuyé**, **Reculer vite dans le morceau tant que c’est appuyé** | Parcourt le morceau en avant ou en arrière à huit fois la vitesse |
+| **Place dans le morceau (bande tactile)** | Place le deck n’importe où dans le morceau, comme la vue d’ensemble |

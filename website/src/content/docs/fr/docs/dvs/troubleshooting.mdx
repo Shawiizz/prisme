@@ -1,0 +1,145 @@
+---
+title: Dépannage du timecode
+description: Quand un disque ne pilote pas son deck comme il le devrait, ce qu’il faut regarder et ce qu’il faut changer.
+sidebar:
+  order: 4
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+La plupart des problèmes de timecode se voient sur le panneau de la platine avant de
+s’entendre. Ouvrez **Réglages**, **Platines**, jouez le disque, et regardez l’oscilloscope et
+les quatre indications de son panneau (voir [Lire le signal](/fr/docs/dvs/setup/#lire-le-signal)).
+Cherchez ensuite le symptôme ci-dessous.
+
+## Les boutons REL et ABS n’apparaissent pas sur le deck
+
+La carte du deck n’affiche les boutons de mode que lorsque Prisme lit des platines. Vérifiez,
+dans **Réglages**, **Platines**, que **Entrée (interface DVS)** indique bien votre interface
+(avec ASIO, que **Platines branchées sur les entrées de ce pilote** est activé) et que vous
+avez appuyé sur **Appliquer**. La barre de titre affiche alors le nombre de canaux d’entrée,
+par exemple **4 entrées**.
+
+Le périphérique doit avoir au moins deux canaux d’entrée. S’il n’en a aucun, les sorties et
+les entrées sont peut-être deux périphériques distincts : avec WASAPI, Core Audio et ALSA,
+choisissez les entrées sous **Entrée (interface DVS)**, séparément de la **Sortie** dans
+**Audio**.
+
+Sur Android, Prisme doit être autorisé à écouter les entrées. Si vous avez refusé, les
+réglages affichent **Autorisez Prisme à écouter les entrées de la carte son, puis appliquez
+à nouveau**.
+
+## Pas de signal
+
+Le panneau indique **Signal : aucun**, l’oscilloscope montre un point, la barre **Niveau**
+est vide.
+
+- Le disque tourne-t-il, le diamant est-il posé ?
+- La platine est-elle branchée sur les bonnes entrées : 1-2 pour le deck A, 3-4 pour le
+  deck B ? Faites tourner l’autre platine et regardez l’autre panneau.
+- Le sélecteur de l’interface est-il sur **phono** pour une platine vinyle ? Une platine
+  est-elle branchée sur une entrée ligne sans préampli ? Son signal est alors bien trop
+  faible, voir [Phono ou ligne](/fr/docs/dvs/setup/#phono-ou-ligne).
+- Avec quatre decks sur une interface pour deux platines, le deck C lit la platine A et le
+  deck D la platine B : le panneau de C montre le signal de A.
+
+## Signal faible
+
+La barre **Niveau** bouge à peine, le signal oscille entre **verrouillé** et **instable**,
+le morceau bégaie ou ralentit.
+
+- Montez le gain d’entrée sur l’interface, ou passez l’entrée en phono.
+- Nettoyez le diamant et le disque. La poussière sous le diamant affaiblit le signal et
+  ajoute des clics.
+- Vérifiez la cellule : un diamant usé, ou un canal de la cellule défaillant, donne une
+  ellipse aplatie sur l’oscilloscope au lieu d’un cercle.
+- Vérifiez les câbles et les contacts de la coquille : remuez-les en regardant
+  l’oscilloscope.
+
+## Le morceau joue mais ne trouve jamais sa position
+
+**Signal** indique **verrouillé**, la vitesse est juste, mais **Disque** reste sur `—`, poser
+le diamant ailleurs ne fait rien en ABS et le deck ne continue jamais seul à la fin du disque.
+
+Le disque et le format de timecode ne correspondent pas. La vitesse vient du son continu du
+disque, le même sur toutes les faces ; la position vient des bits qui y sont gravés, et
+ceux-là diffèrent. Dans **Réglages**, **Platines**, vérifiez **Vinyle de contrôle** :
+**Serato CV02 side A** pour la face A, **Serato CV02 side B** pour la face B, **Serato
+control CD** pour le CD. Le format vaut pour toutes les platines à la fois : mettez tous les
+disques sur la même face. Appliquez après l’avoir changé.
+
+## Le morceau joue à l’envers
+
+Le disque est lu à l’envers alors que le plateau tourne à l’endroit : les câbles gauche et
+droit sont croisés. Au bout d’environ cinq secondes, Prisme vous le signale dans le panneau
+de la platine, avec un bouton **Inverser gauche / droite**. Croisez les câbles, ou appuyez sur
+le bouton.
+
+## Le tempo est d’un tiers trop rapide ou trop lent
+
+La **Vitesse** du panneau indique environ `+1.350×` en lecture normale, ou environ
+`+0.741×` : la platine tourne à 45 tours alors que le deck attend du 33, ou l’inverse. Réglez
+**Vitesse du disque** dans le panneau de la platine sur la vitesse à laquelle tourne le
+plateau.
+
+## Ronflement
+
+L’oscilloscope montre un anneau épais ou qui ondule au lieu d’un cercle fin ; vous entendez
+parfois un bourdonnement grave en THRU.
+
+- Reliez le fil de masse de la platine à la borne de masse de l’interface ou de la table de
+  mixage.
+- Éloignez les câbles des platines des câbles secteur et des alimentations.
+- Branchez l’ordinateur, l’interface et la table de mixage sur la même multiprise.
+- Un portable sur son chargeur peut amener du ronflement par une interface USB : essayez-le
+  sur batterie pour en avoir le cœur net.
+
+## Le diamant saute
+
+Le diamant saute des sillons quand vous scratchez ou quand la cabine vibre.
+
+- En ABS, le morceau saute avec le diamant ; en REL, non. Pour le scratch intensif, REL garde
+  le morceau là où il est, quoi que fasse le diamant.
+- Réglez la force d’appui et l’anti-skating de la platine comme l’indique le fabricant de la
+  cellule, et gardez les platines de niveau et loin des enceintes.
+- Une courte perte de signal est amortie : Prisme maintient la vitesse un instant pendant un
+  saut, en indiquant **instable**. Si le signal reste absent plus longtemps, le deck ralentit
+  jusqu’à l’arrêt, comme le ferait un disque.
+
+## Le disque répond en retard
+
+Chaque poussée ou scratch vous parvient après le temps que met la carte son à faire entrer le
+signal et sortir la musique. Mesurez-le dans **Réglages**, **Audio**, **Latence** (voir
+[Vérifier la latence](/fr/docs/dvs/setup/#vérifier-la-latence)), puis :
+
+- Utilisez le pilote le plus rapide de votre système : **ASIO** sur Windows plutôt que
+  **WASAPI**, **JACK** sur Linux plutôt qu’**ALSA** à travers le serveur de son. Core Audio
+  sur Mac est rapide tel quel.
+- Baissez le **Buffer** dans **Réglages**, **Audio**, un cran à la fois, jusqu’à ce que le
+  compteur **Décrochages** de la barre de titre commence à grimper, puis remontez d’un cran.
+  La barre de titre affiche la durée d’une période, par exemple **Buffer 2.7 ms**.
+- Pensez au limiteur du master : il ajoute 1 ms à la table de mixage logicielle. Ne coupez
+  **Limiteur du master** dans **Réglages**, **Mixage** que si vous tenez vos niveaux.
+
+Voir [Décrochages audio](/fr/docs/help/troubleshooting/#décrochages-audio) si baisser le
+buffer fait craquer le son.
+
+## Le deck continue sans le disque
+
+Le diamant a atteint la fin du timecode : le deck continue tout seul et affiche INT. En REL,
+le disque reprend la main dès que vous reposez le diamant avant la fin et que le plateau
+tourne ; en ABS, appuyez sur **REL** ou **ABS** sur la carte du deck. Voir
+[La fin du disque](/fr/docs/dvs/modes/#la-fin-du-disque).
+
+## Les cues, les boucles ou SYNC ne font rien
+
+Le deck est en ABS : le disque décide où en est le morceau, donc les pads qui le déplacent
+sont grisés et SYNC n’est pas disponible. Passez en REL. Voir
+[Modes absolu et relatif](/fr/docs/dvs/modes/).
+
+<Aside type="tip" title="Demander de l’aide">
+Si rien de tout cela n’aide, enregistrez un rapport de diagnostic depuis **Réglages**,
+**À propos** et joignez-le à votre demande : il contient votre configuration audio et la fin
+du log. Voir
+[Les logs et le rapport de diagnostic](/fr/docs/help/troubleshooting/#les-logs-et-le-rapport-de-diagnostic).
+</Aside>

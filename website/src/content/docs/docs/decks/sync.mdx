@@ -1,0 +1,193 @@
+---
+title: Tempo, sync and key
+description: The tempo fader and its range, nudging, SYNC and the leader, quantize, the phase strip, key lock, key shift and harmonic mixing.
+sidebar:
+  order: 2
+---
+
+import { Steps, Aside } from '@astrojs/starlight/components';
+
+Beatmatching in Prisme works as on turntables: a tempo fader per deck and a way to nudge, with
+the phase strip to show you where the beats are. **SYNC** can do it for you when you want it to,
+and **KEY LOCK** and the key shift keep the mix in tune. All of it relies on the track's beat
+grid: check it in [Analysis](/docs/library/analysis/) if a track drifts for no reason.
+
+## The tempo fader
+
+The **PITCH** fader stands at the right end of each deck, the same way up as on a turntable:
+**faster is down**. Its readout, beside **SYNC** on the rail, shows how far the tempo is from the
+track's own, `+1.20 %`.
+
+| To | Do this |
+| --- | --- |
+| Change the tempo | Drag the fader, or scroll over it |
+| Change it by 0.1 % | Press **−** above the fader or **+** under it; hold to keep going |
+| Go back to the track's tempo | Double-click the fader, or the pitch readout on the rail |
+
+The deck's **BPM** readout shows the tempo you hear, and under it the track's own tempo with the
+pitch applied (see [the readouts](/docs/decks/playing/#the-readouts)).
+
+When **SYNC** is locked, or a record drives the deck, the fader no longer sets the tempo: it is
+greyed out and shows the tempo the deck plays at.
+
+### Tempo range
+
+The range is how far the fader goes either way: **±8 %** (the default, as most turntables),
+**±16 %** or **±50 %**. A smaller range gives finer control over the same travel.
+
+- For every deck: **Settings** › **DJ** › **Tempo fader range**. Choosing it here puts every deck
+  back on this range.
+- For one deck: **Tempo fader range** in the deck menu **⋯**. That deck keeps its own range until
+  you choose the general one again.
+
+Both are kept for the next start. On a controller, **Tempo fader range: next** and
+**Tempo fader range: previous** cycle a deck's range, and **Range of every tempo fader: next**
+cycles them all.
+
+### Nudging
+
+To push a deck ahead or hold it back for a moment without changing its tempo:
+
+| How | Deck A | Deck B |
+| --- | --- | --- |
+| Speed up while held (+3 %) | <kbd>X</kbd> | <kbd>M</kbd> |
+| Slow down while held (−3 %) | <kbd>Z</kbd> | <kbd>N</kbd> |
+
+You can also slide the scrolling waveform as the edge of a jog wheel (see
+[Move around the track](/docs/decks/playing/#move-around-the-track)), or use a controller's jog
+wheel. Controllers also have **Speed up a little while held** and **Slow down a little while
+held** (1 %), and **Tempo up 0.1 %** / **Tempo down 0.1 %**, which change the tempo and keep it.
+
+## The phase strip
+
+Between the first two decks, the phase strip draws the beats of one deck above the line and the
+other's below it, around their playheads; the first beat of each bar is brighter. When the two
+decks are in phase, the beats meet across the line.
+
+Beside **PHASE** it tells you, in words:
+
+- **Matched**: the beats line up.
+- **B ahead by 12 ms** or **B behind by 12 ms**: how far the second deck's beats are from the
+  first's. Nudge it the other way.
+- **Off by 1/16 in 40 s**: at the present tempos, the decks will drift a sixteenth apart (two
+  kicks heard instead of one) in that time. Touch the pitch before then.
+- **Off the beat: adjust the pitch**: they already have.
+
+With four decks, the strip compares the first two decks that play, and names them (**PHASE A·C**).
+A track at half or double the other's tempo (70 and 140 BPM) is compared beat for beat.
+
+## SYNC
+
+**SYNC** matches a deck to the leader's tempo and lines up its beats. It needs a beat grid
+(without one, **SYNC** is greyed out with **No beat grid**).
+
+| Gesture | On a deck playing by itself |
+| --- | --- |
+| Tap **SYNC** | The deck locks to the leader: same tempo, beats held in phase, until you tap **SYNC** again. **SYNC** stays lit. |
+| Hold **SYNC** (about half a second) | The deck matches the leader's tempo and beats once, and stays free. Its tempo fader moves to the new tempo. |
+
+While a deck is locked, it keeps itself in phase with small speed corrections, and jumps back
+into phase if it gets more than 0.08 of a beat off. Nudging a locked deck therefore
+does not last: to move its beats by hand, take **SYNC** off.
+
+<Aside type="caution">
+Taking **SYNC** off hands the tempo back to the fader: the deck goes back to the tempo its fader
+was set to before you locked it. To leave a deck free at the leader's tempo, hold **SYNC**
+instead of tapping it: it matches once and moves the fader there.
+</Aside>
+
+A track at about half or double the leader's tempo locks to it beat for beat (70 BPM follows
+140). Loading a new track on a deck turns its **SYNC** off.
+
+### The leader
+
+The leader is the deck the others follow. Prisme picks it: the deck you chose if it can lead,
+else the deck already leading if it still can, else the first deck that can. A deck can lead
+when it plays forwards on a beat grid and is not locked itself; a deck that stops no longer
+leads, so a follower is never left chasing beats that stand still. A locked deck without a
+leader keeps the last tempo it had.
+
+The **LEADER** tag appears on the rail of the leading deck. To choose the leader yourself, run
+**Lead the other decks** for that deck from the command palette or a controller; run it on the
+leading deck to let Prisme choose again. **Match the tempo and beats once** is the same as holding **SYNC**.
+
+### SYNC with a record
+
+A record in absolute mode decides where the track is, so **SYNC** is greyed out with **Sync needs
+relative mode or internal play**. In relative mode, **SYNC** follows
+**Settings** › **DJ** › **Sync on a record in relative mode**:
+
+| Choice | What SYNC does |
+| --- | --- |
+| **One shot: matches once, the pitch fader keeps working** (default) | Matches the tempo and beats once. The turntable's pitch fader keeps working from there, and pressing **SYNC** again matches again after a drift. |
+| **Locked: follows the leader, the pitch fader is ignored** | Locks the deck to the leader: the record's movements are heard around the leader's tempo. |
+
+On a record not locked by **SYNC**, the pitch readout shows an arrow to the pitch to set on your
+turntable to match the other deck (`→ +1.40 %`), and the fader has a mark at that place. See
+[Vinyl control modes](/docs/dvs/modes/).
+
+## Quantize
+
+**Quantize** puts what you do on the beat. It is on by default; turn it off in
+**Settings** › **DJ** › **Quantize**, or map **Quantize** on a controller. With it on:
+
+- a cue point, a hot cue, a loop in or a loop out lands on the nearest beat;
+- a beat loop starts on the nearest beat (a loop shorter than a beat on the nearest step of its
+  own length);
+- a hot cue pressed while the deck plays keeps the beat: the deck lands in the same place of the
+  beat it left;
+- a slice comes in where the beat is;
+- a sampler sound waits for the next beat of its deck, when that deck plays;
+- a stem muted or brought back changes on the next bar.
+
+Without a beat grid, nothing is snapped.
+
+## Key lock
+
+**KEY LOCK**, on the rail under the pitch readout, keeps the key when the tempo changes: a track
+sped up by 6 % stays in its key instead of rising by a semitone. It is set per deck and kept for
+the next start. Controllers have **Key lock**.
+
+While the motor moves the record (a brake, a spinback, a soft start) or your hand does, the key
+lock lets go, so it sounds like a record.
+
+## Key shift and harmonic mixing
+
+The **KEY** readout shows the key you hear as a Camelot code: a number from 1 to 12 around the
+wheel, **A** for minor keys and **B** for major ones. Two keys mix well when they are the same,
+one step apart around the wheel with the same letter (`8A` and `9A`), or the same number with the
+other letter (`8A` and `8B`).
+
+The key shift transposes the track by semitones, up to 12 either way, without changing its
+tempo. Click the **BPM** or **KEY** readout to open the editor; under **Key shift**:
+
+| Button | What it does |
+| --- | --- |
+| **♭** / **♯** | Down or up a semitone |
+| **Mix with the other deck** | The smallest shift (from 5 semitones down to 6 up) after which this deck mixes harmonically with the other one |
+| **Reset** | Back to the track's key |
+
+The other deck is the other deck playing, or else the one beside it (A with B, C with D).
+**Mix with the other deck** is greyed out when either key is unknown.
+
+The key shift lasts until you load another track on the deck. The **KEY** readout shows the
+shifted key, its label in amber.
+
+Controllers have **Key up a semitone**, **Key down a semitone**, **Key back to the track**,
+**Key matched to the other deck**, and a fader for the key from 12 semitones down to 12 up.
+
+<Aside type="tip">
+Without **KEY LOCK**, the pitch moves the key too: about 6 % of tempo is a semitone. The **KEY**
+readout follows the pitch, so you can always read the key you hear.
+</Aside>
+
+<Steps>
+
+1. Load the next track on the deck that is not playing.
+2. Compare the two **KEY** readouts. If they do not mix, open the editor (click **KEY**) and press
+   **Mix with the other deck**.
+3. Tap **SYNC** to lock the tempo and the beats to the playing deck, or match it by ear with the
+   tempo fader, watching the phase strip.
+4. Start the deck on the beat and bring it in.
+
+</Steps>

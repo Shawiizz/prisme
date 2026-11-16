@@ -1,0 +1,110 @@
+---
+title: Vinyl control
+description: Play digital tracks from turntables with timecode records, and what you need to do it.
+sidebar:
+  order: 1
+---
+
+import { Aside, LinkCard, CardGrid } from '@astrojs/starlight/components';
+
+Vinyl control (DVS, for digital vinyl system) lets a turntable drive a deck. Instead of
+music, the record on the platter carries a timecode: a steady tone with a sequence of bits
+pressed into it. Prisme listens to that signal through your sound card and works out, many
+times a second, how fast the record turns, in which direction, and where the needle sits on
+it. The deck then plays your track the same way: nudge the platter and the track nudges,
+scratch and it scratches, drop the needle further in and the track jumps there.
+
+Prisme was built for this first. Its timecode decoder is written from scratch and runs inside
+the audio engine, so the record and the sound stay together.
+
+## What Prisme reads
+
+Prisme reads Serato timecode:
+
+| Control medium | Name in Prisme |
+| --- | --- |
+| Serato Control Vinyl, side A | **Serato CV02 side A** |
+| Serato Control Vinyl, side B | **Serato CV02 side B** |
+| Serato control CD, on a CD player | **Serato control CD** |
+
+Other timecodes (Traktor, rekordbox, Mixxx's own) are not supported. One format is chosen
+for all the turntables at once, so every record you play must carry the same one, on the
+same side.
+
+The usable part of each medium, at 33 rpm, before the needle reaches the end of the
+timecode:
+
+| Medium | Usable length at 33 rpm |
+| --- | --- |
+| CV02 side A | about 10 minutes |
+| CV02 side B | about 15 minutes |
+| Control CD | about 15 minutes |
+
+A deck can also treat its record as a 45 rpm one: the track then spreads over more of the
+groove, so a side holds less of it (about 7 minutes on side A). See
+[Setting up timecode vinyl](/docs/dvs/setup/#record-speed-33-or-45).
+
+## What it does
+
+- **Absolute mode** (ABS): the needle position is the track position. Needle drops, cues
+  you find by eye on the record, everything as with a real record.
+- **Relative mode** (REL): the record drives the speed only. Hot cues, loops, beat jumps
+  and sync work on top of it.
+- **INT**: the deck plays by itself, as without turntables.
+- **THRU**: the deck plays what comes into its inputs, a real record or a CD player.
+- Backspins, scratches and needle bounces are followed; when the needle reaches the end of
+  the timecode while the track plays, the deck plays on by itself instead of stopping.
+
+The modes are explained in [Absolute and relative modes](/docs/dvs/modes/).
+
+## What you need
+
+**Turntables or CD players.** Any turntable with a cartridge in good shape, or a CD player
+for the control CD.
+
+**Timecode records.** Serato Control Vinyl (CV02, side A or B), or the Serato control CD.
+
+**A sound card with a stereo input for each turntable.** Each turntable takes a pair of
+input channels: inputs 1-2 for deck A, 3-4 for deck B. A card with four input channels
+therefore serves two turntables, and one with eight serves four.
+
+A turntable's output is a weak phono-level signal. The input has to bring it up: DJ
+interfaces made for DVS have phono inputs, or a switch per input to set to phono. A card
+with line inputs only needs a phono preamplifier between turntable and card. A CD player
+playing the control CD gives a line-level signal and goes into a line input. More on this
+in [Setting up timecode vinyl](/docs/dvs/setup/#phono-or-line).
+
+**Outputs for the mix.** Either each deck on its own output pair, into a hardware mixer
+(outputs 1-2 for deck A, 3-4 for deck B), or Prisme's software mixer with the master on
+outputs 1-2 and your headphones on 3-4. See [Mixer](/docs/mixer/mixer/).
+
+<Aside type="tip" title="No turntables yet?">
+Turn on **Simulated turntable** in **Settings**, **Turntables**: Prisme plays a
+turntable of its own into deck A, which plays for four seconds and then scratches back and
+forth for two, over and over. It lets you see how the decks follow a record before you plug
+anything in.
+</Aside>
+
+## Two turntables, four decks
+
+With four decks on an interface for two turntables, deck C shares the turntable and the
+outputs of deck A, and deck D those of deck B. The deck you put on REL or ABS takes the
+turntable; the other one leaves the record and goes back to INT. With eight inputs, each of
+the four decks has a turntable of its own. See
+[Choose the inputs](/docs/dvs/setup/#choose-the-inputs).
+
+## On a phone or a tablet
+
+On Android, vinyl control works through a USB sound card with inputs plugged into the
+phone. Android asks whether Prisme may listen to the inputs the first time they are needed;
+if you refuse, Prisme cannot read the timecode until you allow it and apply the settings
+again. See [Prisme on a phone](/docs/interface/phone/).
+
+## Next
+
+<CardGrid>
+	<LinkCard title="Setting up timecode vinyl" href="/docs/dvs/setup/" description="Wiring, inputs, the timecode format, the signal display." />
+	<LinkCard title="Absolute and relative modes" href="/docs/dvs/modes/" description="Which mode for what, needle drops, the end of the record." />
+	<LinkCard title="Timecode troubleshooting" href="/docs/dvs/troubleshooting/" description="Weak signal, wrong side, hum, skips, latency." />
+	<LinkCard title="Audio setup" href="/docs/start/audio/" description="Choosing the driver, the device and the buffer." />
+</CardGrid>

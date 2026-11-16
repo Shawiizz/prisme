@@ -1,0 +1,123 @@
+---
+title: Installer Prisme
+description: Télécharger et installer Prisme sous Windows, macOS, Linux ou Android, et le garder à jour.
+sidebar:
+  order: 1
+---
+
+import { Steps, Aside, Tabs, TabItem } from '@astrojs/starlight/components';
+
+Prisme est gratuit. Les paquets pour Windows, macOS et Linux sont joints à chaque version sur la [page des releases GitHub](https://github.com/Shawiizz/prisme/releases/latest)  pour l’instant, la version Android se compile depuis le code source.
+
+## Ce qu’il vous faut
+
+| Système | Version | Paquet |
+| --- | --- | --- |
+| Windows | Windows 10 ou 11, 64 bits | Installeur, `…_x64-setup.exe` |
+| macOS | macOS 13.3 ou plus récent, Apple silicon ou Intel | Image disque, `.dmg` |
+| Linux | Ubuntu 22.04 ou une distribution aussi récente, x86 64 bits | `.deb` ou AppImage |
+| Android | Android 10 ou plus récent, un téléphone ou une tablette ARM 64 bits | Compilé depuis les sources |
+
+La fenêtre demande au moins 1280 × 640 pixels  un écran de portable 1080p à 150 % de mise à l’échelle suffit. Une carte son à quatre sorties permet d’envoyer chaque deck sur sa propre voie d’une table de mixage  avec deux, Prisme utilise sa table de mixage logicielle. Voir [Carte son et latence](/fr/docs/start/audio/).
+
+## Installation
+
+<Tabs syncKey="os">
+<TabItem label="Windows">
+
+<Steps>
+
+1. Téléchargez `Prisme_…_x64-setup.exe` depuis la [dernière version](https://github.com/Shawiizz/prisme/releases/latest).
+
+2. Ouvrez-le. L’installeur parle anglais ou français, selon votre système, et installe Prisme pour votre seul compte utilisateur  il ne demande donc pas les droits d’administrateur.
+
+3. Windows peut prévenir qu’il a protégé votre ordinateur contre une application non reconnue. Choisissez **Informations complémentaires**, puis **Exécuter quand même**.
+
+4. Lancez Prisme depuis le menu Démarrer.
+
+</Steps>
+
+Pour la latence la plus basse, installez le pilote ASIO de votre carte son depuis le site de son fabricant  Prisme propose alors **ASIO** à côté de **WASAPI** dans **Réglages** > **Audio**.
+
+</TabItem>
+<TabItem label="macOS">
+
+<Steps>
+
+1. Téléchargez le `.dmg` depuis la [dernière version](https://github.com/Shawiizz/prisme/releases/latest). Il tourne aussi bien sur les Mac Apple silicon qu’Intel.
+
+2. Ouvrez-le et faites glisser **Prisme** dans **Applications**.
+
+3. Ouvrez Prisme. La première fois, macOS refuse, car l’application n’est pas notariée par Apple. Fermez le message.
+
+4. Ouvrez **Réglages Système** > **Confidentialité et sécurité**, descendez jusqu’au message concernant Prisme et choisissez **Ouvrir quand même**. Confirmez.
+
+5. Quand vous configurez vos platines pour la première fois, macOS demande si Prisme peut utiliser le micro  autorisez-le. Prisme lit le timecode de vos disques sur les entrées de votre carte son, et macOS considère toute entrée comme un micro.
+
+</Steps>
+
+<Aside type="caution">
+Si vous avez refusé l’accès au micro, les platines n’envoient rien. Autorisez de nouveau Prisme dans **Réglages Système** > **Confidentialité et sécurité** > **Micro**.
+</Aside>
+
+</TabItem>
+<TabItem label="Linux">
+
+Deux paquets sont proposés 
+
+- **`.deb`** pour Debian, Ubuntu et leurs dérivées. Installez-le avec votre gestionnaire de paquets, ou depuis un terminal 
+
+  ```sh
+  sudo apt install ./Prisme_*_amd64.deb
+  ```
+
+- **AppImage** pour toute autre distribution. Rendez-la exécutable et lancez-la 
+
+  ```sh
+  chmod +x Prisme_*.AppImage
+  ./Prisme_*.AppImage
+  ```
+
+Prisme joue via **ALSA**, qui fonctionne partout, ou via **JACK** pour la latence la plus basse. Sur un système avec PipeWire, les applications JACK passent par PipeWire quand sa prise en charge de JACK est installée (le paquet `pipewire-jack` sur la plupart des distributions). Le choix se fait dans **Réglages** > **Audio**  voir [Carte son et latence](/fr/docs/start/audio/#linux-alsa-et-jack).
+
+</TabItem>
+<TabItem label="Android">
+
+Aucun paquet Android n’est encore publié. Pour jouer sur un téléphone ou une tablette dès aujourd’hui, compilez Prisme depuis son code source 
+
+- le workflow **Mobile** du dépôt compile sur GitHub un paquet ARM 64 bits signé (APK), à la demande ou pour un tag de version `mobile-…`. Dans votre propre copie du dépôt, il lui faut une clé de signature à vous dans les secrets du dépôt 
+- ou compilez-le sur votre ordinateur avec le SDK et le NDK Android, comme l’explique [Compiler depuis les sources](/fr/docs/develop/building/).
+
+Copiez ensuite l’APK sur le téléphone et ouvrez-le. Android vous demande d’autoriser les installations depuis l’application avec laquelle vous l’avez ouvert (le gestionnaire de fichiers ou le navigateur).
+
+Au premier lancement, Prisme demande à lire votre musique et à envoyer des notifications. Il ne demande à écouter les entrées que lorsque vous configurez des platines. Voir [Téléphone et tablette](/fr/docs/interface/phone/) pour le fonctionnement de l’interface aux doigts.
+
+</TabItem>
+</Tabs>
+
+## Votre musique
+
+Prisme lit le dossier de musique de votre système, avec ses sous-dossiers, et le surveille  un fichier copié dedans apparaît dans la bibliothèque et s’analyse en arrière-plan.
+
+| Système | Dossier |
+| --- | --- |
+| Windows | Votre dossier **Musique**, où qu’il ait été déplacé (un autre disque, OneDrive, un lecteur réseau) |
+| macOS | **Musique** dans votre dossier de départ |
+| Linux | Votre dossier de musique tel que le définit le bureau (`XDG_MUSIC_DIR`), sinon `~/Music` |
+| Android | Le dossier partagé **Music** du téléphone |
+
+Plus de détails dans [Ajouter votre musique](/fr/docs/library/adding-music/).
+
+## Mises à jour
+
+Sous Windows, macOS et Linux, Prisme cherche une nouvelle version sur GitHub à chaque démarrage. Quand il y en a une, un bouton **Mise à jour** avec son numéro de version apparaît dans la barre de titre.
+
+- Appuyez dessus quand vous êtes prêt  Prisme télécharge la mise à jour, l’installe et redémarre.
+- Le bouton est désactivé tant qu’un deck joue ou qu’un disque tourne, puisque l’installation redémarre Prisme. Arrêtez d’abord les decks.
+- Pour vérifier à nouveau, ouvrez **Réglages** > **À propos** et appuyez sur **Vérifier maintenant**.
+
+Les mises à jour sont signées  Prisme n’installe que celles publiées par le projet. La version Android ne se met pas à jour toute seule  installez le nouvel APK par-dessus l’ancien.
+
+## Modèles de séparation
+
+La séparation des morceaux en stems utilise des modèles qui ne font pas partie de l’installeur. Téléchargez-les une fois, quand vous voulez des stems, depuis **Réglages** > **Bibliothèque**  chaque modèle affiche un bouton **Télécharger** avec sa taille. Voir [Stems](/fr/docs/sound/stems/).

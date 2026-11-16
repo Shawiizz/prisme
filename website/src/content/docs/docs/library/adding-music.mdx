@@ -1,0 +1,136 @@
+---
+title: Adding your music
+description: Where Prisme looks for your tracks, how it analyses them, and what it writes back into your files.
+sidebar:
+  order: 1
+---
+
+import { Steps, Aside } from '@astrojs/starlight/components';
+
+Prisme reads one folder: your system's **Music** folder, with everything under it. There is
+nothing to import and no list to build: copy tracks into that folder and they appear in the
+library, then get their tempo, beat grid and key in the background.
+
+## Where your music goes
+
+| System  | The music folder                                                                  |
+| ------- | --------------------------------------------------------------------------------- |
+| Windows | **Music**, wherever Windows keeps it: moved to another drive, a NAS or OneDrive works |
+| macOS   | **Music** in your home folder                                                     |
+| Linux   | Your desktop's music folder, usually `~/Music`                                    |
+| Android | The shared **Music** folder of the phone                                          |
+
+Sub-folders are fine, as deep as you like: they show in the side panel of the library, under
+**Music**, and the analysis walks through all of them.
+
+<Aside type="tip">
+  On Windows, if your collection lives on another drive, you can move the Music folder itself
+  there: right-click **Music** in the Explorer, **Properties**, **Location** tab. Prisme follows
+  wherever Windows says it is.
+</Aside>
+
+What is skipped:
+
+- hidden files and folders, and those whose name starts with a dot;
+- system folders such as the recycle bin;
+- symbolic links to folders: put the music itself in the folder, not a link to it;
+- files that a cloud folder (OneDrive and the like) keeps online only. Reading them would
+  download them, so they wait until you make them available on the device.
+
+## Supported formats
+
+MP3, AAC and ALAC (`.m4a`, `.mp4`, `.aac`), FLAC, Ogg Vorbis (`.ogg`, `.oga`), WAV and AIFF
+(`.aif`, `.aiff`). Prisme recognises them by their extension; other files are left out of the
+lists.
+
+## The first analysis
+
+The first time Prisme starts, it scans the music folder and analyses every track it finds:
+tempo and beat grid, musical key, waveform, cover. The library's toolbar shows how far it is:
+**Looking for new files…**, then **Analysing 120 / 3400**.
+
+- You can browse, search and play while it runs. A track whose analysis is not done yet shows
+  `···` in the BPM column; its row fills in as soon as the result comes.
+- The analysis runs at low priority, on up to half of the processor's cores (four at most),
+  so playback is never starved.
+- By default it **pauses while a deck plays**: the status turns to **Analysis paused**, and it
+  goes on once the decks stop. A track you load is analysed on the spot anyway, paused or not.
+  You can let the analysis run during a set with the setting below.
+- Files that cannot be decoded are counted as **unreadable** in the toolbar and show `—` in the
+  BPM column. Try opening them in another player: they are usually damaged or not really the
+  format their extension says.
+
+Results are stored in Prisme's library database, not next to your music. A track is analysed
+once; it is analysed again only if the file changes (its size or modification time) or if a new
+version of Prisme improves the analysis.
+
+See [Tempo, beat grid and key](/docs/library/analysis/) for what the analysis finds and how to
+correct it.
+
+## New tracks and rescanning
+
+Prisme watches the music folder. When you copy an album in, it waits for the copy to settle
+(about a second and a half of quiet), then analyses the new and changed files. The folder you
+have open in the library updates by itself.
+
+If you want to be sure, click **Rescan** in the library's toolbar (**Analyse new and changed
+files**). It looks through the whole folder; when nothing is left to do it says **Library up to
+date**.
+
+If the music folder sits on a drive or a NAS that goes away, Prisme looks for it again every
+half minute and scans it once it is back.
+
+## Moved, renamed or retagged files
+
+Reorganising your folders does not lose anything. What Prisme knows of a track (analysis, cues,
+beat grid and key corrections, colour, rating, crates, history, prepare list) follows the file
+when:
+
+- you move or rename a file or a whole folder inside the music folder;
+- you rename a file and change its tags: Prisme recognises it by its audio;
+- a USB drive comes back under another drive letter;
+- you move a file into the music folder from elsewhere on the computer.
+
+A file you delete is forgotten at the next scan, but its cues, corrections and crate entries
+are kept: if the same audio comes back later, it gets them again. Tracks on a drive that is
+unplugged are left as they are, not forgotten.
+
+## Writing tempo and key into your files
+
+So that Serato, rekordbox and other software find them, Prisme can write the tempo and the key
+it found into the tags of your files. These settings are under **Settings** › **Library**:
+
+| Setting | What it does | Default |
+| --- | --- | --- |
+| **Write the tempo and key into the tags of the files** | Writes the BPM and the key (in musical notation, `Am`, `F#`) of each analysed track, and again when you correct its grid or key | On on a computer, off on a phone |
+| **Replace those another program wrote** | Shown when the first is on. A tempo or key that Mixed In Key or another program put in a file is kept unless this is on | Off |
+| **Pause the analysis of the library while a deck plays** | Keeps the processor and the disk for the sound during a set; a track copied meanwhile is analysed once the decks stop, or when it is loaded | On |
+
+Tags are written in MP3, WAV, FLAC, Ogg and M4A/MP4 files. Prisme writes them in the
+background, one file at a time, and only the fields it needs: the Serato cues and grids stored in your tags
+are left untouched. A file Prisme just tagged is not mistaken for a changed file and is not
+analysed again.
+
+The genre is different: you set it by hand from the track menu, and it is always written into
+the file (see [Browsing and searching](/docs/library/browsing/#the-track-menu)). Colours and
+ratings stay in Prisme's library.
+
+<Aside type="caution">
+  A tag write works on a copy beside the file, named like `.track.mp3.prisme-tags`, then puts it
+  in place. If Prisme is cut off in the middle, that hidden copy may stay; the next scan removes
+  it. Your file itself is left as it was.
+</Aside>
+
+## When something looks wrong
+
+- **A track is missing from the list.** Check its extension is in the list above, that it is
+  not hidden, and that it is really inside the music folder (not behind a link). Then
+  **Rescan**.
+- **The analysis never moves.** It is probably paused because a deck is playing. Stop the decks,
+  or turn off **Pause the analysis of the library while a deck plays**.
+- **A red `library not saved` chip in the title bar.** The library database could not be opened:
+  Prisme still works, but cues, corrections and crates changed now are lost when you quit. See
+  [Troubleshooting](/docs/help/troubleshooting/).
+
+Your tracks are in: next, [browse and search them](/docs/library/browsing/), or bring your cues
+and crates over from [Serato or rekordbox](/docs/library/import/).

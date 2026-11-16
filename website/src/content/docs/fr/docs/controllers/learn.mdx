@@ -1,0 +1,147 @@
+---
+title: MIDI learn et votre propre profil
+description: Mappez une commande en la bougeant, changez ou supprimez un mapping, et gardez votre mapping comme profil à modifier ou à partager.
+sidebar:
+  order: 3
+---
+
+import { Steps, Aside, Tabs, TabItem } from '@astrojs/starlight/components';
+
+Vous pouvez mapper n’importe quelle commande de n’importe quel contrôleur MIDI sur n’importe quelle action de Prisme, simplement en la bougeant : c’est le MIDI learn. Il fonctionne sur un contrôleur que Prisme ne connaît pas, et par-dessus un [profil](/fr/docs/controllers/supported/) pour changer ce qu’il donne à une commande. Quand votre mapping vous convient, **Exporter en profil** le garde dans un fichier que vous pouvez modifier et partager.
+
+## Apprendre une commande
+
+<Steps>
+
+1. Activez le contrôleur dans **Réglages** › **Contrôleurs MIDI** (voir [Utiliser un contrôleur](/fr/docs/controllers/)). Tant qu’aucun n’est activé, les boutons **Apprendre** restent grisés.
+
+2. Sous la section **Profils de contrôleurs**, trouvez l’action dans la liste. Les actions sont groupées comme dans le reste de Prisme : **Deck A** à **Deck D**, **Table de mixage**, **Contrôleur**, **Bibliothèque**, **Général** et **Auto DJ**. Chaque ligne montre où l’action est mappée en ce moment, ou **—**.
+
+3. Appuyez sur **Apprendre** sur sa ligne. Le bouton affiche alors **Bougez une commande…**.
+
+4. Appuyez sur la touche, bougez le fader ou tournez le potard sur le contrôleur.
+
+   La ligne montre maintenant le contrôleur et la commande, par exemple `DDJ-SB2 · Note 11 · ch 1`. La commande pilote l’action immédiatement.
+
+</Steps>
+
+Pour abandonner avant d’avoir bougé quoi que ce soit, appuyez de nouveau sur **Bougez une commande…**, ou sur <kbd>Esc</kbd>. Quitter les réglages abandonne aussi.
+
+Ce qu’une commande apprise remplace :
+
+- ce que cette commande faisait jusque-là sur ce contrôleur, que vous l’ayez apprise ou qu’un profil la lui ait donnée ;
+- la commande que l’action avait sur ce contrôleur : une action a une seule commande par contrôleur. La rotation du jog fait exception, car beaucoup de jogs envoient le dessus et la tranche séparément : apprenez **Jog (rotation)** une fois sur chacun, et les deux la pilotent.
+
+Les commandes que vous apprenez sont gardées dans `controllers.json`, dans le [dossier de données](#où-se-trouve-le-dossier-de-données) de Prisme, par-dessus le profil du contrôleur.
+
+<Aside type="tip">
+Les réglages affichent les canaux de 1 à 16, comme les comptent la plupart des manuels de contrôleurs. Dans un fichier de profil, ils vont de 0 à 15 : `ch 1` correspond à `"channel": 0`.
+</Aside>
+
+### Une seconde fonction sous Shift
+
+<Steps>
+
+1. Si le profil ne la mappe pas déjà, apprenez **Shift (seconde fonction des contrôles)**, dans le groupe **Contrôleur**, sur la touche Shift de votre contrôleur.
+
+2. Appuyez sur **Apprendre** sur l’action de la seconde fonction.
+
+3. Maintenez Shift et bougez la commande. Prisme ne prend pas la touche Shift elle-même pour la commande.
+
+   La ligne affiche `Shift + ` devant la commande : cette commande pilote cette action tant que Shift est maintenu, et sa propre action le reste du temps.
+
+</Steps>
+
+Une commande sans seconde fonction garde sa première quand Shift est maintenu.
+
+### Les faders 14 bits
+
+Certains contrôleurs envoient leurs faders en deux moitiés, pour un fader de pitch plus fin. Apprenez le fader comme n’importe quel autre : quand sa moitié basse suit sur le numéro de contrôleur 32 plus haut, Prisme apprend les deux ensemble et la ligne se termine par `· 14 bits`.
+
+### Encodeurs et jogs
+
+Une action du [type](/fr/docs/controllers/actions/#les-types-daction) *encoder*, comme **Jog (rotation)**, **Parcourir** ou **Taille des sauts et de la boucle**, lit les pas d’un potard sans fin ou d’un jog. Prisme devine au premier pas comment le contrôleur les envoie. Si la commande tourne à l’envers, ou avance par bonds, choisissez une autre façon dans le menu à côté du mapping :
+
+| Choix | Le contrôleur envoie |
+| --- | --- |
+| **Pas 1 et 127** | 1, 2… vers la droite et 127, 126… vers la gauche |
+| **Pas autour de 64** | 65, 66… vers la droite et 63, 62… vers la gauche (Pioneer, Numark) |
+| **Pas 1 et 65** | 1, 2… vers la droite et 65, 66… vers la gauche |
+
+Le changer sur une commande donnée par un profil fait de cette commande la vôtre, comme si vous l’aviez apprise.
+
+Pour un jog, apprenez **Jog (rotation)** sur la roue et **Jog (toucher : scratch)** sur son dessus, que la plupart des jogs envoient comme une touche. Sans le toucher, tourner le jog ne fait que pousser.
+
+<Aside type="caution">
+Un potard sans fin appris sur une action du type *fader* (un volume, un EQ) est lu comme une position, pas comme des pas. Écrivez-le plutôt dans un [profil](/fr/docs/controllers/profiles/#commandes) avec son `encoding` : un encodeur peut y piloter un fader.
+</Aside>
+
+## Changer ou supprimer un mapping
+
+- Pour changer ce que fait une commande ou une action, apprenez-la de nouveau : le nouveau mapping remplace l’ancien.
+- Pour retirer une action des contrôleurs, appuyez sur **×** sur sa ligne. Elle est démappée sur **tous** les contrôleurs, commandes données par les profils comprises, jusqu’à ce que vous l’appreniez de nouveau.
+
+## Où se trouve le dossier de données
+
+Prisme garde ses réglages, sa bibliothèque et vos propres profils dans son dossier de données :
+
+<Tabs syncKey="os">
+<TabItem label="Windows">`C:\Users\<you>\AppData\Roaming\com.shawiizz.prisme`</TabItem>
+<TabItem label="macOS">`~/Library/Application Support/com.shawiizz.prisme`</TabItem>
+<TabItem label="Linux">`~/.local/share/com.shawiizz.prisme`</TabItem>
+</Tabs>
+
+Vous aurez rarement besoin d’y aller à la main : **Ouvrir le dossier**, sous **Vos propres profils**, y ouvre le dossier des profils.
+
+## Un profil à vous
+
+Un profil est un fichier JSON qui décrit un modèle : ses commandes, ses voyants, ses vumètres, ce qu’on lui envoie à l’ouverture. Vos propres profils se trouvent dans le dossier `controllers` du dossier de données, et Prisme les lit par-dessus ceux qu’il livre :
+
+- un fichier du même nom qu’un profil livré (`pioneer-ddj-400.json`) le remplace ;
+- un fichier d’un autre nom ajoute un modèle.
+
+<Steps>
+
+1. Dans **Réglages** › **Contrôleurs MIDI**, sous **Vos propres profils**, appuyez sur **Ouvrir le dossier**.
+
+2. Déposez-y votre profil, ou modifiez-en un. Partez du fichier qu’écrit **Exporter en profil**, ou de l’un des [profils livrés](https://github.com/Shawiizz/prisme/tree/main/apps/prisme-desktop/controllers).
+
+3. Appuyez sur **Relire**. Le compteur au-dessus indique combien de profils sont **à vous**, et un contrôleur qui en utilise un affiche **Avec votre propre profil**.
+
+   Un fichier que Prisme ne sait pas lire est listé en rouge sous **Vos propres profils**, avec la raison. Les autres profils continuent de fonctionner en attendant.
+
+</Steps>
+
+Le format est ouvert et décrit en entier dans [Le format des profils](/fr/docs/controllers/profiles/). Un éditeur comme VS Code vérifie un profil et le complète pendant que vous tapez, grâce à son schéma.
+
+<Aside type="caution">
+Votre propre profil d’un modèle l’emporte sur les profils publiés depuis votre version : les corrections de ce modèle ne vous parviennent plus. Pour revenir à celui de Prisme, supprimez votre fichier et appuyez sur **Relire**. Les commandes apprises dans les réglages restent aussi par-dessus votre fichier.
+</Aside>
+
+## Exporter en profil
+
+**Exporter en profil** écrit ce qu’un contrôleur pilote maintenant comme profil à vous : un point de départ pour votre propre profil, ou un profil à envoyer.
+
+<Steps>
+
+1. Mappez le contrôleur comme vous le voulez, avec son profil, le MIDI learn ou les deux.
+
+2. Dans **Réglages** › **Contrôleurs MIDI**, appuyez sur **Exporter en profil** sur sa ligne. Le bouton n’apparaît que tant que le contrôleur est activé et branché.
+
+3. La ligne affiche **Exporté dans** et le chemin du fichier.
+
+</Steps>
+
+Ce que contient le fichier :
+
+- chaque commande telle qu’elle pilote maintenant : celles du profil, ce que vous avez appris par-dessus, sans ce que vous avez démappé ;
+- le reste du profil du modèle tel quel : les messages envoyés à l’ouverture, les voyants, les vumètres, les écrans et les modes des pads ;
+- pour un modèle que Prisme ne connaissait pas, le nom du port comme nom du modèle et comme nom sous lequel son port se présente : remplacez `name` par le vrai nom du modèle.
+
+Le fichier porte le nom du modèle (`Pioneer DDJ-400` donne `pioneer-ddj-400.json`). Pour un modèle que Prisme connaît, c’est le nom du profil livré : votre export le remplace donc désormais, voir l’avertissement ci-dessus. L’export n’est jamais marqué comme essayé sur le matériel : mettez `"verified": true` vous-même une fois que vous l’avez joué.
+
+## Partager un profil
+
+Un profil tient en un seul fichier : envoyez-le, et la personne qui le reçoit le dépose dans son propre dossier de profils puis appuie sur **Relire**.
+
+Pour qu’il soit livré avec Prisme pour tout le monde, proposez-le sur [GitHub](https://github.com/Shawiizz/prisme), dans `apps/prisme-desktop/controllers`. Les profils ajoutés ou corrigés là-bas parviennent tout seuls aux copies installées, sans nouvelle version. Indiquez dans `credits` d’où vient le mapping, et réservez `verified` à un profil joué sur le contrôleur lui-même. [Le format des profils](/fr/docs/controllers/profiles/#les-fichiers-à-côté-des-profils) explique comment les fichiers à côté des profils sont tenus à jour.

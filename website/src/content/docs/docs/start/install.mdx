@@ -1,0 +1,123 @@
+---
+title: Install Prisme
+description: Download and install Prisme on Windows, macOS, Linux or Android, and keep it up to date.
+sidebar:
+  order: 1
+---
+
+import { Steps, Aside, Tabs, TabItem } from '@astrojs/starlight/components';
+
+Prisme is free. The packages for Windows, macOS and Linux are attached to each release on the [GitHub releases page](https://github.com/Shawiizz/prisme/releases/latest); Android is built from the source code for now.
+
+## What you need
+
+| System | Version | Package |
+| --- | --- | --- |
+| Windows | Windows 10 or 11, 64-bit | Installer, `…_x64-setup.exe` |
+| macOS | macOS 13.3 or later, Apple silicon or Intel | Disk image, `.dmg` |
+| Linux | Ubuntu 22.04 or a distribution as recent, 64-bit x86 | `.deb` or AppImage |
+| Android | Android 10 or later, a 64-bit ARM phone or tablet | Built from source |
+
+The window needs at least 1280 × 640 pixels: a 1080p laptop screen at 150 % scaling fits. A sound card with four outputs lets each deck go to its own channel of a hardware mixer; with two, Prisme uses its software mixer. See [Sound card and latency](/docs/start/audio/).
+
+## Install
+
+<Tabs syncKey="os">
+<TabItem label="Windows">
+
+<Steps>
+
+1. Download `Prisme_…_x64-setup.exe` from the [latest release](https://github.com/Shawiizz/prisme/releases/latest).
+
+2. Open it. The installer speaks English or French, following your system, and installs Prisme for your user account only, so it does not ask for administrator rights.
+
+3. Windows may warn that it protected your computer from an unrecognised app. Choose **More info**, then **Run anyway**.
+
+4. Start Prisme from the Start menu.
+
+</Steps>
+
+For the lowest latency, install the ASIO driver of your sound card from its maker's website: Prisme then offers **ASIO** next to **WASAPI** in **Settings** > **Audio**.
+
+</TabItem>
+<TabItem label="macOS">
+
+<Steps>
+
+1. Download the `.dmg` from the [latest release](https://github.com/Shawiizz/prisme/releases/latest). It runs on Apple silicon and Intel Macs alike.
+
+2. Open it and drag **Prisme** into **Applications**.
+
+3. Open Prisme. The first time, macOS refuses because the app is not notarized by Apple. Close the message.
+
+4. Open **System Settings** > **Privacy & Security**, scroll down to the message about Prisme, and choose **Open Anyway**. Confirm.
+
+5. When you first set up turntables, macOS asks whether Prisme may use the microphone: allow it. Prisme reads the timecode of your records from the inputs of your sound card, and macOS counts any input as a microphone.
+
+</Steps>
+
+<Aside type="caution">
+If you refused the microphone access, the turntables send nothing. Allow Prisme again in **System Settings** > **Privacy & Security** > **Microphone**.
+</Aside>
+
+</TabItem>
+<TabItem label="Linux">
+
+Two packages are offered:
+
+- **`.deb`** for Debian, Ubuntu and their derivatives. Install it with your package manager, or from a terminal:
+
+  ```sh
+  sudo apt install ./Prisme_*_amd64.deb
+  ```
+
+- **AppImage** for any other distribution. Make it executable and run it:
+
+  ```sh
+  chmod +x Prisme_*.AppImage
+  ./Prisme_*.AppImage
+  ```
+
+Prisme plays through **ALSA**, which works everywhere, or through **JACK** for the lowest latency. On a system with PipeWire, JACK applications go through PipeWire when its JACK support is installed (the `pipewire-jack` package on most distributions). You choose between them in **Settings** > **Audio**: see [Sound card and latency](/docs/start/audio/#linux-alsa-and-jack).
+
+</TabItem>
+<TabItem label="Android">
+
+No Android package is published yet. To play on a phone or a tablet today, build Prisme from its source code:
+
+- the repository's **Mobile** workflow builds a signed 64-bit ARM package (APK) on GitHub, on demand or for a `mobile-…` version tag. In a copy of the repository of your own, it needs a signing key of yours in the repository secrets;
+- or build it on your computer with the Android SDK and NDK, as [Building from source](/docs/develop/building/) explains.
+
+Then copy the APK to the phone and open it. Android asks you to allow installs from the app you opened it with (the file manager or the browser).
+
+On its first start Prisme asks to read your music and to post notifications. It asks to listen to the inputs only when you set up turntables. See [Phone and tablet](/docs/interface/phone/) for how the interface works with the fingers.
+
+</TabItem>
+</Tabs>
+
+## Your music
+
+Prisme reads the music folder of your system, with its sub-folders, and watches it: a file copied there appears in the library and is analysed in the background.
+
+| System | Folder |
+| --- | --- |
+| Windows | Your **Music** folder, wherever it was moved to (another drive, OneDrive, a network drive) |
+| macOS | **Music** in your home folder |
+| Linux | Your music folder as the desktop sets it (`XDG_MUSIC_DIR`), else `~/Music` |
+| Android | The shared **Music** folder of the phone |
+
+More in [Adding your music](/docs/library/adding-music/).
+
+## Updates
+
+On Windows, macOS and Linux, Prisme looks for a new version on GitHub each time it starts. When one is out, an **Update** button with its version number appears in the title bar.
+
+- Press it when you are ready: Prisme downloads the update, installs it and restarts.
+- The button is disabled while a deck plays or a record turns, since installing restarts Prisme. Stop the decks first.
+- To look again, open **Settings** > **About** and press **Check now**.
+
+The updates are signed: Prisme installs only those published by the project. The Android version does not update itself; install the new APK over the old one.
+
+## Separation models
+
+The separation of tracks into stems uses models that are not part of the installer. Download them once, when you want stems, from **Settings** > **Library**: each model shows a **Download** button with its size. See [Stems](/docs/sound/stems/).

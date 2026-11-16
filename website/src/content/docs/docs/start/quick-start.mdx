@@ -1,0 +1,119 @@
+---
+title: Your first mix
+description: From the first launch to two tracks mixed, step by step.
+sidebar:
+  order: 2
+---
+
+import { Steps, Aside } from '@astrojs/starlight/components';
+
+This page takes you from the first launch to a first blend between two tracks, played by Prisme itself. To drive the decks with timecode records, set up the audio as below, then follow [Setting up vinyl control](/docs/dvs/setup/).
+
+## 1. Set up the audio
+
+Prisme starts on your system's default sound output. The title bar shows the driver and the device it plays on, next to a green light.
+
+<Steps>
+
+1. Open **Settings** with the button of the title bar, or <kbd>Ctrl</kbd> <kbd>,</kbd> (<kbd>⌘</kbd> <kbd>,</kbd> on a Mac). It opens on the **Audio** page.
+
+2. In **Driver type**, choose the driver for your sound card: **ASIO** for a DJ interface on Windows if it has one, otherwise the system's (**WASAPI**, **Core Audio**, **ALSA**).
+
+3. In **Output**, choose your sound card.
+
+4. Leave **Buffer** on **Driver default** for now.
+
+5. Open the **Mixing** page and choose who mixes in **Mixing**:
+   - **External mixer** if each deck goes to its own channel of a hardware mixer (a sound card with four outputs or more);
+   - **Software mixer** if you mix in Prisme, from a laptop alone or a controller.
+
+6. Press **Apply** in the bar at the bottom. The audio restarts on your card.
+
+</Steps>
+
+Each setting is explained in [Sound card and latency](/docs/start/audio/).
+
+<Aside type="tip">
+On a sound card with only two outputs, Prisme mixes by itself whatever you choose: there is no room for one pair of outputs per deck.
+</Aside>
+
+## 2. Add your music
+
+Prisme reads your system's music folder: **Music** on Windows and macOS, your music folder on Linux. Copy your tracks there, in as many sub-folders as you like.
+
+The library shows that folder on the left, under **Music**, with its sub-folders. Click one to list its tracks. In the meantime, Prisme analyses every new file in the background: the toolbar says **Analysing 12 / 340** and the tempo (BPM) and key fill in as it goes. A track you load before its turn is analysed as it loads.
+
+Prisme reads MP3, AAC, ALAC, FLAC, Ogg Vorbis, WAV and AIFF. More in [Adding your music](/docs/library/adding-music/) and [Analysis](/docs/library/analysis/).
+
+## 3. Load a track on deck A
+
+Deck A is the top lane, deck B the one under it. Any of these loads a track:
+
+- **Drag** the track from the library onto the deck's lane.
+- Press the **A** or **B** button at the end of the track's row.
+- **Double-click** the track: it goes on the first deck with nothing loaded.
+- Select it with <kbd>↑</kbd> <kbd>↓</kbd> and press <kbd>Shift</kbd> <kbd>←</kbd> for deck A or <kbd>Shift</kbd> <kbd>→</kbd> for deck B.
+
+The deck shows the title, the time remaining in large figures, the BPM and the key, and the waveform scrolls around a white playhead. See [The main screen](/docs/interface/tour/).
+
+## 4. Play it
+
+Press **PLAY** on deck A's rail, or <kbd>S</kbd>. The level meter of the title bar moves; with the software mixer, raise deck A's fader at the end of its lane if it is down.
+
+**CUE** works as on a CDJ: stopped, it sets the cue point where the deck is; while playing, it goes back to the cue point and stops; held on the cue point, it plays until you let go, then goes back there. Its key on the keyboard is <kbd>A</kbd>. More in [Playing a track](/docs/decks/playing/).
+
+## 5. Get the next track ready on deck B
+
+<Steps>
+
+1. Choose the next track. With **Compare with** set to **A** over the library, the keys that fit deck A's are filled in, and the **Pitch → A** column gives the pitch that brings each track to deck A's tempo.
+
+2. Load it on deck B.
+
+3. Listen to it in the headphones:
+   - with the software mixer, press the headphones button of deck B's channel. **Settings** > **Mixing** > **Headphones** sets where they play;
+   - with an external mixer, press the cue key of deck B's channel on your mixer.
+
+4. Place deck B where you want to start it: click its waveform, or drag the overview under it. Press **CUE** while it is stopped to keep that place.
+
+</Steps>
+
+## 6. Sync and start
+
+<Steps>
+
+1. Press **SYNC** on deck B. It takes the tempo of the leader, here deck A, and stays locked to its beats: the BPM readouts now match. Hold **SYNC** instead to match the tempo and the beats once, leaving deck B free.
+
+2. Press **PLAY** on deck B, or <kbd>K</kbd>.
+
+3. Watch the phase strip between the lanes: the beats of A along the top, those of B along the bottom. In phase, they meet and the strip says **Matched**; otherwise it tells by how many milliseconds B is ahead or behind.
+
+</Steps>
+
+**SYNC** needs a beat grid: it stays disabled until the track is analysed. With **Quantize** on (the default, in **Settings** > **DJ**), cues, loops and jumps land on the beat. More in [Sync and tempo](/docs/decks/sync/).
+
+## 7. Blend
+
+With the **software mixer**:
+
+<Steps>
+
+1. On deck B's channel, turn the **LOW** knob down so the two bass lines do not pile up. Click a knob's label to kill that band at once, click again to bring it back.
+
+2. Move the crossfader, under deck A's lane, from **A** towards **B**. Or bring up deck B's fader, at the end of its lane.
+
+3. When B carries the mix, bring B's **LOW** back up as you take A's down, then finish the crossfader's travel.
+
+</Steps>
+
+With an **external mixer**, do the same with the EQ, the faders and the crossfader of your hardware mixer.
+
+Deck A ends: its remaining time turns amber in the last 30 seconds and blinks red in the last 10. Load the next track on A, and start again from step 5.
+
+## Where to go next
+
+- [The main screen](/docs/interface/tour/), piece by piece.
+- [Keyboard and command palette](/docs/interface/keyboard/): every action from the keys, or <kbd>Ctrl</kbd> <kbd>K</kbd> and type.
+- [Hot cues](/docs/decks/cues/) and [Loops](/docs/decks/loops/).
+- [Stems](/docs/sound/stems/): take the vocals out of a track, or keep only its drums.
+- [Vinyl control](/docs/dvs/): put your turntables in charge.

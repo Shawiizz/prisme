@@ -1,0 +1,153 @@
+---
+title: Modes absolu et relatif
+description: Ce que fait chaque mode vinyle, le diamant posé n’importe où, l’amorce, la fin du disque, le scratch et THRU.
+sidebar:
+  order: 3
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+Un deck confié à sa platine suit le disque dans l’un de deux modes. En mode absolu (**ABS**),
+le disque est le morceau : là où se trouve le diamant, là joue le morceau. En mode relatif
+(**REL**), le disque ne donne que la vitesse, et le deck garde sa propre idée de l’endroit où
+il en est, si bien que cues, boucles et sync peuvent le déplacer. Deux autres boutons sont à
+côté sur la carte du deck : **INT**, le deck qui joue tout seul, et **THRU**, le deck qui
+joue ses entrées.
+
+Vous passez de l’un à l’autre à tout moment sur la carte du deck, même en plein morceau. Voir
+[Confier un deck à son disque](/fr/docs/dvs/setup/#confier-un-deck-à-son-disque).
+
+## Quel mode pour quoi
+
+| Vous voulez | Mode |
+| --- | --- |
+| Jouer comme avec de vrais vinyles : diamant posé n’importe où, passages repérés à l’œil sur le disque | ABS |
+| Utiliser hot cues, boucles, sauts de temps, slicer, slip | REL |
+| Utiliser SYNC sur un deck piloté par un disque | REL |
+| Scratcher fort avec un diamant qui risque de sauter | REL |
+| Passer un vrai disque ou une platine CD par un deck | THRU |
+
+## Mode absolu (ABS)
+
+La position du diamant sur le disque est la position dans le morceau. Levez le diamant et
+reposez-le une minute plus loin : le morceau saute d’une minute. Ramenez le disque au début :
+le morceau revient à son début.
+
+Prisme suit le disque en continu. Les petits écarts entre le morceau et le disque (une
+fraction de seconde) se rattrapent en douceur, en accélérant ou en ralentissant le morceau
+un instant, sans aucun clic ; un écart plus grand, d’un dixième de seconde ou plus, est un
+diamant reposé ailleurs, et le morceau saute.
+
+Comme c’est le disque qui décide où en est le morceau, rien d’autre ne peut le déplacer :
+
+- **SYNC** n’est pas disponible ; son bouton indique **La sync demande le mode relatif ou la
+  lecture interne**.
+- Les pads sont grisés dans tous les modes sauf FX et SMPL : pas de hot cues, boucles, rolls,
+  sauts, slices ni cuts. Les touches de boucle et **CENSOR** le sont aussi.
+- La lecture inversée ne joue pas le morceau à l’envers.
+- La jog wheel d’un contrôleur ne fait rien.
+
+Pour caler les tempos à l’oreille et à l’œil, une flèche à côté de l’affichage du pitch du
+deck indique le pitch à régler sur la platine pour se caler sur l’autre deck, par exemple
+**→ +1.20 %**. La bande de phase entre les formes d’onde signale quand les temps se
+décalent : **Décalé d’1/16 dans 12 s**, puis **Décalé : corrigez le pitch**. Voir
+[Sync et calage](/fr/docs/decks/sync/).
+
+### Poser le diamant
+
+Posez le diamant n’importe où : le deck suit dès que Prisme a lu où il se trouve, après un
+court passage de signal propre. D’ici là, le deck ne prend que la vitesse du disque. Une
+position lue après un diamant posé est vérifiée sur ce même passage avant que le morceau n’y
+saute : un craquement ou une rayure sur le disque n’envoie pas le morceau ailleurs.
+
+### L’amorce
+
+Le morceau ne commence pas tout au bord du disque : sur les disques Serato, il commence à
+28 secondes, sur le CD de contrôle tout de suite. Les sillons d’avant servent à poser le
+diamant ; le deck y joue du silence, son morceau attendant au début, et la musique démarre
+quand le diamant atteint ce point. Réglez un autre début dans le champ **Amorce (s)** du
+panneau de la platine, voir [Amorce](/fr/docs/dvs/setup/#amorce).
+
+## Mode relatif (REL)
+
+Le disque ne donne que la vitesse et le sens. L’endroit où en est le morceau appartient au
+deck : poser le diamant ailleurs, ou le lever et le reposer plus loin, ne le déplace pas ;
+le morceau reprend simplement là où il en était dès que le disque tourne à nouveau.
+
+Tout ce qui déplace le morceau fonctionne par-dessus le disque : hot cues, boucles, loop
+rolls, sauts de temps, slicer, slip, censor et lecture inversée. Appuyez sur un hot cue et
+le morceau y saute pendant que le disque continue de tourner ; il repart du cue à la vitesse
+du plateau.
+
+### SYNC sur un disque
+
+Une platine a son propre fader de pitch : SYNC sur un disque peut donc fonctionner de deux
+façons. Choisissez dans **Réglages**, **DJ**, **Sync sur un disque en mode relatif** :
+
+| Choix | SYNC |
+| --- | --- |
+| **Ponctuelle : cale une fois, le fader de pitch reste actif** (par défaut) | Appuyer sur SYNC cale les temps sur ceux du leader et reprend son tempo une fois. Ensuite, le fader de pitch de votre platine change le tempo à partir de là ; les temps ne sont plus corrigés. |
+| **Verrouillée : suit le leader, le fader de pitch est ignoré** | Une pression sur SYNC verrouille le deck sur le tempo du leader ; maintenez-le pour caler une seule fois. Verrouillé, le fader de pitch de la platine ne change plus le tempo, mais les poussées et les scratchs sur le plateau, si. |
+
+Dans les deux cas, la phase reste entre vos mains une fois calée : Prisme ne remet jamais les
+temps en place dans votre dos. Charger un autre morceau, ou changer la vitesse du disque,
+oublie le calage. Plus de détails dans [Sync et calage](/fr/docs/decks/sync/).
+
+## INT
+
+Le deck joue tout seul avec ses propres boutons PLAY et CUE et son fader de tempo, comme sans
+platines. Choisir à nouveau REL ou ABS le rend au disque.
+
+## THRU
+
+Le deck joue ce qui arrive sur ses entrées, tel quel : un vrai disque, une platine CD,
+n’importe quelle source ligne. Son morceau attend là où il était. Les effets du deck agissent
+toujours sur le son, et avec la table de mixage logicielle sa tranche et son fader aussi : un
+vrai vinyle peut ainsi se mixer avec le reste. Choisissez INT, REL ou ABS pour entendre de
+nouveau le morceau ; les réglages vinyle restent tels quels.
+
+## La fin du disque
+
+Quand le diamant atteint la fin du timecode pendant que le morceau joue en avant (au moins à
+mi-vitesse), le deck ne s’arrête pas avec la musique : il continue tout seul à la dernière
+vitesse du disque. La carte du deck affiche alors **INT**, et son voyant indique **Le diamant
+a atteint la fin du disque : le deck continue tout seul. Choisissez REL ou ABS pour rendre la
+main au disque.**
+
+La façon dont le disque reprend la main dépend du mode :
+
+- **REL** : dès que le diamant est revenu avant la fin et que le plateau tourne, le disque
+  pilote à nouveau le deck, de lui-même.
+- **ABS** : reprendre la main ferait sauter le morceau là où se trouve le diamant, donc
+  Prisme vous attend. Appuyez sur **REL** ou **ABS** sur la carte du deck, ou chargez un
+  autre morceau.
+
+Le deck s’arrête quand son morceau se termine. Cela ne se produit qu’une fois que le disque a
+été lu avant sa fin depuis le chargement du morceau : un morceau chargé avec le diamant déjà
+dans le sillon de sortie ne le déclenche pas.
+
+La fin du disque arrive après environ 10 minutes sur la face A à 33 tours, 15 sur la face B
+(voir [Ce que lit Prisme](/fr/docs/dvs/#ce-que-lit-prisme)). Les morceaux plus longs
+continuent tout seuls au-delà, ou poursuivent en REL avec le diamant reposé près du début.
+
+## Scratchs et backspins
+
+Les deux modes suivent le disque en avant et en arrière, lentement ou vite : scratchs et
+backspins sonnent comme vous les jouez. Quelques points aident :
+
+- **Key lock** garde la tonalité quand le tempo change, entre la moitié et le double de la
+  vitesse ; au-delà, pendant un scratch ou un backspin, le morceau change de hauteur comme le
+  ferait un vrai disque.
+- Retenu immobile sous le doigt, le morceau s’entend à peine, et traîné lentement il est plus
+  doux, comme un diamant dans un sillon. Un scratch est à plein niveau.
+- Les sauts de diamant sont amortis : quand le signal décroche un instant pendant que le
+  disque tourne, la vitesse est maintenue jusqu’à son retour, et le panneau de la platine
+  indique **instable**. Les clics de poussière sur le disque sont ignorés.
+- En ABS, un diamant qui saute fait sauter le morceau d’autant. REL ignore les sauts.
+- Pour les cuts, réglez la courbe du crossfader sur **FRANCHE** dans **Réglages**,
+  **Mixage**, ou utilisez la courbe propre à une table de mixage.
+
+<Aside type="tip">
+Pour essayer tout cela sans platines, activez **Platine simulée** dans **Réglages**,
+**Platines** : le deck A reçoit un disque qui joue quatre secondes puis scratche pendant deux.
+</Aside>

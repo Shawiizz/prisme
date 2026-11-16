@@ -1,0 +1,105 @@
+---
+title: Dispositions et decks
+description: Deux decks ou quatre, une table de mixage externe ou logicielle, la bibliothèque sur toute la fenêtre, et les decks sur un second écran.
+sidebar:
+  order: 2
+---
+
+import { Steps, Aside } from '@astrojs/starlight/components';
+
+L’écran principal s’adapte à votre façon de jouer  le nombre de decks, qui mixe et ce qui pilote chaque deck changent ce que montre chaque couloir. Vous pouvez aussi donner toute la fenêtre à la bibliothèque, ou étendre Prisme sur deux écrans.
+
+## Deux decks ou quatre
+
+Prisme démarre avec deux decks, A et B. Pour jouer sur quatre, ouvrez **Réglages** > **DJ** > **Decks** et choisissez **4**. L’audio redémarre aussitôt avec les nouveaux decks, sans attendre **Appliquer**  changez-le avant le set.
+
+![Quatre decks synchronisés](../../../../../assets/screens/four-decks.png)
+
+### Quatre decks
+
+Avec quatre decks, les couloirs deviennent compacts pour que les quatre tiennent avec la bibliothèque 
+
+- le panneau du deck tient sur une ligne  la lettre, le titre, ce qui pilote le deck, et le temps restant, le BPM et la tonalité sans leurs étiquettes 
+- la forme d’onde est deux fois moins haute, sa vue d’ensemble une fine ligne en dessous, sans place pour les pistes des stems 
+- avec la table de mixage logicielle, chaque voie occupe toute la hauteur de son couloir.
+
+Ce qui change aussi 
+
+- **La bande de phase**, sous le deck A, compare les deux premiers decks qui jouent, et les nomme (**Phase A·C**).
+- **Le crossfader**  les decks A et C sont à sa gauche, B et D à sa droite.
+- **Le clavier** ne joue que les decks A et B. Les decks C et D se jouent à la souris, avec un contrôleur ou avec la [palette de commandes](/fr/docs/interface/keyboard/#palette-de-commandes).
+- **La bibliothèque** a un bouton de chargement par deck, et **Comparer à** propose les quatre decks.
+
+### Quatre decks sur une interface pour deux
+
+Une interface DJ à quatre sorties et quatre entrées a une paire de sorties et une platine pour deux decks. Sur une telle interface, C est une couche par-dessus A et D une couche par-dessus B, comme sur un contrôleur à deux jogs 
+
+- C partage les sorties et la platine de A  D celles de B.
+- Le deck que vous mettez en **REL** ou **ABS** prend la platine. L’autre deck de la paire continue tout seul.
+
+Sur une interface avec une paire de sorties (et d’entrées) par deck, huit de chaque, chaque deck a les siennes  C sur les sorties 5-6 et les entrées 5-6, D sur 7-8.
+
+Voir [Configurer le contrôle vinyle](/fr/docs/dvs/setup/) pour les platines.
+
+## Table de mixage externe ou logicielle
+
+**Réglages** > **Mixage** > **Mixage** change aussi les couloirs 
+
+| | Table de mixage externe | Table de mixage logicielle |
+| --- | --- | --- |
+| Voie au bout de chaque couloir | Aucune | Trim, égaliseur avec kills, filtre, casque, vumètre et fader |
+| À côté de la lettre du deck | Un fin vumètre du niveau envoyé à ses sorties | Rien  la voie a son propre vumètre |
+| Bande de phase | La phase seulement | La phase, le crossfader, la touche du micro et le menu de la table |
+
+La table de mixage externe laisse l’écran aux formes d’onde et à la bibliothèque. Voir [Carte son et latence](/fr/docs/start/audio/#sorties-par-deck-ou-table-de-mixage-logicielle).
+
+## Un deck sur un disque
+
+Quand une platine pilote un deck (**REL** ou **ABS**), son couloir perd ce que la platine fait elle-même 
+
+- pas de touches **CUE** et **PLAY** sur le rail 
+- pas de touches **−** et **+** près du fader de pitch, qui montre le pitch joué au lieu de bouger. Un cran sur le fader marque où amener le pitch de la platine pour caler l’autre deck, et le rail affiche ce pitch (**→ +1,2 %**).
+
+Quand le diamant arrive en fin de disque, le deck passe en **INT** et continue tout seul jusqu’à ce que vous rendiez la main au disque avec **REL** ou **ABS**. Voir [Modes du contrôle vinyle](/fr/docs/dvs/modes/).
+
+## La bibliothèque sur toute la fenêtre
+
+Pour préparer un set, ou pour fouiller pendant qu’un long morceau joue, donnez toute la fenêtre à la bibliothèque. Les decks disparaissent et une ligne au-dessus de la bibliothèque garde chacun en vue  sa lettre, pleine pendant la lecture, le titre et l’artiste, le BPM, la tonalité, le temps restant et un fin trait qui montre ce qui a déjà joué.
+
+![La bibliothèque sur toute la fenêtre : au-dessus, la ligne des deux decks qui jouent, chacun avec son titre, son BPM, sa tonalité et son temps restant](../../../../../assets/screens/docs/library-only.png)
+
+<Steps>
+
+1. Appuyez sur <kbd>Ctrl</kbd> <kbd>K</kbd> et tapez **bibliothèque**.
+
+2. Choisissez **La bibliothèque sur toute la fenêtre**.
+
+3. Faites de même pour faire revenir les decks.
+
+</Steps>
+
+Un contrôleur peut le faire avec une touche  assignez **La bibliothèque sur toute la fenêtre**, dans le groupe **Général**, avec le [MIDI learn](/fr/docs/controllers/learn/).
+
+## Platines sur l’écran du bas
+
+Sur un portable à deux écrans, ou avec un écran posé sous le principal, Prisme peut s’étendre sur les deux  la bibliothèque sur l’écran principal, les decks sur l’écran du bas, sous vos doigts.
+
+<Steps>
+
+1. Placez le second écran sous l’écran principal dans les réglages d’affichage de votre système.
+
+2. Ouvrez **Réglages** > **Interface** et activez **Platines sur l’écran du bas**.
+
+</Steps>
+
+La fenêtre couvre alors les deux écrans. L’écran principal montre la ligne de ce qui joue au-dessus de la bibliothèque  les decks remplissent l’écran du bas, à l’échelle propre à cet écran, leurs formes d’onde grandissant avec sa hauteur. Quand l’écran du bas est trop bas pour des couloirs entiers, ils deviennent compacts, comme avec quatre decks.
+
+Le réglage est grisé, avec **Aucun écran sous celui-ci.**, quand le système ne connaît aucun écran en dessous. Prisme retient votre choix et s’étend à nouveau au prochain démarrage si l’écran est là.
+
+## Taille de la fenêtre
+
+La fenêtre demande au moins 1280 × 640 pixels  un écran de portable 1080p à 150 % de mise à l’échelle. En dessous de 1400 pixels de large, le rail de chaque deck se resserre  touches plus étroites, boutons de stems et noms des pads plus petits. Tout reste à l’écran.
+
+<Aside type="note">
+Sur un téléphone ou une tablette, Prisme se dispose plutôt pour les doigts  voir [Téléphone et tablette](/fr/docs/interface/phone/).
+</Aside>

@@ -1,0 +1,176 @@
+---
+title: Stems
+description: Séparer les morceaux en voix, batterie, basse et mélodie, jouer chaque partie sur son propre potard, et garder une séparation rapide sur votre matériel.
+sidebar:
+  order: 2
+---
+
+import { Steps, Aside } from '@astrojs/starlight/components';
+
+Prisme sépare un morceau en ses parties pour qu’un deck puisse jouer chacune à son propre niveau  la
+**voix**, la **batterie**, la **basse** et la **mélodie** (tout le reste). Coupez la voix pour avoir
+un instru, gardez seulement la batterie pour mixer dessus, ou faites entrer la basse du morceau
+suivant sur la mesure. La séparation tourne sur votre carte graphique ou votre processeur, en arrière-plan,
+et les stems sont gardés à côté de chaque morceau pour la fois suivante.
+
+![Deux decks  le morceau du deck A est séparé en quatre stems, avec ses potards VOX, DRUM, BASS et MELO et la batterie coupée  le morceau du deck B n’est pas séparé et affiche une touche SEPARATE](../../../../../assets/screens/decks.png)
+
+## Installer les modèles
+
+La séparation a besoin de modèles, téléchargés une fois depuis les releases de Prisme. Deux
+configurations sont proposées, dans **Réglages** > **Bibliothèque** > **Séparation** 
+
+| Choix | Modèle | Taille | Donne |
+| --- | --- | --- | --- |
+| **Qualité** | **Séparation voix / instru** | 456 Mo | Voix et instru |
+| | **Séparation batterie / basse** (demande le modèle de voix) | 979 Mo | Batterie, basse et mélodie à partir de l’instru |
+| **Rapide** | **Séparation en stems** | 91 Mo | Voix, batterie, basse et mélodie par un seul petit modèle |
+
+**Qualité** donne les stems les plus propres et c’est celle à prendre avec une carte graphique qui en
+vaut la peine. **Rapide** est plusieurs fois plus rapide, pour un téléphone ou un ordinateur sans
+carte graphique. Avec le seul modèle de voix, les morceaux sont séparés en deux (voix et instru) 
+ajoutez le modèle batterie / basse pour les séparer en quatre.
+
+<Steps>
+
+1. Ouvrez **Réglages** > **Bibliothèque**.
+
+2. Sous **Séparation**, choisissez **Qualité** ou **Rapide**.
+
+3. Appuyez sur **Télécharger (… Mo)** pour chaque modèle de cette configuration. Le pourcentage montre
+   le téléchargement  ensuite la ligne affiche **Installée**. Un téléchargement interrompu reprend là
+   où il s’est arrêté.
+
+</Steps>
+
+Si les deux configurations sont installées, Prisme utilise celle choisie sous **Séparation**  s’il
+n’y en a qu’une, il l’utilise quel que soit le choix.
+
+<Aside type="note">
+Le modèle de voix est le Mel-Band RoFormer de Kimberley Jensen (licence MIT), le modèle batterie /
+basse le Mel-Band RoFormer à quatre stems de SYH99999 (licence Apache 2.0). Le modèle rapide est le
+Mini-BS-RoFormer-V2.5 de HiDolen, sous licence CC BY-NC 4.0  pas d’usage commercial.
+</Aside>
+
+## Séparer un morceau
+
+Il y a plusieurs façons de faire, qui mettent toutes le morceau dans la même file d’attente en
+arrière-plan 
+
+- **Sur le deck**  un deck dont le morceau n’est pas séparé affiche une touche **SEPARATE** à la
+  place des potards de stems. Appuyez dessus  son pourcentage montre où en est la séparation.
+- **Au chargement**  avec **Séparer les morceaux dès qu’ils sont chargés ou mis en préparation**
+  activé, un morceau chargé sur un deck est séparé aussitôt, à partir de l’endroit où joue le deck, et
+  un morceau ajouté à la liste de préparation est séparé en arrière-plan, prêt avant le set.
+- **Dans la bibliothèque**  la colonne **STEMS** a un **+** sur chaque morceau qui peut être séparé 
+  faites un clic droit sur des morceaux pour **Séparer les pistes**, ou utilisez **Séparer les
+  pistes** dans la barre d’une sélection.
+- **Toute la bibliothèque**  **Réglages** > **Bibliothèque** > **Séparer toute la bibliothèque** >
+  **Séparer**.
+
+La barre d’état de la bibliothèque affiche **Séparation 3 / 12** avec une barre de progression tant
+que la file tourne  survolez-la pour voir si c’est la carte graphique ou le processeur qui travaille,
+et appuyez sur **Arrêter** pour vider la file. Un morceau chargé sur un deck passe toujours en
+premier  un morceau de la bibliothèque en cours de séparation lui cède la place et reprend ensuite.
+
+Dans la colonne **STEMS**, un morceau affiche son pourcentage pendant sa séparation, **…** pendant
+qu’il attend, **✓** une fois sa voix séparée et **4** une fois séparé en quatre. Un **+** sur un
+morceau marqué **✓** ajoute la batterie et la basse.
+
+### Pendant que le morceau joue
+
+Un morceau séparé pendant qu’il joue reçoit ses stems à partir de l’endroit où se trouve le deck,
+d’abord là puis plus loin  ils arrivent en quelques secondes sur une bonne carte graphique. Tant
+qu’une partie n’est pas séparée là où joue le deck, son potard est grisé et le morceau y joue en
+entier. Les morceaux de plus de 20 minutes (un mix enregistré, par exemple) ne sont pas séparés au
+chargement  appuyez sur **SEPARATE** ou séparez-les depuis la bibliothèque.
+
+## Les potards de stems
+
+Une fois un morceau séparé, son deck affiche un potard par partie sur le rail, à la place de la touche
+**SEPARATE** 
+
+| Séparé en | Potards |
+| --- | --- |
+| Voix | **VOX** (voix), **INST** (instru  tout le reste) |
+| Quatre stems | **VOX** (voix), **DRUM** (batterie), **BASS** (basse), **MELO** (mélodie, les autres instruments) |
+
+- **Tournez** un potard pour régler le niveau de cette partie, du silence à `100 %`, tel qu’elle est
+  dans le morceau.
+- **Cliquez sur son nom** pour couper la partie  cliquez de nouveau pour la faire revenir. Une partie
+  coupée garde son niveau  son potard s’atténue et son nom s’allume.
+
+Les potards reviennent à `100 %` à chaque morceau que vous chargez.
+
+Sur un téléphone, la touche **STEMS** du deck ouvre les mêmes potards. Voir
+[Sur un téléphone](/fr/docs/interface/phone/).
+
+### Coupes sur la mesure
+
+Avec **Quantize** activé (**Réglages** > **DJ** > **Quantize**), couper une partie ou la faire revenir
+attend la mesure suivante  appuyez sur le nom n’importe quand pendant une mesure, et la coupe tombe
+au début de la suivante. Le nom clignote pendant l’attente. Une mesure fait quatre temps de la grille
+rythmique du deck  la grille doit donc être juste (voir [Analyse](/fr/docs/library/analysis/)).
+
+Tourner un potard agit toujours aussitôt. Un deck à l’arrêt, ou un morceau sans grille rythmique,
+coupe aussi aussitôt.
+
+Depuis un contrôleur, chaque deck a une touche par partie, **Voix**, **Instru**, **Batterie**,
+**Basse** et **Mélodie (les autres instruments)**, allumée tant que la partie joue, et un fader pour
+chaque niveau (**Niveau de la voix** et les autres). Voir [toutes les actions](/fr/docs/controllers/actions/).
+
+## Les pistes
+
+Sous l’aperçu d’un morceau séparé, de fines pistes montrent où joue chaque partie sur tout le
+morceau  deux pistes (voix et instru) ou quatre (voix, batterie, basse et mélodie). Elles montrent
+d’un coup d’œil où entre la voix, où la batterie s’arrête, où se trouve le break. Cliquez ou glissez
+le long de ces pistes pour vous déplacer dans le morceau, comme sur l’aperçu. Les pistes apparaissent
+une fois le morceau entier séparé.
+
+## Effets sur un stem
+
+La chaîne d’effets d’un deck peut jouer sur une seule partie  un écho sur la voix seulement, un gate
+sur la batterie. Voir [Effets sur un stem](/fr/docs/sound/effects/#sur-un-stem).
+
+## Réglages
+
+Tous dans **Réglages** > **Bibliothèque** 
+
+| Réglage | Ce qu’il fait |
+| --- | --- |
+| **Séparation** | **Qualité** (les gros modèles) ou **Rapide** (un seul petit modèle). |
+| **Séparation voix / instru**, **Séparation batterie / basse**, **Séparation en stems** | Téléchargent chaque modèle. |
+| **Accélération matérielle** | Laisse la puce graphique séparer, bien plus vite que le processeur. Grisé avec **Pas de puce graphique adaptée ici  le processeur sépare.** quand il n’y en a pas. |
+| **Séparer les morceaux dès qu’ils sont chargés ou mis en préparation** | Sépare tout de suite chaque morceau chargé sur un deck, et en arrière-plan chaque morceau mis dans la liste de préparation. Activé au départ avec une carte graphique, désactivé sans. |
+| **Séparer toute la bibliothèque** | Met en file chaque morceau de la bibliothèque qui peut être séparé. |
+
+## Où sont gardés les stems
+
+Les stems sont rangés à côté de chaque morceau, dans un dossier `.prisme`, en fichiers FLAC. Copiez
+votre dossier de musique sur un autre ordinateur et ses séparations suivent  Prisme les retrouve et
+ne sépare pas ces morceaux une seconde fois. Sur un téléphone, où rien ne peut être écrit à côté de la
+musique partagée, ils vont plutôt dans le dossier propre à Prisme.
+
+Les modèles eux-mêmes vont dans le dossier de données locales de Prisme (sous Windows,
+`%LOCALAPPDATA%\com.shawiizz.prisme\models`), hors des profils itinérants.
+
+## Conseils de performance
+
+- **Une carte graphique fait toute la différence.** Sur une carte récente, un morceau prend quelques
+  secondes  sur le processeur seul, quelques minutes. Prisme utilise la carte graphique via Vulkan,
+  Direct3D 12 ou Metal, sans rien à installer, et ses tensor cores quand Vulkan y accède. Les modèles
+  tiennent sur une carte de 4 Go. Les puces graphiques intégrées des PC sont laissées de côté, car
+  plus lentes que le processeur  celles d’Apple et des téléphones sont utilisées.
+- **Pas de carte graphique ** Choisissez **Rapide** et séparez vos crates avant la date  ajoutez les
+  morceaux à la liste de préparation, ou lancez **Séparer toute la bibliothèque** pendant la nuit. Sur
+  le processeur, la séparation utilise tous les cœurs sauf deux, en basse priorité, pour que le son
+  passe en premier.
+- **Séparez avant le set.** Les morceaux séparés se chargent tout de suite avec leurs stems, sans rien
+  qui tourne en arrière-plan pendant que vous jouez.
+- Si la carte graphique ne peut pas être ouverte, ou échoue deux fois, Prisme continue sur le
+  processeur jusqu’à ce que vous le redémarriez.
+
+<Aside type="tip">
+La séparation garde les modèles ouverts cinq minutes après que la file s’est vidée, pour que le
+prochain morceau que vous chargez commence à se séparer aussitôt.
+</Aside>

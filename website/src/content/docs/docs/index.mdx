@@ -1,0 +1,52 @@
+---
+title: Introduction
+description: What Prisme is, who it is for, and where to find each topic in this documentation.
+---
+
+import { CardGrid, LinkCard } from '@astrojs/starlight/components';
+
+Prisme is free DJ software built around vinyl control: timecode records on your turntables drive the tracks on your computer, with the feel of a record under the hand. It also plays on its own, from the keyboard, a MIDI controller or a touch screen, with stems, effects, a sampler and a software mixer.
+
+![Two decks playing in sync, the stems of deck A split into four knobs, the library below](../../../assets/screens/decks.png)
+
+## Who it is for
+
+- **DJs who play timecode vinyl.** Prisme reads Serato CV02 (sides A and B) and Serato CD timecode, in relative and absolute modes, with needle drops, backspins and scratches. When the needle reaches the end of the record, the deck plays on by itself.
+- **DJs with a hardware mixer.** By default each deck goes out on its own pair of outputs, to the channels of your mixer, and the screen keeps to the waveforms and the library.
+- **DJs with a controller, a laptop alone, or a phone.** A software mixer with EQ, filter, crossfader and headphone cue takes over when you choose it, or by itself when the sound card has only two outputs. 56 controller models are mapped out of the box.
+
+Prisme runs on Windows, macOS and Linux, and on Android phones and tablets. The interface is in English and French.
+
+## What it does
+
+- **Two decks or four**, with sync, quantize, 16 hot cues, loops, rolls, beat jumps, a slicer, fader cuts, key lock and key shift.
+- **Stems**: vocals, drums, bass and melody separated on your graphics chip or processor, a knob for each.
+- **Effects**: a chain of three beat-synced effects per deck, on the whole track or on one stem; a 16-slot sampler per deck.
+- **Library**: MP3, AAC, ALAC, FLAC, Ogg Vorbis, WAV and AIFF, analysed in the background for tempo, beat grid and key; crates, smart crates, a prepare list with Auto DJ, set history, and import from Serato and rekordbox.
+- **Control**: every action from the keyboard and from a command palette, <kbd>Ctrl</kbd> <kbd>K</kbd>.
+- **Reliability**: the audio restarts by itself after a device loss, and the decks come back after a crash.
+
+## Start here
+
+<CardGrid>
+	<LinkCard title="Install Prisme" href="/docs/start/install/" description="Windows, macOS, Linux and Android, and how updates arrive." />
+	<LinkCard title="Your first mix" href="/docs/start/quick-start/" description="From the first launch to two tracks mixed." />
+	<LinkCard title="Sound card and latency" href="/docs/start/audio/" description="Drivers, buffer size, outputs and dropouts." />
+	<LinkCard title="Vinyl control" href="/docs/dvs/" description="Turntables, timecode records and how they drive the decks." />
+</CardGrid>
+
+## The documentation
+
+<CardGrid>
+	<LinkCard title="Interface" href="/docs/interface/tour/" description="The main screen, the layouts, the keyboard and the phone." />
+	<LinkCard title="Library" href="/docs/library/adding-music/" description="Your music, its analysis, crates, and import from Serato and rekordbox." />
+	<LinkCard title="Decks" href="/docs/decks/playing/" description="Playing, cues, loops, sync, performance pads and the sampler." />
+	<LinkCard title="Mixer" href="/docs/mixer/mixer/" description="The software mixer, headphones, microphone and aux, recording, Auto DJ." />
+	<LinkCard title="Effects and stems" href="/docs/sound/effects/" description="The effect chain of each deck and the separation into stems." />
+	<LinkCard title="Controllers" href="/docs/controllers/" description="Supported models, MIDI learn and profiles of your own." />
+	<LinkCard title="Settings" href="/docs/settings/" description="Every page of the settings, setting by setting." />
+	<LinkCard title="Help" href="/docs/help/troubleshooting/" description="When something goes wrong, and frequent questions." />
+	<LinkCard title="Developers" href="/docs/develop/building/" description="Building from source, the command line, the architecture." />
+</CardGrid>
+
+Prisme is free software under the GNU GPL v3. Its source code is on [GitHub](https://github.com/Shawiizz/prisme).

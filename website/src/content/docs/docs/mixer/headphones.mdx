@@ -1,0 +1,113 @@
+---
+title: Headphones and preview
+description: Cue a deck in the headphones, blend or split the cue and the master, set where the headphones play, and preview a track from the library.
+sidebar:
+  order: 2
+---
+
+import { Steps, Aside } from '@astrojs/starlight/components';
+
+The headphones let you hear a deck before the room does. With the
+[software mixer](/docs/mixer/mixer/), Prisme sends the decks you cue to a pair of outputs of their
+own, blended with the master as you like. With either mixer, you can also preview a track of the
+library in the headphones without loading it on a deck.
+
+## Where the headphones play
+
+The headphones need a stereo pair of their own on your sound card, apart from the master. A DJ
+interface with four outputs usually has them on 3-4.
+
+<Steps>
+
+1. Plug your headphones into the interface's headphone socket (or the pair you want to use).
+
+2. Open **Settings** > **Mixing** > **Headphones**.
+
+3. Pick **Automatic**, a pair (**Outputs 3-4**, **Outputs 5-6**…), or **No headphones**. The line
+   under the setting says where they are now, for instance **Now on outputs 3-4.**, or **Not heard on
+   this device.**
+
+</Steps>
+
+**Automatic** takes outputs 3-4 on a device with exactly four outputs and on any ASIO device. It
+never takes the surround channels of a computer's built-in card (on a 5.1 or 7.1 card, 3-4 are the
+centre and subwoofer of the room), and a device with only two outputs has no headphones: there,
+choose a pair by hand if you have one, or use an interface with four outputs.
+
+With an external mixer, you cue on your mixer, so Prisme's headphones carry only the
+[preview](#the-preview-player). They need a pair that no deck uses: **Automatic** takes the pair
+after the decks' on an ASIO interface, otherwise choose it yourself.
+
+## Cue a deck
+
+Each channel of the software mixer has a headphones key, beside the trim and filter knobs.
+
+- Click it to hear the deck in the headphones. It lights while the deck is cued. You can cue several
+  decks at once.
+- Double-click it to hear that deck **alone**: every other deck leaves the headphones.
+
+The channel fader and the crossfader do not change what you hear in the headphones: a cued deck is
+heard there at full level, after its EQ, filter and effects, even with its fader closed. A muted
+channel (**Mute the channel** in the deck's menu) is still heard in the headphones.
+
+<Aside type="tip">
+**Settings** > **DJ** > **Headphones on the deck a track is loaded on** puts each deck you load a
+track on alone in the headphones, ready to cue.
+</Aside>
+
+## Cue mix, split and volume
+
+The headphone settings are in the mixer's menu, the **⋯** key at the end of the crossfader, on the
+**Headphones** row.
+
+| Control | What it does |
+| --- | --- |
+| **CUE/MST** | What the headphones play: the cued decks only fully left (`0 %`), the master only fully right (`100 %`), a blend of both in between. |
+| **PHONES** | The headphone volume, from silence to +3.5 dB. Double-click it for 0 dB. |
+| **SPLIT** | Splits the headphones: the cued decks on the left ear, the master on the right, each in mono. **CUE/MST** has no effect while it is on. |
+
+**SPLIT** is the way to mix without booth monitors: one ear on the next track, the other on what the
+room hears. Turn it off to blend again.
+
+The master you hear in the headphones does not include the microphone: you do not hear your own
+voice, late, in your ears. To check the microphone or the aux line there, cue it with its own
+headphones key (see [Microphone, aux and booth](/docs/mixer/inputs/)).
+
+<Aside type="caution">
+With **CUE/MST** fully left and no deck cued, the headphones are silent. If you hear nothing, check
+that a deck's headphones key is lit or turn **CUE/MST** towards the master.
+</Aside>
+
+From a controller, the actions are **Headphones (pre-listen)**, **This deck alone in the
+headphones**, **Headphones: cued decks or master**, **Split headphones: cue left, master right** and
+**Headphones level**.
+
+## The preview player
+
+The preview plays a track of the library in the headphones only, without a deck. The room never
+hears it and it is never recorded. Use it to check a track's intro, key or energy before you load
+it.
+
+<Steps>
+
+1. In the track list, click the headphones key at the end of a track's row, beside its **A** and
+   **B** load keys (**Preview in the headphones**), or select the track and press <kbd>Space</kbd>.
+
+2. The track starts about a third in, where the music usually is. A strip opens under the library
+   with the title, the time, the whole track, and a **PHONES** knob.
+
+3. Click or drag along the strip's waveform to listen from there (**Click to listen from there**).
+
+4. Stop it with the strip's stop key, the row's key again, or <kbd>Space</kbd>.
+
+</Steps>
+
+The preview stops by itself at the end of the track, when you load that track on a deck, and when
+the audio restarts. Previewing another track replaces it. A controller can start and stop it (**Preview in the headphones / stop**) and move
+through it four seconds per step of a knob (**Move through the preview**).
+
+The preview plays on the headphones' outputs, with either mixer. If those outputs are the ones the
+room hears, or there are none, the row's key says **No headphones of their own to preview in:
+choose their outputs in the settings**: set them up as in
+[Where the headphones play](#where-the-headphones-play).
+

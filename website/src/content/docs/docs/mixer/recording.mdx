@@ -1,0 +1,95 @@
+---
+title: Recording a mix
+description: Record your set to a WAV file with its tracklist, from the software mixer's master or from a hardware mixer's record output.
+sidebar:
+  order: 4
+---
+
+import { Steps, Aside } from '@astrojs/starlight/components';
+
+Prisme records your set to a WAV file and writes its tracklist next to it when you stop, with the
+time each track came in. It records the [software mixer](/docs/mixer/mixer/)'s master, or with a
+hardware mixer, what comes back into your sound card from the mixer's record output.
+
+## Record
+
+<Steps>
+
+1. Click **Rec** in the title bar. It is greyed out while the audio is stopped.
+
+2. Choose what to record:
+   - **Master**: what the software mixer plays (only offered with the software mixer).
+   - **Inputs 1-2**, **Inputs 3-4**…: what comes into that input pair of your sound card. Plug your
+     hardware mixer's record output there.
+
+3. The key turns red and counts the time. Mix as usual.
+
+4. Click it again to stop (**Stop recording**). Prisme finishes the file and writes the tracklist.
+
+</Steps>
+
+Hover over **Rec** afterwards to see where the last recording went, how long it lasted and how many
+tracks it holds.
+
+On a phone, **Rec** at the top records the master straight away (or inputs 1-2 with an external
+mixer). From a controller or the command palette, **Record the mix** starts and stops a recording of
+the master.
+
+<Aside type="caution">
+**Record the mix** from a controller or the palette always records the software mixer's master.
+With an external mixer, start the recording from **Rec** and choose your mixer's inputs instead.
+</Aside>
+
+## What is recorded
+
+**Master** is the software mixer's master after the master level and the
+[master limiter](/docs/mixer/mixer/#master-limiter), the open microphone and the aux line included.
+It is taken before the balance, so **BAL** does not change the recording, and the booth level does
+not either. The headphones and the [preview](/docs/mixer/headphones/#the-preview-player) are never
+recorded.
+
+**Inputs** record exactly what reaches that pair, at the level your mixer sends. Set your mixer's
+record or booth output so its loudest peaks stay below full scale: Prisme does not limit it.
+
+<Aside type="caution">
+Do not pick the input pair a turntable is plugged into: you would record its timecode tone. The
+turntables use inputs 1-2 for deck A and 3-4 for deck B.
+</Aside>
+
+## The file
+
+| | |
+| --- | --- |
+| Format | WAV, stereo, 24-bit, at the sample rate the audio runs at |
+| Folder | `Prisme Recordings` in your Documents folder, out of your music folder so it does not end up in the library |
+| Name | The date and time it started: `Prisme 2026-10-11 21h30m05.wav` |
+
+The file is kept up to date every second while it records, so a crash or a power cut loses a second
+at most.
+
+A WAV file holds about 4 GB, a little over four hours at 48 kHz. A longer set goes on in a second file,
+`… 2.wav`, then `… 3.wav`. If the audio restarts during a recording (you change the sound card or the
+buffer, or the device is unplugged and comes back), the recording goes on in the next file too.
+
+If the disk cannot keep up, Prisme drops what does not fit rather than holding up the sound; the
+**Rec** key's tooltip then says how many seconds were lost (**disk too slow**).
+
+## The tracklist
+
+When you stop, Prisme writes two files next to the recording, with the same name:
+
+- a `.txt` file, one line per track: `0:12:40 Artist - Title`;
+- a `.cue` sheet, which audio players and editors use to split the recording into its tracks.
+
+The tracklist comes from the set's history. A track counts as played once it has been heard for 30
+seconds on a deck, at a playing speed, and its time is when it started being heard. It gets the
+artist and title from the track's tags, or its file name.
+
+<Aside type="tip">
+Start recording before the first track plays: a track that was already playing when you pressed
+**Rec** is left out of the tracklist.
+</Aside>
+
+A track counts as heard even with its fader down, for instance while you cue it in the headphones
+for 30 seconds: edit the `.txt` or `.cue` if that happens. With a recording split over several files,
+only the `.txt` tracklist is written, as a CUE sheet describes a single file.

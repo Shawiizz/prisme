@@ -1,0 +1,133 @@
+---
+title: Crates, prepare list and history
+description: Group tracks in crates and smart crates, line up your next tracks, find what you played, and spot duplicates.
+sidebar:
+  order: 3
+---
+
+import { Steps, Aside } from '@astrojs/starlight/components';
+
+Folders are how your files are stored; crates are how you dig through them for a set. A crate
+only points at tracks: adding a track to a crate, removing it or deleting the crate never moves
+or deletes a file. The same track can sit in as many crates as you like.
+
+## Crates
+
+<Steps>
+
+1. In the side panel of the library, click **+** next to **Crates** (**New crate**).
+
+2. Type a name and press <kbd>Enter</kbd> (<kbd>Esc</kbd> to give up). The new crate opens,
+   empty.
+
+3. Add tracks to it in any of these ways:
+   - drag tracks from any list onto the crate;
+   - right-click a track, **Add to a crate**, then the crate;
+   - select several tracks and click **Crate** in the bar at the bottom of the list.
+
+</Steps>
+
+The number beside each crate is how many tracks it holds.
+
+| To | Do |
+| --- | --- |
+| Rename a crate | Double-click it, type, <kbd>Enter</kbd> |
+| Take tracks out | Open the crate, select them, press <kbd>Delete</kbd> or right-click › **Remove from the crate** |
+| Delete a crate | Click the **×** at the end of its row, then **Delete** to confirm. Its tracks stay where they are |
+
+A crate's tracks can come from any folder. Crates imported from
+[Serato or rekordbox](/docs/library/import/) are ordinary crates, and can be changed like
+yours.
+
+## Smart crates
+
+A smart crate fills itself: you give it rules, and it holds every analysed track of the library
+that matches them, today and as you add music.
+
+<Steps>
+
+1. Click **+ Smart** next to **Crates**.
+
+2. Give it a **Name**.
+
+3. Choose **Tracks matching** **all of these rules** or **any of these rules**.
+
+4. Set each rule: pick what it looks at, then its value. **Add a rule** adds another one, the
+   **×** at the end of a rule removes it.
+
+5. Click **Create**.
+
+</Steps>
+
+| Rule on | Matches | Example |
+| --- | --- | --- |
+| **Genre**, **Artist**, **Title**, **Album**, **Comment**, **File name** | The tag **contains** the text, upper or lower case alike | **Genre** contains `house` also finds *Deep House* and *Tech House* |
+| BPM | The tempo is **from** one value **to** another, both included | from `122` to `126` |
+| **Year** | The year tag is **from** one year **to** another, both included | from `1990` to `1999` |
+| **Key** | The key **is one of** the Camelot codes you list, separated by spaces or commas | `8A 9A 8B` |
+
+Leave **from** or **to** empty for no limit on that side: BPM from `140` with nothing after it
+is everything at 140 BPM and above.
+
+To change a smart crate's rules or name, double-click it. The crate shows with a funnel icon,
+and you cannot drop tracks on it or take tracks out of it: change its rules instead.
+
+<Aside type="note">
+  The BPM and key rules use the tempo and key as corrected by you, if you corrected them (see
+  [Tempo, beat grid and key](/docs/library/analysis/)). A track without a tempo or key never
+  matches those rules, and a file that could not be decoded never matches any.
+</Aside>
+
+## The prepare list
+
+**Prepare**, at the top of the side panel, is your queue for the next minutes of the set: the
+tracks you plan to play, in the order you plan to play them.
+
+- **Add tracks**: <kbd>Ctrl</kbd> <kbd>P</kbd> on the selection, drag tracks onto **Prepare**,
+  right-click › **Add to the prepare list**, or **Prepare** in the bar of a multiple
+  selection. A track already in the list stays where it is.
+- **Reorder**: open the list and drag rows up or down; a line shows where they will land. Drop
+  them below the last row to put them at the end. This works while the list is sorted by its
+  `#` column, first to last.
+- **Take out**: <kbd>Delete</kbd>, or right-click › **Remove from the prepare list**.
+
+A track **leaves the list by itself once it has played for 30 seconds** on any deck, so the list
+always starts with what is still to come. The list is kept when you quit Prisme.
+
+The [Auto DJ](/docs/mixer/auto-dj/) plays this list on its own, each track mixed into the next.
+
+## History
+
+Each time you start Prisme and play tracks, a new set appears under **History**, named after the
+day and time it started (`Sat 10 Oct, 21:30`), with the number of tracks played.
+
+- A track is listed once it has been heard for **30 seconds** on a deck, at least at half speed:
+  a quick preview or a mistake does not count. A track played twice is listed twice.
+- Open a set to see its tracks in the order you played them, with the usual columns.
+- **CSV** on a set's row exports its tracklist: number, start time, deck, artist, title, album,
+  BPM, key and file. On Windows the file uses the separators of your regional settings, so
+  Excel opens it straight away.
+- The **×** on a set's row, then **Delete**, removes it from the history.
+
+The tracks of your last set, if it started less than 12 hours ago, are dimmed in every list of
+the library: a quick way to avoid playing a track twice in a night. They also go to the end
+when you sort by how well tracks follow a deck (see
+[Browsing and searching](/docs/library/browsing/#compare-with-a-deck)).
+
+<Aside type="tip">
+  Recording your mix also writes its tracklist next to the recording, as text and as a CUE
+  sheet, from this history. See
+  [Recording a mix](/docs/mixer/recording/).
+</Aside>
+
+## Duplicates
+
+**Duplicates**, under **Prepare**, lists the tracks that look like the same song, grouped one
+after the other. Two tracks are the same song when they have the same artist and title tags, or,
+for tracks without both, the same file name; case, spaces and punctuation are ignored. So
+*Strobe* by *deadmau5* in `strobe.mp3` and *strobe!* by *Deadmau5* in `Strobe (copy).flac` are
+grouped together.
+
+Compare their columns (BPM, plays, rating; hover a row to see its file) and keep the one you
+want. Prisme does not delete files: remove the copies yourself in your file manager. Only analysed tracks are
+compared.

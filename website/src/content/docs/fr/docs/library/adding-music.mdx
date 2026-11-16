@@ -1,0 +1,145 @@
+---
+title: Ajouter votre musique
+description: Où Prisme cherche vos morceaux, comment il les analyse, et ce qu’il réécrit dans vos fichiers.
+sidebar:
+  order: 1
+---
+
+import { Steps, Aside } from '@astrojs/starlight/components';
+
+Prisme lit un seul dossier : le dossier **Musique** de votre système, avec tout ce qu’il contient.
+Rien à importer, aucune liste à constituer : copiez des morceaux dans ce dossier et ils
+apparaissent dans la bibliothèque, puis reçoivent leur tempo, leur grille rythmique et leur
+tonalité en tâche de fond.
+
+## Où mettre votre musique
+
+| Système | Le dossier de musique |
+| ------- | --------------------- |
+| Windows | **Musique**, où que Windows le range : déplacé sur un autre disque, un NAS ou OneDrive, ça marche |
+| macOS   | **Musique** dans votre dossier personnel |
+| Linux   | Le dossier de musique de votre bureau, en général `~/Music` |
+| Android | Le dossier partagé **Music** du téléphone |
+
+Les sous-dossiers ne posent aucun problème, aussi profonds que vous voulez : ils apparaissent
+dans le panneau latéral de la bibliothèque, sous **Musique**, et l’analyse les parcourt tous.
+
+<Aside type="tip">
+  Sous Windows, si votre collection est sur un autre disque, vous pouvez y déplacer le dossier
+  Musique lui-même : clic droit sur **Musique** dans l’Explorateur, **Propriétés**, onglet
+  **Emplacement**. Prisme suit le dossier là où Windows l’indique.
+</Aside>
+
+Ce qui est ignoré :
+
+- les fichiers et dossiers cachés, et ceux dont le nom commence par un point ;
+- les dossiers système comme la corbeille ;
+- les liens symboliques vers des dossiers : mettez la musique elle-même dans le dossier, pas un
+  lien vers elle ;
+- les fichiers qu’un dossier cloud (OneDrive et consorts) garde uniquement en ligne. Les lire
+  les téléchargerait, alors ils attendent que vous les rendiez disponibles sur l’appareil.
+
+## Formats pris en charge
+
+MP3, AAC et ALAC (`.m4a`, `.mp4`, `.aac`), FLAC, Ogg Vorbis (`.ogg`, `.oga`), WAV et AIFF
+(`.aif`, `.aiff`). Prisme les reconnaît à leur extension ; les autres fichiers restent hors des
+listes.
+
+## La première analyse
+
+Au premier démarrage, Prisme parcourt le dossier de musique et analyse chaque morceau qu’il
+trouve : tempo et grille rythmique, tonalité, forme d’onde, pochette. La barre d’outils de la
+bibliothèque montre où il en est : **Recherche de nouveaux fichiers…**, puis
+**Analyse 120 / 3400**.
+
+- Vous pouvez parcourir, chercher et jouer pendant ce temps. Un morceau dont l’analyse n’est pas
+  encore faite affiche `···` dans la colonne BPM ; sa ligne se remplit dès que le résultat
+  arrive.
+- L’analyse tourne en basse priorité, sur la moitié au plus des cœurs du processeur (quatre au
+  maximum), pour que la lecture ne manque jamais de rien.
+- Par défaut, elle **se met en pause quand un deck joue** : l’état passe à **Analyse en pause**,
+  et elle reprend quand les decks s’arrêtent. Un morceau que vous chargez est de toute façon
+  analysé sur-le-champ, pause ou pas. Le réglage ci-dessous permet de laisser l’analyse tourner
+  pendant un set.
+- Les fichiers qui ne peuvent pas être décodés sont comptés comme **illisibles** dans la barre
+  d’outils et affichent `—` dans la colonne BPM. Essayez de les ouvrir dans un autre lecteur :
+  en général ils sont abîmés, ou pas vraiment au format qu’annonce leur extension.
+
+Les résultats sont stockés dans la base de données de la bibliothèque de Prisme, pas à côté de
+votre musique. Un morceau est analysé une fois ; il n’est réanalysé que si le fichier change (sa
+taille ou sa date de modification) ou si une nouvelle version de Prisme améliore l’analyse.
+
+Voir [Tempo, grille rythmique et tonalité](/fr/docs/library/analysis/) pour ce que trouve
+l’analyse et comment la corriger.
+
+## Nouveaux morceaux et réanalyse
+
+Prisme surveille le dossier de musique. Quand vous y copiez un album, il attend que la copie se
+termine (environ une seconde et demie de calme), puis analyse les fichiers nouveaux et modifiés.
+Le dossier ouvert dans la bibliothèque se met à jour tout seul.
+
+Pour en avoir le cœur net, cliquez sur **Réanalyser** dans la barre d’outils de la bibliothèque
+(**Analyser les fichiers nouveaux et modifiés**). Il parcourt tout le dossier ; quand il n’y a
+plus rien à faire, il indique **Bibliothèque à jour**.
+
+Si le dossier de musique est sur un disque ou un NAS qui disparaît, Prisme le cherche de nouveau
+toutes les trente secondes et le parcourt dès qu’il revient.
+
+## Fichiers déplacés, renommés ou retaggés
+
+Réorganiser vos dossiers ne fait rien perdre. Ce que Prisme sait d’un morceau (analyse, cues,
+corrections de grille et de tonalité, couleur, note, crates, historique, liste de préparation)
+suit le fichier quand :
+
+- vous déplacez ou renommez un fichier ou un dossier entier à l’intérieur du dossier de musique ;
+- vous renommez un fichier et modifiez ses tags : Prisme le reconnaît à son audio ;
+- une clé ou un disque USB revient sous une autre lettre de lecteur ;
+- vous déplacez un fichier dans le dossier de musique depuis un autre endroit de l’ordinateur.
+
+Un fichier que vous supprimez est oublié au parcours suivant, mais ses cues, ses corrections et
+ses entrées dans les crates sont gardés : si le même audio revient plus tard, il les retrouve.
+Les morceaux d’un disque débranché restent tels quels, ils ne sont pas oubliés.
+
+## Écrire le tempo et la tonalité dans vos fichiers
+
+Pour que Serato, rekordbox et les autres logiciels les retrouvent, Prisme peut écrire le tempo et
+la tonalité qu’il a trouvés dans les tags de vos fichiers. Ces réglages sont dans
+**Réglages** › **Bibliothèque** :
+
+| Réglage | Effet | Par défaut |
+| --- | --- | --- |
+| **Écrire le tempo et la tonalité dans les tags des fichiers** | Écrit le BPM et la tonalité (en notation musicale, `Am`, `F#`) de chaque morceau analysé, et de nouveau quand vous corrigez sa grille ou sa tonalité | Activé sur ordinateur, désactivé sur téléphone |
+| **Remplacer ceux écrits par un autre logiciel** | Affiché quand le premier est activé. Un tempo ou une tonalité que Mixed In Key ou un autre logiciel a mis dans un fichier est gardé, sauf si celui-ci est activé | Désactivé |
+| **Mettre l’analyse de la bibliothèque en pause quand un deck joue** | Garde le processeur et le disque pour le son pendant un set ; un morceau copié entre-temps est analysé à l’arrêt des decks, ou à son chargement | Activé |
+
+Les tags sont écrits dans les fichiers MP3, WAV, FLAC, Ogg et M4A/MP4. Prisme les écrit en tâche
+de fond, un fichier à la fois, et seulement les champs dont il a besoin : les cues et grilles
+Serato stockés dans vos tags restent intacts. Un fichier que Prisme vient de tagger n’est pas
+pris pour un fichier modifié et n’est pas réanalysé.
+
+Le genre, c’est autre chose : vous le choisissez à la main depuis le menu du morceau, et il est
+toujours écrit dans le fichier (voir
+[Parcourir et chercher](/fr/docs/library/browsing/#le-menu-du-morceau)). Les couleurs et les
+notes restent dans la bibliothèque de Prisme.
+
+<Aside type="caution">
+  Une écriture de tags travaille sur une copie à côté du fichier, nommée comme
+  `.track.mp3.prisme-tags`, puis la met en place. Si Prisme est coupé au milieu, cette copie
+  cachée peut rester ; le parcours suivant la supprime. Votre fichier lui-même reste comme il
+  était.
+</Aside>
+
+## Quand quelque chose cloche
+
+- **Un morceau manque dans la liste.** Vérifiez que son extension figure dans la liste ci-dessus,
+  qu’il n’est pas caché, et qu’il est vraiment dans le dossier de musique (pas derrière un lien).
+  Puis **Réanalyser**.
+- **L’analyse n’avance pas.** Elle est sans doute en pause parce qu’un deck joue. Arrêtez les
+  decks, ou désactivez **Mettre l’analyse de la bibliothèque en pause quand un deck joue**.
+- **Une pastille rouge `bibliothèque non enregistrée` dans la barre de titre.** La base de
+  données de la bibliothèque n’a pas pu être ouverte : Prisme fonctionne toujours, mais les cues,
+  corrections et crates modifiés à partir de là sont perdus quand vous quittez. Voir
+  [Dépannage](/fr/docs/help/troubleshooting/).
+
+Vos morceaux sont là : ensuite, [parcourez-les et lancez vos recherches](/fr/docs/library/browsing/), ou
+récupérez vos cues et vos crates depuis [Serato ou rekordbox](/fr/docs/library/import/).

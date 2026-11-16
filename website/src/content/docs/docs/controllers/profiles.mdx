@@ -1,0 +1,317 @@
+---
+title: The profile format
+description: The complete reference of Prisme's controller profiles, the JSON files that map a controller model.
+sidebar:
+  order: 4
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+A profile maps one controller model before anything is learnt on it: which action each control drives, what its lights show, the levels and numbers it displays, and the messages it is sent. It is a JSON file anyone can read and edit. This page describes every field, as Prisme reads them (`crates/prisme-control`).
+
+To make one, start from the file **Export as a profile** writes, or from a [shipped profile](https://github.com/Shawiizz/prisme/tree/main/apps/prisme-desktop/controllers), and put it in your own profiles' folder: see [A profile of your own](/docs/controllers/learn/#a-profile-of-your-own).
+
+## A first profile
+
+```json
+{
+  "$schema": "https://raw.githubusercontent.com/Shawiizz/prisme/main/apps/prisme-desktop/controllers/profile.schema.json",
+  "name": "Pioneer DDJ-SB2",
+  "ports": ["DDJ-SB2"],
+  "credits": "From the Pioneer DDJ-SB2 mapping of Mixxx by Be, Michael Stahl (DG3NEC) (GPL-2.0-or-later).",
+  "init": [[155, 9, 127]],
+  "controls": [
+    { "control": { "kind": "note", "channel": 0, "number": 11 }, "target": "deck1.play" },
+    { "control": { "kind": "controlChange", "channel": 0, "number": 0 }, "target": "deck1.pitch", "fine": 32 },
+    { "control": { "kind": "controlChange", "channel": 0, "number": 34 }, "target": "deck1.jog", "encoding": "relativeOffset" }
+  ],
+  "lights": [
+    { "target": "deck1.play", "control": { "kind": "note", "channel": 0, "number": 71 }, "on": 127 }
+  ]
+}
+```
+
+Every MIDI number in a profile is decimal. A message is a list of bytes: `[155, 9, 127]` is `9B 09 7F`.
+
+## The schema
+
+`profile.schema.json` is the format as a [JSON Schema](https://json-schema.org), made from the types Prisme reads and the actions of the app. A profile that names it as its `"$schema"`, as above, is checked and completed by editors such as VS Code: a misspelt field, an action that does not exist or a MIDI value out of range is underlined as you type, and the fields and actions are offered as you write them.
+
+## Where profiles come from
+
+Prisme reads three layers. Each replaces the one before it for a file of the same name.
+
+| Layer | Where | |
+| --- | --- | --- |
+| Shipped | Inside Prisme | The profiles of `apps/prisme-desktop/controllers` when your version was built. |
+| Updated | The data folder's `controller-updates` | The profiles published since on GitHub, fetched once a day or with **Look for updates**. A published profile is taken only if it is a later revision than the one your version ships, in a format your version reads, and only if its text is the one its index says. |
+| Your own | The data folder's `controllers` | Your files: one of the same name as a shipped profile replaces it, one of another name adds a model. **Read again** reads them after a change. |
+
+The data folder is described on [MIDI learn and your own profile](/docs/controllers/learn/#where-the-data-folder-is). On top of all three, the controls learnt in the settings take the profile's place for their control and their action.
+
+## The model
+
+| Field | Type | |
+| --- | --- | --- |
+| `$schema` | text | The schema's address, for editors. Prisme ignores it. |
+| `name` | text | The model, as the settings show it: **Mapped as a** `name`. |
+| `ports` | list of texts | The controller is the MIDI port whose name contains one of these, upper or lower case alike. Of several models that fit, the one with the longest matching name wins. |
+| `credits` | text | Where the mapping comes from, when it is not Prisme's own. |
+| `verified` | `true` or `false` | `true` once the profile was tried on the controller itself. Without it, the settings say **Converted from the mapping of Mixxx, not yet tried on this controller**. Default `false`. |
+| `jogStepsPerTurn` | number | Steps the controller sends for a whole turn of a jog wheel, measured on it. It sets how far a scratch moves the track. Default 720. |
+| `init` | list of messages | Sent when the controller is opened, SysEx included. A message written `{ "afterMs": 1500, "message": [...] }` goes that many milliseconds later, once a light show the model plays by itself is over. |
+| `close` | list of messages | Sent when it is closed, after its lights went off. |
+| `keepAlive` | object | `everyMs` and `message`: sent again and again while it is open, for the models that stop answering without it. |
+| `modes` | list | Groups of controls that drive other actions in each mode. See [Modes](#modes). |
+| `controls` | list | Each control and the action it drives. See [Controls](#controls). Required. |
+| `lights` | list | Lights other than the controls' own. See [Lights](#lights). |
+| `meters` | list | Levels shown on the controller. See [Meters](#meters). |
+| `outputs` | list | Values shown on the controller: a jog wheel's ring, a knob's ring of lights. See [Outputs](#outputs). |
+| `displays` | list | Numbers shown on the controller's screens. See [Displays](#displays). |
+
+Only `name`, `ports` and `controls` are required.
+
+<Aside type="tip">
+The name of a port differs between systems: `DDJ-SB2` on Windows, `PIONEER DDJ-SB2:PIONEER DDJ-SB2 MIDI 1 24:0` on Linux. Give in `ports` the part every system shows, such as the model's name.
+</Aside>
+
+## Controls
+
+A control is the same shape as a learnt mapping:
+
+```json
+{ "control": { "kind": "note", "channel": 0, "number": 11 }, "target": "deck1.play" }
+```
+
+| Field | | |
+| --- | --- | --- |
+| `control` | object | `kind` (`note` for keys and pads, `controlChange` for knobs, faders and encoders, `pitchBend`), `channel` from 0 to 15, `number` from 0 to 127 (0 for a pitch bend). |
+| `target` | text | The action it drives: see [Actions](#actions). Required. |
+| `encoding` | text | How its values are read. See [Encodings](#encodings). Default `absolute`. |
+| `scale` | number | An encoder's steps multiplied by this. Below 1 they add up to whole steps: `0.1` browses a track every ten steps. Default 1. |
+| `step` | number | How far a step of an encoder moves a fader's action, as a share of its travel. Default 1/64. |
+| `invert` | `true` | A fader whose lowest value is at its top; an encoder turning the other way. |
+| `fine` | number | The number of the control change that sends the low 7 bits of a 14-bit control, its high 7 bits being on `control`. Usually the control's number plus 32. |
+| `shift` | `true` or text | In the second layer: `true` while any shift is held, or a named shift (`"left"`) while the key aimed at `shift.left` is. |
+| `when` | object | `group` and `mode`: the control drives its action only while its group is in that mode. See [Modes](#modes). |
+| `onValue` | number | Drives its action, as a key pressed, when the control sends this value: one entry per position of a switch. |
+| `also` | list of actions | Other actions it drives along with its own. |
+| `down` | action | For an encoder pressing keys: a step to the right presses `target`, a step to the left presses this action. |
+| `hold` | object | `ms` and `target`: another action for the key held down that long. Let go sooner, it drives its own. A mode key held chooses its mode as it is let go. |
+| `double` | object | `ms` and `target`: another action for the key pressed twice within `ms`. |
+| `chord` | object | `with` (a control) and `target`: another action for the key pressed while `with` is held. |
+| `set` | number or two numbers | A key putting a fader's action at a position from 0 to 1 (`0.5`), or at each of two in turn (`[0, 1]`), lit at the second. |
+| `latch` | `true` | A key driving an action meant to be held, latched: a press holds it, the next lets it go. |
+| `held`, `once` | `true` | For a control aimed at a mode: as for a [mode key](#modes). |
+| `light` | object | Its light's values by state. See [Lights](#lights). |
+| `palette` | object | Its light's values by the colour of its action, such as a hot cue's: `{ "#ff0000": 5, "#0000ff": 45 }`. The value of the nearest colour is sent. |
+
+A control mapped in several layers (plain, under shift, in several modes) drives, and lights as, the one in use.
+
+### Encodings
+
+| `encoding` | The control sends |
+| --- | --- |
+| `absolute` | A position: 0 to 127 (0 to 16383 for a pitch bend). A key is pressed at any value above 0 and let go at 0. |
+| `relative` | Steps in two's complement: 1 to 63 to the right, 127 (one step) down to 65 to the left. |
+| `relativeOffset` | Steps around 64: 65 is one step to the right, 63 one to the left. Pioneer and Numark, mostly. |
+| `relativeSigned` | Steps with a sign bit: 1 to 63 to the right, 65 (one step) to 127 to the left. |
+| `relativeZero` | Steps from zero: 0 is one step to the right, 127 one to the left. Denon, mostly. |
+| `absoluteWrap` | A position that wraps around, such as a jog wheel's angle: its changes are the steps. |
+
+An encoder may drive an action of the kind *fader*: its steps move the setting by `step`. Only encoders may drive actions of the kind *encoder*.
+
+### More controls
+
+```json
+{ "control": { "kind": "controlChange", "channel": 0, "number": 9 }, "target": "deck1.pitch", "fine": 41, "invert": true }
+{ "control": { "kind": "controlChange", "channel": 4, "number": 3 }, "target": "library.browse", "encoding": "relativeOffset", "scale": 5 }
+{ "control": { "kind": "note", "channel": 15, "number": 2 }, "target": "library.load1", "hold": { "ms": 500, "target": "deck1.eject" } }
+{ "control": { "kind": "note", "channel": 4, "number": 18 }, "target": "mixer.crossfader", "set": 0.5 }
+{ "control": { "kind": "note", "channel": 0, "number": 76 }, "target": "deck1.eq.mid.kill", "latch": true }
+{ "control": { "kind": "controlChange", "channel": 14, "number": 16 }, "target": "deck1.fx.mix", "also": ["deck1.fx2.mix", "deck1.fx3.mix"] }
+{ "control": { "kind": "note", "channel": 0, "number": 66 }, "target": "deck1.start", "shift": "left" }
+```
+
+In order: a 14-bit tempo fader at its top when slowest; a browse knob five tracks a step; a load key that ejects when held half a second; a key putting the crossfader in the middle; a mid kill latched; one knob for the level of the three effects; a key in the second layer of the left shift.
+
+## Actions
+
+`target` names one of the actions the [actions reference](/docs/controllers/actions/) lists (`deck1.play`, `deck2.hotcue3`, `mixer.crossfader`…), or one named by a measure:
+
+| Action | |
+| --- | --- |
+| `deckN.jump.<beats>` | A jump of so many beats, back below zero: `deck1.jump.-8`, `deck1.jump.16`. |
+| `deckN.loop.<beats>` | A loop of so many beats: `deck1.loop.0.25`, `deck1.loop.8`. |
+| `deckN.roll.<beats>` | A loop roll of so many beats while held: `deck1.roll.0.5`. |
+| `deckN.key.<semitones>` | The key moved so many semitones: `deck1.key.+2`, `deck1.key.-1`. |
+| `deckN.sample<n>.velocity` | Sample `n` (1 to 16) played as hard as its pad is hit. |
+| `mode.<group>.<mode>` | A key choosing a mode of one of the profile's groups. See [Modes](#modes). |
+| `shift` | The key that turns the other controls into their second layer while held. |
+| `shift.<name>` | A named shift (`shift.left`, one per side, say): a shift too, for the controls with `"shift": "<name>"`. |
+
+`N` is the deck: 1 to 4 for decks A to D.
+
+## Modes
+
+A group of controls that send the same messages on each page, such as the pads of a side, drives other actions in each mode. List the group's modes, the first being where it begins, and the keys that choose them; then give each control a `when` per mode:
+
+```json
+"modes": [{
+  "group": "padsA",
+  "modes": ["hotcue", "roll"],
+  "select": [
+    { "control": { "kind": "note", "channel": 4, "number": 0 }, "mode": "hotcue", "light": { "off": 1 } },
+    { "control": { "kind": "note", "channel": 4, "number": 13 }, "mode": "roll", "light": { "off": 1 } }
+  ]
+}],
+"controls": [
+  { "control": { "kind": "note", "channel": 4, "number": 20 }, "target": "deck1.hotcue1", "when": { "group": "padsA", "mode": "hotcue" } },
+  { "control": { "kind": "note", "channel": 4, "number": 20 }, "target": "deck1.roll1", "when": { "group": "padsA", "mode": "roll" } }
+]
+```
+
+| `select` field | |
+| --- | --- |
+| `control` | The mode key. |
+| `mode` | The mode it chooses. |
+| `shift` | Chosen while shift is held (or a named shift). With `held`, a mode under shift is a "supershift". |
+| `light` | Its values: it lights `on` while its mode is the one in use. |
+| `held` | The mode only while the key is held: let go, the group is back in the mode before. |
+| `once` | The mode for one action of the group, which then goes back to its first mode. |
+
+A key flipping between two modes is written as two controls aimed at `mode.<group>.<other mode>`, each with a `when` on one of the modes. A key's release is read in the modes of its press, so the release does not flip it back.
+
+`when` works the same way on lights, meters, outputs and displays.
+
+## Lights
+
+A light shows the state of its action. Most actions are `on` or `off`. Some have states of their own:
+
+| Action | States |
+| --- | --- |
+| Most keys | `on`, `off` |
+| Sampler pads, load keys | `off` (empty), `loaded`, `playing` |
+| The cue key | `on` (at the cue point), `paused` (stopped elsewhere), `off` |
+| Any key, while held | `pressed`, if the light names it. Let go, `off` if its action has no state of its own. |
+
+The values go beside the states. A value is a number, `{ "blink": [a, b], "ms": n }` for two values in turn, each for `ms` milliseconds, or a whole message (`[176, 74, 12]`) for the models that address their lights otherwise than by a value on the control's own note:
+
+```json
+"light": { "on": 127, "off": 1, "loaded": 56, "playing": { "blink": [9, 0], "ms": 250 } }
+```
+
+A state the light does not name shows as `on`, except `off`. A light with no values sends 127 and 0. A light given by a number goes out as a note or a control change on the control itself.
+
+The `lights` list holds lights that are not the control of their action, such as an LED beside a key, or a light for one of the actions of the kind *light* (`deck1.beat`, `deck1.clip`, `main.clip`…):
+
+| Field | |
+| --- | --- |
+| `target` | The action whose state it shows. |
+| `control` | The light's note or control change. |
+| `when` | Only in that mode. |
+| `palette` | Values by colour, as for a control. |
+| `on`, `off`, … | Its values by state, beside the other fields. |
+
+```json
+"lights": [{ "target": "deck1.play", "control": { "kind": "note", "channel": 0, "number": 71 }, "on": 100 }]
+```
+
+## Meters
+
+A meter shows a level: `source` is `deck1` to `deck4`, `main`, `main.left` or `main.right`. The level is linear, from silence to 1 at full scale, raised to `curve` (default 1) before it is shown. It goes on one control, or on LEDs one by one.
+
+On one control:
+
+| Field | |
+| --- | --- |
+| `control` | The control whose value shows the level. |
+| `min`, `max` | The values at silence and at full scale. Default 0 and 127. |
+| `steps` | In place of `min` and `max`: the value at silence, then at each equal share of the level. |
+| `clip` | The value shown for a second after the level reached full scale. |
+
+```json
+{ "source": "deck1", "control": { "kind": "controlChange", "channel": 0, "number": 2 }, "max": 117, "clip": 119 }
+```
+
+On LEDs, each LED lights once the level, past `curve`, reaches its `from` (0 to 1). Its values `on` and `off` are a light's (127 and 0 when left out), or whole messages; it shows its `clip` value, if it names one, for a second after the level reached full scale. Only the LEDs that change are sent:
+
+```json
+{ "source": "deck1", "leds": [
+  { "control": { "kind": "controlChange", "channel": 0, "number": 83 }, "from": 0.065, "on": 1 },
+  { "control": { "kind": "note", "channel": 0, "number": 10 }, "from": 0.331, "on": [176, 80, 10], "off": [176, 81, 10] },
+  { "control": { "kind": "controlChange", "channel": 0, "number": 85 }, "from": 1, "on": 1, "clip": 1 }
+] }
+```
+
+When the controller is closed, its meters show silence. A peak LED of its own is better written as a light of `deck1.clip` or `main.clip`.
+
+<Aside type="tip" title="From a Mixxx mapping">
+Mixxx's `vu_meter` is on a log scale: its value *t* is the level (10<sup>t</sup> − 1) / 9, which a `curve` of 0.45 (times the script's own) follows closely.
+</Aside>
+
+## Outputs
+
+An output shows a value from 0 to 1 on a control, from `min` (default 0) to `max` (default 127):
+
+| `source` | |
+| --- | --- |
+| A fader's action | Its setting: `deck1.fx.mix`, `deck1.eq.low`, `mixer.crossfader`… |
+| `deckN.position` | Where the deck is in its track. |
+| `deckN.turn` | Where the record is in its turn, at 33⅓: the dot going round a jog wheel. |
+
+```json
+{ "source": "deck1.turn", "control": { "kind": "note", "channel": 0, "number": 6 }, "max": 96 }
+```
+
+## Displays
+
+A display writes a number on the controller's screen with a message of its own, SysEx mostly:
+
+| Field | |
+| --- | --- |
+| `source` | `deckN.bpm`; `deckN.elapsed`, `deckN.remaining`, `deckN.duration` in seconds; `deckN.tempo`, the tempo change, and `deckN.tempoRange`, in percent. |
+| `message` | The message's bytes, with `"value"` where the number goes. |
+| `scale`, `offset` | The number sent is the value times `scale`, plus `offset`, rounded. Default 1 and 0. |
+| `nibbles` | The number in that many bytes of four bits (1 to 16), the most significant first, two's complement below zero. Without it, one byte from 0 to 127. |
+| `sign` | Two values, such as `[8, 7]`: the first nibble for a number at or above zero, and below it. |
+| `when` | Only in that mode. |
+
+```json
+{ "source": "deck1.bpm", "message": [240, 0, 32, 127, 1, 1, "value", 247], "scale": 100, "nibbles": 6 }
+```
+
+At 124.37 BPM this sends `F0 00 20 7F 01 01 00 00 03 00 09 05 F7`: 12437 in six nibbles. A number is sent again only when its message changes.
+
+## The files beside the profiles
+
+The folder of the shipped profiles holds three more files, which Prisme's tests keep in step:
+
+| File | |
+| --- | --- |
+| `targets.json` | Every action of the app (`frontend/src/app/core/control/controls.ts`): its id, group, label and kind. |
+| `profile.schema.json` | The [schema](#the-schema), made from the types Prisme reads and `targets.json`. |
+| `index.json` | Of each profile, the digest of its text, its revision (raised at each change) and the version of the format it was written in. Installed copies read it to know what to fetch. |
+
+After adding or changing a profile:
+
+```sh
+cd frontend
+PRISME_WRITE_TARGETS=1 pnpm exec ng test --watch=false   # writes targets.json
+cd ..
+PRISME_WRITE_PROFILES=1 cargo test -p prisme-desktop controller_profiles   # writes index.json and the schema
+```
+
+A profile changed or added then gets a later revision in the index. The frontend's tests (`profiles.spec.ts`) also check every profile: that every action exists, that only encoders drive actions of the kind *encoder*, that mode keys choose modes their group has, and that meters and outputs show what the app has.
+
+The format has a version (2 today). A profile using what an older Prisme does not read is published with the newer version, and that Prisme keeps its own copy.
+
+### From a Mixxx mapping
+
+`tools/controllers/mixxx_profile.py` converts a Mixxx mapping into a profile:
+
+```sh
+python tools/controllers/mixxx_profile.py <mapping.midi.xml> [<profile.json>]
+```
+
+It carries over the plain controls, the controls the mapping's script names after what they do (`playButton`, `eqKnob[1]`…), and the lights of its outputs. What only the script knows (a second use under shift, lights it drives itself, messages it sends at start) is listed as left out, to be completed by hand.

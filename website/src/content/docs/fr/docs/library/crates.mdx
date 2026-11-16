@@ -1,0 +1,145 @@
+---
+title: Crates, liste de préparation et historique
+description: Regrouper des morceaux dans des crates et des crates intelligentes, préparer vos prochains morceaux, retrouver ce que vous avez joué, et repérer les doublons.
+sidebar:
+  order: 3
+---
+
+import { Steps, Aside } from '@astrojs/starlight/components';
+
+Les dossiers, c’est la façon dont vos fichiers sont rangés ; les crates, c’est la façon dont vous
+y fouillez pour un set. Une crate ne fait que pointer vers des morceaux : ajouter un morceau à
+une crate, l’en retirer ou supprimer la crate ne déplace ni ne supprime jamais aucun fichier. Le
+même morceau peut se trouver dans autant de crates que vous voulez.
+
+## Crates
+
+<Steps>
+
+1. Dans le panneau latéral de la bibliothèque, cliquez sur **+** à côté de **Crates**
+   (**Nouvelle crate**).
+
+2. Tapez un nom et appuyez sur <kbd>Enter</kbd> (<kbd>Esc</kbd> pour abandonner). La nouvelle
+   crate s’ouvre, vide.
+
+3. Ajoutez-y des morceaux, au choix :
+   - glissez des morceaux depuis n’importe quelle liste sur la crate ;
+   - faites un clic droit sur un morceau, **Ajouter à une crate**, puis choisissez la crate ;
+   - sélectionnez plusieurs morceaux et cliquez sur **Crate** dans la barre en bas de la liste.
+
+</Steps>
+
+Le nombre à côté de chaque crate indique combien de morceaux elle contient.
+
+| Pour | Faites |
+| --- | --- |
+| Renommer une crate | Double-cliquez dessus, tapez, <kbd>Enter</kbd> |
+| Retirer des morceaux | Ouvrez la crate, sélectionnez-les, appuyez sur <kbd>Suppr</kbd> ou faites un clic droit › **Retirer de la crate** |
+| Supprimer une crate | Cliquez sur le **×** au bout de sa ligne, puis sur **Supprimer** pour confirmer. Ses morceaux restent où ils sont |
+
+Les morceaux d’une crate peuvent venir de n’importe quel dossier. Les crates importées depuis
+[Serato ou rekordbox](/fr/docs/library/import/) sont des crates ordinaires, modifiables comme
+les vôtres.
+
+## Crates intelligentes
+
+Une crate intelligente se remplit toute seule : vous lui donnez des règles, et elle contient
+chaque morceau analysé de la bibliothèque qui les respecte, aujourd’hui comme au fil de la
+musique que vous ajoutez.
+
+<Steps>
+
+1. Cliquez sur **+ Intelligente** à côté de **Crates**.
+
+2. Donnez-lui un **Nom**.
+
+3. Choisissez **Morceaux qui respectent** **toutes ces règles** ou **au moins l’une de ces
+   règles**.
+
+4. Réglez chaque règle : choisissez ce qu’elle regarde, puis sa valeur. **Ajouter une règle**
+   en ajoute une autre, le **×** au bout d’une règle la retire.
+
+5. Cliquez sur **Créer**.
+
+</Steps>
+
+| Règle sur | Correspond quand | Exemple |
+| --- | --- | --- |
+| **Genre**, **Artiste**, **Titre**, **Album**, **Commentaire**, **Nom du fichier** | Le tag **contient** le texte, majuscules et minuscules confondues | **Genre** contient `house` trouve aussi *Deep House* et *Tech House* |
+| BPM | Le tempo va **de** une valeur **à** une autre, les deux comprises | de `122` à `126` |
+| **Année** | Le tag d’année va **de** une année **à** une autre, les deux comprises | de `1990` à `1999` |
+| **Tonalité** | La tonalité **est parmi** les codes Camelot que vous listez, séparés par des espaces ou des virgules | `8A 9A 8B` |
+
+Laissez **de** ou **à** vide pour ne pas fixer de limite de ce côté : un BPM de `140` sans rien
+après, c’est tout ce qui est à 140 BPM et au-dessus.
+
+Pour changer les règles ou le nom d’une crate intelligente, double-cliquez dessus. La crate
+s’affiche avec une icône d’entonnoir, et vous ne pouvez ni y déposer de morceaux, ni en retirer :
+changez plutôt ses règles.
+
+<Aside type="note">
+  Les règles de BPM et de tonalité utilisent le tempo et la tonalité tels que vous les avez
+  corrigés, si vous les avez corrigés (voir
+  [Tempo, grille rythmique et tonalité](/fr/docs/library/analysis/)). Un morceau sans tempo ou
+  sans tonalité ne correspond jamais à ces règles, et un fichier qui n’a pas pu être décodé ne
+  correspond à aucune.
+</Aside>
+
+## La liste de préparation
+
+**Préparation**, en haut du panneau latéral, est votre file d’attente pour les prochaines minutes
+du set : les morceaux que vous comptez jouer, dans l’ordre où vous comptez les jouer.
+
+- **Ajouter des morceaux** : <kbd>Ctrl</kbd> <kbd>P</kbd> sur la sélection, glissez des morceaux
+  sur **Préparation**, clic droit › **Ajouter à la préparation**, ou **Préparation** dans la
+  barre d’une sélection multiple. Un morceau déjà dans la liste reste à sa place.
+- **Réordonner** : ouvrez la liste et glissez les lignes vers le haut ou le bas ; un trait
+  montre où elles vont atterrir. Déposez-les sous la dernière ligne pour les mettre à la fin.
+  Cela marche tant que la liste est triée par sa colonne `#`, du premier au dernier.
+- **Retirer** : <kbd>Suppr</kbd>, ou clic droit › **Retirer de la préparation**.
+
+Un morceau **quitte la liste de lui-même une fois joué 30 secondes** sur n’importe quel deck :
+la liste commence donc toujours par ce qui reste à venir. La liste est gardée quand vous quittez
+Prisme.
+
+L’[Auto DJ](/fr/docs/mixer/auto-dj/) joue cette liste tout seul, chaque morceau enchaîné au
+suivant.
+
+## Historique
+
+Chaque fois que vous lancez Prisme et jouez des morceaux, un nouveau set apparaît sous
+**Historique**, nommé d’après le jour et l’heure de son début (`sam. 10 oct., 21:30`), avec le
+nombre de morceaux joués.
+
+- Un morceau est noté une fois entendu **30 secondes** sur un deck, au moins à mi-vitesse : une
+  écoute rapide ou une erreur ne compte pas. Un morceau joué deux fois est noté deux fois.
+- Ouvrez un set pour voir ses morceaux dans l’ordre où vous les avez joués, avec les colonnes
+  habituelles.
+- **CSV**, sur la ligne d’un set, exporte sa tracklist : numéro, heure de début, deck, artiste,
+  titre, album, BPM, tonalité et fichier. Sous Windows, le fichier utilise les séparateurs de vos
+  paramètres régionaux, pour qu’Excel l’ouvre directement.
+- Le **×** sur la ligne d’un set, puis **Supprimer**, le retire de l’historique.
+
+Les morceaux de votre dernier set, s’il a commencé il y a moins de 12 heures, sont grisés dans
+toutes les listes de la bibliothèque : un moyen simple d’éviter de passer un morceau deux fois
+dans la soirée. Ils passent aussi en dernier quand vous triez selon ce qui enchaîne le mieux
+après un deck (voir
+[Parcourir et chercher](/fr/docs/library/browsing/#comparer-à-un-deck)).
+
+<Aside type="tip">
+  Enregistrer votre mix écrit aussi sa tracklist à côté de l’enregistrement, en texte et en
+  fichier CUE, à partir de cet historique. Voir
+  [Enregistrer un mix](/fr/docs/mixer/recording/).
+</Aside>
+
+## Doublons
+
+**Doublons**, sous **Préparation**, liste les morceaux qui semblent être le même titre, groupés
+les uns après les autres. Deux morceaux sont le même titre quand ils ont les mêmes tags d’artiste
+et de titre, ou, pour les morceaux qui n’ont pas les deux, le même nom de fichier ; la casse, les
+espaces et la ponctuation sont ignorés. Ainsi *Strobe* de *deadmau5* dans `strobe.mp3` et
+*strobe!* de *Deadmau5* dans `Strobe (copy).flac` sont groupés ensemble.
+
+Comparez leurs colonnes (BPM, lectures, note ; survolez une ligne pour voir son fichier) et
+gardez celui que vous voulez. Prisme ne supprime pas de fichiers : retirez vous-même les copies
+dans votre gestionnaire de fichiers. Seuls les morceaux analysés sont comparés.

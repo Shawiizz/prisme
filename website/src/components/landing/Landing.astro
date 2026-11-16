@@ -1,0 +1,309 @@
+---
+import { Image } from 'astro:assets';
+import '../../styles/fonts.css';
+import '../../styles/landing.css';
+import mark from '../../assets/logo-mark.svg';
+import decks from '../../assets/screens/decks.png';
+import fourDecks from '../../assets/screens/four-decks.png';
+import palette from '../../assets/screens/palette-crop.png';
+import phoneLandscape from '../../assets/screens/phone-landscape.png';
+import phonePortrait from '../../assets/screens/phone-portrait.png';
+import Waveform from './Waveform.astro';
+import Record from './Record.astro';
+import Stems from './Stems.astro';
+import { strings, type Lang } from '../../i18n/landing';
+import { latestRelease, REPO, RELEASES } from '../../lib/release';
+import { brands, controllerModels } from '../../lib/controllers';
+
+interface Props {
+	lang: Lang;
+}
+const { lang } = Astro.props;
+const s = strings[lang];
+const base = lang === 'en' ? '' : `/${lang}`;
+const docs = `${base}/docs/`;
+const other = lang === 'en' ? { href: '/fr/', label: 'FR', name: 'Français' } : { href: '/', label: 'EN', name: 'English' };
+const release = await latestRelease();
+const models = controllerModels();
+const makers = brands(models);
+const profileExample = `{
+  "name": "Pioneer DDJ-SB2",
+  "ports": ["DDJ-SB2"],
+  "controls": [
+    {"control": {"kind": "note", "channel": 0, "number": 11},
+     "target": "deck1.play"},
+    {"control": {"kind": "controlChange", "channel": 0, "number": 34},
+     "target": "deck1.jog", "encoding": "relativeOffset"}
+  ],
+  "meters": [
+    {"source": "deck1", "control": {"kind": "controlChange", "channel": 0, "number": 2},
+     "max": 117, "curve": 0.45, "clip": 119}
+  ]
+}`;
+---
+
+<!doctype html>
+<html lang={lang} dir="ltr">
+	<head>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		<title>{s.meta.title}</title>
+		<meta name="description" content={s.meta.description} />
+		<meta name="theme-color" content="#0a0b0d" />
+		<link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+		<link rel="canonical" href={new URL(Astro.url.pathname, Astro.site)} />
+		<link rel="alternate" hreflang="en" href={new URL('/', Astro.site)} />
+		<link rel="alternate" hreflang="fr" href={new URL('/fr/', Astro.site)} />
+		<meta property="og:type" content="website" />
+		<meta property="og:title" content={s.meta.title} />
+		<meta property="og:description" content={s.meta.description} />
+		<meta property="og:image" content={new URL(decks.src, Astro.site)} />
+		<meta name="twitter:card" content="summary_large_image" />
+	</head>
+	<body>
+		<header class="top">
+			<a class="brand" href={`${base}/`} aria-label="Prisme">
+				<img src={mark.src} alt="" width="26" height="23" />
+				<span class="word">prisme</span>
+			</a>
+			<nav aria-label="Main">
+				<a href="#features">{s.nav.features}</a>
+				<a href={docs}>{s.nav.docs}</a>
+				<a href="#download">{s.nav.download}</a>
+			</nav>
+			<div class="end">
+				<a class="lang" href={other.href} hreflang={other.href === '/' ? 'en' : 'fr'} title={other.name}>{other.label}</a>
+				<a class="icon" href={REPO} aria-label="GitHub">
+					<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"
+						><path
+							fill="currentColor"
+							d="M12 .3a12 12 0 0 0-3.8 23.4c.6.1.8-.3.8-.6v-2.2c-3.3.7-4-1.4-4-1.4-.6-1.4-1.4-1.8-1.4-1.8-1-.7.1-.7.1-.7 1.2.1 1.8 1.2 1.8 1.2 1 1.8 2.8 1.3 3.5 1 0-.8.4-1.3.7-1.6-2.7-.3-5.5-1.3-5.5-6 0-1.2.5-2.3 1.3-3.1-.2-.4-.6-1.6 0-3.2 0 0 1-.3 3.4 1.2a11.5 11.5 0 0 1 6 0C17.3 4.6 18.3 5 18.3 5c.7 1.6.2 2.8.1 3.2.8.8 1.3 1.9 1.3 3.2 0 4.6-2.8 5.6-5.5 5.9.4.4.8 1.1.8 2.2v3.3c0 .3.2.7.8.6A12 12 0 0 0 12 .3"
+						></path></svg
+					>
+				</a>
+				<a class="btn btn-light btn-sm" href="#download">{s.nav.download}</a>
+			</div>
+		</header>
+
+		<main>
+			<section class="hero">
+				<p class="badge">{s.hero.badge}</p>
+				<h1>{s.hero.title[0]}<br /><span class="spectrum-text">{s.hero.title[1]}</span></h1>
+				<p class="lead">{s.hero.lead}</p>
+				<div class="actions">
+					<a class="btn btn-light" href="#download" data-download>{s.hero.download}</a>
+					<a class="btn" href={docs}>{s.hero.docs}</a>
+				</div>
+				{release.version && <p class="version">{s.hero.version} {release.version}</p>}
+			</section>
+
+			<Waveform />
+
+			<section class="screen">
+				<div class="frame">
+					<Image src={decks} alt={s.shot} widths={[800, 1200, 1697]} sizes="(max-width: 1240px) 100vw, 1200px" loading="eager" />
+				</div>
+			</section>
+
+			<section class="feature" id="features" data-reveal>
+				<div class="text">
+					<p class="kicker">{s.dvs.kicker}</p>
+					<h2>{s.dvs.title}</h2>
+					<p>{s.dvs.body}</p>
+					<ul class="ticks">{s.dvs.points.map((p) => <li>{p}</li>)}</ul>
+				</div>
+				<div class="visual"><Record /></div>
+			</section>
+
+			<section class="feature reverse" data-reveal>
+				<div class="text">
+					<p class="kicker">{s.stems.kicker}</p>
+					<h2>{s.stems.title}</h2>
+					<p>{s.stems.body}</p>
+				</div>
+				<div class="visual"><Stems labels={s.stems.lanes} /></div>
+			</section>
+
+			<section class="block" data-reveal>
+				<div class="head">
+					<p class="kicker">{s.perf.kicker}</p>
+					<h2>{s.perf.title}</h2>
+					<p>{s.perf.body}</p>
+				</div>
+				<ul class="tiles">
+					{
+						s.perf.items.map(([title, detail], i) => (
+							<li style={`--hue: ${(i * 30) % 360}`}>
+								<strong>{title}</strong>
+								<span>{detail}</span>
+							</li>
+						))
+					}
+				</ul>
+			</section>
+
+			<section class="wide" data-reveal>
+				<div class="head">
+					<h2>{s.four.title}</h2>
+					<p>{s.four.body}</p>
+				</div>
+				<div class="frame">
+					<Image src={fourDecks} alt={s.four.alt} widths={[800, 1200, 1697]} sizes="(max-width: 1240px) 100vw, 1200px" />
+				</div>
+			</section>
+
+			<section class="feature" data-reveal>
+				<div class="text">
+					<p class="kicker">{s.ctrl.kicker}</p>
+					<h2>{s.ctrl.title}</h2>
+					<p>{s.ctrl.body}</p>
+					<div class="numbers">
+						<p><strong>{models.length}</strong> {s.ctrl.count}</p>
+						<p><strong>{makers.length}</strong> {s.ctrl.brands}</p>
+					</div>
+					<ul class="ticks">{s.ctrl.points.map((p) => <li>{p}</li>)}</ul>
+				</div>
+				<div class="visual">
+					<pre class="code" aria-label="A controller profile"><code>{profileExample}</code></pre>
+					<p class="makers">{makers.join(' · ')}</p>
+				</div>
+			</section>
+
+			<section class="feature reverse phone" data-reveal>
+				<div class="text">
+					<p class="kicker">{s.phone.kicker}</p>
+					<h2>{s.phone.title}</h2>
+					<p>{s.phone.body}</p>
+				</div>
+				<div class="visual devices">
+					<div class="device landscape"><Image src={phoneLandscape} alt="" widths={[600, 915]} sizes="560px" /></div>
+					<div class="device portrait"><Image src={phonePortrait} alt="" widths={[206, 412]} sizes="160px" /></div>
+				</div>
+			</section>
+
+			<section class="feature library" data-reveal>
+				<div class="text">
+					<p class="kicker">{s.library.kicker}</p>
+					<h2>{s.library.title}</h2>
+					<p>{s.library.body}</p>
+					<p class="hint">{s.library.palette} <kbd>Ctrl</kbd> <kbd>K</kbd></p>
+				</div>
+				<div class="visual">
+					<div class="frame small">
+						<Image src={palette} alt={s.library.alt} widths={[620, 940]} sizes="(max-width: 900px) 100vw, 510px" />
+					</div>
+				</div>
+			</section>
+
+			<section class="block engine" data-reveal>
+				<div class="head">
+					<p class="kicker">{s.engine.kicker}</p>
+					<h2>{s.engine.title}</h2>
+				</div>
+				<ul class="cards">
+					{
+						s.engine.items.map(([title, body]) => (
+							<li>
+								<h3>{title}</h3>
+								<p>{body}</p>
+							</li>
+						))
+					}
+				</ul>
+			</section>
+
+			<section class="download" id="download" data-reveal>
+				<img class="mark" src={mark.src} alt="" width="72" height="64" />
+				<h2>{s.dl.title}</h2>
+				<p>{s.dl.body}{release.version && <> · {s.hero.version} {release.version}</>}</p>
+				<ul class="systems">
+					<li data-os="windows">
+						<a href={release.windows}>
+							<strong>Windows</strong><span>{s.dl.windows}</span><em>.exe</em>
+						</a>
+					</li>
+					<li data-os="macos">
+						<a href={release.macos}>
+							<strong>macOS</strong><span>{s.dl.macos}</span><em>.dmg</em>
+						</a>
+					</li>
+					<li data-os="linux">
+						<a href={release.deb}>
+							<strong>Linux</strong><span>{s.dl.linux}</span><em>.deb</em>
+						</a>
+						<a class="alt" href={release.appImage}>AppImage</a>
+					</li>
+					<li data-os="android">
+						<a href={`${base}/docs/start/install/`}>
+							<strong>Android</strong><span>{s.dl.android}</span><em>{s.dl.androidNote}</em>
+						</a>
+					</li>
+				</ul>
+				<p class="more"><a href={RELEASES}>{s.dl.all}</a> · <a href={REPO}>{s.dl.source}</a></p>
+			</section>
+		</main>
+
+		<footer class="foot">
+			<div class="cols">
+				<div class="about">
+					<a class="brand" href={`${base}/`}>
+						<img src={mark.src} alt="" width="22" height="20" />
+						<span class="word">prisme</span>
+					</a>
+					<p>{s.footer.tagline}</p>
+				</div>
+				<div>
+					<h3>{s.footer.docs}</h3>
+					<a href={`${base}/docs/start/install/`}>{s.footer.start}</a>
+					<a href={`${base}/docs/dvs/`}>{s.footer.dvs}</a>
+					<a href={`${base}/docs/controllers/`}>{s.footer.controllers}</a>
+				</div>
+				<div>
+					<h3>{s.footer.project}</h3>
+					<a href={REPO}>GitHub</a>
+					<a href={RELEASES}>{s.footer.releases}</a>
+					<a href={`${REPO}/issues`}>{s.footer.issues}</a>
+				</div>
+			</div>
+			<p class="fine">{s.footer.license} · {s.footer.credit}</p>
+		</footer>
+
+		<script>
+			// sections rise into view once, as they are reached; without script they are simply there
+			document.documentElement.classList.add('reveal');
+			const seen = new IntersectionObserver(
+				(entries) => {
+					for (const entry of entries) {
+						if (!entry.isIntersecting) continue;
+						entry.target.classList.add('shown');
+						seen.unobserve(entry.target);
+					}
+				},
+				{ rootMargin: '0px 0px -12% 0px' },
+			);
+			document.querySelectorAll('[data-reveal]').forEach((section) => seen.observe(section));
+
+			// the download button of the hero takes the visitor's system when it is known
+			const platform = (navigator as Navigator & { userAgentData?: { platform: string } }).userAgentData?.platform ?? navigator.userAgent;
+			const os = /android/i.test(platform)
+				? 'android'
+				: /win/i.test(platform)
+					? 'windows'
+					: /mac/i.test(platform)
+						? 'macos'
+						: /linux/i.test(platform)
+							? 'linux'
+							: null;
+			const card = os && document.querySelector<HTMLLIElement>(`.systems [data-os="${os}"]`);
+			if (card) {
+				card.classList.add('yours');
+				const link = card.querySelector('a');
+				const hero = document.querySelector<HTMLAnchorElement>('[data-download]');
+				if (link && hero && os !== 'android') {
+					hero.href = link.href;
+					hero.textContent += ` · ${card.querySelector('strong')?.textContent}`;
+				}
+			}
+		</script>
+	</body>
+</html>

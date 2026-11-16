@@ -1,0 +1,205 @@
+---
+title: Dépannage
+description: Décrochages, interface audio perdue, plantages, analyse ou séparation lentes, contrôleur non reconnu, et les logs à envoyer.
+sidebar:
+  order: 1
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+Prisme est conçu pour que la musique ne s’arrête pas : l’audio redémarre tout seul après la
+perte d’une interface ou une panne du moteur, et les decks reviennent après un plantage.
+Quand quelque chose cloche malgré tout, la barre de titre le dit en général en premier. Cette
+page passe en revue ce qu’elle peut afficher, et ce qu’il faut faire. Pour les problèmes de
+disques timecode, voir [Dépannage du timecode](/fr/docs/dvs/troubleshooting/).
+
+## La barre de titre
+
+À gauche de la barre de titre, une rangée de pastilles indique l’état de l’audio :
+
+| Pastille | Signification |
+| --- | --- |
+| Le pilote et le périphérique, par exemple **ASIO · UMC404HD** | L’audio tourne sur ce périphérique. |
+| **Buffer** avec une durée en ms | La durée d’une période audio, au rythme où le pilote appelle le moteur. |
+| **Décrochages** avec un nombre | Les périodes traitées trop tard depuis le démarrage de l’audio : chacune est un clic audible. Survolez-la pour voir la période la plus lente. |
+| **platine simulée**, ou **4 entrées** | D’où sont lues les platines. |
+| **interface audio perdue, reconnexion…** | L’interface a disparu ; Prisme rétablit l’audio. |
+| **audio arrêté** | Aucun audio ne tourne. |
+| **erreur du moteur audio** | Le moteur est tombé en panne et n’a pas pu redémarrer. |
+| **bibliothèque non enregistrée** | La bibliothèque n’a pas pu être ouverte : les cues, corrections et crates modifiés maintenant seront perdus en quittant. |
+| **Table externe : 4 sorties nécessaires** | Chaque deck a besoin de sa propre paire de sorties, et le périphérique ne les a pas. |
+
+![La barre de titre, avec le pilote et le périphérique, la durée du buffer et le compteur de décrochages à gauche](../../../../../assets/screens/decks.png)
+
+## Décrochages audio
+
+Des clics, des craquements ou de courts trous dans le son, et le compteur **Décrochages** qui
+grimpe. Chaque décrochage est une période que l’ordinateur n’a pas terminée à temps.
+
+- **Augmentez le buffer.** Dans **Réglages**, **Audio**, **Buffer**, prenez la taille
+  au-dessus, appuyez sur **Appliquer**, et jouez un moment. Survolez la pastille
+  **Décrochages** : elle affiche la période la plus lente ; si celle-ci approche la durée
+  d’une période, le buffer est trop petit pour cet ordinateur.
+- **Prenez le pilote le plus rapide.** Sur Windows, ASIO tient en général un buffer plus
+  petit que WASAPI. Sur Linux, JACK (PipeWire compris) plutôt qu’ALSA à travers le serveur de
+  son.
+- **Laissez le processeur au son.** Gardez **Mettre l’analyse de la bibliothèque en pause
+  quand un deck joue** activé (**Réglages**, **Bibliothèque**). Séparer des stems sur le
+  processeur seul, sans puce graphique pour le faire, en prend beaucoup : séparez avant le
+  set plutôt que pendant.
+- **Branchez le chargeur.** Sur batterie, un portable peut brider son processeur. Choisissez
+  le mode d’alimentation hautes performances de votre système.
+- **Fermez ce dont vous n’avez pas besoin.** Navigateurs, visioconférences et autres
+  logiciels audio se disputent le processeur, et certains la carte son.
+- **Branchez l’interface directement sur l’ordinateur**, plutôt que sur un hub.
+
+<Aside type="tip">
+Le compteur repart de zéro à chaque redémarrage de l’audio : après un changement, vous voyez
+tout de suite s’il a servi.
+</Aside>
+
+## L’interface audio est perdue
+
+Quand l’interface est débranchée, éteinte, ou que son pilote se réinitialise, la barre de
+titre affiche **interface audio perdue, reconnexion…**. Prisme réessaie aussitôt et plusieurs
+fois dans la seconde qui suit, puis toutes les deux secondes. Dès que l’interface est de
+retour, l’audio redémarre avec les decks là où ils en étaient, en lecture s’ils jouaient.
+
+Si l’interface choisie est absente au démarrage de Prisme, il joue en attendant sur le
+périphérique par défaut du système, garde votre choix dans les réglages, et passe sur votre
+interface dès qu’elle apparaît.
+
+## L’erreur du moteur audio
+
+**erreur du moteur audio** signifie que le moteur audio est tombé en panne. Prisme le
+redémarre tout seul, jusqu’à trois fois par minute ; au-delà, la panne ne ferait que revenir,
+il reste donc silencieux. Ouvrez **Réglages**, **Audio**, ne changez rien et appliquez à
+nouveau, ou choisissez un autre buffer ou un autre pilote et appuyez sur **Appliquer**.
+Enregistrez ensuite un rapport de diagnostic (voir plus bas) et envoyez-le : cela ne devrait
+pas arriver.
+
+## Pas de son, ou audio arrêté
+
+- **audio arrêté** : l’audio n’a pas pu démarrer. Ouvrez **Réglages**, **Audio**, choisissez
+  la **Sortie** (ou un autre **Type de pilote**) et appuyez sur **Appliquer**. En cas
+  d’échec, la raison s’affiche en bas de la page.
+- L’audio tourne mais on n’entend rien : vérifiez **Mixage** dans **Réglages**, **Mixage**.
+  Avec **Table de mixage externe**, le deck A joue sur les sorties 1-2 et le deck B sur les
+  3-4, vers une table de mixage ; si rien n’est branché sur ces sorties, vous n’entendez rien.
+  Avec **Table de mixage logicielle**, le master est sur les sorties 1-2.
+- Sur Android, si Prisme n’a pas été autorisé à écouter les entrées, les réglages indiquent
+  **Autorisez Prisme à écouter les entrées de la carte son, puis appliquez à nouveau**.
+
+## Après un plantage
+
+Pendant qu’il tourne, Prisme note toutes les quelques secondes le morceau que contient
+chaque deck et l’endroit où il en est. S’il ne s’est pas fermé normalement, le démarrage
+suivant recharge ces morceaux sur leurs decks, à la position qu’ils avaient, à l’arrêt. Vos
+réglages, cues, crates et votre bibliothèque sont enregistrés au fur et à mesure et ne sont
+pas touchés.
+
+## La bibliothèque n’est pas enregistrée
+
+**bibliothèque non enregistrée** dans la barre de titre signifie que la base de données de la
+bibliothèque n’a pas pu être ouverte : Prisme travaille alors en mémoire, et les cues,
+corrections de grille et crates que vous modifiez maintenant sont perdus quand vous quittez.
+Quittez et relancez Prisme ; si cela persiste, vérifiez que le dossier de données (voir
+[Où Prisme range ses fichiers](#où-prisme-range-ses-fichiers)) est accessible en écriture et
+que le disque n’est pas plein, et envoyez un rapport de diagnostic.
+
+## L’analyse est lente
+
+La bibliothèque affiche **Analyse** avec un compteur pendant qu’elle calcule tempo, grille
+rythmique et tonalité en arrière-plan. Avec **Mettre l’analyse de la bibliothèque en pause
+quand un deck joue** activé, elle indique **Analyse en pause** quand un deck joue et
+**Reprend quand les decks s’arrêtent**. C’est voulu, pour garder le processeur pour le son.
+Un morceau que vous chargez est analysé au chargement, quelle que soit la file d’attente.
+
+Pour laisser l’analyse tourner, arrêtez les decks, ou désactivez ce réglage quand vous ne
+jouez pas. Voir [Analyse](/fr/docs/library/analysis/).
+
+## La séparation des stems est lente
+
+La bibliothèque affiche **Séparation** avec un compteur pendant que les stems se séparent ;
+survolez-le pour voir qui fait le travail, une puce graphique ou le processeur.
+
+- **Sur une puce graphique**, un morceau prend quelques secondes. Vérifiez que
+  **Accélération matérielle** est activé dans **Réglages**, **Bibliothèque**. S’il indique
+  **Pas de puce graphique adaptée ici : le processeur sépare.**, l’ordinateur n’en a aucune
+  que Prisme puisse utiliser.
+- **Sur le processeur seul**, un morceau prend plusieurs minutes. Passez **Séparation** sur
+  **Rapide** : un seul petit modèle, plusieurs fois plus rapide. Ses stems sont moins propres.
+- **Batterie et basse** prennent deux à trois fois plus de temps que les voix seules.
+- Séparez avant le set : **Séparer toute la bibliothèque**, ou mettez les morceaux en
+  Préparation avec **Séparer les morceaux dès qu’ils sont chargés ou mis en préparation**
+  activé.
+
+Voir [Stems](/fr/docs/sound/stems/).
+
+## Un contrôleur n’est pas reconnu
+
+<Aside type="note">
+Un contrôleur n’est utilisé qu’une fois activé, une seule fois, dans **Réglages**,
+**Contrôleurs MIDI**. Ensuite, il est ouvert à chaque démarrage, et de nouveau tout seul s’il
+est débranché puis rebranché.
+</Aside>
+
+- **Il n’est pas dans la liste** : Prisme indique **Aucun contrôleur MIDI branché.**
+  Branchez-le, allumez-le s’il a un interrupteur, et appuyez sur **Actualiser**. Essayez un
+  autre port USB ou un autre câble, et branchez-le directement sur l’ordinateur plutôt que
+  sur un hub.
+- **Il est dans la liste mais ne fait rien** : activez son interrupteur dans la liste.
+- **Un autre logiciel le monopolise** : sur Windows, un port MIDI ne peut être ouvert que par
+  un logiciel à la fois. Quittez les autres logiciels DJ et outils MIDI, puis désactivez et
+  réactivez le contrôleur dans la liste.
+- **Il n’est pas mappé** : un modèle que Prisme connaît indique **Reconnu comme…** sous son
+  nom. Pour un autre, il faut apprendre ses commandes : voir
+  [MIDI learn](/fr/docs/controllers/learn/). Prisme récupère les nouveaux profils une fois par
+  jour ; **Chercher des mises à jour** les récupère tout de suite.
+- **Certaines commandes font autre chose que prévu** : les profils marqués **Converti depuis
+  le mapping de Mixxx, pas encore essayé sur ce contrôleur** peuvent demander une correction.
+  Réapprenez la commande, et voir [Profils](/fr/docs/controllers/profiles/) pour partager la
+  correction.
+
+## Les logs et le rapport de diagnostic
+
+Prisme écrit un log, un fichier par jour, et garde les sept derniers jours. Pour l’envoyer
+avec ce qui l’entoure, passez par le rapport de diagnostic :
+
+1. Ouvrez **Réglages**, **À propos**.
+2. Appuyez sur **Enregistrer un rapport de diagnostic…** et choisissez où l’enregistrer. Le
+   bouton indique alors **Rapport enregistré**.
+
+Le rapport est un simple fichier texte qui contient la version de Prisme et de votre système,
+les réglages audio enregistrés et ceux en cours, les périphériques audio et leur état
+(décrochages, période la plus lente, pertes d’interface), les contrôleurs utilisés, et les
+400 dernières lignes du log. Relisez-le avant de l’envoyer : le log cite les fichiers que
+vous avez joués.
+
+Les fichiers de log eux-mêmes se trouvent dans :
+
+| Système | Dossier des logs |
+| --- | --- |
+| Windows | `%LOCALAPPDATA%\com.shawiizz.prisme\logs` |
+| macOS | `~/Library/Logs/com.shawiizz.prisme` |
+| Linux | `~/.local/share/com.shawiizz.prisme/logs` |
+
+## Où Prisme range ses fichiers
+
+Vos réglages (`preferences.json`), vos contrôleurs et ce que vous avez assigné
+(`controllers.json`), la bibliothèque (`library.sqlite`) et vos propres profils de
+contrôleurs (le dossier `controllers`) sont dans le dossier de données :
+
+| Système | Dossier de données |
+| --- | --- |
+| Windows | `%APPDATA%\com.shawiizz.prisme` |
+| macOS | `~/Library/Application Support/com.shawiizz.prisme` |
+| Linux | `~/.local/share/com.shawiizz.prisme` |
+
+Les stems séparés n’y sont pas : ils sont à côté de chaque morceau, dans un dossier `.prisme`.
+
+## Signaler un problème
+
+Ouvrez une issue sur [GitHub](https://github.com/Shawiizz/prisme/issues) en décrivant ce que
+vous avez fait, ce que vous attendiez, ce qui s’est passé, avec le rapport de diagnostic en
+pièce jointe.

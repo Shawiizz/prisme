@@ -1,0 +1,116 @@
+---
+title: Contrôle vinyle
+description: Jouer vos morceaux numériques depuis des platines avec des disques timecode, et ce qu’il vous faut pour cela.
+sidebar:
+  order: 1
+---
+
+import { Aside, LinkCard, CardGrid } from '@astrojs/starlight/components';
+
+Le contrôle vinyle (DVS, pour digital vinyl system) permet à une platine de piloter un deck.
+Au lieu de musique, le disque posé sur le plateau porte un timecode : un son continu dans
+lequel est gravée une suite de bits. Prisme écoute ce signal par votre carte son et en
+déduit, de nombreuses fois par seconde, à quelle vitesse tourne le disque, dans quel sens,
+et où se trouve le diamant. Le deck joue alors votre morceau de la même façon : poussez le
+plateau et le morceau avance d’autant, scratchez et il scratche, posez le diamant plus loin
+et le morceau saute à cet endroit.
+
+Prisme a d’abord été conçu pour ça. Son décodeur de timecode est écrit de zéro et tourne
+dans le moteur audio, si bien que le disque et le son restent ensemble.
+
+## Ce que lit Prisme
+
+Prisme lit le timecode Serato :
+
+| Support de contrôle | Nom dans Prisme |
+| --- | --- |
+| Serato Control Vinyl, face A | **Serato CV02 side A** |
+| Serato Control Vinyl, face B | **Serato CV02 side B** |
+| CD de contrôle Serato, sur une platine CD | **Serato control CD** |
+
+Les autres timecodes (Traktor, rekordbox, celui de Mixxx) ne sont pas pris en charge. Un
+seul format est choisi pour toutes les platines à la fois : tous les disques que vous jouez
+doivent donc porter le même, sur la même face.
+
+La partie utilisable de chaque support, à 33 tours, avant que le diamant n’atteigne la fin
+du timecode :
+
+| Support | Durée utilisable à 33 tours |
+| --- | --- |
+| CV02 face A | environ 10 minutes |
+| CV02 face B | environ 15 minutes |
+| CD de contrôle | environ 15 minutes |
+
+Un deck peut aussi traiter son disque comme un 45 tours : le morceau s’étale alors sur une
+plus grande partie du sillon, et une face en contient moins (environ 7 minutes sur la
+face A). Voir [Configurer le vinyle timecode](/fr/docs/dvs/setup/#vitesse-du-disque-33-ou-45).
+
+## Ce qu’il permet
+
+- **Mode absolu** (ABS) : la position du diamant est la position dans le morceau. Diamant
+  posé n’importe où, cues repérés à l’œil sur le disque, tout se passe comme avec un vrai
+  vinyle.
+- **Mode relatif** (REL) : le disque ne pilote que la vitesse. Hot cues, boucles, sauts de
+  temps et sync fonctionnent par-dessus.
+- **INT** : le deck joue tout seul, comme sans platines.
+- **THRU** : le deck joue ce qui arrive sur ses entrées, un vrai disque ou une platine CD.
+- Backspins, scratchs et sauts de diamant sont suivis ; quand le diamant atteint la fin du
+  timecode pendant que le morceau joue, le deck continue tout seul au lieu de s’arrêter.
+
+Les modes sont expliqués dans [Modes absolu et relatif](/fr/docs/dvs/modes/).
+
+## Ce qu’il vous faut
+
+**Des platines vinyle ou des platines CD.** N’importe quelle platine avec une cellule en bon
+état, ou une platine CD pour le CD de contrôle.
+
+**Des disques timecode.** Serato Control Vinyl (CV02, face A ou B), ou le CD de contrôle
+Serato.
+
+**Une carte son avec une entrée stéréo par platine.** Chaque platine prend une paire de
+canaux d’entrée : les entrées 1-2 pour le deck A, 3-4 pour le deck B. Une carte à quatre
+canaux d’entrée sert donc deux platines, et une carte à huit en sert quatre.
+
+Une platine sort un signal faible, de niveau phono. L’entrée doit le remonter : les
+interfaces DJ faites pour le DVS ont des entrées phono, ou un sélecteur par entrée à mettre
+sur phono. Une carte qui n’a que des entrées ligne demande un préampli phono entre la
+platine et la carte. Une platine CD qui lit le CD de contrôle sort un signal de niveau ligne
+et se branche sur une entrée ligne. Plus de détails dans
+[Configurer le vinyle timecode](/fr/docs/dvs/setup/#phono-ou-ligne).
+
+**Des sorties pour le mix.** Soit chaque deck sur sa propre paire de sorties, vers une table
+de mixage (sorties 1-2 pour le deck A, 3-4 pour le deck B), soit la table de mixage
+logicielle de Prisme avec le master sur les sorties 1-2 et votre casque sur les 3-4. Voir
+[Table de mixage](/fr/docs/mixer/mixer/).
+
+<Aside type="tip" title="Pas encore de platines ?">
+Activez **Platine simulée** dans **Réglages**, **Platines** : Prisme envoie une platine à
+lui dans le deck A, qui joue pendant quatre secondes puis scratche d’avant en arrière
+pendant deux, en boucle. Vous voyez ainsi comment les decks suivent un disque avant même
+d’avoir branché quoi que ce soit.
+</Aside>
+
+## Deux platines, quatre decks
+
+Avec quatre decks sur une interface prévue pour deux platines, le deck C partage la platine
+et les sorties du deck A, et le deck D celles du deck B. Le deck que vous mettez en REL ou
+ABS prend la platine ; l’autre lâche le disque et repasse en INT. Avec huit entrées, chacun
+des quatre decks a sa propre platine. Voir
+[Choisir les entrées](/fr/docs/dvs/setup/#choisir-les-entrées).
+
+## Sur un téléphone ou une tablette
+
+Sur Android, le contrôle vinyle passe par une carte son USB avec entrées, branchée sur le
+téléphone. Android demande si Prisme peut écouter les entrées la première fois qu’il en a
+besoin ; si vous refusez, Prisme ne peut pas lire le timecode tant que vous ne l’avez pas
+autorisé et que vous n’avez pas appliqué les réglages à nouveau. Voir
+[Prisme sur un téléphone](/fr/docs/interface/phone/).
+
+## Et ensuite
+
+<CardGrid>
+	<LinkCard title="Configurer le vinyle timecode" href="/fr/docs/dvs/setup/" description="Branchements, entrées, format de timecode, affichage du signal." />
+	<LinkCard title="Modes absolu et relatif" href="/fr/docs/dvs/modes/" description="Quel mode pour quoi, diamant posé, fin du disque." />
+	<LinkCard title="Dépannage du timecode" href="/fr/docs/dvs/troubleshooting/" description="Signal faible, mauvaise face, ronflement, sauts, latence." />
+	<LinkCard title="Réglage de l’audio" href="/fr/docs/start/audio/" description="Choisir le pilote, le périphérique et le buffer." />
+</CardGrid>

@@ -1,0 +1,121 @@
+---
+title: Questions and answers
+description: Price, platforms, what Prisme reads and plays, what it sends over the internet, and what it does not do.
+sidebar:
+  order: 2
+---
+
+Short answers to the questions people ask first. Each links to the page that goes further.
+
+## What does Prisme cost?
+
+Nothing. Prisme is free software under the GNU General Public License, version 3: you can
+use it, share it and change it, and its source is on
+[GitHub](https://github.com/Shawiizz/prisme). There is no account, no subscription and no
+feature held back.
+
+One part has a licence of its own: the small, fast separation model (chosen with
+**Separation**: **Fast**) is under CC BY-NC 4.0, which forbids commercial use. The large
+models of **Quality** are under MIT and Apache 2.0.
+
+## Which systems does it run on?
+
+- Windows 10 and 11.
+- macOS 13.3 or later. The macOS build is not notarized by Apple: the first time, open it
+  from System Settings, Privacy & Security.
+- Linux, as a `.deb` package or an AppImage. It plays through ALSA, or through JACK (PipeWire
+  included) for the lowest latency.
+- Android, on a phone or a tablet.
+
+There is no iOS version. See [Install Prisme](/docs/start/install/).
+
+## Do I need turntables?
+
+No. Every deck plays by itself too, driven from the screen, the keyboard, the
+[command palette](/docs/interface/keyboard/) or a [MIDI controller](/docs/controllers/).
+Turntables are what Prisme was built around, not a requirement.
+
+## Which timecode records work?
+
+Serato Control Vinyl (CV02), side A or side B, and the Serato control CD. Traktor, rekordbox
+and other timecodes are not supported. All the turntables play the same timecode, chosen in
+**Settings**, **Turntables**. See [Vinyl control](/docs/dvs/).
+
+## Which sound card do I need for vinyl control?
+
+One with a stereo input per turntable that can take a turntable's phono signal (phono inputs,
+or a phono/line switch), or a phono preamplifier in front of line inputs. Four input
+channels for two turntables. ASIO on Windows gives the lowest latency. See
+[Setting up timecode vinyl](/docs/dvs/setup/).
+
+## Can I use my hardware mixer?
+
+Yes, that is the default on a computer: each deck comes out on its own pair of outputs
+(deck A on 1-2, deck B on 3-4) into a channel of your mixer. Or use the software mixer, with
+the master on outputs 1-2 and the headphones on 3-4. See [Mixer](/docs/mixer/mixer/).
+
+## Two turntables and four decks?
+
+Yes. On an interface for two turntables, deck C shares the turntable of deck A and deck D
+that of deck B; the deck you put on REL or ABS takes it. With eight inputs, each deck has its
+own. See [Layouts](/docs/interface/layouts/).
+
+## Which files does it play?
+
+MP3, AAC, ALAC, FLAC, Ogg Vorbis, WAV and AIFF, from your own folders. Streaming services
+are not supported.
+
+## Can I bring my Serato or rekordbox library?
+
+Yes: crates, cues and beat grids come across with **Import**, in the library. See
+[Import](/docs/library/import/).
+
+## Does Prisme change my music files?
+
+On a computer it writes the tempo and key it finds into the tags of your files, so that other
+DJ software reads them; values another program wrote are kept. Turn it off in **Settings**,
+**Library**, **Write the tempo and key into the tags of the files**. On a phone this is off
+by default.
+
+Separated stems are stored next to each track, in a `.prisme` folder. Cues, grids and crates
+are kept in Prisme's own library.
+
+## Does it need the internet?
+
+No, it plays offline. It goes online for three things only, all to GitHub: to look for a new
+version at each start, to fetch new controller profiles once a day, and to download a stem
+separation model when you ask for it. It sends nothing about you or your music: there is no
+account, no tracking and no usage statistics.
+
+## Which controllers work?
+
+MIDI controllers. 56 models are mapped out of the box, from Allen & Heath, Behringer, Denon,
+DJ TechTools, Hercules, Korg, Native Instruments, Numark, Pioneer, Reloop, Roland and
+Stanton; any other can be mapped with MIDI learn. Controllers that speak HID rather than MIDI
+are not supported. See [Supported controllers](/docs/controllers/supported/).
+
+## Does it sync with other software or gear?
+
+It sends MIDI clock, 24 ticks per beat of the sync leader, from **Settings**, **MIDI
+controllers**, **MIDI clock out**. Ableton Link is not supported.
+
+## Can I record my mix?
+
+Yes, with its tracklist, from **Rec** in the title bar. See [Recording](/docs/mixer/recording/).
+
+## Which languages?
+
+English and French. Prisme follows the language of your system and can be switched in
+**Settings**, **Interface**, **Language**.
+
+## What is not there?
+
+To save you looking: no timecode other than Serato's, no HID controllers, no Ableton Link,
+no streaming services, no video, no iOS version.
+
+## Something does not work. Where do I go?
+
+See [Troubleshooting](/docs/help/troubleshooting/) and
+[Timecode troubleshooting](/docs/dvs/troubleshooting/). To report a problem, open an issue
+on [GitHub](https://github.com/Shawiizz/prisme/issues) with a diagnostic report from
+**Settings**, **About**.

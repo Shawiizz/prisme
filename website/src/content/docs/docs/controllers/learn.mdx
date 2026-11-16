@@ -1,0 +1,147 @@
+---
+title: MIDI learn and your own profile
+description: Map a control by moving it, change or remove a mapping, and keep your mapping as a profile to edit or share.
+sidebar:
+  order: 3
+---
+
+import { Steps, Aside, Tabs, TabItem } from '@astrojs/starlight/components';
+
+You can map any control of any MIDI controller to any of Prisme's actions by moving it: that is MIDI learn. It works on a controller Prisme does not know, and over a [profile](/docs/controllers/supported/) to change what it gives a control. When your mapping suits you, **Export as a profile** keeps it as a file you can edit and share.
+
+## Learn a control
+
+<Steps>
+
+1. Turn the controller on in **Settings** › **MIDI controllers** (see [Using a controller](/docs/controllers/)). Until one is on, the **Learn** buttons stay greyed out.
+
+2. Below the **Controller profiles** section, find the action in the list. The actions are grouped as in the rest of Prisme: **Deck A** to **Deck D**, **Mixer**, **Controller**, **Library**, **General** and **Auto DJ**. Each row shows where the action is mapped now, or **—**.
+
+3. Press **Learn** on its row. The button now reads **Move a control…**.
+
+4. Press the key, move the fader or turn the knob on the controller.
+
+   The row now shows the controller and the control, such as `DDJ-SB2 · Note 11 · ch 1`. The control drives the action right away.
+
+</Steps>
+
+To give up before moving anything, press **Move a control…** again, or <kbd>Esc</kbd>. Leaving the settings gives up too.
+
+What a learnt control replaces:
+
+- what that control did before on this controller, whether you learnt it or a profile gave it;
+- the control the action had on this controller: an action has one control per controller. The jog wheel's turn is the exception, since many jog wheels send their top and their edge apart: learn **Jog wheel (turn)** once on each, and both drive it.
+
+The controls you learn are kept in `controllers.json`, in Prisme's [data folder](#where-the-data-folder-is), laid over the controller's profile.
+
+<Aside type="tip">
+Channels show from 1 to 16 in the settings, as most controllers' manuals count them. In a profile file they count from 0 to 15: `ch 1` is `"channel": 0`.
+</Aside>
+
+### A second use under Shift
+
+<Steps>
+
+1. If the profile does not already map it, learn **Shift (second use of the controls)**, in the **Controller** group, on your controller's Shift key.
+
+2. Press **Learn** on the action for the second use.
+
+3. Hold Shift and move the control. Prisme does not take the Shift key itself as the control.
+
+   The row shows `Shift + ` before the control: this control drives this action while Shift is held, and its own action otherwise.
+
+</Steps>
+
+A control without a second use does its first one while Shift is held.
+
+### Faders with 14 bits
+
+Some controllers send their faders in two halves, for a finer tempo fader. Learn the fader as any other: when its low half follows on the controller number 32 higher, Prisme learns both together and the row ends with `· 14 bits`.
+
+### Encoders and jog wheels
+
+An action of the [kind](/docs/controllers/actions/#kinds-of-action) *encoder*, such as **Jog wheel (turn)**, **Browse** or **Size of the jumps and the loop**, reads the steps of an endless knob or a jog wheel. Prisme guesses from the first step how the controller sends them. If the control turns the wrong way, or jumps by leaps, choose another way in the menu beside the mapping:
+
+| Choice | The controller sends |
+| --- | --- |
+| **Steps 1 and 127** | 1, 2… to the right and 127, 126… to the left |
+| **Steps around 64** | 65, 66… to the right and 63, 62… to the left (Pioneer, Numark) |
+| **Steps 1 and 65** | 1, 2… to the right and 65, 66… to the left |
+
+Changing it on a control a profile gave makes that control yours, as if you had learnt it.
+
+For a jog wheel, learn **Jog wheel (turn)** on the wheel and **Jog wheel (touch: scratch)** on its top, which most jog wheels send as a key. Without the touch, turning the wheel only nudges.
+
+<Aside type="caution">
+An endless knob learnt on an action of the kind *fader* (a volume, an EQ) is read as a position, not as steps. Write it in a [profile](/docs/controllers/profiles/#controls) with its `encoding` instead: an encoder can drive a fader there.
+</Aside>
+
+## Change or remove a mapping
+
+- To change what a control or an action does, learn it again: the new mapping replaces the old one.
+- To remove an action from the controllers, press **×** on its row. It is unmapped on **every** controller, the controls the profiles gave it included, until you learn it again.
+
+## Where the data folder is
+
+Prisme keeps its settings, its library and your own profiles in its data folder:
+
+<Tabs syncKey="os">
+<TabItem label="Windows">`C:\Users\<you>\AppData\Roaming\com.shawiizz.prisme`</TabItem>
+<TabItem label="macOS">`~/Library/Application Support/com.shawiizz.prisme`</TabItem>
+<TabItem label="Linux">`~/.local/share/com.shawiizz.prisme`</TabItem>
+</Tabs>
+
+You rarely need to go there by hand: **Open the folder**, under **Your own profiles**, opens the profiles' folder in it.
+
+## A profile of your own
+
+A profile is a JSON file describing a model: its controls, its lights, its meters, what it is sent when it opens. Your own profiles live in the `controllers` folder of the data folder, and Prisme reads them over those it ships:
+
+- a file of the same name as a shipped profile (`pioneer-ddj-400.json`) replaces it;
+- a file of another name adds a model.
+
+<Steps>
+
+1. In **Settings** › **MIDI controllers**, under **Your own profiles**, press **Open the folder**.
+
+2. Put your profile there, or edit one. Start from the file **Export as a profile** writes, or from one of the [shipped profiles](https://github.com/Shawiizz/prisme/tree/main/apps/prisme-desktop/controllers).
+
+3. Press **Read again**. The count above it says how many profiles are **of your own**, and a controller using one says **With your own profile**.
+
+   A file Prisme cannot read is listed in red under **Your own profiles**, with the reason. The other profiles keep working meanwhile.
+
+</Steps>
+
+The format is open and described in full on [The profile format](/docs/controllers/profiles/). An editor such as VS Code checks a profile and completes it as you type, from its schema.
+
+<Aside type="caution">
+Your own profile of a model wins over the profiles published since your version: corrections to that model no longer reach you. To go back to Prisme's, delete your file and press **Read again**. The controls you learnt in the settings also stay laid over your file.
+</Aside>
+
+## Export as a profile
+
+**Export as a profile** writes what a controller drives now as a profile of your own: a starting point for a profile of your own, or one to send.
+
+<Steps>
+
+1. Map the controller the way you want it, with its profile, MIDI learn or both.
+
+2. In **Settings** › **MIDI controllers**, press **Export as a profile** on its row. It shows only while the controller is on and plugged in.
+
+3. The row says **Exported to** and the path of the file.
+
+</Steps>
+
+What the file holds:
+
+- every control as it drives now: the profile's, what you learnt over it, without what you unmapped;
+- the rest of the model's profile as it was: the messages sent at opening, the lights, meters, screens and pad modes;
+- for a model Prisme did not know, the port's name as the model's name and the name its port goes by: change `name` to the model's real name.
+
+The file is named after the model (`Pioneer DDJ-400` gives `pioneer-ddj-400.json`). For a model Prisme knows, that is the name of the shipped profile, so your export replaces it from then on: see the caution above. The export is never marked as tried on the hardware: set `"verified": true` yourself once you have played it.
+
+## Share a profile
+
+A profile is a single file: send it, and whoever gets it puts it in their own profiles' folder and presses **Read again**.
+
+To have it shipped with Prisme for everyone, propose it on [GitHub](https://github.com/Shawiizz/prisme), in `apps/prisme-desktop/controllers`. Profiles added or corrected there reach the installed copies by themselves, without a new version. Name in `credits` where the mapping comes from, and keep `verified` for a profile played on the controller itself. [The profile format](/docs/controllers/profiles/#the-files-beside-the-profiles) says how the files beside the profiles are kept in step.

@@ -1,0 +1,43 @@
+---
+title: Contrôleurs pris en charge
+description: Tous les modèles de contrôleurs que Prisme mappe d’origine, et ce que couvre chaque profil.
+sidebar:
+  order: 2
+---
+
+import { Aside } from '@astrojs/starlight/components';
+import ControllerTable from '../../../../../components/docs/ControllerTable.astro';
+import { controllerModels, brands } from '../../../../../lib/controllers';
+
+export const models = controllerModels();
+
+Prisme connaît {models.length} modèles de contrôleurs de {brands(models).length} marques. Activez-en un dans **Réglages** › **Contrôleurs MIDI** et il joue aussitôt, voyants et vumètres compris : voir [Utiliser un contrôleur](/fr/docs/controllers/).
+
+Cette liste est lue dans les profils livrés avec Prisme à chaque construction de ce site : c’est donc toujours celle de la version actuelle. Les profils corrigés ou ajoutés depuis votre version vous parviennent tout seuls, [sans nouvelle version](/fr/docs/controllers/#des-profils-toujours-à-jour).
+
+## D’où viennent les profils
+
+Les profils ont été convertis depuis les mappings de [Mixxx](https://mixxx.org), le logiciel DJ libre, sous sa licence (GPL-2.0-or-later). Chaque profil crédite les auteurs du mapping dont il vient, comme le fait le tableau ci-dessous. Un convertisseur a repris les commandes simples, les commandes que le script du mapping nomme d’après ce qu’elles font, et les voyants ; ce que seul le script savait (modes des pads, secondes fonctions sous Shift, vumètres, écrans, messages envoyés au démarrage) a été ajouté à la main, script par script.
+
+<Aside type="caution" title="Essayé sur le matériel : un seul modèle pour l’instant">
+Seule la **Pioneer DDJ-SB2** a été essayée sur le contrôleur lui-même. Les autres sont des conversions soignées que personne n’a encore jouées sur le matériel : elles devraient fonctionner, mais une commande, un voyant ou un jog peut être décalé. Les réglages l’indiquent sous le nom du contrôleur. Si quelque chose cloche sur le vôtre, vous pouvez [le corriger vous-même](/fr/docs/controllers/learn/), et signaler au projet ce que vous avez trouvé aide tous les possesseurs du modèle.
+</Aside>
+
+## Ce que veulent dire les colonnes
+
+| Colonne | |
+| --- | --- |
+| **Commandes** | Combien de mappings le profil liste. Une touche avec une seconde fonction sous Shift, ou sur chaque page de pads, compte une fois par fonction. |
+| **Voyants** | À combien de voyants le profil donne des valeurs propres (couleurs, clignotement, LED distinctes des touches). Toute autre touche mappée s’allume quand même toute seule sur la plupart des modèles. |
+| **Vumètres** | Les vumètres affichés sur le contrôleur : un par deck ou par voie master. |
+| **Jog** | Ses jogs scratchent et poussent. |
+| **Affiche** | Ce que montrent ses écrans (tempo, temps, variation de tempo) et ses anneaux lumineux (le disque qui tourne sur les jogs, la position dans le morceau, la position des potards). |
+| **Matériel** | **Essayé** une fois joué sur le contrôleur lui-même ; **Pas encore** pour une conversion que personne n’a essayée. |
+
+## Tous les modèles
+
+<ControllerTable lang="fr" />
+
+## Votre modèle n’est pas là
+
+N’importe quel contrôleur MIDI peut être mappé avec le [MIDI learn](/fr/docs/controllers/learn/) : activez-le, puis bougez chaque commande sur l’action voulue. Une fois le mapping terminé, **Exporter en profil** l’écrit dans un fichier que vous pouvez garder, corriger et [partager](/fr/docs/controllers/learn/#partager-un-profil).

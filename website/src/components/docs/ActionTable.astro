@@ -1,0 +1,158 @@
+---
+/**
+ * Every action a controller's control can drive, read from the app's targets.json at build
+ * time: the decks' once, as `deckN.`, then the others by group. A field filters the rows.
+ */
+import { actionGroups } from '../../lib/controllers';
+
+interface Props {
+	lang?: 'en' | 'fr';
+}
+
+const TEXT = {
+	en: {
+		filter: 'Filter',
+		none: 'No action matches.',
+		eachDeck: 'Each deck has all of these: put its number in place of',
+		deckRange: ['for deck A to', 'for deck D.'],
+		id: 'Id',
+		action: 'Action',
+		kind: 'Kind',
+		to: 'to',
+		total: 'rows, read from the actions of this version of Prisme.',
+	},
+	fr: {
+		filter: 'Filtrer',
+		none: 'Aucune action ne correspond.',
+		eachDeck: 'Chaque deck les a toutes : mettez son numéro à la place de',
+		deckRange: ['pour le deck A à', 'pour le deck D.'],
+		id: 'Id',
+		action: 'Action',
+		kind: 'Type',
+		to: 'à',
+		total: 'lignes, lues dans les actions de cette version de Prisme.',
+	},
+};
+
+const { lang = 'en' } = Astro.props;
+const text = TEXT[lang];
+
+const groups = actionGroups().map((g) => ({
+	...g,
+	anchor: `actions-${g.name.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`,
+}));
+const count = groups.reduce((n, g) => n + g.rows.length, 0);
+---
+
+<div class="actions" data-actions>
+	<p class="groups">
+		{groups.map((g) => <a href={`#${g.anchor}`}>{g.name}</a>)}
+	</p>
+	<label class="filter">
+		<span>{text.filter}</span>
+		<input type="search" placeholder="loop, hotcue, crossfader…" autocomplete="off" data-filter />
+	</label>
+	<p class="none" hidden data-none>{text.none}</p>
+	{
+		groups.map((g) => (
+			<section data-group>
+				<h3 id={g.anchor}>{g.name}</h3>
+				{g.deck && (
+					<p class="note">
+						{text.eachDeck} <code>N</code>, <code>deck1</code> {text.deckRange[0]}{' '}
+						<code>deck4</code> {text.deckRange[1]}
+					</p>
+				)}
+				<table>
+					<thead>
+						<tr>
+							<th>{text.id}</th>
+							<th>{text.action}</th>
+							<th>{text.kind}</th>
+						</tr>
+					</thead>
+					<tbody>
+						{g.rows.map((r) => (
+							<tr data-row>
+								<td>
+									<code>{r.id}</code>
+								</td>
+								<td>
+									{r.label}
+									{r.numbers && (
+										<span class="numbers">
+											{' '}
+											({r.numbers[0]} {text.to} {r.numbers[1]})
+										</span>
+									)}
+								</td>
+								<td>{r.kind}</td>
+							</tr>
+						))}
+					</tbody>
+				</table>
+			</section>
+		))
+	}
+	<p class="total">{count} {text.total}</p>
+</div>
+
+<script>
+	for (const root of document.querySelectorAll<HTMLElement>('[data-actions]')) {
+		const field = root.querySelector<HTMLInputElement>('[data-filter]')!;
+		const none = root.querySelector<HTMLElement>('[data-none]')!;
+		field.addEventListener('input', () => {
+			const words = field.value.toLowerCase().split(/\s+/).filter(Boolean);
+			let shown = 0;
+			for (const section of root.querySelectorAll<HTMLElement>('[data-group]')) {
+				let inSection = 0;
+				for (const row of section.querySelectorAll<HTMLElement>('[data-row]')) {
+					const text = row.textContent!.toLowerCase();
+					const match = words.every((w) => text.includes(w));
+					row.hidden = !match;
+					if (match) inSection++;
+				}
+				section.hidden = inSection === 0;
+				shown += inSection;
+			}
+			none.hidden = shown > 0;
+		});
+	}
+</script>
+
+<style>
+	.groups {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 0.25rem 1rem;
+	}
+	.filter {
+		display: flex;
+		align-items: center;
+		gap: 0.75rem;
+	}
+	.filter input {
+		flex: 1;
+		max-width: 24rem;
+		padding: 0.4rem 0.6rem;
+		border: 1px solid var(--sl-color-gray-5);
+		border-radius: 0.25rem;
+		background: var(--sl-color-black);
+		color: var(--sl-color-white);
+		font: inherit;
+	}
+	.note,
+	.total,
+	.numbers {
+		color: var(--sl-color-gray-3);
+	}
+	.total {
+		font-size: var(--sl-text-sm);
+	}
+	td:first-child {
+		white-space: nowrap;
+	}
+	[hidden] {
+		display: none !important;
+	}
+</style>

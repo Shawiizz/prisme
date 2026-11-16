@@ -1,0 +1,46 @@
+---
+title: Référence des actions
+description: Toutes les actions qu’une commande d’un contrôleur peut piloter, avec leur id pour les profils.
+sidebar:
+  order: 5
+---
+
+import { Aside } from '@astrojs/starlight/components';
+import ActionTable from '../../../../../components/docs/ActionTable.astro';
+
+Voici toutes les actions qu’une commande peut piloter. Ce sont les mêmes actions que celles du clavier et de la palette de commandes, avec les mêmes noms : la colonne **Action** donne le nom que les réglages affichent à côté d’**Apprendre**, et l’**Id** est la `target` à écrire dans un [profil](/fr/docs/controllers/profiles/#commandes).
+
+Cette liste est lue dans les actions de la version actuelle de Prisme à chaque construction de ce site.
+
+## Les types d’action
+
+| Type | Piloté par | |
+| --- | --- | --- |
+| button | Une touche ou un pad | Agit à l’appui. Certaines agissent tant qu’on les tient et s’arrêtent au relâchement : leur nom le dit, **tant que c’est appuyé**. |
+| fader | Un fader ou un potard | Suit sa position de 0 à 1. Un encodeur sans fin peut aussi en piloter un : chaque pas le déplace d’une fraction de sa course. Le fader d’un contrôleur ne reprend le réglage qu’une fois qu’il l’a atteint : le son ne saute jamais. |
+| encoder | Un potard sans fin ou un jog | Lit des pas vers la droite et vers la gauche. |
+| light | Rien : c’est un voyant seulement | Montre un état sur un voyant du contrôleur (sur le temps, le niveau qui sature…). Seuls les [voyants](/fr/docs/controllers/profiles/#voyants) d’un profil s’en servent. |
+
+Beaucoup de touches qui activent et coupent quelque chose vont par trois : `deck1.slip` bascule, `deck1.slip.on` et `deck1.slip.off` forcent l’état quel qu’il soit, pour les contrôleurs qui ont un interrupteur ou deux touches.
+
+## Les actions nommées par une mesure
+
+En plus des actions listées plus bas, un profil peut nommer des actions par un nombre. Elles n’apparaissent pas dans la liste des réglages et ne peuvent donc pas y être apprises : écrivez-les dans un profil.
+
+| Id | Action | Exemple |
+| --- | --- | --- |
+| `deckN.jump.<beats>` | Un saut d’autant de temps, en arrière sous zéro | `deck1.jump.-8`, `deck1.jump.16` |
+| `deckN.loop.<beats>` | Une boucle d’autant de temps ; allumée pendant que cette boucle tourne | `deck1.loop.0.25`, `deck1.loop.8` |
+| `deckN.roll.<beats>` | Un loop roll d’autant de temps tant que c’est appuyé | `deck1.roll.0.5` |
+| `deckN.key.<semitones>` | La tonalité décalée d’autant de demi-tons par rapport à celle du morceau ; allumée tant qu’elle l’est | `deck1.key.+2`, `deck1.key.-1` |
+| `deckN.sample<n>.velocity` | Le sample `n` (1 à 16) joué aussi fort que son pad est frappé | `deck2.sample3.velocity` |
+
+Les temps peuvent être une fraction (`0.25`, `0.5`) et ne doivent pas valoir zéro ; boucles et rolls prennent une taille supérieure à zéro, et la tonalité un nombre entier de demi-tons. Un profil a aussi les actions de ses propres modes de pads, `mode.<group>.<mode>`, et de ses shifts nommés, `shift.<name>` : voir [Modes](/fr/docs/controllers/profiles/#modes).
+
+<Aside>
+Les actions des decks C et D n’agissent que tant que Prisme affiche quatre decks. Avec deux decks, une commande mappée dessus ne fait rien.
+</Aside>
+
+## Toutes les actions
+
+<ActionTable lang="fr" />

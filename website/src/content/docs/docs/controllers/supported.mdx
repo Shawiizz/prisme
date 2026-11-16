@@ -1,0 +1,43 @@
+---
+title: Supported controllers
+description: Every controller model Prisme maps out of the box, and what each profile covers.
+sidebar:
+  order: 2
+---
+
+import { Aside } from '@astrojs/starlight/components';
+import ControllerTable from '../../../../components/docs/ControllerTable.astro';
+import { controllerModels, brands } from '../../../../lib/controllers';
+
+export const models = controllerModels();
+
+Prisme knows {models.length} controller models from {brands(models).length} brands. Turn one of them on in **Settings** › **MIDI controllers** and it plays at once, lights and meters included: see [Using a controller](/docs/controllers/).
+
+This list is read from the profiles Prisme ships, each time this site is built, so it is always the list of the current version. Profiles corrected or added since your version reach it by themselves, [without a new version](/docs/controllers/#profiles-kept-up-to-date).
+
+## Where the profiles come from
+
+The profiles were converted from the mappings of [Mixxx](https://mixxx.org), the free DJ software, under its licence (GPL-2.0-or-later). Each profile credits the authors of the mapping it comes from, as the table below does. A converter carried over the plain controls, the controls the mapping's script names after what they do, and the lights; what only the script knew (pad modes, second uses under Shift, meters, screens, messages sent at start) was added by hand, from each script.
+
+<Aside type="caution" title="Tried on the hardware: one model so far">
+Only the **Pioneer DDJ-SB2** has been tried on the controller itself. The others are careful conversions that nobody has played on the hardware yet: they should work, but a control, a light or a jog wheel may be off. The settings say so under the controller's name. If something is wrong on yours, you can [correct it yourself](/docs/controllers/learn/), and telling the project what you found helps every owner of the model.
+</Aside>
+
+## What the columns mean
+
+| Column | |
+| --- | --- |
+| **Controls** | How many mappings the profile lists. A key with a second use under Shift, or on each pad page, counts once per use. |
+| **Lights** | How many lights the profile gives values of their own (colours, blinking, LEDs apart from the keys). Any other mapped key still lights by itself on most models. |
+| **Meters** | Level meters shown on the controller: one per deck or master channel. |
+| **Jog** | Its jog wheels scratch and nudge. |
+| **Shows** | What its screens show (tempo, time, tempo change) and what its rings of lights show (the record turning on the jog wheels, the position in the track, the knobs' settings). |
+| **Hardware** | **Tried** once played on the controller itself; **Not yet** for a conversion nobody has tried. |
+
+## Every model
+
+<ControllerTable />
+
+## Your model is not here
+
+Any MIDI controller can be mapped with [MIDI learn](/docs/controllers/learn/): turn it on, then move each control onto the action you want. When the mapping is done, **Export as a profile** writes it as a file you can keep, correct and [share](/docs/controllers/learn/#share-a-profile).

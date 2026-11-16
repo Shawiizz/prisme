@@ -1,0 +1,129 @@
+---
+title: Effects
+description: Each deck's chain of three beat-synced effects, what every effect and knob does, and how to put the effects on one stem.
+sidebar:
+  order: 1
+---
+
+import { Steps, Aside } from '@astrojs/starlight/components';
+
+Each deck has a chain of three effect slots, played one after the other. Eight effects are
+available: echo, ping-pong echo, reverb, flanger, phaser, filter, gate and bitcrusher. They follow
+the deck's tempo, and they can play on the whole track or on one of its [stems](/docs/sound/stems/).
+
+## Turn an effect on
+
+<Steps>
+
+1. On the deck's rail, press **FX** among the pad modes (**CUES**, **LOOP**, **ROLL**… **FX**,
+   **SMPL**). The eight pads become the eight effects and the knobs of the effects appear beside
+   them.
+
+2. Choose a slot with the keys **1**, **2** and **3**. The pads and knobs act on that slot.
+
+3. Press a pad: its effect goes into the slot and starts. Press it again to stop it.
+
+4. Turn **MIX**, **AMOUNT** and the second knob, and set the period with **½** and **×2**.
+
+</Steps>
+
+A slot key is marked while its effect plays, so you can see at a glance which slots are on. A pad's
+bar dims when its effect plays in another slot of the chain. Effects work whether or not the deck is
+playing, and with either mixer.
+
+![A deck's rail in the FX mode: the eight effect pads with ECHO lit, the slot keys 1, 2 and 3, the FX and DECK keys, the MIX, AMOUNT and TONE knobs, and the period of 1 beat with ½ and ×2](../../../../assets/screens/docs/pads-fx.png)
+
+## The knobs
+
+| Control | What it does |
+| --- | --- |
+| **MIX** | The level of the effect. For the echoes and the reverb, how loud the effect is added to the untouched sound; for the others, how far the sound moves from dry (`0 %`) to fully processed (`100 %`). |
+| **AMOUNT** | The effect's main knob: feedback, room size, depth… (see below). |
+| Second knob | Its name changes with the effect: **TONE**, **DAMP**, **WIDTH**, **DEPTH**, **RESO**, **LENGTH** or **HOLD**. In the middle, the effect sounds as it would without it. |
+| **½**, **×2** | The period, in beats, from 1/8 to 8: the time between echoes, the length of a sweep or of a gate's cycle. |
+
+Each slot keeps its own settings: the effect, the knobs and the period. A new slot starts with an
+echo at half mix, half amount, the second knob in the middle and a period of one beat.
+
+## The eight effects
+
+| Pad | Effect | **AMOUNT** | Second knob | Period |
+| --- | --- | --- | --- | --- |
+| **ECHO** | Echo: repeats on the beat, both sides together | Feedback: how many repeats | **TONE**: turned down, each repeat comes back duller, like tape; at the top, untouched | Time between repeats |
+| **PING** | Ping-pong echo: the repeats bounce from left to right | Feedback | **TONE**, as the echo's | Time between repeats |
+| **VERB** | Reverb | Room size | **DAMP**: damping of the room, a darker tail turned up | No effect |
+| **FLANGE** | Flanger: a sweeping jet sound | Feedback | **WIDTH**: how far the sweep goes | A sweep lasts four periods |
+| **PHASE** | Phaser: a sweeping notch sound | Feedback | **DEPTH**: how wide the sweep is | A sweep lasts four periods |
+| **FILTER** | A resonant low-pass sweeping down from the top and back | Depth: how far down it sweeps | **RESO**: resonance at the cutoff | A sweep lasts four periods |
+| **GATE** | Cuts the sound in rhythm | Depth: how quiet the sound gets when the gate closes; fully up, silent | **LENGTH**: how long the gate stays open, from a sixteenth of the period to nearly all of it; half in the middle | One open and close |
+| **CRUSH** | Bitcrusher: lowers the resolution | Crush: from 16 bits down to 4 | **HOLD**: downsampling, none at the bottom, coarser turned up | No effect |
+
+### How they switch on and off
+
+The echoes and the reverb are added to the sound: switched off, they stop taking in sound and their
+tail rings out, as on a mixer's send. The other effects fade in when switched on and back out when
+switched off. Changing a slot's effect starts the new one from silence.
+
+### Timing
+
+The period follows the deck's tempo, read from its beat grid: at 128 BPM, a 1-beat echo repeats
+every 469 ms, and a change of tempo carries the effects along. A gate of a beat or less starts on
+the beat. A track without a beat grid runs its effects at 120 BPM. See
+[Analysis](/docs/library/analysis/) for the beat grid.
+
+## The chain
+
+The three slots play in order: slot 1, then 2, then 3, each taking what the one before gives. An echo
+in slot 1 followed by a filter in slot 2 filters the echoes too.
+
+The **FX** key beside the slot keys switches the whole chain. Off, nothing of the chain sounds, but
+each slot keeps its own switch: press **FX** again and the same effects come back. Use it to drop all
+the effects on a beat and bring them back together.
+
+Where the chain sits in the deck:
+
+- On the whole deck, the effects come after the EQ and filter of the
+  [software mixer](/docs/mixer/mixer/) and before the channel fader. The
+  [sampler](/docs/decks/sampler/)'s sounds go through them too. With an external mixer, they act on
+  what the deck sends to its outputs.
+- On a stem, they act on that part of the track alone, before the EQ.
+
+## On a stem
+
+When the deck's track is [separated into stems](/docs/sound/stems/), the key beside **FX** chooses
+where the chain plays. It reads **DECK** for the whole track; press it to go through the parts:
+**VOX** and **INST** for a track separated into vocals and instrumental, or **VOX**, **DRUM**,
+**BASS** and **MELO** for a track separated into four, then back to **DECK**.
+
+An echo on **VOX** alone gives a vocal throw while the beat goes on dry; a gate on **DRUM** chops the
+drums only. The rest of the track plays on untouched. If you load a track without that part, the
+chain goes back to the whole deck.
+
+## From a controller
+
+Each slot answers to the actions **Effect 1 on / off** (and **on**, **off**), **Effect 1 on while
+held**, **Effect 1: next effect**, **Effect 1: previous effect**, **Effect 1: Echo on / off** and so
+on for each effect, **Effect 1 level** (**MIX**), **Effect 1 amount**, **Effect 1 second knob (tone,
+resonance… as the effect has)**, **Effect 1 period (a step halves or doubles it)** for an encoder,
+and **Effect 1 period, along the knob** and **Effect 1: the effect, along the knob** for a plain knob.
+The same for effects 2 and 3. For the whole chain: **Effects (the whole chain)** and **Effects on the
+next part**.
+
+### Focus and the three effect knobs
+
+Many controllers have three knobs per effect unit. Prisme gives them two uses, as Mixxx does:
+
+- With no slot focused, **Effect knob 1** is effect 1's amount, **Effect knob 2** effect 2's, and
+  **Effect knob 3** effect 3's.
+- Press a key mapped to **Effect 1 focused on the effect knobs / let go** (or 2, or 3): the three
+  knobs now set that slot's amount, second knob and period. On the screen, that slot is chosen and
+  its key is framed. Press the key again to let it go.
+
+### Super knob
+
+**Effect amounts together (super knob)** turns the amounts of the three slots at once: build a
+whole chain of effects up with one knob, and bring it down again.
+
+Soft takeover applies: a controller's knob only takes a setting over once it reaches the value on the
+screen. The effect actions are listed with the others in [all actions](/docs/controllers/actions/);
+the command palette (<kbd>Ctrl</kbd> <kbd>K</kbd>) runs the ones that are keys.

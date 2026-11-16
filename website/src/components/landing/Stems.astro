@@ -1,0 +1,138 @@
+---
+/** Four lanes, lit where each part of the track plays, the playhead crossing them. */
+interface Props {
+	labels: string[];
+}
+const { labels } = Astro.props;
+
+// where each part plays, in eighths of the 32 bars shown
+const parts = [
+	{ color: 'var(--pr-f-high)', spans: [[2, 9], [12, 18], [22, 30]] },
+	{ color: 'var(--pr-light)', spans: [[0, 14], [16, 31]] },
+	{ color: 'var(--pr-f-low)', spans: [[4, 14], [16, 32]] },
+	{ color: 'var(--pr-f-mid)', spans: [[0, 6], [8, 27], [28, 32]] },
+];
+---
+
+<div class="stems" aria-hidden="true">
+	{
+		parts.map((part, i) => (
+			<div class="lane" style={`--part: ${part.color}; --delay: ${i * 0.15}s`}>
+				<span class="name">{labels[i]}</span>
+				<div class="track">
+					{part.spans.map(([from, to]) => (
+						<span class="span" style={`left: ${(from / 32) * 100}%; width: ${((to - from) / 32) * 100}%`} />
+					))}
+				</div>
+				<span class="knob" />
+			</div>
+		))
+	}
+	<div class="overlay"><span class="run"></span></div>
+</div>
+
+<style>
+	.stems {
+		position: relative;
+		display: grid;
+		gap: 10px;
+		padding: 22px;
+		background: var(--pr-base);
+		border: 1px solid var(--pr-line);
+		border-radius: 10px;
+	}
+	.lane {
+		display: grid;
+		grid-template-columns: 48px 1fr 28px;
+		align-items: center;
+		gap: 14px;
+	}
+	.name {
+		font: 600 11px / 1 var(--pr-font);
+		font-stretch: 80%;
+		letter-spacing: 0.08em;
+		color: var(--pr-text-2);
+	}
+	.track {
+		position: relative;
+		height: 26px;
+		background: var(--pr-void);
+		border-radius: 3px;
+		overflow: hidden;
+	}
+	.span {
+		position: absolute;
+		top: 4px;
+		bottom: 4px;
+		border-radius: 2px;
+		background: var(--part);
+		opacity: 0.75;
+		background-image: repeating-linear-gradient(90deg, transparent 0 3px, rgb(0 0 0 / 0.35) 3px 4px);
+	}
+	.knob {
+		width: 26px;
+		height: 26px;
+		border-radius: 50%;
+		border: 2px solid var(--pr-line-2);
+		position: relative;
+	}
+	.knob::after {
+		content: '';
+		position: absolute;
+		left: 50%;
+		top: 2px;
+		width: 2px;
+		height: 8px;
+		margin-left: -1px;
+		border-radius: 1px;
+		background: var(--part);
+		transform-origin: 50% 9px;
+		animation: knob 7s ease-in-out var(--delay) infinite;
+	}
+	/* over the tracks' column only, so the playhead crosses them from start to end */
+	.overlay {
+		position: absolute;
+		inset: 18px 22px;
+		display: grid;
+		grid-template-columns: 48px 1fr 28px;
+		gap: 14px;
+		pointer-events: none;
+	}
+	.run {
+		grid-column: 2;
+		position: relative;
+	}
+	.run::after {
+		content: '';
+		position: absolute;
+		top: 0;
+		bottom: 0;
+		left: 0;
+		width: 2px;
+		background: var(--pr-light);
+		box-shadow: 0 0 10px rgb(243 241 235 / 0.5);
+		animation: play 14s linear infinite;
+	}
+	@keyframes play {
+		to {
+			left: 100%;
+		}
+	}
+	@keyframes knob {
+		0%,
+		40%,
+		100% {
+			transform: rotate(130deg);
+		}
+		55%,
+		80% {
+			transform: rotate(-130deg);
+		}
+	}
+	@media (prefers-reduced-motion: reduce) {
+		.run::after,
+		.knob::after {
+			animation: none;
+		}
+	}
+</style>

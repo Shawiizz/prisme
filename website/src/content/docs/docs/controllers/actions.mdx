@@ -1,0 +1,46 @@
+---
+title: Actions reference
+description: Every action a controller's control can drive, with its id for profiles.
+sidebar:
+  order: 5
+---
+
+import { Aside } from '@astrojs/starlight/components';
+import ActionTable from '../../../../components/docs/ActionTable.astro';
+
+These are all the actions a control can drive. They are the same actions as the keyboard and the command palette, named the same: the **Action** column is the name the settings show beside **Learn**, and the **Id** is the `target` to write in a [profile](/docs/controllers/profiles/#controls).
+
+This list is read from the actions of the current version of Prisme each time this site is built.
+
+## Kinds of action
+
+| Kind | Driven by | |
+| --- | --- | --- |
+| button | A key or a pad | Acts when pressed. Some act while held and stop when let go: their name says **while held**. |
+| fader | A fader or a knob | Follows its position from 0 to 1. An endless encoder can drive one too: each step moves it by a share of its travel. A controller's fader takes over the setting only once it reaches it, so the sound never jumps. |
+| encoder | An endless knob or a jog wheel | Reads steps to the right and to the left. |
+| light | Nothing: a light only | Shows a state on a light of the controller (on the beat, the level clipping…). Only a profile's [lights](/docs/controllers/profiles/#lights) use them. |
+
+Many keys that switch something on and off come in three: `deck1.slip` switches it, `deck1.slip.on` and `deck1.slip.off` set it whatever it was, for controllers with a switch or two keys.
+
+## Actions named by a measure
+
+Beside the actions listed below, a profile can name actions by a number. They do not appear in the settings' list, so they cannot be learnt there: write them in a profile.
+
+| Id | Action | Example |
+| --- | --- | --- |
+| `deckN.jump.<beats>` | Jump so many beats, back below zero | `deck1.jump.-8`, `deck1.jump.16` |
+| `deckN.loop.<beats>` | A loop of so many beats; lit while that loop plays | `deck1.loop.0.25`, `deck1.loop.8` |
+| `deckN.roll.<beats>` | A loop roll of so many beats while held | `deck1.roll.0.5` |
+| `deckN.key.<semitones>` | The key moved so many semitones from the track's own; lit while it is | `deck1.key.+2`, `deck1.key.-1` |
+| `deckN.sample<n>.velocity` | Sample `n` (1 to 16) played as hard as its pad is hit | `deck2.sample3.velocity` |
+
+Beats may be a fraction (`0.25`, `0.5`) and must not be zero; loops and rolls take a size above zero, and a key a whole number of semitones. A profile also has the actions of its own pad modes, `mode.<group>.<mode>`, and its named shifts, `shift.<name>`: see [Modes](/docs/controllers/profiles/#modes).
+
+<Aside>
+The actions of decks C and D act only while Prisme shows four decks. With two decks, a control mapped to them does nothing.
+</Aside>
+
+## Every action
+
+<ActionTable />

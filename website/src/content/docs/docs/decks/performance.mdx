@@ -1,0 +1,128 @@
+---
+title: Slicer, cuts and tricks
+description: The slicer, fader cuts, brake and spinback, slip, censor, reverse, fader start and repeat.
+sidebar:
+  order: 5
+---
+
+import { Steps, Aside } from '@astrojs/starlight/components';
+
+Beyond cues and loops, each deck has the tricks of a performance: the pads' **SLICE** and **CUT**
+modes, **SLIP** and **CENSOR** on the rail, and in the deck menu **⋯** the motor of a turntable,
+reverse, fader start and repeat. Most of them move the track, so they are greyed out with a record
+in absolute mode, where the record decides where the track is.
+
+## The slicer
+
+The slicer cuts two bars of the track into eight slices of one beat, one per pad. Hold a pad and
+its beat plays round and round while the track carries on underneath; let go, and the deck lands
+where the track would have been. Playing the pads in a new order rearranges the beats live.
+
+<Steps>
+
+1. Play the deck and choose the **SLICE** mode on the pads. The slicer is set on the bar the deck
+   is in: its eight beats, from there, are pads **1** to **8**.
+2. Watch the pads: the one in the light is the slice the deck is playing now.
+3. Hold a pad to repeat its beat. With [quantize](/docs/decks/sync/#quantize) on, it comes in at
+   the place of the beat the deck is at, so it stays in time.
+4. Let go of every pad: the deck goes on where it would have been.
+
+</Steps>
+
+Hold several pads and the last one pressed plays; let go of it and the one held before takes over.
+Once the track has played past the slicer, the next press sets it again on the bar the deck is in.
+The slicer needs a beat grid.
+
+Controllers have **Slice 1 while held** to **Slice 8 while held**.
+
+## Fader cuts
+
+A fader cut chops the deck in time with its beats while you hold a pad, as a hand flicking the
+channel fader would: the sound is open for the first half of each period and closed for the
+second, on the grid. The track keeps playing underneath. In the **CUT** mode:
+
+| Pad | 1 | 2 | 3 | 4 |
+| --- | --- | --- | --- | --- |
+| Beats | 1/16 | 1/8 | 1/4 | 1/2 |
+
+The pad cutting lights. Of several pads held, the last one pressed cuts. Fader cuts need a beat
+grid. Controllers have **Fader cut on 1/16 while held** and the others.
+
+## Brake and spinback
+
+Under **Motor** in the deck menu **⋯**, the deck acts as a turntable's motor would:
+
+| Key | What it does |
+| --- | --- |
+| **BRAKE** | A playing deck slows to a stop in about a second, as a turntable switched off. Pressed on a stopped deck, or during a brake, it starts the deck softly, up to speed in half a second. |
+| **SPINBACK** | While you hold it, the record is spun back fast, three times the deck's speed. Let go, and the motor takes it up again and the deck plays on from there. |
+
+The key lock lets go while the motor moves the record, so it sounds like a record. Both keys are
+greyed out while a record drives the deck or the deck plays its input. On a controller:
+**Brake (stopped: soft start)** and **Spinback while held**.
+
+## Slip
+
+**SLIP**, on the rail beside the pads, keeps the track going underneath while you play with it.
+With **SLIP** on:
+
+- leaving a loop puts the deck where the track would have been, instead of playing on from the end
+  of the loop;
+- turning [reverse](#reverse) off does the same.
+
+The deck lands back in time, as if nothing had happened. Rolls, slices and **CENSOR** always work
+this way, with **SLIP** on or off. **SLIP** stays on when you load another track. On a controller:
+**Slip** and **Slip while held**.
+
+**SLIP** is beside the pads in every mode but **FX** and **SMPL**.
+
+## Censor
+
+Hold **CENSOR** and the track plays backwards; let go, and it lands where it would have been,
+whatever **SLIP** says. Use it to blank out a word, or for a quick reverse effect that stays in
+time. **CENSOR** is beside the pads in every mode but **FX** and **SMPL**; on a controller,
+**Censor while held**.
+
+## Reverse
+
+**Reverse** in the deck menu **⋯** plays the track backwards at the deck's tempo until you turn it
+off. While it is on, a **REV** key lights in the deck's panel: press it to play forwards again.
+
+- With **SLIP** on, the track carries on underneath, and turning reverse off brings the deck where
+  it would have been.
+- Playing backwards by itself, the deck stops when it reaches the start of the track.
+- A deck in reverse does not lead **SYNC**.
+
+On a controller: **Reverse**, and **Reverse while held**, which plays backwards only while the key
+is down. Reverse lasts until you quit.
+
+## Fader start
+
+With the software mixer, **Fader start** in the deck menu **⋯** lets the channel fader start and
+stop the deck:
+
+- raise the fader from closed, and the deck plays;
+- close it, and the deck stops and goes back to its cue point.
+
+The row only appears when Prisme mixes itself (see [The mixer](/docs/mixer/mixer/)). The setting
+is kept per deck for the next start. On a controller: **Fader start**.
+
+<Steps>
+
+1. Set the cue point where the track should start (see [Cues](/docs/decks/cues/#the-main-cue)).
+2. Turn on **Fader start** in the deck menu **⋯**.
+3. Close the channel fader. When it is time, push it up: the deck starts with it.
+
+</Steps>
+
+## Repeat
+
+**Repeat the track** in the deck menu **⋯** plays the track again from its start when it reaches
+the end, without a gap: handy for a long intro or an ambient bed while you are away from the
+decks. It lasts until you quit. On a controller: **Repeat the track**.
+
+<Aside type="tip">
+Every trick on this page is also in the command palette (<kbd>Ctrl</kbd> <kbd>K</kbd>) and can be
+mapped on a controller; see [Actions](/docs/controllers/actions/). Actions that last while held,
+such as **Censor while held**, belong on a controller key.
+</Aside>

@@ -1,0 +1,138 @@
+---
+title: Slicer, cuts et effets de jeu
+description: Le slicer, les coupures au fader, le frein et le spinback, le slip, le censor, la lecture inversée, le fader start et la répétition.
+sidebar:
+  order: 5
+---
+
+import { Steps, Aside } from '@astrojs/starlight/components';
+
+Au-delà des cues et des boucles, chaque deck offre les effets de jeu d’une performance : les modes
+**SLICE** et **CUT** des pads, **SLIP** et **CENSOR** sur le rail, et dans le menu du deck **⋯** le
+moteur d’une platine, la lecture inversée, le fader start et la répétition. La plupart déplacent le
+morceau, ils sont donc grisés avec un disque en mode absolu, où c’est le disque qui décide de la
+position dans le morceau.
+
+## Le slicer
+
+Le slicer découpe deux mesures du morceau en huit slices d’un temps, une par pad. Maintenez un pad
+et son temps tourne en boucle pendant que le morceau continue en dessous ; relâchez, et le deck
+retombe là où le morceau en serait. Jouer les pads dans un autre ordre réarrange les temps en
+direct.
+
+<Steps>
+
+1. Lancez le deck et choisissez le mode **SLICE** sur les pads. Le slicer se pose sur la mesure où
+   se trouve le deck : ses huit temps, à partir de là, sont les pads **1** à **8**.
+2. Regardez les pads : celui qui est dans la lumière est la slice que joue le deck en ce moment.
+3. Maintenez un pad pour répéter son temps. Avec le [quantize](/fr/docs/decks/sync/#quantize)
+   activé, il entre à l’endroit du temps où en est le deck, et reste ainsi en place.
+4. Relâchez tous les pads : le deck reprend là où il en serait.
+
+</Steps>
+
+Maintenez plusieurs pads et c’est le dernier pressé qui joue ; relâchez-le et celui tenu avant lui
+prend le relais. Une fois que le morceau a dépassé le slicer, l’appui suivant le repose sur la
+mesure où se trouve le deck. Le slicer a besoin d’une grille rythmique.
+
+Les contrôleurs ont **Slice 1 (maintenu)** à **Slice 8 (maintenu)**.
+
+## Coupures au fader
+
+Une coupure au fader hache le deck au rythme de ses temps tant que vous maintenez un pad, comme une
+main qui donnerait des petits coups de fader de voie : le son est ouvert pendant la première moitié
+de chaque période et fermé pendant la seconde, sur la grille. Le morceau continue de jouer en
+dessous. Dans le mode **CUT** :
+
+| Pad | 1 | 2 | 3 | 4 |
+| --- | --- | --- | --- | --- |
+| Temps | 1/16 | 1/8 | 1/4 | 1/2 |
+
+Le pad qui coupe s’allume. Si plusieurs pads sont tenus, c’est le dernier pressé qui coupe. Les
+coupures au fader ont besoin d’une grille rythmique. Les contrôleurs ont
+**Coupure au fader sur 1/16 (maintenu)** et les autres.
+
+## Frein et spinback
+
+Sous **Moteur** dans le menu du deck **⋯**, le deck se comporte comme le moteur d’une platine :
+
+| Touche | Ce qu’elle fait |
+| --- | --- |
+| **BRAKE** | Un deck qui joue ralentit jusqu’à l’arrêt en une seconde environ, comme une platine qu’on éteint. Sur un deck arrêté, ou pendant un freinage, elle lance le deck en douceur, à pleine vitesse en une demi-seconde. |
+| **SPINBACK** | Tant que vous la maintenez, le disque est lancé vite en arrière, à trois fois la vitesse du deck. Relâchez, et le moteur le reprend et le deck continue à partir de là. |
+
+Le key lock lâche prise quand le moteur entraîne le disque, pour que ça sonne comme un disque. Les
+deux touches sont grisées quand un disque pilote le deck ou que le deck joue son entrée. Sur un
+contrôleur : **Frein (à l’arrêt : démarrage doux)** et **Spinback (maintenu)**.
+
+## Slip
+
+**SLIP**, sur le rail à côté des pads, fait continuer le morceau en dessous pendant que vous jouez
+avec. Avec **SLIP** activé :
+
+- sortir d’une boucle place le deck là où le morceau en serait, au lieu de reprendre depuis la fin
+  de la boucle ;
+- désactiver la [lecture inversée](#lecture-inversée) fait de même.
+
+Le deck retombe en place, comme si de rien n’était. Les rolls, les slices et **CENSOR** fonctionnent
+toujours ainsi, **SLIP** activé ou non. **SLIP** reste activé quand vous chargez un autre morceau.
+Sur un contrôleur : **Slip** et **Slip tant que c’est appuyé**.
+
+**SLIP** est à côté des pads dans tous les modes sauf **FX** et **SMPL**.
+
+## Censor
+
+Maintenez **CENSOR** et le morceau joue à l’envers ; relâchez, et il retombe là où il en serait,
+quoi que dise **SLIP**. Servez-vous-en pour masquer un mot, ou pour un effet d’inversion rapide qui
+reste en place. **CENSOR** est à côté des pads dans tous les modes sauf **FX** et **SMPL** ; sur un
+contrôleur, **Censor (maintenu)**.
+
+## Lecture inversée
+
+**Lecture inversée** dans le menu du deck **⋯** joue le morceau à l’envers au tempo du deck jusqu’à
+ce que vous la désactiviez. Tant qu’elle est active, une touche **REV** s’allume dans le panneau du
+deck : appuyez dessus pour revenir à la lecture normale.
+
+- Avec **SLIP** activé, le morceau continue en dessous, et désactiver la lecture inversée ramène le
+  deck là où il en serait.
+- En lecture inversée seule, le deck s’arrête en atteignant le début du morceau.
+- Un deck en lecture inversée ne mène pas la **SYNC**.
+
+Sur un contrôleur : **Lecture inversée**, et **Lecture inversée (maintenue)**, qui joue à l’envers
+seulement tant que la touche est enfoncée. La lecture inversée dure jusqu’à ce que vous quittiez
+Prisme.
+
+## Fader start
+
+Avec la table de mixage logicielle, **Fader start** dans le menu du deck **⋯** laisse le fader de
+voie lancer et arrêter le deck :
+
+- montez le fader depuis la position fermée, et le deck joue ;
+- fermez-le, et le deck s’arrête et revient à son point de cue.
+
+La ligne n’apparaît que quand Prisme fait lui-même le mixage (voir
+[La table de mixage](/fr/docs/mixer/mixer/)). Le réglage est conservé par deck pour le prochain
+démarrage. Sur un contrôleur : **Fader start**.
+
+<Steps>
+
+1. Posez le point de cue là où le morceau doit démarrer (voir
+   [Cues](/fr/docs/decks/cues/#le-cue-principal)).
+2. Activez **Fader start** dans le menu du deck **⋯**.
+3. Fermez le fader de voie. Le moment venu, montez-le : le deck démarre avec lui.
+
+</Steps>
+
+## Répétition
+
+**Répéter le morceau** dans le menu du deck **⋯** rejoue le morceau depuis son début quand il arrive
+à la fin, sans blanc : pratique pour une longue intro ou un fond d’ambiance pendant que vous vous
+éloignez des platines. Elle dure jusqu’à ce que vous quittiez Prisme. Sur un contrôleur :
+**Répéter le morceau**.
+
+<Aside type="tip">
+Chaque effet de jeu de cette page se trouve aussi dans la palette de commandes (<kbd>Ctrl</kbd>
+<kbd>K</kbd>) et peut être assigné sur un contrôleur ; voir [Actions](/fr/docs/controllers/actions/).
+Les actions qui durent tant que la touche est tenue, comme **Censor (maintenu)**, ont leur place
+sur une touche de contrôleur.
+</Aside>

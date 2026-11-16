@@ -1,0 +1,185 @@
+---
+title: Compiler depuis les sources
+description: Compiler et lancer Prisme depuis ses sources sous Windows, macOS et Linux, lancer les tests et produire les paquets.
+sidebar:
+  order: 1
+---
+
+import { Steps, Aside, Tabs, TabItem } from '@astrojs/starlight/components';
+
+Prisme est un workspace Rust (le moteur et l’application) avec une interface Angular, assemblés par [Tauri](https://tauri.app). Les mêmes commandes le compilent sous Windows, macOS et Linux ; le paquet Android est produit par la CI du projet.
+
+## Ce qu’il vous faut
+
+Sur tous les systèmes :
+
+- **Rust**, via [rustup](https://rustup.rs). Le dépôt fixe sa version dans `rust-toolchain.toml` : rustup installe celle-là tout seul à la première compilation.
+- **Node.js 24** et **pnpm**, pour l’interface.
+- **Python 3** : le script d’installation s’en sert pour récupérer la libclang avec laquelle sont générés les bindings des bibliothèques C++.
+- **La ligne de commande Tauri**, version 2 : `cargo install tauri-cli --version "^2"`, ou lancez-la avec `npx @tauri-apps/cli@2` à la place de `cargo tauri` ci-dessous.
+
+Puis, selon le système :
+
+<Tabs syncKey="os">
+<TabItem label="Windows">
+
+Windows 10 ou 11, avec les outils de compilation Microsoft C++ que Rust utilise sous Windows. Le SDK ASIO est téléchargé par la compilation elle-même.
+
+</TabItem>
+<TabItem label="macOS">
+
+macOS 13.3 ou plus récent, avec les outils en ligne de commande de Xcode (`xcode-select --install`).
+
+</TabItem>
+<TabItem label="Linux">
+
+Un compilateur C++ et les bibliothèques de la web view, d’ALSA et de JACK. Sous Debian et Ubuntu :
+
+```sh
+sudo apt install build-essential libwebkit2gtk-4.1-dev libgtk-3-dev libxdo-dev \
+  libssl-dev libayatana-appindicator3-dev librsvg2-dev libasound2-dev \
+  libjack-jackd2-dev libudev-dev
+```
+
+</TabItem>
+</Tabs>
+
+## Compiler et lancer
+
+<Steps>
+
+1. Récupérez le code :
+
+   ```sh
+   git clone https://github.com/Shawiizz/prisme.git
+   cd prisme
+   ```
+
+2. Installez les outils de développement qui ne sont pas des crates Rust :
+
+   <Tabs syncKey="os">
+   <TabItem label="Windows">
+
+   ```powershell
+   scripts\setup-dev.ps1
+   ```
+
+   </TabItem>
+   <TabItem label="macOS et Linux">
+
+   ```sh
+   scripts/setup-dev.sh
+   ```
+
+   </TabItem>
+   </Tabs>
+
+   Le script place libclang dans `.tools/libclang`, à l’intérieur du dépôt, là où `.cargo/config.toml` dirige la compilation, puis installe les paquets de l’interface (`pnpm install` dans `frontend`).
+
+3. Lancez les tests :
+
+   ```sh
+   cargo test --workspace
+   ```
+
+4. Démarrez l’application :
+
+   ```sh
+   cd apps/prisme-desktop
+   cargo tauri dev
+   ```
+
+   Tauri démarre le serveur de développement de l’interface (`pnpm start` dans `frontend`, sur le port 4200), compile l’application et l’ouvre. Une modification de l’interface s’affiche aussitôt ; une modification du code Rust recompile et redémarre l’application.
+
+</Steps>
+
+### Démarrer dans un état connu
+
+Pendant le développement, quelques variables d’environnement démarrent Prisme sans avoir à cliquer :
+
+| Variable | |
+| --- | --- |
+| `PRISME_DECK1` … `PRISME_DECK4` | Un fichier audio à charger sur ce deck au démarrage. |
+| `PRISME_SIMULATE=1` | Démarrer avec la platine simulée sur le deck 1 : le contrôle vinyle sans platine. |
+| `PRISME_MASTER_GAIN` | Le gain du master au démarrage, par exemple `0.2` pour essayer des choses sans faire de bruit. |
+| `PRISME_DATA_DIR` | Un dossier pour les réglages et la bibliothèque, à la place des vôtres. |
+| `PRISME_MUSIC_DIR` | Un dossier de musique, à la place du vôtre. |
+| `PRISME_FAKE_SPLIT` | Faire comme s’il y avait un second écran sous la fenêtre, son bord haut à autant de pixels plus bas (`560`, ou `560@0.8` avec son échelle) : pour essayer la disposition sur deux écrans avec un seul. |
+
+<Aside type="tip">
+`PRISME_DATA_DIR` met votre propre bibliothèque et vos réglages à l’abri : faites-le pointer vers un dossier vide pour voir Prisme comme à son premier démarrage.
+</Aside>
+
+## Vérifier vos modifications
+
+La CI lance ces commandes sous Windows, Linux et macOS pour chaque pull request ; lancez-les avant de pousser :
+
+```sh
+cd frontend
+pnpm exec prettier --check src
+pnpm exec ng test --watch=false
+pnpm build
+cd ..
+cargo fmt --all --check
+cargo clippy --workspace --all-targets -- -D warnings
+cargo test --workspace
+```
+
+Modifier les actions de l’interface, ou un profil de contrôleur, modifie aussi des fichiers que les tests comparent : voir [Les fichiers à côté des profils](/fr/docs/controllers/profiles/#les-fichiers-à-côté-des-profils).
+
+## Produire les paquets
+
+```sh
+cd apps/prisme-desktop
+cargo tauri build
+```
+
+Les paquets arrivent dans `target/release/bundle` :
+
+| Système | Paquet |
+| --- | --- |
+| Windows | Un installeur (NSIS), installé pour l’utilisateur courant. |
+| Linux | Un `.deb` et une AppImage. |
+| macOS | L’`.app` et un `.dmg`. |
+
+Pour une version Mac qui tourne à la fois sur les processeurs Apple et Intel, ajoutez les deux cibles et compilez la version universelle :
+
+```sh
+rustup target add aarch64-apple-darwin x86_64-apple-darwin
+cargo tauri build --target universal-apple-darwin
+```
+
+Une version compilée tourne sur des systèmes aussi anciens que celui sur lequel elle a été produite : c’est pour cela que le projet compile ses paquets Linux sous Ubuntu 22.04.
+
+<Aside type="caution">
+La version macOS n’est pas notarisée par Apple. La première fois, macOS refuse de l’ouvrir : ouvrez-la depuis **Réglages Système** › **Confidentialité et sécurité**.
+</Aside>
+
+Sous Linux, Prisme joue via ALSA, ou via JACK (y compris celui de PipeWire) pour la latence la plus basse.
+
+## Android et iOS
+
+Le paquet Android est produit par le workflow `Mobile` sur GitHub, pour un tag comme `mobile-1.2.3` ou à la demande : un APK signé pour les téléphones ARM 64 bits, joint à une release en brouillon. Pour le produire vous-même, suivez ce workflow (`.github/workflows/mobile.yml`) : Java 21, le SDK Android et son NDK, la cible Rust `aarch64-linux-android`, les en-têtes du NDK fournis aux bindings, puis :
+
+```sh
+cd apps/prisme-desktop
+cargo tauri android build --apk --target aarch64
+```
+
+Un APK de release est signé avec la clé indiquée dans `apps/prisme-desktop/gen/android/keystore.properties`, qui reste hors du dépôt.
+
+La version iOS est seulement vérifiée : le même workflow la compile et la démarre dans le simulateur d’iPhone. Il n’y a pas de release iOS.
+
+## Publier une version
+
+<Steps>
+
+1. Indiquez la nouvelle version dans le `Cargo.toml` du workspace (`[workspace.package] version`).
+
+2. Poussez un tag avec cette version, par exemple `0.2.0`. La CI produit les paquets des trois systèmes et leurs paquets de mise à jour signés, et les joint à une release en brouillon.
+
+3. Publiez le brouillon : les copies installées proposent alors la mise à jour.
+
+</Steps>
+
+Le workflow `Package`, lancé à la demande, produit les mêmes paquets sans les paquets de mise à jour, démarre une fois chaque version et en garde une capture d’écran et les logs : un moyen de voir une version démarrer sur un système que vous n’avez pas sous la main.

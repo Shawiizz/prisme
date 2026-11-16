@@ -1,0 +1,52 @@
+---
+title: Introduction
+description: Ce qu’est Prisme, à qui il s’adresse, et où trouver chaque sujet dans cette documentation.
+---
+
+import { CardGrid, LinkCard } from '@astrojs/starlight/components';
+
+Prisme est un logiciel de DJ libre, pensé pour le contrôle vinyle  les disques timecode posés sur vos platines pilotent les morceaux de votre ordinateur, avec la sensation d’un vrai disque sous la main. Il joue aussi tout seul, au clavier, avec un contrôleur MIDI ou sur un écran tactile, avec stems, effets, sampler et table de mixage logicielle.
+
+![Deux decks synchronisés, les stems du deck A sur quatre boutons, la bibliothèque dessous](../../../../assets/screens/decks.png)
+
+## Pour qui
+
+- **Les DJ qui jouent en vinyle timecode.** Prisme lit les timecodes Serato CV02 (faces A et B) et Serato CD, en modes relatif et absolu, avec diamant posé n’importe où, backspins et scratchs. Quand le diamant arrive en fin de disque, le deck continue tout seul.
+- **Les DJ avec une table de mixage.** Par défaut, chaque deck sort sur sa propre paire de sorties, vers les voies de votre table, et l’écran se consacre aux formes d’onde et à la bibliothèque.
+- **Les DJ avec un contrôleur, un portable seul ou un téléphone.** Une table de mixage logicielle avec égaliseur, filtre, crossfader et pré-écoute au casque prend le relais quand vous la choisissez, ou d’elle-même quand la carte son n’a que deux sorties. 56 modèles de contrôleurs sont reconnus d’office.
+
+Prisme tourne sous Windows, macOS et Linux, ainsi que sur les téléphones et tablettes Android. L’interface est en anglais et en français.
+
+## Ce qu’il fait
+
+- **Deux decks ou quatre**, avec sync, quantize, 16 hot cues, boucles, rolls, sauts de temps, slicer, cuts au fader, key lock et transposition.
+- **Stems**  voix, batterie, basse et mélodie séparées sur votre puce graphique ou votre processeur, un bouton pour chacune.
+- **Effets**  une chaîne de trois effets calés sur le tempo par deck, sur tout le morceau ou sur un seul stem  un sampler de 16 emplacements par deck.
+- **Bibliothèque**  MP3, AAC, ALAC, FLAC, Ogg Vorbis, WAV et AIFF, analysés en arrière-plan pour le tempo, la grille rythmique et la tonalité  crates, crates intelligentes, liste de préparation avec Auto DJ, historique des sets, et import depuis Serato et rekordbox.
+- **Contrôle**  chaque action au clavier et depuis une palette de commandes, <kbd>Ctrl</kbd> <kbd>K</kbd>.
+- **Fiabilité**  l’audio redémarre tout seul après la perte d’une interface, et les decks reviennent après un plantage.
+
+## Pour commencer
+
+<CardGrid>
+	<LinkCard title="Installer Prisme" href="/fr/docs/start/install/" description="Windows, macOS, Linux et Android, et comment arrivent les mises à jour." />
+	<LinkCard title="Votre premier mix" href="/fr/docs/start/quick-start/" description="Du premier lancement à deux morceaux enchaînés." />
+	<LinkCard title="Carte son et latence" href="/fr/docs/start/audio/" description="Pilotes, taille du buffer, sorties et décrochages." />
+	<LinkCard title="Contrôle vinyle" href="/fr/docs/dvs/" description="Platines, disques timecode et comment ils pilotent les decks." />
+</CardGrid>
+
+## La documentation
+
+<CardGrid>
+	<LinkCard title="Interface" href="/fr/docs/interface/tour/" description="L’écran principal, les dispositions, le clavier et le téléphone." />
+	<LinkCard title="Bibliothèque" href="/fr/docs/library/adding-music/" description="Votre musique, son analyse, les crates, et l’import depuis Serato et rekordbox." />
+	<LinkCard title="Decks" href="/fr/docs/decks/playing/" description="Lecture, cues, boucles, sync, pads de performance et sampler." />
+	<LinkCard title="Table de mixage" href="/fr/docs/mixer/mixer/" description="La table de mixage logicielle, le casque, le micro et la ligne aux, l’enregistrement, l’Auto DJ." />
+	<LinkCard title="Effets et stems" href="/fr/docs/sound/effects/" description="La chaîne d’effets de chaque deck et la séparation en stems." />
+	<LinkCard title="Contrôleurs" href="/fr/docs/controllers/" description="Modèles pris en charge, MIDI learn et profils personnels." />
+	<LinkCard title="Réglages" href="/fr/docs/settings/" description="Chaque page des réglages, réglage par réglage." />
+	<LinkCard title="Aide" href="/fr/docs/help/troubleshooting/" description="Quand quelque chose ne va pas, et les questions fréquentes." />
+	<LinkCard title="Développeurs" href="/fr/docs/develop/building/" description="Compiler depuis les sources, la ligne de commande, l’architecture." />
+</CardGrid>
+
+Prisme est un logiciel libre sous licence GNU GPL v3. Son code source est sur [GitHub](https://github.com/Shawiizz/prisme).

@@ -1,0 +1,127 @@
+---
+title: Questions et réponses
+description: Prix, systèmes, ce que Prisme lit et joue, ce qu’il envoie sur internet, et ce qu’il ne fait pas.
+sidebar:
+  order: 2
+---
+
+Des réponses courtes aux questions qu’on se pose en premier. Chacune renvoie à la page qui
+va plus loin.
+
+## Combien coûte Prisme ?
+
+Rien. Prisme est un logiciel libre sous licence GNU General Public License, version 3 : vous
+pouvez l’utiliser, le partager et le modifier, et son code source est sur
+[GitHub](https://github.com/Shawiizz/prisme). Pas de compte, pas d’abonnement, aucune
+fonction réservée.
+
+Une partie a sa propre licence : le petit modèle de séparation rapide (choisi avec
+**Séparation** : **Rapide**) est sous CC BY-NC 4.0, qui interdit l’usage commercial. Les
+grands modèles de **Qualité** sont sous MIT et Apache 2.0.
+
+## Sur quels systèmes tourne-t-il ?
+
+- Windows 10 et 11.
+- macOS 13.3 ou plus récent. La version macOS n’est pas notariée par Apple : la première
+  fois, ouvrez-la depuis Réglages Système, Confidentialité et sécurité.
+- Linux, en paquet `.deb` ou en AppImage. Il joue par ALSA, ou par JACK (PipeWire compris)
+  pour la latence la plus basse.
+- Android, sur téléphone ou tablette.
+
+Il n’y a pas de version iOS. Voir [Installer Prisme](/fr/docs/start/install/).
+
+## Faut-il des platines ?
+
+Non. Chaque deck joue aussi tout seul, piloté depuis l’écran, le clavier, la
+[palette de commandes](/fr/docs/interface/keyboard/) ou un
+[contrôleur MIDI](/fr/docs/controllers/). Prisme a été construit autour des platines, mais
+elles ne sont pas obligatoires.
+
+## Quels disques timecode fonctionnent ?
+
+Serato Control Vinyl (CV02), face A ou face B, et le CD de contrôle Serato. Les timecodes
+Traktor, rekordbox et autres ne sont pas pris en charge. Toutes les platines jouent le même
+timecode, choisi dans **Réglages**, **Platines**. Voir [Contrôle vinyle](/fr/docs/dvs/).
+
+## Quelle carte son faut-il pour le contrôle vinyle ?
+
+Une carte avec une entrée stéréo par platine qui accepte le signal phono d’une platine
+(entrées phono, ou sélecteur phono/ligne), ou un préampli phono devant des entrées ligne.
+Quatre canaux d’entrée pour deux platines. ASIO sur Windows donne la latence la plus basse.
+Voir [Configurer le vinyle timecode](/fr/docs/dvs/setup/).
+
+## Puis-je utiliser ma table de mixage ?
+
+Oui, c’est le réglage par défaut sur ordinateur : chaque deck sort sur sa propre paire de
+sorties (deck A sur 1-2, deck B sur 3-4) vers une voie de votre table. Ou utilisez la table
+de mixage logicielle, avec le master sur les sorties 1-2 et le casque sur les 3-4. Voir
+[Table de mixage](/fr/docs/mixer/mixer/).
+
+## Deux platines et quatre decks ?
+
+Oui. Sur une interface pour deux platines, le deck C partage la platine du deck A et le
+deck D celle du deck B ; le deck que vous mettez en REL ou ABS la prend. Avec huit entrées,
+chaque deck a la sienne. Voir [Dispositions](/fr/docs/interface/layouts/).
+
+## Quels fichiers lit-il ?
+
+MP3, AAC, ALAC, FLAC, Ogg Vorbis, WAV et AIFF, depuis vos propres dossiers. Les services de
+streaming ne sont pas pris en charge.
+
+## Puis-je récupérer ma bibliothèque Serato ou rekordbox ?
+
+Oui : crates, cues et grilles rythmiques arrivent avec **Importer**, dans la bibliothèque.
+Voir [Importer](/fr/docs/library/import/).
+
+## Prisme modifie-t-il mes fichiers musicaux ?
+
+Sur ordinateur, il écrit le tempo et la tonalité qu’il trouve dans les tags de vos fichiers,
+pour que les autres logiciels DJ les lisent ; les valeurs écrites par un autre logiciel sont
+conservées. Désactivez-le dans **Réglages**, **Bibliothèque**, **Écrire le tempo et la
+tonalité dans les tags des fichiers**. Sur téléphone, c’est désactivé par défaut.
+
+Les stems séparés sont rangés à côté de chaque morceau, dans un dossier `.prisme`. Cues,
+grilles et crates sont gardés dans la bibliothèque de Prisme.
+
+## Faut-il internet ?
+
+Non, il joue hors ligne. Il ne se connecte que pour trois choses, toutes vers GitHub :
+chercher une nouvelle version à chaque démarrage, récupérer les nouveaux profils de
+contrôleurs une fois par jour, et télécharger un modèle de séparation des stems quand vous le
+demandez. Il n’envoie rien sur vous ni sur votre musique : pas de compte, pas de pistage,
+pas de statistiques d’utilisation.
+
+## Quels contrôleurs fonctionnent ?
+
+Les contrôleurs MIDI. 56 modèles sont mappés d’origine, chez Allen & Heath, Behringer, Denon,
+DJ TechTools, Hercules, Korg, Native Instruments, Numark, Pioneer, Reloop, Roland et
+Stanton ; tout autre peut être mappé avec le MIDI learn. Les contrôleurs qui parlent HID
+plutôt que MIDI ne sont pas pris en charge. Voir
+[Contrôleurs pris en charge](/fr/docs/controllers/supported/).
+
+## Se synchronise-t-il avec d’autres logiciels ou appareils ?
+
+Il envoie une horloge MIDI, 24 tops par temps du leader de sync, depuis **Réglages**,
+**Contrôleurs MIDI**, **Horloge MIDI en sortie**. Ableton Link n’est pas pris en charge.
+
+## Puis-je enregistrer mon mix ?
+
+Oui, avec sa tracklist, depuis **Enregistrer** dans la barre de titre. Voir
+[Enregistrement](/fr/docs/mixer/recording/).
+
+## Quelles langues ?
+
+L’anglais et le français. Prisme suit la langue de votre système et se change dans
+**Réglages**, **Interface**, **Langue**.
+
+## Qu’est-ce qui manque ?
+
+Pour vous éviter de chercher : pas d’autre timecode que celui de Serato, pas de contrôleurs
+HID, pas d’Ableton Link, pas de services de streaming, pas de vidéo, pas de version iOS.
+
+## Quelque chose ne marche pas. Où aller ?
+
+Voir [Dépannage](/fr/docs/help/troubleshooting/) et
+[Dépannage du timecode](/fr/docs/dvs/troubleshooting/). Pour signaler un problème, ouvrez une
+issue sur [GitHub](https://github.com/Shawiizz/prisme/issues) avec un rapport de diagnostic
+depuis **Réglages**, **À propos**.
