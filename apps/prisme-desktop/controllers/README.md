@@ -145,19 +145,34 @@ left out, to be completed by hand. Its tests: `python -m unittest discover tools
 ## Pioneer DDJ-SB2
 
 `pioneer-ddj-sb2.json` comes from the Mixxx mapping by Be and Michael Stahl (DG3NEC),
-GPL-2.0-or-later. The converter gives 318 of its 432 controls: the transport, the mixer
-(EQ, kills held, filter, trim, faders, crossfader, headphones mix), the jog wheels, the pads
-(hot cues, auto loops, loop rolls held, manual loops), the effect units (unit 1 on deck A, 2
-on deck B: on/off and level), the browse knob and its click (load on a free deck). Added by
-hand:
+GPL-2.0-or-later, read by hand with its script; not yet tried on the controller. Decks 3 and
+4 answer on their own channels in four-deck mode, as the controller sends them.
 
-- `init`: the request for the positions of the knobs and faders (`9B 09 7F`).
-- The jog wheels under shift (controllers 0x1F and 0x26), which still turn the deck.
-- Shift + KEY LOCK (note 0x60): the tempo back to the track's.
-- The sampler pads (0x30-0x33 on each deck's pad channel): that deck's sounds 1 to 4.
-- Shift + the browse knob's click (note 0x42): the track to the prepare list.
-- The light of the headphones key under shift (note 0x68).
+- Transport: shift + PLAY reverses, shift + CUE goes to the start, stopped. SYNC tapped
+  matches the other deck once (or lets a locked sync go), held a quarter of a second locks
+  it; its light shows the lock. Shift + SYNC: quantize.
+- The shift keys are named by side (`shift.left`, `shift.right`): each shifts its own deck's
+  knobs only.
+- Jog wheels: VINYL chooses whether a touch scratches or only nudges; the ring under shift
+  searches through the track, the platter under shift still scratches or nudges. Shift +
+  VINYL: slip while held.
+- Shift + KEY LOCK: the tempo back to the track's. Shift + the headphones key: the deck
+  behind's (1 and 3, 2 and 4).
+- Effects: unit 1 is deck A's chain, unit 2 deck B's. A key focuses its effect, or lets it
+  go, and lights while it is focused; held a quarter of a second, it switches the effect. The
+  knob is the three effects' levels together while none is focused, the focused effect's
+  amount otherwise; under shift, the gain, high and mid knobs of the side are the focused
+  effect's amount, second knob and period. The focus is a mode of the profile
+  (`fx1Knob`, `fx2Knob`), the app's focus moved along.
+- Browse knob: the tracks, under shift the lists; its click previews the track in the
+  headphones (or stops the preview), shifted it opens the list pointed at.
+- Pads, as the controller pages them: hot cues 1-4 and 5-8 (cue loop page), deleted under
+  shift; auto loop (a loop of the deck's size, halve, double, reloop; shifted: a 4-beat roll,
+  jumps back and ahead, back to the loop stopped); manual loop (in, out, reloop, halve;
+  shifted: the loop moved a beat back or ahead, double); rolls 1/16 to 8; kills and mute while
+  held; sampler (play, stop under shift, load, eject under shift).
+- Auto DJ keys: skip on the left, on/off on the right. Level meters per deck, red at clip.
 
-Left out, Prisme having no action for them: the mute, the vinyl key, the effects' second
-and third keys, the level meters, the Auto DJ keys and the other uses under shift (the
-headphones of the deck behind, the playlists). Decks 3 and 4 answer in four-deck mode.
+Left out: the fader start under shift, the gradual return of the tempo, the focused effect's
+fourth and fifth parameters (low EQ and filter knobs under shift), the chain presets, the
+skin's panels, the meters twinkling under Auto DJ.
