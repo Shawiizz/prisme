@@ -18,6 +18,8 @@ import { EngineService } from './engine.service';
 export class SettingsService {
   readonly backends = signal<AudioBackend[]>([]);
   readonly devices = signal<AudioDevice[]>([]);
+  /** The backend `devices` are of. */
+  readonly devicesBackend = signal<AudioBackend | null>(null);
   readonly formats = signal<TimecodeFormat[]>([]);
   readonly settings = signal<AudioSettings | null>(null);
   readonly info = signal<AudioInfo | null>(null);
@@ -60,7 +62,10 @@ export class SettingsService {
   async loadDevices(backend: AudioBackend): Promise<void> {
     const asked = ++this.devicesAsked;
     const devices = await invoke<AudioDevice[]>('list_devices', { backend });
-    if (asked === this.devicesAsked) this.devices.set(devices);
+    if (asked === this.devicesAsked) {
+      this.devices.set(devices);
+      this.devicesBackend.set(backend);
+    }
   }
 
   /** Asks where to save a diagnostic report and writes it; `false` if cancelled. */

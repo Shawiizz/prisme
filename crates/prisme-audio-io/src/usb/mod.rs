@@ -82,8 +82,9 @@ pub(crate) fn find(wanted: Option<&str>) -> Option<UsbCard> {
 }
 
 /// The card of `cards` that `wanted` names, case aside: the one of that name, else the first
-/// whose name holds it (a name saved before a second card was there), else the first of its
-/// product (a second card saved, alone now); the first of all without a name.
+/// whose name holds it (a name saved before a second card was there), else the first whose
+/// name it holds (the system's name of the card, "USB-Audio - UMC404HD 192k"), else the first
+/// of its product (a second card saved, alone now); the first of all without a name.
 fn pick(mut cards: Vec<UsbCard>, wanted: Option<&str>) -> Option<UsbCard> {
     let Some(wanted) = wanted.map(str::to_lowercase) else { return cards.into_iter().next() };
     let names: Vec<String> = cards.iter().map(|c| c.name.to_lowercase()).collect();
@@ -92,6 +93,7 @@ fn pick(mut cards: Vec<UsbCard>, wanted: Option<&str>) -> Option<UsbCard> {
         .iter()
         .position(|n| *n == wanted)
         .or_else(|| names.iter().position(|n| n.contains(&wanted)))
+        .or_else(|| names.iter().position(|n| wanted.contains(n.as_str())))
         .or_else(|| names.iter().position(|n| !product.is_empty() && n.starts_with(product)))?;
     Some(cards.swap_remove(at))
 }
@@ -242,6 +244,12 @@ mod tests {
         assert_eq!(found(Some("UMC404")).as_deref(), Some("a"));
         assert_eq!(found(None).as_deref(), Some("a"));
         assert_eq!(found(Some("SL3")), None);
+    }
+
+    #[test]
+    fn a_card_is_found_by_the_name_android_gives_its_audio() {
+        let cards = vec![card("a", "DJControl"), card("b", "UMC404HD 192k")];
+        assert_eq!(pick(cards, Some("USB-Audio - UMC404HD 192k")).map(|c| c.id).as_deref(), Some("b"));
     }
 
     #[test]

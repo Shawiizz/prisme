@@ -4,6 +4,7 @@ import {
   OnInit,
   afterRenderEffect,
   computed,
+  effect,
   inject,
   signal,
   viewChild,
@@ -195,12 +196,18 @@ export class SettingsDialog implements OnInit {
   /** The bar of pending changes flashes when the window is asked to close over it. */
   protected readonly nudged = signal(false);
 
-  protected readonly outputs = computed(() =>
-    this.service.devices().filter((d) => d.kind === 'output'),
+  /** The devices of the driver chosen in the draft: the audio restarting meanwhile lists
+   * those of the saved one, which must not stand in for them. */
+  private readonly devices = computed(() =>
+    this.service.devicesBackend() === this.draft()?.backend ? this.service.devices() : [],
   );
-  protected readonly inputs = computed(() =>
-    this.service.devices().filter((d) => d.kind === 'input'),
-  );
+  protected readonly outputs = computed(() => this.devices().filter((d) => d.kind === 'output'));
+  protected readonly inputs = computed(() => this.devices().filter((d) => d.kind === 'input'));
+  private readonly listDraftDevices = effect(() => {
+    const backend = this.draft()?.backend;
+    if (backend && backend !== this.service.devicesBackend())
+      void this.service.loadDevices(backend);
+  });
   /** One device for the outputs and, if the turntables are on it, the inputs: an ASIO driver,
    * a USB card Prisme drives itself. */
   protected readonly oneDevice = computed(() =>
