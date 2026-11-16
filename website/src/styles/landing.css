@@ -484,9 +484,14 @@ section p {
 	display: flex;
 	flex-wrap: wrap;
 	justify-content: center;
+	align-items: center;
 	gap: 8px;
 }
 .models li {
+	max-width: 100%;
+	overflow: hidden;
+	white-space: nowrap;
+	text-overflow: ellipsis;
 	padding: 7px 12px;
 	border: 1px solid var(--pr-line-2);
 	border-radius: 999px;

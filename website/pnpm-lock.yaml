@@ -14,6 +14,9 @@ importers:
       astro:
         specifier: ^7.3.6
         version: 7.4.12(@types/node@26.6.6)(yaml@2.9.1)
+      photoswipe:
+        specifier: ^5.4.4
+        version: 5.4.4
       sharp:
         specifier: ^0.35.3
         version: 0.35.5(@types/node@26.6.6)
@@ -1284,6 +1287,10 @@ packages:
 
   parse-entities@4.0.2:
     resolution: {integrity: sha512-GG2AQYWoLgL877gQIKeRPGO1xF9+eG1ujIb5soS5gPvLQ1y2o8FL90w2QWNdf9I361Mpp7726c+lj3U0qK1uGw==}
+
+  photoswipe@5.4.4:
+    resolution: {integrity: sha512-WNFHoKrkZNnvFFhbHL93WDkW3ifwVOXSW3w1UuZZelSmgXpIGiZSNlZJq37rR8YejqME2rHs9EhH9ZvlvFH2NA==}
+    engines: {node: '>= 0.12.0'}
 
   piccolore@0.1.3:
     resolution: {integrity: sha512-o8bTeDWjE086iwKrROaDf31K0qC/BENdm15/uH9usSC/uZjJOKb2YGiVHfLY4GhwsERiPI1jmwI2XrA7ACOxVw==}
@@ -3003,6 +3010,8 @@ snapshots:
       is-alphanumerical: 2.0.1
       is-decimal: 2.0.1
       is-hexadecimal: 2.0.1
+
+  photoswipe@5.4.4: {}
 
   piccolore@0.1.3: {}
 
