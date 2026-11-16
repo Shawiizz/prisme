@@ -35,7 +35,9 @@
           (input)="library.setFilter($any($event.target).value)"
           (keydown.escape)="search.blur()"
         />
-        <span class="pr-kbd">{{ CTRL }} F</span>
+        @if (keyboard.keyOf('library.search'); as key) {
+          <span class="pr-kbd">{{ key }}</span>
+        }
       </label>
       <span class="pr-label">{{ 'Compare with' | t }}</span>
       <div class="pr-seg" role="radiogroup" [attr.aria-label]="'Compare with' | t">

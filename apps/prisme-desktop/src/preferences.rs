@@ -6,6 +6,7 @@ use crate::dto::{
 };
 use prisme_engine::MAX_DECKS;
 use serde::{Deserialize, Deserializer, Serialize};
+use std::collections::BTreeMap;
 
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 #[serde(default, rename_all = "camelCase")]
@@ -17,6 +18,21 @@ pub struct Preferences {
     pub mixer: MixerPreferences,
     pub library: LibraryPreferences,
     pub auto_dj: AutoDjPreferences,
+    /// The keyboard keys the DJ changed, by action (the interface's control ids): the actions
+    /// left out keep the keys Prisme gives them, an empty list takes them off.
+    pub keys: BTreeMap<String, Vec<KeyPreference>>,
+}
+
+/// A key of the keyboard (`KeyboardEvent.code`, so the layout does not matter), with the
+/// modifiers held: Control is Command on a Mac.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct KeyPreference {
+    pub code: String,
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub ctrl: bool,
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub shift: bool,
 }
 
 /// The decks a file holds, fewer than there are (two, before there could be four): the
@@ -311,6 +327,7 @@ mod tests {
         assert_eq!(p.auto_dj, AutoDjPreferences { fade_beats: 16, fade_s: 10.0 });
         assert!(!p.dj.cue_on_load, "the headphones stay where they are at a load");
         assert!(!p.dj.protect_playing, "a load onto a deck that plays is asked about");
+        assert!(p.keys.is_empty(), "every action keeps the keys Prisme gives it");
     }
 
     #[test]
@@ -387,6 +404,18 @@ mod tests {
     }
 
     #[test]
+    fn the_keys_of_the_dj_read_with_the_modifiers_they_hold() {
+        let p: Preferences = serde_json::from_str(
+            r#"{ "keys": { "deck3.play": [{ "code": "KeyG", "shift": true }], "general.help": [] } }"#,
+        )
+        .unwrap();
+        assert_eq!(p.keys["deck3.play"], [KeyPreference { code: "KeyG".into(), ctrl: false, shift: true }]);
+        assert!(p.keys["general.help"].is_empty());
+        let json = serde_json::to_string(&p.keys).unwrap();
+        assert_eq!(json, r#"{"deck3.play":[{"code":"KeyG","shift":true}],"general.help":[]}"#);
+    }
+
+    #[test]
     fn preferences_survive_a_round_trip() {
         let mut p = Preferences::default();
         p.decks[1] = DeckPreferences {
@@ -407,6 +436,10 @@ mod tests {
         p.mixer.crossfader_reverse = true;
         p.mixer.mic =
             LivePreferences { input: Some(InputChannelsDto { first: 4, stereo: false }), level: 0.5 };
+        p.keys = BTreeMap::from([
+            ("deck1.play".into(), vec![KeyPreference { code: "KeyG".into(), ctrl: true, shift: false }]),
+            ("library.search".into(), Vec::new()),
+        ]);
         let json = serde_json::to_string(&p).unwrap();
         assert_eq!(serde_json::from_str::<Preferences>(&json).unwrap(), p);
     }

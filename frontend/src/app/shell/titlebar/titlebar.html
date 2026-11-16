@@ -80,7 +80,9 @@
       <path d="M11 11l4 4" />
     </svg>
     <span>{{ 'Search actions, tracks, settings…' | t }}</span>
-    <kbd class="pr-kbd">{{ CTRL }} K</kbd>
+    @if (keyboard.keyOf('general.palette'); as key) {
+      <kbd class="pr-kbd">{{ key }}</kbd>
+    }
   </button>
 
   <nav class="actions">
@@ -141,7 +143,7 @@
     <button
       class="pr-btn pr-btn--ghost"
       (click)="navigation.openSettings()"
-      [title]="'Settings ({ctrl} + ,)' | t: { ctrl: CTRL }"
+      [title]="settingsTitle()"
     >
       {{ 'Settings' | t }}
     </button>

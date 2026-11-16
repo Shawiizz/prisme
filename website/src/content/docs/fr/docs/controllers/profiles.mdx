@@ -9,7 +9,7 @@ import { Aside } from '@astrojs/starlight/components';
 
 Un profil mappe un modèle de contrôleur avant que quoi que ce soit n’y soit appris : quelle action pilote chaque commande, ce que montrent ses voyants, les niveaux et les valeurs qu’il affiche, et les messages qu’on lui envoie. C’est un fichier JSON que chacun peut lire et modifier. Cette page décrit chaque champ, tel que Prisme le lit (`crates/prisme-control`).
 
-Pour en créer un, partez du fichier qu’écrit **Exporter en profil**, ou d’un [profil livré](https://github.com/Shawiizz/prisme/tree/main/apps/prisme-desktop/controllers), et déposez-le dans le dossier de vos propres profils : voir [Un profil à vous](/fr/docs/controllers/learn/#un-profil-à-vous).
+Pour en créer un, partez d’un fichier écrit par **Exporter en profil…**, ou d’un [profil livré](https://github.com/Shawiizz/prisme/tree/main/apps/prisme-desktop/controllers), et déposez-le dans le dossier de vos propres profils : voir [Un profil à vous](/fr/docs/controllers/learn/#un-profil-à-vous).
 
 ## Un premier profil
 
@@ -45,9 +45,9 @@ Prisme lit trois couches. Chacune remplace la précédente pour un fichier du m�
 | --- | --- | --- |
 | Livrée | Dans Prisme | Les profils de `apps/prisme-desktop/controllers` au moment où votre version a été construite. |
 | Mise à jour | `controller-updates`, dans le dossier de données | Les profils publiés depuis sur GitHub, récupérés une fois par jour ou avec **Chercher des mises à jour**. Un profil publié n’est pris que s’il est une révision plus récente que celle livrée avec votre version, dans un format que votre version sait lire, et seulement si son texte est bien celui qu’annonce son index. |
-| À vous | `controllers`, dans le dossier de données | Vos fichiers : un fichier du même nom qu’un profil livré le remplace, un fichier d’un autre nom ajoute un modèle. **Relire** les relit après une modification. |
+| À vous | `controllers`, dans le dossier de données | Vos fichiers : un fichier du même nom qu’un profil livré le remplace, un fichier d’un autre nom ajoute un modèle. De deux profils dont les ports conviennent aussi bien à un contrôleur, le vôtre l’emporte. **Relire** les relit après une modification. |
 
-Le dossier de données est décrit dans [MIDI learn et votre propre profil](/fr/docs/controllers/learn/#où-se-trouve-le-dossier-de-données). Par-dessus ces trois couches, les commandes apprises dans les réglages prennent la place du profil pour leur commande et leur action.
+Le dossier de données est décrit dans [MIDI learn et votre propre profil](/fr/docs/controllers/learn/#où-se-trouve-le-dossier-de-données). Par-dessus ces trois couches, les commandes apprises dans les réglages prennent la place du profil pour leur commande et leur action. Votre propre profil d’un modèle que Prisme connaît empêche les mises à jour de ce modèle de vous parvenir, et les réglages le disent ; les commandes apprises, non, puisqu’elles restent posées par-dessus le profil en service, quel qu’il soit.
 
 ## Le modèle
 

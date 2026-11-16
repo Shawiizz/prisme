@@ -2,15 +2,23 @@ import { Component, OnDestroy, OnInit, computed, inject, signal } from '@angular
 import { ControlService } from '../../core/control/control.service';
 import { ControllerService } from '../../core/control/controller.service';
 import { Control } from '../../core/control/controls';
-import { ControllerMapping, StepEncoding, describeMapping } from '../../core/models/controllers';
+import {
+  Controller,
+  ControllerMapping,
+  StepEncoding,
+  describeMapping,
+} from '../../core/models/controllers';
 import { Text, t } from '../../core/i18n/i18n';
 import { errorText } from '../../core/errors';
 import { PHONE } from '../../core/platform';
 import { TPipe } from '../../core/i18n/t.pipe';
 
+/** Where a control is mapped on one controller. */
 interface Binding {
-  mapping: ControllerMapping;
+  device: string;
   text: string;
+  /** Its encoder, whose steps can be read another way. */
+  encoder?: ControllerMapping;
 }
 
 interface Row {
@@ -87,6 +95,13 @@ export class ControllersSettings implements OnInit, OnDestroy {
     }
   });
 
+  /** The DJ's own profiles that replace Prisme's of the same file name. */
+  protected readonly replacing = computed(() =>
+    (this.service.profiles()?.profiles ?? []).flatMap(({ file, replaces }) =>
+      replaces ? [{ file, model: replaces }] : [],
+    ),
+  );
+
   /** How many models come from where. */
   protected readonly counts = computed(() => {
     const profiles = this.service.profiles()?.profiles ?? [];
@@ -105,10 +120,14 @@ export class ControllersSettings implements OnInit, OnDestroy {
     const groups = new Map<string, Row[]>();
     // a light only shows: nothing is learnt for it
     for (const control of this.controls.controls.filter((c) => c.kind !== 'light')) {
-      const bindings = this.service
-        .mappings()
-        .filter((m) => m.target === control.id)
-        .map((m) => ({ mapping: m, text: `${m.device} · ${describeMapping(m)}` }));
+      const devices = new Map<string, ControllerMapping[]>();
+      for (const m of this.service.mappings().filter((m) => m.target === control.id))
+        devices.set(m.device, [...(devices.get(m.device) ?? []), m]);
+      const bindings = [...devices].map(([device, mappings]) => ({
+        device,
+        text: `${device} · ${mappings.map(describeMapping).join(' / ')}`,
+        encoder: mappings.find((m) => m.encoding && m.encoding !== 'absolute'),
+      }));
       groups.set(control.group, [...(groups.get(control.group) ?? []), { control, bindings }]);
     }
     return [...groups.entries()].map(([name, rows]) => ({ name, rows }));
@@ -128,14 +147,16 @@ export class ControllersSettings implements OnInit, OnDestroy {
     }
   }
 
-  protected async exportProfile(device: string) {
+  protected async exportProfile(controller: Controller) {
     let outcome: Outcome;
     try {
-      outcome = { done: true, text: await this.service.exportProfile(device) };
+      const path = await this.service.exportProfile(controller);
+      if (path === null) return;
+      outcome = { done: true, text: path };
     } catch (e) {
       outcome = { done: false, text: errorText(e) };
     }
-    this.exported.update((all) => ({ ...all, [device]: outcome }));
+    this.exported.update((all) => ({ ...all, [controller.name]: outcome }));
   }
 
   /** Looked for long enough to be seen looking, even when nothing new is found. */

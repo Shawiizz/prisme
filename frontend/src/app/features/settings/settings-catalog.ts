@@ -59,8 +59,9 @@ const PAGES: readonly SettingsPage[] = [
   {
     id: 'shortcuts',
     label: () => t('Keyboard shortcuts'),
-    description: () => t('Every key of the keyboard, as printed on yours.'),
-    keywords: 'keys keyboard',
+    description: () =>
+      t('The key of each action, as printed on yours: press another to change it.'),
+    keywords: 'keys keyboard change reassign remap reset',
   },
   {
     id: 'interface',

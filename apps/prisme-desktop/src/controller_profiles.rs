@@ -1,7 +1,8 @@
 //! The controller models Prisme knows, each by its profile (`controllers/*.json`): as shipped
 //! with this version, as published since where Prisme is made (fetched into the data folder's
 //! `controller-updates`), and the DJ's own (the data folder's `controllers`), each replacing
-//! the one before it of the same file name.
+//! the one before it of the same file name. The DJ's own profile of a model Prisme knows takes
+//! the place of Prisme's, the corrections published since included: the settings say so.
 //!
 //! The published profiles are listed in `controllers/index.json`: of each, its digest, its
 //! revision (raised at each change) and the version of the format it was written in. A
@@ -142,8 +143,42 @@ pub struct Published {
 #[derive(Debug, Default)]
 pub struct Library {
     pub known: Vec<Known>,
+    /// Prisme's profiles that the DJ's own of the same file name took the place of.
+    pub replaced: Vec<Known>,
     /// `file: why`.
     pub unreadable: Vec<String>,
+}
+
+impl Library {
+    /// Of `profiles`, the one whose name `port` holds that is the longest, the DJ's own of
+    /// those as long, else the first.
+    fn fitting<'k>(profiles: impl IntoIterator<Item = &'k Known>, port: &str) -> Option<&'k Known> {
+        let mine = |k: &Known| k.source == Source::Own;
+        let mut best: Option<(usize, &Known)> = None;
+        for known in profiles {
+            let Some(fit) = known.profile.fits(port) else { continue };
+            if best.is_none_or(|(longest, chosen)| {
+                fit > longest || (fit == longest && mine(known) && !mine(chosen))
+            }) {
+                best = Some((fit, known));
+            }
+        }
+        best.map(|(_, known)| known)
+    }
+
+    /// The profile of the controller on the MIDI port `port`, if Prisme knows its model.
+    pub fn of(&self, port: &str) -> Option<&Known> {
+        Self::fitting(&self.known, port)
+    }
+
+    /// Prisme's profile that the DJ's own takes the place of on `port`, if it does: the
+    /// corrections published for it do not reach that controller.
+    pub fn replaced_on(&self, port: &str) -> Option<&Known> {
+        if self.of(port)?.source != Source::Own {
+            return None;
+        }
+        Self::fitting(self.known.iter().chain(&self.replaced).filter(|k| k.source != Source::Own), port)
+    }
 }
 
 /// The folders of the profiles beside those shipped.
@@ -185,25 +220,10 @@ pub fn own_folder() -> Option<PathBuf> {
     FOLDERS.get().map(|f| f.own.clone())
 }
 
-/// The profile of the controller on the MIDI port `port`, if Prisme knows its model: the one
-/// whose name the port holds that is the longest, the first of those as long.
+/// The profile of the controller on the MIDI port `port`, if Prisme knows its model (see
+/// [`Library::of`]).
 pub fn of(port: &str) -> Option<Arc<Profile>> {
-    let library = current();
-    let mut best: Option<(usize, &Known)> = None;
-    for known in &library.known {
-        if let Some(fit) = known.profile.fits(port) {
-            if best.is_none_or(|(longest, _)| fit > longest) {
-                best = Some((fit, known));
-            }
-        }
-    }
-    best.map(|(_, known)| known.profile.clone())
-}
-
-/// Where the profile of the controller on `port` comes from.
-pub fn source_of(port: &str) -> Option<Source> {
-    let profile = of(port)?;
-    current().known.iter().find(|k| Arc::ptr_eq(&k.profile, &profile)).map(|k| k.source)
+    current().of(port).map(|known| known.profile.clone())
 }
 
 /// Steps in a turn of the jog wheels of the controller on `port`.
@@ -214,8 +234,13 @@ pub fn jog_steps_per_turn(port: &str) -> f64 {
 /// The profiles shipped, then those fetched that are later, then the DJ's own.
 fn read_library(folders: Option<&Folders>) -> Library {
     let mut files: BTreeMap<String, Known> = BTreeMap::new();
+    let mut replaced = Vec::new();
     let mut take = |file: &str, source, profile| {
-        files.insert(file.to_owned(), Known { file: file.to_owned(), source, profile: Arc::new(profile) });
+        let known = Known { file: file.to_owned(), source, profile: Arc::new(profile) };
+        match files.insert(file.to_owned(), known) {
+            Some(prismes) if source == Source::Own => replaced.push(prismes),
+            _ => {}
+        }
     };
     for (file, text) in SHIPPED {
         match serde_json::from_str(text) {
@@ -243,7 +268,7 @@ fn read_library(folders: Option<&Folders>) -> Library {
             }
         }
     }
-    Library { known: files.into_values().collect(), unreadable }
+    Library { known: files.into_values().collect(), replaced, unreadable }
 }
 
 /// The JSON files of `folder`, read.
@@ -336,17 +361,17 @@ fn write_whole(path: &Path, bytes: &[u8]) -> Result<(), String> {
     std::fs::rename(&partial, path).map_err(|e| e.to_string())
 }
 
-/// Writes `profile` among the DJ's own, as the file its model names, and reads the profiles
-/// again: where it went.
-pub fn save_own(profile: &Profile) -> Result<PathBuf, String> {
-    let folder = own_folder().ok_or("Prisme has no data folder")?;
-    std::fs::create_dir_all(&folder).map_err(|e| e.to_string())?;
+/// Writes `profile` to `path`, where the DJ chose: a file to share or to keep, which Prisme does
+/// not read unless the DJ puts it among their own.
+pub fn export(profile: &Profile, path: &Path) -> Result<(), String> {
     let profile = Profile { schema: Some(SCHEMA_URL.to_owned()), ..profile.clone() };
-    let path = folder.join(format!("{}.json", file_stem(&profile.name)));
     let text = serde_json::to_string_pretty(&profile).map_err(|e| e.to_string())?;
-    write_whole(&path, format!("{text}\n").as_bytes())?;
-    reload();
-    Ok(path)
+    std::fs::write(path, format!("{text}\n")).map_err(|e| e.to_string())
+}
+
+/// The file the profile of `model` goes by: `Pioneer DDJ-400` → `pioneer-ddj-400.json`.
+pub fn file_name(model: &str) -> String {
+    format!("{}.json", file_stem(model))
 }
 
 /// `Pioneer DDJ-400` → `pioneer-ddj-400`.
@@ -468,6 +493,51 @@ mod tests {
         assert_eq!(known(&library, "my-own.json").source, Source::Own);
         assert_eq!(library.known.len(), SHIPPED.len() + 1);
         assert!(library.unreadable.len() == 1 && library.unreadable[0].starts_with("broken.json: "));
+    }
+
+    #[test]
+    fn a_profile_of_the_djs_that_takes_the_place_of_prismes_is_told() {
+        let folders = scratch("replaced");
+        std::fs::create_dir_all(&folders.own).unwrap();
+        let mut pads: Profile = serde_json::from_str(&ddj_400_named("My pads")).unwrap();
+        pads.ports = vec!["MY-PADS".into()];
+        std::fs::write(folders.own.join("my-pads.json"), serde_json::to_string(&pads).unwrap()).unwrap();
+        let library = read_library(Some(&folders));
+        assert_eq!(library.of("MY-PADS").map(|k| k.source), Some(Source::Own));
+        assert!(library.replaced_on("MY-PADS").is_none(), "a model Prisme does not know replaces none");
+        assert!(library.replaced_on("DDJ-400").is_none());
+
+        // the same file name as Prisme's
+        std::fs::write(folders.own.join("pioneer-ddj-400.json"), ddj_400_named("Mine")).unwrap();
+        let library = read_library(Some(&folders));
+        assert_eq!(library.of("DDJ-400").map(|k| k.profile.name.as_str()), Some("Mine"));
+        assert_eq!(library.replaced_on("DDJ-400").map(|k| k.profile.name.as_str()), Some("Pioneer DDJ-400"));
+        assert_eq!(
+            library.replaced.iter().map(|k| k.file.as_str()).collect::<Vec<_>>(),
+            ["pioneer-ddj-400.json"]
+        );
+
+        // another name, the same ports: the DJ's wins all the same, and says so
+        std::fs::remove_file(folders.own.join("pioneer-ddj-400.json")).unwrap();
+        std::fs::write(folders.own.join("zz-mine.json"), ddj_400_named("Mine")).unwrap();
+        let library = read_library(Some(&folders));
+        assert!(library.replaced.is_empty());
+        assert_eq!(library.of("DDJ-400").map(|k| k.profile.name.as_str()), Some("Mine"));
+        assert_eq!(library.replaced_on("DDJ-400").map(|k| k.profile.name.as_str()), Some("Pioneer DDJ-400"));
+    }
+
+    #[test]
+    fn an_export_goes_where_the_dj_chose_and_leaves_their_profiles_alone() {
+        let folders = scratch("export");
+        std::fs::create_dir_all(&folders.updates).unwrap();
+        let path = folders.updates.join("shared.json");
+        let profile: Profile = serde_json::from_str(&ddj_400_named("Pioneer DDJ-400")).unwrap();
+        export(&profile, &path).unwrap();
+        let written: Profile = serde_json::from_str(&std::fs::read_to_string(&path).unwrap()).unwrap();
+        assert_eq!(written.schema.as_deref(), Some(SCHEMA_URL));
+        assert_eq!(written.controls, profile.controls);
+        assert!(!folders.own.exists());
+        assert_eq!(file_name(&profile.name), "pioneer-ddj-400.json");
     }
 
     #[test]

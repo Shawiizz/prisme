@@ -57,9 +57,30 @@ pub struct ControllerSetup {
     pub mappings: Mappings,
     /// Where the MIDI clock goes (see `midi_clock`).
     pub clock_output: Option<String>,
-    /// Actions the DJ took off every controller: the profiles' controls no longer drive
-    /// them either.
-    pub unmapped: Vec<String>,
+    /// Actions the DJ took off a controller: its profile's controls no longer drive them.
+    pub unmapped: Vec<Unmapped>,
+}
+
+/// An action taken off a controller.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum Unmapped {
+    On {
+        device: String,
+        target: String,
+    },
+    /// Off every controller: what an action taken off was before it could be taken off one alone.
+    Everywhere(String),
+}
+
+impl Unmapped {
+    /// Whether `mapping` is taken off by this.
+    fn covers(&self, mapping: &Mapping) -> bool {
+        match self {
+            Unmapped::On { device, target } => mapping.device == *device && mapping.target == *target,
+            Unmapped::Everywhere(target) => mapping.target == *target,
+        }
+    }
 }
 
 /// The next control moved will drive `target`; an encoder's steps are read as it sends
@@ -321,6 +342,11 @@ impl Controllers {
         Profile { controls, verified: false, ..profile }
     }
 
+    /// The model of `device`, as its profile names it, else as its port does.
+    pub fn model_name(device: &str) -> String {
+        controller_profiles::of(device).map_or_else(|| base_port_name(device), |p| p.name.clone())
+    }
+
     /// Looks a while after Prisme starts, once a day at most, for the controller profiles
     /// published since: those that came drive their controllers at once.
     pub fn keep_profiles_up_to_date(app: AppHandle) {
@@ -466,11 +492,13 @@ impl Controllers {
         self.save(|s| s.clock_output = name);
     }
 
-    pub fn forget(&self, target: &str) {
+    /// Takes `target` off `device`: neither what was learnt nor its profile drives it there.
+    pub fn forget(&self, device: &str, target: &str) {
         self.save(|s| {
-            s.mappings.forget(target);
-            if !s.unmapped.iter().any(|t| t == target) {
-                s.unmapped.push(target.to_owned());
+            s.mappings.forget(device, target);
+            let unmapped = Unmapped::On { device: device.to_owned(), target: target.to_owned() };
+            if !s.unmapped.contains(&unmapped) {
+                s.unmapped.push(unmapped);
             }
         });
     }
@@ -821,7 +849,8 @@ impl Controllers {
             };
             let mapping = Mapping::new(device, binding);
             self.save(|s| {
-                s.unmapped.retain(|t| *t != mapping.target);
+                let unmapped = Unmapped::On { device: device.to_owned(), target: mapping.target.clone() };
+                s.unmapped.retain(|u| *u != unmapped);
                 s.mappings.learn(mapping.clone(), Direct::takes_several(&mapping.target));
             });
             *lock(&self.just_learnt) = Some((mapping.clone(), Instant::now()));
@@ -1055,7 +1084,8 @@ impl Controllers {
                 })
                 .flatten()
                 .collect();
-            Mappings::layered(profiled, &s.mappings, &s.unmapped, Direct::takes_several)
+            let unmapped = |m: &Mapping| s.unmapped.iter().any(|u| u.covers(m));
+            Mappings::layered(profiled, &s.mappings, unmapped, Direct::takes_several)
         });
         *lock(&self.mappings) = layered;
     }
@@ -1276,14 +1306,43 @@ mod tests {
         play(&c);
         assert_eq!(play(&c), input("deck1.cue", 1.0));
         // forgotten, an action leaves the profile's controls too
-        c.forget("deck1.cue");
-        c.forget("deck1.play");
+        c.forget("DDJ-SB2", "deck1.cue");
+        c.forget("DDJ-SB2", "deck1.play");
         assert_eq!(play(&c), None);
-        assert!(c.setup().unmapped.contains(&"deck1.play".to_owned()));
+        assert!(c
+            .setup()
+            .unmapped
+            .contains(&Unmapped::On { device: "DDJ-SB2".into(), target: "deck1.play".into() }));
         // learnt again, it is mapped again
         c.learn("deck1.play".into(), false);
         play(&c);
         assert_eq!(play(&c), input("deck1.play", 1.0));
+    }
+
+    #[test]
+    fn an_action_taken_off_a_controller_stays_on_the_others() {
+        let c = sb2();
+        c.save(|s| s.enabled.push("DDJ-SB2 MIDI 2".into()));
+        let play = |c: &Controllers, device| c.route(device, parse(&[0x90, 0x0b, 127]).unwrap(), 0.0);
+        c.forget("DDJ-SB2", "deck1.play");
+        assert_eq!(play(&c, "DDJ-SB2"), None);
+        assert_eq!(play(&c, "DDJ-SB2 MIDI 2"), input("deck1.play", 1.0));
+    }
+
+    #[test]
+    fn an_action_taken_off_before_controllers_were_told_apart_stays_off_them_all() {
+        let setup: ControllerSetup =
+            serde_json::from_str(r#"{ "enabled": ["DDJ-SB2"], "unmapped": ["deck1.play"] }"#).unwrap();
+        assert_eq!(setup.unmapped, [Unmapped::Everywhere("deck1.play".into())]);
+        let c = controllers();
+        c.save(|s| *s = setup);
+        assert_eq!(c.route("DDJ-SB2", parse(&[0x90, 0x0b, 127]).unwrap(), 0.0), None);
+        let saved = serde_json::to_string(&c.setup()).unwrap();
+        c.forget("DDJ-SB2", "deck1.cue");
+        assert!(saved.contains(r#""unmapped":["deck1.play"]"#));
+        assert!(serde_json::to_string(&c.setup())
+            .unwrap()
+            .contains(r#"{"device":"DDJ-SB2","target":"deck1.cue"}"#));
     }
 
     #[test]

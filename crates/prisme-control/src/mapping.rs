@@ -422,22 +422,22 @@ impl Mappings {
         }
     }
 
-    /// Removes the controls of `target`, on every controller.
-    pub fn forget(&mut self, target: &str) {
-        self.0.retain(|m| m.target != target);
+    /// Removes the controls of `target` on `device`.
+    pub fn forget(&mut self, device: &str, target: &str) {
+        self.0.retain(|m| m.device != device || m.target != target);
     }
 
     /// The mappings of the controllers' models (their profiles) with those learnt over
-    /// them: a control or an action learnt on a controller takes the model's place, and an
-    /// action forgotten (`unmapped`) loses the model's controls too. `several` tells the
-    /// actions that take several controls.
+    /// them: a control or an action learnt on a controller takes the model's place, and a
+    /// model's control whose action was taken off its controller (`unmapped`) is left out.
+    /// `several` tells the actions that take several controls.
     pub fn layered(
         model: impl IntoIterator<Item = Mapping>,
         learnt: &Mappings,
-        unmapped: &[String],
+        unmapped: impl Fn(&Mapping) -> bool,
         several: impl Fn(&str) -> bool,
     ) -> Self {
-        let mut layered = Mappings(model.into_iter().filter(|m| !unmapped.contains(&m.target)).collect());
+        let mut layered = Mappings(model.into_iter().filter(|m| !unmapped(m)).collect());
         for mapping in learnt.all() {
             layered.learn(mapping.clone(), several(&mapping.target));
         }
@@ -811,7 +811,9 @@ mod tests {
         mappings.learn(with(mapping("DDJ", KNOB, "deck1.filter"), |b| b.shift = Shift::Any), false);
         assert_eq!(mappings.all().len(), 2);
         mappings.learn(mapping("Pads", PAD, "deck1.volume"), false);
-        mappings.forget("deck1.volume");
+        mappings.forget("Pads", "deck1.volume");
+        assert_eq!(mappings.all().len(), 2, "taken off the other controller alone");
+        mappings.forget("DDJ", "deck1.volume");
         assert_eq!(mappings.all().len(), 1);
     }
 
@@ -828,7 +830,7 @@ mod tests {
         // the pad learnt for another action, the knob's action learnt on another control
         learnt.learn(mapping("DDJ", PAD, "deck1.cue"), false);
         learnt.learn(mapping("DDJ", Control { number: 21, ..KNOB }, "deck1.volume"), false);
-        let layered = Mappings::layered(model, &learnt, &["deck1.sync".to_owned()], |_| false);
+        let layered = Mappings::layered(model, &learnt, |m| m.target == "deck1.sync", |_| false);
         let target = |control| {
             let pressed = Event { control, raw: 127 };
             layered.find("DDJ", pressed, &Shifts::default(), &Modes::new()).map(|m| m.target.as_str())
@@ -866,7 +868,7 @@ mod tests {
         // as a profile gives them: two positions may drive the same action
         let positions = [(0, "deck1.fx.off"), (1, "deck1.fx.on"), (2, "deck1.fx.on")]
             .map(|(value, target)| with(mapping("DDJ", switch, target), |b| b.on_value = Some(value)));
-        let mappings = Mappings::layered(positions, &Mappings::default(), &[], |_| false);
+        let mappings = Mappings::layered(positions, &Mappings::default(), |_| false, |_| false);
         assert_eq!(mappings.all().len(), 3, "a position each");
         let mut reader = Reader::default();
         assert_eq!(read(&mut reader, &mappings, &[0xb0, 3, 1]), Some(("deck1.fx.on".into(), 1.0)));

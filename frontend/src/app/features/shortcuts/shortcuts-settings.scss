@@ -1,23 +1,67 @@
 :host {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  align-items: start;
   gap: var(--pr-space-5);
 }
-.line {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--pr-space-3);
-  min-height: 36px;
-  padding: 0 var(--pr-space-3) 0 var(--pr-space-4);
+.find {
+  width: 360px;
+}
+.hint {
+  margin: 0;
+  font-size: var(--pr-size-small);
   color: var(--pr-text-2);
-  & + & {
-    border-top: 1px solid var(--pr-line);
+}
+.buttons {
+  display: flex;
+  gap: 6px;
+}
+.line {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 220px) 128px var(--pr-h-sm) var(--pr-h-sm);
+  align-items: center;
+  gap: var(--pr-space-2);
+  min-height: 38px;
+  padding: 0 var(--pr-space-2) 0 var(--pr-space-4);
+  color: var(--pr-text-2);
+  &.capturing {
+    color: var(--pr-text);
+  }
+}
+.lines > * + * {
+  border-top: 1px solid var(--pr-line);
+}
+.name {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.keys {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  .none {
+    color: var(--pr-text-3);
   }
 }
 .pr-kbd {
   padding: 3px 7px;
   color: var(--pr-text);
   white-space: nowrap;
+}
+// a key another action has: taken from it only once the DJ says so
+.taking {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--pr-space-3);
+  padding: var(--pr-space-2) var(--pr-space-2) var(--pr-space-2) var(--pr-space-4);
+  font-size: var(--pr-size-small);
+  color: var(--pr-text);
+  > div:first-child {
+    display: grid;
+    gap: 2px;
+  }
+  .from {
+    color: var(--pr-alert);
+  }
 }

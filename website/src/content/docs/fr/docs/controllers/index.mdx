@@ -44,6 +44,7 @@ Sous le nom du contrôleur, les réglages vous disent ce que Prisme en a compris
 | **Reconnu comme Pioneer DDJ-SB2 : apprenez une commande pour la changer** | Un profil le mappe. Apprendre une commande remplace ce que le profil donnait à cette commande. |
 | **Converti depuis le mapping de Mixxx, pas encore essayé sur ce contrôleur** | Le profil a été converti depuis un mapping de Mixxx et personne ne l’a encore essayé sur le matériel. Il devrait fonctionner, mais attendez-vous à une commande ou un voyant décalé ici ou là. Voir [Contrôleurs pris en charge](/fr/docs/controllers/supported/). |
 | **Avec votre propre profil** | Le profil vient de votre dossier de données, pas de Prisme. Voir [MIDI learn et votre propre profil](/fr/docs/controllers/learn/#un-profil-à-vous). |
+| **Votre propre profil remplace celui que Prisme donne au Pioneer DDJ-SB2 : les corrections publiées pour lui n’atteignent plus ce contrôleur.** | En jaune : votre propre profil sert là où Prisme a le sien pour ce modèle, dont les mises à jour sont donc mises de côté. Supprimez votre fichier pour retrouver celui de Prisme. |
 | Pas de ligne « Reconnu comme » | Prisme ne connaît pas le modèle. Rien n’est encore mappé : mappez-le commande par commande avec le [MIDI learn](/fr/docs/controllers/learn/). |
 
 ## Ce que fait le contrôleur
@@ -101,7 +102,7 @@ Entre deux versions de Prisme, des profils sont corrigés et de nouveaux modèle
 Les profils récupérés pilotent aussitôt leurs contrôleurs. Pour vérifier tout de suite, appuyez sur **Chercher des mises à jour** sous **Profils de contrôleurs** : il indique **Les profils sont à jour.** ou combien de profils ont été mis à jour.
 
 <Aside>
-Votre propre profil l’emporte toujours sur le profil publié du même nom : dès que vous avez [votre propre profil](/fr/docs/controllers/learn/#un-profil-à-vous) pour un modèle, les mises à jour de ce modèle ne vous parviennent plus.
+Votre propre profil l’emporte toujours sur celui de Prisme pour le même modèle : dès que vous avez [votre propre profil](/fr/docs/controllers/learn/#un-profil-à-vous) pour un modèle, les mises à jour de ce modèle ne vous parviennent plus, et les réglages le disent en jaune. Les commandes que vous apprenez n’ont pas cet effet : elles restent posées par-dessus le profil de Prisme à mesure qu’il est mis à jour.
 </Aside>
 
 ## Les réglages Contrôleurs MIDI
@@ -114,7 +115,7 @@ Votre propre profil l’emporte toujours sur le profil publié du même nom : d
 | --- | --- |
 | La ligne d’un contrôleur | Le nom de son port, **Branché** ou **non branché** (un contrôleur que vous avez activé mais qui n’est pas là en ce moment), et ce que Prisme a reconnu. |
 | Interrupteur | Active le contrôleur dans Prisme, ou le désactive. |
-| **Exporter en profil** | Affiché pour un contrôleur activé et branché : écrit ce qu’il pilote maintenant comme profil à vous. Voir [Exporter en profil](/fr/docs/controllers/learn/#exporter-en-profil). |
+| **Exporter en profil…** | Affiché pour un contrôleur activé et branché : écrit ce qu’il pilote maintenant dans un fichier de profil, là où vous le choisissez, à partager ou garder. Ce qu’il pilote ne change pas. Voir [Exporter en profil](/fr/docs/controllers/learn/#exporter-en-profil). |
 | **Actualiser** | Affiché quand aucun contrôleur n’est listé : cherche à nouveau les contrôleurs. |
 | **Horloge MIDI en sortie** | Envoie une horloge MIDI, 24 impulsions par temps du leader de sync, vers la sortie MIDI de votre choix, pour qu’une boîte à rythmes ou un séquenceur joue avec vous. **Aucune** n’envoie rien. Elle démarre sur un temps et s’arrête quand le leader s’arrête. Voir [Sync](/fr/docs/decks/sync/). |
 
@@ -124,11 +125,11 @@ Votre propre profil l’emporte toujours sur le profil publié du même nom : d
 | --- | --- |
 | **… modèles connus** | Combien de modèles Prisme connaît maintenant, dont combien **mis à jour depuis cette version** et combien **à vous**. |
 | **Chercher des mises à jour** | Récupère les profils publiés depuis, comme Prisme le fait une fois par jour. |
-| **Vos propres profils** | **Ouvrir le dossier** montre le dossier de vos propres profils ; **Relire** le relit après que vous avez modifié un fichier. Un fichier que Prisme ne sait pas lire est listé ici en rouge, avec la raison. Absent sur téléphone. |
+| **Vos propres profils** | **Ouvrir le dossier** montre le dossier de vos propres profils ; **Relire** le relit après que vous avez modifié un fichier. Un fichier que Prisme ne sait pas lire est listé ici en rouge, avec la raison ; un fichier qui remplace un profil de Prisme du même nom, en jaune (`pioneer-ddj-400.json remplace le profil que Prisme donne au Pioneer DDJ-400`). Absent sur téléphone. |
 
 ### La liste des actions
 
-En dessous, toutes les actions qu’une commande peut piloter, par groupe, avec l’endroit où elles sont mappées en ce moment (le contrôleur, puis la commande : `DDJ-SB2 · Note 11 · ch 1`). **Apprendre** y mappe une commande, et **×** la démappe. Pour un encodeur, un menu choisit comment il envoie ses pas. Tout cela est expliqué dans [MIDI learn et votre propre profil](/fr/docs/controllers/learn/).
+En dessous, toutes les actions qu’une commande peut piloter, par groupe, avec l’endroit où elles sont mappées en ce moment (le contrôleur, puis la commande : `DDJ-SB2 · Note 11 · ch 1`). **Apprendre** y mappe une commande, et le **×** après un contrôleur la retire de ce contrôleur seul. Pour un encodeur, un menu choisit comment il envoie ses pas. Tout cela est expliqué dans [MIDI learn et votre propre profil](/fr/docs/controllers/learn/).
 
 ## Pour continuer
 

@@ -12,7 +12,12 @@
             <span class="pr-row__help">{{
               'Mapped as a {model}: learn a control to change it' | t: { model: c.profile }
             }}</span>
-            @if (c.profileSource === 'own') {
+            @if (c.replaces; as replaced) {
+              <span class="pr-row__help replaces">{{
+                'Your own profile takes the place of the one Prisme gives the {model}: the corrections published for it no longer reach this controller.'
+                  | t: { model: replaced }
+              }}</span>
+            } @else if (c.profileSource === 'own') {
               <span class="pr-row__help">{{ 'With your own profile' | t }}</span>
             } @else if (!c.verified) {
               <span class="pr-row__help">{{
@@ -29,10 +34,13 @@
         @if (c.enabled && c.plugged) {
           <button
             class="pr-btn pr-btn--sm"
-            (click)="exportProfile(c.name)"
-            [title]="'Write what it drives now as a profile of your own, to share or edit' | t"
+            (click)="exportProfile(c)"
+            [title]="
+              'Write what it drives now as a profile file, to share or keep: what it drives does not change'
+                | t
+            "
           >
-            {{ 'Export as a profile' | t }}
+            {{ 'Export as a profile…' | t }}
           </button>
         }
         <button
@@ -104,9 +112,15 @@
         <div>
           <span class="pr-row__name">{{ 'Your own profiles' | t }}</span>
           <span class="pr-row__help">{{
-            'A JSON file put in this folder replaces the profile of the same name, or adds a model. Its format is open: an editor checks and completes it from its schema.'
+            'A JSON file put in this folder adds a model, or replaces the profile Prisme has of the same name: the corrections published for that model then no longer reach you. What you learn applies over either. Its format is open: an editor checks and completes it from its schema.'
               | t
           }}</span>
+          @for (p of replacing(); track p.file) {
+            <span class="pr-row__help replaces">{{
+              '{file} replaces the profile Prisme gives the {model}'
+                | t: { file: p.file, model: p.model }
+            }}</span>
+          }
           @for (problem of service.profiles()?.unreadable; track problem) {
             <span class="pr-row__help failed">{{ problem }}</span>
           }
@@ -143,25 +157,35 @@
       @for (row of g.rows; track row.control.id) {
         <div class="mapping" [class.learning]="service.learning() === row.control.id">
           <span class="name">{{ row.control.label }}</span>
-          <span class="binding">
-            @for (b of row.bindings; track b.text) {
-              <span>{{ b.text }}</span>
-              @if (b.mapping.encoding && b.mapping.encoding !== 'absolute') {
-                <select
-                  class="pr-select steps"
-                  [value]="b.mapping.encoding"
-                  (change)="service.setEncoding(b.mapping, $any($event.target).value)"
-                  [title]="
-                    'How the controller sends its steps: change it if the control turns the wrong way or by leaps'
-                      | t
-                  "
-                  [attr.aria-label]="'Steps' | t"
+          <span class="bindings">
+            @for (b of row.bindings; track b.device) {
+              <span class="binding">
+                <span class="text">{{ b.text }}</span>
+                <button
+                  class="pr-btn pr-btn--sm pr-btn--ghost pr-btn--icon"
+                  [title]="'Unmap from {device}' | t: { device: b.device }"
+                  [attr.aria-label]="'Unmap from {device}' | t: { device: b.device }"
+                  (click)="service.forget(b.device, row.control.id)"
                 >
-                  @for (e of stepEncodings; track e.value) {
-                    <option [value]="e.value">{{ e.label() }}</option>
-                  }
-                </select>
-              }
+                  ×
+                </button>
+                @if (b.encoder; as encoder) {
+                  <select
+                    class="pr-select steps"
+                    [value]="encoder.encoding"
+                    (change)="service.setEncoding(encoder, $any($event.target).value)"
+                    [title]="
+                      'How the controller sends its steps: change it if the control turns the wrong way or by leaps'
+                        | t
+                    "
+                    [attr.aria-label]="'Steps' | t"
+                  >
+                    @for (e of stepEncodings; track e.value) {
+                      <option [value]="e.value">{{ e.label() }}</option>
+                    }
+                  </select>
+                }
+              </span>
             } @empty {
               <span class="none">—</span>
             }
@@ -173,15 +197,6 @@
             (click)="toggleLearning(row.control.id)"
           >
             {{ service.learning() === row.control.id ? ('Move a control…' | t) : ('Learn' | t) }}
-          </button>
-          <button
-            class="pr-btn pr-btn--sm pr-btn--ghost pr-btn--icon"
-            [disabled]="row.bindings.length === 0"
-            [title]="'Unmap' | t"
-            [attr.aria-label]="'Unmap' | t"
-            (click)="service.forget(row.control.id)"
-          >
-            ×
           </button>
         </div>
       }

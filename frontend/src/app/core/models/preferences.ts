@@ -1,4 +1,5 @@
 import { VinylSyncMode } from './engine';
+import { KeyChanges } from '../keyboard/shortcuts';
 
 /** Shapes of apps/prisme-desktop/src/preferences.rs. */
 
@@ -44,6 +45,8 @@ export interface LibraryPreferences {
 export interface Preferences {
   dj: DjPreferences;
   library: LibraryPreferences;
+  /** The keys the DJ changed, by control. */
+  keys: KeyChanges;
 }
 
 export const PITCH_RANGES = [0.08, 0.16, 0.5] as const;

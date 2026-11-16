@@ -9,7 +9,7 @@ import { Aside } from '@astrojs/starlight/components';
 
 A profile maps one controller model before anything is learnt on it: which action each control drives, what its lights show, the levels and numbers it displays, and the messages it is sent. It is a JSON file anyone can read and edit. This page describes every field, as Prisme reads them (`crates/prisme-control`).
 
-To make one, start from the file **Export as a profile** writes, or from a [shipped profile](https://github.com/Shawiizz/prisme/tree/main/apps/prisme-desktop/controllers), and put it in your own profiles' folder: see [A profile of your own](/docs/controllers/learn/#a-profile-of-your-own).
+To make one, start from a file **Export as a profile…** wrote, or from a [shipped profile](https://github.com/Shawiizz/prisme/tree/main/apps/prisme-desktop/controllers), and put it in your own profiles' folder: see [A profile of your own](/docs/controllers/learn/#a-profile-of-your-own).
 
 ## A first profile
 
@@ -45,9 +45,9 @@ Prisme reads three layers. Each replaces the one before it for a file of the sam
 | --- | --- | --- |
 | Shipped | Inside Prisme | The profiles of `apps/prisme-desktop/controllers` when your version was built. |
 | Updated | The data folder's `controller-updates` | The profiles published since on GitHub, fetched once a day or with **Look for updates**. A published profile is taken only if it is a later revision than the one your version ships, in a format your version reads, and only if its text is the one its index says. |
-| Your own | The data folder's `controllers` | Your files: one of the same name as a shipped profile replaces it, one of another name adds a model. **Read again** reads them after a change. |
+| Your own | The data folder's `controllers` | Your files: one of the same name as a shipped profile replaces it, one of another name adds a model. Of two profiles whose ports fit a controller as well, yours wins. **Read again** reads them after a change. |
 
-The data folder is described on [MIDI learn and your own profile](/docs/controllers/learn/#where-the-data-folder-is). On top of all three, the controls learnt in the settings take the profile's place for their control and their action.
+The data folder is described on [MIDI learn and your own profile](/docs/controllers/learn/#where-the-data-folder-is). On top of all three, the controls learnt in the settings take the profile's place for their control and their action. Your own profile of a model Prisme knows keeps the updates of that model from reaching you, and the settings say so; learnt controls do not, since they stay laid over whichever profile is in use.
 
 ## The model
 

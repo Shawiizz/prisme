@@ -1280,6 +1280,10 @@ pub struct ControllerDto {
     pub verified: bool,
     /// Where its profile comes from.
     pub profile_source: Option<crate::controller_profiles::Source>,
+    /// Prisme's model that the DJ's own profile takes the place of on it.
+    pub replaces: Option<String>,
+    /// The file its profile is exported as, by default.
+    pub export_file: String,
 }
 
 /// The controller models Prisme knows, and where the DJ's own profiles go.
@@ -1300,6 +1304,8 @@ pub struct ControllerProfileDto {
     pub name: String,
     pub source: crate::controller_profiles::Source,
     pub verified: bool,
+    /// Prisme's model whose profile of the same file name this one, the DJ's own, replaces.
+    pub replaces: Option<String>,
 }
 
 /// A mapped control moved: the action and its value (see `prisme_control::Encoding`).
