@@ -3,14 +3,15 @@ import { invoke } from '@tauri-apps/api/core';
 import { Cue, MAX_DECKS, SLICES } from '../models/engine';
 import { EngineService } from './engine.service';
 import { errorText } from '../errors';
+import { CUT_BEATS } from '../../shared/beats';
 
 /** The shortest and longest size of a deck, in beats (see `PerformanceService.sizes`). */
 export const SIZE_BEATS = { min: 1 / 16, max: 64 };
 const DEFAULT_SIZE = 4;
 const BEATS_PER_BAR = 4;
 
-/** Performance actions on a deck: hot cues, loops, rolls, beat jumps, the slicer, slip,
- * censor, the motor (brake, spinback). */
+/** Performance actions on a deck: hot cues, loops, rolls, beat jumps, the slicer, fader
+ * cuts, slip, censor, the motor (brake, spinback). */
 @Injectable({ providedIn: 'root' })
 export class PerformanceService {
   private readonly engine = inject(EngineService);
@@ -20,6 +21,9 @@ export class PerformanceService {
   readonly slicers = signal<(number | null)[]>(Array(MAX_DECKS).fill(null));
   /** The slices held on each deck, the last pressed last: it plays. */
   private readonly slicesHeld: number[][] = Array.from({ length: MAX_DECKS }, () => []);
+  /** The fader cut each deck plays (an index of `CUT_BEATS`), and those held. */
+  readonly cuts = signal<(number | null)[]>(Array(MAX_DECKS).fill(null));
+  private readonly cutsHeld: number[][] = Array.from({ length: MAX_DECKS }, () => []);
 
   hotCue(deck: number, slot: number): Cue | null {
     return this.engine.tracks()[deck]?.cues.find((c) => c.hot === slot) ?? null;
@@ -132,12 +136,8 @@ export class PerformanceService {
    * the bar it is in at the first press. */
   slice(deck: number, index: number, held: boolean) {
     const stack = this.slicesHeld[deck];
-    const playing = stack.at(-1);
     if (held && stack.length === 0 && !this.inSlicer(deck)) this.anchorSlicer(deck);
-    const at = stack.indexOf(index);
-    if (at >= 0) stack.splice(at, 1);
-    if (held) stack.push(index);
-    const slice = stack.at(-1);
+    const [playing, slice] = press(stack, index, held);
     if (slice === playing) return;
     const start = this.slicers()[deck];
     const grid = this.beatGrid(deck);
@@ -146,6 +146,16 @@ export class PerformanceService {
     }
     const startS = start + slice * grid.beatS;
     return this.engine.call('slice', { deck, startS, lengthS: grid.beatS });
+  }
+
+  /** Cuts the deck on the beats of fader cut `index` (of `CUT_BEATS`) while held; of the
+   * cuts held, the last pressed. */
+  cut(deck: number, index: number, held: boolean) {
+    const [playing, cut] = press(this.cutsHeld[deck], index, held);
+    if (cut === playing) return;
+    this.cuts.update((cuts) => cuts.map((c, d) => (d === deck ? (cut ?? null) : c)));
+    const beats = cut === undefined ? null : CUT_BEATS[cut];
+    return this.engine.call('fader_cut', { deck, beats });
   }
 
   /** Whether the track (where it would be under a loop) is in the slicer of `deck`. */
@@ -171,4 +181,18 @@ export class PerformanceService {
       this.engine.error.set(errorText(e));
     }
   }
+}
+
+/** A key of `stack` (those held, the last pressed last) pressed or released: the one that
+ * acted before, and the one that acts now. */
+function press(
+  stack: number[],
+  key: number,
+  held: boolean,
+): [number | undefined, number | undefined] {
+  const before = stack.at(-1);
+  const at = stack.indexOf(key);
+  if (at >= 0) stack.splice(at, 1);
+  if (held) stack.push(key);
+  return [before, stack.at(-1)];
 }

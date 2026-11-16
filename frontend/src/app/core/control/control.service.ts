@@ -78,6 +78,8 @@ export class ControlService {
     sizedLoop: (deck) => this.performance.toggleSizedLoop(deck),
     slice: (deck, index, held) => this.performance.slice(deck, index, held),
     slicePlaying: (deck) => this.performance.slicePlaying(deck),
+    cut: (deck, index, held) => this.performance.cut(deck, index, held),
+    cutPlaying: (deck) => this.performance.cuts()[deck],
     beatLoop: (deck, beats) => this.performance.beatLoop(deck, beats),
     bend: (deck, direction) => this.engine.pitchBend(deck, direction),
     toggleKeyLock: (deck) => this.engine.setKeyLock(deck, !this.engine.decks()[deck].keyLock),

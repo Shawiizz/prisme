@@ -780,6 +780,30 @@
   "kind": "button"
  },
  {
+  "id": "deck1.cut1",
+  "group": "Deck A",
+  "label": "Fader cut on 1/16 while held",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.cut2",
+  "group": "Deck A",
+  "label": "Fader cut on 1/8 while held",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.cut3",
+  "group": "Deck A",
+  "label": "Fader cut on 1/4 while held",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.cut4",
+  "group": "Deck A",
+  "label": "Fader cut on 1/2 while held",
+  "kind": "button"
+ },
+ {
   "id": "deck1.pitch",
   "group": "Deck A",
   "label": "Tempo",
@@ -1629,6 +1653,30 @@
   "id": "deck2.slice8",
   "group": "Deck B",
   "label": "Slice 8 while held",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.cut1",
+  "group": "Deck B",
+  "label": "Fader cut on 1/16 while held",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.cut2",
+  "group": "Deck B",
+  "label": "Fader cut on 1/8 while held",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.cut3",
+  "group": "Deck B",
+  "label": "Fader cut on 1/4 while held",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.cut4",
+  "group": "Deck B",
+  "label": "Fader cut on 1/2 while held",
   "kind": "button"
  },
  {
@@ -2484,6 +2532,30 @@
   "kind": "button"
  },
  {
+  "id": "deck3.cut1",
+  "group": "Deck C",
+  "label": "Fader cut on 1/16 while held",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.cut2",
+  "group": "Deck C",
+  "label": "Fader cut on 1/8 while held",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.cut3",
+  "group": "Deck C",
+  "label": "Fader cut on 1/4 while held",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.cut4",
+  "group": "Deck C",
+  "label": "Fader cut on 1/2 while held",
+  "kind": "button"
+ },
+ {
   "id": "deck3.pitch",
   "group": "Deck C",
   "label": "Tempo",
@@ -3333,6 +3405,30 @@
   "id": "deck4.slice8",
   "group": "Deck D",
   "label": "Slice 8 while held",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.cut1",
+  "group": "Deck D",
+  "label": "Fader cut on 1/16 while held",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.cut2",
+  "group": "Deck D",
+  "label": "Fader cut on 1/8 while held",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.cut3",
+  "group": "Deck D",
+  "label": "Fader cut on 1/4 while held",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.cut4",
+  "group": "Deck D",
+  "label": "Fader cut on 1/2 while held",
   "kind": "button"
  },
  {

@@ -12,7 +12,7 @@ import {
 } from '../models/engine';
 import { EFFECT_NAMES } from '../effects';
 import { Text, t } from '../i18n/i18n';
-import { ROLL_BEATS, formatBeats } from '../../shared/beats';
+import { CUT_BEATS, ROLL_BEATS, formatBeats } from '../../shared/beats';
 import { deckLetter } from '../../shared/time';
 import { StemPart } from '../stem-parts';
 
@@ -75,6 +75,10 @@ export interface ControlActions {
   slice(deck: number, index: number, held: boolean): void;
   /** The slice of its slicer the deck plays in, if it does. */
   slicePlaying(deck: number): number | null;
+  /** Cuts the deck on the beats of `CUT_BEATS[index]` while held. */
+  cut(deck: number, index: number, held: boolean): void;
+  /** The fader cut the deck plays (an index of `CUT_BEATS`), if any. */
+  cutPlaying(deck: number): number | null;
   /** A loop of `beats` from where the deck plays, or out of the loop it is in. */
   beatLoop(deck: number, beats: number): void;
   bend(deck: number, direction: -1 | 0 | 1): void;
@@ -459,6 +463,17 @@ function deckControls(a: ControlActions, deck: number): Control[] {
           a.slice(deck, slice, held),
         ),
         () => a.slicePlaying(deck) === slice,
+      ),
+    ),
+    ...CUT_BEATS.map((beats, i) =>
+      lit(
+        hold(
+          id(`cut${i + 1}`),
+          group,
+          t('Fader cut on {beats} while held', { beats: formatBeats(beats) }),
+          (held) => a.cut(deck, i, held),
+        ),
+        () => a.cutPlaying(deck) === i,
       ),
     ),
     direct(id('pitch'), group, t('Tempo'), 'fader'),

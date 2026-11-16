@@ -185,6 +185,7 @@ impl Engine {
             if !fx_done {
                 deck.fx.process(deck_out, beat);
             }
+            deck.cut.gate(deck_out);
             deck.peak = deck_out.iter().fold(deck.peak, |p, s| p.max(s.abs()));
             let mix = DeckMix { audio: deck_out, volume: deck.volume, side: deck.side, cue: deck.cue };
             self.mixer.add_deck(d, mix, out, out_ch);
@@ -303,6 +304,7 @@ impl Engine {
                 self.decks[deck].slice(region, self.quantize)
             }
             ExitLoop { deck } if valid(deck) => self.decks[deck].exit_loop(),
+            FaderCut { deck, beats } if valid(deck) => self.decks[deck].cut.set(beats),
             Reloop { deck } if valid(deck) => self.decks[deck].reloop(),
             ScaleLoop { deck, factor } if valid(deck) => self.decks[deck].scale_loop(factor),
             SetSlip { deck, enabled } if valid(deck) => self.decks[deck].set_slip(enabled),

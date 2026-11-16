@@ -182,6 +182,12 @@ pub enum Command {
     ExitLoop {
         deck: DeckId,
     },
+    /// While `Some(beats)`, the deck is cut every so many beats on its grid (open the first
+    /// half of each), as a hand flicking its fader; `None` lets it through.
+    FaderCut {
+        deck: DeckId,
+        beats: Option<f64>,
+    },
     Reloop {
         deck: DeckId,
     },

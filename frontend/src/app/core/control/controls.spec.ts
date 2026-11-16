@@ -201,6 +201,17 @@ describe('controls', () => {
     expect(calls).toEqual(['slice(1,2,true)', 'slice(1,2,false)', 'slicePlaying(0)']);
   });
 
+  it('cut the deck on the beats while held, from a sixteenth to a half', () => {
+    const { calls, find } = recorder();
+    find('deck1.cut1').apply(1);
+    find('deck1.cut1').apply(0);
+    find('deck2.cut4').apply(1);
+    expect(find('deck2.cut4').lit!()).toBe(false);
+    expect(find('deck1.cut5')).toBeUndefined();
+    expect(find('deck1.cut1').label).toBe('Fader cut on 1/16 while held');
+    expect(calls).toEqual(['cut(0,0,true)', 'cut(0,0,false)', 'cut(1,3,true)', 'cutPlaying(1)']);
+  });
+
   it('read a jump or a loop of so many beats from its id', () => {
     const { calls, actions } = recorder();
     measuredControl(actions, 'deck2.jump.-8')!.apply(1);

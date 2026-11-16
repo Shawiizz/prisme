@@ -38,6 +38,12 @@ pub fn slice(state: State<'_, AppState>, deck: usize, start_s: Option<f64>, leng
     send(&state, deck, Command::Slice { deck, region })
 }
 
+/// While `beats` is given, the deck is cut every so many beats on its grid; `None` releases it.
+#[tauri::command]
+pub fn fader_cut(state: State<'_, AppState>, deck: usize, beats: Option<f64>) -> AppResult<()> {
+    send(&state, deck, Command::FaderCut { deck, beats })
+}
+
 #[tauri::command]
 pub fn exit_loop(state: State<'_, AppState>, deck: usize) -> AppResult<()> {
     send(&state, deck, Command::ExitLoop { deck })

@@ -6,14 +6,14 @@ import { EngineService } from '../../../core/services/engine.service';
 import { PerformanceService } from '../../../core/services/performance.service';
 import { EffectKind, FxSettings, HOT_CUES, SLICES } from '../../../core/models/engine';
 import { Knob } from '../../../shared/knob/knob';
-import { ROLL_BEATS, formatBeats, loopBeats } from '../../../shared/beats';
+import { CUT_BEATS, ROLL_BEATS, formatBeats, loopBeats } from '../../../shared/beats';
 import { readouts } from '../../../shared/mixer-scales';
 import { Text, t } from '../../../core/i18n/i18n';
 import { TPipe } from '../../../core/i18n/t.pipe';
 import { deckStems } from '../../../core/deck-stems';
 import { EFFECT_NAMES } from '../../../core/effects';
 
-type PadMode = 'cues' | 'loops' | 'roll' | 'jump' | 'slice' | 'fx' | 'sampler';
+type PadMode = 'cues' | 'loops' | 'roll' | 'jump' | 'slice' | 'cut' | 'fx' | 'sampler';
 
 interface Pad {
   label: string;
@@ -31,6 +31,7 @@ const MODES: { id: PadMode; label: string }[] = [
   { id: 'roll', label: 'ROLL' },
   { id: 'jump', label: 'JUMP' },
   { id: 'slice', label: 'SLICE' },
+  { id: 'cut', label: 'CUT' },
   { id: 'fx', label: 'FX' },
   { id: 'sampler', label: 'SMPL' },
 ];
@@ -87,7 +88,7 @@ const JUMP_BEATS = [-32, -16, -4, -1, 1, 4, 16, 32];
 
 /**
  * Eight performance pads per deck, at the end of its rail (hot cues, loops, rolls, beat
- * jumps, the slicer, beat effects, sampler), with the keys that go with their mode: slip and censor
+ * jumps, the slicer, fader cuts, beat effects, sampler), with the keys that go with their mode: slip and censor
  * (and the way out of a loop while one plays), all the loop keys, the deck's size for the
  * jumps, the slots of the effect chain with the level, knob and period of the one chosen,
  * or the sampler's level.
@@ -207,6 +208,16 @@ export class DeckPads {
           title: t('Slice {n} while held', { n: slice + 1 }),
         }));
       }
+      case 'cut': {
+        const playing = this.performance.cuts()[this.deck()];
+        return CUT_BEATS.map((b, i) =>
+          this.beatPad(
+            b,
+            playing === i,
+            t('Fader cut on {beats} while held', { beats: formatBeats(b) }),
+          ),
+        );
+      }
       case 'fx': {
         const [slots, chosen] = [this.chain().slots, this.slot()];
         const sounds = (fx: FxSettings, kind: EffectKind) => fx.enabled && fx.kind === kind;
@@ -243,6 +254,8 @@ export class DeckPads {
         return this.performance.beatJump(deck, JUMP_BEATS[index]);
       case 'slice':
         return this.performance.slice(deck, index, true);
+      case 'cut':
+        return this.performance.cut(deck, index, true);
       case 'fx':
         return this.fx.press(deck, this.slot(), EFFECTS[index].kind);
       case 'sampler':
@@ -254,6 +267,7 @@ export class DeckPads {
   release(index: number) {
     if (this.mode() === 'roll') this.performance.loopRoll(this.deck(), null);
     if (this.mode() === 'slice') this.performance.slice(this.deck(), index, false);
+    if (this.mode() === 'cut') this.performance.cut(this.deck(), index, false);
   }
 
   /** The slicer is put on the bar the deck plays in as its mode is chosen. */

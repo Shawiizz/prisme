@@ -2,6 +2,7 @@
 //! on the screen).
 
 mod bar_mix;
+mod cut;
 mod hand;
 mod jog;
 mod motor;
@@ -19,6 +20,7 @@ use crate::sync::{self, DeckSync, LeaderBeat, SyncTarget};
 use crate::tempo::PlatterTempo;
 use crate::vinyl::{VinylControl, VinylDrive};
 use bar_mix::BarMix;
+use cut::Cut;
 use hand::{Hand, Step};
 use jog::{Jog, Turn};
 use motor::Motor;
@@ -93,6 +95,8 @@ pub(crate) struct Deck {
     bar_mix: BarMix,
     /// Share of the input passed through in place of the track: 1 in passthrough.
     through: Smoothed,
+    /// The deck chopped in time with its beats while a pad is held.
+    pub(crate) cut: Cut,
 }
 
 impl Deck {
@@ -127,6 +131,7 @@ impl Deck {
             level: Smoothed::new(1.0, LEVEL_GLIDE_S, sample_rate as f32),
             bar_mix: BarMix::default(),
             through: Smoothed::new(0.0, THROUGH_FADE_S, sample_rate as f32),
+            cut: Cut::new(sample_rate as f32),
         }
     }
 
@@ -239,6 +244,9 @@ impl Deck {
             self.playhead.render(out, apart, out_rate, speed);
         }
         let speed = if ramp { speed * self.motor.factor() } else { speed };
+        // the beats over the block, for the cuts: from where it started, at the mean speed
+        let beats_per_frame = (moved + speed) / 2.0 / out_rate / 60.0;
+        self.cut.follow(self.grid.map(|g| (g.beats_at(playhead_s), beats_per_frame * g.bpm)));
         if self.motor.has_stopped() {
             self.playing = false;
             self.motor = Motor::default();
