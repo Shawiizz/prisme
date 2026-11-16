@@ -1,10 +1,14 @@
+use crate::audio_host::layer_partner;
 use crate::auto_dj::{AutoDj, Takeover};
+use crate::commands::audio::start_audio;
+use crate::commands::blocking;
 use crate::dto::{DeckPitchDto, RpmDto, VinylModeDto};
 use crate::error::{AppError, AppResult};
 use crate::preferences::DeckPreferences;
 use crate::state::{deck_commands, lock, AppState};
 use prisme_engine::Command;
-use tauri::{AppHandle, Emitter, State};
+use prisme_timecode::TimecodeFormat;
+use tauri::{AppHandle, Emitter, Manager, State};
 
 const MAX_KEY_SHIFT: u8 = 12;
 
@@ -122,8 +126,51 @@ pub fn set_vinyl_swap(state: State<'_, AppState>, deck: usize, swap: bool) -> Ap
     AppState::check_deck(deck)?;
     lock(&state.decks)[deck].swap_channels = swap;
     state.update_preferences(|p| p.decks[deck].swap_channels = swap);
+    replace_decoder(&state, deck)
+}
+
+/// The record on the deck's turntable (a timecode format's id), kept for the next start: on
+/// the deck layered with it too, which reads the same turntable. Returns the decks given it.
+/// The simulated turntable plays deck A's: the audio starts again with the new one.
+#[tauri::command]
+pub async fn set_timecode(app: AppHandle, deck: usize, format: String) -> AppResult<Vec<usize>> {
+    AppState::check_deck(deck)?;
+    let record = TimecodeFormat::by_id(&format).ok_or(AppError::UnknownFormat(format))?;
+    blocking(move || {
+        let state = app.state::<AppState>();
+        let (partner, simulated) = match lock(&state.session).as_ref() {
+            Some(s) => (
+                layer_partner(deck, s.info.decks, s.info.input_channels),
+                s.info.simulated.then(|| s.settings.clone()),
+            ),
+            None => (None, None),
+        };
+        let decks: Vec<usize> = std::iter::once(deck).chain(partner).collect();
+        for &d in &decks {
+            lock(&state.decks)[d].timecode = record;
+        }
+        state.update_preferences(|p| {
+            for &d in &decks {
+                p.decks[d].timecode = Some(record.id.into());
+            }
+        });
+        match simulated {
+            Some(settings) if decks.contains(&0) => start_audio(&state, &settings).map(drop)?,
+            _ => decks.iter().try_for_each(|&d| replace_decoder(&state, d))?,
+        }
+        Ok(decks)
+    })
+    .await
+}
+
+/// Gives the deck a decoder for its record and its channels.
+fn replace_decoder(state: &AppState, deck: usize) -> AppResult<()> {
+    let (record, swap) = {
+        let d = lock(&state.decks)[deck];
+        (d.timecode, d.swap_channels)
+    };
     if let Some(session) = lock(&state.session).as_mut() {
-        let decoder = session.engine_config.decoder(swap);
+        let decoder = session.engine_config.decoder(record, swap);
         session
             .controller
             .send(Command::ReplaceDecoder { deck, decoder })

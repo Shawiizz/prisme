@@ -5,7 +5,7 @@
 use prisme_engine::{create, Command, DeckStatus, Engine, EngineConfig, EngineController};
 use prisme_media::TrackAudio;
 use prisme_timecode::testing::SignalGenerator;
-use prisme_timecode::SERATO_CV02_A;
+use prisme_timecode::{TimecodeFormat, SERATO_CV02_A};
 use std::sync::Arc;
 
 pub const SR: u32 = 48_000;
@@ -40,6 +40,8 @@ pub struct Rig {
     engine: Engine,
     pub controller: EngineController,
     pub turntables: [Option<Turntable>; DECKS],
+    /// The record [`Rig::turntable`] puts on each turntable.
+    pub records: [&'static TimecodeFormat; DECKS],
     deck_signal: Vec<f32>,
     input: Vec<f32>,
     input_channels: usize,
@@ -62,14 +64,29 @@ impl Rig {
 
     /// A device with `input_channels` (the turntables on the first ones) and `output_channels`.
     pub fn with_channels(input_channels: usize, output_channels: usize) -> Self {
+        Self::build(input_channels, output_channels, [&SERATO_CV02_A; DECKS])
+    }
+
+    /// Each deck reading `records`, as are the records put on the turntables.
+    pub fn with_records(records: [&'static TimecodeFormat; DECKS]) -> Self {
+        Self::build(DECKS * 2, 2, records)
+    }
+
+    fn build(
+        input_channels: usize,
+        output_channels: usize,
+        records: [&'static TimecodeFormat; DECKS],
+    ) -> Self {
         // a snapshot after every block, so that positions read by the tests are exact
-        let config =
+        let mut config =
             EngineConfig { status_rate_hz: f64::INFINITY, ..EngineConfig::new(SR, DECKS, &SERATO_CV02_A) };
+        config.timecodes[..DECKS].copy_from_slice(&records);
         let (engine, controller) = create(config);
         Self {
             engine,
             controller,
             turntables: [None, None],
+            records,
             deck_signal: Vec::new(),
             input: vec![0.0; BLOCK * input_channels],
             input_channels,
@@ -82,7 +99,7 @@ impl Rig {
 
     /// Puts a record on `deck`'s turntable at `start_s` on the record.
     pub fn turntable(&mut self, deck: usize, start_s: f64, speed: f64) {
-        let generator = SignalGenerator::new(&SERATO_CV02_A, SR, start_s * 1000.0, 600_000.0);
+        let generator = SignalGenerator::new(self.records[deck], SR, start_s * 1000.0, 600_000.0);
         self.turntables[deck] = Some(Turntable { generator, speed, motion: None });
     }
 

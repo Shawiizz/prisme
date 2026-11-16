@@ -47,7 +47,6 @@ The timecode signal of each record, and how it drives its deck. See
 | Setting | What it does | Default |
 | --- | --- | --- |
 | **Input (DVS interface)** | The device the turntables are plugged into. Deck A reads inputs 1-2, deck B inputs 3-4. With ASIO or USB it is a switch, **Turntables plugged into the inputs of this driver**. Unavailable while the simulated turntable is on. | **None** |
-| **Control vinyl** | The timecode pressed on your records: **Serato CV02 side A**, **Serato CV02 side B** or **Serato control CD**. One format for every turntable. | Serato CV02 side A |
 | **Simulated turntable** | A turntable played by Prisme on deck A, to try vinyl control without one: it plays four seconds, then scratches for two. | Off |
 
 Below them, a panel for each deck (**Turntable A**, **Turntable B**…) shows the signal on a
@@ -56,6 +55,8 @@ settings of that deck. They apply at once:
 
 | Setting | What it does | Default |
 | --- | --- | --- |
+| **Timecode** | The record or the CD on the turntable, by maker: **Serato** › **Control vinyl CV02** or **Control CD**. Each turntable has its own; decks C and D layered on the turntables of A and B read theirs. | Control vinyl CV02 |
+| **Side** | **A** or **B**, for a record whose sides differ (the Control vinyl CV02). | A |
 | **Vinyl control** | The deck follows its record. | Off |
 | **REL** / **ABS** | Relative: the record drives the speed only. Absolute: the speed and the position. | ABS |
 | **Record speed** | **33** or **45**: the speed the record turns at for the track's own tempo. | 33 |

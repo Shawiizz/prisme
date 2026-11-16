@@ -77,4 +77,18 @@ h3 {
   .pr-input {
     width: 100px;
   }
+  .shared {
+    color: var(--pr-text-2);
+  }
+}
+// on a phone, for a finger
+:host-context(.phone) {
+  .pr-select {
+    height: 44px;
+    font-size: 15px;
+  }
+  .pr-seg > button {
+    height: 38px;
+    min-width: 44px;
+  }
 }

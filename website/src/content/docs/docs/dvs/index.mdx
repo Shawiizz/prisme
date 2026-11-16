@@ -19,17 +19,19 @@ the audio engine, so the record and the sound stay together.
 
 ## What Prisme reads
 
-Prisme reads Serato timecode:
+Prisme reads timecode records and CDs. Today it knows Serato's; the timecodes of other
+makers are to come.
 
-| Control medium | Name in Prisme |
+| Control medium | In Prisme |
 | --- | --- |
-| Serato Control Vinyl, side A | **Serato CV02 side A** |
-| Serato Control Vinyl, side B | **Serato CV02 side B** |
-| Serato control CD, on a CD player | **Serato control CD** |
+| Serato Control Vinyl CV02, side A | **Serato** › **Control vinyl CV02**, side **A** |
+| Serato Control Vinyl CV02, side B | **Serato** › **Control vinyl CV02**, side **B** |
+| Serato Control CD, on a CD player | **Serato** › **Control CD** |
 
-Other timecodes (Traktor, rekordbox, Mixxx's own) are not supported. One format is chosen
-for all the turntables at once, so every record you play must carry the same one, on the
-same side.
+The timecodes of Traktor, rekordbox and Mixxx are not read yet. Each turntable has its own
+record, chosen in its panel of **Settings**, **Turntables**: one deck can play side A while
+the other plays side B, or a CD player with the control CD sit beside a turntable. See
+[The record of each turntable](/docs/dvs/setup/#the-record-of-each-turntable).
 
 The usable part of each medium, at 33 rpm, before the needle reaches the end of the
 timecode:
@@ -62,7 +64,8 @@ The modes are explained in [Absolute and relative modes](/docs/dvs/modes/).
 **Turntables or CD players.** Any turntable with a cartridge in good shape, or a CD player
 for the control CD.
 
-**Timecode records.** Serato Control Vinyl (CV02, side A or B), or the Serato control CD.
+**Timecode records or CDs.** Serato Control Vinyl (CV02, side A or B), or the Serato
+Control CD, whichever on each turntable.
 
 **A sound card with a stereo input for each turntable.** Each turntable takes a pair of
 input channels: inputs 1-2 for deck A, 3-4 for deck B. A card with four input channels
@@ -87,8 +90,8 @@ anything in.
 
 ## Two turntables, four decks
 
-With four decks on an interface for two turntables, deck C shares the turntable and the
-outputs of deck A, and deck D those of deck B. The deck you put on REL or ABS takes the
+With four decks on an interface for two turntables, deck C shares the turntable, its record
+and the outputs of deck A, and deck D those of deck B. The deck you put on REL or ABS takes the
 turntable; the other one leaves the record and goes back to INT. With eight inputs, each of
 the four decks has a turntable of its own. See
 [Choose the inputs](/docs/dvs/setup/#choose-the-inputs).
@@ -103,7 +106,7 @@ again. See [Prisme on a phone](/docs/interface/phone/).
 ## Next
 
 <CardGrid>
-	<LinkCard title="Setting up timecode vinyl" href="/docs/dvs/setup/" description="Wiring, inputs, the timecode format, the signal display." />
+	<LinkCard title="Setting up timecode vinyl" href="/docs/dvs/setup/" description="Wiring, inputs, the record of each turntable, the signal display." />
 	<LinkCard title="Absolute and relative modes" href="/docs/dvs/modes/" description="Which mode for what, needle drops, the end of the record." />
 	<LinkCard title="Timecode troubleshooting" href="/docs/dvs/troubleshooting/" description="Weak signal, wrong side, hum, skips, latency." />
 	<LinkCard title="Audio setup" href="/docs/start/audio/" description="Choosing the driver, the device and the buffer." />

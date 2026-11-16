@@ -31,6 +31,12 @@ pub fn save_diagnostics(
         std::env::consts::ARCH
     );
     section(&mut report, "Audio settings saved", &state.preferences.get().audio);
+    let records = lock(&state.decks).map(|d| d.timecode.id);
+    let _ = writeln!(
+        report,
+        "
+Timecode records: {records:?}"
+    );
     match lock(&state.session).as_ref() {
         Some(AudioSession { settings, info, stats, .. }) => {
             section(&mut report, "Audio running with", settings);

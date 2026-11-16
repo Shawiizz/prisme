@@ -267,6 +267,8 @@ export interface DeckSettings {
   leadInS: number | null;
   /** The turntable's left and right channels are crossed. */
   swapChannels: boolean;
+  /** The record on its turntable (a timecode format's id). */
+  timecode: string;
   /** The pitch stays when the speed changes. */
   keyLock: boolean;
   /** Software mixer: the channel fader raised from closed plays the deck, closed it stops it

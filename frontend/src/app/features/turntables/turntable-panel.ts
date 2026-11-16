@@ -12,6 +12,7 @@ import { Channel, invoke } from '@tauri-apps/api/core';
 import { EngineService } from '../../core/services/engine.service';
 import { SettingsService } from '../../core/services/settings.service';
 import { Rpm, SignalState, VinylMode, recordLeadIn } from '../../core/models/engine';
+import { timecodeMakers } from '../../core/models/audio';
 import { deckLetter, formatSpeed, formatTime } from '../../shared/time';
 import { ScopePainter } from './scope-painter';
 import { Text, t } from '../../core/i18n/i18n';
@@ -42,9 +43,25 @@ export class TurntablePanel {
   protected readonly size = SCOPE_SIZE;
   protected readonly letter = computed(() => deckLetter(this.deck()));
   protected readonly settings = computed(() => this.engine.decks()[this.deck()]);
+  /** The deck whose turntable this one shares, its record chosen there: C on A, D on B, on a
+   * device without a pair of inputs for each deck. */
+  protected readonly layeredOn = computed(() => {
+    const info = this.audio.info();
+    const decks = this.engine.deckIndexes().length;
+    const first = this.deck() ^ 2;
+    return info && info.inputChannels < 2 * decks && first < this.deck() ? first : null;
+  });
+  protected readonly layeredLetter = computed(() => deckLetter(this.layeredOn() ?? 0));
+  protected readonly makers = computed(() => timecodeMakers(this.audio.formats()));
+  private readonly records = computed(() => this.makers().flatMap((m) => m.records));
+  /** The record on the turntable, with its sides. */
+  protected readonly current = computed(() => {
+    const id = this.settings().timecode;
+    return this.records().find((r) => r.sides.some((s) => s.id === id)) ?? null;
+  });
   /** Where the track starts on the record when no lead-in is chosen, at its speed. */
   protected readonly recordLeadIn = computed(() => {
-    const id = this.audio.settings()?.timecodeFormat;
+    const id = this.settings().timecode;
     const own = this.audio.formats().find((f) => f.id === id)?.leadInS ?? 0;
     return String(Math.round(recordLeadIn(own, this.settings().rpm) * 10) / 10);
   });
@@ -96,6 +113,18 @@ export class TurntablePanel {
     if (value === '') this.engine.setVinyl(this.deck(), { leadInS: null });
     else if (Number.isFinite(seconds) && seconds >= 0)
       this.engine.setVinyl(this.deck(), { leadInS: seconds });
+  }
+
+  setTimecode(format: string) {
+    this.engine.setTimecode(this.deck(), format);
+  }
+
+  /** Another record (the id of its first side): on the side it was on, if it has that side. */
+  setRecord(first: string) {
+    const record = this.records().find((r) => r.sides[0].id === first);
+    if (!record) return;
+    const side = this.audio.formats().find((f) => f.id === this.settings().timecode)?.side;
+    this.setTimecode((record.sides.find((s) => s.side === side) ?? record.sides[0]).id);
   }
 
   setSwap(swap: boolean) {

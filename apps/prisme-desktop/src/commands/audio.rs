@@ -41,10 +41,7 @@ pub fn list_devices(backend: BackendDto) -> AppResult<Vec<DeviceDto>> {
 
 #[tauri::command]
 pub fn timecode_formats() -> Vec<TimecodeFormatDto> {
-    prisme_timecode::FORMATS
-        .iter()
-        .map(|f| TimecodeFormatDto { id: f.id, name: f.name, lead_in_s: f.lead_in_s })
-        .collect()
+    prisme_timecode::FORMATS.iter().map(TimecodeFormatDto::from).collect()
 }
 
 /// The audio settings the user chose (they may differ from the running ones if the
@@ -165,7 +162,9 @@ fn restart<T>(
         decks[0].vinyl_enabled = true;
         decks[0].lead_in_s = Some(prisme_timecode::testing::SimulatedTurntable::START_S);
     }
-    let mut session = audio_host::start(settings, state.preferences.read(|p| p.dj.decks()))?;
+    let timecodes = lock(&state.decks).map(|d| d.timecode);
+    let mut session = audio_host::start(settings, state.preferences.read(|p| p.dj.decks()), timecodes)?;
+    state.share_turntable_records(&session.info);
     state.restore(&mut session);
     for (deck, (seconds, playing)) in transport.into_iter().enumerate() {
         let _ = session.controller.send(Command::Seek { deck, seconds });

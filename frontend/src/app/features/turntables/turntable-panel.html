@@ -38,6 +38,50 @@
   }
 
   <div class="controls">
+    @if (layeredOn() !== null) {
+      <div class="line">
+        <span class="pr-label">{{ 'Timecode' | t }}</span>
+        <span class="shared">{{ 'That of turntable {deck}' | t: { deck: layeredLetter() } }}</span>
+      </div>
+    } @else {
+      <label class="pr-field">
+        <span class="pr-label">{{ 'Timecode' | t }}</span>
+        <select
+          class="pr-select"
+          (change)="setRecord($any($event.target).value)"
+          [attr.aria-label]="'Timecode' | t"
+          [title]="'The record or the CD on this turntable, by its maker' | t"
+        >
+          @for (maker of makers(); track maker.name) {
+            <optgroup [label]="maker.name">
+              @for (record of maker.records; track record.name) {
+                <option [value]="record.sides[0].id" [selected]="record === current()">
+                  {{ record.name }}
+                </option>
+              }
+            </optgroup>
+          }
+        </select>
+      </label>
+      @if (current(); as record) {
+        @if (record.sides.length > 1) {
+          <div class="line">
+            <span class="pr-label">{{ 'Side' | t }}</span>
+            <div class="pr-seg" role="radiogroup" [attr.aria-label]="'Side' | t">
+              @for (side of record.sides; track side.id) {
+                <button
+                  role="radio"
+                  [attr.aria-checked]="side.id === settings().timecode"
+                  (click)="setTimecode(side.id)"
+                >
+                  {{ side.side }}
+                </button>
+              }
+            </div>
+          </div>
+        }
+      }
+    }
     <div class="line">
       <label class="pr-check">
         <input

@@ -1,6 +1,6 @@
 ---
 title: Setting up timecode vinyl
-description: Wire the turntables, choose the inputs and the timecode, read the signal, and hand a deck to its record.
+description: Wire the turntables, choose the inputs and the record of each turntable, read the signal, and hand a deck to its record.
 sidebar:
   order: 2
 ---
@@ -8,7 +8,7 @@ sidebar:
 import { Steps, Aside } from '@astrojs/starlight/components';
 
 Setting up vinyl control takes three things: the turntables wired to inputs Prisme can hear,
-the right timecode chosen in the settings, and each deck handed to its record. The
+the record of each turntable chosen in the settings, and each deck handed to its record. The
 **Turntables** page of the settings shows the signal of every turntable as it comes in, so
 you can check each step as you go.
 
@@ -30,7 +30,7 @@ you can check each step as you go.
    into the channel of deck B, each set to line. With Prisme's software mixer, outputs 1-2
    go to the speakers and 3-4 to the headphones.
 
-5. Put the timecode records on the platters, both on the same side (A or B).
+5. Put the timecode records on the platters, or the control CD in the CD players.
 
 </Steps>
 
@@ -65,18 +65,13 @@ distorts it. Aim for a full **Level** bar without clipping.
    the row reads **Turntables plugged into the inputs of this driver** and is a switch to
    turn on.
 
-3. Under **Control vinyl**, choose the timecode on your records: **Serato CV02 side A**,
-   **Serato CV02 side B** or **Serato control CD**.
-
-4. A bar appears at the bottom: **The audio restarts to apply these changes.** Press
+3. A bar appears at the bottom: **The audio restarts to apply these changes.** Press
    **Apply**. (**Undo** puts the settings back as they were.)
 
 </Steps>
 
-<Aside type="caution">
-The timecode format applies to every turntable. If one record is on side A and the other on
-side B, one of them will never find its position. Turn it over.
-</Aside>
+Then, in the panel of each turntable below, choose the record it plays under **Timecode**
+and **Side**: see [The record of each turntable](#the-record-of-each-turntable).
 
 ## Choose the inputs
 
@@ -176,11 +171,35 @@ deck. They are kept for the next start.
 
 | Setting | What it does | Default |
 | --- | --- | --- |
+| **Timecode** | The record on the turntable, by maker then record: **Serato** › **Control vinyl CV02** or **Control CD**. | Control vinyl CV02 |
+| **Side** | **A** or **B**, for a record whose sides carry different timecodes. Not shown for the CD. | A |
 | **Vinyl control** | The deck follows its record. Same as REL or ABS on the deck card. | Off |
 | **REL** / **ABS** | The mode the record drives the deck in. | ABS |
 | **Record speed** | **33** or **45**: the speed the record turns at when the track plays at its own tempo. | 33 |
 | **Lead-in (s)** | Where the track starts on the record, in absolute mode. Empty: the record's own. | The record's own |
 | **Swap left / right** | The left and right cables are crossed: Prisme swaps them back. | Off |
+
+### The record of each turntable
+
+Each turntable reads its own record: deck A can play side A of a Control vinyl CV02 while
+deck B plays side B, or the Control CD in a CD player. Under **Timecode**, the list gives
+the records by maker; **Side** follows when the record has two sides that differ. Turn a
+record over and choose its other side in its panel: the sides carry different bits, and a
+deck set to the wrong one keeps its speed but never finds its position.
+
+The choice applies at once, the audio running on, and is kept for the next start. What
+depends on the record follows it: where the track starts on it (the lead-in), where it
+ends, and the simulated turntable, which plays the record of deck A. Changing that one
+while the simulated turntable is on starts the audio again, the decks where they were.
+
+With four decks on an interface for two turntables, decks C and D read the turntables of
+A and B, and so their records: their panels read **That of turntable A** (or **B**), and the
+record is chosen in the panel of A or B, for both decks at once. Records saved apart for two
+such decks give way to that of the deck on the record when the audio starts (the first one if
+neither is).
+
+A settings file from a Prisme that had one timecode for every turntable gives that one to
+each of them.
 
 ### Record speed: 33 or 45
 

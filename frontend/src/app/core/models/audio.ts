@@ -26,7 +26,6 @@ export interface AudioSettings {
   outputDevice: string | null;
   inputDevice: string | null;
   simulate: boolean;
-  timecodeFormat: string;
   bufferFrames: number | null;
 }
 
@@ -42,11 +41,36 @@ export interface AudioInfo {
   simulated: boolean;
 }
 
+/** A timecode record (or CD), one side of it when its sides differ. */
 export interface TimecodeFormat {
   id: string;
-  name: string;
+  maker: string;
+  /** The record, as its maker names it. */
+  record: string;
+  side: string | null;
   /** Where a track starts on the record, in seconds. */
   leadInS: number;
+}
+
+/** A record and its sides (one format, without a side, when they do not differ). */
+export interface TimecodeRecord {
+  name: string;
+  sides: TimecodeFormat[];
+}
+
+/** The timecode formats by maker, then record, in the order given. */
+export function timecodeMakers(
+  formats: TimecodeFormat[],
+): { name: string; records: TimecodeRecord[] }[] {
+  const makers: { name: string; records: TimecodeRecord[] }[] = [];
+  for (const f of formats) {
+    let maker = makers.find((m) => m.name === f.maker);
+    if (!maker) makers.push((maker = { name: f.maker, records: [] }));
+    let record = maker.records.find((r) => r.name === f.record);
+    if (!record) maker.records.push((record = { name: f.record, sides: [] }));
+    record.sides.push(f);
+  }
+  return makers;
 }
 
 export const BUFFER_SIZES = [32, 64, 128, 256, 512, 1024, 2048];

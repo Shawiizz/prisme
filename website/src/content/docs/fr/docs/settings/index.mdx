@@ -47,7 +47,6 @@ Le signal timecode de chaque disque, et la façon dont il pilote son deck. Voir
 | Réglage | Effet | Par défaut |
 | --- | --- | --- |
 | **Entrée (interface DVS)** | Le périphérique sur lequel les platines sont branchées. Le deck A lit les entrées 1-2, le deck B les entrées 3-4. Avec ASIO ou USB, c’est un interrupteur, **Platines branchées sur les entrées de ce pilote**. Indisponible tant que la platine simulée est activée. | **Aucune** |
-| **Vinyle de contrôle** | Le timecode gravé sur vos disques : **Serato CV02 side A**, **Serato CV02 side B** ou **Serato control CD**. Un seul format pour toutes les platines. | Serato CV02 side A |
 | **Platine simulée** | Une platine jouée par Prisme sur le deck A, pour essayer le contrôle vinyle sans platine : elle joue quatre secondes, puis scratche pendant deux. | Désactivée |
 
 En dessous, un panneau par deck (**Platine A**, **Platine B**…) montre le signal sur un
@@ -56,6 +55,8 @@ contient les réglages vinyle de ce deck. Ils s’appliquent tout de suite :
 
 | Réglage | Effet | Par défaut |
 | --- | --- | --- |
+| **Timecode** | Le disque ou le CD sur la platine, par marque : **Serato** › **Control vinyl CV02** ou **Control CD**. Chaque platine a le sien ; les decks C et D posés sur les platines de A et B lisent le leur. | Control vinyl CV02 |
+| **Face** | **A** ou **B**, pour un disque dont les faces diffèrent (le Control vinyl CV02). | A |
 | **Contrôle vinyle** | Le deck suit son disque. | Désactivé |
 | **REL** / **ABS** | Relatif : le disque ne pilote que la vitesse. Absolu : la vitesse et la position. | ABS |
 | **Vitesse du disque** | **33** ou **45** : la vitesse à laquelle tourne le disque pour le tempo d’origine du morceau. | 33 |

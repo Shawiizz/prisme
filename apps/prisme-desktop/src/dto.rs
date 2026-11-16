@@ -7,7 +7,7 @@ use prisme_engine::{
     DeckStatus, EngineStatus, InputChannels, LiveSource, LoopStatus, MixMode, Rpm, VinylMode, FX_SLOTS,
 };
 use prisme_library::{Cue, CueSlot};
-use prisme_timecode::SignalState;
+use prisme_timecode::{SignalState, TimecodeFormat};
 use serde::{Deserialize, Serialize};
 use std::sync::atomic::Ordering;
 
@@ -355,7 +355,7 @@ impl From<MixModeDto> for MixMode {
 }
 
 /// Audio settings chosen by the user.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq)]
 #[serde(default, rename_all = "camelCase")]
 pub struct AudioSettings {
     pub backend: BackendDto,
@@ -364,28 +364,18 @@ pub struct AudioSettings {
     pub input_device: Option<String>,
     /// Feed deck 1 with a simulated turntable instead of the input.
     pub simulate: bool,
-    pub timecode_format: String,
     pub buffer_frames: Option<u32>,
-}
-
-impl Default for AudioSettings {
-    fn default() -> Self {
-        Self {
-            backend: BackendDto::default(),
-            output_device: None,
-            input_device: None,
-            simulate: false,
-            timecode_format: prisme_timecode::SERATO_CV02_A.id.to_string(),
-            buffer_frames: None,
-        }
-    }
+    /// The record of every turntable, in files from before each had its own (see
+    /// [`Preferences::settle`](crate::preferences::Preferences::settle)).
+    #[serde(rename = "timecodeFormat", skip_serializing)]
+    pub(crate) timecode_before: Option<String>,
 }
 
 impl AudioSettings {
     /// These settings on the computer's default devices: what plays while the chosen ones are
     /// missing (an interface unplugged).
     pub fn on_default_devices(&self) -> Self {
-        Self { simulate: self.simulate, timecode_format: self.timecode_format.clone(), ..Self::default() }
+        Self { simulate: self.simulate, ..Self::default() }
     }
 
     /// Whether `other` chose the same devices.
@@ -420,8 +410,16 @@ pub struct AudioInfo {
 #[serde(rename_all = "camelCase")]
 pub struct TimecodeFormatDto {
     pub id: &'static str,
-    pub name: &'static str,
+    pub maker: &'static str,
+    pub record: &'static str,
+    pub side: Option<&'static str>,
     pub lead_in_s: f64,
+}
+
+impl From<&'static TimecodeFormat> for TimecodeFormatDto {
+    fn from(f: &'static TimecodeFormat) -> Self {
+        Self { id: f.id, maker: f.maker, record: f.record, side: f.side, lead_in_s: f.lead_in_s }
+    }
 }
 
 /// A waveform as sent to the UI, in binary (as JSON, a track's waveform is several
@@ -726,6 +724,8 @@ pub struct DeckSettingsDto {
     /// Chosen, else the record's own.
     pub lead_in_s: Option<f64>,
     pub swap_channels: bool,
+    /// The record on its turntable (a timecode format's id).
+    pub timecode: &'static str,
     pub key_lock: bool,
     /// Software mixer: the channel fader starts and stops the deck.
     pub fader_start: bool,
@@ -1448,12 +1448,11 @@ mod tests {
     use super::*;
 
     #[test]
-    fn the_default_devices_keep_the_record_and_the_simulated_turntable() {
+    fn the_default_devices_keep_the_simulated_turntable() {
         let chosen = AudioSettings {
             output_device: Some("UMC404HD".into()),
             input_device: Some("UMC404HD".into()),
             simulate: true,
-            timecode_format: prisme_timecode::SERATO_CV02_B.id.into(),
             buffer_frames: Some(128),
             ..AudioSettings::default()
         };
@@ -1463,7 +1462,6 @@ mod tests {
             (None, None, None)
         );
         assert!(fallback.simulate);
-        assert_eq!(fallback.timecode_format, chosen.timecode_format);
         assert!(chosen.same_devices(&AudioSettings { simulate: false, ..chosen.clone() }));
         assert!(!chosen.same_devices(&AudioSettings { output_device: None, ..chosen.clone() }));
     }

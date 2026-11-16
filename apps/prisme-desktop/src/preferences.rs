@@ -5,6 +5,7 @@ use crate::dto::{
     RpmDto, VinylModeDto,
 };
 use prisme_engine::MAX_DECKS;
+use prisme_timecode::{TimecodeFormat, SERATO_CV02_A};
 use serde::{Deserialize, Deserializer, Serialize};
 use std::collections::BTreeMap;
 use std::ops::RangeInclusive;
@@ -55,6 +56,8 @@ pub struct DeckPreferences {
     pub lead_in_s: Option<f64>,
     /// The turntable's left and right channels are crossed.
     pub swap_channels: bool,
+    /// The record on its turntable (a timecode format's id), once chosen.
+    pub timecode: Option<String>,
     /// The pitch stays when the speed changes.
     pub key_lock: bool,
     /// Software mixer: the channel fader raised from closed plays the deck, closed it stops
@@ -85,6 +88,12 @@ impl DeckPreferences {
         }
     }
 
+    /// The record on its turntable: the first Prisme reads if none was chosen, or one it
+    /// does not know.
+    pub fn timecode_format(&self) -> &'static TimecodeFormat {
+        self.timecode.as_deref().and_then(TimecodeFormat::by_id).unwrap_or(&SERATO_CV02_A)
+    }
+
     /// The level of the deck's sampler, unity if the file holds none that can be.
     pub fn sampler_level(&self) -> f32 {
         if self.sampler_gain.is_finite() && self.sampler_gain >= 0.0 {
@@ -103,6 +112,7 @@ impl Default for DeckPreferences {
             rpm: RpmDto::default(),
             lead_in_s: None,
             swap_channels: false,
+            timecode: None,
             key_lock: false,
             fader_start: false,
             pitch_range: None,
@@ -143,6 +153,18 @@ pub struct DjPreferences {
 }
 
 impl Preferences {
+    /// Takes over what a file from an older Prisme kept elsewhere: the record every turntable
+    /// had goes to each without one of its own, the separation on load is settled (see
+    /// [`LibraryPreferences::settle`]). `true` if something changed.
+    pub fn settle(&mut self) -> bool {
+        let library = self.library.settle();
+        let timecode = self.audio.timecode_before.take();
+        for deck in self.decks.iter_mut().filter(|d| d.timecode.is_none()) {
+            deck.timecode.clone_from(&timecode);
+        }
+        library || timecode.is_some()
+    }
+
     /// The range of the tempo fader of `deck`: its own, else the general one.
     pub fn tempo_range(&self, deck: usize) -> f64 {
         self.decks[deck].pitch_range.unwrap_or(self.dj.pitch_range)
@@ -426,6 +448,30 @@ mod tests {
     }
 
     #[test]
+    fn the_one_record_of_a_file_from_before_each_turntable_had_its_own_goes_to_every_turntable() {
+        let mut p: Preferences = serde_json::from_str(
+            r#"{ "audio": { "timecodeFormat": "serato_cd" }, "decks": [{}, { "timecode": "serato_cv02_b" }] }"#,
+        )
+        .unwrap();
+        assert!(p.settle());
+        assert_eq!(
+            p.decks.each_ref().map(|d| d.timecode_format().id),
+            ["serato_cd", "serato_cv02_b", "serato_cd", "serato_cd"]
+        );
+        assert!(!serde_json::to_string(&p).unwrap().contains("timecodeFormat"));
+        assert!(!p.settle());
+    }
+
+    #[test]
+    fn a_turntable_without_a_record_or_with_one_unknown_reads_the_first_one() {
+        let mut p: Preferences =
+            serde_json::from_str(r#"{ "decks": [{}, { "timecode": "a_record_of_later" }] }"#).unwrap();
+        assert!(!p.settle());
+        assert_eq!(p.decks[0].timecode, None);
+        assert_eq!([0, 1].map(|d| p.decks[d].timecode_format().id), ["serato_cv02_a"; 2]);
+    }
+
+    #[test]
     fn a_file_from_before_four_decks_keeps_its_two() {
         let p: Preferences =
             serde_json::from_str(r#"{ "decks": [{ "keyLock": true }, { "rpm": "45" }] }"#).unwrap();
@@ -490,6 +536,7 @@ mod tests {
             rpm: RpmDto::Rpm45,
             lead_in_s: Some(2.5),
             swap_channels: true,
+            timecode: Some("serato_cd".into()),
             key_lock: true,
             fader_start: true,
             pitch_range: Some(0.5),

@@ -20,17 +20,19 @@ dans le moteur audio, si bien que le disque et le son restent ensemble.
 
 ## Ce que lit Prisme
 
-Prisme lit le timecode Serato :
+Prisme lit les disques et les CD timecode. Il connaît aujourd’hui ceux de Serato ; les
+timecodes d’autres marques sont à venir.
 
-| Support de contrôle | Nom dans Prisme |
+| Support de contrôle | Dans Prisme |
 | --- | --- |
-| Serato Control Vinyl, face A | **Serato CV02 side A** |
-| Serato Control Vinyl, face B | **Serato CV02 side B** |
-| CD de contrôle Serato, sur une platine CD | **Serato control CD** |
+| Serato Control Vinyl CV02, face A | **Serato** › **Control vinyl CV02**, face **A** |
+| Serato Control Vinyl CV02, face B | **Serato** › **Control vinyl CV02**, face **B** |
+| CD de contrôle Serato, sur une platine CD | **Serato** › **Control CD** |
 
-Les autres timecodes (Traktor, rekordbox, celui de Mixxx) ne sont pas pris en charge. Un
-seul format est choisi pour toutes les platines à la fois : tous les disques que vous jouez
-doivent donc porter le même, sur la même face.
+Les timecodes Traktor, rekordbox et Mixxx ne sont pas encore lus. Chaque platine a son propre
+disque, choisi dans son panneau de **Réglages**, **Platines** : un deck peut jouer la face A
+pendant que l’autre joue la face B, ou une platine CD avec le CD de contrôle côtoyer une
+platine vinyle. Voir [Le disque de chaque platine](/fr/docs/dvs/setup/#le-disque-de-chaque-platine).
 
 La partie utilisable de chaque support, à 33 tours, avant que le diamant n’atteigne la fin
 du timecode :
@@ -64,8 +66,8 @@ Les modes sont expliqués dans [Modes absolu et relatif](/fr/docs/dvs/modes/).
 **Des platines vinyle ou des platines CD.** N’importe quelle platine avec une cellule en bon
 état, ou une platine CD pour le CD de contrôle.
 
-**Des disques timecode.** Serato Control Vinyl (CV02, face A ou B), ou le CD de contrôle
-Serato.
+**Des disques ou des CD timecode.** Serato Control Vinyl (CV02, face A ou B), ou le CD de
+contrôle Serato, au choix sur chaque platine.
 
 **Une carte son avec une entrée stéréo par platine.** Chaque platine prend une paire de
 canaux d’entrée : les entrées 1-2 pour le deck A, 3-4 pour le deck B. Une carte à quatre
@@ -92,8 +94,8 @@ d’avoir branché quoi que ce soit.
 
 ## Deux platines, quatre decks
 
-Avec quatre decks sur une interface prévue pour deux platines, le deck C partage la platine
-et les sorties du deck A, et le deck D celles du deck B. Le deck que vous mettez en REL ou
+Avec quatre decks sur une interface prévue pour deux platines, le deck C partage la platine,
+son disque et les sorties du deck A, et le deck D celles du deck B. Le deck que vous mettez en REL ou
 ABS prend la platine ; l’autre lâche le disque et repasse en INT. Avec huit entrées, chacun
 des quatre decks a sa propre platine. Voir
 [Choisir les entrées](/fr/docs/dvs/setup/#choisir-les-entrées).
@@ -109,7 +111,7 @@ autorisé et que vous n’avez pas appliqué les réglages à nouveau. Voir
 ## Et ensuite
 
 <CardGrid>
-	<LinkCard title="Configurer le vinyle timecode" href="/fr/docs/dvs/setup/" description="Branchements, entrées, format de timecode, affichage du signal." />
+	<LinkCard title="Configurer le vinyle timecode" href="/fr/docs/dvs/setup/" description="Branchements, entrées, le disque de chaque platine, affichage du signal." />
 	<LinkCard title="Modes absolu et relatif" href="/fr/docs/dvs/modes/" description="Quel mode pour quoi, diamant posé, fin du disque." />
 	<LinkCard title="Dépannage du timecode" href="/fr/docs/dvs/troubleshooting/" description="Signal faible, mauvaise face, ronflement, sauts, latence." />
 	<LinkCard title="Réglage de l’audio" href="/fr/docs/start/audio/" description="Choisir le pilote, le périphérique et le buffer." />

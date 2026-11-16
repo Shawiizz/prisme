@@ -96,8 +96,10 @@ export class MixerService {
   }
 
   private applyRouting(state: MixerState) {
-    // of two decks layered on a turntable, one follows it on this device
-    state.decks.forEach((d, deck) => this.engine.patchDeck(deck, { vinylEnabled: d.vinylEnabled }));
+    // of two decks layered on a turntable, one follows it on this device, and both read its record
+    state.decks.forEach((d, deck) =>
+      this.engine.patchDeck(deck, { vinylEnabled: d.vinylEnabled, timecode: d.timecode }),
+    );
     this.modeInUse.set(state.modeInUse);
     this.headphones.set(state.headphones);
     this.headphonesInUse.set(state.headphonesInUse);

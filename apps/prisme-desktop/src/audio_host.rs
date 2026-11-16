@@ -6,7 +6,7 @@ use crate::dto::{AudioInfo, AudioSettings};
 use crate::error::{AppError, AppResult};
 use crate::input_access;
 use prisme_audio_io::{is_available, AudioCallback, DeviceKind, StreamSettings, StreamStats};
-use prisme_engine::{Engine, EngineConfig, EngineController};
+use prisme_engine::{Engine, EngineConfig, EngineController, MAX_DECKS};
 use prisme_timecode::testing::{Pattern, SimulatedTurntable};
 use prisme_timecode::TimecodeFormat;
 use std::sync::atomic::Ordering;
@@ -32,7 +32,7 @@ pub fn layer_partner(deck: usize, decks: usize, channels: usize) -> Option<usize
 }
 
 /// Connects the engine to the sound card; optionally replaces deck 1's turntable input
-/// with a simulated one.
+/// with a simulated one, playing deck 1's record.
 struct EngineCallback {
     engine: Engine,
     turntable: Option<SimulatedTurntable>,
@@ -110,10 +110,12 @@ pub fn stream_settings(settings: &AudioSettings) -> StreamSettings {
     }
 }
 
-/// Starts the audio with `settings`, for `decks` decks.
-pub fn start(settings: &AudioSettings, decks: usize) -> AppResult<AudioSession> {
-    let format = TimecodeFormat::by_id(&settings.timecode_format)
-        .ok_or_else(|| AppError::UnknownFormat(settings.timecode_format.clone()))?;
+/// Starts the audio with `settings`, for `decks` decks, each turntable with its record.
+pub fn start(
+    settings: &AudioSettings,
+    decks: usize,
+    timecodes: [&'static TimecodeFormat; MAX_DECKS],
+) -> AppResult<AudioSession> {
     let stream_settings = stream_settings(settings);
     if stream_settings.input_device.is_some() && !input_access::allowed() {
         return Err(AppError::InputsNotAllowed);
@@ -127,13 +129,14 @@ pub fn start(settings: &AudioSettings, decks: usize) -> AppResult<AudioSession> 
     let thread = std::thread::Builder::new().name("prisme-audio".into()).spawn(move || {
         let mut created = None;
         let started = prisme_audio_io::start(&stream_settings, |f| {
-            let mut config = EngineConfig::new(f.sample_rate, decks, format);
+            let mut config =
+                EngineConfig { timecodes, ..EngineConfig::new(f.sample_rate, decks, timecodes[0]) };
             config.deck_inputs =
                 std::array::from_fn(|deck| Some(2 * deck_pair(deck, config.decks, f.input_channels)));
             let (engine, controller) = prisme_engine::create(config);
             created = Some((controller, config));
             let turntable =
-                simulate.then(|| SimulatedTurntable::new(format, f.sample_rate, Pattern::Scratch));
+                simulate.then(|| SimulatedTurntable::new(timecodes[0], f.sample_rate, Pattern::Scratch));
             EngineCallback { engine, turntable }
         });
         match (started, created) {

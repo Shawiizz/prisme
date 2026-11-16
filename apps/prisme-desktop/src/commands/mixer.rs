@@ -47,6 +47,7 @@ pub fn mixer_state(state: State<'_, AppState>) -> MixerStateDto {
                 rpm: d.rpm,
                 lead_in_s: d.lead_in_s,
                 swap_channels: d.swap_channels,
+                timecode: d.timecode.id,
                 key_lock: d.key_lock,
                 fader_start: d.fader_start,
                 pitch_range: d.pitch_range,
