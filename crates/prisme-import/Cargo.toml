@@ -1,6 +1,6 @@
 [package]
 name = "prisme-import"
-description = "Import of crates, cues, grids and marks from Serato and rekordbox"
+description = "Import of crates, cues, grids and marks from Serato and rekordbox, export to rekordbox and playlists"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -14,3 +14,7 @@ base64.workspace = true
 quick-xml.workspace = true
 percent-encoding.workspace = true
 thiserror.workspace = true
+
+[dev-dependencies]
+prisme-analysis.workspace = true
+prisme-media.workspace = true

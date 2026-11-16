@@ -1,17 +1,24 @@
-//! Import from other DJ software: crates (playlists), cue points, saved loops, beat grids,
+//! Exchange with other DJ software: crates (playlists), cue points, saved loops, beat grids,
 //! colours and ratings.
 //!
-//! * [`serato`]: crates of the `_Serato_` folder, markers in the files' tags;
-//! * [`rekordbox`]: the collection exported as XML.
+//! * [`serato`]: crates of the `_Serato_` folder, markers in the files' tags (import);
+//! * [`rekordbox`]: the collection as XML (import and [`export`]);
+//! * [`m3u`]: a list as a playlist file (export).
 //!
 //! [`apply`] merges an import into the library without overwriting anything: what was
 //! already set in Prisme stays, so importing again changes nothing.
 
+pub mod export;
+pub mod m3u;
 pub mod rekordbox;
 pub mod serato;
 
 use prisme_library::{Cue, CueSlot, DbError, GridEdit, LibraryDb, HOT_CUES};
 use std::path::{Path, PathBuf};
+
+/// Between the folders of a list and its name, in the name of a crate imported from a list
+/// in folders (and back to folders in an export).
+pub const FOLDER_SEPARATOR: &str = " / ";
 
 /// Cues closer than this are the same cue (positions are stored to the millisecond).
 const SAME_PLACE_S: f64 = 0.002;

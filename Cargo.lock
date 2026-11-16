@@ -4279,7 +4279,9 @@ dependencies = [
  "base64 0.22.1",
  "lofty",
  "percent-encoding",
+ "prisme-analysis",
  "prisme-library",
+ "prisme-media",
  "quick-xml 0.38.4",
  "thiserror 2.0.21",
 ]

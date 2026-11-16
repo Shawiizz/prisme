@@ -34,10 +34,12 @@ The number beside each crate is how many tracks it holds.
 | Rename a crate | Double-click it, type, <kbd>Enter</kbd> |
 | Take tracks out | Open the crate, select them, press <kbd>Delete</kbd> or right-click › **Remove from the crate** |
 | Delete a crate | Click the **×** at the end of its row, then **Delete** to confirm. Its tracks stay where they are |
+| Export a crate as a playlist file | Point at it and click **M3U** at the end of its row. See [Exporting](/docs/library/export/) |
 
 A crate's tracks can come from any folder. Crates imported from
 [Serato or rekordbox](/docs/library/import/) are ordinary crates, and can be changed like
-yours.
+yours. Your crates, the prepare list and the sets also go to rekordbox, and from there to CDJs:
+see [Exporting to rekordbox and playlists](/docs/library/export/).
 
 ## Smart crates
 
@@ -71,6 +73,7 @@ is everything at 140 BPM and above.
 
 To change a smart crate's rules or name, double-click it. The crate shows with a funnel icon,
 and you cannot drop tracks on it or take tracks out of it: change its rules instead.
+Exported, as an M3U playlist or to rekordbox, it gives the tracks it picks at that moment.
 
 <Aside type="note">
   The BPM and key rules use the tempo and key as corrected by you, if you corrected them (see
@@ -90,6 +93,7 @@ tracks you plan to play, in the order you plan to play them.
   them below the last row to put them at the end. This works while the list is sorted by its
   `#` column, first to last.
 - **Take out**: <kbd>Delete</kbd>, or right-click › **Remove from the prepare list**.
+- **Export**: **M3U** at the end of its row writes it as a playlist file, in its order.
 
 A track **leaves the list by itself once it has played for 30 seconds** on any deck, so the list
 always starts with what is still to come. The list is kept when you quit Prisme.
@@ -107,6 +111,8 @@ day and time it started (`Sat 10 Oct, 21:30`), with the number of tracks played.
 - **CSV** on a set's row exports its tracklist: number, start time, deck, artist, title, album,
   BPM, key and file. On Windows the file uses the separators of your regional settings, so
   Excel opens it straight away.
+- **M3U** on a set's row exports it as a playlist file, to play it again elsewhere. See
+  [Exporting](/docs/library/export/).
 - The **×** on a set's row, then **Delete**, removes it from the history.
 
 The tracks of your last set, if it started less than 12 hours ago, are dimmed in every list of

@@ -352,6 +352,8 @@ pub fn run() {
             commands::import::serato_folder,
             commands::import::import_serato,
             commands::import::import_rekordbox,
+            commands::export::export_m3u,
+            commands::export::export_rekordbox,
             commands::sampler::load_sample,
             commands::sampler::clear_sample,
             commands::sampler::trigger_sample,

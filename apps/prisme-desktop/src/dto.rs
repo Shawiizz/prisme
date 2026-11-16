@@ -1149,6 +1149,14 @@ impl From<prisme_import::ImportSummary> for ImportSummaryDto {
     }
 }
 
+/// What an export to rekordbox wrote.
+#[derive(Debug, Clone, Copy, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ExportSummaryDto {
+    pub tracks: usize,
+    pub lists: usize,
+}
+
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct HistorySessionDto {

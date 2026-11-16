@@ -23,6 +23,7 @@ import { Separation } from '../models/stems';
 import { MixContext, MixReference, mixRank } from '../mix-rank';
 import { CratesService } from './crates.service';
 import { EngineService } from './engine.service';
+import { ExportService, ListRef } from './export.service';
 import { HistoryService } from './history.service';
 import { PrepareService } from './prepare.service';
 import { PreferencesService } from './preferences.service';
@@ -102,6 +103,7 @@ export class LibraryService {
   private readonly crates = inject(CratesService);
   private readonly history = inject(HistoryService);
   private readonly prepare = inject(PrepareService);
+  private readonly exports = inject(ExportService);
   /** Analyses received since the last frame, by path. */
   private analyzed = new Map<string, TrackDetails>();
 
@@ -351,6 +353,11 @@ export class LibraryService {
 
   exportSession(session: HistorySession): Promise<void> {
     return this.attempt(async () => void (await this.history.export(session)));
+  }
+
+  /** Asks where to save the list as an M3U playlist, and writes it. */
+  exportList(list: ListRef): Promise<void> {
+    return this.attempt(async () => void (await this.exports.exportM3u(list)));
   }
 
   async deleteSession(id: number): Promise<void> {

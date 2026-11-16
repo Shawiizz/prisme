@@ -1,0 +1,165 @@
+---
+title: Exporter vers rekordbox et en playlists
+description: Emmener vos crates, votre préparation et vos sets dans rekordbox puis sur les CDJ, ou dans n’importe quel autre logiciel en fichier de playlist.
+sidebar:
+  order: 6
+---
+
+import { Steps, Aside } from '@astrojs/starlight/components';
+
+Un set préparé dans Prisme peut vous suivre : sur les CDJ en passant par rekordbox, ou dans
+n’importe quel autre logiciel DJ ou lecteur. Prisme a deux exports :
+
+- **M3U** : une liste en fichier de playlist, que presque tous les logiciels ouvrent. Il contient
+  les morceaux dans l’ordre, rien de plus.
+- **XML rekordbox** : toute votre bibliothèque, ou les listes que vous choisissez, avec les
+  grilles rythmiques, les tonalités, les couleurs, les notes, les cues et les boucles. rekordbox
+  le lit, et depuis rekordbox les morceaux partent sur une clé USB pour les CDJ.
+
+Exporter ne fait qu’écrire un nouveau fichier : vos fichiers musicaux et la bibliothèque de
+Prisme restent tels quels.
+
+## Une liste en playlist (M3U)
+
+<Steps>
+
+1. Dans le panneau latéral de la bibliothèque, pointez la liste : **Préparation**, une crate ou
+   un set de l’**Historique**.
+
+2. Cliquez sur **M3U** au bout de sa ligne (**Exporter en playlist (M3U)**).
+
+3. Choisissez où enregistrer le fichier. Il porte le nom de la liste (`Warm-up.m3u8`, ou
+   `Set 2026-11-14 22h00.m3u8` pour un set) et vous pouvez le renommer.
+
+</Steps>
+
+{/* screenshot: le panneau latéral, le pointeur sur une crate, son bouton M3U visible */}
+
+Le fichier liste les morceaux dans l’ordre de la liste, chacun avec sa durée, son artiste et son
+titre, par son chemin complet. Une crate intelligente donne les morceaux qu’elle choisit à ce
+moment-là ; un set donne les morceaux dans l’ordre où vous les avez joués, un morceau joué deux
+fois apparaissant deux fois.
+
+Ouvrez le fichier dans l’autre logiciel, ou glissez-l’y : la plupart des logiciels DJ et des
+lecteurs importent une playlist M3U comme playlist ou comme crate.
+
+<Aside type="note">
+  Un fichier M3U ne contient ni cues, ni grilles, ni couleurs : pour cela, exportez vers
+  rekordbox. Et il désigne chaque fichier par son chemin complet : il marche sur cet ordinateur,
+  ou sur un autre où la musique est au même endroit.
+</Aside>
+
+## Votre bibliothèque pour rekordbox (XML)
+
+<Steps>
+
+1. Cliquez sur **Exporter** dans la barre d’outils de la bibliothèque, à côté d’**Importer**
+   (**La bibliothèque ou des listes choisies, pour rekordbox**). La fenêtre **Exporter vers
+   rekordbox** s’ouvre.
+
+2. Choisissez ce qui part :
+   - **Toute la bibliothèque** : tous les morceaux analysés, même ceux qui ne sont dans aucune
+     liste, avec toutes vos crates, la préparation et tous les sets de l’historique ;
+   - **Listes choisies** : cochez les crates, la **Préparation** et les sets voulus. Seuls leurs
+     morceaux partent.
+
+3. Cliquez sur **Exporter…** et choisissez où enregistrer le fichier (`Prisme.xml` par défaut).
+
+</Steps>
+
+{/* screenshot: la fenêtre Exporter vers rekordbox, Listes choisies ouvert et trois crates cochées */}
+
+Une fois le fichier écrit, la fenêtre dit ce qu’il contient, par exemple **1204 morceaux et 38
+playlists écrits dans D:\DJ\Prisme.xml.**
+
+Ce que chaque morceau emporte :
+
+| Dans Prisme | Dans rekordbox |
+| --- | --- |
+| Titre, artiste, album, genre, année, commentaire | Les mêmes tags. Un morceau sans titre prend son nom de fichier |
+| Durée, taille et type du fichier | Les mêmes |
+| Tempo et grille rythmique | La grille rythmique, ses mesures commençant sur le premier temps comme dans Prisme. Le tempo est gardé au centième de BPM |
+| Tonalité | La tonalité, écrite `Am`, `F#m`, `Eb`… |
+| Couleur | La couleur de rekordbox à la même place : Rose → Rose, Rouge → Red, Orange → Orange, Jaune → Lemon, Vert → Green, Turquoise → Turquoise, Bleu → Blue, Violet → Violet |
+| Note | Le même nombre d’étoiles |
+| Passages dans l’historique | Le nombre de lectures |
+| Cue principal | Un memory cue, le premier du morceau |
+| Hot cues 1 à 8, avec leur couleur et leur nom | Hot cues A à H |
+| Hot cues en boucle 1 à 8 | Hot loops sur A à H |
+| Hot cues 9 à 16 | Memory cues (memory loops pour ceux en boucle) |
+
+Et les listes, en playlists :
+
+| Dans Prisme | Dans rekordbox |
+| --- | --- |
+| Une crate | Une playlist du même nom. Une crate importée d’un dossier, `Festival / Peak time`, retourne dans un dossier **Festival** |
+| Une crate intelligente | Une playlist des morceaux qu’elle choisit au moment de l’export |
+| **Préparation** | Une playlist **Préparation**, dans son ordre |
+| Un set de l’historique | Une playlist dans un dossier **Historique**, nommée d’après son début : `2026-11-14 22:00` |
+
+Le tempo et la tonalité sont ceux que vous voyez dans Prisme : vos corrections si vous en avez
+fait, sinon l’analyse de Prisme (voir
+[Tempo, grille rythmique et tonalité](/fr/docs/library/analysis/)).
+
+## Dans rekordbox, puis sur une clé USB
+
+Les noms de menus ci-dessous sont ceux de rekordbox 6 et 7 en anglais ; rekordbox en français
+les traduit.
+
+<Steps>
+
+1. Dans rekordbox, ouvrez **Preferences** › **Advanced** › **Database**. Sous **rekordbox xml**,
+   cliquez sur **Browse** à côté d’**Imported Library** et choisissez le fichier écrit par
+   Prisme.
+
+2. Dans **Preferences** › **View** › **Layout**, cochez **rekordbox xml**. Une entrée
+   **rekordbox xml** apparaît dans l’arborescence, à gauche.
+
+3. Ouvrez **rekordbox xml**. Sous **All Tracks**, sélectionnez les morceaux (<kbd>Ctrl</kbd>
+   <kbd>A</kbd>), clic droit, **Import To Collection**. Sous **Playlists**, faites un clic droit
+   sur une playlist ou un dossier, **Import Playlist**. Vos playlists apparaissent sous
+   **Playlists**, les morceaux dans la **Collection** avec leurs grilles et leurs cues.
+
+4. Branchez la clé USB. Elle apparaît sous **Devices** dans l’arborescence (dans rekordbox 6 et
+   7, en mode **Export**). Glissez-y vos playlists, ou faites un clic droit sur une playlist,
+   **Export Playlist**, et choisissez la clé. rekordbox copie les fichiers et les prépare pour les
+   CDJ.
+
+</Steps>
+
+{/* screenshot: l’arborescence de rekordbox, l’entrée rekordbox xml ouverte et Import Playlist dans son menu clic droit */}
+
+Après avoir préparé davantage dans Prisme, exportez de nouveau par-dessus le même fichier :
+rekordbox le relit, et réimporter un morceau apporte ses nouveaux cues et sa nouvelle grille.
+
+<Aside type="caution">
+  Importer un morceau dans la collection de rekordbox remplace ce que rekordbox avait pour lui :
+  ses cues, sa grille et ses tags. Exportez d’abord votre bibliothèque rekordbox (**Fichier** ›
+  **Exporter la collection au format xml**) si vous voulez en garder une copie.
+</Aside>
+
+<Aside type="tip">
+  Avant une date, chargez quelques-uns des morceaux sur un CDJ, ou dans rekordbox, et vérifiez
+  que leur grille et leurs cues tombent là où ils sont dans Prisme.
+</Aside>
+
+## Ce qui ne part pas
+
+- **Les hot cues 9 à 16.** rekordbox et les CDJ ont huit hot cues : la deuxième page de Prisme
+  devient des memory cues, que vous atteignez avec les touches de memory cue du CDJ.
+- **Les crates intelligentes restent figées.** Chacune devient une playlist des morceaux qu’elle
+  contenait au moment de l’export ; ses règles ne partent pas. Exportez de nouveau pour ajouter
+  les nouveaux morceaux.
+- **Les stems, les modifications et les formes d’onde.** rekordbox analyse lui-même les formes
+  d’onde. Le débit et la fréquence d’échantillonnage ne sont pas non plus dans le fichier :
+  rekordbox les lit dans la musique.
+- **Les fichiers ailleurs.** Comme le fichier M3U, le XML désigne chaque fichier par son chemin
+  complet : exportez sur l’ordinateur où tourne rekordbox, ou avec la musique au même endroit.
+- **Serato.** Il n’y a pas encore d’export vers Serato. Une crate exportée en M3U et glissée dans
+  Serato apporte les morceaux, sans cues ni grilles.
+
+Le XML se relit aussi dans Prisme : **Importer**, puis **Choisir le fichier XML…** ramène les
+grilles, les cues et les listes, le cue principal depuis le premier memory cue (voir
+[Importer depuis Serato et rekordbox](/fr/docs/library/import/)). Les memory cues après le
+premier ne reviennent pas, ni donc les hot cues 9 à 16, sauf ceux en boucle, qui reviennent sur
+les premiers pads libres.

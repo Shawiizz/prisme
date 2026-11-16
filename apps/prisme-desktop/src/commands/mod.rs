@@ -10,6 +10,7 @@ pub mod cues;
 pub mod decks;
 pub mod diagnostics;
 pub mod edits;
+pub mod export;
 pub mod folders;
 pub mod fx;
 pub mod history;
