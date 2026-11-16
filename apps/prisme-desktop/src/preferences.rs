@@ -6,6 +6,7 @@ use crate::dto::{
 };
 use prisme_engine::MAX_DECKS;
 use serde::{Deserialize, Deserializer, Serialize};
+use std::ops::RangeInclusive;
 
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 #[serde(default, rename_all = "camelCase")]
@@ -26,7 +27,7 @@ fn decks_of<'de, D: Deserializer<'de>>(file: D) -> Result<[DeckPreferences; MAX_
     Ok(std::array::from_fn(|_| saved.next().unwrap_or_default()))
 }
 
-#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(default, rename_all = "camelCase")]
 pub struct DeckPreferences {
     pub vinyl_enabled: bool,
@@ -48,6 +49,52 @@ pub struct DeckPreferences {
     pub pitch_range: Option<f64>,
     /// Sound file in each sampler slot.
     pub samples: Vec<Option<String>>,
+    /// The level of the deck's sampler (linear).
+    pub sampler_gain: f32,
+    /// The deck's size in beats: what its jumps go by, what its sized loop lasts.
+    pub size_beats: f64,
+}
+
+impl DeckPreferences {
+    /// The sizes a deck can have, in beats.
+    pub const SIZE_BEATS: RangeInclusive<f64> = 1.0 / 16.0..=64.0;
+    const DEFAULT_SIZE_BEATS: f64 = 4.0;
+
+    /// The deck's size, the default if the file holds one out of reach.
+    pub fn size(&self) -> f64 {
+        if Self::SIZE_BEATS.contains(&self.size_beats) {
+            self.size_beats
+        } else {
+            Self::DEFAULT_SIZE_BEATS
+        }
+    }
+
+    /// The level of the deck's sampler, unity if the file holds none that can be.
+    pub fn sampler_level(&self) -> f32 {
+        if self.sampler_gain.is_finite() && self.sampler_gain >= 0.0 {
+            self.sampler_gain
+        } else {
+            1.0
+        }
+    }
+}
+
+impl Default for DeckPreferences {
+    fn default() -> Self {
+        Self {
+            vinyl_enabled: false,
+            vinyl_mode: VinylModeDto::default(),
+            rpm: RpmDto::default(),
+            lead_in_s: None,
+            swap_channels: false,
+            key_lock: false,
+            fader_start: false,
+            pitch_range: None,
+            samples: Vec::new(),
+            sampler_gain: 1.0,
+            size_beats: Self::DEFAULT_SIZE_BEATS,
+        }
+    }
 }
 
 /// What SYNC does on a record in relative mode.
@@ -366,6 +413,17 @@ mod tests {
         assert_eq!(p.decks[2], DeckPreferences::default());
         assert!(!p.decks[0].fader_start, "fader start is off unless chosen");
         assert_eq!(p.decks[0].pitch_range, None);
+        assert_eq!((p.decks[0].sampler_level(), p.decks[0].size()), (1.0, 4.0), "as before they were kept");
+    }
+
+    #[test]
+    fn a_size_or_a_sampler_level_out_of_reach_reads_as_the_default() {
+        let p: Preferences = serde_json::from_str(
+            r#"{ "decks": [{ "sizeBeats": 0, "samplerGain": -1 }, { "sizeBeats": 0.0625, "samplerGain": 0 }] }"#,
+        )
+        .unwrap();
+        assert_eq!((p.decks[0].size(), p.decks[0].sampler_level()), (4.0, 1.0));
+        assert_eq!((p.decks[1].size(), p.decks[1].sampler_level()), (0.0625, 0.0));
     }
 
     #[test]
@@ -403,6 +461,8 @@ mod tests {
             fader_start: true,
             pitch_range: Some(0.5),
             samples: vec![Some("C:/Samples/horn.wav".into()), None],
+            sampler_gain: 0.5,
+            size_beats: 0.25,
         };
         p.library.music_folder = Some("D:/Music".into());
         p.library.last_folder = Some("C:/Music/House".into());

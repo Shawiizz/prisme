@@ -728,6 +728,8 @@ pub struct DeckSettingsDto {
     /// Name of the sound in each sampler slot.
     pub samples: Vec<Option<String>>,
     pub sampler_gain: f32,
+    /// Its size in beats: what its jumps go by, what its sized loop lasts.
+    pub size_beats: f64,
     /// The deck plays its input instead of its track.
     pub passthrough: bool,
     /// Its side of the crossfader.

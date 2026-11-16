@@ -1,4 +1,4 @@
-import { Injectable, inject, signal } from '@angular/core';
+import { Injectable, computed, inject, signal } from '@angular/core';
 import { invoke } from '@tauri-apps/api/core';
 import { Cue, MAX_DECKS, SLICES } from '../models/engine';
 import { EngineService } from './engine.service';
@@ -7,7 +7,6 @@ import { CUT_BEATS } from '../../shared/beats';
 
 /** The shortest and longest size of a deck, in beats (see `PerformanceService.sizes`). */
 export const SIZE_BEATS = { min: 1 / 16, max: 64 };
-const DEFAULT_SIZE = 4;
 const BEATS_PER_BAR = 4;
 
 /** Performance actions on a deck: hot cues, loops, rolls, beat jumps, the slicer, fader
@@ -16,7 +15,7 @@ const BEATS_PER_BAR = 4;
 export class PerformanceService {
   private readonly engine = inject(EngineService);
   /** Each deck's size in beats: what its jumps go by, what its sized loop lasts. */
-  readonly sizes = signal<number[]>(Array(MAX_DECKS).fill(DEFAULT_SIZE));
+  readonly sizes = computed(() => this.engine.decks().map((d) => d.sizeBeats));
   /** Where each deck's slicer starts (s): on the bar it played in when it was put there. */
   readonly slicers = signal<(number | null)[]>(Array(MAX_DECKS).fill(null));
   /** The slices held on each deck, the last pressed last: it plays. */
@@ -77,8 +76,9 @@ export class PerformanceService {
 
   /** The size of `deck` multiplied by `factor` (halved, doubled), within `SIZE_BEATS`. */
   scaleSize(deck: number, factor: number) {
-    const size = Math.min(Math.max(this.size(deck) * factor, SIZE_BEATS.min), SIZE_BEATS.max);
-    this.sizes.update((sizes) => sizes.map((s, d) => (d === deck ? size : s)));
+    const beats = Math.min(Math.max(this.size(deck) * factor, SIZE_BEATS.min), SIZE_BEATS.max);
+    this.engine.patchDeck(deck, { sizeBeats: beats });
+    return this.engine.call('set_deck_size', { deck, beats });
   }
 
   /** A loop of the deck's size where it plays, or out of the loop it plays. */

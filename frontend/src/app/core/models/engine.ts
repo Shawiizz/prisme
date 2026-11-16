@@ -262,6 +262,8 @@ export interface DeckSettings {
   /** Name of the sound in each sampler slot. */
   samples: (string | null)[];
   samplerGain: number;
+  /** Its size in beats: what its jumps go by, what its sized loop lasts. */
+  sizeBeats: number;
   /** The deck plays its input as it comes instead of its track. */
   passthrough: boolean;
   /** Its side of the crossfader. */

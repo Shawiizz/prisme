@@ -54,6 +54,7 @@ pub fn mixer_state(state: State<'_, AppState>) -> MixerStateDto {
                 fx: d.fx,
                 samples: samples.iter().map(|s| s.as_ref().map(|s| sampler::name(&s.path))).collect(),
                 sampler_gain: d.sampler_gain,
+                size_beats: d.size_beats,
                 passthrough: d.passthrough,
                 side: d.side.unwrap_or(CrossfaderSideDto::of_deck(deck)),
                 jog_scratch: d.jog_scratch,

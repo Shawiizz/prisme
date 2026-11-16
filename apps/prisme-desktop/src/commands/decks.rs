@@ -1,6 +1,7 @@
 use crate::auto_dj::{AutoDj, Takeover};
 use crate::dto::{RpmDto, VinylModeDto};
 use crate::error::{AppError, AppResult};
+use crate::preferences::DeckPreferences;
 use crate::state::{deck_commands, lock, AppState};
 use prisme_engine::Command;
 use tauri::State;
@@ -154,6 +155,19 @@ pub fn set_tempo_range(state: State<'_, AppState>, deck: Option<usize>, range: f
             });
         }
     }
+    Ok(())
+}
+
+/// The deck's size in beats, what its jumps go by and its sized loop lasts; kept for the next
+/// start.
+#[tauri::command]
+pub fn set_deck_size(state: State<'_, AppState>, deck: usize, beats: f64) -> AppResult<()> {
+    AppState::check_deck(deck)?;
+    if !DeckPreferences::SIZE_BEATS.contains(&beats) {
+        return Err(AppError::Other("a deck's size is from 1/16 of a beat to 64 beats".into()));
+    }
+    lock(&state.decks)[deck].size_beats = beats;
+    state.update_preferences(|p| p.decks[deck].size_beats = beats);
     Ok(())
 }
 
