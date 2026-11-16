@@ -9,8 +9,9 @@ import { Press } from '../../../shared/press';
 
 /**
  * What a deck does now and then rather than all the time, a row each: its motor (a brake, a
- * soft start, a spinback while held), the track repeated, the range of its tempo fader, and
- * on the software mixer the channel fader starting and stopping it.
+ * soft start, a spinback while held), jumps to the start and the end, the track played
+ * backwards, the channel muted, the track repeated, the range of its tempo fader, and on the
+ * software mixer the channel fader starting and stopping it.
  */
 @Component({
   selector: 'app-deck-options',
@@ -38,6 +39,55 @@ import { Press } from '../../../shared/press';
           SPINBACK
         </button>
       </div>
+    </div>
+    <div class="row">
+      <span>{{ 'Jump to' | t }}</span>
+      <div class="keys">
+        <button
+          class="pr-btn pr-btn--sm"
+          [class.pr-reach]="PHONE"
+          [disabled]="!placeable()"
+          [title]="'To the start of the track, playing or not as it was' | t"
+          (click)="engine.seek(deck(), 0)"
+        >
+          {{ 'START' | t }}
+        </button>
+        <button
+          class="pr-btn pr-btn--sm"
+          [class.pr-reach]="PHONE"
+          [disabled]="!placeable()"
+          [title]="'A few seconds before the end of the track, playing or not as it was' | t"
+          (click)="performance.toEnd(deck())"
+        >
+          {{ 'END' | t }}
+        </button>
+      </div>
+    </div>
+    <div class="row">
+      <span>{{ 'Reverse' | t }}</span>
+      <button
+        class="pr-switch"
+        role="switch"
+        [attr.aria-checked]="reversed()"
+        [attr.aria-label]="'Reverse' | t"
+        [title]="'The track plays backwards; with slip, it comes back where it would be' | t"
+        (click)="performance.setReverse(deck(), !reversed())"
+      >
+        <span></span>
+      </button>
+    </div>
+    <div class="row">
+      <span>{{ 'Mute the channel' | t }}</span>
+      <button
+        class="pr-switch"
+        role="switch"
+        [attr.aria-checked]="settings().mute"
+        [attr.aria-label]="'Mute the channel' | t"
+        [title]="'Silent in the master, still heard in the headphones' | t"
+        (click)="engine.setMute(deck(), !settings().mute)"
+      >
+        <span></span>
+      </button>
     </div>
     <div class="row">
       <span>{{ 'Repeat the track' | t }}</span>
@@ -126,6 +176,9 @@ export class DeckOptions {
   protected readonly ranges = PITCH_RANGES;
   protected readonly range = computed(() => this.engine.tempoRange(this.deck()));
   protected readonly settings = computed(() => this.engine.decks()[this.deck()]);
+  protected readonly reversed = computed(
+    () => this.engine.status()?.decks[this.deck()]?.reverse ?? false,
+  );
 
   /** The motor moves a track that plays by itself: a record drives its own. */
   protected readonly movable = computed(
@@ -133,6 +186,13 @@ export class DeckOptions {
       !!this.engine.status()?.decks[this.deck()]?.loaded &&
       !this.settings().vinylEnabled &&
       !this.settings().passthrough,
+  );
+
+  /** A jump moves a track a record in absolute mode does not hold. */
+  protected readonly placeable = computed(
+    () =>
+      !!this.engine.status()?.decks[this.deck()]?.loaded &&
+      !(this.settings().vinylEnabled && this.settings().vinylMode === 'absolute'),
   );
 
   /** The deck spun back: the one let go, even if the menu changed decks meanwhile. */

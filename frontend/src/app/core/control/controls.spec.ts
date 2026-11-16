@@ -80,16 +80,24 @@ describe('controls', () => {
     find('deck2.passthrough').apply(1);
     find('mixer.headphones.split').apply(1);
     find('deck2.headphones.solo').apply(1);
+    find('deck1.mute').apply(1);
+    expect(find('deck2.mute').lit!()).toBe(true);
     expect(find('mixer.mic.cue').lit!()).toBe(true);
     expect(calls).toEqual([
       'setBalance(0.25)',
       'setBoothLevel(0.8)',
       'setLiveLevel(aux,0.5)',
       'toggleLive(mic)',
-      'toggleTalkover()',
-      'togglePassthrough(1)',
-      'toggleSplitCue()',
+      'talkover()',
+      'setTalkover(false)',
+      'passthrough(1)',
+      'setPassthrough(1,false)',
+      'splitCue()',
+      'setSplitCue(false)',
       'soloHeadphones(1)',
+      'muted(0)',
+      'setMute(0,false)',
+      'muted(1)',
       'liveCued(mic)',
     ]);
   });
@@ -175,10 +183,36 @@ describe('controls', () => {
       'brake(0)',
       'spinBack(1,true)',
       'spinBack(1,false)',
-      'toggleRepeat(0)',
+      'repeating(0)',
+      'setRepeat(0,false)',
       'repeating(1)',
-      'toggleFaderStart(1)',
+      'faderStart(1)',
+      'setFaderStart(1,false)',
     ]);
+  });
+
+  it('reverse, switched or held, lit while the track plays backwards', () => {
+    const { calls, find } = recorder();
+    find('deck1.reverse').apply(1);
+    find('deck2.reverse.held').apply(1);
+    find('deck2.reverse.held').apply(0);
+    expect(find('deck2.reverse.held').lit!()).toBe(true);
+    expect(calls).toEqual([
+      'reversing(0)',
+      'setReverse(0,false)',
+      'holdReverse(1,true)',
+      'holdReverse(1,false)',
+      'backwards(1)',
+    ]);
+  });
+
+  it('go to the start, stopped, playing or as it was, and near the end', () => {
+    const { calls, find } = recorder();
+    find('deck1.start').apply(1);
+    find('deck2.start.play').apply(1);
+    find('deck1.start.keep').apply(1);
+    find('deck2.end').apply(1);
+    expect(calls).toEqual(['toStart(0,stop)', 'toStart(1,play)', 'toStart(0,goto)', 'toEnd(1)']);
   });
 
   it('jump and loop by the size of the deck, which a step halves or doubles', () => {
@@ -253,6 +287,116 @@ describe('controls', () => {
     expect(nextTempoRange(0.5, 1)).toBe(0.08);
     expect(nextTempoRange(0.08, -1)).toBe(0.5);
     expect(nextTempoRange(0.1, 1)).toBe(0.08);
+  });
+
+  it('give each switch a key putting it on and one putting it off, whatever it is', () => {
+    const { calls, controls, find } = recorder();
+    find('deck1.sync.on').apply(1);
+    find('deck2.keylock.off').apply(1);
+    find('general.quantize.on').apply(1);
+    find('mixer.crossfader.reverse.off').apply(1);
+    find('deck1.vinyl.on').apply(0);
+    expect(find('deck2.mute.on').lit!()).toBe(true);
+    expect(find('deck2.mute.off').lit!()).toBe(false);
+    expect(calls).toEqual([
+      'setSync(0,true)',
+      'setKeyLock(1,false)',
+      'setQuantize(true)',
+      'setCrossfaderReverse(false)',
+      'muted(1)',
+      'muted(1)',
+    ]);
+    const switches = [
+      'deck1.sync',
+      'deck1.keylock',
+      'general.quantize',
+      'deck1.slip',
+      'deck1.vinyl',
+      'deck1.passthrough',
+      'mixer.crossfader.reverse',
+      'mixer.headphones.split',
+      'deck1.headphones',
+      'deck1.repeat',
+      'deck1.faderStart',
+      'deck1.mute',
+      'deck1.reverse',
+      'mixer.talkover',
+      'deck1.jog.scratch',
+    ];
+    const ids = new Set(controls.map((c) => c.id));
+    expect(
+      switches.flatMap((s) => [s, `${s}.on`, `${s}.off`]).filter((id) => !ids.has(id)),
+    ).toEqual([]);
+    expect(find('deck1.keylock.on').label).toBe('Key lock: on');
+  });
+
+  it('open the next or previous list, go into a list or load a track, move across', () => {
+    const { calls, find } = recorder();
+    find('library.list.next').apply(1);
+    find('library.list.previous').apply(1);
+    find('library.go').apply(1);
+    find('library.left').apply(1);
+    find('library.right').apply(1);
+    expect(calls).toEqual([
+      'openNextList(1)',
+      'openNextList(-1)',
+      'go()',
+      'setFocus(lists)',
+      'setFocus(tracks)',
+    ]);
+  });
+
+  it('a smart sample pad loads an empty slot, plays a loaded one, stops a playing one', () => {
+    const slots = { loaded: false, playing: false };
+    const calls: string[] = [];
+    const actions = new Proxy(
+      {},
+      {
+        get:
+          (_, name: string) =>
+          (...args: unknown[]) => {
+            if (name === 'sampleLoaded') return slots.loaded;
+            if (name === 'samplePlaying') return slots.playing;
+            calls.push(`${name}(${args.join(',')})`);
+            return true;
+          },
+      },
+    ) as ControlActions;
+    const pad = buildControls(actions).find((c) => c.id === 'deck2.sample3.smart')!;
+    const press = () => {
+      pad.apply(1);
+      pad.apply(0);
+      return pad.state!();
+    };
+    expect(press()).toBe('off');
+    slots.loaded = true;
+    expect(press()).toBe('loaded');
+    slots.playing = true;
+    expect(press()).toBe('playing');
+    expect(pad.lit!()).toBe(true);
+    expect(calls).toEqual(['loadSample(1,2)', 'triggerSample(1,2)', 'stopSample(1,2)']);
+  });
+
+  it('light a loop playing, and the beats in phase, ahead or behind', () => {
+    const calls: string[] = [];
+    const actions = new Proxy(
+      {},
+      {
+        get:
+          (_, name: string) =>
+          (...args: unknown[]) => {
+            calls.push(`${name}(${args.join(',')})`);
+            return name === 'phase' ? 'ahead' : true;
+          },
+      },
+    ) as ControlActions;
+    const find = (id: string) => buildControls(actions).find((c) => c.id === id)!;
+    expect(find('deck1.loop.any').state!()).toBe('on');
+    expect(find('deck2.phase.ahead').lit!()).toBe(true);
+    expect(find('deck2.phase.behind').state!()).toBe('off');
+    expect(find('deck2.phase').lit!()).toBe(false);
+    expect(find('deck1.phase.ahead').kind).toBe('light');
+    expect(calls).toEqual(['looping(0)', 'phase(1)', 'phase(1)', 'phase(1)']);
   });
 
   it('read a jump or a loop of so many beats from its id', () => {

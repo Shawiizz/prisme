@@ -58,6 +58,7 @@ const DEFAULT_DECK: DeckSettings = {
   side: 'left',
   jogScratch: true,
   repeat: false,
+  mute: false,
 };
 
 /**
@@ -269,6 +270,12 @@ export class EngineService {
     return this.call('set_fader_start', { deck, enabled });
   }
 
+  /** The deck's channel silenced in the master, after its fader, or heard again. */
+  setMute(deck: number, enabled: boolean) {
+    this.patchDeck(deck, { mute: enabled });
+    return this.call('set_mute', { deck, enabled });
+  }
+
   /** At the end, the track goes on from its start. */
   setRepeat(deck: number, enabled: boolean) {
     this.patchDeck(deck, { repeat: enabled });
@@ -430,9 +437,12 @@ export class EngineService {
   toggleSync(deck: number) {
     const status = this.status()?.decks[deck];
     if (!status) return;
-    if (status.sync.locked) {
-      return this.call('set_sync_locked', { deck, locked: false });
-    }
+    return this.setSync(deck, !status.sync.locked);
+  }
+
+  /** SYNC on (locked, or matched once on a relative record in one-shot mode), or off. */
+  setSync(deck: number, on: boolean) {
+    if (!on) return this.call('set_sync_locked', { deck, locked: false });
     const oneShot = this.decks()[deck].vinylEnabled && this.preferences.dj().vinylSync === 'once';
     return oneShot
       ? this.call('sync_once', { deck })

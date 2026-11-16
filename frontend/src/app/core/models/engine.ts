@@ -53,7 +53,9 @@ export interface DeckStatus {
   peak: number;
   cue: boolean;
   slipMode: boolean;
-  /** Where the track would be without the loop, roll or censor in progress. */
+  /** The reverse is on: the track plays backwards. */
+  reverse: boolean;
+  /** Where the track would be without the loop, roll, censor or reverse in progress. */
   slipPositionS: number | null;
   vinyl: VinylStatus;
   /** Sampler slots playing, one bit per slot (16). */
@@ -268,6 +270,8 @@ export interface DeckSettings {
   jogScratch: boolean;
   /** At the end, the track goes on from its start. */
   repeat: boolean;
+  /** The deck's channel silenced in the master, after its fader (the headphones still hear it). */
+  mute: boolean;
 }
 
 export const EFFECT_KINDS = [
@@ -391,6 +395,8 @@ export interface MixerState {
   splitCue: boolean;
   headphoneGain: number;
   crossfaderCurve: CrossfaderCurve;
+  /** The crossfader's sides swapped: towards the left, the decks on the right come in. */
+  crossfaderReverse: boolean;
   /** Master limiter. */
   limiter: boolean;
   /** The master's level (linear). */

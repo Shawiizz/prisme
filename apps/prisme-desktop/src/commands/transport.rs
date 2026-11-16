@@ -93,6 +93,18 @@ pub fn spin_back(state: State<'_, AppState>, deck: usize, held: bool) -> AppResu
     send(&state, deck, Command::SpinBack { deck, held })
 }
 
+/// The track played backwards, or forwards again.
+#[tauri::command]
+pub fn set_reverse(state: State<'_, AppState>, deck: usize, enabled: bool) -> AppResult<()> {
+    send(&state, deck, Command::SetReverse { deck, enabled })
+}
+
+/// The track played backwards while `held`.
+#[tauri::command]
+pub fn hold_reverse(state: State<'_, AppState>, deck: usize, held: bool) -> AppResult<()> {
+    send(&state, deck, Command::HoldReverse { deck, held })
+}
+
 fn send(state: &AppState, deck: usize, command: Command) -> AppResult<()> {
     state.has_deck(deck)?;
     state.send(command)

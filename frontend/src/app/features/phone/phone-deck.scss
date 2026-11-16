@@ -103,8 +103,9 @@ app-deck-waveform {
   color: var(--pr-text-2);
   text-align: end;
 }
-// who drives the deck, in the colour of what its record says
-.vinyl {
+// who drives the deck, in the colour of what its record says; what changes what is heard
+.vinyl,
+.flag {
   align-self: center;
   padding: 3px 7px;
   border: 1px solid var(--pr-line-2);
@@ -125,6 +126,10 @@ app-deck-waveform {
     border-color: var(--pr-alert);
     color: var(--pr-alert);
   }
+}
+.flag {
+  border-color: var(--pr-light);
+  color: var(--pr-light);
 }
 
 // one line and the waveform: the thumbs have the rest of the screen

@@ -6,8 +6,9 @@
 //! so that what is heard is where the playhead is. After a jump it starts again from the
 //! new place, behind the feed by its delay, and catches up a little more each block: it is
 //! silent for a few milliseconds instead of the whole delay, and no block does all the work
-//! of the delay at once. In a loop the feed wraps with the playhead. Out of
-//! [`KeyLock::applies`] (scratching, backwards, very slow or fast) the deck plays without it.
+//! of the delay at once. In a loop the feed wraps with the playhead. Backwards, it plays the
+//! track as read from the end, mirrored. Out of [`KeyLock::applies`] (scratching, very slow
+//! or fast) the deck plays without it.
 //!
 //! Parts of the track read apart from the rest (for an effect on them alone) go through a
 //! stretcher of four channels, the rest and the parts, which stretches both alike so that
@@ -101,8 +102,10 @@ pub(crate) struct KeyLock {
     given: Vec<f32>,
     /// What the stretcher of the parts apart gives for the block, four channels wide.
     stretched: Vec<f32>,
-    /// Source frame (fractional) of the next input.
+    /// Source frame (fractional) of the next input, mirrored when backwards.
     feed: f64,
+    /// The track is read backwards: its frames mirrored around its start.
+    backwards: bool,
     key_shift: i8,
     out_rate: f64,
 }
@@ -126,6 +129,7 @@ impl KeyLock {
             given: vec![0.0; given * APART],
             stretched: vec![0.0; max_block_frames * APART],
             feed: 0.0,
+            backwards: false,
             key_shift: 0,
             out_rate: f64::from(out_rate),
         }
@@ -151,10 +155,33 @@ impl KeyLock {
         self.switching = 0;
     }
 
-    /// Renders `out` from `source` at `speed`, the playhead being at `position` (source
-    /// frames) in the loop `loop_frames`; returns where the playhead is afterwards. With
-    /// `apart`, the parts the source sets apart go there and the rest to `out`.
+    /// Renders `out` from `source` at `speed`, backwards if negative, the playhead being at
+    /// `position` (source frames) in the loop `loop_frames`; returns where the playhead is
+    /// afterwards. With `apart`, the parts the source sets apart go there and the rest to
+    /// `out`.
     pub(crate) fn render(
+        &mut self,
+        source: &mut Reader,
+        position: f64,
+        loop_frames: Option<(f64, f64)>,
+        out: &mut [f32],
+        apart: Option<&mut [f32]>,
+        speed: f64,
+    ) -> f64 {
+        let backwards = speed < 0.0;
+        if backwards != self.backwards {
+            self.disengage();
+            self.backwards = backwards;
+        }
+        if !backwards {
+            return self.render_forwards(source, position, loop_frames, out, apart, speed);
+        }
+        let mirrored = loop_frames.map(|(start, end)| (-end, -start));
+        -self.render_forwards(source, -position, mirrored, out, apart, -speed)
+    }
+
+    /// [`KeyLock::render`] at a positive `speed`, through the track mirrored if backwards.
+    fn render_forwards(
         &mut self,
         source: &mut Reader,
         position: f64,
@@ -197,7 +224,8 @@ impl KeyLock {
             (((self.feed + advance).floor() as isize - start) as usize).min(self.input.len() / APART);
         let channels = if self.apart.engaged { APART } else { WHOLE };
         let input = &mut self.input[..read_frames * channels];
-        read(source, start, loop_frames, input, channels, self.feed.floor() as isize);
+        let span = Span { start, loop_frames, backwards: self.backwards };
+        read(source, span, input, channels, self.feed.floor() as isize);
         let at = Input { start, feed: self.feed, advance, step };
         if self.apart.engaged {
             stretch_block(&mut self.apart, input, at, &mut self.given, &mut self.stretched[..frames * APART]);
@@ -232,14 +260,15 @@ impl KeyLock {
     /// Restarts the stretcher of the way the track is read now, behind the feed by its delay,
     /// with what comes before.
     fn start(&mut self, source: &mut Reader, loop_frames: Option<(f64, f64)>, speed: f64, step: f64) {
-        let Self { whole, apart, input, setting_apart, feed, .. } = self;
+        let Self { whole, apart, input, setting_apart, feed, backwards, .. } = self;
         let now = if *setting_apart { apart } else { whole };
         let channels = now.channels;
         let preroll = now.stretch.input_latency();
         let behind = now.stretch.output_latency() as f64 * step;
         let preroll_input = &mut input[..preroll * channels];
         let from = (*feed - behind).floor() as isize - preroll as isize;
-        read(source, from, loop_frames, preroll_input, channels, isize::MAX);
+        let span = Span { start: from, loop_frames, backwards: *backwards };
+        read(source, span, preroll_input, channels, isize::MAX);
         now.start(preroll_input, speed, step);
     }
 
@@ -309,26 +338,31 @@ fn stretch_block(stretcher: &mut Stretcher, input: &[f32], at: Input, given: &mu
     out.copy_from_slice(&given[caught_up * channels..]);
 }
 
-/// Reads interleaved frames from `start`, two channels (the whole track) or four (the rest,
-/// then the parts apart); frames past the end of an active loop come from its start, as the
-/// playhead will play them. The stem gains move with the frames read from `heard_from`
-/// (those before were heard already, or will never be).
-fn read(
-    source: &mut Reader,
+/// Where frames are read from: the first, in the active loop, through the track mirrored or
+/// not.
+#[derive(Clone, Copy)]
+struct Span {
     start: isize,
     loop_frames: Option<(f64, f64)>,
-    out: &mut [f32],
-    channels: usize,
-    heard_from: isize,
-) {
+    backwards: bool,
+}
+
+/// Reads interleaved frames from the start of `span`, two channels (the whole track) or four
+/// (the rest, then the parts apart); frames past the end of an active loop come from its
+/// start, as the playhead will play them. The stem gains move with the frames read from
+/// `heard_from` (those before were heard already, or will never be).
+fn read(source: &mut Reader, span: Span, out: &mut [f32], channels: usize, heard_from: isize) {
     for (i, frame) in out.chunks_exact_mut(channels).enumerate() {
-        let at = start + i as isize;
+        let at = span.start + i as isize;
         let mut index = at;
-        if let Some((loop_start, loop_end)) = loop_frames {
-            let (s, e) = (loop_start as isize, loop_end as isize);
+        if let Some((loop_start, loop_end)) = span.loop_frames {
+            let (s, e) = (loop_start.floor() as isize, loop_end.floor() as isize);
             if e > s && index >= e {
                 index = s + (index - s) % (e - s);
             }
+        }
+        if span.backwards {
+            index = -index;
         }
         if channels == APART {
             frame.copy_from_slice(&source.frame_apart(index));
@@ -477,6 +511,49 @@ mod tests {
         }
         let lead = lock.whole.stretch.input_latency() as f64 + lock.whole.stretch.output_latency() as f64;
         assert!((lock.feed - (position + lead)).abs() < 2.0, "no restart at each wrap");
+    }
+
+    #[test]
+    fn backwards_at_the_same_pitch_through_the_track_read_from_its_end() {
+        // 440 Hz up to 4.3 s, 660 Hz after: played backwards from 5 s, the end is in the first
+        let split = (4.3 * RATE as f32) as usize;
+        let samples = (0..6 * RATE as usize)
+            .flat_map(|i| {
+                let freq = if i < split { 440.0 } else { 660.0 };
+                [(TAU * freq * i as f32 / RATE as f32).sin(); 2]
+            })
+            .collect();
+        let track = TrackAudio::from_interleaved(RATE, samples);
+        let mut lock = KeyLock::new(RATE, 1024);
+        let mut position = 5.0 * RATE as f64;
+        let mut heard = Vec::new();
+        let mut block = vec![0.0f32; 256 * 2];
+        for _ in 0..2 * RATE as usize / 256 {
+            position = lock.render(&mut Stems::new().reader(&track), position, None, &mut block, None, -1.08);
+            heard.extend(block.chunks_exact(2).map(|f| f[0]));
+        }
+        let f = frequency(&heard);
+        assert!((f - 440.0).abs() < 3.0, "{f} Hz");
+        let travelled = position - 5.0 * RATE as f64;
+        assert!((travelled / (2.0 * RATE as f64) + 1.08).abs() < 0.01, "{travelled}");
+    }
+
+    #[test]
+    fn backwards_the_feed_wraps_with_the_loop() {
+        let track = sine(440.0, 6.0);
+        let mut lock = KeyLock::new(RATE, 1024);
+        let loop_frames = Some((RATE as f64, RATE as f64 * 1.25));
+        let mut position = RATE as f64 * 1.2;
+        let mut block = vec![0.0f32; 512];
+        for _ in 0..2_000 {
+            position =
+                lock.render(&mut Stems::new().reader(&track), position, loop_frames, &mut block, None, -1.0);
+            assert!((RATE as f64..=RATE as f64 * 1.25).contains(&position), "{position}");
+        }
+        let lead = lock.whole.stretch.input_latency() as f64 + lock.whole.stretch.output_latency() as f64;
+        assert!((lock.feed - (-position + lead)).abs() < 2.0, "no restart at each wrap");
+        let level = block.iter().fold(0.0f32, |m, s| m.max(s.abs()));
+        assert!(level > 0.8, "{level}");
     }
 
     #[test]

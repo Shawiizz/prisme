@@ -68,6 +68,18 @@ export function trackTitle(t: DirEntry): string {
 }
 
 /** Whether every word of the search appears in the track's title, tags or file name. */
+/** The list `steps` after `from` among `lists` (before it, negative), held at the ends; the
+ * first if `from` is not among them. */
+export function listAfter<T>(lists: T[], from: T, steps: number): T {
+  const at = Math.max(lists.indexOf(from), 0);
+  return lists[Math.min(Math.max(at + steps, 0), lists.length - 1)];
+}
+
+/** The first of `decks` that is not playing, if one is not. */
+export function firstStoppedDeck(decks: number[], playing: (deck: number) => boolean) {
+  return decks.find((deck) => !playing(deck));
+}
+
 export function matchesSearch(t: DirEntry, words: string[]): boolean {
   const tags = t.details?.tags;
   const text = [t.name, tags?.title, tags?.artist, tags?.album, tags?.genre]
@@ -484,9 +496,7 @@ export class LibraryService {
   /** Moves the selection through the visible tracks. */
   /** The pointer on the lists of the left moved by `steps`, the knob on them. */
   movePointedList(steps: number) {
-    const lists = this.lists();
-    const at = Math.max(lists.indexOf(this.pointedList()), 0);
-    this.pointedList.set(lists[Math.min(Math.max(at + steps, 0), lists.length - 1)]);
+    this.pointedList.set(listAfter(this.lists(), this.pointedList(), steps));
     this.focus.set('lists');
   }
 
@@ -496,6 +506,23 @@ export class LibraryService {
     if (list === 'prepare') this.openPrepare();
     else void this.openCrate(list);
     this.focus.set('tracks');
+  }
+
+  /** Opens the list `steps` after the one open on the left (else the one pointed at). */
+  openNextList(steps: number) {
+    const source = this.source();
+    if (source.kind === 'prepare') this.pointedList.set('prepare');
+    else if (source.kind === 'crate') this.pointedList.set(source.id);
+    this.movePointedList(steps);
+    this.openPointedList();
+  }
+
+  /** Loads the selected track on the first deck that is not playing, if one is not. */
+  loadSelectedOnStoppedDeck() {
+    const path = this.selected();
+    const decks = this.engine.status()?.decks ?? [];
+    const stopped = firstStoppedDeck(this.engine.deckIndexes(), (d) => !!decks[d]?.playing);
+    if (path && stopped !== undefined) this.load(path, stopped);
   }
 
   moveSelection(delta: number) {

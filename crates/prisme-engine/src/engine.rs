@@ -315,6 +315,8 @@ impl Engine {
             ScaleLoop { deck, factor } if valid(deck) => self.decks[deck].scale_loop(factor),
             SetSlip { deck, enabled } if valid(deck) => self.decks[deck].set_slip(enabled),
             Censor { deck, active } if valid(deck) => self.decks[deck].censor(active),
+            SetReverse { deck, enabled } if valid(deck) => self.decks[deck].set_reverse(enabled),
+            HoldReverse { deck, held } if valid(deck) => self.decks[deck].hold_reverse(held),
             SetVinylEnabled { deck, enabled } if valid(deck) => {
                 // a jog held meanwhile is let go: its release would no longer reach the deck
                 self.decks[deck].jog_touch(false, 0.0);
@@ -352,6 +354,7 @@ impl Engine {
             SetMasterGain { gain } => self.mixer.master_gain = gain,
             SetRouting { routing } => self.mixer.routing = routing,
             SetDeckCue { deck, enabled } if valid(deck) => self.decks[deck].cue = enabled,
+            SetMute { deck, muted } if valid(deck) => self.mixer.set_mute(deck, muted),
             SetCueMix { mix } => self.mixer.cue_mix = mix,
             SetHeadphoneGain { gain } => self.mixer.headphone_gain = gain,
             SetSplitCue { enabled } => self.mixer.split_cue = enabled,
@@ -397,6 +400,7 @@ impl Engine {
             SetFxBeats { deck, slot, beats } => self.fx_slot(deck, slot, |s| s.set_beats(beats)),
             SetFxParts { deck, parts } if valid(deck) => self.decks[deck].set_fx_parts(parts),
             SetCrossfaderCurve { curve } => self.mixer.curve = curve,
+            SetCrossfaderReverse { enabled } => self.mixer.crossfader_reverse = enabled,
             SetLimiter { enabled } => self.mixer.set_limiter(enabled),
             SetBalance { balance } if balance.is_finite() => self.mixer.set_balance(balance),
             SetBoothGain { gain } if gain.is_finite() => self.mixer.set_booth_gain(gain),

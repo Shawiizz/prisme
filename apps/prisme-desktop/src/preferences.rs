@@ -176,6 +176,8 @@ pub struct MixerPreferences {
     pub split_cue: bool,
     pub headphone_gain: f32,
     pub crossfader_curve: CrossfaderCurveDto,
+    /// The crossfader's sides swapped.
+    pub crossfader_reverse: bool,
     /// Master limiter (adds 1 ms of latency to the software mixer).
     pub limiter: bool,
     /// The master's level (linear).
@@ -217,6 +219,7 @@ impl Default for MixerPreferences {
             split_cue: false,
             headphone_gain: 1.0,
             crossfader_curve: CrossfaderCurveDto::Smooth,
+            crossfader_reverse: false,
             limiter: true,
             main_gain: 1.0,
             balance: 0.0,
@@ -326,6 +329,7 @@ mod tests {
         assert_eq!(p.mixer.mic, LivePreferences::default());
         assert!(!p.mixer.talkover);
         assert!(!p.mixer.split_cue, "the headphones blend unless split");
+        assert!(!p.mixer.crossfader_reverse);
         assert_eq!(p.mixer.talkover_depth_db, -18.0);
     }
 
@@ -400,6 +404,7 @@ mod tests {
         p.mixer.booth = Some(4);
         p.auto_dj = AutoDjPreferences { fade_beats: 32, fade_s: 15.0 };
         p.mixer.split_cue = true;
+        p.mixer.crossfader_reverse = true;
         p.mixer.mic =
             LivePreferences { input: Some(InputChannelsDto { first: 4, stereo: false }), level: 0.5 };
         let json = serde_json::to_string(&p).unwrap();

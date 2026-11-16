@@ -707,6 +707,8 @@ pub struct DeckSettingsDto {
     pub jog_scratch: bool,
     /// At the end, the track goes on from its start.
     pub repeat: bool,
+    /// Silenced in the master, after its fader (still heard in the headphones).
+    pub mute: bool,
 }
 
 /// The side of the crossfader a deck is on, or neither (heard whatever the crossfader).
@@ -814,6 +816,8 @@ pub struct MixerStateDto {
     pub split_cue: bool,
     pub headphone_gain: f32,
     pub crossfader_curve: CrossfaderCurveDto,
+    /// The crossfader's sides swapped.
+    pub crossfader_reverse: bool,
     pub limiter: bool,
     pub main_gain: f32,
     pub balance: f32,
@@ -869,6 +873,8 @@ pub struct DeckStatusDto {
     pub peak: f32,
     pub cue: bool,
     pub slip_mode: bool,
+    /// The reverse is on: the track plays backwards.
+    pub reverse: bool,
     pub slip_position_s: Option<f64>,
     pub vinyl: VinylDto,
     /// Sampler slots playing (bit per slot).
@@ -915,6 +921,7 @@ impl From<&DeckStatus> for DeckStatusDto {
             peak: d.peak,
             cue: d.cue,
             slip_mode: d.slip_mode,
+            reverse: d.reverse,
             slip_position_s: d.slip_position_s,
             samples_playing: d.samples_playing,
             stems_waiting: d.stems_waiting,

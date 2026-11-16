@@ -47,6 +47,8 @@ export class MixerService {
   readonly splitCue = signal(false);
   readonly headphoneGain = signal(1);
   readonly crossfaderCurve = signal<CrossfaderCurve>('smooth');
+  /** The crossfader's sides swapped: towards the left, the decks on the right come in. */
+  readonly crossfaderReverse = signal(false);
   readonly limiter = signal(true);
   readonly mainGain = signal(1);
   /** -1 = the master on the left only, 1 = on the right only. */
@@ -112,6 +114,7 @@ export class MixerService {
     this.splitCue.set(state.splitCue);
     this.headphoneGain.set(state.headphoneGain);
     this.crossfaderCurve.set(state.crossfaderCurve);
+    this.crossfaderReverse.set(state.crossfaderReverse);
     this.limiter.set(state.limiter);
     this.mainGain.set(state.mainGain);
     this.balance.set(state.balance);
@@ -274,6 +277,11 @@ export class MixerService {
   setCrossfaderCurve(curve: CrossfaderCurve) {
     this.crossfaderCurve.set(curve);
     return this.engine.call('set_crossfader_curve', { curve });
+  }
+
+  setCrossfaderReverse(enabled: boolean) {
+    this.crossfaderReverse.set(enabled);
+    return this.engine.call('set_crossfader_reverse', { enabled });
   }
 
   setLimiter(enabled: boolean) {

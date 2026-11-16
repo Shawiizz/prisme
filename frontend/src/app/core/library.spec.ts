@@ -1,5 +1,5 @@
 import { DirEntry, TrackTags } from './models/library';
-import { matchesSearch, trackTitle } from './services/library.service';
+import { firstStoppedDeck, listAfter, matchesSearch, trackTitle } from './services/library.service';
 
 function entry(name: string, tags: Partial<TrackTags> | null): DirEntry {
   const details = tags && {
@@ -46,5 +46,21 @@ describe('matchesSearch', () => {
 
   it('matches everything when the search is empty', () => {
     expect(matchesSearch(strobe, [])).toBe(true);
+  });
+});
+
+describe('the lists and the decks a controller goes through', () => {
+  it('open the list after or before, held at the ends', () => {
+    const lists = ['prepare', 3, 7];
+    expect(listAfter(lists, 'prepare', 1)).toBe(3);
+    expect(listAfter(lists, 7, -1)).toBe(3);
+    expect(listAfter(lists, 7, 1)).toBe(7);
+    expect(listAfter(lists, 'prepare', -1)).toBe('prepare');
+    expect(listAfter(lists, 42, 1)).toBe(3);
+  });
+
+  it('load on the first deck that is not playing, or nowhere', () => {
+    expect(firstStoppedDeck([0, 1, 2], (d) => d === 0)).toBe(1);
+    expect(firstStoppedDeck([0, 1], () => true)).toBeUndefined();
   });
 });

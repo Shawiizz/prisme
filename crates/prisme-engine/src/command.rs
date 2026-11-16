@@ -103,6 +103,12 @@ pub enum Command {
         deck: DeckId,
         held: bool,
     },
+    /// The deck's channel silenced in the master, after its fader (the headphones still hear
+    /// it), or on its own output to an external mixer; or heard again.
+    SetMute {
+        deck: DeckId,
+        muted: bool,
+    },
     /// At the end, the track goes on from its start, seamlessly: it plays on.
     SetRepeat {
         deck: DeckId,
@@ -203,6 +209,18 @@ pub enum Command {
         deck: DeckId,
         active: bool,
     },
+    /// The track plays backwards at the deck's rate, or forwards again; with slip, it goes on
+    /// underneath and comes back where it would be.
+    SetReverse {
+        deck: DeckId,
+        enabled: bool,
+    },
+    /// Backwards while `held` whatever the reverse, as it was afterwards; with slip, as
+    /// [`Command::SetReverse`].
+    HoldReverse {
+        deck: DeckId,
+        held: bool,
+    },
     SetVinylEnabled {
         deck: DeckId,
         enabled: bool,
@@ -276,6 +294,10 @@ pub enum Command {
     },
     /// Headphones: the cue on the left and the master on the right (mono each), or blended.
     SetSplitCue {
+        enabled: bool,
+    },
+    /// The crossfader's sides swapped: towards the left, the decks on the right come in.
+    SetCrossfaderReverse {
         enabled: bool,
     },
     /// The level of the track on `deck` (linear): its auto gain, in either mixer mode.

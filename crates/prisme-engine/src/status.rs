@@ -65,7 +65,9 @@ pub struct DeckStatus {
     /// Internal mixer: heard in the headphones.
     pub cue: bool,
     pub slip_mode: bool,
-    /// Where the track would be without the loop, roll or censor in progress.
+    /// The reverse is on: the track plays backwards.
+    pub reverse: bool,
+    /// Where the track would be without the loop, roll, censor or reverse in progress.
     pub slip_position_s: Option<f64>,
     /// The parts whose change waits for the next bar, a bit each: vocals, drums, bass, other.
     pub stems_waiting: u8,
@@ -90,6 +92,7 @@ impl Default for DeckStatus {
             samples_playing: 0,
             cue: false,
             slip_mode: false,
+            reverse: false,
             slip_position_s: None,
             stems_waiting: 0,
             stems_here: 0,

@@ -54,6 +54,9 @@ const VINYL_LABEL = { relative: 'REL', absolute: 'ABS', thru: 'THRU' } as const;
         @if (vinyl(); as v) {
           <span class="vinyl" [class]="signal()" [title]="signalTitle()">{{ v }}</span>
         }
+        @for (f of flags(); track f) {
+          <span class="flag">{{ f }}</span>
+        }
         <span class="bpm pr-num">{{ bpm() ?? '—' }}</span>
         <span class="pitch pr-num">{{ pitch() }}</span>
       </button>
@@ -85,6 +88,11 @@ export class PhoneDeck {
     const mode = this.driven.mode();
     return mode === 'int' ? null : VINYL_LABEL[mode];
   });
+  /** What changes what is heard, on until switched off in the deck's settings. */
+  protected readonly flags = computed(() => [
+    ...(this.status()?.reverse ? ['REV'] : []),
+    ...(this.engine.decks()[this.deck()].mute ? ['MUTE'] : []),
+  ]);
   protected readonly signal = this.driven.signal;
   protected readonly signalTitle = this.driven.signalTitle;
 }

@@ -1,5 +1,5 @@
 import { DeckStatus } from './models/engine';
-import { driftTime, octaveRatio, phaseOffset, pitchToMatch } from './sync';
+import { driftTime, octaveRatio, phaseOffset, phaseState, pitchToMatch } from './sync';
 
 function deck(bpm: number | null, beatPhase: number | null): DeckStatus {
   return {
@@ -15,6 +15,7 @@ function deck(bpm: number | null, beatPhase: number | null): DeckStatus {
     peak: 0,
     cue: false,
     slipMode: false,
+    reverse: false,
     slipPositionS: null,
     vinyl: {
       enabled: false,
@@ -53,6 +54,19 @@ describe('phaseOffset', () => {
 
   it('needs both beat grids', () => {
     expect(phaseOffset(deck(null, null), deck(128, 0.1))).toBeNull();
+  });
+});
+
+describe('phaseState', () => {
+  it('tells in phase, ahead or behind past a small offset', () => {
+    expect(phaseState(deck(128, 0.51), deck(128, 0.5), 0.03)).toBe('in');
+    expect(phaseState(deck(128, 0.6), deck(128, 0.5), 0.03)).toBe('ahead');
+    expect(phaseState(deck(128, 0.95), deck(128, 0.05), 0.03)).toBe('behind');
+  });
+
+  it('is off unless both play on a grid', () => {
+    expect(phaseState({ ...deck(128, 0.6), playing: false }, deck(128, 0.5), 0.03)).toBe('off');
+    expect(phaseState(deck(null, null), deck(128, 0.5), 0.03)).toBe('off');
   });
 });
 
