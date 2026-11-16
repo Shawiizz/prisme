@@ -164,6 +164,7 @@ fn restart<T>(
     }
     let timecodes = lock(&state.decks).map(|d| d.timecode);
     let mut session = audio_host::start(settings, state.preferences.read(|p| p.dj.decks()), timecodes)?;
+    state.share_turntable_records(&session.info);
     state.restore(&mut session);
     for (deck, (seconds, playing)) in transport.into_iter().enumerate() {
         let _ = session.controller.send(Command::Seek { deck, seconds });

@@ -43,6 +43,15 @@ export class TurntablePanel {
   protected readonly size = SCOPE_SIZE;
   protected readonly letter = computed(() => deckLetter(this.deck()));
   protected readonly settings = computed(() => this.engine.decks()[this.deck()]);
+  /** The deck whose turntable this one shares, its record chosen there: C on A, D on B, on a
+   * device without a pair of inputs for each deck. */
+  protected readonly layeredOn = computed(() => {
+    const info = this.audio.info();
+    const decks = this.engine.deckIndexes().length;
+    const first = this.deck() ^ 2;
+    return info && info.inputChannels < 2 * decks && first < this.deck() ? first : null;
+  });
+  protected readonly layeredLetter = computed(() => deckLetter(this.layeredOn() ?? 0));
   protected readonly makers = computed(() => timecodeMakers(this.audio.formats()));
   private readonly records = computed(() => this.makers().flatMap((m) => m.records));
   /** The record on the turntable, with its sides. */

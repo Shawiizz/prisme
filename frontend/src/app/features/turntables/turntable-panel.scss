@@ -77,6 +77,9 @@ h3 {
   .pr-input {
     width: 100px;
   }
+  .shared {
+    color: var(--pr-text-2);
+  }
 }
 // on a phone, for a finger
 :host-context(.phone) {

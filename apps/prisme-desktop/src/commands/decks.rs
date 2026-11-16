@@ -1,3 +1,4 @@
+use crate::audio_host::layer_partner;
 use crate::auto_dj::{AutoDj, Takeover};
 use crate::commands::audio::start_audio;
 use crate::commands::blocking;
@@ -128,22 +129,36 @@ pub fn set_vinyl_swap(state: State<'_, AppState>, deck: usize, swap: bool) -> Ap
     replace_decoder(&state, deck)
 }
 
-/// The record on the deck's turntable (a timecode format's id), kept for the next start.
+/// The record on the deck's turntable (a timecode format's id), kept for the next start: on
+/// the deck layered with it too, which reads the same turntable. Returns the decks given it.
 /// The simulated turntable plays deck A's: the audio starts again with the new one.
 #[tauri::command]
-pub async fn set_timecode(app: AppHandle, deck: usize, format: String) -> AppResult<()> {
+pub async fn set_timecode(app: AppHandle, deck: usize, format: String) -> AppResult<Vec<usize>> {
     AppState::check_deck(deck)?;
     let record = TimecodeFormat::by_id(&format).ok_or(AppError::UnknownFormat(format))?;
     blocking(move || {
         let state = app.state::<AppState>();
-        lock(&state.decks)[deck].timecode = record;
-        state.update_preferences(|p| p.decks[deck].timecode = Some(record.id.into()));
-        let simulated =
-            lock(&state.session).as_ref().filter(|s| s.info.simulated).map(|s| s.settings.clone());
-        match simulated {
-            Some(settings) if deck == 0 => start_audio(&state, &settings).map(drop),
-            _ => replace_decoder(&state, deck),
+        let (partner, simulated) = match lock(&state.session).as_ref() {
+            Some(s) => (
+                layer_partner(deck, s.info.decks, s.info.input_channels),
+                s.info.simulated.then(|| s.settings.clone()),
+            ),
+            None => (None, None),
+        };
+        let decks: Vec<usize> = std::iter::once(deck).chain(partner).collect();
+        for &d in &decks {
+            lock(&state.decks)[d].timecode = record;
         }
+        state.update_preferences(|p| {
+            for &d in &decks {
+                p.decks[d].timecode = Some(record.id.into());
+            }
+        });
+        match simulated {
+            Some(settings) if decks.contains(&0) => start_audio(&state, &settings).map(drop)?,
+            _ => decks.iter().try_for_each(|&d| replace_decoder(&state, d))?,
+        }
+        Ok(decks)
     })
     .await
 }

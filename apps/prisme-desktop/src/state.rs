@@ -476,6 +476,22 @@ impl AppState {
         status.vinyl.enabled
     }
 
+    /// Gives the decks layered on one turntable of the device of `info` its one record (see
+    /// [`share_records`]), kept for the next start.
+    pub fn share_turntable_records(&self, info: &AudioInfo) {
+        let mut decks = lock(&self.decks);
+        let changed = share_records(&mut decks, info);
+        let records = decks.map(|d| d.timecode.id);
+        drop(decks);
+        if !changed.is_empty() {
+            self.update_preferences(|p| {
+                for deck in changed {
+                    p.decks[deck].timecode = Some(records[deck].into());
+                }
+            });
+        }
+    }
+
     /// The settings of the decks as the device of `info` lets them be: of two decks layered
     /// on a turntable and both asked to follow it, the first does. What was asked stays, for
     /// a device with a turntable each.
@@ -574,6 +590,28 @@ fn live_channels(chosen: Option<InputChannelsDto>, free: &[usize]) -> Option<Inp
 /// A deck's track moves, by itself or under a record.
 fn moves(d: &DeckStatus) -> bool {
     d.loaded && d.speed.abs() > MOVING_SPEED
+}
+
+/// Decks layered on one turntable of the device of `info` (see `layer_partner`) read its one
+/// record: that of the deck that has the turntable, the one on the record, else the first.
+/// Returns the decks whose record changed.
+pub fn share_records(decks: &mut [DeckSettings; MAX_DECKS], info: &AudioInfo) -> Vec<usize> {
+    let mut changed = Vec::new();
+    for first in 0..info.decks {
+        let Some(second) = layer_partner(first, info.decks, info.input_channels).filter(|&d| d > first)
+        else {
+            continue;
+        };
+        let holder = if decks[second].vinyl_enabled && !decks[first].vinyl_enabled { second } else { first };
+        let record = decks[holder].timecode;
+        for deck in [first, second] {
+            if decks[deck].timecode.id != record.id {
+                decks[deck].timecode = record;
+                changed.push(deck);
+            }
+        }
+    }
+    changed
 }
 
 /// Commands that put a deck in the state described by `s`.
@@ -753,6 +791,35 @@ mod tests {
             decks,
             simulated: false,
         }
+    }
+
+    #[test]
+    fn decks_layered_on_a_turntable_read_the_record_of_the_one_that_has_it() {
+        use prisme_timecode::{SERATO_CD, SERATO_CV02_A, SERATO_CV02_B};
+        let deck = |timecode, vinyl_enabled| DeckSettings {
+            timecode,
+            vinyl_enabled,
+            ..DeckSettings::from(DeckPreferences::default())
+        };
+        let saved = [
+            deck(&SERATO_CV02_A, false),
+            deck(&SERATO_CV02_B, true),
+            deck(&SERATO_CD, true),
+            deck(&SERATO_CV02_A, true),
+        ];
+        let ids = |decks: &[DeckSettings; MAX_DECKS]| decks.map(|d| d.timecode.id);
+
+        // C is on the record and A is not: C has turntable A; B has turntable B
+        let mut decks = saved;
+        assert_eq!(share_records(&mut decks, &info(4, 4)), [0, 3]);
+        assert_eq!(ids(&decks), ["serato_cd", "serato_cv02_b", "serato_cd", "serato_cv02_b"]);
+        assert!(share_records(&mut decks, &info(4, 4)).is_empty());
+
+        // a turntable each: every deck keeps its own
+        let mut decks = saved;
+        assert!(share_records(&mut decks, &info(4, 8)).is_empty());
+        assert!(share_records(&mut decks, &info(2, 4)).is_empty());
+        assert_eq!(ids(&decks), ids(&saved));
     }
 
     #[test]
