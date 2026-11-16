@@ -27,16 +27,19 @@ const LANE_FLOOR = 80;
 /** Width of the tiles the scrolling view's audio is drawn in once (device pixels). */
 const TILE_PX = 1024;
 /** Share of the half height the loudest peak reaches in the scrolling view: the rest holds the
- * bar markers. */
+ * beat grid's ticks and markers. */
 const HEADROOM = 0.88;
-/** Opacity of the dark edges of the beat grid's lines, and of a beat's line. */
-const GRID_EDGE = 0.7;
-const GRID_BEAT = 0.55;
+/** Opacity of a beat's line through the waveform, of its ticks at the edges, and of a bar's
+ * line. */
+const GRID_BEAT = 0.14;
+const GRID_TICK = 0.6;
+const GRID_BAR = 0.5;
 
 /**
  * Draws the waveforms (design/DESIGN.md, Waveform): one envelope coloured slice by slice by
- * the balance of its bands, the beat grid across it (the bars in red, marked at both edges), cues as flags in their tag colour,
- * the loop as a band of light and the playhead, the only white line, dispersed on its edges.
+ * the balance of its bands; the beat grid over it, discreet (the bars in red, marked at both
+ * edges); cues as flags in their tag colour, the loop as a band of light and the playhead, the
+ * only white line, dispersed on its edges.
  */
 export class WaveformPainter {
   private readonly palette = palette();
@@ -316,10 +319,10 @@ export class WaveformPainter {
     ctx.stroke();
   }
 
-  /** As on a CDJ's screen, across the whole height and over the waveform: a fine line on each
-   * beat, a stronger one in the bar colour on the first beat of each bar, pointed at from the
-   * top and bottom edges, in the room the waveform leaves there. Every line has dark edges, to
-   * stand out on any colour of the waveform. Only along the track, once its length is known. */
+  /** As on a CDJ's screen, discreet so that the music reads first: on each beat a tick at the
+   * top and bottom edges, in the room the waveform leaves there, joined by a faint line; on the
+   * first beat of each bar a thin line in the bar colour, pointed at from both edges. Only along
+   * the track, once its length is known. */
   private drawBeatGrid(
     ctx: CanvasRenderingContext2D,
     tempo: Tempo,
@@ -332,27 +335,28 @@ export class WaveformPainter {
     const last = Math.floor((toS - tempo.firstBeatS) / period);
     if (last < first) return;
     const r = view.ratio;
-    const beatWidth = Math.max(Math.round(r), 1);
-    const barWidth = Math.max(Math.round(2 * r), 2);
-    const edge = Math.max(Math.round(r), 1);
-    const width = (n: number) => (n % 4 === 0 ? barWidth : beatWidth);
-    const left = (n: number) => Math.round(xOf(tempo.firstBeatS + n * period, view) - width(n) / 2);
+    const line = Math.max(Math.round(r), 1);
+    const left = (n: number) => Math.round(xOf(tempo.firstBeatS + n * period, view) - line / 2);
     const h = view.height;
-    ctx.globalAlpha = GRID_EDGE;
-    ctx.fillStyle = this.palette.void;
-    for (let n = first; n <= last; n++) ctx.fillRect(left(n) - edge, 0, width(n) + 2 * edge, h);
-    ctx.globalAlpha = GRID_BEAT;
-    ctx.fillStyle = this.palette.text;
-    for (let n = first; n <= last; n++) if (n % 4 !== 0) ctx.fillRect(left(n), 0, beatWidth, h);
-    ctx.globalAlpha = 1;
-    ctx.fillStyle = this.palette.bar;
     const tall = Math.min(5 * r, ((1 - HEADROOM) / 2) * h);
+    ctx.fillStyle = this.palette.text;
+    for (let n = first; n <= last; n++) {
+      if (n % 4 === 0) continue;
+      const x = left(n);
+      ctx.globalAlpha = GRID_BEAT;
+      ctx.fillRect(x, tall, line, h - 2 * tall);
+      ctx.globalAlpha = GRID_TICK;
+      ctx.fillRect(x, 0, line, tall);
+      ctx.fillRect(x, h - tall, line, tall);
+    }
+    ctx.fillStyle = this.palette.bar;
+    ctx.globalAlpha = GRID_BAR;
+    for (let n = Math.ceil(first / 4) * 4; n <= last; n += 4) ctx.fillRect(left(n), 0, line, h);
+    ctx.globalAlpha = 1;
     const half = 0.8 * tall;
     ctx.beginPath();
     for (let n = Math.ceil(first / 4) * 4; n <= last; n += 4) {
-      const x = left(n);
-      ctx.fillRect(x, 0, barWidth, h);
-      const mid = x + barWidth / 2;
+      const mid = left(n) + line / 2;
       ctx.moveTo(mid - half, 0);
       ctx.lineTo(mid + half, 0);
       ctx.lineTo(mid, tall);
