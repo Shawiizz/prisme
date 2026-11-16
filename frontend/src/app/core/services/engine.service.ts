@@ -132,9 +132,7 @@ export class EngineService {
 
   /** Matches the leader once and leaves the deck free (unlocking it first). */
   async syncOnce(deck: number) {
-    if (this.status()?.decks[deck]?.sync.locked) {
-      await this.call('set_sync_locked', { deck, locked: false });
-    }
+    if (this.status()?.decks[deck]?.sync.locked) await this.unlock(deck);
     return this.call('sync_once', { deck });
   }
 
@@ -444,11 +442,20 @@ export class EngineService {
 
   /** SYNC on (locked, or matched once on a relative record in one-shot mode), or off. */
   setSync(deck: number, on: boolean) {
-    if (!on) return this.call('set_sync_locked', { deck, locked: false });
+    if (!on) return this.unlock(deck);
     const oneShot = this.decks()[deck].vinylEnabled && this.preferences.dj().vinylSync === 'once';
     return oneShot
       ? this.call('sync_once', { deck })
       : this.call('set_sync_locked', { deck, locked: true });
+  }
+
+  /** Takes SYNC off. A deck playing by itself keeps the tempo it was locked to: its fader is
+   * moved there first (a locked deck does not follow it), and a controller's picks it up. */
+  private async unlock(deck: number) {
+    const d = this.status()?.decks[deck];
+    const rate = this.tempoRate(deck);
+    if (d?.sync.locked && !d.vinyl.enabled && rate !== null) await this.setPitch(deck, rate);
+    return this.call('set_sync_locked', { deck, locked: false });
   }
 
   /** Whether the deck sits on its cue point. */
