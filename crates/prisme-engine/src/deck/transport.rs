@@ -1,4 +1,4 @@
-//! Moving around the track: loops, loop rolls, slices, jumps, slip and censor.
+//! Moving around the track: loops, loop rolls, slices, jumps, slip, censor and reverse.
 //!
 //! A record in absolute mode decides where the track is, so none of this applies to it.
 
@@ -12,10 +12,20 @@ pub(crate) struct Transport {
     /// Start marked by LOOP IN, waiting for LOOP OUT.
     pub(super) loop_in_s: Option<f64>,
     pub(super) slip_mode: bool,
-    /// Where the track would be without the loop, roll or censor in progress.
+    /// Where the track would be without the loop, roll, censor or reverse in progress.
     pub(super) shadow_s: Option<f64>,
     rolling: bool,
     pub(super) censoring: bool,
+    /// The reverse switched on, and held.
+    pub(super) reversed: bool,
+    reverse_held: bool,
+}
+
+impl Transport {
+    /// The reverse plays the track backwards, switched on or held.
+    pub(super) fn reversing(&self) -> bool {
+        self.reversed || self.reverse_held
+    }
 }
 
 /// Where a deck is in its track: for another deck playing it to take.
@@ -213,6 +223,30 @@ impl Deck {
             self.start_slip();
         } else {
             self.end_slip();
+        }
+    }
+
+    pub(crate) fn set_reverse(&mut self, enabled: bool) {
+        self.reverse(|t| t.reversed = enabled);
+    }
+
+    pub(crate) fn hold_reverse(&mut self, held: bool) {
+        self.reverse(|t| t.reverse_held = held);
+    }
+
+    /// Changes the reverse; with slip, the track goes on underneath while it plays backwards
+    /// and comes back where it would be.
+    fn reverse(&mut self, change: impl FnOnce(&mut Transport)) {
+        if !self.controls_position() {
+            return;
+        }
+        let was = self.transport.reversing();
+        change(&mut self.transport);
+        let t = &self.transport;
+        match (was, t.reversing()) {
+            (false, true) if t.slip_mode => self.start_slip(),
+            (true, false) if t.slip_mode && !t.censoring && !t.rolling => self.end_slip(),
+            _ => {}
         }
     }
 

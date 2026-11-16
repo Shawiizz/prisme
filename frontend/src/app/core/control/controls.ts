@@ -172,6 +172,13 @@ export interface ControlActions {
   brake(deck: number): void;
   /** The record spun back while held; let go, it plays on from there. */
   spinBack(deck: number, held: boolean): void;
+  /** The track played backwards at the deck's rate, or forwards again. */
+  setReverse(deck: number, on: boolean): void;
+  reversing(deck: number): boolean;
+  /** The track played backwards while held; with slip, it comes back where it would be. */
+  holdReverse(deck: number, held: boolean): void;
+  /** Whether the track plays backwards, however. */
+  backwards(deck: number): boolean;
   /** At the end, the track goes on from its start, or stops there. */
   toggleRepeat(deck: number): void;
   repeating(deck: number): boolean;
@@ -557,6 +564,14 @@ function deckControls(a: ControlActions, deck: number): Control[] {
     hold(id('censor'), group, t('Censor while held'), (held) => a.censor(deck, held)),
     button(id('brake'), group, t('Brake (stopped: soft start)'), () => a.brake(deck)),
     hold(id('spinback'), group, t('Spinback while held'), (held) => a.spinBack(deck, held)),
+    lit(
+      button(id('reverse'), group, t('Reverse'), () => a.setReverse(deck, !a.reversing(deck))),
+      () => a.reversing(deck),
+    ),
+    lit(
+      hold(id('reverse.held'), group, t('Reverse while held'), (held) => a.holdReverse(deck, held)),
+      () => a.backwards(deck),
+    ),
     lit(
       button(id('repeat'), group, t('Repeat the track'), () => a.toggleRepeat(deck)),
       () => a.repeating(deck),

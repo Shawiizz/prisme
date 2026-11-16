@@ -15,6 +15,7 @@ function deck(bpm: number | null, beatPhase: number | null): DeckStatus {
     peak: 0,
     cue: false,
     slipMode: false,
+    reverse: false,
     slipPositionS: null,
     vinyl: {
       enabled: false,

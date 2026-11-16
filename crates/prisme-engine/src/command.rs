@@ -203,6 +203,18 @@ pub enum Command {
         deck: DeckId,
         active: bool,
     },
+    /// The track plays backwards at the deck's rate, or forwards again; with slip, it goes on
+    /// underneath and comes back where it would be.
+    SetReverse {
+        deck: DeckId,
+        enabled: bool,
+    },
+    /// Backwards while `held` whatever the reverse, as it was afterwards; with slip, as
+    /// [`Command::SetReverse`].
+    HoldReverse {
+        deck: DeckId,
+        held: bool,
+    },
     SetVinylEnabled {
         deck: DeckId,
         enabled: bool,

@@ -9,8 +9,9 @@ import { Press } from '../../../shared/press';
 
 /**
  * What a deck does now and then rather than all the time, a row each: its motor (a brake, a
- * soft start, a spinback while held), the track repeated, the range of its tempo fader, and
- * on the software mixer the channel fader starting and stopping it.
+ * soft start, a spinback while held), the track played backwards, the track repeated, the
+ * range of its tempo fader, and on the software mixer the channel fader starting and stopping
+ * it.
  */
 @Component({
   selector: 'app-deck-options',
@@ -38,6 +39,19 @@ import { Press } from '../../../shared/press';
           SPINBACK
         </button>
       </div>
+    </div>
+    <div class="row">
+      <span>{{ 'Reverse' | t }}</span>
+      <button
+        class="pr-switch"
+        role="switch"
+        [attr.aria-checked]="reversed()"
+        [attr.aria-label]="'Reverse' | t"
+        [title]="'The track plays backwards; with slip, it comes back where it would be' | t"
+        (click)="performance.setReverse(deck(), !reversed())"
+      >
+        <span></span>
+      </button>
     </div>
     <div class="row">
       <span>{{ 'Repeat the track' | t }}</span>
@@ -126,6 +140,9 @@ export class DeckOptions {
   protected readonly ranges = PITCH_RANGES;
   protected readonly range = computed(() => this.engine.tempoRange(this.deck()));
   protected readonly settings = computed(() => this.engine.decks()[this.deck()]);
+  protected readonly reversed = computed(
+    () => this.engine.status()?.decks[this.deck()]?.reverse ?? false,
+  );
 
   /** The motor moves a track that plays by itself: a record drives its own. */
   protected readonly movable = computed(

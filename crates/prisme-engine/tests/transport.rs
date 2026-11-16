@@ -267,3 +267,83 @@ fn without_quantize_a_slice_plays_from_its_start() {
     rig.run(0.01);
     assert_close(rig.deck(0).position_s, 12.01, 0.01);
 }
+
+#[test]
+fn reverse_plays_backwards_at_the_deck_rate_and_stops_at_the_start() {
+    let mut rig = playing_deck(20.0);
+    rig.send(Command::SetPitch { deck: 0, ratio: 1.5 });
+    rig.send(Command::SetReverse { deck: 0, enabled: true });
+    let elapsed = rig.run(1.0);
+    let d = rig.deck(0);
+    assert!(d.reverse && d.speed < 0.0);
+    assert_close(d.position_s, 20.01 - 1.5 * elapsed, 0.02);
+
+    rig.send(Command::Seek { deck: 0, seconds: 0.5 });
+    rig.run(1.0);
+    let d = rig.deck(0);
+    assert!(!d.playing, "the start stops it");
+    assert_close(d.position_s, 0.0, 1e-9);
+
+    rig.send(Command::SetReverse { deck: 0, enabled: false });
+    rig.send(Command::SetPlaying { deck: 0, playing: true });
+    rig.run(0.5);
+    assert!(rig.deck(0).position_s > 0.7);
+}
+
+#[test]
+fn reverse_held_goes_back_to_forward_from_where_it_is_or_with_slip_where_it_would_be() {
+    let mut rig = playing_deck(20.0);
+    rig.send(Command::HoldReverse { deck: 0, held: true });
+    let elapsed = rig.run(1.0);
+    assert!(!rig.deck(0).reverse, "held, the switch stays off");
+    rig.send(Command::HoldReverse { deck: 0, held: false });
+    rig.run(0.01);
+    let d = rig.deck(0);
+    assert!(d.speed > 0.0);
+    assert_close(d.position_s, 20.02 - elapsed, 0.02);
+
+    let mut rig = playing_deck(20.0);
+    rig.send(Command::SetSlip { deck: 0, enabled: true });
+    rig.send(Command::HoldReverse { deck: 0, held: true });
+    let elapsed = rig.run(1.0);
+    rig.send(Command::HoldReverse { deck: 0, held: false });
+    rig.run(0.01);
+    assert_close(rig.deck(0).position_s, 20.02 + elapsed, 0.02);
+}
+
+#[test]
+fn reverse_goes_round_a_loop_and_with_repeat_from_the_start_to_the_end() {
+    let mut rig = playing_deck(10.1);
+    rig.send(Command::BeatLoop { deck: 0, beats: 2.0 });
+    rig.send(Command::SetReverse { deck: 0, enabled: true });
+    for _ in 0..12 {
+        rig.run(0.25);
+        let position = rig.deck(0).position_s;
+        assert!((10.0..=11.0).contains(&position), "{position}");
+    }
+
+    let mut rig = playing_deck(0.2);
+    rig.send(Command::SetRepeat { deck: 0, enabled: true });
+    rig.send(Command::SetReverse { deck: 0, enabled: true });
+    let elapsed = rig.run(0.5);
+    let d = rig.deck(0);
+    assert!(d.playing);
+    assert_close(d.position_s, 60.0 + 0.21 - elapsed, 0.02);
+}
+
+#[test]
+fn a_reversed_deck_follows_the_leader_tempo_without_chasing_its_beats() {
+    let mut rig = playing_deck(20.0);
+    rig.send(Command::LoadTrack { deck: 1, track: silent_track(60.0) });
+    rig.send(Command::SetBeatGrid { deck: 1, grid: Some(BeatGrid { bpm: 125.0, first_beat_s: 0.0 }) });
+    rig.send(Command::SetPlaying { deck: 1, playing: true });
+    rig.run(0.1);
+    rig.send(Command::SetSyncLocked { deck: 0, locked: true });
+    rig.run(0.5);
+    rig.send(Command::SetReverse { deck: 0, enabled: true });
+    let before = rig.deck(0).position_s;
+    let elapsed = rig.run(2.0);
+    let d = rig.deck(0);
+    assert!(rig.deck(1).sync.leader && !d.sync.leader);
+    assert_close(d.position_s, before - elapsed * 125.0 / 120.0, 0.02);
+}

@@ -869,6 +869,8 @@ pub struct DeckStatusDto {
     pub peak: f32,
     pub cue: bool,
     pub slip_mode: bool,
+    /// The reverse is on: the track plays backwards.
+    pub reverse: bool,
     pub slip_position_s: Option<f64>,
     pub vinyl: VinylDto,
     /// Sampler slots playing (bit per slot).
@@ -915,6 +917,7 @@ impl From<&DeckStatus> for DeckStatusDto {
             peak: d.peak,
             cue: d.cue,
             slip_mode: d.slip_mode,
+            reverse: d.reverse,
             slip_position_s: d.slip_position_s,
             samples_playing: d.samples_playing,
             stems_waiting: d.stems_waiting,

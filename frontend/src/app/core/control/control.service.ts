@@ -200,6 +200,10 @@ export class ControlService {
     censor: (deck, held) => this.performance.censor(deck, held),
     brake: (deck) => this.performance.brake(deck),
     spinBack: (deck, held) => this.performance.spinBack(deck, held),
+    setReverse: (deck, on) => this.performance.setReverse(deck, on),
+    reversing: (deck) => this.deck(deck)?.reverse ?? false,
+    holdReverse: (deck, held) => this.performance.holdReverse(deck, held),
+    backwards: (deck) => (this.deck(deck)?.speed ?? 0) < 0,
     toggleRepeat: (deck) => this.engine.setRepeat(deck, !this.engine.decks()[deck].repeat),
     repeating: (deck) => this.engine.decks()[deck].repeat,
     toggleFaderStart: (deck) =>

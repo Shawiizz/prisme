@@ -11,7 +11,7 @@ const DEFAULT_SIZE = 4;
 const BEATS_PER_BAR = 4;
 
 /** Performance actions on a deck: hot cues, loops, rolls, beat jumps, the slicer, fader
- * cuts, slip, censor, the motor (brake, spinback). */
+ * cuts, slip, censor, reverse, the motor (brake, spinback). */
 @Injectable({ providedIn: 'root' })
 export class PerformanceService {
   private readonly engine = inject(EngineService);
@@ -98,6 +98,17 @@ export class PerformanceService {
 
   censor(deck: number, active: boolean) {
     return this.engine.call('censor', { deck, active });
+  }
+
+  /** The track played backwards at the deck's rate, or forwards again; with slip, it comes
+   * back where it would be. */
+  setReverse(deck: number, enabled: boolean) {
+    return this.engine.call('set_reverse', { deck, enabled });
+  }
+
+  /** The track played backwards while held. */
+  holdReverse(deck: number, held: boolean) {
+    return this.engine.call('hold_reverse', { deck, held });
   }
 
   /** A playing deck slows to a stop as a turntable switched off; a stopped one starts softly. */

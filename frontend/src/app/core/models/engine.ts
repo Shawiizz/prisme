@@ -53,7 +53,9 @@ export interface DeckStatus {
   peak: number;
   cue: boolean;
   slipMode: boolean;
-  /** Where the track would be without the loop, roll or censor in progress. */
+  /** The reverse is on: the track plays backwards. */
+  reverse: boolean;
+  /** Where the track would be without the loop, roll, censor or reverse in progress. */
   slipPositionS: number | null;
   vinyl: VinylStatus;
   /** Sampler slots playing, one bit per slot (16). */

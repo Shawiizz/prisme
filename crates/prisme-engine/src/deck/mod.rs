@@ -215,16 +215,20 @@ impl Deck {
         // both hands keep their clocks going, the screen's leading
         let [screen, jog] = [&mut self.hand, &mut self.jog_hand]
             .map(|hand| hand.as_mut().filter(|_| by_hand).map(|h| h.step(playhead_s, seconds)));
+        // a hand moves the track as it goes; the censor and the reverse turn the rest round
+        let turned = screen.is_none() && jog.is_none() && self.backwards();
         let (speed, by_motor) = match screen.or(jog) {
             Some(Step::Play(speed)) => (speed, false),
             Some(Step::Jump(to)) => {
                 self.playhead.seek_s(to);
                 (0.0, false)
             }
-            None => (self.speed_for(drive, target), self.drive_mode() == DriveMode::Internal),
+            None => {
+                let speed = self.speed_for(drive, target);
+                (if turned { -speed } else { speed }, self.drive_mode() == DriveMode::Internal)
+            }
         };
         self.jog.fade(seconds);
-        let speed = if self.transport.censoring { -speed } else { speed };
         let ramp = by_motor && !self.motor.is_steady();
         let moved = if ramp { speed * self.motor.factor() } else { speed };
         if let Some(mix) = self.bar_mix.follow(playhead_s, seconds * moved.max(0.0), self.next_bar_s()) {
@@ -237,7 +241,7 @@ impl Deck {
             self.key_lock.disengage();
             let (motor, frame_s) = (&mut self.motor, 1.0 / out_rate);
             self.playhead.render_with(out, apart, out_rate, || speed * motor.tick(frame_s));
-        } else if key_locked && KeyLock::applies(speed) {
+        } else if key_locked && KeyLock::applies(if turned { -speed } else { speed }) {
             self.playhead.render_key_locked(&mut self.key_lock, out, apart, out_rate, speed);
         } else {
             self.key_lock.disengage();
@@ -325,14 +329,20 @@ impl Deck {
         self.playing |= held;
     }
 
-    /// Internal play stops at the end of the track, and so does a deck playing on past the end
-    /// of its record (a record, on the other hand, turns on).
+    /// Internal play stops at the end of the track, or at its start in reverse, and so does a
+    /// deck playing on past the end of its record (a record, on the other hand, turns on).
     fn stop_at_the_end(&mut self) {
+        let internal = self.drive_mode() == DriveMode::Internal;
+        if internal && self.playing && self.transport.reversing() && self.playhead.position_s() <= 0.0 {
+            self.set_playing(false);
+            self.playhead.seek_s(0.0);
+            return;
+        }
         let end_s = self.playhead.duration_s();
         if self.playhead.position_s() < end_s {
             return;
         }
-        if self.drive_mode() == DriveMode::Internal && self.playing {
+        if internal && self.playing {
             self.set_playing(false);
             self.playhead.seek_s(end_s);
         } else if self.vinyl.plays_on() {
@@ -400,6 +410,7 @@ impl Deck {
             && self.grid.is_some()
             && self.playhead.is_loaded()
             && !self.sync.locked
+            && !self.backwards()
             && self.is_moving()
             && self.sync.smoothed_speed.abs() > sync::LEADER_MIN_SPEED
     }
@@ -450,6 +461,7 @@ impl Deck {
         let resnap = self.drive_mode() == DriveMode::Internal
             && self.sync.locked
             && self.playing
+            && !self.backwards()
             && sync::needs_resnap(target.phase_error);
         if let (Some(grid), true) = (self.grid, self.sync.snap_pending || resnap) {
             let position = self.playhead.position_s() + sync::snap_offset_s(&grid, target.phase_error);
@@ -487,7 +499,9 @@ impl Deck {
             _ if !self.sync.locked => self.pitch,
             Some(t) => {
                 self.sync.held_rate = Some(t.rate);
-                t.rate * (1.0 + sync::phase_correction(t.phase_error))
+                // backwards, the beats run against the leader's: its tempo alone
+                let correction = if self.backwards() { 0.0 } else { sync::phase_correction(t.phase_error) };
+                t.rate * (1.0 + correction)
             }
             None => self.sync.held_rate.unwrap_or(self.pitch),
         };
@@ -564,6 +578,12 @@ impl Deck {
         }
     }
 
+    /// The censor or the reverse plays the track backwards (a record in absolute mode keeps
+    /// it where it is).
+    fn backwards(&self) -> bool {
+        (self.transport.censoring || self.transport.reversing()) && self.drive_mode() != DriveMode::Absolute
+    }
+
     /// Whether the track advances at its tempo (gestures aside).
     fn is_moving(&self) -> bool {
         match self.drive_mode() {
@@ -600,6 +620,7 @@ impl Deck {
             samples_playing: self.sampler.playing(),
             cue: self.cue,
             slip_mode: self.transport.slip_mode,
+            reverse: self.transport.reversed,
             slip_position_s: self.transport.shadow_s,
             stems_waiting: self.bar_mix.waiting(),
             stems_here: self.playhead.stems_here(),

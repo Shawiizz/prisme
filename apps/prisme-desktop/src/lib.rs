@@ -307,6 +307,8 @@ pub fn run() {
             commands::transport::censor,
             commands::transport::brake,
             commands::transport::spin_back,
+            commands::transport::set_reverse,
+            commands::transport::hold_reverse,
             commands::cues::set_hot_cue,
             commands::cues::trigger_hot_cue,
             commands::cues::delete_hot_cue,

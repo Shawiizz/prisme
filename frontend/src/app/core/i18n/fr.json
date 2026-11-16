@@ -762,7 +762,6 @@
   "Range of every tempo fader: next": "Plage de tous les faders de tempo : suivante",
   "Range of every tempo fader: previous": "Plage de tous les faders de tempo : précédente",
   "The travel of the tempo faders, as on your turntables: of them all, each deck can then have its own in its menu.": "La course des faders de tempo, comme sur vos platines : de tous, puis chaque platine peut avoir la sienne dans son menu.",
-  "Deck options: motor, repeat, tempo range, fader start": "Options de la platine : moteur, répétition, plage de tempo, fader start",
   "Split headphones: cue left, master right": "Casque séparé : cue à gauche, master à droite",
   "This deck alone in the headphones": "Cette platine seule dans le casque",
   "Hear this deck in the headphones · double-click: this deck alone": "Écouter cette platine au casque · double-clic : cette platine seule",
@@ -770,5 +769,10 @@
   "A track loaded on a deck puts that deck alone in the headphones, to cue it at once.": "Un morceau chargé sur une platine met cette platine seule dans le casque, pour le caler aussitôt.",
   "Deck {deck} is playing: nothing is loaded on it": "La platine {deck} joue : rien n'y est chargé",
   "Never replace a playing deck": "Ne jamais remplacer une platine qui joue",
-  "A track loaded onto a deck that plays is refused with a word, rather than asked about.": "Un morceau chargé sur une platine qui joue est refusé avec un mot, plutôt que de demander."
+  "A track loaded onto a deck that plays is refused with a word, rather than asked about.": "Un morceau chargé sur une platine qui joue est refusé avec un mot, plutôt que de demander.",
+  "Reverse": "Lecture inversée",
+  "Reverse while held": "Lecture inversée (maintenue)",
+  "The track plays backwards; with slip, it comes back where it would be": "Le morceau joue à l'envers ; avec le slip, il revient où il en serait",
+  "The track plays backwards: press to play it forwards": "Le morceau joue à l'envers : appuyer pour le rejouer à l'endroit",
+  "Deck options: motor, reverse, repeat, tempo range, fader start": "Options de la platine : moteur, lecture inversée, répétition, plage de tempo, fader start"
 }

@@ -315,6 +315,8 @@ impl Engine {
             ScaleLoop { deck, factor } if valid(deck) => self.decks[deck].scale_loop(factor),
             SetSlip { deck, enabled } if valid(deck) => self.decks[deck].set_slip(enabled),
             Censor { deck, active } if valid(deck) => self.decks[deck].censor(active),
+            SetReverse { deck, enabled } if valid(deck) => self.decks[deck].set_reverse(enabled),
+            HoldReverse { deck, held } if valid(deck) => self.decks[deck].hold_reverse(held),
             SetVinylEnabled { deck, enabled } if valid(deck) => {
                 // a jog held meanwhile is let go: its release would no longer reach the deck
                 self.decks[deck].jog_touch(false, 0.0);

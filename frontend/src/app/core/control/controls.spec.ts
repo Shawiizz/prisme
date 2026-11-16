@@ -181,6 +181,21 @@ describe('controls', () => {
     ]);
   });
 
+  it('reverse, switched or held, lit while the track plays backwards', () => {
+    const { calls, find } = recorder();
+    find('deck1.reverse').apply(1);
+    find('deck2.reverse.held').apply(1);
+    find('deck2.reverse.held').apply(0);
+    expect(find('deck2.reverse.held').lit!()).toBe(true);
+    expect(calls).toEqual([
+      'reversing(0)',
+      'setReverse(0,false)',
+      'holdReverse(1,true)',
+      'holdReverse(1,false)',
+      'backwards(1)',
+    ]);
+  });
+
   it('jump and loop by the size of the deck, which a step halves or doubles', () => {
     const calls: string[] = [];
     const actions = new Proxy(

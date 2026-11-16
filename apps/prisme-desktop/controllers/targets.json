@@ -372,6 +372,18 @@
   "kind": "button"
  },
  {
+  "id": "deck1.reverse",
+  "group": "Deck A",
+  "label": "Reverse",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.reverse.held",
+  "group": "Deck A",
+  "label": "Reverse while held",
+  "kind": "button"
+ },
+ {
   "id": "deck1.repeat",
   "group": "Deck A",
   "label": "Repeat the track",
@@ -2085,6 +2097,18 @@
   "id": "deck2.spinback",
   "group": "Deck B",
   "label": "Spinback while held",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.reverse",
+  "group": "Deck B",
+  "label": "Reverse",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.reverse.held",
+  "group": "Deck B",
+  "label": "Reverse while held",
   "kind": "button"
  },
  {
@@ -3804,6 +3828,18 @@
   "kind": "button"
  },
  {
+  "id": "deck3.reverse",
+  "group": "Deck C",
+  "label": "Reverse",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.reverse.held",
+  "group": "Deck C",
+  "label": "Reverse while held",
+  "kind": "button"
+ },
+ {
   "id": "deck3.repeat",
   "group": "Deck C",
   "label": "Repeat the track",
@@ -5517,6 +5553,18 @@
   "id": "deck4.spinback",
   "group": "Deck D",
   "label": "Spinback while held",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.reverse",
+  "group": "Deck D",
+  "label": "Reverse",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.reverse.held",
+  "group": "Deck D",
+  "label": "Reverse while held",
   "kind": "button"
  },
  {
