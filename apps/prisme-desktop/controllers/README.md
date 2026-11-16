@@ -92,10 +92,11 @@ key moved so many semitones (`deck1.key.+2`), a sample played as hard as its pad
 
 A light shows the state of its action: `on` and `off` for most, `off`, `loaded` and `playing`
 for the sampler's pads, `on` (on the cue point), `paused` (stopped elsewhere) and `off` for
-the cue key, and `pressed` for any key while it is held, if it names it. Its values by state
-are numbers, `{ "blink": [a, b], "ms": n }` for two in turn, or a whole message (`[176, 74,
-12]`) for the models addressing their lights otherwise than by a value on the control's
-note. A state it does not name shows as `on`, but `off`; without values, 127 and 0:
+the cue key, and `pressed` for any key while it is held, if it names it (let go, `off` if
+its action has no state of its own). Its values by state are numbers, `{ "blink": [a, b],
+"ms": n }` for two in turn, or a whole message (`[176, 74, 12]`) for the models addressing
+their lights otherwise than by a value on the control's note. A state it does not name shows
+as `on`, but `off`; without values, 127 and 0:
 
 ```json
 "light": { "on": 127, "off": 1, "loaded": 56, "playing": { "blink": [9, 0], "ms": 250 } }

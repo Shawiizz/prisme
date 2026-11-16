@@ -517,13 +517,26 @@ impl Controllers {
         }
     }
 
-    /// Shows on `device`'s lights the state of their actions, in the modes it is in: its
-    /// mapped controls', its mode keys', and the other lights its profile gives.
+    /// Shows on `device`'s lights the state of their actions.
     fn show_lights(&self, device: &str) {
+        let lights = self.lights(device);
+        if let Some(connection) = lock(&self.connections).iter_mut().find(|c| c.device == device) {
+            for (control, value) in lights {
+                connection.light(control, value);
+            }
+        }
+    }
+
+    /// What `device`'s lights show, in the modes it is in: the state of the actions of its
+    /// mapped controls and its mode keys, and of the other lights its profile gives. A key
+    /// lit while held, whose action has no state of its own, is off once let go.
+    fn lights(&self, device: &str) -> Vec<(Control, LightValue)> {
         let (modes, held) = {
             let reader = lock(&self.reader);
             (reader.modes(device), reader.held(device))
         };
+        // in the order a key read takes them
+        let mappings = lock(&self.mappings);
         let states = lock(&self.states);
         let keys = lock(&self.keys);
         let state_of = |target: &str| match selected_mode(target) {
@@ -538,14 +551,15 @@ impl Controllers {
             }
         };
         let mut lights: Vec<(Control, LightValue)> = Vec::new();
-        for mapping in lock(&self.mappings).all().iter().filter(|m| m.device == device && m.applies(&modes)) {
+        for mapping in mappings.all().iter().filter(|m| m.device == device && m.applies(&modes)) {
             let key = (device.to_owned(), mapping.control);
-            let state = if mapping.light.has(PRESSED) && held.contains(&mapping.control) {
+            let lit_held = mapping.light.has(PRESSED);
+            let state = if lit_held && held.contains(&mapping.control) {
                 Some(PRESSED)
             } else if matches!(mapping.set, Some(FaderSet::InTurn(_))) {
                 Some(if keys.second.contains(&key) { ON } else { OFF })
             } else {
-                state_of(&mapping.target)
+                state_of(&mapping.target).or(lit_held.then_some(OFF))
             };
             if let Some(state) = state {
                 let value = coloured(&mapping.target, &mapping.palette, mapping.light.value(state));
@@ -559,13 +573,7 @@ impl Controllers {
                 }
             }
         }
-        drop(keys);
-        drop(states);
-        if let Some(connection) = lock(&self.connections).iter_mut().find(|c| c.device == device) {
-            for (control, value) in lights {
-                connection.light(control, value);
-            }
-        }
+        lights
     }
 
     /// Closes `device`: its lights go off, and its profile's last messages go out.
@@ -1136,7 +1144,7 @@ mod tests {
         assert_eq!(port_of(&both, "2- DJControl Inpulse 200"), Some(1), "the same name first");
         assert_eq!(port_of(&names, "FLX4"), None);
     }
-    use prisme_control::{parse, Chord, Control};
+    use prisme_control::{parse, Chord, Control, LightValues};
 
     const PAD: Control = Control { kind: ControlKind::Note, channel: 0, number: 36 };
 
@@ -1421,6 +1429,20 @@ mod tests {
         let touched =
             vec![Action::Direct(Direct::JogTouch(0), 1.0), Action::Direct(Direct::JogTouch(1), 1.0)];
         assert_eq!(route(&c, &[0x90, 36, 127]), Some(Routed::Actions(touched)));
+    }
+
+    /// A control's light of `value` in `state`.
+    fn lit(state: &str, value: u8) -> impl FnOnce(&mut ProfileControl) + '_ {
+        move |b| b.light = LightValues::from_iter([(state.to_owned(), LightValue::Steady(value))])
+    }
+
+    #[test]
+    fn a_key_lit_while_held_goes_dark_when_let_go() {
+        let c = with_mappings([with(mapping(PAD, "deck1.jump.back"), lit(PRESSED, 100))]);
+        route(&c, &[0x90, 36, 127]);
+        assert_eq!(c.lights("DDJ"), [(PAD, LightValue::Steady(100))]);
+        route(&c, &[0x90, 36, 0]);
+        assert_eq!(c.lights("DDJ"), [(PAD, LightValue::Steady(0))]);
     }
 
     #[test]
