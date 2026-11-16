@@ -108,6 +108,18 @@ impl Shifts {
     pub fn any(&self) -> bool {
         self.plain || !self.names.is_empty()
     }
+
+    /// How near the layer of `shift` is to the one in use, the nearest first: the named shifts
+    /// held, then the shift layer while any is, then the first layer; `None` for a layer not
+    /// in use.
+    fn rank(&self, shift: &Shift) -> Option<usize> {
+        let named = self.names.len();
+        match shift {
+            Shift::Named(name) => self.names.iter().position(|n| n == name),
+            Shift::Any => self.any().then_some(named),
+            Shift::None => Some(named + 1),
+        }
+    }
 }
 
 /// A mode of a controller: `mode` of its group `group`.
@@ -358,15 +370,28 @@ impl Mappings {
     /// layer, else in the shift layer while a shift is held, else in the first layer (a
     /// control without a second use keeps its first).
     pub fn find(&self, device: &str, event: Event, shifts: &Shifts, modes: &Modes) -> Option<&Mapping> {
-        let find = |layer: &dyn Fn(&Shift) -> bool| {
-            self.0
-                .iter()
-                .find(|m| m.device == device && layer(&m.shift) && m.applies(modes) && m.takes(event))
-        };
-        let named = shifts.names.iter().find_map(|name| find(&|s| matches!(s, Shift::Named(n) if n == name)));
-        named
-            .or_else(|| find(&|s| *s == Shift::Any).filter(|_| shifts.any()))
-            .or_else(|| find(&|s| *s == Shift::None))
+        self.0
+            .iter()
+            .filter(|m| m.device == device && m.applies(modes) && m.takes(event))
+            .filter_map(|m| Some((shifts.rank(&m.shift)?, m)))
+            .min_by_key(|&(rank, _)| rank)
+            .map(|(_, m)| m)
+    }
+
+    /// The mappings of `device` whose lights show in `modes`, `shifts` held: of each control,
+    /// the one it drives (see [`Mappings::find`]).
+    pub fn shown(&self, device: &str, shifts: &Shifts, modes: &Modes) -> Vec<&Mapping> {
+        let mut chosen: HashMap<Control, (usize, usize)> = HashMap::new();
+        for (at, m) in self.0.iter().enumerate().filter(|(_, m)| m.device == device && m.applies(modes)) {
+            let Some(rank) = shifts.rank(&m.shift) else { continue };
+            let best = chosen.entry(m.control).or_insert((rank, at));
+            if rank < best.0 {
+                *best = (rank, at);
+            }
+        }
+        let mut shown: Vec<usize> = chosen.into_values().map(|(_, at)| at).collect();
+        shown.sort_unstable();
+        shown.into_iter().map(|at| &self.0[at]).collect()
     }
 
     /// Adds `mapping`, replacing what its control did in its layer and the control its
@@ -451,8 +476,10 @@ struct DeviceReader {
 }
 
 impl Reader {
-    /// The action an event of `device` drives and its value; `None` when it drives none
-    /// or is the first half of a 14-bit value. Shift and the modes are read here.
+    /// The action an event of `device` drives and its value; `None` when it drives none, is
+    /// a shift or is the first half of a 14-bit value. Shift and the modes are read here: a
+    /// mode key's mode is chosen before it is given, but for one waiting to know whether it is
+    /// held ([`Reader::choose`]).
     pub fn read<'m>(
         &mut self,
         mappings: &'m Mappings,
@@ -480,8 +507,11 @@ impl Reader {
             return None;
         }
         if let Some((group, mode)) = selected_mode(&mapping.target) {
-            reader.select(mapping, event, group, mode);
-            return None;
+            if mapping.hold.is_none() {
+                reader.select(mapping, event, group, mode);
+            }
+            let value = if mapping.on_value.is_some() { 1.0 } else { mapping.encoding.value(event) };
+            return Some((mapping, value));
         }
         if !released {
             if let Some(when) = &mapping.when {
@@ -524,6 +554,11 @@ impl Reader {
         whole as i32
     }
 
+    /// The shifts of `device` held.
+    pub fn shifts(&self, device: &str) -> Shifts {
+        self.devices.get(device).map(|d| d.shifts.clone()).unwrap_or_default()
+    }
+
     /// The modes `device`'s groups are in.
     pub fn modes(&self, device: &str) -> Modes {
         self.devices.get(device).map(|d| d.modes.clone()).unwrap_or_default()
@@ -544,6 +579,16 @@ impl Reader {
     /// Puts `device`'s `group` in `mode` (a key held long enough, say).
     pub fn set_mode(&mut self, device: &str, group: &str, mode: &str) {
         self.device(device).change_mode(group, mode);
+    }
+
+    /// Chooses the mode of `key`, a mode key of `device` pressed and let go: one with a hold,
+    /// let go before it.
+    pub fn choose(&mut self, device: &str, key: &ProfileControl) {
+        let Some((group, mode)) = selected_mode(&key.target) else { return };
+        let reader = self.device(device);
+        for raw in [127, 0] {
+            reader.select(key, Event { control: key.control, raw }, group, mode);
+        }
     }
 
     /// The keys of `device` held down.
@@ -808,8 +853,8 @@ mod tests {
         let mut reader = Reader::default();
         reader.set_modes("DDJ", Modes::from([("padsA".into(), "hotcue".into())]));
         assert_eq!(read(&mut reader, &mappings, &[0x90, 36, 127]).unwrap().0, "deck1.hotcue1");
-        assert_eq!(read(&mut reader, &mappings, &[0x90, 7, 127]), None, "the mode key is read here");
-        assert_eq!(reader.modes("DDJ")["padsA"], "roll");
+        assert_eq!(read(&mut reader, &mappings, &[0x90, 7, 127]), Some(("mode.padsA.roll".into(), 1.0)));
+        assert_eq!(reader.modes("DDJ")["padsA"], "roll", "the mode key is read here");
         // the pad pressed in the other mode ends what it began there
         assert_eq!(read(&mut reader, &mappings, &[0x90, 36, 0]), Some(("deck1.hotcue1".into(), 0.0)));
         assert_eq!(read(&mut reader, &mappings, &[0x90, 36, 127]).unwrap().0, "deck1.roll1");
@@ -881,6 +926,31 @@ mod tests {
     }
 
     #[test]
+    fn of_a_control_of_several_layers_the_one_in_use_is_shown() {
+        let left = Control { number: 1, ..SHIFT_KEY };
+        let mut mappings = Mappings::default();
+        mappings.learn(mapping("DDJ", SHIFT_KEY, SHIFT), false);
+        mappings.learn(mapping("DDJ", left, "shift.left"), false);
+        mappings.learn(mapping("DDJ", PAD, "deck1.hotcue1"), false);
+        mappings.learn(with(mapping("DDJ", PAD, "deck1.hotcue1.delete"), |b| b.shift = Shift::Any), false);
+        mappings.learn(mapping("DDJ", KNOB, "deck1.volume"), false);
+        let mut reader = Reader::default();
+        let shown = |reader: &Reader| -> Vec<String> {
+            let shown = mappings.shown("DDJ", &reader.shifts("DDJ"), &Modes::new());
+            shown.iter().filter(|m| m.control == PAD || m.control == KNOB).map(|m| m.target.clone()).collect()
+        };
+        assert_eq!(shown(&reader), ["deck1.hotcue1", "deck1.volume"]);
+        read(&mut reader, &mappings, &[0x90, 1, 127]);
+        assert_eq!(
+            shown(&reader),
+            ["deck1.hotcue1.delete", "deck1.volume"],
+            "a named shift falls back on it"
+        );
+        read(&mut reader, &mappings, &[0x90, 1, 0]);
+        assert_eq!(shown(&reader), ["deck1.hotcue1", "deck1.volume"]);
+    }
+
+    #[test]
     fn a_shift_is_written_as_a_flag_or_a_name() {
         let read = |json: &str| serde_json::from_str::<Shift>(json).unwrap();
         assert_eq!(read("false"), Shift::None);
@@ -901,6 +971,21 @@ mod tests {
         assert_eq!(reader.modes("DDJ")["pads"], "params");
         read(&mut reader, &mappings, &[0x90, 9, 0]);
         assert_eq!(reader.modes("DDJ")["pads"], "cues");
+    }
+
+    #[test]
+    fn a_mode_key_with_a_hold_leaves_its_mode_to_be_chosen() {
+        let key = Control { number: 9, ..PAD };
+        let mut mappings = Mappings::default();
+        let hold = Hold { ms: 500, target: "mode.pads.slicer".into() };
+        mappings.learn(with(mapping("DDJ", key, "mode.pads.roll"), |b| b.hold = Some(hold)), false);
+        let mut reader = Reader::default();
+        reader.set_modes("DDJ", Modes::from([("pads".into(), "cues".into())]));
+        assert_eq!(read(&mut reader, &mappings, &[0x90, 9, 127]), Some(("mode.pads.roll".into(), 1.0)));
+        assert_eq!(read(&mut reader, &mappings, &[0x90, 9, 0]), Some(("mode.pads.roll".into(), 0.0)));
+        assert_eq!(reader.modes("DDJ")["pads"], "cues");
+        reader.choose("DDJ", &mappings.all()[0]);
+        assert_eq!(reader.modes("DDJ")["pads"], "roll");
     }
 
     #[test]

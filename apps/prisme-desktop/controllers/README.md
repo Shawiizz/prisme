@@ -67,12 +67,12 @@ One JSON file per model:
 | `step` | How far a step of an encoder moves a fader's action, a share of its travel (1/64 when left out). |
 | `invert` | A fader whose lowest value is at its top; an encoder turning the other way. |
 | `fine` | The controller sending the low half of a 14-bit control. |
-| `shift` | In the second layer: `true` while any shift is held, or a named shift (`"left"`) while the key aimed at `shift.left` is. |
+| `shift` | In the second layer: `true` while any shift is held, or a named shift (`"left"`) while the key aimed at `shift.left` is. A control mapped in several layers lights as the one in use. |
 | `when` | `group`, `mode`: only in that mode. |
 | `onValue` | Drives its action as a key pressed when the control sends this value: a switch's position, one entry per position. |
 | `also` | Other actions it drives along. |
 | `down` | An encoder pressing keys: a step to the right presses `target`, a step to the left this action. |
-| `hold` | `ms`, `target`: another action (or mode) for the key held that long; let go sooner, its own. |
+| `hold` | `ms`, `target`: another action (or mode) for the key held that long; let go sooner, its own (a mode key chooses its mode as it is let go). |
 | `double` | `ms`, `target`: another action for the key pressed twice within `ms`. |
 | `chord` | `with` (a control), `target`: another action for the key pressed while `with` is held. |
 | `set` | A key putting a fader's action at a position (`0.5`), or at each of two in turn (`[0, 1]`, lit at the second). |
@@ -92,10 +92,11 @@ key moved so many semitones (`deck1.key.+2`), a sample played as hard as its pad
 
 A light shows the state of its action: `on` and `off` for most, `off`, `loaded` and `playing`
 for the sampler's pads, `on` (on the cue point), `paused` (stopped elsewhere) and `off` for
-the cue key, and `pressed` for any key while it is held, if it names it. Its values by state
-are numbers, `{ "blink": [a, b], "ms": n }` for two in turn, or a whole message (`[176, 74,
-12]`) for the models addressing their lights otherwise than by a value on the control's
-note. A state it does not name shows as `on`, but `off`; without values, 127 and 0:
+the cue key, and `pressed` for any key while it is held, if it names it (let go, `off` if
+its action has no state of its own). Its values by state are numbers, `{ "blink": [a, b],
+"ms": n }` for two in turn, or a whole message (`[176, 74, 12]`) for the models addressing
+their lights otherwise than by a value on the control's note. A state it does not name shows
+as `on`, but `off`; without values, 127 and 0:
 
 ```json
 "light": { "on": 127, "off": 1, "loaded": 56, "playing": { "blink": [9, 0], "ms": 250 } }
