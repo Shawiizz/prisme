@@ -66,7 +66,7 @@ d’enregistrer du silence ou un timecode. Votre choix est gardé pour le procha
 
 **Master**, c’est le master de la table logicielle après le niveau du master et le
 [limiteur du master](/fr/docs/mixer/mixer/#limiteur-du-master), micro ouvert et ligne aux compris. Il
-est pris avant la balance  **BAL** ne change pas l’enregistrement, le niveau du retour cabine non
+est pris avant la balance : **BAL** ne change pas l’enregistrement, le niveau du retour cabine non
 plus. Le casque et l’[écoute au casque](/fr/docs/mixer/headphones/#écoute-au-casque) ne sont jamais
 enregistrés.
 
@@ -85,9 +85,9 @@ timecode. Les platines utilisent les entrées 1-2 pour le deck A et 3-4 pour le 
 | --- | --- |
 | Format | WAV, stéréo, 24 bits, à la fréquence d’échantillonnage de l’audio |
 | Dossier | `Prisme Recordings` dans votre dossier Documents, hors de votre dossier de musique pour ne pas finir dans la bibliothèque |
-| Nom | La date et l’heure du début  `Prisme 2026-10-11 21h30m05.wav` |
+| Nom | La date et l’heure du début : `Prisme 2026-10-11 21h30m05.wav` |
 
-Le fichier est mis à jour chaque seconde pendant l’enregistrement  un plantage ou une coupure de
+Le fichier est mis à jour chaque seconde pendant l’enregistrement : un plantage ou une coupure de
 courant fait perdre une seconde au plus.
 
 Un fichier WAV contient environ 4 Go, un peu plus de quatre heures à 48 kHz. Un set plus long continue
@@ -95,15 +95,15 @@ dans un deuxième fichier, `… 2.wav`, puis `… 3.wav`. Si l’audio redémarr
 (vous changez de carte son ou de buffer, ou l’interface est débranchée puis revient), l’enregistrement
 continue aussi dans le fichier suivant.
 
-Si le disque ne suit pas, Prisme abandonne ce qui ne passe pas plutôt que de retenir le son 
+Si le disque ne suit pas, Prisme abandonne ce qui ne passe pas plutôt que de retenir le son ;
 l’info-bulle du bouton **Enregistrer** indique alors combien de secondes ont été perdues (**disque trop
 lent**).
 
 ## La tracklist
 
-À l’arrêt, Prisme écrit deux fichiers à côté de l’enregistrement, sous le même nom 
+À l’arrêt, Prisme écrit deux fichiers à côté de l’enregistrement, sous le même nom :
 
-- un fichier `.txt`, une ligne par morceau  `0:12:40 Artist - Title` 
+- un fichier `.txt`, une ligne par morceau : `0:12:40 Artist - Title` ;
 - une feuille `.cue`, dont les lecteurs et éditeurs audio se servent pour découper l’enregistrement en
   morceaux.
 
@@ -112,11 +112,11 @@ sur un deck, à une vitesse de lecture normale, et son heure est celle où il a 
 L’artiste et le titre viennent des tags du morceau, ou de son nom de fichier.
 
 <Aside type="tip">
-Lancez l’enregistrement avant que le premier morceau joue  un morceau qui jouait déjà quand vous avez
+Lancez l’enregistrement avant que le premier morceau joue : un morceau qui jouait déjà quand vous avez
 appuyé sur **Enregistrer** est laissé hors de la tracklist.
 </Aside>
 
 Un morceau compte comme entendu même fader baissé, par exemple si vous le pré-écoutez au casque
-pendant 30 secondes  corrigez le `.txt` ou le `.cue` si cela arrive. Avec un enregistrement réparti
+pendant 30 secondes : corrigez le `.txt` ou le `.cue` si cela arrive. Avec un enregistrement réparti
 sur plusieurs fichiers, seule la tracklist `.txt` est écrite, car une feuille CUE décrit un seul
 fichier.

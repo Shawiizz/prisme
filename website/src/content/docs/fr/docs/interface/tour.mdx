@@ -7,7 +7,7 @@ sidebar:
 
 import { Aside } from '@astrojs/starlight/components';
 
-L’écran principal se lit de haut en bas  la barre de titre, un couloir par deck avec la bande de phase après le premier, puis la bibliothèque. Le deck A est toujours en haut ou à gauche, le deck B en dessous ou à sa droite.
+L’écran principal se lit de haut en bas : la barre de titre, un couloir par deck avec la bande de phase après le premier, puis la bibliothèque. Le deck A est toujours en haut ou à gauche, le deck B en dessous ou à sa droite.
 
 ![Deux decks synchronisés, les stems du deck A sur quatre boutons, la bibliothèque dessous](../../../../../assets/screens/decks.png)
 
@@ -15,21 +15,21 @@ L’écran principal se lit de haut en bas  la barre de titre, un couloir par 
 
 ![La barre de titre : le logo, l’audio sur une interface ASIO avec son buffer, 8 canaux d’entrée et le compteur Dropouts à 0, le vumètre du master, la recherche, Rec et les réglages](../../../../../assets/screens/docs/title-bar.png)
 
-De gauche à droite 
+De gauche à droite :
 
-- **L’état de l’audio**  le pilote et l’interface sur lesquels joue l’audio, la durée du **Buffer**, les entrées ouvertes pour les platines, et le compteur **Décrochages**, en ambre dès le premier décrochage. Quand quelque chose ne va pas, une pastille le signale  **audio arrêté**, **interface audio perdue, reconnexion…**, **bibliothèque non enregistrée**. Chacune est expliquée dans [Carte son et latence](/fr/docs/start/audio/#la-barre-de-titre).
-- **Le vumètre du master**  le niveau de ce que Prisme envoie en sortie.
-- **Le champ de recherche**, **Chercher une action, un morceau, un réglage…**  il ouvre la [palette de commandes](/fr/docs/interface/keyboard/#palette-de-commandes), comme <kbd>Ctrl</kbd> <kbd>K</kbd>.
-- **Mise à jour**, quand une nouvelle version est sortie  voir [Mises à jour](/fr/docs/start/install/#mises-à-jour).
-- **Enregistrer**  enregistre le mix, ou une entrée. Voir [Enregistrer votre mix](/fr/docs/mixer/recording/).
-- **Réglages**, ou <kbd>Ctrl</kbd> <kbd>,</kbd>  la carte son, les platines, la table de mixage, les contrôleurs MIDI, les raccourcis clavier et le reste. Voir [Réglages](/fr/docs/settings/).
+- **L’état de l’audio** : le pilote et l’interface sur lesquels joue l’audio, la durée du **Buffer**, les entrées ouvertes pour les platines, et le compteur **Décrochages**, en ambre dès le premier décrochage. Quand quelque chose ne va pas, une pastille le signale : **audio arrêté**, **interface audio perdue, reconnexion…**, **bibliothèque non enregistrée**. Chacune est expliquée dans [Carte son et latence](/fr/docs/start/audio/#la-barre-de-titre).
+- **Le vumètre du master** : le niveau de ce que Prisme envoie en sortie.
+- **Le champ de recherche**, **Chercher une action, un morceau, un réglage…** : il ouvre la [palette de commandes](/fr/docs/interface/keyboard/#palette-de-commandes), comme <kbd>Ctrl</kbd> <kbd>K</kbd>.
+- **Mise à jour**, quand une nouvelle version est sortie : voir [Mises à jour](/fr/docs/start/install/#mises-à-jour).
+- **Enregistrer** : enregistre le mix, ou une entrée. Voir [Enregistrer votre mix](/fr/docs/mixer/recording/).
+- **Réglages**, ou <kbd>Ctrl</kbd> <kbd>,</kbd> : la carte son, les platines, la table de mixage, les contrôleurs MIDI, les raccourcis clavier et le reste. Voir [Réglages](/fr/docs/settings/).
 - Sous Windows et Linux, les boutons réduire, agrandir et fermer de la fenêtre. Sur Mac, les trois pastilles habituelles en haut à gauche.
 
 Faites glisser les parties vides de la barre de titre pour déplacer la fenêtre.
 
 ## Le couloir d’un deck
 
-Chaque deck a un couloir, qui se lit de gauche à droite  son panneau, sa forme d’onde, sa voie quand la table de mixage logicielle tourne, et son fader de pitch au bout. En dessous, un rail regroupe ce qui fait jouer le deck et ses pads.
+Chaque deck a un couloir, qui se lit de gauche à droite : son panneau, sa forme d’onde, sa voie quand la table de mixage logicielle tourne, et son fader de pitch au bout. En dessous, un rail regroupe ce qui fait jouer le deck et ses pads.
 
 Un morceau glissé depuis la bibliothèque sur un couloir se charge sur ce deck.
 
@@ -37,11 +37,11 @@ Un morceau glissé depuis la bibliothèque sur un couloir se charge sur ce deck.
 
 - **La lettre** du deck, pleine pendant la lecture, en contour à l’arrêt. Avec une table de mixage externe, un fin vumètre à côté montre le niveau envoyé aux sorties du deck.
 - **La pochette, le titre et l’artiste** du morceau, ou **Aucun morceau**.
-- **Ce qui pilote le deck**, quand des platines sont configurées  un voyant pour le signal timecode (vert quand il est verrouillé, ambre creux quand il est instable, rouge creux quand il est perdu), et **INT** (le deck joue tout seul), **REL** (le disque pilote la vitesse), **ABS** (le disque pilote la vitesse et la position) et **THRU** (le deck joue son entrée telle quelle, un vrai disque ou un lecteur CD). Voir [Modes du contrôle vinyle](/fr/docs/dvs/modes/).
-- **REV** et **MUTE**, seulement quand le morceau joue à l’envers ou que la voie est coupée  appuyez pour annuler.
-- **⋯**, les options du deck  le moteur (**BRAKE**, **SPINBACK**), les sauts au **DÉBUT** ou à la **FIN**, la lecture inversée, la coupure, la répétition, la plage de son fader de tempo, et le fader start avec la table de mixage logicielle. Voir [Outils de performance](/fr/docs/decks/performance/).
+- **Ce qui pilote le deck**, quand des platines sont configurées : un voyant pour le signal timecode (vert quand il est verrouillé, ambre creux quand il est instable, rouge creux quand il est perdu), et **INT** (le deck joue tout seul), **REL** (le disque pilote la vitesse), **ABS** (le disque pilote la vitesse et la position) et **THRU** (le deck joue son entrée telle quelle, un vrai disque ou un lecteur CD). Voir [Modes du contrôle vinyle](/fr/docs/dvs/modes/).
+- **REV** et **MUTE**, seulement quand le morceau joue à l’envers ou que la voie est coupée : appuyez pour annuler.
+- **⋯**, les options du deck : le moteur (**BRAKE**, **SPINBACK**), les sauts au **DÉBUT** ou à la **FIN**, la lecture inversée, la coupure, la répétition, la plage de son fader de tempo, et le fader start avec la table de mixage logicielle. Voir [Outils de performance](/fr/docs/decks/performance/).
 
-En dessous, trois afficheurs faits pour être lus à un pas de distance 
+En dessous, trois afficheurs faits pour être lus à un pas de distance :
 
 | Afficheur | En grand | En petit |
 | --- | --- | --- |
@@ -49,72 +49,72 @@ En dessous, trois afficheurs faits pour être lus à un pas de distance 
 | **BPM** | Le tempo joué | Le tempo d’origine du morceau et le pitch appliqué |
 | **Tonalité** | La tonalité entendue, en notation Camelot, colorée selon la roue | Son nom |
 
-Le temps restant passe à l’ambre dans les 30 dernières secondes du morceau et clignote en rouge dans les 10 dernières, le seul clignotement de l’écran. Un point à côté de **BPM** ou de **Tonalité** signale que vous avez corrigé la grille ou la tonalité  l’étiquette **Tonalité** passe à l’ambre quand le pitch ou une transposition a éloigné la tonalité entendue de celle du morceau.
+Le temps restant passe à l’ambre dans les 30 dernières secondes du morceau et clignote en rouge dans les 10 dernières, le seul clignotement de l’écran. Un point à côté de **BPM** ou de **Tonalité** signale que vous avez corrigé la grille ou la tonalité ; l’étiquette **Tonalité** passe à l’ambre quand le pitch ou une transposition a éloigné la tonalité entendue de celle du morceau.
 
 Cliquez sur les afficheurs BPM et tonalité pour ouvrir l’éditeur **Grille rythmique, tonalité et transposition**. Voir [Analyse](/fr/docs/library/analysis/).
 
 ### La forme d’onde
 
-La grande vue défile autour de la tête de lecture, la seule ligne blanche de l’écran, et montre dix secondes de temps réel quel que soit le tempo. Sa hauteur, c’est le niveau  sa couleur, c’est l’équilibre des bandes mélangées comme de la lumière  les basses l’éclairent en rouge, les médiums en vert, les aigus en bleu, si bien qu’un kick se lit en rouge, une voix en vert-jaune, des charleys en bleu. Ce qui a déjà joué est assombri.
+La grande vue défile autour de la tête de lecture, la seule ligne blanche de l’écran, et montre dix secondes de temps réel quel que soit le tempo. Sa hauteur, c’est le niveau ; sa couleur, c’est l’équilibre des bandes mélangées comme de la lumière : les basses l’éclairent en rouge, les médiums en vert, les aigus en bleu, si bien qu’un kick se lit en rouge, une voix en vert-jaune, des charleys en bleu. Ce qui a déjà joué est assombri.
 
-Par-dessus 
+Par-dessus :
 
-- un trait fin sur chaque temps de la grille, le premier temps de chaque mesure en rouge avec une petite flèche au-dessus et en dessous 
-- les hot cues, un trait et un drapeau numéroté de la couleur du cue  le cue principal, marqué **C** 
-- une boucle, une bande éclairée entre deux traits  une boucle enregistrée qui ne joue pas, deux traits gris.
+- un trait fin sur chaque temps de la grille, le premier temps de chaque mesure en rouge avec une petite flèche au-dessus et en dessous ;
+- les hot cues, un trait et un drapeau numéroté de la couleur du cue ; le cue principal, marqué **C** ;
+- une boucle, une bande éclairée entre deux traits ; une boucle enregistrée qui ne joue pas, deux traits gris.
 
-En dessous, la **vue d’ensemble** montre tout le morceau  la partie jouée assombrie, les cues en repères, la position éclairée. Une fois le morceau séparé en stems, une piste par partie montre où jouent la voix, la batterie, la basse et la mélodie.
+En dessous, la **vue d’ensemble** montre tout le morceau : la partie jouée assombrie, les cues en repères, la position éclairée. Une fois le morceau séparé en stems, une piste par partie montre où jouent la voix, la batterie, la basse et la mélodie.
 
-À la souris ou au doigt 
+À la souris ou au doigt :
 
 | Geste | Où | Effet |
 | --- | --- | --- |
-| Clic | Grande vue | Saute à cet endroit (à la souris seulement  un doigt ne fait jamais sauter le morceau) |
-| Glisser aussitôt | Grande vue | Pousse le morceau, comme le bord d’un jog  un morceau en lecture est accéléré ou retenu un instant, un morceau à l’arrêt est déplacé |
-| Appuyer, rester immobile un instant, puis glisser | Grande vue | Pose votre main sur le disque  le deck suit votre main, comme un disque qu’on scratche, et reprend la lecture quand vous lâchez |
+| Clic | Grande vue | Saute à cet endroit (à la souris seulement : un doigt ne fait jamais sauter le morceau) |
+| Glisser aussitôt | Grande vue | Pousse le morceau, comme le bord d’un jog : un morceau en lecture est accéléré ou retenu un instant, un morceau à l’arrêt est déplacé |
+| Appuyer, rester immobile un instant, puis glisser | Grande vue | Pose votre main sur le disque : le deck suit votre main, comme un disque qu’on scratche, et reprend la lecture quand vous lâchez |
 | Appuyer et glisser | Vue d’ensemble | Saute à cet endroit, puis parcourt le morceau avec votre main |
 
 Un deck en **THRU** indique quelles entrées il joue telles quelles. Un deck vide affiche **Chargez un morceau depuis la bibliothèque**.
 
 ### La voie
 
-Avec la table de mixage logicielle, chaque couloir a une voie entre la forme d’onde et le fader de pitch 
+Avec la table de mixage logicielle, chaque couloir a une voie entre la forme d’onde et le fader de pitch :
 
 - **HI**, **MID** et **LOW**, les trois bandes de l’égaliseur. Cliquez sur le nom d’un bouton pour couper sa bande, cliquez à nouveau pour la rétablir.
 - **TRIM**, le gain avant l’égaliseur, ±12 dB.
-- **FILTER**  à gauche un passe-bas, à droite un passe-haut.
-- **Le bouton casque**  allumé quand le deck s’entend au casque. Double-cliquez dessus pour n’entendre que ce deck.
+- **FILTER** : à gauche un passe-bas, à droite un passe-haut.
+- **Le bouton casque** : allumé quand le deck s’entend au casque. Double-cliquez dessus pour n’entendre que ce deck.
 - **Le vumètre** et **le fader** de la voie.
 
 Double-cliquez sur un bouton pour le remettre à sa valeur par défaut. Voir [La table de mixage](/fr/docs/mixer/mixer/).
 
 ### Le fader de pitch
 
-Au bout du couloir, là où une platine a le sien et dans le même sens  **plus rapide vers le bas**. Les touches **−** et **+** changent le tempo de 0,1 %, et continuent tant qu’on les tient.
+Au bout du couloir, là où une platine a le sien et dans le même sens : **plus rapide vers le bas**. Les touches **−** et **+** changent le tempo de 0,1 %, et continuent tant qu’on les tient.
 
-Quand un disque ou la sync tient le tempo, le fader ne peut pas bouger  il montre le pitch joué. Sur un disque, la plage du fader remplace **−** et **+**, et un cran marque où amener le pitch de la platine elle-même pour caler l’autre deck.
+Quand un disque ou la sync tient le tempo, le fader ne peut pas bouger : il montre le pitch joué. Sur un disque, la plage du fader remplace **−** et **+**, et un cran marque où amener le pitch de la platine elle-même pour caler l’autre deck.
 
 ### Le rail
 
-Sous le panneau et la forme d’onde, de gauche à droite 
+Sous le panneau et la forme d’onde, de gauche à droite :
 
-- **CUE** et **PLAY** (**PAUSE** pendant la lecture). Un deck sur un disque n’a pas ces touches  c’est le disque qui le fait jouer.
-- **Séparer**, qui sépare le morceau en stems  une fois séparé, un bouton par partie, son nom la coupant. Voir [Stems](/fr/docs/sound/stems/).
-- **SYNC**  un appui pour suivre le leader, un appui long pour caler son tempo et ses temps une fois. Voir [Sync et tempo](/fr/docs/decks/sync/).
+- **CUE** et **PLAY** (**PAUSE** pendant la lecture). Un deck sur un disque n’a pas ces touches : c’est le disque qui le fait jouer.
+- **Séparer**, qui sépare le morceau en stems ; une fois séparé, un bouton par partie, son nom la coupant. Voir [Stems](/fr/docs/sound/stems/).
+- **SYNC** : un appui pour suivre le leader, un appui long pour caler son tempo et ses temps une fois. Voir [Sync et tempo](/fr/docs/decks/sync/).
 - **Le pitch** joué (double-clic pour le remettre à zéro), sur un disque le pitch à régler sur la platine (**→ +1,2 %**), **KEY LOCK**, et **LEADER** sur le deck que les autres suivent.
-- **Les pads**  un mode (**CUES**, **LOOP**, **ROLL**, **JUMP**, **SLICE**, **CUT**, **FX**, **SMPL**), huit pads, la touche vers l’autre page de pads quand le mode en a deux (**1–8**, **9–16**), et les touches qui vont avec le mode  les touches de boucle, slip et censor, les boutons des effets ou du sampler. Voir [Hot cues](/fr/docs/decks/cues/), [Boucles](/fr/docs/decks/loops/), [Effets](/fr/docs/sound/effects/) et [Le sampler](/fr/docs/decks/sampler/).
+- **Les pads** : un mode (**CUES**, **LOOP**, **ROLL**, **JUMP**, **SLICE**, **CUT**, **FX**, **SMPL**), huit pads, la touche vers l’autre page de pads quand le mode en a deux (**1–8**, **9–16**), et les touches qui vont avec le mode : les touches de boucle, slip et censor, les boutons des effets ou du sampler. Voir [Hot cues](/fr/docs/decks/cues/), [Boucles](/fr/docs/decks/loops/), [Effets](/fr/docs/sound/effects/) et [Le sampler](/fr/docs/decks/sampler/).
 
-Quand la fenêtre fait moins de 1400 pixels de large, le rail se resserre  touches plus étroites, boutons de stems et noms des pads plus petits.
+Quand la fenêtre fait moins de 1400 pixels de large, le rail se resserre : touches plus étroites, boutons de stems et noms des pads plus petits.
 
 ## Bande de phase
 
-Entre les deux premiers couloirs, la bande de phase montre les temps du deck A en haut et ceux du deck B en bas, autour des têtes de lecture et à l’échelle des formes d’onde. Quand les temps se rejoignent, la bande indique **Calés**  sinon, elle dit de combien de millisecondes B est **en avance** ou **en retard**. Quand les deux jouent, elle prévient quand B sera décalé d’une double croche sur le temps de A aux tempos actuels, et affiche **Décalé  corrigez le pitch** une fois que c’est le cas. Avec quatre decks, elle compare les deux premiers decks qui jouent, et les nomme.
+Entre les deux premiers couloirs, la bande de phase montre les temps du deck A en haut et ceux du deck B en bas, autour des têtes de lecture et à l’échelle des formes d’onde. Quand les temps se rejoignent, la bande indique **Calés** ; sinon, elle dit de combien de millisecondes B est **en avance** ou **en retard**. Quand les deux jouent, elle prévient quand B sera décalé d’une double croche sur le temps de A aux tempos actuels, et affiche **Décalé : corrigez le pitch** une fois que c’est le cas. Avec quatre decks, elle compare les deux premiers decks qui jouent, et les nomme.
 
-Avec la table de mixage logicielle, la bande contient aussi 
+Avec la table de mixage logicielle, la bande contient aussi :
 
-- **le crossfader**, entre **A** et **B** 
-- **MIC**, la touche du micro, quand un micro est configuré 
-- **⋯**, le menu de ce qu’on règle une fois par soirée  le master et sa balance, le retour cabine, le limiteur, la courbe du crossfader, le casque, le micro et la ligne aux.
+- **le crossfader**, entre **A** et **B** ;
+- **MIC**, la touche du micro, quand un micro est configuré ;
+- **⋯**, le menu de ce qu’on règle une fois par soirée : le master et sa balance, le retour cabine, le limiteur, la courbe du crossfader, le casque, le micro et la ligne aux.
 
 Voir [La table de mixage](/fr/docs/mixer/mixer/) et [Micro et entrées aux](/fr/docs/mixer/inputs/).
 
@@ -122,22 +122,22 @@ Voir [La table de mixage](/fr/docs/mixer/mixer/) et [Micro et entrées aux](/fr/
 
 La bibliothèque occupe le reste de la fenêtre.
 
-**À gauche**, les listes 
+**À gauche**, les listes :
 
-- **Préparation**, les morceaux préparés pour le set, que l’**Auto DJ** peut enchaîner tout seul 
-- **Doublons**, les morceaux qui semblent être le même titre 
-- vos dossiers de musique, sous **Musique** 
-- **Crates**, avec **+ Intelligente** pour une crate intelligente et **+** pour une crate 
+- **Préparation**, les morceaux préparés pour le set, que l’**Auto DJ** peut enchaîner tout seul ;
+- **Doublons**, les morceaux qui semblent être le même titre ;
+- vos dossiers de musique, sous **Musique** ;
+- **Crates**, avec **+ Intelligente** pour une crate intelligente et **+** pour une crate ;
 - **Historique**, les morceaux joués 30 secondes ou plus, set par set.
 
-**Au-dessus des morceaux**, la barre d’outils  chercher dans la liste ouverte ou dans toute la **Bibliothèque**, le champ de recherche (<kbd>Ctrl</kbd> <kbd>F</kbd>), **Comparer à**, le deck auquel les tonalités et la colonne de pitch sont comparées, le nombre de morceaux, l’avancement de l’analyse et de la séparation, **Importer** depuis Serato ou rekordbox, et **Réanalyser**.
+**Au-dessus des morceaux**, la barre d’outils : chercher dans la liste ouverte ou dans toute la **Bibliothèque**, le champ de recherche (<kbd>Ctrl</kbd> <kbd>F</kbd>), **Comparer à**, le deck auquel les tonalités et la colonne de pitch sont comparées, le nombre de morceaux, l’avancement de l’analyse et de la séparation, **Importer** depuis Serato ou rekordbox, et **Réanalyser**.
 
 **Les morceaux**, un par ligne. Faites un clic droit sur les en-têtes de colonnes pour choisir les colonnes. Au bout de chaque ligne, le bouton casque fait écouter le morceau au casque sans le charger, et un bouton par deck l’y charge. Les morceaux joués ce soir sont assombris, jamais masqués.
 
 Voir [Parcourir et chercher](/fr/docs/library/browsing/), [Crates](/fr/docs/library/crates/) et [Auto DJ](/fr/docs/mixer/auto-dj/).
 
 <Aside type="tip">
-Chaque bouton dit ce qu’il fait dans une infobulle  laissez le pointeur dessus un instant.
+Chaque bouton dit ce qu’il fait dans une infobulle : laissez le pointeur dessus un instant.
 </Aside>
 
 ## Par-dessus l’écran
