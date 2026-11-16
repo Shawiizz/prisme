@@ -13,7 +13,8 @@ use crate::folders;
 use crate::preferences::{DeckPreferences, LivePreferences, MixerPreferences, Preferences};
 use crate::recording::Recorder;
 use crate::sampler::Samplers;
-use prisme_analysis::{TrackAnalysis, Waveform};
+use crate::track_waveform::TrackWaveform;
+use prisme_analysis::TrackAnalysis;
 use prisme_engine::{BeatGrid, Command, DeckStatus, MixMode, OutputRouting, StemTracks, MAX_DECKS};
 use prisme_library::{Cue, CueSlot, TrackEdits};
 use prisme_media::{TrackAudio, TrackTags};
@@ -46,8 +47,7 @@ pub struct LoadedTrack {
     pub load_id: u64,
     pub path: PathBuf,
     pub audio: Arc<TrackAudio>,
-    /// `None` until computed (first load of the track).
-    pub waveform: Option<Waveform>,
+    pub waveform: TrackWaveform,
     /// As detected; [`LoadedTrack::analysis`] applies the corrections.
     pub detected: TrackAnalysis,
     pub edits: TrackEdits,
@@ -85,7 +85,6 @@ impl LoadedTrack {
             duration_s: self.audio.duration_s(),
             sample_rate: self.audio.sample_rate(),
             load_id: self.load_id,
-            waveform_ready: self.waveform.is_some(),
             tempo: analysis.tempo.as_ref().map(TempoDto::from),
             key: analysis.key.as_ref().map(KeyDto::from),
             grid_edited: self.edits.grid.is_some(),

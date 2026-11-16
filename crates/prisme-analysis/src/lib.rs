@@ -1,6 +1,6 @@
 //! Track analysis, run off the audio thread when a track is loaded.
 //!
-//! * [`waveform`]: amplitude and low / mid / high energy per time slice, for drawing
+//! * [`waveform`]: peak and low / mid / high balance per time slice, for drawing
 //!   colored waveforms.
 //! * [`tempo`]: BPM and beat grid, put on the kicks' attacks by [`grid`].
 //! * [`key`]: musical key, with its Camelot code.
@@ -23,7 +23,7 @@ pub use key::{Key, KeyConfig, KeyEstimate, Mode, Profiles};
 pub use loudness::{loudness, Loudness};
 pub use stem_activity::{stem_activity, ACTIVITY_SLICES_PER_S};
 pub use tempo::{Tempo, DEFAULT_MIN_BPM};
-pub use waveform::{compute_waveform, Waveform};
+pub use waveform::{compute_waveform, Waveform, WaveformBuilder};
 
 use prisme_media::{DecodeStream, MediaError, TrackAudio};
 use std::path::Path;

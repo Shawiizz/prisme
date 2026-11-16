@@ -102,13 +102,7 @@ fn edit(
         if on == deck {
             analysis = Some(dto);
         } else {
-            let update = DeckTrackUpdateDto {
-                deck: on,
-                load_id,
-                waveform_ready: false,
-                analysis: Some(dto),
-                separation: None,
-            };
+            let update = DeckTrackUpdateDto { deck: on, load_id, analysis: Some(dto), separation: None };
             let _ = app.emit(DECK_TRACK_UPDATE_EVENT, update);
         }
     }

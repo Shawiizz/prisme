@@ -1,7 +1,7 @@
 import { Injectable, computed, effect, inject, signal, untracked } from '@angular/core';
 import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
-import { PreviewTrack, Waveform, decodeWaveform } from '../models/engine';
+import { PreviewTrack, Waveform, addWaveformPiece, decodeWaveform } from '../models/engine';
 import { EngineService } from './engine.service';
 import { MixerService } from './mixer.service';
 import { errorText } from '../errors';
@@ -107,7 +107,7 @@ export class PreviewService {
   }
 
   private async fetchWaveform(id: number) {
-    const waveform = decodeWaveform(await invoke<ArrayBuffer>('preview_waveform', { id }));
-    if (waveform && this.track()?.id === id) this.waveform.set(waveform);
+    const piece = decodeWaveform(await invoke<ArrayBuffer>('preview_waveform', { id }));
+    if (piece && this.track()?.id === id) this.waveform.set(addWaveformPiece(null, piece));
   }
 }

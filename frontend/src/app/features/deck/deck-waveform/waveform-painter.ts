@@ -42,9 +42,9 @@ export class WaveformPainter {
   private readonly palette = palette();
   /** The colour of each tag of a cue, written once. */
   private readonly cueColors = new Map<number, string>();
-  /** Colour of each slice, cached per waveform. */
+  /** Colour of each slice, cached per waveform as it is first drawn. */
   private colors: string[] = [];
-  private source: Waveform | null = null;
+  private source: Uint8Array | null = null;
   /** The overview's audio as it plays and as played, drawn once per waveform and size. */
   private overview: {
     w: Waveform;
@@ -233,7 +233,7 @@ export class WaveformPainter {
     for (let x = 0; x < view.width; x++) {
       const first = Math.floor(view.fromS * sps + x * slicesPerPx);
       const last = Math.max(first + 1, Math.floor(view.fromS * sps + (x + 1) * slicesPerPx));
-      if (last <= 0 || first >= w.peak.length) continue;
+      if (last <= 0 || first >= w.known) continue;
       const loudest = this.loudest(w, first, last);
       const h = (w.peak[loudest] / 255) * reach;
       ctx.fillStyle = this.colorAt(w, loudest);
@@ -270,6 +270,7 @@ export class WaveformPainter {
     for (let x = 0; x < view.width; x++) {
       const first = Math.floor((x / view.width) * n);
       const last = Math.max(first + 1, Math.floor(((x + 1) / view.width) * n));
+      if (first >= w.known) break;
       const loudest = this.loudest(w, first, last);
       const h = (w.peak[loudest] / 255) * (mid - 1);
       ctx.fillStyle = this.colorAt(w, loudest);
@@ -278,10 +279,10 @@ export class WaveformPainter {
     ctx.globalAlpha = 1;
   }
 
-  /** The loudest slice from `first` to `last` (excluded), within the track. */
+  /** The loudest slice from `first` to `last` (excluded), within the slices known. */
   private loudest(w: Waveform, first: number, last: number): number {
     let best = Math.max(first, 0);
-    for (let i = best; i < Math.min(last, w.peak.length); i++) {
+    for (let i = best; i < Math.min(last, w.known); i++) {
       if (w.peak[i] > w.peak[best]) best = i;
     }
     return best;
@@ -430,17 +431,19 @@ export class WaveformPainter {
    * the blue, scaled to the strongest so that the colours stay vivid whatever the level.
    */
   private colorAt(w: Waveform, i: number): string {
-    if (this.source !== w) {
-      this.source = w;
-      this.colors = Array.from(w.peak, (_, k) => {
-        const max = Math.max(w.low[k], w.mid[k], w.high[k], 1);
-        const r = Math.round((w.low[k] / max) * 255);
-        const g = Math.round((w.mid[k] / max) * 230);
-        const b = Math.round((w.high[k] / max) * 255);
-        return `rgb(${r},${g},${b})`;
-      });
+    if (this.source !== w.peak) {
+      this.source = w.peak;
+      this.colors = new Array<string>(w.peak.length);
     }
-    return this.colors[i];
+    let color = this.colors[i];
+    if (color === undefined) {
+      const max = Math.max(w.low[i], w.mid[i], w.high[i], 1);
+      const r = Math.round((w.low[i] / max) * 255);
+      const g = Math.round((w.mid[i] / max) * 230);
+      const b = Math.round((w.high[i] / max) * 255);
+      color = this.colors[i] = `rgb(${r},${g},${b})`;
+    }
+    return color;
   }
 }
 

@@ -172,8 +172,21 @@ export interface Recording {
   failure: string | null;
 }
 
-/** One byte per slice in each band (sent in binary, see `decodeWaveform`). */
+/** One byte per slice of the track in each band (sent in binary, see `decodeWaveform`). */
 export interface Waveform {
+  slicesPerSecond: number;
+  peak: Uint8Array;
+  low: Uint8Array;
+  mid: Uint8Array;
+  high: Uint8Array;
+  /** The slices known, from the start: all of them once the track is read. */
+  known: number;
+}
+
+/** Slices of a waveform from `from` on, of a track of `slices` slices. */
+export interface WaveformPiece {
+  from: number;
+  slices: number;
   slicesPerSecond: number;
   peak: Uint8Array;
   low: Uint8Array;
@@ -181,18 +194,50 @@ export interface Waveform {
   high: Uint8Array;
 }
 
-/** `slices_per_second` (u32 little-endian), then the peak, low, mid and high bands. */
-export function decodeWaveform(buffer: ArrayBuffer): Waveform | null {
-  if (buffer.byteLength < 4) return null;
-  const slices = (buffer.byteLength - 4) / 4;
-  const band = (i: number) => new Uint8Array(buffer, 4 + i * slices, slices);
+const WAVEFORM_BANDS = ['peak', 'low', 'mid', 'high'] as const;
+
+/** The first slice, the track's slices and `slices_per_second` (u32 little-endian each), then
+ * the peak, low, mid and high bands of the slices sent. */
+export function decodeWaveform(buffer: ArrayBuffer): WaveformPiece | null {
+  if (buffer.byteLength < 12) return null;
+  const header = new DataView(buffer);
+  const n = (buffer.byteLength - 12) / 4;
+  const band = (i: number) => new Uint8Array(buffer, 12 + i * n, n);
   return {
-    slicesPerSecond: new DataView(buffer).getUint32(0, true),
+    from: header.getUint32(0, true),
+    slices: header.getUint32(4, true),
+    slicesPerSecond: header.getUint32(8, true),
     peak: band(0),
     low: band(1),
     mid: band(2),
     high: band(3),
   };
+}
+
+/** `w` with `piece` in it, as a new waveform: the bands are filled in place while the track's
+ * length holds, copied into new ones when it changes (once the track is all read). */
+export function addWaveformPiece(w: Waveform | null, piece: WaveformPiece): Waveform {
+  const same = w?.slicesPerSecond === piece.slicesPerSecond;
+  const next: Waveform =
+    w && same && w.peak.length === piece.slices
+      ? { ...w }
+      : {
+          slicesPerSecond: piece.slicesPerSecond,
+          peak: new Uint8Array(piece.slices),
+          low: new Uint8Array(piece.slices),
+          mid: new Uint8Array(piece.slices),
+          high: new Uint8Array(piece.slices),
+          known: w && same ? Math.min(w.known, piece.slices) : 0,
+        };
+  if (w && next.peak !== w.peak) {
+    for (const band of WAVEFORM_BANDS) next[band].set(w[band].subarray(0, next.known));
+  }
+  const end = Math.min(piece.from + piece.peak.length, piece.slices);
+  if (piece.from > next.known || end <= piece.from) return next;
+  for (const band of WAVEFORM_BANDS)
+    next[band].set(piece[band].subarray(0, end - piece.from), piece.from);
+  next.known = Math.max(next.known, end);
+  return next;
 }
 
 export interface Tempo {
@@ -217,8 +262,6 @@ export interface TrackInfo {
   artist: string | null;
   durationS: number;
   sampleRate: number;
-  /** The waveform can be fetched; otherwise a `deck-track-update` says when it can. */
-  waveformReady: boolean;
   tempo: Tempo | null;
   key: MusicalKey | null;
   /** Corrected by hand. */
@@ -237,7 +280,6 @@ export interface TrackInfo {
 export interface DeckTrackUpdate {
   deck: number;
   loadId: number;
-  waveformReady: boolean;
   analysis: TrackAnalysis | null;
   /** Its separated stems reached the deck. */
   separation: Separation | null;

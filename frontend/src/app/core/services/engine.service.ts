@@ -21,6 +21,7 @@ import {
   TrackInfo,
   VinylMode,
   Waveform,
+  addWaveformPiece,
   decodeWaveform,
 } from '../models/engine';
 import { PreferencesService } from './preferences.service';
@@ -127,7 +128,7 @@ export class EngineService {
       invoke<MixerState>('mixer_state'),
     ]);
     this.tracks.set(tracks);
-    tracks.forEach((t, deck) => t?.waveformReady && this.fetchWaveform(deck, t.loadId));
+    tracks.forEach((t, deck) => t && this.watchWaveform(deck, t.loadId));
     this.decks.set(mixer.decks.map((d) => ({ ...DEFAULT_DECK, ...d })));
     return mixer;
   }
@@ -361,7 +362,7 @@ export class EngineService {
   private show(deck: number, info: TrackInfo) {
     this.patch(this.tracks, deck, info);
     this.patch(this.waveforms, deck, null);
-    if (info.waveformReady) this.fetchWaveform(deck, info.loadId);
+    this.watchWaveform(deck, info.loadId);
   }
 
   /** PLAY; pressed while CUE previews, the deck plays on once CUE is let go, as on a CDJ. */
@@ -545,8 +546,8 @@ export class EngineService {
     if (track) this.patch(this.tracks, deck, { ...track, cues });
   }
 
-  /** Waveform and analysis that arrive after the track was put on its deck. */
-  private completeTrack({ deck, loadId, waveformReady, analysis, separation }: DeckTrackUpdate) {
+  /** Analysis and stems that arrive after the track was put on its deck. */
+  private completeTrack({ deck, loadId, analysis, separation }: DeckTrackUpdate) {
     const track = this.tracks()[deck];
     if (track?.loadId !== loadId) return;
     if (analysis || separation) {
@@ -556,13 +557,18 @@ export class EngineService {
         separation: separation ?? track.separation,
       });
     }
-    if (waveformReady) this.fetchWaveform(deck, loadId);
   }
 
-  private async fetchWaveform(deck: number, loadId: number) {
-    const waveform = decodeWaveform(await invoke<ArrayBuffer>('deck_waveform', { deck, loadId }));
-    if (waveform && this.tracks()[deck]?.loadId === loadId)
-      this.patch(this.waveforms, deck, waveform);
+  /** The waveform of the load `loadId` on `deck`: what is known of it at once, then, while the
+   * track is read, the rest piece by piece. */
+  private watchWaveform(deck: number, loadId: number) {
+    const channel = new Channel<ArrayBuffer>();
+    channel.onmessage = (buffer) => {
+      const piece = decodeWaveform(buffer);
+      if (piece && this.tracks()[deck]?.loadId === loadId)
+        this.patch(this.waveforms, deck, addWaveformPiece(this.waveforms()[deck], piece));
+    };
+    invoke('watch_waveform', { deck, loadId, channel }).catch(() => {});
   }
 
   /** Replaces the tempo and key of the track on `deck` (after a correction). */

@@ -1,11 +1,11 @@
 use crate::auto_dj::{AutoDj, Takeover};
-use crate::dto::{waveform_bytes, SeparationDto, TrackInfoDto};
+use crate::dto::{SeparationDto, TrackInfoDto};
 use crate::error::{AppError, AppResult};
 use crate::state::{lock, AppState};
 use crate::track_loading;
 use prisme_engine::{Command, Stem};
 use std::path::PathBuf;
-use tauri::ipc::Response;
+use tauri::ipc::{Channel, Response};
 use tauri::{AppHandle, State};
 
 /// Puts a track on a deck as soon as it can play; its waveform and analysis follow if
@@ -48,12 +48,12 @@ pub fn double_deck(
     Ok(info)
 }
 
-/// The waveform of the track on `deck`, in binary (`dto::waveform_bytes`); empty when
-/// it is not known yet or another track was loaded meanwhile.
+/// Sends the waveform of the track on `deck` to `channel` (`dto::waveform_bytes`): what is
+/// known of it at once, then, while the track is decoded, each piece computed. Nothing once
+/// another track was loaded.
 #[tauri::command]
-pub fn deck_waveform(state: State<'_, AppState>, deck: usize, load_id: u64) -> Response {
-    let bytes = state.with_loaded(deck, load_id, |t| t.waveform.as_ref().map(waveform_bytes)).flatten();
-    Response::new(bytes.unwrap_or_default())
+pub fn watch_waveform(state: State<'_, AppState>, deck: usize, load_id: u64, channel: Channel) {
+    state.with_loaded(deck, load_id, |t| t.waveform.watch(channel));
 }
 
 /// Where each part of the separated track on `deck` plays (`prisme_analysis::stem_activity`):
