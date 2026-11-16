@@ -1026,6 +1026,12 @@
   "kind": "button"
  },
  {
+  "id": "deck1.headphones.solo",
+  "group": "Deck A",
+  "label": "This deck alone in the headphones",
+  "kind": "button"
+ },
+ {
   "id": "deck1.passthrough",
   "group": "Deck A",
   "label": "Passthrough: the deck plays its input",
@@ -2055,6 +2061,12 @@
   "id": "deck2.headphones",
   "group": "Deck B",
   "label": "Headphones (pre-listen)",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.headphones.solo",
+  "group": "Deck B",
+  "label": "This deck alone in the headphones",
   "kind": "button"
  },
  {
@@ -3090,6 +3102,12 @@
   "kind": "button"
  },
  {
+  "id": "deck3.headphones.solo",
+  "group": "Deck C",
+  "label": "This deck alone in the headphones",
+  "kind": "button"
+ },
+ {
   "id": "deck3.passthrough",
   "group": "Deck C",
   "label": "Passthrough: the deck plays its input",
@@ -4119,6 +4137,12 @@
   "id": "deck4.headphones",
   "group": "Deck D",
   "label": "Headphones (pre-listen)",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.headphones.solo",
+  "group": "Deck D",
+  "label": "This deck alone in the headphones",
   "kind": "button"
  },
  {

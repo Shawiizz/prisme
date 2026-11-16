@@ -243,6 +243,13 @@ const ALL_SETTINGS: readonly SettingEntry[] = [
       ),
   },
   {
+    id: 'dj.cueOnLoad',
+    page: 'dj',
+    label: () => t('Headphones on the deck a track is loaded on'),
+    description: () =>
+      t('A track loaded on a deck puts that deck alone in the headphones, to cue it at once.'),
+  },
+  {
     id: 'library.tags',
     page: 'library',
     label: () => t('Write the tempo and key into the tags of the files'),

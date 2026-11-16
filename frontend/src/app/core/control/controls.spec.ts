@@ -79,6 +79,7 @@ describe('controls', () => {
     find('mixer.talkover').apply(1);
     find('deck2.passthrough').apply(1);
     find('mixer.headphones.split').apply(1);
+    find('deck2.headphones.solo').apply(1);
     expect(find('mixer.mic.cue').lit!()).toBe(true);
     expect(calls).toEqual([
       'setBalance(0.25)',
@@ -88,6 +89,7 @@ describe('controls', () => {
       'toggleTalkover()',
       'togglePassthrough(1)',
       'toggleSplitCue()',
+      'soloHeadphones(1)',
       'liveCued(mic)',
     ]);
   });

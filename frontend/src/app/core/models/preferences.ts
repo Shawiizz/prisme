@@ -15,6 +15,8 @@ export interface DjPreferences {
   knobMagnet: boolean;
   /** On a phone, the decks play and pause from its lock screen and its notifications. */
   lockControls: boolean;
+  /** The headphones go to the deck a track is loaded on, alone. */
+  cueOnLoad: boolean;
 }
 
 export interface LibraryPreferences {

@@ -247,6 +247,14 @@ export class EngineService {
     return this.call('set_tempo_range', { deck, range });
   }
 
+  /** The headphones on `deck` alone. */
+  soloCue(deck: number) {
+    for (const d of this.deckIndexes()) {
+      this.patchDeck(d, { cue: d === deck });
+      void this.call('set_deck_cue', { deck: d, enabled: d === deck });
+    }
+  }
+
   /** Software mixer: the channel fader starts and stops the deck. */
   setFaderStart(deck: number, enabled: boolean) {
     this.patchDeck(deck, { faderStart: enabled });
@@ -297,6 +305,7 @@ export class EngineService {
     try {
       const info = await load();
       this.patch(this.tracks, deck, info);
+      if (this.preferences.dj().cueOnLoad) this.soloCue(deck);
       this.patch(this.waveforms, deck, null);
       if (info.waveformReady) this.fetchWaveform(deck, info.loadId);
       this.error.set(null);

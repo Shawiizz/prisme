@@ -153,6 +153,9 @@ export class ControlService {
     crossfaderPosition: () => (this.mixer.crossfader() + 1) / 2,
     toggleHeadphones: (deck) => this.mixer.setDeckCue(deck, !this.engine.decks()[deck].cue),
     inHeadphones: (deck) => this.engine.decks()[deck].cue,
+    soloHeadphones: (deck) => this.engine.soloCue(deck),
+    aloneInHeadphones: (deck) =>
+      this.engine.deckIndexes().every((d) => this.engine.decks()[d].cue === (d === deck)),
     toggleSlip: (deck) => this.performance.setSlip(deck, !(this.deck(deck)?.slipMode ?? false)),
     slipping: (deck) => this.deck(deck)?.slipMode ?? false,
     censor: (deck, held) => this.performance.censor(deck, held),

@@ -669,5 +669,9 @@
   "Range of every tempo fader: previous": "Plage de tous les faders de tempo : précédente",
   "The travel of the tempo faders, as on your turntables: of them all, each deck can then have its own in its menu.": "La course des faders de tempo, comme sur vos platines : de tous, puis chaque platine peut avoir la sienne dans son menu.",
   "Deck options: motor, repeat, tempo range, fader start": "Options de la platine : moteur, répétition, plage de tempo, fader start",
-  "Split headphones: cue left, master right": "Casque séparé : cue à gauche, master à droite"
+  "Split headphones: cue left, master right": "Casque séparé : cue à gauche, master à droite",
+  "This deck alone in the headphones": "Cette platine seule dans le casque",
+  "Hear this deck in the headphones · double-click: this deck alone": "Écouter cette platine au casque · double-clic : cette platine seule",
+  "Headphones on the deck a track is loaded on": "Casque sur la platine où un morceau est chargé",
+  "A track loaded on a deck puts that deck alone in the headphones, to cue it at once.": "Un morceau chargé sur une platine met cette platine seule dans le casque, pour le caler aussitôt."
 }

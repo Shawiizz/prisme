@@ -72,6 +72,8 @@ pub struct DjPreferences {
     pub knob_magnet: bool,
     /// On a phone, the decks play and pause from its lock screen and its notifications.
     pub lock_controls: bool,
+    /// The headphones go to the deck a track is loaded on, alone.
+    pub cue_on_load: bool,
 }
 
 impl Preferences {
@@ -127,6 +129,7 @@ impl Default for DjPreferences {
             deck_count: DeckCount::Two,
             knob_magnet: true,
             lock_controls: true,
+            cue_on_load: false,
         }
     }
 }
@@ -268,6 +271,7 @@ mod tests {
         assert!(!p.library.replace_tags);
         assert!(p.library.pause_while_playing);
         assert_eq!(p.library.separate_on_load, None);
+        assert!(!p.dj.cue_on_load, "the headphones stay where they are at a load");
     }
 
     #[test]

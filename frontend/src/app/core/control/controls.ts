@@ -159,6 +159,10 @@ export interface ControlActions {
   crossfaderPosition(): number;
   toggleHeadphones(deck: number): void;
   inHeadphones(deck: number): boolean;
+  /** The headphones on this deck alone. */
+  soloHeadphones(deck: number): void;
+  /** Whether the deck is alone in the headphones. */
+  aloneInHeadphones(deck: number): boolean;
   toggleSlip(deck: number): void;
   slipping(deck: number): boolean;
   censor(deck: number, held: boolean): void;
@@ -530,6 +534,12 @@ function deckControls(a: ControlActions, deck: number): Control[] {
     lit(
       button(id('headphones'), group, t('Headphones (pre-listen)'), () => a.toggleHeadphones(deck)),
       () => a.inHeadphones(deck),
+    ),
+    lit(
+      button(id('headphones.solo'), group, t('This deck alone in the headphones'), () =>
+        a.soloHeadphones(deck),
+      ),
+      () => a.aloneInHeadphones(deck),
     ),
     lit(
       button(id('passthrough'), group, t('Passthrough: the deck plays its input'), () =>
