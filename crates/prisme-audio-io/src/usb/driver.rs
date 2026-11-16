@@ -21,7 +21,7 @@ use crate::AudioCallback;
 use std::io;
 use std::os::fd::RawFd;
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::{mpsc, Arc, Mutex};
+use std::sync::{mpsc, Arc};
 use std::thread::JoinHandle;
 use std::time::{Duration, Instant};
 use tracing::warn;
@@ -215,10 +215,14 @@ impl Drop for Driver {
                 }
             }
         }
-        if let Reaper::Thread(thread) = &mut self.reaper {
-            if let Some(thread) = thread.take() {
-                let _ = thread.join();
+        match &mut self.reaper {
+            Reaper::Thread(thread) => {
+                if let Some(thread) = thread.take() {
+                    let _ = thread.join();
+                }
             }
+            #[cfg(target_os = "android")]
+            Reaper::Helper { .. } => {}
         }
     }
 }
@@ -235,6 +239,7 @@ fn helper<C: AudioCallback, R: FnOnce(Box<State<C>>) + Send + 'static>(
         AudioCallbackResult, AudioDirection, AudioFormat, AudioPerformanceMode, AudioSharingMode,
         AudioStreamBuilder,
     };
+    use std::sync::Mutex;
     const CHANNELS: usize = 2;
     // taken by the callback at its first call, or back here if the stream does not start
     let slot = Arc::new(Mutex::new(Some((state, run))));
