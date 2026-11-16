@@ -4,6 +4,7 @@
 
 use criterion::{criterion_group, criterion_main, Criterion};
 use prisme_analysis::dsp::analysis_signal;
+use prisme_analysis::grid::fit_grid;
 use prisme_analysis::key::estimate_key;
 use prisme_analysis::onset::onset_envelopes;
 use prisme_analysis::tempo::estimate_tempo;
@@ -40,6 +41,8 @@ fn analysis(c: &mut Criterion) {
     group.bench_function("  mono 11 kHz", |b| b.iter(|| analysis_signal(&track, MAX_ANALYSED_S)));
     group.bench_function("  onsets", |b| b.iter(|| onset_envelopes(&signal)));
     group.bench_function("  tempo", |b| b.iter(|| estimate_tempo(&envelopes, DEFAULT_MIN_BPM)));
+    let coarse = estimate_tempo(&envelopes, DEFAULT_MIN_BPM).expect("a tempo");
+    group.bench_function("  grid on the kicks", |b| b.iter(|| fit_grid(&signal, coarse)));
     group.bench_function("  key", |b| b.iter(|| estimate_key(&signal)));
     group.bench_function("waveform, 3 min", |b| b.iter(|| compute_waveform(&track, 150)));
     group.finish();

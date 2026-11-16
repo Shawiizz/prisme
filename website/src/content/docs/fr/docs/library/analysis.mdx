@@ -16,12 +16,19 @@ bon.
 
 ## Ce que trouve l’analyse
 
-**Tempo et grille rythmique.** Prisme cherche un tempo stable sur tout le morceau, à environ un
-millième de BPM près, et l’arrondit à un BPM entier quand celui-ci colle tout aussi bien (les
-morceaux produits dans un DAW en ont généralement un). Il pose ensuite une grille de temps sur
-le morceau, calée sur les kicks. La grille est dessinée en travers de la forme d’onde : un trait
-sur chaque temps et, tous les quatre temps, un trait rouge plus épais avec de petites flèches en
-haut et en bas.
+**Tempo et grille rythmique.** Prisme cherche un tempo stable sur tout le morceau, puis le mesure
+sur les kicks eux-mêmes : il trouve où commence l’attaque de chaque kick, à une fraction de
+milliseconde près, et ajuste le tempo sur elles, du premier kick au dernier. La grille se pose
+sur le début des attaques, là où vous la placeriez à l’œil sur la forme d’onde, et non sur
+l’instant le plus fort du kick, quelques millisecondes plus tard : deux morceaux aux grilles
+alignées ne font pas entendre deux kicks au lieu d’un. Les temps sans kick, comme dans un break, sont laissés hors de la
+mesure.
+
+Le tempo n’est arrondi à un BPM entier (les morceaux produits dans un DAW en ont généralement
+un) que si ce BPM entier garde la grille à moins de 2 ms des kicks jusqu’à la fin du morceau ;
+sinon il reste tel que mesuré, au centième de BPM près ou mieux : un morceau à 123,95 BPM ne
+s’affiche pas à 124. La grille est dessinée sur la forme d’onde : un trait sur chaque temps et,
+tous les quatre temps, un trait rouge plus épais avec de petites flèches en haut et en bas.
 
 - La grille a **un seul tempo pour tout le morceau**. Cela convient à la plupart des musiques
   électroniques. Un morceau qui accélère ou ralentit, ou joué par un batteur en live, va dériver
@@ -30,6 +37,9 @@ haut et en bas.
   and bass à leur tempo habituel, mais un morceau de hip-hop à 85 BPM s’affiche à 170, et un
   morceau à 180 BPM à 90. Corrigez-le avec **÷2** ou **×2** (plus bas).
 - Les morceaux de moins de 10 secondes n’ont pas de tempo.
+- Là où le kick n’a pas de début net (un kick saturé qui gronde, comme en schranz, ou un kick
+  noyé sous la basse), la grille peut tomber à quelques millisecondes à côté : vérifiez-la à
+  l’oreille.
 
 **Tonalité.** Prisme écoute l’harmonie de tout le morceau, après avoir compensé un morceau
 accordé un peu à côté du diapason, et choisit la plus probable des 24 tonalités majeures et

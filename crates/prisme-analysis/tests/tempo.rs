@@ -32,21 +32,8 @@ fn finds_the_bpm_and_the_grid_of_dj_tempos() {
         let t = tempo_of(&s, 88.0);
         assert!((t.bpm - bpm).abs() < 0.01, "{bpm} BPM: found {:.4}", t.bpm);
         let err = phase_error(&t, first_beat);
-        assert!(err < 0.006, "{bpm} BPM: grid off by {:.1} ms", err * 1000.0);
+        assert!(err < 0.002, "{bpm} BPM: grid off by {:.1} ms", err * 1000.0);
         assert!(t.confidence > 0.5, "{bpm} BPM: confidence {}", t.confidence);
-    }
-}
-
-#[test]
-#[ignore = "calibration helper: prints the signed grid offset"]
-fn print_grid_offsets() {
-    for &(bpm, first_beat) in &[(95.5, 0.31), (120.0, 0.05), (128.0, 0.2), (140.0, 1.003), (174.0, 0.12)] {
-        let mut s = Synth::new(60.0);
-        s.drums(bpm, first_beat, 1.0, 0.3);
-        let t = tempo_of(&s, 88.0);
-        let period = t.beat_period_s();
-        let d = (t.first_beat_s - first_beat + period / 2.0).rem_euclid(period) - period / 2.0;
-        println!("{bpm}: {:+.2} ms", d * 1000.0);
     }
 }
 
@@ -64,7 +51,7 @@ fn the_grid_sits_on_the_kicks_even_with_loud_hats() {
     s.drums(126.0, 0.25, 0.6, 1.0);
     let t = tempo_of(&s, 88.0);
     assert!((t.bpm - 126.0).abs() < 0.01, "found {:.4}", t.bpm);
-    assert!(phase_error(&t, 0.25) < 0.006, "grid off by {:.1} ms", phase_error(&t, 0.25) * 1000.0);
+    assert!(phase_error(&t, 0.25) < 0.002, "grid off by {:.1} ms", phase_error(&t, 0.25) * 1000.0);
 }
 
 #[test]
@@ -74,7 +61,7 @@ fn long_tracks_get_a_very_precise_bpm() {
     let t = tempo_of(&s, 88.0);
     // 0.002 BPM over 5 minutes is less than 5 ms of drift
     assert!((t.bpm - 127.83).abs() < 0.002, "found {:.4}", t.bpm);
-    assert!(phase_error(&t, 0.4) < 0.006);
+    assert!(phase_error(&t, 0.4) < 0.002);
 }
 
 #[test]
@@ -93,7 +80,7 @@ fn chords_over_drums_do_not_disturb_the_tempo() {
     s.progression(&common::minor_progression(9, 0.0), 60.0 / 124.0 * 8.0, 0.15);
     let t = tempo_of(&s, 88.0);
     assert!((t.bpm - 124.0).abs() < 0.01, "found {:.4}", t.bpm);
-    assert!(phase_error(&t, 0.15) < 0.006);
+    assert!(phase_error(&t, 0.15) < 0.002, "grid off by {:.2} ms", phase_error(&t, 0.15) * 1000.0);
 }
 
 #[test]

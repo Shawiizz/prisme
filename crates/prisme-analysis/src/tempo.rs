@@ -6,10 +6,10 @@
 //!    representative) is scored by summing its first harmonics: this prefers the
 //!    real beat over the 3:2 relations that a single line would allow.
 //! 2. The winner is refined to about 0.001 BPM by maximising the same harmonic sum
-//!    with exact DFTs (precision grows with the track length), then snapped to the
-//!    nearest whole BPM when that fits as well (DAW-made tracks).
+//!    with exact DFTs (precision grows with the track length).
 //! 3. The grid phase is the offset whose beats collect the most bass onsets, so the
-//!    grid sits on the kicks.
+//!    grid sits near the kicks, to within the envelope's resolution: [`crate::grid`]
+//!    then puts it on their attacks.
 
 use crate::onset::OnsetEnvelopes;
 use rustfft::num_complex::Complex32;
@@ -26,10 +26,6 @@ const COARSE_STEP_BPM: f64 = 0.01;
 const FINE_SPAN_BPM: f64 = 0.06;
 /// Phase search step (envelope frames).
 const PHASE_STEP: f64 = 0.25;
-/// Tracks made in a DAW have a whole BPM: a refined value this close to an integer
-/// is snapped to it if the integer explains the onsets almost as well.
-const SNAP_DISTANCE_BPM: f64 = 0.03;
-const SNAP_MIN_SCORE_RATIO: f64 = 0.98;
 
 /// Default lower bound of the BPM range: [88, 176) holds house, techno, schranz and
 /// drum and bass at their usual tempo.
@@ -78,16 +74,7 @@ pub fn estimate_tempo(env: &OnsetEnvelopes, min_bpm: f64) -> Option<Tempo> {
     }
     let confidence = (1.0 - total / steps as f64 / best_score).clamp(0.0, 1.0) as f32;
 
-    let refined = refine(&signal, env.frame_rate, best_bpm);
-    let whole = refined.round();
-    let bpm = if (refined - whole).abs() <= SNAP_DISTANCE_BPM
-        && harmonic_score(&signal, env.frame_rate, whole)
-            >= SNAP_MIN_SCORE_RATIO * harmonic_score(&signal, env.frame_rate, refined)
-    {
-        whole
-    } else {
-        refined
-    };
+    let bpm = refine(&signal, env.frame_rate, best_bpm);
     let first_beat_s = beat_phase(env, bpm);
     Some(Tempo { bpm, first_beat_s, confidence })
 }

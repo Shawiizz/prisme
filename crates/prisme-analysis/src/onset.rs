@@ -18,16 +18,13 @@ const LOW_BAND_HZ: f64 = 180.0;
 const COMPRESSION: f32 = 1_000.0;
 /// Width of the moving average removed from the envelopes (seconds).
 const DETREND_S: f64 = 0.4;
-/// A sharp attack peaks in the envelope while it is still ahead of the frame centre,
-/// by this much (seconds, measured on synthetic kicks at many tempos).
-const ATTACK_AHEAD_OF_CENTRE_S: f64 = 0.0153;
 
 pub struct OnsetEnvelopes {
     pub full: Vec<f32>,
     pub low: Vec<f32>,
     /// Envelope values per second.
     pub frame_rate: f64,
-    /// Time of the attacks that peak at value 0 (seconds).
+    /// Time of the centre of the first frame (seconds).
     pub start_s: f64,
 }
 
@@ -40,7 +37,7 @@ impl OnsetEnvelopes {
         self.full.is_empty()
     }
 
-    /// Time of an attack that peaks at envelope value `i` (fractional indices allowed).
+    /// Time of the centre of frame `i` (fractional indices allowed).
     pub fn time_of(&self, i: f64) -> f64 {
         self.start_s + i / self.frame_rate
     }
@@ -83,7 +80,7 @@ pub fn onset_envelopes(signal: &MonoSignal) -> OnsetEnvelopes {
         full: detrended(&full, detrend),
         low: detrended(&low, detrend),
         frame_rate,
-        start_s: (FRAME / 2) as f64 / signal.sample_rate + ATTACK_AHEAD_OF_CENTRE_S,
+        start_s: (FRAME / 2) as f64 / signal.sample_rate,
     }
 }
 
