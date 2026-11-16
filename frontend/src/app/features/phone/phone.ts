@@ -18,6 +18,7 @@ import { decimal, formatClock } from '../../shared/time';
 import { CommandPalette } from '../command-palette/command-palette';
 import { PhoneDecks } from './phone-decks';
 import { PhoneLibrary } from './phone-library';
+import { PhoneRecord } from './phone-record';
 import { PhoneSettings } from './phone-settings';
 
 type Tab = 'decks' | 'library' | 'settings';
@@ -36,7 +37,7 @@ const TOUCH_KEY = 'prisme.phone.touch';
   templateUrl: './phone.html',
   styleUrl: './phone.scss',
   host: { '[class.android]': 'ANDROID' },
-  imports: [CommandPalette, PhoneDecks, PhoneLibrary, PhoneSettings, TPipe],
+  imports: [CommandPalette, PhoneDecks, PhoneLibrary, PhoneRecord, PhoneSettings, TPipe],
 })
 export class Phone {
   protected readonly ANDROID = ANDROID;
@@ -48,6 +49,8 @@ export class Phone {
   private readonly controllers = inject(ControllerService);
 
   protected readonly tab = signal<Tab>('decks');
+  /** The choice of what to record is open. */
+  protected readonly recordMenu = signal(false);
   protected readonly tabs: { id: Tab; label: Text }[] = [
     {
       id: 'decks',
@@ -109,12 +112,5 @@ export class Phone {
     const touch = !this.touch();
     this.chosen.set(touch);
     storeChoice(TOUCH_KEY, touch);
-  }
-
-  /** Records what the phone offers first: the master of its software mixer, else the first
-   * inputs of its sound card (a hardware mixer's record out). */
-  protected record() {
-    const [first] = this.recording.options();
-    if (first) this.recording.start(first.source);
   }
 }

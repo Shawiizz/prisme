@@ -12,6 +12,7 @@ import {
   LiveState,
   MixMode,
   MixerState,
+  RecordSource,
 } from '../models/engine';
 import { EngineService } from './engine.service';
 import { SettingsService } from './settings.service';
@@ -64,6 +65,8 @@ export class MixerService {
   readonly talkoverDepthDb = signal(-18);
   /** The inputs of the running device the turntables leave free (0-based). */
   readonly freeInputs = signal<number[]>([]);
+  /** What was recorded last: a recording started without asking takes it again. */
+  readonly recordSource = signal<RecordSource | null>(null);
   /** The software mixer is in use. */
   readonly internal = computed(() => (this.modeInUse() ?? this.mode()) === 'internal');
   /** External mode asked for, but the device has too few outputs: the software mixer runs. */
@@ -121,6 +124,7 @@ export class MixerService {
     this.boothGain.set(state.boothGain);
     this.talkover.set(state.talkover);
     this.talkoverDepthDb.set(state.talkoverDepthDb);
+    this.recordSource.set(state.recordSource);
   }
 
   async setMode(mode: MixMode) {

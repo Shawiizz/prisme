@@ -34,6 +34,8 @@ pub enum AppError {
     SampleTooLong(f64),
     #[error("already recording")]
     AlreadyRecording,
+    #[error("your own mixer mixes: the master of Prisme plays nothing to record")]
+    SilentMaster,
     #[error("no headphones of their own to preview in: choose their outputs in the settings")]
     NoPreviewOutput,
     /// The files whose genre could not be written.
@@ -90,6 +92,7 @@ impl AppError {
             AppError::InvalidKey(key) => ("invalidKey", json!({ "key": key })),
             AppError::SampleTooLong(seconds) => ("sampleTooLong", json!({ "seconds": seconds })),
             AppError::AlreadyRecording => ("alreadyRecording", none()),
+            AppError::SilentMaster => ("silentMaster", none()),
             AppError::NoPreviewOutput => ("noPreviewOutput", none()),
             AppError::GenreNotWritten(files) => {
                 ("genreNotWritten", json!({ "count": files.len(), "file": files.first() }))

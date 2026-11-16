@@ -84,6 +84,7 @@ pub fn mixer_state(state: State<'_, AppState>) -> MixerStateDto {
         talkover: mixer.talkover,
         talkover_depth_db: mixer.talkover_depth_db,
         free_inputs: info.as_ref().map(free_inputs).unwrap_or_default(),
+        record_source: mixer.record_source,
     }
 }
 

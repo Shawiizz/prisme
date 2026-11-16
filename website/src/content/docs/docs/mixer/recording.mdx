@@ -20,7 +20,8 @@ hardware mixer, what comes back into your sound card from the mixer's record out
 2. Choose what to record:
    - **Master**: what the software mixer plays (only offered with the software mixer).
    - **Inputs 1-2**, **Inputs 3-4**…: what comes into that input pair of your sound card. Plug your
-     hardware mixer's record output there.
+     hardware mixer's record output there. A pair a turntable comes into reads
+     **Inputs 1-2: a turntable**: it would record the record's timecode.
 
 3. The key turns red and counts the time. Mix as usual.
 
@@ -31,14 +32,14 @@ hardware mixer, what comes back into your sound card from the mixer's record out
 Hover over **Rec** afterwards to see where the last recording went, how long it lasted and how many
 tracks it holds.
 
-On a phone, **Rec** at the top records the master straight away (or inputs 1-2 with an external
-mixer). From a controller or the command palette, **Record the mix** starts and stops a recording of
-the master.
+On a phone, **Rec** at the top opens the same choice, each source with what it holds.
 
-<Aside type="caution">
-**Record the mix** from a controller or the palette always records the software mixer's master.
-With an external mixer, start the recording from **Rec** and choose your mixer's inputs instead.
-</Aside>
+From a controller or the command palette, **Record the mix** starts and stops a recording without
+asking. It records what you recorded last, if it is still there and no turntable comes into it now,
+else the software mixer's master. With an external mixer, nothing has been chosen until you record
+its inputs once from **Rec**: until then **Record the mix** records nothing and says so
+(**Nothing to record without asking: choose the inputs of your mixer in the Rec menu**), rather than
+record silence or a timecode. Your choice is kept for the next start.
 
 ## What is recorded
 
@@ -52,8 +53,8 @@ recorded.
 record or booth output so its loudest peaks stay below full scale: Prisme does not limit it.
 
 <Aside type="caution">
-Do not pick the input pair a turntable is plugged into: you would record its timecode tone. The
-turntables use inputs 1-2 for deck A and 3-4 for deck B.
+Do not pick an input pair marked **a turntable**: you would record its timecode tone. The turntables
+use inputs 1-2 for deck A and 3-4 for deck B.
 </Aside>
 
 ## The file

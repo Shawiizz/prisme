@@ -1,8 +1,8 @@
 //! What the user chooses once and finds again at the next start.
 
 use crate::dto::{
-    AudioSettings, CrossfaderCurveDto, HeadphonesOutputDto, InputChannelsDto, MixModeDto, RpmDto,
-    VinylModeDto,
+    AudioSettings, CrossfaderCurveDto, HeadphonesOutputDto, InputChannelsDto, MixModeDto, RecordSourceDto,
+    RpmDto, VinylModeDto,
 };
 use prisme_engine::MAX_DECKS;
 use serde::{Deserialize, Deserializer, Serialize};
@@ -239,6 +239,8 @@ pub struct MixerPreferences {
     /// While the microphone is on, the music ducks by [`MixerPreferences::talkover_depth_db`].
     pub talkover: bool,
     pub talkover_depth_db: f32,
+    /// What was recorded last: what a recording started without asking takes again.
+    pub record_source: Option<RecordSourceDto>,
 }
 
 /// Where a live source comes in, and how loud. Off again at each start.
@@ -276,6 +278,7 @@ impl Default for MixerPreferences {
             aux: LivePreferences::default(),
             talkover: false,
             talkover_depth_db: -18.0,
+            record_source: None,
         }
     }
 }
@@ -382,6 +385,7 @@ mod tests {
         assert!(!p.mixer.split_cue, "the headphones blend unless split");
         assert!(!p.mixer.crossfader_reverse);
         assert_eq!(p.mixer.talkover_depth_db, -18.0);
+        assert_eq!(p.mixer.record_source, None, "nothing recorded yet");
     }
 
     #[test]
@@ -469,6 +473,7 @@ mod tests {
         p.mixer.booth = Some(4);
         p.auto_dj = AutoDjPreferences { fade_beats: 32, fade_s: 15.0 };
         p.mixer.split_cue = true;
+        p.mixer.record_source = Some(RecordSourceDto::Input { first: 4 });
         p.mixer.crossfader_reverse = true;
         p.mixer.mic =
             LivePreferences { input: Some(InputChannelsDto { first: 4, stereo: false }), level: 0.5 };

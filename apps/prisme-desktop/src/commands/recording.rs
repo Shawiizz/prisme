@@ -13,7 +13,8 @@ use tauri::{AppHandle, Manager, State};
 /// end up in the library.
 const FOLDER: &str = "Prisme Recordings";
 
-/// Starts recording; returns the file being written.
+/// Starts recording, never the master of a software mixer not in use (silence); returns the
+/// file being written. The source is kept: a recording started without asking takes it again.
 #[tauri::command]
 pub fn start_recording(
     app: AppHandle,
@@ -25,10 +26,14 @@ pub fn start_recording(
     if recorder.is_some() {
         return Err(AppError::AlreadyRecording);
     }
+    if source == RecordSourceDto::Master && state.sample_rate().is_some() && !state.mixes_itself() {
+        return Err(AppError::SilentMaster);
+    }
     let documents = app.path().document_dir().map_err(|e| AppError::Other(e.to_string()))?;
     let started = Recorder::start(&state, source.into(), &documents.join(FOLDER), library.db.clone())?;
     let path = started.path().display().to_string();
     *recorder = Some(started);
+    state.update_preferences(|p| p.mixer.record_source = Some(source));
     Ok(path)
 }
 

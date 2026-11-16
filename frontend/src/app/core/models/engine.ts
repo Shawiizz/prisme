@@ -422,6 +422,8 @@ export interface MixerState {
   talkoverDepthDb: number;
   /** The inputs of the running device the turntables leave free (0-based). */
   freeInputs: number[];
+  /** What was recorded last. */
+  recordSource: RecordSource | null;
 }
 
 /** The decks there can be: two are shown, or all four (a preference). */

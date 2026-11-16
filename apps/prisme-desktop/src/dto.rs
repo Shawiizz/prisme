@@ -862,6 +862,8 @@ pub struct MixerStateDto {
     pub talkover_depth_db: f32,
     /// The inputs of the running device the turntables leave free (0-based).
     pub free_inputs: Vec<usize>,
+    /// What was recorded last.
+    pub record_source: Option<RecordSourceDto>,
 }
 
 #[derive(Debug, Clone, Serialize)]
