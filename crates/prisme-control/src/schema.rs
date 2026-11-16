@@ -19,15 +19,16 @@ pub struct Target {
     pub kind: String,
 }
 
-/// The actions named by what they measure, and the modes of a profile's groups.
-const PATTERNS: [(&str, &str); 4] = [
+/// The actions named by what they measure, the modes of a profile's groups and its named shifts.
+const PATTERNS: [(&str, &str); 5] = [
     (
-        r"^deck[1-4]\.(jump|loop)\.[+-]?\d+(\.\d+)?$",
-        "Jumps or loops of so many beats (`deck1.jump.-8`, `deck1.loop.0.25`)",
+        r"^deck[1-4]\.(jump|loop|roll)\.[+-]?\d+(\.\d+)?$",
+        "Jumps, loops or rolls of so many beats (`deck1.jump.-8`, `deck1.loop.0.25`)",
     ),
     (r"^deck[1-4]\.key\.[+-]?\d+$", "The key moved by so many semitones (`deck1.key.+2`)"),
-    (r"^deck[1-4]\.sample[1-8]\.velocity$", "A sample played as loud as the pad is hit"),
+    (r"^deck[1-4]\.sample([1-9]|1[0-6])\.velocity$", "A sample played as loud as the pad is hit"),
     (r"^mode\.[^.]+\.[^.]+$", "A mode of one of the profile's groups (`mode.<group>.<mode>`)"),
+    (r"^shift\.[^.]+$", "A named shift (`shift.left`), one per side say: a shift too"),
 ];
 
 /// The schema of a profile, `targets` the actions its controls can drive.

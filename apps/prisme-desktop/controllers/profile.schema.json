@@ -3046,8 +3046,8 @@
           ]
         },
         {
-          "description": "Jumps or loops of so many beats (`deck1.jump.-8`, `deck1.loop.0.25`)",
-          "pattern": "^deck[1-4]\\.(jump|loop)\\.[+-]?\\d+(\\.\\d+)?$"
+          "description": "Jumps, loops or rolls of so many beats (`deck1.jump.-8`, `deck1.loop.0.25`)",
+          "pattern": "^deck[1-4]\\.(jump|loop|roll)\\.[+-]?\\d+(\\.\\d+)?$"
         },
         {
           "description": "The key moved by so many semitones (`deck1.key.+2`)",
@@ -3055,11 +3055,15 @@
         },
         {
           "description": "A sample played as loud as the pad is hit",
-          "pattern": "^deck[1-4]\\.sample[1-8]\\.velocity$"
+          "pattern": "^deck[1-4]\\.sample([1-9]|1[0-6])\\.velocity$"
         },
         {
           "description": "A mode of one of the profile's groups (`mode.<group>.<mode>`)",
           "pattern": "^mode\\.[^.]+\\.[^.]+$"
+        },
+        {
+          "description": "A named shift (`shift.left`), one per side say: a shift too",
+          "pattern": "^shift\\.[^.]+$"
         }
       ],
       "description": "An action of Prisme",
