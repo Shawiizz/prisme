@@ -270,6 +270,8 @@ export interface DeckSettings {
   jogScratch: boolean;
   /** At the end, the track goes on from its start. */
   repeat: boolean;
+  /** The deck's channel silenced in the master, after its fader (the headphones still hear it). */
+  mute: boolean;
 }
 
 export const EFFECT_KINDS = [

@@ -58,6 +58,7 @@ pub fn mixer_state(state: State<'_, AppState>) -> MixerStateDto {
                 side: d.side.unwrap_or(CrossfaderSideDto::of_deck(deck)),
                 jog_scratch: d.jog_scratch,
                 repeat: d.repeat,
+                mute: d.mute,
             })
             .collect(),
         crossfader: *lock(&state.crossfader),
@@ -208,6 +209,14 @@ pub fn set_deck_cue(state: State<'_, AppState>, deck: usize, enabled: bool) -> A
     AppState::check_deck(deck)?;
     lock(&state.decks)[deck].cue = enabled;
     state.send(Command::SetDeckCue { deck, enabled })
+}
+
+/// The deck's channel silenced in the master, after its fader, or heard again.
+#[tauri::command]
+pub fn set_mute(state: State<'_, AppState>, deck: usize, enabled: bool) -> AppResult<()> {
+    AppState::check_deck(deck)?;
+    lock(&state.decks)[deck].mute = enabled;
+    state.send_if_running(Command::SetMute { deck, muted: enabled })
 }
 
 /// Headphones: 0 = cued decks only, 1 = master only. Kept for the next start.

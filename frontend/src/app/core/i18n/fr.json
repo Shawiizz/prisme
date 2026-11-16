@@ -774,5 +774,8 @@
   "Reverse while held": "Lecture inversée (maintenue)",
   "The track plays backwards; with slip, it comes back where it would be": "Le morceau joue à l'envers ; avec le slip, il revient où il en serait",
   "The track plays backwards: press to play it forwards": "Le morceau joue à l'envers : appuyer pour le rejouer à l'endroit",
-  "Deck options: motor, reverse, repeat, tempo range, fader start": "Options de la platine : moteur, lecture inversée, répétition, plage de tempo, fader start"
+  "Mute the channel": "Couper la voie",
+  "Silent in the master, still heard in the headphones": "Muette dans le master, toujours entendue au casque",
+  "The channel is muted: press to hear it again": "La voie est coupée : appuyer pour l'entendre à nouveau",
+  "Deck options: motor, reverse, mute, repeat, tempo range, fader start": "Options de la platine : moteur, lecture inversée, coupure, répétition, plage de tempo, fader start"
 }

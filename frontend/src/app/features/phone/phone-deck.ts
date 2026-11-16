@@ -89,7 +89,10 @@ export class PhoneDeck {
     return mode === 'int' ? null : VINYL_LABEL[mode];
   });
   /** What changes what is heard, on until switched off in the deck's settings. */
-  protected readonly flags = computed(() => (this.status()?.reverse ? ['REV'] : []));
+  protected readonly flags = computed(() => [
+    ...(this.status()?.reverse ? ['REV'] : []),
+    ...(this.engine.decks()[this.deck()].mute ? ['MUTE'] : []),
+  ]);
   protected readonly signal = this.driven.signal;
   protected readonly signalTitle = this.driven.signalTitle;
 }

@@ -9,7 +9,8 @@ import { Press } from '../../../shared/press';
 
 /**
  * What a deck does now and then rather than all the time, a row each: its motor (a brake, a
- * soft start, a spinback while held), the track played backwards, the track repeated, the
+ * soft start, a spinback while held), the track played backwards, the channel muted, the track
+ * repeated, the
  * range of its tempo fader, and on the software mixer the channel fader starting and stopping
  * it.
  */
@@ -49,6 +50,19 @@ import { Press } from '../../../shared/press';
         [attr.aria-label]="'Reverse' | t"
         [title]="'The track plays backwards; with slip, it comes back where it would be' | t"
         (click)="performance.setReverse(deck(), !reversed())"
+      >
+        <span></span>
+      </button>
+    </div>
+    <div class="row">
+      <span>{{ 'Mute the channel' | t }}</span>
+      <button
+        class="pr-switch"
+        role="switch"
+        [attr.aria-checked]="settings().mute"
+        [attr.aria-label]="'Mute the channel' | t"
+        [title]="'Silent in the master, still heard in the headphones' | t"
+        (click)="engine.setMute(deck(), !settings().mute)"
       >
         <span></span>
       </button>

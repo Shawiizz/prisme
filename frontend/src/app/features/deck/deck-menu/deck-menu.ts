@@ -19,12 +19,21 @@ import { DeckOptions } from '../deck-options/deck-options';
         REV
       </button>
     }
+    @if (muted()) {
+      <button
+        class="pr-btn pr-btn--sm is-on"
+        [title]="'The channel is muted: press to hear it again' | t"
+        (click)="engine.setMute(deck(), false)"
+      >
+        MUTE
+      </button>
+    }
     <button
       class="pr-btn pr-btn--sm pr-btn--icon"
       [class.is-on]="open()"
       (click)="open.set(!open())"
-      [title]="'Deck options: motor, reverse, repeat, tempo range, fader start' | t"
-      [attr.aria-label]="'Deck options: motor, reverse, repeat, tempo range, fader start' | t"
+      [title]="'Deck options: motor, reverse, mute, repeat, tempo range, fader start' | t"
+      [attr.aria-label]="'Deck options: motor, reverse, mute, repeat, tempo range, fader start' | t"
     >
       ⋯
     </button>
@@ -61,10 +70,11 @@ export class DeckMenu {
   readonly deck = input.required<number>();
   protected readonly open = signal(false);
   protected readonly performance = inject(PerformanceService);
-  private readonly engine = inject(EngineService);
+  protected readonly engine = inject(EngineService);
   protected readonly reversed = computed(
     () => this.engine.status()?.decks[this.deck()]?.reverse ?? false,
   );
+  protected readonly muted = computed(() => this.engine.decks()[this.deck()].mute);
 
   constructor() {
     overlay(this.open, () => this.open.set(false));

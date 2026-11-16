@@ -204,6 +204,8 @@ export class ControlService {
     reversing: (deck) => this.deck(deck)?.reverse ?? false,
     holdReverse: (deck, held) => this.performance.holdReverse(deck, held),
     backwards: (deck) => (this.deck(deck)?.speed ?? 0) < 0,
+    setMute: (deck, on) => this.engine.setMute(deck, on),
+    muted: (deck) => this.engine.decks()[deck].mute,
     toggleRepeat: (deck) => this.engine.setRepeat(deck, !this.engine.decks()[deck].repeat),
     repeating: (deck) => this.engine.decks()[deck].repeat,
     toggleFaderStart: (deck) =>

@@ -73,7 +73,7 @@ pub enum CrossfaderCurve {
 const SHARP_CUT: f32 = 0.04;
 /// Highest master level: just below full scale.
 const LIMITER_THRESHOLD: f32 = 0.98;
-/// How fast the balance and the booth level follow their knobs (s).
+/// How fast the balance, the booth level and a mute follow their keys (s).
 const GLIDE_S: f32 = 0.02;
 
 pub(crate) struct Mixer {
@@ -99,6 +99,8 @@ pub(crate) struct Mixer {
     pub(crate) mic: LiveInput,
     pub(crate) aux: LiveInput,
     pub(crate) talkover: Talkover,
+    /// Each deck heard (1) or muted (0) in the master, or on its own output.
+    unmuted: [Smoothed; MAX_DECKS],
     master_bus: Vec<f32>,
     /// The master without the microphone, for the headphones: the DJ does not hear their own
     /// voice there, late, unless they cue it.
@@ -134,6 +136,7 @@ impl Mixer {
             mic: LiveInput::new(max_block_frames, sample_rate),
             aux: LiveInput::new(max_block_frames, sample_rate),
             talkover: Talkover::new(sample_rate),
+            unmuted: std::array::from_fn(|_| Smoothed::new(1.0, GLIDE_S, sample_rate)),
             master_bus: vec![0.0; max_block_frames * 2],
             music_bus: vec![0.0; max_block_frames * 2],
             cue_bus: vec![0.0; max_block_frames * 2],
@@ -156,6 +159,12 @@ impl Mixer {
         self.booth_gain.set(gain.max(0.0));
     }
 
+    pub(crate) fn set_mute(&mut self, deck: usize, muted: bool) {
+        if let Some(unmuted) = self.unmuted.get_mut(deck) {
+            unmuted.set(if muted { 0.0 } else { 1.0 });
+        }
+    }
+
     pub(crate) fn live(&mut self, source: LiveSource) -> &mut LiveInput {
         match source {
             LiveSource::Mic => &mut self.mic,
@@ -176,18 +185,37 @@ impl Mixer {
         self.cue_bus[..frames * 2].fill(0.0);
     }
 
-    /// Adds deck `index` (stereo, interleaved) to the outputs or the buses.
+    /// Adds deck `index` (stereo, interleaved) to the outputs or the buses; muted, to the
+    /// headphones only.
     pub(crate) fn add_deck(&mut self, index: usize, deck: DeckMix<'_>, out: &mut [f32], out_channels: usize) {
         let n = deck.audio.len();
+        let steady = Some(&self.unmuted[index]).filter(|u| u.is_settled()).map(Smoothed::target);
         match self.routing.mode {
             MixMode::External => {
                 if let Some(first) = self.routing.deck_outputs[index] {
-                    add_pair(deck.audio, self.master_gain, out, out_channels, first);
+                    let (gain, unmuted) = (self.master_gain, &mut self.unmuted[index]);
+                    match steady {
+                        Some(level) => add_pair(deck.audio, gain * level, out, out_channels, first),
+                        None => {
+                            add_pair_with(deck.audio, out, out_channels, first, || [gain * unmuted.tick(); 2])
+                        }
+                    }
                 }
             }
             MixMode::Internal => {
                 let gain = deck.volume * self.crossfader_gain(deck.side);
-                accumulate(&mut self.master_bus[..n], deck.audio, gain);
+                let master = &mut self.master_bus[..n];
+                let unmuted = &mut self.unmuted[index];
+                match steady {
+                    Some(level) => accumulate(master, deck.audio, gain * level),
+                    None => {
+                        for (bus, frame) in master.chunks_exact_mut(2).zip(deck.audio.chunks_exact(2)) {
+                            let g = gain * unmuted.tick();
+                            bus[0] += frame[0] * g;
+                            bus[1] += frame[1] * g;
+                        }
+                    }
+                }
                 if deck.cue {
                     accumulate(&mut self.cue_bus[..n], deck.audio, 1.0);
                 }
@@ -387,6 +415,34 @@ mod tests {
         m.add_deck(1, deck(&[0.3, 0.3], CrossfaderSide::Right, true), &mut out, 4);
         m.finish(1, &mut out, 4);
         assert!((out[2] - 0.1).abs() < 1e-6, "headphones on the master");
+    }
+
+    #[test]
+    fn a_muted_deck_glides_out_of_the_master_and_stays_in_the_headphones() {
+        let mut m = Mixer::new(1, 48_000.0);
+        m.set_limiter(false);
+        m.cue_mix = 0.0;
+        let play = |m: &mut Mixer, blocks: usize| {
+            let mut out = [0.0f32; 4];
+            for _ in 0..blocks {
+                out = [0.0; 4];
+                m.begin(1);
+                m.add_deck(0, deck(&[0.5, 0.5], CrossfaderSide::Center, true), &mut out, 4);
+                m.finish(1, &mut out, 4);
+            }
+            out
+        };
+        m.set_mute(0, true);
+        let first = play(&mut m, 1);
+        assert!(first[0] > 0.4, "no click: it glides out {}", first[0]);
+        let out = play(&mut m, 4_800);
+        assert_eq!(out[0], 0.0, "out of the master");
+        assert!((out[2] - 0.5).abs() < 1e-6, "still in the headphones");
+
+        m.routing.mode = MixMode::External;
+        assert_eq!(play(&mut m, 1)[0], 0.0, "nor on its own output");
+        m.set_mute(0, false);
+        assert!((play(&mut m, 4_800)[0] - 0.5).abs() < 1e-6, "heard again");
     }
 
     #[test]

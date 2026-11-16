@@ -179,6 +179,9 @@ export interface ControlActions {
   holdReverse(deck: number, held: boolean): void;
   /** Whether the track plays backwards, however. */
   backwards(deck: number): boolean;
+  /** The deck's channel silenced in the master, after its fader, or heard again. */
+  setMute(deck: number, on: boolean): void;
+  muted(deck: number): boolean;
   /** At the end, the track goes on from its start, or stops there. */
   toggleRepeat(deck: number): void;
   repeating(deck: number): boolean;
@@ -682,6 +685,10 @@ function deckControls(a: ControlActions, deck: number): Control[] {
     lit(
       button(id('headphones'), group, t('Headphones (pre-listen)'), () => a.toggleHeadphones(deck)),
       () => a.inHeadphones(deck),
+    ),
+    lit(
+      button(id('mute'), group, t('Mute the channel'), () => a.setMute(deck, !a.muted(deck))),
+      () => a.muted(deck),
     ),
     lit(
       button(id('headphones.solo'), group, t('This deck alone in the headphones'), () =>

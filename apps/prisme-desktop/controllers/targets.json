@@ -1038,6 +1038,12 @@
   "kind": "button"
  },
  {
+  "id": "deck1.mute",
+  "group": "Deck A",
+  "label": "Mute the channel",
+  "kind": "button"
+ },
+ {
   "id": "deck1.headphones.solo",
   "group": "Deck A",
   "label": "This deck alone in the headphones",
@@ -2763,6 +2769,12 @@
   "id": "deck2.headphones",
   "group": "Deck B",
   "label": "Headphones (pre-listen)",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.mute",
+  "group": "Deck B",
+  "label": "Mute the channel",
   "kind": "button"
  },
  {
@@ -4494,6 +4506,12 @@
   "kind": "button"
  },
  {
+  "id": "deck3.mute",
+  "group": "Deck C",
+  "label": "Mute the channel",
+  "kind": "button"
+ },
+ {
   "id": "deck3.headphones.solo",
   "group": "Deck C",
   "label": "This deck alone in the headphones",
@@ -6219,6 +6237,12 @@
   "id": "deck4.headphones",
   "group": "Deck D",
   "label": "Headphones (pre-listen)",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.mute",
+  "group": "Deck D",
+  "label": "Mute the channel",
   "kind": "button"
  },
  {

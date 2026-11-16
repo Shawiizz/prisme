@@ -707,6 +707,8 @@ pub struct DeckSettingsDto {
     pub jog_scratch: bool,
     /// At the end, the track goes on from its start.
     pub repeat: bool,
+    /// Silenced in the master, after its fader (still heard in the headphones).
+    pub mute: bool,
 }
 
 /// The side of the crossfader a deck is on, or neither (heard whatever the crossfader).

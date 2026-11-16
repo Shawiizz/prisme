@@ -103,6 +103,12 @@ pub enum Command {
         deck: DeckId,
         held: bool,
     },
+    /// The deck's channel silenced in the master, after its fader (the headphones still hear
+    /// it), or on its own output to an external mixer; or heard again.
+    SetMute {
+        deck: DeckId,
+        muted: bool,
+    },
     /// At the end, the track goes on from its start, seamlessly: it plays on.
     SetRepeat {
         deck: DeckId,

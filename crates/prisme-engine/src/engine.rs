@@ -354,6 +354,7 @@ impl Engine {
             SetMasterGain { gain } => self.mixer.master_gain = gain,
             SetRouting { routing } => self.mixer.routing = routing,
             SetDeckCue { deck, enabled } if valid(deck) => self.decks[deck].cue = enabled,
+            SetMute { deck, muted } if valid(deck) => self.mixer.set_mute(deck, muted),
             SetCueMix { mix } => self.mixer.cue_mix = mix,
             SetHeadphoneGain { gain } => self.mixer.headphone_gain = gain,
             SetSplitCue { enabled } => self.mixer.split_cue = enabled,

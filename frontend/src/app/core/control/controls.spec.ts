@@ -80,6 +80,8 @@ describe('controls', () => {
     find('deck2.passthrough').apply(1);
     find('mixer.headphones.split').apply(1);
     find('deck2.headphones.solo').apply(1);
+    find('deck1.mute').apply(1);
+    expect(find('deck2.mute').lit!()).toBe(true);
     expect(find('mixer.mic.cue').lit!()).toBe(true);
     expect(calls).toEqual([
       'setBalance(0.25)',
@@ -90,6 +92,9 @@ describe('controls', () => {
       'togglePassthrough(1)',
       'toggleSplitCue()',
       'soloHeadphones(1)',
+      'muted(0)',
+      'setMute(0,false)',
+      'muted(1)',
       'liveCued(mic)',
     ]);
   });

@@ -58,6 +58,7 @@ const DEFAULT_DECK: DeckSettings = {
   side: 'left',
   jogScratch: true,
   repeat: false,
+  mute: false,
 };
 
 /**
@@ -267,6 +268,12 @@ export class EngineService {
   setFaderStart(deck: number, enabled: boolean) {
     this.patchDeck(deck, { faderStart: enabled });
     return this.call('set_fader_start', { deck, enabled });
+  }
+
+  /** The deck's channel silenced in the master, after its fader, or heard again. */
+  setMute(deck: number, enabled: boolean) {
+    this.patchDeck(deck, { mute: enabled });
+    return this.call('set_mute', { deck, enabled });
   }
 
   /** At the end, the track goes on from its start. */

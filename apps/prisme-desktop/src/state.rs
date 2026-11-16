@@ -168,6 +168,8 @@ pub struct DeckSettings {
     pub jog_scratch: bool,
     /// At the end, the track goes on from its start.
     pub repeat: bool,
+    /// Silenced in the master, after its fader.
+    pub mute: bool,
 }
 
 impl From<DeckPreferences> for DeckSettings {
@@ -191,6 +193,7 @@ impl From<DeckPreferences> for DeckSettings {
             side: None,
             jog_scratch: true,
             repeat: false,
+            mute: false,
         }
     }
 }
@@ -571,6 +574,7 @@ pub fn deck_commands(deck: usize, s: &DeckSettings) -> Vec<Command> {
         Command::SetSamplerGain { deck, gain: s.sampler_gain },
         Command::SetPassthrough { deck, enabled: s.passthrough },
         Command::SetRepeat { deck, enabled: s.repeat },
+        Command::SetMute { deck, muted: s.mute },
     ];
     for (slot, fx) in s.fx.slots.iter().enumerate() {
         commands.extend([
