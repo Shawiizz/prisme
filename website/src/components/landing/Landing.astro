@@ -31,20 +31,8 @@ const release = await latestRelease();
 const models = controllerModels();
 const makers = brands(models);
 const counted = (text: string) => text.replace('{n}', String(models.length));
-// models DJs know, shown by name; the rest counted
-const FEATURED = [
-	'Pioneer DDJ-FLX4',
-	'Pioneer DDJ-FLX2',
-	'Pioneer DDJ-400',
-	'Hercules DJControl Inpulse 500',
-	'Numark Mixtrack Platinum FX',
-	'Denon MC7000',
-	'Roland DJ-505',
-	'Reloop Mixage',
-	'Allen & Heath Xone:K2',
-	'Native Instruments Traktor Kontrol X1',
-];
-const featured = FEATURED.filter((name) => models.some((m) => m.name === name));
+// every model by name, in a line passing under the controller as the waveform passes the playhead
+const names = models.map((m) => m.name);
 ---
 
 <!doctype html>
@@ -143,10 +131,15 @@ const featured = FEATURED.filter((name) => models.some((m) => m.name === name));
 				</div>
 				<div class="visual">
 					<Controller />
-					<ul class="models">
-						{featured.map((name) => <li>{name}</li>)}
-						<li class="more">{s.ctrl.more.replace('{n}', String(models.length - featured.length))}</li>
-					</ul>
+					<div class="models" aria-label={counted(s.ctrl.list)}>
+						<div class="run">
+							{[0, 1].map((copy) => (
+								<ul aria-hidden={copy === 1 ? 'true' : undefined}>
+									{names.map((name) => <li>{name}</li>)}
+								</ul>
+							))}
+						</div>
+					</div>
 				</div>
 			</section>
 

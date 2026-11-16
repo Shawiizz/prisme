@@ -36,12 +36,14 @@ const bars = Array.from({ length: BARS }, (_, i) => {
 	return { x: i * STEP, height, color: `rgb(${rgb.join(' ')})` };
 });
 const width = BARS * STEP;
+// copies side by side: one scrolls out as the next takes its place, past any screen width
+const COPIES = 4;
 ---
 
-<div class="waveform" aria-hidden="true">
+<div class="waveform" aria-hidden="true" style={`--copy: ${width}px`}>
 	<div class="strip">
 		{
-			[0, 1].map(() => (
+			Array.from({ length: COPIES }, () => (
 				<svg viewBox={`0 0 ${width} ${HEIGHT}`} width={width} height={HEIGHT} preserveAspectRatio="none">
 					{Array.from({ length: BARS / PER_BEAT }, (_, b) => (
 						<rect
@@ -95,7 +97,7 @@ const width = BARS * STEP;
 	}
 	@keyframes scroll {
 		to {
-			transform: translateX(-50%);
+			transform: translateX(calc(-1 * var(--copy)));
 		}
 	}
 	@media (prefers-reduced-motion: reduce) {

@@ -71,7 +71,7 @@ const en = {
 		body: '{n} controllers work the moment you plug them in, lights, meters, jog wheels and screens included. Their mappings keep improving, and the fixes reach you without waiting for a new version.',
 		count: 'models',
 		brands: 'brands',
-		more: 'and {n} more',
+		list: 'The {n} controllers Prisme knows',
 		points: ['Map any control yourself', 'Save and share your mapping', 'Lights and meters that follow the music', 'Tempo sent to drum machines'],
 	},
 	phone: {
@@ -192,7 +192,7 @@ const fr: typeof en = {
 		body: '{n} contrôleurs marchent dès qu’on les branche, lumières, vumètres, jog wheels et écrans compris. Leurs mappings s’améliorent avec le temps, et les corrections vous arrivent sans attendre une nouvelle version.',
 		count: 'modèles',
 		brands: 'marques',
-		more: 'et {n} autres',
+		list: 'Les {n} contrôleurs que Prisme connaît',
 		points: ['Chaque commande assignable à la main', 'Votre mapping, gardé et partagé', 'Lumières et vumètres qui suivent la musique', 'Le tempo envoyé aux boîtes à rythmes'],
 	},
 	phone: {

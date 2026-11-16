@@ -483,32 +483,54 @@ section p {
 	letter-spacing: -0.02em;
 	color: var(--pr-light);
 }
+/* the models by name, passing slowly under the controller, faded at both ends */
 .models {
-	list-style: none;
-	padding: 0;
-	margin: 28px 0 0;
+	margin-top: 30px;
+	overflow: hidden;
+	mask-image: linear-gradient(90deg, transparent, #000 14%, #000 86%, transparent);
+}
+.models .run {
 	display: flex;
-	flex-wrap: wrap;
-	justify-content: center;
-	align-items: center;
-	gap: 8px;
+	width: max-content;
+	animation: models 120s linear infinite;
+}
+.models ul {
+	display: flex;
+	list-style: none;
+	margin: 0;
+	padding: 0;
 }
 .models li {
-	max-width: 100%;
-	overflow: hidden;
 	white-space: nowrap;
-	text-overflow: ellipsis;
-	padding: 7px 12px;
-	border: 1px solid var(--pr-line-2);
-	border-radius: 999px;
-	font-size: 13.5px;
-	color: var(--pr-text);
-	background: var(--pr-base);
-}
-.models .more {
-	border-style: dashed;
+	font-size: 14px;
 	color: var(--pr-text-2);
-	background: none;
+}
+.models li::after {
+	content: '·';
+	margin: 0 14px;
+	color: var(--pr-text-3);
+}
+@keyframes models {
+	to {
+		transform: translateX(-50%);
+	}
+}
+@media (prefers-reduced-motion: reduce) {
+	.models {
+		mask-image: none;
+	}
+	.models .run {
+		animation: none;
+		width: auto;
+	}
+	.models ul {
+		flex-wrap: wrap;
+		justify-content: center;
+		row-gap: 6px;
+	}
+	.models ul[aria-hidden] {
+		display: none;
+	}
 }
 .makers {
 	margin: 20px 0 0;
