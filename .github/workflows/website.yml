@@ -1,0 +1,59 @@
+name: Website
+
+# The site at https://prisme.maelferi.com, built from website/ and served by GitHub Pages.
+# It reads the controller profiles and the latest release when it is built, so it is built
+# again when they change.
+on:
+  push:
+    branches: [main]
+    paths:
+      - website/**
+      - apps/prisme-desktop/controllers/**
+      - .github/workflows/website.yml
+  release:
+    types: [published]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          package_json_file: website/package.json
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+          cache-dependency-path: website/pnpm-lock.yaml
+      - name: Packages
+        working-directory: website
+        run: pnpm install --frozen-lockfile
+      - name: Build
+        working-directory: website
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: pnpm build
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: website/dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

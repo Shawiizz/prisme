@@ -21,7 +21,11 @@ async function fetchRelease(): Promise<Release> {
 	const fallback: Release = { version: null, windows: RELEASES, macos: RELEASES, deb: RELEASES, appImage: RELEASES };
 	try {
 		const response = await fetch('https://api.github.com/repos/Shawiizz/prisme/releases/latest', {
-			headers: { Accept: 'application/vnd.github+json' },
+			// in CI the workflow's token lifts the limit GitHub puts on anonymous calls
+			headers: {
+				Accept: 'application/vnd.github+json',
+				...(process.env.GITHUB_TOKEN ? { Authorization: `Bearer ${process.env.GITHUB_TOKEN}` } : {}),
+			},
 			signal: AbortSignal.timeout(5000),
 		});
 		if (!response.ok) return fallback;
