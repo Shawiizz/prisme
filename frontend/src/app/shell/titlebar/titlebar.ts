@@ -12,7 +12,8 @@ import { TPipe } from '../../core/i18n/t.pipe';
 import { BACKEND_NAMES } from '../../core/models/audio';
 import { formatClock } from '../../shared/time';
 import { levelMeter } from '../../shared/level';
-import { CTRL, MAC } from '../../core/keyboard/shortcuts';
+import { MAC } from '../../core/keyboard/shortcuts';
+import { KeyboardService } from '../../core/keyboard/keyboard.service';
 import { Dismiss, overlay } from '../../shared/overlay';
 
 /** Custom title bar: drag area, audio state, recording, update, dialogs and window buttons. */
@@ -23,7 +24,6 @@ import { Dismiss, overlay } from '../../shared/overlay';
   imports: [TPipe, Dismiss],
 })
 export class Titlebar {
-  protected readonly CTRL = CTRL;
   protected readonly MAC = MAC;
   protected readonly BACKEND_NAMES = BACKEND_NAMES;
   protected readonly settings = inject(SettingsService);
@@ -33,6 +33,11 @@ export class Titlebar {
   protected readonly mixer = inject(MixerService);
   protected readonly navigation = inject(NavigationService);
   protected readonly library = inject(LibraryService);
+  protected readonly keyboard = inject(KeyboardService);
+  protected readonly settingsTitle = computed(() => {
+    const key = this.keyboard.keyOf('general.settings');
+    return key ? t('Settings ({key})', { key }) : t('Settings');
+  });
   protected readonly recordMenu = signal(false);
   protected readonly lastTitle = computed(() => {
     const last = this.recording.last();

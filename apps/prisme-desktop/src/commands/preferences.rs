@@ -2,10 +2,11 @@ use crate::commands::audio::start_audio;
 use crate::commands::blocking;
 use crate::error::AppResult;
 use crate::library_service::LibraryService;
-use crate::preferences::{DjPreferences, LibraryPreferences, Preferences};
+use crate::preferences::{DjPreferences, KeyPreference, LibraryPreferences, Preferences};
 use crate::state::{lock, AppState};
 use crate::tag_writer::TagWriter;
 use prisme_engine::Command;
+use std::collections::BTreeMap;
 use std::sync::Arc;
 use tauri::{AppHandle, Manager, State};
 
@@ -52,4 +53,10 @@ pub async fn set_library_preferences(app: AppHandle, library: LibraryPreferences
         Ok(())
     })
     .await
+}
+
+/// The keyboard keys the DJ changed, by action.
+#[tauri::command]
+pub fn set_key_preferences(state: State<'_, AppState>, keys: BTreeMap<String, Vec<KeyPreference>>) {
+    state.update_preferences(|p| p.keys = keys);
 }

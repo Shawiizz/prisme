@@ -1,11 +1,11 @@
 ---
 title: Clavier et palette de commandes
-description: Tous les raccourcis clavier par défaut, et la palette de commandes qui trouve n’importe quelle action, réglage, crate ou morceau.
+description: Tous les raccourcis clavier par défaut, comment donner à n’importe quelle action une touche à vous, et la palette de commandes qui trouve n’importe quelle action, réglage, crate ou morceau.
 sidebar:
   order: 3
 ---
 
-import { Aside } from '@astrojs/starlight/components';
+import { Aside, Steps } from '@astrojs/starlight/components';
 
 La main gauche joue le deck A, la main droite le deck B, les mêmes touches avec <kbd>Shift</kbd> enfoncée jouent les decks C et D, et les flèches parcourent la bibliothèque. Ce qui n’a pas de touche est à quelques lettres, dans la palette de commandes : <kbd>Ctrl</kbd> <kbd>K</kbd>.
 
@@ -15,7 +15,7 @@ Sur Mac, <kbd>⌘</kbd> remplace <kbd>Ctrl</kbd> dans tous les raccourcis de cet
 
 Les raccourcis suivent la place des touches, pas les lettres imprimées dessus : les touches du deck A tombent sous la main gauche, quelle que soit la disposition. Les tableaux ci-dessous nomment les touches d’un clavier américain (QWERTY). Sur un clavier français AZERTY, par exemple, la touche de lecture du deck A est celle marquée **S**, et sa touche cue celle marquée **Q**.
 
-**Réglages** > **Raccourcis clavier** liste tous les raccourcis, avec les touches telles qu’elles sont imprimées sur votre clavier. <kbd>F1</kbd> ouvre cette page, et la referme.
+Les tableaux de cette page donnent les touches de départ de Prisme. **Réglages** > **Raccourcis clavier** liste les touches en service, les vôtres comprises, telles qu’elles sont imprimées sur votre clavier, et permet de les changer : voir [Changer les raccourcis](#changer-les-raccourcis). <kbd>F1</kbd> ouvre cette page, et la referme.
 
 ## Decks
 
@@ -68,7 +68,7 @@ Voir [Parcourir et chercher](/fr/docs/library/browsing/).
 
 ## Général
 
-Ces raccourcis marchent partout, même pendant que vous tapez dans un champ ou avec les réglages ouverts.
+Ces raccourcis marchent partout, même pendant que vous tapez dans un champ ou avec les réglages ouverts. Une touche à vous pour l’une de ces actions y marche aussi si elle comprend <kbd>Ctrl</kbd> ou si c’est une touche de fonction (<kbd>F1</kbd> à <kbd>F12</kbd>) ; une lettre seule s’écrit.
 
 | Action | Touches |
 | --- | --- |
@@ -94,7 +94,7 @@ Ouvrez-la avec <kbd>Ctrl</kbd> <kbd>K</kbd>, <kbd>Ctrl</kbd> <kbd>Shift</kbd> <k
 
 | Section | Ce qu’elle contient | En la lançant |
 | --- | --- | --- |
-| **Actions** | Toutes les actions qui se font d’une pression, pour les decks utilisés, la table de mixage, la bibliothèque et le reste, avec leur touche quand elles en ont une | L’action est faite, une fois |
+| **Actions** | Toutes les actions qui se font d’une pression, pour les decks utilisés, la table de mixage, la bibliothèque et le reste, avec leur touche quand elles en ont une (la vôtre, si vous l’avez changée) | L’action est faite, une fois |
 | **Réglages** | Chaque page des réglages, et chaque réglage | Les réglages s’ouvrent dessus, le réglage mis en évidence |
 | **Crates** | Vos crates, avec leur nombre de morceaux | La crate s’ouvre dans la bibliothèque |
 | **Morceaux** | Les morceaux de toute la bibliothèque, dès deux lettres tapées, avec leur BPM et leur tonalité | Le morceau se charge sur un deck libre |
@@ -120,4 +120,29 @@ Sur un téléphone, le bouton de recherche de la barre du haut ouvre la palette 
 
 ## Changer les raccourcis
 
-Les raccourcis clavier ne peuvent pas être réassignés. Pour avoir vos propres touches, assignez un contrôleur MIDI : n’importe quelle action de la palette peut aller sur n’importe lequel de ses boutons, faders ou potards. Voir [MIDI learn](/fr/docs/controllers/learn/).
+Toute action qui se fait d’une pression peut recevoir une touche à vous, dans **Réglages** › **Raccourcis clavier**. La page liste les actions qui ont une touche, par groupe, avec leurs touches telles qu’elles sont imprimées sur votre clavier.
+
+<Steps>
+
+1. Pour atteindre une action sans touche (un frein, un roll, un effet), tapez quelques mots de son nom dans **Chercher n’importe quelle action, pour lui donner une touche** : toutes les actions dont le nom ou le groupe les contient sont listées.
+
+2. Cliquez sur **Modifier** sur sa ligne. Le bouton affiche **Appuyez sur une touche…**.
+
+3. Appuyez sur la touche, seule ou avec <kbd>Ctrl</kbd> ou <kbd>Shift</kbd>. Elle remplace aussitôt les touches de l’action, et marche tout de suite.
+
+</Steps>
+
+Pour renoncer, appuyez sur <kbd>Esc</kbd>, ou de nouveau sur **Appuyez sur une touche…** : <kbd>Esc</kbd> elle-même ne peut pas être donnée à une action de cette façon. <kbd>Alt</kbd> appartient à la palette et ne peut pas faire partie d’une touche.
+
+Si la touche appartient déjà à une autre action, rien ne change encore : la ligne affiche **Déjà la touche de :** puis la touche avec son action, par exemple `Ctrl + K : Palette de commandes (Général)`. **La prendre** donne la touche à la nouvelle action et la retire de l’autre ; **Annuler** les laisse comme elles étaient. Une touche n’est jamais sur deux actions.
+
+| Bouton | Ce qu’il fait |
+| --- | --- |
+| **Modifier** | Attend la touche que l’action reçoit. |
+| **×** | Retire la touche de l’action. L’action reste listée, avec **—**, pour que vous puissiez lui en redonner une. |
+| **↺** | Redonne à l’action sa touche de Prisme. Si une autre action a cette touche maintenant, la question est posée comme pour **Modifier**. |
+| **Tout rétablir** | En haut de la page : chaque action reprend sa touche de Prisme. Cliquez sur **Rétablir toutes les touches** pour confirmer, ou sur **Annuler**. |
+
+Vos touches sont gardées avec vos réglages, et seulement pour les actions que vous avez changées : les autres suivent Prisme, touches ajoutées dans une version suivante comprises. Si une telle nouvelle touche est une de celles que vous avez données à une autre action, la vôtre l’emporte. La palette de commandes, la barre de titre et le champ de recherche de la bibliothèque affichent les touches en service.
+
+Pour des touches sur du matériel, assignez plutôt un contrôleur MIDI : voir [MIDI learn](/fr/docs/controllers/learn/).

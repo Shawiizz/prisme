@@ -1,13 +1,111 @@
+<section class="pr-group">
+  <div class="pr-card">
+    <div class="pr-row">
+      <div>
+        <span class="pr-row__name">{{ 'Your keys' | t }}</span>
+        <span class="pr-row__help">{{ changedText() }}</span>
+      </div>
+      @if (resetAsked()) {
+        <div class="buttons">
+          <button class="pr-btn pr-btn--sm pr-btn--danger" (click)="resetAll()">
+            {{ 'Reset every key' | t }}
+          </button>
+          <button class="pr-btn pr-btn--sm" (click)="resetAsked.set(false)">
+            {{ 'Cancel' | t }}
+          </button>
+        </div>
+      } @else {
+        <button
+          class="pr-btn pr-btn--sm"
+          [disabled]="changedCount() === 0"
+          (click)="resetAsked.set(true)"
+          [title]="'Give every action its key from Prisme again' | t"
+        >
+          {{ 'Reset all' | t }}
+        </button>
+      }
+    </div>
+  </div>
+</section>
+
+<input
+  class="pr-input find"
+  type="search"
+  [placeholder]="'Find any action, to give it a key' | t"
+  [attr.aria-label]="'Find any action, to give it a key' | t"
+  [value]="query()"
+  (input)="query.set($any($event.target).value)"
+  (focus)="giveUp()"
+/>
+<p class="hint">
+  {{
+    'Press Change, then the key, alone or with {ctrl} or Shift. Esc gives up.' | t: { ctrl: CTRL }
+  }}
+</p>
+
 @for (g of groups(); track g.name) {
   <section class="pr-group">
     <h3 class="pr-label">{{ g.name }}</h3>
     <div class="pr-card lines">
-      @for (line of g.lines; track line.label) {
-        <div class="line">
-          <span>{{ line.label }}</span>
-          <kbd class="pr-kbd">{{ line.key }}</kbd>
+      @for (line of g.lines; track line.control.id) {
+        <div class="line" [class.capturing]="capturing() === line.control.id">
+          <span class="name">{{ line.control.label }}</span>
+          <span class="keys">
+            @for (key of line.keys; track key) {
+              <kbd class="pr-kbd">{{ key }}</kbd>
+            } @empty {
+              <span class="none">—</span>
+            }
+          </span>
+          <button
+            class="pr-btn pr-btn--sm change"
+            [class.is-on]="capturing() === line.control.id"
+            (click)="change(line.control.id)"
+          >
+            {{ capturing() === line.control.id ? ('Press a key…' | t) : ('Change' | t) }}
+          </button>
+          <button
+            class="pr-btn pr-btn--sm pr-btn--ghost pr-btn--icon"
+            [disabled]="line.keys.length === 0"
+            [title]="'Take its key off' | t"
+            [attr.aria-label]="'Take its key off' | t"
+            (click)="remove(line.control.id)"
+          >
+            ×
+          </button>
+          <button
+            class="pr-btn pr-btn--sm pr-btn--ghost pr-btn--icon"
+            [disabled]="!line.changed"
+            [title]="'Back to its key from Prisme' | t"
+            [attr.aria-label]="'Back to its key from Prisme' | t"
+            (click)="reset(line.control.id)"
+          >
+            ↺
+          </button>
         </div>
+        @if (taking(); as asked) {
+          @if (asked.control === line.control.id) {
+            <div class="taking" role="alert">
+              <div>
+                <span>{{ 'Already the key of:' | t }}</span>
+                @for (from of asked.from; track from) {
+                  <span class="from">{{ from }}</span>
+                }
+              </div>
+              <div class="buttons">
+                <button class="pr-btn pr-btn--sm pr-btn--light" (click)="take()">
+                  {{ 'Take it' | t }}
+                </button>
+                <button class="pr-btn pr-btn--sm" (click)="taking.set(null)">
+                  {{ 'Cancel' | t }}
+                </button>
+              </div>
+            </div>
+          }
+        }
       }
     </div>
   </section>
+} @empty {
+  <p class="hint">{{ 'No action found.' | t }}</p>
 }

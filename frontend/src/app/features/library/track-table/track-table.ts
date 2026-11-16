@@ -31,17 +31,20 @@ import { PreviewService } from '../../../core/services/preview.service';
 import { TRACK_COLORS, hexColor } from '../../../shared/track-colors';
 import { COLUMNS, Column, ColumnId, gridTemplate } from './columns';
 import { TrackMenu, TrackMenuPanel } from '../track-menu/track-menu';
-import { Text, t } from '../../../core/i18n/i18n';
+import { t } from '../../../core/i18n/i18n';
 import { TPipe } from '../../../core/i18n/t.pipe';
-import { CTRL } from '../../../core/keyboard/shortcuts';
+import { KeyboardService } from '../../../core/keyboard/keyboard.service';
 import { Dismiss, overlay } from '../../../shared/overlay';
 
-const EMPTY_LIST: Record<TrackSource['kind'], Text> = {
+/** What an empty list says; the prepare list's names the key that adds to it, if it has one. */
+const EMPTY_LIST: Record<TrackSource['kind'], (key: string | null) => string> = {
   folder: () => t('No audio file in this folder'),
   crate: () => t('This crate is empty: drag tracks onto it'),
   history: () => t('No track in this set'),
-  prepare: () =>
-    t('Drag tracks here or press {ctrl} + P to line them up for the set', { ctrl: CTRL }),
+  prepare: (key) =>
+    key
+      ? t('Drag tracks here or press {key} to line them up for the set', { key })
+      : t('Drag tracks here to line them up for the set'),
   duplicates: () => t('No two tracks share an artist and a title'),
 };
 
@@ -98,6 +101,7 @@ export class TrackTable {
   protected readonly preview = inject(PreviewService);
   private readonly preferences = inject(PreferencesService);
   private readonly history = inject(HistoryService);
+  private readonly keyboard = inject(KeyboardService);
   private readonly table = viewChild.required<ElementRef<HTMLElement>>('table');
 
   protected readonly tracks = this.library.visibleTracks;
@@ -187,7 +191,8 @@ export class TrackTable {
   private readonly deckPaths = computed(() => this.engine.tracks().map((track) => track?.path));
 
   protected readonly emptyMessage = computed(() => {
-    if (this.library.scope() === 'list') return EMPTY_LIST[this.library.source().kind]();
+    if (this.library.scope() === 'list')
+      return EMPTY_LIST[this.library.source().kind](this.keyboard.keyOf('library.prepare'));
     return this.library.filter().trim()
       ? t('No analysed track matches')
       : t('Type to search every analysed track');

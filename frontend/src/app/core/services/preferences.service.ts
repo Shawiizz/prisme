@@ -2,6 +2,7 @@ import { Injectable, signal } from '@angular/core';
 import { invoke } from '@tauri-apps/api/core';
 import { PHONE } from '../platform';
 import { DjPreferences, LibraryPreferences, Preferences } from '../models/preferences';
+import { KeyChanges } from '../keyboard/shortcuts';
 
 /** Preferences kept by the backend from one start to the next. */
 @Injectable({ providedIn: 'root' })
@@ -27,11 +28,14 @@ export class PreferencesService {
     stemsGpu: true,
     stemsFast: PHONE,
   });
+  /** The keys the DJ changed, by control: the others keep their defaults. */
+  readonly keys = signal<KeyChanges>({});
 
   async load(): Promise<void> {
     const p = await invoke<Preferences>('get_preferences');
     this.dj.set(p.dj);
     this.library.set(p.library);
+    this.keys.set(p.keys);
   }
 
   updateDj(changes: Partial<DjPreferences>): Promise<void> {
@@ -44,5 +48,10 @@ export class PreferencesService {
     const library = { ...this.library(), ...changes };
     this.library.set(library);
     return invoke('set_library_preferences', { library });
+  }
+
+  updateKeys(keys: KeyChanges): Promise<void> {
+    this.keys.set(keys);
+    return invoke('set_key_preferences', { keys });
   }
 }

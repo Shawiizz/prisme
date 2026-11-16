@@ -386,6 +386,7 @@ pub fn run() {
             commands::preferences::get_preferences,
             commands::preferences::set_dj_preferences,
             commands::preferences::set_library_preferences,
+            commands::preferences::set_key_preferences,
             status_stream::subscribe_status,
             scope_stream::subscribe_scope,
             scope_stream::unsubscribe_scope,

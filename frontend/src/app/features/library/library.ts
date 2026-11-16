@@ -19,7 +19,7 @@ import { PreviewStrip } from './preview-strip/preview-strip';
 import { TrackTable } from './track-table/track-table';
 import { TPipe } from '../../core/i18n/t.pipe';
 import { deckLetter } from '../../shared/time';
-import { CTRL } from '../../core/keyboard/shortcuts';
+import { KeyboardService } from '../../core/keyboard/keyboard.service';
 import { LIST_LABEL, SEARCH_PLACEHOLDER } from './list-labels';
 
 /** How long "up to date" stays once a rescan asked for has ended (ms). */
@@ -33,7 +33,7 @@ const RESCANNED_MS = 3000;
   imports: [AutoDjBar, ImportDialog, LibrarySidebar, PreviewStrip, TrackTable, TPipe],
 })
 export class Library {
-  protected readonly CTRL = CTRL;
+  protected readonly keyboard = inject(KeyboardService);
   protected readonly library = inject(LibraryService);
   protected readonly engine = inject(EngineService);
   protected readonly stems = inject(StemsService);

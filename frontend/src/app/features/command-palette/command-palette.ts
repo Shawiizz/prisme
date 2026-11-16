@@ -116,7 +116,7 @@ export class CommandPalette {
         section: 'actions' as const,
         title: c.label,
         detail: c.group,
-        keys: this.keyboard.keysOf(c.id) ?? undefined,
+        keys: this.keyboard.keyOf(c.id) ?? undefined,
         run: () => {
           c.apply(1);
           c.apply(0);

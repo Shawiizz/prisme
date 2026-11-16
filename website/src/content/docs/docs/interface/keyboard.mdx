@@ -1,11 +1,11 @@
 ---
 title: Keyboard and command palette
-description: Every default keyboard shortcut, and the command palette that finds any action, setting, crate or track.
+description: Every default keyboard shortcut, how to give any action a key of your own, and the command palette that finds any action, setting, crate or track.
 sidebar:
   order: 3
 ---
 
-import { Aside } from '@astrojs/starlight/components';
+import { Aside, Steps } from '@astrojs/starlight/components';
 
 Your left hand plays deck A, your right hand deck B, the same keys with <kbd>Shift</kbd> held play decks C and D, and the arrows browse the library. Whatever has no key is a few letters away in the command palette, <kbd>Ctrl</kbd> <kbd>K</kbd>.
 
@@ -15,7 +15,7 @@ On a Mac, <kbd>⌘</kbd> takes the place of <kbd>Ctrl</kbd> in every shortcut on
 
 The shortcuts go by the place of the keys, not by the letters printed on them: the keys of deck A sit under the left hand whatever your layout. The tables below name the keys of a US (QWERTY) keyboard. On a French AZERTY keyboard, for example, deck A's play key is the one printed **S** and its cue key the one printed **Q**.
 
-**Settings** > **Keyboard shortcuts** lists every shortcut with the keys as printed on your own keyboard. <kbd>F1</kbd> opens that page, and closes it.
+The tables on this page give the keys Prisme starts with. **Settings** > **Keyboard shortcuts** lists the keys in use, yours included, as printed on your own keyboard, and changes them: see [Changing the shortcuts](#changing-the-shortcuts). <kbd>F1</kbd> opens that page, and closes it.
 
 ## Decks
 
@@ -68,7 +68,7 @@ See [Browsing and searching](/docs/library/browsing/).
 
 ## General
 
-These work everywhere, even while you type in a field or with the settings open.
+These work everywhere, even while you type in a field or with the settings open. A key of your own for one of them works there too if it holds <kbd>Ctrl</kbd> or is a function key (<kbd>F1</kbd> to <kbd>F12</kbd>); a letter alone types.
 
 | Action | Keys |
 | --- | --- |
@@ -94,7 +94,7 @@ Open it with <kbd>Ctrl</kbd> <kbd>K</kbd>, <kbd>Ctrl</kbd> <kbd>Shift</kbd> <kbd
 
 | Section | What it holds | Running it |
 | --- | --- | --- |
-| **Actions** | Every action done with a press, for the decks in use, the mixer, the library and the rest, with its key when it has one | Does it, once |
+| **Actions** | Every action done with a press, for the decks in use, the mixer, the library and the rest, with its key when it has one (yours, if you changed it) | Does it, once |
 | **Settings** | Each page of the settings, and each setting | Opens the settings on it, the setting pointed out |
 | **Crates** | Your crates, with their number of tracks | Opens the crate in the library |
 | **Tracks** | Tracks of the whole library, from two letters typed, with their BPM and key | Loads the track on a free deck |
@@ -120,4 +120,29 @@ On a phone, the search button of the top bar opens the palette over the whole sc
 
 ## Changing the shortcuts
 
-The keyboard shortcuts cannot be reassigned. For keys of your own, map a MIDI controller: any action of the palette can go on any of its buttons, faders or knobs. See [MIDI learn](/docs/controllers/learn/).
+Any action done with a press can have a key of your own, in **Settings** › **Keyboard shortcuts**. The page lists the actions that have a key, by group, with their keys as printed on your keyboard.
+
+<Steps>
+
+1. To reach an action without a key (a brake, a roll, an effect), type a few words of its name in **Find any action, to give it a key**: every action whose name or group holds them is listed.
+
+2. Press **Change** on its row. The button reads **Press a key…**.
+
+3. Press the key, alone or with <kbd>Ctrl</kbd> or <kbd>Shift</kbd>. It replaces the action's keys at once, and works right away.
+
+</Steps>
+
+To give up, press <kbd>Esc</kbd>, or **Press a key…** again: <kbd>Esc</kbd> itself cannot be given to an action this way. <kbd>Alt</kbd> belongs to the palette and cannot be part of a key.
+
+If the key already belongs to another action, nothing changes yet: the row says **Already the key of:** and the key with its action, such as `Ctrl + K: Command palette (General)`. **Take it** moves the key to the new action and takes it off the other one; **Cancel** leaves both as they were. A key is never on two actions.
+
+| Button | What it does |
+| --- | --- |
+| **Change** | Waits for the key the action gets. |
+| **×** | Takes the action's key off. The action stays listed, with **—**, so you can give it back. |
+| **↺** | Gives the action its key from Prisme again. If another action has that key now, you are asked as for **Change**. |
+| **Reset all** | At the top of the page: every action gets its key from Prisme again. Press **Reset every key** to confirm, or **Cancel**. |
+
+Your keys are kept with your settings and only for the actions you changed: the others follow Prisme, keys added in a later version included. If such a new key is one you gave another action, yours wins. The command palette, the title bar and the library's search box show the keys in use.
+
+For keys on hardware, map a MIDI controller instead: see [MIDI learn](/docs/controllers/learn/).
