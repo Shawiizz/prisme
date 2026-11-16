@@ -16,7 +16,7 @@ Prisme est gratuit. Les paquets pour Windows, macOS et Linux sont joints à chaq
 | Windows | Windows 10 ou 11, 64 bits | Installeur, `…_x64-setup.exe` |
 | macOS | macOS 13.3 ou plus récent, Apple silicon ou Intel | Image disque, `.dmg` |
 | Linux | Ubuntu 22.04 ou une distribution aussi récente, x86 64 bits | `.deb` ou AppImage |
-| Android | Android 10 ou plus récent, un téléphone ou une tablette ARM 64 bits | Compilé depuis les sources |
+| Android | Android 10 ou plus récent, un téléphone ou une tablette ARM 64 bits | Paquet, `…_android-arm64.apk` |
 
 La fenêtre demande au moins 1280 × 640 pixels : un écran de portable 1080p à 150 % de mise à l’échelle suffit. Une carte son à quatre sorties permet d’envoyer chaque deck sur sa propre voie d’une table de mixage ; avec deux, Prisme utilise sa table de mixage logicielle. Voir [Carte son et latence](/fr/docs/start/audio/).
 
@@ -83,12 +83,13 @@ Prisme joue via **ALSA**, qui fonctionne partout, ou via **JACK** pour la latenc
 </TabItem>
 <TabItem label="Android">
 
-Aucun paquet Android n’est encore publié. Pour jouer sur un téléphone ou une tablette dès aujourd’hui, compilez Prisme depuis son code source :
+<Steps>
 
-- le workflow **Mobile** du dépôt compile sur GitHub un paquet ARM 64 bits signé (APK), à la demande ou pour un tag de version `mobile-…`. Dans votre propre copie du dépôt, il lui faut une clé de signature à vous dans les secrets du dépôt ;
-- ou compilez-le sur votre ordinateur avec le SDK et le NDK Android, comme l’explique [Compiler depuis les sources](/fr/docs/develop/building/).
+1. Sur le téléphone ou la tablette, téléchargez le paquet depuis la [page d’accueil](/fr/#download) ou les [versions sur GitHub](https://github.com/Shawiizz/prisme/releases) : le fichier qui finit par `_android-arm64.apk`.
 
-Copiez ensuite l’APK sur le téléphone et ouvrez-le. Android vous demande d’autoriser les installations depuis l’application avec laquelle vous l’avez ouvert (le gestionnaire de fichiers ou le navigateur).
+2. Ouvrez-le. Android vous demande d’autoriser les installations depuis l’application avec laquelle vous l’avez ouvert (le navigateur ou le gestionnaire de fichiers) : autorisez-les, puis installez.
+
+</Steps>
 
 Au premier lancement, Prisme demande à lire votre musique et à envoyer des notifications. Il ne demande à écouter les entrées que lorsque vous configurez des platines. Voir [Téléphone et tablette](/fr/docs/interface/phone/) pour le fonctionnement de l’interface aux doigts.
 

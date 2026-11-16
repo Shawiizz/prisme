@@ -16,7 +16,7 @@ Prisme is free. The packages for Windows, macOS and Linux are attached to each r
 | Windows | Windows 10 or 11, 64-bit | Installer, `…_x64-setup.exe` |
 | macOS | macOS 13.3 or later, Apple silicon or Intel | Disk image, `.dmg` |
 | Linux | Ubuntu 22.04 or a distribution as recent, 64-bit x86 | `.deb` or AppImage |
-| Android | Android 10 or later, a 64-bit ARM phone or tablet | Built from source |
+| Android | Android 10 or later, a 64-bit ARM phone or tablet | Package, `…_android-arm64.apk` |
 
 The window needs at least 1280 × 640 pixels: a 1080p laptop screen at 150 % scaling fits. A sound card with four outputs lets each deck go to its own channel of a hardware mixer; with two, Prisme uses its software mixer. See [Sound card and latency](/docs/start/audio/).
 
@@ -83,12 +83,13 @@ Prisme plays through **ALSA**, which works everywhere, or through **JACK** for t
 </TabItem>
 <TabItem label="Android">
 
-No Android package is published yet. To play on a phone or a tablet today, build Prisme from its source code:
+<Steps>
 
-- the repository's **Mobile** workflow builds a signed 64-bit ARM package (APK) on GitHub, on demand or for a `mobile-…` version tag. In a copy of the repository of your own, it needs a signing key of yours in the repository secrets;
-- or build it on your computer with the Android SDK and NDK, as [Building from source](/docs/develop/building/) explains.
+1. On the phone or the tablet, download the package from the [home page](/#download) or the [releases on GitHub](https://github.com/Shawiizz/prisme/releases): the file ending in `_android-arm64.apk`.
 
-Then copy the APK to the phone and open it. Android asks you to allow installs from the app you opened it with (the file manager or the browser).
+2. Open it. Android asks you to allow installs from the app you opened it with (the browser or the file manager): allow it, then install.
+
+</Steps>
 
 On its first start Prisme asks to read your music and to post notifications. It asks to listen to the inputs only when you set up turntables. See [Phone and tablet](/docs/interface/phone/) for how the interface works with the fingers.
 

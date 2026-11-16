@@ -260,7 +260,7 @@ const featured = FEATURED.filter((name) => models.some((m) => m.name === name));
 						<a class="alt" href={release.appImage}>AppImage</a>
 					</li>
 					<li data-os="android">
-						<a href={`${base}/docs/start/install/`}>
+						<a href={release.android}>
 							<strong>Android</strong><span>{s.dl.android}</span><em>{s.dl.androidNote}</em>
 						</a>
 					</li>
@@ -327,7 +327,7 @@ const featured = FEATURED.filter((name) => models.some((m) => m.name === name));
 				card.classList.add('yours');
 				const link = card.querySelector('a');
 				const hero = document.querySelector<HTMLAnchorElement>('[data-download]');
-				if (link && hero && os !== 'android') {
+				if (link && hero) {
 					hero.href = link.href;
 					hero.textContent += ` · ${card.querySelector('strong')?.textContent}`;
 				}
