@@ -482,6 +482,12 @@ mod tests {
     #[test]
     fn a_folder_seen_from_elsewhere_keeps_its_path() {
         assert_eq!(mirrored(Path::new("/storage/emulated/0/Music")), Path::new("storage/emulated/0/Music"));
+    }
+
+    /// A drive is Windows' own: elsewhere, `C:` names a folder.
+    #[cfg(windows)]
+    #[test]
+    fn a_folder_seen_from_elsewhere_leaves_its_drive_out() {
         assert_eq!(mirrored(Path::new("C:/Music/House")), Path::new("Music/House"));
     }
 

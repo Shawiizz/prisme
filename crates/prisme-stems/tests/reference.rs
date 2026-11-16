@@ -5,6 +5,7 @@
 //! one of the V2.5 models, its frames grouped in tokens, its stems queries.
 
 use std::path::Path;
+use std::sync::{Arc, Mutex, OnceLock};
 
 use prisme_stems::gpu::{Attention, Pacing};
 use prisme_stems::model::{Geometry, Layer, Linear, Transformer, Values};
@@ -102,6 +103,51 @@ const SOFTWARE_TOO: GpuOptions = GpuOptions {
     attention: None,
 };
 
+/// The GPU, opened as `options`; `None` without one.
+///
+/// Windows' software renderer (WARP), on which the tests run where there is no GPU, takes
+/// minutes to compile `attention.wgsl` for each shape of heads (6 on 4 cores), and compiles it
+/// again once no pipeline uses it. There, the tests take the BS-RoFormers, whose heads all
+/// share one, compiled once for them all (see [`compiled_once`]).
+fn open(options: GpuOptions) -> Option<Arc<Gpu>> {
+    match Gpu::open(options) {
+        Ok(gpu) => {
+            if gpu.is_software_renderer() {
+                compiled_once();
+            }
+            Some(gpu)
+        }
+        Err(StemsError::NoGpu(e)) => {
+            eprintln!("skipped: {e}");
+            None
+        }
+        Err(e) => panic!("{e}"),
+    }
+}
+
+/// A network of the BS-RoFormer fixture run once, kept to the end of the tests for WARP to
+/// keep its shaders: the first test to ask compiles them, the others wait for them.
+fn compiled_once() {
+    static KEPT: OnceLock<Mutex<GpuNetwork>> = OnceLock::new();
+    KEPT.get_or_init(|| {
+        let weights = bs_fixture();
+        let options = GpuOptions { without_matrix_units: true, ..SOFTWARE_TOO };
+        let mut net = GpuNetwork::with_options(weights.clone(), options).unwrap();
+        let frames = weights.geometry.config.chunk_frames;
+        masks_of(&mut net, &bins(&weights.geometry, frames), frames);
+        Mutex::new(net)
+    });
+}
+
+/// The fixtures, but on a software renderer the BS-RoFormers alone (see [`open`]).
+fn fixtures(software: bool) -> Vec<Weights> {
+    if software {
+        vec![bs_fixture(), v25_fixture()]
+    } else {
+        vec![fixture(), stems_fixture(), bs_fixture(), v25_fixture()]
+    }
+}
+
 fn shader_cores_or_units(weights: Weights, options: GpuOptions) -> Option<GpuNetwork> {
     match GpuNetwork::with_options(weights, options) {
         Ok(net) => Some(net),
@@ -131,9 +177,10 @@ fn matrix_units(weights: Weights) -> Option<GpuNetwork> {
 
 #[test]
 fn the_gpu_network_separates_like_the_reference() {
-    for weights in [fixture(), stems_fixture(), bs_fixture(), v25_fixture()] {
+    let Some(gpu) = open(GpuOptions { without_matrix_units: true, ..SOFTWARE_TOO }) else { return };
+    for weights in fixtures(gpu.is_software_renderer()) {
         let (audio, expected) = reference(&weights);
-        let Some(net) = gpu(weights, true) else { return };
+        let net = GpuNetwork::on(&gpu, &weights).unwrap();
         separates_like_the_reference(net, &audio, &expected, F16_TOLERANCE);
     }
 }
@@ -155,13 +202,9 @@ fn masks_of(net: &mut GpuNetwork, bins: &[f32], frames: usize) -> Vec<f32> {
 /// interleaved, each gives what it gives alone.
 #[test]
 fn networks_sharing_a_gpu_give_what_they_give_alone() {
-    let shared = match Gpu::open(GpuOptions { without_matrix_units: true, ..SOFTWARE_TOO }) {
-        Ok(gpu) => gpu,
-        Err(StemsError::NoGpu(e)) => return eprintln!("skipped: {e}"),
-        Err(e) => panic!("{e}"),
-    };
+    let Some(shared) = open(GpuOptions { without_matrix_units: true, ..SOFTWARE_TOO }) else { return };
     let frames = 150;
-    let weights = [fixture(), stems_fixture(), bs_fixture(), v25_fixture()];
+    let weights = fixtures(shared.is_software_renderer());
     let alone: Vec<Vec<f32>> = weights
         .iter()
         .map(|w| {
@@ -170,9 +213,13 @@ fn networks_sharing_a_gpu_give_what_they_give_alone() {
         })
         .collect();
     // the later ones grow the buffers the first planned with
-    let mut nets = weights.map(|w| GpuNetwork::on(&shared, &w).unwrap());
+    let mut nets: Vec<GpuNetwork> = weights.iter().map(|w| GpuNetwork::on(&shared, w).unwrap()).collect();
     let inputs: Vec<Vec<f32>> = nets.iter().map(|n| bins(n.geometry(), frames)).collect();
-    for order in [[0, 1, 2, 3], [3, 2, 1, 0], [1, 3, 0, 2]] {
+    // each first and each last, and in between in another order
+    let n = nets.len();
+    let orders: [Vec<usize>; 3] =
+        [(0..n).collect(), (0..n).rev().collect(), (1..n).step_by(2).chain((0..n).step_by(2)).collect()];
+    for order in orders {
         let mut outs: Vec<Vec<f32>> = nets.iter().map(|n| vec![0.0; n.geometry().mask_len(frames)]).collect();
         for &i in &order {
             nets[i].start(&inputs[i], frames).unwrap();
@@ -214,10 +261,11 @@ fn gpu_and_cpu_masks(gpu: &mut GpuNetwork, weights: Weights) -> (Vec<f32>, Vec<f
 fn every_pacing_separates_like_the_reference() {
     for pacing in [Pacing::Whole, Pacing::Packets, Pacing::Share(0.5)] {
         for without_matrix_units in [true, false] {
-            for weights in [fixture(), stems_fixture(), bs_fixture(), v25_fixture()] {
+            let options = GpuOptions { without_matrix_units, pacing: Some(pacing), ..SOFTWARE_TOO };
+            let Some(gpu) = open(options) else { return };
+            for weights in fixtures(gpu.is_software_renderer()) {
                 let (audio, expected) = reference(&weights);
-                let options = GpuOptions { without_matrix_units, pacing: Some(pacing), ..SOFTWARE_TOO };
-                let Some(net) = shader_cores_or_units(weights, options) else { return };
+                let net = GpuNetwork::on(&gpu, &weights).unwrap();
                 separates_like_the_reference(net, &audio, &expected, F16_TOLERANCE);
             }
         }
@@ -226,13 +274,14 @@ fn every_pacing_separates_like_the_reference() {
 
 #[test]
 fn the_gpu_network_matches_the_cpu_on_longer_chunks() {
-    let all = [fixture(), stems_fixture(), bs_fixture(), v25_fixture(), grouped_fixture()];
-    for weights in all.map(in_f16) {
-        let Some(mut gpu) = gpu(weights.clone(), true) else { return };
-        // a GPU is held to the CPU; Windows' software renderer, whose arithmetic on the
-        // shaders DXC compiles is looser (1.2e-3 here), to the tolerance of the f16 path
-        let tolerance = if gpu.on_software_renderer() { F16_TOLERANCE } else { 1e-4 };
-        let (got, expected) = gpu_and_cpu_masks(&mut gpu, weights);
+    let Some(gpu) = open(GpuOptions { without_matrix_units: true, ..SOFTWARE_TOO }) else { return };
+    let software = gpu.is_software_renderer();
+    // a GPU is held to the CPU; Windows' software renderer, whose arithmetic on the shaders DXC
+    // compiles is looser (1.2e-3 here), to the tolerance of the f16 path
+    let tolerance = if software { F16_TOLERANCE } else { 1e-4 };
+    for weights in fixtures(software).into_iter().chain([grouped_fixture()]).map(in_f16) {
+        let mut net = GpuNetwork::on(&gpu, &weights).unwrap();
+        let (got, expected) = gpu_and_cpu_masks(&mut net, weights);
         let err = relative_error(&got, &expected);
         assert!(err < tolerance, "relative error {err:e}");
     }
@@ -252,15 +301,21 @@ const V25_HEADS: (usize, usize, bool) = (64, 2, false);
 /// Both attentions of the shader cores, whichever their heads would take: on the BS-RoFormer
 /// fixtures (heads of 8 values sharing their keys and values, gated feed-forwards, registers;
 /// for the V2.5's, through SiLU, frames grouped in tokens and stem queries) and on the heads of
-/// the separation models.
+/// the separation models; on a software renderer, the attention in one pass on the fixtures
+/// alone (see [`open`]).
 #[test]
 fn both_attentions_of_the_shader_cores_match_the_cpu() {
+    let fixtures = [in_f16(bs_fixture()), in_f16(v25_fixture())];
     let wide = [MEL_BAND_HEADS, BS_HEADS, V25_HEADS].map(|heads| wide_heads(&fixture(), heads));
-    for weights in [in_f16(bs_fixture()), in_f16(v25_fixture())].into_iter().chain(wide) {
-        for attention in [Attention::OnePass, Attention::Products] {
-            let Some(mut gpu) = shader_cores(weights.clone(), attention) else { return };
-            let tolerance = if gpu.on_software_renderer() { F16_TOLERANCE } else { 1e-4 };
-            let (got, expected) = gpu_and_cpu_masks(&mut gpu, weights.clone());
+    for attention in [Attention::OnePass, Attention::Products] {
+        let options = GpuOptions { without_matrix_units: true, attention: Some(attention), ..SOFTWARE_TOO };
+        let Some(gpu) = open(options) else { return };
+        let software = gpu.is_software_renderer();
+        let wide = if software && attention == Attention::OnePass { &wide[..0] } else { &wide[..] };
+        let tolerance = if software { F16_TOLERANCE } else { 1e-4 };
+        for weights in fixtures.iter().chain(wide) {
+            let mut net = GpuNetwork::on(&gpu, weights).unwrap();
+            let (got, expected) = gpu_and_cpu_masks(&mut net, weights.clone());
             let err = relative_error(&got, &expected);
             assert!(err < tolerance, "{attention:?}: relative error {err:e}");
         }

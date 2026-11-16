@@ -3,8 +3,24 @@ name: CI
 on:
   push:
     branches: [main]
+    # the website and the docs alone
+    paths-ignore:
+      - website/**
+      - docs/**
+      - README.md
+      - .github/workflows/website.yml
   pull_request:
+    paths-ignore:
+      - website/**
+      - docs/**
+      - README.md
+      - .github/workflows/website.yml
   workflow_dispatch:
+
+# a new push cancels the checks still running for the one before it (on a pull request, its own)
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   check:
@@ -13,6 +29,8 @@ jobs:
       matrix:
         os: [windows-latest, ubuntu-latest, macos-latest]
     runs-on: ${{ matrix.os }}
+    # about 20 minutes on Windows, where the GPU tests run on the software renderer
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/setup

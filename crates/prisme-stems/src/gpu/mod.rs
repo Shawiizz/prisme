@@ -437,6 +437,11 @@ impl Gpu {
         &self.name
     }
 
+    /// Whether it is a software renderer (see [`GpuOptions::software`]).
+    pub fn is_software_renderer(&self) -> bool {
+        self.software
+    }
+
     fn check_errors(&self) -> Result<(), StemsError> {
         match self.errors.lock().expect("error sink").take() {
             Some(e) => Err(StemsError::Gpu(e)),
@@ -2271,13 +2276,19 @@ mod tests {
 
     /// Both attentions, over sequences that end in partial blocks of queries and keys; for the
     /// attention as products, several slices of sequences and heads among them where the scores
-    /// do not fit at once.
+    /// do not fit at once. On a software renderer, the products alone: Windows' (WARP) takes
+    /// minutes to compile `attention.wgsl` for each shape of heads (6 on 4 cores), and the
+    /// separation tests run it there (`tests/reference.rs`).
     #[test]
     fn the_attention_on_the_shader_cores_matches_a_plain_one() {
         let cases = SEQUENCES.into_iter().flat_map(|s| HEADS.map(|h| (s, h)));
         let cases = cases.flat_map(|c| [Attention::OnePass, Attention::Products].map(|a| (c, a)));
         for (((axis, frames, bands), heads), attention) in cases {
             let Some(net) = network(bands, false, heads, Some(attention)) else { return };
+            if net.gpu.software && attention == Attention::OnePass {
+                eprintln!("skipped: {heads:?} in one pass, on a software renderer");
+                continue;
+            }
             let c = &net.geometry.config;
             let (tokens, len) = (frames * bands, axis.len(frames, bands));
             let qkvg = projections(c, axis, frames, bands);
@@ -2330,7 +2341,9 @@ mod tests {
 
     /// Cut in steps of a few thousand flops, in packets of a few of them, the work of the small
     /// networks of the fixtures: every product in pieces of rows, the attentions and the
-    /// pooling sequence by sequence, they give the masks they give whole.
+    /// pooling sequence by sequence, they give the masks they give whole. On a software renderer,
+    /// the attention as products alone (see
+    /// [`the_attention_on_the_shader_cores_matches_a_plain_one`]).
     #[test]
     fn the_work_in_packets_gives_what_it_gives_whole() {
         let names = [
@@ -2340,7 +2353,16 @@ mod tests {
             "tiny_bs_roformer_v25.safetensors",
         ];
         let ways = [(true, Some(Attention::OnePass)), (true, Some(Attention::Products)), (false, None)];
-        for (name, (without_matrix_units, attention)) in names.into_iter().flat_map(|n| ways.map(|w| (n, w)))
+        let software =
+            Gpu::open(GpuOptions { software: true, ..Default::default() }).is_ok_and(|gpu| gpu.software);
+        let ways = if software {
+            eprintln!("skipped: the attention in one pass, on a software renderer");
+            &ways[1..2]
+        } else {
+            &ways[..]
+        };
+        for (name, &(without_matrix_units, attention)) in
+            names.into_iter().flat_map(|n| ways.iter().map(move |w| (n, w)))
         {
             let weights = fixture(name);
             if attention == Some(Attention::Products) && !products_take(&weights.geometry.config) {
