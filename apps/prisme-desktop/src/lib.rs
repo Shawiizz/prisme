@@ -425,8 +425,7 @@ fn start_saved_audio(state: &AppState) {
     settings.simulate |= dev_startup::simulate_requested();
     if let Err(e) = commands::audio::start_audio(state, &settings) {
         warn!("saved audio settings unusable ({e}), using the default devices");
-        let defaults = dto::AudioSettings { simulate: settings.simulate, ..Default::default() };
-        if let Err(e) = commands::audio::start_audio(state, &defaults) {
+        if let Err(e) = commands::audio::start_audio(state, &settings.on_default_devices()) {
             error!("audio could not start: {e}");
         }
     }

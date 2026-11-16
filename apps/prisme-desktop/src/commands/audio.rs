@@ -1,9 +1,9 @@
 use crate::audio_host;
 use crate::commands::blocking;
 use crate::dto::{AudioInfo, AudioSettings, BackendDto, DeviceDto, LatencyDto, TimecodeFormatDto};
-use crate::error::AppResult;
+use crate::error::{AppError, AppResult};
 use crate::state::{lock, AppState};
-use prisme_audio_io::{latency, Backend, DeviceKind};
+use prisme_audio_io::{latency, AudioError, Backend, DeviceKind};
 use prisme_engine::Command;
 use std::time::Duration;
 use tauri::{AppHandle, Manager, State};
@@ -67,7 +67,14 @@ pub async fn apply_audio_settings(app: AppHandle, settings: AudioSettings) -> Ap
         let state = app.state::<AppState>();
         // kept as they start: no other start comes between
         let _starting = lock(&state.audio_start);
-        let info = start(&state, &settings)?;
+        let saved = state.preferences.read(|p| p.audio.clone());
+        let info = match start(&state, &settings) {
+            // devices missing since the start stay chosen, the defaults playing meanwhile
+            Err(AppError::Audio(AudioError::DeviceNotFound(_))) if settings.same_devices(&saved) => {
+                start(&state, &settings.on_default_devices())?
+            }
+            started => started?,
+        };
         state.update_preferences(|p| p.audio = settings);
         Ok(info)
     })

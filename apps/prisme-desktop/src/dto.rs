@@ -344,6 +344,20 @@ impl Default for AudioSettings {
     }
 }
 
+impl AudioSettings {
+    /// These settings on the computer's default devices: what plays while the chosen ones are
+    /// missing (an interface unplugged).
+    pub fn on_default_devices(&self) -> Self {
+        Self { simulate: self.simulate, timecode_format: self.timecode_format.clone(), ..Self::default() }
+    }
+
+    /// Whether `other` chose the same devices.
+    pub fn same_devices(&self, other: &Self) -> bool {
+        (self.backend, &self.output_device, &self.input_device)
+            == (other.backend, &other.output_device, &other.input_device)
+    }
+}
+
 /// A round trip measured from an output to an input.
 #[derive(Debug, Clone, Copy, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -1378,6 +1392,27 @@ pub struct OutputDto {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn the_default_devices_keep_the_record_and_the_simulated_turntable() {
+        let chosen = AudioSettings {
+            output_device: Some("UMC404HD".into()),
+            input_device: Some("UMC404HD".into()),
+            simulate: true,
+            timecode_format: prisme_timecode::SERATO_CV02_B.id.into(),
+            buffer_frames: Some(128),
+            ..AudioSettings::default()
+        };
+        let fallback = chosen.on_default_devices();
+        assert_eq!(
+            (fallback.output_device, fallback.input_device, fallback.buffer_frames),
+            (None, None, None)
+        );
+        assert!(fallback.simulate);
+        assert_eq!(fallback.timecode_format, chosen.timecode_format);
+        assert!(chosen.same_devices(&AudioSettings { simulate: false, ..chosen.clone() }));
+        assert!(!chosen.same_devices(&AudioSettings { output_device: None, ..chosen.clone() }));
+    }
 
     #[test]
     fn a_single_effect_written_before_the_chain_reads_as_its_first_slot() {
