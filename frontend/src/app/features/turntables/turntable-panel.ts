@@ -11,7 +11,7 @@ import {
 import { Channel, invoke } from '@tauri-apps/api/core';
 import { EngineService } from '../../core/services/engine.service';
 import { SettingsService } from '../../core/services/settings.service';
-import { Rpm, SignalState, VinylMode } from '../../core/models/engine';
+import { Rpm, SignalState, VinylMode, recordLeadIn } from '../../core/models/engine';
 import { deckLetter, formatSpeed, formatTime } from '../../shared/time';
 import { ScopePainter } from './scope-painter';
 import { Text, t } from '../../core/i18n/i18n';
@@ -42,10 +42,11 @@ export class TurntablePanel {
   protected readonly size = SCOPE_SIZE;
   protected readonly letter = computed(() => deckLetter(this.deck()));
   protected readonly settings = computed(() => this.engine.decks()[this.deck()]);
-  /** Where the track starts on the record when no lead-in is chosen. */
+  /** Where the track starts on the record when no lead-in is chosen, at its speed. */
   protected readonly recordLeadIn = computed(() => {
     const id = this.audio.settings()?.timecodeFormat;
-    return String(this.audio.formats().find((f) => f.id === id)?.leadInS ?? 0);
+    const own = this.audio.formats().find((f) => f.id === id)?.leadInS ?? 0;
+    return String(Math.round(recordLeadIn(own, this.settings().rpm) * 10) / 10);
   });
   protected readonly vinyl = computed(
     () => this.engine.status()?.decks[this.deck()]?.vinyl ?? null,
