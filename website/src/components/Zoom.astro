@@ -1,0 +1,138 @@
+---
+/**
+ * Images opened in full: a click (or Enter) on one marked `data-zoom`, or on a screenshot of
+ * the documentation, shows it over the page at its largest; a click, Esc or a swipe closes it.
+ */
+interface Props {
+	label: string;
+	close: string;
+}
+const { label, close } = Astro.props;
+---
+
+<dialog class="zoom" aria-label={label}>
+	<img alt="" />
+	<button class="close" type="button" aria-label={close}>×</button>
+</dialog>
+
+<script is:inline define:vars={{ label }}>
+	(() => {
+		const dialog = document.querySelector('dialog.zoom');
+		if (!dialog) return;
+		const shown = dialog.querySelector('img');
+		const images = () => document.querySelectorAll('img[data-zoom], .sl-markdown-content img');
+
+		// the largest picture the page has of it, not the one sized for the layout
+		const largest = (img) => {
+			const set = (img.getAttribute('srcset') ?? '')
+				.split(',')
+				.map((part) => part.trim().split(/\s+/))
+				.filter(([url, size]) => url && size?.endsWith('w'))
+				.sort((a, b) => parseInt(b[1]) - parseInt(a[1]));
+			return set[0]?.[0] ?? img.currentSrc ?? img.src;
+		};
+
+		const open = (img) => {
+			shown.classList.remove('pan');
+			shown.src = largest(img);
+			shown.alt = img.alt;
+			dialog.showModal();
+		};
+		// a strip much wider than a phone is shown at its own size, to be slid along
+		shown.addEventListener('load', () => {
+			shown.classList.toggle('pan', innerWidth < 700 && shown.naturalWidth > innerWidth * 2.5);
+			dialog.scrollLeft = 0;
+		});
+
+		for (const img of images()) {
+			img.classList.add('zoomable');
+			img.tabIndex = 0;
+			img.setAttribute('role', 'button');
+			img.setAttribute('aria-label', img.alt ? `${label}: ${img.alt}` : label);
+			img.addEventListener('click', () => open(img));
+			img.addEventListener('keydown', (e) => {
+				if (e.key === 'Enter' || e.key === ' ') {
+					e.preventDefault();
+					open(img);
+				}
+			});
+		}
+
+		dialog.addEventListener('click', () => dialog.close());
+		let startY = null;
+		dialog.addEventListener('touchstart', (e) => (startY = e.touches[0].clientY), { passive: true });
+		dialog.addEventListener('touchend', (e) => {
+			if (startY !== null && Math.abs(e.changedTouches[0].clientY - startY) > 80) dialog.close();
+			startY = null;
+		});
+		dialog.addEventListener('close', () => shown.removeAttribute('src'));
+	})();
+</script>
+
+<style is:global>
+	.zoomable {
+		cursor: zoom-in;
+	}
+	dialog.zoom {
+		width: 100vw;
+		height: 100dvh;
+		max-width: none;
+		max-height: none;
+		margin: 0;
+		padding: clamp(12px, 3vw, 40px);
+		border: 0;
+		background: transparent;
+		cursor: zoom-out;
+	}
+	dialog.zoom[open] {
+		display: grid;
+		place-items: center;
+		animation: zoom-in 180ms ease-out;
+	}
+	dialog.zoom::backdrop {
+		background: rgb(10 11 13 / 0.92);
+		backdrop-filter: blur(6px);
+	}
+	dialog.zoom img {
+		max-width: 100%;
+		max-height: 100%;
+		width: auto;
+		height: auto;
+		object-fit: contain;
+		border: 1px solid #333840;
+		border-radius: 8px;
+		box-shadow: 0 30px 100px rgb(0 0 0 / 0.7);
+	}
+	dialog.zoom:has(img.pan) {
+		overflow: auto;
+		place-items: center start;
+	}
+	dialog.zoom img.pan {
+		max-width: none;
+		max-height: none;
+	}
+	dialog.zoom .close {
+		position: fixed;
+		top: 14px;
+		right: 14px;
+		width: 40px;
+		height: 40px;
+		border: 1px solid #333840;
+		border-radius: 50%;
+		background: #111316;
+		color: #e7e8ea;
+		font: 400 22px / 1 system-ui, sans-serif;
+		cursor: pointer;
+	}
+	@keyframes zoom-in {
+		from {
+			opacity: 0;
+			transform: scale(0.97);
+		}
+	}
+	@media (prefers-reduced-motion: reduce) {
+		dialog.zoom[open] {
+			animation: none;
+		}
+	}
+</style>

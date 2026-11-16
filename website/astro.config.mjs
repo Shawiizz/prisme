@@ -29,6 +29,7 @@ export default defineConfig({
 			components: {
 				ThemeProvider: './src/components/ThemeProvider.astro',
 				ThemeSelect: './src/components/ThemeSelect.astro',
+				Footer: './src/components/Footer.astro',
 			},
 			sidebar: [
 				{ label: 'Introduction', translations: { fr: 'Introduction' }, slug: 'docs' },

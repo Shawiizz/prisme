@@ -11,6 +11,8 @@ import phonePortrait from '../../assets/screens/phone-portrait.png';
 import Waveform from './Waveform.astro';
 import Record from './Record.astro';
 import Stems from './Stems.astro';
+import Controller from './Controller.astro';
+import Zoom from '../Zoom.astro';
 import { strings, type Lang } from '../../i18n/landing';
 import { latestRelease, REPO, RELEASES } from '../../lib/release';
 import { brands, controllerModels } from '../../lib/controllers';
@@ -26,20 +28,19 @@ const other = lang === 'en' ? { href: '/fr/', label: 'FR', name: 'Français' } :
 const release = await latestRelease();
 const models = controllerModels();
 const makers = brands(models);
-const profileExample = `{
-  "name": "Pioneer DDJ-SB2",
-  "ports": ["DDJ-SB2"],
-  "controls": [
-    {"control": {"kind": "note", "channel": 0, "number": 11},
-     "target": "deck1.play"},
-    {"control": {"kind": "controlChange", "channel": 0, "number": 34},
-     "target": "deck1.jog", "encoding": "relativeOffset"}
-  ],
-  "meters": [
-    {"source": "deck1", "control": {"kind": "controlChange", "channel": 0, "number": 2},
-     "max": 117, "curve": 0.45, "clip": 119}
-  ]
-}`;
+// models DJs know, shown by name; the rest counted
+const FEATURED = [
+	'Pioneer DDJ-FLX4',
+	'Pioneer DDJ-400',
+	'Hercules DJControl Inpulse 500',
+	'Numark Mixtrack Platinum FX',
+	'Denon MC7000',
+	'Roland DJ-505',
+	'Reloop Mixage',
+	'Allen & Heath Xone:K2',
+	'Native Instruments Traktor Kontrol X1',
+];
+const featured = FEATURED.filter((name) => models.some((m) => m.name === name));
 ---
 
 <!doctype html>
@@ -101,11 +102,51 @@ const profileExample = `{
 
 			<section class="screen">
 				<div class="frame">
-					<Image src={decks} alt={s.shot} widths={[800, 1200, 1697]} sizes="(max-width: 1240px) 100vw, 1200px" loading="eager" />
+					<Image data-zoom src={decks} alt={s.shot} widths={[800, 1200, 1697]} sizes="(max-width: 1240px) 100vw, 1200px" loading="eager" />
 				</div>
 			</section>
 
-			<section class="feature" id="features" data-reveal>
+			<section class="block ways" id="features" data-reveal>
+				<div class="head">
+					<p class="kicker">{s.ways.kicker}</p>
+					<h2>{s.ways.title}</h2>
+				</div>
+				<ul class="paths">
+					{
+						s.ways.items.map(([title, body, to], i) => (
+							<li>
+								<a href={to === 'touch' ? `${base}/docs/interface/keyboard/` : `#${to}`}>
+									<span class="index">0{i + 1}</span>
+									<strong>{title}</strong>
+									<span>{body}</span>
+								</a>
+							</li>
+						))
+					}
+				</ul>
+			</section>
+
+			<section class="feature" id="controllers" data-reveal>
+				<div class="text">
+					<p class="kicker">{s.ctrl.kicker}</p>
+					<h2>{s.ctrl.title}</h2>
+					<p>{s.ctrl.body}</p>
+					<div class="numbers">
+						<p><strong>{models.length}</strong> {s.ctrl.count}</p>
+						<p><strong>{makers.length}</strong> {s.ctrl.brands}</p>
+					</div>
+					<ul class="ticks">{s.ctrl.points.map((p) => <li>{p}</li>)}</ul>
+				</div>
+				<div class="visual">
+					<Controller />
+					<ul class="models">
+						{featured.map((name) => <li>{name}</li>)}
+						<li class="more">{s.ctrl.more.replace('{n}', String(models.length - featured.length))}</li>
+					</ul>
+				</div>
+			</section>
+
+			<section class="feature reverse" id="vinyl" data-reveal>
 				<div class="text">
 					<p class="kicker">{s.dvs.kicker}</p>
 					<h2>{s.dvs.title}</h2>
@@ -115,7 +156,7 @@ const profileExample = `{
 				<div class="visual"><Record /></div>
 			</section>
 
-			<section class="feature reverse" data-reveal>
+			<section class="feature" data-reveal>
 				<div class="text">
 					<p class="kicker">{s.stems.kicker}</p>
 					<h2>{s.stems.title}</h2>
@@ -148,24 +189,7 @@ const profileExample = `{
 					<p>{s.four.body}</p>
 				</div>
 				<div class="frame">
-					<Image src={fourDecks} alt={s.four.alt} widths={[800, 1200, 1697]} sizes="(max-width: 1240px) 100vw, 1200px" />
-				</div>
-			</section>
-
-			<section class="feature" data-reveal>
-				<div class="text">
-					<p class="kicker">{s.ctrl.kicker}</p>
-					<h2>{s.ctrl.title}</h2>
-					<p>{s.ctrl.body}</p>
-					<div class="numbers">
-						<p><strong>{models.length}</strong> {s.ctrl.count}</p>
-						<p><strong>{makers.length}</strong> {s.ctrl.brands}</p>
-					</div>
-					<ul class="ticks">{s.ctrl.points.map((p) => <li>{p}</li>)}</ul>
-				</div>
-				<div class="visual">
-					<pre class="code" aria-label="A controller profile"><code>{profileExample}</code></pre>
-					<p class="makers">{makers.join(' · ')}</p>
+					<Image data-zoom src={fourDecks} alt={s.four.alt} widths={[800, 1200, 1697]} sizes="(max-width: 1240px) 100vw, 1200px" />
 				</div>
 			</section>
 
@@ -176,8 +200,8 @@ const profileExample = `{
 					<p>{s.phone.body}</p>
 				</div>
 				<div class="visual devices">
-					<div class="device landscape"><Image src={phoneLandscape} alt="" widths={[600, 915]} sizes="560px" /></div>
-					<div class="device portrait"><Image src={phonePortrait} alt="" widths={[206, 412]} sizes="160px" /></div>
+					<div class="device landscape"><Image data-zoom src={phoneLandscape} alt="" widths={[600, 915]} sizes="560px" /></div>
+					<div class="device portrait"><Image data-zoom src={phonePortrait} alt="" widths={[206, 412]} sizes="160px" /></div>
 				</div>
 			</section>
 
@@ -190,7 +214,7 @@ const profileExample = `{
 				</div>
 				<div class="visual">
 					<div class="frame small">
-						<Image src={palette} alt={s.library.alt} widths={[620, 940]} sizes="(max-width: 900px) 100vw, 510px" />
+						<Image data-zoom src={palette} alt={s.library.alt} widths={[620, 940]} sizes="(max-width: 900px) 100vw, 510px" />
 					</div>
 				</div>
 			</section>
@@ -267,6 +291,8 @@ const profileExample = `{
 			</div>
 			<p class="fine">{s.footer.license} · {s.footer.credit}</p>
 		</footer>
+
+		<Zoom label={s.zoom} close={s.close} />
 
 		<script>
 			// sections rise into view once, as they are reached; without script they are simply there

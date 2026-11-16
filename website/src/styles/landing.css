@@ -384,6 +384,68 @@ section p {
 	line-height: 1.45;
 }
 
+/* The ways to play: three doors into the page */
+.ways .head {
+	margin: 0 auto;
+	text-align: center;
+}
+.paths {
+	list-style: none;
+	padding: 0;
+	margin: 44px 0 0;
+	display: grid;
+	grid-template-columns: repeat(3, 1fr);
+	gap: 16px;
+}
+.paths a {
+	position: relative;
+	display: grid;
+	align-content: start;
+	gap: 10px;
+	height: 100%;
+	padding: 26px 24px 28px;
+	border: 1px solid var(--pr-line);
+	border-radius: 10px;
+	background: linear-gradient(180deg, var(--pr-base), var(--pr-void));
+	text-decoration: none;
+	overflow: hidden;
+	transition:
+		border-color 160ms,
+		transform 160ms;
+}
+.paths a::before {
+	content: '';
+	position: absolute;
+	inset: 0 0 auto;
+	height: 2px;
+	background: var(--spectrum);
+	opacity: 0;
+	transition: opacity 160ms;
+}
+.paths a:hover {
+	border-color: var(--pr-line-2);
+	transform: translateY(-2px);
+}
+.paths a:hover::before {
+	opacity: 0.8;
+}
+.paths .index {
+	font: 500 12px / 1 var(--pr-font-mono);
+	font-stretch: 80%;
+	color: var(--pr-text-3);
+}
+.paths strong {
+	font-size: 22px;
+	font-weight: 600;
+	font-stretch: 80%;
+	color: var(--pr-light);
+}
+.paths span:last-child {
+	font-size: 15px;
+	line-height: 1.5;
+	color: var(--pr-text-2);
+}
+
 /* Four decks */
 .wide {
 	max-width: var(--page);
@@ -415,17 +477,27 @@ section p {
 	letter-spacing: -0.02em;
 	color: var(--pr-light);
 }
-.code {
-	margin: 0;
-	padding: 24px 26px;
-	overflow-x: auto;
-	border: 1px solid var(--pr-line);
-	border-radius: 10px;
+.models {
+	list-style: none;
+	padding: 0;
+	margin: 28px 0 0;
+	display: flex;
+	flex-wrap: wrap;
+	justify-content: center;
+	gap: 8px;
+}
+.models li {
+	padding: 7px 12px;
+	border: 1px solid var(--pr-line-2);
+	border-radius: 999px;
+	font-size: 13.5px;
+	color: var(--pr-text);
 	background: var(--pr-base);
-	font: 400 12.5px / 1.7 var(--pr-font-mono);
-	font-stretch: 80%;
+}
+.models .more {
+	border-style: dashed;
 	color: var(--pr-text-2);
-	box-shadow: 0 30px 80px rgb(0 0 0 / 0.5);
+	background: none;
 }
 .makers {
 	margin: 20px 0 0;
@@ -656,6 +728,9 @@ section p {
 }
 
 @media (max-width: 1000px) {
+	.paths {
+		grid-template-columns: 1fr;
+	}
 	.tiles {
 		grid-template-columns: repeat(2, 1fr);
 	}
@@ -690,7 +765,7 @@ section p {
 		font-size: 16px;
 	}
 	.hero {
-		padding-top: 36px;
+		padding-top: 44px;
 	}
 	.badge {
 		margin-bottom: 22px;
@@ -699,9 +774,21 @@ section p {
 		display: none;
 	}
 	.ticks,
-	.tiles,
 	.cards,
 	.systems {
 		grid-template-columns: 1fr;
+	}
+	/* the pads' features two by two, short enough to read at a glance */
+	.tiles li {
+		padding: 16px 14px 18px;
+	}
+	.tiles strong {
+		font-size: 15px;
+	}
+	.tiles span {
+		font-size: 13px;
+	}
+	.paths a {
+		padding: 20px 20px 22px;
 	}
 }

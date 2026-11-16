@@ -1,0 +1,12 @@
+---
+// Starlight's footer, and with it on every page of the documentation, its images opened in full.
+import Default from '@astrojs/starlight/components/Footer.astro';
+import Zoom from './Zoom.astro';
+
+const fr = Astro.locals.starlightRoute.lang === 'fr';
+const label = fr ? 'Ouvrir l’image en grand' : 'Open the image in full';
+const close = fr ? 'Fermer' : 'Close';
+---
+
+<Default {...Astro.props}><slot /></Default>
+<Zoom {label} {close} />

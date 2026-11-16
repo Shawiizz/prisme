@@ -26,6 +26,8 @@ const grooves = Array.from({ length: 34 }, (_, i) => 68 + i * 3.2);
 		width: min(100%, 420px);
 		margin-inline: auto;
 		border-radius: 50%;
+		/* the turning square of the record stays inside its circle, never wider than the page */
+		overflow: hidden;
 		box-shadow:
 			0 30px 80px rgb(0 0 0 / 0.6),
 			0 0 0 1px var(--pr-line);

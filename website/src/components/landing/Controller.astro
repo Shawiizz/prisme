@@ -1,0 +1,176 @@
+---
+/** A DJ controller seen from above: its jog wheels turning, its pads lighting on the beat. */
+const PAD_COLORS = ['#ff5442', '#ff9a3c', '#f5d547', '#a6e25c', '#3fd3b5', '#4aa8ff', '#8f7bff', '#e86bd6'];
+const pads = (x0: number) =>
+	Array.from({ length: 8 }, (_, i) => ({
+		x: x0 + (i % 4) * 42,
+		y: 286 + Math.floor(i / 4) * 34,
+		color: PAD_COLORS[i],
+		delay: ((i * 3) % 8) * 0.48387,
+	}));
+const jogs = [150, 490];
+---
+
+<svg class="controller" viewBox="0 0 640 372" role="img" aria-hidden="true">
+	<rect x="2" y="2" width="636" height="368" rx="20" class="body" />
+	{
+		jogs.map((cx) => (
+			<g>
+				<circle cx={cx} cy="160" r="96" class="platter" />
+				{[86, 74, 62].map((r) => <circle cx={cx} cy="160" r={r} class="groove" />)}
+				<circle cx={cx} cy="160" r="40" class="hub" />
+				<g class="spin" style={`transform-origin: ${cx}px 160px`}>
+					<rect x={cx - 2} y="68" width="4" height="16" rx="2" class="marker" />
+				</g>
+			</g>
+		))
+	}
+	{
+		[66, 406].map((x0) =>
+			pads(x0).map((p) => (
+				<rect x={p.x} y={p.y} width="36" height="28" rx="4" class="pad" style={`--pad: ${p.color}; animation-delay: ${p.delay}s`} />
+			)),
+		)
+	}
+	<g class="mixer">
+		{
+			[282, 358].map((x) => (
+				<g>
+					{[52, 92, 132].map((y) => (
+						<g>
+							<circle cx={x} cy={y} r="13" class="knob" />
+							<rect x={x - 1} y={y - 12} width="2" height="7" rx="1" class="tick" />
+						</g>
+					))}
+					<rect x={x - 3} y="168" width="6" height="96" rx="3" class="slot" />
+					<rect x={x - 14} y="186" width="28" height="12" rx="3" class="cap" />
+				</g>
+			))
+		}
+		<rect x="270" y="300" width="100" height="6" rx="3" class="slot" />
+		<rect x="312" y="292" width="16" height="22" rx="3" class="cap xfader" />
+		<g class="meters">
+			{Array.from({ length: 8 }, (_, i) => <rect x="317" y={250 - i * 12} width="6" height="8" rx="1" class={`led led${i}`} />)}
+		</g>
+	</g>
+</svg>
+
+<style>
+	.controller {
+		display: block;
+		width: 100%;
+		height: auto;
+		filter: drop-shadow(0 30px 60px rgb(0 0 0 / 0.55));
+	}
+	.body {
+		fill: #111316;
+		stroke: #333840;
+		stroke-width: 1.5;
+	}
+	.platter {
+		fill: #0a0b0d;
+		stroke: #333840;
+		stroke-width: 2;
+	}
+	.groove {
+		fill: none;
+		stroke: rgb(255 255 255 / 0.05);
+	}
+	.hub {
+		fill: #181b1f;
+		stroke: #333840;
+	}
+	.marker {
+		fill: #f3f1eb;
+	}
+	.spin {
+		animation: spin 1.8s linear infinite;
+	}
+	.pad {
+		fill: var(--pad);
+		opacity: 0.18;
+		animation: pad 3.871s steps(1) infinite;
+	}
+	.knob {
+		fill: #181b1f;
+		stroke: #333840;
+		stroke-width: 1.5;
+	}
+	.tick {
+		fill: #a1a6ae;
+	}
+	.slot {
+		fill: #0a0b0d;
+		stroke: #23272d;
+	}
+	.cap {
+		fill: #e7e8ea;
+	}
+	.xfader {
+		animation: xfade 7.74s ease-in-out infinite;
+	}
+	.led {
+		fill: #a6e25c;
+		opacity: 0.15;
+		animation: meter 0.48387s ease-out infinite;
+	}
+	.led6,
+	.led7 {
+		fill: #ff5442;
+	}
+	.led4,
+	.led5 {
+		fill: #f5d547;
+	}
+	.led0 { animation-name: meter-0; }
+	.led1 { animation-name: meter-1; }
+	.led2 { animation-name: meter-2; }
+	.led3 { animation-name: meter-3; }
+	.led4 { animation-name: meter-4; }
+	.led5 { animation-name: meter-5; }
+	.led6 { animation-name: meter-6; }
+	.led7 { animation-name: none; }
+	@keyframes spin {
+		to {
+			transform: rotate(360deg);
+		}
+	}
+	/* a pad lit for one beat in eight */
+	@keyframes pad {
+		0% {
+			opacity: 0.95;
+		}
+		12.5%,
+		100% {
+			opacity: 0.18;
+		}
+	}
+	@keyframes xfade {
+		0%,
+		100% {
+			transform: translateX(-34px);
+		}
+		50% {
+			transform: translateX(34px);
+		}
+	}
+	/* the meter hits on the beat and falls back: the lower the LED, the longer it stays lit */
+	@keyframes meter-0 { 0%, 90% { opacity: 1; } 100% { opacity: 0.6; } }
+	@keyframes meter-1 { 0%, 80% { opacity: 1; } 100% { opacity: 0.15; } }
+	@keyframes meter-2 { 0%, 65% { opacity: 1; } 75%, 100% { opacity: 0.15; } }
+	@keyframes meter-3 { 0%, 50% { opacity: 1; } 60%, 100% { opacity: 0.15; } }
+	@keyframes meter-4 { 0%, 38% { opacity: 1; } 48%, 100% { opacity: 0.15; } }
+	@keyframes meter-5 { 0%, 25% { opacity: 1; } 35%, 100% { opacity: 0.15; } }
+	@keyframes meter-6 { 0%, 10% { opacity: 1; } 20%, 100% { opacity: 0.15; } }
+	@media (prefers-reduced-motion: reduce) {
+		.spin,
+		.pad,
+		.xfader,
+		.led {
+			animation: none;
+		}
+		.pad {
+			opacity: 0.6;
+		}
+	}
+</style>
