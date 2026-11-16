@@ -151,13 +151,13 @@
       "format": 1
     },
     "numark-mixtrack-platinum-fx.json": {
-      "sha256": "9052a9083a297a654a9ab5529f4ef05776aebc8e21832b01886fce6cc7f6bf66",
-      "revision": 2,
+      "sha256": "32d9cd372f16d2bcbe2219b446d51a4be101eb8e4b41be3ca1aa39021b9c8327",
+      "revision": 3,
       "format": 1
     },
     "numark-mixtrack-platinum.json": {
-      "sha256": "d57b26f75e5a1d6ab22d3c7ce094b9f7ab63646a4f4c8c6d68447cd255b70158",
-      "revision": 2,
+      "sha256": "0331da8ff0d09ee07874606c836c5ce566736f682cd675f11f56828b2e783324",
+      "revision": 3,
       "format": 1
     },
     "numark-mixtrack-pro-3.json": {
@@ -181,13 +181,13 @@
       "format": 1
     },
     "numark-ns4fx.json": {
-      "sha256": "019a83c6984a66f9085cce2142811723b8e46df60b8f4f6315e0162d89784509",
-      "revision": 2,
+      "sha256": "56a2c4ea01f4c9468dcd34b57bec018c0c42100e3ff3327a0a0a1c224688c73f",
+      "revision": 3,
       "format": 1
     },
     "numark-ns6ii.json": {
-      "sha256": "f38a3a64a689b3c6dfcdc1eda72b3ddb8508ec56a6249d62f835b37accd21060",
-      "revision": 2,
+      "sha256": "948e542ea04757888ef91adcf071ddb0b39af97bcf9886478ce1edae43376953",
+      "revision": 3,
       "format": 1
     },
     "numark-ns7.json": {

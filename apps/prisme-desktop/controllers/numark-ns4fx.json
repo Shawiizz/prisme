@@ -475,5 +475,27 @@
     {"source": "deck3.turn", "control": {"kind": "controlChange", "channel": 2, "number": 6}, "min": 64, "max": 115},
     {"source": "deck4.position", "control": {"kind": "controlChange", "channel": 3, "number": 63}, "min": 0, "max": 52},
     {"source": "deck4.turn", "control": {"kind": "controlChange", "channel": 3, "number": 6}, "min": 64, "max": 115}
+  ],
+  "displays": [
+    {"source": "deck1.bpm", "message": [240, 0, 32, 127, 1, 1, "value", 247], "scale": 100, "nibbles": 6},
+    {"source": "deck1.tempo", "message": [240, 0, 32, 127, 1, 2, "value", 247], "scale": 100, "offset": 8388608, "nibbles": 6},
+    {"source": "deck1.duration", "message": [240, 0, 32, 127, 1, 3, "value", 247], "scale": 1000, "offset": -1, "nibbles": 8, "sign": [8, 7]},
+    {"source": "deck1.elapsed", "message": [240, 0, 32, 127, 1, 4, "value", 247], "scale": 1000, "nibbles": 8, "sign": [8, 7]},
+    {"source": "deck1.tempoRange", "message": [144, 14, "value"]},
+    {"source": "deck2.bpm", "message": [240, 0, 32, 127, 2, 1, "value", 247], "scale": 100, "nibbles": 6},
+    {"source": "deck2.tempo", "message": [240, 0, 32, 127, 2, 2, "value", 247], "scale": 100, "offset": 8388608, "nibbles": 6},
+    {"source": "deck2.duration", "message": [240, 0, 32, 127, 2, 3, "value", 247], "scale": 1000, "offset": -1, "nibbles": 8, "sign": [8, 7]},
+    {"source": "deck2.elapsed", "message": [240, 0, 32, 127, 2, 4, "value", 247], "scale": 1000, "nibbles": 8, "sign": [8, 7]},
+    {"source": "deck2.tempoRange", "message": [145, 14, "value"]},
+    {"source": "deck3.bpm", "message": [240, 0, 32, 127, 3, 1, "value", 247], "scale": 100, "nibbles": 6},
+    {"source": "deck3.tempo", "message": [240, 0, 32, 127, 3, 2, "value", 247], "scale": 100, "offset": 8388608, "nibbles": 6},
+    {"source": "deck3.duration", "message": [240, 0, 32, 127, 3, 3, "value", 247], "scale": 1000, "offset": -1, "nibbles": 8, "sign": [8, 7]},
+    {"source": "deck3.elapsed", "message": [240, 0, 32, 127, 3, 4, "value", 247], "scale": 1000, "nibbles": 8, "sign": [8, 7]},
+    {"source": "deck3.tempoRange", "message": [146, 14, "value"]},
+    {"source": "deck4.bpm", "message": [240, 0, 32, 127, 4, 1, "value", 247], "scale": 100, "nibbles": 6},
+    {"source": "deck4.tempo", "message": [240, 0, 32, 127, 4, 2, "value", 247], "scale": 100, "offset": 8388608, "nibbles": 6},
+    {"source": "deck4.duration", "message": [240, 0, 32, 127, 4, 3, "value", 247], "scale": 1000, "offset": -1, "nibbles": 8, "sign": [8, 7]},
+    {"source": "deck4.elapsed", "message": [240, 0, 32, 127, 4, 4, "value", 247], "scale": 1000, "nibbles": 8, "sign": [8, 7]},
+    {"source": "deck4.tempoRange", "message": [147, 14, "value"]}
   ]
 }
