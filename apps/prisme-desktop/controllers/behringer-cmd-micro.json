@@ -32,6 +32,10 @@
     {"control": {"kind": "controlChange", "channel": 0, "number": 32}, "target": "deck2.pitch"},
     {"control": {"kind": "controlChange", "channel": 0, "number": 34}, "target": "deck2.volume"},
     {"control": {"kind": "controlChange", "channel": 0, "number": 64}, "target": "mixer.crossfader"},
-    {"control": {"kind": "controlChange", "channel": 0, "number": 50}, "target": "library.browse", "encoding": "relativeOffset"}
+    {"control": {"kind": "controlChange", "channel": 0, "number": 48}, "target": "mixer.main"},
+    {"control": {"kind": "controlChange", "channel": 0, "number": 49}, "target": "mixer.headphones"},
+    {"control": {"kind": "controlChange", "channel": 0, "number": 50}, "target": "library.browse", "encoding": "relativeOffset"},
+    {"control": {"kind": "note", "channel": 0, "number": 48}, "target": "library.lists", "encoding": "relative"},
+    {"control": {"kind": "note", "channel": 0, "number": 49}, "target": "library.lists", "encoding": "relative", "invert": true}
   ]
 }

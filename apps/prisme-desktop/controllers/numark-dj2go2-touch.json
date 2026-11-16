@@ -54,6 +54,8 @@
     {"control": {"kind": "note", "channel": 5, "number": 34}, "target": "deck2.loop.out"},
     {"control": {"kind": "note", "channel": 4, "number": 35}, "target": "deck1.reloop"},
     {"control": {"kind": "note", "channel": 5, "number": 35}, "target": "deck2.reloop"},
+    {"control": {"kind": "note", "channel": 4, "number": 36}, "target": "deck1.reloop.stop"},
+    {"control": {"kind": "note", "channel": 5, "number": 36}, "target": "deck2.reloop.stop"},
     {"control": {"kind": "note", "channel": 4, "number": 49}, "target": "deck1.sample1"},
     {"control": {"kind": "note", "channel": 4, "number": 50}, "target": "deck1.sample2"},
     {"control": {"kind": "note", "channel": 4, "number": 51}, "target": "deck1.sample3"},
@@ -63,7 +65,10 @@
     {"control": {"kind": "note", "channel": 5, "number": 51}, "target": "deck2.sample3"},
     {"control": {"kind": "note", "channel": 5, "number": 52}, "target": "deck2.sample4"},
     {"control": {"kind": "controlChange", "channel": 15, "number": 0}, "target": "library.browse", "encoding": "relative"},
-    {"control": {"kind": "controlChange", "channel": 15, "number": 8}, "target": "mixer.crossfader"}
+    {"control": {"kind": "note", "channel": 15, "number": 6}, "target": "library.preview"},
+    {"control": {"kind": "controlChange", "channel": 15, "number": 8}, "target": "mixer.crossfader"},
+    {"control": {"kind": "controlChange", "channel": 15, "number": 10}, "target": "mixer.main"},
+    {"control": {"kind": "controlChange", "channel": 15, "number": 12}, "target": "mixer.headphones"}
   ],
   "lights": [
     {"target": "deck1.loop", "control": {"kind": "note", "channel": 4, "number": 35}},

@@ -1,283 +1,283 @@
 {
   "profiles": {
     "allen-and-heath-xone-k2.json": {
-      "sha256": "f1565c7a994109aa3f5531648f8df313faf3fc691d24262629d68f11d5f1bb92",
-      "revision": 1,
+      "sha256": "f460567a3472e1e9f00428158bb72462f51e36633735d80631bc815f2e6c84c8",
+      "revision": 2,
       "format": 1
     },
     "behringer-cmd-micro.json": {
-      "sha256": "ead8c1d73ed807955f4eda94029676d0924e8b1c6a24c70d39f483d858b06155",
-      "revision": 1,
+      "sha256": "42cd2a39cff91082f9ad11478d0b3475ced0accf91ac35d2ae897afb0552cba3",
+      "revision": 2,
       "format": 1
     },
     "behringer-cmd-mm-1.json": {
-      "sha256": "93c131e6d175281698e35fef869e19df126ea2dec338acc933ed4022976334e2",
-      "revision": 1,
+      "sha256": "68d5482c4c2ce06cc70479061ac094b4ed85df20651ce1e154d02ede032f7163",
+      "revision": 2,
       "format": 1
     },
     "behringer-cmd-studio-4a.json": {
-      "sha256": "e959bf4643f9fcf970dfdf7839cb9fcd13a553f5e296baba526aa86e4e54833d",
-      "revision": 1,
+      "sha256": "fd67f6153d65aadc1442cfba15670279f3d0eca054c24cb9833eb469195753ab",
+      "revision": 2,
       "format": 1
     },
     "denon-dn-sc2000.json": {
-      "sha256": "759891b1e1c09fdd6a34f71a62cf6476894a0fb6b2345d1e5e8bbc6f23402dfd",
-      "revision": 1,
+      "sha256": "60a28f10eb8d087164a57c6a7bedfb24224a8e14f8c279288ba0523c95edd11f",
+      "revision": 2,
       "format": 1
     },
     "denon-mc3000.json": {
-      "sha256": "b088c21b520b9cbbe70c900eafe9413791af296d86ae797a0ab53a6b2878e561",
-      "revision": 1,
+      "sha256": "4633bf00035c535d2ce041d655b8a33cdbff42b110b64fcd1d99424438b71b35",
+      "revision": 2,
       "format": 1
     },
     "denon-mc4000.json": {
-      "sha256": "5115822d9ae15cd693c477bcf62f31d74a850517e9406d4e496c45b9ce7db334",
-      "revision": 1,
+      "sha256": "1f0b4d77f7c237e49e634e64275d24bbedab9c263b07100c22b69ae1a0288e97",
+      "revision": 2,
       "format": 1
     },
     "denon-mc6000mk2.json": {
-      "sha256": "929655e8a1bbef452223ee38601eebd12546a4e18062fe0109b2a11ce0ef8990",
-      "revision": 1,
+      "sha256": "32f1fcd5b371e07477287e7661ba8ad265327b59b384a7c0aa273352b014208c",
+      "revision": 2,
       "format": 1
     },
     "denon-mc7000.json": {
-      "sha256": "c50a963732ff6a2dd3f97617f5be317793e9fb4bdc67bd0da6cbcbcfa42f5e0a",
-      "revision": 1,
+      "sha256": "ef99805cd61c7b83eceb211b03f01da46860b3c46a9ee50339f6aa210c33b52f",
+      "revision": 2,
       "format": 1
     },
     "dj-techtools-midi-fighter-twister.json": {
-      "sha256": "746429d0e4dfe5fb9afdd16bbac5ce028ee07816572e475d261dcd7f792760b2",
-      "revision": 1,
+      "sha256": "07a8b998e52d7f7e7c1baa8883e3f9268978202c4f08c2dd319863bad40fbb22",
+      "revision": 2,
       "format": 1
     },
     "hercules-dj-console-mk4.json": {
-      "sha256": "e47f0faf4d68d6b8cbf3198ad8ed4c2ee35c62b9b8bec2f3ef0f19cefa3e6597",
-      "revision": 1,
+      "sha256": "cf1c2c4039c87bd744fbfdd09957a4659b33f9d3d739a2a643fa3e97bb536621",
+      "revision": 2,
       "format": 1
     },
     "hercules-dj-console-rmx-2.json": {
-      "sha256": "46dc43c8d170ef26ed60917d5dbb68b07bb45831c58a49ca4f7bb46f24bb46c0",
-      "revision": 1,
+      "sha256": "fc28e8e43da0284c3fe5bc973357dc58ce447508748f406b6aa621648a71f9f4",
+      "revision": 2,
       "format": 1
     },
     "hercules-dj-control-air.json": {
-      "sha256": "d8ec56653daaec9ce8673c89d6a3ec35e80502587259ce36f911967268b62587",
-      "revision": 1,
+      "sha256": "12e63a4e2340d2171514a697756a5e24472c7285d3be2c03b08eb34ac80f7330",
+      "revision": 2,
       "format": 1
     },
     "hercules-dj-control-instinct.json": {
-      "sha256": "8cd544e9866d0640a7c91a732b3016487a484f64359421a367538b32e65b9ef9",
-      "revision": 1,
+      "sha256": "4f845db06198ba637c921d77f9f11227bcfd0a533dcef0aff9dbe8c1c47a89c3",
+      "revision": 2,
       "format": 1
     },
     "hercules-dj-control-mp3-e2.json": {
-      "sha256": "f12dcf952561d0e82e05e8f1f6cad83a5a88fe226b0f1cb92a2d923ff9d20591",
-      "revision": 1,
+      "sha256": "8b9443750f9ebdf4aea3b1f07c3ebefded2b211508747589af59cbf6b021b739",
+      "revision": 2,
       "format": 1
     },
     "hercules-djcontrol-compact.json": {
-      "sha256": "9c3c65365e83a12289e58159b1ef4250022ef441201bcb1d57f1774aedeef989",
-      "revision": 1,
+      "sha256": "b221164e45156f204d214f7dff2109fdbac5988006ad1cecc2d1de2b9738b0ee",
+      "revision": 2,
       "format": 1
     },
     "hercules-djcontrol-inpulse-200.json": {
-      "sha256": "a99f5184701eb259cfab5455d6e7ebe227333baaa183519ce7aebf601856d61b",
-      "revision": 1,
+      "sha256": "e3906366b57980a2b70de1eaebf9aaa419e1e0d935048fa459010cf9bfb95c5d",
+      "revision": 2,
       "format": 1
     },
     "hercules-djcontrol-inpulse-300.json": {
-      "sha256": "8e22818aa9a0e5f41c0e74d0682e46920aa2fbbca2cd954aca26d3ce801fc571",
-      "revision": 1,
+      "sha256": "58954f0b73c5a3e768de1b484580a593d0d57daf072ca7fe3643e28f83c2cfbd",
+      "revision": 2,
       "format": 1
     },
     "hercules-djcontrol-inpulse-500.json": {
-      "sha256": "61d39dd2a33a5333197745228813abd4238b875d829fbc55f03b59796bdd720c",
-      "revision": 1,
+      "sha256": "e265b9b94c608a17d154f50f2524e9e8aee67991efcac3485977831ff09ab641",
+      "revision": 2,
       "format": 1
     },
     "hercules-djcontrol-jogvision.json": {
-      "sha256": "56218fdd381ad747dcca228cc7ba0184140685ad33c5123da35c993e359b7597",
-      "revision": 1,
+      "sha256": "75484792aba3473651b294caad9c7917ebb33fa7e6357da0e8b434e93ae78311",
+      "revision": 2,
       "format": 1
     },
     "hercules-djcontrol-mix.json": {
-      "sha256": "9817010c225ffecf55505498025a6e1c953dee5c1b7faacd7fbdb2fb7df78346",
-      "revision": 1,
+      "sha256": "389deb84d510f1808c68e98ba4086f0c20dc87b27f3709a22ce1b6939d651897",
+      "revision": 2,
       "format": 1
     },
     "hercules-djcontrol-starlight.json": {
-      "sha256": "1ddb3751b9f668c9b283fb6c55153edc30f2f9bba78d6c8b6f1a1e8b93032a00",
-      "revision": 1,
+      "sha256": "5148dac3bec49990f7de6492a7818ee96619ecb2a85a129c4e86815aa94f6a66",
+      "revision": 2,
       "format": 1
     },
     "hercules-p32-dj.json": {
-      "sha256": "46aa4ad1a30f3145d98c264cfa4877cf7daff6edf1d78030e6777176f83e88c5",
-      "revision": 1,
+      "sha256": "ca3013cc56d701f6c31646c8d4eac36839c3b81c73343b5dfd377d192c7a2a7b",
+      "revision": 2,
       "format": 1
     },
     "korg-kaoss-dj.json": {
-      "sha256": "1feb14009c646946d2f3f5f059e9bd88586095039f533c67f5d92cbd55a0d717",
-      "revision": 1,
+      "sha256": "e3709180659f070a5b0656b4c4eed155a7173417d8800179437361df1ca81ea2",
+      "revision": 2,
       "format": 1
     },
     "native-instruments-traktor-kontrol-x1.json": {
-      "sha256": "4ff0c4a25d05ce3b22c52134c973d5f80a80e074516b95b951faad3e24905668",
-      "revision": 1,
+      "sha256": "1b6e84e6dda02991ab8f0eececbfb31c2f117552caeae0b8b337ce9eb564422e",
+      "revision": 2,
       "format": 1
     },
     "numark-dj2go.json": {
-      "sha256": "6d577dc62a4c45349cdd34dbde6ff8cb3b904f47359e826a38113f3773a3b56e",
-      "revision": 1,
+      "sha256": "092b983b7b667f4379a89a46f22c25e7642f5860726d640bf19a08f1a15c354b",
+      "revision": 2,
       "format": 1
     },
     "numark-dj2go2-touch.json": {
-      "sha256": "af76202fde695ce816157214d7fb7bed3a4e5966a93273b5f4a24ed3ddf3ca13",
-      "revision": 1,
+      "sha256": "0f779154daf58bc107dd306bcd7e2da8369649e3075318ff0cffed016bf2386f",
+      "revision": 2,
       "format": 1
     },
     "numark-idj-live-ii.json": {
-      "sha256": "7154bf902eb0f6e38a5e167193910eccd4cc9c93f2279da0af41c0f6ad29631f",
-      "revision": 1,
+      "sha256": "648a4d8a7f411dd95e54dfa4bfd495e168c2f6a5ba6ef96625d75c6c35941905",
+      "revision": 2,
       "format": 1
     },
     "numark-mixstream-pro.json": {
-      "sha256": "1f8e53c31169e90573f9d2726fc03b7a55dd3a56bda06ada9339868367f5b187",
-      "revision": 1,
+      "sha256": "58b3632b4b263d284660850f59df96625e6caf66af5315886a95f334dd964150",
+      "revision": 2,
       "format": 1
     },
     "numark-mixtrack-2.json": {
-      "sha256": "cd507a3cc017bc58014ce6b2ce1a8832e273f39369c42a37abe252e75301344c",
-      "revision": 1,
+      "sha256": "acb988f74228bb88e601f8418d21fe959dd0336d25a1e30b41fde557c0014619",
+      "revision": 2,
       "format": 1
     },
     "numark-mixtrack-platinum-fx.json": {
-      "sha256": "cbb6da553211ceb54844ee3846f8fc66e1525e47374e13fa7429b38a117a9e38",
-      "revision": 1,
+      "sha256": "9052a9083a297a654a9ab5529f4ef05776aebc8e21832b01886fce6cc7f6bf66",
+      "revision": 2,
       "format": 1
     },
     "numark-mixtrack-platinum.json": {
-      "sha256": "aa65c06075ac1264f1f920b9a90a566d0a80d723395967f43a52d1f8c4c81f11",
-      "revision": 1,
+      "sha256": "d57b26f75e5a1d6ab22d3c7ce094b9f7ab63646a4f4c8c6d68447cd255b70158",
+      "revision": 2,
       "format": 1
     },
     "numark-mixtrack-pro-3.json": {
-      "sha256": "6cfcc403bce8bbb8347da0c23ceccaca5cb2e17e991c268af22db30d5870c26e",
-      "revision": 1,
+      "sha256": "eedeceea5424704b0662a0194071ca12f2f987b40c04c33692c3ea35302ae0a0",
+      "revision": 2,
       "format": 1
     },
     "numark-mixtrack-pro-fx.json": {
-      "sha256": "6e6ede4eb47736c4e25f2301b37030382701e5b5eb941362a416c8e7ae3ea6b6",
-      "revision": 1,
+      "sha256": "75256f58a108b80de60a5086c5a300127490dc4c640637830366c8846f044253",
+      "revision": 2,
       "format": 1
     },
     "numark-mixtrack-pro.json": {
-      "sha256": "188b81b9b53553e376b8a7155905253d8c466fe2f575f669c10f26a0318b4e30",
-      "revision": 1,
+      "sha256": "1027a5ecc165909db324e93d5750e0acf366f415a4b9179186a377d15d17a19b",
+      "revision": 2,
       "format": 1
     },
     "numark-mixtrack.json": {
-      "sha256": "fbe276ca8710baddce80725e15f509db499b15d311562000cd3a2bf2670040b0",
-      "revision": 1,
+      "sha256": "0d3d0757b1c5c477967756dfd89c911e90183bf9be4bb100d662409d45684386",
+      "revision": 2,
       "format": 1
     },
     "numark-ns4fx.json": {
-      "sha256": "a4a316dd2724433b10d2c7622cb5f831d35391dab61eeb24bae5f80e9442efab",
-      "revision": 1,
+      "sha256": "019a83c6984a66f9085cce2142811723b8e46df60b8f4f6315e0162d89784509",
+      "revision": 2,
       "format": 1
     },
     "numark-ns6ii.json": {
-      "sha256": "152b75eb3102820c9a61d20a2facbc9931f3b8477fe7889ab5b5b4ceadd00d72",
-      "revision": 1,
+      "sha256": "f38a3a64a689b3c6dfcdc1eda72b3ddb8508ec56a6249d62f835b37accd21060",
+      "revision": 2,
       "format": 1
     },
     "numark-ns7.json": {
-      "sha256": "d76104784290c2b02e67d82965e1277e480d0cb3648da133552e21c0e47350a0",
-      "revision": 1,
+      "sha256": "e7bf4bcad6b4e0a531b56cc56116f0a293071dfb82558dd19e17c34a414c5936",
+      "revision": 2,
       "format": 1
     },
     "numark-party-mix.json": {
-      "sha256": "3cdd94e1cb955fd06d9acb2e3f71bfe23163b1ac2bf7394f85f745703b0f1504",
-      "revision": 1,
+      "sha256": "d0d4ac57615c7850beff7f0402ada79db5240fee801e1dcece48f337e2dee4d3",
+      "revision": 2,
       "format": 1
     },
     "numark-scratch.json": {
-      "sha256": "033eee99ff352e91de272936a5b72c61f9fc604fee22252acac37fcfb0b4f5de",
-      "revision": 1,
+      "sha256": "8cf01bf51fda2ff1543189c2becc173eb5adf00a545664f527ebcbdeef5e0aa3",
+      "revision": 2,
       "format": 1
     },
     "pioneer-ddj-200.json": {
-      "sha256": "2fb3286e6cdf190cedc48bcd0e80f0241c84ff11eef1662741110f64ae726cc4",
-      "revision": 1,
+      "sha256": "285ef377aabc5f6cf056795bfb911b0e09d8327509542b9d1c338847edbb2863",
+      "revision": 2,
       "format": 1
     },
     "pioneer-ddj-400.json": {
-      "sha256": "18fb0bf0f459482521f3ccb517fa6144ab59a76e16b4e0e9030070ee670b9420",
-      "revision": 1,
+      "sha256": "5b44697bcd14a6c2ff6e603cb8b130b5d184b4bd81e991bf74e5e1e14a16d979",
+      "revision": 2,
       "format": 1
     },
     "pioneer-ddj-flx4.json": {
-      "sha256": "c7aff01c6b1d0827d600e500587bad692c501b5f346752e40de3b89e166d431a",
-      "revision": 1,
+      "sha256": "47410448448b6ccd74652f345ae5abf3603a312a5ff2367cabff6aa7203de238",
+      "revision": 2,
       "format": 1
     },
     "pioneer-ddj-sb.json": {
-      "sha256": "56435a506287d99c4b1be248449f0ce87c8ffc5fdda15d5eb6b86127a7b1bcbf",
-      "revision": 1,
+      "sha256": "12a2779995d9f8ea9de5d3450189d468c399211aca01490cb3ae44f628edb0e5",
+      "revision": 2,
       "format": 1
     },
     "pioneer-ddj-sb2.json": {
-      "sha256": "6a9231f5d5929efe2a9af28b872973be57edc03af28ac36ac9aed1c0e6b48fea",
-      "revision": 1,
+      "sha256": "c37d1491f072b798f5ed6ddc3e60babd89150a843f52f067f01ad9fdab64d6f0",
+      "revision": 2,
       "format": 1
     },
     "pioneer-ddj-sb3.json": {
-      "sha256": "4f80ee26d26597525a81f0ee05fa20ae20370be3df08d4aca00a6fc9bfb7dd45",
-      "revision": 1,
+      "sha256": "8eff100ecbd3f27b3bd5efcf52e0f23ca3520e594ecc326c12cb07d5e53375aa",
+      "revision": 2,
       "format": 1
     },
     "pioneer-ddj-sx.json": {
-      "sha256": "f6f44388a6a9292ffd283305a2169f229ceee4318a272262d8bf1afdf63fcddd",
-      "revision": 1,
+      "sha256": "1fb775fef6b57115340bcb59225ca4b60105fc107f759d46d3f738d420b57155",
+      "revision": 2,
       "format": 1
     },
     "reloop-beatmix-2-4-mk2.json": {
-      "sha256": "dcc61d5e259ae9ff9e6186ba4badd0c23b4ae5f9f0466663a3222ca0346f2309",
-      "revision": 1,
+      "sha256": "258605d17e3ab35aa9f954642850755355c309f9cd6bb0296213b2ed527c7604",
+      "revision": 2,
       "format": 1
     },
     "reloop-beatpad.json": {
-      "sha256": "a8d583879228532875f7993c4e6778f8f073c9af6812f09eccce75f088287ffd",
-      "revision": 1,
+      "sha256": "1fbadebc9df6c057527e24d3e8fef630c90b89f12bed15a8deac5ec02acd95c8",
+      "revision": 2,
       "format": 1
     },
     "reloop-digital-jockey-2-interface-edition.json": {
-      "sha256": "537e1ff73dbb03c161a97cc505a20923920674d39ec5000921fd5e6fae3c37aa",
-      "revision": 1,
+      "sha256": "dc1aef892287ccb3beebd8bda8fe41bafa2508ae65a69a0b469810edcb8301b4",
+      "revision": 2,
       "format": 1
     },
     "reloop-jockey-3-me.json": {
-      "sha256": "205179588838752fb5fe87f7ead89dbb9c49ef04d7232e2863c7babfbd38f00b",
-      "revision": 1,
+      "sha256": "d79ae303df39ccdb9f92126633b0859e050003f0be9ef9fd1e535e3f16c7538a",
+      "revision": 2,
       "format": 1
     },
     "reloop-mixage.json": {
-      "sha256": "ce32e377bceae51cb36ecc9d084d5d7169e45e91847139d7a1a1401a4a71124a",
-      "revision": 1,
+      "sha256": "59f3db5199a9e5e3ed1d20ffb1b1d93c42ffc1337329e49a29061213905272a6",
+      "revision": 2,
       "format": 1
     },
     "reloop-terminal-mix-2-4.json": {
-      "sha256": "160f192f60829c8d887d3689da610640e9a884789214fca1a2c2fa4f987d308a",
-      "revision": 1,
+      "sha256": "6be422397ad7735982e0bf92baa20d4395040fe2137f099a1be622f3cc80935c",
+      "revision": 2,
       "format": 1
     },
     "roland-dj-505.json": {
-      "sha256": "f0d7486ebcd619aa2fb93569b637bc6be4b532dc7e2b2911c6f016272f482dfb",
-      "revision": 1,
+      "sha256": "2218d4302f763ae6df7d19974b2efa90fa304445277499ae9b6fd27710b9d0f4",
+      "revision": 2,
       "format": 1
     },
     "stanton-djc-4.json": {
-      "sha256": "6e66fc5c360046ea43ed1ccd1e6eaa73fbd5a1904f440c2ccc9bcd3cab1cbb0f",
-      "revision": 1,
+      "sha256": "f8ae15e14a2a3b6969509d219e49c34cd60c2811c7ac7e835b84647f33611987",
+      "revision": 2,
       "format": 1
     }
   }
