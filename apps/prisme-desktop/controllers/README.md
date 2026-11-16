@@ -72,7 +72,7 @@ One JSON file per model:
 | `onValue` | Drives its action as a key pressed when the control sends this value: a switch's position, one entry per position. |
 | `also` | Other actions it drives along. |
 | `down` | An encoder pressing keys: a step to the right presses `target`, a step to the left this action. |
-| `hold` | `ms`, `target`: another action (or mode) for the key held that long; let go sooner, its own. |
+| `hold` | `ms`, `target`: another action (or mode) for the key held that long; let go sooner, its own (a mode key chooses its mode as it is let go). |
 | `double` | `ms`, `target`: another action for the key pressed twice within `ms`. |
 | `chord` | `with` (a control), `target`: another action for the key pressed while `with` is held. |
 | `set` | A key putting a fader's action at a position (`0.5`), or at each of two in turn (`[0, 1]`, lit at the second). |

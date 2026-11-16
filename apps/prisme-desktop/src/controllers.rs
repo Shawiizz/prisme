@@ -776,7 +776,10 @@ impl Controllers {
         let mappings = lock(&self.mappings);
         let (mapping, value) = reader.read(&mappings, device, event)?;
         if selected_mode(&mapping.target).is_some() {
-            return driven(inputs(mapping, value));
+            return match &mapping.hold {
+                Some(hold) => self.hold(device, event, mapping, hold, &mut reader),
+                None => driven(inputs(mapping, value)),
+            };
         }
         if let Some(routed) = self.instead(device, event, mapping, &reader) {
             return routed;
@@ -786,7 +789,7 @@ impl Controllers {
             return key_steps(&mapping.target, down, steps);
         }
         if let Some(hold) = &mapping.hold {
-            return self.hold(device, event, mapping, hold);
+            return self.hold(device, event, mapping, hold, &mut reader);
         }
         Some(match Direct::of(&mapping.target) {
             Some(action) => Routed::Direct(action, value),
@@ -852,9 +855,16 @@ impl Controllers {
     }
 
     /// A key whose action waits to know whether it is held: pressed, nothing yet; let go
-    /// before its time, its own actions (those it drives along too) pressed and let go; after,
-    /// the hold's let go.
-    fn hold(&self, device: &str, event: Event, mapping: &Mapping, hold: &Hold) -> Option<Routed> {
+    /// before its time, its own actions (those it drives along too) pressed and let go, or its
+    /// mode chosen; after, the hold's let go.
+    fn hold(
+        &self,
+        device: &str,
+        event: Event,
+        mapping: &Mapping,
+        hold: &Hold,
+        reader: &mut Reader,
+    ) -> Option<Routed> {
         let mut holdings = lock(&self.holdings);
         if event.raw > 0 {
             holdings.push(Holding {
@@ -874,29 +884,44 @@ impl Controllers {
         if held.fired {
             return driven(vec![ControllerInputDto::of(&held.hold.target, 0.0)]);
         }
+        reader.choose(device, mapping);
         driven([inputs(mapping, 1.0), inputs(mapping, 0.0)].concat())
     }
 
     /// The keys held long enough: their hold's action pressed, or its mode chosen.
     fn fire_holds(&self, app: &AppHandle) {
-        let mut modes_changed = Vec::new();
+        for (device, pressed) in self.fired_holds() {
+            match pressed {
+                Some(input) => drop(app.emit("controller-input", input)),
+                None => self.show_lights(&device),
+            }
+        }
+    }
+
+    /// The holds whose time came, by controller: the action each presses, or `None` for a
+    /// mode it chose (here).
+    fn fired_holds(&self) -> Vec<(String, Option<ControllerInputDto>)> {
+        let mut fired = Vec::new();
         for held in lock(&self.holdings).iter_mut() {
             if !held.fired && held.since.elapsed() >= Duration::from_millis(u64::from(held.hold.ms)) {
                 held.fired = true;
-                match selected_mode(&held.hold.target) {
-                    Some((group, mode)) => {
-                        lock(&self.reader).set_mode(&held.device, group, mode);
-                        modes_changed.push(held.device.clone());
-                    }
-                    None => {
-                        drop(app.emit("controller-input", ControllerInputDto::of(&held.hold.target, 1.0)))
-                    }
-                }
+                fired.push((held.device.clone(), held.hold.target.clone()));
             }
         }
-        for device in modes_changed {
-            self.show_lights(&device);
-        }
+        // the reader once the holdings are let go: a key read takes them the other way round
+        fired
+            .into_iter()
+            .map(|(device, target)| {
+                let pressed = match selected_mode(&target) {
+                    Some((group, mode)) => {
+                        lock(&self.reader).set_mode(&device, group, mode);
+                        None
+                    }
+                    None => Some(ControllerInputDto::of(&target, 1.0)),
+                };
+                (device, pressed)
+            })
+            .collect()
     }
 
     /// A fader just learnt whose low half follows on the controller numbered 32 higher is
@@ -1300,6 +1325,28 @@ mod tests {
         let pressed = [("library.load1", 1.0), ("deck1.play", 1.0)];
         let let_go = [("library.load1", 0.0), ("deck1.play", 0.0)];
         assert_eq!(route(&c, &[0x90, 36, 0]), inputs_of(&[pressed[0], pressed[1], let_go[0], let_go[1]]));
+    }
+
+    #[test]
+    fn a_mode_key_held_chooses_its_hold_and_let_go_sooner_its_own_mode() {
+        let key = Control { number: 9, ..PAD };
+        let mode_key = |ms| {
+            let hold = Hold { ms, target: "mode.pads.slicer".into() };
+            with(mapping(key, "mode.pads.roll"), |b| b.hold = Some(hold))
+        };
+        let c = with_mappings([mode_key(60_000)]);
+        lock(&c.reader).set_modes("DDJ", Modes::from([("pads".into(), "cues".into())]));
+        let mode = |c: &Controllers| lock(&c.reader).modes("DDJ")["pads"].clone();
+        assert_eq!(route(&c, &[0x90, 9, 127]), None);
+        assert_eq!(mode(&c), "cues", "the press waits to know whether it is held");
+        assert_eq!(route(&c, &[0x90, 9, 0]), None);
+        assert_eq!(mode(&c), "roll");
+        lock(&c.mappings).learn(mode_key(0), false);
+        route(&c, &[0x90, 9, 127]);
+        assert_eq!(c.fired_holds(), [("DDJ".to_owned(), None)]);
+        assert_eq!(mode(&c), "slicer");
+        assert_eq!(route(&c, &[0x90, 9, 0]), None);
+        assert_eq!(mode(&c), "slicer", "let go after its hold, its own mode is not chosen");
     }
 
     #[test]

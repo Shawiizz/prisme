@@ -453,7 +453,8 @@ struct DeviceReader {
 impl Reader {
     /// The action an event of `device` drives and its value; `None` when it drives none, is
     /// a shift or is the first half of a 14-bit value. Shift and the modes are read here: a
-    /// mode key's mode is chosen before it is given.
+    /// mode key's mode is chosen before it is given, but for one waiting to know whether it is
+    /// held ([`Reader::choose`]).
     pub fn read<'m>(
         &mut self,
         mappings: &'m Mappings,
@@ -481,7 +482,9 @@ impl Reader {
             return None;
         }
         if let Some((group, mode)) = selected_mode(&mapping.target) {
-            reader.select(mapping, event, group, mode);
+            if mapping.hold.is_none() {
+                reader.select(mapping, event, group, mode);
+            }
             let value = if mapping.on_value.is_some() { 1.0 } else { mapping.encoding.value(event) };
             return Some((mapping, value));
         }
@@ -546,6 +549,16 @@ impl Reader {
     /// Puts `device`'s `group` in `mode` (a key held long enough, say).
     pub fn set_mode(&mut self, device: &str, group: &str, mode: &str) {
         self.device(device).change_mode(group, mode);
+    }
+
+    /// Chooses the mode of `key`, a mode key of `device` pressed and let go: one with a hold,
+    /// let go before it.
+    pub fn choose(&mut self, device: &str, key: &ProfileControl) {
+        let Some((group, mode)) = selected_mode(&key.target) else { return };
+        let reader = self.device(device);
+        for raw in [127, 0] {
+            reader.select(key, Event { control: key.control, raw }, group, mode);
+        }
     }
 
     /// The keys of `device` held down.
@@ -903,6 +916,21 @@ mod tests {
         assert_eq!(reader.modes("DDJ")["pads"], "params");
         read(&mut reader, &mappings, &[0x90, 9, 0]);
         assert_eq!(reader.modes("DDJ")["pads"], "cues");
+    }
+
+    #[test]
+    fn a_mode_key_with_a_hold_leaves_its_mode_to_be_chosen() {
+        let key = Control { number: 9, ..PAD };
+        let mut mappings = Mappings::default();
+        let hold = Hold { ms: 500, target: "mode.pads.slicer".into() };
+        mappings.learn(with(mapping("DDJ", key, "mode.pads.roll"), |b| b.hold = Some(hold)), false);
+        let mut reader = Reader::default();
+        reader.set_modes("DDJ", Modes::from([("pads".into(), "cues".into())]));
+        assert_eq!(read(&mut reader, &mappings, &[0x90, 9, 127]), Some(("mode.pads.roll".into(), 1.0)));
+        assert_eq!(read(&mut reader, &mappings, &[0x90, 9, 0]), Some(("mode.pads.roll".into(), 0.0)));
+        assert_eq!(reader.modes("DDJ")["pads"], "cues");
+        reader.choose("DDJ", &mappings.all()[0]);
+        assert_eq!(reader.modes("DDJ")["pads"], "roll");
     }
 
     #[test]
