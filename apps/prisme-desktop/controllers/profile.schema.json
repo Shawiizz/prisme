@@ -64,6 +64,81 @@
         }
       ]
     },
+    "Display": {
+      "description": "A number shown on a screen by a message of the controller's own: `source`'s value\n(`deck1.bpm`, `deck1.elapsed`, `deck1.remaining` and `deck1.duration` in seconds,\n`deck1.tempo` and `deck1.tempoRange` in percent) times `scale`, plus `offset`, written\nwhere the message says `\"value\"`: in `nibbles` bytes of four bits, the most significant\nfirst and a number below zero in two's complement, or without them in one byte from 0 to\n127. `sign` puts its first nibble for a number at or above zero, or below it, in place of\nthe first of those.",
+      "properties": {
+        "message": {
+          "items": {
+            "$ref": "#/$defs/DisplayPart"
+          },
+          "type": "array"
+        },
+        "nibbles": {
+          "format": "uint8",
+          "maximum": 16,
+          "minimum": 1,
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "offset": {
+          "format": "double",
+          "type": "number"
+        },
+        "scale": {
+          "format": "double",
+          "type": "number"
+        },
+        "sign": {
+          "items": {
+            "format": "uint8",
+            "maximum": 255,
+            "minimum": 0,
+            "type": "integer"
+          },
+          "maxItems": 2,
+          "minItems": 2,
+          "type": [
+            "array",
+            "null"
+          ]
+        },
+        "source": {
+          "type": "string"
+        },
+        "when": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/When"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "While its group is in this mode only."
+        }
+      },
+      "required": [
+        "source",
+        "message"
+      ],
+      "type": "object"
+    },
+    "DisplayPart": {
+      "anyOf": [
+        {
+          "format": "uint8",
+          "maximum": 255,
+          "minimum": 0,
+          "type": "integer"
+        },
+        {
+          "$ref": "#/$defs/ValuePlace"
+        }
+      ],
+      "description": "A byte of a display's message, or the place of its value."
+    },
     "Encoding": {
       "description": "How a control's values are read.",
       "oneOf": [
@@ -3069,6 +3144,12 @@
       "description": "An action of Prisme",
       "type": "string"
     },
+    "ValuePlace": {
+      "enum": [
+        "value"
+      ],
+      "type": "string"
+    },
     "When": {
       "description": "A mode of a controller: `mode` of its group `group`.",
       "properties": {
@@ -3119,6 +3200,13 @@
     "credits": {
       "description": "Where the mapping comes from, when it is not Prisme's own.",
       "type": "string"
+    },
+    "displays": {
+      "description": "Numbers shown on the controller's screens: the tempo, the time.",
+      "items": {
+        "$ref": "#/$defs/Display"
+      },
+      "type": "array"
     },
     "init": {
       "description": "Sent when the controller is opened (a request for its knobs' positions, say), some a\nwhile after.",

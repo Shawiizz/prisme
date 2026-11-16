@@ -243,14 +243,36 @@ export class ControllerService {
     if (values.length > 0) this.run(() => invoke('set_controller_outputs', { values }));
   }
 
+  /** A fader's position, or what a deck's track shows: its place (`position`, 0 to 1), its
+   * record's turn, its tempo (`bpm`), its times in seconds, its tempo change and range in
+   * percent. */
   private outputValue(target: string, status: EngineStatus | null): number | null {
-    const measured = /^deck(\d)\.(position|turn)$/.exec(target);
+    const measured =
+      /^deck(\d)\.(position|turn|bpm|elapsed|remaining|duration|tempo|tempoRange)$/.exec(target);
     if (!measured) return this.controls.findInUse(target)?.position?.() ?? null;
-    const deck = status?.decks[Number(measured[1]) - 1];
+    const at = Number(measured[1]) - 1;
+    const deck = status?.decks[at];
     if (!deck?.loaded) return null;
-    if (measured[2] === 'position') return deck.durationS > 0 ? deck.positionS / deck.durationS : 0;
-    const turns = (deck.positionS * RECORD_RPM) / 60;
-    return turns - Math.floor(turns);
+    switch (measured[2]) {
+      case 'position':
+        return deck.durationS > 0 ? deck.positionS / deck.durationS : 0;
+      case 'turn': {
+        const turns = (deck.positionS * RECORD_RPM) / 60;
+        return turns - Math.floor(turns);
+      }
+      case 'bpm':
+        return deck.bpm;
+      case 'elapsed':
+        return deck.positionS;
+      case 'remaining':
+        return Math.max(deck.durationS - deck.positionS, 0);
+      case 'duration':
+        return deck.durationS;
+      case 'tempo':
+        return ((this.engine.tempoRate(at) ?? this.engine.decks()[at].pitch) - 1) * 100;
+      default:
+        return this.engine.tempoRange(at) * 100;
+    }
   }
 
   private async run(action: () => Promise<unknown>) {

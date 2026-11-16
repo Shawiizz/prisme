@@ -26,6 +26,7 @@ interface Profile {
   modes?: { group: string; modes: string[]; select: { mode: string }[] }[];
   meters?: { source: string }[];
   outputs?: { source: string }[];
+  displays?: { source: string }[];
 }
 
 /** Every action a control drives: its own, those along, its other uses. */
@@ -86,7 +87,10 @@ describe('controller profiles', () => {
       const values = (p.outputs ?? [])
         .map((o) => o.source)
         .filter((s) => !faders.has(s) && !/^deck[1-4]\.(position|turn)$/.test(s));
-      expect([...strays, ...levels, ...values]).toEqual([]);
+      const numbers = (p.displays ?? [])
+        .map((d) => d.source)
+        .filter((s) => !/^deck[1-4]\.(bpm|elapsed|remaining|duration|tempo|tempoRange)$/.test(s));
+      expect([...strays, ...levels, ...values, ...numbers]).toEqual([]);
     }
   });
 

@@ -57,6 +57,9 @@ pub struct Profile {
     /// Values shown on the controller: a ring around a jog wheel, a knob's ring of lights.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub outputs: Vec<Output>,
+    /// Numbers shown on the controller's screens: the tempo, the time.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub displays: Vec<Display>,
 }
 
 /// A message sent when a controller is opened: at once, or `after_ms` later (once a light
@@ -107,6 +110,68 @@ impl Output {
     pub fn value(&self, position: f32) -> u8 {
         let span = f32::from(self.max) - f32::from(self.min);
         (f32::from(self.min) + position.clamp(0.0, 1.0) * span).round() as u8
+    }
+}
+
+/// A number shown on a screen by a message of the controller's own: `source`'s value
+/// (`deck1.bpm`, `deck1.elapsed`, `deck1.remaining` and `deck1.duration` in seconds,
+/// `deck1.tempo` and `deck1.tempoRange` in percent) times `scale`, plus `offset`, written
+/// where the message says `"value"`: in `nibbles` bytes of four bits, the most significant
+/// first and a number below zero in two's complement, or without them in one byte from 0 to
+/// 127. `sign` puts its first nibble for a number at or above zero, or below it, in place of
+/// the first of those.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct Display {
+    pub source: String,
+    pub message: Vec<DisplayPart>,
+    #[serde(default = "unscaled", skip_serializing_if = "is_unscaled")]
+    pub scale: f64,
+    #[serde(default, skip_serializing_if = "is_no_offset")]
+    pub offset: f64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(range(min = 1, max = 16))]
+    pub nibbles: Option<u8>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub sign: Option<[u8; 2]>,
+    /// While its group is in this mode only.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub when: Option<When>,
+}
+
+/// A byte of a display's message, or the place of its value.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(untagged)]
+pub enum DisplayPart {
+    Byte(u8),
+    Value(ValuePlace),
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub enum ValuePlace {
+    Value,
+}
+
+impl Display {
+    /// The message showing `value`, its source's.
+    pub fn message(&self, value: f64) -> Vec<u8> {
+        let number = (value * self.scale + self.offset).round() as i64;
+        let mut message = Vec::with_capacity(self.message.len() + 16);
+        for part in &self.message {
+            match (part, self.nibbles) {
+                (DisplayPart::Byte(byte), _) => message.push(*byte),
+                (DisplayPart::Value(_), None) => message.push(number.clamp(0, 127) as u8),
+                (DisplayPart::Value(_), Some(nibbles)) => {
+                    let first = message.len();
+                    message.extend((0..nibbles.min(16)).rev().map(|at| ((number >> (4 * at)) & 0xF) as u8));
+                    if let (Some([at_or_above, below]), Some(nibble)) = (self.sign, message.get_mut(first)) {
+                        *nibble = if number < 0 { below } else { at_or_above };
+                    }
+                }
+            }
+        }
+        message
     }
 }
 
@@ -209,6 +274,18 @@ fn is_full(value: &u8) -> bool {
 
 fn is_zero(value: &u8) -> bool {
     *value == 0
+}
+
+fn unscaled() -> f64 {
+    1.0
+}
+
+fn is_unscaled(scale: &f64) -> bool {
+    *scale == 1.0
+}
+
+fn is_no_offset(offset: &f64) -> bool {
+    *offset == 0.0
 }
 
 fn straight() -> f32 {
@@ -433,6 +510,27 @@ mod tests {
         )
         .unwrap();
         assert_eq!([0.0, 0.5, 1.0].map(|p| output.value(p)), [1, 11, 21]);
+    }
+
+    #[test]
+    fn a_display_writes_its_number_in_nibbles_or_in_a_byte() {
+        let display = |json: &str| serde_json::from_str::<Display>(json).unwrap();
+        let bpm = display(
+            r#"{ "source": "deck1.bpm", "message": [240, 0, 32, 127, 1, 1, "value", 247], "scale": 100, "nibbles": 6 }"#,
+        );
+        assert_eq!(bpm.message(124.37), [240, 0, 32, 127, 1, 1, 0, 0, 3, 0, 9, 5, 247]);
+        let time = display(
+            r#"{ "source": "deck1.remaining", "message": ["value"], "scale": -1000, "nibbles": 8, "sign": [8, 7] }"#,
+        );
+        assert_eq!(time.message(1.5), [7, 15, 15, 15, 15, 10, 2, 4]);
+        assert_eq!(time.message(-1.5)[..2], [8, 0]);
+        let pitch = display(
+            r#"{ "source": "deck1.tempo", "message": ["value"], "scale": 100, "offset": 8388608, "nibbles": 6 }"#,
+        );
+        assert_eq!(pitch.message(-1.0), [7, 15, 15, 15, 9, 12]);
+        let range = display(r#"{ "source": "deck1.tempoRange", "message": [144, 14, "value"] }"#);
+        assert_eq!([range.message(8.0), range.message(300.0)], [[144, 14, 8], [144, 14, 127]]);
+        assert_eq!(serde_json::from_str::<Display>(&serde_json::to_string(&bpm).unwrap()).unwrap(), bpm);
     }
 
     #[test]

@@ -108,6 +108,8 @@ struct Connection {
     later: Vec<(Instant, Vec<u8>)>,
     /// When each of its meters last reached full scale.
     clipped: HashMap<usize, Instant>,
+    /// What each of its screens' numbers was last sent, by its place among the displays.
+    displayed: HashMap<usize, Vec<u8>>,
 }
 
 /// A light showing its two values in turn, since `since`.
@@ -281,6 +283,7 @@ impl Controllers {
             lights: Vec::new(),
             meters: Vec::new(),
             outputs: Vec::new(),
+            displays: Vec::new(),
         });
         Profile { controls, verified: false, ..profile }
     }
@@ -455,15 +458,18 @@ impl Controllers {
         targets
     }
 
-    /// The sources of the outputs of the profiles of the controllers in use, whose values the
-    /// UI tells (`set_outputs`).
+    /// The sources of the outputs and the displays of the profiles of the controllers in use,
+    /// whose values the UI tells (`set_outputs`).
     pub fn output_targets(&self) -> Vec<String> {
         let mut targets: Vec<String> = self
             .setup
             .read(|s| s.enabled.clone())
             .iter()
             .filter_map(|device| controller_profiles::of(device))
-            .flat_map(|p| p.outputs.iter().map(|o| o.source.clone()).collect::<Vec<_>>())
+            .flat_map(|p| {
+                let outputs = p.outputs.iter().map(|o| o.source.clone());
+                outputs.chain(p.displays.iter().map(|d| d.source.clone())).collect::<Vec<_>>()
+            })
             .collect();
         targets.sort();
         targets.dedup();
@@ -624,6 +630,14 @@ impl Controllers {
                             connection.show([status, number, output.value(value)]);
                         }
                     }
+                    for (at, display) in profile.displays.iter().enumerate().filter(|(_, d)| shown(&d.when)) {
+                        let Some(&value) = values.get(&display.source) else { continue };
+                        let message = display.message(f64::from(value));
+                        if connection.displayed.get(&at) != Some(&message) {
+                            connection.send(&message);
+                            connection.displayed.insert(at, message);
+                        }
+                    }
                 }
             }
         });
@@ -682,6 +696,7 @@ impl Controllers {
             messages: HashMap::new(),
             later,
             clipped: HashMap::new(),
+            displayed: HashMap::new(),
         };
         let modes = controller_profiles::of(device).map(|p| p.first_modes()).unwrap_or_default();
         lock(&self.reader).set_modes(device, modes);

@@ -21,7 +21,7 @@ pub use mapping::{
 pub use message::{parse, Control, ControlKind, Event};
 pub use pickup::Pickup;
 pub use profile::{
-    InitMessage, KeepAlive, LaterMessage, Meter, ModeGroup, ModeSelect, Output, Profile, ProfileLight,
-    JOG_STEPS_PER_TURN, PROFILE_FORMAT,
+    Display, DisplayPart, InitMessage, KeepAlive, LaterMessage, Meter, ModeGroup, ModeSelect, Output,
+    Profile, ProfileLight, JOG_STEPS_PER_TURN, PROFILE_FORMAT,
 };
 pub use schema::{profile_schema, Target, SCHEMA_URL};
