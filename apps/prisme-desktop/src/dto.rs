@@ -404,6 +404,9 @@ pub struct AudioInfo {
     /// Decks of the engine.
     pub decks: usize,
     pub simulated: bool,
+    /// The sound card chosen in the settings while it is missing and the audio plays on the
+    /// default devices meanwhile (empty: the first one a driver finds).
+    pub missing: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize)]

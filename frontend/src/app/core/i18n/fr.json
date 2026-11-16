@@ -850,5 +850,8 @@
   "the tracklist could not be written": "la tracklist n'a pas pu être écrite",
   "Mix cut short, saved up to there: {file}": "Mix interrompu, enregistré jusque-là : {file}",
   "Mix saved: {file}": "Mix enregistré : {file}",
-  "Show in folder": "Afficher dans le dossier"
+  "Show in folder": "Afficher dans le dossier",
+  "{device} not found": "{device} introuvable",
+  "Sound card not found": "Carte son introuvable",
+  "The sound card chosen is missing: the sound plays on the default device until it is back": "La carte son choisie est absente : le son passe par l’appareil par défaut jusqu’à son retour"
 }

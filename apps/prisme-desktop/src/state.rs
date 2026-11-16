@@ -756,6 +756,7 @@ mod tests {
                 input_channels: 4,
                 decks,
                 simulated: false,
+                missing: None,
             };
             let routing = routing_for(mixer, &info);
             assert_eq!(routing.mode, MixMode::External);
@@ -790,6 +791,7 @@ mod tests {
             input_channels,
             decks,
             simulated: false,
+            missing: None,
         }
     }
 

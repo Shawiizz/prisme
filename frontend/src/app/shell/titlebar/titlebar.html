@@ -7,10 +7,27 @@
   <div class="health" data-tauri-drag-region>
     @if (engine.audioRunning()) {
       @if (settings.info(); as info) {
-        <span class="pr-chip device" [title]="info.device">
-          <span class="pr-sig pr-sig--ok"></span>{{ BACKEND_NAMES[info.backend] }} ·
-          {{ info.device }}
-        </span>
+        @if (info.missing !== null) {
+          <span
+            class="pr-chip pr-chip--warn"
+            [title]="
+              'The sound card chosen is missing: the sound plays on the default device until it is back'
+                | t
+            "
+          >
+            <span class="pr-sig pr-sig--weak"></span
+            >{{
+              info.missing
+                ? ('{device} not found' | t: { device: info.missing })
+                : ('Sound card not found' | t)
+            }}
+          </span>
+        } @else {
+          <span class="pr-chip device" [title]="info.device">
+            <span class="pr-sig pr-sig--ok"></span>{{ BACKEND_NAMES[info.backend] }} ·
+            {{ info.device }}
+          </span>
+        }
         @if (settings.period(); as period) {
           <span class="pr-chip" [title]="'Length of an audio period' | t">
             {{ 'Buffer' | t }} <span class="pr-num">{{ period }}</span>

@@ -53,7 +53,11 @@ pub fn get_audio_settings(state: State<'_, AppState>) -> AudioSettings {
 
 #[tauri::command]
 pub fn audio_info(state: State<'_, AppState>) -> Option<AudioInfo> {
-    lock(&state.session).as_ref().map(|s| s.info.clone())
+    let saved = state.preferences.read(|p| p.audio.clone());
+    lock(&state.session).as_ref().map(|s| AudioInfo {
+        missing: (!s.settings.same_devices(&saved)).then(|| saved.output_device.clone().unwrap_or_default()),
+        ..s.info.clone()
+    })
 }
 
 /// Restarts the audio with new settings and keeps them for the next start. Off the commands'

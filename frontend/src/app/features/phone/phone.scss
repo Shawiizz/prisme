@@ -31,6 +31,9 @@ svg {
   height: 36px;
   padding: 0 16px;
 }
+.audio.missing {
+  color: var(--pr-warn);
+}
 .audio {
   flex: 1;
   min-width: 0;

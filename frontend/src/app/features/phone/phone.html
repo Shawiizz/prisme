@@ -1,7 +1,19 @@
 <header class="bar">
   @if (audio(); as audio) {
-    <span class="pr-sig pr-sig--ok"></span>
-    <span class="audio">{{ audio }}</span>
+    @if (missing() !== null) {
+      <span class="pr-sig pr-sig--weak"></span>
+      <span class="audio missing"
+        >{{
+          missing()
+            ? ('{device} not found' | t: { device: missing()! })
+            : ('Sound card not found' | t)
+        }}
+        · {{ audio }}</span
+      >
+    } @else {
+      <span class="pr-sig pr-sig--ok"></span>
+      <span class="audio">{{ audio }}</span>
+    }
   } @else {
     <span class="pr-sig pr-sig--none"></span>
     <span class="audio">{{

@@ -149,6 +149,7 @@ pub fn start(
                     input_channels: stream.format.input_channels,
                     decks: config.decks,
                     simulated: simulate,
+                    missing: None,
                 };
                 if ready_tx.send(Ok((controller, config, info, stream.stats.clone()))).is_ok() {
                     let _ = stop_rx.recv(); // keep the stream alive until asked to stop

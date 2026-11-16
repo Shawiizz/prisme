@@ -73,6 +73,9 @@ export class Phone {
     const period = this.settings.period();
     return [BACKEND_NAMES[info.backend], info.device, ...(period ? [period] : [])].join(' · ');
   });
+  /** The sound card chosen is missing, the default device playing meanwhile: its name, '' for
+   * the first one its driver finds. */
+  protected readonly missing = computed(() => this.settings.info()?.missing ?? null);
 
   /** The hands are elsewhere: on a controller in use, or on the records that drive a deck. */
   private readonly hardware = computed(

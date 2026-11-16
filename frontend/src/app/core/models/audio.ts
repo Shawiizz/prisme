@@ -39,6 +39,9 @@ export interface AudioInfo {
   /** Decks of the engine. */
   decks: number;
   simulated: boolean;
+  /** The sound card chosen in the settings while it is missing and the audio plays on the
+   * default devices meanwhile ('': the first one its driver finds). */
+  missing: string | null;
 }
 
 /** A timecode record (or CD), one side of it when its sides differ. */
