@@ -16,7 +16,7 @@
 }
 .line {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 220px) 128px var(--pr-h-sm) var(--pr-h-sm);
+  grid-template-columns: minmax(0, 1fr) minmax(0, 240px) var(--pr-h-sm) var(--pr-h-sm);
   align-items: center;
   gap: var(--pr-space-2);
   min-height: 38px;
@@ -35,13 +35,44 @@
   white-space: nowrap;
   text-overflow: ellipsis;
 }
+// the keys of an action: clicked, the next key pressed becomes its key
 .keys {
   display: flex;
   flex-wrap: wrap;
+  align-items: center;
   gap: 4px;
+  min-height: 30px;
+  padding: 3px 6px;
+  border: 1px solid transparent;
+  border-radius: var(--pr-radius);
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color var(--pr-fast);
+  &:hover {
+    border-color: var(--pr-line-2);
+  }
+  &.is-on {
+    border-color: var(--pr-light);
+  }
   .none {
     color: var(--pr-text-3);
   }
+  .press {
+    color: var(--pr-light);
+  }
+}
+// taking a key off shows on the line pointed at; back to Prisme's key, wherever it differs
+.off,
+.back {
+  visibility: hidden;
+}
+.line:hover .off:not(:disabled),
+.line:focus-within .off:not(:disabled),
+.back.shown {
+  visibility: visible;
 }
 .pr-kbd {
   padding: 3px 7px;

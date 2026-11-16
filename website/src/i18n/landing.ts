@@ -109,9 +109,9 @@ const en = {
 
 const fr: typeof en = {
 	meta: {
-		title: 'Prisme  le logiciel de DJ pensé pour le vinyle',
+		title: 'Prisme : le logiciel de DJ pensé pour le vinyle',
 		description:
-			'Logiciel de DJ libre et gratuit pour le vinyle timecode  stems sur la carte graphique, 56 contrôleurs, quatre decks, Windows, macOS, Linux et Android.',
+			'Logiciel de DJ libre et gratuit pour le vinyle timecode : stems sur la carte graphique, 56 contrôleurs, quatre decks, Windows, macOS, Linux et Android.',
 	},
 	nav: { features: 'Fonctions', docs: 'Documentation', download: 'Télécharger' },
 	hero: {
@@ -126,7 +126,7 @@ const fr: typeof en = {
 	dvs: {
 		kicker: 'Contrôle vinyle',
 		title: 'Vos disques, lus à l’échantillon près.',
-		body: 'Timecode Serato CV02 (les deux faces) et Serato CD, en mode absolu ou relatif. Posez le diamant n’importe où, faites un backspin, scratchez  le décodeur, écrit de zéro, suit le sillon. En fin de disque, le deck continue tout seul.',
+		body: 'Timecode Serato CV02 (les deux faces) et Serato CD, en mode absolu ou relatif. Posez le diamant n’importe où, faites un backspin, scratchez : le décodeur, écrit de zéro, suit le sillon. En fin de disque, le deck continue tout seul.',
 		points: ['Modes absolu et relatif', 'Diamant posé, backspins, scratchs', 'Qualité du signal en direct', 'Chaque deck sur ses sorties'],
 	},
 	stems: {
@@ -162,7 +162,7 @@ const fr: typeof en = {
 	ctrl: {
 		kicker: 'Contrôleurs',
 		title: 'Branchez. Ça joue.',
-		body: '56 modèles de contrôleurs sont reconnus d’office, lumières, vumètres, jog wheels et écrans compris. Chacun est un simple fichier JSON que tout le monde peut lire, corriger et partager  les corrections arrivent sans nouvelle version.',
+		body: '56 modèles de contrôleurs sont reconnus d’office, lumières, vumètres, jog wheels et écrans compris. Chacun est un simple fichier JSON que tout le monde peut lire, corriger et partager ; les corrections arrivent sans nouvelle version.',
 		count: 'modèles',
 		brands: 'marques',
 		points: ['MIDI learn sur chaque commande', 'Ce qui est appris, exporté en profil', 'Un schéma JSON pour votre éditeur', 'Horloge MIDI en sortie'],
@@ -170,13 +170,13 @@ const fr: typeof en = {
 	phone: {
 		kicker: 'Téléphone et tablette',
 		title: 'Le même set, dans la main.',
-		body: 'Le même moteur et la même bibliothèque sur Android, disposés pour les doigts  decks et table de mixage à l’horizontale, ou empilés à la verticale. Un doigt sur la forme d’onde recale le morceau  une carte son USB branchée prend les sorties.',
+		body: 'Le même moteur et la même bibliothèque sur Android, disposés pour les doigts : decks et table de mixage à l’horizontale, ou empilés à la verticale. Un doigt sur la forme d’onde recale le morceau ; une carte son USB branchée prend les sorties.',
 	},
 	library: {
 		kicker: 'Bibliothèque',
 		title: 'Votre musique, reconnue pour de bon.',
 		body: 'MP3, AAC, ALAC, FLAC, Ogg Vorbis, WAV et AIFF, analysés en tâche de fond pour le tempo, la grille et la tonalité. Crates et crates intelligentes, liste de préparation, historique des sets, import Serato et rekordbox. Un fichier renommé, déplacé ou sur un autre disque est reconnu, par son audio s’il le faut, et garde ses cues.',
-		palette: 'Chaque action au clavier, et toutes dans une palette ',
+		palette: 'Chaque action au clavier, et toutes dans une palette :',
 		alt: 'La palette de commandes, à la recherche des actions de boucle',
 	},
 	engine: {

@@ -39,7 +39,8 @@
 />
 <p class="hint">
   {{
-    'Press Change, then the key, alone or with {ctrl} or Shift. Esc gives up.' | t: { ctrl: CTRL }
+    'Click a key, then press the new one, alone or with {ctrl} or Shift. Esc gives up.'
+      | t: { ctrl: CTRL }
   }}
 </p>
 
@@ -50,22 +51,24 @@
       @for (line of g.lines; track line.control.id) {
         <div class="line" [class.capturing]="capturing() === line.control.id">
           <span class="name">{{ line.control.label }}</span>
-          <span class="keys">
-            @for (key of line.keys; track key) {
-              <kbd class="pr-kbd">{{ key }}</kbd>
-            } @empty {
-              <span class="none">—</span>
-            }
-          </span>
           <button
-            class="pr-btn pr-btn--sm change"
+            class="keys"
             [class.is-on]="capturing() === line.control.id"
+            [title]="'Change its key' | t"
             (click)="change(line.control.id)"
           >
-            {{ capturing() === line.control.id ? ('Press a key…' | t) : ('Change' | t) }}
+            @if (capturing() === line.control.id) {
+              <span class="press">{{ 'Press a key…' | t }}</span>
+            } @else {
+              @for (key of line.keys; track key) {
+                <kbd class="pr-kbd">{{ key }}</kbd>
+              } @empty {
+                <span class="none">{{ 'No key' | t }}</span>
+              }
+            }
           </button>
           <button
-            class="pr-btn pr-btn--sm pr-btn--ghost pr-btn--icon"
+            class="pr-btn pr-btn--sm pr-btn--ghost pr-btn--icon off"
             [disabled]="line.keys.length === 0"
             [title]="'Take its key off' | t"
             [attr.aria-label]="'Take its key off' | t"
@@ -74,7 +77,8 @@
             ×
           </button>
           <button
-            class="pr-btn pr-btn--sm pr-btn--ghost pr-btn--icon"
+            class="pr-btn pr-btn--sm pr-btn--ghost pr-btn--icon back"
+            [class.shown]="line.changed"
             [disabled]="!line.changed"
             [title]="'Back to its key from Prisme' | t"
             [attr.aria-label]="'Back to its key from Prisme' | t"
