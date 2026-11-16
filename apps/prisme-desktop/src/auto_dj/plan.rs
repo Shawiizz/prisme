@@ -7,7 +7,7 @@ use prisme_engine::BeatGrid;
 pub const PHRASE_BEATS: f64 = 32.0;
 /// A tempo further than this from the next track's own is not matched: it plays at its own.
 pub const MAX_TEMPO_CHANGE: f64 = 0.1;
-/// Quieter than this on the waveform's scale (255: the track's loudest peak, about -36 dB),
+/// Quieter than this on the waveform's scale (255: full scale; this is about -36 dBFS),
 /// a slice of a track is silence.
 const SILENCE: u8 = 4;
 /// Slower than this, a deck is taken to play at its own speed (it is about to start).

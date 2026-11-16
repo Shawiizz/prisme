@@ -247,7 +247,7 @@ impl TrackView<'_> {
 }
 
 /// A track whose decoding has started: [`LoadingTrack::audio`] can be played right away
-/// and [`LoadingTrack::decode_rest`] (on a worker thread) completes it.
+/// and [`LoadingTrack::decode_rest_while`] (on a worker thread) completes it.
 pub struct LoadingTrack {
     audio: Arc<TrackAudio>,
     stream: Option<DecodeStream>,
@@ -283,17 +283,13 @@ impl LoadingTrack {
         &self.audio
     }
 
-    /// Decodes the rest of the track. A file damaged further on keeps what was decoded,
-    /// and the error says why it stops there.
-    pub fn decode_rest(self) -> (Arc<TrackAudio>, Result<(), MediaError>) {
-        self.decode_rest_while(|| true)
-    }
-
-    /// Decodes the rest of the track while `go_on` says so, asked between packets: a track
-    /// no longer wanted ends where its decoding was left.
+    /// Decodes the rest of the track while `go_on` says so, asked between packets, each one
+    /// readable in [`Self::audio`] by then: a track no longer wanted ends where its decoding
+    /// was left. A file damaged further on keeps what was decoded, and the error says why it
+    /// stops there.
     pub fn decode_rest_while(
         mut self,
-        go_on: impl Fn() -> bool,
+        mut go_on: impl FnMut() -> bool,
     ) -> (Arc<TrackAudio>, Result<(), MediaError>) {
         let result = match self.stream.take() {
             Some(mut stream) => {

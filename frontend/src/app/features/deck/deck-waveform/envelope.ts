@@ -16,11 +16,12 @@ const TOP_SHARE = 0.005;
  * The height of the envelope at each slice, 0 to 1: its loudness (from the energy of its
  * bands) set against the track's own, the median slice at `MEDIAN_HEIGHT` and the loudest
  * `TOP_SHARE` at the top. A dynamic track keeps its shape; a limited master, every peak at
- * the ceiling, unfolds into its kicks.
+ * the ceiling, unfolds into its kicks. While the track is read, against what has arrived of
+ * it, the slices still to come at 0.
  */
 export function envelopeHeights(w: Waveform): Float32Array {
-  const n = w.low.length;
-  const heights = new Float32Array(n);
+  const n = w.known;
+  const heights = new Float32Array(w.low.length);
   const radius = Math.floor((LOW_SMOOTHING_S * w.slicesPerSecond) / 2);
   const low = (k: number) => w.low[k] * w.low[k];
   // the low band's energy over the slices from i - radius to i + radius

@@ -47,7 +47,8 @@ export class WaveformPainter {
   private readonly palette = palette();
   /** The colour of each tag of a cue, written once. */
   private readonly cueColors = new Map<number, string>();
-  /** Colour and height of each slice, cached per waveform. */
+  /** Colour and height of each slice, cached per waveform: the colours of the slices known
+   * kept as more arrive, the heights set again against what has arrived. */
   private colors: string[] = [];
   private heights: Float32Array = new Float32Array(0);
   private source: Waveform | null = null;
@@ -234,16 +235,15 @@ export class WaveformPainter {
     reach: number,
   ) {
     this.prepare(w);
-    const n = this.heights.length;
     const sps = w.slicesPerSecond;
     const slicesPerPx = (view.spanS * sps) / view.width;
     const mid = view.height / 2;
     for (let x = 0; x < view.width; x++) {
       const first = Math.floor(view.fromS * sps + x * slicesPerPx);
       const last = Math.max(first + 1, Math.floor(view.fromS * sps + (x + 1) * slicesPerPx));
-      if (last <= 0 || first >= n) continue;
+      if (last <= 0 || first >= w.known) continue;
       let highest = Math.max(first, 0);
-      for (let i = highest; i < Math.min(last, n); i++) {
+      for (let i = highest; i < Math.min(last, w.known); i++) {
         if (this.heights[i] > this.heights[highest]) highest = i;
       }
       const h = this.heights[highest] * reach;
@@ -280,7 +280,7 @@ export class WaveformPainter {
     const means = new Float32Array(view.width);
     for (let x = 0; x < view.width; x++) {
       const first = Math.floor((x / view.width) * n);
-      const last = Math.min(Math.max(first + 1, Math.floor(((x + 1) / view.width) * n)), n);
+      const last = Math.min(Math.max(first + 1, Math.floor(((x + 1) / view.width) * n)), w.known);
       let sum = 0;
       for (let i = first; i < last; i++) sum += this.heights[i];
       means[x] = last > first ? sum / (last - first) : 0;
@@ -291,16 +291,18 @@ export class WaveformPainter {
     for (let x = 0; x < view.width; x++) {
       const first = Math.floor((x / view.width) * n);
       const last = Math.max(first + 1, Math.floor(((x + 1) / view.width) * n));
+      if (first >= w.known) break;
       const h = (means[x] / highest) * (mid - 1);
       ctx.fillStyle = this.colors[this.loudest(w, first, last)];
       ctx.fillRect(x, mid - h, 1, h * 2);
     }
   }
 
-  /** The slice with the highest peak from `first` to `last` (excluded), within the track. */
+  /** The slice with the highest peak from `first` to `last` (excluded), within the slices
+   * known. */
   private loudest(w: Waveform, first: number, last: number): number {
     let best = Math.max(first, 0);
-    for (let i = best; i < Math.min(last, w.peak.length); i++) {
+    for (let i = best; i < Math.min(last, w.known); i++) {
       if (w.peak[i] > w.peak[best]) best = i;
     }
     return best;
@@ -452,15 +454,16 @@ export class WaveformPainter {
    */
   private prepare(w: Waveform) {
     if (this.source === w) return;
+    if (this.source?.peak !== w.peak) this.colors = [];
     this.source = w;
     this.heights = envelopeHeights(w);
-    this.colors = Array.from(w.peak, (_, k) => {
+    for (let k = this.colors.length; k < w.known; k++) {
       const max = Math.max(w.low[k], w.mid[k], w.high[k], 1);
       const r = Math.round((w.low[k] / max) * 255);
       const g = Math.round((w.mid[k] / max) * 230);
       const b = Math.round((w.high[k] / max) * 255);
-      return `rgb(${r},${g},${b})`;
-    });
+      this.colors.push(`rgb(${r},${g},${b})`);
+    }
   }
 }
 

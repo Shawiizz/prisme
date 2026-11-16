@@ -1,13 +1,15 @@
 //! Loading a track on a deck, in two steps: first what makes it playable at once (the
 //! start of the audio, what the library knows of it, its cached waveform); then, on a
-//! worker thread, the rest of the audio and whatever was missing (waveform, analysis),
-//! sent to the UI as it comes (`deck-track-update`).
+//! worker thread, the rest of the audio and whatever was missing: the waveform, computed
+//! as the audio is decoded and drawn as it comes (`track_waveform`), and the analysis,
+//! sent to the UI once known (`deck-track-update`).
 
 use crate::dto::{DeckTrackUpdateDto, TrackAnalysisDto, TrackInfoDto};
 use crate::error::AppResult;
 use crate::library_service::LibraryService;
 use crate::preview::Previews;
 use crate::state::{lock, AppState, LoadedTrack};
+use crate::track_waveform::{TrackWaveform, WaveformFeed};
 use prisme_analysis::{AnalysisOptions, TrackAnalysis};
 use prisme_engine::{Command, StemTracks};
 use prisme_library::{FileStamp, Search, TrackRecord};
@@ -83,11 +85,14 @@ pub fn prepare(path: PathBuf, library: &LibraryService) -> AppResult<(LoadedTrac
     }
     let stored = stamp
         .and_then(|s| library.db.get(&path).ok().flatten().filter(|r| r.is_current(s) && r.error.is_none()));
-    let waveform = stamp.and_then(|s| library.db.waveform(&path, s).ok().flatten());
+    let waveform = match stamp.and_then(|s| library.db.waveform(&path, s).ok().flatten()) {
+        Some(stored) => TrackWaveform::Whole(stored),
+        None => TrackWaveform::growing(WAVEFORM_SLICES_PER_S),
+    };
     let completion = Completion {
         path: path.clone(),
         stamp,
-        waveform_missing: waveform.is_none(),
+        waveform_missing: waveform.whole().is_none(),
         analysis_missing: stored.is_none(),
         loading,
     };
@@ -125,12 +130,27 @@ impl Completion {
     /// (its load, and the instant doubles made of it meanwhile), and nowhere once another
     /// track was loaded on them.
     pub fn run(self, app: &AppHandle) {
-        let (audio, decoded) = self.loading.decode_rest();
+        let state = app.state::<AppState>();
+        let library = app.state::<Arc<LibraryService>>();
+        let audio = self.loading.audio().clone();
+        let mut feed = self.waveform_missing.then(|| WaveformFeed::new(&audio, WAVEFORM_SLICES_PER_S));
+        let (audio, decoded) = self.loading.decode_rest_while(|| {
+            if let Some(feed) = &mut feed {
+                feed.follow(&audio, &state);
+            }
+            true
+        });
         if let Err(e) = decoded {
             warn!("{} decoded up to {:.1} s: {e}", self.path.display(), audio.duration_s());
         }
-        let state = app.state::<AppState>();
-        let library = app.state::<Arc<LibraryService>>();
+        if let Some(feed) = feed {
+            let waveform = feed.finish(&audio, &state);
+            if let Some(stamp) = self.stamp {
+                if let Err(e) = library.db.save_waveform(&self.path, stamp, &waveform) {
+                    error!("waveform of {} not saved: {e}", self.path.display());
+                }
+            }
+        }
         let mut updates = Updates::default();
         let loads = state.loads_of(&audio);
         for (deck, load_id, separation) in crate::stems_service::give_stems(app, &loads, &self.path, &audio) {
@@ -151,17 +171,6 @@ impl Completion {
             t.level(auto_gain)
         }) {
             let _ = state.send_if_running(Command::SetLevel { deck, gain });
-        }
-        if self.waveform_missing {
-            let waveform = prisme_analysis::compute_waveform(&audio, WAVEFORM_SLICES_PER_S);
-            if let Some(stamp) = self.stamp {
-                if let Err(e) = library.db.save_waveform(&self.path, stamp, &waveform) {
-                    error!("waveform of {} not saved: {e}", self.path.display());
-                }
-            }
-            for (deck, load_id, ()) in state.with_audio(&audio, |t| t.waveform = Some(waveform.clone())) {
-                updates.of(deck, load_id).waveform_ready = true;
-            }
         }
         if self.analysis_missing {
             let analysis = prisme_analysis::analyze(&audio, &AnalysisOptions::default());
@@ -185,7 +194,7 @@ impl Completion {
             prisme_library::remember_audio(&library.db, &self.path);
         }
         for update in updates.0 {
-            if update.waveform_ready || update.analysis.is_some() || update.separation.is_some() {
+            if update.analysis.is_some() || update.separation.is_some() {
                 let _ = app.emit(DECK_TRACK_UPDATE_EVENT, update);
             }
         }
@@ -201,13 +210,7 @@ impl Updates {
         let at = match self.0.iter().position(|u| u.deck == deck && u.load_id == load_id) {
             Some(at) => at,
             None => {
-                self.0.push(DeckTrackUpdateDto {
-                    deck,
-                    load_id,
-                    waveform_ready: false,
-                    analysis: None,
-                    separation: None,
-                });
+                self.0.push(DeckTrackUpdateDto { deck, load_id, analysis: None, separation: None });
                 self.0.len() - 1
             }
         };

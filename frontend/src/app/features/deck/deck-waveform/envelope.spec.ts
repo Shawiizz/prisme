@@ -13,6 +13,7 @@ function track(seconds: number, level: (s: number) => [number, number, number], 
     low: new Uint8Array(n),
     mid: new Uint8Array(n),
     high: new Uint8Array(n),
+    known: n,
   };
   for (let i = 0; i < n; i++) {
     [w.low[i], w.mid[i], w.high[i]] = level(i / SPS);
@@ -54,5 +55,15 @@ describe('envelopeHeights', () => {
     expect(h[Math.round(50 * SPS)]).toBeLessThan(0.3);
     expect(h[kickSlice(30)]).toBeGreaterThan(0.95);
     expect(envelopeHeights(track(2, () => [0, 0, 0])).every((v) => v === 0)).toBe(true);
+  });
+
+  it('while the track is read, sets what has arrived against itself', () => {
+    const groove = (s: number): [number, number, number] => [onKick(s) ? 200 : 60, 90, 40];
+    const whole = envelopeHeights(track(30, groove));
+    const arriving = { ...track(30, groove), known: 10 * SPS };
+    const h = envelopeHeights(arriving);
+    expect(h[kickSlice(5)]).toBeCloseTo(whole[kickSlice(5)], 1);
+    expect(h[offbeatSlice(5)]).toBeCloseTo(whole[offbeatSlice(5)], 1);
+    expect(h.subarray(10 * SPS).every((v) => v === 0)).toBe(true);
   });
 });

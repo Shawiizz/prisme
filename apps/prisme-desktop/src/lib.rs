@@ -56,6 +56,7 @@ mod status_stream;
 mod stems_service;
 mod tag_writer;
 mod track_loading;
+mod track_waveform;
 #[cfg(target_os = "android")]
 mod usb_android;
 
@@ -274,7 +275,7 @@ pub fn run() {
             commands::preview::seek_preview,
             commands::preview::skip_preview,
             commands::preview::preview_waveform,
-            commands::tracks::deck_waveform,
+            commands::tracks::watch_waveform,
             commands::tracks::stem_activity,
             commands::decks::set_playing,
             commands::decks::seek,

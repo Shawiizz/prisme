@@ -247,7 +247,7 @@ impl Decks {
                 load_id: t.load_id,
                 grid: t.grid(),
                 cue_s: t.cue(CueSlot::Main).map(|c| c.position_s),
-                audible: self.audible(d, t.load_id, t.waveform.as_ref()),
+                audible: self.audible(d, t.load_id, t.waveform.whole()),
             });
             DeckView {
                 playing: deck.loaded && deck.playing,
