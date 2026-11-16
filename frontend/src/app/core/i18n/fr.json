@@ -440,7 +440,6 @@
   "Master limiter": "Limiteur du master",
   "No clipping on the master, for 1 ms of latency.": "Aucune saturation sur le master, pour 1 ms de latence.",
   "What SYNC does when a record drives the deck.": "Ce que fait SYNC quand un disque pilote le deck.",
-  "The travel of the tempo faders, as on your turntables.": "La course des faders de tempo, comme sur vos platines.",
   "Auto gain": "Gain automatique",
   "Every track plays at the same loudness, measured as it loads: no trim to touch between a quiet one and a loud one.": "Chaque morceau joue au même volume, mesuré au chargement : plus de gain à retoucher entre un morceau calme et un fort.",
   "Magnetic knobs": "Potards aimantés",
@@ -654,7 +653,6 @@
   "At the end, the track plays on from its start": "À la fin, le morceau reprend à son début",
   "Fader start": "Fader start",
   "The channel fader raised plays the deck; closed, it stops it on its cue": "Le fader de voie levé lance la platine ; fermé, il l’arrête sur son cue",
-  "Deck options: motor, repeat, fader start": "Options de la platine : moteur, répétition, fader start",
   "Jump back by the size": "Saut arrière de la taille",
   "Jump ahead by the size": "Saut avant de la taille",
   "Loop of the size / exit": "Boucle de la taille / sortie",
@@ -664,5 +662,11 @@
   "Size of the jumps and of the sized loop, in beats": "Taille des sauts et de la boucle à la taille, en temps",
   "Slice {n} while held": "Slice {n} (maintenu)",
   "Fader cut on {beats} while held": "Coupure au fader sur {beats} (maintenu)",
-  "The other page of pads": "L’autre page de pads"
+  "The other page of pads": "L’autre page de pads",
+  "Tempo fader range: next": "Plage du fader de tempo : suivante",
+  "Tempo fader range: previous": "Plage du fader de tempo : précédente",
+  "Range of every tempo fader: next": "Plage de tous les faders de tempo : suivante",
+  "Range of every tempo fader: previous": "Plage de tous les faders de tempo : précédente",
+  "The travel of the tempo faders, as on your turntables: of them all, each deck can then have its own in its menu.": "La course des faders de tempo, comme sur vos platines : de tous, puis chaque platine peut avoir la sienne dans son menu.",
+  "Deck options: motor, repeat, tempo range, fader start": "Options de la platine : moteur, répétition, plage de tempo, fader start"
 }

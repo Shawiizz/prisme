@@ -445,7 +445,7 @@
                     <button
                       role="radio"
                       [attr.aria-checked]="dj().pitchRange === r"
-                      (click)="setDj({ pitchRange: r })"
+                      (click)="engine.setTempoRange(null, r)"
                     >
                       ±{{ r * 100 }} %
                     </button>

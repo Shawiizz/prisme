@@ -49,6 +49,7 @@ const DEFAULT_DECK: DeckSettings = {
   swapChannels: false,
   keyLock: false,
   faderStart: false,
+  pitchRange: null,
   strip: FLAT_STRIP,
   fx: DEFAULT_FX,
   samples: Array(SAMPLE_SLOTS).fill(null),
@@ -227,6 +228,23 @@ export class EngineService {
   setPassthrough(deck: number, enabled: boolean) {
     this.patchDeck(deck, { passthrough: enabled });
     return this.call('set_passthrough', { deck, enabled });
+  }
+
+  /** The range of the tempo fader of `deck`: its own, else the general one (0.08 = ±8 %). */
+  tempoRange(deck: number): number {
+    return this.decks()[deck].pitchRange ?? this.preferences.dj().pitchRange;
+  }
+
+  /** The range of the tempo fader of `deck`, or of every deck (`null`), which then all follow
+   * the general one. */
+  setTempoRange(deck: number | null, range: number) {
+    if (deck !== null) {
+      this.patchDeck(deck, { pitchRange: range });
+    } else {
+      this.preferences.dj.update((dj) => ({ ...dj, pitchRange: range }));
+      this.decks.update((decks) => decks.map((d) => ({ ...d, pitchRange: null })));
+    }
+    return this.call('set_tempo_range', { deck, range });
   }
 
   /** Software mixer: the channel fader starts and stops the deck. */

@@ -191,8 +191,11 @@ export interface ControlActions {
   focusSearch(): void;
   toggleQuantize(): void;
   quantized(): boolean;
-  /** The tempo faders' next range (±8, ±16, ±50 %), back to the first after the last. */
-  cycleTempoRange(): void;
+  /** Every tempo fader on the range (±8, ±16, ±50 %) `step` places after the general one
+   * (before it, negative), round from the last to the first. */
+  cycleTempoRange(step: number): void;
+  /** The deck's tempo fader on the range `step` places after its own. */
+  cycleDeckTempoRange(deck: number, step: number): void;
   toggleHelp(): void;
   togglePalette(): void;
   openSettings(): void;
@@ -391,6 +394,12 @@ function deckControls(a: ControlActions, deck: number): Control[] {
     hold(id('bend.down'), group, t('Slow down while held'), (held) => a.bend(deck, held ? -1 : 0)),
     hold(id('bend.up'), group, t('Speed up while held'), (held) => a.bend(deck, held ? 1 : 0)),
     button(id('tempo.reset'), group, t('Tempo back to the track'), () => a.resetTempo(deck)),
+    button(id('tempoRange'), group, t('Tempo fader range: next'), () =>
+      a.cycleDeckTempoRange(deck, 1),
+    ),
+    button(id('tempoRange.previous'), group, t('Tempo fader range: previous'), () =>
+      a.cycleDeckTempoRange(deck, -1),
+    ),
     button(id('key.up'), group, t('Key up a semitone'), () =>
       a.setKeyShift(deck, a.keyShift(deck) + 1),
     ),
@@ -717,7 +726,15 @@ export function buildControls(a: ControlActions): Control[] {
       ...button('general.quantize', t('General'), t('Quantize'), () => a.toggleQuantize()),
       lit: () => a.quantized(),
     },
-    button('general.tempoRange', t('General'), t('Tempo fader range'), () => a.cycleTempoRange()),
+    button('general.tempoRange', t('General'), t('Range of every tempo fader: next'), () =>
+      a.cycleTempoRange(1),
+    ),
+    button(
+      'general.tempoRange.previous',
+      t('General'),
+      t('Range of every tempo fader: previous'),
+      () => a.cycleTempoRange(-1),
+    ),
     button('general.help', t('General'), t('Keyboard shortcuts'), () => a.toggleHelp()),
     button('general.palette', t('General'), t('Command palette'), () => a.togglePalette()),
     button('general.settings', t('General'), t('Settings'), () => a.openSettings()),

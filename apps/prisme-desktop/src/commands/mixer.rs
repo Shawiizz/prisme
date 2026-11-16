@@ -47,6 +47,7 @@ pub fn mixer_state(state: State<'_, AppState>) -> MixerStateDto {
                 swap_channels: d.swap_channels,
                 key_lock: d.key_lock,
                 fader_start: d.fader_start,
+                pitch_range: d.pitch_range,
                 strip: d.strip,
                 fx: d.fx,
                 samples: samples.iter().map(|s| s.as_ref().map(|s| sampler::name(&s.path))).collect(),

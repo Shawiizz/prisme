@@ -1,4 +1,4 @@
-import { PITCH_RANGES } from '../models/preferences';
+import { nextTempoRange } from '../models/preferences';
 import { computed, Injectable, inject } from '@angular/core';
 import { EngineService } from '../services/engine.service';
 import { FxService } from '../services/fx.service';
@@ -118,7 +118,7 @@ export class ControlService {
     killed: (deck, band) => this.mixer.strip(deck).kills[BANDS.indexOf(band)],
     roll: (deck, beats) => this.performance.loopRoll(deck, beats),
     setPitch: (deck, position) => {
-      const range = this.preferences.dj().pitchRange;
+      const range = this.engine.tempoRange(deck);
       this.engine.setPitch(deck, 1 + (position * 2 - 1) * range);
     },
     setVolume: (deck, position) => this.mixer.setVolume(deck, position),
@@ -184,12 +184,10 @@ export class ControlService {
     setKeyShift: (deck, semitones) => this.engine.setKeyShift(deck, semitones),
     toggleQuantize: () => this.preferences.updateDj({ quantize: !this.preferences.dj().quantize }),
     quantized: () => this.preferences.dj().quantize,
-    cycleTempoRange: () => {
-      const at = PITCH_RANGES.indexOf(
-        this.preferences.dj().pitchRange as (typeof PITCH_RANGES)[number],
-      );
-      this.preferences.updateDj({ pitchRange: PITCH_RANGES[(at + 1) % PITCH_RANGES.length] });
-    },
+    cycleTempoRange: (step) =>
+      this.engine.setTempoRange(null, nextTempoRange(this.preferences.dj().pitchRange, step)),
+    cycleDeckTempoRange: (deck, step) =>
+      this.engine.setTempoRange(deck, nextTempoRange(this.engine.tempoRange(deck), step)),
     toggleHelp: () => this.navigation.toggleSettings('shortcuts'),
     togglePalette: () => this.navigation.togglePalette(),
     openSettings: () => this.navigation.openSettings(),

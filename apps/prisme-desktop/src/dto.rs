@@ -676,6 +676,8 @@ pub struct DeckSettingsDto {
     pub key_lock: bool,
     /// Software mixer: the channel fader starts and stops the deck.
     pub fader_start: bool,
+    /// The range of its tempo fader, if it has one of its own.
+    pub pitch_range: Option<f64>,
     pub strip: ChannelStripDto,
     pub fx: FxChainDto,
     /// Name of the sound in each sampler slot.

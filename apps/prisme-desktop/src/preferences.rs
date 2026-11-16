@@ -42,6 +42,9 @@ pub struct DeckPreferences {
     /// Software mixer: the channel fader raised from closed plays the deck, closed it stops
     /// it on its cue point.
     pub fader_start: bool,
+    /// The range of the deck's tempo fader, if it has one of its own; else the general one
+    /// ([`DjPreferences::pitch_range`]), as every deck had before.
+    pub pitch_range: Option<f64>,
     /// Sound file in each sampler slot.
     pub samples: Vec<Option<String>>,
 }
@@ -60,7 +63,7 @@ pub enum VinylSync {
 pub struct DjPreferences {
     pub vinyl_sync: VinylSync,
     pub quantize: bool,
-    /// Range of the tempo faders (0.08 = ±8 %).
+    /// Range of the tempo faders of the decks without one of their own (0.08 = ±8 %).
     pub pitch_range: f64,
     /// Every track played at the same loudness (see `LoadedTrack::level`).
     pub auto_gain: bool,
@@ -69,6 +72,13 @@ pub struct DjPreferences {
     pub knob_magnet: bool,
     /// On a phone, the decks play and pause from its lock screen and its notifications.
     pub lock_controls: bool,
+}
+
+impl Preferences {
+    /// The range of the tempo fader of `deck`: its own, else the general one.
+    pub fn tempo_range(&self, deck: usize) -> f64 {
+        self.decks[deck].pitch_range.unwrap_or(self.dj.pitch_range)
+    }
 }
 
 impl DjPreferences {
@@ -295,6 +305,16 @@ mod tests {
         assert_eq!(p.decks[1].rpm, RpmDto::Rpm45);
         assert_eq!(p.decks[2], DeckPreferences::default());
         assert!(!p.decks[0].fader_start, "fader start is off unless chosen");
+        assert_eq!(p.decks[0].pitch_range, None);
+    }
+
+    #[test]
+    fn a_file_from_before_the_ranges_of_the_decks_gives_them_all_the_general_one() {
+        let p: Preferences =
+            serde_json::from_str(r#"{ "dj": { "pitchRange": 0.16 }, "decks": [{ "pitchRange": 0.5 }] }"#)
+                .unwrap();
+        assert_eq!(p.tempo_range(0), 0.5);
+        assert_eq!([1, 2, 3].map(|deck| p.tempo_range(deck)), [0.16; 3]);
         assert_eq!(p.dj.decks(), 2);
     }
 
@@ -321,6 +341,7 @@ mod tests {
             swap_channels: true,
             key_lock: true,
             fader_start: true,
+            pitch_range: Some(0.5),
             samples: vec![Some("C:/Samples/horn.wav".into()), None],
         };
         p.library.last_folder = Some("C:/Music/House".into());

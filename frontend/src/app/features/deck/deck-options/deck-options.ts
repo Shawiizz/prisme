@@ -1,4 +1,5 @@
 import { Component, DestroyRef, computed, inject, input } from '@angular/core';
+import { PITCH_RANGES } from '../../../core/models/preferences';
 import { PHONE } from '../../../core/platform';
 import { EngineService } from '../../../core/services/engine.service';
 import { MixerService } from '../../../core/services/mixer.service';
@@ -8,8 +9,8 @@ import { Press } from '../../../shared/press';
 
 /**
  * What a deck does now and then rather than all the time, a row each: its motor (a brake, a
- * soft start, a spinback while held), the track repeated, and on the software mixer the
- * channel fader starting and stopping it.
+ * soft start, a spinback while held), the track repeated, the range of its tempo fader, and
+ * on the software mixer the channel fader starting and stopping it.
  */
 @Component({
   selector: 'app-deck-options',
@@ -50,6 +51,21 @@ import { Press } from '../../../shared/press';
       >
         <span></span>
       </button>
+    </div>
+    <div class="row">
+      <span>{{ 'Tempo fader range' | t }}</span>
+      <div class="pr-seg" role="radiogroup" [attr.aria-label]="'Tempo fader range' | t">
+        @for (r of ranges; track r) {
+          <button
+            role="radio"
+            [class.pr-reach]="PHONE"
+            [attr.aria-checked]="range() === r"
+            (click)="engine.setTempoRange(deck(), r)"
+          >
+            ±{{ r * 100 }}
+          </button>
+        }
+      </div>
     </div>
     @if (mixer.internal()) {
       <div class="row">
@@ -107,6 +123,8 @@ export class DeckOptions {
   protected readonly performance = inject(PerformanceService);
   protected readonly mixer = inject(MixerService);
   protected readonly PHONE = PHONE;
+  protected readonly ranges = PITCH_RANGES;
+  protected readonly range = computed(() => this.engine.tempoRange(this.deck()));
   protected readonly settings = computed(() => this.engine.decks()[this.deck()]);
 
   /** The motor moves a track that plays by itself: a record drives its own. */

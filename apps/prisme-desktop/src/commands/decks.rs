@@ -97,6 +97,30 @@ pub fn set_passthrough(state: State<'_, AppState>, deck: usize, enabled: bool) -
     state.send_if_running(Command::SetPassthrough { deck, enabled })
 }
 
+/// The range of the tempo fader of `deck` (0.08 = ±8 %), or of every deck (`None`), which
+/// then all follow the general one; kept for the next start.
+#[tauri::command]
+pub fn set_tempo_range(state: State<'_, AppState>, deck: Option<usize>, range: f64) -> AppResult<()> {
+    if !(range > 0.0 && range <= 1.0) {
+        return Err(AppError::Other("a tempo range is within ±100 %".into()));
+    }
+    match deck {
+        Some(deck) => {
+            AppState::check_deck(deck)?;
+            lock(&state.decks)[deck].pitch_range = Some(range);
+            state.update_preferences(|p| p.decks[deck].pitch_range = Some(range));
+        }
+        None => {
+            lock(&state.decks).iter_mut().for_each(|d| d.pitch_range = None);
+            state.update_preferences(|p| {
+                p.dj.pitch_range = range;
+                p.decks.iter_mut().for_each(|d| d.pitch_range = None);
+            });
+        }
+    }
+    Ok(())
+}
+
 /// At the end, the track goes on from its start.
 #[tauri::command]
 pub fn set_repeat(state: State<'_, AppState>, deck: usize, enabled: bool) -> AppResult<()> {

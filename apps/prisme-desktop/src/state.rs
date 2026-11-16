@@ -157,6 +157,8 @@ pub struct DeckSettings {
     pub key_lock: bool,
     /// Software mixer: the channel fader starts and stops the deck.
     pub fader_start: bool,
+    /// The range of its tempo fader, if it has one of its own.
+    pub pitch_range: Option<f64>,
     pub strip: ChannelStripDto,
     pub fx: FxChainDto,
     pub sampler_gain: f32,
@@ -179,6 +181,7 @@ impl From<DeckPreferences> for DeckSettings {
             swap_channels: p.swap_channels,
             key_lock: p.key_lock,
             fader_start: p.fader_start,
+            pitch_range: p.pitch_range,
             strip: ChannelStripDto::default(),
             fx: FxChainDto::default(),
             sampler_gain: 1.0,
@@ -377,6 +380,11 @@ impl AppState {
     /// Sample rate of the running audio.
     pub fn sample_rate(&self) -> Option<u32> {
         lock(&self.session).as_ref().map(|s| s.engine_config.sample_rate)
+    }
+
+    /// The range of the tempo fader of `deck`: its own, else the general one.
+    pub fn tempo_range(&self, deck: usize) -> f64 {
+        self.preferences.read(|p| p.tempo_range(deck))
     }
 
     /// Whether the software mixer runs: the channel faders are Prisme's.

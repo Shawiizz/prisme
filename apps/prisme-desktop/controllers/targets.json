@@ -318,6 +318,18 @@
   "kind": "button"
  },
  {
+  "id": "deck1.tempoRange",
+  "group": "Deck A",
+  "label": "Tempo fader range: next",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.tempoRange.previous",
+  "group": "Deck A",
+  "label": "Tempo fader range: previous",
+  "kind": "button"
+ },
+ {
   "id": "deck1.key.up",
   "group": "Deck A",
   "label": "Key up a semitone",
@@ -1335,6 +1347,18 @@
   "id": "deck2.tempo.reset",
   "group": "Deck B",
   "label": "Tempo back to the track",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.tempoRange",
+  "group": "Deck B",
+  "label": "Tempo fader range: next",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.tempoRange.previous",
+  "group": "Deck B",
+  "label": "Tempo fader range: previous",
   "kind": "button"
  },
  {
@@ -2358,6 +2382,18 @@
   "kind": "button"
  },
  {
+  "id": "deck3.tempoRange",
+  "group": "Deck C",
+  "label": "Tempo fader range: next",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.tempoRange.previous",
+  "group": "Deck C",
+  "label": "Tempo fader range: previous",
+  "kind": "button"
+ },
+ {
   "id": "deck3.key.up",
   "group": "Deck C",
   "label": "Key up a semitone",
@@ -3378,6 +3414,18 @@
   "kind": "button"
  },
  {
+  "id": "deck4.tempoRange",
+  "group": "Deck D",
+  "label": "Tempo fader range: next",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.tempoRange.previous",
+  "group": "Deck D",
+  "label": "Tempo fader range: previous",
+  "kind": "button"
+ },
+ {
   "id": "deck4.key.up",
   "group": "Deck D",
   "label": "Key up a semitone",
@@ -4304,7 +4352,13 @@
  {
   "id": "general.tempoRange",
   "group": "General",
-  "label": "Tempo fader range",
+  "label": "Range of every tempo fader: next",
+  "kind": "button"
+ },
+ {
+  "id": "general.tempoRange.previous",
+  "group": "General",
+  "label": "Range of every tempo fader: previous",
   "kind": "button"
  },
  {

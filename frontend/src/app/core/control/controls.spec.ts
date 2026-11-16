@@ -1,4 +1,5 @@
 import { buildControls, Control, ControlActions, measuredControl } from './controls';
+import { nextTempoRange } from '../models/preferences';
 
 /** Controls whose actions record their calls; queries answer `true`. */
 function recorder() {
@@ -219,6 +220,24 @@ describe('controls', () => {
     expect(find('deck1.cut5')).toBeUndefined();
     expect(find('deck1.cut1').label).toBe('Fader cut on 1/16 while held');
     expect(calls).toEqual(['cut(0,0,true)', 'cut(0,0,false)', 'cut(1,3,true)', 'cutPlaying(1)']);
+  });
+
+  it('move the range of a tempo fader, or of them all, either way', () => {
+    const { calls, find } = recorder();
+    find('deck2.tempoRange').apply(1);
+    find('deck1.tempoRange.previous').apply(1);
+    find('general.tempoRange').apply(1);
+    find('general.tempoRange.previous').apply(1);
+    expect(calls).toEqual([
+      'cycleDeckTempoRange(1,1)',
+      'cycleDeckTempoRange(0,-1)',
+      'cycleTempoRange(1)',
+      'cycleTempoRange(-1)',
+    ]);
+    expect(nextTempoRange(0.08, 1)).toBe(0.16);
+    expect(nextTempoRange(0.5, 1)).toBe(0.08);
+    expect(nextTempoRange(0.08, -1)).toBe(0.5);
+    expect(nextTempoRange(0.1, 1)).toBe(0.08);
   });
 
   it('read a jump or a loop of so many beats from its id', () => {

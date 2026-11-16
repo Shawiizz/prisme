@@ -194,7 +194,10 @@ const ALL_SETTINGS: readonly SettingEntry[] = [
     id: 'dj.pitchRange',
     page: 'dj',
     label: () => t('Tempo fader range'),
-    description: () => t('The travel of the tempo faders, as on your turntables.'),
+    description: () =>
+      t(
+        'The travel of the tempo faders, as on your turntables: of them all, each deck can then have its own in its menu.',
+      ),
   },
   {
     id: 'dj.quantize',

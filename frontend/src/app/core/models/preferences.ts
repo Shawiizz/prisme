@@ -5,7 +5,7 @@ import { VinylSyncMode } from './engine';
 export interface DjPreferences {
   vinylSync: VinylSyncMode;
   quantize: boolean;
-  /** Range of the tempo faders (0.08 = ±8 %). */
+  /** Range of the tempo faders of the decks without one of their own (0.08 = ±8 %). */
   pitchRange: number;
   /** Every track played at the same loudness. */
   autoGain: boolean;
@@ -43,3 +43,12 @@ export interface Preferences {
 }
 
 export const PITCH_RANGES = [0.08, 0.16, 0.5] as const;
+
+/** The range `step` places after `range` among `PITCH_RANGES` (before it, negative), round
+ * from the last to the first; the first for a range not among them. */
+export function nextTempoRange(range: number, step: number): number {
+  const at = PITCH_RANGES.indexOf(range as (typeof PITCH_RANGES)[number]);
+  if (at < 0) return PITCH_RANGES[0];
+  const n = PITCH_RANGES.length;
+  return PITCH_RANGES[(((at + step) % n) + n) % n];
+}

@@ -92,7 +92,7 @@ function inputChoices(
 })
 export class SettingsDialog implements OnInit {
   protected readonly service = inject(SettingsService);
-  private readonly engine = inject(EngineService);
+  protected readonly engine = inject(EngineService);
   protected readonly preferences = inject(PreferencesService);
   protected readonly mixer = inject(MixerService);
   protected readonly updates = inject(UpdateService);

@@ -253,6 +253,8 @@ export interface DeckSettings {
   /** Software mixer: the channel fader raised from closed plays the deck, closed it stops it
    * on its cue point. */
   faderStart: boolean;
+  /** The range of its tempo fader, if it has one of its own (else the general one). */
+  pitchRange: number | null;
   strip: ChannelStrip;
   fx: FxChain;
   /** Name of the sound in each sampler slot. */

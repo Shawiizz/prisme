@@ -220,7 +220,7 @@ export class LibraryService {
     if (!reference) return null;
     return {
       reference,
-      pitchRange: this.preferences.dj().pitchRange,
+      pitchRange: this.engine.tempoRange(this.reference() ^ 1),
       keyLock: this.nextKeyLock(),
       playedTonight: this.history.playedTonight(),
     };
