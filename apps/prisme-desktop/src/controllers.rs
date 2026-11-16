@@ -72,9 +72,25 @@ struct Learning {
 #[derive(Debug, PartialEq)]
 enum Routed {
     Learned(Box<Mapping>),
-    /// What the UI performs, in order.
-    Input(Vec<ControllerInputDto>),
+    /// What the controller drives, in order.
+    Actions(Vec<Action>),
+}
+
+/// An action a controller drives: one the UI performs, or one driving the engine from here.
+#[derive(Debug, PartialEq)]
+enum Action {
+    Ui(ControllerInputDto),
     Direct(Direct, f32),
+}
+
+impl Action {
+    /// `input` performed where its action is: a direct one here, whatever drove it.
+    fn of(input: ControllerInputDto) -> Self {
+        match Direct::of(&input.target) {
+            Some(direct) => Action::Direct(direct, input.value),
+            None => Action::Ui(input),
+        }
+    }
 }
 
 /// A key pressed whose action waits to know whether it is held: held for `hold.ms`, it drives
@@ -84,6 +100,8 @@ struct Holding {
     control: Control,
     hold: Hold,
     since: Instant,
+    /// When it was pressed, on its controller's clock.
+    at_s: f64,
     fired: bool,
 }
 
@@ -708,21 +726,28 @@ impl Controllers {
     /// clock.
     fn receive(&self, app: &AppHandle, device: &str, jog_steps_per_turn: f64, event: Event, at_s: f64) {
         let modes = lock(&self.reader).mode_changes(device);
-        let routed = self.route(device, event);
+        let routed = self.route(device, event, at_s);
         // a key's light may show it held, latched or at the second of its two positions, and a
         // mode chosen (by a switch, say) shows on the keys of its group
         if event.control.kind == ControlKind::Note || lock(&self.reader).mode_changes(device) != modes {
             self.show_lights(device);
         }
-        let _ = match routed {
-            Some(Routed::Learned(mapping)) => app.emit("controller-learned", mapping),
-            Some(Routed::Input(inputs)) => inputs.iter().try_for_each(|i| app.emit("controller-input", i)),
-            Some(Routed::Direct(action, value)) => {
-                self.perform(app, action, value, at_s, jog_steps_per_turn);
-                Ok(())
+        match routed {
+            Some(Routed::Learned(mapping)) => drop(app.emit("controller-learned", mapping)),
+            Some(Routed::Actions(actions)) => self.act(app, actions, at_s, jog_steps_per_turn),
+            None => {}
+        }
+    }
+
+    /// Performs what a controller drove at `at_s` on its clock: the UI is told its actions, the
+    /// direct ones are done here.
+    fn act(&self, app: &AppHandle, actions: Vec<Action>, at_s: f64, jog_steps_per_turn: f64) {
+        for action in actions {
+            match action {
+                Action::Ui(input) => drop(app.emit("controller-input", input)),
+                Action::Direct(direct, value) => self.perform(app, direct, value, at_s, jog_steps_per_turn),
             }
-            None => Ok(()),
-        };
+        }
     }
 
     /// A controller gone lets go of what it held: its keys (shift among them) are released,
@@ -745,8 +770,9 @@ impl Controllers {
         }
     }
 
-    /// Learns the control if a target waits for one, else finds what it drives.
-    fn route(&self, device: &str, event: Event) -> Option<Routed> {
+    /// Learns the control if a target waits for one, else finds what it drives; `at_s` when,
+    /// on the controller's clock.
+    fn route(&self, device: &str, event: Event, at_s: f64) -> Option<Routed> {
         if let Some(learnt) = self.complete_fine(device, event) {
             return Some(Routed::Learned(Box::new(learnt)));
         }
@@ -777,7 +803,7 @@ impl Controllers {
         let (mapping, value) = reader.read(&mappings, device, event)?;
         if selected_mode(&mapping.target).is_some() {
             return match &mapping.hold {
-                Some(hold) => self.hold(device, event, mapping, hold, &mut reader),
+                Some(hold) => self.hold(device, event, at_s, mapping, hold, &mut reader),
                 None => driven(inputs(mapping, value)),
             };
         }
@@ -789,12 +815,9 @@ impl Controllers {
             return key_steps(&mapping.target, down, steps);
         }
         if let Some(hold) = &mapping.hold {
-            return self.hold(device, event, mapping, hold, &mut reader);
+            return self.hold(device, event, at_s, mapping, hold, &mut reader);
         }
-        Some(match Direct::of(&mapping.target) {
-            Some(action) => Routed::Direct(action, value),
-            None => Routed::Input(inputs(mapping, value)),
-        })
+        driven(inputs(mapping, value))
     }
 
     /// What a key drives instead of its action as it is: another action pressed twice or
@@ -810,8 +833,7 @@ impl Controllers {
         let key = (device.to_owned(), mapping.control);
         let pressed = event.raw > 0;
         let mut keys = lock(&self.keys);
-        let press =
-            |target: &str, value| Some(Some(Routed::Input(vec![ControllerInputDto::of(target, value)])));
+        let press = |target: &str, value| Some(driven(vec![ControllerInputDto::of(target, value)]));
         if !pressed {
             if let Some(target) = keys.instead.remove(&key) {
                 return press(&target, 0.0);
@@ -861,6 +883,7 @@ impl Controllers {
         &self,
         device: &str,
         event: Event,
+        at_s: f64,
         mapping: &Mapping,
         hold: &Hold,
         reader: &mut Reader,
@@ -872,6 +895,7 @@ impl Controllers {
                 control: event.control,
                 hold: hold.clone(),
                 since: Instant::now(),
+                at_s,
                 fired: false,
             });
             return None;
@@ -892,32 +916,36 @@ impl Controllers {
     fn fire_holds(&self, app: &AppHandle) {
         for (device, pressed) in self.fired_holds() {
             match pressed {
-                Some(input) => drop(app.emit("controller-input", input)),
+                Some((action, at_s)) => {
+                    let jog_steps_per_turn = controller_profiles::jog_steps_per_turn(&device);
+                    self.act(app, vec![action], at_s, jog_steps_per_turn);
+                }
                 None => self.show_lights(&device),
             }
         }
     }
 
-    /// The holds whose time came, by controller: the action each presses, or `None` for a
-    /// mode it chose (here).
-    fn fired_holds(&self) -> Vec<(String, Option<ControllerInputDto>)> {
+    /// The holds whose time came, by controller: the action each presses and when, on the
+    /// controller's clock, or `None` for a mode it chose (here).
+    fn fired_holds(&self) -> Vec<(String, Option<(Action, f64)>)> {
         let mut fired = Vec::new();
         for held in lock(&self.holdings).iter_mut() {
             if !held.fired && held.since.elapsed() >= Duration::from_millis(u64::from(held.hold.ms)) {
                 held.fired = true;
-                fired.push((held.device.clone(), held.hold.target.clone()));
+                let at_s = held.at_s + f64::from(held.hold.ms) / 1000.0;
+                fired.push((held.device.clone(), held.hold.target.clone(), at_s));
             }
         }
         // the reader once the holdings are let go: a key read takes them the other way round
         fired
             .into_iter()
-            .map(|(device, target)| {
+            .map(|(device, target, at_s)| {
                 let pressed = match selected_mode(&target) {
                     Some((group, mode)) => {
                         lock(&self.reader).set_mode(&device, group, mode);
                         None
                     }
-                    None => Some(ControllerInputDto::of(&target, 1.0)),
+                    None => Some((Action::of(ControllerInputDto::of(&target, 1.0)), at_s)),
                 };
                 (device, pressed)
             })
@@ -1016,9 +1044,9 @@ fn inputs(mapping: &Mapping, value: f32) -> Vec<ControllerInputDto> {
         .collect()
 }
 
-/// `inputs` for the UI, if there are any.
+/// What `inputs` drive, if there are any.
 fn driven(inputs: Vec<ControllerInputDto>) -> Option<Routed> {
-    (!inputs.is_empty()).then_some(Routed::Input(inputs))
+    (!inputs.is_empty()).then(|| Routed::Actions(inputs.into_iter().map(Action::of).collect()))
 }
 
 /// An encoder's `steps` driving keys: each a press and a release of `up`, or of `down` for
@@ -1118,7 +1146,10 @@ mod tests {
 
     fn input(target: &str, value: f32) -> Option<Routed> {
         let steps = target == "library.browse";
-        Some(Routed::Input(vec![ControllerInputDto { steps, ..ControllerInputDto::of(target, value) }]))
+        Some(Routed::Actions(vec![Action::Ui(ControllerInputDto {
+            steps,
+            ..ControllerInputDto::of(target, value)
+        })]))
     }
 
     fn mapping(control: Control, target: &str) -> Mapping {
@@ -1132,7 +1163,11 @@ mod tests {
     }
 
     fn route(c: &Controllers, bytes: &[u8]) -> Option<Routed> {
-        c.route("DDJ", parse(bytes).unwrap())
+        c.route("DDJ", parse(bytes).unwrap(), 0.0)
+    }
+
+    fn direct(action: Direct, value: f32) -> Option<Routed> {
+        Some(Routed::Actions(vec![Action::Direct(action, value)]))
     }
 
     #[test]
@@ -1140,12 +1175,12 @@ mod tests {
         let c = controllers();
         c.learn("deck1.play".into(), false);
         // the release of a press made before Learn is not learnt
-        assert_eq!(c.route("DDJ", parse(&[0x80, 40, 0]).unwrap()), None);
-        let learnt = c.route("DDJ", parse(&[0x90, 36, 127]).unwrap());
+        assert_eq!(c.route("DDJ", parse(&[0x80, 40, 0]).unwrap(), 0.0), None);
+        let learnt = c.route("DDJ", parse(&[0x90, 36, 127]).unwrap(), 0.0);
         assert_eq!(learnt, Some(Routed::Learned(Box::new(mapping(PAD, "deck1.play")))));
-        assert_eq!(c.route("DDJ", parse(&[0x80, 36, 0]).unwrap()), input("deck1.play", 0.0));
-        assert_eq!(c.route("DDJ", parse(&[0x90, 36, 127]).unwrap()), input("deck1.play", 1.0));
-        assert_eq!(c.route("Other", parse(&[0x90, 36, 127]).unwrap()), None);
+        assert_eq!(c.route("DDJ", parse(&[0x80, 36, 0]).unwrap(), 0.0), input("deck1.play", 0.0));
+        assert_eq!(c.route("DDJ", parse(&[0x90, 36, 127]).unwrap(), 0.0), input("deck1.play", 1.0));
+        assert_eq!(c.route("Other", parse(&[0x90, 36, 127]).unwrap(), 0.0), None);
     }
 
     #[test]
@@ -1157,7 +1192,7 @@ mod tests {
         // a jog sending steps around 64
         c.learn("deck1.jog".into(), true);
         route(&c, &[0xb0, 33, 65]);
-        assert_eq!(route(&c, &[0xb0, 33, 61]), Some(Routed::Direct(Direct::Jog(0), -3.0)));
+        assert_eq!(route(&c, &[0xb0, 33, 61]), direct(Direct::Jog(0), -3.0));
     }
 
     #[test]
@@ -1172,7 +1207,7 @@ mod tests {
             Some(Routed::Learned(Box::new(with(mapping(tempo, "deck1.pitch"), |b| b.fine = Some(32)))))
         );
         assert_eq!(route(&c, &[0xb0, 0, 64]), None);
-        assert_eq!(route(&c, &[0xb0, 32, 64]), Some(Routed::Direct(Direct::Pitch(0), 8256.0 / 16383.0)));
+        assert_eq!(route(&c, &[0xb0, 32, 64]), direct(Direct::Pitch(0), 8256.0 / 16383.0));
     }
 
     #[test]
@@ -1206,7 +1241,7 @@ mod tests {
     #[test]
     fn a_known_model_comes_mapped() {
         let c = sb2();
-        let play = |c: &Controllers| c.route("DDJ-SB2", parse(&[0x90, 0x0b, 127]).unwrap());
+        let play = |c: &Controllers| c.route("DDJ-SB2", parse(&[0x90, 0x0b, 127]).unwrap(), 0.0);
         assert_eq!(play(&c), input("deck1.play", 1.0));
         // learnt over the profile, the control drives what was learnt
         c.learn("deck1.cue".into(), false);
@@ -1238,7 +1273,7 @@ mod tests {
     #[test]
     fn a_profile_waits_for_its_controller_to_be_in_use() {
         let c = controllers();
-        assert_eq!(c.route("DDJ-SB2", parse(&[0x90, 0x0b, 127]).unwrap()), None);
+        assert_eq!(c.route("DDJ-SB2", parse(&[0x90, 0x0b, 127]).unwrap(), 0.0), None);
         assert!(c.mappings().all().is_empty());
     }
 
@@ -1247,7 +1282,7 @@ mod tests {
         let c = controllers();
         c.learn("deck1.play".into(), false);
         c.cancel_learning();
-        assert_eq!(c.route("DDJ", parse(&[0x90, 36, 127]).unwrap()), None);
+        assert_eq!(c.route("DDJ", parse(&[0x90, 36, 127]).unwrap(), 0.0), None);
         assert!(c.setup().mappings.all().is_empty());
     }
 
@@ -1259,7 +1294,7 @@ mod tests {
     }
 
     fn inputs_of(pairs: &[(&str, f32)]) -> Option<Routed> {
-        Some(Routed::Input(pairs.iter().map(|&(t, v)| ControllerInputDto::of(t, v)).collect()))
+        Some(Routed::Actions(pairs.iter().map(|&(t, v)| Action::Ui(ControllerInputDto::of(t, v))).collect()))
     }
 
     #[test]
@@ -1347,6 +1382,45 @@ mod tests {
         assert_eq!(mode(&c), "slicer");
         assert_eq!(route(&c, &[0x90, 9, 0]), None);
         assert_eq!(mode(&c), "slicer", "let go after its hold, its own mode is not chosen");
+    }
+
+    #[test]
+    fn a_direct_action_is_done_here_whatever_drives_it() {
+        let (other, third) = (Control { number: 37, ..PAD }, Control { number: 38, ..PAD });
+        let c = with_mappings([
+            with(mapping(PAD, "deck1.jog.touch"), |b| b.latch = true),
+            with(mapping(other, "deck1.play"), |b| {
+                b.double = Some(Hold { ms: 60_000, target: "deck1.jog.touch".into() })
+            }),
+            with(mapping(third, "deck1.cue"), |b| {
+                b.hold = Some(Hold { ms: 0, target: "deck1.jog.touch".into() })
+            }),
+        ]);
+        assert_eq!(c.route("DDJ", parse(&[0x90, 38, 127]).unwrap(), 2.5), None);
+        let held = Some((Action::Direct(Direct::JogTouch(0), 1.0), 2.5));
+        assert_eq!(
+            c.fired_holds(),
+            [("DDJ".to_owned(), held)],
+            "held, at its time on the controller's clock"
+        );
+        assert_eq!(route(&c, &[0x90, 38, 0]), direct(Direct::JogTouch(0), 0.0));
+        assert_eq!(route(&c, &[0x90, 36, 127]), direct(Direct::JogTouch(0), 1.0), "latched");
+        assert_eq!(route(&c, &[0x90, 36, 0]), None);
+        assert_eq!(route(&c, &[0x90, 36, 127]), direct(Direct::JogTouch(0), 0.0));
+        route(&c, &[0x90, 37, 127]);
+        route(&c, &[0x90, 37, 0]);
+        assert_eq!(route(&c, &[0x90, 37, 127]), direct(Direct::JogTouch(0), 1.0), "pressed twice");
+        assert_eq!(route(&c, &[0x90, 37, 0]), direct(Direct::JogTouch(0), 0.0));
+    }
+
+    #[test]
+    fn what_a_key_drives_along_with_a_direct_action_is_driven_too() {
+        let c = with_mappings([with(mapping(PAD, "deck1.jog.touch"), |b| {
+            b.also = vec!["deck2.jog.touch".into()]
+        })]);
+        let touched =
+            vec![Action::Direct(Direct::JogTouch(0), 1.0), Action::Direct(Direct::JogTouch(1), 1.0)];
+        assert_eq!(route(&c, &[0x90, 36, 127]), Some(Routed::Actions(touched)));
     }
 
     #[test]
