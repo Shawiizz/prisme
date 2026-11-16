@@ -52,7 +52,7 @@ One JSON file per model:
 | `modes` | Groups of controls that drive other actions in each mode, when the controls send the same in each (the pad pages of a side): `group`, `modes` (the first is where it begins), `select` (a key choosing each mode: `control`, `mode`, optionally `shift`, `light`, `held` (the mode only while the key is held: let go, the group is back in the mode before; with `shift`, a supershift) and `once` (the mode for one action of the group, then back to its first). A mode key lights `on` while its mode is the one. A key flipping between two modes is two controls aimed at `mode.<group>.<other>`, each with `when` on one of them: a release is read in the modes of its press, so it does not flip back. |
 | `controls` | A control and the action it drives, in the shape of a learnt mapping (`controllers.json`), see below. |
 | `lights` | Lights other than the controls' own: `target`, `control`, optionally `when`, and its values by state beside them. |
-| `meters` | Levels shown on the controller: `source` (`deck1`…`deck4`, `main`, `main.left`, `main.right`), `control`, optionally `min` (0, the value at silence), `max` (127), `curve` (the level raised to it, 1 straight), `steps` (the values at silence, then at each equal share of the level, in place of `min` and `max`), `clip` (the value shown for a second after the level reached full scale) and `when`. |
+| `meters` | Levels shown on the controller: `source` (`deck1`…`deck4`, `main`, `main.left`, `main.right`), on one `control` or on `leds` (see Meters), optionally `curve` (the level raised to it, 1 straight) and `when`. |
 | `outputs` | Values shown on the controller (a jog wheel's ring, a knob's ring of lights): `source` (a fader's action, `deck1.position` of its track, `deck1.turn` of its record at 33⅓), `control`, optionally `min`, `max` and `when`. |
 | `displays` | Numbers shown on the controller's screens, by a message of its own (SysEx, mostly): `source` (`deck1.bpm`; `deck1.elapsed`, `deck1.remaining`, `deck1.duration` in seconds; `deck1.tempo`, the tempo change, and `deck1.tempoRange` in percent), `message` with `"value"` where the number goes, optionally `scale` and `offset` (the number sent is the value times `scale` plus `offset`, rounded), `nibbles` (the number in that many bytes of four bits, the most significant first, two's complement below zero; without, one byte from 0 to 127), `sign` (`[8, 7]`: the first nibble at or above zero, below it) and `when`. A number goes again only when its message changes. |
 
@@ -101,6 +101,34 @@ as `on`, but `off`; without values, 127 and 0:
 ```json
 "light": { "on": 127, "off": 1, "loaded": 56, "playing": { "blink": [9, 0], "ms": 250 } }
 ```
+
+### Meters
+
+The level is linear, the peak (1 at full scale). Mixxx's `vu_meter` is on a log scale: its
+value t is the level (10^t − 1)/9, which `curve` 0.45 (times a script's own) follows closely.
+
+A meter on one `control` shows the level by its value: from `min` (0, the value at silence)
+to `max` (127), or as one of `steps` (the values at silence, then at each equal share of the
+level, in place of `min` and `max`), and `clip` for a second after the level reached full
+scale.
+
+A meter on `leds` shows it on LEDs switched one by one, each lit once the level (past
+`curve`) reaches its `from`, 0 to 1. An LED's values `on` and `off` are a light's (127 and 0
+when left out), on its `control`; or whole messages, for the models addressing their LEDs
+otherwise, its `control` then any that no other light of the model uses. It shows its `clip`
+value, if it names one, for a second after the level reached full scale. Only the LEDs that
+change are sent:
+
+```json
+{ "source": "deck1", "leds": [
+  { "control": { "kind": "controlChange", "channel": 0, "number": 83 }, "from": 0.065, "on": 1 },
+  { "control": { "kind": "note", "channel": 0, "number": 10 }, "from": 0.331, "on": [176, 80, 10], "off": [176, 81, 10] },
+  { "control": { "kind": "controlChange", "channel": 0, "number": 85 }, "from": 1, "on": 1, "clip": 1 }
+] }
+```
+
+A meter's controls show the level at silence once the controller is closed. A peak LED of
+its own is rather a light of `deck1.clip` or `main.clip`.
 
 `frontend/src/app/core/control/profiles.spec.ts` checks that every target exists, that only
 encoders read steps, that mode keys choose modes their group has and that meters show

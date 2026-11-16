@@ -1,4 +1,4 @@
-use crate::light::{LightValue, LightValues};
+use crate::light::{LightValue, LightValues, OFF, ON};
 use crate::mapping::{Mapping, Modes, ProfileControl, Shift, When, MODE};
 use crate::message::Control;
 use schemars::JsonSchema;
@@ -7,7 +7,7 @@ use std::collections::BTreeMap;
 
 /// The version of the profile format, raised when profiles may use what an older Prisme does
 /// not read: a profile published after it was raised is left to the Prisme that reads it.
-pub const PROFILE_FORMAT: u32 = 1;
+pub const PROFILE_FORMAT: u32 = 2;
 
 /// Steps in a turn of a jog wheel whose model does not tell. Most controllers send
 /// hundreds; the number only scales scratches and nudges.
@@ -212,38 +212,92 @@ pub struct ModeSelect {
 }
 
 /// A level shown on the controller: `source`'s (`deck1`…, `main`, `main.left`,
-/// `main.right`), from `min` to `max` on `control` along `curve` (the level raised to it: 1
-/// straight), or as one of `steps` (the values at silence, then at each equal share of the
-/// level); `clip` for a while after the level reached full scale.
+/// `main.right`) raised to `curve` (1 straight), by the value of one control or on LEDs.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct Meter {
     pub source: String,
-    pub control: Control,
-    #[serde(default, skip_serializing_if = "is_zero")]
-    pub min: u8,
-    #[serde(default = "full", skip_serializing_if = "is_full")]
-    pub max: u8,
+    #[serde(flatten)]
+    pub on: MeterOn,
     #[serde(default = "straight", skip_serializing_if = "is_straight")]
     pub curve: f32,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub steps: Vec<u8>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub clip: Option<u8>,
     /// While its group is in this mode only.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub when: Option<When>,
 }
 
+/// Where a meter shows its level.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(untagged)]
+pub enum MeterOn {
+    /// On `control`, from `min` to `max`, or as one of `steps` (the values at silence, then
+    /// at each equal share of the level); `clip` for a while after the level reached full
+    /// scale.
+    Control {
+        control: Control,
+        #[serde(default, skip_serializing_if = "is_zero")]
+        min: u8,
+        #[serde(default = "full", skip_serializing_if = "is_full")]
+        max: u8,
+        #[serde(default, skip_serializing_if = "Vec::is_empty")]
+        steps: Vec<u8>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        clip: Option<u8>,
+    },
+    /// On LEDs switched one by one, each lit from its own share of the level.
+    Leds { leds: Vec<MeterLed> },
+}
+
+/// An LED of a meter, lit once the level reaches `from`: its values `on` and `off` beside
+/// it, as a light's, and `clip` if it shows another for a while after the level reached full
+/// scale.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct MeterLed {
+    pub control: Control,
+    #[schemars(range(min = 0, max = 1))]
+    pub from: f32,
+    #[serde(flatten)]
+    pub values: LightValues,
+}
+
+/// The state of an LED of a meter for a while after the level reached full scale.
+const CLIP: &str = "clip";
+
 impl Meter {
-    /// The value showing `level` (full scale 1).
-    pub fn value(&self, level: f32) -> u8 {
+    /// What its controls show at `level` (full scale 1), `clipping` for a while after the
+    /// level reached full scale.
+    pub fn show(&self, level: f32, clipping: bool) -> Vec<(Control, LightValue)> {
         let shaped = level.clamp(0.0, 1.0).powf(self.curve);
-        if let Some(last) = self.steps.len().checked_sub(1) {
-            return self.steps[(shaped * last as f32).round() as usize];
+        match &self.on {
+            MeterOn::Control { control, clip: Some(clip), .. } if clipping => {
+                vec![(*control, LightValue::Steady(*clip))]
+            }
+            MeterOn::Control { control, min, max, steps, .. } => {
+                let value = match steps.len().checked_sub(1) {
+                    Some(last) => steps[(shaped * last as f32).round() as usize],
+                    None => (f32::from(*min) + shaped * (f32::from(*max) - f32::from(*min))).round() as u8,
+                };
+                vec![(*control, LightValue::Steady(value))]
+            }
+            MeterOn::Leds { leds } => {
+                leds.iter().map(|led| (led.control, led.value(shaped, clipping))).collect()
+            }
         }
-        let span = f32::from(self.max) - f32::from(self.min);
-        (f32::from(self.min) + shaped * span).round() as u8
+    }
+}
+
+impl MeterLed {
+    /// Its value at `shaped`, the level past its meter's curve.
+    fn value(&self, shaped: f32, clipping: bool) -> LightValue {
+        let state = if clipping && self.values.has(CLIP) {
+            CLIP
+        } else if shaped >= self.from {
+            ON
+        } else {
+            OFF
+        };
+        self.values.value(state)
     }
 }
 
@@ -467,7 +521,7 @@ mod tests {
         assert_eq!(targets, ["deck1.hotcue1", "deck1.roll1", "mode.padsA.hotcue", "mode.padsA.roll"]);
         assert_eq!(mappings[3].light.value("off"), LightValue::Steady(1));
         assert_eq!(p.first_modes(), Modes::from([("padsA".into(), "hotcue".into())]));
-        assert_eq!(p.meters[0].value(0.5), 45);
+        assert_eq!(value(&p.meters[0], 0.5), 45);
         assert_eq!(p.keep_alive.as_ref().map(|k| k.every_ms), Some(200));
     }
 
@@ -475,24 +529,99 @@ mod tests {
         serde_json::from_str(json).unwrap()
     }
 
+    /// The value a meter on one control shows at `level`.
+    fn value(meter: &Meter, level: f32) -> u8 {
+        match meter.show(level, false)[..] {
+            [(_, LightValue::Steady(value))] => value,
+            ref shown => panic!("not a value on one control: {shown:?}"),
+        }
+    }
+
     #[test]
     fn a_meter_follows_its_curve() {
         let meter = meter(
             r#"{ "source": "main", "control": { "kind": "note", "channel": 0, "number": 11 }, "curve": 2.5 }"#,
         );
-        assert_eq!(meter.value(1.0), 127);
-        assert_eq!(meter.value(0.5), 22);
-        assert_eq!(meter.value(2.0), 127, "past full scale, full");
+        assert_eq!(value(&meter, 1.0), 127);
+        assert_eq!(value(&meter, 0.5), 22);
+        assert_eq!(value(&meter, 2.0), 127, "past full scale, full");
     }
 
     #[test]
     fn a_meter_starts_at_its_least_value_or_shows_steps() {
         let control = r#""control": { "kind": "controlChange", "channel": 0, "number": 126 }"#;
         let offset = meter(&format!(r#"{{ "source": "deck1", {control}, "min": 48, "max": 63 }}"#));
-        assert_eq!((offset.value(0.0), offset.value(1.0)), (48, 63));
+        assert_eq!((value(&offset, 0.0), value(&offset, 1.0)), (48, 63));
         let stepped =
             meter(&format!(r#"{{ "source": "deck1", {control}, "steps": [0, 1, 21, 41, 61, 81] }}"#));
-        assert_eq!([0.0, 0.2, 0.5, 1.0].map(|l| stepped.value(l)), [0, 1, 41, 81]);
+        assert_eq!([0.0, 0.2, 0.5, 1.0].map(|l| value(&stepped, l)), [0, 1, 41, 81]);
+    }
+
+    #[test]
+    fn a_meter_shows_its_clip_value_while_clipping() {
+        let meter = meter(
+            r#"{ "source": "deck1", "control": { "kind": "controlChange", "channel": 0, "number": 2 }, "max": 117, "clip": 119 }"#,
+        );
+        assert_eq!(meter.show(0.5, true), [(meter_control(0, 2), LightValue::Steady(119))]);
+    }
+
+    fn meter_control(channel: u8, number: u8) -> Control {
+        Control { kind: ControlKind::ControlChange, channel, number }
+    }
+
+    fn leds() -> Meter {
+        meter(
+            r#"{ "source": "deck1", "leds": [
+                { "control": { "kind": "controlChange", "channel": 0, "number": 83 }, "from": 0.2 },
+                { "control": { "kind": "controlChange", "channel": 0, "number": 84 }, "from": 0.6, "on": 6, "off": 1 },
+                { "control": { "kind": "controlChange", "channel": 0, "number": 85 }, "from": 0.9, "on": [176, 80, 10], "off": [176, 81, 10], "clip": 127 }
+            ] }"#,
+        )
+    }
+
+    fn lit(meter: &Meter, level: f32, clipping: bool) -> Vec<LightValue> {
+        meter.show(level, clipping).into_iter().map(|(_, value)| value).collect()
+    }
+
+    #[test]
+    fn each_led_of_a_meter_lights_from_its_own_share_with_a_lights_values() {
+        let meter = leds();
+        let controls: Vec<Control> = meter.show(0.0, false).into_iter().map(|(c, _)| c).collect();
+        assert_eq!(controls, [83, 84, 85].map(|n| meter_control(0, n)));
+        let [unlit, lit_message] = [81, 80].map(|on| LightValue::Message(vec![176, on, 10]));
+        let steady = LightValue::Steady;
+        assert_eq!(lit(&meter, 0.0, false), [steady(0), steady(1), unlit.clone()]);
+        assert_eq!(lit(&meter, 0.2, false), [steady(127), steady(1), unlit]);
+        assert_eq!(lit(&meter, 0.9, false), [steady(127), steady(6), lit_message.clone()]);
+        assert_eq!(lit(&meter, 3.0, false), [steady(127), steady(6), lit_message]);
+    }
+
+    #[test]
+    fn a_meter_of_leds_follows_its_curve_and_shows_their_clip_values() {
+        let curved = Meter { curve: 2.0, ..leds() };
+        assert_eq!(lit(&curved, 0.5, false)[..2], [LightValue::Steady(127), LightValue::Steady(1)]);
+        let steady = LightValue::Steady;
+        assert_eq!(
+            lit(&curved, 0.5, true),
+            [steady(127), steady(1), steady(127)],
+            "the others show the level"
+        );
+    }
+
+    #[test]
+    fn a_meter_is_on_one_control_or_on_leds_and_survives_a_round_trip() {
+        let on_leds = leds();
+        assert!(matches!(&on_leds.on, MeterOn::Leds { leds } if leds.len() == 3));
+        let json = serde_json::to_string(&on_leds).unwrap();
+        assert_eq!(serde_json::from_str::<Meter>(&json).unwrap(), on_leds);
+        let on_control = meter(
+            r#"{ "source": "main", "control": { "kind": "note", "channel": 0, "number": 11 }, "curve": 0.5, "when": { "group": "left", "mode": "deck1" } }"#,
+        );
+        assert!(matches!(on_control.on, MeterOn::Control { max: 127, .. }));
+        let json = serde_json::to_string(&on_control).unwrap();
+        assert!(!json.contains("leds") && !json.contains("min"), "{json}");
+        assert_eq!(serde_json::from_str::<Meter>(&json).unwrap(), on_control);
+        assert!(serde_json::from_str::<Meter>(r#"{ "source": "main" }"#).is_err(), "shown nowhere");
     }
 
     #[test]

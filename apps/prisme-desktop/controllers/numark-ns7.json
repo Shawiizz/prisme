@@ -73,6 +73,6 @@
     {"target": "deck2.ending", "control": {"kind": "controlChange", "channel": 0, "number": 83}}
   ],
   "meters": [
-    {"source": "main", "control": {"kind": "controlChange", "channel": 0, "number": 54}}
+    {"source": "main", "control": {"kind": "controlChange", "channel": 0, "number": 54}, "curve": 0.45}
   ]
 }

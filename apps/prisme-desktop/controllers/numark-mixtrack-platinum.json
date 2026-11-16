@@ -443,8 +443,8 @@
     {"target": "deck4.loop", "control": {"kind": "note", "channel": 7, "number": 50}, "on": 1}
   ],
   "meters": [
-    {"source": "main.left", "control": {"kind": "controlChange", "channel": 15, "number": 68}, "max": 80, "clip": 81},
-    {"source": "main.right", "control": {"kind": "controlChange", "channel": 15, "number": 69}, "max": 80, "clip": 81}
+    {"source": "main.left", "control": {"kind": "controlChange", "channel": 15, "number": 68}, "max": 80, "curve": 0.45, "clip": 81},
+    {"source": "main.right", "control": {"kind": "controlChange", "channel": 15, "number": 69}, "max": 80, "curve": 0.45, "clip": 81}
   ],
   "outputs": [
     {"source": "deck1.position", "control": {"kind": "controlChange", "channel": 0, "number": 63}, "min": 0, "max": 52},

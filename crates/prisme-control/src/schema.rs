@@ -51,7 +51,8 @@ pub fn profile_schema(targets: &[Target]) -> Value {
     }
     let also = &mut defs["ProfileControl"]["properties"]["also"]["items"];
     *also = target(also);
-    defs["Meter"]["properties"]["source"]["enum"] = json!(["deck1", "deck2", "deck3", "deck4", "main"]);
+    defs["Meter"]["properties"]["source"]["enum"] =
+        json!(["deck1", "deck2", "deck3", "deck4", "main", "main.left", "main.right"]);
     schema
 }
 

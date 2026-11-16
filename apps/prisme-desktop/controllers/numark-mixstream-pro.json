@@ -216,7 +216,7 @@
     {"target": "mode.padsB.sampler2", "control": {"kind": "note", "channel": 3, "number": 13}, "when": {"group": "padsB", "mode": "sampler2"}, "on": {"blink": [1,127], "ms": 500}, "off": 1}
   ],
   "meters": [
-    {"source": "main.left", "control": {"kind": "controlChange", "channel": 15, "number": 32}, "max": 70, "clip": 85},
-    {"source": "main.right", "control": {"kind": "controlChange", "channel": 15, "number": 33}, "max": 70, "clip": 85}
+    {"source": "main.left", "control": {"kind": "controlChange", "channel": 15, "number": 32}, "max": 70, "curve": 0.45, "clip": 85},
+    {"source": "main.right", "control": {"kind": "controlChange", "channel": 15, "number": 33}, "max": 70, "curve": 0.45, "clip": 85}
   ]
 }

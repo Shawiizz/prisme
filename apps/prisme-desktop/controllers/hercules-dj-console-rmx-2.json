@@ -102,15 +102,19 @@
     {"target": "deck2.clip", "control": {"kind": "note", "channel": 0, "number": 84}, "on": 6, "off": 0}
   ],
   "meters": [
-    {"source": "deck1", "control": {"kind": "note", "channel": 0, "number": 73}, "steps": [0, 6, 6, 6, 6, 6]},
-    {"source": "deck1", "control": {"kind": "note", "channel": 0, "number": 74}, "steps": [0, 0, 6, 6, 6, 6]},
-    {"source": "deck1", "control": {"kind": "note", "channel": 0, "number": 75}, "steps": [0, 0, 0, 6, 6, 6]},
-    {"source": "deck1", "control": {"kind": "note", "channel": 0, "number": 76}, "steps": [0, 0, 0, 0, 6, 6]},
-    {"source": "deck1", "control": {"kind": "note", "channel": 0, "number": 77}, "steps": [0, 0, 0, 0, 0, 6]},
-    {"source": "deck2", "control": {"kind": "note", "channel": 0, "number": 79}, "steps": [0, 6, 6, 6, 6, 6]},
-    {"source": "deck2", "control": {"kind": "note", "channel": 0, "number": 80}, "steps": [0, 0, 6, 6, 6, 6]},
-    {"source": "deck2", "control": {"kind": "note", "channel": 0, "number": 81}, "steps": [0, 0, 0, 6, 6, 6]},
-    {"source": "deck2", "control": {"kind": "note", "channel": 0, "number": 82}, "steps": [0, 0, 0, 0, 6, 6]},
-    {"source": "deck2", "control": {"kind": "note", "channel": 0, "number": 83}, "steps": [0, 0, 0, 0, 0, 6]}
+    {"source": "deck1", "leds": [
+      {"control": {"kind": "note", "channel": 0, "number": 73}, "from": 0.029, "on": 6, "off": 0},
+      {"control": {"kind": "note", "channel": 0, "number": 74}, "from": 0.111, "on": 6, "off": 0},
+      {"control": {"kind": "note", "channel": 0, "number": 75}, "from": 0.24, "on": 6, "off": 0},
+      {"control": {"kind": "note", "channel": 0, "number": 76}, "from": 0.446, "on": 6, "off": 0},
+      {"control": {"kind": "note", "channel": 0, "number": 77}, "from": 0.771, "on": 6, "off": 0}
+    ]},
+    {"source": "deck2", "leds": [
+      {"control": {"kind": "note", "channel": 0, "number": 79}, "from": 0.029, "on": 6, "off": 0},
+      {"control": {"kind": "note", "channel": 0, "number": 80}, "from": 0.111, "on": 6, "off": 0},
+      {"control": {"kind": "note", "channel": 0, "number": 81}, "from": 0.24, "on": 6, "off": 0},
+      {"control": {"kind": "note", "channel": 0, "number": 82}, "from": 0.446, "on": 6, "off": 0},
+      {"control": {"kind": "note", "channel": 0, "number": 83}, "from": 0.771, "on": 6, "off": 0}
+    ]}
   ]
 }
