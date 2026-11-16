@@ -1,7 +1,7 @@
-//! Waveform summary: for each time slice, the peak amplitude and the balance of the low,
-//! mid and high bands. The UI draws the height from the peak and the color from the
-//! balance. Each slice depends on the audio before it only, so the waveform is computed as
-//! the track is decoded and drawn as it comes ([`WaveformBuilder`]).
+//! Waveform summary: for each time slice, the peak amplitude and the energy of the low,
+//! mid and high bands. The UI draws the height from the band energies and the color from
+//! the band balance. Each slice depends on the audio before it only, so the waveform is
+//! computed as the track is decoded and drawn as it comes ([`WaveformBuilder`]).
 
 use prisme_media::TrackAudio;
 use std::f64::consts::TAU;
@@ -9,11 +9,9 @@ use std::f64::consts::TAU;
 /// Crossover frequencies between the bands (Hz).
 const LOW_MID_HZ: f64 = 200.0;
 const MID_HIGH_HZ: f64 = 2_000.0;
-/// Below this RMS (about -120 dBFS), a slice is silent: no band leads.
-const SILENT_RMS: f64 = 1e-6;
-
-/// Waveform summary of a track, one byte per slice in each band: the peak on the scale of
-/// the full-scale signal (255), each band as a share of the slice's strongest one (255).
+/// Waveform summary of a track, one byte per slice in each band: the peak, and the RMS of
+/// each band, on the scale of the full-scale signal (255). A fixed scale, not the track's
+/// loudest, so that each slice is known as soon as it is read.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Waveform {
     pub slices_per_second: u32,
@@ -128,14 +126,13 @@ impl WaveformBuilder {
 
     fn close_slice(&mut self) {
         let n = self.count as f64;
-        let rms = self.bands.map(|e| (e / n).sqrt());
-        let strongest = rms.iter().cloned().fold(0.0, f64::max);
-        let share = |v: f64| if strongest < SILENT_RMS { 0 } else { (v / strongest * 255.0).round() as u8 };
+        let [low, mid, high] = self.bands.map(|e| (e / n).sqrt());
+        let level = |v: f64| (v.min(1.0) * 255.0).round() as u8;
         let w = &mut self.waveform;
-        w.peak.push((self.peak.min(1.0) * 255.0).round() as u8);
-        w.low.push(share(rms[0]));
-        w.mid.push(share(rms[1]));
-        w.high.push(share(rms[2]));
+        w.peak.push(level(self.peak));
+        w.low.push(level(low));
+        w.mid.push(level(mid));
+        w.high.push(level(high));
         (self.peak, self.bands, self.count) = (0.0, [0.0; 3], 0);
     }
 
@@ -192,13 +189,24 @@ mod tests {
         let dominant = |f: f64| {
             let w = compute_waveform(&sine(f, 1.0), 50);
             let i = w.len() / 2;
-            assert_eq!([w.low[i], w.mid[i], w.high[i]].iter().max(), Some(&255));
             let b = [w.low[i], w.mid[i], w.high[i]];
             (0..3).max_by_key(|&k| b[k]).unwrap()
         };
         assert_eq!(dominant(60.0), 0, "bass");
         assert_eq!(dominant(700.0), 1, "mids");
         assert_eq!(dominant(8_000.0), 2, "highs");
+    }
+
+    #[test]
+    fn bands_keep_the_level_of_the_sound() {
+        let level = |gain: f32| {
+            let samples = sine_samples(700.0, 1.0).into_iter().map(|v| v * gain).collect();
+            let w = compute_waveform(&TrackAudio::from_interleaved(44_100, samples), 50);
+            w.mid[w.len() / 2]
+        };
+        let (full, half) = (level(1.0), level(0.5));
+        assert!(full > 64, "a sine at half scale, most of it in its band: {full}");
+        assert!(full.abs_diff(2 * half) <= 1, "6 dB lower, half as high: {full} {half}");
     }
 
     #[test]

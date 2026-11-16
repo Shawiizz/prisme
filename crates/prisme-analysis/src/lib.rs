@@ -1,6 +1,6 @@
 //! Track analysis, run off the audio thread when a track is loaded.
 //!
-//! * [`waveform`]: peak and low / mid / high balance per time slice, for drawing
+//! * [`waveform`]: peak and low / mid / high energy per time slice, for drawing
 //!   colored waveforms.
 //! * [`tempo`]: BPM and beat grid, put on the kicks' attacks by [`grid`].
 //! * [`key`]: musical key, with its Camelot code.
