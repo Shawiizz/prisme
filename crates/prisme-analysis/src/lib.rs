@@ -2,7 +2,7 @@
 //!
 //! * [`waveform`]: amplitude and low / mid / high energy per time slice, for drawing
 //!   colored waveforms.
-//! * [`tempo`]: BPM and beat grid.
+//! * [`tempo`]: BPM and beat grid, put on the kicks' attacks by [`grid`].
 //! * [`key`]: musical key, with its Camelot code.
 //! * [`loudness`]: loudness (LUFS), to play tracks at the same level.
 //! * [`stem_activity`]: where each part of a separated track plays.
@@ -11,6 +11,7 @@
 //! onset envelopes ([`onset`]).
 
 pub mod dsp;
+pub mod grid;
 pub mod key;
 pub mod loudness;
 pub mod onset;
@@ -91,7 +92,7 @@ pub struct FileAnalysis {
 fn analyze_signal(signal: &dsp::MonoSignal, options: &AnalysisOptions) -> TrackAnalysis {
     let envelopes = onset::onset_envelopes(signal);
     TrackAnalysis {
-        tempo: tempo::estimate_tempo(&envelopes, options.min_bpm),
+        tempo: tempo::estimate_tempo(&envelopes, options.min_bpm).map(|t| grid::fit_grid(signal, t)),
         key: key::estimate_key(signal),
     }
 }

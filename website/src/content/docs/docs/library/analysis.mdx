@@ -15,9 +15,16 @@ seconds and is kept for good.
 
 ## What the analysis finds
 
-**Tempo and beat grid.** Prisme looks for a steady tempo across the whole track, to about a
-thousandth of a BPM, and rounds it to a whole BPM when that fits as well (tracks made in a DAW
-usually have one). It then lays a grid of beats over the track, sitting on the kicks. The grid
+**Tempo and beat grid.** Prisme looks for a steady tempo across the whole track, then measures
+it on the kicks themselves: it finds where the attack of each kick starts, to a fraction of a
+millisecond, and fits the tempo through them from the first kick to the last. The grid sits on
+the start of the attacks, where you would put it by eye on the waveform, not on the loudest
+instant of the kick a few milliseconds later, so two tracks with their grids lined up do not
+flam (two kicks heard instead of one). Beats without a kick, as in a breakdown, are left out of the measure.
+
+The tempo is rounded to a whole BPM (tracks made in a DAW usually have one) only if the whole
+BPM keeps the grid within 2 ms of the kicks to the end of the track; otherwise it stays as
+measured, to a hundredth of a BPM or better: a track at 123.95 BPM is not shown as 124. The grid
 is drawn on the waveform: a fine line on each beat, a red one with small arrows every fourth
 beat.
 
@@ -27,6 +34,8 @@ beat.
   bass at their usual tempo, but a hip-hop track at 85 BPM shows as 170, and a 180 BPM track as
   90. Fix it with **÷2** or **×2** (below).
 - Tracks shorter than 10 seconds get no tempo.
+- Where the kick has no clear start (a distorted, rumbling kick, as in schranz, or a kick
+  buried under the bass), the grid may sit a few milliseconds off: check it by ear.
 
 **Key.** Prisme listens to the harmony of the whole track, after correcting for a track tuned a
 little off concert pitch, and picks the most likely of the 24 major and minor keys. The key
