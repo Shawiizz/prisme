@@ -1,10 +1,12 @@
 /** The tokens of the design system (tokens.css) a canvas paints with. */
 export interface Palette {
   low: string;
+  mid: string;
   high: string;
   light: string;
   onLight: string;
   veil: string;
+  void: string;
   base: string;
   line: string;
   line2: string;
@@ -25,10 +27,12 @@ export function palette(): Palette {
   const token = (name: string) => style.getPropertyValue(name).trim();
   read = {
     low: token('--pr-f-low'),
+    mid: token('--pr-f-mid'),
     high: token('--pr-f-high'),
     light: token('--pr-light'),
     onLight: token('--pr-on-light'),
     veil: token('--pr-light-veil'),
+    void: token('--pr-void'),
     base: token('--pr-base'),
     line: token('--pr-line'),
     line2: token('--pr-line-2'),

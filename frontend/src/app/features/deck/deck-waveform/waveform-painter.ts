@@ -1,6 +1,7 @@
 import { Cue, LoopStatus, Tempo, Waveform } from '../../../core/models/engine';
 import { palette } from '../../../shared/palette';
 import { hexColor } from '../../../shared/track-colors';
+import { BandShapes, bandShapes, columnHeights } from './waveform-shapes';
 
 /** What is drawn over the waveform. */
 export interface WaveformOverlay {
@@ -26,19 +27,27 @@ const PLAYED_OVERVIEW = 0.35;
 const LANE_FLOOR = 80;
 /** Width of the tiles the scrolling view's audio is drawn in once (device pixels). */
 const TILE_PX = 1024;
+/** Share of the half height the loudest sound of the track reaches in the scrolling view: the
+ * rest is left to the bar markers. */
+const HEADROOM = 0.82;
+/** Opacity of the dark edges of the beat grid's lines, and of a beat's line. */
+const GRID_EDGE = 0.7;
+const GRID_BEAT = 0.55;
 
 /**
- * Draws the waveforms (design/DESIGN.md, Waveform): one envelope coloured slice by slice by
- * the balance of its bands, the beat grid as lines (red on the bars), cues as flags in their tag colour,
- * the loop as a band of light and the playhead, the only white line, dispersed on its edges.
+ * Draws the waveforms (design/DESIGN.md, Waveform): the low, mid and high bands as shapes
+ * layered in their colours, the beat grid across them (the bars in their colour, marked at both
+ * edges), cues as flags in their tag colour, the loop as a band of light and the playhead, the
+ * only white line, dispersed on its edges.
  */
 export class WaveformPainter {
   private readonly palette = palette();
   /** The colour of each tag of a cue, written once. */
   private readonly cueColors = new Map<number, string>();
-  /** Colour of each slice, cached per waveform. */
-  private colors: string[] = [];
-  private source: Waveform | null = null;
+  /** The bands' heights, worked out once per waveform. */
+  private shapes: { w: Waveform; bands: BandShapes } | null = null;
+  /** The heights of a band under each column being drawn. */
+  private columns = new Float32Array(0);
   /** The overview's audio as it plays and as played, drawn once per waveform and size. */
   private overview: {
     w: Waveform;
@@ -134,13 +143,14 @@ export class WaveformPainter {
     ctx.clearRect(0, 0, view.width, view.height);
     this.drawLoop(ctx, overlay.loop, view);
     if (w) this.drawZoomedAudio(ctx, w, view, view.width / ownSpanS);
-    this.drawRolls(ctx, w && w.peak.length / w.slicesPerSecond, view);
-    if (overlay.tempo) this.drawBeatGrid(ctx, overlay.tempo, view);
+    const durationS = w && w.peak.length / w.slicesPerSecond;
+    this.drawRolls(ctx, durationS, view);
+    if (overlay.tempo) this.drawBeatGrid(ctx, overlay.tempo, durationS, view);
     this.drawCues(ctx, overlay.cues, view, true);
     this.drawPlayhead(ctx, Math.round(view.width / 2), view);
   }
 
-  /** Whole track in grey, played part dimmed, with the loop, cue ticks and the position. */
+  /** Whole track in its bands, played part dimmed, with the loop, cue ticks and the position. */
   drawOverview(
     ctx: CanvasRenderingContext2D,
     w: Waveform | null,
@@ -187,7 +197,7 @@ export class WaveformPainter {
       if (tiles.images.has(k)) continue;
       const image = new OffscreenCanvas(TILE_PX, view.height);
       const tile = { ...view, fromS: k * tileS, spanS: tileS, width: TILE_PX };
-      this.drawColumns(image.getContext('2d')!, w, tile);
+      this.drawBands(image.getContext('2d')!, w, tile, (view.height / 2) * HEADROOM);
       tiles.images.set(k, image);
     }
     // whole columns copied, not blended across pixels as they scroll
@@ -212,20 +222,45 @@ export class WaveformPainter {
     }
   }
 
-  /** The loudest slice under each column of `view`, in its colour. */
-  private drawColumns(ctx: OffscreenCanvasRenderingContext2D, w: Waveform, view: View) {
+  /** The bands across `view`, mirrored around its middle, the loudest sound of the track `reach`
+   * high: the low band's shape behind, the mid's over it, the high's in front. */
+  private drawBands(
+    ctx: OffscreenCanvasRenderingContext2D,
+    w: Waveform,
+    view: View,
+    reach: number,
+  ) {
+    const bands = this.bandsOf(w);
     const sps = w.slicesPerSecond;
-    const slicesPerPx = (view.spanS * sps) / view.width;
+    const per = (view.spanS * sps) / view.width;
+    if (this.columns.length !== view.width) this.columns = new Float32Array(view.width);
+    const heights = this.columns;
     const mid = view.height / 2;
-    for (let x = 0; x < view.width; x++) {
-      const first = Math.floor(view.fromS * sps + x * slicesPerPx);
-      const last = Math.max(first + 1, Math.floor(view.fromS * sps + (x + 1) * slicesPerPx));
-      if (last <= 0 || first >= w.peak.length) continue;
-      const loudest = this.loudest(w, first, last);
-      const h = (w.peak[loudest] / 255) * (mid - 1);
-      ctx.fillStyle = this.colorAt(w, loudest);
-      ctx.fillRect(x, mid - h, 1, h * 2);
+    const layers: [Float32Array, string][] = [
+      [bands.low, this.palette.low],
+      [bands.mid, this.palette.mid],
+      [bands.high, this.palette.high],
+    ];
+    for (const [band, color] of layers) {
+      columnHeights(band, view.fromS * sps, per, heights);
+      const last = view.width - 1;
+      // from edge to edge of the image, so that tiles side by side make one shape
+      ctx.beginPath();
+      ctx.moveTo(0, mid - heights[0] * reach);
+      for (let x = 0; x <= last; x++) ctx.lineTo(x + 0.5, mid - heights[x] * reach);
+      ctx.lineTo(view.width, mid - heights[last] * reach);
+      ctx.lineTo(view.width, mid + heights[last] * reach);
+      for (let x = last; x >= 0; x--) ctx.lineTo(x + 0.5, mid + heights[x] * reach);
+      ctx.lineTo(0, mid + heights[0] * reach);
+      ctx.closePath();
+      ctx.fillStyle = color;
+      ctx.fill();
     }
+  }
+
+  private bandsOf(w: Waveform): BandShapes {
+    if (this.shapes?.w !== w) this.shapes = { w, bands: bandShapes(w) };
+    return this.shapes.bands;
   }
 
   /** The overview's audio, drawn again only for another waveform or another size. */
@@ -239,39 +274,12 @@ export class WaveformPainter {
     }
     const full = new OffscreenCanvas(view.width, view.height);
     const played = new OffscreenCanvas(view.width, view.height);
-    this.drawOverviewAudio(full.getContext('2d')!, w, view, 1);
-    this.drawOverviewAudio(played.getContext('2d')!, w, view, PLAYED_OVERVIEW);
+    this.drawBands(full.getContext('2d')!, w, view, view.height / 2 - view.ratio);
+    const dimmed = played.getContext('2d')!;
+    dimmed.globalAlpha = PLAYED_OVERVIEW;
+    dimmed.drawImage(full, 0, 0);
     this.overview = { w, width: view.width, height: view.height, full, played };
     return this.overview;
-  }
-
-  private drawOverviewAudio(
-    ctx: OffscreenCanvasRenderingContext2D,
-    w: Waveform,
-    view: View,
-    alpha: number,
-  ) {
-    const n = w.peak.length;
-    const mid = view.height / 2;
-    ctx.globalAlpha = alpha;
-    for (let x = 0; x < view.width; x++) {
-      const first = Math.floor((x / view.width) * n);
-      const last = Math.max(first + 1, Math.floor(((x + 1) / view.width) * n));
-      const loudest = this.loudest(w, first, last);
-      const h = (w.peak[loudest] / 255) * (mid - 1);
-      ctx.fillStyle = this.colorAt(w, loudest);
-      ctx.fillRect(x, mid - h, 1, h * 2);
-    }
-    ctx.globalAlpha = 1;
-  }
-
-  /** The loudest slice from `first` to `last` (excluded), within the track. */
-  private loudest(w: Waveform, first: number, last: number): number {
-    let best = Math.max(first, 0);
-    for (let i = best; i < Math.min(last, w.peak.length); i++) {
-      if (w.peak[i] > w.peak[best]) best = i;
-    }
-    return best;
   }
 
   /** Before the track and after it, outlined arrows pointing to it: they scroll by as the
@@ -303,33 +311,53 @@ export class WaveformPainter {
     ctx.stroke();
   }
 
-  /** As on a CDJ's screen: a fine line across the waveform on each beat, the first beat of
-   * each bar in red, pointed at from the top and the bottom by a small arrow. */
-  private drawBeatGrid(ctx: CanvasRenderingContext2D, tempo: Tempo, view: View) {
+  /** As on a CDJ's screen, across the whole height and over the waveform: a fine line on each
+   * beat, a stronger one in the bar colour on the first beat of each bar, pointed at from the
+   * top and bottom edges, in the room the waveform leaves there. Every line has dark edges, to
+   * stand out on any colour of the bands. Only along the track, once its length is known. */
+  private drawBeatGrid(
+    ctx: CanvasRenderingContext2D,
+    tempo: Tempo,
+    durationS: number | null,
+    view: View,
+  ) {
     const period = 60 / tempo.bpm;
-    const first = Math.ceil((view.fromS - tempo.firstBeatS) / period);
-    const last = Math.floor((view.fromS + view.spanS - tempo.firstBeatS) / period);
+    const first = Math.max(Math.ceil((view.fromS - tempo.firstBeatS) / period), 0);
+    const toS = Math.min(view.fromS + view.spanS, durationS ?? Infinity);
+    const last = Math.floor((toS - tempo.firstBeatS) / period);
+    if (last < first) return;
     const r = view.ratio;
-    const half = 3.5 * r;
-    for (let n = Math.max(first, 0); n <= last; n++) {
-      const x = Math.round(xOf(tempo.firstBeatS + n * period, view));
-      const bar = n % 4 === 0;
-      ctx.globalAlpha = bar ? 0.75 : 0.3;
-      ctx.fillStyle = bar ? this.palette.bar : this.palette.text;
-      ctx.fillRect(x, 0, r, view.height);
-      if (!bar) continue;
-      const mid = x + r / 2;
-      ctx.globalAlpha = 1;
-      ctx.beginPath();
+    const beatWidth = Math.max(Math.round(r), 1);
+    const barWidth = Math.max(Math.round(2 * r), 2);
+    const edge = Math.max(Math.round(r), 1);
+    const width = (n: number) => (n % 4 === 0 ? barWidth : beatWidth);
+    const left = (n: number) => Math.round(xOf(tempo.firstBeatS + n * period, view) - width(n) / 2);
+    const h = view.height;
+    ctx.globalAlpha = GRID_EDGE;
+    ctx.fillStyle = this.palette.void;
+    for (let n = first; n <= last; n++) ctx.fillRect(left(n) - edge, 0, width(n) + 2 * edge, h);
+    ctx.globalAlpha = GRID_BEAT;
+    ctx.fillStyle = this.palette.text;
+    for (let n = first; n <= last; n++) if (n % 4 !== 0) ctx.fillRect(left(n), 0, beatWidth, h);
+    ctx.globalAlpha = 1;
+    ctx.fillStyle = this.palette.bar;
+    const tall = Math.min(5 * r, ((1 - HEADROOM) / 2) * h);
+    const half = 0.8 * tall;
+    ctx.beginPath();
+    for (let n = Math.ceil(first / 4) * 4; n <= last; n += 4) {
+      const x = left(n);
+      ctx.fillRect(x, 0, barWidth, h);
+      const mid = x + barWidth / 2;
       ctx.moveTo(mid - half, 0);
       ctx.lineTo(mid + half, 0);
-      ctx.lineTo(mid, 1.4 * half);
-      ctx.moveTo(mid - half, view.height);
-      ctx.lineTo(mid + half, view.height);
-      ctx.lineTo(mid, view.height - 1.4 * half);
-      ctx.fill();
+      ctx.lineTo(mid, tall);
+      ctx.closePath();
+      ctx.moveTo(mid - half, h);
+      ctx.lineTo(mid + half, h);
+      ctx.lineTo(mid, h - tall);
+      ctx.closePath();
     }
-    ctx.globalAlpha = 1;
+    ctx.fill();
   }
 
   /** A band of light between two lines; a stored loop as two dim lines. */
@@ -390,24 +418,6 @@ export class WaveformPainter {
     ctx.globalAlpha = 1;
     ctx.fillStyle = this.palette.light;
     ctx.fillRect(x - r, 0, 2 * r, view.height);
-  }
-
-  /**
-   * The bands mixed like light: the low band lights the red, the mid the green, the high
-   * the blue, scaled to the strongest so that the colours stay vivid whatever the level.
-   */
-  private colorAt(w: Waveform, i: number): string {
-    if (this.source !== w) {
-      this.source = w;
-      this.colors = Array.from(w.peak, (_, k) => {
-        const max = Math.max(w.low[k], w.mid[k], w.high[k], 1);
-        const r = Math.round((w.low[k] / max) * 255);
-        const g = Math.round((w.mid[k] / max) * 230);
-        const b = Math.round((w.high[k] / max) * 255);
-        return `rgb(${r},${g},${b})`;
-      });
-    }
-    return this.colors[i];
   }
 }
 
