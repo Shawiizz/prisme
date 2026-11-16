@@ -74,6 +74,8 @@ pub struct DjPreferences {
     pub lock_controls: bool,
     /// The headphones go to the deck a track is loaded on, alone.
     pub cue_on_load: bool,
+    /// A load onto a deck that plays is refused, rather than asked about.
+    pub protect_playing: bool,
 }
 
 impl Preferences {
@@ -130,6 +132,7 @@ impl Default for DjPreferences {
             knob_magnet: true,
             lock_controls: true,
             cue_on_load: false,
+            protect_playing: false,
         }
     }
 }
@@ -272,6 +275,7 @@ mod tests {
         assert!(p.library.pause_while_playing);
         assert_eq!(p.library.separate_on_load, None);
         assert!(!p.dj.cue_on_load, "the headphones stay where they are at a load");
+        assert!(!p.dj.protect_playing, "a load onto a deck that plays is asked about");
     }
 
     #[test]

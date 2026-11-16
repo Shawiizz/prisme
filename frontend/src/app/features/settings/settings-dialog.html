@@ -509,6 +509,17 @@
                   <span></span>
                 </button>
               </app-setting-row>
+              <app-setting-row id="dj.protectPlaying">
+                <button
+                  class="pr-switch"
+                  role="switch"
+                  [attr.aria-checked]="dj().protectPlaying"
+                  settingControl
+                  (click)="setDj({ protectPlaying: !dj().protectPlaying })"
+                >
+                  <span></span>
+                </button>
+              </app-setting-row>
               @if (ANDROID) {
                 <app-setting-row id="dj.lockControls">
                   <button

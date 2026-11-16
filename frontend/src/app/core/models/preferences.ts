@@ -17,6 +17,8 @@ export interface DjPreferences {
   lockControls: boolean;
   /** The headphones go to the deck a track is loaded on, alone. */
   cueOnLoad: boolean;
+  /** A load onto a deck that plays is refused, rather than asked about. */
+  protectPlaying: boolean;
 }
 
 export interface LibraryPreferences {

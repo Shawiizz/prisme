@@ -673,5 +673,8 @@
   "This deck alone in the headphones": "Cette platine seule dans le casque",
   "Hear this deck in the headphones · double-click: this deck alone": "Écouter cette platine au casque · double-clic : cette platine seule",
   "Headphones on the deck a track is loaded on": "Casque sur la platine où un morceau est chargé",
-  "A track loaded on a deck puts that deck alone in the headphones, to cue it at once.": "Un morceau chargé sur une platine met cette platine seule dans le casque, pour le caler aussitôt."
+  "A track loaded on a deck puts that deck alone in the headphones, to cue it at once.": "Un morceau chargé sur une platine met cette platine seule dans le casque, pour le caler aussitôt.",
+  "Deck {deck} is playing: nothing is loaded on it": "La platine {deck} joue : rien n’y est chargé",
+  "Never replace a playing deck": "Ne jamais remplacer une platine qui joue",
+  "A track loaded onto a deck that plays is refused with a word, rather than asked about.": "Un morceau chargé sur une platine qui joue est refusé avec un mot, plutôt que de demander."
 }

@@ -287,10 +287,16 @@ export class EngineService {
   }
 
   /** The track of a deck that plays, by itself or under its record, gives way only if the
-   * DJ says so. */
+   * DJ says so; never, if the DJ chose so. */
   private async mayReplace(deck: number): Promise<boolean> {
     const d = this.status()?.decks[deck];
     if (!d?.loaded || (!d.playing && Math.abs(d.speed) < MOVING_SPEED)) return true;
+    if (this.preferences.dj().protectPlaying) {
+      this.error.set(
+        t('Deck {deck} is playing: nothing is loaded on it', { deck: deckLetter(deck) }),
+      );
+      return false;
+    }
     return this.confirm.ask({
       title: t('Deck {deck} is playing', { deck: deckLetter(deck) }),
       detail: t('The track playing stops, and the new one takes its place.'),
