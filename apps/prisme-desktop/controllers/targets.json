@@ -66,6 +66,54 @@
   "kind": "button"
  },
  {
+  "id": "deck1.hotcue9",
+  "group": "Deck A",
+  "label": "Hot cue 9",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.hotcue10",
+  "group": "Deck A",
+  "label": "Hot cue 10",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.hotcue11",
+  "group": "Deck A",
+  "label": "Hot cue 11",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.hotcue12",
+  "group": "Deck A",
+  "label": "Hot cue 12",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.hotcue13",
+  "group": "Deck A",
+  "label": "Hot cue 13",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.hotcue14",
+  "group": "Deck A",
+  "label": "Hot cue 14",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.hotcue15",
+  "group": "Deck A",
+  "label": "Hot cue 15",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.hotcue16",
+  "group": "Deck A",
+  "label": "Hot cue 16",
+  "kind": "button"
+ },
+ {
   "id": "deck1.hotcue1.delete",
   "group": "Deck A",
   "label": "Delete hot cue 1",
@@ -111,6 +159,54 @@
   "id": "deck1.hotcue8.delete",
   "group": "Deck A",
   "label": "Delete hot cue 8",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.hotcue9.delete",
+  "group": "Deck A",
+  "label": "Delete hot cue 9",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.hotcue10.delete",
+  "group": "Deck A",
+  "label": "Delete hot cue 10",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.hotcue11.delete",
+  "group": "Deck A",
+  "label": "Delete hot cue 11",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.hotcue12.delete",
+  "group": "Deck A",
+  "label": "Delete hot cue 12",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.hotcue13.delete",
+  "group": "Deck A",
+  "label": "Delete hot cue 13",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.hotcue14.delete",
+  "group": "Deck A",
+  "label": "Delete hot cue 14",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.hotcue15.delete",
+  "group": "Deck A",
+  "label": "Delete hot cue 15",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.hotcue16.delete",
+  "group": "Deck A",
+  "label": "Delete hot cue 16",
   "kind": "button"
  },
  {
@@ -387,6 +483,54 @@
   "id": "deck1.sample8",
   "group": "Deck A",
   "label": "Sample 8",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.sample9",
+  "group": "Deck A",
+  "label": "Sample 9",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.sample10",
+  "group": "Deck A",
+  "label": "Sample 10",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.sample11",
+  "group": "Deck A",
+  "label": "Sample 11",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.sample12",
+  "group": "Deck A",
+  "label": "Sample 12",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.sample13",
+  "group": "Deck A",
+  "label": "Sample 13",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.sample14",
+  "group": "Deck A",
+  "label": "Sample 14",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.sample15",
+  "group": "Deck A",
+  "label": "Sample 15",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.sample16",
+  "group": "Deck A",
+  "label": "Sample 16",
   "kind": "button"
  },
  {
@@ -942,6 +1086,54 @@
   "kind": "button"
  },
  {
+  "id": "deck2.hotcue9",
+  "group": "Deck B",
+  "label": "Hot cue 9",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.hotcue10",
+  "group": "Deck B",
+  "label": "Hot cue 10",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.hotcue11",
+  "group": "Deck B",
+  "label": "Hot cue 11",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.hotcue12",
+  "group": "Deck B",
+  "label": "Hot cue 12",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.hotcue13",
+  "group": "Deck B",
+  "label": "Hot cue 13",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.hotcue14",
+  "group": "Deck B",
+  "label": "Hot cue 14",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.hotcue15",
+  "group": "Deck B",
+  "label": "Hot cue 15",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.hotcue16",
+  "group": "Deck B",
+  "label": "Hot cue 16",
+  "kind": "button"
+ },
+ {
   "id": "deck2.hotcue1.delete",
   "group": "Deck B",
   "label": "Delete hot cue 1",
@@ -987,6 +1179,54 @@
   "id": "deck2.hotcue8.delete",
   "group": "Deck B",
   "label": "Delete hot cue 8",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.hotcue9.delete",
+  "group": "Deck B",
+  "label": "Delete hot cue 9",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.hotcue10.delete",
+  "group": "Deck B",
+  "label": "Delete hot cue 10",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.hotcue11.delete",
+  "group": "Deck B",
+  "label": "Delete hot cue 11",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.hotcue12.delete",
+  "group": "Deck B",
+  "label": "Delete hot cue 12",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.hotcue13.delete",
+  "group": "Deck B",
+  "label": "Delete hot cue 13",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.hotcue14.delete",
+  "group": "Deck B",
+  "label": "Delete hot cue 14",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.hotcue15.delete",
+  "group": "Deck B",
+  "label": "Delete hot cue 15",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.hotcue16.delete",
+  "group": "Deck B",
+  "label": "Delete hot cue 16",
   "kind": "button"
  },
  {
@@ -1263,6 +1503,54 @@
   "id": "deck2.sample8",
   "group": "Deck B",
   "label": "Sample 8",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.sample9",
+  "group": "Deck B",
+  "label": "Sample 9",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.sample10",
+  "group": "Deck B",
+  "label": "Sample 10",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.sample11",
+  "group": "Deck B",
+  "label": "Sample 11",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.sample12",
+  "group": "Deck B",
+  "label": "Sample 12",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.sample13",
+  "group": "Deck B",
+  "label": "Sample 13",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.sample14",
+  "group": "Deck B",
+  "label": "Sample 14",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.sample15",
+  "group": "Deck B",
+  "label": "Sample 15",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.sample16",
+  "group": "Deck B",
+  "label": "Sample 16",
   "kind": "button"
  },
  {
@@ -1818,6 +2106,54 @@
   "kind": "button"
  },
  {
+  "id": "deck3.hotcue9",
+  "group": "Deck C",
+  "label": "Hot cue 9",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.hotcue10",
+  "group": "Deck C",
+  "label": "Hot cue 10",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.hotcue11",
+  "group": "Deck C",
+  "label": "Hot cue 11",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.hotcue12",
+  "group": "Deck C",
+  "label": "Hot cue 12",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.hotcue13",
+  "group": "Deck C",
+  "label": "Hot cue 13",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.hotcue14",
+  "group": "Deck C",
+  "label": "Hot cue 14",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.hotcue15",
+  "group": "Deck C",
+  "label": "Hot cue 15",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.hotcue16",
+  "group": "Deck C",
+  "label": "Hot cue 16",
+  "kind": "button"
+ },
+ {
   "id": "deck3.hotcue1.delete",
   "group": "Deck C",
   "label": "Delete hot cue 1",
@@ -1863,6 +2199,54 @@
   "id": "deck3.hotcue8.delete",
   "group": "Deck C",
   "label": "Delete hot cue 8",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.hotcue9.delete",
+  "group": "Deck C",
+  "label": "Delete hot cue 9",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.hotcue10.delete",
+  "group": "Deck C",
+  "label": "Delete hot cue 10",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.hotcue11.delete",
+  "group": "Deck C",
+  "label": "Delete hot cue 11",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.hotcue12.delete",
+  "group": "Deck C",
+  "label": "Delete hot cue 12",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.hotcue13.delete",
+  "group": "Deck C",
+  "label": "Delete hot cue 13",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.hotcue14.delete",
+  "group": "Deck C",
+  "label": "Delete hot cue 14",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.hotcue15.delete",
+  "group": "Deck C",
+  "label": "Delete hot cue 15",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.hotcue16.delete",
+  "group": "Deck C",
+  "label": "Delete hot cue 16",
   "kind": "button"
  },
  {
@@ -2139,6 +2523,54 @@
   "id": "deck3.sample8",
   "group": "Deck C",
   "label": "Sample 8",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.sample9",
+  "group": "Deck C",
+  "label": "Sample 9",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.sample10",
+  "group": "Deck C",
+  "label": "Sample 10",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.sample11",
+  "group": "Deck C",
+  "label": "Sample 11",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.sample12",
+  "group": "Deck C",
+  "label": "Sample 12",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.sample13",
+  "group": "Deck C",
+  "label": "Sample 13",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.sample14",
+  "group": "Deck C",
+  "label": "Sample 14",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.sample15",
+  "group": "Deck C",
+  "label": "Sample 15",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.sample16",
+  "group": "Deck C",
+  "label": "Sample 16",
   "kind": "button"
  },
  {
@@ -2694,6 +3126,54 @@
   "kind": "button"
  },
  {
+  "id": "deck4.hotcue9",
+  "group": "Deck D",
+  "label": "Hot cue 9",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.hotcue10",
+  "group": "Deck D",
+  "label": "Hot cue 10",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.hotcue11",
+  "group": "Deck D",
+  "label": "Hot cue 11",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.hotcue12",
+  "group": "Deck D",
+  "label": "Hot cue 12",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.hotcue13",
+  "group": "Deck D",
+  "label": "Hot cue 13",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.hotcue14",
+  "group": "Deck D",
+  "label": "Hot cue 14",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.hotcue15",
+  "group": "Deck D",
+  "label": "Hot cue 15",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.hotcue16",
+  "group": "Deck D",
+  "label": "Hot cue 16",
+  "kind": "button"
+ },
+ {
   "id": "deck4.hotcue1.delete",
   "group": "Deck D",
   "label": "Delete hot cue 1",
@@ -2739,6 +3219,54 @@
   "id": "deck4.hotcue8.delete",
   "group": "Deck D",
   "label": "Delete hot cue 8",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.hotcue9.delete",
+  "group": "Deck D",
+  "label": "Delete hot cue 9",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.hotcue10.delete",
+  "group": "Deck D",
+  "label": "Delete hot cue 10",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.hotcue11.delete",
+  "group": "Deck D",
+  "label": "Delete hot cue 11",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.hotcue12.delete",
+  "group": "Deck D",
+  "label": "Delete hot cue 12",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.hotcue13.delete",
+  "group": "Deck D",
+  "label": "Delete hot cue 13",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.hotcue14.delete",
+  "group": "Deck D",
+  "label": "Delete hot cue 14",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.hotcue15.delete",
+  "group": "Deck D",
+  "label": "Delete hot cue 15",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.hotcue16.delete",
+  "group": "Deck D",
+  "label": "Delete hot cue 16",
   "kind": "button"
  },
  {
@@ -3015,6 +3543,54 @@
   "id": "deck4.sample8",
   "group": "Deck D",
   "label": "Sample 8",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.sample9",
+  "group": "Deck D",
+  "label": "Sample 9",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.sample10",
+  "group": "Deck D",
+  "label": "Sample 10",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.sample11",
+  "group": "Deck D",
+  "label": "Sample 11",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.sample12",
+  "group": "Deck D",
+  "label": "Sample 12",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.sample13",
+  "group": "Deck D",
+  "label": "Sample 13",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.sample14",
+  "group": "Deck D",
+  "label": "Sample 14",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.sample15",
+  "group": "Deck D",
+  "label": "Sample 15",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.sample16",
+  "group": "Deck D",
+  "label": "Sample 16",
   "kind": "button"
  },
  {

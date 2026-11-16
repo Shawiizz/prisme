@@ -25,6 +25,16 @@
   }
 </div>
 
+@if (paged()) {
+  <button
+    class="pr-btn pr-btn--sm page"
+    [title]="'The other page of pads' | t"
+    (click)="page.set(1 - page())"
+  >
+    {{ page() === 0 ? '1–8' : '9–16' }}
+  </button>
+}
+
 @switch (keys()) {
   @case ('fx') {
     <div

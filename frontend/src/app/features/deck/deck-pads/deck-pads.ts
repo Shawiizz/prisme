@@ -4,7 +4,7 @@ import { FxService } from '../../../core/services/fx.service';
 import { SamplerService } from '../../../core/services/sampler.service';
 import { EngineService } from '../../../core/services/engine.service';
 import { PerformanceService } from '../../../core/services/performance.service';
-import { EffectKind, FxSettings, HOT_CUES, SLICES } from '../../../core/models/engine';
+import { EffectKind, FxSettings, PADS, SLICES } from '../../../core/models/engine';
 import { Knob } from '../../../shared/knob/knob';
 import { CUT_BEATS, ROLL_BEATS, formatBeats, loopBeats } from '../../../shared/beats';
 import { readouts } from '../../../shared/mixer-scales';
@@ -87,7 +87,7 @@ const LOOP_BEATS = [0.25, 0.5, 1, 2, 4, 8, 16, 32];
 const JUMP_BEATS = [-32, -16, -4, -1, 1, 4, 16, 32];
 
 /**
- * Eight performance pads per deck, at the end of its rail (hot cues, loops, rolls, beat
+ * Eight performance pads per deck (hot cues and sounds on two pages), at the end of its rail (hot cues, loops, rolls, beat
  * jumps, the slicer, fader cuts, beat effects, sampler), with the keys that go with their mode: slip and censor
  * (and the way out of a loop while one plays), all the loop keys, the deck's size for the
  * jumps, the slots of the effect chain with the level, knob and period of the one chosen,
@@ -108,6 +108,11 @@ export class DeckPads {
   protected readonly sampler = inject(SamplerService);
   protected readonly modes = MODES;
   protected readonly mode = signal<PadMode>('cues');
+  /** The page of hot cues and sounds on the pads: 1 to 8, or 9 to 16. */
+  protected readonly page = signal(0);
+  /** Hot cues and sounds have two pages. */
+  protected readonly paged = computed(() => this.mode() === 'cues' || this.mode() === 'sampler');
+  private readonly first = computed(() => this.page() * PADS);
   /** The keys beside the pads. */
   protected readonly keys = computed(() => {
     const mode = this.mode();
@@ -175,7 +180,7 @@ export class DeckPads {
   protected readonly pads = computed<Pad[]>(() => {
     switch (this.mode()) {
       case 'cues':
-        return Array.from({ length: HOT_CUES }, (_, slot) => this.cuePad(slot));
+        return Array.from({ length: PADS }, (_, pad) => this.cuePad(this.first() + pad));
       case 'loops':
         return LOOP_BEATS.map((b) =>
           this.beatPad(
@@ -230,7 +235,10 @@ export class DeckPads {
         }));
       }
       case 'sampler':
-        return this.samples().map((name, slot) => this.samplePad(name, slot));
+        return Array.from({ length: PADS }, (_, pad) => {
+          const slot = this.first() + pad;
+          return this.samplePad(this.samples()[slot] ?? null, slot);
+        });
     }
   });
 
@@ -239,11 +247,12 @@ export class DeckPads {
     if (event.button !== 0) return;
     (event.currentTarget as Element).setPointerCapture(event.pointerId);
     const deck = this.deck();
+    const slot = this.first() + index;
     switch (this.mode()) {
       case 'cues':
         return event.shiftKey
-          ? this.performance.deleteHotCue(deck, index)
-          : this.performance.pressHotCue(deck, index);
+          ? this.performance.deleteHotCue(deck, slot)
+          : this.performance.pressHotCue(deck, slot);
       case 'loops':
         return this.activeLoopBeats() === LOOP_BEATS[index]
           ? this.performance.exitLoop(deck)
@@ -259,8 +268,8 @@ export class DeckPads {
       case 'fx':
         return this.fx.press(deck, this.slot(), EFFECTS[index].kind);
       case 'sampler':
-        if (!this.samples()[index]) return this.sampler.choose(deck, index);
-        return event.shiftKey ? this.sampler.clear(deck, index) : this.sampler.trigger(deck, index);
+        if (!this.samples()[slot]) return this.sampler.choose(deck, slot);
+        return event.shiftKey ? this.sampler.clear(deck, slot) : this.sampler.trigger(deck, slot);
     }
   }
 
@@ -280,10 +289,11 @@ export class DeckPads {
   remove(index: number, event: MouseEvent) {
     event.preventDefault();
     const deck = this.deck();
-    if (this.mode() === 'cues') this.performance.deleteHotCue(deck, index);
+    const slot = this.first() + index;
+    if (this.mode() === 'cues') this.performance.deleteHotCue(deck, slot);
     if (this.mode() !== 'sampler') return;
-    if (this.samplePlaying(index)) this.sampler.stop(deck, index);
-    else if (this.samples()[index]) this.sampler.clear(deck, index);
+    if (this.samplePlaying(slot)) this.sampler.stop(deck, slot);
+    else if (this.samples()[slot]) this.sampler.clear(deck, slot);
   }
 
   loopIn() {

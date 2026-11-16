@@ -56,7 +56,7 @@ export interface DeckStatus {
   /** Where the track would be without the loop, roll or censor in progress. */
   slipPositionS: number | null;
   vinyl: VinylStatus;
-  /** Sampler slots playing, one bit per slot. */
+  /** Sampler slots playing, one bit per slot (16). */
   samplesPlaying: number;
   /** The stems whose change waits for the next bar, a bit each: vocals, drums, bass, other. */
   stemsWaiting: number;
@@ -75,9 +75,12 @@ export interface Cue {
   label: string;
 }
 
-export const HOT_CUES = 8;
+/** Two pages of eight pads. */
+export const HOT_CUES = 16;
 export const MAX_KEY_SHIFT = 12;
-export const SAMPLE_SLOTS = 8;
+export const SAMPLE_SLOTS = 16;
+/** The pads of a deck: a page of hot cues or sounds. */
+export const PADS = 8;
 /** The slicer's slices: two bars of the beat grid, a beat each. */
 export const SLICES = 8;
 

@@ -817,7 +817,7 @@ pub struct DeckStatusDto {
     pub slip_position_s: Option<f64>,
     pub vinyl: VinylDto,
     /// Sampler slots playing (bit per slot).
-    pub samples_playing: u8,
+    pub samples_playing: u16,
     /// The parts whose change waits for the next bar, a bit each: vocals, drums, bass, other.
     pub stems_waiting: u8,
     /// The parts separated where the deck plays, the same bits.

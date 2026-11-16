@@ -663,5 +663,6 @@
   "Size of the jumps and the loop (a step halves or doubles it)": "Taille des sauts et de la boucle (un cran la divise ou la double)",
   "Size of the jumps and of the sized loop, in beats": "Taille des sauts et de la boucle à la taille, en temps",
   "Slice {n} while held": "Slice {n} (maintenu)",
-  "Fader cut on {beats} while held": "Coupure au fader sur {beats} (maintenu)"
+  "Fader cut on {beats} while held": "Coupure au fader sur {beats} (maintenu)",
+  "The other page of pads": "L’autre page de pads"
 }

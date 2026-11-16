@@ -89,6 +89,15 @@ describe('controls', () => {
     ]);
   });
 
+  it('play sixteen hot cues and sixteen sounds', () => {
+    const { calls, find } = recorder();
+    find('deck1.hotcue16').apply(1);
+    find('deck2.sample9').apply(1);
+    expect(find('deck1.hotcue17')).toBeUndefined();
+    expect(find('deck1.sample17')).toBeUndefined();
+    expect(calls).toEqual(['hotCue(0,15)', 'triggerSample(1,8)']);
+  });
+
   it('light what is on', () => {
     const { calls, find } = recorder();
     expect(find('deck1.sample4').lit!()).toBe(true);
