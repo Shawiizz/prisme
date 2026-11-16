@@ -9,10 +9,9 @@ import { Press } from '../../../shared/press';
 
 /**
  * What a deck does now and then rather than all the time, a row each: its motor (a brake, a
- * soft start, a spinback while held), the track played backwards, the channel muted, the track
- * repeated, the
- * range of its tempo fader, and on the software mixer the channel fader starting and stopping
- * it.
+ * soft start, a spinback while held), jumps to the start and the end, the track played
+ * backwards, the channel muted, the track repeated, the range of its tempo fader, and on the
+ * software mixer the channel fader starting and stopping it.
  */
 @Component({
   selector: 'app-deck-options',
@@ -38,6 +37,29 @@ import { Press } from '../../../shared/press';
           (release)="spinBack(false)"
         >
           SPINBACK
+        </button>
+      </div>
+    </div>
+    <div class="row">
+      <span>{{ 'Jump to' | t }}</span>
+      <div class="keys">
+        <button
+          class="pr-btn pr-btn--sm"
+          [class.pr-reach]="PHONE"
+          [disabled]="!placeable()"
+          [title]="'To the start of the track, playing or not as it was' | t"
+          (click)="engine.seek(deck(), 0)"
+        >
+          {{ 'START' | t }}
+        </button>
+        <button
+          class="pr-btn pr-btn--sm"
+          [class.pr-reach]="PHONE"
+          [disabled]="!placeable()"
+          [title]="'A few seconds before the end of the track, playing or not as it was' | t"
+          (click)="performance.toEnd(deck())"
+        >
+          {{ 'END' | t }}
         </button>
       </div>
     </div>
@@ -164,6 +186,13 @@ export class DeckOptions {
       !!this.engine.status()?.decks[this.deck()]?.loaded &&
       !this.settings().vinylEnabled &&
       !this.settings().passthrough,
+  );
+
+  /** A jump moves a track a record in absolute mode does not hold. */
+  protected readonly placeable = computed(
+    () =>
+      !!this.engine.status()?.decks[this.deck()]?.loaded &&
+      !(this.settings().vinylEnabled && this.settings().vinylMode === 'absolute'),
   );
 
   /** The deck spun back: the one let go, even if the menu changed decks meanwhile. */

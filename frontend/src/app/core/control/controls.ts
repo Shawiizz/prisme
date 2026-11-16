@@ -230,8 +230,11 @@ export interface ControlActions {
   toCue(deck: number, then: 'play' | 'stop' | 'goto'): void;
   /** The main cue where the deck plays. */
   setCueHere(deck: number): void;
-  /** To the start of the track, playing or stopped. */
-  toStart(deck: number, play: boolean): void;
+  /** To the start of the track, then playing (`play`), stopped (`stop`) or as it was
+   * (`goto`). */
+  toStart(deck: number, then: 'play' | 'stop' | 'goto'): void;
+  /** A few seconds before the end of the track, as it was. */
+  toEnd(deck: number): void;
   eject(deck: number): void;
   /** The leader's tempo and beats, once: the deck stays free. */
   syncOnce(deck: number): void;
@@ -725,8 +728,10 @@ function moreDeckControls(
     button(id('cue.stop'), group, t('To the cue, stopped'), () => a.toCue(deck, 'stop')),
     button(id('cue.goto'), group, t('To the cue'), () => a.toCue(deck, 'goto')),
     button(id('cue.set'), group, t('The cue here'), () => a.setCueHere(deck)),
-    button(id('start'), group, t('To the start, stopped'), () => a.toStart(deck, false)),
-    button(id('start.play'), group, t('To the start and play'), () => a.toStart(deck, true)),
+    button(id('start'), group, t('To the start, stopped'), () => a.toStart(deck, 'stop')),
+    button(id('start.play'), group, t('To the start and play'), () => a.toStart(deck, 'play')),
+    button(id('start.keep'), group, t('To the start'), () => a.toStart(deck, 'goto')),
+    button(id('end'), group, t('A few seconds before the end'), () => a.toEnd(deck)),
     button(id('eject'), group, t('Eject the track'), () => a.eject(deck)),
     button(id('sync.once'), group, t('Match the tempo and beats once'), () => a.syncOnce(deck)),
     lit(

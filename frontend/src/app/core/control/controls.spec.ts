@@ -201,6 +201,15 @@ describe('controls', () => {
     ]);
   });
 
+  it('go to the start, stopped, playing or as it was, and near the end', () => {
+    const { calls, find } = recorder();
+    find('deck1.start').apply(1);
+    find('deck2.start.play').apply(1);
+    find('deck1.start.keep').apply(1);
+    find('deck2.end').apply(1);
+    expect(calls).toEqual(['toStart(0,stop)', 'toStart(1,play)', 'toStart(0,goto)', 'toEnd(1)']);
+  });
+
   it('jump and loop by the size of the deck, which a step halves or doubles', () => {
     const calls: string[] = [];
     const actions = new Proxy(

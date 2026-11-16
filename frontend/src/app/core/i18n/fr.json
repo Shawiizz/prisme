@@ -777,5 +777,12 @@
   "Mute the channel": "Couper la voie",
   "Silent in the master, still heard in the headphones": "Muette dans le master, toujours entendue au casque",
   "The channel is muted: press to hear it again": "La voie est coupée : appuyer pour l'entendre à nouveau",
-  "Deck options: motor, reverse, mute, repeat, tempo range, fader start": "Options de la platine : moteur, lecture inversée, coupure, répétition, plage de tempo, fader start"
+  "Deck options: motor, reverse, mute, repeat, tempo range, fader start": "Options de la platine : moteur, lecture inversée, coupure, répétition, plage de tempo, fader start",
+  "To the start": "Au début",
+  "A few seconds before the end": "Quelques secondes avant la fin",
+  "Jump to": "Aller au",
+  "START": "DÉBUT",
+  "END": "FIN",
+  "To the start of the track, playing or not as it was": "Au début du morceau, en lecture ou non comme avant",
+  "A few seconds before the end of the track, playing or not as it was": "Quelques secondes avant la fin du morceau, en lecture ou non comme avant"
 }

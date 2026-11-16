@@ -1092,6 +1092,18 @@
   "kind": "button"
  },
  {
+  "id": "deck1.start.keep",
+  "group": "Deck A",
+  "label": "To the start",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.end",
+  "group": "Deck A",
+  "label": "A few seconds before the end",
+  "kind": "button"
+ },
+ {
   "id": "deck1.eject",
   "group": "Deck A",
   "label": "Eject the track",
@@ -2823,6 +2835,18 @@
   "id": "deck2.start.play",
   "group": "Deck B",
   "label": "To the start and play",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.start.keep",
+  "group": "Deck B",
+  "label": "To the start",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.end",
+  "group": "Deck B",
+  "label": "A few seconds before the end",
   "kind": "button"
  },
  {
@@ -4560,6 +4584,18 @@
   "kind": "button"
  },
  {
+  "id": "deck3.start.keep",
+  "group": "Deck C",
+  "label": "To the start",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.end",
+  "group": "Deck C",
+  "label": "A few seconds before the end",
+  "kind": "button"
+ },
+ {
   "id": "deck3.eject",
   "group": "Deck C",
   "label": "Eject the track",
@@ -6291,6 +6327,18 @@
   "id": "deck4.start.play",
   "group": "Deck D",
   "label": "To the start and play",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.start.keep",
+  "group": "Deck D",
+  "label": "To the start",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.end",
+  "group": "Deck D",
+  "label": "A few seconds before the end",
   "kind": "button"
  },
  {

@@ -253,10 +253,11 @@ export class ControlService {
       if (then !== 'goto') this.engine.setPlaying(deck, then === 'play');
     },
     setCueHere: (deck) => this.engine.setMainCue(deck, this.engine.livePosition(deck) ?? 0),
-    toStart: (deck, play) => {
+    toStart: (deck, then) => {
       this.engine.seek(deck, 0);
-      this.engine.setPlaying(deck, play);
+      if (then !== 'goto') this.engine.setPlaying(deck, then === 'play');
     },
+    toEnd: (deck) => this.performance.toEnd(deck),
     eject: (deck) => this.engine.eject(deck),
     syncOnce: (deck) => this.engine.syncOnce(deck),
     toggleLeader: (deck) =>
