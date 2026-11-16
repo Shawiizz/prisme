@@ -1970,7 +1970,25 @@
  {
   "id": "deck1.phase",
   "group": "Deck A",
-  "label": "Light: in phase with the deck it mixes with",
+  "label": "Light: in phase with the leader",
+  "kind": "light"
+ },
+ {
+  "id": "deck1.phase.ahead",
+  "group": "Deck A",
+  "label": "Light: ahead of the leader",
+  "kind": "light"
+ },
+ {
+  "id": "deck1.phase.behind",
+  "group": "Deck A",
+  "label": "Light: behind the leader",
+  "kind": "light"
+ },
+ {
+  "id": "deck1.loop.any",
+  "group": "Deck A",
+  "label": "Light: a loop playing",
   "kind": "light"
  },
  {
@@ -3944,7 +3962,25 @@
  {
   "id": "deck2.phase",
   "group": "Deck B",
-  "label": "Light: in phase with the deck it mixes with",
+  "label": "Light: in phase with the leader",
+  "kind": "light"
+ },
+ {
+  "id": "deck2.phase.ahead",
+  "group": "Deck B",
+  "label": "Light: ahead of the leader",
+  "kind": "light"
+ },
+ {
+  "id": "deck2.phase.behind",
+  "group": "Deck B",
+  "label": "Light: behind the leader",
+  "kind": "light"
+ },
+ {
+  "id": "deck2.loop.any",
+  "group": "Deck B",
+  "label": "Light: a loop playing",
   "kind": "light"
  },
  {
@@ -5918,7 +5954,25 @@
  {
   "id": "deck3.phase",
   "group": "Deck C",
-  "label": "Light: in phase with the deck it mixes with",
+  "label": "Light: in phase with the leader",
+  "kind": "light"
+ },
+ {
+  "id": "deck3.phase.ahead",
+  "group": "Deck C",
+  "label": "Light: ahead of the leader",
+  "kind": "light"
+ },
+ {
+  "id": "deck3.phase.behind",
+  "group": "Deck C",
+  "label": "Light: behind the leader",
+  "kind": "light"
+ },
+ {
+  "id": "deck3.loop.any",
+  "group": "Deck C",
+  "label": "Light: a loop playing",
   "kind": "light"
  },
  {
@@ -7892,7 +7946,25 @@
  {
   "id": "deck4.phase",
   "group": "Deck D",
-  "label": "Light: in phase with the deck it mixes with",
+  "label": "Light: in phase with the leader",
+  "kind": "light"
+ },
+ {
+  "id": "deck4.phase.ahead",
+  "group": "Deck D",
+  "label": "Light: ahead of the leader",
+  "kind": "light"
+ },
+ {
+  "id": "deck4.phase.behind",
+  "group": "Deck D",
+  "label": "Light: behind the leader",
+  "kind": "light"
+ },
+ {
+  "id": "deck4.loop.any",
+  "group": "Deck D",
+  "label": "Light: a loop playing",
   "kind": "light"
  },
  {

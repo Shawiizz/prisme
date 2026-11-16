@@ -325,12 +325,13 @@ export interface ControlActions {
   toggleLibraryOnly(): void;
   libraryOnly(): boolean;
   /** States only lights show: on the beat, past full scale, near the end of the track, at
-   * the track's tempo or slower or faster than the deck it mixes with, in phase with it. */
+   * the track's tempo or slower or faster than the deck it mixes with, in phase with the
+   * leader (else the deck it mixes with), ahead of it or behind it. */
   onTheBeat(deck: number): boolean;
   clipping(deck: number | null): boolean;
   ending(deck: number): 'off' | 'on' | 'soon';
   tempoState(deck: number): 'zero' | 'slower' | 'faster' | 'off';
-  inPhase(deck: number): boolean;
+  phase(deck: number): 'in' | 'ahead' | 'behind' | 'off';
 }
 
 const CROSSFADER_SIDE: Record<CrossfaderSide, Text> = {
@@ -958,9 +959,20 @@ function moreDeckControls(
       t('Light: faster than the deck it mixes with'),
       () => a.tempoState(deck) === 'faster',
     ),
-    light(id('phase'), group, t('Light: in phase with the deck it mixes with'), () =>
-      a.inPhase(deck),
+    light(id('phase'), group, t('Light: in phase with the leader'), () => a.phase(deck) === 'in'),
+    light(
+      id('phase.ahead'),
+      group,
+      t('Light: ahead of the leader'),
+      () => a.phase(deck) === 'ahead',
     ),
+    light(
+      id('phase.behind'),
+      group,
+      t('Light: behind the leader'),
+      () => a.phase(deck) === 'behind',
+    ),
+    light(id('loop.any'), group, t('Light: a loop playing'), () => a.looping(deck)),
   ];
 }
 

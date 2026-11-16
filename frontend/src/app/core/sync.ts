@@ -20,6 +20,19 @@ export function phaseOffset(deck: DeckStatus, other: DeckStatus): number | null 
   return gap - Math.round(gap);
 }
 
+/** Where a deck's beats are against the other deck's, both playing: in phase within `within`
+ * beats, else ahead or behind; `off` unless both play on a beat grid. */
+export function phaseState(
+  deck: DeckStatus,
+  other: DeckStatus,
+  within: number,
+): 'in' | 'ahead' | 'behind' | 'off' {
+  const offset = deck.playing && other.playing ? phaseOffset(deck, other) : null;
+  if (offset === null) return 'off';
+  if (Math.abs(offset) < within) return 'in';
+  return offset > 0 ? 'ahead' : 'behind';
+}
+
 /** Relative speed change that would give a deck the other deck's tempo (0.008 = +0.8 %). */
 export function pitchToMatch(deck: DeckStatus, other: DeckStatus): number | null {
   if (!deck.bpm || !other.bpm) return null;

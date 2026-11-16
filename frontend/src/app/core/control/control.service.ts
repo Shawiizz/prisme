@@ -28,6 +28,7 @@ import {
 } from '../../shared/mixer-scales';
 import { BANDS } from '../models/engine';
 import { hasPart, partLevel, partPlaying } from '../stem-parts';
+import { phaseState } from '../sync';
 import { Control, ControlActions, buildControls, measuredControl } from './controls';
 
 const LOOP_BEATS = 4;
@@ -45,8 +46,8 @@ const CLIP_SHOWN_MS = 1000;
 /** The end of a track near (s), and soon (s). */
 const ENDING_S = 30;
 const ENDING_SOON_S = 10;
-/** Two decks this close in their beat (of a beat) are in phase; a beat lights its first
- * share. */
+/** Two decks this close in their beat (of a beat) are in phase, else one is ahead or behind;
+ * a beat lights its first share. */
 const IN_PHASE = 0.03;
 const BEAT_LIT = 0.25;
 
@@ -416,13 +417,10 @@ export class ControlService {
       if (!own || !other || Math.abs(own - other) < GRID_STEP_BPM) return 'off';
       return own < other ? 'slower' : 'faster';
     },
-    inPhase: (deck) => {
+    phase: (deck) => {
       const own = this.deck(deck);
-      const other = this.deck(this.engine.mixedWith(deck));
-      if (!own?.playing || !other?.playing || own.beatPhase === null || other.beatPhase === null)
-        return false;
-      const apart = Math.abs(own.beatPhase - other.beatPhase);
-      return Math.min(apart, 1 - apart) < IN_PHASE;
+      const other = this.deck(this.phaseReference(deck));
+      return own && other ? phaseState(own, other, IN_PHASE) : 'off';
     },
   };
 
@@ -468,6 +466,13 @@ export class ControlService {
 
   private deck(deck: number) {
     return this.engine.status()?.decks[deck];
+  }
+
+  /** The deck whose beats `deck` is compared with: the leader, else the deck it mixes with. */
+  private phaseReference(deck: number): number {
+    const decks = this.engine.status()?.decks ?? [];
+    const leader = this.engine.deckIndexes().find((d) => d !== deck && decks[d]?.sync.leader);
+    return leader ?? this.engine.mixedWith(deck);
   }
 
   /** The length of a beat of `deck` (s), if its track has a grid. */

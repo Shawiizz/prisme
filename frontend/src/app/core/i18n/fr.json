@@ -53,7 +53,6 @@
   "Light: at the track's tempo": "Lumière : au tempo du morceau",
   "Light: slower than the deck it mixes with": "Lumière : plus lent que le deck mixé avec",
   "Light: faster than the deck it mixes with": "Lumière : plus rapide que le deck mixé avec",
-  "Light: in phase with the deck it mixes with": "Lumière : en phase avec le deck mixé avec",
   "Roll {n} beats while held": "Roll de {n} temps tant que c'est appuyé",
   "Browse the lists or the tracks": "Parcourir les listes ou les morceaux",
   "Browse the lists (prepare, crates)": "Parcourir les listes (préparation, crates)",
@@ -791,5 +790,9 @@
   "Open the list, or load the track on a stopped deck": "Ouvrir la liste, ou charger le morceau sur une platine à l'arrêt",
   "To the lists": "Vers les listes",
   "To the tracks": "Vers les morceaux",
-  "Sample {n}: load the selected track, play, or stop": "Sample {n} : charger le morceau sélectionné, jouer ou arrêter"
+  "Sample {n}: load the selected track, play, or stop": "Sample {n} : charger le morceau sélectionné, jouer ou arrêter",
+  "Light: in phase with the leader": "Lumière : en phase avec le leader",
+  "Light: ahead of the leader": "Lumière : en avance sur le leader",
+  "Light: behind the leader": "Lumière : en retard sur le leader",
+  "Light: a loop playing": "Lumière : une boucle en cours"
 }

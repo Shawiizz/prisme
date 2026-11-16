@@ -377,6 +377,28 @@ describe('controls', () => {
     expect(calls).toEqual(['loadSample(1,2)', 'triggerSample(1,2)', 'stopSample(1,2)']);
   });
 
+  it('light a loop playing, and the beats in phase, ahead or behind', () => {
+    const calls: string[] = [];
+    const actions = new Proxy(
+      {},
+      {
+        get:
+          (_, name: string) =>
+          (...args: unknown[]) => {
+            calls.push(`${name}(${args.join(',')})`);
+            return name === 'phase' ? 'ahead' : true;
+          },
+      },
+    ) as ControlActions;
+    const find = (id: string) => buildControls(actions).find((c) => c.id === id)!;
+    expect(find('deck1.loop.any').state!()).toBe('on');
+    expect(find('deck2.phase.ahead').lit!()).toBe(true);
+    expect(find('deck2.phase.behind').state!()).toBe('off');
+    expect(find('deck2.phase').lit!()).toBe(false);
+    expect(find('deck1.phase.ahead').kind).toBe('light');
+    expect(calls).toEqual(['looping(0)', 'phase(1)', 'phase(1)', 'phase(1)']);
+  });
+
   it('read a jump or a loop of so many beats from its id', () => {
     const { calls, actions } = recorder();
     measuredControl(actions, 'deck2.jump.-8')!.apply(1);
