@@ -6,8 +6,103 @@
     <base href="/" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <link rel="icon" type="image/x-icon" href="favicon.ico" />
+    <style>
+      /* gone once the app has loaded (core/splash.ts) */
+      #splash {
+        position: fixed;
+        inset: 0;
+        z-index: 1000;
+        display: grid;
+        place-items: center;
+        background: var(--pr-void, #0a0b0d);
+        transition: opacity 320ms ease-out;
+      }
+      #splash.gone {
+        opacity: 0;
+        pointer-events: none;
+      }
+      #splash .brand {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+      }
+      #splash img {
+        width: 72px;
+        height: auto;
+        animation: splash-mark 420ms ease-out both;
+      }
+      #splash .word {
+        overflow: hidden;
+        /* the letters come from behind the prism, not out of the void */
+        margin-left: -22px;
+        padding-left: 22px;
+        mask-image: linear-gradient(90deg, transparent 4px, #000 22px);
+      }
+      #splash .word span {
+        display: block;
+        font: 600 60px / 1 var(--pr-font, 'Instrument Sans', system-ui, sans-serif);
+        font-stretch: var(--pr-narrow, 75%);
+        letter-spacing: 0.01em;
+        color: transparent;
+        background: linear-gradient(
+            90deg,
+            #f4f5f7 0 36%,
+            #ff3326 40%,
+            #ff8a1c 43%,
+            #ffd22a 46%,
+            #52e85a 49%,
+            #4fe3c8 52%,
+            #2f8cff 55%,
+            #6a5ff6 58%,
+            #f4f5f7 64% 100%
+          )
+          100% 0 / 300% 100%;
+        background-clip: text;
+        -webkit-background-clip: text;
+        animation:
+          splash-out 760ms cubic-bezier(0.2, 0.7, 0.2, 1) 300ms both,
+          splash-light 1300ms ease-in-out 300ms both;
+      }
+      @keyframes splash-mark {
+        from {
+          opacity: 0;
+          transform: scale(0.9);
+        }
+      }
+      @keyframes splash-out {
+        from {
+          transform: translateX(-105%);
+        }
+      }
+      @keyframes splash-light {
+        to {
+          background-position: 0 0;
+        }
+      }
+      @media (max-width: 600px) {
+        #splash img {
+          width: 52px;
+        }
+        #splash .word span {
+          font-size: 44px;
+        }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        #splash img,
+        #splash .word span {
+          animation: none;
+          background-position: 0 0;
+        }
+      }
+    </style>
   </head>
   <body>
+    <div id="splash" aria-hidden="true">
+      <div class="brand">
+        <img src="logo-mark.svg" alt="" />
+        <div class="word"><span>prisme</span></div>
+      </div>
+    </div>
     <app-root></app-root>
   </body>
 </html>

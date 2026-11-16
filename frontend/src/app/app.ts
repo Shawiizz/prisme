@@ -14,6 +14,7 @@ import { Phone } from './features/phone/phone';
 import { NowPlaying } from './shell/now-playing/now-playing';
 import { ScreensService } from './core/services/screens.service';
 import { clickWithEveryFinger } from './core/every-finger';
+import { dismissSplash } from './core/splash';
 import { PHONE } from './core/platform';
 import { KeyboardService } from './core/keyboard/keyboard.service';
 import { ControllerService } from './core/control/controller.service';
@@ -89,19 +90,23 @@ export class App implements OnInit {
   }
 
   async ngOnInit() {
-    await this.preferences.load();
-    const [mixer] = await Promise.all([
-      this.engine.connect(),
-      this.library.init(),
-      this.autoDj.init(),
-      this.stems.init(),
-      this.preview.init(),
-      this.settings.init(),
-      this.keyboard.start(),
-      this.controllers.start(),
-      this.screens.init(),
-    ]);
-    this.mixer.apply(mixer);
+    try {
+      await this.preferences.load();
+      const [mixer] = await Promise.all([
+        this.engine.connect(),
+        this.library.init(),
+        this.autoDj.init(),
+        this.stems.init(),
+        this.preview.init(),
+        this.settings.init(),
+        this.keyboard.start(),
+        this.controllers.start(),
+        this.screens.init(),
+      ]);
+      this.mixer.apply(mixer);
+    } finally {
+      void dismissSplash();
+    }
     this.updates.look();
   }
 }
