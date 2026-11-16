@@ -116,6 +116,45 @@ pub fn list_dir(
     })
 }
 
+/// Shows `path` in the system's file manager: a folder opened, a file selected in its own.
+#[cfg(desktop)]
+pub fn show(path: &Path) -> std::io::Result<()> {
+    use std::process::Command;
+    let file = path.is_file();
+    #[cfg(target_os = "windows")]
+    {
+        use std::os::windows::process::CommandExt;
+        let mut explorer = Command::new("explorer");
+        if file {
+            // as Explorer reads it: the path quoted after the comma
+            explorer.raw_arg(format!("/select,\"{}\"", path.display()));
+        } else {
+            explorer.arg(path);
+        }
+        explorer.spawn()?;
+    }
+    #[cfg(target_os = "macos")]
+    {
+        let mut open = Command::new("open");
+        if file {
+            open.arg("-R");
+        }
+        open.arg(path).spawn()?;
+    }
+    #[cfg(not(any(target_os = "windows", target_os = "macos")))]
+    {
+        let folder = if file { path.parent().unwrap_or(path) } else { path };
+        Command::new("xdg-open").arg(folder).spawn()?;
+    }
+    Ok(())
+}
+
+/// A phone shows no folders.
+#[cfg(mobile)]
+pub fn show(_path: &Path) -> std::io::Result<()> {
+    Err(std::io::ErrorKind::Unsupported.into())
+}
+
 /// `to`, where the folder `from` was moved if it existed and `to` did not; `from` if it could
 /// not move (another drive, a file in use).
 pub fn moved(from: &Path, to: PathBuf) -> PathBuf {

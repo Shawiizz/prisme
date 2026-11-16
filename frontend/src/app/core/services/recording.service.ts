@@ -1,5 +1,6 @@
 import { Injectable, computed, inject, signal } from '@angular/core';
 import { invoke } from '@tauri-apps/api/core';
+import { listen } from '@tauri-apps/api/event';
 import { RecordSource, Recording } from '../models/engine';
 import { t } from '../i18n/i18n';
 import { EngineService } from './engine.service';
@@ -7,6 +8,9 @@ import { MixerService } from './mixer.service';
 import { SettingsService } from './settings.service';
 import { errorText } from '../errors';
 import { preferredSource } from '../record-source';
+import { PHONE } from '../platform';
+import { NoticeService } from '../../shared/notice/notice';
+import { recordingNotice } from '../recording-notice';
 
 /** A source to record, as offered to the DJ. */
 export interface RecordOption {
@@ -25,6 +29,7 @@ export class RecordingService {
   private readonly engine = inject(EngineService);
   private readonly mixer = inject(MixerService);
   private readonly settings = inject(SettingsService);
+  private readonly notices = inject(NoticeService);
 
   readonly status = computed(() => this.engine.status()?.recording ?? null);
   /** The last recording finished. */
@@ -93,11 +98,34 @@ export class RecordingService {
     return Promise.resolve();
   }
 
+  /** Tells where each recording went as it ends, whatever ended it (the Rec key, a
+   * controller, the audio lost). */
+  async init(): Promise<void> {
+    await listen<Recording>('recording-saved', (e) => this.saved(e.payload));
+  }
+
   async stop(): Promise<void> {
     try {
-      this.last.set(await invoke<Recording | null>('stop_recording'));
+      await invoke<Recording | null>('stop_recording');
     } catch (e) {
       this.engine.error.set(errorText(e));
     }
+  }
+
+  private saved(recording: Recording) {
+    this.last.set(recording);
+    this.notices.show({
+      ...recordingNotice(recording, PHONE),
+      // a phone shows no folders: the notice says where it went
+      action: PHONE
+        ? undefined
+        : {
+            label: t('Show in folder'),
+            run: () =>
+              invoke('show_recording', { path: recording.path }).catch((e) =>
+                this.engine.error.set(errorText(e)),
+              ),
+          },
+    });
   }
 }

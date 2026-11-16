@@ -194,13 +194,21 @@ impl From<RecordSourceDto> for prisme_engine::RecordSource {
     }
 }
 
+/// A recording ended: where it went, and what could not be written.
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct RecordingDto {
+    /// Its first file.
     pub path: String,
+    /// Every file it was written in: the first, then `… 2.wav` past 4 GB or an audio restart.
+    pub files: Vec<String>,
     pub seconds: f64,
     /// Tracks in its tracklist.
     pub tracks: usize,
+    /// The tracklist written beside it, if it could be.
+    pub tracklist: Option<String>,
+    /// Why the audio was not written whole (a disk full, a drive gone), if it was not.
+    pub failure: Option<String>,
 }
 
 /// A slot of a deck's effect chain.

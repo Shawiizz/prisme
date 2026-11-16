@@ -3,9 +3,11 @@
 use crate::commands::blocking;
 use crate::dto::{RecordSourceDto, RecordingDto};
 use crate::error::{AppError, AppResult};
+use crate::folders;
 use crate::library_service::LibraryService;
 use crate::recording::Recorder;
 use crate::state::{lock, AppState};
+use std::path::Path;
 use std::sync::Arc;
 use tauri::{AppHandle, Manager, State};
 
@@ -30,7 +32,8 @@ pub fn start_recording(
         return Err(AppError::SilentMaster);
     }
     let documents = app.path().document_dir().map_err(|e| AppError::Other(e.to_string()))?;
-    let started = Recorder::start(&state, source.into(), &documents.join(FOLDER), library.db.clone())?;
+    let started =
+        Recorder::start(app.clone(), &state, source.into(), &documents.join(FOLDER), library.db.clone())?;
     let path = started.path().display().to_string();
     *recorder = Some(started);
     state.update_preferences(|p| p.mixer.record_source = Some(source));
@@ -43,13 +46,14 @@ pub fn start_recording(
 pub async fn stop_recording(app: AppHandle) -> AppResult<Option<RecordingDto>> {
     blocking(move || {
         let state = app.state::<AppState>();
-        let Some(recorder) = lock(&state.recorder).take() else { return Ok(None) };
-        let summary = recorder.stop(&state)?;
-        Ok(Some(RecordingDto {
-            path: summary.path.display().to_string(),
-            seconds: summary.seconds,
-            tracks: summary.tracks,
-        }))
+        let recorder = lock(&state.recorder).take();
+        Ok(recorder.map(|recorder| recorder.stop(&state)))
     })
     .await
+}
+
+/// Shows a recording in the system's file manager.
+#[tauri::command]
+pub fn show_recording(path: String) -> AppResult<()> {
+    Ok(folders::show(Path::new(&path))?)
 }

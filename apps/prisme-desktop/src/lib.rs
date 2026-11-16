@@ -324,6 +324,7 @@ pub fn run() {
             commands::edits::key_choices,
             commands::folders::music_root,
             commands::folders::set_music_folder,
+            commands::recording::show_recording,
             commands::folders::list_dir,
             commands::library::library_progress,
             commands::library::library_in_memory,
@@ -401,9 +402,7 @@ pub fn run() {
                 let state = app.state::<AppState>();
                 let recorder = lock(&state.recorder).take();
                 if let Some(recorder) = recorder {
-                    if let Err(e) = recorder.stop(&state) {
-                        error!("recording not ended: {e}");
-                    }
+                    recorder.stop(&state);
                 }
                 app.state::<Controllers>().close_all();
                 app.state::<CrashRecovery>().closed_normally();

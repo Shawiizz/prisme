@@ -4,8 +4,10 @@
 //! The engine queues what it records; a writer thread empties the queue to the file and
 //! stops when asked or when the engine is gone (audio restarted). The file's header is kept
 //! up to date, so that a crash loses a second at most; a set longer than a WAV file holds
-//! (4 GB: 4 hours at 48 kHz) goes on in `… 2.wav`, `… 3.wav`.
+//! (4 GB: 4 hours at 48 kHz) goes on in `… 2.wav`, `… 3.wav`. However it ends (stopped, the
+//! audio lost, the app closed), the interface is told where it went (`recording-saved`).
 
+use crate::dto::RecordingDto;
 use crate::error::{AppError, AppResult};
 use crate::state::AppState;
 use hound::{SampleFormat, WavSpec, WavWriter};
@@ -17,7 +19,10 @@ use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::Arc;
 use std::thread::JoinHandle;
 use std::time::{Duration, Instant};
-use tracing::warn;
+use tauri::{AppHandle, Emitter};
+use tracing::{error, warn};
+
+pub const SAVED_EVENT: &str = "recording-saved";
 
 /// What the queue holds if the writer stalls (seconds).
 const QUEUE_S: usize = 4;
@@ -31,31 +36,34 @@ const MAX_FILE_BYTES: u64 = 4_000_000_000;
 const FLUSH_EVERY: Duration = Duration::from_secs(1);
 
 pub struct Recorder {
+    app: AppHandle,
     /// The first file: the others are named after it.
     path: PathBuf,
     source: RecordSource,
     started_at_ms: i64,
     stop: Arc<AtomicBool>,
     /// The writer of the current audio session.
-    writer: Option<JoinHandle<Result<f64, hound::Error>>>,
-    /// Seconds the writers of earlier audio sessions wrote.
+    writer: Option<JoinHandle<Written>>,
+    /// Seconds the writers that ended wrote.
     earlier_s: f64,
+    /// Why the audio was not written whole, if it was not.
+    failure: Option<String>,
     /// The last file written in, by its number (1: the first).
     part: Arc<AtomicUsize>,
     /// Where the plays of the tracklist are read.
     db: Arc<LibraryDb>,
 }
 
-/// What a finished recording holds.
-pub struct RecordingSummary {
-    pub path: PathBuf,
-    pub seconds: f64,
-    pub tracks: usize,
+/// What a writer wrote, and why it stopped early if it did.
+struct Written {
+    seconds: f64,
+    failure: Option<hound::Error>,
 }
 
 impl Recorder {
     /// Starts recording `source` into a new file in `folder`, named after the local time.
     pub fn start(
+        app: AppHandle,
         state: &AppState,
         source: RecordSource,
         folder: &Path,
@@ -66,7 +74,18 @@ impl Recorder {
         let (stop, part) = (Arc::new(AtomicBool::new(false)), Arc::new(AtomicUsize::new(1)));
         let writer = begin(state, source, &path, &part, &stop)?;
         let started_at_ms = prisme_library::now_ms();
-        Ok(Self { path, source, started_at_ms, stop, writer: Some(writer), earlier_s: 0.0, part, db })
+        Ok(Self {
+            app,
+            path,
+            source,
+            started_at_ms,
+            stop,
+            writer: Some(writer),
+            earlier_s: 0.0,
+            failure: None,
+            part,
+            db,
+        })
     }
 
     pub fn path(&self) -> &Path {
@@ -78,11 +97,7 @@ impl Recorder {
     pub fn resume(&mut self, state: &AppState) -> AppResult<()> {
         if let Some(ended) = self.writer.take() {
             // the old engine is gone: its writer ends once it has written what it queued
-            match ended.join() {
-                Ok(Ok(seconds)) => self.earlier_s += seconds,
-                Ok(Err(e)) => warn!("recording cut short: {e}"),
-                Err(_) => warn!("the recording thread failed"),
-            }
+            self.ended(ended);
         }
         self.part.fetch_add(1, Ordering::AcqRel);
         match begin(state, self.source, &self.path, &self.part, &self.stop) {
@@ -97,31 +112,69 @@ impl Recorder {
         }
     }
 
-    /// Ends the file and writes the tracklist of what was played since the start.
-    pub fn stop(self, state: &AppState) -> AppResult<RecordingSummary> {
+    /// Counts what a writer that ended wrote, and why it stopped early if it did.
+    fn ended(&mut self, writer: JoinHandle<Written>) {
+        let failure = match writer.join() {
+            Ok(written) => {
+                self.earlier_s += written.seconds;
+                written.failure.map(|e| e.to_string())
+            }
+            Err(_) => Some("the recording thread failed".into()),
+        };
+        if let Some(failure) = failure {
+            warn!("recording cut short: {failure}");
+            self.failure.get_or_insert(failure);
+        }
+    }
+
+    /// Ends the file and writes the tracklist of what was played since the start, then tells
+    /// the interface what was saved, and what was not.
+    pub fn stop(mut self, state: &AppState) -> RecordingDto {
         match state.send(Command::StopRecording) {
             Ok(()) | Err(AppError::AudioNotRunning) => {}
-            Err(e) => return Err(e),
+            // the writer stops all the same, the engine's queue left unread
+            Err(e) => warn!("the engine was not told to stop recording: {e}"),
         }
         self.stop.store(true, Ordering::Release);
-        let last_s = match self.writer {
-            Some(writer) => writer
-                .join()
-                .map_err(|_| AppError::Other("the recording thread failed".into()))?
-                .map_err(|e| AppError::Other(e.to_string()))?,
-            None => 0.0,
+        if let Some(writer) = self.writer.take() {
+            self.ended(writer);
+        }
+        let parts = self.part.load(Ordering::Acquire);
+        let (tracks, tracklist) = match self.write_tracklist(parts) {
+            Ok((tracks, tracklist)) => (tracks, Some(tracklist.display().to_string())),
+            Err(e) => {
+                error!("tracklist of {} not written: {e}", self.path.display());
+                (0, None)
+            }
         };
+        let saved = RecordingDto {
+            path: self.path.display().to_string(),
+            files: (1..=parts).map(|part| part_path(&self.path, part).display().to_string()).collect(),
+            seconds: self.earlier_s,
+            tracks,
+            tracklist,
+            failure: self.failure.take(),
+        };
+        let _ = self.app.emit(SAVED_EVENT, &saved);
+        saved
+    }
+
+    /// Writes the tracklist beside the recording of `parts` files: how many tracks it holds,
+    /// and where it went.
+    fn write_tracklist(&self, parts: usize) -> AppResult<(usize, PathBuf)> {
         let plays = self.db.plays_since(self.started_at_ms)?;
-        let file_name = self.path.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
-        std::fs::write(self.path.with_extension("txt"), tracklist_text(&plays, self.started_at_ms))?;
+        let text = self.path.with_extension("txt");
+        std::fs::write(&text, tracklist_text(&plays, self.started_at_ms))?;
         // a sheet holds the tracks of one file
-        if self.part.load(Ordering::Acquire) == 1 {
+        if parts == 1 {
+            let file_name =
+                self.path.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
             std::fs::write(
                 self.path.with_extension("cue"),
                 cue_sheet(&plays, self.started_at_ms, &file_name),
             )?;
         }
-        Ok(RecordingSummary { seconds: self.earlier_s + last_s, tracks: plays.len(), path: self.path })
+        Ok((plays.len(), text))
     }
 }
 
@@ -132,7 +185,7 @@ fn begin(
     first: &Path,
     part: &Arc<AtomicUsize>,
     stop: &Arc<AtomicBool>,
-) -> AppResult<JoinHandle<Result<f64, hound::Error>>> {
+) -> AppResult<JoinHandle<Written>> {
     let sample_rate = state.sample_rate().ok_or(AppError::AudioNotRunning)?;
     let spec = WavSpec { channels: 2, sample_rate, bits_per_sample: 24, sample_format: SampleFormat::Int };
     let path = part_path(first, part.load(Ordering::Acquire));
@@ -152,8 +205,25 @@ fn begin(
 
 /// Writes what the engine queues to `wav` (file `part` of the recording at `first`) until
 /// stopped or the engine is gone: the header up to date every second, the next part in a
-/// file of its own past `max_bytes` of audio. The seconds written.
+/// file of its own past `max_bytes` of audio. The seconds written, and why it stopped early if
+/// it did (a disk full, a drive gone).
 fn write(
+    queue: rtrb::Consumer<f32>,
+    wav: WavWriter<std::io::BufWriter<std::fs::File>>,
+    stop: &AtomicBool,
+    first: &Path,
+    part: &AtomicUsize,
+    spec: WavSpec,
+    max_bytes: u64,
+) -> Written {
+    let mut samples = 0;
+    let failure = write_samples(queue, wav, stop, first, part, spec, max_bytes, &mut samples).err();
+    Written { seconds: (samples / u64::from(spec.channels)) as f64 / f64::from(spec.sample_rate), failure }
+}
+
+/// [`write`], counting the `samples` written.
+#[allow(clippy::too_many_arguments)]
+fn write_samples(
     mut queue: rtrb::Consumer<f32>,
     mut wav: WavWriter<std::io::BufWriter<std::fs::File>>,
     stop: &AtomicBool,
@@ -161,10 +231,11 @@ fn write(
     part: &AtomicUsize,
     spec: WavSpec,
     max_bytes: u64,
-) -> Result<f64, hound::Error> {
+    samples: &mut u64,
+) -> Result<(), hound::Error> {
     let channels = u64::from(spec.channels);
     let samples_per_file = max_bytes / u64::from(spec.bits_per_sample / 8) / channels * channels;
-    let (mut samples, mut in_file) = (0u64, 0u64);
+    let mut in_file = 0u64;
     let mut flushed = Instant::now();
     loop {
         let available = queue.slots();
@@ -187,15 +258,14 @@ fn write(
             }
             wav.write_sample((sample.clamp(-1.0, 1.0) * I24_MAX).round() as i32)?;
             in_file += 1;
+            *samples += 1;
         }
-        samples += available as u64;
         if flushed.elapsed() >= FLUSH_EVERY {
             wav.flush()?;
             flushed = Instant::now();
         }
     }
-    wav.finalize()?;
-    Ok((samples / channels) as f64 / f64::from(spec.sample_rate))
+    wav.finalize()
 }
 
 /// The file of part `part` of the recording at `first`: `first` itself, then `… 2.wav`.
@@ -309,9 +379,10 @@ mod tests {
         let wav = WavWriter::create(&first, spec).unwrap();
         // 4 frames of 6 bytes a file
         let part = AtomicUsize::new(1);
-        let seconds = write(queue, wav, &AtomicBool::new(true), &first, &part, spec, 24).unwrap();
+        let written = write(queue, wav, &AtomicBool::new(true), &first, &part, spec, 24);
+        assert!(written.failure.is_none());
         assert_eq!(part.load(Ordering::Acquire), 3);
-        assert!((seconds - 10.0 / 48_000.0).abs() < 1e-12);
+        assert!((written.seconds - 10.0 / 48_000.0).abs() < 1e-12);
         let frames: Vec<u32> = [first.clone(), dir.join("set 2.wav"), dir.join("set 3.wav")]
             .iter()
             .map(|p| hound::WavReader::open(p).unwrap().duration())

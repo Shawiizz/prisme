@@ -26,6 +26,8 @@ import { SettingsService } from './core/services/settings.service';
 import { PreferencesService } from './core/services/preferences.service';
 import { MixerService } from './core/services/mixer.service';
 import { NavigationService } from './core/services/navigation.service';
+import { RecordingService } from './core/services/recording.service';
+import { NoticeView } from './shared/notice/notice';
 
 /** The height whole lanes for two decks take on a screen below (CSS px). */
 const WHOLE_LANES_PX = 420;
@@ -49,6 +51,7 @@ const WHOLE_LANES_PX = 420;
     CommandPalette,
     Phone,
     NowPlaying,
+    NoticeView,
   ],
   templateUrl: './app.html',
   styleUrl: './app.scss',
@@ -70,6 +73,7 @@ export class App implements OnInit {
   protected readonly navigation = inject(NavigationService);
   protected readonly PHONE = PHONE;
   private readonly screens = inject(ScreensService);
+  private readonly recording = inject(RecordingService);
   protected readonly height = signal(innerHeight);
   /** Four decks, or a screen below too short for whole lanes: compact lanes. */
   protected readonly compact = computed(() => {
@@ -102,6 +106,7 @@ export class App implements OnInit {
         this.keyboard.start(),
         this.controllers.start(),
         this.screens.init(),
+        this.recording.init(),
       ]);
       this.mixer.apply(mixer);
     } finally {

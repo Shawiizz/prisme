@@ -148,11 +148,19 @@ export interface RecordingStatus {
 /** What a recording takes: the software mixer's master, or an input pair (0-based). */
 export type RecordSource = { kind: 'master' } | { kind: 'input'; first: number };
 
+/** A recording ended: where it went, and what could not be written. */
 export interface Recording {
+  /** Its first file. */
   path: string;
+  /** Every file it was written in: the first, then `… 2.wav` past 4 GB or an audio restart. */
+  files: string[];
   seconds: number;
   /** Tracks in its tracklist. */
   tracks: number;
+  /** The tracklist written beside it, if it could be. */
+  tracklist: string | null;
+  /** Why the audio was not written whole (a disk full, a drive gone), if it was not. */
+  failure: string | null;
 }
 
 /** One byte per slice in each band (sent in binary, see `decodeWaveform`). */
