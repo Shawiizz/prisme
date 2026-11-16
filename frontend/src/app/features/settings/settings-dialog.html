@@ -235,20 +235,6 @@
                     </select>
                   }
                 </app-setting-row>
-                <app-setting-row id="turntables.vinyl">
-                  <select
-                    class="pr-select"
-                    [value]="d.timecodeFormat"
-                    (change)="update({ timecodeFormat: $any($event.target).value })"
-                    settingControl
-                  >
-                    @for (f of service.formats(); track f.id) {
-                      <option [value]="f.id" [selected]="f.id === d.timecodeFormat">
-                        {{ f.name }}
-                      </option>
-                    }
-                  </select>
-                </app-setting-row>
                 <app-setting-row id="turntables.simulate">
                   <button
                     class="pr-switch"

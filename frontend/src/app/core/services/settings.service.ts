@@ -12,7 +12,8 @@ import {
 import { decimal } from '../../shared/time';
 import { EngineService } from './engine.service';
 
-/** Audio settings (backend, devices, buffer, timecode format, simulation) and diagnostics. */
+/** Audio settings (backend, devices, buffer, simulation), the timecode records Prisme reads,
+ * and diagnostics. */
 @Injectable({ providedIn: 'root' })
 export class SettingsService {
   readonly backends = signal<AudioBackend[]>([]);

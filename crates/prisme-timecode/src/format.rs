@@ -20,8 +20,12 @@ pub enum Channel {
 pub struct TimecodeFormat {
     /// Stable identifier, used in settings.
     pub id: &'static str,
-    /// Human-readable name.
-    pub name: &'static str,
+    /// Who makes the record.
+    pub maker: &'static str,
+    /// The record (or CD), as its maker names it.
+    pub record: &'static str,
+    /// The side of the record, when its sides carry different timecodes.
+    pub side: Option<&'static str>,
     /// Size of the LFSR register, in bits.
     pub bits: u32,
     /// Register value at the very start of the record.
@@ -46,7 +50,9 @@ pub struct TimecodeFormat {
 /// Serato Control Vinyl, 2nd edition, side A.
 pub const SERATO_CV02_A: TimecodeFormat = TimecodeFormat {
     id: "serato_cv02_a",
-    name: "Serato CV02 side A",
+    maker: "Serato",
+    record: "Control vinyl CV02",
+    side: Some("A"),
     bits: 20,
     seed: 0x59017,
     taps: 0x361e4,
@@ -61,7 +67,9 @@ pub const SERATO_CV02_A: TimecodeFormat = TimecodeFormat {
 /// Serato Control Vinyl, 2nd edition, side B.
 pub const SERATO_CV02_B: TimecodeFormat = TimecodeFormat {
     id: "serato_cv02_b",
-    name: "Serato CV02 side B",
+    maker: "Serato",
+    record: "Control vinyl CV02",
+    side: Some("B"),
     bits: 20,
     seed: 0x8f3c6,
     taps: 0x4f0d8,
@@ -76,7 +84,9 @@ pub const SERATO_CV02_B: TimecodeFormat = TimecodeFormat {
 /// Serato control CD.
 pub const SERATO_CD: TimecodeFormat = TimecodeFormat {
     id: "serato_cd",
-    name: "Serato control CD",
+    maker: "Serato",
+    record: "Control CD",
+    side: None,
     bits: 20,
     seed: 0xd8b40,
     taps: 0x34d54,
@@ -88,7 +98,8 @@ pub const SERATO_CD: TimecodeFormat = TimecodeFormat {
     phase_sign: -1.0,
 };
 
-/// All supported formats.
+/// Every record Prisme reads, by maker, then record, then side: the settings offer them in
+/// this order. Another record is another entry here.
 pub const FORMATS: &[TimecodeFormat] = &[SERATO_CV02_A, SERATO_CV02_B, SERATO_CD];
 
 impl TimecodeFormat {
@@ -161,6 +172,28 @@ mod tests {
             state = f.next_state(state);
         }
         assert_eq!(table.index_of(0), None, "the all-zero register never appears in an LFSR");
+    }
+
+    /// Whether equal keys all sit next to each other.
+    fn grouped<T: PartialEq>(keys: &[T]) -> bool {
+        (1..keys.len()).all(|i| keys[i - 1] == keys[i] || !keys[..i].contains(&keys[i]))
+    }
+
+    fn unique<T: PartialEq>(keys: &[T]) -> bool {
+        (0..keys.len()).all(|i| !keys[..i].contains(&keys[i]))
+    }
+
+    #[test]
+    fn the_records_of_a_maker_and_the_sides_of_a_record_follow_each_other() {
+        let makers: Vec<_> = FORMATS.iter().map(|f| f.maker).collect();
+        let records: Vec<_> = FORMATS.iter().map(|f| (f.maker, f.record)).collect();
+        assert!(grouped(&makers) && grouped(&records));
+        assert!(unique(&FORMATS.iter().map(|f| (f.maker, f.record, f.side)).collect::<Vec<_>>()));
+        assert!(unique(&FORMATS.iter().map(|f| f.id).collect::<Vec<_>>()));
+        // a record without sides is alone
+        for f in FORMATS.iter().filter(|f| f.side.is_none()) {
+            assert_eq!(records.iter().filter(|&&r| r == (f.maker, f.record)).count(), 1, "{}", f.record);
+        }
     }
 
     #[test]

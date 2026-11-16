@@ -1,6 +1,6 @@
 ---
 title: Configurer le vinyle timecode
-description: Brancher les platines, choisir les entrées et le timecode, lire le signal, et confier chaque deck à son disque.
+description: Brancher les platines, choisir les entrées et le disque de chaque platine, lire le signal, et confier chaque deck à son disque.
 sidebar:
   order: 2
 ---
@@ -8,9 +8,9 @@ sidebar:
 import { Steps, Aside } from '@astrojs/starlight/components';
 
 Mettre en place le contrôle vinyle demande trois choses : des platines branchées sur des
-entrées que Prisme entend, le bon timecode choisi dans les réglages, et chaque deck confié à
-son disque. La page **Platines** des réglages montre le signal de chaque platine à mesure
-qu’il arrive : vous pouvez donc vérifier chaque étape au fur et à mesure.
+entrées que Prisme entend, le disque de chaque platine choisi dans les réglages, et chaque
+deck confié à son disque. La page **Platines** des réglages montre le signal de chaque
+platine à mesure qu’il arrive : vous pouvez donc vérifier chaque étape au fur et à mesure.
 
 ## Brancher les platines
 
@@ -30,7 +30,7 @@ qu’il arrive : vous pouvez donc vérifier chaque étape au fur et à mesure.
    les 3-4 sur la voie du deck B, chacune réglée sur ligne. Avec la table de mixage logicielle
    de Prisme, les sorties 1-2 vont aux enceintes et les 3-4 au casque.
 
-5. Posez les disques timecode sur les plateaux, tous les deux sur la même face (A ou B).
+5. Posez les disques timecode sur les plateaux, ou le CD de contrôle dans les platines CD.
 
 </Steps>
 
@@ -66,18 +66,13 @@ saturer le signal et le déforme. Visez une barre **Niveau** pleine, sans satura
    qu’un seul périphérique : la ligne s’intitule **Platines branchées sur les entrées de ce
    pilote** et c’est un interrupteur à activer.
 
-3. Sous **Vinyle de contrôle**, choisissez le timecode de vos disques : **Serato CV02 side A**,
-   **Serato CV02 side B** ou **Serato control CD**.
-
-4. Une barre apparaît en bas : **L’audio redémarre pour appliquer ces changements.** Appuyez
+3. Une barre apparaît en bas : **L’audio redémarre pour appliquer ces changements.** Appuyez
    sur **Appliquer**. (**Annuler** remet les réglages comme avant.)
 
 </Steps>
 
-<Aside type="caution">
-Le format de timecode vaut pour toutes les platines. Si un disque est sur la face A et
-l’autre sur la face B, l’un des deux ne trouvera jamais sa position. Retournez-le.
-</Aside>
+Puis, dans le panneau de chaque platine plus bas, choisissez le disque qu’elle joue sous
+**Timecode** et **Face** : voir [Le disque de chaque platine](#le-disque-de-chaque-platine).
 
 ## Choisir les entrées
 
@@ -180,11 +175,30 @@ deck. Ils sont conservés pour le prochain démarrage.
 
 | Réglage | Effet | Par défaut |
 | --- | --- | --- |
+| **Timecode** | Le disque sur la platine, par marque puis par disque : **Serato** › **Control vinyl CV02** ou **Control CD**. | Control vinyl CV02 |
+| **Face** | **A** ou **B**, pour un disque dont les faces portent des timecodes différents. Absent pour le CD. | A |
 | **Contrôle vinyle** | Le deck suit son disque. Comme REL ou ABS sur la carte du deck. | Désactivé |
 | **REL** / **ABS** | Le mode dans lequel le disque pilote le deck. | ABS |
 | **Vitesse du disque** | **33** ou **45** : la vitesse à laquelle tourne le disque quand le morceau joue à son tempo d’origine. | 33 |
 | **Amorce (s)** | Où commence le morceau sur le disque, en mode absolu. Vide : celle du disque. | Celle du disque |
 | **Inverser gauche / droite** | Les câbles gauche et droit sont croisés : Prisme les remet dans l’ordre. | Désactivé |
+
+### Le disque de chaque platine
+
+Chaque platine lit son propre disque : le deck A peut jouer la face A d’un Control vinyl CV02
+pendant que le deck B joue la face B, ou le Control CD dans une platine CD. Sous
+**Timecode**, la liste donne les disques par marque ; **Face** suit quand le disque a deux
+faces qui diffèrent. Retournez un disque et choisissez son autre face dans son panneau : les
+faces portent des bits différents, et un deck réglé sur la mauvaise garde sa vitesse mais ne
+trouve jamais sa position.
+
+Le choix s’applique aussitôt, sans couper l’audio, et il est gardé pour le prochain
+démarrage. Ce qui dépend du disque le suit : où le morceau commence dessus (l’amorce), où il
+finit, et la platine simulée, qui joue le disque du deck A. Changer celui-ci pendant que la
+platine simulée est activée redémarre l’audio, les decks là où ils étaient.
+
+Un fichier de réglages d’un Prisme qui n’avait qu’un timecode pour toutes les platines le
+donne à chacune.
 
 ### Vitesse du disque : 33 ou 45
 

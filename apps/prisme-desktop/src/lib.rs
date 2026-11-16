@@ -251,6 +251,7 @@ pub fn run() {
             commands::decks::set_jog_scratch,
             commands::decks::set_vinyl,
             commands::decks::set_vinyl_swap,
+            commands::decks::set_timecode,
             commands::decks::set_key_lock,
             commands::decks::set_passthrough,
             commands::decks::set_repeat,

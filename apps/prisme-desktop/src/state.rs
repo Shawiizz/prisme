@@ -18,6 +18,7 @@ use prisme_engine::{BeatGrid, Command, DeckStatus, MixMode, OutputRouting, StemT
 use prisme_library::{Cue, CueSlot, TrackEdits};
 use prisme_media::{TrackAudio, TrackTags};
 use prisme_session::JsonFile;
+use prisme_timecode::TimecodeFormat;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex, MutexGuard};
@@ -152,6 +153,8 @@ pub struct DeckSettings {
     /// Chosen, else the record's own.
     pub lead_in_s: Option<f64>,
     pub swap_channels: bool,
+    /// The record on its turntable.
+    pub timecode: &'static TimecodeFormat,
     pub key_lock: bool,
     /// Software mixer: the channel fader starts and stops the deck.
     pub fader_start: bool,
@@ -185,6 +188,7 @@ impl From<DeckPreferences> for DeckSettings {
             rpm: p.rpm,
             lead_in_s: p.lead_in_s,
             swap_channels: p.swap_channels,
+            timecode: p.timecode_format(),
             key_lock: p.key_lock,
             fader_start: p.fader_start,
             pitch_range: p.pitch_range,
@@ -239,8 +243,8 @@ pub fn lock<T>(m: &Mutex<T>) -> MutexGuard<'_, T> {
 
 impl AppState {
     pub fn new(preferences: JsonFile<Preferences>) -> Self {
-        if preferences.read(|p| p.library.clone().settle()) {
-            let _ = preferences.update(|p| p.library.settle());
+        if preferences.read(|p| p.clone().settle()) {
+            let _ = preferences.update(|p| p.settle());
         }
         let saved = preferences.get().decks;
         Self {
@@ -512,8 +516,10 @@ impl AppState {
             for c in deck_commands(deck, settings) {
                 let _ = controller.send(c);
             }
-            if settings.swap_channels {
-                let _ = controller.send(Command::ReplaceDecoder { deck, decoder: config.decoder(true) });
+            // the record may have changed while the engine started
+            if settings.swap_channels || settings.timecode.id != config.timecodes[deck].id {
+                let decoder = config.decoder(settings.timecode, settings.swap_channels);
+                let _ = controller.send(Command::ReplaceDecoder { deck, decoder });
             }
         }
         for (deck, slots) in lock(&self.samplers).iter().enumerate() {

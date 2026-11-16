@@ -30,7 +30,7 @@ const PAGES: readonly SettingsPage[] = [
     id: 'turntables',
     label: () => t('Turntables'),
     description: () => t('The timecode signal of each record, and how it drives its deck.'),
-    keywords: 'dvs vinyl timecode serato scope',
+    keywords: 'dvs vinyl cd timecode record side serato scope',
   },
   {
     id: 'mixing',
@@ -115,12 +115,6 @@ const ALL_SETTINGS: readonly SettingEntry[] = [
     page: 'turntables',
     label: () => t('Input (DVS interface)'),
     description: () => t('Deck A reads inputs 1-2, deck B inputs 3-4.'),
-  },
-  {
-    id: 'turntables.vinyl',
-    page: 'turntables',
-    label: () => t('Control vinyl'),
-    description: () => t('The timecode pressed on your records.'),
   },
   {
     id: 'turntables.simulate',

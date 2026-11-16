@@ -31,7 +31,8 @@ pub struct EngineConfig {
     /// Largest block the engine processes at once (longer callbacks are split).
     pub max_block_frames: usize,
     pub decks: usize,
-    pub timecode: &'static TimecodeFormat,
+    /// The record on each deck's turntable, which its decoder reads from the start.
+    pub timecodes: [&'static TimecodeFormat; MAX_DECKS],
     /// First input channel of each deck's turntable (stereo pair), if any.
     pub deck_inputs: [Option<usize>; MAX_DECKS],
     /// Status snapshots per second (at most one per callback).
@@ -39,25 +40,21 @@ pub struct EngineConfig {
 }
 
 impl EngineConfig {
-    /// Sensible defaults: deck N reads input channels 2N and 2N+1.
+    /// Sensible defaults: deck N reads input channels 2N and 2N+1, every turntable `timecode`.
     pub fn new(sample_rate: u32, decks: usize, timecode: &'static TimecodeFormat) -> Self {
         Self {
             sample_rate,
             max_block_frames: 1024,
             decks: decks.clamp(1, MAX_DECKS),
-            timecode,
+            timecodes: [timecode; MAX_DECKS],
             deck_inputs: [Some(0), Some(2), Some(4), Some(6)],
             status_rate_hz: 100.0,
         }
     }
 
-    /// Builds a decoder for this configuration (allocates: control side only).
-    pub fn decoder(&self, swap_channels: bool) -> Box<TimecodeDecoder> {
-        Box::new(TimecodeDecoder::new(DecoderConfig {
-            format: self.timecode,
-            sample_rate: self.sample_rate,
-            swap_channels,
-        }))
+    /// Builds a decoder of `format` for this configuration (allocates: control side only).
+    pub fn decoder(&self, format: &'static TimecodeFormat, swap_channels: bool) -> Box<TimecodeDecoder> {
+        Box::new(TimecodeDecoder::new(DecoderConfig { format, sample_rate: self.sample_rate, swap_channels }))
     }
 }
 
@@ -69,7 +66,9 @@ pub fn create(config: EngineConfig) -> (Engine, EngineController) {
     let (garbage_tx, garbage_rx) = rtrb::RingBuffer::new(GARBAGE_QUEUE);
     let rate = config.sample_rate as f32;
     let decks = (0..config.decks)
-        .map(|_| Deck::new(config.decoder(false), config.sample_rate, config.max_block_frames))
+        .map(|d| {
+            Deck::new(config.decoder(config.timecodes[d], false), config.sample_rate, config.max_block_frames)
+        })
         .collect();
     let (scope_taps, scopes) = (0..config.decks).map(|_| scope::scope()).unzip();
     let engine = Engine {

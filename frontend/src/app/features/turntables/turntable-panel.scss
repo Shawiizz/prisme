@@ -78,3 +78,14 @@ h3 {
     width: 100px;
   }
 }
+// on a phone, for a finger
+:host-context(.phone) {
+  .pr-select {
+    height: 44px;
+    font-size: 15px;
+  }
+  .pr-seg > button {
+    height: 38px;
+    min-width: 44px;
+  }
+}

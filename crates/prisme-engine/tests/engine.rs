@@ -3,8 +3,8 @@
 mod common;
 
 use common::{silent_track, sine_track, Rig, SR};
-use prisme_engine::{BeatGrid, Command, Rpm, StemMix, VinylMode};
-use prisme_timecode::{DecoderConfig, TimecodeDecoder, SERATO_CV02_A};
+use prisme_engine::{BeatGrid, Command, EngineConfig, Rpm, StemMix, VinylMode};
+use prisme_timecode::{DecoderConfig, TimecodeDecoder, SERATO_CD, SERATO_CV02_A, SERATO_CV02_B};
 
 #[test]
 fn internal_play_follows_the_pitch() {
@@ -115,6 +115,37 @@ fn internal_play_stops_at_the_end_of_the_track() {
     let d = rig.deck(0);
     assert!(!d.playing, "{d:?}");
     assert!((d.position_s - 10.0).abs() < 0.01, "{d:?}");
+}
+
+#[test]
+fn each_turntable_reads_its_own_record() {
+    let mut rig = Rig::with_records([&SERATO_CV02_A, &SERATO_CD]);
+    for deck in 0..2 {
+        rig.turntable(deck, 40.0, 1.0);
+        rig.send(Command::LoadTrack { deck, track: silent_track(60.0) });
+        rig.send(Command::SetVinylEnabled { deck, enabled: true });
+    }
+    rig.run(1.0);
+    // the vinyl's tracks start 28 s into it, the CD's at its start
+    let [vinyl, cd] = [0, 1].map(|deck| rig.deck(deck));
+    assert!((vinyl.position_s - 13.0).abs() < 0.02, "{vinyl:?}");
+    assert!((cd.position_s - 41.0).abs() < 0.02, "{cd:?}");
+}
+
+#[test]
+fn another_record_is_read_once_the_deck_decodes_it() {
+    let mut rig = Rig::new();
+    rig.records[0] = &SERATO_CV02_B;
+    rig.turntable(0, 20.0, 1.0);
+    rig.run(1.0);
+    let read = rig.deck(0).vinyl.record_position_s;
+    assert!(read.is_none_or(|s| (s - 21.0).abs() > 1.0), "side B read as side A: {read:?}");
+
+    let config = EngineConfig::new(SR, 2, &SERATO_CV02_A);
+    rig.send(Command::ReplaceDecoder { deck: 0, decoder: config.decoder(&SERATO_CV02_B, false) });
+    rig.run(1.0);
+    let record = rig.deck(0).vinyl.record_position_s.expect("locked");
+    assert!((record - 22.0).abs() < 0.02, "{record}");
 }
 
 #[test]

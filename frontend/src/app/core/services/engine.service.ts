@@ -47,6 +47,7 @@ const DEFAULT_DECK: DeckSettings = {
   rpm: '33',
   leadInS: null,
   swapChannels: false,
+  timecode: 'serato_cv02_a',
   keyLock: false,
   faderStart: false,
   pitchRange: null,
@@ -429,6 +430,12 @@ export class EngineService {
   setVinylSwap(deck: number, swap: boolean) {
     this.patchDeck(deck, { swapChannels: swap });
     return this.call('set_vinyl_swap', { deck, swap });
+  }
+
+  /** The record on the deck's turntable (a timecode format's id). */
+  setTimecode(deck: number, format: string) {
+    this.patchDeck(deck, { timecode: format });
+    return this.call('set_timecode', { deck, format });
   }
 
   /**
