@@ -30,7 +30,7 @@ use std::path::Path;
 
 /// Version of the tempo / key algorithms. Stored results from an older version are
 /// recomputed: bump it whenever a change can alter them.
-pub const ANALYSIS_VERSION: u32 = 1;
+pub const ANALYSIS_VERSION: u32 = 2;
 
 #[derive(Debug, Clone, Copy)]
 pub struct AnalysisOptions {
