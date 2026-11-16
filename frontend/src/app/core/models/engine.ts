@@ -78,6 +78,8 @@ export interface Cue {
 export const HOT_CUES = 8;
 export const MAX_KEY_SHIFT = 12;
 export const SAMPLE_SLOTS = 8;
+/** The slicer's slices: two bars of the beat grid, a beat each. */
+export const SLICES = 8;
 
 /** What SYNC does on a record in relative mode. */
 export type VinylSyncMode = 'once' | 'locked';

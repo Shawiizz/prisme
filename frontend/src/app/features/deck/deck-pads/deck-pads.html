@@ -1,6 +1,6 @@
 <div class="pr-seg pr-seg--lg modes" role="radiogroup" [attr.aria-label]="'Pad mode' | t">
   @for (m of modes; track m.id) {
-    <button role="radio" [attr.aria-checked]="mode() === m.id" (click)="mode.set(m.id)">
+    <button role="radio" [attr.aria-checked]="mode() === m.id" (click)="choose(m.id)">
       {{ m.label }}
     </button>
   }
@@ -16,8 +16,8 @@
       [disabled]="!padsEnabled()"
       [title]="pad.title"
       (pointerdown)="press($index, $event)"
-      (pointerup)="release()"
-      (pointercancel)="release()"
+      (pointerup)="release($index)"
+      (pointercancel)="release($index)"
       (contextmenu)="remove($index, $event)"
     >
       <span>{{ pad.label }}</span>

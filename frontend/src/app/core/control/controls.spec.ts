@@ -192,6 +192,15 @@ describe('controls', () => {
     ]);
   });
 
+  it('play a slice while held, lit on the slice playing', () => {
+    const { calls, find } = recorder();
+    find('deck2.slice3').apply(1);
+    find('deck2.slice3').apply(0);
+    expect(find('deck1.slice8').lit!()).toBe(false);
+    expect(find('deck1.slice9')).toBeUndefined();
+    expect(calls).toEqual(['slice(1,2,true)', 'slice(1,2,false)', 'slicePlaying(0)']);
+  });
+
   it('read a jump or a loop of so many beats from its id', () => {
     const { calls, actions } = recorder();
     measuredControl(actions, 'deck2.jump.-8')!.apply(1);

@@ -173,6 +173,12 @@ pub enum Command {
         deck: DeckId,
         beats: Option<f64>,
     },
+    /// `Some(region)`: plays that slice of the track in a loop while held, the track going
+    /// on underneath (in phase with quantize); `None` releases it.
+    Slice {
+        deck: DeckId,
+        region: Option<LoopRegion>,
+    },
     ExitLoop {
         deck: DeckId,
     },

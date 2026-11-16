@@ -285,6 +285,7 @@ pub fn run() {
             commands::transport::loop_roll,
             commands::transport::loop_in,
             commands::transport::loop_out,
+            commands::transport::slice,
             commands::transport::exit_loop,
             commands::transport::reloop,
             commands::transport::scale_loop,

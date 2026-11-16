@@ -1,4 +1,4 @@
-//! Moving around the track: loops, loop rolls, jumps, slip and censor.
+//! Moving around the track: loops, loop rolls, slices, jumps, slip and censor.
 //!
 //! A record in absolute mode decides where the track is, so none of this applies to it.
 
@@ -119,6 +119,25 @@ impl Deck {
             }
             _ => {}
         }
+    }
+
+    /// `Some(region)`: plays that slice of the track round and round while held, the track
+    /// carrying on underneath; with quantize it comes in where the beat is. `None`: release.
+    pub(crate) fn slice(&mut self, region: Option<LoopRegion>, quantize: bool) {
+        let Some(region) = region else { return self.loop_roll(None, quantize) };
+        if !self.controls_position() || region.length_s() <= 0.0 {
+            return;
+        }
+        self.start_slip();
+        self.transport.rolling = true;
+        let position = self.playhead.position_s();
+        let landing = match self.grid {
+            Some(_) if quantize => region.start_s + (position - region.start_s).rem_euclid(region.length_s()),
+            _ => region.start_s,
+        };
+        self.transport.loop_region = Some(region);
+        self.playhead.seek_s(landing);
+        self.activate_loop(true);
     }
 
     pub(crate) fn exit_loop(&mut self) {

@@ -1,6 +1,6 @@
 use crate::error::AppResult;
 use crate::state::AppState;
-use prisme_engine::Command;
+use prisme_engine::{Command, LoopRegion};
 use tauri::State;
 
 /// Temporary speed change while a bend key is held (0 when released).
@@ -28,6 +28,14 @@ pub fn loop_in(state: State<'_, AppState>, deck: usize) -> AppResult<()> {
 #[tauri::command]
 pub fn loop_out(state: State<'_, AppState>, deck: usize) -> AppResult<()> {
     send(&state, deck, Command::LoopOut { deck })
+}
+
+/// Plays the slice from `start_s`, `length_s` long, round and round while held, the track
+/// going on underneath; `None`: release.
+#[tauri::command]
+pub fn slice(state: State<'_, AppState>, deck: usize, start_s: Option<f64>, length_s: f64) -> AppResult<()> {
+    let region = start_s.map(|start_s| LoopRegion { start_s, end_s: start_s + length_s });
+    send(&state, deck, Command::Slice { deck, region })
 }
 
 #[tauri::command]

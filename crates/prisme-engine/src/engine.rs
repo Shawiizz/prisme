@@ -297,6 +297,11 @@ impl Engine {
             LoopIn { deck } if valid(deck) => self.decks[deck].loop_in(self.quantize),
             LoopOut { deck } if valid(deck) => self.decks[deck].loop_out(self.quantize),
             LoopRoll { deck, beats } if valid(deck) => self.decks[deck].loop_roll(beats, self.quantize),
+            Slice { deck, region }
+                if valid(deck) && region.is_none_or(|r| r.start_s.is_finite() && r.end_s.is_finite()) =>
+            {
+                self.decks[deck].slice(region, self.quantize)
+            }
             ExitLoop { deck } if valid(deck) => self.decks[deck].exit_loop(),
             Reloop { deck } if valid(deck) => self.decks[deck].reloop(),
             ScaleLoop { deck, factor } if valid(deck) => self.decks[deck].scale_loop(factor),

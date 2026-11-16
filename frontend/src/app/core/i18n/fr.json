@@ -661,5 +661,6 @@
   "Halve the size": "Diviser la taille par deux",
   "Double the size": "Doubler la taille",
   "Size of the jumps and the loop (a step halves or doubles it)": "Taille des sauts et de la boucle (un cran la divise ou la double)",
-  "Size of the jumps and of the sized loop, in beats": "Taille des sauts et de la boucle à la taille, en temps"
+  "Size of the jumps and of the sized loop, in beats": "Taille des sauts et de la boucle à la taille, en temps",
+  "Slice {n} while held": "Slice {n} (maintenu)"
 }

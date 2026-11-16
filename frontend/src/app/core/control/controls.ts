@@ -8,6 +8,7 @@ import {
   HOT_CUES,
   LiveSource,
   SAMPLE_SLOTS,
+  SLICES,
 } from '../models/engine';
 import { EFFECT_NAMES } from '../effects';
 import { Text, t } from '../i18n/i18n';
@@ -70,6 +71,10 @@ export interface ControlActions {
   scaleSize(deck: number, factor: number): void;
   /** A loop of the deck's size, or out of the loop it plays. */
   sizedLoop(deck: number): void;
+  /** Plays a slice of the slicer while held, the track going on underneath. */
+  slice(deck: number, index: number, held: boolean): void;
+  /** The slice of its slicer the deck plays in, if it does. */
+  slicePlaying(deck: number): number | null;
   /** A loop of `beats` from where the deck plays, or out of the loop it is in. */
   beatLoop(deck: number, beats: number): void;
   bend(deck: number, direction: -1 | 0 | 1): void;
@@ -446,6 +451,14 @@ function deckControls(a: ControlActions, deck: number): Control[] {
         group,
         t('Roll {beats} while held', { beats: formatBeats(beats) }),
         (held) => a.roll(deck, held ? beats : null),
+      ),
+    ),
+    ...Array.from({ length: SLICES }, (_, slice) =>
+      lit(
+        hold(id(`slice${slice + 1}`), group, t('Slice {n} while held', { n: slice + 1 }), (held) =>
+          a.slice(deck, slice, held),
+        ),
+        () => a.slicePlaying(deck) === slice,
       ),
     ),
     direct(id('pitch'), group, t('Tempo'), 'fader'),

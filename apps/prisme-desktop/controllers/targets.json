@@ -732,6 +732,54 @@
   "kind": "button"
  },
  {
+  "id": "deck1.slice1",
+  "group": "Deck A",
+  "label": "Slice 1 while held",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.slice2",
+  "group": "Deck A",
+  "label": "Slice 2 while held",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.slice3",
+  "group": "Deck A",
+  "label": "Slice 3 while held",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.slice4",
+  "group": "Deck A",
+  "label": "Slice 4 while held",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.slice5",
+  "group": "Deck A",
+  "label": "Slice 5 while held",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.slice6",
+  "group": "Deck A",
+  "label": "Slice 6 while held",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.slice7",
+  "group": "Deck A",
+  "label": "Slice 7 while held",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.slice8",
+  "group": "Deck A",
+  "label": "Slice 8 while held",
+  "kind": "button"
+ },
+ {
   "id": "deck1.pitch",
   "group": "Deck A",
   "label": "Tempo",
@@ -1533,6 +1581,54 @@
   "id": "deck2.roll8",
   "group": "Deck B",
   "label": "Roll 8 while held",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.slice1",
+  "group": "Deck B",
+  "label": "Slice 1 while held",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.slice2",
+  "group": "Deck B",
+  "label": "Slice 2 while held",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.slice3",
+  "group": "Deck B",
+  "label": "Slice 3 while held",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.slice4",
+  "group": "Deck B",
+  "label": "Slice 4 while held",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.slice5",
+  "group": "Deck B",
+  "label": "Slice 5 while held",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.slice6",
+  "group": "Deck B",
+  "label": "Slice 6 while held",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.slice7",
+  "group": "Deck B",
+  "label": "Slice 7 while held",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.slice8",
+  "group": "Deck B",
+  "label": "Slice 8 while held",
   "kind": "button"
  },
  {
@@ -2340,6 +2436,54 @@
   "kind": "button"
  },
  {
+  "id": "deck3.slice1",
+  "group": "Deck C",
+  "label": "Slice 1 while held",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.slice2",
+  "group": "Deck C",
+  "label": "Slice 2 while held",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.slice3",
+  "group": "Deck C",
+  "label": "Slice 3 while held",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.slice4",
+  "group": "Deck C",
+  "label": "Slice 4 while held",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.slice5",
+  "group": "Deck C",
+  "label": "Slice 5 while held",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.slice6",
+  "group": "Deck C",
+  "label": "Slice 6 while held",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.slice7",
+  "group": "Deck C",
+  "label": "Slice 7 while held",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.slice8",
+  "group": "Deck C",
+  "label": "Slice 8 while held",
+  "kind": "button"
+ },
+ {
   "id": "deck3.pitch",
   "group": "Deck C",
   "label": "Tempo",
@@ -3141,6 +3285,54 @@
   "id": "deck4.roll8",
   "group": "Deck D",
   "label": "Roll 8 while held",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.slice1",
+  "group": "Deck D",
+  "label": "Slice 1 while held",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.slice2",
+  "group": "Deck D",
+  "label": "Slice 2 while held",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.slice3",
+  "group": "Deck D",
+  "label": "Slice 3 while held",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.slice4",
+  "group": "Deck D",
+  "label": "Slice 4 while held",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.slice5",
+  "group": "Deck D",
+  "label": "Slice 5 while held",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.slice6",
+  "group": "Deck D",
+  "label": "Slice 6 while held",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.slice7",
+  "group": "Deck D",
+  "label": "Slice 7 while held",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.slice8",
+  "group": "Deck D",
+  "label": "Slice 8 while held",
   "kind": "button"
  },
  {
