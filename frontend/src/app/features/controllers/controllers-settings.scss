@@ -12,7 +12,7 @@
 }
 .mapping {
   display: grid;
-  grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr) 128px var(--pr-h-sm);
+  grid-template-columns: minmax(0, 1.2fr) minmax(0, 1.2fr) 128px;
   align-items: center;
   gap: var(--pr-space-2);
   min-height: 38px;
@@ -27,13 +27,24 @@
 .learning .name {
   color: var(--pr-text);
 }
-.binding {
+.bindings {
   display: grid;
   min-width: 0;
+  padding: 4px 0;
   font-family: var(--pr-font-mono);
   font-stretch: var(--pr-mono-width);
   font-size: var(--pr-size-small);
-  span {
+  .none {
+    color: var(--pr-text-3);
+  }
+}
+// one controller's: its controls, and a key to take the action off it alone
+.binding {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) var(--pr-h-sm);
+  align-items: center;
+  column-gap: var(--pr-space-1);
+  .text {
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -42,13 +53,10 @@
   .steps {
     justify-self: start;
     height: 22px;
-    margin-top: 2px;
+    margin-bottom: 2px;
     padding: 0 var(--pr-space-1);
     font-family: var(--pr-font-ui);
     font-size: var(--pr-size-small);
-  }
-  .none {
-    color: var(--pr-text-3);
   }
 }
 

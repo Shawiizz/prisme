@@ -467,7 +467,7 @@
   "Press Learn, then move the control on the controller.": "Cliquez sur Apprendre, puis bougez la commande sur le contrôleur.",
   "Move a control…": "Bougez une commande…",
   "Learn": "Apprendre",
-  "Unmap": "Désassigner",
+  "Unmap from {device}": "Désassigner de {device}",
   "Note {n}": "Note {n}",
   "Pitch bend": "Pitch bend",
   "Pitch bend down": "Ralentir un instant",

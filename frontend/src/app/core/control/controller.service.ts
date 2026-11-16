@@ -183,8 +183,9 @@ export class ControllerService {
     await this.reloadMappings();
   }
 
-  async forget(target: string) {
-    await this.run(() => invoke('forget_control', { target }));
+  /** Takes `target` off the controller `device`, its profile's controls included. */
+  async forget(device: string, target: string) {
+    await this.run(() => invoke('forget_control', { device, target }));
     await this.reloadMappings();
   }
 

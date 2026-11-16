@@ -8,9 +8,12 @@ import { errorText } from '../../core/errors';
 import { PHONE } from '../../core/platform';
 import { TPipe } from '../../core/i18n/t.pipe';
 
+/** Where a control is mapped on one controller. */
 interface Binding {
-  mapping: ControllerMapping;
+  device: string;
   text: string;
+  /** Its encoder, whose steps can be read another way. */
+  encoder?: ControllerMapping;
 }
 
 interface Row {
@@ -105,10 +108,14 @@ export class ControllersSettings implements OnInit, OnDestroy {
     const groups = new Map<string, Row[]>();
     // a light only shows: nothing is learnt for it
     for (const control of this.controls.controls.filter((c) => c.kind !== 'light')) {
-      const bindings = this.service
-        .mappings()
-        .filter((m) => m.target === control.id)
-        .map((m) => ({ mapping: m, text: `${m.device} · ${describeMapping(m)}` }));
+      const devices = new Map<string, ControllerMapping[]>();
+      for (const m of this.service.mappings().filter((m) => m.target === control.id))
+        devices.set(m.device, [...(devices.get(m.device) ?? []), m]);
+      const bindings = [...devices].map(([device, mappings]) => ({
+        device,
+        text: `${device} · ${mappings.map(describeMapping).join(' / ')}`,
+        encoder: mappings.find((m) => m.encoding && m.encoding !== 'absolute'),
+      }));
       groups.set(control.group, [...(groups.get(control.group) ?? []), { control, bindings }]);
     }
     return [...groups.entries()].map(([name, rows]) => ({ name, rows }));

@@ -75,9 +75,10 @@ pub fn cancel_learning(controllers: State<'_, Controllers>) {
     controllers.cancel_learning();
 }
 
+/// Takes `target` off the controller `device`.
 #[tauri::command]
-pub fn forget_control(controllers: State<'_, Controllers>, target: String) {
-    controllers.forget(&target);
+pub fn forget_control(controllers: State<'_, Controllers>, device: String, target: String) {
+    controllers.forget(&device, &target);
 }
 
 #[tauri::command]
