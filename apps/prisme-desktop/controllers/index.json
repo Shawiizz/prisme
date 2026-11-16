@@ -226,9 +226,9 @@
       "format": 2
     },
     "pioneer-ddj-sb2.json": {
-      "sha256": "c37d1491f072b798f5ed6ddc3e60babd89150a843f52f067f01ad9fdab64d6f0",
-      "revision": 2,
-      "format": 1
+      "sha256": "c417b5bbb2bd3189a4a852a335ef4a97dd5d7f2375cfc697acce02288cc462de",
+      "revision": 3,
+      "format": 2
     },
     "pioneer-ddj-sb3.json": {
       "sha256": "ee6127670baceddc2661bfe5ea3f9e529684b143cafe271b4fee5b4a7b2c931a",
