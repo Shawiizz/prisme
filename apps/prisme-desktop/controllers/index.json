@@ -26,9 +26,9 @@
       "format": 1
     },
     "denon-mc3000.json": {
-      "sha256": "4633bf00035c535d2ce041d655b8a33cdbff42b110b64fcd1d99424438b71b35",
-      "revision": 2,
-      "format": 1
+      "sha256": "406d4cfdcac205a88aefa6915be83890ca72ac7ec6afb8f85244b1df417e8942",
+      "revision": 3,
+      "format": 2
     },
     "denon-mc4000.json": {
       "sha256": "1f0b4d77f7c237e49e634e64275d24bbedab9c263b07100c22b69ae1a0288e97",
@@ -36,9 +36,9 @@
       "format": 1
     },
     "denon-mc6000mk2.json": {
-      "sha256": "32f1fcd5b371e07477287e7661ba8ad265327b59b384a7c0aa273352b014208c",
-      "revision": 2,
-      "format": 1
+      "sha256": "98436e12040d6e8ff30fe5cc700cd04193fb04fea8a889466d42d6d7aa5b6380",
+      "revision": 3,
+      "format": 2
     },
     "denon-mc7000.json": {
       "sha256": "ef99805cd61c7b83eceb211b03f01da46860b3c46a9ee50339f6aa210c33b52f",
@@ -56,9 +56,9 @@
       "format": 1
     },
     "hercules-dj-console-rmx-2.json": {
-      "sha256": "fc28e8e43da0284c3fe5bc973357dc58ce447508748f406b6aa621648a71f9f4",
-      "revision": 2,
-      "format": 1
+      "sha256": "1201db84e466b5e235737089664c5cc0788672d2b0079bca27ec9a1026ff3028",
+      "revision": 3,
+      "format": 2
     },
     "hercules-dj-control-air.json": {
       "sha256": "12e63a4e2340d2171514a697756a5e24472c7285d3be2c03b08eb34ac80f7330",
