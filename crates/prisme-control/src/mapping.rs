@@ -451,8 +451,9 @@ struct DeviceReader {
 }
 
 impl Reader {
-    /// The action an event of `device` drives and its value; `None` when it drives none
-    /// or is the first half of a 14-bit value. Shift and the modes are read here.
+    /// The action an event of `device` drives and its value; `None` when it drives none, is
+    /// a shift or is the first half of a 14-bit value. Shift and the modes are read here: a
+    /// mode key's mode is chosen before it is given.
     pub fn read<'m>(
         &mut self,
         mappings: &'m Mappings,
@@ -481,7 +482,8 @@ impl Reader {
         }
         if let Some((group, mode)) = selected_mode(&mapping.target) {
             reader.select(mapping, event, group, mode);
-            return None;
+            let value = if mapping.on_value.is_some() { 1.0 } else { mapping.encoding.value(event) };
+            return Some((mapping, value));
         }
         if !released {
             if let Some(when) = &mapping.when {
@@ -808,8 +810,8 @@ mod tests {
         let mut reader = Reader::default();
         reader.set_modes("DDJ", Modes::from([("padsA".into(), "hotcue".into())]));
         assert_eq!(read(&mut reader, &mappings, &[0x90, 36, 127]).unwrap().0, "deck1.hotcue1");
-        assert_eq!(read(&mut reader, &mappings, &[0x90, 7, 127]), None, "the mode key is read here");
-        assert_eq!(reader.modes("DDJ")["padsA"], "roll");
+        assert_eq!(read(&mut reader, &mappings, &[0x90, 7, 127]), Some(("mode.padsA.roll".into(), 1.0)));
+        assert_eq!(reader.modes("DDJ")["padsA"], "roll", "the mode key is read here");
         // the pad pressed in the other mode ends what it began there
         assert_eq!(read(&mut reader, &mappings, &[0x90, 36, 0]), Some(("deck1.hotcue1".into(), 0.0)));
         assert_eq!(read(&mut reader, &mappings, &[0x90, 36, 127]).unwrap().0, "deck1.roll1");

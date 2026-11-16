@@ -82,7 +82,6 @@ enum Routed {
 struct Holding {
     device: String,
     control: Control,
-    target: String,
     hold: Hold,
     since: Instant,
     fired: bool,
@@ -708,9 +707,11 @@ impl Controllers {
     /// An event of `device`, whose jog wheels turn by `jog_steps_per_turn`, at `at_s` on its
     /// clock.
     fn receive(&self, app: &AppHandle, device: &str, jog_steps_per_turn: f64, event: Event, at_s: f64) {
+        let modes = lock(&self.reader).mode_changes(device);
         let routed = self.route(device, event);
-        // a key's light may show it held, latched or at the second of its two positions
-        if event.control.kind == ControlKind::Note {
+        // a key's light may show it held, latched or at the second of its two positions, and a
+        // mode chosen (by a switch, say) shows on the keys of its group
+        if event.control.kind == ControlKind::Note || lock(&self.reader).mode_changes(device) != modes {
             self.show_lights(device);
         }
         let _ = match routed {
@@ -773,14 +774,10 @@ impl Controllers {
             return Some(Routed::Learned(Box::new(mapping)));
         }
         let mappings = lock(&self.mappings);
-        let changes = reader.mode_changes(device);
-        let Some((mapping, value)) = reader.read(&mappings, device, event) else {
-            if reader.mode_changes(device) != changes {
-                drop((mappings, reader));
-                self.show_lights(device);
-            }
-            return None;
-        };
+        let (mapping, value) = reader.read(&mappings, device, event)?;
+        if selected_mode(&mapping.target).is_some() {
+            return driven(inputs(mapping, value));
+        }
         if let Some(routed) = self.instead(device, event, mapping, &reader) {
             return routed;
         }
@@ -855,14 +852,14 @@ impl Controllers {
     }
 
     /// A key whose action waits to know whether it is held: pressed, nothing yet; let go
-    /// before its time, its own action pressed and let go; after, the hold's let go.
+    /// before its time, its own actions (those it drives along too) pressed and let go; after,
+    /// the hold's let go.
     fn hold(&self, device: &str, event: Event, mapping: &Mapping, hold: &Hold) -> Option<Routed> {
         let mut holdings = lock(&self.holdings);
         if event.raw > 0 {
             holdings.push(Holding {
                 device: device.to_owned(),
                 control: event.control,
-                target: mapping.target.clone(),
                 hold: hold.clone(),
                 since: Instant::now(),
                 fired: false,
@@ -874,12 +871,10 @@ impl Controllers {
         if held.fired && selected_mode(&held.hold.target).is_some() {
             return None;
         }
-        let input = ControllerInputDto::of;
-        Some(Routed::Input(if held.fired {
-            vec![input(&held.hold.target, 0.0)]
-        } else {
-            vec![input(&held.target, 1.0), input(&held.target, 0.0)]
-        }))
+        if held.fired {
+            return driven(vec![ControllerInputDto::of(&held.hold.target, 0.0)]);
+        }
+        driven([inputs(mapping, 1.0), inputs(mapping, 0.0)].concat())
     }
 
     /// The keys held long enough: their hold's action pressed, or its mode chosen.
@@ -985,13 +980,20 @@ impl Controllers {
     }
 }
 
-/// What `mapping` driven to `value` gives the UI: its action, and those it drives along.
+/// What `mapping` driven to `value` gives the UI: its action (a mode key's is chosen as it is
+/// read), and those it drives along.
 fn inputs(mapping: &Mapping, value: f32) -> Vec<ControllerInputDto> {
     let steps = mapping.encoding.is_relative();
-    std::iter::once(&mapping.target)
+    let own = selected_mode(&mapping.target).is_none().then_some(&mapping.target);
+    own.into_iter()
         .chain(&mapping.also)
         .map(|target| ControllerInputDto { target: target.clone(), value, steps, step: mapping.step })
         .collect()
+}
+
+/// `inputs` for the UI, if there are any.
+fn driven(inputs: Vec<ControllerInputDto>) -> Option<Routed> {
+    (!inputs.is_empty()).then_some(Routed::Input(inputs))
 }
 
 /// An encoder's `steps` driving keys: each a press and a release of `up`, or of `down` for
@@ -1002,7 +1004,7 @@ fn key_steps(up: &str, down: &str, steps: i32) -> Option<Routed> {
     let inputs: Vec<ControllerInputDto> = (0..presses)
         .flat_map(|_| [ControllerInputDto::of(target, 1.0), ControllerInputDto::of(target, 0.0)])
         .collect();
-    (!inputs.is_empty()).then_some(Routed::Input(inputs))
+    driven(inputs)
 }
 
 /// The level of each source of a meter (`deck1`…, `main`) at the moment; none when the audio
@@ -1276,6 +1278,28 @@ mod tests {
         assert_eq!(route(&c, &[0x90, 36, 127]), input("deck1.eq.low.kill", 1.0));
         assert_eq!(route(&c, &[0x90, 36, 0]), None);
         assert_eq!(route(&c, &[0x90, 36, 127]), input("deck1.eq.low.kill", 0.0));
+    }
+
+    #[test]
+    fn a_mode_key_drives_its_other_actions_too() {
+        let key = Control { number: 9, ..PAD };
+        let c = with_mappings([with(mapping(key, "mode.pads.roll"), |b| b.also = vec!["deck1.slip".into()])]);
+        assert_eq!(route(&c, &[0x90, 9, 127]), input("deck1.slip", 1.0));
+        assert_eq!(lock(&c.reader).modes("DDJ")["pads"], "roll");
+        assert_eq!(route(&c, &[0x90, 9, 0]), input("deck1.slip", 0.0));
+    }
+
+    #[test]
+    fn a_key_let_go_before_its_hold_drives_its_other_actions_too() {
+        let load = |b: &mut ProfileControl| {
+            b.hold = Some(Hold { ms: 60_000, target: "deck1.eject".into() });
+            b.also = vec!["deck1.play".into()];
+        };
+        let c = with_mappings([with(mapping(PAD, "library.load1"), load)]);
+        assert_eq!(route(&c, &[0x90, 36, 127]), None);
+        let pressed = [("library.load1", 1.0), ("deck1.play", 1.0)];
+        let let_go = [("library.load1", 0.0), ("deck1.play", 0.0)];
+        assert_eq!(route(&c, &[0x90, 36, 0]), inputs_of(&[pressed[0], pressed[1], let_go[0], let_go[1]]));
     }
 
     #[test]
