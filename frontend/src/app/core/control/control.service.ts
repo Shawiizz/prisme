@@ -383,6 +383,12 @@ export class ControlService {
     moveFocus: () => this.library.focus.update((f) => (f === 'tracks' ? 'lists' : 'tracks')),
     browseLists: (steps) => this.library.movePointedList(steps),
     openPointedList: () => this.library.openPointedList(),
+    openNextList: (steps) => this.library.openNextList(steps),
+    go: () =>
+      this.library.focus() === 'lists'
+        ? this.library.openPointedList()
+        : this.library.loadSelectedOnStoppedDeck(),
+    setFocus: (where) => this.library.focus.set(where),
     sortBy: (column) => this.library.sortBy(column),
     toggleLibraryOnly: () => this.navigation.libraryOnly.update((only) => !only),
     libraryOnly: () => this.navigation.libraryOnly(),

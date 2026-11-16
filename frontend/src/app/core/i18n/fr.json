@@ -785,5 +785,10 @@
   "To the start of the track, playing or not as it was": "Au début du morceau, en lecture ou non comme avant",
   "A few seconds before the end of the track, playing or not as it was": "Quelques secondes avant la fin du morceau, en lecture ou non comme avant",
   "{control}: on": "{control} : activé",
-  "{control}: off": "{control} : désactivé"
+  "{control}: off": "{control} : désactivé",
+  "Open the next list": "Ouvrir la liste suivante",
+  "Open the previous list": "Ouvrir la liste précédente",
+  "Open the list, or load the track on a stopped deck": "Ouvrir la liste, ou charger le morceau sur une platine à l'arrêt",
+  "To the lists": "Vers les listes",
+  "To the tracks": "Vers les morceaux"
 }

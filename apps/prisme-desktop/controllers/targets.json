@@ -7776,6 +7776,36 @@
   "kind": "button"
  },
  {
+  "id": "library.list.next",
+  "group": "Library",
+  "label": "Open the next list",
+  "kind": "button"
+ },
+ {
+  "id": "library.list.previous",
+  "group": "Library",
+  "label": "Open the previous list",
+  "kind": "button"
+ },
+ {
+  "id": "library.go",
+  "group": "Library",
+  "label": "Open the list, or load the track on a stopped deck",
+  "kind": "button"
+ },
+ {
+  "id": "library.left",
+  "group": "Library",
+  "label": "To the lists",
+  "kind": "button"
+ },
+ {
+  "id": "library.right",
+  "group": "Library",
+  "label": "To the tracks",
+  "kind": "button"
+ },
+ {
   "id": "library.page.previous",
   "group": "Library",
   "label": "A page of tracks up",

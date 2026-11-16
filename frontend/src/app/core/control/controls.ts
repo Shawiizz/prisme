@@ -313,6 +313,13 @@ export interface ControlActions {
   /** The pointer on the lists of the left moved, or the list it points at opened. */
   browseLists(steps: number): void;
   openPointedList(): void;
+  /** The list `steps` after the one open on the left opened (before it, negative). */
+  openNextList(steps: number): void;
+  /** On the lists, the one pointed at opened; on the tracks, the selected one loaded on the
+   * first deck that is not playing. */
+  go(): void;
+  /** The browse knob on the lists of the left, or on the tracks. */
+  setFocus(where: 'lists' | 'tracks'): void;
   sortBy(column: 'title' | 'artist' | 'bpm' | 'key'): void;
   /** The library over the whole window, or back. */
   toggleLibraryOnly(): void;
@@ -1151,6 +1158,13 @@ export function buildControls(a: ControlActions): Control[] {
       apply: (steps) => a.browseLists(steps),
     },
     button('library.list.open', library, t('Open the list pointed at'), () => a.openPointedList()),
+    button('library.list.next', library, t('Open the next list'), () => a.openNextList(1)),
+    button('library.list.previous', library, t('Open the previous list'), () => a.openNextList(-1)),
+    button('library.go', library, t('Open the list, or load the track on a stopped deck'), () =>
+      a.go(),
+    ),
+    button('library.left', library, t('To the lists'), () => a.setFocus('lists')),
+    button('library.right', library, t('To the tracks'), () => a.setFocus('tracks')),
     button('library.page.previous', library, t('A page of tracks up'), () => a.browse(-PAGE)),
     button('library.page.next', library, t('A page of tracks down'), () => a.browse(PAGE)),
     ...(['title', 'artist', 'bpm', 'key'] as const).map((column) =>

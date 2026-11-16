@@ -330,6 +330,22 @@ describe('controls', () => {
     expect(find('deck1.keylock.on').label).toBe('Key lock: on');
   });
 
+  it('open the next or previous list, go into a list or load a track, move across', () => {
+    const { calls, find } = recorder();
+    find('library.list.next').apply(1);
+    find('library.list.previous').apply(1);
+    find('library.go').apply(1);
+    find('library.left').apply(1);
+    find('library.right').apply(1);
+    expect(calls).toEqual([
+      'openNextList(1)',
+      'openNextList(-1)',
+      'go()',
+      'setFocus(lists)',
+      'setFocus(tracks)',
+    ]);
+  });
+
   it('read a jump or a loop of so many beats from its id', () => {
     const { calls, actions } = recorder();
     measuredControl(actions, 'deck2.jump.-8')!.apply(1);
