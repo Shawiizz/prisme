@@ -14,6 +14,9 @@ pub fn music_root() -> PathBuf {
     return android::music_root().clone();
     #[cfg(not(target_os = "android"))]
     {
+        if let Some(dir) = crate::dev_startup::music_dir() {
+            return dir;
+        }
         let home =
             |folder: &str| dirs::home_dir().map_or_else(|| PathBuf::from(folder), |home| home.join(folder));
         if cfg!(target_os = "ios") {

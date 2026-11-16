@@ -4,7 +4,8 @@
 //! * `PRISME_DECK1` / `PRISME_DECK2`: audio file to load on the deck at startup;
 //! * `PRISME_SIMULATE=1`: start with the simulated turntable on deck 1;
 //! * `PRISME_MASTER_GAIN`: initial master gain (e.g. 0.2 to test quietly);
-//! * `PRISME_DATA_DIR`: folder of the settings and the library, instead of the user's.
+//! * `PRISME_DATA_DIR`: folder of the settings and the library, instead of the user's;
+//! * `PRISME_MUSIC_DIR`: music folder, instead of the user's.
 
 use crate::library_service::LibraryService;
 use crate::state::AppState;
@@ -35,6 +36,11 @@ pub fn preload_tracks(app: &AppHandle, state: &AppState, library: &LibraryServic
 /// Data folder requested by the environment.
 pub fn data_dir() -> Option<PathBuf> {
     std::env::var_os("PRISME_DATA_DIR").map(PathBuf::from)
+}
+
+/// Music folder requested by the environment.
+pub fn music_dir() -> Option<PathBuf> {
+    std::env::var_os("PRISME_MUSIC_DIR").map(PathBuf::from)
 }
 
 /// Master gain requested by the environment.
