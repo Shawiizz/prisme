@@ -29,6 +29,9 @@ const CLICK_PX = 3;
 const HAND_EVERY_MS = 4;
 /** Track time in one turn of a jog wheel (as the engine counts it, `jog.rs`). */
 const JOG_TURN_S = 1.8;
+/** A slide of the edge moves the track this share of the waveform slid over: lining up beats
+ * is fine work. */
+const EDGE_SHARE = 0.2;
 /** A press held still this long (ms) puts the hand on the record. */
 const HOLD_MS = 280;
 
@@ -249,11 +252,11 @@ export class DeckWaveform {
     this.holding = null;
   }
 
-  /** The press slides the edge of the jog: the waveform follows it as far as the track
-   * goes, pushing a playing track for a moment, moving a stopped one. */
+  /** The press slides the edge of the jog, a share of the way it slides: a playing track
+   * pushed or held back for a moment, a stopped one moved. */
   private turnEdge(drag: Drag, event: PointerEvent) {
     const width = (event.currentTarget as HTMLElement).getBoundingClientRect().width;
-    const seconds = -((event.clientX - drag.lastX) / width) * this.zoomSpan();
+    const seconds = -((event.clientX - drag.lastX) / width) * this.zoomSpan() * EDGE_SHARE;
     drag.lastX = event.clientX;
     if (seconds !== 0) this.engine.jog(this.deck(), seconds / JOG_TURN_S, event.timeStamp);
   }

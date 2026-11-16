@@ -145,7 +145,7 @@ A toggle is a button with `.is-on` when on. Radius 3 px, no shadow, no glow.
 - **What has played** (left of the playhead) at 45 % opacity.
 - **The playhead** is the only white line of the screen, 2 px, dispersed on its edges: 1 px of
   `--pr-f-low` on the left, 1 px of `--pr-f-high` on the right.
-- **Beat grid**: short ticks at the top and bottom only, longer and brighter on each bar.
+- **Beat grid**: a fine line across the waveform on each beat, the first beat of each bar in red with a small arrow at the top and the bottom, as on a CDJ's screen.
 - **Hot cues**: a line and a numbered flag in the cue's tag colour, as on its pad; the main
   cue in the light, flagged C. **Loop**: a band of `--pr-light-veil` between two lines in the
   light; a stored loop as two `--pr-text-3` lines.

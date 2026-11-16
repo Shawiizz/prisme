@@ -29,7 +29,7 @@ const TILE_PX = 1024;
 
 /**
  * Draws the waveforms (design/DESIGN.md, Waveform): one envelope coloured slice by slice by
- * the balance of its bands, the beat grid as short ticks, cues as flags in their tag colour,
+ * the balance of its bands, the beat grid as lines (red on the bars), cues as flags in their tag colour,
  * the loop as a band of light and the playhead, the only white line, dispersed on its edges.
  */
 export class WaveformPainter {
@@ -303,19 +303,31 @@ export class WaveformPainter {
     ctx.stroke();
   }
 
-  /** Short ticks at the top and the bottom, longer and brighter on each bar. */
+  /** As on a CDJ's screen: a fine line across the waveform on each beat, the first beat of
+   * each bar in red, pointed at from the top and the bottom by a small arrow. */
   private drawBeatGrid(ctx: CanvasRenderingContext2D, tempo: Tempo, view: View) {
     const period = 60 / tempo.bpm;
     const first = Math.ceil((view.fromS - tempo.firstBeatS) / period);
     const last = Math.floor((view.fromS + view.spanS - tempo.firstBeatS) / period);
-    ctx.fillStyle = this.palette.text;
+    const r = view.ratio;
+    const half = 3.5 * r;
     for (let n = Math.max(first, 0); n <= last; n++) {
       const x = Math.round(xOf(tempo.firstBeatS + n * period, view));
       const bar = n % 4 === 0;
-      const length = (bar ? 9 : 5) * view.ratio;
-      ctx.globalAlpha = bar ? 0.75 : 0.35;
-      ctx.fillRect(x, 0, view.ratio, length);
-      ctx.fillRect(x, view.height - length, view.ratio, length);
+      ctx.globalAlpha = bar ? 0.75 : 0.3;
+      ctx.fillStyle = bar ? this.palette.bar : this.palette.text;
+      ctx.fillRect(x, 0, r, view.height);
+      if (!bar) continue;
+      const mid = x + r / 2;
+      ctx.globalAlpha = 1;
+      ctx.beginPath();
+      ctx.moveTo(mid - half, 0);
+      ctx.lineTo(mid + half, 0);
+      ctx.lineTo(mid, 1.4 * half);
+      ctx.moveTo(mid - half, view.height);
+      ctx.lineTo(mid + half, view.height);
+      ctx.lineTo(mid, view.height - 1.4 * half);
+      ctx.fill();
     }
     ctx.globalAlpha = 1;
   }

@@ -11,6 +11,8 @@ export interface Palette {
   text: string;
   text2: string;
   text3: string;
+  /** The first beat of a bar on the beat grid. */
+  bar: string;
   mono: string;
 }
 
@@ -33,6 +35,7 @@ export function palette(): Palette {
     text: token('--pr-text'),
     text2: token('--pr-text-2'),
     text3: token('--pr-text-3'),
+    bar: token('--pr-alert'),
     mono: token('--pr-font-mono'),
   };
   return read;

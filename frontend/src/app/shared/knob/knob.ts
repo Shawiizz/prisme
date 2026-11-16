@@ -73,7 +73,7 @@ function arc(from: number, to: number): string {
       <path class="track" [attr.d]="track" />
       <path class="value" [attr.d]="valueArc()" />
       @if (bipolar()) {
-        <line class="detent" [attr.x1]="CENTRE" y1="0.5" [attr.x2]="CENTRE" y2="2.5" />
+        <line class="detent" [attr.x1]="CENTRE" y1="-2.2" [attr.x2]="CENTRE" y2="0.2" />
       }
       <circle class="cap" [attr.cx]="CENTRE" [attr.cy]="CENTRE" [attr.r]="CAP" />
       <line
@@ -126,6 +126,8 @@ function arc(from: number, to: number): string {
       cursor: ns-resize;
       touch-action: none;
       outline: none;
+      // the detent stands above the ring, clear of its gauge
+      overflow: visible;
       &:focus-visible .cap {
         stroke: var(--pr-light);
       }
