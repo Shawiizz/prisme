@@ -368,11 +368,11 @@ impl Engine {
                     self.discard(Garbage::Track(old));
                 }
             }
-            TriggerSample { deck, slot } if valid(deck) => {
+            TriggerSample { deck, slot, gain } if valid(deck) && gain.is_finite() => {
                 let rate = self.config.sample_rate as f64;
                 let d = &mut self.decks[deck];
                 let wait = if self.quantize { d.frames_to_next_beat(rate).unwrap_or(0) } else { 0 };
-                d.sampler.trigger(slot, wait);
+                d.sampler.trigger(slot, wait, gain.max(0.0));
             }
             StopSample { deck, slot } if valid(deck) => self.decks[deck].sampler.stop(slot),
             SetSamplerGain { deck, gain } if valid(deck) => self.decks[deck].sampler.gain = gain,

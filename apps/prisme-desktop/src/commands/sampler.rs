@@ -57,11 +57,18 @@ pub fn clear_sample(state: State<'_, AppState>, deck: usize, slot: usize) -> App
     state.send_if_running(Command::SetSample { deck, slot, sample: None })
 }
 
-/// Plays a slot from its start (on the next beat with quantize on).
+/// Plays a slot from its start (on the next beat with quantize on), as loud as its pad was
+/// hit (`velocity` 0-1) times the sampler's level, or at that level.
 #[tauri::command]
-pub fn trigger_sample(state: State<'_, AppState>, deck: usize, slot: usize) -> AppResult<()> {
+pub fn trigger_sample(
+    state: State<'_, AppState>,
+    deck: usize,
+    slot: usize,
+    velocity: Option<f32>,
+) -> AppResult<()> {
     check_slot(deck, slot)?;
-    state.send(Command::TriggerSample { deck, slot })
+    let gain = velocity.unwrap_or(1.0).clamp(0.0, 1.0);
+    state.send(Command::TriggerSample { deck, slot, gain })
 }
 
 #[tauri::command]

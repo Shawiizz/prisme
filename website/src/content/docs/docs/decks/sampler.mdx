@@ -67,9 +67,8 @@ A controller with pads that sense how hard they are hit can play the sampler wit
 A profile maps a pad to the sample "as hard as the pad is hit" (`deck1.sample3.velocity` plays
 deck A's sound 3); see [Controller profiles](/docs/controllers/profiles/).
 
-The strength sets the deck's sampler level before the sound plays, the same level as the **VOL**
-knob. So a soft hit also makes the next sounds of that deck quieter, until a harder hit or the
-knob raises it again.
+The strength scales that sound alone, under the deck's sampler level: a soft hit plays the sound
+quietly, and the **VOL** knob, like the sounds that follow, stays as it was.
 
 ## Smart pads and other controller actions
 

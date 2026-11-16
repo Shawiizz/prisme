@@ -40,8 +40,9 @@ export class SamplerService {
     return this.engine.call('clear_sample', { deck, slot });
   }
 
-  trigger(deck: number, slot: number) {
-    return this.engine.call('trigger_sample', { deck, slot });
+  /** Plays `slot` at the sampler's level, scaled by `velocity` (0-1) for a pad hit that hard. */
+  trigger(deck: number, slot: number, velocity?: number) {
+    return this.engine.call('trigger_sample', { deck, slot, velocity });
   }
 
   stop(deck: number, slot: number) {

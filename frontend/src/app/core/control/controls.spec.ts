@@ -507,4 +507,12 @@ describe('controls', () => {
     expect(measuredControl(actions, 'deck1.loop.-1')).toBeUndefined();
     expect(measuredControl(actions, 'deck9.jump.4')).toBeUndefined();
   });
+
+  it('play a sample as hard as its pad is hit, the sampler level left alone', () => {
+    const { calls, actions } = recorder();
+    const pad = measuredControl(actions, 'deck2.sample3.velocity')!;
+    pad.apply(0.25);
+    pad.apply(0);
+    expect(calls).toEqual(['triggerSample(1,2,0.25)']);
+  });
 });
