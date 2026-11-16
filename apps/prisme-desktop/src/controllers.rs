@@ -115,18 +115,24 @@ struct Connection {
     output: Option<MidiOutputConnection>,
     /// When its keep-alive message last went.
     kept_alive: Instant,
-    /// The value each light and meter shows, by its message's first two bytes.
-    shown: HashMap<[u8; 2], u8>,
-    /// The lights blinking, by their message's first two bytes.
-    blinking: HashMap<[u8; 2], Blink>,
-    /// The lights shown by a message of their own, by their control's first two bytes.
-    messages: HashMap<[u8; 2], Vec<u8>>,
+    lit: Lit,
     /// The messages of its profile to send later, and when.
     later: Vec<(Instant, Vec<u8>)>,
     /// When each of its meters last reached full scale.
     clipped: HashMap<usize, Instant>,
     /// What each of its screens' numbers was last sent, by its place among the displays.
     displayed: HashMap<usize, Vec<u8>>,
+}
+
+/// What a controller's lights and meters show, so that a message goes only for a change.
+#[derive(Default)]
+struct Lit {
+    /// The value each one shows, by its message's first two bytes.
+    shown: HashMap<[u8; 2], u8>,
+    /// Those blinking, by their message's first two bytes.
+    blinking: HashMap<[u8; 2], Blink>,
+    /// Those shown by a message of their own, by their control's first two bytes.
+    messages: HashMap<[u8; 2], Vec<u8>>,
 }
 
 /// A light showing its two values in turn, since `since`.
@@ -136,48 +142,44 @@ struct Blink {
     since: Instant,
 }
 
-impl Connection {
-    /// Sends `message` unless it shows what is shown already.
-    fn show(&mut self, [status, number, value]: [u8; 3]) {
-        let Some(output) = self.output.as_mut() else { return };
-        if self.shown.insert([status, number], value) != Some(value) {
-            let _ = output.send(&[status, number, value]);
-        }
+impl Lit {
+    /// `message`, unless it shows what is shown already.
+    fn show(&mut self, [status, number, value]: [u8; 3]) -> Option<[u8; 3]> {
+        (self.shown.insert([status, number], value) != Some(value)).then_some([status, number, value])
     }
 
-    /// Sets the light of `control` to `value`, blinking or not.
-    fn light(&mut self, control: Control, value: LightValue) {
-        let Some([status, number, _]) = prisme_control::light(control, 0) else { return };
+    /// The message setting the light of `control` to `value`, blinking or not, unless it
+    /// shows it already.
+    fn light(&mut self, control: Control, value: LightValue) -> Option<Vec<u8>> {
+        let [status, number, _] = prisme_control::light(control, 0)?;
         if !matches!(value, LightValue::Message(_)) {
             self.messages.remove(&[status, number]);
         }
         match value {
             LightValue::Steady(v) => {
                 self.blinking.remove(&[status, number]);
-                self.show([status, number, v]);
+                self.show([status, number, v]).map(Vec::from)
             }
             LightValue::Message(message) => {
                 self.blinking.remove(&[status, number]);
                 self.shown.remove(&[status, number]);
-                if self.messages.get(&[status, number]) != Some(&message) {
-                    self.send(&message);
-                    self.messages.insert([status, number], message);
-                }
+                let before = self.messages.insert([status, number], message.clone());
+                (before.as_ref() != Some(&message)).then_some(message)
             }
             LightValue::Blink { blink, ms } => {
                 let same =
                     self.blinking.get(&[status, number]).is_some_and(|b| b.values == blink && b.ms == ms);
-                if !same {
-                    self.blinking
-                        .insert([status, number], Blink { values: blink, ms, since: Instant::now() });
-                    self.show([status, number, blink[0]]);
+                if same {
+                    return None;
                 }
+                self.blinking.insert([status, number], Blink { values: blink, ms, since: Instant::now() });
+                self.show([status, number, blink[0]]).map(Vec::from)
             }
         }
     }
 
-    /// Each blinking light at the value of the moment.
-    fn blink(&mut self) {
+    /// The messages of the blinking lights whose value of the moment is not shown yet.
+    fn blink(&mut self) -> Vec<[u8; 3]> {
         let now: Vec<[u8; 3]> = self
             .blinking
             .iter()
@@ -186,8 +188,22 @@ impl Connection {
                 [status, number, b.values[half as usize]]
             })
             .collect();
-        for message in now {
-            self.show(message);
+        now.into_iter().filter_map(|message| self.show(message)).collect()
+    }
+}
+
+impl Connection {
+    /// Sets the light of `control` to `value`, blinking or not.
+    fn light(&mut self, control: Control, value: LightValue) {
+        if let Some(message) = self.lit.light(control, value) {
+            self.send(&message);
+        }
+    }
+
+    /// Each blinking light at the value of the moment.
+    fn blink(&mut self) {
+        for message in self.lit.blink() {
+            self.send(&message);
         }
     }
 
@@ -577,7 +593,8 @@ impl Controllers {
         lights
     }
 
-    /// Closes `device`: its lights go off, and its profile's last messages go out.
+    /// Closes `device`: its lights go off, its meters show silence, and its profile's last
+    /// messages go out.
     fn close(&self, device: &str) {
         let connection = {
             let mut connections = lock(&self.connections);
@@ -592,6 +609,9 @@ impl Controllers {
         if let Some(profile) = controller_profiles::of(device) {
             for extra in &profile.lights {
                 connection.light(extra.control, extra.values.value(OFF));
+            }
+            for (control, value) in profile.meters.iter().flat_map(|m| m.show(0.0, false)) {
+                connection.light(control, value);
             }
             for message in &profile.close {
                 connection.send(message);
@@ -637,23 +657,20 @@ impl Controllers {
                         }
                     }
                     for (at, meter) in profile.meters.iter().enumerate().filter(|(_, m)| shown(&m.when)) {
-                        let level = levels.as_ref().and_then(|l| l.get(&meter.source)).copied();
-                        let message = prisme_control::light(meter.control, 0);
-                        if let (Some(level), Some([status, number, _])) = (level, message) {
-                            if level >= 1.0 {
-                                connection.clipped.insert(at, Instant::now());
-                            }
-                            let clipping =
-                                connection.clipped.get(&at).is_some_and(|t| t.elapsed() < CLIP_SHOWN);
-                            let value = meter.clip.filter(|_| clipping).unwrap_or_else(|| meter.value(level));
-                            connection.show([status, number, value]);
+                        let Some(&level) = levels.as_ref().and_then(|l| l.get(&meter.source)) else {
+                            continue;
+                        };
+                        if level >= 1.0 {
+                            connection.clipped.insert(at, Instant::now());
+                        }
+                        let clipping = connection.clipped.get(&at).is_some_and(|t| t.elapsed() < CLIP_SHOWN);
+                        for (control, value) in meter.show(level, clipping) {
+                            connection.light(control, value);
                         }
                     }
                     for output in profile.outputs.iter().filter(|o| shown(&o.when)) {
-                        let value = values.get(&output.source).copied();
-                        let message = prisme_control::light(output.control, 0);
-                        if let (Some(value), Some([status, number, _])) = (value, message) {
-                            connection.show([status, number, output.value(value)]);
+                        if let Some(&value) = values.get(&output.source) {
+                            connection.light(output.control, LightValue::Steady(output.value(value)));
                         }
                     }
                     for (at, display) in profile.displays.iter().enumerate().filter(|(_, d)| shown(&d.when)) {
@@ -717,9 +734,7 @@ impl Controllers {
             _input: connection,
             output,
             kept_alive: Instant::now(),
-            shown: HashMap::new(),
-            blinking: HashMap::new(),
-            messages: HashMap::new(),
+            lit: Lit::default(),
             later,
             clipped: HashMap::new(),
             displayed: HashMap::new(),
@@ -1149,7 +1164,7 @@ mod tests {
         assert_eq!(port_of(&both, "2- DJControl Inpulse 200"), Some(1), "the same name first");
         assert_eq!(port_of(&names, "FLX4"), None);
     }
-    use prisme_control::{parse, Chord, Control, LightValues, Shift, When};
+    use prisme_control::{parse, Chord, Control, LightValues, Meter, Shift, When};
 
     const PAD: Control = Control { kind: ControlKind::Note, channel: 0, number: 36 };
 
@@ -1482,6 +1497,46 @@ mod tests {
         assert_eq!(c.lights("DDJ"), [(PAD, LightValue::Steady(10))]);
         lock(&c.reader).set_mode("DDJ", "pads", "rolls");
         assert_eq!(c.lights("DDJ"), [(PAD, LightValue::Steady(20))]);
+    }
+
+    /// The messages going to the controller for `meter` at `level`, what `lit` shows already
+    /// left out.
+    fn sent(lit: &mut Lit, meter: &Meter, level: f32, clipping: bool) -> Vec<Vec<u8>> {
+        meter
+            .show(level, clipping)
+            .into_iter()
+            .filter_map(|(control, value)| lit.light(control, value))
+            .collect()
+    }
+
+    #[test]
+    fn a_meter_sends_only_the_leds_that_change() {
+        let meter: Meter = serde_json::from_str(
+            r#"{ "source": "deck1", "leds": [
+                { "control": { "kind": "note", "channel": 0, "number": 10 }, "from": 0.2, "on": [176, 80, 10], "off": [176, 81, 10] },
+                { "control": { "kind": "note", "channel": 0, "number": 11 }, "from": 0.5, "on": [176, 80, 11], "off": [176, 81, 11] },
+                { "control": { "kind": "controlChange", "channel": 0, "number": 89 }, "from": 1, "on": 1, "clip": 1 }
+            ] }"#,
+        )
+        .unwrap();
+        let lit = &mut Lit::default();
+        assert_eq!(sent(lit, &meter, 0.0, false), [vec![176, 81, 10], vec![176, 81, 11], vec![0xb0, 89, 0]]);
+        assert_eq!(sent(lit, &meter, 0.1, false), Vec::<Vec<u8>>::new());
+        assert_eq!(sent(lit, &meter, 0.6, false), [vec![176, 80, 10], vec![176, 80, 11]]);
+        assert_eq!(sent(lit, &meter, 0.3, true), [vec![176, 81, 11], vec![0xb0, 89, 1]], "the clip LED held");
+        assert_eq!(sent(lit, &meter, 0.3, false), [vec![0xb0, 89, 0]]);
+    }
+
+    #[test]
+    fn a_meter_on_one_control_sends_its_value_when_it_changes() {
+        let meter: Meter = serde_json::from_str(
+            r#"{ "source": "main", "control": { "kind": "controlChange", "channel": 0, "number": 2 }, "max": 117, "clip": 119 }"#,
+        )
+        .unwrap();
+        let lit = &mut Lit::default();
+        assert_eq!(sent(lit, &meter, 1.0, false), [vec![0xb0, 2, 117]]);
+        assert_eq!(sent(lit, &meter, 1.0, false), Vec::<Vec<u8>>::new());
+        assert_eq!(sent(lit, &meter, 1.0, true), [vec![0xb0, 2, 119]]);
     }
 
     #[test]

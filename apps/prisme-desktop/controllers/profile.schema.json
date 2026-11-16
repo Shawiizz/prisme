@@ -328,35 +328,70 @@
       "type": "object"
     },
     "Meter": {
-      "description": "A level shown on the controller: `source`'s (`deck1`…, `main`, `main.left`,\n`main.right`), from `min` to `max` on `control` along `curve` (the level raised to it: 1\nstraight), or as one of `steps` (the values at silence, then at each equal share of the\nlevel); `clip` for a while after the level reached full scale.",
+      "anyOf": [
+        {
+          "description": "On `control`, from `min` to `max`, or as one of `steps` (the values at silence, then\nat each equal share of the level); `clip` for a while after the level reached full\nscale.",
+          "properties": {
+            "clip": {
+              "format": "uint8",
+              "maximum": 255,
+              "minimum": 0,
+              "type": [
+                "integer",
+                "null"
+              ]
+            },
+            "control": {
+              "$ref": "#/$defs/Control"
+            },
+            "max": {
+              "format": "uint8",
+              "maximum": 255,
+              "minimum": 0,
+              "type": "integer"
+            },
+            "min": {
+              "format": "uint8",
+              "maximum": 255,
+              "minimum": 0,
+              "type": "integer"
+            },
+            "steps": {
+              "items": {
+                "format": "uint8",
+                "maximum": 255,
+                "minimum": 0,
+                "type": "integer"
+              },
+              "type": "array"
+            }
+          },
+          "required": [
+            "control"
+          ],
+          "type": "object"
+        },
+        {
+          "description": "On LEDs switched one by one, each lit from its own share of the level.",
+          "properties": {
+            "leds": {
+              "items": {
+                "$ref": "#/$defs/MeterLed"
+              },
+              "type": "array"
+            }
+          },
+          "required": [
+            "leds"
+          ],
+          "type": "object"
+        }
+      ],
+      "description": "A level shown on the controller: `source`'s (`deck1`…, `main`, `main.left`,\n`main.right`) raised to `curve` (1 straight), by the value of one control or on LEDs.",
       "properties": {
-        "clip": {
-          "format": "uint8",
-          "maximum": 255,
-          "minimum": 0,
-          "type": [
-            "integer",
-            "null"
-          ]
-        },
-        "control": {
-          "$ref": "#/$defs/Control"
-        },
         "curve": {
           "format": "float",
           "type": "number"
-        },
-        "max": {
-          "format": "uint8",
-          "maximum": 255,
-          "minimum": 0,
-          "type": "integer"
-        },
-        "min": {
-          "format": "uint8",
-          "maximum": 255,
-          "minimum": 0,
-          "type": "integer"
         },
         "source": {
           "enum": [
@@ -364,18 +399,11 @@
             "deck2",
             "deck3",
             "deck4",
-            "main"
+            "main",
+            "main.left",
+            "main.right"
           ],
           "type": "string"
-        },
-        "steps": {
-          "items": {
-            "format": "uint8",
-            "maximum": 255,
-            "minimum": 0,
-            "type": "integer"
-          },
-          "type": "array"
         },
         "when": {
           "anyOf": [
@@ -390,8 +418,29 @@
         }
       },
       "required": [
-        "source",
-        "control"
+        "source"
+      ],
+      "type": "object"
+    },
+    "MeterLed": {
+      "additionalProperties": {
+        "$ref": "#/$defs/LightValue"
+      },
+      "description": "An LED of a meter, lit once the level reaches `from`: its values `on` and `off` beside\nit, as a light's, and `clip` if it shows another for a while after the level reached full\nscale.",
+      "properties": {
+        "control": {
+          "$ref": "#/$defs/Control"
+        },
+        "from": {
+          "format": "float",
+          "maximum": 1,
+          "minimum": 0,
+          "type": "number"
+        }
+      },
+      "required": [
+        "control",
+        "from"
       ],
       "type": "object"
     },
