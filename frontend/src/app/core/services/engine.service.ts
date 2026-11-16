@@ -437,9 +437,12 @@ export class EngineService {
   toggleSync(deck: number) {
     const status = this.status()?.decks[deck];
     if (!status) return;
-    if (status.sync.locked) {
-      return this.call('set_sync_locked', { deck, locked: false });
-    }
+    return this.setSync(deck, !status.sync.locked);
+  }
+
+  /** SYNC on (locked, or matched once on a relative record in one-shot mode), or off. */
+  setSync(deck: number, on: boolean) {
+    if (!on) return this.call('set_sync_locked', { deck, locked: false });
     const oneShot = this.decks()[deck].vinylEnabled && this.preferences.dj().vinylSync === 'once';
     return oneShot
       ? this.call('sync_once', { deck })

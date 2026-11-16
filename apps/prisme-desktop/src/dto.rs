@@ -816,6 +816,8 @@ pub struct MixerStateDto {
     pub split_cue: bool,
     pub headphone_gain: f32,
     pub crossfader_curve: CrossfaderCurveDto,
+    /// The crossfader's sides swapped.
+    pub crossfader_reverse: bool,
     pub limiter: bool,
     pub main_gain: f32,
     pub balance: f32,

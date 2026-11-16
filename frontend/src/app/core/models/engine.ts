@@ -395,6 +395,8 @@ export interface MixerState {
   splitCue: boolean;
   headphoneGain: number;
   crossfaderCurve: CrossfaderCurve;
+  /** The crossfader's sides swapped: towards the left, the decks on the right come in. */
+  crossfaderReverse: boolean;
   /** Master limiter. */
   limiter: boolean;
   /** The master's level (linear). */

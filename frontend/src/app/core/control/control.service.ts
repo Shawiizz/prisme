@@ -84,7 +84,7 @@ export class ControlService {
         return this.deck(deck)?.loaded ? 'on' : 'off';
       return this.deck(deck)?.playing ? 'off' : 'paused';
     },
-    sync: (deck) => this.engine.toggleSync(deck),
+    setSync: (deck, on) => this.engine.setSync(deck, on),
     synced: (deck) => this.deck(deck)?.sync.locked ?? false,
     hotCue: (deck, slot) => this.performance.pressHotCue(deck, slot),
     hotCueSet: (deck, slot) => this.performance.hotCue(deck, slot) !== null,
@@ -117,7 +117,7 @@ export class ControlService {
     cutPlaying: (deck) => this.performance.cuts()[deck],
     beatLoop: (deck, beats) => this.performance.beatLoop(deck, beats),
     bend: (deck, direction) => this.engine.pitchBend(deck, direction),
-    toggleKeyLock: (deck) => this.engine.setKeyLock(deck, !this.engine.decks()[deck].keyLock),
+    setKeyLock: (deck, on) => this.engine.setKeyLock(deck, on),
     keyLocked: (deck) => this.engine.decks()[deck].keyLock,
     toggleStem: (deck, stem) => this.engine.toggleStem(deck, stem),
     stemPlaying: (deck, part) => {
@@ -167,7 +167,7 @@ export class ControlService {
     setCrossfader: (position) => this.mixer.setCrossfader(position * 2 - 1),
     setCueMix: (position) => this.mixer.setCueMix(position),
     cueMixPosition: () => this.mixer.cueMix(),
-    toggleSplitCue: () => this.mixer.setSplitCue(!this.mixer.splitCue()),
+    setSplitCue: (on) => this.mixer.setSplitCue(on),
     splitCue: () => this.mixer.splitCue(),
     setBalance: (position) => this.mixer.setBalance(balanceAmount(position)),
     balancePosition: () => balanceKnob(this.mixer.balance()),
@@ -179,10 +179,9 @@ export class ControlService {
     liveOn: (source) => this.mixer.live(source)().on,
     toggleLiveCue: (source) => this.mixer.setLiveCue(source, !this.mixer.live(source)().cue),
     liveCued: (source) => this.mixer.live(source)().cue,
-    toggleTalkover: () => this.mixer.setTalkover(!this.mixer.talkover()),
+    setTalkover: (on) => this.mixer.setTalkover(on),
     talkover: () => this.mixer.talkover(),
-    togglePassthrough: (deck) =>
-      this.engine.setPassthrough(deck, !this.engine.decks()[deck].passthrough),
+    setPassthrough: (deck, on) => this.engine.setPassthrough(deck, on),
     passthrough: (deck) => this.engine.decks()[deck].passthrough,
     fxMixPosition: (deck, slot) => this.fx.settings(deck, slot).mix,
     volumePosition: (deck) => this.engine.decks()[deck].volume,
@@ -190,12 +189,12 @@ export class ControlService {
     filterPosition: (deck) => filterKnob(this.mixer.strip(deck).filter),
     trimPosition: (deck) => trimKnob(this.mixer.strip(deck).trim),
     crossfaderPosition: () => (this.mixer.crossfader() + 1) / 2,
-    toggleHeadphones: (deck) => this.mixer.setDeckCue(deck, !this.engine.decks()[deck].cue),
+    setHeadphones: (deck, on) => this.mixer.setDeckCue(deck, on),
     inHeadphones: (deck) => this.engine.decks()[deck].cue,
     soloHeadphones: (deck) => this.engine.soloCue(deck),
     aloneInHeadphones: (deck) =>
       this.engine.deckIndexes().every((d) => this.engine.decks()[d].cue === (d === deck)),
-    toggleSlip: (deck) => this.performance.setSlip(deck, !(this.deck(deck)?.slipMode ?? false)),
+    setSlip: (deck, on) => this.performance.setSlip(deck, on),
     slipping: (deck) => this.deck(deck)?.slipMode ?? false,
     censor: (deck, held) => this.performance.censor(deck, held),
     brake: (deck) => this.performance.brake(deck),
@@ -206,10 +205,9 @@ export class ControlService {
     backwards: (deck) => (this.deck(deck)?.speed ?? 0) < 0,
     setMute: (deck, on) => this.engine.setMute(deck, on),
     muted: (deck) => this.engine.decks()[deck].mute,
-    toggleRepeat: (deck) => this.engine.setRepeat(deck, !this.engine.decks()[deck].repeat),
+    setRepeat: (deck, on) => this.engine.setRepeat(deck, on),
     repeating: (deck) => this.engine.decks()[deck].repeat,
-    toggleFaderStart: (deck) =>
-      this.engine.setFaderStart(deck, !this.engine.decks()[deck].faderStart),
+    setFaderStart: (deck, on) => this.engine.setFaderStart(deck, on),
     faderStart: (deck) => this.engine.decks()[deck].faderStart,
     reloop: (deck) => this.performance.reloop(deck),
     deleteHotCue: (deck, slot) => this.performance.deleteHotCue(deck, slot),
@@ -239,7 +237,7 @@ export class ControlService {
     focusSearch: () => this.library.searchRequests.update((n) => n + 1),
     keyShift: (deck) => this.engine.tracks()[deck]?.keyShift ?? 0,
     setKeyShift: (deck, semitones) => this.engine.setKeyShift(deck, semitones),
-    toggleQuantize: () => this.preferences.updateDj({ quantize: !this.preferences.dj().quantize }),
+    setQuantize: (on) => this.preferences.updateDj({ quantize: on }),
     quantized: () => this.preferences.dj().quantize,
     cycleTempoRange: (step) =>
       this.engine.setTempoRange(null, nextTempoRange(this.preferences.dj().pitchRange, step)),
@@ -347,13 +345,8 @@ export class ControlService {
     filtering: (deck) => this.mixer.strip(deck).filter !== 0,
     setCrossfaderSide: (deck, side) => this.mixer.setCrossfaderSide(deck, side),
     crossfaderSide: (deck) => this.engine.decks()[deck].side,
-    reverseCrossfader: () => {
-      for (const deck of this.engine.deckIndexes()) {
-        const side = this.engine.decks()[deck].side;
-        if (side !== 'center')
-          this.mixer.setCrossfaderSide(deck, side === 'left' ? 'right' : 'left');
-      }
-    },
+    setCrossfaderReverse: (on) => this.mixer.setCrossfaderReverse(on),
+    crossfaderReversed: () => this.mixer.crossfaderReverse(),
     setCrossfaderCurve: (position) =>
       this.mixer.setCrossfaderCurve(position < 0.5 ? 'smooth' : 'sharp'),
     crossfaderCurvePosition: () => (this.mixer.crossfaderCurve() === 'sharp' ? 1 : 0),
@@ -372,11 +365,9 @@ export class ControlService {
     },
     holdSample: (deck, slot, held) =>
       held ? this.sampler.trigger(deck, slot) : this.sampler.stop(deck, slot),
-    toggleVinyl: (deck) =>
-      this.engine.setVinyl(deck, { enabled: !this.engine.decks()[deck].vinylEnabled }),
+    setVinyl: (deck, on) => this.engine.setVinyl(deck, { enabled: on }),
     vinylOn: (deck) => this.engine.decks()[deck].vinylEnabled,
-    toggleJogScratch: (deck) =>
-      this.engine.setJogScratch(deck, !this.engine.decks()[deck].jogScratch),
+    setJogScratch: (deck, on) => this.engine.setJogScratch(deck, on),
     jogScratching: (deck) => this.engine.decks()[deck].jogScratch,
     toggleRecording: () =>
       this.recordings.status() ? this.recordings.stop() : this.recordings.start({ kind: 'master' }),

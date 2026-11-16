@@ -400,6 +400,7 @@ impl Engine {
             SetFxBeats { deck, slot, beats } => self.fx_slot(deck, slot, |s| s.set_beats(beats)),
             SetFxParts { deck, parts } if valid(deck) => self.decks[deck].set_fx_parts(parts),
             SetCrossfaderCurve { curve } => self.mixer.curve = curve,
+            SetCrossfaderReverse { enabled } => self.mixer.crossfader_reverse = enabled,
             SetLimiter { enabled } => self.mixer.set_limiter(enabled),
             SetBalance { balance } if balance.is_finite() => self.mixer.set_balance(balance),
             SetBoothGain { gain } if gain.is_finite() => self.mixer.set_booth_gain(gain),

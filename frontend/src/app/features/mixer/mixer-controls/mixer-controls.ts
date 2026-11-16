@@ -37,7 +37,7 @@ const LIVE_TEXTS: Record<LiveSource, Record<'label' | 'on' | 'cue' | 'level', Te
 
 /**
  * What is set on the software mixer beside its channels, a row each: the master's balance and
- * the booth's level, the limiter, the crossfader's curve, the headphones (blended or split),
+ * the booth's level, the limiter, the crossfader's curve and sides, the headphones (blended or split),
  * and the microphone
  * and the aux line plugged in (each with its level, its key and its headphones).
  */
@@ -84,26 +84,38 @@ const LIVE_TEXTS: Record<LiveSource, Record<'label' | 'on' | 'cue' | 'level', Te
       </button>
     </div>
     <div class="row">
-      <span>{{ 'Crossfader curve' | t }}</span>
-      <div
-        class="pr-seg"
-        role="radiogroup"
-        [attr.aria-label]="'Crossfader curve' | t"
-        [title]="'Crossfader curve: smooth for blending, sharp for scratching' | t"
-      >
-        <button
-          role="radio"
-          [attr.aria-checked]="mixer.crossfaderCurve() === 'smooth'"
-          (click)="mixer.setCrossfaderCurve('smooth')"
+      <span>{{ 'Crossfader' | t }}</span>
+      <div class="keys">
+        <div
+          class="pr-seg"
+          role="radiogroup"
+          [attr.aria-label]="'Crossfader curve' | t"
+          [title]="'Crossfader curve: smooth for blending, sharp for scratching' | t"
         >
-          {{ 'SMOOTH' | t }}
-        </button>
+          <button
+            role="radio"
+            [attr.aria-checked]="mixer.crossfaderCurve() === 'smooth'"
+            (click)="mixer.setCrossfaderCurve('smooth')"
+          >
+            {{ 'SMOOTH' | t }}
+          </button>
+          <button
+            role="radio"
+            [attr.aria-checked]="mixer.crossfaderCurve() === 'sharp'"
+            (click)="mixer.setCrossfaderCurve('sharp')"
+          >
+            {{ 'SHARP' | t }}
+          </button>
+        </div>
         <button
-          role="radio"
-          [attr.aria-checked]="mixer.crossfaderCurve() === 'sharp'"
-          (click)="mixer.setCrossfaderCurve('sharp')"
+          class="pr-btn pr-btn--sm"
+          [class.pr-reach]="PHONE"
+          [class.is-on]="mixer.crossfaderReverse()"
+          [attr.aria-pressed]="mixer.crossfaderReverse()"
+          [title]="'Crossfader sides swapped' | t"
+          (click)="mixer.setCrossfaderReverse(!mixer.crossfaderReverse())"
         >
-          {{ 'SHARP' | t }}
+          REV
         </button>
       </div>
     </div>

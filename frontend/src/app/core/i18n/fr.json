@@ -46,7 +46,6 @@
   "Empty sample slot {n}": "Vider l'emplacement de sample {n}",
   "The selected track into sample slot {n}": "Le morceau sélectionné dans l'emplacement de sample {n}",
   "Sample {n} while held": "Sample {n} tant que c'est appuyé",
-  "Vinyl control on / off": "Contrôle vinyle actif / coupé",
   "Jog wheel: a touch scratches, or only nudges": "Jog : un toucher scratche, ou pousse seulement",
   "Light: on the beat": "Lumière : sur le temps",
   "Light: the level past full scale": "Lumière : niveau au-delà du maximum",
@@ -784,5 +783,7 @@
   "START": "DÉBUT",
   "END": "FIN",
   "To the start of the track, playing or not as it was": "Au début du morceau, en lecture ou non comme avant",
-  "A few seconds before the end of the track, playing or not as it was": "Quelques secondes avant la fin du morceau, en lecture ou non comme avant"
+  "A few seconds before the end of the track, playing or not as it was": "Quelques secondes avant la fin du morceau, en lecture ou non comme avant",
+  "{control}: on": "{control} : activé",
+  "{control}: off": "{control} : désactivé"
 }

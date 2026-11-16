@@ -88,9 +88,12 @@ describe('controls', () => {
       'setBoothLevel(0.8)',
       'setLiveLevel(aux,0.5)',
       'toggleLive(mic)',
-      'toggleTalkover()',
-      'togglePassthrough(1)',
-      'toggleSplitCue()',
+      'talkover()',
+      'setTalkover(false)',
+      'passthrough(1)',
+      'setPassthrough(1,false)',
+      'splitCue()',
+      'setSplitCue(false)',
       'soloHeadphones(1)',
       'muted(0)',
       'setMute(0,false)',
@@ -180,9 +183,11 @@ describe('controls', () => {
       'brake(0)',
       'spinBack(1,true)',
       'spinBack(1,false)',
-      'toggleRepeat(0)',
+      'repeating(0)',
+      'setRepeat(0,false)',
       'repeating(1)',
-      'toggleFaderStart(1)',
+      'faderStart(1)',
+      'setFaderStart(1,false)',
     ]);
   });
 
@@ -282,6 +287,47 @@ describe('controls', () => {
     expect(nextTempoRange(0.5, 1)).toBe(0.08);
     expect(nextTempoRange(0.08, -1)).toBe(0.5);
     expect(nextTempoRange(0.1, 1)).toBe(0.08);
+  });
+
+  it('give each switch a key putting it on and one putting it off, whatever it is', () => {
+    const { calls, controls, find } = recorder();
+    find('deck1.sync.on').apply(1);
+    find('deck2.keylock.off').apply(1);
+    find('general.quantize.on').apply(1);
+    find('mixer.crossfader.reverse.off').apply(1);
+    find('deck1.vinyl.on').apply(0);
+    expect(find('deck2.mute.on').lit!()).toBe(true);
+    expect(find('deck2.mute.off').lit!()).toBe(false);
+    expect(calls).toEqual([
+      'setSync(0,true)',
+      'setKeyLock(1,false)',
+      'setQuantize(true)',
+      'setCrossfaderReverse(false)',
+      'muted(1)',
+      'muted(1)',
+    ]);
+    const switches = [
+      'deck1.sync',
+      'deck1.keylock',
+      'general.quantize',
+      'deck1.slip',
+      'deck1.vinyl',
+      'deck1.passthrough',
+      'mixer.crossfader.reverse',
+      'mixer.headphones.split',
+      'deck1.headphones',
+      'deck1.repeat',
+      'deck1.faderStart',
+      'deck1.mute',
+      'deck1.reverse',
+      'mixer.talkover',
+      'deck1.jog.scratch',
+    ];
+    const ids = new Set(controls.map((c) => c.id));
+    expect(
+      switches.flatMap((s) => [s, `${s}.on`, `${s}.off`]).filter((id) => !ids.has(id)),
+    ).toEqual([]);
+    expect(find('deck1.keylock.on').label).toBe('Key lock: on');
   });
 
   it('read a jump or a loop of so many beats from its id', () => {

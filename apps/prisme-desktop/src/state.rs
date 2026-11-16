@@ -523,6 +523,8 @@ impl AppState {
         let _ =
             controller.send(Command::SetCrossfaderCurve { curve: preferences.mixer.crossfader_curve.into() });
         let _ = controller.send(Command::SetLimiter { enabled: preferences.mixer.limiter });
+        let _ =
+            controller.send(Command::SetCrossfaderReverse { enabled: preferences.mixer.crossfader_reverse });
         for c in self.live_commands(Some(&session.info)) {
             let _ = controller.send(c);
         }

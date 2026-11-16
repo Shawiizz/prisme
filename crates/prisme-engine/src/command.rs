@@ -296,6 +296,10 @@ pub enum Command {
     SetSplitCue {
         enabled: bool,
     },
+    /// The crossfader's sides swapped: towards the left, the decks on the right come in.
+    SetCrossfaderReverse {
+        enabled: bool,
+    },
     /// The level of the track on `deck` (linear): its auto gain, in either mixer mode.
     SetLevel {
         deck: DeckId,

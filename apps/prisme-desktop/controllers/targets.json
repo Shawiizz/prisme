@@ -18,6 +18,18 @@
   "kind": "button"
  },
  {
+  "id": "deck1.sync.on",
+  "group": "Deck A",
+  "label": "Sync: on",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.sync.off",
+  "group": "Deck A",
+  "label": "Sync: off",
+  "kind": "button"
+ },
+ {
   "id": "deck1.hotcue1",
   "group": "Deck A",
   "label": "Hot cue 1",
@@ -354,6 +366,18 @@
   "kind": "button"
  },
  {
+  "id": "deck1.slip.on",
+  "group": "Deck A",
+  "label": "Slip: on",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.slip.off",
+  "group": "Deck A",
+  "label": "Slip: off",
+  "kind": "button"
+ },
+ {
   "id": "deck1.censor",
   "group": "Deck A",
   "label": "Censor while held",
@@ -378,6 +402,18 @@
   "kind": "button"
  },
  {
+  "id": "deck1.reverse.on",
+  "group": "Deck A",
+  "label": "Reverse: on",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.reverse.off",
+  "group": "Deck A",
+  "label": "Reverse: off",
+  "kind": "button"
+ },
+ {
   "id": "deck1.reverse.held",
   "group": "Deck A",
   "label": "Reverse while held",
@@ -390,15 +426,51 @@
   "kind": "button"
  },
  {
+  "id": "deck1.repeat.on",
+  "group": "Deck A",
+  "label": "Repeat the track: on",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.repeat.off",
+  "group": "Deck A",
+  "label": "Repeat the track: off",
+  "kind": "button"
+ },
+ {
   "id": "deck1.faderStart",
   "group": "Deck A",
   "label": "Fader start",
   "kind": "button"
  },
  {
+  "id": "deck1.faderStart.on",
+  "group": "Deck A",
+  "label": "Fader start: on",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.faderStart.off",
+  "group": "Deck A",
+  "label": "Fader start: off",
+  "kind": "button"
+ },
+ {
   "id": "deck1.keylock",
   "group": "Deck A",
   "label": "Key lock",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.keylock.on",
+  "group": "Deck A",
+  "label": "Key lock: on",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.keylock.off",
+  "group": "Deck A",
+  "label": "Key lock: off",
   "kind": "button"
  },
  {
@@ -1038,9 +1110,33 @@
   "kind": "button"
  },
  {
+  "id": "deck1.headphones.on",
+  "group": "Deck A",
+  "label": "Headphones (pre-listen): on",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.headphones.off",
+  "group": "Deck A",
+  "label": "Headphones (pre-listen): off",
+  "kind": "button"
+ },
+ {
   "id": "deck1.mute",
   "group": "Deck A",
   "label": "Mute the channel",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.mute.on",
+  "group": "Deck A",
+  "label": "Mute the channel: on",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.mute.off",
+  "group": "Deck A",
+  "label": "Mute the channel: off",
   "kind": "button"
  },
  {
@@ -1053,6 +1149,18 @@
   "id": "deck1.passthrough",
   "group": "Deck A",
   "label": "Passthrough: the deck plays its input",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.passthrough.on",
+  "group": "Deck A",
+  "label": "Passthrough: the deck plays its input: on",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.passthrough.off",
+  "group": "Deck A",
+  "label": "Passthrough: the deck plays its input: off",
   "kind": "button"
  },
  {
@@ -1694,13 +1802,37 @@
  {
   "id": "deck1.vinyl",
   "group": "Deck A",
-  "label": "Vinyl control on / off",
+  "label": "Vinyl control",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.vinyl.on",
+  "group": "Deck A",
+  "label": "Vinyl control: on",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.vinyl.off",
+  "group": "Deck A",
+  "label": "Vinyl control: off",
   "kind": "button"
  },
  {
   "id": "deck1.jog.scratch",
   "group": "Deck A",
   "label": "Jog wheel: a touch scratches, or only nudges",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.jog.scratch.on",
+  "group": "Deck A",
+  "label": "Jog wheel: a touch scratches, or only nudges: on",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.jog.scratch.off",
+  "group": "Deck A",
+  "label": "Jog wheel: a touch scratches, or only nudges: off",
   "kind": "button"
  },
  {
@@ -1761,6 +1893,18 @@
   "id": "deck2.sync",
   "group": "Deck B",
   "label": "Sync",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.sync.on",
+  "group": "Deck B",
+  "label": "Sync: on",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.sync.off",
+  "group": "Deck B",
+  "label": "Sync: off",
   "kind": "button"
  },
  {
@@ -2100,6 +2244,18 @@
   "kind": "button"
  },
  {
+  "id": "deck2.slip.on",
+  "group": "Deck B",
+  "label": "Slip: on",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.slip.off",
+  "group": "Deck B",
+  "label": "Slip: off",
+  "kind": "button"
+ },
+ {
   "id": "deck2.censor",
   "group": "Deck B",
   "label": "Censor while held",
@@ -2124,6 +2280,18 @@
   "kind": "button"
  },
  {
+  "id": "deck2.reverse.on",
+  "group": "Deck B",
+  "label": "Reverse: on",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.reverse.off",
+  "group": "Deck B",
+  "label": "Reverse: off",
+  "kind": "button"
+ },
+ {
   "id": "deck2.reverse.held",
   "group": "Deck B",
   "label": "Reverse while held",
@@ -2136,15 +2304,51 @@
   "kind": "button"
  },
  {
+  "id": "deck2.repeat.on",
+  "group": "Deck B",
+  "label": "Repeat the track: on",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.repeat.off",
+  "group": "Deck B",
+  "label": "Repeat the track: off",
+  "kind": "button"
+ },
+ {
   "id": "deck2.faderStart",
   "group": "Deck B",
   "label": "Fader start",
   "kind": "button"
  },
  {
+  "id": "deck2.faderStart.on",
+  "group": "Deck B",
+  "label": "Fader start: on",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.faderStart.off",
+  "group": "Deck B",
+  "label": "Fader start: off",
+  "kind": "button"
+ },
+ {
   "id": "deck2.keylock",
   "group": "Deck B",
   "label": "Key lock",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.keylock.on",
+  "group": "Deck B",
+  "label": "Key lock: on",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.keylock.off",
+  "group": "Deck B",
+  "label": "Key lock: off",
   "kind": "button"
  },
  {
@@ -2784,9 +2988,33 @@
   "kind": "button"
  },
  {
+  "id": "deck2.headphones.on",
+  "group": "Deck B",
+  "label": "Headphones (pre-listen): on",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.headphones.off",
+  "group": "Deck B",
+  "label": "Headphones (pre-listen): off",
+  "kind": "button"
+ },
+ {
   "id": "deck2.mute",
   "group": "Deck B",
   "label": "Mute the channel",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.mute.on",
+  "group": "Deck B",
+  "label": "Mute the channel: on",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.mute.off",
+  "group": "Deck B",
+  "label": "Mute the channel: off",
   "kind": "button"
  },
  {
@@ -2799,6 +3027,18 @@
   "id": "deck2.passthrough",
   "group": "Deck B",
   "label": "Passthrough: the deck plays its input",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.passthrough.on",
+  "group": "Deck B",
+  "label": "Passthrough: the deck plays its input: on",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.passthrough.off",
+  "group": "Deck B",
+  "label": "Passthrough: the deck plays its input: off",
   "kind": "button"
  },
  {
@@ -3440,13 +3680,37 @@
  {
   "id": "deck2.vinyl",
   "group": "Deck B",
-  "label": "Vinyl control on / off",
+  "label": "Vinyl control",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.vinyl.on",
+  "group": "Deck B",
+  "label": "Vinyl control: on",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.vinyl.off",
+  "group": "Deck B",
+  "label": "Vinyl control: off",
   "kind": "button"
  },
  {
   "id": "deck2.jog.scratch",
   "group": "Deck B",
   "label": "Jog wheel: a touch scratches, or only nudges",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.jog.scratch.on",
+  "group": "Deck B",
+  "label": "Jog wheel: a touch scratches, or only nudges: on",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.jog.scratch.off",
+  "group": "Deck B",
+  "label": "Jog wheel: a touch scratches, or only nudges: off",
   "kind": "button"
  },
  {
@@ -3507,6 +3771,18 @@
   "id": "deck3.sync",
   "group": "Deck C",
   "label": "Sync",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.sync.on",
+  "group": "Deck C",
+  "label": "Sync: on",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.sync.off",
+  "group": "Deck C",
+  "label": "Sync: off",
   "kind": "button"
  },
  {
@@ -3846,6 +4122,18 @@
   "kind": "button"
  },
  {
+  "id": "deck3.slip.on",
+  "group": "Deck C",
+  "label": "Slip: on",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.slip.off",
+  "group": "Deck C",
+  "label": "Slip: off",
+  "kind": "button"
+ },
+ {
   "id": "deck3.censor",
   "group": "Deck C",
   "label": "Censor while held",
@@ -3870,6 +4158,18 @@
   "kind": "button"
  },
  {
+  "id": "deck3.reverse.on",
+  "group": "Deck C",
+  "label": "Reverse: on",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.reverse.off",
+  "group": "Deck C",
+  "label": "Reverse: off",
+  "kind": "button"
+ },
+ {
   "id": "deck3.reverse.held",
   "group": "Deck C",
   "label": "Reverse while held",
@@ -3882,15 +4182,51 @@
   "kind": "button"
  },
  {
+  "id": "deck3.repeat.on",
+  "group": "Deck C",
+  "label": "Repeat the track: on",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.repeat.off",
+  "group": "Deck C",
+  "label": "Repeat the track: off",
+  "kind": "button"
+ },
+ {
   "id": "deck3.faderStart",
   "group": "Deck C",
   "label": "Fader start",
   "kind": "button"
  },
  {
+  "id": "deck3.faderStart.on",
+  "group": "Deck C",
+  "label": "Fader start: on",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.faderStart.off",
+  "group": "Deck C",
+  "label": "Fader start: off",
+  "kind": "button"
+ },
+ {
   "id": "deck3.keylock",
   "group": "Deck C",
   "label": "Key lock",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.keylock.on",
+  "group": "Deck C",
+  "label": "Key lock: on",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.keylock.off",
+  "group": "Deck C",
+  "label": "Key lock: off",
   "kind": "button"
  },
  {
@@ -4530,9 +4866,33 @@
   "kind": "button"
  },
  {
+  "id": "deck3.headphones.on",
+  "group": "Deck C",
+  "label": "Headphones (pre-listen): on",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.headphones.off",
+  "group": "Deck C",
+  "label": "Headphones (pre-listen): off",
+  "kind": "button"
+ },
+ {
   "id": "deck3.mute",
   "group": "Deck C",
   "label": "Mute the channel",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.mute.on",
+  "group": "Deck C",
+  "label": "Mute the channel: on",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.mute.off",
+  "group": "Deck C",
+  "label": "Mute the channel: off",
   "kind": "button"
  },
  {
@@ -4545,6 +4905,18 @@
   "id": "deck3.passthrough",
   "group": "Deck C",
   "label": "Passthrough: the deck plays its input",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.passthrough.on",
+  "group": "Deck C",
+  "label": "Passthrough: the deck plays its input: on",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.passthrough.off",
+  "group": "Deck C",
+  "label": "Passthrough: the deck plays its input: off",
   "kind": "button"
  },
  {
@@ -5186,13 +5558,37 @@
  {
   "id": "deck3.vinyl",
   "group": "Deck C",
-  "label": "Vinyl control on / off",
+  "label": "Vinyl control",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.vinyl.on",
+  "group": "Deck C",
+  "label": "Vinyl control: on",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.vinyl.off",
+  "group": "Deck C",
+  "label": "Vinyl control: off",
   "kind": "button"
  },
  {
   "id": "deck3.jog.scratch",
   "group": "Deck C",
   "label": "Jog wheel: a touch scratches, or only nudges",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.jog.scratch.on",
+  "group": "Deck C",
+  "label": "Jog wheel: a touch scratches, or only nudges: on",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.jog.scratch.off",
+  "group": "Deck C",
+  "label": "Jog wheel: a touch scratches, or only nudges: off",
   "kind": "button"
  },
  {
@@ -5253,6 +5649,18 @@
   "id": "deck4.sync",
   "group": "Deck D",
   "label": "Sync",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.sync.on",
+  "group": "Deck D",
+  "label": "Sync: on",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.sync.off",
+  "group": "Deck D",
+  "label": "Sync: off",
   "kind": "button"
  },
  {
@@ -5592,6 +6000,18 @@
   "kind": "button"
  },
  {
+  "id": "deck4.slip.on",
+  "group": "Deck D",
+  "label": "Slip: on",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.slip.off",
+  "group": "Deck D",
+  "label": "Slip: off",
+  "kind": "button"
+ },
+ {
   "id": "deck4.censor",
   "group": "Deck D",
   "label": "Censor while held",
@@ -5616,6 +6036,18 @@
   "kind": "button"
  },
  {
+  "id": "deck4.reverse.on",
+  "group": "Deck D",
+  "label": "Reverse: on",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.reverse.off",
+  "group": "Deck D",
+  "label": "Reverse: off",
+  "kind": "button"
+ },
+ {
   "id": "deck4.reverse.held",
   "group": "Deck D",
   "label": "Reverse while held",
@@ -5628,15 +6060,51 @@
   "kind": "button"
  },
  {
+  "id": "deck4.repeat.on",
+  "group": "Deck D",
+  "label": "Repeat the track: on",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.repeat.off",
+  "group": "Deck D",
+  "label": "Repeat the track: off",
+  "kind": "button"
+ },
+ {
   "id": "deck4.faderStart",
   "group": "Deck D",
   "label": "Fader start",
   "kind": "button"
  },
  {
+  "id": "deck4.faderStart.on",
+  "group": "Deck D",
+  "label": "Fader start: on",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.faderStart.off",
+  "group": "Deck D",
+  "label": "Fader start: off",
+  "kind": "button"
+ },
+ {
   "id": "deck4.keylock",
   "group": "Deck D",
   "label": "Key lock",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.keylock.on",
+  "group": "Deck D",
+  "label": "Key lock: on",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.keylock.off",
+  "group": "Deck D",
+  "label": "Key lock: off",
   "kind": "button"
  },
  {
@@ -6276,9 +6744,33 @@
   "kind": "button"
  },
  {
+  "id": "deck4.headphones.on",
+  "group": "Deck D",
+  "label": "Headphones (pre-listen): on",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.headphones.off",
+  "group": "Deck D",
+  "label": "Headphones (pre-listen): off",
+  "kind": "button"
+ },
+ {
   "id": "deck4.mute",
   "group": "Deck D",
   "label": "Mute the channel",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.mute.on",
+  "group": "Deck D",
+  "label": "Mute the channel: on",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.mute.off",
+  "group": "Deck D",
+  "label": "Mute the channel: off",
   "kind": "button"
  },
  {
@@ -6291,6 +6783,18 @@
   "id": "deck4.passthrough",
   "group": "Deck D",
   "label": "Passthrough: the deck plays its input",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.passthrough.on",
+  "group": "Deck D",
+  "label": "Passthrough: the deck plays its input: on",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.passthrough.off",
+  "group": "Deck D",
+  "label": "Passthrough: the deck plays its input: off",
   "kind": "button"
  },
  {
@@ -6932,13 +7436,37 @@
  {
   "id": "deck4.vinyl",
   "group": "Deck D",
-  "label": "Vinyl control on / off",
+  "label": "Vinyl control",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.vinyl.on",
+  "group": "Deck D",
+  "label": "Vinyl control: on",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.vinyl.off",
+  "group": "Deck D",
+  "label": "Vinyl control: off",
   "kind": "button"
  },
  {
   "id": "deck4.jog.scratch",
   "group": "Deck D",
   "label": "Jog wheel: a touch scratches, or only nudges",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.jog.scratch.on",
+  "group": "Deck D",
+  "label": "Jog wheel: a touch scratches, or only nudges: on",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.jog.scratch.off",
+  "group": "Deck D",
+  "label": "Jog wheel: a touch scratches, or only nudges: off",
   "kind": "button"
  },
  {
@@ -7002,6 +7530,18 @@
   "kind": "button"
  },
  {
+  "id": "mixer.headphones.split.on",
+  "group": "Mixer",
+  "label": "Split headphones: cue left, master right: on",
+  "kind": "button"
+ },
+ {
+  "id": "mixer.headphones.split.off",
+  "group": "Mixer",
+  "label": "Split headphones: cue left, master right: off",
+  "kind": "button"
+ },
+ {
   "id": "mixer.balance",
   "group": "Mixer",
   "label": "Master balance",
@@ -7053,6 +7593,18 @@
   "id": "mixer.talkover",
   "group": "Mixer",
   "label": "Talkover: the music ducks under the microphone",
+  "kind": "button"
+ },
+ {
+  "id": "mixer.talkover.on",
+  "group": "Mixer",
+  "label": "Talkover: the music ducks under the microphone: on",
+  "kind": "button"
+ },
+ {
+  "id": "mixer.talkover.off",
+  "group": "Mixer",
+  "label": "Talkover: the music ducks under the microphone: off",
   "kind": "button"
  },
  {
@@ -7296,6 +7848,18 @@
   "kind": "button"
  },
  {
+  "id": "mixer.crossfader.reverse.on",
+  "group": "Mixer",
+  "label": "Crossfader sides swapped: on",
+  "kind": "button"
+ },
+ {
+  "id": "mixer.crossfader.reverse.off",
+  "group": "Mixer",
+  "label": "Crossfader sides swapped: off",
+  "kind": "button"
+ },
+ {
   "id": "sampler.gain",
   "group": "Mixer",
   "label": "Level of every deck's sampler",
@@ -7335,6 +7899,18 @@
   "id": "general.quantize",
   "group": "General",
   "label": "Quantize",
+  "kind": "button"
+ },
+ {
+  "id": "general.quantize.on",
+  "group": "General",
+  "label": "Quantize: on",
+  "kind": "button"
+ },
+ {
+  "id": "general.quantize.off",
+  "group": "General",
+  "label": "Quantize: off",
   "kind": "button"
  },
  {

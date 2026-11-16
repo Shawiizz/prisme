@@ -81,6 +81,8 @@ pub(crate) struct Mixer {
     /// -1.0 = full left, 1.0 = full right.
     pub(crate) crossfader: f32,
     pub(crate) curve: CrossfaderCurve,
+    /// The sides swapped: towards the left, the decks on the right come in.
+    pub(crate) crossfader_reverse: bool,
     limiter: Limiter,
     /// The gain the limiter gave each frame of the block.
     limiter_gains: Vec<f32>,
@@ -123,6 +125,7 @@ impl Mixer {
             routing: OutputRouting::default(),
             crossfader: 0.0,
             curve: CrossfaderCurve::Smooth,
+            crossfader_reverse: false,
             limiter_gains: vec![1.0; max_block_frames],
             cue_delay: DelayLine::new(limiter.latency()),
             music_delay: DelayLine::new(limiter.latency()),
@@ -298,7 +301,8 @@ impl Mixer {
     /// Gain of the crossfader for a deck on `side`.
     pub(crate) fn crossfader_gain(&self, side: CrossfaderSide) -> f32 {
         // how far the crossfader is towards the other side, 0..1
-        let x = (self.crossfader.clamp(-1.0, 1.0) + 1.0) * 0.5;
+        let position = if self.crossfader_reverse { -self.crossfader } else { self.crossfader };
+        let x = (position.clamp(-1.0, 1.0) + 1.0) * 0.5;
         let away = match side {
             CrossfaderSide::Center => return 1.0,
             CrossfaderSide::Left => x,
@@ -364,6 +368,16 @@ mod tests {
         m.crossfader = 0.0;
         let (l, r) = (m.crossfader_gain(CrossfaderSide::Left), m.crossfader_gain(CrossfaderSide::Right));
         assert!((l * l + r * r - 1.0).abs() < 1e-5);
+        assert_eq!(m.crossfader_gain(CrossfaderSide::Center), 1.0);
+    }
+
+    #[test]
+    fn a_reversed_crossfader_swaps_its_sides() {
+        let mut m = Mixer::new(4, 48_000.0);
+        m.crossfader = -1.0;
+        m.crossfader_reverse = true;
+        assert!(m.crossfader_gain(CrossfaderSide::Left).abs() < 1e-6);
+        assert!((m.crossfader_gain(CrossfaderSide::Right) - 1.0).abs() < 1e-6);
         assert_eq!(m.crossfader_gain(CrossfaderSide::Center), 1.0);
     }
 

@@ -71,6 +71,7 @@ pub fn mixer_state(state: State<'_, AppState>) -> MixerStateDto {
         split_cue: mixer.split_cue,
         headphone_gain: mixer.headphone_gain,
         crossfader_curve: mixer.crossfader_curve,
+        crossfader_reverse: mixer.crossfader_reverse,
         limiter: mixer.limiter,
         main_gain: mixer.main_gain,
         balance: mixer.balance,
@@ -209,6 +210,13 @@ pub fn set_deck_cue(state: State<'_, AppState>, deck: usize, enabled: bool) -> A
     AppState::check_deck(deck)?;
     lock(&state.decks)[deck].cue = enabled;
     state.send(Command::SetDeckCue { deck, enabled })
+}
+
+/// The crossfader's sides swapped, or back. Kept for the next start.
+#[tauri::command]
+pub fn set_crossfader_reverse(state: State<'_, AppState>, enabled: bool) -> AppResult<()> {
+    state.update_preferences(|p| p.mixer.crossfader_reverse = enabled);
+    state.send_if_running(Command::SetCrossfaderReverse { enabled })
 }
 
 /// The deck's channel silenced in the master, after its fader, or heard again.
