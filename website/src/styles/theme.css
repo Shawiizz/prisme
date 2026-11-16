@@ -147,7 +147,6 @@ h1#_top {
 /* A thin spectrum under the top bar, the one colour of the frame. */
 header.header {
 	border-bottom: 1px solid var(--pr-line);
-	position: relative;
 }
 header.header::after {
 	content: '';

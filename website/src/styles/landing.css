@@ -689,6 +689,12 @@ section p {
 	body {
 		font-size: 16px;
 	}
+	.hero {
+		padding-top: 36px;
+	}
+	.badge {
+		margin-bottom: 22px;
+	}
 	.top .btn {
 		display: none;
 	}
