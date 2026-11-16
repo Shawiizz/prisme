@@ -56,7 +56,7 @@
             <optgroup [label]="maker.name">
               @for (record of maker.records; track record.name) {
                 <option [value]="record.sides[0].id" [selected]="record === current()">
-                  {{ record.name }}
+                  {{ maker.name }} · {{ record.name }}
                 </option>
               }
             </optgroup>
