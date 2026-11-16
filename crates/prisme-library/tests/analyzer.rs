@@ -310,6 +310,9 @@ fn the_tracks_of_a_music_folder_left_follow_into_the_new_one_or_are_forgotten() 
     db.save_cue(&stays, &Cue::point(CueSlot::Hot(0), 3.0)).unwrap();
     let copy = new.join("copied.wav");
     std::fs::copy(&copied, &copy).unwrap();
+    // as Windows' copy and the file managers do; std's copy on Linux and macOS dates it now
+    let modified = std::fs::metadata(&copied).unwrap().modified().unwrap();
+    std::fs::File::options().write(true).open(&copy).unwrap().set_modified(modified).unwrap();
 
     let listener = Arc::new(Leaving::default());
     BackgroundAnalyzer::leaving(
