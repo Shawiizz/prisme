@@ -6,6 +6,8 @@ import mark from '../../assets/logo-mark.svg';
 import decks from '../../assets/screens/decks.png';
 import fourDecks from '../../assets/screens/four-decks.png';
 import palette from '../../assets/screens/palette-crop.png';
+import closeDeck from '../../assets/screens/close-deck.png';
+import closeFx from '../../assets/screens/close-fx.png';
 import phoneLandscape from '../../assets/screens/phone-landscape.png';
 import phonePortrait from '../../assets/screens/phone-portrait.png';
 import Waveform from './Waveform.astro';
@@ -104,7 +106,7 @@ const featured = FEATURED.filter((name) => models.some((m) => m.name === name));
 
 			<section class="screen">
 				<div class="frame">
-					<Image data-zoom src={decks} alt={s.shot} widths={[800, 1200, 1697]} sizes="(max-width: 1240px) 100vw, 1200px" loading="eager" />
+					<Image data-zoom src={decks} alt={s.shot} widths={[800, 1200, 1600, 2400, 3200]} sizes="(max-width: 1240px) 100vw, 1200px" quality={90} loading="eager" />
 				</div>
 			</section>
 
@@ -173,6 +175,9 @@ const featured = FEATURED.filter((name) => models.some((m) => m.name === name));
 					<h2>{s.perf.title}</h2>
 					<p>{s.perf.body}</p>
 				</div>
+				<div class="frame strip">
+					<Image data-zoom src={closeDeck} alt={s.perf.deckAlt} widths={[800, 1200, 1600, 2400, 3104]} sizes="(max-width: 1240px) 100vw, 1200px" quality={90} />
+				</div>
 				<ul class="tiles">
 					{
 						s.perf.items.map(([title, detail], i) => (
@@ -183,6 +188,9 @@ const featured = FEATURED.filter((name) => models.some((m) => m.name === name));
 						))
 					}
 				</ul>
+				<div class="frame strip">
+					<Image data-zoom src={closeFx} alt={s.perf.fxAlt} widths={[800, 1200, 1600, 2084]} sizes="(max-width: 1240px) 100vw, 1200px" quality={90} />
+				</div>
 			</section>
 
 			<section class="wide" data-reveal>
@@ -191,7 +199,7 @@ const featured = FEATURED.filter((name) => models.some((m) => m.name === name));
 					<p>{s.four.body}</p>
 				</div>
 				<div class="frame">
-					<Image data-zoom src={fourDecks} alt={s.four.alt} widths={[800, 1200, 1697]} sizes="(max-width: 1240px) 100vw, 1200px" />
+					<Image data-zoom src={fourDecks} alt={s.four.alt} widths={[800, 1200, 1600, 2400, 3200]} sizes="(max-width: 1240px) 100vw, 1200px" quality={90} />
 				</div>
 			</section>
 
@@ -202,8 +210,8 @@ const featured = FEATURED.filter((name) => models.some((m) => m.name === name));
 					<p>{s.phone.body}</p>
 				</div>
 				<div class="visual devices">
-					<div class="device landscape"><Image data-zoom src={phoneLandscape} alt="" widths={[600, 915]} sizes="560px" /></div>
-					<div class="device portrait"><Image data-zoom src={phonePortrait} alt="" widths={[206, 412]} sizes="160px" /></div>
+					<div class="device landscape"><Image data-zoom src={phoneLandscape} alt="" widths={[560, 1120, 1680, 2745]} sizes="(max-width: 820px) 78vw, 440px" quality={90} /></div>
+					<div class="device portrait"><Image data-zoom src={phonePortrait} alt="" widths={[160, 320, 480, 1236]} sizes="(max-width: 820px) 22vw, 125px" quality={90} /></div>
 				</div>
 			</section>
 
@@ -216,7 +224,7 @@ const featured = FEATURED.filter((name) => models.some((m) => m.name === name));
 				</div>
 				<div class="visual">
 					<div class="frame small">
-						<Image data-zoom src={palette} alt={s.library.alt} widths={[620, 940]} sizes="(max-width: 900px) 100vw, 510px" />
+						<Image data-zoom src={palette} alt={s.library.alt} widths={[510, 1020, 1600]} sizes="(max-width: 820px) 100vw, 510px" quality={90} />
 					</div>
 				</div>
 			</section>

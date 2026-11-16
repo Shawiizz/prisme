@@ -43,6 +43,8 @@ const en = {
 		kicker: 'Performance',
 		title: 'Everything at hand, nothing in the way.',
 		body: 'The pads, the loops and the effects a set calls for, every one of them on the keyboard, on a controller and in the command palette.',
+		deckAlt: 'A deck: its track, time, tempo and key, the waveform with its hot cues and beat grid, CUE, PLAY, the stem knobs, SYNC and the hot cue pads',
+		fxAlt: 'The effect pads of a deck: eight effects, three slots, the chain switch and the MIX, AMOUNT and TONE knobs',
 		items: [
 			['16 hot cues', 'on two pages of pads, coloured'],
 			['Loops and rolls', 'a size per deck, in and out by hand'],
@@ -162,6 +164,8 @@ const fr: typeof en = {
 		kicker: 'Performance',
 		title: 'Tout sous la main, rien dans les pattes.',
 		body: 'Les pads, les boucles et les effets qu’un set demande, chacun au clavier, sur un contrôleur et dans la palette de commandes.',
+		deckAlt: 'Un deck : son morceau, le temps, le tempo et la tonalité, la forme d’onde avec ses hot cues et sa grille, CUE, PLAY, les boutons des stems, SYNC et les pads de hot cues',
+		fxAlt: 'Les pads d’effets d’un deck : huit effets, trois slots, l’interrupteur de la chaîne et les boutons MIX, AMOUNT et TONE',
 		items: [
 			['16 hot cues', 'sur deux pages de pads, en couleur'],
 			['Boucles et rolls', 'une taille par deck, entrée et sortie à la main'],

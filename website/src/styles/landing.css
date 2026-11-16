@@ -258,6 +258,12 @@ kbd {
 .frame.small {
 	border-radius: 8px;
 }
+/* a strip of the interface: a deck's rail, its effects */
+.frame.strip {
+	margin-top: 40px;
+	border-radius: 8px;
+	box-shadow: 0 24px 70px rgb(0 0 0 / 0.55);
+}
 
 /* Sections */
 main > section {
