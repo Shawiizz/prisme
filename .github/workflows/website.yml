@@ -1,8 +1,9 @@
 name: Website
 
 # The site at https://prisme.maelferi.com, built from website/ and served by GitHub Pages.
-# It reads the controller profiles and the latest release when it is built, so it is built
-# again when they change.
+# It reads the controller profiles and the latest releases when it is built, so it is built
+# again when they change. A release runs on its tag, which Pages does not deploy from: it
+# asks for a build of main instead.
 on:
   push:
     branches: [main]
@@ -24,7 +25,18 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  from-main:
+    if: github.event_name == 'release'
+    runs-on: ubuntu-latest
+    permissions:
+      actions: write
+    steps:
+      - env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh workflow run website.yml --repo "$GITHUB_REPOSITORY" --ref main
+
   build:
+    if: github.event_name != 'release'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
