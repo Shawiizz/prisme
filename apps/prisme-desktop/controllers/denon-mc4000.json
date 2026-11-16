@@ -125,7 +125,7 @@
     {"control": {"kind": "note", "channel": 15, "number": 43}, "target": "deck1.sample4.stop"}
   ],
   "meters": [
-    {"source": "main", "control": {"kind": "controlChange", "channel": 15, "number": 68}, "curve": 0.45},
-    {"source": "main", "control": {"kind": "controlChange", "channel": 15, "number": 69}, "curve": 0.45}
+    {"source": "main.left", "control": {"kind": "controlChange", "channel": 15, "number": 68}, "curve": 0.45},
+    {"source": "main.right", "control": {"kind": "controlChange", "channel": 15, "number": 69}, "curve": 0.45}
   ]
 }

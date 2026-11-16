@@ -31,9 +31,9 @@
       "format": 2
     },
     "denon-mc4000.json": {
-      "sha256": "1f0b4d77f7c237e49e634e64275d24bbedab9c263b07100c22b69ae1a0288e97",
-      "revision": 2,
-      "format": 1
+      "sha256": "64b9f762907427022d377a387acf099ebf8ab2e39d19565c11b11333e1b682ac",
+      "revision": 3,
+      "format": 2
     },
     "denon-mc6000mk2.json": {
       "sha256": "f5eebfe432faf4e29ff8be2a59f1dc02da218ed40941f1260dda95c6e1ee6616",
