@@ -346,6 +346,37 @@ describe('controls', () => {
     ]);
   });
 
+  it('a smart sample pad loads an empty slot, plays a loaded one, stops a playing one', () => {
+    const slots = { loaded: false, playing: false };
+    const calls: string[] = [];
+    const actions = new Proxy(
+      {},
+      {
+        get:
+          (_, name: string) =>
+          (...args: unknown[]) => {
+            if (name === 'sampleLoaded') return slots.loaded;
+            if (name === 'samplePlaying') return slots.playing;
+            calls.push(`${name}(${args.join(',')})`);
+            return true;
+          },
+      },
+    ) as ControlActions;
+    const pad = buildControls(actions).find((c) => c.id === 'deck2.sample3.smart')!;
+    const press = () => {
+      pad.apply(1);
+      pad.apply(0);
+      return pad.state!();
+    };
+    expect(press()).toBe('off');
+    slots.loaded = true;
+    expect(press()).toBe('loaded');
+    slots.playing = true;
+    expect(press()).toBe('playing');
+    expect(pad.lit!()).toBe(true);
+    expect(calls).toEqual(['loadSample(1,2)', 'triggerSample(1,2)', 'stopSample(1,2)']);
+  });
+
   it('read a jump or a loop of so many beats from its id', () => {
     const { calls, actions } = recorder();
     measuredControl(actions, 'deck2.jump.-8')!.apply(1);

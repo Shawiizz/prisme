@@ -418,6 +418,12 @@ function light(id: string, group: string, label: string, state: () => boolean | 
 }
 const coloured = (control: Control, color: () => string | null): Control => ({ ...control, color });
 
+/** What a sampler slot's light shows: `off` empty, `loaded`, `playing`. */
+function sampleState(a: ControlActions, deck: number, slot: number): string {
+  if (a.samplePlaying(deck, slot)) return 'playing';
+  return a.sampleLoaded(deck, slot) ? 'loaded' : 'off';
+}
+
 /** A switch: a key flipping it, lit while it is on, and keys putting it on (`<id>.on`) and off
  * (`<id>.off`) whatever it is, lit while it is so, for a controller's switch sending its
  * position: never out of step with the app. */
@@ -665,10 +671,7 @@ function deckControls(a: ControlActions, deck: number): Control[] {
         ),
         () => a.samplePlaying(deck, slot),
       ),
-      state: () => {
-        if (a.samplePlaying(deck, slot)) return 'playing';
-        return a.sampleLoaded(deck, slot) ? 'loaded' : 'off';
-      },
+      state: () => sampleState(a, deck, slot),
     })),
     ...Array.from({ length: FX_SLOTS }, (_, slot) => fxControls(a, deck, slot, group)).flat(),
     button(id('fx.part'), group, t('Effects on the next part'), () => a.nextFxPart(deck)),
@@ -903,6 +906,20 @@ function moreDeckControls(
         ),
         () => a.samplePlaying(deck, slot),
       ),
+      {
+        ...button(
+          id(`sample${slot + 1}.smart`),
+          group,
+          t('Sample {n}: load the selected track, play, or stop', { n: slot + 1 }),
+          () => {
+            if (a.samplePlaying(deck, slot)) a.stopSample(deck, slot);
+            else if (a.sampleLoaded(deck, slot)) a.triggerSample(deck, slot);
+            else a.loadSample(deck, slot);
+          },
+        ),
+        lit: () => a.sampleLoaded(deck, slot),
+        state: () => sampleState(a, deck, slot),
+      },
     ]).flat(),
     ...switched(
       id('vinyl'),

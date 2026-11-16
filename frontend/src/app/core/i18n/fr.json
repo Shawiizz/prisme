@@ -790,5 +790,6 @@
   "Open the previous list": "Ouvrir la liste précédente",
   "Open the list, or load the track on a stopped deck": "Ouvrir la liste, ou charger le morceau sur une platine à l'arrêt",
   "To the lists": "Vers les listes",
-  "To the tracks": "Vers les morceaux"
+  "To the tracks": "Vers les morceaux",
+  "Sample {n}: load the selected track, play, or stop": "Sample {n} : charger le morceau sélectionné, jouer ou arrêter"
 }
