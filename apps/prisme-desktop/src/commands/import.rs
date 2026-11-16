@@ -3,7 +3,6 @@
 use crate::commands::blocking;
 use crate::dto::ImportSummaryDto;
 use crate::error::AppResult;
-use crate::folders;
 use crate::library_service::LibraryService;
 use prisme_import::{rekordbox, serato, Import};
 use std::path::PathBuf;
@@ -11,11 +10,14 @@ use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
 use tauri::State;
 
-/// The `_Serato_` folder of the music folder, if there is one.
+/// The `_Serato_` folder of the music folder, else of the system's, if there is one.
 #[tauri::command]
-pub fn serato_folder() -> Option<String> {
-    let dir = folders::music_root().join("_Serato_");
-    dir.is_dir().then(|| dir.display().to_string())
+pub fn serato_folder(library: State<'_, Arc<LibraryService>>) -> Option<String> {
+    [library.root(), crate::folders::system_music_root()]
+        .into_iter()
+        .map(|dir| dir.join("_Serato_"))
+        .find(|dir| dir.is_dir())
+        .map(|dir| dir.display().to_string())
 }
 
 /// Crates of `serato_dir` (if given), and the Serato cues, loops, colours and grids of
@@ -26,13 +28,13 @@ pub async fn import_serato(
     serato_dir: Option<String>,
 ) -> AppResult<ImportSummaryDto> {
     let library = library.inner().clone();
+    let root = library.root();
     run(library, move || {
-        let files: Vec<PathBuf> =
-            prisme_library::scan_folder(&folders::music_root(), &AtomicBool::new(false))
-                .files
-                .into_iter()
-                .map(|f| f.path)
-                .collect();
+        let files: Vec<PathBuf> = prisme_library::scan_folder(&root, &AtomicBool::new(false))
+            .files
+            .into_iter()
+            .map(|f| f.path)
+            .collect();
         Ok(serato::read(serato_dir.as_deref().map(std::path::Path::new), &files)?)
     })
     .await

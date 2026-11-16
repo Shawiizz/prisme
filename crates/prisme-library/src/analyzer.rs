@@ -46,6 +46,10 @@ pub trait AnalysisListener: Send + Sync + 'static {
     fn holds_back(&self) -> bool {
         false
     }
+
+    /// The tracks of `folders`, music folders no longer, were followed into the new one or
+    /// forgotten (see [`BackgroundAnalyzer::leaving`]).
+    fn left(&self, _folders: &[PathBuf]) {}
 }
 
 pub struct BackgroundAnalyzer {
@@ -62,12 +66,29 @@ impl BackgroundAnalyzer {
         options: AnalysisOptions,
         listener: Arc<dyn AnalysisListener>,
     ) -> Self {
+        Self::leaving(db, root, Vec::new(), workers, options, listener)
+    }
+
+    /// [`BackgroundAnalyzer::start`] once the music folder was `left` for `root`: the tracks
+    /// of the folders left are handled as files gone from the music folder, found again in
+    /// `root` when they were moved or copied there, else forgotten.
+    pub fn leaving(
+        db: Arc<LibraryDb>,
+        root: PathBuf,
+        left: Vec<PathBuf>,
+        workers: usize,
+        options: AnalysisOptions,
+        listener: Arc<dyn AnalysisListener>,
+    ) -> Self {
         let cancel = Arc::new(AtomicBool::new(false));
         let thread = {
             let cancel = cancel.clone();
             std::thread::Builder::new()
                 .name("prisme-library".into())
-                .spawn(move || run(&db, &root, workers.max(1), &options, listener.as_ref(), &cancel))
+                .spawn(move || {
+                    let folders = Folders { root: &root, left: &left };
+                    run(&db, folders, workers.max(1), &options, listener.as_ref(), &cancel)
+                })
                 .expect("cannot spawn the library thread")
         };
         Self { cancel, thread: Some(thread) }
@@ -101,9 +122,16 @@ pub fn default_workers() -> usize {
     std::thread::available_parallelism().map_or(2, |n| (n.get() / 2).clamp(1, 4))
 }
 
+/// The music folder, and those it was before.
+#[derive(Clone, Copy)]
+struct Folders<'a> {
+    root: &'a Path,
+    left: &'a [PathBuf],
+}
+
 fn run(
     db: &LibraryDb,
-    root: &std::path::Path,
+    folders: Folders,
     workers: usize,
     options: &AnalysisOptions,
     listener: &dyn AnalysisListener,
@@ -113,14 +141,17 @@ fn run(
     listener.progress(AnalysisProgress { running: true, ..Default::default() });
 
     let mut stored = db.versions().unwrap_or_default();
-    let found = scan_folder(root, cancel);
+    let found = scan_folder(folders.root, cancel);
     for copy in &found.tag_copies {
         if let Err(e) = std::fs::remove_file(copy) {
             error!("{} left behind by a tag write, not removed: {e}", copy.display());
         }
     }
     if !cancel.load(Ordering::Relaxed) {
-        follow_moves(db, root, &mut stored, &found, listener);
+        follow_moves(db, folders, &mut stored, &found, listener);
+        if !folders.left.is_empty() {
+            listener.left(folders.left);
+        }
     }
     let unreadable = found.unreadable;
     let todo: Vec<ScannedFile> = found
@@ -234,14 +265,15 @@ fn keep_audio_id(db: &LibraryDb, path: &Path, id: u64) {
     }
 }
 
-/// Follows the stored files under `root` that the scan did not find: one that reappears
-/// elsewhere with the same size and modification time (moved or renamed) keeps all it
-/// had; the others are forgotten, but for their cues and corrections, which a file with
-/// their audio takes as it is analysed (see [`adopt_unless`]). Those under a folder the scan
-/// could not list (a drive unplugged) are kept as they are. `stored` is updated to match.
+/// Follows the stored files under the music folder that the scan did not find, and those of
+/// the folders left: one that reappears elsewhere with the same size and modification time
+/// (moved, renamed, or copied into the new folder) keeps all it had; the others are
+/// forgotten, but for their cues and corrections, which a file with their audio takes as it
+/// is analysed (see [`adopt_unless`]). Those under a folder the scan could not list (a drive
+/// unplugged) are kept as they are. `stored` is updated to match.
 fn follow_moves(
     db: &LibraryDb,
-    root: &Path,
+    folders: Folders,
     stored: &mut HashMap<String, RecordVersion>,
     found: &Scan,
     listener: &dyn AnalysisListener,
@@ -254,7 +286,14 @@ fn follow_moves(
         .collect();
     let gone: Vec<String> = stored
         .keys()
-        .filter(|p| Path::new(p).starts_with(root) && !present.contains(*p) && !found.may_hold(Path::new(p)))
+        .filter(|p| {
+            let path = Path::new(p);
+            if path.starts_with(folders.root) {
+                !present.contains(*p) && !found.may_hold(path)
+            } else {
+                folders.left.iter().any(|dir| path.starts_with(dir))
+            }
+        })
         .cloned()
         .collect();
     let mut arrivals: HashMap<FileStamp, Vec<&ScannedFile>> = HashMap::new();

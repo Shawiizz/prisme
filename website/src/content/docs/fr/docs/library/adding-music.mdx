@@ -7,7 +7,8 @@ sidebar:
 
 import { Steps, Aside } from '@astrojs/starlight/components';
 
-Prisme lit un seul dossier : le dossier **Musique** de votre système, avec tout ce qu’il contient.
+Prisme lit un seul dossier : le dossier **Musique** de votre système, ou un autre que vous
+choisissez, avec tout ce qu’il contient.
 Rien à importer, aucune liste à constituer : copiez des morceaux dans ce dossier et ils
 apparaissent dans la bibliothèque, puis reçoivent leur tempo, leur grille rythmique et leur
 tonalité en tâche de fond.
@@ -29,6 +30,24 @@ dans le panneau latéral de la bibliothèque, sous **Musique**, et l’analyse l
   Musique lui-même : clic droit sur **Musique** dans l’Explorateur, **Propriétés**, onglet
   **Emplacement**. Prisme suit le dossier là où Windows l’indique.
 </Aside>
+
+## Choisir un autre dossier
+
+Sur ordinateur, **Réglages** › **Bibliothèque** › **Dossier de musique** affiche le dossier que
+Prisme lit. **Choisir…** en prend un autre (un dossier sur un disque externe ou un NAS, par
+exemple), **Rétablir** revient au dossier **Musique** du système. Le choix est gardé pour le
+prochain démarrage.
+
+Le nouveau dossier est surveillé et parcouru aussitôt. Les morceaux du dossier que vous quittez
+sortent de la bibliothèque, comme des fichiers supprimés :
+
+- ceux que vous avez copiés ou déplacés dans le nouveau dossier gardent tout ce qu’ils avaient
+  (analyse, cues, corrections de grille et de tonalité, crates, historique) sans être analysés de
+  nouveau ;
+- les autres sont oubliés, sauf leurs cues, leurs corrections et leur place dans les crates : si
+  vous choisissez de nouveau leur dossier, ils les retrouvent, et sont analysés de nouveau.
+
+Sur un téléphone, le dossier de musique est celui du système, et ne se change pas.
 
 Ce qui est ignoré :
 

@@ -813,5 +813,7 @@
   "Light: in phase with the leader": "Lumière : en phase avec le leader",
   "Light: ahead of the leader": "Lumière : en avance sur le leader",
   "Light: behind the leader": "Lumière : en retard sur le leader",
-  "Light: a loop playing": "Lumière : une boucle en cours"
+  "Light: a loop playing": "Lumière : une boucle en cours",
+  "Music folder": "Dossier de musique",
+  "Where Prisme finds and analyses your tracks. Another one is scanned at once; the tracks of the one before leave the library, their cues kept for when they come back.": "Là où Prisme trouve et analyse vos morceaux. Un autre est parcouru aussitôt ; les morceaux du précédent quittent la bibliothèque, leurs repères gardés pour leur retour."
 }

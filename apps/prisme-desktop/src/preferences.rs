@@ -236,6 +236,8 @@ impl Default for MixerPreferences {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(default, rename_all = "camelCase")]
 pub struct LibraryPreferences {
+    /// The music folder chosen, else the system's (see `folders::music_root`).
+    pub music_folder: Option<String>,
     pub last_folder: Option<String>,
     /// Columns of the track list the DJ hid (frontend ids).
     pub hidden_columns: Vec<String>,
@@ -278,6 +280,7 @@ impl LibraryPreferences {
 impl Default for LibraryPreferences {
     fn default() -> Self {
         Self {
+            music_folder: None,
             last_folder: None,
             hidden_columns: Vec::new(),
             // a phone lets an application read the music of the others, not rewrite it
@@ -307,6 +310,7 @@ mod tests {
         assert!(p.library.write_tags);
         assert!(!p.library.replace_tags);
         assert!(p.library.pause_while_playing);
+        assert_eq!(p.library.music_folder, None, "the system's music folder");
         assert_eq!(p.library.separate_on_load, None);
         assert_eq!(p.auto_dj, AutoDjPreferences { fade_beats: 16, fade_s: 10.0 });
         assert!(!p.dj.cue_on_load, "the headphones stay where they are at a load");
@@ -400,6 +404,7 @@ mod tests {
             pitch_range: Some(0.5),
             samples: vec![Some("C:/Samples/horn.wav".into()), None],
         };
+        p.library.music_folder = Some("D:/Music".into());
         p.library.last_folder = Some("C:/Music/House".into());
         p.mixer.booth = Some(4);
         p.auto_dj = AutoDjPreferences { fade_beats: 32, fade_s: 15.0 };

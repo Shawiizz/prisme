@@ -10,12 +10,14 @@ import {
 } from '@angular/core';
 import { getVersion } from '@tauri-apps/api/app';
 import { invoke } from '@tauri-apps/api/core';
+import { open } from '@tauri-apps/plugin-dialog';
 import { SettingsService } from '../../core/services/settings.service';
 import { EngineService } from '../../core/services/engine.service';
 import { PreferencesService } from '../../core/services/preferences.service';
 import { MixerService } from '../../core/services/mixer.service';
 import { UpdateService } from '../../core/services/update.service';
 import { StemsService } from '../../core/services/stems.service';
+import { LibraryService } from '../../core/services/library.service';
 import { NavigationService, SettingsCategory } from '../../core/services/navigation.service';
 import { AudioBackend, AudioSettings, BACKEND_NAMES, BUFFER_SIZES } from '../../core/models/audio';
 import { InputChannels, LiveSource, MAX_DECKS, MixMode } from '../../core/models/engine';
@@ -97,6 +99,7 @@ export class SettingsDialog implements OnInit {
   protected readonly mixer = inject(MixerService);
   protected readonly updates = inject(UpdateService);
   protected readonly stems = inject(StemsService);
+  protected readonly library = inject(LibraryService);
   private readonly navigation = inject(NavigationService);
   protected readonly screens = inject(ScreensService);
   protected readonly search = inject(SettingsSearch);
@@ -308,6 +311,17 @@ export class SettingsDialog implements OnInit {
 
   setLibrary(changes: Partial<LibraryPreferences>) {
     this.saved(this.preferences.updateLibrary(changes));
+  }
+
+  /** Asks for another music folder; nothing if cancelled. */
+  async chooseMusicFolder() {
+    const path = await open({ directory: true, title: t('Music folder') });
+    if (path) this.saved(this.library.setRoot(path));
+  }
+
+  /** Back to the system's music folder. */
+  systemMusicFolder() {
+    this.saved(this.library.setRoot(null));
   }
 
   /** A preference saving: what fails is told under the page. */

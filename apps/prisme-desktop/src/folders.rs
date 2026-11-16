@@ -4,19 +4,28 @@ use crate::dto::{DirEntryDto, DirListingDto, TrackDetailsDto};
 use std::io::ErrorKind;
 use std::path::{Path, PathBuf};
 
-/// The user's music folder: where Windows keeps it (moved to another drive, a NAS or
+/// The music folder: the one the DJ `chosen`, else the system's. A phone keeps the
+/// system's: Android shares the music of applications there, and iOS lets Prisme read its
+/// own documents only.
+pub fn music_root(chosen: Option<&str>) -> PathBuf {
+    if cfg!(target_os = "android") {
+        return system_music_root();
+    }
+    crate::dev_startup::music_dir()
+        .or_else(|| chosen.filter(|_| cfg!(desktop)).map(PathBuf::from))
+        .unwrap_or_else(system_music_root)
+}
+
+/// The system's music folder: where Windows keeps it (moved to another drive, a NAS or
 /// OneDrive as well), else `Music` in the home folder. Never the home folder itself, whose
 /// scan would read the whole profile. Not looked at: a NAS offline would hold the start for
 /// as long as the network waits. On a phone: the music folder Android shares between
 /// applications, and on iOS the documents of Prisme, which the Files application fills.
-pub fn music_root() -> PathBuf {
+pub fn system_music_root() -> PathBuf {
     #[cfg(target_os = "android")]
     return android::music_root().clone();
     #[cfg(not(target_os = "android"))]
     {
-        if let Some(dir) = crate::dev_startup::music_dir() {
-            return dir;
-        }
         let home =
             |folder: &str| dirs::home_dir().map_or_else(|| PathBuf::from(folder), |home| home.join(folder));
         if cfg!(target_os = "ios") {
@@ -68,16 +77,17 @@ mod android {
 }
 
 /// Sub-folders and playable files of `dir`, sorted by name (hidden entries skipped).
-/// `details` gives what the library knows of a track, if anything. The music folder of a
-/// system that has none yet is empty.
+/// `details` gives what the library knows of a track, if anything. The music folder `root`
+/// of a system that has none yet is empty.
 pub fn list_dir(
     dir: &Path,
+    root: &Path,
     details: impl Fn(&Path, &std::fs::Metadata) -> Option<TrackDetailsDto>,
 ) -> std::io::Result<DirListingDto> {
     let mut folders = Vec::new();
     let mut tracks = Vec::new();
     let entries = match std::fs::read_dir(dir) {
-        Err(e) if e.kind() == ErrorKind::NotFound && dir == music_root() => None,
+        Err(e) if e.kind() == ErrorKind::NotFound && dir == root => None,
         entries => Some(entries?),
     };
     for entry in entries.into_iter().flatten() {
@@ -141,6 +151,16 @@ mod tests {
         assert_eq!(moved(&from, to.clone()), to, "the folder already there stays");
         assert!(from.is_dir());
         std::fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn the_music_folder_chosen_replaces_the_systems_on_a_computer() {
+        if crate::dev_startup::music_dir().is_some() {
+            return;
+        }
+        assert_eq!(music_root(None), system_music_root());
+        let chosen = music_root(Some("D:/Sets"));
+        assert_eq!(chosen == Path::new("D:/Sets"), cfg!(desktop));
     }
 
     #[test]

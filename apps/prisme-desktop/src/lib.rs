@@ -164,8 +164,9 @@ pub fn run() {
             }
             app.manage(Controllers::new(open_json(data_dir.as_deref(), "controllers.json")));
             Controllers::keep_profiles_up_to_date(app.handle().clone());
-            let library =
-                Arc::new(LibraryService::open(app.handle(), data_dir.as_deref(), folders::music_root()));
+            let chosen = app.state::<AppState>().preferences.read(|p| p.library.music_folder.clone());
+            let root = folders::music_root(chosen.as_deref());
+            let library = Arc::new(LibraryService::open(app.handle(), data_dir.as_deref(), root));
             app.manage(library.clone());
             app.manage(TagWriter::start(app.handle().clone()));
             app.manage(preview::Previews::default());
@@ -321,6 +322,7 @@ pub fn run() {
             commands::edits::set_key,
             commands::edits::key_choices,
             commands::folders::music_root,
+            commands::folders::set_music_folder,
             commands::folders::list_dir,
             commands::library::library_progress,
             commands::library::library_in_memory,

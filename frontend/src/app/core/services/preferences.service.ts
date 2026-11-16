@@ -18,6 +18,7 @@ export class PreferencesService {
     protectPlaying: false,
   });
   readonly library = signal<LibraryPreferences>({
+    musicFolder: null,
     lastFolder: null,
     hiddenColumns: [],
     writeTags: true,

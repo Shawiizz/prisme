@@ -543,6 +543,21 @@
               <h3 class="pr-label">{{ pageLabel('library') }}</h3>
             }
             <div class="pr-card">
+              @if (!PHONE) {
+                <app-setting-row id="library.musicFolder">
+                  <span class="pr-row__help music-folder">{{ library.root() }}</span>
+                  <div class="row-actions">
+                    @if (preferences.library().musicFolder) {
+                      <button class="pr-btn pr-btn--sm" (click)="systemMusicFolder()">
+                        {{ 'Reset' | t }}
+                      </button>
+                    }
+                    <button class="pr-btn pr-btn--sm" settingControl (click)="chooseMusicFolder()">
+                      {{ 'Choose…' | t }}
+                    </button>
+                  </div>
+                </app-setting-row>
+              }
               <app-setting-row id="library.tags">
                 <button
                   class="pr-switch"

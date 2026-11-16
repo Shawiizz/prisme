@@ -5,7 +5,8 @@
 //! * `library-progress` ([`ProgressDto`]) as the run advances.
 //!
 //! The music folder is watched ([`FolderWatch`]): new and changed files are analysed as
-//! they come.
+//! they come. Another one chosen is watched and scanned at once; the tracks of the one left
+//! are handled as files gone from the library.
 
 use crate::dto::{ProgressDto, TrackAnalyzedDto, TrackDetailsDto};
 use crate::folder_watch::FolderWatch;
@@ -16,7 +17,7 @@ use prisme_library::{
     AnalysisListener, AnalysisProgress, BackgroundAnalyzer, FileStamp, LibraryDb, TrackRecord,
 };
 use std::path::{Path, PathBuf};
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Condvar, Mutex};
 use tauri::{AppHandle, Emitter, Manager};
 use tracing::{error, info, warn};
 
@@ -28,7 +29,11 @@ const WATCH_RETRY: std::time::Duration = std::time::Duration::from_secs(30);
 pub struct LibraryService {
     pub db: Arc<LibraryDb>,
     app: AppHandle,
-    root: PathBuf,
+    root: Mutex<PathBuf>,
+    /// Told when the music folder changes.
+    moved: Condvar,
+    /// Music folders left whose tracks were not handled yet (a run stopped before).
+    left: Arc<Mutex<Vec<PathBuf>>>,
     analyzer: Mutex<Option<BackgroundAnalyzer>>,
     watch: Mutex<Option<FolderWatch>>,
     progress: Arc<Mutex<AnalysisProgress>>,
@@ -51,7 +56,9 @@ impl LibraryService {
         Self {
             db: Arc::new(db),
             app: app.clone(),
-            root,
+            root: Mutex::new(root),
+            moved: Condvar::new(),
+            left: Arc::default(),
             analyzer: Mutex::new(None),
             watch: Mutex::new(None),
             progress: Arc::new(Mutex::new(AnalysisProgress::default())),
@@ -64,12 +71,49 @@ impl LibraryService {
         self.in_memory
     }
 
+    /// The music folder.
+    pub fn root(&self) -> PathBuf {
+        lock(&self.root).clone()
+    }
+
+    /// Makes `root` the music folder, watched and scanned at once; `false` if it is already.
+    pub fn move_to(&self, root: PathBuf) -> bool {
+        let before = std::mem::replace(&mut *lock(&self.root), root.clone());
+        if before == root {
+            return false;
+        }
+        info!("the music folder is now {}", root.display());
+        {
+            let mut left = lock(&self.left);
+            left.retain(|dir| *dir != root);
+            left.push(before);
+        }
+        self.moved.notify_all();
+        self.start();
+        true
+    }
+
+    /// Waits up to `time` while `root` stays the music folder; `false` if it changed.
+    fn stays(&self, root: &Path, time: std::time::Duration) -> bool {
+        let current = lock(&self.root);
+        let (current, _) = self
+            .moved
+            .wait_timeout_while(current, time, |current| current == root)
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        *current == root
+    }
+
     /// (Re)starts the analysis of the music folder: new and changed files only.
     pub fn start(&self) {
-        let listener = Arc::new(EventListener { app: self.app.clone(), progress: self.progress.clone() });
-        let analyzer = BackgroundAnalyzer::start(
+        let listener = Arc::new(EventListener {
+            app: self.app.clone(),
+            progress: self.progress.clone(),
+            left: self.left.clone(),
+        });
+        let analyzer = BackgroundAnalyzer::leaving(
             self.db.clone(),
-            self.root.clone(),
+            self.root(),
+            lock(&self.left).clone(),
             prisme_library::default_workers(),
             AnalysisOptions::default(),
             listener,
@@ -82,13 +126,15 @@ impl LibraryService {
     /// Analyses the files of the music folder as they appear or change. The watch is set up
     /// on a thread of its own, the window never waiting on the network (a NAS offline). A
     /// folder away (a NAS offline, a drive unplugged) is looked for every half minute; once
-    /// back, it is watched again and scanned, as it could not be meanwhile.
+    /// back, it is watched again and scanned, as it could not be meanwhile. Another folder
+    /// chosen is watched at once.
     pub fn watch(self: &Arc<Self>) {
         let library = self.clone();
         let spawned = std::thread::Builder::new().name("prisme-music-watch".into()).spawn(move || {
             let mut away = false;
             loop {
-                match FolderWatch::start(library.app.clone(), library.clone(), &library.root) {
+                let root = library.root();
+                match FolderWatch::start(library.app.clone(), library.clone(), &root) {
                     Ok(watch) => {
                         *lock(&library.watch) = Some(watch);
                         if away {
@@ -96,18 +142,22 @@ impl LibraryService {
                             library.start();
                         }
                         // the watch of a folder that goes ends without a word
-                        while library.root.exists() {
-                            std::thread::sleep(WATCH_RETRY);
+                        let mut stays = true;
+                        while stays && root.exists() {
+                            stays = library.stays(&root, WATCH_RETRY);
                         }
-                        warn!("the music folder went away");
                         let ended = lock(&library.watch).take();
                         drop(ended);
+                        if !stays {
+                            away = false;
+                            continue;
+                        }
+                        warn!("the music folder went away");
                     }
                     Err(e) if !away => warn!("the music folder is not watched until it can be: {e}"),
                     Err(_) => {}
                 }
-                away = true;
-                std::thread::sleep(WATCH_RETRY);
+                away = library.stays(&root, WATCH_RETRY);
             }
         });
         if let Err(e) = spawned {
@@ -159,6 +209,7 @@ impl LibraryService {
 struct EventListener {
     app: AppHandle,
     progress: Arc<Mutex<AnalysisProgress>>,
+    left: Arc<Mutex<Vec<PathBuf>>>,
 }
 
 impl AnalysisListener for EventListener {
@@ -172,6 +223,10 @@ impl AnalysisListener for EventListener {
         if !progress.running {
             self.app.state::<TagWriter>().wake();
         }
+    }
+
+    fn left(&self, folders: &[PathBuf]) {
+        lock(&self.left).retain(|dir| !folders.contains(dir));
     }
 
     fn holds_back(&self) -> bool {

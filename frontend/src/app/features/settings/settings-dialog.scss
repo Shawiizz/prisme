@@ -177,6 +177,14 @@
   }
 }
 
+.row-actions {
+  display: flex;
+  gap: 6px;
+}
+.music-folder {
+  overflow-wrap: anywhere;
+}
+
 .latency-error {
   color: var(--pr-alert);
 }
