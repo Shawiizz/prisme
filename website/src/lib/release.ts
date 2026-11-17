@@ -50,7 +50,7 @@ async function fetchRelease(): Promise<Release> {
 			from.assets.find((a) => a.name.endsWith(suffix))?.browser_download_url;
 		return {
 			version: release.tag_name,
-			windows: asset(release, '-setup.exe') ?? RELEASES,
+			windows: asset(release, '-installer.exe') ?? RELEASES,
 			macos: asset(release, '.dmg') ?? RELEASES,
 			deb: asset(release, '.deb') ?? RELEASES,
 			appImage: asset(release, '.AppImage') ?? RELEASES,

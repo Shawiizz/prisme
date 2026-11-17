@@ -1,0 +1,499 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="utf-8" />
+    <title>Prisme · installation</title>
+    <link rel="stylesheet" href="../../frontend/src/styles/fonts.css" />
+    <link rel="stylesheet" href="../../frontend/src/styles/tokens.css" />
+    <link rel="stylesheet" href="../../frontend/src/styles/components.css" />
+    <style>
+      /* Installing Prisme: on Windows a window of its own, on a Mac the window of the disk
+         image. */
+      *,
+      *::before,
+      *::after {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        padding: 40px 48px 72px;
+        background: #050506;
+        font: var(--pr-size) / 1.4 var(--pr-font);
+        color: var(--pr-text);
+      }
+      h1 {
+        margin: 0 0 6px;
+        font-size: 22px;
+        font-weight: 600;
+      }
+      h2 {
+        margin: 56px 0 6px;
+        font-size: 15px;
+        font-weight: 600;
+      }
+      .lead {
+        max-width: 760px;
+        margin: 0 0 28px;
+        color: var(--pr-text-3);
+      }
+      .row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 36px;
+        align-items: flex-start;
+      }
+      figure {
+        margin: 0;
+      }
+      figcaption {
+        margin-top: 12px;
+        max-width: 440px;
+        font-size: var(--pr-size-small);
+        color: var(--pr-text-3);
+      }
+      figcaption b {
+        color: var(--pr-text-2);
+        font-weight: 600;
+      }
+
+      /* ---------- the Windows installer: 440 × 280, no frame, dragged by its body ---------- */
+      .setup {
+        position: relative;
+        width: 440px;
+        height: 280px;
+        display: grid;
+        grid-template-rows: 1fr auto;
+        padding: 28px 32px 26px;
+        overflow: hidden;
+        background: var(--pr-void);
+        border: 1px solid var(--pr-line-2);
+        border-radius: 10px;
+        box-shadow: 0 24px 64px rgb(0 0 0 / 0.6);
+      }
+      /* the light of the prism, low behind it */
+      .setup::before {
+        content: '';
+        position: absolute;
+        inset: auto -20% -60% -20%;
+        height: 70%;
+        background: conic-gradient(
+          from 200deg at 50% 100%,
+          #ff3326,
+          #ff8a1c,
+          #ffd22a,
+          #52e85a,
+          #4fe3c8,
+          #2f8cff,
+          #6a5ff6,
+          #ff3326
+        );
+        filter: blur(60px);
+        opacity: 0.12;
+        pointer-events: none;
+      }
+      .close {
+        position: absolute;
+        top: 10px;
+        right: 10px;
+        width: 28px;
+        height: 28px;
+        display: grid;
+        place-items: center;
+        border: 0;
+        border-radius: var(--pr-radius-sm);
+        background: none;
+        color: var(--pr-text-3);
+        cursor: pointer;
+      }
+      .close:hover {
+        background: var(--pr-raise-2);
+        color: var(--pr-text);
+      }
+      .close svg {
+        width: 12px;
+        height: 12px;
+        stroke: currentColor;
+        stroke-width: 1.5;
+        stroke-linecap: round;
+      }
+      .brand {
+        align-self: center;
+        justify-self: center;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+      }
+      .brand img {
+        width: 44px;
+      }
+      .brand .word {
+        font: 600 38px / 1 var(--pr-font);
+        font-stretch: 75%;
+        letter-spacing: 0.01em;
+      }
+      .status {
+        position: relative;
+        display: grid;
+        gap: 10px;
+      }
+      .line {
+        display: flex;
+        justify-content: space-between;
+        align-items: baseline;
+        font-size: var(--pr-size-small);
+      }
+      .line .what {
+        color: var(--pr-text-2);
+      }
+      .line .pct {
+        font-family: var(--pr-font-mono);
+        color: var(--pr-text-3);
+      }
+      .bar {
+        position: relative;
+        height: 3px;
+        overflow: hidden;
+        border-radius: 2px;
+        background: var(--pr-raise-2);
+      }
+      .bar span {
+        position: absolute;
+        inset: 0 auto 0 0;
+        border-radius: 2px;
+        background: linear-gradient(
+          90deg,
+          #ff3326,
+          #ff8a1c,
+          #ffd22a,
+          #52e85a,
+          #4fe3c8,
+          #2f8cff,
+          #6a5ff6
+        );
+        background-size: 440px 100%;
+      }
+      /* a light running along what is done */
+      .bar span::after {
+        content: '';
+        position: absolute;
+        inset: 0;
+        background: linear-gradient(90deg, transparent, rgb(255 255 255 / 0.7), transparent);
+        background-size: 40% 100%;
+        background-repeat: no-repeat;
+        animation: run 1.4s ease-in-out infinite;
+      }
+      @keyframes run {
+        from {
+          background-position: -60% 0;
+        }
+        to {
+          background-position: 160% 0;
+        }
+      }
+      .done .what {
+        color: var(--pr-text);
+      }
+      .done .pct {
+        font-family: var(--pr-font);
+      }
+      .ok {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .ok svg {
+        width: 14px;
+        height: 14px;
+        stroke: var(--pr-ok);
+        stroke-width: 2;
+        fill: none;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+      }
+      .failed .what {
+        color: var(--pr-alert);
+      }
+      .failed .bar span {
+        background: var(--pr-alert);
+      }
+      .failed .bar span::after,
+      .done .bar span::after {
+        display: none;
+      }
+      .actions {
+        display: flex;
+        justify-content: flex-end;
+        gap: 6px;
+      }
+
+      /* ---------- the window of the disk image on a Mac: 660 × 400 ---------- */
+      .dmg {
+        width: 660px;
+        border-radius: 10px;
+        overflow: hidden;
+        border: 1px solid #3a3d42;
+        box-shadow: 0 24px 64px rgb(0 0 0 / 0.6);
+        background: #2a2c30;
+      }
+      .dmg .bar-mac {
+        height: 28px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 0 12px;
+        background: #2c2e32;
+        border-bottom: 1px solid #1d1f22;
+        font-size: 12px;
+        color: #c9cbcf;
+      }
+      .dmg .dots {
+        display: flex;
+        gap: 8px;
+      }
+      .dmg .dots i {
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        background: #ff5f57;
+      }
+      .dmg .dots i:nth-child(2) {
+        background: #febc2e;
+      }
+      .dmg .dots i:nth-child(3) {
+        background: #28c840;
+      }
+      .dmg .bar-mac span {
+        flex: 1;
+        text-align: center;
+        margin-right: 52px;
+      }
+      /* the background drawn into the image (what is designed), the two icons Finder puts */
+      .dmg .bg {
+        position: relative;
+        height: 400px;
+        background: var(--pr-void);
+        overflow: hidden;
+      }
+      .dmg .bg::before {
+        content: '';
+        position: absolute;
+        inset: auto -10% -70% -10%;
+        height: 80%;
+        background: conic-gradient(
+          from 200deg at 50% 100%,
+          #ff3326,
+          #ff8a1c,
+          #ffd22a,
+          #52e85a,
+          #4fe3c8,
+          #2f8cff,
+          #6a5ff6,
+          #ff3326
+        );
+        filter: blur(70px);
+        opacity: 0.14;
+      }
+      .dmg .title {
+        position: absolute;
+        top: 42px;
+        left: 0;
+        right: 0;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        gap: 10px;
+      }
+      .dmg .title img {
+        width: 30px;
+      }
+      .dmg .title .word {
+        font: 600 26px / 1 var(--pr-font);
+        font-stretch: 75%;
+      }
+      .dmg .hint {
+        position: absolute;
+        bottom: 46px;
+        left: 0;
+        right: 0;
+        text-align: center;
+        font-size: 13px;
+        color: var(--pr-text-3);
+      }
+      .dmg .icon {
+        position: absolute;
+        top: 150px;
+        width: 128px;
+        display: grid;
+        justify-items: center;
+        gap: 8px;
+        font-size: 13px;
+        color: #e8e9eb;
+      }
+      .dmg .app {
+        left: 140px;
+      }
+      .dmg .apps {
+        left: 392px;
+      }
+      .dmg .tile {
+        width: 112px;
+        height: 112px;
+        display: grid;
+        place-items: center;
+        border-radius: 24px;
+        background: #0e0f12;
+        box-shadow:
+          0 0 0 1px #2a2d33,
+          0 10px 28px rgb(0 0 0 / 0.5);
+      }
+      .dmg .tile img {
+        width: 64px;
+      }
+      .dmg .folder {
+        width: 112px;
+        height: 112px;
+        display: grid;
+        place-items: center;
+      }
+      .dmg .folder svg {
+        width: 104px;
+      }
+      .dmg .arrow {
+        position: absolute;
+        top: 196px;
+        left: 282px;
+        width: 100px;
+        height: 20px;
+      }
+      .dmg .arrow path {
+        fill: none;
+        stroke: var(--pr-text-3);
+        stroke-width: 1.5;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+        stroke-dasharray: 4 5;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Installer Prisme</h1>
+    <p class="lead">
+      Sur Windows, une seule fenêtre à nous, sans question : elle installe, puis Prisme s’ouvre de
+      lui-même. Les mises à jour, elles, s’installent sans fenêtre. Sur Mac, la fenêtre de l’image
+      disque reçoit un fond dessiné : on glisse Prisme dans Applications, comme partout sur Mac.
+    </p>
+
+    <h2>Windows</h2>
+    <div class="row">
+      <figure>
+        <div class="setup live">
+          <button class="close" aria-label="Annuler">
+            <svg viewBox="0 0 16 16"><path d="M4 4l8 8M12 4l-8 8" /></svg>
+          </button>
+          <div class="brand">
+            <img src="../logo-mark.svg" alt="" />
+            <span class="word">prisme</span>
+          </div>
+          <div class="status">
+            <div class="line">
+              <span class="what">Installation de Prisme…</span>
+              <span class="pct">64 %</span>
+            </div>
+            <div class="bar"><span style="width: 64%"></span></div>
+          </div>
+        </div>
+        <figcaption>
+          <b>Pendant.</b> Le prisme et le mot, comme au démarrage de Prisme. La barre se remplit
+          aux couleurs du prisme, une lueur la parcourt. La croix annule et retire ce qui a été
+          copié.
+        </figcaption>
+      </figure>
+
+      <figure>
+        <div class="setup done">
+          <div class="brand">
+            <img src="../logo-mark.svg" alt="" />
+            <span class="word">prisme</span>
+          </div>
+          <div class="status">
+            <div class="line">
+              <span class="what ok"
+                ><svg viewBox="0 0 16 16"><path d="M3 8.5l3 3 7-7" /></svg>Prisme est installé</span
+              >
+              <span class="pct">Ouverture…</span>
+            </div>
+            <div class="bar"><span style="width: 100%"></span></div>
+          </div>
+        </div>
+        <figcaption>
+          <b>Fini.</b> Une seconde, puis la fenêtre s’efface et Prisme s’ouvre sur son écran de
+          démarrage : on passe de l’un à l’autre sans couture.
+        </figcaption>
+      </figure>
+
+      <figure>
+        <div class="setup failed">
+          <button class="close" aria-label="Fermer">
+            <svg viewBox="0 0 16 16"><path d="M4 4l8 8M12 4l-8 8" /></svg>
+          </button>
+          <div class="brand">
+            <img src="../logo-mark.svg" alt="" />
+            <span class="word">prisme</span>
+          </div>
+          <div class="status">
+            <div class="line">
+              <span class="what">Prisme est ouvert : fermez-le pour mettre à jour.</span>
+            </div>
+            <div class="actions">
+              <button class="pr-btn pr-btn--sm">Fermer</button>
+              <button class="pr-btn pr-btn--sm pr-btn--light">Réessayer</button>
+            </div>
+          </div>
+        </div>
+        <figcaption>
+          <b>Un souci.</b> La raison en clair (Prisme ouvert, disque plein…) et ce qu’on peut y
+          faire, sans jargon.
+        </figcaption>
+      </figure>
+    </div>
+
+    <h2>Mac</h2>
+    <figure>
+      <div class="dmg">
+        <div class="bar-mac">
+          <div class="dots"><i></i><i></i><i></i></div>
+          <span>Prisme</span>
+        </div>
+        <div class="bg">
+          <div class="title">
+            <img src="../logo-mark.svg" alt="" />
+            <span class="word">prisme</span>
+          </div>
+          <div class="icon app">
+            <div class="tile"><img src="../logo-mark.svg" alt="" /></div>
+            Prisme
+          </div>
+          <svg class="arrow" viewBox="0 0 100 20">
+            <path d="M4 10h88M84 4l8 6-8 6" />
+          </svg>
+          <div class="icon apps">
+            <div class="folder">
+              <svg viewBox="0 0 104 84">
+                <path d="M4 14a6 6 0 0 1 6-6h26l8 8h50a6 6 0 0 1 6 6v52a6 6 0 0 1-6 6H10a6 6 0 0 1-6-6z" fill="#3b8fd9" />
+                <path d="M4 26h96v48a6 6 0 0 1-6 6H10a6 6 0 0 1-6-6z" fill="#5aaef0" />
+                <path d="M40 58l12-22 12 22M44 52h16" stroke="#fff" stroke-width="3" fill="none" stroke-linecap="round" />
+              </svg>
+            </div>
+            Applications
+          </div>
+          <div class="hint">Glissez Prisme dans Applications</div>
+        </div>
+      </div>
+      <figcaption>
+        <b>L’image disque.</b> Le fond (le mot, la lueur du prisme, la flèche et la phrase) est une
+        image ; les deux icônes sont celles que le Mac place dessus. Linux et Android installent
+        par le système, sans fenêtre à nous.
+      </figcaption>
+    </figure>
+  </body>
+</html>

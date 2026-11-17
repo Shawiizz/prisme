@@ -1,0 +1,311 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <style>
+      /* The installer's window (design/proposals/installeur.html): the prism and the word, then
+         what is under way and how far it went. */
+      @font-face {
+        font-family: 'Instrument Sans';
+        font-weight: 400 700;
+        font-stretch: 75% 100%;
+        src: url(data:font/woff2;base64,__FONT__) format('woff2-variations');
+      }
+      :root {
+        --void: #0a0b0d;
+        --raise-2: #20242a;
+        --line-2: #333840;
+        --text: #e7e8ea;
+        --text-2: #a4a9b0;
+        --text-3: #6b717a;
+        --light: #f3f1eb;
+        --on-light: #0a0b0d;
+        --ok: oklch(0.8 0.15 155);
+        --alert: oklch(0.66 0.21 27);
+      }
+      *,
+      *::before,
+      *::after {
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        height: 100%;
+        margin: 0;
+        overflow: hidden;
+        background: var(--void);
+        user-select: none;
+        cursor: default;
+      }
+      body {
+        position: relative;
+        display: grid;
+        grid-template-rows: 1fr auto;
+        padding: 28px 32px 26px;
+        font: 13px / 1.4 'Instrument Sans', system-ui, sans-serif;
+        color: var(--text);
+        transition: opacity 260ms ease-in;
+      }
+      body.gone {
+        opacity: 0;
+      }
+      /* the light of the prism, low behind it */
+      body::before {
+        content: '';
+        position: absolute;
+        inset: auto -20% -60% -20%;
+        height: 70%;
+        background: conic-gradient(
+          from 200deg at 50% 100%,
+          #ff3326,
+          #ff8a1c,
+          #ffd22a,
+          #52e85a,
+          #4fe3c8,
+          #2f8cff,
+          #6a5ff6,
+          #ff3326
+        );
+        filter: blur(60px);
+        opacity: 0.12;
+        pointer-events: none;
+      }
+      .close {
+        position: absolute;
+        top: 10px;
+        right: 10px;
+        width: 28px;
+        height: 28px;
+        display: grid;
+        place-items: center;
+        padding: 0;
+        border: 0;
+        border-radius: 4px;
+        background: none;
+        color: var(--text-3);
+      }
+      .close:hover {
+        background: var(--raise-2);
+        color: var(--text);
+      }
+      .close svg {
+        width: 12px;
+        height: 12px;
+        stroke: currentColor;
+        stroke-width: 1.5;
+        stroke-linecap: round;
+      }
+      .brand {
+        align-self: center;
+        justify-self: center;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        animation: rise 420ms ease-out both;
+      }
+      .brand svg {
+        width: 44px;
+        height: auto;
+      }
+      .word {
+        font-size: 38px;
+        font-weight: 600;
+        font-stretch: 75%;
+        line-height: 1;
+        letter-spacing: 0.01em;
+      }
+      @keyframes rise {
+        from {
+          opacity: 0;
+          transform: scale(0.94);
+        }
+      }
+      .status {
+        position: relative;
+        display: grid;
+        gap: 10px;
+      }
+      .line {
+        display: flex;
+        justify-content: space-between;
+        align-items: baseline;
+        gap: 16px;
+        font-size: 12px;
+      }
+      .what {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        color: var(--text-2);
+      }
+      .what svg {
+        display: none;
+        width: 14px;
+        height: 14px;
+        fill: none;
+        stroke: var(--ok);
+        stroke-width: 2;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+      }
+      .side {
+        color: var(--text-3);
+        font-variant-numeric: tabular-nums;
+      }
+      .bar {
+        position: relative;
+        height: 3px;
+        overflow: hidden;
+        border-radius: 2px;
+        background: var(--raise-2);
+      }
+      .bar span {
+        position: absolute;
+        inset: 0 auto 0 0;
+        width: 0;
+        border-radius: 2px;
+        background: linear-gradient(90deg, #ff3326, #ff8a1c, #ffd22a, #52e85a, #4fe3c8, #2f8cff, #6a5ff6)
+          0 0 / 376px 100%;
+        transition: width 120ms linear;
+      }
+      .bar span::after {
+        content: '';
+        position: absolute;
+        inset: 0;
+        background: linear-gradient(90deg, transparent, rgb(255 255 255 / 0.7), transparent) no-repeat;
+        background-size: 40% 100%;
+        animation: run 1.4s ease-in-out infinite;
+      }
+      @keyframes run {
+        from {
+          background-position: -60% 0;
+        }
+        to {
+          background-position: 160% 0;
+        }
+      }
+      .actions {
+        display: none;
+        justify-content: flex-end;
+        gap: 6px;
+      }
+      button.action {
+        height: 26px;
+        padding: 0 10px;
+        font: 500 12px / 1 inherit;
+        font-family: inherit;
+        color: var(--text);
+        background: transparent;
+        border: 1px solid var(--line-2);
+        border-radius: 6px;
+      }
+      button.action:hover {
+        background: var(--raise-2);
+      }
+      button.main {
+        background: var(--light);
+        border-color: var(--light);
+        color: var(--on-light);
+        font-weight: 600;
+      }
+      button.main:hover {
+        background: #fff;
+      }
+      /* installed: the tick, the bar full and still */
+      .done .what {
+        color: var(--text);
+      }
+      .done .what svg {
+        display: block;
+      }
+      .done .bar span::after {
+        display: none;
+      }
+      /* something went wrong: what, and what can be done */
+      .failed .what {
+        color: var(--alert);
+      }
+      .failed .bar,
+      .failed .side {
+        display: none;
+      }
+      .failed .actions {
+        display: flex;
+      }
+      .busy .close,
+      .done .close {
+        display: none;
+      }
+      @media (prefers-reduced-motion: reduce) {
+        .brand,
+        .bar span::after {
+          animation: none;
+        }
+      }
+    </style>
+  </head>
+  <body class="busy">
+    <button class="close" data-say="close">
+      <svg viewBox="0 0 16 16"><path d="M4 4l8 8M12 4l-8 8" /></svg>
+    </button>
+    <div class="brand">__LOGO__<span class="word">prisme</span></div>
+    <div class="status">
+      <div class="line">
+        <span class="what"
+          ><svg viewBox="0 0 16 16"><path d="M3 8.5l3 3 7-7" /></svg><span class="text"></span
+        ></span>
+        <span class="side"></span>
+      </div>
+      <div class="bar"><span></span></div>
+      <div class="actions">
+        <button class="action" data-say="close"></button>
+        <button class="action main" data-say="retry"></button>
+      </div>
+    </div>
+    <script>
+      const texts = window.TEXTS;
+      const body = document.body;
+      const what = document.querySelector('.what .text');
+      const side = document.querySelector('.side');
+      const bar = document.querySelector('.bar span');
+      document.querySelector('[data-say="close"].action').textContent = texts.close;
+      document.querySelector('[data-say="retry"]').textContent = texts.retry;
+      document.querySelector('.close').setAttribute('aria-label', texts.close);
+
+      // the window has no frame: it is moved by its body, its buttons pressed
+      document.addEventListener('mousedown', (event) => {
+        const button = event.target.closest('button');
+        if (event.button === 0 && !button) window.ipc.postMessage('drag');
+      });
+      document.addEventListener('click', (event) => {
+        const say = event.target.closest('button')?.dataset.say;
+        if (say) window.ipc.postMessage(say);
+      });
+
+      const show = (state) => body.classList.replace(body.classList[0], state);
+      window.setup = {
+        progress(share) {
+          show('busy');
+          what.textContent = texts.installing;
+          side.textContent = `${Math.round(share * 100)} %`;
+          bar.style.width = `${share * 100}%`;
+        },
+        done() {
+          show('done');
+          what.textContent = texts.installed;
+          side.textContent = texts.opening;
+          bar.style.width = '100%';
+        },
+        failed(message) {
+          show('failed');
+          what.textContent = message;
+        },
+        leave() {
+          body.classList.add('gone');
+        },
+      };
+      window.setup.progress(0);
+      window.ipc.postMessage('ready');
+    </script>
+  </body>
+</html>

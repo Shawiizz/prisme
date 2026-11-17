@@ -1,0 +1,93 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <!-- The background of the disk image's window on a Mac (background.png, 660 × 400), drawn
+         from this page: the word, the light of the prism, the arrow from Prisme to Applications
+         and the hint. Finder lays the two icons over it (tauri.conf.json, bundle > macOS > dmg). -->
+    <link rel="stylesheet" href="../../../frontend/src/styles/fonts.css" />
+    <style>
+      html,
+      body {
+        width: 660px;
+        height: 400px;
+        margin: 0;
+        overflow: hidden;
+        background: #0a0b0d;
+        font-family: 'Instrument Sans', system-ui, sans-serif;
+      }
+      body {
+        position: relative;
+      }
+      body::before {
+        content: '';
+        position: absolute;
+        inset: auto -10% -70% -10%;
+        height: 80%;
+        background: conic-gradient(
+          from 200deg at 50% 100%,
+          #ff3326,
+          #ff8a1c,
+          #ffd22a,
+          #52e85a,
+          #4fe3c8,
+          #2f8cff,
+          #6a5ff6,
+          #ff3326
+        );
+        filter: blur(70px);
+        opacity: 0.14;
+      }
+      .title {
+        position: absolute;
+        top: 42px;
+        left: 0;
+        right: 0;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        gap: 10px;
+      }
+      .title img {
+        width: 30px;
+      }
+      .title span {
+        font-size: 26px;
+        font-weight: 600;
+        font-stretch: 75%;
+        line-height: 1;
+        color: #e7e8ea;
+      }
+      /* between the icons, whose centres Finder puts at (204, 206) and (456, 206) */
+      svg {
+        position: absolute;
+        top: 196px;
+        left: 282px;
+        width: 100px;
+        height: 20px;
+      }
+      path {
+        fill: none;
+        stroke: #6b717a;
+        stroke-width: 1.5;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+        stroke-dasharray: 4 5;
+      }
+      .hint {
+        position: absolute;
+        bottom: 46px;
+        left: 0;
+        right: 0;
+        text-align: center;
+        font-size: 13px;
+        color: #6b717a;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="title"><img src="../../../design/logo-mark.svg" alt="" /><span>prisme</span></div>
+    <svg viewBox="0 0 100 20"><path d="M4 10h88M84 4l8 6-8 6" /></svg>
+    <div class="hint">Drag Prisme to Applications · Glissez Prisme dans Applications</div>
+  </body>
+</html>

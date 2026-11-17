@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["crates/*", "apps/prisme-cli", "apps/prisme-desktop"]
+members = ["crates/*", "apps/prisme-cli", "apps/prisme-desktop", "apps/prisme-setup"]
 
 [workspace.package]
 version = "0.3.7"

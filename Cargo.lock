@@ -4354,6 +4354,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "prisme-setup"
+version = "0.3.7"
+dependencies = [
+ "serde_json",
+ "tao",
+ "tauri-winres",
+ "windows-sys 0.61.2",
+ "wry",
+]
+
+[[package]]
 name = "prisme-stems"
 version = "0.3.7"
 dependencies = [

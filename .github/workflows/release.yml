@@ -61,6 +61,20 @@ jobs:
           includeUpdaterJson: false
           # signed update packages: only here, where the signing key is
           args: --config tauri.release.conf.json ${{ matrix.args }}
+      # what people download on Windows: Prisme's own window over the NSIS installer, which
+      # the updates keep running without one
+      - name: The Windows installer
+        if: runner.os == 'Windows'
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          $env:PRISME_SETUP_PAYLOAD = (Get-ChildItem target/release/bundle/nsis/*-setup.exe | Select-Object -First 1).FullName
+          cargo build --release -p prisme-setup
+          $installer = "Prisme_${env:TAG}_x64-installer.exe"
+          Copy-Item target/release/prisme-setup.exe $installer
+          gh release upload $env:TAG $installer --clobber
 
   android:
     needs: draft
