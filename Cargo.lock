@@ -4199,7 +4199,7 @@ dependencies = [
 
 [[package]]
 name = "prisme-analysis"
-version = "0.3.7"
+version = "0.3.8"
 dependencies = [
  "criterion",
  "prisme-media",
@@ -4209,7 +4209,7 @@ dependencies = [
 
 [[package]]
 name = "prisme-audio-io"
-version = "0.3.7"
+version = "0.3.8"
 dependencies = [
  "cpal",
  "libc",
@@ -4221,7 +4221,7 @@ dependencies = [
 
 [[package]]
 name = "prisme-cli"
-version = "0.3.7"
+version = "0.3.8"
 dependencies = [
  "anyhow",
  "clap",
@@ -4234,7 +4234,7 @@ dependencies = [
 
 [[package]]
 name = "prisme-control"
-version = "0.3.7"
+version = "0.3.8"
 dependencies = [
  "schemars 1.2.2",
  "serde",
@@ -4243,7 +4243,7 @@ dependencies = [
 
 [[package]]
 name = "prisme-desktop"
-version = "0.3.7"
+version = "0.3.8"
 dependencies = [
  "chrono",
  "dirs",
@@ -4290,11 +4290,11 @@ dependencies = [
 
 [[package]]
 name = "prisme-dsp"
-version = "0.3.7"
+version = "0.3.8"
 
 [[package]]
 name = "prisme-engine"
-version = "0.3.7"
+version = "0.3.8"
 dependencies = [
  "criterion",
  "prisme-dsp",
@@ -4307,7 +4307,7 @@ dependencies = [
 
 [[package]]
 name = "prisme-import"
-version = "0.3.7"
+version = "0.3.8"
 dependencies = [
  "base64 0.22.1",
  "lofty",
@@ -4321,7 +4321,7 @@ dependencies = [
 
 [[package]]
 name = "prisme-library"
-version = "0.3.7"
+version = "0.3.8"
 dependencies = [
  "criterion",
  "image",
@@ -4338,7 +4338,7 @@ dependencies = [
 
 [[package]]
 name = "prisme-media"
-version = "0.3.7"
+version = "0.3.8"
 dependencies = [
  "lofty",
  "symphonia",
@@ -4347,7 +4347,7 @@ dependencies = [
 
 [[package]]
 name = "prisme-session"
-version = "0.3.7"
+version = "0.3.8"
 dependencies = [
  "serde",
  "serde_json",
@@ -4355,7 +4355,7 @@ dependencies = [
 
 [[package]]
 name = "prisme-setup"
-version = "0.3.7"
+version = "0.3.8"
 dependencies = [
  "serde_json",
  "tao",
@@ -4366,7 +4366,7 @@ dependencies = [
 
 [[package]]
 name = "prisme-stems"
-version = "0.3.7"
+version = "0.3.8"
 dependencies = [
  "bytemuck",
  "flacenc",
@@ -4387,7 +4387,7 @@ dependencies = [
 
 [[package]]
 name = "prisme-timecode"
-version = "0.3.7"
+version = "0.3.8"
 dependencies = [
  "criterion",
 ]
