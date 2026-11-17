@@ -1,5 +1,6 @@
 //! Recording the mix to a WAV file (24-bit), with its tracklist from the history of the
-//! set, as text and as a CUE sheet next to it.
+//! set, as text and as a CUE sheet next to it: the tracks already heard when it started at
+//! its very start, then each one from when it was first heard.
 //!
 //! The engine queues what it records; a writer thread empties the queue to the file and
 //! stops when asked or when the engine is gone (audio restarted). The file's header is kept
@@ -52,6 +53,8 @@ pub struct Recorder {
     part: Arc<AtomicUsize>,
     /// Where the plays of the tracklist are read.
     db: Arc<LibraryDb>,
+    /// The tracks heard when the recording started (deck, path): they open the tracklist.
+    heard_at_start: Vec<(usize, PathBuf)>,
 }
 
 /// What a writer wrote, and why it stopped early if it did.
@@ -74,6 +77,11 @@ impl Recorder {
         let (stop, part) = (Arc::new(AtomicBool::new(false)), Arc::new(AtomicUsize::new(1)));
         let writer = begin(state, source, &path, &part, &stop)?;
         let started_at_ms = prisme_library::now_ms();
+        let heard_at_start = crate::history::deck_states(state)
+            .into_iter()
+            .filter(|&(_, load, _, heard)| load.is_some() && heard)
+            .map(|(deck, _, path, _)| (deck, path))
+            .collect();
         Ok(Self {
             app,
             path,
@@ -85,6 +93,7 @@ impl Recorder {
             failure: None,
             part,
             db,
+            heard_at_start,
         })
     }
 
@@ -162,7 +171,12 @@ impl Recorder {
     /// Writes the tracklist beside the recording of `parts` files: how many tracks it holds,
     /// and where it went.
     fn write_tracklist(&self, parts: usize) -> AppResult<(usize, PathBuf)> {
-        let plays = self.db.plays_since(self.started_at_ms)?;
+        let mut plays = Vec::new();
+        for (deck, path) in &self.heard_at_start {
+            plays.extend(self.db.play_before(path, *deck, self.started_at_ms)?);
+        }
+        plays.extend(self.db.plays_since(self.started_at_ms)?);
+        plays.sort_by_key(|p| p.played_at_ms);
         let text = self.path.with_extension("txt");
         std::fs::write(&text, tracklist_text(&plays, self.started_at_ms))?;
         // a sheet holds the tracks of one file

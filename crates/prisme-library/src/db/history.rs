@@ -92,6 +92,24 @@ impl LibraryDb {
         Ok(rows.collect::<Result<_, _>>()?)
     }
 
+    /// The latest play of `path` on `deck` begun before `before_ms`, if any.
+    pub fn play_before(
+        &self,
+        path: &Path,
+        deck: usize,
+        before_ms: i64,
+    ) -> Result<Option<HistoryPlay>, DbError> {
+        let conn = self.conn();
+        let mut stmt = conn.prepare_cached(
+            "SELECT history_plays.path AS play_path, history_plays.deck, history_plays.played_at_ms, track_view.*
+             FROM history_plays LEFT JOIN track_view ON track_view.path = history_plays.path
+             WHERE history_plays.path = ?1 AND history_plays.deck = ?2 AND history_plays.played_at_ms < ?3
+             ORDER BY history_plays.played_at_ms DESC, history_plays.id DESC LIMIT 1",
+        )?;
+        let mut rows = stmt.query_map(params![path_key(path), deck as i64, before_ms], play_from_row)?;
+        Ok(rows.next().transpose()?)
+    }
+
     pub fn delete_history_session(&self, session: SessionId) -> Result<(), DbError> {
         self.conn().prepare_cached("DELETE FROM history_sessions WHERE id = ?1")?.execute([session.0])?;
         Ok(())
@@ -135,6 +153,21 @@ mod tests {
 
         let since: Vec<_> = db.plays_since(2_000).unwrap().iter().map(|p| p.played_at_ms).collect();
         assert_eq!(since, [2_000, 3_000, 91_000], "across sessions");
+    }
+
+    #[test]
+    fn the_latest_play_of_a_track_on_a_deck_before_a_time() {
+        let db = LibraryDb::open_in_memory().unwrap();
+        let session = db.start_history_session(0).unwrap();
+        db.record_play(session, Path::new("a.mp3"), 0, 1_000).unwrap();
+        db.record_play(session, Path::new("a.mp3"), 0, 5_000).unwrap();
+        db.record_play(session, Path::new("a.mp3"), 1, 6_000).unwrap();
+        db.record_play(session, Path::new("a.mp3"), 0, 9_000).unwrap();
+        let before = |deck, ms| db.play_before(Path::new("a.mp3"), deck, ms).unwrap().map(|p| p.played_at_ms);
+        assert_eq!(before(0, 8_000), Some(5_000));
+        assert_eq!(before(1, 8_000), Some(6_000));
+        assert_eq!(before(0, 1_000), None);
+        assert_eq!(db.play_before(Path::new("b.mp3"), 0, 8_000).unwrap(), None);
     }
 
     #[test]

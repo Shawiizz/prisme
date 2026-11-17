@@ -89,7 +89,8 @@ pub fn start(app: AppHandle) {
         .expect("cannot start the history thread");
 }
 
-fn deck_states(state: &AppState) -> Vec<(usize, Option<u64>, PathBuf, bool)> {
+/// Each deck: what is loaded on it (its load and path), and whether it is heard.
+pub(crate) fn deck_states(state: &AppState) -> Vec<(usize, Option<u64>, PathBuf, bool)> {
     let speeds: Vec<f64> = {
         let mut session = lock(&state.session);
         let Some(session) = session.as_mut() else { return Vec::new() };
