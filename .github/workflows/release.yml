@@ -1,8 +1,8 @@
 name: Release
 
-# A version tag (1.2.3) builds the packages of the three systems and the signed update
-# manifest and attaches them to a draft release: publishing it offers the update to the
-# installed copies.
+# A version tag (1.2.3) builds the packages of the three systems, side by side, then the
+# update manifest from their signatures, and attaches them to a draft release: publishing it
+# offers the update to the installed copies.
 on:
   push:
     tags: ["[0-9]+.[0-9]+.[0-9]+"]
@@ -32,8 +32,6 @@ jobs:
     needs: draft
     strategy:
       fail-fast: false
-      # one after the other: each adds its system to the same update manifest
-      max-parallel: 1
       matrix:
         include:
           - os: windows-latest
@@ -59,6 +57,21 @@ jobs:
           tagName: ${{ github.ref_name }}
           releaseName: Prisme ${{ github.ref_name }}
           releaseDraft: true
-          includeUpdaterJson: true
+          # written once all are built: side by side, they would overwrite each other's
+          includeUpdaterJson: false
           # signed update packages: only here, where the signing key is
           args: --config tauri.release.conf.json ${{ matrix.args }}
+
+  manifest:
+    needs: packages
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Update manifest
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          gh release download "$TAG" --pattern '*.sig' --dir signatures
+          python3 scripts/update-manifest.py "$TAG" "${{ github.repository }}" signatures > latest.json
+          gh release upload "$TAG" latest.json --clobber
