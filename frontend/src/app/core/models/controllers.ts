@@ -2,9 +2,10 @@
 
 import { t } from '../i18n/i18n';
 
-/** A controller plugged in while Prisme runs: opened if Prisme knows its model, else offered. */
+/** A controller plugged in while Prisme runs: opened if Prisme knows its model (or, held by
+ * another program, waited for), else offered. */
 export interface PluggedIn {
-  kind: 'opened' | 'offered';
+  kind: 'opened' | 'offered' | 'waiting';
   /** The MIDI port name. */
   device: string;
   model: string;

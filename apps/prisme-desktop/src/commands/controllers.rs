@@ -42,6 +42,12 @@ pub fn set_controller_enabled(
     controllers.set_enabled(&app, &name, enabled)
 }
 
+/// The models of the controllers in use that another program holds.
+#[tauri::command]
+pub fn waiting_controllers(controllers: State<'_, Controllers>) -> Vec<String> {
+    controllers.waiting()
+}
+
 /// The DJ chose not to use the controller just plugged in: it is not offered again.
 #[tauri::command]
 pub fn decline_controller(controllers: State<'_, Controllers>, name: String) {

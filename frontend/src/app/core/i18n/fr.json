@@ -858,6 +858,8 @@
   "Mix saved: {file}": "Mix enregistré : {file}",
   "{model} connected": "{model} connecté",
   "Ready to play": "Prêt à jouer",
+  "{model} is used by another program": "{model} est utilisé par un autre logiciel",
+  "Close that program: Prisme takes the controller at once.": "Fermez ce logiciel : Prisme prend le contrôleur aussitôt.",
   "Do not use it": "Ne pas l'utiliser",
   "New controller: {model}": "Nouveau contrôleur : {model}",
   "Not a model Prisme knows yet: set up its controls by learning them.": "Modèle pas encore connu de Prisme : programmez ses commandes en les apprenant.",

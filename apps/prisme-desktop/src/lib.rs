@@ -397,6 +397,7 @@ pub fn run() {
             commands::controllers::list_controllers,
             commands::controllers::set_controller_enabled,
             commands::controllers::decline_controller,
+            commands::controllers::waiting_controllers,
             commands::audio::decline_card,
             commands::controllers::controller_mappings,
             commands::controllers::controller_light_targets,

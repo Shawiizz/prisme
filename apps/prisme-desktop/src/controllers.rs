@@ -74,6 +74,8 @@ pub enum PluggedIn {
     Opened { device: String, model: String },
     /// Of a model Prisme does not know: used if the DJ wants it.
     Offered { device: String, model: String },
+    /// Of a model Prisme knows, held by another program: taken as soon as it lets go.
+    Waiting { device: String, model: String },
 }
 
 /// An action taken off a controller.
@@ -492,7 +494,7 @@ impl Controllers {
         } else if self.take_up(app, port) {
             PluggedIn::Opened { device, model }
         } else {
-            return;
+            PluggedIn::Waiting { device, model }
         };
         let _ = app.emit(PLUGGED_EVENT, news);
     }
@@ -506,16 +508,36 @@ impl Controllers {
             && self.setup.read(|s| !s.enabled.iter().any(same) && !s.declined.iter().any(same))
     }
 
-    /// Puts the controller on `port` in use; whether it could be opened (another program may
-    /// hold it).
+    /// Puts the controller on `port` in use; whether it could be opened. Held by another
+    /// program, it is in use all the same: opened as soon as that program lets go (see
+    /// [`Self::watch`]).
     fn take_up(&self, app: &AppHandle, port: &str) -> bool {
         match self.set_enabled(app, port, true) {
             Ok(()) => true,
             Err(e) => {
-                info!("controller {port} not opened: {e}");
+                info!("controller {port} held elsewhere ({e}), taken once free");
+                self.save(|s| {
+                    s.declined.retain(|d| d != port);
+                    if !s.enabled.iter().any(|d| d == port) {
+                        s.enabled.push(port.to_owned());
+                    }
+                });
                 false
             }
         }
+    }
+
+    /// The models of the controllers in use, plugged in, that another program holds: Prisme
+    /// takes each as soon as it lets go.
+    pub fn waiting(&self) -> Vec<String> {
+        let plugged = Self::plugged().unwrap_or_default();
+        let open: Vec<String> = lock(&self.connections).iter().map(|c| c.device.clone()).collect();
+        self.setup
+            .read(|s| s.enabled.clone())
+            .into_iter()
+            .filter(|device| port_of(&plugged, device).is_some() && !open.contains(device))
+            .map(|device| Self::model_name(&device))
+            .collect()
     }
 
     /// The DJ chose not to use the controller on `device`: it is not offered again.

@@ -73,20 +73,29 @@ export class ControllerService {
       this.learning.set(null);
       this.reloadMappings();
     });
-    // plugged back in, with its lights off
-    await listen<string>('controller-opened', async () => {
+    // plugged back in, or let go by the program that held it: it plays, its lights off
+    await listen<string>('controller-opened', async ({ payload }) => {
       await this.refresh();
       this.sendAllLights();
+      const model = this.controllers().find((c) => c.name === payload)?.profile ?? payload;
+      this.notices.show({ text: t('{model} connected', { model }), detail: t('Ready to play') });
     });
     // profiles published since came
     await listen<number>('controller-profiles-changed', () => this.profilesChanged());
     await listen<PluggedIn>('controller-plugged', ({ payload }) => this.pluggedIn(payload));
     await this.reloadMappings();
+    const waiting = await invoke<string[]>('waiting_controllers');
+    if (waiting.length) this.showWaiting(waiting.join(', '));
   }
 
   /** A controller plugged in: one Prisme knows plays at once, with its lights; any other is
    * offered, until the DJ chooses not to use it. */
   private async pluggedIn({ kind, device, model }: PluggedIn) {
+    if (kind === 'waiting') {
+      await this.refresh();
+      this.showWaiting(model);
+      return;
+    }
     if (kind === 'opened') {
       await this.refresh();
       await this.reloadMappings();
@@ -115,6 +124,14 @@ export class ControllerService {
           run: () => this.run(() => invoke('decline_controller', { name: device })),
         },
       ],
+    });
+  }
+
+  /** Another program holds `model`: it plays here once that program lets go. */
+  private showWaiting(model: string) {
+    this.notices.show({
+      text: t('{model} is used by another program', { model }),
+      detail: t('Close that program: Prisme takes the controller at once.'),
     });
   }
 
