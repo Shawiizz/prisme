@@ -56,7 +56,8 @@ jobs:
       - name: APK
         working-directory: apps/prisme-desktop
         run: |
-          cargo tauri android build --apk --target aarch64
+          # the version Android shows and compares, else 1.0 for every release
+          cargo tauri android build --apk --target aarch64 --config "{\"version\":\"$VERSION\"}"
           apk=gen/android/app/build/outputs/apk/universal/release/app-universal-release.apk
           apksigner=$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)/apksigner
           "$apksigner" verify "$apk"
