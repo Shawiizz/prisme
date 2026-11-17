@@ -385,6 +385,14 @@ impl AudioSettings {
     }
 }
 
+/// A sound card just plugged in, offered to the DJ with the settings that use it.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CardOffer {
+    pub name: String,
+    pub settings: AudioSettings,
+}
+
 /// A round trip measured from an output to an input.
 #[derive(Debug, Clone, Copy, Serialize)]
 #[serde(rename_all = "camelCase")]

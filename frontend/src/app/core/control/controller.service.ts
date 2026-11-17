@@ -8,12 +8,15 @@ import {
   ControllerInput,
   ControllerMapping,
   ControllerProfiles,
+  PluggedIn,
   StepEncoding,
 } from '../models/controllers';
 import { EngineService } from '../services/engine.service';
 import { EngineStatus } from '../models/engine';
 import { ControlService } from './control.service';
 import { errorText } from '../errors';
+import { t } from '../i18n/i18n';
+import { NoticeService } from '../../shared/notice/notice';
 
 /**
  * MIDI controllers: their mapped controls play the app's controls, the controls that
@@ -31,6 +34,7 @@ const RECORD_RPM = 100 / 3;
 export class ControllerService {
   private readonly controls = inject(ControlService);
   private readonly engine = inject(EngineService);
+  private readonly notices = inject(NoticeService);
 
   readonly controllers = signal<Controller[]>([]);
   readonly profiles = signal<ControllerProfiles | null>(null);
@@ -74,7 +78,36 @@ export class ControllerService {
     });
     // profiles published since came
     await listen<number>('controller-profiles-changed', () => this.profilesChanged());
+    await listen<PluggedIn>('controller-plugged', ({ payload }) => this.pluggedIn(payload));
     await this.reloadMappings();
+  }
+
+  /** A controller plugged in: one Prisme knows plays at once, with its lights; any other is
+   * offered, until the DJ chooses not to use it. */
+  private async pluggedIn({ kind, device, model }: PluggedIn) {
+    if (kind === 'opened') {
+      await this.refresh();
+      await this.reloadMappings();
+      this.sendAllLights();
+      this.notices.show({
+        text: t('{model} connected', { model }),
+        detail: t('Ready to play'),
+        actions: [{ label: t('Do not use it'), run: () => this.setEnabled(device, false) }],
+      });
+      return;
+    }
+    await this.refresh();
+    this.notices.show({
+      text: t('New controller: {model}', { model }),
+      detail: t('Prisme does not know this model: its controls are set by learning them.'),
+      actions: [
+        { label: t('Use'), run: () => this.setEnabled(device, true) },
+        {
+          label: t('Ignore'),
+          run: () => this.run(() => invoke('decline_controller', { name: device })),
+        },
+      ],
+    });
   }
 
   /** A mapped control moved; a fader acts once it has picked its setting up, an encoder's

@@ -3,15 +3,18 @@
 //! moves it to the saved devices once they appear (the audio started on the default ones
 //! because the interface was off), follows Windows' default output when it plays on it,
 //! starts it when devices appear if there was none, and on the saved devices once the DJ lets
-//! Prisme listen to their inputs.
+//! Prisme listen to their inputs. A sound card plugged in meanwhile is offered to the DJ.
 
 use crate::audio_host::devices_available;
 use crate::commands::audio::{restart_saved_audio, start_audio, start_audio_unless_running};
 use crate::dto::AudioSettings;
 use crate::dto::BackendDto;
+use crate::dto::CardOffer;
 use crate::input_access;
 use crate::state::{lock, AppState};
-use prisme_audio_io::{default_output_name, system_devices};
+use prisme_audio_io::{
+    base_device_name, default_output_name, list_devices, system_devices, Backend, DeviceKind,
+};
 use std::collections::VecDeque;
 use std::time::{Duration, Instant};
 use tauri::{AppHandle, Emitter, Manager};
@@ -31,6 +34,8 @@ const RESTART_WINDOW: Duration = Duration::from_secs(60);
 const LOOKS_AFTER_A_CHANGE: u32 = 5;
 /// Sent when the audio moved to other devices by itself: the interface shows them again.
 pub const AUDIO_CHANGED_EVENT: &str = "audio-changed";
+/// Sent with a [`CardOffer`] when a sound card is plugged in.
+pub const CARD_PLUGGED_EVENT: &str = "card-plugged";
 
 pub fn start(app: AppHandle) {
     std::thread::Builder::new()
@@ -45,6 +50,8 @@ pub fn start(app: AppHandle) {
             // no audio since the last check: tried at once, then when devices change
             let mut silent = false;
             let mut default_output = default_output_name();
+            // the system's devices at the last look, while the audio runs
+            let mut plugged: Option<Vec<String>> = None;
             loop {
                 std::thread::sleep(CHECK);
                 if input_access::newly_allowed() {
@@ -79,6 +86,7 @@ pub fn start(app: AppHandle) {
                     last_look = Instant::now();
                     let saved =
                         AudioSettings { simulate: settings.simulate, ..state.preferences.get().audio };
+                    offer_cards_plugged(&state, &app, &settings, &saved, &device, &mut plugged);
                     if saved == settings {
                         devices = None;
                     } else if move_to_saved(&state, &app, &saved, &settings, &mut devices, &mut looks_left) {
@@ -181,6 +189,72 @@ fn follow_default_output(
     }
 }
 
+/// Offers the DJ a sound card plugged in since the last look (`plugged`), unless the audio
+/// plays on it or on the system's default output (which a card plugged in may take), the saved
+/// devices are back (the audio moves to them), or the DJ chose not to use it. Using it plays on
+/// it, and listens to it for the turntables if they are listened to.
+fn offer_cards_plugged(
+    state: &AppState,
+    app: &AppHandle,
+    settings: &AudioSettings,
+    saved: &AudioSettings,
+    device: &str,
+    plugged: &mut Option<Vec<String>>,
+) {
+    let now = system_devices();
+    let Some(before) = plugged.replace(now.clone()) else { return };
+    if !saved.same_devices(settings) && devices_available(saved) {
+        return;
+    }
+    let declined = state.preferences.read(|p| p.declined_cards.clone());
+    let fresh: Vec<&String> = now
+        .iter()
+        .filter(|name| !before.contains(name) && *name != device)
+        .filter(|name| !declined.contains(&base_device_name(card_name(name))))
+        .collect();
+    if fresh.is_empty() || settings.output_device.is_none() {
+        return;
+    }
+    let devices = list_devices(Backend::SYSTEM).unwrap_or_default();
+    let of_kind = |kind: DeviceKind| {
+        devices.iter().find(|d| d.kind == kind && fresh.contains(&&d.name)).map(|d| d.name.clone())
+    };
+    let (output, input) = (of_kind(DeviceKind::Output), of_kind(DeviceKind::Input));
+    let Some(name) = output.as_deref().or(input.as_deref()).map(|n| card_name(n).to_owned()) else { return };
+    let offer = CardOffer {
+        name,
+        settings: AudioSettings {
+            backend: Backend::SYSTEM.into(),
+            output_device: output.clone().or_else(|| settings.output_device.clone()),
+            input_device: if settings.input_device.is_some() {
+                input.or_else(|| settings.input_device.clone())
+            } else {
+                None
+            },
+            buffer_frames: None,
+            ..settings.clone()
+        },
+    };
+    info!("sound card {} plugged in, offered", offer.name);
+    let _ = app.emit(CARD_PLUGGED_EVENT, offer);
+}
+
+/// The card of a device of the system, as its endpoint names it: `Speakers (UMC404HD 192k)`
+/// is of `UMC404HD 192k`; a name without one is the card's.
+pub fn card_name(endpoint: &str) -> &str {
+    let Some(inner) = endpoint.strip_suffix(')') else { return endpoint };
+    let mut depth = 0;
+    for (at, c) in inner.char_indices().rev() {
+        match c {
+            ')' => depth += 1,
+            '(' if depth == 0 => return inner[at + 1..].trim(),
+            '(' => depth -= 1,
+            _ => {}
+        }
+    }
+    endpoint
+}
+
 /// With no audio at all (no device when Prisme started, or a restart that failed), starts it
 /// on the saved devices, else the default ones, whenever the system's devices change.
 fn start_when_devices_change(state: &AppState, app: &AppHandle, devices: &mut Option<Vec<String>>) {
@@ -260,6 +334,14 @@ impl Restarts {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn the_card_of_an_endpoint() {
+        assert_eq!(card_name("Speakers (UMC404HD 192k)"), "UMC404HD 192k");
+        assert_eq!(card_name("Haut-parleurs (Realtek(R) Audio)"), "Realtek(R) Audio");
+        assert_eq!(card_name("Line (2- SL3)"), "2- SL3");
+        assert_eq!(card_name("Built-in Output"), "Built-in Output");
+    }
 
     #[test]
     fn restarts_are_limited_within_the_window() {

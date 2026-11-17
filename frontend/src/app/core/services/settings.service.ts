@@ -7,10 +7,14 @@ import {
   AudioDevice,
   AudioInfo,
   AudioSettings,
+  CardOffer,
   TimecodeFormat,
 } from '../models/audio';
 import { decimal } from '../../shared/time';
 import { EngineService } from './engine.service';
+import { NoticeService } from '../../shared/notice/notice';
+import { t } from '../i18n/i18n';
+import { errorText } from '../errors';
 
 /** Audio settings (backend, devices, buffer, simulation), the timecode records Prisme reads,
  * and diagnostics. */
@@ -24,6 +28,7 @@ export class SettingsService {
   readonly settings = signal<AudioSettings | null>(null);
   readonly info = signal<AudioInfo | null>(null);
   private readonly engine = inject(EngineService);
+  private readonly notices = inject(NoticeService);
   /** The length of an audio period, `5.3 ms`, once the driver has called the engine. */
   readonly period = computed(() => {
     const frames = this.engine.status()?.health?.periodFrames;
@@ -41,7 +46,29 @@ export class SettingsService {
   /** Loads the settings, and again whenever the audio moves to other devices by itself. */
   async init(): Promise<void> {
     await listen('audio-changed', () => this.refresh());
+    await listen<CardOffer>('card-plugged', ({ payload }) => this.offer(payload));
     await this.refresh();
+  }
+
+  /** A sound card plugged in, offered: used at once, or not offered again. */
+  private offer({ name, settings }: CardOffer) {
+    this.notices.show({
+      text: t('New sound card: {name}', { name }),
+      detail: settings.inputDevice
+        ? t('Play on it and read the turntables from it?')
+        : t('Play on it?'),
+      actions: [
+        {
+          label: t('Use'),
+          run: () => this.apply(settings).catch((e) => this.engine.error.set(errorText(e))),
+        },
+        {
+          label: t('Ignore'),
+          run: () =>
+            invoke('decline_card', { name }).catch((e) => this.engine.error.set(errorText(e))),
+        },
+      ],
+    });
   }
 
   async refresh(): Promise<void> {

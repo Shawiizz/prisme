@@ -7,9 +7,15 @@ sidebar:
 
 import { Steps, Aside, LinkCard, CardGrid } from '@astrojs/starlight/components';
 
-Prisme plays with MIDI DJ controllers. For the [models it knows](/docs/controllers/supported/), the keys, faders, jog wheels, lights and level meters work as soon as you turn the controller on. You can map any other MIDI controller yourself, one control at a time, with [MIDI learn](/docs/controllers/learn/).
+Prisme plays with MIDI DJ controllers. For the [models it knows](/docs/controllers/supported/), the keys, faders, jog wheels, lights and level meters work as soon as you plug the controller in. You can map any other MIDI controller yourself, one control at a time, with [MIDI learn](/docs/controllers/learn/).
 
-## Turn a controller on
+## Plug a controller in
+
+Plug in a controller of a model Prisme knows and it plays at once: a notice says **connected**, with **Do not use it** if you would rather Prisme left it alone. A controller already plugged in when Prisme starts is opened too.
+
+Any other MIDI controller is offered: a notice says **New controller**, with **Use** and **Ignore**. Ignore it and it is not offered again; you can still turn it on in the settings.
+
+## Turn a controller on or off
 
 <Steps>
 
@@ -25,10 +31,10 @@ Prisme plays with MIDI DJ controllers. For the [models it knows](/docs/controlle
 
 </Steps>
 
-Prisme remembers the controllers you turned on. It opens them again at every start, and if you unplug one while playing (a cable pulled, a USB hub that resets), Prisme lets go of whatever the controller was holding (keys, a touched jog wheel), then opens it again as soon as it is back, its lights included.
+Prisme remembers the controllers you turned on, and those you turned off: it never takes these again by itself. It opens the others again at every start, and if you unplug one while playing (a cable pulled, a USB hub that resets), Prisme lets go of whatever the controller was holding (keys, a touched jog wheel), then opens it again as soon as it is back, its lights included.
 
 <Aside type="caution" title="One program per controller">
-On Windows, only one program at a time can open a MIDI port. If another DJ program has the controller open, Prisme cannot open it: close the other program first, then turn the switch on again. This is also why Prisme never takes a controller until you turn it on.
+On Windows, only one program at a time can open a MIDI port. If another DJ program has the controller open, Prisme cannot open it: close the other program first, then turn the switch on again. Plugged in while another program holds it, a controller is left to that program, without a notice.
 </Aside>
 
 ![Settings, MIDI controllers, here with no controller plugged in: the Controllers section with Refresh and MIDI clock out, then Controller profiles with the models known, Look for updates and your own profiles](../../../../assets/screens/docs/controllers-settings.png)

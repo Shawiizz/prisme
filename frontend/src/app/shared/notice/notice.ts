@@ -3,11 +3,11 @@ import { TPipe } from '../../core/i18n/t.pipe';
 import { PHONE } from '../../core/platform';
 
 /** Something to tell that does not wait for an answer: a line, what follows, and what can be
- * done about it. */
+ * done about it, the main thing first. */
 export interface Notice {
   text: string;
   detail?: string;
-  action?: { label: string; run: () => void };
+  actions?: { label: string; run: () => void }[];
 }
 
 /** How long a notice stays, unless closed. */
@@ -51,8 +51,13 @@ export class NoticeService {
             <span class="detail">{{ n.detail }}</span>
           }
         </div>
-        @if (n.action; as action) {
-          <button class="pr-btn pr-btn--sm" [class.pr-reach]="PHONE" (click)="run(action.run)">
+        @for (action of n.actions ?? []; track action.label) {
+          <button
+            class="pr-btn pr-btn--sm"
+            [class.pr-btn--light]="$first && n.actions!.length > 1"
+            [class.pr-reach]="PHONE"
+            (click)="run(action.run)"
+          >
             {{ action.label }}
           </button>
         }

@@ -234,7 +234,7 @@ pub fn run() {
             auto_dj::AutoDj::start(app.handle().clone());
             sampler::load_saved(app.handle().clone());
             let controllers = app.state::<Controllers>();
-            controllers.open_enabled(app.handle());
+            controllers.open_at_start(app.handle());
             Controllers::watch(app.handle().clone());
             Controllers::drive_outputs(app.handle().clone());
             app.manage(MidiClock::new());
@@ -396,6 +396,8 @@ pub fn run() {
             commands::sampler::set_sampler_gain,
             commands::controllers::list_controllers,
             commands::controllers::set_controller_enabled,
+            commands::controllers::decline_controller,
+            commands::audio::decline_card,
             commands::controllers::controller_mappings,
             commands::controllers::controller_light_targets,
             commands::controllers::learn_control,

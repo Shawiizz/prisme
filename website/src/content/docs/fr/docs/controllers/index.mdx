@@ -7,9 +7,15 @@ sidebar:
 
 import { Steps, Aside, LinkCard, CardGrid } from '@astrojs/starlight/components';
 
-Prisme se joue avec des contrôleurs DJ MIDI. Pour les [modèles qu’il connaît](/fr/docs/controllers/supported/), les touches, les faders, les jogs, les voyants et les vumètres fonctionnent dès que vous activez le contrôleur. Tout autre contrôleur MIDI, vous pouvez le mapper vous-même, une commande à la fois, avec le [MIDI learn](/fr/docs/controllers/learn/).
+Prisme se joue avec des contrôleurs DJ MIDI. Pour les [modèles qu’il connaît](/fr/docs/controllers/supported/), les touches, les faders, les jogs, les voyants et les vumètres fonctionnent dès que vous branchez le contrôleur. Tout autre contrôleur MIDI, vous pouvez le mapper vous-même, une commande à la fois, avec le [MIDI learn](/fr/docs/controllers/learn/).
 
-## Activer un contrôleur
+## Brancher un contrôleur
+
+Branchez un contrôleur d’un modèle que Prisme connaît et il joue aussitôt : une notification indique **connecté**, avec **Ne pas l’utiliser** si vous préférez que Prisme le laisse de côté. Un contrôleur déjà branché au démarrage de Prisme est ouvert lui aussi.
+
+Tout autre contrôleur MIDI vous est proposé : une notification indique **Nouveau contrôleur**, avec **Utiliser** et **Ignorer**. Ignoré, il n’est plus proposé ; vous pouvez toujours l’activer dans les réglages.
+
+## Activer ou désactiver un contrôleur
 
 <Steps>
 
@@ -25,10 +31,10 @@ Prisme se joue avec des contrôleurs DJ MIDI. Pour les [modèles qu’il connaî
 
 </Steps>
 
-Prisme se souvient des contrôleurs que vous avez activés. Il les rouvre à chaque démarrage, et si vous en débranchez un en plein mix (un câble arraché, un hub USB qui redémarre), Prisme relâche tout ce que le contrôleur tenait (touches, jog touché), puis le rouvre dès qu’il revient, voyants compris.
+Prisme se souvient des contrôleurs que vous avez activés, et de ceux que vous avez désactivés : il ne reprend jamais ceux-là de lui-même. Il rouvre les autres à chaque démarrage, et si vous en débranchez un en plein mix (un câble arraché, un hub USB qui redémarre), Prisme relâche tout ce que le contrôleur tenait (touches, jog touché), puis le rouvre dès qu’il revient, voyants compris.
 
 <Aside type="caution" title="Un seul logiciel par contrôleur">
-Sous Windows, un seul logiciel à la fois peut ouvrir un port MIDI. Si un autre logiciel DJ a ouvert le contrôleur, Prisme ne peut pas l’ouvrir : fermez d’abord l’autre logiciel, puis réactivez l’interrupteur. C’est aussi pour cela que Prisme ne prend jamais un contrôleur tant que vous ne l’avez pas activé.
+Sous Windows, un seul logiciel à la fois peut ouvrir un port MIDI. Si un autre logiciel DJ a ouvert le contrôleur, Prisme ne peut pas l’ouvrir : fermez d’abord l’autre logiciel, puis réactivez l’interrupteur. Branché alors qu’un autre logiciel le tient, un contrôleur est laissé à ce logiciel, sans notification.
 </Aside>
 
 ![Réglages, Contrôleurs MIDI, ici sans contrôleur branché : la partie des contrôleurs avec l’actualisation et l’horloge MIDI, puis les profils de contrôleurs, les modèles connus et vos propres profils](../../../../../assets/screens/docs/controllers-settings.png)

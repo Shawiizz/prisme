@@ -23,6 +23,9 @@ pub struct Preferences {
     /// The keyboard keys the DJ changed, by action (the interface's control ids): the actions
     /// left out keep the keys Prisme gives them, an empty list takes them off.
     pub keys: BTreeMap<String, Vec<KeyPreference>>,
+    /// Sound cards the DJ chose not to use when plugged in, by their name wherever they are
+    /// plugged ([`base_device_name`](prisme_audio_io::base_device_name)): not offered again.
+    pub declined_cards: Vec<String>,
 }
 
 /// A key of the keyboard (`KeyboardEvent.code`, so the layout does not matter), with the

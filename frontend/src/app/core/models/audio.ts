@@ -21,6 +21,12 @@ export interface AudioDevice {
   isDefault: boolean;
 }
 
+/** A sound card plugged in while Prisme runs, offered with the settings that use it. */
+export interface CardOffer {
+  name: string;
+  settings: AudioSettings;
+}
+
 export interface AudioSettings {
   backend: AudioBackend;
   outputDevice: string | null;

@@ -51,14 +51,29 @@ const PRESSED: &str = "pressed";
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 #[serde(default, rename_all = "camelCase")]
 pub struct ControllerSetup {
-    /// MIDI ports in use: Windows lets a single program open a port, so none is taken
-    /// unless the DJ asks.
+    /// MIDI ports in use: Windows lets a single program open a port, so a controller is
+    /// taken by itself only when plugged in, and only of a model Prisme knows.
     pub enabled: Vec<String>,
+    /// Controllers the DJ turned off, or chose not to use when plugged in: never opened, nor
+    /// offered, by themselves.
+    pub declined: Vec<String>,
     pub mappings: Mappings,
     /// Where the MIDI clock goes (see `midi_clock`).
     pub clock_output: Option<String>,
     /// Actions the DJ took off a controller: its profile's controls no longer drive them.
     pub unmapped: Vec<Unmapped>,
+}
+
+pub const PLUGGED_EVENT: &str = "controller-plugged";
+
+/// What the DJ is told of a controller plugged in while Prisme runs.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase", tag = "kind")]
+pub enum PluggedIn {
+    /// Of a model Prisme knows: opened, ready to play.
+    Opened { device: String, model: String },
+    /// Of a model Prisme does not know: used if the DJ wants it.
+    Offered { device: String, model: String },
 }
 
 /// An action taken off a controller.
@@ -384,20 +399,29 @@ impl Controllers {
         lock(&self.mappings).clone()
     }
 
-    /// Opens the controllers in use that are plugged in.
-    pub fn open_enabled(&self, app: &AppHandle) {
+    /// Opens the controllers in use that are plugged in, and those of a model Prisme knows,
+    /// unless the DJ turned them off.
+    pub fn open_at_start(&self, app: &AppHandle) {
         for device in self.setup.read(|s| s.enabled.clone()) {
             if let Err(e) = self.open(app, &device) {
                 warn!("controller {device} not opened: {e}");
             }
         }
+        for port in Self::plugged().unwrap_or_default() {
+            if self.new_to_the_dj(&port) && controller_profiles::of(&port).is_some() {
+                self.take_up(app, &port);
+            }
+        }
     }
 
     /// Keeps the controllers in use open: one unplugged (a USB cable pulled, a hub that
-    /// resets) is closed, and opened again as soon as it is back.
+    /// resets) is closed, and opened again as soon as it is back. One plugged in for the first
+    /// time is opened if Prisme knows its model, else offered (see [`Self::plug_in`]).
     pub fn watch(app: AppHandle) {
         let spawned = std::thread::Builder::new().name("prisme-midi-watch".into()).spawn(move || {
             let mut missing: Vec<String> = Vec::new();
+            // the ports of the last look; those there at start were seen to then
+            let mut seen: Option<Vec<String>> = None;
             // one client for looking, kept: a new one each time would come and go in every
             // MIDI patchbay of the system
             let mut looking: Option<MidiInput> = None;
@@ -442,11 +466,65 @@ impl Controllers {
                         Err(_) => {}
                     }
                 }
+                if let Some(seen) = &seen {
+                    for port in plugged.iter().filter(|p| !seen.contains(p)) {
+                        controllers.plug_in(&app, port);
+                    }
+                }
+                seen = Some(plugged);
             }
         });
         if let Err(e) = spawned {
             error!("controllers not watched: {e}");
         }
+    }
+
+    /// A controller plugged in while Prisme runs: opened if Prisme knows its model, else
+    /// offered, unless it is in use or the DJ turned it off or chose not to use it. The
+    /// interface is told ([`PLUGGED_EVENT`]).
+    fn plug_in(&self, app: &AppHandle, port: &str) {
+        if !self.new_to_the_dj(port) {
+            return;
+        }
+        let (device, model) = (port.to_owned(), Self::model_name(port));
+        let news = if controller_profiles::of(port).is_none() {
+            PluggedIn::Offered { device, model }
+        } else if self.take_up(app, port) {
+            PluggedIn::Opened { device, model }
+        } else {
+            return;
+        };
+        let _ = app.emit(PLUGGED_EVENT, news);
+    }
+
+    /// Whether the controller on `port` is neither in use nor one the DJ turned off or chose
+    /// not to use. The port Linux loops MIDI back through is no controller.
+    fn new_to_the_dj(&self, port: &str) -> bool {
+        let base = base_port_name(port);
+        let same = |d: &String| base_port_name(d) == base;
+        !base.starts_with("Midi Through")
+            && self.setup.read(|s| !s.enabled.iter().any(same) && !s.declined.iter().any(same))
+    }
+
+    /// Puts the controller on `port` in use; whether it could be opened (another program may
+    /// hold it).
+    fn take_up(&self, app: &AppHandle, port: &str) -> bool {
+        match self.set_enabled(app, port, true) {
+            Ok(()) => true,
+            Err(e) => {
+                info!("controller {port} not opened: {e}");
+                false
+            }
+        }
+    }
+
+    /// The DJ chose not to use the controller on `device`: it is not offered again.
+    pub fn decline(&self, device: &str) {
+        self.save(|s| {
+            if !s.declined.iter().any(|d| d == device) {
+                s.declined.push(device.to_owned());
+            }
+        });
     }
 
     pub fn set_enabled(&self, app: &AppHandle, device: &str, enabled: bool) -> AppResult<()> {
@@ -458,9 +536,10 @@ impl Controllers {
         }
         self.save(|s| {
             s.enabled.retain(|d| d != device);
-            if enabled {
-                s.enabled.push(device.to_owned());
-            }
+            s.declined.retain(|d| d != device);
+            // turned off, it is not taken again by itself when plugged in
+            let list = if enabled { &mut s.enabled } else { &mut s.declined };
+            list.push(device.to_owned());
         });
         Ok(())
     }

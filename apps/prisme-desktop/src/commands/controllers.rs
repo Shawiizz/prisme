@@ -42,6 +42,12 @@ pub fn set_controller_enabled(
     controllers.set_enabled(&app, &name, enabled)
 }
 
+/// The DJ chose not to use the controller just plugged in: it is not offered again.
+#[tauri::command]
+pub fn decline_controller(controllers: State<'_, Controllers>, name: String) {
+    controllers.decline(&name);
+}
+
 /// What drives what: the profiles of the controllers in use, and what was learnt.
 #[tauri::command]
 pub fn controller_mappings(controllers: State<'_, Controllers>) -> Vec<Mapping> {

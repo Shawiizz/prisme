@@ -39,6 +39,17 @@ pub fn list_devices(backend: BackendDto) -> AppResult<Vec<DeviceDto>> {
         .collect())
 }
 
+/// The DJ chose not to use the sound card `name` just plugged in: it is not offered again.
+#[tauri::command]
+pub fn decline_card(state: State<'_, AppState>, name: String) {
+    let base = prisme_audio_io::base_device_name(&name);
+    state.update_preferences(|p| {
+        if !p.declined_cards.contains(&base) {
+            p.declined_cards.push(base);
+        }
+    });
+}
+
 #[tauri::command]
 pub fn timecode_formats() -> Vec<TimecodeFormatDto> {
     prisme_timecode::FORMATS.iter().map(TimecodeFormatDto::from).collect()

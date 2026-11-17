@@ -117,15 +117,17 @@ export class RecordingService {
     this.notices.show({
       ...recordingNotice(recording, PHONE),
       // a phone shows no folders: the notice says where it went
-      action: PHONE
-        ? undefined
-        : {
-            label: t('Show in folder'),
-            run: () =>
-              invoke('show_recording', { path: recording.path }).catch((e) =>
-                this.engine.error.set(errorText(e)),
-              ),
-          },
+      actions: PHONE
+        ? []
+        : [
+            {
+              label: t('Show in folder'),
+              run: () =>
+                invoke('show_recording', { path: recording.path }).catch((e) =>
+                  this.engine.error.set(errorText(e)),
+                ),
+            },
+          ],
     });
   }
 }
