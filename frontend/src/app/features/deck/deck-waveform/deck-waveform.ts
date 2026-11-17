@@ -55,6 +55,9 @@ interface Drag {
   lastX: number;
   /** The hand is on the record: it lets go with the press. */
   held: boolean;
+  /** Where the press puts the track, for a hand on the record or the edge of a stopped one:
+   * drawn there at once, at the screen's rate, rather than where the engine last said. */
+  shownS: number | null;
 }
 
 /**
@@ -176,6 +179,7 @@ export class DeckWaveform {
       touch: null,
       lastX: event.clientX,
       held: !jog,
+      shownS: null,
     };
     if (jog) {
       // held still, it takes the record; slid at once, it turns the edge
@@ -203,13 +207,14 @@ export class DeckWaveform {
       this.takeRecord(drag, event);
       return;
     }
-    if (event.timeStamp - drag.sentAt < HAND_EVERY_MS) return;
-    drag.sentAt = event.timeStamp;
     const width = (event.currentTarget as HTMLElement).getBoundingClientRect().width;
     const at =
       drag.view === 'overview'
         ? this.overviewTime(event)
         : drag.startS - ((event.clientX - drag.startX) / width) * this.zoomSpan();
+    drag.shownS = at;
+    if (event.timeStamp - drag.sentAt < HAND_EVERY_MS) return;
+    drag.sentAt = event.timeStamp;
     this.engine.hand(this.deck(), at, event.timeStamp);
   }
 
@@ -244,6 +249,7 @@ export class DeckWaveform {
     drag.startS = this.engine.livePosition(this.deck()) ?? drag.startS;
     drag.startX = event.clientX;
     drag.sentAt = event.timeStamp;
+    drag.shownS = drag.startS;
     this.engine.hand(this.deck(), drag.startS, event.timeStamp);
   }
 
@@ -258,7 +264,13 @@ export class DeckWaveform {
     const width = (event.currentTarget as HTMLElement).getBoundingClientRect().width;
     const seconds = -((event.clientX - drag.lastX) / width) * this.zoomSpan() * EDGE_SHARE;
     drag.lastX = event.clientX;
-    if (seconds !== 0) this.engine.jog(this.deck(), seconds / JOG_TURN_S, event.timeStamp);
+    if (seconds === 0) return;
+    // a stopped track moves by what the edge turns; a playing one is only pushed or held back
+    if (!this.engine.status()?.decks[this.deck()]?.playing) {
+      const from = drag.shownS ?? this.engine.livePosition(this.deck()) ?? 0;
+      drag.shownS = Math.min(Math.max(from + seconds, 0), this.track()?.durationS ?? 0);
+    }
+    this.engine.jog(this.deck(), seconds / JOG_TURN_S, event.timeStamp);
   }
 
   private overviewTime(event: PointerEvent): number {
@@ -287,7 +299,7 @@ export class DeckWaveform {
       this.showing.forget();
       return;
     }
-    const position = this.engine.livePosition(this.deck()) ?? 0;
+    const position = this.drag?.shownS ?? this.engine.livePosition(this.deck()) ?? 0;
     const loop = this.engine.status()?.decks[this.deck()]?.looping ?? null;
     const span = this.zoomSpan();
     const waveform = this.engine.waveforms()[this.deck()];
