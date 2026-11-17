@@ -4,6 +4,7 @@ import { appConfig } from './app/app.config';
 import { App } from './app/app';
 import { loadLanguage } from './app/core/i18n/i18n';
 import { PHONE } from './app/core/platform';
+import { slideSegments } from './app/shared/segment-slide';
 
 // what a phone's screen takes is styled under this one class: `:host-context(.phone)`
 document.documentElement.classList.toggle('phone', PHONE);
@@ -16,6 +17,8 @@ if (!isDevMode()) {
     if (!target?.closest('input, textarea, [contenteditable="true"]')) event.preventDefault();
   });
 }
+
+slideSegments();
 
 loadLanguage()
   .then(() => bootstrapApplication(App, appConfig))

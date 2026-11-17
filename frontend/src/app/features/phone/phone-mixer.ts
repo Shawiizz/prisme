@@ -1,6 +1,7 @@
-import { Component, output } from '@angular/core';
+import { Component, output, viewChild } from '@angular/core';
 import { TPipe } from '../../core/i18n/t.pipe';
 import { Dismiss, overlay } from '../../shared/overlay';
+import { Sheet } from '../../shared/sheet';
 import { MixerControls } from '../mixer/mixer-controls/mixer-controls';
 
 /** The software mixer beside its channels, risen over the table: the master and the booth,
@@ -8,14 +9,17 @@ import { MixerControls } from '../mixer/mixer-controls/mixer-controls';
 @Component({
   selector: 'app-phone-mixer',
   template: `
-    <div class="pr-veil pr-veil--dim" animate.enter="pr-fade-in" (dismiss)="closed.emit()"></div>
+    <div class="pr-veil pr-veil--dim" animate.enter="pr-fade-in" (dismiss)="sheet.close()"></div>
     <section
       class="pr-sheet panel"
+      prSheet
+      #sheet="prSheet"
+      (dismissed)="closed.emit()"
       animate.enter="pr-rise-in"
       role="dialog"
       [attr.aria-label]="'Mixer' | t"
     >
-      <button class="grip" (click)="closed.emit()" [attr.aria-label]="'Close' | t"></button>
+      <button class="grip" (click)="sheet.close()" [attr.aria-label]="'Close' | t"></button>
       <h4>{{ 'Mixer' | t }}</h4>
       <app-mixer-controls />
     </section>
@@ -49,15 +53,16 @@ import { MixerControls } from '../mixer/mixer-controls/mixer-controls';
       color: var(--pr-text-3);
     }
   `,
-  imports: [Dismiss, MixerControls, TPipe],
+  imports: [Dismiss, MixerControls, Sheet, TPipe],
 })
 export class PhoneMixer {
   readonly closed = output<void>();
+  private readonly sheet = viewChild.required(Sheet);
 
   constructor() {
     overlay(
       () => true,
-      () => this.closed.emit(),
+      () => this.sheet().close(),
     );
   }
 }

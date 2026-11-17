@@ -1,5 +1,12 @@
-<div class="pr-veil" [class.pr-veil--dim]="PHONE" (dismiss)="closed.emit()"></div>
-<div class="panel" [class.pr-popover]="!PHONE" [class.pr-sheet]="PHONE">
+<div class="pr-veil" [class.pr-veil--dim]="PHONE" (dismiss)="sheet.close()"></div>
+<div
+  class="panel"
+  [class.pr-popover]="!PHONE"
+  [class.pr-sheet]="PHONE"
+  prSheet
+  #sheet="prSheet"
+  (dismissed)="closed.emit()"
+>
   <header>
     <span class="pr-label">{{ 'Beat grid' | t }}</span>
     @if (track()?.gridEdited) {

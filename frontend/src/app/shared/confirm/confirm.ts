@@ -10,6 +10,7 @@ import {
 } from '@angular/core';
 import { PHONE } from '../../core/platform';
 import { Dismiss, overlay } from '../overlay';
+import { Sheet } from '../sheet';
 
 /** What is asked: a title, what follows, and the word that does it. */
 export interface Question {
@@ -57,6 +58,8 @@ export class ConfirmService {
       <div
         [class.pr-popover]="!PHONE"
         [class.pr-sheet]="PHONE"
+        prSheet
+        (dismissed)="service.answer(false)"
         [animate.enter]="PHONE ? 'pr-rise-in' : 'pr-pop-in'"
         [animate.leave]="PHONE ? 'pr-rise-out' : 'pr-pop-out'"
         role="alertdialog"
@@ -75,7 +78,7 @@ export class ConfirmService {
     }
   `,
   styleUrl: './confirm.scss',
-  imports: [Dismiss],
+  imports: [Dismiss, Sheet],
 })
 export class Confirm {
   protected readonly PHONE = PHONE;

@@ -160,6 +160,7 @@
 /* ---------- Segmented choice (INT / REL / ABS, A / B) ---------- */
 
 .pr-seg {
+  position: relative;
   display: inline-flex;
   gap: 2px;
   padding: 2px;
@@ -167,6 +168,8 @@
   border-radius: var(--pr-radius);
 }
 .pr-seg > button {
+  position: relative;
+  transition: color 200ms;
   height: 22px;
   padding: 0 9px;
   font: 600 11px / 1 var(--pr-font);
@@ -187,6 +190,18 @@
 .pr-seg > button.is-on {
   background: var(--pr-light);
   color: var(--pr-on-light);
+}
+/* the light sliding from one choice to the next (shared/segment-slide.ts), the choices
+   showing none meanwhile */
+.pr-seg__light {
+  position: absolute;
+  background: var(--pr-light);
+  border-radius: var(--pr-radius-sm);
+  pointer-events: none;
+}
+.pr-seg.is-sliding > button[aria-checked='true'],
+.pr-seg.is-sliding > button.is-on {
+  background: transparent;
 }
 .pr-seg--lg > button {
   height: 34px;

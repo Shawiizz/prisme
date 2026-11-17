@@ -156,6 +156,8 @@
   ></div>
   <app-track-menu
     class="pr-sheet sheet"
+    prSheet
+    (dismissed)="menu.set(null)"
     animate.enter="pr-rise-in"
     animate.leave="pr-rise-out"
     [paths]="menuPaths()"
@@ -169,7 +171,13 @@
     animate.leave="pr-fade-out"
     (dismiss)="browsing.set(false)"
   ></div>
-  <div class="pr-sheet sheet lists-sheet" animate.enter="pr-rise-in" animate.leave="pr-rise-out">
+  <div
+    class="pr-sheet sheet lists-sheet"
+    prSheet
+    (dismissed)="browsing.set(false)"
+    animate.enter="pr-rise-in"
+    animate.leave="pr-rise-out"
+  >
     <app-library-sidebar />
     <button class="pr-btn pr-btn--lg import" (click)="browsing.set(false); importing.set(true)">
       {{ 'Import from Serato or rekordbox' | t }}

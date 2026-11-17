@@ -1,4 +1,4 @@
-import { Component, computed, inject, input, output, signal } from '@angular/core';
+import { Component, computed, inject, input, output, signal, viewChild } from '@angular/core';
 import { closedByBack } from '../../core/back';
 import { deckTempo } from '../../core/deck-tempo';
 import { DeckMode, deckVinyl } from '../../core/deck-vinyl';
@@ -14,6 +14,7 @@ import { deckLetter } from '../../shared/time';
 import { DeckOptions } from '../deck/deck-options/deck-options';
 import { GridEditor } from '../deck/grid-editor/grid-editor';
 import { Dismiss, overlay } from '../../shared/overlay';
+import { Sheet } from '../../shared/sheet';
 import { PhoneTempo } from './phone-tempo';
 
 const DRIVERS: readonly { id: DeckMode; label: Text }[] = [
@@ -49,13 +50,14 @@ const EQ: readonly { band: Band; label: string }[] = [
   selector: 'app-phone-deck-panel',
   templateUrl: './phone-deck-panel.html',
   styleUrl: './phone-deck-panel.scss',
-  imports: [CueButton, DeckOptions, Dismiss, Fader, GridEditor, PhoneTempo, TPipe],
+  imports: [CueButton, DeckOptions, Dismiss, Fader, GridEditor, PhoneTempo, Sheet, TPipe],
 })
 export class PhoneDeckPanel {
   readonly deck = input.required<number>();
   /** Opened from the table, which has the channel already. */
   readonly table = input(false);
   readonly closed = output<void>();
+  private readonly sheet = viewChild.required(Sheet);
 
   protected readonly engine = inject(EngineService);
   protected readonly mixer = inject(MixerService);
@@ -81,7 +83,7 @@ export class PhoneDeckPanel {
   constructor() {
     overlay(
       () => true,
-      () => this.closed.emit(),
+      () => this.sheet().close(),
     );
     closedByBack(this.editing, () => this.editing.set(false));
   }

@@ -1,21 +1,25 @@
-import { Component, inject, output } from '@angular/core';
+import { Component, inject, output, viewChild } from '@angular/core';
 import { TPipe } from '../../core/i18n/t.pipe';
 import { RecordOption, RecordingService } from '../../core/services/recording.service';
 import { Dismiss, overlay } from '../../shared/overlay';
+import { Sheet } from '../../shared/sheet';
 
 /** What to record, risen from the Rec key: the software mixer's master, and the inputs of the
  * sound card, each with what it holds. */
 @Component({
   selector: 'app-phone-record',
   template: `
-    <div class="pr-veil pr-veil--dim" animate.enter="pr-fade-in" (dismiss)="closed.emit()"></div>
+    <div class="pr-veil pr-veil--dim" animate.enter="pr-fade-in" (dismiss)="sheet.close()"></div>
     <section
       class="pr-sheet panel"
+      prSheet
+      #sheet="prSheet"
+      (dismissed)="closed.emit()"
       animate.enter="pr-rise-in"
       role="dialog"
       [attr.aria-label]="'Record the mix' | t"
     >
-      <button class="grip" (click)="closed.emit()" [attr.aria-label]="'Close' | t"></button>
+      <button class="grip" (click)="sheet.close()" [attr.aria-label]="'Close' | t"></button>
       <h4>{{ 'Record the mix' | t }}</h4>
       @for (o of recording.options(); track o.label) {
         <button class="option" (click)="record(o)">
@@ -81,21 +85,22 @@ import { Dismiss, overlay } from '../../shared/overlay';
       color: var(--pr-text-3);
     }
   `,
-  imports: [Dismiss, TPipe],
+  imports: [Dismiss, Sheet, TPipe],
 })
 export class PhoneRecord {
   readonly closed = output<void>();
+  private readonly sheet = viewChild.required(Sheet);
   protected readonly recording = inject(RecordingService);
 
   constructor() {
     overlay(
       () => true,
-      () => this.closed.emit(),
+      () => this.sheet().close(),
     );
   }
 
   protected record(option: RecordOption) {
-    this.closed.emit();
+    this.sheet().close();
     this.recording.start(option.source);
   }
 }

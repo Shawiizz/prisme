@@ -145,7 +145,7 @@ pub struct DjPreferences {
     /// Every track played at the same loudness (see `LoadedTrack::level`).
     pub auto_gain: bool,
     pub deck_count: DeckCount,
-    /// The knobs of the mixer hold at their middle when turned through it.
+    /// The knobs with a middle (a mark at their top) hold there when turned through it.
     pub knob_magnet: bool,
     /// On a phone, the decks play and pause from its lock screen and its notifications.
     pub lock_controls: bool,

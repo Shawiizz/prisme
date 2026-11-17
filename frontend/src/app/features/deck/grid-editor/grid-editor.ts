@@ -1,4 +1,4 @@
-import { Component, computed, inject, input, output, signal } from '@angular/core';
+import { Component, computed, inject, input, output, signal, viewChild } from '@angular/core';
 import { GridChange } from '../../../core/models/engine';
 import { EngineService } from '../../../core/services/engine.service';
 import { TrackEditService } from '../../../core/services/track-edit.service';
@@ -7,6 +7,7 @@ import { TPipe } from '../../../core/i18n/t.pipe';
 import { camelotHue, camelotMajor, keyName } from '../../../shared/camelot';
 import { Dismiss, overlay } from '../../../shared/overlay';
 import { PHONE } from '../../../core/platform';
+import { Sheet } from '../../../shared/sheet';
 import { phaseOffset } from '../../../core/sync';
 
 /** Grid moves of the arrow buttons: fine and coarse (seconds). */
@@ -18,7 +19,7 @@ const COARSE_SHIFT_S = 0.02;
   selector: 'app-grid-editor',
   templateUrl: './grid-editor.html',
   styleUrl: './grid-editor.scss',
-  imports: [TPipe, Dismiss],
+  imports: [TPipe, Dismiss, Sheet],
 })
 export class GridEditor {
   /** On a phone it rises from the bottom, over the panel of its deck. */
@@ -28,6 +29,7 @@ export class GridEditor {
   protected readonly keyName = keyName;
   readonly deck = input.required<number>();
   readonly closed = output();
+  private readonly sheet = viewChild.required(Sheet);
 
   private readonly engine = inject(EngineService);
   private readonly edits = inject(TrackEditService);
@@ -72,7 +74,7 @@ export class GridEditor {
     // the deck that opens it answers the back gesture
     overlay(
       () => true,
-      () => this.closed.emit(),
+      () => this.sheet().close(),
       { back: false },
     );
   }

@@ -9,6 +9,7 @@ import {
 } from '@angular/core';
 import { PHONE } from '../../core/platform';
 import { Dismiss, overlay } from '../overlay';
+import { Sheet } from '../sheet';
 
 interface Choice {
   index: number;
@@ -82,6 +83,8 @@ function choicesOf(select: HTMLSelectElement): Choice[] {
         class="picker"
         [class.pr-popover]="!PHONE"
         [class.pr-sheet]="PHONE"
+        prSheet
+        (dismissed)="close()"
         [animate.enter]="PHONE ? 'pr-rise-in' : 'pr-pop-in'"
         [animate.leave]="PHONE ? 'pr-rise-out' : 'pr-pop-out'"
         role="listbox"
@@ -116,7 +119,7 @@ function choicesOf(select: HTMLSelectElement): Choice[] {
     }
   `,
   styleUrl: './select-picker.scss',
-  imports: [Dismiss],
+  imports: [Dismiss, Sheet],
 })
 export class SelectPicker {
   protected readonly PHONE = PHONE;

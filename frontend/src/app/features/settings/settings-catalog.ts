@@ -225,7 +225,7 @@ const ALL_SETTINGS: readonly SettingEntry[] = [
     label: () => t('Magnetic knobs'),
     description: () =>
       t(
-        'The EQ and filter knobs hold at their middle when turned through it, to find it again without looking.',
+        'The knobs with a mark at the top (EQ, filter, balance…) hold at their middle when turned through it, to find it again without looking.',
       ),
   },
   {

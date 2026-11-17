@@ -17,6 +17,7 @@ import { ControlService } from './control.service';
 import { errorText } from '../errors';
 import { t } from '../i18n/i18n';
 import { NoticeService } from '../../shared/notice/notice';
+import { NavigationService } from '../services/navigation.service';
 
 /**
  * MIDI controllers: their mapped controls play the app's controls, the controls that
@@ -35,6 +36,7 @@ export class ControllerService {
   private readonly controls = inject(ControlService);
   private readonly engine = inject(EngineService);
   private readonly notices = inject(NoticeService);
+  private readonly navigation = inject(NavigationService);
 
   readonly controllers = signal<Controller[]>([]);
   readonly profiles = signal<ControllerProfiles | null>(null);
@@ -99,9 +101,15 @@ export class ControllerService {
     await this.refresh();
     this.notices.show({
       text: t('New controller: {model}', { model }),
-      detail: t('Prisme does not know this model: its controls are set by learning them.'),
+      detail: t('Not a model Prisme knows yet: set up its controls by learning them.'),
       actions: [
-        { label: t('Use'), run: () => this.setEnabled(device, true) },
+        {
+          label: t('Set up'),
+          run: async () => {
+            await this.setEnabled(device, true);
+            this.navigation.openSettings('controllers');
+          },
+        },
         {
           label: t('Ignore'),
           run: () => this.run(() => invoke('decline_controller', { name: device })),

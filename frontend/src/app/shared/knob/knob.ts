@@ -2,11 +2,13 @@ import {
   Component,
   booleanAttribute,
   computed,
+  inject,
   input,
   linkedSignal,
   output,
   signal,
 } from '@angular/core';
+import { PreferencesService } from '../../core/services/preferences.service';
 
 /** The knob turns through 270 degrees, from bottom left to bottom right. */
 const SWEEP = 270;
@@ -14,7 +16,8 @@ const START = -135;
 /** Vertical drag for the whole travel (pixels); Shift is four times finer. */
 const DRAG_PX = 160;
 const STEP = 0.02;
-/** A magnetic knob holds at its middle across this much of a drag (share of the travel). */
+/** A bipolar knob holds at its middle across this much of a drag (share of the travel), with
+ * magnetic knobs on. */
 const MAGNET = 0.06;
 /** Geometry of the 36 × 36 drawing: the value ring around the cap. */
 const CENTRE = 18;
@@ -36,7 +39,8 @@ function arc(from: number, to: number): string {
 
 /**
  * Rotary knob: a cap with a line of light inside a ring that fills with the value, from the
- * centre for a bipolar knob (with a detent at the top). Drag up or down (Shift for fine
+ * centre for a bipolar knob (with a detent at the top, which holds it as it is turned through
+ * with magnetic knobs on). Drag up or down (Shift for fine
  * moves), scroll, use the arrow keys, double-click to go back to the default. While it is
  * touched, its label shows the value (`format`). Its value goes from 0 to 1. Disabled, it is
  * greyed and nothing moves it.
@@ -222,8 +226,6 @@ export class Knob {
   readonly value = input.required<number>();
   readonly defaultValue = input(0.5);
   readonly bipolar = input(false, { transform: booleanAttribute });
-  /** A bipolar knob that holds at its middle when turned through it. */
-  readonly magnetic = input(false, { transform: booleanAttribute });
   readonly label = input('');
   readonly labelTitle = input('');
   /** The value as read under the knob while it is touched (dB, %…). */
@@ -237,6 +239,8 @@ export class Knob {
   readonly valueChange = output<number>();
   readonly labelClick = output();
 
+  private readonly preferences = inject(PreferencesService);
+  private readonly magnetic = computed(() => this.preferences.dj().knobMagnet);
   protected readonly CENTRE = CENTRE;
   protected readonly CAP = CAP;
   protected readonly track = arc(START, START + SWEEP);

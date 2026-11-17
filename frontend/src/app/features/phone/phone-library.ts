@@ -23,6 +23,7 @@ import { TPipe } from '../../core/i18n/t.pipe';
 import { camelotCompatible } from '../../shared/camelot';
 import { Cover } from '../../shared/cover/cover';
 import { Dismiss, overlay } from '../../shared/overlay';
+import { Sheet } from '../../shared/sheet';
 import { decimal, deckLetter } from '../../shared/time';
 import { AutoDjBar } from '../library/auto-dj-bar/auto-dj-bar';
 import { ImportDialog } from '../library/import-dialog/import-dialog';
@@ -80,6 +81,7 @@ interface Slide {
     ImportDialog,
     LibrarySidebar,
     PreviewStrip,
+    Sheet,
     TPipe,
     TrackMenu,
   ],
