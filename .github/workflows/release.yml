@@ -1,8 +1,8 @@
 name: Release
 
-# A version tag (1.2.3) builds the packages of the three systems, side by side, then the
-# update manifest from their signatures, and attaches them to a draft release: publishing it
-# offers the update to the installed copies.
+# A version tag (1.2.3) builds the packages of the three systems and the Android APK, side
+# by side, then the update manifest from the computers' signatures, and attaches them to a
+# draft release: publishing it offers the update to the installed copies.
 on:
   push:
     tags: ["[0-9]+.[0-9]+.[0-9]+"]
@@ -61,6 +61,15 @@ jobs:
           includeUpdaterJson: false
           # signed update packages: only here, where the signing key is
           args: --config tauri.release.conf.json ${{ matrix.args }}
+
+  android:
+    needs: draft
+    uses: ./.github/workflows/android.yml
+    with:
+      release: ${{ github.ref_name }}
+    secrets: inherit
+    permissions:
+      contents: write
 
   manifest:
     needs: packages

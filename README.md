@@ -107,7 +107,7 @@ cargo tauri dev
 
 `cargo tauri build` produces the packages in `target/release/bundle`: the installer on
 Windows, a `.deb` and an AppImage on Linux, a `.dmg` on macOS. The Android package is
-built by the `Mobile` workflow, for a `mobile-1.2.3` tag or on demand.
+built by the `Android` workflow, for a release or on demand.
 
 On Linux, Prisme plays through ALSA, or through JACK (PipeWire's included) for the
 lowest latency. The macOS build is not notarized by Apple: the first time, open it from
@@ -117,7 +117,8 @@ System Settings > Privacy & Security.
 
 1. Set the new version in the workspace `Cargo.toml` (`[workspace.package] version`).
 2. Push a tag with that version, such as `0.2.0`: CI builds the packages of the three
-   systems and their signed update packages and attaches them to a draft release.
+   systems, their signed update packages and the Android APK, and attaches them to a
+   draft release.
 3. Publish the draft: the installed copies then offer the update.
 
 ## Architecture
