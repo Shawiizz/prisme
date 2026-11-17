@@ -106,11 +106,13 @@
     @if (updates.available(); as update) {
       <button
         class="pr-btn pr-btn--light pr-btn--sm update"
-        [disabled]="updates.decksPlaying() || updates.installing()"
+        [disabled]="updates.waitsForDecks() || updates.installing()"
         [title]="
-          updates.decksPlaying()
+          updates.waitsForDecks()
             ? ('Stop the decks first: installing restarts Prisme' | t)
-            : ('Install Prisme {version} and restart' | t: { version: update.version })
+            : update.apk
+              ? ('Download Prisme {version}' | t: { version: update.version })
+              : ('Install Prisme {version} and restart' | t: { version: update.version })
         "
         (click)="updates.install()"
       >

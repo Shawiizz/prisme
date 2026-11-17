@@ -751,7 +751,10 @@
                 id="about.updates"
                 [help]="
                   update
-                    ? ('Prisme {version} is ready to install.' | t: { version: update.version })
+                    ? update.apk
+                      ? ('Prisme {version} is out: download it, then open it to install.'
+                        | t: { version: update.version })
+                      : ('Prisme {version} is ready to install.' | t: { version: update.version })
                     : updates.looked() === 'latest'
                       ? ('This is the latest version.' | t)
                       : updates.looked() === 'unreachable'
@@ -762,18 +765,32 @@
                 @if (update) {
                   <button
                     class="pr-btn pr-btn--light"
-                    [disabled]="updates.decksPlaying() || updates.installing()"
+                    [disabled]="updates.waitsForDecks() || updates.installing()"
                     (click)="updates.install()"
                   >
-                    {{ updates.installing() ? ('Installing…' | t) : ('Install and restart' | t) }}
+                    {{
+                      update.apk
+                        ? ('Download' | t)
+                        : updates.installing()
+                          ? ('Installing…' | t)
+                          : ('Install and restart' | t)
+                    }}
                   </button>
                 } @else {
                   <button
                     class="pr-btn"
+                    [class.is-busy]="updates.looked() === 'looking'"
+                    [class.pr-btn--danger]="updates.looked() === 'unreachable'"
                     [disabled]="updates.looked() === 'looking'"
                     (click)="updates.look()"
                   >
-                    {{ updates.looked() === 'looking' ? ('Checking…' | t) : ('Check now' | t) }}
+                    {{
+                      updates.looked() === 'looking'
+                        ? ('Checking…' | t)
+                        : updates.looked() === 'unreachable'
+                          ? ('Try again' | t)
+                          : ('Check now' | t)
+                    }}
                   </button>
                 }
               </app-setting-row>

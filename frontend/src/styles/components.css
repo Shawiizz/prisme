@@ -95,6 +95,21 @@
   background: var(--pr-alert);
   color: var(--pr-on-light);
 }
+/* working on it: a ring turning before the label */
+.pr-btn.is-busy::before {
+  content: '';
+  width: 11px;
+  height: 11px;
+  border: 1.5px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: pr-spin 0.8s linear infinite;
+}
+@keyframes pr-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
 /* a square button holding a symbol: always an aria-label */
 .pr-btn--icon {
   width: var(--pr-h);
