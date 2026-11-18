@@ -34,12 +34,11 @@ type FolderAction = 'show' | 'rescan' | 'remove';
 
 const FOLDED_KEY = 'prisme.sidebar.folded';
 
-/** The sections whose height the DJ sets, the folders above taking what is left. */
+/** The sections whose height the DJ sets. */
 type Sized = 'crates' | 'history';
 const HEIGHTS_KEY = 'prisme.sidebar.heights';
-/** A section keeps its header and a row; the folders above, a little more. */
+/** A section keeps its header and a row. */
 const LEAST_HEIGHT = 64;
-const LEAST_FOLDERS = 96;
 
 /** The sections the user folded, as left last time. */
 function savedFolded(): Foldable[] {
@@ -126,12 +125,19 @@ export class LibrarySidebar {
     );
   }
 
-  /** Drags the line above `section`: it grows as the line goes up, as far as the folders can
-   * give way. */
+  /** Drags the line above `section`: it grows as the line goes up, as tall as its rows or into
+   * the room left free at the bottom of the column. */
   resize(event: PointerEvent, section: Sized) {
-    const height = (element: Element | null) => element?.getBoundingClientRect().height ?? 0;
-    const from = height((event.currentTarget as HTMLElement).parentElement);
-    const spare = Math.max(height(this.host.querySelector('.folders')) - LEAST_FOLDERS, 0);
+    const bounds = (element: Element) => element.getBoundingClientRect();
+    const element = (event.currentTarget as HTMLElement).parentElement!;
+    const from = bounds(element).height;
+    const list = element.querySelector('.list')!;
+    const whole = from - list.clientHeight + list.scrollHeight;
+    const last = this.host.querySelector(':scope > section:last-of-type')!;
+    const most = Math.max(
+      whole,
+      from + Math.max(bounds(this.host).bottom - bounds(last).bottom, 0),
+    );
     dragSize(
       event,
       from,
@@ -139,7 +145,7 @@ export class LibrarySidebar {
       (wanted) => {
         this.heights.update((h) => ({
           ...h,
-          [section]: Math.round(Math.min(Math.max(wanted, LEAST_HEIGHT), from + spare)),
+          [section]: Math.round(Math.min(Math.max(wanted, LEAST_HEIGHT), most)),
         }));
         saveSize(HEIGHTS_KEY, this.heights());
       },

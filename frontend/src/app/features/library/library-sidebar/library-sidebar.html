@@ -18,13 +18,15 @@
         <span class="auto pr-label" [class.paused]="autoDj.paused()">{{ 'Auto DJ' | t }}</span>
       }
       <span class="count">{{ prepareCount() }}</span>
-      <button
-        class="action"
-        [title]="'Export as a playlist (M3U)' | t"
-        (click)="library.exportList({ kind: 'prepare' }); $event.stopPropagation()"
-      >
-        M3U
-      </button>
+      <span class="actions">
+        <button
+          class="action"
+          [title]="'Export as a playlist (M3U)' | t"
+          (click)="library.exportList({ kind: 'prepare' }); $event.stopPropagation()"
+        >
+          M3U
+        </button>
+      </span>
     </div>
     <div
       class="item"
@@ -202,29 +204,31 @@
             >{{ c.name }}</span
           >
           <span class="count">{{ c.trackCount }}</span>
-          <button
-            class="action"
-            [title]="
-              c.rules
-                ? ('Export the tracks it picks now as a playlist (M3U)' | t)
-                : ('Export as a playlist (M3U)' | t)
-            "
-            (click)="library.exportList({ kind: 'crate', id: c.id }); $event.stopPropagation()"
-          >
-            M3U
-          </button>
-          <button
-            class="delete"
-            [class.armed]="isArmed('crate', c.id)"
-            [title]="
-              isArmed('crate', c.id)
-                ? ('Click again to delete' | t)
-                : ('Delete the crate (not its tracks)' | t)
-            "
-            (click)="delete('crate', c.id); $event.stopPropagation()"
-          >
-            {{ isArmed('crate', c.id) ? ('Delete' | t) : '×' }}
-          </button>
+          <span class="actions">
+            <button
+              class="action"
+              [title]="
+                c.rules
+                  ? ('Export the tracks it picks now as a playlist (M3U)' | t)
+                  : ('Export as a playlist (M3U)' | t)
+              "
+              (click)="library.exportList({ kind: 'crate', id: c.id }); $event.stopPropagation()"
+            >
+              M3U
+            </button>
+            <button
+              class="delete"
+              [class.armed]="isArmed('crate', c.id)"
+              [title]="
+                isArmed('crate', c.id)
+                  ? ('Click again to delete' | t)
+                  : ('Delete the crate (not its tracks)' | t)
+              "
+              (click)="delete('crate', c.id); $event.stopPropagation()"
+            >
+              {{ isArmed('crate', c.id) ? ('Delete' | t) : '×' }}
+            </button>
+          </span>
         </div>
       }
     } @empty {
@@ -268,35 +272,37 @@
         </svg>
         <span class="name">{{ sessionLabel(s.startedAtMs) }}</span>
         <span class="count">{{ s.playCount }}</span>
-        <button
-          class="action"
-          [title]="'Export the tracklist (CSV)' | t"
-          (click)="library.exportSession(s); $event.stopPropagation()"
-        >
-          CSV
-        </button>
-        <button
-          class="action"
-          [title]="'Export as a playlist (M3U)' | t"
-          (click)="
-            library.exportList({ kind: 'session', id: s.id, startedAtMs: s.startedAtMs });
-            $event.stopPropagation()
-          "
-        >
-          M3U
-        </button>
-        <button
-          class="delete"
-          [class.armed]="isArmed('session', s.id)"
-          [title]="
-            isArmed('session', s.id)
-              ? ('Click again to delete' | t)
-              : ('Delete this set from the history' | t)
-          "
-          (click)="delete('session', s.id); $event.stopPropagation()"
-        >
-          {{ isArmed('session', s.id) ? ('Delete' | t) : '×' }}
-        </button>
+        <span class="actions">
+          <button
+            class="action"
+            [title]="'Export the tracklist (CSV)' | t"
+            (click)="library.exportSession(s); $event.stopPropagation()"
+          >
+            CSV
+          </button>
+          <button
+            class="action"
+            [title]="'Export as a playlist (M3U)' | t"
+            (click)="
+              library.exportList({ kind: 'session', id: s.id, startedAtMs: s.startedAtMs });
+              $event.stopPropagation()
+            "
+          >
+            M3U
+          </button>
+          <button
+            class="delete"
+            [class.armed]="isArmed('session', s.id)"
+            [title]="
+              isArmed('session', s.id)
+                ? ('Click again to delete' | t)
+                : ('Delete this set from the history' | t)
+            "
+            (click)="delete('session', s.id); $event.stopPropagation()"
+          >
+            {{ isArmed('session', s.id) ? ('Delete' | t) : '×' }}
+          </button>
+        </span>
       </div>
     } @empty {
       <div class="none">{{ 'Tracks played for 30 s are listed here, set by set' | t }}</div>
