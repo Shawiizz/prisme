@@ -59,6 +59,9 @@ pub fn run() {
         .with_resizable(false)
         .with_decorations(false)
         .with_undecorated_shadow(true)
+        // over the other windows for the few seconds it lasts: Windows may refuse to bring a
+        // window forward when it opens, and it would open behind the one in use
+        .with_always_on_top(true)
         .with_visible(false)
         .build(&event_loop)
         .expect("the installer's window");
@@ -96,6 +99,7 @@ pub fn run() {
             Event::UserEvent(Happened::Ready) if !started => {
                 started = true;
                 window.set_visible(true);
+                window.set_focus();
                 install_in_the_background(proxy.clone());
             }
             Event::UserEvent(Happened::Progress(share)) => call(&webview, &format!("progress({share})")),
