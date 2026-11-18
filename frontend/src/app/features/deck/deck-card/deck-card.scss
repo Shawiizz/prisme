@@ -54,6 +54,9 @@
   &.empty {
     grid-column: span 2;
     color: var(--pr-text-3);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 }
 .vinyl {
@@ -69,8 +72,17 @@
   font: 600 11px / 1 var(--pr-font);
   letter-spacing: 0.06em;
 }
-// a narrow deck: the way it is driven in one key, the title keeping its room
+// a narrow deck, or one of four on a line: the way it is driven in one key, the title
+// keeping its room
 @container deck-card (max-width: 520px) {
+  .vinyl .pr-seg {
+    display: none;
+  }
+  .modes-narrow {
+    display: block;
+  }
+}
+:host(.compact) {
   .vinyl .pr-seg {
     display: none;
   }
@@ -146,12 +158,22 @@
       grid-column: auto;
     }
   }
-  .pr-seg > button {
-    padding: 0 6px;
-  }
   .readouts {
     align-items: center;
     gap: 12px;
+  }
+  // as wide loaded or not, so that the decks' keys line up
+  .readouts > .pr-readout .pr-readout__value {
+    min-width: 8ch;
+    text-align: right;
+  }
+  .analysis > .pr-readout:first-child .pr-readout__value {
+    min-width: 6ch;
+    text-align: right;
+  }
+  .analysis > .pr-readout:last-child {
+    min-width: 52px;
+    justify-items: center;
   }
   .pr-label,
   .pr-readout__sub {
