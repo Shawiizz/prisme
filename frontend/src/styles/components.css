@@ -907,3 +907,42 @@
   cursor: row-resize !important;
   user-select: none;
 }
+
+/* ---------- On a phone ---------- */
+/* a dialog rises from the bottom as wide as the screen, its actions as wide as a thumb */
+.phone .pr-backdrop {
+  place-items: end stretch;
+}
+.phone .pr-dialog {
+  width: 100%;
+  max-height: 92%;
+  border-width: 1px 0 0;
+  border-radius: 12px 12px 0 0;
+}
+.phone .pr-dialog__head,
+.phone .pr-dialog__body {
+  padding-inline: 16px;
+}
+.phone .pr-dialog__foot {
+  padding: 12px 16px calc(12px + env(safe-area-inset-bottom));
+}
+.phone .pr-dialog__foot .pr-btn {
+  flex: 1;
+}
+/* in the settings, the sheets and the dialogs, every key is big enough for a finger */
+.phone :is(app-phone-settings, .pr-sheet, .pr-dialog) .pr-btn {
+  min-height: 40px;
+}
+.phone :is(app-phone-settings, .pr-sheet, .pr-dialog) .pr-btn--sm {
+  padding: 0 12px;
+  font-size: 13px;
+}
+.phone :is(app-phone-settings, .pr-sheet, .pr-dialog) :is(.pr-input, .pr-select) {
+  min-height: 44px;
+  font-size: 15px;
+}
+/* a row of the settings: what it is above, what sets it under, as wide as the screen */
+.phone .pr-row {
+  grid-template-columns: minmax(0, 1fr);
+  gap: 10px;
+}

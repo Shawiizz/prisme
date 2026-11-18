@@ -72,3 +72,14 @@
 .replaces {
   color: var(--pr-warn);
 }
+
+// a phone: an action and its key on a line, what drives it under them
+:host-context(.phone) .mapping {
+  grid-template-columns: minmax(0, 1fr) auto;
+  min-height: 56px;
+  padding: 8px 12px 8px 16px;
+  .bindings {
+    grid-column: 1 / -1;
+    grid-row: 2;
+  }
+}

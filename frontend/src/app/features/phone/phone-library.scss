@@ -66,16 +66,49 @@ svg {
   }
 }
 
+// what the list shows: the list browsed (its lists a tap away) or the whole library, and the
+// prepare list beside them
 .lists {
   flex: none;
   display: flex;
   gap: 8px;
   padding: 0 16px 10px;
-  overflow-x: auto;
-  scrollbar-width: none;
-  .pr-btn {
+  .scope {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    > button {
+      flex: 1;
+      min-width: 0;
+      padding: 0 10px;
+    }
+  }
+  .list-name {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    span {
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    svg {
+      flex: none;
+      width: 14px;
+      height: 14px;
+      fill: none;
+      stroke: currentColor;
+      stroke-width: 1.8;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+  }
+  .prepare {
     flex: none;
-    font-size: 12.5px;
+    padding: 0 12px;
+    font-size: 13px;
   }
 }
 .progress {

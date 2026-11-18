@@ -28,24 +28,31 @@
 
 @if (!peek()) {
   <div class="lists">
-    <button
-      class="pr-btn"
-      [class.is-on]="library.scope() === 'list'"
-      (click)="library.setScope('list')"
-    >
-      {{ listName() }}
-    </button>
-    <button
-      class="pr-btn"
-      [class.is-on]="library.scope() === 'library'"
-      (click)="library.setScope('library')"
-    >
-      {{ 'Library' | t }}
-    </button>
-    <button class="pr-btn" (click)="library.openPrepare()">
-      {{ 'Prepare' | t }} · {{ prepared().length }}
-    </button>
-    <button class="pr-btn" (click)="browsing.set(true)">{{ 'Browse…' | t }}</button>
+    <!-- the list browsed, which opens the lists once it shows, or the whole library -->
+    <div class="pr-seg pr-seg--lg scope" role="radiogroup" [attr.aria-label]="'Show' | t">
+      <button
+        role="radio"
+        class="list-name"
+        [attr.aria-checked]="library.scope() === 'list'"
+        [title]="'Your folders, crates and sets' | t"
+        (click)="library.scope() === 'list' ? browsing.set(true) : library.setScope('list')"
+      >
+        <span>{{ listName() }}</span>
+        <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4 6l4 4 4-4" /></svg>
+      </button>
+      <button
+        role="radio"
+        [attr.aria-checked]="library.scope() === 'library'"
+        (click)="library.setScope('library')"
+      >
+        {{ 'Library' | t }}
+      </button>
+    </div>
+    @if (library.source().kind !== 'prepare' || library.scope() !== 'list') {
+      <button class="pr-btn pr-btn--lg prepare" (click)="library.openPrepare()">
+        {{ 'Prepare' | t }} · {{ prepared().length }}
+      </button>
+    }
   </div>
   @if (library.source().kind === 'prepare') {
     <app-auto-dj-bar phone />

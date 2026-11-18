@@ -38,3 +38,31 @@
 .add {
   justify-self: start;
 }
+
+// a phone: what is matched and each rule on two lines, the field first, every input as wide as
+// the screen allows
+:host-context(.phone) {
+  .match {
+    flex-wrap: wrap;
+    .pr-select {
+      flex: 1 1 100%;
+    }
+  }
+  .rule {
+    flex-wrap: wrap;
+    padding-bottom: var(--pr-space-2);
+    border-bottom: 1px solid var(--pr-line);
+    .pr-select {
+      flex: 1 1 calc(100% - 52px);
+      width: auto;
+    }
+    .grow,
+    .bound {
+      flex: 1 1 0;
+      width: auto;
+    }
+  }
+  .add {
+    justify-self: stretch;
+  }
+}

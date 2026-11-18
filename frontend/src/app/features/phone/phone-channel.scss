@@ -105,3 +105,42 @@ app-fader {
     width: 36px;
   }
 }
+
+// low and narrow too (a small phone upright, the decks above): the fader alone beside the
+// headphones, the knobs smaller, so that both channels keep their width
+@container stage (max-height: 200px) and (max-width: 440px) {
+  :host {
+    grid-template-columns: minmax(0, 1fr) 30px 40px;
+    gap: 4px;
+    padding: 4px 6px;
+  }
+  :host(.b) {
+    grid-template-columns: 40px 30px minmax(0, 1fr);
+  }
+  app-cue-button {
+    width: 30px;
+    height: 30px;
+  }
+  app-channel-strip {
+    min-width: 0;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    --knob-size: 32px;
+    --knob-label-width: 0px;
+    --knob-label-pad: 0px;
+    // a knob as wide as its column, its reading cut rather than pushing the channel out
+    app-knob {
+      min-width: 0;
+      max-width: 100%;
+      overflow: hidden;
+      font-size: 10px;
+    }
+  }
+  .strip {
+    grid-template-columns: 36px;
+    justify-content: center;
+  }
+  .marks,
+  .pr-meter {
+    display: none;
+  }
+}
