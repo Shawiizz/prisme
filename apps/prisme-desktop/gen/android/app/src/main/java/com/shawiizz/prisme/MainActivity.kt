@@ -25,6 +25,10 @@ import androidx.core.view.WindowInsetsControllerCompat
 /** How long the screen stays on once every deck stopped. */
 private const val SCREEN_LINGER_MS = 60 * 1000L
 
+/** Back on screen, the page is drawn again now and once more a moment later, when the web view
+ * has its surface back. */
+private const val REDRAW_AGAIN_MS = 150L
+
 /** About the size the player shows a cover at. */
 private const val COVER_PX = 512
 
@@ -42,6 +46,9 @@ private fun decodeCover(bytes: ByteArray): Bitmap? {
 class MainActivity : TauriActivity() {
   /** Lets the screen sleep, a moment after the last deck stopped. */
   private var lettingTheScreenSleep: Runnable? = null
+
+  /** The page, drawn again when Prisme comes back on screen. */
+  private var page: WebView? = null
 
   /** The music shared between applications, and the notification of a deck playing. */
   private val musicAndNotifications =
@@ -80,6 +87,7 @@ class MainActivity : TauriActivity() {
   }
 
   override fun onWebViewCreate(webView: WebView) {
+    page = webView
     webView.addJavascriptInterface(Decks(), "prismeDecks")
     Player.toggle = { deck -> webView.evaluateJavascript("window.prismePlayer?.toggle($deck)", null) }
   }
@@ -87,6 +95,7 @@ class MainActivity : TauriActivity() {
   override fun onDestroy() {
     // the page goes with the activity: the player's buttons no longer reach it
     Player.toggle = null
+    page = null
     lettingTheScreenSleep?.let(window.decorView::removeCallbacks)
     if (shown === this) shown = null
     super.onDestroy()
@@ -97,10 +106,31 @@ class MainActivity : TauriActivity() {
     takeTheScreen(newConfig)
   }
 
+  override fun onResume() {
+    super.onResume()
+    redraw()
+  }
+
   override fun onWindowFocusChanged(hasFocus: Boolean) {
     super.onWindowFocusChanged(hasFocus)
+    if (!hasFocus) return
     // the bars come back with a dialog of the system: away again once it is gone
-    if (hasFocus) takeTheScreen(resources.configuration)
+    takeTheScreen(resources.configuration)
+    redraw()
+  }
+
+  /**
+   * Back from another application or from the lock screen, the web view may show nothing until
+   * it is touched: it waits for a reason to draw. It is given one.
+   */
+  private fun redraw() {
+    val view = page ?: return
+    val draw = Runnable {
+      view.invalidate()
+      view.requestLayout()
+    }
+    view.post(draw)
+    view.postDelayed(draw, REDRAW_AGAIN_MS)
   }
 
   /**
