@@ -86,6 +86,19 @@ section {
 .history {
   max-height: 25%;
 }
+// as tall as the DJ dragged it, the folders above taking what is left
+.crates.sized,
+.history.sized {
+  flex: 0 0 var(--height);
+  max-height: none;
+}
+section {
+  position: relative;
+}
+// over the line at the top of the section
+section > .pr-resize {
+  top: -4px;
+}
 .folders,
 .crates,
 .history {
@@ -93,9 +106,9 @@ section {
   margin-top: var(--pr-space-2);
 }
 .folders {
-  // the music folders come first and keep room for three of them
+  // the music folders come first, and keep room for a few of them (LEAST_FOLDERS)
   flex: 1 0 0;
-  min-height: 120px;
+  min-height: 96px;
   &.folded {
     flex: none;
     min-height: auto;

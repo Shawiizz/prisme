@@ -1,5 +1,11 @@
-<section class="library">
+<section class="library" [style.--side-width.px]="sideWidth()">
   <app-library-sidebar />
+  <div
+    class="pr-resize pr-resize--x side-resize"
+    [title]="'Drag to widen the side panel; double-click for its width as it was' | t"
+    (pointerdown)="resizeSide($event)"
+    (dblclick)="sideWidth.set(SIDE_WIDTH)"
+  ></div>
 
   <div class="tracks">
     <div class="toolbar">

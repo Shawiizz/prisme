@@ -869,6 +869,8 @@
   "New sound card: {name}": "Nouvelle carte son : {name}",
   "Play on it and read the turntables from it?": "Jouer dessus et y lire les platines ?",
   "Play on it?": "Jouer dessus ?",
+  "Drag to widen the side panel; double-click for its width as it was": "Glissez pour élargir le panneau ; double-clic pour sa largeur d'origine",
+  "Drag to share the height; double-click for the height it takes by itself": "Glissez pour répartir la hauteur ; double-clic pour sa hauteur d'origine",
   "Show in folder": "Afficher dans le dossier",
   "{device} not found": "{device} introuvable",
   "Sound card not found": "Carte son introuvable",

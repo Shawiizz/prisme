@@ -16,6 +16,7 @@ import { FolderRow, FolderTree } from './folder-tree';
 import { SmartCrateDialog } from '../smart-crate-dialog/smart-crate-dialog';
 import { locale, t } from '../../../core/i18n/i18n';
 import { TPipe } from '../../../core/i18n/t.pipe';
+import { dragSize, saveSize, savedSize } from '../../../shared/resize';
 
 type Deletable = 'crate' | 'session';
 type DropTarget = number | 'prepare';
@@ -23,6 +24,13 @@ type Foldable = 'folders' | 'crates' | 'history';
 type FolderAction = 'show' | 'rescan' | 'remove';
 
 const FOLDED_KEY = 'prisme.sidebar.folded';
+
+/** The sections whose height the DJ sets, the folders above taking what is left. */
+type Sized = 'crates' | 'history';
+const HEIGHTS_KEY = 'prisme.sidebar.heights';
+/** A section keeps its header and a row; the folders above, a little more. */
+const LEAST_HEIGHT = 64;
+const LEAST_FOLDERS = 96;
 
 /** The sections the user folded, as left last time. */
 function savedFolded(): Foldable[] {
@@ -79,6 +87,9 @@ export class LibrarySidebar {
   /** Item whose delete button was clicked once: a second click deletes it. */
   private readonly armed = signal<{ kind: Deletable; id: number } | null>(null);
   private readonly folded = signal<Foldable[]>(savedFolded());
+  /** The heights the DJ gave the sections (px); a section without one takes its own. */
+  protected readonly heights = signal<Partial<Record<Sized, number>>>(savedSize(HEIGHTS_KEY) ?? {});
+  private readonly host: HTMLElement = inject(ElementRef).nativeElement;
   /** Where dragged tracks would go: a crate or the prepare list. */
   protected readonly dropTarget = signal<DropTarget | null>(null);
   private readonly nameInput = viewChild<ElementRef<HTMLInputElement>>('nameInput');
@@ -101,6 +112,33 @@ export class LibrarySidebar {
       () => this.folderMenu() !== null,
       () => this.folderMenu.set(null),
     );
+  }
+
+  /** Drags the line above `section`: it grows as the line goes up, as far as the folders can
+   * give way. */
+  resize(event: PointerEvent, section: Sized) {
+    const height = (element: Element | null) => element?.getBoundingClientRect().height ?? 0;
+    const from = height((event.currentTarget as HTMLElement).parentElement);
+    const spare = Math.max(height(this.host.querySelector('.folders')) - LEAST_FOLDERS, 0);
+    dragSize(
+      event,
+      from,
+      'y',
+      (wanted) => {
+        this.heights.update((h) => ({
+          ...h,
+          [section]: Math.round(Math.min(Math.max(wanted, LEAST_HEIGHT), from + spare)),
+        }));
+        saveSize(HEIGHTS_KEY, this.heights());
+      },
+      -1,
+    );
+  }
+
+  /** The section back to its own height. */
+  unsize(section: Sized) {
+    this.heights.update(({ [section]: _, ...others }) => others);
+    saveSize(HEIGHTS_KEY, this.heights());
   }
 
   isFolded(section: Foldable): boolean {

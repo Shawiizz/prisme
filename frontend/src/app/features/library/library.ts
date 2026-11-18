@@ -17,6 +17,7 @@ import { ExportDialog } from './export-dialog/export-dialog';
 import { ImportDialog } from './import-dialog/import-dialog';
 import { LibrarySidebar } from './library-sidebar/library-sidebar';
 import { PreviewStrip } from './preview-strip/preview-strip';
+import { dragSize, saveSize, savedSize } from '../../shared/resize';
 import { TrackTable } from './track-table/track-table';
 import { TPipe } from '../../core/i18n/t.pipe';
 import { deckLetter } from '../../shared/time';
@@ -27,6 +28,11 @@ import { PathStep, folderName, lastName, stepsFrom } from '../../core/folders';
 /** How long "up to date" stays once a rescan asked for has ended (ms). */
 const RESCANNED_MS = 3000;
 
+/** The width of the side panel, as it is at first and as the DJ may set it (px). */
+const SIDE_WIDTH = 230;
+const SIDE_WIDTHS = { min: 180, max: 520 };
+const SIDE_WIDTH_KEY = 'prisme.library.sideWidth';
+
 /** Crates, history and folders (left); search, analysis progress, the way to the folder
  * browsed and tracks (right). */
 @Component({
@@ -36,6 +42,9 @@ const RESCANNED_MS = 3000;
   imports: [AutoDjBar, ExportDialog, ImportDialog, LibrarySidebar, PreviewStrip, TrackTable, TPipe],
 })
 export class Library {
+  protected readonly SIDE_WIDTH = SIDE_WIDTH;
+  /** The width of the side panel, kept from one start to the next. */
+  protected readonly sideWidth = signal(savedSize<number>(SIDE_WIDTH_KEY) ?? SIDE_WIDTH);
   protected readonly keyboard = inject(KeyboardService);
   protected readonly library = inject(LibraryService);
   protected readonly engine = inject(EngineService);
@@ -89,7 +98,14 @@ export class Library {
   });
   protected readonly canGoUp = computed(() => this.above() !== null);
 
+  protected resizeSide(event: PointerEvent) {
+    dragSize(event, this.sideWidth(), 'x', (width) =>
+      this.sideWidth.set(Math.min(Math.max(width, SIDE_WIDTHS.min), SIDE_WIDTHS.max)),
+    );
+  }
+
   constructor() {
+    effect(() => saveSize(SIDE_WIDTH_KEY, this.sideWidth()));
     effect(() => {
       if (this.library.searchRequests() > 0) this.search().nativeElement.focus();
     });

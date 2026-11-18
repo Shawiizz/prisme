@@ -122,7 +122,20 @@
     </div>
   }
 </section>
-<section class="crates" [class.folded]="isFolded('crates')">
+<section
+  class="crates"
+  [class.folded]="isFolded('crates')"
+  [class.sized]="heights().crates !== undefined && !isFolded('crates')"
+  [style.--height.px]="heights().crates"
+>
+  @if (!PHONE) {
+    <div
+      class="pr-resize pr-resize--y"
+      [title]="'Drag to share the height; double-click for the height it takes by itself' | t"
+      (pointerdown)="resize($event, 'crates')"
+      (dblclick)="unsize('crates')"
+    ></div>
+  }
   <header>
     <button class="fold" [attr.aria-expanded]="!isFolded('crates')" (click)="toggle('crates')">
       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6" /></svg>
@@ -226,7 +239,20 @@
   </div>
 </section>
 
-<section class="history" [class.folded]="isFolded('history')">
+<section
+  class="history"
+  [class.folded]="isFolded('history')"
+  [class.sized]="heights().history !== undefined && !isFolded('history')"
+  [style.--height.px]="heights().history"
+>
+  @if (!PHONE) {
+    <div
+      class="pr-resize pr-resize--y"
+      [title]="'Drag to share the height; double-click for the height it takes by itself' | t"
+      (pointerdown)="resize($event, 'history')"
+      (dblclick)="unsize('history')"
+    ></div>
+  }
   <header>
     <button class="fold" [attr.aria-expanded]="!isFolded('history')" (click)="toggle('history')">
       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6" /></svg>

@@ -6,12 +6,17 @@
 }
 
 .library {
+  position: relative;
   height: 100%;
   display: grid;
-  grid-template-columns: 230px minmax(0, 1fr);
+  grid-template-columns: var(--side-width) minmax(0, 1fr);
   min-height: 0;
   margin: 0 -10px;
   border-top: 1px solid var(--pr-line);
+}
+// over the line between the side panel and the tracks
+.side-resize {
+  left: calc(var(--side-width) - 4px);
 }
 .tracks {
   display: flex;
