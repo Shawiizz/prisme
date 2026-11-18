@@ -251,8 +251,9 @@
   }
   .pads {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+    // four rows of them and the keys under them within a phone's height
     .pr-pad {
-      height: 32px;
+      height: 28px;
     }
   }
   .slots > button {
