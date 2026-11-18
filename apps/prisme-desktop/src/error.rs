@@ -46,7 +46,7 @@ pub enum AppError {
     /// The music folder it holds.
     #[error("holds the music folder {0}")]
     FolderHoldsAnother(String),
-    #[error("the music folder of a phone is fixed")]
+    #[error("no folder is added on iOS")]
     FoldersFixed,
     #[error("the main music folder stays: choose another one instead")]
     MainFolderStays,

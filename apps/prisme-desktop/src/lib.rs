@@ -209,8 +209,12 @@ pub fn run() {
                 .preferences
                 .read(|p| (p.library.music_folder.clone(), p.library.folders.clone()));
             let root = folders::music_root(chosen.as_deref());
-            // a phone's music folder is fixed: none is added next to it
-            let added = if cfg!(desktop) { added.into_iter().map(Into::into).collect() } else { Vec::new() };
+            // iOS lets Prisme read its own documents only: no folder is added next to them
+            let added = if cfg!(target_os = "ios") {
+                Vec::new()
+            } else {
+                added.into_iter().map(Into::into).collect()
+            };
             let library = Arc::new(LibraryService::open(app.handle(), data_dir.as_deref(), root, added));
             app.manage(library.clone());
             app.manage(TagWriter::start(app.handle().clone()));
@@ -374,6 +378,7 @@ pub fn run() {
             commands::folders::add_music_folder,
             commands::folders::remove_music_folder,
             commands::folders::show_folder,
+            commands::folders::storage_places,
             commands::recording::show_recording,
             commands::folders::list_dir,
             commands::library::library_progress,

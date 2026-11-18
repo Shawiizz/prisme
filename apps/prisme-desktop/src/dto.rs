@@ -1311,6 +1311,30 @@ pub struct MusicFolderDto {
     pub present: bool,
 }
 
+/// What holds a [`StoragePlaceDto`].
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub enum StoragePlaceKind {
+    /// The phone's own storage.
+    Phone,
+    /// A memory card or a USB drive plugged into the phone.
+    Removable,
+    /// The home folder of the computer.
+    Home,
+    /// A drive of the computer.
+    Drive,
+}
+
+/// Where a folder to add to the music folders is looked for first, named by its own folder
+/// (`3A2F-1C0B`, `C:`).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct StoragePlaceDto {
+    pub kind: StoragePlaceKind,
+    pub name: String,
+    pub path: String,
+}
+
 /// A MIDI controller.
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]

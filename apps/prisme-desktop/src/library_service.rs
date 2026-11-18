@@ -123,11 +123,11 @@ impl LibraryService {
         true
     }
 
-    /// Adds `folder` to the music folders, watched and scanned at once. Refused on a phone,
-    /// whose music folder is fixed, and for a folder that is one of them, is in one, or holds
-    /// one.
+    /// Adds `folder` to the music folders, watched and scanned at once. Refused on iOS, which
+    /// lets Prisme read its own documents only, and for a folder that is one of them, is in
+    /// one, or holds one.
     pub fn add(&self, folder: &Path) -> AppResult<()> {
-        if cfg!(mobile) {
+        if cfg!(target_os = "ios") {
             return Err(AppError::FoldersFixed);
         }
         let folder: PathBuf = folder.components().collect();

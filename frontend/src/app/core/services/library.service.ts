@@ -17,6 +17,7 @@ import {
   HistorySession,
   MusicFolder,
   SmartRules,
+  StoragePlace,
   TrackAnalyzed,
   TrackDetails,
 } from '../models/library';
@@ -313,10 +314,18 @@ export class LibraryService {
 
   /** Adds a folder to the music folders, its tracks analysed, and opens it. */
   async addFolder(path: string): Promise<void> {
-    await this.attempt(async () => {
-      this.folders.set(await invoke<MusicFolder[]>('add_music_folder', { path }));
-      await this.open(path);
-    });
+    await this.attempt(() => this.joinFolder(path));
+  }
+
+  /** Adds a folder to the music folders and opens it; throws what kept it out. */
+  async joinFolder(path: string): Promise<void> {
+    this.folders.set(await invoke<MusicFolder[]>('add_music_folder', { path }));
+    await this.open(path);
+  }
+
+  /** Where a folder to add is looked for first: the phone's storage, its card, its USB drive. */
+  storagePlaces(): Promise<StoragePlace[]> {
+    return invoke<StoragePlace[]>('storage_places');
   }
 
   /** Takes a folder out of the music folders, its tracks out of the library, once the DJ
@@ -343,7 +352,12 @@ export class LibraryService {
 
   /** The folders in `path`. */
   async subFolders(path: string): Promise<DirEntry[]> {
-    return (await invoke<DirListing>('list_dir', { path })).folders;
+    return (await this.listDir(path)).folders;
+  }
+
+  /** The folders and tracks in `path`, the folder browsed left as it is. */
+  listDir(path: string): Promise<DirListing> {
+    return invoke<DirListing>('list_dir', { path });
   }
 
   /** Lists a folder and remembers it; `false` if it cannot be read. */

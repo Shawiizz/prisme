@@ -98,3 +98,10 @@ export interface MusicFolder {
   /** False while it cannot be found (a drive unplugged): listed, its tracks kept. */
   present: boolean;
 }
+
+/** Where a folder to add is looked for first, named by its own folder (`3A2F-1C0B`, `C:`). */
+export interface StoragePlace {
+  kind: 'phone' | 'removable' | 'home' | 'drive';
+  name: string;
+  path: string;
+}

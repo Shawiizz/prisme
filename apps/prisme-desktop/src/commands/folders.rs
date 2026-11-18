@@ -1,5 +1,5 @@
 use crate::commands::blocking;
-use crate::dto::{DirListingDto, MusicFolderDto, TrackDetailsDto};
+use crate::dto::{DirListingDto, MusicFolderDto, StoragePlaceDto, TrackDetailsDto};
 use crate::error::AppResult;
 use crate::folders;
 use crate::library_service::LibraryService;
@@ -64,6 +64,14 @@ pub async fn remove_music_folder(app: AppHandle, path: String) -> AppResult<Vec<
 #[tauri::command]
 pub fn show_folder(path: String) -> AppResult<()> {
     Ok(folders::show(Path::new(&path))?)
+}
+
+/// Where a folder to add is looked for first: the phone's storage and its memory cards and USB
+/// drives, or the home folder and the drives of a computer. Off the main thread: a drive may
+/// be slow to answer.
+#[tauri::command(async)]
+pub fn storage_places() -> Vec<StoragePlaceDto> {
+    folders::storage_places()
 }
 
 /// Folders and tracks of a folder, with the stored analysis of each track.

@@ -47,15 +47,13 @@
       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6" /></svg>
       {{ 'Folders' | t }}
     </button>
-    @if (!PHONE) {
-      <button
-        class="pr-btn pr-btn--sm pr-btn--ghost"
-        [title]="'Its tracks join the library and are analysed' | t"
-        (click)="library.chooseFolder()"
-      >
-        + {{ 'Add a folder' | t }}
-      </button>
-    }
+    <button
+      class="pr-btn pr-btn--sm pr-btn--ghost"
+      [title]="'Its tracks join the library and are analysed' | t"
+      (click)="PHONE ? pickFolder.emit() : library.chooseFolder()"
+    >
+      + {{ 'Add a folder' | t }}
+    </button>
   </header>
   <div class="list">
     @for (row of tree.rows(); track row.path) {
@@ -91,20 +89,18 @@
           @if (root.main) {
             <span class="main-tag">{{ 'Main' | t }}</span>
           }
-          @if (!PHONE) {
-            <button
-              class="more"
-              [title]="'Actions on the folder' | t"
-              [attr.aria-label]="'Actions on the folder' | t"
-              (click)="openFolderMenu($event, root); $event.stopPropagation()"
-            >
-              <svg viewBox="0 0 24 24" aria-hidden="true">
-                <circle cx="5" cy="12" r="1.8" />
-                <circle cx="12" cy="12" r="1.8" />
-                <circle cx="19" cy="12" r="1.8" />
-              </svg>
-            </button>
-          }
+          <button
+            class="more"
+            [title]="'Actions on the folder' | t"
+            [attr.aria-label]="'Actions on the folder' | t"
+            (click)="openFolderMenu($event, root); $event.stopPropagation()"
+          >
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <circle cx="5" cy="12" r="1.8" />
+              <circle cx="12" cy="12" r="1.8" />
+              <circle cx="19" cy="12" r="1.8" />
+            </svg>
+          </button>
         } @else {
           <span class="name">{{ row.name }}</span>
         }
@@ -322,7 +318,7 @@
     [style.top.px]="menu.top"
     [style.bottom.px]="menu.bottom"
   >
-    @if (menu.folder.present) {
+    @if (menu.folder.present && !PHONE) {
       <button role="menuitem" (click)="fromFolderMenu('show')">
         {{ 'Open in the file manager' | t }}
       </button>

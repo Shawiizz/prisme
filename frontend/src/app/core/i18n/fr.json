@@ -916,5 +916,14 @@
   "Already among your folders, in {folder}": "Déjà parmi vos dossiers, dans {folder}",
   "It holds {folder}, already one of your folders": "Il contient {folder}, déjà l'un de vos dossiers",
   "The folders of the library cannot be changed on this device": "Les dossiers de la bibliothèque ne se changent pas sur cet appareil",
-  "The main folder stays: change it in the settings": "Le dossier principal reste : changez-le dans les réglages"
+  "The main folder stays: change it in the settings": "Le dossier principal reste : changez-le dans les réglages",
+  "Phone": "Téléphone",
+  "SD card or USB drive": "Carte SD ou clé USB",
+  "Home folder": "Dossier personnel",
+  "Up": "Remonter",
+  "Where is the folder?": "Où est le dossier ?",
+  "No folder in it": "Aucun dossier dedans",
+  "1 track here": "1 morceau ici",
+  "{n} tracks here": "{n} morceaux ici",
+  "Add this folder": "Ajouter ce dossier"
 }

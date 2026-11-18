@@ -185,7 +185,7 @@
     animate.enter="pr-rise-in"
     animate.leave="pr-rise-out"
   >
-    <app-library-sidebar />
+    <app-library-sidebar (pickFolder)="browsing.set(false); pickingFolder.set(true)" />
     <button class="pr-btn pr-btn--lg import" (click)="browsing.set(false); importing.set(true)">
       {{ 'Import from Serato or rekordbox' | t }}
     </button>
@@ -193,4 +193,7 @@
 }
 @if (importing()) {
   <app-import-dialog (closed)="importing.set(false)" />
+}
+@if (pickingFolder()) {
+  <app-phone-folder-picker (closed)="pickingFolder.set(false)" />
 }

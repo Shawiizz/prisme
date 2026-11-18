@@ -1,6 +1,6 @@
 //! Browsing music folders.
 
-use crate::dto::{DirEntryDto, DirListingDto, TrackDetailsDto};
+use crate::dto::{DirEntryDto, DirListingDto, StoragePlaceDto, StoragePlaceKind, TrackDetailsDto};
 use std::io::ErrorKind;
 use std::path::{Path, PathBuf};
 
@@ -74,6 +74,62 @@ mod android {
         })
         .flatten()
     }
+}
+
+/// Where Android mounts the phone's own storage (`emulated`), each memory card and USB drive
+/// beside it.
+const ANDROID_STORAGE: &str = "/storage";
+/// The phone's own storage, if its music folder does not say.
+const ANDROID_PHONE: &str = "/storage/emulated/0";
+
+/// Where a folder to add is looked for first. On Android: the phone's own storage, the one
+/// its music folder is in, then each memory card and USB drive that can be read. On a
+/// computer: the home folder, then the drives.
+pub fn storage_places() -> Vec<StoragePlaceDto> {
+    if cfg!(target_os = "android") {
+        let music = system_music_root();
+        let phone = music.parent().map_or_else(|| PathBuf::from(ANDROID_PHONE), Path::to_path_buf);
+        return android_places(Path::new(ANDROID_STORAGE), phone);
+    }
+    let home = dirs::home_dir().map(|home| place(StoragePlaceKind::Home, home));
+    let drives: Vec<PathBuf> = if cfg!(windows) {
+        (b'A'..=b'Z')
+            .map(|letter| PathBuf::from(format!("{}:\\", char::from(letter))))
+            .filter(|drive| drive.is_dir())
+            .collect()
+    } else {
+        vec![PathBuf::from("/")]
+    };
+    home.into_iter().chain(drives.into_iter().map(|drive| place(StoragePlaceKind::Drive, drive))).collect()
+}
+
+/// `phone`, then the volumes in `storage` that can be read, by name: not the phone's storage
+/// seen from there (`emulated`, `self`).
+fn android_places(storage: &Path, phone: PathBuf) -> Vec<StoragePlaceDto> {
+    let mut volumes: Vec<PathBuf> = std::fs::read_dir(storage)
+        .into_iter()
+        .flatten()
+        .flatten()
+        .filter(|entry| {
+            let name = entry.file_name();
+            let name = name.to_string_lossy();
+            !(name.starts_with('.') || name == "emulated" || name == "self")
+        })
+        .map(|entry| entry.path())
+        .filter(|volume| std::fs::read_dir(volume).is_ok())
+        .collect();
+    volumes.sort();
+    std::iter::once(place(StoragePlaceKind::Phone, phone))
+        .chain(volumes.into_iter().map(|volume| place(StoragePlaceKind::Removable, volume)))
+        .collect()
+}
+
+/// `path` named by its last folder: a drive by its letter (`C:`), the root of all as itself.
+fn place(kind: StoragePlaceKind, path: PathBuf) -> StoragePlaceDto {
+    let path = path.display().to_string();
+    let last = path.trim_end_matches(['/', '\\']).rsplit(['/', '\\']).next().unwrap_or_default();
+    let name = if last.is_empty() { path.clone() } else { last.to_owned() };
+    StoragePlaceDto { kind, name, path }
 }
 
 /// Sub-folders and playable files of `dir`, sorted by name (hidden entries skipped).
@@ -200,6 +256,35 @@ mod tests {
         assert_eq!(music_root(None), system_music_root());
         let chosen = music_root(Some("D:/Sets"));
         assert_eq!(chosen == Path::new("D:/Sets"), cfg!(desktop));
+    }
+
+    #[test]
+    fn android_offers_the_phone_then_each_volume_it_can_read() {
+        let storage = std::env::temp_dir().join(format!("prisme-storage-{}", std::process::id()));
+        for volume in ["emulated/0", "self/primary", "3A2F-1C0B", "0000-0001", ".hidden"] {
+            std::fs::create_dir_all(storage.join(volume)).unwrap();
+        }
+        std::fs::write(storage.join("not-a-volume"), b"").unwrap();
+        let places = android_places(&storage, storage.join("emulated/0"));
+        let named: Vec<_> = places.iter().map(|p| (p.kind, p.name.as_str())).collect();
+        assert_eq!(
+            named,
+            [
+                (StoragePlaceKind::Phone, "0"),
+                (StoragePlaceKind::Removable, "0000-0001"),
+                (StoragePlaceKind::Removable, "3A2F-1C0B"),
+            ]
+        );
+        assert_eq!(places[2].path, storage.join("3A2F-1C0B").display().to_string());
+        std::fs::remove_dir_all(storage).unwrap();
+    }
+
+    #[test]
+    fn a_place_is_named_by_its_last_folder_or_as_a_whole() {
+        let name = |path: &str| place(StoragePlaceKind::Drive, PathBuf::from(path)).name;
+        assert_eq!(name("/storage/3A2F-1C0B"), "3A2F-1C0B");
+        assert_eq!(name("C:\\"), "C:");
+        assert_eq!(name("/"), "/");
     }
 
     #[test]

@@ -30,6 +30,7 @@ import { ImportDialog } from '../library/import-dialog/import-dialog';
 import { LibrarySidebar } from '../library/library-sidebar/library-sidebar';
 import { PreviewStrip } from '../library/preview-strip/preview-strip';
 import { LIST_LABEL, SEARCH_PLACEHOLDER } from '../library/list-labels';
+import { PhoneFolderPicker } from './phone-folder-picker';
 import { TrackMenu } from '../library/track-menu/track-menu';
 import { COLUMNS } from '../library/track-table/columns';
 
@@ -80,6 +81,7 @@ interface Slide {
     Dismiss,
     ImportDialog,
     LibrarySidebar,
+    PhoneFolderPicker,
     PreviewStrip,
     Sheet,
     TPipe,
@@ -170,6 +172,7 @@ export class PhoneLibrary {
   /** The lists of the library are open, to go to another. */
   protected readonly browsing = signal(false);
   protected readonly importing = signal(false);
+  protected readonly pickingFolder = signal(false);
 
   protected readonly ROW_PX = ROW_PX;
   protected readonly title = trackTitle;

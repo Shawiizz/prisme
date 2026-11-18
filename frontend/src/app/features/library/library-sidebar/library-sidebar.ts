@@ -1,4 +1,13 @@
-import { Component, ElementRef, computed, effect, inject, signal, viewChild } from '@angular/core';
+import {
+  Component,
+  ElementRef,
+  computed,
+  effect,
+  inject,
+  output,
+  signal,
+  viewChild,
+} from '@angular/core';
 import { CratesService } from '../../../core/services/crates.service';
 import { HistoryService } from '../../../core/services/history.service';
 import { LibraryService } from '../../../core/services/library.service';
@@ -59,7 +68,7 @@ const SESSION_DATE = computed(
  * Left panel of the library: the prepare list, the music folders as trees, the crates (tracks
  * are dropped on them) and the history of the sets, the last three foldable. Files from the
  * file manager are dropped on the prepare list and the crates too, folders on the music
- * folders.
+ * folders. A phone picks a folder to add in its own sheet (`pickFolder`).
  */
 @Component({
   selector: 'app-library-sidebar',
@@ -68,6 +77,9 @@ const SESSION_DATE = computed(
   imports: [Dismiss, SmartCrateDialog, TPipe],
 })
 export class LibrarySidebar {
+  /** On a phone: a folder to add is to be picked. */
+  readonly pickFolder = output<void>();
+
   protected readonly PHONE = PHONE;
   protected readonly library = inject(LibraryService);
   protected readonly drops = inject(FileDropService);
