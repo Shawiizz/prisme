@@ -30,8 +30,12 @@
 }
 
 .health {
-  // grows into the free room, never below what its chips need (the device's shrinks)
-  flex: 1 1 auto;
+  // grows into the free room; short of it, once the palette's key is at its narrowest, the
+  // device's chip and then the notices are cut, and the least needed chips go (below): the
+  // window buttons never leave the bar
+  flex: 1 0.01 auto;
+  min-width: 0;
+  overflow: hidden;
   display: flex;
   align-items: center;
   gap: 6px;
@@ -44,16 +48,25 @@
   }
   .device {
     flex: 0 1 auto;
-    min-width: 130px;
+    min-width: 110px;
     max-width: 260px;
-    overflow: hidden;
-    white-space: nowrap;
-    text-overflow: ellipsis;
   }
-  .level {
-    flex: 0 1 96px;
-    min-width: 32px;
+  .notice {
+    flex: 0 0.01 auto;
+    min-width: 110px;
+  }
+  // the master's level, named, in segments as a mixer shows it
+  .master {
+    flex: none;
+    display: flex;
+    align-items: center;
+    gap: 6px;
     margin-left: var(--pr-space-2);
+    .pr-meter {
+      width: 72px;
+      height: 10px;
+      gap: 2px;
+    }
   }
 }
 
@@ -94,15 +107,36 @@
   }
 }
 
-// a narrow window: the health chips keep their room, the master level (also on the
-// mixer) goes
-@container (max-width: 1400px) {
-  .health .level {
+// a narrow window: the master's level (also on the mixer) goes first, then what the
+// settings tell anyway; the update's key takes some more room
+@container (max-width: 1500px) {
+  .health .master {
+    display: none;
+  }
+}
+@container (max-width: 1360px) {
+  .health .minor {
+    display: none;
+  }
+}
+@container (max-width: 1600px) {
+  .updating .health .master {
+    display: none;
+  }
+}
+@container (max-width: 1480px) {
+  .updating .health .minor {
+    display: none;
+  }
+}
+@container (max-width: 1360px) {
+  .updating .health .buffer {
     display: none;
   }
 }
 
 .actions {
+  flex: none;
   display: flex;
   align-items: center;
   gap: 2px;
@@ -137,6 +171,7 @@
 }
 
 .window {
+  flex: none;
   display: flex;
   align-self: stretch;
   margin-left: var(--pr-space-1);

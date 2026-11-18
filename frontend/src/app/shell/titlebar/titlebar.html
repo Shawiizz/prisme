@@ -1,4 +1,9 @@
-<header class="titlebar" [class.mac]="MAC" data-tauri-drag-region>
+<header
+  class="titlebar"
+  [class.mac]="MAC"
+  [class.updating]="updates.available()"
+  data-tauri-drag-region
+>
   <div class="brand" data-tauri-drag-region>
     <img src="logo-mark.svg" class="mark" alt="" />
     prisme
@@ -9,44 +14,45 @@
       @if (settings.info(); as info) {
         @if (info.missing !== null) {
           <span
-            class="pr-chip pr-chip--warn"
+            class="pr-chip pr-chip--warn device"
             [title]="
               'The sound card chosen is missing: the sound plays on the default device until it is back'
                 | t
             "
           >
-            <span class="pr-sig pr-sig--weak"></span
-            >{{
+            <span class="pr-sig pr-sig--weak"></span>
+            <span class="pr-chip__text">{{
               info.missing
                 ? ('{device} not found' | t: { device: info.missing })
                 : ('Sound card not found' | t)
-            }}
+            }}</span>
           </span>
         } @else {
           <span class="pr-chip device" [title]="info.device">
-            <span class="pr-sig pr-sig--ok"></span>{{ BACKEND_NAMES[info.backend] }} ·
-            {{ info.device }}
+            <span class="pr-sig pr-sig--ok"></span>
+            <span class="pr-chip__text">{{ BACKEND_NAMES[info.backend] }} · {{ info.device }}</span>
           </span>
         }
         @if (settings.period(); as period) {
-          <span class="pr-chip" [title]="'Length of an audio period' | t">
+          <span class="pr-chip buffer" [title]="'Length of an audio period' | t">
             {{ 'Buffer' | t }} <span class="pr-num">{{ period }}</span>
           </span>
         }
         @if (info.simulated) {
-          <span class="pr-chip">{{ 'simulated turntable' | t }}</span>
+          <span class="pr-chip minor">{{ 'simulated turntable' | t }}</span>
         } @else if (info.inputChannels > 0) {
-          <span class="pr-chip">{{ '{n} input ch' | t: { n: info.inputChannels } }}</span>
+          <span class="pr-chip minor">{{ '{n} input ch' | t: { n: info.inputChannels } }}</span>
         }
       }
     } @else if (engine.status()?.health?.deviceLost) {
-      <span class="pr-chip pr-chip--alert">
-        <span class="pr-sig pr-sig--none"></span>{{ 'audio device lost, reconnecting…' | t }}
+      <span class="pr-chip pr-chip--alert device">
+        <span class="pr-sig pr-sig--none"></span>
+        <span class="pr-chip__text">{{ 'audio device lost, reconnecting…' | t }}</span>
       </span>
     } @else {
-      <span class="pr-chip"
-        ><span class="pr-sig pr-sig--none"></span>{{ 'audio stopped' | t }}</span
-      >
+      <span class="pr-chip">
+        <span class="pr-sig pr-sig--none"></span>{{ 'audio stopped' | t }}
+      </span>
     }
     @if (library.inMemory()) {
       <span
@@ -59,8 +65,11 @@
       >
     }
     @if (mixer.fallback() && settings.turntables()) {
-      <span class="pr-chip pr-chip--warn" [title]="'Each deck needs its own pair of outputs' | t">
-        {{ 'External mixer needs 4 outputs' | t }}
+      <span
+        class="pr-chip pr-chip--warn notice"
+        [title]="'Each deck needs its own pair of outputs' | t"
+      >
+        <span class="pr-chip__text">{{ 'External mixer needs 4 outputs' | t }}</span>
       </span>
     }
     @if (engine.status()?.health; as h) {
@@ -82,11 +91,14 @@
         </span>
       }
     }
-    @if (engine.status(); as s) {
-      <div class="pr-meter level" [title]="'Master level' | t">
-        @for (segment of level(); track $index) {
-          <i [class]="segment"></i>
-        }
+    @if (engine.status()) {
+      <div class="master" [title]="'Master level' | t">
+        <span class="pr-label">{{ 'Master' | t }}</span>
+        <div class="pr-meter">
+          @for (segment of level(); track $index) {
+            <i [class]="segment"></i>
+          }
+        </div>
       </div>
     }
   </div>

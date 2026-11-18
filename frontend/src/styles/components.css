@@ -275,6 +275,15 @@
   border: 1px solid var(--pr-line);
   border-radius: var(--pr-radius-sm);
 }
+.pr-chip .pr-sig {
+  flex: none;
+}
+/* a text that may not fit: cut on an ellipsis, the mark beside it kept whole */
+.pr-chip__text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
 .pr-chip .pr-num {
   font-size: 11px;
   color: var(--pr-text);

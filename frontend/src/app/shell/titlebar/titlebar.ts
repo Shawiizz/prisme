@@ -49,7 +49,7 @@ export class Titlebar {
         })
       : t('Record the mix (WAV and tracklist in Documents/Prisme Recordings)');
   });
-  protected readonly level = levelMeter(() => this.engine.status()?.mainPeak ?? 0, 24);
+  protected readonly level = levelMeter(() => this.engine.status()?.mainPeak ?? 0, 16);
 
   constructor() {
     overlay(this.recordMenu, () => this.recordMenu.set(false));
