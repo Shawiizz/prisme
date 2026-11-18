@@ -21,16 +21,16 @@ pub fn serato_folder(library: State<'_, Arc<LibraryService>>) -> Option<String> 
 }
 
 /// Crates of `serato_dir` (if given), and the Serato cues, loops, colours and grids of
-/// the files of the music folder and of those crates.
+/// the files of the music folders and of those crates.
 #[tauri::command]
 pub async fn import_serato(
     library: State<'_, Arc<LibraryService>>,
     serato_dir: Option<String>,
 ) -> AppResult<ImportSummaryDto> {
     let library = library.inner().clone();
-    let root = library.root();
+    let roots = library.roots();
     run(library, move || {
-        let files: Vec<PathBuf> = prisme_library::scan_folder(&root, &AtomicBool::new(false))
+        let files: Vec<PathBuf> = prisme_library::scan_folders(&roots, &AtomicBool::new(false))
             .files
             .into_iter()
             .map(|f| f.path)

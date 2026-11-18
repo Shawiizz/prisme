@@ -1,5 +1,5 @@
 use crate::commands::blocking;
-use crate::dto::{DirListingDto, TrackDetailsDto};
+use crate::dto::{DirListingDto, MusicFolderDto, TrackDetailsDto};
 use crate::error::AppResult;
 use crate::folders;
 use crate::library_service::LibraryService;
@@ -28,10 +28,48 @@ pub async fn set_music_folder(app: AppHandle, path: Option<String>) -> AppResult
     .await
 }
 
+/// The music folders: the main one first, then those added, in the order they were. Off the
+/// main thread: whether each is there is asked of its drive (a NAS may be slow to answer).
+#[tauri::command(async)]
+pub fn music_folders(library: State<'_, Arc<LibraryService>>) -> Vec<MusicFolderDto> {
+    library.folders()
+}
+
+/// Adds `path` to the music folders, scanned and watched at once; returns the music folders.
+/// Off the main thread: the analysis running stops first.
+#[tauri::command]
+pub async fn add_music_folder(app: AppHandle, path: String) -> AppResult<Vec<MusicFolderDto>> {
+    blocking(move || {
+        let library = app.state::<Arc<LibraryService>>();
+        library.add(Path::new(&path))?;
+        Ok(library.folders())
+    })
+    .await
+}
+
+/// Removes `path`, added before, from the music folders; its files stay as they are, its
+/// tracks leave the library. Returns the music folders. Off the main thread: the analysis
+/// running stops first.
+#[tauri::command]
+pub async fn remove_music_folder(app: AppHandle, path: String) -> AppResult<Vec<MusicFolderDto>> {
+    blocking(move || {
+        let library = app.state::<Arc<LibraryService>>();
+        library.remove(Path::new(&path))?;
+        Ok(library.folders())
+    })
+    .await
+}
+
+/// Opens the folder `path` in the system's file manager.
+#[tauri::command]
+pub fn show_folder(path: String) -> AppResult<()> {
+    Ok(folders::show(Path::new(&path))?)
+}
+
 /// Folders and tracks of a folder, with the stored analysis of each track.
 #[tauri::command(async)]
 pub fn list_dir(library: State<'_, Arc<LibraryService>>, path: String) -> AppResult<DirListingDto> {
-    Ok(folders::list_dir(&PathBuf::from(path), &library.root(), |file, meta| {
+    Ok(folders::list_dir(&PathBuf::from(path), &library.roots(), |file, meta| {
         let stamp = FileStamp::from_metadata(meta);
         // a folder that moved, or came back under another drive letter, keeps what was known
         let _ = prisme_library::adopt(&library.db, file, stamp, Search::Stamp);

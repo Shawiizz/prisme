@@ -199,9 +199,14 @@ pub fn run() {
             }
             app.manage(Controllers::new(open_json(data_dir.as_deref(), "controllers.json")));
             Controllers::keep_profiles_up_to_date(app.handle().clone());
-            let chosen = app.state::<AppState>().preferences.read(|p| p.library.music_folder.clone());
+            let (chosen, added) = app
+                .state::<AppState>()
+                .preferences
+                .read(|p| (p.library.music_folder.clone(), p.library.folders.clone()));
             let root = folders::music_root(chosen.as_deref());
-            let library = Arc::new(LibraryService::open(app.handle(), data_dir.as_deref(), root));
+            // a phone's music folder is fixed: none is added next to it
+            let added = if cfg!(desktop) { added.into_iter().map(Into::into).collect() } else { Vec::new() };
+            let library = Arc::new(LibraryService::open(app.handle(), data_dir.as_deref(), root, added));
             app.manage(library.clone());
             app.manage(TagWriter::start(app.handle().clone()));
             app.manage(preview::Previews::default());
@@ -360,6 +365,10 @@ pub fn run() {
             commands::edits::key_choices,
             commands::folders::music_root,
             commands::folders::set_music_folder,
+            commands::folders::music_folders,
+            commands::folders::add_music_folder,
+            commands::folders::remove_music_folder,
+            commands::folders::show_folder,
             commands::recording::show_recording,
             commands::folders::list_dir,
             commands::library::library_progress,

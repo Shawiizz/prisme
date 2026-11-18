@@ -58,15 +58,13 @@ fn write_kicks(path: &Path, bpm: f64, seconds: f64) {
 }
 
 fn run(db: &Arc<LibraryDb>, root: &Path) -> Arc<Collector> {
+    run_all(db, &[root.to_path_buf()])
+}
+
+fn run_all(db: &Arc<LibraryDb>, roots: &[PathBuf]) -> Arc<Collector> {
     let collector = Arc::new(Collector::default());
-    BackgroundAnalyzer::start(
-        db.clone(),
-        root.to_path_buf(),
-        2,
-        AnalysisOptions::default(),
-        collector.clone(),
-    )
-    .wait();
+    BackgroundAnalyzer::start(db.clone(), roots.to_vec(), 2, AnalysisOptions::default(), collector.clone())
+        .wait();
     collector
 }
 
@@ -110,6 +108,38 @@ fn analyses_new_and_changed_files_only() {
     assert_eq!(bpm_of(&records, "house.wav"), Some(126.0));
 
     std::fs::remove_dir_all(root).ok();
+}
+
+#[test]
+fn every_music_folder_is_analysed_and_one_unplugged_keeps_its_tracks() {
+    let base = std::env::temp_dir().join(format!("prisme-analyzer-roots-{}", std::process::id()));
+    let (music, key, unplugged) = (base.join("Music"), base.join("Key"), base.join("Unplugged"));
+    std::fs::create_dir_all(&music).unwrap();
+    std::fs::create_dir_all(&key).unwrap();
+    let (house, techno) = (music.join("house.wav"), key.join("techno.wav"));
+    write_kicks(&house, 124.0, 20.0);
+    write_kicks(&techno, 140.0, 20.0);
+    let db = Arc::new(LibraryDb::open_in_memory().unwrap());
+    let roots = [music.clone(), key.clone()];
+
+    let first = run_all(&db, &roots);
+    let records = first.records.lock().unwrap().clone();
+    assert_eq!(bpm_of(&records, "house.wav"), Some(124.0));
+    assert_eq!(bpm_of(&records, "techno.wav"), Some(140.0));
+    db.save_cue(&techno, &Cue::point(CueSlot::Hot(0), 2.0)).unwrap();
+
+    std::fs::rename(&key, &unplugged).unwrap();
+    let away = run_all(&db, &roots);
+    assert_eq!(away.progress.lock().unwrap().last().unwrap().total, 0);
+    assert_eq!(db.track_count().unwrap(), 2, "the tracks of the folder away are kept");
+    assert!(db.get(&techno).unwrap().is_some());
+    assert_eq!(db.cues(&techno).unwrap().len(), 1);
+
+    std::fs::rename(&unplugged, &key).unwrap();
+    let back = run_all(&db, &roots);
+    assert_eq!(back.progress.lock().unwrap().last().unwrap().total, 0, "nothing to analyse again");
+    assert_eq!(db.track_count().unwrap(), 2);
+    std::fs::remove_dir_all(base).ok();
 }
 
 #[test]
@@ -162,7 +192,7 @@ fn no_file_is_started_while_the_analysis_is_held_back() {
     let paused = || listener.collector.progress.lock().unwrap().last().is_some_and(|p| p.paused);
 
     let analyzer =
-        BackgroundAnalyzer::start(db, root.clone(), 2, AnalysisOptions::default(), listener.clone());
+        BackgroundAnalyzer::start(db, vec![root.clone()], 2, AnalysisOptions::default(), listener.clone());
     let deadline = Instant::now() + Duration::from_secs(10);
     while !paused() && Instant::now() < deadline {
         std::thread::sleep(Duration::from_millis(20));
@@ -317,7 +347,7 @@ fn the_tracks_of_a_music_folder_left_follow_into_the_new_one_or_are_forgotten() 
     let listener = Arc::new(Leaving::default());
     BackgroundAnalyzer::leaving(
         db.clone(),
-        new.clone(),
+        vec![new.clone()],
         vec![old.clone()],
         2,
         AnalysisOptions::default(),

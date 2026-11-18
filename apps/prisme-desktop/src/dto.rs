@@ -1300,6 +1300,17 @@ pub struct DirListingDto {
     pub tracks: Vec<DirEntryDto>,
 }
 
+/// A music folder: the main one, or one added next to it (a USB key, a drive, a sets
+/// folder). Payload of the `music-folders-changed` event, as a list, the main one first.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct MusicFolderDto {
+    pub path: String,
+    pub main: bool,
+    /// The folder is there now: one on a drive unplugged is not, its tracks kept.
+    pub present: bool,
+}
+
 /// A MIDI controller.
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]

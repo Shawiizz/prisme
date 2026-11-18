@@ -38,6 +38,18 @@ pub enum AppError {
     SilentMaster,
     #[error("no headphones of their own to preview in: choose their outputs in the settings")]
     NoPreviewOutput,
+    #[error("{0} is not a folder")]
+    FolderNotFound(String),
+    /// The music folder it is, or is in.
+    #[error("already in the music folder {0}")]
+    FolderAlreadyIn(String),
+    /// The music folder it holds.
+    #[error("holds the music folder {0}")]
+    FolderHoldsAnother(String),
+    #[error("the music folder of a phone is fixed")]
+    FoldersFixed,
+    #[error("the main music folder stays: choose another one instead")]
+    MainFolderStays,
     /// The files whose genre could not be written.
     #[error("{}", genre_not_written(.0))]
     GenreNotWritten(Vec<String>),
@@ -94,6 +106,11 @@ impl AppError {
             AppError::AlreadyRecording => ("alreadyRecording", none()),
             AppError::SilentMaster => ("silentMaster", none()),
             AppError::NoPreviewOutput => ("noPreviewOutput", none()),
+            AppError::FolderNotFound(_) => ("folderNotFound", none()),
+            AppError::FolderAlreadyIn(folder) => ("folderAlreadyIn", json!({ "folder": folder })),
+            AppError::FolderHoldsAnother(folder) => ("folderHoldsAnother", json!({ "folder": folder })),
+            AppError::FoldersFixed => ("foldersFixed", none()),
+            AppError::MainFolderStays => ("mainFolderStays", none()),
             AppError::GenreNotWritten(files) => {
                 ("genreNotWritten", json!({ "count": files.len(), "file": files.first() }))
             }
@@ -166,6 +183,19 @@ mod tests {
             })
         );
         assert_eq!(json(AppError::Other("lost".into()))["message"], "lost");
+    }
+
+    #[test]
+    fn a_music_folder_refused_names_the_one_in_the_way() {
+        assert_eq!(
+            serde_json::to_value(AppError::FolderHoldsAnother("E:\\Sets".into())).unwrap(),
+            json!({
+                "code": "folderHoldsAnother",
+                "params": { "folder": "E:\\Sets" },
+                "message": "holds the music folder E:\\Sets",
+            })
+        );
+        assert_eq!(AppError::FolderAlreadyIn("D:\\Music".into()).code().1, json!({ "folder": "D:\\Music" }));
     }
 
     #[test]

@@ -1,4 +1,4 @@
-//! Finding the audio files of a music folder.
+//! Finding the audio files of the music folders.
 
 use crate::db::FileStamp;
 use std::fs::Metadata;
@@ -44,6 +44,26 @@ impl Scan {
 /// writes left behind. Stops early, with what it found so far, when `cancel` is set.
 pub fn scan_folder(root: &Path, cancel: &AtomicBool) -> Scan {
     scan_folder_at(root, cancel, SystemTime::now())
+}
+
+/// [`scan_folder`] of each of `roots`, together: a file under two of them (one inside the
+/// other) is found once.
+pub fn scan_folders(roots: &[PathBuf], cancel: &AtomicBool) -> Scan {
+    let mut all = Scan::default();
+    for root in roots {
+        let scan = scan_folder(root, cancel);
+        all.files.extend(scan.files);
+        all.online_only.extend(scan.online_only);
+        all.unreadable.extend(scan.unreadable);
+        all.tag_copies.extend(scan.tag_copies);
+    }
+    all.files.sort_by(|a, b| a.path.cmp(&b.path));
+    all.files.dedup_by(|a, b| a.path == b.path);
+    for paths in [&mut all.online_only, &mut all.tag_copies] {
+        paths.sort();
+        paths.dedup();
+    }
+    all
 }
 
 fn scan_folder_at(root: &Path, cancel: &AtomicBool, now: SystemTime) -> Scan {
@@ -182,5 +202,26 @@ mod tests {
         assert!(scan.files.is_empty());
         assert!(scan.may_hold(&root.join("House/a.mp3")));
         assert!(!scan.may_hold(Path::new("C:/elsewhere/a.mp3")));
+    }
+
+    #[test]
+    fn folders_scanned_together_find_a_file_once() {
+        let root = std::env::temp_dir().join(format!("prisme-scan-together-{}", std::process::id()));
+        std::fs::create_dir_all(root.join("Music/House")).unwrap();
+        std::fs::create_dir_all(root.join("Key")).unwrap();
+        for f in ["Music/a.mp3", "Music/House/b.flac", "Key/c.wav"] {
+            std::fs::write(root.join(f), b"x").unwrap();
+        }
+        let (music, key, missing) = (root.join("Music"), root.join("Key"), root.join("Unplugged"));
+        let roots = [music.clone(), key, music.join("House"), missing.clone()];
+        let scan = scan_folders(&roots, &AtomicBool::new(false));
+        let found: Vec<String> = scan
+            .files
+            .iter()
+            .map(|f| f.path.strip_prefix(&root).unwrap().to_string_lossy().replace('\\', "/"))
+            .collect();
+        assert_eq!(found, ["Key/c.wav", "Music/House/b.flac", "Music/a.mp3"]);
+        assert_eq!(scan.unreadable, [missing]);
+        std::fs::remove_dir_all(root).ok();
     }
 }

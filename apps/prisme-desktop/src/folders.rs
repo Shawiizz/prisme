@@ -77,17 +77,17 @@ mod android {
 }
 
 /// Sub-folders and playable files of `dir`, sorted by name (hidden entries skipped).
-/// `details` gives what the library knows of a track, if anything. The music folder `root`
-/// of a system that has none yet is empty.
+/// `details` gives what the library knows of a track, if anything. One of the music folders
+/// `roots` that is not there (a system that has none yet, a drive unplugged) is empty.
 pub fn list_dir(
     dir: &Path,
-    root: &Path,
+    roots: &[PathBuf],
     details: impl Fn(&Path, &std::fs::Metadata) -> Option<TrackDetailsDto>,
 ) -> std::io::Result<DirListingDto> {
     let mut folders = Vec::new();
     let mut tracks = Vec::new();
     let entries = match std::fs::read_dir(dir) {
-        Err(e) if e.kind() == ErrorKind::NotFound && dir == root => None,
+        Err(e) if e.kind() == ErrorKind::NotFound && roots.iter().any(|root| root == dir) => None,
         entries => Some(entries?),
     };
     for entry in entries.into_iter().flatten() {

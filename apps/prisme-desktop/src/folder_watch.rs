@@ -1,4 +1,4 @@
-//! Watches the music folder. When audio files appear, change or go, the new and changed
+//! Watches the music folders. When audio files appear, change or go, the new and changed
 //! ones are analysed and the UI is told which folders changed (`library-files-changed`).
 //! A file whose change the library already knows of (tags Prisme wrote) is left alone.
 
@@ -19,14 +19,14 @@ const SETTLE: Duration = Duration::from_millis(1500);
 
 /// Watches while it is alive.
 pub struct FolderWatch {
-    _watcher: RecommendedWatcher,
+    watcher: RecommendedWatcher,
 }
 
 impl FolderWatch {
-    pub fn start(app: AppHandle, library: Arc<LibraryService>, root: &Path) -> notify::Result<Self> {
+    /// A watch of no folder yet (see [`FolderWatch::add`]).
+    pub fn start(app: AppHandle, library: Arc<LibraryService>) -> notify::Result<Self> {
         let (events, received) = mpsc::channel();
-        let mut watcher = notify::recommended_watcher(events)?;
-        watcher.watch(root, RecursiveMode::Recursive)?;
+        let watcher = notify::recommended_watcher(events)?;
         std::thread::Builder::new()
             .name("prisme-folder-watch".into())
             .spawn(move || {
@@ -50,7 +50,12 @@ impl FolderWatch {
                 }
             })
             .expect("cannot start the folder watch thread");
-        Ok(Self { _watcher: watcher })
+        Ok(Self { watcher })
+    }
+
+    /// Watches the music folder `root` too, and everything under it.
+    pub fn add(&mut self, root: &Path) -> notify::Result<()> {
+        self.watcher.watch(root, RecursiveMode::Recursive)
     }
 }
 

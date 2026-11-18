@@ -36,7 +36,8 @@ pub async fn set_dj_preferences(app: AppHandle, dj: DjPreferences) -> AppResult<
 }
 
 /// Off the main thread: every track of the library may be marked to be tagged again. The
-/// music folder stays: it changes with `set_music_folder`.
+/// music folders stay: they change with `set_music_folder`, `add_music_folder` and
+/// `remove_music_folder`.
 #[tauri::command]
 pub async fn set_library_preferences(app: AppHandle, mut library: LibraryPreferences) -> AppResult<()> {
     blocking(move || {
@@ -45,6 +46,7 @@ pub async fn set_library_preferences(app: AppHandle, mut library: LibraryPrefere
         let replaced_before = state.preferences.read(|p| p.library.replace_tags);
         state.update_preferences(|p| {
             library.music_folder = p.library.music_folder.take();
+            library.folders = std::mem::take(&mut p.library.folders);
             p.library = library;
         });
         // the tempos and keys of other programs left until now are to be written over

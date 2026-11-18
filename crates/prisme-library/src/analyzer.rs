@@ -1,6 +1,6 @@
-//! Background analysis of a music folder.
+//! Background analysis of the music folders.
 //!
-//! A coordinator thread scans the folder, follows the stored files that moved and forgets
+//! A coordinator thread scans the folders, follows the stored files that moved and forgets
 //! the ones that are gone, keeps the files whose stored results are missing or stale, and
 //! hands them to a few worker threads. Every thread runs in the OS "background" mode
 //! (low CPU and disk priority) so that playback, which runs at high priority, is never
@@ -10,7 +10,7 @@
 use crate::db::{path_key, FileStamp, LibraryDb, RecordVersion, TrackRecord};
 use crate::identity::{adopt_unless, drive_is_there, drive_of, Search};
 use crate::metadata::read_metadata;
-use crate::scan::{is_online_only, scan_folder, Scan, ScannedFile};
+use crate::scan::{is_online_only, scan_folders, Scan, ScannedFile};
 use prisme_analysis::AnalysisOptions;
 use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
@@ -47,8 +47,8 @@ pub trait AnalysisListener: Send + Sync + 'static {
         false
     }
 
-    /// The tracks of `folders`, music folders no longer, were followed into the new one or
-    /// forgotten (see [`BackgroundAnalyzer::leaving`]).
+    /// The tracks of `folders`, music folders no longer, were followed into the music
+    /// folders or forgotten (see [`BackgroundAnalyzer::leaving`]).
     fn left(&self, _folders: &[PathBuf]) {}
 }
 
@@ -58,23 +58,23 @@ pub struct BackgroundAnalyzer {
 }
 
 impl BackgroundAnalyzer {
-    /// Starts analysing `root` with `workers` threads.
+    /// Starts analysing the music folders `roots` with `workers` threads.
     pub fn start(
         db: Arc<LibraryDb>,
-        root: PathBuf,
+        roots: Vec<PathBuf>,
         workers: usize,
         options: AnalysisOptions,
         listener: Arc<dyn AnalysisListener>,
     ) -> Self {
-        Self::leaving(db, root, Vec::new(), workers, options, listener)
+        Self::leaving(db, roots, Vec::new(), workers, options, listener)
     }
 
-    /// [`BackgroundAnalyzer::start`] once the music folder was `left` for `root`: the tracks
-    /// of the folders left are handled as files gone from the music folder, found again in
-    /// `root` when they were moved or copied there, else forgotten.
+    /// [`BackgroundAnalyzer::start`] once the music folders `left` are no longer among
+    /// `roots`: their tracks are handled as files gone from the music folders, found again
+    /// in `roots` when they were moved or copied there, else forgotten.
     pub fn leaving(
         db: Arc<LibraryDb>,
-        root: PathBuf,
+        roots: Vec<PathBuf>,
         left: Vec<PathBuf>,
         workers: usize,
         options: AnalysisOptions,
@@ -86,7 +86,7 @@ impl BackgroundAnalyzer {
             std::thread::Builder::new()
                 .name("prisme-library".into())
                 .spawn(move || {
-                    let folders = Folders { root: &root, left: &left };
+                    let folders = Folders { roots: &roots, left: &left };
                     run(&db, folders, workers.max(1), &options, listener.as_ref(), &cancel)
                 })
                 .expect("cannot spawn the library thread")
@@ -122,11 +122,18 @@ pub fn default_workers() -> usize {
     std::thread::available_parallelism().map_or(2, |n| (n.get() / 2).clamp(1, 4))
 }
 
-/// The music folder, and those it was before.
+/// The music folders, and those they no longer are.
 #[derive(Clone, Copy)]
 struct Folders<'a> {
-    root: &'a Path,
+    roots: &'a [PathBuf],
     left: &'a [PathBuf],
+}
+
+impl Folders<'_> {
+    /// Whether `path` is under one of the music folders.
+    fn hold(&self, path: &Path) -> bool {
+        self.roots.iter().any(|root| path.starts_with(root))
+    }
 }
 
 fn run(
@@ -141,7 +148,7 @@ fn run(
     listener.progress(AnalysisProgress { running: true, ..Default::default() });
 
     let mut stored = db.versions().unwrap_or_default();
-    let found = scan_folder(folders.root, cancel);
+    let found = scan_folders(folders.roots, cancel);
     for copy in &found.tag_copies {
         if let Err(e) = std::fs::remove_file(copy) {
             error!("{} left behind by a tag write, not removed: {e}", copy.display());
@@ -265,9 +272,9 @@ fn keep_audio_id(db: &LibraryDb, path: &Path, id: u64) {
     }
 }
 
-/// Follows the stored files under the music folder that the scan did not find, and those of
+/// Follows the stored files under the music folders that the scan did not find, and those of
 /// the folders left: one that reappears elsewhere with the same size and modification time
-/// (moved, renamed, or copied into the new folder) keeps all it had; the others are
+/// (moved, renamed, or copied into a music folder) keeps all it had; the others are
 /// forgotten, but for their cues and corrections, which a file with their audio takes as it
 /// is analysed (see [`adopt_unless`]). Those under a folder the scan could not list (a drive
 /// unplugged) are kept as they are. `stored` is updated to match.
@@ -288,7 +295,7 @@ fn follow_moves(
         .keys()
         .filter(|p| {
             let path = Path::new(p);
-            if path.starts_with(folders.root) {
+            if folders.hold(path) {
                 !present.contains(*p) && !found.may_hold(path)
             } else {
                 folders.left.iter().any(|dir| path.starts_with(dir))
