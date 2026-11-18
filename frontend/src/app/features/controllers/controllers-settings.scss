@@ -10,6 +10,40 @@
   font-size: var(--pr-size-small);
   color: var(--pr-text-2);
 }
+// a group of actions, folded or not, with how many of them are mapped
+.fold {
+  justify-self: start;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 28px;
+  padding: 0 8px 0 2px;
+  border: none;
+  background: transparent;
+  color: var(--pr-text-3);
+  svg {
+    width: 14px;
+    height: 14px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2;
+    transition: transform var(--pr-fast);
+  }
+  &[aria-expanded='true'] svg {
+    transform: rotate(90deg);
+  }
+  .pr-label {
+    color: inherit;
+  }
+  .mapped {
+    font-size: var(--pr-size-small);
+    color: var(--pr-text-2);
+  }
+  &:hover {
+    background: transparent;
+    color: var(--pr-text);
+  }
+}
 .mapping {
   display: grid;
   grid-template-columns: minmax(0, 1.2fr) minmax(0, 1.2fr) 128px;

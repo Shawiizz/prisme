@@ -116,10 +116,11 @@ export class ControllersSettings implements OnInit, OnDestroy {
     this.service.controllers().some((c) => c.enabled && c.plugged),
   );
 
+  /** The controls by group, those of the decks shown only; a light only shows: nothing is
+   * learnt for it. */
   protected readonly groups = computed(() => {
     const groups = new Map<string, Row[]>();
-    // a light only shows: nothing is learnt for it
-    for (const control of this.controls.controls.filter((c) => c.kind !== 'light')) {
+    for (const control of this.controls.inUse().filter((c) => c.kind !== 'light')) {
       const devices = new Map<string, ControllerMapping[]>();
       for (const m of this.service.mappings().filter((m) => m.target === control.id))
         devices.set(m.device, [...(devices.get(m.device) ?? []), m]);
@@ -130,8 +131,14 @@ export class ControllersSettings implements OnInit, OnDestroy {
       }));
       groups.set(control.group, [...(groups.get(control.group) ?? []), { control, bindings }]);
     }
-    return [...groups.entries()].map(([name, rows]) => ({ name, rows }));
+    return [...groups.entries()].map(([name, rows]) => ({
+      name,
+      rows,
+      mapped: rows.filter((row) => row.bindings.length > 0).length,
+    }));
   });
+  /** The groups unfolded: each folded at first, its actions a long list. */
+  private readonly opened = signal<ReadonlySet<string>>(new Set());
 
   ngOnInit() {
     this.service.refresh();
@@ -168,6 +175,18 @@ export class ControllersSettings implements OnInit, OnDestroy {
 
   ngOnDestroy() {
     this.service.cancelLearning();
+  }
+
+  isOpen(group: string): boolean {
+    return this.opened().has(group);
+  }
+
+  toggle(group: string) {
+    this.opened.update((opened) => {
+      const next = new Set(opened);
+      if (!next.delete(group)) next.add(group);
+      return next;
+    });
   }
 
   toggleLearning(id: string) {
