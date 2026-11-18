@@ -168,13 +168,13 @@
   "Loops, rolls and censor carry the track on underneath": "Boucles, rolls et censor laissent le morceau avancer en dessous",
   "Plays backwards while held, then lands where the track would have been": "Joue à l'envers tant que maintenu, puis retombe là où le morceau en serait",
   "Echo on the beat · amount: feedback": "Écho sur le temps · amount : réinjection",
-  "Echo bouncing left and right · amount: feedback": "Écho rebondissant de gauche à droite · amount : réinjection",
+  "Ping-pong echo, bouncing left and right · amount: feedback": "Écho ping-pong, rebondissant de gauche à droite · amount : réinjection",
   "Reverb · amount: room size": "Réverbération · amount : taille de la pièce",
   "Flanger · amount: feedback": "Flanger · amount : réinjection",
   "Phaser · amount: feedback": "Phaser · amount : réinjection",
   "Filter sweeping on the beat · amount: depth": "Filtre balayant sur le temps · amount : profondeur",
-  "Cuts the sound on the beat · amount: depth": "Coupe le son sur le temps · amount : profondeur",
-  "Lower resolution · amount: crush": "Résolution réduite · amount : écrasement",
+  "Gate, cutting the sound on the beat · amount: depth": "Gate, coupant le son sur le temps · amount : profondeur",
+  "Bitcrusher, lowering the resolution · amount: crush": "Bitcrusher, réduisant la résolution · amount : écrasement",
   "Loop {beats}": "Boucle de {beats}",
   "Roll {beats} while held": "Roll de {beats} tant que maintenu",
   "Jump {beats} beats": "Saut de {beats} temps",
@@ -926,5 +926,7 @@
   "1 track here": "1 morceau ici",
   "{n} tracks here": "{n} morceaux ici",
   "Add this folder": "Ajouter ce dossier",
-  "{n} mapped": "{n} assignées"
+  "{n} mapped": "{n} assignées",
+  "{beats} beats": "{beats} temps",
+  "{beats} beat": "{beats} temps"
 }

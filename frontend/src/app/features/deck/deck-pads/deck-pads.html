@@ -21,167 +21,176 @@
       (contextmenu)="remove($index, $event)"
     >
       <span>{{ pad.label }}</span>
+      @if (pad.short) {
+        <span class="short">{{ pad.short }}</span>
+      }
     </button>
   }
 </div>
 
-@if (paged()) {
-  <button
-    class="pr-btn pr-btn--sm page"
-    [title]="'The other page of pads' | t"
-    (click)="page.set(1 - page())"
+@if (keys() === 'fx') {
+  <div
+    class="pr-seg pr-seg--lg slots"
+    [class.bypassed]="!chainOn()"
+    role="radiogroup"
+    [attr.aria-label]="'Effect the pads and knobs act on' | t"
   >
-    {{ page() === 0 ? '1–8' : '9–16' }}
-  </button>
-}
-
-@switch (keys()) {
-  @case ('fx') {
-    <div
-      class="pr-seg pr-seg--lg slots"
-      [class.bypassed]="!chainOn()"
-      role="radiogroup"
-      [attr.aria-label]="'Effect the pads and knobs act on' | t"
+    @for (key of slotKeys(); track $index) {
+      <button
+        role="radio"
+        [attr.aria-checked]="slot() === $index"
+        [class.is-lit]="key.on"
+        [class.is-focused]="key.focused"
+        [title]="key.title"
+        (click)="fx.choose(deck(), $index)"
+      >
+        {{ $index + 1 }}
+      </button>
+    }
+  </div>
+  <div class="side knobs">
+    <button
+      class="pr-btn pr-btn--sm chain"
+      [class.is-on]="chainOn()"
+      [attr.aria-pressed]="chainOn()"
+      [title]="chainTitle()"
+      (click)="fx.setChainEnabled(deck(), !chainOn())"
     >
-      @for (key of slotKeys(); track $index) {
+      FX
+    </button>
+    @let on = effectPart();
+    <button
+      class="pr-btn pr-btn--sm part"
+      [class.is-on]="on.on"
+      [disabled]="!on.choice"
+      [title]="on.title"
+      (click)="fx.nextPart(deck())"
+    >
+      {{ on.label }}
+    </button>
+    <app-knob
+      small
+      label="MIX"
+      [labelTitle]="'Level of the effect' | t"
+      [format]="readouts.percent"
+      [value]="effect().mix"
+      (valueChange)="fx.setMix(deck(), slot(), $event)"
+    />
+    <app-knob
+      small
+      label="AMOUNT"
+      [labelTitle]="'Main knob of the effect (see each pad)' | t"
+      [format]="readouts.percent"
+      [value]="effect().amount"
+      (valueChange)="fx.setAmount(deck(), slot(), $event)"
+    />
+    @let second = param2();
+    <app-knob
+      small
+      [label]="second.label"
+      [labelTitle]="second.name"
+      [defaultValue]="0.5"
+      [format]="readouts.percent"
+      [value]="effect().param2"
+      (valueChange)="fx.setParam2(deck(), slot(), $event)"
+    />
+    <div class="beats" [title]="'Period of the effect, in beats' | t">
+      <button class="pr-btn pr-btn--sm" (click)="fx.scaleBeats(deck(), slot(), 0.5)">½</button>
+      <button class="pr-btn pr-btn--sm" (click)="fx.scaleBeats(deck(), slot(), 2)">×2</button>
+      <span class="pr-num">{{ beats(effect().beats) }}</span>
+    </div>
+  </div>
+} @else {
+  <!-- the keys of the mode over the room of the widest of them (the hot cues'): the pads
+       keep their width from one mode to the next -->
+  <div class="keys">
+    <span class="side widest" aria-hidden="true">
+      <span class="pr-btn pr-btn--sm page">9–16</span>
+      <span class="pr-btn loop-key">RELOOP</span>
+      <span class="pr-btn slip">SLIP</span>
+      <span class="pr-btn censor">CENSOR</span>
+    </span>
+    <div class="side" [class.loop]="keys() === 'loop'" [class.knobs]="keys() === 'sampler'">
+      @if (paged()) {
         <button
-          role="radio"
-          [attr.aria-checked]="slot() === $index"
-          [class.is-lit]="key.on"
-          [class.is-focused]="key.focused"
-          [title]="key.title"
-          (click)="fx.choose(deck(), $index)"
+          class="pr-btn pr-btn--sm page"
+          [title]="'The other page of pads' | t"
+          (click)="page.set(1 - page())"
         >
-          {{ $index + 1 }}
+          {{ page() === 0 ? '1–8' : '9–16' }}
         </button>
       }
-    </div>
-    <div class="side knobs">
-      <button
-        class="pr-btn pr-btn--sm chain"
-        [class.is-on]="chainOn()"
-        [attr.aria-pressed]="chainOn()"
-        [title]="chainTitle()"
-        (click)="fx.setChainEnabled(deck(), !chainOn())"
-      >
-        FX
-      </button>
-      @let on = effectPart();
-      <button
-        class="pr-btn pr-btn--sm part"
-        [class.is-on]="on.on"
-        [disabled]="!on.choice"
-        [title]="on.title"
-        (click)="fx.nextPart(deck())"
-      >
-        {{ on.label }}
-      </button>
-      <app-knob
-        small
-        label="MIX"
-        [labelTitle]="'Level of the effect' | t"
-        [format]="readouts.percent"
-        [value]="effect().mix"
-        (valueChange)="fx.setMix(deck(), slot(), $event)"
-      />
-      <app-knob
-        small
-        label="AMOUNT"
-        [labelTitle]="'Main knob of the effect (see each pad)' | t"
-        [format]="readouts.percent"
-        [value]="effect().amount"
-        (valueChange)="fx.setAmount(deck(), slot(), $event)"
-      />
-      @let second = param2();
-      <app-knob
-        small
-        [label]="second.label"
-        [labelTitle]="second.name"
-        [defaultValue]="0.5"
-        [format]="readouts.percent"
-        [value]="effect().param2"
-        (valueChange)="fx.setParam2(deck(), slot(), $event)"
-      />
-      <div class="beats" [title]="'Period of the effect, in beats' | t">
-        <button class="pr-btn pr-btn--sm" (click)="fx.scaleBeats(deck(), slot(), 0.5)">½</button>
-        <button class="pr-btn pr-btn--sm" (click)="fx.scaleBeats(deck(), slot(), 2)">×2</button>
-        <span class="pr-num">{{ formatBeats(effect().beats) }}</span>
-      </div>
-    </div>
-  }
-  @case ('sampler') {
-    <div class="side knobs">
-      <app-knob
-        small
-        label="VOL"
-        [labelTitle]="'Level of the sampler' | t"
-        [defaultValue]="1"
-        [format]="readouts.percent"
-        [value]="samplerGain()"
-        (valueChange)="sampler.setGain(deck(), $event)"
-      />
-    </div>
-  }
-  @case ('jump') {
-    <div class="side">
-      <div class="beats" [title]="'Size of the jumps and of the sized loop, in beats' | t">
-        <button class="pr-btn pr-btn--sm" (click)="performance.scaleSize(deck(), 0.5)">½</button>
-        <button class="pr-btn pr-btn--sm" (click)="performance.scaleSize(deck(), 2)">×2</button>
-        <span class="pr-num">{{ formatBeats(size()) }}</span>
-      </div>
-      <ng-container [ngTemplateOutlet]="slipKey" />
-      <ng-container [ngTemplateOutlet]="censorKey" />
-    </div>
-  }
-  @case ('loop') {
-    <div class="side loop">
-      <button
-        class="pr-btn pr-btn--sm"
-        [class.is-on]="loopInSet()"
-        (click)="loopIn()"
-        [disabled]="!canMove()"
-        [title]="'Loop in: where the next loop starts' | t"
-      >
-        IN
-      </button>
-      <button
-        class="pr-btn pr-btn--sm"
-        (click)="loopOut()"
-        [disabled]="!canMove()"
-        [title]="'Loop out: the loop ends here and plays' | t"
-      >
-        OUT
-      </button>
-      <button
-        class="pr-btn pr-btn--sm"
-        (click)="scaleLoop(0.5)"
-        [disabled]="!canMove()"
-        [title]="'Halve the loop' | t"
-      >
-        ½
-      </button>
-      <button
-        class="pr-btn pr-btn--sm"
-        (click)="scaleLoop(2)"
-        [disabled]="!canMove()"
-        [title]="'Double the loop' | t"
-      >
-        ×2
-      </button>
-      <ng-container [ngTemplateOutlet]="loopKey" />
-      <ng-container [ngTemplateOutlet]="slipKey" />
-      <ng-container [ngTemplateOutlet]="censorKey" />
-    </div>
-  }
-  @default {
-    <div class="side">
-      @if (loopActive()) {
-        <ng-container [ngTemplateOutlet]="loopKey" />
+      @switch (keys()) {
+        @case ('sampler') {
+          <app-knob
+            small
+            label="VOL"
+            [labelTitle]="'Level of the sampler' | t"
+            [defaultValue]="1"
+            [format]="readouts.percent"
+            [value]="samplerGain()"
+            (valueChange)="sampler.setGain(deck(), $event)"
+          />
+          <ng-container [ngTemplateOutlet]="slipKey" />
+          <ng-container [ngTemplateOutlet]="censorKey" />
+        }
+        @case ('jump') {
+          <div class="beats" [title]="'Size of the jumps and of the sized loop, in beats' | t">
+            <button class="pr-btn pr-btn--sm" (click)="performance.scaleSize(deck(), 0.5)">
+              ½
+            </button>
+            <button class="pr-btn pr-btn--sm" (click)="performance.scaleSize(deck(), 2)">×2</button>
+            <span class="pr-num">{{ beats(size()) }}</span>
+          </div>
+          <ng-container [ngTemplateOutlet]="slipKey" />
+          <ng-container [ngTemplateOutlet]="censorKey" />
+        }
+        @case ('loop') {
+          <button
+            class="pr-btn pr-btn--sm"
+            [class.is-on]="loopInSet()"
+            (click)="loopIn()"
+            [disabled]="!canMove()"
+            [title]="'Loop in: where the next loop starts' | t"
+          >
+            IN
+          </button>
+          <button
+            class="pr-btn pr-btn--sm"
+            (click)="loopOut()"
+            [disabled]="!canMove()"
+            [title]="'Loop out: the loop ends here and plays' | t"
+          >
+            OUT
+          </button>
+          <button
+            class="pr-btn pr-btn--sm"
+            (click)="scaleLoop(0.5)"
+            [disabled]="!canMove()"
+            [title]="'Halve the loop' | t"
+          >
+            ½
+          </button>
+          <button
+            class="pr-btn pr-btn--sm"
+            (click)="scaleLoop(2)"
+            [disabled]="!canMove()"
+            [title]="'Double the loop' | t"
+          >
+            ×2
+          </button>
+          <ng-container [ngTemplateOutlet]="loopKey" />
+          <ng-container [ngTemplateOutlet]="slipKey" />
+          <ng-container [ngTemplateOutlet]="censorKey" />
+        }
+        @default {
+          <ng-container [ngTemplateOutlet]="loopKey" />
+          <ng-container [ngTemplateOutlet]="slipKey" />
+          <ng-container [ngTemplateOutlet]="censorKey" />
+        }
       }
-      <ng-container [ngTemplateOutlet]="slipKey" />
-      <ng-container [ngTemplateOutlet]="censorKey" />
     </div>
-  }
+  </div>
 }
 
 <ng-template #loopKey>

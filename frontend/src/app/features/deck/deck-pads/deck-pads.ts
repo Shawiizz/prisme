@@ -17,6 +17,8 @@ type PadMode = 'cues' | 'loops' | 'roll' | 'jump' | 'slice' | 'cut' | 'fx' | 'sa
 
 interface Pad {
   label: string;
+  /** Four letters in the place of the label on a pad too narrow for it. */
+  short?: string;
   /** Something is on it: an empty pad (no cue, no sound) is dashed. */
   set: boolean;
   /** Tag colour of a hot cue or a sound. */
@@ -40,47 +42,56 @@ const SAMPLE_COLOR = 'var(--pr-tag-violet)';
 const SIZE_COLOR = 'var(--pr-light)';
 /** The bar of an effect pad whose effect sounds in another slot of the chain. */
 const ELSEWHERE_COLOR = 'var(--pr-text-3)';
-/** The effects on the pads, with what their AMOUNT knob does. */
-const EFFECTS: { kind: EffectKind; label: string; title: Text }[] = [
+/** The effects on the pads, their name in four letters on a narrow pad, with what their AMOUNT
+ * knob does. */
+const EFFECTS: { kind: EffectKind; label: string; short: string; title: Text }[] = [
   {
     kind: 'echo',
     label: 'ECHO',
+    short: 'ECHO',
     title: () => t('Echo on the beat · amount: feedback'),
   },
   {
     kind: 'pingPong',
     label: 'PING',
-    title: () => t('Echo bouncing left and right · amount: feedback'),
+    short: 'PING',
+    title: () => t('Ping-pong echo, bouncing left and right · amount: feedback'),
   },
   {
     kind: 'reverb',
     label: 'VERB',
+    short: 'VERB',
     title: () => t('Reverb · amount: room size'),
   },
   {
     kind: 'flanger',
     label: 'FLANGE',
+    short: 'FLNG',
     title: () => t('Flanger · amount: feedback'),
   },
   {
     kind: 'phaser',
     label: 'PHASE',
+    short: 'PHSR',
     title: () => t('Phaser · amount: feedback'),
   },
   {
     kind: 'filter',
     label: 'FILTER',
+    short: 'FLTR',
     title: () => t('Filter sweeping on the beat · amount: depth'),
   },
   {
     kind: 'gate',
     label: 'GATE',
-    title: () => t('Cuts the sound on the beat · amount: depth'),
+    short: 'GATE',
+    title: () => t('Gate, cutting the sound on the beat · amount: depth'),
   },
   {
     kind: 'bitcrusher',
     label: 'CRUSH',
-    title: () => t('Lower resolution · amount: crush'),
+    short: 'CRSH',
+    title: () => t('Bitcrusher, lowering the resolution · amount: crush'),
   },
 ];
 const LOOP_BEATS = [0.25, 0.5, 1, 2, 4, 8, 16, 32];
@@ -88,10 +99,9 @@ const JUMP_BEATS = [-32, -16, -4, -1, 1, 4, 16, 32];
 
 /**
  * Eight performance pads per deck (hot cues and sounds on two pages), at the end of its rail (hot cues, loops, rolls, beat
- * jumps, the slicer, fader cuts, beat effects, sampler), with the keys that go with their mode: slip and censor
- * (and the way out of a loop while one plays), all the loop keys, the deck's size for the
- * jumps, the slots of the effect chain with the level, knob and period of the one chosen,
- * or the sampler's level.
+ * jumps, the slicer, fader cuts, beat effects, sampler), with the keys that go with their mode: slip, censor
+ * and reloop, all the loop keys, the deck's size for the jumps, the sampler's level, or the
+ * slots of the effect chain with the level, knob and period of the one chosen.
  */
 @Component({
   selector: 'app-deck-pads',
@@ -185,7 +195,6 @@ export class DeckPads {
   );
   /** The deck's size: what its jumps go by; the pads of that size have a bar in the light. */
   protected readonly size = computed(() => this.performance.sizes()[this.deck()]);
-  protected readonly formatBeats = formatBeats;
   protected readonly readouts = readouts;
 
   private readonly activeLoopBeats = computed(() => {
@@ -246,6 +255,7 @@ export class DeckPads {
         const sounds = (fx: FxSettings, kind: EffectKind) => fx.enabled && fx.kind === kind;
         return EFFECTS.map((e) => ({
           label: e.label,
+          short: e.short,
           set: true,
           color: slots.some((fx, s) => s !== chosen && sounds(fx, e.kind)) ? ELSEWHERE_COLOR : null,
           active: sounds(slots[chosen], e.kind),
@@ -259,6 +269,14 @@ export class DeckPads {
         });
     }
   });
+
+  /** A length in beats, with its unit: under keys that halve and double it. */
+  protected beats(beats: number): string {
+    const count = formatBeats(beats);
+    return Math.abs(beats) > 1
+      ? t('{beats} beats', { beats: count })
+      : t('{beats} beat', { beats: count });
+  }
 
   press(index: number, event: PointerEvent) {
     // the right button is the pad's menu, not a press
