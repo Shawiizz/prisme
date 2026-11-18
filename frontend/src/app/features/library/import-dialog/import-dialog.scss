@@ -41,9 +41,12 @@ section {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  // a sentence, not a path: in the text's own letters, whole
   &.missing {
     font-family: var(--pr-font);
-    color: var(--pr-text-3);
+    font-stretch: normal;
+    white-space: normal;
+    color: var(--pr-text-2);
   }
 }
 .status {
