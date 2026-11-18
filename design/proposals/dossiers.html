@@ -1,0 +1,705 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="utf-8" />
+    <title>Prisme · dossiers et glisser-déposer</title>
+    <link rel="stylesheet" href="../../frontend/src/styles/fonts.css" />
+    <link rel="stylesheet" href="../../frontend/src/styles/tokens.css" />
+    <link rel="stylesheet" href="../../frontend/src/styles/components.css" />
+    <style>
+      /* Several folders in the library, browsed as a tree; files and folders dropped from the
+         computer's file manager onto the decks and the folders. */
+      *,
+      *::before,
+      *::after {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        padding: 40px 48px 72px;
+        background: #050506;
+        font: var(--pr-size) / 1.4 var(--pr-font);
+        color: var(--pr-text);
+      }
+      h1 {
+        margin: 0 0 6px;
+        font-size: 22px;
+        font-weight: 600;
+      }
+      h2 {
+        margin: 56px 0 6px;
+        font-size: 15px;
+        font-weight: 600;
+      }
+      .lead {
+        max-width: 820px;
+        margin: 0 0 24px;
+        color: var(--pr-text-3);
+      }
+      figcaption {
+        margin-top: 12px;
+        max-width: 860px;
+        font-size: var(--pr-size-small);
+        color: var(--pr-text-3);
+      }
+      figcaption b {
+        color: var(--pr-text-2);
+        font-weight: 600;
+      }
+      figure {
+        margin: 0;
+      }
+      svg.i {
+        flex: none;
+        width: 14px;
+        height: 14px;
+        fill: none;
+        stroke: var(--pr-text-3);
+        stroke-width: 1.6;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+      }
+
+      /* ---------- the library: the tree beside the table ---------- */
+      .app {
+        position: relative;
+        display: grid;
+        grid-template-columns: 300px 1fr;
+        width: 1180px;
+        height: 560px;
+        overflow: hidden;
+        background: var(--pr-void);
+        border: 1px solid var(--pr-line);
+        border-radius: 10px;
+      }
+      .side {
+        position: relative;
+        z-index: 1;
+        display: flex;
+        flex-direction: column;
+        border-right: 1px solid var(--pr-line);
+      }
+      .side section {
+        border-top: 1px solid var(--pr-line);
+        margin-top: 8px;
+      }
+      .side section:first-child {
+        border: 0;
+        margin: 0;
+        padding-top: 8px;
+      }
+      .side header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        min-height: 30px;
+        padding: 8px 8px 0 16px;
+        font: 600 var(--pr-size-label) / 1.2 var(--pr-font);
+        letter-spacing: 0.09em;
+        text-transform: uppercase;
+        color: var(--pr-text-3);
+      }
+      .side header .fold {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+      }
+      .side header .fold svg {
+        width: 14px;
+        height: 14px;
+        fill: none;
+        stroke: currentColor;
+        stroke-width: 2;
+        transform: rotate(90deg);
+      }
+      .side header .pr-btn {
+        letter-spacing: 0;
+        text-transform: none;
+      }
+      .list {
+        padding: 2px 8px;
+      }
+      .item {
+        position: relative;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        height: 28px;
+        padding: 0 8px 0 calc(8px + var(--depth, 0) * 16px);
+        border-radius: var(--pr-radius-sm);
+        color: var(--pr-text-2);
+        white-space: nowrap;
+      }
+      .item:hover,
+      .item.hover {
+        background: var(--pr-base);
+        color: var(--pr-text);
+      }
+      .item.current {
+        background: var(--pr-raise-2);
+        color: var(--pr-text);
+      }
+      .item .name {
+        flex: 1;
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .item .count {
+        font: 11px var(--pr-font-mono);
+        font-stretch: var(--pr-mono-width);
+        color: var(--pr-text-3);
+      }
+      /* the arrow that opens a folder; none for a folder without sub-folders */
+      .twisty {
+        flex: none;
+        width: 14px;
+        height: 14px;
+        fill: none;
+        stroke: var(--pr-text-3);
+        stroke-width: 2;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+      }
+      .open > .twisty {
+        transform: rotate(90deg);
+      }
+      .leaf {
+        flex: none;
+        width: 14px;
+      }
+      /* a folder added, at the top of its tree: its name, where it is beneath */
+      .root .name small {
+        display: block;
+        margin-top: -2px;
+        font-size: 10.5px;
+        color: var(--pr-text-3);
+      }
+      .root {
+        height: 38px;
+        font-weight: 600;
+        color: var(--pr-text);
+      }
+      .main-tag {
+        padding: 1px 5px;
+        font: 600 9.5px / 1.4 var(--pr-font);
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        color: var(--pr-text-3);
+        border: 1px solid var(--pr-line-2);
+        border-radius: 3px;
+      }
+      /* a folder on a drive that is not there: shown, dimmed, until it is back */
+      .absent {
+        color: var(--pr-text-3);
+      }
+      .absent .name {
+        text-decoration: none;
+      }
+      .absent .gone {
+        font-size: 11px;
+        color: var(--pr-text-3);
+      }
+      .more {
+        display: none;
+        width: 22px;
+        height: 22px;
+        place-items: center;
+        border-radius: 4px;
+        color: var(--pr-text-2);
+      }
+      .item.hover .more {
+        display: grid;
+      }
+      .more svg {
+        width: 14px;
+        height: 14px;
+        fill: currentColor;
+      }
+      .menu {
+        position: absolute;
+        top: 4px;
+        left: calc(100% + 4px);
+        z-index: 2;
+        width: 230px;
+        padding: 4px;
+        background: var(--pr-base);
+        border: 1px solid var(--pr-line-2);
+        border-radius: var(--pr-radius);
+        box-shadow: 0 16px 40px rgb(0 0 0 / 0.5);
+        font-weight: 400;
+      }
+      .menu div {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        height: 30px;
+        padding: 0 8px;
+        border-radius: var(--pr-radius-sm);
+        color: var(--pr-text-2);
+      }
+      .menu div:first-child {
+        background: var(--pr-raise-2);
+        color: var(--pr-text);
+      }
+      .menu .warn {
+        color: var(--pr-alert);
+      }
+      .menu hr {
+        margin: 4px 0;
+        border: 0;
+        border-top: 1px solid var(--pr-line);
+      }
+
+      .main {
+        display: grid;
+        grid-template-rows: auto auto 1fr;
+        min-width: 0;
+      }
+      .bar {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 10px 14px;
+      }
+      .search {
+        flex: 1;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        height: 30px;
+        padding: 0 10px;
+        color: var(--pr-text-3);
+        border: 1px solid var(--pr-line-2);
+        border-radius: var(--pr-radius);
+      }
+      /* where the table is: each step clickable, as in the address bar of the file manager */
+      .path {
+        display: flex;
+        align-items: center;
+        gap: 2px;
+        padding: 0 14px 8px;
+        font-size: var(--pr-size-small);
+        color: var(--pr-text-2);
+      }
+      .path .step {
+        padding: 2px 6px;
+        border-radius: 4px;
+      }
+      .path .step:hover {
+        background: var(--pr-base);
+        color: var(--pr-text);
+      }
+      .path .here {
+        color: var(--pr-text);
+        font-weight: 600;
+      }
+      .path .sep {
+        width: 12px;
+        height: 12px;
+        fill: none;
+        stroke: var(--pr-text-3);
+        stroke-width: 2;
+      }
+      .path .up {
+        display: grid;
+        place-items: center;
+        width: 24px;
+        height: 24px;
+        margin-right: 6px;
+        border: 1px solid var(--pr-line-2);
+        border-radius: 4px;
+      }
+      .table {
+        overflow: hidden;
+        border-top: 1px solid var(--pr-line);
+      }
+      .row {
+        display: grid;
+        grid-template-columns: 34px 1.6fr 1.2fr 70px 60px 56px;
+        align-items: center;
+        gap: 12px;
+        height: 36px;
+        padding: 0 14px;
+        border-bottom: 1px solid #15171a;
+        color: var(--pr-text);
+      }
+      .row.head {
+        height: 30px;
+        font: 600 var(--pr-size-label) / 1 var(--pr-font);
+        letter-spacing: 0.09em;
+        text-transform: uppercase;
+        color: var(--pr-text-3);
+      }
+      .row .art {
+        width: 26px;
+        height: 26px;
+        border-radius: 4px;
+        background: linear-gradient(135deg, var(--a), var(--b));
+      }
+      .row .dim {
+        color: var(--pr-text-2);
+      }
+      .row .num {
+        font-family: var(--pr-font-mono);
+        font-stretch: var(--pr-mono-width);
+        text-align: right;
+      }
+      .key {
+        justify-self: start;
+        padding: 2px 6px;
+        font: 600 11px / 1 var(--pr-font-mono);
+        color: #0a0b0d;
+        border-radius: 3px;
+        background: oklch(0.76 0.13 var(--h));
+      }
+
+      /* ---------- dropping from the file manager ---------- */
+      .stage {
+        position: relative;
+        width: 1180px;
+        overflow: hidden;
+        background: var(--pr-void);
+        border: 1px solid var(--pr-line);
+        border-radius: 10px;
+      }
+      .decks {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 10px;
+        padding: 12px;
+      }
+      .deck {
+        position: relative;
+        display: grid;
+        grid-template-columns: auto 1fr;
+        gap: 4px 12px;
+        align-items: center;
+        height: 150px;
+        padding: 14px 16px;
+        background: var(--pr-base);
+        border: 1px solid var(--pr-line);
+        border-radius: var(--pr-radius);
+      }
+      .deck .letter {
+        display: grid;
+        place-items: center;
+        width: 26px;
+        height: 26px;
+        font: 600 13px / 1 var(--pr-font);
+        border: 1px solid var(--pr-line-2);
+        border-radius: 4px;
+      }
+      .deck .title {
+        font-weight: 600;
+      }
+      .deck .wave {
+        grid-column: 1 / -1;
+        height: 70px;
+        border-radius: 4px;
+        background: repeating-linear-gradient(
+          90deg,
+          oklch(0.62 0.12 calc(200 + var(--k, 0))) 0 2px,
+          transparent 2px 5px
+        );
+        mask-image: linear-gradient(transparent, #000 30%, #000 70%, transparent);
+        opacity: 0.55;
+      }
+      /* what a dropped track does, told on each deck while the file is over the window */
+      .target {
+        position: absolute;
+        inset: -1px;
+        display: grid;
+        place-items: center;
+        border: 1.5px dashed var(--pr-line-2);
+        border-radius: var(--pr-radius);
+        background: rgb(10 11 13 / 0.72);
+        color: var(--pr-text-2);
+        font-weight: 600;
+        letter-spacing: 0.02em;
+      }
+      .target.over {
+        border-color: var(--pr-light);
+        background: rgb(243 241 235 / 0.08);
+        color: var(--pr-text);
+      }
+      .target span {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .target svg {
+        width: 18px;
+        height: 18px;
+        fill: none;
+        stroke: currentColor;
+        stroke-width: 1.6;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+      }
+      .target small {
+        display: block;
+        margin-top: 4px;
+        text-align: center;
+        font-weight: 400;
+        font-size: var(--pr-size-small);
+        color: var(--pr-text-3);
+      }
+      /* the file under the pointer, as the system draws it */
+      .ghost {
+        position: absolute;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 6px 10px;
+        font-size: 12px;
+        background: rgb(40 44 52 / 0.9);
+        border: 1px solid #4a505a;
+        border-radius: 4px;
+        color: #e8e9eb;
+        box-shadow: 0 6px 18px rgb(0 0 0 / 0.5);
+      }
+      .cursor {
+        position: absolute;
+        width: 0;
+        height: 0;
+        border-left: 7px solid #fff;
+        border-top: 5px solid transparent;
+        border-bottom: 5px solid transparent;
+        transform: rotate(-125deg);
+        filter: drop-shadow(0 1px 1px #000);
+      }
+      .drop-folders {
+        margin: 6px 8px 8px;
+        padding: 14px 12px;
+        display: grid;
+        gap: 4px;
+        text-align: center;
+        border: 1.5px dashed var(--pr-light);
+        border-radius: var(--pr-radius);
+        background: rgb(243 241 235 / 0.06);
+        color: var(--pr-text);
+        font-weight: 600;
+      }
+      .drop-folders small {
+        font-weight: 400;
+        font-size: var(--pr-size-small);
+        color: var(--pr-text-3);
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Dossiers et glisser-déposer</h1>
+    <p class="lead">
+      La bibliothèque lit autant de dossiers que vous voulez, pas seulement le dossier Musique :
+      une clé, un disque externe, un dossier de sets. On les parcourt en arbre, comme dans
+      l’explorateur. Et un morceau glissé depuis l’explorateur se charge sur le deck où on le
+      lâche.
+    </p>
+
+    <h2>La bibliothèque, ses dossiers en arbre</h2>
+    <figure>
+      <div class="app">
+        <div class="side">
+          <section>
+            <div class="list">
+              <div class="item">
+                <svg class="i" viewBox="0 0 24 24"><path d="M5 7h14M5 12h14M5 17h9" /></svg>
+                <span class="name">Préparation</span><span class="count">3</span>
+              </div>
+              <div class="item">
+                <svg class="i" viewBox="0 0 24 24"><path d="M8 4h10v12H8zM5 8v12h10" /></svg>
+                <span class="name">Doublons</span>
+              </div>
+            </div>
+          </section>
+          <section>
+            <header>
+              <span class="fold"><svg viewBox="0 0 24 24"><path d="M9 6l6 6-6 6" /></svg>Dossiers</span>
+              <button class="pr-btn pr-btn--sm pr-btn--ghost">+ Ajouter un dossier</button>
+            </header>
+            <div class="list">
+              <div class="item root open">
+                <svg class="twisty" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6" /></svg>
+                <span class="name">Musique<small>C:\Users\…\Music</small></span>
+                <span class="main-tag">Principal</span>
+              </div>
+              <div class="item open" style="--depth: 1">
+                <svg class="twisty" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6" /></svg>
+                <span class="name">House</span><span class="count">142</span>
+              </div>
+              <div class="item current" style="--depth: 2">
+                <span class="leaf"></span><span class="name">2024</span><span class="count">38</span>
+              </div>
+              <div class="item" style="--depth: 2">
+                <span class="leaf"></span><span class="name">Classiques</span><span class="count">51</span>
+              </div>
+              <div class="item" style="--depth: 1">
+                <svg class="twisty" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6" /></svg>
+                <span class="name">Schranz</span><span class="count">64</span>
+              </div>
+              <div class="item" style="--depth: 1">
+                <span class="leaf"></span><span class="name">Techno</span><span class="count">97</span>
+              </div>
+              <div class="item root open hover">
+                <svg class="twisty" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6" /></svg>
+                <span class="name">DJ<small>E:\ · clé SANDISK</small></span>
+                <span class="more"><svg viewBox="0 0 24 24"><circle cx="5" cy="12" r="1.8" /><circle cx="12" cy="12" r="1.8" /><circle cx="19" cy="12" r="1.8" /></svg></span>
+                <div class="menu">
+                  <div>Ouvrir dans l’explorateur</div>
+                  <div>Réanalyser</div>
+                  <hr />
+                  <div class="warn">Retirer de Prisme</div>
+                </div>
+              </div>
+              <div class="item" style="--depth: 1">
+                <span class="leaf"></span><span class="name">Sets 2025</span><span class="count">24</span>
+              </div>
+              <div class="item root">
+                <svg class="twisty" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6" /></svg>
+                <span class="name">Téléchargements<small>C:\Users\…\Downloads</small></span>
+              </div>
+              <div class="item root absent">
+                <svg class="twisty" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6" /></svg>
+                <span class="name">Archives<small>F:\ · disque débranché</small></span>
+              </div>
+            </div>
+          </section>
+          <section>
+            <header>
+              <span class="fold"><svg viewBox="0 0 24 24"><path d="M9 6l6 6-6 6" /></svg>Crates</span>
+            </header>
+            <div class="list">
+              <div class="item">
+                <svg class="i" viewBox="0 0 24 24"><path d="M4 8h16v11H4zM6 5h12" /></svg>
+                <span class="name">Peak time</span><span class="count">4</span>
+              </div>
+            </div>
+          </section>
+        </div>
+
+        <div class="main">
+          <div class="bar">
+            <div class="pr-seg"><button aria-checked="true">Dossier</button><button>Bibliothèque</button></div>
+            <div class="search">
+              <svg class="i" viewBox="0 0 24 24"><circle cx="11" cy="11" r="6" /><path d="M20 20l-4.5-4.5" /></svg>
+              Chercher dans ce dossier
+            </div>
+            <span style="color: var(--pr-text-3); font-size: var(--pr-size-small)">38 morceaux</span>
+          </div>
+          <div class="path">
+            <span class="up"
+              ><svg class="i" viewBox="0 0 24 24" style="stroke: var(--pr-text-2)"><path d="M12 19V5M6 11l6-6 6 6" /></svg
+            ></span>
+            <span class="step">Musique</span>
+            <svg class="sep" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6" /></svg>
+            <span class="step">House</span>
+            <svg class="sep" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6" /></svg>
+            <span class="step here">2024</span>
+          </div>
+          <div class="table">
+            <div class="row head"><span></span><span>Titre</span><span>Artiste</span><span style="text-align: right">BPM</span><span>Ton.</span><span></span></div>
+            <div class="row"><span class="art" style="--a: #6a5ff6; --b: #ff5fa8"></span><span>Afterglow Theory</span><span class="dim">Lumen Varga</span><span class="num">124.00</span><span class="key" style="--h: 95">3B</span><span class="dim">A B</span></div>
+            <div class="row"><span class="art" style="--a: #2fae72; --b: #6fd0ff"></span><span>Blue Hour Drive</span><span class="dim">Arlo Penmarch</span><span class="num">123.00</span><span class="key" style="--h: 200">12B</span><span class="dim">A B</span></div>
+            <div class="row"><span class="art" style="--a: #d9a53a; --b: #a36b2a"></span><span>Chrome Daylight</span><span class="dim">Arlo Penmarch</span><span class="num">126.00</span><span class="key" style="--h: 200">12B</span><span class="dim">A B</span></div>
+            <div class="row"><span class="art" style="--a: #3aa0d9; --b: #6a5ff6"></span><span>Echo Valley</span><span class="dim">Mira Solenne</span><span class="num">120.00</span><span class="key" style="--h: 210">12A</span><span class="dim">A B</span></div>
+            <div class="row"><span class="art" style="--a: #c24a8a; --b: #6a2a9a"></span><span>Fold the Sky</span><span class="dim">Sable &amp; Fenn</span><span class="num">122.00</span><span class="key" style="--h: 330">6B</span><span class="dim">A B</span></div>
+            <div class="row"><span class="art" style="--a: #9b6af6; --b: #ff8ac2"></span><span>Glass Meridian</span><span class="dim">Lumen Varga</span><span class="num">124.00</span><span class="key" style="--h: 350">7A</span><span class="dim">A B</span></div>
+            <div class="row"><span class="art" style="--a: #4a7ad9; --b: #9b6af6"></span><span>Harbour Lights</span><span class="dim">Okko Brandt</span><span class="num">125.00</span><span class="key" style="--h: 200">12B</span><span class="dim">A B</span></div>
+          </div>
+        </div>
+      </div>
+      <figcaption>
+        <b>Dossiers.</b> Chaque dossier ajouté est une racine de l’arbre : son nom, et en dessous
+        où il est (le disque, le nom de la clé). Une flèche ouvre un dossier sur ses
+        sous-dossiers, un clic l’affiche dans la liste. <b>+ Ajouter un dossier</b> ouvre le
+        sélecteur du système ; Musique reste le dossier principal. Au survol, <b>…</b> : ouvrir
+        dans l’explorateur, réanalyser, retirer de Prisme (les fichiers restent où ils sont). Un
+        dossier sur une clé ou un disque débranché reste listé, grisé, et revient tel quel quand
+        on le rebranche. <b>Au-dessus de la liste</b>, le chemin où l’on est, chaque étape
+        cliquable, et la flèche pour remonter, comme la barre d’adresse de l’explorateur. Tous les
+        morceaux de tous les dossiers sont dans la vue Bibliothèque, analysés comme ceux de
+        Musique.
+      </figcaption>
+    </figure>
+
+    <h2>Glisser un morceau depuis l’explorateur</h2>
+    <figure>
+      <div class="stage">
+        <div class="decks">
+          <div class="deck">
+            <span class="letter">A</span><span class="title">Glass Meridian</span>
+            <div class="wave" style="--k: 0"></div>
+            <div class="target over">
+              <div>
+                <span
+                  ><svg viewBox="0 0 24 24"><path d="M12 4v11M7 10l5 5 5-5M5 19h14" /></svg>Charger sur A</span
+                ><small>remplace Glass Meridian</small>
+              </div>
+            </div>
+          </div>
+          <div class="deck">
+            <span class="letter">B</span><span class="title" style="color: var(--pr-text-3)">Aucun morceau</span>
+            <div class="wave" style="--k: 120; opacity: 0.1"></div>
+            <div class="target">
+              <span><svg viewBox="0 0 24 24"><path d="M12 4v11M7 10l5 5 5-5M5 19h14" /></svg>Charger sur B</span>
+            </div>
+          </div>
+        </div>
+        <div class="cursor" style="left: 300px; top: 124px"></div>
+        <div class="ghost" style="left: 308px; top: 134px">
+          <svg class="i" viewBox="0 0 24 24" style="stroke: #cfd2d6"><path d="M9 18V6l10-2v12M9 18a3 3 0 1 1-3-3 3 3 0 0 1 3 3zM19 16a3 3 0 1 1-3-3 3 3 0 0 1 3 3z" /></svg>
+          Night Drive - Kx5.mp3
+        </div>
+      </div>
+      <figcaption>
+        <b>Sur un deck.</b> Dès qu’un fichier audio passe au-dessus de la fenêtre, chaque deck
+        dit ce qu’il ferait ; celui sous le pointeur s’allume. Lâché, le morceau s’y charge et
+        s’analyse aussitôt, même s’il n’est dans aucun de vos dossiers. Un deck qui joue demande
+        confirmation, comme depuis la bibliothèque.
+      </figcaption>
+    </figure>
+
+    <h2>Glisser un dossier depuis l’explorateur</h2>
+    <figure>
+      <div class="app" style="height: 250px; grid-template-columns: 300px 1fr">
+        <div class="side">
+          <section>
+            <header>
+              <span class="fold"><svg viewBox="0 0 24 24"><path d="M9 6l6 6-6 6" /></svg>Dossiers</span>
+              <button class="pr-btn pr-btn--sm pr-btn--ghost">+ Ajouter un dossier</button>
+            </header>
+            <div class="list">
+              <div class="item root">
+                <svg class="twisty" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6" /></svg>
+                <span class="name">Musique<small>C:\Users\…\Music</small></span>
+                <span class="main-tag">Principal</span>
+              </div>
+              <div class="item root">
+                <svg class="twisty" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6" /></svg>
+                <span class="name">DJ<small>E:\ · clé SANDISK</small></span>
+              </div>
+            </div>
+            <div class="drop-folders">
+              Ajouter « Vinyles rippés » à vos dossiers
+              <small>Ses morceaux arrivent dans la bibliothèque et s’analysent</small>
+            </div>
+          </section>
+        </div>
+        <div class="main" style="position: relative">
+          <div class="cursor" style="left: -16px; top: 168px"></div>
+          <div class="ghost" style="left: -8px; top: 178px">
+            <svg class="i" viewBox="0 0 24 24" style="stroke: #cfd2d6"><path d="M3 6h7l2 2h9v10H3z" /></svg>
+            Vinyles rippés
+          </div>
+        </div>
+      </div>
+      <figcaption>
+        <b>Sur la liste des dossiers.</b> Un dossier glissé sur la colonne de gauche s’y ajoute ;
+        lâché sur un deck, il ne fait rien. Plusieurs morceaux lâchés sur la liste de Préparation
+        ou sur un crate s’y ajoutent, comme depuis la bibliothèque. Sur téléphone, rien ne se
+        glisse depuis l’extérieur : on ajoute un dossier avec <b>+</b>.
+      </figcaption>
+    </figure>
+  </body>
+</html>
