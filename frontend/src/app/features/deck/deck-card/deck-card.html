@@ -43,6 +43,18 @@
             </button>
           }
         </div>
+        <!-- the same choice in one key where the four would leave the title no room -->
+        <select
+          class="pr-select modes-narrow"
+          [value]="mode()"
+          [attr.aria-label]="'Vinyl control' | t"
+          [title]="modeTitle()"
+          (change)="setMode($any($event.target).value)"
+        >
+          @for (m of modes; track m.id) {
+            <option [value]="m.id" [selected]="mode() === m.id">{{ m.label }}</option>
+          }
+        </select>
       </div>
     }
     <app-deck-menu [deck]="deck()" />

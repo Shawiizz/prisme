@@ -7,6 +7,7 @@
 }
 
 .card {
+  container: deck-card / inline-size;
   height: 100%;
   display: grid;
   grid-template-rows: auto 1fr;
@@ -59,6 +60,23 @@
   display: flex;
   align-items: center;
   gap: var(--pr-space-2);
+}
+.modes-narrow {
+  display: none;
+  width: auto;
+  height: 28px;
+  padding-right: 26px;
+  font: 600 11px / 1 var(--pr-font);
+  letter-spacing: 0.06em;
+}
+// a narrow deck: the way it is driven in one key, the title keeping its room
+@container deck-card (max-width: 520px) {
+  .vinyl .pr-seg {
+    display: none;
+  }
+  .modes-narrow {
+    display: block;
+  }
 }
 
 .readouts {

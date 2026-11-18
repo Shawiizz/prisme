@@ -56,6 +56,10 @@ export class DeckCard {
   protected readonly signal = this.vinyl.signal;
   protected readonly signalTitle = this.vinyl.signalTitle;
   protected readonly setMode = this.vinyl.setMode;
+  /** What the way the deck is driven does, said over its narrow key. */
+  protected readonly modeTitle = computed(
+    () => DECK_MODES.find((m) => m.id === this.mode())?.title() ?? '',
+  );
 
   protected readonly elapsed = computed(() => formatTime(this.status()?.positionS ?? 0));
   protected readonly length = computed(() => formatTime(this.status()?.durationS ?? 0));
