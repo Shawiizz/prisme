@@ -27,6 +27,8 @@ export interface Column {
   sort?: SortColumn;
   /** Always shown. */
   fixed?: boolean;
+  /** Shown on a wide table only: a narrow one gives its room to the titles. */
+  wide?: boolean;
 }
 
 export const COLUMNS: readonly Column[] = [
@@ -44,7 +46,7 @@ export const COLUMNS: readonly Column[] = [
     id: 'title',
     name: () => t('Title'),
     header: () => t('Title'),
-    width: 'minmax(0, 1.6fr)',
+    width: 'minmax(120px, 1.6fr)',
     sort: 'title',
     fixed: true,
   },
@@ -52,21 +54,21 @@ export const COLUMNS: readonly Column[] = [
     id: 'artist',
     name: () => t('Artist'),
     header: () => t('Artist'),
-    width: 'minmax(0, 1fr)',
+    width: 'minmax(72px, 1fr)',
     sort: 'artist',
   },
   {
     id: 'album',
     name: () => t('Album'),
     header: () => t('Album'),
-    width: 'minmax(0, 1fr)',
+    width: 'minmax(72px, 1fr)',
     sort: 'album',
   },
   {
     id: 'genre',
     name: () => t('Genre'),
     header: () => t('Genre'),
-    width: 'minmax(0, 0.6fr)',
+    width: 'minmax(56px, 0.6fr)',
     sort: 'genre',
   },
   {
@@ -75,6 +77,7 @@ export const COLUMNS: readonly Column[] = [
     header: () => t('Year'),
     width: '40px',
     sort: 'year',
+    wide: true,
   },
   { id: 'bpm', name: () => 'BPM', header: () => 'BPM', width: '60px', sort: 'bpm' },
   // its header names the reference deck
@@ -104,12 +107,14 @@ export const COLUMNS: readonly Column[] = [
     header: () => t('Plays'),
     width: '52px',
     sort: 'plays',
+    wide: true,
   },
   {
     id: 'stems',
     name: () => t('Separated stems'),
     header: () => 'STEMS',
     width: '48px',
+    wide: true,
   },
 ];
 

@@ -3,6 +3,7 @@
   min-height: 0;
 }
 .table {
+  container: tracks / inline-size;
   height: 100%;
   overflow-y: auto;
 }
@@ -25,7 +26,9 @@
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--pr-text-3);
+  // the whole height of the header to click, not the line of its name
   button {
+    align-self: stretch;
     height: auto;
     padding: 0;
     border: none;
@@ -130,9 +133,16 @@
   height: 24px;
 }
 .swatch {
+  position: relative;
   width: 10px;
   height: 18px;
   padding: 0;
+  // a target wider than the mark
+  &::before {
+    content: '';
+    position: absolute;
+    inset: -4px -5px;
+  }
   border: 1px dashed transparent;
   border-radius: var(--pr-radius-sm);
   background: transparent;
@@ -147,8 +157,9 @@
 }
 .rating {
   display: flex;
+  // as tall as the row to click, the stars as small as they look
   button {
-    height: auto;
+    height: 26px;
     padding: 0 1px;
     border: none;
     background: transparent;
@@ -266,5 +277,16 @@
     margin-right: auto;
     color: var(--pr-text);
     font-weight: 600;
+  }
+}
+
+// a narrow table: the year, plays and stems give their room to the titles
+@container tracks (max-width: 1060px) {
+  .head,
+  .row {
+    grid-template-columns: var(--track-columns-narrow);
+  }
+  :is(.year, .plays, .stems) {
+    display: none;
   }
 }

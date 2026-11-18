@@ -115,6 +115,14 @@ export class TrackTable {
   protected readonly template = computed(() =>
     gridTemplate(this.columns(), this.library.ordered(), this.deckIndexes().length),
   );
+  /** The tracks of a narrow table, without the columns shown on a wide one only. */
+  protected readonly narrowTemplate = computed(() =>
+    gridTemplate(
+      this.columns().filter((c) => !c.wide),
+      this.library.ordered(),
+      this.deckIndexes().length,
+    ),
+  );
 
   protected readonly columnMenu = signal<Popover | null>(null);
   protected readonly palette = signal<(Popover & { path: string }) | null>(null);

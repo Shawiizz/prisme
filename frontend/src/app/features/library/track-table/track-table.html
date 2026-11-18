@@ -2,6 +2,7 @@
   #table
   class="table"
   [style.--track-columns]="template()"
+  [style.--track-columns-narrow]="narrowTemplate()"
   (scroll)="scrolled()"
   (dragover)="listDragOver($event, null)"
   (drop)="listDrop($event, null)"
@@ -95,7 +96,7 @@
             <span class="text">{{ t.details?.tags?.genre }}</span>
           }
           @case ('year') {
-            <span class="number">{{ t.details?.tags?.year }}</span>
+            <span class="number year">{{ t.details?.tags?.year }}</span>
           }
           @case ('bpm') {
             @if (!t.details) {
