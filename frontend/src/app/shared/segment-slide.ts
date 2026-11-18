@@ -1,75 +1,85 @@
 /** How long the light takes to slide from one choice to the next. */
-const SLIDE_MS = 200;
-const EASE = 'cubic-bezier(0.2, 0.8, 0.2, 1)';
-/** The choice in the light, in a row of choices (`.pr-seg`). */
-const CHOSEN = ':scope > button[aria-checked="true"], :scope > button.is-on';
+const SLIDE_MS = 240;
+const EASE = 'cubic-bezier(0.25, 0.8, 0.25, 1)';
 
 /**
- * In every row of choices of the page, the light slides from the choice it was on to the one
- * pressed, rather than jumping: a light of its own goes from one to the other while the
- * choices themselves show none, then is gone. What the row holds does not change.
+ * In every row of choices of the page (`.pr-seg`), the light slides from the choice it was on to
+ * the new one, rather than jumping: whenever the choice changes, whatever changed it (a press, a
+ * controller, the engine answering), a light of its own goes from one to the other while the
+ * choices show none, then is gone. What the row holds does not change.
  */
 export function slideSegments() {
   if (matchMedia('(prefers-reduced-motion: reduce)').matches) return;
-  document.addEventListener(
-    'click',
-    (event) => {
-      const pressed = (event.target as Element).closest?.('.pr-seg > button');
-      const row = pressed?.parentElement;
-      if (!row || row.querySelectorAll(CHOSEN).length !== 1) return;
-      const from = row.querySelector<HTMLElement>(CHOSEN);
-      if (!from || from === pressed) return;
-      const before = place(from, row);
-      // the choice is made once the click has run: the light goes where it went
-      requestAnimationFrame(() => {
-        const to = row.querySelector<HTMLElement>(CHOSEN);
-        if (to && to !== from) slide(row, before, place(to, row));
-      });
-    },
-    true,
-  );
+  // seen before the page is drawn again: the choice left is still where it was
+  new MutationObserver((records) => {
+    const moves = new Map<HTMLElement, { from?: HTMLElement; to?: HTMLElement }>();
+    for (const record of records) {
+      const button = record.target as HTMLElement;
+      const row = button.parentElement;
+      if (button.tagName !== 'BUTTON' || !row?.classList.contains('pr-seg')) continue;
+      const move = moves.get(row) ?? {};
+      moves.set(row, move);
+      const chosen = button.getAttribute('aria-checked') === 'true';
+      const was = record.oldValue === 'true';
+      if (was && !chosen) move.from = button;
+      if (!was && chosen) move.to = button;
+    }
+    for (const [row, { from, to }] of moves) {
+      if (from && to) slide(row, from, to);
+    }
+  }).observe(document.body, {
+    subtree: true,
+    attributes: true,
+    attributeFilter: ['aria-checked'],
+    attributeOldValue: true,
+  });
 }
 
 interface Place {
-  left: number;
-  top: number;
+  x: number;
+  y: number;
   width: number;
   height: number;
 }
 
-/** Where `button` lies in `row`, inside its border. */
-function place(button: HTMLElement, row: HTMLElement): Place {
-  const b = button.getBoundingClientRect();
+/** Where `element` lies in `row`, inside its border. */
+function place(element: Element, row: HTMLElement): Place {
+  const e = element.getBoundingClientRect();
   const r = row.getBoundingClientRect();
   return {
-    left: b.left - r.left - row.clientLeft,
-    top: b.top - r.top - row.clientTop,
-    width: b.width,
-    height: b.height,
+    x: e.left - r.left - row.clientLeft,
+    y: e.top - r.top - row.clientTop,
+    width: e.width,
+    height: e.height,
   };
 }
 
-function slide(row: HTMLElement, from: Place, to: Place) {
-  row.querySelector(':scope > .pr-seg__light')?.remove();
+/** Slides the row's light from where it is (or from `from`) to `to`. */
+function slide(row: HTMLElement, from: HTMLElement, to: HTMLElement) {
+  const sliding = row.querySelector<HTMLElement>(':scope > .pr-seg__light');
+  // pressed again while it slides: it goes on from where it is
+  const start = place(sliding ?? from, row);
+  const end = place(to, row);
+  sliding?.remove();
   const light = document.createElement('span');
   light.className = 'pr-seg__light';
-  const put = ({ left, top, width, height }: Place) =>
+  const put = ({ x, y, width, height }: Place) =>
     Object.assign(light.style, {
-      left: `${left}px`,
-      top: `${top}px`,
+      transform: `translate(${x}px, ${y}px)`,
       width: `${width}px`,
       height: `${height}px`,
     });
-  put(from);
+  put(start);
   row.prepend(light);
   row.classList.add('is-sliding');
   light.getBoundingClientRect();
-  light.style.transition = ['left', 'top', 'width', 'height']
+  light.style.transition = ['transform', 'width', 'height']
     .map((property) => `${property} ${SLIDE_MS}ms ${EASE}`)
     .join(', ');
-  put(to);
+  put(end);
   setTimeout(() => {
+    if (!light.isConnected) return;
     light.remove();
-    if (!row.querySelector(':scope > .pr-seg__light')) row.classList.remove('is-sliding');
-  }, SLIDE_MS);
+    row.classList.remove('is-sliding');
+  }, SLIDE_MS + 20);
 }
