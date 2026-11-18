@@ -109,6 +109,8 @@
   gap: var(--pr-space-5);
   padding: var(--pr-space-2) var(--pr-space-6) var(--pr-space-6);
   overflow-y: auto;
+  // the same width whether the page scrolls or not
+  scrollbar-gutter: stable;
 }
 .pr-select {
   width: 320px;

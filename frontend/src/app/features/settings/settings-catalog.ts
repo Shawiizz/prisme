@@ -127,7 +127,10 @@ const ALL_SETTINGS: readonly SettingEntry[] = [
     id: 'mixing.mode',
     page: 'mixing',
     label: () => t('Mixing'),
-    description: () => t('An external mixer takes one output pair per deck.'),
+    description: () =>
+      t(
+        'An external mixer takes one output pair per deck: A on 1-2, B on 3-4. The software mixer sends the master on 1-2.',
+      ),
   },
   {
     id: 'mixing.headphones',
@@ -183,7 +186,10 @@ const ALL_SETTINGS: readonly SettingEntry[] = [
     id: 'dj.sync',
     page: 'dj',
     label: () => t('Sync on a record in relative mode'),
-    description: () => t('What SYNC does when a record drives the deck.'),
+    description: () =>
+      t(
+        'What SYNC does when a record drives the deck. One shot matches once, the pitch fader keeps working; locked follows the leader, the pitch fader ignored.',
+      ),
   },
   {
     id: 'dj.pitchRange',

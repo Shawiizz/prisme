@@ -271,12 +271,8 @@
                   (change)="mixMode.set($any($event.target).value)"
                   settingControl
                 >
-                  <option value="external">
-                    {{ 'External mixer: deck A on outputs 1-2, deck B on 3-4' | t }}
-                  </option>
-                  <option value="internal">
-                    {{ 'Software mixer: master on outputs 1-2' | t }}
-                  </option>
+                  <option value="external">{{ 'External mixer' | t }}</option>
+                  <option value="internal">{{ 'Software mixer' | t }}</option>
                 </select>
               </app-setting-row>
               @let chosen = mixer.headphones();
@@ -426,12 +422,8 @@
                   (change)="setDj({ vinylSync: $any($event.target).value })"
                   settingControl
                 >
-                  <option value="once">
-                    {{ 'One shot: matches once, the pitch fader keeps working' | t }}
-                  </option>
-                  <option value="locked">
-                    {{ 'Locked: follows the leader, the pitch fader is ignored' | t }}
-                  </option>
+                  <option value="once">{{ 'One shot' | t }}</option>
+                  <option value="locked">{{ 'Locked' | t }}</option>
                 </select>
               </app-setting-row>
               <app-setting-row id="dj.pitchRange">

@@ -607,6 +607,7 @@
     calc(100% - 15px) 50%,
     calc(100% - 10px) 50%;
   background-repeat: no-repeat;
+  text-overflow: ellipsis;
 }
 .pr-field {
   display: grid;
