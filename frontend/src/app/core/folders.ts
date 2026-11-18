@@ -1,0 +1,63 @@
+import { t } from './i18n/i18n';
+import { MusicFolder } from './models/library';
+
+/** A folder on the way to another, as the address bar of a file manager shows it. */
+export interface PathStep {
+  name: string;
+  path: string;
+}
+
+const SEPARATORS = /[\\/]/;
+
+function separatorOf(path: string): string {
+  return path.includes('\\') ? '\\' : '/';
+}
+
+/** The last name of a path: "C:\Music\House" → "House"; a drive by its letter, "E:\" → "E:". */
+export function lastName(path: string): string {
+  return path.split(SEPARATORS).filter(Boolean).pop() ?? path;
+}
+
+/** What a music folder is called: its name, the system's music folder in the UI's language. */
+export function folderName(folder: MusicFolder): string {
+  const name = lastName(folder.path);
+  return folder.main && name === 'Music' ? t('Music') : name;
+}
+
+/** Whether `path` is `folder` or inside it. */
+export function isWithin(path: string, folder: string): boolean {
+  if (path === folder) return true;
+  const separator = separatorOf(folder);
+  return path.startsWith(folder.endsWith(separator) ? folder : folder + separator);
+}
+
+/** The deepest of `folders` that `path` is in, if it is in one. */
+export function folderOf<F extends { path: string }>(folders: F[], path: string): F | null {
+  return folders.reduce<F | null>(
+    (deepest, f) =>
+      isWithin(path, f.path) && (deepest === null || f.path.length > deepest.path.length)
+        ? f
+        : deepest,
+    null,
+  );
+}
+
+/** The folders from `root` down to `path`, which is in it. */
+export function stepsFrom(root: string, path: string): PathStep[] {
+  const separator = separatorOf(root);
+  const steps = [{ name: lastName(root), path: root }];
+  let at = root;
+  for (const name of path.slice(root.length).split(SEPARATORS).filter(Boolean)) {
+    // a root at the top of a drive (D:\) ends with the separator already
+    at = at.endsWith(separator) ? at + name : at + separator + name;
+    steps.push({ name, path: at });
+  }
+  return steps;
+}
+
+/** A path made short, the user's own folder left out: "C:\Users\…\Music", "~/Music". */
+export function shortPath(path: string): string {
+  return path
+    .replace(/^([A-Za-z]:\\Users\\)[^\\]+/, '$1…')
+    .replace(/^\/(?:home|Users)\/[^/]+/, '~');
+}

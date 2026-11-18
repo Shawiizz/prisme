@@ -7,10 +7,10 @@ sidebar:
 
 import { Steps, Aside } from '@astrojs/starlight/components';
 
-Prisme lit un seul dossier : le dossier **Musique** de votre système, ou un autre que vous
-choisissez, avec tout ce qu’il contient.
-Rien à importer, aucune liste à constituer : copiez des morceaux dans ce dossier et ils
-apparaissent dans la bibliothèque, puis reçoivent leur tempo, leur grille rythmique et leur
+Prisme lit le dossier **Musique** de votre système, ou un autre que vous choisissez, avec tout
+ce qu’il contient, et tous les autres dossiers que vous ajoutez : une clé USB, un disque externe,
+un dossier de sets. Rien à importer, aucune liste à constituer : copiez des morceaux dans l’un de
+ces dossiers et ils apparaissent dans la bibliothèque, puis reçoivent leur tempo, leur grille rythmique et leur
 tonalité en tâche de fond.
 
 ## Où mettre votre musique
@@ -23,7 +23,7 @@ tonalité en tâche de fond.
 | Android | Le dossier partagé **Music** du téléphone |
 
 Les sous-dossiers ne posent aucun problème, aussi profonds que vous voulez : ils apparaissent
-dans le panneau latéral de la bibliothèque, sous **Musique**, et l’analyse les parcourt tous.
+dans le panneau latéral de la bibliothèque, sous leur dossier, et l’analyse les parcourt tous.
 
 <Aside type="tip">
   Sous Windows, si votre collection est sur un autre disque, vous pouvez y déplacer le dossier
@@ -31,10 +31,41 @@ dans le panneau latéral de la bibliothèque, sous **Musique**, et l’analyse l
   **Emplacement**. Prisme suit le dossier là où Windows l’indique.
 </Aside>
 
+## Plusieurs dossiers
+
+Sur ordinateur, la bibliothèque lit autant de dossiers que vous voulez. Chacun est en haut d’un
+arbre sous **Dossiers** dans le panneau latéral : son nom, où il se trouve en dessous, et une
+étiquette **Principal** sur le dossier principal, le dossier de musique des réglages (voir
+plus bas). La flèche à côté d’un dossier affiche ses dossiers, un clic l’ouvre dans la liste des
+morceaux. Tous leurs morceaux sont dans la vue **Bibliothèque** de la recherche, analysés comme
+ceux de **Musique**.
+
+Pour en ajouter un, cliquez sur **+ Ajouter un dossier** en haut de **Dossiers** et choisissez-le
+dans le sélecteur de dossiers du système, ou glissez-le depuis l’explorateur et lâchez-le sur
+**Dossiers** : le panneau latéral indique qu’il va l’ajouter tant que le dossier le survole.
+Prisme l’ouvre, le surveille et analyse ses morceaux.
+
+Survolez un dossier en haut de son arbre et cliquez sur **…** :
+
+- **Ouvrir dans l’explorateur** l’affiche dans l’Explorateur, le Finder ou votre gestionnaire de
+  fichiers ;
+- **Réanalyser** cherche les fichiers nouveaux et modifiés, comme le bouton de la barre
+  d’outils ;
+- **Retirer de Prisme** le sort de la bibliothèque une fois que vous avez confirmé : ses morceaux
+  quittent la bibliothèque, les fichiers restent où ils sont. Le dossier principal reste ; pour
+  le changer, voir plus bas.
+
+Un dossier sur une clé USB ou un disque débranché reste dans la liste, grisé et marqué
+**débranché**, ses morceaux gardés : rebranchez le disque et il revient, tel qu’il était.
+
+Un dossier qui se trouve dans l’un des vôtres est déjà dans la bibliothèque, et un dossier qui en
+contient un ne peut pas être ajouté : Prisme indique quel dossier gêne. Sur un téléphone, la
+bibliothèque ne lit que le dossier de musique du téléphone.
+
 ## Choisir un autre dossier
 
-Sur ordinateur, **Réglages** › **Bibliothèque** › **Dossier de musique** affiche le dossier que
-Prisme lit. **Choisir…** en prend un autre (un dossier sur un disque externe ou un NAS, par
+Sur ordinateur, **Réglages** › **Bibliothèque** › **Dossier de musique** affiche le dossier
+principal que Prisme lit. **Choisir…** en prend un autre (un dossier sur un disque externe ou un NAS, par
 exemple), **Rétablir** revient au dossier **Musique** du système. Le choix est gardé pour le
 prochain démarrage.
 
@@ -93,15 +124,15 @@ l’analyse et comment la corriger.
 
 ## Nouveaux morceaux et réanalyse
 
-Prisme surveille le dossier de musique. Quand vous y copiez un album, il attend que la copie se
+Prisme surveille vos dossiers de musique. Quand vous y copiez un album, il attend que la copie se
 termine (environ une seconde et demie de calme), puis analyse les fichiers nouveaux et modifiés.
 Le dossier ouvert dans la bibliothèque se met à jour tout seul.
 
 Pour en avoir le cœur net, cliquez sur **Réanalyser** dans la barre d’outils de la bibliothèque
-(**Analyser les fichiers nouveaux et modifiés**). Il parcourt tout le dossier ; quand il n’y a
-plus rien à faire, il indique **Bibliothèque à jour**.
+(**Analyser les fichiers nouveaux et modifiés**). Il parcourt tous vos dossiers ; quand il n’y
+a plus rien à faire, il indique **Bibliothèque à jour**.
 
-Si le dossier de musique est sur un disque ou un NAS qui disparaît, Prisme le cherche de nouveau
+Si un dossier de musique est sur un disque ou un NAS qui disparaît, Prisme le cherche de nouveau
 toutes les trente secondes et le parcourt dès qu’il revient.
 
 ## Fichiers déplacés, renommés ou retaggés
@@ -151,7 +182,7 @@ notes restent dans la bibliothèque de Prisme.
 ## Quand quelque chose cloche
 
 - **Un morceau manque dans la liste.** Vérifiez que son extension figure dans la liste ci-dessus,
-  qu’il n’est pas caché, et qu’il est vraiment dans le dossier de musique (pas derrière un lien).
+  qu’il n’est pas caché, et qu’il est vraiment dans l’un de vos dossiers (pas derrière un lien).
   Puis **Réanalyser**.
 - **L’analyse n’avance pas.** Elle est sans doute en pause parce qu’un deck joue. Arrêtez les
   decks, ou désactivez **Mettre l’analyse de la bibliothèque en pause quand un deck joue**.

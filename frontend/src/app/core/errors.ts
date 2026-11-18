@@ -51,6 +51,11 @@ const TEXTS: Record<string, (p: Params) => string> = {
     t('No click came back from output {output} to input {input}: is the cable there?', p),
   cannotOpen: (p) => t('Cannot open {path}', p),
   unreadableFile: () => t('Unsupported or damaged file'),
+  folderNotFound: () => t('This folder cannot be found'),
+  folderAlreadyIn: (p) => t('Already among your folders, in {folder}', p),
+  folderHoldsAnother: (p) => t('It holds {folder}, already one of your folders', p),
+  foldersFixed: () => t('The folders of the library cannot be changed on this device'),
+  mainFolderStays: () => t('The main folder stays: change it in the settings'),
 };
 
 /** What failed, to show: a failure of the backend in the UI's language, anything else as it

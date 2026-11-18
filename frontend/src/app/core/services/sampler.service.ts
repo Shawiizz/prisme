@@ -4,12 +4,9 @@ import { open } from '@tauri-apps/plugin-dialog';
 import { t } from '../i18n/i18n';
 import { EngineService } from './engine.service';
 import { errorText } from '../errors';
+import { AUDIO_EXTENSIONS } from '../audio-files';
 
-/** What `prisme_media::decode_file` reads. */
-const AUDIO_FILES = {
-  name: () => t('Audio'),
-  extensions: ['mp3', 'flac', 'wav', 'aif', 'aiff', 'm4a', 'aac', 'mp4', 'ogg', 'oga'],
-};
+const AUDIO_FILES = { name: () => t('Audio'), extensions: AUDIO_EXTENSIONS };
 
 /** Each deck's sampler: short sounds played from their start, on the beat with quantize. */
 @Injectable({ providedIn: 'root' })

@@ -27,6 +27,7 @@ import { PreferencesService } from './core/services/preferences.service';
 import { MixerService } from './core/services/mixer.service';
 import { NavigationService } from './core/services/navigation.service';
 import { RecordingService } from './core/services/recording.service';
+import { FileDropService } from './core/services/file-drop.service';
 import { NoticeView } from './shared/notice/notice';
 
 /** The height whole lanes for two decks take on a screen below (CSS px). */
@@ -74,6 +75,7 @@ export class App implements OnInit {
   protected readonly PHONE = PHONE;
   private readonly screens = inject(ScreensService);
   private readonly recording = inject(RecordingService);
+  private readonly fileDrops = inject(FileDropService);
   protected readonly height = signal(innerHeight);
   /** Four decks, or a screen below too short for whole lanes: compact lanes. */
   protected readonly compact = computed(() => {
@@ -107,6 +109,7 @@ export class App implements OnInit {
         this.controllers.start(),
         this.screens.init(),
         this.recording.init(),
+        this.fileDrops.start(),
       ]);
       this.mixer.apply(mixer);
     } finally {

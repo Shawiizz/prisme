@@ -1,11 +1,14 @@
 import { Component, computed, inject, input } from '@angular/core';
 import { deckReadouts } from '../../core/deck-readouts';
 import { EngineService } from '../../core/services/engine.service';
+import { fileDropAttribute } from '../../core/services/file-drop.service';
+import { DeckDrop } from '../../features/deck/deck-drop/deck-drop';
 import { TPipe } from '../../core/i18n/t.pipe';
 import { KeyChip } from '../../shared/key-chip/key-chip';
 import { deckLetter } from '../../shared/time';
 
-/** A deck as the main screen recalls it while the decks are on the screen below. */
+/** A deck as the main screen recalls it while the decks are on the screen below; a track
+ * dragged from the file manager onto it is loaded there. */
 @Component({
   selector: 'app-now-deck',
   template: `
@@ -26,9 +29,11 @@ import { deckLetter } from '../../shared/time';
     }
     <span class="time pr-num" [class]="ending() ?? ''">{{ remaining() }}</span>
     <i class="played" [style.--played]="played()"></i>
+    <app-deck-drop [deck]="deck()" />
   `,
   styleUrl: './now-playing.scss',
-  imports: [KeyChip, TPipe],
+  host: { '[attr.data-file-drop]': 'fileDrop()' },
+  imports: [DeckDrop, KeyChip, TPipe],
 })
 export class NowDeck {
   readonly deck = input.required<number>();
@@ -41,6 +46,9 @@ export class NowDeck {
   protected readonly ending = this.readouts.ending;
   protected readonly bpm = this.readouts.bpm;
   protected readonly key = this.readouts.key;
+  protected readonly fileDrop = computed(() =>
+    fileDropAttribute({ kind: 'deck', deck: this.deck() }),
+  );
   /** How much of the track has played, 0 to 1. */
   protected readonly played = computed(() => {
     const s = this.status();

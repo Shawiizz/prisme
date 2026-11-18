@@ -19,6 +19,7 @@
 //! * `track_loading`: putting a track on a deck, playable before it is fully decoded;
 //! * `preview`: a track of the library heard in the headphones before it goes on a deck;
 //! * `folders`: browsing music folders;
+//! * `file_drop`: the paths of files dropped from the file manager (Windows);
 //! * `library_service`: track database (analysis, tags, cues) and background analysis;
 //! * `cover_protocol`: cover thumbnails served to the UI;
 //! * `dto`: JSON shapes shared with the frontend.
@@ -37,6 +38,8 @@ mod crash_recovery;
 mod dev_startup;
 mod dto;
 mod error;
+#[cfg(windows)]
+mod file_drop;
 mod folder_watch;
 mod folders;
 mod history;
@@ -186,6 +189,8 @@ pub fn run() {
             fit_window(app);
             #[cfg(windows)]
             browser_keys_off(app);
+            #[cfg(windows)]
+            file_drop::listen(app);
             #[cfg(target_os = "ios")]
             fill_the_screen(app);
             if !keep_awake::run_at_full_speed() {

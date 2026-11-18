@@ -5,14 +5,22 @@ import { LibraryService } from '../../../core/services/library.service';
 import { PrepareService } from '../../../core/services/prepare.service';
 import { AutoDjService } from '../../../core/services/auto-dj.service';
 import { TRACKS_DRAG_TYPE } from '../../../shared/drag';
-import { Crate } from '../../../core/models/library';
+import { Crate, MusicFolder } from '../../../core/models/library';
+import { FileDropService, fileDropAttribute } from '../../../core/services/file-drop.service';
+import { shortPath } from '../../../core/folders';
+import { errorText } from '../../../core/errors';
+import { PHONE } from '../../../core/platform';
+import { Dismiss, overlay } from '../../../shared/overlay';
+import { Popover, popoverBeside } from '../../../shared/popover';
+import { FolderRow, FolderTree } from './folder-tree';
 import { SmartCrateDialog } from '../smart-crate-dialog/smart-crate-dialog';
 import { locale, t } from '../../../core/i18n/i18n';
 import { TPipe } from '../../../core/i18n/t.pipe';
 
 type Deletable = 'crate' | 'session';
 type DropTarget = number | 'prepare';
-type Foldable = 'crates' | 'history';
+type Foldable = 'folders' | 'crates' | 'history';
+type FolderAction = 'show' | 'rescan' | 'remove';
 
 const FOLDED_KEY = 'prisme.sidebar.folded';
 
@@ -21,7 +29,7 @@ function savedFolded(): Foldable[] {
   try {
     const saved: unknown = JSON.parse(localStorage.getItem(FOLDED_KEY) ?? '[]');
     return Array.isArray(saved)
-      ? saved.filter((s): s is Foldable => s === 'crates' || s === 'history')
+      ? saved.filter((s): s is Foldable => s === 'folders' || s === 'crates' || s === 'history')
       : [];
   } catch {
     return [];
@@ -40,17 +48,23 @@ const SESSION_DATE = computed(
 );
 
 /**
- * Left panel of the library: the prepare list, the folders, the crates (tracks are dropped
- * on them) and the history of the sets, the last two foldable.
+ * Left panel of the library: the prepare list, the music folders as trees, the crates (tracks
+ * are dropped on them) and the history of the sets, the last three foldable. Files from the
+ * file manager are dropped on the prepare list and the crates too, folders on the music
+ * folders.
  */
 @Component({
   selector: 'app-library-sidebar',
   templateUrl: './library-sidebar.html',
   styleUrl: './library-sidebar.scss',
-  imports: [SmartCrateDialog, TPipe],
+  imports: [Dismiss, SmartCrateDialog, TPipe],
 })
 export class LibrarySidebar {
+  protected readonly PHONE = PHONE;
   protected readonly library = inject(LibraryService);
+  protected readonly drops = inject(FileDropService);
+  protected readonly tree = new FolderTree();
+  protected readonly fileDrop = fileDropAttribute;
   protected readonly crates = inject(CratesService).crates;
   protected readonly sessions = inject(HistoryService).sessions;
   private readonly prepare = inject(PrepareService).list;
@@ -69,25 +83,13 @@ export class LibrarySidebar {
   protected readonly dropTarget = signal<DropTarget | null>(null);
   private readonly nameInput = viewChild<ElementRef<HTMLInputElement>>('nameInput');
 
-  protected readonly browsingFolder = computed(() => this.library.source().kind === 'folder');
+  /** The menu of a music folder, opened from its button. */
+  protected readonly folderMenu = signal<(Popover & { folder: MusicFolder }) | null>(null);
 
-  /** Path segments from the music root to the current folder, for the breadcrumb. */
-  protected readonly crumbs = computed(() => {
-    const listing = this.library.listing();
-    const root = this.library.root();
-    if (!listing || !root) return [];
-    const rel = listing.path.startsWith(root) ? listing.path.slice(root.length) : '';
-    const parts = rel.split(/[\\/]/).filter(Boolean);
-    const sep = root.includes('\\') ? '\\' : '/';
-    const crumbs = [{ name: t('Music'), path: root }];
-    let acc = root;
-    for (const p of parts) {
-      // a root at the top of a drive (D:\) ends with the separator already
-      acc = acc.endsWith(sep) ? acc + p : acc + sep + p;
-      crumbs.push({ name: p, path: acc });
-    }
-    return crumbs;
-  });
+  /** The folder browsed, lit in the tree. */
+  protected readonly currentFolder = computed(() =>
+    this.library.source().kind === 'folder' ? (this.library.listing()?.path ?? null) : null,
+  );
 
   constructor() {
     effect(() => {
@@ -95,6 +97,10 @@ export class LibrarySidebar {
       input?.focus();
       input?.select();
     });
+    overlay(
+      () => this.folderMenu() !== null,
+      () => this.folderMenu.set(null),
+    );
   }
 
   isFolded(section: Foldable): boolean {
@@ -110,6 +116,32 @@ export class LibrarySidebar {
     } catch {
       // storage unavailable: folded until the next start only
     }
+  }
+
+  /** Where a music folder is, said under its name. */
+  place(folder: MusicFolder): string {
+    const path = shortPath(folder.path);
+    return folder.present ? path : `${path} · ${t('unplugged')}`;
+  }
+
+  /** A folder on a drive not plugged in cannot be browsed. */
+  openFolder(row: FolderRow) {
+    if (row.root?.present !== false) this.library.open(row.path);
+  }
+
+  openFolderMenu(event: MouseEvent, folder: MusicFolder) {
+    this.folderMenu.set({ ...popoverBeside(event.currentTarget as HTMLElement), folder });
+  }
+
+  /** Does what was chosen in the menu of a music folder, and closes it. */
+  fromFolderMenu(action: FolderAction) {
+    const folder = this.folderMenu()?.folder;
+    this.folderMenu.set(null);
+    if (!folder) return;
+    if (action === 'show') this.library.showFolder(folder.path);
+    else if (action === 'rescan')
+      this.library.rescan().catch((e) => this.library.error.set(errorText(e)));
+    else this.library.removeFolder(folder);
   }
 
   newCrate() {

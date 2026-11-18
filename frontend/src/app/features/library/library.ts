@@ -22,11 +22,13 @@ import { TPipe } from '../../core/i18n/t.pipe';
 import { deckLetter } from '../../shared/time';
 import { KeyboardService } from '../../core/keyboard/keyboard.service';
 import { LIST_LABEL, SEARCH_PLACEHOLDER } from './list-labels';
+import { PathStep, folderName, lastName, stepsFrom } from '../../core/folders';
 
 /** How long "up to date" stays once a rescan asked for has ended (ms). */
 const RESCANNED_MS = 3000;
 
-/** Crates, history and folders (left); search, analysis progress and tracks (right). */
+/** Crates, history and folders (left); search, analysis progress, the way to the folder
+ * browsed and tracks (right). */
 @Component({
   selector: 'app-library',
   templateUrl: './library.html',
@@ -69,6 +71,24 @@ export class Library {
     SEARCH_PLACEHOLDER[this.library.source().kind](),
   );
 
+  /** The folders from the music folder down to the one browsed, as a file manager's address
+   * bar shows them. */
+  protected readonly steps = computed((): PathStep[] => {
+    const path = this.library.listing()?.path;
+    const root = this.library.folderRoot();
+    if (!path) return [];
+    if (!root) return [{ name: lastName(path), path }];
+    const [top, ...below] = stepsFrom(root.path, path);
+    return [{ ...top, name: folderName(root) }, ...below];
+  });
+  /** The folder above the one browsed, inside its music folder. */
+  private readonly above = computed(() => {
+    const listing = this.library.listing();
+    const root = this.library.folderRoot();
+    return listing && root && listing.path !== root.path ? listing.parent : null;
+  });
+  protected readonly canGoUp = computed(() => this.above() !== null);
+
   constructor() {
     effect(() => {
       if (this.library.searchRequests() > 0) this.search().nativeElement.focus();
@@ -82,6 +102,11 @@ export class Library {
       this.rescannedTimer = setTimeout(() => this.rescanned.set(false), RESCANNED_MS);
     });
     inject(DestroyRef).onDestroy(() => clearTimeout(this.rescannedTimer));
+  }
+
+  protected up() {
+    const above = this.above();
+    if (above) this.library.open(above);
   }
 
   protected rescan() {

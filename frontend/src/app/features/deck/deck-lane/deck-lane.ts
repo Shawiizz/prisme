@@ -1,9 +1,19 @@
-import { Component, ElementRef, booleanAttribute, inject, input, signal } from '@angular/core';
+import {
+  Component,
+  ElementRef,
+  booleanAttribute,
+  computed,
+  inject,
+  input,
+  signal,
+} from '@angular/core';
 import { LibraryService } from '../../../core/services/library.service';
 import { MixerService } from '../../../core/services/mixer.service';
+import { fileDropAttribute } from '../../../core/services/file-drop.service';
 import { TRACKS_DRAG_TYPE } from '../../../shared/drag';
 import { ChannelSlot } from '../../mixer/channel-slot/channel-slot';
 import { DeckCard } from '../deck-card/deck-card';
+import { DeckDrop } from '../deck-drop/deck-drop';
 import { DeckControls } from '../deck-controls/deck-controls';
 import { DeckPads } from '../deck-pads/deck-pads';
 import { DeckWaveform } from '../deck-waveform/deck-waveform';
@@ -13,7 +23,7 @@ import { PitchFader } from '../pitch-fader/pitch-fader';
  * Everything about a deck in one band, read from left to right: its panel, its waveform,
  * its channel when the software mixer runs, its pitch fader at the end where a turntable
  * has it; below, a rail with what plays it and its pads. A track dragged from the library
- * onto it is loaded there.
+ * or the file manager onto it is loaded there.
  */
 @Component({
   selector: 'app-deck-lane',
@@ -29,9 +39,11 @@ import { PitchFader } from '../pitch-fader/pitch-fader';
       <i class="divider"></i>
       <app-deck-pads [deck]="deck()" />
     </div>
+    <app-deck-drop [deck]="deck()" />
   `,
   styles: `
     :host {
+      position: relative;
       display: grid;
       grid-template-columns: var(--pr-lane-columns);
       grid-template-rows: var(--pr-lane-top, 124px) 44px;
@@ -78,11 +90,12 @@ import { PitchFader } from '../pitch-fader/pitch-fader';
   host: {
     '[class.compact]': 'compact()',
     '[class.dropping]': 'dropping()',
+    '[attr.data-file-drop]': 'fileDrop()',
     '(dragover)': 'dragOver($event)',
     '(dragleave)': 'dragLeave($event)',
     '(drop)': 'drop($event)',
   },
-  imports: [ChannelSlot, DeckCard, DeckControls, DeckPads, DeckWaveform, PitchFader],
+  imports: [ChannelSlot, DeckCard, DeckControls, DeckDrop, DeckPads, DeckWaveform, PitchFader],
 })
 export class DeckLane {
   readonly deck = input.required<number>();
@@ -92,6 +105,9 @@ export class DeckLane {
   private readonly library = inject(LibraryService);
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef).nativeElement;
   protected readonly dropping = signal(false);
+  protected readonly fileDrop = computed(() =>
+    fileDropAttribute({ kind: 'deck', deck: this.deck() }),
+  );
 
   protected dragOver(event: DragEvent) {
     if (!event.dataTransfer?.types.includes(TRACKS_DRAG_TYPE)) return;

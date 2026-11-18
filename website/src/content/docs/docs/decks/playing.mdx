@@ -22,12 +22,17 @@ You can put a track on a deck in several ways:
 | How | Where it goes |
 | --- | --- |
 | Drag a track from the library onto a deck | That deck (the deck is outlined while you drag over it) |
+| Drag an audio file from the file manager onto a deck (computer) | That deck: each deck says **Load on A**, and what it replaces, the one under the pointer lit |
 | Click **A** or **B** in the **LOAD** column of a track | That deck |
 | **Load on deck A** in a track's menu (right click) | That deck |
 | Double-click a track | The first empty deck, or deck A if none is empty |
 | <kbd>Shift</kbd> <kbd>←</kbd> / <kbd>Shift</kbd> <kbd>→</kbd> | The selected track on deck A / deck B |
 | <kbd>Enter</kbd> | The selected track on the first empty deck, or deck A |
 | In the [command palette](/docs/interface/keyboard/), <kbd>Alt</kbd> <kbd>A</kbd> / <kbd>Alt</kbd> <kbd>B</kbd> on a track | Deck A / deck B |
+
+A file dropped from the file manager loads even if it is in none of your folders, and is
+analysed at once. Several files dropped on a deck load the first; dropped on **Prepare** or on a
+crate in the side panel, they are all added to it.
 
 The deck shows **Loading…** while the file is read, then its cover, title and artist. A new
 track always starts at its beginning, stopped, and the deck forgets the previous track's loop and

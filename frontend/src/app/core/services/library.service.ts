@@ -9,11 +9,13 @@ import {
 } from '@angular/core';
 import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
+import { open } from '@tauri-apps/plugin-dialog';
 import {
   AnalysisProgress,
   DirEntry,
   DirListing,
   HistorySession,
+  MusicFolder,
   SmartRules,
   TrackAnalyzed,
   TrackDetails,
@@ -28,6 +30,9 @@ import { HistoryService } from './history.service';
 import { PrepareService } from './prepare.service';
 import { PreferencesService } from './preferences.service';
 import { errorText } from '../errors';
+import { folderName, folderOf } from '../folders';
+import { t } from '../i18n/i18n';
+import { ConfirmService } from '../../shared/confirm/confirm';
 
 /** `order`: the order of the list itself (play order of a set). */
 /** `mix`: how well the tracks follow the reference deck (see `mixRank`). */
@@ -94,7 +99,9 @@ export function matchesSearch(t: DirEntry, words: string[]): boolean {
  * the analysis results and tags of the tracks, and the view on them (search, sort,
  * selection). The background analysis pushes each result (`track-analyzed`) and its
  * progress (`library-progress`): the lists are patched in place, no reload needed. The open
- * folder is listed again when files appear in it or leave it (`library-files-changed`).
+ * folder is listed again when files appear in it or leave it (`library-files-changed`); the
+ * music folders, when one is added, removed, unplugged or plugged back
+ * (`music-folders-changed`).
  */
 @Injectable({ providedIn: 'root' })
 export class LibraryService {
@@ -104,11 +111,20 @@ export class LibraryService {
   private readonly history = inject(HistoryService);
   private readonly prepare = inject(PrepareService);
   private readonly exports = inject(ExportService);
+  private readonly confirm = inject(ConfirmService);
   /** Analyses received since the last frame, by path. */
   private analyzed = new Map<string, TrackDetails>();
 
-  readonly root = signal<string | null>(null);
+  /** The folders whose tracks make the library, the main one first. */
+  readonly folders = signal<MusicFolder[]>([]);
+  /** The main music folder. */
+  readonly root = computed(() => this.folders().find((f) => f.main)?.path ?? null);
   readonly listing = signal<DirListing | null>(null);
+  /** The music folder the open folder is in. */
+  readonly folderRoot = computed(() => {
+    const path = this.listing()?.path;
+    return path ? folderOf(this.folders(), path) : null;
+  });
   readonly source = signal<TrackSource>({ kind: 'folder' });
   readonly error = signal<string | null>(null);
   readonly progress = signal<AnalysisProgress>({
@@ -268,24 +284,66 @@ export class LibraryService {
         if (!e.payload.running) this.scansEnded.update((n) => n + 1);
       }),
       listen<string[]>('library-files-changed', (e) => this.relist(e.payload)),
+      listen<MusicFolder[]>('music-folders-changed', (e) => this.foldersChanged(e.payload)),
     ]);
     this.progress.set(await invoke<AnalysisProgress>('library_progress'));
     this.inMemory.set(await invoke<boolean>('library_in_memory'));
     await Promise.all([this.crates.refresh(), this.history.init(), this.prepare.init()]);
-    const root = await invoke<string>('music_root');
-    this.root.set(root);
+    this.folders.set(await invoke<MusicFolder[]>('music_folders'));
     const last = this.preferences.library().lastFolder;
-    if (!last || !(await this.open(last))) {
+    const root = this.root();
+    if ((!last || !(await this.open(last))) && root) {
       await this.open(root);
     }
   }
 
-  /** Makes `path` the music folder (`null`: the system's), scanned at once, and opens it. */
+  /** Makes `path` the main music folder (`null`: the system's), scanned at once, and opens it. */
   async setRoot(path: string | null): Promise<void> {
     const root = await invoke<string>('set_music_folder', { path });
     await this.preferences.load();
-    this.root.set(root);
+    this.folders.set(await invoke<MusicFolder[]>('music_folders'));
     await this.open(root);
+  }
+
+  /** Asks for a folder and adds it to the music folders. */
+  async chooseFolder(): Promise<void> {
+    const path = await open({ directory: true, title: t('Add a folder') });
+    if (typeof path === 'string') await this.addFolder(path);
+  }
+
+  /** Adds a folder to the music folders, its tracks analysed, and opens it. */
+  async addFolder(path: string): Promise<void> {
+    await this.attempt(async () => {
+      this.folders.set(await invoke<MusicFolder[]>('add_music_folder', { path }));
+      await this.open(path);
+    });
+  }
+
+  /** Takes a folder out of the music folders, its tracks out of the library, once the DJ
+   * says so. The files stay where they are. */
+  async removeFolder(folder: MusicFolder): Promise<void> {
+    const yes = await this.confirm.ask({
+      title: t('Remove {folder} from Prisme?', { folder: folderName(folder) }),
+      detail: t('Its tracks leave the library. The files stay where they are.'),
+      confirm: t('Remove'),
+      cancel: t('Cancel'),
+    });
+    if (!yes) return;
+    await this.attempt(async () =>
+      this.foldersChanged(
+        await invoke<MusicFolder[]>('remove_music_folder', { path: folder.path }),
+      ),
+    );
+  }
+
+  /** Shows a folder in the computer's file manager. */
+  showFolder(path: string): Promise<void> {
+    return this.attempt(() => invoke('show_folder', { path }));
+  }
+
+  /** The folders in `path`. */
+  async subFolders(path: string): Promise<DirEntry[]> {
+    return (await invoke<DirListing>('list_dir', { path })).folders;
   }
 
   /** Lists a folder and remembers it; `false` if it cannot be read. */
@@ -595,6 +653,15 @@ export class LibraryService {
       this.error.set(null);
     } catch (e) {
       this.error.set(errorText(e));
+    }
+  }
+
+  /** The folder browsed left with its music folder: the main one opens instead. */
+  private async foldersChanged(folders: MusicFolder[]) {
+    this.folders.set(folders);
+    const root = this.root();
+    if (this.source().kind === 'folder' && this.listing() && !this.folderRoot() && root) {
+      await this.open(root);
     }
   }
 

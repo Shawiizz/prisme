@@ -35,6 +35,7 @@ import { t } from '../../../core/i18n/i18n';
 import { TPipe } from '../../../core/i18n/t.pipe';
 import { KeyboardService } from '../../../core/keyboard/keyboard.service';
 import { Dismiss, overlay } from '../../../shared/overlay';
+import { Popover, popoverAbove, popoverAtPointer } from '../../../shared/popover';
 
 /** What an empty list says; the prepare list's names the key that adds to it, if it has one. */
 const EMPTY_LIST: Record<TrackSource['kind'], (key: string | null) => string> = {
@@ -51,38 +52,6 @@ const EMPTY_LIST: Record<TrackSource['kind'], (key: string | null) => string> = 
 const STARS = [1, 2, 3, 4, 5];
 /** Rows drawn beyond those in view, above and below: a quick scroll shows no gap. */
 const OVERSCAN = 12;
-
-/**
- * A popover opened at a point: below it, or above it in the lower half of the window; to
- * its right, or to its left in the right half.
- */
-interface Popover {
-  left: number | null;
-  right: number | null;
-  top: number | null;
-  bottom: number | null;
-}
-
-function popoverAt(x: number, y: number): Popover {
-  const below = y < window.innerHeight / 2;
-  const rightwards = x < window.innerWidth / 2;
-  return {
-    left: rightwards ? x : null,
-    right: rightwards ? null : window.innerWidth - x,
-    top: below ? y : null,
-    bottom: below ? null : window.innerHeight - y,
-  };
-}
-
-function popoverAtPointer(event: MouseEvent): Popover {
-  return popoverAt(event.clientX, event.clientY);
-}
-
-/** A popover above an element (the buttons of the selection bar). */
-function popoverAbove(element: HTMLElement): Popover {
-  const r = element.getBoundingClientRect();
-  return { ...popoverAt(r.left, r.top), top: null, bottom: window.innerHeight - r.top + 4 };
-}
 
 /**
  * The tracks being browsed or found: configurable columns (right-click the header),
