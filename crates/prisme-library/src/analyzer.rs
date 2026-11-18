@@ -256,7 +256,11 @@ fn run(
         }
     }
 
-    report(false);
+    // a run stopped for another one says nothing more: what it would say comes after the
+    // other's first words, and would tell the analysis over while it goes on
+    if !cancel.load(Ordering::Relaxed) {
+        report(false);
+    }
 }
 
 /// Stores the identity of the audio of `path`, if the file is there and can be read.
