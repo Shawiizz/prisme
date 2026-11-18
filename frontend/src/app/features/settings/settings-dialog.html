@@ -754,7 +754,10 @@
                     ? update.apk
                       ? ('Prisme {version} is out: download it, then open it to install.'
                         | t: { version: update.version })
-                      : ('Prisme {version} is ready to install.' | t: { version: update.version })
+                      : updates.waitsForDecks()
+                        ? ('Prisme {version} is ready to install. Stop the decks first: installing restarts Prisme.'
+                          | t: { version: update.version })
+                        : ('Prisme {version} is ready to install.' | t: { version: update.version })
                     : updates.looked() === 'latest'
                       ? ('This is the latest version.' | t)
                       : updates.looked() === 'unreachable'

@@ -528,6 +528,7 @@
   "1 setting found": "1 réglage trouvé",
   "{n} settings found": "{n} réglages trouvés",
   "Prisme {version} is ready to install.": "Prisme {version} est prêt à être installé.",
+  "Prisme {version} is ready to install. Stop the decks first: installing restarts Prisme.": "Prisme {version} est prêt à être installé. Arrêtez d'abord les decks : l'installation redémarre Prisme.",
   "Prisme {version} is out: download it, then open it to install.": "Prisme {version} est sorti : téléchargez-le, puis ouvrez-le pour l'installer.",
   "Download": "Télécharger",
   "Try again": "Réessayer",
