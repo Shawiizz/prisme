@@ -143,7 +143,7 @@ export class FileDropService {
       event.preventDefault();
       const target = this.point(event.target);
       this.end();
-      if (target) post({ filesDropped: target }, data.files);
+      if (target) post(JSON.stringify({ filesDropped: target }), data.files);
     });
   }
 

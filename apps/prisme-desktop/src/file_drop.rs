@@ -2,6 +2,10 @@
 //! (`dragDropEnabled: false`, so that its tracks drag onto the crates), and a file dropped
 //! there has no path: the page posts it to WebView2 with what it was dropped on, its path is
 //! read here and the page is told with `files-dropped`.
+//!
+//! The message is text: WebView2 stops at the first listener that fails, and Tauri's, which
+//! comes first, fails on any other message. Tauri takes it for a call it cannot read and says
+//! so in the page's console, then this listener reads it.
 
 use serde::{Deserialize, Serialize};
 use tauri::{Emitter, Manager};
@@ -14,8 +18,7 @@ use windows_core::{Interface, PWSTR};
 
 pub const FILES_DROPPED_EVENT: &str = "files-dropped";
 
-/// What the page posts with the files: where they were dropped. Tauri's own messages are
-/// strings, never this object.
+/// What the page posts with the files, as JSON text: where they were dropped.
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct DropMessage {
@@ -65,7 +68,8 @@ fn dropped(args: &ICoreWebView2WebMessageReceivedEventArgs) -> Option<FilesDropp
     unsafe {
         let mut json = PWSTR::null();
         args.WebMessageAsJson(&mut json).ok()?;
-        let message: DropMessage = serde_json::from_str(&take_pwstr(json)).ok()?;
+        let text: String = serde_json::from_str(&take_pwstr(json)).ok()?;
+        let message: DropMessage = serde_json::from_str(&text).ok()?;
         let files =
             args.cast::<ICoreWebView2WebMessageReceivedEventArgs2>().ok()?.AdditionalObjects().ok()?;
         let mut count = 0;

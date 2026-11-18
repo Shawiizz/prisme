@@ -43,9 +43,14 @@ import { deckLetter } from '../../../shared/time';
       color: var(--pr-text-2);
       font-weight: 600;
       letter-spacing: 0.02em;
+      transition:
+        background-color var(--pr-fast),
+        border-color var(--pr-fast);
+      // the deck under the pointer: lit, where the others stay dim
       &.over {
-        border-color: var(--pr-light);
-        background-image: linear-gradient(var(--pr-light-veil) 0 0);
+        border: 2px solid var(--pr-light);
+        background-color: rgb(10 11 13 / 0.4);
+        background-image: linear-gradient(rgb(243 241 235 / 0.12) 0 0);
         color: var(--pr-text);
       }
     }
