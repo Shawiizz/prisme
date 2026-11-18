@@ -113,20 +113,31 @@ const STEP_EVERY_MS = 60;
         height: 20px;
       }
     }
-    // the rate to reach: a hollow mark on both sides of the track
+    // the rate to reach: two arrows, one each side of the track, pointing at it
     .notch {
       --cap: 14px;
       position: absolute;
-      inset-inline: -4px;
-      top: calc((100% - var(--cap)) * var(--at) + var(--cap) / 2 - 1px);
-      height: 2px;
+      inset-inline: -7px;
+      top: calc((100% - var(--cap)) * var(--at) + var(--cap) / 2 - 4px);
+      height: 8px;
       pointer-events: none;
-      background: linear-gradient(
-        to right,
-        var(--pr-light) 0 7px,
-        transparent 7px calc(100% - 7px),
-        var(--pr-light) calc(100% - 7px)
-      );
+      &::before,
+      &::after {
+        content: '';
+        position: absolute;
+        top: 0;
+        width: 6px;
+        height: 100%;
+        background: var(--pr-light);
+      }
+      &::before {
+        left: 0;
+        clip-path: polygon(0 0, 100% 50%, 0 100%);
+      }
+      &::after {
+        right: 0;
+        clip-path: polygon(100% 0, 0 50%, 100% 100%);
+      }
     }
   `,
   host: { '[class.compact]': 'compact()' },

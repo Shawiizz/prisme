@@ -27,6 +27,12 @@ app-crossfader.live {
   .drift {
     color: var(--pr-warn);
   }
+  // refreshed many times a second: the same width, so the words do not shake
+  .offset {
+    min-width: 17ch;
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+  }
 }
 .lane {
   position: relative;
