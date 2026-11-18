@@ -7,9 +7,10 @@ sidebar:
 
 import { Steps, Aside } from '@astrojs/starlight/components';
 
-Prisme reads one folder: your system's **Music** folder, or another one you choose, with
-everything under it. There is nothing to import and no list to build: copy tracks into that folder and they appear in the
-library, then get their tempo, beat grid and key in the background.
+Prisme reads your system's **Music** folder, or another one you choose, with everything under
+it, and any other folder you add: a USB key, an external drive, a folder of sets. There is
+nothing to import and no list to build: copy tracks into one of those folders and they appear in
+the library, then get their tempo, beat grid and key in the background.
 
 ## Where your music goes
 
@@ -21,7 +22,7 @@ library, then get their tempo, beat grid and key in the background.
 | Android | The shared **Music** folder of the phone                                          |
 
 Sub-folders are fine, as deep as you like: they show in the side panel of the library, under
-**Music**, and the analysis walks through all of them.
+their folder, and the analysis walks through all of them.
 
 <Aside type="tip">
   On Windows, if your collection lives on another drive, you can move the Music folder itself
@@ -29,9 +30,36 @@ Sub-folders are fine, as deep as you like: they show in the side panel of the li
   wherever Windows says it is.
 </Aside>
 
+## Several folders
+
+On a computer, the library reads as many folders as you like. Each one is the top of a tree
+under **Folders** in the side panel: its name, where it is beneath, and a **Main** tag on the
+main one, the music folder of the settings (see below). The arrow beside a folder shows the
+folders in it, a click opens it in the track list. All their tracks are in the **Library** view
+of the search, analysed like those of **Music**.
+
+To add one, click **+ Add a folder** at the top of **Folders** and pick it in the system's
+folder picker, or drag it from the file manager and drop it on **Folders**: the side panel says
+it will add it while the folder is over it. Prisme opens it, watches it and analyses its
+tracks.
+
+Hover over a folder at the top of its tree and click **…**:
+
+- **Open in the file manager** shows it in the Explorer, the Finder or your file manager;
+- **Rescan** looks for new and changed files, as the toolbar's button does;
+- **Remove from Prisme** takes it out of the library once you confirm: its tracks leave the
+  library, the files stay where they are. The main folder stays; to change it, see below.
+
+A folder on a USB key or a drive that is unplugged stays in the list, dimmed and marked
+**unplugged**, its tracks kept: plug the drive back and it is there again, as it was.
+
+A folder inside one of yours is already in the library, and a folder holding one of yours
+cannot be added: Prisme says which folder is in the way. On a phone, the library reads the
+phone's music folder only.
+
 ## Choosing another folder
 
-On a computer, **Settings** › **Library** › **Music folder** shows the folder Prisme reads.
+On a computer, **Settings** › **Library** › **Music folder** shows the main folder Prisme reads.
 **Choose…** picks another one (a folder on an external drive or a NAS, say), **Reset** goes
 back to the system's **Music** folder. The choice is kept for the next start.
 
@@ -85,15 +113,15 @@ correct it.
 
 ## New tracks and rescanning
 
-Prisme watches the music folder. When you copy an album in, it waits for the copy to settle
+Prisme watches your music folders. When you copy an album in, it waits for the copy to settle
 (about a second and a half of quiet), then analyses the new and changed files. The folder you
 have open in the library updates by itself.
 
 If you want to be sure, click **Rescan** in the library's toolbar (**Analyse new and changed
-files**). It looks through the whole folder; when nothing is left to do it says **Library up to
-date**.
+files**). It looks through all your folders; when nothing is left to do it says **Library up
+to date**.
 
-If the music folder sits on a drive or a NAS that goes away, Prisme looks for it again every
+If a music folder sits on a drive or a NAS that goes away, Prisme looks for it again every
 half minute and scans it once it is back.
 
 ## Moved, renamed or retagged files
@@ -140,7 +168,7 @@ ratings stay in Prisme's library.
 ## When something looks wrong
 
 - **A track is missing from the list.** Check its extension is in the list above, that it is
-  not hidden, and that it is really inside the music folder (not behind a link). Then
+  not hidden, and that it is really inside one of your folders (not behind a link). Then
   **Rescan**.
 - **The analysis never moves.** It is probably paused because a deck is playing. Stop the decks,
   or turn off **Pause the analysis of the library while a deck plays**.

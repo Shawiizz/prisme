@@ -118,6 +118,27 @@
         </button>
       </div>
     </div>
+    @if (library.source().kind === 'folder' && library.scope() === 'list' && steps().length) {
+      <nav class="path" [attr.aria-label]="'Folder' | t">
+        <button
+          class="pr-btn pr-btn--sm pr-btn--icon up"
+          [disabled]="!canGoUp()"
+          [title]="'Up to the folder above' | t"
+          [attr.aria-label]="'Up to the folder above' | t"
+          (click)="up()"
+        >
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 19V5M6 11l6-6 6 6" /></svg>
+        </button>
+        @for (step of steps(); track step.path; let last = $last) {
+          @if (last) {
+            <span class="step here" aria-current="location">{{ step.name }}</span>
+          } @else {
+            <button class="step" (click)="library.open(step.path)">{{ step.name }}</button>
+            <svg class="sep" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6" /></svg>
+          }
+        }
+      </nav>
+    }
     @if (library.source().kind === 'prepare') {
       <app-auto-dj-bar />
     }

@@ -4,7 +4,8 @@
       class="item"
       [class.current]="library.source().kind === 'prepare'"
       [class.pointed]="library.focus() === 'lists' && library.pointedList() === 'prepare'"
-      [class.drop]="dropTarget() === 'prepare'"
+      [class.drop]="dropTarget() === 'prepare' || drops.isOver({ kind: 'prepare' })"
+      [attr.data-file-drop]="fileDrop({ kind: 'prepare' })"
       [title]="'Tracks lined up for the set; a played track leaves the list' | t"
       (click)="library.openPrepare()"
       (dragover)="dragOver($event, 'prepare')"
@@ -36,31 +37,90 @@
     </div>
   </div>
 </section>
-<section class="folders">
-  <div class="crumbs">
-    @for (c of crumbs(); track c.path; let last = $last) {
+<section
+  class="folders"
+  [class.folded]="isFolded('folders')"
+  [attr.data-file-drop]="fileDrop({ kind: 'folders' })"
+>
+  <header>
+    <button class="fold" [attr.aria-expanded]="!isFolded('folders')" (click)="toggle('folders')">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6" /></svg>
+      {{ 'Folders' | t }}
+    </button>
+    @if (!PHONE) {
       <button
-        class="crumb"
-        [class.current]="last && browsingFolder()"
-        (click)="library.open(c.path)"
+        class="pr-btn pr-btn--sm pr-btn--ghost"
+        [title]="'Its tracks join the library and are analysed' | t"
+        (click)="library.chooseFolder()"
       >
-        {{ c.name }}
+        + {{ 'Add a folder' | t }}
       </button>
-      @if (!last) {
-        <span class="sep">/</span>
-      }
     }
-  </div>
+  </header>
   <div class="list">
-    @for (f of library.listing()?.folders ?? []; track f.path) {
-      <div class="item" (click)="library.open(f.path)" [title]="f.path">
-        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h7l2 2h9v10H3z" /></svg>
-        {{ f.name }}
+    @for (row of tree.rows(); track row.path) {
+      <div
+        class="item"
+        [class.root]="row.root"
+        [class.absent]="row.root?.present === false"
+        [class.current]="currentFolder() === row.path"
+        [class.menu-open]="row.root && folderMenu()?.folder === row.root"
+        [style.--depth]="row.depth"
+        [title]="row.path"
+        (click)="openFolder(row)"
+      >
+        @if (row.leaf) {
+          <span class="twisty"></span>
+        } @else {
+          <button
+            class="twisty"
+            [attr.aria-expanded]="row.open"
+            [attr.aria-label]="
+              row.open ? ('Hide the folders in it' | t) : ('Show the folders in it' | t)
+            "
+            (click)="tree.toggle(row.path); $event.stopPropagation()"
+          >
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6" /></svg>
+          </button>
+        }
+        @if (row.root; as root) {
+          <span class="name">
+            {{ row.name }}
+            <small>{{ place(root) }}</small>
+          </span>
+          @if (root.main) {
+            <span class="main-tag">{{ 'Main' | t }}</span>
+          }
+          @if (!PHONE) {
+            <button
+              class="more"
+              [title]="'Actions on the folder' | t"
+              [attr.aria-label]="'Actions on the folder' | t"
+              (click)="openFolderMenu($event, root); $event.stopPropagation()"
+            >
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <circle cx="5" cy="12" r="1.8" />
+                <circle cx="12" cy="12" r="1.8" />
+                <circle cx="19" cy="12" r="1.8" />
+              </svg>
+            </button>
+          }
+        } @else {
+          <span class="name">{{ row.name }}</span>
+        }
       </div>
-    } @empty {
-      <div class="none">{{ 'No sub-folder' | t }}</div>
     }
   </div>
+  @if (drops.dragged()?.folders) {
+    <div class="drop-folders" [class.over]="drops.isOver({ kind: 'folders' })">
+      @if (drops.dragged()?.name; as name) {
+        {{ 'Add “{name}” to your folders' | t: { name } }}
+      } @else {
+        {{ 'Add to your folders' | t }}
+      }
+      <small>{{ 'Its tracks join the library and are analysed' | t }}</small>
+    </div>
+  }
 </section>
 <section class="crates" [class.folded]="isFolded('crates')">
   <header>
@@ -112,7 +172,8 @@
           class="item"
           [class.current]="library.currentCrate() === c.id"
           [class.pointed]="library.focus() === 'lists' && library.pointedList() === c.id"
-          [class.drop]="dropTarget() === c.id"
+          [class.drop]="dropTarget() === c.id || drops.isOver({ kind: 'crate', id: c.id })"
+          [attr.data-file-drop]="c.rules ? null : fileDrop({ kind: 'crate', id: c.id })"
           (click)="open(c.id)"
           (dblclick)="c.rules ? smartDialog.set({ crate: c }) : editing.set(c.id)"
           (dragover)="dragOverCrate($event, c)"
@@ -220,6 +281,35 @@
     }
   </div>
 </section>
+
+@if (folderMenu(); as menu) {
+  <div
+    class="pr-veil"
+    (dismiss)="folderMenu.set(null)"
+    (contextmenu)="$event.preventDefault(); folderMenu.set(null)"
+  ></div>
+  <div
+    class="pr-popover folder-menu"
+    role="menu"
+    [style.left.px]="menu.left"
+    [style.right.px]="menu.right"
+    [style.top.px]="menu.top"
+    [style.bottom.px]="menu.bottom"
+  >
+    @if (menu.folder.present) {
+      <button role="menuitem" (click)="fromFolderMenu('show')">
+        {{ 'Open in the file manager' | t }}
+      </button>
+    }
+    <button role="menuitem" (click)="fromFolderMenu('rescan')">{{ 'Rescan' | t }}</button>
+    @if (!menu.folder.main) {
+      <hr />
+      <button role="menuitem" class="danger" (click)="fromFolderMenu('remove')">
+        {{ 'Remove from Prisme' | t }}
+      </button>
+    }
+  </div>
+}
 
 @if (smartDialog(); as d) {
   <app-smart-crate-dialog [crate]="d.crate" (closed)="smartDialog.set(null)" />

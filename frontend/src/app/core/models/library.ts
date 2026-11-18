@@ -89,3 +89,12 @@ export interface TrackAnalyzed {
   path: string;
   details: TrackDetails;
 }
+
+/** A folder whose tracks make the library; the main one first. */
+export interface MusicFolder {
+  path: string;
+  /** The folder the library started with, which stays. */
+  main: boolean;
+  /** False while it cannot be found (a drive unplugged): listed, its tracks kept. */
+  present: boolean;
+}

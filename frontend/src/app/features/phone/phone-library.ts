@@ -125,7 +125,7 @@ export class PhoneLibrary {
     const browsing = this.library.source().kind === 'folder' && this.library.scope() === 'list';
     if (!browsing || !listing || this.library.filter().trim()) return [];
     const up: Row[] =
-      listing.parent && listing.path !== this.library.root()
+      listing.parent && listing.path !== this.library.folderRoot()?.path
         ? [{ kind: 'folder', name: '..', path: listing.parent, up: true }]
         : [];
     const folders = listing.folders.map((f): Row => ({

@@ -95,6 +95,62 @@
     }
   }
 }
+// where the folder browsed is: each step opens it, the arrow goes up a folder
+.path {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex: none;
+  min-width: 0;
+  padding: 6px var(--pr-space-3);
+  border-bottom: 1px solid var(--pr-line);
+  font-size: var(--pr-size-small);
+  color: var(--pr-text-2);
+  .up {
+    flex: none;
+    margin-right: 6px;
+    svg {
+      width: 14px;
+      height: 14px;
+      fill: none;
+      stroke: currentColor;
+      stroke-width: 1.6;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+  }
+  .step {
+    min-width: 0;
+    height: auto;
+    padding: 2px 6px;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    border: none;
+    border-radius: 4px;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+  }
+  button.step:hover {
+    background: var(--pr-base);
+    color: var(--pr-text);
+  }
+  .here {
+    flex: none;
+    max-width: 50%;
+    color: var(--pr-text);
+    font-weight: 600;
+  }
+  .sep {
+    flex: none;
+    width: 12px;
+    height: 12px;
+    fill: none;
+    stroke: var(--pr-text-3);
+    stroke-width: 2;
+  }
+}
 app-track-table {
   flex: 1;
 }
