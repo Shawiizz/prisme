@@ -44,6 +44,8 @@ impl MidiClock {
         let connection = name.map(|name| open(name).map(|c| (name.to_owned(), c))).transpose()?;
         if let Some((_, mut previous)) = std::mem::replace(&mut *lock(&self.output), connection) {
             let _ = previous.send(&[STOP]);
+            // closed, not only dropped: on Android a port dropped keeps its device open
+            previous.close();
         }
         Ok(())
     }

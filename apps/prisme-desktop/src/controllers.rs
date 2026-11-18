@@ -148,7 +148,8 @@ struct Connection {
     device: String,
     /// The port it was opened on: the same name, or with a number Windows added.
     port: String,
-    _input: MidiInputConnection<()>,
+    /// Taken only to be closed (see [`Drop`]).
+    input: Option<MidiInputConnection<()>>,
     /// Lights; not every controller has them.
     output: Option<MidiOutputConnection>,
     /// When its keep-alive message last went.
@@ -160,6 +161,19 @@ struct Connection {
     clipped: HashMap<usize, Instant>,
     /// What each of its screens' numbers was last sent, by its place among the displays.
     displayed: HashMap<usize, Vec<u8>>,
+}
+
+/// A controller let go is closed, not only dropped: on Android, a port dropped keeps the device
+/// open, and with it a sound card the USB driver would play on.
+impl Drop for Connection {
+    fn drop(&mut self) {
+        if let Some(input) = self.input.take() {
+            input.close();
+        }
+        if let Some(output) = self.output.take() {
+            output.close();
+        }
+    }
 }
 
 /// What a controller's lights and meters show, so that a message goes only for a change.
@@ -490,6 +504,11 @@ impl Controllers {
         }
         let (device, model) = (port.to_owned(), Self::model_name(port));
         let news = if controller_profiles::of(port).is_none() {
+            // on Android the MIDI of a sound card, opened, holds the card the USB driver
+            // plays on: a model Prisme does not know is turned on in the settings only
+            if cfg!(target_os = "android") {
+                return;
+            }
             PluggedIn::Offered { device, model }
         } else if self.take_up(app, port) {
             PluggedIn::Opened { device, model }
@@ -860,7 +879,7 @@ impl Controllers {
         let connection = Connection {
             device: device.to_owned(),
             port: port_name,
-            _input: connection,
+            input: Some(connection),
             output,
             kept_alive: Instant::now(),
             lit: Lit::default(),

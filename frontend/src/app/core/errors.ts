@@ -40,7 +40,10 @@ const TEXTS: Record<string, (p: Params) => string> = {
       ? t('Genre not written into {file}', p)
       : t('Genre not written into {count} files', p),
   noOutputDevice: () => t('No audio output found'),
-  deviceNotFound: (p) => t('Audio device not found: {device}', p),
+  deviceNotFound: (p) =>
+    p['device']
+      ? t('Audio device not found: {device}', p)
+      : t('No sound card found: plug it in, and let Prisme use it if asked'),
   backendUnavailable: (p) => t('{backend} is not available on this computer', p),
   sampleRateMismatch: (p) =>
     t(

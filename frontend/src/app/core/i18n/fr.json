@@ -649,6 +649,7 @@
   "Genre not written into {count} files": "Genre non écrit dans {count} fichiers",
   "No audio output found": "Aucune sortie audio trouvée",
   "Audio device not found: {device}": "Interface audio introuvable : {device}",
+  "No sound card found: plug it in, and let Prisme use it if asked": "Aucune carte son trouvée : branchez-la, et laissez Prisme l'utiliser si on vous le demande",
   "{backend} is not available on this computer": "{backend} n'est pas disponible sur cet ordinateur",
   "The input runs at {input} Hz but the output at {output} Hz: set both devices to the same rate": "L'entrée tourne à {input} Hz mais la sortie à {output} Hz : réglez les deux interfaces à la même fréquence",
   "No click came back from output {output} to input {input}: is the cable there?": "Aucun clic n'est revenu de la sortie {output} à l'entrée {input} : le câble est-il branché ?",
