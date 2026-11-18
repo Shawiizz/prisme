@@ -678,10 +678,6 @@ export class LibraryService {
     clearTimeout(this.searchTimer);
     const id = ++this.searchId;
     const query = this.filter().trim();
-    if (!query) {
-      this.libraryResults.set([]);
-      return;
-    }
     this.searchTimer = setTimeout(async () => {
       try {
         const results = await invoke<DirEntry[]>('search_library', { query });

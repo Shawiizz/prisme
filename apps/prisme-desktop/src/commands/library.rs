@@ -26,15 +26,16 @@ pub fn rescan_library(library: State<'_, Arc<LibraryService>>) {
 /// Most results a search returns: more would not be read, and would slow the list.
 const SEARCH_LIMIT: usize = 500;
 
-/// Tracks of the whole library matching `query` (tags and file names).
+/// Tracks of the whole library matching `query` (tags and file names); every track of it when
+/// nothing is searched.
 #[tauri::command(async)]
 pub fn search_library(library: State<'_, Arc<LibraryService>>, query: String) -> AppResult<Vec<DirEntryDto>> {
-    Ok(library
-        .db
-        .search(&query, SEARCH_LIMIT)?
-        .iter()
-        .map(|r| DirEntryDto::track(&r.path, Some(r)))
-        .collect())
+    let records = if query.trim().is_empty() {
+        library.db.analysed_records()?
+    } else {
+        library.db.search(&query, SEARCH_LIMIT)?
+    };
+    Ok(records.iter().map(|r| DirEntryDto::track(&r.path, Some(r))).collect())
 }
 
 /// The genres of the library, the most common first (suggestions when tagging).
