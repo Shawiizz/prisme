@@ -30,6 +30,8 @@ export class Sheet {
     lastAt: number;
     speed: number;
     on: boolean;
+    /** What scrolls under the finger: the sheet, or a list inside it. */
+    scroller: Element;
   } | null = null;
   private closing = false;
   private gone = false;
@@ -82,6 +84,7 @@ export class Sheet {
       lastAt: event.timeStamp,
       speed: 0,
       on: false,
+      scroller: this.scrollerOf(target),
     };
   }
 
@@ -92,8 +95,10 @@ export class Sheet {
     const down = clientY - pull.startY;
     if (!pull.on) {
       if (Math.max(Math.abs(down), Math.abs(clientX - pull.startX)) < DECIDE_PX) return;
-      // down, at the top of its content and more down than sideways: the sheet's; else a scroll
-      if (down <= 0 || this.sheet.scrollTop > 0 || Math.abs(clientX - pull.startX) > down) {
+      // down, what scrolls there at its top, and more down than sideways: the sheet's; else a
+      // scroll
+      const scrolled = pull.scroller.scrollTop > 0;
+      if (down <= 0 || scrolled || Math.abs(clientX - pull.startX) > down) {
         this.pull = null;
         return;
       }
@@ -132,6 +137,17 @@ export class Sheet {
     if (veil) veil.style.transition = `opacity ${SLIDE_MS}ms ${EASE}`;
     this.place(down);
     if (done) setTimeout(done, SLIDE_MS);
+  }
+
+  /** The nearest element from `target` up to the sheet that scrolls, else the sheet. */
+  private scrollerOf(target: Element): Element {
+    for (let at: Element | null = target; at && at !== this.sheet; at = at.parentElement) {
+      const overflow = getComputedStyle(at).overflowY;
+      if ((overflow === 'auto' || overflow === 'scroll') && at.scrollHeight > at.clientHeight) {
+        return at;
+      }
+    }
+    return this.sheet;
   }
 
   /** Risen from the bottom of the screen: what is a sheet on a phone floats elsewhere. */

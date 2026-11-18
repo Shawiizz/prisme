@@ -348,6 +348,25 @@
   box-shadow: none;
 }
 
+/* the bar at its top that says a finger pulls it down; a sheet with a grip of its own (a
+   button that closes it) shows that one */
+.pr-sheet::before {
+  content: '';
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  grid-column: 1 / -1;
+  display: block;
+  flex: none;
+  height: 20px;
+  background:
+    linear-gradient(var(--pr-line-2), var(--pr-line-2)) center 8px / 36px 4px no-repeat,
+    var(--pr-base);
+}
+.pr-sheet:has(> .grip)::before {
+  content: none;
+}
+
 /* a dialog's veil, the dialog in its middle */
 .pr-backdrop {
   position: fixed;
