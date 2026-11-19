@@ -35,6 +35,7 @@ export class PhaseStrip {
   private readonly lane = viewChild.required<ElementRef<HTMLCanvasElement>>('lane');
   private readonly palette = palette();
   private readonly showing = new Showing();
+  private readonly redraw = () => this.draw();
 
   /** The two decks compared: with four decks, the first two that play; else A and B. */
   protected readonly pair = computed<[number, number]>(() => {
@@ -74,14 +75,14 @@ export class PhaseStrip {
   });
 
   constructor() {
-    everyFrame(() => this.draw());
+    everyFrame(this.redraw);
     inject(DestroyRef).onDestroy(() => forgetCanvas(this.lane().nativeElement));
   }
 
   private draw() {
     const canvas = this.lane().nativeElement;
     const ratio = window.devicePixelRatio || 1;
-    const { width, height } = fitToDevicePixels(canvas);
+    const { width, height } = fitToDevicePixels(canvas, this.redraw);
     const [first, second] = this.pair();
     this.showing.start().with(width).with(height);
     this.show(first);

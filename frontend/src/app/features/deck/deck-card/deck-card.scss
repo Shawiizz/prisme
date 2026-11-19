@@ -6,9 +6,11 @@
   height: 100%;
 }
 
+// clipped: while the lanes change height, what does not fit yet stays inside
 .card {
   container: deck-card / inline-size;
   height: 100%;
+  overflow: clip;
   display: grid;
   grid-template-rows: auto 1fr;
   gap: var(--pr-space-2);
@@ -91,19 +93,28 @@
   }
 }
 
+// the readouts on the same three lines: their labels, their values on one baseline, what
+// is said under them
 .readouts {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);
-  align-items: end;
-  gap: 18px;
+  grid-template-rows: repeat(3, auto);
+  align-content: end;
+  gap: 2px 18px;
+}
+.readouts > .pr-readout,
+.analysis,
+.analysis > .pr-readout {
+  grid-row: span 3;
+  display: grid;
+  grid-template-rows: subgrid;
+  align-items: last baseline;
 }
 // BPM and key open the grid and key editor
 .analysis {
-  display: grid;
   grid-template-columns: auto auto;
   justify-content: start;
-  align-items: end;
-  gap: 18px;
+  column-gap: 18px;
   padding: 0;
   border: none;
   background: transparent;
@@ -159,8 +170,8 @@
     }
   }
   .readouts {
-    align-items: center;
-    gap: 12px;
+    align-content: center;
+    gap: 0 18px;
   }
   // as wide loaded or not, so that the decks' keys line up
   .readouts > .pr-readout .pr-readout__value {

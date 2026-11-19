@@ -2,7 +2,8 @@ import { DestroyRef, afterNextRender, inject } from '@angular/core';
 
 /**
  * Calls `draw` on every animation frame, outside change detection, from the first render
- * until the component goes. To be called where `inject` works.
+ * until the component goes: at the first render itself too, so that the first frame painted
+ * already shows the drawing. To be called where `inject` works.
  */
 export function everyFrame(draw: () => void) {
   let frame = 0;
@@ -10,7 +11,7 @@ export function everyFrame(draw: () => void) {
     draw();
     frame = requestAnimationFrame(loop);
   };
-  afterNextRender(() => (frame = requestAnimationFrame(loop)));
+  afterNextRender(loop);
   inject(DestroyRef).onDestroy(() => cancelAnimationFrame(frame));
 }
 

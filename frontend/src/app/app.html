@@ -18,7 +18,12 @@
     }
     <section class="decks" [class.mix]="mixer.internal()" [class.compact]="compact()">
       @for (deck of decks(); track deck) {
-        <app-deck-lane [deck]="deck" [compact]="compact()" />
+        <app-deck-lane
+          [deck]="deck"
+          [compact]="compact()"
+          animate.enter="lane-in"
+          animate.leave="lane-out"
+        />
         @if (deck === 0) {
           <app-phase-strip />
         }

@@ -13,6 +13,7 @@
   /* the stem lanes, once there are some */
   grid-auto-rows: auto;
   gap: var(--pr-space-1);
+  transition: grid-template-rows var(--pr-relayout);
 }
 /* Canvases are absolutely positioned so that their backing store can never feed back into
    the layout. */
@@ -78,10 +79,11 @@
   }
 }
 
-// four decks: the overview as a thin line, no room for the stem lanes
+// four decks: the overview a share of the lane, still read at a glance; no room for the stem
+// lanes
 :host(.compact) {
   .waveform {
-    grid-template-rows: minmax(0, 1fr) 5px;
+    grid-template-rows: minmax(0, 1fr) clamp(12px, 28%, 22px);
     gap: 2px;
   }
   .overview {

@@ -49,14 +49,18 @@ import { PitchFader } from '../pitch-fader/pitch-fader';
       grid-template-rows: var(--pr-lane-top, 124px) 44px;
       gap: 4px 10px;
       min-width: 0;
+      transition:
+        grid-template-rows var(--pr-relayout),
+        grid-template-columns var(--pr-relayout);
     }
     app-pitch-fader {
       grid-column: -2;
       grid-row: 1 / span 2;
     }
-    // four decks: half the height, the channel of the software mixer over both rows
+    // four decks: lower, though taller on a taller window; the channel of the software mixer
+    // over both rows
     :host(.compact) {
-      grid-template-rows: var(--pr-lane-top-compact, 44px) 44px;
+      grid-template-rows: var(--pr-lane-top-compact, clamp(48px, 4.4vh + 16px, 76px)) 44px;
       app-channel-slot {
         grid-column: 3;
         grid-row: 1 / span 2;

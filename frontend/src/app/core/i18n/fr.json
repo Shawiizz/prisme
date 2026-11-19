@@ -802,7 +802,7 @@
   "Mute the channel": "Couper la voie",
   "Silent in the master, still heard in the headphones": "Muette dans le master, toujours entendue au casque",
   "The channel is muted: press to hear it again": "La voie est coupée : appuyer pour l'entendre à nouveau",
-  "Deck options: motor, reverse, mute, repeat, tempo range, fader start": "Options de la platine : moteur, lecture inversée, coupure, répétition, plage de tempo, fader start",
+  "Deck options: motor, reverse, mute, repeat, tempo range, fader start, eject": "Options de la platine : moteur, lecture inversée, coupure, répétition, plage de tempo, fader start, éjection",
   "To the start": "Au début",
   "To the end": "À la fin",
   "Jump to": "Aller au",
@@ -928,5 +928,10 @@
   "Add this folder": "Ajouter ce dossier",
   "{n} mapped": "{n} assignées",
   "{beats} beats": "{beats} temps",
-  "{beats} beat": "{beats} temps"
+  "{beats} beat": "{beats} temps",
+  "Deck {deck} is playing: its track stays on it": "Le deck {deck} joue : son morceau y reste",
+  "The track playing stops and leaves the deck.": "Le morceau en cours s'arrête et quitte le deck.",
+  "Eject": "Éjecter",
+  "EJECT": "ÉJECTER",
+  "The deck left empty; playing, it asks first": "Le deck vidé ; s'il joue, Prisme demande d'abord"
 }

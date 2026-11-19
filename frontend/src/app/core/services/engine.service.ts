@@ -296,14 +296,14 @@ export class EngineService {
     return this.put(deck, () => invoke<TrackInfo>('load_track', { deck, path }));
   }
 
-  /** The track of deck `from` on `deck`, where it is and playing if it plays. */
-  /** Takes the track off `deck`. */
-  async eject(deck: number): Promise<void> {
-    if (!(await this.mayReplace(deck))) return;
+  /** Takes the track off `deck`; whether it was. */
+  async eject(deck: number): Promise<boolean> {
+    if (!(await this.mayReplace(deck, 'eject'))) return false;
     await this.call('eject_track', { deck });
     const without = <T>(values: T[]) => values.map((v, d) => (d === deck ? null : v));
     this.tracks.update(without);
     this.waveforms.update(without);
+    return true;
   }
 
   /** Whether a touch of the controller's jog wheel of `deck` holds the record. */
@@ -318,26 +318,33 @@ export class EngineService {
     return this.call('set_loop', { deck, startS, endS, active });
   }
 
+  /** The track of deck `from` on `deck`, where it is and playing if it plays. */
   async double(from: number, deck: number): Promise<void> {
     if (!this.tracks()[from] || !(await this.mayReplace(deck))) return;
     await this.put(deck, () => invoke<TrackInfo>('double_deck', { from, deck }));
   }
 
-  /** The track of a deck that plays, by itself or under its record, gives way only if the
-   * DJ says so; never, if the DJ chose so. */
-  private async mayReplace(deck: number): Promise<boolean> {
+  /** The track of a deck that plays, by itself or under its record, gives way to another or
+   * leaves the deck only if the DJ says so; never, if the DJ chose so. */
+  private async mayReplace(deck: number, by: 'load' | 'eject' = 'load'): Promise<boolean> {
     const d = this.status()?.decks[deck];
     if (!d?.loaded || (!d.playing && Math.abs(d.speed) < MOVING_SPEED)) return true;
+    const letter = { deck: deckLetter(deck) };
+    const eject = by === 'eject';
     if (this.preferences.dj().protectPlaying) {
       this.error.set(
-        t('Deck {deck} is playing: nothing is loaded on it', { deck: deckLetter(deck) }),
+        eject
+          ? t('Deck {deck} is playing: its track stays on it', letter)
+          : t('Deck {deck} is playing: nothing is loaded on it', letter),
       );
       return false;
     }
     return this.confirm.ask({
-      title: t('Deck {deck} is playing', { deck: deckLetter(deck) }),
-      detail: t('The track playing stops, and the new one takes its place.'),
-      confirm: t('Load'),
+      title: t('Deck {deck} is playing', letter),
+      detail: eject
+        ? t('The track playing stops and leaves the deck.')
+        : t('The track playing stops, and the new one takes its place.'),
+      confirm: eject ? t('Eject') : t('Load'),
       cancel: t('Cancel'),
     });
   }
