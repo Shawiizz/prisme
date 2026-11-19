@@ -446,6 +446,20 @@ fn a_track_scratched_in_a_loop_goes_round_it() {
 }
 
 #[test]
+fn a_press_on_the_overview_takes_the_track_out_of_its_loop() {
+    let mut rig = Rig::new();
+    rig.send(Command::LoadTrack { deck: 0, track: silent_track(60.0) });
+    rig.send(Command::SetBeatGrid { deck: 0, grid: Some(BeatGrid { bpm: 120.0, first_beat_s: 0.0 }) });
+    rig.send(Command::Seek { deck: 0, seconds: 10.0 });
+    rig.send(Command::SetPlaying { deck: 0, playing: true });
+    rig.send(Command::BeatLoop { deck: 0, beats: 1.0 });
+    rig.run(0.2);
+    rig.send(Command::Hand { deck: 0, position_s: Some(40.0), at_s: 50.0 });
+    rig.run(0.1);
+    assert!((rig.deck(0).position_s - 40.0).abs() < 0.01, "{:?}", rig.deck(0));
+}
+
+#[test]
 fn the_jog_and_the_screen_hold_the_track_each_on_its_own() {
     let mut rig = Rig::new();
     rig.send(Command::LoadTrack { deck: 0, track: silent_track(60.0) });

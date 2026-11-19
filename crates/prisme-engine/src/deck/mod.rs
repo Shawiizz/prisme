@@ -224,7 +224,7 @@ impl Deck {
         let (speed, by_motor) = match screen.or(jog) {
             Some(Step::Play(speed)) => (speed, false),
             Some(Step::Jump(to)) => {
-                self.playhead.seek_round_s(to);
+                self.playhead.seek_s(to);
                 (0.0, false)
             }
             None => {
