@@ -306,6 +306,10 @@ impl LoadingTrack {
         while track.audio.decoded_frames() < first {
             chunk.clear();
             if !stream.next_chunk(&mut chunk)? {
+                // a header and no audio after it, which decode_file refuses too
+                if track.audio.decoded_frames() == 0 {
+                    return Err(MediaError::NoAudio);
+                }
                 track.finish();
                 return Ok(track);
             }

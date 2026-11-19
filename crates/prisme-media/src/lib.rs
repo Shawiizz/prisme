@@ -290,6 +290,14 @@ mod tests {
     }
 
     #[test]
+    fn a_header_with_no_audio_after_it_is_no_track() {
+        let path = wav("hollow", 0, 80);
+        let loaded = LoadingTrack::open(&path);
+        let _ = std::fs::remove_file(&path);
+        assert!(matches!(loaded, Err(MediaError::NoAudio)), "{:?}", loaded.map(|t| t.audio().frames()));
+    }
+
+    #[test]
     fn an_aiff_file_decodes() {
         let frames = 1000u32;
         let mut comm = Vec::new();
