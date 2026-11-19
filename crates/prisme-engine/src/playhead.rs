@@ -167,12 +167,13 @@ impl Playhead {
 }
 
 /// Wraps when the playhead crosses an edge of the loop from inside, in either
-/// direction; a playhead outside the loop is left alone.
+/// direction, as many times round as it went; a playhead outside the loop is left alone.
 #[inline]
 pub(crate) fn wrap_in_loop(before: f64, after: f64, loop_frames: Option<(f64, f64)>) -> f64 {
     match loop_frames {
-        Some((start, end)) if (start..end).contains(&before) && after >= end => after - (end - start),
-        Some((start, end)) if (start..end).contains(&before) && after < start => after + (end - start),
+        Some((start, end)) if (start..end).contains(&before) && !(start..end).contains(&after) => {
+            start + (after - start).rem_euclid(end - start)
+        }
         _ => after,
     }
 }
@@ -247,6 +248,14 @@ mod tests {
         p.render(&mut out, None, 48_000.0, 1.0);
         assert_eq!([out[4], out[6]], [0.0, 0.0], "silence past the end");
         assert!(p.position_s() * 48_000.0 > 100.0);
+    }
+
+    #[test]
+    fn a_step_longer_than_the_loop_goes_round_it_as_many_times() {
+        let wrapped = |before, after| wrap_in_loop(before, after, Some((10.0, 20.0)));
+        assert_eq!(wrapped(15.0, 37.0), 17.0);
+        assert_eq!(wrapped(15.0, -7.0), 13.0);
+        assert_eq!(wrapped(19.0, 20.0), 10.0);
     }
 
     #[test]
