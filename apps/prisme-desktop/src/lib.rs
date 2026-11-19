@@ -466,12 +466,13 @@ pub fn run() {
                     recorder.stop(&state);
                 }
                 app.state::<Controllers>().close_all();
+                state.preferences.flush();
                 app.state::<CrashRecovery>().closed_normally();
             }
         });
 }
 
-fn open_json<T: Serialize + DeserializeOwned + Default + Clone>(
+fn open_json<T: Serialize + DeserializeOwned + Default + Clone + Send + 'static>(
     data_dir: Option<&Path>,
     name: &str,
 ) -> JsonFile<T> {

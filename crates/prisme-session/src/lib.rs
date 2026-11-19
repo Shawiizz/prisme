@@ -9,8 +9,10 @@ use serde::de::DeserializeOwned;
 use serde::Serialize;
 use std::io::Write;
 use std::path::{Path, PathBuf};
-use std::sync::{Mutex, MutexGuard};
+use std::sync::{Arc, Condvar, Mutex, MutexGuard};
+use std::thread::JoinHandle;
 use std::time::Duration;
+use tracing::error;
 
 /// Reads of a file another program holds: a scan by an antivirus takes a moment.
 const READ_TRIES: usize = 5;
@@ -87,52 +89,127 @@ pub fn save<T: Serialize>(path: &Path, value: &T) -> std::io::Result<()> {
     std::fs::rename(&temporary, path)
 }
 
-/// A value kept in memory and saved to its file after every change.
+/// A value kept in memory and saved to its file after every change, by a thread of its own:
+/// a change never waits for the disk, nor does a read wait for a save, and the changes made
+/// while a save runs go to the file together in the next.
 pub struct JsonFile<T> {
-    path: Option<PathBuf>,
-    value: Mutex<T>,
+    shared: Arc<Shared<T>>,
+    writer: Option<JoinHandle<()>>,
 }
 
-impl<T: Serialize + DeserializeOwned + Default + Clone> JsonFile<T> {
+struct Shared<T> {
+    value: Mutex<T>,
+    saves: Mutex<Saves>,
+    changed: Condvar,
+}
+
+#[derive(Default)]
+struct Saves {
+    /// Changes made so far, and those in the file.
+    made: u64,
+    saved: u64,
+    closing: bool,
+}
+
+impl<T: Serialize + DeserializeOwned + Default + Clone + Send + 'static> JsonFile<T> {
     /// The value of `path`, saved there after every change unless the file could not be read
     /// (`Loaded::held`); how it was read.
     pub fn open(path: PathBuf) -> (Self, Loaded<()>) {
         let loaded = load(&path);
-        let file = Self { path: (!loaded.held).then_some(path), value: Mutex::new(loaded.value) };
+        let mut file = Self::in_memory(loaded.value);
+        if !loaded.held {
+            let shared = file.shared.clone();
+            file.writer = Some(
+                std::thread::Builder::new()
+                    .name("prisme-save".into())
+                    .spawn(move || shared.write(&path))
+                    .expect("cannot start a saving thread"),
+            );
+        }
         (file, Loaded { value: (), set_aside: loaded.set_aside, held: loaded.held })
     }
 
     /// Kept in memory only (when the data folder is not available).
     pub fn in_memory(value: T) -> Self {
-        Self { path: None, value: Mutex::new(value) }
+        let shared = Shared { value: Mutex::new(value), saves: Mutex::default(), changed: Condvar::new() };
+        Self { shared: Arc::new(shared), writer: None }
     }
 
     pub fn get(&self) -> T {
-        self.lock().clone()
+        lock(&self.shared.value).clone()
     }
 
     /// Reads the value without copying it.
     pub fn read<R>(&self, f: impl FnOnce(&T) -> R) -> R {
-        f(&self.lock())
+        f(&lock(&self.shared.value))
     }
 
-    /// Changes the value and saves it. The change is kept even if saving fails.
-    pub fn update<R>(&self, change: impl FnOnce(&mut T) -> R) -> (R, std::io::Result<()>) {
-        let mut value = self.lock();
-        let result = change(&mut value);
-        let saved = self.path.as_deref().map_or(Ok(()), |path| save(path, &*value));
-        (result, saved)
+    /// Changes the value, saved soon after.
+    pub fn update<R>(&self, change: impl FnOnce(&mut T) -> R) -> R {
+        let result = change(&mut lock(&self.shared.value));
+        lock(&self.shared.saves).made += 1;
+        self.shared.changed.notify_all();
+        result
     }
 
-    fn lock(&self) -> MutexGuard<'_, T> {
-        self.value.lock().unwrap_or_else(|e| e.into_inner())
+    /// Waits until every change made so far is in the file (or failed to be saved).
+    pub fn flush(&self) {
+        if self.writer.is_none() {
+            return;
+        }
+        let mut saves = lock(&self.shared.saves);
+        let made = saves.made;
+        while saves.saved < made {
+            saves = self.shared.changed.wait(saves).unwrap_or_else(|e| e.into_inner());
+        }
     }
+}
+
+impl<T: Serialize + Clone> Shared<T> {
+    /// Saves the value to `path` whenever it changed, until the file is closed.
+    fn write(&self, path: &Path) {
+        let mut saves = lock(&self.saves);
+        loop {
+            while saves.saved == saves.made && !saves.closing {
+                saves = self.changed.wait(saves).unwrap_or_else(|e| e.into_inner());
+            }
+            if saves.saved == saves.made {
+                return;
+            }
+            let made = saves.made;
+            drop(saves);
+            let value = lock(&self.value).clone();
+            if let Err(e) = save(path, &value) {
+                error!("{} not saved: {e}", path.display());
+            }
+            saves = lock(&self.saves);
+            saves.saved = made;
+            self.changed.notify_all();
+        }
+    }
+}
+
+impl<T> Drop for JsonFile<T> {
+    /// Saves what is left to save.
+    fn drop(&mut self) {
+        lock(&self.shared.saves).closing = true;
+        self.shared.changed.notify_all();
+        if let Some(writer) = self.writer.take() {
+            let _ = writer.join();
+        }
+    }
+}
+
+fn lock<T>(m: &Mutex<T>) -> MutexGuard<'_, T> {
+    m.lock().unwrap_or_else(|e| e.into_inner())
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use serde::Deserialize;
+    use std::sync::atomic::{AtomicUsize, Ordering};
+    use std::time::Instant;
 
     #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
     #[serde(default)]
@@ -186,8 +263,8 @@ mod tests {
         std::fs::create_dir_all(&path).unwrap();
         let (file, opened) = JsonFile::<Prefs>::open(path.clone());
         assert!(opened.held && opened.set_aside.is_none());
-        let (_, saved) = file.update(|p| p.volume = 0.3);
-        saved.unwrap();
+        file.update(|p| p.volume = 0.3);
+        file.flush();
         assert!(path.is_dir());
         std::fs::remove_dir_all(dir).ok();
     }
@@ -225,13 +302,57 @@ mod tests {
         std::fs::remove_dir_all(dir).ok();
     }
 
+    /// A value whose saving takes a while, as on a slow disk; how many times it was saved.
+    #[derive(Clone, Default, Deserialize)]
+    struct Slow(f32);
+
+    const SLOW_SAVE: Duration = Duration::from_millis(300);
+    static SLOW_SAVES: AtomicUsize = AtomicUsize::new(0);
+
+    impl Serialize for Slow {
+        fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+            SLOW_SAVES.fetch_add(1, Ordering::SeqCst);
+            std::thread::sleep(SLOW_SAVE);
+            self.0.serialize(serializer)
+        }
+    }
+
+    #[test]
+    fn changes_wait_for_no_save_and_are_saved_together() {
+        let dir = temp_dir("slow");
+        let path = dir.join("slow.json");
+        let (file, _) = JsonFile::<Slow>::open(path.clone());
+        let started = Instant::now();
+        for step in 0..50 {
+            file.update(|v| v.0 = step as f32);
+            assert_eq!(file.read(|v| v.0), step as f32);
+        }
+        assert!(started.elapsed() < SLOW_SAVE, "{:?}", started.elapsed());
+        file.flush();
+        assert!(SLOW_SAVES.load(Ordering::SeqCst) <= 2);
+        assert_eq!(load::<f32>(&path).value, 49.0);
+        drop(file);
+        std::fs::remove_dir_all(dir).ok();
+    }
+
+    #[test]
+    fn what_is_left_to_save_is_saved_when_the_file_closes() {
+        let dir = temp_dir("close");
+        let path = dir.join("prefs.json");
+        let (file, _) = JsonFile::<Prefs>::open(path.clone());
+        file.update(|p| p.volume = 0.7);
+        drop(file);
+        assert_eq!(load::<Prefs>(&path).value.volume, 0.7);
+        std::fs::remove_dir_all(dir).ok();
+    }
+
     #[test]
     fn updates_are_saved() {
         let dir = temp_dir("update");
         let path = dir.join("prefs.json");
         let (file, _) = JsonFile::<Prefs>::open(path.clone());
-        let (_, saved) = file.update(|p| p.volume = 0.3);
-        saved.unwrap();
+        file.update(|p| p.volume = 0.3);
+        file.flush();
         assert_eq!(load::<Prefs>(&path).value.volume, 0.3);
         std::fs::remove_dir_all(dir).ok();
     }

@@ -23,7 +23,6 @@ use prisme_timecode::TimecodeFormat;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex, MutexGuard};
-use tracing::error;
 
 /// The loudness auto gain brings every track to: that of a loud modern master, so that most
 /// tracks come down a little and few need a boost.
@@ -243,7 +242,7 @@ pub fn lock<T>(m: &Mutex<T>) -> MutexGuard<'_, T> {
 impl AppState {
     pub fn new(preferences: JsonFile<Preferences>) -> Self {
         if preferences.read(|p| p.clone().settle()) {
-            let _ = preferences.update(|p| p.settle());
+            preferences.update(|p| p.settle());
         }
         let saved = preferences.get().decks;
         Self {
@@ -270,11 +269,9 @@ impl AppState {
         }
     }
 
-    /// Changes the preferences and saves them; a failed save is reported, not fatal.
+    /// Changes the preferences, saved soon after.
     pub fn update_preferences(&self, change: impl FnOnce(&mut Preferences)) {
-        if let ((), Err(e)) = self.preferences.update(change) {
-            error!("preferences not saved: {e}");
-        }
+        self.preferences.update(change);
     }
 
     /// The engine's latest view of `deck`.

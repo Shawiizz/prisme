@@ -4351,6 +4351,7 @@ version = "0.3.9"
 dependencies = [
  "serde",
  "serde_json",
+ "tracing",
 ]
 
 [[package]]
