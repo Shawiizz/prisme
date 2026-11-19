@@ -159,6 +159,19 @@ describe('EngineService', () => {
     });
   });
 
+  describe('the audio started again', () => {
+    afterEach(() => clearMocks());
+
+    it('shows the decks as the backend left them', async () => {
+      const [a, b] = engine.decks();
+      mockIPC((command) =>
+        command === 'mixer_state' ? { decks: [{ ...a, vinylEnabled: true }, b] } : undefined,
+      );
+      await engine.reloadDecks();
+      expect(engine.decks().map((d) => d.vinylEnabled)).toEqual([true, false]);
+    });
+  });
+
   describe('a track on two decks', () => {
     const drop: Cue = { hot: 0, positionS: 30, loopLengthS: null, color: 0, label: '' };
     const update = (changes: Partial<DeckTrackUpdate>): DeckTrackUpdate => ({

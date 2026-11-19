@@ -106,11 +106,13 @@ export class SettingsService {
     return true;
   }
 
-  /** Restarts the audio with new settings. Throws the error message on failure. */
+  /** Restarts the audio with new settings, the decks shown as it leaves them. Throws the error
+   * message on failure. */
   async apply(settings: AudioSettings): Promise<AudioInfo> {
     const info = await invoke<AudioInfo>('apply_audio_settings', { settings });
     this.settings.set(settings);
     this.info.set(info);
+    await this.engine.reloadDecks();
     return info;
   }
 }

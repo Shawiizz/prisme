@@ -139,8 +139,19 @@ export class EngineService {
     ]);
     this.tracks.set(tracks);
     tracks.forEach((t, deck) => t && this.watchWaveform(deck, t.loadId));
-    this.decks.set(mixer.decks.map((d) => ({ ...DEFAULT_DECK, ...d })));
+    this.showDecks(mixer);
     return mixer;
+  }
+
+  /** The decks' settings as the backend has them once the audio starts again, which may
+   * change them: the simulated turntable taking deck A as it comes, decks layered on one
+   * turntable given its record. */
+  async reloadDecks() {
+    this.showDecks(await invoke<MixerState>('mixer_state'));
+  }
+
+  private showDecks(mixer: MixerState) {
+    this.decks.set(mixer.decks.map((d) => ({ ...DEFAULT_DECK, ...d })));
   }
 
   /** Matches the leader once and leaves the deck free (unlocking it first). */
