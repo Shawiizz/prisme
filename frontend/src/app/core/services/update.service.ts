@@ -37,6 +37,8 @@ export class UpdateService {
   );
   /** Installed in place, restarting Prisme: not while a deck plays. */
   readonly waitsForDecks = computed(() => !!this.available()?.update && this.decksPlaying());
+  /** The update downloaded: a deck that started meanwhile leaves it to install once stopped. */
+  private downloaded: Update | null = null;
 
   async look(): Promise<void> {
     this.looked.set('looking');
@@ -59,9 +61,19 @@ export class UpdateService {
       await openUrl(found.apk).catch((e) => this.engine.error.set(errorText(e)));
       return;
     }
+    const update = found.update;
+    if (!update) return;
     this.installing.set(true);
     try {
-      await found.update?.downloadAndInstall();
+      if (this.downloaded !== update) {
+        await update.download();
+        this.downloaded = update;
+      }
+      if (this.decksPlaying()) {
+        this.installing.set(false);
+        return;
+      }
+      await update.install();
       await relaunch();
     } catch (e) {
       this.engine.error.set(errorText(e));
