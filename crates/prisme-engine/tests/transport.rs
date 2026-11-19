@@ -79,6 +79,22 @@ fn halving_a_loop_keeps_its_start() {
 }
 
 #[test]
+fn halving_a_loop_behind_the_playhead_takes_it_back_in_phase() {
+    let mut rig = playing_deck(10.0);
+    rig.send(Command::BeatLoop { deck: 0, beats: 4.0 });
+    rig.run(1.5);
+    let before = rig.deck(0).position_s;
+    rig.send(Command::ScaleLoop { deck: 0, factor: 0.5 });
+    let elapsed = rig.run(0.01);
+    assert_close(rig.deck(0).position_s, before - 1.0 + elapsed, 1e-6);
+    for _ in 0..8 {
+        rig.run(0.25);
+        let position = rig.deck(0).position_s;
+        assert!((10.0..11.0).contains(&position), "{position}");
+    }
+}
+
+#[test]
 fn a_loop_roll_lands_where_the_track_would_have_been() {
     let mut rig = playing_deck(10.0);
     rig.send(Command::LoopRoll { deck: 0, beats: Some(0.5) });

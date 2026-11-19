@@ -109,7 +109,7 @@ impl Deck {
         // the end snapped to a beat already played: back into the loop, in phase
         let position = self.playhead.position_s();
         if position >= end_s {
-            self.playhead.seek_s(start_s + (position - end_s) % (end_s - start_s));
+            self.playhead.seek_s(LoopRegion { start_s, end_s }.wrap(position));
         }
         self.activate_loop(true);
     }
@@ -169,9 +169,16 @@ impl Deck {
         }
     }
 
+    /// Halves or doubles the stored loop from its start; a loop playing that ends behind the
+    /// playhead takes it back, in phase.
     pub(crate) fn scale_loop(&mut self, factor: f64) {
         if let Some(region) = self.transport.loop_region.filter(|_| factor > 0.0) {
-            self.transport.loop_region = Some(region.scaled(factor));
+            let scaled = region.scaled(factor);
+            self.transport.loop_region = Some(scaled);
+            let position = self.playhead.position_s();
+            if self.transport.loop_active && region.contains(position) && position >= scaled.end_s {
+                self.playhead.seek_s(scaled.wrap(position));
+            }
             self.activate_loop(self.transport.loop_active);
         }
     }

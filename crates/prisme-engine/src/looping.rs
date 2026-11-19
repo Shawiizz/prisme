@@ -25,6 +25,11 @@ impl LoopRegion {
         (self.start_s..self.end_s).contains(&position_s)
     }
 
+    /// `position_s` brought round into the loop, in phase with it.
+    pub fn wrap(&self, position_s: f64) -> f64 {
+        self.start_s + (position_s - self.start_s).rem_euclid(self.length_s())
+    }
+
     /// Same start, length multiplied by `factor`.
     pub fn scaled(&self, factor: f64) -> Self {
         Self { start_s: self.start_s, end_s: self.start_s + self.length_s() * factor }
@@ -68,5 +73,6 @@ mod tests {
         assert_eq!(l.scaled(0.5), LoopRegion { start_s: 4.0, end_s: 5.0 });
         assert_eq!(l.shifted(1.0), LoopRegion { start_s: 5.0, end_s: 7.0 });
         assert!(l.contains(4.0) && !l.contains(6.0));
+        assert_eq!(l.wrap(7.5), 5.5);
     }
 }
