@@ -19,7 +19,7 @@ pub use tags::{read_tags, CoverArt, TrackTags};
 use std::fs::File;
 use std::path::Path;
 use symphonia::core::audio::SampleBuffer;
-use symphonia::core::codecs::DecoderOptions;
+use symphonia::core::codecs::{CodecParameters, DecoderOptions};
 use symphonia::core::errors::Error as SymphoniaError;
 use symphonia::core::formats::{FormatOptions, FormatReader};
 use symphonia::core::io::MediaSourceStream;
@@ -81,6 +81,18 @@ pub struct DecodeStream {
 /// More frames than any codec gets out of a byte (16 kb/s Opus gives about 22).
 const MAX_FRAMES_PER_BYTE: u64 = 64;
 
+/// The most frames a file of `file_bytes` can hold: uncompressed audio takes a byte or more
+/// per sample.
+fn max_frames(params: &CodecParameters, file_bytes: u64) -> u64 {
+    let uncompressed = symphonia::default::get_codecs()
+        .get_codec(params.codec)
+        .is_some_and(|codec| codec.short_name.starts_with("pcm_"));
+    if uncompressed {
+        return file_bytes / params.channels.map_or(1, |c| c.count().max(1)) as u64;
+    }
+    file_bytes.saturating_mul(MAX_FRAMES_PER_BYTE)
+}
+
 /// The container of `path`, ready to give its packets, and the size of the file.
 fn open_format(path: &Path) -> Result<(Box<dyn FormatReader>, u64), MediaError> {
     let file =
@@ -109,11 +121,12 @@ impl DecodeStream {
         Ok(Self {
             track_id: track.id,
             sample_rate: track.codec_params.sample_rate.ok_or(MediaError::NoSampleRate)?,
-            // a damaged header announcing more than its file can hold is not believed
+            // a damaged header, or the placeholder of a file written as a stream, announcing
+            // more than its file can hold is not believed
             estimated_frames: track
                 .codec_params
                 .n_frames
-                .filter(|&n| n <= file_bytes.saturating_mul(MAX_FRAMES_PER_BYTE))
+                .filter(|&n| n <= max_frames(&track.codec_params, file_bytes))
                 .unwrap_or(0) as usize,
             format,
             decoder,
@@ -221,6 +234,16 @@ mod tests {
         let _ = (std::fs::remove_file(&honest), std::fs::remove_file(&lying));
         assert_eq!(stream.unwrap().estimated_frames(), 0);
         assert_eq!(decoded.unwrap().frames(), 1000);
+    }
+
+    #[test]
+    fn an_uncompressed_file_is_not_believed_beyond_a_byte_a_sample() {
+        let lying = wav("overstated", 1000, 1000 * 4 * 16);
+        let stream = DecodeStream::open(&lying);
+        let loaded = LoadingTrack::open(&lying);
+        let _ = std::fs::remove_file(&lying);
+        assert_eq!(stream.unwrap().estimated_frames(), 0);
+        assert_eq!(loaded.unwrap().audio().frames(), 1000);
     }
 
     #[test]
