@@ -48,6 +48,18 @@ fn playing_on_the_deck_stops_at_the_end_of_its_track() {
 }
 
 #[test]
+fn playing_on_with_repeat_the_track_goes_on_from_its_start() {
+    let mut rig = near_the_end(VinylMode::Absolute);
+    rig.send(Command::SetRepeat { deck: 0, enabled: true });
+    rig.turntables[0] = None;
+    rig.run(60.0);
+    let d = rig.deck(0);
+    assert!(d.vinyl.run_out, "{d:?}");
+    assert!((d.speed - 1.03).abs() < 0.01, "{d:?}");
+    assert!(d.position_s < 60.0, "{d:?}");
+}
+
+#[test]
 fn absolute_mode_waits_for_the_vinyl_control_to_be_set_again() {
     let mut rig = near_the_end(VinylMode::Absolute);
     // a needle dropped back at the start would make the track jump: still playing on
