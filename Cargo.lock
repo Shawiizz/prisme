@@ -4223,6 +4223,8 @@ dependencies = [
  "ndk-context",
  "notify",
  "objc2",
+ "objc2-app-kit",
+ "objc2-foundation",
  "percent-encoding",
  "prisme-analysis",
  "prisme-audio-io",

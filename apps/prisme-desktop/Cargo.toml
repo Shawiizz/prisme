@@ -55,8 +55,12 @@ jni = "0.21"
 ndk-context = "0.1"
 webpki-root-certs = "1"
 
-[target.'cfg(target_os = "ios")'.dependencies]
+[target.'cfg(target_vendor = "apple")'.dependencies]
 objc2 = "0.6"
+
+[target.'cfg(target_os = "macos")'.dependencies]
+objc2-app-kit = { version = "0.3", default-features = false, features = ["std", "NSDragging", "NSPasteboard", "NSPasteboardItem", "NSResponder", "NSView"] }
+objc2-foundation = { version = "0.3", default-features = false, features = ["std", "NSArray", "NSGeometry", "NSString", "NSURL"] }
 
 [target.'cfg(windows)'.dependencies]
 webview2-com = "0.39"

@@ -1,7 +1,6 @@
-//! Files dropped from the file manager on Windows. The page handles drops itself
-//! (`dragDropEnabled: false`, so that its tracks drag onto the crates), and a file dropped
-//! there has no path: the page posts it to WebView2 with what it was dropped on, its path is
-//! read here and the page is told with `files-dropped`.
+//! Windows: the page handles drops itself, and a file dropped there has no path: the page
+//! posts it to WebView2 with what it was dropped on, its path is read here and the page is
+//! told with `files-dropped`.
 //!
 //! The message is text: WebView2 stops at the first listener that fails, and Tauri's, which
 //! comes first, fails on any other message. Tauri takes it for a call it cannot read and says
