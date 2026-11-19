@@ -19,7 +19,10 @@ export interface ControllerModel {
 	file: string;
 	name: string;
 	brand: string;
+	/** Its name without its brand, nor how it is spoken to. */
 	model: string;
+	/** Read over USB HID rather than MIDI. */
+	hid: boolean;
 	credits: string;
 	controls: number;
 	lights: number;
@@ -63,6 +66,7 @@ export function controllerModels(): ControllerModel[] {
 		.map((file) => {
 			const p = JSON.parse(readFileSync(resolve(CONTROLLERS_DIR, file), 'utf8'));
 			const brand = BRANDS.find((b) => p.name.startsWith(b)) ?? p.name.split(' ')[0];
+			const hid = p.hid !== undefined;
 			const controls: { target?: string; light?: object; palette?: object }[] = p.controls ?? [];
 			const displays: { source: string }[] = p.displays ?? [];
 			const outputs: { source: string }[] = p.outputs ?? [];
@@ -70,7 +74,11 @@ export function controllerModels(): ControllerModel[] {
 				file,
 				name: p.name,
 				brand,
-				model: p.name.slice(brand.length).trim(),
+				model: p.name
+					.slice(brand.length)
+					.replace(/\(HID\)$/, '')
+					.trim(),
+				hid,
 				credits: p.credits ?? '',
 				controls: controls.length,
 				lights: (p.lights ?? []).length,
@@ -94,6 +102,11 @@ export function controllerModels(): ControllerModel[] {
 			};
 		})
 		.sort((a, b) => a.name.localeCompare(b.name));
+}
+
+/** How many models the profiles map: one known both by MIDI and by HID counts once. */
+export function modelCount(models = controllerModels()): number {
+	return new Set(models.map((m) => `${m.brand} ${m.model}`)).size;
 }
 
 export function brands(models = controllerModels()): string[] {

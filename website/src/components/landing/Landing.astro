@@ -17,7 +17,7 @@ import Controller from './Controller.astro';
 import Zoom from '../Zoom.astro';
 import { strings, type Lang } from '../../i18n/landing';
 import { latestRelease, REPO, RELEASES } from '../../lib/release';
-import { brands, controllerModels } from '../../lib/controllers';
+import { brands, controllerModels, modelCount } from '../../lib/controllers';
 
 interface Props {
 	lang: Lang;
@@ -30,9 +30,10 @@ const other = lang === 'en' ? { href: '/fr/', label: 'FR', name: 'Français' } :
 const release = await latestRelease();
 const models = controllerModels().filter((m) => !m.variant);
 const makers = brands(models);
-const counted = (text: string) => text.replace('{n}', String(models.length));
+const count = modelCount(models);
+const counted = (text: string) => text.replace('{n}', String(count));
 // every model by name, in a line passing under the controller as the waveform passes the playhead
-const names = models.map((m) => m.name);
+const names = [...new Set(models.map((m) => `${m.brand} ${m.model}`))];
 ---
 
 <!doctype html>
@@ -124,7 +125,7 @@ const names = models.map((m) => m.name);
 					<h2>{s.ctrl.title}</h2>
 					<p>{counted(s.ctrl.body)}</p>
 					<div class="numbers">
-						<p><strong>{models.length}</strong> {s.ctrl.count}</p>
+						<p><strong>{count}</strong> {s.ctrl.count}</p>
 						<p><strong>{makers.length}</strong> {s.ctrl.brands}</p>
 					</div>
 					<ul class="ticks">{s.ctrl.points.map((p) => <li>{p}</li>)}</ul>

@@ -7,11 +7,11 @@ sidebar:
 
 import { Aside } from '@astrojs/starlight/components';
 import ControllerTable from '../../../../../components/docs/ControllerTable.astro';
-import { controllerModels, brands } from '../../../../../lib/controllers';
+import { controllerModels, brands, modelCount } from '../../../../../lib/controllers';
 
 export const models = controllerModels().filter((m) => !m.variant);
 
-Prisme connaît {models.length} modèles de contrôleurs de {brands(models).length} marques. Activez-en un dans **Réglages** › **Contrôleurs** et il joue aussitôt, voyants et vumètres compris : voir [Utiliser un contrôleur](/fr/docs/controllers/).
+Prisme connaît {modelCount(models)} modèles de contrôleurs de {brands(models).length} marques, MIDI et [HID](/fr/docs/controllers/#contrôleurs-hid). Activez-en un dans **Réglages** › **Contrôleurs** et il joue aussitôt, voyants et vumètres compris : voir [Utiliser un contrôleur](/fr/docs/controllers/).
 
 Cette liste est lue dans les profils livrés avec Prisme à chaque construction de ce site : c’est donc toujours celle de la version actuelle. Les profils corrigés ou ajoutés depuis votre version vous parviennent tout seuls, [sans nouvelle version](/fr/docs/controllers/#des-profils-toujours-à-jour).
 
@@ -27,6 +27,7 @@ Aucun profil n’a encore été joué sur le contrôleur lui-même : ce sont de
 
 | Colonne | |
 | --- | --- |
+| **HID** | À côté du modèle : il est lu en USB HID plutôt qu’en MIDI. Un modèle connu des deux façons a une ligne pour chacune. |
 | **Commandes** | Combien de mappings le profil liste. Une touche avec une seconde fonction sous Shift, ou sur chaque page de pads, compte une fois par fonction. |
 | **Voyants** | À combien de voyants le profil donne des valeurs propres (couleurs, clignotement, LED distinctes des touches). Toute autre touche mappée s’allume quand même toute seule sur la plupart des modèles. |
 | **Vumètres** | Les vumètres affichés sur le contrôleur : un par deck ou par voie master. |

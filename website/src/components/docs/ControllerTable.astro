@@ -23,6 +23,7 @@ const TEXT = {
 		tried: 'Tried',
 		notYet: 'Not yet',
 		mappingBy: 'Mixxx mapping by',
+		hid: 'Read over USB HID rather than MIDI',
 		variant: 'A variant, chosen in the settings',
 		variants: '/docs/controllers/#variants',
 		screen: { tempo: 'tempo', time: 'time', pitch: 'tempo change' },
@@ -40,6 +41,7 @@ const TEXT = {
 		tried: 'Essayé',
 		notYet: 'Pas encore',
 		mappingBy: 'Mapping Mixxx de',
+		hid: 'Lu en USB HID plutôt qu’en MIDI',
 		variant: 'Une variante, choisie dans les réglages',
 		variants: '/fr/docs/controllers/#variantes',
 		screen: { tempo: 'tempo', time: 'temps', pitch: 'variation de tempo' },
@@ -102,6 +104,7 @@ const shows = (m: ControllerModel) =>
 						<tr>
 							<td>
 								<strong>{m.model}</strong>
+								{m.hid && <span class="hid" title={text.hid}>HID</span>}
 								{m.variant && (
 									<a class="credits" href={text.variants}>
 										{text.variant}
@@ -137,6 +140,15 @@ const shows = (m: ControllerModel) =>
 	}
 	td:first-child {
 		min-width: 11rem;
+	}
+	.hid {
+		margin-inline-start: 0.4rem;
+		padding: 0 0.3rem;
+		border: 1px solid var(--sl-color-gray-5);
+		border-radius: 0.25rem;
+		font-size: var(--sl-text-2xs);
+		color: var(--sl-color-gray-2);
+		vertical-align: 0.1em;
 	}
 	.credits {
 		display: block;

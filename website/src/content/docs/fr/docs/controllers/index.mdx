@@ -35,9 +35,32 @@ Prisme se souvient des contrôleurs que vous avez activés, et de ceux que vous 
 
 ## Contrôleurs HID
 
-Certains contrôleurs ne sont pas MIDI mais HID : les Traktor Kontrol de Native Instruments, les anciens Hercules, les CDJ Pioneer en mode HID. Prisme les joue de la même façon, sous Windows, macOS et Linux : celui d’un modèle qu’il connaît (le Traktor Kontrol S4 MK2) s’ouvre dès qu’il est branché, voyants et vumètres compris, et vous pouvez apprendre les commandes de tout autre. Un appareil HID d’un modèle que Prisme ne connaît pas n’est pas proposé quand il est branché, la plupart des appareils HID n’étant pas des contrôleurs : il est rangé sous **Autres appareils HID**.
+Certains contrôleurs ne sont pas MIDI mais HID : les Traktor Kontrol de Native Instruments, les anciens Hercules, les CDJ Pioneer en mode HID. Prisme les joue de la même façon, sous Windows, macOS et Linux : celui d’un modèle qu’il connaît s’ouvre dès qu’il est branché, voyants et vumètres compris, et vous pouvez apprendre les commandes de tout autre. Un appareil HID d’un modèle que Prisme ne connaît pas n’est pas proposé quand il est branché, la plupart des appareils HID n’étant pas des contrôleurs : il est rangé sous **Autres appareils HID**.
 
-Un contrôleur vu à la fois en MIDI et en HID (un Hercules dont le pilote est installé) n’est utilisé que d’une façon : en HID quand Prisme le connaît ainsi et pas en MIDI, en MIDI sinon.
+Les modèles HID que Prisme connaît, marqués **HID** dans [Contrôleurs pris en charge](/fr/docs/controllers/supported/) :
+
+| Marque | Modèles |
+| --- | --- |
+| Native Instruments | Traktor Kontrol S2 MK1, S2 MK2, S2 MK3, S3, S4 MK2, S4 MK3, F1, Z1 ; Traktor MX2 |
+| Hercules | DJ Console Mk1, DJ Console Mk2, DJ Console RMX, DJ Control MP3 |
+| Pioneer | CDJ-850, CDJ-900, CDJ-2000, en mode HID |
+| EKS | Otus |
+
+Un contrôleur vu à la fois en MIDI et en HID (un Hercules dont le pilote est installé) n’est utilisé que d’une façon : en HID quand Prisme le connaît ainsi et pas en MIDI, en MIDI sinon. Les Hercules DJ Console Mk2 et RMX et les CDJ-850 et CDJ-2000 de Pioneer sont connus des deux façons : ils jouent en MIDI quand leur port est là.
+
+### Ce qu’il faut vérifier sur le vôtre
+
+Aucun profil HID n’a encore été essayé sur le contrôleur lui-même : chacun a été lu dans le mapping de Mixxx et joué sur un contrôleur simulé, qui ne peut pas dire ce que seul le matériel montre. Sur le vôtre, vérifiez :
+
+- qu’il s’ouvre : une notification dit **connecté**. Sinon, fermez tout autre logiciel qui le tient (Traktor, Mixxx), et sous Linux ajoutez la règle udev ci-dessous ;
+- le sens des faders de tempo (plus rapide vers vous, comme dans Mixxx), des jog wheels et des encodeurs ;
+- les voyants : leur intensité, les touches atténuées, les couleurs des pads ;
+- les faders en bout de course, et la vitesse des jog wheels quand vous scratchez.
+
+Une commande ou un voyant qui ne va pas peut être [réappris](/fr/docs/controllers/learn/) sur-le-champ ; dire au projet ce que vous avez trouvé le corrige pour tous ceux qui ont le modèle. Deux modèles sont connus pour être en deçà :
+
+- le **Traktor Kontrol S2 MK1** : le dessus de ses jog wheels est un capteur de pression que Prisme ne lit pas encore, elles recalent donc sans jamais scratcher ;
+- le **Hercules DJ Console Mk2** : Mixxx l’atteint en USB d’une façon qui n’est pas du HID, Prisme peut donc ne pas le voir ; avec le pilote d’Hercules installé, il joue en MIDI.
 
 <Aside type="note" title="Linux">
 Sous Linux, Prisme doit pouvoir lire et écrire le périphérique `/dev/hidraw` du contrôleur : ajoutez une règle udev qui en donne l’accès à votre utilisateur, comme pour Mixxx.
@@ -51,7 +74,7 @@ Sous Windows, un seul logiciel à la fois peut ouvrir un port MIDI. Si un autre 
 
 ## Comment Prisme reconnaît un modèle
 
-Chaque modèle que Prisme connaît a un profil, qui liste les noms sous lesquels son port MIDI se présente. Quand le nom d’un port contient l’un d’eux (majuscules et minuscules confondues), ce profil mappe le contrôleur. Quand plusieurs modèles correspondent, le nom le plus long l’emporte : une DDJ-SB2 n’est donc jamais prise pour une DDJ-SB.
+Chaque modèle que Prisme connaît a un profil, qui liste les noms sous lesquels son port MIDI se présente. Quand le nom d’un port contient l’un d’eux (majuscules et minuscules confondues), ce profil mappe le contrôleur. Quand plusieurs modèles correspondent, le nom le plus long l’emporte : une DDJ-SB2 n’est donc jamais prise pour une DDJ-SB. Un contrôleur HID est reconnu à ses identifiants USB, quel que soit le nom que lui donne votre système.
 
 Sous le nom du contrôleur, les réglages vous disent ce que Prisme en a compris :
 

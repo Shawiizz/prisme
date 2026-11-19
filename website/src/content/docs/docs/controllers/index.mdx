@@ -35,9 +35,32 @@ Prisme remembers the controllers you turned on, and those you turned off: it nev
 
 ## HID controllers
 
-Some controllers are not MIDI but HID devices: Native Instruments' Traktor Kontrol, older Hercules, Pioneer CDJs in HID mode. Prisme plays them the same way, on Windows, macOS and Linux: one of a model it knows (the Traktor Kontrol S4 MK2) opens when plugged in, lights and meters included, and you can learn the controls of any other. A HID device of a model Prisme does not know is not offered when plugged in, as most HID devices are no controllers: it is listed under **Other HID devices**.
+Some controllers are not MIDI but HID devices: Native Instruments' Traktor Kontrol, older Hercules, Pioneer CDJs in HID mode. Prisme plays them the same way, on Windows, macOS and Linux: one of a model it knows opens when plugged in, lights and meters included, and you can learn the controls of any other. A HID device of a model Prisme does not know is not offered when plugged in, as most HID devices are no controllers: it is listed under **Other HID devices**.
 
-A controller seen both as MIDI and as HID (a Hercules whose driver is installed) is used one way only: by HID when Prisme knows it so and not by MIDI, by MIDI otherwise.
+The HID models Prisme knows, marked **HID** in [Supported controllers](/docs/controllers/supported/):
+
+| Brand | Models |
+| --- | --- |
+| Native Instruments | Traktor Kontrol S2 MK1, S2 MK2, S2 MK3, S3, S4 MK2, S4 MK3, F1, Z1; Traktor MX2 |
+| Hercules | DJ Console Mk1, DJ Console Mk2, DJ Console RMX, DJ Control MP3 |
+| Pioneer | CDJ-850, CDJ-900, CDJ-2000, in HID mode |
+| EKS | Otus |
+
+A controller seen both as MIDI and as HID (a Hercules whose driver is installed) is used one way only: by HID when Prisme knows it so and not by MIDI, by MIDI otherwise. The Hercules DJ Console Mk2 and RMX and the Pioneer CDJ-850 and CDJ-2000 are known both ways: they play by MIDI when their port is there.
+
+### What to check on yours
+
+None of the HID profiles has been tried on the controller itself yet: each was read from the mapping of Mixxx and played on a simulated controller, which cannot tell what only the hardware shows. On yours, check:
+
+- that it opens: a notice says **connected**. If not, close any other program holding it (Traktor, Mixxx), and on Linux add the udev rule below;
+- the direction of the tempo faders (faster toward you, as in Mixxx), of the jog wheels and of the encoders;
+- the lights: how bright they are, the dim keys, the colours of the pads;
+- the faders at their ends, and the jog wheels' speed when scratching.
+
+A control or a light that is off can be [learnt again](/docs/controllers/learn/) on the spot; telling the project what you found fixes it for every owner of the model. Two models are known to fall short:
+
+- the **Traktor Kontrol S2 MK1**: the top of its jog wheels is a pressure sensor that Prisme does not read yet, so they nudge but never scratch;
+- the **Hercules DJ Console Mk2**: Mixxx reaches it over USB in a way that is not HID, so Prisme may not see it; with Hercules' driver installed, it plays by MIDI.
 
 <Aside type="note" title="Linux">
 On Linux, Prisme needs to read and write the controller's `/dev/hidraw` device: add a udev rule giving your user access to it, as for Mixxx.
@@ -51,7 +74,7 @@ On Windows, only one program at a time can open a MIDI port. If another DJ progr
 
 ## How Prisme recognises a model
 
-Each model Prisme knows has a profile, which lists the names its MIDI port goes by. When the name of a port contains one of them (upper or lower case alike), that profile maps the controller. When several models fit, the longest name wins, so a DDJ-SB2 is never taken for a DDJ-SB.
+Each model Prisme knows has a profile, which lists the names its MIDI port goes by. When the name of a port contains one of them (upper or lower case alike), that profile maps the controller. When several models fit, the longest name wins, so a DDJ-SB2 is never taken for a DDJ-SB. A HID controller is known by its USB ids instead, whatever your system calls it.
 
 Under the controller's name, the settings tell you what Prisme made of it:
 
