@@ -270,6 +270,26 @@ mod tests {
     }
 
     #[test]
+    fn mp3s_joined_are_decoded_whole_though_the_first_header_counts_its_own_frames() {
+        // the frames after the first's ID3 tag and Info frame, as a file joined to it brings
+        let one = std::fs::read(concat!(env!("CARGO_MANIFEST_DIR"), "/tests/fixtures/silence.mp3")).unwrap();
+        let mut joined = one.clone();
+        for _ in 0..12 {
+            joined.extend_from_slice(&one[45 + 182..]);
+        }
+        let path = std::env::temp_dir().join(format!("prisme-media-{}-joined.mp3", std::process::id()));
+        std::fs::write(&path, joined).unwrap();
+        let loading = LoadingTrack::open(&path).unwrap();
+        let announced = DecodeStream::open(&path).unwrap().estimated_frames();
+        let whole = decode_file(&path).unwrap();
+        let _ = std::fs::remove_file(&path);
+        let (audio, result) = loading.decode_rest_while(|| true);
+        assert!(result.is_ok());
+        assert!(whole.frames() > announced + 2 * 44_100, "{} frames, {announced} announced", whole.frames());
+        assert_eq!(audio.frames(), whole.frames());
+    }
+
+    #[test]
     fn an_aiff_file_decodes() {
         let frames = 1000u32;
         let mut comm = Vec::new();

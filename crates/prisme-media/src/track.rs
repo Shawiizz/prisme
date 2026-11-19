@@ -4,7 +4,8 @@
 //! decoding thread writes past [`TrackAudio::decoded_frames`] and then publishes the new
 //! count (release); readers see only what was published (acquire). Samples are stored as
 //! `f32` bits in `AtomicU32`s: plain loads and stores on x86 and ARM, no locks, no
-//! `unsafe`.
+//! `unsafe`. A track longer than its header said (MP3s joined, the first one's header kept)
+//! gets the frames that found no room in a second buffer once its decoding ends.
 //!
 //! A stem being separated is written in parts from anywhere in the track, islands that grow
 //! and meet ([`TrackAudio::pending`]): a frame can be read once the block of
@@ -15,7 +16,7 @@ use crate::{DecodeStream, MediaError};
 use std::ops::Range;
 use std::path::Path;
 use std::sync::atomic::{AtomicU32, AtomicUsize, Ordering};
-use std::sync::Arc;
+use std::sync::{Arc, OnceLock};
 
 /// Room for more frames than the header announces (it can be slightly off).
 const HEADER_MARGIN_S: usize = 2;
@@ -27,6 +28,8 @@ pub struct TrackAudio {
     sample_rate: u32,
     /// Interleaved stereo samples (`f32` bits).
     samples: Box<[AtomicU32]>,
+    /// The samples that follow those of a full `samples`, set once at the end of the decoding.
+    more: OnceLock<Box<[AtomicU32]>>,
     /// The end of the frames that can be read.
     decoded: AtomicUsize,
     /// The track's length: the header's estimate while decoding, exact afterwards.
@@ -46,6 +49,7 @@ impl TrackAudio {
         Self {
             sample_rate,
             samples: samples.into_iter().map(|s| AtomicU32::new(s.to_bits())).collect(),
+            more: OnceLock::new(),
             decoded: AtomicUsize::new(frames),
             frames: AtomicUsize::new(frames),
             filled: Box::new([]),
@@ -74,6 +78,7 @@ impl TrackAudio {
         Self {
             sample_rate,
             samples: (0..capacity * 2).map(|_| AtomicU32::new(0)).collect(),
+            more: OnceLock::new(),
             decoded: AtomicUsize::new(0),
             frames: AtomicUsize::new(frames),
             filled: Box::new([]),
@@ -132,28 +137,36 @@ impl TrackAudio {
         self.view().frame(i)
     }
 
-    /// The frames that can be read so far, for reading many of them (one atomic load per
-    /// view rather than per frame, two for a pending track; one more per frame of a pending
+    /// The frames that can be read so far, for reading many of them (two atomic loads per
+    /// view rather than per frame, three for a pending track; one more per frame of a pending
     /// track not complete).
     #[inline]
     pub fn view(&self) -> TrackView<'_> {
         if self.is_pending() && !self.is_complete() {
-            return TrackView { samples: &self.samples, filled: Some(&self.filled) };
+            return TrackView { samples: &self.samples, more: &[], filled: Some(&self.filled) };
         }
-        TrackView { samples: &self.samples[..self.decoded_frames() * 2], filled: None }
+        let end = self.decoded_frames() * 2;
+        let more = self
+            .more
+            .get()
+            .map_or(&[][..], |more| &more[..end.saturating_sub(self.samples.len()).min(more.len())]);
+        TrackView { samples: &self.samples[..end.min(self.samples.len())], more, filled: None }
     }
 
     /// Calls `f` with the samples that can be read, interleaved, `block_frames` frames at a
     /// time.
     pub fn for_each_block(&self, block_frames: usize, mut f: impl FnMut(&[f32])) {
-        let mut block = Vec::with_capacity(block_frames * 2);
-        let readable = self.readable();
-        for start in readable.clone().step_by(block_frames.max(1)) {
-            let end = (start + block_frames).min(readable.end);
-            block.clear();
-            block.extend(
-                self.samples[start * 2..end * 2].iter().map(|s| f32::from_bits(s.load(Ordering::Relaxed))),
-            );
+        let block_len = block_frames.max(1) * 2;
+        let mut block = Vec::with_capacity(block_len);
+        let more = self.more.get().map_or(&[][..], |more| &more[..]);
+        for sample in self.samples.iter().chain(more).take(self.readable().end * 2) {
+            block.push(f32::from_bits(sample.load(Ordering::Relaxed)));
+            if block.len() == block_len {
+                f(&block);
+                block.clear();
+            }
+        }
+        if !block.is_empty() {
             f(&block);
         }
     }
@@ -182,8 +195,9 @@ impl TrackAudio {
         }
     }
 
-    /// Appends interleaved frames; those beyond the buffer are dropped. Single writer.
-    fn append(&self, interleaved: &[f32]) {
+    /// Appends interleaved frames, as many as the buffer has room for: how many. Single
+    /// writer.
+    fn append(&self, interleaved: &[f32]) -> usize {
         let start = self.decoded.load(Ordering::Relaxed);
         let room = self.samples.len() / 2 - start;
         let frames = (interleaved.len() / 2).min(room);
@@ -191,10 +205,21 @@ impl TrackAudio {
             slot.store(value.to_bits(), Ordering::Relaxed);
         }
         self.decoded.store(start + frames, Ordering::Release);
+        frames
     }
 
-    fn finish(&self) {
-        self.frames.store(self.decoded.load(Ordering::Relaxed), Ordering::Release);
+    /// Ends the decoding, the interleaved frames that found no room in the buffer, `rest`,
+    /// after it: the length becomes exact.
+    fn finish(&self, rest: Vec<f32>) {
+        let mut decoded = self.decoded.load(Ordering::Relaxed);
+        let frames = rest.len() / 2;
+        if frames > 0
+            && self.more.set(rest.into_iter().map(|s| AtomicU32::new(s.to_bits())).collect()).is_ok()
+        {
+            decoded += frames;
+            self.decoded.store(decoded, Ordering::Release);
+        }
+        self.frames.store(decoded, Ordering::Release);
     }
 }
 
@@ -214,6 +239,8 @@ impl std::fmt::Debug for TrackAudio {
 pub struct TrackView<'a> {
     /// Up to the last readable frame.
     samples: &'a [AtomicU32],
+    /// The readable frames past `samples`, of a track longer than its header said.
+    more: &'a [AtomicU32],
     /// The frames written of each block, while a pending track is not complete.
     filled: Option<&'a [AtomicU32]>,
 }
@@ -237,7 +264,11 @@ impl TrackView<'_> {
             }
         }
         let k = i.checked_mul(2)?;
-        match self.samples.get(k..k + 2) {
+        let frame = match k.checked_sub(self.samples.len()) {
+            None => self.samples.get(k..k + 2),
+            Some(k) => self.more.get(k..k + 2),
+        };
+        match frame {
             Some([l, r]) => {
                 Some((f32::from_bits(l.load(Ordering::Relaxed)), f32::from_bits(r.load(Ordering::Relaxed))))
             }
@@ -251,6 +282,8 @@ impl TrackView<'_> {
 pub struct LoadingTrack {
     audio: Arc<TrackAudio>,
     stream: Option<DecodeStream>,
+    /// The frames decoded once the buffer was full, interleaved.
+    rest: Vec<f32>,
 }
 
 /// Decoded before [`LoadingTrack::open`] returns, so that playback starts with sound.
@@ -263,20 +296,23 @@ impl LoadingTrack {
         let mut stream = DecodeStream::open(path)?;
         let expected = stream.estimated_frames();
         if expected == 0 {
-            return Ok(Self { audio: Arc::new(crate::decode_file(path)?), stream: None });
+            let audio = Arc::new(crate::decode_file(path)?);
+            return Ok(Self { audio, stream: None, rest: Vec::new() });
         }
         let audio = Arc::new(TrackAudio::empty(stream.sample_rate(), expected));
+        let mut track = Self { audio, stream: None, rest: Vec::new() };
         let first = (FIRST_FRAMES_S * stream.sample_rate() as f64) as usize;
         let mut chunk = Vec::new();
-        while audio.decoded_frames() < first {
+        while track.audio.decoded_frames() < first {
             chunk.clear();
             if !stream.next_chunk(&mut chunk)? {
-                audio.finish();
-                return Ok(Self { audio, stream: None });
+                track.finish();
+                return Ok(track);
             }
-            audio.append(&chunk);
+            track.append(&chunk);
         }
-        Ok(Self { audio, stream: Some(stream) })
+        track.stream = Some(stream);
+        Ok(track)
     }
 
     pub fn audio(&self) -> &Arc<TrackAudio> {
@@ -284,9 +320,9 @@ impl LoadingTrack {
     }
 
     /// Decodes the rest of the track while `go_on` says so, asked between packets, each one
-    /// readable in [`Self::audio`] by then: a track no longer wanted ends where its decoding
-    /// was left. A file damaged further on keeps what was decoded, and the error says why it
-    /// stops there.
+    /// readable in [`Self::audio`] by then (those past the room its header gave, at the end): a
+    /// track no longer wanted ends where its decoding was left. A file damaged further on keeps
+    /// what was decoded, and the error says why it stops there.
     pub fn decode_rest_while(
         mut self,
         mut go_on: impl FnMut() -> bool,
@@ -300,7 +336,7 @@ impl LoadingTrack {
                     }
                     chunk.clear();
                     match stream.next_chunk(&mut chunk) {
-                        Ok(true) => self.audio.append(&chunk),
+                        Ok(true) => self.append(&chunk),
                         Ok(false) => break Ok(()),
                         Err(e) => break Err(e),
                     }
@@ -308,8 +344,18 @@ impl LoadingTrack {
             }
             None => Ok(()),
         };
-        self.audio.finish();
+        self.finish();
         (self.audio, result)
+    }
+
+    /// Appends interleaved frames to the track; those that find no room wait for the end.
+    fn append(&mut self, interleaved: &[f32]) {
+        let appended = if self.rest.is_empty() { self.audio.append(interleaved) } else { 0 };
+        self.rest.extend_from_slice(&interleaved[appended * 2..]);
+    }
+
+    fn finish(&mut self) {
+        self.audio.finish(std::mem::take(&mut self.rest));
     }
 }
 
@@ -335,7 +381,7 @@ mod tests {
         assert_eq!(t.frame(2), (0.0, 0.0), "not decoded yet");
         assert!(!t.is_complete());
         t.append(&[0.5, 0.6]);
-        t.finish();
+        t.finish(Vec::new());
         assert_eq!((t.frames(), t.decoded_frames()), (3, 3), "the length becomes exact");
         assert!(t.is_complete());
 
@@ -376,10 +422,20 @@ mod tests {
     }
 
     #[test]
-    fn frames_beyond_the_buffer_are_dropped() {
+    fn frames_beyond_the_buffer_follow_it_once_decoded() {
         let t = TrackAudio::empty(1, 1);
-        t.append(&[1.0; 20]);
-        assert_eq!(t.decoded_frames(), 1 + HEADER_MARGIN_S);
+        let room = 1 + HEADER_MARGIN_S;
+        let frames: Vec<f32> = (0..20).map(|i| (i / 2) as f32).collect();
+        assert_eq!(t.append(&frames), room);
+        assert_eq!(t.frame(room as isize), (0.0, 0.0), "not decoded yet");
+        t.finish(frames[room * 2..].to_vec());
+        assert_eq!((t.frames(), t.decoded_frames()), (10, 10));
+        assert_eq!(t.frame(room as isize), (room as f32, room as f32));
+        assert_eq!(t.view().get(9), Some((9.0, 9.0)));
+        assert_eq!(t.view().get(10), None);
+        let mut seen = Vec::new();
+        t.for_each_block(4, |block| seen.extend_from_slice(block));
+        assert_eq!(seen, frames);
     }
 
     #[test]
@@ -392,7 +448,7 @@ mod tests {
                     let v = i as f32;
                     t.append(&[v; 200]);
                 }
-                t.finish();
+                t.finish(Vec::new());
             })
         };
         while !t.is_complete() {
