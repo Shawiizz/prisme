@@ -25,7 +25,7 @@ crates/
   prisme-library/    base de données des morceaux, scan des dossiers, analyse en arrière-plan
   prisme-stems/      séparation des sources sur le GPU ou le processeur
   prisme-import/     import depuis Serato et rekordbox
-  prisme-control/    messages, mappings et profils des contrôleurs MIDI
+  prisme-control/    messages, mappings et profils des contrôleurs MIDI et HID
   prisme-session/    fichiers de réglages à écriture atomique
 frontend/            l’interface (Angular)
 design/              le design system : DESIGN.md et les écrans de référence
@@ -46,7 +46,7 @@ website/             ce site (Astro et Starlight)
 | `prisme-library` | La base SQLite des morceaux, leur analyse (refaite quand le fichier ou les algorithmes changent), les cues, les crates et l’historique des sets ; le scan des dossiers de musique ; les crates intelligentes ; les doublons ; l’analyse en arrière-plan, en basse priorité. |
 | `prisme-stems` | La séparation en stems avec des réseaux RoFormer (Mel-Band et BS-RoFormer), sur le GPU via wgpu (DirectX 12 ou Vulkan, Metal), ou sur le processeur. |
 | `prisme-import` | Crates, cues, boucles, grilles rythmiques, couleurs et notes depuis Serato et rekordbox, fusionnées sans écraser ce que Prisme a déjà. |
-| `prisme-control` | Les contrôleurs MIDI : ce que disent leurs messages, quelle action pilote chaque commande, les messages qui les allument, et les [profils](/fr/docs/controllers/profiles/) des modèles que Prisme connaît. Ici, les actions ne sont que des noms : c’est l’application qui les exécute. |
+| `prisme-control` | Les contrôleurs MIDI et HID : ce que disent leurs messages et leurs rapports, quelle action pilote chaque commande, les messages qui les allument, et les [profils](/fr/docs/controllers/profiles/) des modèles que Prisme connaît. Ici, les actions ne sont que des noms : c’est l’application qui les exécute. |
 | `prisme-session` | Les réglages gardés dans des fichiers JSON, écrits de façon atomique (un fichier temporaire, puis un renommage), pour qu’un plantage ne laisse jamais un fichier à moitié écrit. |
 
 ## Les règles du temps réel

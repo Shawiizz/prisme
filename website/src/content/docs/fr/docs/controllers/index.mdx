@@ -13,7 +13,7 @@ Prisme se joue avec des contrôleurs DJ MIDI. Pour les [modèles qu’il connaî
 
 Branchez un contrôleur d’un modèle que Prisme connaît et il joue aussitôt : une notification indique **connecté**, avec **Ne pas l’utiliser** si vous préférez que Prisme le laisse de côté. Un contrôleur déjà branché au démarrage de Prisme est ouvert lui aussi.
 
-Tout autre contrôleur MIDI vous est proposé : une notification indique **Nouveau contrôleur**, avec **Configurer**, qui l’active et ouvre **Contrôleurs MIDI** pour [apprendre ses commandes](/fr/docs/controllers/learn/), et **Ignorer**, après quoi il n’est plus proposé (vous pouvez toujours l’activer dans les réglages).
+Tout autre contrôleur MIDI vous est proposé : une notification indique **Nouveau contrôleur**, avec **Configurer**, qui l’active et ouvre **Contrôleurs** pour [apprendre ses commandes](/fr/docs/controllers/learn/), et **Ignorer**, après quoi il n’est plus proposé (vous pouvez toujours l’activer dans les réglages).
 
 ## Activer ou désactiver un contrôleur
 
@@ -21,9 +21,9 @@ Tout autre contrôleur MIDI vous est proposé : une notification indique **Nouv
 
 1. Branchez le contrôleur et allumez-le.
 
-2. Ouvrez les **Réglages** (<kbd>Ctrl</kbd> <kbd>,</kbd>, ou <kbd>⌘</kbd> <kbd>,</kbd> sur Mac) et choisissez **Contrôleurs MIDI**.
+2. Ouvrez les **Réglages** (<kbd>Ctrl</kbd> <kbd>,</kbd>, ou <kbd>⌘</kbd> <kbd>,</kbd> sur Mac) et choisissez **Contrôleurs**.
 
-3. Sous **Contrôleurs**, trouvez votre contrôleur. Il apparaît sous le nom de son port MIDI, avec **Branché** en dessous. Si la liste indique **Aucun contrôleur MIDI branché.**, vérifiez le câble et appuyez sur **Actualiser**.
+3. Sous **Contrôleurs**, trouvez votre contrôleur. Il apparaît sous le nom de son port MIDI (un contrôleur HID sous son nom et ses identifiants USB, `Traktor Kontrol S4 MK2 (HID 17cc:1310)`), avec **Branché** en dessous. Si la liste indique **Aucun contrôleur branché.**, vérifiez le câble et appuyez sur **Actualiser**.
 
 4. Activez l’interrupteur au bout de sa ligne.
 
@@ -33,11 +33,21 @@ Tout autre contrôleur MIDI vous est proposé : une notification indique **Nouv
 
 Prisme se souvient des contrôleurs que vous avez activés, et de ceux que vous avez désactivés : il ne reprend jamais ceux-là de lui-même. Il rouvre les autres à chaque démarrage, et si vous en débranchez un en plein mix (un câble arraché, un hub USB qui redémarre), Prisme relâche tout ce que le contrôleur tenait (touches, jog touché), puis le rouvre dès qu’il revient, voyants compris.
 
+## Contrôleurs HID
+
+Certains contrôleurs ne sont pas MIDI mais HID : les Traktor Kontrol de Native Instruments, les anciens Hercules, les CDJ Pioneer en mode HID. Prisme les joue de la même façon, sous Windows, macOS et Linux : celui d’un modèle qu’il connaît (le Traktor Kontrol S4 MK2) s’ouvre dès qu’il est branché, voyants et vumètres compris, et vous pouvez apprendre les commandes de tout autre. Un appareil HID d’un modèle que Prisme ne connaît pas n’est pas proposé quand il est branché, la plupart des appareils HID n’étant pas des contrôleurs : il est rangé sous **Autres appareils HID**.
+
+Un contrôleur vu à la fois en MIDI et en HID (un Hercules dont le pilote est installé) n’est utilisé que d’une façon : en HID quand Prisme le connaît ainsi et pas en MIDI, en MIDI sinon.
+
+<Aside type="note" title="Linux">
+Sous Linux, Prisme doit pouvoir lire et écrire le périphérique `/dev/hidraw` du contrôleur : ajoutez une règle udev qui en donne l’accès à votre utilisateur, comme pour Mixxx.
+</Aside>
+
 <Aside type="caution" title="Un seul logiciel par contrôleur">
 Sous Windows, un seul logiciel à la fois peut ouvrir un port MIDI. Si un autre logiciel DJ a ouvert le contrôleur, Prisme l’attend : une notification indique que le contrôleur **est utilisé par un autre logiciel**, et dès que vous fermez ce logiciel, Prisme prend le contrôleur et indique qu’il est **connecté**.
 </Aside>
 
-![Réglages, Contrôleurs MIDI, ici sans contrôleur branché : la partie des contrôleurs avec l’actualisation et l’horloge MIDI, puis les profils de contrôleurs, les modèles connus et vos propres profils](../../../../../assets/screens/docs/controllers-settings.png)
+![Réglages, Contrôleurs, ici sans contrôleur branché : la partie des contrôleurs avec l’actualisation et l’horloge MIDI, puis les profils de contrôleurs, les modèles connus et vos propres profils](../../../../../assets/screens/docs/controllers-settings.png)
 
 ## Comment Prisme reconnaît un modèle
 
@@ -115,9 +125,9 @@ Les profils récupérés pilotent aussitôt leurs contrôleurs. Pour vérifier t
 Votre propre profil l’emporte toujours sur celui de Prisme pour le même modèle : dès que vous avez [votre propre profil](/fr/docs/controllers/learn/#un-profil-à-vous) pour un modèle, les mises à jour de ce modèle ne vous parviennent plus, et les réglages le disent en jaune. Les commandes que vous apprenez n’ont pas cet effet : elles restent posées par-dessus le profil de Prisme à mesure qu’il est mis à jour.
 </Aside>
 
-## Les réglages Contrôleurs MIDI
+## Les réglages Contrôleurs
 
-**Réglages** › **Contrôleurs MIDI** regroupe tout ce qui concerne les contrôleurs, en quatre parties.
+**Réglages** › **Contrôleurs** regroupe tout ce qui concerne les contrôleurs, en quatre parties.
 
 ### Contrôleurs
 
@@ -127,6 +137,7 @@ Votre propre profil l’emporte toujours sur celui de Prisme pour le même modè
 | Interrupteur | Active le contrôleur dans Prisme, ou le désactive. |
 | **Exporter en profil…** | Affiché pour un contrôleur activé et branché : écrit ce qu’il pilote maintenant dans un fichier de profil, là où vous le choisissez, à partager ou garder. Ce qu’il pilote ne change pas. Voir [Exporter en profil](/fr/docs/controllers/learn/#exporter-en-profil). |
 | **Actualiser** | Affiché quand aucun contrôleur n’est listé : cherche à nouveau les contrôleurs. |
+| **Autres appareils HID** | Les appareils HID des modèles que Prisme ne connaît pas, repliés : la plupart ne sont pas des contrôleurs. Activez-en un pour apprendre ses commandes. |
 | **Horloge MIDI en sortie** | Envoie une horloge MIDI, 24 impulsions par temps du leader de sync, vers la sortie MIDI de votre choix, pour qu’une boîte à rythmes ou un séquenceur joue avec vous. **Aucune** n’envoie rien. Elle démarre sur un temps et s’arrête quand le leader s’arrête. Voir [Sync](/fr/docs/decks/sync/). |
 
 ### Profils de contrôleurs

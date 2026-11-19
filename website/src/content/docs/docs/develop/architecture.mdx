@@ -46,7 +46,7 @@ website/             this site (Astro and Starlight)
 | `prisme-library` | The SQLite database of the tracks, their analysis (redone when the file or the algorithms change), cues, crates and set history; scanning the music folders; smart crates; duplicates; the background analysis, at low priority. |
 | `prisme-stems` | Stem separation with RoFormer networks (Mel-Band and BS-RoFormer), on the GPU through wgpu (DirectX 12 or Vulkan, Metal), or on the processor. |
 | `prisme-import` | Crates, cues, loops, beat grids, colours and ratings from Serato and rekordbox, merged without overwriting what Prisme already has. |
-| `prisme-control` | MIDI controllers: what their messages say, which action each control drives, the messages that light them, and the [profiles](/docs/controllers/profiles/) of the models Prisme knows. The actions are only names here: the application performs them. |
+| `prisme-control` | MIDI and HID controllers: what their messages and reports say, which action each control drives, the messages that light them, and the [profiles](/docs/controllers/profiles/) of the models Prisme knows. The actions are only names here: the application performs them. |
 | `prisme-session` | Settings kept in JSON files, written atomically (a temporary file, then a rename), so that a crash never leaves half a file. |
 
 ## The real-time rules

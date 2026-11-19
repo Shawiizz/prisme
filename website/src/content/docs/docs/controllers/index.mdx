@@ -1,19 +1,19 @@
 ---
 title: Using a controller
-description: Plug in a MIDI controller, turn it on in Prisme and know what it drives, lights and shows.
+description: Plug in a MIDI or HID controller, turn it on in Prisme and know what it drives, lights and shows.
 sidebar:
   order: 1
 ---
 
 import { Steps, Aside, LinkCard, CardGrid } from '@astrojs/starlight/components';
 
-Prisme plays with MIDI DJ controllers. For the [models it knows](/docs/controllers/supported/), the keys, faders, jog wheels, lights and level meters work as soon as you plug the controller in. You can map any other MIDI controller yourself, one control at a time, with [MIDI learn](/docs/controllers/learn/).
+Prisme plays with DJ controllers, MIDI and HID. For the [models it knows](/docs/controllers/supported/), the keys, faders, jog wheels, lights and level meters work as soon as you plug the controller in. You can map any other MIDI controller yourself, one control at a time, with [MIDI learn](/docs/controllers/learn/).
 
 ## Plug a controller in
 
 Plug in a controller of a model Prisme knows and it plays at once: a notice says **connected**, with **Do not use it** if you would rather Prisme left it alone. A controller already plugged in when Prisme starts is opened too.
 
-Any other MIDI controller is offered: a notice says **New controller**, with **Set up**, which turns it on and opens **MIDI controllers** to [learn its controls](/docs/controllers/learn/), and **Ignore**, after which it is not offered again (you can still turn it on in the settings).
+Any other MIDI controller is offered: a notice says **New controller**, with **Set up**, which turns it on and opens **Controllers** to [learn its controls](/docs/controllers/learn/), and **Ignore**, after which it is not offered again (you can still turn it on in the settings).
 
 ## Turn a controller on or off
 
@@ -21,9 +21,9 @@ Any other MIDI controller is offered: a notice says **New controller**, with **S
 
 1. Plug the controller in and switch it on.
 
-2. Open **Settings** (<kbd>Ctrl</kbd> <kbd>,</kbd>, or <kbd>⌘</kbd> <kbd>,</kbd> on a Mac) and choose **MIDI controllers**.
+2. Open **Settings** (<kbd>Ctrl</kbd> <kbd>,</kbd>, or <kbd>⌘</kbd> <kbd>,</kbd> on a Mac) and choose **Controllers**.
 
-3. Under **Controllers**, find your controller. It is listed by the name of its MIDI port, with **Plugged in** below it. If the list says **No MIDI controller plugged in.**, check the cable and press **Refresh**.
+3. Under **Controllers**, find your controller. It is listed by the name of its MIDI port (a HID controller by its name and its USB ids, `Traktor Kontrol S4 MK2 (HID 17cc:1310)`), with **Plugged in** below it. If the list says **No controller plugged in.**, check the cable and press **Refresh**.
 
 4. Turn on the switch at the end of its row.
 
@@ -33,11 +33,21 @@ Any other MIDI controller is offered: a notice says **New controller**, with **S
 
 Prisme remembers the controllers you turned on, and those you turned off: it never takes these again by itself. It opens the others again at every start, and if you unplug one while playing (a cable pulled, a USB hub that resets), Prisme lets go of whatever the controller was holding (keys, a touched jog wheel), then opens it again as soon as it is back, its lights included.
 
+## HID controllers
+
+Some controllers are not MIDI but HID devices: Native Instruments' Traktor Kontrol, older Hercules, Pioneer CDJs in HID mode. Prisme plays them the same way, on Windows, macOS and Linux: one of a model it knows (the Traktor Kontrol S4 MK2) opens when plugged in, lights and meters included, and you can learn the controls of any other. A HID device of a model Prisme does not know is not offered when plugged in, as most HID devices are no controllers: it is listed under **Other HID devices**.
+
+A controller seen both as MIDI and as HID (a Hercules whose driver is installed) is used one way only: by HID when Prisme knows it so and not by MIDI, by MIDI otherwise.
+
+<Aside type="note" title="Linux">
+On Linux, Prisme needs to read and write the controller's `/dev/hidraw` device: add a udev rule giving your user access to it, as for Mixxx.
+</Aside>
+
 <Aside type="caution" title="One program per controller">
 On Windows, only one program at a time can open a MIDI port. If another DJ program has the controller open, Prisme waits for it: a notice says the controller **is used by another program**, and as soon as you close that program, Prisme takes the controller and says it is **connected**.
 </Aside>
 
-![Settings, MIDI controllers, here with no controller plugged in: the Controllers section with Refresh and MIDI clock out, then Controller profiles with the models known, Look for updates and your own profiles](../../../../assets/screens/docs/controllers-settings.png)
+![Settings, Controllers, here with no controller plugged in: the Controllers section with Refresh and MIDI clock out, then Controller profiles with the models known, Look for updates and your own profiles](../../../../assets/screens/docs/controllers-settings.png)
 
 ## How Prisme recognises a model
 
@@ -115,9 +125,9 @@ The profiles that came drive their controllers at once. To look now, press **Loo
 A profile of your own always wins over Prisme's for the same model: once you have [your own profile](/docs/controllers/learn/#a-profile-of-your-own) for a model, updates to that model no longer reach you, and the settings say so in yellow. The controls you learn do not do that: they stay laid over Prisme's profile as it gets updated.
 </Aside>
 
-## The MIDI controllers settings
+## The Controllers settings
 
-**Settings** › **MIDI controllers** holds everything about controllers, in four parts.
+**Settings** › **Controllers** holds everything about controllers, in four parts.
 
 ### Controllers
 
@@ -127,6 +137,7 @@ A profile of your own always wins over Prisme's for the same model: once you hav
 | Switch | Turns the controller on in Prisme, or off. |
 | **Export as a profile…** | Shown for a controller turned on and plugged in: writes what it drives now to a profile file, where you choose, to share or keep. What it drives does not change. See [Export as a profile](/docs/controllers/learn/#export-as-a-profile). |
 | **Refresh** | Shown when no controller is listed: looks for controllers again. |
+| **Other HID devices** | The HID devices of models Prisme does not know, folded: most are no controllers. Turn one on to learn its controls. |
 | **MIDI clock out** | Sends a MIDI clock, 24 ticks per beat of the sync leader, to the MIDI output you choose, so that a drum machine or a sequencer plays along. **None** sends nothing. It starts on a beat and stops when the leader stops. See [Sync](/docs/decks/sync/). |
 
 ### Controller profiles
