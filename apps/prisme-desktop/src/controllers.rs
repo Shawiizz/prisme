@@ -596,8 +596,9 @@ impl Controllers {
         let profiled: Vec<Mapping> = lock(&self.mappings).all().iter().filter(of_target).cloned().collect();
         self.save(|s| {
             if !s.mappings.all().iter().any(|m| of_target(&m)) {
+                // each of the profile's controls of the action, as many as it has
                 for mapping in profiled {
-                    s.mappings.learn(mapping, Direct::takes_several(target));
+                    s.mappings.learn(mapping, true);
                 }
             }
             s.mappings.set_encoding(device, target, encoding);
@@ -1475,6 +1476,19 @@ mod tests {
         assert!(!learnt.all().is_empty());
         assert!(learnt.all().iter().filter(|m| jog(m)).all(|m| m.encoding == Encoding::Relative));
         assert!(c.mappings().all().iter().filter(|m| jog(m)).all(|m| m.encoding == Encoding::Relative));
+    }
+
+    #[test]
+    fn an_action_on_several_controls_of_a_profile_keeps_them_all_read_another_way() {
+        let c = sb2();
+        let amount = |m: &&Mapping| m.device == "DDJ-SB2" && m.target == "deck1.fx.amount";
+        let profiled: Vec<Mapping> = c.mappings().all().iter().filter(amount).cloned().collect();
+        assert!(profiled.len() > 1);
+        c.set_encoding("DDJ-SB2", "deck1.fx.amount", Encoding::RelativeOffset);
+        let read: Vec<Mapping> = c.mappings().all().iter().filter(amount).cloned().collect();
+        let expected: Vec<Mapping> =
+            profiled.into_iter().map(|m| with(m, |b| b.encoding = Encoding::RelativeOffset)).collect();
+        assert_eq!(read, expected);
     }
 
     #[test]

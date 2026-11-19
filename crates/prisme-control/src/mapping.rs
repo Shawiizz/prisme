@@ -338,6 +338,17 @@ impl Mapping {
     pub fn new(device: &str, binding: ProfileControl) -> Self {
         Self { device: device.to_owned(), binding }
     }
+
+    /// Whether `learnt` takes this one's place: on its controller, its control in its layer
+    /// (in every mode, for a control learnt in none), or the control of its action, unless the
+    /// action takes `several`.
+    fn replaced_by(&self, learnt: &Mapping, several: bool) -> bool {
+        let same_control = self.control == learnt.control
+            && self.shift == learnt.shift
+            && learnt.when.as_ref().is_none_or(|when| self.when.as_ref() == Some(when))
+            && self.on_value == learnt.on_value;
+        self.device == learnt.device && (same_control || (self.target == learnt.target && !several))
+    }
 }
 
 impl std::ops::Deref for Mapping {
@@ -397,14 +408,7 @@ impl Mappings {
     /// Adds `mapping`, replacing what its control did in its layer and the control its
     /// action had on that controller, unless the action takes `several`.
     pub fn learn(&mut self, mapping: Mapping, several: bool) {
-        self.0.retain(|m| {
-            let same_control = m.control == mapping.control
-                && m.shift == mapping.shift
-                && m.when == mapping.when
-                && m.on_value == mapping.on_value;
-            let replaced = same_control || (m.target == mapping.target && !several);
-            m.device != mapping.device || !replaced
-        });
+        self.0.retain(|m| !m.replaced_by(&mapping, several));
         self.0.push(mapping);
     }
 
@@ -437,11 +441,10 @@ impl Mappings {
         unmapped: impl Fn(&Mapping) -> bool,
         several: impl Fn(&str) -> bool,
     ) -> Self {
-        let mut layered = Mappings(model.into_iter().filter(|m| !unmapped(m)).collect());
-        for mapping in learnt.all() {
-            layered.learn(mapping.clone(), several(&mapping.target));
-        }
-        layered
+        let replaced = |m: &Mapping| learnt.all().iter().any(|l| m.replaced_by(l, several(&l.target)));
+        let mut layered: Vec<Mapping> = model.into_iter().filter(|m| !unmapped(m) && !replaced(m)).collect();
+        layered.extend(learnt.all().iter().cloned());
+        Mappings(layered)
     }
 }
 
@@ -840,6 +843,40 @@ mod tests {
         assert_eq!(target(KNOB), None);
         assert_eq!(target(Control { number: 21, ..KNOB }), Some("deck1.volume"));
         assert_eq!(target(SHIFT_KEY), None, "forgotten");
+    }
+
+    #[test]
+    fn a_control_learnt_over_a_profile_drives_its_action_in_every_mode() {
+        let mode = |name: &str| When { group: "beatFx".into(), mode: name.into() };
+        let model = [
+            with(mapping("DDJ", PAD, "deck1.fx"), |b| b.when = Some(mode("1"))),
+            with(mapping("DDJ", PAD, "deck1.fx2"), |b| b.when = Some(mode("2"))),
+        ];
+        let mut learnt = Mappings::default();
+        learnt.learn(mapping("DDJ", PAD, "deck1.censor"), false);
+        let layered = Mappings::layered(model, &learnt, |_| false, |_| false);
+        let pressed = Event { control: PAD, raw: 127 };
+        for chosen in ["1", "2"] {
+            let modes = Modes::from([("beatFx".into(), chosen.into())]);
+            let found = layered.find("DDJ", pressed, &Shifts::default(), &modes);
+            assert_eq!(found.map(|m| m.target.as_str()), Some("deck1.censor"));
+            assert_eq!(layered.shown("DDJ", &Shifts::default(), &modes), [&learnt.all()[0]]);
+        }
+    }
+
+    #[test]
+    fn the_controls_learnt_for_one_action_are_all_laid_over_the_model() {
+        let mode = |name: &str| When { group: "decks".into(), mode: name.into() };
+        let model = [
+            with(mapping("DDJ", KNOB, "deck1.pitch"), |b| b.when = Some(mode("1-2"))),
+            with(mapping("DDJ", KNOB, "deck1.pitch"), |b| b.when = Some(mode("1-4"))),
+        ];
+        let mut learnt = Mappings::default();
+        for mapping in model.iter().cloned() {
+            learnt.learn(with(mapping, |b| b.encoding = Encoding::Relative), true);
+        }
+        let layered = Mappings::layered(model, &learnt, |_| false, |_| false);
+        assert_eq!(layered, learnt);
     }
 
     #[test]
