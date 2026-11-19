@@ -93,6 +93,7 @@ export class EngineService {
       (_, i) => i,
     ),
   );
+  private readonly deckCount = computed(() => this.deckIndexes().length);
   readonly error = signal<string | null>(null);
 
   readonly audioRunning = computed(() => this.status()?.audioRunning ?? false);
@@ -101,6 +102,15 @@ export class EngineService {
     // what failed while the audio was away is behind once it runs again
     effect(() => {
       if (this.audioRunning()) untracked(() => this.error.set(null));
+    });
+    // fewer decks leave the others empty, as the backend leaves them
+    effect(() => {
+      const count = this.deckCount();
+      const kept = <T>(values: (T | null)[]) => values.map((v, d) => (d < count ? v : null));
+      untracked(() => {
+        this.tracks.update(kept);
+        this.waveforms.update(kept);
+      });
     });
   }
 
@@ -181,13 +191,6 @@ export class EngineService {
     const keyShift = Math.max(-MAX_KEY_SHIFT, Math.min(MAX_KEY_SHIFT, semitones));
     this.patch(this.tracks, deck, { ...track, keyShift });
     return this.call('set_key_shift', { deck, semitones: keyShift });
-  }
-
-  /** Reads again what is on the decks (fewer decks leave the others empty). */
-  async refreshTracks() {
-    const tracks = await invoke<(TrackInfo | null)[]>('loaded_tracks');
-    this.tracks.set(tracks);
-    this.waveforms.update((waveforms) => waveforms.map((w, deck) => (tracks[deck] ? w : null)));
   }
 
   /** The deck `deck` is mixed with: another one playing, else the one beside it (A and B, C

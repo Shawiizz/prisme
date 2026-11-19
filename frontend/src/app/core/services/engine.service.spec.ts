@@ -1,7 +1,15 @@
 import { TestBed } from '@angular/core/testing';
 import { clearMocks, mockIPC } from '@tauri-apps/api/mocks';
-import { Cue, DeckStatus, DeckTrackUpdate, EngineStatus, TrackInfo } from '../models/engine';
+import {
+  Cue,
+  DeckStatus,
+  DeckTrackUpdate,
+  EngineStatus,
+  TrackInfo,
+  Waveform,
+} from '../models/engine';
 import { EngineService } from './engine.service';
+import { PreferencesService } from './preferences.service';
 
 function deck(changes: Partial<DeckStatus> = {}): DeckStatus {
   return {
@@ -129,6 +137,25 @@ describe('EngineService', () => {
       await engine.setSync(0, false);
       expect(calls).toEqual([['set_sync_locked', { deck: 0, locked: false }]]);
       expect(engine.decks()[0].pitch).toBe(1);
+    });
+  });
+
+  describe('fewer decks', () => {
+    it('leaves C and D empty, as the backend leaves them', () => {
+      const dj = TestBed.inject(PreferencesService).dj;
+      const decks = (deckCount: number) => {
+        dj.update((p) => ({ ...p, deckCount }));
+        TestBed.tick();
+      };
+      const track = (loadId: number) => ({ loadId }) as TrackInfo;
+      decks(4);
+      engine.tracks.set([track(1), track(2), track(3), track(4)]);
+      engine.waveforms.set(Array(4).fill({} as Waveform));
+      decks(2);
+      expect(engine.tracks()).toEqual([track(1), track(2), null, null]);
+      expect(engine.waveforms().map((w) => w !== null)).toEqual([true, true, false, false]);
+      decks(4);
+      expect(engine.tracks()[2]).toBeNull();
     });
   });
 

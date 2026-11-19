@@ -348,7 +348,7 @@ export class SettingsDialog implements OnInit {
     } catch (e) {
       this.engine.error.set(errorText(e));
     } finally {
-      await Promise.all([this.service.refresh(), this.engine.refreshTracks()]);
+      await this.service.refresh();
     }
   }
 
