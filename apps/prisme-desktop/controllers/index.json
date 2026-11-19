@@ -26,8 +26,8 @@
       "format": 2
     },
     "american-audio-vms2.json": {
-      "sha256": "d1c64ed60e882b6b1f312f58833d6b58783c4e7b373a0dc7d4c1b0825ab3af2d",
-      "revision": 1,
+      "sha256": "c09a8527581ec01c583f0295ff41e5fd935858a089370b181e0b90c774db2285",
+      "revision": 2,
       "format": 2
     },
     "american-audio-vms4.json": {
@@ -56,9 +56,9 @@
       "format": 2
     },
     "behringer-cmd-micro.json": {
-      "sha256": "42cd2a39cff91082f9ad11478d0b3475ced0accf91ac35d2ae897afb0552cba3",
-      "revision": 2,
-      "format": 1
+      "sha256": "629bc855adfff8d10b8baaa6fc723aa5bf8bf8e3f1e457eb8030090b24e48b31",
+      "revision": 3,
+      "format": 2
     },
     "behringer-cmd-mm-1.json": {
       "sha256": "68d5482c4c2ce06cc70479061ac094b4ed85df20651ce1e154d02ede032f7163",
@@ -81,13 +81,13 @@
       "format": 2
     },
     "denon-dn-sc2000.json": {
-      "sha256": "5712e56c05f2303dc4fdeffba4999f80396df0a299d2a23b6284f0d4734d7a99",
-      "revision": 3,
+      "sha256": "a9652e1a0dec48ecc148f9ebf73f2bef83de9779b10e6fdd6ca001246bcb4818",
+      "revision": 4,
       "format": 2
     },
     "denon-mc3000.json": {
-      "sha256": "74fde377c84a5afdfaffca3a15de7d94a41f59a3d77cea0a139403bf12c529e2",
-      "revision": 5,
+      "sha256": "118df8bb7cae7390b260d5eb5e400a9797d1fb9e8d166b79664e70b8dd1c233f",
+      "revision": 6,
       "format": 2
     },
     "denon-mc4000.json": {
@@ -116,13 +116,13 @@
       "format": 2
     },
     "dj-tech-i-mix-reload.json": {
-      "sha256": "281815371bdad045ee90e9e4eb06bab2dc8b56e239f1271d977cf40c055976a4",
-      "revision": 1,
+      "sha256": "58c5323820f2b7fef0c082390cabf54c9d01bb186ec19af9d7021d151591c0e2",
+      "revision": 2,
       "format": 2
     },
     "dj-tech-kontrol-one.json": {
-      "sha256": "b5727cb7c50b9d6a71c4b6e897c52c87c1087525f66be7f6af1d7d22f62cd1e6",
-      "revision": 1,
+      "sha256": "6bb6b07d312c5faedb4231fd36b2ecddbaac538d9e894bc630d1ce37457822cb",
+      "revision": 2,
       "format": 2
     },
     "dj-tech-mix-101.json": {
@@ -151,23 +151,23 @@
       "format": 2
     },
     "evolution-x-session.json": {
-      "sha256": "a5b7a3e72f236090107bca83ea6b189b291939a9b2a011ac6733ce7bfafb0d5b",
-      "revision": 1,
+      "sha256": "82244e0241e1dee9fc086e24a9e386960ab830be3f3d1e9ea150e89bc94f0f07",
+      "revision": 2,
       "format": 2
     },
     "faderfox-dj2.json": {
-      "sha256": "fcae6efb7c3f17bfa93cba54803461e8e8c41c0c8de519de3264dda61a207c15",
-      "revision": 1,
+      "sha256": "968fb771a58b7efc8559dfa49ab18cd1ca084a5f2df982bb1e073fa5dad5f90d",
+      "revision": 2,
       "format": 2
     },
     "gemini-cdmp-7000-l.json": {
-      "sha256": "dc9800c0d4fba62b07a5f3a5e0c2aaf2a187f8e7f35c14336b5c731e286a1097",
-      "revision": 1,
+      "sha256": "b4fda6a11162106e594be0cca88bfd62da6eab7abf99b132788ba3aa3c46529e",
+      "revision": 2,
       "format": 2
     },
     "gemini-cdmp-7000-r.json": {
-      "sha256": "c3f0307cd014191344769c24c955d3bb73f9a4de40faea4a9eab34604b94de27",
-      "revision": 1,
+      "sha256": "9a63dd524fd8dec7a9e4c369b310c3be82f6bd72e3976ffb0e20cb8edaf678cb",
+      "revision": 2,
       "format": 2
     },
     "gemini-firstmix.json": {
@@ -311,8 +311,8 @@
       "format": 2
     },
     "korg-nanokontrol2.json": {
-      "sha256": "64a6af008bbd499516094389fa652d15868e57ff4c611128a66573c0896bc592",
-      "revision": 1,
+      "sha256": "1557664e5bd72d1172612506971bcf82a279e5bc4301ca93536e7d7baffdf482",
+      "revision": 2,
       "format": 2
     },
     "korg-nanopad2.json": {
@@ -341,8 +341,8 @@
       "format": 2
     },
     "mixman-dm2.json": {
-      "sha256": "8559fcb482d26286d4a3b9dd8b80309f087e14511990d1b4a12e57e693690e72",
-      "revision": 1,
+      "sha256": "46a0819d9e78a9939316eeb65c3bf2c47b05b06f6d003afb5a78eaf2abf630ac",
+      "revision": 2,
       "format": 2
     },
     "mixvibes-u-mix-control-2.json": {
@@ -386,14 +386,14 @@
       "format": 2
     },
     "numark-dj2go.json": {
-      "sha256": "092b983b7b667f4379a89a46f22c25e7642f5860726d640bf19a08f1a15c354b",
-      "revision": 2,
-      "format": 1
+      "sha256": "d28d1b6b3a0017759f8e79bffa038edb6b14a29dfb60020affd495715a8a087c",
+      "revision": 3,
+      "format": 2
     },
     "numark-dj2go2-touch.json": {
-      "sha256": "0f779154daf58bc107dd306bcd7e2da8369649e3075318ff0cffed016bf2386f",
-      "revision": 2,
-      "format": 1
+      "sha256": "19038d2be2421f4b3b0951b0a01301fb5645593bad3edcb4f62c35de3366c261",
+      "revision": 3,
+      "format": 2
     },
     "numark-idj-live-ii.json": {
       "sha256": "648a4d8a7f411dd95e54dfa4bfd495e168c2f6a5ba6ef96625d75c6c35941905",
@@ -406,9 +406,9 @@
       "format": 2
     },
     "numark-mixtrack-2.json": {
-      "sha256": "acb988f74228bb88e601f8418d21fe959dd0336d25a1e30b41fde557c0014619",
-      "revision": 2,
-      "format": 1
+      "sha256": "396f1d542cb64190e3a0a0225acfd0d01217097f9130c6f275e9611c8fc9e1e2",
+      "revision": 3,
+      "format": 2
     },
     "numark-mixtrack-platinum-fx.json": {
       "sha256": "32d9cd372f16d2bcbe2219b446d51a4be101eb8e4b41be3ca1aa39021b9c8327",
@@ -436,13 +436,13 @@
       "format": 2
     },
     "numark-mixtrack.json": {
-      "sha256": "76dc8984b1ac49d41f9660ea63c5e6f316d503d9943c5f44e653baf10f52f8fa",
-      "revision": 3,
+      "sha256": "e8dfbdfc2a3a3c61f25ba55387d0334017ec1b8b3bb81f68915f5396719fb290",
+      "revision": 4,
       "format": 2
     },
     "numark-n4.json": {
-      "sha256": "121b349ac6df229e2213834243df565b2e17a92c7a87f0158f28dcbf592d78a7",
-      "revision": 1,
+      "sha256": "93851b21815d1c90634bc3483555dcebffcc45324a2fb7074a184e24a5e3770e",
+      "revision": 2,
       "format": 2
     },
     "numark-ns4fx.json": {
@@ -461,8 +461,8 @@
       "format": 2
     },
     "numark-omni-control.json": {
-      "sha256": "12c1e8ed1a507eb2d77016f7abe7c95519b80329a7f246712e3e88a41cabc594",
-      "revision": 1,
+      "sha256": "5f826da6720f1ce0f693bd10faa062fc9697498d528b5a5110af1c0bd4c981fb",
+      "revision": 2,
       "format": 2
     },
     "numark-party-mix.json": {
@@ -476,8 +476,8 @@
       "format": 2
     },
     "numark-total-control.json": {
-      "sha256": "b6efceb91aca65c11a9f8f9ac1fcc13fa1cb11ac5ae1a339fc650d601444b2da",
-      "revision": 1,
+      "sha256": "d2c13ec552304e1d4add99deec7a0cf72bd7d91d7ea8bc8bca245c537577c7cd",
+      "revision": 2,
       "format": 2
     },
     "numark-v7.json": {
@@ -566,8 +566,8 @@
       "format": 2
     },
     "reloop-jockey-3-me.json": {
-      "sha256": "029697eca0d864b889565a51768a5cb87838579e4799e015d1157ca1828aaad7",
-      "revision": 4,
+      "sha256": "6f9c6e62aab4db3856e7a031f80c624b44ff47ecbb36621db3805aaa90b3fcba",
+      "revision": 5,
       "format": 2
     },
     "reloop-mixage.json": {
@@ -641,8 +641,8 @@
       "format": 2
     },
     "yaeltex-minimixxx.json": {
-      "sha256": "4344b8af7e6e4a0ba994ed61874307745dceb19b17b5b0428a7bd6ce03d42f99",
-      "revision": 1,
+      "sha256": "d9ef751d2e4787207f256a578a4a7c15101322ec69649dfd1b7fa580b9ab35f2",
+      "revision": 2,
       "format": 2
     }
   }

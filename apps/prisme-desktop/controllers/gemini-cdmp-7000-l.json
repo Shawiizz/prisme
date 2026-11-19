@@ -39,7 +39,7 @@
     {"control": {"kind": "note", "channel": 0, "number": 24}, "target": "deck1.jog.touch", "light": {"on": 0}},
     {"control": {"kind": "controlChange", "channel": 0, "number": 32}, "target": "deck1.jog", "encoding": "relativeOffset"},
     {"control": {"kind": "note", "channel": 0, "number": 14}, "target": "deck1.jog.scratch"},
-    {"control": {"kind": "controlChange", "channel": 0, "number": 33}, "target": "deck1.pitch"},
+    {"control": {"kind": "controlChange", "channel": 0, "number": 33}, "target": "deck1.pitch", "invert": true},
     {"control": {"kind": "note", "channel": 0, "number": 3}, "target": "deck1.tempo.up"},
     {"control": {"kind": "note", "channel": 0, "number": 4}, "target": "deck1.tempo.down"},
     {"control": {"kind": "note", "channel": 0, "number": 9}, "target": "deck1.search.back"},
