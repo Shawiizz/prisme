@@ -59,6 +59,8 @@ pub enum AppError {
     Rekordbox(#[from] prisme_import::rekordbox::RekordboxError),
     #[error("MIDI: {0}")]
     Midi(String),
+    #[error("HID: {0}")]
+    Hid(String),
     #[error(transparent)]
     Latency(#[from] LatencyError),
     #[error("controller {0} is not plugged in")]
@@ -120,6 +122,7 @@ impl AppError {
             AppError::Library(_) => ("library", none()),
             AppError::Rekordbox(_) => ("rekordbox", none()),
             AppError::Midi(_) => ("midi", none()),
+            AppError::Hid(_) => ("hid", none()),
             AppError::Latency(LatencyError::Audio(e)) | AppError::Audio(e) => audio_code(e),
             AppError::Latency(LatencyError::NoClick { output, input }) => {
                 ("noClick", json!({ "output": output, "input": input }))

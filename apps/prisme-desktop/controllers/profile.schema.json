@@ -17,50 +17,63 @@
       "type": "object"
     },
     "Control": {
-      "description": "A physical control of a controller.",
-      "properties": {
-        "channel": {
-          "description": "0 to 15.",
-          "format": "uint8",
-          "maximum": 15,
-          "minimum": 0,
-          "type": "integer"
-        },
-        "kind": {
-          "$ref": "#/$defs/ControlKind"
-        },
-        "number": {
-          "description": "Note or controller number; 0 for the pitch bend.",
-          "format": "uint8",
-          "maximum": 127,
-          "minimum": 0,
-          "type": "integer"
-        }
-      },
-      "required": [
-        "kind",
-        "channel",
-        "number"
-      ],
-      "type": "object"
-    },
-    "ControlKind": {
+      "description": "A physical control of a controller: what one of its MIDI messages addresses, or a field of\none of its HID reports.",
       "oneOf": [
         {
-          "enum": [
-            "pitchBend"
+          "$ref": "#/$defs/Midi",
+          "description": "A note: buttons and pads.",
+          "properties": {
+            "kind": {
+              "const": "note",
+              "type": "string"
+            }
+          },
+          "required": [
+            "kind"
           ],
-          "type": "string"
+          "type": "object"
         },
         {
-          "const": "note",
-          "description": "Buttons and pads.",
-          "type": "string"
+          "$ref": "#/$defs/Midi",
+          "description": "A controller: knobs, faders, encoders (and the buttons of some controllers).",
+          "properties": {
+            "kind": {
+              "const": "controlChange",
+              "type": "string"
+            }
+          },
+          "required": [
+            "kind"
+          ],
+          "type": "object"
         },
         {
-          "const": "controlChange",
-          "description": "Knobs, faders, encoders (and the buttons of some controllers).",
-          "type": "string"
+          "$ref": "#/$defs/Midi",
+          "description": "The pitch bend, its number 0.",
+          "properties": {
+            "kind": {
+              "const": "pitchBend",
+              "type": "string"
+            }
+          },
+          "required": [
+            "kind"
+          ],
+          "type": "object"
+        },
+        {
+          "$ref": "#/$defs/Field",
+          "description": "A field of a HID report.",
+          "properties": {
+            "kind": {
+              "const": "hid",
+              "type": "string"
+            }
+          },
+          "required": [
+            "kind"
+          ],
+          "type": "object"
         }
       ]
     },
@@ -140,7 +153,7 @@
       "description": "A byte of a display's message, or the place of its value."
     },
     "Encoding": {
-      "description": "How a control's values are read.",
+      "description": "How a control's values are read. The steps are told here in 7-bit values; a HID field's\nare read the same over its own bits (a 4-bit counter wraps at 16).",
       "oneOf": [
         {
           "const": "absolute",
@@ -196,6 +209,119 @@
         }
       ],
       "description": "Where a key puts a fader's action: at a position, or at each of two in turn."
+    },
+    "Field": {
+      "description": "A value in a report: a key's bit, a fader's 12 bits, a counter's byte, a light's.",
+      "properties": {
+        "bigEndian": {
+          "description": "Its bytes from the most significant, when it has several (little-endian otherwise, as\nmost devices write them).",
+          "type": "boolean"
+        },
+        "bit": {
+          "description": "Its lowest bit in that byte.",
+          "format": "uint8",
+          "maximum": 7,
+          "minimum": 0,
+          "type": "integer"
+        },
+        "bits": {
+          "description": "How many bits it has: 1 for a key or a light, up to 16; 24 for a light of three colours\n(its red, green and blue bytes).",
+          "format": "uint8",
+          "maximum": 24,
+          "minimum": 1,
+          "type": "integer"
+        },
+        "byte": {
+          "description": "Its first byte, counted from the report's first.",
+          "format": "uint16",
+          "maximum": 65535,
+          "minimum": 0,
+          "type": "integer"
+        },
+        "report": {
+          "description": "The id of its report, 0 for a device that does not number its reports.",
+          "format": "uint8",
+          "maximum": 255,
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "byte"
+      ],
+      "type": "object"
+    },
+    "HidDevice": {
+      "description": "How Prisme finds a HID controller among the devices plugged in, and what it writes to it.",
+      "properties": {
+        "brightness": {
+          "description": "A light's value at full: the colours of three-colour lights are scaled to it.",
+          "format": "uint8",
+          "maximum": 255,
+          "minimum": 0,
+          "type": "integer"
+        },
+        "interface": {
+          "description": "The USB interface of its controls, when it has others (its sound card's).",
+          "format": "uint8",
+          "maximum": 255,
+          "minimum": 0,
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "leds": {
+          "description": "The light of each key that has one, a field of an output report.",
+          "items": {
+            "$ref": "#/$defs/Led"
+          },
+          "type": "array"
+        },
+        "outputs": {
+          "description": "Its output reports, which its lights are fields of.",
+          "items": {
+            "$ref": "#/$defs/OutputReport"
+          },
+          "type": "array"
+        },
+        "productId": {
+          "format": "uint16",
+          "maximum": 65535,
+          "minimum": 0,
+          "type": "integer"
+        },
+        "usage": {
+          "format": "uint16",
+          "maximum": 65535,
+          "minimum": 0,
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "usagePage": {
+          "description": "The usage page and usage of its controls' collection, when it has several.",
+          "format": "uint16",
+          "maximum": 65535,
+          "minimum": 0,
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "vendorId": {
+          "format": "uint16",
+          "maximum": 65535,
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "vendorId",
+        "productId"
+      ],
+      "type": "object"
     },
     "Hold": {
       "description": "A second action for a key held down for `ms` milliseconds: pressed and let go sooner, it\ndrives its own.",
@@ -279,6 +405,22 @@
       ],
       "type": "object"
     },
+    "Led": {
+      "description": "The light of `control`, a key: `led`, a field of an output report.",
+      "properties": {
+        "control": {
+          "$ref": "#/$defs/Control"
+        },
+        "led": {
+          "$ref": "#/$defs/Control"
+        }
+      },
+      "required": [
+        "control",
+        "led"
+      ],
+      "type": "object"
+    },
     "LightValue": {
       "anyOf": [
         {
@@ -323,7 +465,7 @@
           "type": "array"
         }
       ],
-      "description": "A light's value in a state: steady, two in turn, or a whole message of its own (for the\nmodels addressing their lights otherwise than by a value on the control's note)."
+      "description": "A light's value in a state: steady, two in turn, or a whole message of its own (for the\nmodels addressing their lights otherwise than by a value on the control's note; of a HID\nlight, its bytes: the red, green and blue of a light of three colours)."
     },
     "LightValues": {
       "additionalProperties": {
@@ -450,6 +592,30 @@
       ],
       "type": "object"
     },
+    "Midi": {
+      "description": "Where a MIDI message goes.",
+      "properties": {
+        "channel": {
+          "description": "0 to 15.",
+          "format": "uint8",
+          "maximum": 15,
+          "minimum": 0,
+          "type": "integer"
+        },
+        "number": {
+          "description": "Note or controller number; 0 for the pitch bend.",
+          "format": "uint8",
+          "maximum": 127,
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "channel",
+        "number"
+      ],
+      "type": "object"
+    },
     "ModeGroup": {
       "description": "A group of controls and its modes, the first one to begin with, each chosen by a key\nwhose light shows whether it is the one (`on`, `off`).",
       "properties": {
@@ -545,6 +711,40 @@
       ],
       "type": "object"
     },
+    "OutputReport": {
+      "description": "An output report: `length` bytes, its id the first, holding `bytes` (a header, a light always\non) by their place beside what its lights show.",
+      "properties": {
+        "bytes": {
+          "additionalProperties": false,
+          "patternProperties": {
+            "^\\d+$": {
+              "format": "uint8",
+              "maximum": 255,
+              "minimum": 0,
+              "type": "integer"
+            }
+          },
+          "type": "object"
+        },
+        "length": {
+          "format": "uint16",
+          "maximum": 65535,
+          "minimum": 1,
+          "type": "integer"
+        },
+        "report": {
+          "format": "uint8",
+          "maximum": 255,
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "report",
+        "length"
+      ],
+      "type": "object"
+    },
     "ProfileControl": {
       "description": "A control and the action it drives, and how: a control of a profile, or one learnt.",
       "properties": {
@@ -591,7 +791,7 @@
           "$ref": "#/$defs/Encoding"
         },
         "fine": {
-          "description": "The controller sending the low 7 bits of a 14-bit control (its high 7 bits on\n`control`, by convention the number 32 lower).",
+          "description": "The controller sending the low 7 bits of a 14-bit control (its high 7 bits on\n`control`, a controller, by convention the number 32 lower).",
           "format": "uint8",
           "maximum": 255,
           "minimum": 0,
@@ -3825,8 +4025,19 @@
       },
       "type": "array"
     },
+    "hid": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/HidDevice"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "A HID controller: how it is found, and its output reports. Its controls and lights are\nfields of its reports."
+    },
     "init": {
-      "description": "Sent when the controller is opened (a request for its knobs' positions, say), some a\nwhile after.",
+      "description": "Sent when the controller is opened (a request for its knobs' positions, say), some a\nwhile after; to a HID controller, whole output reports.",
       "items": {
         "$ref": "#/$defs/InitMessage"
       },
@@ -3879,7 +4090,7 @@
       "type": "array"
     },
     "ports": {
-      "description": "The controller is the MIDI port whose name holds one of these (case aside); of\nseveral models, the one whose name is the longest (a DDJ-SB2 is no DDJ-SB).",
+      "description": "The controller is the MIDI port whose name holds one of these (case aside); of\nseveral models, the one whose name is the longest (a DDJ-SB2 is no DDJ-SB). None for a\nHID controller.",
       "items": {
         "type": "string"
       },
@@ -3896,7 +4107,6 @@
   },
   "required": [
     "name",
-    "ports",
     "controls"
   ],
   "title": "Prisme controller profile",

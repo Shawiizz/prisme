@@ -1,11 +1,12 @@
-//! MIDI controllers: what their messages say, and which of the application's actions
-//! each control drives.
+//! Controllers, MIDI and HID: what their messages and reports say, and which of the
+//! application's actions each control drives.
 //!
 //! The actions are only names here (`target`): the application performs them. This
 //! crate turns a control's messages into a value for its action, and the state of an
 //! action back into the message that lights the control. A controller's [`Profile`] maps a
 //! known model before anything is learnt on it.
 
+pub mod hid;
 mod light;
 mod mapping;
 mod message;
@@ -18,7 +19,7 @@ pub use mapping::{
     selected_mode, Chord, Encoding, FaderSet, Hold, Mapping, Mappings, Modes, ProfileControl, Reader, Shift,
     Shifts, When, MODE, SHIFT,
 };
-pub use message::{parse, Control, ControlKind, Event};
+pub use message::{parse, Control, Event, Midi};
 pub use pickup::Pickup;
 pub use profile::{
     Display, DisplayPart, InitMessage, KeepAlive, LaterMessage, Meter, MeterLed, MeterOn, ModeGroup,

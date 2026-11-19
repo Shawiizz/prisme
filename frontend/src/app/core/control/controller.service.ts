@@ -8,6 +8,7 @@ import {
   ControllerInput,
   ControllerMapping,
   ControllerProfiles,
+  Learnt,
   PluggedIn,
   StepEncoding,
 } from '../models/controllers';
@@ -20,7 +21,7 @@ import { NoticeService } from '../../shared/notice/notice';
 import { NavigationService } from '../services/navigation.service';
 
 /**
- * MIDI controllers: their mapped controls play the app's controls, the controls that
+ * Controllers, MIDI and HID: their mapped controls play the app's controls, the controls that
  * are on light up on the controller, and a control is mapped by moving it (learn).
  */
 /** How far a step of an encoder moves a fader's setting (from 0 to 1). */
@@ -237,8 +238,9 @@ export class ControllerService {
 
   learn(target: string) {
     this.learning.set(target);
-    const encoder = this.controls.find(target)?.kind === 'encoder';
-    return this.run(() => invoke('learn_control', { target, encoder }));
+    const kind = this.controls.find(target)?.kind;
+    const learnt: Learnt = kind === 'encoder' || kind === 'fader' ? kind : 'button';
+    return this.run(() => invoke('learn_control', { target, learnt }));
   }
 
   cancelLearning() {

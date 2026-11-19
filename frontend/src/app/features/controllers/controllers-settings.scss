@@ -5,6 +5,13 @@
 .pr-select {
   width: 260px;
 }
+// a controller: its export key, when it has one, beside its switch (on a phone, under it)
+.controller {
+  grid-template-columns: minmax(0, 1fr) auto auto;
+}
+:host-context(.phone) .controller {
+  grid-template-columns: minmax(0, 1fr);
+}
 .hint {
   margin: 0;
   font-size: var(--pr-size-small);

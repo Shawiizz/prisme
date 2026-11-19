@@ -1,9 +1,10 @@
+use crate::hid::{self, Field, HidDevice};
 use crate::light::{LightValue, LightValues, OFF, ON};
 use crate::mapping::{Mapping, Modes, ProfileControl, Shift, When, MODE};
 use crate::message::Control;
 use schemars::JsonSchema;
 use serde::{de, Deserialize, Deserializer, Serialize};
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 /// The version of the profile format, raised when profiles may use what an older Prisme does
 /// not read: a profile published after it was raised is left to the Prisme that reads it.
@@ -24,8 +25,14 @@ pub struct Profile {
     /// The model, as the settings show it.
     pub name: String,
     /// The controller is the MIDI port whose name holds one of these (case aside); of
-    /// several models, the one whose name is the longest (a DDJ-SB2 is no DDJ-SB).
+    /// several models, the one whose name is the longest (a DDJ-SB2 is no DDJ-SB). None for a
+    /// HID controller.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub ports: Vec<String>,
+    /// A HID controller: how it is found, and its output reports. Its controls and lights are
+    /// fields of its reports.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub hid: Option<HidDevice>,
     /// Steps in a turn of its jog wheels, measured on the controller.
     #[serde(default = "jog_steps_per_turn", skip_serializing_if = "is_jog_steps_per_turn")]
     pub jog_steps_per_turn: f64,
@@ -40,7 +47,7 @@ pub struct Profile {
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub variant: bool,
     /// Sent when the controller is opened (a request for its knobs' positions, say), some a
-    /// while after.
+    /// while after; to a HID controller, whole output reports.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub init: Vec<InitMessage>,
     /// Sent when it is closed, after its lights went off.
@@ -375,8 +382,9 @@ fn is_jog_steps_per_turn(steps: &f64) -> bool {
 }
 
 impl Profile {
-    /// The profile of the model on the MIDI port `port`, of `profiles`: the one whose name
-    /// the port holds that is the longest, the first of those as long.
+    /// The profile of the model on the MIDI port `port` (or the HID device so named), of
+    /// `profiles`: the one whose name the port holds that is the longest, the first of those as
+    /// long.
     pub fn of_port<'p>(profiles: &'p [Profile], port: &str) -> Option<&'p Profile> {
         let port = port.to_lowercase();
         profiles
@@ -388,13 +396,18 @@ impl Profile {
     }
 
     /// How closely the port `port` is this model: the length of the longest of its names the
-    /// port holds, case aside; `None` if it holds none.
+    /// port holds, case aside; `None` if it holds none. A HID device is the model of its ids.
     pub fn fits(&self, port: &str) -> Option<usize> {
         self.fit(&port.to_lowercase())
     }
 
     /// [`Profile::fits`], `port` in lower case.
     fn fit(&self, port: &str) -> Option<usize> {
+        match (hid::ids_of(port), &self.hid) {
+            (Some(ids), Some(device)) => return (ids == (device.vendor_id, device.product_id)).then_some(1),
+            (Some(_), None) | (None, Some(_)) => return None,
+            (None, None) => {}
+        }
         self.ports
             .iter()
             .map(|p| p.to_lowercase())
@@ -427,6 +440,72 @@ impl Profile {
     pub fn first_modes(&self) -> Modes {
         self.modes.iter().filter_map(|g| Some((g.group.clone(), g.modes.first()?.clone()))).collect()
     }
+
+    /// The controls it reads: those it maps, the keys of its chords and its mode keys.
+    fn inputs(&self) -> impl Iterator<Item = Control> + '_ {
+        let mapped = self
+            .controls
+            .iter()
+            .flat_map(|c| std::iter::once(c.control).chain(c.chord.as_ref().map(|c| c.with)));
+        mapped.chain(self.modes.iter().flat_map(|g| g.select.iter().map(|s| s.control)))
+    }
+
+    /// The fields of a HID controller's reports it reads.
+    pub fn hid_inputs(&self) -> BTreeSet<Field> {
+        self.inputs().filter_map(|c| if let Control::Hid(field) = c { Some(field) } else { None }).collect()
+    }
+
+    /// The lights and outputs it shows things on, but its keys' own.
+    fn shown_on(&self) -> impl Iterator<Item = Control> + '_ {
+        let meters = self.meters.iter().flat_map(|m| match &m.on {
+            MeterOn::Control { control, .. } => vec![*control],
+            MeterOn::Leds { leds } => leds.iter().map(|l| l.control).collect(),
+        });
+        let lights = self.lights.iter().map(|l| l.control);
+        lights.chain(meters).chain(self.outputs.iter().map(|o| o.control))
+    }
+
+    /// What does not hold together in it, that its reading cannot tell: a MIDI control in a
+    /// HID profile or the other way round, a HID light beyond its output reports, a report sent
+    /// at the wrong length.
+    pub fn problems(&self) -> Vec<String> {
+        let mut problems = Vec::new();
+        let Some(device) = &self.hid else {
+            if self.inputs().chain(self.shown_on()).any(|c| matches!(c, Control::Hid(_))) {
+                problems.push("a HID control in a profile of no HID device".to_owned());
+            }
+            return problems;
+        };
+        let lit = device.leds.iter().map(|l| l.led);
+        for control in self.inputs().chain(device.leds.iter().map(|l| l.control)) {
+            if !matches!(control, Control::Hid(_)) {
+                problems.push(format!("{control} is not a field of a HID report"));
+            }
+        }
+        for control in self.shown_on().chain(lit) {
+            let report = match control {
+                Control::Hid(led) => device.outputs.iter().find(|o| o.report == led.report).map(|o| (o, led)),
+                _ => None,
+            };
+            if report.is_none_or(|(report, led)| led.span().end > usize::from(report.length)) {
+                problems.push(format!("{control} is not a light of an output report"));
+            }
+        }
+        let messages =
+            self.init.iter().map(|m| m.when_and_what().1).chain(self.close.iter().map(Vec::as_slice));
+        for message in messages.chain(self.keep_alive.iter().map(|k| k.message.as_slice())) {
+            let declared = message.first().and_then(|id| device.outputs.iter().find(|o| o.report == *id));
+            if let Some(o) = declared.filter(|o| usize::from(o.length) != message.len()) {
+                problems.push(format!(
+                    "report {} sent with {} bytes, not its {}",
+                    o.report,
+                    message.len(),
+                    o.length
+                ));
+            }
+        }
+        problems
+    }
 }
 
 impl ProfileLight {
@@ -441,9 +520,8 @@ impl ProfileLight {
 mod tests {
     use super::*;
     use crate::mapping::Encoding;
-    use crate::message::ControlKind;
 
-    const PLAY: Control = Control { kind: ControlKind::Note, channel: 0, number: 11 };
+    const PLAY: Control = Control::note(0, 11);
 
     fn profile() -> Profile {
         serde_json::from_str(
@@ -491,6 +569,63 @@ mod tests {
         assert_eq!(mappings[1].fine, Some(32));
         assert_eq!(mappings[2].encoding, Encoding::RelativeOffset);
         assert_eq!(p.init, [InitMessage::Now(vec![155, 9, 127])]);
+    }
+
+    #[test]
+    fn a_hid_controller_is_the_model_of_its_ids_and_no_port_names_it() {
+        let s4: Profile = serde_json::from_str(
+            r#"{
+                "name": "Native Instruments Traktor Kontrol S4 MK2",
+                "hid": { "vendorId": 6092, "productId": 4880 },
+                "controls": [{ "control": { "kind": "hid", "report": 1, "byte": 13 }, "target": "deck1.play" }]
+            }"#,
+        )
+        .unwrap();
+        let s2 = Profile { name: "S2".into(), ports: vec!["S4".into()], hid: None, ..s4.clone() };
+        let profiles = [s2, s4];
+        let plugged = hid::device_name("Traktor Kontrol S4 MK2", 0x17cc, 0x1310);
+        let name = |port| Profile::of_port(&profiles, port).map(|p| p.name.as_str());
+        assert_eq!(name(&plugged), Some(profiles[1].name.as_str()));
+        assert_eq!(name("Kontrol S4 MIDI"), Some("S2"), "a HID profile names no port");
+        assert_eq!(name("Traktor Kontrol S4 (HID 17cc:1111)"), None, "a MIDI profile no HID device");
+        assert!(!serde_json::to_string(&profiles[1]).unwrap().contains("ports"));
+    }
+
+    #[test]
+    fn a_hid_profile_holds_together() {
+        let profile = |lights: &str, init: &str| -> Profile {
+            serde_json::from_str(&format!(
+                r#"{{
+                    "name": "S4",
+                    "hid": {{ "vendorId": 1, "productId": 2, "outputs": [{{ "report": 128, "length": 4 }}],
+                        "leds": [{{ "control": {{ "kind": "hid", "report": 1, "byte": 1 }}, "led": {{ "kind": "hid", "report": 128, "byte": 1 }} }}] }},
+                    "init": {init},
+                    "controls": [{{ "control": {{ "kind": "hid", "report": 1, "byte": 1 }}, "target": "deck1.play" }}],
+                    "lights": [{lights}]
+                }}"#
+            ))
+            .unwrap()
+        };
+        let light = |byte: u16, bits: u8| {
+            format!(
+                r#"{{ "target": "deck1.sync", "control": {{ "kind": "hid", "report": 128, "byte": {byte}, "bits": {bits} }} }}"#
+            )
+        };
+        assert_eq!(profile(&light(1, 24), "[[128, 0, 0, 0]]").problems(), Vec::<String>::new());
+        assert_eq!(
+            profile(&light(2, 24), "[]").problems(),
+            ["report 128, byte 2, 24 bits is not a light of an output report"]
+        );
+        assert_eq!(
+            profile(&light(1, 8), "[[128, 0]]").problems(),
+            ["report 128 sent with 2 bytes, not its 4"]
+        );
+        let midi = r#"{ "target": "deck1.sync", "control": { "kind": "note", "channel": 0, "number": 1 } }"#;
+        assert_eq!(profile(midi, "[]").problems(), ["note 1, channel 1 is not a light of an output report"]);
+        let mut p = profile(&light(1, 8), "[]");
+        p.hid = None;
+        assert_eq!(p.problems(), ["a HID control in a profile of no HID device"]);
+        assert_eq!(p.hid_inputs().len(), 1);
     }
 
     #[test]
@@ -592,7 +727,7 @@ mod tests {
     }
 
     fn meter_control(channel: u8, number: u8) -> Control {
-        Control { kind: ControlKind::ControlChange, channel, number }
+        Control::control_change(channel, number)
     }
 
     fn leds() -> Meter {

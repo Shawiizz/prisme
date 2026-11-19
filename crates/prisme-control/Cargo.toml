@@ -1,6 +1,6 @@
 [package]
 name = "prisme-control"
-description = "MIDI controllers: messages, mappings to the application's actions, lights"
+description = "MIDI and HID controllers: messages and reports, mappings to the application's actions, lights"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true

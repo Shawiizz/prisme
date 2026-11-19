@@ -1,4 +1,5 @@
 import { Component, OnDestroy, OnInit, computed, inject, signal } from '@angular/core';
+import { NgTemplateOutlet } from '@angular/common';
 import { ControlService } from '../../core/control/control.service';
 import { ControllerService } from '../../core/control/controller.service';
 import { Control } from '../../core/control/controls';
@@ -7,6 +8,7 @@ import {
   ControllerMapping,
   StepEncoding,
   describeMapping,
+  shortName,
 } from '../../core/models/controllers';
 import { Text, t } from '../../core/i18n/i18n';
 import { errorText } from '../../core/errors';
@@ -60,12 +62,13 @@ interface Outcome {
 /** The least time "Looking…" shows (ms). */
 const LOOKING_MS = 600;
 
-/** Settings page: MIDI controllers in use, and the mapping of the app's controls (learnt by moving them). */
+/** Settings page: controllers in use, MIDI and HID, and the mapping of the app's controls (learnt
+ * by moving them). */
 @Component({
   selector: 'app-controllers-settings',
   templateUrl: './controllers-settings.html',
   styleUrl: './controllers-settings.scss',
-  imports: [TPipe],
+  imports: [TPipe, NgTemplateOutlet],
   host: { '(keydown.escape)': 'service.cancelLearning()' },
 })
 export class ControllersSettings implements OnInit, OnDestroy {
@@ -115,6 +118,20 @@ export class ControllersSettings implements OnInit, OnDestroy {
 
   protected readonly stepEncodings = STEP_ENCODINGS;
 
+  /** The controllers listed: the MIDI ports, and the HID devices of a model Prisme knows or in
+   * use; the other HID devices (most are no controllers) folded apart. */
+  protected readonly listed = computed(() =>
+    this.service.controllers().filter((c) => !this.otherHid(c)),
+  );
+  protected readonly others = computed(() =>
+    this.service.controllers().filter((c) => this.otherHid(c)),
+  );
+  protected readonly othersOpen = signal(false);
+
+  private otherHid(c: Controller): boolean {
+    return c.hid && !c.profile && !c.enabled;
+  }
+
   /** A controller is open: controls can be learnt. */
   protected readonly canLearn = computed(() =>
     this.service.controllers().some((c) => c.enabled && c.plugged),
@@ -130,7 +147,7 @@ export class ControllersSettings implements OnInit, OnDestroy {
         devices.set(m.device, [...(devices.get(m.device) ?? []), m]);
       const bindings = [...devices].map(([device, mappings]) => ({
         device,
-        text: `${device} · ${mappings.map(describeMapping).join(' / ')}`,
+        text: `${shortName(device)} · ${mappings.map(describeMapping).join(' / ')}`,
         encoder: mappings.find((m) => m.encoding && m.encoding !== 'absolute'),
       }));
       groups.set(control.group, [...(groups.get(control.group) ?? []), { control, bindings }]);

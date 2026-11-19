@@ -1,4 +1,4 @@
-use crate::message::{Control, ControlKind};
+use crate::message::Control;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
@@ -11,7 +11,8 @@ use std::collections::BTreeMap;
 pub struct LightValues(BTreeMap<String, LightValue>);
 
 /// A light's value in a state: steady, two in turn, or a whole message of its own (for the
-/// models addressing their lights otherwise than by a value on the control's note).
+/// models addressing their lights otherwise than by a value on the control's note; of a HID
+/// light, its bytes: the red, green and blue of a light of three colours).
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(untagged)]
 pub enum LightValue {
@@ -62,13 +63,13 @@ pub fn nearest(palette: &BTreeMap<String, u8>, colour: &str) -> Option<u8> {
     palette.iter().filter_map(|(c, &value)| Some((distance(rgb(c)?), value))).min().map(|(_, value)| value)
 }
 
-/// The message that sets a control's light to `value`, as controllers expect it: the
+/// The MIDI message that sets a control's light to `value`, as controllers expect it: the
 /// control's own note or controller.
 pub fn light(control: Control, value: u8) -> Option<[u8; 3]> {
-    match control.kind {
-        ControlKind::Note => Some([0x90 | control.channel, control.number, value]),
-        ControlKind::ControlChange => Some([0xb0 | control.channel, control.number, value]),
-        ControlKind::PitchBend => None,
+    match control {
+        Control::Note(midi) => Some([0x90 | midi.channel, midi.number, value]),
+        Control::ControlChange(midi) => Some([0xb0 | midi.channel, midi.number, value]),
+        Control::PitchBend(_) | Control::Hid(_) => None,
     }
 }
 
@@ -76,7 +77,7 @@ pub fn light(control: Control, value: u8) -> Option<[u8; 3]> {
 mod tests {
     use super::*;
 
-    const PAD: Control = Control { kind: ControlKind::Note, channel: 0, number: 36 };
+    const PAD: Control = Control::note(0, 36);
 
     #[test]
     fn a_light_without_values_is_full_or_dark() {
@@ -98,10 +99,10 @@ mod tests {
 
     #[test]
     fn lights_answer_on_the_same_control() {
-        assert_eq!(light(Control { channel: 2, ..PAD }, 127), Some([0x92, 36, 127]));
-        let knob = Control { kind: ControlKind::ControlChange, ..PAD };
-        assert_eq!(light(knob, 0), Some([0xb0, 36, 0]));
-        assert_eq!(light(Control { kind: ControlKind::PitchBend, channel: 0, number: 0 }, 127), None);
+        assert_eq!(light(PAD, 127), Some([0x90, 36, 127]));
+        assert_eq!(light(Control::note(2, 36), 127), Some([0x92, 36, 127]));
+        assert_eq!(light(Control::control_change(0, 36), 0), Some([0xb0, 36, 0]));
+        assert_eq!(light(Control::pitch_bend(0), 127), None);
     }
 
     #[test]

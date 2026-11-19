@@ -1356,11 +1356,14 @@ pub struct StoragePlaceDto {
     pub path: String,
 }
 
-/// A MIDI controller.
+/// A controller, MIDI or HID.
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ControllerDto {
+    /// Its MIDI port's name, or the name Prisme gives a HID device.
     pub name: String,
+    /// A HID device.
+    pub hid: bool,
     pub enabled: bool,
     pub plugged: bool,
     /// The model Prisme knows it as, its controls mapped by its profile.

@@ -1,4 +1,4 @@
-//! MIDI controllers (see `controllers`).
+//! Controllers, MIDI and HID (see `controllers`).
 
 use crate::controller_profiles;
 use crate::controllers::Controllers;
@@ -7,14 +7,15 @@ use crate::dto::{
 };
 use crate::error::{AppError, AppResult};
 use crate::midi_clock::MidiClock;
+use prisme_control::hid::{self, Learnt};
 use prisme_control::{Encoding, Mapping};
 use std::path::PathBuf;
 use tauri::{AppHandle, State};
 
 /// The controllers plugged in, and those in use that are not.
 #[tauri::command]
-pub fn list_controllers(controllers: State<'_, Controllers>) -> AppResult<Vec<ControllerDto>> {
-    let plugged = Controllers::plugged()?;
+pub fn list_controllers(controllers: State<'_, Controllers>) -> Vec<ControllerDto> {
+    let plugged = Controllers::plugged();
     let setup = controllers.setup();
     let missing = setup.enabled.iter().filter(|name| !plugged.contains(name)).cloned().collect::<Vec<_>>();
     let library = controller_profiles::current();
@@ -34,11 +35,12 @@ pub fn list_controllers(controllers: State<'_, Controllers>) -> AppResult<Vec<Co
             profile_source: known.map(|k| k.source),
             replaces: library.replaced_on(&name).filter(|_| models).map(|k| k.profile.name.clone()),
             export_file: controller_profiles::file_name(&controllers.model_name(&name)),
+            hid: hid::ids_of(&name).is_some(),
             name,
             plugged,
         }
     };
-    Ok(plugged.into_iter().map(|n| dto(n, true)).chain(missing.into_iter().map(|n| dto(n, false))).collect())
+    plugged.into_iter().map(|n| dto(n, true)).chain(missing.into_iter().map(|n| dto(n, false))).collect()
 }
 
 #[tauri::command]
@@ -88,11 +90,11 @@ pub fn controller_light_targets(controllers: State<'_, Controllers>) -> Vec<Stri
     controllers.light_targets()
 }
 
-/// The next control moved on a controller in use will drive `target`
-/// (`controller-learned` says which).
+/// The next control moved on a controller in use will drive `target`, an action taking
+/// `learnt` (`controller-learned` says which).
 #[tauri::command]
-pub fn learn_control(controllers: State<'_, Controllers>, target: String, encoder: bool) {
-    controllers.learn(target, encoder);
+pub fn learn_control(controllers: State<'_, Controllers>, target: String, learnt: Learnt) {
+    controllers.learn(target, learnt);
 }
 
 /// How the encoder of `target` on `device` sends its steps (a jog that turns the wrong way

@@ -1,7 +1,7 @@
 # Controller profiles
 
-A profile maps a controller model as soon as it is turned on in Settings → MIDI
-controllers, before anything is learnt on it. Learning a control on it takes the profile's
+A profile maps a controller model, MIDI or HID, as soon as it is turned on in Settings →
+Controllers, before anything is learnt on it. Learning a control on it takes the profile's
 place for that control and that action; removing an action removes it from the profile's
 controls too.
 
@@ -12,12 +12,12 @@ Three layers, each replacing the one before it for the same file name
 
 1. The profiles shipped with the version of Prisme (this folder, compiled in).
 2. The profiles published since, fetched from this folder on GitHub once a day (or from
-   Settings → MIDI controllers → Look for updates) into the data folder's
+   Settings → Controllers → Look for updates) into the data folder's
    `controller-updates`. `index.json` lists them: of each file, the digest of its text, its
    revision (raised at each change) and the version of the format it was written in. A
    Prisme takes a published profile only if it is a later revision than the one it ships, in
    a format it reads (`PROFILE_FORMAT` in `crates/prisme-control`).
-3. The DJ's own, in the data folder's `controllers` (Settings → MIDI controllers → Open the
+3. The DJ's own, in the data folder's `controllers` (Settings → Controllers → Open the
    folder): a file of the same name as a shipped one replaces it, another adds a model.
    **Export as a profile**, beside a controller in use, writes there what it drives now, what
    was learnt included: a start for a profile of one's own, or one to send.
@@ -28,7 +28,7 @@ Three layers, each replacing the one before it for the same file name
 (`crates/prisme-control`) with the actions of the app (`targets.json`, from
 `frontend/src/app/core/control/controls.ts`). A profile naming it as its `"$schema"` is
 checked and completed by editors such as VS Code: misspelt fields, unknown actions, MIDI
-values out of range.
+values out of range, HID fields of a width Prisme does not read.
 
 The tests keep the published files in step: `PRISME_WRITE_TARGETS=1 npm test` in `frontend`
 writes `targets.json`, then `PRISME_WRITE_PROFILES=1 cargo test -p prisme-desktop
@@ -42,13 +42,14 @@ One JSON file per model:
 | Field | |
 | --- | --- |
 | `name` | The model, as the settings show it. |
-| `ports` | The controller is the MIDI port whose name holds one of these, case aside; of several models, the longest name wins. |
+| `ports` | The controller is the MIDI port whose name holds one of these, case aside; of several models, the longest name wins. None for a HID controller. |
+| `hid` | A HID controller: how it is found and what is written to it (see HID controllers). Its controls and lights are then fields of its reports. |
 | `credits` | Where the mapping comes from, when it is not Prisme's own. |
 | `verified` | `true` once tried on the controller itself; the settings tell a profile that is not. |
-| `variant` | `true` for another profile of a model's ports (a firmware or an edition of its own): never found by itself, offered in Settings → MIDI controllers for a controller its ports fit as closely as its model's, the choice kept for that controller. |
+| `variant` | `true` for another profile of a model's ports (a firmware or an edition of its own): never found by itself, offered in Settings → Controllers for a controller its ports fit as closely as its model's, the choice kept for that controller. |
 | `jogStepsPerTurn` | Steps in a turn of its jog wheels (720 when left out). |
-| `init` | MIDI messages sent when the controller is opened (SysEx included); `{ "afterMs": n, "message": [...] }` for one sent that much later (once a light show the model plays by itself is over). |
-| `close` | MIDI messages sent when it is closed, after its lights went off. |
+| `init` | MIDI messages sent when the controller is opened (SysEx included); `{ "afterMs": n, "message": [...] }` for one sent that much later (once a light show the model plays by itself is over). To a HID controller, whole output reports, its id the first byte. |
+| `close` | MIDI messages (whole reports for HID) sent when it is closed, after its lights went off. |
 | `keepAlive` | `everyMs` and `message`: sent again and again while it is open, for the models that want it. |
 | `modes` | Groups of controls that drive other actions in each mode, when the controls send the same in each (the pad pages of a side): `group`, `modes` (the first is where it begins), `select` (a key choosing each mode: `control`, `mode`, optionally `shift`, `light`, `held` (the mode only while the key is held: let go, the group is back in the mode before; with `shift`, a supershift) and `once` (the mode for one action of the group, then back to its first). A mode key lights `on` while its mode is the one. A key flipping between two modes is two controls aimed at `mode.<group>.<other>`, each with `when` on one of them: a release is read in the modes of its press, so it does not flip back. |
 | `controls` | A control and the action it drives, in the shape of a learnt mapping (`controllers.json`), see below. |
@@ -61,9 +62,9 @@ One JSON file per model:
 
 | Field | |
 | --- | --- |
-| `control` | `kind` (`note`, `controlChange`, `pitchBend`), `channel` 0-15, `number`. |
+| `control` | `kind` (`note`, `controlChange`, `pitchBend`), `channel` 0-15, `number`; or `kind` `hid` and a field of a report (see HID controllers). |
 | `target` | The action it drives (see Targets). |
-| `encoding` | For encoders: `relative` (two's complement), `relativeOffset` (around 64), `relativeOffsetNoZero` (around 64 with no zero: 65 one step right, 64 one left), `relativeSigned` (a sign bit), `relativeZero` (0 one step right, 127 one left), `absoluteWrap` (a position wrapping around, a jog's angle: its changes are the steps). An encoder may drive a fader's action: its steps move the setting. |
+| `encoding` | For encoders: `relative` (two's complement), `relativeOffset` (around 64), `relativeOffsetNoZero` (around 64 with no zero: 65 one step right, 64 one left), `relativeSigned` (a sign bit), `relativeZero` (0 one step right, 127 one left), `absoluteWrap` (a position wrapping around, a jog's angle: its changes are the steps). An encoder may drive a fader's action: its steps move the setting. A HID field's values are read the same over its own bits (a counter of 4 bits wraps at 16). |
 | `scale` | An encoder's steps multiplied by this; below 1 they add up to whole steps (`0.1`: a track browsed every ten steps). |
 | `step` | How far a step of an encoder moves a fader's action, a share of its travel (1/64 when left out). |
 | `invert` | A fader whose lowest value is at its top; an encoder turning the other way. |
@@ -134,6 +135,100 @@ its own is rather a light of `deck1.clip` or `main.clip`.
 `frontend/src/app/core/control/profiles.spec.ts` checks that every target exists, that only
 encoders read steps, that mode keys choose modes their group has and that meters show
 levels the app has.
+
+## HID controllers
+
+Many controllers speak HID rather than MIDI (Native Instruments' Traktor Kontrol, older
+Hercules, Pioneer CDJs in HID mode). Prisme reads them through hidapi on Windows, macOS and
+Linux (`src/controller_hid.rs`); on Linux, the DJ needs read and write access to the device's
+`/dev/hidraw*` (a udev rule, as for Mixxx). Android and iOS have no HID controllers yet.
+
+A HID device is named `<product> (HID <vendor>:<product id>)`, `2- ` before it for the second
+of a model, and listed with the MIDI ports in Settings → Controllers. One of a model Prisme
+knows is opened when plugged in, as a MIDI controller is (or waited for while another program
+holds it); the others are listed apart, not offered, as most HID devices are no controllers
+(keyboards, mice, touch screens and the computer's own are never listed). A controller seen
+both as a MIDI port and as a HID device (a Hercules with its driver) is used one way only: by
+HID if Prisme knows it so and not by MIDI, else by MIDI, its maker's driver then speaking to
+the device itself.
+
+### The device
+
+```json
+"hid": {
+  "vendorId": 6092, "productId": 4880, "interface": 4, "usagePage": 65281, "usage": 1,
+  "outputs": [{ "report": 128, "length": 53, "bytes": { "42": 127 } }, { "report": 129, "length": 63 }],
+  "leds": [{ "control": { "kind": "hid", "report": 1, "byte": 13 }, "led": { "kind": "hid", "report": 129, "byte": 32, "bits": 8 } }]
+}
+```
+
+| Field | |
+| --- | --- |
+| `vendorId`, `productId` | The device's USB ids: they tell its model, whatever the system calls it. |
+| `interface`, `usagePage`, `usage` | Which of its interfaces or collections holds its controls, when it has several (its sound card's, say). |
+| `outputs` | Its output reports: `report` (its id), `length` (its bytes, the id included) and `bytes` it always holds by their place (a header, a light always on). A report is written whole, again only once one of its bytes changed, at most every 10 ms, never from the audio thread. |
+| `leds` | The light of each key that has one: `control`, the key's field, and `led`, a field of an output report. A HID key lights there, not on itself. |
+| `brightness` | A light's value at full (127): the colours of three-colour lights are scaled to it. |
+
+### Fields
+
+A control, and a light, is a field of a report:
+
+```json
+{ "kind": "hid", "report": 1, "byte": 13, "bit": 2 }
+{ "kind": "hid", "report": 2, "byte": 9, "bits": 12 }
+```
+
+| Field | |
+| --- | --- |
+| `report` | The id of its report; 0 (left out) for a device that does not number its reports. |
+| `byte` | Its first byte, counted from the report's first as the system gives it: an input report from its id when the device numbers its reports (else from its first byte of data), an output report always from its id (0 for a device that does not number them). Mixxx's scripts count the same: their offsets are taken as they are. |
+| `bit` | Its lowest bit in that byte, 0 to 7 (0 left out). |
+| `bits` | How many bits it has: 1 (left out) for a key or a light, up to 16 for a value; 24 for a light of three colours (its red, green and blue bytes). A key is a field of one bit: pressed at 1. |
+| `bigEndian` | Its bytes from the most significant, when it has several (little-endian otherwise). |
+
+A field of 12 bits is a fader from 0 to 4095. A jog wheel's counter is a field read with
+`absoluteWrap` (its changes are the steps; `jogStepsPerTurn` the steps of a turn), as are the
+encoders that count up and down in a nibble. A field of more than 16 bits is read by its low 16:
+a counter wraps the same.
+
+Each report read is compared with the one of its id before it: a field whose value changed is
+an event of its control, as a MIDI message is, and goes through all the rest unchanged (layers,
+modes, holds, chords, steps, lights by state). The first report of an id gives the position of
+every fader, but not the keys at rest.
+
+### Lights
+
+A mapped key lights at its `led`; the `lights`, `meters` and `outputs` name fields of the
+output reports directly. A light of one bit is lit by any value above 0; a byte takes the value
+(0-127 for most, 9 a dim light on a Native Instruments controller); a light of three colours
+takes three values (`"on": [127, 4, 4]`), or one value for all three, and a hot cue's colour
+when its action has one and its control no `palette`:
+
+```json
+{ "control": { "kind": "hid", "report": 1, "byte": 13, "bit": 7 }, "target": "deck1.hotcue1", "light": { "on": [127, 4, 4], "off": [8, 1, 1] } }
+```
+
+### Learning
+
+On a HID controller, the field that changes is the control learnt: a field of its profile if it
+holds the change; else a key pressed is its bit, an encoder the nibble or byte that counts, a
+fader the byte or two that changed. A fader of a model Prisme does not know is best given its
+width in a profile.
+
+### Without the controller
+
+A debug build plugs in a simulated HID device, which Prisme takes as it takes a real one, by
+its ids: commands feed it reports and read back what Prisme wrote to it, over CDP
+(`window.__TAURI_INTERNALS__.invoke(...)`):
+
+| Command | |
+| --- | --- |
+| `simulate_hid_plug` | `{ device: { product, vendorId, productId, interface?, usagePage?, usage?, numbered?, lengths: { "<report id>": <bytes> } } }`: plugged in; gives back `{ id, name }`. |
+| `simulate_hid_report` | `{ id, report: [...] }`: a report, as the device would send it. |
+| `simulate_hid_set` | `{ id, values: [{ control, value }] }`: the last report of each field's id, changed by the values. |
+| `simulated_hid_written` | `{ id }`: the output reports written to it since last asked. |
+| `simulate_hid_unplug` | `{ id }`. |
 
 ## From a Mixxx mapping
 

@@ -3,7 +3,7 @@
 //! * `auto_dj`: plays the prepare list, each track mixed into the next;
 //! * `audio_host`: runs the sound card stream and the engine on a dedicated thread;
 //! * `audio_watchdog`: restarts the audio when its device comes back after a loss;
-//! * `controllers`: MIDI controllers and their mappings;
+//! * `controllers`: MIDI and HID controllers and their mappings;
 //! * `crash_recovery`: puts the decks back after a crash;
 //! * `history`: records the tracks played, set by set;
 //! * `logging`: the log files;
@@ -31,6 +31,7 @@ mod audio_watchdog;
 mod auto_dj;
 mod commands;
 mod controller_direct;
+mod controller_hid;
 mod controller_profiles;
 mod controllers;
 mod cover_protocol;
@@ -440,6 +441,16 @@ pub fn run() {
             commands::controllers::export_controller_profile,
             commands::controllers::open_controller_profiles_folder,
             commands::diagnostics::save_diagnostics,
+            #[cfg(debug_assertions)]
+            commands::simulated::simulate_hid_plug,
+            #[cfg(debug_assertions)]
+            commands::simulated::simulate_hid_unplug,
+            #[cfg(debug_assertions)]
+            commands::simulated::simulate_hid_report,
+            #[cfg(debug_assertions)]
+            commands::simulated::simulate_hid_set,
+            #[cfg(debug_assertions)]
+            commands::simulated::simulated_hid_written,
             commands::controllers::midi_outputs,
             commands::controllers::midi_clock_output,
             commands::controllers::set_midi_clock_output,

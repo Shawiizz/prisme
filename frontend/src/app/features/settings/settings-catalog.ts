@@ -52,9 +52,9 @@ const PAGES: readonly SettingsPage[] = [
   },
   {
     id: 'controllers',
-    label: () => t('MIDI controllers'),
+    label: () => t('Controllers'),
     description: () => t('Map the controls of a controller by moving them.'),
-    keywords: 'midi learn mapping clock',
+    keywords: 'midi hid learn mapping clock',
   },
   {
     id: 'shortcuts',

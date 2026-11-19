@@ -1,28 +1,34 @@
-//! MIDI controllers. A mapped control's messages become `controller-input` events for
-//! the UI, which performs the actions and tells the state of each (its lights show it),
-//! except for the jog wheels and tempo faders, which drive the engine from here
-//! (`controller_direct`). The lights that blink, the levels a controller shows and the
-//! messages some models want again and again go out from a thread of their own.
+//! Controllers, MIDI and HID (`controller_hid`). A mapped control's messages, or the fields of
+//! a HID report that changed, become `controller-input` events for the UI, which performs the
+//! actions and tells the state of each (its lights show it), except for the jog wheels and
+//! tempo faders, which drive the engine from here (`controller_direct`). The lights that
+//! blink, the levels a controller shows and the messages some models want again and again go
+//! out from a thread of their own.
 //! Mappings are learnt from the controller itself and kept in `controllers.json`, with the
 //! controllers in use; a model Prisme knows comes mapped by its profile
 //! (`controller_profiles`), what is learnt on it taking the profile's place.
+//! A controller seen both as a MIDI port and as a HID device (a Hercules with its driver) is
+//! used one way only: by HID if Prisme knows it so and not by MIDI, else by MIDI, as its
+//! maker's driver then speaks to the device itself.
 
 use crate::auto_dj::{AutoDj, Takeover};
 use crate::controller_direct::{Direct, Performer, Tempo};
+use crate::controller_hid;
 use crate::controller_profiles;
 use crate::dto::{ControllerInputDto, DeckPitchDto, LightDto, OutputDto};
 use crate::error::{AppError, AppResult};
 use crate::state::{lock, AppState};
 use midir::{Ignore, MidiInput, MidiInputConnection, MidiOutput, MidiOutputConnection};
 use prisme_audio_io::base_device_name;
+use prisme_control::hid::{self, Field, Learnt, Read};
 use prisme_control::{
-    nearest, selected_mode, Control, ControlKind, Encoding, Event, FaderSet, Hold, LightValue, Mapping,
-    Mappings, Modes, Profile, ProfileControl, Reader, Shifts, JOG_STEPS_PER_TURN, OFF, ON, SHIFT,
+    nearest, selected_mode, Control, Encoding, Event, FaderSet, Hold, LightValue, Mapping, Mappings, Modes,
+    Profile, ProfileControl, Reader, Shifts, JOG_STEPS_PER_TURN, OFF, ON, SHIFT,
 };
 use prisme_engine::Command;
 use prisme_session::JsonFile;
 use serde::{Deserialize, Serialize};
-use std::collections::{BTreeMap, HashMap, HashSet};
+use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 use tauri::{AppHandle, Emitter, Manager};
@@ -35,7 +41,8 @@ const CLIENT: &str = "Prisme";
 /// How often the controllers in use are looked for, to open again one plugged back: less
 /// than a controller takes to come back on the USB bus, so that none goes unseen.
 const WATCH_EVERY: Duration = Duration::from_millis(500);
-/// On a system whose MIDI does not answer (no sequencer loaded, on Linux).
+/// How often MIDI is tried again on a system whose MIDI does not answer (no sequencer loaded,
+/// on Linux).
 const WATCH_WITHOUT_MIDI_EVERY: Duration = Duration::from_secs(10);
 /// How often blinking lights and keep-alive messages are seen to.
 const OUTPUT_EVERY: Duration = Duration::from_millis(20);
@@ -51,7 +58,8 @@ const PRESSED: &str = "pressed";
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 #[serde(default, rename_all = "camelCase")]
 pub struct ControllerSetup {
-    /// MIDI ports in use: Windows lets a single program open a port, so a controller is
+    /// Controllers in use, by their MIDI port or the name Prisme gives a HID device
+    /// (`hid::device_name`): Windows lets a single program open a port, so a controller is
     /// taken by itself only when plugged in, and only of a model Prisme knows.
     pub enabled: Vec<String>,
     /// Controllers the DJ turned off, or chose not to use when plugged in: never opened, nor
@@ -103,11 +111,18 @@ impl Unmapped {
     }
 }
 
-/// The next control moved will drive `target`; an encoder's steps are read as it sends
-/// its first one.
+/// The next control moved will drive `target`, an action taking `learnt`; an encoder's steps
+/// are read as it sends its first one.
 struct Learning {
     target: String,
-    encoder: bool,
+    learnt: Learnt,
+}
+
+/// What a HID report tells.
+#[derive(Debug, PartialEq)]
+enum Reported {
+    Learnt(Box<Mapping>),
+    Events(Vec<Event>),
 }
 
 #[derive(Debug, PartialEq)]
@@ -151,10 +166,7 @@ struct Connection {
     device: String,
     /// The port it was opened on: the same name, or with a number Windows added.
     port: String,
-    /// Taken only to be closed (see [`Drop`]).
-    input: Option<MidiInputConnection<()>>,
-    /// Lights; not every controller has them.
-    output: Option<MidiOutputConnection>,
+    link: Link,
     /// When its keep-alive message last went.
     kept_alive: Instant,
     lit: Lit,
@@ -166,28 +178,60 @@ struct Connection {
     displayed: HashMap<usize, Vec<u8>>,
 }
 
+/// How a controller is reached.
+enum Link {
+    Midi {
+        /// Taken only to be closed (see [`Drop`]).
+        input: Option<MidiInputConnection<()>>,
+        /// Lights; not every controller has them.
+        output: Option<MidiOutputConnection>,
+    },
+    /// Read and written from its own thread.
+    Hid(controller_hid::Link),
+}
+
 /// A controller let go is closed, not only dropped: on Android, a port dropped keeps the device
 /// open, and with it a sound card the USB driver would play on.
 impl Drop for Connection {
     fn drop(&mut self) {
-        if let Some(input) = self.input.take() {
-            input.close();
-        }
-        if let Some(output) = self.output.take() {
-            output.close();
+        if let Link::Midi { input, output } = &mut self.link {
+            if let Some(input) = input.take() {
+                input.close();
+            }
+            if let Some(output) = output.take() {
+                output.close();
+            }
         }
     }
 }
 
-/// What a controller's lights and meters show, so that a message goes only for a change.
+/// What a controller's lights and meters show, so that a light changes only for a change.
 #[derive(Default)]
 struct Lit {
-    /// The value each one shows, by its message's first two bytes.
-    shown: HashMap<[u8; 2], u8>,
-    /// Those blinking, by their message's first two bytes.
-    blinking: HashMap<[u8; 2], Blink>,
-    /// Those shown by a message of their own, by their control's first two bytes.
-    messages: HashMap<[u8; 2], Vec<u8>>,
+    /// The value each one shows.
+    shown: HashMap<Control, u8>,
+    /// Those blinking.
+    blinking: HashMap<Control, Blink>,
+    /// Those shown by a message of their own.
+    messages: HashMap<Control, Vec<u8>>,
+}
+
+/// A light to change: its control to a value, or to a message of its own (a MIDI message, the
+/// bytes of a HID light).
+#[derive(Debug, Clone, PartialEq)]
+enum Lighting {
+    Value(Control, u8),
+    Message(Control, Vec<u8>),
+}
+
+impl Lighting {
+    /// The MIDI message it is, if it is one.
+    fn midi(self) -> Option<Vec<u8>> {
+        match self {
+            Lighting::Value(control, value) => prisme_control::light(control, value).map(Vec::from),
+            Lighting::Message(_, message) => Some(message),
+        }
+    }
 }
 
 /// A light showing its two values in turn, since `since`.
@@ -198,73 +242,87 @@ struct Blink {
 }
 
 impl Lit {
-    /// `message`, unless it shows what is shown already.
-    fn show(&mut self, [status, number, value]: [u8; 3]) -> Option<[u8; 3]> {
-        (self.shown.insert([status, number], value) != Some(value)).then_some([status, number, value])
+    /// `control` at `value`, unless it shows it already.
+    fn show(&mut self, control: Control, value: u8) -> Option<Lighting> {
+        (self.shown.insert(control, value) != Some(value)).then_some(Lighting::Value(control, value))
     }
 
-    /// The message setting the light of `control` to `value`, blinking or not, unless it
-    /// shows it already.
-    fn light(&mut self, control: Control, value: LightValue) -> Option<Vec<u8>> {
-        let [status, number, _] = prisme_control::light(control, 0)?;
+    /// The change setting the light of `control` to `value`, blinking or not, unless it shows
+    /// it already.
+    fn light(&mut self, control: Control, value: LightValue) -> Option<Lighting> {
         if !matches!(value, LightValue::Message(_)) {
-            self.messages.remove(&[status, number]);
+            self.messages.remove(&control);
         }
         match value {
             LightValue::Steady(v) => {
-                self.blinking.remove(&[status, number]);
-                self.show([status, number, v]).map(Vec::from)
+                self.blinking.remove(&control);
+                self.show(control, v)
             }
             LightValue::Message(message) => {
-                self.blinking.remove(&[status, number]);
-                self.shown.remove(&[status, number]);
-                let before = self.messages.insert([status, number], message.clone());
-                (before.as_ref() != Some(&message)).then_some(message)
+                self.blinking.remove(&control);
+                self.shown.remove(&control);
+                let before = self.messages.insert(control, message.clone());
+                (before.as_ref() != Some(&message)).then_some(Lighting::Message(control, message))
             }
             LightValue::Blink { blink, ms } => {
-                let same =
-                    self.blinking.get(&[status, number]).is_some_and(|b| b.values == blink && b.ms == ms);
+                let same = self.blinking.get(&control).is_some_and(|b| b.values == blink && b.ms == ms);
                 if same {
                     return None;
                 }
-                self.blinking.insert([status, number], Blink { values: blink, ms, since: Instant::now() });
-                self.show([status, number, blink[0]]).map(Vec::from)
+                self.blinking.insert(control, Blink { values: blink, ms, since: Instant::now() });
+                self.show(control, blink[0])
             }
         }
     }
 
-    /// The messages of the blinking lights whose value of the moment is not shown yet.
-    fn blink(&mut self) -> Vec<[u8; 3]> {
-        let now: Vec<[u8; 3]> = self
+    /// The changes of the blinking lights whose value of the moment is not shown yet.
+    fn blink(&mut self) -> Vec<Lighting> {
+        let now: Vec<(Control, u8)> = self
             .blinking
             .iter()
-            .map(|(&[status, number], b)| {
+            .map(|(&control, b)| {
                 let half = (b.since.elapsed().as_millis() / u128::from(b.ms.max(1))) % 2;
-                [status, number, b.values[half as usize]]
+                (control, b.values[half as usize])
             })
             .collect();
-        now.into_iter().filter_map(|message| self.show(message)).collect()
+        now.into_iter().filter_map(|(control, value)| self.show(control, value)).collect()
     }
 }
 
 impl Connection {
     /// Sets the light of `control` to `value`, blinking or not.
     fn light(&mut self, control: Control, value: LightValue) {
-        if let Some(message) = self.lit.light(control, value) {
-            self.send(&message);
+        if let Some(lighting) = self.lit.light(control, value) {
+            self.apply(lighting);
         }
     }
 
     /// Each blinking light at the value of the moment.
     fn blink(&mut self) {
-        for message in self.lit.blink() {
-            self.send(&message);
+        for lighting in self.lit.blink() {
+            self.apply(lighting);
         }
     }
 
+    fn apply(&mut self, lighting: Lighting) {
+        match (&self.link, lighting) {
+            (Link::Hid(link), Lighting::Value(Control::Hid(led), value)) => link.set(led, value),
+            (Link::Hid(link), Lighting::Message(Control::Hid(led), bytes)) => link.set_bytes(led, &bytes),
+            (Link::Hid(_), _) => {}
+            (Link::Midi { .. }, lighting) => {
+                if let Some(message) = lighting.midi() {
+                    self.send(&message);
+                }
+            }
+        }
+    }
+
+    /// Sends a message of its own: a MIDI message, a whole HID report.
     fn send(&mut self, message: &[u8]) {
-        if let Some(output) = self.output.as_mut() {
-            let _ = output.send(message);
+        match &mut self.link {
+            Link::Midi { output: Some(output), .. } => drop(output.send(message)),
+            Link::Midi { output: None, .. } => {}
+            Link::Hid(link) => link.send(message),
         }
     }
 
@@ -316,6 +374,8 @@ pub struct Controllers {
     values: Mutex<HashMap<String, f32>>,
     holdings: Mutex<Vec<Holding>>,
     keys: Mutex<Keys>,
+    /// The fields of each HID controller's reports its mappings read.
+    hid_fields: Mutex<HashMap<String, Arc<BTreeSet<Field>>>>,
 }
 
 impl Controllers {
@@ -332,6 +392,7 @@ impl Controllers {
             values: Mutex::new(HashMap::new()),
             holdings: Mutex::new(Vec::new()),
             keys: Mutex::new(Keys::default()),
+            hid_fields: Mutex::new(HashMap::new()),
         };
         controllers.layer();
         controllers
@@ -360,6 +421,7 @@ impl Controllers {
             schema: None,
             name: name.clone(),
             ports: vec![name],
+            hid: None,
             jog_steps_per_turn: JOG_STEPS_PER_TURN,
             credits: String::new(),
             verified: false,
@@ -416,9 +478,13 @@ impl Controllers {
         }
     }
 
-    /// The MIDI ports plugged in.
-    pub fn plugged() -> AppResult<Vec<String>> {
-        Ok(port_names(&MidiInput::new(CLIENT).map_err(midi_error)?))
+    /// The controllers plugged in: the MIDI ports, and the HID devices that may be controllers.
+    pub fn plugged() -> Vec<String> {
+        let midi = MidiInput::new(CLIENT).map(|input| port_names(&input)).unwrap_or_else(|e| {
+            warn!("MIDI ports not listed: {e}");
+            Vec::new()
+        });
+        with_hid(midi, &hid_plugged())
     }
 
     pub fn setup(&self) -> ControllerSetup {
@@ -438,7 +504,7 @@ impl Controllers {
                 warn!("controller {device} not opened: {e}");
             }
         }
-        for port in Self::plugged().unwrap_or_default() {
+        for port in Self::plugged() {
             if self.new_to_the_dj(&port) && controller_profiles::of(&port).is_some() {
                 self.take_up(app, &port);
             }
@@ -456,12 +522,15 @@ impl Controllers {
             // one client for looking, kept: a new one each time would come and go in every
             // MIDI patchbay of the system
             let mut looking: Option<MidiInput> = None;
+            let mut midi_tried: Option<Instant> = None;
             loop {
-                std::thread::sleep(if looking.is_some() { WATCH_EVERY } else { WATCH_WITHOUT_MIDI_EVERY });
-                if looking.is_none() {
+                std::thread::sleep(WATCH_EVERY);
+                if looking.is_none() && midi_tried.is_none_or(|at| at.elapsed() >= WATCH_WITHOUT_MIDI_EVERY) {
                     looking = MidiInput::new(CLIENT).ok();
+                    midi_tried = Some(Instant::now());
                 }
-                let Some(plugged) = looking.as_ref().map(port_names) else { continue };
+                let midi = looking.as_ref().map(port_names).unwrap_or_default();
+                let plugged = with_hid(midi, &hid_plugged());
                 let controllers = app.state::<Controllers>();
                 let unplugged: Vec<String> = controllers
                     .take_connections(|c| !plugged.contains(&c.port))
@@ -518,8 +587,9 @@ impl Controllers {
         let (device, model) = (port.to_owned(), self.model_name(port));
         let news = if controller_profiles::of(port).is_none() {
             // on Android the MIDI of a sound card, opened, holds the card the USB driver
-            // plays on: a model Prisme does not know is turned on in the settings only
-            if cfg!(target_os = "android") {
+            // plays on: a model Prisme does not know is turned on in the settings only; most
+            // HID devices are no controllers, those Prisme does not know are only listed there
+            if cfg!(target_os = "android") || hid::ids_of(port).is_some() {
                 return;
             }
             PluggedIn::Offered { device, model }
@@ -562,7 +632,7 @@ impl Controllers {
     /// The models of the controllers in use, plugged in, that another program holds: Prisme
     /// takes each as soon as it lets go.
     pub fn waiting(&self) -> Vec<String> {
-        let plugged = Self::plugged().unwrap_or_default();
+        let plugged = Self::plugged();
         let open: Vec<String> = lock(&self.connections).iter().map(|c| c.device.clone()).collect();
         let taken = self.ports_open();
         self.setup
@@ -596,6 +666,8 @@ impl Controllers {
             let list = if enabled { &mut s.enabled } else { &mut s.declined };
             list.push(device.to_owned());
         });
+        // its profile's lights, now that it is among the controllers in use
+        self.show_lights(device);
         Ok(())
     }
 
@@ -625,8 +697,8 @@ impl Controllers {
         Ok(())
     }
 
-    pub fn learn(&self, target: String, encoder: bool) {
-        *lock(&self.learning) = Some(Learning { target, encoder });
+    pub fn learn(&self, target: String, learnt: Learnt) {
+        *lock(&self.learning) = Some(Learning { target, learnt });
     }
 
     /// Changes how the control of `target` on `device` is read (an encoder's steps). A
@@ -742,6 +814,7 @@ impl Controllers {
             let reader = lock(&self.reader);
             (reader.modes(device), reader.shifts(device), reader.held(device))
         };
+        let hid = profile.as_ref().and_then(|p| p.hid.as_ref());
         // in the order a key read takes them
         let mappings = lock(&self.mappings);
         let states = lock(&self.states);
@@ -750,15 +823,27 @@ impl Controllers {
             Some((group, mode)) => Some(if modes.get(group).is_some_and(|m| m == mode) { ON } else { OFF }),
             None => states.get(target).map(|s| s.state.as_str()),
         };
-        let coloured = |target: &str, palette: &BTreeMap<String, u8>, value: LightValue| {
-            let colour = states.get(target).and_then(|s| s.color.as_deref());
-            match colour.and_then(|c| nearest(palette, c)) {
-                Some(v) if state_of(target).is_some_and(|s| s != OFF) => LightValue::Steady(v),
-                _ => value,
+        // the colour of its action, by the nearest of its palette, else on a light of three colours
+        let coloured = |target: &str, palette: &BTreeMap<String, u8>, light: Control, value: LightValue| {
+            let colour = states
+                .get(target)
+                .and_then(|s| s.color.as_deref())
+                .filter(|_| state_of(target).is_some_and(|s| s != OFF));
+            let rgb = |colour| match (light, hid) {
+                (Control::Hid(led), Some(hid)) if led.bits == hid::RGB_BITS => {
+                    hid::rgb(colour, hid.brightness)
+                }
+                _ => None,
+            };
+            match colour {
+                Some(c) if !palette.is_empty() => nearest(palette, c).map_or(value, LightValue::Steady),
+                Some(c) => rgb(c).map_or(value, |rgb| LightValue::Message(rgb.to_vec())),
+                None => value,
             }
         };
         let mut lights: Vec<(Control, LightValue)> = Vec::new();
         for mapping in mappings.shown(device, &shifts, &modes) {
+            let Some(light) = light_of(hid, mapping.control) else { continue };
             let key = (device.to_owned(), mapping.control);
             let lit_held = mapping.light.has(PRESSED);
             let state = if lit_held && held.contains(&mapping.control) {
@@ -769,15 +854,13 @@ impl Controllers {
                 state_of(&mapping.target).or(lit_held.then_some(OFF))
             };
             if let Some(state) = state {
-                let value = coloured(&mapping.target, &mapping.palette, mapping.light.value(state));
-                lights.push((mapping.control, value));
+                let value = coloured(&mapping.target, &mapping.palette, light, mapping.light.value(state));
+                lights.push((light, value));
             }
         }
-        if let Some(profile) = profile {
-            for extra in &profile.lights {
-                if let Some(value) = state_of(&extra.target).and_then(|s| extra.value(s, &modes)) {
-                    lights.push((extra.control, coloured(&extra.target, &extra.palette, value)));
-                }
+        for extra in profile.iter().flat_map(|p| &p.lights) {
+            if let Some(value) = state_of(&extra.target).and_then(|s| extra.value(s, &modes)) {
+                lights.push((extra.control, coloured(&extra.target, &extra.palette, extra.control, value)));
             }
         }
         lights
@@ -805,8 +888,11 @@ impl Controllers {
         let Some(mut connection) = connection else { return };
         let profile = self.profile(device);
         let mappings = lock(&self.mappings);
+        let hid = profile.as_ref().and_then(|p| p.hid.as_ref());
         for mapping in mappings.all().iter().filter(|m| m.device == device) {
-            connection.light(mapping.control, mapping.light.value(OFF));
+            if let Some(light) = light_of(hid, mapping.control) {
+                connection.light(light, mapping.light.value(OFF));
+            }
         }
         if let Some(profile) = profile {
             for extra in &profile.lights {
@@ -896,6 +982,9 @@ impl Controllers {
         if lock(&self.connections).iter().any(|c| c.device == device) {
             return Ok(());
         }
+        if hid::ids_of(device).is_some() {
+            return self.open_hid(app, device);
+        }
         let mut input = MidiInput::new(CLIENT).map_err(midi_error)?;
         input.ignore(Ignore::All);
         let ports = input.ports();
@@ -904,8 +993,7 @@ impl Controllers {
             .ok_or_else(|| AppError::ControllerUnplugged(device.to_owned()))?;
         let (port, port_name) = (&ports[at], names[at].clone());
         let (app, name) = (app.clone(), device.to_owned());
-        let profile = self.profile(device);
-        let jog_steps_per_turn = profile.as_ref().map_or(JOG_STEPS_PER_TURN, |p| p.jog_steps_per_turn);
+        let jog_steps_per_turn = self.jog_steps_per_turn(device);
         let connection = input
             .connect(
                 port,
@@ -919,36 +1007,60 @@ impl Controllers {
                 (),
             )
             .map_err(midi_error)?;
-        let mut output = open_output(&port_name);
-        let mut later = Vec::new();
-        if let (Some(output), Some(profile)) = (output.as_mut(), &profile) {
-            for (after_ms, message) in profile.init.iter().map(|m| m.when_and_what()) {
-                if after_ms == 0 {
-                    let _ = output.send(message);
-                } else {
-                    later.push((
-                        Instant::now() + Duration::from_millis(u64::from(after_ms)),
-                        message.to_vec(),
-                    ));
-                }
-            }
-        }
-        let connection = Connection {
+        let output = open_output(&port_name);
+        self.opened(device, port_name, Link::Midi { input: Some(connection), output });
+        Ok(())
+    }
+
+    /// Opens the HID controller `device`: its reports are read from its own thread.
+    fn open_hid(&self, app: &AppHandle, device: &str) -> AppResult<()> {
+        let plugged = hid_plugged();
+        let names: Vec<String> = plugged.iter().map(|p| p.name.clone()).collect();
+        let at = port_of(&names, device, &self.ports_open())
+            .ok_or_else(|| AppError::ControllerUnplugged(device.to_owned()))?;
+        let profile = self.profile(device);
+        // a profile's fields tell whether the device numbers its reports, else its descriptor does
+        let numbered = profile.as_ref().and_then(|p| p.hid_inputs().first().map(|f| f.report != 0));
+        let (app, name) = (app.clone(), device.to_owned());
+        let jog_steps_per_turn = self.jog_steps_per_turn(device);
+        let link = controller_hid::Link::open(
+            &plugged[at],
+            profile.as_ref().and_then(|p| p.hid.as_ref()),
+            numbered,
+            move |read, at_s| {
+                app.state::<Controllers>().receive_hid(&app, &name, &read, jog_steps_per_turn, at_s);
+            },
+        )
+        .map_err(AppError::Hid)?;
+        self.opened(device, names[at].clone(), Link::Hid(link));
+        Ok(())
+    }
+
+    /// `device` opened on `port`: it is sent what its profile sends first (some of it later),
+    /// its groups are in their first modes, and its lights show.
+    fn opened(&self, device: &str, port: String, link: Link) {
+        let mut connection = Connection {
             device: device.to_owned(),
-            port: port_name,
-            input: Some(connection),
-            output,
+            port,
+            link,
             kept_alive: Instant::now(),
             lit: Lit::default(),
-            later,
+            later: Vec::new(),
             clipped: HashMap::new(),
             displayed: HashMap::new(),
         };
-        let modes = profile.map(|p| p.first_modes()).unwrap_or_default();
-        lock(&self.reader).set_modes(device, modes);
+        let profile = self.profile(device);
+        for (after_ms, message) in profile.iter().flat_map(|p| p.init.iter().map(|m| m.when_and_what())) {
+            if after_ms == 0 {
+                connection.send(message);
+            } else {
+                let at = Instant::now() + Duration::from_millis(u64::from(after_ms));
+                connection.later.push((at, message.to_vec()));
+            }
+        }
+        lock(&self.reader).set_modes(device, profile.map(|p| p.first_modes()).unwrap_or_default());
         lock(&self.connections).push(connection);
         self.show_lights(device);
-        Ok(())
     }
 
     /// An event of `device`, whose jog wheels turn by `jog_steps_per_turn`, at `at_s` on its
@@ -962,7 +1074,7 @@ impl Controllers {
         let routed = self.route(device, event, at_s);
         // a key's light may show it held, latched or at the second of its two positions, and
         // the lights show the layer in use (a mode chosen by a switch, say)
-        if event.control.kind == ControlKind::Note || layer() != before {
+        if event.control.is_key() || layer() != before {
             self.show_lights(device);
         }
         match routed {
@@ -970,6 +1082,35 @@ impl Controllers {
             Some(Routed::Actions(actions)) => self.act(app, actions, at_s, jog_steps_per_turn),
             None => {}
         }
+    }
+
+    /// A report of the HID controller `device`, at `at_s` on its clock (see [`Self::read_hid`]).
+    fn receive_hid(&self, app: &AppHandle, device: &str, read: &Read, jog_steps_per_turn: f64, at_s: f64) {
+        match self.read_hid(device, read) {
+            Reported::Learnt(mapping) => drop(app.emit("controller-learned", mapping)),
+            Reported::Events(events) => {
+                for event in events {
+                    self.receive(app, device, jog_steps_per_turn, event, at_s);
+                }
+            }
+        }
+    }
+
+    /// What a report of the HID controller `device` tells: the control learnt, if one is waited
+    /// for and the report moved one, else an event for each field read that changed.
+    fn read_hid(&self, device: &str, read: &Read) -> Reported {
+        let fields = lock(&self.hid_fields).get(device).cloned().unwrap_or_default();
+        let learning = lock(&self.learning).as_ref().map(|l| l.learnt);
+        if let Some(learnt) = learning {
+            let mut known = self.profile(device).map(|p| p.hid_inputs()).unwrap_or_default();
+            known.extend(fields.iter());
+            if let Some(mapping) =
+                read.learnt(&known, learnt).and_then(|event| self.learn_from(device, event))
+            {
+                return Reported::Learnt(Box::new(mapping));
+            }
+        }
+        Reported::Events(read.events(&fields))
     }
 
     /// Performs what a controller drove at `at_s` on its clock: the UI is told its actions, the
@@ -1006,33 +1147,10 @@ impl Controllers {
     /// Learns the control if a target waits for one, else finds what it drives; `at_s` when,
     /// on the controller's clock.
     fn route(&self, device: &str, event: Event, at_s: f64) -> Option<Routed> {
-        if let Some(learnt) = self.complete_fine(device, event) {
+        if let Some(learnt) = self.complete_fine(device, event).or_else(|| self.learn_from(device, event)) {
             return Some(Routed::Learned(Box::new(learnt)));
         }
         let mut reader = lock(&self.reader);
-        let shift = lock(&self.mappings)
-            .find(device, Event { raw: 127, ..event }, &Shifts::default(), &Modes::new())
-            .is_some_and(|m| m.target == SHIFT);
-        // a release is the end of the previous press, not the control to learn; nor is shift
-        let released = event.control.kind == ControlKind::Note && event.raw == 0;
-        let learning = lock(&self.learning).take_if(|_| !released && !shift);
-        if let Some(Learning { target, encoder }) = learning {
-            let binding = ProfileControl {
-                control: event.control,
-                target,
-                encoding: if encoder { Encoding::guess(event.raw) } else { Encoding::Absolute },
-                shift: reader.shifted(device).into(),
-                ..Default::default()
-            };
-            let mapping = Mapping::new(device, binding);
-            self.save(|s| {
-                let unmapped = Unmapped::On { device: device.to_owned(), target: mapping.target.clone() };
-                s.unmapped.retain(|u| *u != unmapped);
-                s.mappings.learn(mapping.clone(), Direct::takes_several(&mapping.target));
-            });
-            *lock(&self.just_learnt) = Some((mapping.clone(), Instant::now()));
-            return Some(Routed::Learned(Box::new(mapping)));
-        }
         let mappings = lock(&self.mappings);
         let (mapping, value) = reader.read(&mappings, device, event)?;
         if selected_mode(&mapping.target).is_some() {
@@ -1052,6 +1170,33 @@ impl Controllers {
             return self.hold(device, event, at_s, mapping, hold, &mut reader);
         }
         driven(inputs(mapping, value))
+    }
+
+    /// Learns the control of `event` of `device` for the action waiting for one, if one is: but
+    /// for a key let go, the end of a press made before, and shift.
+    fn learn_from(&self, device: &str, event: Event) -> Option<Mapping> {
+        let reader = lock(&self.reader);
+        let shift = lock(&self.mappings)
+            .find(device, Event { raw: 127, ..event }, &Shifts::default(), &Modes::new())
+            .is_some_and(|m| m.target == SHIFT);
+        let released = event.control.is_key() && event.raw == 0;
+        let Learning { target, learnt } = lock(&self.learning).take_if(|_| !released && !shift)?;
+        let binding = ProfileControl {
+            control: event.control,
+            target,
+            encoding: if learnt == Learnt::Encoder { Encoding::guess(event) } else { Encoding::Absolute },
+            shift: reader.shifted(device).into(),
+            ..Default::default()
+        };
+        drop(reader);
+        let mapping = Mapping::new(device, binding);
+        self.save(|s| {
+            let unmapped = Unmapped::On { device: device.to_owned(), target: mapping.target.clone() };
+            s.unmapped.retain(|u| *u != unmapped);
+            s.mappings.learn(mapping.clone(), Direct::takes_several(&mapping.target));
+        });
+        *lock(&self.just_learnt) = Some((mapping.clone(), Instant::now()));
+        Some(mapping)
     }
 
     /// What a key drives instead of its action as it is: another action pressed twice or
@@ -1192,18 +1337,16 @@ impl Controllers {
         let mut just_learnt = lock(&self.just_learnt);
         let (mapping, at) =
             just_learnt.take_if(|(m, at)| m.device == device && at.elapsed() < FINE_HALF_WITHIN)?;
-        let coarse = mapping.control;
-        let fine = coarse.number + 32;
-        let follows = coarse.kind == ControlKind::ControlChange
-            && event.control.kind == ControlKind::ControlChange
-            && coarse.number < 32
-            && event.control.channel == coarse.channel
-            && event.control.number == fine
+        let fine = match mapping.control {
+            Control::ControlChange(coarse) if coarse.number < 32 => Some(coarse.number + 32),
+            _ => None,
+        };
+        let follows = fine.is_some_and(|fine| mapping.control.with_number(fine) == Some(event.control))
             && mapping.encoding == Encoding::Absolute;
-        if !follows {
+        let Some(fine) = fine.filter(|_| follows) else {
             *just_learnt = Some((mapping, at));
             return None;
-        }
+        };
         self.save(|s| s.mappings.make_fine(&mapping, fine));
         let mut fine_mapping = mapping;
         fine_mapping.fine = Some(fine);
@@ -1264,8 +1407,51 @@ impl Controllers {
             let unmapped = |m: &Mapping| s.unmapped.iter().any(|u| u.covers(m));
             Mappings::layered(profiled, &s.mappings, unmapped, Direct::takes_several)
         });
+        let mut fields: HashMap<String, BTreeSet<Field>> = HashMap::new();
+        for m in layered.all() {
+            for control in std::iter::once(m.control).chain(m.chord.as_ref().map(|c| c.with)) {
+                if let Control::Hid(field) = control {
+                    fields.entry(m.device.clone()).or_default().insert(field);
+                }
+            }
+        }
         *lock(&self.mappings) = layered;
+        *lock(&self.hid_fields) =
+            fields.into_iter().map(|(device, fields)| (device, Arc::new(fields))).collect();
     }
+}
+
+/// Where the light of `control` is: on the control itself for MIDI, the LED its HID profile
+/// (`hid`) gives a key.
+fn light_of(hid: Option<&hid::HidDevice>, control: Control) -> Option<Control> {
+    match control {
+        Control::Hid(_) => hid?.led(control),
+        _ => Some(control),
+    }
+}
+
+/// The HID devices plugged in that may be controllers, each by the interface its profile reads.
+pub(crate) fn hid_plugged() -> Vec<controller_hid::Plugged> {
+    controller_hid::plugged(controller_profiles::hid_fit)
+}
+
+/// The controllers plugged in, the MIDI ports `midi` and the HID devices `hid`, a controller
+/// that is both used one way only: by HID if Prisme knows it so and not by MIDI, else by MIDI.
+fn with_hid(mut midi: Vec<String>, hid: &[controller_hid::Plugged]) -> Vec<String> {
+    let known = |name: &str| controller_profiles::of(name).is_some();
+    let mut plugged = Vec::with_capacity(midi.len() + hid.len());
+    for device in hid {
+        let product = device.product.to_lowercase();
+        let same = |port: &String| product.len() >= 4 && port.to_lowercase().contains(&product);
+        match midi.iter().position(same) {
+            Some(at) if known(&device.name) && !known(&midi[at]) => drop(midi.remove(at)),
+            Some(_) => continue,
+            None => {}
+        }
+        plugged.push(device.name.clone());
+    }
+    midi.extend(plugged);
+    midi
 }
 
 /// What `mapping` driven to `value` gives the UI: its action (a mode key's is chosen as it is
@@ -1385,7 +1571,7 @@ mod tests {
     }
     use prisme_control::{parse, Chord, Control, LightValues, Meter, Shift, When};
 
-    const PAD: Control = Control { kind: ControlKind::Note, channel: 0, number: 36 };
+    const PAD: Control = Control::note(0, 36);
 
     fn controllers() -> Controllers {
         Controllers::new(JsonFile::in_memory(ControllerSetup::default()))
@@ -1420,7 +1606,7 @@ mod tests {
     #[test]
     fn a_learnt_control_then_drives_its_target() {
         let c = controllers();
-        c.learn("deck1.play".into(), false);
+        c.learn("deck1.play".into(), Learnt::Button);
         // the release of a press made before Learn is not learnt
         assert_eq!(c.route("DDJ", parse(&[0x80, 40, 0]).unwrap(), 0.0), None);
         let learnt = c.route("DDJ", parse(&[0x90, 36, 127]).unwrap(), 0.0);
@@ -1433,11 +1619,11 @@ mod tests {
     #[test]
     fn encoders_are_learnt_with_their_kind_of_steps() {
         let c = controllers();
-        c.learn("library.browse".into(), true);
+        c.learn("library.browse".into(), Learnt::Encoder);
         route(&c, &[0xb0, 64, 1]);
         assert_eq!(route(&c, &[0xb0, 64, 127]), input("library.browse", -1.0));
         // a jog sending steps around 64
-        c.learn("deck1.jog".into(), true);
+        c.learn("deck1.jog".into(), Learnt::Encoder);
         route(&c, &[0xb0, 33, 65]);
         assert_eq!(route(&c, &[0xb0, 33, 61]), direct(Direct::Jog(0), -3.0));
     }
@@ -1445,10 +1631,10 @@ mod tests {
     #[test]
     fn a_fader_sending_its_low_half_is_learnt_14_bit() {
         let c = controllers();
-        c.learn("deck1.pitch".into(), false);
+        c.learn("deck1.pitch".into(), Learnt::Fader);
         route(&c, &[0xb0, 0, 64]);
         let fine = route(&c, &[0xb0, 32, 0]);
-        let tempo = Control { kind: ControlKind::ControlChange, channel: 0, number: 0 };
+        let tempo = Control::control_change(0, 0);
         assert_eq!(
             fine,
             Some(Routed::Learned(Box::new(with(mapping(tempo, "deck1.pitch"), |b| b.fine = Some(32)))))
@@ -1460,12 +1646,12 @@ mod tests {
     #[test]
     fn shift_held_while_learning_learns_the_second_layer() {
         let c = controllers();
-        c.learn(SHIFT.into(), false);
+        c.learn(SHIFT.into(), Learnt::Button);
         route(&c, &[0x90, 63, 127]);
         route(&c, &[0x90, 63, 0]);
-        c.learn("deck1.cue".into(), false);
+        c.learn("deck1.cue".into(), Learnt::Button);
         route(&c, &[0x90, 36, 127]);
-        c.learn("deck1.hotcue1.delete".into(), false);
+        c.learn("deck1.hotcue1.delete".into(), Learnt::Button);
         // shift is pressed first: it is not what is learnt
         assert_eq!(route(&c, &[0x90, 63, 127]), None);
         let learnt = route(&c, &[0x90, 36, 127]);
@@ -1491,7 +1677,7 @@ mod tests {
         let play = |c: &Controllers| c.route("DDJ-SB2", parse(&[0x90, 0x0b, 127]).unwrap(), 0.0);
         assert_eq!(play(&c), input("deck1.play", 1.0));
         // learnt over the profile, the control drives what was learnt
-        c.learn("deck1.cue".into(), false);
+        c.learn("deck1.cue".into(), Learnt::Button);
         play(&c);
         assert_eq!(play(&c), input("deck1.cue", 1.0));
         // forgotten, an action leaves the profile's controls too
@@ -1503,7 +1689,7 @@ mod tests {
             .unmapped
             .contains(&Unmapped::On { device: "DDJ-SB2".into(), target: "deck1.play".into() }));
         // learnt again, it is mapped again
-        c.learn("deck1.play".into(), false);
+        c.learn("deck1.play".into(), Learnt::Button);
         play(&c);
         assert_eq!(play(&c), input("deck1.play", 1.0));
     }
@@ -1594,7 +1780,7 @@ mod tests {
     #[test]
     fn learning_can_be_cancelled() {
         let c = controllers();
-        c.learn("deck1.play".into(), false);
+        c.learn("deck1.play".into(), Learnt::Button);
         c.cancel_learning();
         assert_eq!(c.route("DDJ", parse(&[0x90, 36, 127]).unwrap(), 0.0), None);
         assert!(c.setup().mappings.all().is_empty());
@@ -1623,7 +1809,7 @@ mod tests {
 
     #[test]
     fn a_key_pressed_with_another_drives_their_chord() {
-        let other = Control { number: 37, ..PAD };
+        let other = Control::note(0, 37);
         let chord = Chord { with: other, target: "deck1.tempo.reset".into() };
         let c = with_mappings([
             mapping(other, "deck1.bend.up"),
@@ -1656,7 +1842,7 @@ mod tests {
 
     #[test]
     fn a_mode_key_drives_its_other_actions_too() {
-        let key = Control { number: 9, ..PAD };
+        let key = Control::note(0, 9);
         let c = with_mappings([with(mapping(key, "mode.pads.roll"), |b| b.also = vec!["deck1.slip".into()])]);
         assert_eq!(route(&c, &[0x90, 9, 127]), input("deck1.slip", 1.0));
         assert_eq!(lock(&c.reader).modes("DDJ")["pads"], "roll");
@@ -1678,7 +1864,7 @@ mod tests {
 
     #[test]
     fn a_mode_key_held_chooses_its_hold_and_let_go_sooner_its_own_mode() {
-        let key = Control { number: 9, ..PAD };
+        let key = Control::note(0, 9);
         let mode_key = |ms| {
             let hold = Hold { ms, target: "mode.pads.slicer".into() };
             with(mapping(key, "mode.pads.roll"), |b| b.hold = Some(hold))
@@ -1700,7 +1886,7 @@ mod tests {
 
     #[test]
     fn a_direct_action_is_done_here_whatever_drives_it() {
-        let (other, third) = (Control { number: 37, ..PAD }, Control { number: 38, ..PAD });
+        let (other, third) = (Control::note(0, 37), Control::note(0, 38));
         let c = with_mappings([
             with(mapping(PAD, "deck1.jog.touch"), |b| b.latch = true),
             with(mapping(other, "deck1.play"), |b| {
@@ -1757,7 +1943,7 @@ mod tests {
 
     #[test]
     fn a_key_of_two_layers_shows_the_one_in_use() {
-        let shift_key = Control { number: 63, ..PAD };
+        let shift_key = Control::note(0, 63);
         let c = with_mappings([
             mapping(shift_key, SHIFT),
             with(mapping(PAD, "deck1.play"), lit(ON, 10)),
@@ -1791,7 +1977,7 @@ mod tests {
         meter
             .show(level, clipping)
             .into_iter()
-            .filter_map(|(control, value)| lit.light(control, value))
+            .filter_map(|(control, value)| lit.light(control, value)?.midi())
             .collect()
     }
 
@@ -1827,7 +2013,7 @@ mod tests {
 
     #[test]
     fn an_encoder_presses_keys_a_step_each() {
-        let knob = Control { kind: ControlKind::ControlChange, channel: 0, number: 20 };
+        let knob = Control::control_change(0, 20);
         let loops = |b: &mut ProfileControl| {
             b.encoding = Encoding::RelativeOffset;
             b.down = Some("deck1.loop.halve".into());

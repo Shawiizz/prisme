@@ -5,6 +5,7 @@ import { ControllersSettings } from './controllers-settings';
 
 const VCI_100: Controller = {
   name: 'VCI-100',
+  hid: false,
   enabled: true,
   plugged: true,
   profile: 'Vestax VCI-100',

@@ -11,6 +11,7 @@
 //! profile fetched is taken over the shipped one only if it is a later revision, in a format
 //! this Prisme reads.
 
+use prisme_control::hid::HidInfo;
 use prisme_control::{Profile, PROFILE_FORMAT, SCHEMA_URL};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
@@ -340,6 +341,18 @@ pub fn of(port: &str) -> Option<Arc<Profile>> {
     current().of(port).map(|known| known.profile.clone())
 }
 
+/// How closely a HID device of `info` is a model Prisme knows (see `HidDevice::fits`); never
+/// by a variant.
+pub fn hid_fit(info: &HidInfo) -> Option<usize> {
+    let models = current();
+    models
+        .known
+        .iter()
+        .filter(|k| !k.profile.variant)
+        .filter_map(|k| k.profile.hid.as_ref()?.fits(info))
+        .max()
+}
+
 /// The profiles shipped, then those fetched that are later, then the DJ's own.
 fn read_library(folders: Option<&Folders>) -> Library {
     let mut files: BTreeMap<String, Known> = BTreeMap::new();
@@ -584,8 +597,9 @@ mod tests {
         let library = read_library(None);
         assert_eq!(library.known.len(), SHIPPED.len());
         for Known { profile, .. } in &library.known {
-            assert!(!profile.ports.is_empty(), "{} names no port", profile.name);
+            assert!(!profile.ports.is_empty() || profile.hid.is_some(), "{} names no port", profile.name);
             assert!(!profile.controls.is_empty(), "{} maps nothing", profile.name);
+            assert_eq!(profile.problems(), Vec::<String>::new(), "{}", profile.name);
         }
     }
 

@@ -27,6 +27,8 @@ pub mod preview;
 pub mod recording;
 pub mod sampler;
 pub mod screens;
+#[cfg(debug_assertions)]
+pub mod simulated;
 pub mod stems;
 pub mod tracks;
 pub mod transport;

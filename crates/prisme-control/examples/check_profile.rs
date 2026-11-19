@@ -1,4 +1,5 @@
-//! Reads controller profiles as Prisme does, and tells what of each it would ignore.
+//! Reads controller profiles as Prisme does, MIDI and HID, and tells what of each it would
+//! ignore or could not use.
 //!
 //! `cargo run -p prisme-control --example check_profile -- <profile.json>...`
 
@@ -40,11 +41,18 @@ fn check(path: &str) -> Result<String, String> {
     if !ignored.is_empty() {
         return Err(format!("keys Prisme ignores: {}", ignored.join(", ")));
     }
-    if profile.ports.is_empty() || profile.controls.is_empty() {
-        return Err("names no port, or maps nothing".into());
+    if (profile.ports.is_empty() && profile.hid.is_none()) || profile.controls.is_empty() {
+        return Err("names no port nor HID device, or maps nothing".into());
     }
+    let problems = profile.problems();
+    if !problems.is_empty() {
+        return Err(problems.join("; "));
+    }
+    let hid = profile.hid.as_ref().map_or(String::new(), |device| {
+        format!(", {} fields read, {} keys lit by HID", profile.hid_inputs().len(), device.leds.len())
+    });
     Ok(format!(
-        "{} controls, {} lights, {} meters, {} mode groups, {} mappings",
+        "{} controls, {} lights, {} meters, {} mode groups, {} mappings{hid}",
         profile.controls.len(),
         profile.lights.len(),
         profile.meters.len(),

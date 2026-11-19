@@ -1,5 +1,5 @@
 use crate::light::LightValues;
-use crate::message::{Control, ControlKind, Event};
+use crate::message::{Control, Event};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet, HashMap};
@@ -129,7 +129,8 @@ pub struct When {
     pub mode: String,
 }
 
-/// How a control's values are read.
+/// How a control's values are read. The steps are told here in 7-bit values; a HID field's
+/// are read the same over its own bits (a 4-bit counter wraps at 16).
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub enum Encoding {
@@ -158,20 +159,22 @@ impl Encoding {
     }
 
     pub fn value(self, event: Event) -> f32 {
-        let raw = event.raw;
+        let raw = i32::from(event.raw);
+        // the values of its bits, and the middle one
+        let (values, half) = (1 << event.control.bits(), 1 << (event.control.bits() - 1));
         let steps = |s: i32| s as f32;
-        match (event.control.kind, self) {
-            (ControlKind::PitchBend, _) => f32::from(raw) / 16383.0,
-            (_, Encoding::Absolute) => f32::from(raw) / 127.0,
-            (_, Encoding::Relative) if raw < 64 => steps(i32::from(raw)),
-            (_, Encoding::Relative) => steps(i32::from(raw) - 128),
-            (_, Encoding::RelativeOffset) => steps(i32::from(raw) - 64),
-            (_, Encoding::RelativeOffsetNoZero) if raw > 64 => steps(i32::from(raw) - 64),
-            (_, Encoding::RelativeOffsetNoZero) => steps(i32::from(raw) - 65),
-            (_, Encoding::RelativeSigned) if raw & 0x40 != 0 => steps(-i32::from(raw & 0x3f)),
-            (_, Encoding::RelativeSigned) => steps(i32::from(raw)),
-            (_, Encoding::RelativeZero) if raw < 64 => steps(i32::from(raw) + 1),
-            (_, Encoding::RelativeZero) => steps(i32::from(raw) - 128),
+        match (event.control, self) {
+            (Control::PitchBend(_), _) => raw as f32 / 16383.0,
+            (_, Encoding::Absolute) => raw as f32 / (values - 1) as f32,
+            (_, Encoding::Relative) if raw < half => steps(raw),
+            (_, Encoding::Relative) => steps(raw - values),
+            (_, Encoding::RelativeOffset) => steps(raw - half),
+            (_, Encoding::RelativeOffsetNoZero) if raw > half => steps(raw - half),
+            (_, Encoding::RelativeOffsetNoZero) => steps(raw - half - 1),
+            (_, Encoding::RelativeSigned) if raw & half != 0 => steps(-(raw & (half - 1))),
+            (_, Encoding::RelativeSigned) => steps(raw),
+            (_, Encoding::RelativeZero) if raw < half => steps(raw + 1),
+            (_, Encoding::RelativeZero) => steps(raw - values),
             // the steps come from the position before, which the reader keeps
             (_, Encoding::AbsoluteWrap) => 0.0,
         }
@@ -179,12 +182,12 @@ impl Encoding {
 
     /// The likeliest encoding of an encoder from its first step: values near 64 are
     /// centred steps, values near 0 or 127 two's complement ones. A sign-bit encoder looks
-    /// like one of them: it is chosen by hand.
-    pub fn guess(raw: u16) -> Encoding {
-        if (32..96).contains(&raw) {
-            Encoding::RelativeOffset
-        } else {
-            Encoding::Relative
+    /// like one of them: it is chosen by hand. A HID encoder is a counter that wraps.
+    pub fn guess(event: Event) -> Encoding {
+        match (event.control, event.raw) {
+            (Control::Hid(_), _) => Encoding::AbsoluteWrap,
+            (_, 32..96) => Encoding::RelativeOffset,
+            _ => Encoding::Relative,
         }
     }
 }
@@ -198,7 +201,7 @@ pub struct ProfileControl {
     #[serde(default, skip_serializing_if = "is_absolute")]
     pub encoding: Encoding,
     /// The controller sending the low 7 bits of a 14-bit control (its high 7 bits on
-    /// `control`, by convention the number 32 lower).
+    /// `control`, a controller, by convention the number 32 lower).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub fine: Option<u8>,
     /// Drives its action while the controller's shift is held (its second layer), or a
@@ -307,7 +310,7 @@ impl ProfileControl {
     }
 
     fn fine_control(&self) -> Option<Control> {
-        self.fine.map(|number| Control { number, ..self.control })
+        self.fine.and_then(|number| self.control.with_number(number))
     }
 
     /// Whether it drives its action in `modes`.
@@ -333,7 +336,7 @@ impl ProfileControl {
 /// A control of a controller driving one of the application's actions.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Mapping {
-    /// The controller's MIDI port name.
+    /// The controller's name: its MIDI port's, or Prisme's of a HID device.
     pub device: String,
     #[serde(flatten)]
     pub binding: ProfileControl,
@@ -495,7 +498,7 @@ impl Reader {
         event: Event,
     ) -> Option<(&'m Mapping, f32)> {
         let reader = self.device(device);
-        let key = event.control.kind == ControlKind::Note;
+        let key = event.control.is_key();
         let released = key && event.raw == 0;
         let layer = released.then(|| reader.pressed.remove(&event.control)).flatten();
         let mapping = match &layer {
@@ -652,7 +655,7 @@ impl DeviceReader {
     /// The steps of a control read by its changes of position, the shortest way round; none
     /// on its first position.
     fn wrapped(&mut self, mapping: &ProfileControl, event: Event) -> Option<f32> {
-        let range = if event.control.kind == ControlKind::PitchBend { 16384 } else { 128 };
+        let range = 1 << event.control.bits();
         let before = self.positions.insert(mapping.control, event.raw)?;
         let change = (i32::from(event.raw) - i32::from(before)).rem_euclid(range);
         let steps = if change > range / 2 { change - range } else { change };
@@ -676,11 +679,12 @@ impl ProfileControl {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::hid::Field;
     use crate::message::parse;
 
-    const PAD: Control = Control { kind: ControlKind::Note, channel: 0, number: 36 };
-    const KNOB: Control = Control { kind: ControlKind::ControlChange, channel: 0, number: 20 };
-    const SHIFT_KEY: Control = Control { kind: ControlKind::Note, channel: 0, number: 63 };
+    const PAD: Control = Control::note(0, 36);
+    const KNOB: Control = Control::control_change(0, 20);
+    const SHIFT_KEY: Control = Control::note(0, 63);
 
     fn mapping(device: &str, control: Control, target: &str) -> Mapping {
         Mapping::new(device, ProfileControl { control, target: target.into(), ..Default::default() })
@@ -718,10 +722,43 @@ mod tests {
 
     #[test]
     fn an_encoder_is_guessed_from_its_first_step() {
-        assert_eq!(Encoding::guess(1), Encoding::Relative);
-        assert_eq!(Encoding::guess(127), Encoding::Relative);
-        assert_eq!(Encoding::guess(65), Encoding::RelativeOffset);
-        assert_eq!(Encoding::guess(62), Encoding::RelativeOffset);
+        let at = |raw| Event { control: KNOB, raw };
+        assert_eq!(Encoding::guess(at(1)), Encoding::Relative);
+        assert_eq!(Encoding::guess(at(127)), Encoding::Relative);
+        assert_eq!(Encoding::guess(at(65)), Encoding::RelativeOffset);
+        assert_eq!(Encoding::guess(at(62)), Encoding::RelativeOffset);
+        let counter = Control::Hid(Field { report: 1, byte: 2, bit: 0, bits: 4, big_endian: false });
+        assert_eq!(Encoding::guess(Event { control: counter, raw: 3 }), Encoding::AbsoluteWrap);
+    }
+
+    #[test]
+    fn a_hid_field_is_read_over_its_own_bits() {
+        let field = |bits| Control::Hid(Field { report: 1, byte: 2, bit: 0, bits, big_endian: false });
+        let at = |bits, raw| Event { control: field(bits), raw };
+        assert_eq!(Encoding::Absolute.value(at(12, 4095)), 1.0);
+        assert_eq!(Encoding::Absolute.value(at(1, 1)), 1.0);
+        assert_eq!(Encoding::Relative.value(at(8, 255)), -1.0);
+        assert_eq!(Encoding::Relative.value(at(4, 2)), 2.0);
+        assert_eq!(Encoding::RelativeOffset.value(at(8, 130)), 2.0);
+        let mut mappings = Mappings::default();
+        let jog = with(mapping("S4", field(8), "deck1.jog"), |b| b.encoding = Encoding::AbsoluteWrap);
+        mappings.learn(jog, false);
+        let mut reader = Reader::default();
+        let mut turn = |raw| reader.read(&mappings, "S4", at(8, raw)).map(|(_, v)| v);
+        assert_eq!(turn(250), None);
+        assert_eq!(turn(4), Some(10.0), "wrapped at 256");
+        assert_eq!(turn(0), Some(-4.0));
+        let key = Mapping::new(
+            "S4",
+            ProfileControl { control: field(1), target: "deck1.play".into(), ..Default::default() },
+        );
+        let mut mappings = Mappings::default();
+        mappings.learn(key, false);
+        let mut reader = Reader::default();
+        assert_eq!(reader.read(&mappings, "S4", at(1, 1)).map(|(_, v)| v), Some(1.0));
+        assert_eq!(reader.held("S4"), [field(1)], "a key held");
+        assert_eq!(reader.read(&mappings, "S4", at(1, 0)).map(|(_, v)| v), Some(0.0));
+        assert!(reader.held("S4").is_empty());
     }
 
     #[test]
@@ -742,7 +779,7 @@ mod tests {
     #[test]
     fn a_fine_control_completes_its_coarse_half() {
         let mut mappings = Mappings::default();
-        let tempo = mapping("DDJ", Control { number: 0, ..KNOB }, "deck1.pitch");
+        let tempo = mapping("DDJ", Control::control_change(0, 0), "deck1.pitch");
         mappings.learn(tempo.clone(), false);
         mappings.make_fine(&tempo, 32);
         let mut reader = Reader::default();
@@ -798,7 +835,7 @@ mod tests {
 
     #[test]
     fn a_jog_wheel_keeps_its_top_and_its_edge() {
-        let edge = Control { number: 33, ..KNOB };
+        let edge = Control::control_change(0, 33);
         let mut mappings = Mappings::default();
         mappings.learn(mapping("DDJ", KNOB, "deck1.jog"), true);
         mappings.learn(mapping("DDJ", edge, "deck1.jog"), true);
@@ -830,7 +867,7 @@ mod tests {
 
     #[test]
     fn learnt_mappings_take_the_place_of_the_model() {
-        let shifted_pad = Control { number: 37, ..PAD };
+        let shifted_pad = Control::note(0, 37);
         let model = [
             mapping("DDJ", PAD, "deck1.play"),
             mapping("DDJ", shifted_pad, "deck1.play"),
@@ -840,7 +877,7 @@ mod tests {
         let mut learnt = Mappings::default();
         // the pad learnt for another action, the knob's action learnt on another control
         learnt.learn(mapping("DDJ", PAD, "deck1.cue"), false);
-        learnt.learn(mapping("DDJ", Control { number: 21, ..KNOB }, "deck1.volume"), false);
+        learnt.learn(mapping("DDJ", Control::control_change(0, 21), "deck1.volume"), false);
         let layered = Mappings::layered(model, &learnt, |m| m.target == "deck1.sync", |_| false);
         let target = |control| {
             let pressed = Event { control, raw: 127 };
@@ -849,7 +886,7 @@ mod tests {
         assert_eq!(target(PAD), Some("deck1.cue"));
         assert_eq!(target(shifted_pad), Some("deck1.play"));
         assert_eq!(target(KNOB), None);
-        assert_eq!(target(Control { number: 21, ..KNOB }), Some("deck1.volume"));
+        assert_eq!(target(Control::control_change(0, 21)), Some("deck1.volume"));
         assert_eq!(target(SHIFT_KEY), None, "forgotten");
     }
 
@@ -890,9 +927,9 @@ mod tests {
     #[test]
     fn a_mode_selects_what_its_controls_drive() {
         let mode = |name: &str| When { group: "padsA".into(), mode: name.into() };
-        let roll_key = Control { number: 7, ..PAD };
+        let roll_key = Control::note(0, 7);
         let mut mappings = Mappings::default();
-        mappings.learn(mapping("DDJ", Control { number: 0, ..PAD }, "mode.padsA.hotcue"), false);
+        mappings.learn(mapping("DDJ", Control::note(0, 0), "mode.padsA.hotcue"), false);
         mappings.learn(mapping("DDJ", roll_key, "mode.padsA.roll"), false);
         mappings.learn(with(mapping("DDJ", PAD, "deck1.hotcue1"), |b| b.when = Some(mode("hotcue"))), false);
         mappings.learn(with(mapping("DDJ", PAD, "deck1.roll1"), |b| b.when = Some(mode("roll"))), false);
@@ -909,7 +946,7 @@ mod tests {
 
     #[test]
     fn a_switch_drives_the_action_of_its_position() {
-        let switch = Control { number: 3, ..KNOB };
+        let switch = Control::control_change(0, 3);
         // as a profile gives them: two positions may drive the same action
         let positions = [(0, "deck1.fx.off"), (1, "deck1.fx.on"), (2, "deck1.fx.on")]
             .map(|(value, target)| with(mapping("DDJ", switch, target), |b| b.on_value = Some(value)));
@@ -952,7 +989,7 @@ mod tests {
 
     #[test]
     fn named_shifts_choose_their_own_layer() {
-        let left = Control { number: 1, ..SHIFT_KEY };
+        let left = Control::note(0, 1);
         let mut mappings = Mappings::default();
         mappings.learn(mapping("DDJ", SHIFT_KEY, SHIFT), false);
         mappings.learn(mapping("DDJ", left, "shift.left"), false);
@@ -974,7 +1011,7 @@ mod tests {
 
     #[test]
     fn of_a_control_of_several_layers_the_one_in_use_is_shown() {
-        let left = Control { number: 1, ..SHIFT_KEY };
+        let left = Control::note(0, 1);
         let mut mappings = Mappings::default();
         mappings.learn(mapping("DDJ", SHIFT_KEY, SHIFT), false);
         mappings.learn(mapping("DDJ", left, "shift.left"), false);
@@ -1009,7 +1046,7 @@ mod tests {
 
     #[test]
     fn a_mode_key_held_gives_its_mode_back_when_let_go() {
-        let key = Control { number: 9, ..PAD };
+        let key = Control::note(0, 9);
         let mut mappings = Mappings::default();
         mappings.learn(with(mapping("DDJ", key, "mode.pads.params"), |b| b.held = true), false);
         let mut reader = Reader::default();
@@ -1022,7 +1059,7 @@ mod tests {
 
     #[test]
     fn a_mode_key_with_a_hold_leaves_its_mode_to_be_chosen() {
-        let key = Control { number: 9, ..PAD };
+        let key = Control::note(0, 9);
         let mut mappings = Mappings::default();
         let hold = Hold { ms: 500, target: "mode.pads.slicer".into() };
         mappings.learn(with(mapping("DDJ", key, "mode.pads.roll"), |b| b.hold = Some(hold)), false);
@@ -1037,7 +1074,7 @@ mod tests {
 
     #[test]
     fn a_mode_for_once_ends_with_the_action_of_its_group() {
-        let key = Control { number: 9, ..PAD };
+        let key = Control::note(0, 9);
         let mut mappings = Mappings::default();
         mappings.learn(with(mapping("DDJ", key, "mode.pads.delete"), |b| b.once = true), false);
         let when = |mode: &str| Some(When { group: "pads".into(), mode: mode.into() });
@@ -1054,7 +1091,7 @@ mod tests {
 
     #[test]
     fn a_switch_position_of_zero_chooses_a_mode() {
-        let switch = Control { number: 3, ..KNOB };
+        let switch = Control::control_change(0, 3);
         let mut mappings = Mappings::default();
         mappings.learn(with(mapping("DDJ", switch, "mode.decks.left"), |b| b.on_value = Some(0)), false);
         mappings.learn(with(mapping("DDJ", switch, "mode.decks.right"), |b| b.on_value = Some(127)), false);
