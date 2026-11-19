@@ -140,12 +140,14 @@ impl Completion {
             }
             true
         });
-        if let Err(e) = decoded {
+        if let Err(e) = &decoded {
             warn!("{} decoded up to {:.1} s: {e}", self.path.display(), audio.duration_s());
         }
+        // what is made of a file read in part serves the decks, but is not kept as the file's
+        let stamp = self.stamp.filter(|_| decoded.is_ok());
         if let Some(feed) = feed {
             let waveform = feed.finish(&audio, &state);
-            if let Some(stamp) = self.stamp {
+            if let Some(stamp) = stamp {
                 if let Err(e) = library.db.save_waveform(&self.path, stamp, &waveform) {
                     error!("waveform of {} not saved: {e}", self.path.display());
                 }
@@ -175,7 +177,7 @@ impl Completion {
         if self.analysis_missing {
             let analysis = prisme_analysis::analyze(&audio, &AnalysisOptions::default());
             let metadata = prisme_library::read_metadata(&self.path);
-            if let Some(stamp) = self.stamp {
+            if let Some(stamp) = stamp {
                 let analyzed =
                     TrackRecord::analyzed(&self.path, stamp, audio.duration_s(), analysis, metadata.tags);
                 let edits = library.db.edits(&self.path).unwrap_or_default();
