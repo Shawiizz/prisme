@@ -117,6 +117,11 @@ impl Playhead {
         self.position = seconds * self.sample_rate();
     }
 
+    /// Seeks to `seconds` as if played there: the loop, or repeat, takes it round.
+    pub(crate) fn seek_round_s(&mut self, seconds: f64) {
+        self.position = wrap_in_loop(self.position, seconds * self.sample_rate(), self.wrap_frames());
+    }
+
     /// Renders interleaved stereo into `out` while moving at `speed` (1.0 = original
     /// tempo) at the output rate `out_rate`; with `apart`, the parts set apart go there and
     /// the rest to `out`. Uses 4-point Catmull-Rom interpolation; outside the track it plays

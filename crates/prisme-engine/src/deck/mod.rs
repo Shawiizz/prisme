@@ -498,11 +498,11 @@ impl Deck {
         let resnap = self.drive_mode() == DriveMode::Internal
             && self.sync.locked
             && self.playing
-            && !self.backwards()
+            && self.chases_beats()
             && sync::needs_resnap(target.phase_error);
         if let (Some(grid), true) = (self.grid, self.sync.snap_pending || resnap) {
             let position = self.playhead.position_s() + sync::snap_offset_s(&grid, target.phase_error);
-            self.playhead.seek_s(position);
+            self.playhead.seek_round_s(position);
             target.phase_error = 0.0;
             if self.sync.locked {
                 // start from the platter as it turns now rather than from a stale average
@@ -536,8 +536,8 @@ impl Deck {
             _ if !self.sync.locked => self.pitch,
             Some(t) => {
                 self.sync.held_rate = Some(t.rate);
-                // backwards, the beats run against the leader's: its tempo alone
-                let correction = if self.backwards() { 0.0 } else { sync::phase_correction(t.phase_error) };
+                let correction =
+                    if self.chases_beats() { sync::phase_correction(t.phase_error) } else { 0.0 };
                 t.rate * (1.0 + correction)
             }
             None => self.sync.held_rate.unwrap_or(self.pitch),
@@ -619,6 +619,13 @@ impl Deck {
     /// it where it is).
     fn backwards(&self) -> bool {
         (self.transport.censoring || self.transport.reversing()) && self.drive_mode() != DriveMode::Absolute
+    }
+
+    /// Whether a follower keeps to the leader's beats, not its tempo alone: not backwards,
+    /// its beats running against the leader's, nor in a loop, its beats jumping back at each
+    /// turn.
+    fn chases_beats(&self) -> bool {
+        !self.backwards() && !self.transport.loop_active
     }
 
     /// Whether the track advances at its tempo (gestures aside).
