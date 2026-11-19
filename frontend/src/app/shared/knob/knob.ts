@@ -92,6 +92,7 @@ function arc(from: number, to: number): string {
       <button
         class="label"
         [class.active]="active()"
+        [class.toggle]="active() !== null"
         [class.reading]="reading()"
         [disabled]="disabled()"
         (click)="labelClick.emit()"
@@ -186,6 +187,9 @@ function arc(from: number, to: number): string {
       text-align: center;
       white-space: nowrap;
       cursor: default;
+      &.toggle:enabled {
+        cursor: pointer;
+      }
       // the name and the value in one cell, the cell as wide as the widest of them: reading
       // the value moves nothing around the knob
       display: grid;
@@ -230,8 +234,9 @@ export class Knob {
   readonly labelTitle = input('');
   /** The value as read under the knob while it is touched (dB, %…). */
   readonly format = input<((value: number) => string) | null>(null);
-  /** Highlights the label (a kill engaged, for instance). */
-  readonly active = input(false);
+  /** Highlights the label (a kill engaged, for instance); left out, the label only names the
+   * knob. */
+  readonly active = input<boolean | null>(null);
   readonly small = input(false, { transform: booleanAttribute });
   /** Drawn dimmed, its value kept (a stem muted at its level). */
   readonly dimmed = input(false, { transform: booleanAttribute });

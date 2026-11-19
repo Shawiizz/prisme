@@ -55,7 +55,7 @@
 .row {
   height: var(--pr-row);
   border-bottom: 1px solid var(--pr-line-soft);
-  cursor: default;
+  cursor: pointer;
   &:hover {
     background: var(--pr-base);
   }

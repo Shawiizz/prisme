@@ -60,6 +60,12 @@ textarea {
     border-color: var(--pr-light);
   }
 }
+select {
+  cursor: pointer;
+  &:disabled {
+    cursor: default;
+  }
+}
 
 input[type='range'] {
   appearance: none;
