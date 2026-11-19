@@ -41,6 +41,10 @@
     color: var(--pr-text-3);
     white-space: nowrap;
   }
+  // a progress shown takes the room of the count, which the list tells anyway
+  &:has(.analysis .bar) .count {
+    display: none;
+  }
   .error {
     min-width: 0;
     font-size: var(--pr-size-small);
@@ -50,10 +54,13 @@
     text-overflow: ellipsis;
   }
 }
+// as wide as the room left, up to 380px: the first to give way to a progress
 .search {
   position: relative;
-  flex: 0 1 380px;
+  flex: 1 1 0;
   min-width: 160px;
+  max-width: 380px;
+  container-type: inline-size;
   svg {
     position: absolute;
     left: 10px;
@@ -69,7 +76,8 @@
     width: 100%;
     // as high as the selectors beside it
     height: 28px;
-    padding: 0 60px 0 30px;
+    padding: 0 90px 0 30px;
+    text-overflow: ellipsis;
   }
   .pr-kbd {
     position: absolute;
@@ -77,21 +85,40 @@
     top: 50%;
     translate: 0 -50%;
   }
+  // too narrow for its key and what is typed: the key goes, the words stay
+  @container (width < 280px) {
+    .pr-input {
+      padding-right: 10px;
+    }
+    .pr-kbd {
+      display: none;
+    }
+  }
 }
 
+// its words and bars shortened rather than its keys pushed out of the window
 .analysis {
   margin-left: auto;
   display: flex;
   align-items: center;
   gap: 10px;
-  flex: none;
+  flex: 0 1 auto;
+  min-width: 0;
   .status {
+    min-width: 0;
     font-size: var(--pr-size-small);
     color: var(--pr-text-2);
     font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .pr-btn {
+    flex: none;
   }
   .bar {
     width: 120px;
+    min-width: 40px;
     height: 2px;
     background: var(--pr-line-2);
     div {
