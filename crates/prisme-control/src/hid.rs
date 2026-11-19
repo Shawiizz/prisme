@@ -118,9 +118,17 @@ pub struct HidDevice {
     pub usage_page: Option<u16>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub usage: Option<u16>,
+    /// The input reports asked of it once it is opened, by id: its faders' positions known
+    /// before they move.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub inputs: Vec<u8>,
     /// Its output reports, which its lights are fields of.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub outputs: Vec<OutputReport>,
+    /// Its output reports written again after each report it sends: a model that puts back
+    /// lights of its own on a key pressed.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub rewrite: bool,
     /// The light of each key that has one, a field of an output report.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub leds: Vec<Led>,
@@ -168,14 +176,15 @@ pub struct HidInfo {
 
 impl HidDevice {
     /// How closely `info` is this model: more for each of its interface, usage page and usage it
-    /// names and `info` has; `None` if it is another.
+    /// names and `info` has; `None` if it is another. A device the system tells no interface of
+    /// (macOS, at times) is told by its usage alone.
     pub fn fits(&self, info: &HidInfo) -> Option<usize> {
         if (self.vendor_id, self.product_id) != (info.vendor_id, info.product_id) {
             return None;
         }
-        let interface = match self.interface {
-            Some(wanted) => (info.interface? == wanted).then_some(1)?,
-            None => 0,
+        let interface = match (self.interface, info.interface) {
+            (Some(wanted), Some(has)) => (wanted == has).then_some(1)?,
+            _ => 0,
         };
         let usage = |wanted: Option<u16>, has: u16| match wanted {
             Some(wanted) => (wanted == has).then_some(1),
@@ -413,6 +422,13 @@ impl Outputs {
             .collect()
     }
 
+    /// Every report written again, changed or not.
+    pub fn rewrite(&mut self) {
+        for report in &mut self.reports {
+            report.written = None;
+        }
+    }
+
     /// The reports as they are, every light dark but those always lit.
     pub fn dark(device: &HidDevice) -> Vec<Vec<u8>> {
         Outputs::new(device).reports.into_iter().map(|r| r.bytes).collect()
@@ -579,14 +595,26 @@ mod tests {
     }
 
     #[test]
+    fn reports_rewritten_go_again_unchanged() {
+        let mut outputs = Outputs::new(&s4());
+        outputs.set(field(128, 1, 0, 8), 5);
+        outputs.changed();
+        outputs.rewrite();
+        assert_eq!(outputs.changed(), [vec![128, 5, 0, 0, 0, 127], vec![129, 0, 0, 0]]);
+        assert!(outputs.changed().is_empty());
+    }
+
+    #[test]
     fn a_model_is_its_ids_and_the_interface_and_usage_it_names() {
         let info =
             HidInfo { vendor_id: 6092, product_id: 4880, interface: Some(4), usage_page: 65281, usage: 1 };
         let s4 = s4();
         assert_eq!(s4.fits(&info), Some(3));
         assert_eq!(s4.fits(&HidInfo { interface: Some(0), ..info.clone() }), None);
-        assert_eq!(s4.fits(&HidInfo { interface: None, ..info.clone() }), None);
         assert_eq!(s4.fits(&HidInfo { product_id: 1, ..info.clone() }), None);
+        // no interface told: its usage page tells it
+        assert_eq!(s4.fits(&HidInfo { interface: None, ..info.clone() }), Some(2));
+        assert_eq!(s4.fits(&HidInfo { interface: None, usage_page: 1, ..info.clone() }), None);
         let any = HidDevice { interface: None, usage_page: None, ..s4.clone() };
         assert_eq!(any.fits(&HidInfo { interface: None, ..info }), Some(1));
         let key = Control::Hid(field(1, 13, 0, 1));

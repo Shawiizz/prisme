@@ -165,8 +165,10 @@ the device itself.
 | Field | |
 | --- | --- |
 | `vendorId`, `productId` | The device's USB ids: they tell its model, whatever the system calls it. |
-| `interface`, `usagePage`, `usage` | Which of its interfaces or collections holds its controls, when it has several (its sound card's, say). |
+| `interface`, `usagePage`, `usage` | Which of its interfaces or collections holds its controls, when it has several (its sound card's, say). A device the system tells no interface of (macOS, at times) is told by its usage page and usage alone. |
+| `inputs` | The input reports asked of it once it is opened, by id (`[1, 2]`): its faders' and knobs' positions known before they move, as a script's `getInputReport` does. |
 | `outputs` | Its output reports: `report` (its id), `length` (its bytes, the id included) and `bytes` it always holds by their place (a header, a light always on). A report is written whole, again only once one of its bytes changed, at most every 10 ms, never from the audio thread. |
+| `rewrite` | `true`: its output reports written again after each report it sends, changed or not, for a model that puts lights of its own back on a key pressed (the Traktor Kontrol F1). |
 | `leds` | The light of each key that has one: `control`, the key's field, and `led`, a field of an output report. A HID key lights there, not on itself. |
 | `brightness` | A light's value at full (127): the colours of three-colour lights are scaled to it. |
 
@@ -229,6 +231,9 @@ its ids: commands feed it reports and read back what Prisme wrote to it, over CD
 | `simulate_hid_set` | `{ id, values: [{ control, value }] }`: the last report of each field's id, changed by the values. |
 | `simulated_hid_written` | `{ id }`: the output reports written to it since last asked. |
 | `simulate_hid_unplug` | `{ id }`. |
+
+The input reports a model asks for when it is opened (`inputs`) are the last of their ids it was
+fed, zeros before.
 
 ## From a Mixxx mapping
 

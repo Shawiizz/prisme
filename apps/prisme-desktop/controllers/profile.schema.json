@@ -261,6 +261,16 @@
           "minimum": 0,
           "type": "integer"
         },
+        "inputs": {
+          "description": "The input reports asked of it once it is opened, by id: its faders' positions known\nbefore they move.",
+          "items": {
+            "format": "uint8",
+            "maximum": 255,
+            "minimum": 0,
+            "type": "integer"
+          },
+          "type": "array"
+        },
         "interface": {
           "description": "The USB interface of its controls, when it has others (its sound card's).",
           "format": "uint8",
@@ -290,6 +300,10 @@
           "maximum": 65535,
           "minimum": 0,
           "type": "integer"
+        },
+        "rewrite": {
+          "description": "Its output reports written again after each report it sends: a model that puts back\nlights of its own on a key pressed.",
+          "type": "boolean"
         },
         "usage": {
           "format": "uint16",

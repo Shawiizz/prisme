@@ -466,8 +466,8 @@ impl Profile {
     }
 
     /// What does not hold together in it, that its reading cannot tell: a MIDI control in a
-    /// HID profile or the other way round, a HID light beyond its output reports, a report sent
-    /// at the wrong length.
+    /// HID profile or the other way round, a HID light beyond its output reports, an input report
+    /// asked that no control reads, a report sent at the wrong length.
     pub fn problems(&self) -> Vec<String> {
         let mut problems = Vec::new();
         let Some(device) = &self.hid else {
@@ -490,6 +490,10 @@ impl Profile {
             if report.is_none_or(|(report, led)| led.span().end > usize::from(report.length)) {
                 problems.push(format!("{control} is not a light of an output report"));
             }
+        }
+        let read: BTreeSet<u8> = self.hid_inputs().iter().map(|f| f.report).collect();
+        for id in device.inputs.iter().filter(|id| !read.contains(id)) {
+            problems.push(format!("input report {id} asked, though no control is a field of it"));
         }
         let messages =
             self.init.iter().map(|m| m.when_and_what().1).chain(self.close.iter().map(Vec::as_slice));
@@ -623,6 +627,8 @@ mod tests {
         let midi = r#"{ "target": "deck1.sync", "control": { "kind": "note", "channel": 0, "number": 1 } }"#;
         assert_eq!(profile(midi, "[]").problems(), ["note 1, channel 1 is not a light of an output report"]);
         let mut p = profile(&light(1, 8), "[]");
+        p.hid.as_mut().unwrap().inputs = vec![1, 2];
+        assert_eq!(p.problems(), ["input report 2 asked, though no control is a field of it"]);
         p.hid = None;
         assert_eq!(p.problems(), ["a HID control in a profile of no HID device"]);
         assert_eq!(p.hid_inputs().len(), 1);

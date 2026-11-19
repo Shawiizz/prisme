@@ -156,6 +156,9 @@ fn system() -> Vec<Entry> {
 trait Port: Send {
     /// A report, if one came within `wait`; its length in `buffer`.
     fn read(&mut self, buffer: &mut [u8], wait: Duration) -> Result<Option<usize>, String>;
+    /// The input report whose id `buffer` begins with (0 for a device that does not number its
+    /// reports), asked of the device: its length in `buffer`, that id first.
+    fn ask(&mut self, buffer: &mut [u8]) -> Result<usize, String>;
     fn write(&mut self, report: &[u8]) -> Result<(), String>;
 }
 
@@ -168,6 +171,10 @@ impl Port for hidapi::HidDevice {
             Ok(n) => Ok(Some(n)),
             Err(e) => Err(e.to_string()),
         }
+    }
+
+    fn ask(&mut self, buffer: &mut [u8]) -> Result<usize, String> {
+        self.get_input_report(buffer).map_err(|e| e.to_string())
     }
 
     fn write(&mut self, report: &[u8]) -> Result<(), String> {
@@ -196,14 +203,15 @@ pub struct Link {
 
 impl Link {
     /// Opens `plugged`, of the model `device` if Prisme knows it, numbering its reports or not;
-    /// each report read goes to `received`, with the seconds since it was opened.
+    /// each report read goes to `received`, with the seconds since it was opened, the reports
+    /// its model asks for first.
     pub fn open(
         plugged: &Plugged,
         device: Option<&HidDevice>,
         numbered: Option<bool>,
-        received: impl FnMut(Read, f64) + Send + 'static,
+        mut received: impl FnMut(Read, f64) + Send + 'static,
     ) -> Result<Self, String> {
-        let (port, descriptor_numbers) = open_port(&plugged.path)?;
+        let (mut port, descriptor_numbers) = open_port(&plugged.path)?;
         let numbered = numbered.or(descriptor_numbers).unwrap_or(true);
         let shared = Arc::new(Shared {
             stop: AtomicBool::new(false),
@@ -213,11 +221,19 @@ impl Link {
             }),
         });
         let name = plugged.name.clone();
+        let asked = device.map(|d| d.inputs.clone()).unwrap_or_default();
+        let rewrite = device.is_some_and(|d| d.rewrite);
         let thread = std::thread::Builder::new()
             .name("prisme-hid".into())
             .spawn({
                 let shared = shared.clone();
-                move || run(&name, port, &shared, Reports::new(numbered), received)
+                move || {
+                    let mut reports = Reports::new(numbered);
+                    for report in ask(&name, port.as_mut(), &asked, numbered) {
+                        received(reports.read(&report), 0.0);
+                    }
+                    run(&name, port, &shared, reports, rewrite, received);
+                }
             })
             .map_err(|e| e.to_string())?;
         Ok(Self { shared, thread: Some(thread) })
@@ -270,13 +286,30 @@ fn open_port(path: &Path) -> Result<(Box<dyn Port>, Option<bool>), String> {
     }
 }
 
+/// The input reports `asked` of the device on `port` (by id), as it would send them.
+fn ask(name: &str, port: &mut dyn Port, asked: &[u8], numbered: bool) -> Vec<Vec<u8>> {
+    let mut buffer = vec![0; LONGEST_REPORT];
+    let mut reports = Vec::new();
+    for &id in asked {
+        buffer[0] = id;
+        match port.ask(&mut buffer) {
+            // a device that does not number its reports sends them without that 0
+            Ok(length) => reports.push(buffer[usize::from(!numbered)..length].to_vec()),
+            Err(e) => warn!("HID controller {name} did not give its report {id}: {e}"),
+        }
+    }
+    reports
+}
+
 /// Reads the device on `port` until told to stop or it is gone, writing its output reports
-/// meanwhile; once told, writes what was left to write.
+/// meanwhile (all of them again after each report read if `rewrite`); once told, writes what
+/// was left to write.
 fn run(
     name: &str,
     mut port: Box<dyn Port>,
     shared: &Shared,
     mut reports: Reports,
+    rewrite: bool,
     mut received: impl FnMut(Read, f64),
 ) {
     let opened = Instant::now();
@@ -287,7 +320,12 @@ fn run(
         let stopping = shared.stop.load(Ordering::Acquire);
         if !stopping {
             match port.read(&mut buffer, READ_WAIT) {
-                Ok(Some(length)) => received(reports.read(&buffer[..length]), opened.elapsed().as_secs_f64()),
+                Ok(Some(length)) => {
+                    received(reports.read(&buffer[..length]), opened.elapsed().as_secs_f64());
+                    if rewrite {
+                        lock(&shared.out).outputs.rewrite();
+                    }
+                }
                 Ok(None) => {}
                 Err(e) => {
                     warn!("HID controller {name} not read: {e}");
@@ -350,6 +388,17 @@ pub mod simulated {
         written: Vec<Vec<u8>>,
     }
 
+    impl Device {
+        /// Its report of id `key` as last fed, zeros before.
+        fn last(&self, key: u8) -> Vec<u8> {
+            self.last.get(&key).cloned().unwrap_or_else(|| {
+                let mut zeros = vec![0; self.lengths.get(&key).copied().unwrap_or(64)];
+                zeros[0] = key;
+                zeros
+            })
+        }
+    }
+
     static DEVICES: Mutex<Vec<Device>> = Mutex::new(Vec::new());
     static FED: Condvar = Condvar::new();
 
@@ -401,13 +450,7 @@ pub mod simulated {
             let mut reports: BTreeMap<u8, Vec<u8>> = BTreeMap::new();
             for &(field, value) in values {
                 let key = if device.numbered { field.report } else { 0 };
-                let report = reports.entry(key).or_insert_with(|| {
-                    device.last.get(&key).cloned().unwrap_or_else(|| {
-                        let mut zeros = vec![0; device.lengths.get(&key).copied().unwrap_or(64)];
-                        zeros[0] = key;
-                        zeros
-                    })
-                });
+                let report = reports.entry(key).or_insert_with(|| device.last(key));
                 if !field.write(report, value) {
                     return Err(format!("report {} holds no byte {}", field.report, field.byte));
                 }
@@ -462,6 +505,17 @@ pub mod simulated {
             }))
         }
 
+        fn ask(&mut self, buffer: &mut [u8]) -> Result<usize, String> {
+            let devices = lock(&DEVICES);
+            let device = devices.iter().find(|d| d.id == self.0).ok_or("unplugged")?;
+            let report = device.last(buffer[0]);
+            // the system puts a 0 before the report of a device that does not number them
+            let at = usize::from(!device.numbered);
+            let length = (at + report.len()).min(buffer.len());
+            buffer[at..length].copy_from_slice(&report[..length - at]);
+            Ok(length)
+        }
+
         fn write(&mut self, report: &[u8]) -> Result<(), String> {
             let mut devices = lock(&DEVICES);
             let device = devices.iter_mut().find(|d| d.id == self.0).ok_or("unplugged")?;
@@ -494,5 +548,68 @@ mod tests {
         assert!(no_controller(&HidInfo { vendor_id: 0x05ac, ..info(0xff00, 1) }));
         assert!(!no_controller(&info(0xff01, 0x01)));
         assert!(!no_controller(&info(0x01, 0x05)), "a game pad may be");
+    }
+
+    /// Waits for what `got` gives that is not `None`, a second at most.
+    fn soon<T>(mut got: impl FnMut() -> Option<T>) -> T {
+        let until = Instant::now() + Duration::from_secs(1);
+        loop {
+            if let Some(it) = got() {
+                return it;
+            }
+            assert!(Instant::now() < until, "nothing came");
+            std::thread::sleep(Duration::from_millis(2));
+        }
+    }
+
+    /// A model asking for its report `id` at open and rewriting its report 128 after each
+    /// report, plugged in with `fader` (a field of that report) at 42, and opened: its id, the
+    /// link, and the values of the fader read.
+    fn opened(id: u8, fader: Field) -> (u32, Link, std::sync::mpsc::Receiver<Vec<u16>>) {
+        let device: HidDevice = serde_json::from_str(&format!(
+            r#"{{ "vendorId": 6092, "productId": 4384, "inputs": [{id}], "rewrite": true,
+                 "outputs": [{{ "report": 128, "length": 3 }}] }}"#
+        ))
+        .unwrap();
+        let info = HidInfo { vendor_id: 6092, product_id: 4384, ..HidInfo::default() };
+        let numbered = id != 0;
+        let simulated = simulated::plug("F1", info, numbered, BTreeMap::from([(id, 4)]));
+        simulated::set(simulated, &[(fader, 42)]).unwrap();
+        let plugged = plugged(|_| None);
+        let name = simulated::name_of(&plugged, simulated).unwrap();
+        let plugged = plugged.iter().find(|p| p.name == name).unwrap();
+        let (sent, values) = std::sync::mpsc::channel();
+        let fields = std::collections::BTreeSet::from([fader]);
+        let link = Link::open(plugged, Some(&device), Some(numbered), move |read, _| {
+            drop(sent.send(read.events(&fields).iter().map(|e| e.raw).collect()));
+        })
+        .unwrap();
+        (simulated, link, values)
+    }
+
+    #[test]
+    fn the_reports_a_model_asks_for_are_read_first() {
+        for (id, byte) in [(1, 1), (0, 0)] {
+            let fader = Field { report: id, byte, bit: 0, bits: 8, big_endian: false };
+            let (simulated, link, values) = opened(id, fader);
+            assert_eq!(values.recv_timeout(Duration::from_secs(1)), Ok(vec![42]), "asked, report {id}");
+            assert_eq!(values.recv_timeout(Duration::from_secs(1)), Ok(vec![]), "then sent the same");
+            drop(link);
+            simulated::unplug(simulated);
+        }
+    }
+
+    #[test]
+    fn a_model_rewriting_its_lights_writes_them_after_each_report() {
+        let fader = Field { report: 1, byte: 1, bit: 0, bits: 8, big_endian: false };
+        let (simulated, link, values) = opened(1, fader);
+        soon(|| values.try_recv().ok().filter(Vec::is_empty));
+        soon(|| (!simulated::written(simulated).is_empty()).then_some(()));
+        std::thread::sleep(WRITE_EVERY * 2);
+        simulated::written(simulated);
+        simulated::set(simulated, &[(fader, 43)]).unwrap();
+        assert_eq!(soon(|| Some(simulated::written(simulated)).filter(|w| !w.is_empty())), [[128, 0, 0]]);
+        drop(link);
+        simulated::unplug(simulated);
     }
 }
