@@ -1,6 +1,6 @@
 {
   "$schema": "https://raw.githubusercontent.com/Shawiizz/prisme/main/apps/prisme-desktop/controllers/profile.schema.json",
-  "name": "Ion Discover DJ",
+  "name": "ION Discover DJ",
   "ports": ["Discover DJ"],
   "credits": "From the Ion Discover DJ mapping of Mixxx by Rick Prokup (GPL-2.0-or-later).",
   "jogStepsPerTurn": 384,
