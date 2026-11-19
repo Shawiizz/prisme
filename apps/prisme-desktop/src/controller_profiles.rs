@@ -181,6 +181,8 @@ const SHIPPED: &[(&str, &str)] = &[
     ("tascam-us-428.json", include_str!("../controllers/tascam-us-428.json")),
     ("vestax-spin.json", include_str!("../controllers/vestax-spin.json")),
     ("vestax-typhoon.json", include_str!("../controllers/vestax-typhoon.json")),
+    ("vestax-vci-100-3dex.json", include_str!("../controllers/vestax-vci-100-3dex.json")),
+    ("vestax-vci-100-hile.json", include_str!("../controllers/vestax-vci-100-hile.json")),
     ("vestax-vci-100.json", include_str!("../controllers/vestax-vci-100.json")),
     ("vestax-vci-100mkii.json", include_str!("../controllers/vestax-vci-100mkii.json")),
     ("vestax-vci-300.json", include_str!("../controllers/vestax-vci-300.json")),
@@ -610,6 +612,24 @@ mod tests {
                 }
             }
         }
+    }
+
+    #[test]
+    fn each_variant_is_offered_for_the_ports_of_its_model_never_found_by_itself() {
+        let library = current();
+        for variant in library.known.iter().filter(|k| k.profile.variant) {
+            for port in &variant.profile.ports {
+                let model = library.of(port).expect("a variant of a model Prisme knows");
+                let offered: Vec<&str> = library.offered(port).iter().map(|k| k.file.as_str()).collect();
+                assert!(offered[0] == model.file && offered.contains(&variant.file.as_str()), "{port}");
+            }
+        }
+        let names = |port| library.offered(port).iter().map(|k| k.profile.name.clone()).collect::<Vec<_>>();
+        assert_eq!(
+            names("VCI-100"),
+            ["Vestax VCI-100", "Vestax VCI-100 (MixVibes 3DEX Edition)", "Vestax VCI-100 (Hile Mod)"]
+        );
+        assert_eq!(names("VCI-100MKII"), ["Vestax VCI-100MKII"]);
     }
 
     /// The DDJ-400's profile renamed, a variant for `ports`, as text.

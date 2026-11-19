@@ -635,6 +635,16 @@
       "revision": 1,
       "format": 2
     },
+    "vestax-vci-100-3dex.json": {
+      "sha256": "efd9fc7773876cb7e33c35465622dbf240e7f9c5d6796b9b68d84d0c7c07b02f",
+      "revision": 1,
+      "format": 3
+    },
+    "vestax-vci-100-hile.json": {
+      "sha256": "1effe61eb8484c6def4299fa42da4111a0756380be7f9f76565ca4a889fb3293",
+      "revision": 1,
+      "format": 3
+    },
     "vestax-vci-100.json": {
       "sha256": "2a7469e201c6fda64c1f7a8baa2bc7ccbbac1952b549a98a0c79ac24ebe28ef0",
       "revision": 1,

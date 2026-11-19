@@ -1560,6 +1560,21 @@ mod tests {
     }
 
     #[test]
+    fn a_controller_plays_by_the_variant_chosen_for_it() {
+        let c = controllers();
+        c.save(|s| s.enabled.push("VCI-100".into()));
+        let touch = |c: &Controllers, note| c.route("VCI-100", parse(&[0x90, note, 127]).unwrap(), 0.0);
+        assert_eq!(c.model_name("VCI-100"), "Vestax VCI-100");
+        assert_eq!(touch(&c, 48), direct(Direct::JogTouch(0), 1.0));
+        c.save(|s| {
+            s.profiles.insert("VCI-100".into(), "vestax-vci-100-hile.json".into());
+        });
+        assert_eq!(c.model_name("VCI-100"), "Vestax VCI-100 (Hile Mod)");
+        assert_eq!(c.jog_steps_per_turn("VCI-100"), 256.0);
+        assert_eq!(touch(&c, 46), direct(Direct::JogTouch(0), 1.0));
+    }
+
+    #[test]
     fn a_profile_chosen_that_is_not_offered_for_a_controller_leaves_it_its_models() {
         let c = sb2();
         c.save(|s| {
