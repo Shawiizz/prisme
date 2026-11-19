@@ -767,12 +767,13 @@ impl Controllers {
         }
     }
 
-    /// Closes every controller, as Prisme quits.
+    /// Closes every controller, as Prisme quits, and waits for what was learnt to be saved.
     pub fn close_all(&self) {
         let devices: Vec<String> = lock(&self.connections).iter().map(|c| c.device.clone()).collect();
         for device in devices {
             self.close(&device);
         }
+        self.setup.flush();
     }
 
     /// Sends what goes out by itself: the lights that blink, the keep-alive messages, and
@@ -1187,9 +1188,7 @@ impl Controllers {
     }
 
     fn save(&self, change: impl FnOnce(&mut ControllerSetup)) {
-        if let (_, Err(e)) = self.setup.update(change) {
-            error!("controllers not saved: {e}");
-        }
+        self.setup.update(change);
         self.layer();
     }
 

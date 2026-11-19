@@ -1,4 +1,5 @@
 import { TestBed } from '@angular/core/testing';
+import { clearMocks, mockIPC } from '@tauri-apps/api/mocks';
 import { DeckStatus, EngineStatus, TrackInfo } from '../models/engine';
 import { EngineService } from './engine.service';
 
@@ -89,6 +90,18 @@ describe('EngineService', () => {
       expect(calls).toEqual([['set_playing', { deck: 0, playing: true }]]);
       engine.togglePlay(0);
       expect(calls.slice(1)).toEqual([['set_playing', { deck: 0, playing: false }]]);
+    });
+  });
+
+  describe('loading', () => {
+    afterEach(() => clearMocks());
+
+    it('shows nothing, and no error, when another load asked for on the deck goes there', async () => {
+      mockIPC((command) => (command === 'load_track' ? null : undefined));
+      expect(await engine.load(0, 'C:/Music/late.mp3')).toBe(false);
+      expect(engine.tracks()[0]).toBeNull();
+      expect(engine.error()).toBeNull();
+      expect(engine.loading()[0]).toBe(false);
     });
   });
 

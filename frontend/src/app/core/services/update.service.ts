@@ -1,5 +1,6 @@
 import { Injectable, computed, inject, signal } from '@angular/core';
 import { getVersion } from '@tauri-apps/api/app';
+import { invoke } from '@tauri-apps/api/core';
 import { openUrl } from '@tauri-apps/plugin-opener';
 import { relaunch } from '@tauri-apps/plugin-process';
 import { Update, check } from '@tauri-apps/plugin-updater';
@@ -61,7 +62,8 @@ export class UpdateService {
     }
     this.installing.set(true);
     try {
-      await found.update?.downloadAndInstall();
+      // by Prisme, which closes first: on Windows the installer ends it at once
+      await invoke('install_update');
       await relaunch();
     } catch (e) {
       this.engine.error.set(errorText(e));

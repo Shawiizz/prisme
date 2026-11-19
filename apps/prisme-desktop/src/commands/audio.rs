@@ -4,7 +4,6 @@ use crate::dto::{AudioInfo, AudioSettings, BackendDto, DeviceDto, LatencyDto, Ti
 use crate::error::{AppError, AppResult};
 use crate::state::{lock, AppState};
 use prisme_audio_io::{latency, AudioError, Backend, DeviceKind};
-use prisme_engine::Command;
 use std::time::Duration;
 use tauri::{AppHandle, Manager, State};
 use tracing::error;
@@ -112,6 +111,21 @@ pub fn start_audio_unless_running(
     start(state, settings).map(Some)
 }
 
+/// Starts the audio with `settings` in place of the session `id`, unless another took its place
+/// meanwhile (the user picked other devices): the watchdog's way to restart the audio it judged.
+/// `None` if another runs.
+pub fn start_audio_instead_of(
+    state: &AppState,
+    id: u64,
+    settings: &AudioSettings,
+) -> AppResult<Option<AudioInfo>> {
+    let _starting = lock(&state.audio_start);
+    if lock(&state.session).as_ref().map(|s| s.id) != Some(id) {
+        return Ok(None);
+    }
+    start(state, settings).map(Some)
+}
+
 /// Starts the saved audio again unless it is what runs (the inputs it was refused were allowed
 /// meanwhile); whether it started.
 pub fn restart_saved_audio(state: &AppState) -> AppResult<bool> {
@@ -166,7 +180,7 @@ fn restart<T>(
     settings: &AudioSettings,
     between: impl FnOnce() -> T,
 ) -> AppResult<(AudioInfo, T)> {
-    let transport = state.transport_snapshot();
+    let places = state.carry_places();
     // the device may not open twice; closed outside the lock, as it waits for the audio thread
     let previous = lock(&state.session).take();
     drop(previous);
@@ -180,11 +194,7 @@ fn restart<T>(
     let timecodes = lock(&state.decks).map(|d| d.timecode);
     let mut session = audio_host::start(settings, state.preferences.read(|p| p.dj.decks()), timecodes)?;
     state.share_turntable_records(&session.info);
-    state.restore(&mut session);
-    for (deck, (seconds, playing)) in transport.into_iter().enumerate() {
-        let _ = session.controller.send(Command::Seek { deck, seconds });
-        let _ = session.controller.send(Command::SetPlaying { deck, playing });
-    }
+    state.restore(&mut session, &places);
     let info = session.info.clone();
     // held from before the session is in place: a recording started on it meanwhile would
     // have its writer, on the live engine, waited for by the resume

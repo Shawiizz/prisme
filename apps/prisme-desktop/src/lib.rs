@@ -451,6 +451,8 @@ pub fn run() {
             commands::preferences::set_dj_preferences,
             commands::preferences::set_library_preferences,
             commands::preferences::set_key_preferences,
+            #[cfg(desktop)]
+            commands::update::install_update,
             status_stream::subscribe_status,
             scope_stream::subscribe_scope,
             scope_stream::unsubscribe_scope,
@@ -459,19 +461,25 @@ pub fn run() {
         .expect("error while building Prisme")
         .run(|app, event| {
             if let tauri::RunEvent::Exit = event {
-                // a recording going on is ended: its file closed, its tracklist written
-                let state = app.state::<AppState>();
-                let recorder = lock(&state.recorder).take();
-                if let Some(recorder) = recorder {
-                    recorder.stop(&state);
-                }
-                app.state::<Controllers>().close_all();
-                app.state::<CrashRecovery>().closed_normally();
+                close(app);
             }
         });
 }
 
-fn open_json<T: Serialize + DeserializeOwned + Default + Clone>(
+/// What Prisme does as it quits.
+fn close(app: &tauri::AppHandle) {
+    // a recording going on is ended: its file closed, its tracklist written
+    let state = app.state::<AppState>();
+    let recorder = lock(&state.recorder).take();
+    if let Some(recorder) = recorder {
+        recorder.stop(&state);
+    }
+    app.state::<Controllers>().close_all();
+    state.preferences.flush();
+    app.state::<CrashRecovery>().closed_normally();
+}
+
+fn open_json<T: Serialize + DeserializeOwned + Default + Clone + Send + 'static>(
     data_dir: Option<&Path>,
     name: &str,
 ) -> JsonFile<T> {

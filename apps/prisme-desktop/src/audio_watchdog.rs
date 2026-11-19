@@ -6,7 +6,7 @@
 //! Prisme listen to their inputs. A sound card plugged in meanwhile is offered to the DJ.
 
 use crate::audio_host::devices_available;
-use crate::commands::audio::{restart_saved_audio, start_audio, start_audio_unless_running};
+use crate::commands::audio::{restart_saved_audio, start_audio_instead_of, start_audio_unless_running};
 use crate::dto::AudioSettings;
 use crate::dto::BackendDto;
 use crate::dto::CardOffer;
@@ -60,9 +60,9 @@ pub fn start(app: AppHandle) {
                 }
                 let session = lock(&state.session).as_ref().map(|s| {
                     let device = s.info.device.clone();
-                    (s.device_lost(), s.engine_failed(), s.periods(), s.settings.clone(), device)
+                    (s.id, s.device_lost(), s.engine_failed(), s.periods(), s.settings.clone(), device)
                 });
-                let Some((lost, failed, periods, settings, device)) = session else {
+                let Some((id, lost, failed, periods, settings, device)) = session else {
                     last_periods = None;
                     if !silent {
                         silent = true;
@@ -89,11 +89,19 @@ pub fn start(app: AppHandle) {
                     offer_cards_plugged(&state, &app, &settings, &saved, &device, &mut plugged);
                     if saved == settings {
                         devices = None;
-                    } else if move_to_saved(&state, &app, &saved, &settings, &mut devices, &mut looks_left) {
+                    } else if move_to_saved(
+                        &state,
+                        &app,
+                        id,
+                        &saved,
+                        &settings,
+                        &mut devices,
+                        &mut looks_left,
+                    ) {
                         last_periods = None;
                         continue;
                     }
-                    if follow_default_output(&state, &app, &settings, &device, &mut default_output) {
+                    if follow_default_output(&state, &app, id, &settings, &device, &mut default_output) {
                         last_periods = None;
                         continue;
                     }
@@ -108,7 +116,7 @@ pub fn start(app: AppHandle) {
                     && !state.is_playing();
                 if (failed || stalled) && !paused && restarts.allow(Instant::now()) {
                     warn!("audio {}, restarting it", if failed { "engine failed" } else { "stalled" });
-                    if let Err(e) = start_audio(&state, &settings) {
+                    if let Err(e) = start_audio_instead_of(&state, id, &settings) {
                         error!("audio could not restart: {e}");
                     }
                     last_periods = None;
@@ -121,10 +129,11 @@ pub fn start(app: AppHandle) {
 /// While the audio runs on other devices than the saved ones, looks for these whenever
 /// the system's devices change (loading the drivers to look is slow, and they must not be
 /// loaded over and over), a few times as an interface takes a moment to come up. True
-/// once the audio has moved.
+/// once the audio of session `id` has moved, or other audio took its place.
 fn move_to_saved(
     state: &AppState,
     app: &AppHandle,
+    id: u64,
     saved: &AudioSettings,
     current: &AudioSettings,
     devices: &mut Option<Vec<String>>,
@@ -144,13 +153,14 @@ fn move_to_saved(
     }
     *looks_left = 0;
     info!("saved audio devices found, moving to them");
-    match start_audio(state, saved) {
-        Ok(_) => {
+    match start_audio_instead_of(state, id, saved) {
+        Ok(Some(_)) => {
             let _ = app.emit(AUDIO_CHANGED_EVENT, ());
         }
+        Ok(None) => {}
         Err(e) => {
             warn!("saved audio devices unusable ({e}), back to the previous ones");
-            if let Err(e) = start_audio(state, current) {
+            if let Err(e) = start_audio_unless_running(state, current) {
                 error!("audio could not restart: {e}");
             }
         }
@@ -160,10 +170,11 @@ fn move_to_saved(
 
 /// Audio on the system's default output (no device chosen) moves when the default changes from
 /// `last` to another device than `device`: a headset connected takes the sound, as in every
-/// other program. True once moved.
+/// other program. True once the audio of session `id` moved, or other audio took its place.
 fn follow_default_output(
     state: &AppState,
     app: &AppHandle,
+    id: u64,
     settings: &AudioSettings,
     device: &str,
     last: &mut Option<String>,
@@ -179,7 +190,7 @@ fn follow_default_output(
     match now {
         Some(default) if default != device => {
             info!("the system plays on {default} now, the audio follows");
-            if let Err(e) = start_audio(state, settings) {
+            if let Err(e) = start_audio_instead_of(state, id, settings) {
                 error!("audio could not follow the default output: {e}");
             }
             let _ = app.emit(AUDIO_CHANGED_EVENT, ());

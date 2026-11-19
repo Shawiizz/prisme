@@ -12,7 +12,7 @@ use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
 use tauri::{AppHandle, Manager};
-use tracing::{error, warn};
+use tracing::warn;
 
 const SAVE_EVERY: Duration = Duration::from_secs(5);
 
@@ -84,19 +84,18 @@ impl CrashRecovery {
 
     pub fn closed_normally(&self) {
         self.closing.store(true, Ordering::SeqCst);
-        if let (_, Err(e)) = self.file.update(|s| s.running = false) {
-            error!("session not saved: {e}");
-        }
+        self.file.update(|s| s.running = false);
+        self.file.flush();
     }
 
     fn save(&self, state: &AppState) {
-        let positions = state.transport_snapshot();
+        let places = state.places();
         let decks: Vec<_> = lock(&state.tracks)
             .iter()
             .enumerate()
             .map(|(deck, track)| {
                 let track = track.as_ref()?;
-                let position_s = positions.get(deck).map_or(0.0, |&(seconds, _)| seconds);
+                let position_s = places[deck].map_or(0.0, |place| place.position_s);
                 Some(SavedDeck { path: track.path.clone(), position_s })
             })
             .collect();
@@ -105,13 +104,10 @@ impl CrashRecovery {
             return;
         }
         // checked under the file's lock: no save may follow `closed_normally`
-        let (_, saved) = self.file.update(|s| {
+        self.file.update(|s| {
             if !self.closing.load(Ordering::SeqCst) {
                 *s = now;
             }
         });
-        if let Err(e) = saved {
-            error!("session not saved: {e}");
-        }
     }
 }
