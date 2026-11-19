@@ -1,5 +1,8 @@
 import { buildControls, Control, ControlActions, measuredControl } from './controls';
+import { Pickup } from './pickup';
+import { Band, CrossfaderCurve, LiveSource } from '../models/engine';
 import { nextTempoRange } from '../models/preferences';
+import { eqGain, eqKnob, liveGain, liveKnob } from '../../shared/mixer-scales';
 
 /** Controls whose actions record their calls; queries answer `true`. */
 function recorder() {
@@ -66,7 +69,12 @@ describe('controls', () => {
     find('deck2.eq.low').apply(0.25);
     find('mixer.crossfader').apply(1);
     find('library.browse').apply(-3);
-    expect(calls).toEqual(['setEq(1,low,0.25)', 'setCrossfader(1)', 'browse(-3)']);
+    expect(calls).toEqual([
+      'setEq(1,low,0.25)',
+      'eqPosition(1,low)',
+      'setCrossfader(1)',
+      'browse(-3)',
+    ]);
   });
 
   it('drive the master, the live sources and passthrough', () => {
@@ -87,6 +95,7 @@ describe('controls', () => {
       'setBalance(0.25)',
       'setBoothLevel(0.8)',
       'setLiveLevel(aux,0.5)',
+      'liveLevelPosition(aux)',
       'toggleLive(mic)',
       'talkover()',
       'setTalkover(false)',
@@ -514,5 +523,47 @@ describe('controls', () => {
     pad.apply(0.25);
     pad.apply(0);
     expect(calls).toEqual(['triggerSample(1,2,0.25)']);
+  });
+
+  /** A controller's fader sending each of `values` in turn, taken over as `ControllerService` does. */
+  function turn(control: Control, values: number[]) {
+    const pickup = new Pickup();
+    for (const v of values) if (pickup.takes(v, control.position!())) control.apply(v);
+  }
+
+  /** A 7-bit knob from full left to `to`. */
+  const knob = (to: number) => Array.from({ length: Math.round(to * 127) + 1 }, (_, i) => i / 127);
+
+  it('bring an EQ band and a live input back from their silent end', () => {
+    const levels = { eq: 0, mic: 0 };
+    const controls = buildControls({
+      setEq: (_: number, __: Band, v: number) => (levels.eq = eqGain(v)),
+      eqPosition: () => eqKnob(levels.eq),
+      setLiveLevel: (_: LiveSource, v: number) => (levels.mic = liveGain(v)),
+      liveLevelPosition: () => liveKnob(levels.mic),
+    } as unknown as ControlActions);
+    const find = (id: string) => controls.find((c) => c.id === id)!;
+    turn(find('deck1.eq.low'), knob(0.5));
+    turn(find('mixer.mic'), knob(0.75));
+    expect(levels.eq).toBeCloseTo(1, 1);
+    expect(levels.mic).toBeCloseTo(1, 1);
+
+    levels.eq = 0;
+    const low = find('deck1.eq.low');
+    for (let step = 0; step < 4; step++) low.apply(low.position!() + 1 / 64);
+    expect(levels.eq).toBeGreaterThan(0);
+  });
+
+  it('switch the crossfader curve along a knob', () => {
+    let curve: CrossfaderCurve = 'smooth';
+    const controls = buildControls({
+      crossfaderCurve: () => curve,
+      setCrossfaderCurve: (c: CrossfaderCurve) => (curve = c),
+    } as unknown as ControlActions);
+    const fader = controls.find((c) => c.id === 'mixer.crossfaderCurve')!;
+    turn(fader, knob(1));
+    expect(curve).toBe('sharp');
+    turn(fader, knob(1).reverse());
+    expect(curve).toBe('smooth');
   });
 });

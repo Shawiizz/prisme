@@ -356,9 +356,8 @@ export class ControlService {
     crossfaderSide: (deck) => this.engine.decks()[deck].side,
     setCrossfaderReverse: (on) => this.mixer.setCrossfaderReverse(on),
     crossfaderReversed: () => this.mixer.crossfaderReverse(),
-    setCrossfaderCurve: (position) =>
-      this.mixer.setCrossfaderCurve(position < 0.5 ? 'smooth' : 'sharp'),
-    crossfaderCurvePosition: () => (this.mixer.crossfaderCurve() === 'sharp' ? 1 : 0),
+    setCrossfaderCurve: (curve) => this.mixer.setCrossfaderCurve(curve),
+    crossfaderCurve: () => this.mixer.crossfaderCurve(),
     nextCrossfaderCurve: () =>
       this.mixer.setCrossfaderCurve(this.mixer.crossfaderCurve() === 'sharp' ? 'smooth' : 'sharp'),
     setSamplerGain: (deck, position) => {

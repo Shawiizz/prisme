@@ -1,6 +1,7 @@
 import {
   BANDS,
   Band,
+  CrossfaderCurve,
   CrossfaderSide,
   EFFECT_KINDS,
   EffectKind,
@@ -303,8 +304,8 @@ export interface ControlActions {
   /** The crossfader's sides swapped, or back. */
   setCrossfaderReverse(on: boolean): void;
   crossfaderReversed(): boolean;
-  setCrossfaderCurve(position: number): void;
-  crossfaderCurvePosition(): number;
+  setCrossfaderCurve(curve: CrossfaderCurve): void;
+  crossfaderCurve(): CrossfaderCurve;
   nextCrossfaderCurve(): void;
   setSamplerGain(deck: number | null, position: number): void;
   samplerGainPosition(deck: number | null): number;
@@ -442,6 +443,29 @@ function stepped<T>(
 }
 
 /**
+ * A fader silent over the start of its travel (an EQ band, a live input), where its setting
+ * reads as full left: its position is the one it was last given while the setting is still the
+ * one that gave, so that a controller's fader moving there keeps it.
+ */
+function silentEnd(control: Control): Control {
+  const position = control.position!;
+  let given: number | null = null;
+  let left = 0;
+  return {
+    ...control,
+    apply: (v) => {
+      control.apply(v);
+      given = v;
+      left = position();
+    },
+    position: () => {
+      const now = position();
+      return given !== null && now === left ? given : now;
+    },
+  };
+}
+
+/**
  * A control the backend performs itself, straight from the controller (the jog wheels and
  * tempo faders, `controller_direct.rs`): listed to be mapped, never applied here.
  */
@@ -506,6 +530,8 @@ const FX_PERIODS = Array.from(
   { length: Math.log2(FX_BEATS.max / FX_BEATS.min) + 1 },
   (_, i) => FX_BEATS.min * 2 ** i,
 );
+
+const CROSSFADER_CURVES: readonly CrossfaderCurve[] = ['smooth', 'sharp'];
 
 /** The id of a control of a slot of a deck's effect chain: `deck1.fx…` for the first,
  * `deck1.fx2…` and `deck1.fx3…` for the next. */
@@ -863,12 +889,14 @@ function deckControls(a: ControlActions, deck: number): Control[] {
       () => a.trimPosition(deck),
     ),
     ...BANDS.map((band) =>
-      fader(
-        id(`eq.${band}`),
-        group,
-        EQ_LABEL[band](),
-        (v) => a.setEq(deck, band, v),
-        () => a.eqPosition(deck, band),
+      silentEnd(
+        fader(
+          id(`eq.${band}`),
+          group,
+          EQ_LABEL[band](),
+          (v) => a.setEq(deck, band, v),
+          () => a.eqPosition(deck, band),
+        ),
       ),
     ),
     ...BANDS.map((band) =>
@@ -1125,12 +1153,14 @@ function liveControls(a: ControlActions): Control[] {
     ['aux', t('Aux line level'), t('Aux line on / off'), t('Aux line in the headphones')],
   ];
   return sources.flatMap(([source, level, on, cue]) => [
-    fader(
-      `mixer.${source}`,
-      group,
-      level,
-      (v) => a.setLiveLevel(source, v),
-      () => a.liveLevelPosition(source),
+    silentEnd(
+      fader(
+        `mixer.${source}`,
+        group,
+        level,
+        (v) => a.setLiveLevel(source, v),
+        () => a.liveLevelPosition(source),
+      ),
     ),
     {
       ...button(`mixer.${source}.on`, group, on, () => a.toggleLive(source)),
@@ -1359,12 +1389,13 @@ export function buildControls(a: ControlActions): Control[] {
       (v) => a.setMainLevel(v),
       () => a.mainLevelPosition(),
     ),
-    fader(
+    stepped(
       'mixer.crossfaderCurve',
       t('Mixer'),
       t('Crossfader curve: smooth, then sharp'),
-      (v) => a.setCrossfaderCurve(v),
-      () => a.crossfaderCurvePosition(),
+      CROSSFADER_CURVES,
+      () => a.crossfaderCurve(),
+      (curve) => a.setCrossfaderCurve(curve),
     ),
     button('mixer.crossfaderCurve.next', t('Mixer'), t('The other crossfader curve'), () =>
       a.nextCrossfaderCurve(),
