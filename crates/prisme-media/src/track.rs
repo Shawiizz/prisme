@@ -127,6 +127,14 @@ impl TrackAudio {
         self.decoded_frames() >= self.frames()
     }
 
+    /// Whether no frame can be read: of a [`Self::pending`] track, no block all written yet.
+    pub fn is_blank(&self) -> bool {
+        if self.is_pending() {
+            return self.unfilled.load(Ordering::Acquire) == self.filled.len();
+        }
+        self.decoded_frames() == 0
+    }
+
     fn block_filled(&self, block: usize) -> bool {
         let len = (self.frames() - block * PENDING_BLOCK).min(PENDING_BLOCK);
         self.filled[block].load(Ordering::Acquire) as usize == len
@@ -396,6 +404,17 @@ mod tests {
         let mut seen = Vec::new();
         t.for_each_block(2, |block| seen.push(block.to_vec()));
         assert_eq!(seen, [vec![0.1, 0.2, 0.3, 0.4], vec![0.5, 0.6]]);
+    }
+
+    #[test]
+    fn a_pending_track_is_blank_until_a_block_is_all_written() {
+        let t = TrackAudio::pending(10, 2 * PENDING_BLOCK);
+        assert!(t.is_blank());
+        t.publish(PENDING_BLOCK, &[0.5; 2 * 10]);
+        assert!(t.is_blank(), "a block written in part");
+        t.publish(PENDING_BLOCK + 10, &vec![0.5; 2 * (PENDING_BLOCK - 10)]);
+        assert!(!t.is_blank());
+        assert!(!TrackAudio::from_interleaved(10, vec![0.5, 0.5]).is_blank());
     }
 
     #[test]

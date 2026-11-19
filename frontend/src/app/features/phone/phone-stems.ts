@@ -10,7 +10,7 @@ import { PhoneFloatHead } from './phone-float-head';
  * The stems of a deck, floating over the table of a phone: a knob for the level of each
  * part, its name muting it at that level. A track not separated yet offers its separation;
  * one being separated plays its stems where they are there already, the rest as it is, and
- * says how far it is.
+ * says how far it is; one whose separation stopped short offers it again.
  */
 @Component({
   selector: 'app-phone-stems',
@@ -53,6 +53,14 @@ import { PhoneFloatHead } from './phone-float-head';
           <span class="pr-num">{{ percent(done) }}</span>
           <i [style.--done]="done"></i>
         </p>
+      } @else if (stems.resumable()) {
+        <button
+          class="pr-btn separate"
+          (click)="stems.separate()"
+          [title]="'Separate this track again: its separation stopped short' | t"
+        >
+          {{ 'Separate' | t }}
+        </button>
       }
     }
   `,

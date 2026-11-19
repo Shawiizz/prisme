@@ -225,7 +225,7 @@
 
 // a rail with no room for the modes on one row beside eight pads (four decks under a
 // laptop's width, a compact lane beside the channel of the software mixer): the modes on two
-// rows of four, every key at its narrowest
+// rows of four, every key at its narrowest, the pads too beside a deck's stem knobs
 @container rail (max-width: 1280px) {
   .modes {
     display: grid;
@@ -239,6 +239,7 @@
   .pads {
     gap: 3px;
     .pr-pad {
+      min-width: 20px;
       padding: 0 1px;
       font-size: 10px;
     }

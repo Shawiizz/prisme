@@ -272,6 +272,8 @@ export interface TrackInfo {
   keyShift: number;
   /** The separated stems on the deck, which it can mute. */
   separation: Separation;
+  /** Its stems separated in parts only: being separated, or a separation stopped short. */
+  partial: boolean;
   /** The parts the deck plays (all at each load). */
   stemMix: StemMix;
 }
@@ -281,8 +283,8 @@ export interface DeckTrackUpdate {
   deck: number;
   loadId: number;
   analysis: TrackAnalysis | null;
-  /** Its separated stems reached the deck. */
-  separation: Separation | null;
+  /** Its separated stems reached the deck, or its separation stopped short. */
+  stems: Pick<TrackInfo, 'separation' | 'partial'> | null;
   /** Its cues, changed on another deck playing the same file. */
   cues: Cue[] | null;
 }

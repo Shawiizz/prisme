@@ -51,9 +51,12 @@ export function deckStems(deck: Signal<number>) {
   });
   /** Without a model, the separation offers to download them. */
   const canSeparate = computed(() => !!track() && separating() === null);
+  /** A separation stopped short: its stems play where they are there, and it can be done
+   * again. */
+  const resumable = computed(() => !!track()?.partial && separating() === null);
   const separate = () => {
     const path = track()?.path;
     if (path) void stems.separate([path]);
   };
-  return { separation, knobs, separating, canSeparate, separate };
+  return { separation, knobs, separating, canSeparate, resumable, separate };
 }

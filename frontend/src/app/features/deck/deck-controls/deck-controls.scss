@@ -47,6 +47,21 @@
     font-size: 11.5px;
     color: var(--pr-text-2);
   }
+  // beside the stems of a separation stopped short: a fork and its word, the fork alone on
+  // a rail short of room
+  &.again {
+    width: auto;
+    padding: 0 12px;
+    svg {
+      width: 14px;
+      height: 14px;
+      fill: none;
+      stroke: currentColor;
+      stroke-width: 1.6;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+  }
   // how far the separation is
   i {
     position: absolute;
@@ -117,8 +132,19 @@
       --knob-label-pad: 2px;
       --knob-label-stretch: 85%;
     }
-    .separate {
+    .separate:not(.again) {
       width: 100px;
+    }
+    .again {
+      width: 30px;
+      padding: 0;
+      span {
+        display: none;
+      }
+    }
+    // tighter beside that key
+    .stems:has(+ .again) {
+      grid-auto-columns: 30px;
     }
   }
 }

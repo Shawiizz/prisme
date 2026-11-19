@@ -201,7 +201,7 @@ describe('EngineService', () => {
       deck: 1,
       loadId: 7,
       analysis: null,
-      separation: null,
+      stems: null,
       cues: null,
       ...changes,
     });

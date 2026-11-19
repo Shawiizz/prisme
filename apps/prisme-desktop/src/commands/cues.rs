@@ -123,7 +123,7 @@ fn cue_updates(
                 deck: on,
                 load_id,
                 analysis: None,
-                separation: None,
+                stems: None,
                 cues: Some(dtos),
             });
         }

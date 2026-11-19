@@ -142,7 +142,7 @@ export class DeckWaveform {
     const track = this.track();
     const separating = this.stems.progress().current === track?.path;
     const of =
-      track && track.separation !== 'none' && !separating
+      track && track.separation !== 'none' && !track.partial && !separating
         ? `${track.loadId} ${track.separation}`
         : '';
     if (of === this.activityOf) return;

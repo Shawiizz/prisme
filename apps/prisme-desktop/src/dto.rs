@@ -4,7 +4,8 @@ use crate::auto_dj::machine::{Reason, State, Status, Takeover};
 use crate::auto_dj::plan::FadeLength;
 use prisme_audio_io::{Backend, StreamStats};
 use prisme_engine::{
-    DeckStatus, EngineStatus, InputChannels, LiveSource, LoopStatus, MixMode, Rpm, VinylMode, FX_SLOTS,
+    DeckStatus, EngineStatus, InputChannels, LiveSource, LoopStatus, MixMode, Rpm, StemTracks, VinylMode,
+    FX_SLOTS,
 };
 use prisme_library::{Cue, CueSlot};
 use prisme_timecode::{SignalState, TimecodeFormat};
@@ -498,8 +499,8 @@ pub struct TrackInfoDto {
     pub cues: Vec<CueDto>,
     /// Semitones the deck transposes the track by.
     pub key_shift: i8,
-    /// The stems on the deck, which it can mute.
-    pub separation: SeparationDto,
+    #[serde(flatten)]
+    pub stems: DeckStemsDto,
     pub stem_mix: StemMixDto,
 }
 
@@ -530,6 +531,24 @@ impl SeparationDto {
     /// Of the stems stored next to `track`.
     pub fn stored(track: &std::path::Path) -> Self {
         Self::of(|stem| prisme_stems::track::has_stem(track, stem.name()))
+    }
+}
+
+/// The stems on a deck, which it can mute.
+#[derive(Debug, Clone, Copy, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DeckStemsDto {
+    pub separation: SeparationDto,
+    /// Separated in parts only: being separated, or a separation stopped short.
+    pub partial: bool,
+}
+
+impl DeckStemsDto {
+    pub fn of(stems: &StemTracks) -> Self {
+        Self {
+            separation: SeparationDto::of(|stem| stems[stem as usize].is_some()),
+            partial: stems.iter().flatten().any(|s| !s.is_complete()),
+        }
     }
 }
 
@@ -626,8 +645,8 @@ pub struct DeckTrackUpdateDto {
     pub deck: usize,
     pub load_id: u64,
     pub analysis: Option<TrackAnalysisDto>,
-    /// The track's separated stems reached the deck.
-    pub separation: Option<SeparationDto>,
+    /// The track's separated stems reached the deck, or its separation stopped short.
+    pub stems: Option<DeckStemsDto>,
     /// Its cues, changed on another deck playing the same file.
     pub cues: Option<Vec<CueDto>>,
 }

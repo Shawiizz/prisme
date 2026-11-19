@@ -41,6 +41,7 @@ export class DeckControls {
   protected readonly stemKnobs = this.stemsOf.knobs;
   protected readonly separating = this.stemsOf.separating;
   protected readonly canSeparate = this.stemsOf.canSeparate;
+  protected readonly resumable = this.stemsOf.resumable;
   protected readonly separate = this.stemsOf.separate;
   protected readonly percent = readouts.percent;
 

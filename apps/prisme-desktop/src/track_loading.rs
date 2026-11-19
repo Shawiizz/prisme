@@ -156,8 +156,8 @@ impl Completion {
         }
         let mut updates = Updates::default();
         let loads = state.loads_of(&audio);
-        for (deck, load_id, separation) in crate::stems_service::give_stems(app, &loads, &self.path, &audio) {
-            updates.of(deck, load_id).separation = Some(separation);
+        for (deck, load_id, stems) in crate::stems_service::give_stems(app, &loads, &self.path, &audio) {
+            updates.of(deck, load_id).stems = Some(stems);
         }
         let loudness = prisme_analysis::loudness(&audio);
         let auto_gain = state.preferences.read(|p| p.dj.auto_gain);
@@ -199,7 +199,7 @@ impl Completion {
             prisme_library::remember_audio(&library.db, &self.path);
         }
         for update in updates.0 {
-            if update.analysis.is_some() || update.separation.is_some() {
+            if update.analysis.is_some() || update.stems.is_some() {
                 let _ = app.emit(DECK_TRACK_UPDATE_EVENT, update);
             }
         }
@@ -215,13 +215,7 @@ impl Updates {
         let at = match self.0.iter().position(|u| u.deck == deck && u.load_id == load_id) {
             Some(at) => at,
             None => {
-                self.0.push(DeckTrackUpdateDto {
-                    deck,
-                    load_id,
-                    analysis: None,
-                    separation: None,
-                    cues: None,
-                });
+                self.0.push(DeckTrackUpdateDto { deck, load_id, analysis: None, stems: None, cues: None });
                 self.0.len() - 1
             }
         };

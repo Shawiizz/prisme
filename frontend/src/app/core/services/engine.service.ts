@@ -579,14 +579,14 @@ export class EngineService {
 
   /** Analysis and stems that arrive after the track was put on its deck, and cues changed on
    * another deck playing the same file. */
-  private completeTrack({ deck, loadId, analysis, separation, cues }: DeckTrackUpdate) {
+  private completeTrack({ deck, loadId, analysis, stems, cues }: DeckTrackUpdate) {
     const track = this.tracks()[deck];
     if (track?.loadId !== loadId) return;
-    if (analysis || separation || cues) {
+    if (analysis || stems || cues) {
       this.patch(this.tracks, deck, {
         ...track,
         ...analysis,
-        separation: separation ?? track.separation,
+        ...stems,
         cues: cues ?? track.cues,
       });
     }

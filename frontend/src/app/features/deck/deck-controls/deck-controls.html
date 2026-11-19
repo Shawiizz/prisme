@@ -50,6 +50,19 @@
       />
     }
   </div>
+  @if (resumable()) {
+    <button
+      class="pr-btn pr-btn--lg separate again"
+      (click)="separate()"
+      [title]="'Separate this track again: its separation stopped short' | t"
+      [attr.aria-label]="'Separate' | t"
+    >
+      <svg viewBox="0 0 16 16" aria-hidden="true">
+        <path d="M8 15V9M8 9C8 6 3.5 6.5 3.5 2M8 9V2m0 7c0-3 4.5-2.5 4.5-7" />
+      </svg>
+      <span>{{ 'Separate' | t }}</span>
+    </button>
+  }
 }
 
 <button

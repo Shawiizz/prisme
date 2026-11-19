@@ -103,7 +103,7 @@ fn edit(
             analysis = Some(dto);
         } else {
             let update =
-                DeckTrackUpdateDto { deck: on, load_id, analysis: Some(dto), separation: None, cues: None };
+                DeckTrackUpdateDto { deck: on, load_id, analysis: Some(dto), stems: None, cues: None };
             let _ = app.emit(DECK_TRACK_UPDATE_EVENT, update);
         }
     }

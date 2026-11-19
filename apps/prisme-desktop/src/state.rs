@@ -4,9 +4,9 @@
 
 use crate::audio_host::{deck_pair, layer_partner, AudioSession};
 use crate::dto::{
-    AudioInfo, BackendDto, BandDto, ChannelStripDto, CrossfaderSideDto, CueDto, FxChainDto, FxPartDto,
-    HeadphonesOutputDto, InputChannelsDto, KeyDto, LiveSourceDto, MixModeDto, RpmDto, SeparationDto,
-    StemMixDto, TempoDto, TrackInfoDto, VinylModeDto,
+    AudioInfo, BackendDto, BandDto, ChannelStripDto, CrossfaderSideDto, CueDto, DeckStemsDto, FxChainDto,
+    FxPartDto, HeadphonesOutputDto, InputChannelsDto, KeyDto, LiveSourceDto, MixModeDto, RpmDto, StemMixDto,
+    TempoDto, TrackInfoDto, VinylModeDto,
 };
 use crate::error::{AppError, AppResult};
 use crate::folders;
@@ -95,7 +95,7 @@ impl LoadedTrack {
             key_edited: self.edits.key.is_some(),
             cues: self.cue_dtos(),
             key_shift: self.key_shift,
-            separation: SeparationDto::of(|stem| self.stems[stem as usize].is_some()),
+            stems: DeckStemsDto::of(&self.stems),
             stem_mix: self.stem_mix,
         }
     }
