@@ -30,6 +30,7 @@ describe('LibraryService', () => {
     engine.patchDeck(1, { pitchRange: 0.5 });
     expect(library.visibleTracks()).not.toBe(sorted);
   });
+
   /** The lists answered each when the test lets it go, in any order; the rest at once. */
   function answering() {
     const waiting = new Map<string, () => void>();
