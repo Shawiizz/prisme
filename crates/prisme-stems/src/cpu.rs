@@ -6,6 +6,8 @@
 //! frequency transformer along bands within a frame, both by striding over the same rows.
 
 use std::borrow::Cow;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Arc;
 
 use gemm::Parallelism;
 use rayon::prelude::*;
@@ -20,19 +22,36 @@ pub struct CpuNetwork {
     pool: Option<rayon::ThreadPool>,
     /// The bins of the chunk started, and its frames.
     started: Option<(Vec<f32>, usize)>,
+    /// Stops the chunk between two layers once set.
+    interrupt: Option<Arc<AtomicBool>>,
 }
 
 impl CpuNetwork {
     /// The weights stay as stored (f16 for the models: half the memory); each layer's are
     /// widened to f32 as it computes, a cost its rows make small.
     pub fn new(weights: Weights) -> Self {
-        Self { weights, pool: None, started: None }
+        Self { weights, pool: None, started: None, interrupt: None }
     }
 
     /// Computing on `pool`'s threads: fewer than the cores, at a low priority, so that the
     /// audio and the interface keep theirs.
     pub fn with_pool(weights: Weights, pool: rayon::ThreadPool) -> Self {
         Self { pool: Some(pool), ..Self::new(weights) }
+    }
+
+    /// Stopped between two layers (or two stems' masks) once `interrupt` is set, [`MaskNetwork::finish`] failing
+    /// with [`StemsError::Cancelled`]: a chunk takes seconds, a large model's half a minute and
+    /// more, which a separation no longer wanted need not wait for. The flag is the caller's to
+    /// clear.
+    pub fn interrupted_by(self, interrupt: Arc<AtomicBool>) -> Self {
+        Self { interrupt: Some(interrupt), ..self }
+    }
+
+    fn interrupted(&self) -> Result<(), StemsError> {
+        match &self.interrupt {
+            Some(interrupt) if interrupt.load(Ordering::Relaxed) => Err(StemsError::Cancelled),
+            _ => Ok(()),
+        }
     }
 }
 
@@ -52,12 +71,11 @@ impl MaskNetwork for CpuNetwork {
             Some(pool) => pool.install(|| self.compute(&bins, frames, out)),
             None => self.compute(&bins, frames, out),
         }
-        Ok(())
     }
 }
 
 impl CpuNetwork {
-    fn compute(&self, bins: &[f32], frames: usize, out: &mut [f32]) {
+    fn compute(&self, bins: &[f32], frames: usize, out: &mut [f32]) -> Result<(), StemsError> {
         let w = &self.weights;
         let g = &w.geometry;
         let features = g.features();
@@ -133,6 +151,7 @@ impl CpuNetwork {
                 axis.len(seq_frames, seq_bands),
             );
             for layer in &tr.layers {
+                self.interrupted()?;
                 scratch.normed.copy_from_slice(&x);
                 scratch.normed.chunks_exact_mut(c.dim).for_each(|row| rms_normalize(row, eps));
                 let width = c.qkvg_width();
@@ -191,6 +210,7 @@ impl CpuNetwork {
         };
         let size = frames * g.mask_features();
         for (s, out) in out.chunks_exact_mut(size).enumerate() {
+            self.interrupted()?;
             let stem = stems.as_ref().map(|stems| &stems[s * c.dim..][..c.dim]);
             let per_band: Vec<Vec<f32>> = g
                 .mask_bands
@@ -208,6 +228,7 @@ impl CpuNetwork {
                 }
             }
         }
+        Ok(())
     }
 }
 

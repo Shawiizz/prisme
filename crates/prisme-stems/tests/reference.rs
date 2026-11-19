@@ -5,6 +5,7 @@
 //! one of the V2.5 models, its frames grouped in tokens, its stems queries.
 
 use std::path::Path;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex, OnceLock};
 
 use prisme_stems::gpu::{Attention, Pacing};
@@ -80,6 +81,37 @@ fn the_cpu_network_separates_like_the_reference() {
         let (audio, expected) = reference(&weights);
         separates_like_the_reference(CpuNetwork::new(weights), &audio, &expected, 1e-4);
     }
+}
+
+/// A separation on the CPU interrupted in the middle of a chunk (other models chosen, a cancel
+/// that turns out not to be its own) takes the chunk again and comes to the same stems.
+#[test]
+fn an_interrupted_chunk_is_taken_again_to_the_same_stems() {
+    let weights = v25_fixture();
+    let (audio, _) = reference(&weights);
+    let n = audio.len() / 2;
+    // the fixture's audio over and over: several chunks
+    let left: Vec<f32> = audio[..n].repeat(5);
+    let right: Vec<f32> = audio[n..].repeat(5);
+    let whole =
+        Separator::new(CpuNetwork::new(weights.clone())).separate(&left, &right, |_, _| true).unwrap();
+
+    let interrupt = Arc::new(AtomicBool::new(false));
+    let mut separator = Separator::new(CpuNetwork::new(weights).interrupted_by(interrupt.clone()));
+    let mut separation = separator.begin(left.len(), 0);
+    let mut interrupted = 0;
+    for step in 0.. {
+        interrupt.store(step == 2, Ordering::Relaxed);
+        match separator.step(&mut separation, &left, &right, || None) {
+            Ok(true) => {}
+            Ok(false) => break,
+            Err(StemsError::Cancelled) => interrupted += 1,
+            Err(e) => panic!("{e}"),
+        }
+    }
+    assert_eq!(interrupted, 1);
+    assert!(separation.chunks() > 2);
+    assert_eq!(separation.into_stems(), whole);
 }
 
 #[test]
