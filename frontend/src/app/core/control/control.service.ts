@@ -450,9 +450,9 @@ export class ControlService {
   /** `inUse` as a set: looked into at every message of a controller. */
   private readonly inUseSet = computed(() => new Set(this.inUse()));
 
-  /** The control `id`, whatever its deck (to name it, to map it). */
+  /** The control `id`, whatever its deck (to name it, to map it, to put its light out). */
   find(id: string): Control | undefined {
-    return this.built().byId.get(id);
+    return this.built().byId.get(id) ?? this.measured(id);
   }
 
   /** The control `id` if it acts now: a control of a deck not shown does nothing. */
