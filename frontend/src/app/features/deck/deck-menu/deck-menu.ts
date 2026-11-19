@@ -69,6 +69,13 @@ const MENU_GAP_PX = 6;
       align-items: center;
       gap: var(--pr-space-1);
     }
+    /* as tall as the way the deck is driven beside them, the menu's key square */
+    .pr-btn {
+      height: 28px;
+    }
+    .pr-btn.pr-btn--icon {
+      width: 28px;
+    }
     .pr-btn:not(.pr-btn--icon) {
       padding: 0 7px;
       font: 600 10.5px / 1 var(--pr-font);
