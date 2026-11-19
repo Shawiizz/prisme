@@ -628,6 +628,8 @@ pub struct DeckTrackUpdateDto {
     pub analysis: Option<TrackAnalysisDto>,
     /// The track's separated stems reached the deck.
     pub separation: Option<SeparationDto>,
+    /// Its cues, changed on another deck playing the same file.
+    pub cues: Option<Vec<CueDto>>,
 }
 
 /// Tempo and key of a loaded track, after a correction or its analysis.

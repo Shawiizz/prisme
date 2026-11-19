@@ -390,6 +390,7 @@
       "description": "A level shown on the controller: `source`'s (`deck1`…, `main`, `main.left`,\n`main.right`) raised to `curve` (1 straight), by the value of one control or on LEDs.",
       "properties": {
         "curve": {
+          "exclusiveMinimum": 0,
           "format": "float",
           "type": "number"
         },

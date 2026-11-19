@@ -251,12 +251,7 @@ pub fn run() {
             controllers.open_at_start(app.handle());
             Controllers::watch(app.handle().clone());
             Controllers::drive_outputs(app.handle().clone());
-            app.manage(MidiClock::new());
-            if let Some(output) = controllers.setup().clock_output {
-                if let Err(e) = app.state::<MidiClock>().set_output(Some(&output)) {
-                    warn!("MIDI clock not sent to {output}: {e}");
-                }
-            }
+            app.manage(MidiClock::new(controllers.setup().clock_output));
             MidiClock::start(app.handle().clone());
             app.state::<TagWriter>().wake();
             library.start();

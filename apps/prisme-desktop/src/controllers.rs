@@ -448,25 +448,23 @@ impl Controllers {
                 }
                 let Some(plugged) = looking.as_ref().map(port_names) else { continue };
                 let controllers = app.state::<Controllers>();
-                let unplugged: Vec<String> = {
-                    let mut connections = lock(&controllers.connections);
-                    let gone = |c: &Connection| !plugged.contains(&c.port);
-                    let devices = connections.iter().filter(|c| gone(c)).map(|c| c.device.clone()).collect();
-                    connections.retain(|c| !gone(c));
-                    devices
-                };
+                let unplugged: Vec<String> = controllers
+                    .take_connections(|c| !plugged.contains(&c.port))
+                    .into_iter()
+                    .map(|c| c.device.clone())
+                    .collect();
                 for device in &unplugged {
                     controllers.let_go(&app, device);
                 }
                 for device in controllers.setup.read(|s| s.enabled.clone()) {
                     let open = lock(&controllers.connections).iter().any(|c| c.device == device);
-                    if open || port_of(&plugged, &device).is_none() {
+                    if open || port_of(&plugged, &device, &controllers.ports_open()).is_none() {
                         continue;
                     }
                     match controllers.open(&app, &device) {
                         // turned off meanwhile
                         Ok(()) if !controllers.setup.read(|s| s.enabled.contains(&device)) => {
-                            lock(&controllers.connections).retain(|c| c.device != device);
+                            drop(controllers.take_connections(|c| c.device == device));
                         }
                         Ok(()) => {
                             missing.retain(|d| *d != device);
@@ -551,10 +549,11 @@ impl Controllers {
     pub fn waiting(&self) -> Vec<String> {
         let plugged = Self::plugged().unwrap_or_default();
         let open: Vec<String> = lock(&self.connections).iter().map(|c| c.device.clone()).collect();
+        let taken = self.ports_open();
         self.setup
             .read(|s| s.enabled.clone())
             .into_iter()
-            .filter(|device| port_of(&plugged, device).is_some() && !open.contains(device))
+            .filter(|device| port_of(&plugged, device, &taken).is_some() && !open.contains(device))
             .map(|device| Self::model_name(&device))
             .collect()
     }
@@ -596,8 +595,9 @@ impl Controllers {
         let profiled: Vec<Mapping> = lock(&self.mappings).all().iter().filter(of_target).cloned().collect();
         self.save(|s| {
             if !s.mappings.all().iter().any(|m| of_target(&m)) {
+                // each of the profile's controls of the action, as many as it has
                 for mapping in profiled {
-                    s.mappings.learn(mapping, Direct::takes_several(target));
+                    s.mappings.learn(mapping, true);
                 }
             }
             s.mappings.set_encoding(device, target, encoding);
@@ -741,6 +741,17 @@ impl Controllers {
         lights
     }
 
+    /// The ports the controllers are open on.
+    fn ports_open(&self) -> Vec<String> {
+        lock(&self.connections).iter().map(|c| c.port.clone()).collect()
+    }
+
+    /// Takes out the connections `which` picks, closed once the lock is let go: closing one
+    /// waits for its callback, which may be waiting for the lock (see [`Self::receive`]).
+    fn take_connections(&self, which: impl Fn(&Connection) -> bool) -> Vec<Connection> {
+        lock(&self.connections).extract_if(.., |c| which(c)).collect()
+    }
+
     /// Closes `device`: its lights go off, its meters show silence, and its profile's last
     /// messages go out.
     fn close(&self, device: &str) {
@@ -846,7 +857,8 @@ impl Controllers {
         input.ignore(Ignore::All);
         let ports = input.ports();
         let names: Vec<String> = ports.iter().map(|p| input.port_name(p).unwrap_or_default()).collect();
-        let at = port_of(&names, device).ok_or_else(|| AppError::ControllerUnplugged(device.to_owned()))?;
+        let at = port_of(&names, device, &self.ports_open())
+            .ok_or_else(|| AppError::ControllerUnplugged(device.to_owned()))?;
         let (port, port_name) = (&ports[at], names[at].clone());
         let (app, name) = (app.clone(), device.to_owned());
         let jog_steps_per_turn = controller_profiles::jog_steps_per_turn(device);
@@ -1259,7 +1271,7 @@ fn open_output(device: &str) -> Option<MidiOutputConnection> {
     let output = MidiOutput::new(CLIENT).ok()?;
     let ports = output.ports();
     let names: Vec<String> = ports.iter().map(|p| output.port_name(p).unwrap_or_default()).collect();
-    let port = &ports[port_of(&names, device)?];
+    let port = &ports[port_of(&names, device, &[])?];
     output.connect(port, CLIENT).ok()
 }
 
@@ -1267,12 +1279,14 @@ fn port_names(input: &MidiInput) -> Vec<String> {
     input.ports().iter().filter_map(|p| input.port_name(p).ok()).collect()
 }
 
-/// Of the ports `names`, the one of the controller saved as `device`: its name, else the
-/// same wherever it is plugged (see [`base_port_name`]).
-fn port_of(names: &[String], device: &str) -> Option<usize> {
-    names.iter().position(|n| n == device).or_else(|| {
+/// Of the ports `names` but those `taken` (another controller of the same model's), the one of
+/// the controller saved as `device`: its name, else the same wherever it is plugged (see
+/// [`base_port_name`]).
+pub(crate) fn port_of(names: &[String], device: &str, taken: &[String]) -> Option<usize> {
+    let free = |n: &String| !taken.contains(n);
+    names.iter().position(|n| n == device && free(n)).or_else(|| {
         let base = base_port_name(device);
-        names.iter().position(|n| base_port_name(n) == base)
+        names.iter().position(|n| base_port_name(n) == base && free(n))
     })
 }
 
@@ -1301,17 +1315,27 @@ mod tests {
     fn a_controller_is_found_under_another_alsa_address() {
         let plugged =
             ["Midi Through:Midi Through Port-0 14:0".to_owned(), "DDJ-400:DDJ-400 MIDI 1 28:0".to_owned()];
-        assert_eq!(port_of(&plugged, "DDJ-400:DDJ-400 MIDI 1 24:0"), Some(1));
-        assert_eq!(port_of(&plugged, "DDJ-400:DDJ-400 MIDI 2 24:0"), None);
+        assert_eq!(port_of(&plugged, "DDJ-400:DDJ-400 MIDI 1 24:0", &[]), Some(1));
+        assert_eq!(port_of(&plugged, "DDJ-400:DDJ-400 MIDI 2 24:0", &[]), None);
     }
 
     #[test]
     fn a_controller_is_found_on_another_usb_port() {
         let names = ["2- DJControl Inpulse 200".to_owned(), "Other".to_owned()];
-        assert_eq!(port_of(&names, "DJControl Inpulse 200"), Some(0));
+        assert_eq!(port_of(&names, "DJControl Inpulse 200", &[]), Some(0));
         let both = ["DJControl Inpulse 200".to_owned(), "2- DJControl Inpulse 200".to_owned()];
-        assert_eq!(port_of(&both, "2- DJControl Inpulse 200"), Some(1), "the same name first");
-        assert_eq!(port_of(&names, "FLX4"), None);
+        assert_eq!(port_of(&both, "2- DJControl Inpulse 200", &[]), Some(1), "the same name first");
+        assert_eq!(port_of(&names, "FLX4", &[]), None);
+    }
+
+    #[test]
+    fn two_controllers_of_one_model_are_found_on_two_ports() {
+        let plugged = ["Traktor Kontrol X1".to_owned(), "3- Traktor Kontrol X1".to_owned()];
+        let taken = [plugged[0].clone()];
+        assert_eq!(port_of(&plugged, "2- Traktor Kontrol X1", &taken), Some(1));
+        assert_eq!(port_of(&plugged, "Traktor Kontrol X1", &plugged), None, "both in use");
+        let alsa = ["X1:X1 MIDI 1 32:0".to_owned(), "X1:X1 MIDI 1 36:0".to_owned()];
+        assert_eq!(port_of(&alsa, "X1:X1 MIDI 1 28:0", &alsa[..1]), Some(1));
     }
     use prisme_control::{parse, Chord, Control, LightValues, Meter, Shift, When};
 
@@ -1474,6 +1498,19 @@ mod tests {
         assert!(!learnt.all().is_empty());
         assert!(learnt.all().iter().filter(|m| jog(m)).all(|m| m.encoding == Encoding::Relative));
         assert!(c.mappings().all().iter().filter(|m| jog(m)).all(|m| m.encoding == Encoding::Relative));
+    }
+
+    #[test]
+    fn an_action_on_several_controls_of_a_profile_keeps_them_all_read_another_way() {
+        let c = sb2();
+        let amount = |m: &&Mapping| m.device == "DDJ-SB2" && m.target == "deck1.fx.amount";
+        let profiled: Vec<Mapping> = c.mappings().all().iter().filter(amount).cloned().collect();
+        assert!(profiled.len() > 1);
+        c.set_encoding("DDJ-SB2", "deck1.fx.amount", Encoding::RelativeOffset);
+        let read: Vec<Mapping> = c.mappings().all().iter().filter(amount).cloned().collect();
+        let expected: Vec<Mapping> =
+            profiled.into_iter().map(|m| with(m, |b| b.encoding = Encoding::RelativeOffset)).collect();
+        assert_eq!(read, expected);
     }
 
     #[test]

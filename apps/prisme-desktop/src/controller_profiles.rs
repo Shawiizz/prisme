@@ -412,29 +412,59 @@ pub async fn update() -> Result<usize, String> {
     let index = crate::http::fetch(&client, &format!("{PUBLISHED}{INDEX}")).await?;
     let index: Index = serde_json::from_slice(&index).map_err(|e| e.to_string())?;
     std::fs::create_dir_all(&folders.updates).map_err(|e| e.to_string())?;
-    let (shipped, had) = (shipped_index(), read_index(&folders.updates));
-    let mut came = 0;
-    for (file, published) in &index.profiles {
-        let fetched = had.profiles.get(file) == Some(published) && folders.updates.join(file).exists();
-        if !plain_file_name(file) || !later(published, shipped.profiles.get(file)) || fetched {
-            continue;
-        }
+    let had = read_index(&folders.updates);
+    // all fetched before any is written: a fetch that fails leaves the folder as it was
+    let mut texts = Vec::new();
+    for file in wanted(&index, &had, &folders.updates) {
         let bytes = crate::http::fetch(&client, &format!("{PUBLISHED}{file}")).await?;
-        let text = String::from_utf8(bytes).map_err(|e| e.to_string())?;
-        if digest(&text) != published.sha256 || serde_json::from_str::<Profile>(&text).is_err() {
-            warn!("controller profile {file} published is not the one its index tells");
-            continue;
-        }
-        write_whole(&folders.updates.join(file), text.as_bytes())?;
-        came += 1;
+        texts.push((file, String::from_utf8(bytes).map_err(|e| e.to_string())?));
     }
-    let index = serde_json::to_vec_pretty(&index).map_err(|e| e.to_string())?;
-    write_whole(&folders.updates.join(INDEX), &index)?;
+    let came = keep(&folders.updates, &index, &had, texts)?;
     if came > 0 {
         info!("{came} controller profiles updated");
     }
     reload();
     Ok(came)
+}
+
+/// The profiles of `index` to fetch into `folder`, which holds those of `had`: later than those
+/// shipped, and not there yet.
+fn wanted<'i>(index: &'i Index, had: &Index, folder: &Path) -> Vec<&'i str> {
+    let shipped = shipped_index();
+    index
+        .profiles
+        .iter()
+        .filter(|&(file, published)| {
+            let there = had.profiles.get(file) == Some(published) && folder.join(file).exists();
+            plain_file_name(file) && later(published, shipped.profiles.get(file)) && !there
+        })
+        .map(|(file, _)| file.as_str())
+        .collect()
+}
+
+/// Writes into `folder`, which holds the profiles of `had`, those fetched (`texts`) that are the
+/// ones `index` tells, then the index of what it holds: of a profile not written, the one there
+/// before. How many came.
+fn keep(folder: &Path, index: &Index, had: &Index, texts: Vec<(&str, String)>) -> Result<usize, String> {
+    let mut held = had.clone();
+    held.profiles.retain(|file, _| index.profiles.contains_key(file));
+    let (mut came, mut written) = (0, Ok(()));
+    for (file, text) in texts {
+        let Some(published) = index.profiles.get(file) else { continue };
+        if digest(&text) != published.sha256 || serde_json::from_str::<Profile>(&text).is_err() {
+            warn!("controller profile {file} published is not the one its index tells");
+            continue;
+        }
+        written = write_whole(&folder.join(file), text.as_bytes());
+        if written.is_err() {
+            break;
+        }
+        held.profiles.insert(file.to_owned(), published.clone());
+        came += 1;
+    }
+    let held = serde_json::to_vec_pretty(&held).map_err(|e| e.to_string())?;
+    write_whole(&folder.join(INDEX), &held)?;
+    written.map(|()| came)
 }
 
 /// A name of a file in the folder itself (an index names no other place).
@@ -646,6 +676,51 @@ mod tests {
             let library = read_library(Some(&folders));
             assert_eq!(known(&library, "pioneer-ddj-400.json").source, Source::Shipped, "{case}");
         }
+    }
+
+    /// The index publishing `files` (name, text) at `revision`.
+    fn publishing(files: &[(&str, &str)], revision: u32) -> Index {
+        let published = |text| Published { sha256: digest(text), revision, format: PROFILE_FORMAT };
+        Index { profiles: files.iter().map(|(file, text)| ((*file).to_owned(), published(text))).collect() }
+    }
+
+    #[test]
+    fn a_profile_published_unlike_its_index_leaves_the_one_fetched_before() {
+        let folders = scratch("unlike");
+        let file = "pioneer-ddj-400.json";
+        let revision = shipped_index().profiles[file].revision + 1;
+        let before = ddj_400_named("Before");
+        fetched(&folders, file, &before, revision, PROFILE_FORMAT);
+        let had = read_index(&folders.updates);
+        let index = publishing(&[(file, &ddj_400_named("After"))], revision + 1);
+        assert_eq!(wanted(&index, &had, &folders.updates), [file]);
+        // a cache gives the text before with the index after
+        assert_eq!(keep(&folders.updates, &index, &had, vec![(file, before)]), Ok(0));
+        assert_eq!(known(&read_library(Some(&folders)), file).profile.name, "Before");
+        assert_eq!(wanted(&index, &read_index(&folders.updates), &folders.updates), [file], "fetched again");
+    }
+
+    #[test]
+    fn profiles_not_all_written_leave_an_index_telling_those_there() {
+        let folders = scratch("not-all-written");
+        let files = ["pioneer-ddj-400.json", "pioneer-ddj-flx4.json"];
+        let revision = files.iter().map(|f| shipped_index().profiles[*f].revision).max().unwrap() + 1;
+        let before = ddj_400_named("Before");
+        std::fs::create_dir_all(&folders.updates).unwrap();
+        for file in files {
+            std::fs::write(folders.updates.join(file), &before).unwrap();
+        }
+        let had = publishing(&[(files[0], &before), (files[1], &before)], revision);
+        std::fs::write(folders.updates.join(INDEX), serde_json::to_vec(&had).unwrap()).unwrap();
+        let after = ddj_400_named("After");
+        let index = publishing(&[(files[0], &after), (files[1], &after)], revision + 1);
+        // the second cannot be written
+        std::fs::create_dir(folders.updates.join("pioneer-ddj-flx4.part")).unwrap();
+        let texts = files.iter().map(|&f| (f, after.clone())).collect();
+        assert!(keep(&folders.updates, &index, &had, texts).is_err());
+        let library = read_library(Some(&folders));
+        assert_eq!(known(&library, files[0]).profile.name, "After");
+        assert_eq!(known(&library, files[1]).profile.name, "Before");
     }
 
     #[test]
