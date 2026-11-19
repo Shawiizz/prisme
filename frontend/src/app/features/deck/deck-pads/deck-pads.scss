@@ -223,9 +223,10 @@
   }
 }
 
-// the rail of a compact lane beside the channel of the software mixer: the modes on two
+// a rail with no room for the modes on one row beside eight pads (four decks under a
+// laptop's width, a compact lane beside the channel of the software mixer): the modes on two
 // rows of four, every key at its narrowest
-@container rail (max-width: 1050px) {
+@container rail (max-width: 1280px) {
   .modes {
     display: grid;
     grid-template-columns: repeat(4, auto);
