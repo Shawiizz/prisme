@@ -1,0 +1,36 @@
+{
+  "$schema": "https://raw.githubusercontent.com/Shawiizz/prisme/main/apps/prisme-desktop/controllers/profile.schema.json",
+  "name": "DJ-Tech MIX-101",
+  "ports": ["Mix-101"],
+  "credits": "From the DJ-Tech MIX-101 mapping of Mixxx by rasda (GPL-2.0-or-later).",
+  "controls": [
+    {"control": {"kind": "controlChange", "channel": 0, "number": 16}, "target": "mixer.headphones", "encoding": "relativeOffset", "step": 0.0118},
+    {"control": {"kind": "controlChange", "channel": 0, "number": 18}, "target": "mixer.main", "encoding": "relativeOffset", "step": 0.0118},
+    {"control": {"kind": "controlChange", "channel": 0, "number": 35}, "target": "mixer.crossfader"},
+    {"control": {"kind": "controlChange", "channel": 0, "number": 17}, "target": "library.browse", "encoding": "relativeOffset"},
+    {"control": {"kind": "note", "channel": 0, "number": 12}, "target": "library.load"},
+    {"control": {"kind": "note", "channel": 0, "number": 11}, "target": "deck1.sample1"},
+    {"control": {"kind": "note", "channel": 0, "number": 13}, "target": "deck1.sample2"},
+    {"control": {"kind": "note", "channel": 0, "number": 9}, "target": "deck1.play"},
+    {"control": {"kind": "note", "channel": 0, "number": 3}, "target": "deck1.cue"},
+    {"control": {"kind": "note", "channel": 0, "number": 1}, "target": "deck1.headphones", "light": {"on": 127, "off": 0}},
+    {"control": {"kind": "controlChange", "channel": 0, "number": 19}, "target": "deck1.jog", "encoding": "relativeOffset"},
+    {"control": {"kind": "controlChange", "channel": 0, "number": 33}, "target": "deck1.volume"},
+    {"control": {"kind": "controlChange", "channel": 0, "number": 36}, "target": "deck1.trim"},
+    {"control": {"kind": "controlChange", "channel": 0, "number": 38}, "target": "deck1.eq.high"},
+    {"control": {"kind": "controlChange", "channel": 0, "number": 40}, "target": "deck1.eq.mid"},
+    {"control": {"kind": "controlChange", "channel": 0, "number": 42}, "target": "deck1.eq.low"},
+    {"control": {"kind": "note", "channel": 0, "number": 7}, "target": "deck2.play", "light": {"on": 127, "off": 0}},
+    {"control": {"kind": "note", "channel": 0, "number": 4}, "target": "deck2.cue"},
+    {"control": {"kind": "note", "channel": 0, "number": 2}, "target": "deck2.headphones", "light": {"on": 127, "off": 0}},
+    {"control": {"kind": "controlChange", "channel": 0, "number": 21}, "target": "deck2.jog", "encoding": "relativeOffset"},
+    {"control": {"kind": "controlChange", "channel": 0, "number": 34}, "target": "deck2.volume"},
+    {"control": {"kind": "controlChange", "channel": 0, "number": 37}, "target": "deck2.trim"},
+    {"control": {"kind": "controlChange", "channel": 0, "number": 39}, "target": "deck2.eq.high"},
+    {"control": {"kind": "controlChange", "channel": 0, "number": 41}, "target": "deck2.eq.mid"},
+    {"control": {"kind": "controlChange", "channel": 0, "number": 43}, "target": "deck2.eq.low"}
+  ],
+  "lights": [
+    {"target": "deck1.play", "control": {"kind": "note", "channel": 0, "number": 10}, "on": 127, "off": 0}
+  ]
+}

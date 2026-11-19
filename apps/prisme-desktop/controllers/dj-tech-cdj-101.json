@@ -1,0 +1,25 @@
+{
+  "$schema": "https://raw.githubusercontent.com/Shawiizz/prisme/main/apps/prisme-desktop/controllers/profile.schema.json",
+  "name": "DJ-Tech CDJ-101",
+  "ports": ["CDJ-101", "CDJ101"],
+  "credits": "From the DJ-Tech CDJ-101 mapping of Mixxx by zestoi (GPL-2.0-or-later).",
+  "jogStepsPerTurn": 143,
+  "controls": [
+    {"control": {"kind": "note", "channel": 0, "number": 42}, "target": "deck1.play", "chord": {"with": {"kind": "note", "channel": 0, "number": 31}, "target": "deck1.sync.once"}},
+    {"control": {"kind": "note", "channel": 0, "number": 43}, "target": "deck1.cue", "chord": {"with": {"kind": "note", "channel": 0, "number": 31}, "target": "deck1.grid.here"}, "light": {"on": 0, "paused": 0, "off": 0, "pressed": 127}},
+    {"control": {"kind": "note", "channel": 0, "number": 32}, "target": "deck1.jog.touch"},
+    {"control": {"kind": "controlChange", "channel": 0, "number": 54}, "target": "deck1.jog", "encoding": "relativeOffset"},
+    {"control": {"kind": "controlChange", "channel": 0, "number": 53}, "target": "deck1.jog", "encoding": "relativeOffset"},
+    {"control": {"kind": "pitchBend", "channel": 0, "number": 0}, "target": "deck1.pitch", "invert": true},
+    {"control": {"kind": "note", "channel": 0, "number": 31}, "target": "library.load1", "hold": {"ms": 200, "target": "shift"}, "light": {"off": 0, "loaded": 0, "playing": 0}},
+    {"control": {"kind": "controlChange", "channel": 0, "number": 56}, "target": "library.browse", "encoding": "relativeOffset"},
+    {"control": {"kind": "note", "channel": 1, "number": 42}, "target": "deck2.play", "chord": {"with": {"kind": "note", "channel": 1, "number": 31}, "target": "deck2.sync.once"}},
+    {"control": {"kind": "note", "channel": 1, "number": 43}, "target": "deck2.cue", "chord": {"with": {"kind": "note", "channel": 1, "number": 31}, "target": "deck2.grid.here"}, "light": {"on": 0, "paused": 0, "off": 0, "pressed": 127}},
+    {"control": {"kind": "note", "channel": 1, "number": 32}, "target": "deck2.jog.touch"},
+    {"control": {"kind": "controlChange", "channel": 1, "number": 54}, "target": "deck2.jog", "encoding": "relativeOffset"},
+    {"control": {"kind": "controlChange", "channel": 1, "number": 53}, "target": "deck2.jog", "encoding": "relativeOffset"},
+    {"control": {"kind": "pitchBend", "channel": 1, "number": 0}, "target": "deck2.pitch", "invert": true},
+    {"control": {"kind": "note", "channel": 1, "number": 31}, "target": "library.load2", "hold": {"ms": 200, "target": "shift"}, "light": {"off": 0, "loaded": 0, "playing": 0}},
+    {"control": {"kind": "controlChange", "channel": 1, "number": 56}, "target": "library.browse", "encoding": "relativeOffset"}
+  ]
+}

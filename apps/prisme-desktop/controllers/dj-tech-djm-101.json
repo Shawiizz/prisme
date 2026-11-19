@@ -1,0 +1,36 @@
+{
+  "$schema": "https://raw.githubusercontent.com/Shawiizz/prisme/main/apps/prisme-desktop/controllers/profile.schema.json",
+  "name": "DJ-Tech DJM-101",
+  "ports": ["DJM-101"],
+  "credits": "From the DJ-Tech DJM-101 mapping of Mixxx by zestoi (GPL-2.0-or-later).",
+  "modes": [
+    {"group": "meter", "modes": ["main", "decks"], "select": [
+      {"control": {"kind": "note", "channel": 0, "number": 36}, "mode": "main"},
+      {"control": {"kind": "note", "channel": 0, "number": 35}, "mode": "decks"}
+    ]}
+  ],
+  "controls": [
+    {"control": {"kind": "controlChange", "channel": 0, "number": 69}, "target": "mixer.headphones"},
+    {"control": {"kind": "controlChange", "channel": 0, "number": 68}, "target": "mixer.cueMix"},
+    {"control": {"kind": "controlChange", "channel": 0, "number": 67}, "target": "mixer.main"},
+    {"control": {"kind": "controlChange", "channel": 0, "number": 64}, "target": "mixer.crossfader"},
+    {"control": {"kind": "controlChange", "channel": 0, "number": 72}, "target": "deck1.trim"},
+    {"control": {"kind": "controlChange", "channel": 0, "number": 65}, "target": "deck1.volume"},
+    {"control": {"kind": "note", "channel": 0, "number": 33}, "target": "deck1.headphones", "light": {"on": 127, "off": 0}},
+    {"control": {"kind": "controlChange", "channel": 0, "number": 74}, "target": "deck1.eq.high"},
+    {"control": {"kind": "controlChange", "channel": 0, "number": 78}, "target": "deck1.eq.mid"},
+    {"control": {"kind": "controlChange", "channel": 0, "number": 76}, "target": "deck1.eq.low"},
+    {"control": {"kind": "controlChange", "channel": 0, "number": 79}, "target": "deck2.trim"},
+    {"control": {"kind": "controlChange", "channel": 0, "number": 66}, "target": "deck2.volume"},
+    {"control": {"kind": "note", "channel": 0, "number": 34}, "target": "deck2.headphones", "light": {"on": 127, "off": 0}},
+    {"control": {"kind": "controlChange", "channel": 0, "number": 77}, "target": "deck2.eq.high"},
+    {"control": {"kind": "controlChange", "channel": 0, "number": 75}, "target": "deck2.eq.mid"},
+    {"control": {"kind": "controlChange", "channel": 0, "number": 73}, "target": "deck2.eq.low"}
+  ],
+  "meters": [
+    {"source": "main.left", "control": {"kind": "controlChange", "channel": 0, "number": 80}, "curve": 0.45, "when": {"group": "meter", "mode": "main"}},
+    {"source": "main.right", "control": {"kind": "controlChange", "channel": 0, "number": 81}, "curve": 0.45, "when": {"group": "meter", "mode": "main"}},
+    {"source": "deck1", "control": {"kind": "controlChange", "channel": 0, "number": 82}, "curve": 0.45, "when": {"group": "meter", "mode": "decks"}},
+    {"source": "deck2", "control": {"kind": "controlChange", "channel": 0, "number": 83}, "curve": 0.45, "when": {"group": "meter", "mode": "decks"}}
+  ]
+}

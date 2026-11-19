@@ -1,0 +1,34 @@
+{
+  "$schema": "https://raw.githubusercontent.com/Shawiizz/prisme/main/apps/prisme-desktop/controllers/profile.schema.json",
+  "name": "Pioneer CDJ-350 (deck 2)",
+  "ports": ["2- CDJ-350", "2- PIONEER CDJ-350"],
+  "credits": "From the Pioneer CDJ-350 CH2 mapping of Mixxx by Kazuaki and DJ Tiger (GPL-2.0-or-later).",
+  "modes": [
+    {"group": "browse", "modes": ["lists", "tracks"], "select": [{"control": {"kind": "note", "channel": 0, "number": 50}, "mode": "lists"}]}
+  ],
+  "controls": [
+    {"control": {"kind": "note", "channel": 0, "number": 0}, "target": "deck2.play"},
+    {"control": {"kind": "note", "channel": 0, "number": 1}, "target": "deck2.cue"},
+    {"control": {"kind": "note", "channel": 0, "number": 38}, "target": "deck2.sync.once"},
+    {"control": {"kind": "note", "channel": 0, "number": 3}, "target": "deck2.search.back"},
+    {"control": {"kind": "note", "channel": 0, "number": 2}, "target": "deck2.search.forward"},
+    {"control": {"kind": "note", "channel": 0, "number": 5}, "target": "deck2.start.keep"},
+    {"control": {"kind": "note", "channel": 0, "number": 4}, "target": "deck2.end"},
+    {"control": {"kind": "note", "channel": 0, "number": 6}, "target": "deck2.loop.in"},
+    {"control": {"kind": "note", "channel": 0, "number": 7}, "target": "deck2.loop.out"},
+    {"control": {"kind": "note", "channel": 0, "number": 8}, "target": "deck2.reloop"},
+    {"control": {"kind": "note", "channel": 0, "number": 23}, "target": "deck2.loop.halve"},
+    {"control": {"kind": "note", "channel": 0, "number": 22}, "target": "deck2.loop.double"},
+    {"control": {"kind": "note", "channel": 0, "number": 17}, "target": "deck2.keylock"},
+    {"control": {"kind": "note", "channel": 0, "number": 16}, "target": "deck2.tempoRange"},
+    {"control": {"kind": "controlChange", "channel": 0, "number": 29}, "target": "deck2.pitch"},
+    {"control": {"kind": "controlChange", "channel": 0, "number": 16}, "target": "deck2.jog", "encoding": "relativeOffset"},
+    {"control": {"kind": "controlChange", "channel": 0, "number": 48}, "target": "deck2.jog", "encoding": "relativeOffset"},
+    {"control": {"kind": "controlChange", "channel": 0, "number": 79}, "target": "library.list.next", "encoding": "relative", "down": "library.list.previous", "when": {"group": "browse", "mode": "lists"}},
+    {"control": {"kind": "controlChange", "channel": 0, "number": 79}, "target": "library.browse", "encoding": "relative", "when": {"group": "browse", "mode": "tracks"}},
+    {"control": {"kind": "note", "channel": 0, "number": 51}, "target": "mode.browse.tracks", "when": {"group": "browse", "mode": "lists"}},
+    {"control": {"kind": "note", "channel": 0, "number": 51}, "target": "library.load2", "when": {"group": "browse", "mode": "tracks"}},
+    {"control": {"kind": "note", "channel": 0, "number": 46}, "target": "mode.browse.tracks", "when": {"group": "browse", "mode": "lists"}},
+    {"control": {"kind": "note", "channel": 0, "number": 46}, "target": "mode.browse.lists", "when": {"group": "browse", "mode": "tracks"}}
+  ]
+}
