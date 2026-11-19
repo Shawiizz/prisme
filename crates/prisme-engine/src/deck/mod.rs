@@ -352,8 +352,12 @@ impl Deck {
     }
 
     /// Internal play stops at the end of the track, or at its start in reverse, and so does a
-    /// deck playing on past the end of its record (a record, on the other hand, turns on).
+    /// deck playing on past the end of its record (a record, on the other hand, turns on); a
+    /// loop going on past it takes the track back instead.
     fn stop_at_the_end(&mut self) {
+        if self.playhead.goes_round() {
+            return;
+        }
         let internal = self.drive_mode() == DriveMode::Internal;
         if internal && self.playing && self.transport.reversing() && self.playhead.position_s() <= 0.0 {
             self.set_playing(false);

@@ -49,6 +49,18 @@ fn without_quantize_the_loop_starts_where_the_track_is() {
 }
 
 #[test]
+fn a_loop_past_the_end_of_the_track_goes_on_round() {
+    let mut rig = playing_deck(58.9);
+    rig.send(Command::BeatLoop { deck: 0, beats: 4.0 });
+    for _ in 0..12 {
+        rig.run(0.25);
+        let d = rig.deck(0);
+        assert!(d.playing && (58.9..61.0).contains(&d.position_s), "{d:?}");
+    }
+    assert_eq!(rig.deck(0).looping.region, Some(LoopRegion { start_s: 59.0, end_s: 61.0 }));
+}
+
+#[test]
 fn leaving_a_loop_carries_on_after_its_end() {
     let mut rig = playing_deck(10.0);
     rig.send(Command::BeatLoop { deck: 0, beats: 2.0 });

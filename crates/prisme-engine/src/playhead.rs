@@ -92,6 +92,11 @@ impl Playhead {
         self.loop_frames.or(whole).filter(|_| self.wrapping)
     }
 
+    /// Whether the loop, or repeat, takes the playhead round from where it is.
+    pub(crate) fn goes_round(&self) -> bool {
+        self.wrap_frames().is_some_and(|(start, end)| (start..end).contains(&self.position))
+    }
+
     pub(crate) fn is_loaded(&self) -> bool {
         self.track.is_some()
     }
