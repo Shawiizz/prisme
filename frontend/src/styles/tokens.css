@@ -110,7 +110,8 @@
   --pr-fast: 120ms;
   /* what closes: a menu, a list, a sheet and the veil behind them, all together */
   --pr-out: 160ms;
-  --pr-relayout: 240ms cubic-bezier(0.2, 0.8, 0.2, 1); /* the decks laid out anew: two or four */
+  /* the decks laid out anew: two or four */
+  --pr-relayout: 240ms cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 @media (prefers-reduced-motion: reduce) {
   :root {
