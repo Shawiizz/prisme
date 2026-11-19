@@ -1003,6 +1003,9 @@ mod tests {
         (run, thread)
     }
 
+    /// More commands than the engine's queue holds.
+    const MOVES: usize = 5000;
+
     fn crossfader_moves(count: usize) -> Vec<Command> {
         (0..count).map(|i| Command::SetCrossfader { position: i as f32 / count as f32 }).collect()
     }
@@ -1012,18 +1015,18 @@ mod tests {
         let config = EngineConfig::new(48_000, 2, &prisme_timecode::SERATO_CV02_A);
         let (engine, mut controller) = prisme_engine::create(config);
         let (run, thread) = running(engine);
-        send_all(&mut controller, crossfader_moves(1000), RESTORE_WAIT);
+        send_all(&mut controller, crossfader_moves(MOVES), RESTORE_WAIT);
         run.store(false, Ordering::Relaxed);
         thread.join().unwrap();
-        assert_eq!(controller.sent(), 1000);
+        assert_eq!(controller.sent(), MOVES as u64);
     }
 
     #[test]
     fn an_engine_that_does_not_run_is_not_waited_for_long() {
         let config = EngineConfig::new(48_000, 2, &prisme_timecode::SERATO_CV02_A);
         let (_engine, mut controller) = prisme_engine::create(config);
-        send_all(&mut controller, crossfader_moves(1000), Duration::from_millis(20));
-        assert!(controller.sent() < 1000);
+        send_all(&mut controller, crossfader_moves(MOVES), Duration::from_millis(20));
+        assert!(controller.sent() < MOVES as u64);
     }
 
     fn db(gain: f32) -> f32 {
