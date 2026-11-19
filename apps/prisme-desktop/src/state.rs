@@ -16,7 +16,8 @@ use crate::sampler::Samplers;
 use crate::track_waveform::TrackWaveform;
 use prisme_analysis::TrackAnalysis;
 use prisme_engine::{
-    BeatGrid, Command, DeckStatus, EngineStatus, MixMode, OutputRouting, StemTracks, MAX_DECKS,
+    BeatGrid, Command, DeckStatus, EngineConfig, EngineController, EngineStatus, MixMode, OutputRouting,
+    StemTracks, MAX_DECKS,
 };
 use prisme_library::{Cue, CueSlot, TrackEdits};
 use prisme_media::{TrackAudio, TrackTags};
@@ -25,6 +26,8 @@ use prisme_timecode::TimecodeFormat;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex, MutexGuard};
+use std::time::{Duration, Instant};
+use tracing::warn;
 
 /// The loudness auto gain brings every track to: that of a loud modern master, so that most
 /// tracks come down a little and few need a boost.
@@ -246,6 +249,12 @@ pub struct AppState {
 /// The speed (1: as recorded) from which a track counts as moving: a record at rest
 /// trembles under its needle.
 const MOVING_SPEED: f64 = 0.05;
+
+/// How long a restore waits in all for the engine to take its commands: longer than its
+/// periods, however long they are, and than its stream may take to start calling it.
+const RESTORE_WAIT: Duration = Duration::from_secs(1);
+/// How often a full queue is looked at again.
+const ROOM_POLL: Duration = Duration::from_millis(1);
 
 /// Locks a mutex, recovering from a poisoned lock (a panicking command must not take
 /// the whole application down).
@@ -538,58 +547,74 @@ impl AppState {
     /// Re-applies tracks, deck and mixer settings to a freshly started engine, the tracks at
     /// their `places`.
     pub fn restore(&self, session: &mut AudioSession, places: &[Option<Place>; MAX_DECKS]) {
-        let routing = self.routing(&session.info);
-        let config = session.engine_config;
-        let controller = &mut session.controller;
+        let commands = self.restore_commands(&session.info, &session.engine_config, places);
+        send_all(&mut session.controller, commands, RESTORE_WAIT);
+        session.restored = session.controller.sent();
+    }
+
+    /// What [`AppState::restore`] sends, for the decks of `info` only.
+    fn restore_commands(
+        &self,
+        info: &AudioInfo,
+        config: &EngineConfig,
+        places: &[Option<Place>; MAX_DECKS],
+    ) -> Vec<Command> {
         let auto_gain = self.preferences.read(|p| p.dj.auto_gain);
-        let tracks = lock(&self.tracks);
-        let decks = self.decks_in_use(Some(&session.info));
-        for (deck, (track, settings)) in tracks.iter().zip(decks.iter()).enumerate() {
-            for c in track.iter().flat_map(|t| t.load_commands(deck, auto_gain)) {
-                let _ = controller.send(c);
-            }
-            for c in deck_commands(deck, settings) {
-                let _ = controller.send(c);
-            }
+        let decks = self.decks_in_use(Some(info));
+        let mut commands = Vec::new();
+        for (deck, (track, settings)) in lock(&self.tracks).iter().zip(&decks).enumerate().take(info.decks) {
+            commands.extend(track.iter().flat_map(|t| t.load_commands(deck, auto_gain)));
+            commands.extend(deck_commands(deck, settings));
             // the record may have changed while the engine started
             if settings.swap_channels || settings.timecode.id != config.timecodes[deck].id {
                 let decoder = config.decoder(settings.timecode, settings.swap_channels);
-                let _ = controller.send(Command::ReplaceDecoder { deck, decoder });
+                commands.push(Command::ReplaceDecoder { deck, decoder });
             }
         }
-        for (deck, slots) in lock(&self.samplers).iter().enumerate() {
+        for (deck, slots) in lock(&self.samplers).iter().enumerate().take(info.decks) {
             for (slot, loaded) in slots.iter().enumerate() {
                 if let Some(loaded) = loaded {
-                    let _ = controller.send(Command::SetSample {
-                        deck,
-                        slot,
-                        sample: Some(loaded.audio.clone()),
-                    });
+                    commands.push(Command::SetSample { deck, slot, sample: Some(loaded.audio.clone()) });
                 }
             }
         }
-        let _ = controller.send(Command::SetCrossfader { position: *lock(&self.crossfader) });
         let preferences = self.preferences.get();
-        let _ = controller.send(Command::SetQuantize { enabled: preferences.dj.quantize });
-        let _ = controller.send(Command::SetRouting { routing });
-        let _ = controller.send(Command::SetCueMix { mix: preferences.mixer.cue_mix });
-        let _ = controller.send(Command::SetHeadphoneGain { gain: preferences.mixer.headphone_gain });
-        let _ = controller.send(Command::SetSplitCue { enabled: preferences.mixer.split_cue });
-        let _ =
-            controller.send(Command::SetCrossfaderCurve { curve: preferences.mixer.crossfader_curve.into() });
-        let _ = controller.send(Command::SetLimiter { enabled: preferences.mixer.limiter });
-        let _ =
-            controller.send(Command::SetCrossfaderReverse { enabled: preferences.mixer.crossfader_reverse });
-        for c in self.live_commands(Some(&session.info)) {
-            let _ = controller.send(c);
-        }
-        for (deck, place) in places.iter().enumerate() {
+        commands.extend([
+            Command::SetCrossfader { position: *lock(&self.crossfader) },
+            Command::SetQuantize { enabled: preferences.dj.quantize },
+            Command::SetRouting { routing: self.routing(info) },
+            Command::SetCueMix { mix: preferences.mixer.cue_mix },
+            Command::SetHeadphoneGain { gain: preferences.mixer.headphone_gain },
+            Command::SetSplitCue { enabled: preferences.mixer.split_cue },
+            Command::SetCrossfaderCurve { curve: preferences.mixer.crossfader_curve.into() },
+            Command::SetLimiter { enabled: preferences.mixer.limiter },
+            Command::SetCrossfaderReverse { enabled: preferences.mixer.crossfader_reverse },
+        ]);
+        commands.extend(self.live_commands(Some(info)));
+        for (deck, place) in places.iter().enumerate().take(info.decks) {
             if let Some(place) = place {
-                let _ = controller.send(Command::Seek { deck, seconds: place.position_s });
-                let _ = controller.send(Command::SetPlaying { deck, playing: place.playing });
+                commands.push(Command::Seek { deck, seconds: place.position_s });
+                commands.push(Command::SetPlaying { deck, playing: place.playing });
             }
         }
-        session.restored = controller.sent();
+        commands
+    }
+}
+
+/// Sends `commands` in turn, waiting for the engine to make room in its queue (it takes them
+/// at each period) for at most `wait` in all: an engine that does not run gets no more.
+fn send_all(controller: &mut EngineController, commands: Vec<Command>, wait: Duration) {
+    let deadline = Instant::now() + wait;
+    let count = commands.len();
+    for (sent, mut command) in commands.into_iter().enumerate() {
+        while let Err(refused) = controller.send(command) {
+            if Instant::now() >= deadline {
+                warn!("the engine took {sent} of the {count} commands restoring it");
+                return;
+            }
+            command = refused;
+            std::thread::sleep(ROOM_POLL);
+        }
     }
 }
 
@@ -907,6 +932,44 @@ mod tests {
             places_of(Some((status, 40)), loads, carried),
             [place(1, 193.0, true), place(5, 0.0, false), None, None]
         );
+    }
+
+    /// An engine called every few milliseconds, as by a sound card, until the returned flag
+    /// falls.
+    fn running(mut engine: prisme_engine::Engine) -> (Arc<AtomicBool>, std::thread::JoinHandle<()>) {
+        let run = Arc::new(AtomicBool::new(true));
+        let runs = run.clone();
+        let thread = std::thread::spawn(move || {
+            let mut output = [0.0; 2 * 128];
+            while runs.load(Ordering::Relaxed) {
+                engine.process(&[], 0, &mut output, 2);
+                std::thread::sleep(Duration::from_millis(3));
+            }
+        });
+        (run, thread)
+    }
+
+    fn crossfader_moves(count: usize) -> Vec<Command> {
+        (0..count).map(|i| Command::SetCrossfader { position: i as f32 / count as f32 }).collect()
+    }
+
+    #[test]
+    fn a_restore_longer_than_the_queue_reaches_the_engine_whole() {
+        let config = EngineConfig::new(48_000, 2, &prisme_timecode::SERATO_CV02_A);
+        let (engine, mut controller) = prisme_engine::create(config);
+        let (run, thread) = running(engine);
+        send_all(&mut controller, crossfader_moves(1000), RESTORE_WAIT);
+        run.store(false, Ordering::Relaxed);
+        thread.join().unwrap();
+        assert_eq!(controller.sent(), 1000);
+    }
+
+    #[test]
+    fn an_engine_that_does_not_run_is_not_waited_for_long() {
+        let config = EngineConfig::new(48_000, 2, &prisme_timecode::SERATO_CV02_A);
+        let (_engine, mut controller) = prisme_engine::create(config);
+        send_all(&mut controller, crossfader_moves(1000), Duration::from_millis(20));
+        assert!(controller.sent() < 1000);
     }
 
     fn db(gain: f32) -> f32 {
