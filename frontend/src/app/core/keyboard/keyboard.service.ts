@@ -86,7 +86,8 @@ export class KeyboardService {
     const shortcut = this.shortcuts().find((s) => matches(s, event));
     const control = shortcut && this.controls.findInUse(shortcut.control);
     if (!control) return;
-    if (!everywhere(shortcut) && (isTyping(event) || this.navigation.covered())) return;
+    if (!everywhere(shortcut) && (isTyping(event) || inDialog(event) || this.navigation.covered()))
+      return;
     event.preventDefault();
     if (event.repeat || this.held.has(event.code)) return;
     control.apply(1);
@@ -126,4 +127,9 @@ function isTyping(event: KeyboardEvent): boolean {
     !!target &&
     (['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName) || target.isContentEditable)
   );
+}
+
+/** A key pressed in a dialog is the dialog's: Enter on its button answers it, not the page. */
+function inDialog(event: KeyboardEvent): boolean {
+  return event.target instanceof Element && event.target.closest('[aria-modal="true"]') !== null;
 }

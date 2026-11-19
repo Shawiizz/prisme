@@ -144,7 +144,9 @@ fn desktop_plugins(builder: tauri::Builder<tauri::Wry>) -> tauri::Builder<tauri:
     } else {
         builder
     };
-    builder.plugin(tauri_plugin_updater::Builder::new().build())
+    builder
+        .plugin(tauri_plugin_updater::Builder::new().build())
+        .manage(commands::update::Downloaded::default())
 }
 
 /// The page over the whole screen of an iPhone, under the notch and the home bar (it keeps
@@ -446,6 +448,8 @@ pub fn run() {
             commands::preferences::set_dj_preferences,
             commands::preferences::set_library_preferences,
             commands::preferences::set_key_preferences,
+            #[cfg(desktop)]
+            commands::update::download_update,
             #[cfg(desktop)]
             commands::update::install_update,
             status_stream::subscribe_status,

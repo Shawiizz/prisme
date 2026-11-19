@@ -1,5 +1,5 @@
 import { NgTemplateOutlet } from '@angular/common';
-import { Component, computed, inject, input, signal } from '@angular/core';
+import { Component, DestroyRef, computed, inject, input, signal } from '@angular/core';
 import { FxService } from '../../../core/services/fx.service';
 import { SamplerService } from '../../../core/services/sampler.service';
 import { EngineService } from '../../../core/services/engine.service';
@@ -10,6 +10,7 @@ import { CUT_BEATS, ROLL_BEATS, formatBeats, loopBeats } from '../../../shared/b
 import { readouts } from '../../../shared/mixer-scales';
 import { Text, t } from '../../../core/i18n/i18n';
 import { TPipe } from '../../../core/i18n/t.pipe';
+import { Press } from '../../../shared/press';
 import { deckStems } from '../../../core/deck-stems';
 import { EFFECT_NAMES, PARAM2 } from '../../../core/effects';
 
@@ -107,7 +108,7 @@ const JUMP_BEATS = [-32, -16, -4, -1, 1, 4, 16, 32];
   selector: 'app-deck-pads',
   templateUrl: './deck-pads.html',
   styleUrl: './deck-pads.scss',
-  imports: [Knob, NgTemplateOutlet, TPipe],
+  imports: [Knob, NgTemplateOutlet, Press, TPipe],
 })
 export class DeckPads {
   readonly deck = input.required<number>();
@@ -196,6 +197,18 @@ export class DeckPads {
   /** The deck's size: what its jumps go by; the pads of that size have a bar in the light. */
   protected readonly size = computed(() => this.performance.sizes()[this.deck()]);
   protected readonly readouts = readouts;
+  /** What lets go each pad held, by the pointer holding it: the action and deck it pressed,
+   * even if the mode or the deck changed since. */
+  private readonly held = new Map<number, () => void>();
+  /** The deck CENSOR holds: the one let go, even if the float changed decks since. */
+  private censored: number | null = null;
+
+  constructor() {
+    inject(DestroyRef).onDestroy(() => {
+      for (const release of this.held.values()) release();
+      this.held.clear();
+    });
+  }
 
   private readonly activeLoopBeats = computed(() => {
     const looping = this.status()?.looping;
@@ -294,13 +307,19 @@ export class DeckPads {
           ? this.performance.exitLoop(deck)
           : this.performance.beatLoop(deck, LOOP_BEATS[index]);
       case 'roll':
-        return this.performance.loopRoll(deck, ROLL_BEATS[index]);
+        this.performance.loopRoll(deck, ROLL_BEATS[index]);
+        this.held.set(event.pointerId, () => this.performance.loopRoll(deck, null));
+        return;
       case 'jump':
         return this.performance.beatJump(deck, JUMP_BEATS[index]);
       case 'slice':
-        return this.performance.slice(deck, index, true);
+        this.performance.slice(deck, index, true);
+        this.held.set(event.pointerId, () => this.performance.slice(deck, index, false));
+        return;
       case 'cut':
-        return this.performance.cut(deck, index, true);
+        this.performance.cut(deck, index, true);
+        this.held.set(event.pointerId, () => this.performance.cut(deck, index, false));
+        return;
       case 'fx':
         return this.fx.press(deck, this.slot(), EFFECTS[index].kind);
       case 'sampler':
@@ -309,10 +328,10 @@ export class DeckPads {
     }
   }
 
-  release(index: number) {
-    if (this.mode() === 'roll') this.performance.loopRoll(this.deck(), null);
-    if (this.mode() === 'slice') this.performance.slice(this.deck(), index, false);
-    if (this.mode() === 'cut') this.performance.cut(this.deck(), index, false);
+  release(event: PointerEvent) {
+    const release = this.held.get(event.pointerId);
+    this.held.delete(event.pointerId);
+    release?.();
   }
 
   /** The slicer is put on the bar the deck plays in as its mode is chosen. */
@@ -353,8 +372,15 @@ export class DeckPads {
     this.performance.setSlip(this.deck(), !this.slip());
   }
 
-  censor(active: boolean) {
-    this.performance.censor(this.deck(), active);
+  censor() {
+    this.censored = this.deck();
+    this.performance.censor(this.censored, true);
+  }
+
+  uncensor() {
+    if (this.censored === null) return;
+    this.performance.censor(this.censored, false);
+    this.censored = null;
   }
 
   private cuePad(slot: number): Pad {

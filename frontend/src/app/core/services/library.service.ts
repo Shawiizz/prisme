@@ -184,6 +184,8 @@ export class LibraryService {
   private searchTimer: ReturnType<typeof setTimeout> | undefined;
   /** Answers to older searches arriving late are dropped. */
   private searchId = 0;
+  /** The same for the lists: the one asked for last is shown. */
+  private listId = 0;
 
   /** The crate being browsed, if any. */
   readonly currentCrate = computed(() => {
@@ -250,16 +252,17 @@ export class LibraryService {
     return `${deck} ${track?.loadId} ${track?.tempo?.bpm} ${track?.key?.camelot}`;
   });
 
-  /** Whether the deck the next track goes on keeps its key: the mix order depends on it,
-   * not on the rest of that deck's settings. */
+  /** Whether the deck the next track goes on keeps its key, and the range of its tempo fader:
+   * the mix order depends on them, not on the rest of that deck's settings. */
   private readonly nextKeyLock = computed(() => this.engine.decks()[this.reference() ^ 1].keyLock);
+  private readonly nextPitchRange = computed(() => this.engine.tempoRange(this.reference() ^ 1));
 
   private readonly mixContext = computed((): MixContext | null => {
     const reference = this.mixReference();
     if (!reference) return null;
     return {
       reference,
-      pitchRange: this.engine.tempoRange(this.reference() ^ 1),
+      pitchRange: this.nextPitchRange(),
       keyLock: this.nextKeyLock(),
       playedTonight: this.history.playedTonight(),
     };
@@ -273,7 +276,7 @@ export class LibraryService {
     effect(() => {
       if (this.history.changes() === 0) return;
       const id = untracked(this.currentSession);
-      if (id !== null) untracked(() => this.loadSource(() => this.history.plays(id)));
+      if (id !== null) untracked(() => this.reloadSource(() => this.history.plays(id)));
     });
   }
 
@@ -362,8 +365,11 @@ export class LibraryService {
 
   /** Lists a folder and remembers it; `false` if it cannot be read. */
   async open(path: string): Promise<boolean> {
+    const id = ++this.listId;
     try {
-      this.listing.set(await invoke<DirListing>('list_dir', { path }));
+      const listing = await invoke<DirListing>('list_dir', { path });
+      if (id !== this.listId) return true;
+      this.listing.set(listing);
       this.browse({ kind: 'folder' });
       await this.preferences.updateLibrary({ lastFolder: path });
       return true;
@@ -379,10 +385,9 @@ export class LibraryService {
 
   /** Tracks that look like the same song, grouped. */
   async openDuplicates(): Promise<void> {
-    await this.attempt(async () => {
-      await this.loadSource(() => invoke<DirEntry[]>('find_duplicates'));
-      this.browse({ kind: 'duplicates' });
-    });
+    await this.attempt(() =>
+      this.showSource({ kind: 'duplicates' }, () => invoke<DirEntry[]>('find_duplicates')),
+    );
   }
 
   addToPrepare(paths: string[]): Promise<void> {
@@ -410,17 +415,13 @@ export class LibraryService {
   }
 
   async openCrate(id: number): Promise<void> {
-    await this.attempt(async () => {
-      await this.loadSource(() => this.crates.tracks(id));
-      this.browse({ kind: 'crate', id });
-    });
+    await this.attempt(() => this.showSource({ kind: 'crate', id }, () => this.crates.tracks(id)));
   }
 
   async openSession(id: number): Promise<void> {
-    await this.attempt(async () => {
-      await this.loadSource(() => this.history.plays(id));
-      this.browse({ kind: 'history', id });
-    });
+    await this.attempt(() =>
+      this.showSource({ kind: 'history', id }, () => this.history.plays(id)),
+    );
   }
 
   exportSession(session: HistorySession): Promise<void> {
@@ -452,7 +453,7 @@ export class LibraryService {
     await this.attempt(async () => {
       await this.crates.rename(id, name);
       await this.crates.setRules(id, rules);
-      if (this.currentCrate() === id) await this.loadSource(() => this.crates.tracks(id));
+      if (this.currentCrate() === id) await this.reloadSource(() => this.crates.tracks(id));
     });
   }
 
@@ -470,7 +471,7 @@ export class LibraryService {
   async addToCrate(id: number, paths: string[]): Promise<void> {
     await this.attempt(async () => {
       await this.crates.add(id, paths);
-      if (this.currentCrate() === id) await this.loadSource(() => this.crates.tracks(id));
+      if (this.currentCrate() === id) await this.reloadSource(() => this.crates.tracks(id));
     });
   }
 
@@ -640,11 +641,26 @@ export class LibraryService {
     return this.engine.load(deck ?? free ?? 0, path);
   }
 
-  private async loadSource(tracks: () => Promise<DirEntry[]>): Promise<void> {
-    this.sourceTracks.set(await tracks());
+  /** Browses `source`, its tracks those `tracks` gives, unless another list was asked for
+   * meanwhile. */
+  private async showSource(source: TrackSource, tracks: () => Promise<DirEntry[]>) {
+    const id = ++this.listId;
+    const list = await tracks();
+    if (id !== this.listId) return;
+    this.sourceTracks.set(list);
+    this.browse(source);
+  }
+
+  /** The tracks of the crate or session browsed again, unless another list was asked for
+   * meanwhile. */
+  private async reloadSource(tracks: () => Promise<DirEntry[]>) {
+    const id = this.listId;
+    const list = await tracks();
+    if (id === this.listId) this.sourceTracks.set(list);
   }
 
   private browse(source: TrackSource) {
+    this.listId++;
     this.clearSelection();
     this.source.set(source);
     this.scope.set('list');
@@ -683,9 +699,11 @@ export class LibraryService {
   private async relist(folders: string[]) {
     const path = this.listing()?.path;
     if (!path || !folders.includes(path)) return;
-    await this.attempt(async () =>
-      this.listing.set(await invoke<DirListing>('list_dir', { path })),
-    );
+    const id = this.listId;
+    await this.attempt(async () => {
+      const listing = await invoke<DirListing>('list_dir', { path });
+      if (id === this.listId) this.listing.set(listing);
+    });
   }
 
   private searchLibrary() {

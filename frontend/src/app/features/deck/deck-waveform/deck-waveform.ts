@@ -8,6 +8,7 @@ import {
   inject,
   input,
   signal,
+  untracked,
   viewChild,
 } from '@angular/core';
 import { invoke } from '@tauri-apps/api/core';
@@ -39,6 +40,8 @@ const HOLD_MS = 280;
 interface Drag {
   /** The finger or button that pressed: another one does nothing meanwhile. */
   pointer: number;
+  /** The deck pressed: the one let go, even once the waveform shows another. */
+  deck: number;
   view: 'zoom' | 'overview';
   startX: number;
   /** The track position when the press started (s). */
@@ -117,10 +120,16 @@ export class DeckWaveform {
   constructor() {
     everyFrame(this.redraw);
     inject(DestroyRef).onDestroy(() => {
+      this.cancel();
       forgetCanvas(this.zoomCanvas().nativeElement);
       forgetCanvas(this.overviewCanvas().nativeElement);
     });
     effect(() => this.askActivity());
+    // another deck shown: the press on the one before ends
+    effect(() => {
+      this.deck();
+      untracked(() => this.cancel());
+    });
     // the lanes' canvas comes and goes with the stems
     effect((onCleanup) => {
       const lanes = this.lanesCanvas()?.nativeElement;
@@ -171,6 +180,7 @@ export class DeckWaveform {
     const jog = view === 'zoom';
     this.drag = {
       pointer: event.pointerId,
+      deck: this.deck(),
       view,
       startX: event.clientX,
       startS,
@@ -223,7 +233,7 @@ export class DeckWaveform {
     if (this.drag?.pointer === event.pointerId) this.cancel();
   }
 
-  /** The press taken by the system (a scroll, a gesture). */
+  /** The press taken by the system (a scroll, a gesture) or its capture lost. */
   cancelled(event: PointerEvent) {
     if (this.drag?.pointer === event.pointerId) this.cancel();
   }
@@ -234,7 +244,7 @@ export class DeckWaveform {
     if (!drag) return;
     this.stopHolding();
     this.drag = null;
-    if (drag.held) this.engine.hand(this.deck(), null);
+    if (drag.held) this.engine.hand(drag.deck, null);
   }
 
   /** The press has stayed still: once it moves, it takes the record. */

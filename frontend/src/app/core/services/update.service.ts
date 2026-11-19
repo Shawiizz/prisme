@@ -38,6 +38,8 @@ export class UpdateService {
   );
   /** Installed in place, restarting Prisme: not while a deck plays. */
   readonly waitsForDecks = computed(() => !!this.available()?.update && this.decksPlaying());
+  /** The version downloaded: a deck that started meanwhile leaves it to install once stopped. */
+  private downloaded: string | null = null;
 
   async look(): Promise<void> {
     this.looked.set('looking');
@@ -60,8 +62,17 @@ export class UpdateService {
       await openUrl(found.apk).catch((e) => this.engine.error.set(errorText(e)));
       return;
     }
+    if (!found.update) return;
     this.installing.set(true);
     try {
+      if (this.downloaded !== found.version) {
+        await invoke('download_update');
+        this.downloaded = found.version;
+      }
+      if (this.decksPlaying()) {
+        this.installing.set(false);
+        return;
+      }
       // by Prisme, which closes first: on Windows the installer ends it at once
       await invoke('install_update');
       await relaunch();

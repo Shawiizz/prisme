@@ -279,16 +279,27 @@ export class ControllerService {
       ...this.mappings().map((m) => m.target),
       ...this.lightTargets(),
     ])) {
-      const control = this.controls.findInUse(target);
-      const on = control?.lit?.();
-      const state = control?.state?.() ?? (on === undefined ? undefined : on ? 'on' : 'off');
-      const color = control?.color?.() ?? null;
-      const shown = `${state} ${color}`;
-      if (state === undefined || this.sent.get(target) === shown) continue;
+      const light = this.lightOf(target);
+      if (!light) continue;
+      const shown = `${light.state} ${light.color}`;
+      if (this.sent.get(target) === shown) continue;
       this.sent.set(target, shown);
-      lights.push({ target, state, color });
+      lights.push({ target, ...light });
     }
     if (lights.length > 0) this.run(() => invoke('set_lights', { lights }));
+  }
+
+  /** The light of `target`: the state and colour its control shows, out on a deck no longer
+   * shown. */
+  private lightOf(target: string): { state: string; color: string | null } | null {
+    const control = this.controls.findInUse(target);
+    if (!control) {
+      const hidden = this.controls.find(target);
+      return hidden?.lit || hidden?.state ? { state: 'off', color: null } : null;
+    }
+    const on = control.lit?.();
+    const state = control.state?.() ?? (on === undefined ? undefined : on ? 'on' : 'off');
+    return state === undefined ? null : { state, color: control.color?.() ?? null };
   }
 
   /** Sends the values the controllers show that changed: a fader's position, the place in

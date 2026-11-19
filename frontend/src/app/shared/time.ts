@@ -10,9 +10,10 @@ export function decimal(value: number, digits: number): string {
 
 /** 83.4 -> "1:23.4" */
 export function formatTime(seconds: number): string {
-  const s = Math.max(0, seconds);
-  const m = Math.floor(s / 60);
-  return `${m}:${decimal(s - m * 60, 1).padStart(4, '0')}`;
+  // rounded to the tenth before the minutes are counted: 59.97 reads "1:00.0", not "0:60.0"
+  const tenths = Math.round(Math.max(0, seconds) * 10);
+  const m = Math.floor(tenths / 600);
+  return `${m}:${decimal((tenths - m * 600) / 10, 1).padStart(4, '0')}`;
 }
 
 /** Remaining time with a true minus sign: "−2:15.7". */

@@ -339,26 +339,25 @@ export class ControlService {
     },
     holdFx: (deck, slot, held) => this.fx.setEnabled(deck, slot, held),
     holdSlip: (deck, held) => this.performance.setSlip(deck, held),
+    // a filter heard is set aside, whatever was before; a silent one gets back the one set aside
     toggleFilter: (deck) => {
-      const aside = this.filtersAside.get(deck);
-      if (aside !== undefined) {
-        this.filtersAside.delete(deck);
-        this.mixer.setFilter(deck, aside);
+      const position = this.mixer.strip(deck).filter;
+      if (position !== 0) {
+        this.filtersAside.set(deck, position);
+        this.mixer.setFilter(deck, 0);
         return;
       }
-      const position = this.mixer.strip(deck).filter;
-      if (position === 0) return;
-      this.filtersAside.set(deck, position);
-      this.mixer.setFilter(deck, 0);
+      const aside = this.filtersAside.get(deck);
+      this.filtersAside.delete(deck);
+      if (aside !== undefined) this.mixer.setFilter(deck, aside);
     },
     filtering: (deck) => this.mixer.strip(deck).filter !== 0,
     setCrossfaderSide: (deck, side) => this.mixer.setCrossfaderSide(deck, side),
     crossfaderSide: (deck) => this.engine.decks()[deck].side,
     setCrossfaderReverse: (on) => this.mixer.setCrossfaderReverse(on),
     crossfaderReversed: () => this.mixer.crossfaderReverse(),
-    setCrossfaderCurve: (position) =>
-      this.mixer.setCrossfaderCurve(position < 0.5 ? 'smooth' : 'sharp'),
-    crossfaderCurvePosition: () => (this.mixer.crossfaderCurve() === 'sharp' ? 1 : 0),
+    setCrossfaderCurve: (curve) => this.mixer.setCrossfaderCurve(curve),
+    crossfaderCurve: () => this.mixer.crossfaderCurve(),
     nextCrossfaderCurve: () =>
       this.mixer.setCrossfaderCurve(this.mixer.crossfaderCurve() === 'sharp' ? 'smooth' : 'sharp'),
     setSamplerGain: (deck, position) => {
@@ -451,9 +450,9 @@ export class ControlService {
   /** `inUse` as a set: looked into at every message of a controller. */
   private readonly inUseSet = computed(() => new Set(this.inUse()));
 
-  /** The control `id`, whatever its deck (to name it, to map it). */
+  /** The control `id`, whatever its deck (to name it, to map it, to put its light out). */
   find(id: string): Control | undefined {
-    return this.built().byId.get(id);
+    return this.built().byId.get(id) ?? this.measured(id);
   }
 
   /** The control `id` if it acts now: a control of a deck not shown does nothing. */

@@ -16,8 +16,9 @@
       [disabled]="!padsEnabled()"
       [title]="pad.title"
       (pointerdown)="press($index, $event)"
-      (pointerup)="release($index)"
-      (pointercancel)="release($index)"
+      (pointerup)="release($event)"
+      (pointercancel)="release($event)"
+      (lostpointercapture)="release($event)"
       (contextmenu)="remove($index, $event)"
     >
       <span>{{ pad.label }}</span>
@@ -209,9 +210,8 @@
     class="pr-btn censor"
     [disabled]="!canMove()"
     [title]="'Plays backwards while held, then lands where the track would have been' | t"
-    (pointerdown)="censor(true)"
-    (pointerup)="censor(false)"
-    (pointercancel)="censor(false)"
+    (press)="censor()"
+    (release)="uncensor()"
   >
     CENSOR
   </button>

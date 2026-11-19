@@ -1,6 +1,8 @@
 import { TestBed } from '@angular/core/testing';
 import { clearMocks, mockIPC } from '@tauri-apps/api/mocks';
 import { Update } from '@tauri-apps/plugin-updater';
+import { EngineStatus } from '../models/engine';
+import { EngineService } from './engine.service';
 import { UpdateService, isNewer } from './update.service';
 
 describe('isNewer', () => {
@@ -19,16 +21,28 @@ describe('isNewer', () => {
 describe('UpdateService', () => {
   afterEach(() => clearMocks());
 
-  it('has Prisme install the update, so that it closes first', async () => {
+  it('has Prisme download, then install once the decks are stopped, even when one started during the download', async () => {
     const commands: string[] = [];
+    const engine = TestBed.inject(EngineService);
+    const updates = TestBed.inject(UpdateService);
+    const playing = (on: boolean) =>
+      engine.status.set({ decks: [{ playing: on, speed: on ? 1 : 0 }] } as EngineStatus);
     mockIPC((command) => {
       commands.push(command);
+      if (command === 'download_update') playing(true);
     });
-    const updates = TestBed.inject(UpdateService);
     const update = { downloadAndInstall: vi.fn() } as unknown as Update;
-    updates.available.set({ version: '9.0.0', update, apk: null });
+    playing(false);
+    updates.available.set({ version: '9.9.9', update, apk: null });
+
     await updates.install();
-    expect(commands[0]).toBe('install_update');
+    expect(commands).toEqual(['download_update']);
+    expect(updates.installing()).toBe(false);
+    expect(updates.waitsForDecks()).toBe(true);
+
+    playing(false);
+    await updates.install();
+    expect(commands).toEqual(['download_update', 'install_update', 'plugin:process|restart']);
     expect(update.downloadAndInstall).not.toHaveBeenCalled();
   });
 });
