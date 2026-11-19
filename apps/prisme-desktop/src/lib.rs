@@ -49,6 +49,8 @@ mod keep_awake;
 mod library_service;
 mod logging;
 mod midi_clock;
+#[cfg(target_os = "android")]
+mod music_access;
 mod preferences;
 mod preview;
 mod recording;
@@ -259,6 +261,8 @@ pub fn run() {
             }
             MidiClock::start(app.handle().clone());
             app.state::<TagWriter>().wake();
+            #[cfg(target_os = "android")]
+            music_access::install(app.handle());
             library.start();
             library.watch();
             Ok(())

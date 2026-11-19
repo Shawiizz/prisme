@@ -51,9 +51,16 @@ class MainActivity : TauriActivity() {
   /** The page, drawn again when Prisme comes back on screen. */
   private var page: WebView? = null
 
-  /** The music shared between applications, and the notification of a deck playing. */
+  /**
+   * The music shared between applications, and the notification of a deck playing: once the
+   * DJ lets Prisme read the music, the native side looks at it again.
+   */
   private val musicAndNotifications =
-    registerForActivityResult(RequestMultiplePermissions()) { answered() }
+    registerForActivityResult(RequestMultiplePermissions()) { granted ->
+      val music = listOf(Manifest.permission.READ_MEDIA_AUDIO, Manifest.permission.READ_EXTERNAL_STORAGE)
+      if (music.any { granted[it] == true }) musicAllowed()
+      answered()
+    }
 
   /**
    * The inputs of a sound card: once the DJ says yes, the native side takes them, and the
@@ -247,6 +254,9 @@ class MainActivity : TauriActivity() {
 
   /** The DJ let Prisme listen to the inputs (`input_access.rs`): the audio takes them. */
   private external fun inputsAllowed()
+
+  /** The DJ let Prisme read the shared music (`music_access.rs`): the library looks again. */
+  private external fun musicAllowed()
 
   companion object {
     /** The activity on screen, for the native side. */
