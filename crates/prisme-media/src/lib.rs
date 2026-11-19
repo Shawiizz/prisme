@@ -48,7 +48,8 @@ impl MediaError {
     pub fn is_transient(&self) -> bool {
         match self {
             Self::Open { .. } => true,
-            Self::Format(SymphoniaError::IoError(e)) => e.kind() != std::io::ErrorKind::UnexpectedEof,
+            // the system's, not one symphonia makes of a stream cut short or damaged
+            Self::Format(SymphoniaError::IoError(e)) => e.raw_os_error().is_some(),
             _ => false,
         }
     }
@@ -246,6 +247,14 @@ mod tests {
         let _ = (std::fs::remove_file(&honest), std::fs::remove_file(&lying));
         assert_eq!(stream.unwrap().estimated_frames(), 0);
         assert_eq!(decoded.unwrap().frames(), 1000);
+    }
+
+    #[test]
+    fn a_read_failed_by_the_system_is_transient_and_a_damaged_stream_not() {
+        let failed = std::io::Error::from_raw_os_error(21);
+        let damaged = std::io::Error::other("unexpected end of bitstream");
+        assert!(MediaError::Format(SymphoniaError::IoError(failed)).is_transient());
+        assert!(!MediaError::Format(SymphoniaError::IoError(damaged)).is_transient());
     }
 
     #[test]
