@@ -454,6 +454,15 @@ impl Deck {
         self.transport.loop_active
     }
 
+    /// The record drives the deck in `mode`: from a change on, it is followed afresh.
+    pub(crate) fn set_vinyl_mode(&mut self, mode: VinylMode) {
+        if self.vinyl.mode != mode {
+            self.vinyl.mode = mode;
+            self.vinyl.take_back();
+            self.sync.reset();
+        }
+    }
+
     /// The record is meant to turn at `rpm`: its tempo is learnt again.
     pub(crate) fn set_rpm(&mut self, rpm: Rpm) {
         if self.vinyl.rpm != rpm {

@@ -317,11 +317,7 @@ impl Engine {
             SetReverse { deck, enabled } if valid(deck) => self.decks[deck].set_reverse(enabled),
             HoldReverse { deck, held } if valid(deck) => self.decks[deck].hold_reverse(held),
             SetVinylEnabled { deck, enabled } if valid(deck) => self.decks[deck].set_vinyl_enabled(enabled),
-            SetVinylMode { deck, mode } if valid(deck) => {
-                self.decks[deck].vinyl.mode = mode;
-                self.decks[deck].vinyl.take_back();
-                self.decks[deck].sync.reset();
-            }
+            SetVinylMode { deck, mode } if valid(deck) => self.decks[deck].set_vinyl_mode(mode),
             // a grid without a finite tempo would put the beats at infinity
             SetBeatGrid { deck, grid } if valid(deck) => {
                 self.decks[deck].grid =
