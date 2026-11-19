@@ -421,6 +421,7 @@ pub fn run() {
             commands::sampler::set_sampler_gain,
             commands::controllers::list_controllers,
             commands::controllers::set_controller_enabled,
+            commands::controllers::choose_controller_profile,
             commands::controllers::decline_controller,
             commands::controllers::waiting_controllers,
             commands::audio::decline_card,

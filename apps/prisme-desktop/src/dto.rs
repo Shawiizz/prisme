@@ -1365,6 +1365,10 @@ pub struct ControllerDto {
     pub plugged: bool,
     /// The model Prisme knows it as, its controls mapped by its profile.
     pub profile: Option<String>,
+    /// The file of its profile.
+    pub profile_file: Option<String>,
+    /// The profiles the DJ may choose for it: its model's, then the variants of it.
+    pub offered: Vec<OfferedProfileDto>,
     /// Its profile was tried on the controller itself, not only read from another program's.
     pub verified: bool,
     /// Where its profile comes from.
@@ -1373,6 +1377,13 @@ pub struct ControllerDto {
     pub replaces: Option<String>,
     /// The file its profile is exported as, by default.
     pub export_file: String,
+}
+
+/// A profile the DJ may choose for a controller.
+#[derive(Debug, Clone, Serialize)]
+pub struct OfferedProfileDto {
+    pub file: String,
+    pub name: String,
 }
 
 /// The controller models Prisme knows, and where the DJ's own profiles go.
@@ -1393,6 +1404,8 @@ pub struct ControllerProfileDto {
     pub name: String,
     pub source: crate::controller_profiles::Source,
     pub verified: bool,
+    /// Another profile of a model's (see `Profile::variant`): no model of its own.
+    pub variant: bool,
     /// Prisme's model whose profile of the same file name this one, the DJ's own, replaces.
     pub replaces: Option<String>,
 }

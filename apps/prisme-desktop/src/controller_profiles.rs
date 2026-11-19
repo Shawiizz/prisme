@@ -2,14 +2,16 @@
 //! with this version, as published since where Prisme is made (fetched into the data folder's
 //! `controller-updates`), and the DJ's own (the data folder's `controllers`), each replacing
 //! the one before it of the same file name. The DJ's own profile of a model Prisme knows takes
-//! the place of Prisme's, the corrections published since included: the settings say so.
+//! the place of Prisme's, the corrections published since included: the settings say so. A
+//! variant (a firmware or an edition of a model of its own) is never found by itself: the DJ
+//! chooses it for a controller among the profiles offered for it.
 //!
 //! The published profiles are listed in `controllers/index.json`: of each, its digest, its
 //! revision (raised at each change) and the version of the format it was written in. A
 //! profile fetched is taken over the shipped one only if it is a later revision, in a format
 //! this Prisme reads.
 
-use prisme_control::{Profile, JOG_STEPS_PER_TURN, PROFILE_FORMAT, SCHEMA_URL};
+use prisme_control::{Profile, PROFILE_FORMAT, SCHEMA_URL};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::collections::BTreeMap;
@@ -239,11 +241,11 @@ pub struct Library {
 
 impl Library {
     /// Of `profiles`, the one whose name `port` holds that is the longest, the DJ's own of
-    /// those as long, else the first.
+    /// those as long, else the first; never a variant.
     fn fitting<'k>(profiles: impl IntoIterator<Item = &'k Known>, port: &str) -> Option<&'k Known> {
         let mine = |k: &Known| k.source == Source::Own;
         let mut best: Option<(usize, &Known)> = None;
-        for known in profiles {
+        for known in profiles.into_iter().filter(|k| !k.profile.variant) {
             let Some(fit) = known.profile.fits(port) else { continue };
             if best.is_none_or(|(longest, chosen)| {
                 fit > longest || (fit == longest && mine(known) && !mine(chosen))
@@ -257,6 +259,25 @@ impl Library {
     /// The profile of the controller on the MIDI port `port`, if Prisme knows its model.
     pub fn of(&self, port: &str) -> Option<&Known> {
         Self::fitting(&self.known, port)
+    }
+
+    /// The profiles the DJ may choose for the controller on `port`: its model's, then the
+    /// variants whose names the port holds as closely.
+    pub fn offered(&self, port: &str) -> Vec<&Known> {
+        let model = self.of(port);
+        let closest = model.and_then(|k| k.profile.fits(port)).unwrap_or(0);
+        let variants = self
+            .known
+            .iter()
+            .filter(|k| k.profile.variant && k.profile.fits(port).is_some_and(|fit| fit >= closest));
+        model.into_iter().chain(variants).collect()
+    }
+
+    /// The profile of the controller on `port`: `chosen` (a file) if it is one offered for it,
+    /// else its model's.
+    pub fn chosen(&self, port: &str, chosen: Option<&str>) -> Option<&Known> {
+        let offered = |file| self.offered(port).into_iter().find(|k| k.file == file);
+        chosen.and_then(offered).or_else(|| self.of(port))
     }
 
     /// Prisme's profile that the DJ's own takes the place of on `port`, if it does: the
@@ -312,11 +333,6 @@ pub fn own_folder() -> Option<PathBuf> {
 /// [`Library::of`]).
 pub fn of(port: &str) -> Option<Arc<Profile>> {
     current().of(port).map(|known| known.profile.clone())
-}
-
-/// Steps in a turn of the jog wheels of the controller on `port`.
-pub fn jog_steps_per_turn(port: &str) -> f64 {
-    of(port).map_or(JOG_STEPS_PER_TURN, |p| p.jog_steps_per_turn)
 }
 
 /// The profiles shipped, then those fetched that are later, then the DJ's own.
@@ -579,7 +595,7 @@ mod tests {
 
     #[test]
     fn each_model_is_found_by_its_own_ports() {
-        for Known { profile, .. } in &current().known {
+        for Known { profile, .. } in current().known.iter().filter(|k| !k.profile.variant) {
             let brand = profile.name.split(' ').next().unwrap_or_default();
             for port in &profile.ports {
                 for name in [port.clone(), format!("{brand} {port}"), format!("{brand} {port} MIDI 1")] {
@@ -591,6 +607,40 @@ mod tests {
                 }
             }
         }
+    }
+
+    /// The DDJ-400's profile renamed, a variant for `ports`, as text.
+    fn ddj_400_variant(name: &str, ports: &[&str]) -> String {
+        let mut profile: Profile = serde_json::from_str(&ddj_400_named(name)).unwrap();
+        profile.ports = ports.iter().map(|&p| p.into()).collect();
+        profile.variant = true;
+        serde_json::to_string(&profile).unwrap()
+    }
+
+    #[test]
+    fn a_variant_is_never_found_by_itself_but_offered_for_the_ports_it_fits_as_closely() {
+        let folders = scratch("variants");
+        std::fs::create_dir_all(&folders.own).unwrap();
+        let firmware = "ddj-400-firmware.json";
+        std::fs::write(folders.own.join(firmware), ddj_400_variant("DDJ-400 firmware", &["DDJ-400"]))
+            .unwrap();
+        std::fs::write(folders.own.join("ddj-sb.json"), ddj_400_variant("DDJ-SB other", &["DDJ-SB"]))
+            .unwrap();
+        let library = read_library(Some(&folders));
+        let names = |known: Vec<&Known>| known.iter().map(|k| k.profile.name.clone()).collect::<Vec<_>>();
+        let name = |known: Option<&Known>| known.map(|k| k.profile.name.clone());
+
+        assert_eq!(name(library.of("DDJ-400")).as_deref(), Some("Pioneer DDJ-400"));
+        assert_eq!(names(library.offered("DDJ-400 MIDI 1")), ["Pioneer DDJ-400", "DDJ-400 firmware"]);
+        assert_eq!(name(library.chosen("DDJ-400", Some(firmware))).as_deref(), Some("DDJ-400 firmware"));
+        assert_eq!(name(library.chosen("DDJ-400", None)).as_deref(), Some("Pioneer DDJ-400"));
+        // a profile not offered for that port leaves it its model's
+        assert_eq!(name(library.chosen("DDJ-SB2", Some(firmware))).as_deref(), Some("Pioneer DDJ-SB2"));
+        assert_eq!(
+            names(library.offered("DDJ-SB2")),
+            ["Pioneer DDJ-SB2"],
+            "the SB2 holds its own name longer"
+        );
     }
 
     #[test]

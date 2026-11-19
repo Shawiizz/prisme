@@ -9,7 +9,7 @@ import { Aside } from '@astrojs/starlight/components';
 import ControllerTable from '../../../../components/docs/ControllerTable.astro';
 import { controllerModels, brands } from '../../../../lib/controllers';
 
-export const models = controllerModels();
+export const models = controllerModels().filter((m) => !m.variant);
 
 Prisme knows {models.length} controller models from {brands(models).length} brands. Turn one of them on in **Settings** › **MIDI controllers** and it plays at once, lights and meters included: see [Using a controller](/docs/controllers/).
 

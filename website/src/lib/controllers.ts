@@ -35,6 +35,8 @@ export interface ControllerModel {
 	rings: string[];
 	/** Tried on the hardware: the others are faithful conversions not tried yet. */
 	verified: boolean;
+	/** Another profile of a model (a firmware, an edition), chosen in the settings: no model of its own. */
+	variant: boolean;
 }
 
 const SCREEN_OF: Record<string, string> = {
@@ -88,6 +90,7 @@ export function controllerModels(): ControllerModel[] {
 					(m) => RING_OF[m] ?? 'knobs',
 				),
 				verified: p.verified === true,
+				variant: p.variant === true,
 			};
 		})
 		.sort((a, b) => a.name.localeCompare(b.name));

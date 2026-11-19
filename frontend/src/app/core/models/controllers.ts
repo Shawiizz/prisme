@@ -18,6 +18,11 @@ export interface Controller {
   plugged: boolean;
   /** The model Prisme knows it as: its controls come mapped. */
   profile: string | null;
+  /** The file of its profile. */
+  profileFile: string | null;
+  /** The profiles the DJ may choose for it: its model's, then the variants of it (a firmware
+   * or an edition of its own). */
+  offered: { file: string; name: string }[];
   /** Its profile was tried on the controller itself, not only read from another program's. */
   verified: boolean;
   /** Where its profile comes from. */
@@ -38,6 +43,8 @@ export interface ControllerProfiles {
     name: string;
     source: ProfileSource;
     verified: boolean;
+    /** Another profile of a model's (a firmware, an edition): no model of its own. */
+    variant: boolean;
     /** Prisme's model whose profile of the same file name this one, the DJ's own, replaces. */
     replaces: string | null;
   }[];

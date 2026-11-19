@@ -23,6 +23,8 @@ const TEXT = {
 		tried: 'Tried',
 		notYet: 'Not yet',
 		mappingBy: 'Mixxx mapping by',
+		variant: 'A variant, chosen in the settings',
+		variants: '/docs/controllers/#variants',
 		screen: { tempo: 'tempo', time: 'time', pitch: 'tempo change' },
 		ring: { jog: 'jog rings', position: 'track position', tempo: 'tempo LEDs', knobs: 'knob rings' },
 	},
@@ -38,6 +40,8 @@ const TEXT = {
 		tried: 'Essayé',
 		notYet: 'Pas encore',
 		mappingBy: 'Mapping Mixxx de',
+		variant: 'Une variante, choisie dans les réglages',
+		variants: '/fr/docs/controllers/#variantes',
 		screen: { tempo: 'tempo', time: 'temps', pitch: 'variation de tempo' },
 		ring: {
 			jog: 'anneaux des jogs',
@@ -98,6 +102,11 @@ const shows = (m: ControllerModel) =>
 						<tr>
 							<td>
 								<strong>{m.model}</strong>
+								{m.variant && (
+									<a class="credits" href={text.variants}>
+										{text.variant}
+									</a>
+								)}
 								{m.credits && <span class="credits">{credit(m.credits)}</span>}
 							</td>
 							<td>{m.controls}</td>

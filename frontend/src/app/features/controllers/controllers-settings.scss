@@ -94,12 +94,27 @@
   }
 }
 
+// the profiles a controller may be driven by: its model's, and the variants of it
+.choice {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--pr-space-2);
+  margin-top: var(--pr-space-1);
+  .pr-select {
+    width: auto;
+    max-width: 100%;
+    height: var(--pr-h-sm);
+  }
+}
+
 // what went wrong: a profile unreadable, an export or a look that failed
 .failed {
   color: var(--pr-alert);
 }
 .keys {
   display: flex;
+  align-items: center;
   gap: 6px;
 }
 // the DJ's own profile in the place of Prisme's: corrections published no longer reach it

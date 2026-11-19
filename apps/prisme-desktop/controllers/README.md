@@ -45,6 +45,7 @@ One JSON file per model:
 | `ports` | The controller is the MIDI port whose name holds one of these, case aside; of several models, the longest name wins. |
 | `credits` | Where the mapping comes from, when it is not Prisme's own. |
 | `verified` | `true` once tried on the controller itself; the settings tell a profile that is not. |
+| `variant` | `true` for another profile of a model's ports (a firmware or an edition of its own): never found by itself, offered in Settings → MIDI controllers for a controller its ports fit as closely as its model's, the choice kept for that controller. |
 | `jogStepsPerTurn` | Steps in a turn of its jog wheels (720 when left out). |
 | `init` | MIDI messages sent when the controller is opened (SysEx included); `{ "afterMs": n, "message": [...] }` for one sent that much later (once a light show the model plays by itself is over). |
 | `close` | MIDI messages sent when it is closed, after its lights went off. |

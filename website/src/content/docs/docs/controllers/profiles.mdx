@@ -58,6 +58,7 @@ The data folder is described on [MIDI learn and your own profile](/docs/controll
 | `ports` | list of texts | The controller is the MIDI port whose name contains one of these, upper or lower case alike. Of several models that fit, the one with the longest matching name wins. |
 | `credits` | text | Where the mapping comes from, when it is not Prisme's own. |
 | `verified` | `true` or `false` | `true` once the profile was tried on the controller itself. Without it, the settings say **Converted from the mapping of Mixxx, not yet tried on this controller**. Default `false`. |
+| `variant` | `true` or `false` | `true` for another profile of a model, for a firmware or an edition of its own on the same ports: it is never chosen by itself, the model's profile is, and the settings offer it under the controller (see [Variants](/docs/controllers/#variants)). Default `false`. |
 | `jogStepsPerTurn` | number | Steps the controller sends for a whole turn of a jog wheel, measured on it. It sets how far a scratch moves the track. Default 720. |
 | `init` | list of messages | Sent when the controller is opened, SysEx included. A message written `{ "afterMs": 1500, "message": [...] }` goes that many milliseconds later, once a light show the model plays by itself is over. |
 | `close` | list of messages | Sent when it is closed, after its lights went off. |

@@ -222,6 +222,13 @@ export class ControllerService {
     await this.reloadMappings();
   }
 
+  /** Drives the controller `name` by `file`, another of the profiles offered for it. */
+  async chooseProfile(name: string, file: string) {
+    await this.run(() => invoke('choose_controller_profile', { name, file }));
+    await this.refresh();
+    await this.reloadMappings();
+  }
+
   /** Sends the MIDI clock, in time with the sync leader, to `name` (`null`: nowhere). */
   async setClockOutput(name: string | null) {
     await this.run(() => invoke('set_midi_clock_output', { name }));

@@ -3885,6 +3885,10 @@
       },
       "type": "array"
     },
+    "variant": {
+      "description": "Another profile for the ports of a model (a firmware or an edition of its own): never\nfound by itself, offered in the settings for a controller its ports fit.",
+      "type": "boolean"
+    },
     "verified": {
       "description": "Tried on the controller itself, not only read from another program's mapping.",
       "type": "boolean"

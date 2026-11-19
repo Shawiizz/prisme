@@ -35,6 +35,10 @@ pub struct Profile {
     /// Tried on the controller itself, not only read from another program's mapping.
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub verified: bool,
+    /// Another profile for the ports of a model (a firmware or an edition of its own): never
+    /// found by itself, offered in the settings for a controller its ports fit.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub variant: bool,
     /// Sent when the controller is opened (a request for its knobs' positions, say), some a
     /// while after.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]

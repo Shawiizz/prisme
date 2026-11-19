@@ -9,7 +9,7 @@ import { Aside } from '@astrojs/starlight/components';
 import ControllerTable from '../../../../../components/docs/ControllerTable.astro';
 import { controllerModels, brands } from '../../../../../lib/controllers';
 
-export const models = controllerModels();
+export const models = controllerModels().filter((m) => !m.variant);
 
 Prisme connaît {models.length} modèles de contrôleurs de {brands(models).length} marques. Activez-en un dans **Réglages** › **Contrôleurs MIDI** et il joue aussitôt, voyants et vumètres compris : voir [Utiliser un contrôleur](/fr/docs/controllers/).
 

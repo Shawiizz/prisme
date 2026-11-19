@@ -106,9 +106,9 @@ export class ControllersSettings implements OnInit, OnDestroy {
     ),
   );
 
-  /** How many models come from where. */
+  /** How many models come from where, their variants aside. */
   protected readonly counts = computed(() => {
-    const profiles = this.service.profiles()?.profiles ?? [];
+    const profiles = (this.service.profiles()?.profiles ?? []).filter((p) => !p.variant);
     const count = (source: string) => profiles.filter((p) => p.source === source).length;
     return { all: profiles.length, updated: count('updated'), own: count('own') };
   });

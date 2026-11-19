@@ -2,7 +2,9 @@
 
 use crate::controller_profiles;
 use crate::controllers::Controllers;
-use crate::dto::{ControllerDto, ControllerProfileDto, ControllerProfilesDto, LightDto, OutputDto};
+use crate::dto::{
+    ControllerDto, ControllerProfileDto, ControllerProfilesDto, LightDto, OfferedProfileDto, OutputDto,
+};
 use crate::error::{AppError, AppResult};
 use crate::midi_clock::MidiClock;
 use prisme_control::{Encoding, Mapping};
@@ -13,18 +15,25 @@ use tauri::{AppHandle, State};
 #[tauri::command]
 pub fn list_controllers(controllers: State<'_, Controllers>) -> AppResult<Vec<ControllerDto>> {
     let plugged = Controllers::plugged()?;
-    let enabled = controllers.setup().enabled;
-    let missing = enabled.iter().filter(|name| !plugged.contains(name)).cloned().collect::<Vec<_>>();
+    let setup = controllers.setup();
+    let missing = setup.enabled.iter().filter(|name| !plugged.contains(name)).cloned().collect::<Vec<_>>();
     let library = controller_profiles::current();
     let dto = |name: String, plugged: bool| {
-        let known = library.of(&name);
+        let known = library.chosen(&name, setup.profiles.get(&name).map(String::as_str));
+        let models = known.map(|k| &k.file) == library.of(&name).map(|k| &k.file);
         ControllerDto {
-            enabled: enabled.contains(&name),
+            enabled: setup.enabled.contains(&name),
             profile: known.map(|k| k.profile.name.clone()),
+            profile_file: known.map(|k| k.file.clone()),
+            offered: library
+                .offered(&name)
+                .into_iter()
+                .map(|k| OfferedProfileDto { file: k.file.clone(), name: k.profile.name.clone() })
+                .collect(),
             verified: known.is_some_and(|k| k.profile.verified),
             profile_source: known.map(|k| k.source),
-            replaces: library.replaced_on(&name).map(|k| k.profile.name.clone()),
-            export_file: controller_profiles::file_name(&Controllers::model_name(&name)),
+            replaces: library.replaced_on(&name).filter(|_| models).map(|k| k.profile.name.clone()),
+            export_file: controller_profiles::file_name(&controllers.model_name(&name)),
             name,
             plugged,
         }
@@ -40,6 +49,18 @@ pub fn set_controller_enabled(
     enabled: bool,
 ) -> AppResult<()> {
     controllers.set_enabled(&app, &name, enabled)
+}
+
+/// Drives the controller `name` by `file`, one of the profiles offered for it (a variant of its
+/// model's), from now on.
+#[tauri::command]
+pub fn choose_controller_profile(
+    app: AppHandle,
+    controllers: State<'_, Controllers>,
+    name: String,
+    file: String,
+) -> AppResult<()> {
+    controllers.choose_profile(&app, &name, &file)
 }
 
 /// The models of the controllers in use that another program holds.
@@ -188,6 +209,7 @@ fn profiles_dto(library: &controller_profiles::Library) -> ControllerProfilesDto
                 name: k.profile.name.clone(),
                 source: k.source,
                 verified: k.profile.verified,
+                variant: k.profile.variant,
                 replaces: library.replaced.iter().find(|r| r.file == k.file).map(|r| r.profile.name.clone()),
             })
             .collect(),

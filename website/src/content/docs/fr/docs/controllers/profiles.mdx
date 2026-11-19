@@ -58,6 +58,7 @@ Le dossier de données est décrit dans [MIDI learn et votre propre profil](/fr/
 | `ports` | liste de textes | Le contrôleur est le port MIDI dont le nom contient l’un de ces textes, majuscules et minuscules confondues. Parmi plusieurs modèles qui correspondent, celui dont le nom trouvé est le plus long l’emporte. |
 | `credits` | texte | D’où vient le mapping, quand il n’est pas propre à Prisme. |
 | `verified` | `true` ou `false` | `true` une fois le profil essayé sur le contrôleur lui-même. Sans lui, les réglages affichent **Converti depuis le mapping de Mixxx, pas encore essayé sur ce contrôleur**. Par défaut `false`. |
+| `variant` | `true` ou `false` | `true` pour un autre profil d’un modèle, pour un firmware ou une édition à part sur les mêmes ports : il n’est jamais choisi de lui-même, le profil du modèle l’est, et les réglages le proposent sous le contrôleur (voir [Variantes](/fr/docs/controllers/#variantes)). Par défaut `false`. |
 | `jogStepsPerTurn` | nombre | Le nombre de pas que le contrôleur envoie pour un tour complet de jog, mesuré dessus. Il règle de combien un scratch déplace le morceau. Par défaut 720. |
 | `init` | liste de messages | Envoyés à l’ouverture du contrôleur, SysEx compris. Un message écrit `{ "afterMs": 1500, "message": [...] }` part autant de millisecondes plus tard, une fois terminé le jeu de lumière que le modèle joue tout seul. |
 | `close` | liste de messages | Envoyés à sa fermeture, une fois ses voyants éteints. |

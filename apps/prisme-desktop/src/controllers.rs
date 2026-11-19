@@ -23,7 +23,7 @@ use prisme_engine::Command;
 use prisme_session::JsonFile;
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, HashMap, HashSet};
-use std::sync::Mutex;
+use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 use tauri::{AppHandle, Emitter, Manager};
 use tracing::{error, info, warn};
@@ -62,6 +62,9 @@ pub struct ControllerSetup {
     pub clock_output: Option<String>,
     /// Actions the DJ took off a controller: its profile's controls no longer drive them.
     pub unmapped: Vec<Unmapped>,
+    /// The profile the DJ chose for a controller among those offered for it (a variant of its
+    /// model's), by file.
+    pub profiles: BTreeMap<String, String>,
 }
 
 pub const PLUGGED_EVENT: &str = "controller-plugged";
@@ -353,13 +356,14 @@ impl Controllers {
             .map(|m| m.binding.clone())
             .collect();
         let name = base_port_name(device);
-        let profile = controller_profiles::of(device).map(|p| (*p).clone()).unwrap_or_else(|| Profile {
+        let profile = self.profile(device).map(|p| (*p).clone()).unwrap_or_else(|| Profile {
             schema: None,
             name: name.clone(),
             ports: vec![name],
             jog_steps_per_turn: JOG_STEPS_PER_TURN,
             credits: String::new(),
             verified: false,
+            variant: false,
             init: Vec::new(),
             close: Vec::new(),
             keep_alive: None,
@@ -370,12 +374,23 @@ impl Controllers {
             outputs: Vec::new(),
             displays: Vec::new(),
         });
-        Profile { controls, verified: false, ..profile }
+        Profile { controls, verified: false, variant: false, ..profile }
     }
 
     /// The model of `device`, as its profile names it, else as its port does.
-    pub fn model_name(device: &str) -> String {
-        controller_profiles::of(device).map_or_else(|| base_port_name(device), |p| p.name.clone())
+    pub fn model_name(&self, device: &str) -> String {
+        self.profile(device).map_or_else(|| base_port_name(device), |p| p.name.clone())
+    }
+
+    /// The profile of `device`: the one the DJ chose for it, else its model's.
+    fn profile(&self, device: &str) -> Option<Arc<Profile>> {
+        let chosen = self.setup.read(|s| s.profiles.get(device).cloned());
+        controller_profiles::current().chosen(device, chosen.as_deref()).map(|k| k.profile.clone())
+    }
+
+    /// Steps in a turn of the jog wheels of `device`.
+    fn jog_steps_per_turn(&self, device: &str) -> f64 {
+        self.profile(device).map_or(JOG_STEPS_PER_TURN, |p| p.jog_steps_per_turn)
     }
 
     /// Looks a while after Prisme starts, once a day at most, for the controller profiles
@@ -500,7 +515,7 @@ impl Controllers {
         if !self.new_to_the_dj(port) {
             return;
         }
-        let (device, model) = (port.to_owned(), Self::model_name(port));
+        let (device, model) = (port.to_owned(), self.model_name(port));
         let news = if controller_profiles::of(port).is_none() {
             // on Android the MIDI of a sound card, opened, holds the card the USB driver
             // plays on: a model Prisme does not know is turned on in the settings only
@@ -554,7 +569,7 @@ impl Controllers {
             .read(|s| s.enabled.clone())
             .into_iter()
             .filter(|device| port_of(&plugged, device, &taken).is_some() && !open.contains(device))
-            .map(|device| Self::model_name(&device))
+            .map(|device| self.model_name(&device))
             .collect()
     }
 
@@ -581,6 +596,32 @@ impl Controllers {
             let list = if enabled { &mut s.enabled } else { &mut s.declined };
             list.push(device.to_owned());
         });
+        Ok(())
+    }
+
+    /// Drives `device` by `file`, one of the profiles offered for it, and keeps the choice for it.
+    /// Open, it is opened again: the new profile's messages go and its lights show.
+    pub fn choose_profile(&self, app: &AppHandle, device: &str, file: &str) -> AppResult<()> {
+        let library = controller_profiles::current();
+        if !library.offered(device).iter().any(|k| k.file == file) {
+            return Err(AppError::Other(format!("{file} is no profile for {device}")));
+        }
+        let model = library.of(device).is_some_and(|k| k.file == file);
+        let open = lock(&self.connections).iter().any(|c| c.device == device);
+        if open {
+            self.close(device);
+            self.let_go(app, device);
+        }
+        self.save(|s| {
+            if model {
+                s.profiles.remove(device);
+            } else {
+                s.profiles.insert(device.to_owned(), file.to_owned());
+            }
+        });
+        if open {
+            self.open(app, device)?;
+        }
         Ok(())
     }
 
@@ -630,7 +671,7 @@ impl Controllers {
             .setup
             .read(|s| s.enabled.clone())
             .iter()
-            .filter_map(|device| controller_profiles::of(device))
+            .filter_map(|device| self.profile(device))
             .flat_map(|p| p.lights.iter().map(|l| l.target.clone()).collect::<Vec<_>>())
             .filter(|t| selected_mode(t).is_none())
             .collect();
@@ -646,7 +687,7 @@ impl Controllers {
             .setup
             .read(|s| s.enabled.clone())
             .iter()
-            .filter_map(|device| controller_profiles::of(device))
+            .filter_map(|device| self.profile(device))
             .flat_map(|p| {
                 let outputs = p.outputs.iter().map(|o| o.source.clone());
                 outputs.chain(p.displays.iter().map(|d| d.source.clone())).collect::<Vec<_>>()
@@ -696,6 +737,7 @@ impl Controllers {
     /// layers, the one in use's), and of the other lights its profile gives. A key lit while
     /// held, whose action has no state of its own, is off once let go.
     fn lights(&self, device: &str) -> Vec<(Control, LightValue)> {
+        let profile = self.profile(device);
         let (modes, shifts, held) = {
             let reader = lock(&self.reader);
             (reader.modes(device), reader.shifts(device), reader.held(device))
@@ -731,7 +773,7 @@ impl Controllers {
                 lights.push((mapping.control, value));
             }
         }
-        if let Some(profile) = controller_profiles::of(device) {
+        if let Some(profile) = profile {
             for extra in &profile.lights {
                 if let Some(value) = state_of(&extra.target).and_then(|s| extra.value(s, &modes)) {
                     lights.push((extra.control, coloured(&extra.target, &extra.palette, value)));
@@ -761,11 +803,12 @@ impl Controllers {
             at.map(|at| connections.remove(at))
         };
         let Some(mut connection) = connection else { return };
+        let profile = self.profile(device);
         let mappings = lock(&self.mappings);
         for mapping in mappings.all().iter().filter(|m| m.device == device) {
             connection.light(mapping.control, mapping.light.value(OFF));
         }
-        if let Some(profile) = controller_profiles::of(device) {
+        if let Some(profile) = profile {
             for extra in &profile.lights {
                 connection.light(extra.control, extra.values.value(OFF));
             }
@@ -804,7 +847,7 @@ impl Controllers {
                 for connection in lock(&controllers.connections).iter_mut() {
                     connection.blink();
                     connection.send_due();
-                    let Some(profile) = controller_profiles::of(&connection.device) else { continue };
+                    let Some(profile) = controllers.profile(&connection.device) else { continue };
                     let modes = lock(&controllers.reader).modes(&connection.device);
                     let shown = |when: &Option<prisme_control::When>| {
                         when.as_ref().is_none_or(|w| modes.get(&w.group) == Some(&w.mode))
@@ -861,7 +904,8 @@ impl Controllers {
             .ok_or_else(|| AppError::ControllerUnplugged(device.to_owned()))?;
         let (port, port_name) = (&ports[at], names[at].clone());
         let (app, name) = (app.clone(), device.to_owned());
-        let jog_steps_per_turn = controller_profiles::jog_steps_per_turn(device);
+        let profile = self.profile(device);
+        let jog_steps_per_turn = profile.as_ref().map_or(JOG_STEPS_PER_TURN, |p| p.jog_steps_per_turn);
         let connection = input
             .connect(
                 port,
@@ -877,7 +921,7 @@ impl Controllers {
             .map_err(midi_error)?;
         let mut output = open_output(&port_name);
         let mut later = Vec::new();
-        if let (Some(output), Some(profile)) = (output.as_mut(), controller_profiles::of(device)) {
+        if let (Some(output), Some(profile)) = (output.as_mut(), &profile) {
             for (after_ms, message) in profile.init.iter().map(|m| m.when_and_what()) {
                 if after_ms == 0 {
                     let _ = output.send(message);
@@ -900,7 +944,7 @@ impl Controllers {
             clipped: HashMap::new(),
             displayed: HashMap::new(),
         };
-        let modes = controller_profiles::of(device).map(|p| p.first_modes()).unwrap_or_default();
+        let modes = profile.map(|p| p.first_modes()).unwrap_or_default();
         lock(&self.reader).set_modes(device, modes);
         lock(&self.connections).push(connection);
         self.show_lights(device);
@@ -942,7 +986,7 @@ impl Controllers {
     /// A controller gone lets go of what it held: its keys (shift among them) are released,
     /// and so are the jog wheels it touched, however they tell it.
     fn let_go(&self, app: &AppHandle, device: &str) {
-        let jog_steps_per_turn = controller_profiles::jog_steps_per_turn(device);
+        let jog_steps_per_turn = self.jog_steps_per_turn(device);
         let held = lock(&self.reader).held(device);
         for control in held {
             self.receive(app, device, jog_steps_per_turn, Event { control, raw: 0 }, 0.0);
@@ -1107,7 +1151,7 @@ impl Controllers {
         for (device, pressed) in self.fired_holds() {
             match pressed {
                 Some((action, at_s)) => {
-                    let jog_steps_per_turn = controller_profiles::jog_steps_per_turn(&device);
+                    let jog_steps_per_turn = self.jog_steps_per_turn(&device);
                     self.act(app, vec![action], at_s, jog_steps_per_turn);
                 }
                 None => self.show_lights(&device),
@@ -1206,12 +1250,14 @@ impl Controllers {
 
     /// Lays what was learnt over the profiles of the controllers in use.
     fn layer(&self) {
+        let library = controller_profiles::current();
         let layered = self.setup.read(|s| {
             let profiled: Vec<Mapping> = s
                 .enabled
                 .iter()
                 .filter_map(|device| {
-                    Some(controller_profiles::of(device)?.mappings(device).collect::<Vec<_>>())
+                    let chosen = s.profiles.get(device).map(String::as_str);
+                    Some(library.chosen(device, chosen)?.profile.mappings(device).collect::<Vec<_>>())
                 })
                 .flatten()
                 .collect();
@@ -1511,6 +1557,16 @@ mod tests {
         let expected: Vec<Mapping> =
             profiled.into_iter().map(|m| with(m, |b| b.encoding = Encoding::RelativeOffset)).collect();
         assert_eq!(read, expected);
+    }
+
+    #[test]
+    fn a_profile_chosen_that_is_not_offered_for_a_controller_leaves_it_its_models() {
+        let c = sb2();
+        c.save(|s| {
+            s.profiles.insert("DDJ-SB2".into(), "pioneer-ddj-400.json".into());
+        });
+        assert_eq!(c.model_name("DDJ-SB2"), "Pioneer DDJ-SB2");
+        assert_eq!(c.route("DDJ-SB2", parse(&[0x90, 0x0b, 127]).unwrap(), 0.0), input("deck1.play", 1.0));
     }
 
     #[test]

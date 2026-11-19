@@ -12,6 +12,22 @@
             <span class="pr-row__help">{{
               'Mapped as a {model}: learn a control to change it' | t: { model: c.profile }
             }}</span>
+            @if (c.offered.length > 1) {
+              <label class="pr-row__help choice">
+                <select
+                  class="pr-select"
+                  (change)="service.chooseProfile(c.name, $any($event.target).value)"
+                  [attr.aria-label]="'Profile' | t"
+                >
+                  @for (p of c.offered; track p.file) {
+                    <option [value]="p.file" [selected]="p.file === c.profileFile">
+                      {{ p.name }}
+                    </option>
+                  }
+                </select>
+                {{ 'Other profiles fit this controller: a firmware or an edition of its own' | t }}
+              </label>
+            }
             @if (c.replaces; as replaced) {
               <span class="pr-row__help replaces">{{
                 'Your own profile takes the place of the one Prisme gives the {model}: the corrections published for it no longer reach this controller.'
@@ -31,27 +47,29 @@
             }}</span>
           }
         </div>
-        @if (c.enabled && c.plugged) {
+        <div class="keys">
+          @if (c.enabled && c.plugged) {
+            <button
+              class="pr-btn pr-btn--sm"
+              (click)="exportProfile(c)"
+              [title]="
+                'Write what it drives now as a profile file, to share or keep: what it drives does not change'
+                  | t
+              "
+            >
+              {{ 'Export as a profile…' | t }}
+            </button>
+          }
           <button
-            class="pr-btn pr-btn--sm"
-            (click)="exportProfile(c)"
-            [title]="
-              'Write what it drives now as a profile file, to share or keep: what it drives does not change'
-                | t
-            "
+            class="pr-switch"
+            role="switch"
+            [attr.aria-checked]="c.enabled"
+            [attr.aria-label]="c.name"
+            (click)="service.setEnabled(c.name, !c.enabled)"
           >
-            {{ 'Export as a profile…' | t }}
+            <span></span>
           </button>
-        }
-        <button
-          class="pr-switch"
-          role="switch"
-          [attr.aria-checked]="c.enabled"
-          [attr.aria-label]="c.name"
-          (click)="service.setEnabled(c.name, !c.enabled)"
-        >
-          <span></span>
-        </button>
+        </div>
       </div>
     } @empty {
       <div class="pr-row">

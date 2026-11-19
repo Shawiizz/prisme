@@ -28,7 +28,7 @@ const base = lang === 'en' ? '' : `/${lang}`;
 const docs = `${base}/docs/`;
 const other = lang === 'en' ? { href: '/fr/', label: 'FR', name: 'Français' } : { href: '/', label: 'EN', name: 'English' };
 const release = await latestRelease();
-const models = controllerModels();
+const models = controllerModels().filter((m) => !m.variant);
 const makers = brands(models);
 const counted = (text: string) => text.replace('{n}', String(models.length));
 // every model by name, in a line passing under the controller as the waveform passes the playhead
