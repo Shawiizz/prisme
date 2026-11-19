@@ -28,6 +28,8 @@ pub mod screens;
 pub mod stems;
 pub mod tracks;
 pub mod transport;
+#[cfg(desktop)]
+pub mod update;
 
 /// Runs `work` off the commands' threads: a command that waits for the audio to restart or
 /// for the disk would hold the window up meanwhile.
