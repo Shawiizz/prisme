@@ -123,6 +123,31 @@ fn a_loop_roll_lands_where_the_track_would_have_been() {
 }
 
 #[test]
+fn a_roll_in_a_loop_lets_go_back_round_that_loop() {
+    let outer = LoopRegion { start_s: 10.0, end_s: 14.0 };
+    for slip in [false, true] {
+        let mut rig = playing_deck(10.0);
+        rig.send(Command::SetSlip { deck: 0, enabled: slip });
+        rig.send(Command::BeatLoop { deck: 0, beats: 8.0 });
+        let looped = rig.run(3.0);
+        rig.send(Command::LoopRoll { deck: 0, beats: Some(0.25) });
+        let rolled = rig.run(2.0);
+        rig.send(Command::LoopRoll { deck: 0, beats: None });
+        let after = rig.run(0.01);
+        let d = rig.deck(0);
+        let track_s = 10.01 + looped + rolled + after;
+        assert!(d.looping.active && d.looping.region == Some(outer), "slip {slip}: {d:?}");
+        assert_close(d.position_s, outer.wrap(track_s), 0.01);
+        assert_eq!(d.slip_position_s.is_some(), slip, "the loop's own slip goes on");
+
+        rig.send(Command::ExitLoop { deck: 0 });
+        rig.run(0.01);
+        let landing = if slip { track_s + 0.01 } else { outer.wrap(track_s) + 0.01 };
+        assert_close(rig.deck(0).position_s, landing, 0.01);
+    }
+}
+
+#[test]
 fn slip_mode_returns_from_a_loop_to_where_the_track_would_be() {
     let mut rig = playing_deck(10.0);
     rig.send(Command::SetSlip { deck: 0, enabled: true });

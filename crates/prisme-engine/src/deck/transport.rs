@@ -15,6 +15,9 @@ pub(crate) struct Transport {
     /// Where the track would be without the loop, roll, censor or reverse in progress.
     pub(super) shadow_s: Option<f64>,
     rolling: bool,
+    /// The loop stored when the roll came, and whether it took the track round: both back
+    /// once the roll is let go.
+    under_roll: (Option<LoopRegion>, bool),
     pub(super) censoring: bool,
     /// The reverse switched on, and held.
     pub(super) reversed: bool,
@@ -25,6 +28,14 @@ impl Transport {
     /// The reverse plays the track backwards, switched on or held.
     pub(super) fn reversing(&self) -> bool {
         self.reversed || self.reverse_held
+    }
+
+    /// Where the track would be, `shadow_s` along, without the roll: round the loop under it.
+    fn under_roll_at(&self, shadow_s: f64) -> f64 {
+        match self.under_roll {
+            (Some(region), true) if shadow_s >= region.end_s => region.wrap(shadow_s),
+            _ => shadow_s,
+        }
     }
 }
 
@@ -40,13 +51,14 @@ impl Deck {
     /// Its place; during a roll or a censor, the one it comes back to, out of the roll's loop.
     pub(crate) fn place(&self) -> Place {
         let t = &self.transport;
-        let passing = t.rolling || t.censoring;
-        Place {
-            position_s: t.shadow_s.filter(|_| passing).unwrap_or(self.playhead.position_s()),
-            playing: self.playing,
-            loop_region: t.loop_region.filter(|_| !t.rolling),
-            loop_active: t.loop_active && !t.rolling,
-        }
+        let position_s = match t.shadow_s {
+            Some(shadow) if t.rolling => t.under_roll_at(shadow),
+            Some(shadow) if t.censoring => shadow,
+            _ => self.playhead.position_s(),
+        };
+        let (loop_region, loop_active) =
+            if t.rolling { t.under_roll } else { (t.loop_region, t.loop_active) };
+        Place { position_s, playing: self.playing, loop_region, loop_active }
     }
 
     /// Takes the place of another deck in the same track: an instant double.
@@ -114,18 +126,30 @@ impl Deck {
         self.activate_loop(true);
     }
 
-    /// `Some(beats)`: loops while held, the track carrying on underneath; `None`: release.
+    /// `Some(beats)`: loops while held, the track carrying on underneath; `None`: release,
+    /// back where the track would be, in the loop it played if it did.
     pub(crate) fn loop_roll(&mut self, beats: Option<f64>, quantize: bool) {
         match beats {
             Some(beats) if !self.transport.rolling => {
-                self.start_slip();
-                self.transport.rolling = true;
+                self.start_roll();
                 self.beat_loop(beats, quantize);
             }
             None if self.transport.rolling => {
                 self.transport.rolling = false;
-                self.activate_loop(false);
-                self.end_slip();
+                let (region, round) = self.transport.under_roll;
+                self.transport.loop_region = region;
+                if round {
+                    // with slip, that loop's own goes on
+                    let t = &mut self.transport;
+                    let shadow = if t.slip_mode { t.shadow_s } else { t.shadow_s.take() };
+                    if let Some(shadow) = shadow {
+                        self.playhead.seek_s(self.transport.under_roll_at(shadow));
+                    }
+                    self.activate_loop(true);
+                } else {
+                    self.activate_loop(false);
+                    self.end_slip();
+                }
             }
             _ => {}
         }
@@ -138,8 +162,7 @@ impl Deck {
         if !self.controls_position() || region.length_s() <= 0.0 {
             return;
         }
-        self.start_slip();
-        self.transport.rolling = true;
+        self.start_roll();
         let position = self.playhead.position_s();
         let landing = match self.grid {
             Some(_) if quantize => region.start_s + (position - region.start_s).rem_euclid(region.length_s()),
@@ -278,6 +301,20 @@ impl Deck {
                 _ => {}
             }
         }
+    }
+
+    /// A roll comes over the stored loop, kept for when it is let go, the track carrying on
+    /// underneath.
+    fn start_roll(&mut self) {
+        if self.transport.rolling {
+            return;
+        }
+        let t = &self.transport;
+        let position = self.playhead.position_s();
+        let round = t.loop_active && t.loop_region.is_some_and(|r| position < r.end_s);
+        self.transport.under_roll = (t.loop_region, round);
+        self.transport.rolling = true;
+        self.start_slip();
     }
 
     fn start_slip(&mut self) {
