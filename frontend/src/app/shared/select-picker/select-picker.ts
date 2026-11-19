@@ -24,8 +24,10 @@ interface Picking {
   select: HTMLSelectElement;
   title: string;
   choices: Choice[];
-  /** Where the list goes on a computer: under the field, or over it near the bottom. */
-  left: number;
+  /** Where the list goes on a computer: under the field, or over it near the bottom; from its
+   * left edge, or leftwards from its right edge in the right half of the window. */
+  x: number;
+  leftwards: boolean;
   top: number | null;
   bottom: number | null;
   width: number;
@@ -89,7 +91,8 @@ function choicesOf(select: HTMLSelectElement): Choice[] {
         [animate.leave]="PHONE ? 'pr-rise-out' : 'pr-pop-out'"
         role="listbox"
         [attr.aria-label]="p.title || null"
-        [style.left.px]="PHONE ? null : p.left"
+        [style.--x.px]="PHONE ? null : p.x"
+        [class.leftwards]="!PHONE && p.leftwards"
         [style.top.px]="PHONE ? null : p.top"
         [style.bottom.px]="PHONE ? null : p.bottom"
         [style.min-width.px]="PHONE ? null : p.width"
@@ -186,13 +189,15 @@ export class SelectPicker {
     const choices = choicesOf(select);
     const height = Math.min(MAX_PX, choices.length * ROW_PX + 8);
     const below = innerHeight - rect.bottom - 8 >= height || rect.top < height;
+    const leftwards = rect.left + rect.width / 2 > innerWidth / 2;
     // the keys come back to the list once closed, as from the system's
     if (!PHONE) select.focus({ preventScroll: true });
     this.picking.set({
       select,
       title: titleOf(select),
       choices,
-      left: Math.min(rect.left, innerWidth - rect.width - 8),
+      x: leftwards ? rect.right : rect.left,
+      leftwards,
       top: below ? rect.bottom + 4 : null,
       bottom: below ? null : innerHeight - rect.top + 4,
       width: rect.width,

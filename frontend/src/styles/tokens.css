@@ -108,4 +108,6 @@
 
   /* Motion: the interface opens fast and never moves while the music plays */
   --pr-fast: 120ms;
+  /* what closes: a menu, a list, a sheet and the veil behind them, all together */
+  --pr-out: 160ms;
 }

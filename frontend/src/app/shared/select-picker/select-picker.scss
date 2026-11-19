@@ -2,13 +2,20 @@
   --pr-layer: var(--pr-z-picker);
 }
 
-// under the field, on a computer
+// under the field on a computer, from its edge --x: as wide as its longest choice, moved back
+// as far as it must to stay in the window; its choices wrap only in a window narrower still
 .pr-popover {
   position: fixed;
+  left: var(--x);
+  translate: min(0px, 100vw - 8px - 100% - var(--x));
+  &.leftwards {
+    translate: max(-100%, 8px - var(--x));
+  }
   display: grid;
-  max-width: min(420px, calc(100vw - 16px));
+  width: max-content;
+  max-width: calc(100vw - 16px);
   max-height: 320px;
-  overflow-y: auto;
+  overflow: hidden auto;
   padding: 4px;
   background: var(--pr-raise);
   box-shadow: 0 12px 32px rgb(0 0 0 / 0.5);
@@ -17,20 +24,18 @@ button {
   display: flex;
   align-items: center;
   gap: 10px;
-  height: 30px;
-  padding: 0 10px;
+  min-height: 30px;
+  padding: 5px 10px;
   border: 0;
   border-radius: var(--pr-radius-sm);
   background: none;
   font: inherit;
   color: var(--pr-text);
   text-align: start;
-  white-space: nowrap;
   span {
     flex: 1;
     min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
+    overflow-wrap: anywhere;
   }
   &:hover:enabled,
   &:focus-visible {
@@ -71,10 +76,9 @@ svg {
     color: var(--pr-text-2);
   }
   button {
-    height: 52px;
-    padding: 0 14px;
+    min-height: 52px;
+    padding: 6px 14px;
     font-size: 16px;
-    white-space: normal;
     &.is-on {
       font-weight: 600;
     }
