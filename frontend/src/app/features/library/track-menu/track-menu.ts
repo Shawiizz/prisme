@@ -12,7 +12,6 @@ import {
 import { CratesService } from '../../../core/services/crates.service';
 import { EngineService } from '../../../core/services/engine.service';
 import { LibraryService } from '../../../core/services/library.service';
-import { NavigationService } from '../../../core/services/navigation.service';
 import { StemsService } from '../../../core/services/stems.service';
 import { TRACK_COLORS, hexColor } from '../../../shared/track-colors';
 import { deckLetter } from '../../../shared/time';
@@ -46,7 +45,6 @@ export class TrackMenu {
   private readonly engine = inject(EngineService);
   protected readonly stems = inject(StemsService);
   private readonly crates = inject(CratesService);
-  private readonly navigation = inject(NavigationService);
 
   readonly paths = input.required<string[]>();
   readonly start = input<TrackMenuPanel>('main');
@@ -119,8 +117,9 @@ export class TrackMenu {
     this.closed.emit();
   }
 
-  installModel() {
-    this.navigation.openSettings('library', 'library.stemsModel');
+  /** No model yet: the download offered, then the tracks separated. */
+  offerModels() {
+    this.stems.separate(this.paths());
     this.closed.emit();
   }
 

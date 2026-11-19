@@ -1,0 +1,111 @@
+.pr-dialog {
+  width: min(560px, calc(100vw - 48px));
+}
+.pr-dialog__body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--pr-space-4);
+}
+p {
+  margin: 0;
+  color: var(--pr-text-2);
+  line-height: 1.5;
+}
+.note {
+  font-size: var(--pr-size-small);
+  color: var(--pr-text-3);
+}
+.error {
+  color: var(--pr-alert);
+}
+
+// each choice a card: its name, what suits it and its size, then how fast it is
+.choices {
+  display: grid;
+  gap: var(--pr-space-2);
+}
+.choice {
+  display: grid;
+  gap: 6px;
+  padding: var(--pr-space-3) var(--pr-space-4);
+  text-align: left;
+  font: inherit;
+  color: var(--pr-text-2);
+  background: transparent;
+  border: 1px solid var(--pr-line-2);
+  border-radius: var(--pr-radius);
+  cursor: pointer;
+  &:hover:not(:disabled) {
+    background: var(--pr-raise-2);
+  }
+  &:focus-visible {
+    outline: 2px solid var(--pr-light);
+    outline-offset: 2px;
+  }
+  &[aria-checked='true'] {
+    border-color: var(--pr-light);
+    box-shadow: inset 0 0 0 1px var(--pr-light);
+    .name {
+      color: var(--pr-text);
+    }
+  }
+  // while the choice downloads: the other one dim, this one as it was
+  &:disabled {
+    opacity: 1;
+    cursor: default;
+  }
+  &:disabled:not([aria-checked='true']) {
+    opacity: 0.45;
+  }
+}
+.head {
+  display: flex;
+  align-items: baseline;
+  gap: var(--pr-space-3);
+}
+.name {
+  font: 600 var(--pr-size-track) / 1.2 var(--pr-font);
+}
+.size {
+  margin-left: auto;
+  font-size: var(--pr-size-small);
+  color: var(--pr-text-2);
+}
+.help {
+  font-size: var(--pr-size-small);
+  line-height: 1.45;
+}
+
+// the download: how far, a line filling under it
+.progress {
+  position: relative;
+  display: flex;
+  justify-content: space-between;
+  padding-bottom: 8px;
+  color: var(--pr-text);
+  i {
+    position: absolute;
+    left: 0;
+    bottom: 0;
+    height: 2px;
+    width: calc(var(--done) * 100%);
+    background: var(--pr-light);
+  }
+  &::before {
+    content: '';
+    position: absolute;
+    inset: auto 0 0;
+    height: 2px;
+    background: var(--pr-line-2);
+  }
+}
+
+// a sheet as wide as the phone
+:host-context(.phone) {
+  .pr-dialog {
+    width: 100%;
+  }
+  .choice {
+    padding: 14px 16px;
+  }
+}

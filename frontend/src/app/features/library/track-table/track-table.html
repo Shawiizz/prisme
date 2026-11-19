@@ -248,11 +248,9 @@
     <button class="pr-btn pr-btn--sm pr-btn--ghost" (click)="openPanel($event, 'genre')">
       {{ 'Genre' | t }}
     </button>
-    @if (stems.reach() !== 'none') {
-      <button class="pr-btn pr-btn--sm pr-btn--ghost" (click)="separateSelection()">
-        {{ 'Separate the stems' | t }}
-      </button>
-    }
+    <button class="pr-btn pr-btn--sm pr-btn--ghost" (click)="separateSelection()">
+      {{ stems.reach() === 'none' ? ('Separate the stems…' | t) : ('Separate the stems' | t) }}
+    </button>
     <button
       class="pr-btn pr-btn--sm pr-btn--ghost pr-btn--icon close"
       (click)="library.clearSelection()"

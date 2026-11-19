@@ -1,4 +1,4 @@
-import { Injectable, computed, inject, signal } from '@angular/core';
+import { Injectable, computed, effect, inject, signal, untracked } from '@angular/core';
 import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
 import {
@@ -49,18 +49,21 @@ export class StemsService {
   /** Tracks sent to the queue and not separated yet. */
   readonly pending = signal<ReadonlySet<string>>(new Set());
   readonly error = signal<string | null>(null);
+  /** Tracks asked to be separated while no model was there: the models offered for them. */
+  readonly offered = signal<string[] | null>(null);
+  /** Tracks to separate once the models on their way are in. */
+  readonly awaiting = signal<readonly string[]>([]);
 
   /**
-   * How far the installed models separate a track: the small one for every stem when the DJ
-   * prefers it or no large one is there, else the large ones.
+   * How far the models the DJ chose separate a track, as far as they are installed: the
+   * small one for every stem, or the large ones (the others never stand in for them).
    */
   readonly reach = computed<Separation>(() => {
-    const vocals = this.vocalsModel().installed;
-    const drumsBass = this.drumsBassModel().installed;
-    const fast = this.preferences.library().stemsFast;
-    if (this.fourFastModel().installed && (fast || !(vocals || drumsBass))) return 'full';
-    if (!vocals) return 'none';
-    return drumsBass ? 'full' : 'vocals';
+    if (this.preferences.library().stemsFast) {
+      return this.fourFastModel().installed ? 'full' : 'none';
+    }
+    if (!this.vocalsModel().installed) return 'none';
+    return this.drumsBassModel().installed ? 'full' : 'vocals';
   });
 
   /** The whole queue, as a share of the tracks it held (0 to 1). */
@@ -69,6 +72,24 @@ export class StemsService {
     const total = p.done + p.failed + p.queued;
     return total > 0 ? (p.done + p.failed + (p.current ? p.fraction : 0)) / total : 0;
   });
+
+  /** How far the downloads under way are, by their bytes (0 to 1); `null` without any. */
+  readonly downloading = computed(() => {
+    const models = this.models().filter((m) => m.downloading !== null);
+    if (!models.length) return null;
+    const bytes = models.reduce((sum, m) => sum + m.bytes, 0);
+    return models.reduce((sum, m) => sum + m.bytes * m.downloading!, 0) / Math.max(bytes, 1);
+  });
+
+  constructor() {
+    // the tracks waiting for the models go once the downloads end with some in
+    effect(() => {
+      const paths = this.awaiting();
+      if (!paths.length || this.downloading() !== null || this.reach() === 'none') return;
+      this.awaiting.set([]);
+      untracked(() => void this.separate([...paths]));
+    });
+  }
 
   async init() {
     await Promise.all([
@@ -95,9 +116,31 @@ export class StemsService {
     return this.call('download_stems_model', { id });
   }
 
+  /** Queues the tracks; without a model, offers to download them first. */
   async separate(paths: string[]) {
+    if (this.reach() === 'none') {
+      // the models on their way already: these follow too
+      if (this.downloading() !== null) this.wait(paths);
+      this.offered.set(paths);
+      return;
+    }
     this.pending.update((s) => new Set([...s, ...paths]));
     if (!(await this.call('separate_tracks', { paths }))) this.forget(paths);
+  }
+
+  /** The models of a choice: the small one when `fast`, else the large ones. */
+  modelsFor(fast: boolean): ModelStatus[] {
+    return fast ? [this.fourFastModel()] : [this.vocalsModel(), this.drumsBassModel()];
+  }
+
+  /** Separates with the models of a choice from now on, downloads those missing, then
+   * separates the tracks offered. */
+  async downloadFor(fast: boolean) {
+    this.wait(this.offered() ?? []);
+    await this.preferences.updateLibrary({ stemsFast: fast });
+    for (const model of this.modelsFor(fast).filter((m) => !m.installed)) {
+      await this.downloadModel(model.id);
+    }
   }
 
   separateLibrary() {
@@ -111,6 +154,15 @@ export class StemsService {
 
   private setModel(status: ModelStatus) {
     this.model(status.id).set(status);
+  }
+
+  /** Separates the tracks once the models on their way are in. */
+  private wait(paths: string[]) {
+    this.awaiting.update((a) => [...new Set([...a, ...paths])]);
+  }
+
+  private models(): ModelStatus[] {
+    return [this.vocalsModel(), this.drumsBassModel(), this.fourFastModel()];
   }
 
   private model(id: ModelId) {

@@ -40,13 +40,17 @@ export function deckStems(deck: Signal<number>) {
         ]
       : [knob('vocals', 'VOX', t('Vocals')), knob('instrumental', 'INST', t('Instrumental'))];
   });
-  /** How far the track's separation is, while it is being separated. */
+  /** How far the track's separation is, while it is being separated, or the download of
+   * the models it waits for. */
   const separating = computed(() => {
     const progress = stems.progress();
     const path = track()?.path;
-    return path && progress.current === path ? progress.fraction : null;
+    if (!path) return null;
+    if (progress.current === path) return progress.fraction;
+    return stems.awaiting().includes(path) ? stems.downloading() : null;
   });
-  const canSeparate = computed(() => !!track() && stems.canAdd('none') && separating() === null);
+  /** Without a model, the separation offers to download them. */
+  const canSeparate = computed(() => !!track() && separating() === null);
   const separate = () => {
     const path = track()?.path;
     if (path) void stems.separate([path]);

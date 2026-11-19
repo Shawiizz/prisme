@@ -159,14 +159,6 @@ impl Completion {
         for (deck, load_id, separation) in crate::stems_service::give_stems(app, &loads, &self.path, &audio) {
             updates.of(deck, load_id).separation = Some(separation);
         }
-        if crate::stems_service::separates_on_load(&state) {
-            if let Err(e) = app
-                .state::<crate::stems_service::StemsService>()
-                .separate_played(&self.path, audio.duration_s())
-            {
-                warn!("{} not separated: {e}", self.path.display());
-            }
-        }
         let loudness = prisme_analysis::loudness(&audio);
         let auto_gain = state.preferences.read(|p| p.dj.auto_gain);
         for (deck, _, gain) in state.with_audio(&audio, |t| {
@@ -190,6 +182,16 @@ impl Completion {
             }) {
                 let _ = state.send_if_running(Command::SetBeatGrid { deck, grid });
                 updates.of(deck, load_id).analysis = Some(dto);
+            }
+        }
+        // after the analysis, which a track dropped from the file manager has to go through:
+        // not both at once on the processor
+        if crate::stems_service::separates_on_load(&state) {
+            if let Err(e) = app
+                .state::<crate::stems_service::StemsService>()
+                .separate_played(&self.path, audio.duration_s())
+            {
+                warn!("{} not separated: {e}", self.path.display());
             }
         }
         // a track loaded from outside the music folder is told again by its audio too

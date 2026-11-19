@@ -605,7 +605,6 @@
   "Separate the stems…": "Séparer les pistes…",
   "Separate the stems ({n})": "Séparer les pistes ({n})",
   "Stems separated": "Pistes séparées",
-  "The separation models are downloaded once, in the settings": "Les modèles de séparation se téléchargent une fois, dans les réglages",
   "House, Techno…": "House, Techno…",
   "Written into the tags of {n} files": "Écrit dans les tags de {n} fichiers",
   "Written into the tags of the file": "Écrit dans les tags du fichier",
@@ -933,5 +932,15 @@
   "The track playing stops and leaves the deck.": "Le morceau en cours s'arrête et quitte le deck.",
   "Eject": "Éjecter",
   "EJECT": "ÉJECTER",
-  "The deck left empty; playing, it asks first": "Le deck vidé ; s'il joue, Prisme demande d'abord"
+  "The deck left empty; playing, it asks first": "Le deck vidé ; s'il joue, Prisme demande d'abord",
+  "Separate into stems": "Séparer en pistes",
+  "A track separated into vocals, drums, bass and melody lets each be muted or turned down on its own, on the deck or under an effect. The separation takes models, downloaded once.": "Un morceau séparé en voix, batterie, basse et mélodie permet de couper ou baisser chacune seule, sur le deck ou sous un effet. La séparation demande des modèles, téléchargés une fois.",
+  "Suits this device": "Adapté à cet appareil",
+  "{size} MB": "{size} Mo",
+  "One small model for every stem, four to five times faster: some twenty seconds a track with a recent graphics card, a few minutes on the processor alone.": "Un seul petit modèle pour toutes les pistes, quatre à cinq fois plus rapide : une vingtaine de secondes par morceau avec une carte graphique récente, quelques minutes sur le processeur seul.",
+  "The large models, the cleanest stems: a minute or two a track with a recent graphics card, far longer on the processor alone.": "Les grands modèles, les pistes les plus propres : une à deux minutes par morceau avec une carte graphique récente, bien plus sur le processeur seul.",
+  "Downloading…": "Téléchargement…",
+  "The choice stays in the settings, under Library, to change at any time.": "Le choix reste dans les réglages, sous Bibliothèque, modifiable à tout moment.",
+  "Go on in the background": "Continuer en arrière-plan",
+  "Not now": "Pas maintenant"
 }

@@ -4,6 +4,7 @@ use crate::error::AppResult;
 use crate::library_service::LibraryService;
 use crate::preferences::{DjPreferences, KeyPreference, LibraryPreferences, Preferences};
 use crate::state::{lock, AppState};
+use crate::stems_service::StemsService;
 use crate::tag_writer::TagWriter;
 use prisme_engine::Command;
 use std::collections::BTreeMap;
@@ -37,13 +38,14 @@ pub async fn set_dj_preferences(app: AppHandle, dj: DjPreferences) -> AppResult<
 
 /// Off the main thread: every track of the library may be marked to be tagged again. The
 /// music folders stay: they change with `set_music_folder`, `add_music_folder` and
-/// `remove_music_folder`.
+/// `remove_music_folder`. Other separation models chosen take over the track being separated.
 #[tauri::command]
 pub async fn set_library_preferences(app: AppHandle, mut library: LibraryPreferences) -> AppResult<()> {
     blocking(move || {
         let state = app.state::<AppState>();
-        let (write_tags, replace_tags) = (library.write_tags, library.replace_tags);
-        let replaced_before = state.preferences.read(|p| p.library.replace_tags);
+        let (write_tags, replace_tags, fast) = (library.write_tags, library.replace_tags, library.stems_fast);
+        let (replaced_before, fast_before) =
+            state.preferences.read(|p| (p.library.replace_tags, p.library.stems_fast));
         state.update_preferences(|p| {
             library.music_folder = p.library.music_folder.take();
             library.folders = std::mem::take(&mut p.library.folders);
@@ -55,6 +57,9 @@ pub async fn set_library_preferences(app: AppHandle, mut library: LibraryPrefere
         }
         if write_tags {
             app.state::<TagWriter>().wake();
+        }
+        if fast != fast_before {
+            app.state::<StemsService>().rechosen();
         }
         Ok(())
     })

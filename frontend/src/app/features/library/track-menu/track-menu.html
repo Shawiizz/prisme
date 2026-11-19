@@ -19,11 +19,7 @@
       @if (!PHONE) {
         <hr />
         @if (stems.reach() === 'none') {
-          <button
-            role="menuitem"
-            (click)="installModel()"
-            [title]="'The separation models are downloaded once, in the settings' | t"
-          >
+          <button role="menuitem" (click)="offerModels()">
             {{ 'Separate the stems…' | t }}
           </button>
         } @else {

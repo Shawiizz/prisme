@@ -15,7 +15,8 @@
 //! on a deck gets its stems as soon as they exist.
 
 use crate::dto::{
-    DeckTrackUpdateDto, ModelStatusDto, SeparatedDto, SeparationDto, StemsProgressDto, StemsStatusDto,
+    DeckTrackUpdateDto, ModelStatusDto, SeparatedDto, SeparationDto, StemMixDto, StemsProgressDto,
+    StemsStatusDto,
 };
 use crate::error::{AppError, AppResult};
 use crate::state::{lock, AppState};
@@ -100,19 +101,11 @@ const MODELS: [Model; 3] = [
     },
 ];
 
-/// Of the installed models, those the separation uses, no stem separated twice: first those
-/// the DJ prefers (`fast`: the small ones), of those the ones separating the most stems.
+/// Of the installed models, those the separation uses: the ones the DJ chose (`fast`: the
+/// small one), never the others in their place, which take another time and memory than the
+/// DJ chose (the large ones sixteen times the small one's memory).
 fn in_use(installed: &[usize], fast: bool) -> Vec<usize> {
-    let mut ranked = installed.to_vec();
-    ranked.sort_by_key(|&m| (MODELS[m].fast != fast, std::cmp::Reverse(MODELS[m].stems.len())));
-    let mut chosen: Vec<usize> = Vec::new();
-    for m in ranked {
-        if chosen.iter().all(|&c| MODELS[c].stems.iter().all(|s| !MODELS[m].stems.contains(s))) {
-            chosen.push(m);
-        }
-    }
-    chosen.sort_unstable();
-    chosen
+    installed.iter().copied().filter(|&m| MODELS[m].fast == fast).collect()
 }
 
 pub struct StemsService {
@@ -122,6 +115,9 @@ pub struct StemsService {
     /// Wakes the worker waiting for a track.
     wake: Arc<Condvar>,
     downloads: Arc<Mutex<[Download; MODELS.len()]>>,
+    /// Stops the chunk the processor works on, for the worker to look again at what it does:
+    /// a chunk takes it seconds, a large model's half a minute and more.
+    interrupt: Arc<AtomicBool>,
 }
 
 #[derive(Default)]
@@ -234,7 +230,14 @@ pub fn separates_on_load(state: &AppState) -> bool {
 impl StemsService {
     /// The service with its models in `folder`.
     pub fn new(app: AppHandle, folder: PathBuf) -> Self {
-        Self { app, folder, queue: Arc::default(), wake: Arc::default(), downloads: Arc::default() }
+        Self {
+            app,
+            folder,
+            queue: Arc::default(),
+            wake: Arc::default(),
+            downloads: Arc::default(),
+            interrupt: Arc::default(),
+        }
     }
 
     pub fn status(&self) -> StemsStatusDto {
@@ -320,6 +323,7 @@ impl StemsService {
             let worker = Worker {
                 id,
                 app: self.app.clone(),
+                interrupt: self.interrupt.clone(),
                 models: (0..MODELS.len()).map(|m| self.model_path(m)).collect(),
                 queue: self.queue.clone(),
                 wake: self.wake.clone(),
@@ -338,11 +342,18 @@ impl StemsService {
     /// Empties the queue and stops the track being separated.
     pub fn cancel(&self) {
         lock(&self.queue).cancel();
+        self.interrupt.store(true, Ordering::Relaxed);
     }
 
     /// The stems of `path` as they come, if it is being separated.
     fn live(&self, path: &Path) -> Option<StemTracks> {
         lock(&self.queue).live.as_ref().filter(|(p, _)| p == path).map(|(_, stems)| stems.clone())
+    }
+
+    /// The DJ chose the other models, or one was installed: the track being separated starts
+    /// again with those in use now, and every later one is separated with them.
+    pub fn rechosen(&self) {
+        self.interrupt.store(true, Ordering::Relaxed);
     }
 
     /// Downloads the model `id` in the background (`stems-model` events); nothing if it is
@@ -364,9 +375,15 @@ impl StemsService {
             let result = fetch_model(&app, model, &target, &downloads).await;
             let mut state = lock(&downloads);
             state[model].running = false;
-            if let Err(e) = result {
-                error!("download of the {} model failed: {e}", MODELS[model].id);
-                state[model].error = Some(e);
+            match result {
+                Ok(()) if MODELS[model].fast == prefers_fast(&app.state::<AppState>()) => {
+                    app.state::<StemsService>().rechosen()
+                }
+                Ok(()) => {}
+                Err(e) => {
+                    error!("download of the {} model failed: {e}", MODELS[model].id);
+                    state[model].error = Some(e);
+                }
             }
             drop(state);
             let _ = app.emit(STEMS_MODEL_EVENT, app.state::<StemsService>().model_status(model));
@@ -475,6 +492,7 @@ fn sha256_of(path: &Path) -> std::io::Result<(u64, String)> {
 struct Worker {
     id: u64,
     app: AppHandle,
+    interrupt: Arc<AtomicBool>,
     /// Where each of [`MODELS`] is (installed or not).
     models: Vec<PathBuf>,
     queue: Arc<Mutex<Queue>>,
@@ -502,6 +520,8 @@ enum Ended {
     GaveWay,
     /// Off the decks, and nobody asked for it otherwise.
     Dropped,
+    /// Other models in use since it began: back in the queue, to start again with them.
+    Rechosen,
 }
 
 impl Worker {
@@ -527,8 +547,13 @@ impl Worker {
                 separators.iter_mut().for_each(|s| *s = None);
                 gpu = if allowed() { open_gpu() } else { None };
             }
-            let installed: Vec<usize> = (0..MODELS.len()).filter(|&m| self.models[m].is_file()).collect();
-            let installed = in_use(&installed, prefers_fast(&self.app.state::<AppState>()));
+            let installed = self.in_use();
+            // the models no longer in use give their memory back, a graphics card's above all
+            for (m, separator) in separators.iter_mut().enumerate() {
+                if !installed.contains(&m) {
+                    *separator = None;
+                }
+            }
             let needed = missing(&installed, &job.path);
             if needed.is_empty() {
                 continue;
@@ -551,7 +576,7 @@ impl Worker {
                 .filter(|(m, _)| needed.contains(m))
                 .filter_map(|(_, s)| s.as_mut())
                 .collect();
-            let result = self.separate(&mut chosen, &job);
+            let result = self.separate(&mut chosen, &job, &installed);
             lock(&self.queue).live = None;
             match result {
                 Ok(Ended::Through) => {
@@ -566,6 +591,11 @@ impl Worker {
                     lock(&self.queue).put_back(job, false);
                 }
                 Ok(Ended::Dropped) => info!("{} left the decks before its separation", job.path.display()),
+                Ok(Ended::Rechosen) => {
+                    info!("separation of {} starts again with the models chosen", job.path.display());
+                    let played = job.played;
+                    lock(&self.queue).put_back(job, played);
+                }
                 Err(StemsError::Cancelled) => info!("separation of {} cancelled", job.path.display()),
                 Err(StemsError::Gpu(e)) => {
                     // out of memory, a driver reset: the GPU starts afresh, the CPU after
@@ -615,8 +645,21 @@ impl Worker {
         Some(job)
     }
 
-    /// Separates the job's track, its stems reaching the decks it is loaded on as they come.
-    fn separate(&self, separators: &mut [&mut BoxedSeparator], job: &Job) -> Result<Ended, StemsError> {
+    /// The installed models the separation uses now (see [`in_use`]).
+    fn in_use(&self) -> Vec<usize> {
+        let installed: Vec<usize> = (0..MODELS.len()).filter(|&m| self.models[m].is_file()).collect();
+        in_use(&installed, prefers_fast(&self.app.state::<AppState>()))
+    }
+
+    /// Separates the job's track with `models`, its stems reaching the decks it is loaded on
+    /// as they come; other models chosen meanwhile take it over, unless a deck plays it with
+    /// a part set apart ([`Self::heard_apart`]): it goes on with these until it no longer does.
+    fn separate(
+        &self,
+        separators: &mut [&mut BoxedSeparator],
+        job: &Job,
+        models: &[usize],
+    ) -> Result<Ended, StemsError> {
         let deck = self.on_decks(&job.path);
         let mut separation = TrackSeparation::open(
             separators,
@@ -624,10 +667,14 @@ impl Worker {
             deck.as_ref().map(|(audio, _)| &**audio),
             deck.as_ref().map(|&(_, frame)| frame),
         )?;
+        self.interrupt.store(false, Ordering::Relaxed);
         let mut live: Option<Live> = None;
         while !separation.is_done() {
             if lock(&self.queue).cancelled(job) {
                 return Err(StemsError::Cancelled);
+            }
+            if self.in_use() != models && !self.heard_apart(&job.path) {
+                return Ok(Ended::Rechosen);
             }
             let at = self.on_decks(&job.path).map(|(_, frame)| frame);
             let on_decks = at.is_some();
@@ -643,7 +690,14 @@ impl Worker {
                 live = Some(Live::start(&self.app, &separation, &self.queue)?);
             }
             // where the deck plays when the next chunk is chosen: it may jump meanwhile
-            separation.step(separators, || self.on_decks(&job.path).map(|(_, frame)| frame))?;
+            match separation.step(separators, || self.on_decks(&job.path).map(|(_, frame)| frame)) {
+                // interrupted: what for is looked at above, and the chunk taken again
+                Err(StemsError::Cancelled) => {
+                    self.interrupt.store(false, Ordering::Relaxed);
+                    continue;
+                }
+                stepped => stepped?,
+            }
             if let Some(live) = &mut live {
                 live.publish(&separation)?;
             }
@@ -651,6 +705,23 @@ impl Worker {
             self.update(|p| p.fraction = separation.done() as f64 / separation.chunks() as f64);
         }
         Ok(Ended::Through)
+    }
+
+    /// Whether a deck plays `path` with a part of it set apart (turned down, muted, or under
+    /// an effect of its own): its stems are heard, and a separation started again would take
+    /// them from under it until the new one reached where it plays.
+    fn heard_apart(&self, path: &Path) -> bool {
+        let state = self.app.state::<AppState>();
+        let mixed: Vec<(usize, bool)> = lock(&state.tracks)
+            .iter()
+            .enumerate()
+            .filter_map(|(deck, t)| {
+                t.as_ref().filter(|t| t.path == path).map(|t| (deck, t.stem_mix != StemMixDto::default()))
+            })
+            .collect();
+        mixed.into_iter().any(|(deck, mixed)| {
+            (mixed || lock(&state.decks)[deck].fx.part.is_some()) && state.deck_plays(deck)
+        })
     }
 
     /// The tracks on the decks that play.
@@ -728,7 +799,11 @@ impl Worker {
                 let (device, fast) = (network.adapter().to_owned(), network.uses_matrix_units());
                 (Box::new(network), device, fast)
             }
-            None => (Box::new(CpuNetwork::with_pool(weights, background_pool()?)), "CPU".to_owned(), false),
+            None => {
+                let network =
+                    CpuNetwork::with_pool(weights, background_pool()?).interrupted_by(self.interrupt.clone());
+                (Box::new(network), "CPU".to_owned(), false)
+            }
         })
     }
 
@@ -959,18 +1034,29 @@ mod tests {
     const FOUR_FAST: usize = 2;
 
     #[test]
-    fn the_stems_come_from_the_models_preferred_when_all_are_there() {
+    fn the_stems_come_from_the_models_chosen() {
         assert_eq!(in_use(&[VOCALS, DRUMS_BASS, FOUR_FAST], false), [VOCALS, DRUMS_BASS]);
         assert_eq!(in_use(&[VOCALS, DRUMS_BASS, FOUR_FAST], true), [FOUR_FAST]);
+        assert_eq!(in_use(&[VOCALS, FOUR_FAST], false), [VOCALS]);
     }
 
+    /// The large models never stand in for the small one, which a computer without a graphics
+    /// card worth it was chosen for, nor the other way round.
     #[test]
-    fn else_from_those_there_no_stem_twice() {
-        assert_eq!(in_use(&[VOCALS], true), [VOCALS]);
-        assert_eq!(in_use(&[FOUR_FAST], false), [FOUR_FAST]);
-        assert_eq!(in_use(&[VOCALS, FOUR_FAST], false), [VOCALS]);
-        assert_eq!(in_use(&[DRUMS_BASS, FOUR_FAST], false), [DRUMS_BASS]);
-        assert_eq!(in_use(&[VOCALS, DRUMS_BASS], true), [VOCALS, DRUMS_BASS]);
+    fn never_the_others_in_their_place() {
+        assert!(in_use(&[VOCALS, DRUMS_BASS], true).is_empty());
+        assert!(in_use(&[FOUR_FAST], false).is_empty());
+    }
+
+    /// What the worker compares, chunk after chunk, to the models a separation began with:
+    /// the other choice made meanwhile, or a model of the choice installed, starts it again.
+    #[test]
+    fn another_choice_or_a_model_installed_meanwhile_changes_the_models_in_use() {
+        let began = in_use(&[VOCALS, DRUMS_BASS, FOUR_FAST], false);
+        assert_ne!(in_use(&[VOCALS, DRUMS_BASS, FOUR_FAST], true), began);
+        let began = in_use(&[VOCALS], false);
+        assert_ne!(in_use(&[VOCALS, DRUMS_BASS], false), began);
+        assert_eq!(in_use(&[VOCALS, FOUR_FAST], false), began, "another choice's model changes nothing");
     }
 
     #[test]

@@ -29,6 +29,7 @@ import { NavigationService } from './core/services/navigation.service';
 import { RecordingService } from './core/services/recording.service';
 import { FileDropService } from './core/services/file-drop.service';
 import { NoticeView } from './shared/notice/notice';
+import { ModelsDialog } from './features/stems/models-dialog';
 
 /** The height whole lanes for two decks take on a screen below (CSS px). */
 const WHOLE_LANES_PX = 420;
@@ -53,6 +54,7 @@ const WHOLE_LANES_PX = 420;
     Phone,
     NowPlaying,
     NoticeView,
+    ModelsDialog,
   ],
   templateUrl: './app.html',
   styleUrl: './app.scss',
