@@ -268,6 +268,8 @@ pub struct AppState {
     load_turns: LoadTurns,
     pub decks: Mutex<[DeckSettings; MAX_DECKS]>,
     pub crossfader: Mutex<f32>,
+    /// The deck chosen to lead the others; `None`: the engine picks it.
+    pub sync_leader: Mutex<Option<usize>>,
     /// The microphone's and the aux line's, in the order of [`LiveSourceDto::ALL`].
     pub live: Mutex<[LiveSwitches; 2]>,
     pub recorder: Mutex<Option<Recorder>>,
@@ -326,6 +328,7 @@ impl AppState {
             load_turns: LoadTurns::default(),
             decks: Mutex::new(saved.map(DeckSettings::from)),
             crossfader: Mutex::new(0.0),
+            sync_leader: Mutex::default(),
             live: Mutex::default(),
             recorder: Mutex::new(None),
             audio_start: Mutex::new(()),
@@ -671,6 +674,7 @@ impl AppState {
         let preferences = self.preferences.get();
         commands.extend([
             Command::SetCrossfader { position: *lock(&self.crossfader) },
+            Command::SetSyncLeader { deck: *lock(&self.sync_leader) },
             Command::SetQuantize { enabled: preferences.dj.quantize },
             Command::SetRouting { routing: self.routing(info) },
             Command::SetCueMix { mix: preferences.mixer.cue_mix },
@@ -1059,6 +1063,15 @@ mod tests {
         assert!(after.looping.active && after.playing && after.slip_mode && after.reverse, "{after:?}");
         assert!(after.sync.locked);
         assert!((after.position_s - place.position_s).abs() < 0.1, "{after:?}");
+    }
+
+    #[test]
+    fn a_restart_keeps_the_leader_chosen() {
+        let state = AppState::new(JsonFile::in_memory(Default::default()));
+        *lock(&state.sync_leader) = Some(1);
+        let config = EngineConfig::new(48_000, 2, &prisme_timecode::SERATO_CV02_A);
+        let commands = state.restore_commands(&info(2, 4), &config, &[None; MAX_DECKS]);
+        assert!(commands.iter().any(|c| matches!(c, Command::SetSyncLeader { deck: Some(1) })));
     }
 
     #[test]

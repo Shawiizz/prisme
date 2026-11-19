@@ -269,5 +269,6 @@ pub fn set_sync_leader(state: State<'_, AppState>, deck: Option<usize>) -> AppRe
     if let Some(d) = deck {
         state.has_deck(d)?;
     }
+    *lock(&state.sync_leader) = deck;
     state.send(Command::SetSyncLeader { deck })
 }
