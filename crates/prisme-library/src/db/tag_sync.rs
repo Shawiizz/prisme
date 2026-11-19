@@ -38,7 +38,7 @@ impl LibraryDb {
     /// changes if the record no longer describes `before` (the file changed meanwhile and
     /// will be analysed again).
     pub fn tags_written(&self, path: &Path, before: FileStamp, after: FileStamp) -> Result<(), DbError> {
-        self.restamp(path, before, after, "tags_written", &1)
+        self.restamp(path, before, after, "tags_written", &1).map(drop)
     }
 
     /// Prisme wrote `values` into the file of `path`; one not given stays as recorded.
@@ -73,7 +73,7 @@ impl LibraryDb {
     /// The file of `path` went from `before` to `after` as its tempo and key were written,
     /// but they were corrected meanwhile: it is to be written again, not analysed again.
     pub fn tags_outdated(&self, path: &Path, before: FileStamp, after: FileStamp) -> Result<(), DbError> {
-        self.restamp(path, before, after, "tags_written", &0)
+        self.restamp(path, before, after, "tags_written", &0).map(drop)
     }
 
     /// The file of `path` now holds `genre` (`None`: none), written from `before` to
@@ -85,11 +85,15 @@ impl LibraryDb {
         before: FileStamp,
         after: FileStamp,
     ) -> Result<(), DbError> {
-        self.restamp(path, before, after, "genre", &genre)
+        if self.restamp(path, before, after, "genre", &genre)? {
+            // the genre is searched by too
+            self.reindex(path)?;
+        }
+        Ok(())
     }
 
     /// Moves the record of `path` (and its waveform) from `before` to `after`, setting
-    /// `column` to `value`.
+    /// `column` to `value`; whether the record was there to move.
     fn restamp(
         &self,
         path: &Path,
@@ -97,7 +101,7 @@ impl LibraryDb {
         after: FileStamp,
         column: &str,
         value: &dyn ToSql,
-    ) -> Result<(), DbError> {
+    ) -> Result<bool, DbError> {
         let conn = self.conn();
         let tx = conn.unchecked_transaction()?;
         let stamps = params![
@@ -107,17 +111,18 @@ impl LibraryDb {
             after.size as i64,
             after.modified_ms
         ];
-        tx.prepare_cached(&format!(
-            "UPDATE tracks SET {column} = ?6, size = ?4, modified_ms = ?5
-             WHERE path = ?1 AND size = ?2 AND modified_ms = ?3"
-        ))?
-        .execute([stamps, &[value]].concat().as_slice())?;
+        let moved = tx
+            .prepare_cached(&format!(
+                "UPDATE tracks SET {column} = ?6, size = ?4, modified_ms = ?5
+                 WHERE path = ?1 AND size = ?2 AND modified_ms = ?3"
+            ))?
+            .execute([stamps, &[value]].concat().as_slice())?;
         tx.prepare_cached(
             "UPDATE waveforms SET size = ?4, modified_ms = ?5 WHERE path = ?1 AND size = ?2 AND modified_ms = ?3",
         )?
         .execute(stamps)?;
         tx.commit()?;
-        Ok(())
+        Ok(moved > 0)
     }
 }
 
