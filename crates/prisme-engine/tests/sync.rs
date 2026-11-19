@@ -3,7 +3,7 @@
 mod common;
 
 use common::{silent_track, Rig};
-use prisme_engine::{BeatGrid, Command, VinylMode};
+use prisme_engine::{BeatGrid, Command, LoopRegion, VinylMode};
 
 const LEADER_BPM: f64 = 128.0;
 
@@ -116,6 +116,75 @@ fn a_follower_plays_on_through_the_leader_s_short_loops() {
         let now = rig.deck(1).position_s;
         assert_close(now - position, speed * elapsed, 1e-4);
         position = now;
+    }
+}
+
+/// The follower deck 1 locked to deck 0, the leader.
+fn locked_follower() -> Rig {
+    let mut rig = leader_with_follower(125.0);
+    play_internal(&mut rig, 1, 10.07);
+    rig.send(Command::SetSyncLocked { deck: 1, locked: true });
+    rig.run(1.0);
+    rig
+}
+
+#[test]
+fn a_follower_goes_round_its_own_loops_shorter_than_a_beat_at_the_leader_tempo() {
+    // a quarter of a beat, and a length beats do not divide
+    for beats in [0.25, 0.3] {
+        let mut rig = locked_follower();
+        let start = rig.deck(1).position_s;
+        let region = LoopRegion { start_s: start, end_s: start + beats * 60.0 / 125.0 };
+        rig.send(Command::SetLoop { deck: 1, region: Some(region), active: true });
+        let mut elapsed = 0.0;
+        for _ in 0..40 {
+            elapsed += rig.run(0.05);
+            let expected = region.wrap(start + elapsed * LEADER_BPM / 125.0);
+            assert_close(rig.deck(1).position_s, expected, 1e-3);
+        }
+    }
+
+    let mut rig = locked_follower();
+    rig.send(Command::LoopRoll { deck: 1, beats: Some(0.25) });
+    rig.run(0.05);
+    let region = rig.deck(1).looping.region.unwrap();
+    for _ in 0..40 {
+        rig.run(0.05);
+        let position = rig.deck(1).position_s;
+        assert!(region.contains(position), "{position} out of {region:?}");
+    }
+    rig.send(Command::LoopRoll { deck: 1, beats: None });
+    rig.run(0.05);
+    assert!(phase_gap(&mut rig).abs() < 0.01, "{}", phase_gap(&mut rig));
+}
+
+#[test]
+fn a_follower_jumped_out_of_its_loop_keeps_to_the_leader_s_beats_again() {
+    let mut rig = locked_follower();
+    rig.send(Command::BeatLoop { deck: 1, beats: 1.0 });
+    rig.run(1.0);
+    // a cue a third of a beat off, out of the loop, which stays on
+    rig.send(Command::SetQuantize { enabled: false });
+    let cue = rig.deck(1).position_s + (20.0 + 1.0 / 3.0) * 60.0 / 125.0;
+    rig.send(Command::Jump { deck: 1, seconds: cue });
+    rig.run(0.5);
+    assert!(rig.deck(1).looping.active);
+    assert!(phase_gap(&mut rig).abs() < 0.01, "{}", phase_gap(&mut rig));
+}
+
+#[test]
+fn sync_engaged_in_a_loop_shorter_than_a_beat_stays_in_it() {
+    let mut rig = leader_with_follower(125.0);
+    play_internal(&mut rig, 1, 10.07);
+    rig.run(0.1);
+    let start = rig.deck(1).position_s;
+    let region = LoopRegion { start_s: start, end_s: start + 0.25 * 60.0 / 125.0 };
+    rig.send(Command::SetLoop { deck: 1, region: Some(region), active: true });
+    rig.send(Command::SetSyncLocked { deck: 1, locked: true });
+    for _ in 0..20 {
+        rig.run(0.05);
+        let position = rig.deck(1).position_s;
+        assert!(region.contains(position), "{position} out of {region:?}");
     }
 }
 

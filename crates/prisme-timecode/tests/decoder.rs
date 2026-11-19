@@ -198,6 +198,39 @@ fn reacts_quickly() {
 }
 
 #[test]
+fn a_record_stopped_dead_then_dragged_slowly_is_followed() {
+    // stopped as abruptly as a needle bounces, held still, then dragged to find a sound
+    for held_s in [0.005, 0.05, 0.5] {
+        let format = &SERATO_CV02_A;
+        let mut generator = SignalGenerator::new(format, SR, 5_000.0, 60_000.0);
+        let mut decoder =
+            TimecodeDecoder::new(DecoderConfig { format, sample_rate: SR, swap_channels: false });
+        let mut buf = Vec::with_capacity(BLOCK * 2);
+        let dragged_at = 2.0 + held_s;
+        let speed = |t: f64| match t {
+            _ if t < 2.0 => 1.0,
+            _ if t < dragged_at => 0.0,
+            _ => 0.2,
+        };
+        let mut done = 0;
+        let mut followed_ms = None;
+        while done < SR as usize * 3 && followed_ms.is_none() {
+            let t0 = done as f64 / SR as f64;
+            buf.clear();
+            generator.render(BLOCK, |i| speed(t0 + i as f64 / SR as f64), &mut buf);
+            decoder.process(&buf);
+            done += BLOCK;
+            let t = done as f64 / SR as f64;
+            if t > dragged_at && (decoder.speed() - 0.2).abs() < 0.05 {
+                followed_ms = Some((t - dragged_at) * 1000.0);
+            }
+        }
+        let ms = followed_ms.unwrap_or_else(|| panic!("held {held_s} s: never followed"));
+        assert!(ms < 100.0, "held {held_s} s: followed after {ms:.0} ms");
+    }
+}
+
+#[test]
 fn needle_drop_relocks() {
     let r = run(Scenario {
         measure: Measure::NeedleDrop,

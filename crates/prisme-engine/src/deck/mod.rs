@@ -159,7 +159,9 @@ impl Deck {
         let settled = |s: &Smoothed, value: f32| s.is_settled() && s.target() == value;
         if settled(&self.through, 1.0) {
             out.copy_from_slice(input);
+            // the track stands meanwhile, as its averaged speed tells once a record lets go
             self.speed = 0.0;
+            self.sync.observe(0.0, None, (out.len() / 2) as f64 / out_rate);
             return false;
         }
         self.process(input, out, out_rate, target);
@@ -208,13 +210,17 @@ impl Deck {
     fn process(&mut self, input: &[f32], out: &mut [f32], out_rate: f64, target: Option<SyncTarget>) {
         // decoded even with vinyl control off, for the signal indicator
         let drive = self.vinyl.process(input);
+        // a record in absolute mode decides where the track is, up to its end: no loop or repeat
+        // takes it round
+        let placed = self.drive_mode() == DriveMode::Absolute && !self.vinyl.plays_on();
+        self.playhead.set_wrapping(!placed);
         let target = target.map(|t| self.engage(t));
         let seconds = (out.len() / 2) as f64 / out_rate;
         let by_hand = self.drive_mode() != DriveMode::Absolute;
-        let playhead_s = self.playhead.position_s();
+        let (playhead_s, round) = (self.playhead.position_s(), self.playhead.round_s());
         // both hands keep their clocks going, the screen's leading
         let [screen, jog] = [&mut self.hand, &mut self.jog_hand]
-            .map(|hand| hand.as_mut().filter(|_| by_hand).map(|h| h.step(playhead_s, seconds)));
+            .map(|hand| hand.as_mut().filter(|_| by_hand).map(|h| h.step(playhead_s, round, seconds)));
         // a hand moves the track as it goes; the censor and the reverse turn the rest round
         let turned = screen.is_none() && jog.is_none() && self.backwards();
         let (speed, by_motor) = match screen.or(jog) {
@@ -350,8 +356,12 @@ impl Deck {
     }
 
     /// Internal play stops at the end of the track, or at its start in reverse, and so does a
-    /// deck playing on past the end of its record (a record, on the other hand, turns on).
+    /// deck playing on past the end of its record (a record, on the other hand, turns on); a
+    /// loop going on past it takes the track back instead.
     fn stop_at_the_end(&mut self) {
+        if self.playhead.goes_round() {
+            return;
+        }
         let internal = self.drive_mode() == DriveMode::Internal;
         if internal && self.playing && self.transport.reversing() && self.playhead.position_s() <= 0.0 {
             self.set_playing(false);
@@ -448,6 +458,15 @@ impl Deck {
         self.transport.loop_active
     }
 
+    /// The record drives the deck in `mode`: from a change on, it is followed afresh.
+    pub(crate) fn set_vinyl_mode(&mut self, mode: VinylMode) {
+        if self.vinyl.mode != mode {
+            self.vinyl.mode = mode;
+            self.vinyl.take_back();
+            self.sync.reset();
+        }
+    }
+
     /// The record is meant to turn at `rpm`: its tempo is learnt again.
     pub(crate) fn set_rpm(&mut self, rpm: Rpm) {
         if self.vinyl.rpm != rpm {
@@ -481,11 +500,11 @@ impl Deck {
         let resnap = self.drive_mode() == DriveMode::Internal
             && self.sync.locked
             && self.playing
-            && !self.backwards()
+            && self.chases_beats()
             && sync::needs_resnap(target.phase_error);
         if let (Some(grid), true) = (self.grid, self.sync.snap_pending || resnap) {
             let position = self.playhead.position_s() + sync::snap_offset_s(&grid, target.phase_error);
-            self.playhead.seek_s(position);
+            self.playhead.seek_round_s(position);
             target.phase_error = 0.0;
             if self.sync.locked {
                 // start from the platter as it turns now rather than from a stale average
@@ -519,8 +538,8 @@ impl Deck {
             _ if !self.sync.locked => self.pitch,
             Some(t) => {
                 self.sync.held_rate = Some(t.rate);
-                // backwards, the beats run against the leader's: its tempo alone
-                let correction = if self.backwards() { 0.0 } else { sync::phase_correction(t.phase_error) };
+                let correction =
+                    if self.chases_beats() { sync::phase_correction(t.phase_error) } else { 0.0 };
                 t.rate * (1.0 + correction)
             }
             None => self.sync.held_rate.unwrap_or(self.pitch),
@@ -602,6 +621,15 @@ impl Deck {
     /// it where it is).
     fn backwards(&self) -> bool {
         (self.transport.censoring || self.transport.reversing()) && self.drive_mode() != DriveMode::Absolute
+    }
+
+    /// Whether a follower keeps to the leader's beats, not its tempo alone: not backwards,
+    /// its beats running against the leader's, nor in a loop, its beats jumping back at each
+    /// turn.
+    fn chases_beats(&self) -> bool {
+        let t = &self.transport;
+        let looping = t.loop_active && t.loop_region.is_some_and(|r| r.contains(self.playhead.position_s()));
+        !self.backwards() && !looping
     }
 
     /// Whether the track advances at its tempo (gestures aside).

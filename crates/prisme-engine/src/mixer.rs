@@ -76,6 +76,36 @@ const LIMITER_THRESHOLD: f32 = 0.98;
 /// How fast the balance, the booth level and a mute follow their keys (s).
 const GLIDE_S: f32 = 0.02;
 
+/// A level the DJ moves, reached over the block after it moved from where the last block
+/// left it: no step, so no click nor zipper noise, and a cut no longer than a block.
+#[derive(Clone, Copy)]
+struct Ramp {
+    from: f32,
+    to: f32,
+}
+
+impl Ramp {
+    fn new(gain: f32) -> Self {
+        Self { from: gain, to: gain }
+    }
+
+    /// The next block goes from where the last one ended to `gain`.
+    fn next(&mut self, gain: f32) {
+        self.from = self.to;
+        self.to = gain;
+    }
+
+    fn is_steady(&self) -> bool {
+        self.from == self.to
+    }
+
+    /// The gain of frame `i` of a block of `frames`.
+    #[inline]
+    fn at(&self, i: usize, frames: usize) -> f32 {
+        self.to + (self.from - self.to) * (frames - 1 - i) as f32 / frames as f32
+    }
+}
+
 pub(crate) struct Mixer {
     pub(crate) routing: OutputRouting,
     /// -1.0 = full left, 1.0 = full right.
@@ -90,19 +120,27 @@ pub(crate) struct Mixer {
     cue_delay: DelayLine,
     music_delay: DelayLine,
     pub(crate) master_gain: f32,
+    /// The master gain over the block.
+    master: Ramp,
     /// -1 = the master on the left only, 1 = on the right only.
     balance: Smoothed,
     booth_gain: Smoothed,
     /// Headphones: 0 = cued decks only, 1 = master only.
     pub(crate) cue_mix: f32,
+    /// The blend over the block.
+    cue: Ramp,
     /// Headphones: the cue on the left and the master on the right, each in mono.
     pub(crate) split_cue: bool,
     pub(crate) headphone_gain: f32,
+    /// The headphone gain over the block.
+    headphones: Ramp,
     pub(crate) mic: LiveInput,
     pub(crate) aux: LiveInput,
     pub(crate) talkover: Talkover,
     /// Each deck heard (1) or muted (0) in the master, or on its own output.
     unmuted: [Smoothed; MAX_DECKS],
+    /// Each deck's channel fader times its side of the crossfader, over the block.
+    faders: [Ramp; MAX_DECKS],
     master_bus: Vec<f32>,
     /// The master without the microphone, for the headphones: the DJ does not hear their own
     /// voice there, late, unless they cue it.
@@ -131,15 +169,19 @@ impl Mixer {
             music_delay: DelayLine::new(limiter.latency()),
             limiter,
             master_gain: 1.0,
+            master: Ramp::new(1.0),
             balance: Smoothed::new(0.0, GLIDE_S, sample_rate),
             booth_gain: Smoothed::new(1.0, GLIDE_S, sample_rate),
             cue_mix: 0.0,
+            cue: Ramp::new(0.0),
             split_cue: false,
             headphone_gain: 1.0,
+            headphones: Ramp::new(1.0),
             mic: LiveInput::new(max_block_frames, sample_rate),
             aux: LiveInput::new(max_block_frames, sample_rate),
             talkover: Talkover::new(sample_rate),
             unmuted: std::array::from_fn(|_| Smoothed::new(1.0, GLIDE_S, sample_rate)),
+            faders: [Ramp::new(1.0); MAX_DECKS],
             master_bus: vec![0.0; max_block_frames * 2],
             music_bus: vec![0.0; max_block_frames * 2],
             cue_bus: vec![0.0; max_block_frames * 2],
@@ -186,34 +228,40 @@ impl Mixer {
     pub(crate) fn begin(&mut self, frames: usize) {
         self.master_bus[..frames * 2].fill(0.0);
         self.cue_bus[..frames * 2].fill(0.0);
+        self.master.next(self.master_gain);
+        self.cue.next(self.cue_mix.clamp(0.0, 1.0));
+        self.headphones.next(self.headphone_gain);
     }
 
     /// Adds deck `index` (stereo, interleaved) to the outputs or the buses; muted, to the
     /// headphones only.
     pub(crate) fn add_deck(&mut self, index: usize, deck: DeckMix<'_>, out: &mut [f32], out_channels: usize) {
-        let n = deck.audio.len();
+        let (n, frames) = (deck.audio.len(), deck.audio.len() / 2);
         let steady = Some(&self.unmuted[index]).filter(|u| u.is_settled()).map(Smoothed::target);
+        let fader = deck.volume * self.crossfader_gain(deck.side);
+        self.faders[index].next(fader);
         match self.routing.mode {
             MixMode::External => {
                 if let Some(first) = self.routing.deck_outputs[index] {
-                    let (gain, unmuted) = (self.master_gain, &mut self.unmuted[index]);
-                    match steady {
-                        Some(level) => add_pair(deck.audio, gain * level, out, out_channels, first),
-                        None => {
-                            add_pair_with(deck.audio, out, out_channels, first, || [gain * unmuted.tick(); 2])
-                        }
+                    let (gain, unmuted) = (self.master, &mut self.unmuted[index]);
+                    match steady.filter(|_| gain.is_steady()) {
+                        Some(level) => add_pair(deck.audio, gain.to * level, out, out_channels, first),
+                        None => add_pair_with(deck.audio, out, out_channels, first, |i| {
+                            [gain.at(i, frames) * unmuted.tick(); 2]
+                        }),
                     }
                 }
             }
             MixMode::Internal => {
-                let gain = deck.volume * self.crossfader_gain(deck.side);
+                let gain = self.faders[index];
                 let master = &mut self.master_bus[..n];
                 let unmuted = &mut self.unmuted[index];
-                match steady {
-                    Some(level) => accumulate(master, deck.audio, gain * level),
+                match steady.filter(|_| gain.is_steady()) {
+                    Some(level) => accumulate(master, deck.audio, gain.to * level),
                     None => {
-                        for (bus, frame) in master.chunks_exact_mut(2).zip(deck.audio.chunks_exact(2)) {
-                            let g = gain * unmuted.tick();
+                        let pairs = master.chunks_exact_mut(2).zip(deck.audio.chunks_exact(2));
+                        for (i, (bus, frame)) in pairs.enumerate() {
+                            let g = gain.at(i, frames) * unmuted.tick();
                             bus[0] += frame[0] * g;
                             bus[1] += frame[1] * g;
                         }
@@ -240,22 +288,25 @@ impl Mixer {
         self.talkover.duck(master, self.mic.is_on());
         self.music_bus[..n].copy_from_slice(master);
         self.mic.mix_into(master);
-        for s in master.iter_mut() {
-            *s *= self.master_gain;
+        let master_gain = self.master;
+        for (i, frame) in master.chunks_exact_mut(2).enumerate() {
+            let gain = master_gain.at(i, frames);
+            frame[0] *= gain;
+            frame[1] *= gain;
         }
         let gains = &mut self.limiter_gains[..frames];
         self.limiter.process_reporting(master, gains);
         let master = &self.master_bus[..n];
         if let Some(first) = self.routing.master {
             let balance = &mut self.balance;
-            add_pair_with(master, out, out_channels, first, || {
+            add_pair_with(master, out, out_channels, first, |_| {
                 let b = balance.tick();
                 [(1.0 - b).min(1.0), (1.0 + b).min(1.0)]
             });
         }
         if let Some(first) = self.routing.booth {
             let booth = &mut self.booth_gain;
-            add_pair_with(master, out, out_channels, first, || [booth.tick(); 2]);
+            add_pair_with(master, out, out_channels, first, |_| [booth.tick(); 2]);
         }
         if let Some(first) = self.routing.headphones {
             let cue = &mut self.cue_bus[..n];
@@ -270,16 +321,20 @@ impl Mixer {
                 frame[0] *= gain;
                 frame[1] *= gain;
             }
+            let (headphones, mix) = (self.headphones, self.cue);
             if self.split_cue {
-                for (c, m) in cue.chunks_exact_mut(2).zip(music.chunks_exact(2)) {
+                for (i, (c, m)) in cue.chunks_exact_mut(2).zip(music.chunks_exact(2)).enumerate() {
                     c[0] = (c[0] + c[1]) * 0.5;
-                    c[1] = (m[0] + m[1]) * 0.5 * self.master_gain;
+                    c[1] = (m[0] + m[1]) * 0.5 * master_gain.at(i, frames);
                 }
-                add_pair(cue, self.headphone_gain, out, out_channels, first);
+                add_pair_with(cue, out, out_channels, first, |i| [headphones.at(i, frames); 2]);
             } else {
-                let mix = self.cue_mix.clamp(0.0, 1.0);
-                add_pair(cue, (1.0 - mix) * self.headphone_gain, out, out_channels, first);
-                add_pair(music, mix * self.headphone_gain * self.master_gain, out, out_channels, first);
+                add_pair_with(cue, out, out_channels, first, |i| {
+                    [(1.0 - mix.at(i, frames)) * headphones.at(i, frames); 2]
+                });
+                add_pair_with(music, out, out_channels, first, |i| {
+                    [mix.at(i, frames) * headphones.at(i, frames) * master_gain.at(i, frames); 2]
+                });
             }
         }
     }
@@ -288,7 +343,8 @@ impl Mixer {
     /// mode; nowhere if they share an output with what the audience hears.
     pub(crate) fn add_preview(&self, audio: &[f32], decks: usize, out: &mut [f32], out_channels: usize) {
         if let Some(first) = self.routing.preview_output(decks) {
-            add_pair(audio, self.headphone_gain, out, out_channels, first);
+            let (headphones, frames) = (self.headphones, audio.len() / 2);
+            add_pair_with(audio, out, out_channels, first, |i| [headphones.at(i, frames); 2]);
         }
     }
 
@@ -325,23 +381,23 @@ fn accumulate(bus: &mut [f32], audio: &[f32], gain: f32) {
 /// device's channel count gets the mono sum on its one channel.
 fn add_pair(stereo: &[f32], gain: f32, out: &mut [f32], out_channels: usize, first: usize) {
     if gain != 0.0 {
-        add_pair_with(stereo, out, out_channels, first, || [gain; 2]);
+        add_pair_with(stereo, out, out_channels, first, |_| [gain; 2]);
     }
 }
 
-/// [`add_pair`] with the left and right gains of each frame in turn.
+/// [`add_pair`] with the left and right gains of each frame in turn, given its index.
 fn add_pair_with(
     stereo: &[f32],
     out: &mut [f32],
     out_channels: usize,
     first: usize,
-    mut gains: impl FnMut() -> [f32; 2],
+    mut gains: impl FnMut(usize) -> [f32; 2],
 ) {
     if first >= out_channels {
         return;
     }
-    for (frame, src) in out.chunks_exact_mut(out_channels).zip(stereo.chunks_exact(2)) {
-        let [l, r] = gains();
+    for (i, (frame, src)) in out.chunks_exact_mut(out_channels).zip(stereo.chunks_exact(2)).enumerate() {
+        let [l, r] = gains(i);
         if first + 1 < out_channels {
             frame[first] += src[0] * l;
             frame[first + 1] += src[1] * r;
@@ -457,6 +513,42 @@ mod tests {
         assert_eq!(play(&mut m, 1)[0], 0.0, "nor on its own output");
         m.set_mute(0, false);
         assert!((play(&mut m, 4_800)[0] - 0.5).abs() < 1e-6, "heard again");
+    }
+
+    #[test]
+    fn levels_glide_over_a_block_rather_than_click() {
+        type Change = fn(&mut Mixer, &mut f32);
+        let changes: [(Change, usize); 5] = [
+            (|_, volume| *volume = 0.0, 0),
+            (|m, _| m.crossfader = 1.0, 0),
+            (|m, _| m.master_gain = 0.0, 0),
+            (|m, _| m.headphone_gain = 0.0, 2),
+            (|m, _| m.cue_mix = 1.0, 2),
+        ];
+        let audio = [0.5f32; 128];
+        for (n, (change, channel)) in changes.into_iter().enumerate() {
+            let mut m = Mixer::new(64, 48_000.0);
+            m.set_limiter(false);
+            m.cue_mix = 0.5;
+            let play = |m: &mut Mixer, volume: f32| -> Vec<f32> {
+                let mut out = vec![0.0f32; 64 * 4];
+                m.begin(64);
+                let deck = DeckMix { audio: &audio, volume, side: CrossfaderSide::Left, cue: false };
+                m.add_deck(0, deck, &mut out, 4);
+                m.finish(64, &mut out, 4);
+                out.chunks_exact(4).map(|f| f[channel]).collect()
+            };
+            let mut volume = 1.0;
+            let before = *play(&mut m, volume).last().unwrap();
+            change(&mut m, &mut volume);
+            let glide = play(&mut m, volume);
+            let after = play(&mut m, volume)[0];
+            assert!((before - after).abs() > 0.1, "change {n}: {before} -> {after}");
+            let heard: Vec<f32> = std::iter::once(before).chain(glide.iter().copied()).collect();
+            let step = heard.windows(2).map(|w| (w[1] - w[0]).abs()).fold(0.0, f32::max);
+            assert!(step <= (before - after).abs() / 32.0, "change {n}: a step of {step}");
+            assert_eq!(glide[63], after, "change {n}");
+        }
     }
 
     #[test]

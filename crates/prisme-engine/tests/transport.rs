@@ -4,6 +4,8 @@ mod common;
 
 use common::{silent_track, Rig};
 use prisme_engine::{BeatGrid, Command, LoopRegion, VinylMode};
+use prisme_media::TrackAudio;
+use std::sync::Arc;
 
 /// 120 BPM: one beat every 0.5 s, from 0.
 fn playing_deck(position_s: f64) -> Rig {
@@ -47,6 +49,18 @@ fn without_quantize_the_loop_starts_where_the_track_is() {
 }
 
 #[test]
+fn a_loop_past_the_end_of_the_track_goes_on_round() {
+    let mut rig = playing_deck(58.9);
+    rig.send(Command::BeatLoop { deck: 0, beats: 4.0 });
+    for _ in 0..12 {
+        rig.run(0.25);
+        let d = rig.deck(0);
+        assert!(d.playing && (58.9..61.0).contains(&d.position_s), "{d:?}");
+    }
+    assert_eq!(rig.deck(0).looping.region, Some(LoopRegion { start_s: 59.0, end_s: 61.0 }));
+}
+
+#[test]
 fn leaving_a_loop_carries_on_after_its_end() {
     let mut rig = playing_deck(10.0);
     rig.send(Command::BeatLoop { deck: 0, beats: 2.0 });
@@ -79,6 +93,22 @@ fn halving_a_loop_keeps_its_start() {
 }
 
 #[test]
+fn halving_a_loop_behind_the_playhead_takes_it_back_in_phase() {
+    let mut rig = playing_deck(10.0);
+    rig.send(Command::BeatLoop { deck: 0, beats: 4.0 });
+    rig.run(1.5);
+    let before = rig.deck(0).position_s;
+    rig.send(Command::ScaleLoop { deck: 0, factor: 0.5 });
+    let elapsed = rig.run(0.01);
+    assert_close(rig.deck(0).position_s, before - 1.0 + elapsed, 1e-6);
+    for _ in 0..8 {
+        rig.run(0.25);
+        let position = rig.deck(0).position_s;
+        assert!((10.0..11.0).contains(&position), "{position}");
+    }
+}
+
+#[test]
 fn a_loop_roll_lands_where_the_track_would_have_been() {
     let mut rig = playing_deck(10.0);
     rig.send(Command::LoopRoll { deck: 0, beats: Some(0.5) });
@@ -90,6 +120,31 @@ fn a_loop_roll_lands_where_the_track_would_have_been() {
     let d = rig.deck(0);
     assert_close(d.position_s, 10.02 + elapsed, 0.01);
     assert!(!d.looping.active && d.slip_position_s.is_none());
+}
+
+#[test]
+fn a_roll_in_a_loop_lets_go_back_round_that_loop() {
+    let outer = LoopRegion { start_s: 10.0, end_s: 14.0 };
+    for slip in [false, true] {
+        let mut rig = playing_deck(10.0);
+        rig.send(Command::SetSlip { deck: 0, enabled: slip });
+        rig.send(Command::BeatLoop { deck: 0, beats: 8.0 });
+        let looped = rig.run(3.0);
+        rig.send(Command::LoopRoll { deck: 0, beats: Some(0.25) });
+        let rolled = rig.run(2.0);
+        rig.send(Command::LoopRoll { deck: 0, beats: None });
+        let after = rig.run(0.01);
+        let d = rig.deck(0);
+        let track_s = 10.01 + looped + rolled + after;
+        assert!(d.looping.active && d.looping.region == Some(outer), "slip {slip}: {d:?}");
+        assert_close(d.position_s, outer.wrap(track_s), 0.01);
+        assert_eq!(d.slip_position_s.is_some(), slip, "the loop's own slip goes on");
+
+        rig.send(Command::ExitLoop { deck: 0 });
+        rig.run(0.01);
+        let landing = if slip { track_s + 0.01 } else { outer.wrap(track_s) + 0.01 };
+        assert_close(rig.deck(0).position_s, landing, 0.01);
+    }
 }
 
 #[test]
@@ -154,6 +209,36 @@ fn a_record_in_absolute_mode_keeps_control_of_the_position() {
     let d = rig.deck(0);
     assert!(!d.looping.active);
     assert_close(d.position_s, 13.0, 0.05);
+}
+
+#[test]
+fn a_record_in_absolute_mode_is_taken_round_by_no_loop_nor_repeat() {
+    // heard up to 10.5 s, silent after, to its end at 11 s
+    let track = |s: f64| {
+        (0..(11.0 * 44_100.0) as usize).map(move |i| if i < (s * 44_100.0) as usize { 0.5 } else { 0.0 })
+    };
+    let track = Arc::new(TrackAudio::from_interleaved(44_100, track(10.5).flat_map(|v| [v, v]).collect()));
+    let loop_region = LoopRegion { start_s: 10.0, end_s: 10.5 };
+    for (looping, repeat) in [(true, false), (false, true)] {
+        let mut rig = Rig::new();
+        rig.turntable(0, 10.0, 1.0);
+        rig.send(Command::LoadTrack { deck: 0, track: track.clone() });
+        rig.send(Command::SetLoop { deck: 0, region: Some(loop_region), active: looping });
+        rig.send(Command::SetRepeat { deck: 0, enabled: repeat });
+        rig.send(Command::SetVinylMode { deck: 0, mode: VinylMode::Absolute });
+        rig.send(Command::SetLeadIn { deck: 0, seconds: Some(0.0) });
+        rig.send(Command::SetVinylEnabled { deck: 0, enabled: true });
+        rig.run(0.2);
+        let mut silent = false;
+        for _ in 0..200 {
+            rig.run(0.005);
+            for &sample in rig.output().iter().step_by(2) {
+                silent |= sample.abs() < 0.05;
+                assert!(!silent || sample.abs() < 0.25, "heard again past 10.5 s, looping {looping}");
+            }
+        }
+        assert!(silent && rig.deck(0).position_s > 11.0, "{:?}", rig.deck(0));
+    }
 }
 
 #[test]

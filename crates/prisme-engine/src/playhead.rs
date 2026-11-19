@@ -15,12 +15,21 @@ pub(crate) struct Playhead {
     loop_frames: Option<(f64, f64)>,
     /// At the end, the track goes on from its start.
     repeat: bool,
+    /// Whether the loop, or repeat, takes the playhead round.
+    wrapping: bool,
     stems: Stems,
 }
 
 impl Playhead {
     pub(crate) fn new() -> Self {
-        Self { track: None, position: 0.0, loop_frames: None, repeat: false, stems: Stems::new() }
+        Self {
+            track: None,
+            position: 0.0,
+            loop_frames: None,
+            repeat: false,
+            wrapping: true,
+            stems: Stems::new(),
+        }
     }
 
     /// Loads a track at its start and returns the previous one (to be freed elsewhere).
@@ -71,10 +80,27 @@ impl Playhead {
         self.repeat = repeat;
     }
 
+    /// Lets the loop, or repeat, take the playhead round, or not (where something else decides
+    /// where the track is).
+    pub(crate) fn set_wrapping(&mut self, wrapping: bool) {
+        self.wrapping = wrapping;
+    }
+
     /// The loop the playhead wraps around: the one set, else with repeat the whole track.
     fn wrap_frames(&self) -> Option<(f64, f64)> {
         let whole = self.track.as_ref().filter(|_| self.repeat).map(|t| (0.0, t.frames() as f64));
-        self.loop_frames.or(whole)
+        self.loop_frames.or(whole).filter(|_| self.wrapping)
+    }
+
+    /// What the playhead goes round, in seconds: the loop, or with repeat the whole track.
+    pub(crate) fn round_s(&self) -> Option<LoopRegion> {
+        let rate = self.sample_rate();
+        self.wrap_frames().map(|(start, end)| LoopRegion { start_s: start / rate, end_s: end / rate })
+    }
+
+    /// Whether the loop, or repeat, takes the playhead round from where it is.
+    pub(crate) fn goes_round(&self) -> bool {
+        self.wrap_frames().is_some_and(|(start, end)| (start..end).contains(&self.position))
     }
 
     pub(crate) fn is_loaded(&self) -> bool {
@@ -95,6 +121,11 @@ impl Playhead {
 
     pub(crate) fn seek_s(&mut self, seconds: f64) {
         self.position = seconds * self.sample_rate();
+    }
+
+    /// Seeks to `seconds` as if played there: the loop, or repeat, takes it round.
+    pub(crate) fn seek_round_s(&mut self, seconds: f64) {
+        self.position = wrap_in_loop(self.position, seconds * self.sample_rate(), self.wrap_frames());
     }
 
     /// Renders interleaved stereo into `out` while moving at `speed` (1.0 = original
@@ -167,12 +198,13 @@ impl Playhead {
 }
 
 /// Wraps when the playhead crosses an edge of the loop from inside, in either
-/// direction; a playhead outside the loop is left alone.
+/// direction, as many times round as it went; a playhead outside the loop is left alone.
 #[inline]
 pub(crate) fn wrap_in_loop(before: f64, after: f64, loop_frames: Option<(f64, f64)>) -> f64 {
     match loop_frames {
-        Some((start, end)) if (start..end).contains(&before) && after >= end => after - (end - start),
-        Some((start, end)) if (start..end).contains(&before) && after < start => after + (end - start),
+        Some((start, end)) if (start..end).contains(&before) && !(start..end).contains(&after) => {
+            start + (after - start).rem_euclid(end - start)
+        }
         _ => after,
     }
 }
@@ -247,6 +279,14 @@ mod tests {
         p.render(&mut out, None, 48_000.0, 1.0);
         assert_eq!([out[4], out[6]], [0.0, 0.0], "silence past the end");
         assert!(p.position_s() * 48_000.0 > 100.0);
+    }
+
+    #[test]
+    fn a_step_longer_than_the_loop_goes_round_it_as_many_times() {
+        let wrapped = |before, after| wrap_in_loop(before, after, Some((10.0, 20.0)));
+        assert_eq!(wrapped(15.0, 37.0), 17.0);
+        assert_eq!(wrapped(15.0, -7.0), 13.0);
+        assert_eq!(wrapped(19.0, 20.0), 10.0);
     }
 
     #[test]

@@ -514,6 +514,20 @@ mod tests {
     }
 
     #[test]
+    fn a_loop_shorter_than_a_block_keeps_the_playhead() {
+        let track = sine(440.0, 6.0);
+        let mut lock = KeyLock::new(RATE, 1024);
+        let loop_frames = Some((RATE as f64, RATE as f64 + 100.0));
+        let mut position = RATE as f64;
+        let mut block = vec![0.0f32; 512];
+        for _ in 0..100 {
+            position =
+                lock.render(&mut Stems::new().reader(&track), position, loop_frames, &mut block, None, 1.0);
+            assert!((RATE as f64..RATE as f64 + 100.0).contains(&position), "{position}");
+        }
+    }
+
+    #[test]
     fn backwards_at_the_same_pitch_through_the_track_read_from_its_end() {
         // 440 Hz up to 4.3 s, 660 Hz after: played backwards from 5 s, the end is in the first
         let split = (4.3 * RATE as f32) as usize;
