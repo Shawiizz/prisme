@@ -121,7 +121,6 @@ pub struct StemsService {
     queue: Arc<Mutex<Queue>>,
     /// Wakes the worker waiting for a track.
     wake: Arc<Condvar>,
-    cancel: Arc<AtomicBool>,
     downloads: Arc<Mutex<[Download; MODELS.len()]>>,
 }
 
@@ -139,6 +138,8 @@ struct Queue {
     worker: Option<u64>,
     /// Workers started so far.
     started: u64,
+    /// Cancels asked so far: a job taken before the last one stops.
+    cancels: u64,
 }
 
 impl Queue {
@@ -150,6 +151,40 @@ impl Queue {
     fn held(&self) -> HashSet<PathBuf> {
         let current = self.progress.current.as_deref().map(PathBuf::from);
         self.played.iter().chain(&self.waiting).cloned().chain(current).collect()
+    }
+
+    /// The next track, the decks' first, and of those a playing one's.
+    fn take(&mut self, playing: &[PathBuf]) -> Option<Job> {
+        let cancels = self.cancels;
+        let first = self.played.iter().position(|p| playing.contains(p)).unwrap_or(0);
+        if let Some(path) = self.played.remove(first) {
+            let before = self.waiting.len();
+            self.waiting.retain(|p| *p != path);
+            let requested = self.waiting.len() < before;
+            return Some(Job { path, played: true, requested, cancels });
+        }
+        let path = self.waiting.pop_front()?;
+        Some(Job { path, played: false, requested: true, cancels })
+    }
+
+    /// Empties the queue and stops the job being done.
+    fn cancel(&mut self) {
+        self.waiting.clear();
+        self.played.clear();
+        self.cancels += 1;
+    }
+
+    fn cancelled(&self, job: &Job) -> bool {
+        job.cancels != self.cancels
+    }
+
+    /// Puts the job's track back at the head of the decks' line or the library's, unless
+    /// the queue was cancelled since.
+    fn put_back(&mut self, job: Job, played: bool) {
+        if !self.cancelled(&job) {
+            let line = if played { &mut self.played } else { &mut self.waiting };
+            line.push_front(job.path);
+        }
     }
 }
 
@@ -199,14 +234,7 @@ pub fn separates_on_load(state: &AppState) -> bool {
 impl StemsService {
     /// The service with its models in `folder`.
     pub fn new(app: AppHandle, folder: PathBuf) -> Self {
-        Self {
-            app,
-            folder,
-            queue: Arc::default(),
-            wake: Arc::default(),
-            cancel: Arc::default(),
-            downloads: Arc::default(),
-        }
+        Self { app, folder, queue: Arc::default(), wake: Arc::default(), downloads: Arc::default() }
     }
 
     pub fn status(&self) -> StemsStatusDto {
@@ -285,7 +313,6 @@ impl StemsService {
             let device = queue.progress.device.take();
             queue.progress =
                 StemsProgressDto { running: true, queued: queue.len(), device, ..Default::default() };
-            self.cancel.store(false, Ordering::Relaxed);
         }
         if queue.worker.is_none() {
             let id = queue.started;
@@ -296,7 +323,6 @@ impl StemsService {
                 models: (0..MODELS.len()).map(|m| self.model_path(m)).collect(),
                 queue: self.queue.clone(),
                 wake: self.wake.clone(),
-                cancel: self.cancel.clone(),
             };
             std::thread::Builder::new()
                 .name("prisme-stems".into())
@@ -311,10 +337,7 @@ impl StemsService {
 
     /// Empties the queue and stops the track being separated.
     pub fn cancel(&self) {
-        let mut queue = lock(&self.queue);
-        queue.waiting.clear();
-        queue.played.clear();
-        self.cancel.store(true, Ordering::Relaxed);
+        lock(&self.queue).cancel();
     }
 
     /// The stems of `path` as they come, if it is being separated.
@@ -456,7 +479,6 @@ struct Worker {
     models: Vec<PathBuf>,
     queue: Arc<Mutex<Queue>>,
     wake: Arc<Condvar>,
-    cancel: Arc<AtomicBool>,
 }
 
 type BoxedSeparator = Separator<Box<dyn MaskNetwork>>;
@@ -468,6 +490,8 @@ struct Job {
     played: bool,
     /// In the library's queue too.
     requested: bool,
+    /// The queue's cancels when it was taken.
+    cancels: u64,
 }
 
 /// How a separation ended, short of an error.
@@ -539,7 +563,7 @@ impl Worker {
                 }
                 Ok(Ended::GaveWay) => {
                     info!("separation of {} gives way to a track on a deck", job.path.display());
-                    lock(&self.queue).waiting.push_front(job.path);
+                    lock(&self.queue).put_back(job, false);
                 }
                 Ok(Ended::Dropped) => info!("{} left the decks before its separation", job.path.display()),
                 Err(StemsError::Cancelled) => info!("separation of {} cancelled", job.path.display()),
@@ -551,9 +575,8 @@ impl Worker {
                     gpu = if gpu_failed { None } else { open_gpu() };
                     GPU_GAVE_UP.store(gpu.is_none(), Ordering::Relaxed);
                     gpu_failed = true;
-                    let mut queue = lock(&self.queue);
-                    let line = if job.played { &mut queue.played } else { &mut queue.waiting };
-                    line.push_front(job.path);
+                    let played = job.played;
+                    lock(&self.queue).put_back(job, played);
                 }
                 Err(e) => {
                     warn!("{} not separated: {e}", job.path.display());
@@ -569,15 +592,8 @@ impl Worker {
         let playing = self.playing();
         let mut queue = lock(&self.queue);
         let job = loop {
-            let first = queue.played.iter().position(|p| playing.contains(p)).unwrap_or(0);
-            if let Some(path) = queue.played.remove(first) {
-                let before = queue.waiting.len();
-                queue.waiting.retain(|p| *p != path);
-                let requested = queue.waiting.len() < before;
-                break Job { path, played: true, requested };
-            }
-            if let Some(path) = queue.waiting.pop_front() {
-                break Job { path, played: false, requested: true };
+            if let Some(job) = queue.take(&playing) {
+                break job;
             }
             if queue.progress.running {
                 idle(&mut queue.progress);
@@ -610,7 +626,7 @@ impl Worker {
         )?;
         let mut live: Option<Live> = None;
         while !separation.is_done() {
-            if self.cancel.load(Ordering::Relaxed) {
+            if lock(&self.queue).cancelled(job) {
                 return Err(StemsError::Cancelled);
             }
             let at = self.on_decks(&job.path).map(|(_, frame)| frame);
@@ -963,5 +979,21 @@ mod tests {
         assert_eq!(outside(&(0..30), &[5..10, 20..25]), [0..5, 10..20, 25..30]);
         assert_eq!(outside(&(5..25), &[5..10, 20..25]), [10..20]);
         assert!(outside(&(5..10), &[0..10, 40..50]).is_empty());
+    }
+
+    #[test]
+    fn a_cancel_stops_the_job_taken_before_it_and_no_later_one() {
+        let mut queue = Queue::default();
+        queue.waiting.push_back("a.mp3".into());
+        let a = queue.take(&[]).unwrap();
+        queue.cancel();
+        queue.played.push_back("b.mp3".into());
+        let b = queue.take(&[]).unwrap();
+        assert!(queue.cancelled(&a));
+        assert!(!queue.cancelled(&b));
+        queue.put_back(a, false);
+        assert_eq!(queue.len(), 0);
+        queue.put_back(b, true);
+        assert_eq!(queue.played, [PathBuf::from("b.mp3")]);
     }
 }
