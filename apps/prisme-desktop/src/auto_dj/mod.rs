@@ -138,10 +138,12 @@ impl AutoDj {
                 let app = app.clone();
                 std::thread::spawn(move || {
                     let loaded = match track_loading::load_on_deck(&app, deck, path.clone()) {
-                        Ok(info) => {
+                        Ok(Some(info)) => {
                             let _ = app.emit(DECK_LOADED_EVENT, info);
                             true
                         }
+                        // the DJ's own load goes there: not the track's fault
+                        Ok(None) => true,
                         Err(e) => {
                             warn!("Auto DJ: {} not loaded: {e}", path.display());
                             false

@@ -9,7 +9,8 @@ use tauri::ipc::{Channel, Response};
 use tauri::{AppHandle, State};
 
 /// Puts a track on a deck as soon as it can play; its waveform and analysis follow if
-/// they were not known (see `track_loading`). The Auto DJ gives way.
+/// they were not known (see `track_loading`). The Auto DJ gives way. `None` if another load
+/// was asked for on the deck meanwhile.
 #[tauri::command]
 pub async fn load_track(
     app: AppHandle,
@@ -17,7 +18,7 @@ pub async fn load_track(
     auto_dj: State<'_, AutoDj>,
     deck: usize,
     path: String,
-) -> AppResult<TrackInfoDto> {
+) -> AppResult<Option<TrackInfoDto>> {
     state.has_deck(deck)?;
     auto_dj.take_over(Takeover::Load(deck));
     let file = PathBuf::from(&path);
@@ -27,25 +28,24 @@ pub async fn load_track(
 }
 
 /// Puts the track of deck `from` on `deck` where it is, playing if it plays (an instant
-/// double): nothing is read again.
+/// double): nothing is read again. `None` if another load was asked for on the deck meanwhile.
 #[tauri::command]
 pub fn double_deck(
     state: State<'_, AppState>,
     auto_dj: State<'_, AutoDj>,
     from: usize,
     deck: usize,
-) -> AppResult<TrackInfoDto> {
+) -> AppResult<Option<TrackInfoDto>> {
     state.has_deck(from)?;
     state.has_deck(deck)?;
     auto_dj.take_over(Takeover::Load(deck));
+    let turn = state.ask_load(deck);
     let track = state.with_track(from, |t| t.double())?;
     let info = track.info(deck);
-    let commands = track.load_commands(deck, state.preferences.read(|p| p.dj.auto_gain));
-    lock(&state.tracks)[deck] = Some(track);
-    for c in commands.into_iter().chain([Command::TakePlace { deck, from }]) {
-        state.send_if_running(c)?;
-    }
-    Ok(info)
+    let auto_gain = state.preferences.read(|p| p.dj.auto_gain);
+    let commands =
+        track.load_commands(deck, auto_gain).into_iter().chain([Command::TakePlace { deck, from }]);
+    Ok(state.put_track(deck, turn, Some(track), commands)?.then_some(info))
 }
 
 /// Sends the waveform of the track on `deck` to `channel` (`dto::waveform_bytes`): what is
@@ -86,6 +86,6 @@ pub fn loaded_tracks(state: State<'_, AppState>) -> Vec<Option<TrackInfoDto>> {
 #[tauri::command]
 pub fn eject_track(state: State<'_, AppState>, deck: usize) -> AppResult<()> {
     state.has_deck(deck)?;
-    lock(&state.tracks)[deck] = None;
-    state.send_if_running(Command::Eject { deck })
+    let turn = state.ask_load(deck);
+    state.put_track(deck, turn, None, [Command::Eject { deck }]).map(drop)
 }

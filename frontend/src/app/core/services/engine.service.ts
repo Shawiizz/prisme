@@ -293,7 +293,7 @@ export class EngineService {
   /** Loads `path` on `deck`; whether it was. */
   async load(deck: number, path: string): Promise<boolean> {
     if (!(await this.mayReplace(deck))) return false;
-    return this.put(deck, () => invoke<TrackInfo>('load_track', { deck, path }));
+    return this.put(deck, () => invoke<TrackInfo | null>('load_track', { deck, path }));
   }
 
   /** The track of deck `from` on `deck`, where it is and playing if it plays. */
@@ -320,7 +320,7 @@ export class EngineService {
 
   async double(from: number, deck: number): Promise<void> {
     if (!this.tracks()[from] || !(await this.mayReplace(deck))) return;
-    await this.put(deck, () => invoke<TrackInfo>('double_deck', { from, deck }));
+    await this.put(deck, () => invoke<TrackInfo | null>('double_deck', { from, deck }));
   }
 
   /** The track of a deck that plays, by itself or under its record, gives way only if the
@@ -342,11 +342,14 @@ export class EngineService {
     });
   }
 
-  /** Puts on `deck` what `load` gives; whether it came. */
-  private async put(deck: number, load: () => Promise<TrackInfo>): Promise<boolean> {
+  /** Puts on `deck` what `load` gives, nothing if another load asked for there since goes
+   * there instead; whether it came. */
+  private async put(deck: number, load: () => Promise<TrackInfo | null>): Promise<boolean> {
     this.patch(this.loading, deck, true);
     try {
-      this.show(deck, await load());
+      const info = await load();
+      if (!info) return false;
+      this.show(deck, info);
       if (this.preferences.dj().cueOnLoad) this.soloCue(deck);
       this.error.set(null);
       return true;

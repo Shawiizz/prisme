@@ -51,24 +51,25 @@ pub fn preload(
 
 /// Puts `path` on `deck` as soon as it can play (blocks while its start is read); its
 /// waveform and analysis follow. The preview of the same file stops: it is on a deck now.
-pub fn load_on_deck(app: &AppHandle, deck: usize, path: PathBuf) -> AppResult<TrackInfoDto> {
+/// `None` if another load was asked for on the deck meanwhile: that one goes there.
+pub fn load_on_deck(app: &AppHandle, deck: usize, path: PathBuf) -> AppResult<Option<TrackInfoDto>> {
     let state = app.state::<AppState>();
     state.has_deck(deck)?;
+    let turn = state.ask_load(deck);
     let (track, completion) = prepare(path, &app.state::<Arc<LibraryService>>())?;
     let info = track.info(deck);
     let commands = track.load_commands(deck, state.preferences.read(|p| p.dj.auto_gain));
     let file = track.path.clone();
-    // kept for audio restarts
-    lock(&state.tracks)[deck] = Some(track);
-    for c in commands {
-        state.send_if_running(c)?;
+    if !state.put_track(deck, turn, Some(track), commands)? {
+        info!("{} not put on deck {deck}: another load was asked for meanwhile", file.display());
+        return Ok(None);
     }
     if let Err(e) = app.state::<Previews>().stop_previewing(&state, &file) {
         warn!("the preview of {} goes on: {e}", file.display());
     }
     let app = app.clone();
     tauri::async_runtime::spawn_blocking(move || completion.run(&app));
-    Ok(info)
+    Ok(Some(info))
 }
 
 /// The track, playable, and what is left to do ([`Completion::run`]).

@@ -230,6 +230,7 @@ pub struct AppState {
     pub preferences: JsonFile<Preferences>,
     pub session: Mutex<Option<AudioSession>>,
     pub tracks: Mutex<[Option<LoadedTrack>; MAX_DECKS]>,
+    load_turns: LoadTurns,
     pub decks: Mutex<[DeckSettings; MAX_DECKS]>,
     pub crossfader: Mutex<f32>,
     /// The microphone's and the aux line's, in the order of [`LiveSourceDto::ALL`].
@@ -244,6 +245,21 @@ pub struct AppState {
     /// The interface is out of sight: a phone's application in the background, which the
     /// system may stop calling for audio.
     pub hidden: AtomicBool,
+}
+
+/// The loads asked for on each deck, in turn: one ends on its deck only if no other was asked
+/// for there since.
+#[derive(Default)]
+struct LoadTurns([AtomicU64; MAX_DECKS]);
+
+impl LoadTurns {
+    fn ask(&self, deck: usize) -> u64 {
+        self.0[deck].fetch_add(1, Ordering::SeqCst) + 1
+    }
+
+    fn is_last(&self, deck: usize, turn: u64) -> bool {
+        self.0[deck].load(Ordering::SeqCst) == turn
+    }
 }
 
 /// The speed (1: as recorded) from which a track counts as moving: a record at rest
@@ -272,6 +288,7 @@ impl AppState {
             preferences,
             session: Mutex::new(None),
             tracks: Mutex::default(),
+            load_turns: LoadTurns::default(),
             decks: Mutex::new(saved.map(DeckSettings::from)),
             crossfader: Mutex::new(0.0),
             live: Mutex::default(),
@@ -386,6 +403,33 @@ impl AppState {
         Self::check_deck(deck)?;
         let mut tracks = lock(&self.tracks);
         tracks[deck].as_mut().map(f).ok_or(AppError::NoTrack(deck))
+    }
+
+    /// Asks for a load on `deck` (a track, a double, or none): those asked for before it no
+    /// longer end there. Its turn, for [`AppState::put_track`].
+    pub fn ask_load(&self, deck: usize) -> u64 {
+        self.load_turns.ask(deck)
+    }
+
+    /// Puts `track` on `deck` and sends the engine `commands` (its load), unless another load
+    /// was asked for there since `turn`; whether it did.
+    pub fn put_track(
+        &self,
+        deck: usize,
+        turn: u64,
+        track: Option<LoadedTrack>,
+        commands: impl IntoIterator<Item = Command>,
+    ) -> AppResult<bool> {
+        // held while the engine is told: it gets the loads in the order the decks do
+        let mut tracks = lock(&self.tracks);
+        if !self.load_turns.is_last(deck, turn) {
+            return Ok(false);
+        }
+        tracks[deck] = track;
+        for c in commands {
+            self.send_if_running(c)?;
+        }
+        Ok(true)
     }
 
     /// Sends a command to the running engine.
@@ -932,6 +976,16 @@ mod tests {
             places_of(Some((status, 40)), loads, carried),
             [place(1, 193.0, true), place(5, 0.0, false), None, None]
         );
+    }
+
+    #[test]
+    fn a_load_ends_on_its_deck_only_if_none_was_asked_for_there_since() {
+        let turns = LoadTurns::default();
+        let slow = turns.ask(1);
+        let quick = turns.ask(1);
+        let other_deck = turns.ask(0);
+        assert!(turns.is_last(1, quick) && !turns.is_last(1, slow));
+        assert!(turns.is_last(0, other_deck));
     }
 
     /// An engine called every few milliseconds, as by a sound card, until the returned flag
