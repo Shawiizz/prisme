@@ -31,6 +31,9 @@ pub fn start_recording(
     if source == RecordSourceDto::Master && state.sample_rate().is_some() && !state.mixes_itself() {
         return Err(AppError::SilentMaster);
     }
+    #[cfg(target_os = "android")]
+    let documents = folders::shared_documents();
+    #[cfg(not(target_os = "android"))]
     let documents = app.path().document_dir().map_err(|e| AppError::Other(e.to_string()))?;
     let started =
         Recorder::start(app.clone(), &state, source.into(), &documents.join(FOLDER), library.db.clone())?;

@@ -208,15 +208,18 @@ class MainActivity : TauriActivity() {
   /**
    * The music the phone shares between applications is read once the DJ allows it, and the
    * notification of a deck playing shown (without it, Android hides it). Both are asked for
-   * at once, at the start rather than in the middle of a set. (The inputs of a sound card are
-   * asked for when one is first wanted: see `input_access.rs`.)
+   * at once, at the start rather than in the middle of a set; on Android 10, the recordings
+   * written to the documents the phone shares too. (The inputs of a sound card are asked for
+   * when one is first wanted: see `input_access.rs`.)
    */
   private fun askForTheMusicAndNotifications() {
     val wanted =
-      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-        arrayOf(Manifest.permission.READ_MEDIA_AUDIO, Manifest.permission.POST_NOTIFICATIONS)
-      } else {
-        arrayOf(Manifest.permission.READ_EXTERNAL_STORAGE)
+      when {
+        Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU ->
+          arrayOf(Manifest.permission.READ_MEDIA_AUDIO, Manifest.permission.POST_NOTIFICATIONS)
+        Build.VERSION.SDK_INT >= Build.VERSION_CODES.R -> arrayOf(Manifest.permission.READ_EXTERNAL_STORAGE)
+        else ->
+          arrayOf(Manifest.permission.READ_EXTERNAL_STORAGE, Manifest.permission.WRITE_EXTERNAL_STORAGE)
       }
     val missing = wanted.filter { checkSelfPermission(it) != PackageManager.PERMISSION_GRANTED }
     if (missing.isNotEmpty()) ask(musicAndNotifications, missing.toTypedArray())

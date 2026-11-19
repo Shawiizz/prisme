@@ -36,32 +36,42 @@ pub fn system_music_root() -> PathBuf {
 }
 
 #[cfg(target_os = "android")]
+pub use android::shared_documents;
+
+#[cfg(target_os = "android")]
 mod android {
     use crate::android_jni;
     use jni::objects::{JString, JValue};
     use std::path::PathBuf;
     use std::sync::OnceLock;
 
-    /// Where Android usually keeps it, if it cannot be asked.
-    const USUAL: &str = "/storage/emulated/0/Music";
+    /// Where Android usually keeps them, if it cannot be asked.
+    const MUSIC: &str = "/storage/emulated/0/Music";
+    const DOCUMENTS: &str = "/storage/emulated/0/Documents";
 
     /// The music folder Android shares, asked once.
     pub fn music_root() -> &'static PathBuf {
         static ROOT: OnceLock<PathBuf> = OnceLock::new();
-        ROOT.get_or_init(|| asked().unwrap_or_else(|| PathBuf::from(USUAL)))
+        ROOT.get_or_init(|| shared("DIRECTORY_MUSIC").unwrap_or_else(|| PathBuf::from(MUSIC)))
     }
 
-    /// `Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_MUSIC)`.
-    fn asked() -> Option<PathBuf> {
-        android_jni::call("find the music folder", |env, _| {
+    /// The documents folder Android shares between applications, where recordings go: Prisme's
+    /// own is hidden from the Files application, and deleted with Prisme.
+    pub fn shared_documents() -> PathBuf {
+        shared("DIRECTORY_DOCUMENTS").unwrap_or_else(|| PathBuf::from(DOCUMENTS))
+    }
+
+    /// `Environment.getExternalStoragePublicDirectory(Environment.<directory>)`.
+    fn shared(directory: &str) -> Option<PathBuf> {
+        android_jni::call("find a shared folder", |env, _| {
             const ENVIRONMENT: &str = "android/os/Environment";
-            let music = env.get_static_field(ENVIRONMENT, "DIRECTORY_MUSIC", "Ljava/lang/String;")?.l()?;
+            let name = env.get_static_field(ENVIRONMENT, directory, "Ljava/lang/String;")?.l()?;
             let folder = env
                 .call_static_method(
                     ENVIRONMENT,
                     "getExternalStoragePublicDirectory",
                     "(Ljava/lang/String;)Ljava/io/File;",
-                    &[JValue::Object(&music)],
+                    &[JValue::Object(&name)],
                 )?
                 .l()?;
             if folder.is_null() {

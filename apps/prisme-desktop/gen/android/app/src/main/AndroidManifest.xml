@@ -4,6 +4,8 @@
     <!-- the music the phone shares between applications -->
     <uses-permission android:name="android.permission.READ_MEDIA_AUDIO" />
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32" />
+    <!-- the recordings, in the documents the phone shares: a leave Android 10 alone asks for -->
+    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="29" />
     <!-- the timecode of the turntables, from the inputs of the sound card -->
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
     <!-- the sound goes on while a deck plays, the screen locked -->
