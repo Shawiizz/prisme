@@ -3,7 +3,7 @@
 mod common;
 
 use common::{silent_track, sine_track, Rig, SR};
-use prisme_engine::{BeatGrid, Command, EngineConfig, Rpm, StemMix, VinylMode};
+use prisme_engine::{create, BeatGrid, Command, EngineConfig, Rpm, StemMix, VinylMode, SAMPLE_SLOTS};
 use prisme_timecode::{DecoderConfig, TimecodeDecoder, SERATO_CD, SERATO_CV02_A, SERATO_CV02_B};
 
 #[test]
@@ -307,6 +307,18 @@ fn a_double_of_a_deck_in_a_roll_plays_on_where_the_roll_comes_back() {
     let shadow = a.slip_position_s.expect("rolling");
     assert!(!b.looping.active, "{b:?}");
     assert!((b.position_s - shadow).abs() < 0.01, "{a:?} {b:?}");
+}
+
+#[test]
+fn a_whole_session_restored_at_once_fits_in_the_queue() {
+    // what the app sends as the audio starts again: for each of four decks its track (6
+    // commands), its settings (41), its record and its pads, then the mixer, the live inputs
+    // and where each deck was (29)
+    let commands = 4 * (6 + 41 + 1 + SAMPLE_SLOTS) + 29;
+    let (_engine, mut controller) = create(EngineConfig::new(SR, 4, &SERATO_CV02_A));
+    for _ in 0..commands {
+        assert!(controller.send(Command::SetQuantize { enabled: true }).is_ok());
+    }
 }
 
 #[test]

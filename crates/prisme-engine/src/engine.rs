@@ -21,7 +21,9 @@ use crate::sync::LeaderClock;
 use prisme_dsp::{db_to_gain, DenormalGuard, FxSlot};
 use prisme_timecode::{DecoderConfig, TimecodeDecoder, TimecodeFormat};
 
-const COMMAND_QUEUE: usize = 256;
+/// Room for a whole session restored at once when the audio starts again, before the engine
+/// takes any: some 300 commands with four decks and all their pads.
+const COMMAND_QUEUE: usize = 1024;
 const GARBAGE_QUEUE: usize = 64;
 
 /// Engine settings, fixed for the lifetime of an engine.
