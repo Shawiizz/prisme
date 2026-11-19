@@ -62,8 +62,10 @@ impl MidiClock {
         Ok(port_names(&MidiOutput::new(CLIENT).map_err(midi_error)?))
     }
 
+    /// The port the clock goes to, else the output chosen, unplugged.
     pub fn output_name(&self) -> Option<String> {
-        lock(&self.chosen).clone()
+        let chosen = lock(&self.chosen);
+        lock(&self.output).as_ref().map(|o| o.port.clone()).or_else(|| chosen.clone())
     }
 
     /// Sends the clock to `name`, or nowhere.
