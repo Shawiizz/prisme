@@ -63,7 +63,7 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAG: ${{ github.ref_name }}
         run: |
-          out="$RUNNER_TEMP/out"
+          out=packages
           mkdir -p "$out"
           put() {
             cp "$1" "$out/$2"
