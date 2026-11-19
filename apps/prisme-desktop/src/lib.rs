@@ -185,7 +185,6 @@ pub fn run() {
     builder
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_process::init())
-        .plugin(tauri_plugin_opener::init())
         .register_asynchronous_uri_scheme_protocol(cover_protocol::SCHEME, cover_protocol::handle)
         .setup(|app| {
             app.manage(logging::init(app.path().app_log_dir().ok().as_deref()));
@@ -195,6 +194,10 @@ pub fn run() {
             browser_keys_off(app);
             #[cfg(windows)]
             file_drop::listen(app);
+            #[cfg(windows)]
+            commands::update::clear_leftovers(app.handle());
+            #[cfg(target_os = "android")]
+            commands::apk::clear_leftovers(app.handle());
             #[cfg(target_os = "ios")]
             fill_the_screen(app);
             if !keep_awake::run_at_full_speed() {
@@ -458,6 +461,12 @@ pub fn run() {
             commands::update::download_update,
             #[cfg(desktop)]
             commands::update::install_update,
+            #[cfg(target_os = "android")]
+            commands::apk::download_apk,
+            #[cfg(target_os = "android")]
+            commands::apk::install_apk,
+            #[cfg(target_os = "android")]
+            commands::apk::allow_installs,
             status_stream::subscribe_status,
             scope_stream::subscribe_scope,
             scope_stream::unsubscribe_scope,

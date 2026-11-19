@@ -138,7 +138,13 @@ class MainActivity : TauriActivity() {
 
   override fun onResume() {
     super.onResume()
+    Update.back()
     redraw()
+  }
+
+  override fun onPause() {
+    Update.left()
+    super.onPause()
   }
 
   override fun onWindowFocusChanged(hasFocus: Boolean) {
@@ -276,7 +282,9 @@ class MainActivity : TauriActivity() {
 
   companion object {
     /** The activity on screen, for the native side. */
-    @Volatile private var shown: MainActivity? = null
+    @Volatile
+    var shown: MainActivity? = null
+      private set
 
     /**
      * Asks the DJ to let Prisme listen to the inputs of the sound card, from any thread

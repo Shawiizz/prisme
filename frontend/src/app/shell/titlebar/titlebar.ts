@@ -12,6 +12,7 @@ import { TPipe } from '../../core/i18n/t.pipe';
 import { BACKEND_NAMES } from '../../core/models/audio';
 import { formatClock } from '../../shared/time';
 import { levelMeter } from '../../shared/level';
+import { readouts } from '../../shared/mixer-scales';
 import { MAC } from '../../core/keyboard/shortcuts';
 import { KeyboardService } from '../../core/keyboard/keyboard.service';
 import { Dismiss, overlay } from '../../shared/overlay';
@@ -30,6 +31,7 @@ export class Titlebar {
   protected readonly engine = inject(EngineService);
   protected readonly recording = inject(RecordingService);
   protected readonly updates = inject(UpdateService);
+  protected readonly percent = readouts.percent;
   protected readonly mixer = inject(MixerService);
   protected readonly navigation = inject(NavigationService);
   protected readonly library = inject(LibraryService);

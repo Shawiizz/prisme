@@ -1,7 +1,6 @@
 import { Injectable, computed, inject, signal } from '@angular/core';
 import { getVersion } from '@tauri-apps/api/app';
-import { invoke } from '@tauri-apps/api/core';
-import { openUrl } from '@tauri-apps/plugin-opener';
+import { Channel, invoke } from '@tauri-apps/api/core';
 import { relaunch } from '@tauri-apps/plugin-process';
 import { Update, check } from '@tauri-apps/plugin-updater';
 import { EngineService } from './engine.service';
@@ -13,17 +12,24 @@ const LATEST = 'https://api.github.com/repos/Shawiizz/prisme/releases/latest';
 /** A look shows that it looks at least this long (ms): an answer at once would go unseen. */
 const LOOKING_MS = 1200;
 
-/** A newer version: installed in place on a computer, its APK downloaded on a phone. */
+/** The APK of a release, and its size in bytes. */
+export interface Apk {
+  url: string;
+  size: number;
+}
+
+/** A newer version: installed in place on a computer, its APK handed to Android on a phone. */
 export interface NewVersion {
   version: string;
   update: Update | null;
-  apk: string | null;
+  apk: Apk | null;
 }
 
 /**
- * New versions published on GitHub. On a computer, signed and offered in the title bar,
- * installed only when the DJ asks and no deck is playing (installing restarts Prisme). On a
- * phone, the APK of the release, downloaded by the browser and installed from there.
+ * New versions published on GitHub, installed only when the DJ asks and no deck is playing.
+ * On a computer, signed and offered in the title bar; installing restarts Prisme. On Android,
+ * the APK of the release, downloaded by Prisme and handed to Android's installer, where the
+ * DJ confirms; installing ends Prisme.
  */
 @Injectable({ providedIn: 'root' })
 export class UpdateService {
@@ -33,13 +39,25 @@ export class UpdateService {
   /** How the last look went, until the next. */
   readonly looked = signal<'looking' | 'latest' | 'unreachable' | null>(null);
   readonly installing = signal(false);
+  /** How much of the new version came, from 0 to 1, while it downloads. */
+  readonly progress = signal<number | null>(null);
+  /** Android installs the new version once the DJ lets Prisme install applications. */
+  readonly needsLeave = signal(false);
   readonly decksPlaying = computed(
     () => this.engine.status()?.decks.some((d) => d.playing || Math.abs(d.speed) > 0.1) ?? false,
   );
-  /** Installed in place, restarting Prisme: not while a deck plays. */
-  readonly waitsForDecks = computed(() => !!this.available()?.update && this.decksPlaying());
+  readonly waitsForDecks = computed(() => !!this.available() && this.decksPlaying());
   /** The version downloaded: a deck that started meanwhile leaves it to install once stopped. */
   private downloaded: string | null = null;
+
+  constructor() {
+    // back from Android's settings, the leave given: on to its installer
+    if (ANDROID) {
+      document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible' && this.needsLeave()) void this.install();
+      });
+    }
+  }
 
   async look(): Promise<void> {
     this.looked.set('looking');
@@ -57,29 +75,50 @@ export class UpdateService {
 
   async install(): Promise<void> {
     const found = this.available();
-    if (!found || this.waitsForDecks()) return;
-    if (found.apk) {
-      await openUrl(found.apk).catch((e) => this.engine.error.set(errorText(e)));
-      return;
-    }
-    if (!found.update) return;
+    if (!found || this.waitsForDecks() || this.installing()) return;
     this.installing.set(true);
     try {
-      if (this.downloaded !== found.version) {
-        await invoke('download_update');
-        this.downloaded = found.version;
-      }
-      if (this.decksPlaying()) {
-        this.installing.set(false);
-        return;
-      }
-      // by Prisme, which closes first: on Windows the installer ends it at once
-      await invoke('install_update');
-      await relaunch();
+      if (found.apk) await this.handToAndroid(found.apk);
+      else if (found.update) await this.installInPlace(found.version);
     } catch (e) {
       this.engine.error.set(errorText(e));
+    } finally {
       this.installing.set(false);
+      this.progress.set(null);
     }
+  }
+
+  /** Opens Android's setting letting Prisme install applications, for the DJ to allow it. */
+  async allow(): Promise<void> {
+    await invoke('allow_installs').catch((e) => this.engine.error.set(errorText(e)));
+  }
+
+  private async installInPlace(version: string): Promise<void> {
+    if (this.downloaded !== version) {
+      await invoke('download_update', { progress: this.told() });
+      this.downloaded = version;
+    }
+    this.progress.set(null);
+    if (this.decksPlaying()) return;
+    // by Prisme, which closes first: on Windows the installer ends it at once
+    await invoke('install_update');
+    await relaunch();
+  }
+
+  private async handToAndroid(apk: Apk): Promise<void> {
+    await invoke('download_apk', { url: apk.url, size: apk.size, progress: this.told() });
+    this.progress.set(null);
+    if (this.decksPlaying()) return;
+    const handed = await invoke<'installer' | 'notAllowed'>('install_apk', { url: apk.url });
+    this.needsLeave.set(handed === 'notAllowed');
+  }
+
+  /** Where the backend tells how much of the new version came. */
+  private told(): Channel<number> {
+    this.progress.set(0);
+    const progress = new Channel<number>();
+    progress.onmessage = (fraction) => this.progress.set(fraction);
+    return progress;
   }
 }
 
@@ -93,11 +132,15 @@ async function newerApk(): Promise<NewVersion | null> {
   if (!response.ok) throw new Error(`GitHub answered ${response.status}`);
   const release = (await response.json()) as {
     tag_name: string;
-    assets: { name: string; browser_download_url: string }[];
+    assets: { name: string; browser_download_url: string; size: number }[];
   };
   const apk = release.assets.find((a) => a.name.endsWith('.apk'));
   if (!apk || !isNewer(release.tag_name, await getVersion())) return null;
-  return { version: release.tag_name, update: null, apk: apk.browser_download_url };
+  return {
+    version: release.tag_name,
+    update: null,
+    apk: { url: apk.browser_download_url, size: apk.size },
+  };
 }
 
 /** Whether version `a` (1.2.3) comes after `b`. */

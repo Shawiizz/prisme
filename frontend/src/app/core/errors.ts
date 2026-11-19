@@ -30,6 +30,7 @@ const TEXTS: Record<string, (p: Params) => string> = {
   engineBusy: () => t('The engine is busy, try again'),
   inputsNotAllowed: () =>
     t('Allow Prisme to listen to the inputs of the sound card, then apply again'),
+  notTheUpdate: () => t('The file downloaded is not the new version of Prisme'),
   alreadyRecording: () => t('Already recording'),
   silentMaster: () =>
     t('Your own mixer mixes: the master of Prisme plays nothing. Record the inputs of your mixer'),

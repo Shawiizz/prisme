@@ -116,23 +116,26 @@
 
   <nav class="actions">
     @if (updates.available(); as update) {
+      @let progress = updates.progress();
       <button
         class="pr-btn pr-btn--light pr-btn--sm update"
         [disabled]="updates.waitsForDecks() || updates.installing()"
         [title]="
           updates.waitsForDecks()
             ? ('Stop the decks first: installing restarts Prisme' | t)
-            : update.apk
-              ? ('Download Prisme {version}' | t: { version: update.version })
-              : ('Install Prisme {version} and restart' | t: { version: update.version })
+            : ('Install Prisme {version} and restart' | t: { version: update.version })
         "
         (click)="updates.install()"
       >
-        {{
-          updates.installing()
-            ? ('Installing…' | t)
-            : ('Update {version}' | t: { version: update.version })
-        }}
+        @if (progress !== null) {
+          {{ 'Downloading…' | t }} <span class="pr-num">{{ percent(progress) }}</span>
+        } @else {
+          {{
+            updates.installing()
+              ? ('Installing…' | t)
+              : ('Update {version}' | t: { version: update.version })
+          }}
+        }
       </button>
     }
     <div class="rec">

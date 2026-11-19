@@ -2,6 +2,8 @@
 
 use crate::error::{AppError, AppResult};
 
+#[cfg(any(target_os = "android", test))]
+pub mod apk;
 pub mod audio;
 pub mod auto_dj;
 pub mod controllers;

@@ -739,16 +739,20 @@
                 >
               </app-setting-row>
               @let update = updates.available();
+              @let progress = updates.progress();
               <app-setting-row
                 id="about.updates"
                 [help]="
                   update
-                    ? update.apk
-                      ? ('Prisme {version} is out: download it, then open it to install.'
-                        | t: { version: update.version })
+                    ? updates.needsLeave()
+                      ? ('Android asks for your leave first: turn on Allow from this source, then come back.'
+                        | t)
                       : updates.waitsForDecks()
-                        ? ('Prisme {version} is ready to install. Stop the decks first: installing restarts Prisme.'
-                          | t: { version: update.version })
+                        ? update.apk
+                          ? ('Prisme {version} is ready to install. Stop the decks first: installing closes Prisme.'
+                            | t: { version: update.version })
+                          : ('Prisme {version} is ready to install. Stop the decks first: installing restarts Prisme.'
+                            | t: { version: update.version })
                         : ('Prisme {version} is ready to install.' | t: { version: update.version })
                     : updates.looked() === 'latest'
                       ? ('This is the latest version.' | t)
@@ -757,19 +761,27 @@
                         : null
                 "
               >
-                @if (update) {
+                @if (update && updates.needsLeave()) {
+                  <button class="pr-btn pr-btn--light" (click)="updates.allow()">
+                    {{ 'Allow…' | t }}
+                  </button>
+                } @else if (update) {
                   <button
                     class="pr-btn pr-btn--light"
                     [disabled]="updates.waitsForDecks() || updates.installing()"
                     (click)="updates.install()"
                   >
-                    {{
-                      update.apk
-                        ? ('Download' | t)
-                        : updates.installing()
+                    @if (progress !== null) {
+                      {{ 'Downloading…' | t }} <span class="pr-num">{{ percent(progress) }}</span>
+                    } @else {
+                      {{
+                        updates.installing()
                           ? ('Installing…' | t)
-                          : ('Install and restart' | t)
-                    }}
+                          : update.apk
+                            ? ('Install' | t)
+                            : ('Install and restart' | t)
+                      }}
+                    }
                   </button>
                 } @else {
                   <button

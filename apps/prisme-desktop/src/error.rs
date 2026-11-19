@@ -69,6 +69,9 @@ pub enum AppError {
     EngineBusy,
     #[error("allow Prisme to listen to the inputs of the sound card, then apply again")]
     InputsNotAllowed,
+    #[cfg(target_os = "android")]
+    #[error("the file downloaded is not the new version of Prisme")]
+    NotTheUpdate,
     #[error(transparent)]
     Media(#[from] MediaError),
     #[error(transparent)]
@@ -125,6 +128,8 @@ impl AppError {
             AppError::UnknownFormat(format) => ("unknownFormat", json!({ "format": format })),
             AppError::EngineBusy => ("engineBusy", none()),
             AppError::InputsNotAllowed => ("inputsNotAllowed", none()),
+            #[cfg(target_os = "android")]
+            AppError::NotTheUpdate => ("notTheUpdate", none()),
             AppError::Media(MediaError::Open { path, .. }) => ("cannotOpen", json!({ "path": path })),
             AppError::Media(MediaError::Format(_) | MediaError::NoAudio | MediaError::NoSampleRate) => {
                 ("unreadableFile", none())
