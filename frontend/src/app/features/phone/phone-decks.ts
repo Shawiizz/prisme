@@ -1,5 +1,5 @@
-import { Component, booleanAttribute, inject, input, signal } from '@angular/core';
-import { short } from '../../core/orientation';
+import { Component, booleanAttribute, computed, inject, input, signal } from '@angular/core';
+import { landscape, short } from '../../core/orientation';
 import { EngineService } from '../../core/services/engine.service';
 import { PhaseStrip } from '../deck/phase-strip/phase-strip';
 import { PhoneDeck } from './phone-deck';
@@ -18,15 +18,21 @@ import { PhoneTable } from './phone-table';
     @if (touch()) {
       <app-phone-table animate.enter="pr-fade-in" (opened)="panel.set({ deck: $event })" />
     } @else {
-      <section class="decks" animate.enter="pr-fade-in">
+      <section class="decks" [class.four]="four()" animate.enter="pr-fade-in">
         @for (deck of decks(); track deck) {
-          <app-phone-deck [deck]="deck" [compact]="low()" (opened)="panel.set({ deck })" />
+          <app-phone-deck
+            [deck]="deck"
+            [compact]="low() || four()"
+            (opened)="panel.set({ deck })"
+          />
           @if (deck === 0) {
             <app-phase-strip />
           }
         }
       </section>
-      <app-phone-library peek animate.enter="pr-fade-in" />
+      @if (!four() || wide()) {
+        <app-phone-library peek animate.enter="pr-fade-in" />
+      }
     }
     @if (panel(); as open) {
       <app-phone-deck-panel [deck]="open.deck" [table]="touch()" (closed)="panel.set(null)" />
@@ -40,8 +46,13 @@ export class PhoneDecks {
   readonly touch = input(false, { transform: booleanAttribute });
 
   protected readonly decks = inject(EngineService).deckIndexes;
+  /** Four decks take an upright screen: a line each over its waveform, the library a tab
+   * away. */
+  protected readonly four = computed(() => this.decks().length > 2);
   /** The screen leaves each deck a line over its waveform. */
   protected readonly low = short();
+  /** Sideways, the library is beside the decks, whatever their number. */
+  protected readonly wide = landscape();
   /** The deck whose panel is open. */
   protected readonly panel = signal<{ deck: number } | null>(null);
 }
