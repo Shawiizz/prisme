@@ -1,4 +1,12 @@
-import { Component, booleanAttribute, computed, inject, input, signal } from '@angular/core';
+import {
+  Component,
+  booleanAttribute,
+  computed,
+  inject,
+  input,
+  signal,
+  viewChild,
+} from '@angular/core';
 import { EngineService } from '../../../core/services/engine.service';
 import { MixerService } from '../../../core/services/mixer.service';
 import { deckReadouts } from '../../../core/deck-readouts';
@@ -17,13 +25,13 @@ const SEND_SEGMENTS = 10;
 /**
  * Deck header: letter (lit while playing) with the level sent to an external mixer, cover
  * and title, who drives the deck, its menu, and the three readouts seen from afar: remaining
- * time, BPM, key.
+ * time, BPM, key. A right click on it opens its menu there.
  */
 @Component({
   selector: 'app-deck-card',
   templateUrl: './deck-card.html',
   styleUrl: './deck-card.scss',
-  host: { '[class.compact]': 'compact()' },
+  host: { '[class.compact]': 'compact()', '(contextmenu)': 'menu().openAt($event)' },
   imports: [Cover, DeckMenu, GridEditor, TPipe],
 })
 export class DeckCard {
@@ -32,6 +40,7 @@ export class DeckCard {
   readonly compact = input(false, { transform: booleanAttribute });
 
   protected readonly engine = inject(EngineService);
+  protected readonly menu = viewChild.required(DeckMenu);
   private readonly mixer = inject(MixerService);
   protected readonly letter = computed(() => deckLetter(this.deck()));
   /** The level sent to the deck's outputs of an external mixer (the software mixer has

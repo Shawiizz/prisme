@@ -93,7 +93,7 @@
       <app-cue-button [deck]="deck()" />
     }
   </div>
-  <app-deck-options class="options" [deck]="deck()" />
+  <app-deck-options class="options" [deck]="deck()" (ejected)="sheet.close()" />
 </section>
 @if (editing() && track()) {
   <app-grid-editor [deck]="deck()" (closed)="editing.set(false)" />

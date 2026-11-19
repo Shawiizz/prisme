@@ -1,4 +1,4 @@
-import { Component, DestroyRef, computed, inject, input } from '@angular/core';
+import { Component, DestroyRef, computed, inject, input, output } from '@angular/core';
 import { PITCH_RANGES } from '../../../core/models/preferences';
 import { PHONE } from '../../../core/platform';
 import { EngineService } from '../../../core/services/engine.service';
@@ -10,8 +10,8 @@ import { Press } from '../../../shared/press';
 /**
  * What a deck does now and then rather than all the time, a row each: its motor (a brake, a
  * soft start, a spinback while held), jumps to the start and the end, the track played
- * backwards, the channel muted, the track repeated, the range of its tempo fader, and on the
- * software mixer the channel fader starting and stopping it.
+ * backwards, the channel muted, the track repeated, the range of its tempo fader, on the
+ * software mixer the channel fader starting and stopping it; and the track taken off.
  */
 @Component({
   selector: 'app-deck-options',
@@ -132,6 +132,18 @@ import { Press } from '../../../shared/press';
         </button>
       </div>
     }
+    <div class="row">
+      <span>{{ 'Eject the track' | t }}</span>
+      <button
+        class="pr-btn pr-btn--sm"
+        [class.pr-reach]="PHONE"
+        [disabled]="!loaded()"
+        [title]="'The deck left empty; playing, it asks first' | t"
+        (click)="eject()"
+      >
+        {{ 'EJECT' | t }}
+      </button>
+    </div>
   `,
   styles: `
     :host {
@@ -149,15 +161,15 @@ import { Press } from '../../../shared/press';
         border-top: 1px solid var(--pr-line);
       }
     }
+    .row .pr-btn {
+      padding: 0 7px;
+      font: 600 10.5px / 1 var(--pr-font);
+      letter-spacing: 0.04em;
+    }
     .keys {
       display: flex;
       align-items: center;
       gap: var(--pr-space-1);
-      .pr-btn {
-        padding: 0 7px;
-        font: 600 10.5px / 1 var(--pr-font);
-        letter-spacing: 0.04em;
-      }
     }
     // a finger's room between the rows
     :host-context(.phone) .row {
@@ -168,6 +180,8 @@ import { Press } from '../../../shared/press';
 })
 export class DeckOptions {
   readonly deck = input.required<number>();
+  /** The track was taken off the deck. */
+  readonly ejected = output<void>();
 
   protected readonly engine = inject(EngineService);
   protected readonly performance = inject(PerformanceService);
@@ -180,19 +194,17 @@ export class DeckOptions {
     () => this.engine.status()?.decks[this.deck()]?.reverse ?? false,
   );
 
+  protected readonly loaded = computed(() => !!this.engine.status()?.decks[this.deck()]?.loaded);
+
   /** The motor moves a track that plays by itself: a record drives its own. */
   protected readonly movable = computed(
-    () =>
-      !!this.engine.status()?.decks[this.deck()]?.loaded &&
-      !this.settings().vinylEnabled &&
-      !this.settings().passthrough,
+    () => this.loaded() && !this.settings().vinylEnabled && !this.settings().passthrough,
   );
 
   /** A jump moves a track a record in absolute mode does not hold. */
   protected readonly placeable = computed(
     () =>
-      !!this.engine.status()?.decks[this.deck()]?.loaded &&
-      !(this.settings().vinylEnabled && this.settings().vinylMode === 'absolute'),
+      this.loaded() && !(this.settings().vinylEnabled && this.settings().vinylMode === 'absolute'),
   );
 
   /** The deck spun back: the one let go, even if the menu changed decks meanwhile. */
@@ -200,6 +212,10 @@ export class DeckOptions {
 
   constructor() {
     inject(DestroyRef).onDestroy(() => this.spinBack(false));
+  }
+
+  protected async eject() {
+    if (await this.engine.eject(this.deck())) this.ejected.emit();
   }
 
   protected spinBack(held: boolean) {
