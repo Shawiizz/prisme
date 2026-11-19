@@ -448,13 +448,11 @@ impl Controllers {
                 }
                 let Some(plugged) = looking.as_ref().map(port_names) else { continue };
                 let controllers = app.state::<Controllers>();
-                let unplugged: Vec<String> = {
-                    let mut connections = lock(&controllers.connections);
-                    let gone = |c: &Connection| !plugged.contains(&c.port);
-                    let devices = connections.iter().filter(|c| gone(c)).map(|c| c.device.clone()).collect();
-                    connections.retain(|c| !gone(c));
-                    devices
-                };
+                let unplugged: Vec<String> = controllers
+                    .take_connections(|c| !plugged.contains(&c.port))
+                    .into_iter()
+                    .map(|c| c.device.clone())
+                    .collect();
                 for device in &unplugged {
                     controllers.let_go(&app, device);
                 }
@@ -466,7 +464,7 @@ impl Controllers {
                     match controllers.open(&app, &device) {
                         // turned off meanwhile
                         Ok(()) if !controllers.setup.read(|s| s.enabled.contains(&device)) => {
-                            lock(&controllers.connections).retain(|c| c.device != device);
+                            drop(controllers.take_connections(|c| c.device == device));
                         }
                         Ok(()) => {
                             missing.retain(|d| *d != device);
@@ -740,6 +738,12 @@ impl Controllers {
             }
         }
         lights
+    }
+
+    /// Takes out the connections `which` picks, closed once the lock is let go: closing one
+    /// waits for its callback, which may be waiting for the lock (see [`Self::receive`]).
+    fn take_connections(&self, which: impl Fn(&Connection) -> bool) -> Vec<Connection> {
+        lock(&self.connections).extract_if(.., |c| which(c)).collect()
     }
 
     /// Closes `device`: its lights go off, its meters show silence, and its profile's last
