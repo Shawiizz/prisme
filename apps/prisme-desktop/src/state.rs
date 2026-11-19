@@ -16,8 +16,8 @@ use crate::sampler::Samplers;
 use crate::track_waveform::TrackWaveform;
 use prisme_analysis::TrackAnalysis;
 use prisme_engine::{
-    BeatGrid, Command, DeckStatus, EngineConfig, EngineController, EngineStatus, MixMode, OutputRouting,
-    StemTracks, MAX_DECKS,
+    BeatGrid, Command, DeckStatus, EngineConfig, EngineController, EngineStatus, LoopRegion, MixMode,
+    OutputRouting, StemTracks, MAX_DECKS,
 };
 use prisme_library::{Cue, CueSlot, TrackEdits};
 use prisme_media::{TrackAudio, TrackTags};
@@ -208,13 +208,48 @@ impl From<DeckPreferences> for DeckSettings {
     }
 }
 
-/// Where the track of a deck is and whether it plays: what an audio restart carries over.
+/// Where the track of a deck is and how it plays: what an audio restart carries over.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Place {
     /// The load it is of: a track loaded meanwhile is not put there.
     pub load_id: u64,
     pub position_s: f64,
     pub playing: bool,
+    /// The loop stored, and whether it plays; none under a roll, which the restart lets go.
+    pub looping: Option<(LoopRegion, bool)>,
+    pub sync_locked: bool,
+    pub slip: bool,
+    pub reverse: bool,
+}
+
+impl Place {
+    fn of(load_id: u64, d: &DeckStatus) -> Self {
+        let looping = d.looping.region.filter(|_| !d.looping.rolling).map(|r| (r, d.looping.active));
+        Place {
+            load_id,
+            position_s: d.position_s,
+            playing: d.playing,
+            looping,
+            sync_locked: d.sync.locked,
+            slip: d.slip_mode,
+            reverse: d.reverse,
+        }
+    }
+
+    /// What puts `deck` back there.
+    fn commands(&self, deck: usize) -> impl Iterator<Item = Command> {
+        let looping =
+            self.looping.map(|(region, active)| Command::SetLoop { deck, region: Some(region), active });
+        let synced = self.sync_locked.then_some(Command::SetSyncLocked { deck, locked: true });
+        [Command::Seek { deck, seconds: self.position_s }, Command::SetSlip { deck, enabled: self.slip }]
+            .into_iter()
+            .chain(looping)
+            .chain([
+                Command::SetReverse { deck, enabled: self.reverse },
+                Command::SetPlaying { deck, playing: self.playing },
+            ])
+            .chain(synced)
+    }
 }
 
 /// A live source's switches as the DJ left them (off at each start).
@@ -647,10 +682,7 @@ impl AppState {
         ]);
         commands.extend(self.live_commands(Some(info)));
         for (deck, place) in places.iter().enumerate().take(info.decks) {
-            if let Some(place) = place {
-                commands.push(Command::Seek { deck, seconds: place.position_s });
-                commands.push(Command::SetPlaying { deck, playing: place.playing });
-            }
+            commands.extend(place.iter().flat_map(|place| place.commands(deck)));
         }
         commands
     }
@@ -685,10 +717,7 @@ fn places_of(
     std::array::from_fn(|deck| {
         let load_id = loads[deck]?;
         match &status {
-            Some(status) => (deck < status.deck_count).then(|| {
-                let d = &status.decks[deck];
-                Place { load_id, position_s: d.position_s, playing: d.playing }
-            }),
+            Some(status) => (deck < status.deck_count).then(|| Place::of(load_id, &status.decks[deck])),
             None => carried[deck].filter(|place| place.load_id == load_id),
         }
     })
@@ -968,7 +997,8 @@ mod tests {
     }
 
     fn place(load_id: u64, position_s: f64, playing: bool) -> Option<Place> {
-        Some(Place { load_id, position_s, playing })
+        let (looping, sync_locked, slip, reverse) = (None, false, false, false);
+        Some(Place { load_id, position_s, playing, looping, sync_locked, slip, reverse })
     }
 
     #[test]
@@ -987,6 +1017,58 @@ mod tests {
             places_of(Some((status, 40)), loads, carried),
             [place(1, 193.0, true), place(5, 0.0, false), None, None]
         );
+    }
+
+    /// Deck A of an engine that has run `commands`, a track on it.
+    fn deck_after(commands: impl IntoIterator<Item = Command>) -> DeckStatus {
+        let config = EngineConfig::new(48_000, 2, &prisme_timecode::SERATO_CV02_A);
+        let (engine, mut controller) = prisme_engine::create(config);
+        let (run, thread) = running(engine);
+        let track = Arc::new(TrackAudio::from_interleaved(48_000, vec![0.0; 2 * 48_000 * 60]));
+        let loaded = [
+            Command::LoadTrack { deck: 0, track },
+            Command::SetBeatGrid { deck: 0, grid: Some(BeatGrid { bpm: 120.0, first_beat_s: 0.0 }) },
+        ];
+        send_all(&mut controller, loaded.into_iter().chain(commands).collect(), RESTORE_WAIT);
+        let sent = controller.sent();
+        let status = loop {
+            let status = controller.status();
+            if status.commands >= sent {
+                break status;
+            }
+            std::thread::sleep(Duration::from_millis(1));
+        };
+        run.store(false, Ordering::Relaxed);
+        thread.join().unwrap();
+        status.decks[0]
+    }
+
+    #[test]
+    fn a_restart_carries_the_loop_the_sync_the_slip_and_the_reverse_over() {
+        let before = deck_after([
+            Command::Seek { deck: 0, seconds: 10.0 },
+            Command::SetPlaying { deck: 0, playing: true },
+            Command::SetSlip { deck: 0, enabled: true },
+            Command::BeatLoop { deck: 0, beats: 4.0 },
+            Command::SetReverse { deck: 0, enabled: true },
+            Command::SetSyncLocked { deck: 0, locked: true },
+        ]);
+        let place = Place::of(1, &before);
+        let after = deck_after(place.commands(0));
+        assert_eq!(after.looping.region, Some(LoopRegion { start_s: 10.0, end_s: 12.0 }));
+        assert!(after.looping.active && after.playing && after.slip_mode && after.reverse, "{after:?}");
+        assert!(after.sync.locked);
+        assert!((after.position_s - place.position_s).abs() < 0.1, "{after:?}");
+    }
+
+    #[test]
+    fn a_roll_held_as_the_audio_restarts_is_let_go() {
+        let rolling = deck_after([
+            Command::Seek { deck: 0, seconds: 10.0 },
+            Command::SetPlaying { deck: 0, playing: true },
+            Command::LoopRoll { deck: 0, beats: Some(0.25) },
+        ]);
+        assert_eq!(Place::of(1, &rolling).looping, None);
     }
 
     #[test]

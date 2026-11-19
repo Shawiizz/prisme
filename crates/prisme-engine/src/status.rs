@@ -41,6 +41,9 @@ pub struct LoopStatus {
     pub active: bool,
     /// Start marked by LOOP IN, waiting for LOOP OUT.
     pub loop_in_s: Option<f64>,
+    /// A roll or a slice is held: its loop is the one shown, the stored one back once it is
+    /// let go.
+    pub rolling: bool,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]

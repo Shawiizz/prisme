@@ -665,6 +665,7 @@ impl Deck {
                 region: self.transport.loop_region,
                 active: self.transport.loop_active,
                 loop_in_s: self.transport.loop_in_s,
+                rolling: self.transport.rolling,
             },
             peak: self.peak,
             samples_playing: self.sampler.playing(),

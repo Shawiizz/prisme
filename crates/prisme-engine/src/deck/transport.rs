@@ -14,7 +14,7 @@ pub(crate) struct Transport {
     pub(super) slip_mode: bool,
     /// Where the track would be without the loop, roll, censor or reverse in progress.
     pub(super) shadow_s: Option<f64>,
-    rolling: bool,
+    pub(super) rolling: bool,
     /// The loop stored when the roll came, and whether it took the track round: both back
     /// once the roll is let go.
     under_roll: (Option<LoopRegion>, bool),
