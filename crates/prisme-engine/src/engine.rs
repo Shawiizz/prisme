@@ -522,7 +522,6 @@ impl EngineController {
         *self.status.read()
     }
 
-    /// Frees what the engine handed back. Call it regularly (e.g. with every UI update).
     /// Appends the turntable signal points of `deck` received since the last call (one
     /// frame in four, left and right).
     pub fn read_scope(&mut self, deck: usize, points: &mut Vec<[f32; 2]>) {
@@ -531,12 +530,14 @@ impl EngineController {
         }
     }
 
+    /// Frees what the engine handed back. Call it regularly (e.g. with every UI update).
     pub fn collect_garbage(&mut self) -> usize {
-        let mut freed = 0;
-        while let Ok(item) = self.garbage.pop() {
-            drop(item);
-            freed += 1;
-        }
-        freed
+        self.take_garbage().len()
+    }
+
+    /// What the engine handed back, for the caller to free: a track of a few minutes and its
+    /// stems take a while to free, better done out of any lock other threads wait on.
+    pub fn take_garbage(&mut self) -> Vec<Garbage> {
+        std::iter::from_fn(|| self.garbage.pop().ok()).collect()
     }
 }

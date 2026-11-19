@@ -177,6 +177,21 @@ fn replaced_tracks_are_freed_on_the_control_side() {
 }
 
 #[test]
+fn replaced_tracks_are_freed_where_the_control_side_chooses() {
+    let mut rig = Rig::new();
+    let first = silent_track(1.0);
+    let freed = std::sync::Arc::downgrade(&first);
+    rig.send(Command::LoadTrack { deck: 0, track: first });
+    rig.send(Command::LoadTrack { deck: 0, track: silent_track(1.0) });
+    rig.run(0.01);
+    let garbage = rig.controller.take_garbage();
+    assert_eq!(garbage.len(), 1);
+    assert!(freed.upgrade().is_some(), "kept until the garbage is dropped");
+    drop(garbage);
+    assert!(freed.upgrade().is_none());
+}
+
+#[test]
 fn the_status_tells_how_many_commands_it_follows() {
     let mut rig = Rig::new();
     rig.send(Command::LoadTrack { deck: 0, track: silent_track(10.0) });

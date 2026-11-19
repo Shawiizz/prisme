@@ -22,20 +22,22 @@ pub fn subscribe_status(app: AppHandle, channel: Channel<StatusDto>) {
         .spawn(move || {
             let state = app.state::<AppState>();
             while GENERATION.load(Ordering::SeqCst) == generation {
-                let status = {
+                let (status, garbage) = {
                     let mut session = lock(&state.session);
                     match session.as_mut() {
                         Some(s) => {
-                            s.controller.collect_garbage();
-                            StatusDto::from_engine(
+                            let status = StatusDto::from_engine(
                                 &s.controller.status(),
                                 &s.stats,
                                 s.engine_config.sample_rate,
-                            )
+                            );
+                            (status, s.controller.take_garbage())
                         }
-                        None => StatusDto::stopped(),
+                        None => (StatusDto::stopped(), Vec::new()),
                     }
                 };
+                // freed with the session's lock released: the jogs and the clock wait on it
+                drop(garbage);
                 if channel.send(status).is_err() {
                     break; // the window is gone
                 }
