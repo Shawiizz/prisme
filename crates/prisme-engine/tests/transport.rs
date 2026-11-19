@@ -4,6 +4,8 @@ mod common;
 
 use common::{silent_track, Rig};
 use prisme_engine::{BeatGrid, Command, LoopRegion, VinylMode};
+use prisme_media::TrackAudio;
+use std::sync::Arc;
 
 /// 120 BPM: one beat every 0.5 s, from 0.
 fn playing_deck(position_s: f64) -> Rig {
@@ -170,6 +172,36 @@ fn a_record_in_absolute_mode_keeps_control_of_the_position() {
     let d = rig.deck(0);
     assert!(!d.looping.active);
     assert_close(d.position_s, 13.0, 0.05);
+}
+
+#[test]
+fn a_record_in_absolute_mode_is_taken_round_by_no_loop_nor_repeat() {
+    // heard up to 10.5 s, silent after, to its end at 11 s
+    let track = |s: f64| {
+        (0..(11.0 * 44_100.0) as usize).map(move |i| if i < (s * 44_100.0) as usize { 0.5 } else { 0.0 })
+    };
+    let track = Arc::new(TrackAudio::from_interleaved(44_100, track(10.5).flat_map(|v| [v, v]).collect()));
+    let loop_region = LoopRegion { start_s: 10.0, end_s: 10.5 };
+    for (looping, repeat) in [(true, false), (false, true)] {
+        let mut rig = Rig::new();
+        rig.turntable(0, 10.0, 1.0);
+        rig.send(Command::LoadTrack { deck: 0, track: track.clone() });
+        rig.send(Command::SetLoop { deck: 0, region: Some(loop_region), active: looping });
+        rig.send(Command::SetRepeat { deck: 0, enabled: repeat });
+        rig.send(Command::SetVinylMode { deck: 0, mode: VinylMode::Absolute });
+        rig.send(Command::SetLeadIn { deck: 0, seconds: Some(0.0) });
+        rig.send(Command::SetVinylEnabled { deck: 0, enabled: true });
+        rig.run(0.2);
+        let mut silent = false;
+        for _ in 0..200 {
+            rig.run(0.005);
+            for &sample in rig.output().iter().step_by(2) {
+                silent |= sample.abs() < 0.05;
+                assert!(!silent || sample.abs() < 0.25, "heard again past 10.5 s, looping {looping}");
+            }
+        }
+        assert!(silent && rig.deck(0).position_s > 11.0, "{:?}", rig.deck(0));
+    }
 }
 
 #[test]

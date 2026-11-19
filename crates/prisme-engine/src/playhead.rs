@@ -15,12 +15,21 @@ pub(crate) struct Playhead {
     loop_frames: Option<(f64, f64)>,
     /// At the end, the track goes on from its start.
     repeat: bool,
+    /// Whether the loop, or repeat, takes the playhead round.
+    wrapping: bool,
     stems: Stems,
 }
 
 impl Playhead {
     pub(crate) fn new() -> Self {
-        Self { track: None, position: 0.0, loop_frames: None, repeat: false, stems: Stems::new() }
+        Self {
+            track: None,
+            position: 0.0,
+            loop_frames: None,
+            repeat: false,
+            wrapping: true,
+            stems: Stems::new(),
+        }
     }
 
     /// Loads a track at its start and returns the previous one (to be freed elsewhere).
@@ -71,10 +80,16 @@ impl Playhead {
         self.repeat = repeat;
     }
 
+    /// Lets the loop, or repeat, take the playhead round, or not (where something else decides
+    /// where the track is).
+    pub(crate) fn set_wrapping(&mut self, wrapping: bool) {
+        self.wrapping = wrapping;
+    }
+
     /// The loop the playhead wraps around: the one set, else with repeat the whole track.
     fn wrap_frames(&self) -> Option<(f64, f64)> {
         let whole = self.track.as_ref().filter(|_| self.repeat).map(|t| (0.0, t.frames() as f64));
-        self.loop_frames.or(whole)
+        self.loop_frames.or(whole).filter(|_| self.wrapping)
     }
 
     pub(crate) fn is_loaded(&self) -> bool {

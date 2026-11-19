@@ -208,6 +208,8 @@ impl Deck {
     fn process(&mut self, input: &[f32], out: &mut [f32], out_rate: f64, target: Option<SyncTarget>) {
         // decoded even with vinyl control off, for the signal indicator
         let drive = self.vinyl.process(input);
+        // a record in absolute mode decides where the track is: no loop or repeat takes it round
+        self.playhead.set_wrapping(self.drive_mode() != DriveMode::Absolute);
         let target = target.map(|t| self.engage(t));
         let seconds = (out.len() / 2) as f64 / out_rate;
         let by_hand = self.drive_mode() != DriveMode::Absolute;
