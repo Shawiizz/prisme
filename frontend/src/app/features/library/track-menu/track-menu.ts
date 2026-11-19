@@ -18,6 +18,7 @@ import { deckLetter } from '../../../shared/time';
 import { t } from '../../../core/i18n/i18n';
 import { TPipe } from '../../../core/i18n/t.pipe';
 import { PHONE } from '../../../core/platform';
+import { isWithin, lastName, parentOf } from '../../../core/folders';
 
 export type TrackMenuPanel = 'main' | 'crates' | 'color' | 'genre';
 
@@ -55,6 +56,7 @@ export class TrackMenu {
   protected readonly letter = deckLetter;
   protected readonly trackColors = TRACK_COLORS;
   protected readonly hexColor = hexColor;
+  protected readonly lastName = lastName;
   protected readonly genre = signal('');
   private readonly genreInput = viewChild<ElementRef<HTMLInputElement>>('genreInput');
 
@@ -71,6 +73,22 @@ export class TrackMenu {
       .map((t) => t.path)
       .filter((p) => !this.stems.pending().has(p)),
   );
+  /** Every track of the selection is from outside the music folders. */
+  protected readonly elsewhere = computed(
+    () => this.paths().length > 0 && this.paths().every((p) => this.library.isElsewhere(p)),
+  );
+  /** The folder the tracks from elsewhere share, which may join the music folders. */
+  protected readonly sharedFolder = computed(() => {
+    const folders = new Set(this.paths().map(parentOf));
+    return this.elsewhere() && folders.size === 1 ? [...folders][0] : null;
+  });
+  /** The music folder that one holds, if it does: it cannot join them. */
+  protected readonly heldFolder = computed(() => {
+    const folder = this.sharedFolder();
+    return folder
+      ? (this.library.folders().find((f) => isWithin(f.path, folder))?.path ?? null)
+      : null;
+  });
   protected readonly removeLabel = computed(() =>
     this.library.source().kind === 'prepare'
       ? t('Remove from the prepare list')
@@ -125,6 +143,21 @@ export class TrackMenu {
 
   remove() {
     this.library.removeSelected();
+    this.closed.emit();
+  }
+
+  showInFileManager() {
+    this.library.showInFileManager(this.paths()[0]);
+    this.closed.emit();
+  }
+
+  addFolder(folder: string) {
+    this.library.addFolder(folder);
+    this.closed.emit();
+  }
+
+  removeFromPrisme() {
+    this.library.removeFromPrisme(this.paths());
     this.closed.emit();
   }
 

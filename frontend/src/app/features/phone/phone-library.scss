@@ -203,6 +203,17 @@ app-cover {
     font-size: var(--pr-size-small);
     color: var(--pr-text-2);
   }
+  // a track from outside the music folders: the dashed folder of their list
+  .elsewhere {
+    width: 14px;
+    height: 14px;
+    margin-right: 4px;
+    vertical-align: -1px;
+    fill: none;
+    stroke: var(--pr-text-2);
+    stroke-width: 1.6;
+    stroke-dasharray: 3 2;
+  }
 }
 .meta {
   flex: none;

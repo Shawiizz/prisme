@@ -44,6 +44,22 @@ pub fn search_library(library: State<'_, Arc<LibraryService>>, query: String) ->
     Ok(records.iter().map(|r| DirEntryDto::track(&r.path, Some(r))).collect())
 }
 
+/// The tracks of the library under none of the music folders: loaded from elsewhere, they stay
+/// until removed. Those of a music folder that is away (a drive unplugged) are not among them.
+#[tauri::command(async)]
+pub fn elsewhere_tracks(library: State<'_, Arc<LibraryService>>) -> AppResult<Vec<DirEntryDto>> {
+    let records = library.db.records_outside(&library.roots())?;
+    Ok(records.iter().map(|r| DirEntryDto::track(&r.path, Some(r))).collect())
+}
+
+/// Takes `paths` out of the library, their files left as they are: their cues, corrections and
+/// crate entries are kept for when the same audio comes back. One in a music folder comes back
+/// at the next scan.
+#[tauri::command(async)]
+pub fn remove_tracks(library: State<'_, Arc<LibraryService>>, paths: Vec<String>) -> AppResult<()> {
+    Ok(library.db.forget(&paths)?)
+}
+
 /// The genres of the library, the most common first (suggestions when tagging).
 #[tauri::command(async)]
 pub fn library_genres(library: State<'_, Arc<LibraryService>>) -> AppResult<Vec<String>> {

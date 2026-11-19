@@ -66,6 +66,23 @@ pub fn scan_folders(roots: &[PathBuf], cancel: &AtomicBool) -> Scan {
     all
 }
 
+/// Whether `path` is `folder` or under it; on Windows, whatever the case of the letters.
+pub fn within(path: &Path, folder: &Path) -> bool {
+    let names = |path: &Path| -> Vec<String> {
+        path.components()
+            .map(|c| {
+                let name = c.as_os_str().to_string_lossy();
+                if cfg!(windows) {
+                    name.to_lowercase()
+                } else {
+                    name.into_owned()
+                }
+            })
+            .collect()
+    };
+    names(path).starts_with(&names(folder))
+}
+
 fn scan_folder_at(root: &Path, cancel: &AtomicBool, now: SystemTime) -> Scan {
     let mut scan = Scan::default();
     let mut folders = vec![root.to_path_buf()];
@@ -202,6 +219,14 @@ mod tests {
         assert!(scan.files.is_empty());
         assert!(scan.may_hold(&root.join("House/a.mp3")));
         assert!(!scan.may_hold(Path::new("C:/elsewhere/a.mp3")));
+    }
+
+    #[test]
+    fn folders_compare_whatever_the_case_on_windows() {
+        let (path, folder) = (Path::new("e:/sets/House"), Path::new("E:/Sets"));
+        assert_eq!(within(path, folder), cfg!(windows));
+        assert!(within(Path::new("E:/Sets/House"), folder));
+        assert!(!within(Path::new("E:/Sets 2024/a.mp3"), folder), "a name that only starts the same");
     }
 
     #[test]

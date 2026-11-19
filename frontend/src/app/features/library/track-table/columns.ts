@@ -6,6 +6,7 @@ export type ColumnId =
   | 'cover'
   | 'title'
   | 'artist'
+  | 'folder'
   | 'album'
   | 'genre'
   | 'year'
@@ -29,6 +30,8 @@ export interface Column {
   fixed?: boolean;
   /** Shown on a wide table only: a narrow one gives its room to the titles. */
   wide?: boolean;
+  /** Shown in the tracks from elsewhere only, always: where each one is. */
+  elsewhere?: boolean;
 }
 
 export const COLUMNS: readonly Column[] = [
@@ -56,6 +59,13 @@ export const COLUMNS: readonly Column[] = [
     header: () => t('Artist'),
     width: 'minmax(72px, 1fr)',
     sort: 'artist',
+  },
+  {
+    id: 'folder',
+    name: () => t('Folder'),
+    header: () => t('Folder'),
+    width: 'minmax(96px, 1.2fr)',
+    elsewhere: true,
   },
   {
     id: 'album',

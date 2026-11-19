@@ -1,6 +1,7 @@
 import { TestBed } from '@angular/core/testing';
 import { clearMocks, mockIPC } from '@tauri-apps/api/mocks';
 import { DirEntry, DirListing } from '../models/library';
+import { ConfirmService } from '../../shared/confirm/confirm';
 import { EngineService } from './engine.service';
 import { HistoryService } from './history.service';
 import { LibraryService } from './library.service';
@@ -80,5 +81,43 @@ describe('LibraryService', () => {
     await crate;
     expect(library.currentCrate()).toBe(3);
     expect(library.listTracks().map((t) => t.name)).toEqual(['crate_tracks 3']);
+  });
+
+  it('lists the tracks from elsewhere apart, out of Prisme once the DJ says so', async () => {
+    const loose = { name: 'loose.mp3', path: '/downloads/loose.mp3', details: null };
+    let elsewhere = [loose];
+    const removed: string[][] = [];
+    mockIPC((command, args) => {
+      if (command === 'elsewhere_tracks') return elsewhere;
+      if (command === 'remove_tracks') {
+        const { paths } = args as { paths: string[] };
+        removed.push(paths);
+        elsewhere = elsewhere.filter((t) => !paths.includes(t.path));
+        return null;
+      }
+      if (command === 'list_dir') return { path: '/music', parent: null, folders: [], tracks: [] };
+      return undefined;
+    });
+    const library = TestBed.inject(LibraryService);
+    const confirm = TestBed.inject(ConfirmService);
+    library.folders.set([{ path: '/music', main: true, present: true }]);
+    await library.refreshElsewhere();
+    library.openElsewhere();
+    expect(library.listTracks()).toEqual([loose]);
+    expect(library.isElsewhere(loose.path)).toBe(true);
+
+    const declined = library.removeFromPrisme([loose.path]);
+    confirm.answer(false);
+    await declined;
+    expect(removed).toEqual([]);
+
+    const confirmed = library.removeFromPrisme([loose.path]);
+    confirm.answer(true);
+    await confirmed;
+    expect(removed).toEqual([[loose.path]]);
+    expect(library.elsewhere()).toEqual([]);
+    // their list emptied gives way to the main folder
+    expect(library.source().kind).toBe('folder');
+    expect(library.listing()?.path).toBe('/music');
   });
 });

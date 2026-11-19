@@ -60,6 +60,7 @@ export type TrackSource =
   | { kind: 'folder' }
   | { kind: 'prepare' }
   | { kind: 'duplicates' }
+  | { kind: 'elsewhere' }
   | { kind: 'crate'; id: number }
   | { kind: 'history'; id: number };
 
@@ -102,7 +103,8 @@ export function matchesSearch(t: DirEntry, words: string[]): boolean {
  * progress (`library-progress`): the lists are patched in place, no reload needed. The open
  * folder is listed again when files appear in it or leave it (`library-files-changed`); the
  * music folders, when one is added, removed, unplugged or plugged back
- * (`music-folders-changed`).
+ * (`music-folders-changed`). The tracks loaded from outside them (dropped on a deck from the
+ * file manager) are listed apart, "elsewhere", until they are removed or their folder added.
  */
 @Injectable({ providedIn: 'root' })
 export class LibraryService {
@@ -178,6 +180,12 @@ export class LibraryService {
     ...this.crates.crates().map((c) => c.id),
   ]);
 
+  /** The tracks of the library under none of the music folders. */
+  readonly elsewhere = signal<DirEntry[]>([]);
+  private readonly elsewherePaths = computed(() => new Set(this.elsewhere().map((t) => t.path)));
+  /** Answers to older fetches of the tracks from elsewhere arriving late are dropped. */
+  private elsewhereId = 0;
+
   /** Tracks of the crate or history session being browsed. */
   private readonly sourceTracks = signal<DirEntry[]>([]);
   private readonly libraryResults = signal<DirEntry[]>([]);
@@ -211,6 +219,8 @@ export class LibraryService {
         return this.listing()?.tracks ?? [];
       case 'prepare':
         return this.prepare.list();
+      case 'elsewhere':
+        return this.elsewhere();
       default:
         return this.sourceTracks();
     }
@@ -285,7 +295,9 @@ export class LibraryService {
       listen<TrackAnalyzed>('track-analyzed', (e) => this.patch(e.payload)),
       listen<AnalysisProgress>('library-progress', (e) => {
         this.progress.set(e.payload);
-        if (!e.payload.running) this.scansEnded.update((n) => n + 1);
+        if (e.payload.running) return;
+        this.scansEnded.update((n) => n + 1);
+        void this.refreshElsewhere();
       }),
       listen<string[]>('library-files-changed', (e) => this.relist(e.payload)),
       listen<MusicFolder[]>('music-folders-changed', (e) => this.foldersChanged(e.payload)),
@@ -294,6 +306,7 @@ export class LibraryService {
     this.inMemory.set(await invoke<boolean>('library_in_memory'));
     await Promise.all([this.crates.refresh(), this.history.init(), this.prepare.init()]);
     this.folders.set(await invoke<MusicFolder[]>('music_folders'));
+    await this.refreshElsewhere();
     const last = this.preferences.library().lastFolder;
     const root = this.root();
     if ((!last || !(await this.open(last))) && root) {
@@ -348,9 +361,59 @@ export class LibraryService {
     );
   }
 
-  /** Shows a folder in the computer's file manager. */
-  showFolder(path: string): Promise<void> {
-    return this.attempt(() => invoke('show_folder', { path }));
+  /** Shows a folder in the computer's file manager, or a file selected in its folder. */
+  showInFileManager(path: string): Promise<void> {
+    return this.attempt(() => invoke('show_in_file_manager', { path }));
+  }
+
+  /** Whether the track at `path` is under none of the music folders. */
+  isElsewhere(path: string): boolean {
+    return this.elsewherePaths().has(path);
+  }
+
+  /** The tracks from elsewhere, fetched again. */
+  refreshElsewhere(): Promise<void> {
+    const id = ++this.elsewhereId;
+    return this.attempt(async () => {
+      const tracks = await invoke<DirEntry[]>('elsewhere_tracks');
+      if (id === this.elsewhereId) this.elsewhere.set(tracks);
+    });
+  }
+
+  openElsewhere() {
+    this.browse({ kind: 'elsewhere' });
+  }
+
+  /** Takes tracks from elsewhere out of the library, once the DJ says so. The files stay where
+   * they are; their list, emptied, gives way to the main folder. */
+  async removeFromPrisme(paths: string[]): Promise<void> {
+    const tracks = this.elsewhere().filter((t) => paths.includes(t.path));
+    if (!tracks.length) return;
+    const one = tracks.length === 1;
+    const yes = await this.confirm.ask({
+      title: one
+        ? t('Remove “{title}” from Prisme?', { title: trackTitle(tracks[0]) })
+        : t('Remove these {n} tracks from Prisme?', { n: tracks.length }),
+      detail: one
+        ? t('It leaves the library. The file stays where it is.')
+        : t('They leave the library. The files stay where they are.'),
+      confirm: t('Remove'),
+      cancel: t('Cancel'),
+    });
+    if (!yes) return;
+    const removed = tracks.map((t) => t.path);
+    const next = this.neighbour(removed[removed.length - 1]);
+    await this.attempt(async () => {
+      await invoke('remove_tracks', { paths: removed });
+      this.libraryResults.update((results) => results.filter((t) => !removed.includes(t.path)));
+      this.clearSelection();
+      this.selected.set(next && !removed.includes(next) ? next : null);
+      await this.refreshElsewhere();
+      const root = this.root();
+      if (!this.elsewhere().length && this.source().kind === 'elsewhere' && root) {
+        await this.open(root);
+      }
+    });
   }
 
   /** The folders in `path`. */
@@ -689,6 +752,7 @@ export class LibraryService {
   /** The folder browsed left with its music folder: the main one opens instead. */
   private async foldersChanged(folders: MusicFolder[]) {
     this.folders.set(folders);
+    void this.refreshElsewhere();
     const root = this.root();
     if (this.source().kind === 'folder' && this.listing() && !this.folderRoot() && root) {
       await this.open(root);
@@ -730,7 +794,12 @@ export class LibraryService {
     if (listing?.tracks.some((t) => t.path === path)) {
       this.listing.set({ ...listing, tracks: update(listing.tracks) });
     }
-    for (const list of [this.sourceTracks, this.libraryResults, this.prepare.list]) {
+    for (const list of [
+      this.sourceTracks,
+      this.libraryResults,
+      this.prepare.list,
+      this.elsewhere,
+    ]) {
       if (list().some((t) => t.path === path)) list.update(update);
     }
   }
@@ -757,10 +826,21 @@ export class LibraryService {
       const tracks = update(listing.tracks);
       if (tracks !== listing.tracks) this.listing.set({ ...listing, tracks });
     }
-    for (const list of [this.sourceTracks, this.libraryResults, this.prepare.list]) {
+    for (const list of [
+      this.sourceTracks,
+      this.libraryResults,
+      this.prepare.list,
+      this.elsewhere,
+    ]) {
       const tracks = update(list());
       if (tracks !== list()) list.set(tracks);
     }
+    // a track just loaded from outside the music folders joins those from elsewhere
+    const folders = this.folders();
+    const arrived = [...analyzed.keys()].some(
+      (path) => !this.isElsewhere(path) && !folderOf(folders, path),
+    );
+    if (arrived) void this.refreshElsewhere();
   }
 }
 

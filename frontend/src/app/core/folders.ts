@@ -18,6 +18,13 @@ export function lastName(path: string): string {
   return path.split(SEPARATORS).filter(Boolean).pop() ?? path;
 }
 
+/** The folder a file is in: "C:\Music\a.mp3" → "C:\Music"; at the top of a drive, "E:\". */
+export function parentOf(path: string): string {
+  const at = Math.max(path.lastIndexOf('/'), path.lastIndexOf('\\'));
+  const parent = path.slice(0, at);
+  return parent === '' || /^[A-Za-z]:$/.test(parent) ? path.slice(0, at + 1) : parent;
+}
+
 /** What a music folder is called: its name, the system's music folder in the UI's language. */
 export function folderName(folder: MusicFolder): string {
   const name = lastName(folder.path);

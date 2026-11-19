@@ -102,8 +102,17 @@
         <div class="over" [style.translate.px]="moved?.dx ?? 0">
           <app-cover [path]="row.track.path" />
           <div class="names">
-            <div>{{ title(row.track) }}</div>
-            <div>{{ row.track.details?.tags?.artist }}</div>
+            <div>
+              @if (!elsewhere() && library.isElsewhere(row.track.path)) {
+                <svg class="elsewhere" viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M3.5 6.5h6l2 2h9v10h-17z" />
+                </svg>
+              }
+              {{ title(row.track) }}
+            </div>
+            <div>
+              {{ elsewhere() ? where(row.track.path) : row.track.details?.tags?.artist }}
+            </div>
           </div>
           <div class="meta">
             <div class="pr-num">{{ bpm(row.track) }}</div>

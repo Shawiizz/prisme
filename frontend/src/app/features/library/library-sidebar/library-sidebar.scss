@@ -154,6 +154,15 @@ section > .pr-resize {
     border: 1px solid var(--pr-line-2);
     border-radius: 3px;
   }
+  // the tracks from outside the music folders, a place of their own after them: a folder
+  // drawn dashed
+  .elsewhere {
+    --depth: 0;
+    .twisty svg {
+      stroke-width: 1.6;
+      stroke-dasharray: 3 2;
+    }
+  }
   // on a drive not plugged in: listed, dimmed, until it is back
   .absent {
     color: var(--pr-text-3);

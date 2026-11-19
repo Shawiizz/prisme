@@ -86,6 +86,25 @@
     color: var(--pr-text);
   }
 }
+// a track from outside the music folders: the dashed folder of their list
+.elsewhere {
+  flex: none;
+  display: grid;
+  svg {
+    width: 14px;
+    height: 14px;
+    fill: none;
+    stroke: var(--pr-text-2);
+    stroke-width: 1.6;
+    stroke-dasharray: 3 2;
+  }
+}
+// where a track from elsewhere is: its folder, and where that one is, dimmed
+.folder small {
+  margin-left: 4px;
+  font-size: var(--pr-size-small);
+  color: var(--pr-text-3);
+}
 // the decks this track is on: lit while playing
 .deck {
   flex: none;

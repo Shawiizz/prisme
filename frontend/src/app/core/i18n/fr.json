@@ -944,5 +944,17 @@
   "Downloading…": "Téléchargement…",
   "The choice stays in the settings, under Library, to change at any time.": "Le choix reste dans les réglages, sous Bibliothèque, modifiable à tout moment.",
   "Go on in the background": "Continuer en arrière-plan",
-  "Not now": "Pas maintenant"
+  "Not now": "Pas maintenant",
+  "Elsewhere": "Ailleurs",
+  "Outside your folders": "Hors de vos dossiers",
+  "Tracks loaded from outside your music folders": "Morceaux chargés hors de vos dossiers de musique",
+  "Search in the tracks from elsewhere": "Chercher dans les morceaux d'ailleurs",
+  "Every track is in your folders": "Tous les morceaux sont dans vos dossiers",
+  "Outside your folders: {folder}": "Hors de vos dossiers : {folder}",
+  "Show in the file manager": "Afficher dans l'explorateur",
+  "It holds your folder {folder}": "Il contient votre dossier {folder}",
+  "Remove “{title}” from Prisme?": "Retirer « {title} » de Prisme ?",
+  "Remove these {n} tracks from Prisme?": "Retirer ces {n} morceaux de Prisme ?",
+  "It leaves the library. The file stays where it is.": "Il quitte la bibliothèque. Le fichier reste où il est.",
+  "They leave the library. The files stay where they are.": "Ils quittent la bibliothèque. Les fichiers restent où ils sont."
 }

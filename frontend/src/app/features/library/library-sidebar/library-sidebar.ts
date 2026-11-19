@@ -64,8 +64,9 @@ const SESSION_DATE = computed(
 );
 
 /**
- * Left panel of the library: the prepare list, the music folders as trees, the crates (tracks
- * are dropped on them) and the history of the sets, the last three foldable. Files from the
+ * Left panel of the library: the prepare list, the music folders as trees and the tracks from
+ * elsewhere after them, the crates (tracks are dropped on them) and the history of the sets,
+ * the last three foldable. Files from the
  * file manager are dropped on the prepare list and the crates too, folders on the music
  * folders. A phone picks a folder to add in its own sheet (`pickFolder`).
  */
@@ -194,7 +195,7 @@ export class LibrarySidebar {
     const folder = this.folderMenu()?.folder;
     this.folderMenu.set(null);
     if (!folder) return;
-    if (action === 'show') this.library.showFolder(folder.path);
+    if (action === 'show') this.library.showInFileManager(folder.path);
     else if (action === 'rescan')
       this.library.rescan().catch((e) => this.library.error.set(errorText(e)));
     else this.library.removeFolder(folder);

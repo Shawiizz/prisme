@@ -8,6 +8,7 @@ export const LIST_LABEL: Record<TrackSource['kind'], Text> = {
   history: () => t('Set'),
   prepare: () => t('Prepare'),
   duplicates: () => t('Duplicates'),
+  elsewhere: () => t('Elsewhere'),
 };
 /** Whole sentences: the words around the list's name change with it in other languages. */
 export const SEARCH_PLACEHOLDER: Record<TrackSource['kind'], Text> = {
@@ -16,4 +17,5 @@ export const SEARCH_PLACEHOLDER: Record<TrackSource['kind'], Text> = {
   history: () => t('Search in this set'),
   prepare: () => t('Search in the prepare list'),
   duplicates: () => t('Search in the duplicates'),
+  elsewhere: () => t('Search in the tracks from elsewhere'),
 };

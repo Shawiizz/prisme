@@ -33,6 +33,7 @@ import { LIST_LABEL, SEARCH_PLACEHOLDER } from '../library/list-labels';
 import { PhoneFolderPicker } from './phone-folder-picker';
 import { TrackMenu } from '../library/track-menu/track-menu';
 import { COLUMNS } from '../library/track-table/columns';
+import { lastName, parentOf, shortPath } from '../../core/folders';
 
 /** Height of a row: a finger's, and room for a cover. */
 const ROW_PX = 60;
@@ -67,7 +68,7 @@ interface Slide {
 /**
  * The library on a phone: a search and the order, the lists to go to, then large rows, a
  * cover, the tempo and the key (lit when it fits the deck), a key to hear the track in the
- * headphones. A row slid to the right loads on the first deck, to the left on the second;
+ * headphones; a track from outside the music folders marked, or its folder said in their list. A row slid to the right loads on the first deck, to the left on the second;
  * touched, it opens what can be done with the track. `peek` leaves the search and the rows,
  * under the decks. Only the rows in view are drawn; the track previewed plays under them.
  */
@@ -116,6 +117,10 @@ export class PhoneLibrary {
     this.library.scope() === 'list'
       ? SEARCH_PLACEHOLDER[this.library.source().kind]()
       : t('Search the whole library'),
+  );
+  /** The tracks from elsewhere are listed: each says its folder under its title. */
+  protected readonly elsewhere = computed(
+    () => this.library.source().kind === 'elsewhere' && this.library.scope() === 'list',
   );
   protected readonly sorts = computed(() =>
     this.library.ordered() ? [LIST_ORDER, ...SORTS] : SORTS,
@@ -203,6 +208,13 @@ export class PhoneLibrary {
 
   protected scrolled() {
     this.scrollTop.set(this.list().nativeElement.scrollTop);
+  }
+
+  /** Where a track from elsewhere is: its folder, then where that one is. */
+  protected where(path: string): string {
+    const folder = parentOf(path);
+    const place = parentOf(folder);
+    return place === folder ? folder : `${lastName(folder)} · ${shortPath(place)}`;
   }
 
   protected bpm(track: DirEntry): string {

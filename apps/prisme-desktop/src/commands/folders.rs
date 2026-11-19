@@ -60,9 +60,9 @@ pub async fn remove_music_folder(app: AppHandle, path: String) -> AppResult<Vec<
     .await
 }
 
-/// Opens the folder `path` in the system's file manager.
+/// Shows `path` in the system's file manager: a folder opened, a file selected in its own.
 #[tauri::command]
-pub fn show_folder(path: String) -> AppResult<()> {
+pub fn show_in_file_manager(path: String) -> AppResult<()> {
     Ok(folders::show(Path::new(&path))?)
 }
 

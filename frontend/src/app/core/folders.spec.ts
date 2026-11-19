@@ -1,4 +1,4 @@
-import { folderOf, isWithin, lastName, shortPath, stepsFrom } from './folders';
+import { folderOf, isWithin, lastName, parentOf, shortPath, stepsFrom } from './folders';
 import { isAudioFile } from './audio-files';
 
 describe('lastName', () => {
@@ -6,6 +6,15 @@ describe('lastName', () => {
     expect(lastName('C:\\Users\\dj\\Music\\House')).toBe('House');
     expect(lastName('/home/dj/Music/')).toBe('Music');
     expect(lastName('E:\\')).toBe('E:');
+  });
+});
+
+describe('parentOf', () => {
+  it('is the folder a file is in, the top of a drive whole', () => {
+    expect(parentOf('C:\\Users\\dj\\Downloads\\a.mp3')).toBe('C:\\Users\\dj\\Downloads');
+    expect(parentOf('/home/dj/a.mp3')).toBe('/home/dj');
+    expect(parentOf('E:\\a.mp3')).toBe('E:\\');
+    expect(parentOf('/a.mp3')).toBe('/');
   });
 });
 

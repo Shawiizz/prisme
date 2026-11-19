@@ -109,6 +109,25 @@
         }
       </div>
     }
+    @if (library.elsewhere().length; as count) {
+      <div
+        class="item root elsewhere"
+        [class.current]="library.source().kind === 'elsewhere'"
+        [title]="'Tracks loaded from outside your music folders' | t"
+        (click)="library.openElsewhere()"
+      >
+        <span class="twisty">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M3.5 6.5h6l2 2h9v10h-17z" />
+          </svg>
+        </span>
+        <span class="name">
+          {{ 'Elsewhere' | t }}
+          <small>{{ 'Outside your folders' | t }}</small>
+        </span>
+        <span class="count">{{ count }}</span>
+      </div>
+    }
   </div>
   @if (drops.dragged()?.folders) {
     <div class="drop-folders" [class.over]="drops.isOver({ kind: 'folders' })">

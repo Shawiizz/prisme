@@ -35,6 +35,7 @@ import { t } from '../../../core/i18n/i18n';
 import { TPipe } from '../../../core/i18n/t.pipe';
 import { KeyboardService } from '../../../core/keyboard/keyboard.service';
 import { Dismiss, overlay } from '../../../shared/overlay';
+import { lastName, parentOf, shortPath } from '../../../core/folders';
 import { Popover, popoverAbove, popoverAtPointer } from '../../../shared/popover';
 
 /** What an empty list says; the prepare list's names the key that adds to it, if it has one. */
@@ -47,6 +48,7 @@ const EMPTY_LIST: Record<TrackSource['kind'], (key: string | null) => string> = 
       ? t('Drag tracks here or press {key} to line them up for the set', { key })
       : t('Drag tracks here to line them up for the set'),
   duplicates: () => t('No two tracks share an artist and a title'),
+  elsewhere: () => t('Every track is in your folders'),
 };
 
 const STARS = [1, 2, 3, 4, 5];
@@ -107,10 +109,17 @@ export class TrackTable {
   protected readonly keyName = keyName;
   protected readonly hexColor = hexColor;
   protected readonly title = trackTitle;
+  protected readonly parentOf = parentOf;
+  protected readonly shortPath = shortPath;
+  protected readonly lastName = lastName;
 
   private readonly hidden = computed(() => new Set(this.preferences.library().hiddenColumns));
+  /** The tracks from elsewhere are listed: where each one is says it, not a mark. */
+  protected readonly elsewhere = computed(
+    () => this.library.source().kind === 'elsewhere' && this.library.scope() === 'list',
+  );
   protected readonly columns = computed(() =>
-    COLUMNS.filter((c) => c.fixed || !this.hidden().has(c.id)),
+    COLUMNS.filter((c) => (c.elsewhere ? this.elsewhere() : c.fixed || !this.hidden().has(c.id))),
   );
   protected readonly template = computed(() =>
     gridTemplate(this.columns(), this.library.ordered(), this.deckIndexes().length),

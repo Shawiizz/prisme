@@ -34,9 +34,35 @@
           </button>
         }
       }
-      @if (library.removable()) {
+      @if (elsewhere()) {
         <hr />
-        <button role="menuitem" class="danger" (click)="remove()">{{ removeLabel() }}</button>
+        @if (!PHONE && paths().length === 1) {
+          <button role="menuitem" (click)="showInFileManager()">
+            {{ 'Show in the file manager' | t }}
+          </button>
+        }
+        @if (sharedFolder(); as folder) {
+          @let holds = heldFolder();
+          <button
+            role="menuitem"
+            [disabled]="holds"
+            [title]="holds ? ('It holds your folder {folder}' | t: { folder: holds }) : folder"
+            (click)="addFolder(folder)"
+          >
+            {{ 'Add “{name}” to your folders' | t: { name: lastName(folder) } }}
+          </button>
+        }
+      }
+      @if (library.removable() || elsewhere()) {
+        <hr />
+        @if (library.removable()) {
+          <button role="menuitem" class="danger" (click)="remove()">{{ removeLabel() }}</button>
+        }
+        @if (elsewhere()) {
+          <button role="menuitem" class="danger" (click)="removeFromPrisme()">
+            {{ 'Remove from Prisme' | t }}
+          </button>
+        }
       }
     </div>
   }
