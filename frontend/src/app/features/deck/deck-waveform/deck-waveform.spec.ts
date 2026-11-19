@@ -10,7 +10,8 @@ describe('DeckWaveform', () => {
     vi.unstubAllGlobals();
   });
 
-  it('takes the hand off the record when it goes, a press still held', async () => {
+  /** The waveform of deck 0, its overview pressed: the hands sent, as `deck at`. */
+  async function pressed() {
     // the canvases' sizes are watched from the module's load, which the test runner cannot do
     vi.stubGlobal(
       'ResizeObserver',
@@ -24,18 +25,32 @@ describe('DeckWaveform', () => {
     mockIPC(() => undefined);
     Element.prototype.setPointerCapture = () => undefined;
     const engine = TestBed.inject(EngineService);
-    const hands: (number | null)[] = [];
+    const hands: string[] = [];
     vi.spyOn(engine, 'seek').mockResolvedValue(undefined);
-    vi.spyOn(engine, 'hand').mockImplementation(async (_, at) => void hands.push(at));
-    engine.tracks.set([{ path: '/a.mp3', durationS: 60, separation: 'none' } as TrackInfo]);
+    vi.spyOn(engine, 'hand').mockImplementation(
+      async (deck, at) => void hands.push(`${deck} ${at}`),
+    );
+    const track = { path: '/a.mp3', durationS: 60, separation: 'none' } as TrackInfo;
+    engine.tracks.set([track, track]);
     const fixture = TestBed.createComponent(DeckWaveform);
     fixture.componentRef.setInput('deck', 0);
     fixture.detectChanges();
-
     const overview = (fixture.nativeElement as HTMLElement).querySelector('.overview')!;
     overview.dispatchEvent(new PointerEvent('pointerdown', { pointerId: 1, button: 0 }));
     expect(hands.length).toBe(1);
+    return { fixture, hands };
+  }
+
+  it('takes the hand off the record when it goes, a press still held', async () => {
+    const { fixture, hands } = await pressed();
     fixture.destroy();
-    expect(hands.at(-1)).toBeNull();
+    expect(hands.at(-1)).toBe('0 null');
+  });
+
+  it('takes the hand off the record pressed when it shows another deck', async () => {
+    const { fixture, hands } = await pressed();
+    fixture.componentRef.setInput('deck', 1);
+    fixture.detectChanges();
+    expect(hands.at(-1)).toBe('0 null');
   });
 });
