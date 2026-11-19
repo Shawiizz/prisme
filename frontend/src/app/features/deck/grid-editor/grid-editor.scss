@@ -58,10 +58,26 @@ header {
     color: var(--pr-warn);
   }
 }
+// a semitone at a time: square keys a finger finds, their signs large enough to be read
+.transpose .pr-btn {
+  height: var(--pr-h);
+}
+.transpose .step {
+  min-width: var(--pr-h);
+  padding: 0;
+  font-size: 17px;
+}
 
-// on a phone: risen from the bottom, over the panel of its deck
+// on a phone: risen from the bottom, over the panel of its deck; the semitones as large as a
+// finger
 :host-context(.phone) {
   --pr-layer: var(--pr-z-sheet);
+  .transpose .pr-btn {
+    height: var(--pr-h-touch);
+  }
+  .transpose .step {
+    min-width: var(--pr-h-touch);
+  }
 }
 .pr-sheet {
   max-height: 85%;

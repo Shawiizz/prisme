@@ -138,9 +138,9 @@
       </button>
     }
   </header>
-  <div class="row">
+  <div class="row transpose">
     <button
-      class="pr-btn pr-btn--sm"
+      class="pr-btn pr-btn--sm step"
       [title]="'Down a semitone' | t"
       (click)="shiftKey(keyShift() - 1)"
     >
@@ -148,7 +148,7 @@
     </button>
     <span class="shift pr-num" [class.moved]="keyShift() !== 0">{{ shiftLabel() }}</span>
     <button
-      class="pr-btn pr-btn--sm"
+      class="pr-btn pr-btn--sm step"
       [title]="'Up a semitone' | t"
       (click)="shiftKey(keyShift() + 1)"
     >
