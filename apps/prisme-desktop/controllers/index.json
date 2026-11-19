@@ -40,6 +40,11 @@
       "revision": 1,
       "format": 2
     },
+    "behringer-bcd2000.json": {
+      "sha256": "1888117b88854716d33eae4599ea36554aac5340a282b2ac2122c4fa2dfeba92",
+      "revision": 1,
+      "format": 3
+    },
     "behringer-bcd3000.json": {
       "sha256": "7a1b30bce7695d8bf1be8a2b4bac964d2ff3153af642abd68c49077dcee6f2a3",
       "revision": 1,
@@ -595,10 +600,20 @@
       "revision": 3,
       "format": 2
     },
+    "stanton-scs-1d.json": {
+      "sha256": "73812851a30991a9b1f418199e86ad2f9e27289423ee1d62ad6a24076d91c7ae",
+      "revision": 1,
+      "format": 3
+    },
     "stanton-scs-1m.json": {
       "sha256": "2dfa9621ed18d938bfd17ba152cbb549897f593eeb68bd7c44f4010e9f841550",
       "revision": 1,
       "format": 2
+    },
+    "stanton-scs-3d.json": {
+      "sha256": "902fffce89a9fef9209fd4e21990ab036b34aef6191e98f8e7607fa09d0f937d",
+      "revision": 1,
+      "format": 3
     },
     "stanton-scs-3m.json": {
       "sha256": "bb24833131582f1e1ded8f405caa7ca59fa5b30f2974546835fcfd468f08dc83",

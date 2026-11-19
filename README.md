@@ -6,7 +6,7 @@
 
 <p align="center">
   Free DJ software that plays your way: a controller, turntables, or just your laptop.<br>
-  Two decks or four, stems on any track, 129 controllers ready when plugged in.<br>
+  Two decks or four, stems on any track, 132 controllers ready when plugged in.<br>
   Windows, macOS and Linux, and Android on a phone or a tablet.
 </p>
 
@@ -21,7 +21,7 @@
 
 ## Play your way
 
-- **A controller**: plug in one of 129 models and play. Pads, jog wheels, lights, meters
+- **A controller**: plug in one of 132 models and play. Pads, jog wheels, lights, meters
   and screens are mapped out of the box, and a controller Prisme does not know is offered
   to MIDI learn.
 - **Turntables**: timecode records or CDs drive the tracks, needle drops, backspins and
@@ -32,7 +32,7 @@
 
 ## Controllers
 
-129 models from Akai, Allen & Heath, American Audio, Behringer, Denon, DJ TechTools,
+132 models from Akai, Allen & Heath, American Audio, Behringer, Denon, DJ TechTools,
 Hercules, Korg, Native Instruments, Novation, Numark, Pioneer, Reloop, Roland, Stanton,
 Vestax and more work the moment they are plugged in; one that another DJ application
 holds is taken as soon as that application lets it go.
