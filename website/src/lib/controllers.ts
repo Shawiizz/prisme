@@ -4,19 +4,14 @@ import { resolve } from 'node:path';
 /** The profiles shipped with the app: read at build time, so the site never lags behind. */
 export const CONTROLLERS_DIR = resolve(process.cwd(), '../apps/prisme-desktop/controllers');
 
+/** Brands named in more than one word; the others are a model name's first word. */
 const BRANDS = [
 	'Allen & Heath',
-	'Behringer',
-	'Denon',
+	'American Audio',
 	'DJ TechTools',
-	'Hercules',
-	'Korg',
+	'Keith McMillen',
+	'Kontrol DJ',
 	'Native Instruments',
-	'Numark',
-	'Pioneer',
-	'Reloop',
-	'Roland',
-	'Stanton',
 ];
 const NOT_PROFILES = new Set(['index.json', 'targets.json', 'profile.schema.json']);
 
