@@ -42,6 +42,18 @@ pub enum MediaError {
     WriteTags { path: String, message: String },
 }
 
+impl MediaError {
+    /// Whether the file could not be read at that moment (its drive gone, the file locked),
+    /// rather than read and found to be no audio this crate can decode.
+    pub fn is_transient(&self) -> bool {
+        match self {
+            Self::Open { .. } => true,
+            Self::Format(SymphoniaError::IoError(e)) => e.kind() != std::io::ErrorKind::UnexpectedEof,
+            _ => false,
+        }
+    }
+}
+
 pub use track::{LoadingTrack, TrackAudio, TrackView, PENDING_BLOCK};
 
 /// Extensions of the files [`decode_file`] can read.

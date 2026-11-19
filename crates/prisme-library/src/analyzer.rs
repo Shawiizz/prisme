@@ -210,7 +210,12 @@ fn run(
                     if let Err(e) = adopt_unless(db, &file.path, file.stamp, search, may_be_back) {
                         error!("{} not looked for elsewhere: {e}", file.path.display());
                     }
-                    let (record, cover) = process(db, file, options);
+                    let Some((record, cover)) = process(db, file, options) else {
+                        failed.fetch_add(1, Ordering::Relaxed);
+                        done.fetch_add(1, Ordering::Relaxed);
+                        report(true);
+                        continue;
+                    };
                     if record.error.is_some() {
                         failed.fetch_add(1, Ordering::Relaxed);
                     }
@@ -355,11 +360,17 @@ fn follow_moves(
     }
 }
 
-/// The record of a file and its cover thumbnail. When only the tags are stale, the
-/// stored analysis is kept: reading tags takes milliseconds, analysing seconds. A file that
-/// makes a decoder, the tags' reader or the analysis panic is recorded as failed, and left
-/// alone until it changes, instead of stopping the analysis there.
-fn process(db: &LibraryDb, file: &ScannedFile, options: &AnalysisOptions) -> (TrackRecord, Option<Vec<u8>>) {
+/// The record of a file and its cover thumbnail, none when the file could not be read at that
+/// moment (its drive unplugged, the file locked or changed meanwhile): the next run reads it
+/// again. When only the tags are stale, the stored analysis is kept: reading tags takes
+/// milliseconds, analysing seconds. A file that makes a decoder, the tags' reader or the
+/// analysis panic is recorded as failed, and left alone until it changes, instead of stopping
+/// the analysis there.
+fn process(
+    db: &LibraryDb,
+    file: &ScannedFile,
+    options: &AnalysisOptions,
+) -> Option<(TrackRecord, Option<Vec<u8>>)> {
     let reusable = db
         .get(&file.path)
         .ok()
@@ -374,11 +385,15 @@ fn process(db: &LibraryDb, file: &ScannedFile, options: &AnalysisOptions) -> (Tr
     });
     let (record, cover) = match read {
         Ok(Ok(read)) => read,
+        Ok(Err(e)) if e.is_transient() => return None,
         Ok(Err(e)) => (TrackRecord::failed(&file.path, file.stamp, e.to_string()), None),
         Err(_) => (TrackRecord::failed(&file.path, file.stamp, "the file could not be read".into()), None),
     };
+    if FileStamp::of(&file.path).ok() != Some(file.stamp) {
+        return None;
+    }
     let edits = db.edits(&file.path).unwrap_or_default();
-    (TrackRecord { edits, ..record }, cover)
+    Some((TrackRecord { edits, ..record }, cover))
 }
 
 fn analyze(

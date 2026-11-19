@@ -208,6 +208,69 @@ fn no_file_is_started_while_the_analysis_is_held_back() {
     std::fs::remove_dir_all(root).ok();
 }
 
+/// Unplugs the drive of the music folder (renames it) once the files to analyse are known.
+struct Unplugging {
+    collector: Collector,
+    from: PathBuf,
+    to: PathBuf,
+    unplugged: AtomicBool,
+}
+
+impl AnalysisListener for Unplugging {
+    fn track_analyzed(&self, record: &TrackRecord) {
+        self.collector.track_analyzed(record);
+    }
+    fn progress(&self, progress: AnalysisProgress) {
+        self.collector.progress(progress);
+    }
+    fn holds_back(&self) -> bool {
+        if !self.unplugged.swap(true, Ordering::Relaxed) {
+            std::fs::rename(&self.from, &self.to).unwrap();
+        }
+        false
+    }
+}
+
+#[test]
+fn a_file_unplugged_while_the_analysis_runs_is_read_again_once_back() {
+    let base = std::env::temp_dir().join(format!("prisme-analyzer-unplugged-{}", std::process::id()));
+    let (music, away) = (base.join("Music"), base.join("Away"));
+    std::fs::create_dir_all(&music).unwrap();
+    let (house, techno) = (music.join("house.wav"), music.join("techno.wav"));
+    write_kicks(&house, 124.0, 12.0);
+    let db = Arc::new(LibraryDb::open_in_memory().unwrap());
+    run(&db, &music);
+    // one file new, the other changed: neither can be read once the scan is over
+    std::thread::sleep(Duration::from_millis(20));
+    write_kicks(&house, 126.0, 12.0);
+    write_kicks(&techno, 140.0, 12.0);
+
+    let listener = Arc::new(Unplugging {
+        collector: Collector::default(),
+        from: music.clone(),
+        to: away.clone(),
+        unplugged: AtomicBool::new(false),
+    });
+    BackgroundAnalyzer::start(
+        db.clone(),
+        vec![music.clone()],
+        1,
+        AnalysisOptions::default(),
+        listener.clone(),
+    )
+    .wait();
+    assert!(listener.collector.records.lock().unwrap().is_empty());
+    assert!(db.get(&techno).unwrap().is_none());
+    let kept = db.get(&house).unwrap().unwrap();
+    assert_eq!((kept.error, kept.analysis.tempo.map(|t| t.bpm)), (None, Some(124.0)));
+
+    std::fs::rename(&away, &music).unwrap();
+    let back = run(&db, &music);
+    let records = back.records.lock().unwrap().clone();
+    assert_eq!((bpm_of(&records, "house.wav"), bpm_of(&records, "techno.wav")), (Some(126.0), Some(140.0)));
+    std::fs::remove_dir_all(base).ok();
+}
+
 /// An IMA ADPCM WAV whose blocks are said to be empty: its reader's arithmetic overflows,
 /// which panics where overflows are checked.
 fn write_overflowing(path: &Path) {
