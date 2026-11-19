@@ -4,11 +4,14 @@
     <!-- the music the phone shares between applications -->
     <uses-permission android:name="android.permission.READ_MEDIA_AUDIO" />
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32" />
+    <!-- the recordings, in the documents the phone shares: a leave Android 10 alone asks for -->
+    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="29" />
     <!-- the timecode of the turntables, from the inputs of the sound card -->
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
-    <!-- the sound goes on while a deck plays, the screen locked -->
+    <!-- the sound goes on while a deck plays, the screen locked, and the timecode comes in -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
     <!-- a controller and its sound card, plugged in -->
@@ -18,7 +21,9 @@
     <!-- AndroidTV support -->
     <uses-feature android:name="android.software.leanback" android:required="false" />
 
+    <!-- Android 10 lets Prisme read the shared music by its paths only so; later ones always do -->
     <application
+        android:requestLegacyExternalStorage="true"
         android:icon="@mipmap/ic_launcher"
         android:label="@string/app_name"
         android:theme="@style/Theme.prisme_desktop"
@@ -46,7 +51,7 @@
 
         <service
             android:name=".PlaybackService"
-            android:foregroundServiceType="mediaPlayback"
+            android:foregroundServiceType="mediaPlayback|microphone"
             android:exported="false" />
 
         <provider

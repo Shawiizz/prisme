@@ -15,6 +15,7 @@ windows-sys = { workspace = true, features = [
   "Win32_Foundation",
   "Win32_Globalization",
   "Win32_Graphics_Dwm",
+  "Win32_System_Diagnostics_ToolHelp",
   "Win32_System_Registry",
 ] }
 

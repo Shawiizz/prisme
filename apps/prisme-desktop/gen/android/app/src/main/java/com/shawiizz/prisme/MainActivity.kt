@@ -1,6 +1,7 @@
 package com.shawiizz.prisme
 
 import android.Manifest
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.content.res.Configuration
 import android.graphics.Bitmap
@@ -13,6 +14,7 @@ import android.view.View
 import android.view.WindowManager
 import android.webkit.JavascriptInterface
 import android.webkit.WebView
+import androidx.activity.OnBackPressedCallback
 import androidx.activity.SystemBarStyle
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.ActivityResultLauncher
@@ -50,15 +52,41 @@ class MainActivity : TauriActivity() {
   /** The page, drawn again when Prisme comes back on screen. */
   private var page: WebView? = null
 
-  /** The music shared between applications, and the notification of a deck playing. */
+  /**
+   * The music shared between applications, and the notification of a deck playing: once the
+   * DJ lets Prisme read the music, the native side looks at it again.
+   */
   private val musicAndNotifications =
-    registerForActivityResult(RequestMultiplePermissions()) { answered() }
+    registerForActivityResult(RequestMultiplePermissions()) { granted ->
+      val music = listOf(Manifest.permission.READ_MEDIA_AUDIO, Manifest.permission.READ_EXTERNAL_STORAGE)
+      if (music.any { granted[it] == true }) musicAllowed()
+      answered()
+    }
 
-  /** The inputs of a sound card: once the DJ says yes, the native side takes them. */
+  /**
+   * The inputs of a sound card: once the DJ says yes, the native side takes them, and the
+   * service of a deck already playing says it listens too, before Prisme leaves the screen.
+   */
   private val inputs =
     registerForActivityResult(RequestMultiplePermissions()) { granted ->
-      if (granted[Manifest.permission.RECORD_AUDIO] == true) inputsAllowed()
+      if (granted[Manifest.permission.RECORD_AUDIO] == true) {
+        inputsAllowed()
+        if (PlaybackService.running) startForegroundService(Intent(this, PlaybackService::class.java))
+      }
       answered()
+    }
+
+  /**
+   * Back with nothing left to close (`back.ts`) sends Prisme behind. Android would end the
+   * activity before Android 12, and from it on too when Prisme was opened other than from the
+   * launcher (a sound card plugged in): the native side would end the process with it, a deck
+   * playing falling silent.
+   */
+  private val sendBehind =
+    object : OnBackPressedCallback(true) {
+      override fun handleOnBackPressed() {
+        moveTaskToBack(true)
+      }
     }
 
   /**
@@ -75,6 +103,8 @@ class MainActivity : TauriActivity() {
     UsbAudio.init(this)
     // which asks for the inputs of a sound card through this activity
     shown = this
+    // first, the last asked: the page goes back through what is open before
+    onBackPressedDispatcher.addCallback(sendBehind)
     super.onCreate(savedInstanceState)
     // the screen is Prisme's up to its short edges, beside the camera too
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
@@ -208,15 +238,18 @@ class MainActivity : TauriActivity() {
   /**
    * The music the phone shares between applications is read once the DJ allows it, and the
    * notification of a deck playing shown (without it, Android hides it). Both are asked for
-   * at once, at the start rather than in the middle of a set. (The inputs of a sound card are
-   * asked for when one is first wanted: see `input_access.rs`.)
+   * at once, at the start rather than in the middle of a set; on Android 10, the recordings
+   * written to the documents the phone shares too. (The inputs of a sound card are asked for
+   * when one is first wanted: see `input_access.rs`.)
    */
   private fun askForTheMusicAndNotifications() {
     val wanted =
-      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-        arrayOf(Manifest.permission.READ_MEDIA_AUDIO, Manifest.permission.POST_NOTIFICATIONS)
-      } else {
-        arrayOf(Manifest.permission.READ_EXTERNAL_STORAGE)
+      when {
+        Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU ->
+          arrayOf(Manifest.permission.READ_MEDIA_AUDIO, Manifest.permission.POST_NOTIFICATIONS)
+        Build.VERSION.SDK_INT >= Build.VERSION_CODES.R -> arrayOf(Manifest.permission.READ_EXTERNAL_STORAGE)
+        else ->
+          arrayOf(Manifest.permission.READ_EXTERNAL_STORAGE, Manifest.permission.WRITE_EXTERNAL_STORAGE)
       }
     val missing = wanted.filter { checkSelfPermission(it) != PackageManager.PERMISSION_GRANTED }
     if (missing.isNotEmpty()) ask(musicAndNotifications, missing.toTypedArray())
@@ -237,6 +270,9 @@ class MainActivity : TauriActivity() {
 
   /** The DJ let Prisme listen to the inputs (`input_access.rs`): the audio takes them. */
   private external fun inputsAllowed()
+
+  /** The DJ let Prisme read the shared music (`music_access.rs`): the library looks again. */
+  private external fun musicAllowed()
 
   companion object {
     /** The activity on screen, for the native side. */

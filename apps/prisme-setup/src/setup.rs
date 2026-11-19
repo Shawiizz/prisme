@@ -230,11 +230,36 @@ fn installer_path() -> PathBuf {
 }
 
 fn prisme_is_running() -> bool {
-    Command::new("tasklist")
-        .args(["/FI", &format!("IMAGENAME eq {APP_EXE}"), "/NH"])
-        .creation_flags(NO_WINDOW)
-        .output()
-        .is_ok_and(|out| String::from_utf8_lossy(&out.stdout).to_lowercase().contains(APP_EXE))
+    runs(APP_EXE)
+}
+
+/// Whether a process of executable `exe` runs, read from the system's list of them: no program
+/// is started to ask, which Windows would look for beside the installer first, in the
+/// downloads folder.
+fn runs(exe: &str) -> bool {
+    use windows_sys::Win32::Foundation::{CloseHandle, INVALID_HANDLE_VALUE};
+    use windows_sys::Win32::System::Diagnostics::ToolHelp::{
+        CreateToolhelp32Snapshot, Process32FirstW, Process32NextW, PROCESSENTRY32W, TH32CS_SNAPPROCESS,
+    };
+    // SAFETY: no pointer is given
+    let snapshot = unsafe { CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0) };
+    if snapshot == INVALID_HANDLE_VALUE {
+        return false;
+    }
+    let mut entry = PROCESSENTRY32W { dwSize: size_of::<PROCESSENTRY32W>() as u32, ..Default::default() };
+    let mut found = false;
+    // SAFETY: the snapshot is open and the entry says its own size
+    let mut more = unsafe { Process32FirstW(snapshot, &mut entry) } != 0;
+    while more && !found {
+        let name = &entry.szExeFile;
+        let length = name.iter().position(|&c| c == 0).unwrap_or(name.len());
+        found = String::from_utf16_lossy(&name[..length]).eq_ignore_ascii_case(exe);
+        // SAFETY: as above
+        more = unsafe { Process32NextW(snapshot, &mut entry) } != 0;
+    }
+    // SAFETY: the snapshot is open, and closed once
+    unsafe { CloseHandle(snapshot) };
+    found
 }
 
 /// Opens Prisme where the installer put it (none was, in a development build).
@@ -329,5 +354,19 @@ impl Texts {
             "retry": self.retry,
         })
         .to_string()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::runs;
+
+    #[test]
+    fn a_running_program_is_found_by_its_executable_whatever_its_case() {
+        let exe = std::env::current_exe().unwrap();
+        let name = exe.file_name().unwrap().to_str().unwrap();
+        assert!(runs(name));
+        assert!(runs(&name.to_uppercase()));
+        assert!(!runs("no-such-program-prisme.exe"));
     }
 }
