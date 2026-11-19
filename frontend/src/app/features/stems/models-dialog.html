@@ -1,0 +1,87 @@
+@if (stems.offered()) {
+  <div class="pr-backdrop" animate.enter="pr-fade-in" (dismiss)="close()">
+    <div
+      class="pr-dialog"
+      role="dialog"
+      aria-modal="true"
+      [attr.aria-label]="'Separate into stems' | t"
+    >
+      <header class="pr-dialog__head">
+        <h2>{{ 'Separate into stems' | t }}</h2>
+        <button
+          class="pr-btn pr-btn--ghost pr-btn--icon"
+          [attr.aria-label]="'Close' | t"
+          (click)="close()"
+        >
+          ×
+        </button>
+      </header>
+      <div class="pr-dialog__body">
+        <p>
+          {{
+            'A track separated into vocals, drums, bass and melody lets each be muted or turned down on its own, on the deck or under an effect. The separation takes models, downloaded once.'
+              | t
+          }}
+        </p>
+        <div class="choices" role="radiogroup" [attr.aria-label]="'Separation' | t">
+          @for (c of [false, true]; track c) {
+            <button
+              class="choice"
+              role="radio"
+              [attr.aria-checked]="fast() === c"
+              [disabled]="stems.downloading() !== null"
+              (click)="fast.set(c)"
+            >
+              <span class="head">
+                <span class="name">{{ c ? ('Fast' | t) : ('Quality' | t) }}</span>
+                @if (c === fastSuits()) {
+                  <span class="pr-label">{{ 'Suits this device' | t }}</span>
+                }
+                @let size = c ? sizes().fast : sizes().quality;
+                @if (size === null) {
+                  <span class="size">{{ 'Installed' | t }}</span>
+                } @else {
+                  <span class="size pr-num">{{ '{size} MB' | t: { size } }}</span>
+                }
+              </span>
+              <span class="help">{{
+                c
+                  ? ('One small model for every stem, four to five times faster: some twenty seconds a track with a recent graphics card, a few minutes on the processor alone.'
+                    | t)
+                  : ('The large models, the cleanest stems: a minute or two a track with a recent graphics card, far longer on the processor alone.'
+                    | t)
+              }}</span>
+            </button>
+          }
+        </div>
+        @let done = stems.downloading();
+        @if (done !== null) {
+          <div class="progress">
+            <span>{{ 'Downloading…' | t }}</span>
+            <span class="pr-num">{{ percent(done) }}</span>
+            <i [style.--done]="done"></i>
+          </div>
+        } @else if (failed(); as error) {
+          <p class="error">{{ error }}</p>
+        }
+        <p class="note">
+          {{ 'The choice stays in the settings, under Library, to change at any time.' | t }}
+        </p>
+      </div>
+      <footer class="pr-dialog__foot">
+        @if (stems.downloading() !== null) {
+          <button class="pr-btn" (click)="close()">{{ 'Go on in the background' | t }}</button>
+        } @else {
+          <button class="pr-btn" (click)="close()">{{ 'Not now' | t }}</button>
+          <button class="pr-btn pr-btn--light" (click)="download()">
+            @if (chosenInstalled()) {
+              {{ 'Separate' | t }}
+            } @else {
+              {{ failed() ? ('Try again' | t) : ('Download' | t) }}
+            }
+          </button>
+        }
+      </footer>
+    </div>
+  </div>
+}
