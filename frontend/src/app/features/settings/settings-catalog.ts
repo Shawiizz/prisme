@@ -255,7 +255,9 @@ const ALL_SETTINGS: readonly SettingEntry[] = [
     page: 'dj',
     label: () => t('Never replace a playing deck'),
     description: () =>
-      t('A track loaded onto a deck that plays is refused with a word, rather than asked about.'),
+      t(
+        'A deck that plays keeps its track: a track loaded onto it, or its eject, is refused with a word rather than asked about.',
+      ),
   },
   {
     id: 'library.musicFolder',
