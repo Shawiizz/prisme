@@ -201,7 +201,9 @@ impl TimecodeDecoder {
         let magnitude = p.hypot(s);
         let bouncing = self.level.update(magnitude, amp_s, self.speed.speed(), steady, t);
         if self.level.bounce_expired(t, BOUNCE_HOLD_S) {
+            // too long for a bounce: the record stopped, and moves again from there
             self.speed.fade(self.stop_decay);
+            self.level.release();
         }
         self.signal = if bouncing { SignalState::Bounce } else { SignalState::Ok };
 
