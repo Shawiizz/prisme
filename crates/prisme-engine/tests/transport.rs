@@ -170,6 +170,31 @@ fn censor_plays_backwards_then_lands_in_time() {
 }
 
 #[test]
+fn censor_or_reverse_in_a_loop_lands_round_it_in_time() {
+    for (slip, censor) in [(false, true), (true, true), (true, false)] {
+        let mut rig = playing_deck(10.0);
+        rig.send(Command::SetSlip { deck: 0, enabled: slip });
+        rig.send(Command::BeatLoop { deck: 0, beats: 2.0 });
+        rig.run(0.3);
+        let region = rig.deck(0).looping.region.unwrap();
+        let before = rig.deck(0).position_s;
+        let backwards = |on| match censor {
+            true => Command::Censor { deck: 0, active: on },
+            false => Command::SetReverse { deck: 0, enabled: on },
+        };
+        rig.send(backwards(true));
+        let elapsed = rig.run(1.2);
+        rig.send(backwards(false));
+        let elapsed = elapsed + rig.run(0.01);
+        let d = rig.deck(0);
+        assert!(d.looping.active, "slip {slip}, censor {censor}");
+        assert_close(d.position_s, region.wrap(before + elapsed), 0.02);
+        // with slip, the loop's own goes on
+        assert_eq!(d.slip_position_s.is_some(), slip);
+    }
+}
+
+#[test]
 fn beat_jumps_move_by_whole_beats_and_take_the_loop_along() {
     let mut rig = playing_deck(10.0);
     rig.send(Command::BeatJump { deck: 0, beats: 8.0 });

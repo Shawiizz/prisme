@@ -252,7 +252,7 @@ impl Deck {
         if active {
             self.start_slip();
         } else {
-            self.end_slip();
+            self.land();
         }
     }
 
@@ -275,7 +275,7 @@ impl Deck {
         let t = &self.transport;
         match (was, t.reversing()) {
             (false, true) if t.slip_mode => self.start_slip(),
-            (true, false) if t.slip_mode && !t.censoring && !t.rolling => self.end_slip(),
+            (true, false) if t.slip_mode && !t.censoring && !t.rolling => self.land(),
             _ => {}
         }
     }
@@ -326,6 +326,20 @@ impl Deck {
     fn end_slip(&mut self) {
         if let Some(shadow) = self.transport.shadow_s.take() {
             self.playhead.seek_s(shadow);
+        }
+    }
+
+    /// Back where the track would have been: round the loop taking the playhead round, whose
+    /// slip, or roll, goes on; else out of the slip.
+    fn land(&mut self) {
+        let position = self.playhead.position_s();
+        let t = &mut self.transport;
+        let Some(region) = t.loop_region.filter(|r| t.loop_active && r.contains(position)) else {
+            return self.end_slip();
+        };
+        let shadow = if t.slip_mode || t.rolling { t.shadow_s } else { t.shadow_s.take() };
+        if let Some(shadow) = shadow {
+            self.playhead.seek_s(region.wrap(shadow));
         }
     }
 
