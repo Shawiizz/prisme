@@ -929,7 +929,8 @@ fn give(
 
 /// Tells the UI how far the track on `deck` is separated.
 fn tell(app: &AppHandle, deck: usize, load_id: u64, separation: SeparationDto) {
-    let update = DeckTrackUpdateDto { deck, load_id, analysis: None, separation: Some(separation) };
+    let update =
+        DeckTrackUpdateDto { deck, load_id, analysis: None, separation: Some(separation), cues: None };
     let _ = app.emit(DECK_TRACK_UPDATE_EVENT, update);
 }
 

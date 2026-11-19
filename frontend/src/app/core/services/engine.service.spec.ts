@@ -1,5 +1,5 @@
 import { TestBed } from '@angular/core/testing';
-import { DeckStatus, EngineStatus, TrackInfo } from '../models/engine';
+import { Cue, DeckStatus, DeckTrackUpdate, EngineStatus, TrackInfo } from '../models/engine';
 import { EngineService } from './engine.service';
 
 function deck(changes: Partial<DeckStatus> = {}): DeckStatus {
@@ -116,6 +116,32 @@ describe('EngineService', () => {
       await engine.setSync(0, false);
       expect(calls).toEqual([['set_sync_locked', { deck: 0, locked: false }]]);
       expect(engine.decks()[0].pitch).toBe(1);
+    });
+  });
+
+  describe('a track on two decks', () => {
+    const drop: Cue = { hot: 0, positionS: 30, loopLengthS: null, color: 0, label: '' };
+    const update = (changes: Partial<DeckTrackUpdate>): DeckTrackUpdate => ({
+      deck: 1,
+      loadId: 7,
+      analysis: null,
+      separation: null,
+      cues: null,
+      ...changes,
+    });
+
+    beforeEach(() =>
+      engine.tracks.set([null, { loadId: 7, cues: [] } as unknown as TrackInfo, null, null]),
+    );
+
+    it('takes the cues set on the other deck', () => {
+      engine['completeTrack'](update({ cues: [drop] }));
+      expect(engine.tracks()[1]?.cues).toEqual([drop]);
+    });
+
+    it('leaves a later load of the deck as it is', () => {
+      engine['completeTrack'](update({ loadId: 6, cues: [drop] }));
+      expect(engine.tracks()[1]?.cues).toEqual([]);
     });
   });
 });

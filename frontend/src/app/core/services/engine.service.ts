@@ -546,15 +546,17 @@ export class EngineService {
     if (track) this.patch(this.tracks, deck, { ...track, cues });
   }
 
-  /** Analysis and stems that arrive after the track was put on its deck. */
-  private completeTrack({ deck, loadId, analysis, separation }: DeckTrackUpdate) {
+  /** Analysis and stems that arrive after the track was put on its deck, and cues changed on
+   * another deck playing the same file. */
+  private completeTrack({ deck, loadId, analysis, separation, cues }: DeckTrackUpdate) {
     const track = this.tracks()[deck];
     if (track?.loadId !== loadId) return;
-    if (analysis || separation) {
+    if (analysis || separation || cues) {
       this.patch(this.tracks, deck, {
         ...track,
         ...analysis,
         separation: separation ?? track.separation,
+        cues: cues ?? track.cues,
       });
     }
   }
