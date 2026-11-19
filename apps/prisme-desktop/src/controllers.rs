@@ -2108,10 +2108,10 @@ mod tests {
         assert_eq!(drive(short(&[(0x01, 6)])), [direct(Direct::Jog(0), 6.0).unwrap()]);
         assert_eq!(drive(short(&[(0x01, 250)])), [direct(Direct::Jog(0), -12.0).unwrap()], "wrapped at 256");
         assert_eq!(drive(short(&[(0x01, 250), (0x11, 0x01)])), [direct(Direct::JogTouch(0), 1.0).unwrap()]);
-        // the crossfader at 4095, the left tempo fader at 2048
+        // the crossfader at 4095, the left tempo fader at 2048, its 0 the fastest
         let routed = drive(long(&[(0x07, 0xff), (0x08, 0x0f), (0x09, 0x00), (0x0a, 0x08)]));
         let mut expected = ui(&[("mixer.crossfader", 1.0)]);
-        expected.extend(direct(Direct::Pitch(0), 2048.0 / 4095.0));
+        expected.extend(direct(Direct::Pitch(0), 1.0 - 2048.0 / 4095.0));
         assert_eq!(routed, expected);
         // the browse knob, a counter of four bits: a step back from 0 is -1
         assert_eq!(

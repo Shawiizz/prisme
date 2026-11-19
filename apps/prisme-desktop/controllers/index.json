@@ -150,6 +150,11 @@
       "revision": 3,
       "format": 2
     },
+    "eks-otus.json": {
+      "sha256": "172f3d22a2f3749400619ef4fb2b075e48949250f493a1b11eab9091f3b8cf54",
+      "revision": 1,
+      "format": 3
+    },
     "electrix-tweaker.json": {
       "sha256": "91b86d92f826c7206a04c5e2464813bc75a84b8f16b21299a953f74b33ce58bb",
       "revision": 1,
@@ -190,6 +195,16 @@
       "revision": 1,
       "format": 2
     },
+    "hercules-dj-console-mk1-hid.json": {
+      "sha256": "3bbe51377ace5f22dff1d6839cdfc4ad1e3302601f1c50317af295483f6f63ae",
+      "revision": 1,
+      "format": 3
+    },
+    "hercules-dj-console-mk2-hid.json": {
+      "sha256": "ed0b43b6a3d449807cc3e2d739b22d1208160fada0f049b8e43b69f7a0793522",
+      "revision": 1,
+      "format": 3
+    },
     "hercules-dj-console-mk2.json": {
       "sha256": "8f945a1c8fc6103373019a4d0312c33a303cc610e25865b40ba206b8d70f2bf7",
       "revision": 1,
@@ -204,6 +219,11 @@
       "sha256": "2c58cf405e85a1ba48b0d7025cdb800d316e5dfdebc94fbc8f9d5e0d61073779",
       "revision": 5,
       "format": 2
+    },
+    "hercules-dj-console-rmx-hid.json": {
+      "sha256": "bd5a9fdcf1c3bfa9756872d75d23e6c3ac7db6dda2df65493c10f2d55ab124d6",
+      "revision": 1,
+      "format": 3
     },
     "hercules-dj-console-rmx.json": {
       "sha256": "b79eed09a1273891beabf89b9a162d9199f4f1ae748c7e05f769a1f50e2d7095",
@@ -224,6 +244,11 @@
       "sha256": "8b9443750f9ebdf4aea3b1f07c3ebefded2b211508747589af59cbf6b021b739",
       "revision": 2,
       "format": 1
+    },
+    "hercules-dj-control-mp3-hid.json": {
+      "sha256": "3947a4b34ad8013ab37cfa0a9f5eea6aa03b58db161cf0d2ca67539ba12ce384",
+      "revision": 1,
+      "format": 3
     },
     "hercules-dj-control-steel.json": {
       "sha256": "76785d1976adc869c6c41b1a8bf172fb3cf58bb5712cab4a37ea5ef55d502e39",
@@ -360,8 +385,38 @@
       "revision": 1,
       "format": 2
     },
+    "native-instruments-traktor-kontrol-f1.json": {
+      "sha256": "ff356468ab5e963109552e92984d23228929ee268e479ba871eeea9b0731ed07",
+      "revision": 1,
+      "format": 3
+    },
+    "native-instruments-traktor-kontrol-s2-mk1.json": {
+      "sha256": "0c9b9719d8fd5096faa15f7a3bc0c6129bd1185d96eb9a8cded0a5a8845ab585",
+      "revision": 1,
+      "format": 3
+    },
+    "native-instruments-traktor-kontrol-s2-mk2.json": {
+      "sha256": "84ed6a7126a28fe3e9724131f1f084ada7642010e1b2821e18b9b09451d15ae9",
+      "revision": 1,
+      "format": 3
+    },
+    "native-instruments-traktor-kontrol-s2-mk3.json": {
+      "sha256": "32de5608a8ada89f3a8db554c9219faeddcae1f0b6ddd0592e89ea2c0e5bdf81",
+      "revision": 1,
+      "format": 3
+    },
+    "native-instruments-traktor-kontrol-s3.json": {
+      "sha256": "acb5dd6056e991d60661635ff3d5841d3f3b59c67dca739f968ab21e2f24af27",
+      "revision": 1,
+      "format": 3
+    },
     "native-instruments-traktor-kontrol-s4-mk2.json": {
-      "sha256": "28ad48c8e66f6e6f1d73466d95de5cb4a13834548f849fc1d57110d8338b39de",
+      "sha256": "53c3159d0132849a61811f6c09120a6d5777ec93931b38753dbd53ea2251dce9",
+      "revision": 1,
+      "format": 3
+    },
+    "native-instruments-traktor-kontrol-s4-mk3.json": {
+      "sha256": "de92fd5e90c7f9337bde243d1cd4cfa864b19b2b3f208e6385a64ae6f9e19f7b",
       "revision": 1,
       "format": 3
     },
@@ -369,6 +424,16 @@
       "sha256": "1b6e84e6dda02991ab8f0eececbfb31c2f117552caeae0b8b337ce9eb564422e",
       "revision": 2,
       "format": 1
+    },
+    "native-instruments-traktor-kontrol-z1.json": {
+      "sha256": "4d3f380663d238ee738f3d56d6f2ad6b3e66eb53c3db1c3d35ae024eb3184a70",
+      "revision": 1,
+      "format": 3
+    },
+    "native-instruments-traktor-mx2.json": {
+      "sha256": "f0117d26a661be7f9c4f2038fd535825741867a85bd524b94d96dce93c36228d",
+      "revision": 1,
+      "format": 3
     },
     "novation-dicer.json": {
       "sha256": "21eab8ee5650eb958115ab53ee302da54a68d17721a69941c519c97d6f24d75a",
@@ -495,6 +560,11 @@
       "revision": 1,
       "format": 2
     },
+    "pioneer-cdj-2000-hid.json": {
+      "sha256": "7dc5289bf13a8e464b483722c312a4ca811c7e5c9d5b72d8240d95b4a1dbab5e",
+      "revision": 1,
+      "format": 3
+    },
     "pioneer-cdj-2000.json": {
       "sha256": "a25f1cce1cb6fce238c6b8db267d65b47b3e7c3dda536c059d5bebac9ad1aeea",
       "revision": 1,
@@ -510,10 +580,20 @@
       "revision": 1,
       "format": 2
     },
+    "pioneer-cdj-850-hid.json": {
+      "sha256": "eea763ce13b866ffec5acbdd44313d03ab9fe20d521e36859c9163e1a5cb0fa9",
+      "revision": 1,
+      "format": 3
+    },
     "pioneer-cdj-850.json": {
       "sha256": "d5ce90f57f60245907c23c8b0c9cb17ae93d270598dc21e8f39457bc1bb76806",
       "revision": 1,
       "format": 2
+    },
+    "pioneer-cdj-900-hid.json": {
+      "sha256": "cc52a21d693bd83dc42bbd997984c116d7542cd4b1242788bb3e681239628f3b",
+      "revision": 1,
+      "format": 3
     },
     "pioneer-ddj-200.json": {
       "sha256": "285ef377aabc5f6cf056795bfb911b0e09d8327509542b9d1c338847edbb2863",

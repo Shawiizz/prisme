@@ -1,0 +1,52 @@
+{
+  "$schema": "https://raw.githubusercontent.com/Shawiizz/prisme/main/apps/prisme-desktop/controllers/profile.schema.json",
+  "name": "Native Instruments Traktor Kontrol Z1",
+  "hid": {
+    "vendorId": 6092, "productId": 4624, "inputs": [1],
+    "outputs": [
+      {"report": 128, "length": 22}
+    ],
+    "leds": [
+      {"control": {"kind": "hid", "report": 1, "byte": 29, "bit": 1}, "led": {"kind": "hid", "report": 128, "byte": 19, "bits": 8}},
+      {"control": {"kind": "hid", "report": 1, "byte": 29, "bit": 2}, "led": {"kind": "hid", "report": 128, "byte": 17, "bits": 8}},
+      {"control": {"kind": "hid", "report": 1, "byte": 29, "bit": 3}, "led": {"kind": "hid", "report": 128, "byte": 20, "bits": 8}}
+    ]
+  },
+  "credits": "From the Traktor Kontrol Z1 mapping of Mixxx by djantti (GPL-2.0-or-later).",
+  "close": [[128, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]],
+  "controls": [
+    {"control": {"kind": "hid", "report": 1, "byte": 29, "bit": 1}, "target": "shift", "light": {"pressed": 127, "off": 10}},
+    {"control": {"kind": "hid", "report": 1, "byte": 1, "bits": 12}, "target": "deck1.trim"},
+    {"control": {"kind": "hid", "report": 1, "byte": 7, "bits": 12}, "target": "deck1.eq.low"},
+    {"control": {"kind": "hid", "report": 1, "byte": 5, "bits": 12}, "target": "deck1.eq.mid"},
+    {"control": {"kind": "hid", "report": 1, "byte": 3, "bits": 12}, "target": "deck1.eq.high"},
+    {"control": {"kind": "hid", "report": 1, "byte": 9, "bits": 12}, "target": "deck1.filter"},
+    {"control": {"kind": "hid", "report": 1, "byte": 23, "bits": 12}, "target": "deck1.volume"},
+    {"control": {"kind": "hid", "report": 1, "byte": 29, "bit": 4}, "target": "deck1.headphones"},
+    {"control": {"kind": "hid", "report": 1, "byte": 29, "bit": 4}, "target": "deck1.cue.stop", "shift": true},
+    {"control": {"kind": "hid", "report": 1, "byte": 29, "bit": 2}, "target": "deck1.filter.toggle", "light": {"on": 0, "off": 0}},
+    {"control": {"kind": "hid", "report": 1, "byte": 29, "bit": 2}, "target": "deck1.play", "shift": true, "light": {"on": 0, "off": 0, "pressed": 127}},
+    {"control": {"kind": "hid", "report": 1, "byte": 11, "bits": 12}, "target": "deck2.trim"},
+    {"control": {"kind": "hid", "report": 1, "byte": 17, "bits": 12}, "target": "deck2.eq.low"},
+    {"control": {"kind": "hid", "report": 1, "byte": 15, "bits": 12}, "target": "deck2.eq.mid"},
+    {"control": {"kind": "hid", "report": 1, "byte": 13, "bits": 12}, "target": "deck2.eq.high"},
+    {"control": {"kind": "hid", "report": 1, "byte": 19, "bits": 12}, "target": "deck2.filter"},
+    {"control": {"kind": "hid", "report": 1, "byte": 25, "bits": 12}, "target": "deck2.volume"},
+    {"control": {"kind": "hid", "report": 1, "byte": 29}, "target": "deck2.headphones"},
+    {"control": {"kind": "hid", "report": 1, "byte": 29}, "target": "deck2.cue.stop", "shift": true},
+    {"control": {"kind": "hid", "report": 1, "byte": 29, "bit": 3}, "target": "deck2.filter.toggle", "light": {"on": 0, "off": 0}},
+    {"control": {"kind": "hid", "report": 1, "byte": 29, "bit": 3}, "target": "deck2.play", "shift": true, "light": {"on": 0, "off": 0, "pressed": 127}},
+    {"control": {"kind": "hid", "report": 1, "byte": 21, "bits": 12}, "target": "mixer.cueMix"},
+    {"control": {"kind": "hid", "report": 1, "byte": 27, "bits": 12}, "target": "mixer.crossfader"}
+  ],
+  "lights": [
+    {"target": "deck1.headphones", "control": {"kind": "hid", "report": 128, "byte": 15, "bits": 8}, "on": 127, "off": 10},
+    {"target": "deck1.filter.toggle", "control": {"kind": "hid", "report": 128, "byte": 18, "bits": 8}, "on": 127, "off": 10},
+    {"target": "deck2.headphones", "control": {"kind": "hid", "report": 128, "byte": 16, "bits": 8}, "on": 127, "off": 10},
+    {"target": "deck2.filter.toggle", "control": {"kind": "hid", "report": 128, "byte": 21, "bits": 8}, "on": 127, "off": 10}
+  ],
+  "meters": [
+    {"source": "deck1", "curve": 0.45, "leds": [{"control": {"kind": "hid", "report": 128, "byte": 1, "bits": 8}, "from": 0.143}, {"control": {"kind": "hid", "report": 128, "byte": 2, "bits": 8}, "from": 0.286}, {"control": {"kind": "hid", "report": 128, "byte": 3, "bits": 8}, "from": 0.429}, {"control": {"kind": "hid", "report": 128, "byte": 4, "bits": 8}, "from": 0.571}, {"control": {"kind": "hid", "report": 128, "byte": 5, "bits": 8}, "from": 0.714}, {"control": {"kind": "hid", "report": 128, "byte": 6, "bits": 8}, "from": 0.857}, {"control": {"kind": "hid", "report": 128, "byte": 7, "bits": 8}, "from": 1}]},
+    {"source": "deck2", "curve": 0.45, "leds": [{"control": {"kind": "hid", "report": 128, "byte": 8, "bits": 8}, "from": 0.143}, {"control": {"kind": "hid", "report": 128, "byte": 9, "bits": 8}, "from": 0.286}, {"control": {"kind": "hid", "report": 128, "byte": 10, "bits": 8}, "from": 0.429}, {"control": {"kind": "hid", "report": 128, "byte": 11, "bits": 8}, "from": 0.571}, {"control": {"kind": "hid", "report": 128, "byte": 12, "bits": 8}, "from": 0.714}, {"control": {"kind": "hid", "report": 128, "byte": 13, "bits": 8}, "from": 0.857}, {"control": {"kind": "hid", "report": 128, "byte": 14, "bits": 8}, "from": 1}]}
+  ]
+}

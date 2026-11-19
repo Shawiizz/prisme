@@ -64,6 +64,7 @@ const SHIPPED: &[(&str, &str)] = &[
         "dj-techtools-midi-fighter-twister.json",
         include_str!("../controllers/dj-techtools-midi-fighter-twister.json"),
     ),
+    ("eks-otus.json", include_str!("../controllers/eks-otus.json")),
     ("electrix-tweaker.json", include_str!("../controllers/electrix-tweaker.json")),
     ("evolution-x-session.json", include_str!("../controllers/evolution-x-session.json")),
     ("faderfox-dj2.json", include_str!("../controllers/faderfox-dj2.json")),
@@ -75,13 +76,17 @@ const SHIPPED: &[(&str, &str)] = &[
         "hercules-dj-console-mac-edition.json",
         include_str!("../controllers/hercules-dj-console-mac-edition.json"),
     ),
+    ("hercules-dj-console-mk1-hid.json", include_str!("../controllers/hercules-dj-console-mk1-hid.json")),
+    ("hercules-dj-console-mk2-hid.json", include_str!("../controllers/hercules-dj-console-mk2-hid.json")),
     ("hercules-dj-console-mk2.json", include_str!("../controllers/hercules-dj-console-mk2.json")),
     ("hercules-dj-console-mk4.json", include_str!("../controllers/hercules-dj-console-mk4.json")),
     ("hercules-dj-console-rmx-2.json", include_str!("../controllers/hercules-dj-console-rmx-2.json")),
+    ("hercules-dj-console-rmx-hid.json", include_str!("../controllers/hercules-dj-console-rmx-hid.json")),
     ("hercules-dj-console-rmx.json", include_str!("../controllers/hercules-dj-console-rmx.json")),
     ("hercules-dj-control-air.json", include_str!("../controllers/hercules-dj-control-air.json")),
     ("hercules-dj-control-instinct.json", include_str!("../controllers/hercules-dj-control-instinct.json")),
     ("hercules-dj-control-mp3-e2.json", include_str!("../controllers/hercules-dj-control-mp3-e2.json")),
+    ("hercules-dj-control-mp3-hid.json", include_str!("../controllers/hercules-dj-control-mp3-hid.json")),
     ("hercules-dj-control-steel.json", include_str!("../controllers/hercules-dj-control-steel.json")),
     ("hercules-djcontrol-compact.json", include_str!("../controllers/hercules-djcontrol-compact.json")),
     (
@@ -119,12 +124,44 @@ const SHIPPED: &[(&str, &str)] = &[
     ("mixvibes-u-mix-control-2.json", include_str!("../controllers/mixvibes-u-mix-control-2.json")),
     ("mixvibes-u-mix-control-pro-2.json", include_str!("../controllers/mixvibes-u-mix-control-pro-2.json")),
     (
+        "native-instruments-traktor-kontrol-f1.json",
+        include_str!("../controllers/native-instruments-traktor-kontrol-f1.json"),
+    ),
+    (
+        "native-instruments-traktor-kontrol-s2-mk1.json",
+        include_str!("../controllers/native-instruments-traktor-kontrol-s2-mk1.json"),
+    ),
+    (
+        "native-instruments-traktor-kontrol-s2-mk2.json",
+        include_str!("../controllers/native-instruments-traktor-kontrol-s2-mk2.json"),
+    ),
+    (
+        "native-instruments-traktor-kontrol-s2-mk3.json",
+        include_str!("../controllers/native-instruments-traktor-kontrol-s2-mk3.json"),
+    ),
+    (
+        "native-instruments-traktor-kontrol-s3.json",
+        include_str!("../controllers/native-instruments-traktor-kontrol-s3.json"),
+    ),
+    (
         "native-instruments-traktor-kontrol-s4-mk2.json",
         include_str!("../controllers/native-instruments-traktor-kontrol-s4-mk2.json"),
     ),
     (
+        "native-instruments-traktor-kontrol-s4-mk3.json",
+        include_str!("../controllers/native-instruments-traktor-kontrol-s4-mk3.json"),
+    ),
+    (
         "native-instruments-traktor-kontrol-x1.json",
         include_str!("../controllers/native-instruments-traktor-kontrol-x1.json"),
+    ),
+    (
+        "native-instruments-traktor-kontrol-z1.json",
+        include_str!("../controllers/native-instruments-traktor-kontrol-z1.json"),
+    ),
+    (
+        "native-instruments-traktor-mx2.json",
+        include_str!("../controllers/native-instruments-traktor-mx2.json"),
     ),
     ("novation-dicer.json", include_str!("../controllers/novation-dicer.json")),
     ("novation-launchpad-mini-mk3.json", include_str!("../controllers/novation-launchpad-mini-mk3.json")),
@@ -151,10 +188,13 @@ const SHIPPED: &[(&str, &str)] = &[
     ("numark-scratch.json", include_str!("../controllers/numark-scratch.json")),
     ("numark-total-control.json", include_str!("../controllers/numark-total-control.json")),
     ("numark-v7.json", include_str!("../controllers/numark-v7.json")),
+    ("pioneer-cdj-2000-hid.json", include_str!("../controllers/pioneer-cdj-2000-hid.json")),
     ("pioneer-cdj-2000.json", include_str!("../controllers/pioneer-cdj-2000.json")),
     ("pioneer-cdj-350-ch1.json", include_str!("../controllers/pioneer-cdj-350-ch1.json")),
     ("pioneer-cdj-350-ch2.json", include_str!("../controllers/pioneer-cdj-350-ch2.json")),
+    ("pioneer-cdj-850-hid.json", include_str!("../controllers/pioneer-cdj-850-hid.json")),
     ("pioneer-cdj-850.json", include_str!("../controllers/pioneer-cdj-850.json")),
+    ("pioneer-cdj-900-hid.json", include_str!("../controllers/pioneer-cdj-900-hid.json")),
     ("pioneer-ddj-200.json", include_str!("../controllers/pioneer-ddj-200.json")),
     ("pioneer-ddj-400.json", include_str!("../controllers/pioneer-ddj-400.json")),
     ("pioneer-ddj-flx2.json", include_str!("../controllers/pioneer-ddj-flx2.json")),
@@ -701,6 +741,27 @@ mod tests {
             ["Pioneer DDJ-SB2"],
             "the SB2 holds its own name longer"
         );
+    }
+
+    #[test]
+    fn each_hid_model_is_found_by_its_own_ids_and_no_other() {
+        let library = current();
+        for Known { profile, .. } in &library.known {
+            let Some(device) = &profile.hid else { continue };
+            let (vendor_id, product_id) = (device.vendor_id, device.product_id);
+            let name = prisme_control::hid::device_name("A controller", vendor_id, product_id);
+            assert_eq!(of(&name).map(|p| p.name.clone()).as_deref(), Some(profile.name.as_str()), "{name}");
+            let info = HidInfo {
+                vendor_id,
+                product_id,
+                interface: device.interface,
+                usage_page: device.usage_page.unwrap_or(0xff00),
+                usage: device.usage.unwrap_or(1),
+            };
+            let fitting =
+                library.known.iter().filter(|k| k.profile.hid.as_ref().and_then(|d| d.fits(&info)).is_some());
+            assert_eq!(fitting.map(|k| k.profile.name.as_str()).collect::<Vec<_>>(), [profile.name.as_str()]);
+        }
     }
 
     #[test]
