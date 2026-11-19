@@ -2,7 +2,7 @@ use crate::light::{LightValue, LightValues, OFF, ON};
 use crate::mapping::{Mapping, Modes, ProfileControl, Shift, When, MODE};
 use crate::message::Control;
 use schemars::JsonSchema;
-use serde::{Deserialize, Serialize};
+use serde::{de, Deserialize, Deserializer, Serialize};
 use std::collections::BTreeMap;
 
 /// The version of the profile format, raised when profiles may use what an older Prisme does
@@ -219,7 +219,8 @@ pub struct Meter {
     pub source: String,
     #[serde(flatten)]
     pub on: MeterOn,
-    #[serde(default = "straight", skip_serializing_if = "is_straight")]
+    #[serde(default = "straight", skip_serializing_if = "is_straight", deserialize_with = "curve")]
+    #[schemars(extend("exclusiveMinimum" = 0))]
     pub curve: f32,
     /// While its group is in this mode only.
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -344,6 +345,17 @@ fn is_no_offset(offset: &f64) -> bool {
 
 fn straight() -> f32 {
     1.0
+}
+
+/// A meter's curve, a power above 0: a level between silence and full scale stays between them
+/// once raised to it.
+fn curve<'de, D: Deserializer<'de>>(deserializer: D) -> Result<f32, D::Error> {
+    let curve = f32::deserialize(deserializer)?;
+    if curve.is_finite() && curve > 0.0 {
+        Ok(curve)
+    } else {
+        Err(de::Error::custom(format!("a meter's curve is above 0, not {curve}")))
+    }
 }
 
 fn is_straight(curve: &f32) -> bool {
@@ -545,6 +557,16 @@ mod tests {
         assert_eq!(value(&meter, 1.0), 127);
         assert_eq!(value(&meter, 0.5), 22);
         assert_eq!(value(&meter, 2.0), 127, "past full scale, full");
+    }
+
+    #[test]
+    fn a_meter_curve_is_above_0() {
+        for curve in ["0", "-1"] {
+            let text = format!(
+                r#"{{ "source": "main", "control": {{ "kind": "note", "channel": 0, "number": 11 }}, "steps": [0, 127], "curve": {curve} }}"#
+            );
+            assert!(serde_json::from_str::<Meter>(&text).is_err(), "{curve}");
+        }
     }
 
     #[test]
