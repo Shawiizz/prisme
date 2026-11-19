@@ -89,11 +89,13 @@ pub fn create(config: EngineConfig) -> (Engine, EngineController) {
         leader_clock: LeaderClock::default(),
         frames_since_status: 0,
         status_interval: (config.sample_rate as f64 / config.status_rate_hz) as usize,
+        applied: 0,
         recording: None,
         record_buffer: vec![0.0; config.max_block_frames * 2],
         preview: Preview::new(config.max_block_frames),
     };
-    let controller = EngineController { commands: cmd_tx, status: status_rx, garbage: garbage_rx, scopes };
+    let controller =
+        EngineController { commands: cmd_tx, sent: 0, status: status_rx, garbage: garbage_rx, scopes };
     (engine, controller)
 }
 
@@ -117,6 +119,8 @@ pub struct Engine {
     leader_clock: LeaderClock,
     frames_since_status: usize,
     status_interval: usize,
+    /// Commands applied so far.
+    applied: u64,
     recording: Option<Recording>,
     /// Scratch space for what is recorded.
     record_buffer: Vec<f32>,
@@ -229,6 +233,7 @@ impl Engine {
     fn apply_commands(&mut self) {
         while let Ok(command) = self.commands.pop() {
             self.apply(command);
+            self.applied += 1;
         }
     }
 
@@ -456,6 +461,7 @@ impl Engine {
             aux_peak: std::mem::take(&mut self.mixer.aux.peak),
             recording,
             preview: self.preview.status(),
+            commands: self.applied,
             ..Default::default()
         };
         for (d, (slot, deck)) in status.decks.iter_mut().zip(&mut self.decks).enumerate() {
@@ -489,6 +495,8 @@ fn fill_deck_input(deck_in: &mut [f32], input: &[f32], in_ch: usize, offset: usi
 /// The control half: send commands, read the state, free what the engine returns.
 pub struct EngineController {
     commands: rtrb::Producer<Command>,
+    /// Commands sent so far.
+    sent: u64,
     status: triple_buffer::Output<EngineStatus>,
     garbage: rtrb::Consumer<Garbage>,
     scopes: Vec<rtrb::Consumer<[f32; 2]>>,
@@ -498,7 +506,15 @@ impl EngineController {
     /// Sends a command. Fails (returning it) only if the engine is not running and the
     /// queue is full.
     pub fn send(&mut self, command: Command) -> Result<(), Command> {
-        self.commands.push(command).map_err(|rtrb::PushError::Full(c)| c)
+        self.commands.push(command).map_err(|rtrb::PushError::Full(c)| c)?;
+        self.sent += 1;
+        Ok(())
+    }
+
+    /// Commands sent so far: the status shows the engine with every one of them applied once
+    /// its `commands` reach this.
+    pub fn sent(&self) -> u64 {
+        self.sent
     }
 
     /// Latest engine state.

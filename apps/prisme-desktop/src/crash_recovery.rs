@@ -89,13 +89,13 @@ impl CrashRecovery {
     }
 
     fn save(&self, state: &AppState) {
-        let positions = state.transport_snapshot();
+        let places = state.places();
         let decks: Vec<_> = lock(&state.tracks)
             .iter()
             .enumerate()
             .map(|(deck, track)| {
                 let track = track.as_ref()?;
-                let position_s = positions.get(deck).map_or(0.0, |&(seconds, _)| seconds);
+                let position_s = places[deck].map_or(0.0, |place| place.position_s);
                 Some(SavedDeck { path: track.path.clone(), position_s })
             })
             .collect();

@@ -60,6 +60,9 @@ pub struct AudioSession {
     pub info: AudioInfo,
     /// What it was started with, to start it again.
     pub settings: AudioSettings,
+    /// The commands sent to restore the decks (`AppState::restore`): until the engine's status
+    /// follows them, it does not show where the decks are.
+    pub restored: u64,
     stop: Option<mpsc::Sender<()>>,
     thread: Option<JoinHandle<()>>,
 }
@@ -170,6 +173,7 @@ pub fn start(
         engine_config,
         info,
         settings: settings.clone(),
+        restored: 0,
         stop: Some(stop_tx),
         thread: Some(thread),
     })

@@ -15,7 +15,9 @@ use crate::recording::Recorder;
 use crate::sampler::Samplers;
 use crate::track_waveform::TrackWaveform;
 use prisme_analysis::TrackAnalysis;
-use prisme_engine::{BeatGrid, Command, DeckStatus, MixMode, OutputRouting, StemTracks, MAX_DECKS};
+use prisme_engine::{
+    BeatGrid, Command, DeckStatus, EngineStatus, MixMode, OutputRouting, StemTracks, MAX_DECKS,
+};
 use prisme_library::{Cue, CueSlot, TrackEdits};
 use prisme_media::{TrackAudio, TrackTags};
 use prisme_session::JsonFile;
@@ -203,6 +205,15 @@ impl From<DeckPreferences> for DeckSettings {
     }
 }
 
+/// Where the track of a deck is and whether it plays: what an audio restart carries over.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct Place {
+    /// The load it is of: a track loaded meanwhile is not put there.
+    pub load_id: u64,
+    pub position_s: f64,
+    pub playing: bool,
+}
+
 /// A live source's switches as the DJ left them (off at each start).
 #[derive(Debug, Clone, Copy, Default)]
 pub struct LiveSwitches {
@@ -223,6 +234,9 @@ pub struct AppState {
     pub recorder: Mutex<Option<Recorder>>,
     /// Held while the audio starts: the watchdog and the user never start it at once.
     pub audio_start: Mutex<()>,
+    /// Where the decks were as the audio last stopped to start again: kept for the start
+    /// after it, should that one fail or its engine never run.
+    carried: Mutex<[Option<Place>; MAX_DECKS]>,
     pub samplers: Mutex<Samplers>,
     /// The interface is out of sight: a phone's application in the background, which the
     /// system may stop calling for audio.
@@ -254,6 +268,7 @@ impl AppState {
             live: Mutex::default(),
             recorder: Mutex::new(None),
             audio_start: Mutex::new(()),
+            carried: Mutex::default(),
             samplers: Mutex::default(),
             hidden: AtomicBool::new(false),
         }
@@ -282,12 +297,19 @@ impl AppState {
         Ok(session.controller.status().decks[deck])
     }
 
-    /// Position and play state of each deck, to carry them over an audio restart.
-    pub fn transport_snapshot(&self) -> Vec<(f64, bool)> {
-        let mut session = lock(&self.session);
-        let Some(session) = session.as_mut() else { return Vec::new() };
-        let status = session.controller.status();
-        status.decks[..status.deck_count].iter().map(|d| (d.position_s, d.playing)).collect()
+    /// Where the track of each deck is: as the running engine shows it once it has run with
+    /// what its start sent it, else as it was carried into that start.
+    pub fn places(&self) -> [Option<Place>; MAX_DECKS] {
+        let status = lock(&self.session).as_mut().map(|s| (s.controller.status(), s.restored));
+        let loads = lock(&self.tracks).each_ref().map(|t| t.as_ref().map(|t| t.load_id));
+        places_of(status, loads, *lock(&self.carried))
+    }
+
+    /// [`AppState::places`], kept as the audio stops to start again.
+    pub fn carry_places(&self) -> [Option<Place>; MAX_DECKS] {
+        let places = self.places();
+        *lock(&self.carried) = places;
+        places
     }
 
     /// Whether `deck` plays: its track moves, by itself or under a record.
@@ -513,8 +535,9 @@ impl AppState {
         }
     }
 
-    /// Re-applies tracks, deck and mixer settings to a freshly started engine.
-    pub fn restore(&self, session: &mut AudioSession) {
+    /// Re-applies tracks, deck and mixer settings to a freshly started engine, the tracks at
+    /// their `places`.
+    pub fn restore(&self, session: &mut AudioSession, places: &[Option<Place>; MAX_DECKS]) {
         let routing = self.routing(&session.info);
         let config = session.engine_config;
         let controller = &mut session.controller;
@@ -560,7 +583,35 @@ impl AppState {
         for c in self.live_commands(Some(&session.info)) {
             let _ = controller.send(c);
         }
+        for (deck, place) in places.iter().enumerate() {
+            if let Some(place) = place {
+                let _ = controller.send(Command::Seek { deck, seconds: place.position_s });
+                let _ = controller.send(Command::SetPlaying { deck, playing: place.playing });
+            }
+        }
+        session.restored = controller.sent();
     }
+}
+
+/// Where the tracks of `loads` (their load on each deck) are: as the engine's status shows
+/// them once it follows the first commands sent to it (those restoring the decks), else as
+/// `carried`.
+fn places_of(
+    status: Option<(EngineStatus, u64)>,
+    loads: [Option<u64>; MAX_DECKS],
+    carried: [Option<Place>; MAX_DECKS],
+) -> [Option<Place>; MAX_DECKS] {
+    let status = status.filter(|(status, restored)| status.commands >= *restored).map(|(status, _)| status);
+    std::array::from_fn(|deck| {
+        let load_id = loads[deck]?;
+        match &status {
+            Some(status) => (deck < status.deck_count).then(|| {
+                let d = &status.decks[deck];
+                Place { load_id, position_s: d.position_s, playing: d.playing }
+            }),
+            None => carried[deck].filter(|place| place.load_id == load_id),
+        }
+    })
 }
 
 pub fn live_preferences(mixer: &MixerPreferences, source: LiveSourceDto) -> &LivePreferences {
@@ -834,6 +885,28 @@ mod tests {
         assert_eq!(live_channels(pair(4), &free), pair(4));
         assert_eq!(live_channels(pair(6), &free), None, "input 8 is not there");
         assert_eq!(live_channels(mono(1), &free), None, "a turntable is there");
+    }
+
+    fn place(load_id: u64, position_s: f64, playing: bool) -> Option<Place> {
+        Some(Place { load_id, position_s, playing })
+    }
+
+    #[test]
+    fn a_restart_puts_the_decks_where_the_last_engine_to_run_had_them() {
+        let carried = [place(1, 192.0, true), place(2, 65.0, false), None, None];
+        // deck B's track was loaded since
+        let loads = [Some(1), Some(5), None, None];
+        let kept = [place(1, 192.0, true), None, None, None];
+        assert_eq!(places_of(None, loads, carried), kept, "the start before failed");
+        let mut status = EngineStatus { deck_count: 2, ..Default::default() };
+        assert_eq!(places_of(Some((status, 40)), loads, carried), kept, "its engine has not run");
+        status.commands = 40;
+        status.decks[0].position_s = 193.0;
+        status.decks[0].playing = true;
+        assert_eq!(
+            places_of(Some((status, 40)), loads, carried),
+            [place(1, 193.0, true), place(5, 0.0, false), None, None]
+        );
     }
 
     fn db(gain: f32) -> f32 {

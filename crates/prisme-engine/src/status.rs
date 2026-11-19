@@ -128,6 +128,11 @@ pub struct EngineStatus {
     pub recording: Option<RecordingStatus>,
     /// The track heard in the headphones before it goes on a deck, if any.
     pub preview: Option<PreviewStatus>,
+    /// Commands the engine had applied (see [`EngineController::sent`]); none in the status it
+    /// has before it first runs.
+    ///
+    /// [`EngineController::sent`]: crate::EngineController::sent
+    pub commands: u64,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]

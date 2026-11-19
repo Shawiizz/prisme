@@ -177,6 +177,19 @@ fn replaced_tracks_are_freed_on_the_control_side() {
 }
 
 #[test]
+fn the_status_tells_how_many_commands_it_follows() {
+    let mut rig = Rig::new();
+    rig.send(Command::LoadTrack { deck: 0, track: silent_track(10.0) });
+    rig.send(Command::Seek { deck: 0, seconds: 4.0 });
+    assert_eq!(rig.controller.sent(), 2);
+    assert_eq!(rig.controller.status().commands, 0, "the engine has not run");
+    rig.run(0.01);
+    let status = rig.controller.status();
+    assert_eq!(status.commands, 2);
+    assert!((status.decks[0].position_s - 4.0).abs() < 0.01, "{:?}", status.decks[0]);
+}
+
+#[test]
 fn crossed_channels_are_noticed() {
     let mut rig = Rig::new();
     rig.turntable(0, 20.0, 1.0);
