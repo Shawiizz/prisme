@@ -63,6 +63,21 @@ fn a_record_standing_still_leaves_the_deck_stopped() {
 }
 
 #[test]
+fn a_record_given_to_the_input_passed_through_lets_go_of_a_deck_standing_still() {
+    for mode in [VinylMode::Relative, VinylMode::Absolute] {
+        let mut rig = record(mode, 1.02);
+        rig.send(Command::SetPassthrough { deck: 0, enabled: true });
+        rig.run(3.0);
+        let before = rig.deck(0).position_s;
+        rig.send(Command::SetPassthrough { deck: 0, enabled: false });
+        let_go(&mut rig);
+        let d = rig.deck(0);
+        assert!(!d.playing, "{mode:?} {d:?}");
+        assert_eq!(d.position_s, before, "{mode:?}");
+    }
+}
+
+#[test]
 fn a_deck_playing_by_itself_is_left_as_it_is() {
     let mut rig = Rig::new();
     rig.send(Command::LoadTrack { deck: 0, track: silent_track(300.0) });

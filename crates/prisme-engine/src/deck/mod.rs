@@ -159,7 +159,9 @@ impl Deck {
         let settled = |s: &Smoothed, value: f32| s.is_settled() && s.target() == value;
         if settled(&self.through, 1.0) {
             out.copy_from_slice(input);
+            // the track stands meanwhile, as its averaged speed tells once a record lets go
             self.speed = 0.0;
+            self.sync.observe(0.0, None, (out.len() / 2) as f64 / out_rate);
             return false;
         }
         self.process(input, out, out_rate, target);
