@@ -27,6 +27,7 @@ section {
     display: flex;
     align-items: center;
     justify-content: space-between;
+    gap: var(--pr-space-2);
     min-height: 30px;
     padding: var(--pr-space-2) var(--pr-space-2) 0 var(--pr-space-4);
     font: 600 var(--pr-size-label) / 1.2 var(--pr-font);

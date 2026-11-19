@@ -51,10 +51,11 @@
     </button>
     <button
       class="pr-btn pr-btn--sm pr-btn--ghost"
+      [attr.aria-label]="'Add a folder' | t"
       [title]="'Its tracks join the library and are analysed' | t"
       (click)="PHONE ? pickFolder.emit() : library.chooseFolder()"
     >
-      + {{ 'Add a folder' | t }}
+      + {{ 'Add' | t }}
     </button>
   </header>
   <div class="list">
