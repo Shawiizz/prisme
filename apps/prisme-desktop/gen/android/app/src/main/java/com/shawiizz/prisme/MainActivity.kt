@@ -14,6 +14,7 @@ import android.view.View
 import android.view.WindowManager
 import android.webkit.JavascriptInterface
 import android.webkit.WebView
+import androidx.activity.OnBackPressedCallback
 import androidx.activity.SystemBarStyle
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.ActivityResultLauncher
@@ -76,6 +77,18 @@ class MainActivity : TauriActivity() {
     }
 
   /**
+   * Back with nothing left to close (`back.ts`) sends Prisme behind, as from Android 12 on:
+   * Android 10 and 11 would end the activity, and the native side would end the process with
+   * it, a deck playing falling silent.
+   */
+  private val sendBehind =
+    object : OnBackPressedCallback(Build.VERSION.SDK_INT < Build.VERSION_CODES.S) {
+      override fun handleOnBackPressed() {
+        moveTaskToBack(true)
+      }
+    }
+
+  /**
    * The questions to the DJ, the one Android is asking first: it asks one at a time, and
    * refuses another meanwhile.
    */
@@ -89,6 +102,8 @@ class MainActivity : TauriActivity() {
     UsbAudio.init(this)
     // which asks for the inputs of a sound card through this activity
     shown = this
+    // first, the last asked: the page goes back through what is open before
+    onBackPressedDispatcher.addCallback(sendBehind)
     super.onCreate(savedInstanceState)
     // the screen is Prisme's up to its short edges, beside the camera too
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
