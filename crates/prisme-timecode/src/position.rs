@@ -159,9 +159,12 @@ impl PositionTracker {
     }
 
     /// The record moved while its phase could not be followed (signal lost): the
-    /// position is no longer known until the bits confirm one again.
+    /// position is no longer known until the bits confirm one again, from scratch: those
+    /// read before the gap no longer follow on.
     pub(crate) fn unlock(&mut self) {
         self.locked = false;
+        self.candidate = None;
+        self.candidate_run = 0;
     }
 
     pub(crate) fn is_locked(&self) -> bool {
@@ -171,5 +174,41 @@ impl PositionTracker {
     /// Position in carrier cycles: a cycle starts and ends where the primary peaks.
     pub(crate) fn position_cycles(&self, phase: f64) -> Option<f64> {
         self.locked.then(|| self.lock_cycle as f64 + 0.5 + (phase - self.lock_phase) / TAU)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::format::SERATO_CV02_A;
+
+    /// The register of each cycle on the record, from the first.
+    fn states(format: &TimecodeFormat) -> impl Iterator<Item = u32> + '_ {
+        std::iter::successors(Some(format.seed), |&s| Some(format.next_state(s)))
+    }
+
+    /// Reads the lobe of `cycle` played forwards.
+    fn read(tracker: &mut PositionTracker, format: &TimecodeFormat, cycle: u32) {
+        let state = states(format).nth(cycle as usize).unwrap();
+        let bit = state >> (format.bits - 1) & 1;
+        tracker.on_lobe(if bit == 1 { 1.0 } else { 0.6 }, f64::from(cycle) * TAU, true);
+    }
+
+    #[test]
+    fn after_the_phase_is_lost_no_bit_from_before_confirms_a_position() {
+        let format = &SERATO_CV02_A;
+        let mut tracker = PositionTracker::new(format, SequenceTable::for_format(format));
+        for cycle in 1_000..1_100 {
+            read(&mut tracker, format, cycle);
+        }
+        assert_eq!(tracker.position_cycles(1_099.0 * TAU), Some(1_099.5));
+
+        // the record turned on during the gap; the next lobe read carries the bit the
+        // one after the last would have
+        let bit = |cycle| states(format).nth(cycle).unwrap() >> (format.bits - 1) & 1;
+        let skipped = (5..).find(|k| bit(1_100 + k) == bit(1_100)).unwrap();
+        tracker.unlock();
+        read(&mut tracker, format, 1_100 + skipped as u32);
+        assert!(!tracker.is_locked(), "locked a cycle after the last read, {skipped} behind the record");
     }
 }
