@@ -13,10 +13,10 @@ Prisme est gratuit. Les paquets pour Windows, macOS et Linux sont joints à chaq
 
 | Système | Version | Paquet |
 | --- | --- | --- |
-| Windows | Windows 10 ou 11, 64 bits | Installeur, `…_x64-installer.exe` |
+| Windows | Windows 10 ou 11, 64 bits | Installeur, `…-windows-x64.exe` |
 | macOS | macOS 13.3 ou plus récent, Apple silicon ou Intel | Image disque, `.dmg` |
 | Linux | Ubuntu 22.04 ou une distribution aussi récente, x86 64 bits | `.deb` ou AppImage |
-| Android | Android 10 ou plus récent, un téléphone ou une tablette ARM 64 bits | Paquet, `…_android-arm64.apk` |
+| Android | Android 10 ou plus récent, un téléphone ou une tablette ARM 64 bits | Paquet, `…-android-arm64.apk` |
 
 La fenêtre demande au moins 1280 × 640 pixels : un écran de portable 1080p à 150 % de mise à l’échelle suffit. Une carte son à quatre sorties permet d’envoyer chaque deck sur sa propre voie d’une table de mixage ; avec deux, Prisme utilise sa table de mixage logicielle. Voir [Carte son et latence](/fr/docs/start/audio/).
 
@@ -27,7 +27,7 @@ La fenêtre demande au moins 1280 × 640 pixels : un écran de portable 1080p �
 
 <Steps>
 
-1. Téléchargez `Prisme_…_x64-installer.exe` depuis la [dernière version](https://github.com/Shawiizz/prisme/releases/latest).
+1. Téléchargez `Prisme-…-windows-x64.exe` depuis la [dernière version](https://github.com/Shawiizz/prisme/releases/latest).
 
 2. Ouvrez-le. Windows peut prévenir qu’il a protégé votre ordinateur contre une application non reconnue : choisissez **Informations complémentaires**, puis **Exécuter quand même**.
 
@@ -68,14 +68,14 @@ Deux paquets sont proposés :
 - **`.deb`** pour Debian, Ubuntu et leurs dérivées. Installez-le avec votre gestionnaire de paquets, ou depuis un terminal :
 
   ```sh
-  sudo apt install ./Prisme_*_amd64.deb
+  sudo apt install ./Prisme-*-linux-x64.deb
   ```
 
 - **AppImage** pour toute autre distribution. Rendez-la exécutable et lancez-la :
 
   ```sh
-  chmod +x Prisme_*.AppImage
-  ./Prisme_*.AppImage
+  chmod +x Prisme-*-linux-x64.AppImage
+  ./Prisme-*-linux-x64.AppImage
   ```
 
 Prisme joue via **ALSA**, qui fonctionne partout, ou via **JACK** pour la latence la plus basse. Sur un système avec PipeWire, les applications JACK passent par PipeWire quand sa prise en charge de JACK est installée (le paquet `pipewire-jack` sur la plupart des distributions). Le choix se fait dans **Réglages** > **Audio** : voir [Carte son et latence](/fr/docs/start/audio/#linux-alsa-et-jack).
@@ -85,7 +85,7 @@ Prisme joue via **ALSA**, qui fonctionne partout, ou via **JACK** pour la latenc
 
 <Steps>
 
-1. Sur le téléphone ou la tablette, téléchargez le paquet depuis la [page d’accueil](/fr/#download) ou les [versions sur GitHub](https://github.com/Shawiizz/prisme/releases) : le fichier qui finit par `_android-arm64.apk`.
+1. Sur le téléphone ou la tablette, téléchargez le paquet depuis la [page d’accueil](/fr/#download) ou les [versions sur GitHub](https://github.com/Shawiizz/prisme/releases) : le fichier qui finit par `-android-arm64.apk`.
 
 2. Ouvrez-le. Android vous demande d’autoriser les installations depuis l’application avec laquelle vous l’avez ouvert (le navigateur ou le gestionnaire de fichiers) : autorisez-les, puis installez.
 

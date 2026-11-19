@@ -62,7 +62,7 @@ jobs:
           apksigner=$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)/apksigner
           "$apksigner" verify "$apk"
           mkdir -p "$RUNNER_TEMP/out"
-          cp "$apk" "$RUNNER_TEMP/out/Prisme_${VERSION}_android-arm64.apk"
+          cp "$apk" "$RUNNER_TEMP/out/Prisme-${VERSION}-android-arm64.apk"
       - uses: actions/upload-artifact@v4
         with:
           name: android

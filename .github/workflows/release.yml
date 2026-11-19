@@ -54,13 +54,33 @@ jobs:
         with:
           projectPath: apps/prisme-desktop
           tauriScript: npx --yes @tauri-apps/cli@2.12.2
-          tagName: ${{ github.ref_name }}
-          releaseName: Prisme ${{ github.ref_name }}
-          releaseDraft: true
-          # written once all are built: side by side, they would overwrite each other's
-          includeUpdaterJson: false
           # signed update packages: only here, where the signing key is
           args: --config tauri.release.conf.json ${{ matrix.args }}
+      # the packages under Prisme's names (docs/STANDARDS.md), each with its signature
+      - name: The packages
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          out="$RUNNER_TEMP/out"
+          mkdir -p "$out"
+          put() {
+            cp "$1" "$out/$2"
+            if [ -f "$1.sig" ]; then cp "$1.sig" "$out/$2.sig"; fi
+          }
+          case "$RUNNER_OS" in
+            Windows)
+              put target/release/bundle/nsis/*-setup.exe "Prisme-$TAG-windows-x64-update.exe" ;;
+            Linux)
+              put target/release/bundle/appimage/*.AppImage "Prisme-$TAG-linux-x64.AppImage"
+              put target/release/bundle/deb/*.deb "Prisme-$TAG-linux-x64.deb" ;;
+            macOS)
+              bundle=target/universal-apple-darwin/release/bundle
+              put "$bundle"/dmg/*.dmg "Prisme-$TAG-macos-universal.dmg"
+              put "$bundle"/macos/*.app.tar.gz "Prisme-$TAG-macos-universal-update.tar.gz" ;;
+          esac
+          gh release upload "$TAG" "$out"/* --clobber
       # what people download on Windows: Prisme's own window over the NSIS installer, which
       # the updates keep running without one
       - name: The Windows installer
@@ -72,7 +92,7 @@ jobs:
         run: |
           $env:PRISME_SETUP_PAYLOAD = (Get-ChildItem target/release/bundle/nsis/*-setup.exe | Select-Object -First 1).FullName
           cargo build --release -p prisme-setup
-          $installer = "Prisme_${env:TAG}_x64-installer.exe"
+          $installer = "Prisme-${env:TAG}-windows-x64.exe"
           Copy-Item target/release/prisme-setup.exe $installer
           gh release upload $env:TAG $installer --clobber
 

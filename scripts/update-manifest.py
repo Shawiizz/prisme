@@ -12,10 +12,10 @@ from pathlib import Path
 
 # the end of a package's name, and the systems it updates
 PACKAGES = {
-    '_x64-setup.exe': ['windows-x86_64', 'windows-x86_64-nsis'],
-    '_amd64.AppImage': ['linux-x86_64', 'linux-x86_64-appimage'],
-    '_amd64.deb': ['linux-x86_64-deb'],
-    '_universal.app.tar.gz': ['darwin-aarch64', 'darwin-x86_64', 'darwin-aarch64-app', 'darwin-x86_64-app'],
+    '-windows-x64-update.exe': ['windows-x86_64', 'windows-x86_64-nsis'],
+    '-linux-x64.AppImage': ['linux-x86_64', 'linux-x86_64-appimage'],
+    '-linux-x64.deb': ['linux-x86_64-deb'],
+    '-macos-universal-update.tar.gz': ['darwin-aarch64', 'darwin-x86_64', 'darwin-aarch64-app', 'darwin-x86_64-app'],
 }
 
 tag, repo, folder = sys.argv[1], sys.argv[2], Path(sys.argv[3])
