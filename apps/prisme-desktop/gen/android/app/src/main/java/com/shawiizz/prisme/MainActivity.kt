@@ -77,12 +77,13 @@ class MainActivity : TauriActivity() {
     }
 
   /**
-   * Back with nothing left to close (`back.ts`) sends Prisme behind, as from Android 12 on:
-   * Android 10 and 11 would end the activity, and the native side would end the process with
-   * it, a deck playing falling silent.
+   * Back with nothing left to close (`back.ts`) sends Prisme behind. Android would end the
+   * activity before Android 12, and from it on too when Prisme was opened other than from the
+   * launcher (a sound card plugged in): the native side would end the process with it, a deck
+   * playing falling silent.
    */
   private val sendBehind =
-    object : OnBackPressedCallback(Build.VERSION.SDK_INT < Build.VERSION_CODES.S) {
+    object : OnBackPressedCallback(true) {
       override fun handleOnBackPressed() {
         moveTaskToBack(true)
       }
