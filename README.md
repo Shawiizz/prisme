@@ -5,47 +5,74 @@
 <h1 align="center">Prisme</h1>
 
 <p align="center">
-  DJ software built for DVS: timecode vinyl drives the tracks.<br>
-  A real-time audio engine in Rust, a Tauri + Angular interface.<br>
-  Windows, Linux and macOS, and Android on a phone or a tablet.
+  Free DJ software that plays your way: a controller, turntables, or just your laptop.<br>
+  Two decks or four, stems on any track, 129 controllers ready when plugged in.<br>
+  Windows, macOS and Linux, and Android on a phone or a tablet.
+</p>
+
+<p align="center">
+  <a href="https://github.com/Shawiizz/prisme/releases/latest">Download</a> ·
+  <a href="https://github.com/Shawiizz/prisme/issues">Report a problem</a>
 </p>
 
 <p align="center">
   <img src="docs/screenshots/decks.png" alt="Two decks playing in sync, the stems of deck A split into four knobs, the library below">
 </p>
 
+## Play your way
+
+- **A controller**: plug in one of 129 models and play. Pads, jog wheels, lights, meters
+  and screens are mapped out of the box, and a controller Prisme does not know is offered
+  to MIDI learn.
+- **Turntables**: timecode records or CDs drive the tracks, needle drops, backspins and
+  scratches included (Serato CV02 and Serato CD, absolute and relative modes, a decoder
+  written from scratch).
+- **A laptop or a phone**: every action from the keyboard, the mouse or the fingers, and
+  all of them in a command palette (Ctrl K), with nothing else plugged in.
+
+## Controllers
+
+129 models from Akai, Allen & Heath, American Audio, Behringer, Denon, DJ TechTools,
+Hercules, Korg, Native Instruments, Novation, Numark, Pioneer, Reloop, Roland, Stanton,
+Vestax and more work the moment they are plugged in; one that another DJ application
+holds is taken as soon as that application lets it go.
+
+- Map any control yourself (MIDI learn), lights and meters following the music; save the
+  result as a profile and share it.
+- Profiles corrected or added here reach the installed copies without a new version.
+- Each model is a JSON file in [apps/prisme-desktop/controllers](apps/prisme-desktop/controllers),
+  checked and completed by editors such as VS Code through its
+  [JSON schema](apps/prisme-desktop/controllers/profile.schema.json). The format is
+  described in the [controllers README](apps/prisme-desktop/controllers/README.md).
+- MIDI clock out, for drum machines and synths.
+
+Most models were converted by hand from the mappings of [Mixxx](https://mixxx.org), whose
+authors each file credits. A model marked as not tried on the hardware yet is a faithful
+conversion: report what works and what does not.
+
 ## Features
 
-- **Vinyl control**: Serato CV02 (sides A and B) and Serato CD timecode, absolute and
-  relative modes, needle drops, backspins and scratches; a decoder written from
-  scratch. The deck plays on by itself when the needle reaches the end of the record.
-- **Mixing**: each deck on its own outputs for a hardware mixer, or a software mixer
-  (trim, 3-band EQ with kills, filter, crossfader curves and sides, master limiter,
-  headphone cue, split or solo); auto gain plays every track at the same loudness. A
-  booth output at its own level, the balance, a microphone with talkover and an aux input.
-  Two decks or four: on an interface for two, the third and fourth are layers over the
-  first two.
-- **Performance**: tempo and beat sync, quantize, 16 hot cues on two pages, beat loops of
-  a size set per deck, loop in/out, loop rolls, beat jumps, a slicer, fader cuts, brake
-  and spinback, slip, censor, repeat, fader start, key lock and key shift. Each deck has a
-  chain of three beat-synced effects (echo, ping-pong, reverb, flanger, phaser, filter,
-  gate, bitcrusher), on the whole track or on one of its stems; a 16-slot sampler per
-  deck; instant doubles; mix recording with its tracklist.
-- **Stems**: vocals, drums, bass and melody, separated on the GPU (on its tensor cores
-  where it has some) or the processor, from where the deck plays as soon as a track is
-  loaded; a knob per part, cut and brought back on the bar with quantize, and lanes
-  showing where each part plays.
-- **Library**: MP3, AAC, ALAC, FLAC, Ogg Vorbis, WAV and AIFF; tempo, beat grid and key
-  analysis in the background, instant search, crates and smart crates, prepare list,
-  set history, duplicates, Serato and rekordbox import, beat grid and key editing. A
-  track previewed in the headphones without a deck; Auto DJ mixes the prepare list on
-  the beat. A file renamed, moved, tagged again or on a drive under another letter is
-  known again, by its audio if need be, and keeps its cues.
-- **Control**: every action from the keyboard and from a command palette (Ctrl K). MIDI
-  controllers with MIDI learn, lights, meters and jog wheels; 57 models mapped out of the
-  box. MIDI clock out.
-- **Reliability**: the audio restarts after a device loss or an engine failure, decks
-  come back after a crash, daily logs and a diagnostic report.
+- **Decks and mixing**: two decks or four, even on a two-channel sound card. Each deck on
+  its own outputs for a DJ mixer, or Prisme's mixer: trim, 3-band EQ with kills, filter,
+  crossfader curves, master limiter, headphone cue (split or solo), booth output,
+  microphone with talkover, aux input. Auto gain plays every track at the same loudness.
+- **Performance**: tempo and beat sync, quantize, 16 hot cues, beat loops and rolls,
+  beat jumps, a slicer, fader cuts, brake and spinback, slip, censor, key lock and key
+  shift, instant doubles. Three beat-synced effects per deck (echo, ping-pong, reverb,
+  flanger, phaser, filter, gate, bitcrusher), on the track or on one of its stems; a
+  16-slot sampler per deck; mix recording with its tracklist.
+- **Stems**: vocals, drums, bass and melody, separated on the graphics card or the
+  processor from where the deck plays, a fast and a quality model to choose from. A knob
+  per part, cut and brought back on the bar, and bands under the waveform showing where
+  each part plays.
+- **Library**: MP3, AAC, ALAC, FLAC, Ogg Vorbis, WAV and AIFF, from several music folders
+  or dropped from the file manager. Tempo, beat grid and key analysed in the background,
+  instant search, crates and smart crates, a prepare list, set history, duplicates,
+  Serato and rekordbox import, Auto DJ. A file renamed, moved or on another drive letter is
+  known again, cues included.
+- **Built for the booth**: the audio thread never waits on anything else; the sound comes
+  back by itself after a device loss, the decks after a crash. Updates install themselves,
+  never while a deck plays.
 - English and French interface.
 
 <p align="center">
@@ -55,32 +82,14 @@
 ## On a phone or a tablet
 
 The same engine and library on Android, laid out for the fingers: the decks and the
-mixer sideways, or stacked upright. A finger on the waveform nudges the track, a long
-press moves it; a USB sound card plugged in takes over the outputs.
+mixer sideways like a controller, or stacked upright. A finger on the waveform nudges the
+track; a USB sound card or controller plugged in takes over, timecode included.
 
 <p align="center">
   <img src="docs/screenshots/phone-landscape.png" width="62%" alt="The phone layout, sideways: pads on both sides, the mixer in the middle">
   &nbsp;
   <img src="docs/screenshots/phone-portrait.png" width="22%" alt="The phone layout, upright">
 </p>
-
-## Controllers
-
-Prisme knows 57 controller models from Allen & Heath, Behringer, Denon, DJ TechTools,
-Hercules, Korg, Native Instruments, Numark, Pioneer, Reloop, Roland and Stanton: plug one
-in and it plays, its lights and meters included. Each model is a JSON file in
-[apps/prisme-desktop/controllers](apps/prisme-desktop/controllers), a format anyone can
-read and edit:
-
-- a [JSON schema](apps/prisme-desktop/controllers/profile.schema.json) lets an editor such
-  as VS Code check a profile and complete it as it is written;
-- profiles corrected or added here reach the installed copies without a new version;
-- a profile of your own, in the data folder, replaces the shipped one or adds a model, and
-  **Export as a profile** writes what a controller drives now, what was learnt included.
-
-The format is described in the [controllers README](apps/prisme-desktop/controllers/README.md).
-The models were converted from the mappings of [Mixxx](https://mixxx.org), whose authors
-each file credits.
 
 <p align="center">
   <img src="docs/screenshots/palette.png" alt="The command palette, searching for loop actions">
@@ -105,9 +114,8 @@ cd apps/prisme-desktop
 cargo tauri dev
 ```
 
-`cargo tauri build` produces the packages in `target/release/bundle`: the installer on
-Windows, a `.deb` and an AppImage on Linux, a `.dmg` on macOS. The Android package is
-built by the `Android` workflow, for a release or on demand.
+`cargo tauri build` produces the packages in `target/release/bundle`. The Android package
+is built by the `Android` workflow.
 
 On Linux, Prisme plays through ALSA, or through JACK (PipeWire's included) for the
 lowest latency. The macOS build is not notarized by Apple: the first time, open it from
@@ -115,10 +123,11 @@ System Settings > Privacy & Security.
 
 ## Releasing
 
+Versions, tags, file names and the words used are set in [docs/STANDARDS.md](docs/STANDARDS.md).
+
 1. Set the new version in the workspace `Cargo.toml` (`[workspace.package] version`).
-2. Push a tag with that version, such as `0.2.0`: CI builds the packages of the three
-   systems, their signed update packages and the Android APK, and attaches them to a
-   draft release.
+2. Push a tag with that version, such as `0.4.0`: CI builds the packages of every system,
+   their signed update packages and the Android APK, and attaches them to a draft release.
 3. Publish the draft: the installed copies then offer the update.
 
 ## Architecture
@@ -126,20 +135,22 @@ System Settings > Privacy & Security.
 ```
 apps/
   prisme-desktop/    the application (Tauri v2), frontend in frontend/ (Angular)
+  prisme-setup/      the Windows installer's window
   prisme-cli/        the whole chain from the command line, without the interface
 crates/
   prisme-timecode/   timecode vinyl decoder: speed, direction, absolute position
   prisme-engine/     real-time engine: decks, vinyl control, mixer, sampler
   prisme-dsp/        real-time processing: filters, EQ, effects, limiter
-  prisme-audio-io/   sound cards (WASAPI, ASIO, CoreAudio, ALSA, JACK) behind a small interface
+  prisme-audio-io/   sound cards (WASAPI, ASIO, CoreAudio, ALSA, JACK, AAudio, USB) behind a small interface
   prisme-media/      audio file decoding, tags and cover art
   prisme-analysis/   waveforms, tempo and beat grid, musical key
   prisme-library/    track database, folder scanning, background analysis
-  prisme-stems/      source separation (Mel-Band RoFormer) on the GPU (wgpu) or the CPU
+  prisme-stems/      source separation (RoFormer models) on the GPU (wgpu) or the CPU
   prisme-import/     Serato and rekordbox import
   prisme-control/    MIDI controller messages and mappings
   prisme-session/    settings files with atomic writes
 design/              the design system: DESIGN.md and the reference screens
+website/             the site and the documentation, in English and French
 ```
 
 The audio thread never allocates, locks or frees: the interface sends commands through
