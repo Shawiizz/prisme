@@ -2,8 +2,9 @@
   display: grid;
   gap: var(--pr-space-5);
 }
+// its words read whole, in French too
 .find {
-  width: 360px;
+  width: min(100%, 480px);
 }
 .hint {
   margin: 0;
