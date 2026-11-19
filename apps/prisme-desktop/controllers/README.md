@@ -53,7 +53,7 @@ One JSON file per model:
 | `controls` | A control and the action it drives, in the shape of a learnt mapping (`controllers.json`), see below. |
 | `lights` | Lights other than the controls' own: `target`, `control`, optionally `when`, and its values by state beside them. |
 | `meters` | Levels shown on the controller: `source` (`deck1`…`deck4`, `main`, `main.left`, `main.right`), on one `control` or on `leds` (see Meters), optionally `curve` (the level raised to it, 1 straight) and `when`. |
-| `outputs` | Values shown on the controller (a jog wheel's ring, a knob's ring of lights): `source` (a fader's action, `deck1.position` of its track, `deck1.turn` of its record at 33⅓), `control`, optionally `min`, `max` and `when`. |
+| `outputs` | Values shown on the controller (a jog wheel's ring, a knob's ring of lights, a tempo strip's LEDs): `source` (a fader's action, `deck1.pitch` where the tempo is included, `deck1.position` of its track, `deck1.turn` of its record at 33⅓), `control`, optionally `min`, `max` (below `min` for lights running the other way) and `when`. |
 | `displays` | Numbers shown on the controller's screens, by a message of its own (SysEx, mostly): `source` (`deck1.bpm`; `deck1.elapsed`, `deck1.remaining`, `deck1.duration` in seconds; `deck1.tempo`, the tempo change, and `deck1.tempoRange` in percent), `message` with `"value"` where the number goes, optionally `scale` and `offset` (the number sent is the value times `scale` plus `offset`, rounded), `nibbles` (the number in that many bytes of four bits, the most significant first, two's complement below zero; without, one byte from 0 to 127), `sign` (`[8, 7]`: the first nibble at or above zero, below it) and `when`. A number goes again only when its message changes. |
 
 ### Controls

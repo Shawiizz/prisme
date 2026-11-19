@@ -144,7 +144,8 @@ export interface ControlActions {
   killed(deck: number, band: Band): boolean;
   /** Rolls a loop of `beats` over the track, the track going on beneath; `null` ends it. */
   roll(deck: number, beats: number | null): void;
-  setPitch(deck: number, position: number): void;
+  /** Where the deck's tempo fader is, 0 to 1: its fastest end at 1, the track's tempo midway. */
+  pitchPosition(deck: number): number;
   setVolume(deck: number, position: number): void;
   setEq(deck: number, band: Band, position: number): void;
   setFilter(deck: number, position: number): void;
@@ -467,10 +468,17 @@ function silentEnd(control: Control): Control {
 
 /**
  * A control the backend performs itself, straight from the controller (the jog wheels and
- * tempo faders, `controller_direct.rs`): listed to be mapped, never applied here.
+ * tempo faders, `controller_direct.rs`): listed to be mapped, never applied here; a fader's
+ * position is shown on the controllers all the same.
  */
-function direct(id: string, group: string, label: string, kind: ControlKind): Control {
-  return { id, group, label, kind, apply: () => undefined };
+function direct(
+  id: string,
+  group: string,
+  label: string,
+  kind: ControlKind,
+  position?: () => number,
+): Control {
+  return { id, group, label, kind, apply: () => undefined, position };
 }
 
 /** A control with a light, on when `on` says. */
@@ -873,7 +881,7 @@ function deckControls(a: ControlActions, deck: number): Control[] {
         () => a.cutPlaying(deck) === i,
       ),
     ),
-    direct(id('pitch'), group, t('Tempo'), 'fader'),
+    direct(id('pitch'), group, t('Tempo'), 'fader', () => a.pitchPosition(deck)),
     fader(
       id('volume'),
       group,

@@ -31,7 +31,7 @@ export interface ControllerModel {
 	litControls: number;
 	/** What its screens show, from its displays' sources: `tempo`, `time`, `pitch`. */
 	screens: string[];
-	/** What its rings of lights show, from its outputs' sources: `jog`, `position`, `knobs`. */
+	/** What its rings of lights show, from its outputs' sources: `jog`, `position`, `tempo`, `knobs`. */
 	rings: string[];
 	/** Tried on the hardware: the others are faithful conversions not tried yet. */
 	verified: boolean;
@@ -48,6 +48,8 @@ const SCREEN_OF: Record<string, string> = {
 
 /** What a display's or an output's `source` shows, without its deck. */
 const measure = (source: string) => source.replace(/^deck\d\./, '');
+
+const RING_OF: Record<string, string> = { turn: 'jog', position: 'position', pitch: 'tempo' };
 
 const kinds = (sources: string[], kindOf: (measure: string) => string) => [
 	...new Set(sources.map((s) => kindOf(measure(s)))),
@@ -83,7 +85,7 @@ export function controllerModels(): ControllerModel[] {
 				),
 				rings: kinds(
 					outputs.map((o) => o.source),
-					(m) => (m === 'turn' ? 'jog' : m === 'position' ? 'position' : 'knobs'),
+					(m) => RING_OF[m] ?? 'knobs',
 				),
 				verified: p.verified === true,
 			};

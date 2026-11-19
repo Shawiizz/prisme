@@ -253,11 +253,12 @@ Mixxx's `vu_meter` is on a log scale: its value *t* is the level (10<sup>t</sup>
 
 ## Outputs
 
-An output shows a value from 0 to 1 on a control, from `min` (default 0) to `max` (default 127):
+An output shows a value from 0 to 1 on a control, from `min` (default 0) to `max` (default 127); a `max` below `min` runs the other way, for lights whose first is at the other end:
 
 | `source` | |
 | --- | --- |
 | A fader's action | Its setting: `deck1.fx.mix`, `deck1.eq.low`, `mixer.crossfader`… |
+| `deckN.pitch` | Where the deck's tempo is on its fader, whatever moved it: 1 at the fastest end, the track's own tempo midway. |
 | `deckN.position` | Where the deck is in its track. |
 | `deckN.turn` | Where the record is in its turn, at 33⅓: the dot going round a jog wheel. |
 

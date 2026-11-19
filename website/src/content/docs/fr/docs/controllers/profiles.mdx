@@ -253,11 +253,12 @@ Le `vu_meter` de Mixxx est sur une échelle logarithmique : sa valeur *t* corre
 
 ## Sorties
 
-Une sortie affiche une valeur de 0 à 1 sur une commande, de `min` (par défaut 0) à `max` (par défaut 127) :
+Une sortie affiche une valeur de 0 à 1 sur une commande, de `min` (par défaut 0) à `max` (par défaut 127) ; un `max` sous `min` va dans l’autre sens, pour les voyants dont le premier est à l’autre bout :
 
 | `source` | |
 | --- | --- |
 | L’action d’un fader | Son réglage : `deck1.fx.mix`, `deck1.eq.low`, `mixer.crossfader`… |
+| `deckN.pitch` | Où en est le tempo du deck sur son fader, quoi qui l’ait bougé : 1 au bout le plus rapide, le tempo du morceau au milieu. |
 | `deckN.position` | Où en est le deck dans son morceau. |
 | `deckN.turn` | Où en est le disque dans son tour, à 33⅓ : le point qui tourne autour d’un jog. |
 

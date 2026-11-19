@@ -165,9 +165,9 @@ export class ControlService {
       else this.rolls.set(deck, beats);
       this.performance.loopRoll(deck, beats);
     },
-    setPitch: (deck, position) => {
+    pitchPosition: (deck) => {
       const range = this.engine.tempoRange(deck);
-      this.engine.setPitch(deck, 1 + (position * 2 - 1) * range);
+      return Math.min(Math.max(0.5 + (this.engine.decks()[deck].pitch - 1) / (2 * range), 0), 1);
     },
     setVolume: (deck, position) => this.mixer.setVolume(deck, position),
     setEq: (deck, band, position) => this.mixer.setEq(deck, band, eqGain(position)),
