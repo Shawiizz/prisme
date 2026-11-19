@@ -3,6 +3,7 @@
   grid-template-columns: var(--pr-lane-columns);
   gap: 10px;
   min-height: 0;
+  transition: grid-template-columns var(--pr-relayout);
 }
 // the crossfader between the two channels of the software mixer
 :host:has(app-crossfader) .lane {

@@ -112,9 +112,10 @@ export class DeckWaveform {
   /** A finger, until it has been still long enough to hold the record. */
   private holding: ReturnType<typeof setTimeout> | null = null;
   private readonly showing = new Showing();
+  private readonly redraw = () => this.draw();
 
   constructor() {
-    everyFrame(() => this.draw());
+    everyFrame(this.redraw);
     inject(DestroyRef).onDestroy(() => {
       forgetCanvas(this.zoomCanvas().nativeElement);
       forgetCanvas(this.overviewCanvas().nativeElement);
@@ -338,7 +339,7 @@ export class DeckWaveform {
 
   /** The canvas at its size in device pixels, and its context; nothing until it is laid out. */
   private fit(canvas: HTMLCanvasElement) {
-    const { width, height } = fitToDevicePixels(canvas);
+    const { width, height } = fitToDevicePixels(canvas, this.redraw);
     const ctx = canvas.getContext('2d');
     const laidOut = width > 0 && height > 0;
     return ctx && laidOut

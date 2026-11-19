@@ -30,6 +30,32 @@
     }
   }
 }
+// a lane come or gone with the number of decks opens or closes, its gap above it too
+app-deck-lane {
+  interpolate-size: allow-keywords;
+}
+.lane-in {
+  overflow: clip;
+  animation: lane-in var(--pr-relayout);
+}
+.lane-out {
+  overflow: clip;
+  animation: lane-out var(--pr-relayout) forwards;
+}
+@keyframes lane-in {
+  from {
+    height: 0;
+    margin-top: -6px;
+    opacity: 0;
+  }
+}
+@keyframes lane-out {
+  to {
+    height: 0;
+    margin-top: -6px;
+    opacity: 0;
+  }
+}
 app-phase-strip {
   height: 26px;
   padding-block: var(--pr-space-1);

@@ -44,6 +44,7 @@ export class PreviewStrip {
   private readonly canvas = viewChild.required<ElementRef<HTMLCanvasElement>>('bar');
   private readonly painter = new WaveformPainter();
   private readonly showing = new Showing();
+  private readonly redraw = () => this.draw();
   /** The finger or button seeking, while it presses. */
   private pointer: number | null = null;
 
@@ -54,7 +55,7 @@ export class PreviewStrip {
   });
 
   constructor() {
-    everyFrame(() => this.draw());
+    everyFrame(this.redraw);
     inject(DestroyRef).onDestroy(() => forgetCanvas(this.canvas().nativeElement));
   }
 
@@ -83,7 +84,7 @@ export class PreviewStrip {
 
   private draw() {
     const canvas = this.canvas().nativeElement;
-    const { width, height } = fitToDevicePixels(canvas);
+    const { width, height } = fitToDevicePixels(canvas, this.redraw);
     const ctx = canvas.getContext('2d');
     const status = this.preview.status();
     const waveform = this.preview.waveform();

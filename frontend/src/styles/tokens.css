@@ -108,4 +108,10 @@
 
   /* Motion: the interface opens fast and never moves while the music plays */
   --pr-fast: 120ms;
+  --pr-relayout: 240ms cubic-bezier(0.2, 0.8, 0.2, 1); /* the decks laid out anew: two or four */
+}
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --pr-relayout: 0s;
+  }
 }
