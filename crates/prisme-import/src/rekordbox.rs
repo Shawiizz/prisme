@@ -56,6 +56,9 @@ pub fn parse(xml: &str) -> Result<Import, RekordboxError> {
     let mut ids: HashMap<String, PathBuf> = HashMap::new();
     let mut tracks: Vec<ImportedTrack> = Vec::new();
     let mut tempos = 0;
+    // whether the collection's track being read is imported: the marks of one that is not
+    // (a streaming service's) are not the previous one's
+    let mut kept = false;
     let mut folders: Vec<String> = Vec::new();
     let mut playlist: Option<(ImportedCrate, bool)> = None;
     let mut crates = Vec::new();
@@ -83,11 +86,13 @@ pub fn parse(xml: &str) -> Result<Import, RekordboxError> {
         match element.name().as_ref() {
             b"PLAYLISTS" => in_playlists = true,
             b"TRACK" if !in_playlists => {
+                tempos = 0;
+                kept = false;
                 let Some(path) = a.get("Location").and_then(|l| location_path(l)) else { continue };
                 if let Some(id) = a.get("TrackID") {
                     ids.insert(id.clone(), path.clone());
                 }
-                tempos = 0;
+                kept = true;
                 tracks.push(ImportedTrack {
                     path,
                     cues: Vec::new(),
@@ -102,7 +107,7 @@ pub fn parse(xml: &str) -> Result<Import, RekordboxError> {
             b"TEMPO" => {
                 tempos += 1;
                 if let (Some(track), Some(bpm), Some(beat_s)) =
-                    (tracks.last_mut(), number(&a, "Bpm"), number(&a, "Inizio"))
+                    (tracks.last_mut().filter(|_| kept), number(&a, "Bpm"), number(&a, "Inizio"))
                 {
                     // a grid that changes tempo is not a single grid; `Battito`, the beat of
                     // the bar `Inizio` falls on, is not kept, Prisme's bars starting on the
@@ -111,7 +116,7 @@ pub fn parse(xml: &str) -> Result<Import, RekordboxError> {
                 }
             }
             b"POSITION_MARK" => {
-                if let (Some(track), Some(cue)) = (tracks.last_mut(), position_mark(&a)) {
+                if let (Some(track), Some(cue)) = (tracks.last_mut().filter(|_| kept), position_mark(&a)) {
                     track.cues.push(cue);
                 }
             }
@@ -286,6 +291,24 @@ mod tests {
         );
         let live = &import.tracks[1];
         assert_eq!((live.grid, live.rating), (None, None), "two tempos: no single grid");
+    }
+
+    #[test]
+    fn the_marks_of_a_track_not_imported_are_not_the_previous_ones() {
+        let xml = r#"<DJ_PLAYLISTS Version="1.0.0"><COLLECTION Entries="2">
+            <TRACK TrackID="1" Location="file://localhost/{ROOT}Music/local.mp3">
+              <TEMPO Inizio="0.1" Bpm="124.0" Metro="4/4" Battito="1"/>
+              <POSITION_MARK Name="" Type="0" Start="8.0" Num="0"/>
+            </TRACK>
+            <TRACK TrackID="2" Location="file://localhostsoundcloud:tracks:123">
+              <TEMPO Inizio="0.3" Bpm="126.0" Metro="4/4" Battito="1"/>
+              <POSITION_MARK Name="" Type="0" Start="90.0" Num="2"/>
+            </TRACK>
+        </COLLECTION></DJ_PLAYLISTS>"#;
+        let import = parse(&xml.replace("{ROOT}", ROOT)).unwrap();
+        let [local] = &import.tracks[..] else { panic!("{:?}", import.tracks) };
+        assert_eq!(local.grid, Some(ImportedGrid { bpm: 124.0, beat_s: 0.1 }));
+        assert_eq!(local.cues.iter().map(|c| c.position_s).collect::<Vec<_>>(), [8.0]);
     }
 
     #[test]
