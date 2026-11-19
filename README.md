@@ -6,7 +6,7 @@
 
 <p align="center">
   Free DJ software that plays your way: a controller, turntables, or just your laptop.<br>
-  Two decks or four, stems on any track, 132 controllers ready when plugged in.<br>
+  Two decks or four, stems on any track, 145 controllers ready when plugged in.<br>
   Windows, macOS and Linux, and Android on a phone or a tablet.
 </p>
 
@@ -21,9 +21,9 @@
 
 ## Play your way
 
-- **A controller**: plug in one of 132 models and play. Pads, jog wheels, lights, meters
-  and screens are mapped out of the box, and a controller Prisme does not know is offered
-  to MIDI learn.
+- **A controller**: plug in one of 145 models, MIDI or HID, and play. Pads, jog wheels,
+  lights, meters and screens are mapped out of the box, and a controller Prisme does not
+  know is offered to MIDI learn.
 - **Turntables**: timecode records or CDs drive the tracks, needle drops, backspins and
   scratches included (Serato CV02 and Serato CD, absolute and relative modes, a decoder
   written from scratch).
@@ -32,10 +32,13 @@
 
 ## Controllers
 
-132 models from Akai, Allen & Heath, American Audio, Behringer, Denon, DJ TechTools,
+145 models from Akai, Allen & Heath, American Audio, Behringer, Denon, DJ TechTools,
 Hercules, Korg, Native Instruments, Novation, Numark, Pioneer, Reloop, Roland, Stanton,
 Vestax and more work the moment they are plugged in; one that another DJ application
-holds is taken as soon as that application lets it go.
+holds is taken as soon as that application lets it go. MIDI controllers, and HID ones
+read through hidapi on Windows, macOS and Linux: Native Instruments' Traktor Kontrol S2,
+S3, S4, F1 and Z1 and the Traktor MX2, older Hercules, Pioneer CDJs in HID mode, the EKS
+Otus.
 
 - Map any control yourself (MIDI learn), lights and meters following the music; save the
   result as a profile and share it.
@@ -147,7 +150,7 @@ crates/
   prisme-library/    track database, folder scanning, background analysis
   prisme-stems/      source separation (RoFormer models) on the GPU (wgpu) or the CPU
   prisme-import/     Serato and rekordbox import
-  prisme-control/    MIDI controller messages and mappings
+  prisme-control/    MIDI and HID controller messages and mappings
   prisme-session/    settings files with atomic writes
 design/              the design system: DESIGN.md and the reference screens
 website/             the site and the documentation, in English and French
