@@ -389,7 +389,9 @@ fn process(
         Ok(Err(e)) => (TrackRecord::failed(&file.path, file.stamp, e.to_string()), None),
         Err(_) => (TrackRecord::failed(&file.path, file.stamp, "the file could not be read".into()), None),
     };
-    if FileStamp::of(&file.path).ok() != Some(file.stamp) {
+    // stamped as the scan does, a link as itself
+    let stamp = std::fs::symlink_metadata(&file.path).map(|meta| FileStamp::from_metadata(&meta));
+    if stamp.ok() != Some(file.stamp) {
         return None;
     }
     let edits = db.edits(&file.path).unwrap_or_default();
