@@ -625,7 +625,9 @@ impl Deck {
     /// its beats running against the leader's, nor in a loop, its beats jumping back at each
     /// turn.
     fn chases_beats(&self) -> bool {
-        !self.backwards() && !self.transport.loop_active
+        let t = &self.transport;
+        let looping = t.loop_active && t.loop_region.is_some_and(|r| r.contains(self.playhead.position_s()));
+        !self.backwards() && !looping
     }
 
     /// Whether the track advances at its tempo (gestures aside).

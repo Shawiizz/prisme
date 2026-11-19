@@ -159,6 +159,20 @@ fn a_follower_goes_round_its_own_loops_shorter_than_a_beat_at_the_leader_tempo()
 }
 
 #[test]
+fn a_follower_jumped_out_of_its_loop_keeps_to_the_leader_s_beats_again() {
+    let mut rig = locked_follower();
+    rig.send(Command::BeatLoop { deck: 1, beats: 1.0 });
+    rig.run(1.0);
+    // a cue a third of a beat off, out of the loop, which stays on
+    rig.send(Command::SetQuantize { enabled: false });
+    let cue = rig.deck(1).position_s + (20.0 + 1.0 / 3.0) * 60.0 / 125.0;
+    rig.send(Command::Jump { deck: 1, seconds: cue });
+    rig.run(0.5);
+    assert!(rig.deck(1).looping.active);
+    assert!(phase_gap(&mut rig).abs() < 0.01, "{}", phase_gap(&mut rig));
+}
+
+#[test]
 fn sync_engaged_in_a_loop_shorter_than_a_beat_stays_in_it() {
     let mut rig = leader_with_follower(125.0);
     play_internal(&mut rig, 1, 10.07);
