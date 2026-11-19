@@ -208,6 +208,53 @@ fn no_file_is_started_while_the_analysis_is_held_back() {
     std::fs::remove_dir_all(root).ok();
 }
 
+/// An IMA ADPCM WAV whose blocks are said to be empty: its reader's arithmetic overflows,
+/// which panics where overflows are checked.
+fn write_overflowing(path: &Path) {
+    let mut wav = Vec::new();
+    wav.extend_from_slice(b"RIFF");
+    wav.extend_from_slice(&36u32.to_le_bytes());
+    wav.extend_from_slice(b"WAVEfmt ");
+    wav.extend_from_slice(&20u32.to_le_bytes());
+    for v in [0x11u16, 1] {
+        wav.extend_from_slice(&v.to_le_bytes());
+    }
+    wav.extend_from_slice(&44_100u32.to_le_bytes());
+    wav.extend_from_slice(&22_050u32.to_le_bytes());
+    // no bytes a block, 4 bits a sample, then the extension: 2 bytes of samples a block
+    for v in [0u16, 4, 2, 0] {
+        wav.extend_from_slice(&v.to_le_bytes());
+    }
+    wav.extend_from_slice(b"data");
+    wav.extend_from_slice(&0u32.to_le_bytes());
+    std::fs::write(path, wav).unwrap();
+}
+
+#[test]
+fn a_file_that_makes_its_reader_panic_is_failed_and_the_others_analysed() {
+    let root = std::env::temp_dir().join(format!("prisme-analyzer-panic-{}", std::process::id()));
+    std::fs::create_dir_all(&root).unwrap();
+    write_overflowing(&root.join("a-broken.wav"));
+    write_kicks(&root.join("b-house.wav"), 124.0, 12.0);
+    let db = Arc::new(LibraryDb::open_in_memory().unwrap());
+    let collector = Arc::new(Collector::default());
+
+    BackgroundAnalyzer::start(
+        db.clone(),
+        vec![root.clone()],
+        1,
+        AnalysisOptions::default(),
+        collector.clone(),
+    )
+    .wait();
+    let last = *collector.progress.lock().unwrap().last().unwrap();
+    assert_eq!(last, AnalysisProgress { total: 2, done: 2, failed: 1, running: false, paused: false });
+    assert!(db.get(&root.join("a-broken.wav")).unwrap().unwrap().error.is_some());
+    assert_eq!(bpm_of(&collector.records.lock().unwrap(), "b-house.wav"), Some(124.0));
+    assert_eq!(run(&db, &root).progress.lock().unwrap().last().unwrap().total, 0, "left alone");
+    std::fs::remove_dir_all(root).ok();
+}
+
 #[test]
 fn a_file_renamed_and_tagged_again_keeps_its_cues() {
     let root = std::env::temp_dir().join(format!("prisme-analyzer-renamed-{}", std::process::id()));
