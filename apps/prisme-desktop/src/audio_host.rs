@@ -9,7 +9,7 @@ use prisme_audio_io::{is_available, AudioCallback, DeviceKind, StreamSettings, S
 use prisme_engine::{Engine, EngineConfig, EngineController, MAX_DECKS};
 use prisme_timecode::testing::{Pattern, SimulatedTurntable};
 use prisme_timecode::TimecodeFormat;
-use std::sync::atomic::Ordering;
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{mpsc, Arc};
 use std::thread::JoinHandle;
 
@@ -53,6 +53,8 @@ impl AudioCallback for EngineCallback {
 
 /// A running audio session. Dropping it stops the audio.
 pub struct AudioSession {
+    /// Tells it from the sessions before and after it.
+    pub id: u64,
     pub controller: EngineController,
     pub stats: Arc<StreamStats>,
     /// What the engine was built with (to build matching decoders).
@@ -167,7 +169,9 @@ pub fn start(
     })?;
     let (controller, engine_config, info, stats) =
         ready_rx.recv().map_err(|_| AppError::Other("the audio thread stopped".into()))??;
+    static NEXT_ID: AtomicU64 = AtomicU64::new(1);
     Ok(AudioSession {
+        id: NEXT_ID.fetch_add(1, Ordering::Relaxed),
         controller,
         stats,
         engine_config,

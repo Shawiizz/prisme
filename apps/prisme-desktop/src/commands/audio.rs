@@ -111,6 +111,21 @@ pub fn start_audio_unless_running(
     start(state, settings).map(Some)
 }
 
+/// Starts the audio with `settings` in place of the session `id`, unless another took its place
+/// meanwhile (the user picked other devices): the watchdog's way to restart the audio it judged.
+/// `None` if another runs.
+pub fn start_audio_instead_of(
+    state: &AppState,
+    id: u64,
+    settings: &AudioSettings,
+) -> AppResult<Option<AudioInfo>> {
+    let _starting = lock(&state.audio_start);
+    if lock(&state.session).as_ref().map(|s| s.id) != Some(id) {
+        return Ok(None);
+    }
+    start(state, settings).map(Some)
+}
+
 /// Starts the saved audio again unless it is what runs (the inputs it was refused were allowed
 /// meanwhile); whether it started.
 pub fn restart_saved_audio(state: &AppState) -> AppResult<bool> {
