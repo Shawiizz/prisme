@@ -19,20 +19,17 @@ app-crossfader.live {
   justify-content: space-between;
   gap: var(--pr-space-2);
   padding: 0 var(--pr-space-3);
-  .offset,
-  .drift {
+  // refreshed many times a second: the same width, so the words do not shake
+  .phase {
+    min-width: 17ch;
     font-size: var(--pr-size-small);
     color: var(--pr-text-2);
-    white-space: nowrap;
-  }
-  .drift {
-    color: var(--pr-warn);
-  }
-  // refreshed many times a second: the same width, so the words do not shake
-  .offset {
-    min-width: 17ch;
     text-align: right;
     font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+    &.drift {
+      color: var(--pr-warn);
+    }
   }
 }
 .lane {

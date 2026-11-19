@@ -156,7 +156,7 @@
   "{deck} behind by {ms} ms": "{deck} en retard de {ms} ms",
   "With four decks on an interface for two, C shares the outputs and the turntable of A, D those of B: the deck put on REL or ABS takes the turntable, the other plays on by itself.": "Avec quatre decks sur une interface pour deux, C partage les sorties et la platine de A, D celles de B : le deck mis en REL ou ABS prend la platine, l'autre continue seul.",
   "Off by 1/16 in {s} s": "Décalé d'1/16 dans {s} s",
-  "Off the beat: adjust the pitch": "Décalé : corrigez le pitch",
+  "Off the beat: adjust the pitch": "Décalé : corrigez le pitch",
   "Level of the effect": "Niveau de l'effet",
   "Main knob of the effect (see each pad)": "Bouton principal de l'effet (voir chaque pad)",
   "Period of the effect, in beats": "Période de l'effet, en temps",

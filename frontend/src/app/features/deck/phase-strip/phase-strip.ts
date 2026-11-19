@@ -52,26 +52,31 @@ export class PhaseStrip {
     return this.pair().map((deck) => decks[deck]);
   });
 
-  /** How far the beats of the second deck are from those of the first. */
-  protected readonly offset = computed(() => {
+  /**
+   * What the strip says of the two decks: drifting apart at their tempos, when the second will
+   * be heard off the beat of the first; else how far its beats are from the first's.
+   */
+  protected readonly phase = computed(() => {
     const [a, b] = this.statuses();
-    const beats = a && b ? phaseOffset(b, a) : null;
-    if (beats === null || !b.bpm) return '';
-    if (Math.abs(beats) < MATCHED_BEATS) return t('Matched');
+    if (!a || !b) return { words: '', drifting: false };
+    const seconds = Math.round(driftTime(b, a, HEARD_BEATS) ?? Infinity);
+    if (seconds <= FORECAST_S) {
+      const words =
+        seconds === 0
+          ? t('Off the beat: adjust the pitch')
+          : t('Off by 1/16 in {s} s', { s: String(seconds) });
+      return { words, drifting: true };
+    }
+    const beats = phaseOffset(b, a);
+    if (beats === null || !b.bpm) return { words: '', drifting: false };
+    if (Math.abs(beats) < MATCHED_BEATS) return { words: t('Matched'), drifting: false };
     const ms = String(Math.round((Math.abs(beats) * 60_000) / b.bpm));
     const deck = deckLetter(this.pair()[1]);
-    return beats > 0
-      ? t('{deck} ahead by {ms} ms', { deck, ms })
-      : t('{deck} behind by {ms} ms', { deck, ms });
-  });
-  /** When the second deck, at the present tempos, will be heard off the beat of the first. */
-  protected readonly drift = computed(() => {
-    const [a, b] = this.statuses();
-    const seconds = a && b ? driftTime(b, a, HEARD_BEATS) : null;
-    if (seconds === null || seconds > FORECAST_S) return '';
-    return seconds === 0
-      ? t('Off the beat: adjust the pitch')
-      : t('Off by 1/16 in {s} s', { s: String(Math.round(seconds)) });
+    const words =
+      beats > 0
+        ? t('{deck} ahead by {ms} ms', { deck, ms })
+        : t('{deck} behind by {ms} ms', { deck, ms });
+    return { words, drifting: false };
   });
 
   constructor() {
