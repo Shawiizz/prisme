@@ -8,9 +8,10 @@
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="29" />
     <!-- the timecode of the turntables, from the inputs of the sound card -->
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
-    <!-- the sound goes on while a deck plays, the screen locked -->
+    <!-- the sound goes on while a deck plays, the screen locked, and the timecode comes in -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
     <!-- a controller and its sound card, plugged in -->
@@ -50,7 +51,7 @@
 
         <service
             android:name=".PlaybackService"
-            android:foregroundServiceType="mediaPlayback"
+            android:foregroundServiceType="mediaPlayback|microphone"
             android:exported="false" />
 
         <provider

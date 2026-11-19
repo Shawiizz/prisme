@@ -1,6 +1,7 @@
 package com.shawiizz.prisme
 
 import android.Manifest
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.content.res.Configuration
 import android.graphics.Bitmap
@@ -54,10 +55,16 @@ class MainActivity : TauriActivity() {
   private val musicAndNotifications =
     registerForActivityResult(RequestMultiplePermissions()) { answered() }
 
-  /** The inputs of a sound card: once the DJ says yes, the native side takes them. */
+  /**
+   * The inputs of a sound card: once the DJ says yes, the native side takes them, and the
+   * service of a deck already playing says it listens too, before Prisme leaves the screen.
+   */
   private val inputs =
     registerForActivityResult(RequestMultiplePermissions()) { granted ->
-      if (granted[Manifest.permission.RECORD_AUDIO] == true) inputsAllowed()
+      if (granted[Manifest.permission.RECORD_AUDIO] == true) {
+        inputsAllowed()
+        if (PlaybackService.running) startForegroundService(Intent(this, PlaybackService::class.java))
+      }
       answered()
     }
 
