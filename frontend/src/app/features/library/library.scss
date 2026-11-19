@@ -45,13 +45,18 @@
   &:has(.analysis .bar) .count {
     display: none;
   }
-  .error {
+  .error,
+  .refusal {
     min-width: 0;
     font-size: var(--pr-size-small);
     color: var(--pr-alert);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+  }
+  // nothing wrong, what was asked is not done
+  .refusal {
+    color: var(--pr-warn);
   }
 }
 // as wide as the room left, up to 380px: the first to give way to a progress

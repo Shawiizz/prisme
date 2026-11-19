@@ -61,7 +61,9 @@
       <span class="count">{{
         tracks().length === 1 ? ('1 track' | t) : ('{n} tracks' | t: { n: tracks().length })
       }}</span>
-      @if (engine.error() ?? library.error() ?? stems.error(); as e) {
+      @if (engine.refusal(); as r) {
+        <span class="refusal" [title]="r">{{ r }}</span>
+      } @else if (engine.error() ?? library.error() ?? stems.error(); as e) {
         <span class="error" [title]="e">{{ e }}</span>
       }
       <div class="analysis">

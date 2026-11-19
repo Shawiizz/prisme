@@ -69,7 +69,9 @@
 @if (recordMenu()) {
   <app-phone-record (closed)="recordMenu.set(false)" />
 }
-@if (engine.error() ?? library.error(); as error) {
+@if (engine.refusal(); as refusal) {
+  <p class="error refusal">{{ refusal }}</p>
+} @else if (engine.error() ?? library.error(); as error) {
   <p class="error">{{ error }}</p>
 }
 

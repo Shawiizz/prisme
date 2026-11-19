@@ -57,6 +57,9 @@ svg {
   padding: 6px 16px;
   font-size: var(--pr-size-small);
   color: var(--pr-alert);
+  &.refusal {
+    color: var(--pr-warn);
+  }
 }
 
 .screen {

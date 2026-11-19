@@ -38,6 +38,8 @@ const MAIN_CUE_COLOR = 0xffb02e;
 const PITCH_BEND = 0.03;
 /** Slower than this, a deck under its record is still: a hand holding it, the record stopped. */
 const MOVING_SPEED = 0.05;
+/** How long a refusal stays said. */
+const REFUSAL_MS = 5000;
 
 const DEFAULT_DECK: DeckSettings = {
   pitch: 1,
@@ -95,6 +97,10 @@ export class EngineService {
   );
   private readonly deckCount = computed(() => this.deckIndexes().length);
   readonly error = signal<string | null>(null);
+  /** Why what the DJ just asked was not done, nothing being wrong: said for a few seconds,
+   * or until the next thing asked. */
+  readonly refusal = signal<string | null>(null);
+  private refusalTimer?: ReturnType<typeof setTimeout>;
 
   readonly audioRunning = computed(() => this.status()?.audioRunning ?? false);
 
@@ -346,7 +352,7 @@ export class EngineService {
     const letter = { deck: deckLetter(deck) };
     const eject = by === 'eject';
     if (this.preferences.dj().protectPlaying) {
-      this.error.set(
+      this.refuse(
         eject
           ? t('Deck {deck} is playing: its track stays on it', letter)
           : t('Deck {deck} is playing: nothing is loaded on it', letter),
@@ -366,6 +372,7 @@ export class EngineService {
   /** Puts on `deck` what `load` gives, nothing if another load asked for there since goes
    * there instead; whether it came. */
   private async put(deck: number, load: () => Promise<TrackInfo | null>): Promise<boolean> {
+    this.refusal.set(null);
     this.patch(this.loading, deck, true);
     try {
       const info = await load();
@@ -615,8 +622,15 @@ export class EngineService {
     s.set(copy);
   }
 
+  private refuse(text: string) {
+    clearTimeout(this.refusalTimer);
+    this.refusal.set(text);
+    this.refusalTimer = setTimeout(() => this.refusal.set(null), REFUSAL_MS);
+  }
+
   /** Runs a backend command; a failure is shown rather than thrown, until one goes through. */
   async call(command: string, args: Record<string, unknown>): Promise<void> {
+    this.refusal.set(null);
     try {
       await invoke(command, args);
       this.error.set(null);

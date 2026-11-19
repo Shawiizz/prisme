@@ -111,6 +111,29 @@ describe('EngineService', () => {
       expect(engine.error()).toBeNull();
       expect(engine.loading()[0]).toBe(false);
     });
+
+    it('says for a few seconds, and not as an error, that a playing deck keeps its track', async () => {
+      vi.useFakeTimers();
+      TestBed.inject(PreferencesService).dj.update((p) => ({ ...p, protectPlaying: true }));
+      playing(true);
+      expect(await engine.load(0, 'C:/Music/next.mp3')).toBe(false);
+      expect(engine.refusal()).toBe('Deck A is playing: nothing is loaded on it');
+      expect(engine.error()).toBeNull();
+      vi.advanceTimersByTime(5000);
+      expect(engine.refusal()).toBeNull();
+      vi.useRealTimers();
+    });
+
+    it('takes a refusal back at the next thing asked', async () => {
+      TestBed.inject(PreferencesService).dj.update((p) => ({ ...p, protectPlaying: true }));
+      playing(true);
+      await engine.eject(0);
+      expect(engine.refusal()).toBe('Deck A is playing: its track stays on it');
+      vi.mocked(engine.call).mockRestore();
+      mockIPC(() => undefined);
+      await engine.setPlaying(0, false);
+      expect(engine.refusal()).toBeNull();
+    });
   });
 
   describe('SYNC off', () => {
