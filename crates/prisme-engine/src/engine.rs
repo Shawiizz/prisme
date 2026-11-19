@@ -17,7 +17,7 @@ use crate::preview::Preview;
 use crate::recording::{input_pair, Recording};
 use crate::scope::{self, ScopeTap};
 use crate::status::{EngineStatus, RecordingStatus, MAX_DECKS};
-use crate::sync::LeaderClock;
+use crate::sync::{LeaderClock, LEADER_RESUME_S};
 use prisme_dsp::{db_to_gain, DenormalGuard, FxSlot};
 use prisme_timecode::{DecoderConfig, TimecodeDecoder, TimecodeFormat};
 
@@ -88,6 +88,7 @@ pub fn create(config: EngineConfig) -> (Engine, EngineController) {
         quantize: true,
         chosen_leader: None,
         leader: None,
+        resumed_leader_s: 0.0,
         leader_clock: LeaderClock::default(),
         frames_since_status: 0,
         status_interval: (config.sample_rate as f64 / config.status_rate_hz) as usize,
@@ -118,6 +119,8 @@ pub struct Engine {
     /// Leader picked by the user, if any.
     chosen_leader: Option<DeckId>,
     leader: Option<DeckId>,
+    /// Seconds the leader resumed after a restart is still waited for, though it cannot lead.
+    resumed_leader_s: f64,
     leader_clock: LeaderClock,
     frames_since_status: usize,
     status_interval: usize,
@@ -163,9 +166,20 @@ impl Engine {
         out.fill(0.0);
         let rate = self.config.sample_rate as f64;
         self.leader = self.resolve_leader();
-        // every follower is compared with the leader as it was at the start of the block
         let seconds = frames as f64 / rate;
-        let leader_beat = self.leader.and_then(|l| {
+        // a resumed leader gives its beats as soon as it moves, before its averaged speed has risen
+        let resumed = self.resumed_leader_s > 0.0;
+        let leading = self.leader.filter(|&l| {
+            let deck = &self.decks[l];
+            deck.can_lead() || resumed && deck.could_lead()
+        });
+        self.resumed_leader_s = if self.leader.is_some_and(|l| self.decks[l].can_lead()) {
+            0.0
+        } else {
+            (self.resumed_leader_s - seconds).max(0.0)
+        };
+        // every follower is compared with the leader as it was at the start of the block
+        let leader_beat = leading.and_then(|l| {
             let leader = &self.decks[l];
             let beat = leader.leader_beat()?;
             Some(self.leader_clock.beat(l, beat, leader.is_looping(), seconds))
@@ -222,13 +236,14 @@ impl Engine {
         }
     }
 
-    /// The chosen leader if it can lead, else the current one if it still can, else the
-    /// first deck that can.
+    /// The chosen leader if it can lead, else the current one if it still can, or, resumed
+    /// after a restart, while it is waited for; else the first deck that can.
     fn resolve_leader(&self) -> Option<DeckId> {
         let can_lead = |d: &DeckId| self.decks.get(*d).is_some_and(Deck::can_lead);
+        let awaited = |d: &DeckId| self.resumed_leader_s > 0.0 && self.decks[*d].playhead.is_loaded();
         self.chosen_leader
             .filter(can_lead)
-            .or(self.leader.filter(can_lead))
+            .or(self.leader.filter(|d| can_lead(d) || awaited(d)))
             .or_else(|| (0..self.decks.len()).find(can_lead))
     }
 
@@ -334,6 +349,10 @@ impl Engine {
             SetSyncLocked { deck, locked: false } if valid(deck) => self.decks[deck].sync.reset(),
             SyncOnce { deck } if valid(deck) => self.decks[deck].engage_sync(false),
             SetSyncLeader { deck } => self.chosen_leader = deck.filter(|&d| valid(d)),
+            ResumeSyncLeader { deck } if valid(deck) => {
+                self.leader = Some(deck);
+                self.resumed_leader_s = LEADER_RESUME_S;
+            }
             SetLeadIn { deck, seconds } if valid(deck) => self.decks[deck].vinyl.lead_in_s = seconds,
             SetRpm { deck, rpm } if valid(deck) => self.decks[deck].set_rpm(rpm),
             ReplaceDecoder { deck, decoder } => {

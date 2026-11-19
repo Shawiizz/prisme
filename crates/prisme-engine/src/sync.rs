@@ -21,6 +21,9 @@ const PHASE_GAIN: f64 = 0.2;
 const PHASE_MAX_CORRECTION: f64 = 0.01;
 const RESNAP_BEATS: f64 = 0.08;
 pub(crate) const LEADER_MIN_SPEED: f64 = 0.2;
+/// How long a leader resumed after an audio restart is waited for to lead again, its speed
+/// rising from nothing, its record read afresh.
+pub(crate) const LEADER_RESUME_S: f64 = 1.0;
 
 #[derive(Debug, Clone, Copy)]
 pub(crate) struct LeaderBeat {

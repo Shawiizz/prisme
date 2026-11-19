@@ -288,6 +288,46 @@ fn the_chosen_leader_leads_and_a_locked_deck_never_does() {
     assert!(!rig.deck(1).sync.leader);
 }
 
+/// An engine started again, both decks playing on their own: deck 0 first in order.
+fn restarted() -> Rig {
+    let mut rig = Rig::new();
+    load(&mut rig, 0, 120.0, 0.0);
+    load(&mut rig, 1, 150.0, 0.0);
+    play_internal(&mut rig, 0, 10.0);
+    play_internal(&mut rig, 1, 10.0);
+    rig
+}
+
+#[test]
+fn the_leader_resumed_after_a_restart_leads_again_rather_than_the_first_deck() {
+    let mut rig = restarted();
+    rig.send(Command::ResumeSyncLeader { deck: 1 });
+    for _ in 0..100 {
+        rig.run(0.01);
+        assert!(rig.deck(1).sync.leader && !rig.deck(0).sync.leader);
+    }
+}
+
+#[test]
+fn a_follower_keeps_to_the_resumed_leader_from_the_restart_on() {
+    let mut rig = restarted();
+    rig.send(Command::SetSyncLocked { deck: 0, locked: true });
+    rig.send(Command::ResumeSyncLeader { deck: 1 });
+    rig.run(0.01);
+    assert_close(mean_speed(&mut rig, 0, 0.05), 150.0 / 120.0, 0.02);
+}
+
+#[test]
+fn a_resumed_leader_that_never_gets_up_to_speed_gives_the_lead_up() {
+    let mut rig = restarted();
+    rig.send(Command::SetPlaying { deck: 1, playing: false });
+    rig.send(Command::ResumeSyncLeader { deck: 1 });
+    rig.run(0.5);
+    assert!(!rig.deck(0).sync.leader);
+    rig.run(1.0);
+    assert!(rig.deck(0).sync.leader && !rig.deck(1).sync.leader);
+}
+
 #[test]
 fn a_new_track_drops_the_sync() {
     let mut rig = leader_with_follower(125.0);

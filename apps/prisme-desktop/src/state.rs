@@ -218,6 +218,8 @@ pub struct Place {
     /// The loop stored, and whether it plays; none under a roll, which the restart lets go.
     pub looping: Option<(LoopRegion, bool)>,
     pub sync_locked: bool,
+    /// Whether it led the others, chosen or not.
+    pub leader: bool,
     pub slip: bool,
     pub reverse: bool,
 }
@@ -231,6 +233,7 @@ impl Place {
             playing: d.playing,
             looping,
             sync_locked: d.sync.locked,
+            leader: d.sync.leader,
             slip: d.slip_mode,
             reverse: d.reverse,
         }
@@ -241,6 +244,7 @@ impl Place {
         let looping =
             self.looping.map(|(region, active)| Command::SetLoop { deck, region: Some(region), active });
         let synced = self.sync_locked.then_some(Command::SetSyncLocked { deck, locked: true });
+        let leader = self.leader.then_some(Command::ResumeSyncLeader { deck });
         [Command::Seek { deck, seconds: self.position_s }, Command::SetSlip { deck, enabled: self.slip }]
             .into_iter()
             .chain(looping)
@@ -249,6 +253,7 @@ impl Place {
                 Command::SetPlaying { deck, playing: self.playing },
             ])
             .chain(synced)
+            .chain(leader)
     }
 }
 
@@ -1001,8 +1006,8 @@ mod tests {
     }
 
     fn place(load_id: u64, position_s: f64, playing: bool) -> Option<Place> {
-        let (looping, sync_locked, slip, reverse) = (None, false, false, false);
-        Some(Place { load_id, position_s, playing, looping, sync_locked, slip, reverse })
+        let (looping, sync_locked, leader, slip, reverse) = (None, false, false, false, false);
+        Some(Place { load_id, position_s, playing, looping, sync_locked, leader, slip, reverse })
     }
 
     #[test]
@@ -1066,12 +1071,23 @@ mod tests {
     }
 
     #[test]
-    fn a_restart_keeps_the_leader_chosen() {
+    fn a_restart_keeps_the_leader_chosen_and_the_one_in_effect() {
         let state = AppState::new(JsonFile::in_memory(Default::default()));
         *lock(&state.sync_leader) = Some(1);
         let config = EngineConfig::new(48_000, 2, &prisme_timecode::SERATO_CV02_A);
-        let commands = state.restore_commands(&info(2, 4), &config, &[None; MAX_DECKS]);
+        // deck B stopped, deck A led in its place
+        let leading = place(1, 10.0, true).map(|p| Place { leader: true, ..p });
+        let places = [leading, place(2, 20.0, false), None, None];
+        let commands = state.restore_commands(&info(2, 4), &config, &places);
         assert!(commands.iter().any(|c| matches!(c, Command::SetSyncLeader { deck: Some(1) })));
+        let resumed: Vec<usize> = commands
+            .iter()
+            .filter_map(|c| match c {
+                Command::ResumeSyncLeader { deck } => Some(*deck),
+                _ => None,
+            })
+            .collect();
+        assert_eq!(resumed, [0]);
     }
 
     #[test]

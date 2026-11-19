@@ -436,13 +436,18 @@ impl Deck {
     /// would chase them); a record, as soon as its averaged speed says it slowed; nor does a
     /// deck passing its input through.
     pub(crate) fn can_lead(&self) -> bool {
+        self.could_lead() && self.sync.smoothed_speed.abs() > sync::LEADER_MIN_SPEED
+    }
+
+    /// Whether it can lead but for its averaged speed, which an audio restart starts again
+    /// from nothing.
+    pub(crate) fn could_lead(&self) -> bool {
         !self.passes_through()
             && self.grid.is_some()
             && self.playhead.is_loaded()
             && !self.sync.locked
             && !self.backwards()
             && self.is_moving()
-            && self.sync.smoothed_speed.abs() > sync::LEADER_MIN_SPEED
     }
 
     pub(crate) fn leader_beat(&self) -> Option<LeaderBeat> {

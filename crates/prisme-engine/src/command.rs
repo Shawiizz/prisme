@@ -263,6 +263,11 @@ pub enum Command {
     SetSyncLeader {
         deck: Option<DeckId>,
     },
+    /// The deck that led as the audio stopped to start again, chosen or not: it leads again,
+    /// no other deck taking the lead while it gets back up to speed.
+    ResumeSyncLeader {
+        deck: DeckId,
+    },
     SetVolume {
         deck: DeckId,
         gain: f32,
