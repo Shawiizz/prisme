@@ -96,7 +96,7 @@
   }
 }
 
-// its words and bars shortened rather than its keys pushed out of the window
+// its bars and words shortened rather than its keys pushed out of the window
 .analysis {
   margin-left: auto;
   display: flex;
@@ -116,8 +116,10 @@
   .pr-btn {
     flex: none;
   }
+  // far quicker to give way than the words
   .bar {
-    width: 120px;
+    flex-shrink: 10;
+    width: 80px;
     min-width: 40px;
     height: 2px;
     background: var(--pr-line-2);
