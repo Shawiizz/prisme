@@ -183,13 +183,11 @@ fn restart<T>(
     let places = state.carry_places();
     // the device may not open twice; closed outside the lock, as it waits for the audio thread
     let previous = lock(&state.session).take();
+    let simulated = previous.as_ref().is_some_and(|s| s.info.simulated);
     drop(previous);
     let between = between();
     if settings.simulate {
-        // the simulated needle starts 10 s into the record: start the track there
-        let mut decks = lock(&state.decks);
-        decks[0].vinyl_enabled = true;
-        decks[0].lead_in_s = Some(prisme_timecode::testing::SimulatedTurntable::START_S);
+        state.simulate_turntable(simulated);
     }
     let timecodes = lock(&state.decks).map(|d| d.timecode);
     let mut session = audio_host::start(settings, state.preferences.read(|p| p.dj.decks()), timecodes)?;

@@ -537,6 +537,17 @@ impl AppState {
         Some(partner)
     }
 
+    /// The simulated turntable in the audio starting: as it comes, it takes deck A, its needle
+    /// 10 s into the record where the track starts; one that `ran` already leaves deck A as
+    /// the DJ chose.
+    pub fn simulate_turntable(&self, ran: bool) {
+        if !ran {
+            let mut decks = lock(&self.decks);
+            decks[0].vinyl_enabled = true;
+            decks[0].lead_in_s = Some(prisme_timecode::testing::SimulatedTurntable::START_S);
+        }
+    }
+
     /// Before the vinyl control of `deck` is turned off: the engine has it play on at the
     /// tempo its record gave it, its tempo fader's from then on. Whether a record drove it.
     pub fn let_go_of_record(&self, deck: usize) -> bool {
@@ -1008,6 +1019,18 @@ mod tests {
 
     fn crossfader_moves(count: usize) -> Vec<Command> {
         (0..count).map(|i| Command::SetCrossfader { position: i as f32 / count as f32 }).collect()
+    }
+
+    #[test]
+    fn the_simulated_turntable_takes_deck_a_as_it_comes_only() {
+        let state = AppState::new(JsonFile::in_memory(Default::default()));
+        state.simulate_turntable(false);
+        let deck = lock(&state.decks)[0];
+        assert!(deck.vinyl_enabled && deck.lead_in_s == Some(10.0));
+        // the DJ plays deck A by itself, then the audio starts again
+        lock(&state.decks)[0].vinyl_enabled = false;
+        state.simulate_turntable(true);
+        assert!(!lock(&state.decks)[0].vinyl_enabled);
     }
 
     #[test]
