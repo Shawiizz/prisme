@@ -1283,7 +1283,7 @@ fn port_names(input: &MidiInput) -> Vec<String> {
 /// Of the ports `names` but those `taken` (another controller of the same model's), the one of
 /// the controller saved as `device`: its name, else the same wherever it is plugged (see
 /// [`base_port_name`]).
-fn port_of(names: &[String], device: &str, taken: &[String]) -> Option<usize> {
+pub(crate) fn port_of(names: &[String], device: &str, taken: &[String]) -> Option<usize> {
     let free = |n: &String| !taken.contains(n);
     names.iter().position(|n| n == device && free(n)).or_else(|| {
         let base = base_port_name(device);

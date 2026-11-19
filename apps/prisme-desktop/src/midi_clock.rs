@@ -1,8 +1,10 @@
 //! MIDI clock out: 24 ticks per beat of the sync leader, so that a drum machine or a
 //! sequencer plays along. The ticks follow the leader's beat position rather than a
 //! timer: they stay in phase through tempo changes and nudges. Start goes out on a
-//! beat, Stop when the leader stops.
+//! beat, Stop when the leader stops. The output chosen is let go when it is unplugged and
+//! opened again once it is back.
 
+use crate::controllers::port_of;
 use crate::error::{AppError, AppResult};
 use crate::state::{lock, AppState};
 use midir::{MidiOutput, MidiOutputConnection};
@@ -10,10 +12,14 @@ use prisme_engine::EngineStatus;
 use std::sync::Mutex;
 use std::time::Duration;
 use tauri::{AppHandle, Manager};
+use tracing::{info, warn};
 
+const CLIENT: &str = "Prisme";
 const TICKS_PER_BEAT: u32 = 24;
 const POLL: Duration = Duration::from_millis(1);
 const IDLE_POLL: Duration = Duration::from_millis(100);
+/// How often the ports are looked at for the output chosen.
+const WATCH_EVERY: Duration = Duration::from_millis(500);
 /// Slower than this, the leader counts as stopped (record held, deck paused).
 const MIN_SPEED: f64 = 0.1;
 
@@ -22,60 +28,134 @@ const START: u8 = 0xfa;
 const STOP: u8 = 0xfc;
 
 pub struct MidiClock {
-    output: Mutex<Option<(String, MidiOutputConnection)>>,
+    /// The output the DJ chose, plugged in or not.
+    chosen: Mutex<Option<String>>,
+    output: Mutex<Option<Output>>,
+}
+
+/// An output open, and the clock it is sent.
+struct Output {
+    /// Its port as plugged in now: the name chosen, or with a number Windows added.
+    port: String,
+    connection: MidiOutputConnection,
+    clock: Clock,
+}
+
+impl Output {
+    fn new((port, connection): (String, MidiOutputConnection)) -> Self {
+        Self { port, connection, clock: Clock::default() }
+    }
+
+    /// Closed, not only dropped: on Android a port dropped keeps its device open.
+    fn close(self) {
+        self.connection.close();
+    }
 }
 
 impl MidiClock {
-    pub fn new() -> Self {
-        Self { output: Mutex::new(None) }
+    /// The clock, sent to `chosen` once it is plugged in.
+    pub fn new(chosen: Option<String>) -> Self {
+        Self { chosen: Mutex::new(chosen), output: Mutex::new(None) }
     }
 
     pub fn outputs() -> AppResult<Vec<String>> {
-        let output = MidiOutput::new("Prisme").map_err(midi_error)?;
-        Ok(output.ports().iter().filter_map(|p| output.port_name(p).ok()).collect())
+        Ok(port_names(&MidiOutput::new(CLIENT).map_err(midi_error)?))
     }
 
     pub fn output_name(&self) -> Option<String> {
-        lock(&self.output).as_ref().map(|(name, _)| name.clone())
+        lock(&self.chosen).clone()
     }
 
     /// Sends the clock to `name`, or nowhere.
     pub fn set_output(&self, name: Option<&str>) -> AppResult<()> {
-        let connection = name.map(|name| open(name).map(|c| (name.to_owned(), c))).transpose()?;
-        if let Some((_, mut previous)) = std::mem::replace(&mut *lock(&self.output), connection) {
-            let _ = previous.send(&[STOP]);
-            // closed, not only dropped: on Android a port dropped keeps its device open
+        let mut chosen = lock(&self.chosen);
+        let output = name.map(|name| open(name).map(Output::new)).transpose()?;
+        if let Some(mut previous) = std::mem::replace(&mut *lock(&self.output), output) {
+            let _ = previous.connection.send(&[STOP]);
             previous.close();
         }
+        *chosen = name.map(str::to_owned);
         Ok(())
     }
 
     pub fn start(app: AppHandle) {
+        let watched = app.clone();
         std::thread::Builder::new()
             .name("prisme-midi-clock".into())
             .spawn(move || {
                 let (clock, state) = (app.state::<MidiClock>(), app.state::<AppState>());
-                let mut beats = Clock::default();
                 let mut messages = Vec::new();
                 loop {
                     if lock(&clock.output).is_none() {
-                        beats = Clock::default();
                         std::thread::sleep(IDLE_POLL);
                         continue;
                     }
                     let phase =
                         lock(&state.session).as_mut().and_then(|s| leader_phase(&s.controller.status()));
-                    beats.advance(phase, &mut messages);
-                    if let Some((_, output)) = lock(&clock.output).as_mut() {
-                        for message in messages.drain(..) {
-                            let _ = output.send(&[message]);
-                        }
-                    }
-                    messages.clear();
+                    clock.tick(phase, &mut messages);
                     std::thread::sleep(POLL);
                 }
             })
             .expect("cannot start the MIDI clock thread");
+        std::thread::Builder::new()
+            .name("prisme-midi-clock-watch".into())
+            .spawn(move || {
+                let clock = watched.state::<MidiClock>();
+                // one client for looking, kept, as the controllers' (see `Controllers::watch`)
+                let mut looking: Option<MidiOutput> = None;
+                let mut told = false;
+                loop {
+                    std::thread::sleep(WATCH_EVERY);
+                    if lock(&clock.chosen).is_none() {
+                        continue;
+                    }
+                    if looking.is_none() {
+                        looking = MidiOutput::new(CLIENT).ok();
+                    }
+                    let Some(plugged) = looking.as_ref().map(port_names) else { continue };
+                    match clock.follow(&plugged) {
+                        Ok(()) => told = false,
+                        Err(e) if !told => {
+                            warn!("MIDI clock not sent to its output: {e}");
+                            told = true;
+                        }
+                        Err(_) => {}
+                    }
+                }
+            })
+            .expect("cannot start the MIDI clock watch thread");
+    }
+
+    /// Sends the output what the leader at `phase` gives; an output that cannot be sent to is
+    /// let go, to be opened again (see [`Self::follow`]).
+    fn tick(&self, phase: Option<f64>, messages: &mut Vec<u8>) {
+        let mut output = lock(&self.output);
+        let Some(sent) = output.as_mut() else { return };
+        sent.clock.advance(phase, messages);
+        if let Err(e) = messages.drain(..).try_for_each(|m| sent.connection.send(&[m])) {
+            warn!("MIDI clock output {} lost: {e}", sent.port);
+            if let Some(lost) = output.take() {
+                lost.close();
+            }
+        }
+    }
+
+    /// Of the ports `plugged`, keeps the output chosen open: let go once its port is gone,
+    /// opened again once it is back.
+    fn follow(&self, plugged: &[String]) -> AppResult<()> {
+        let chosen = lock(&self.chosen);
+        let mut output = lock(&self.output);
+        if let Some(gone) = output.take_if(|o| !plugged.contains(&o.port)) {
+            info!("MIDI clock output {} unplugged", gone.port);
+            gone.close();
+        }
+        let Some(name) = chosen.as_deref() else { return Ok(()) };
+        if output.is_none() && port_of(plugged, name, &[]).is_some() {
+            let opened = Output::new(open(name)?);
+            info!("MIDI clock sent to {} again", opened.port);
+            *output = Some(opened);
+        }
+        Ok(())
     }
 }
 
@@ -129,14 +209,18 @@ impl Clock {
     }
 }
 
-fn open(name: &str) -> AppResult<MidiOutputConnection> {
-    let output = MidiOutput::new("Prisme").map_err(midi_error)?;
-    let port = output
-        .ports()
-        .into_iter()
-        .find(|p| output.port_name(p).is_ok_and(|n| n == name))
-        .ok_or_else(|| AppError::ControllerUnplugged(name.to_owned()))?;
-    output.connect(&port, "Prisme clock").map_err(midi_error)
+/// Opens the output `name`, or the same plugged in elsewhere: its port and the connection.
+fn open(name: &str) -> AppResult<(String, MidiOutputConnection)> {
+    let output = MidiOutput::new(CLIENT).map_err(midi_error)?;
+    let ports = output.ports();
+    let names: Vec<String> = ports.iter().map(|p| output.port_name(p).unwrap_or_default()).collect();
+    let at = port_of(&names, name, &[]).ok_or_else(|| AppError::ControllerUnplugged(name.to_owned()))?;
+    let connection = output.connect(&ports[at], "Prisme clock").map_err(midi_error)?;
+    Ok((names[at].clone(), connection))
+}
+
+fn port_names(output: &MidiOutput) -> Vec<String> {
+    output.ports().iter().filter_map(|p| output.port_name(p).ok()).collect()
 }
 
 fn midi_error(e: impl std::fmt::Display) -> AppError {
