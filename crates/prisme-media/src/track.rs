@@ -32,7 +32,8 @@ pub struct TrackAudio {
     more: OnceLock<Box<[AtomicU32]>>,
     /// The end of the frames that can be read.
     decoded: AtomicUsize,
-    /// The track's length: the header's estimate while decoding, exact afterwards.
+    /// The track's length: while decoding, the header's estimate or, past it, one more than
+    /// the frames decoded; exact afterwards.
     frames: AtomicUsize,
     /// For a [`TrackAudio::pending`] track, the frames written of each block of
     /// [`PENDING_BLOCK`]; empty for the others.
@@ -204,6 +205,8 @@ impl TrackAudio {
         for (slot, &value) in self.samples[start * 2..(start + frames) * 2].iter().zip(interleaved) {
             slot.store(value.to_bits(), Ordering::Relaxed);
         }
+        // the length before the frames, so that the track is not complete while decoding
+        self.frames.fetch_max(start + frames + 1, Ordering::Release);
         self.decoded.store(start + frames, Ordering::Release);
         frames
     }
@@ -211,15 +214,16 @@ impl TrackAudio {
     /// Ends the decoding, the interleaved frames that found no room in the buffer, `rest`,
     /// after it: the length becomes exact.
     fn finish(&self, rest: Vec<f32>) {
-        let mut decoded = self.decoded.load(Ordering::Relaxed);
+        let mut end = self.decoded.load(Ordering::Relaxed);
         let frames = rest.len() / 2;
         if frames > 0
             && self.more.set(rest.into_iter().map(|s| AtomicU32::new(s.to_bits())).collect()).is_ok()
         {
-            decoded += frames;
-            self.decoded.store(decoded, Ordering::Release);
+            end += frames;
         }
-        self.frames.store(decoded, Ordering::Release);
+        // the length first, so that the track is complete with its length exact
+        self.frames.store(end, Ordering::Release);
+        self.decoded.store(end, Ordering::Release);
     }
 }
 
@@ -432,6 +436,7 @@ mod tests {
         let frames: Vec<f32> = (0..20).map(|i| (i / 2) as f32).collect();
         assert_eq!(t.append(&frames), room);
         assert_eq!(t.frame(room as isize), (0.0, 0.0), "not decoded yet");
+        assert!(!t.is_complete(), "the decoding goes on");
         t.finish(frames[room * 2..].to_vec());
         assert_eq!((t.frames(), t.decoded_frames()), (10, 10));
         assert_eq!(t.frame(room as isize), (room as f32, room as f32));
