@@ -21,12 +21,14 @@
   &.mix {
     --pr-lane-columns: var(--pr-deck-panel) minmax(0, 1fr) 210px 32px;
   }
-  // four decks, or the screen below: compact lanes, their panel on one line
+  // four decks, or the screen below: compact lanes, their panel on one line, wider on a
+  // wider window for the title, the waveform keeping the most of it
   &.compact {
-    --pr-lane-columns: 540px minmax(0, 1fr) 32px;
+    --pr-compact-panel: clamp(540px, 36%, 760px);
+    --pr-lane-columns: var(--pr-compact-panel) minmax(0, 1fr) 32px;
     gap: 6px;
     &.mix {
-      --pr-lane-columns: 540px minmax(0, 1fr) 210px 32px;
+      --pr-lane-columns: var(--pr-compact-panel) minmax(0, 1fr) 210px 32px;
     }
   }
 }
