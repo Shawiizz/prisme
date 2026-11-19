@@ -7,7 +7,7 @@ use std::collections::BTreeMap;
 
 /// The version of the profile format, raised when profiles may use what an older Prisme does
 /// not read: a profile published after it was raised is left to the Prisme that reads it.
-pub const PROFILE_FORMAT: u32 = 2;
+pub const PROFILE_FORMAT: u32 = 3;
 
 /// Steps in a turn of a jog wheel whose model does not tell. Most controllers send
 /// hundreds; the number only scales scratches and nudges.

@@ -115,6 +115,7 @@ A control mapped in several layers (plain, under shift, in several modes) drives
 | `absolute` | A position: 0 to 127 (0 to 16383 for a pitch bend). A key is pressed at any value above 0 and let go at 0. |
 | `relative` | Steps in two's complement: 1 to 63 to the right, 127 (one step) down to 65 to the left. |
 | `relativeOffset` | Steps around 64: 65 is one step to the right, 63 one to the left. Pioneer and Numark, mostly. |
+| `relativeOffsetNoZero` | Steps around 64 with no zero: 65 is one step to the right, 64 one to the left. The Behringer BCD2000. |
 | `relativeSigned` | Steps with a sign bit: 1 to 63 to the right, 65 (one step) to 127 to the left. |
 | `relativeZero` | Steps from zero: 0 is one step to the right, 127 one to the left. Denon, mostly. |
 | `absoluteWrap` | A position that wraps around, such as a jog wheel's angle: its changes are the steps. |

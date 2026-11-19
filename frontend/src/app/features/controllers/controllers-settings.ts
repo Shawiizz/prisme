@@ -38,6 +38,10 @@ const STEP_ENCODINGS: { value: StepEncoding; label: Text }[] = [
     label: () => t('Steps around 64'),
   },
   {
+    value: 'relativeOffsetNoZero',
+    label: () => t('Steps 64 and 65'),
+  },
+  {
     value: 'relativeSigned',
     label: () => t('Steps 1 and 65'),
   },

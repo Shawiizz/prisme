@@ -115,6 +115,7 @@ Une commande mappée dans plusieurs couches (simple, sous shift, dans plusieurs 
 | `absolute` | Une position : 0 à 127 (0 à 16383 pour un pitch bend). Une touche est enfoncée à toute valeur au-dessus de 0 et relâchée à 0. |
 | `relative` | Des pas en complément à deux : 1 à 63 vers la droite, 127 (un pas) jusqu’à 65 vers la gauche. |
 | `relativeOffset` | Des pas autour de 64 : 65 est un pas vers la droite, 63 un vers la gauche. Surtout Pioneer et Numark. |
+| `relativeOffsetNoZero` | Des pas autour de 64 sans zéro : 65 est un pas vers la droite, 64 un vers la gauche. La Behringer BCD2000. |
 | `relativeSigned` | Des pas avec un bit de signe : 1 à 63 vers la droite, 65 (un pas) à 127 vers la gauche. |
 | `relativeZero` | Des pas à partir de zéro : 0 est un pas vers la droite, 127 un vers la gauche. Surtout Denon. |
 | `absoluteWrap` | Une position qui reboucle, comme l’angle d’un jog : ses changements sont les pas. |

@@ -62,7 +62,7 @@ One JSON file per model:
 | --- | --- |
 | `control` | `kind` (`note`, `controlChange`, `pitchBend`), `channel` 0-15, `number`. |
 | `target` | The action it drives (see Targets). |
-| `encoding` | For encoders: `relative` (two's complement), `relativeOffset` (around 64), `relativeSigned` (a sign bit), `relativeZero` (0 one step right, 127 one left), `absoluteWrap` (a position wrapping around, a jog's angle: its changes are the steps). An encoder may drive a fader's action: its steps move the setting. |
+| `encoding` | For encoders: `relative` (two's complement), `relativeOffset` (around 64), `relativeOffsetNoZero` (around 64 with no zero: 65 one step right, 64 one left), `relativeSigned` (a sign bit), `relativeZero` (0 one step right, 127 one left), `absoluteWrap` (a position wrapping around, a jog's angle: its changes are the steps). An encoder may drive a fader's action: its steps move the setting. |
 | `scale` | An encoder's steps multiplied by this; below 1 they add up to whole steps (`0.1`: a track browsed every ten steps). |
 | `step` | How far a step of an encoder moves a fader's action, a share of its travel (1/64 when left out). |
 | `invert` | A fader whose lowest value is at its top; an encoder turning the other way. |

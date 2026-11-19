@@ -158,6 +158,11 @@
           "type": "string"
         },
         {
+          "const": "relativeOffsetNoZero",
+          "description": "Steps around 64 with no zero: 65 is one step to the right, 64 one to the left\n(Behringer BCD2000).",
+          "type": "string"
+        },
+        {
           "const": "relativeSigned",
           "description": "Steps with a sign bit: 1 to 63 to the right, 65 (one step) to 127 to the left.",
           "type": "string"

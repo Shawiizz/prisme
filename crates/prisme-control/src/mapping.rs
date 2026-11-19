@@ -141,6 +141,9 @@ pub enum Encoding {
     Relative,
     /// Steps around 64: 65 is one step to the right, 63 one to the left (Pioneer, Numark).
     RelativeOffset,
+    /// Steps around 64 with no zero: 65 is one step to the right, 64 one to the left
+    /// (Behringer BCD2000).
+    RelativeOffsetNoZero,
     /// Steps with a sign bit: 1 to 63 to the right, 65 (one step) to 127 to the left.
     RelativeSigned,
     /// Steps from zero: 0 is one step to the right, 127 one to the left (Denon).
@@ -163,6 +166,8 @@ impl Encoding {
             (_, Encoding::Relative) if raw < 64 => steps(i32::from(raw)),
             (_, Encoding::Relative) => steps(i32::from(raw) - 128),
             (_, Encoding::RelativeOffset) => steps(i32::from(raw) - 64),
+            (_, Encoding::RelativeOffsetNoZero) if raw > 64 => steps(i32::from(raw) - 64),
+            (_, Encoding::RelativeOffsetNoZero) => steps(i32::from(raw) - 65),
             (_, Encoding::RelativeSigned) if raw & 0x40 != 0 => steps(-i32::from(raw & 0x3f)),
             (_, Encoding::RelativeSigned) => steps(i32::from(raw)),
             (_, Encoding::RelativeZero) if raw < 64 => steps(i32::from(raw) + 1),
@@ -702,6 +707,9 @@ mod tests {
         assert_eq!(Encoding::Relative.value(at(65)), -63.0);
         assert_eq!(Encoding::RelativeOffset.value(at(65)), 1.0);
         assert_eq!(Encoding::RelativeOffset.value(at(60)), -4.0);
+        assert_eq!(Encoding::RelativeOffsetNoZero.value(at(65)), 1.0);
+        assert_eq!(Encoding::RelativeOffsetNoZero.value(at(64)), -1.0);
+        assert_eq!(Encoding::RelativeOffsetNoZero.value(at(60)), -5.0);
         assert_eq!(Encoding::RelativeSigned.value(at(2)), 2.0);
         assert_eq!(Encoding::RelativeSigned.value(at(65)), -1.0);
         let bend = parse(&[0xe0, 0x00, 0x40]).unwrap();

@@ -53,8 +53,10 @@ export interface MidiControl {
   number: number;
 }
 
-/** How an encoder sends its steps: two's complement, around 64, or with a sign bit. */
-export type StepEncoding = 'relative' | 'relativeOffset' | 'relativeSigned';
+/** How an encoder sends its steps: two's complement, around 64 (with no zero: 64 one step
+ * left), or with a sign bit. */
+export type StepEncoding =
+  'relative' | 'relativeOffset' | 'relativeOffsetNoZero' | 'relativeSigned';
 
 /** A control of a controller driving a control of the app (`target`, see `buildControls`). */
 export interface ControllerMapping {
