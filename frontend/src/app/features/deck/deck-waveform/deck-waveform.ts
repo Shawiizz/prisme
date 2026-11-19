@@ -116,6 +116,7 @@ export class DeckWaveform {
   constructor() {
     everyFrame(() => this.draw());
     inject(DestroyRef).onDestroy(() => {
+      this.cancel();
       forgetCanvas(this.zoomCanvas().nativeElement);
       forgetCanvas(this.overviewCanvas().nativeElement);
     });
@@ -222,7 +223,7 @@ export class DeckWaveform {
     if (this.drag?.pointer === event.pointerId) this.cancel();
   }
 
-  /** The press taken by the system (a scroll, a gesture). */
+  /** The press taken by the system (a scroll, a gesture) or its capture lost. */
   cancelled(event: PointerEvent) {
     if (this.drag?.pointer === event.pointerId) this.cancel();
   }

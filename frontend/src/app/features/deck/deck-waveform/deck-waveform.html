@@ -5,6 +5,7 @@
     (pointermove)="move($event)"
     (pointerup)="release($event)"
     (pointercancel)="cancelled($event)"
+    (lostpointercapture)="cancelled($event)"
   >
     <canvas #zoom></canvas>
   </div>
@@ -14,6 +15,7 @@
     (pointermove)="move($event)"
     (pointerup)="release($event)"
     (pointercancel)="cancelled($event)"
+    (lostpointercapture)="cancelled($event)"
   >
     <canvas #overview></canvas>
   </div>
@@ -26,6 +28,7 @@
       (pointermove)="move($event)"
       (pointerup)="release($event)"
       (pointercancel)="cancelled($event)"
+      (lostpointercapture)="cancelled($event)"
     >
       <canvas #lanes></canvas>
     </div>
