@@ -474,6 +474,33 @@ fn a_track_scratched_in_a_loop_goes_round_it() {
 }
 
 #[test]
+fn a_track_flung_by_hand_past_the_end_of_its_loop_lands_round_it() {
+    let mut rig = Rig::new();
+    rig.send(Command::LoadTrack { deck: 0, track: silent_track(60.0) });
+    rig.send(Command::SetBeatGrid { deck: 0, grid: Some(BeatGrid { bpm: 120.0, first_beat_s: 0.0 }) });
+    rig.send(Command::Seek { deck: 0, seconds: 10.0 });
+    rig.send(Command::SetPlaying { deck: 0, playing: true });
+    rig.send(Command::BeatLoop { deck: 0, beats: 1.0 });
+    rig.run(0.2);
+    let region = rig.deck(0).looping.region.unwrap();
+    let taken = rig.deck(0).position_s;
+    rig.send(Command::Hand { deck: 0, position_s: Some(taken), at_s: 50.0 });
+    rig.run(0.05);
+    // three seconds of the track in 60 ms
+    rig.send(Command::Hand { deck: 0, position_s: Some(taken + 3.1), at_s: 50.06 });
+    rig.run(0.1);
+    let landed = rig.deck(0).position_s;
+    assert!((landed - region.wrap(taken + 3.1)).abs() < 0.01, "{taken} -> {landed} in {region:?}");
+
+    rig.send(Command::Hand { deck: 0, position_s: None, at_s: 50.2 });
+    for _ in 0..10 {
+        rig.run(0.1);
+        let position = rig.deck(0).position_s;
+        assert!(region.contains(position), "{position} out of {region:?}");
+    }
+}
+
+#[test]
 fn a_press_on_the_overview_takes_the_track_out_of_its_loop() {
     let mut rig = Rig::new();
     rig.send(Command::LoadTrack { deck: 0, track: silent_track(60.0) });

@@ -4,7 +4,8 @@
 //! behind it, from those times: as smooth as the hand, whatever the buffer. Where the
 //! hand holds still the track stops, with nothing pulled back; where it goes faster than
 //! a track can sensibly be played (dragged along the whole track's overview), the track
-//! jumps after it. In a loop, the track goes round it where the hand goes on past its end.
+//! jumps after it. In a loop, the track goes round it where the hand goes on past its end,
+//! and lands round it where the hand flings it past.
 
 use crate::looping::LoopRegion;
 
@@ -77,23 +78,24 @@ impl Hand {
     }
 
     /// The next `seconds`, the playhead being at `playhead_s`, going round `round` if
-    /// given: to where the hand was `BEHIND_S` before their end.
+    /// given: to where the hand was `BEHIND_S` before their end. A hand put on the track
+    /// elsewhere takes it there, out of the loop.
     pub(crate) fn step(&mut self, playhead_s: f64, round: Option<LoopRegion>, seconds: f64) -> Step {
         self.clock_s += seconds;
         let Some(offset) = self.offset_s else { return Step::Play(0.0) };
         let target = self.position_at(self.clock_s + offset - BEHIND_S);
         // the playhead went round where the hand went on: where it is on the hand's path
-        let playhead_s = match (round, self.led_to_s) {
+        let (round, playhead_s) = match (round, self.led_to_s) {
             (Some(round), Some(led_to)) if round.contains(playhead_s) => {
                 let turns = ((led_to - playhead_s) / round.length_s()).round();
-                playhead_s + turns * round.length_s()
+                (Some(round), playhead_s + turns * round.length_s())
             }
-            _ => playhead_s,
+            _ => (None, playhead_s),
         };
         self.led_to_s = Some(target);
         let speed = (target - playhead_s) / seconds;
         if speed.abs() > MAX_SPEED {
-            Step::Jump(target)
+            Step::Jump(round.map_or(target, |round| round.wrap(target)))
         } else {
             Step::Play(speed)
         }
@@ -194,6 +196,24 @@ mod tests {
                 playhead -= round.length_s();
             }
         }
+    }
+
+    #[test]
+    fn in_a_loop_a_hand_flung_past_its_end_lands_round_it() {
+        let round = LoopRegion { start_s: 10.0, end_s: 10.5 };
+        let mut hand = Hand::new();
+        hand.move_to(10.2, 100.0);
+        assert!(matches!(hand.step(10.2, Some(round), 0.04), Step::Play(s) if s == 0.0));
+        hand.move_to(13.3, 100.04);
+        assert!(matches!(hand.step(10.2, Some(round), 0.03), Step::Jump(to) if (to - 10.3).abs() < 1e-9));
+    }
+
+    #[test]
+    fn a_hand_put_on_the_track_elsewhere_takes_it_out_of_its_loop() {
+        let round = LoopRegion { start_s: 10.0, end_s: 10.5 };
+        let mut hand = Hand::new();
+        hand.move_to(40.0, 100.0);
+        assert!(matches!(hand.step(10.2, Some(round), 0.01), Step::Jump(to) if to == 40.0));
     }
 
     #[test]
