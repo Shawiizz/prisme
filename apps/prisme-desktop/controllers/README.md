@@ -272,3 +272,37 @@ GPL-2.0-or-later, read by hand with its script; not yet tried on the controller.
 Left out: the fader start under shift, the gradual return of the tempo, the focused effect's
 fourth and fifth parameters (low EQ and filter knobs under shift), the chain presets, the
 skin's panels, the meters twinkling under Auto DJ.
+
+## Native Instruments Traktor Kontrol S4 MK2
+
+`native-instruments-traktor-kontrol-s4-mk2.json` (HID) comes from the Mixxx mapping by Owen
+Williams and Fayaaz Ahmed, GPL-2.0-or-later, read by hand with its script (its generator:
+`prisme-controllers-staging/hid/`); not yet tried on the controller.
+
+- Decks: the deck switch of each side flips it between A and C (left) or B and D (right), its
+  light dim on A or B, full on C or D; the deck letters light. The mixer's channels are decks 1
+  to 4.
+- Transport: shift + PLAY the key lock, shift + CUE back to the start (stopped). SYNC tapped
+  matches once (or lets a lock go), held 300 ms locks; shift + SYNC toggles the lock.
+- The shift keys are named by side (`shift.left`, `shift.right`): each shifts its own deck's
+  keys; the mixer's, the browser's and the effect keys take either.
+- Jog wheels: 1024 steps a turn (the counter's byte), the top touched; under shift, a search.
+- Hot cues 1-4, deleted under shift, red on A and B and blue on C and D as the script has them,
+  in their own colour when set. The remix pads: samples 1-4 of the deck (load, play, stop), emptied
+  under shift.
+- Loops: in and out, lit while a loop plays; the loop encoder doubles or halves the loop, under
+  shift moves the tempo by 0.1 %; its push a loop of the size, under shift the key back. The move
+  encoder jumps by the size, under shift doubles or halves it; its push reloops (and stops,
+  under shift). SLIP slips; under shift the tempo fader's previous range, RESET its next.
+- Effects: each side's unit is its deck's chain: its three keys turn the effects on and off (the
+  next effect under shift), its three knobs their amounts, its mix knob their levels together.
+  A channel's two FX assign keys turn its deck's chain on and off.
+- Mixer: volume, EQ, filter, the gain encoder (0 dB on its push; under shift it moves the beat
+  grid, under the browser's PLAY key its tempo), headphones, crossfader, cue mix. Six-LED meters
+  per channel, the peak LEDs, the main clip LEDs, the loaded lights.
+- Browser: the knob through the tracks, under shift the lists; its push loads or opens; PREVIEW,
+  QUANTIZE, SNAP (the library), the record key and its lights.
+
+Left out: the loop size shown on the seven-segment displays, the auto-slip mode (shift + PLAY
+key of the browser), rounding the tempo, the effect units' mode keys, the remix pads as loop rolls
+(a setting of the script), the internal clock's leader light.

@@ -2026,4 +2026,159 @@ mod tests {
             inputs_of(&[("deck1.loop.halve", 1.0), ("deck1.loop.halve", 0.0)])
         );
     }
+
+    /// A Traktor Kontrol S4 MK2 in use, its short report (keys and jogs) at rest, its long one
+    /// (faders and encoders) too.
+    fn s4() -> (Controllers, String, prisme_control::hid::Reports) {
+        let device = hid::device_name("Traktor Kontrol S4 MK2", 0x17cc, 0x1310);
+        let c = controllers();
+        c.save(|s| s.enabled.push(device.clone()));
+        let modes = controller_profiles::of(&device).map(|p| p.first_modes()).unwrap_or_default();
+        lock(&c.reader).set_modes(&device, modes);
+        let mut reports = prisme_control::hid::Reports::new(true);
+        for report in [short(&[]), long(&[])] {
+            driven(&c, &device, &mut reports, &report);
+        }
+        (c, device, reports)
+    }
+
+    /// The short report with `bits` (byte, mask) set.
+    fn short(bits: &[(usize, u8)]) -> Vec<u8> {
+        let mut report = vec![0; 21];
+        report[0] = 1;
+        for &(byte, mask) in bits {
+            report[byte] |= mask;
+        }
+        report
+    }
+
+    /// The long report with `bytes` (byte, value) set.
+    fn long(bytes: &[(usize, u8)]) -> Vec<u8> {
+        let mut report = vec![0; 79];
+        report[0] = 2;
+        for &(byte, value) in bytes {
+            report[byte] = value;
+        }
+        report
+    }
+
+    /// What `report` drives on the S4.
+    fn driven(
+        c: &Controllers,
+        device: &str,
+        reports: &mut prisme_control::hid::Reports,
+        report: &[u8],
+    ) -> Vec<Routed> {
+        match c.read_hid(device, &reports.read(report)) {
+            Reported::Events(events) => events.into_iter().filter_map(|e| c.route(device, e, 0.0)).collect(),
+            Reported::Learnt(mapping) => vec![Routed::Learned(mapping)],
+        }
+    }
+
+    fn ui(pairs: &[(&str, f32)]) -> Vec<Routed> {
+        pairs.iter().map(|&(t, v)| Routed::Actions(vec![Action::Ui(ControllerInputDto::of(t, v))])).collect()
+    }
+
+    #[test]
+    fn a_hid_controller_plays_its_profile_from_its_reports() {
+        let (c, device, mut reports) = s4();
+        let mut drive = |report: Vec<u8>| driven(&c, &device, &mut reports, &report);
+        // play, on the left
+        assert_eq!(drive(short(&[(0x0d, 0x01)])), ui(&[("deck1.play", 1.0)]));
+        assert_eq!(drive(short(&[])), ui(&[("deck1.play", 0.0)]));
+        // the deck switch: the left side is deck C, its play deck 3's
+        drive(short(&[(0x0f, 0x20)]));
+        drive(short(&[]));
+        assert_eq!(drive(short(&[(0x0d, 0x01)])), ui(&[("deck3.play", 1.0)]));
+        drive(short(&[]));
+        // the left shift: play is the key lock, of the left side only
+        drive(short(&[(0x0d, 0x08)]));
+        assert_eq!(drive(short(&[(0x0d, 0x09)])), ui(&[("deck3.keylock", 1.0)]));
+        // the right side's play read first: its byte comes first
+        assert_eq!(
+            drive(short(&[(0x0d, 0x08), (0x0c, 0x01)])),
+            ui(&[("deck2.play", 1.0), ("deck3.keylock", 0.0)])
+        );
+    }
+
+    #[test]
+    fn a_hid_jog_counter_turns_its_deck_and_faders_move_by_their_12_bits() {
+        let (c, device, mut reports) = s4();
+        let mut drive = |report: Vec<u8>| driven(&c, &device, &mut reports, &report);
+        assert_eq!(drive(short(&[(0x01, 6)])), [direct(Direct::Jog(0), 6.0).unwrap()]);
+        assert_eq!(drive(short(&[(0x01, 250)])), [direct(Direct::Jog(0), -12.0).unwrap()], "wrapped at 256");
+        assert_eq!(drive(short(&[(0x01, 250), (0x11, 0x01)])), [direct(Direct::JogTouch(0), 1.0).unwrap()]);
+        // the crossfader at 4095, the left tempo fader at 2048
+        let routed = drive(long(&[(0x07, 0xff), (0x08, 0x0f), (0x09, 0x00), (0x0a, 0x08)]));
+        let mut expected = ui(&[("mixer.crossfader", 1.0)]);
+        expected.extend(direct(Direct::Pitch(0), 2048.0 / 4095.0));
+        assert_eq!(routed, expected);
+        // the browse knob, a counter of four bits: a step back from 0 is -1
+        assert_eq!(
+            drive(long(&[(0x07, 0xff), (0x08, 0x0f), (0x0a, 0x08), (0x02, 0x0f)])),
+            [Routed::Actions(vec![Action::Ui(ControllerInputDto {
+                steps: true,
+                ..ControllerInputDto::of("library.browse", -1.0)
+            })])]
+        );
+    }
+
+    #[test]
+    fn a_hid_controllers_lights_are_its_keys_leds_in_its_output_reports() {
+        let (c, device, _) = s4();
+        let led = |report, byte, bits| Control::Hid(Field { report, byte, bit: 0, bits, big_endian: false });
+        c.set_lights(&[
+            light("deck1.play", ON),
+            LightDto { target: "deck1.hotcue1".into(), state: ON.into(), color: Some("#ff0000".into()) },
+            light("deck1.hotcue2", OFF),
+        ]);
+        let lights = c.lights(&device);
+        assert!(lights.contains(&(led(0x81, 0x20, 8), LightValue::Steady(127))), "play");
+        assert!(lights.contains(&(led(0x81, 0x01, 24), LightValue::Message(vec![127, 0, 0]))), "its colour");
+        assert!(lights.contains(&(led(0x81, 0x04, 24), LightValue::Message(vec![8, 1, 1]))), "dim red");
+        // the left side on deck C: the same LEDs show deck 3
+        lock(&c.reader).set_mode(&device, "left", "C");
+        c.set_lights(&[light("deck3.play", OFF)]);
+        assert!(c.lights(&device).contains(&(led(0x81, 0x20, 8), LightValue::Steady(9))));
+        assert!(c.lights(&device).contains(&(led(0x81, 0x31, 8), LightValue::Steady(127))), "deck C lit");
+    }
+
+    #[test]
+    fn a_control_of_a_hid_controller_is_learnt_by_the_field_that_changed() {
+        let (c, device, mut reports) = s4();
+        c.learn("deck1.censor".into(), Learnt::Button);
+        let learnt = driven(&c, &device, &mut reports, &short(&[(0x0e, 0x02)]));
+        let slip = Control::Hid(Field { report: 1, byte: 0x0e, bit: 1, bits: 1, big_endian: false });
+        let expected = Mapping::new(
+            &device,
+            ProfileControl { control: slip, target: "deck1.censor".into(), ..Default::default() },
+        );
+        assert_eq!(learnt, [Routed::Learned(Box::new(expected))]);
+        driven(&c, &device, &mut reports, &short(&[]));
+        assert_eq!(driven(&c, &device, &mut reports, &short(&[(0x0e, 0x02)])), ui(&[("deck1.censor", 1.0)]));
+        // an encoder of no profile: the counter's nibble that turned
+        c.learn("deck1.size".into(), Learnt::Encoder);
+        let learnt = driven(&c, &device, &mut reports, &long(&[(0x10, 0x30)]));
+        let Some(Routed::Learned(mapping)) = learnt.first() else { panic!("{learnt:?}") };
+        assert_eq!(
+            mapping.control,
+            Control::Hid(Field { report: 2, byte: 0x10, bit: 4, bits: 4, big_endian: false })
+        );
+        assert_eq!(mapping.encoding, Encoding::AbsoluteWrap);
+    }
+
+    #[test]
+    fn a_controller_both_midi_and_hid_is_used_one_way() {
+        let hid = |product: &str, vendor_id, product_id| {
+            controller_hid::Plugged::named(product, vendor_id, product_id)
+        };
+        let s4 = hid("Traktor Kontrol S4 MK2", 0x17cc, 0x1310);
+        let other = hid("DJ Console Mk2", 0x06f8, 0xb100);
+        let plugged = with_hid(
+            vec!["Traktor Kontrol S4 MK2 MIDI".into(), "DJ Console Mk2 MIDI".into(), "DDJ-400".into()],
+            &[s4.clone(), other],
+        );
+        // the S4 by HID, its profile's; the Hercules by MIDI, which Prisme knows it by
+        assert_eq!(plugged, ["DJ Console Mk2 MIDI", "DDJ-400", s4.name.as_str()]);
+    }
 }

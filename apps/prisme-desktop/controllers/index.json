@@ -360,6 +360,11 @@
       "revision": 1,
       "format": 2
     },
+    "native-instruments-traktor-kontrol-s4-mk2.json": {
+      "sha256": "28ad48c8e66f6e6f1d73466d95de5cb4a13834548f849fc1d57110d8338b39de",
+      "revision": 1,
+      "format": 3
+    },
     "native-instruments-traktor-kontrol-x1.json": {
       "sha256": "1b6e84e6dda02991ab8f0eececbfb31c2f117552caeae0b8b337ce9eb564422e",
       "revision": 2,

@@ -119,6 +119,10 @@ const SHIPPED: &[(&str, &str)] = &[
     ("mixvibes-u-mix-control-2.json", include_str!("../controllers/mixvibes-u-mix-control-2.json")),
     ("mixvibes-u-mix-control-pro-2.json", include_str!("../controllers/mixvibes-u-mix-control-pro-2.json")),
     (
+        "native-instruments-traktor-kontrol-s4-mk2.json",
+        include_str!("../controllers/native-instruments-traktor-kontrol-s4-mk2.json"),
+    ),
+    (
         "native-instruments-traktor-kontrol-x1.json",
         include_str!("../controllers/native-instruments-traktor-kontrol-x1.json"),
     ),
@@ -610,6 +614,25 @@ mod tests {
         assert_eq!(of(port).map(|p| p.name.clone()).as_deref(), Some("Pioneer DDJ-SB2"));
         assert_eq!(of("DDJ-400").map(|p| p.name.clone()).as_deref(), Some("Pioneer DDJ-400"));
         assert!(of("DDJ-1000").is_none());
+    }
+
+    #[test]
+    fn a_hid_controller_finds_its_profile_by_its_ids_and_interface() {
+        let s4 = prisme_control::hid::device_name("Traktor Kontrol S4 MK2", 0x17cc, 0x1310);
+        assert_eq!(
+            of(&s4).map(|p| p.name.clone()).as_deref(),
+            Some("Native Instruments Traktor Kontrol S4 MK2")
+        );
+        let controls = HidInfo {
+            vendor_id: 0x17cc,
+            product_id: 0x1310,
+            interface: Some(4),
+            usage_page: 0xff01,
+            usage: 1,
+        };
+        let audio = HidInfo { interface: Some(0), ..controls.clone() };
+        assert!(hid_fit(&controls) > hid_fit(&audio), "the interface of its controls");
+        assert_eq!(hid_fit(&HidInfo { product_id: 0x1311, ..controls }), None);
     }
 
     #[test]

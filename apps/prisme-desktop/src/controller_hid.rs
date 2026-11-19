@@ -76,6 +76,19 @@ pub fn plugged(fit: impl Fn(&HidInfo) -> Option<usize>) -> Vec<Plugged> {
     plugged
 }
 
+#[cfg(test)]
+impl Plugged {
+    /// A device of `product` and its ids plugged in.
+    pub fn named(product: &str, vendor_id: u16, product_id: u16) -> Self {
+        Plugged {
+            name: hid::device_name(product, vendor_id, product_id),
+            product: product.to_owned(),
+            info: HidInfo { vendor_id, product_id, ..HidInfo::default() },
+            path: Path::Simulated(0),
+        }
+    }
+}
+
 /// The usage pages of a vendor's own, where controllers put their controls.
 const VENDOR_PAGES: u16 = 0xff00;
 
