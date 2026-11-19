@@ -4,7 +4,9 @@
 //! behind it, from those times: as smooth as the hand, whatever the buffer. Where the
 //! hand holds still the track stops, with nothing pulled back; where it goes faster than
 //! a track can sensibly be played (dragged along the whole track's overview), the track
-//! jumps after it.
+//! jumps after it. In a loop, the track goes round it where the hand goes on past its end.
+
+use crate::looping::LoopRegion;
 
 /// How far behind the hand the track follows (s): more than the audio buffers and the
 /// pointer's own jitter, so that the path ahead is known.
@@ -35,12 +37,21 @@ pub(crate) struct Hand {
     /// The engine's time since the hand came (s), and the pointer's clock minus it.
     clock_s: f64,
     offset_s: Option<f64>,
+    /// Where the last step took the track, on the hand's path.
+    led_to_s: Option<f64>,
 }
 
 impl Hand {
     /// A hand put on the track where it plays.
     pub(crate) fn new() -> Self {
-        Self { path: [Point::default(); KEPT], newest: 0, len: 0, clock_s: 0.0, offset_s: None }
+        Self {
+            path: [Point::default(); KEPT],
+            newest: 0,
+            len: 0,
+            clock_s: 0.0,
+            offset_s: None,
+            led_to_s: None,
+        }
     }
 
     /// The hand in `hand` at `position_s` at `at_s` on its clock, put on the track if it was
@@ -65,12 +76,21 @@ impl Hand {
         self.len = (self.len + 1).min(KEPT);
     }
 
-    /// The next `seconds`, the playhead being at `playhead_s`: to where the hand was
-    /// `BEHIND_S` before their end.
-    pub(crate) fn step(&mut self, playhead_s: f64, seconds: f64) -> Step {
+    /// The next `seconds`, the playhead being at `playhead_s`, going round `round` if
+    /// given: to where the hand was `BEHIND_S` before their end.
+    pub(crate) fn step(&mut self, playhead_s: f64, round: Option<LoopRegion>, seconds: f64) -> Step {
         self.clock_s += seconds;
         let Some(offset) = self.offset_s else { return Step::Play(0.0) };
         let target = self.position_at(self.clock_s + offset - BEHIND_S);
+        // the playhead went round where the hand went on: where it is on the hand's path
+        let playhead_s = match (round, self.led_to_s) {
+            (Some(round), Some(led_to)) if round.contains(playhead_s) => {
+                let turns = ((led_to - playhead_s) / round.length_s()).round();
+                playhead_s + turns * round.length_s()
+            }
+            _ => playhead_s,
+        };
+        self.led_to_s = Some(target);
         let speed = (target - playhead_s) / seconds;
         if speed.abs() > MAX_SPEED {
             Step::Jump(target)
@@ -123,7 +143,7 @@ mod tests {
                 hand.move_to(10.0 + velocity * next_point, 100.0 + next_point);
                 next_point += POINT_S;
             }
-            match hand.step(playhead, BUFFER_S) {
+            match hand.step(playhead, None, BUFFER_S) {
                 Step::Play(speed) => {
                     playhead += speed * BUFFER_S;
                     speeds.push(speed);
@@ -146,8 +166,34 @@ mod tests {
         let mut hand = Hand::new();
         hand.move_to(10.0, 100.0);
         hand.move_to(70.0, 100.02);
-        hand.step(10.0, 0.04);
-        assert!(matches!(hand.step(10.0, 0.01), Step::Jump(to) if (to - 70.0).abs() < 1e-9));
+        hand.step(10.0, None, 0.04);
+        assert!(matches!(hand.step(10.0, None, 0.01), Step::Jump(to) if (to - 70.0).abs() < 1e-9));
+    }
+
+    #[test]
+    fn in_a_loop_a_hand_going_on_past_its_end_takes_the_track_round() {
+        let round = LoopRegion { start_s: 10.0, end_s: 10.2 };
+        let mut hand = Hand::new();
+        let mut playhead = 10.0;
+        let mut next_point = 0.0;
+        let mut t = 0.0;
+        while t < 1.0 {
+            t += BUFFER_S;
+            while next_point <= t {
+                hand.move_to(10.0 + 2.0 * next_point, 100.0 + next_point);
+                next_point += POINT_S;
+            }
+            match hand.step(playhead, Some(round), BUFFER_S) {
+                Step::Play(speed) => {
+                    assert!((-0.1..2.5).contains(&speed), "{speed} at {t}");
+                    playhead += speed * BUFFER_S;
+                }
+                Step::Jump(to) => panic!("jumped to {to}"),
+            }
+            if playhead >= round.end_s {
+                playhead -= round.length_s();
+            }
+        }
     }
 
     #[test]

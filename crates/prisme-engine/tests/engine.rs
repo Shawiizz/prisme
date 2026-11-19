@@ -2,7 +2,7 @@
 
 mod common;
 
-use common::{silent_track, sine_track, Rig, SR};
+use common::{silent_track, sine_track, Rig, BLOCK, SR};
 use prisme_engine::{create, BeatGrid, Command, EngineConfig, Rpm, StemMix, VinylMode, SAMPLE_SLOTS};
 use prisme_timecode::{DecoderConfig, TimecodeDecoder, SERATO_CD, SERATO_CV02_A, SERATO_CV02_B};
 
@@ -403,6 +403,46 @@ fn a_touched_jog_carries_the_track_like_a_record() {
     rig.send(Command::JogTouch { deck: 0, touched: false, at_s: 101.0 });
     rig.run(0.5);
     assert!((rig.deck(0).position_s - (held + 0.5)).abs() < 0.03, "let go, it plays on");
+}
+
+#[test]
+fn a_track_scratched_in_a_loop_goes_round_it() {
+    let mut rig = Rig::new();
+    rig.send(Command::LoadTrack { deck: 0, track: silent_track(60.0) });
+    rig.send(Command::SetBeatGrid { deck: 0, grid: Some(BeatGrid { bpm: 120.0, first_beat_s: 0.0 }) });
+    rig.send(Command::Seek { deck: 0, seconds: 10.0 });
+    rig.send(Command::SetPlaying { deck: 0, playing: true });
+    rig.send(Command::BeatLoop { deck: 0, beats: 1.0 });
+    rig.run(0.2);
+    let region = rig.deck(0).looping.region.unwrap();
+    let before = rig.deck(0).position_s;
+    let in_loop = |rig: &mut Rig| {
+        let position = rig.deck(0).position_s;
+        assert!(region.contains(position), "{position} out of {region:?}");
+        position
+    };
+    rig.send(Command::JogTouch { deck: 0, touched: true, at_s: 100.0 });
+    // a quarter turn forwards over 0.1 s, past the loop's end, then held still: played all the
+    // way, not jumped
+    let block_s = BLOCK as f64 / SR as f64;
+    let mut played = 0.0;
+    for i in 0..80 {
+        if i % 2 == 0 && i < 20 {
+            rig.send(Command::Jog { deck: 0, turns: 0.025, at_s: 100.0 + block_s * f64::from(i + 2) });
+        }
+        rig.run(block_s);
+        played += rig.deck(0).speed * block_s;
+        in_loop(&mut rig);
+    }
+    assert!((played - 0.45).abs() < 0.03, "{played}");
+    let held = in_loop(&mut rig);
+    assert!((held - region.wrap(before + 0.45)).abs() < 0.03, "{before} -> {held}");
+
+    rig.send(Command::JogTouch { deck: 0, touched: false, at_s: 101.0 });
+    for _ in 0..10 {
+        rig.run(0.1);
+        in_loop(&mut rig);
+    }
 }
 
 #[test]

@@ -215,16 +215,16 @@ impl Deck {
         let target = target.map(|t| self.engage(t));
         let seconds = (out.len() / 2) as f64 / out_rate;
         let by_hand = self.drive_mode() != DriveMode::Absolute;
-        let playhead_s = self.playhead.position_s();
+        let (playhead_s, round) = (self.playhead.position_s(), self.playhead.round_s());
         // both hands keep their clocks going, the screen's leading
         let [screen, jog] = [&mut self.hand, &mut self.jog_hand]
-            .map(|hand| hand.as_mut().filter(|_| by_hand).map(|h| h.step(playhead_s, seconds)));
+            .map(|hand| hand.as_mut().filter(|_| by_hand).map(|h| h.step(playhead_s, round, seconds)));
         // a hand moves the track as it goes; the censor and the reverse turn the rest round
         let turned = screen.is_none() && jog.is_none() && self.backwards();
         let (speed, by_motor) = match screen.or(jog) {
             Some(Step::Play(speed)) => (speed, false),
             Some(Step::Jump(to)) => {
-                self.playhead.seek_s(to);
+                self.playhead.seek_round_s(to);
                 (0.0, false)
             }
             None => {

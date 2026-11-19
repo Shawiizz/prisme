@@ -92,6 +92,12 @@ impl Playhead {
         self.loop_frames.or(whole).filter(|_| self.wrapping)
     }
 
+    /// What the playhead goes round, in seconds: the loop, or with repeat the whole track.
+    pub(crate) fn round_s(&self) -> Option<LoopRegion> {
+        let rate = self.sample_rate();
+        self.wrap_frames().map(|(start, end)| LoopRegion { start_s: start / rate, end_s: end / rate })
+    }
+
     /// Whether the loop, or repeat, takes the playhead round from where it is.
     pub(crate) fn goes_round(&self) -> bool {
         self.wrap_frames().is_some_and(|(start, end)| (start..end).contains(&self.position))
