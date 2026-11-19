@@ -208,6 +208,116 @@ fn no_file_is_started_while_the_analysis_is_held_back() {
     std::fs::remove_dir_all(root).ok();
 }
 
+/// Unplugs the drive of the music folder (renames it) once the files to analyse are known.
+struct Unplugging {
+    collector: Collector,
+    from: PathBuf,
+    to: PathBuf,
+    unplugged: AtomicBool,
+}
+
+impl AnalysisListener for Unplugging {
+    fn track_analyzed(&self, record: &TrackRecord) {
+        self.collector.track_analyzed(record);
+    }
+    fn progress(&self, progress: AnalysisProgress) {
+        self.collector.progress(progress);
+    }
+    fn holds_back(&self) -> bool {
+        if !self.unplugged.swap(true, Ordering::Relaxed) {
+            std::fs::rename(&self.from, &self.to).unwrap();
+        }
+        false
+    }
+}
+
+#[test]
+fn a_file_unplugged_while_the_analysis_runs_is_read_again_once_back() {
+    let base = std::env::temp_dir().join(format!("prisme-analyzer-unplugged-{}", std::process::id()));
+    let (music, away) = (base.join("Music"), base.join("Away"));
+    std::fs::create_dir_all(&music).unwrap();
+    let (house, techno) = (music.join("house.wav"), music.join("techno.wav"));
+    write_kicks(&house, 124.0, 12.0);
+    let db = Arc::new(LibraryDb::open_in_memory().unwrap());
+    run(&db, &music);
+    // one file new, the other changed: neither can be read once the scan is over
+    std::thread::sleep(Duration::from_millis(20));
+    write_kicks(&house, 126.0, 12.0);
+    write_kicks(&techno, 140.0, 12.0);
+
+    let listener = Arc::new(Unplugging {
+        collector: Collector::default(),
+        from: music.clone(),
+        to: away.clone(),
+        unplugged: AtomicBool::new(false),
+    });
+    BackgroundAnalyzer::start(
+        db.clone(),
+        vec![music.clone()],
+        1,
+        AnalysisOptions::default(),
+        listener.clone(),
+    )
+    .wait();
+    assert!(listener.collector.records.lock().unwrap().is_empty());
+    assert!(db.get(&techno).unwrap().is_none());
+    let kept = db.get(&house).unwrap().unwrap();
+    assert_eq!((kept.error, kept.analysis.tempo.map(|t| t.bpm)), (None, Some(124.0)));
+
+    std::fs::rename(&away, &music).unwrap();
+    let back = run(&db, &music);
+    let records = back.records.lock().unwrap().clone();
+    assert_eq!((bpm_of(&records, "house.wav"), bpm_of(&records, "techno.wav")), (Some(126.0), Some(140.0)));
+    std::fs::remove_dir_all(base).ok();
+}
+
+/// An IMA ADPCM WAV whose blocks are said to be empty: its reader's arithmetic overflows,
+/// which panics where overflows are checked.
+fn write_overflowing(path: &Path) {
+    let mut wav = Vec::new();
+    wav.extend_from_slice(b"RIFF");
+    wav.extend_from_slice(&36u32.to_le_bytes());
+    wav.extend_from_slice(b"WAVEfmt ");
+    wav.extend_from_slice(&20u32.to_le_bytes());
+    for v in [0x11u16, 1] {
+        wav.extend_from_slice(&v.to_le_bytes());
+    }
+    wav.extend_from_slice(&44_100u32.to_le_bytes());
+    wav.extend_from_slice(&22_050u32.to_le_bytes());
+    // no bytes a block, 4 bits a sample, then the extension: 2 bytes of samples a block
+    for v in [0u16, 4, 2, 0] {
+        wav.extend_from_slice(&v.to_le_bytes());
+    }
+    wav.extend_from_slice(b"data");
+    wav.extend_from_slice(&0u32.to_le_bytes());
+    std::fs::write(path, wav).unwrap();
+}
+
+#[test]
+fn a_file_that_makes_its_reader_panic_is_failed_and_the_others_analysed() {
+    let root = std::env::temp_dir().join(format!("prisme-analyzer-panic-{}", std::process::id()));
+    std::fs::create_dir_all(&root).unwrap();
+    write_overflowing(&root.join("a-broken.wav"));
+    write_kicks(&root.join("b-house.wav"), 124.0, 12.0);
+    let db = Arc::new(LibraryDb::open_in_memory().unwrap());
+    let collector = Arc::new(Collector::default());
+
+    BackgroundAnalyzer::start(
+        db.clone(),
+        vec![root.clone()],
+        1,
+        AnalysisOptions::default(),
+        collector.clone(),
+    )
+    .wait();
+    let last = *collector.progress.lock().unwrap().last().unwrap();
+    assert_eq!(last, AnalysisProgress { total: 2, done: 2, failed: 1, running: false, paused: false });
+    assert!(db.get(&root.join("a-broken.wav")).unwrap().unwrap().error.is_some());
+    assert_eq!(bpm_of(&collector.records.lock().unwrap(), "b-house.wav"), Some(124.0));
+    assert_eq!(run(&db, &root).progress.lock().unwrap().last().unwrap().total, 0, "left alone");
+    std::fs::remove_dir_all(root).ok();
+}
+
 #[test]
 fn a_file_renamed_and_tagged_again_keeps_its_cues() {
     let root = std::env::temp_dir().join(format!("prisme-analyzer-renamed-{}", std::process::id()));

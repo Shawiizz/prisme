@@ -19,7 +19,7 @@ pub use tags::{read_tags, CoverArt, TrackTags};
 use std::fs::File;
 use std::path::Path;
 use symphonia::core::audio::SampleBuffer;
-use symphonia::core::codecs::DecoderOptions;
+use symphonia::core::codecs::{CodecParameters, DecoderOptions};
 use symphonia::core::errors::Error as SymphoniaError;
 use symphonia::core::formats::{FormatOptions, FormatReader};
 use symphonia::core::io::MediaSourceStream;
@@ -40,6 +40,19 @@ pub enum MediaError {
     Tags { path: String, message: String },
     #[error("cannot write the tags of {path}: {message}")]
     WriteTags { path: String, message: String },
+}
+
+impl MediaError {
+    /// Whether the file could not be read at that moment (its drive gone, the file locked),
+    /// rather than read and found to be no audio this crate can decode.
+    pub fn is_transient(&self) -> bool {
+        match self {
+            Self::Open { .. } => true,
+            // the system's, not one symphonia makes of a stream cut short or damaged
+            Self::Format(SymphoniaError::IoError(e)) => e.raw_os_error().is_some(),
+            _ => false,
+        }
+    }
 }
 
 pub use track::{LoadingTrack, TrackAudio, TrackView, PENDING_BLOCK};
@@ -81,6 +94,18 @@ pub struct DecodeStream {
 /// More frames than any codec gets out of a byte (16 kb/s Opus gives about 22).
 const MAX_FRAMES_PER_BYTE: u64 = 64;
 
+/// The most frames a file of `file_bytes` can hold: uncompressed audio takes a byte or more
+/// per sample.
+fn max_frames(params: &CodecParameters, file_bytes: u64) -> u64 {
+    let uncompressed = symphonia::default::get_codecs()
+        .get_codec(params.codec)
+        .is_some_and(|codec| codec.short_name.starts_with("pcm_"));
+    if uncompressed {
+        return file_bytes / params.channels.map_or(1, |c| c.count().max(1)) as u64;
+    }
+    file_bytes.saturating_mul(MAX_FRAMES_PER_BYTE)
+}
+
 /// The container of `path`, ready to give its packets, and the size of the file.
 fn open_format(path: &Path) -> Result<(Box<dyn FormatReader>, u64), MediaError> {
     let file =
@@ -109,11 +134,12 @@ impl DecodeStream {
         Ok(Self {
             track_id: track.id,
             sample_rate: track.codec_params.sample_rate.ok_or(MediaError::NoSampleRate)?,
-            // a damaged header announcing more than its file can hold is not believed
+            // a damaged header, or the placeholder of a file written as a stream, announcing
+            // more than its file can hold is not believed
             estimated_frames: track
                 .codec_params
                 .n_frames
-                .filter(|&n| n <= file_bytes.saturating_mul(MAX_FRAMES_PER_BYTE))
+                .filter(|&n| n <= max_frames(&track.codec_params, file_bytes))
                 .unwrap_or(0) as usize,
             format,
             decoder,
@@ -224,6 +250,24 @@ mod tests {
     }
 
     #[test]
+    fn a_read_failed_by_the_system_is_transient_and_a_damaged_stream_not() {
+        let failed = std::io::Error::from_raw_os_error(21);
+        let damaged = std::io::Error::other("unexpected end of bitstream");
+        assert!(MediaError::Format(SymphoniaError::IoError(failed)).is_transient());
+        assert!(!MediaError::Format(SymphoniaError::IoError(damaged)).is_transient());
+    }
+
+    #[test]
+    fn an_uncompressed_file_is_not_believed_beyond_a_byte_a_sample() {
+        let lying = wav("overstated", 1000, 1000 * 4 * 16);
+        let stream = DecodeStream::open(&lying);
+        let loaded = LoadingTrack::open(&lying);
+        let _ = std::fs::remove_file(&lying);
+        assert_eq!(stream.unwrap().estimated_frames(), 0);
+        assert_eq!(loaded.unwrap().audio().frames(), 1000);
+    }
+
+    #[test]
     fn a_track_no_longer_wanted_ends_where_its_decoding_was_left() {
         let path = wav("given-up", 88_200, 88_200 * 4);
         let loading = LoadingTrack::open(&path).unwrap();
@@ -232,6 +276,34 @@ mod tests {
         assert!(result.is_ok());
         assert!(audio.is_complete());
         assert!(audio.frames() < 88_200, "{} frames", audio.frames());
+    }
+
+    #[test]
+    fn mp3s_joined_are_decoded_whole_though_the_first_header_counts_its_own_frames() {
+        // the frames after the first's ID3 tag and Info frame, as a file joined to it brings
+        let one = std::fs::read(concat!(env!("CARGO_MANIFEST_DIR"), "/tests/fixtures/silence.mp3")).unwrap();
+        let mut joined = one.clone();
+        for _ in 0..12 {
+            joined.extend_from_slice(&one[45 + 182..]);
+        }
+        let path = std::env::temp_dir().join(format!("prisme-media-{}-joined.mp3", std::process::id()));
+        std::fs::write(&path, joined).unwrap();
+        let loading = LoadingTrack::open(&path).unwrap();
+        let announced = DecodeStream::open(&path).unwrap().estimated_frames();
+        let whole = decode_file(&path).unwrap();
+        let _ = std::fs::remove_file(&path);
+        let (audio, result) = loading.decode_rest_while(|| true);
+        assert!(result.is_ok());
+        assert!(whole.frames() > announced + 2 * 44_100, "{} frames, {announced} announced", whole.frames());
+        assert_eq!(audio.frames(), whole.frames());
+    }
+
+    #[test]
+    fn a_header_with_no_audio_after_it_is_no_track() {
+        let path = wav("hollow", 0, 80);
+        let loaded = LoadingTrack::open(&path);
+        let _ = std::fs::remove_file(&path);
+        assert!(matches!(loaded, Err(MediaError::NoAudio)), "{:?}", loaded.map(|t| t.audio().frames()));
     }
 
     #[test]

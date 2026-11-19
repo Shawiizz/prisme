@@ -8,7 +8,7 @@ use super::marks::TrackMarks;
 use super::{path_key, DbError, FileStamp, LibraryDb};
 use prisme_analysis::{Key, KeyEstimate, Mode, Tempo, TrackAnalysis, ANALYSIS_VERSION};
 use prisme_media::TrackTags;
-use rusqlite::{params, OptionalExtension, Row};
+use rusqlite::{params, Connection, OptionalExtension, Row};
 use std::collections::HashMap;
 use std::path::Path;
 
@@ -206,11 +206,17 @@ impl LibraryDb {
             tags.comment,
             record.version.tags_version,
         ])?;
-        tx.prepare_cached(DELETE_SEARCH_ROW)?.execute([&record.path])?;
-        tx.prepare_cached("INSERT INTO track_search (path, words) VALUES (?1, ?2)")?
-            .execute(params![record.path, record.search_words()])?;
-        tx.prepare_cached("INSERT OR REPLACE INTO search_rows (path, row) VALUES (?1, ?2)")?
-            .execute(params![record.path, tx.last_insert_rowid()])?;
+        index(&tx, record)?;
+        tx.commit()?;
+        Ok(())
+    }
+
+    /// Indexes the stored record of `path` again for search, its tags changed in place.
+    pub(super) fn reindex(&self, path: &Path) -> Result<(), DbError> {
+        let Some(record) = self.get(path)? else { return Ok(()) };
+        let conn = self.conn();
+        let tx = conn.unchecked_transaction()?;
+        index(&tx, &record)?;
         tx.commit()?;
         Ok(())
     }
@@ -338,6 +344,16 @@ impl LibraryDb {
 const DELETE_SEARCH_ROW: &str =
     "DELETE FROM track_search WHERE rowid = (SELECT row FROM search_rows WHERE path = ?1)";
 
+/// Indexes `record` for search in place of what was indexed of its path.
+fn index(conn: &Connection, record: &TrackRecord) -> Result<(), DbError> {
+    conn.prepare_cached(DELETE_SEARCH_ROW)?.execute([&record.path])?;
+    conn.prepare_cached("INSERT INTO track_search (path, words) VALUES (?1, ?2)")?
+        .execute(params![record.path, record.search_words()])?;
+    conn.prepare_cached("INSERT OR REPLACE INTO search_rows (path, row) VALUES (?1, ?2)")?
+        .execute(params![record.path, conn.last_insert_rowid()])?;
+    Ok(())
+}
+
 /// `deadmau5 alone` -> `"deadmau5"* "alone"*`; `None` when there is nothing to look for.
 fn fts_query(query: &str) -> Option<String> {
     let terms: Vec<String> = query
@@ -435,6 +451,8 @@ mod tests {
         let record = db.get(path).unwrap().unwrap();
         assert_eq!(record.tags.genre.as_deref(), Some("Progressive"));
         assert_eq!(record.version.stamp, after);
+        assert_eq!(db.search("progressive", 10).unwrap(), [record]);
+        assert!(db.search("house", 10).unwrap().is_empty());
 
         // the file changed meanwhile: the record is left for the next analysis
         db.genre_written(path, None, STAMP, FileStamp { size: 1, modified_ms: 1 }).unwrap();

@@ -38,11 +38,13 @@ impl LibraryDb {
                 Ok((r.get::<_, u32>(0)?, r.get::<_, Vec<u8>>(1)?))
             })
             .optional()?;
-        Ok(row.filter(|(_, data)| data.len() % 4 == 0).map(|(slices_per_second, data)| {
-            let mut bands = data.chunks_exact(data.len() / 4).map(<[u8]>::to_vec);
-            let mut band = || bands.next().unwrap_or_default();
-            Waveform { slices_per_second, peak: band(), low: band(), mid: band(), high: band() }
-        }))
+        Ok(row.filter(|(_, data)| !data.is_empty() && data.len() % 4 == 0).map(
+            |(slices_per_second, data)| {
+                let mut bands = data.chunks_exact(data.len() / 4).map(<[u8]>::to_vec);
+                let mut band = || bands.next().unwrap_or_default();
+                Waveform { slices_per_second, peak: band(), low: band(), mid: band(), high: band() }
+            },
+        ))
     }
 }
 
@@ -65,5 +67,13 @@ mod tests {
         db.save_waveform(path, stamp, &waveform).unwrap();
         assert_eq!(db.waveform(path, stamp).unwrap(), Some(waveform));
         assert_eq!(db.waveform(path, FileStamp { size: 10, modified_ms: 21 }).unwrap(), None);
+    }
+
+    #[test]
+    fn an_empty_waveform_is_no_waveform() {
+        let db = LibraryDb::open_in_memory().unwrap();
+        let (path, stamp) = (Path::new("a.mp3"), FileStamp { size: 10, modified_ms: 20 });
+        db.save_waveform(path, stamp, &Waveform::new(150)).unwrap();
+        assert_eq!(db.waveform(path, stamp).unwrap(), None);
     }
 }

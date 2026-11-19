@@ -12,6 +12,7 @@ use crate::identity::{adopt_unless, drive_is_there, drive_of, Search};
 use crate::metadata::read_metadata;
 use crate::scan::{is_online_only, scan_folders, Scan, ScannedFile};
 use prisme_analysis::AnalysisOptions;
+use prisme_media::MediaError;
 use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
@@ -203,13 +204,18 @@ fn run(
                     // a file never seen there may be one known elsewhere: renamed and tagged
                     // again, or moved in from outside the folder; its audio is read once, for
                     // this and to be known again later
-                    let audio_id = prisme_media::audio_id(&file.path).ok();
+                    let audio_id = audio_id(&file.path);
                     let search = audio_id.map_or(Search::Stamp, Search::AudioId);
                     let may_be_back = |old: &Path| unreadable.iter().any(|dir| old.starts_with(dir));
                     if let Err(e) = adopt_unless(db, &file.path, file.stamp, search, may_be_back) {
                         error!("{} not looked for elsewhere: {e}", file.path.display());
                     }
-                    let (record, cover) = process(db, file, options);
+                    let Some((record, cover)) = process(db, file, options) else {
+                        failed.fetch_add(1, Ordering::Relaxed);
+                        done.fetch_add(1, Ordering::Relaxed);
+                        report(true);
+                        continue;
+                    };
                     if record.error.is_some() {
                         failed.fetch_add(1, Ordering::Relaxed);
                     }
@@ -265,9 +271,15 @@ fn run(
 
 /// Stores the identity of the audio of `path`, if the file is there and can be read.
 pub fn remember_audio(db: &LibraryDb, path: &Path) {
-    if let Ok(id) = prisme_media::audio_id(path) {
+    if let Some(id) = audio_id(path) {
         keep_audio_id(db, path, id);
     }
+}
+
+/// The identity of the audio of `path`, if it can be read: a file that makes its reader panic
+/// has none.
+fn audio_id(path: &Path) -> Option<u64> {
+    std::panic::catch_unwind(|| prisme_media::audio_id(path)).ok()?.ok()
 }
 
 fn keep_audio_id(db: &LibraryDb, path: &Path, id: u64) {
@@ -348,41 +360,52 @@ fn follow_moves(
     }
 }
 
-/// The record of a file and its cover thumbnail. When only the tags are stale, the
-/// stored analysis is kept: reading tags takes milliseconds, analysing seconds.
-fn process(db: &LibraryDb, file: &ScannedFile, options: &AnalysisOptions) -> (TrackRecord, Option<Vec<u8>>) {
+/// The record of a file and its cover thumbnail, none when the file could not be read at that
+/// moment (its drive unplugged, the file locked or changed meanwhile): the next run reads it
+/// again. When only the tags are stale, the stored analysis is kept: reading tags takes
+/// milliseconds, analysing seconds. A file that makes a decoder, the tags' reader or the
+/// analysis panic is recorded as failed, and left alone until it changes, instead of stopping
+/// the analysis there.
+fn process(
+    db: &LibraryDb,
+    file: &ScannedFile,
+    options: &AnalysisOptions,
+) -> Option<(TrackRecord, Option<Vec<u8>>)> {
     let reusable = db
         .get(&file.path)
         .ok()
         .flatten()
         .filter(|r| r.error.is_none() && r.version.analysis_is_current(file.stamp));
-    match reusable {
+    let read = std::panic::catch_unwind(|| match reusable {
         Some(record) => {
             let metadata = read_metadata(&file.path);
-            (record.with_tags(metadata.tags), metadata.cover)
+            Ok((record.with_tags(metadata.tags), metadata.cover))
         }
-        None => {
-            let (record, cover) = analyze(file, options);
-            let edits = db.edits(&file.path).unwrap_or_default();
-            (TrackRecord { edits, ..record }, cover)
-        }
-    }
-}
-
-/// The analysis of a file; a file that makes a decoder or the analysis panic is recorded as
-/// failed, and left alone until it changes, instead of stopping the analysis there.
-fn analyze(file: &ScannedFile, options: &AnalysisOptions) -> (TrackRecord, Option<Vec<u8>>) {
-    let analyzed = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-        let a = prisme_analysis::analyze_file(&file.path, options)?;
-        let metadata = read_metadata(&file.path);
-        let record = TrackRecord::analyzed(&file.path, file.stamp, a.duration_s, a.analysis, metadata.tags);
-        Ok::<_, prisme_media::MediaError>((record, metadata.cover))
-    }));
-    match analyzed {
-        Ok(Ok(analyzed)) => analyzed,
+        None => analyze(file, options),
+    });
+    let (record, cover) = match read {
+        Ok(Ok(read)) => read,
+        Ok(Err(e)) if e.is_transient() => return None,
         Ok(Err(e)) => (TrackRecord::failed(&file.path, file.stamp, e.to_string()), None),
         Err(_) => (TrackRecord::failed(&file.path, file.stamp, "the file could not be read".into()), None),
+    };
+    // stamped as the scan does, a link as itself
+    let stamp = std::fs::symlink_metadata(&file.path).map(|meta| FileStamp::from_metadata(&meta));
+    if stamp.ok() != Some(file.stamp) {
+        return None;
     }
+    let edits = db.edits(&file.path).unwrap_or_default();
+    Some((TrackRecord { edits, ..record }, cover))
+}
+
+fn analyze(
+    file: &ScannedFile,
+    options: &AnalysisOptions,
+) -> Result<(TrackRecord, Option<Vec<u8>>), MediaError> {
+    let a = prisme_analysis::analyze_file(&file.path, options)?;
+    let metadata = read_metadata(&file.path);
+    let record = TrackRecord::analyzed(&file.path, file.stamp, a.duration_s, a.analysis, metadata.tags);
+    Ok((record, metadata.cover))
 }
 
 /// Puts the calling thread in background mode: lowest CPU and disk priority, each system its
