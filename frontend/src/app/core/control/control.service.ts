@@ -339,17 +339,17 @@ export class ControlService {
     },
     holdFx: (deck, slot, held) => this.fx.setEnabled(deck, slot, held),
     holdSlip: (deck, held) => this.performance.setSlip(deck, held),
+    // a filter heard is set aside, whatever was before; a silent one gets back the one set aside
     toggleFilter: (deck) => {
-      const aside = this.filtersAside.get(deck);
-      if (aside !== undefined) {
-        this.filtersAside.delete(deck);
-        this.mixer.setFilter(deck, aside);
+      const position = this.mixer.strip(deck).filter;
+      if (position !== 0) {
+        this.filtersAside.set(deck, position);
+        this.mixer.setFilter(deck, 0);
         return;
       }
-      const position = this.mixer.strip(deck).filter;
-      if (position === 0) return;
-      this.filtersAside.set(deck, position);
-      this.mixer.setFilter(deck, 0);
+      const aside = this.filtersAside.get(deck);
+      this.filtersAside.delete(deck);
+      if (aside !== undefined) this.mixer.setFilter(deck, aside);
     },
     filtering: (deck) => this.mixer.strip(deck).filter !== 0,
     setCrossfaderSide: (deck, side) => this.mixer.setCrossfaderSide(deck, side),
