@@ -1,8 +1,9 @@
+use crate::commands::blocking;
 use crate::dto::{DirEntryDto, ProgressDto};
 use crate::error::AppResult;
 use crate::library_service::LibraryService;
 use std::sync::Arc;
-use tauri::State;
+use tauri::{AppHandle, Manager, State};
 
 /// State of the background analysis of the music folder.
 #[tauri::command]
@@ -17,10 +18,15 @@ pub fn library_in_memory(library: State<'_, Arc<LibraryService>>) -> bool {
     library.in_memory()
 }
 
-/// Looks for new or changed files in the music folder and analyses them.
+/// Looks for new or changed files in the music folder and analyses them. Off the main thread:
+/// the analysis running stops first.
 #[tauri::command]
-pub fn rescan_library(library: State<'_, Arc<LibraryService>>) {
-    library.start();
+pub async fn rescan_library(app: AppHandle) -> AppResult<()> {
+    blocking(move || {
+        app.state::<Arc<LibraryService>>().start();
+        Ok(())
+    })
+    .await
 }
 
 /// Most results a search returns: more would not be read, and would slow the list.
