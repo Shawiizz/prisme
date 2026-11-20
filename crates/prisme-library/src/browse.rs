@@ -729,13 +729,44 @@ impl Browser {
     /// The list `steps` after the one shown on the side panel (else after the one pointed at),
     /// to open.
     pub fn next_list(&mut self, steps: i64) -> Source {
-        match self.source {
+        let lists = self.lists();
+        let at = lists.iter().rposition(|list| match (list, &self.source) {
+            (Source::Folder(folder), Source::Folder(shown)) => within(shown, folder),
+            (list, shown) => list == shown,
+        });
+        let next = lists[(at.unwrap_or(0) as i64 + steps).clamp(0, lists.len() as i64 - 1) as usize].clone();
+        match next {
             Source::Prepare => self.pointed = Shelf::Prepare,
             Source::Crate(id) => self.pointed = Shelf::Crate(id),
             _ => {}
         }
-        self.point(steps);
-        self.open_pointed()
+        self.focus = Focus::Tracks;
+        self.changed();
+        next
+    }
+
+    /// The lists of the side panel in its order: the prepare list, the duplicates, each music
+    /// folder and the folders right under it that hold tracks, the crates, the sets played.
+    fn lists(&self) -> Vec<Source> {
+        let mut lists = vec![Source::Prepare, Source::Duplicates];
+        for root in &self.roots {
+            let depth = root.components().count();
+            let mut under: Vec<PathBuf> = self
+                .catalogue
+                .ids()
+                .map(|id| Path::new(&self.catalogue.get(id).path))
+                .filter(|path| path.components().count() > depth + 1 && within(path, root))
+                .filter_map(|path| path.components().nth(depth).map(|name| root.join(name)))
+                .collect::<HashSet<_>>()
+                .into_iter()
+                .collect();
+            under.sort_by_cached_key(|folder| folded(&folder.to_string_lossy()));
+            lists.push(Source::Folder(root.clone()));
+            lists.extend(under.into_iter().map(Source::Folder));
+        }
+        lists.extend(self.crates.iter().map(|c| Source::Crate(c.id)));
+        lists.extend(self.sessions.iter().map(|s| Source::History(s.id)));
+        lists
     }
 
     // --- what the interface draws ---
@@ -1270,9 +1301,46 @@ mod tests {
         assert_eq!(browser.open_pointed(), Source::Crate(CrateId(7)));
         assert_eq!(browser.focus(), Focus::Tracks);
         browser.show(Source::Prepare, Vec::new());
-        assert_eq!(browser.next_list(1), Source::Crate(CrateId(3)), "after the list shown");
+        assert_eq!(browser.next_list(1), Source::Duplicates, "after the list shown");
         browser.point(-4);
         assert_eq!(browser.pointed(), Shelf::Prepare);
+    }
+
+    #[test]
+    fn a_controller_opens_the_lists_of_the_side_panel_in_turn() {
+        let mut browser = Browser::default();
+        browser.set_roots(vec![PathBuf::from("C:/Music")]);
+        browser.load(Tracks::of(vec![
+            record("C:/Music/Mixxx/sets/a.mp3", tags("A", None, None), None, None),
+            record("C:/Music/house/b.mp3", tags("B", None, None), None, None),
+            record("C:/Music/c.mp3", tags("C", None, None), None, None),
+        ]));
+        browser.set_crates(vec![Crate { id: CrateId(3), name: "A".into(), rules: None, track_count: 0 }]);
+        browser.set_sessions(vec![HistorySession { id: SessionId(9), started_at_ms: 0, play_count: 1 }]);
+        browser.show(Source::Prepare, Vec::new());
+        let opened: Vec<Source> = (0..7)
+            .map(|_| {
+                let next = browser.next_list(1);
+                browser.show(next.clone(), Vec::new());
+                next
+            })
+            .collect();
+        let folder = |path: &str| Source::Folder(PathBuf::from(path));
+        assert_eq!(
+            opened,
+            [
+                Source::Duplicates,
+                folder("C:/Music"),
+                folder("C:/Music/house"),
+                folder("C:/Music/Mixxx"),
+                Source::Crate(CrateId(3)),
+                Source::History(SessionId(9)),
+                Source::History(SessionId(9)),
+            ]
+        );
+        browser.show(folder("C:/Music/Mixxx/sets"), Vec::new());
+        assert_eq!(browser.next_list(-1), folder("C:/Music/house"), "from the folder it is in");
+        assert_eq!(browser.focus(), Focus::Tracks);
     }
 
     #[test]
