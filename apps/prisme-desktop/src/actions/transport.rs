@@ -56,3 +56,34 @@ pub fn seek(state: &AppState, auto_dj: Option<&AutoDj>, deck: usize, seconds: f6
     take_over(auto_dj, Takeover::Transport(deck));
     state.send(Command::Seek { deck, seconds })
 }
+
+/// To `seconds` into the track, within it; nothing without a track.
+pub fn seek_within(state: &AppState, auto_dj: Option<&AutoDj>, deck: usize, seconds: f64) -> AppResult<()> {
+    let duration_s = state.deck_status(deck)?.duration_s;
+    if duration_s <= 0.0 {
+        return Ok(());
+    }
+    seek(state, auto_dj, deck, seconds.clamp(0.0, duration_s))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::actions::bench::Bench;
+
+    #[test]
+    fn a_seek_within_stays_in_the_track_and_does_nothing_without_one() {
+        let bench = Bench::new();
+        bench.load(0, 10.0, None);
+        for (asked, sent) in [(4.0, 4.0), (25.0, 10.0), (-3.0, 0.0)] {
+            seek_within(&bench.state, None, 0, asked).unwrap();
+            assert!(
+                matches!(bench.sent()[..], [Command::Seek { deck: 0, seconds }] if seconds == sent),
+                "{asked}"
+            );
+        }
+        seek_within(&bench.state, None, 1, 4.0).unwrap();
+        assert!(bench.sent().is_empty(), "no track on the second deck");
+        assert!(seek_within(&bench.state, None, 7, 4.0).is_err(), "no such deck");
+    }
+}

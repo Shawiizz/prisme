@@ -35,11 +35,7 @@ pub fn seek_deck(
     deck: usize,
     seconds: f64,
 ) -> AppResult<()> {
-    let duration_s = state.deck_status(deck)?.duration_s;
-    if duration_s <= 0.0 {
-        return Ok(());
-    }
-    transport::seek(&state, Some(&auto_dj), deck, seconds.clamp(0.0, duration_s))
+    transport::seek_within(&state, Some(&auto_dj), deck, seconds)
 }
 
 /// The edge of a jog wheel turned by `seconds` of track (positive forwards) at `at_ms`: a
