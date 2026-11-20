@@ -77,9 +77,6 @@ export interface HidControl {
   bigEndian?: boolean;
 }
 
-/** What the action a control is learnt for takes: a key, a position, steps. */
-export type Learnt = 'button' | 'fader' | 'encoder';
-
 /** How an encoder sends its steps: two's complement, around 64 (with no zero: 64 one step
  * left), or with a sign bit. */
 export type StepEncoding =

@@ -6,7 +6,6 @@ import {
   Controller,
   ControllerMapping,
   ControllerProfiles,
-  Learnt,
   PluggedIn,
   StepEncoding,
   UiAction,
@@ -199,9 +198,7 @@ export class ControllerService {
 
   learn(target: string) {
     this.learning.set(target);
-    const kind = this.controls.find(target)?.kind;
-    const learnt: Learnt = kind === 'encoder' || kind === 'fader' ? kind : 'button';
-    return this.run(() => invoke('learn_control', { target, learnt }));
+    return this.run(() => invoke('learn_control', { target }));
   }
 
   cancelLearning() {

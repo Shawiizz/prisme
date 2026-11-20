@@ -26,9 +26,9 @@ use prisme_actions::view::View;
 use prisme_audio_io::base_device_name;
 use prisme_control::hid::{self, Field, Learnt, Read};
 use prisme_control::{
-    nearest, Control, DeckAction, Encoding, Event, FaderSet, Hold, LightValue, Mapping, Mappings, Modes,
-    Owner, Profile, ProfileControl, Reader, Shifts, ShownRoom, Target, TargetId, JOG_STEPS_PER_TURN, OFF, ON,
-    SHIFT,
+    nearest, Control, DeckAction, Encoding, Event, FaderSet, Hold, Kind, LightValue, Mapping, Mappings,
+    Modes, Owner, Profile, ProfileControl, Reader, Shifts, ShownRoom, Target, TargetId, JOG_STEPS_PER_TURN,
+    OFF, ON, SHIFT,
 };
 use prisme_session::JsonFile;
 use serde::{Deserialize, Serialize};
@@ -791,7 +791,12 @@ impl Controllers {
         Ok(())
     }
 
-    pub fn learn(&self, target: String, learnt: Learnt) {
+    pub fn learn(&self, target: String) {
+        let learnt = match target.parse::<Target>().map(|t| t.kind()) {
+            Ok(Kind::Encoder) => Learnt::Encoder,
+            Ok(Kind::Fader) => Learnt::Fader,
+            _ => Learnt::Button,
+        };
         *lock(&self.learning) = Some(Learning { target, learnt });
     }
 
@@ -1755,7 +1760,7 @@ mod tests {
     #[test]
     fn a_learnt_control_then_drives_its_target() {
         let c = controllers();
-        c.learn("deck1.play".into(), Learnt::Button);
+        c.learn("deck1.play".into());
         // the release of a press made before Learn is not learnt
         assert_eq!(c.route("DDJ", parse(&[0x80, 40, 0]).unwrap(), 0.0), None);
         let learnt = c.route("DDJ", parse(&[0x90, 36, 127]).unwrap(), 0.0);
@@ -1768,11 +1773,11 @@ mod tests {
     #[test]
     fn encoders_are_learnt_with_their_kind_of_steps() {
         let c = controllers();
-        c.learn("library.browse".into(), Learnt::Encoder);
+        c.learn("library.browse".into());
         route(&c, &[0xb0, 64, 1]);
         assert_eq!(route(&c, &[0xb0, 64, 127]), input("library.browse", -1.0));
         // a jog sending steps around 64
-        c.learn("deck1.jog".into(), Learnt::Encoder);
+        c.learn("deck1.jog".into());
         route(&c, &[0xb0, 33, 65]);
         assert_eq!(route(&c, &[0xb0, 33, 61]), direct("deck1.jog", steps(-3.0)));
     }
@@ -1780,7 +1785,7 @@ mod tests {
     #[test]
     fn a_fader_sending_its_low_half_is_learnt_14_bit() {
         let c = controllers();
-        c.learn("deck1.pitch".into(), Learnt::Fader);
+        c.learn("deck1.pitch".into());
         route(&c, &[0xb0, 0, 64]);
         let fine = route(&c, &[0xb0, 32, 0]);
         let tempo = Control::control_change(0, 0);
@@ -1795,12 +1800,12 @@ mod tests {
     #[test]
     fn shift_held_while_learning_learns_the_second_layer() {
         let c = controllers();
-        c.learn(SHIFT.into(), Learnt::Button);
+        c.learn(SHIFT.into());
         route(&c, &[0x90, 63, 127]);
         route(&c, &[0x90, 63, 0]);
-        c.learn("deck1.cue".into(), Learnt::Button);
+        c.learn("deck1.cue".into());
         route(&c, &[0x90, 36, 127]);
-        c.learn("deck1.hotcue1.delete".into(), Learnt::Button);
+        c.learn("deck1.hotcue1.delete".into());
         // shift is pressed first: it is not what is learnt
         assert_eq!(route(&c, &[0x90, 63, 127]), None);
         let learnt = route(&c, &[0x90, 36, 127]);
@@ -1826,7 +1831,7 @@ mod tests {
         let play = |c: &Controllers| c.route("DDJ-SB2", parse(&[0x90, 0x0b, 127]).unwrap(), 0.0);
         assert_eq!(play(&c), input("deck1.play", 1.0));
         // learnt over the profile, the control drives what was learnt
-        c.learn("deck1.cue".into(), Learnt::Button);
+        c.learn("deck1.cue".into());
         play(&c);
         assert_eq!(play(&c), input("deck1.cue", 1.0));
         // forgotten, an action leaves the profile's controls too
@@ -1838,7 +1843,7 @@ mod tests {
             .unmapped
             .contains(&Unmapped::On { device: "DDJ-SB2".into(), target: "deck1.play".into() }));
         // learnt again, it is mapped again
-        c.learn("deck1.play".into(), Learnt::Button);
+        c.learn("deck1.play".into());
         play(&c);
         assert_eq!(play(&c), input("deck1.play", 1.0));
     }
@@ -1929,7 +1934,7 @@ mod tests {
     #[test]
     fn learning_can_be_cancelled() {
         let c = controllers();
-        c.learn("deck1.play".into(), Learnt::Button);
+        c.learn("deck1.play".into());
         c.cancel_learning();
         assert_eq!(c.route("DDJ", parse(&[0x90, 36, 127]).unwrap(), 0.0), None);
         assert!(c.setup().mappings.all().is_empty());
@@ -2423,7 +2428,7 @@ mod tests {
     #[test]
     fn a_control_of_a_hid_controller_is_learnt_by_the_field_that_changed() {
         let (c, device, mut reports) = s4();
-        c.learn("deck1.censor".into(), Learnt::Button);
+        c.learn("deck1.censor".into());
         let learnt = driven(&c, &device, &mut reports, &short(&[(0x0e, 0x02)]));
         let slip = Control::Hid(Field { report: 1, byte: 0x0e, bit: 1, bits: 1, big_endian: false });
         let expected = Mapping::new(
@@ -2434,7 +2439,7 @@ mod tests {
         driven(&c, &device, &mut reports, &short(&[]));
         assert_eq!(driven(&c, &device, &mut reports, &short(&[(0x0e, 0x02)])), ui(&[("deck1.censor", 1.0)]));
         // an encoder of no profile: the counter's nibble that turned
-        c.learn("deck1.size".into(), Learnt::Encoder);
+        c.learn("deck1.size".into());
         let learnt = driven(&c, &device, &mut reports, &long(&[(0x10, 0x30)]));
         let Some(Routed::Learned(mapping)) = learnt.first() else { panic!("{learnt:?}") };
         assert_eq!(

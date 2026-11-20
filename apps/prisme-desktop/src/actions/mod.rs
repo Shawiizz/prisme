@@ -35,7 +35,7 @@ use prisme_actions::lane::{lane, reads_files, takes_selection, Lane};
 use prisme_actions::perform::{Memory, PerformState};
 use prisme_actions::position::position;
 use prisme_actions::view::View;
-use prisme_control::{DeckAction, LibraryAction, Owner, SampleAction, Target, Unknown};
+use prisme_control::{DeckAction, Kind, LibraryAction, Owner, SampleAction, Target, Unknown};
 use prisme_engine::EngineStatus;
 use prisme_library::LibraryDb;
 use serde::Serialize;
@@ -758,6 +758,12 @@ pub fn take_over(auto_dj: Option<&AutoDj>, takeover: Takeover) {
     }
 }
 
+/// What the interface gives `target` as `value`: an encoder's steps, else a key's or a fader's
+/// value.
+fn interface_input(target: &Target, value: f32) -> Input {
+    Input::of(value, target.kind() == Kind::Encoder, None)
+}
+
 /// Performs the action `target` driven to `value` (an encoder's `steps`, if it says so), as the
 /// interface asks: `confirmed`, the DJ said yes to what it replaces. The
 /// interface numbers its actions (`order`): each is sent in turn after those sent before it, a
@@ -767,7 +773,6 @@ pub async fn perform_action(
     app: AppHandle,
     target: String,
     value: Option<f32>,
-    steps: bool,
     confirmed: bool,
     order: Order,
 ) -> AppResult<()> {
@@ -777,7 +782,7 @@ pub async fn perform_action(
         actions.in_order(order, || -> AppResult<()> {
             let target: Target = target.parse().map_err(|e: Unknown| AppError::Other(e.to_string()))?;
             let value = value.ok_or_else(|| AppError::Other(format!("{target} given no value")))?;
-            let input = Input::of(value, steps, None);
+            let input = interface_input(&target, value);
             let source = Source::Interface { confirmed };
             actions.perform(&app, &target, input, source, Answer::To(answer), &mut InTurn::default());
             Ok(())
@@ -785,6 +790,20 @@ pub async fn perform_action(
         outcome.recv().unwrap_or_else(|e| Err(AppError::Other(e.to_string())))
     })
     .await
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn the_interface_gives_an_encoder_steps_and_the_others_values() {
+        let input = |id: &str, value| interface_input(&id.parse().unwrap(), value);
+        assert!(matches!(input("deck1.loop.move", -1.0), Input::Steps { steps, .. } if steps == -1.0));
+        assert!(matches!(input("library.browse", 3.0), Input::Steps { steps, .. } if steps == 3.0));
+        assert!(matches!(input("deck1.eq.low", 0.25), Input::Value(v) if v == 0.25));
+        assert!(matches!(input("deck1.play", 1.0), Input::Value(v) if v == 1.0));
+    }
 }
 
 #[cfg(test)]

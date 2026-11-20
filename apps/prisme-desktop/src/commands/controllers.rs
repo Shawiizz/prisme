@@ -5,7 +5,7 @@ use crate::controllers::Controllers;
 use crate::dto::{ControllerDto, ControllerProfileDto, ControllerProfilesDto, LightDto, OfferedProfileDto};
 use crate::error::{AppError, AppResult};
 use crate::midi_clock::MidiClock;
-use prisme_control::hid::{self, Learnt};
+use prisme_control::hid;
 use prisme_control::{Encoding, Mapping};
 use std::path::PathBuf;
 use tauri::{AppHandle, State};
@@ -88,11 +88,11 @@ pub fn controller_light_targets(controllers: State<'_, Controllers>) -> Vec<Stri
     controllers.told_targets()
 }
 
-/// The next control moved on a controller in use will drive `target`, an action taking
-/// `learnt` (`controller-learned` says which).
+/// The next control moved on a controller in use will drive `target`, read as a key, a fader
+/// or an encoder as its action takes (`controller-learned` says which).
 #[tauri::command]
-pub fn learn_control(controllers: State<'_, Controllers>, target: String, learnt: Learnt) {
-    controllers.learn(target, learnt);
+pub fn learn_control(controllers: State<'_, Controllers>, target: String) {
+    controllers.learn(target);
 }
 
 /// How the encoder of `target` on `device` sends its steps (a jog that turns the wrong way

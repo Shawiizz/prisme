@@ -73,7 +73,7 @@ export class FxService {
 
   /** The slot's period halved (-1) or doubled (1) so many times, from 1/8 beat to 8. */
   stepBeats(deck: number, slot: number, steps: number) {
-    return this.engine.perform(`${fxId(deck, slot)}.beats`, steps, true);
+    return this.engine.perform(`${fxId(deck, slot)}.beats`, steps);
   }
 
   /** The whole chain on or off, each slot keeping its own switch. */

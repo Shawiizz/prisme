@@ -51,30 +51,19 @@ export class ControlService {
     const decks = this.engine.deckIndexes().length;
     return this.controls.filter((c) => c.deck === undefined || c.deck < decks);
   });
-  /** `inUse` as a set: looked into at every message of a controller. */
-  private readonly inUseSet = computed(() => new Set(this.inUse()));
 
   /** The control `id`, whatever its deck (to name it, to map it, to put its light out). */
   find(id: string): Control | undefined {
     return this.built().byId.get(id) ?? this.measured(id);
   }
 
-  /** The control `id` if it acts now: a control of a deck not shown does nothing. */
-  findInUse(id: string): Control | undefined {
-    const control = this.built().byId.get(id);
-    if (control) return this.inUseSet().has(control) ? control : undefined;
-    const measured = this.measured(id);
-    return measured && measured.deck! < this.engine.deckIndexes().length ? measured : undefined;
-  }
-
   /** The action `id` given `value` (a key's 1 pressed and 0 let go, a fader's position, an
-   * encoder's steps), if it acts now. */
+   * encoder's steps): the app's own here, the others the backend's (which does nothing for one
+   * of a deck not in use, or a light). */
   act(id: string, value: number) {
-    const control = this.findInUse(id);
-    if (!control || control.kind === 'light') return;
     const own = this.own[id];
     if (own) own(value);
-    else void this.engine.perform(id, value, control.kind === 'encoder');
+    else void this.engine.perform(id, value);
   }
 
   /** Whether the light of `id` is on, for one the app keeps what it shows (the library over

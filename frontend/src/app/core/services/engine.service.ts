@@ -324,8 +324,8 @@ export class EngineService {
   /** Has the backend perform action `target` given `value`: a key's 1 pressed and 0 let go, a
    * fader's position, or an encoder's steps (`steps`), as a controller's control would;
    * `confirmed`, the DJ said yes to what it replaces. Whether it was done. */
-  perform(target: string, value: number, steps = false, confirmed = false) {
-    return this.call('perform_action', { target, value, steps, confirmed, order: this.order() });
+  perform(target: string, value: number, confirmed = false) {
+    return this.call('perform_action', { target, value, confirmed, order: this.order() });
   }
 
   /** Loads the track at `path` on `deck`, or on the first deck without a track (`null`); asked
@@ -403,6 +403,6 @@ export class EngineService {
       cancel: t('Cancel'),
     });
     if (!confirmed) return false;
-    return again ? again() : this.perform(String(error.params['target']), 1, false, true);
+    return again ? again() : this.perform(String(error.params['target']), 1, true);
   }
 }

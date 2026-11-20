@@ -86,7 +86,7 @@ export class GridEditor {
 
   /** The grid moved later (earlier below 0) by `steps` steps, as a controller's encoder. */
   moveGrid(steps: number) {
-    this.engine.perform(`deck${this.deck() + 1}.grid.move`, steps, true);
+    this.engine.perform(`deck${this.deck() + 1}.grid.move`, steps);
   }
 
   setKey(camelot: string | null) {

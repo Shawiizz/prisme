@@ -14,15 +14,15 @@ describe('ControlService', () => {
     TestBed.inject(EngineService).status.set({ decks: [{}, {}] } as EngineStatus);
     mockIPC((command, args) => {
       if (command === 'perform_action') {
-        const { target, value, steps } = args as { target: string; value: number; steps: boolean };
-        performed.push([target, value, steps]);
+        const { target, value } = args as { target: string; value: number };
+        performed.push([target, value]);
       }
     });
   });
 
   afterEach(() => clearMocks());
 
-  it('has the backend perform an action, an encoder giving its steps', () => {
+  it('has the backend perform an action as it is given, an encoder its steps', () => {
     const controls = TestBed.inject(ControlService);
     controls.act('deck1.play', 1);
     controls.act('deck1.play', 0);
@@ -30,21 +30,12 @@ describe('ControlService', () => {
     controls.act('deck1.loop.move', -1);
     controls.act('deck2.jump.-8', 1);
     expect(performed).toEqual([
-      ['deck1.play', 1, false],
-      ['deck1.play', 0, false],
-      ['deck2.eq.low', 0.25, false],
-      ['deck1.loop.move', -1, true],
-      ['deck2.jump.-8', 1, false],
+      ['deck1.play', 1],
+      ['deck1.play', 0],
+      ['deck2.eq.low', 0.25],
+      ['deck1.loop.move', -1],
+      ['deck2.jump.-8', 1],
     ]);
-  });
-
-  it('does nothing for a deck not shown, an action it does not know, a light or shift', () => {
-    const controls = TestBed.inject(ControlService);
-    controls.act('deck3.play', 1);
-    controls.act('deck1.nothing', 1);
-    controls.act('deck1.beat', 1);
-    controls.act('shift', 1);
-    expect(performed).toEqual([]);
   });
 
   it('has the backend browse the library, and opens its windows itself', () => {
@@ -55,9 +46,10 @@ describe('ControlService', () => {
     controls.act('library.next', 1);
     controls.act('library.search', 1);
     controls.act('general.library', 1);
+    controls.act('shift', 1);
     expect(performed).toEqual([
-      ['library.browse', -3, true],
-      ['library.next', 1, false],
+      ['library.browse', -3],
+      ['library.next', 1],
     ]);
     expect(library.searchRequests()).toBe(1);
     expect(navigation.libraryOnly()).toBe(true);

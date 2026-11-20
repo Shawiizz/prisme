@@ -68,7 +68,7 @@ export class PerformanceService {
 
   /** The size of `deck` halved (-1) or doubled (1) so many times, from 1/16 beat to 64. */
   resize(deck: number, steps: number) {
-    return this.engine.perform(`deck${deck + 1}.size`, steps, true);
+    return this.engine.perform(`deck${deck + 1}.size`, steps);
   }
 
   beatJump(deck: number, beats: number) {
