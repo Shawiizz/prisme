@@ -340,12 +340,14 @@ impl InTurn {
     }
 }
 
-/// Where the actions the interface sends are: those of its page loaded as `run`, the next to
-/// perform numbered `next`.
+/// Where the actions the interface sends are: those of its page loaded as `run`, the one whose
+/// turn it is numbered `next`, `started` once it came, and the numbers come and waiting.
 #[derive(Default)]
 struct Sent {
     run: u64,
     next: u64,
+    started: bool,
+    waiting: Vec<u64>,
 }
 
 /// The place of an action among those the interface sends: its number among those of its page
@@ -525,24 +527,52 @@ impl Actions {
         (0..decks).find(|&deck| tracks[deck].is_none() && !self.lanes.busy(Lane::Track(deck))).unwrap_or(0)
     }
 
-    /// Sends `send`, an action of the interface, after those it numbered before it: their calls
-    /// may reach Prisme in another order. One that does not come is waited for [`ORDER_WAIT`] at
-    /// most.
-    fn in_order(&self, Order { run, number: order }: Order, send: impl FnOnce()) {
-        {
-            let mut sent = lock(&self.sent);
-            if sent.run != run {
-                *sent = Sent { run, next: order };
-            }
-            let turn = |s: &mut Sent| s.run == run && s.next < order;
-            drop(self.sent_on.wait_timeout_while(sent, ORDER_WAIT, turn));
-        }
-        send();
+    /// Sends `send`, an action of the interface, once those it numbered before it are sent:
+    /// their calls may reach Prisme in another order. One come is waited for as long as it
+    /// takes; one that does not come is given up for lost once the lowest number waiting has
+    /// waited [`ORDER_WAIT`], which then goes, the others still in turn after it.
+    fn in_order<R>(&self, Order { run, number }: Order, send: impl FnOnce() -> R) -> R {
+        let came = Instant::now();
         let mut sent = lock(&self.sent);
-        if sent.run == run {
-            sent.next = sent.next.max(order + 1);
+        if sent.run != run {
+            *sent = Sent { run, next: number, ..Sent::default() };
+            self.sent_on.notify_all();
         }
-        self.sent_on.notify_all();
+        sent.waiting.push(number);
+        loop {
+            // a page loaded since, or this one given up for lost and come late
+            if sent.run != run || number < sent.next {
+                break;
+            }
+            if number == sent.next && !sent.started {
+                sent.started = true;
+                break;
+            }
+            let lost = !sent.started && sent.waiting.iter().all(|&n| n >= number);
+            sent = if lost {
+                let waited = came.elapsed();
+                if waited >= ORDER_WAIT {
+                    (sent.next, sent.started) = (number, true);
+                    break;
+                }
+                self.sent_on.wait_timeout(sent, ORDER_WAIT - waited).unwrap_or_else(|e| e.into_inner()).0
+            } else {
+                self.sent_on.wait(sent).unwrap_or_else(|e| e.into_inner())
+            };
+        }
+        if sent.run == run {
+            if let Some(at) = sent.waiting.iter().position(|&n| n == number) {
+                sent.waiting.swap_remove(at);
+            }
+        }
+        drop(sent);
+        let sent_back = send();
+        let mut sent = lock(&self.sent);
+        if sent.run == run && sent.next == number && sent.started {
+            (sent.next, sent.started) = (number + 1, false);
+            self.sent_on.notify_all();
+        }
+        sent_back
     }
 
     /// The number of an action the interface is told to perform (see [`Actions::select`]).
@@ -721,26 +751,27 @@ pub fn take_over(auto_dj: Option<&AutoDj>, takeover: Takeover) {
 /// Performs the action `target` driven to `value` (an encoder's `steps`, if it says so), as the
 /// interface asks: `confirmed`, the DJ said yes to what it replaces. The
 /// interface numbers its actions (`order`): each is sent in turn after those sent before it, a
-/// key let go after it was pressed.
+/// key let go after it was pressed; one that is not an action takes its turn all the same.
 #[tauri::command]
 pub async fn perform_action(
     app: AppHandle,
     target: String,
-    value: f32,
+    value: Option<f32>,
     steps: bool,
     confirmed: bool,
     order: Order,
 ) -> AppResult<()> {
-    let target: Target = target.parse().map_err(|e: Unknown| AppError::Other(e.to_string()))?;
-    let input = Input::of(value, steps, None);
-    let source = Source::Interface { confirmed };
     crate::commands::blocking(move || {
         let actions = app.state::<Actions>();
         let (answer, outcome) = mpsc::sync_channel(1);
-        actions.in_order(order, || {
-            let in_turn = &mut InTurn::default();
-            actions.perform(&app, &target, input, source, Answer::To(answer), in_turn);
-        });
+        actions.in_order(order, || -> AppResult<()> {
+            let target: Target = target.parse().map_err(|e: Unknown| AppError::Other(e.to_string()))?;
+            let value = value.ok_or_else(|| AppError::Other(format!("{target} given no value")))?;
+            let input = Input::of(value, steps, None);
+            let source = Source::Interface { confirmed };
+            actions.perform(&app, &target, input, source, Answer::To(answer), &mut InTurn::default());
+            Ok(())
+        })?;
         outcome.recv().unwrap_or_else(|e| Err(AppError::Other(e.to_string())))
     })
     .await
@@ -1195,18 +1226,55 @@ mod interface_order {
     /// Sends the interface's actions `orders` of `run`, each from a thread of its own a moment
     /// after the one before: the order they are performed in.
     fn sent(actions: &Arc<Actions>, run: u64, orders: &[u64]) -> Vec<u64> {
+        let quick: Vec<_> = orders.iter().map(|&order| (order, 0)).collect();
+        sent_taking(actions, run, &quick)
+    }
+
+    /// [`sent`], each action of `orders` taking so many milliseconds to send.
+    fn sent_taking(actions: &Arc<Actions>, run: u64, orders: &[(u64, u64)]) -> Vec<u64> {
         let performed = Arc::new(Mutex::new(Vec::new()));
         let threads: Vec<_> = orders
             .iter()
-            .map(|&order| {
+            .map(|&(order, ms)| {
                 let (actions, performed) = (actions.clone(), performed.clone());
                 std::thread::sleep(Duration::from_millis(5));
                 let numbered = Order { run, number: order };
-                std::thread::spawn(move || actions.in_order(numbered, || lock(&performed).push(order)))
+                std::thread::spawn(move || {
+                    actions.in_order(numbered, || {
+                        std::thread::sleep(Duration::from_millis(ms));
+                        lock(&performed).push(order);
+                    })
+                })
             })
             .collect();
         threads.into_iter().for_each(|t| t.join().unwrap());
         Arc::try_unwrap(performed).unwrap().into_inner().unwrap()
+    }
+
+    #[test]
+    fn an_action_come_is_waited_for_however_long_it_takes() {
+        let actions = Arc::new(Actions::start());
+        assert_eq!(sent(&actions, 7, &[1]), [1]);
+        assert_eq!(sent_taking(&actions, 7, &[(2, 120), (3, 0)]), [2, 3]);
+    }
+
+    #[test]
+    fn of_the_actions_after_a_lost_one_the_lowest_goes_first() {
+        let actions = Arc::new(Actions::start());
+        assert_eq!(sent(&actions, 7, &[1]), [1]);
+        // 2 lost, 4 (a release) come before 3 (its press)
+        assert_eq!(sent(&actions, 7, &[4, 3]), [3, 4]);
+    }
+
+    #[test]
+    fn a_call_that_fails_takes_its_turn() {
+        let actions = Arc::new(Actions::start());
+        assert_eq!(sent(&actions, 7, &[1]), [1]);
+        let failed: Result<(), &str> = actions.in_order(Order { run: 7, number: 2 }, || Err("not an action"));
+        assert!(failed.is_err());
+        let next = Instant::now();
+        assert_eq!(sent(&actions, 7, &[3]), [3]);
+        assert!(next.elapsed() < ORDER_WAIT, "not waited for");
     }
 
     #[test]
