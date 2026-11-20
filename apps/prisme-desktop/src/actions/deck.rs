@@ -148,6 +148,11 @@ pub fn set_jog_scratch(state: &AppState, deck: usize, on: bool) -> AppResult<()>
 /// next start.
 pub fn set_vinyl(state: &AppState, deck: usize, change: VinylChangeDto) -> AppResult<()> {
     AppState::deck_exists(deck)?;
+    if let VinylChangeDto::LeadIn(Some(s)) = change {
+        if !(s.is_finite() && s >= 0.0) {
+            return Err(AppError::Other(format!("a lead-in of {s} s: it is 0 or more")));
+        }
+    }
     let settings = change_vinyl(state, deck, |settings| change.apply(settings));
     send_deck(state, deck, &settings)
 }
@@ -458,6 +463,7 @@ mod tests {
         set_vinyl(&bench.state, 1, VinylChangeDto::Rpm(RpmDto::Rpm45)).unwrap();
         bench.press("deck2.vinyl.on", 1.0).unwrap();
         set_vinyl(&bench.state, 1, VinylChangeDto::LeadIn(Some(12.0))).unwrap();
+        assert!(set_vinyl(&bench.state, 1, VinylChangeDto::LeadIn(Some(-1.0))).is_err(), "before the record");
         let d = lock(&bench.state.decks)[1];
         assert_eq!(
             (d.vinyl_enabled, d.vinyl_mode, d.rpm, d.lead_in_s),

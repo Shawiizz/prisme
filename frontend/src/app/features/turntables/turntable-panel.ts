@@ -93,12 +93,12 @@ export class TurntablePanel {
     this.engine.setVinyl(this.deck(), { setting: 'rpm', value: rpm });
   }
 
-  /** Emptied, the record's own lead-in again. */
+  /** Emptied, the record's own lead-in again; the backend refuses one before the record. */
   setLeadIn(event: Event) {
     const value = (event.target as HTMLInputElement).value.trim();
     const seconds = Number(value);
     if (value === '') this.engine.setVinyl(this.deck(), { setting: 'leadIn', value: null });
-    else if (Number.isFinite(seconds) && seconds >= 0)
+    else if (Number.isFinite(seconds))
       this.engine.setVinyl(this.deck(), { setting: 'leadIn', value: seconds });
   }
 
