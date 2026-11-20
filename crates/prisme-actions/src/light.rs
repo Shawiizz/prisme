@@ -150,7 +150,7 @@ fn deck_light(deck: usize, action: DeckAction, view: &View) -> Option<Light> {
         DeckAction::RollBeats(Beats(beats)) => perform.roll == Some(beats),
         DeckAction::Slice(slice) => slice_playing(status, track, perform.slicer) == Some(slice),
         DeckAction::Cut(cut) => perform.cut == Some(cut),
-        DeckAction::EqKill(band) => settings.strip.kills[band_index(band)],
+        DeckAction::EqKill(band) | DeckAction::EqKillToggle(band) => settings.strip.kills[band_index(band)],
         DeckAction::FilterToggle => settings.strip.filter != 0.0,
         DeckAction::HeadphonesSolo => (0..view.decks_in_use).all(|d| view.decks[d].cue == (d == deck)),
         DeckAction::CrossfaderSide(side) => settings.side == side,

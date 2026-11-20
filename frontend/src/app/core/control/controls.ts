@@ -49,6 +49,11 @@ const KILL_LABEL: Record<Band, Text> = {
   mid: () => t('Kill the mids while held'),
   high: () => t('Kill the highs while held'),
 };
+const KILL_TOGGLE_LABEL: Record<Band, Text> = {
+  low: () => t('Kill the bass, or bring it back'),
+  mid: () => t('Kill the mids, or bring them back'),
+  high: () => t('Kill the highs, or bring them back'),
+};
 
 const SORT_LABEL: Record<'title' | 'artist' | 'bpm' | 'key', Text> = {
   title: () => t('Tracks by title'),
@@ -223,6 +228,7 @@ function deckControls(deck: number): Control[] {
     control(id('trim'), group, t('Gain'), 'fader'),
     ...BANDS.map((band) => control(id(`eq.${band}`), group, EQ_LABEL[band](), 'fader')),
     ...BANDS.map((band) => control(id(`eq.${band}.kill`), group, KILL_LABEL[band]())),
+    ...BANDS.map((band) => control(id(`eq.${band}.kill.toggle`), group, KILL_TOGGLE_LABEL[band]())),
     control(id('filter'), group, t('Filter'), 'fader'),
     ...switched(id('headphones'), group, t('Headphones (pre-listen)')),
     ...switched(id('mute'), group, t('Mute the channel')),
@@ -433,6 +439,8 @@ export function buildControls(): Control[] {
       'fader',
     ),
     control('mixer.crossfaderCurve.next', t('Mixer'), t('The other crossfader curve')),
+    control('mixer.crossfaderCurve.smooth', t('Mixer'), t('Smooth crossfader curve')),
+    control('mixer.crossfaderCurve.sharp', t('Mixer'), t('Sharp crossfader curve')),
     ...switched('mixer.crossfader.reverse', t('Mixer'), t('Crossfader sides swapped')),
     control('sampler.gain', t('Mixer'), t("Level of every deck's sampler"), 'fader'),
     control('main.clip', t('Mixer'), t('Light: the master past full scale'), 'light'),

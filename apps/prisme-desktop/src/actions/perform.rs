@@ -13,6 +13,7 @@ use prisme_actions::scales::{
     trim_gain, Tempo,
 };
 use prisme_actions::switch::Switch;
+use prisme_actions::view::band_index;
 use prisme_control::{
     AutoDjAction, Beats, DeckAction, DeckSwitch, Effect, FxAction, GeneralAction, Kind, LibraryAction,
     MixerAction, MixerSwitch, SampleAction, Target, FX_SLOTS,
@@ -151,6 +152,10 @@ impl Performing<'_> {
             DeckAction::Fx(slot, FxAction::Focus) => self.focus_fx(deck, slot),
             DeckAction::FxPart => fx::next_fx_part(state, deck),
             DeckAction::FilterToggle => self.toggle_filter(deck),
+            DeckAction::EqKillToggle(band) => {
+                let killed = lock(&state.decks)[deck].strip.kills[band_index(band)];
+                mixer::set_eq_kill(state, deck, band.into(), !killed)
+            }
             DeckAction::Tap => self.tap(deck),
             DeckAction::KeySync => self.sync_key(deck),
             DeckAction::Stem(part) => deck::toggle_stem(state, deck, part),
@@ -401,6 +406,12 @@ impl Performing<'_> {
                 let curve = if sharp { CrossfaderCurveDto::Smooth } else { CrossfaderCurveDto::Sharp };
                 mixer::set_crossfader_curve(state, curve)
             }
+            MixerAction::CrossfaderCurveSmooth => {
+                mixer::set_crossfader_curve(state, CrossfaderCurveDto::Smooth)
+            }
+            MixerAction::CrossfaderCurveSharp => {
+                mixer::set_crossfader_curve(state, CrossfaderCurveDto::Sharp)
+            }
             // switched by `perform`, or a light
             MixerAction::MicOn
             | MixerAction::AuxOn
@@ -432,6 +443,7 @@ impl Performing<'_> {
 mod tests {
     use crate::actions::bench::Bench;
     use crate::actions::Source;
+    use crate::dto::CrossfaderCurveDto;
     use crate::error::AppError;
     use crate::state::lock;
     use prisme_actions::input::Input;
@@ -508,6 +520,22 @@ mod tests {
                 })
                 .collect();
         assert_eq!(bends, [0.03, 0.0, -0.03, 0.0, 0.01, 0.0, -0.01, 0.0]);
+    }
+
+    #[test]
+    fn a_kill_toggled_and_a_curve_chosen_by_name_follow_the_settings() {
+        let bench = Bench::new();
+        let killed = || lock(&bench.state.decks)[1].strip.kills[2];
+        bench.press("deck2.eq.high.kill.toggle", 1.0).unwrap();
+        bench.press("deck2.eq.high.kill.toggle", 0.0).unwrap();
+        assert!(killed(), "on the press, kept on the release");
+        bench.press("deck2.eq.high.kill.toggle", 1.0).unwrap();
+        assert!(!killed());
+        let curve = || bench.state.preferences.read(|p| p.mixer.crossfader_curve);
+        bench.press("mixer.crossfaderCurve.sharp", 1.0).unwrap();
+        assert_eq!(curve(), CrossfaderCurveDto::Sharp);
+        bench.press("mixer.crossfaderCurve.smooth", 1.0).unwrap();
+        assert_eq!(curve(), CrossfaderCurveDto::Smooth);
     }
 
     #[test]

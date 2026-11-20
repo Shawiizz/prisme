@@ -1,4 +1,4 @@
-import { Injectable, computed, effect, inject, signal, untracked } from '@angular/core';
+import { Injectable, computed, inject } from '@angular/core';
 import {
   Band,
   ChannelStrip,
@@ -28,62 +28,78 @@ const LIVE_OFF: LiveState = {
 /**
  * Where the decks are heard: a hardware mixer, or the software mixer (channel strips,
  * faders, crossfader, the microphone and the aux line, master limiter and balance, booth)
- * and its headphones.
+ * and its headphones, as the backend tells them.
  */
 @Injectable({ providedIn: 'root' })
 export class MixerService {
   private readonly engine = inject(EngineService);
 
-  /** The knobs beside the channels, and the crossfader, as the backend shows them. */
-  readonly knobs = signal<MixerKnobs | null>(null, { equal: same });
-  /** The mode the user chose. */
-  readonly mode = signal<MixMode>('external');
-  /** Where the user wants the headphones: those of the software mixer, or with an external
-   * mixer those of the preview. */
-  readonly headphones = signal<HeadphonesOutput>({ kind: 'auto' }, { equal: same });
-  /** First output (0-based) of the headphones in use; `null` when they are not heard. With an
-   * external mixer, a pair no deck uses, for the preview alone. */
-  readonly headphonesInUse = signal<number | null>(null);
-  /** Headphones: the cue on the left and the master on the right, each in mono. */
-  readonly splitCue = signal(false);
-  readonly crossfaderCurve = signal<CrossfaderCurve>('smooth');
-  /** The crossfader's sides swapped: towards the left, the decks on the right come in. */
-  readonly crossfaderReverse = signal(false);
-  readonly limiter = signal(true);
-  /** First output (0-based) of the booth the DJ wants, and of the booth in use. */
-  readonly booth = signal<number | null>(null);
-  readonly boothInUse = signal<number | null>(null);
-  readonly mic = signal<LiveState>(LIVE_OFF, { equal: same });
-  readonly aux = signal<LiveState>(LIVE_OFF, { equal: same });
-  /** While the microphone is on, the music ducks by `talkoverDepthDb`. */
-  readonly talkover = signal(false);
-  readonly talkoverDepthDb = signal(-18);
-  /** What was recorded last: a recording started without asking takes it again. */
-  readonly recordSource = signal<RecordSource | null>(null, { equal: same });
-  /** The software mixer is in use. */
-  readonly internal = signal(false);
-  /** External mode asked for, but the device has too few outputs (it needs this many): the
-   * software mixer runs. */
-  readonly fallback = signal<number | null>(null);
-  /** The routing as the backend tells it: first outputs of the decks, the pairs the
-   * headphones and the booth can take and where they are heard. */
-  readonly routing = signal<Pick<
-    MixerState,
-    'deckOutputs' | 'headphonesChoices' | 'headphonesNote' | 'boothChoices' | 'boothNote'
-  > | null>(null, { equal: same });
-  /** What the Rec menu offers. */
-  readonly recordOptions = signal<MixerState['recordOptions']>([], { equal: same });
-
   /** The mixer as the backend last told it: the same while it tells other sections. */
   private readonly told = computed(() => this.engine.controls()?.mixer);
 
-  constructor() {
-    // what the backend changed, the routing the device it runs on lays out among it
-    effect(() => {
-      const mixer = this.told();
-      if (mixer) untracked(() => this.apply(mixer));
-    });
-  }
+  /** The knobs beside the channels, and the crossfader, as the backend shows them. */
+  readonly knobs = computed<MixerKnobs | null>(() => this.told()?.knobs ?? null, { equal: same });
+  /** The mode the user chose. */
+  readonly mode = computed<MixMode>(() => this.told()?.mode ?? 'external');
+  /** Where the user wants the headphones: those of the software mixer, or with an external
+   * mixer those of the preview. */
+  readonly headphones = computed<HeadphonesOutput>(
+    () => this.told()?.headphones ?? { kind: 'auto' },
+    { equal: same },
+  );
+  /** First output (0-based) of the headphones in use; `null` when they are not heard. With an
+   * external mixer, a pair no deck uses, for the preview alone. */
+  readonly headphonesInUse = computed(() => this.told()?.headphonesInUse ?? null);
+  /** Headphones: the cue on the left and the master on the right, each in mono. */
+  readonly splitCue = computed(() => this.told()?.splitCue ?? false);
+  readonly crossfaderCurve = computed<CrossfaderCurve>(
+    () => this.told()?.crossfaderCurve ?? 'smooth',
+  );
+  /** The crossfader's sides swapped: towards the left, the decks on the right come in. */
+  readonly crossfaderReverse = computed(() => this.told()?.crossfaderReverse ?? false);
+  readonly limiter = computed(() => this.told()?.limiter ?? true);
+  /** First output (0-based) of the booth the DJ wants, and of the booth in use. */
+  readonly booth = computed(() => this.told()?.booth ?? null);
+  readonly boothInUse = computed(() => this.told()?.boothInUse ?? null);
+  readonly mic = computed<LiveState>(() => this.told()?.mic ?? LIVE_OFF, { equal: same });
+  readonly aux = computed<LiveState>(() => this.told()?.aux ?? LIVE_OFF, { equal: same });
+  /** While the microphone is on, the music ducks by `talkoverDepthDb`. */
+  readonly talkover = computed(() => this.told()?.talkover ?? false);
+  readonly talkoverDepthDb = computed(() => this.told()?.talkoverDepthDb ?? 0);
+  /** What was recorded last: a recording started without asking takes it again. */
+  readonly recordSource = computed<RecordSource | null>(() => this.told()?.recordSource ?? null, {
+    equal: same,
+  });
+  /** The software mixer is in use. */
+  readonly internal = computed(() => this.told()?.internal ?? false);
+  /** External mode asked for, but the device has too few outputs (it needs this many): the
+   * software mixer runs. */
+  readonly fallback = computed(() => this.told()?.fallback ?? null);
+  /** The routing as the backend tells it: first outputs of the decks, the pairs the
+   * headphones and the booth can take and where they are heard. */
+  readonly routing = computed<Pick<
+    MixerState,
+    'deckOutputs' | 'headphonesChoices' | 'headphonesNote' | 'boothChoices' | 'boothNote'
+  > | null>(
+    () => {
+      const state = this.told();
+      return state
+        ? {
+            deckOutputs: state.deckOutputs,
+            headphonesChoices: state.headphonesChoices,
+            headphonesNote: state.headphonesNote,
+            boothChoices: state.boothChoices,
+            boothNote: state.boothNote,
+          }
+        : null;
+    },
+    { equal: same },
+  );
+  /** What the Rec menu offers. */
+  readonly recordOptions = computed<MixerState['recordOptions']>(
+    () => this.told()?.recordOptions ?? [],
+    { equal: same },
+  );
 
   /** The outputs of `deck` to an external mixer, counting from 1 (`3-4`). */
   outputsOf(deck: number): string {
@@ -91,35 +107,7 @@ export class MixerService {
     return `${first + 1}-${first + 2}`;
   }
 
-  apply(state: MixerState) {
-    this.knobs.set(state.knobs);
-    this.mode.set(state.mode);
-    this.internal.set(state.internal);
-    this.fallback.set(state.fallback);
-    this.routing.set({
-      deckOutputs: state.deckOutputs,
-      headphonesChoices: state.headphonesChoices,
-      headphonesNote: state.headphonesNote,
-      boothChoices: state.boothChoices,
-      boothNote: state.boothNote,
-    });
-    this.recordOptions.set(state.recordOptions);
-    this.headphones.set(state.headphones);
-    this.headphonesInUse.set(state.headphonesInUse);
-    this.booth.set(state.booth);
-    this.boothInUse.set(state.boothInUse);
-    this.mic.set(state.mic);
-    this.aux.set(state.aux);
-    this.splitCue.set(state.splitCue);
-    this.crossfaderCurve.set(state.crossfaderCurve);
-    this.crossfaderReverse.set(state.crossfaderReverse);
-    this.limiter.set(state.limiter);
-    this.talkover.set(state.talkover);
-    this.talkoverDepthDb.set(state.talkoverDepthDb);
-    this.recordSource.set(state.recordSource);
-  }
-
-  /** The mixer the DJ uses, the routing in use following (`apply`). */
+  /** The mixer the DJ uses, the routing in use following. */
   setMode(mode: MixMode) {
     return this.engine.call('set_mix_mode', { mode });
   }
@@ -223,9 +211,9 @@ export class MixerService {
     return this.engine.perform(`deck${deck + 1}.eq.${band}`, knob);
   }
 
-  /** `band` of `deck` killed, as its kill key held does, or back. */
-  setKill(deck: number, band: Band, kill: boolean) {
-    return this.engine.perform(`deck${deck + 1}.eq.${band}.kill`, kill ? 1 : 0);
+  /** `band` of `deck` killed, or back. */
+  toggleKill(deck: number, band: Band) {
+    return this.engine.perform(`deck${deck + 1}.eq.${band}.kill.toggle`, 1);
   }
 
   /** The filter of `deck`, where its knob stands (0 to 1). */
@@ -234,7 +222,7 @@ export class MixerService {
   }
 
   setCrossfaderCurve(curve: CrossfaderCurve) {
-    return this.engine.perform('mixer.crossfaderCurve', curve === 'sharp' ? 1 : 0);
+    return this.engine.perform(`mixer.crossfaderCurve.${curve}`, 1);
   }
 
   setCrossfaderReverse(enabled: boolean) {

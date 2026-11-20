@@ -261,6 +261,8 @@ actions! {
         StemLevel(StemPart),
         Eq(Band),
         EqKill(Band),
+        /// The band killed, or back.
+        EqKillToggle(Band),
         CrossfaderSide(Side),
         JumpBeats(Beats),
         LoopBeats(Beats),
@@ -282,7 +284,9 @@ actions! {
     /// What the mixer does, the samplers' level and the master's clip light among it.
     MixerAction {
         Button: MicOn = "mixer.mic.on", MicCue = "mixer.mic.cue", AuxOn = "mixer.aux.on",
-            AuxCue = "mixer.aux.cue", CrossfaderCurveNext = "mixer.crossfaderCurve.next";
+            AuxCue = "mixer.aux.cue", CrossfaderCurveNext = "mixer.crossfaderCurve.next",
+            CrossfaderCurveSmooth = "mixer.crossfaderCurve.smooth",
+            CrossfaderCurveSharp = "mixer.crossfaderCurve.sharp";
         Fader: Crossfader = "mixer.crossfader", CueMix = "mixer.cueMix", Balance = "mixer.balance",
             Booth = "mixer.booth", Mic = "mixer.mic", Aux = "mixer.aux",
             Headphones = "mixer.headphones", Main = "mixer.main",
@@ -604,6 +608,9 @@ impl DeckAction {
             return Some(DeckAction::StemLevel(part));
         }
         if let Some(band) = id.strip_prefix("eq.") {
+            if let Some(band) = band.strip_suffix(".kill.toggle") {
+                return Band::named(band).map(DeckAction::EqKillToggle);
+            }
             return match band.strip_suffix(".kill") {
                 Some(band) => Band::named(band).map(DeckAction::EqKill),
                 None => Band::named(band).map(DeckAction::Eq),
@@ -657,6 +664,7 @@ impl fmt::Display for DeckAction {
             DeckAction::StemLevel(part) => write!(f, "{}.level", part.id()),
             DeckAction::Eq(band) => write!(f, "eq.{}", band.id()),
             DeckAction::EqKill(band) => write!(f, "eq.{}.kill", band.id()),
+            DeckAction::EqKillToggle(band) => write!(f, "eq.{}.kill.toggle", band.id()),
             DeckAction::CrossfaderSide(side) => write!(f, "crossfader.{}", side.id()),
             DeckAction::JumpBeats(Beats(beats)) => write!(f, "jump.{beats}"),
             DeckAction::LoopBeats(Beats(beats)) => write!(f, "loop.{beats}"),
@@ -728,7 +736,7 @@ mod tests {
             deck.extend([DeckAction::Stem(*part), DeckAction::StemLevel(*part)]);
         }
         for band in Band::NAMED {
-            deck.extend([DeckAction::Eq(*band), DeckAction::EqKill(*band)]);
+            deck.extend([DeckAction::Eq(*band), DeckAction::EqKill(*band), DeckAction::EqKillToggle(*band)]);
         }
         deck.extend(Side::NAMED.iter().map(|s| DeckAction::CrossfaderSide(*s)));
         let mut all: Vec<Target> =

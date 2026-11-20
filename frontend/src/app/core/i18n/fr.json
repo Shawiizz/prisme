@@ -974,5 +974,10 @@
   "The aux line has one of these inputs": "La ligne aux a l’une de ces entrées",
   "the disk is full": "le disque est plein",
   "the file could not be written": "le fichier n’a pas pu être écrit",
-  "the recording stopped unexpectedly": "l’enregistrement s’est arrêté de lui-même"
+  "the recording stopped unexpectedly": "l’enregistrement s’est arrêté de lui-même",
+  "Kill the bass, or bring it back": "Couper les basses, ou les rétablir",
+  "Kill the mids, or bring them back": "Couper les médiums, ou les rétablir",
+  "Kill the highs, or bring them back": "Couper les aigus, ou les rétablir",
+  "Smooth crossfader curve": "Courbe douce du crossfader",
+  "Sharp crossfader curve": "Courbe franche du crossfader"
 }

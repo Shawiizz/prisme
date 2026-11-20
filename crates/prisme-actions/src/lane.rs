@@ -65,6 +65,7 @@ fn kept_by_the_deck(action: DeckAction) -> bool {
         | DeckAction::FilterToggle
         | DeckAction::Eq(_)
         | DeckAction::EqKill(_)
+        | DeckAction::EqKillToggle(_)
         | DeckAction::Fx(..)
         | DeckAction::FxKnob(_)
         | DeckAction::FxSuper

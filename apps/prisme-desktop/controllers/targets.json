@@ -1230,6 +1230,24 @@
   "kind": "button"
  },
  {
+  "id": "deck1.eq.low.kill.toggle",
+  "group": "Deck A",
+  "label": "Kill the bass, or bring it back",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.eq.mid.kill.toggle",
+  "group": "Deck A",
+  "label": "Kill the mids, or bring them back",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.eq.high.kill.toggle",
+  "group": "Deck A",
+  "label": "Kill the highs, or bring them back",
+  "kind": "button"
+ },
+ {
   "id": "deck1.filter",
   "group": "Deck A",
   "label": "Filter",
@@ -3345,6 +3363,24 @@
   "id": "deck2.eq.high.kill",
   "group": "Deck B",
   "label": "Kill the highs while held",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.eq.low.kill.toggle",
+  "group": "Deck B",
+  "label": "Kill the bass, or bring it back",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.eq.mid.kill.toggle",
+  "group": "Deck B",
+  "label": "Kill the mids, or bring them back",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.eq.high.kill.toggle",
+  "group": "Deck B",
+  "label": "Kill the highs, or bring them back",
   "kind": "button"
  },
  {
@@ -5466,6 +5502,24 @@
   "kind": "button"
  },
  {
+  "id": "deck3.eq.low.kill.toggle",
+  "group": "Deck C",
+  "label": "Kill the bass, or bring it back",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.eq.mid.kill.toggle",
+  "group": "Deck C",
+  "label": "Kill the mids, or bring them back",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.eq.high.kill.toggle",
+  "group": "Deck C",
+  "label": "Kill the highs, or bring them back",
+  "kind": "button"
+ },
+ {
   "id": "deck3.filter",
   "group": "Deck C",
   "label": "Filter",
@@ -7584,6 +7638,24 @@
   "kind": "button"
  },
  {
+  "id": "deck4.eq.low.kill.toggle",
+  "group": "Deck D",
+  "label": "Kill the bass, or bring it back",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.eq.mid.kill.toggle",
+  "group": "Deck D",
+  "label": "Kill the mids, or bring them back",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.eq.high.kill.toggle",
+  "group": "Deck D",
+  "label": "Kill the highs, or bring them back",
+  "kind": "button"
+ },
+ {
   "id": "deck4.filter",
   "group": "Deck D",
   "label": "Filter",
@@ -8829,6 +8901,18 @@
   "id": "mixer.crossfaderCurve.next",
   "group": "Mixer",
   "label": "The other crossfader curve",
+  "kind": "button"
+ },
+ {
+  "id": "mixer.crossfaderCurve.smooth",
+  "group": "Mixer",
+  "label": "Smooth crossfader curve",
+  "kind": "button"
+ },
+ {
+  "id": "mixer.crossfaderCurve.sharp",
+  "group": "Mixer",
+  "label": "Sharp crossfader curve",
   "kind": "button"
  },
  {

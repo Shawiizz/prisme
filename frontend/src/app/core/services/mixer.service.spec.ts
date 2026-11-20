@@ -6,17 +6,15 @@ import { MixerService } from './mixer.service';
 import { PerformanceService } from './performance.service';
 
 describe('MixerService', () => {
-  it('applies the mixer the backend tells, not again as it tells other sections', () => {
+  it('shows the mixer the backend tells, the same as it tells other sections', () => {
     const engine = TestBed.inject(EngineService);
     const mixer = TestBed.inject(MixerService);
-    const apply = vi.spyOn(mixer, 'apply').mockImplementation(() => undefined);
-    const told = { mixer: {} as MixerState } as ControlState;
+    const told = { mixer: { limiter: false, mic: { on: true } } as MixerState } as ControlState;
     engine.controls.set(told);
-    TestBed.tick();
+    const mic = mixer.mic();
+    expect([mixer.limiter(), mic.on]).toEqual([false, true]);
     engine.controls.set({ ...told, loading: [true, false, false, false] });
-    TestBed.tick();
-    expect(apply).toHaveBeenCalledTimes(1);
-    vi.restoreAllMocks();
+    expect(mixer.mic()).toBe(mic);
   });
 });
 
@@ -44,7 +42,7 @@ describe('the screen', () => {
       ['mixer.headphones', 0.8],
       ['mixer.aux.on', 1],
       ['deck1.headphones.off', 1],
-      ['mixer.crossfaderCurve', 1],
+      ['mixer.crossfaderCurve.sharp', 1],
       ['deck2.fx.chain.on', 1],
       ['deck1.loop.halve', 1],
       ['deck2.jump.-4', 1],

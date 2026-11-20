@@ -108,6 +108,6 @@ export class ChannelStrip {
   }
 
   protected toggleKill(band: Band) {
-    this.mixer.setKill(this.deck(), band, !this.killed(band));
+    this.mixer.toggleKill(this.deck(), band);
   }
 }
