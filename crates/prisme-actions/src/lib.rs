@@ -12,6 +12,7 @@ pub mod perform;
 pub mod position;
 pub mod press;
 pub mod scales;
+pub mod screen;
 pub mod stems;
 pub mod switch;
 pub mod sync;

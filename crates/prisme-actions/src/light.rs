@@ -12,6 +12,7 @@ use prisme_control::{
     Target, Turn,
 };
 use prisme_engine::DeckStatus;
+use serde::Serialize;
 
 /// The share of a beat its light shows, from its start.
 const BEAT_LIT: f64 = 0.25;
@@ -26,7 +27,8 @@ const SAME_BPM: f64 = 0.01;
 const IN_PHASE: f64 = 0.03;
 
 /// The state a light shows.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "lowercase")]
 pub enum State {
     On,
     Off,
@@ -197,7 +199,8 @@ fn slice_playing(status: &DeckStatus, track: Option<&TrackView>, slicer: Option<
     slice_at(slicer?, status.position_s, beat_s).filter(|_| status.loaded)
 }
 
-fn ending(status: &DeckStatus) -> State {
+/// The end of the track of a deck at `status` near, or soon, while it plays.
+pub(crate) fn ending(status: &DeckStatus) -> State {
     let left = status.duration_s - status.position_s;
     if !status.playing || status.duration_s <= 0.0 || left >= ENDING_S {
         State::Off

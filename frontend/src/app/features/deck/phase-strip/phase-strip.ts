@@ -111,7 +111,11 @@ export class PhaseStrip {
     this.showing
       .with(this.engine.tracks()[deck]?.tempo)
       .with(this.engine.livePosition(deck))
-      .with(this.engine.tempoRate(deck));
+      .with(this.rate(deck));
+  }
+
+  private rate(deck: number): number {
+    return this.engine.status()?.decks[deck]?.rate ?? 1;
   }
 
   /** The beats of `deck` around its playhead, between `top` and `bottom`. */
@@ -126,7 +130,7 @@ export class PhaseStrip {
     const tempo = this.engine.tracks()[deck]?.tempo;
     const position = this.engine.livePosition(deck);
     if (!tempo || position === null) return;
-    const span = ZOOM_SPAN_S * (this.engine.tempoRate(deck) ?? 1);
+    const span = ZOOM_SPAN_S * this.rate(deck);
     const period = 60 / tempo.bpm;
     const from = position - span / 2;
     const first = Math.max(0, Math.ceil((from - tempo.firstBeatS) / period));

@@ -94,7 +94,7 @@ fn tracklist_csv(plays: &[HistoryPlay], format: CsvFormat) -> String {
                 .and_then(|a| a.tempo)
                 .map(|t| format!("{:.1}", t.bpm).replace('.', &format.decimal.to_string()))
                 .unwrap_or_default(),
-            analysis.and_then(|a| a.key).map(|k| k.key.camelot()).unwrap_or_default(),
+            analysis.and_then(|a| a.key).map(|k| k.key.camelot().to_string()).unwrap_or_default(),
             p.path.clone(),
         ];
         let line: Vec<String> = fields.iter().map(|f| csv_field(f, format.separator)).collect();

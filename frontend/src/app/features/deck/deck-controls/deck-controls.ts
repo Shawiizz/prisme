@@ -1,7 +1,6 @@
 import { Component, DestroyRef, computed, inject, input } from '@angular/core';
 import { deckTempo } from '../../../core/deck-tempo';
 import { EngineService } from '../../../core/services/engine.service';
-import { PreferencesService } from '../../../core/services/preferences.service';
 import { formatPitch } from '../../../shared/time';
 import { t } from '../../../core/i18n/i18n';
 import { TPipe } from '../../../core/i18n/t.pipe';
@@ -28,7 +27,6 @@ export class DeckControls {
   readonly deck = input.required<number>();
 
   protected readonly engine = inject(EngineService);
-  private readonly preferences = inject(PreferencesService);
   private readonly tempo = deckTempo(this.deck);
   protected readonly status = this.tempo.status;
   protected readonly settings = this.tempo.settings;
@@ -44,31 +42,28 @@ export class DeckControls {
   protected readonly separate = this.stemsOf.separate;
   protected readonly percent = readouts.percent;
 
-  private readonly absolute = computed(
-    () => this.vinyl() && this.settings().vinylMode === 'absolute',
+  private readonly syncKey = computed(() => this.status()?.sync.key ?? 'noGrid');
+  protected readonly canSync = computed(
+    () => this.syncKey() === 'lock' || this.syncKey() === 'once',
   );
-
-  protected readonly canSync = computed(() => {
-    const s = this.status();
-    return !!s?.loaded && s.bpm !== null && !this.absolute();
-  });
   protected readonly syncTitle = computed(() => {
-    if (this.absolute()) return t('Sync needs relative mode or internal play');
-    if (this.status()?.bpm == null) return t('No beat grid');
-    const once = this.vinyl() && this.preferences.dj().vinylSync === 'once';
-    return once
-      ? t('Match the tempo and beats once')
-      : t('Tap: lock to the leader · hold: match its tempo and beats once');
+    switch (this.syncKey()) {
+      case 'absolute':
+        return t('Sync needs relative mode or internal play');
+      case 'noGrid':
+        return t('No beat grid');
+      case 'once':
+        return t('Match the tempo and beats once');
+      case 'lock':
+        return t('Tap: lock to the leader · hold: match its tempo and beats once');
+    }
   });
   private syncHold: ReturnType<typeof setTimeout> | null = null;
 
   protected readonly pitchText = computed(() => formatPitch(this.tempo.rate()));
   /** On a record not locked by sync: the pitch to set on the turntable to match the other
    * deck. */
-  protected readonly pitchTarget = computed(() => {
-    const target = this.tempo.target();
-    return target === null ? null : formatPitch(target);
-  });
+  protected readonly pitchTarget = this.tempo.toMatch;
 
   constructor() {
     inject(DestroyRef).onDestroy(() => this.syncCancel());

@@ -79,6 +79,11 @@ impl Default for KeyConfig {
 
 const MAJOR_NAMES: [&str; 12] = ["C", "Db", "D", "Eb", "E", "F", "F#", "G", "Ab", "A", "Bb", "B"];
 const MINOR_NAMES: [&str; 12] = ["Cm", "C#m", "Dm", "Ebm", "Em", "Fm", "F#m", "Gm", "G#m", "Am", "Bbm", "Bm"];
+/// The Camelot codes by wheel number (1 first), minor then major.
+const CAMELOT: [[&str; 12]; 2] = [
+    ["1A", "2A", "3A", "4A", "5A", "6A", "7A", "8A", "9A", "10A", "11A", "12A"],
+    ["1B", "2B", "3B", "4B", "5B", "6B", "7B", "8B", "9B", "10B", "11B", "12B"],
+];
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Mode {
@@ -129,12 +134,12 @@ impl Key {
     }
 
     /// "8A" (minor) or "8B" (major).
-    pub fn camelot(&self) -> String {
-        let letter = match self.mode {
-            Mode::Major => 'B',
-            Mode::Minor => 'A',
+    pub fn camelot(&self) -> &'static str {
+        let codes = match self.mode {
+            Mode::Major => &CAMELOT[1],
+            Mode::Minor => &CAMELOT[0],
         };
-        format!("{}{}", self.camelot_number(), letter)
+        codes[usize::from(self.camelot_number()) - 1]
     }
 
     /// The key of a Camelot code ("8A", "12B").
@@ -365,7 +370,7 @@ mod tests {
         let all: Vec<Key> = Key::all().collect();
         assert_eq!(all.len(), 24);
         for key in all {
-            assert_eq!(Key::from_camelot(&key.camelot()), Some(key));
+            assert_eq!(Key::from_camelot(key.camelot()), Some(key));
         }
     }
 
@@ -426,7 +431,7 @@ mod tests {
 
     #[test]
     fn every_key_has_its_own_camelot_code() {
-        let mut codes: Vec<String> = (0..12)
+        let mut codes: Vec<&str> = (0..12)
             .flat_map(|t| [Key::new(t, Mode::Major), Key::new(t, Mode::Minor)])
             .map(|k| k.camelot())
             .collect();

@@ -293,7 +293,7 @@ export class DeckWaveform {
   /** Seconds of the track shown in the scrolling view: ZOOM_SPAN_S of real time, so that
    * beatmatched decks show their beats at the same spacing. */
   private zoomSpan(): number {
-    return ZOOM_SPAN_S * (this.engine.tempoRate(this.deck()) ?? 1);
+    return ZOOM_SPAN_S * (this.engine.status()?.decks[this.deck()]?.rate ?? 1);
   }
 
   private draw() {

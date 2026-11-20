@@ -1,8 +1,8 @@
 import { Component, computed, inject, input, output, signal, viewChild } from '@angular/core';
 import { closedByBack } from '../../core/back';
 import { deckTempo } from '../../core/deck-tempo';
-import { DeckMode, deckVinyl } from '../../core/deck-vinyl';
-import { Band } from '../../core/models/engine';
+import { deckVinyl } from '../../core/deck-vinyl';
+import { Band, DeckMode } from '../../core/models/engine';
 import { EngineService } from '../../core/services/engine.service';
 import { MixerService } from '../../core/services/mixer.service';
 import { Text, t } from '../../core/i18n/i18n';

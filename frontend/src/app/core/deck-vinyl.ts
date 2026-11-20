@@ -1,5 +1,5 @@
 import { Signal, computed, inject } from '@angular/core';
-import { SignalState, VinylMode } from './models/engine';
+import { DeckMode, SignalState } from './models/engine';
 import { EngineService } from './services/engine.service';
 import { SettingsService } from './services/settings.service';
 import { Text, t } from './i18n/i18n';
@@ -15,10 +15,6 @@ const SIGNAL_TITLE: Record<SignalState, string> = {
     return t('Timecode signal locked');
   },
 };
-
-/** Who drives the deck: itself (INT), the record in relative or absolute mode, or no one: it
- * plays its input as it comes (THRU, a real record or a CD player). */
-export type DeckMode = 'int' | VinylMode | 'thru';
 
 export const DECK_MODES: readonly { id: DeckMode; label: string; title: Text }[] = [
   {
@@ -53,11 +49,7 @@ export function deckVinyl(deck: Signal<number>) {
   const vinyl = computed(() => engine.status()?.decks[deck()]?.vinyl ?? null);
   const settings = computed(() => engine.decks()[deck()]);
   /** After the end of the record the deck plays on by itself until handed back. */
-  const mode = computed<DeckMode>(() => {
-    const { vinylEnabled, vinylMode, passthrough } = settings();
-    if (passthrough) return 'thru';
-    return vinylEnabled && !vinyl()?.runOut ? vinylMode : 'int';
-  });
+  const mode = computed<DeckMode>(() => engine.status()?.decks[deck()]?.mode ?? 'int');
   /** Records can be chosen to drive it: turntables are plugged, or it is still handed to
    * one. */
   const offered = computed(() => audio.turntables() || mode() !== 'int');

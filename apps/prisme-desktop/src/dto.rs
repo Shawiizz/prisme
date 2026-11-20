@@ -7,10 +7,11 @@ use crate::state::{lock, AppState, LoadedTrack, Section};
 use prisme_actions::pads::playing_loop;
 use prisme_actions::perform::DeckPerform;
 pub use prisme_actions::stems::{Separation as SeparationDto, StemMix as StemMixDto};
+use prisme_actions::view::View;
+use prisme_actions::{light, screen};
 use prisme_audio_io::{Backend, StreamStats};
 use prisme_engine::{
-    DeckStatus, EngineStatus, InputChannels, LiveSource, LoopStatus, MixMode, Rpm, StemTracks, VinylMode,
-    FX_SLOTS, MAX_DECKS,
+    InputChannels, LiveSource, LoopStatus, MixMode, Rpm, StemTracks, VinylMode, FX_SLOTS, MAX_DECKS,
 };
 use prisme_library::{Cue, CueSlot};
 use prisme_timecode::{SignalState, TimecodeFormat};
@@ -544,18 +545,24 @@ impl From<&prisme_analysis::Tempo> for TempoDto {
     }
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct KeyDto {
     /// "Am", "F#"...
     pub name: &'static str,
     /// "8A", "2B"...
-    pub camelot: String,
+    pub camelot: &'static str,
+}
+
+impl From<prisme_analysis::Key> for KeyDto {
+    fn from(key: prisme_analysis::Key) -> Self {
+        Self { name: key.name(), camelot: key.camelot() }
+    }
 }
 
 impl From<&prisme_analysis::KeyEstimate> for KeyDto {
     fn from(k: &prisme_analysis::KeyEstimate) -> Self {
-        Self { name: k.key.name(), camelot: k.key.camelot() }
+        k.key.into()
     }
 }
 
@@ -798,8 +805,8 @@ pub struct DeckSettingsDto {
     pub key_lock: bool,
     /// Software mixer: the channel fader starts and stops the deck.
     pub fader_start: bool,
-    /// The range of its tempo fader, if it has one of its own.
-    pub pitch_range: Option<f64>,
+    /// The range of its tempo fader: its own, else the general one.
+    pub tempo_range: f64,
     pub strip: ChannelStripDto,
     pub fx: FxChainDto,
     /// Name of the sound in each sampler slot.
@@ -992,11 +999,13 @@ pub struct VinylDto {
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SyncDto {
-    pub locked: bool,
+    pub state: screen::Sync,
     pub leader: bool,
-    pub rate_offset: f64,
+    /// What its SYNC key does.
+    pub key: screen::SyncKey,
 }
 
+/// A deck as the engine has it and the screen shows it at a frame.
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct DeckStatusDto {
@@ -1005,9 +1014,28 @@ pub struct DeckStatusDto {
     pub position_s: f64,
     pub duration_s: f64,
     pub speed: f64,
+    /// The rate it plays at: its tempo, gestures excluded, or its fader's without a track.
+    pub rate: f64,
+    /// Its tempo, gestures excluded (needs a beat grid).
     pub bpm: Option<f64>,
     pub beat_phase: Option<f64>,
+    pub heard_key: Option<KeyDto>,
+    pub mixed_with: usize,
+    /// The DJ hears or holds its track: a load would replace it.
+    pub plays: bool,
+    pub remaining_s: Option<f64>,
+    /// The end of its track near (on), or soon.
+    pub ending: light::State,
+    /// Who drives it.
+    pub mode: screen::Drive,
+    pub tempo: screen::TempoFader,
     pub sync: SyncDto,
+    /// Its loops, jumps and pads may move its track.
+    pub can_move: bool,
+    /// Its grid may move onto the beats of the deck it is mixed with.
+    pub can_align_grid: bool,
+    /// Its key may be moved to mix with the one heard on the deck it is mixed with.
+    pub can_sync_key: bool,
     pub looping: LoopDto,
     pub peak: f32,
     pub cue: bool,
@@ -1049,17 +1077,31 @@ impl From<LoopStatus> for LoopDto {
     }
 }
 
-impl From<&DeckStatus> for DeckStatusDto {
-    fn from(d: &DeckStatus) -> Self {
+impl DeckStatusDto {
+    /// `deck` as `view` shows it.
+    fn of(view: &View, deck: usize) -> Self {
+        let d = view.deck_status(deck);
+        let shown = screen::deck(view, deck);
         Self {
             loaded: d.loaded,
             playing: d.playing,
             position_s: d.position_s,
             duration_s: d.duration_s,
             speed: d.speed,
+            rate: shown.rate,
             bpm: d.bpm,
             beat_phase: d.beat_phase,
-            sync: SyncDto { locked: d.sync.locked, leader: d.sync.leader, rate_offset: d.sync.rate_offset },
+            heard_key: shown.heard_key.map(KeyDto::from),
+            mixed_with: shown.mixed_with,
+            plays: shown.plays,
+            remaining_s: shown.remaining_s,
+            ending: shown.ending,
+            mode: shown.drive,
+            tempo: shown.tempo,
+            sync: SyncDto { state: shown.sync, leader: d.sync.leader, key: shown.sync_key },
+            can_move: shown.can_move,
+            can_align_grid: shown.can_align_grid,
+            can_sync_key: shown.can_sync_key,
             looping: d.looping.into(),
             peak: d.peak,
             cue: d.cue,
@@ -1270,18 +1312,22 @@ impl From<&StreamStats> for AudioHealthDto {
 }
 
 impl StatusDto {
-    pub fn from_engine(s: &EngineStatus, stats: &StreamStats, sample_rate: u32) -> Self {
-        let health = AudioHealthDto::from(stats);
+    /// What `view` shows, its engine running a stream of `stats` at `sample_rate` (none: the
+    /// audio is off): the decks in use.
+    pub fn of(view: &View, stream: Option<(&StreamStats, u32)>) -> Self {
+        let s = &view.status;
+        let health = stream.map(|(stats, _)| AudioHealthDto::from(stats));
+        let sample_rate = stream.map_or(1.0, |(_, rate)| f64::from(rate));
         Self {
-            audio_running: !health.device_lost,
-            decks: s.decks[..s.deck_count].iter().map(DeckStatusDto::from).collect(),
+            audio_running: health.as_ref().is_some_and(|h| !h.device_lost),
+            decks: (0..view.decks_in_use).map(|d| DeckStatusDto::of(view, d)).collect(),
             main_peak: s.main_peak,
             mic_peak: s.mic_peak,
             aux_peak: s.aux_peak,
-            health: Some(health),
+            health,
             recording: s.recording.map(|r| RecordingStatusDto {
-                seconds: r.frames as f64 / sample_rate as f64,
-                dropped_seconds: r.dropped as f64 / sample_rate as f64,
+                seconds: r.frames as f64 / sample_rate,
+                dropped_seconds: r.dropped as f64 / sample_rate,
             }),
             preview: s.preview.map(|p| PreviewStatusDto {
                 id: p.id,
@@ -1289,20 +1335,6 @@ impl StatusDto {
                 duration_s: p.duration_s,
                 waiting: p.waiting,
             }),
-            controls: None,
-        }
-    }
-
-    pub fn stopped() -> Self {
-        Self {
-            audio_running: false,
-            decks: Vec::new(),
-            main_peak: 0.0,
-            mic_peak: 0.0,
-            aux_peak: 0.0,
-            health: None,
-            recording: None,
-            preview: None,
             controls: None,
         }
     }

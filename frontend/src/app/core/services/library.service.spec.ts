@@ -21,6 +21,9 @@ describe('LibraryService', () => {
     };
     mockIPC((command) => (command === 'list_dir' ? listing : undefined));
     const engine = TestBed.inject(EngineService);
+    engine.decks.set(
+      [0, 1].map(() => ({ volume: 1, keyLock: false, tempoRange: 0.08 }) as DeckSettings),
+    );
     const library = TestBed.inject(LibraryService);
     await library.open('/music');
     library.sortBy('mix');
@@ -31,7 +34,7 @@ describe('LibraryService', () => {
       engine.decks.update((decks) => decks.map((d, i) => (i === 1 ? { ...d, ...changes } : d)));
     change({ volume: 0.5 });
     expect(library.visibleTracks()).toBe(sorted);
-    change({ pitchRange: 0.5 });
+    change({ tempoRange: 0.5 });
     expect(library.visibleTracks()).not.toBe(sorted);
   });
 

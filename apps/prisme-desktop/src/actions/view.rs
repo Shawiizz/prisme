@@ -4,14 +4,14 @@
 
 use super::Performing;
 use crate::dto::{CrossfaderCurveDto, CrossfaderSideDto, FxDto, LiveSourceDto};
-use crate::preferences::MixerPreferences;
+use crate::preferences::{MixerPreferences, VinylSync};
 use crate::sampler::LoadedSample;
 use crate::state::{live_preferences, lock, AppState, DeckSettings, LiveSwitches, LoadedTrack};
 use prisme_actions::input::Faders;
 use prisme_actions::perform::Memory;
 use prisme_actions::view::{DeckView, FxChain, FxSlot, Live, MixerView, Sees, Strip, TrackView, View};
 use prisme_control::{HOT_CUES, SAMPLE_SLOTS};
-use prisme_engine::DeckStatus;
+use prisme_engine::{DeckStatus, EngineStatus};
 use prisme_library::CueSlot;
 use std::sync::Mutex;
 
@@ -22,9 +22,22 @@ pub fn view_of(state: &AppState, auto_dj: bool, memory: &Mutex<Memory>, now_s: f
         .as_mut()
         .map(|s| (s.controller.status(), Some(s.info.layout())))
         .unwrap_or_default();
-    let (decks_in_use, quantize, ranges, mixer) = state.preferences.read(|p| {
+    view_with(state, status, layout, auto_dj, memory, now_s)
+}
+
+/// [`view_of`] with the engine at `status`, its device laying the decks out as `layout` says
+/// (none: the audio is off).
+pub fn view_with(
+    state: &AppState,
+    status: EngineStatus,
+    layout: Option<(usize, usize)>,
+    auto_dj: bool,
+    memory: &Mutex<Memory>,
+    now_s: f64,
+) -> View {
+    let (decks_in_use, quantize, sync_once_on_records, ranges, mixer) = state.preferences.read(|p| {
         let ranges: [f64; prisme_engine::MAX_DECKS] = std::array::from_fn(|d| p.tempo_range(d));
-        (p.dj.decks(), p.dj.quantize, ranges, p.mixer)
+        (p.dj.decks(), p.dj.quantize, p.dj.vinyl_sync == VinylSync::Once, ranges, p.mixer)
     });
     let (clipping, faders) = {
         let mut memory = lock(memory);
@@ -37,7 +50,18 @@ pub fn view_of(state: &AppState, auto_dj: bool, memory: &Mutex<Memory>, now_s: f
     let mixer = mixer_view(&mixer, *lock(&state.live), *lock(&state.crossfader));
     let preview_opening = lock(&state.preview).opening.is_some();
     let decks = std::array::from_fn(|d| deck_view(d, &settings[d], ranges[d], samples[d], tracks[d]));
-    View { decks_in_use, status, decks, mixer, quantize, auto_dj, preview_opening, perform, faders }
+    View {
+        decks_in_use,
+        status,
+        decks,
+        mixer,
+        quantize,
+        auto_dj,
+        preview_opening,
+        sync_once_on_records,
+        perform,
+        faders,
+    }
 }
 
 /// What a move reads, as it reads it: the settings of a deck as it shows them (a turntable
@@ -101,6 +125,7 @@ fn deck_view(
         key_lock: d.key_lock,
         fader_start: d.fader_start,
         vinyl: d.vinyl_enabled,
+        vinyl_mode: d.vinyl_mode.into(),
         jog_scratch: d.jog_scratch,
         repeat: d.repeat,
         mute: d.mute,
@@ -149,8 +174,10 @@ fn track_view(track: &LoadedTrack) -> TrackView {
             }
         }
     }
+    let analysis = track.analysis();
     TrackView {
-        bpm: track.grid().map(|g| g.bpm),
+        bpm: analysis.tempo.map(|t| t.bpm),
+        key: analysis.key.map(|k| k.key),
         key_shift: track.key_shift,
         separation: track.separation(),
         stem_mix: track.stem_mix,

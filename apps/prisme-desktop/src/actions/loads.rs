@@ -9,13 +9,12 @@ use crate::error::{AppError, AppResult};
 use crate::preview::Previews;
 use crate::state::lock;
 use crate::track_loading;
+use prisme_actions::view::plays;
 use prisme_control::{DeckAction, LibraryAction, Target};
-use prisme_engine::{Command, DeckStatus};
+use prisme_engine::Command;
 use std::path::PathBuf;
 use tauri::{Manager, State};
 
-/// Slower than this, a deck under its record is still: a hand holding it, the record stopped.
-const MOVING_SPEED: f64 = 0.05;
 /// How far a step of an encoder moves the preview (s).
 const PREVIEW_STEP_S: f64 = 4.0;
 
@@ -24,11 +23,6 @@ const PREVIEW_STEP_S: f64 = 4.0;
 #[tauri::command]
 pub fn set_library_selection(actions: State<'_, Actions>, path: Option<String>, applied: Option<u64>) {
     actions.select(path.map(PathBuf::from), applied);
-}
-
-/// Whether the DJ hears or holds the track of a deck: it plays, or moves under its record.
-fn plays(status: &DeckStatus) -> bool {
-    status.loaded && (status.playing || status.speed.abs() >= MOVING_SPEED)
 }
 
 impl Performing<'_> {

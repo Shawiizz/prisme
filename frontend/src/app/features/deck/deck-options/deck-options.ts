@@ -188,7 +188,7 @@ export class DeckOptions {
   protected readonly mixer = inject(MixerService);
   protected readonly PHONE = PHONE;
   protected readonly ranges = PITCH_RANGES;
-  protected readonly range = computed(() => this.engine.tempoRange(this.deck()));
+  protected readonly range = computed(() => this.engine.decks()[this.deck()].tempoRange);
   protected readonly settings = computed(() => this.engine.decks()[this.deck()]);
   protected readonly reversed = computed(
     () => this.engine.status()?.decks[this.deck()]?.reverse ?? false,

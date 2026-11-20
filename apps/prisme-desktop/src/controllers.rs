@@ -1743,6 +1743,7 @@ mod tests {
         hot_cues[0] = Some(colour);
         view.decks[deck].track = Some(prisme_actions::view::TrackView {
             bpm: None,
+            key: None,
             key_shift: 0,
             separation: prisme_actions::stems::Separation::None,
             stem_mix: Default::default(),

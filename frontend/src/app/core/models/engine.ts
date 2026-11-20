@@ -28,11 +28,38 @@ export interface VinylStatus {
   recordPositionS: number | null;
 }
 
+/** Who drives a deck: itself (INT), its record in relative or absolute mode, or no one: it
+ * plays its input as it comes (THRU, a real record or a CD player). */
+export type DeckMode = 'int' | VinylMode | 'thru';
+
+/** A deck's sync: off, matched once on a record, or locked to the leader. */
+export type SyncState = 'off' | 'matched' | 'locked';
+
+/** What a deck's SYNC key does: lock (held: match once), match once, or nothing for want of a
+ * beat grid or because its record holds the place. */
+export type SyncKey = 'lock' | 'once' | 'noGrid' | 'absolute';
+
 export interface SyncStatus {
-  locked: boolean;
+  state: SyncState;
   leader: boolean;
-  /** Relative vinyl: factor a one-shot sync applies to the platter speed. */
-  rateOffset: number;
+  key: SyncKey;
+}
+
+/** A light's state, as the controllers' lights have it. */
+export type LightState = 'on' | 'off' | 'paused' | 'loaded' | 'playing' | 'soon';
+
+/** A deck's tempo fader as shown. */
+export interface TempoFader {
+  /** It does not set the tempo: a record does, or sync. */
+  held: boolean;
+  /** The tempo it shows, as a rate: the one played while held, else its own. */
+  ratio: number;
+  /** Where it stands, 0 to 1. */
+  position: number;
+  /** On a record not locked by sync: the rate matching the deck it follows. */
+  matching: number | null;
+  /** Where that rate is along the fader, within its range. */
+  matchingAt: number | null;
 }
 
 export interface LoopStatus {
@@ -51,11 +78,31 @@ export interface DeckStatus {
   positionS: number;
   durationS: number;
   speed: number;
+  /** The rate it plays at: its tempo, gestures excluded, or its fader's without a track. */
+  rate: number;
   /** Current tempo, gestures excluded (`null` without a beat grid). */
   bpm: number | null;
   /** Position within the current beat, 0..1. */
   beatPhase: number | null;
+  /** The key its track is heard in, moved by the rate unless held. */
+  heardKey: MusicalKey | null;
+  /** The deck it is mixed with. */
+  mixedWith: number;
+  /** The DJ hears or holds its track: it plays, or moves under its record. */
+  plays: boolean;
+  /** The time left of its track (s). */
+  remainingS: number | null;
+  /** The end of its track near (on), or soon. */
+  ending: LightState;
+  mode: DeckMode;
+  tempo: TempoFader;
   sync: SyncStatus;
+  /** Its loops, jumps and pads may move its track. */
+  canMove: boolean;
+  /** Its grid may move onto the beats of the deck it is mixed with. */
+  canAlignGrid: boolean;
+  /** Its key may be moved to mix with the one heard on the deck it is mixed with. */
+  canSyncKey: boolean;
   looping: LoopStatus;
   /** Loudest sample since the previous status. */
   peak: number;
@@ -362,8 +409,8 @@ export interface DeckSettings {
   /** Software mixer: the channel fader raised from closed plays the deck, closed it stops it
    * on its cue point. */
   faderStart: boolean;
-  /** The range of its tempo fader, if it has one of its own (else the general one). */
-  pitchRange: number | null;
+  /** The range of its tempo fader: its own, else the general one (0.08 for ±8 %). */
+  tempoRange: number;
   strip: ChannelStrip;
   fx: FxChain;
   /** Name of the sound in each sampler slot. */
@@ -420,19 +467,6 @@ export interface FxChain {
 }
 
 export const FX_SLOTS = 3;
-const DEFAULT_FX_SLOT: FxSettings = {
-  kind: 'echo',
-  enabled: false,
-  mix: 0.5,
-  amount: 0.5,
-  param2: 0.5,
-  beats: 1,
-};
-export const DEFAULT_FX: FxChain = {
-  slots: Array(FX_SLOTS).fill(DEFAULT_FX_SLOT),
-  enabled: true,
-  part: null,
-};
 
 /** EQ bands, in the order of `ChannelStrip.eq`. */
 export type Band = 'low' | 'mid' | 'high';
@@ -447,13 +481,6 @@ export interface ChannelStrip {
   /** -1 = low-pass closed, 0 = off, 1 = high-pass open. */
   filter: number;
 }
-
-export const FLAT_STRIP: ChannelStrip = {
-  trim: 1,
-  eq: [1, 1, 1],
-  kills: [false, false, false],
-  filter: 0,
-};
 
 /** Smooth: equal power, for blending. Sharp: cuts only at the very ends, for scratching. */
 export type CrossfaderCurve = 'smooth' | 'sharp';

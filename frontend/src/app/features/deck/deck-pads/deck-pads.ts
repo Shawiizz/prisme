@@ -133,12 +133,8 @@ export class DeckPads {
   });
   private readonly status = computed(() => this.engine.status()?.decks[this.deck()] ?? null);
 
-  /** Loops and jumps need a beat grid, and a record in absolute mode keeps the position. */
-  protected readonly canMove = computed(() => {
-    const settings = this.engine.decks()[this.deck()];
-    const absolute = settings.vinylEnabled && settings.vinylMode === 'absolute';
-    return !!this.status()?.loaded && !absolute;
-  });
+  /** Loops and jumps need a track, which a record in absolute mode keeps in place. */
+  protected readonly canMove = computed(() => this.status()?.canMove ?? false);
   protected readonly loopActive = computed(() => this.status()?.looping.active ?? false);
   protected readonly loopInSet = computed(() => this.status()?.looping.loopInS != null);
   protected readonly slip = computed(() => this.status()?.slipMode ?? false);

@@ -1,6 +1,6 @@
 import { TestBed } from '@angular/core/testing';
 import { clearMocks, mockIPC } from '@tauri-apps/api/mocks';
-import { EngineStatus } from '../../../core/models/engine';
+import { DeckSettings, EngineStatus, FX_SLOTS, FxSettings } from '../../../core/models/engine';
 import { EngineService } from '../../../core/services/engine.service';
 import { PerformanceService } from '../../../core/services/performance.service';
 import { DeckPads } from './deck-pads';
@@ -19,8 +19,23 @@ describe('DeckPads', () => {
     vi.spyOn(performance, 'censor').mockImplementation(
       async (d, a) => calls.push(`censor ${d} ${a}`) > 0,
     );
-    TestBed.inject(EngineService).status.set({
-      decks: [0, 1].map(() => ({ loaded: true, looping: {}, samplesPlaying: 0 })),
+    const engine = TestBed.inject(EngineService);
+    const slot: FxSettings = {
+      kind: 'echo',
+      enabled: false,
+      mix: 0.5,
+      amount: 0.5,
+      param2: 0.5,
+      beats: 1,
+    };
+    const fx = { slots: Array(FX_SLOTS).fill(slot), enabled: true, part: null };
+    engine.decks.set(
+      [0, 1].map(
+        () => ({ fx, samples: [], samplerGain: 1, sizeBeats: 4 }) as unknown as DeckSettings,
+      ),
+    );
+    engine.status.set({
+      decks: [0, 1].map(() => ({ loaded: true, canMove: true, looping: {}, samplesPlaying: 0 })),
     } as unknown as EngineStatus);
   });
 

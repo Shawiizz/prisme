@@ -25,8 +25,7 @@ describe('UpdateService', () => {
     const commands: string[] = [];
     const engine = TestBed.inject(EngineService);
     const updates = TestBed.inject(UpdateService);
-    const playing = (on: boolean) =>
-      engine.status.set({ decks: [{ playing: on, speed: on ? 1 : 0 }] } as EngineStatus);
+    const playing = (on: boolean) => engine.status.set({ decks: [{ plays: on }] } as EngineStatus);
     mockIPC((command) => {
       commands.push(command);
       if (command === 'download_update') playing(true);
@@ -56,7 +55,7 @@ describe('UpdateService', () => {
       if (command === 'install_apk') return allowed ? 'installer' : 'notAllowed';
       return undefined;
     });
-    engine.status.set({ decks: [{ playing: false, speed: 0 }] } as EngineStatus);
+    engine.status.set({ decks: [{ plays: false }] } as EngineStatus);
     const apk = { url: 'https://github.com/x.apk', size: 42 };
     updates.available.set({ version: '9.9.9', update: null, apk });
 
@@ -79,10 +78,10 @@ describe('UpdateService', () => {
     mockIPC((command) => {
       commands.push(command);
       if (command === 'download_apk') {
-        engine.status.set({ decks: [{ playing: true, speed: 1 }] } as EngineStatus);
+        engine.status.set({ decks: [{ plays: true }] } as EngineStatus);
       }
     });
-    engine.status.set({ decks: [{ playing: false, speed: 0 }] } as EngineStatus);
+    engine.status.set({ decks: [{ plays: false }] } as EngineStatus);
     updates.available.set({ version: '9.9.9', update: null, apk: { url: 'x.apk', size: 1 } });
 
     await updates.install();

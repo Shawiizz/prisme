@@ -431,7 +431,7 @@
                   @for (r of pitchRanges; track r) {
                     <button
                       role="radio"
-                      [attr.aria-checked]="dj().pitchRange === r"
+                      [attr.aria-checked]="pitchRange() === r"
                       (click)="engine.setTempoRange(null, r)"
                     >
                       ±{{ r * 100 }} %
@@ -443,9 +443,9 @@
                 <button
                   class="pr-switch"
                   role="switch"
-                  [attr.aria-checked]="dj().quantize"
+                  [attr.aria-checked]="quantize()"
                   settingControl
-                  (click)="engine.turn('general.quantize', !dj().quantize)"
+                  (click)="engine.turn('general.quantize', !quantize())"
                 >
                   <span></span>
                 </button>

@@ -154,7 +154,7 @@ export class TrackTable {
 
   /** The reference deck's key as heard and its tempo now: what the rows are compared with. */
   private readonly referenceKey = computed(
-    () => this.engine.heardKey(this.library.reference())?.camelot ?? null,
+    () => this.engine.status()?.decks[this.library.reference()]?.heardKey?.camelot ?? null,
   );
   /** To a hundredth of a BPM: the rows follow a tempo change, not every status tick. */
   private readonly referenceBpm = computed(() => {
@@ -254,7 +254,7 @@ export class TrackTable {
     const percent = Math.round(change * 1000) / 10 || 0;
     return {
       text: `${percent >= 0 ? '+' : '−'}${decimal(Math.abs(percent), 1)} %`,
-      reachable: Math.abs(change) <= this.engine.tempoRange(this.library.reference() ^ 1),
+      reachable: Math.abs(change) <= this.engine.decks()[this.library.reference() ^ 1].tempoRange,
     };
   }
 

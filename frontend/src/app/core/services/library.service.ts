@@ -270,7 +270,9 @@ export class LibraryService {
   /** Whether the deck the next track goes on keeps its key, and the range of its tempo fader:
    * the mix order depends on them, not on the rest of that deck's settings. */
   private readonly nextKeyLock = computed(() => this.engine.decks()[this.reference() ^ 1].keyLock);
-  private readonly nextPitchRange = computed(() => this.engine.tempoRange(this.reference() ^ 1));
+  private readonly nextPitchRange = computed(
+    () => this.engine.decks()[this.reference() ^ 1].tempoRange,
+  );
 
   private readonly mixContext = computed((): MixContext | null => {
     const reference = this.mixReference();
@@ -617,7 +619,7 @@ export class LibraryService {
     const deck = this.reference();
     this.mixReference.set({
       bpm: this.engine.status()?.decks[deck]?.bpm ?? this.engine.tracks()[deck]?.tempo?.bpm ?? null,
-      camelot: this.engine.heardKey(deck)?.camelot ?? null,
+      camelot: this.engine.status()?.decks[deck]?.heardKey?.camelot ?? null,
       path: this.engine.tracks()[deck]?.path ?? null,
     });
   }

@@ -1,5 +1,5 @@
 import { Component, computed, inject, input, output, viewChild } from '@angular/core';
-import { DeckStatus, GridChange } from '../../../core/models/engine';
+import { GridChange } from '../../../core/models/engine';
 import { EngineService } from '../../../core/services/engine.service';
 import { TrackEditService } from '../../../core/services/track-edit.service';
 import { TPipe } from '../../../core/i18n/t.pipe';
@@ -50,18 +50,11 @@ export class GridEditor {
     const s = this.keyShift();
     return s > 0 ? `+${s}` : s < 0 ? `−${-s}` : '0';
   });
+  private readonly status = computed(() => this.engine.status()?.decks[this.deck()] ?? null);
   /** Both keys known: the deck's can be matched to the one heard beside it (`key.sync`). */
-  protected readonly keysKnown = computed(
-    () => !!this.track()?.key && this.engine.heardKey(this.engine.mixedWith(this.deck())) !== null,
-  );
+  protected readonly keysKnown = computed(() => this.status()?.canSyncKey ?? false);
   /** Both decks playing on a grid: the grid can move onto the other deck's beats. */
-  protected readonly alignable = computed(() => {
-    const decks = this.engine.status()?.decks ?? [];
-    const own = decks[this.deck()];
-    const other = decks[this.engine.mixedWith(this.deck())];
-    const onBeats = (d: DeckStatus | undefined) => !!d?.playing && d.beatPhase !== null;
-    return !!this.track()?.tempo && onBeats(own) && onBeats(other);
-  });
+  protected readonly alignable = computed(() => this.status()?.canAlignGrid ?? false);
 
   constructor() {
     this.edits.loadKeys();

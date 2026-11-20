@@ -3,61 +3,13 @@ import { clearMocks, mockIPC } from '@tauri-apps/api/mocks';
 import {
   ControlState,
   Cue,
-  DeckStatus,
+  DeckSettings,
   DeckTrackUpdate,
-  EngineStatus,
   TrackInfo,
   Waveform,
 } from '../models/engine';
 import { EngineService } from './engine.service';
-import { PreferencesService } from './preferences.service';
 import { ConfirmService } from '../../shared/confirm/confirm';
-
-function deck(changes: Partial<DeckStatus> = {}): DeckStatus {
-  return {
-    loaded: true,
-    playing: false,
-    positionS: 0,
-    durationS: 300,
-    speed: 0,
-    bpm: null,
-    beatPhase: null,
-    sync: { locked: false, leader: false, rateOffset: 1 },
-    looping: { startS: null, endS: null, beats: null, active: false, loopInS: null },
-    peak: 0,
-    cue: false,
-    slipMode: false,
-    reverse: false,
-    slipPositionS: null,
-    vinyl: {
-      enabled: false,
-      mode: 'relative',
-      runOut: false,
-      crossed: false,
-      signal: 'none',
-      level: 0,
-      recordSpeed: 0,
-      recordPositionS: null,
-    },
-    samplesPlaying: 0,
-    stemsWaiting: 0,
-    stemsHere: 0,
-    ...changes,
-  };
-}
-
-function status(decks: DeckStatus[]): EngineStatus {
-  return {
-    audioRunning: true,
-    decks,
-    mainPeak: 0,
-    micPeak: 0,
-    auxPeak: 0,
-    health: null,
-    recording: null,
-    preview: null,
-  };
-}
 
 describe('EngineService', () => {
   let engine: EngineService;
@@ -80,8 +32,7 @@ describe('EngineService', () => {
     engine.togglePlay(0);
     engine.setKeyLock(1, false);
     engine.setVinylEnabled(0, true);
-    // half the range up: three quarters of the fader
-    engine.moveTempo(1, engine.tempoRange(1) / 2);
+    engine.moveTempo(1, 0.75);
     const performed = { steps: false, confirmed: false, order: expect.anything() };
     expect(calls).toEqual([
       ['perform_action', { target: 'deck2.cue', value: 1, ...performed }],
@@ -193,9 +144,11 @@ describe('EngineService', () => {
     const level = { level: 1, on: true };
     const stemMix = { vocals: level, drums: level, bass: level, other: level };
 
+    const settings = [1, 1, 1, 1].map((pitch) => ({ pitch }) as DeckSettings);
+
     function controls(changes: Partial<ControlState>): ControlState {
       return {
-        mixer: { decks: engine.decks() } as ControlState['mixer'],
+        mixer: { decks: settings } as ControlState['mixer'],
         tracks: [null, { loadId: 7, keyShift: -2, stemMix, cues: [drop] }, null, null],
         loading: [false, false, false, false],
         quantize: true,
@@ -210,20 +163,18 @@ describe('EngineService', () => {
       engine.tracks.set([null, { loadId: 7, cues: [] } as unknown as TrackInfo, null, null]),
     );
 
-    it('shows the decks, the tracks and the preferences as the backend has them', () => {
-      const decks = engine.decks().map((d, i) => (i === 0 ? { ...d, pitch: 1.04 } : d));
+    it('shows the decks and the tracks as the backend has them', () => {
+      const decks = settings.map((d, i) => (i === 0 ? { ...d, pitch: 1.04 } : d));
       engine['applyControls'](controls({ mixer: { decks } as ControlState['mixer'] }));
       expect(engine.decks()[0].pitch).toBe(1.04);
       expect(engine.tracks()[1]).toEqual(
         expect.objectContaining({ keyShift: -2, cues: [drop] }) as TrackInfo,
       );
-      const dj = TestBed.inject(PreferencesService).dj();
-      expect([dj.quantize, dj.pitchRange]).toEqual([true, 0.16]);
     });
 
     it('leaves what did not change as it was', () => {
-      const before = engine.decks();
       engine['applyControls'](controls({}));
+      const before = engine.decks();
       const track = engine.tracks()[1];
       engine['applyControls'](controls({}));
       expect(engine.decks()).toBe(before);

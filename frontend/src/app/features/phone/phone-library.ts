@@ -164,7 +164,7 @@ export class PhoneLibrary {
 
   /** The key the reference deck is heard in: the keys that fit it are lit. */
   private readonly deckKey = computed(
-    () => this.engine.heardKey(this.library.reference())?.camelot ?? null,
+    () => this.engine.status()?.decks[this.library.reference()]?.heardKey?.camelot ?? null,
   );
 
   protected readonly slide = signal<Slide | null>(null);

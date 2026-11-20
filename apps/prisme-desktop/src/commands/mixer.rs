@@ -5,12 +5,13 @@ use crate::dto::{
 use crate::error::AppResult;
 use crate::sampler;
 use crate::state::{free_inputs, live_preferences, lock, AppState};
-use prisme_engine::{Command, Rpm};
+use prisme_engine::{Command, Rpm, MAX_DECKS};
 use tauri::State;
 
 /// The settings of the decks and the mixer of `state`.
 pub fn mixer_state_of(state: &AppState) -> MixerStateDto {
-    let mixer = state.preferences.read(|p| p.mixer);
+    let (mixer, ranges) =
+        state.preferences.read(|p| (p.mixer, std::array::from_fn::<_, MAX_DECKS, _>(|d| p.tempo_range(d))));
     let info = lock(&state.session).as_ref().map(|s| s.info.clone());
     let routing = info.as_ref().map(|info| state.routing(info));
     let samplers = lock(&state.samplers);
@@ -45,7 +46,7 @@ pub fn mixer_state_of(state: &AppState) -> MixerStateDto {
                 timecode: d.timecode.id,
                 key_lock: d.key_lock,
                 fader_start: d.fader_start,
-                pitch_range: d.pitch_range,
+                tempo_range: ranges[deck],
                 strip: d.strip,
                 fx: d.fx,
                 samples: samples.iter().map(|s| s.as_ref().map(|s| sampler::name(&s.path))).collect(),

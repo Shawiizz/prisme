@@ -128,6 +128,9 @@ export class SettingsDialog implements OnInit {
   protected readonly draft = signal<AudioSettings | null>(null);
   protected readonly mixMode = signal<MixMode>(this.mixer.mode());
   protected readonly dj = this.preferences.dj;
+  /** What the backend keeps of the DJ's preferences as the actions change them. */
+  protected readonly quantize = computed(() => this.engine.controls()?.quantize ?? false);
+  protected readonly pitchRange = computed(() => this.engine.controls()?.pitchRange ?? null);
   /** The pairs the headphones can take on the running device, with the one chosen. */
   protected readonly headphonesPairs = computed(() => {
     const pairs = new Set<number>();

@@ -15,9 +15,8 @@ import { Fader } from '../../shared/fader/fader';
     <app-fader
       touch
       centered
-      [min]="-tempo.range()"
-      [max]="tempo.range()"
-      [value]="tempo.offset()"
+      [value]="tempo.position()"
+      [defaultValue]="0.5"
       (valueChange)="engine.moveTempo(deck(), $event)"
       [disabled]="tempo.held()"
       [label]="'Tempo' | t"

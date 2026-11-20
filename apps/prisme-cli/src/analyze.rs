@@ -51,7 +51,7 @@ pub fn run(paths: &[PathBuf], options: AnalysisOptions, csv: Option<&Path>) -> R
                     t.map_or(String::new(), |t| format!("{:.4}", t.first_beat_s)),
                     t.map_or(String::new(), |t| format!("{:.3}", t.confidence)),
                     k.map_or(String::new(), |k| k.key.name().to_string()),
-                    k.map_or(String::new(), |k| k.key.camelot()),
+                    k.map_or(String::new(), |k| k.key.camelot().to_string()),
                     k.map_or(String::new(), |k| format!("{:.3}", k.confidence)),
                     k.map_or(String::new(), |k| format!("{:.1}", k.tuning_cents)),
                 );

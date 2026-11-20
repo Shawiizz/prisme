@@ -2,6 +2,7 @@
 //! what the interface mirrors that changed since last sent, and frees what the engine hands back
 //! at the same pace.
 
+use crate::actions::Actions;
 use crate::dto::{ControlStateDto, StatusDto};
 use crate::preview::Previews;
 use crate::state::{lock, AppState, Section};
@@ -23,6 +24,7 @@ pub fn subscribe_status(app: AppHandle, channel: Channel<StatusDto>) {
         .name("prisme-status".into())
         .spawn(move || {
             let state = app.state::<AppState>();
+            let actions = app.state::<Actions>();
             // the revisions of what the interface mirrors it was last sent: none, all sent first
             let mut told = None;
             while GENERATION.load(Ordering::SeqCst) == generation {
@@ -31,7 +33,8 @@ pub fn subscribe_status(app: AppHandle, channel: Channel<StatusDto>) {
                 let (engine, garbage) = {
                     let mut session = lock(&state.session);
                     session.as_mut().map_or((None, Vec::new()), |s| {
-                        let engine = (s.controller.status(), s.stats.clone(), s.engine_config.sample_rate);
+                        let stream = (s.stats.clone(), s.engine_config.sample_rate);
+                        let engine = (s.controller.status(), s.info.layout(), stream);
                         (Some(engine), s.controller.take_garbage())
                     })
                 };
@@ -43,10 +46,11 @@ pub fn subscribe_status(app: AppHandle, channel: Channel<StatusDto>) {
                     previews.follow(&state, playing);
                 }
                 let mut status = match engine {
-                    Some((engine, stats, sample_rate)) => {
-                        StatusDto::from_engine(&engine, &stats, sample_rate)
+                    Some((engine, layout, (stats, sample_rate))) => {
+                        let view = actions.view_with(&app, engine, Some(layout));
+                        StatusDto::of(&view, Some((&stats, sample_rate)))
                     }
-                    None => StatusDto::stopped(),
+                    None => StatusDto::of(&actions.view_with(&app, Default::default(), None), None),
                 };
                 if told != Some(revision) {
                     let moved =

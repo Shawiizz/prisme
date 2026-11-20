@@ -1,36 +1,8 @@
 import { DeckStatus } from './models/engine';
-import { driftTime, octaveRatio, phaseOffset, pitchToMatch } from './sync';
+import { driftTime, octaveRatio, phaseOffset } from './sync';
 
 function deck(bpm: number | null, beatPhase: number | null): DeckStatus {
-  return {
-    loaded: true,
-    playing: true,
-    positionS: 0,
-    durationS: 300,
-    speed: 1,
-    bpm,
-    beatPhase,
-    sync: { locked: false, leader: false, rateOffset: 1 },
-    looping: { startS: null, endS: null, beats: null, active: false, loopInS: null },
-    peak: 0,
-    cue: false,
-    slipMode: false,
-    reverse: false,
-    slipPositionS: null,
-    vinyl: {
-      enabled: false,
-      mode: 'relative',
-      runOut: false,
-      crossed: false,
-      signal: 'none',
-      level: 0,
-      recordSpeed: 0,
-      recordPositionS: null,
-    },
-    samplesPlaying: 0,
-    stemsWaiting: 0,
-    stemsHere: 0,
-  };
+  return { loaded: true, playing: true, bpm, beatPhase } as DeckStatus;
 }
 
 describe('octaveRatio', () => {
@@ -54,14 +26,6 @@ describe('phaseOffset', () => {
 
   it('needs both beat grids', () => {
     expect(phaseOffset(deck(null, null), deck(128, 0.1))).toBeNull();
-  });
-});
-
-describe('pitchToMatch', () => {
-  it('is the speed change towards the other tempo', () => {
-    expect(pitchToMatch(deck(125, 0), deck(128, 0))).toBeCloseTo(0.024);
-    expect(pitchToMatch(deck(128, 0), deck(64, 0))).toBeCloseTo(0);
-    expect(pitchToMatch(deck(null, 0), deck(128, 0))).toBeNull();
   });
 });
 

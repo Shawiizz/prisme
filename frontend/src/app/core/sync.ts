@@ -20,12 +20,6 @@ export function phaseOffset(deck: DeckStatus, other: DeckStatus): number | null 
   return gap - Math.round(gap);
 }
 
-/** Relative speed change that would give a deck the other deck's tempo (0.008 = +0.8 %). */
-export function pitchToMatch(deck: DeckStatus, other: DeckStatus): number | null {
-  if (!deck.bpm || !other.bpm) return null;
-  return (octaveRatio(deck.bpm, other.bpm) * other.bpm) / deck.bpm - 1;
-}
-
 /** Seconds before a deck's beats, drifting at the present tempos, are `limit` beats from the
  * other deck's; `null` unless both play and they drift apart (or are past it already: 0). */
 export function driftTime(deck: DeckStatus, other: DeckStatus, limit: number): number | null {

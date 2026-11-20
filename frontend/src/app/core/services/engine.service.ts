@@ -2,24 +2,18 @@ import { Injectable, computed, effect, inject, signal, untracked } from '@angula
 import { StemPart, partId } from '../stem-parts';
 import { Channel, invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
-import { transposeCamelot } from '../../shared/camelot';
 import {
   ControlState,
   MAX_DECKS,
   DeckTrackUpdate,
-  DEFAULT_FX,
-  FLAT_STRIP,
-  MusicalKey,
   DeckSettings,
   EngineStatus,
-  SAMPLE_SLOTS,
   TrackInfo,
   VinylChange,
   Waveform,
   addWaveformPiece,
   decodeWaveform,
 } from '../models/engine';
-import { PreferencesService } from './preferences.service';
 import { Playhead, followPlayhead } from '../playhead';
 import { ConfirmService } from '../../shared/confirm/confirm';
 import { same, sameItems } from '../same';
@@ -27,37 +21,9 @@ import { deckLetter } from '../../shared/time';
 import { t } from '../i18n/i18n';
 import { errorText, isBackendError } from '../errors';
 
-/** Slower than this, a deck under its record is still: a hand holding it, the record stopped. */
-const MOVING_SPEED = 0.05;
 /** How long a refusal stays said. */
 const REFUSAL_MS = 5000;
 const NONE_LOADING: boolean[] = Array(MAX_DECKS).fill(false);
-
-const DEFAULT_DECK: DeckSettings = {
-  pitch: 1,
-  volume: 1,
-  cue: false,
-  vinylEnabled: false,
-  vinylMode: 'absolute',
-  rpm: '33',
-  leadInS: null,
-  recordLeadInS: 0,
-  swapChannels: false,
-  timecode: 'serato_cv02_a',
-  keyLock: false,
-  faderStart: false,
-  pitchRange: null,
-  strip: FLAT_STRIP,
-  fx: DEFAULT_FX,
-  samples: Array(SAMPLE_SLOTS).fill(null),
-  samplerGain: 1,
-  sizeBeats: 4,
-  passthrough: false,
-  side: 'left',
-  jogScratch: true,
-  repeat: false,
-  mute: false,
-};
 
 /**
  * Bridge to the Rust engine: commands go through `invoke`, the engine state arrives
@@ -65,7 +31,6 @@ const DEFAULT_DECK: DeckSettings = {
  */
 @Injectable({ providedIn: 'root' })
 export class EngineService {
-  private readonly preferences = inject(PreferencesService);
   private readonly confirm = inject(ConfirmService);
 
   /** Latest engine state (drives the templates). */
@@ -77,20 +42,13 @@ export class EngineService {
   readonly loading = computed(() => this.controls()?.loading ?? NONE_LOADING, { equal: sameItems });
   /** Waveform of each deck's track, once fetched. */
   readonly waveforms = signal<(Waveform | null)[]>(Array(MAX_DECKS).fill(null));
-  readonly decks = signal<DeckSettings[]>(
-    // A and C on the left of the crossfader, B and D on its right
-    Array.from({ length: MAX_DECKS }, (_, d) => ({
-      ...DEFAULT_DECK,
-      side: d % 2 === 0 ? ('left' as const) : ('right' as const),
-    })),
-  );
-  /** The decks shown and played: two, or four. */
-  readonly deckIndexes = computed(() =>
-    Array.from(
-      { length: this.preferences.dj().deckCount === MAX_DECKS ? MAX_DECKS : 2 },
-      (_, i) => i,
-    ),
-  );
+  /** Each deck's settings, as the backend told them first with its first status. */
+  readonly decks = signal<DeckSettings[]>([]);
+  /** The decks shown and played, two or four, as the backend tells them; none before its
+   * first status. */
+  readonly deckIndexes = computed(() => (this.status()?.decks ?? []).map((_, deck) => deck), {
+    equal: sameItems,
+  });
   readonly error = signal<string | null>(null);
   /** Why what the DJ just asked was not done, nothing being wrong: said for a few seconds,
    * or until the next thing asked. */
@@ -140,15 +98,10 @@ export class EngineService {
   private applyControls(changed: Partial<ControlState>) {
     const controls = { ...this.controls(), ...changed } as ControlState;
     if (changed.mixer) {
-      const decks = changed.mixer.decks.map((d, deck) => {
-        const next = { ...DEFAULT_DECK, ...d };
-        return same(next, this.decks()[deck]) ? this.decks()[deck] : next;
-      });
+      const decks = changed.mixer.decks.map((d, deck) =>
+        same(d, this.decks()[deck]) ? this.decks()[deck] : d,
+      );
       if (decks.some((d, deck) => d !== this.decks()[deck])) this.decks.set(decks);
-      const { quantize, pitchRange } = controls;
-      const dj = this.preferences.dj();
-      if (dj.quantize !== quantize || dj.pitchRange !== pitchRange)
-        this.preferences.dj.set({ ...dj, quantize, pitchRange });
     }
     if (changed.tracks) {
       const told = changed.tracks;
@@ -216,38 +169,6 @@ export class EngineService {
     return playhead.positionS + playhead.speed * elapsed;
   }
 
-  /**
-   * Playback rate of a deck: from the engine's tempo when the track has a beat grid
-   * (sync and platter included), else the platter speed while it turns, else the tempo
-   * fader.
-   */
-  playbackRate(deck: number): number {
-    const tempoRate = this.tempoRate(deck);
-    if (tempoRate !== null) return tempoRate;
-    const settings = this.decks()[deck];
-    const speed = Math.abs(this.status()?.decks[deck]?.speed ?? 0);
-    return settings.vinylEnabled && speed > MOVING_SPEED ? speed : settings.pitch;
-  }
-
-  /**
-   * The key heard on a deck: the track's, moved by the speed unless the key lock holds
-   * it. A key shift holds it too (it goes through the same stretcher).
-   */
-  heardKey(deck: number): MusicalKey | null {
-    const track = this.tracks()[deck];
-    if (!track?.key) return null;
-    const held = this.decks()[deck].keyLock || track.keyShift !== 0;
-    const semitones = held ? track.keyShift : Math.round(12 * Math.log2(this.playbackRate(deck)));
-    return semitones === 0 ? track.key : transposeCamelot(track.key.camelot, semitones);
-  }
-
-  /** The deck `deck` is mixed with: another one playing, else the one beside it (A and B, C
-   * and D). */
-  mixedWith(deck: number): number {
-    const playing = (this.status()?.decks ?? []).findIndex((d, i) => i !== deck && d.playing);
-    return playing >= 0 ? playing : deck ^ 1;
-  }
-
   /** Mutes or plays a part of the track on `deck` (until the next load), on the next bar
    * with quantize. */
   toggleStem(deck: number, part: StemPart) {
@@ -266,11 +187,6 @@ export class EngineService {
   /** The deck plays its input as it comes (a record, a CD player) instead of its track. */
   setPassthrough(deck: number, enabled: boolean) {
     return this.turn(`deck${deck + 1}.passthrough`, enabled);
-  }
-
-  /** The range of the tempo fader of `deck`: its own, else the general one (0.08 = ±8 %). */
-  tempoRange(deck: number): number {
-    return this.decks()[deck].pitchRange ?? this.preferences.dj().pitchRange;
   }
 
   /** The range of the tempo fader of `deck`, or of every deck (`null`), which then all follow
@@ -297,13 +213,6 @@ export class EngineService {
   /** At the end, the track goes on from its start. */
   setRepeat(deck: number, enabled: boolean) {
     return this.turn(`deck${deck + 1}.repeat`, enabled);
-  }
-
-  /** Playback rate of the tempo the engine reports (sync and platter included), if the track has a beat grid. */
-  tempoRate(deck: number): number | null {
-    const bpm = this.status()?.decks[deck]?.bpm;
-    const trackBpm = this.tracks()[deck]?.tempo?.bpm;
-    return bpm && trackBpm ? bpm / trackBpm : null;
   }
 
   /** `info` is on `deck` now: its waveform follows. */
@@ -339,10 +248,9 @@ export class EngineService {
     return this.call('jog', { deck, turns, atMs });
   }
 
-  /** The tempo fader of `deck` moved to `offset` from the track's tempo (0.02: +2 %), within
-   * its range. */
-  moveTempo(deck: number, offset: number) {
-    return this.perform(`deck${deck + 1}.pitch`, 0.5 + offset / (2 * this.tempoRange(deck)));
+  /** The tempo fader of `deck` moved to `position` (0 to 1, its middle the track's tempo). */
+  moveTempo(deck: number, position: number) {
+    return this.perform(`deck${deck + 1}.pitch`, position);
   }
 
   /** A deck put on a record (on) takes the turntable from the deck layered with it, which goes

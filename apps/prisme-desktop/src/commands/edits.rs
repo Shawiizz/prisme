@@ -10,7 +10,7 @@ use crate::state::{lock, AppState};
 use crate::track_loading::DECK_TRACK_UPDATE_EVENT;
 use prisme_actions::sync::grid_shift_to;
 use prisme_actions::view::mixed_with;
-use prisme_analysis::{Key, KeyEstimate};
+use prisme_analysis::Key;
 use prisme_engine::Command;
 use prisme_library::{GridEdit, TrackEdits};
 use serde::Deserialize;
@@ -128,7 +128,7 @@ pub fn set_key(
 /// The 24 keys, in Camelot order.
 #[tauri::command]
 pub fn key_choices() -> Vec<KeyDto> {
-    Key::all().map(|key| KeyDto::from(&KeyEstimate { key, confidence: 1.0, tuning_cents: 0.0 })).collect()
+    Key::all().map(KeyDto::from).collect()
 }
 
 /// Applies `change` to the edits of the track on `deck` (given its grid with them), on every

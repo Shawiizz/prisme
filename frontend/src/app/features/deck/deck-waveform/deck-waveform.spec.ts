@@ -1,6 +1,6 @@
 import { TestBed } from '@angular/core/testing';
 import { clearMocks, mockIPC } from '@tauri-apps/api/mocks';
-import { TrackInfo } from '../../../core/models/engine';
+import { DeckSettings, TrackInfo } from '../../../core/models/engine';
 import { EngineService } from '../../../core/services/engine.service';
 
 describe('DeckWaveform', () => {
@@ -32,6 +32,9 @@ describe('DeckWaveform', () => {
     );
     const track = { path: '/a.mp3', durationS: 60, separation: 'none' } as TrackInfo;
     engine.tracks.set([track, track]);
+    engine.decks.set(
+      [0, 1].map(() => ({ passthrough: false, vinylEnabled: false }) as DeckSettings),
+    );
     const fixture = TestBed.createComponent(DeckWaveform);
     fixture.componentRef.setInput('deck', 0);
     fixture.detectChanges();

@@ -6,8 +6,12 @@
 use crate::input::Faders;
 use crate::perform::PerformView;
 use crate::stems::{Separation, StemMix};
+use prisme_analysis::Key;
 use prisme_control::{Band, Effect, Side, FX_SLOTS, HOT_CUES, MAX_DECKS};
-use prisme_engine::{DeckStatus, EngineStatus};
+use prisme_engine::{DeckStatus, EngineStatus, VinylMode};
+
+/// Slower than this, a deck under its record is still: a hand holding it, the record stopped.
+const MOVING_SPEED: f64 = 0.05;
 
 /// What the actions see of the application, part by part: a [`View`] taken whole for a tick,
 /// or the application itself, read only as far as a move asks.
@@ -74,6 +78,8 @@ pub struct View {
     pub auto_dj: bool,
     /// The file of a track to preview opens (the engine previews it once it is open).
     pub preview_opening: bool,
+    /// The SYNC of a deck on a record matches the leader once instead of locking to it.
+    pub sync_once_on_records: bool,
     pub perform: PerformView,
     /// Where the faders over a few steps or silent at an end were last given.
     pub faders: Faders,
@@ -92,6 +98,8 @@ pub struct DeckView {
     pub key_lock: bool,
     pub fader_start: bool,
     pub vinyl: bool,
+    /// How its record drives it, when it does.
+    pub vinyl_mode: VinylMode,
     pub jog_scratch: bool,
     pub repeat: bool,
     pub mute: bool,
@@ -150,6 +158,7 @@ pub struct FxSlot {
 pub struct TrackView {
     /// Of its beat grid.
     pub bpm: Option<f64>,
+    pub key: Option<Key>,
     pub key_shift: i8,
     pub separation: Separation,
     pub stem_mix: StemMix,
@@ -216,6 +225,12 @@ pub fn tempo_rate(status: &DeckStatus, pitch: f64) -> f64 {
     }
 }
 
+/// Whether the DJ hears or holds the track of a deck at `status`: it plays, or moves under its
+/// record.
+pub fn plays(status: &DeckStatus) -> bool {
+    status.loaded && (status.playing || status.speed.abs() >= MOVING_SPEED)
+}
+
 /// The deck `deck` is mixed with, the engine at `status`: another one playing, else the one
 /// beside it (A and B, C and D).
 pub fn mixed_with(status: &EngineStatus, deck: usize) -> usize {
@@ -239,6 +254,7 @@ pub(crate) mod fixtures {
             key_lock: false,
             fader_start: false,
             vinyl: false,
+            vinyl_mode: VinylMode::Absolute,
             jog_scratch: true,
             repeat: false,
             mute: false,
@@ -256,6 +272,7 @@ pub(crate) mod fixtures {
     pub fn track() -> TrackView {
         TrackView {
             bpm: Some(120.0),
+            key: None,
             key_shift: 0,
             separation: Separation::None,
             stem_mix: StemMix::default(),
@@ -289,6 +306,7 @@ pub(crate) mod fixtures {
             quantize: false,
             auto_dj: false,
             preview_opening: false,
+            sync_once_on_records: false,
             perform: PerformState::default().view(Default::default()),
             faders: Faders::default(),
         }

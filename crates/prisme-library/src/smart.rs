@@ -72,7 +72,7 @@ impl Rule {
             Rule::Bpm { min, max } => analysis.tempo.is_some_and(|t| within(t.bpm, *min, *max)),
             Rule::Year { min, max } => record.tags.year.is_some_and(|y| within(y, *min, *max)),
             Rule::Key { camelot } => {
-                analysis.key.is_some_and(|k| camelot.iter().any(|c| c.eq_ignore_ascii_case(&k.key.camelot())))
+                analysis.key.is_some_and(|k| camelot.iter().any(|c| c.eq_ignore_ascii_case(k.key.camelot())))
             }
         }
     }

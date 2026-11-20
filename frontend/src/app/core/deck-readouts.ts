@@ -2,10 +2,6 @@ import { Signal, computed, inject } from '@angular/core';
 import { EngineService } from './services/engine.service';
 import { decimal, formatPitch, formatRemaining } from '../shared/time';
 
-/** The remaining time turns amber, then red and blinking, near the end of the track. */
-const WARN_S = 30;
-const ALERT_S = 10;
-
 /**
  * What a deck tells from afar, as its card, its strip on a phone and its line of what plays
  * share it: the time left, the tempo heard and the key heard. To be called where `inject`
@@ -15,27 +11,25 @@ export function deckReadouts(deck: Signal<number>) {
   const engine = inject(EngineService);
   const track = computed(() => engine.tracks()[deck()]);
   const status = computed(() => engine.status()?.decks[deck()] ?? null);
-  const remainingS = computed(() => {
-    const s = status();
-    return s?.loaded ? Math.max(0, s.durationS - s.positionS) : null;
-  });
   const remaining = computed(() => {
-    const s = remainingS();
+    const s = status()?.remainingS ?? null;
     return s === null ? '—' : formatRemaining(s);
   });
+  /** The remaining time turns amber near the end of the track, then red and blinking. */
   const ending = computed(() => {
-    const s = remainingS();
-    if (s === null || !status()?.playing) return null;
-    return s < ALERT_S ? 'alert' : s < WARN_S ? 'warn' : null;
+    const ending = status()?.ending;
+    return ending === 'soon' ? 'alert' : ending === 'on' ? 'warn' : null;
   });
-  const rate = computed(() => engine.playbackRate(deck()));
   const bpm = computed(() => {
-    const tempo = track()?.tempo;
-    return tempo ? decimal(tempo.bpm * rate(), 2) : null;
+    const bpm = status()?.bpm;
+    return bpm == null ? null : decimal(bpm, 2);
   });
   /** The pitch applied to the track's own tempo. */
-  const pitch = computed(() => (track()?.tempo ? formatPitch(rate()) : ''));
+  const pitch = computed(() => {
+    const rate = status()?.rate;
+    return track()?.tempo && rate !== undefined ? formatPitch(rate) : '';
+  });
   /** The key heard: shifted by the pitch unless the key lock holds it. */
-  const key = computed(() => engine.heardKey(deck()));
+  const key = computed(() => status()?.heardKey ?? null);
   return { track, status, remaining, ending, bpm, pitch, key };
 }

@@ -4,35 +4,7 @@ import { DeckStatus, EngineStatus } from '../../../core/models/engine';
 import { EngineService } from '../../../core/services/engine.service';
 
 function deck(bpm: number, beatPhase: number): DeckStatus {
-  return {
-    loaded: true,
-    playing: true,
-    positionS: 30,
-    durationS: 300,
-    speed: 1,
-    bpm,
-    beatPhase,
-    sync: { locked: false, leader: false, rateOffset: 1 },
-    looping: { startS: null, endS: null, beats: null, active: false, loopInS: null },
-    peak: 0,
-    cue: false,
-    slipMode: false,
-    reverse: false,
-    slipPositionS: null,
-    vinyl: {
-      enabled: false,
-      mode: 'relative',
-      runOut: false,
-      crossed: false,
-      signal: 'none',
-      level: 0,
-      recordSpeed: 0,
-      recordPositionS: null,
-    },
-    samplesPlaying: 0,
-    stemsWaiting: 0,
-    stemsHere: 0,
-  };
+  return { loaded: true, playing: true, positionS: 30, rate: 1, bpm, beatPhase } as DeckStatus;
 }
 
 describe('PhaseStrip', () => {

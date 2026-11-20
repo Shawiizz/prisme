@@ -35,6 +35,7 @@ use prisme_actions::perform::{Memory, PerformState};
 use prisme_actions::position::position;
 use prisme_actions::view::View;
 use prisme_control::{DeckAction, LibraryAction, Owner, SampleAction, Target, Unknown};
+use prisme_engine::EngineStatus;
 use prisme_library::LibraryDb;
 use serde::Serialize;
 use std::borrow::Cow;
@@ -48,7 +49,7 @@ use std::time::{Duration, Instant};
 use tauri::{AppHandle, Emitter, Manager};
 use tracing::error;
 
-pub use view::view_of;
+pub use view::{view_of, view_with};
 
 /// A failure of an action a controller asked for, for the interface to word (an `AppError`).
 pub const FAILED_EVENT: &str = "action-failed";
@@ -706,6 +707,13 @@ impl Actions {
     pub fn view(&self, app: &AppHandle) -> View {
         let auto_dj = app.try_state::<AutoDj>().is_some_and(|a| a.plays());
         view_of(&app.state(), auto_dj, &self.memory, self.now_s())
+    }
+
+    /// [`Actions::view`] with the engine at `status`, its device laying the decks out as
+    /// `layout` says (see [`view_with`]).
+    pub fn view_with(&self, app: &AppHandle, status: EngineStatus, layout: Option<(usize, usize)>) -> View {
+        let auto_dj = app.try_state::<AutoDj>().is_some_and(|a| a.plays());
+        view_with(&app.state(), status, layout, auto_dj, &self.memory, self.now_s())
     }
 
     /// Waits, `within` at most, for the actions waiting their turn to be performed, then for

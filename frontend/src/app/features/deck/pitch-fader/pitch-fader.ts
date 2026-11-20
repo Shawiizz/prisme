@@ -1,4 +1,4 @@
-import { Component, DestroyRef, booleanAttribute, computed, inject, input } from '@angular/core';
+import { Component, DestroyRef, booleanAttribute, inject, input } from '@angular/core';
 import { deckTempo } from '../../../core/deck-tempo';
 import { EngineService } from '../../../core/services/engine.service';
 import { TPipe } from '../../../core/i18n/t.pipe';
@@ -32,21 +32,20 @@ const STEP_EVERY_MS = 60;
       </button>
     }
     <div class="travel">
-      <!-- the fader's top is its highest value: the pitch goes in negated -->
+      <!-- the fader's top is its highest value: the position goes in upside down -->
       <app-fader
         orientation="vertical"
         centered
-        [min]="-tempo.range()"
-        [max]="tempo.range()"
-        [value]="-tempo.offset()"
-        (valueChange)="engine.moveTempo(deck(), -$event)"
+        [value]="1 - tempo.position()"
+        [defaultValue]="0.5"
+        (valueChange)="engine.moveTempo(deck(), 1 - $event)"
         [disabled]="tempo.held()"
         [label]="'Tempo' | t"
       />
-      @if (targetAt(); as at) {
+      @if (tempo.targetAt() !== null) {
         <i
           class="notch"
-          [style.--at]="at.fraction"
+          [style.--at]="tempo.targetAt()"
           [title]="'Where to bring the turntable’s pitch' | t"
         ></i>
       }
@@ -149,14 +148,6 @@ export class PitchFader {
 
   protected readonly engine = inject(EngineService);
   protected readonly tempo = deckTempo(this.deck);
-  /** Where the rate to reach is along the travel, from the top; `null` without one or out
-   * of the fader's range. */
-  protected readonly targetAt = computed(() => {
-    const target = this.tempo.target();
-    if (target === null) return null;
-    const fraction = 0.5 + (target - 1) / (2 * this.tempo.range());
-    return fraction >= 0 && fraction <= 1 ? { fraction } : null;
-  });
 
   private stepping: ReturnType<typeof setTimeout> | null = null;
 
