@@ -18,13 +18,13 @@ import android.os.Looper
 import android.util.Log
 import org.json.JSONObject
 
-/** A deck as the page describes it (`lock-player.ts`). */
+/** A deck as the native side describes it (`lock_player.rs`). */
 data class PlayerDeck(val deck: Int, val title: String, val artist: String?, val playing: Boolean) {
   val letter: String
     get() = "ABCD"[deck].toString()
 }
 
-/** What the page says the player shows: the decks loaded, the one heard and where it is. */
+/** What the native side says the player shows: the decks loaded, the one heard and where it is. */
 data class PlayerState(
   val decks: List<PlayerDeck>,
   val shown: Int?,
@@ -86,9 +86,6 @@ private data class Shown(
  * there.
  */
 object Player {
-  /** Plays or pauses a deck: the page does it (`MainActivity`). */
-  var toggle: ((Int) -> Unit)? = null
-
   private var state: PlayerState? = null
   /** The cover of a file, null when it has none. */
   private var cover: Pair<String, Bitmap?>? = null
@@ -118,8 +115,11 @@ object Player {
 
   /** Plays or pauses `deck`, if the DJ lets the player do it. */
   fun toggleDeck(deck: Int) {
-    if (state?.controls == true) main.post { toggle?.invoke(deck) }
+    if (state?.controls == true) togglePlay(deck)
   }
+
+  /** Plays or pauses `deck` as its PLAY key does (`lock_player.rs`). */
+  private external fun togglePlay(deck: Int)
 
   fun notification(context: Context): Notification {
     if (!channel) {

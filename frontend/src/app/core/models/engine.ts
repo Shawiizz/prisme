@@ -130,8 +130,6 @@ export interface DeckStatus {
   /** How far its track's separation is (0 to 1): as it is separated, or as the downloads of the
    * models it waits for are. */
   separating: number | null;
-  /** The DJ hears it go, for a phone's lock screen. */
-  heard: boolean;
 }
 
 export interface DeckLights {
@@ -226,8 +224,6 @@ export interface EngineStatus {
   /** The track heard in the headphones before it goes on a deck. */
   preview: PreviewStatus | null;
   phase: PhaseStrip;
-  /** The deck a phone's lock screen shows. */
-  player: number | null;
   /** Seconds before the Auto DJ's next mix starts, while one is planned. */
   mixInS: number | null;
 }

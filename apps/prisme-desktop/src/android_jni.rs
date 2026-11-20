@@ -1,8 +1,23 @@
-//! Calls from Rust into the Java side of the Android application, from any thread.
+//! Calls from Rust into the Java side of the Android application, from any thread, and the
+//! application the Java side's calls into Rust reach.
 
 use jni::objects::{JClass, JObject, JValue};
 use jni::{JNIEnv, JavaVM};
+use std::sync::OnceLock;
+use tauri::AppHandle;
 use tracing::warn;
+
+static APP: OnceLock<AppHandle> = OnceLock::new();
+
+/// Lets the Java side's calls reach the application, which is to be set up already.
+pub fn install(app: &AppHandle) {
+    let _ = APP.set(app.clone());
+}
+
+/// The application, once set up.
+pub fn app() -> Option<&'static AppHandle> {
+    APP.get()
+}
 
 /// Runs `f` with the application's context, in a frame of its own for the references it makes;
 /// `None`, the failure logged as what could not be done, if anything went wrong. An exception

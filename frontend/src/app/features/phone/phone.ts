@@ -2,7 +2,6 @@ import { invoke } from '@tauri-apps/api/core';
 import { Component, DestroyRef, computed, effect, inject, signal } from '@angular/core';
 import { ControllerService } from '../../core/control/controller.service';
 import { closedByBack } from '../../core/back';
-import { LockPlayer } from '../../core/lock-player';
 import { BACKEND_NAMES } from '../../core/models/audio';
 import { ANDROID } from '../../core/platform';
 import { EngineService } from '../../core/services/engine.service';
@@ -94,7 +93,6 @@ export class Phone {
       );
     document.addEventListener('visibilitychange', hidden);
     inject(DestroyRef).onDestroy(() => document.removeEventListener('visibilitychange', hidden));
-    inject(LockPlayer).start();
     // a page of the settings asked for from elsewhere is shown on their screen, as the library
     effect(() => {
       if (this.navigation.settings()) this.tab.set('settings');

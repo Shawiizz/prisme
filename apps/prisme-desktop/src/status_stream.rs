@@ -13,6 +13,7 @@ use crate::state::{lock, AppState, Section};
 use crate::stems_service::Shown;
 use prisme_actions::lane::Lane;
 use prisme_actions::meter::Meters;
+#[cfg(target_os = "android")]
 use prisme_actions::player::Player;
 use prisme_analysis::Key;
 use prisme_library::browse::Column;
@@ -48,8 +49,9 @@ pub fn subscribe_status(app: AppHandle, channel: Channel<Value>) {
             let mut ranked_against: Option<Ranked> = None;
             let mut meters = Meters::default();
             let mut stems = Shown::default();
-            let mut player = Player::default();
-            let mut internal = false;
+            #[cfg(target_os = "android")]
+            let (mut player, mut lock_player, mut internal) =
+                (Player::default(), crate::lock_player::LockPlayer::default(), false);
             while GENERATION.load(Ordering::SeqCst) == generation {
                 // read before what it is of: a change after moves it again
                 let revision = state.revision();
@@ -79,14 +81,16 @@ pub fn subscribe_status(app: AppHandle, channel: Channel<Value>) {
                 let stream = stream.as_ref().map(|(stats, rate)| (&**stats, *rate));
                 let mut status = StatusDto::of(&view, stream, levels);
                 let moved = |s: Section| told.is_none_or(|t: [u64; _]| t[s as usize] != revision[s as usize]);
-                if moved(Section::Mixer) {
-                    internal = state.mixes_itself();
-                }
                 status.mix_in_s = auto_dj.mix_in_s(&view.status);
-                let heard = player.read(&view, internal, now_s);
-                status.player = heard.deck;
-                for (deck, shown) in status.decks.iter_mut().enumerate() {
-                    shown.heard = heard.moves(deck);
+                #[cfg(target_os = "android")]
+                {
+                    if moved(Section::Mixer) {
+                        internal = state.mixes_itself();
+                    }
+                    if moved(Section::Tracks) || moved(Section::Settings) {
+                        lock_player.read(&state);
+                    }
+                    lock_player.follow(&app, &view, player.read(&view, internal, now_s), now_s);
                 }
                 if moved(Section::Tracks) {
                     around.decks = lock(&state.tracks).each_ref().map(|t| t.as_ref().map(|t| t.path.clone()));

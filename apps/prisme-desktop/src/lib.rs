@@ -51,6 +51,8 @@ mod http;
 mod input_access;
 mod keep_awake;
 mod library_service;
+#[cfg(any(target_os = "android", test))]
+mod lock_player;
 mod logging;
 mod midi_clock;
 #[cfg(target_os = "android")]
@@ -276,7 +278,7 @@ pub fn run() {
             MidiClock::start(app.handle().clone());
             app.state::<TagWriter>().wake();
             #[cfg(target_os = "android")]
-            music_access::install(app.handle());
+            android_jni::install(app.handle());
             library.show_folders();
             library.browse();
             library.start();

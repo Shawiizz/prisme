@@ -1318,8 +1318,6 @@ pub struct DeckStatusDto {
     /// How far its track's separation is, from 0 to 1: as it is separated, or as the downloads
     /// of the models it waits for are.
     pub separating: Option<f64>,
-    /// The DJ hears it go, for a phone's lock screen (`prisme_actions::player`).
-    pub heard: bool,
 }
 
 /// The carrier level of a healthy line-level timecode.
@@ -1424,7 +1422,6 @@ impl DeckStatusDto {
             samples_playing: d.samples_playing,
             stems: screen::stem_knobs(view, deck).map(StemKnobDto::from).collect(),
             separating: None,
-            heard: false,
             vinyl: VinylDto {
                 enabled: d.vinyl.enabled,
                 mode: d.vinyl.mode.into(),
@@ -1456,8 +1453,6 @@ pub struct StatusDto {
     pub preview: Option<PreviewStatusDto>,
     /// The strip comparing two decks' beats.
     pub phase: screen::PhaseStrip,
-    /// The deck a phone's lock screen shows (`prisme_actions::player`).
-    pub player: Option<usize>,
     /// Seconds before the Auto DJ's next mix starts, while one is planned.
     pub mix_in_s: Option<f64>,
     /// What the interface mirrors, when it changed since the status before.
@@ -1688,7 +1683,6 @@ impl StatusDto {
                 waiting: p.waiting,
             }),
             phase: screen::phase_strip(view),
-            player: None,
             mix_in_s: None,
             controls: None,
         }

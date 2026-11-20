@@ -1,6 +1,7 @@
 package com.shawiizz.prisme
 
 import android.Manifest
+import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.content.res.Configuration
@@ -9,10 +10,10 @@ import android.graphics.BitmapFactory
 import android.graphics.Color
 import android.os.Build
 import android.os.Bundle
-import android.util.Base64
+import android.os.Handler
+import android.os.Looper
 import android.view.View
 import android.view.WindowManager
-import android.webkit.JavascriptInterface
 import android.webkit.WebView
 import androidx.activity.OnBackPressedCallback
 import androidx.activity.SystemBarStyle
@@ -118,13 +119,9 @@ class MainActivity : TauriActivity() {
 
   override fun onWebViewCreate(webView: WebView) {
     page = webView
-    webView.addJavascriptInterface(Decks(), "prismeDecks")
-    Player.toggle = { deck -> webView.evaluateJavascript("window.prismePlayer?.toggle($deck)", null) }
   }
 
   override fun onDestroy() {
-    // the page goes with the activity: the player's buttons no longer reach it
-    Player.toggle = null
     page = null
     lettingTheScreenSleep?.let(window.decorView::removeCallbacks)
     if (shown === this) shown = null
@@ -221,26 +218,6 @@ class MainActivity : TauriActivity() {
     }
   }
 
-  /** What the page says of the decks, for the [Player] (`lock-player.ts`). */
-  private inner class Decks {
-    @JavascriptInterface
-    fun update(state: String) {
-      val parsed = PlayerState.parse(state)
-      runOnUiThread {
-        Player.update(this@MainActivity, parsed)
-        keepTheScreenOn(parsed.playing)
-      }
-    }
-
-    /** The cover of `path`, in base64; empty when it has none. */
-    @JavascriptInterface
-    fun cover(path: String, base64: String) {
-      val bytes = if (base64.isEmpty()) null else Base64.decode(base64, Base64.DEFAULT)
-      val bitmap = bytes?.let(::decodeCover)
-      runOnUiThread { Player.cover(this@MainActivity, path, bitmap) }
-    }
-  }
-
   /**
    * The music the phone shares between applications is read once the DJ allows it, and the
    * notification of a deck playing shown (without it, Android hides it). Both are asked for
@@ -296,6 +273,24 @@ class MainActivity : TauriActivity() {
       activity.runOnUiThread {
         activity.ask(activity.inputs, arrayOf(Manifest.permission.RECORD_AUDIO))
       }
+    }
+
+    /** What the native side says the [Player] shows (`lock_player.rs`), from any thread: the
+     * screen stays on while a deck plays. */
+    @JvmStatic
+    fun showPlayer(context: Context, state: String) {
+      val parsed = PlayerState.parse(state)
+      Handler(Looper.getMainLooper()).post {
+        Player.update(context, parsed)
+        shown?.keepTheScreenOn(parsed.playing)
+      }
+    }
+
+    /** The cover of `path` (`lock_player.rs`), from any thread; null when it has none. */
+    @JvmStatic
+    fun showCover(context: Context, path: String, jpeg: ByteArray?) {
+      val bitmap = jpeg?.let(::decodeCover)
+      Handler(Looper.getMainLooper()).post { Player.cover(context, path, bitmap) }
     }
   }
 }

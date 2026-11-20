@@ -1,6 +1,6 @@
 //! The deck a phone's lock screen shows (Android's player): the one heard among those that go,
 //! the loudest through the software mixer, else the last started; while all stand, the one heard
-//! last.
+//! last. And when the player is told again ([`Told`]): it moves the position on by itself.
 
 use crate::view::View;
 use prisme_control::Side;
@@ -11,6 +11,10 @@ use prisme_engine::{crossfader_gain, CrossfaderCurve, MAX_DECKS};
 const PLAYING_SPEED: f64 = 0.25;
 /// Two decks this close in level are as loud.
 const AS_LOUD: f32 = 1e-3;
+/// The player moves the position on by itself: told again past this much of a drift (s).
+const DRIFT_S: f64 = 1.0;
+/// A change of speed smaller than this is not told.
+const SPEED_STEP: f64 = 0.005;
 
 /// What the lock screen shows.
 #[derive(Debug, Clone, Copy, Default, PartialEq)]
@@ -69,6 +73,43 @@ impl Player {
     }
 }
 
+/// Where the deck shown is, and how fast it moves: 0 while it stands.
+#[derive(Debug, Clone, Copy, Default, PartialEq)]
+pub struct Place {
+    pub position_s: f64,
+    pub speed: f64,
+}
+
+/// What the player was last told, `S` what it shows but the place, and when (s).
+#[derive(Debug, Clone)]
+pub struct Told<S> {
+    last: Option<(S, Place, f64)>,
+}
+
+impl<S> Default for Told<S> {
+    fn default() -> Self {
+        Self { last: None }
+    }
+}
+
+impl<S: Clone + PartialEq> Told<S> {
+    /// Whether the player is to be told `showing` with the deck at `place` at `now_s`: what it
+    /// shows changed, or the place it moved on by itself drifted from the deck's (a jump, a
+    /// loop, a scratch), or its speed changed.
+    pub fn tell(&mut self, showing: &S, place: Place, now_s: f64) -> bool {
+        if let Some((told, at, at_s)) = &self.last {
+            let moved = at.position_s + at.speed * (now_s - at_s);
+            let still =
+                (at.speed - place.speed).abs() < SPEED_STEP && (moved - place.position_s).abs() < DRIFT_S;
+            if told == showing && still {
+                return false;
+            }
+        }
+        self.last = Some((showing.clone(), place, now_s));
+        true
+    }
+}
+
 /// The crossfader's gain on `deck`.
 fn gain(view: &View, deck: usize) -> f32 {
     let mixer = &view.mixer;
@@ -99,6 +140,18 @@ mod tests {
         let mut held = stopped;
         held.status.decks[1].speed = 0.1;
         assert_eq!(player.read(&held, true, 3.0).moving, 0, "a record held does not play");
+    }
+
+    #[test]
+    fn the_player_is_told_again_past_a_drift_a_change_of_speed_or_of_what_it_shows() {
+        let mut told = Told::default();
+        let at = |position_s, speed| Place { position_s, speed };
+        assert!(told.tell(&"one", at(10.0, 1.0), 0.0), "told first");
+        assert!(!told.tell(&"one", at(12.2, 1.0), 2.0), "goes on as the player moves it");
+        assert!(told.tell(&"one", at(30.0, 1.0), 2.0), "a jump");
+        assert!(told.tell(&"one", at(30.0, 0.0), 2.0), "stopped");
+        assert!(!told.tell(&"one", at(30.0, 0.0), 9.0));
+        assert!(told.tell(&"two", at(30.0, 0.0), 9.0), "another track");
     }
 
     #[test]
