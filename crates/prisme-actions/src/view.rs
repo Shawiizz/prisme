@@ -1,11 +1,54 @@
 //! What the actions see of the application at a moment: the engine's state, the decks'
 //! settings and tracks, the mixer and what the actions keep between presses. An owned
-//! snapshot, taken once for all the lights and values a tick shows.
+//! snapshot, taken once for all the lights and values a tick shows; or, for one move of a
+//! control, the part of it the move reads ([`Sees`]).
 
+use crate::input::Faders;
 use crate::perform::PerformView;
 use crate::stems::{Separation, StemMix};
 use prisme_control::{Band, Effect, Side, FX_SLOTS, HOT_CUES, MAX_DECKS};
 use prisme_engine::{DeckStatus, EngineStatus};
+
+/// What the actions see of the application, part by part: a [`View`] taken whole for a tick,
+/// or the application itself, read only as far as a move asks.
+pub trait Sees {
+    fn decks_in_use(&self) -> usize;
+    /// The settings of `deck`, and its track.
+    fn deck(&self, deck: usize) -> DeckView;
+    /// What the engine shows of `deck`.
+    fn status(&self, deck: usize) -> DeckStatus;
+    fn mixer(&self) -> MixerView;
+    /// Where the faders over a few steps or silent at an end were last given.
+    fn faders(&self) -> Faders;
+    /// The slot of the effect chain of `deck` the effect knobs turn.
+    fn fx_focus(&self, deck: usize) -> Option<usize>;
+}
+
+impl Sees for View {
+    fn decks_in_use(&self) -> usize {
+        self.decks_in_use
+    }
+
+    fn deck(&self, deck: usize) -> DeckView {
+        self.decks[deck]
+    }
+
+    fn status(&self, deck: usize) -> DeckStatus {
+        self.status.decks[deck]
+    }
+
+    fn mixer(&self) -> MixerView {
+        self.mixer
+    }
+
+    fn faders(&self) -> Faders {
+        self.perform.faders
+    }
+
+    fn fx_focus(&self, deck: usize) -> Option<usize> {
+        self.perform.decks[deck].fx_focus
+    }
+}
 
 #[derive(Debug, Clone, Copy)]
 pub struct View {

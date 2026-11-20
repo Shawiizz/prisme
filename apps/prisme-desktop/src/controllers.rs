@@ -1049,17 +1049,19 @@ impl Controllers {
         };
         let before = layer();
         let routed = self.route(device, event, at_s);
-        // a key's light may show it held, latched or at the second of its two positions, and
-        // the lights show the layer in use (a mode chosen by a switch, say)
-        if event.control.is_key() || layer() != before {
-            self.show_lights(app, device);
-        }
+        let relayered = layer() != before;
         match routed {
             Some(Routed::Learned(mapping)) => drop(app.emit("controller-learned", mapping)),
             Some(Routed::Actions(actions)) => {
                 self.act(app, actions, Moved { device, at_s, jog_steps_per_turn })
             }
             None => {}
+        }
+        // a key's light may show it held, latched or at the second of its two positions, and
+        // what its action did; the lights show the layer in use (a mode chosen by a switch,
+        // say)
+        if event.control.is_key() || relayered {
+            self.show_lights(app, device);
         }
     }
 

@@ -1,20 +1,24 @@
-//! Where the fader of an action stands, read from a [`View`], and what a value a profile shows
-//! on a controller is: a fader's position, or a deck's track measured.
+//! Where the fader of an action stands, read from what the actions see ([`Sees`]), and what a
+//! value a profile shows on a controller is: a fader's position, or a deck's track measured.
 
 use crate::scales::{balance_knob, eq_knob, filter_knob, headphone_knob, live_knob, trim_knob, Tempo};
-use crate::view::{band_index, View};
-use prisme_control::{DeckAction, Effect, FxAction, Measure, MixerAction, Source, Target, FX_SLOTS};
+use crate::view::{band_index, Sees, View};
+use prisme_control::{DeckAction, Effect, FxAction, Kind, Measure, MixerAction, Source, Target, FX_SLOTS};
 
 /// The periods an effect's period fader goes through, in beats.
 pub const FX_PERIODS: [f32; 7] = [0.125, 0.25, 0.5, 1.0, 2.0, 4.0, 8.0];
 /// Turns a minute of the record a jog wheel's ring shows.
 const RECORD_RPM: f64 = 100.0 / 3.0;
 
-/// Where the fader of `target` stands, 0 to 1, if it has one and its deck is in use.
-pub fn position(target: &Target, view: &View) -> Option<f32> {
+/// Where the fader of `target` stands, 0 to 1, if it has one and its deck is in use: only what
+/// it stands by is read of `seen`.
+pub fn position(target: &Target, seen: &impl Sees) -> Option<f32> {
+    if target.kind() != Kind::Fader {
+        return None;
+    }
     match target {
-        Target::Deck(deck, action) if view.shows(*deck) => deck_position(*deck, *action, view),
-        Target::Mixer(action) => mixer_position(*action, view),
+        Target::Deck(deck, action) if *deck < seen.decks_in_use() => deck_position(*deck, *action, seen),
+        Target::Mixer(action) => mixer_position(*action, seen),
         _ => None,
     }
 }
@@ -44,15 +48,13 @@ pub fn output(source: &Source, view: &View) -> Option<f64> {
     })
 }
 
-fn deck_position(deck: usize, action: DeckAction, view: &View) -> Option<f32> {
-    let settings = &view.decks[deck];
-    let status = view.status(deck);
+fn deck_position(deck: usize, action: DeckAction, seen: &impl Sees) -> Option<f32> {
+    let settings = seen.deck(deck);
     let slots = &settings.fx.slots;
-    let faders = &view.perform.faders;
     let period = |slot: usize| {
         let target = Target::Deck(deck, DeckAction::Fx(slot, FxAction::Period));
         let step = FX_PERIODS.iter().position(|p| *p == slots[slot].beats).unwrap_or(0);
-        faders.stepped(&target).position(step, FX_PERIODS.len())
+        seen.faders().stepped(&target).position(step, FX_PERIODS.len())
     };
     Some(match action {
         DeckAction::Pitch => Tempo { ratio: settings.pitch, range: settings.tempo_range }.position(),
@@ -60,16 +62,22 @@ fn deck_position(deck: usize, action: DeckAction, view: &View) -> Option<f32> {
         DeckAction::Trim => trim_knob(settings.strip.trim),
         DeckAction::Eq(band) => {
             let target = Target::Deck(deck, action);
-            faders.silent_end(&target).position(eq_knob(settings.strip.eq[band_index(band)]))
+            seen.faders().silent_end(&target).position(eq_knob(settings.strip.eq[band_index(band)]))
         }
         DeckAction::Filter => filter_knob(settings.strip.filter),
-        DeckAction::Position if status.duration_s > 0.0 => (status.position_s / status.duration_s) as f32,
-        DeckAction::Position => 0.0,
+        DeckAction::Position => {
+            let status = seen.status(deck);
+            if status.duration_s > 0.0 {
+                (status.position_s / status.duration_s) as f32
+            } else {
+                0.0
+            }
+        }
         DeckAction::Key => (f32::from(settings.track.map_or(0, |t| t.key_shift)) + 12.0) / 24.0,
         DeckAction::SamplerGain => settings.sampler_gain,
         DeckAction::StemLevel(part) => settings.track.map_or(1.0, |t| t.stem_mix.level(part)),
         DeckAction::FxSuper => slots.iter().map(|s| s.amount).sum::<f32>() / FX_SLOTS as f32,
-        DeckAction::FxKnob(knob) => match view.perform.decks[deck].fx_focus {
+        DeckAction::FxKnob(knob) => match seen.fx_focus(deck) {
             None => slots[knob].amount,
             Some(focused) => [slots[focused].amount, slots[focused].param2, period(focused)][knob],
         },
@@ -79,30 +87,32 @@ fn deck_position(deck: usize, action: DeckAction, view: &View) -> Option<f32> {
         DeckAction::Fx(slot, FxAction::Period) => period(slot),
         DeckAction::Fx(slot, FxAction::Kind) => {
             let step = Effect::NAMED.iter().position(|e| *e == slots[slot].effect).unwrap_or(0);
-            faders.stepped(&Target::Deck(deck, action)).position(step, Effect::NAMED.len())
+            seen.faders().stepped(&Target::Deck(deck, action)).position(step, Effect::NAMED.len())
         }
         _ => return None,
     })
 }
 
-fn mixer_position(action: MixerAction, view: &View) -> Option<f32> {
-    let mixer = &view.mixer;
-    let faders = &view.perform.faders;
+fn mixer_position(action: MixerAction, seen: &impl Sees) -> Option<f32> {
     let target = Target::Mixer(action);
+    if action == MixerAction::SamplerGain {
+        // it sets every deck in use: it stands where they do on the whole
+        let decks = seen.decks_in_use();
+        let gains = (0..decks).map(|d| seen.deck(d).sampler_gain);
+        return Some(gains.sum::<f32>() / decks.max(1) as f32);
+    }
+    let mixer = seen.mixer();
     Some(match action {
         MixerAction::Crossfader => (mixer.crossfader + 1.0) / 2.0,
         MixerAction::CueMix => mixer.cue_mix,
         MixerAction::Balance => balance_knob(mixer.balance),
         MixerAction::Booth => mixer.booth_gain,
-        MixerAction::Mic => faders.silent_end(&target).position(live_knob(mixer.mic.level)),
-        MixerAction::Aux => faders.silent_end(&target).position(live_knob(mixer.aux.level)),
+        MixerAction::Mic => seen.faders().silent_end(&target).position(live_knob(mixer.mic.level)),
+        MixerAction::Aux => seen.faders().silent_end(&target).position(live_knob(mixer.aux.level)),
         MixerAction::Headphones => headphone_knob(mixer.headphone_gain),
         MixerAction::Main => mixer.main_gain,
-        MixerAction::CrossfaderCurve => faders.stepped(&target).position(usize::from(mixer.sharp_curve), 2),
-        // it sets every deck in use: it stands where they do on the whole
-        MixerAction::SamplerGain => {
-            let decks = &view.decks[..view.decks_in_use];
-            decks.iter().map(|d| d.sampler_gain).sum::<f32>() / decks.len().max(1) as f32
+        MixerAction::CrossfaderCurve => {
+            seen.faders().stepped(&target).position(usize::from(mixer.sharp_curve), 2)
         }
         _ => return None,
     })

@@ -27,7 +27,7 @@ use prisme_actions::lane::{lane, Lane};
 use prisme_actions::perform::PerformState;
 use prisme_actions::position::position;
 use prisme_actions::view::View;
-use prisme_control::{Kind, Owner, Target, Unknown};
+use prisme_control::{Owner, Target, Unknown};
 use std::sync::mpsc::{self, Sender, SyncSender};
 use std::sync::Mutex;
 use std::time::Instant;
@@ -176,12 +176,6 @@ impl Performing<'_> {
         self.app.and_then(|app| app.try_state::<AutoDj>())
     }
 
-    /// The application as the actions see it now.
-    fn view(&self) -> View {
-        let auto_dj = self.auto_dj().is_some_and(|a| a.plays());
-        view_of(self.state, auto_dj, &self.actions.perform, self.actions.now_s())
-    }
-
     /// Seconds on the clock of the one asking: a controller's own, else Prisme's.
     fn at_s(&self) -> f64 {
         match self.source {
@@ -191,18 +185,18 @@ impl Performing<'_> {
     }
 
     /// What `input` gives `target`: the interface's faders set what they show, a controller's
-    /// pick their setting up first (see `Inputs`); nothing while it gives nothing.
+    /// pick their setting up first (see `Inputs`); nothing while it gives nothing. Only where
+    /// its fader stands is read.
     fn given(&self, target: &Target, input: Input) -> Option<Given> {
-        let position = || (target.kind() == Kind::Fader).then(|| position(target, &self.view())).flatten();
         match (self.source, input) {
             (Source::Interface, Input::Value(value)) => Some(Given::Value(value)),
             // the interface's encoders under a name no controller has
             (Source::Interface, steps) => {
-                let at = position();
+                let at = position(target, self);
                 lock(&self.actions.inputs).resolve("", target, steps, at)
             }
             (Source::Controller(moved), input) => {
-                let at = position();
+                let at = position(target, self);
                 lock(&self.actions.inputs).resolve(moved.device, target, input, at)
             }
         }
