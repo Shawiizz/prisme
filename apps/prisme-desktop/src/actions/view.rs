@@ -6,7 +6,7 @@ use super::Performing;
 use crate::dto::{CrossfaderCurveDto, CrossfaderSideDto, FxDto, LiveSourceDto};
 use crate::preferences::MixerPreferences;
 use crate::sampler::LoadedSample;
-use crate::state::{as_laid_out, live_preferences, lock, AppState, DeckSettings, LiveSwitches, LoadedTrack};
+use crate::state::{live_preferences, lock, AppState, DeckSettings, LiveSwitches, LoadedTrack};
 use prisme_actions::input::Faders;
 use prisme_actions::perform::Memory;
 use prisme_actions::view::{DeckView, FxChain, FxSlot, Live, MixerView, Sees, Strip, TrackView, View};
@@ -20,7 +20,7 @@ use std::sync::Mutex;
 pub fn view_of(state: &AppState, auto_dj: bool, memory: &Mutex<Memory>, now_s: f64) -> View {
     let (status, layout) = lock(&state.session)
         .as_mut()
-        .map(|s| (s.controller.status(), Some((s.info.decks, s.info.input_channels))))
+        .map(|s| (s.controller.status(), Some(s.info.layout())))
         .unwrap_or_default();
     let (decks_in_use, quantize, ranges, mixer) = state.preferences.read(|p| {
         let ranges: [f64; prisme_engine::MAX_DECKS] = std::array::from_fn(|d| p.tempo_range(d));
@@ -31,7 +31,7 @@ pub fn view_of(state: &AppState, auto_dj: bool, memory: &Mutex<Memory>, now_s: f
         (memory.clips.heard(&status, now_s), memory.faders)
     };
     let perform = lock(&state.perform).view(clipping);
-    let settings = as_laid_out(*lock(&state.decks), layout);
+    let settings = state.decks_laid_out(layout);
     let tracks = lock(&state.tracks).each_ref().map(|t| t.as_ref().map(track_view));
     let samples = lock(&state.samplers).each_ref().map(loaded);
     let mixer = mixer_view(&mixer, *lock(&state.live), *lock(&state.crossfader));
@@ -50,7 +50,7 @@ impl Sees for Performing<'_> {
 
     fn deck(&self, deck: usize) -> DeckView {
         let range = self.state.tempo_range(deck);
-        let settings = self.state.decks_laid_out()[deck];
+        let settings = self.state.decks_laid_out(self.state.layout())[deck];
         deck_view(deck, &settings, range, 0, None)
     }
 

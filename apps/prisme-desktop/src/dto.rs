@@ -489,6 +489,13 @@ pub struct AudioInfo {
     pub missing: Option<String>,
 }
 
+impl AudioInfo {
+    /// Its decks and input channels: how it lays the decks on its turntables.
+    pub fn layout(&self) -> (usize, usize) {
+        (self.decks, self.input_channels)
+    }
+}
+
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct TimecodeFormatDto {

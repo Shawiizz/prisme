@@ -1,6 +1,6 @@
 use crate::dto::{
-    CrossfaderSideDto, DeckSettingsDto, HeadphonesOutputDto, LiveSourceDto, LiveStateDto, MixModeDto,
-    MixerStateDto,
+    AudioInfo, CrossfaderSideDto, DeckSettingsDto, HeadphonesOutputDto, LiveSourceDto, LiveStateDto,
+    MixModeDto, MixerStateDto,
 };
 use crate::error::AppResult;
 use crate::sampler;
@@ -28,7 +28,7 @@ pub fn mixer_state_of(state: &AppState) -> MixerStateDto {
     };
     MixerStateDto {
         decks: state
-            .decks_in_use(info.as_ref())
+            .decks_laid_out(info.as_ref().map(AudioInfo::layout))
             .iter()
             .zip(samplers.iter())
             .enumerate()

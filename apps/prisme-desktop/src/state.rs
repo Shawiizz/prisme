@@ -874,16 +874,25 @@ impl AppState {
         }
     }
 
-    /// The settings of the decks as the running device lays them out (see [`as_laid_out`]): as
-    /// the interface and the lights show them.
-    pub fn decks_laid_out(&self) -> [DeckSettings; MAX_DECKS] {
-        let layout = lock(&self.session).as_ref().map(|s| (s.info.decks, s.info.input_channels));
-        as_laid_out(*lock(&self.decks), layout)
+    /// The decks and input channels of the running device (see [`AudioInfo::layout`]).
+    pub fn layout(&self) -> Option<(usize, usize)> {
+        lock(&self.session).as_ref().map(|s| s.info.layout())
     }
 
-    /// The settings of the decks as the device of `info` lets them be (see [`as_laid_out`]).
-    pub fn decks_in_use(&self, info: Option<&AudioInfo>) -> [DeckSettings; MAX_DECKS] {
-        as_laid_out(*lock(&self.decks), info.map(|info| (info.decks, info.input_channels)))
+    /// The settings of the decks as a device of so many decks and inputs (`layout`, none
+    /// without audio) lays them out, as the interface and the lights show them: of two decks
+    /// layered on a turntable and both asked to follow it, the first does. What was asked
+    /// stays, for a device with a turntable each.
+    pub fn decks_laid_out(&self, layout: Option<(usize, usize)>) -> [DeckSettings; MAX_DECKS] {
+        let mut decks = *lock(&self.decks);
+        let Some((count, inputs)) = layout else { return decks };
+        for deck in 0..count {
+            let first = layer_partner(deck, count, inputs).filter(|&partner| partner < deck);
+            if first.is_some_and(|first| decks[first].vinyl_enabled) {
+                decks[deck].vinyl_enabled = false;
+            }
+        }
+        decks
     }
 
     /// Whether `deck` is one of the decks in use (two, or four).
@@ -911,7 +920,7 @@ impl AppState {
         places: &[Option<Place>; MAX_DECKS],
     ) -> Vec<Command> {
         let auto_gain = self.preferences.read(|p| p.dj.auto_gain);
-        let decks = self.decks_in_use(Some(info));
+        let decks = self.decks_laid_out(Some(info.layout()));
         let mut commands = Vec::new();
         for (deck, (track, settings)) in lock(&self.tracks).iter().zip(&decks).enumerate().take(info.decks) {
             commands.extend(track.iter().flat_map(|t| t.load_commands(deck, auto_gain)));
@@ -948,23 +957,6 @@ impl AppState {
         }
         commands
     }
-}
-
-/// The settings `decks` as a device of so many decks and inputs (`layout`) lets them be: of
-/// two decks layered on a turntable and both asked to follow it, the first does. What was
-/// asked stays, for a device with a turntable each.
-pub fn as_laid_out(
-    mut decks: [DeckSettings; MAX_DECKS],
-    layout: Option<(usize, usize)>,
-) -> [DeckSettings; MAX_DECKS] {
-    let Some((count, inputs)) = layout else { return decks };
-    for deck in 0..count {
-        let first = layer_partner(deck, count, inputs).filter(|&partner| partner < deck);
-        if first.is_some_and(|first| decks[first].vinyl_enabled) {
-            decks[deck].vinyl_enabled = false;
-        }
-    }
-    decks
 }
 
 /// Sends `commands` in turn, waiting for the engine to make room in its queue (it takes them
