@@ -629,9 +629,9 @@ impl Browser {
         self.cursor
     }
 
-    /// The track the cursor is on, which a load takes.
+    /// The track the cursor is on while its row is shown, which a load takes.
     pub fn cursor(&self) -> Option<&Track> {
-        self.cursor.map(|entry| self.catalogue.get(entry.track))
+        self.cursor_at.and(self.cursor).map(|entry| self.catalogue.get(entry.track))
     }
 
     /// Where the cursor is among the rows shown.
@@ -1229,6 +1229,19 @@ mod tests {
         assert_eq!(browser.cursor_moves(), moves);
         browser.move_cursor(-1);
         assert_eq!(browser.cursor_moves(), moves + 1);
+    }
+
+    #[test]
+    fn the_cursor_s_track_is_taken_only_while_its_row_is_shown() {
+        let mut browser = folder();
+        browser.select(entry(&browser, "c.mp3"), Pick::Only);
+        assert_eq!(browser.cursor().map(|t| t.title.as_str()), Some("Café Noir"));
+        browser.set_filter("strobe");
+        assert!(browser.cursor().is_none(), "hidden by the search");
+        browser.set_filter("");
+        assert_eq!(browser.cursor().map(|t| t.title.as_str()), Some("Café Noir"), "shown again");
+        browser.show(Source::Prepare, Vec::new());
+        assert!(browser.cursor().is_none(), "another list shown");
     }
 
     #[test]
