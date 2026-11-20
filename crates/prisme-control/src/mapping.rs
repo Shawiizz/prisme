@@ -1,6 +1,7 @@
+use crate::id::TargetId;
 use crate::light::LightValues;
 use crate::message::{Control, Event};
-use crate::target::{Target, TargetId};
+use crate::target::Target;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet, HashMap};

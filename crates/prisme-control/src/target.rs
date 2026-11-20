@@ -1,9 +1,7 @@
 //! The actions a control drives, by their typed form: what a profile's id (`deck1.play`,
 //! `mixer.crossfader`, `deck2.loop.0.5`, `mode.pads.roll`) names, read once.
 
-use schemars::{json_schema, JsonSchema, Schema, SchemaGenerator};
 use serde::{Deserialize, Serialize};
-use std::borrow::Cow;
 use std::fmt;
 use std::hash::{Hash, Hasher};
 use std::str::FromStr;
@@ -66,9 +64,8 @@ macro_rules! actions {
         }
 
         impl $name {
-            /// Every one named by its id alone.
-            #[cfg(test)]
-            const NAMED: &[Self] = &[$($(Self::$variant,)+)+];
+            /// Every one named by its id alone, in the order declared.
+            pub const NAMED: &[Self] = &[$($(Self::$variant,)+)+];
 
             /// Its id and its kind, if it is named by its id alone.
             #[allow(unreachable_patterns)]
@@ -659,7 +656,7 @@ impl FxAction {
 }
 
 /// The place (from 0) of what `text` numbers from 1 to `count`, written without a leading zero.
-fn number(text: &str, count: usize) -> Option<usize> {
+pub(crate) fn number(text: &str, count: usize) -> Option<usize> {
     let numeric = !text.is_empty() && !text.starts_with('0') && text.bytes().all(|b| b.is_ascii_digit());
     let n: usize = text.parse().ok().filter(|_| numeric)?;
     (1..=count).contains(&n).then_some(n - 1)
@@ -672,132 +669,6 @@ fn numbered<'i>(id: &'i str, prefix: &str, count: usize) -> Option<(usize, Optio
     match rest.split_once('.') {
         Some((n, after)) => Some((number(n, count)?, Some(after))),
         None => Some((number(rest, count)?, None)),
-    }
-}
-
-/// An action as a profile or a learnt mapping names it: its id as written, and the action it
-/// is, read once, if this version of Prisme knows it (an id it does not know drives nothing,
-/// and is kept as written).
-#[derive(Debug, Clone, Default)]
-pub struct TargetId {
-    id: String,
-    target: Option<Target>,
-}
-
-impl TargetId {
-    pub fn as_str(&self) -> &str {
-        &self.id
-    }
-
-    /// The action, if Prisme knows it.
-    pub fn target(&self) -> Option<&Target> {
-        self.target.as_ref()
-    }
-
-    /// The group and the mode it selects, if it is a mode's.
-    pub fn mode(&self) -> Option<(&str, &str)> {
-        match &self.target {
-            Some(Target::Mode { group, mode }) => Some((group.as_str(), mode.as_str())),
-            _ => None,
-        }
-    }
-}
-
-impl From<String> for TargetId {
-    fn from(id: String) -> Self {
-        let target = id.parse().ok();
-        Self { id, target }
-    }
-}
-
-impl From<&str> for TargetId {
-    fn from(id: &str) -> Self {
-        id.to_owned().into()
-    }
-}
-
-impl From<Target> for TargetId {
-    fn from(target: Target) -> Self {
-        Self { id: target.to_string(), target: Some(target) }
-    }
-}
-
-impl From<TargetId> for String {
-    fn from(id: TargetId) -> Self {
-        id.id
-    }
-}
-
-impl std::ops::Deref for TargetId {
-    type Target = str;
-
-    fn deref(&self) -> &str {
-        &self.id
-    }
-}
-
-impl fmt::Display for TargetId {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str(&self.id)
-    }
-}
-
-impl PartialEq for TargetId {
-    fn eq(&self, other: &Self) -> bool {
-        self.id == other.id
-    }
-}
-
-impl Eq for TargetId {}
-
-impl Hash for TargetId {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        self.id.hash(state);
-    }
-}
-
-impl PartialEq<str> for TargetId {
-    fn eq(&self, other: &str) -> bool {
-        self.id == other
-    }
-}
-
-impl PartialEq<&str> for TargetId {
-    fn eq(&self, other: &&str) -> bool {
-        self.id == *other
-    }
-}
-
-impl PartialEq<String> for TargetId {
-    fn eq(&self, other: &String) -> bool {
-        self.id == *other
-    }
-}
-
-impl Serialize for TargetId {
-    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
-        serializer.serialize_str(&self.id)
-    }
-}
-
-impl<'de> Deserialize<'de> for TargetId {
-    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
-        String::deserialize(deserializer).map(Self::from)
-    }
-}
-
-/// Written as its id: the schema of a profile names the actions apart (`schema`).
-impl JsonSchema for TargetId {
-    fn schema_name() -> Cow<'static, str> {
-        "TargetId".into()
-    }
-
-    fn inline_schema() -> bool {
-        true
-    }
-
-    fn json_schema(_: &mut SchemaGenerator) -> Schema {
-        json_schema!({ "type": "string" })
     }
 }
 
@@ -949,8 +820,6 @@ mod tests {
         let mode = read("mode.pads.hotcue");
         assert_eq!(mode, Target::Mode { group: "pads".into(), mode: "hotcue".into() });
         assert_eq!(mode.to_string(), "mode.pads.hotcue");
-        assert_eq!(TargetId::from("mode.padsA.roll").mode(), Some(("padsA", "roll")));
-        assert_eq!(TargetId::from("deck1.roll1").mode(), None);
     }
 
     #[test]
@@ -970,15 +839,5 @@ mod tests {
         assert_eq!(owners, expected.map(|(id, several)| (id.to_owned(), several)).into());
         assert_eq!("deck3.pitch".parse::<Target>().unwrap().deck(), Some(2));
         assert_eq!("mixer.crossfader".parse::<Target>().unwrap().deck(), None);
-    }
-
-    #[test]
-    fn an_id_is_kept_as_written_whether_known_or_not() {
-        let known = TargetId::from("deck1.key.+2");
-        assert_eq!(known.target(), Some(&Target::Deck(0, DeckAction::KeyTo(2))));
-        assert_eq!(serde_json::to_string(&known).unwrap(), r#""deck1.key.+2""#);
-        let unknown: TargetId = serde_json::from_str(r#""deck1.teleport""#).unwrap();
-        assert_eq!(unknown.target(), None);
-        assert_eq!(unknown, "deck1.teleport");
     }
 }

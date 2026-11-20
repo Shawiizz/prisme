@@ -1414,14 +1414,6 @@ impl ControllerInputDto {
     }
 }
 
-/// A deck's tempo, set from a controller, the Auto DJ or a record letting go (`deck-pitch`).
-#[derive(Debug, Clone, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct DeckPitchDto {
-    pub deck: usize,
-    pub ratio: f64,
-}
-
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub enum AutoDjStateDto {
@@ -1497,24 +1489,12 @@ impl AutoDjStatusDto {
     }
 }
 
-/// Whether the controls of an action are lit.
+/// The state of an action whose light the interface tells (`on`, `off`).
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct LightDto {
     pub target: String,
-    /// `on`, `off`, or the action's own (`loaded`, `playing`…).
     pub state: String,
-    /// The colour of what it shows (a hot cue's), `#rrggbb`.
-    #[serde(default)]
-    pub color: Option<String>,
-}
-
-/// A value shown on the controllers (see `prisme_control::Output`): `target`'s, from 0 to 1.
-#[derive(Debug, Clone, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct OutputDto {
-    pub target: String,
-    pub value: f32,
 }
 
 #[cfg(test)]

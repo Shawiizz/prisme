@@ -1,5 +1,7 @@
 //! Prisme desktop application: Tauri shell around the engine.
 //!
+//! * `actions`: what the controllers and the interface ask for, performed, and what their
+//!   lights read;
 //! * `auto_dj`: plays the prepare list, each track mixed into the next;
 //! * `audio_host`: runs the sound card stream and the engine on a dedicated thread;
 //! * `audio_watchdog`: restarts the audio when its device comes back after a loss;
@@ -24,13 +26,13 @@
 //! * `cover_protocol`: cover thumbnails served to the UI;
 //! * `dto`: JSON shapes shared with the frontend.
 
+mod actions;
 #[cfg(target_os = "android")]
 mod android_jni;
 mod audio_host;
 mod audio_watchdog;
 mod auto_dj;
 mod commands;
-mod controller_direct;
 mod controller_hid;
 mod controller_profiles;
 mod controllers;
@@ -207,6 +209,7 @@ pub fn run() {
             let data_dir = dev_startup::data_dir()
                 .or_else(|| app.path().app_data_dir().inspect_err(|e| warn!("no data folder: {e}")).ok());
             app.manage(AppState::new(open_json(data_dir.as_deref(), "preferences.json")));
+            app.manage(actions::Actions::start());
             if let Some(data_dir) = data_dir.as_deref() {
                 controller_profiles::install(data_dir);
             }
@@ -433,8 +436,7 @@ pub fn run() {
             commands::controllers::cancel_learning,
             commands::controllers::forget_control,
             commands::controllers::set_lights,
-            commands::controllers::controller_output_targets,
-            commands::controllers::set_controller_outputs,
+            actions::perform_action,
             commands::controllers::controller_profiles,
             commands::controllers::reload_controller_profiles,
             commands::controllers::update_controller_profiles,

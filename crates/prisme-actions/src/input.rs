@@ -17,6 +17,25 @@ pub enum Input {
     Steps { steps: f32, step: Option<f32> },
 }
 
+impl Input {
+    /// `value`, or so many `steps` if it is an encoder's.
+    pub fn of(value: f32, steps: bool, step: Option<f32>) -> Self {
+        if steps {
+            Input::Steps { steps: value, step }
+        } else {
+            Input::Value(value)
+        }
+    }
+
+    /// How much it moves: a value, or steps.
+    pub fn amount(self) -> f32 {
+        match self {
+            Input::Value(value) => value,
+            Input::Steps { steps, .. } => steps,
+        }
+    }
+}
+
 /// What an action is given once its control is read.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Given {
@@ -103,8 +122,13 @@ impl Stepped {
     pub fn position(&self, step: usize, count: usize) -> f32 {
         match self.given {
             Some(given) if Self::step_at(given, count) == step => given,
-            _ => (step as f32 + 0.5) / count as f32,
+            _ => Self::centre(step, count),
         }
+    }
+
+    /// The middle of step `step` of `count`.
+    pub fn centre(step: usize, count: usize) -> f32 {
+        (step as f32 + 0.5) / count as f32
     }
 }
 

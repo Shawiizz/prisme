@@ -13,7 +13,6 @@ import {
   StepEncoding,
 } from '../models/controllers';
 import { EngineService } from '../services/engine.service';
-import { EngineStatus } from '../models/engine';
 import { ControlService } from './control.service';
 import { errorText } from '../errors';
 import { t } from '../i18n/i18n';
@@ -21,16 +20,12 @@ import { NoticeService } from '../../shared/notice/notice';
 import { NavigationService } from '../services/navigation.service';
 
 /**
- * Controllers, MIDI and HID: their mapped controls play the app's controls, the controls that
- * are on light up on the controller, and a control is mapped by moving it (learn).
+ * Controllers, MIDI and HID: the backend performs most of what their controls drive and lights
+ * them; the actions the app performs yet it is told of (`ui-action`), and it tells the lights of
+ * what it keeps (`set_lights`). A control is mapped by moving it (learn).
  */
 /** How far a step of an encoder moves a fader's setting (from 0 to 1). */
 const ENCODER_STEP = 1 / 64;
-
-/** A value shown on a controller is sent again once it changed this much (of 0 to 1). */
-const OUTPUT_CHANGE = 1 / 256;
-/** Turns a minute of the record a jog wheel's ring shows. */
-const RECORD_RPM = 100 / 3;
 
 @Injectable({ providedIn: 'root' })
 export class ControllerService {
@@ -42,7 +37,7 @@ export class ControllerService {
   readonly controllers = signal<Controller[]>([]);
   readonly profiles = signal<ControllerProfiles | null>(null);
   readonly mappings = signal<ControllerMapping[]>([]);
-  /** Actions the profiles show on lights of their own, beside the controls that drive them. */
+  /** The actions whose lights the app tells: what they show is kept here yet. */
   private readonly lightTargets = signal<string[]>([]);
   /** MIDI outputs, for the clock. */
   readonly outputs = signal<string[]>([]);
@@ -58,18 +53,16 @@ export class ControllerService {
   private readonly pickups = new Map<string, Pickup>();
   /** What is left of each encoder's steps short of a whole one. */
   private readonly partSteps = new Map<string, number>();
-  /** The sources of the values the controllers show (`controller_output_targets`). */
-  private readonly outputTargets = signal<string[]>([]);
-  /** The value of each source last sent. */
-  private readonly sentValues = new Map<string, number>();
 
   constructor() {
     effect(() => this.updateLights());
-    effect(() => this.updateOutputs());
   }
 
   async start() {
-    await listen<ControllerInput>('controller-input', ({ payload }) => this.input(payload));
+    await listen<ControllerInput>('ui-action', ({ payload }) => this.input(payload));
+    await listen<unknown>('action-failed', ({ payload }) =>
+      this.engine.error.set(errorText(payload)),
+    );
     await listen<ControllerMapping>('controller-learned', () => {
       this.learning.set(null);
       this.reloadMappings();
@@ -263,15 +256,12 @@ export class ControllerService {
   }
 
   private async reloadMappings() {
-    const [mappings, lightTargets, outputTargets] = await Promise.all([
+    const [mappings, lightTargets] = await Promise.all([
       invoke<ControllerMapping[]>('controller_mappings'),
       invoke<string[]>('controller_light_targets'),
-      invoke<string[]>('controller_output_targets'),
     ]);
     this.mappings.set(mappings);
     this.lightTargets.set(lightTargets);
-    this.outputTargets.set(outputTargets);
-    this.sentValues.clear();
     this.sendAllLights();
   }
 
@@ -280,84 +270,24 @@ export class ControllerService {
     this.relight.update((n) => n + 1);
   }
 
-  /** Sends the lights that changed: the state of each mapped control that shows one. */
+  /** Sends the lights the app tells that changed. */
   private updateLights() {
     this.relight();
-    const lights: { target: string; state: string; color: string | null }[] = [];
-    for (const target of new Set([
-      ...this.mappings().map((m) => m.target),
-      ...this.lightTargets(),
-    ])) {
-      const light = this.lightOf(target);
-      if (!light) continue;
-      const shown = `${light.state} ${light.color}`;
-      if (this.sent.get(target) === shown) continue;
-      this.sent.set(target, shown);
-      lights.push({ target, ...light });
+    const lights: { target: string; state: string }[] = [];
+    for (const target of this.lightTargets()) {
+      const state = this.lightOf(target);
+      if (state === null || this.sent.get(target) === state) continue;
+      this.sent.set(target, state);
+      lights.push({ target, state });
     }
     if (lights.length > 0) this.run(() => invoke('set_lights', { lights }));
   }
 
-  /** The light of `target`: the state and colour its control shows, out on a deck no longer
-   * shown. */
-  private lightOf(target: string): { state: string; color: string | null } | null {
+  /** The state the light of `target` shows: out on a deck no longer shown. */
+  private lightOf(target: string): 'on' | 'off' | null {
     const control = this.controls.findInUse(target);
-    if (!control) {
-      const hidden = this.controls.find(target);
-      return hidden?.lit || hidden?.state ? { state: 'off', color: null } : null;
-    }
-    const on = control.lit?.();
-    const state = control.state?.() ?? (on === undefined ? undefined : on ? 'on' : 'off');
-    return state === undefined ? null : { state, color: control.color?.() ?? null };
-  }
-
-  /** Sends the values the controllers show that changed: a fader's position, the place in
-   * its track or the turn of its record of a deck (`deck1.position`, `deck1.turn`). */
-  private updateOutputs() {
-    const targets = this.outputTargets();
-    if (targets.length === 0) return;
-    const status = this.engine.status();
-    const values: { target: string; value: number }[] = [];
-    for (const target of targets) {
-      const value = this.outputValue(target, status);
-      if (value === null || Math.abs((this.sentValues.get(target) ?? -1) - value) < OUTPUT_CHANGE)
-        continue;
-      this.sentValues.set(target, value);
-      values.push({ target, value });
-    }
-    if (values.length > 0) this.run(() => invoke('set_controller_outputs', { values }));
-  }
-
-  /** A fader's position, or what a deck's track shows: its place (`position`, 0 to 1), its
-   * record's turn, its tempo (`bpm`), its times in seconds, its tempo change and range in
-   * percent. */
-  private outputValue(target: string, status: EngineStatus | null): number | null {
-    const measured =
-      /^deck(\d)\.(position|turn|bpm|elapsed|remaining|duration|tempo|tempoRange)$/.exec(target);
-    if (!measured) return this.controls.findInUse(target)?.position?.() ?? null;
-    const at = Number(measured[1]) - 1;
-    const deck = status?.decks[at];
-    if (!deck?.loaded) return null;
-    switch (measured[2]) {
-      case 'position':
-        return deck.durationS > 0 ? deck.positionS / deck.durationS : 0;
-      case 'turn': {
-        const turns = (deck.positionS * RECORD_RPM) / 60;
-        return turns - Math.floor(turns);
-      }
-      case 'bpm':
-        return deck.bpm;
-      case 'elapsed':
-        return deck.positionS;
-      case 'remaining':
-        return Math.max(deck.durationS - deck.positionS, 0);
-      case 'duration':
-        return deck.durationS;
-      case 'tempo':
-        return ((this.engine.tempoRate(at) ?? this.engine.decks()[at].pitch) - 1) * 100;
-      default:
-        return this.engine.tempoRange(at) * 100;
-    }
+    if (control?.lit) return control.lit() ? 'on' : 'off';
+    return this.controls.find(target)?.lit ? 'off' : null;
   }
 
   private async run(action: () => Promise<unknown>) {

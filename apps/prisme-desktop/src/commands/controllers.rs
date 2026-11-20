@@ -2,9 +2,7 @@
 
 use crate::controller_profiles;
 use crate::controllers::Controllers;
-use crate::dto::{
-    ControllerDto, ControllerProfileDto, ControllerProfilesDto, LightDto, OfferedProfileDto, OutputDto,
-};
+use crate::dto::{ControllerDto, ControllerProfileDto, ControllerProfilesDto, LightDto, OfferedProfileDto};
 use crate::error::{AppError, AppResult};
 use crate::midi_clock::MidiClock;
 use prisme_control::hid::{self, Learnt};
@@ -83,11 +81,11 @@ pub fn controller_mappings(controllers: State<'_, Controllers>) -> Vec<Mapping> 
     controllers.mappings().all().to_vec()
 }
 
-/// The actions whose state the profiles of the controllers in use show on lights of their
-/// own, beside the controls that drive them.
+/// The actions whose light the interface tells (`set_lights`), of those the controllers in use
+/// drive or show.
 #[tauri::command]
 pub fn controller_light_targets(controllers: State<'_, Controllers>) -> Vec<String> {
-    controllers.light_targets()
+    controllers.told_targets()
 }
 
 /// The next control moved on a controller in use will drive `target`, an action taking
@@ -122,19 +120,7 @@ pub fn forget_control(controllers: State<'_, Controllers>, device: String, targe
 
 #[tauri::command]
 pub fn set_lights(controllers: State<'_, Controllers>, lights: Vec<LightDto>) {
-    controllers.set_lights(&lights);
-}
-
-/// The sources of the values the profiles of the controllers in use show (a jog wheel's
-/// ring, a knob's): the UI tells them (`set_controller_outputs`).
-#[tauri::command]
-pub fn controller_output_targets(controllers: State<'_, Controllers>) -> Vec<String> {
-    controllers.output_targets()
-}
-
-#[tauri::command]
-pub fn set_controller_outputs(controllers: State<'_, Controllers>, values: Vec<OutputDto>) {
-    controllers.set_outputs(&values);
+    controllers.set_lights(lights);
 }
 
 /// The MIDI outputs the clock can go to.

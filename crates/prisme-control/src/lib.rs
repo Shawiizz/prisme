@@ -7,14 +7,17 @@
 //! known model before anything is learnt on it.
 
 pub mod hid;
+mod id;
 mod light;
 mod mapping;
 mod message;
 mod pickup;
 mod profile;
 mod schema;
+mod source;
 mod target;
 
+pub use id::{Id, SourceId, TargetId};
 pub use light::{light, nearest, LightValue, LightValues, OFF, ON};
 pub use mapping::{
     Chord, Encoding, FaderSet, Hold, Mapping, Mappings, Modes, ProfileControl, Reader, Shift, Shifts, When,
@@ -27,8 +30,9 @@ pub use profile::{
     ModeSelect, Output, Profile, ProfileLight, JOG_STEPS_PER_TURN, PROFILE_FORMAT,
 };
 pub use schema::{profile_schema, ListedTarget, SCHEMA_URL};
+pub use source::{Measure, Source};
 pub use target::{
     AutoDjAction, Band, Beats, DeckAction, DeckSwitch, Effect, FxAction, GeneralAction, Kind, LibraryAction,
-    MixerAction, MixerSwitch, Owner, SampleAction, Side, StemPart, Target, TargetId, Turn, Unknown, CUTS,
-    FX_KNOBS, FX_SLOTS, HOT_CUES, MAX_DECKS, ROLLS, SAMPLE_SLOTS, SLICES,
+    MixerAction, MixerSwitch, Owner, SampleAction, Side, StemPart, Target, Turn, Unknown, CUTS, FX_KNOBS,
+    FX_SLOTS, HOT_CUES, MAX_DECKS, ROLLS, SAMPLE_SLOTS, SLICES,
 };

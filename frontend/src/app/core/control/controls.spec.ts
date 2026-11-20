@@ -89,8 +89,6 @@ describe('controls', () => {
     find('mixer.headphones.split').apply(1);
     find('deck2.headphones.solo').apply(1);
     find('deck1.mute').apply(1);
-    expect(find('deck2.mute').lit!()).toBe(true);
-    expect(find('mixer.mic.cue').lit!()).toBe(true);
     expect(calls).toEqual([
       'setBalance(0.25)',
       'setBoothLevel(0.8)',
@@ -106,8 +104,6 @@ describe('controls', () => {
       'soloHeadphones(1)',
       'muted(0)',
       'setMute(0,false)',
-      'muted(1)',
-      'liveCued(mic)',
     ]);
   });
 
@@ -120,11 +116,14 @@ describe('controls', () => {
     expect(calls).toEqual(['hotCue(0,15)', 'triggerSample(1,8)']);
   });
 
-  it('light what is on', () => {
+  it('light only what the app keeps, the backend lighting the rest', () => {
     const { calls, find } = recorder();
-    expect(find('deck1.sample4').lit!()).toBe(true);
-    expect(calls).toEqual(['samplePlaying(0,3)']);
+    expect(find('general.library').lit!()).toBe(true);
+    expect(calls).toEqual(['libraryOnly()']);
+    expect(find('deck1.sample4').lit).toBeUndefined();
     expect(find('deck1.loop.halve').lit).toBeUndefined();
+    expect(find('deck1.phase.ahead').kind).toBe('light');
+    expect(find('deck1.phase.ahead').lit).toBeUndefined();
   });
 
   it('give each effect slot its controls, the first under the ids of a single effect', () => {
@@ -136,7 +135,6 @@ describe('controls', () => {
     find('deck2.fx2.beats').apply(2);
     find('deck2.fx2.mix').apply(0.5);
     find('deck1.fx.part').apply(1);
-    expect(find('deck1.fx3.gate').lit!()).toBe(true);
     expect(calls).toEqual([
       'toggleFx(0,0)',
       'setFxOn(1,2,true)',
@@ -145,7 +143,6 @@ describe('controls', () => {
       'scaleFxBeats(1,1,4)',
       'setFxMix(1,1,0.5)',
       'nextFxPart(0)',
-      'fxHolds(0,2,gate)',
     ]);
     expect(find('deck1.fx2.part')).toBeUndefined();
   });
@@ -244,9 +241,8 @@ describe('controls', () => {
     expect(fx.map((f) => f.amount)).toEqual([0.7, 0.7, 0.7]);
     find('deck1.fx.chain').apply(1);
     expect(chain.on).toBe(false);
-    expect(find('deck1.fx.chain.off').lit!()).toBe(true);
     find('deck1.fx.chain.on').apply(1);
-    expect(find('deck1.fx.chain').lit!()).toBe(true);
+    expect(chain.on).toBe(true);
   });
 
   it('preview the selected track, move through it, stop it, or load and play', () => {
@@ -257,13 +253,11 @@ describe('controls', () => {
     find('library.preview.stop').apply(1);
     find('library.load2.play').apply(1);
     expect(find('library.preview.seek').kind).toBe('encoder');
-    expect(find('library.preview').lit!()).toBe(true);
     expect(calls).toEqual([
       'togglePreview()',
       'seekPreview(-2)',
       'stopPreview()',
       'loadSelectedAndPlay(1)',
-      'previewing()',
     ]);
   });
 
@@ -273,9 +267,8 @@ describe('controls', () => {
     find('autodj.toggle').apply(0);
     find('autodj.fade').apply(1);
     find('autodj.skip').apply(1);
-    expect(find('autodj.toggle').lit!()).toBe(true);
     expect(find('autodj.toggle').kind).toBe('button');
-    expect(calls).toEqual(['toggleAutoDj()', 'autoDjFade()', 'autoDjSkip()', 'autoDjOn()']);
+    expect(calls).toEqual(['toggleAutoDj()', 'autoDjFade()', 'autoDjSkip()']);
   });
 
   it('brake, spin back while held, repeat, fader start', () => {
@@ -285,7 +278,6 @@ describe('controls', () => {
     find('deck2.spinback').apply(1);
     find('deck2.spinback').apply(0);
     find('deck1.repeat').apply(1);
-    expect(find('deck2.repeat').lit!()).toBe(true);
     find('deck2.faderStart').apply(1);
     expect(calls).toEqual([
       'brake(0)',
@@ -293,24 +285,21 @@ describe('controls', () => {
       'spinBack(1,false)',
       'repeating(0)',
       'setRepeat(0,false)',
-      'repeating(1)',
       'faderStart(1)',
       'setFaderStart(1,false)',
     ]);
   });
 
-  it('reverse, switched or held, lit while the track plays backwards', () => {
+  it('reverse, switched or held', () => {
     const { calls, find } = recorder();
     find('deck1.reverse').apply(1);
     find('deck2.reverse.held').apply(1);
     find('deck2.reverse.held').apply(0);
-    expect(find('deck2.reverse.held').lit!()).toBe(true);
     expect(calls).toEqual([
       'reversing(0)',
       'setReverse(0,false)',
       'holdReverse(1,true)',
       'holdReverse(1,false)',
-      'backwards(1)',
     ]);
   });
 
@@ -332,7 +321,7 @@ describe('controls', () => {
           (_, name: string) =>
           (...args: unknown[]) => {
             calls.push(`${name}(${args.join(',')})`);
-            return name === 'size' || name === 'loopBeats' ? 8 : true;
+            return name === 'size' ? 8 : true;
           },
       },
     ) as ControlActions;
@@ -344,7 +333,6 @@ describe('controls', () => {
     find('deck2.size.double').apply(1);
     find('deck2.size').apply(-2);
     expect(find('deck1.size').kind).toBe('encoder');
-    expect(find('deck1.loop.size').lit!()).toBe(true);
     expect(calls).toEqual([
       'size(1)',
       'beatJump(1,-8)',
@@ -354,8 +342,6 @@ describe('controls', () => {
       'scaleSize(0,0.5)',
       'scaleSize(1,2)',
       'scaleSize(1,0.25)',
-      'loopBeats(0)',
-      'size(0)',
     ]);
   });
 
@@ -404,15 +390,11 @@ describe('controls', () => {
     find('general.quantize.on').apply(1);
     find('mixer.crossfader.reverse.off').apply(1);
     find('deck1.vinyl.on').apply(0);
-    expect(find('deck2.mute.on').lit!()).toBe(true);
-    expect(find('deck2.mute.off').lit!()).toBe(false);
     expect(calls).toEqual([
       'setSync(0,true)',
       'setKeyLock(1,false)',
       'setQuantize(true)',
       'setCrossfaderReverse(false)',
-      'muted(1)',
-      'muted(1)',
     ]);
     const switches = [
       'deck1.sync',
@@ -474,37 +456,13 @@ describe('controls', () => {
     const press = () => {
       pad.apply(1);
       pad.apply(0);
-      return pad.state!();
     };
-    expect(press()).toBe('off');
+    press();
     slots.loaded = true;
-    expect(press()).toBe('loaded');
+    press();
     slots.playing = true;
-    expect(press()).toBe('playing');
-    expect(pad.lit!()).toBe(true);
+    press();
     expect(calls).toEqual(['loadSample(1,2)', 'triggerSample(1,2)', 'stopSample(1,2)']);
-  });
-
-  it('light a loop playing, and the beats in phase, ahead or behind', () => {
-    const calls: string[] = [];
-    const actions = new Proxy(
-      {},
-      {
-        get:
-          (_, name: string) =>
-          (...args: unknown[]) => {
-            calls.push(`${name}(${args.join(',')})`);
-            return name === 'phase' ? 'ahead' : true;
-          },
-      },
-    ) as ControlActions;
-    const find = (id: string) => buildControls(actions).find((c) => c.id === id)!;
-    expect(find('deck1.loop.any').state!()).toBe('on');
-    expect(find('deck2.phase.ahead').lit!()).toBe(true);
-    expect(find('deck2.phase.behind').state!()).toBe('off');
-    expect(find('deck2.phase').lit!()).toBe(false);
-    expect(find('deck1.phase.ahead').kind).toBe('light');
-    expect(calls).toEqual(['looping(0)', 'phase(1)', 'phase(1)', 'phase(1)']);
   });
 
   it('read a jump or a loop of so many beats from its id', () => {

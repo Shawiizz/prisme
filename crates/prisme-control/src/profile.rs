@@ -1,8 +1,9 @@
 use crate::hid::{self, Field, HidDevice};
+use crate::id::{SourceId, TargetId};
 use crate::light::{LightValue, LightValues, OFF, ON};
 use crate::mapping::{Mapping, Modes, ProfileControl, Shift, When};
 use crate::message::Control;
-use crate::target::{Target, TargetId};
+use crate::target::Target;
 use schemars::JsonSchema;
 use serde::{de, Deserialize, Deserializer, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
@@ -106,7 +107,7 @@ impl InitMessage {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct Output {
-    pub source: String,
+    pub source: SourceId,
     pub control: Control,
     #[serde(default, skip_serializing_if = "is_zero")]
     pub min: u8,
@@ -135,7 +136,7 @@ impl Output {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct Display {
-    pub source: String,
+    pub source: SourceId,
     pub message: Vec<DisplayPart>,
     #[serde(default = "unscaled", skip_serializing_if = "is_unscaled")]
     pub scale: f64,

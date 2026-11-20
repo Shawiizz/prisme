@@ -1,9 +1,9 @@
 //! Controllers, MIDI and HID (`controller_hid`). A mapped control's messages, or the fields of
-//! a HID report that changed, become `controller-input` events for the UI, which performs the
-//! actions and tells the state of each (its lights show it), except for the jog wheels and
-//! tempo faders, which drive the engine from here (`controller_direct`). The lights that
-//! blink, the levels a controller shows and the messages some models want again and again go
-//! out from a thread of their own.
+//! a HID report that changed, drive the application's actions (`actions`), but those the
+//! interface performs yet, which it is told of (`ui-action`). The lights show what the actions
+//! read of the application (`prisme_actions::light`), the few the interface keeps told by it;
+//! they, the values shown on the controllers, the lights that blink, the levels and the
+//! messages some models want again and again go out from a thread of their own.
 //! Mappings are learnt from the controller itself and kept in `controllers.json`, with the
 //! controllers in use; a model Prisme knows comes mapped by its profile
 //! (`controller_profiles`), what is learnt on it taking the profile's place.
@@ -11,22 +11,23 @@
 //! used one way only: by HID if Prisme knows it so and not by MIDI, else by MIDI, as its
 //! maker's driver then speaks to the device itself.
 
-use crate::auto_dj::{AutoDj, Takeover};
-use crate::controller_direct::{Moved, Performer};
+use crate::actions::{Actions, Answer, Moved, Source};
 use crate::controller_hid;
 use crate::controller_profiles;
-use crate::dto::{ControllerInputDto, DeckPitchDto, LightDto, OutputDto};
+use crate::dto::{ControllerInputDto, LightDto};
 use crate::error::{AppError, AppResult};
 use crate::state::{lock, AppState};
 use midir::{Ignore, MidiInput, MidiInputConnection, MidiOutput, MidiOutputConnection};
-use prisme_actions::scales::Tempo;
+use prisme_actions::input::Input;
+use prisme_actions::light::{light, told_by_interface};
+use prisme_actions::position::output;
+use prisme_actions::view::View;
 use prisme_audio_io::base_device_name;
 use prisme_control::hid::{self, Field, Learnt, Read};
 use prisme_control::{
     nearest, Control, DeckAction, Encoding, Event, FaderSet, Hold, LightValue, Mapping, Mappings, Modes,
     Owner, Profile, ProfileControl, Reader, Shifts, Target, TargetId, JOG_STEPS_PER_TURN, OFF, ON, SHIFT,
 };
-use prisme_engine::Command;
 use prisme_session::JsonFile;
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
@@ -77,6 +78,8 @@ pub struct ControllerSetup {
 }
 
 pub const PLUGGED_EVENT: &str = "controller-plugged";
+/// A controller's action the interface performs (a `ControllerInputDto`).
+pub const UI_ACTION_EVENT: &str = "ui-action";
 
 /// What the DJ is told of a controller plugged in while Prisme runs.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
@@ -133,12 +136,11 @@ enum Routed {
     Actions(Vec<Action>),
 }
 
-/// An action a controller drives: one the UI performs, or a deck's driving the engine from
-/// here, and its value.
+/// An action a controller drives, performed by the interface or here, and how it is driven.
 #[derive(Debug, PartialEq)]
 enum Action {
     Ui(ControllerInputDto),
-    Rust(usize, DeckAction, f32),
+    Rust(Target, Input),
 }
 
 impl Action {
@@ -146,8 +148,8 @@ impl Action {
     /// performed where it is.
     fn of(target: &TargetId, value: f32, steps: bool, step: Option<f32>) -> Self {
         match target.target() {
-            Some(deck @ &Target::Deck(at, action)) if deck.owner() == Owner::Rust => {
-                Action::Rust(at, action, value)
+            Some(rust) if rust.owner() == Owner::Rust => {
+                Action::Rust(rust.clone(), Input::of(value, steps, step))
             }
             _ => Action::Ui(ControllerInputDto { target: target.to_string(), value, steps, step }),
         }
@@ -348,12 +350,6 @@ impl Connection {
     }
 }
 
-/// The state of an action the UI last told, and the colour it shows.
-struct Shown {
-    state: String,
-    color: Option<String>,
-}
-
 /// What the keys of the controllers do beyond driving their action, by controller and key.
 #[derive(Default)]
 struct Keys {
@@ -376,12 +372,10 @@ pub struct Controllers {
     /// The mapping just learnt: it becomes a 14-bit one if its low half follows.
     just_learnt: Mutex<Option<(Mapping, Instant)>>,
     reader: Mutex<Reader>,
-    performer: Mutex<Performer>,
     connections: Mutex<Vec<Connection>>,
-    /// The state of each action the UI last told (`on`, `off`, `playing`…).
-    states: Mutex<HashMap<String, Shown>>,
-    /// The value of each source of the profiles' outputs the UI last told.
-    values: Mutex<HashMap<String, f32>>,
+    /// The state of each action whose light the interface tells (see `told_by_interface`), as
+    /// it last told it.
+    told: Mutex<HashMap<String, String>>,
     holdings: Mutex<Vec<Holding>>,
     keys: Mutex<Keys>,
     /// The fields of each HID controller's reports its mappings read.
@@ -396,10 +390,8 @@ impl Controllers {
             learning: Mutex::new(None),
             just_learnt: Mutex::new(None),
             reader: Mutex::new(Reader::default()),
-            performer: Mutex::new(Performer::default()),
             connections: Mutex::new(Vec::new()),
-            states: Mutex::new(HashMap::new()),
-            values: Mutex::new(HashMap::new()),
+            told: Mutex::new(HashMap::new()),
             holdings: Mutex::new(Vec::new()),
             keys: Mutex::new(Keys::default()),
             hid_fields: Mutex::new(HashMap::new()),
@@ -408,13 +400,10 @@ impl Controllers {
         controllers
     }
 
-    /// The profiles were read again: what they map, and the lights they give.
+    /// The profiles were read again: what they map, and the lights they give (shown at the
+    /// next tick of [`Self::drive_outputs`]).
     pub fn profiles_changed(&self) {
         self.layer();
-        let devices: Vec<String> = lock(&self.connections).iter().map(|c| c.device.clone()).collect();
-        for device in devices {
-            self.show_lights(&device);
-        }
     }
 
     /// What `device` drives now, as the profile of its model: its own profile's, what was
@@ -677,7 +666,7 @@ impl Controllers {
             list.push(device.to_owned());
         });
         // its profile's lights, now that it is among the controllers in use
-        self.show_lights(device);
+        self.show_lights(app, device);
         Ok(())
     }
 
@@ -746,72 +735,34 @@ impl Controllers {
         });
     }
 
-    /// The actions whose state the profiles of the controllers in use show on lights of
-    /// their own.
-    pub fn light_targets(&self) -> Vec<String> {
-        let mut targets: Vec<String> = self
-            .setup
-            .read(|s| s.enabled.clone())
-            .iter()
-            .filter_map(|device| self.profile(device))
-            .flat_map(|p| {
-                p.lights
-                    .iter()
-                    .filter(|l| l.target.mode().is_none())
-                    .map(|l| l.target.to_string())
-                    .collect::<Vec<_>>()
-            })
+    /// The actions whose light the interface tells (see `told_by_interface`), of those the
+    /// controllers in use drive and those their profiles show on lights of their own.
+    pub fn told_targets(&self) -> Vec<String> {
+        let mut targets: Vec<TargetId> =
+            lock(&self.mappings).all().iter().map(|m| m.target.clone()).collect();
+        for profile in self.setup.read(|s| s.enabled.clone()).iter().filter_map(|device| self.profile(device))
+        {
+            targets.extend(profile.lights.iter().map(|l| l.target.clone()));
+        }
+        let mut told: Vec<String> = targets
+            .into_iter()
+            .filter(|id| id.target().is_some_and(told_by_interface))
+            .map(String::from)
             .collect();
-        targets.sort();
-        targets.dedup();
-        targets
+        told.sort();
+        told.dedup();
+        told
     }
 
-    /// The sources of the outputs and the displays of the profiles of the controllers in use,
-    /// whose values the UI tells (`set_outputs`).
-    pub fn output_targets(&self) -> Vec<String> {
-        let mut targets: Vec<String> = self
-            .setup
-            .read(|s| s.enabled.clone())
-            .iter()
-            .filter_map(|device| self.profile(device))
-            .flat_map(|p| {
-                let outputs = p.outputs.iter().map(|o| o.source.clone());
-                outputs.chain(p.displays.iter().map(|d| d.source.clone())).collect::<Vec<_>>()
-            })
-            .collect();
-        targets.sort();
-        targets.dedup();
-        targets
-    }
-
-    /// Keeps the values of the outputs' sources, shown on the controllers as they go.
-    pub fn set_outputs(&self, values: &[OutputDto]) {
-        let mut kept = lock(&self.values);
-        for value in values {
-            kept.insert(value.target.clone(), value.value);
-        }
-    }
-
-    /// Keeps the state of the `lights` targets, and shows it on the controllers.
-    pub fn set_lights(&self, lights: &[LightDto]) {
-        let mut states = lock(&self.states);
-        for light in lights {
-            states.insert(
-                light.target.clone(),
-                Shown { state: light.state.clone(), color: light.color.clone() },
-            );
-        }
-        drop(states);
-        let devices: Vec<String> = lock(&self.connections).iter().map(|c| c.device.clone()).collect();
-        for device in devices {
-            self.show_lights(&device);
-        }
+    /// Keeps the state of the `lights` the interface tells, shown at the next tick of
+    /// [`Self::drive_outputs`].
+    pub fn set_lights(&self, lights: Vec<LightDto>) {
+        lock(&self.told).extend(lights.into_iter().map(|l| (l.target, l.state)));
     }
 
     /// Shows on `device`'s lights the state of their actions.
-    fn show_lights(&self, device: &str) {
-        let lights = self.lights(device);
+    fn show_lights(&self, app: &AppHandle, device: &str) {
+        let lights = self.lights(device, &app.state::<Actions>().view(app));
         if let Some(connection) = lock(&self.connections).iter_mut().find(|c| c.device == device) {
             for (control, value) in lights {
                 connection.light(control, value);
@@ -819,11 +770,11 @@ impl Controllers {
         }
     }
 
-    /// What `device`'s lights show, in the modes it is in and the shifts held: the state of
-    /// the actions its mapped controls and its mode keys drive (of a control mapped in several
-    /// layers, the one in use's), and of the other lights its profile gives. A key lit while
-    /// held, whose action has no state of its own, is off once let go.
-    fn lights(&self, device: &str) -> Vec<(Control, LightValue)> {
+    /// What `device`'s lights show of `view`, in the modes it is in and the shifts held: the
+    /// state of the actions its mapped controls and its mode keys drive (of a control mapped in
+    /// several layers, the one in use's), and of the other lights its profile gives. A key lit
+    /// while held, whose action has no state of its own, is off once let go.
+    fn lights(&self, device: &str, view: &View) -> Vec<(Control, LightValue)> {
         let profile = self.profile(device);
         let (modes, shifts, held) = {
             let reader = lock(&self.reader);
@@ -832,50 +783,52 @@ impl Controllers {
         let hid = profile.as_ref().and_then(|p| p.hid.as_ref());
         // in the order a key read takes them
         let mappings = lock(&self.mappings);
-        let states = lock(&self.states);
+        let told = lock(&self.told);
         let keys = lock(&self.keys);
-        let state_of = |target: &TargetId| match target.mode() {
-            Some((group, mode)) => Some(if modes.get(group).is_some_and(|m| m == mode) { ON } else { OFF }),
-            None => states.get(target.as_str()).map(|s| s.state.as_str()),
-        };
-        // the colour of its action, by the nearest of its palette, else on a light of three colours
-        let coloured = |target: &TargetId, palette: &BTreeMap<_, u8>, light: Control, value: LightValue| {
-            let colour = states
-                .get(target.as_str())
-                .and_then(|s| s.color.as_deref())
-                .filter(|_| state_of(target).is_some_and(|s| s != OFF));
-            let rgb = |colour| match (light, hid) {
-                (Control::Hid(led), Some(hid)) if led.bits == hid::RGB_BITS => {
-                    hid::rgb(colour, hid.brightness)
-                }
-                _ => None,
-            };
-            match colour {
-                Some(c) if !palette.is_empty() => nearest(palette, c).map_or(value, LightValue::Steady),
-                Some(c) => rgb(c).map_or(value, |rgb| LightValue::Message(rgb.to_vec())),
-                None => value,
+        // the state of an action, and the colour it shows
+        let shown = |id: &TargetId| match id.target()? {
+            Target::Mode { group, mode } => {
+                Some((if modes.get(group).is_some_and(|m| m == mode) { ON } else { OFF }, None))
             }
+            target if told_by_interface(target) => told.get(id.as_str()).map(|s| (s.as_str(), None)),
+            target => light(target, view).map(|l| (l.state.name(), l.colour)),
         };
+        // by the nearest of its palette, else on a light of three colours
+        let coloured =
+            |colour: Option<u32>, palette: &BTreeMap<_, u8>, light: Control, value: LightValue| match (
+                colour, light, hid,
+            ) {
+                (Some(c), _, _) if !palette.is_empty() => {
+                    nearest(palette, c).map_or(value, LightValue::Steady)
+                }
+                (Some(c), Control::Hid(led), Some(hid)) if led.bits == hid::RGB_BITS => {
+                    LightValue::Message(hid::rgb(c, hid.brightness).to_vec())
+                }
+                _ => value,
+            };
         let mut lights: Vec<(Control, LightValue)> = Vec::new();
         for mapping in mappings.shown(device, &shifts, &modes) {
             let Some(light) = light_of(hid, mapping.control) else { continue };
             let key = (device.to_owned(), mapping.control);
             let lit_held = mapping.light.has(PRESSED);
+            let action = shown(&mapping.target);
             let state = if lit_held && held.contains(&mapping.control) {
                 Some(PRESSED)
             } else if matches!(mapping.set, Some(FaderSet::InTurn(_))) {
                 Some(if keys.second.contains(&key) { ON } else { OFF })
             } else {
-                state_of(&mapping.target).or(lit_held.then_some(OFF))
+                action.map(|(state, _)| state).or(lit_held.then_some(OFF))
             };
             if let Some(state) = state {
-                let value = coloured(&mapping.target, &mapping.palette, light, mapping.light.value(state));
-                lights.push((light, value));
+                let colour = action.and_then(|(_, colour)| colour);
+                lights.push((light, coloured(colour, &mapping.palette, light, mapping.light.value(state))));
             }
         }
         for extra in profile.iter().flat_map(|p| &p.lights) {
-            if let Some(value) = state_of(&extra.target).and_then(|s| extra.value(s, &modes)) {
-                lights.push((extra.control, coloured(&extra.target, &extra.palette, extra.control, value)));
+            let action = shown(&extra.target);
+            if let Some(value) = action.and_then(|(state, _)| extra.value(state, &modes)) {
+                let colour = action.and_then(|(_, colour)| colour);
+                lights.push((extra.control, coloured(colour, &extra.palette, extra.control, value)));
             }
         }
         lights
@@ -931,8 +884,9 @@ impl Controllers {
         self.setup.flush();
     }
 
-    /// Sends what goes out by itself: the lights that blink, the keep-alive messages, and
-    /// the levels the controllers show.
+    /// Sends what goes out by itself, each tick: the lights (the engine moves what many show),
+    /// those that blink, the values and the levels the controllers show, the keep-alive
+    /// messages.
     pub fn drive_outputs(app: AppHandle) {
         let spawned = std::thread::Builder::new().name("prisme-midi-out".into()).spawn(move || {
             let mut metered = Instant::now();
@@ -944,52 +898,58 @@ impl Controllers {
                     metered = Instant::now();
                     levels(&app.state::<AppState>())
                 });
-                let values = lock(&controllers.values).clone();
-                for connection in lock(&controllers.connections).iter_mut() {
-                    connection.blink();
-                    connection.send_due();
-                    let Some(profile) = controllers.profile(&connection.device) else { continue };
-                    let modes = lock(&controllers.reader).modes(&connection.device);
-                    let shown = |when: &Option<prisme_control::When>| {
-                        when.as_ref().is_none_or(|w| modes.get(&w.group) == Some(&w.mode))
-                    };
-                    if let Some(keep) = &profile.keep_alive {
-                        if connection.kept_alive.elapsed() >= Duration::from_millis(u64::from(keep.every_ms))
-                        {
-                            connection.kept_alive = Instant::now();
-                            connection.send(&keep.message);
-                        }
-                    }
-                    for (at, meter) in profile.meters.iter().enumerate().filter(|(_, m)| shown(&m.when)) {
-                        let Some(&level) = levels.as_ref().and_then(|l| l.get(&meter.source)) else {
-                            continue;
-                        };
-                        if level >= 1.0 {
-                            connection.clipped.insert(at, Instant::now());
-                        }
-                        let clipping = connection.clipped.get(&at).is_some_and(|t| t.elapsed() < CLIP_SHOWN);
-                        for (control, value) in meter.show(level, clipping) {
-                            connection.light(control, value);
-                        }
-                    }
-                    for output in profile.outputs.iter().filter(|o| shown(&o.when)) {
-                        if let Some(&value) = values.get(&output.source) {
-                            connection.light(output.control, LightValue::Steady(output.value(value)));
-                        }
-                    }
-                    for (at, display) in profile.displays.iter().enumerate().filter(|(_, d)| shown(&d.when)) {
-                        let Some(&value) = values.get(&display.source) else { continue };
-                        let message = display.message(f64::from(value));
-                        if connection.displayed.get(&at) != Some(&message) {
-                            connection.send(&message);
-                            connection.displayed.insert(at, message);
-                        }
-                    }
-                }
+                controllers.drive(&app.state::<Actions>().view(&app), levels.as_ref());
             }
         });
         if let Err(e) = spawned {
             error!("controller lights and levels not sent: {e}");
+        }
+    }
+
+    /// A tick of [`Self::drive_outputs`]: what each controller shows of `view`, and of the
+    /// `levels` of its meters when they are due.
+    fn drive(&self, view: &View, levels: Option<&HashMap<String, f32>>) {
+        for connection in lock(&self.connections).iter_mut() {
+            for (control, value) in self.lights(&connection.device, view) {
+                connection.light(control, value);
+            }
+            connection.blink();
+            connection.send_due();
+            let Some(profile) = self.profile(&connection.device) else { continue };
+            let modes = lock(&self.reader).modes(&connection.device);
+            let shown = |when: &Option<prisme_control::When>| {
+                when.as_ref().is_none_or(|w| modes.get(&w.group) == Some(&w.mode))
+            };
+            if let Some(keep) = &profile.keep_alive {
+                if connection.kept_alive.elapsed() >= Duration::from_millis(u64::from(keep.every_ms)) {
+                    connection.kept_alive = Instant::now();
+                    connection.send(&keep.message);
+                }
+            }
+            for (at, meter) in profile.meters.iter().enumerate().filter(|(_, m)| shown(&m.when)) {
+                let Some(&level) = levels.and_then(|l| l.get(&meter.source)) else { continue };
+                if level >= 1.0 {
+                    connection.clipped.insert(at, Instant::now());
+                }
+                let clipping = connection.clipped.get(&at).is_some_and(|t| t.elapsed() < CLIP_SHOWN);
+                for (control, value) in meter.show(level, clipping) {
+                    connection.light(control, value);
+                }
+            }
+            let value_of = |source: &prisme_control::SourceId| output(source.named()?, view);
+            for output in profile.outputs.iter().filter(|o| shown(&o.when)) {
+                if let Some(value) = value_of(&output.source) {
+                    connection.light(output.control, LightValue::Steady(output.value(value as f32)));
+                }
+            }
+            for (at, display) in profile.displays.iter().enumerate().filter(|(_, d)| shown(&d.when)) {
+                let Some(value) = value_of(&display.source) else { continue };
+                let message = display.message(value);
+                if connection.displayed.get(&at) != Some(&message) {
+                    connection.send(&message);
+                    connection.displayed.insert(at, message);
+                }
+            }
         }
     }
 
@@ -1007,7 +967,7 @@ impl Controllers {
         let at = port_of(&names, device, &self.ports_open())
             .ok_or_else(|| AppError::ControllerUnplugged(device.to_owned()))?;
         let (port, port_name) = (&ports[at], names[at].clone());
-        let (app, name) = (app.clone(), device.to_owned());
+        let (receiving, name) = (app.clone(), device.to_owned());
         let jog_steps_per_turn = self.jog_steps_per_turn(device);
         let connection = input
             .connect(
@@ -1016,14 +976,15 @@ impl Controllers {
                 move |stamp_us, bytes, _| {
                     if let Some(event) = prisme_control::parse(bytes) {
                         let at_s = stamp_us as f64 / 1e6;
-                        app.state::<Controllers>().receive(&app, &name, jog_steps_per_turn, event, at_s);
+                        let controllers = receiving.state::<Controllers>();
+                        controllers.receive(&receiving, &name, jog_steps_per_turn, event, at_s);
                     }
                 },
                 (),
             )
             .map_err(midi_error)?;
         let output = open_output(&port_name);
-        self.opened(device, port_name, Link::Midi { input: Some(connection), output });
+        self.opened(app, device, port_name, Link::Midi { input: Some(connection), output });
         Ok(())
     }
 
@@ -1036,24 +997,25 @@ impl Controllers {
         let profile = self.profile(device);
         // a profile's fields tell whether the device numbers its reports, else its descriptor does
         let numbered = profile.as_ref().and_then(|p| p.hid_inputs().first().map(|f| f.report != 0));
-        let (app, name) = (app.clone(), device.to_owned());
+        let (receiving, name) = (app.clone(), device.to_owned());
         let jog_steps_per_turn = self.jog_steps_per_turn(device);
         let link = controller_hid::Link::open(
             &plugged[at],
             profile.as_ref().and_then(|p| p.hid.as_ref()),
             numbered,
             move |read, at_s| {
-                app.state::<Controllers>().receive_hid(&app, &name, &read, jog_steps_per_turn, at_s);
+                let controllers = receiving.state::<Controllers>();
+                controllers.receive_hid(&receiving, &name, &read, jog_steps_per_turn, at_s);
             },
         )
         .map_err(AppError::Hid)?;
-        self.opened(device, names[at].clone(), Link::Hid(link));
+        self.opened(app, device, names[at].clone(), Link::Hid(link));
         Ok(())
     }
 
     /// `device` opened on `port`: it is sent what its profile sends first (some of it later),
     /// its groups are in their first modes, and its lights show.
-    fn opened(&self, device: &str, port: String, link: Link) {
+    fn opened(&self, app: &AppHandle, device: &str, port: String, link: Link) {
         let mut connection = Connection {
             device: device.to_owned(),
             port,
@@ -1075,7 +1037,7 @@ impl Controllers {
         }
         lock(&self.reader).set_modes(device, profile.map(|p| p.first_modes()).unwrap_or_default());
         lock(&self.connections).push(connection);
-        self.show_lights(device);
+        self.show_lights(app, device);
     }
 
     /// An event of `device`, whose jog wheels turn by `jog_steps_per_turn`, at `at_s` on its
@@ -1090,7 +1052,7 @@ impl Controllers {
         // a key's light may show it held, latched or at the second of its two positions, and
         // the lights show the layer in use (a mode chosen by a switch, say)
         if event.control.is_key() || layer() != before {
-            self.show_lights(device);
+            self.show_lights(app, device);
         }
         match routed {
             Some(Routed::Learned(mapping)) => drop(app.emit("controller-learned", mapping)),
@@ -1130,13 +1092,16 @@ impl Controllers {
         Reported::Events(read.events(&fields))
     }
 
-    /// Performs what a controller drove (`moved`): the UI is told its actions, the direct ones
-    /// are done here.
+    /// Performs what a controller drove (`moved`): the interface is told the actions it
+    /// performs, the others are done here.
     fn act(&self, app: &AppHandle, actions: Vec<Action>, moved: Moved) {
         for action in actions {
             match action {
-                Action::Ui(input) => drop(app.emit("controller-input", input)),
-                Action::Rust(deck, action, value) => self.perform(app, moved, deck, action, value),
+                Action::Ui(input) => drop(app.emit(UI_ACTION_EVENT, input)),
+                Action::Rust(target, input) => {
+                    let source = Source::Controller(moved);
+                    app.state::<Actions>().perform(app, &target, input, source, Answer::Told);
+                }
             }
         }
     }
@@ -1158,9 +1123,10 @@ impl Controllers {
                 _ => None,
             })
             .collect();
+        let source = Source::Controller(Moved { device, at_s: 0.0, jog_steps_per_turn });
         for deck in touched {
-            let moved = Moved { device, at_s: 0.0, jog_steps_per_turn };
-            self.perform(app, moved, deck, DeckAction::JogTouch, 0.0);
+            let let_go = Target::Deck(deck, DeckAction::JogTouch);
+            app.state::<Actions>().perform(app, &let_go, Input::Value(0.0), source, Answer::Told);
         }
     }
 
@@ -1321,7 +1287,7 @@ impl Controllers {
                     let jog_steps_per_turn = self.jog_steps_per_turn(&device);
                     self.act(app, vec![action], Moved { device: &device, at_s, jog_steps_per_turn });
                 }
-                None => self.show_lights(&device),
+                None => self.show_lights(app, &device),
             }
         }
     }
@@ -1373,36 +1339,6 @@ impl Controllers {
         let mut fine_mapping = mapping;
         fine_mapping.fine = Some(fine);
         Some(fine_mapping)
-    }
-
-    /// Drives the engine for `action` of `deck`, performed here, as `moved`; the UI hears of a
-    /// new tempo.
-    fn perform(&self, app: &AppHandle, moved: Moved, deck: usize, action: DeckAction, value: f32) {
-        let state = app.state::<AppState>();
-        if state.has_deck(deck).is_err() {
-            return;
-        }
-        // a wheel that only nudges: its top is no hand on the record
-        if action == DeckAction::JogTouch && !lock(&state.decks)[deck].jog_scratch {
-            return;
-        }
-        let range = state.tempo_range(deck);
-        let tempo = Tempo { ratio: lock(&state.decks)[deck].pitch, range };
-        let Some(command) = lock(&self.performer).command(moved, deck, action, value, tempo) else {
-            return;
-        };
-        if action != DeckAction::Pitch {
-            if let Some(auto_dj) = app.try_state::<AutoDj>() {
-                auto_dj.take_over(Takeover::Transport(deck));
-            }
-        }
-        if let Command::SetPitch { ratio, .. } = command {
-            lock(&state.decks)[deck].pitch = ratio;
-            let _ = app.emit("deck-pitch", DeckPitchDto { deck, ratio });
-        }
-        if let Err(e) = state.send_if_running(command) {
-            warn!("controller action on deck {} lost: {e}", deck + 1);
-        }
     }
 
     fn save(&self, change: impl FnOnce(&mut ControllerSetup)) {
@@ -1615,9 +1551,38 @@ mod tests {
         c.route("DDJ", parse(bytes).unwrap(), 0.0)
     }
 
-    fn direct(target: &str, value: f32) -> Option<Routed> {
-        let Ok(Target::Deck(deck, action)) = target.parse() else { panic!("{target} is a deck's") };
-        Some(Routed::Actions(vec![Action::Rust(deck, action, value)]))
+    /// `target` performed here, driven by `input`.
+    fn rust(target: &str, input: Input) -> Action {
+        Action::Rust(target.parse().unwrap(), input)
+    }
+
+    fn direct(target: &str, input: Input) -> Option<Routed> {
+        Some(Routed::Actions(vec![rust(target, input)]))
+    }
+
+    fn steps(steps: f32) -> Input {
+        Input::Steps { steps, step: None }
+    }
+
+    /// The application with nothing loaded, two decks in use and the audio off.
+    fn view() -> View {
+        let state = AppState::new(JsonFile::in_memory(Default::default()));
+        crate::actions::view_of(&state, false, &Mutex::default(), 0.0)
+    }
+
+    /// `view` with a track on `deck` whose first hot cue is set, of `colour`.
+    fn with_hot_cue(mut view: View, deck: usize, colour: u32) -> View {
+        let mut hot_cues = [None; prisme_control::HOT_CUES];
+        hot_cues[0] = Some(colour);
+        view.decks[deck].track = Some(prisme_actions::view::TrackView {
+            bpm: None,
+            key_shift: 0,
+            separation: prisme_actions::stems::Separation::None,
+            stem_mix: Default::default(),
+            main_cue_s: None,
+            hot_cues,
+        });
+        view
     }
 
     #[test]
@@ -1642,7 +1607,7 @@ mod tests {
         // a jog sending steps around 64
         c.learn("deck1.jog".into(), Learnt::Encoder);
         route(&c, &[0xb0, 33, 65]);
-        assert_eq!(route(&c, &[0xb0, 33, 61]), direct("deck1.jog", -3.0));
+        assert_eq!(route(&c, &[0xb0, 33, 61]), direct("deck1.jog", steps(-3.0)));
     }
 
     #[test]
@@ -1657,7 +1622,7 @@ mod tests {
             Some(Routed::Learned(Box::new(with(mapping(tempo, "deck1.pitch"), |b| b.fine = Some(32)))))
         );
         assert_eq!(route(&c, &[0xb0, 0, 64]), None);
-        assert_eq!(route(&c, &[0xb0, 32, 64]), direct("deck1.pitch", 8256.0 / 16383.0));
+        assert_eq!(route(&c, &[0xb0, 32, 64]), direct("deck1.pitch", Input::Value(8256.0 / 16383.0)));
     }
 
     #[test]
@@ -1768,13 +1733,13 @@ mod tests {
         c.save(|s| s.enabled.push("VCI-100".into()));
         let touch = |c: &Controllers, note| c.route("VCI-100", parse(&[0x90, note, 127]).unwrap(), 0.0);
         assert_eq!(c.model_name("VCI-100"), "Vestax VCI-100");
-        assert_eq!(touch(&c, 48), direct("deck1.jog.touch", 1.0));
+        assert_eq!(touch(&c, 48), direct("deck1.jog.touch", Input::Value(1.0)));
         c.save(|s| {
             s.profiles.insert("VCI-100".into(), "vestax-vci-100-hile.json".into());
         });
         assert_eq!(c.model_name("VCI-100"), "Vestax VCI-100 (Hile Mod)");
         assert_eq!(c.jog_steps_per_turn("VCI-100"), 256.0);
-        assert_eq!(touch(&c, 46), direct("deck1.jog.touch", 1.0));
+        assert_eq!(touch(&c, 46), direct("deck1.jog.touch", Input::Value(1.0)));
     }
 
     #[test]
@@ -1902,6 +1867,29 @@ mod tests {
     }
 
     #[test]
+    fn the_interface_is_told_of_none_of_the_actions_performed_here() {
+        let path = concat!(env!("CARGO_MANIFEST_DIR"), "/controllers/targets.json");
+        let listed: Vec<prisme_control::ListedTarget> =
+            serde_json::from_str(&std::fs::read_to_string(path).unwrap()).unwrap();
+        let measured =
+            ["deck1.jump.-8", "deck2.loop.0.5", "deck3.roll.1", "deck4.key.+2", "deck1.sample3.velocity"];
+        let ids = listed.iter().map(|t| t.id.as_str()).chain(measured);
+        let mut here = 0;
+        for id in ids {
+            match Action::of(&id.into(), 1.0, false, None) {
+                Action::Ui(input) => {
+                    assert_eq!(input.target.parse::<Target>().map(|t| t.owner()), Ok(Owner::Ui), "{id}")
+                }
+                Action::Rust(target, _) => {
+                    assert_eq!(target.owner(), Owner::Rust, "{id}");
+                    here += 1;
+                }
+            }
+        }
+        assert_eq!(here, 4 * 4, "the jogs and the tempo faders of the four decks");
+    }
+
+    #[test]
     fn a_direct_action_is_done_here_whatever_drives_it() {
         let (other, third) = (Control::note(0, 37), Control::note(0, 38));
         let c = with_mappings([
@@ -1914,20 +1902,24 @@ mod tests {
             }),
         ]);
         assert_eq!(c.route("DDJ", parse(&[0x90, 38, 127]).unwrap(), 2.5), None);
-        let held = Some((Action::Rust(0, DeckAction::JogTouch, 1.0), 2.5));
+        let held = Some((rust("deck1.jog.touch", Input::Value(1.0)), 2.5));
         assert_eq!(
             c.fired_holds(),
             [("DDJ".to_owned(), held)],
             "held, at its time on the controller's clock"
         );
-        assert_eq!(route(&c, &[0x90, 38, 0]), direct("deck1.jog.touch", 0.0));
-        assert_eq!(route(&c, &[0x90, 36, 127]), direct("deck1.jog.touch", 1.0), "latched");
+        assert_eq!(route(&c, &[0x90, 38, 0]), direct("deck1.jog.touch", Input::Value(0.0)));
+        assert_eq!(route(&c, &[0x90, 36, 127]), direct("deck1.jog.touch", Input::Value(1.0)), "latched");
         assert_eq!(route(&c, &[0x90, 36, 0]), None);
-        assert_eq!(route(&c, &[0x90, 36, 127]), direct("deck1.jog.touch", 0.0));
+        assert_eq!(route(&c, &[0x90, 36, 127]), direct("deck1.jog.touch", Input::Value(0.0)));
         route(&c, &[0x90, 37, 127]);
         route(&c, &[0x90, 37, 0]);
-        assert_eq!(route(&c, &[0x90, 37, 127]), direct("deck1.jog.touch", 1.0), "pressed twice");
-        assert_eq!(route(&c, &[0x90, 37, 0]), direct("deck1.jog.touch", 0.0));
+        assert_eq!(
+            route(&c, &[0x90, 37, 127]),
+            direct("deck1.jog.touch", Input::Value(1.0)),
+            "pressed twice"
+        );
+        assert_eq!(route(&c, &[0x90, 37, 0]), direct("deck1.jog.touch", Input::Value(0.0)));
     }
 
     #[test]
@@ -1936,7 +1928,7 @@ mod tests {
             b.also = vec!["deck2.jog.touch".into()]
         })]);
         let touched =
-            vec![Action::Rust(0, DeckAction::JogTouch, 1.0), Action::Rust(1, DeckAction::JogTouch, 1.0)];
+            vec![rust("deck1.jog.touch", Input::Value(1.0)), rust("deck2.jog.touch", Input::Value(1.0))];
         assert_eq!(route(&c, &[0x90, 36, 127]), Some(Routed::Actions(touched)));
     }
 
@@ -1949,13 +1941,59 @@ mod tests {
     fn a_key_lit_while_held_goes_dark_when_let_go() {
         let c = with_mappings([with(mapping(PAD, "deck1.jump.back"), lit(PRESSED, 100))]);
         route(&c, &[0x90, 36, 127]);
-        assert_eq!(c.lights("DDJ"), [(PAD, LightValue::Steady(100))]);
+        assert_eq!(c.lights("DDJ", &view()), [(PAD, LightValue::Steady(100))]);
         route(&c, &[0x90, 36, 0]);
-        assert_eq!(c.lights("DDJ"), [(PAD, LightValue::Steady(0))]);
+        assert_eq!(c.lights("DDJ", &view()), [(PAD, LightValue::Steady(0))]);
     }
 
     fn light(target: &str, state: &str) -> LightDto {
-        LightDto { target: target.into(), state: state.into(), color: None }
+        LightDto { target: target.into(), state: state.into() }
+    }
+
+    #[test]
+    fn a_mapping_to_play_lights_while_its_deck_plays() {
+        let c = with_mappings([with(mapping(PAD, "deck1.play"), lit(ON, 10))]);
+        let mut playing = view();
+        assert_eq!(c.lights("DDJ", &playing), [(PAD, LightValue::Steady(0))]);
+        playing.status.decks[0].playing = true;
+        assert_eq!(c.lights("DDJ", &playing), [(PAD, LightValue::Steady(10))]);
+    }
+
+    #[test]
+    fn a_light_of_a_deck_no_longer_in_use_goes_out() {
+        let c = with_mappings([with(mapping(PAD, "deck3.play"), lit(ON, 10))]);
+        let mut four = view();
+        four.decks_in_use = 4;
+        four.status.decks[2].playing = true;
+        assert_eq!(c.lights("DDJ", &four), [(PAD, LightValue::Steady(10))]);
+        let two = View { decks_in_use: 2, ..four };
+        assert_eq!(c.lights("DDJ", &two), [(PAD, LightValue::Steady(0))]);
+    }
+
+    #[test]
+    fn the_interface_tells_the_lights_of_what_it_keeps_and_is_asked_for_those_alone() {
+        let c = with_mappings([
+            with(mapping(PAD, "deck1.slice1"), lit(ON, 10)),
+            mapping(Control::note(0, 37), "deck1.play"),
+            mapping(Control::note(0, 38), "general.library"),
+        ]);
+        assert_eq!(c.told_targets(), ["deck1.slice1", "general.library"]);
+        let pad = |c: &Controllers| c.lights("DDJ", &view()).into_iter().find(|(control, _)| *control == PAD);
+        assert_eq!(pad(&c), None, "not told yet");
+        c.set_lights(vec![light("deck1.slice1", ON)]);
+        assert_eq!(pad(&c), Some((PAD, LightValue::Steady(10))));
+    }
+
+    #[test]
+    fn the_values_shown_are_read_from_the_view() {
+        let mut shown = view();
+        shown.status.decks[0].loaded = true;
+        (shown.status.decks[0].position_s, shown.status.decks[0].bpm) = (36.0, Some(128.0));
+        let value = |id: &str| output(&id.parse().unwrap(), &shown);
+        // 36 s at 33 1/3 turns a minute: 20 turns
+        assert!(value("deck1.turn").is_some_and(|turn| turn.abs() < 1e-9));
+        assert_eq!(value("deck1.bpm"), Some(128.0));
+        assert_eq!(value("deck2.bpm"), None, "no track");
     }
 
     #[test]
@@ -1966,12 +2004,13 @@ mod tests {
             with(mapping(PAD, "deck1.play"), lit(ON, 10)),
             with(with(mapping(PAD, "deck1.slip"), lit(ON, 20)), |b| b.shift = Shift::Any),
         ]);
-        c.set_lights(&[light("deck1.play", ON), light("deck1.slip", OFF)]);
-        assert_eq!(c.lights("DDJ"), [(PAD, LightValue::Steady(10))]);
+        let mut playing = view();
+        playing.status.decks[0].playing = true;
+        assert_eq!(c.lights("DDJ", &playing), [(PAD, LightValue::Steady(10))]);
         route(&c, &[0x90, 63, 127]);
-        assert_eq!(c.lights("DDJ"), [(PAD, LightValue::Steady(0))], "the shift layer's");
+        assert_eq!(c.lights("DDJ", &playing), [(PAD, LightValue::Steady(0))], "the shift layer's");
         route(&c, &[0x90, 63, 0]);
-        assert_eq!(c.lights("DDJ"), [(PAD, LightValue::Steady(10))]);
+        assert_eq!(c.lights("DDJ", &playing), [(PAD, LightValue::Steady(10))]);
     }
 
     #[test]
@@ -1979,13 +2018,14 @@ mod tests {
         let when = |mode: &str| Some(When { group: "pads".into(), mode: mode.into() });
         let c = with_mappings([
             with(with(mapping(PAD, "deck1.hotcue1"), lit(ON, 10)), |b| b.when = when("cues")),
-            with(with(mapping(PAD, "deck1.roll1"), lit(ON, 20)), |b| b.when = when("rolls")),
+            with(with(mapping(PAD, "deck1.slice1"), lit(ON, 20)), |b| b.when = when("slicer")),
         ]);
         lock(&c.reader).set_modes("DDJ", Modes::from([("pads".into(), "cues".into())]));
-        c.set_lights(&[light("deck1.hotcue1", ON), light("deck1.roll1", ON)]);
-        assert_eq!(c.lights("DDJ"), [(PAD, LightValue::Steady(10))]);
-        lock(&c.reader).set_mode("DDJ", "pads", "rolls");
-        assert_eq!(c.lights("DDJ"), [(PAD, LightValue::Steady(20))]);
+        c.set_lights(vec![light("deck1.slice1", ON)]);
+        let cued = with_hot_cue(view(), 0, 0xff0000);
+        assert_eq!(c.lights("DDJ", &cued), [(PAD, LightValue::Steady(10))]);
+        lock(&c.reader).set_mode("DDJ", "pads", "slicer");
+        assert_eq!(c.lights("DDJ", &cued), [(PAD, LightValue::Steady(20))]);
     }
 
     /// The messages going to the controller for `meter` at `level`, what `lit` shows already
@@ -2122,13 +2162,20 @@ mod tests {
     fn a_hid_jog_counter_turns_its_deck_and_faders_move_by_their_12_bits() {
         let (c, device, mut reports) = s4();
         let mut drive = |report: Vec<u8>| driven(&c, &device, &mut reports, &report);
-        assert_eq!(drive(short(&[(0x01, 6)])), [direct("deck1.jog", 6.0).unwrap()]);
-        assert_eq!(drive(short(&[(0x01, 250)])), [direct("deck1.jog", -12.0).unwrap()], "wrapped at 256");
-        assert_eq!(drive(short(&[(0x01, 250), (0x11, 0x01)])), [direct("deck1.jog.touch", 1.0).unwrap()]);
+        assert_eq!(drive(short(&[(0x01, 6)])), [direct("deck1.jog", steps(6.0)).unwrap()]);
+        assert_eq!(
+            drive(short(&[(0x01, 250)])),
+            [direct("deck1.jog", steps(-12.0)).unwrap()],
+            "wrapped at 256"
+        );
+        assert_eq!(
+            drive(short(&[(0x01, 250), (0x11, 0x01)])),
+            [direct("deck1.jog.touch", Input::Value(1.0)).unwrap()]
+        );
         // the crossfader at 4095, the left tempo fader at 2048, its 0 the fastest
         let routed = drive(long(&[(0x07, 0xff), (0x08, 0x0f), (0x09, 0x00), (0x0a, 0x08)]));
         let mut expected = ui(&[("mixer.crossfader", 1.0)]);
-        expected.extend(direct("deck1.pitch", 1.0 - 2048.0 / 4095.0));
+        expected.extend(direct("deck1.pitch", Input::Value(1.0 - 2048.0 / 4095.0)));
         assert_eq!(routed, expected);
         // the browse knob, a counter of four bits: a step back from 0 is -1
         assert_eq!(
@@ -2144,20 +2191,19 @@ mod tests {
     fn a_hid_controllers_lights_are_its_keys_leds_in_its_output_reports() {
         let (c, device, _) = s4();
         let led = |report, byte, bits| Control::Hid(Field { report, byte, bit: 0, bits, big_endian: false });
-        c.set_lights(&[
-            light("deck1.play", ON),
-            LightDto { target: "deck1.hotcue1".into(), state: ON.into(), color: Some("#ff0000".into()) },
-            light("deck1.hotcue2", OFF),
-        ]);
-        let lights = c.lights(&device);
+        let mut shown = with_hot_cue(view(), 0, 0xff0000);
+        shown.status.decks[0].playing = true;
+        let lights = c.lights(&device, &shown);
         assert!(lights.contains(&(led(0x81, 0x20, 8), LightValue::Steady(127))), "play");
         assert!(lights.contains(&(led(0x81, 0x01, 24), LightValue::Message(vec![127, 0, 0]))), "its colour");
         assert!(lights.contains(&(led(0x81, 0x04, 24), LightValue::Message(vec![8, 1, 1]))), "dim red");
         // the left side on deck C: the same LEDs show deck 3
         lock(&c.reader).set_mode(&device, "left", "C");
-        c.set_lights(&[light("deck3.play", OFF)]);
-        assert!(c.lights(&device).contains(&(led(0x81, 0x20, 8), LightValue::Steady(9))));
-        assert!(c.lights(&device).contains(&(led(0x81, 0x31, 8), LightValue::Steady(127))), "deck C lit");
+        assert!(c.lights(&device, &shown).contains(&(led(0x81, 0x20, 8), LightValue::Steady(9))));
+        assert!(
+            c.lights(&device, &shown).contains(&(led(0x81, 0x31, 8), LightValue::Steady(127))),
+            "deck C lit"
+        );
     }
 
     #[test]

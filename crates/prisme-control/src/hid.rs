@@ -221,11 +221,10 @@ pub fn ids_of(name: &str) -> Option<(u16, u16)> {
     Some((hex(vendor)?, hex(product)?))
 }
 
-/// The colour `colour` (`"#rrggbb"`) as a three-colour light shows it at `brightness`.
-pub fn rgb(colour: &str, brightness: u8) -> Option<[u8; 3]> {
-    let n = u32::from_str_radix(colour.strip_prefix('#')?, 16).ok()?;
+/// The colour `colour` (`0xrrggbb`) as a three-colour light shows it at `brightness`.
+pub fn rgb(colour: u32, brightness: u8) -> [u8; 3] {
     let scaled = |c: u32| ((c & 0xff) * u32::from(brightness) / 255) as u8;
-    Some([scaled(n >> 16), scaled(n >> 8), scaled(n)])
+    [scaled(colour >> 16), scaled(colour >> 8), scaled(colour)]
 }
 
 /// Whether a report descriptor numbers the device's reports (holds a Report ID item).
@@ -579,8 +578,7 @@ mod tests {
         assert_eq!(outputs.changed()[1], [129, 9, 9, 9]);
         outputs.set_bytes(pad, &[127, 4, 4]);
         assert_eq!(outputs.changed()[0], [129, 127, 4, 4]);
-        assert_eq!(rgb("#ff8000", 127), Some([127, 63, 0]));
-        assert_eq!(rgb("red", 127), None);
+        assert_eq!(rgb(0xff8000, 127), [127, 63, 0]);
     }
 
     #[test]

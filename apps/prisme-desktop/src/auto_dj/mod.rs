@@ -60,6 +60,11 @@ impl AutoDj {
         AutoDjStatusDto::of(machine.status(), machine.fade())
     }
 
+    /// Whether it plays or mixes.
+    pub fn plays(&self) -> bool {
+        matches!(lock(&self.machine).status().state, machine::State::On | machine::State::Mixing)
+    }
+
     pub fn toggle(&self) {
         self.change(Machine::toggle);
     }

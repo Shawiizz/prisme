@@ -52,13 +52,12 @@ impl FromIterator<(String, LightValue)> for LightValues {
     }
 }
 
-/// The value of `palette` (`"#rrggbb"`: value) whose colour is the nearest `colour`.
-pub fn nearest(palette: &BTreeMap<String, u8>, colour: &str) -> Option<u8> {
-    let rgb = |hex: &str| {
-        let n = u32::from_str_radix(hex.trim_start_matches('#'), 16).ok()?;
-        Some([n >> 16 & 0xff, n >> 8 & 0xff, n & 0xff].map(|c| c as i32))
-    };
-    let wanted = rgb(colour)?;
+/// The value of `palette` (`"#rrggbb"`: value) whose colour is the nearest `colour`
+/// (`0xrrggbb`).
+pub fn nearest(palette: &BTreeMap<String, u8>, colour: u32) -> Option<u8> {
+    let channels = |n: u32| [n >> 16 & 0xff, n >> 8 & 0xff, n & 0xff].map(|c| c as i32);
+    let rgb = |hex: &str| u32::from_str_radix(hex.trim_start_matches('#'), 16).ok().map(channels);
+    let wanted = channels(colour);
     let distance = |c: [i32; 3]| (0..3).map(|i| (c[i] - wanted[i]).pow(2)).sum::<i32>();
     palette.iter().filter_map(|(c, &value)| Some((distance(rgb(c)?), value))).min().map(|(_, value)| value)
 }
@@ -119,8 +118,8 @@ mod tests {
     #[test]
     fn a_colour_takes_the_nearest_of_a_palette() {
         let palette = BTreeMap::from([("#ff0000".to_owned(), 5), ("#0000ff".to_owned(), 45)]);
-        assert_eq!(nearest(&palette, "#e01010"), Some(5));
-        assert_eq!(nearest(&palette, "#2020c0"), Some(45));
-        assert_eq!(nearest(&palette, "not a colour"), None);
+        assert_eq!(nearest(&palette, 0xe01010), Some(5));
+        assert_eq!(nearest(&palette, 0x2020c0), Some(45));
+        assert_eq!(nearest(&BTreeMap::new(), 0x2020c0), None);
     }
 }

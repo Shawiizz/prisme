@@ -34,8 +34,6 @@ export class PreviewService {
   readonly heard = computed(
     () => this.engine.audioRunning() && this.mixer.headphonesInUse() !== null,
   );
-  /** A track is previewed, or about to be. */
-  readonly active = computed(() => this.track() !== null || this.opening() !== null);
   /** The preview the engine has reported: once it no longer does, it has stopped. */
   private reported: number | null = null;
 
