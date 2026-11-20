@@ -94,6 +94,7 @@ const VENDOR_PAGES: u16 = 0xff00;
 
 /// Whether a device is surely no controller: a keyboard, a mouse, a touch screen, a security
 /// key, a part of the computer (Apple's); a DJ who enabled one would lose it.
+#[cfg(desktop)]
 fn no_controller(info: &HidInfo) -> bool {
     const GENERIC_DESKTOP: u16 = 0x01;
     const POINTER_MOUSE_KEYBOARD_KEYPAD: [u16; 4] = [0x01, 0x02, 0x06, 0x07];
