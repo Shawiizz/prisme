@@ -13,6 +13,7 @@ use prisme_actions::key::heard;
 use prisme_actions::view::mixed_with;
 use prisme_control::{DeckAction, StemPart};
 use prisme_engine::{Command, DeckStatus};
+use tracing::warn;
 
 /// Seconds of track a turn of a jog wheel goes through in a search.
 const SEARCH_SECONDS_PER_TURN: f64 = 10.0;
@@ -83,16 +84,21 @@ pub fn set_stem_mix(state: &AppState, deck: usize, mix: StemMixDto, on_bar: bool
 
 /// What follows a track put on `deck`, by the DJ or the Auto DJ: the effects back on the whole
 /// deck if they were on a part the track does not have, and the deck alone in the headphones if
-/// the DJ asks for it.
-pub fn loaded(state: &AppState, deck: usize) -> AppResult<()> {
-    let separation = state.with_track(deck, |t| t.separation())?;
-    if lock(&state.decks)[deck].fx.part.is_some_and(|part| !separation.has(part.into())) {
-        fx::set_fx_part(state, deck, None)?;
+/// the DJ asks for it. The track stays loaded whatever fails of it.
+pub fn loaded(state: &AppState, deck: usize) {
+    let follow = || {
+        let separation = state.with_track(deck, |t| t.separation())?;
+        if lock(&state.decks)[deck].fx.part.is_some_and(|part| !separation.has(part.into())) {
+            fx::set_fx_part(state, deck, None)?;
+        }
+        if state.preferences.read(|p| p.dj.cue_on_load) {
+            mixer::solo_cue(state, deck)?;
+        }
+        AppResult::Ok(())
+    };
+    if let Err(e) = follow() {
+        warn!("what follows the load of deck {} not done: {e}", deck + 1);
     }
-    if state.preferences.read(|p| p.dj.cue_on_load) {
-        mixer::solo_cue(state, deck)?;
-    }
-    Ok(())
 }
 
 /// `part` of the track on `deck` muted, or played again: on the next bar with quantize; nothing
@@ -546,7 +552,7 @@ mod tests {
         crate::actions::fx::set_fx_part(&bench.state, 1, Some(crate::dto::FxPartDto::Vocals)).unwrap();
         crate::actions::mixer::set_deck_cue(&bench.state, 0, true).unwrap();
         bench.load(1, 1.0, None);
-        loaded(&bench.state, 1).unwrap();
+        loaded(&bench.state, 1);
         assert_eq!(lock(&bench.state.decks)[1].fx.part, None, "not separated");
         assert_eq!(
             lock(&bench.state.decks).map(|d| d.cue)[..2],
@@ -554,7 +560,7 @@ mod tests {
             "the headphones as they were"
         );
         bench.state.update_preferences(|p| p.dj.cue_on_load = true);
-        loaded(&bench.state, 1).unwrap();
+        loaded(&bench.state, 1);
         assert_eq!(lock(&bench.state.decks).map(|d| d.cue)[..2], [false, true]);
     }
 }

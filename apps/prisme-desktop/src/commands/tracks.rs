@@ -49,7 +49,7 @@ pub fn double_deck(
     if !state.put_track(deck, turn, Some(track), commands)? {
         return Ok(None);
     }
-    deck::loaded(&state, deck)?;
+    deck::loaded(&state, deck);
     Ok(Some(info))
 }
 

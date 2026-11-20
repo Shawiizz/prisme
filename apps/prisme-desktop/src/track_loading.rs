@@ -67,7 +67,7 @@ pub fn load_on_deck(app: &AppHandle, deck: usize, path: PathBuf) -> AppResult<Op
     if let Err(e) = app.state::<Previews>().stop_previewing(&state, &file) {
         warn!("the preview of {} goes on: {e}", file.display());
     }
-    crate::actions::deck::loaded(&state, deck)?;
+    crate::actions::deck::loaded(&state, deck);
     let app = app.clone();
     tauri::async_runtime::spawn_blocking(move || completion.run(&app));
     Ok(Some(info))
