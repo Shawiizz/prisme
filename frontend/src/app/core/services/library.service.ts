@@ -166,9 +166,13 @@ export class LibraryService {
     return this.attempt(() => this.engine.ordered('library_compare_with', { deck }));
   }
 
-  /** The table shows `count` rows from the `first`: they come at once, and again as they change. */
+  /** The table shows `count` rows from the `first`: they come at once, and again as they change.
+   * Asked on the page's clock, which goes on across a reload: a window asked before the last,
+   * come late, is not shown. */
   async viewport(first: number, count: number) {
-    this.takeWindow(await invoke<LibraryWindow>('library_viewport', { first, count }));
+    const asked = performance.timeOrigin + performance.now();
+    const window = await invoke<LibraryWindow>('library_viewport', { first, count, asked });
+    if (window.seq > this.window().seq) this.window.set(window);
   }
 
   /** Loads `path` on `deck`, or on the first deck without a track (`null`). Whether it was. */
@@ -327,14 +331,11 @@ export class LibraryService {
   }
 
   /** The list and the rows sent last, whichever came first: a view told before another is not
-   * shown after it. */
+   * shown after it. The rows of the same window come again as what they show changes: told,
+   * they take the place of those an answer gave (`viewport`). */
   private take(view: LibraryView) {
     if (view.seq >= (this.view()?.seq ?? -1)) this.view.set(view);
-    this.takeWindow(view.window);
-  }
-
-  private takeWindow(window: LibraryWindow) {
-    if (window.seq >= this.window().seq) this.window.set(window);
+    if (view.window.seq >= this.window().seq) this.window.set(view.window);
   }
 
   /** Runs `action`, its failure shown: whether it went through. */

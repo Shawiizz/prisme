@@ -47,6 +47,22 @@ describe('LibraryService', () => {
     expect(library.window().first).toBe(40);
   });
 
+  it('asks for each window on a clock, and keeps rows told since over an answer as old', async () => {
+    const asked: number[] = [];
+    mockIPC((command, args) => {
+      if (command === 'library_viewport') asked.push((args as { asked: number }).asked);
+      return window(7, 40);
+    });
+    const library = TestBed.inject(LibraryService);
+    await library.viewport(40, 30);
+    await library.viewport(80, 30);
+    expect(asked[1]).toBeGreaterThanOrEqual(asked[0]);
+    const told = { ...window(7, 40), rows: [{ path: 'told' } as never] };
+    library['take']({ ...view(7, ''), window: told });
+    await library.viewport(40, 30);
+    expect(library.window()).toBe(told);
+  });
+
   it('shows what is typed while the search has the focus, then the search applied', async () => {
     mockIPC((command, args) =>
       command === 'library_filter' ? view(1, (args as { text: string }).text.slice(0, 2)) : null,

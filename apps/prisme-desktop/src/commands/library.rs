@@ -133,11 +133,17 @@ pub async fn library_compare_with(app: AppHandle, deck: usize, order: Order) -> 
     .await
 }
 
-/// The rows the interface shows, `count` from the `first`: at once, and again with the status
-/// stream as they change. Off the main thread: a track shown first is looked for its stems.
+/// The rows the interface shows, `count` from the `first`, asked at `asked` on its clock (ms):
+/// at once, and again with the status stream as they change; the window asked last whatever
+/// order the calls come in. Off the main thread: a track shown first is looked for its stems.
 #[tauri::command(async)]
-pub fn library_viewport(state: State<'_, AppState>, first: usize, count: usize) -> LibraryWindowDto {
-    lock(&state.library).browser.set_window(first, count);
+pub fn library_viewport(
+    state: State<'_, AppState>,
+    first: usize,
+    count: usize,
+    asked: f64,
+) -> LibraryWindowDto {
+    lock(&state.library).ask_window(first, count, asked);
     browse::shown(&state, Library::window)
 }
 

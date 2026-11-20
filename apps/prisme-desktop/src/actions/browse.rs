@@ -41,9 +41,20 @@ pub struct Library {
     pub around: Around,
     /// Why the music folder shown at start could not be read, until a list is read.
     unread: Option<serde_json::Value>,
+    /// When the interface asked for the window shown, on its clock.
+    window_asked: f64,
 }
 
 impl Library {
+    /// The interface's window of `count` rows from the `first`, asked at `asked` on its clock:
+    /// one asked before the window shown, come late, does not take its place.
+    pub fn ask_window(&mut self, first: usize, count: usize, asked: f64) {
+        if asked >= self.window_asked {
+            self.window_asked = asked;
+            self.browser.set_window(first, count);
+        }
+    }
+
     /// The track at `path` now separated as far as `separation`.
     pub fn separated(&mut self, path: &str, separation: SeparationDto) {
         let id = self.browser.track_id(path);
@@ -861,6 +872,17 @@ mod tests {
             l.browser.show(Source::Folder("C:/Music".into()), rows);
         });
         bench
+    }
+
+    #[test]
+    fn a_window_asked_before_the_one_shown_and_come_late_is_left() {
+        let bench = library();
+        let mut library = lock(&bench.state.library);
+        library.ask_window(2, 1, 2.0);
+        library.ask_window(0, 1, 1.0);
+        assert_eq!(library.browser.window_first(), 2);
+        library.ask_window(0, 1, 3.0);
+        assert_eq!(library.browser.window_first(), 0);
     }
 
     fn titles(bench: &Bench) -> Vec<String> {

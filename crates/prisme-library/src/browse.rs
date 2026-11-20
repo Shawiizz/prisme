@@ -779,9 +779,10 @@ impl Browser {
         }
     }
 
-    /// The first row of the window, within the rows shown.
+    /// The first row of the window, within the rows shown: those at the end if the list got
+    /// shorter than where the window was.
     pub fn window_first(&self) -> usize {
-        self.window.0.min(self.shown.len())
+        self.window.0.min(self.shown.len().saturating_sub(self.window.1))
     }
 
     /// The rows of the window.
@@ -1380,16 +1381,22 @@ mod tests {
         browser.set_tonight(["C:/Music/a.mp3"]);
         let strobe = entry(&browser, "a.mp3");
         browser.select(strobe, Pick::Only);
-        browser.set_window(3, 10);
+        browser.set_window(3, 1);
         let rows: Vec<_> = browser.window().map(|r| (r.track.title.clone(), r.selected, r.played)).collect();
         assert_eq!(rows, [("Strobe".into(), true, true)]);
         assert_eq!(browser.window_first(), 3);
         let seq = browser.seq();
-        browser.set_window(3, 10);
+        browser.set_window(3, 1);
         assert_eq!(browser.seq(), seq, "the same window");
+        browser.set_filter("ouse");
+        assert_eq!(titles_in_window(&browser), ["Strobe"], "the list got shorter: its end");
         browser.set_filter("zzz");
         assert_eq!((browser.window_first(), browser.window().count()), (0, 0));
         assert!(browser.seq() > seq);
+    }
+
+    fn titles_in_window(browser: &Browser) -> Vec<String> {
+        browser.window().map(|row| row.track.title.clone()).collect()
     }
 
     #[test]
