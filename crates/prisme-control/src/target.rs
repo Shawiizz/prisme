@@ -413,6 +413,12 @@ impl Target {
                 | DeckAction::LoopHalve
                 | DeckAction::LoopDouble
                 | DeckAction::LoopClear
+                | DeckAction::ReloopStop
+                | DeckAction::LoopInGoto
+                | DeckAction::LoopOutGoto
+                | DeckAction::LoopMoveBack
+                | DeckAction::LoopMoveForward
+                | DeckAction::LoopMove
                 | DeckAction::JumpBeats(_)
                 | DeckAction::LoopBeats(_)
                 | DeckAction::BendDown

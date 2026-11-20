@@ -71,12 +71,6 @@ export interface ControlActions {
   search(deck: number, direction: -1 | 1, held: boolean): void;
   /** The key of the deck brought to the key of the deck it mixes with. */
   syncKey(deck: number): void;
-  /** Back to the start of the stored loop, playing it, stopped. */
-  reloopStopped(deck: number): void;
-  /** To the start or the end of the stored loop. */
-  toLoopEdge(deck: number, edge: 'in' | 'out'): void;
-  /** The loop moved by so many beats. */
-  moveLoop(deck: number, beats: number): void;
   /** One tap of the tempo: the track's tempo once there are enough. */
   tapTempo(deck: number): void;
   /** The filter left where it is but heard or not. */
@@ -366,13 +360,6 @@ function moreDeckControls(
   group: string,
   id: (name: string) => string,
 ): Control[] {
-  const encoder = (name: string, label: string, apply: (steps: number) => void): Control => ({
-    id: id(name),
-    group,
-    label,
-    kind: 'encoder',
-    apply,
-  });
   return [
     performed(a, id('cue.play'), group, t('To the cue and play')),
     performed(a, id('cue.stop'), group, t('To the cue, stopped')),
@@ -400,16 +387,12 @@ function moreDeckControls(
     button(id('key.sync'), group, t('Key matched to the other deck'), () => a.syncKey(deck)),
     performed(a, id('key'), group, t('Key, from 12 semitones down to 12 up'), 'fader'),
     performed(a, id('loop.clear'), group, t('Forget the loop')),
-    button(id('reloop.stop'), group, t('Back to the loop, stopped'), () => a.reloopStopped(deck)),
-    button(id('loop.in.goto'), group, t('To the start of the loop'), () =>
-      a.toLoopEdge(deck, 'in'),
-    ),
-    button(id('loop.out.goto'), group, t('To the end of the loop'), () =>
-      a.toLoopEdge(deck, 'out'),
-    ),
-    button(id('loop.move.back'), group, t('Loop a beat back'), () => a.moveLoop(deck, -1)),
-    button(id('loop.move.forward'), group, t('Loop a beat forward'), () => a.moveLoop(deck, 1)),
-    encoder('loop.move', t('Loop moved, a beat a step'), (steps) => a.moveLoop(deck, steps)),
+    performed(a, id('reloop.stop'), group, t('Back to the loop, stopped')),
+    performed(a, id('loop.in.goto'), group, t('To the start of the loop')),
+    performed(a, id('loop.out.goto'), group, t('To the end of the loop')),
+    performed(a, id('loop.move.back'), group, t('Loop a beat back')),
+    performed(a, id('loop.move.forward'), group, t('Loop a beat forward')),
+    performed(a, id('loop.move'), group, t('Loop moved, a beat a step'), 'encoder'),
     performed(a, id('grid.here'), group, t('A beat of the grid here')),
     performed(a, id('grid.earlier'), group, t('Beat grid earlier')),
     performed(a, id('grid.later'), group, t('Beat grid later')),

@@ -96,7 +96,8 @@ impl Performing<'_> {
                 let beats = lock(&state.decks)[deck].fx.slots[slot].beats * 2f32.powi(steps);
                 fx::set_fx_beats(state, deck, slot, beats.clamp(shortest, longest))
             }
-            DeckAction::Size | DeckAction::Fx(_, FxAction::Beats) => Ok(()),
+            DeckAction::LoopMove if steps != 0 => self.move_loop(deck, steps),
+            DeckAction::Size | DeckAction::Fx(_, FxAction::Beats) | DeckAction::LoopMove => Ok(()),
             // a key let go
             _ if !held && action.kind() == Kind::Button => Ok(()),
             DeckAction::Play => self.play(deck),
@@ -127,6 +128,11 @@ impl Performing<'_> {
             DeckAction::Loop => self.toggle_loop(deck, LOOP_BEATS),
             DeckAction::LoopSize => self.toggle_loop(deck, size()),
             DeckAction::LoopClear => transport::set_loop(state, deck, None, None, false),
+            DeckAction::ReloopStop => self.reloop_stopped(deck),
+            DeckAction::LoopInGoto => self.to_loop_edge(deck, false),
+            DeckAction::LoopOutGoto => self.to_loop_edge(deck, true),
+            DeckAction::LoopMoveBack => self.move_loop(deck, -1),
+            DeckAction::LoopMoveForward => self.move_loop(deck, 1),
             DeckAction::JumpBeats(Beats(beats)) => self.jump(deck, beats),
             DeckAction::JumpBack => self.jump(deck, -size()),
             DeckAction::JumpForward => self.jump(deck, size()),

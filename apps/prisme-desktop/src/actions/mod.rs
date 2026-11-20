@@ -14,6 +14,7 @@ pub mod deck;
 mod edits;
 pub mod fx;
 mod general;
+mod loops;
 pub mod mixer;
 pub mod pads;
 mod perform;

@@ -75,25 +75,6 @@ export class ControlService {
       const shift = this.engine.keyMatch(deck);
       if (shift !== null) this.engine.setKeyShift(deck, shift);
     },
-    reloopStopped: (deck) => {
-      const loop = this.deck(deck)?.looping;
-      if (loop?.startS == null || loop.endS == null) return;
-      this.engine.setLoop(deck, loop.startS, loop.endS, true);
-      this.engine.seek(deck, loop.startS);
-      this.engine.setPlaying(deck, false);
-    },
-    toLoopEdge: (deck, edge) => {
-      const loop = this.deck(deck)?.looping;
-      const at = edge === 'in' ? loop?.startS : loop?.endS;
-      if (at != null) this.engine.seek(deck, at);
-    },
-    moveLoop: (deck, beats) => {
-      const loop = this.deck(deck)?.looping;
-      const beat = this.beatSeconds(deck);
-      if (loop?.startS == null || loop.endS == null || beat === null) return;
-      const by = beats * beat;
-      this.engine.setLoop(deck, loop.startS + by, loop.endS + by, loop.active);
-    },
     tapTempo: (deck) => {
       const taps = this.taps.get(deck) ?? new TapTempo();
       this.taps.set(deck, taps);
@@ -176,11 +157,5 @@ export class ControlService {
 
   private deck(deck: number) {
     return this.engine.status()?.decks[deck];
-  }
-
-  /** The length of a beat of `deck` (s), if its track has a grid. */
-  private beatSeconds(deck: number): number | null {
-    const bpm = this.deck(deck)?.bpm ?? this.engine.tracks()[deck]?.tempo?.bpm;
-    return bpm ? 60 / bpm : null;
   }
 }
