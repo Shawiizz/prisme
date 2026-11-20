@@ -13,7 +13,7 @@ import { SettingsService } from '../../core/services/settings.service';
 import { Text, t } from '../../core/i18n/i18n';
 import { TPipe } from '../../core/i18n/t.pipe';
 import { errorText } from '../../core/errors';
-import { decimal, formatClock } from '../../shared/time';
+import { formatClock } from '../../shared/time';
 import { CommandPalette } from '../command-palette/command-palette';
 import { PhoneDecks } from './phone-decks';
 import { PhoneLibrary } from './phone-library';
