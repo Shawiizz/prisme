@@ -100,6 +100,7 @@ mod android {
     use prisme_actions::view::View;
     use prisme_control::{DeckAction, Target, MAX_DECKS};
     use std::path::Path;
+    use std::sync::atomic::{AtomicU64, Ordering};
     use std::sync::Arc;
     use tauri::{AppHandle, Manager};
 
@@ -113,6 +114,8 @@ mod android {
         controls: bool,
         told: Told<Showing>,
         cover: Option<String>,
+        /// Counts the covers asked for: one read once another was asked for is not shown.
+        covers: Arc<AtomicU64>,
     }
 
     impl LockPlayer {
@@ -134,8 +137,9 @@ mod android {
             let (showing, place) = showing(view, heard, &self.named, self.controls);
             if showing.path != self.cover {
                 self.cover = showing.path.clone();
+                let asked = self.covers.fetch_add(1, Ordering::AcqRel) + 1;
                 if let Some(path) = self.cover.clone() {
-                    cover(app, path);
+                    cover(app, path, (self.covers.clone(), asked));
                 }
             }
             if self.told.tell(&showing, place, now_s) {
@@ -161,12 +165,16 @@ mod android {
         });
     }
 
-    /// Reads the cover of `path` off the clock's thread, and gives it to the player: none, the
-    /// logo of Prisme instead.
-    fn cover(app: &AppHandle, path: String) {
+    /// Reads the cover of `path` off the clock's thread, and gives it to the player unless
+    /// another was asked for since (`asked`, of all those counted): none, the logo of Prisme
+    /// instead.
+    fn cover(app: &AppHandle, path: String, (covers, asked): (Arc<AtomicU64>, u64)) {
         let library = app.state::<Arc<LibraryService>>().inner().clone();
         tauri::async_runtime::spawn_blocking(move || {
             let jpeg = library.db.cover(Path::new(&path)).ok().flatten();
+            if covers.load(Ordering::Acquire) != asked {
+                return;
+            }
             android_jni::call("show the cover", |env, context| {
                 let activity = android_jni::class(env, context, ACTIVITY)?;
                 let path = env.new_string(&path)?;
