@@ -42,19 +42,33 @@ pub enum Page {
 impl Page {
     pub const ALL: [Page; 6] = [Page::Loops, Page::Roll, Page::Jump, Page::Slice, Page::Cut, Page::Fx];
 
+    /// How many pads it has.
+    pub fn pads(self) -> usize {
+        match self {
+            Page::Loops => LOOP_BEATS.len(),
+            Page::Roll => ROLL_BEATS.len(),
+            Page::Jump => JUMP_BEATS.len(),
+            Page::Slice => SLICES,
+            Page::Cut => CUTS,
+            Page::Fx => Effect::NAMED.len(),
+        }
+    }
+
+    /// The action of its pad `pad`, the effects' on the slot `fx_shown`; none past its last.
+    pub fn action(self, pad: usize, fx_shown: usize) -> Option<DeckAction> {
+        (pad < self.pads()).then(|| match self {
+            Page::Loops => DeckAction::LoopBeats(Beats(LOOP_BEATS[pad])),
+            Page::Roll => DeckAction::Roll(pad),
+            Page::Jump => DeckAction::JumpBeats(Beats(JUMP_BEATS[pad])),
+            Page::Slice => DeckAction::Slice(pad),
+            Page::Cut => DeckAction::Cut(pad),
+            Page::Fx => DeckAction::Fx(fx_shown, FxAction::Effect(Effect::NAMED[pad])),
+        })
+    }
+
     /// The action of each of its pads, the effects' on the slot `fx_shown`.
     pub fn actions(self, fx_shown: usize) -> Vec<DeckAction> {
-        match self {
-            Page::Loops => LOOP_BEATS.iter().map(|beats| DeckAction::LoopBeats(Beats(*beats))).collect(),
-            Page::Roll => (0..ROLL_BEATS.len()).map(DeckAction::Roll).collect(),
-            Page::Jump => JUMP_BEATS.iter().map(|beats| DeckAction::JumpBeats(Beats(*beats))).collect(),
-            Page::Slice => (0..SLICES).map(DeckAction::Slice).collect(),
-            Page::Cut => (0..CUTS).map(DeckAction::Cut).collect(),
-            Page::Fx => Effect::NAMED
-                .iter()
-                .map(|effect| DeckAction::Fx(fx_shown, FxAction::Effect(*effect)))
-                .collect(),
-        }
+        (0..self.pads()).filter_map(|pad| self.action(pad, fx_shown)).collect()
     }
 }
 
@@ -97,9 +111,9 @@ impl Pads {
 fn page_lights(view: &View, deck: usize, page: Page) -> PageLights {
     let settings = &view.decks[deck];
     let fx_shown = view.perform.decks[deck].fx_shown;
-    let actions = page.actions(fx_shown);
     let bits = |pad: &dyn Fn(usize, DeckAction) -> bool| {
-        actions.iter().enumerate().fold(0, |bits, (i, action)| bits | u8::from(pad(i, *action)) << i)
+        let actions = (0..page.pads()).filter_map(|i| page.action(i, fx_shown));
+        actions.enumerate().fold(0, |bits, (i, action)| bits | u8::from(pad(i, action)) << i)
     };
     let sounds = |slot: usize, effect: Effect| {
         let fx = &settings.fx.slots[slot];
@@ -136,6 +150,16 @@ pub fn slice_at(start_s: f64, position_s: f64, beat_s: f64) -> Option<usize> {
 mod tests {
     use super::*;
     use crate::view::fixtures::{loaded, view};
+
+    #[test]
+    fn each_pad_of_a_page_has_its_action_and_none_past_the_last() {
+        for page in Page::ALL {
+            assert_eq!(page.actions(1).len(), page.pads(), "{page:?}");
+            assert_eq!(page.action(page.pads(), 1), None, "{page:?}");
+        }
+        assert_eq!(Page::Fx.action(0, 2), Some(DeckAction::Fx(2, FxAction::Effect(Effect::NAMED[0]))));
+        assert_eq!(Page::Cut.pads(), CUTS);
+    }
 
     #[test]
     fn the_slicer_starts_on_the_bar_the_track_is_in_and_holds_eight_beats() {
