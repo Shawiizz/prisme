@@ -68,6 +68,7 @@ mod track_waveform;
 #[cfg(target_os = "android")]
 mod usb_android;
 
+use actions::Actions;
 use controllers::Controllers;
 use crash_recovery::CrashRecovery;
 use library_service::LibraryService;
@@ -75,12 +76,16 @@ use midi_clock::MidiClock;
 use prisme_session::JsonFile;
 use serde::de::DeserializeOwned;
 use serde::Serialize;
-use state::{lock, AppState};
+use state::AppState;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
+use std::time::Duration;
 use tag_writer::TagWriter;
 use tauri::Manager;
 use tracing::{error, warn};
+
+/// How long quitting waits for the actions sent before to be done.
+const CLOSE_WAIT: Duration = Duration::from_secs(2);
 
 /// The window maximised where its first size does not fit the screen (a laptop at 150 %).
 #[cfg(desktop)]
@@ -209,7 +214,7 @@ pub fn run() {
             let data_dir = dev_startup::data_dir()
                 .or_else(|| app.path().app_data_dir().inspect_err(|e| warn!("no data folder: {e}")).ok());
             app.manage(AppState::new(open_json(data_dir.as_deref(), "preferences.json")));
-            app.manage(actions::Actions::start());
+            app.manage(Actions::start());
             if let Some(data_dir) = data_dir.as_deref() {
                 controller_profiles::install(data_dir);
             }
@@ -418,15 +423,16 @@ pub fn run() {
         });
 }
 
-/// What Prisme does as it quits.
+/// What Prisme does as it quits: the actions sent before done, a while at most (a cue set
+/// kept, a recording ended by a key closed), then a recording going on ended, its file closed
+/// and its tracklist written, once one ending meanwhile is.
 fn close(app: &tauri::AppHandle) {
-    // a recording going on is ended: its file closed, its tracklist written
-    let state = app.state::<AppState>();
-    let recorder = lock(&state.recorder).take();
-    if let Some(recorder) = recorder {
-        recorder.stop(&state);
-    }
     app.state::<Controllers>().close_all();
+    if !app.state::<Actions>().finish(CLOSE_WAIT) {
+        warn!("Prisme quits with actions not done");
+    }
+    let state = app.state::<AppState>();
+    actions::general::stop_recording(&state);
     state.preferences.flush();
     app.state::<CrashRecovery>().closed_normally();
 }

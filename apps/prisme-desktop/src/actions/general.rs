@@ -49,10 +49,10 @@ pub fn start_recording(
 }
 
 /// Ends the recording, if one runs, and writes its tracklist next to it (the end of the
-/// recording first).
+/// recording first): another stop waits until it is.
 pub fn stop_recording(state: &AppState) -> Option<RecordingDto> {
-    let recorder = lock(&state.recorder).take();
-    recorder.map(|recorder| recorder.stop(state))
+    let mut recorder = lock(&state.recorder);
+    recorder.take().map(|recorder| recorder.stop(state))
 }
 
 /// What a recording started without asking takes (from a controller, the command palette):

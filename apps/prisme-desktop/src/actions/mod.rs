@@ -706,17 +706,27 @@ impl Actions {
         view_of(&app.state(), auto_dj, &self.memory, self.now_s())
     }
 
-    /// Waits for the lanes to have no action waiting, then for what they changed to be kept.
-    #[cfg(test)]
-    pub fn settle(&self) {
+    /// Waits, `within` at most, for the actions waiting their turn to be performed, then for
+    /// what they changed to be kept in the library: whether they all were.
+    pub fn finish(&self, within: Duration) -> bool {
+        let waiting = Instant::now();
         while !lock(&self.lanes.0).queued.is_empty() {
-            std::thread::sleep(std::time::Duration::from_millis(1));
+            if waiting.elapsed() >= within {
+                return false;
+            }
+            std::thread::sleep(Duration::from_millis(1));
         }
         let (kept, over) = mpsc::sync_channel(1);
         self.keep(move || {
             let _ = kept.send(());
         });
-        let _ = over.recv();
+        over.recv_timeout(within.saturating_sub(waiting.elapsed())).is_ok()
+    }
+
+    /// Waits for the actions waiting their turn and what they keep, as long as a test may.
+    #[cfg(test)]
+    pub fn settle(&self) {
+        assert!(self.finish(Duration::from_secs(10)), "the actions never settled");
     }
 }
 
@@ -1142,6 +1152,21 @@ mod lanes {
         loading.send(()).unwrap();
         bench.actions.settle();
         assert!(!split(&bench), "turned on, then off");
+    }
+
+    #[test]
+    fn quitting_waits_a_while_for_the_actions_waiting_and_what_they_keep() {
+        let bench = Arc::new(Bench::new());
+        let busy = held(&bench, Lane::Recording);
+        assert!(!bench.actions.finish(Duration::from_millis(20)), "a lane busy");
+        let (release, wait) = mpsc::sync_channel::<()>(1);
+        bench.actions.keep(move || {
+            let _ = wait.recv_timeout(Duration::from_secs(5));
+        });
+        busy.send(()).unwrap();
+        assert!(!bench.actions.finish(Duration::from_millis(50)), "a write going on");
+        release.send(()).unwrap();
+        assert!(bench.actions.finish(Duration::from_secs(5)));
     }
 
     #[test]
