@@ -111,7 +111,7 @@ impl From<RecordSourceDto> for prisme_engine::RecordSource {
 }
 
 /// A recording ended: where it went, and what could not be written.
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct RecordingDto {
     /// Its first file.

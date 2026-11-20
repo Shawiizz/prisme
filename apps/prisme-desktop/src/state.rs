@@ -5,7 +5,7 @@
 use crate::actions::browse::Library;
 use crate::audio_host::{deck_pair, layer_partner, AudioSession};
 use crate::dto::{
-    AudioInfo, AutoDjStatusDto, BackendDto, BandDto, ChannelStripDto, CrossfaderSideDto, CueDto,
+    AudioInfo, AutoDjStatusDto, BackendDto, BandDto, ChannelStripDto, CrossfaderSideDto, CueDto, DeckPadsDto,
     DeckStemsDto, FoldersStateDto, FxChainDto, FxPartDto, HeadphonesOutputDto, InputChannelsDto, KeyDto,
     LiveSourceDto, MixModeDto, PreviewStateDto, RecordingDto, RpmDto, SeparationDto, StemMixDto, TempoDto,
     TrackInfoDto, VinylModeDto,
@@ -20,7 +20,7 @@ use prisme_actions::perform::PerformState;
 use prisme_analysis::TrackAnalysis;
 use prisme_engine::{
     BeatGrid, Command, DeckStatus, EngineConfig, EngineController, EngineStatus, LoopRegion, MixMode,
-    OutputRouting, StemTracks, MAX_DECKS,
+    OutputRouting, StemTracks, MAX_DECKS, SAMPLE_SLOTS,
 };
 use prisme_library::{Cue, CueSlot, TrackEdits};
 use prisme_media::{TrackAudio, TrackTags};
@@ -289,7 +289,7 @@ impl Place {
 }
 
 /// A live source's switches as the DJ left them (off at each start).
-#[derive(Debug, Clone, Copy, Default)]
+#[derive(Debug, Clone, Copy, Default, PartialEq)]
 pub struct LiveSwitches {
     /// Heard in the master.
     pub on: bool,
@@ -297,11 +297,15 @@ pub struct LiveSwitches {
     pub cue: bool,
 }
 
+/// What the interface is shown of the pads: each deck's slots of its effect chain, and whether
+/// the library takes the whole window.
+pub type PadsShown = ([DeckPadsDto; MAX_DECKS], bool);
+
 pub struct AppState {
     /// Changed by [`AppState::update_preferences`] only, which the interface hears of.
     pub preferences: JsonFile<Preferences>,
     pub session: Mutex<Option<AudioSession>>,
-    pub tracks: Mirrored<[Option<LoadedTrack>; MAX_DECKS]>,
+    pub tracks: Mirrored<[Option<LoadedTrack>; MAX_DECKS], [Option<TrackInfoDto>; MAX_DECKS]>,
     load_turns: LoadTurns,
     pub decks: Mirrored<[DeckSettings; MAX_DECKS]>,
     pub crossfader: Mirrored<f32>,
@@ -317,9 +321,9 @@ pub struct AppState {
     /// Where the decks were as the audio last stopped to start again: kept for the start
     /// after it, should that one fail or its engine never run.
     carried: Mutex<[Option<Place>; MAX_DECKS]>,
-    pub samplers: Mirrored<Samplers>,
+    pub samplers: Mirrored<Samplers, [[Option<PathBuf>; SAMPLE_SLOTS]; MAX_DECKS]>,
     /// What the actions keep between presses (see `prisme_actions::perform`).
-    pub perform: Mirrored<PerformState>,
+    pub perform: Mirrored<PerformState, PadsShown>,
     /// What the headphones preview, as the interface shows it (see `preview::Previews`).
     pub preview: Mirrored<PreviewStateDto>,
     /// The separation into stems, as the interface shows it (see `StemsService::show`).
@@ -404,45 +408,52 @@ impl Revisions {
     }
 }
 
-/// State the interface mirrors (`ControlStateDto`): taken to be changed, it moves the
-/// revision of its section, by which the status stream tells the interface of a change.
-pub struct Mirrored<T> {
+/// State the interface mirrors (`ControlStateDto`): changed in what the interface is shown of
+/// it (`S`), it moves the revision of its section, by which the status stream tells the
+/// interface of a change.
+pub struct Mirrored<T, S = T> {
     value: Mutex<T>,
     revisions: Arc<Revisions>,
     section: Section,
+    shown: fn(&T) -> S,
 }
 
-impl<T> Mirrored<T> {
+impl<T: Clone> Mirrored<T> {
+    /// Shown whole.
     fn new(value: T, revisions: &Arc<Revisions>, section: Section) -> Self {
-        Self { value: Mutex::new(value), revisions: revisions.clone(), section }
+        Mirrored::showing(value, revisions, section, T::clone)
     }
 }
 
-impl<T: Clone + PartialEq> Mirrored<T> {
-    /// Holds `value` from now: its section moves only if it changed.
+impl<T, S> Mirrored<T, S> {
+    /// Shown as `shown` makes it.
+    fn showing(value: T, revisions: &Arc<Revisions>, section: Section, shown: fn(&T) -> S) -> Self {
+        Self { value: Mutex::new(value), revisions: revisions.clone(), section, shown }
+    }
+}
+
+impl<T, S: PartialEq> Mirrored<T, S> {
+    /// Holds `value` from now: its section moves only if what it shows changed.
     pub fn set(&self, value: T) {
-        self.change(|held| *held = value);
+        *self.guard() = value;
     }
 
-    /// `change` made to what it holds: its section moves only if that changed.
+    /// `change` made to what it holds: its section moves only if what it shows changed.
     pub fn change<R>(&self, change: impl FnOnce(&mut T) -> R) -> R {
-        let mut held = self.value.guard();
-        let before = (*held).clone();
-        let changed = change(&mut held);
-        if *held != before {
-            self.revisions.moved(self.section);
-        }
-        changed
+        change(&mut self.guard())
     }
 }
 
 /// A [`Mirrored`] locked: read freely, changed through it alone.
-pub struct MirroredGuard<'a, T> {
+pub struct MirroredGuard<'a, T, S: PartialEq> {
     guard: MutexGuard<'a, T>,
     revision: &'a AtomicU64,
+    shown: fn(&T) -> S,
+    /// What it showed before it was first taken to be changed.
+    before: Option<S>,
 }
 
-impl<T> Deref for MirroredGuard<'_, T> {
+impl<T, S: PartialEq> Deref for MirroredGuard<'_, T, S> {
     type Target = T;
 
     fn deref(&self) -> &T {
@@ -450,12 +461,22 @@ impl<T> Deref for MirroredGuard<'_, T> {
     }
 }
 
-/// Moved while the lock is held: a revision read before the change sees its value once it can
-/// lock it.
-impl<T> DerefMut for MirroredGuard<'_, T> {
+impl<T, S: PartialEq> DerefMut for MirroredGuard<'_, T, S> {
     fn deref_mut(&mut self) -> &mut T {
-        self.revision.fetch_add(1, Ordering::SeqCst);
+        if self.before.is_none() {
+            self.before = Some((self.shown)(&self.guard));
+        }
         &mut self.guard
+    }
+}
+
+/// Moved while the lock is still held, if what it shows changed: a revision read before the
+/// change sees its value once it can lock it.
+impl<T, S: PartialEq> Drop for MirroredGuard<'_, T, S> {
+    fn drop(&mut self) {
+        if self.before.take().is_some_and(|before| (self.shown)(&self.guard) != before) {
+            self.revision.fetch_add(1, Ordering::SeqCst);
+        }
     }
 }
 
@@ -490,14 +511,16 @@ impl<L: Lock> Lock for Arc<L> {
     }
 }
 
-impl<T> Lock for Mirrored<T> {
+impl<T, S: PartialEq> Lock for Mirrored<T, S> {
     type Guard<'a>
-        = MirroredGuard<'a, T>
+        = MirroredGuard<'a, T, S>
     where
-        T: 'a;
+        T: 'a,
+        S: 'a;
 
-    fn guard(&self) -> MirroredGuard<'_, T> {
-        MirroredGuard { guard: self.value.guard(), revision: self.revisions.of(self.section) }
+    fn guard(&self) -> MirroredGuard<'_, T, S> {
+        let revision = self.revisions.of(self.section);
+        MirroredGuard { guard: self.value.guard(), revision, shown: self.shown, before: None }
     }
 }
 
@@ -565,7 +588,9 @@ impl AppState {
         Self {
             preferences,
             session: Mutex::new(None),
-            tracks: Mirrored::new(Default::default(), &revisions, Section::Tracks),
+            tracks: Mirrored::showing(Default::default(), &revisions, Section::Tracks, |tracks| {
+                std::array::from_fn(|deck| tracks[deck].as_ref().map(|t| t.info(deck)))
+            }),
             load_turns: LoadTurns::default(),
             decks: Mirrored::new(saved.map(DeckSettings::from), &revisions, Section::Decks),
             crossfader: Mirrored::new(0.0, &revisions, Section::Mixer),
@@ -575,8 +600,12 @@ impl AppState {
             recorded: Mirrored::new(None, &revisions, Section::Mixer),
             audio_start: Mutex::new(()),
             carried: Mutex::default(),
-            samplers: Mirrored::new(Samplers::default(), &revisions, Section::Decks),
-            perform: Mirrored::new(PerformState::default(), &revisions, Section::Perform),
+            samplers: Mirrored::showing(Samplers::default(), &revisions, Section::Decks, |samplers| {
+                samplers.each_ref().map(|slots| slots.each_ref().map(|s| s.as_ref().map(|s| s.path.clone())))
+            }),
+            perform: Mirrored::showing(PerformState::default(), &revisions, Section::Perform, |perform| {
+                (perform.decks.each_ref().map(DeckPadsDto::from), perform.library_only)
+            }),
             preview: Mirrored::new(PreviewStateDto::default(), &revisions, Section::Preview),
             stems: Mirrored::new(Default::default(), &revisions, Section::Stems),
             controllers: Mirrored::new(Default::default(), &revisions, Section::Controllers),

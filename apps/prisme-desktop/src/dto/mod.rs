@@ -139,6 +139,8 @@ mod tests {
         let state = AppState::new(prisme_session::JsonFile::in_memory(Default::default()));
         let before = state.revision();
         lock(&state.perform).decks[0].roll = Some(1.0);
+        assert_eq!(state.moved_since(before), [], "a change it does not show");
+        lock(&state.perform).decks[0].fx_shown = 1;
         let moved = state.moved_since(before);
         assert_eq!(moved, [Section::Perform]);
         let controls = serde_json::to_value(ControlStateDto::of(&state, &view_of(&state), moved)).unwrap();

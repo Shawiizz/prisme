@@ -4,7 +4,7 @@ use prisme_actions::stems::Separation as SeparationDto;
 use serde::Serialize;
 
 /// The separation queue.
-#[derive(Debug, Clone, Default, Serialize)]
+#[derive(Debug, Clone, Default, Serialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct StemsProgressDto {
     pub running: bool,
@@ -20,7 +20,7 @@ pub struct StemsProgressDto {
 }
 
 /// A separation model: installed, or how far its download is.
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct ModelStatusDto {
     /// `vocals` or `drums-bass`.

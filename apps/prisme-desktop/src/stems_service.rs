@@ -254,7 +254,7 @@ pub fn separates_on_load(state: &AppState) -> bool {
 
 /// What the interface shows of the separation (see [`StemsService::show`]): the models, the
 /// queue, and the tracks that wait for the models.
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, PartialEq)]
 pub struct Shown {
     /// In the order of [`MODELS`].
     models: Vec<ModelStatusDto>,

@@ -153,7 +153,7 @@ pub struct PreviewStatusDto {
 
 /// What the headphones preview: the track the engine was given, and the file being opened
 /// for the preview asked last, if any.
-#[derive(Debug, Clone, Default, Serialize)]
+#[derive(Debug, Clone, Default, Serialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct PreviewStateDto {
     pub track: Option<PreviewDto>,
@@ -161,7 +161,7 @@ pub struct PreviewStateDto {
 }
 
 /// A track previewed in the headphones.
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct PreviewDto {
     /// What the status tells it by.

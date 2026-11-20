@@ -39,7 +39,7 @@ pub fn whole_waveform_bytes(w: &prisme_analysis::Waveform) -> Vec<u8> {
     waveform_bytes(w, &prisme_analysis::envelope::heights(w), w.len(), 0)
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct TempoDto {
     pub bpm: f64,
@@ -91,7 +91,7 @@ impl From<&prisme_analysis::KeyEstimate> for KeyDto {
     }
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct TrackInfoDto {
     pub deck: usize,
@@ -137,7 +137,7 @@ impl DeckStemsDto {
     }
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct CueDto {
     /// Hot cue slot, `None` for the main cue.
@@ -382,7 +382,7 @@ impl DeckStatusDto {
 }
 
 /// Which slots of a deck's effect chain its pads and knobs act on.
-#[derive(Debug, Clone, Copy, Serialize)]
+#[derive(Debug, Clone, Copy, Serialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct DeckPadsDto {
     /// The slot of its effect chain the effect knobs turn.

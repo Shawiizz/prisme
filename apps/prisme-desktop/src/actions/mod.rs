@@ -30,7 +30,7 @@ mod view;
 use crate::auto_dj::{AutoDj, Takeover};
 use crate::error::{AppError, AppResult};
 use crate::library_service::LibraryService;
-use crate::state::{lock, AppState, MirroredGuard};
+use crate::state::{lock, AppState, MirroredGuard, PadsShown};
 use keys::{Keys, Press};
 use prisme_actions::input::{Given, Input, Inputs};
 use prisme_actions::lane::{lane, reads_files, takes_selection, Lane};
@@ -733,7 +733,7 @@ impl Performing<'_> {
     }
 
     /// What the pads hold, which the interface shows.
-    fn perform_state(&self) -> MirroredGuard<'_, PerformState> {
+    fn perform_state(&self) -> MirroredGuard<'_, PerformState, PadsShown> {
         lock(&self.state.perform)
     }
 
