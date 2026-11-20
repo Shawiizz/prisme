@@ -26,8 +26,6 @@ const CLICK_PX = 3;
 /** The hand's positions go to the engine at most this often (ms), with the time the
  * pointer was there: the engine replays the hand's path from those times. */
 const HAND_EVERY_MS = 4;
-/** Track time in one turn of a jog wheel (as the engine counts it, `jog.rs`). */
-const JOG_TURN_S = 1.8;
 /** A slide of the edge moves the track this share of the waveform slid over: lining up beats
  * is fine work. */
 const EDGE_SHARE = 0.2;
@@ -267,7 +265,7 @@ export class DeckWaveform {
       const from = drag.shownS ?? this.engine.livePosition(this.deck()) ?? 0;
       drag.shownS = Math.min(Math.max(from + seconds, 0), this.track()?.durationS ?? 0);
     }
-    this.engine.jog(this.deck(), seconds / JOG_TURN_S, event.timeStamp);
+    this.engine.jog(this.deck(), seconds, event.timeStamp);
   }
 
   private overviewTime(event: PointerEvent): number {

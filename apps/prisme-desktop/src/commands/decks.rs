@@ -26,18 +26,19 @@ pub fn hand(
     state.send(Command::Hand { deck, position_s: seconds, at_s: at_ms / 1000.0 })
 }
 
-/// The edge of a jog wheel turned by `turns` (positive forwards) at `at_ms`: a playing track
-/// pushed or held back for a moment, a stopped one moved.
+/// The edge of a jog wheel turned by `seconds` of track (positive forwards) at `at_ms`: a
+/// playing track pushed or held back for a moment, a stopped one moved.
 #[tauri::command]
 pub fn jog(
     state: State<'_, AppState>,
     auto_dj: State<'_, AutoDj>,
     deck: usize,
-    turns: f64,
+    seconds: f64,
     at_ms: f64,
 ) -> AppResult<()> {
     state.deck_in_use(deck)?;
     auto_dj.take_over(Takeover::Transport(deck));
+    let turns = seconds / prisme_engine::JOG_TURN_S;
     state.send(Command::Jog { deck, turns, at_s: at_ms / 1000.0 })
 }
 

@@ -23,6 +23,7 @@ use crate::vinyl::{self, VinylControl, VinylDrive};
 use bar_mix::BarMix;
 use cut::Cut;
 use hand::{Hand, Step};
+pub use jog::TURN_S as JOG_TURN_S;
 use jog::{Jog, Turn};
 use motor::Motor;
 use prisme_dsp::{Beat, FxChain, Smoothed};

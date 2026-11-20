@@ -4,7 +4,7 @@
 //! the track. A record in vinyl control drives the deck: the jog does nothing then.
 
 /// Track time in one turn of a jog wheel: one turn of a record at 33⅓ rpm.
-pub(crate) const TURN_S: f64 = 1.8;
+pub const TURN_S: f64 = 1.8;
 /// Speed added by a turn of the edge (+100 % for a whole turn), fading away.
 const NUDGE_PER_TURN: f64 = 1.0;
 /// How long a nudge takes to fade to 1/e of itself (exponential decay).

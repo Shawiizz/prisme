@@ -39,6 +39,7 @@ mod tempo;
 mod vinyl;
 
 pub use command::{Command, CrossfaderSide, DeckId, Garbage, RecordSource, Rpm, VinylMode};
+pub use deck::JOG_TURN_S;
 pub use engine::{create, Engine, EngineConfig, EngineController};
 pub use grid::{BeatGrid, BEATS_PER_BAR};
 pub use live::{InputChannels, LiveSource};
