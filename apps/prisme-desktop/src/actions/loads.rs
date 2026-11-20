@@ -148,7 +148,7 @@ mod tests {
         *lock(&bench.actions.selected) = path.map(PathBuf::from);
     }
 
-    /// A track of `seconds` playing on deck A.
+    /// A track of a minute playing on deck A.
     fn playing(bench: &mut Bench) {
         bench.load(0, 60.0, Some(120.0));
         bench.press("deck1.play", 1.0).unwrap();
