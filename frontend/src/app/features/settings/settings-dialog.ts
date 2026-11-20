@@ -46,6 +46,7 @@ import { SettingsIcon } from './settings-icon';
 import { decimal } from '../../shared/time';
 import { errorText } from '../../core/errors';
 import { Dismiss, overlay } from '../../shared/overlay';
+import { Serial } from '../../shared/serial';
 
 /** `1, 2, … n` */
 function numbers(n: number): number[] {
@@ -112,8 +113,8 @@ export class SettingsDialog implements OnInit {
   protected readonly draft = signal<AudioSettings | null>(null);
   /** The mixer drafted: the one in use until another is chosen. */
   protected readonly mixMode = linkedSignal<MixMode>(() => this.mixer.mode());
-  /** The changes of the draft asked for: a slower answer to an older one is dropped. */
-  private drafted = 0;
+  /** The changes of the draft, each made to the draft the one before left. */
+  protected readonly drafting = new Serial();
   protected readonly dj = this.preferences.dj;
   /** What the backend keeps of the DJ's preferences as the actions change them. */
   protected readonly quantize = computed(() => this.engine.controls()?.quantize ?? false);
@@ -198,11 +199,8 @@ export class SettingsDialog implements OnInit {
   protected readonly latencyInputs = computed(() => numbers(this.latencyChannels().inputs));
   /** Buffer sizes the chosen output's driver accepts. */
   protected readonly bufferSizes = computed(() => {
-    const d = this.draft();
-    const device =
-      this.outputs().find((o) => o.name === d?.outputDevice) ??
-      this.outputs().find((o) => o.isDefault);
-    return device?.bufferSizes ?? [];
+    const named = this.outputs().find((o) => o.name === this.draft()?.outputDevice);
+    return named?.bufferSizes ?? this.service.bufferSizes();
   });
 
   /** What waits for Apply: the audio restarts, or the interface starts again. */
@@ -280,12 +278,12 @@ export class SettingsDialog implements OnInit {
   }
 
   /** The draft with `change`, as the backend shapes it. */
-  async change(change: AudioChange) {
-    const draft = this.draft();
-    if (!draft) return;
-    const asked = ++this.drafted;
-    const next = await invoke<AudioSettings>('change_audio_draft', { draft, change });
-    if (asked === this.drafted) this.draft.set(next);
+  change(change: AudioChange): Promise<void> {
+    return this.drafting.run(async () => {
+      const draft = this.draft();
+      if (draft)
+        this.draft.set(await invoke<AudioSettings>('change_audio_draft', { draft, change }));
+    });
   }
 
   set<K extends keyof Settings>(setting: K, value: Settings[K]) {
@@ -395,11 +393,12 @@ export class SettingsDialog implements OnInit {
 
   /** Restarts the audio if its settings changed. */
   async apply() {
-    const d = this.draft();
-    if (!d) return;
     this.busy.set(true);
     this.error.set(null);
     try {
+      await this.drafting.settled();
+      const d = this.draft();
+      if (!d) return;
       await this.service.apply(d, this.mixMode());
       this.draft.set(structuredClone(this.service.settings()));
       await this.readLatencyChannels();
@@ -412,6 +411,7 @@ export class SettingsDialog implements OnInit {
 
   async discard() {
     this.error.set(null);
+    await this.drafting.settled();
     this.mixMode.set(this.mixer.mode());
     const settings = this.service.settings();
     if (settings) {

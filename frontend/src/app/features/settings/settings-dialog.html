@@ -818,7 +818,11 @@
           <button class="pr-btn pr-btn--ghost" [disabled]="busy()" (click)="discard()">
             {{ 'Undo' | t }}
           </button>
-          <button class="pr-btn pr-btn--light" [disabled]="busy()" (click)="apply()">
+          <button
+            class="pr-btn pr-btn--light"
+            [disabled]="busy() || drafting.busy()"
+            (click)="apply()"
+          >
             {{ busy() ? ('Starting…' | t) : ('Apply' | t) }}
           </button>
         </footer>

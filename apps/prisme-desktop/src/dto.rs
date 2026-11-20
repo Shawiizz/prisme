@@ -37,6 +37,24 @@ pub struct DeviceDto {
     pub is_default: bool,
 }
 
+/// The devices of a driver, and the periods a draft naming none of them is offered.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DevicesDto {
+    pub devices: Vec<DeviceDto>,
+    /// The default output's periods, else every one at 48 kHz.
+    pub buffer_sizes: Vec<BufferSizeDto>,
+}
+
+impl DevicesDto {
+    pub fn of(devices: Vec<DeviceDto>) -> Self {
+        let default = devices.iter().find(|d| d.kind == "output" && d.is_default);
+        let buffer_sizes =
+            default.map_or_else(|| BufferSizeDto::offered(None, 0), |d| d.buffer_sizes.clone());
+        Self { devices, buffer_sizes }
+    }
+}
+
 /// A period of the audio: so many frames, so long at the device's rate.
 #[derive(Debug, Clone, Copy, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -2396,6 +2414,17 @@ mod tests {
         assert_eq!(BufferSizeDto::offered(None, 0).len(), 7, "every one, at 48 kHz");
         assert_eq!(BufferSizeDto::offered(None, 0)[1].ms, 64_000.0 / 48_000.0);
     }
+        assert_eq!(DevicesDto::of(Vec::new()).buffer_sizes, BufferSizeDto::offered(None, 0), "no device");
+        let output = |is_default| DeviceDto {
+            name: "Out".into(),
+            kind: "output",
+            channels: 2,
+            sample_rate: 44_100,
+            buffer_sizes: sizes.clone(),
+            is_default,
+        };
+        assert_eq!(DevicesDto::of(vec![output(true)]).buffer_sizes, sizes, "the default output's");
+        assert_eq!(DevicesDto::of(vec![output(false)]).buffer_sizes.len(), 7);
 
     #[test]
     fn a_change_moves_the_revision_of_its_section_alone() {

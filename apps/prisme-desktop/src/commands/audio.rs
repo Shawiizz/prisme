@@ -2,7 +2,7 @@ use crate::audio_host;
 use crate::commands::blocking;
 use crate::dto::{
     AudioChangeDto, AudioInfo, AudioInfoDto, AudioSettings, BackendChoiceDto, BackendDto, BufferSizeDto,
-    DeviceDto, LatencyChannelsDto, LatencyDto, MixModeDto, TimecodeMakerDto,
+    DeviceDto, DevicesDto, LatencyChannelsDto, LatencyDto, MixModeDto, TimecodeMakerDto,
 };
 use crate::error::{AppError, AppResult};
 use crate::state::{lock, AppState};
@@ -33,8 +33,8 @@ fn one_device(backend: BackendDto) -> bool {
 }
 
 #[tauri::command]
-pub fn list_devices(backend: BackendDto) -> AppResult<Vec<DeviceDto>> {
-    Ok(prisme_audio_io::list_devices(backend.into())?
+pub fn list_devices(backend: BackendDto) -> AppResult<DevicesDto> {
+    let devices = prisme_audio_io::list_devices(backend.into())?
         .into_iter()
         .map(|d| DeviceDto {
             kind: match d.kind {
@@ -47,7 +47,8 @@ pub fn list_devices(backend: BackendDto) -> AppResult<Vec<DeviceDto>> {
             buffer_sizes: BufferSizeDto::offered(d.buffer_range, d.sample_rate),
             is_default: d.is_default,
         })
-        .collect())
+        .collect();
+    Ok(DevicesDto::of(devices))
 }
 
 /// The DJ chose not to use the sound card `name` just plugged in: it is not offered again.

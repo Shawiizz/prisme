@@ -24,8 +24,20 @@ export interface AudioDevice {
   channels: number;
   sampleRate: number;
   /** The periods the settings offer that the driver accepts, and how long each lasts. */
-  bufferSizes: { frames: number; ms: number }[];
+  bufferSizes: BufferSize[];
   isDefault: boolean;
+}
+
+/** A period of the audio: so many frames, so long at the device's rate. */
+export interface BufferSize {
+  frames: number;
+  ms: number;
+}
+
+/** The devices of a driver, and the periods a draft naming none of them is offered. */
+export interface AudioDevices {
+  devices: AudioDevice[];
+  bufferSizes: BufferSize[];
 }
 
 /** A sound card plugged in while Prisme runs, offered with the settings that use it. */
