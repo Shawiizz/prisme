@@ -67,10 +67,13 @@ export class MixerService {
   /** External mode asked for, but the device has too few outputs: the software mixer runs. */
   readonly fallback = computed(() => this.mode() === 'external' && this.modeInUse() === 'internal');
 
+  /** The mixer as the backend last told it: the same while it tells other sections. */
+  private readonly told = computed(() => this.engine.controls()?.mixer);
+
   constructor() {
     // what the backend changed, the routing the device it runs on lays out among it
     effect(() => {
-      const mixer = this.engine.controls()?.mixer;
+      const mixer = this.told();
       if (mixer) untracked(() => this.apply(mixer));
     });
   }

@@ -1,8 +1,24 @@
 import { TestBed } from '@angular/core/testing';
+import { ControlState, MixerState } from '../models/engine';
 import { EngineService } from './engine.service';
 import { FxService } from './fx.service';
 import { MixerService } from './mixer.service';
 import { PerformanceService } from './performance.service';
+
+describe('MixerService', () => {
+  it('applies the mixer the backend tells, not again as it tells other sections', () => {
+    const engine = TestBed.inject(EngineService);
+    const mixer = TestBed.inject(MixerService);
+    const apply = vi.spyOn(mixer, 'apply').mockImplementation(() => undefined);
+    const told = { mixer: {} as MixerState } as ControlState;
+    engine.controls.set(told);
+    TestBed.tick();
+    engine.controls.set({ ...told, loading: [true, false, false, false] });
+    TestBed.tick();
+    expect(apply).toHaveBeenCalledTimes(1);
+    vi.restoreAllMocks();
+  });
+});
 
 describe('the screen', () => {
   it('has the backend perform what its knobs, faders and keys drive, as a controller would', () => {
