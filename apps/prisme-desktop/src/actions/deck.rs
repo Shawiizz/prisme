@@ -55,7 +55,7 @@ fn jog(
         DeckAction::JogTouch => {
             jog_scratch.then_some(Command::JogTouch { deck, touched: input.amount() > 0.0, at_s })
         }
-        DeckAction::JogSearch => Some(Command::Jump { deck, seconds: turns * SEARCH_SECONDS_PER_TURN }),
+        DeckAction::JogSearch => Some(Command::SearchBy { deck, seconds: turns * SEARCH_SECONDS_PER_TURN }),
         _ => None,
     }
 }
@@ -427,7 +427,7 @@ mod tests {
     #[test]
     fn a_jog_searches_seconds_a_turn() {
         let searched = turned(0, DeckAction::JogSearch, 360.0, 0.0, true);
-        assert!(matches!(searched, Some(Command::Jump { deck: 0, seconds }) if seconds == 5.0));
+        assert!(matches!(searched, Some(Command::SearchBy { deck: 0, seconds }) if seconds == 5.0));
     }
 
     /// The ratio the tempo of deck A was set to by its fader moved to `value` by `device`.
