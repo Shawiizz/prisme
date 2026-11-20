@@ -19,6 +19,13 @@ const TEXTS: Record<string, (p: Params) => string> = {
   noTrack: (p) => t('No track on deck {deck}', onDeck(p)),
   emptyCrateName: () => t('A crate needs a name'),
   smartCrate: () => t('A smart crate picks its own tracks'),
+  noRule: () => t('A smart crate needs a rule'),
+  ruleYear: (p) => t('Rule {n}: a year is a whole number', { n: Number(p['rule']) + 1 }),
+  ruleKey: (p) =>
+    t('Rule {n}: {key} is not a key of the Camelot wheel', {
+      n: Number(p['rule']) + 1,
+      key: String(p['key']),
+    }),
   noBeatGrid: (p) => t('Deck {deck} has no beat grid', onDeck(p)),
   invalidBpm: (p) => t('{bpm} BPM is out of range', p),
   invalidKey: (p) => t('Unknown key {key}', p),

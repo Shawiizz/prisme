@@ -1,7 +1,9 @@
+@let count = menu()?.count ?? 0;
+@let separable = menu()?.separable ?? 0;
 @switch (panel()) {
   @case ('main') {
     <div class="menu" role="menu">
-      @if (paths().length === 1) {
+      @if (count === 1) {
         @for (d of decks(); track d) {
           <button role="menuitem" (click)="load(d)">
             {{ 'Load on deck {deck}' | t: { deck: letter(d) } }}
@@ -19,14 +21,14 @@
       @if (!PHONE) {
         <hr />
         @if (stems.reach() === 'none') {
-          <button role="menuitem" (click)="offerModels()">
+          <button role="menuitem" (click)="separate()">
             {{ 'Separate the stems…' | t }}
           </button>
         } @else {
-          <button role="menuitem" [disabled]="toSeparate().length === 0" (click)="separate()">
-            @if (paths().length > 1 && toSeparate().length > 0) {
-              {{ 'Separate the stems ({n})' | t: { n: toSeparate().length } }}
-            } @else if (toSeparate().length === 0) {
+          <button role="menuitem" [disabled]="separable === 0" (click)="separate()">
+            @if (count > 1 && separable > 0) {
+              {{ 'Separate the stems ({n})' | t: { n: separable } }}
+            } @else if (separable === 0) {
               {{ 'Stems separated' | t }}
             } @else {
               {{ 'Separate the stems' | t }}
@@ -36,13 +38,13 @@
       }
       @if (elsewhere()) {
         <hr />
-        @if (!PHONE && paths().length === 1) {
+        @if (!PHONE && count === 1) {
           <button role="menuitem" (click)="showInFileManager()">
             {{ 'Show in the file manager' | t }}
           </button>
         }
-        @if (sharedFolder(); as folder) {
-          @let holds = heldFolder();
+        @if (menu()?.folder; as folder) {
+          @let holds = menu()?.holds;
           <button
             role="menuitem"
             [disabled]="holds"
@@ -53,9 +55,9 @@
           </button>
         }
       }
-      @if (library.removable() || elsewhere()) {
+      @if (menu()?.removable || elsewhere()) {
         <hr />
-        @if (library.removable()) {
+        @if (menu()?.removable) {
           <button role="menuitem" class="danger" (click)="remove()">{{ removeLabel() }}</button>
         }
         @if (elsewhere()) {
@@ -111,8 +113,8 @@
         }
       </datalist>
       <span class="hint">{{
-        paths().length > 1
-          ? ('Written into the tags of {n} files' | t: { n: paths().length })
+        count > 1
+          ? ('Written into the tags of {n} files' | t: { n: count })
           : ('Written into the tags of the file' | t)
       }}</span>
       <div class="actions">

@@ -1,8 +1,6 @@
 import { Component, computed, inject, output, signal } from '@angular/core';
-import { CratesService } from '../../../core/services/crates.service';
 import { ExportService, ExportSummary, ListRef } from '../../../core/services/export.service';
-import { HistoryService } from '../../../core/services/history.service';
-import { PrepareService } from '../../../core/services/prepare.service';
+import { LibraryService } from '../../../core/services/library.service';
 import { Text, t } from '../../../core/i18n/i18n';
 import { TPipe } from '../../../core/i18n/t.pipe';
 import { errorText } from '../../../core/errors';
@@ -33,9 +31,9 @@ export class ExportDialog {
   readonly closed = output();
 
   private readonly exports = inject(ExportService);
-  private readonly crates = inject(CratesService).crates;
-  private readonly sessions = inject(HistoryService).sessions;
-  private readonly prepare = inject(PrepareService).list;
+  private readonly library = inject(LibraryService);
+  private readonly crates = this.library.crates;
+  private readonly sessions = this.library.sessions;
 
   /** Every track and every list, or the lists chosen. */
   protected readonly whole = signal(true);
@@ -56,7 +54,7 @@ export class ExportDialog {
     {
       key: 'prepare',
       title: () => t('Prepare'),
-      choices: [this.choice('prepare', { kind: 'prepare' }, this.prepare().length)],
+      choices: [this.choice('prepare', { kind: 'prepare' }, this.library.lists().prepare)],
     },
     {
       key: 'history',

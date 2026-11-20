@@ -1,6 +1,6 @@
 import { computed, effect, inject, signal, untracked } from '@angular/core';
 import { folderName, stepsFrom } from '../../../core/folders';
-import { DirEntry, MusicFolder } from '../../../core/models/library';
+import { Folder, MusicFolder } from '../../../core/models/library';
 import { LibraryService } from '../../../core/services/library.service';
 
 const EXPANDED_KEY = 'prisme.sidebar.expanded';
@@ -36,7 +36,7 @@ export class FolderTree {
   private readonly library = inject(LibraryService);
   private readonly expanded = signal<ReadonlySet<string>>(new Set(savedExpanded()));
   /** The folders in each folder listed so far. */
-  private readonly children = signal<ReadonlyMap<string, DirEntry[]>>(new Map());
+  private readonly children = signal<ReadonlyMap<string, Folder[]>>(new Map());
   /** Folders being listed. */
   private readonly listing = new Set<string>();
 
@@ -55,14 +55,13 @@ export class FolderTree {
 
   constructor() {
     effect(() => {
-      const listing = this.library.listing();
-      if (listing) untracked(() => this.known(listing.path, listing.folders));
+      const folder = this.library.currentFolder();
+      if (folder) untracked(() => this.known(folder.path, folder.folders));
     });
     effect(() => {
-      const root = this.library.folderRoot();
-      const path = this.library.listing()?.path;
-      if (!root || !path) return;
-      const way = stepsFrom(root.path, path).slice(0, -1);
+      const folder = this.library.currentFolder();
+      if (!folder?.root) return;
+      const way = stepsFrom(folder.root, folder.path).slice(0, -1);
       untracked(() => this.expand(way.map((step) => step.path)));
     });
     // opened last time, or on the way: listed once shown
@@ -101,7 +100,7 @@ export class FolderTree {
     if (this.listing.has(path)) return;
     this.listing.add(path);
     try {
-      this.known(path, await this.library.subFolders(path));
+      this.known(path, (await this.library.listDir(path)).folders);
     } catch {
       // gone meanwhile: nothing in it to open
       this.known(path, []);
@@ -110,7 +109,7 @@ export class FolderTree {
     }
   }
 
-  private known(path: string, folders: DirEntry[]) {
+  private known(path: string, folders: Folder[]) {
     this.children.update((children) => new Map(children).set(path, folders));
   }
 }

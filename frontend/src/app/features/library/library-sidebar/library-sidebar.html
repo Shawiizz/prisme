@@ -2,12 +2,12 @@
   <div class="list">
     <div
       class="item"
-      [class.current]="library.source().kind === 'prepare'"
-      [class.pointed]="library.focus() === 'lists' && library.pointedList() === 'prepare'"
+      [class.current]="library.source()?.kind === 'prepare'"
+      [class.pointed]="pointed() === 'prepare'"
       [class.drop]="dropTarget() === 'prepare' || drops.isOver({ kind: 'prepare' })"
       [attr.data-file-drop]="fileDrop({ kind: 'prepare' })"
       [title]="'Tracks lined up for the set; a played track leaves the list' | t"
-      (click)="library.openPrepare()"
+      (click)="library.open({ kind: 'prepare' })"
       (dragover)="dragOver($event, 'prepare')"
       (dragleave)="dropTarget.set(null)"
       (drop)="drop($event, 'prepare')"
@@ -17,7 +17,7 @@
       @if (autoDj.on()) {
         <span class="auto pr-label" [class.paused]="autoDj.paused()">{{ 'Auto DJ' | t }}</span>
       }
-      <span class="count">{{ prepareCount() }}</span>
+      <span class="count">{{ lists().prepare }}</span>
       <span class="actions">
         <button
           class="action"
@@ -30,9 +30,9 @@
     </div>
     <div
       class="item"
-      [class.current]="library.source().kind === 'duplicates'"
+      [class.current]="library.source()?.kind === 'duplicates'"
       [title]="'Tracks that look like the same song: same artist and title, or file name' | t"
-      (click)="library.openDuplicates()"
+      (click)="library.open({ kind: 'duplicates' })"
     >
       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 4h10v12H8zM5 8v12h10" /></svg>
       <span class="name">{{ 'Duplicates' | t }}</span>
@@ -109,12 +109,12 @@
         }
       </div>
     }
-    @if (library.elsewhere().length; as count) {
+    @if (lists().elsewhere; as count) {
       <div
         class="item root elsewhere"
-        [class.current]="library.source().kind === 'elsewhere'"
+        [class.current]="library.source()?.kind === 'elsewhere'"
         [title]="'Tracks loaded from outside your music folders' | t"
-        (click)="library.openElsewhere()"
+        (click)="library.open({ kind: 'elsewhere' })"
       >
         <span class="twisty">
           <svg viewBox="0 0 24 24" aria-hidden="true">
@@ -202,7 +202,7 @@
         <div
           class="item"
           [class.current]="library.currentCrate() === c.id"
-          [class.pointed]="library.focus() === 'lists' && library.pointedList() === c.id"
+          [class.pointed]="pointed() === c.id"
           [class.drop]="dropTarget() === c.id || drops.isOver({ kind: 'crate', id: c.id })"
           [attr.data-file-drop]="c.rules ? null : fileDrop({ kind: 'crate', id: c.id })"
           (click)="open(c.id)"
@@ -284,7 +284,7 @@
       <div
         class="item"
         [class.current]="library.currentSession() === s.id"
-        (click)="library.openSession(s.id)"
+        (click)="library.open({ kind: 'history', id: s.id })"
       >
         <svg viewBox="0 0 24 24" aria-hidden="true">
           <circle cx="12" cy="12" r="8" />

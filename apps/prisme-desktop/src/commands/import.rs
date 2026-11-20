@@ -61,6 +61,7 @@ async fn run(
         for track in &import.tracks {
             library.announce(&track.path);
         }
+        library.lists_changed();
         Ok(summary.into())
     })
     .await

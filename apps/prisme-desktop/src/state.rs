@@ -2,6 +2,7 @@
 //! loaded tracks and the deck settings (kept so they can be re-applied when the audio
 //! restarts).
 
+use crate::actions::browse::Library;
 use crate::audio_host::{deck_pair, layer_partner, AudioSession};
 use crate::dto::{
     AudioInfo, BackendDto, BandDto, ChannelStripDto, CrossfaderSideDto, CueDto, DeckStemsDto, FxChainDto,
@@ -318,6 +319,9 @@ pub struct AppState {
     pub perform: Mirrored<PerformState>,
     /// What the headphones preview, as the interface shows it (see `preview::Previews`).
     pub preview: Mirrored<PreviewStateDto>,
+    /// The library as it is browsed, changed through [`AppState::browse`]: taken last, nothing
+    /// else locked while it is held.
+    pub library: Mutex<Library>,
     /// The interface is out of sight: a phone's application in the background, which the
     /// system may stop calling for audio.
     pub hidden: AtomicBool,
@@ -335,14 +339,24 @@ pub enum Section {
     /// What the pads hold.
     Perform,
     Preview,
+    /// The list browsed, as the interface shows it.
+    Library,
+    /// The lists the library keeps: the crates, the sets, the prepare list.
+    Lists,
 }
 
 impl Section {
-    pub const ALL: [Section; SECTIONS] =
-        [Section::Mixer, Section::Tracks, Section::Perform, Section::Preview];
+    pub const ALL: [Section; SECTIONS] = [
+        Section::Mixer,
+        Section::Tracks,
+        Section::Perform,
+        Section::Preview,
+        Section::Library,
+        Section::Lists,
+    ];
 }
 
-pub const SECTIONS: usize = 4;
+pub const SECTIONS: usize = 6;
 
 /// Where the changes of each [`Section`] are at: each moves at every change of its own.
 #[derive(Default)]
@@ -517,6 +531,7 @@ impl AppState {
             samplers: Mirrored::new(Samplers::default(), &revisions, Section::Mixer),
             perform: Mirrored::new(PerformState::default(), &revisions, Section::Perform),
             preview: Mirrored::new(PreviewStateDto::default(), &revisions, Section::Preview),
+            library: Mutex::default(),
             hidden: AtomicBool::new(false),
             revisions,
         }
@@ -543,6 +558,26 @@ impl AppState {
         } else {
             Err(AppError::InvalidDeck(deck))
         }
+    }
+
+    /// Changes the library as it is browsed: the interface hears of what changed.
+    pub fn browse<R>(&self, change: impl FnOnce(&mut Library) -> R) -> R {
+        let mut library = lock(&self.library);
+        let before = (library.browser.revision(), library.browser.lists_revision());
+        let changed = change(&mut library);
+        if library.browser.revision() != before.0 {
+            self.revisions.moved(Section::Library);
+        }
+        if library.browser.lists_revision() != before.1 {
+            self.revisions.moved(Section::Lists);
+        }
+        changed
+    }
+
+    /// The track at `path` now separated as far as `separation`: its rows say it.
+    pub fn separated(&self, path: &str, separation: SeparationDto) {
+        lock(&self.library).separated(path, separation);
+        self.revisions.moved(Section::Library);
     }
 
     /// Changes the preferences, saved soon after; the interface hears of it.

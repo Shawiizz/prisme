@@ -1,8 +1,7 @@
-import { Injectable, inject } from '@angular/core';
+import { Injectable } from '@angular/core';
 import { invoke } from '@tauri-apps/api/core';
 import { open } from '@tauri-apps/plugin-dialog';
 import { t } from '../i18n/i18n';
-import { CratesService } from './crates.service';
 
 /** What an import brought (see `ImportSummaryDto`). */
 export interface ImportSummary {
@@ -21,8 +20,6 @@ export interface ImportSummary {
  */
 @Injectable({ providedIn: 'root' })
 export class ImportService {
-  private readonly crates = inject(CratesService);
-
   /** The `_Serato_` folder of the music folder, if any. */
   seratoFolder(): Promise<string | null> {
     return invoke<string | null>('serato_folder');
@@ -45,7 +42,6 @@ export class ImportService {
   }
 
   private async finish(summary: ImportSummary): Promise<ImportSummary> {
-    await this.crates.refresh();
     return summary;
   }
 }

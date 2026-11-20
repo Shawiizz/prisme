@@ -22,6 +22,14 @@ pub enum AppError {
     EmptyCrateName,
     #[error("a smart crate picks its own tracks")]
     SmartCrate,
+    #[error("a smart crate needs a rule")]
+    NoRule,
+    /// A rule of a smart crate (counted from 0) bounding the years by other than whole years.
+    #[error("rule {}: a year is a whole number", .0 + 1)]
+    RuleYear(usize),
+    /// A rule of a smart crate (counted from 0) naming a key the Camelot wheel does not have.
+    #[error("rule {}: {key} is not a key of the Camelot wheel", .rule + 1)]
+    RuleKey { rule: usize, key: String },
     #[error("deck {} has no beat grid", .0 + 1)]
     NoBeatGrid(usize),
     #[error("{0} BPM is out of range")]
@@ -114,6 +122,9 @@ impl AppError {
             AppError::NoTrack(deck) => ("noTrack", json!({ "deck": deck })),
             AppError::EmptyCrateName => ("emptyCrateName", none()),
             AppError::SmartCrate => ("smartCrate", none()),
+            AppError::NoRule => ("noRule", none()),
+            AppError::RuleYear(rule) => ("ruleYear", json!({ "rule": rule })),
+            AppError::RuleKey { rule, key } => ("ruleKey", json!({ "rule": rule, "key": key })),
             AppError::NoBeatGrid(deck) => ("noBeatGrid", json!({ "deck": deck })),
             AppError::InvalidBpm(bpm) => ("invalidBpm", json!({ "bpm": bpm })),
             AppError::InvalidKey(key) => ("invalidKey", json!({ "key": key })),

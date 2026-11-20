@@ -44,6 +44,9 @@ impl Performing<'_> {
                 Given::Steps(steps) => self.skip_preview(steps),
                 Given::Value(_) => Ok(()),
             },
+            Target::Library(action @ (LibraryAction::Browse | LibraryAction::Lists)) => {
+                self.browse(action, given)
+            }
             Target::Library(action) if given.pressed() => self.load(action),
             Target::Library(_) => Ok(()),
             Target::General(action) => self.general(action, given),

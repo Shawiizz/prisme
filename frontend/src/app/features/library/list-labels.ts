@@ -1,4 +1,4 @@
-import { TrackSource } from '../../core/services/library.service';
+import { TrackSource } from '../../core/models/library';
 import { Text, t } from '../../core/i18n/i18n';
 
 /** What each kind of list is called. */

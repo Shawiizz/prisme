@@ -124,13 +124,12 @@ export class DeckLane {
     if (!this.host.contains(event.relatedTarget as Node | null)) this.dropping.set(false);
   }
 
-  /** The first of the tracks dragged: a deck plays one. */
+  /** The track dragged from the library: a deck plays one. */
   protected drop(event: DragEvent) {
     this.dropping.set(false);
-    const data = event.dataTransfer?.getData(TRACKS_DRAG_TYPE);
-    if (!data) return;
+    const path = event.dataTransfer?.getData(TRACKS_DRAG_TYPE);
+    if (!path) return;
     event.preventDefault();
-    const [path] = JSON.parse(data) as string[];
-    if (path) this.library.load(path, this.deck());
+    this.library.load(path, this.deck());
   }
 }

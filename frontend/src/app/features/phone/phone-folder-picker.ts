@@ -93,10 +93,10 @@ const PLACE_NAME: Record<StoragePlace['kind'], (place: StoragePlace) => string> 
             <p class="error">{{ message }}</p>
           } @else if (within(); as folder) {
             <p class="help">{{ 'Already among your folders, in {folder}' | t: { folder } }}</p>
-          } @else if (here.listing.tracks.length === 1) {
+          } @else if (here.listing.tracks === 1) {
             <p class="help">{{ '1 track here' | t }}</p>
-          } @else if (here.listing.tracks.length) {
-            <p class="help">{{ '{n} tracks here' | t: { n: here.listing.tracks.length } }}</p>
+          } @else if (here.listing.tracks) {
+            <p class="help">{{ '{n} tracks here' | t: { n: here.listing.tracks } }}</p>
           }
           <button
             class="pr-btn pr-btn--lg pr-btn--light add"

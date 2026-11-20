@@ -1,8 +1,9 @@
 //! Watches the music folders. When audio files appear, change or go, the new and changed
-//! ones are analysed and the UI is told which folders changed (`library-files-changed`).
+//! ones are analysed and the folder shown, if it is one of those changed, is listed again.
 //! A file whose change the library already knows of (tags Prisme wrote) is left alone.
 
 use crate::library_service::LibraryService;
+use crate::state::AppState;
 use notify::event::{ModifyKind, RenameMode};
 use notify::{Event, EventKind, RecommendedWatcher, RecursiveMode, Watcher};
 use std::collections::BTreeSet;
@@ -10,9 +11,8 @@ use std::path::{Path, PathBuf};
 use std::sync::mpsc::{self, RecvTimeoutError};
 use std::sync::Arc;
 use std::time::Duration;
-use tauri::{AppHandle, Emitter};
+use tauri::{AppHandle, Manager};
 
-pub const FILES_CHANGED_EVENT: &str = "library-files-changed";
 /// Changes are handled once the folder has been quiet this long: copying an album is a
 /// burst of events.
 const SETTLE: Duration = Duration::from_millis(1500);
@@ -45,8 +45,8 @@ impl FolderWatch {
                         continue;
                     }
                     library.start();
-                    let folders: Vec<String> = folders.iter().map(|f| f.display().to_string()).collect();
-                    let _ = app.emit(FILES_CHANGED_EVENT, folders);
+                    let folders: Vec<PathBuf> = folders.into_iter().collect();
+                    crate::actions::browse::files_changed(&app.state::<AppState>(), &library.db, &folders);
                 }
             })
             .expect("cannot start the folder watch thread");

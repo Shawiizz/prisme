@@ -17,11 +17,10 @@ import { errorText } from '../errors';
 import { t } from '../i18n/i18n';
 import { NoticeService } from '../../shared/notice/notice';
 import { NavigationService } from '../services/navigation.service';
-import { LibraryService } from '../services/library.service';
 
 /**
- * Controllers, MIDI and HID: the backend performs most of what their controls drive and lights
- * them; the actions the app performs (the library's, its windows') it is told of (`ui-action`),
+ * Controllers, MIDI and HID: the backend performs what their controls drive and lights them;
+ * the actions the app performs (its windows, the focus of its search) it is told of (`ui-action`),
  * and it tells the lights of what it keeps (`set_lights`). A control is mapped by moving it
  * (learn).
  */
@@ -31,7 +30,6 @@ export class ControllerService {
   private readonly engine = inject(EngineService);
   private readonly notices = inject(NoticeService);
   private readonly navigation = inject(NavigationService);
-  private readonly library = inject(LibraryService);
 
   readonly controllers = signal<Controller[]>([]);
   readonly profiles = signal<ControllerProfiles | null>(null);
@@ -54,10 +52,9 @@ export class ControllerService {
   }
 
   async start() {
-    await listen<UiAction>('ui-action', ({ payload }) => {
-      this.controls.act(payload.target, payload.value);
-      this.library.applied(payload.number);
-    });
+    await listen<UiAction>('ui-action', ({ payload }) =>
+      this.controls.act(payload.target, payload.value),
+    );
     await listen<unknown>('action-failed', ({ payload }) => void this.engine.failed(payload));
     await listen<ControllerMapping>('controller-learned', () => {
       this.learning.set(null);

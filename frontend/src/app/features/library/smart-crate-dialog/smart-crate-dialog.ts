@@ -1,6 +1,7 @@
-import { Component, inject, input, linkedSignal, output } from '@angular/core';
+import { Component, inject, input, linkedSignal, output, signal } from '@angular/core';
 import { Crate, Rule, SmartRules, TextField } from '../../../core/models/library';
 import { LibraryService } from '../../../core/services/library.service';
+import { errorText } from '../../../core/errors';
 import { Text, t } from '../../../core/i18n/i18n';
 import { TPipe } from '../../../core/i18n/t.pipe';
 import { Dismiss, overlay } from '../../../shared/overlay';
@@ -74,6 +75,8 @@ export class SmartCrateDialog {
   protected readonly rules = linkedSignal<Rule[]>(
     () => this.crate()?.rules?.rules ?? [newRule('genre')],
   );
+  /** What the backend could not take of the rules. */
+  protected readonly error = signal<string | null>(null);
 
   constructor() {
     overlay(
@@ -104,10 +107,7 @@ export class SmartCrateDialog {
   }
 
   setKeys(index: number, text: string) {
-    const camelot = text
-      .split(/[\s,]+/)
-      .filter(Boolean)
-      .map((code) => code.toUpperCase());
+    const camelot = text.split(/[\s,]+/).filter(Boolean);
     this.update(index, (r) => (r.kind === 'key' ? { ...r, camelot } : r));
   }
 
@@ -119,14 +119,15 @@ export class SmartCrateDialog {
     this.rules.update((rules) => rules.filter((_, i) => i !== index));
   }
 
+  /** Kept as typed: the backend says what it cannot take, the dialog stays open on it. */
   async save() {
-    const name = this.name().trim();
-    if (!name || !this.rules().length) return;
     const rules: SmartRules = { matchAll: this.matchAll(), rules: this.rules() };
-    const crate = this.crate();
-    if (crate) await this.library.updateSmartCrate(crate.id, name, rules);
-    else await this.library.createSmartCrate(name, rules);
-    this.closed.emit();
+    try {
+      await this.library.saveSmartCrate(this.crate()?.id ?? null, this.name(), rules);
+      this.closed.emit();
+    } catch (e) {
+      this.error.set(errorText(e));
+    }
   }
 
   private update(index: number, change: (rule: Rule) => Rule) {

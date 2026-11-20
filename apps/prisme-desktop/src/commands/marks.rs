@@ -1,40 +1,47 @@
+//! What the DJ marks tracks with: a colour, a rating, a genre written into their files.
+
+use crate::actions::browse;
+use crate::actions::Order;
+use crate::commands::library::in_turn;
 use crate::error::{AppError, AppResult};
-use crate::library_service::LibraryService;
 use crate::tag_writer::TagWriter;
-use std::path::{Path, PathBuf};
-use std::sync::Arc;
-use tauri::State;
+use std::path::PathBuf;
+use tauri::{AppHandle, Manager};
 
-type Library<'a> = State<'a, Arc<LibraryService>>;
-
-/// Colours tracks (`None` takes the colour off).
+/// Colours the tracks at `paths` (else those selected); `None` takes the colour off.
 #[tauri::command]
-pub fn set_track_color(library: Library<'_>, paths: Vec<String>, color: Option<u32>) -> AppResult<()> {
-    let paths: Vec<&Path> = paths.iter().map(Path::new).collect();
-    library.db.set_color(&paths, color)?;
-    announce(&library, &paths);
-    Ok(())
+pub async fn set_track_color(
+    app: AppHandle,
+    paths: Option<Vec<String>>,
+    color: Option<u32>,
+    order: Order,
+) -> AppResult<()> {
+    in_turn(app, order, move |state, db| {
+        let paths = browse::tracks(state, paths);
+        browse::set_color(state, db, &paths, color)
+    })
+    .await
 }
 
-/// Rates tracks from 0 (not rated) to 5.
+/// Rates the track at `path` `stars` (1 to 5): the stars it has already take its rating off.
 #[tauri::command]
-pub fn set_track_rating(library: Library<'_>, paths: Vec<String>, rating: u8) -> AppResult<()> {
-    let paths: Vec<&Path> = paths.iter().map(Path::new).collect();
-    library.db.set_rating(&paths, rating)?;
-    announce(&library, &paths);
-    Ok(())
+pub async fn rate_track(app: AppHandle, path: String, stars: u8, order: Order) -> AppResult<()> {
+    in_turn(app, order, move |state, db| browse::rate(state, db, &path, stars)).await
 }
 
-/// Writes `genre` into the tags of the files (empty or `None`: takes it off); the rows
-/// follow as each file is written.
+/// Writes `genre` into the tags of the files at `paths` (else of those selected; empty or `None`:
+/// takes it off); the rows follow as each file is written.
 #[tauri::command]
 pub async fn set_track_genre(
-    tag_writer: State<'_, TagWriter>,
-    paths: Vec<String>,
+    app: AppHandle,
+    paths: Option<Vec<String>>,
     genre: Option<String>,
+    order: Order,
 ) -> AppResult<()> {
+    let writer = app.clone();
+    let paths = in_turn(app, order, move |state, _| Ok(browse::tracks(state, paths))).await?;
     let genre = genre.map(|g| g.trim().to_owned()).filter(|g| !g.is_empty());
-    let answer = tag_writer.set_genre(paths.into_iter().map(PathBuf::from).collect(), genre);
+    let answer = writer.state::<TagWriter>().set_genre(paths.into_iter().map(PathBuf::from).collect(), genre);
     let failed = tauri::async_runtime::spawn_blocking(move || answer.recv().unwrap_or_default())
         .await
         .map_err(|e| AppError::Other(e.to_string()))?;
@@ -42,11 +49,5 @@ pub async fn set_track_genre(
         Ok(())
     } else {
         Err(AppError::GenreNotWritten(failed))
-    }
-}
-
-fn announce(library: &LibraryService, paths: &[&Path]) {
-    for path in paths {
-        library.announce(path);
     }
 }

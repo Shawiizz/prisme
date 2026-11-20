@@ -1,77 +1,72 @@
-use crate::dto::{CrateDto, DirEntryDto};
-use crate::error::{AppError, AppResult};
-use crate::library_service::LibraryService;
-use prisme_library::{CrateId, SmartRules};
-use std::path::Path;
-use std::sync::Arc;
-use tauri::State;
+//! The crates: named sets of tracks, or rules for the smart ones. The side panel and the list
+//! shown hear of a change with the status stream.
 
-type Library<'a> = State<'a, Arc<LibraryService>>;
+use crate::actions::browse;
+use crate::actions::Order;
+use crate::commands::library::in_turn;
+use crate::dto::SmartRulesDto;
+use crate::error::AppResult;
+use prisme_library::CrateId;
+use tauri::AppHandle;
 
-#[tauri::command(async)]
-pub fn list_crates(library: Library<'_>) -> AppResult<Vec<CrateDto>> {
-    Ok(library.db.crates()?.into_iter().map(CrateDto::from).collect())
+/// A crate named `name`, shown: its id.
+#[tauri::command]
+pub async fn create_crate(app: AppHandle, name: String, order: Order) -> AppResult<i64> {
+    in_turn(app, order, move |state, db| Ok(browse::create_crate(state, db, &name, None)?.0)).await
+}
+
+/// A smart crate named `name`, picking its tracks by `rules`, shown: its id.
+#[tauri::command]
+pub async fn create_smart_crate(
+    app: AppHandle,
+    name: String,
+    rules: SmartRulesDto,
+    order: Order,
+) -> AppResult<i64> {
+    in_turn(app, order, move |state, db| {
+        let rules = rules.checked()?;
+        Ok(browse::create_crate(state, db, &name, Some(&rules))?.0)
+    })
+    .await
+}
+
+/// The smart crate `id` named `name` and picking its tracks by `rules`: both at once, or neither.
+#[tauri::command]
+pub async fn update_smart_crate(
+    app: AppHandle,
+    id: i64,
+    name: String,
+    rules: SmartRulesDto,
+    order: Order,
+) -> AppResult<()> {
+    in_turn(app, order, move |state, db| {
+        let rules = rules.checked()?;
+        browse::change_crate(state, db, CrateId(id), &name, Some(&rules))
+    })
+    .await
 }
 
 #[tauri::command]
-pub fn create_crate(library: Library<'_>, name: String) -> AppResult<i64> {
-    Ok(library.db.create_crate(crate_name(&name)?)?.0)
+pub async fn rename_crate(app: AppHandle, id: i64, name: String, order: Order) -> AppResult<()> {
+    in_turn(app, order, move |state, db| browse::change_crate(state, db, CrateId(id), &name, None)).await
 }
 
 #[tauri::command]
-pub fn create_smart_crate(library: Library<'_>, name: String, rules: SmartRules) -> AppResult<i64> {
-    Ok(library.db.create_smart_crate(crate_name(&name)?, &rules)?.0)
+pub async fn delete_crate(app: AppHandle, id: i64, order: Order) -> AppResult<()> {
+    in_turn(app, order, move |state, db| browse::delete_crate(state, db, CrateId(id))).await
 }
 
+/// Puts the tracks at `paths` (else those selected) in the crate `id`; how many were not in it.
 #[tauri::command]
-pub fn set_crate_rules(library: Library<'_>, id: i64, rules: SmartRules) -> AppResult<()> {
-    Ok(library.db.set_crate_rules(CrateId(id), &rules)?)
-}
-
-#[tauri::command]
-pub fn rename_crate(library: Library<'_>, id: i64, name: String) -> AppResult<()> {
-    Ok(library.db.rename_crate(CrateId(id), crate_name(&name)?)?)
-}
-
-#[tauri::command]
-pub fn delete_crate(library: Library<'_>, id: i64) -> AppResult<()> {
-    Ok(library.db.delete_crate(CrateId(id))?)
-}
-
-/// Returns how many tracks were not in the crate yet.
-#[tauri::command]
-pub fn add_to_crate(library: Library<'_>, id: i64, paths: Vec<String>) -> AppResult<usize> {
-    filled_by_hand(&library, id)?;
-    Ok(library.db.add_to_crate(CrateId(id), &as_paths(&paths))?)
-}
-
-#[tauri::command]
-pub fn remove_from_crate(library: Library<'_>, id: i64, paths: Vec<String>) -> AppResult<()> {
-    filled_by_hand(&library, id)?;
-    Ok(library.db.remove_from_crate(CrateId(id), &as_paths(&paths))?)
-}
-
-#[tauri::command(async)]
-pub fn crate_tracks(library: Library<'_>, id: i64) -> AppResult<Vec<DirEntryDto>> {
-    let entries = library.db.crate_tracks(CrateId(id))?;
-    Ok(entries.iter().map(|e| DirEntryDto::track(&e.path, e.record.as_ref())).collect())
-}
-
-fn crate_name(name: &str) -> AppResult<&str> {
-    let name = name.trim();
-    if name.is_empty() {
-        return Err(AppError::EmptyCrateName);
-    }
-    Ok(name)
-}
-
-fn filled_by_hand(library: &LibraryService, id: i64) -> AppResult<()> {
-    match library.db.crate_rules(CrateId(id))? {
-        Some(_) => Err(AppError::SmartCrate),
-        None => Ok(()),
-    }
-}
-
-fn as_paths(paths: &[String]) -> Vec<&Path> {
-    paths.iter().map(Path::new).collect()
+pub async fn add_to_crate(
+    app: AppHandle,
+    id: i64,
+    paths: Option<Vec<String>>,
+    order: Order,
+) -> AppResult<usize> {
+    in_turn(app, order, move |state, db| {
+        let paths = browse::tracks(state, paths);
+        browse::add_to_crate(state, db, CrateId(id), &paths)
+    })
+    .await
 }

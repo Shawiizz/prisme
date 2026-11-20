@@ -99,12 +99,10 @@ export interface ControllerMapping {
   shift?: boolean | string;
 }
 
-/** An action the app performs that a controller drove: a key's value, an encoder's whole
- * steps; its number, told the backend once applied (see `LibraryService.applied`). */
+/** An action the app performs that a controller drove: a key's value. */
 export interface UiAction {
   target: string;
   value: number;
-  number: number;
 }
 
 export function describeControl(c: PhysicalControl): string {

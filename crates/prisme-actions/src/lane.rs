@@ -1,7 +1,7 @@
 //! Which actions keep their order among themselves: those of one lane. A lane is what an action
 //! changes: a deck's track and where it plays, a deck's settings (its strip, its effects, its
 //! tempo fader), a slot of its sampler, the mixer and what all decks share, the preview, the
-//! recording. An action is performed at once on the thread asking for it while its lane has
+//! recording, the library as it is browsed. An action is performed at once on the thread asking for it while its lane has
 //! none waiting; one that reads or writes a file (a track or a sound opened, a recording ended)
 //! is performed in turn by a worker of its lane, and the actions of that lane sent after it wait
 //! behind it. No action waits for a file of another lane.
@@ -22,6 +22,8 @@ pub enum Lane {
     Mixer,
     Preview,
     Recording,
+    /// The list browsed, its rows picked, and the lists the library keeps.
+    Library,
 }
 
 /// The lane of `target`. A load on the first deck without a track (`library.load`) is deck A's
@@ -38,6 +40,7 @@ pub fn lane(target: &Target) -> Lane {
         Target::Library(LibraryAction::Preview | LibraryAction::PreviewStop | LibraryAction::PreviewSeek) => {
             Lane::Preview
         }
+        Target::Library(_) => Lane::Library,
         Target::General(GeneralAction::Record) => Lane::Recording,
         _ => Lane::Mixer,
     }
@@ -78,9 +81,22 @@ fn kept_by_the_deck(action: DeckAction) -> bool {
 }
 
 /// Whether `target` reads or writes a file as it is performed: never on the thread asking for
-/// it. A smart pad loads only into an empty slot, which the one sending it knows.
+/// it. A smart pad loads only into an empty slot, which the one sending it knows; a list is
+/// opened, and the selection put in the prepare list or taken out of the list shown, in the
+/// library's database or folders.
 pub fn reads_files(target: &Target) -> bool {
-    takes_selection(target) || *target == Target::General(GeneralAction::Record)
+    takes_selection(target)
+        || matches!(
+            target,
+            Target::General(GeneralAction::Record)
+                | Target::Library(
+                    LibraryAction::ListOpen
+                        | LibraryAction::ListNext
+                        | LibraryAction::ListPrevious
+                        | LibraryAction::Remove
+                        | LibraryAction::Prepare
+                )
+        )
 }
 
 /// Whether `target` opens the track selected in the library: as it was when it was sent.
@@ -128,6 +144,11 @@ mod tests {
         assert_eq!(of("library.preview.stop"), Lane::Preview);
         assert_eq!(of("general.record"), Lane::Recording);
         assert_eq!(of("mixer.crossfader"), Lane::Mixer);
+        for id in
+            ["library.browse", "library.next", "library.list.open", "library.sort.bpm", "library.remove"]
+        {
+            assert_eq!(of(id), Lane::Library, "{id}");
+        }
         assert_eq!(of("general.quantize"), Lane::Mixer);
     }
 
@@ -141,6 +162,10 @@ mod tests {
             "deck1.sample2.load",
             "library.preview",
             "general.record",
+            "library.list.open",
+            "library.list.next",
+            "library.remove",
+            "library.prepare",
         ] {
             assert!(reads(id), "{id}");
         }
@@ -153,6 +178,9 @@ mod tests {
             "library.double2",
             "deck1.sample2.smart",
             "library.preview.stop",
+            "library.next",
+            "library.browse",
+            "library.sort.title",
         ] {
             assert!(!reads(id), "{id}");
         }

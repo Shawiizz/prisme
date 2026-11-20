@@ -13,9 +13,11 @@ use prisme_audio_io::{Backend, StreamStats};
 use prisme_engine::{
     InputChannels, LiveSource, LoopStatus, MixMode, Rpm, StemTracks, VinylMode, FX_SLOTS, MAX_DECKS,
 };
-use prisme_library::{Cue, CueSlot};
+use prisme_library::browse::{Column, Focus, Pick, Scope, Source};
+use prisme_library::{CrateId, Cue, CueSlot, SessionId};
 use prisme_timecode::{SignalState, TimecodeFormat};
 use serde::{Deserialize, Serialize};
+use std::path::Path;
 use std::sync::atomic::Ordering;
 
 #[derive(Debug, Clone, Serialize)]
@@ -1202,6 +1204,11 @@ pub struct ControlStateDto {
     pub perform: Option<[DeckPadsDto; MAX_DECKS]>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub preview: Option<PreviewStateDto>,
+    /// The list browsed, and the rows of its window.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub library: Option<LibraryViewDto>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub lists: Option<LibraryListsDto>,
 }
 
 /// What a deck's pads hold, as the interface shows them.
@@ -1254,6 +1261,8 @@ impl ControlStateDto {
                     controls.perform = Some(lock(&state.perform).decks.each_ref().map(DeckPadsDto::from))
                 }
                 Section::Preview => controls.preview = Some(lock(&state.preview).clone()),
+                Section::Library => controls.library = Some(lock(&state.library).view()),
+                Section::Lists => controls.lists = Some(lock(&state.library).lists()),
             }
         }
         controls
@@ -1372,24 +1381,316 @@ impl StatusDto {
     }
 }
 
-#[derive(Debug, Clone, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct DirEntryDto {
-    pub name: String,
-    pub path: String,
-    /// What the library knows of a track, `None` until it has been analysed.
-    pub details: Option<TrackDetailsDto>,
+/// The list browsed, as the interface names it.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "kind", rename_all = "camelCase")]
+pub enum SourceDto {
+    Folder { path: String },
+    Prepare,
+    Duplicates,
+    Elsewhere,
+    Crate { id: i64 },
+    History { id: i64 },
 }
 
-impl DirEntryDto {
-    /// A track known by its path (search results, crates).
-    pub fn track(path: &str, record: Option<&prisme_library::TrackRecord>) -> Self {
-        let name = std::path::Path::new(path).file_name().map(|n| n.to_string_lossy().into_owned());
-        Self {
-            name: name.unwrap_or_else(|| path.to_string()),
-            path: path.to_string(),
-            details: record.map(TrackDetailsDto::from),
+impl From<&Source> for SourceDto {
+    fn from(source: &Source) -> Self {
+        match source {
+            Source::Folder(path) => Self::Folder { path: path.display().to_string() },
+            Source::Prepare => Self::Prepare,
+            Source::Duplicates => Self::Duplicates,
+            Source::Elsewhere => Self::Elsewhere,
+            Source::Crate(id) => Self::Crate { id: id.0 },
+            Source::History(id) => Self::History { id: id.0 },
         }
+    }
+}
+
+impl From<SourceDto> for Source {
+    fn from(source: SourceDto) -> Self {
+        match source {
+            SourceDto::Folder { path } => Self::Folder(path.into()),
+            SourceDto::Prepare => Self::Prepare,
+            SourceDto::Duplicates => Self::Duplicates,
+            SourceDto::Elsewhere => Self::Elsewhere,
+            SourceDto::Crate { id } => Self::Crate(CrateId(id)),
+            SourceDto::History { id } => Self::History(SessionId(id)),
+        }
+    }
+}
+
+/// Declares an enum of the interface mirroring one of `prisme_library::browse`, its variants
+/// named alike, with the conversions both ways.
+macro_rules! mirrored {
+    ($(#[$meta:meta])* $name:ident = $of:ty { $($variant:ident),+ $(,)? }) => {
+        $(#[$meta])*
+        #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+        #[serde(rename_all = "camelCase")]
+        pub enum $name {
+            $($variant),+
+        }
+
+        impl From<$of> for $name {
+            fn from(value: $of) -> Self {
+                match value {
+                    $(<$of>::$variant => Self::$variant),+
+                }
+            }
+        }
+
+        impl From<$name> for $of {
+            fn from(value: $name) -> Self {
+                match value {
+                    $($name::$variant => Self::$variant),+
+                }
+            }
+        }
+    };
+}
+
+mirrored!(ScopeDto = Scope { List, Library });
+mirrored!(ColumnDto = Column { Order, Title, Artist, Album, Genre, Year, Bpm, Key, Rating, Plays, Mix });
+mirrored!(PickDto = Pick { Only, Toggle, Range, Context });
+mirrored!(FocusDto = Focus { Tracks, Lists });
+
+#[derive(Debug, Clone, Copy, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SortDto {
+    pub column: ColumnDto,
+    pub descending: bool,
+}
+
+/// A list of the side panel a controller points at.
+#[derive(Debug, Clone, Copy, Serialize)]
+#[serde(tag = "kind", rename_all = "camelCase")]
+pub enum ShelfDto {
+    Prepare,
+    Crate { id: i64 },
+}
+
+/// The library as the interface shows it: the list browsed and the rows it draws, those of the
+/// window it asked for (`library_viewport`).
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LibraryViewDto {
+    /// Moved by every change of what is shown and of the window: the highest is the latest.
+    pub seq: u64,
+    pub source: SourceDto,
+    /// The folder shown.
+    pub folder: Option<FolderViewDto>,
+    pub scope: ScopeDto,
+    /// The search applied.
+    pub filter: String,
+    pub sort: SortDto,
+    /// The list has an order of its own, shown in its rows.
+    pub ordered: bool,
+    /// Its rows can be taken out of it.
+    pub removable: bool,
+    /// Its rows can be dragged to another place.
+    pub reorderable: bool,
+    /// How many rows are shown.
+    pub count: usize,
+    /// Where the cursor is among the rows shown.
+    pub cursor: Option<usize>,
+    /// How many tracks the actions on the selection take.
+    pub selected: usize,
+    pub focus: FocusDto,
+    pub pointed: ShelfDto,
+    /// The deck the tracks are compared with.
+    pub reference: usize,
+    pub window: LibraryWindowDto,
+}
+
+/// The folder shown: the music folder it is in, the folder above inside it, and the folders in
+/// it.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct FolderViewDto {
+    pub path: String,
+    pub root: Option<String>,
+    pub up: Option<String>,
+    pub folders: Vec<FolderDto>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct FolderDto {
+    pub name: String,
+    pub path: String,
+}
+
+impl FolderDto {
+    pub fn of(path: &Path) -> Self {
+        let name =
+            path.file_name().map_or_else(|| path.display().to_string(), |n| n.to_string_lossy().into_owned());
+        Self { name, path: path.display().to_string() }
+    }
+}
+
+/// The rows of the window, from its `first`.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LibraryWindowDto {
+    pub seq: u64,
+    pub first: usize,
+    pub rows: Vec<LibraryRowDto>,
+}
+
+/// A row of the library as it is drawn: its track, what the library knows of it, and how it
+/// goes with the rest of the application.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LibraryRowDto {
+    pub path: String,
+    /// When it was played, in a set: a track played twice is two rows.
+    pub played_at_ms: Option<i64>,
+    /// Its place in its list, from 1, in a list with an order of its own.
+    pub position: Option<usize>,
+    /// Its title tag, else its file name without the extension.
+    pub title: String,
+    pub artist: Option<String>,
+    pub album: Option<String>,
+    pub genre: Option<String>,
+    pub year: Option<u16>,
+    pub bpm: Option<f64>,
+    pub key: Option<KeyDto>,
+    /// 0xRRGGBB
+    pub color: Option<u32>,
+    /// 0 (not rated) to 5.
+    pub rating: u8,
+    pub plays: usize,
+    /// Its analysis is known (until then its values are waited for).
+    pub analysed: bool,
+    /// Its file could not be decoded.
+    pub failed: bool,
+    pub separation: SeparationDto,
+    pub selected: bool,
+    /// Played in the set going on.
+    pub played: bool,
+    /// Under none of the music folders.
+    pub elsewhere: bool,
+    /// In the headphones' preview, or about to be.
+    pub previewing: bool,
+    /// The decks holding it.
+    pub decks: Vec<DeckMarkDto>,
+    /// Its key mixes with the one heard on the deck the tracks are compared with.
+    pub fits: bool,
+    /// The pitch that brings it to that deck's tempo, in percent, to a tenth.
+    pub pitch: Option<f64>,
+    /// Whether the tempo fader reaches it.
+    pub reachable: bool,
+}
+
+#[derive(Debug, Clone, Copy, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DeckMarkDto {
+    pub deck: usize,
+    pub playing: bool,
+}
+
+/// The lists the library keeps, as the side panel shows them.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LibraryListsDto {
+    pub crates: Vec<CrateDto>,
+    pub sessions: Vec<HistorySessionDto>,
+    /// How many tracks the prepare list holds, and the first: the one the Auto DJ mixes in next.
+    pub prepare: usize,
+    pub next: Option<NamedTrackDto>,
+    /// How many tracks of the library are under none of the music folders.
+    pub elsewhere: usize,
+}
+
+/// A track by its path, its title, and what tells it apart in a list: its tempo, its key.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct NamedTrackDto {
+    pub path: String,
+    pub title: String,
+    pub artist: Option<String>,
+    pub bpm: Option<f64>,
+    pub key: Option<KeyDto>,
+}
+
+impl NamedTrackDto {
+    pub fn of(track: &prisme_library::catalogue::Track) -> Self {
+        let artist = track.record.as_ref().and_then(|r| r.tags.artist.clone());
+        let (bpm, key) = (track.bpm, track.key.map(Into::into));
+        Self { path: track.path.clone(), title: track.title.clone(), artist, bpm, key }
+    }
+}
+
+/// What the menu of tracks can do with them: the selection's, or a row's.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LibraryMenuDto {
+    /// How many tracks it acts on, and the first.
+    pub count: usize,
+    pub first: Option<NamedTrackDto>,
+    /// They can be taken out of the list shown, this one.
+    pub removable: Option<SourceDto>,
+    /// Those of them under none of the music folders: all of them, or none.
+    pub elsewhere: usize,
+    /// The folder they share, all from elsewhere, which may join the music folders unless it
+    /// holds one (`holds`).
+    pub folder: Option<String>,
+    pub holds: Option<String>,
+    /// The genre a genre given to them starts with: the one they share, else their folder's name.
+    pub genre: String,
+    /// How many the installed models have stems to add to.
+    pub separable: usize,
+}
+
+/// The rules of a smart crate as the DJ typed them, checked before they are kept
+/// ([`SmartRulesDto::checked`]).
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SmartRulesDto {
+    pub match_all: bool,
+    pub rules: Vec<RuleDto>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(tag = "kind", rename_all = "camelCase")]
+pub enum RuleDto {
+    Text { field: prisme_library::TextField, contains: String },
+    Bpm { min: Option<f64>, max: Option<f64> },
+    Year { min: Option<f64>, max: Option<f64> },
+    Key { camelot: Vec<String> },
+}
+
+impl SmartRulesDto {
+    /// The rules, refused with the first that cannot be: a crate without one, a year not whole,
+    /// a key the Camelot wheel does not have.
+    pub fn checked(self) -> crate::error::AppResult<prisme_library::SmartRules> {
+        use crate::error::AppError;
+        use prisme_library::Rule;
+        if self.rules.is_empty() {
+            return Err(AppError::NoRule);
+        }
+        let year = |at: usize, year: Option<f64>| -> crate::error::AppResult<Option<u16>> {
+            match year {
+                None => Ok(None),
+                Some(y) if y.fract() == 0.0 && (0.0..=f64::from(u16::MAX)).contains(&y) => Ok(Some(y as u16)),
+                Some(_) => Err(AppError::RuleYear(at)),
+            }
+        };
+        let rules = self.rules.into_iter().enumerate().map(|(at, rule)| {
+            Ok::<_, AppError>(match rule {
+                RuleDto::Text { field, contains } => Rule::Text { field, contains },
+                RuleDto::Bpm { min, max } => Rule::Bpm { min, max },
+                RuleDto::Year { min, max } => Rule::Year { min: year(at, min)?, max: year(at, max)? },
+                RuleDto::Key { camelot } => {
+                    let key = |code: String| {
+                        prisme_analysis::Key::from_camelot(&code)
+                            .map(|key| key.camelot().to_owned())
+                            .ok_or(AppError::RuleKey { rule: at, key: code })
+                    };
+                    Rule::Key { camelot: camelot.into_iter().map(key).collect::<Result<_, _>>()? }
+                }
+            })
+        });
+        Ok(prisme_library::SmartRules { match_all: self.match_all, rules: rules.collect::<Result<_, _>>()? })
     }
 }
 
@@ -1436,99 +1737,16 @@ pub struct HistorySessionDto {
     pub play_count: usize,
 }
 
-impl From<prisme_library::HistorySession> for HistorySessionDto {
-    fn from(s: prisme_library::HistorySession) -> Self {
+impl From<&prisme_library::HistorySession> for HistorySessionDto {
+    fn from(s: &prisme_library::HistorySession) -> Self {
         Self { id: s.id.0, started_at_ms: s.started_at_ms, play_count: s.play_count }
     }
 }
 
-#[derive(Debug, Clone, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct HistoryPlayDto {
-    #[serde(flatten)]
-    pub track: DirEntryDto,
-    pub deck: usize,
-    pub played_at_ms: i64,
-}
-
-impl From<&prisme_library::HistoryPlay> for HistoryPlayDto {
-    fn from(p: &prisme_library::HistoryPlay) -> Self {
-        Self {
-            track: DirEntryDto::track(&p.path, p.record.as_ref()),
-            deck: p.deck,
-            played_at_ms: p.played_at_ms,
-        }
+impl From<&prisme_library::Crate> for CrateDto {
+    fn from(c: &prisme_library::Crate) -> Self {
+        Self { id: c.id.0, name: c.name.clone(), rules: c.rules.clone(), track_count: c.track_count }
     }
-}
-
-impl From<prisme_library::Crate> for CrateDto {
-    fn from(c: prisme_library::Crate) -> Self {
-        Self { id: c.id.0, name: c.name, rules: c.rules, track_count: c.track_count }
-    }
-}
-
-/// Analysis and tags of a track as the library shows them.
-#[derive(Debug, Clone, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct TrackDetailsDto {
-    pub bpm: Option<f64>,
-    pub key: Option<KeyDto>,
-    pub tags: TagsDto,
-    /// 0xRRGGBB
-    pub color: Option<u32>,
-    /// 0 (not rated) to 5.
-    pub rating: u8,
-    pub play_count: usize,
-    /// The file could not be decoded.
-    pub failed: bool,
-    /// Its stems stored next to it.
-    pub separation: SeparationDto,
-}
-
-impl From<&prisme_library::TrackRecord> for TrackDetailsDto {
-    fn from(r: &prisme_library::TrackRecord) -> Self {
-        let analysis = r.effective_analysis();
-        Self {
-            bpm: analysis.tempo.map(|t| t.bpm),
-            key: analysis.key.as_ref().map(KeyDto::from),
-            tags: TagsDto::from(&r.tags),
-            color: r.marks.color,
-            rating: r.marks.rating,
-            play_count: r.play_count,
-            failed: r.error.is_some(),
-            separation: stored_separation(std::path::Path::new(&r.path)),
-        }
-    }
-}
-
-#[derive(Debug, Clone, Default, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct TagsDto {
-    pub title: Option<String>,
-    pub artist: Option<String>,
-    pub album: Option<String>,
-    pub genre: Option<String>,
-    pub year: Option<u16>,
-}
-
-impl From<&prisme_media::TrackTags> for TagsDto {
-    fn from(t: &prisme_media::TrackTags) -> Self {
-        Self {
-            title: t.title.clone(),
-            artist: t.artist.clone(),
-            album: t.album.clone(),
-            genre: t.genre.clone(),
-            year: t.year,
-        }
-    }
-}
-
-/// Payload of the `track-analyzed` event.
-#[derive(Debug, Clone, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct TrackAnalyzedDto {
-    pub path: String,
-    pub details: TrackDetailsDto,
 }
 
 /// Payload of the `library-progress` event.
@@ -1549,13 +1767,14 @@ impl From<prisme_library::AnalysisProgress> for ProgressDto {
     }
 }
 
+/// A folder looked into to add it to the music folders: the folders in it, and how many tracks.
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct DirListingDto {
     pub path: String,
     pub parent: Option<String>,
-    pub folders: Vec<DirEntryDto>,
-    pub tracks: Vec<DirEntryDto>,
+    pub folders: Vec<FolderDto>,
+    pub tracks: usize,
 }
 
 /// A music folder: the main one, or one added next to it (a USB key, a drive, a sets
@@ -1657,9 +1876,6 @@ pub struct ControllerProfileDto {
 pub struct UiActionDto {
     pub target: String,
     pub value: f32,
-    /// Its number, which the interface tells with the selection once it applied it
-    /// (`set_library_selection`).
-    pub number: u64,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
@@ -1781,6 +1997,41 @@ mod tests {
             controls.as_object().unwrap().keys().collect::<Vec<_>>(),
             ["perform"],
             "the rest left out"
+        );
+    }
+
+    #[test]
+    fn the_rules_of_a_smart_crate_are_checked_as_they_come() {
+        let rules =
+            |json: serde_json::Value| serde_json::from_value::<SmartRulesDto>(json).unwrap().checked();
+        let code = |json| rules(json).map_err(|e| e.to_string());
+        let kept = rules(serde_json::json!({ "matchAll": true, "rules": [
+            { "kind": "year", "min": 1998, "max": null },
+            { "kind": "key", "camelot": ["8a", " 12B"] },
+        ] }))
+        .unwrap();
+        assert_eq!(
+            kept.rules,
+            [
+                prisme_library::Rule::Year { min: Some(1998), max: None },
+                prisme_library::Rule::Key { camelot: vec!["8A".into(), "12B".into()] }
+            ]
+        );
+        assert_eq!(
+            code(
+                serde_json::json!({ "matchAll": true, "rules": [{ "kind": "bpm", "min": 120.5, "max": null }, { "kind": "year", "min": 1998.5, "max": null }] })
+            ),
+            Err("rule 2: a year is a whole number".into())
+        );
+        assert_eq!(
+            code(
+                serde_json::json!({ "matchAll": false, "rules": [{ "kind": "key", "camelot": ["8A", "13C"] }] })
+            ),
+            Err("rule 1: 13C is not a key of the Camelot wheel".into())
+        );
+        assert_eq!(
+            code(serde_json::json!({ "matchAll": true, "rules": [] })),
+            Err("a smart crate needs a rule".into())
         );
     }
 

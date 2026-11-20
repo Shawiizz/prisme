@@ -1,26 +1,19 @@
-use crate::dto::{HistoryPlayDto, HistorySessionDto};
+use crate::actions::browse;
+use crate::actions::Order;
+use crate::commands::library::in_turn;
 use crate::error::AppResult;
 use crate::library_service::LibraryService;
 use prisme_library::{HistoryPlay, SessionId};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
-use tauri::State;
+use tauri::{AppHandle, State};
 
 type Library<'a> = State<'a, Arc<LibraryService>>;
 
-#[tauri::command(async)]
-pub fn history_sessions(library: Library<'_>) -> AppResult<Vec<HistorySessionDto>> {
-    Ok(library.db.history_sessions()?.into_iter().map(HistorySessionDto::from).collect())
-}
-
-#[tauri::command(async)]
-pub fn history_plays(library: Library<'_>, id: i64) -> AppResult<Vec<HistoryPlayDto>> {
-    Ok(library.db.history_plays(SessionId(id))?.iter().map(HistoryPlayDto::from).collect())
-}
-
+/// Deletes the set `id` from the history.
 #[tauri::command]
-pub fn delete_history_session(library: Library<'_>, id: i64) -> AppResult<()> {
-    Ok(library.db.delete_history_session(SessionId(id))?)
+pub async fn delete_history_session(app: AppHandle, id: i64, order: Order) -> AppResult<()> {
+    in_turn(app, order, move |state, db| browse::delete_session(state, db, SessionId(id))).await
 }
 
 /// Writes the tracklist of a session as CSV (UTF-8 with a BOM, so that Excel reads the

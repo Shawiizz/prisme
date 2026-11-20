@@ -1,8 +1,9 @@
 //! History of the sets. A track counts as played once it has been heard for
 //! [`PLAYED_AFTER_S`] on a deck: shorter plays are previews or mistakes. The first play
 //! of a run of the app opens a new history session. A played track leaves the prepare
-//! list.
+//! list. The library as browsed shows it at once (its play count, the set going on).
 
+use crate::actions::browse;
 use crate::library_service::LibraryService;
 use crate::state::{lock, AppState};
 use prisme_engine::MAX_DECKS;
@@ -10,12 +11,10 @@ use prisme_library::SessionId;
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
-use tauri::{AppHandle, Emitter, Manager};
+use tauri::{AppHandle, Manager};
 use tracing::error;
 
 pub const PLAYED_AFTER_S: f64 = 30.0;
-pub const HISTORY_CHANGED_EVENT: &str = "history-changed";
-pub const PREPARE_CHANGED_EVENT: &str = "prepare-changed";
 const POLL: Duration = Duration::from_millis(250);
 /// Slower than this, a deck is stopped or being cued rather than played.
 const AUDIBLE_SPEED: f64 = 0.5;
@@ -119,18 +118,14 @@ fn record(app: &AppHandle, session: &mut Option<SessionId>, path: &std::path::Pa
         *session = Some(id);
         library.db.record_play(id, path, play.deck, play.started_at_ms)
     });
-    match result {
-        Ok(()) => {
-            let _ = app.emit(HISTORY_CHANGED_EVENT, ());
-        }
-        Err(e) => error!("play not recorded: {e}"),
+    if let Err(e) = result {
+        error!("play not recorded: {e}");
     }
-    match library.db.remove_from_prepare(&[path]) {
-        Ok(0) => {}
-        Ok(_) => {
-            let _ = app.emit(PREPARE_CHANGED_EVENT, ());
-        }
-        Err(e) => error!("{} not removed from the prepare list: {e}", path.display()),
+    if let Err(e) = library.db.remove_from_prepare(&[path]) {
+        error!("{} not removed from the prepare list: {e}", path.display());
+    }
+    if let Err(e) = browse::played(&app.state::<AppState>(), &library.db, path) {
+        error!("the lists of the library not read: {e}");
     }
 }
 

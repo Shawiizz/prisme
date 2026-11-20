@@ -3,7 +3,6 @@ import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
 import { EngineService } from './engine.service';
 import { MixerService } from './mixer.service';
-import { PrepareService } from './prepare.service';
 import { t } from '../i18n/i18n';
 import { deckLetter } from '../../shared/time';
 import { errorText } from '../errors';
@@ -67,7 +66,6 @@ export function secondsUntil(atS: number, positionS: number, speed: number): num
 export class AutoDjService {
   private readonly engine = inject(EngineService);
   private readonly mixer = inject(MixerService);
-  private readonly prepare = inject(PrepareService);
 
   readonly status = signal<AutoDjStatus>(OFF);
   /** On, paused or not. */
@@ -79,7 +77,7 @@ export class AutoDjService {
   /** It fades with the software mixer's crossfader: an external mixer's is out of its reach. */
   readonly available = computed(() => this.mixer.internal());
   /** The first track of the prepare list: the one mixed in next. */
-  readonly next = computed(() => this.prepare.list()[0] ?? null);
+  readonly next = computed(() => this.engine.controls()?.lists.next ?? null);
   /** Seconds before the next mix starts, while one is planned. */
   readonly mixIn = computed(() => {
     const { state, current, mixAtS } = this.status();

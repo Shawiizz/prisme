@@ -9,29 +9,24 @@ import {
   signal,
   viewChild,
 } from '@angular/core';
-import { CratesService } from '../../../core/services/crates.service';
 import { EngineService } from '../../../core/services/engine.service';
 import { LibraryService } from '../../../core/services/library.service';
 import { StemsService } from '../../../core/services/stems.service';
+import { LibraryMenu } from '../../../core/models/library';
 import { TRACK_COLORS, hexColor } from '../../../shared/track-colors';
 import { deckLetter } from '../../../shared/time';
 import { t } from '../../../core/i18n/i18n';
 import { TPipe } from '../../../core/i18n/t.pipe';
 import { PHONE } from '../../../core/platform';
-import { isWithin, lastName, parentOf } from '../../../core/folders';
+import { lastName } from '../../../core/folders';
 
 export type TrackMenuPanel = 'main' | 'crates' | 'color' | 'genre';
 
-/** The folder a file is in: "C:/Music/House/a.mp3" → "House". */
-function folderName(path: string): string {
-  const parts = path.split(/[\\/]/);
-  return parts.length > 1 ? parts[parts.length - 2] : '';
-}
-
 /**
- * What can be done with the selected tracks, in panels: the actions, then the crates,
- * the colours or the genre to give them. Opened by a right click on a row, or from the
- * selection bar straight on a panel.
+ * What can be done with tracks, in panels: the actions, then the crates, the colours or the
+ * genre to give them. Opened on the selection by a right click on a row or from the selection
+ * bar, straight on a panel; on a phone, on the row touched (`paths`). What it offers is the
+ * backend's to say (`LibraryMenu`).
  */
 @Component({
   selector: 'app-track-menu',
@@ -45,13 +40,15 @@ export class TrackMenu {
   protected readonly library = inject(LibraryService);
   private readonly engine = inject(EngineService);
   protected readonly stems = inject(StemsService);
-  private readonly crates = inject(CratesService);
 
-  readonly paths = input.required<string[]>();
+  /** The tracks it acts on; `null`: those selected. */
+  readonly paths = input.required<string[] | null>();
   readonly start = input<TrackMenuPanel>('main');
   readonly closed = output<void>();
 
   protected readonly panel = signal<TrackMenuPanel>('main');
+  /** What the backend says can be done with the tracks. */
+  protected readonly menu = signal<LibraryMenu | null>(null);
   protected readonly decks = this.engine.deckIndexes;
   protected readonly letter = deckLetter;
   protected readonly trackColors = TRACK_COLORS;
@@ -61,42 +58,30 @@ export class TrackMenu {
   private readonly genreInput = viewChild<ElementRef<HTMLInputElement>>('genreInput');
 
   /** Crates tracks can be put in: not the smart ones, which pick their own. */
-  protected readonly targetCrates = computed(() => this.crates.crates().filter((c) => !c.rules));
-  private readonly tracks = computed(() => {
-    const paths = new Set(this.paths());
-    return this.library.visibleTracks().filter((t) => paths.has(t.path));
-  });
-  /** Tracks of the selection the installed models have stems to add to. */
-  protected readonly toSeparate = computed(() =>
-    this.tracks()
-      .filter((t) => t.details && !t.details.failed && this.stems.canAdd(t.details.separation))
-      .map((t) => t.path)
-      .filter((p) => !this.stems.pending().has(p)),
-  );
-  /** Every track of the selection is from outside the music folders. */
-  protected readonly elsewhere = computed(
-    () => this.paths().length > 0 && this.paths().every((p) => this.library.isElsewhere(p)),
-  );
-  /** The folder the tracks from elsewhere share, which may join the music folders. */
-  protected readonly sharedFolder = computed(() => {
-    const folders = new Set(this.paths().map(parentOf));
-    return this.elsewhere() && folders.size === 1 ? [...folders][0] : null;
-  });
-  /** The music folder that one holds, if it does: it cannot join them. */
-  protected readonly heldFolder = computed(() => {
-    const folder = this.sharedFolder();
-    return folder
-      ? (this.library.folders().find((f) => isWithin(f.path, folder))?.path ?? null)
-      : null;
+  protected readonly targetCrates = computed(() => this.library.crates().filter((c) => !c.rules));
+  /** Every track is from outside the music folders. */
+  protected readonly elsewhere = computed(() => {
+    const menu = this.menu();
+    return !!menu && menu.elsewhere > 0 && menu.elsewhere === menu.count;
   });
   protected readonly removeLabel = computed(() =>
-    this.library.source().kind === 'prepare'
+    this.menu()?.removable?.kind === 'prepare'
       ? t('Remove from the prepare list')
       : t('Remove from the crate'),
   );
 
   constructor() {
     effect(() => this.panel.set(this.start()));
+    effect(() => {
+      const paths = this.paths();
+      this.library.menu(paths).then(
+        (menu) => {
+          this.menu.set(menu);
+          this.genre.set(menu.genre);
+        },
+        () => this.menu.set(null),
+      );
+    });
     effect(() => {
       if (this.panel() !== 'genre') return;
       const input = this.genreInput()?.nativeElement;
@@ -106,12 +91,13 @@ export class TrackMenu {
   }
 
   show(panel: TrackMenuPanel) {
-    if (panel === 'genre') this.prepareGenre();
+    if (panel === 'genre') this.library.loadGenres();
     this.panel.set(panel);
   }
 
   load(deck: number) {
-    this.library.load(this.paths()[0], deck);
+    const first = this.menu()?.first;
+    if (first) this.library.load(first.path, deck);
     this.closed.emit();
   }
 
@@ -130,24 +116,21 @@ export class TrackMenu {
     this.closed.emit();
   }
 
-  separate() {
-    this.stems.separate(this.toSeparate());
+  /** The stems separated of those tracks the models can add to; without a model, the models
+   * offered for them. */
+  async separate() {
     this.closed.emit();
-  }
-
-  /** No model yet: the download offered, then the tracks separated. */
-  offerModels() {
-    this.stems.separate(this.paths());
-    this.closed.emit();
+    this.stems.separate(await this.library.separable(this.paths()));
   }
 
   remove() {
-    this.library.removeSelected();
+    this.library.remove(this.paths());
     this.closed.emit();
   }
 
   showInFileManager() {
-    this.library.showInFileManager(this.paths()[0]);
+    const first = this.menu()?.first;
+    if (first) this.library.showInFileManager(first.path);
     this.closed.emit();
   }
 
@@ -157,25 +140,13 @@ export class TrackMenu {
   }
 
   removeFromPrisme() {
-    this.library.removeFromPrisme(this.paths());
+    const menu = this.menu();
+    if (menu) this.library.removeFromPrisme(this.paths(), menu);
     this.closed.emit();
   }
 
   applyGenre(genre: string | null) {
-    this.library.setGenre(this.paths(), genre?.trim() || null);
+    this.library.setGenre(this.paths(), genre);
     this.closed.emit();
-  }
-
-  /**
-   * The genre field starts with the genre the tracks share, else the name of the folder
-   * they share (where tracks are often sorted by genre).
-   */
-  private prepareGenre() {
-    this.library.loadGenres();
-    const tracks = this.tracks();
-    const genres = new Set(tracks.map((t) => t.details?.tags.genre ?? ''));
-    const folders = new Set(this.paths().map(folderName));
-    const shared = genres.size === 1 ? [...genres][0] : '';
-    this.genre.set(shared || (folders.size === 1 ? [...folders][0] : ''));
   }
 }

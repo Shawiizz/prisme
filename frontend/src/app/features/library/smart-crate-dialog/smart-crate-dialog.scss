@@ -39,6 +39,11 @@
   justify-self: start;
 }
 
+.error {
+  margin-right: auto;
+  color: var(--pr-alert);
+}
+
 // a phone: what is matched and each rule on two lines, the field first, every input as wide as
 // the screen allows
 :host-context(.phone) {

@@ -90,6 +90,9 @@
       <button class="pr-btn pr-btn--sm add" (click)="add()">{{ 'Add a rule' | t }}</button>
     </div>
     <footer class="pr-dialog__foot">
+      @if (error(); as error) {
+        <span class="error" role="alert">{{ error }}</span>
+      }
       <button class="pr-btn" (click)="closed.emit()">{{ 'Cancel' | t }}</button>
       <button
         class="pr-btn pr-btn--light"

@@ -146,7 +146,7 @@ describe('EngineService', () => {
 
     const settings = [1, 1, 1, 1].map((pitch) => ({ pitch }) as DeckSettings);
 
-    function controls(changes: Partial<ControlState>): ControlState {
+    function controls(changes: Partial<ControlState>): Partial<ControlState> {
       return {
         mixer: { decks: settings } as ControlState['mixer'],
         tracks: [null, { loadId: 7, keyShift: -2, stemMix, cues: [drop] }, null, null],

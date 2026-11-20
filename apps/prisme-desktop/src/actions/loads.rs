@@ -1,28 +1,44 @@
 //! Tracks put on the decks and taken off, sounds put in the samplers, a track previewed in the
-//! headphones: what is loaded or previewed is the track selected in the library, which the
-//! interface tells ([`set_library_selection`]). The track of a deck that plays leaves it once
-//! the DJ says so, or never if the DJ chose so (see [`Performing::may_replace`]).
+//! headphones: what is loaded or previewed is the track selected in the library as the action
+//! was sent, or the one the interface named ([`load_track`]). The track of a deck that plays
+//! leaves it once the DJ says so, or never if the DJ chose so (see [`Performing::may_replace`]).
 
-use super::{deck, sampler, take_over, Actions, Performing, Source};
+use super::{deck, sampler, take_over, Actions, Answer, Order, Performing, Source};
 use crate::auto_dj::Takeover;
 use crate::error::{AppError, AppResult};
 use crate::preview::Previews;
 use crate::state::lock;
 use crate::track_loading;
+use prisme_actions::input::Given;
 use prisme_actions::view::plays;
 use prisme_control::{DeckAction, LibraryAction, Target};
 use prisme_engine::Command;
 use std::path::PathBuf;
-use tauri::{Manager, State};
+use tauri::{AppHandle, Manager};
 
 /// How far a step of an encoder moves the preview (s).
 const PREVIEW_STEP_S: f64 = 4.0;
 
-/// The track selected in the library, as the interface tells it, right after it moved, and the
-/// last of the actions it was told to perform (`ui-action`) it applied: what the loads load.
+/// Loads the track at `path` on `deck`, or on the first deck without a track (deck A if none):
+/// a row of the library, a track dropped, one the command palette found; `confirmed`, the DJ said
+/// yes to what it replaces. Sent in turn with the interface's actions (`order`).
 #[tauri::command]
-pub fn set_library_selection(actions: State<'_, Actions>, path: Option<String>, applied: Option<u64>) {
-    actions.select(path.map(PathBuf::from), applied);
+pub async fn load_track(
+    app: AppHandle,
+    path: String,
+    deck: Option<usize>,
+    confirmed: bool,
+    order: Order,
+) -> AppResult<()> {
+    crate::commands::blocking(move || {
+        let actions = app.state::<Actions>();
+        let (answer, outcome) = std::sync::mpsc::sync_channel(1);
+        actions.in_order(order, || {
+            actions.load_track(&app, PathBuf::from(path), deck, confirmed, Answer::To(answer));
+        });
+        outcome.recv().unwrap_or_else(|e| Err(AppError::Other(e.to_string())))
+    })
+    .await
 }
 
 impl Performing<'_> {
@@ -40,37 +56,14 @@ impl Performing<'_> {
                 Some(app) => app.state::<Previews>().stop(self.state),
                 None => Ok(()),
             },
-            // the interface's browsing; the preview moved by its encoder, before
-            LibraryAction::Previous
-            | LibraryAction::Next
-            | LibraryAction::Remove
-            | LibraryAction::Prepare
-            | LibraryAction::SelectAll
-            | LibraryAction::ClearSelection
-            | LibraryAction::Search
-            | LibraryAction::Focus
-            | LibraryAction::ListOpen
-            | LibraryAction::ListNext
-            | LibraryAction::ListPrevious
-            | LibraryAction::Go
-            | LibraryAction::Left
-            | LibraryAction::Right
-            | LibraryAction::PagePrevious
-            | LibraryAction::PageNext
-            | LibraryAction::SortTitle
-            | LibraryAction::SortArtist
-            | LibraryAction::SortBpm
-            | LibraryAction::SortKey
-            | LibraryAction::Browse
-            | LibraryAction::PreviewSeek
-            | LibraryAction::Lists => Err(AppError::NotPerformed(target.to_string())),
+            browsing => self.browse(browsing, Given::Value(1.0)),
         }
     }
 
     /// The selected track previewed in the headphones, or stopped if it is the one previewed.
     fn toggle_preview(&self) -> AppResult<()> {
-        let (Some(app), Some(path)) = (self.app, self.selected()) else { return Ok(()) };
-        app.state::<Previews>().toggle(app, path)
+        let (Some(app), Some(path)) = (self.app, self.track()) else { return Ok(()) };
+        app.state::<Previews>().toggle(app, path.to_owned())
     }
 
     /// The preview moved by an encoder's `steps`, a few seconds each, back below zero.
@@ -88,8 +81,8 @@ impl Performing<'_> {
 
     /// The sound of the selected track put in `slot` of `deck`'s sampler.
     pub(super) fn load_sample(&self, deck: usize, slot: usize) -> AppResult<()> {
-        match self.selected() {
-            Some(path) => sampler::load_sample(self.state, deck, slot, path),
+        match self.track() {
+            Some(path) => sampler::load_sample(self.state, deck, slot, path.to_owned()),
             None => Ok(()),
         }
     }
@@ -111,7 +104,8 @@ impl Performing<'_> {
     /// The selected track put on `deck`, played once there if `play`; the Auto DJ lets the deck
     /// go. Nothing before the library is open.
     fn load_selected(&self, target: &Target, deck: usize, play: bool) -> AppResult<()> {
-        let (Some(path), Some(library)) = (self.selected(), self.library) else { return Ok(()) };
+        let (Some(path), Some(library)) = (self.track(), self.library) else { return Ok(()) };
+        let path = path.to_owned();
         self.may_replace(target, deck, false)?;
         take_over(self.auto_dj().as_deref(), Takeover::Load(deck));
         let previews = self.app.map(|app| app.state::<Previews>());
@@ -181,7 +175,10 @@ mod tests {
     }
 
     fn select(bench: &Bench, path: Option<&str>) {
-        bench.actions.select(path.map(PathBuf::from), None);
+        match path {
+            Some(path) => bench.select(std::path::Path::new(path)),
+            None => bench.unselect(),
+        }
     }
 
     /// A track of a minute playing on deck A.

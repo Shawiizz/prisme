@@ -1,35 +1,159 @@
 import { MusicalKey } from './engine';
 import { Separation } from './stems';
 
-export interface TrackTags {
-  title: string | null;
+/** The list browsed (see `SourceDto`). */
+export type TrackSource =
+  | { kind: 'folder'; path: string }
+  | { kind: 'prepare' }
+  | { kind: 'duplicates' }
+  | { kind: 'elsewhere' }
+  | { kind: 'crate'; id: number }
+  | { kind: 'history'; id: number };
+
+/** Where the search looks: the list browsed, or every analysed track. */
+export type SearchScope = 'list' | 'library';
+
+/** `order`: the order of the list itself (play order of a set); `mix`: how well the tracks
+ * follow the deck they are compared with. */
+export type SortColumn =
+  | 'order'
+  | 'title'
+  | 'artist'
+  | 'album'
+  | 'genre'
+  | 'year'
+  | 'bpm'
+  | 'key'
+  | 'rating'
+  | 'plays'
+  | 'mix';
+
+/** How a row is picked: alone, added or taken out (Ctrl), up to it (Shift), or alone unless it
+ * is in the selection (a right click, a drag). */
+export type Pick = 'only' | 'toggle' | 'range' | 'context';
+
+/** A folder by its name. */
+export interface Folder {
+  name: string;
+  path: string;
+}
+
+/** The folder shown: the music folder it is in, the folder above inside it, the folders in it. */
+export interface FolderView {
+  path: string;
+  root: string | null;
+  up: string | null;
+  folders: Folder[];
+}
+
+/** A row of the library as the backend computes it (see `LibraryRowDto`). */
+export interface LibraryRow {
+  path: string;
+  /** When it was played, in a set: a track played twice is two rows. */
+  playedAtMs: number | null;
+  /** Its place in its list, from 1, in a list with an order of its own. */
+  position: number | null;
+  title: string;
   artist: string | null;
   album: string | null;
   genre: string | null;
   year: number | null;
-}
-
-/** What the library knows of a track: analysis and tags (see TrackDetailsDto). */
-export interface TrackDetails {
   bpm: number | null;
   key: MusicalKey | null;
-  tags: TrackTags;
   /** 0xRRGGBB */
   color: number | null;
   /** 0 (not rated) to 5. */
   rating: number;
-  playCount: number;
+  plays: number;
+  /** Its analysis is known. */
+  analysed: boolean;
   /** The file could not be decoded. */
   failed: boolean;
-  /** How far it is separated: a deck can mute its stems. */
   separation: Separation;
+  selected: boolean;
+  /** Played in the set going on. */
+  played: boolean;
+  /** Under none of the music folders. */
+  elsewhere: boolean;
+  previewing: boolean;
+  /** The decks holding it. */
+  decks: { deck: number; playing: boolean }[];
+  /** Its key mixes with the one heard on the deck the tracks are compared with. */
+  fits: boolean;
+  /** The pitch that brings it to that deck's tempo, in percent. */
+  pitch: number | null;
+  /** Whether the tempo fader reaches it. */
+  reachable: boolean;
 }
 
-export interface DirEntry {
-  name: string;
+/** The rows the table draws, from its `first`. */
+export interface LibraryWindow {
+  /** The latest sent has the highest. */
+  seq: number;
+  first: number;
+  rows: LibraryRow[];
+}
+
+/** The library as the backend browses it (see `LibraryViewDto`). */
+export interface LibraryView {
+  seq: number;
+  source: TrackSource;
+  folder: FolderView | null;
+  scope: SearchScope;
+  /** The search applied. */
+  filter: string;
+  sort: { column: SortColumn; descending: boolean };
+  ordered: boolean;
+  removable: boolean;
+  reorderable: boolean;
+  /** How many rows are shown. */
+  count: number;
+  /** Where the cursor is among the rows shown. */
+  cursor: number | null;
+  /** How many tracks the actions on the selection take. */
+  selected: number;
+  focus: 'tracks' | 'lists';
+  pointed: { kind: 'prepare' } | { kind: 'crate'; id: number };
+  /** The deck the tracks are compared with. */
+  reference: number;
+  window: LibraryWindow;
+}
+
+/** A track by its path, its title, and what tells it apart in a list: its tempo, its key. */
+export interface NamedTrack {
   path: string;
-  /** `null` until the track has been analysed. */
-  details: TrackDetails | null;
+  title: string;
+  artist: string | null;
+  bpm: number | null;
+  key: MusicalKey | null;
+}
+
+/** The lists the library keeps (see `LibraryListsDto`). */
+export interface LibraryLists {
+  crates: Crate[];
+  sessions: HistorySession[];
+  /** How many tracks the prepare list holds, and the first. */
+  prepare: number;
+  next: NamedTrack | null;
+  /** How many tracks are under none of the music folders. */
+  elsewhere: number;
+}
+
+/** What the menu of tracks can do with them (see `LibraryMenuDto`). */
+export interface LibraryMenu {
+  count: number;
+  first: NamedTrack | null;
+  /** They can be taken out of the list shown, this one. */
+  removable: TrackSource | null;
+  /** How many of them are under none of the music folders: all, or none. */
+  elsewhere: number;
+  /** The folder they share, all from elsewhere, and the music folder it holds if it does. */
+  folder: string | null;
+  holds: string | null;
+  /** The genre a genre given to them starts with. */
+  genre: string;
+  /** How many the installed models have stems to add to. */
+  separable: number;
 }
 
 export interface Crate {
@@ -62,16 +186,12 @@ export interface HistorySession {
   playCount: number;
 }
 
-export interface HistoryPlay extends DirEntry {
-  deck: number;
-  playedAtMs: number;
-}
-
+/** A folder looked into: the folders in it, and how many tracks. */
 export interface DirListing {
   path: string;
   parent: string | null;
-  folders: DirEntry[];
-  tracks: DirEntry[];
+  folders: Folder[];
+  tracks: number;
 }
 
 /** Background analysis of the music folder (`library-progress` event). */
@@ -82,12 +202,6 @@ export interface AnalysisProgress {
   running: boolean;
   /** Held back while a deck plays. */
   paused: boolean;
-}
-
-/** Payload of the `track-analyzed` event. */
-export interface TrackAnalyzed {
-  path: string;
-  details: TrackDetails;
 }
 
 /** A folder whose tracks make the library; the main one first. */

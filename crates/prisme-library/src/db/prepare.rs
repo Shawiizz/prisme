@@ -50,23 +50,28 @@ impl LibraryDb {
         Ok(removed)
     }
 
-    /// Moves a track of the list to `index` (clamped to the list).
-    pub fn move_in_prepare(&self, path: &Path, index: usize) -> Result<(), DbError> {
-        let key = path_key(path);
+    /// Puts `paths` in the list before `before` (`None`: at its end), in their order, those not
+    /// in it added: one change. Nothing moves when `before` is one of them.
+    pub fn place_in_prepare(&self, paths: &[&Path], before: Option<&Path>) -> Result<(), DbError> {
+        let placed: Vec<String> = paths.iter().map(|path| path_key(path)).collect();
+        let before = before.map(path_key);
+        if before.as_ref().is_some_and(|before| placed.contains(before)) {
+            return Ok(());
+        }
         let conn = self.conn();
         let tx = conn.unchecked_transaction()?;
         let mut order: Vec<String> = {
             let mut stmt = tx.prepare_cached("SELECT path FROM prepare ORDER BY position")?;
             let rows = stmt.query_map([], |r| r.get(0))?;
-            rows.collect::<Result<_, _>>()?
+            rows.collect::<Result<Vec<String>, _>>()?.into_iter().filter(|p| !placed.contains(p)).collect()
         };
-        let Some(from) = order.iter().position(|p| *p == key) else { return Ok(()) };
-        let moved = order.remove(from);
-        order.insert(index.min(order.len()), moved);
+        let at = before.and_then(|before| order.iter().position(|p| *p == before)).unwrap_or(order.len());
+        order.splice(at..at, placed);
+        tx.prepare_cached("DELETE FROM prepare")?.execute([])?;
         {
-            let mut update = tx.prepare_cached("UPDATE prepare SET position = ?2 WHERE path = ?1")?;
-            for (position, p) in order.iter().enumerate() {
-                update.execute(params![p, position as i64 + 1])?;
+            let mut insert = tx.prepare_cached("INSERT INTO prepare (path, position) VALUES (?1, ?2)")?;
+            for (position, path) in order.iter().enumerate() {
+                insert.execute(params![path, position as i64 + 1])?;
             }
         }
         tx.commit()?;
@@ -83,20 +88,21 @@ mod tests {
     }
 
     #[test]
-    fn tracks_are_appended_once_and_can_be_moved() {
+    fn tracks_are_appended_once_and_placed_before_another_in_their_order() {
         let db = LibraryDb::open_in_memory().unwrap();
-        let paths = [Path::new("a.mp3"), Path::new("b.mp3"), Path::new("c.mp3")];
-        assert_eq!(db.add_to_prepare(&paths).unwrap(), 3);
-        assert_eq!(db.add_to_prepare(&[Path::new("a.mp3")]).unwrap(), 0);
+        let path = Path::new;
+        assert_eq!(db.add_to_prepare(&[path("a.mp3"), path("b.mp3"), path("c.mp3")]).unwrap(), 3);
+        assert_eq!(db.add_to_prepare(&[path("a.mp3")]).unwrap(), 0);
         assert_eq!(order(&db), ["a.mp3", "b.mp3", "c.mp3"]);
 
-        db.move_in_prepare(Path::new("c.mp3"), 0).unwrap();
-        assert_eq!(order(&db), ["c.mp3", "a.mp3", "b.mp3"]);
-        db.move_in_prepare(Path::new("c.mp3"), 99).unwrap();
-        assert_eq!(order(&db), ["a.mp3", "b.mp3", "c.mp3"]);
-
-        db.add_to_prepare(&[Path::new("d.mp3")]).unwrap();
-        assert_eq!(order(&db), ["a.mp3", "b.mp3", "c.mp3", "d.mp3"]);
+        db.place_in_prepare(&[path("c.mp3"), path("b.mp3")], Some(path("a.mp3"))).unwrap();
+        assert_eq!(order(&db), ["c.mp3", "b.mp3", "a.mp3"]);
+        db.place_in_prepare(&[path("c.mp3")], None).unwrap();
+        assert_eq!(order(&db), ["b.mp3", "a.mp3", "c.mp3"]);
+        db.place_in_prepare(&[path("d.mp3"), path("a.mp3")], Some(path("b.mp3"))).unwrap();
+        assert_eq!(order(&db), ["d.mp3", "a.mp3", "b.mp3", "c.mp3"], "one added on the way");
+        db.place_in_prepare(&[path("a.mp3"), path("b.mp3")], Some(path("b.mp3"))).unwrap();
+        assert_eq!(order(&db), ["d.mp3", "a.mp3", "b.mp3", "c.mp3"], "before one of them: nothing moves");
     }
 
     #[test]

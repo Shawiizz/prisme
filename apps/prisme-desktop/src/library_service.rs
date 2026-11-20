@@ -1,7 +1,8 @@
 //! The analysed library inside the app: the track database, the background analysis
-//! of the music folders, and the events that keep the UI up to date:
+//! of the music folders, what of it the library as browsed takes at once (`actions::browse`: a
+//! file analysed, a scan ended, the music folders changed), and the events that keep the UI up
+//! to date:
 //!
-//! * `track-analyzed` ([`TrackAnalyzedDto`]) for each file analysed;
 //! * `library-progress` ([`ProgressDto`]) as the run advances;
 //! * `music-folders-changed` ([`MusicFolderDto`] list) when a music folder is added, removed,
 //!   chosen as the main one, goes away or comes back.
@@ -11,7 +12,8 @@
 //! they come. One added or chosen is watched and scanned at once; the tracks of one removed
 //! or left are handled as files gone from the library.
 
-use crate::dto::{MusicFolderDto, ProgressDto, TrackAnalyzedDto, TrackDetailsDto};
+use crate::actions::browse;
+use crate::dto::{MusicFolderDto, ProgressDto};
 use crate::error::{AppError, AppResult};
 use crate::folder_watch::FolderWatch;
 use crate::state::{lock, AppState};
@@ -26,7 +28,6 @@ use std::time::Duration;
 use tauri::{AppHandle, Emitter, Manager};
 use tracing::{error, info, warn};
 
-pub const TRACK_ANALYZED_EVENT: &str = "track-analyzed";
 pub const PROGRESS_EVENT: &str = "library-progress";
 pub const FOLDERS_CHANGED_EVENT: &str = "music-folders-changed";
 /// How often the music folders are looked for: one away may be back, one there may be gone.
@@ -190,6 +191,26 @@ impl LibraryService {
 
     fn announce_folders(&self) {
         let _ = self.app.emit(FOLDERS_CHANGED_EVENT, self.folders());
+        browse::folders_changed(&self.app.state::<AppState>(), &self.db, self.roots());
+    }
+
+    /// The library as it is browsed, read whole, then the folder shown last opened: at start,
+    /// off the main thread.
+    pub fn browse(self: &Arc<Self>) {
+        let library = self.clone();
+        let spawned = std::thread::Builder::new().name("prisme-library-view".into()).spawn(move || {
+            browse::start(&library.app.state::<AppState>(), &library.db, library.roots());
+        });
+        if let Err(e) = spawned {
+            error!("the library is not shown: {e}");
+        }
+    }
+
+    /// The crates, the sets or the prepare list changed (an import): their lists read again.
+    pub fn lists_changed(&self) {
+        if let Err(e) = browse::lists(&self.app.state::<AppState>(), &self.db) {
+            error!("the lists of the library not read: {e}");
+        }
     }
 
     /// Waits up to `time` while the music folders stay `roots`.
@@ -202,6 +223,7 @@ impl LibraryService {
     pub fn start(&self) {
         let listener = Arc::new(EventListener {
             app: self.app.clone(),
+            db: self.db.clone(),
             progress: self.progress.clone(),
             left: self.left.clone(),
         });
@@ -262,18 +284,12 @@ impl LibraryService {
         *lock(&self.progress)
     }
 
-    /// Tells the UI that what the library knows of a track changed.
+    /// What the library knows of a track changed: its rows show it.
     pub fn announce(&self, path: &Path) {
-        match self.db.get(path) {
-            Ok(Some(record)) => {
-                let _ = self.app.emit(TRACK_ANALYZED_EVENT, TrackAnalyzedDto::from(&record));
-            }
-            Ok(None) => {}
-            Err(e) => error!("{} not read from the library: {e}", path.display()),
-        }
+        browse::reread(&self.app.state::<AppState>(), &self.db, [path]);
     }
 
-    /// Stores a track analysed outside the background run (on load) and tells the UI.
+    /// Stores a track analysed outside the background run (on load): its rows show it.
     pub fn store(&self, record: &TrackRecord, cover: Option<&[u8]>) {
         let saved = self.db.save(record).and_then(|()| match cover {
             Some(jpeg) => self.db.save_cover(Path::new(&record.path), jpeg),
@@ -282,7 +298,7 @@ impl LibraryService {
         if let Err(e) = saved {
             error!("analysis of {} not saved: {e}", record.path);
         }
-        let _ = self.app.emit(TRACK_ANALYZED_EVENT, TrackAnalyzedDto::from(record));
+        browse::analysed(&self.app.state::<AppState>(), record.clone());
         self.write_tags_soon();
     }
 
@@ -301,20 +317,28 @@ impl LibraryService {
 
 struct EventListener {
     app: AppHandle,
+    db: Arc<LibraryDb>,
     progress: Arc<Mutex<AnalysisProgress>>,
     left: Arc<Mutex<Vec<PathBuf>>>,
 }
 
 impl AnalysisListener for EventListener {
     fn track_analyzed(&self, record: &TrackRecord) {
-        let _ = self.app.emit(TRACK_ANALYZED_EVENT, TrackAnalyzedDto::from(record));
+        if let Some(state) = self.app.try_state::<AppState>() {
+            browse::analysed(&state, record.clone());
+        }
     }
 
+    /// A run that ended may have found files gone or moved: the library as browsed is read
+    /// whole again.
     fn progress(&self, progress: AnalysisProgress) {
         *lock(&self.progress) = progress;
         let _ = self.app.emit(PROGRESS_EVENT, ProgressDto::from(progress));
         if !progress.running {
             self.app.state::<TagWriter>().wake();
+            if let Some(state) = self.app.try_state::<AppState>() {
+                browse::reload(&state, &self.db);
+            }
         }
     }
 
@@ -326,12 +350,6 @@ impl AnalysisListener for EventListener {
         self.app.try_state::<AppState>().is_some_and(|state| {
             state.preferences.read(|p| p.library.pause_while_playing) && state.is_playing()
         })
-    }
-}
-
-impl From<&TrackRecord> for TrackAnalyzedDto {
-    fn from(r: &TrackRecord) -> Self {
-        Self { path: r.path.clone(), details: TrackDetailsDto::from(r) }
     }
 }
 

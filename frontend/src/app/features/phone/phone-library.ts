@@ -12,15 +12,12 @@ import {
   untracked,
   viewChild,
 } from '@angular/core';
-import { DirEntry } from '../../core/models/library';
-import { CratesService } from '../../core/services/crates.service';
+import { LibraryRow, SortColumn } from '../../core/models/library';
 import { EngineService } from '../../core/services/engine.service';
-import { LibraryService, SortColumn, trackTitle } from '../../core/services/library.service';
-import { PrepareService } from '../../core/services/prepare.service';
+import { LibraryService } from '../../core/services/library.service';
 import { PreviewService } from '../../core/services/preview.service';
 import { Text, t } from '../../core/i18n/i18n';
 import { TPipe } from '../../core/i18n/t.pipe';
-import { camelotCompatible } from '../../shared/camelot';
 import { Cover } from '../../shared/cover/cover';
 import { Dismiss, overlay } from '../../shared/overlay';
 import { Sheet } from '../../shared/sheet';
@@ -52,8 +49,12 @@ const LIST_ORDER = {
   name: () => t('Order of the list'),
 } as const;
 
-type Row =
-  { kind: 'folder'; name: string; path: string; up: boolean } | { kind: 'track'; track: DirEntry };
+/** A folder listed over the tracks of the folder browsed, or the one above it (`up`). */
+interface FolderRow {
+  name: string;
+  path: string;
+  up: boolean;
+}
 
 /** A finger on a track: where it landed, how far it has slid it, and whether it still may tap. */
 interface Slide {
@@ -94,8 +95,6 @@ export class PhoneLibrary {
 
   protected readonly library = inject(LibraryService);
   private readonly engine = inject(EngineService);
-  private readonly crates = inject(CratesService);
-  protected readonly prepared = inject(PrepareService).list;
   protected readonly preview = inject(PreviewService);
   private readonly list = viewChild.required<ElementRef<HTMLElement>>('list');
   private readonly scrollTop = signal(0);
@@ -105,67 +104,52 @@ export class PhoneLibrary {
   protected readonly right = computed(() => this.engine.deckIndexes()[0]);
   protected readonly left = computed(() => this.engine.deckIndexes()[1] ?? null);
 
+  private readonly kind = computed(() => this.library.source()?.kind ?? 'folder');
   /** What the list being browsed is called: its folder, its crate, else its kind. */
   protected readonly listName = computed(() => {
     const source = this.library.source();
-    if (source.kind === 'crate') return this.crates.name(source.id) ?? LIST_LABEL.crate();
-    if (source.kind !== 'folder') return LIST_LABEL[source.kind]();
-    const path = this.library.listing()?.path;
-    return path?.split(/[\\/]/).filter(Boolean).pop() ?? LIST_LABEL.folder();
+    if (source?.kind === 'crate') return this.library.crate(source.id)?.name ?? LIST_LABEL.crate();
+    if (source?.kind !== 'folder') return LIST_LABEL[this.kind()]();
+    return lastName(source.path);
   });
   protected readonly searchPlaceholder = computed(() =>
     this.library.scope() === 'list'
-      ? SEARCH_PLACEHOLDER[this.library.source().kind]()
+      ? SEARCH_PLACEHOLDER[this.kind()]()
       : t('Search the whole library'),
   );
   /** The tracks from elsewhere are listed: each says its folder under its title. */
   protected readonly elsewhere = computed(
-    () => this.library.source().kind === 'elsewhere' && this.library.scope() === 'list',
+    () => this.kind() === 'elsewhere' && this.library.scope() === 'list',
   );
   protected readonly sorts = computed(() =>
     this.library.ordered() ? [LIST_ORDER, ...SORTS] : SORTS,
   );
 
   /** The folders come first, while a folder is browsed and nothing is searched. */
-  private readonly folders = computed<Row[]>(() => {
-    const listing = this.library.listing();
-    const browsing = this.library.source().kind === 'folder' && this.library.scope() === 'list';
-    if (!browsing || !listing || this.library.filter().trim()) return [];
-    const up: Row[] =
-      listing.parent && listing.path !== this.library.folderRoot()?.path
-        ? [{ kind: 'folder', name: '..', path: listing.parent, up: true }]
-        : [];
-    const folders = listing.folders.map((f): Row => ({
-      kind: 'folder',
-      name: f.name,
-      path: f.path,
-      up: false,
-    }));
-    return [...up, ...folders];
+  protected readonly folders = computed<FolderRow[]>(() => {
+    const folder = this.library.currentFolder();
+    if (!folder || this.library.scope() !== 'list' || this.library.filter().trim()) return [];
+    const up = folder.up ? [{ name: '..', path: folder.up, up: true }] : [];
+    return [...up, ...folder.folders.map((f) => ({ name: f.name, path: f.path, up: false }))];
   });
-  private readonly rows = computed<Row[]>(() => [
-    ...this.folders(),
-    ...this.library.visibleTracks().map((track): Row => ({ kind: 'track', track })),
-  ]);
-  protected readonly empty = computed(() => this.rows().length === 0);
+  protected readonly empty = computed(
+    () => this.folders().length === 0 && this.library.count() === 0,
+  );
+  /** The tracks under the folders the list would show: those in view and some more each way. */
+  private readonly wanted = computed(() => {
+    const top = this.scrollTop() - this.folders().length * ROW_PX;
+    const first = Math.max(0, Math.floor(top / ROW_PX) - OVERSCAN);
+    return { first, count: Math.ceil(this.viewHeight() / ROW_PX) + 2 * OVERSCAN };
+  });
+  /** The tracks drawn, as the backend gave them, the others spaces of their height. */
   protected readonly window = computed(() => {
-    const rows = this.rows();
-    const first = Math.max(0, Math.floor(this.scrollTop() / ROW_PX) - OVERSCAN);
-    const last = Math.min(
-      rows.length,
-      first + Math.ceil(this.viewHeight() / ROW_PX) + 2 * OVERSCAN,
-    );
+    const { first, rows } = this.library.window();
     return {
-      rows: rows.slice(first, last),
+      rows,
       before: first * ROW_PX,
-      after: (rows.length - last) * ROW_PX,
+      after: Math.max(0, this.library.count() - first - rows.length) * ROW_PX,
     };
   });
-
-  /** The key the reference deck is heard in: the keys that fit it are lit. */
-  private readonly deckKey = computed(
-    () => this.engine.status()?.decks[this.library.reference()]?.heardKey?.camelot ?? null,
-  );
 
   protected readonly slide = signal<Slide | null>(null);
   /** The track whose menu is open. */
@@ -180,7 +164,6 @@ export class PhoneLibrary {
   protected readonly pickingFolder = signal(false);
 
   protected readonly ROW_PX = ROW_PX;
-  protected readonly title = trackTitle;
   protected readonly letter = deckLetter;
 
   constructor() {
@@ -197,13 +180,18 @@ export class PhoneLibrary {
     );
     overlay(this.browsing, () => this.browsing.set(false));
     // a list chosen among those of the library is the one shown: its panel closes
-    const shown = computed(() =>
-      JSON.stringify([this.library.source(), this.library.listing()?.path]),
-    );
     effect(() => {
-      shown();
+      this.library.source();
       untracked(() => this.browsing.set(false));
     });
+    // the tracks in view asked for as the list scrolls or grows, once a frame at most
+    let frame = 0;
+    effect(() => {
+      const { first, count } = this.wanted();
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(() => void this.library.viewport(first, count));
+    });
+    destroyed.onDestroy(() => cancelAnimationFrame(frame));
   }
 
   protected scrolled() {
@@ -217,19 +205,17 @@ export class PhoneLibrary {
     return place === folder ? folder : `${lastName(folder)} · ${shortPath(place)}`;
   }
 
-  protected bpm(track: DirEntry): string {
-    const bpm = track.details?.bpm;
-    return bpm == null ? '' : decimal(bpm, 0);
+  protected bpm(row: LibraryRow): string {
+    return row.bpm === null ? '' : decimal(row.bpm, 0);
   }
 
-  protected fits(track: DirEntry): boolean {
-    const deck = this.deckKey();
-    const key = track.details?.key?.camelot;
-    return !!deck && !!key && camelotCompatible(deck, key);
+  /** A set can hold the same track twice: its rows are told apart by play time. */
+  protected rowKey(row: LibraryRow): string {
+    return row.playedAtMs === null ? row.path : `${row.path}@${row.playedAtMs}`;
   }
 
   /** How far the row of `track` is slid, and the deck it would load on if let go there. */
-  protected slid(track: DirEntry): { dx: number; deck: number | null } | null {
+  protected slid(track: LibraryRow): { dx: number; deck: number | null } | null {
     const slide = this.slide();
     if (!slide?.sliding || slide.path !== track.path) return null;
     return { dx: slide.dx, deck: this.deckAt(slide.dx) };
@@ -241,7 +227,7 @@ export class PhoneLibrary {
     return dx > 0 ? this.right() : this.left();
   }
 
-  protected press(track: DirEntry, event: PointerEvent) {
+  protected press(track: LibraryRow, event: PointerEvent) {
     if (event.button !== 0 || this.slide()?.sliding) return;
     const { clientX: x, clientY: y, pointerId: pointer } = event;
     this.slide.set({ path: track.path, pointer, x, y, dx: 0, sliding: false });
@@ -280,7 +266,7 @@ export class PhoneLibrary {
 
   /** The folder read again: the phone may only now let its music be read. */
   protected async lookAgain() {
-    const folder = this.library.listing()?.path ?? this.library.root();
-    if (folder && (await this.library.open(folder))) await this.library.rescan();
+    const folder = this.library.currentFolder()?.path ?? this.library.root();
+    if (folder && (await this.library.openFolder(folder))) await this.library.rescan();
   }
 }

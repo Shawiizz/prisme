@@ -1,129 +1,57 @@
 import { TestBed } from '@angular/core/testing';
 import { clearMocks, mockIPC } from '@tauri-apps/api/mocks';
-import { DirEntry, DirListing } from '../models/library';
-import { DeckSettings } from '../models/engine';
-import { ConfirmService } from '../../shared/confirm/confirm';
-import { EngineService } from './engine.service';
-import { HistoryService } from './history.service';
+import { LibraryView, LibraryWindow } from '../models/library';
 import { LibraryService } from './library.service';
 
-const track = (name: string): DirEntry => ({ name, path: `/music/${name}`, details: null });
+const window = (seq: number, first: number): LibraryWindow => ({ seq, first, rows: [] });
+
+const view = (seq: number, filter: string): LibraryView => ({
+  seq,
+  source: { kind: 'prepare' },
+  folder: null,
+  scope: 'list',
+  filter,
+  sort: { column: 'order', descending: false },
+  ordered: true,
+  removable: true,
+  reorderable: true,
+  count: 0,
+  cursor: null,
+  selected: 0,
+  focus: 'tracks',
+  pointed: { kind: 'prepare' },
+  reference: 0,
+  window: window(seq, 0),
+});
 
 describe('LibraryService', () => {
   afterEach(() => clearMocks());
 
-  it('keeps the mix order while the next deck is mixed, its tempo range alone counting', async () => {
-    const listing: DirListing = {
-      path: '/music',
-      parent: null,
-      folders: [],
-      tracks: [track('a.mp3'), track('b.mp3')],
+  it('shows the list and the rows the backend told last, whichever answer comes first', async () => {
+    const answers: Record<string, unknown> = {
+      library_filter: view(4, 'deep'),
+      library_viewport: window(3, 40),
     };
-    mockIPC((command) => (command === 'list_dir' ? listing : undefined));
-    const engine = TestBed.inject(EngineService);
-    engine.decks.set(
-      [0, 1].map(() => ({ volume: 1, keyLock: false, tempoRange: 0.08 }) as DeckSettings),
+    mockIPC((command) => answers[command]);
+    const library = TestBed.inject(LibraryService);
+    await library.setFilter('deep');
+    expect(library.view()?.filter).toBe('deep');
+    await library.viewport(40, 30);
+    // a window asked for before the search: left aside
+    expect(library.window().seq).toBe(4);
+    answers['library_viewport'] = window(5, 40);
+    await library.viewport(40, 30);
+    expect(library.window().first).toBe(40);
+  });
+
+  it('shows what is typed while the search has the focus, then the search applied', async () => {
+    mockIPC((command, args) =>
+      command === 'library_filter' ? view(1, (args as { text: string }).text.slice(0, 2)) : null,
     );
     const library = TestBed.inject(LibraryService);
-    await library.open('/music');
-    library.sortBy('mix');
-    TestBed.tick();
-
-    const sorted = library.visibleTracks();
-    const change = (changes: Partial<DeckSettings>) =>
-      engine.decks.update((decks) => decks.map((d, i) => (i === 1 ? { ...d, ...changes } : d)));
-    change({ volume: 0.5 });
-    expect(library.visibleTracks()).toBe(sorted);
-    change({ tempoRange: 0.5 });
-    expect(library.visibleTracks()).not.toBe(sorted);
-  });
-
-  /** The lists answered each when the test lets it go, in any order; the rest at once. */
-  function answering() {
-    const waiting = new Map<string, () => void>();
-    mockIPC((command, args) => {
-      const { path, id } = (args ?? {}) as { path?: string; id?: number };
-      if (command === 'list_dir')
-        return new Promise((done) =>
-          waiting.set(`${command} ${path}`, () =>
-            done({ path, parent: null, folders: [], tracks: [track(`${path}.mp3`)] }),
-          ),
-        );
-      if (command === 'crate_tracks' || command === 'history_plays')
-        return new Promise((done) =>
-          waiting.set(`${command} ${id}`, () => done([track(`${command} ${id}`)])),
-        );
-      return undefined;
-    });
-    return async (list: string) => {
-      waiting.get(list)!();
-      waiting.delete(list);
-      await new Promise((done) => setTimeout(done));
-    };
-  }
-
-  it('shows the folder opened last, whichever is listed first', async () => {
-    const answer = answering();
-    const library = TestBed.inject(LibraryService);
-    const big = library.open('/big');
-    const small = library.open('/small');
-    await answer('list_dir /small');
-    await answer('list_dir /big');
-    await Promise.all([big, small]);
-    expect(library.listing()?.path).toBe('/small');
-  });
-
-  it('shows the crate opened last, not the plays of the session browsed before', async () => {
-    const answer = answering();
-    const library = TestBed.inject(LibraryService);
-    const session = library.openSession(7);
-    await answer('history_plays 7');
-    await session;
-    TestBed.inject(HistoryService).changes.update((n) => n + 1);
-    TestBed.tick();
-    const crate = library.openCrate(3);
-    await answer('crate_tracks 3');
-    await answer('history_plays 7');
-    await crate;
-    expect(library.currentCrate()).toBe(3);
-    expect(library.listTracks().map((t) => t.name)).toEqual(['crate_tracks 3']);
-  });
-
-  it('lists the tracks from elsewhere apart, out of Prisme once the DJ says so', async () => {
-    const loose = { name: 'loose.mp3', path: '/downloads/loose.mp3', details: null };
-    let elsewhere = [loose];
-    const removed: string[][] = [];
-    mockIPC((command, args) => {
-      if (command === 'elsewhere_tracks') return elsewhere;
-      if (command === 'remove_tracks') {
-        const { paths } = args as { paths: string[] };
-        removed.push(paths);
-        elsewhere = elsewhere.filter((t) => !paths.includes(t.path));
-        return null;
-      }
-      if (command === 'list_dir') return { path: '/music', parent: null, folders: [], tracks: [] };
-      return undefined;
-    });
-    const library = TestBed.inject(LibraryService);
-    const confirm = TestBed.inject(ConfirmService);
-    library.folders.set([{ path: '/music', main: true, present: true }]);
-    await library.refreshElsewhere();
-    library.openElsewhere();
-    expect(library.listTracks()).toEqual([loose]);
-    expect(library.isElsewhere(loose.path)).toBe(true);
-
-    const declined = library.removeFromPrisme([loose.path]);
-    confirm.answer(false);
-    await declined;
-    expect(removed).toEqual([]);
-
-    const confirmed = library.removeFromPrisme([loose.path]);
-    confirm.answer(true);
-    await confirmed;
-    expect(removed).toEqual([[loose.path]]);
-    expect(library.elsewhere()).toEqual([]);
-    // their list emptied gives way to the main folder
-    expect(library.source().kind).toBe('folder');
-    expect(library.listing()?.path).toBe('/music');
+    await library.setFilter('dee');
+    expect(library.filter()).toBe('dee');
+    library.endTyping();
+    expect(library.filter()).toBe('de');
   });
 });

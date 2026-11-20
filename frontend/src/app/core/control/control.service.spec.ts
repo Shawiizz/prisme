@@ -47,22 +47,21 @@ describe('ControlService', () => {
     expect(performed).toEqual([]);
   });
 
-  it('browses the library and opens its windows itself, as a key is pressed', () => {
+  it('has the backend browse the library, and opens its windows itself', () => {
     const controls = TestBed.inject(ControlService);
     const library = TestBed.inject(LibraryService);
     const navigation = TestBed.inject(NavigationService);
-    const moved = vi.spyOn(library, 'moveSelection').mockImplementation(() => undefined);
     controls.act('library.browse', -3);
     controls.act('library.next', 1);
-    controls.act('library.next', 0);
-    controls.act('library.left', 1);
-    controls.act('library.right', 1);
+    controls.act('library.search', 1);
     controls.act('general.library', 1);
-    expect(moved.mock.calls).toEqual([[-3], [1]]);
-    expect(library.focus()).toBe('tracks');
+    expect(performed).toEqual([
+      ['library.browse', -3, true],
+      ['library.next', 1, false],
+    ]);
+    expect(library.searchRequests()).toBe(1);
     expect(navigation.libraryOnly()).toBe(true);
     expect(controls.lit('general.library')).toBe(true);
     expect(controls.lit('deck1.play')).toBeUndefined();
-    expect(performed).toEqual([]);
   });
 });

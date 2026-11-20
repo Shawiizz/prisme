@@ -325,8 +325,31 @@ export class EngineService {
    * fader's position, or an encoder's steps (`steps`), as a controller's control would;
    * `confirmed`, the DJ said yes to what it replaces. Whether it was done. */
   perform(target: string, value: number, steps = false, confirmed = false) {
-    const order = { run: this.run, number: ++this.sent };
-    return this.call('perform_action', { target, value, steps, confirmed, order });
+    return this.call('perform_action', { target, value, steps, confirmed, order: this.order() });
+  }
+
+  /** Loads the track at `path` on `deck`, or on the first deck without a track (`null`); asked
+   * again once the DJ says yes to what it replaces. Whether it was done. */
+  async loadTrack(path: string, deck: number | null, confirmed = false): Promise<boolean> {
+    this.refusal.set(null);
+    try {
+      await this.ordered('load_track', { path, deck, confirmed });
+      this.error.set(null);
+      return true;
+    } catch (e) {
+      return this.failed(e, () => this.loadTrack(path, deck, true));
+    }
+  }
+
+  /** Runs the backend command `command` in turn with the actions sent before it, as an action
+   * is: what a gesture on the library does. */
+  ordered<T>(command: string, args: Record<string, unknown> = {}): Promise<T> {
+    return invoke<T>(command, { ...args, order: this.order() });
+  }
+
+  /** The place of the next action among those this page sent. */
+  private order() {
+    return { run: this.run, number: ++this.sent };
   }
 
   /** The key of `action` of `deck` (`play`, `cue`…) pressed, or let go (`down` false). */
@@ -354,9 +377,9 @@ export class EngineService {
 
   /** What the backend did not do, for the app or a controller: the track of a deck that plays
    * stays there (said for a few seconds, not as an error), or leaves it once the DJ says so,
-   * the action performed again then; any other failure is shown. Whether it was done in the
-   * end. */
-  async failed(error: unknown): Promise<boolean> {
+   * the action done `again` then (by default, performed again); any other failure is shown.
+   * Whether it was done in the end. */
+  async failed(error: unknown, again?: () => Promise<boolean>): Promise<boolean> {
     if (!isBackendError(error) || !['deckPlays', 'confirmReplace'].includes(error.code)) {
       this.error.set(errorText(error));
       return false;
@@ -379,6 +402,7 @@ export class EngineService {
       confirm: eject ? t('Eject') : t('Load'),
       cancel: t('Cancel'),
     });
-    return confirmed && this.perform(String(error.params['target']), 1, false, true);
+    if (!confirmed) return false;
+    return again ? again() : this.perform(String(error.params['target']), 1, false, true);
   }
 }

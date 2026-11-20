@@ -1,6 +1,7 @@
 /** Shapes exchanged with the Rust side (see apps/prisme-desktop/src/dto.rs). */
 
 import { StemPart } from '../stem-parts';
+import { LibraryLists, LibraryView } from './library';
 import { Separation, StemMix } from './stems';
 
 export type SignalState = 'none' | 'bounce' | 'ok';
@@ -220,6 +221,10 @@ export interface ControlState {
   /** What each deck's pads hold. */
   perform: DeckPerform[];
   preview: PreviewState;
+  /** The list browsed, and the rows of the window the table asked for. */
+  library: LibraryView;
+  /** The lists the library keeps: the crates, the sets, the prepare list. */
+  lists: LibraryLists;
 }
 
 /** What the headphones preview: the track the engine was given, and the file opening for the

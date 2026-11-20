@@ -8,10 +8,7 @@ import {
   signal,
   viewChild,
 } from '@angular/core';
-import { CratesService } from '../../../core/services/crates.service';
-import { HistoryService } from '../../../core/services/history.service';
 import { LibraryService } from '../../../core/services/library.service';
-import { PrepareService } from '../../../core/services/prepare.service';
 import { AutoDjService } from '../../../core/services/auto-dj.service';
 import { TRACKS_DRAG_TYPE } from '../../../shared/drag';
 import { Crate, MusicFolder } from '../../../core/models/library';
@@ -85,10 +82,15 @@ export class LibrarySidebar {
   protected readonly drops = inject(FileDropService);
   protected readonly tree = new FolderTree();
   protected readonly fileDrop = fileDropAttribute;
-  protected readonly crates = inject(CratesService).crates;
-  protected readonly sessions = inject(HistoryService).sessions;
-  private readonly prepare = inject(PrepareService).list;
-  protected readonly prepareCount = computed(() => this.prepare().length);
+  protected readonly crates = this.library.crates;
+  protected readonly sessions = this.library.sessions;
+  protected readonly lists = this.library.lists;
+  /** The list a controller's knob points at, while it goes through the lists. */
+  protected readonly pointed = computed(() => {
+    const view = this.library.view();
+    if (view?.focus !== 'lists') return null;
+    return view.pointed.kind === 'prepare' ? 'prepare' : view.pointed.id;
+  });
   /** Playing the prepare list, said beside it wherever the library is. */
   protected readonly autoDj = inject(AutoDjService);
 
@@ -110,9 +112,7 @@ export class LibrarySidebar {
   protected readonly folderMenu = signal<(Popover & { folder: MusicFolder }) | null>(null);
 
   /** The folder browsed, lit in the tree. */
-  protected readonly currentFolder = computed(() =>
-    this.library.source().kind === 'folder' ? (this.library.listing()?.path ?? null) : null,
-  );
+  protected readonly currentFolder = computed(() => this.library.currentFolder()?.path ?? null);
 
   constructor() {
     effect(() => {
@@ -183,7 +183,7 @@ export class LibrarySidebar {
 
   /** A folder on a drive not plugged in cannot be browsed. */
   openFolder(row: FolderRow) {
-    if (row.root?.present !== false) this.library.open(row.path);
+    if (row.root?.present !== false) this.library.openFolder(row.path);
   }
 
   openFolderMenu(event: MouseEvent, folder: MusicFolder) {
@@ -208,7 +208,7 @@ export class LibrarySidebar {
 
   open(id: number) {
     this.armed.set(null);
-    this.library.openCrate(id);
+    this.library.open({ kind: 'crate', id });
   }
 
   /** `Sat 10 Oct, 21:30` */
@@ -252,13 +252,12 @@ export class LibrarySidebar {
     this.dropTarget.set(target);
   }
 
+  /** Tracks of the table dropped: the selection they were dragged from goes there. */
   drop(event: DragEvent, target: DropTarget) {
     this.dropTarget.set(null);
-    const data = event.dataTransfer?.getData(TRACKS_DRAG_TYPE);
-    if (!data) return;
+    if (!event.dataTransfer?.getData(TRACKS_DRAG_TYPE)) return;
     event.preventDefault();
-    const paths = JSON.parse(data) as string[];
-    if (target === 'prepare') this.library.addToPrepare(paths);
-    else this.library.addToCrate(target, paths);
+    if (target === 'prepare') this.library.addToPrepare(null);
+    else this.library.addToCrate(target, null);
   }
 }

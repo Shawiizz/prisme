@@ -1,4 +1,4 @@
-import { SortColumn } from '../../../core/services/library.service';
+import { SortColumn } from '../../../core/models/library';
 import { Text, t } from '../../../core/i18n/i18n';
 
 export type ColumnId =

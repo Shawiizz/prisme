@@ -3,7 +3,6 @@ import {
   DestroyRef,
   ElementRef,
   afterNextRender,
-  afterRenderEffect,
   computed,
   effect,
   inject,
@@ -11,21 +10,14 @@ import {
   untracked,
   viewChild,
 } from '@angular/core';
-import { DirEntry } from '../../../core/models/library';
+import { LibraryRow, LibraryView, SortColumn, TrackSource } from '../../../core/models/library';
 import { EngineService } from '../../../core/services/engine.service';
-import {
-  LibraryService,
-  SortColumn,
-  TrackSource,
-  trackTitle,
-} from '../../../core/services/library.service';
+import { LibraryService } from '../../../core/services/library.service';
 import { PreferencesService } from '../../../core/services/preferences.service';
-import { camelotCompatible, camelotHue, camelotMajor, keyName } from '../../../shared/camelot';
+import { camelotHue, camelotMajor, keyName } from '../../../shared/camelot';
 import { Cover } from '../../../shared/cover/cover';
 import { TRACKS_DRAG_TYPE } from '../../../shared/drag';
 import { decimal, deckLetter } from '../../../shared/time';
-import { octaveRatio } from '../../../core/sync';
-import { HistoryService } from '../../../core/services/history.service';
 import { StemsService } from '../../../core/services/stems.service';
 import { PreviewService } from '../../../core/services/preview.service';
 import { TRACK_COLORS, hexColor } from '../../../shared/track-colors';
@@ -37,7 +29,6 @@ import { KeyboardService } from '../../../core/keyboard/keyboard.service';
 import { Dismiss, overlay } from '../../../shared/overlay';
 import { lastName, parentOf, shortPath } from '../../../core/folders';
 import { Popover, popoverAbove, popoverAtPointer } from '../../../shared/popover';
-import { sameItems } from '../../../core/same';
 
 /** What an empty list says; the prepare list's names the key that adds to it, if it has one. */
 const EMPTY_LIST: Record<TrackSource['kind'], (key: string | null) => string> = {
@@ -53,12 +44,21 @@ const EMPTY_LIST: Record<TrackSource['kind'], (key: string | null) => string> = 
 };
 
 const STARS = [1, 2, 3, 4, 5];
-/** Rows drawn beyond those in view, above and below: a quick scroll shows no gap. */
+/** Rows asked for beyond those in view, above and below: a quick scroll shows no gap. */
 const OVERSCAN = 12;
 
+/** Whether two views show the same list the same way: the cursor moved in it, not the list. */
+function sameList(a: LibraryView, b: LibraryView): boolean {
+  return (
+    JSON.stringify([a.source, a.scope, a.filter, a.sort]) ===
+    JSON.stringify([b.source, b.scope, b.filter, b.sort])
+  );
+}
+
 /**
- * The tracks being browsed or found: configurable columns (right-click the header),
- * colour and rating set in place, rows dragged onto crates or within the prepare list.
+ * The tracks being browsed or found, as the backend lists them: only the rows in view are
+ * drawn, asked for as the table scrolls. Configurable columns (right-click the header), colour
+ * and rating set in place, rows dragged onto crates, decks or within the prepare list.
  */
 @Component({
   selector: 'app-track-table',
@@ -72,31 +72,25 @@ export class TrackTable {
   protected readonly stems = inject(StemsService);
   protected readonly preview = inject(PreviewService);
   private readonly preferences = inject(PreferencesService);
-  private readonly history = inject(HistoryService);
   private readonly keyboard = inject(KeyboardService);
   private readonly table = viewChild.required<ElementRef<HTMLElement>>('table');
 
-  protected readonly tracks = this.library.visibleTracks;
-  /** Only the rows in view are drawn (a library of thousands would be hundreds of thousands
-   * of elements): the others are spaces of their height. */
   private readonly rowHeight =
     parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--pr-row')) || 29;
   private readonly scrollTop = signal(0);
   private readonly viewHeight = signal(0);
-  private readonly firstShown = computed(() =>
-    Math.max(0, Math.floor(this.scrollTop() / this.rowHeight) - OVERSCAN),
-  );
-  private readonly shownCount = computed(
-    () => Math.ceil(this.viewHeight() / this.rowHeight) + 2 * OVERSCAN,
-  );
+  /** The rows the table would show: those in view and some more each way. */
+  private readonly wanted = computed(() => ({
+    first: Math.max(0, Math.floor(this.scrollTop() / this.rowHeight) - OVERSCAN),
+    count: Math.ceil(this.viewHeight() / this.rowHeight) + 2 * OVERSCAN,
+  }));
   protected readonly shown = computed(() => {
-    const tracks = this.tracks();
-    const first = Math.min(this.firstShown(), tracks.length);
-    const last = Math.min(first + this.shownCount(), tracks.length);
+    const { first, rows } = this.library.window();
+    const count = this.library.count();
     return {
-      rows: tracks.slice(first, last),
+      rows,
       before: first * this.rowHeight,
-      after: (tracks.length - last) * this.rowHeight,
+      after: Math.max(0, count - first - rows.length) * this.rowHeight,
     };
   });
   protected readonly deckIndexes = this.engine.deckIndexes;
@@ -109,7 +103,6 @@ export class TrackTable {
   protected readonly major = camelotMajor;
   protected readonly keyName = keyName;
   protected readonly hexColor = hexColor;
-  protected readonly title = trackTitle;
   protected readonly parentOf = parentOf;
   protected readonly shortPath = shortPath;
   protected readonly lastName = lastName;
@@ -117,7 +110,7 @@ export class TrackTable {
   private readonly hidden = computed(() => new Set(this.preferences.library().hiddenColumns));
   /** The tracks from elsewhere are listed: where each one is says it, not a mark. */
   protected readonly elsewhere = computed(
-    () => this.library.source().kind === 'elsewhere' && this.library.scope() === 'list',
+    () => this.library.source()?.kind === 'elsewhere' && this.library.scope() === 'list',
   );
   protected readonly columns = computed(() =>
     COLUMNS.filter((c) => (c.elsewhere ? this.elsewhere() : c.fixed || !this.hidden().has(c.id))),
@@ -139,33 +132,8 @@ export class TrackTable {
   /** The actions on the selection, opened on one of their panels. */
   protected readonly trackMenu = signal<(Popover & { panel: TrackMenuPanel }) | null>(null);
   /** Row a dragged track would be put before (`null`: the end of the list). */
-  protected readonly insertBefore = signal<DirEntry | null>(null);
+  protected readonly insertBefore = signal<string | null>(null);
 
-  /** The prepare list, shown in its own order, is reordered by dragging. */
-  private readonly reorderable = computed(() => {
-    const sort = this.library.sort();
-    return (
-      this.library.source().kind === 'prepare' &&
-      this.library.scope() === 'list' &&
-      sort.column === 'order' &&
-      sort.direction === 1
-    );
-  });
-
-  /** The reference deck's key as heard and its tempo now: what the rows are compared with. */
-  private readonly referenceKey = computed(
-    () => this.engine.status()?.decks[this.library.reference()]?.heardKey?.camelot ?? null,
-  );
-  /** To a hundredth of a BPM: the rows follow a tempo change, not every status tick. */
-  private readonly referenceBpm = computed(() => {
-    const bpm = this.engine.status()?.decks[this.library.reference()]?.bpm;
-    return bpm == null ? null : Math.round(bpm * 100) / 100;
-  });
-  /** Which decks play: the deck marks change with it, not with every status tick. */
-  protected readonly playing = computed(
-    () => (this.engine.status()?.decks ?? []).map((d) => d?.playing ?? false),
-    { equal: sameItems },
-  );
   protected readonly pitchHeader = computed(() =>
     t('Pitch → {deck}', { deck: deckLetter(this.library.reference()) }),
   );
@@ -174,12 +142,11 @@ export class TrackTable {
       deck: deckLetter(this.library.reference()),
     }),
   );
-  /** Path of the track on each deck. */
-  private readonly deckPaths = computed(() => this.engine.tracks().map((track) => track?.path));
 
   protected readonly emptyMessage = computed(() => {
+    const kind = this.library.source()?.kind ?? 'folder';
     if (this.library.scope() === 'list')
-      return EMPTY_LIST[this.library.source().kind](this.keyboard.keyOf('library.prepare'));
+      return EMPTY_LIST[kind](this.keyboard.keyOf('library.prepare'));
     return this.library.filter().trim()
       ? t('No analysed track matches')
       : t('Type to search every analysed track');
@@ -198,11 +165,23 @@ export class TrackTable {
       () => this.trackMenu() !== null,
       () => this.trackMenu.set(null),
     );
+    // the rows in view asked for as the table scrolls or grows, once a frame at most
+    let frame = 0;
     effect(() => {
-      const path = this.library.selected();
-      if (path) untracked(() => this.scrollTo(path));
+      const { first, count } = this.wanted();
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(() => void this.library.viewport(first, count));
+    });
+    // the cursor moved in the list (a key, a controller): its row brought into view
+    let before: LibraryView | null = null;
+    effect(() => {
+      const view = this.library.view();
+      const moved = view && before && sameList(view, before) && view.cursor !== before.cursor;
+      before = view;
+      if (moved && view.cursor !== null) untracked(() => this.scrollTo(view.cursor!));
     });
     const destroyRef = inject(DestroyRef);
+    destroyRef.onDestroy(() => cancelAnimationFrame(frame));
     afterNextRender(() => {
       const table = this.table().nativeElement;
       this.viewHeight.set(table.clientHeight);
@@ -210,21 +189,14 @@ export class TrackTable {
       resized.observe(table);
       destroyRef.onDestroy(() => resized.disconnect());
     });
-    // another list may leave the table scrolled elsewhere (back to its end if shorter)
-    afterRenderEffect(() => {
-      this.tracks();
-      untracked(() => this.scrolled());
-    });
   }
 
   scrolled() {
     this.scrollTop.set(this.table().nativeElement.scrollTop);
   }
 
-  /** Scrolls the least that shows the row of `path` whole, under the column headers. */
-  private scrollTo(path: string) {
-    const index = this.tracks().findIndex((t) => t.path === path);
-    if (index < 0) return;
+  /** Scrolls the least that shows the row at `index` whole, under the column headers. */
+  private scrollTo(index: number) {
     const table = this.table().nativeElement;
     const head = table.querySelector<HTMLElement>('.head')?.offsetHeight ?? 0;
     const top = index * this.rowHeight;
@@ -237,30 +209,12 @@ export class TrackTable {
 
   sortMark(column: SortColumn | undefined): string {
     const s = this.library.sort();
-    return column && s.column === column ? (s.direction === 1 ? '▲' : '▼') : '';
+    return column && s.column === column ? (s.descending ? '▼' : '▲') : '';
   }
 
-  /** Whether the key mixes with the reference deck's. */
-  keyMatches(camelot: string): boolean {
-    const key = this.referenceKey();
-    return key !== null && camelotCompatible(key, camelot);
-  }
-
-  /** The pitch that brings a track to the reference deck's tempo, and whether a turntable reaches it. */
-  pitchToMatch(bpm: number | null | undefined): { text: string; reachable: boolean } | null {
-    const reference = this.referenceBpm();
-    if (!bpm || !reference) return null;
-    const change = (octaveRatio(bpm, reference) * reference) / bpm - 1;
-    const percent = Math.round(change * 1000) / 10 || 0;
-    return {
-      text: `${percent >= 0 ? '+' : '−'}${decimal(Math.abs(percent), 1)} %`,
-      reachable: Math.abs(change) <= this.engine.decks()[this.library.reference() ^ 1].tempoRange,
-    };
-  }
-
-  /** The decks a track is loaded on. */
-  decksOf(path: string): number[] {
-    return this.deckPaths().flatMap((p, deck) => (p === path ? [deck] : []));
+  /** `+2.4 %`, `−0.5 %` */
+  pitchText(percent: number): string {
+    return `${percent >= 0 ? '+' : '−'}${decimal(Math.abs(percent), 1)} %`;
   }
 
   /** What the preview key of a row does, or why it cannot. */
@@ -271,18 +225,14 @@ export class TrackTable {
       : t('No headphones of their own to preview in: choose their outputs in the settings');
   }
 
-  played(path: string): boolean {
-    return this.history.playedTonight().has(path);
-  }
-
-  /** A set can hold the same track twice: its rows are told apart by play time. */
   /** `0.42` → `42 %` */
   percent(fraction: number): string {
     return `${Math.round(fraction * 100)} %`;
   }
 
-  rowKey(t: DirEntry): string {
-    return 'playedAtMs' in t ? `${t.path}@${t.playedAtMs}` : t.path;
+  /** A set can hold the same track twice: its rows are told apart by play time. */
+  rowKey(row: LibraryRow): string {
+    return row.playedAtMs === null ? row.path : `${row.path}@${row.playedAtMs}`;
   }
 
   isShown(column: Column): boolean {
@@ -300,9 +250,9 @@ export class TrackTable {
     this.columnMenu.set(popoverAtPointer(event));
   }
 
-  openPalette(event: MouseEvent, t: DirEntry) {
+  openPalette(event: MouseEvent, row: LibraryRow) {
     event.stopPropagation();
-    this.palette.set({ ...popoverAtPointer(event), path: t.path });
+    this.palette.set({ ...popoverAtPointer(event), path: row.path });
   }
 
   setColor(color: number | null) {
@@ -311,21 +261,16 @@ export class TrackTable {
     if (palette) this.library.setColor([palette.path], color);
   }
 
-  /** Clicking the current rating again clears it. */
-  rate(t: DirEntry, stars: number) {
-    this.library.setRating([t.path], t.details?.rating === stars ? 0 : stars);
-  }
-
   /** Click: this track; Ctrl click: add or remove it; Shift click: up to it. */
-  click(event: MouseEvent, path: string) {
-    const mode = event.shiftKey ? 'range' : event.ctrlKey || event.metaKey ? 'toggle' : 'only';
-    this.library.select(path, mode);
+  click(event: MouseEvent, row: LibraryRow) {
+    const pick = event.shiftKey ? 'range' : event.ctrlKey || event.metaKey ? 'toggle' : 'only';
+    this.library.select(row, pick);
   }
 
   /** Right click: the actions on the selection, or on this track alone if it is not in it. */
-  openTrackMenu(event: MouseEvent, path: string) {
+  openTrackMenu(event: MouseEvent, row: LibraryRow) {
     event.preventDefault();
-    if (!this.library.selection().has(path)) this.library.select(path, 'only');
+    this.library.select(row, 'context');
     this.trackMenu.set({ ...popoverAtPointer(event), panel: 'main' });
   }
 
@@ -334,30 +279,29 @@ export class TrackTable {
     this.trackMenu.set({ ...popoverAbove(event.currentTarget as HTMLElement), panel });
   }
 
-  separateSelection() {
-    this.stems.separate(this.library.selectedPaths());
+  async separateSelection() {
+    this.stems.separate(await this.library.separable(null));
   }
 
-  /** Dragging a selected track drags the whole selection. */
-  dragStart(event: DragEvent, path: string) {
-    if (!this.library.selection().has(path)) this.library.select(path, 'only');
-    event.dataTransfer?.setData(TRACKS_DRAG_TYPE, JSON.stringify(this.library.selectedPaths()));
+  /** Dragging a track drags the selection, the track in it: the one dragged onto a deck. */
+  dragStart(event: DragEvent, row: LibraryRow) {
+    this.library.select(row, 'context');
+    event.dataTransfer?.setData(TRACKS_DRAG_TYPE, row.path);
   }
 
-  listDragOver(event: DragEvent, before: DirEntry | null) {
-    if (!this.reorderable() || !event.dataTransfer?.types.includes(TRACKS_DRAG_TYPE)) return;
+  listDragOver(event: DragEvent, before: LibraryRow | null) {
+    if (!this.library.reorderable() || !event.dataTransfer?.types.includes(TRACKS_DRAG_TYPE))
+      return;
     event.preventDefault();
     event.stopPropagation();
-    this.insertBefore.set(before);
+    this.insertBefore.set(before ? this.rowKey(before) : null);
   }
 
-  listDrop(event: DragEvent, before: DirEntry | null) {
+  listDrop(event: DragEvent, before: LibraryRow | null) {
     this.insertBefore.set(null);
-    const data = event.dataTransfer?.getData(TRACKS_DRAG_TYPE);
-    if (!this.reorderable() || !data) return;
+    if (!this.library.reorderable() || !event.dataTransfer?.getData(TRACKS_DRAG_TYPE)) return;
     event.preventDefault();
     event.stopPropagation();
-    const paths = JSON.parse(data) as string[];
-    this.library.placeInPrepare(paths, before?.path ?? null);
+    this.library.placeInPrepare(null, before?.path ?? null);
   }
 }

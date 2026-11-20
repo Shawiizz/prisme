@@ -291,6 +291,17 @@ impl StemsService {
         Ok(added)
     }
 
+    /// Those of `paths` an installed model has stems to add to, not queued already; all of them
+    /// while no model is installed (to separate once one is).
+    pub fn separable(&self, paths: Vec<PathBuf>) -> Vec<PathBuf> {
+        let installed = self.installed();
+        if installed.is_empty() {
+            return paths;
+        }
+        let held = lock(&self.queue).held();
+        paths.into_iter().filter(|p| !held.contains(p) && !missing(&installed, p).is_empty()).collect()
+    }
+
     /// Separates `path`, loaded on a deck and `duration_s` long, before the library's
     /// tracks, if an installed model has stems to add to it.
     pub fn separate_played(&self, path: &Path, duration_s: f64) -> AppResult<()> {
@@ -586,6 +597,7 @@ impl Worker {
                     self.update(|p| p.done += 1);
                     let separation = stored_separation(&job.path);
                     let separated = SeparatedDto { path: job.path.display().to_string(), separation };
+                    self.app.state::<AppState>().separated(&separated.path, separation);
                     let _ = self.app.emit(STEMS_SEPARATED_EVENT, separated);
                     attach_stems(&self.app, &job.path);
                 }

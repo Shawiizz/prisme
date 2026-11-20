@@ -1,6 +1,7 @@
 //! Browsing music folders.
 
-use crate::dto::{DirEntryDto, DirListingDto, StoragePlaceDto, StoragePlaceKind, TrackDetailsDto};
+use crate::dto::{StoragePlaceDto, StoragePlaceKind};
+use prisme_library::FileStamp;
 use std::io::ErrorKind;
 use std::path::{Path, PathBuf};
 
@@ -142,44 +143,39 @@ fn place(kind: StoragePlaceKind, path: PathBuf) -> StoragePlaceDto {
     StoragePlaceDto { kind, name, path }
 }
 
-/// Sub-folders and playable files of `dir`, sorted by name (hidden entries skipped).
-/// `details` gives what the library knows of a track, if anything. One of the music folders
-/// `roots` that is not there (a system that has none yet, a drive unplugged) is empty.
-pub fn list_dir(
-    dir: &Path,
-    roots: &[PathBuf],
-    details: impl Fn(&Path, &std::fs::Metadata) -> Option<TrackDetailsDto>,
-) -> std::io::Result<DirListingDto> {
+/// The folders in a folder and its playable files, each by name, the hidden ones left out,
+/// each file with the version of it on the disk.
+pub struct Listing {
+    pub folders: Vec<PathBuf>,
+    pub files: Vec<(PathBuf, FileStamp)>,
+}
+
+/// What `dir` holds. One of the music folders `roots` that is not there (a system that has none
+/// yet, a drive unplugged) holds nothing.
+pub fn listing(dir: &Path, roots: &[PathBuf]) -> std::io::Result<Listing> {
     let mut folders = Vec::new();
-    let mut tracks = Vec::new();
+    let mut files = Vec::new();
     let entries = match std::fs::read_dir(dir) {
         Err(e) if e.kind() == ErrorKind::NotFound && roots.iter().any(|root| root == dir) => None,
         entries => Some(entries?),
     };
     for entry in entries.into_iter().flatten() {
         let Ok(entry) = entry else { continue };
-        let name = entry.file_name().to_string_lossy().into_owned();
-        if name.starts_with('.') {
+        if entry.file_name().to_string_lossy().starts_with('.') {
             continue;
         }
         let path = entry.path();
         let Ok(meta) = entry.metadata() else { continue };
-        let item = |details| DirEntryDto { name, path: path.display().to_string(), details };
         if meta.is_dir() {
-            folders.push(item(None));
+            folders.push(path);
         } else if prisme_media::is_supported(&path) {
-            tracks.push(item(details(&path, &meta)));
+            files.push((path, FileStamp::from_metadata(&meta)));
         }
     }
-    let by_name = |a: &DirEntryDto, b: &DirEntryDto| a.name.to_lowercase().cmp(&b.name.to_lowercase());
-    folders.sort_by(by_name);
-    tracks.sort_by(by_name);
-    Ok(DirListingDto {
-        path: dir.display().to_string(),
-        parent: dir.parent().map(|p| p.display().to_string()),
-        folders,
-        tracks,
-    })
+    let name = |path: &Path| path.file_name().map(|n| n.to_string_lossy().to_lowercase());
+    folders.sort_by_cached_key(|path| name(path));
+    files.sort_by_cached_key(|(path, _)| name(path));
+    Ok(Listing { folders, files })
 }
 
 /// Shows `path` in the system's file manager: a folder opened, a file selected in its own.

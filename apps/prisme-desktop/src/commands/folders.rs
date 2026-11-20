@@ -1,10 +1,9 @@
 use crate::commands::blocking;
-use crate::dto::{DirListingDto, MusicFolderDto, StoragePlaceDto, TrackDetailsDto};
+use crate::dto::{DirListingDto, FolderDto, MusicFolderDto, StoragePlaceDto};
 use crate::error::AppResult;
 use crate::folders;
 use crate::library_service::LibraryService;
 use crate::state::AppState;
-use prisme_library::{FileStamp, Search};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use tauri::{AppHandle, Manager, State};
@@ -74,14 +73,16 @@ pub fn storage_places() -> Vec<StoragePlaceDto> {
     folders::storage_places()
 }
 
-/// Folders and tracks of a folder, with the stored analysis of each track.
+/// The folders in a folder, and how many tracks: the sub-folders of the side panel's trees, a
+/// folder looked into to add it.
 #[tauri::command(async)]
 pub fn list_dir(library: State<'_, Arc<LibraryService>>, path: String) -> AppResult<DirListingDto> {
-    Ok(folders::list_dir(&PathBuf::from(path), &library.roots(), |file, meta| {
-        let stamp = FileStamp::from_metadata(meta);
-        // a folder that moved, or came back under another drive letter, keeps what was known
-        let _ = prisme_library::adopt(&library.db, file, stamp, Search::Stamp);
-        let record = library.db.get(file).ok().flatten()?;
-        record.is_current(stamp).then(|| TrackDetailsDto::from(&record))
-    })?)
+    let path = PathBuf::from(path);
+    let listing = folders::listing(&path, &library.roots())?;
+    Ok(DirListingDto {
+        path: path.display().to_string(),
+        parent: path.parent().map(|p| p.display().to_string()),
+        folders: listing.folders.iter().map(|folder| FolderDto::of(folder)).collect(),
+        tracks: listing.files.len(),
+    })
 }

@@ -13,7 +13,6 @@ pub mod plan;
 
 use crate::actions::Actions;
 use crate::dto::AutoDjStatusDto;
-use crate::history::PREPARE_CHANGED_EVENT;
 use crate::library_service::LibraryService;
 use crate::preferences::AutoDjPreferences;
 use crate::state::{lock, AppState};
@@ -192,9 +191,7 @@ impl AutoDj {
             Action::TakeOut(path) => {
                 let library = app.state::<Arc<LibraryService>>();
                 match library.db.remove_from_prepare(&[path.as_path()]) {
-                    Ok(_) => {
-                        let _ = app.emit(PREPARE_CHANGED_EVENT, ());
-                    }
+                    Ok(_) => crate::actions::browse::prepare_changed(&state, &library.db),
                     Err(e) => warn!("Auto DJ: {} left in the prepare list: {e}", path.display()),
                 }
                 Ok(())

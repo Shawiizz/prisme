@@ -2,7 +2,7 @@ import { Injectable, inject } from '@angular/core';
 import { invoke } from '@tauri-apps/api/core';
 import { save } from '@tauri-apps/plugin-dialog';
 import { t } from '../i18n/i18n';
-import { CratesService } from './crates.service';
+import { EngineService } from './engine.service';
 import { fileDate } from './history.service';
 
 /** A list of the library (see `ListDto`); a set of the history with when it started, for its name. */
@@ -23,13 +23,13 @@ export interface ExportSummary {
  */
 @Injectable({ providedIn: 'root' })
 export class ExportService {
-  private readonly crates = inject(CratesService);
+  private readonly engine = inject(EngineService);
 
   /** The name a list goes by in an export: a set by when it started, sortable. */
   name(list: ListRef): string {
     switch (list.kind) {
       case 'crate':
-        return this.crates.name(list.id) ?? '';
+        return this.engine.controls()?.lists.crates.find((c) => c.id === list.id)?.name ?? '';
       case 'prepare':
         return t('Prepare');
       case 'session':

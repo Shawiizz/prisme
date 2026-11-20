@@ -4,9 +4,6 @@ import { LibraryService } from '../services/library.service';
 import { NavigationService } from '../services/navigation.service';
 import { Control, buildControls, measuredControl } from './controls';
 
-/** Tracks a page of the library moves by. */
-const PAGE = 12;
-
 /** A key's action, done as it is pressed: a pad hit softly is hit all the same. */
 const pressed =
   (run: () => void) =>
@@ -17,8 +14,9 @@ const pressed =
 /**
  * Every action a key or a controller can do (see `buildControls`), and the one way to do it
  * (`act`): the backend performs it, whoever asks (a key, the command palette), as it does for
- * the controllers; the app does itself only what it keeps (`own`): the library's browsing, its
- * windows. A controller's control driving one of those the backend tells (`ui-action`).
+ * the controllers, the library's browsing included; the app does itself only what it keeps
+ * (`own`): its windows, the focus of its search. A controller's control driving one of those
+ * the backend tells (`ui-action`).
  */
 @Injectable({ providedIn: 'root' })
 export class ControlService {
@@ -26,36 +24,9 @@ export class ControlService {
   private readonly library = inject(LibraryService);
   private readonly navigation = inject(NavigationService);
 
-  /** What the app does of the actions it keeps, given a key's value or an encoder's steps. */
+  /** What the app does of the actions it keeps, given a key's value. */
   private readonly own: Record<string, (value: number) => void> = {
-    'library.browse': (steps) => this.browse(steps),
-    'library.previous': pressed(() => this.browse(-1)),
-    'library.next': pressed(() => this.browse(1)),
-    'library.page.previous': pressed(() => this.browse(-PAGE)),
-    'library.page.next': pressed(() => this.browse(PAGE)),
-    'library.remove': pressed(() => this.library.removeSelected()),
-    'library.prepare': pressed(() => this.library.addSelectedToPrepare()),
-    'library.selectAll': pressed(() => this.library.selectAll()),
-    'library.clearSelection': pressed(() => this.library.clearSelection()),
     'library.search': pressed(() => this.library.searchRequests.update((n) => n + 1)),
-    'library.focus': pressed(() =>
-      this.library.focus.update((f) => (f === 'tracks' ? 'lists' : 'tracks')),
-    ),
-    'library.lists': (steps) => this.library.movePointedList(steps),
-    'library.list.open': pressed(() => this.library.openPointedList()),
-    'library.list.next': pressed(() => this.library.openNextList(1)),
-    'library.list.previous': pressed(() => this.library.openNextList(-1)),
-    'library.go': pressed(() =>
-      this.library.focus() === 'lists'
-        ? this.library.openPointedList()
-        : this.library.loadSelectedOnStoppedDeck(),
-    ),
-    'library.left': pressed(() => this.library.focus.set('lists')),
-    'library.right': pressed(() => this.library.focus.set('tracks')),
-    'library.sort.title': pressed(() => this.library.sortBy('title')),
-    'library.sort.artist': pressed(() => this.library.sortBy('artist')),
-    'library.sort.bpm': pressed(() => this.library.sortBy('bpm')),
-    'library.sort.key': pressed(() => this.library.sortBy('key')),
     'general.library': pressed(() => this.navigation.libraryOnly.update((only) => !only)),
     'general.help': pressed(() => this.navigation.toggleSettings('shortcuts')),
     'general.palette': pressed(() => this.navigation.togglePalette()),
@@ -110,11 +81,6 @@ export class ControlService {
    * the window): `undefined` for any other, which the backend lights. */
   lit(id: string): boolean | undefined {
     return id === 'general.library' ? this.navigation.libraryOnly() : undefined;
-  }
-
-  private browse(steps: number) {
-    if (this.library.focus() === 'lists') this.library.movePointedList(steps);
-    else this.library.moveSelection(steps);
   }
 
   /** The controls named by their measure (`deck1.jump.-8`), made once each. */

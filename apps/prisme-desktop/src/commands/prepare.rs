@@ -1,44 +1,36 @@
-use crate::dto::DirEntryDto;
+//! The prepare list: the tracks lined up for the next minutes of the set.
+
+use crate::actions::browse;
+use crate::actions::Order;
+use crate::commands::library::in_turn;
 use crate::error::AppResult;
-use crate::library_service::LibraryService;
-use crate::state::AppState;
-use crate::stems_service::{self, StemsService};
-use std::path::{Path, PathBuf};
-use std::sync::Arc;
-use tauri::State;
+use crate::stems_service::StemsService;
+use tauri::{AppHandle, Manager};
 
-type Library<'a> = State<'a, Arc<LibraryService>>;
-
-#[tauri::command(async)]
-pub fn prepare_list(library: Library<'_>) -> AppResult<Vec<DirEntryDto>> {
-    let entries = library.db.prepare_list()?;
-    Ok(entries.iter().map(|e| DirEntryDto::track(&e.path, e.record.as_ref())).collect())
-}
-
-/// Returns how many tracks were not in the list yet. The tracks are separated in the
-/// background if the preference says so: ready before the set.
-#[tauri::command(async)]
-pub fn add_to_prepare(
-    library: Library<'_>,
-    state: State<'_, AppState>,
-    stems: State<'_, StemsService>,
-    paths: Vec<String>,
-) -> AppResult<usize> {
-    let added = library.db.add_to_prepare(&paths.iter().map(Path::new).collect::<Vec<_>>())?;
-    if stems_service::separates_on_load(&state) {
-        // without a model there is nothing to do, and nothing to tell
-        let _ = stems.enqueue(paths.into_iter().map(PathBuf::from));
-    }
-    Ok(added)
-}
-
+/// Puts the tracks at `paths` (else those selected) at the end of the list; how many were not in
+/// it. They are separated in the background if the DJ chose so: ready before the set.
 #[tauri::command]
-pub fn remove_from_prepare(library: Library<'_>, paths: Vec<String>) -> AppResult<()> {
-    library.db.remove_from_prepare(&paths.iter().map(Path::new).collect::<Vec<_>>())?;
-    Ok(())
+pub async fn add_to_prepare(app: AppHandle, paths: Option<Vec<String>>, order: Order) -> AppResult<usize> {
+    let stems = app.clone();
+    in_turn(app, order, move |state, db| {
+        let paths = browse::tracks(state, paths);
+        browse::add_to_prepare(state, db, Some(&stems.state::<StemsService>()), &paths)
+    })
+    .await
 }
 
+/// Puts the tracks at `paths` (else those selected) before the track at `before` (`None`: at the
+/// end), in their order, adding those not in the list.
 #[tauri::command]
-pub fn move_in_prepare(library: Library<'_>, path: String, index: usize) -> AppResult<()> {
-    Ok(library.db.move_in_prepare(Path::new(&path), index)?)
+pub async fn place_in_prepare(
+    app: AppHandle,
+    paths: Option<Vec<String>>,
+    before: Option<String>,
+    order: Order,
+) -> AppResult<()> {
+    in_turn(app, order, move |state, db| {
+        let paths = browse::tracks(state, paths);
+        browse::place_in_prepare(state, db, &paths, before.as_deref())
+    })
+    .await
 }

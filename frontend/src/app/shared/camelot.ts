@@ -30,30 +30,6 @@ const MINOR_NAMES = [
 ];
 const MAJOR_NAMES = ['', 'B', 'F#', 'Db', 'Ab', 'Eb', 'Bb', 'F', 'C', 'G', 'D', 'A', 'E'];
 
-/**
- * The key `semitones` higher (lower if negative): a semitone is 7 steps around the
- * wheel.
- */
-export function transposeCamelot(
-  code: string,
-  semitones: number,
-): { camelot: string; name: string } | null {
-  const c = parse(code);
-  if (!c) return null;
-  const steps = (((7 * semitones) % 12) + 12) % 12;
-  const number = ((c.number - 1 + steps) % 12) + 1;
-  return {
-    camelot: `${number}${c.minor ? 'A' : 'B'}`,
-    name: (c.minor ? MINOR_NAMES : MAJOR_NAMES)[number],
-  };
-}
-
-/** Sort rank: 1A, 1B, 2A, 2B... */
-export function camelotRank(code: string | undefined | null): number {
-  const c = code ? parse(code) : null;
-  return c ? c.number * 2 + (c.minor ? 0 : 1) : Number.MAX_SAFE_INTEGER;
-}
-
 /** Hue of a key chip (`--h` of `.pr-key`): one per wheel number, see tokens.css. */
 export function camelotHue(code: string): string | null {
   const c = parse(code);
@@ -82,26 +58,4 @@ export function keyName(code: string): string {
   const note = language() === 'fr' ? NOTES[name[0]] : name[0];
   const accidental = name.slice(1).replace('#', '♯').replace('b', '♭');
   return `${note}${accidental} ${c.minor ? t('minor') : t('major')}`;
-}
-
-/** Two steps up the wheel in the same mode: a whole tone higher, a lift in energy. */
-export function camelotEnergyBoost(from: string, to: string): boolean {
-  const x = parse(from);
-  const y = parse(to);
-  return !!x && !!y && x.minor === y.minor && ((x.number + 1) % 12) + 1 === y.number;
-}
-
-/**
- * Keys that mix harmonically: the same key, one step around the wheel, or the
- * relative major / minor.
- */
-export function camelotCompatible(a: string, b: string): boolean {
-  const x = parse(a);
-  const y = parse(b);
-  if (!x || !y) return false;
-  if (x.minor === y.minor) {
-    const d = Math.abs(x.number - y.number);
-    return d === 0 || d === 1 || d === 11;
-  }
-  return x.number === y.number;
 }

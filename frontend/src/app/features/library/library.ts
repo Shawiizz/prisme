@@ -54,7 +54,6 @@ export class Library {
     const p = this.stems.progress();
     return p.done + p.failed + p.queued;
   });
-  protected readonly tracks = this.library.visibleTracks;
   protected readonly deckIndexes = this.engine.deckIndexes;
   protected readonly letter = deckLetter;
   private readonly search = viewChild.required<ElementRef<HTMLInputElement>>('search');
@@ -75,28 +74,22 @@ export class Library {
     return p.total > 0 ? (p.done / p.total) * 100 : 0;
   });
 
-  protected readonly listLabel = computed(() => LIST_LABEL[this.library.source().kind]());
-  protected readonly searchPlaceholder = computed(() =>
-    SEARCH_PLACEHOLDER[this.library.source().kind](),
-  );
+  private readonly kind = computed(() => this.library.source()?.kind ?? 'folder');
+  protected readonly listLabel = computed(() => LIST_LABEL[this.kind()]());
+  protected readonly searchPlaceholder = computed(() => SEARCH_PLACEHOLDER[this.kind()]());
 
   /** The folders from the music folder down to the one browsed, as a file manager's address
    * bar shows them. */
   protected readonly steps = computed((): PathStep[] => {
-    const path = this.library.listing()?.path;
-    const root = this.library.folderRoot();
-    if (!path) return [];
-    if (!root) return [{ name: lastName(path), path }];
-    const [top, ...below] = stepsFrom(root.path, path);
+    const folder = this.library.currentFolder();
+    if (!folder) return [];
+    const root = this.library.folders().find((f) => f.path === folder.root);
+    if (!root) return [{ name: lastName(folder.path), path: folder.path }];
+    const [top, ...below] = stepsFrom(root.path, folder.path);
     return [{ ...top, name: folderName(root) }, ...below];
   });
-  /** The folder above the one browsed, inside its music folder. */
-  private readonly above = computed(() => {
-    const listing = this.library.listing();
-    const root = this.library.folderRoot();
-    return listing && root && listing.path !== root.path ? listing.parent : null;
-  });
-  protected readonly canGoUp = computed(() => this.above() !== null);
+  /** There is a folder above the one browsed, inside its music folder. */
+  protected readonly canGoUp = computed(() => !!this.library.currentFolder()?.up);
 
   protected resizeSide(event: PointerEvent) {
     dragSize(event, this.sideWidth(), 'x', (width) =>
@@ -118,11 +111,6 @@ export class Library {
       this.rescannedTimer = setTimeout(() => this.rescanned.set(false), RESCANNED_MS);
     });
     inject(DestroyRef).onDestroy(() => clearTimeout(this.rescannedTimer));
-  }
-
-  protected up() {
-    const above = this.above();
-    if (above) this.library.open(above);
   }
 
   protected rescan() {

@@ -1,7 +1,6 @@
 import { Component, booleanAttribute, computed, inject, input } from '@angular/core';
 import { AutoDjService, FADE_BEATS, FADE_SECONDS } from '../../../core/services/auto-dj.service';
 import { EngineService } from '../../../core/services/engine.service';
-import { trackTitle } from '../../../core/services/library.service';
 import { t } from '../../../core/i18n/i18n';
 import { TPipe } from '../../../core/i18n/t.pipe';
 import { formatClock } from '../../../shared/time';
@@ -44,7 +43,7 @@ export class AutoDjBar {
     }
     const next = this.autoDj.next();
     if (!next) return t('Nothing next: the list ends with this track');
-    const title = trackTitle(next);
+    const title = next.title;
     const mixIn = this.autoDj.mixIn();
     return mixIn === null
       ? t('Next: {title}', { title })

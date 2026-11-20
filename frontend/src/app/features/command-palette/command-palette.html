@@ -55,10 +55,10 @@
             </div>
             @if (item.track; as track) {
               <span class="meta">
-                @if (track.details?.bpm; as bpm) {
+                @if (track.bpm; as bpm) {
                   <span class="pr-num bpm">{{ decimal(bpm, 1) }}</span>
                 }
-                @if (track.details?.key; as k) {
+                @if (track.key; as k) {
                   <span
                     class="pr-key"
                     [class.pr-key--maj]="major(k.camelot)"

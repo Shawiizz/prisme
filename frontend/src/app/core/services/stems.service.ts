@@ -9,7 +9,6 @@ import {
   StemsProgress,
   StemsStatus,
 } from '../models/stems';
-import { LibraryService } from './library.service';
 import { PreferencesService } from './preferences.service';
 import { errorText } from '../errors';
 
@@ -33,11 +32,10 @@ const MISSING = (id: ModelId): ModelStatus => ({
 
 /**
  * Stem separation, done in the background by the backend: the models (each downloaded
- * once), the queue and its progress. A separated track gets `details.separation` in the lists.
+ * once), the queue and its progress. The rows of the library say how far a track is separated.
  */
 @Injectable({ providedIn: 'root' })
 export class StemsService {
-  private readonly library = inject(LibraryService);
   private readonly preferences = inject(PreferencesService);
 
   readonly vocalsModel = signal<ModelStatus>(MISSING('vocals'));
@@ -178,9 +176,8 @@ export class StemsService {
     if (!progress.running) this.pending.set(new Set());
   }
 
-  private onSeparated({ path, separation }: Separated) {
+  private onSeparated({ path }: Separated) {
     this.forget([path]);
-    this.library.markSeparated(path, separation);
   }
 
   private forget(paths: string[]) {

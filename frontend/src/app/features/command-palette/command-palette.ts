@@ -1,6 +1,5 @@
 import {
   Component,
-  DestroyRef,
   ElementRef,
   afterNextRender,
   afterRenderEffect,
@@ -12,11 +11,10 @@ import {
 import { invoke } from '@tauri-apps/api/core';
 import { ControlService } from '../../core/control/control.service';
 import { KeyboardService } from '../../core/keyboard/keyboard.service';
-import { CratesService } from '../../core/services/crates.service';
-import { LibraryService, trackTitle } from '../../core/services/library.service';
+import { LibraryService } from '../../core/services/library.service';
 import { NavigationService } from '../../core/services/navigation.service';
 import { EngineService } from '../../core/services/engine.service';
-import { DirEntry } from '../../core/models/library';
+import { NamedTrack } from '../../core/models/library';
 import { Text, t } from '../../core/i18n/i18n';
 import { TPipe } from '../../core/i18n/t.pipe';
 import { camelotHue, camelotMajor } from '../../shared/camelot';
@@ -34,7 +32,7 @@ interface Item {
   detail: string;
   /** Keyboard shortcut of an action. */
   keys?: string;
-  track?: DirEntry;
+  track?: NamedTrack;
   run(): void;
 }
 
@@ -62,7 +60,6 @@ const SECTIONS: { id: Section; label: Text; limit: number }[] = [
 ];
 /** Tracks are looked up once this many characters are typed, after a pause. */
 const TRACK_QUERY_MIN = 2;
-const TRACK_SEARCH_DELAY_MS = 120;
 
 /**
  * Command palette (Ctrl + K): type to find an action, a setting, a crate or a track, and
@@ -79,7 +76,6 @@ export class CommandPalette {
   private readonly navigation = inject(NavigationService);
   private readonly controls = inject(ControlService);
   private readonly keyboard = inject(KeyboardService);
-  private readonly crates = inject(CratesService);
   private readonly library = inject(LibraryService);
   protected readonly engine = inject(EngineService);
 
@@ -87,8 +83,7 @@ export class CommandPalette {
   private readonly list = viewChild.required<ElementRef<HTMLElement>>('list');
   protected readonly query = signal('');
   protected readonly active = signal(0);
-  private readonly tracks = signal<DirEntry[]>([]);
-  private searchTimer = 0;
+  private readonly tracks = signal<NamedTrack[]>([]);
   private searchId = 0;
 
   protected readonly PHONE = PHONE;
@@ -133,7 +128,7 @@ export class CommandPalette {
       section: 'actions' as const,
       title: t('Compare the tracks with deck {deck}', { deck: deckLetter(deck) }),
       detail: t('Library'),
-      run: () => this.library.reference.set(deck),
+      run: () => this.library.compareWith(deck),
     })),
     ...this.pages(),
     ...SETTINGS.map((s) => ({
@@ -142,12 +137,12 @@ export class CommandPalette {
       detail: SETTINGS_PAGES.find((p) => p.id === s.page)?.label() ?? '',
       run: () => this.navigation.openSettings(s.page, s.id),
     })),
-    ...this.crates.crates().map((c) => ({
+    ...this.library.crates().map((c) => ({
       section: 'crates' as const,
       title: c.name,
       detail: t('{n} tracks', { n: c.trackCount }),
       run: () => {
-        this.library.openCrate(c.id);
+        this.library.open({ kind: 'crate', id: c.id });
         this.navigation.showLibrary();
       },
     })),
@@ -188,24 +183,20 @@ export class CommandPalette {
         block: 'nearest',
       });
     });
-    inject(DestroyRef).onDestroy(() => clearTimeout(this.searchTimer));
   }
 
   type(value: string) {
     this.query.set(value);
     this.active.set(0);
-    clearTimeout(this.searchTimer);
     const id = ++this.searchId;
     if (value.trim().length < TRACK_QUERY_MIN) {
       this.tracks.set([]);
       return;
     }
-    this.searchTimer = window.setTimeout(async () => {
-      const tracks = await invoke<DirEntry[]>('search_library', { query: value.trim() }).catch(
-        () => [],
-      );
-      if (id === this.searchId) this.tracks.set(tracks);
-    }, TRACK_SEARCH_DELAY_MS);
+    invoke<NamedTrack[]>('search_library', { query: value.trim() }).then(
+      (tracks) => id === this.searchId && this.tracks.set(tracks),
+      () => id === this.searchId && this.tracks.set([]),
+    );
   }
 
   key(event: KeyboardEvent) {
@@ -231,7 +222,7 @@ export class CommandPalette {
     item.run();
   }
 
-  load(track: DirEntry, deck: number) {
+  load(track: NamedTrack, deck: number) {
     this.close();
     this.library.load(track.path, deck);
   }
@@ -240,12 +231,11 @@ export class CommandPalette {
     this.navigation.palette.set(false);
   }
 
-  private trackItem(track: DirEntry): Item {
-    const tags = track.details?.tags;
+  private trackItem(track: NamedTrack): Item {
     return {
       section: 'tracks',
-      title: trackTitle(track),
-      detail: tags?.artist ?? '',
+      title: track.title,
+      detail: track.artist ?? '',
       track,
       run: () => this.library.load(track.path, null),
     };
