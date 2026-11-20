@@ -67,6 +67,8 @@ pub struct View {
     pub quantize: bool,
     /// The Auto DJ plays or mixes.
     pub auto_dj: bool,
+    /// The file of a track to preview opens (the engine previews it once it is open).
+    pub preview_opening: bool,
     pub perform: PerformView,
 }
 
@@ -275,6 +277,7 @@ pub(crate) mod fixtures {
             },
             quantize: false,
             auto_dj: false,
+            preview_opening: false,
             perform: PerformState::default().view(Default::default()),
         }
     }

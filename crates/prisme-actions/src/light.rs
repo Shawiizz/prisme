@@ -85,7 +85,9 @@ pub fn light(target: &Target, view: &View) -> Option<Light> {
         Target::Deck(deck, action) => deck_light(*deck, *action, view),
         Target::Mixer(action) => mixer_light(*action, view).map(Light::lit),
         Target::Library(LibraryAction::Load(deck)) => Some(Light::of(deck_state(view.status(*deck)))),
-        Target::Library(LibraryAction::Preview) => Some(Light::lit(view.status.preview.is_some())),
+        Target::Library(LibraryAction::Preview) => {
+            Some(Light::lit(view.status.preview.is_some() || view.preview_opening))
+        }
         Target::General(GeneralAction::Record) => Some(Light::lit(view.status.recording.is_some())),
         Target::General(GeneralAction::Quantize(turn)) => Some(Light::lit(shows(*turn, view.quantize))),
         Target::AutoDj(AutoDjAction::Toggle) => Some(Light::lit(view.auto_dj)),
@@ -543,6 +545,10 @@ mod tests {
         assert_eq!(state("library.load1", &v), OFF);
         assert_eq!(state("library.load2.play", &v), None);
         assert_eq!(state("general.record", &v), OFF);
+        assert_eq!(state("library.preview", &v), OFF);
+        v.preview_opening = true;
+        assert_eq!(state("library.preview", &v), ON, "as soon as its file opens");
+        v.preview_opening = false;
         v.status.recording = Some(prisme_engine::RecordingStatus::default());
         v.auto_dj = true;
         v.status.preview =
