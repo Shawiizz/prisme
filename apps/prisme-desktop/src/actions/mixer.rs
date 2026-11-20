@@ -143,6 +143,12 @@ pub fn set_deck_cue(state: &AppState, deck: usize, enabled: bool) -> AppResult<(
     state.send_if_running(Command::SetDeckCue { deck, enabled })
 }
 
+/// `deck` alone in the headphones, of the decks in use.
+pub fn solo_cue(state: &AppState, deck: usize) -> AppResult<()> {
+    let decks = state.preferences.read(|p| p.dj.decks());
+    (0..decks).try_for_each(|d| set_deck_cue(state, d, d == deck))
+}
+
 /// The crossfader's sides swapped, or back. Kept for the next start.
 pub fn set_crossfader_reverse(state: &AppState, enabled: bool) -> AppResult<()> {
     state.update_preferences(|p| p.mixer.crossfader_reverse = enabled);

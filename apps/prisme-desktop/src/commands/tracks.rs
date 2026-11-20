@@ -1,3 +1,4 @@
+use crate::actions::deck;
 use crate::auto_dj::{AutoDj, Takeover};
 use crate::dto::{SeparationDto, TrackInfoDto};
 use crate::error::{AppError, AppResult};
@@ -45,7 +46,11 @@ pub fn double_deck(
     let auto_gain = state.preferences.read(|p| p.dj.auto_gain);
     let commands =
         track.load_commands(deck, auto_gain).into_iter().chain([Command::TakePlace { deck, from }]);
-    Ok(state.put_track(deck, turn, Some(track), commands)?.then_some(info))
+    if !state.put_track(deck, turn, Some(track), commands)? {
+        return Ok(None);
+    }
+    deck::loaded(&state, deck)?;
+    Ok(Some(info))
 }
 
 /// Sends the waveform of the track on `deck` to `channel` (`dto::waveform_bytes`): what is

@@ -1,5 +1,5 @@
 import { StemMix } from './models/stems';
-import { StemPart, hasPart, partId, partIn, partLevel, partPlaying } from './stem-parts';
+import { StemPart, partId, partIn, partLevel, partPlaying } from './stem-parts';
 
 const ALL: StemMix = {
   vocals: { level: 1, on: true },
@@ -10,15 +10,6 @@ const ALL: StemMix = {
 const off = { level: 1, on: false };
 
 describe('stem parts', () => {
-  it('offers the parts a separation has', () => {
-    expect(hasPart('none', 'vocals')).toBe(false);
-    expect(hasPart('vocals', 'vocals')).toBe(true);
-    expect(hasPart('vocals', 'instrumental')).toBe(true);
-    expect(hasPart('vocals', 'drums')).toBe(false);
-    expect(hasPart('full', 'bass')).toBe(true);
-    expect(hasPart('full', 'instrumental')).toBe(true);
-  });
-
   it('counts the instrumental as playing while any instrument does', () => {
     const drumsOnly: StemMix = { vocals: off, drums: ALL.drums, bass: off, other: off };
     expect(partPlaying(drumsOnly, 'instrumental')).toBe(true);

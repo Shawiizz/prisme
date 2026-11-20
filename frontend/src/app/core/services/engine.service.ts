@@ -371,7 +371,6 @@ export class EngineService {
       const info = await load();
       if (!info) return false;
       this.show(deck, info);
-      if (this.preferences.dj().cueOnLoad) this.soloCue(deck);
       this.error.set(null);
       return true;
     } catch (e) {

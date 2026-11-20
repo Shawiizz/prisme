@@ -317,7 +317,6 @@ pub fn run() {
             commands::fx::set_fx_amount,
             commands::fx::set_fx_param2,
             commands::fx::set_fx_chain_enabled,
-            commands::fx::set_fx_part,
             commands::mixer::mixer_state,
             commands::mixer::set_mix_mode,
             commands::mixer::set_headphones_output,

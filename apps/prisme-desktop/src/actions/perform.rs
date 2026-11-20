@@ -156,10 +156,7 @@ impl Performing<'_> {
             DeckAction::KeyDown => deck::key_to(state, deck, key() - 1),
             DeckAction::KeyReset => deck::key_to(state, deck, 0),
             DeckAction::KeyTo(semitones) => deck::key_to(state, deck, semitones),
-            DeckAction::HeadphonesSolo => {
-                let decks = state.preferences.read(|p| p.dj.decks());
-                (0..decks).try_for_each(|d| mixer::set_deck_cue(state, d, d == deck))
-            }
+            DeckAction::HeadphonesSolo => mixer::solo_cue(state, deck),
             DeckAction::CrossfaderSide(side) => mixer::set_crossfader_side(state, deck, side.into()),
             DeckAction::Fx(slot, FxAction::Enabled(turn)) => {
                 let on = lock(&state.decks)[deck].fx.slots[slot].enabled;

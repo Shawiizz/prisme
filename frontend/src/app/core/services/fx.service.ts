@@ -1,7 +1,7 @@
 import { Injectable, computed, effect, inject, signal, untracked } from '@angular/core';
 import { EffectKind, FxChain, FxSettings, MAX_DECKS } from '../models/engine';
 import { fxId } from '../control/controls';
-import { StemPart, hasPart } from '../stem-parts';
+import { StemPart } from '../stem-parts';
 import { EngineService } from './engine.service';
 
 /**
@@ -30,15 +30,6 @@ export class FxService {
           if (slot !== null) this.choose(deck, slot);
         }),
       );
-    });
-    effect(() => {
-      const tracks = this.engine.tracks();
-      untracked(() => {
-        tracks.forEach((track, deck) => {
-          const part = this.chain(deck).part;
-          if (track && part && !hasPart(track.separation, part)) void this.setPart(deck, null);
-        });
-      });
     });
   }
 
@@ -106,11 +97,6 @@ export class FxService {
       case 'full':
         return [null, 'vocals', 'drums', 'bass', 'other'];
     }
-  }
-
-  setPart(deck: number, part: StemPart | null) {
-    this.engine.patchDeck(deck, { fx: { ...this.chain(deck), part } });
-    return this.engine.call('set_fx_part', { deck, part });
   }
 
   /** The chain on the next part it can be on, after the last on the whole deck again. */

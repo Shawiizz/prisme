@@ -372,6 +372,18 @@ impl FxPartDto {
     }
 }
 
+impl From<FxPartDto> for prisme_control::StemPart {
+    fn from(part: FxPartDto) -> Self {
+        match part {
+            FxPartDto::Vocals => Self::Vocals,
+            FxPartDto::Drums => Self::Drums,
+            FxPartDto::Bass => Self::Bass,
+            FxPartDto::Other => Self::Melody,
+            FxPartDto::Instrumental => Self::Instrumental,
+        }
+    }
+}
+
 /// A channel of the software mixer, before its fader. Gains are linear.
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]

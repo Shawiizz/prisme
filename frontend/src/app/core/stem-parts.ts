@@ -1,4 +1,4 @@
-import { Separation, StemMix } from './models/stems';
+import { StemMix } from './models/stems';
 
 /** A part of a separated track that a deck mutes or turns down: one stem, or the
  * instrumental (everything but the vocals). */
@@ -9,18 +9,6 @@ const INSTRUMENTS = ['drums', 'bass', 'other'] as const;
 /** The stems `part` stands for. */
 function stemsOf(part: StemPart): (keyof StemMix)[] {
   return part === 'instrumental' ? [...INSTRUMENTS] : [part];
-}
-
-/** Whether a track separated this far has `part` to mute. */
-export function hasPart(separation: Separation, part: StemPart): boolean {
-  switch (separation) {
-    case 'none':
-      return false;
-    case 'vocals':
-      return part === 'vocals' || part === 'instrumental';
-    case 'full':
-      return true;
-  }
 }
 
 /** Whether `part` plays: the instrumental while any of its instruments does. */
