@@ -10,3 +10,13 @@ pub mod scales;
 pub mod stems;
 pub mod sync;
 pub mod tap;
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn the_actions_name_as_many_decks_and_slots_as_the_engine_has() {
+        assert_eq!(prisme_control::SAMPLE_SLOTS, prisme_engine::SAMPLE_SLOTS);
+        assert_eq!(prisme_control::FX_SLOTS, prisme_engine::FX_SLOTS);
+        assert_eq!(prisme_control::MAX_DECKS, prisme_engine::MAX_DECKS);
+    }
+}
