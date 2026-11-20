@@ -38,6 +38,8 @@ pub struct SyncStatus {
 pub struct LoopStatus {
     /// The stored loop, active or not.
     pub region: Option<LoopRegion>,
+    /// How many beats it lasts, on the deck's grid.
+    pub beats: Option<f64>,
     pub active: bool,
     /// Start marked by LOOP IN, waiting for LOOP OUT.
     pub loop_in_s: Option<f64>,

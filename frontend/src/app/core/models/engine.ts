@@ -47,6 +47,8 @@ export interface SyncStatus {
 export interface LoopStatus {
   startS: number | null;
   endS: number | null;
+  /** The beats of the loop playing, as the pads of a loop of that length show it. */
+  beats: number | null;
   active: boolean;
   /** Start marked by LOOP IN, waiting for LOOP OUT. */
   loopInS: number | null;

@@ -676,6 +676,11 @@ impl Deck {
             sync: SyncStatus { locked: self.sync.locked, leader, rate_offset: self.sync.rate_offset },
             looping: LoopStatus {
                 region: self.transport.loop_region,
+                beats: self
+                    .transport
+                    .loop_region
+                    .zip(self.grid)
+                    .map(|(r, g)| (r.end_s - r.start_s) * g.bpm / 60.0),
                 active: self.transport.loop_active,
                 loop_in_s: self.transport.loop_in_s,
                 rolling: self.transport.rolling,

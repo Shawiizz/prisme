@@ -189,7 +189,7 @@ impl Performing<'_> {
             DeckAction::LoopDouble => send(Command::ScaleLoop { deck, factor: 2.0 }),
             DeckAction::LoopBeats(Beats(beats)) => self.loop_of(deck, beats),
             DeckAction::Loop => self.toggle_loop(deck, LOOP_BEATS),
-            DeckAction::LoopSize => self.toggle_loop(deck, size()),
+            DeckAction::LoopSize => self.loop_of(deck, size()),
             DeckAction::LoopClear => transport::set_loop(state, deck, None, None, false),
             DeckAction::ReloopStop => self.reloop_stopped(deck),
             DeckAction::LoopInGoto => self.to_loop_edge(deck, false),
@@ -297,8 +297,7 @@ impl Performing<'_> {
     /// A loop of `beats` where `deck` plays, or out of it if it plays that loop.
     fn loop_of(&self, deck: usize, beats: f64) -> AppResult<()> {
         let status = self.state.deck_status(deck)?;
-        let bpm = self.state.with_track(deck, |t| t.grid().map(|g| g.bpm)).ok().flatten();
-        let command = if plays_loop(&status, bpm, beats) {
+        let command = if plays_loop(&status.looping, beats) {
             Command::ExitLoop { deck }
         } else {
             Command::BeatLoop { deck, beats }
@@ -831,6 +830,29 @@ mod switches {
         press(&bench, "deck1.loop.2");
         bench.run(0.01);
         press(&bench, "deck1.loop.2");
+        assert!(matches!(bench.sent()[..], [Command::ExitLoop { deck: 0 }]));
+    }
+
+    fn light(bench: &Bench, id: &str) -> bool {
+        let light = prisme_actions::light::light(&id.parse().unwrap(), &bench.view()).unwrap();
+        light.state != prisme_actions::light::State::Off
+    }
+
+    #[test]
+    fn the_sized_loop_key_leaves_a_loop_of_the_size_as_its_light_shows_and_no_other() {
+        let bench = Bench::new();
+        bench.load(0, 60.0, Some(120.0));
+        press(&bench, "deck1.loop.2");
+        bench.run(0.01);
+        press(&bench, "deck1.size.double");
+        // a loop of two beats playing, the size eight
+        assert_eq!(bench.view().decks[0].size_beats, 8.0);
+        assert!(!light(&bench, "deck1.loop.size"));
+        press(&bench, "deck1.loop.size");
+        bench.run(0.01);
+        assert_eq!(bench.status(0).looping.beats, Some(8.0), "a loop of the size");
+        assert!(light(&bench, "deck1.loop.size"));
+        press(&bench, "deck1.loop.size");
         assert!(matches!(bench.sent()[..], [Command::ExitLoop { deck: 0 }]));
     }
 

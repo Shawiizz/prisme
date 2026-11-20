@@ -4,6 +4,7 @@ use crate::auto_dj::machine::{Reason, State, Status, Takeover};
 use crate::auto_dj::plan::FadeLength;
 use crate::commands::mixer::mixer_state_of;
 use crate::state::{lock, AppState, LoadedTrack, Section};
+use prisme_actions::pads::playing_loop;
 use prisme_actions::perform::DeckPerformView;
 pub use prisme_actions::stems::{Separation as SeparationDto, StemMix as StemMixDto};
 use prisme_audio_io::{Backend, StreamStats};
@@ -1019,6 +1020,9 @@ pub struct DeckStatusDto {
 pub struct LoopDto {
     pub start_s: Option<f64>,
     pub end_s: Option<f64>,
+    /// The beats of the loop playing, as the pads of a loop of that length show it
+    /// (`pads::playing_loop`).
+    pub beats: Option<f64>,
     pub active: bool,
     /// Start marked by LOOP IN, waiting for LOOP OUT.
     pub loop_in_s: Option<f64>,
@@ -1029,6 +1033,7 @@ impl From<LoopStatus> for LoopDto {
         Self {
             start_s: l.region.map(|r| r.start_s),
             end_s: l.region.map(|r| r.end_s),
+            beats: playing_loop(&l),
             active: l.active,
             loop_in_s: l.loop_in_s,
         }

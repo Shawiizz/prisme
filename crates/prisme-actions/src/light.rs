@@ -3,7 +3,7 @@
 //! hot cue.
 
 use crate::cue::at_cue;
-use crate::pads::{loop_beats, plays_loop, slice_at, LOOP_LENGTH_WITHIN, ROLL_BEATS};
+use crate::pads::{plays_loop, slice_at, ROLL_BEATS};
 use crate::switch::Switch;
 use crate::sync::{phase, Beat, Phase};
 use crate::view::{band_index, TrackView, View};
@@ -126,9 +126,8 @@ fn deck_light(deck: usize, action: DeckAction, view: &View) -> Option<Light> {
         }
         DeckAction::Loop | DeckAction::LoopAny => status.looping.active,
         DeckAction::LoopIn => status.looping.loop_in_s.is_some(),
-        DeckAction::LoopSize => loop_beats(status, track.and_then(|t| t.bpm))
-            .is_some_and(|beats| (beats / settings.size_beats - 1.0).abs() < LOOP_LENGTH_WITHIN),
-        DeckAction::LoopBeats(Beats(length)) => plays_loop(status, track.and_then(|t| t.bpm), length),
+        DeckAction::LoopSize => plays_loop(&status.looping, settings.size_beats),
+        DeckAction::LoopBeats(Beats(length)) => plays_loop(&status.looping, length),
         DeckAction::ReloopStop => status.looping.region.is_some(),
         DeckAction::KeyReset => key_shift != 0,
         DeckAction::KeyTo(semitones) => i32::from(key_shift) == semitones,
@@ -381,6 +380,7 @@ mod tests {
         let mut v = loaded(view(), 0, 10.0, true);
         // two seconds at 120 BPM: four beats
         v.status.decks[0].looping.region = Some(LoopRegion { start_s: 8.0, end_s: 10.0 });
+        v.status.decks[0].looping.beats = Some(4.0);
         assert_eq!(state("deck1.loop.size", &v), OFF, "stored, not playing");
         assert_eq!(state("deck1.reloop.stop", &v), ON);
         v.status.decks[0].looping.active = true;

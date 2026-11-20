@@ -6,7 +6,7 @@ import { EngineService } from '../../../core/services/engine.service';
 import { PerformanceService } from '../../../core/services/performance.service';
 import { EffectKind, FxSettings, PADS, SLICES } from '../../../core/models/engine';
 import { Knob } from '../../../shared/knob/knob';
-import { CUT_BEATS, ROLL_BEATS, formatBeats, loopBeats } from '../../../shared/beats';
+import { CUT_BEATS, ROLL_BEATS, formatBeats } from '../../../shared/beats';
 import { readouts } from '../../../shared/mixer-scales';
 import { Text, t } from '../../../core/i18n/i18n';
 import { TPipe } from '../../../core/i18n/t.pipe';
@@ -209,12 +209,7 @@ export class DeckPads {
     });
   }
 
-  private readonly activeLoopBeats = computed(() => {
-    const looping = this.status()?.looping;
-    const bpm = this.engine.tracks()[this.deck()]?.tempo?.bpm;
-    if (!looping?.active || looping.startS === null || looping.endS === null || !bpm) return null;
-    return loopBeats(looping.endS - looping.startS, 60 / bpm);
-  });
+  private readonly activeLoopBeats = computed(() => this.status()?.looping.beats ?? null);
 
   protected readonly pads = computed<Pad[]>(() => {
     switch (this.mode()) {
