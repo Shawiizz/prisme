@@ -1,7 +1,7 @@
 import { Preferences } from './preferences';
 /** Shapes exchanged with the Rust side (see apps/prisme-desktop/src/dto.rs). */
 
-import { Knob } from '../../shared/readout';
+import { Fader, Knob } from '../../shared/readout';
 import { MeterLevel } from '../../shared/meter';
 import { StemPart } from '../stem-parts';
 import { LibraryLists, LibraryView } from './library';
@@ -557,7 +557,7 @@ export interface StripKnobs {
 
 /** The knobs of the mixer beside its channels. */
 export interface MixerKnobs {
-  crossfader: number;
+  crossfader: Fader;
   cueMix: Knob;
   headphones: Knob;
   main: Knob;

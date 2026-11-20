@@ -25,12 +25,21 @@ pub struct StripKnobs {
     pub filter: Knob,
 }
 
+/// A fader of the screen that reads nothing under it.
+#[derive(Debug, Clone, Copy, PartialEq, Serialize)]
+pub struct Fader {
+    /// Where it stands, from 0 to 1.
+    pub at: f32,
+    /// Where a double click puts it back.
+    pub home: f32,
+}
+
 /// The knobs of the mixer beside its channels, and its crossfader.
 #[derive(Debug, Clone, Copy, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct MixerKnobs {
-    /// Where the crossfader stands, from 0 (left) to 1.
-    pub crossfader: f32,
+    /// The crossfader, from 0 (left) to 1, back in the middle.
+    pub crossfader: Fader,
     pub cue_mix: Knob,
     pub headphones: Knob,
     pub main: Knob,
@@ -63,7 +72,7 @@ pub fn mixer(view: &View) -> MixerKnobs {
     let mixer = &view.mixer;
     let knob = |action, reads, home| Knob { at: at(Target::Mixer(action), view), reads, home };
     MixerKnobs {
-        crossfader: at(Target::Mixer(MixerAction::Crossfader), view),
+        crossfader: Fader { at: at(Target::Mixer(MixerAction::Crossfader), view), home: CENTRE },
         cue_mix: knob(MixerAction::CueMix, Readout::percent(mixer.cue_mix), 0.0),
         headphones: knob(MixerAction::Headphones, Readout::db(mixer.headphone_gain), headphone_knob(1.0)),
         main: knob(MixerAction::Main, Readout::db(mixer.main_gain), 1.0),
@@ -110,7 +119,7 @@ mod tests {
         view.mixer.headphone_gain = 1.0;
         view.mixer.mic.level = live_gain(1.0);
         let knobs = mixer(&view);
-        assert_eq!(knobs.crossfader, 1.0);
+        assert_eq!(knobs.crossfader, Fader { at: 1.0, home: 0.5 });
         assert_eq!(knobs.headphones.home, knobs.headphones.at);
         assert_eq!(knobs.headphones.reads, Readout::Db(Some(0.0)));
         assert_eq!((knobs.mic.at, knobs.mic.reads), (1.0, Readout::Db(Some(12.0))));

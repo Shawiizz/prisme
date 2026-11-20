@@ -2381,7 +2381,7 @@ mod tests {
         let controls = ControlStateDto::of(&state, &view_of(&state), Section::ALL);
         let mixer = controls.mixer.unwrap();
         assert_eq!(mixer.decks[1].strip.eq[0], 0.5);
-        assert_eq!(mixer.knobs.crossfader, 0.0);
+        assert_eq!(mixer.knobs.crossfader.at, 0.0);
         assert_eq!(controls.quantize, Some(true));
         assert_eq!(controls.tracks.unwrap().len(), prisme_engine::MAX_DECKS);
     }

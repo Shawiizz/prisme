@@ -13,6 +13,14 @@ export interface Knob {
   home: number;
 }
 
+/** A fader of the screen that reads nothing under it (`knobs::Fader`). */
+export interface Fader {
+  /** Where it stands, from 0 to 1. */
+  at: number;
+  /** Where a double click puts it back. */
+  home: number;
+}
+
 /** "+3.0 dB", "−∞ dB", "42 %", "L = R", "R 20 %", "LPF 35 %". */
 export function readout(reads: Readout): string {
   if ('db' in reads) {

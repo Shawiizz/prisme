@@ -89,7 +89,8 @@
         <app-fader
           touch
           centered
-          [value]="mixer.knobs()?.crossfader ?? 0.5"
+          [value]="mixer.knobs()?.crossfader.at ?? 0.5"
+          [defaultValue]="mixer.knobs()?.crossfader.home ?? 0.5"
           (valueChange)="mixer.setCrossfader($event)"
           [label]="'Crossfader' | t"
         />
