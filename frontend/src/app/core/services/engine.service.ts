@@ -5,6 +5,7 @@ import { Channel, invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
 import { semitonesToMix, transposeCamelot } from '../../shared/camelot';
 import {
+  ControlState,
   Cue,
   MAX_DECKS,
   DeckTrackUpdate,
@@ -27,6 +28,7 @@ import {
 import { PreferencesService } from './preferences.service';
 import { Playhead, followPlayhead } from '../playhead';
 import { ConfirmService } from '../../shared/confirm/confirm';
+import { same } from '../same';
 import { deckLetter } from '../../shared/time';
 import { t } from '../i18n/i18n';
 import { errorText } from '../errors';
@@ -77,6 +79,8 @@ export class EngineService {
 
   /** Latest engine state (drives the templates). */
   readonly status = signal<EngineStatus | null>(null);
+  /** What the app mirrors as the backend last told it changed (`EngineStatus.controls`). */
+  readonly controls = signal<ControlState | null>(null);
   readonly tracks = signal<(TrackInfo | null)[]>(Array(MAX_DECKS).fill(null));
   readonly loading = signal<boolean[]>(Array(MAX_DECKS).fill(false));
   /** Waveform of each deck's track, once fetched. */
@@ -129,16 +133,13 @@ export class EngineService {
     const channel = new Channel<EngineStatus>();
     channel.onmessage = (s) => {
       this.playheads = s.decks.map((d, i) => followPlayhead(this.playheads[i] ?? null, d));
+      if (s.controls) this.applyControls(s.controls);
       this.status.set(s);
     };
     await invoke('subscribe_status', { channel });
     await listen<DeckTrackUpdate>('deck-track-update', (e) => this.completeTrack(e.payload));
     // a track the Auto DJ put on a deck
     await listen<TrackInfo>('deck-loaded', ({ payload }) => this.show(payload.deck, payload));
-    // a tempo set by the backend: a controller's tempo fader, the Auto DJ, a record letting go
-    await listen<{ deck: number; ratio: number }>('deck-pitch', ({ payload }) =>
-      this.patchDeck(payload.deck, { pitch: payload.ratio }),
-    );
     const [tracks, mixer] = await Promise.all([
       invoke<(TrackInfo | null)[]>('loaded_tracks'),
       invoke<MixerState>('mixer_state'),
@@ -158,6 +159,30 @@ export class EngineService {
 
   private showDecks(mixer: MixerState) {
     this.decks.set(mixer.decks.map((d) => ({ ...DEFAULT_DECK, ...d })));
+  }
+
+  /** What the backend changed of what the app mirrors: the decks' settings, the tracks' key
+   * shifts, stem mixes and cues, the DJ's quantize and tempo range. What is the same stays as
+   * it is, for the views that follow it. */
+  private applyControls(controls: ControlState) {
+    const decks = controls.mixer.decks.map((d, deck) => {
+      const next = { ...DEFAULT_DECK, ...d };
+      return same(next, this.decks()[deck]) ? this.decks()[deck] : next;
+    });
+    if (decks.some((d, deck) => d !== this.decks()[deck])) this.decks.set(decks);
+    const tracks = this.tracks().map((track, deck) => {
+      const told = controls.tracks[deck];
+      if (!track || told?.loadId !== track.loadId) return track;
+      const { keyShift, stemMix, cues } = told;
+      const next = { ...track, keyShift, stemMix, cues };
+      return same(next, track) ? track : next;
+    });
+    if (tracks.some((t, deck) => t !== this.tracks()[deck])) this.tracks.set(tracks);
+    const { quantize, pitchRange } = controls;
+    const dj = this.preferences.dj();
+    if (dj.quantize !== quantize || dj.pitchRange !== pitchRange)
+      this.preferences.dj.set({ ...dj, quantize, pitchRange });
+    this.controls.set(controls);
   }
 
   /** Matches the leader once and leaves the deck free (unlocking it first). */

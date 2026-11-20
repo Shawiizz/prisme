@@ -7,6 +7,7 @@ import {
   linkedSignal,
   output,
   signal,
+  untracked,
 } from '@angular/core';
 import { PreferencesService } from '../../core/services/preferences.service';
 
@@ -250,8 +251,11 @@ export class Knob {
   protected readonly CAP = CAP;
   protected readonly track = arc(START, START + SWEEP);
   /** Follows the input, and moves at once with the gestures (several can come before the
-   * input does). */
-  protected readonly current = linkedSignal(() => this.value());
+   * input does); held, the pointer's, the input's echoes of older values coming in between. */
+  protected readonly current = linkedSignal<number, number>({
+    source: this.value,
+    computation: (value, before) => (before && untracked(this.grabbed) ? before.value : value),
+  });
   private readonly angle = computed(() => START + Math.min(Math.max(this.current(), 0), 1) * SWEEP);
   protected readonly valueArc = computed(() =>
     arc(this.bipolar() ? START + SWEEP / 2 : START, this.angle()),

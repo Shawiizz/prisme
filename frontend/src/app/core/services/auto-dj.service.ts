@@ -114,11 +114,7 @@ export class AutoDjService {
   });
 
   async init(): Promise<void> {
-    await Promise.all([
-      listen<AutoDjStatus>('auto-dj', ({ payload }) => this.status.set(payload)),
-      // the Auto DJ's fade, shown on the crossfader
-      listen<number>('crossfader-moved', ({ payload }) => this.mixer.crossfader.set(payload)),
-    ]);
+    await listen<AutoDjStatus>('auto-dj', ({ payload }) => this.status.set(payload));
     this.status.set(await invoke<AutoDjStatus>('auto_dj_status'));
   }
 

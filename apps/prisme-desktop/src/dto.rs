@@ -2,6 +2,8 @@
 
 use crate::auto_dj::machine::{Reason, State, Status, Takeover};
 use crate::auto_dj::plan::FadeLength;
+use crate::commands::mixer::mixer_state_of;
+use crate::state::{lock, AppState};
 pub use prisme_actions::stems::{Separation as SeparationDto, StemMix as StemMixDto};
 use prisme_audio_io::{Backend, StreamStats};
 use prisme_engine::{
@@ -963,6 +965,49 @@ pub struct StatusDto {
     pub health: Option<AudioHealthDto>,
     pub recording: Option<RecordingStatusDto>,
     pub preview: Option<PreviewStatusDto>,
+    /// What the interface mirrors, when it changed since the status before.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub controls: Option<ControlStateDto>,
+}
+
+/// What the interface mirrors of the decks, their tracks, the mixer and the DJ's preferences.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ControlStateDto {
+    pub mixer: MixerStateDto,
+    /// What changes of each deck's track while it stays loaded.
+    pub tracks: Vec<Option<TrackStateDto>>,
+    pub quantize: bool,
+    /// The range of the tempo faders without one of their own.
+    pub pitch_range: f64,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TrackStateDto {
+    /// The load it is of: one the interface does not show yet is not changed.
+    pub load_id: u64,
+    pub key_shift: i8,
+    pub stem_mix: StemMixDto,
+    pub cues: Vec<CueDto>,
+}
+
+impl ControlStateDto {
+    pub fn of(state: &AppState) -> Self {
+        let (quantize, pitch_range) = state.preferences.read(|p| (p.dj.quantize, p.dj.pitch_range));
+        let tracks = lock(&state.tracks)
+            .iter()
+            .map(|t| {
+                t.as_ref().map(|t| TrackStateDto {
+                    load_id: t.load_id,
+                    key_shift: t.key_shift,
+                    stem_mix: t.stem_mix,
+                    cues: t.cue_dtos(),
+                })
+            })
+            .collect();
+        Self { mixer: mixer_state_of(state), tracks, quantize, pitch_range }
+    }
 }
 
 #[derive(Debug, Clone, Copy, Serialize)]
@@ -1051,6 +1096,7 @@ impl StatusDto {
                 duration_s: p.duration_s,
                 waiting: p.waiting,
             }),
+            controls: None,
         }
     }
 
@@ -1064,6 +1110,7 @@ impl StatusDto {
             health: None,
             recording: None,
             preview: None,
+            controls: None,
         }
     }
 }
@@ -1473,6 +1520,25 @@ pub struct OutputDto {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_change_the_interface_mirrors_moves_the_revision_and_reaches_it_a_read_does_not() {
+        let state = AppState::new(prisme_session::JsonFile::in_memory(Default::default()));
+        let before = state.revision();
+        let pitch = lock(&state.decks)[1].pitch;
+        assert_eq!((pitch, state.revision()), (1.0, before), "read");
+        lock(&state.decks)[1].strip.eq[0] = 0.5;
+        let eq = state.revision();
+        assert!(eq > before);
+        state.update_preferences(|p| p.dj.quantize = true);
+        *lock(&state.crossfader) = -1.0;
+        assert!(state.revision() > eq);
+        let controls = ControlStateDto::of(&state);
+        assert_eq!(controls.mixer.decks[1].strip.eq[0], 0.5);
+        assert_eq!(controls.mixer.crossfader, -1.0);
+        assert!(controls.quantize);
+        assert_eq!(controls.tracks.len(), prisme_engine::MAX_DECKS);
+    }
 
     #[test]
     fn the_default_devices_keep_the_simulated_turntable() {

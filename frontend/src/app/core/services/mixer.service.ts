@@ -1,4 +1,4 @@
-import { Injectable, computed, effect, inject, signal } from '@angular/core';
+import { Injectable, computed, effect, inject, signal, untracked } from '@angular/core';
 import { invoke } from '@tauri-apps/api/core';
 import {
   BANDS,
@@ -17,6 +17,7 @@ import {
 import { EngineService } from './engine.service';
 import { SettingsService } from './settings.service';
 import { errorText } from '../errors';
+import { same } from '../same';
 
 const LIVE_OFF: LiveState = { input: null, inUse: false, level: 1, on: false, cue: false };
 
@@ -37,7 +38,7 @@ export class MixerService {
   readonly modeInUse = signal<MixMode | null>(null);
   /** Where the user wants the headphones: those of the software mixer, or with an external
    * mixer those of the preview. */
-  readonly headphones = signal<HeadphonesOutput>({ kind: 'auto' });
+  readonly headphones = signal<HeadphonesOutput>({ kind: 'auto' }, { equal: same });
   /** First output (0-based) of the headphones in use; `null` when they are not heard. With an
    * external mixer, a pair no deck uses, for the preview alone. */
   readonly headphonesInUse = signal<number | null>(null);
@@ -58,15 +59,15 @@ export class MixerService {
   readonly booth = signal<number | null>(null);
   readonly boothInUse = signal<number | null>(null);
   readonly boothGain = signal(1);
-  readonly mic = signal<LiveState>(LIVE_OFF);
-  readonly aux = signal<LiveState>(LIVE_OFF);
+  readonly mic = signal<LiveState>(LIVE_OFF, { equal: same });
+  readonly aux = signal<LiveState>(LIVE_OFF, { equal: same });
   /** While the microphone is on, the music ducks by `talkoverDepthDb`. */
   readonly talkover = signal(false);
   readonly talkoverDepthDb = signal(-18);
   /** The inputs of the running device the turntables leave free (0-based). */
-  readonly freeInputs = signal<number[]>([]);
+  readonly freeInputs = signal<number[]>([], { equal: same });
   /** What was recorded last: a recording started without asking takes it again. */
-  readonly recordSource = signal<RecordSource | null>(null);
+  readonly recordSource = signal<RecordSource | null>(null, { equal: same });
   /** The software mixer is in use. */
   readonly internal = computed(() => (this.modeInUse() ?? this.mode()) === 'internal');
   /** External mode asked for, but the device has too few outputs: the software mixer runs. */
@@ -76,6 +77,11 @@ export class MixerService {
     // the routing depends on the device the audio runs on
     effect(() => {
       if (this.settings.info()) void this.followDevice();
+    });
+    // what the backend changed
+    effect(() => {
+      const controls = this.engine.controls();
+      if (controls) untracked(() => this.apply(controls.mixer));
     });
   }
 
@@ -97,9 +103,11 @@ export class MixerService {
 
   private applyRouting(state: MixerState) {
     // of two decks layered on a turntable, one follows it on this device, and both read its record
-    state.decks.forEach((d, deck) =>
-      this.engine.patchDeck(deck, { vinylEnabled: d.vinylEnabled, timecode: d.timecode }),
-    );
+    state.decks.forEach(({ vinylEnabled, timecode }, deck) => {
+      const shown = this.engine.decks()[deck];
+      if (shown.vinylEnabled !== vinylEnabled || shown.timecode !== timecode)
+        this.engine.patchDeck(deck, { vinylEnabled, timecode });
+    });
     this.modeInUse.set(state.modeInUse);
     this.headphones.set(state.headphones);
     this.headphonesInUse.set(state.headphonesInUse);

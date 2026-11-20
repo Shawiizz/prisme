@@ -11,7 +11,7 @@
 pub mod machine;
 pub mod plan;
 
-use crate::dto::{AutoDjStatusDto, DeckPitchDto};
+use crate::dto::AutoDjStatusDto;
 use crate::history::PREPARE_CHANGED_EVENT;
 use crate::library_service::LibraryService;
 use crate::preferences::AutoDjPreferences;
@@ -31,8 +31,6 @@ use tracing::warn;
 pub const AUTO_DJ_EVENT: &str = "auto-dj";
 /// A track the Auto DJ put on a deck (`TrackInfoDto`).
 pub const DECK_LOADED_EVENT: &str = "deck-loaded";
-/// Where the Auto DJ put the crossfader.
-pub const CROSSFADER_EVENT: &str = "crossfader-moved";
 /// How often the decks are looked at: a mix starts at most this late (and is caught up).
 const TICK: Duration = Duration::from_millis(10);
 /// How often the first track of the prepare list is read again (the DJ reorders it).
@@ -157,7 +155,6 @@ impl AutoDj {
             Action::Cue { deck, position_s } => state.send(Command::Seek { deck, seconds: position_s }),
             Action::Start { deck, from_s, rate, snap } => {
                 lock(&state.decks)[deck].pitch = rate;
-                let _ = app.emit("deck-pitch", DeckPitchDto { deck, ratio: rate });
                 let snap = snap.then_some(Command::SyncOnce { deck });
                 [
                     Some(Command::SetSyncLocked { deck, locked: false }),
@@ -173,7 +170,6 @@ impl AutoDj {
             Action::Stop { deck } => state.send(Command::SetPlaying { deck, playing: false }),
             Action::Crossfader(position) => {
                 *lock(&state.crossfader) = position;
-                let _ = app.emit(CROSSFADER_EVENT, position);
                 state.send(Command::SetCrossfader { position })
             }
             Action::TakeOut(path) => {

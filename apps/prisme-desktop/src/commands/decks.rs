@@ -2,13 +2,13 @@ use crate::audio_host::layer_partner;
 use crate::auto_dj::{AutoDj, Takeover};
 use crate::commands::audio::start_audio;
 use crate::commands::blocking;
-use crate::dto::{DeckPitchDto, RpmDto, VinylModeDto};
+use crate::dto::{RpmDto, VinylModeDto};
 use crate::error::{AppError, AppResult};
 use crate::preferences::DeckPreferences;
 use crate::state::{deck_commands, lock, AppState};
 use prisme_engine::Command;
 use prisme_timecode::TimecodeFormat;
-use tauri::{AppHandle, Emitter, Manager, State};
+use tauri::{AppHandle, Manager, State};
 
 const MAX_KEY_SHIFT: u8 = 12;
 
@@ -84,10 +84,9 @@ pub fn set_pitch(state: State<'_, AppState>, deck: usize, ratio: f64) -> AppResu
 
 /// Vinyl control of a deck, kept for the next start. Returns the deck it took the turntable
 /// from, if they are layered on it (see `audio_host::deck_pair`). A deck a record lets go of
-/// plays on at the record's tempo, which the UI hears of (`deck-pitch`).
+/// plays on at the record's tempo.
 #[tauri::command]
 pub fn set_vinyl(
-    app: AppHandle,
     state: State<'_, AppState>,
     deck: usize,
     enabled: bool,
@@ -96,7 +95,9 @@ pub fn set_vinyl(
     lead_in_s: Option<f64>,
 ) -> AppResult<Option<usize>> {
     AppState::check_deck(deck)?;
-    let let_go = !enabled && state.let_go_of_record(deck);
+    if !enabled {
+        state.let_go_of_record(deck);
+    }
     let settings = {
         let mut decks = lock(&state.decks);
         let d = &mut decks[deck];
@@ -113,9 +114,6 @@ pub fn set_vinyl(
     let freed = enabled.then(|| state.take_turntable(deck)).flatten();
     for c in deck_commands(deck, &settings) {
         state.send_if_running(c)?;
-    }
-    for d in freed.into_iter().chain(let_go.then_some(deck)) {
-        let _ = app.emit("deck-pitch", DeckPitchDto { deck: d, ratio: lock(&state.decks)[d].pitch });
     }
     Ok(freed)
 }

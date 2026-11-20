@@ -124,6 +124,26 @@ export interface EngineStatus {
   recording: RecordingStatus | null;
   /** The track heard in the headphones before it goes on a deck. */
   preview: PreviewStatus | null;
+  /** What the app mirrors, when the backend changed it since the status before. */
+  controls?: ControlState;
+}
+
+/** What the app mirrors of the decks, their tracks, the mixer and the DJ's preferences. */
+export interface ControlState {
+  mixer: MixerState;
+  /** What changes of each deck's track while it stays loaded. */
+  tracks: (TrackState | null)[];
+  quantize: boolean;
+  /** The range of the tempo faders without one of their own. */
+  pitchRange: number;
+}
+
+export interface TrackState {
+  /** The load it is of: another load of the deck is not changed. */
+  loadId: number;
+  keyShift: number;
+  stemMix: StemMix;
+  cues: Cue[];
 }
 
 export interface PreviewStatus {

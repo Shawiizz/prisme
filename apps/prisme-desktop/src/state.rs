@@ -23,6 +23,7 @@ use prisme_library::{Cue, CueSlot, TrackEdits};
 use prisme_media::{TrackAudio, TrackTags};
 use prisme_session::JsonFile;
 use prisme_timecode::TimecodeFormat;
+use std::ops::{Deref, DerefMut};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex, MutexGuard};
@@ -267,26 +268,107 @@ pub struct LiveSwitches {
 }
 
 pub struct AppState {
+    /// Changed by [`AppState::update_preferences`] only, which the interface hears of.
     pub preferences: JsonFile<Preferences>,
     pub session: Mutex<Option<AudioSession>>,
-    pub tracks: Mutex<[Option<LoadedTrack>; MAX_DECKS]>,
+    pub tracks: Mirrored<[Option<LoadedTrack>; MAX_DECKS]>,
     load_turns: LoadTurns,
-    pub decks: Mutex<[DeckSettings; MAX_DECKS]>,
-    pub crossfader: Mutex<f32>,
+    pub decks: Mirrored<[DeckSettings; MAX_DECKS]>,
+    pub crossfader: Mirrored<f32>,
     /// The deck chosen to lead the others; `None`: the engine picks it.
     pub sync_leader: Mutex<Option<usize>>,
     /// The microphone's and the aux line's, in the order of [`LiveSourceDto::ALL`].
-    pub live: Mutex<[LiveSwitches; 2]>,
+    pub live: Mirrored<[LiveSwitches; 2]>,
     pub recorder: Mutex<Option<Recorder>>,
     /// Held while the audio starts: the watchdog and the user never start it at once.
     pub audio_start: Mutex<()>,
     /// Where the decks were as the audio last stopped to start again: kept for the start
     /// after it, should that one fail or its engine never run.
     carried: Mutex<[Option<Place>; MAX_DECKS]>,
-    pub samplers: Mutex<Samplers>,
+    pub samplers: Mirrored<Samplers>,
     /// The interface is out of sight: a phone's application in the background, which the
     /// system may stop calling for audio.
     pub hidden: AtomicBool,
+    /// Moved by every change of what the interface mirrors (see [`Mirrored`]).
+    revision: Arc<AtomicU64>,
+}
+
+/// State the interface mirrors (`ControlStateDto`): taken to be changed, it moves the
+/// revision the status stream tells the interface of a change by.
+pub struct Mirrored<T> {
+    value: Mutex<T>,
+    revision: Arc<AtomicU64>,
+}
+
+impl<T> Mirrored<T> {
+    fn new(value: T, revision: &Arc<AtomicU64>) -> Self {
+        Self { value: Mutex::new(value), revision: revision.clone() }
+    }
+}
+
+/// A [`Mirrored`] locked: read freely, changed through it alone.
+pub struct MirroredGuard<'a, T> {
+    guard: MutexGuard<'a, T>,
+    revision: &'a AtomicU64,
+}
+
+impl<T> Deref for MirroredGuard<'_, T> {
+    type Target = T;
+
+    fn deref(&self) -> &T {
+        &self.guard
+    }
+}
+
+/// Moved while the lock is held: a revision read before the change sees its value once it can
+/// lock it.
+impl<T> DerefMut for MirroredGuard<'_, T> {
+    fn deref_mut(&mut self) -> &mut T {
+        self.revision.fetch_add(1, Ordering::SeqCst);
+        &mut self.guard
+    }
+}
+
+/// What [`lock`] locks: a mutex, or state the interface mirrors.
+pub trait Lock {
+    type Guard<'a>
+    where
+        Self: 'a;
+
+    fn guard(&self) -> Self::Guard<'_>;
+}
+
+impl<T> Lock for Mutex<T> {
+    type Guard<'a>
+        = MutexGuard<'a, T>
+    where
+        T: 'a;
+
+    fn guard(&self) -> MutexGuard<'_, T> {
+        self.lock().unwrap_or_else(|e| e.into_inner())
+    }
+}
+
+impl<L: Lock> Lock for Arc<L> {
+    type Guard<'a>
+        = L::Guard<'a>
+    where
+        L: 'a;
+
+    fn guard(&self) -> L::Guard<'_> {
+        (**self).guard()
+    }
+}
+
+impl<T> Lock for Mirrored<T> {
+    type Guard<'a>
+        = MirroredGuard<'a, T>
+    where
+        T: 'a;
+
+    fn guard(&self) -> MirroredGuard<'_, T> {
+        MirroredGuard { guard: self.value.guard(), revision: &self.revision }
+    }
 }
 
 /// The loads asked for on each deck, in turn: one ends on its deck only if no other was asked
@@ -316,8 +398,8 @@ const ROOM_POLL: Duration = Duration::from_millis(1);
 
 /// Locks a mutex, recovering from a poisoned lock (a panicking command must not take
 /// the whole application down).
-pub fn lock<T>(m: &Mutex<T>) -> MutexGuard<'_, T> {
-    m.lock().unwrap_or_else(|e| e.into_inner())
+pub fn lock<L: Lock>(l: &L) -> L::Guard<'_> {
+    l.guard()
 }
 
 impl AppState {
@@ -326,21 +408,28 @@ impl AppState {
             preferences.update(|p| p.settle());
         }
         let saved = preferences.get().decks;
+        let revision = Arc::new(AtomicU64::new(0));
         Self {
             preferences,
             session: Mutex::new(None),
-            tracks: Mutex::default(),
+            tracks: Mirrored::new(Default::default(), &revision),
             load_turns: LoadTurns::default(),
-            decks: Mutex::new(saved.map(DeckSettings::from)),
-            crossfader: Mutex::new(0.0),
+            decks: Mirrored::new(saved.map(DeckSettings::from), &revision),
+            crossfader: Mirrored::new(0.0, &revision),
             sync_leader: Mutex::default(),
-            live: Mutex::default(),
+            live: Mirrored::new(Default::default(), &revision),
             recorder: Mutex::new(None),
             audio_start: Mutex::new(()),
             carried: Mutex::default(),
-            samplers: Mutex::default(),
+            samplers: Mirrored::new(Samplers::default(), &revision),
             hidden: AtomicBool::new(false),
+            revision,
         }
+    }
+
+    /// Where the changes of what the interface mirrors are at: it moves at each.
+    pub fn revision(&self) -> u64 {
+        self.revision.load(Ordering::SeqCst)
     }
 
     /// Whether `deck` is one the engine can have, kept for when it is in use (its settings);
@@ -353,9 +442,10 @@ impl AppState {
         }
     }
 
-    /// Changes the preferences, saved soon after.
+    /// Changes the preferences, saved soon after; the interface hears of it.
     pub fn update_preferences(&self, change: impl FnOnce(&mut Preferences)) {
         self.preferences.update(change);
+        self.revision.fetch_add(1, Ordering::SeqCst);
     }
 
     /// The engine's latest view of `deck`.
@@ -617,20 +707,9 @@ impl AppState {
         }
     }
 
-    /// The settings of the decks as the device of `info` lets them be: of two decks layered
-    /// on a turntable and both asked to follow it, the first does. What was asked stays, for
-    /// a device with a turntable each.
+    /// The settings of the decks as the device of `info` lets them be (see [`as_laid_out`]).
     pub fn decks_in_use(&self, info: Option<&AudioInfo>) -> [DeckSettings; MAX_DECKS] {
-        let mut decks = *lock(&self.decks);
-        for deck in 0..info.map_or(0, |info| info.decks) {
-            let first = info
-                .and_then(|info| layer_partner(deck, info.decks, info.input_channels))
-                .filter(|&partner| partner < deck);
-            if first.is_some_and(|first| decks[first].vinyl_enabled) {
-                decks[deck].vinyl_enabled = false;
-            }
-        }
-        decks
+        as_laid_out(*lock(&self.decks), info.map(|info| (info.decks, info.input_channels)))
     }
 
     /// Whether `deck` is one of the decks in use (two, or four).
@@ -695,6 +774,23 @@ impl AppState {
         }
         commands
     }
+}
+
+/// The settings `decks` as a device of so many decks and inputs (`layout`) lets them be: of
+/// two decks layered on a turntable and both asked to follow it, the first does. What was
+/// asked stays, for a device with a turntable each.
+pub fn as_laid_out(
+    mut decks: [DeckSettings; MAX_DECKS],
+    layout: Option<(usize, usize)>,
+) -> [DeckSettings; MAX_DECKS] {
+    let Some((count, inputs)) = layout else { return decks };
+    for deck in 0..count {
+        let first = layer_partner(deck, count, inputs).filter(|&partner| partner < deck);
+        if first.is_some_and(|first| decks[first].vinyl_enabled) {
+            decks[deck].vinyl_enabled = false;
+        }
+    }
+    decks
 }
 
 /// Sends `commands` in turn, waiting for the engine to make room in its queue (it takes them

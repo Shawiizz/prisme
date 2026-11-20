@@ -1,7 +1,7 @@
-//! Streams the engine state to the frontend about 60 times per second, and frees what
-//! the engine hands back at the same pace.
+//! Streams the engine state to the frontend about 60 times per second, with what the interface
+//! mirrors whenever it changed, and frees what the engine hands back at the same pace.
 
-use crate::dto::StatusDto;
+use crate::dto::{ControlStateDto, StatusDto};
 use crate::state::{lock, AppState};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::Duration;
@@ -21,8 +21,12 @@ pub fn subscribe_status(app: AppHandle, channel: Channel<StatusDto>) {
         .name("prisme-status".into())
         .spawn(move || {
             let state = app.state::<AppState>();
+            // the revision of what the interface mirrors it was last sent
+            let mut told = None;
             while GENERATION.load(Ordering::SeqCst) == generation {
-                let (status, garbage) = {
+                // read before what it is of: a change after moves it again
+                let revision = state.revision();
+                let (mut status, garbage) = {
                     let mut session = lock(&state.session);
                     match session.as_mut() {
                         Some(s) => {
@@ -38,6 +42,10 @@ pub fn subscribe_status(app: AppHandle, channel: Channel<StatusDto>) {
                 };
                 // freed with the session's lock released: the jogs and the clock wait on it
                 drop(garbage);
+                if told != Some(revision) {
+                    status.controls = Some(ControlStateDto::of(&state));
+                    told = Some(revision);
+                }
                 if channel.send(status).is_err() {
                     break; // the window is gone
                 }

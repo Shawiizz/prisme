@@ -16,7 +16,12 @@ const FADER_CLOSED: f32 = 1e-3;
 /// Deck and mixer settings as the backend knows them (to rebuild the UI).
 #[tauri::command]
 pub fn mixer_state(state: State<'_, AppState>) -> MixerStateDto {
-    let mixer = state.preferences.get().mixer;
+    mixer_state_of(&state)
+}
+
+/// The settings of the decks and the mixer of `state`.
+pub fn mixer_state_of(state: &AppState) -> MixerStateDto {
+    let mixer = state.preferences.read(|p| p.mixer);
     let info = lock(&state.session).as_ref().map(|s| s.info.clone());
     let routing = info.as_ref().map(|info| state.routing(info));
     let samplers = lock(&state.samplers);

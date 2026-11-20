@@ -1,6 +1,7 @@
 import { TestBed } from '@angular/core/testing';
 import { clearMocks, mockIPC } from '@tauri-apps/api/mocks';
 import {
+  ControlState,
   Cue,
   DeckStatus,
   DeckTrackUpdate,
@@ -217,6 +218,46 @@ describe('EngineService', () => {
 
     it('leaves a later load of the deck as it is', () => {
       engine['completeTrack'](update({ loadId: 6, cues: [drop] }));
+      expect(engine.tracks()[1]?.cues).toEqual([]);
+    });
+  });
+
+  describe('what the backend changed', () => {
+    const drop: Cue = { hot: 2, positionS: 12, loopLengthS: null, color: 0xff0000, label: '' };
+    const level = { level: 1, on: true };
+    const stemMix = { vocals: level, drums: level, bass: level, other: level };
+
+    function controls(changes: Partial<ControlState>): ControlState {
+      return {
+        mixer: { decks: engine.decks() } as ControlState['mixer'],
+        tracks: [null, { loadId: 7, keyShift: -2, stemMix, cues: [drop] }, null, null],
+        quantize: true,
+        pitchRange: 0.16,
+        ...changes,
+      };
+    }
+
+    beforeEach(() =>
+      engine.tracks.set([null, { loadId: 7, cues: [] } as unknown as TrackInfo, null, null]),
+    );
+
+    it('shows the decks, the tracks and the preferences as the backend has them', () => {
+      const decks = engine.decks().map((d, i) => (i === 0 ? { ...d, pitch: 1.04 } : d));
+      engine['applyControls'](controls({ mixer: { decks } as ControlState['mixer'] }));
+      expect(engine.decks()[0].pitch).toBe(1.04);
+      expect(engine.tracks()[1]).toEqual(
+        expect.objectContaining({ keyShift: -2, cues: [drop] }) as TrackInfo,
+      );
+      const dj = TestBed.inject(PreferencesService).dj();
+      expect([dj.quantize, dj.pitchRange]).toEqual([true, 0.16]);
+    });
+
+    it('leaves what did not change as it was, and another load of a deck', () => {
+      const before = engine.decks();
+      engine['applyControls'](
+        controls({ tracks: [null, { loadId: 6, keyShift: 3, stemMix, cues: [] }, null, null] }),
+      );
+      expect(engine.decks()).toBe(before);
       expect(engine.tracks()[1]?.cues).toEqual([]);
     });
   });
