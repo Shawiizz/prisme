@@ -46,14 +46,14 @@ describe('ControlService', () => {
     controls.act('library.next', 1);
     controls.act('library.search', 1);
     controls.act('general.library', 1);
+    controls.act('general.palette', 1);
     controls.act('shift', 1);
     expect(performed).toEqual([
       ['library.browse', -3],
       ['library.next', 1],
+      ['general.library', 1],
     ]);
     expect(library.searchRequests()).toBe(1);
-    expect(navigation.libraryOnly()).toBe(true);
-    expect(controls.lit('general.library')).toBe(true);
-    expect(controls.lit('deck1.play')).toBeUndefined();
+    expect(navigation.palette()).toBe(true);
   });
 });

@@ -253,6 +253,8 @@ export interface ControlState {
   pitchRange: number;
   /** What each deck's pads hold. */
   perform: DeckPerform[];
+  /** The library over the whole window. */
+  libraryOnly: boolean;
   preview: PreviewState;
   /** The list browsed, and the rows of the window the table asked for. */
   library: LibraryView;

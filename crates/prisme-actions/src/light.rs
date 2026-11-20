@@ -72,12 +72,6 @@ impl Light {
     }
 }
 
-/// Whether the interface tells the light of `target`: the library over the whole window, which
-/// it alone knows of.
-pub fn told_by_interface(target: &Target) -> bool {
-    matches!(target, Target::General(GeneralAction::Library))
-}
-
 /// The light of `target` as `view` shows it, if it has one; off for one of a deck not in use.
 pub fn light(target: &Target, view: &View) -> Option<Light> {
     let light = match (Switch::of(target), target) {
@@ -91,6 +85,7 @@ pub fn light(target: &Target, view: &View) -> Option<Light> {
             Some(Light::lit(view.status.preview.is_some() || view.preview_opening))
         }
         (None, Target::General(GeneralAction::Record)) => Some(Light::lit(view.status.recording.is_some())),
+        (None, Target::General(GeneralAction::Library)) => Some(Light::lit(view.perform.library_only)),
         (None, Target::AutoDj(AutoDjAction::Toggle)) => Some(Light::lit(view.auto_dj)),
         _ => None,
     }?;
@@ -529,13 +524,11 @@ mod tests {
     }
 
     #[test]
-    fn the_interface_tells_the_lights_of_what_it_keeps() {
-        let told: Vec<&str> =
-            ["deck1.roll.0.5", "deck2.slice3", "deck3.fx2.focus", "general.library", "deck1.play"]
-                .into_iter()
-                .filter(|id| told_by_interface(&target(id)))
-                .collect();
-        assert_eq!(told, ["general.library"]);
+    fn the_library_key_is_lit_while_the_library_takes_the_whole_window() {
+        let mut v = view();
+        assert_eq!(state("general.library", &v), OFF);
+        v.perform.library_only = true;
+        assert_eq!(state("general.library", &v), ON);
     }
 
     #[test]

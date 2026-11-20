@@ -1,4 +1,5 @@
-import { Injectable, computed, signal } from '@angular/core';
+import { Injectable, computed, inject, signal } from '@angular/core';
+import { EngineService } from './engine.service';
 
 /** The pages of the settings. */
 export type SettingsCategory =
@@ -21,8 +22,9 @@ export interface SettingsPlace {
 /** What is open over the main screen: the settings, the command palette. */
 @Injectable({ providedIn: 'root' })
 export class NavigationService {
-  /** The library over the whole window, the decks out of sight. */
-  readonly libraryOnly = signal(false);
+  private readonly engine = inject(EngineService);
+  /** The library over the whole window, the decks out of sight (`general.library`). */
+  readonly libraryOnly = computed(() => this.engine.controls()?.libraryOnly ?? false);
   readonly settings = signal<SettingsPlace | null>(null);
   readonly palette = signal(false);
   /** Times the library was asked for from elsewhere: a phone shows it then. */

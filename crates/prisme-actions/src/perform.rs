@@ -13,10 +13,12 @@ use prisme_engine::EngineStatus;
 /// How long a light shows a level past full scale after it.
 const CLIP_SHOWN_S: f64 = 1.0;
 
-/// What the pads hold, which the interface shows.
+/// What the pads hold, which the interface shows, and how it lays itself out.
 #[derive(Debug, Default)]
 pub struct PerformState {
     pub decks: [DeckPerform; MAX_DECKS],
+    /// The library over the whole window (`general.library`).
+    pub library_only: bool,
 }
 
 #[derive(Debug, Default)]
@@ -98,6 +100,8 @@ impl Clips {
 #[derive(Debug, Clone, Copy, Default, PartialEq)]
 pub struct PerformView {
     pub decks: [DeckPerformView; MAX_DECKS],
+    /// The library over the whole window.
+    pub library_only: bool,
     pub main_clipping: bool,
 }
 
@@ -132,7 +136,7 @@ impl PerformState {
                 fx_shown: deck.fx_shown,
             }
         });
-        PerformView { decks, main_clipping: clipping.main }
+        PerformView { decks, library_only: self.library_only, main_clipping: clipping.main }
     }
 }
 

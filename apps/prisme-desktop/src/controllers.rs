@@ -1,8 +1,7 @@
 //! Controllers, MIDI and HID (`controller_hid`). A mapped control's messages, or the fields of
 //! a HID report that changed, drive the application's actions (`actions`), but those the
 //! interface performs yet, which it is told of (`ui-action`). The lights show what the actions
-//! read of the application (`prisme_actions::light`), the few the interface keeps told by it;
-//! they, the values shown on the controllers, the lights that blink, the levels and the
+//! read of the application (`prisme_actions::light`); they, the values shown on the controllers, the lights that blink, the levels and the
 //! messages some models want again and again go out from a thread of their own.
 //! Mappings are learnt from the controller itself and kept in `controllers.json`, with the
 //! controllers in use; a model Prisme knows comes mapped by its profile
@@ -14,13 +13,13 @@
 use crate::actions::{Actions, Host, InTurn, Moved, Source};
 use crate::controller_hid;
 use crate::controller_profiles;
-use crate::dto::{ControllerDto, ControllersDto, LightDto, OfferedProfileDto, OpenedDto, UiActionDto};
+use crate::dto::{ControllerDto, ControllersDto, OfferedProfileDto, OpenedDto, UiActionDto};
 use crate::error::{AppError, AppResult};
 use crate::state::{lock, AppState};
 use midir::{Ignore, MidiInput, MidiInputConnection, MidiOutput, MidiOutputConnection};
 use prisme_actions::hold::{Pressed, Timing};
 use prisme_actions::input::Input;
-use prisme_actions::light::{light, told_by_interface};
+use prisme_actions::light::light;
 use prisme_actions::perform::ClipHold;
 use prisme_actions::position::output;
 use prisme_actions::view::View;
@@ -479,9 +478,6 @@ pub struct Controllers {
     just_learnt: Mutex<Option<(Mapping, Instant)>>,
     reader: Mutex<Reader>,
     connections: Mutex<Vec<Connection>>,
-    /// The state of each action whose light the interface tells (see `told_by_interface`), as
-    /// it last told it.
-    told: Mutex<HashMap<String, String>>,
     holdings: Mutex<Vec<Holding>>,
     keys: Mutex<Keys>,
     /// The fields of each HID controller's reports its mappings read.
@@ -498,7 +494,6 @@ impl Controllers {
             just_learnt: Mutex::new(None),
             reader: Mutex::new(Reader::default()),
             connections: Mutex::new(Vec::new()),
-            told: Mutex::new(HashMap::new()),
             holdings: Mutex::new(Vec::new()),
             keys: Mutex::new(Keys::default()),
             hid_fields: Mutex::new(HashMap::new()),
@@ -914,31 +909,6 @@ impl Controllers {
         });
     }
 
-    /// The actions whose light the interface tells (see `told_by_interface`), of those the
-    /// controllers in use drive and those their profiles show on lights of their own.
-    pub fn told_targets(&self) -> Vec<String> {
-        let mut targets: Vec<TargetId> =
-            lock(&self.mappings).all().iter().map(|m| m.target.clone()).collect();
-        for profile in self.setup.read(|s| s.enabled.clone()).iter().filter_map(|device| self.profile(device))
-        {
-            targets.extend(profile.lights.iter().map(|l| l.target.clone()));
-        }
-        let mut told: Vec<String> = targets
-            .into_iter()
-            .filter(|id| id.target().is_some_and(told_by_interface))
-            .map(String::from)
-            .collect();
-        told.sort();
-        told.dedup();
-        told
-    }
-
-    /// Keeps the state of the `lights` the interface tells, shown at the next tick of
-    /// [`Self::drive_outputs`].
-    pub fn set_lights(&self, lights: Vec<LightDto>) {
-        lock(&self.told).extend(lights.into_iter().map(|l| (l.target, l.state)));
-    }
-
     /// Shows on `device`'s lights the state of their actions.
     fn show_lights(&self, host: &impl Host, device: &str) {
         let view = host.view();
@@ -976,14 +946,12 @@ impl Controllers {
         let reader = lock(&self.reader);
         let seen = reader.seen(device);
         let mappings = lock(&self.mappings);
-        let told = lock(&self.told);
         let keys = lock(&self.keys);
         // the state of an action, and the colour it shows
         let shown = |id: &TargetId| match id.target()? {
             Target::Mode { group, mode } => {
                 Some((if seen.modes.get(group).is_some_and(|m| m == mode) { ON } else { OFF }, None))
             }
-            target if told_by_interface(target) => told.get(id.as_str()).map(|s| (s.as_str(), None)),
             target => light(target, view).map(|l| (l.state.name(), l.colour)),
         };
         for mapping in mappings.shown(device, seen.shifts, seen.modes, room) {
@@ -2236,10 +2204,6 @@ mod tests {
         assert_eq!(c.lights_of("DDJ", &view()), [(PAD, LightValue::Steady(0))]);
     }
 
-    fn light(target: &str, state: &str) -> LightDto {
-        LightDto { target: target.into(), state: state.into() }
-    }
-
     #[test]
     fn a_mapping_to_play_lights_while_its_deck_plays() {
         let c = with_mappings([with(mapping(PAD, "deck1.play"), lit(ON, 10))]);
@@ -2261,18 +2225,13 @@ mod tests {
     }
 
     #[test]
-    fn the_interface_tells_the_lights_of_what_it_keeps_and_is_asked_for_those_alone() {
-        let c = with_mappings([
-            with(mapping(PAD, "general.library"), lit(ON, 10)),
-            mapping(Control::note(0, 37), "deck1.play"),
-            mapping(Control::note(0, 38), "deck1.fx.focus"),
-        ]);
-        assert_eq!(c.told_targets(), ["general.library"]);
-        let pad =
-            |c: &Controllers| c.lights_of("DDJ", &view()).into_iter().find(|(control, _)| *control == PAD);
-        assert_eq!(pad(&c), None, "not told yet");
-        c.set_lights(vec![light("general.library", ON)]);
-        assert_eq!(pad(&c), Some((PAD, LightValue::Steady(10))));
+    fn the_key_of_the_library_over_the_window_shows_whether_it_is() {
+        let c = with_mappings([with(mapping(PAD, "general.library"), lit(ON, 10))]);
+        let pad = |view: &View| c.lights_of("DDJ", view).into_iter().find(|(control, _)| *control == PAD);
+        let mut shown = view();
+        assert_eq!(pad(&shown), Some((PAD, LightValue::Steady(0))));
+        shown.perform.library_only = true;
+        assert_eq!(pad(&shown), Some((PAD, LightValue::Steady(10))));
     }
 
     #[test]

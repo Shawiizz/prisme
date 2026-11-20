@@ -381,18 +381,13 @@ impl Target {
         }
     }
 
-    /// Where it is performed: in the application's core, but the library's browsing and the
-    /// application's windows, which the interface keeps, and a controller's shifts and modes,
-    /// which its reader keeps.
+    /// Where it is performed: in the application's core, but the focus of the library's search
+    /// and the application's windows, which the interface keeps, and a controller's shifts and
+    /// modes, which its reader keeps.
     pub fn owner(&self) -> Owner {
         match self {
             Target::Library(LibraryAction::Search)
-            | Target::General(
-                GeneralAction::Library
-                | GeneralAction::Help
-                | GeneralAction::Palette
-                | GeneralAction::Settings,
-            )
+            | Target::General(GeneralAction::Help | GeneralAction::Palette | GeneralAction::Settings)
             | Target::Shift(_)
             | Target::Mode { .. } => Owner::Ui,
             _ => Owner::Rust,
@@ -792,14 +787,7 @@ mod tests {
     fn the_interface_performs_its_windows_and_the_focus_of_its_search_and_nothing_else() {
         let ui: BTreeSet<String> =
             Target::all().iter().filter(|t| t.owner() == Owner::Ui).map(Target::to_string).collect();
-        let windows = [
-            "library.search",
-            "general.library",
-            "general.help",
-            "general.palette",
-            "general.settings",
-            "shift",
-        ];
+        let windows = ["library.search", "general.help", "general.palette", "general.settings", "shift"];
         let expected: BTreeSet<String> = windows.iter().map(|id| id.to_string()).collect();
         assert_eq!(ui, expected);
     }

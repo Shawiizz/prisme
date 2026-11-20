@@ -429,9 +429,13 @@ impl Performing<'_> {
             GeneralAction::TempoRange => self.next_tempo_range(None, 1),
             GeneralAction::TempoRangePrevious => self.next_tempo_range(None, -1),
             GeneralAction::Record => self.record(),
+            GeneralAction::Library => {
+                let mut perform = lock(&self.state.perform);
+                perform.library_only = !perform.library_only;
+                Ok(())
+            }
             // switched by `perform`, or the interface's
             GeneralAction::Quantize(_)
-            | GeneralAction::Library
             | GeneralAction::Help
             | GeneralAction::Palette
             | GeneralAction::Settings => Err(AppError::NotPerformed(Target::General(action).to_string())),
@@ -455,6 +459,17 @@ mod tests {
         bench.press(id, 1.0).unwrap();
         bench.press(id, 0.0).unwrap();
         bench.sent()
+    }
+
+    #[test]
+    fn the_library_key_lays_the_library_over_the_window_and_back() {
+        let mut bench = Bench::new();
+        let before = bench.state.revision();
+        pressed(&mut bench, "general.library");
+        assert!(lock(&bench.state.perform).library_only);
+        assert_eq!(bench.state.moved_since(before), [crate::state::Section::Perform]);
+        pressed(&mut bench, "general.library");
+        assert!(!lock(&bench.state.perform).library_only);
     }
 
     #[test]

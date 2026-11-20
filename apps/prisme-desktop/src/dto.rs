@@ -1474,6 +1474,9 @@ pub struct ControlStateDto {
     pub mixer: Option<MixerStateDto>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub quantize: Option<bool>,
+    /// The library over the whole window.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub library_only: Option<bool>,
     /// The range of the tempo faders without one of their own.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub pitch_range: Option<f64>,
@@ -1546,7 +1549,9 @@ impl ControlStateDto {
                     controls.loading = Some(state.loading());
                 }
                 Section::Perform => {
-                    controls.perform = Some(lock(&state.perform).decks.each_ref().map(DeckPadsDto::from))
+                    let perform = lock(&state.perform);
+                    controls.perform = Some(perform.decks.each_ref().map(DeckPadsDto::from));
+                    controls.library_only = Some(perform.library_only);
                 }
                 Section::Preview => controls.preview = Some(lock(&state.preview).clone()),
                 Section::Library => controls.library = Some(browse::shown(state, Library::view)),
@@ -2322,14 +2327,6 @@ impl AutoDjStatusDto {
     }
 }
 
-/// The state of an action whose light the interface tells (`on`, `off`).
-#[derive(Debug, Clone, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct LightDto {
-    pub target: String,
-    pub state: String,
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -2438,7 +2435,7 @@ mod tests {
         let controls = serde_json::to_value(ControlStateDto::of(&state, &view_of(&state), moved)).unwrap();
         assert_eq!(
             controls.as_object().unwrap().keys().collect::<Vec<_>>(),
-            ["perform"],
+            ["libraryOnly", "perform"],
             "the rest left out"
         );
     }

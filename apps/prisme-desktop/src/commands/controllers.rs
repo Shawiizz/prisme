@@ -5,8 +5,7 @@ use crate::commands::targets::TargetDto;
 use crate::controller_profiles;
 use crate::controllers::{Controllers, Shown};
 use crate::dto::{
-    ControllerProfileDto, ControllerProfilesDto, ControllersDto, LightDto, OfferedProfileDto,
-    ProfileCountsDto,
+    ControllerProfileDto, ControllerProfilesDto, ControllersDto, OfferedProfileDto, ProfileCountsDto,
 };
 use crate::error::{AppError, AppResult};
 use crate::midi_clock::MidiClock;
@@ -118,13 +117,6 @@ pub fn decline_controller(app: AppHandle, name: String) {
     changing(&app, |c| c.decline(&name));
 }
 
-/// The actions whose light the interface tells (`set_lights`), of those the controllers in use
-/// drive or show.
-#[tauri::command]
-pub fn controller_light_targets(controllers: State<'_, Controllers>) -> Vec<String> {
-    controllers.told_targets()
-}
-
 /// The next control moved on a controller in use will drive `target`, read as a key, a fader
 /// or an encoder as its action takes.
 #[tauri::command]
@@ -148,11 +140,6 @@ pub fn cancel_learning(app: AppHandle) {
 #[tauri::command]
 pub fn forget_control(app: AppHandle, device: String, target: String) {
     changing(&app, |c| c.forget(&device, &target));
-}
-
-#[tauri::command]
-pub fn set_lights(controllers: State<'_, Controllers>, lights: Vec<LightDto>) {
-    controllers.set_lights(lights);
 }
 
 /// The MIDI outputs the clock can go to.

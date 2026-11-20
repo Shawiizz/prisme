@@ -35,7 +35,6 @@ export class ControlService {
   /** What the app does of the actions it keeps, given a key's value. */
   private readonly own: Record<string, (value: number) => void> = {
     'library.search': pressed(() => this.library.searchRequests.update((n) => n + 1)),
-    'general.library': pressed(() => this.navigation.libraryOnly.update((only) => !only)),
     'general.help': pressed(() => this.navigation.toggleSettings('shortcuts')),
     'general.palette': pressed(() => this.navigation.togglePalette()),
     'general.settings': pressed(() => this.navigation.openSettings()),
@@ -77,11 +76,5 @@ export class ControlService {
     const own = this.own[id];
     if (own) own(value);
     else void this.engine.perform(id, value);
-  }
-
-  /** Whether the light of `id` is on, for one the app keeps what it shows (the library over
-   * the window): `undefined` for any other, which the backend lights. */
-  lit(id: string): boolean | undefined {
-    return id === 'general.library' ? this.navigation.libraryOnly() : undefined;
   }
 }

@@ -1,4 +1,4 @@
-import { Injectable, computed, effect, inject, signal } from '@angular/core';
+import { Injectable, computed, inject, signal } from '@angular/core';
 import { invoke } from '@tauri-apps/api/core';
 import { save } from '@tauri-apps/plugin-dialog';
 import { listen } from '@tauri-apps/api/event';
@@ -20,8 +20,7 @@ import { NavigationService } from '../services/navigation.service';
 /**
  * Controllers, MIDI and HID, as the backend shows them (`controls.controllers`): it performs
  * what their controls drive and lights them; the actions the app performs (its windows, the
- * focus of its search) it is told of (`ui-action`), and it tells the lights of what it keeps
- * (`set_lights`). A control is mapped by moving it (learn).
+ * focus of its search) it is told of (`ui-action`). A control is mapped by moving it (learn).
  */
 @Injectable({ providedIn: 'root' })
 export class ControllerService {
@@ -40,24 +39,8 @@ export class ControllerService {
   readonly clockOutput = computed(() => this.told()?.clockOutput ?? null);
   /** The control waiting for a move on the controller. */
   readonly learning = computed(() => this.told()?.learning ?? null);
-  /** The actions whose lights the app tells: what they show is kept here yet. */
-  private readonly lightTargets = signal<string[]>([]);
   /** MIDI outputs, for the clock (`look`). */
   readonly outputs = signal<string[]>([]);
-
-  /** Light state last sent, by control. */
-  private readonly sent = new Map<string, string>();
-  /** Bumped to send every light again (a controller was opened). */
-  private readonly relight = signal(0);
-
-  constructor() {
-    effect(() => this.updateLights());
-    // the lights the app tells follow what the controllers drive
-    effect(() => {
-      this.mappings();
-      void this.loadLightTargets();
-    });
-  }
 
   async start() {
     await listen<UiAction>('ui-action', ({ payload }) =>
@@ -66,7 +49,6 @@ export class ControllerService {
     await listen<unknown>('action-failed', ({ payload }) => void this.engine.failed(payload));
     // plugged back in, or let go by the program that held it: it plays, its lights off
     await listen<Opened>('controller-opened', ({ payload: { model } }) => {
-      this.sendAllLights();
       this.notices.show({ text: t('{model} connected', { model }), detail: t('Ready to play') });
     });
     await listen<PluggedIn>('controller-plugged', ({ payload }) => this.pluggedIn(payload));
@@ -82,7 +64,6 @@ export class ControllerService {
       return;
     }
     if (kind === 'opened') {
-      this.sendAllLights();
       this.notices.show({
         text: t('{model} connected', { model }),
         detail: t('Ready to play'),
@@ -186,33 +167,6 @@ export class ControllerService {
   /** Takes `target` off the controller `device`, its profile's controls included. */
   forget(device: string, target: string) {
     return this.run(() => invoke('forget_control', { device, target }));
-  }
-
-  private async loadLightTargets() {
-    await this.run(async () =>
-      this.lightTargets.set(await invoke<string[]>('controller_light_targets')),
-    );
-    this.sendAllLights();
-  }
-
-  private sendAllLights() {
-    this.sent.clear();
-    this.relight.update((n) => n + 1);
-  }
-
-  /** Sends the lights the app tells that changed. */
-  private updateLights() {
-    this.relight();
-    const lights: { target: string; state: string }[] = [];
-    for (const target of this.lightTargets()) {
-      const lit = this.controls.lit(target);
-      if (lit === undefined) continue;
-      const state = lit ? 'on' : 'off';
-      if (this.sent.get(target) === state) continue;
-      this.sent.set(target, state);
-      lights.push({ target, state });
-    }
-    if (lights.length > 0) this.run(() => invoke('set_lights', { lights }));
   }
 
   private async run(action: () => Promise<unknown>) {
