@@ -4184,6 +4184,7 @@ dependencies = [
 name = "prisme-actions"
 version = "0.4.0"
 dependencies = [
+ "prisme-analysis",
  "prisme-control",
  "prisme-engine",
  "serde",

@@ -156,6 +156,40 @@ impl Key {
     pub fn all() -> impl Iterator<Item = Self> {
         (1..=12).flat_map(|n| ["A", "B"].map(|l| Self::from_camelot(&format!("{n}{l}")).expect("valid code")))
     }
+
+    /// The key `semitones` higher (lower below 0): 7 steps around the wheel each.
+    pub fn transposed(self, semitones: i32) -> Self {
+        Self::new((i32::from(self.tonic) + semitones).rem_euclid(12) as u8, self.mode)
+    }
+
+    /// Whether it mixes harmonically with `other`: the same key, a step around the wheel, or
+    /// the relative major or minor.
+    pub fn mixes_with(self, other: Key) -> bool {
+        let (a, b) = (self.camelot_number(), other.camelot_number());
+        if self.mode == other.mode {
+            matches!(a.abs_diff(b), 0 | 1 | 11)
+        } else {
+            a == b
+        }
+    }
+
+    /// The smallest transposition (-5 to +6 semitones) after which it mixes with `target`,
+    /// landing on the target's own wheel number winning a tie.
+    pub fn semitones_to_mix(self, target: Key) -> i32 {
+        let steps = i32::from(target.camelot_number()) - i32::from(self.camelot_number());
+        let candidates: &[i32] =
+            if self.mode == target.mode { &[steps, steps - 1, steps + 1] } else { &[steps] };
+        // a semitone is 7 steps around the wheel, and 7 x 7 = 49, 1 modulo 12
+        let semitones = |steps: i32| match (7 * steps).rem_euclid(12) {
+            s if s > 6 => s - 12,
+            s => s,
+        };
+        candidates
+            .iter()
+            .map(|&s| semitones(s))
+            .reduce(|best, s| if s.abs() < best.abs() { s } else { best })
+            .unwrap_or(0)
+    }
 }
 
 impl fmt::Display for Key {
@@ -352,6 +386,41 @@ mod tests {
             let key = Key::new(tonic, mode);
             assert_eq!(key.name(), name);
             assert_eq!(key.camelot(), camelot, "{name}");
+        }
+    }
+
+    fn camelot(code: &str) -> Key {
+        Key::from_camelot(code).unwrap()
+    }
+
+    #[test]
+    fn a_semitone_moves_seven_steps_around_the_wheel() {
+        assert_eq!(camelot("8A").transposed(1), camelot("3A"));
+        assert_eq!(camelot("8B").transposed(-1), camelot("1B"));
+        assert_eq!(camelot("8A").transposed(12), camelot("8A"));
+        assert_eq!(camelot("8A").transposed(2), camelot("10A"));
+        assert!(camelot("8A").mixes_with(camelot("8A").transposed(7)));
+    }
+
+    #[test]
+    fn the_shortest_way_to_a_key_that_mixes() {
+        let to_mix = |from, to| camelot(from).semitones_to_mix(camelot(to));
+        assert_eq!(to_mix("8A", "3A"), 1);
+        assert_eq!(to_mix("8A", "1A"), -1);
+        assert_eq!(to_mix("8A", "10B"), 2);
+        assert_eq!(to_mix("8A", "8B"), 0);
+        assert_eq!(to_mix("4A", "5A"), 0, "already mixing");
+        assert_eq!(to_mix("12B", "1B"), 0, "around the wheel");
+    }
+
+    #[test]
+    fn a_key_moved_to_mix_always_mixes() {
+        for own in [camelot("5B"), camelot("11A")] {
+            for target in Key::all() {
+                let semitones = own.semitones_to_mix(target);
+                assert!(semitones.abs() <= 6);
+                assert!(own.transposed(semitones).mixes_with(target), "{own} to {target}");
+            }
         }
     }
 

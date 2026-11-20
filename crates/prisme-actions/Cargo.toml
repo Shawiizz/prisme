@@ -11,3 +11,4 @@ license.workspace = true
 prisme-control.workspace = true
 prisme-engine.workspace = true
 serde.workspace = true
+prisme-analysis.workspace = true
