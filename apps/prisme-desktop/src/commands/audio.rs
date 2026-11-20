@@ -11,7 +11,7 @@ use serde::Serialize;
 use std::sync::Mutex;
 use std::time::Duration;
 use tauri::{AppHandle, Manager, State};
-use tracing::error;
+use tracing::{error, warn};
 
 /// The interface went out of sight, or came back.
 #[tauri::command]
@@ -41,14 +41,22 @@ fn one_device(backend: BackendDto) -> bool {
 pub struct ListedDevices(Mutex<Option<(BackendDto, Vec<DeviceDto>)>>);
 
 impl ListedDevices {
-    /// The devices of `backend`, from `list` unless they were listed last.
-    fn of(&self, backend: BackendDto, list: impl FnOnce() -> Vec<DeviceDto>) -> Vec<DeviceDto> {
+    /// The devices of `backend`, from `list` unless they were listed last: none if they could
+    /// not be, asked again next time.
+    fn of(&self, backend: BackendDto, list: impl FnOnce() -> AppResult<Vec<DeviceDto>>) -> Vec<DeviceDto> {
         if let Some((_, devices)) = lock(&self.0).as_ref().filter(|(b, _)| *b == backend) {
             return devices.clone();
         }
-        let devices = list();
-        *lock(&self.0) = Some((backend, devices.clone()));
-        devices
+        match list() {
+            Ok(devices) => {
+                *lock(&self.0) = Some((backend, devices.clone()));
+                devices
+            }
+            Err(e) => {
+                warn!("the devices of {backend:?} not listed: {e}");
+                Vec::new()
+            }
+        }
     }
 }
 
@@ -126,7 +134,7 @@ pub fn change_audio_draft(
     draft: AudioSettings,
     change: Option<AudioChangeDto>,
 ) -> AudioDraftDto {
-    let listed_of = |backend: BackendDto| listed.of(backend, || devices_of(backend).unwrap_or_default());
+    let listed_of = |backend: BackendDto| listed.of(backend, || devices_of(backend));
     let backend = draft.backend;
     let first_output = || listed_of(backend).into_iter().find(|d| d.kind == "output").map(|d| d.name);
     let draft = match change {
@@ -315,7 +323,7 @@ mod tests {
         let of = |backend| {
             listed.of(backend, || {
                 lists.set(lists.get() + 1);
-                Vec::new()
+                Ok(Vec::new())
             })
         };
         of(BackendDto::Wasapi);
@@ -324,5 +332,21 @@ mod tests {
         of(BackendDto::Asio);
         of(BackendDto::Wasapi);
         assert_eq!(lists.get(), 3);
+    }
+
+    #[test]
+    fn a_driver_whose_devices_could_not_be_listed_is_asked_again() {
+        let listed = ListedDevices::default();
+        let failed = listed.of(BackendDto::Asio, || Err(AppError::Other("busy".into())));
+        assert!(failed.is_empty());
+        let device = DeviceDto {
+            name: "Card".into(),
+            kind: "output",
+            channels: 2,
+            sample_rate: 48_000,
+            buffer_sizes: Vec::new(),
+            is_default: true,
+        };
+        assert_eq!(listed.of(BackendDto::Asio, || Ok(vec![device])).len(), 1);
     }
 }
