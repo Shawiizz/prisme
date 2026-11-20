@@ -55,11 +55,16 @@ export class PhoneTable {
   readonly opened = output<number>();
 
   protected readonly mixer = inject(MixerService);
-  private readonly decks = inject(EngineService).deckIndexes;
+  private readonly engine = inject(EngineService);
   protected readonly wide = landscape();
-  /** The decks on each side of the crossfader: A and C on the left, B and D on the right. */
-  protected readonly lefts = computed(() => this.decks().filter((d) => d % 2 === 0));
-  protected readonly rights = computed(() => this.decks().filter((d) => d % 2 === 1));
+  /** The decks on each side of the crossfader, as the backend sets them; those it leaves out
+   * of the crossfader on the left. */
+  protected readonly lefts = computed(() =>
+    this.engine.deckIndexes().filter((d) => this.engine.decks()[d].side !== 'right'),
+  );
+  protected readonly rights = computed(() =>
+    this.engine.deckIndexes().filter((d) => this.engine.decks()[d].side === 'right'),
+  );
   protected readonly left = sideDeck(this.lefts);
   protected readonly right = sideDeck(this.rights);
   /** Upright with four decks: the ends of the crossfader choose the deck of each side. */
