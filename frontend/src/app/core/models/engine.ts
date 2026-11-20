@@ -196,6 +196,8 @@ export interface AudioHealth {
   engineFailed: boolean;
   /** Frames per period, as the driver calls the engine (0 before the first period). */
   periodFrames: number;
+  /** How long a period lasts, once the driver has called the engine. */
+  periodMs: number | null;
 }
 
 export interface EngineStatus {

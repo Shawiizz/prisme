@@ -107,11 +107,6 @@ export class MixerService {
     return `${first + 1}-${first + 2}`;
   }
 
-  /** The mixer the DJ uses, the routing in use following. */
-  setMode(mode: MixMode) {
-    return this.engine.call('set_mix_mode', { mode });
-  }
-
   setHeadphones(output: HeadphonesOutput) {
     return this.engine.call('set_headphones_output', { output });
   }

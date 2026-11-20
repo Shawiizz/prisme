@@ -55,6 +55,22 @@ export interface AudioInfo {
   /** The sound card chosen in the settings while it is missing and the audio plays on the
    * default devices meanwhile ('': the first one its driver finds). */
   missing: string | null;
+  /** Turntables can drive the decks: the audio reads their timecode from inputs, or simulates
+   * it. */
+  turntables: boolean;
+}
+
+/** A change of the audio settings drafted in the settings window. */
+export type AudioChange =
+  | { setting: 'backend'; value: AudioBackend }
+  | { setting: 'driver' | 'output' | 'input'; value: string | null }
+  | { setting: 'turntablesOnDriver' | 'simulate'; value: boolean }
+  | { setting: 'buffer'; value: number | null };
+
+/** The channels a latency measurement may join, counted from 1. */
+export interface LatencyChannels {
+  outputs: number;
+  inputs: number;
 }
 
 /** A timecode record (or CD), one side of it when its sides differ. */

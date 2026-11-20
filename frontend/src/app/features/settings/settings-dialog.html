@@ -89,7 +89,9 @@
                     <select
                       class="pr-select"
                       [value]="d.outputDevice ?? ''"
-                      (change)="setDriver(orNull($any($event.target).value))"
+                      (change)="
+                        change({ setting: 'driver', value: orNull($any($event.target).value) })
+                      "
                       settingControl
                     >
                       <option value="">{{ firstDriverLabel() }}</option>
@@ -107,7 +109,9 @@
                     <select
                       class="pr-select"
                       [value]="d.outputDevice ?? ''"
-                      (change)="update({ outputDevice: orNull($any($event.target).value) })"
+                      (change)="
+                        change({ setting: 'output', value: orNull($any($event.target).value) })
+                      "
                       settingControl
                     >
                       <option value="">{{ 'Default device' | t }}</option>
@@ -125,8 +129,9 @@
                     class="pr-select"
                     [value]="d.bufferFrames ?? ''"
                     (change)="
-                      update({
-                        bufferFrames:
+                      change({
+                        setting: 'buffer',
+                        value:
                           orNull($any($event.target).value) === null
                             ? null
                             : +$any($event.target).value,
@@ -213,7 +218,7 @@
                       [attr.aria-checked]="!!d.inputDevice"
                       [disabled]="d.simulate"
                       settingControl
-                      (click)="setTurntablesOnDriver(!d.inputDevice)"
+                      (click)="change({ setting: 'turntablesOnDriver', value: !d.inputDevice })"
                     >
                       <span></span>
                     </button>
@@ -221,7 +226,9 @@
                     <select
                       class="pr-select"
                       [value]="d.inputDevice ?? ''"
-                      (change)="update({ inputDevice: orNull($any($event.target).value) })"
+                      (change)="
+                        change({ setting: 'input', value: orNull($any($event.target).value) })
+                      "
                       [disabled]="d.simulate"
                       settingControl
                     >
@@ -241,7 +248,7 @@
                     role="switch"
                     [attr.aria-checked]="d.simulate"
                     settingControl
-                    (click)="update({ simulate: !d.simulate })"
+                    (click)="change({ setting: 'simulate', value: !d.simulate })"
                   >
                     <span></span>
                   </button>

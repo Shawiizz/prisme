@@ -515,7 +515,47 @@ pub struct AudioSettings {
     pub(crate) timecode_before: Option<String>,
 }
 
+/// A change of the audio settings, drafted in the settings window until applied.
+#[derive(Debug, Clone, PartialEq, Deserialize)]
+#[serde(rename_all = "camelCase", tag = "setting", content = "value")]
+pub enum AudioChangeDto {
+    /// Another driver has other devices: its defaults, its buffer size.
+    Backend(BackendDto),
+    /// The one device of a driver that has one for the outputs and the inputs (`oneDevice`):
+    /// its turntables, if they are on, on it too.
+    Driver(Option<String>),
+    Output(Option<String>),
+    Input(Option<String>),
+    /// The turntables on the one device of the driver, or none.
+    TurntablesOnDriver(bool),
+    Buffer(Option<u32>),
+    Simulate(bool),
+}
+
 impl AudioSettings {
+    /// These settings with `change`; the turntables put on a driver with no device chosen go on
+    /// its `first` output device.
+    pub fn changed(&self, change: AudioChangeDto, first: impl FnOnce() -> Option<String>) -> Self {
+        let mut next = self.clone();
+        match change {
+            AudioChangeDto::Backend(backend) => {
+                next = Self { backend, output_device: None, input_device: None, buffer_frames: None, ..next }
+            }
+            AudioChangeDto::Driver(device) => {
+                next.input_device = next.input_device.and(device.clone());
+                next.output_device = device;
+            }
+            AudioChangeDto::Output(device) => next.output_device = device,
+            AudioChangeDto::Input(device) => next.input_device = device,
+            AudioChangeDto::TurntablesOnDriver(on) => {
+                next.input_device = if on { next.output_device.clone().or_else(first) } else { None }
+            }
+            AudioChangeDto::Buffer(frames) => next.buffer_frames = frames,
+            AudioChangeDto::Simulate(on) => next.simulate = on,
+        }
+        next
+    }
+
     /// These settings on the computer's default devices: what plays while the chosen ones are
     /// missing (an interface unplugged).
     pub fn on_default_devices(&self) -> Self {
@@ -566,6 +606,31 @@ impl AudioInfo {
     pub fn layout(&self) -> (usize, usize) {
         (self.decks, self.input_channels)
     }
+}
+
+/// The audio running, as the settings show it.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AudioInfoDto {
+    #[serde(flatten)]
+    pub info: AudioInfo,
+    /// Turntables can drive the decks: the audio reads their timecode from its inputs, or
+    /// simulates it.
+    pub turntables: bool,
+}
+
+impl From<AudioInfo> for AudioInfoDto {
+    fn from(info: AudioInfo) -> Self {
+        Self { turntables: info.simulated || info.input_channels >= 2, info }
+    }
+}
+
+/// The channels a latency measurement may join, counted from 1.
+#[derive(Debug, Clone, Copy, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LatencyChannelsDto {
+    pub outputs: usize,
+    pub inputs: usize,
 }
 
 /// The timecode records of a maker.
@@ -1577,6 +1642,18 @@ pub struct AudioHealthDto {
     pub engine_failed: bool,
     /// Frames per period, as the driver calls the engine (0 before the first period).
     pub period_frames: u64,
+    /// How long a period lasts, once the driver has called the engine.
+    pub period_ms: Option<f64>,
+}
+
+impl AudioHealthDto {
+    /// The health of a stream at `sample_rate`.
+    pub fn of(stats: &StreamStats, sample_rate: u32) -> Self {
+        let health = Self::from(stats);
+        let period_ms = (health.period_frames > 0 && sample_rate > 0)
+            .then(|| health.period_frames as f64 / f64::from(sample_rate) * 1000.0);
+        Self { period_ms, ..health }
+    }
 }
 
 impl From<&StreamStats> for AudioHealthDto {
@@ -1589,6 +1666,7 @@ impl From<&StreamStats> for AudioHealthDto {
             device_lost: s.device_lost.load(Ordering::Relaxed),
             engine_failed: s.callback_failed.load(Ordering::Relaxed),
             period_frames: s.frames.load(Ordering::Relaxed) / s.callbacks.load(Ordering::Relaxed).max(1),
+            period_ms: None,
         }
     }
 }
@@ -1598,7 +1676,7 @@ impl StatusDto {
     /// audio is off): the decks in use, and the `meters`.
     pub fn of(view: &View, stream: Option<(&StreamStats, u32)>, meters: Levels) -> Self {
         let s = &view.status;
-        let health = stream.map(|(stats, _)| AudioHealthDto::from(stats));
+        let health = stream.map(|(stats, rate)| AudioHealthDto::of(stats, rate));
         let sample_rate = stream.map_or(1.0, |(_, rate)| f64::from(rate));
         Self {
             audio_running: health.as_ref().is_some_and(|h| !h.device_lost),
@@ -2205,6 +2283,32 @@ pub struct LightDto {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_draft_of_the_audio_settings_follows_the_rules_of_its_driver() {
+        let asio = AudioSettings {
+            backend: BackendDto::Asio,
+            output_device: Some("Card".into()),
+            input_device: Some("Card".into()),
+            buffer_frames: Some(256),
+            ..AudioSettings::default()
+        };
+        let none = || None;
+        let other = asio.changed(AudioChangeDto::Driver(Some("Other".into())), none);
+        assert_eq!(
+            (other.output_device.as_deref(), other.input_device.as_deref()),
+            (Some("Other"), Some("Other"))
+        );
+        let off = asio.changed(AudioChangeDto::TurntablesOnDriver(false), none);
+        assert_eq!(off.input_device, None);
+        let alone = off.changed(AudioChangeDto::Driver(Some("Other".into())), none);
+        assert_eq!(alone.input_device, None, "no turntables: none on the new driver");
+        let first = AudioSettings { output_device: None, ..off }
+            .changed(AudioChangeDto::TurntablesOnDriver(true), || Some("First".into()));
+        assert_eq!(first.input_device.as_deref(), Some("First"));
+        let wasapi = asio.changed(AudioChangeDto::Backend(BackendDto::Wasapi), none);
+        assert_eq!(wasapi, AudioSettings { backend: BackendDto::Wasapi, ..AudioSettings::default() });
+    }
 
     #[test]
     fn a_decks_signal_light_shows_the_record_driving_it_and_none_with_its_cables_crossed() {

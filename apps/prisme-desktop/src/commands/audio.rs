@@ -1,8 +1,8 @@
 use crate::audio_host;
 use crate::commands::blocking;
 use crate::dto::{
-    AudioInfo, AudioSettings, BackendChoiceDto, BackendDto, BufferSizeDto, DeviceDto, LatencyDto,
-    TimecodeMakerDto,
+    AudioChangeDto, AudioInfo, AudioInfoDto, AudioSettings, BackendChoiceDto, BackendDto, BufferSizeDto,
+    DeviceDto, LatencyChannelsDto, LatencyDto, MixModeDto, TimecodeMakerDto,
 };
 use crate::error::{AppError, AppResult};
 use crate::state::{lock, AppState};
@@ -74,34 +74,78 @@ pub fn get_audio_settings(state: State<'_, AppState>) -> AudioSettings {
 }
 
 #[tauri::command]
-pub fn audio_info(state: State<'_, AppState>) -> Option<AudioInfo> {
+pub fn audio_info(state: State<'_, AppState>) -> Option<AudioInfoDto> {
     let saved = state.preferences.read(|p| p.audio.clone());
-    lock(&state.session).as_ref().map(|s| AudioInfo {
-        missing: (!s.settings.same_devices(&saved)).then(|| saved.output_device.clone().unwrap_or_default()),
-        ..s.info.clone()
+    lock(&state.session).as_ref().map(|s| {
+        let missing =
+            (!s.settings.same_devices(&saved)).then(|| saved.output_device.clone().unwrap_or_default());
+        AudioInfo { missing, ..s.info.clone() }.into()
     })
 }
 
-/// Restarts the audio with new settings and keeps them for the next start. Off the commands'
-/// threads: a USB card may wait for the DJ to let Prisme open it.
+/// The audio settings drafted in the settings window, `change` made (see `AudioSettings::changed`).
+/// Off the window's thread: a driver's devices may take a moment to list.
+#[tauri::command(async)]
+pub fn change_audio_draft(draft: AudioSettings, change: AudioChangeDto) -> AudioSettings {
+    let backend = draft.backend;
+    let first_output = || {
+        let devices = prisme_audio_io::list_devices(backend.into()).ok()?;
+        devices.into_iter().find(|d| d.kind == DeviceKind::Output).map(|d| d.name)
+    };
+    draft.changed(change, first_output)
+}
+
+/// Restarts the audio with new settings, if they changed, and keeps them for the next start; then
+/// uses the mixer `mix_mode`, if given. Off the commands' threads: a USB card may wait for the DJ
+/// to let Prisme open it.
 #[tauri::command]
-pub async fn apply_audio_settings(app: AppHandle, settings: AudioSettings) -> AppResult<AudioInfo> {
+pub async fn apply_audio_settings(
+    app: AppHandle,
+    settings: AudioSettings,
+    mix_mode: Option<MixModeDto>,
+) -> AppResult<Option<AudioInfoDto>> {
     blocking(move || {
         let state = app.state::<AppState>();
-        // kept as they start: no other start comes between
-        let _starting = lock(&state.audio_start);
         let saved = state.preferences.read(|p| p.audio.clone());
-        let info = match start(&state, &settings) {
-            // devices missing since the start stay chosen, the defaults playing meanwhile
-            Err(AppError::Audio(AudioError::DeviceNotFound(_))) if settings.same_devices(&saved) => {
-                start(&state, &settings.on_default_devices())?
-            }
-            started => started?,
+        let running = lock(&state.session).is_some();
+        let info = if settings != saved || !running {
+            // kept as they start: no other start comes between
+            let _starting = lock(&state.audio_start);
+            let info = match start(&state, &settings) {
+                // devices missing since the start stay chosen, the defaults playing meanwhile
+                Err(AppError::Audio(AudioError::DeviceNotFound(_))) if settings.same_devices(&saved) => {
+                    start(&state, &settings.on_default_devices())?
+                }
+                started => started?,
+            };
+            state.update_preferences(|p| p.audio = settings);
+            Some(info.into())
+        } else {
+            None
         };
-        state.update_preferences(|p| p.audio = settings);
+        if let Some(mode) = mix_mode.filter(|&mode| state.preferences.read(|p| p.mixer.mode) != mode) {
+            crate::commands::mixer::set_mix_mode(&state, mode)?;
+        }
         Ok(info)
     })
     .await
+}
+
+/// The channels of the audio's devices a latency measurement may join (two each at least). Off
+/// the window's thread: a driver's devices may take a moment to list.
+#[tauri::command(async)]
+pub fn latency_channels(state: State<'_, AppState>) -> LatencyChannelsDto {
+    let running = lock(&state.session).as_ref().map(|s| (s.settings.clone(), s.info.clone()));
+    let settings =
+        running.as_ref().map_or_else(|| state.preferences.read(|p| p.audio.clone()), |r| r.0.clone());
+    let (outputs, inputs) = running.map_or((0, 0), |(_, info)| (info.output_channels, info.input_channels));
+    let input = settings.input_device.clone().or_else(|| settings.output_device.clone());
+    let devices = prisme_audio_io::list_devices(settings.backend.into()).unwrap_or_default();
+    let listed = devices.iter().find(|d| d.kind == DeviceKind::Input && Some(&d.name) == input.as_ref());
+    LatencyChannelsDto {
+        outputs: outputs.max(2),
+        inputs: inputs.max(listed.map_or(0, |d| usize::from(d.channels))).max(2),
+    }
 }
 
 /// (Re)starts the audio and restores the decks where they were, playing if they were.

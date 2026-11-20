@@ -6,6 +6,7 @@ import {
   computed,
   effect,
   inject,
+  linkedSignal,
   signal,
   viewChild,
 } from '@angular/core';
@@ -20,7 +21,14 @@ import { UpdateService } from '../../core/services/update.service';
 import { StemsService } from '../../core/services/stems.service';
 import { LibraryService } from '../../core/services/library.service';
 import { NavigationService, SettingsCategory } from '../../core/services/navigation.service';
-import { AudioBackend, AudioDevice, AudioSettings, BACKEND_NAMES } from '../../core/models/audio';
+import {
+  AudioBackend,
+  AudioChange,
+  AudioDevice,
+  AudioSettings,
+  BACKEND_NAMES,
+  LatencyChannels,
+} from '../../core/models/audio';
 import { InputChannels, LiveSource, MixMode, OutputNote } from '../../core/models/engine';
 import { Settings } from '../../core/models/preferences';
 import { ModelId } from '../../core/models/stems';
@@ -102,7 +110,10 @@ export class SettingsDialog implements OnInit {
 
   protected readonly language = language;
   protected readonly draft = signal<AudioSettings | null>(null);
-  protected readonly mixMode = signal<MixMode>(this.mixer.mode());
+  /** The mixer drafted: the one in use until another is chosen. */
+  protected readonly mixMode = linkedSignal<MixMode>(() => this.mixer.mode());
+  /** The changes of the draft asked for: a slower answer to an older one is dropped. */
+  private drafted = 0;
   protected readonly dj = this.preferences.dj;
   /** What the backend keeps of the DJ's preferences as the actions change them. */
   protected readonly quantize = computed(() => this.engine.controls()?.quantize ?? false);
@@ -182,14 +193,9 @@ export class SettingsDialog implements OnInit {
   protected readonly latency = signal<'measuring' | { ms: number } | { error: string } | null>(
     null,
   );
-  protected readonly latencyOutputs = computed(() =>
-    numbers(this.service.info()?.outputChannels ?? 2),
-  );
-  protected readonly latencyInputs = computed(() => {
-    const d = this.service.settings();
-    const device = this.inputs().find((i) => i.name === (d?.inputDevice ?? d?.outputDevice));
-    return numbers(Math.max(this.service.info()?.inputChannels ?? 0, device?.channels ?? 0, 2));
-  });
+  private readonly latencyChannels = signal<LatencyChannels>({ outputs: 2, inputs: 2 });
+  protected readonly latencyOutputs = computed(() => numbers(this.latencyChannels().outputs));
+  protected readonly latencyInputs = computed(() => numbers(this.latencyChannels().inputs));
   /** Buffer sizes the chosen output's driver accepts. */
   protected readonly bufferSizes = computed(() => {
     const d = this.draft();
@@ -231,6 +237,11 @@ export class SettingsDialog implements OnInit {
     ]);
     this.version.set(version);
     this.draft.set(structuredClone(this.service.settings()));
+    await this.readLatencyChannels();
+  }
+
+  private async readLatencyChannels() {
+    this.latencyChannels.set(await invoke<LatencyChannels>('latency_channels'));
   }
 
   /** Shows a page (and leaves the search). */
@@ -268,9 +279,13 @@ export class SettingsDialog implements OnInit {
     this.navigation.closeSettings();
   }
 
-  update(changes: Partial<AudioSettings>) {
-    const d = this.draft();
-    if (d) this.draft.set({ ...d, ...changes });
+  /** The draft with `change`, as the backend shapes it. */
+  async change(change: AudioChange) {
+    const draft = this.draft();
+    if (!draft) return;
+    const asked = ++this.drafted;
+    const next = await invoke<AudioSettings>('change_audio_draft', { draft, change });
+    if (asked === this.drafted) this.draft.set(next);
   }
 
   set<K extends keyof Settings>(setting: K, value: Settings[K]) {
@@ -353,19 +368,10 @@ export class SettingsDialog implements OnInit {
 
   /** Another backend has other devices: start again from its defaults. */
   async setBackend(backend: AudioBackend) {
-    this.update({ backend, outputDevice: null, inputDevice: null, bufferFrames: null });
-    await this.service.loadDevices(backend);
-  }
-
-  /** One device (`oneDevice`) for the outputs and, if the turntables are on it, the inputs. */
-  setDriver(name: string | null) {
-    const d = this.draft();
-    this.update({ outputDevice: name, inputDevice: d?.inputDevice ? name : null });
-  }
-
-  setTurntablesOnDriver(enabled: boolean) {
-    const device = this.draft()?.outputDevice ?? this.outputs()[0]?.name ?? null;
-    this.update({ inputDevice: enabled ? device : null });
+    await Promise.all([
+      this.change({ setting: 'backend', value: backend }),
+      this.service.loadDevices(backend),
+    ]);
   }
 
   /** Plays clicks on the output chosen and times their return on the input chosen. */
@@ -394,9 +400,9 @@ export class SettingsDialog implements OnInit {
     this.busy.set(true);
     this.error.set(null);
     try {
-      if (this.audioChanged()) await this.service.apply(d);
-      if (this.mixMode() !== this.mixer.mode()) await this.mixer.setMode(this.mixMode());
+      await this.service.apply(d, this.mixMode());
       this.draft.set(structuredClone(this.service.settings()));
+      await this.readLatencyChannels();
     } catch (e) {
       this.error.set(errorText(e));
     } finally {

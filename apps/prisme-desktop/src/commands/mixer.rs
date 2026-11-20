@@ -116,11 +116,10 @@ pub fn mixer_state_of(state: &AppState, view: &View) -> MixerStateDto {
 }
 
 /// External or software mixer, kept for the next start: the mode in use follows (an external
-/// mixer needs an output pair per deck).
-#[tauri::command]
-pub fn set_mix_mode(state: State<'_, AppState>, mode: MixModeDto) -> AppResult<()> {
+/// mixer needs an output pair per deck). Applied with the audio settings.
+pub fn set_mix_mode(state: &AppState, mode: MixModeDto) -> AppResult<()> {
     state.update_preferences(|p| p.mixer.mode = mode);
-    route(&state)
+    route(state)
 }
 
 /// Where the headphones go, kept for the next start.

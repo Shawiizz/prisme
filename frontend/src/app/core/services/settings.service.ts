@@ -12,6 +12,7 @@ import {
   TimecodeMaker,
 } from '../models/audio';
 import { decimal } from '../../shared/time';
+import { MixMode } from '../models/engine';
 import { EngineService } from './engine.service';
 import { NoticeService } from '../../shared/notice/notice';
 import { t } from '../i18n/i18n';
@@ -33,16 +34,11 @@ export class SettingsService {
   private readonly notices = inject(NoticeService);
   /** The length of an audio period, `5.3 ms`, once the driver has called the engine. */
   readonly period = computed(() => {
-    const frames = this.engine.status()?.health?.periodFrames;
-    const rate = this.info()?.sampleRate;
-    return frames && rate ? `${decimal((frames / rate) * 1000, 1)} ms` : null;
+    const ms = this.engine.status()?.health?.periodMs;
+    return ms ? `${decimal(ms, 1)} ms` : null;
   });
-  /** Turntables can drive the decks: the audio reads their timecode from inputs, or
-   * simulates it. */
-  readonly turntables = computed(() => {
-    const info = this.info();
-    return !!info && (info.simulated || info.inputChannels >= 2);
-  });
+  /** Turntables can drive the decks. */
+  readonly turntables = computed(() => this.info()?.turntables ?? false);
   private devicesAsked = 0;
 
   /** Loads the settings, and again whenever the audio moves to other devices by itself. */
@@ -108,12 +104,12 @@ export class SettingsService {
     return true;
   }
 
-  /** Restarts the audio with new settings (the decks and the mixer as it lays them out come
-   * with the engine's state). Throws the error message on failure. */
-  async apply(settings: AudioSettings): Promise<AudioInfo> {
-    const info = await invoke<AudioInfo>('apply_audio_settings', { settings });
+  /** Restarts the audio with new settings if they changed (the decks and the mixer as it lays
+   * them out come with the engine's state), then uses the mixer `mixMode` if given. Throws the
+   * error message on failure. */
+  async apply(settings: AudioSettings, mixMode: MixMode | null = null): Promise<void> {
+    const info = await invoke<AudioInfo | null>('apply_audio_settings', { settings, mixMode });
     this.settings.set(settings);
-    this.info.set(info);
-    return info;
+    if (info) this.info.set(info);
   }
 }
