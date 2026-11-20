@@ -179,6 +179,12 @@ impl DjPreferences {
     pub fn decks(&self) -> usize {
         self.deck_count.into()
     }
+
+    /// These settings, but those the actions set (the quantize, the tempo range) as `current`
+    /// has them.
+    pub fn keeping_actions_of(self, current: &DjPreferences) -> Self {
+        DjPreferences { quantize: current.quantize, pitch_range: current.pitch_range, ..self }
+    }
 }
 
 /// Two decks, or four. Saved as the number, as the interface has it: any other than four
@@ -392,6 +398,14 @@ impl Default for LibraryPreferences {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn the_settings_keep_the_quantize_and_the_tempo_range_the_actions_set() {
+        let current = super::DjPreferences { quantize: false, pitch_range: 0.16, ..Default::default() };
+        let older = super::DjPreferences { quantize: true, pitch_range: 0.08, cue_on_load: true, ..current };
+        let kept = older.keeping_actions_of(&current);
+        assert_eq!((kept.quantize, kept.pitch_range, kept.cue_on_load), (false, 0.16, true));
+    }
+
     use super::*;
 
     #[test]

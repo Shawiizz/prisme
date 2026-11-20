@@ -445,7 +445,7 @@
                   role="switch"
                   [attr.aria-checked]="dj().quantize"
                   settingControl
-                  (click)="setDj({ quantize: !dj().quantize })"
+                  (click)="engine.turn('general.quantize', !dj().quantize)"
                 >
                   <span></span>
                 </button>

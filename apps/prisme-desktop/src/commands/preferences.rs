@@ -6,7 +6,6 @@ use crate::preferences::{DjPreferences, KeyPreference, LibraryPreferences, Prefe
 use crate::state::{lock, AppState};
 use crate::stems_service::StemsService;
 use crate::tag_writer::TagWriter;
-use prisme_engine::Command;
 use std::collections::BTreeMap;
 use std::sync::Arc;
 use tauri::{AppHandle, Manager, State};
@@ -16,13 +15,15 @@ pub fn get_preferences(state: State<'_, AppState>) -> Preferences {
     state.preferences.get()
 }
 
-/// Off the main thread: another number of decks restarts the audio.
+/// Off the main thread: another number of decks restarts the audio. The quantize and the tempo
+/// range stay as the actions set them (`general.quantize`, `set_tempo_range`): a window showing
+/// older ones does not take a controller's change back.
 #[tauri::command]
 pub async fn set_dj_preferences(app: AppHandle, dj: DjPreferences) -> AppResult<()> {
     blocking(move || {
         let state = app.state::<AppState>();
         let decks_before = state.preferences.read(|p| p.dj.decks());
-        state.update_preferences(|p| p.dj = dj);
+        state.update_preferences(|p| p.dj = dj.keeping_actions_of(&p.dj));
         // another number of decks is another engine: the audio starts again, the tracks stay
         // on the decks there still are
         lock(&state.tracks)[dj.decks()..].fill_with(|| None);
@@ -30,7 +31,6 @@ pub async fn set_dj_preferences(app: AppHandle, dj: DjPreferences) -> AppResult<
         if let Some(settings) = running.filter(|_| dj.decks() != decks_before) {
             start_audio(&state, &settings)?;
         }
-        state.send_if_running(Command::SetQuantize { enabled: dj.quantize })?;
         state.apply_levels()
     })
     .await
