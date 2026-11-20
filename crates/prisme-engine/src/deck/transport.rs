@@ -80,6 +80,7 @@ impl Deck {
         self.hand = None;
         self.jog_hand = None;
         self.bar_mix.reset();
+        self.search = Default::default();
     }
 
     pub(crate) fn set_loop(&mut self, region: Option<LoopRegion>, active: bool) {

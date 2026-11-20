@@ -42,6 +42,17 @@ fn a_search_runs_through_the_track_beside_its_play_while_held() {
 }
 
 #[test]
+fn a_search_whose_release_was_lost_ends_with_its_track() {
+    let mut rig = playing_deck(10.0);
+    rig.send(Command::Search { deck: 0, speed: 8.0 });
+    rig.run(0.1);
+    rig.send(Command::LoadTrack { deck: 0, track: silent_track(60.0) });
+    rig.send(Command::SetPlaying { deck: 0, playing: true });
+    rig.run(1.0);
+    assert_close(rig.deck(0).position_s, 1.0, 0.05);
+}
+
+#[test]
 fn a_beat_loop_starts_on_the_nearest_beat_and_keeps_playing_inside() {
     let mut rig = playing_deck(10.1);
     rig.send(Command::BeatLoop { deck: 0, beats: 4.0 });
