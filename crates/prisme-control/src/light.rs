@@ -39,10 +39,12 @@ impl LightValues {
     }
 
     /// The value of `state`.
-    pub fn value(&self, state: &str) -> LightValue {
+    pub fn value(&self, state: &str) -> &LightValue {
+        static UNNAMED_OFF: LightValue = LightValue::Steady(0);
+        static UNNAMED_ON: LightValue = LightValue::Steady(127);
         let off = state == OFF;
         let named = self.0.get(state).or_else(|| (!off).then(|| self.0.get(ON)).flatten());
-        named.cloned().unwrap_or(LightValue::Steady(if off { 0 } else { 127 }))
+        named.unwrap_or(if off { &UNNAMED_OFF } else { &UNNAMED_ON })
     }
 }
 
@@ -81,9 +83,9 @@ mod tests {
     #[test]
     fn a_light_without_values_is_full_or_dark() {
         let values = LightValues::default();
-        assert_eq!(values.value(ON), LightValue::Steady(127));
-        assert_eq!(values.value(OFF), LightValue::Steady(0));
-        assert_eq!(values.value("playing"), LightValue::Steady(127));
+        assert_eq!(*values.value(ON), LightValue::Steady(127));
+        assert_eq!(*values.value(OFF), LightValue::Steady(0));
+        assert_eq!(*values.value("playing"), LightValue::Steady(127));
     }
 
     #[test]
@@ -91,9 +93,9 @@ mod tests {
         let values: LightValues =
             serde_json::from_str(r#"{ "on": 100, "off": 1, "playing": { "blink": [9, 0], "ms": 250 } }"#)
                 .unwrap();
-        assert_eq!(values.value("loaded"), LightValue::Steady(100));
-        assert_eq!(values.value(OFF), LightValue::Steady(1));
-        assert_eq!(values.value("playing"), LightValue::Blink { blink: [9, 0], ms: 250 });
+        assert_eq!(*values.value("loaded"), LightValue::Steady(100));
+        assert_eq!(*values.value(OFF), LightValue::Steady(1));
+        assert_eq!(*values.value("playing"), LightValue::Blink { blink: [9, 0], ms: 250 });
     }
 
     #[test]
@@ -110,9 +112,9 @@ mod tests {
             r#"{ "on": 5, "playing": { "blink": [5, 0], "ms": 250 }, "off": [176, 75, 12] }"#,
         )
         .unwrap();
-        assert_eq!(values.value("on"), LightValue::Steady(5));
-        assert_eq!(values.value("playing"), LightValue::Blink { blink: [5, 0], ms: 250 });
-        assert_eq!(values.value("off"), LightValue::Message(vec![176, 75, 12]));
+        assert_eq!(*values.value("on"), LightValue::Steady(5));
+        assert_eq!(*values.value("playing"), LightValue::Blink { blink: [5, 0], ms: 250 });
+        assert_eq!(*values.value("off"), LightValue::Message(vec![176, 75, 12]));
     }
 
     #[test]

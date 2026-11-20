@@ -5,6 +5,7 @@ use crate::target::Target;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet, HashMap};
+use std::sync::LazyLock;
 
 /// The action that turns a controller's other controls into their second layer while held;
 /// `shift.<name>` a named shift's (one per side, say), that is a shift too.
@@ -367,6 +368,14 @@ impl std::ops::DerefMut for Mapping {
     }
 }
 
+/// Where [`Mappings::shown`] works out the mappings shown.
+#[derive(Debug, Default)]
+pub struct ShownRoom {
+    /// Of each control, the rank of its layer and the place of its mapping.
+    chosen: HashMap<Control, (usize, usize)>,
+    places: Vec<usize>,
+}
+
 /// The mappings of all the controllers: on each controller and layer, a control drives
 /// one action, and an action has one control, but for those the application says take
 /// several (a jog wheel sends its top and its edge apart).
@@ -391,20 +400,28 @@ impl Mappings {
             .map(|(_, m)| m)
     }
 
-    /// The mappings of `device` whose lights show in `modes`, `shifts` held: of each control,
-    /// the one it drives (see [`Mappings::find`]).
-    pub fn shown(&self, device: &str, shifts: &Shifts, modes: &Modes) -> Vec<&Mapping> {
-        let mut chosen: HashMap<Control, (usize, usize)> = HashMap::new();
+    /// The mappings of `device` whose lights show in `modes`, `shifts` held, in their order: of
+    /// each control, the one it drives (see [`Mappings::find`]). Worked out in `room`, kept from
+    /// one call to the next: nothing is allocated once it has grown.
+    pub fn shown<'m: 'r, 'r>(
+        &'m self,
+        device: &str,
+        shifts: &Shifts,
+        modes: &Modes,
+        room: &'r mut ShownRoom,
+    ) -> impl Iterator<Item = &'m Mapping> + 'r {
+        room.chosen.clear();
         for (at, m) in self.0.iter().enumerate().filter(|(_, m)| m.device == device && m.applies(modes)) {
             let Some(rank) = shifts.rank(&m.shift) else { continue };
-            let best = chosen.entry(m.control).or_insert((rank, at));
+            let best = room.chosen.entry(m.control).or_insert((rank, at));
             if rank < best.0 {
                 *best = (rank, at);
             }
         }
-        let mut shown: Vec<usize> = chosen.into_values().map(|(_, at)| at).collect();
-        shown.sort_unstable();
-        shown.into_iter().map(|at| &self.0[at]).collect()
+        room.places.clear();
+        room.places.extend(room.chosen.values().map(|&(_, at)| at));
+        room.places.sort_unstable();
+        room.places.iter().map(|&at| &self.0[at])
     }
 
     /// Adds `mapping`, replacing what its control did in its layer and the control its
@@ -495,6 +512,20 @@ struct DeviceReader {
     remainders: HashMap<Control, f32>,
 }
 
+/// What is read of a device ([`Reader::seen`]).
+pub struct Seen<'r> {
+    pub shifts: &'r Shifts,
+    pub modes: &'r Modes,
+    pressed: &'r HashMap<Control, (Shifts, Modes)>,
+}
+
+impl Seen<'_> {
+    /// Whether `control` is held down.
+    pub fn holds(&self, control: Control) -> bool {
+        self.pressed.contains_key(&control)
+    }
+}
+
 impl Reader {
     /// The action an event of `device` drives and its value; `None` when it drives none, is
     /// a shift or is the first half of a 14-bit value. Shift and the modes are read here: a
@@ -579,9 +610,12 @@ impl Reader {
         self.devices.get(device).map(|d| d.shifts.clone()).unwrap_or_default()
     }
 
-    /// The modes `device`'s groups are in.
-    pub fn modes(&self, device: &str) -> Modes {
-        self.devices.get(device).map(|d| d.modes.clone()).unwrap_or_default()
+    /// What is read of `device` now: its shifts held, the modes its groups are in, its keys
+    /// held.
+    pub fn seen(&self, device: &str) -> Seen<'_> {
+        static UNREAD: LazyLock<DeviceReader> = LazyLock::new(DeviceReader::default);
+        let reader = self.devices.get(device).unwrap_or(&UNREAD);
+        Seen { shifts: &reader.shifts, modes: &reader.modes, pressed: &reader.pressed }
     }
 
     /// How many times `device`'s mode keys changed a mode: a change shows in another count.
@@ -914,7 +948,9 @@ mod tests {
             let modes = Modes::from([("beatFx".into(), chosen.into())]);
             let found = layered.find("DDJ", pressed, &Shifts::default(), &modes);
             assert_eq!(found.map(|m| m.target.as_str()), Some("deck1.censor"));
-            assert_eq!(layered.shown("DDJ", &Shifts::default(), &modes), [&learnt.all()[0]]);
+            let shown: Vec<&Mapping> =
+                layered.shown("DDJ", &Shifts::default(), &modes, &mut ShownRoom::default()).collect();
+            assert_eq!(shown, [&learnt.all()[0]]);
         }
     }
 
@@ -947,7 +983,7 @@ mod tests {
         reader.set_modes("DDJ", Modes::from([("padsA".into(), "hotcue".into())]));
         assert_eq!(read(&mut reader, &mappings, &[0x90, 36, 127]).unwrap().0, "deck1.hotcue1");
         assert_eq!(read(&mut reader, &mappings, &[0x90, 7, 127]), Some(("mode.padsA.roll".into(), 1.0)));
-        assert_eq!(reader.modes("DDJ")["padsA"], "roll", "the mode key is read here");
+        assert_eq!(reader.seen("DDJ").modes["padsA"], "roll", "the mode key is read here");
         // the pad pressed in the other mode ends what it began there
         assert_eq!(read(&mut reader, &mappings, &[0x90, 36, 0]), Some(("deck1.hotcue1".into(), 0.0)));
         assert_eq!(read(&mut reader, &mappings, &[0x90, 36, 127]).unwrap().0, "deck1.roll1");
@@ -1022,9 +1058,9 @@ mod tests {
         mappings.learn(mapping("DDJ", KNOB, "deck1.volume"));
         let mut reader = Reader::default();
         let shown = |reader: &Reader| -> Vec<String> {
-            let shown = mappings.shown("DDJ", &reader.shifts("DDJ"), &Modes::new());
-            shown
-                .iter()
+            let mut room = ShownRoom::default();
+            mappings
+                .shown("DDJ", &reader.shifts("DDJ"), &Modes::new(), &mut room)
                 .filter(|m| m.control == PAD || m.control == KNOB)
                 .map(|m| m.target.to_string())
                 .collect()
@@ -1058,9 +1094,9 @@ mod tests {
         let mut reader = Reader::default();
         reader.set_modes("DDJ", Modes::from([("pads".into(), "cues".into())]));
         read(&mut reader, &mappings, &[0x90, 9, 127]);
-        assert_eq!(reader.modes("DDJ")["pads"], "params");
+        assert_eq!(reader.seen("DDJ").modes["pads"], "params");
         read(&mut reader, &mappings, &[0x90, 9, 0]);
-        assert_eq!(reader.modes("DDJ")["pads"], "cues");
+        assert_eq!(reader.seen("DDJ").modes["pads"], "cues");
     }
 
     #[test]
@@ -1073,9 +1109,9 @@ mod tests {
         reader.set_modes("DDJ", Modes::from([("pads".into(), "cues".into())]));
         assert_eq!(read(&mut reader, &mappings, &[0x90, 9, 127]), Some(("mode.pads.roll".into(), 1.0)));
         assert_eq!(read(&mut reader, &mappings, &[0x90, 9, 0]), Some(("mode.pads.roll".into(), 0.0)));
-        assert_eq!(reader.modes("DDJ")["pads"], "cues");
+        assert_eq!(reader.seen("DDJ").modes["pads"], "cues");
         reader.choose("DDJ", &mappings.all()[0]);
-        assert_eq!(reader.modes("DDJ")["pads"], "roll");
+        assert_eq!(reader.seen("DDJ").modes["pads"], "roll");
     }
 
     #[test]
@@ -1090,7 +1126,7 @@ mod tests {
         reader.set_modes("DDJ", Modes::from([("pads".into(), "cues".into())]));
         read(&mut reader, &mappings, &[0x90, 9, 127]);
         assert_eq!(read(&mut reader, &mappings, &[0x90, 36, 127]).unwrap().0, "deck1.hotcue1.delete");
-        assert_eq!(reader.modes("DDJ")["pads"], "cues");
+        assert_eq!(reader.seen("DDJ").modes["pads"], "cues");
         assert_eq!(read(&mut reader, &mappings, &[0x90, 36, 0]).unwrap().0, "deck1.hotcue1.delete");
         assert_eq!(read(&mut reader, &mappings, &[0x90, 36, 127]).unwrap().0, "deck1.hotcue1");
     }
@@ -1103,9 +1139,9 @@ mod tests {
         mappings.learn(with(mapping("DDJ", switch, "mode.decks.right"), |b| b.on_value = Some(127)));
         let mut reader = Reader::default();
         read(&mut reader, &mappings, &[0xb0, 3, 127]);
-        assert_eq!(reader.modes("DDJ")["decks"], "right");
+        assert_eq!(reader.seen("DDJ").modes["decks"], "right");
         read(&mut reader, &mappings, &[0xb0, 3, 0]);
-        assert_eq!(reader.modes("DDJ")["decks"], "left");
+        assert_eq!(reader.seen("DDJ").modes["decks"], "left");
     }
 
     #[test]

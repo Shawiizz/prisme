@@ -311,7 +311,7 @@ impl MeterLed {
         } else {
             OFF
         };
-        self.values.value(state)
+        self.values.value(state).clone()
     }
 }
 
@@ -516,7 +516,7 @@ impl Profile {
 
 impl ProfileLight {
     /// Its value in `state`, while its group is in `modes`.
-    pub fn value(&self, state: &str, modes: &Modes) -> Option<LightValue> {
+    pub fn value(&self, state: &str, modes: &Modes) -> Option<&LightValue> {
         let applies = self.when.as_ref().is_none_or(|w| modes.get(&w.group) == Some(&w.mode));
         applies.then(|| self.values.value(state))
     }
@@ -648,8 +648,8 @@ mod tests {
     #[test]
     fn a_light_takes_its_own_values() {
         let light = &profile().lights[0];
-        assert_eq!(light.value("on", &Modes::new()), Some(LightValue::Steady(100)));
-        assert_eq!(light.value("off", &Modes::new()), Some(LightValue::Steady(0)));
+        assert_eq!(light.value("on", &Modes::new()), Some(&LightValue::Steady(100)));
+        assert_eq!(light.value("off", &Modes::new()), Some(&LightValue::Steady(0)));
     }
 
     #[test]
@@ -678,7 +678,7 @@ mod tests {
         let mappings: Vec<Mapping> = p.mappings("Mixtrack").collect();
         let targets: Vec<&str> = mappings.iter().map(|m| m.target.as_str()).collect();
         assert_eq!(targets, ["deck1.hotcue1", "deck1.roll1", "mode.padsA.hotcue", "mode.padsA.roll"]);
-        assert_eq!(mappings[3].light.value("off"), LightValue::Steady(1));
+        assert_eq!(*mappings[3].light.value("off"), LightValue::Steady(1));
         assert_eq!(p.first_modes(), Modes::from([("padsA".into(), "hotcue".into())]));
         assert_eq!(value(&p.meters[0], 0.5), 45);
         assert_eq!(p.keep_alive.as_ref().map(|k| k.every_ms), Some(200));

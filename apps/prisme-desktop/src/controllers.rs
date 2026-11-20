@@ -26,7 +26,8 @@ use prisme_audio_io::base_device_name;
 use prisme_control::hid::{self, Field, Learnt, Read};
 use prisme_control::{
     nearest, Control, DeckAction, Encoding, Event, FaderSet, Hold, LightValue, Mapping, Mappings, Modes,
-    Owner, Profile, ProfileControl, Reader, Shifts, Target, TargetId, JOG_STEPS_PER_TURN, OFF, ON, SHIFT,
+    Owner, Profile, ProfileControl, Reader, Shifts, ShownRoom, Target, TargetId, JOG_STEPS_PER_TURN, OFF, ON,
+    SHIFT,
 };
 use prisme_session::JsonFile;
 use serde::{Deserialize, Serialize};
@@ -177,10 +178,14 @@ struct Connection {
     device: String,
     /// The port it was opened on: the same name, or with a number Windows added.
     port: String,
+    /// Its profile, as chosen when it opened or when the profiles were read again.
+    profile: Option<Arc<Profile>>,
     link: Link,
     /// When its keep-alive message last went.
     kept_alive: Instant,
     lit: Lit,
+    /// Where the mappings its lights show are worked out, kept from one time to the next.
+    room: ShownRoom,
     /// The messages of its profile to send later, and when.
     later: Vec<(Instant, Vec<u8>)>,
     /// When each of its meters last reached full scale.
@@ -229,18 +234,28 @@ struct Lit {
 
 /// A light to change: its control to a value, or to a message of its own (a MIDI message, the
 /// bytes of a HID light).
-#[derive(Debug, Clone, PartialEq)]
-enum Lighting {
+#[derive(Debug, Clone, Copy, PartialEq)]
+enum Lighting<'m> {
     Value(Control, u8),
-    Message(Control, Vec<u8>),
+    Message(Control, &'m [u8]),
 }
 
-impl Lighting {
-    /// The MIDI message it is, if it is one.
-    fn midi(self) -> Option<Vec<u8>> {
+/// What a light is set to: one of its profile's values, or one made for it (the value of its
+/// palette nearest a colour, the bytes of a HID light of three colours).
+#[derive(Debug, Clone, Copy, PartialEq)]
+enum Shade<'v> {
+    Given(&'v LightValue),
+    Steady(u8),
+    Rgb([u8; 3]),
+}
+
+impl Shade<'_> {
+    #[cfg(test)]
+    fn value(self) -> LightValue {
         match self {
-            Lighting::Value(control, value) => prisme_control::light(control, value).map(Vec::from),
-            Lighting::Message(_, message) => Some(message),
+            Shade::Given(value) => value.clone(),
+            Shade::Steady(value) => LightValue::Steady(value),
+            Shade::Rgb(bytes) => LightValue::Message(bytes.to_vec()),
         }
     }
 }
@@ -254,98 +269,113 @@ struct Blink {
 
 impl Lit {
     /// `control` at `value`, unless it shows it already.
-    fn show(&mut self, control: Control, value: u8) -> Option<Lighting> {
+    fn show(&mut self, control: Control, value: u8) -> Option<Lighting<'static>> {
         (self.shown.insert(control, value) != Some(value)).then_some(Lighting::Value(control, value))
     }
 
-    /// The change setting the light of `control` to `value`, blinking or not, unless it shows
+    /// The change setting the light of `control` to `shade`, blinking or not, unless it shows
     /// it already.
-    fn light(&mut self, control: Control, value: LightValue) -> Option<Lighting> {
-        if !matches!(value, LightValue::Message(_)) {
-            self.messages.remove(&control);
-        }
-        match value {
-            LightValue::Steady(v) => {
+    fn light(&mut self, control: Control, shade: Shade) -> Option<Lighting<'_>> {
+        match shade {
+            Shade::Given(&LightValue::Steady(value)) | Shade::Steady(value) => {
+                self.messages.remove(&control);
                 self.blinking.remove(&control);
-                self.show(control, v)
+                self.show(control, value)
             }
-            LightValue::Message(message) => {
-                self.blinking.remove(&control);
-                self.shown.remove(&control);
-                let before = self.messages.insert(control, message.clone());
-                (before.as_ref() != Some(&message)).then_some(Lighting::Message(control, message))
-            }
-            LightValue::Blink { blink, ms } => {
-                let same = self.blinking.get(&control).is_some_and(|b| b.values == blink && b.ms == ms);
-                if same {
+            Shade::Given(&LightValue::Blink { blink, ms }) => {
+                self.messages.remove(&control);
+                if self.blinking.get(&control).is_some_and(|b| b.values == blink && b.ms == ms) {
                     return None;
                 }
                 self.blinking.insert(control, Blink { values: blink, ms, since: Instant::now() });
                 self.show(control, blink[0])
             }
+            Shade::Given(LightValue::Message(message)) => self.message(control, message),
+            Shade::Rgb(bytes) => self.message(control, &bytes),
         }
     }
 
-    /// The changes of the blinking lights whose value of the moment is not shown yet.
-    fn blink(&mut self) -> Vec<Lighting> {
-        let now: Vec<(Control, u8)> = self
-            .blinking
-            .iter()
-            .map(|(&control, b)| {
-                let half = (b.since.elapsed().as_millis() / u128::from(b.ms.max(1))) % 2;
-                (control, b.values[half as usize])
-            })
-            .collect();
-        now.into_iter().filter_map(|(control, value)| self.show(control, value)).collect()
+    /// `control` shown by a message of its own, unless it shows it already; the message kept
+    /// is written over, not made again.
+    fn message(&mut self, control: Control, message: &[u8]) -> Option<Lighting<'_>> {
+        self.blinking.remove(&control);
+        self.shown.remove(&control);
+        let kept = self.messages.entry(control).or_default();
+        if kept.as_slice() == message {
+            return None;
+        }
+        kept.clear();
+        kept.extend_from_slice(message);
+        Some(Lighting::Message(control, kept))
+    }
+
+    /// Each blinking light at its value of the moment, `apply`ed unless it shows it already.
+    fn blink(&mut self, mut apply: impl FnMut(Lighting)) {
+        for (&control, b) in &self.blinking {
+            let half = (b.since.elapsed().as_millis() / u128::from(b.ms.max(1))) % 2;
+            let value = b.values[half as usize];
+            if self.shown.insert(control, value) != Some(value) {
+                apply(Lighting::Value(control, value));
+            }
+        }
     }
 }
 
-impl Connection {
-    /// Sets the light of `control` to `value`, blinking or not.
-    fn light(&mut self, control: Control, value: LightValue) {
-        if let Some(lighting) = self.lit.light(control, value) {
-            self.apply(lighting);
-        }
-    }
-
-    /// Each blinking light at the value of the moment.
-    fn blink(&mut self) {
-        for lighting in self.lit.blink() {
-            self.apply(lighting);
-        }
-    }
-
+impl Link {
     fn apply(&mut self, lighting: Lighting) {
-        match (&self.link, lighting) {
+        match (self, lighting) {
             (Link::Hid(link), Lighting::Value(Control::Hid(led), value)) => link.set(led, value),
-            (Link::Hid(link), Lighting::Message(Control::Hid(led), bytes)) => link.set_bytes(led, &bytes),
+            (Link::Hid(link), Lighting::Message(Control::Hid(led), bytes)) => link.set_bytes(led, bytes),
             (Link::Hid(_), _) => {}
-            (Link::Midi { .. }, lighting) => {
-                if let Some(message) = lighting.midi() {
-                    self.send(&message);
+            (link, Lighting::Value(control, value)) => {
+                if let Some(message) = prisme_control::light(control, value) {
+                    link.send(&message);
                 }
             }
+            (link, Lighting::Message(_, message)) => link.send(message),
         }
     }
 
     /// Sends a message of its own: a MIDI message, a whole HID report.
     fn send(&mut self, message: &[u8]) {
-        match &mut self.link {
+        match self {
             Link::Midi { output: Some(output), .. } => drop(output.send(message)),
             Link::Midi { output: None, .. } => {}
             Link::Hid(link) => link.send(message),
         }
     }
+}
+
+impl Connection {
+    /// Sets the light of `control` to `shade`, blinking or not.
+    fn light(&mut self, control: Control, shade: Shade) {
+        if let Some(lighting) = self.lit.light(control, shade) {
+            self.link.apply(lighting);
+        }
+    }
+
+    /// Each blinking light at the value of the moment.
+    fn blink(&mut self) {
+        let link = &mut self.link;
+        self.lit.blink(|lighting| link.apply(lighting));
+    }
+
+    /// Sends a message of its own: a MIDI message, a whole HID report.
+    fn send(&mut self, message: &[u8]) {
+        self.link.send(message);
+    }
 
     /// Sends the messages of its profile whose time came.
     fn send_due(&mut self) {
         let now = Instant::now();
-        let (due, later): (Vec<_>, Vec<_>) =
-            std::mem::take(&mut self.later).into_iter().partition(|(at, _)| *at <= now);
-        self.later = later;
-        for (_, message) in due {
-            self.send(&message);
-        }
+        let Connection { later, link, .. } = self;
+        later.retain(|(at, message)| {
+            let due = *at <= now;
+            if due {
+                link.send(message);
+            }
+            !due
+        });
     }
 }
 
@@ -361,6 +391,13 @@ struct Keys {
     /// Keys whose press drove another action than their own (pressed twice, or with another
     /// key held): their release lets that one go.
     instead: HashMap<(String, Control), TargetId>,
+}
+
+impl Keys {
+    /// Whether the key `control` of `device` put its fader at the second of its two positions.
+    fn at_second(&self, device: &str, control: Control) -> bool {
+        self.second.iter().any(|(d, c)| d == device && *c == control)
+    }
 }
 
 pub struct Controllers {
@@ -403,6 +440,9 @@ impl Controllers {
     /// next tick of [`Self::drive_outputs`]).
     pub fn profiles_changed(&self) {
         self.layer();
+        for connection in lock(&self.connections).iter_mut() {
+            connection.profile = self.profile(&connection.device);
+        }
     }
 
     /// What `device` drives now, as the profile of its model: its own profile's, what was
@@ -761,75 +801,85 @@ impl Controllers {
 
     /// Shows on `device`'s lights the state of their actions.
     fn show_lights(&self, app: &AppHandle, device: &str) {
-        let lights = self.lights(device, &app.state::<Actions>().view(app));
+        let view = app.state::<Actions>().view(app);
         if let Some(connection) = lock(&self.connections).iter_mut().find(|c| c.device == device) {
-            for (control, value) in lights {
-                connection.light(control, value);
-            }
+            self.show(connection, &view);
         }
     }
 
-    /// What `device`'s lights show of `view`, in the modes it is in and the shifts held: the
-    /// state of the actions its mapped controls and its mode keys drive (of a control mapped in
-    /// several layers, the one in use's), and of the other lights its profile gives. A key lit
-    /// while held, whose action has no state of its own, is off once let go.
-    fn lights(&self, device: &str, view: &View) -> Vec<(Control, LightValue)> {
-        let profile = self.profile(device);
-        let (modes, shifts, held) = {
-            let reader = lock(&self.reader);
-            (reader.modes(device), reader.shifts(device), reader.held(device))
-        };
-        let hid = profile.as_ref().and_then(|p| p.hid.as_ref());
+    /// Shows on `connection`'s lights what `view` shows of their actions (see [`Self::lights`]):
+    /// nothing is allocated, the lights changed are sent at once.
+    fn show(&self, connection: &mut Connection, view: &View) {
+        let Connection { device, profile, link, lit, room, .. } = connection;
+        self.lights(device, profile.as_deref(), view, room, |control, shade| {
+            if let Some(lighting) = lit.light(control, shade) {
+                link.apply(lighting);
+            }
+        });
+    }
+
+    /// What the lights of `device`, driven by `profile`, show of `view`, each given to `show`,
+    /// in the modes it is in and the shifts held: the state of the actions its mapped controls
+    /// and its mode keys drive (of a control mapped in several layers, the one in use's), and
+    /// of the other lights its profile gives. A key lit while held, whose action has no state of
+    /// its own, is off once let go. The mappings shown are worked out in `room`.
+    fn lights(
+        &self,
+        device: &str,
+        profile: Option<&Profile>,
+        view: &View,
+        room: &mut ShownRoom,
+        mut show: impl FnMut(Control, Shade),
+    ) {
+        let hid = profile.and_then(|p| p.hid.as_ref());
         // in the order a key read takes them
+        let reader = lock(&self.reader);
+        let seen = reader.seen(device);
         let mappings = lock(&self.mappings);
         let told = lock(&self.told);
         let keys = lock(&self.keys);
         // the state of an action, and the colour it shows
         let shown = |id: &TargetId| match id.target()? {
             Target::Mode { group, mode } => {
-                Some((if modes.get(group).is_some_and(|m| m == mode) { ON } else { OFF }, None))
+                Some((if seen.modes.get(group).is_some_and(|m| m == mode) { ON } else { OFF }, None))
             }
             target if told_by_interface(target) => told.get(id.as_str()).map(|s| (s.as_str(), None)),
             target => light(target, view).map(|l| (l.state.name(), l.colour)),
         };
-        // by the nearest of its palette, else on a light of three colours
-        let coloured =
-            |colour: Option<u32>, palette: &BTreeMap<_, u8>, light: Control, value: LightValue| match (
-                colour, light, hid,
-            ) {
-                (Some(c), _, _) if !palette.is_empty() => {
-                    nearest(palette, c).map_or(value, LightValue::Steady)
-                }
-                (Some(c), Control::Hid(led), Some(hid)) if led.bits == hid::RGB_BITS => {
-                    LightValue::Message(hid::rgb(c, hid.brightness).to_vec())
-                }
-                _ => value,
-            };
-        let mut lights: Vec<(Control, LightValue)> = Vec::new();
-        for mapping in mappings.shown(device, &shifts, &modes) {
+        for mapping in mappings.shown(device, seen.shifts, seen.modes, room) {
             let Some(light) = light_of(hid, mapping.control) else { continue };
-            let key = (device.to_owned(), mapping.control);
             let lit_held = mapping.light.has(PRESSED);
             let action = shown(&mapping.target);
-            let state = if lit_held && held.contains(&mapping.control) {
+            let state = if lit_held && seen.holds(mapping.control) {
                 Some(PRESSED)
             } else if matches!(mapping.set, Some(FaderSet::InTurn(_))) {
-                Some(if keys.second.contains(&key) { ON } else { OFF })
+                Some(if keys.at_second(device, mapping.control) { ON } else { OFF })
             } else {
                 action.map(|(state, _)| state).or(lit_held.then_some(OFF))
             };
             if let Some(state) = state {
                 let colour = action.and_then(|(_, colour)| colour);
-                lights.push((light, coloured(colour, &mapping.palette, light, mapping.light.value(state))));
+                show(light, coloured(mapping.light.value(state), colour, &mapping.palette, light, hid));
             }
         }
         for extra in profile.iter().flat_map(|p| &p.lights) {
             let action = shown(&extra.target);
-            if let Some(value) = action.and_then(|(state, _)| extra.value(state, &modes)) {
+            if let Some(value) = action.and_then(|(state, _)| extra.value(state, seen.modes)) {
                 let colour = action.and_then(|(_, colour)| colour);
-                lights.push((extra.control, coloured(colour, &extra.palette, extra.control, value)));
+                show(extra.control, coloured(value, colour, &extra.palette, extra.control, hid));
             }
         }
+    }
+
+    /// What the lights of `device` show of `view` (see [`Self::lights`]).
+    #[cfg(test)]
+    fn lights_of(&self, device: &str, view: &View) -> Vec<(Control, LightValue)> {
+        let mut lights = Vec::new();
+        let profile = self.profile(device);
+        let mut room = ShownRoom::default();
+        self.lights(device, profile.as_deref(), view, &mut room, |control, shade| {
+            lights.push((control, shade.value()));
+        });
         lights
     }
 
@@ -853,20 +903,20 @@ impl Controllers {
             at.map(|at| connections.remove(at))
         };
         let Some(mut connection) = connection else { return };
-        let profile = self.profile(device);
+        let profile = connection.profile.clone();
         let mappings = lock(&self.mappings);
         let hid = profile.as_ref().and_then(|p| p.hid.as_ref());
         for mapping in mappings.all().iter().filter(|m| m.device == device) {
             if let Some(light) = light_of(hid, mapping.control) {
-                connection.light(light, mapping.light.value(OFF));
+                connection.light(light, Shade::Given(mapping.light.value(OFF)));
             }
         }
         if let Some(profile) = profile {
             for extra in &profile.lights {
-                connection.light(extra.control, extra.values.value(OFF));
+                connection.light(extra.control, Shade::Given(extra.values.value(OFF)));
             }
             for (control, value) in profile.meters.iter().flat_map(|m| m.show(0.0, false)) {
-                connection.light(control, value);
+                connection.light(control, Shade::Given(&value));
             }
             for message in &profile.close {
                 connection.send(message);
@@ -909,13 +959,12 @@ impl Controllers {
     /// `levels` of its meters when they are due.
     fn drive(&self, view: &View, levels: Option<&HashMap<String, f32>>) {
         for connection in lock(&self.connections).iter_mut() {
-            for (control, value) in self.lights(&connection.device, view) {
-                connection.light(control, value);
-            }
+            self.show(connection, view);
             connection.blink();
             connection.send_due();
-            let Some(profile) = self.profile(&connection.device) else { continue };
-            let modes = lock(&self.reader).modes(&connection.device);
+            let Some(profile) = connection.profile.clone() else { continue };
+            let reader = lock(&self.reader);
+            let modes = reader.seen(&connection.device).modes;
             let shown = |when: &Option<prisme_control::When>| {
                 when.as_ref().is_none_or(|w| modes.get(&w.group) == Some(&w.mode))
             };
@@ -932,13 +981,13 @@ impl Controllers {
                 }
                 let clipping = connection.clipped.get(&at).is_some_and(|t| t.elapsed() < CLIP_SHOWN);
                 for (control, value) in meter.show(level, clipping) {
-                    connection.light(control, value);
+                    connection.light(control, Shade::Given(&value));
                 }
             }
             let value_of = |source: &prisme_control::SourceId| output(source.named()?, view);
             for output in profile.outputs.iter().filter(|o| shown(&o.when)) {
                 if let Some(value) = value_of(&output.source) {
-                    connection.light(output.control, LightValue::Steady(output.value(value as f32)));
+                    connection.light(output.control, Shade::Steady(output.value(value as f32)));
                 }
             }
             for (at, display) in profile.displays.iter().enumerate().filter(|(_, d)| shown(&d.when)) {
@@ -1015,17 +1064,19 @@ impl Controllers {
     /// `device` opened on `port`: it is sent what its profile sends first (some of it later),
     /// its groups are in their first modes, and its lights show.
     fn opened(&self, app: &AppHandle, device: &str, port: String, link: Link) {
+        let profile = self.profile(device);
         let mut connection = Connection {
             device: device.to_owned(),
             port,
+            profile: profile.clone(),
             link,
             kept_alive: Instant::now(),
             lit: Lit::default(),
+            room: ShownRoom::default(),
             later: Vec::new(),
             clipped: HashMap::new(),
             displayed: HashMap::new(),
         };
-        let profile = self.profile(device);
         for (after_ms, message) in profile.iter().flat_map(|p| p.init.iter().map(|m| m.when_and_what())) {
             if after_ms == 0 {
                 connection.send(message);
@@ -1211,7 +1262,7 @@ impl Controllers {
             }
         }
         if pressed {
-            if let Some(chord) = mapping.chord.as_ref().filter(|c| reader.held(device).contains(&c.with)) {
+            if let Some(chord) = mapping.chord.as_ref().filter(|c| reader.seen(device).holds(c.with)) {
                 keys.instead.insert(key, chord.target.clone());
                 return press(&chord.target, 1.0);
             }
@@ -1388,6 +1439,26 @@ fn light_of(hid: Option<&hid::HidDevice>, control: Control) -> Option<Control> {
     match control {
         Control::Hid(_) => hid?.led(control),
         _ => Some(control),
+    }
+}
+
+/// The light `light` at `value`, or at the `colour` of its action: the value of its `palette`
+/// nearest it, else, on a HID light of three colours, that colour.
+fn coloured<'v>(
+    value: &'v LightValue,
+    colour: Option<u32>,
+    palette: &BTreeMap<String, u8>,
+    light: Control,
+    hid: Option<&hid::HidDevice>,
+) -> Shade<'v> {
+    match (colour, light, hid) {
+        (Some(c), _, _) if !palette.is_empty() => {
+            nearest(palette, c).map_or(Shade::Given(value), Shade::Steady)
+        }
+        (Some(c), Control::Hid(led), Some(hid)) if led.bits == hid::RGB_BITS => {
+            Shade::Rgb(hid::rgb(c, hid.brightness))
+        }
+        _ => Shade::Given(value),
     }
 }
 
@@ -1831,7 +1902,7 @@ mod tests {
         let key = Control::note(0, 9);
         let c = with_mappings([with(mapping(key, "mode.pads.roll"), |b| b.also = vec!["deck1.slip".into()])]);
         assert_eq!(route(&c, &[0x90, 9, 127]), input("deck1.slip", 1.0));
-        assert_eq!(lock(&c.reader).modes("DDJ")["pads"], "roll");
+        assert_eq!(lock(&c.reader).seen("DDJ").modes["pads"], "roll");
         assert_eq!(route(&c, &[0x90, 9, 0]), input("deck1.slip", 0.0));
     }
 
@@ -1857,7 +1928,7 @@ mod tests {
         };
         let c = with_mappings([mode_key(60_000)]);
         lock(&c.reader).set_modes("DDJ", Modes::from([("pads".into(), "cues".into())]));
-        let mode = |c: &Controllers| lock(&c.reader).modes("DDJ")["pads"].clone();
+        let mode = |c: &Controllers| lock(&c.reader).seen("DDJ").modes["pads"].clone();
         assert_eq!(route(&c, &[0x90, 9, 127]), None);
         assert_eq!(mode(&c), "cues", "the press waits to know whether it is held");
         assert_eq!(route(&c, &[0x90, 9, 0]), None);
@@ -1943,9 +2014,9 @@ mod tests {
     fn a_key_lit_while_held_goes_dark_when_let_go() {
         let c = with_mappings([with(mapping(PAD, "deck1.jump.back"), lit(PRESSED, 100))]);
         route(&c, &[0x90, 36, 127]);
-        assert_eq!(c.lights("DDJ", &view()), [(PAD, LightValue::Steady(100))]);
+        assert_eq!(c.lights_of("DDJ", &view()), [(PAD, LightValue::Steady(100))]);
         route(&c, &[0x90, 36, 0]);
-        assert_eq!(c.lights("DDJ", &view()), [(PAD, LightValue::Steady(0))]);
+        assert_eq!(c.lights_of("DDJ", &view()), [(PAD, LightValue::Steady(0))]);
     }
 
     fn light(target: &str, state: &str) -> LightDto {
@@ -1956,9 +2027,9 @@ mod tests {
     fn a_mapping_to_play_lights_while_its_deck_plays() {
         let c = with_mappings([with(mapping(PAD, "deck1.play"), lit(ON, 10))]);
         let mut playing = view();
-        assert_eq!(c.lights("DDJ", &playing), [(PAD, LightValue::Steady(0))]);
+        assert_eq!(c.lights_of("DDJ", &playing), [(PAD, LightValue::Steady(0))]);
         playing.status.decks[0].playing = true;
-        assert_eq!(c.lights("DDJ", &playing), [(PAD, LightValue::Steady(10))]);
+        assert_eq!(c.lights_of("DDJ", &playing), [(PAD, LightValue::Steady(10))]);
     }
 
     #[test]
@@ -1967,9 +2038,9 @@ mod tests {
         let mut four = view();
         four.decks_in_use = 4;
         four.status.decks[2].playing = true;
-        assert_eq!(c.lights("DDJ", &four), [(PAD, LightValue::Steady(10))]);
+        assert_eq!(c.lights_of("DDJ", &four), [(PAD, LightValue::Steady(10))]);
         let two = View { decks_in_use: 2, ..four };
-        assert_eq!(c.lights("DDJ", &two), [(PAD, LightValue::Steady(0))]);
+        assert_eq!(c.lights_of("DDJ", &two), [(PAD, LightValue::Steady(0))]);
     }
 
     #[test]
@@ -1980,7 +2051,8 @@ mod tests {
             mapping(Control::note(0, 38), "deck1.fx.focus"),
         ]);
         assert_eq!(c.told_targets(), ["general.library"]);
-        let pad = |c: &Controllers| c.lights("DDJ", &view()).into_iter().find(|(control, _)| *control == PAD);
+        let pad =
+            |c: &Controllers| c.lights_of("DDJ", &view()).into_iter().find(|(control, _)| *control == PAD);
         assert_eq!(pad(&c), None, "not told yet");
         c.set_lights(vec![light("general.library", ON)]);
         assert_eq!(pad(&c), Some((PAD, LightValue::Steady(10))));
@@ -2008,11 +2080,11 @@ mod tests {
         ]);
         let mut playing = view();
         playing.status.decks[0].playing = true;
-        assert_eq!(c.lights("DDJ", &playing), [(PAD, LightValue::Steady(10))]);
+        assert_eq!(c.lights_of("DDJ", &playing), [(PAD, LightValue::Steady(10))]);
         route(&c, &[0x90, 63, 127]);
-        assert_eq!(c.lights("DDJ", &playing), [(PAD, LightValue::Steady(0))], "the shift layer's");
+        assert_eq!(c.lights_of("DDJ", &playing), [(PAD, LightValue::Steady(0))], "the shift layer's");
         route(&c, &[0x90, 63, 0]);
-        assert_eq!(c.lights("DDJ", &playing), [(PAD, LightValue::Steady(10))]);
+        assert_eq!(c.lights_of("DDJ", &playing), [(PAD, LightValue::Steady(10))]);
     }
 
     #[test]
@@ -2025,9 +2097,9 @@ mod tests {
         lock(&c.reader).set_modes("DDJ", Modes::from([("pads".into(), "cues".into())]));
         let mut cued = with_hot_cue(view(), 0, 0xff0000);
         cued.status.decks[0].playing = true;
-        assert_eq!(c.lights("DDJ", &cued), [(PAD, LightValue::Steady(10))]);
+        assert_eq!(c.lights_of("DDJ", &cued), [(PAD, LightValue::Steady(10))]);
         lock(&c.reader).set_mode("DDJ", "pads", "transport");
-        assert_eq!(c.lights("DDJ", &cued), [(PAD, LightValue::Steady(20))]);
+        assert_eq!(c.lights_of("DDJ", &cued), [(PAD, LightValue::Steady(20))]);
     }
 
     /// The messages going to the controller for `meter` at `level`, what `lit` shows already
@@ -2036,7 +2108,10 @@ mod tests {
         meter
             .show(level, clipping)
             .into_iter()
-            .filter_map(|(control, value)| lit.light(control, value)?.midi())
+            .filter_map(|(control, value)| match lit.light(control, Shade::Given(&value))? {
+                Lighting::Value(control, value) => prisme_control::light(control, value).map(Vec::from),
+                Lighting::Message(_, message) => Some(message.to_vec()),
+            })
             .collect()
     }
 
@@ -2056,6 +2131,43 @@ mod tests {
         assert_eq!(sent(lit, &meter, 0.6, false), [vec![176, 80, 10], vec![176, 80, 11]]);
         assert_eq!(sent(lit, &meter, 0.3, true), [vec![176, 81, 11], vec![0xb0, 89, 1]], "the clip LED held");
         assert_eq!(sent(lit, &meter, 0.3, false), [vec![0xb0, 89, 0]]);
+    }
+
+    #[test]
+    fn a_connection_shows_its_lights_as_they_change_in_the_room_it_keeps() {
+        let c = with_mappings([with(mapping(PAD, "deck1.play"), lit(ON, 10))]);
+        let mut connection = Connection {
+            device: "DDJ".into(),
+            port: "DDJ".into(),
+            profile: None,
+            link: Link::Midi { input: None, output: None },
+            kept_alive: Instant::now(),
+            lit: Lit::default(),
+            room: ShownRoom::default(),
+            later: Vec::new(),
+            clipped: HashMap::new(),
+            displayed: HashMap::new(),
+        };
+        let mut playing = view();
+        c.show(&mut connection, &playing);
+        assert_eq!(connection.lit.shown[&PAD], 0);
+        playing.status.decks[0].playing = true;
+        c.show(&mut connection, &playing);
+        assert_eq!(connection.lit.shown[&PAD], 10);
+    }
+
+    #[test]
+    fn a_light_shown_by_a_message_is_sent_once_and_written_over() {
+        let lit = &mut Lit::default();
+        let led = Control::note(0, 40);
+        let red = Shade::Rgb([127, 0, 0]);
+        assert_eq!(lit.light(led, red), Some(Lighting::Message(led, &[127, 0, 0])));
+        assert_eq!(lit.light(led, red), None);
+        let kept = lit.messages[&led].as_ptr();
+        assert_eq!(lit.light(led, Shade::Rgb([0, 0, 127])), Some(Lighting::Message(led, &[0, 0, 127])));
+        assert_eq!(lit.messages[&led].as_ptr(), kept, "not made again");
+        assert_eq!(lit.light(led, Shade::Steady(5)), Some(Lighting::Value(led, 5)));
+        assert!(!lit.messages.contains_key(&led));
     }
 
     #[test]
@@ -2192,15 +2304,15 @@ mod tests {
         let led = |report, byte, bits| Control::Hid(Field { report, byte, bit: 0, bits, big_endian: false });
         let mut shown = with_hot_cue(view(), 0, 0xff0000);
         shown.status.decks[0].playing = true;
-        let lights = c.lights(&device, &shown);
+        let lights = c.lights_of(&device, &shown);
         assert!(lights.contains(&(led(0x81, 0x20, 8), LightValue::Steady(127))), "play");
         assert!(lights.contains(&(led(0x81, 0x01, 24), LightValue::Message(vec![127, 0, 0]))), "its colour");
         assert!(lights.contains(&(led(0x81, 0x04, 24), LightValue::Message(vec![8, 1, 1]))), "dim red");
         // the left side on deck C: the same LEDs show deck 3
         lock(&c.reader).set_mode(&device, "left", "C");
-        assert!(c.lights(&device, &shown).contains(&(led(0x81, 0x20, 8), LightValue::Steady(9))));
+        assert!(c.lights_of(&device, &shown).contains(&(led(0x81, 0x20, 8), LightValue::Steady(9))));
         assert!(
-            c.lights(&device, &shown).contains(&(led(0x81, 0x31, 8), LightValue::Steady(127))),
+            c.lights_of(&device, &shown).contains(&(led(0x81, 0x31, 8), LightValue::Steady(127))),
             "deck C lit"
         );
     }

@@ -20,8 +20,8 @@ mod target;
 pub use id::{Id, SourceId, TargetId};
 pub use light::{light, nearest, LightValue, LightValues, OFF, ON};
 pub use mapping::{
-    Chord, Encoding, FaderSet, Hold, Mapping, Mappings, Modes, ProfileControl, Reader, Shift, Shifts, When,
-    SHIFT,
+    Chord, Encoding, FaderSet, Hold, Mapping, Mappings, Modes, ProfileControl, Reader, Seen, Shift, Shifts,
+    ShownRoom, When, SHIFT,
 };
 pub use message::{parse, Control, Event, Midi};
 pub use pickup::Pickup;
