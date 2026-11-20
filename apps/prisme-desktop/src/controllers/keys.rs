@@ -179,7 +179,7 @@ impl Controllers {
                     second
                 }
             };
-            return press(&mapping.target, position);
+            return Some(driven(vec![Action::set(&mapping.target, position)]));
         }
         if mapping.latch {
             if !pressed {
@@ -320,6 +320,14 @@ impl Action {
     /// The key of `target` pressed to `value`, or let go.
     pub(super) fn press(target: &TargetId, value: f32) -> Self {
         Self::of(target, value, false, None)
+    }
+
+    /// The fader of `target` put at `position` by a key.
+    pub(super) fn set(target: &TargetId, position: f32) -> Self {
+        match target.target() {
+            Some(rust) if rust.owner() == Owner::Rust => Action::Rust(rust.clone(), Input::Set(position)),
+            _ => Action::Ui(target.clone(), Input::Value(position)),
+        }
     }
 }
 

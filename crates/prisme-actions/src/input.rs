@@ -16,6 +16,8 @@ pub enum Input {
     Value(f32),
     /// An encoder's steps, each moving a fader's action by `step` of its travel.
     Steps { steps: f32, step: Option<f32> },
+    /// A position a key puts a fader's action at, whatever it stands at: no pickup.
+    Set(f32),
 }
 
 impl Input {
@@ -31,7 +33,7 @@ impl Input {
     /// How much it moves: a value, or steps.
     pub fn amount(self) -> f32 {
         match self {
-            Input::Value(value) => value,
+            Input::Value(value) | Input::Set(value) => value,
             Input::Steps { steps, .. } => steps,
         }
     }
@@ -95,6 +97,7 @@ impl Inputs {
                 }
                 None => Some(Given::Value(value)),
             },
+            Input::Set(value) => Some(Given::Value(value)),
         }
     }
 
@@ -252,6 +255,18 @@ mod tests {
         assert_eq!(move_to("Xone", 0.1, 0.5), None, "the other controller's fader is elsewhere");
         assert_eq!(move_to("DDJ", 0.6, 0.5), Some(Given::Value(0.6)));
         assert_eq!(move_to("Xone", 0.7, 0.6), Some(Given::Value(0.7)), "crossed it");
+    }
+
+    #[test]
+    fn a_key_puts_a_fader_where_it_says_whatever_it_stands_at() {
+        let mut inputs = Inputs::default();
+        let crossfader = target("mixer.crossfader");
+        assert_eq!(
+            inputs.resolve("DDJ", &crossfader, Input::Value(0.5), Some(0.0)),
+            None,
+            "a fader picks up"
+        );
+        assert_eq!(inputs.resolve("DDJ", &crossfader, Input::Set(0.5), Some(0.0)), Some(Given::Value(0.5)));
     }
 
     #[test]

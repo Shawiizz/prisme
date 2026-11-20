@@ -773,9 +773,10 @@ mod tests {
         let c = with_mappings([with(mapping(PAD, "mixer.cueMix"), |b| {
             b.set = Some(FaderSet::InTurn([0.0, 1.0]))
         })]);
-        assert_eq!(route(&c, &[0x90, 36, 127]), input("mixer.cueMix", 1.0));
+        let set = |position| Some(Routed::Actions(vec![Action::set(&"mixer.cueMix".into(), position)]));
+        assert_eq!(route(&c, &[0x90, 36, 127]), set(1.0));
         assert_eq!(route(&c, &[0x90, 36, 0]), None, "a release sets nothing");
-        assert_eq!(route(&c, &[0x90, 36, 127]), input("mixer.cueMix", 0.0));
+        assert_eq!(route(&c, &[0x90, 36, 127]), set(0.0));
     }
 
     #[test]
