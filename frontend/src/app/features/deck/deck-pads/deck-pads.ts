@@ -296,9 +296,7 @@ export class DeckPads {
     const deck = this.deck();
     const slot = this.first() + index;
     if (this.mode() === 'cues') this.performance.deleteHotCue(deck, slot);
-    if (this.mode() !== 'sampler') return;
-    if (this.samplePlaying(slot)) this.sampler.stop(deck, slot);
-    else if (this.samples()[slot]) this.sampler.clear(deck, slot);
+    if (this.mode() === 'sampler') this.sampler.takeOff(deck, slot);
   }
 
   loopIn() {

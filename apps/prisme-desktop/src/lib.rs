@@ -368,6 +368,7 @@ pub fn run() {
             commands::export::export_m3u,
             commands::export::export_rekordbox,
             commands::sampler::load_sample,
+            commands::sampler::take_sample_off,
             commands::controllers::look_for_controllers,
             commands::targets::list_targets,
             commands::controllers::set_controller_enabled,
