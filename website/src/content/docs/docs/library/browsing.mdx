@@ -42,15 +42,15 @@ The two buttons left of the field choose where you search:
 
 | Button | Searches | How |
 | --- | --- | --- |
-| The open list (**Folder**, **Crate**, **Set**, **Prepare** or **Duplicates**) | The tracks of that list | Each word you type must appear in the title, artist, album, genre or file name, in any order. `daft around` finds *Around the World* by Daft Punk |
-| **Library** | Every analysed track | Words match the start of words in the same fields, accents ignored. Up to 500 results |
+| The open list (**Folder**, **Crate**, **Set**, **Prepare** or **Duplicates**) | The tracks of that list | Each word you type must appear in the title, artist, album, genre or file name, in any order, even inside a word; capitals and accents do not count. `daft around` finds *Around the World* by Daft Punk, and so does `unk orld` |
+| **Library** | Every analysed track | The same way, every match shown |
 
 There is no special syntax: no quotes, fields or operators. Opening another list clears the
 search and goes back to searching that list.
 
 <Aside type="note">
   The **Library** search covers analysed tracks only. A file copied a minute ago appears once
-  its analysis is done, which the toolbar shows.
+  its analysis is done, which the toolbar shows; a file that cannot be decoded never does.
 </Aside>
 
 ## The columns
@@ -185,6 +185,10 @@ These are the keys Prisme starts with; you can [change them](/docs/interface/key
 On a Mac, <kbd>⌘</kbd> takes the place of <kbd>Ctrl</kbd>. The full list is in
 [Keyboard and command palette](/docs/interface/keyboard/). A controller's browse knob, load
 buttons and list buttons work the same way: see the [Actions reference](/docs/controllers/actions/).
+
+On a controller, **Open the next list** and **Open the previous list** go through the side panel
+in its order: **Prepare**, **Duplicates**, each music folder followed by the folders right under it
+that hold tracks, the crates, then the sets of the history. They stop at either end.
 
 On a phone, the library has its own layout, made for a finger: see
 [Phone and tablet](/docs/interface/phone/).
