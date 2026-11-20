@@ -267,6 +267,10 @@ pub struct Shown {
     /// The tracks queued or being separated, which the rows of the library mark.
     pub queued: Queued,
     awaiting: Vec<PathBuf>,
+    /// Whether a graphics card was found, once looked for, and whether the separation gave it
+    /// up since.
+    gpu: Option<bool>,
+    gave_up: bool,
 }
 
 /// A set of tracks shared as it was made: told apart from another by where it is, not by what
@@ -297,8 +301,9 @@ impl Shown {
     pub fn dto(&self, preferences: &Preferences) -> StemsStateDto {
         let library = &preferences.library;
         let installed = |m: usize| self.models.get(m).is_some_and(|s| s.installed);
-        let gpu = gpu_known();
+        let gpu = self.gpu;
         let fast_suits = cfg!(mobile) || gpu == Some(false);
+        let on_gpu = gpu == Some(true) && library.stems_gpu && !self.gave_up;
         let choice = |fast: bool| {
             let of = || (0..MODELS.len()).filter(move |&m| MODELS[m].fast == fast);
             let left: u64 = of().filter(|&m| !installed(m)).map(|m| MODELS[m].bytes).sum();
@@ -316,10 +321,8 @@ impl Shown {
             progress: self.progress.clone(),
             reach: self.reach(library.stems_fast),
             gpu,
-            on_gpu: gpu == Some(true) && library.stems_gpu,
-            on_load: library
-                .separate_on_load
-                .unwrap_or(gpu == Some(true) && library.stems_gpu && !GPU_GAVE_UP.load(Ordering::Relaxed)),
+            on_gpu,
+            on_load: library.separate_on_load.unwrap_or(on_gpu),
             downloading: self.downloading(),
             models: models
                 .filter_map(|m| {
@@ -415,7 +418,8 @@ impl StemsService {
         let state = self.app.state::<AppState>();
         let mut shown = lock(&state.stems);
         let queued = shown.queued.again(queued);
-        *shown = Shown { models, progress, queued, awaiting };
+        let (gpu, gave_up) = (gpu_known(), GPU_GAVE_UP.load(Ordering::Relaxed));
+        *shown = Shown { models, progress, queued, awaiting, gpu, gave_up };
     }
 
     fn model_path(&self, model: usize) -> PathBuf {
@@ -790,7 +794,7 @@ impl Worker {
                     Gpu::open(GpuOptions::default()).inspect_err(|e| warn!("separating on the CPU: {e}")).ok()
                 })
                 .flatten();
-            GPU_GAVE_UP.store(gpu.is_none(), Ordering::Relaxed);
+            self.give_up_gpu(gpu.is_none());
             gpu
         };
         let mut gpu = open_gpu();
@@ -859,7 +863,7 @@ impl Worker {
                     warn!("separation of {} failed on the GPU: {e}", job.path.display());
                     separators.iter_mut().for_each(|s| *s = None);
                     gpu = if gpu_failed { None } else { open_gpu() };
-                    GPU_GAVE_UP.store(gpu.is_none(), Ordering::Relaxed);
+                    self.give_up_gpu(gpu.is_none());
                     gpu_failed = true;
                     let played = job.played;
                     lock(&self.queue).put_back(job, played);
@@ -1069,6 +1073,13 @@ impl Worker {
     fn update(&self, f: impl FnOnce(&mut StemsProgressDto)) {
         f(&mut lock(&self.queue).progress);
         self.app.state::<StemsService>().show();
+    }
+
+    /// The graphics card given up for the processor, or separating again: shown as it changes.
+    fn give_up_gpu(&self, gave_up: bool) {
+        if GPU_GAVE_UP.swap(gave_up, Ordering::Relaxed) != gave_up {
+            self.app.state::<StemsService>().show();
+        }
     }
 }
 
@@ -1311,6 +1322,21 @@ mod tests {
             })
             .collect();
         Shown { models, ..Default::default() }
+    }
+
+    #[test]
+    fn the_settings_show_the_card_once_found_and_the_processor_once_it_gave_up() {
+        let mut preferences = preferences(false);
+        preferences.library.stems_gpu = true;
+        let looking = Shown::default();
+        let found = Shown { gpu: Some(true), ..Shown::default() };
+        assert_ne!(looking, found, "the card found moves what is shown");
+        let dto = found.dto(&preferences);
+        assert_eq!((dto.gpu, dto.on_gpu, dto.on_load), (Some(true), true, true));
+        let gave_up = Shown { gave_up: true, ..found.clone() };
+        assert_ne!(gave_up, found);
+        let dto = gave_up.dto(&preferences);
+        assert_eq!((dto.on_gpu, dto.on_load), (false, false), "separating on the processor");
     }
 
     #[test]
