@@ -652,6 +652,47 @@ mod tests {
         assert_eq!(play(&c, "DDJ-SB2 MIDI 2"), input("deck1.play", 1.0));
     }
 
+    /// A `controllers.json` as 0.4.0 wrote it, with what the DJ learnt (a key, a hold driving
+    /// another key too, a chord in the shift layer, an encoder read another way), and a HID
+    /// controller's control as Prisme writes one since.
+    const SAVED_0_4_0: &str = r#"{
+        "enabled": ["DDJ-SB2", "Traktor Kontrol S4 MK2 (HID 17cc:baff)"],
+        "declined": ["Launchpad Mini"],
+        "mappings": [
+            { "device": "DDJ-SB2", "control": { "kind": "note", "channel": 0, "number": 11 },
+              "target": "deck1.cue" },
+            { "device": "DDJ-SB2", "control": { "kind": "note", "channel": 0, "number": 12 },
+              "target": "deck1.sync", "also": ["deck2.sync"],
+              "hold": { "ms": 450, "target": "deck1.sync.once" } },
+            { "device": "DDJ-SB2", "control": { "kind": "note", "channel": 0, "number": 13 },
+              "target": "deck1.hotcue1", "shift": true,
+              "chord": { "with": { "kind": "note", "channel": 0, "number": 64 },
+                         "target": "deck1.hotcue1.delete" } },
+            { "device": "DDJ-SB2", "control": { "kind": "controlChange", "channel": 0, "number": 33 },
+              "target": "library.browse", "encoding": "relativeOffset" },
+            { "device": "Traktor Kontrol S4 MK2 (HID 17cc:baff)",
+              "control": { "kind": "hid", "report": 1, "byte": 13, "bit": 2 },
+              "target": "deck2.play" }
+        ],
+        "clockOutput": null,
+        "unmapped": [{ "device": "DDJ-SB2", "target": "deck2.cue" }]
+    }"#;
+
+    #[test]
+    fn a_controllers_file_of_0_4_0_drives_what_was_learnt_and_is_written_back_as_it_was() {
+        let setup: ControllerSetup = serde_json::from_str(SAVED_0_4_0).unwrap();
+        assert_eq!(setup.mappings.all().len(), 5);
+        let c = controllers();
+        c.save(|s| *s = setup.clone());
+        let pressed = |number| c.route("DDJ-SB2", parse(&[0x90, number, 127]).unwrap(), 0.0);
+        assert_eq!(pressed(11), input("deck1.cue", 1.0), "learnt over the profile");
+        assert_eq!(pressed(12), None, "waits to know whether it is held");
+        let mut written = serde_json::to_value(&setup).unwrap();
+        assert_eq!(written["profiles"], serde_json::json!({}), "the choice of profiles, new");
+        written.as_object_mut().unwrap().remove("profiles");
+        assert_eq!(written, serde_json::from_str::<serde_json::Value>(SAVED_0_4_0).unwrap());
+    }
+
     #[test]
     fn an_action_taken_off_before_controllers_were_told_apart_stays_off_them_all() {
         let setup: ControllerSetup =
