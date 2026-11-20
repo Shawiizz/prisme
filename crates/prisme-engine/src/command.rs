@@ -125,6 +125,12 @@ pub enum Command {
         deck: DeckId,
         seconds: f64,
     },
+    /// Moves the playhead by `seconds` (back below zero) within the track, as is (a jog
+    /// searching).
+    SearchBy {
+        deck: DeckId,
+        seconds: f64,
+    },
     /// While `speed` is not 0, the track runs through at `speed` seconds a second beside its
     /// play (back below zero), by jumps a few times a second; 0 lets the search go.
     Search {

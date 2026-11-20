@@ -358,7 +358,7 @@ impl Deck {
     }
 
     /// A search's jump of `seconds` (back below zero), within the track.
-    pub(super) fn search_by(&mut self, seconds: f64) {
+    pub(crate) fn search_by(&mut self, seconds: f64) {
         if self.controls_position() {
             let to = self.playhead.position_s() + seconds;
             self.playhead.seek_s(to.clamp(0.0, self.playhead.duration_s()));

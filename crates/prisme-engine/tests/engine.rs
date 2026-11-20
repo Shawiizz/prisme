@@ -205,6 +205,19 @@ fn the_status_tells_how_many_commands_it_follows() {
 }
 
 #[test]
+fn a_search_moves_from_where_the_track_stands_within_it() {
+    let mut rig = Rig::new();
+    rig.send(Command::LoadTrack { deck: 0, track: silent_track(10.0) });
+    rig.send(Command::Seek { deck: 0, seconds: 4.0 });
+    rig.send(Command::SearchBy { deck: 0, seconds: 0.5 });
+    rig.run(0.01);
+    assert!((rig.deck(0).position_s - 4.5).abs() < 0.01, "{:?}", rig.deck(0));
+    rig.send(Command::SearchBy { deck: 0, seconds: -6.0 });
+    rig.run(0.01);
+    assert!(rig.deck(0).position_s.abs() < 0.01, "{:?}", rig.deck(0));
+}
+
+#[test]
 fn crossed_channels_are_noticed() {
     let mut rig = Rig::new();
     rig.turntable(0, 20.0, 1.0);

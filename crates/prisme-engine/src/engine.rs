@@ -302,6 +302,9 @@ impl Engine {
             Seek { deck, seconds } if valid(deck) && seconds.is_finite() => {
                 self.decks[deck].playhead.seek_s(seconds)
             }
+            SearchBy { deck, seconds } if valid(deck) && seconds.is_finite() => {
+                self.decks[deck].search_by(seconds)
+            }
             Search { deck, speed } if valid(deck) && speed.is_finite() => self.decks[deck].search(speed),
             TakePlace { deck, from } if valid(deck) && valid(from) => {
                 let place = self.decks[from].place();
