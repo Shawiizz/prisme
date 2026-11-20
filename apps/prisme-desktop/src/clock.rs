@@ -203,6 +203,16 @@ impl Clock {
         view: &View,
         moved: &impl Fn(Section) -> bool,
     ) -> bool {
+        let rows_moved = self.read_around(state, view, moved);
+        if self.compared.1 {
+            self.rank(app, view);
+        }
+        rows_moved
+    }
+
+    /// What the library's rows show of the rest of the application read from `view` and the
+    /// sections that `moved`: whether the rows of the window show another thing of it.
+    fn read_around(&mut self, state: &AppState, view: &View, moved: &impl Fn(Section) -> bool) -> bool {
         if moved(Section::Tracks) {
             self.around.decks = lock(&state.tracks).each_ref().map(|t| t.as_ref().map(|t| t.path.clone()));
         }
@@ -220,13 +230,10 @@ impl Clock {
             self.around.stems =
                 RowsStems { current: self.stems.current(), queued: self.stems.queued.clone(), reach };
         }
-        let before = self.around.clone();
         self.around.read(view, self.compared.0);
-        if self.compared.1 {
-            self.rank(app, view);
-        }
         // what the rows show of the decks, sent again only where it shows
-        self.around != before && lock(&state.library).look_around(&self.around)
+        let mut library = lock(&state.library);
+        library.around != self.around && library.look_around(&self.around)
     }
 
     /// The library's rows ranked again against the deck they follow if another track came on
@@ -252,5 +259,27 @@ impl Clock {
             app.state::<Actions>().in_turn_on(Lane::Rows, job);
             self.ranked = Some(now);
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::actions::bench::Bench;
+
+    #[test]
+    fn the_rows_see_a_track_loaded_on_a_deck_they_are_not_compared_with() {
+        let bench = Bench::new();
+        bench.state.browse(|l| {
+            let rows = l.browser.entries([("deck1.flac".to_string(), None)]);
+            l.browser.show(prisme_library::browse::Source::Prepare, rows);
+            l.browser.set_window(0, 10);
+        });
+        let mut clock = Clock::default();
+        let everything = |_: Section| true;
+        assert!(!clock.read_around(&bench.state, &bench.view(), &everything), "nothing on the decks");
+        bench.load(1, 60.0, None);
+        assert!(clock.read_around(&bench.state, &bench.view(), &everything), "deck B holds the row");
+        assert!(!clock.read_around(&bench.state, &bench.view(), &everything), "told once");
     }
 }
