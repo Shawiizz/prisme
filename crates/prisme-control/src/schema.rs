@@ -2,6 +2,7 @@
 //! as Prisme reads it, its actions named.
 
 use crate::profile::Profile;
+use crate::target::Kind;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 
@@ -11,12 +12,11 @@ pub const SCHEMA_URL: &str =
 
 /// An action of Prisme a control can drive, as the application lists them.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct Target {
+pub struct ListedTarget {
     pub id: String,
     pub group: String,
     pub label: String,
-    /// `button`, `hold`, `fader`, `encoder`, `direct`.
-    pub kind: String,
+    pub kind: Kind,
 }
 
 /// The actions named by what they measure, the modes of a profile's groups and its named shifts.
@@ -32,7 +32,7 @@ const PATTERNS: [(&str, &str); 5] = [
 ];
 
 /// The schema of a profile, `targets` the actions its controls can drive.
-pub fn profile_schema(targets: &[Target]) -> Value {
+pub fn profile_schema(targets: &[ListedTarget]) -> Value {
     let mut schema = serde_json::to_value(schemars::schema_for!(Profile)).expect("a schema is JSON");
     schema["$id"] = SCHEMA_URL.into();
     schema["title"] = "Prisme controller profile".into();
@@ -57,7 +57,7 @@ pub fn profile_schema(targets: &[Target]) -> Value {
 }
 
 /// An action: one Prisme lists, or one named by what it measures.
-fn target(targets: &[Target]) -> Value {
+fn target(targets: &[ListedTarget]) -> Value {
     let listed = json!({
         "enum": targets.iter().map(|t| &t.id).collect::<Vec<_>>(),
         // the editors that show what each one does (VS Code)
@@ -75,14 +75,14 @@ fn target(targets: &[Target]) -> Value {
 mod tests {
     use super::*;
 
-    fn targets() -> Vec<Target> {
-        let target = |id: &str, kind: &str| Target {
+    fn targets() -> Vec<ListedTarget> {
+        let target = |id: &str, kind| ListedTarget {
             id: id.into(),
             group: "Deck A".into(),
             label: "Play".into(),
-            kind: kind.into(),
+            kind,
         };
-        vec![target("deck1.play", "button"), target("deck1.jog", "direct")]
+        vec![target("deck1.play", Kind::Button), target("deck1.jog", Kind::Encoder)]
     }
 
     #[test]

@@ -12,7 +12,7 @@
 //! maker's driver then speaks to the device itself.
 
 use crate::auto_dj::{AutoDj, Takeover};
-use crate::controller_direct::{Direct, Performer, Tempo};
+use crate::controller_direct::{Performer, Tempo};
 use crate::controller_hid;
 use crate::controller_profiles;
 use crate::dto::{ControllerInputDto, DeckPitchDto, LightDto, OutputDto};
@@ -22,8 +22,8 @@ use midir::{Ignore, MidiInput, MidiInputConnection, MidiOutput, MidiOutputConnec
 use prisme_audio_io::base_device_name;
 use prisme_control::hid::{self, Field, Learnt, Read};
 use prisme_control::{
-    nearest, selected_mode, Control, Encoding, Event, FaderSet, Hold, LightValue, Mapping, Mappings, Modes,
-    Profile, ProfileControl, Reader, Shifts, JOG_STEPS_PER_TURN, OFF, ON, SHIFT,
+    nearest, Control, DeckAction, Encoding, Event, FaderSet, Hold, LightValue, Mapping, Mappings, Modes,
+    Owner, Profile, ProfileControl, Reader, Shifts, Target, TargetId, JOG_STEPS_PER_TURN, OFF, ON, SHIFT,
 };
 use prisme_engine::Command;
 use prisme_session::JsonFile;
@@ -132,20 +132,29 @@ enum Routed {
     Actions(Vec<Action>),
 }
 
-/// An action a controller drives: one the UI performs, or one driving the engine from here.
+/// An action a controller drives: one the UI performs, or a deck's driving the engine from
+/// here, and its value.
 #[derive(Debug, PartialEq)]
 enum Action {
     Ui(ControllerInputDto),
-    Direct(Direct, f32),
+    Rust(usize, DeckAction, f32),
 }
 
 impl Action {
-    /// `input` performed where its action is: a direct one here, whatever drove it.
-    fn of(input: ControllerInputDto) -> Self {
-        match Direct::of(&input.target) {
-            Some(direct) => Action::Direct(direct, input.value),
-            None => Action::Ui(input),
+    /// `target` driven to `value` (an encoder's `steps`, each moving a fader by `step`),
+    /// performed where it is.
+    fn of(target: &TargetId, value: f32, steps: bool, step: Option<f32>) -> Self {
+        match target.target() {
+            Some(deck @ &Target::Deck(at, action)) if deck.owner() == Owner::Rust => {
+                Action::Rust(at, action, value)
+            }
+            _ => Action::Ui(ControllerInputDto { target: target.to_string(), value, steps, step }),
         }
+    }
+
+    /// The key of `target` pressed to `value`, or let go.
+    fn press(target: &TargetId, value: f32) -> Self {
+        Self::of(target, value, false, None)
     }
 }
 
@@ -355,7 +364,7 @@ struct Keys {
     pressed_at: HashMap<(String, Control), Instant>,
     /// Keys whose press drove another action than their own (pressed twice, or with another
     /// key held): their release lets that one go.
-    instead: HashMap<(String, Control), String>,
+    instead: HashMap<(String, Control), TargetId>,
 }
 
 pub struct Controllers {
@@ -413,7 +422,7 @@ impl Controllers {
         let controls: Vec<ProfileControl> = lock(&self.mappings)
             .all()
             .iter()
-            .filter(|m| m.device == device && selected_mode(&m.target).is_none())
+            .filter(|m| m.device == device && m.target.mode().is_none())
             .map(|m| m.binding.clone())
             .collect();
         let name = base_port_name(device);
@@ -710,7 +719,7 @@ impl Controllers {
             if !s.mappings.all().iter().any(|m| of_target(&m)) {
                 // each of the profile's controls of the action, as many as it has
                 for mapping in profiled {
-                    s.mappings.learn(mapping, true);
+                    s.mappings.learn_another(mapping);
                 }
             }
             s.mappings.set_encoding(device, target, encoding);
@@ -744,8 +753,13 @@ impl Controllers {
             .read(|s| s.enabled.clone())
             .iter()
             .filter_map(|device| self.profile(device))
-            .flat_map(|p| p.lights.iter().map(|l| l.target.clone()).collect::<Vec<_>>())
-            .filter(|t| selected_mode(t).is_none())
+            .flat_map(|p| {
+                p.lights
+                    .iter()
+                    .filter(|l| l.target.mode().is_none())
+                    .map(|l| l.target.to_string())
+                    .collect::<Vec<_>>()
+            })
             .collect();
         targets.sort();
         targets.dedup();
@@ -819,14 +833,14 @@ impl Controllers {
         let mappings = lock(&self.mappings);
         let states = lock(&self.states);
         let keys = lock(&self.keys);
-        let state_of = |target: &str| match selected_mode(target) {
+        let state_of = |target: &TargetId| match target.mode() {
             Some((group, mode)) => Some(if modes.get(group).is_some_and(|m| m == mode) { ON } else { OFF }),
-            None => states.get(target).map(|s| s.state.as_str()),
+            None => states.get(target.as_str()).map(|s| s.state.as_str()),
         };
         // the colour of its action, by the nearest of its palette, else on a light of three colours
-        let coloured = |target: &str, palette: &BTreeMap<String, u8>, light: Control, value: LightValue| {
+        let coloured = |target: &TargetId, palette: &BTreeMap<_, u8>, light: Control, value: LightValue| {
             let colour = states
-                .get(target)
+                .get(target.as_str())
                 .and_then(|s| s.color.as_deref())
                 .filter(|_| state_of(target).is_some_and(|s| s != OFF));
             let rgb = |colour| match (light, hid) {
@@ -1119,7 +1133,9 @@ impl Controllers {
         for action in actions {
             match action {
                 Action::Ui(input) => drop(app.emit("controller-input", input)),
-                Action::Direct(direct, value) => self.perform(app, direct, value, at_s, jog_steps_per_turn),
+                Action::Rust(deck, action, value) => {
+                    self.perform(app, deck, action, value, at_s, jog_steps_per_turn)
+                }
             }
         }
     }
@@ -1132,15 +1148,17 @@ impl Controllers {
         for control in held {
             self.receive(app, device, jog_steps_per_turn, Event { control, raw: 0 }, 0.0);
         }
-        let touches: Vec<Direct> = lock(&self.mappings)
+        let touched: Vec<usize> = lock(&self.mappings)
             .all()
             .iter()
             .filter(|m| m.device == device)
-            .filter_map(|m| Direct::of(&m.target))
-            .filter(|d| matches!(d, Direct::JogTouch(_)))
+            .filter_map(|m| match m.target.target() {
+                Some(&Target::Deck(deck, DeckAction::JogTouch)) => Some(deck),
+                _ => None,
+            })
             .collect();
-        for touch in touches {
-            self.perform(app, touch, 0.0, 0.0, jog_steps_per_turn);
+        for deck in touched {
+            self.perform(app, deck, DeckAction::JogTouch, 0.0, 0.0, jog_steps_per_turn);
         }
     }
 
@@ -1153,7 +1171,7 @@ impl Controllers {
         let mut reader = lock(&self.reader);
         let mappings = lock(&self.mappings);
         let (mapping, value) = reader.read(&mappings, device, event)?;
-        if selected_mode(&mapping.target).is_some() {
+        if mapping.target.mode().is_some() {
             return match &mapping.hold {
                 Some(hold) => self.hold(device, event, at_s, mapping, hold, &mut reader),
                 None => driven(inputs(mapping, value)),
@@ -1183,7 +1201,7 @@ impl Controllers {
         let Learning { target, learnt } = lock(&self.learning).take_if(|_| !released && !shift)?;
         let binding = ProfileControl {
             control: event.control,
-            target,
+            target: target.into(),
             encoding: if learnt == Learnt::Encoder { Encoding::guess(event) } else { Encoding::Absolute },
             shift: reader.shifted(device).into(),
             ..Default::default()
@@ -1191,9 +1209,9 @@ impl Controllers {
         drop(reader);
         let mapping = Mapping::new(device, binding);
         self.save(|s| {
-            let unmapped = Unmapped::On { device: device.to_owned(), target: mapping.target.clone() };
+            let unmapped = Unmapped::On { device: device.to_owned(), target: mapping.target.to_string() };
             s.unmapped.retain(|u| *u != unmapped);
-            s.mappings.learn(mapping.clone(), Direct::takes_several(&mapping.target));
+            s.mappings.learn(mapping.clone());
         });
         *lock(&self.just_learnt) = Some((mapping.clone(), Instant::now()));
         Some(mapping)
@@ -1212,7 +1230,7 @@ impl Controllers {
         let key = (device.to_owned(), mapping.control);
         let pressed = event.raw > 0;
         let mut keys = lock(&self.keys);
-        let press = |target: &str, value| Some(driven(vec![ControllerInputDto::of(target, value)]));
+        let press = |target: &TargetId, value| Some(driven(vec![Action::press(target, value)]));
         if !pressed {
             if let Some(target) = keys.instead.remove(&key) {
                 return press(&target, 0.0);
@@ -1281,14 +1299,16 @@ impl Controllers {
         }
         let at = holdings.iter().position(|h| h.device == device && h.control == event.control)?;
         let held = holdings.remove(at);
-        if held.fired && selected_mode(&held.hold.target).is_some() {
+        if held.fired && held.hold.target.mode().is_some() {
             return None;
         }
         if held.fired {
-            return driven(vec![ControllerInputDto::of(&held.hold.target, 0.0)]);
+            return driven(vec![Action::press(&held.hold.target, 0.0)]);
         }
         reader.choose(device, mapping);
-        driven([inputs(mapping, 1.0), inputs(mapping, 0.0)].concat())
+        let mut pressed = inputs(mapping, 1.0);
+        pressed.extend(inputs(mapping, 0.0));
+        driven(pressed)
     }
 
     /// The keys held long enough: their hold's action pressed, or its mode chosen.
@@ -1319,12 +1339,12 @@ impl Controllers {
         fired
             .into_iter()
             .map(|(device, target, at_s)| {
-                let pressed = match selected_mode(&target) {
+                let pressed = match target.mode() {
                     Some((group, mode)) => {
                         lock(&self.reader).set_mode(&device, group, mode);
                         None
                     }
-                    None => Some((Action::of(ControllerInputDto::of(&target, 1.0)), at_s)),
+                    None => Some((Action::press(&target, 1.0), at_s)),
                 };
                 (device, pressed)
             })
@@ -1353,26 +1373,32 @@ impl Controllers {
         Some(fine_mapping)
     }
 
-    /// Drives the engine for a direct action; the UI hears of a new tempo.
-    fn perform(&self, app: &AppHandle, action: Direct, value: f32, at_s: f64, jog_steps_per_turn: f64) {
+    /// Drives the engine for `action` of `deck`, performed here; the UI hears of a new tempo.
+    fn perform(
+        &self,
+        app: &AppHandle,
+        deck: usize,
+        action: DeckAction,
+        value: f32,
+        at_s: f64,
+        jog_steps_per_turn: f64,
+    ) {
         let state = app.state::<AppState>();
-        let deck = match action {
-            Direct::Jog(d) | Direct::JogTouch(d) | Direct::JogSearch(d) | Direct::Pitch(d) => d,
-        };
         if state.has_deck(deck).is_err() {
             return;
         }
         // a wheel that only nudges: its top is no hand on the record
-        if matches!(action, Direct::JogTouch(_)) && !lock(&state.decks)[deck].jog_scratch {
+        if action == DeckAction::JogTouch && !lock(&state.decks)[deck].jog_scratch {
             return;
         }
         let range = state.tempo_range(deck);
         let tempo = Tempo { ratio: lock(&state.decks)[deck].pitch, range };
-        let Some(command) = lock(&self.performer).command(action, value, at_s, jog_steps_per_turn, tempo)
+        let Some(command) =
+            lock(&self.performer).command(deck, action, value, at_s, jog_steps_per_turn, tempo)
         else {
             return;
         };
-        if !matches!(action, Direct::Pitch(_)) {
+        if action != DeckAction::Pitch {
             if let Some(auto_dj) = app.try_state::<AutoDj>() {
                 auto_dj.take_over(Takeover::Transport(deck));
             }
@@ -1405,7 +1431,7 @@ impl Controllers {
                 .flatten()
                 .collect();
             let unmapped = |m: &Mapping| s.unmapped.iter().any(|u| u.covers(m));
-            Mappings::layered(profiled, &s.mappings, unmapped, Direct::takes_several)
+            Mappings::layered(profiled, &s.mappings, unmapped)
         });
         let mut fields: HashMap<String, BTreeSet<Field>> = HashMap::new();
         for m in layered.all() {
@@ -1454,31 +1480,28 @@ fn with_hid(mut midi: Vec<String>, hid: &[controller_hid::Plugged]) -> Vec<Strin
     midi
 }
 
-/// What `mapping` driven to `value` gives the UI: its action (a mode key's is chosen as it is
-/// read), and those it drives along.
-fn inputs(mapping: &Mapping, value: f32) -> Vec<ControllerInputDto> {
+/// What `mapping` driven to `value` drives: its action (a mode key's is chosen as it is read),
+/// and those it drives along.
+fn inputs(mapping: &Mapping, value: f32) -> Vec<Action> {
     let steps = mapping.encoding.is_relative();
-    let own = selected_mode(&mapping.target).is_none().then_some(&mapping.target);
+    let own = mapping.target.mode().is_none().then_some(&mapping.target);
     own.into_iter()
         .chain(&mapping.also)
-        .map(|target| ControllerInputDto { target: target.clone(), value, steps, step: mapping.step })
+        .map(|target| Action::of(target, value, steps, mapping.step))
         .collect()
 }
 
-/// What `inputs` drive, if there are any.
-fn driven(inputs: Vec<ControllerInputDto>) -> Option<Routed> {
-    (!inputs.is_empty()).then(|| Routed::Actions(inputs.into_iter().map(Action::of).collect()))
+/// What `actions` drive, if there are any.
+fn driven(actions: Vec<Action>) -> Option<Routed> {
+    (!actions.is_empty()).then_some(Routed::Actions(actions))
 }
 
 /// An encoder's `steps` driving keys: each a press and a release of `up`, or of `down` for
 /// those to the left.
-fn key_steps(up: &str, down: &str, steps: i32) -> Option<Routed> {
+fn key_steps(up: &TargetId, down: &TargetId, steps: i32) -> Option<Routed> {
     let target = if steps > 0 { up } else { down };
     let presses = steps.unsigned_abs().min(MOST_KEY_STEPS.unsigned_abs());
-    let inputs: Vec<ControllerInputDto> = (0..presses)
-        .flat_map(|_| [ControllerInputDto::of(target, 1.0), ControllerInputDto::of(target, 0.0)])
-        .collect();
-    driven(inputs)
+    driven((0..presses).flat_map(|_| [Action::press(target, 1.0), Action::press(target, 0.0)]).collect())
 }
 
 /// The level of each source of a meter (`deck1`…, `main`) at the moment; none when the audio
@@ -1599,8 +1622,9 @@ mod tests {
         c.route("DDJ", parse(bytes).unwrap(), 0.0)
     }
 
-    fn direct(action: Direct, value: f32) -> Option<Routed> {
-        Some(Routed::Actions(vec![Action::Direct(action, value)]))
+    fn direct(target: &str, value: f32) -> Option<Routed> {
+        let Ok(Target::Deck(deck, action)) = target.parse() else { panic!("{target} is a deck's") };
+        Some(Routed::Actions(vec![Action::Rust(deck, action, value)]))
     }
 
     #[test]
@@ -1625,7 +1649,7 @@ mod tests {
         // a jog sending steps around 64
         c.learn("deck1.jog".into(), Learnt::Encoder);
         route(&c, &[0xb0, 33, 65]);
-        assert_eq!(route(&c, &[0xb0, 33, 61]), direct(Direct::Jog(0), -3.0));
+        assert_eq!(route(&c, &[0xb0, 33, 61]), direct("deck1.jog", -3.0));
     }
 
     #[test]
@@ -1640,7 +1664,7 @@ mod tests {
             Some(Routed::Learned(Box::new(with(mapping(tempo, "deck1.pitch"), |b| b.fine = Some(32)))))
         );
         assert_eq!(route(&c, &[0xb0, 0, 64]), None);
-        assert_eq!(route(&c, &[0xb0, 32, 64]), direct(Direct::Pitch(0), 8256.0 / 16383.0));
+        assert_eq!(route(&c, &[0xb0, 32, 64]), direct("deck1.pitch", 8256.0 / 16383.0));
     }
 
     #[test]
@@ -1751,13 +1775,13 @@ mod tests {
         c.save(|s| s.enabled.push("VCI-100".into()));
         let touch = |c: &Controllers, note| c.route("VCI-100", parse(&[0x90, note, 127]).unwrap(), 0.0);
         assert_eq!(c.model_name("VCI-100"), "Vestax VCI-100");
-        assert_eq!(touch(&c, 48), direct(Direct::JogTouch(0), 1.0));
+        assert_eq!(touch(&c, 48), direct("deck1.jog.touch", 1.0));
         c.save(|s| {
             s.profiles.insert("VCI-100".into(), "vestax-vci-100-hile.json".into());
         });
         assert_eq!(c.model_name("VCI-100"), "Vestax VCI-100 (Hile Mod)");
         assert_eq!(c.jog_steps_per_turn("VCI-100"), 256.0);
-        assert_eq!(touch(&c, 46), direct(Direct::JogTouch(0), 1.0));
+        assert_eq!(touch(&c, 46), direct("deck1.jog.touch", 1.0));
     }
 
     #[test]
@@ -1789,7 +1813,7 @@ mod tests {
     /// Controllers whose `DDJ` has `mappings`.
     fn with_mappings(mappings: impl IntoIterator<Item = Mapping>) -> Controllers {
         let c = controllers();
-        c.save(|s| mappings.into_iter().for_each(|m| s.mappings.learn(m, false)));
+        c.save(|s| mappings.into_iter().for_each(|m| s.mappings.learn(m)));
         c
     }
 
@@ -1876,7 +1900,7 @@ mod tests {
         assert_eq!(mode(&c), "cues", "the press waits to know whether it is held");
         assert_eq!(route(&c, &[0x90, 9, 0]), None);
         assert_eq!(mode(&c), "roll");
-        lock(&c.mappings).learn(mode_key(0), false);
+        lock(&c.mappings).learn(mode_key(0));
         route(&c, &[0x90, 9, 127]);
         assert_eq!(c.fired_holds(), [("DDJ".to_owned(), None)]);
         assert_eq!(mode(&c), "slicer");
@@ -1897,20 +1921,20 @@ mod tests {
             }),
         ]);
         assert_eq!(c.route("DDJ", parse(&[0x90, 38, 127]).unwrap(), 2.5), None);
-        let held = Some((Action::Direct(Direct::JogTouch(0), 1.0), 2.5));
+        let held = Some((Action::Rust(0, DeckAction::JogTouch, 1.0), 2.5));
         assert_eq!(
             c.fired_holds(),
             [("DDJ".to_owned(), held)],
             "held, at its time on the controller's clock"
         );
-        assert_eq!(route(&c, &[0x90, 38, 0]), direct(Direct::JogTouch(0), 0.0));
-        assert_eq!(route(&c, &[0x90, 36, 127]), direct(Direct::JogTouch(0), 1.0), "latched");
+        assert_eq!(route(&c, &[0x90, 38, 0]), direct("deck1.jog.touch", 0.0));
+        assert_eq!(route(&c, &[0x90, 36, 127]), direct("deck1.jog.touch", 1.0), "latched");
         assert_eq!(route(&c, &[0x90, 36, 0]), None);
-        assert_eq!(route(&c, &[0x90, 36, 127]), direct(Direct::JogTouch(0), 0.0));
+        assert_eq!(route(&c, &[0x90, 36, 127]), direct("deck1.jog.touch", 0.0));
         route(&c, &[0x90, 37, 127]);
         route(&c, &[0x90, 37, 0]);
-        assert_eq!(route(&c, &[0x90, 37, 127]), direct(Direct::JogTouch(0), 1.0), "pressed twice");
-        assert_eq!(route(&c, &[0x90, 37, 0]), direct(Direct::JogTouch(0), 0.0));
+        assert_eq!(route(&c, &[0x90, 37, 127]), direct("deck1.jog.touch", 1.0), "pressed twice");
+        assert_eq!(route(&c, &[0x90, 37, 0]), direct("deck1.jog.touch", 0.0));
     }
 
     #[test]
@@ -1919,7 +1943,7 @@ mod tests {
             b.also = vec!["deck2.jog.touch".into()]
         })]);
         let touched =
-            vec![Action::Direct(Direct::JogTouch(0), 1.0), Action::Direct(Direct::JogTouch(1), 1.0)];
+            vec![Action::Rust(0, DeckAction::JogTouch, 1.0), Action::Rust(1, DeckAction::JogTouch, 1.0)];
         assert_eq!(route(&c, &[0x90, 36, 127]), Some(Routed::Actions(touched)));
     }
 
@@ -2105,13 +2129,13 @@ mod tests {
     fn a_hid_jog_counter_turns_its_deck_and_faders_move_by_their_12_bits() {
         let (c, device, mut reports) = s4();
         let mut drive = |report: Vec<u8>| driven(&c, &device, &mut reports, &report);
-        assert_eq!(drive(short(&[(0x01, 6)])), [direct(Direct::Jog(0), 6.0).unwrap()]);
-        assert_eq!(drive(short(&[(0x01, 250)])), [direct(Direct::Jog(0), -12.0).unwrap()], "wrapped at 256");
-        assert_eq!(drive(short(&[(0x01, 250), (0x11, 0x01)])), [direct(Direct::JogTouch(0), 1.0).unwrap()]);
+        assert_eq!(drive(short(&[(0x01, 6)])), [direct("deck1.jog", 6.0).unwrap()]);
+        assert_eq!(drive(short(&[(0x01, 250)])), [direct("deck1.jog", -12.0).unwrap()], "wrapped at 256");
+        assert_eq!(drive(short(&[(0x01, 250), (0x11, 0x01)])), [direct("deck1.jog.touch", 1.0).unwrap()]);
         // the crossfader at 4095, the left tempo fader at 2048, its 0 the fastest
         let routed = drive(long(&[(0x07, 0xff), (0x08, 0x0f), (0x09, 0x00), (0x0a, 0x08)]));
         let mut expected = ui(&[("mixer.crossfader", 1.0)]);
-        expected.extend(direct(Direct::Pitch(0), 1.0 - 2048.0 / 4095.0));
+        expected.extend(direct("deck1.pitch", 1.0 - 2048.0 / 4095.0));
         assert_eq!(routed, expected);
         // the browse knob, a counter of four bits: a step back from 0 is -1
         assert_eq!(

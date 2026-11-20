@@ -1,42 +1,13 @@
 //! The controls that drive the engine straight from the MIDI thread, without going through
-//! the UI: the jog wheels, played in time, and the tempo faders, moved finely. The UI hears
-//! of the tempo it then shows (`deck-pitch`).
+//! the UI: the jog wheels, played in time (a jog searching moves through the track quickly,
+//! under shift say), and the tempo faders, moved finely. The UI hears of the tempo it then
+//! shows (`deck-pitch`).
 
-use prisme_control::Pickup;
+use prisme_control::{DeckAction, Pickup};
 use prisme_engine::Command;
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Direct {
-    Jog(usize),
-    JogTouch(usize),
-    /// The jog turned to move through the track quickly (under shift, say).
-    JogSearch(usize),
-    Pitch(usize),
-}
 
 /// Seconds of track a turn of a jog wheel goes through in a search.
 const SEARCH_SECONDS_PER_TURN: f64 = 10.0;
-
-impl Direct {
-    /// The direct action named `target` (`deck1.jog`, `deck2.pitch`…), if it is one.
-    pub fn of(target: &str) -> Option<Self> {
-        let (deck, action) = target.strip_prefix("deck")?.split_once('.')?;
-        let deck = deck.parse::<usize>().ok()?.checked_sub(1)?;
-        match action {
-            "jog" => Some(Direct::Jog(deck)),
-            "jog.touch" => Some(Direct::JogTouch(deck)),
-            "jog.search" => Some(Direct::JogSearch(deck)),
-            "pitch" => Some(Direct::Pitch(deck)),
-            _ => None,
-        }
-    }
-
-    /// Whether the action `target` takes several controls of a controller: a jog wheel
-    /// sends its top and its edge apart.
-    pub fn takes_several(target: &str) -> bool {
-        matches!(Self::of(target), Some(Direct::Jog(_) | Direct::JogSearch(_)))
-    }
-}
 
 /// What a deck's tempo fader acts on: the tempo now and the fader's range.
 #[derive(Debug, Clone, Copy)]
@@ -63,28 +34,30 @@ pub struct Performer {
 }
 
 impl Performer {
-    /// The command for `action` driven to `value` at `at_s` on the clock of a controller
-    /// whose jog wheels turn by `jog_steps_per_turn`; `tempo` the deck's, for its fader.
-    /// `None` while a fader has not picked the tempo up.
+    /// The command for `action` of `deck` driven to `value` at `at_s` on the clock of a
+    /// controller whose jog wheels turn by `jog_steps_per_turn`; `tempo` the deck's, for its
+    /// fader. `None` while a fader has not picked the tempo up, and for an action not performed
+    /// here.
     pub fn command(
         &mut self,
-        action: Direct,
+        deck: usize,
+        action: DeckAction,
         value: f32,
         at_s: f64,
         jog_steps_per_turn: f64,
         tempo: Tempo,
     ) -> Option<Command> {
         match action {
-            Direct::Jog(deck) => {
+            DeckAction::Jog => {
                 Some(Command::Jog { deck, turns: f64::from(value) / jog_steps_per_turn, at_s })
             }
             // however lightly: some wheels tell how hard they are touched
-            Direct::JogTouch(deck) => Some(Command::JogTouch { deck, touched: value > 0.0, at_s }),
-            Direct::JogSearch(deck) => Some(Command::Jump {
+            DeckAction::JogTouch => Some(Command::JogTouch { deck, touched: value > 0.0, at_s }),
+            DeckAction::JogSearch => Some(Command::Jump {
                 deck,
                 seconds: f64::from(value) / jog_steps_per_turn * SEARCH_SECONDS_PER_TURN,
             }),
-            Direct::Pitch(deck) => {
+            DeckAction::Pitch => {
                 if self.pitch_pickups.len() <= deck {
                     self.pitch_pickups.resize_with(deck + 1, Pickup::default);
                 }
@@ -92,6 +65,7 @@ impl Performer {
                     .takes(value, tempo.position())
                     .then(|| Command::SetPitch { deck, ratio: tempo.at(value) })
             }
+            _ => None,
         }
     }
 }
@@ -104,36 +78,22 @@ mod tests {
     const STEPS: f64 = 720.0;
 
     #[test]
-    fn direct_actions_are_the_jogs_and_the_tempo_faders() {
-        assert_eq!(Direct::of("deck1.jog"), Some(Direct::Jog(0)));
-        assert_eq!(Direct::of("deck2.jog.touch"), Some(Direct::JogTouch(1)));
-        assert_eq!(Direct::of("deck2.pitch"), Some(Direct::Pitch(1)));
-        assert_eq!(Direct::of("deck1.jog.search"), Some(Direct::JogSearch(0)));
-        assert_eq!(Direct::of("deck1.play"), None);
-        assert_eq!(Direct::of("deck0.jog"), None);
-        assert_eq!(Direct::of("mixer.crossfader"), None);
-        assert!(Direct::takes_several("deck2.jog"));
-        assert!(!Direct::takes_several("deck2.jog.touch"));
-        assert!(!Direct::takes_several("deck2.play"));
-    }
-
-    #[test]
     fn a_jog_turns_by_its_steps() {
         let mut performer = Performer::default();
-        let turned = performer.command(Direct::Jog(1), -180.0, 2.5, STEPS, TEMPO);
+        let turned = performer.command(1, DeckAction::Jog, -180.0, 2.5, STEPS, TEMPO);
         assert!(
             matches!(turned, Some(Command::Jog { deck: 1, turns, at_s }) if turns == -0.25 && at_s == 2.5)
         );
-        let touched = performer.command(Direct::JogTouch(0), 0.2, 3.0, STEPS, TEMPO);
+        let touched = performer.command(0, DeckAction::JogTouch, 0.2, 3.0, STEPS, TEMPO);
         assert!(matches!(touched, Some(Command::JogTouch { deck: 0, touched: true, .. })));
-        let let_go = performer.command(Direct::JogTouch(0), 0.0, 3.5, STEPS, TEMPO);
+        let let_go = performer.command(0, DeckAction::JogTouch, 0.0, 3.5, STEPS, TEMPO);
         assert!(matches!(let_go, Some(Command::JogTouch { deck: 0, touched: false, .. })));
     }
 
     #[test]
     fn a_jog_searches_seconds_a_turn() {
         let mut performer = Performer::default();
-        let searched = performer.command(Direct::JogSearch(0), 360.0, 0.0, STEPS, TEMPO);
+        let searched = performer.command(0, DeckAction::JogSearch, 360.0, 0.0, STEPS, TEMPO);
         assert!(matches!(searched, Some(Command::Jump { deck: 0, seconds }) if seconds == 5.0));
     }
 
@@ -141,7 +101,8 @@ mod tests {
     fn a_tempo_fader_picks_the_tempo_up_before_moving_it() {
         let mut performer = Performer::default();
         let pitch = |p: &mut Performer, value, ratio| match p.command(
-            Direct::Pitch(0),
+            0,
+            DeckAction::Pitch,
             value,
             0.0,
             STEPS,

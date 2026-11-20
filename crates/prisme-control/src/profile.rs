@@ -1,7 +1,8 @@
 use crate::hid::{self, Field, HidDevice};
 use crate::light::{LightValue, LightValues, OFF, ON};
-use crate::mapping::{Mapping, Modes, ProfileControl, Shift, When, MODE};
+use crate::mapping::{Mapping, Modes, ProfileControl, Shift, When};
 use crate::message::Control;
+use crate::target::{Target, TargetId};
 use schemars::JsonSchema;
 use serde::{de, Deserialize, Deserializer, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
@@ -318,7 +319,7 @@ impl MeterLed {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct ProfileLight {
-    pub target: String,
+    pub target: TargetId,
     pub control: Control,
     /// While its group is in this mode only.
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -423,7 +424,7 @@ impl Profile {
             g.select.iter().map(move |s| {
                 let binding = ProfileControl {
                     control: s.control,
-                    target: format!("{MODE}{}.{}", g.group, s.mode),
+                    target: Target::Mode { group: g.group.clone(), mode: s.mode.clone() }.into(),
                     shift: s.shift.clone(),
                     light: s.light.clone(),
                     held: s.held,

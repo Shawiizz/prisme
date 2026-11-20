@@ -604,7 +604,7 @@ fn index_of(files: &[(&str, &str)], before: &Index) -> Index {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use prisme_control::{profile_schema, Target};
+    use prisme_control::{profile_schema, ListedTarget};
 
     const FOLDER: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/controllers");
 
@@ -645,6 +645,27 @@ mod tests {
             assert!(!profile.controls.is_empty(), "{} maps nothing", profile.name);
             assert_eq!(profile.problems(), Vec::<String>::new(), "{}", profile.name);
         }
+    }
+
+    #[test]
+    fn every_action_a_shipped_profile_names_is_known() {
+        let mut unknown = Vec::new();
+        for Known { profile, .. } in &read_library(None).known {
+            for mapping in profile.mappings("") {
+                let holds = [&mapping.hold, &mapping.double].into_iter().flatten().map(|h| &h.target);
+                let targets = std::iter::once(&mapping.target)
+                    .chain(&mapping.also)
+                    .chain(holds)
+                    .chain(mapping.chord.as_ref().map(|c| &c.target))
+                    .chain(&mapping.down);
+                unknown.extend(
+                    targets.filter(|t| t.target().is_none()).map(|t| format!("{}: {t}", profile.name)),
+                );
+            }
+            let lights = profile.lights.iter().map(|l| &l.target).filter(|t| t.target().is_none());
+            unknown.extend(lights.map(|t| format!("{}: {t}", profile.name)));
+        }
+        assert_eq!(unknown, Vec::<String>::new());
     }
 
     #[test]
@@ -923,7 +944,7 @@ mod tests {
     fn the_published_index_and_schema_are_up_to_date() {
         let index = index_of(SHIPPED, &shipped_index());
         let index = format!("{}\n", serde_json::to_string_pretty(&index).unwrap());
-        let targets: Vec<Target> =
+        let targets: Vec<ListedTarget> =
             serde_json::from_str(&std::fs::read_to_string(format!("{FOLDER}/targets.json")).unwrap())
                 .unwrap();
         let schema = format!("{}\n", serde_json::to_string_pretty(&profile_schema(&targets)).unwrap());

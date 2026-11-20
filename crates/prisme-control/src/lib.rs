@@ -13,11 +13,12 @@ mod message;
 mod pickup;
 mod profile;
 mod schema;
+mod target;
 
 pub use light::{light, nearest, LightValue, LightValues, OFF, ON};
 pub use mapping::{
-    selected_mode, Chord, Encoding, FaderSet, Hold, Mapping, Mappings, Modes, ProfileControl, Reader, Shift,
-    Shifts, When, MODE, SHIFT,
+    Chord, Encoding, FaderSet, Hold, Mapping, Mappings, Modes, ProfileControl, Reader, Shift, Shifts, When,
+    SHIFT,
 };
 pub use message::{parse, Control, Event, Midi};
 pub use pickup::Pickup;
@@ -25,4 +26,9 @@ pub use profile::{
     Display, DisplayPart, InitMessage, KeepAlive, LaterMessage, Meter, MeterLed, MeterOn, ModeGroup,
     ModeSelect, Output, Profile, ProfileLight, JOG_STEPS_PER_TURN, PROFILE_FORMAT,
 };
-pub use schema::{profile_schema, Target, SCHEMA_URL};
+pub use schema::{profile_schema, ListedTarget, SCHEMA_URL};
+pub use target::{
+    AutoDjAction, Band, Beats, DeckAction, DeckSwitch, Effect, FxAction, GeneralAction, Kind, LibraryAction,
+    MixerAction, MixerSwitch, Owner, SampleAction, Side, StemPart, Target, TargetId, Turn, Unknown, CUTS,
+    FX_KNOBS, FX_SLOTS, HOT_CUES, MAX_DECKS, ROLLS, SAMPLE_SLOTS, SLICES,
+};

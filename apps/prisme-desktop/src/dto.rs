@@ -1428,6 +1428,7 @@ pub struct ControllerInputDto {
 
 impl ControllerInputDto {
     /// `target` driven to `value`, as a key or a fader.
+    #[cfg(test)]
     pub fn of(target: &str, value: f32) -> Self {
         Self { target: target.to_owned(), value, steps: false, step: None }
     }

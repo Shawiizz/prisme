@@ -1,5 +1,6 @@
 use crate::light::LightValues;
 use crate::message::{Control, Event};
+use crate::target::{Target, TargetId};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet, HashMap};
@@ -8,30 +9,22 @@ use std::collections::{BTreeMap, BTreeSet, HashMap};
 /// `shift.<name>` a named shift's (one per side, say), that is a shift too.
 pub const SHIFT: &str = "shift";
 
-/// The actions that put a controller's group of controls in a mode: `mode.<group>.<mode>`.
-pub const MODE: &str = "mode.";
-
 /// The mode of each group of a controller's controls (the page of a side's pads, say).
 pub type Modes = HashMap<String, String>;
-
-/// The group and the mode an action selects, if it is a mode's.
-pub fn selected_mode(target: &str) -> Option<(&str, &str)> {
-    target.strip_prefix(MODE)?.split_once('.')
-}
 
 /// A second action for a key held down for `ms` milliseconds: pressed and let go sooner, it
 /// drives its own.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 pub struct Hold {
     pub ms: u32,
-    pub target: String,
+    pub target: TargetId,
 }
 
 /// Another action for a key pressed while the key `with` is held.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 pub struct Chord {
     pub with: Control,
-    pub target: String,
+    pub target: TargetId,
 }
 
 /// Where a key puts a fader's action: at a position, or at each of two in turn.
@@ -197,7 +190,7 @@ impl Encoding {
 #[serde(rename_all = "camelCase")]
 pub struct ProfileControl {
     pub control: Control,
-    pub target: String,
+    pub target: TargetId,
     #[serde(default, skip_serializing_if = "is_absolute")]
     pub encoding: Encoding,
     /// The controller sending the low 7 bits of a 14-bit control (its high 7 bits on
@@ -223,7 +216,7 @@ pub struct ProfileControl {
     pub on_value: Option<u16>,
     /// Other actions it drives along with its own.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub also: Vec<String>,
+    pub also: Vec<TargetId>,
     /// Another action for the key held down a while.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub hold: Option<Hold>,
@@ -236,7 +229,7 @@ pub struct ProfileControl {
     /// An encoder driving a key's action: a step to the right presses `target`, a step to the
     /// left this one.
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub down: Option<String>,
+    pub down: Option<TargetId>,
     /// An encoder's steps multiplied by this; below 1 they add up to whole steps.
     #[serde(default = "one", skip_serializing_if = "is_one")]
     pub scale: f32,
@@ -279,7 +272,7 @@ impl Default for ProfileControl {
     fn default() -> Self {
         Self {
             control: Control::default(),
-            target: String::new(),
+            target: TargetId::default(),
             encoding: Encoding::Absolute,
             fine: None,
             shift: Shift::None,
@@ -349,7 +342,7 @@ impl Mapping {
 
     /// Whether `learnt` takes this one's place: on its controller, its control in its layer
     /// (in every mode, for a control learnt in none), or the control of its action, unless the
-    /// action takes `several`.
+    /// action is learnt on `several` controls.
     fn replaced_by(&self, learnt: &Mapping, several: bool) -> bool {
         let same_control = self.control == learnt.control
             && self.shift == learnt.shift
@@ -414,8 +407,20 @@ impl Mappings {
     }
 
     /// Adds `mapping`, replacing what its control did in its layer and the control its
-    /// action had on that controller, unless the action takes `several`.
-    pub fn learn(&mut self, mapping: Mapping, several: bool) {
+    /// action had on that controller, unless the action takes several (see
+    /// [`Target::takes_several`]).
+    pub fn learn(&mut self, mapping: Mapping) {
+        let several = takes_several(&mapping);
+        self.add(mapping, several);
+    }
+
+    /// Adds `mapping` beside the other controls of its action, replacing what its control did
+    /// in its layer.
+    pub fn learn_another(&mut self, mapping: Mapping) {
+        self.add(mapping, true);
+    }
+
+    fn add(&mut self, mapping: Mapping, several: bool) {
         self.0.retain(|m| !m.replaced_by(&mapping, several));
         self.0.push(mapping);
     }
@@ -442,18 +447,21 @@ impl Mappings {
     /// The mappings of the controllers' models (their profiles) with those learnt over
     /// them: a control or an action learnt on a controller takes the model's place, and a
     /// model's control whose action was taken off its controller (`unmapped`) is left out.
-    /// `several` tells the actions that take several controls.
     pub fn layered(
         model: impl IntoIterator<Item = Mapping>,
         learnt: &Mappings,
         unmapped: impl Fn(&Mapping) -> bool,
-        several: impl Fn(&str) -> bool,
     ) -> Self {
-        let replaced = |m: &Mapping| learnt.all().iter().any(|l| m.replaced_by(l, several(&l.target)));
+        let replaced = |m: &Mapping| learnt.all().iter().any(|l| m.replaced_by(l, takes_several(l)));
         let mut layered: Vec<Mapping> = model.into_iter().filter(|m| !unmapped(m) && !replaced(m)).collect();
         layered.extend(learnt.all().iter().cloned());
         Mappings(layered)
     }
+}
+
+/// Whether the action of `mapping` takes several controls.
+fn takes_several(mapping: &Mapping) -> bool {
+    mapping.target.target().is_some_and(Target::takes_several)
 }
 
 /// Turns events into values, controller by controller.
@@ -508,16 +516,16 @@ impl Reader {
         if key && !released {
             reader.pressed.insert(event.control, (reader.shifts.clone(), reader.modes.clone()));
         }
-        if let Some(name) = mapping.target.strip_prefix(SHIFT) {
+        if let Some(Target::Shift(name)) = mapping.target.target() {
             let held = event.raw > 0;
-            match name.strip_prefix('.') {
-                Some(name) if held => drop(reader.shifts.names.insert(name.to_owned())),
+            match name {
+                Some(name) if held => drop(reader.shifts.names.insert(name.clone())),
                 Some(name) => drop(reader.shifts.names.remove(name)),
                 None => reader.shifts.plain = held,
             }
             return None;
         }
-        if let Some((group, mode)) = selected_mode(&mapping.target) {
+        if let Some((group, mode)) = mapping.target.mode() {
             if mapping.hold.is_none() {
                 reader.select(mapping, event, group, mode);
             }
@@ -595,7 +603,7 @@ impl Reader {
     /// Chooses the mode of `key`, a mode key of `device` pressed and let go: one with a hold,
     /// let go before it.
     pub fn choose(&mut self, device: &str, key: &ProfileControl) {
-        let Some((group, mode)) = selected_mode(&key.target) else { return };
+        let Some((group, mode)) = key.target.mode() else { return };
         let reader = self.device(device);
         for raw in [127, 0] {
             reader.select(key, Event { control: key.control, raw }, group, mode);
@@ -698,7 +706,7 @@ mod tests {
 
     fn read(reader: &mut Reader, mappings: &Mappings, bytes: &[u8]) -> Option<(String, f32)> {
         let event = parse(bytes)?;
-        reader.read(mappings, "DDJ", event).map(|(m, v)| (m.target.clone(), v))
+        reader.read(mappings, "DDJ", event).map(|(m, v)| (m.target.to_string(), v))
     }
 
     #[test]
@@ -742,7 +750,7 @@ mod tests {
         assert_eq!(Encoding::RelativeOffset.value(at(8, 130)), 2.0);
         let mut mappings = Mappings::default();
         let jog = with(mapping("S4", field(8), "deck1.jog"), |b| b.encoding = Encoding::AbsoluteWrap);
-        mappings.learn(jog, false);
+        mappings.learn(jog);
         let mut reader = Reader::default();
         let mut turn = |raw| reader.read(&mappings, "S4", at(8, raw)).map(|(_, v)| v);
         assert_eq!(turn(250), None);
@@ -753,7 +761,7 @@ mod tests {
             ProfileControl { control: field(1), target: "deck1.play".into(), ..Default::default() },
         );
         let mut mappings = Mappings::default();
-        mappings.learn(key, false);
+        mappings.learn(key);
         let mut reader = Reader::default();
         assert_eq!(reader.read(&mappings, "S4", at(1, 1)).map(|(_, v)| v), Some(1.0));
         assert_eq!(reader.held("S4"), [field(1)], "a key held");
@@ -764,8 +772,8 @@ mod tests {
     #[test]
     fn events_drive_the_action_of_their_device() {
         let mut mappings = Mappings::default();
-        mappings.learn(mapping("DDJ", PAD, "deck1.play"), false);
-        mappings.learn(mapping("Pads", PAD, "deck2.play"), false);
+        mappings.learn(mapping("DDJ", PAD, "deck1.play"));
+        mappings.learn(mapping("Pads", PAD, "deck2.play"));
         let mut reader = Reader::default();
         let press = Event { control: PAD, raw: 127 };
         let target = |reader: &mut Reader, device| {
@@ -780,7 +788,7 @@ mod tests {
     fn a_fine_control_completes_its_coarse_half() {
         let mut mappings = Mappings::default();
         let tempo = mapping("DDJ", Control::control_change(0, 0), "deck1.pitch");
-        mappings.learn(tempo.clone(), false);
+        mappings.learn(tempo.clone());
         mappings.make_fine(&tempo, 32);
         let mut reader = Reader::default();
         assert_eq!(read(&mut reader, &mappings, &[0xb0, 0, 64]), None);
@@ -797,10 +805,10 @@ mod tests {
     #[test]
     fn shift_selects_the_second_layer_and_falls_back_on_the_first() {
         let mut mappings = Mappings::default();
-        mappings.learn(mapping("DDJ", SHIFT_KEY, SHIFT), false);
-        mappings.learn(mapping("DDJ", PAD, "deck1.hotcue1"), false);
-        mappings.learn(with(mapping("DDJ", PAD, "deck1.hotcue1.delete"), |b| b.shift = Shift::Any), false);
-        mappings.learn(mapping("DDJ", KNOB, "deck1.volume"), false);
+        mappings.learn(mapping("DDJ", SHIFT_KEY, SHIFT));
+        mappings.learn(mapping("DDJ", PAD, "deck1.hotcue1"));
+        mappings.learn(with(mapping("DDJ", PAD, "deck1.hotcue1.delete"), |b| b.shift = Shift::Any));
+        mappings.learn(mapping("DDJ", KNOB, "deck1.volume"));
         let mut reader = Reader::default();
         assert_eq!(read(&mut reader, &mappings, &[0x90, 36, 127]).unwrap().0, "deck1.hotcue1");
         assert_eq!(read(&mut reader, &mappings, &[0x90, 63, 127]), None);
@@ -816,9 +824,9 @@ mod tests {
     #[test]
     fn a_key_is_released_in_the_layer_it_was_pressed_in() {
         let mut mappings = Mappings::default();
-        mappings.learn(mapping("DDJ", SHIFT_KEY, SHIFT), false);
-        mappings.learn(mapping("DDJ", PAD, "deck1.cue"), false);
-        mappings.learn(with(mapping("DDJ", PAD, "deck1.censor"), |b| b.shift = Shift::Any), false);
+        mappings.learn(mapping("DDJ", SHIFT_KEY, SHIFT));
+        mappings.learn(mapping("DDJ", PAD, "deck1.cue"));
+        mappings.learn(with(mapping("DDJ", PAD, "deck1.censor"), |b| b.shift = Shift::Any));
         let mut reader = Reader::default();
         read(&mut reader, &mappings, &[0x90, 63, 127]);
         assert_eq!(read(&mut reader, &mappings, &[0x90, 36, 90]).unwrap().0, "deck1.censor");
@@ -837,28 +845,28 @@ mod tests {
     fn a_jog_wheel_keeps_its_top_and_its_edge() {
         let edge = Control::control_change(0, 33);
         let mut mappings = Mappings::default();
-        mappings.learn(mapping("DDJ", KNOB, "deck1.jog"), true);
-        mappings.learn(mapping("DDJ", edge, "deck1.jog"), true);
+        mappings.learn(mapping("DDJ", KNOB, "deck1.jog"));
+        mappings.learn(mapping("DDJ", edge, "deck1.jog"));
         assert_eq!(mappings.all().len(), 2);
         // the same control learnt again is not there twice, and still drives one action
-        mappings.learn(mapping("DDJ", edge, "deck1.jog"), true);
+        mappings.learn(mapping("DDJ", edge, "deck1.jog"));
         assert_eq!(mappings.all().len(), 2);
-        mappings.learn(mapping("DDJ", edge, "deck2.jog"), true);
+        mappings.learn(mapping("DDJ", edge, "deck2.jog"));
         assert_eq!(mappings.all(), [mapping("DDJ", KNOB, "deck1.jog"), mapping("DDJ", edge, "deck2.jog")]);
     }
 
     #[test]
     fn learning_replaces_the_control_and_the_action() {
         let mut mappings = Mappings::default();
-        mappings.learn(mapping("DDJ", PAD, "deck1.play"), false);
-        mappings.learn(mapping("DDJ", KNOB, "deck1.play"), false);
+        mappings.learn(mapping("DDJ", PAD, "deck1.play"));
+        mappings.learn(mapping("DDJ", KNOB, "deck1.play"));
         assert_eq!(mappings.all(), [mapping("DDJ", KNOB, "deck1.play")]);
-        mappings.learn(mapping("DDJ", KNOB, "deck1.volume"), false);
+        mappings.learn(mapping("DDJ", KNOB, "deck1.volume"));
         assert_eq!(mappings.all(), [mapping("DDJ", KNOB, "deck1.volume")]);
         // the same control in the shift layer is another use of it
-        mappings.learn(with(mapping("DDJ", KNOB, "deck1.filter"), |b| b.shift = Shift::Any), false);
+        mappings.learn(with(mapping("DDJ", KNOB, "deck1.filter"), |b| b.shift = Shift::Any));
         assert_eq!(mappings.all().len(), 2);
-        mappings.learn(mapping("Pads", PAD, "deck1.volume"), false);
+        mappings.learn(mapping("Pads", PAD, "deck1.volume"));
         mappings.forget("Pads", "deck1.volume");
         assert_eq!(mappings.all().len(), 2, "taken off the other controller alone");
         mappings.forget("DDJ", "deck1.volume");
@@ -876,9 +884,9 @@ mod tests {
         ];
         let mut learnt = Mappings::default();
         // the pad learnt for another action, the knob's action learnt on another control
-        learnt.learn(mapping("DDJ", PAD, "deck1.cue"), false);
-        learnt.learn(mapping("DDJ", Control::control_change(0, 21), "deck1.volume"), false);
-        let layered = Mappings::layered(model, &learnt, |m| m.target == "deck1.sync", |_| false);
+        learnt.learn(mapping("DDJ", PAD, "deck1.cue"));
+        learnt.learn(mapping("DDJ", Control::control_change(0, 21), "deck1.volume"));
+        let layered = Mappings::layered(model, &learnt, |m| m.target == "deck1.sync");
         let target = |control| {
             let pressed = Event { control, raw: 127 };
             layered.find("DDJ", pressed, &Shifts::default(), &Modes::new()).map(|m| m.target.as_str())
@@ -898,8 +906,8 @@ mod tests {
             with(mapping("DDJ", PAD, "deck1.fx2"), |b| b.when = Some(mode("2"))),
         ];
         let mut learnt = Mappings::default();
-        learnt.learn(mapping("DDJ", PAD, "deck1.censor"), false);
-        let layered = Mappings::layered(model, &learnt, |_| false, |_| false);
+        learnt.learn(mapping("DDJ", PAD, "deck1.censor"));
+        let layered = Mappings::layered(model, &learnt, |_| false);
         let pressed = Event { control: PAD, raw: 127 };
         for chosen in ["1", "2"] {
             let modes = Modes::from([("beatFx".into(), chosen.into())]);
@@ -918,9 +926,9 @@ mod tests {
         ];
         let mut learnt = Mappings::default();
         for mapping in model.iter().cloned() {
-            learnt.learn(with(mapping, |b| b.encoding = Encoding::Relative), true);
+            learnt.learn_another(with(mapping, |b| b.encoding = Encoding::Relative));
         }
-        let layered = Mappings::layered(model, &learnt, |_| false, |_| false);
+        let layered = Mappings::layered(model, &learnt, |_| false);
         assert_eq!(layered, learnt);
     }
 
@@ -929,10 +937,10 @@ mod tests {
         let mode = |name: &str| When { group: "padsA".into(), mode: name.into() };
         let roll_key = Control::note(0, 7);
         let mut mappings = Mappings::default();
-        mappings.learn(mapping("DDJ", Control::note(0, 0), "mode.padsA.hotcue"), false);
-        mappings.learn(mapping("DDJ", roll_key, "mode.padsA.roll"), false);
-        mappings.learn(with(mapping("DDJ", PAD, "deck1.hotcue1"), |b| b.when = Some(mode("hotcue"))), false);
-        mappings.learn(with(mapping("DDJ", PAD, "deck1.roll1"), |b| b.when = Some(mode("roll"))), false);
+        mappings.learn(mapping("DDJ", Control::note(0, 0), "mode.padsA.hotcue"));
+        mappings.learn(mapping("DDJ", roll_key, "mode.padsA.roll"));
+        mappings.learn(with(mapping("DDJ", PAD, "deck1.hotcue1"), |b| b.when = Some(mode("hotcue"))));
+        mappings.learn(with(mapping("DDJ", PAD, "deck1.roll1"), |b| b.when = Some(mode("roll"))));
         assert_eq!(mappings.all().len(), 4, "one pad, a use in each mode");
         let mut reader = Reader::default();
         reader.set_modes("DDJ", Modes::from([("padsA".into(), "hotcue".into())]));
@@ -950,7 +958,7 @@ mod tests {
         // as a profile gives them: two positions may drive the same action
         let positions = [(0, "deck1.fx.off"), (1, "deck1.fx.on"), (2, "deck1.fx.on")]
             .map(|(value, target)| with(mapping("DDJ", switch, target), |b| b.on_value = Some(value)));
-        let mappings = Mappings::layered(positions, &Mappings::default(), |_| false, |_| false);
+        let mappings = Mappings::layered(positions, &Mappings::default(), |_| false);
         assert_eq!(mappings.all().len(), 3, "a position each");
         let mut reader = Reader::default();
         assert_eq!(read(&mut reader, &mappings, &[0xb0, 3, 1]), Some(("deck1.fx.on".into(), 1.0)));
@@ -961,7 +969,7 @@ mod tests {
     #[test]
     fn an_inverted_fader_reads_from_its_top() {
         let mut mappings = Mappings::default();
-        mappings.learn(with(mapping("DDJ", KNOB, "deck1.pitch"), |b| b.invert = true), false);
+        mappings.learn(with(mapping("DDJ", KNOB, "deck1.pitch"), |b| b.invert = true));
         let mut reader = Reader::default();
         assert_eq!(read(&mut reader, &mappings, &[0xb0, 20, 127]), Some(("deck1.pitch".into(), 0.0)));
         assert_eq!(read(&mut reader, &mappings, &[0xb0, 20, 0]), Some(("deck1.pitch".into(), 1.0)));
@@ -970,15 +978,11 @@ mod tests {
     #[test]
     fn mappings_survive_a_round_trip() {
         let mut mappings = Mappings::default();
-        mappings
-            .learn(with(mapping("DDJ", KNOB, "deck1.jog"), |b| b.encoding = Encoding::RelativeOffset), false);
-        mappings.learn(
-            with(mapping("DDJ", PAD, "deck1.pitch"), |b| {
-                b.fine = Some(32);
-                b.shift = Shift::Any
-            }),
-            false,
-        );
+        mappings.learn(with(mapping("DDJ", KNOB, "deck1.jog"), |b| b.encoding = Encoding::RelativeOffset));
+        mappings.learn(with(mapping("DDJ", PAD, "deck1.pitch"), |b| {
+            b.fine = Some(32);
+            b.shift = Shift::Any
+        }));
         let json = serde_json::to_string(&mappings).unwrap();
         assert_eq!(serde_json::from_str::<Mappings>(&json).unwrap(), mappings);
         // mappings saved before 14-bit controls and layers existed
@@ -991,14 +995,11 @@ mod tests {
     fn named_shifts_choose_their_own_layer() {
         let left = Control::note(0, 1);
         let mut mappings = Mappings::default();
-        mappings.learn(mapping("DDJ", SHIFT_KEY, SHIFT), false);
-        mappings.learn(mapping("DDJ", left, "shift.left"), false);
-        mappings.learn(mapping("DDJ", PAD, "deck1.hotcue1"), false);
-        mappings.learn(with(mapping("DDJ", PAD, "deck1.hotcue1.delete"), |b| b.shift = Shift::Any), false);
-        mappings.learn(
-            with(mapping("DDJ", PAD, "deck1.roll1"), |b| b.shift = Shift::Named("left".into())),
-            false,
-        );
+        mappings.learn(mapping("DDJ", SHIFT_KEY, SHIFT));
+        mappings.learn(mapping("DDJ", left, "shift.left"));
+        mappings.learn(mapping("DDJ", PAD, "deck1.hotcue1"));
+        mappings.learn(with(mapping("DDJ", PAD, "deck1.hotcue1.delete"), |b| b.shift = Shift::Any));
+        mappings.learn(with(mapping("DDJ", PAD, "deck1.roll1"), |b| b.shift = Shift::Named("left".into())));
         let mut reader = Reader::default();
         assert_eq!(read(&mut reader, &mappings, &[0x90, 1, 127]), None);
         assert!(reader.shifted("DDJ"));
@@ -1013,15 +1014,19 @@ mod tests {
     fn of_a_control_of_several_layers_the_one_in_use_is_shown() {
         let left = Control::note(0, 1);
         let mut mappings = Mappings::default();
-        mappings.learn(mapping("DDJ", SHIFT_KEY, SHIFT), false);
-        mappings.learn(mapping("DDJ", left, "shift.left"), false);
-        mappings.learn(mapping("DDJ", PAD, "deck1.hotcue1"), false);
-        mappings.learn(with(mapping("DDJ", PAD, "deck1.hotcue1.delete"), |b| b.shift = Shift::Any), false);
-        mappings.learn(mapping("DDJ", KNOB, "deck1.volume"), false);
+        mappings.learn(mapping("DDJ", SHIFT_KEY, SHIFT));
+        mappings.learn(mapping("DDJ", left, "shift.left"));
+        mappings.learn(mapping("DDJ", PAD, "deck1.hotcue1"));
+        mappings.learn(with(mapping("DDJ", PAD, "deck1.hotcue1.delete"), |b| b.shift = Shift::Any));
+        mappings.learn(mapping("DDJ", KNOB, "deck1.volume"));
         let mut reader = Reader::default();
         let shown = |reader: &Reader| -> Vec<String> {
             let shown = mappings.shown("DDJ", &reader.shifts("DDJ"), &Modes::new());
-            shown.iter().filter(|m| m.control == PAD || m.control == KNOB).map(|m| m.target.clone()).collect()
+            shown
+                .iter()
+                .filter(|m| m.control == PAD || m.control == KNOB)
+                .map(|m| m.target.to_string())
+                .collect()
         };
         assert_eq!(shown(&reader), ["deck1.hotcue1", "deck1.volume"]);
         read(&mut reader, &mappings, &[0x90, 1, 127]);
@@ -1048,7 +1053,7 @@ mod tests {
     fn a_mode_key_held_gives_its_mode_back_when_let_go() {
         let key = Control::note(0, 9);
         let mut mappings = Mappings::default();
-        mappings.learn(with(mapping("DDJ", key, "mode.pads.params"), |b| b.held = true), false);
+        mappings.learn(with(mapping("DDJ", key, "mode.pads.params"), |b| b.held = true));
         let mut reader = Reader::default();
         reader.set_modes("DDJ", Modes::from([("pads".into(), "cues".into())]));
         read(&mut reader, &mappings, &[0x90, 9, 127]);
@@ -1062,7 +1067,7 @@ mod tests {
         let key = Control::note(0, 9);
         let mut mappings = Mappings::default();
         let hold = Hold { ms: 500, target: "mode.pads.slicer".into() };
-        mappings.learn(with(mapping("DDJ", key, "mode.pads.roll"), |b| b.hold = Some(hold)), false);
+        mappings.learn(with(mapping("DDJ", key, "mode.pads.roll"), |b| b.hold = Some(hold)));
         let mut reader = Reader::default();
         reader.set_modes("DDJ", Modes::from([("pads".into(), "cues".into())]));
         assert_eq!(read(&mut reader, &mappings, &[0x90, 9, 127]), Some(("mode.pads.roll".into(), 1.0)));
@@ -1076,10 +1081,10 @@ mod tests {
     fn a_mode_for_once_ends_with_the_action_of_its_group() {
         let key = Control::note(0, 9);
         let mut mappings = Mappings::default();
-        mappings.learn(with(mapping("DDJ", key, "mode.pads.delete"), |b| b.once = true), false);
+        mappings.learn(with(mapping("DDJ", key, "mode.pads.delete"), |b| b.once = true));
         let when = |mode: &str| Some(When { group: "pads".into(), mode: mode.into() });
-        mappings.learn(with(mapping("DDJ", PAD, "deck1.hotcue1"), |b| b.when = when("cues")), false);
-        mappings.learn(with(mapping("DDJ", PAD, "deck1.hotcue1.delete"), |b| b.when = when("delete")), false);
+        mappings.learn(with(mapping("DDJ", PAD, "deck1.hotcue1"), |b| b.when = when("cues")));
+        mappings.learn(with(mapping("DDJ", PAD, "deck1.hotcue1.delete"), |b| b.when = when("delete")));
         let mut reader = Reader::default();
         reader.set_modes("DDJ", Modes::from([("pads".into(), "cues".into())]));
         read(&mut reader, &mappings, &[0x90, 9, 127]);
@@ -1093,8 +1098,8 @@ mod tests {
     fn a_switch_position_of_zero_chooses_a_mode() {
         let switch = Control::control_change(0, 3);
         let mut mappings = Mappings::default();
-        mappings.learn(with(mapping("DDJ", switch, "mode.decks.left"), |b| b.on_value = Some(0)), false);
-        mappings.learn(with(mapping("DDJ", switch, "mode.decks.right"), |b| b.on_value = Some(127)), false);
+        mappings.learn(with(mapping("DDJ", switch, "mode.decks.left"), |b| b.on_value = Some(0)));
+        mappings.learn(with(mapping("DDJ", switch, "mode.decks.right"), |b| b.on_value = Some(127)));
         let mut reader = Reader::default();
         read(&mut reader, &mappings, &[0xb0, 3, 127]);
         assert_eq!(reader.modes("DDJ")["decks"], "right");
@@ -1109,8 +1114,7 @@ mod tests {
         assert_eq!(Encoding::RelativeZero.value(at(2)), 3.0);
         assert_eq!(Encoding::RelativeZero.value(at(127)), -1.0);
         let mut mappings = Mappings::default();
-        mappings
-            .learn(with(mapping("DDJ", KNOB, "deck1.jog"), |b| b.encoding = Encoding::AbsoluteWrap), false);
+        mappings.learn(with(mapping("DDJ", KNOB, "deck1.jog"), |b| b.encoding = Encoding::AbsoluteWrap));
         let mut reader = Reader::default();
         assert_eq!(read(&mut reader, &mappings, &[0xb0, 20, 120]), None, "a first position is no step");
         assert_eq!(read(&mut reader, &mappings, &[0xb0, 20, 124]), Some(("deck1.jog".into(), 4.0)));
@@ -1126,7 +1130,7 @@ mod tests {
             b.scale = 0.25;
             b.invert = true;
         };
-        mappings.learn(with(mapping("DDJ", KNOB, "library.browse"), browse), false);
+        mappings.learn(with(mapping("DDJ", KNOB, "library.browse"), browse));
         let mut reader = Reader::default();
         assert_eq!(read(&mut reader, &mappings, &[0xb0, 20, 66]), Some(("library.browse".into(), -0.5)));
         assert_eq!(reader.whole_steps("DDJ", KNOB, -0.5), 0);
