@@ -59,6 +59,18 @@ describe('ControllersSettings', () => {
     expect(chosen).toEqual([{ name: 'VCI-100', file: 'vestax-vci-100-hile.json' }]);
   });
 
+  it('say whether a profile was tried on the controller, never of an own profile', async () => {
+    const element = await settings([
+      VCI_100,
+      { ...VCI_100, name: 'DDJ-SB2', verified: true },
+      { ...VCI_100, name: 'Mine', profileSource: 'own' },
+    ]);
+    const badges = [...element.querySelectorAll('.controller')].map(
+      (row) => row.querySelector('.pr-chip')?.textContent?.trim() ?? null,
+    );
+    expect(badges).toEqual(['Not verified', 'Verified', null]);
+  });
+
   it('offer no choice to a controller its model alone fits', async () => {
     const element = await settings([{ ...VCI_100, offered: VCI_100.offered.slice(0, 1) }]);
     expect(element.querySelector('.choice')).toBeNull();

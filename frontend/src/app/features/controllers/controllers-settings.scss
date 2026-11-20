@@ -15,6 +15,18 @@
 :host-context(.phone) .controller {
   grid-template-columns: minmax(0, 1fr);
 }
+// its name, and whether its profile was tried on the controller itself
+.title {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--pr-space-1) var(--pr-space-2);
+  margin-bottom: 2px;
+}
+.verified {
+  border-color: var(--pr-ok);
+  color: var(--pr-ok);
+}
 .hint {
   margin: 0;
   font-size: var(--pr-size-small);

@@ -1,7 +1,20 @@
 <ng-template #controller let-c>
   <div class="pr-row controller">
     <div>
-      <span class="pr-row__name">{{ c.name }}</span>
+      <span class="title">
+        <span class="pr-row__name">{{ c.name }}</span>
+        @if (c.profile && c.profileSource !== 'own') {
+          @if (c.verified) {
+            <span class="pr-chip verified" [title]="'Tried on this controller itself' | t">
+              <span class="pr-sig pr-sig--ok"></span>{{ 'Verified' | t }}
+            </span>
+          } @else {
+            <span class="pr-chip pr-chip--warn">
+              <span class="pr-sig pr-sig--weak"></span>{{ 'Not verified' | t }}
+            </span>
+          }
+        }
+      </span>
       <span class="pr-row__help">{{
         c.plugged ? ('Plugged in' | t) : ('not plugged in' | t)
       }}</span>
@@ -9,6 +22,18 @@
         <span class="pr-row__help">{{
           'Mapped as a {model}: learn a control to change it' | t: { model: c.profile }
         }}</span>
+        @if (c.replaces; as replaced) {
+          <span class="pr-row__help replaces">{{
+            'Your own profile takes the place of the one Prisme gives the {model}: the corrections published for it no longer reach this controller.'
+              | t: { model: replaced }
+          }}</span>
+        } @else if (c.profileSource === 'own') {
+          <span class="pr-row__help">{{ 'With your own profile' | t }}</span>
+        } @else if (!c.verified) {
+          <span class="pr-row__help">{{
+            'Converted from the mapping of Mixxx, not yet tried on this controller' | t
+          }}</span>
+        }
         @if (c.offered.length > 1) {
           <label class="pr-row__help choice">
             <select
@@ -24,18 +49,6 @@
             </select>
             {{ 'Other profiles fit this controller: a firmware or an edition of its own' | t }}
           </label>
-        }
-        @if (c.replaces; as replaced) {
-          <span class="pr-row__help replaces">{{
-            'Your own profile takes the place of the one Prisme gives the {model}: the corrections published for it no longer reach this controller.'
-              | t: { model: replaced }
-          }}</span>
-        } @else if (c.profileSource === 'own') {
-          <span class="pr-row__help">{{ 'With your own profile' | t }}</span>
-        } @else if (!c.verified) {
-          <span class="pr-row__help">{{
-            'Converted from the mapping of Mixxx, not yet tried on this controller' | t
-          }}</span>
         }
       }
       @if (exported()[c.name]; as e) {
