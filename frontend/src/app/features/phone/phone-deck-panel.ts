@@ -9,7 +9,7 @@ import { Text, t } from '../../core/i18n/i18n';
 import { TPipe } from '../../core/i18n/t.pipe';
 import { CueButton } from '../../shared/cue-button/cue-button';
 import { Fader } from '../../shared/fader/fader';
-import { bandKnob, eqGain, filterAmount, filterKnob } from '../../shared/mixer-scales';
+import { bandKnob, filterKnob } from '../../shared/mixer-scales';
 import { deckLetter } from '../../shared/time';
 import { DeckOptions } from '../deck/deck-options/deck-options';
 import { GridEditor } from '../deck/grid-editor/grid-editor';
@@ -93,7 +93,7 @@ export class PhoneDeckPanel {
   }
 
   protected setEq(band: Band, knob: number) {
-    this.mixer.setEq(this.deck(), band, eqGain(knob));
+    this.mixer.setEq(this.deck(), band, knob);
   }
 
   protected filterKnob(): number {
@@ -101,6 +101,6 @@ export class PhoneDeckPanel {
   }
 
   protected setFilter(knob: number) {
-    this.mixer.setFilter(this.deck(), filterAmount(knob));
+    this.mixer.setFilter(this.deck(), knob);
   }
 }

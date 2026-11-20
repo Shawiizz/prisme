@@ -1,7 +1,6 @@
 import { Injectable, computed, effect, inject, signal, untracked } from '@angular/core';
 import { invoke } from '@tauri-apps/api/core';
 import {
-  BANDS,
   Band,
   ChannelStrip,
   CrossfaderCurve,
@@ -167,23 +166,20 @@ export class MixerService {
   }
 
   setMainGain(gain: number) {
-    this.mainGain.set(gain);
-    return this.engine.call('set_main_gain', { gain });
+    return this.engine.perform('mixer.main', gain);
   }
 
   setCrossfaderSide(deck: number, side: CrossfaderSide) {
-    this.engine.patchDeck(deck, { side });
-    return this.engine.call('set_crossfader_side', { deck, side });
+    return this.engine.press(deck, `crossfader.${side}`);
   }
 
   setBoothGain(gain: number) {
-    this.boothGain.set(gain);
-    return this.engine.call('set_booth_gain', { gain });
+    return this.engine.perform('mixer.booth', gain);
   }
 
-  setBalance(balance: number) {
-    this.balance.set(balance);
-    return this.engine.call('set_balance', { balance });
+  /** The master's balance, where its knob stands (0 to 1). */
+  setBalance(knob: number) {
+    return this.engine.perform('mixer.balance', knob);
   }
 
   live(source: LiveSource) {
@@ -201,28 +197,26 @@ export class MixerService {
     }
   }
 
-  setLiveLevel(source: LiveSource, gain: number) {
-    this.patchLive(source, { level: gain });
-    return this.engine.call('set_live_level', { source, gain });
+  /** The level of `source`, where its knob stands (0 to 1). */
+  setLiveLevel(source: LiveSource, knob: number) {
+    return this.engine.perform(`mixer.${source}`, knob);
   }
 
-  setLiveOn(source: LiveSource, on: boolean) {
-    this.patchLive(source, { on });
-    return this.engine.call('set_live_on', { source, on });
+  /** `source` heard in the master, or no longer. */
+  toggleLiveOn(source: LiveSource) {
+    return this.engine.perform(`mixer.${source}.on`, 1);
   }
 
-  setLiveCue(source: LiveSource, cue: boolean) {
-    this.patchLive(source, { cue });
-    return this.engine.call('set_live_cue', { source, cue });
+  /** `source` heard in the headphones, or no longer. */
+  toggleLiveCue(source: LiveSource) {
+    return this.engine.perform(`mixer.${source}.cue`, 1);
   }
 
   setTalkover(enabled: boolean) {
-    this.talkover.set(enabled);
-    return this.engine.call('set_talkover', { enabled });
+    return this.engine.turn('mixer.talkover', enabled);
   }
 
   setTalkoverDepth(db: number) {
-    this.talkoverDepthDb.set(db);
     return this.engine.call('set_talkover_depth', { db });
   }
 
@@ -231,79 +225,63 @@ export class MixerService {
   }
 
   setVolume(deck: number, gain: number) {
-    this.engine.patchDeck(deck, { volume: gain });
-    return this.engine.call('set_volume', { deck, gain });
+    return this.engine.perform(`deck${deck + 1}.volume`, gain);
   }
 
   setDeckCue(deck: number, enabled: boolean) {
-    this.engine.patchDeck(deck, { cue: enabled });
-    return this.engine.call('set_deck_cue', { deck, enabled });
+    return this.engine.turn(`deck${deck + 1}.headphones`, enabled);
   }
 
+  /** The crossfader from -1 (left) to 1 (right). */
   setCrossfader(position: number) {
-    this.crossfader.set(position);
-    return this.engine.call('set_crossfader', { position });
+    return this.engine.perform('mixer.crossfader', (position + 1) / 2);
   }
 
   setCueMix(mix: number) {
-    this.cueMix.set(mix);
-    return this.engine.call('set_cue_mix', { mix });
+    return this.engine.perform('mixer.cueMix', mix);
   }
 
   setSplitCue(enabled: boolean) {
-    this.splitCue.set(enabled);
-    return this.engine.call('set_split_cue', { enabled });
+    return this.engine.turn('mixer.headphones.split', enabled);
   }
 
-  setHeadphoneGain(gain: number) {
-    this.headphoneGain.set(gain);
-    return this.engine.call('set_headphone_gain', { gain });
+  /** The headphones' level, where its knob stands (0 to 1, up to +3.5 dB). */
+  setHeadphoneLevel(knob: number) {
+    return this.engine.perform('mixer.headphones', knob);
   }
 
   strip(deck: number): ChannelStrip {
     return this.engine.decks()[deck].strip;
   }
 
-  setTrim(deck: number, gain: number) {
-    this.patchStrip(deck, { trim: gain });
-    return this.engine.call('set_trim', { deck, gain });
+  /** The gain of `deck`, where its knob stands (0 to 1). */
+  setTrim(deck: number, knob: number) {
+    return this.engine.perform(`deck${deck + 1}.trim`, knob);
   }
 
-  setEq(deck: number, band: Band, gain: number) {
-    const eq = [...this.strip(deck).eq];
-    eq[BANDS.indexOf(band)] = gain;
-    this.patchStrip(deck, { eq });
-    return this.engine.call('set_eq', { deck, band, gain });
+  /** `band` of `deck`, where its knob stands (0 to 1). */
+  setEq(deck: number, band: Band, knob: number) {
+    return this.engine.perform(`deck${deck + 1}.eq.${band}`, knob);
   }
 
   setKill(deck: number, band: Band, kill: boolean) {
-    const kills = [...this.strip(deck).kills];
-    kills[BANDS.indexOf(band)] = kill;
-    this.patchStrip(deck, { kills });
     return this.engine.call('set_eq_kill', { deck, band, kill });
   }
 
-  setFilter(deck: number, position: number) {
-    this.patchStrip(deck, { filter: position });
-    return this.engine.call('set_filter', { deck, position });
+  /** The filter of `deck`, where its knob stands (0 to 1). */
+  setFilter(deck: number, knob: number) {
+    return this.engine.perform(`deck${deck + 1}.filter`, knob);
   }
 
   setCrossfaderCurve(curve: CrossfaderCurve) {
-    this.crossfaderCurve.set(curve);
-    return this.engine.call('set_crossfader_curve', { curve });
+    return this.engine.perform('mixer.crossfaderCurve', curve === 'sharp' ? 1 : 0);
   }
 
   setCrossfaderReverse(enabled: boolean) {
-    this.crossfaderReverse.set(enabled);
-    return this.engine.call('set_crossfader_reverse', { enabled });
+    return this.engine.turn('mixer.crossfader.reverse', enabled);
   }
 
   setLimiter(enabled: boolean) {
-    this.limiter.set(enabled);
     return this.engine.call('set_limiter', { enabled });
-  }
-
-  private patchStrip(deck: number, changes: Partial<ChannelStrip>) {
-    this.engine.patchDeck(deck, { strip: { ...this.strip(deck), ...changes } });
   }
 }

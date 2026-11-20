@@ -4,7 +4,6 @@ import {
   bandKnob,
   eqGain,
   eqKnob,
-  filterAmount,
   filterKnob,
   liveGain,
   liveKnob,
@@ -36,10 +35,9 @@ describe('mixer scales', () => {
   });
 
   it('filter: low-pass left, open at the centre, high-pass right', () => {
-    expect(filterAmount(0)).toBe(-1);
-    expect(filterAmount(0.5)).toBe(0);
-    expect(filterAmount(1)).toBe(1);
-    expect(filterKnob(filterAmount(0.3))).toBeCloseTo(0.3);
+    expect(filterKnob(-1)).toBe(0);
+    expect(filterKnob(0)).toBe(0.5);
+    expect(filterKnob(1)).toBe(1);
   });
 
   it('trim: ±12 dB around flat', () => {

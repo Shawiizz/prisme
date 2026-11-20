@@ -1,0 +1,30 @@
+import { TestBed } from '@angular/core/testing';
+import { EngineService } from './engine.service';
+import { MixerService } from './mixer.service';
+
+describe('the screen', () => {
+  it('has the backend perform what its knobs, faders and keys drive, as a controller would', () => {
+    const engine = TestBed.inject(EngineService);
+    const performed: [string, number][] = [];
+    vi.spyOn(engine, 'perform').mockImplementation(async (target, value) => {
+      performed.push([target, value]);
+      return true;
+    });
+    const mixer = TestBed.inject(MixerService);
+    mixer.setEq(1, 'low', 0.25);
+    mixer.setCrossfader(0.5);
+    mixer.setHeadphoneLevel(0.8);
+    mixer.toggleLiveOn('aux');
+    mixer.setDeckCue(0, false);
+    mixer.setCrossfaderCurve('sharp');
+    expect(performed).toEqual([
+      ['deck2.eq.low', 0.25],
+      ['mixer.crossfader', 0.75],
+      ['mixer.headphones', 0.8],
+      ['mixer.aux.on', 1],
+      ['deck1.headphones.off', 1],
+      ['mixer.crossfaderCurve', 1],
+    ]);
+    vi.restoreAllMocks();
+  });
+});

@@ -36,10 +36,6 @@ export function bandKnob(strip: ChannelStrip, band: Band): number {
 
 /** Filter: full left closes the low-pass (-1), centre is open (0), full right closes the
  * high-pass (1). */
-export function filterAmount(knob: number): number {
-  return knob * 2 - 1;
-}
-
 export function filterKnob(amount: number): number {
   return (amount + 1) / 2;
 }

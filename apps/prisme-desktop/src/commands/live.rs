@@ -28,30 +28,6 @@ pub fn set_live_input(
     Ok(channels.is_some())
 }
 
-/// Kept for the next start.
-#[tauri::command]
-pub fn set_live_level(state: State<'_, AppState>, source: LiveSourceDto, gain: f32) -> AppResult<()> {
-    mixer::set_live_level(&state, source, gain)
-}
-
-/// Heard in the master, or not.
-#[tauri::command]
-pub fn set_live_on(state: State<'_, AppState>, source: LiveSourceDto, on: bool) -> AppResult<()> {
-    mixer::set_live_on(&state, source, on)
-}
-
-/// Heard in the headphones, or not.
-#[tauri::command]
-pub fn set_live_cue(state: State<'_, AppState>, source: LiveSourceDto, cue: bool) -> AppResult<()> {
-    mixer::set_live_cue(&state, source, cue)
-}
-
-/// While the microphone is on, the music ducks; kept for the next start.
-#[tauri::command]
-pub fn set_talkover(state: State<'_, AppState>, enabled: bool) -> AppResult<()> {
-    mixer::set_talkover(&state, enabled)
-}
-
 /// How far the music ducks under the microphone (dB); kept for the next start.
 #[tauri::command]
 pub fn set_talkover_depth(state: State<'_, AppState>, db: f32) -> AppResult<()> {

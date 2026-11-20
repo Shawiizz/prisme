@@ -107,7 +107,7 @@
             class="pr-btn pr-reach key"
             [class.is-on]="mixer.mic().on"
             [attr.aria-pressed]="mixer.mic().on"
-            (click)="mixer.setLiveOn('mic', !mixer.mic().on)"
+            (click)="mixer.toggleLiveOn('mic')"
           >
             MIC
           </button>

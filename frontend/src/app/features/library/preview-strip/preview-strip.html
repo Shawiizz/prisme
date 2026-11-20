@@ -35,5 +35,5 @@
   [defaultValue]="1 / MAX_HEADPHONE_GAIN"
   [format]="phonesReadout"
   [value]="mixer.headphoneGain() / MAX_HEADPHONE_GAIN"
-  (valueChange)="mixer.setHeadphoneGain($event * MAX_HEADPHONE_GAIN)"
+  (valueChange)="mixer.setHeadphoneLevel($event)"
 />

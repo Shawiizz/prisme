@@ -7,13 +7,7 @@ import { Text, t } from '../../../core/i18n/i18n';
 import { TPipe } from '../../../core/i18n/t.pipe';
 import { Knob } from '../../../shared/knob/knob';
 import { levelMeter } from '../../../shared/level';
-import {
-  balanceAmount,
-  balanceKnob,
-  liveGain,
-  liveKnob,
-  readouts,
-} from '../../../shared/mixer-scales';
+import { balanceKnob, liveKnob, readouts } from '../../../shared/mixer-scales';
 
 /** The headphone volume knob goes up to +3.5 dB. */
 const MAX_HEADPHONE_GAIN = 1.5;
@@ -64,7 +58,7 @@ const LIVE_TEXTS: Record<LiveSource, Record<'label' | 'on' | 'cue' | 'level', Te
           [defaultValue]="0.5"
           [format]="readouts.balance"
           [value]="balanceKnob(mixer.balance())"
-          (valueChange)="mixer.setBalance(balanceAmount($event))"
+          (valueChange)="mixer.setBalance($event)"
         />
         @if (mixer.boothInUse() !== null) {
           <app-knob
@@ -147,7 +141,7 @@ const LIVE_TEXTS: Record<LiveSource, Record<'label' | 'on' | 'cue' | 'level', Te
           [defaultValue]="1 / MAX_HEADPHONE_GAIN"
           [format]="phonesReadout"
           [value]="mixer.headphoneGain() / MAX_HEADPHONE_GAIN"
-          (valueChange)="mixer.setHeadphoneGain($event * MAX_HEADPHONE_GAIN)"
+          (valueChange)="mixer.setHeadphoneLevel($event)"
         />
         <button
           class="pr-btn pr-btn--sm split"
@@ -178,7 +172,7 @@ const LIVE_TEXTS: Record<LiveSource, Record<'label' | 'on' | 'cue' | 'level', Te
             [class.is-on]="live.state.on"
             [attr.aria-pressed]="live.state.on"
             [title]="live.onTitle"
-            (click)="mixer.setLiveOn(live.source, !live.state.on)"
+            (click)="mixer.toggleLiveOn(live.source)"
           >
             ON
           </button>
@@ -201,7 +195,7 @@ const LIVE_TEXTS: Record<LiveSource, Record<'label' | 'on' | 'cue' | 'level', Te
             [attr.aria-pressed]="live.state.cue"
             [title]="live.cueTitle"
             [attr.aria-label]="live.cueTitle"
-            (click)="mixer.setLiveCue(live.source, !live.state.cue)"
+            (click)="mixer.toggleLiveCue(live.source)"
           >
             <svg viewBox="0 0 16 16" aria-hidden="true">
               <path
@@ -221,7 +215,7 @@ const LIVE_TEXTS: Record<LiveSource, Record<'label' | 'on' | 'cue' | 'level', Te
             [defaultValue]="liveKnob(1)"
             [format]="readouts.live"
             [value]="liveKnob(live.state.level)"
-            (valueChange)="mixer.setLiveLevel(live.source, liveGain($event))"
+            (valueChange)="mixer.setLiveLevel(live.source, $event)"
           />
         </div>
       </div>
@@ -291,9 +285,7 @@ export class MixerControls {
   protected readonly readouts = readouts;
   protected readonly phonesReadout = (knob: number) => readouts.gain(knob * MAX_HEADPHONE_GAIN);
   protected readonly balanceKnob = balanceKnob;
-  protected readonly balanceAmount = balanceAmount;
   protected readonly liveKnob = liveKnob;
-  protected readonly liveGain = liveGain;
 
   private readonly meters: Record<LiveSource, () => string[]> = {
     mic: levelMeter(() => this.engine.status()?.micPeak ?? 0, METER_SEGMENTS),

@@ -29,7 +29,7 @@ import { MixerMenu } from '../mixer-menu/mixer-menu';
             ? ('Microphone on / off: the music ducks while it is on' | t)
             : ('Microphone on / off' | t)
         "
-        (click)="mixer.setLiveOn('mic', !mic().on)"
+        (click)="mixer.toggleLiveOn('mic')"
       >
         MIC
       </button>

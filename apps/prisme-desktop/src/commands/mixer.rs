@@ -1,8 +1,7 @@
 use crate::actions::mixer;
-use crate::auto_dj::AutoDj;
 use crate::dto::{
-    BandDto, CrossfaderCurveDto, CrossfaderSideDto, DeckSettingsDto, HeadphonesOutputDto, LiveSourceDto,
-    LiveStateDto, MixModeDto, MixerStateDto,
+    BandDto, CrossfaderSideDto, DeckSettingsDto, HeadphonesOutputDto, LiveSourceDto, LiveStateDto,
+    MixModeDto, MixerStateDto,
 };
 use crate::error::AppResult;
 use crate::sampler;
@@ -116,34 +115,6 @@ pub fn set_booth_output(state: State<'_, AppState>, first: Option<usize>) -> App
     Ok(route(&state)?.and_then(|routing| routing.booth))
 }
 
-/// Kept for the next start.
-#[tauri::command]
-pub fn set_booth_gain(state: State<'_, AppState>, gain: f32) -> AppResult<()> {
-    mixer::set_booth_gain(&state, gain)
-}
-
-/// The master's level (linear); kept for the next start.
-#[tauri::command]
-pub fn set_main_gain(state: State<'_, AppState>, gain: f32) -> AppResult<()> {
-    mixer::set_main_gain(&state, gain)
-}
-
-/// The side of the crossfader `deck` is on.
-#[tauri::command]
-pub fn set_crossfader_side(
-    state: State<'_, AppState>,
-    deck: usize,
-    side: CrossfaderSideDto,
-) -> AppResult<()> {
-    mixer::set_crossfader_side(&state, deck, side)
-}
-
-/// -1 = the master on the left only, 1 = on the right only; kept for the next start.
-#[tauri::command]
-pub fn set_balance(state: State<'_, AppState>, balance: f32) -> AppResult<()> {
-    mixer::set_balance(&state, balance)
-}
-
 /// Applies the routing the preferences give to the running audio, if any.
 fn route(state: &AppState) -> AppResult<Option<OutputRouting>> {
     let Some(info) = lock(&state.session).as_ref().map(|s| s.info.clone()) else { return Ok(None) };
@@ -152,79 +123,9 @@ fn route(state: &AppState) -> AppResult<Option<OutputRouting>> {
     Ok(Some(routing))
 }
 
-/// With fader start on the software mixer, a fader raised from closed plays its deck, and
-/// closed stops it on its cue point.
-#[tauri::command]
-pub fn set_volume(state: State<'_, AppState>, deck: usize, gain: f32) -> AppResult<()> {
-    mixer::set_volume(&state, deck, gain)
-}
-
-#[tauri::command]
-pub fn set_crossfader(
-    state: State<'_, AppState>,
-    auto_dj: State<'_, AutoDj>,
-    position: f32,
-) -> AppResult<()> {
-    mixer::set_crossfader(&state, Some(&auto_dj), position)
-}
-
-/// Sends the deck to the headphones (software mixer).
-#[tauri::command]
-pub fn set_deck_cue(state: State<'_, AppState>, deck: usize, enabled: bool) -> AppResult<()> {
-    mixer::set_deck_cue(&state, deck, enabled)
-}
-
-/// The crossfader's sides swapped, or back. Kept for the next start.
-#[tauri::command]
-pub fn set_crossfader_reverse(state: State<'_, AppState>, enabled: bool) -> AppResult<()> {
-    mixer::set_crossfader_reverse(&state, enabled)
-}
-
-/// Headphones: 0 = cued decks only, 1 = master only. Kept for the next start.
-#[tauri::command]
-pub fn set_cue_mix(state: State<'_, AppState>, mix: f32) -> AppResult<()> {
-    mixer::set_cue_mix(&state, mix)
-}
-
-/// Headphones: the cue on the left and the master on the right, each in mono, or blended.
-/// Kept for the next start.
-#[tauri::command]
-pub fn set_split_cue(state: State<'_, AppState>, enabled: bool) -> AppResult<()> {
-    mixer::set_split_cue(&state, enabled)
-}
-
-#[tauri::command]
-pub fn set_headphone_gain(state: State<'_, AppState>, gain: f32) -> AppResult<()> {
-    mixer::set_headphone_gain(&state, gain)
-}
-
-/// Software mixer: gain before the EQ (linear).
-#[tauri::command]
-pub fn set_trim(state: State<'_, AppState>, deck: usize, gain: f32) -> AppResult<()> {
-    mixer::set_trim(&state, deck, gain)
-}
-
-/// Software mixer: EQ band gain (linear, 1 = flat).
-#[tauri::command]
-pub fn set_eq(state: State<'_, AppState>, deck: usize, band: BandDto, gain: f32) -> AppResult<()> {
-    mixer::set_eq(&state, deck, band, gain)
-}
-
 #[tauri::command]
 pub fn set_eq_kill(state: State<'_, AppState>, deck: usize, band: BandDto, kill: bool) -> AppResult<()> {
     mixer::set_eq_kill(&state, deck, band, kill)
-}
-
-/// Software mixer: -1 = low-pass closed, 0 = off, 1 = high-pass open.
-#[tauri::command]
-pub fn set_filter(state: State<'_, AppState>, deck: usize, position: f32) -> AppResult<()> {
-    mixer::set_filter(&state, deck, position)
-}
-
-/// Kept for the next start.
-#[tauri::command]
-pub fn set_crossfader_curve(state: State<'_, AppState>, curve: CrossfaderCurveDto) -> AppResult<()> {
-    mixer::set_crossfader_curve(&state, curve)
 }
 
 /// Master limiter; kept for the next start.

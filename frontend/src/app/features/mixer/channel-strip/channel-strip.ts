@@ -2,15 +2,7 @@ import { Component, inject, input } from '@angular/core';
 import { BANDS, Band } from '../../../core/models/engine';
 import { MixerService } from '../../../core/services/mixer.service';
 import { Knob } from '../../../shared/knob/knob';
-import {
-  bandKnob,
-  eqGain,
-  filterAmount,
-  filterKnob,
-  readouts,
-  trimGain,
-  trimKnob,
-} from '../../../shared/mixer-scales';
+import { bandKnob, filterKnob, readouts, trimKnob } from '../../../shared/mixer-scales';
 import { Text, t } from '../../../core/i18n/i18n';
 import { TPipe } from '../../../core/i18n/t.pipe';
 
@@ -91,7 +83,7 @@ export class ChannelStrip {
   }
 
   protected setTrim(knob: number) {
-    this.mixer.setTrim(this.deck(), trimGain(knob));
+    this.mixer.setTrim(this.deck(), knob);
   }
 
   protected eqKnob(band: Band): number {
@@ -99,7 +91,7 @@ export class ChannelStrip {
   }
 
   protected setEq(band: Band, knob: number) {
-    this.mixer.setEq(this.deck(), band, eqGain(knob));
+    this.mixer.setEq(this.deck(), band, knob);
   }
 
   protected filterKnob(): number {
@@ -107,7 +99,7 @@ export class ChannelStrip {
   }
 
   protected setFilter(knob: number) {
-    this.mixer.setFilter(this.deck(), filterAmount(knob));
+    this.mixer.setFilter(this.deck(), knob);
   }
 
   protected killed(band: Band): boolean {
