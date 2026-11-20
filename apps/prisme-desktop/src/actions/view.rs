@@ -8,7 +8,7 @@ use crate::preferences::MixerPreferences;
 use crate::sampler::LoadedSample;
 use crate::state::{as_laid_out, live_preferences, lock, AppState, DeckSettings, LiveSwitches, LoadedTrack};
 use prisme_actions::input::Faders;
-use prisme_actions::perform::PerformState;
+use prisme_actions::perform::Clips;
 use prisme_actions::view::{DeckView, FxChain, FxSlot, Live, MixerView, Sees, Strip, TrackView, View};
 use prisme_control::{HOT_CUES, SAMPLE_SLOTS};
 use prisme_engine::DeckStatus;
@@ -17,7 +17,7 @@ use std::sync::Mutex;
 
 /// `state` as the actions see it at `now_s` on their clock (the clip lights are timed by it),
 /// the Auto DJ playing or not.
-pub fn view_of(state: &AppState, auto_dj: bool, perform: &Mutex<PerformState>, now_s: f64) -> View {
+pub fn view_of(state: &AppState, auto_dj: bool, clips: &Mutex<Clips>, now_s: f64) -> View {
     let (status, layout) = lock(&state.session)
         .as_mut()
         .map(|s| (s.controller.status(), Some((s.info.decks, s.info.input_channels))))
@@ -26,7 +26,8 @@ pub fn view_of(state: &AppState, auto_dj: bool, perform: &Mutex<PerformState>, n
         let ranges: [f64; prisme_engine::MAX_DECKS] = std::array::from_fn(|d| p.tempo_range(d));
         (p.dj.decks(), p.dj.quantize, ranges, p.mixer)
     });
-    let perform = lock(perform).view(&status, now_s);
+    let clipping = lock(clips).heard(&status, now_s);
+    let perform = lock(&state.perform).view(clipping);
     let settings = as_laid_out(*lock(&state.decks), layout);
     let tracks = lock(&state.tracks).each_ref().map(|t| t.as_ref().map(track_view));
     let samples = lock(&state.samplers).each_ref().map(loaded);
@@ -60,11 +61,11 @@ impl Sees for Performing<'_> {
     }
 
     fn faders(&self) -> Faders {
-        lock(&self.actions.perform).faders
+        lock(&self.state.perform).faders
     }
 
     fn fx_focus(&self, deck: usize) -> Option<usize> {
-        lock(&self.actions.perform).decks[deck].fx_focus
+        lock(&self.state.perform).decks[deck].fx_focus
     }
 }
 
@@ -175,7 +176,7 @@ mod tests {
         {
             bench.perform(id, Input::Value(value), Source::Interface).unwrap();
         }
-        let view = view_of(&bench.state, false, &bench.actions.perform, 0.0);
+        let view = view_of(&bench.state, false, &bench.actions.clips, 0.0);
         let doing = bench.performing(Source::Interface);
         for id in [
             "deck1.eq.low",

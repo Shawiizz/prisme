@@ -3,6 +3,7 @@
 //! hot cue.
 
 use crate::cue::at_cue;
+use crate::pads::{slice_at, ROLL_BEATS};
 use crate::sync::{phase, Beat, Phase};
 use crate::view::{band_index, TrackView, View};
 use prisme_control::{
@@ -73,18 +74,11 @@ impl Light {
 }
 
 /// Whether the interface tells the light of `target`: what it shows is kept there yet (the
-/// rolls, slices, cuts and effect focus the interface performs, the library over the whole
-/// window).
+/// effect focus the interface performs, the library over the whole window).
 pub fn told_by_interface(target: &Target) -> bool {
     matches!(
         target,
-        Target::Deck(
-            _,
-            DeckAction::RollBeats(_)
-                | DeckAction::Slice(_)
-                | DeckAction::Cut(_)
-                | DeckAction::Fx(_, FxAction::Focus)
-        ) | Target::General(GeneralAction::Library)
+        Target::Deck(_, DeckAction::Fx(_, FxAction::Focus)) | Target::General(GeneralAction::Library)
     )
 }
 
@@ -184,8 +178,9 @@ fn deck_light(deck: usize, action: DeckAction, view: &View) -> Option<Light> {
         DeckAction::Fx(slot, FxAction::Held) => fx(slot).enabled,
         DeckAction::Fx(slot, FxAction::Effect(effect)) => fx(slot).enabled && fx(slot).effect == effect,
         DeckAction::Fx(slot, FxAction::Focus) => perform.fx_focus == Some(slot),
+        DeckAction::Roll(roll) => perform.roll == Some(ROLL_BEATS[roll]),
         DeckAction::RollBeats(Beats(beats)) => perform.roll == Some(beats),
-        DeckAction::Slice(slice) => perform.slice == Some(slice),
+        DeckAction::Slice(slice) => slice_playing(status, track, perform.slicer) == Some(slice),
         DeckAction::Cut(cut) => perform.cut == Some(cut),
         DeckAction::EqKill(band) => settings.strip.kills[band_index(band)],
         DeckAction::FilterToggle => settings.strip.filter != 0.0,
@@ -246,6 +241,12 @@ fn deck_state(status: &DeckStatus) -> State {
         (true, true) => State::Playing,
         (true, false) => State::Loaded,
     }
+}
+
+/// The slice of the slicer starting at `slicer` a deck at `status` plays in, if it does.
+fn slice_playing(status: &DeckStatus, track: Option<&TrackView>, slicer: Option<f64>) -> Option<usize> {
+    let beat_s = 60.0 / track?.bpm?;
+    slice_at(slicer?, status.position_s, beat_s).filter(|_| status.loaded)
 }
 
 /// The beats of the loop playing, if the track has a grid.
@@ -577,27 +578,37 @@ mod tests {
 
     #[test]
     fn the_interface_tells_the_lights_of_what_it_keeps() {
-        let told: Vec<&str> = [
-            "deck1.roll.0.5",
-            "deck2.slice3",
-            "deck1.cut1",
-            "deck3.fx2.focus",
-            "general.library",
-            "deck1.play",
-        ]
-        .into_iter()
-        .filter(|id| told_by_interface(&target(id)))
-        .collect();
-        assert_eq!(
-            told,
-            ["deck1.roll.0.5", "deck2.slice3", "deck1.cut1", "deck3.fx2.focus", "general.library"]
-        );
+        let told: Vec<&str> =
+            ["deck1.roll.0.5", "deck2.slice3", "deck3.fx2.focus", "general.library", "deck1.play"]
+                .into_iter()
+                .filter(|id| told_by_interface(&target(id)))
+                .collect();
+        assert_eq!(told, ["deck3.fx2.focus", "general.library"]);
+    }
+
+    #[test]
+    fn a_roll_is_lit_while_it_plays_named_by_its_length_or_its_place() {
         let mut v = view();
         v.perform.decks[0].roll = Some(0.5);
-        v.perform.decks[1].slice = Some(2);
         assert_eq!(state("deck1.roll.0.5", &v), ON);
+        assert_eq!(state("deck1.roll4", &v), ON, "the fourth roll: half a beat");
         assert_eq!(state("deck1.roll.1", &v), OFF);
+        assert_eq!(state("deck1.roll5", &v), OFF);
+        assert_eq!(state("deck2.roll4", &v), OFF);
+    }
+
+    #[test]
+    fn a_slice_is_lit_while_the_track_plays_in_it_and_a_cut_while_it_cuts() {
+        // 120 BPM: a slice of half a second from 4 s
+        let mut v = loaded(view(), 1, 5.2, true);
+        assert_eq!(state("deck2.slice3", &v), OFF, "no slicer");
+        v.perform.decks[1].slicer = Some(4.0);
         assert_eq!(state("deck2.slice3", &v), ON);
+        assert_eq!(state("deck2.slice2", &v), OFF);
+        v.status.decks[1].position_s = 9.0;
+        assert_eq!(state("deck2.slice3", &v), OFF, "out of the slicer");
+        v.perform.decks[1].cut = Some(2);
+        assert_eq!(state("deck2.cut3", &v), ON);
         assert_eq!(state("deck2.cut1", &v), OFF);
     }
 }

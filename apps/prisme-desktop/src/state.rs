@@ -14,6 +14,7 @@ use crate::preferences::{DeckPreferences, LivePreferences, MixerPreferences, Pre
 use crate::recording::Recorder;
 use crate::sampler::Samplers;
 use crate::track_waveform::TrackWaveform;
+use prisme_actions::perform::PerformState;
 use prisme_analysis::TrackAnalysis;
 use prisme_engine::{
     BeatGrid, Command, DeckStatus, EngineConfig, EngineController, EngineStatus, LoopRegion, MixMode,
@@ -291,6 +292,8 @@ pub struct AppState {
     /// after it, should that one fail or its engine never run.
     carried: Mutex<[Option<Place>; MAX_DECKS]>,
     pub samplers: Mirrored<Samplers>,
+    /// What the actions keep between presses (see `prisme_actions::perform`).
+    pub perform: Mirrored<PerformState>,
     /// The interface is out of sight: a phone's application in the background, which the
     /// system may stop calling for audio.
     pub hidden: AtomicBool,
@@ -427,6 +430,7 @@ impl AppState {
             audio_start: Mutex::new(()),
             carried: Mutex::default(),
             samplers: Mirrored::new(Samplers::default(), &revision),
+            perform: Mirrored::new(PerformState::default(), &revision),
             hidden: AtomicBool::new(false),
             revision,
         }

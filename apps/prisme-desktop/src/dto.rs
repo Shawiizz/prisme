@@ -1039,6 +1039,19 @@ pub struct ControlStateDto {
     pub quantize: bool,
     /// The range of the tempo faders without one of their own.
     pub pitch_range: f64,
+    /// What each deck's pads hold.
+    pub perform: Vec<DeckPerformDto>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DeckPerformDto {
+    /// Where the bar its slicer divides starts (s).
+    pub slicer: Option<f64>,
+    /// The fader cut playing, by its place among the cuts.
+    pub cut: Option<usize>,
+    /// The roll playing, in beats.
+    pub roll: Option<f64>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -1065,7 +1078,12 @@ impl ControlStateDto {
                 })
             })
             .collect();
-        Self { mixer: mixer_state_of(state), tracks, quantize, pitch_range }
+        let perform = lock(&state.perform)
+            .decks
+            .iter()
+            .map(|d| DeckPerformDto { slicer: d.slicer, cut: d.cuts.acting(), roll: d.roll })
+            .collect();
+        Self { mixer: mixer_state_of(state), tracks, quantize, pitch_range, perform }
     }
 }
 

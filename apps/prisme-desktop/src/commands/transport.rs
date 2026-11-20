@@ -1,19 +1,14 @@
+use crate::actions::pads;
 use crate::actions::transport::{self, send};
 use crate::auto_dj::AutoDj;
 use crate::error::AppResult;
 use crate::state::AppState;
-use prisme_engine::{Command, LoopRegion};
+use prisme_engine::Command;
 use tauri::State;
 
 #[tauri::command]
 pub fn beat_loop(state: State<'_, AppState>, deck: usize, beats: f64) -> AppResult<()> {
     send(&state, deck, Command::BeatLoop { deck, beats })
-}
-
-/// `beats`: start a roll of that length; `None`: release it.
-#[tauri::command]
-pub fn loop_roll(state: State<'_, AppState>, deck: usize, beats: Option<f64>) -> AppResult<()> {
-    send(&state, deck, Command::LoopRoll { deck, beats })
 }
 
 #[tauri::command]
@@ -26,18 +21,10 @@ pub fn loop_out(state: State<'_, AppState>, deck: usize) -> AppResult<()> {
     send(&state, deck, Command::LoopOut { deck })
 }
 
-/// Plays the slice from `start_s`, `length_s` long, round and round while held, the track
-/// going on underneath; `None`: release.
+/// The slicer of `deck` put on the bar the track is in, as its pads are shown.
 #[tauri::command]
-pub fn slice(state: State<'_, AppState>, deck: usize, start_s: Option<f64>, length_s: f64) -> AppResult<()> {
-    let region = start_s.map(|start_s| LoopRegion { start_s, end_s: start_s + length_s });
-    send(&state, deck, Command::Slice { deck, region })
-}
-
-/// While `beats` is given, the deck is cut every so many beats on its grid; `None` releases it.
-#[tauri::command]
-pub fn fader_cut(state: State<'_, AppState>, deck: usize, beats: Option<f64>) -> AppResult<()> {
-    send(&state, deck, Command::FaderCut { deck, beats })
+pub fn anchor_slicer(state: State<'_, AppState>, deck: usize) -> AppResult<()> {
+    pads::anchor_slicer(&state, deck)
 }
 
 #[tauri::command]

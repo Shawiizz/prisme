@@ -2,7 +2,7 @@
 //! they drive: a CDJ's cue key, the scales of the knobs, the parts of a separated track, the
 //! phase and the keys of two decks, how a control's moves reach its action (soft takeover,
 //! encoder steps, faders over a few steps or silent at an end), the keys held of a row, the
-//! tempo tapped, where an action is performed, what the actions keep between presses, and what
+//! lengths of the rolls and cuts and the slicer, the tempo tapped, where an action is performed, what the actions keep between presses, and what
 //! their lights and faders show of the application at a moment (its [`view::View`]).
 
 pub mod cue;
@@ -10,6 +10,7 @@ pub mod input;
 pub mod key;
 pub mod lane;
 pub mod light;
+pub mod pads;
 pub mod perform;
 pub mod position;
 pub mod press;

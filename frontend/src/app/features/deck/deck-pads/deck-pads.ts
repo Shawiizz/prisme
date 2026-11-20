@@ -230,10 +230,12 @@ export class DeckPads {
             b === this.size(),
           ),
         );
-      case 'roll':
+      case 'roll': {
+        const playing = this.performance.rolls()[this.deck()];
         return ROLL_BEATS.map((b) =>
-          this.beatPad(b, false, t('Roll {beats} while held', { beats: formatBeats(b) })),
+          this.beatPad(b, playing === b, t('Roll {beats} while held', { beats: formatBeats(b) })),
         );
+      }
       case 'jump':
         return JUMP_BEATS.map((b) =>
           this.beatPad(
@@ -307,8 +309,8 @@ export class DeckPads {
           ? this.performance.exitLoop(deck)
           : this.performance.beatLoop(deck, LOOP_BEATS[index]);
       case 'roll':
-        this.performance.loopRoll(deck, ROLL_BEATS[index]);
-        this.held.set(event.pointerId, () => this.performance.loopRoll(deck, null));
+        this.performance.roll(deck, index, true);
+        this.held.set(event.pointerId, () => this.performance.roll(deck, index, false));
         return;
       case 'jump':
         return this.performance.beatJump(deck, JUMP_BEATS[index]);

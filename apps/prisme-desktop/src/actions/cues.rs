@@ -164,9 +164,7 @@ fn snapped(grid: Option<BeatGrid>, position_s: f64, quantize: bool) -> f64 {
 #[cfg(test)]
 mod tests {
     use crate::actions::bench::Bench;
-    use crate::actions::Source;
     use crate::state::lock;
-    use prisme_actions::input::Input;
     use prisme_library::CueSlot;
 
     fn close(a: f64, b: f64) -> bool {
@@ -178,14 +176,6 @@ mod tests {
         bench.press(id, 1.0).unwrap();
         bench.run(0.01);
         bench.press(id, 0.0).unwrap();
-        bench.run(0.01);
-    }
-
-    /// The track on `deck` put at `seconds` on the screen.
-    fn at(bench: &mut Bench, deck: usize, seconds: f64) {
-        let id = format!("deck{}.position", deck + 1);
-        let duration = bench.status(deck).duration_s;
-        bench.perform(&id, Input::Value((seconds / duration) as f32), Source::Interface).unwrap();
         bench.run(0.01);
     }
 
@@ -232,7 +222,7 @@ mod tests {
         let status = bench.status(0);
         assert!(!status.playing && status.position_s == 0.0);
         bench.state.update_preferences(|p| p.dj.quantize = true);
-        at(&mut bench, 0, 1.3);
+        bench.at(0, 1.3);
         press(&mut bench, "deck1.cue");
         assert_eq!(main_cue(&bench, 0), Some(1.5), "on the nearest beat");
         assert_eq!(bench.status(0).position_s, 1.5);
@@ -253,7 +243,7 @@ mod tests {
         assert_eq!(main_cue(&bench, 0), Some(1.0));
         assert!(status.playing && status.position_s > 1.2, "no jump in the music");
         press(&mut bench, "deck1.play");
-        at(&mut bench, 0, 2.2);
+        bench.at(0, 2.2);
         press(&mut bench, "deck1.cue.set");
         assert_eq!(main_cue(&bench, 0), Some(2.0));
         assert_eq!(bench.status(0).position_s, 2.0);
@@ -287,12 +277,12 @@ mod tests {
     fn a_hot_cue_on_an_empty_slot_is_set_and_the_next_press_jumps_there() {
         let mut bench = Bench::new();
         bench.load(0, 60.0, None);
-        at(&mut bench, 0, 30.0);
+        bench.at(0, 30.0);
         press(&mut bench, "deck1.hotcue3");
         let set = bench.state.with_track(0, |t| t.cue(CueSlot::Hot(2)).map(|c| c.position_s)).unwrap();
         assert_eq!(set, Some(30.0));
         assert_eq!(bench.library.cues(std::path::Path::new("deck0.flac")).unwrap().len(), 1, "kept");
-        at(&mut bench, 0, 0.0);
+        bench.at(0, 0.0);
         press(&mut bench, "deck1.hotcue3");
         assert_eq!(bench.status(0).position_s, 30.0);
         press(&mut bench, "deck1.hotcue3.delete");

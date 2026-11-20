@@ -13,8 +13,8 @@ describe('DeckPads', () => {
     Element.prototype.setPointerCapture = () => undefined;
     calls = [];
     const performance = TestBed.inject(PerformanceService);
-    vi.spyOn(performance, 'loopRoll').mockImplementation(
-      async (d, b) => void calls.push(`roll ${d} ${b}`),
+    vi.spyOn(performance, 'roll').mockImplementation(
+      async (d, i, held) => void calls.push(`roll ${d} ${i} ${held}`),
     );
     vi.spyOn(performance, 'censor').mockImplementation(
       async (d, a) => void calls.push(`censor ${d} ${a}`),
@@ -53,7 +53,7 @@ describe('DeckPads', () => {
     fixture.componentRef.setInput('deck', 1);
     fixture.detectChanges();
     pointer('pointerup', pad);
-    expect(calls).toEqual(['roll 0 0.0625', 'roll 0 null']);
+    expect(calls).toEqual(['roll 0 0 true', 'roll 0 0 false']);
   });
 
   it('let what is held go when the pads go', () => {
@@ -63,7 +63,7 @@ describe('DeckPads', () => {
     pointer('pointerdown', element.querySelector('.pr-pad')!);
     pointer('pointerdown', element.querySelector('button.censor')!);
     fixture.destroy();
-    expect(calls).toEqual(['roll 0 0.0625', 'censor 0 true', 'censor 0 false', 'roll 0 null']);
+    expect(calls).toEqual(['roll 0 0 true', 'censor 0 true', 'censor 0 false', 'roll 0 0 false']);
   });
 
   it('let CENSOR go when its pointer is lost, off the key', () => {

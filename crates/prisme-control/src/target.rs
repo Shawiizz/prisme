@@ -392,6 +392,10 @@ impl Target {
                 | DeckAction::StartKeep
                 | DeckAction::End
                 | DeckAction::HotCue(_)
+                | DeckAction::Roll(_)
+                | DeckAction::RollBeats(_)
+                | DeckAction::Slice(_)
+                | DeckAction::Cut(_)
                 | DeckAction::Jog
                 | DeckAction::JogTouch
                 | DeckAction::JogSearch

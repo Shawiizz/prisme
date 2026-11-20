@@ -197,6 +197,7 @@ describe('EngineService', () => {
         tracks: [null, { loadId: 7, keyShift: -2, stemMix, cues: [drop] }, null, null],
         quantize: true,
         pitchRange: 0.16,
+        perform: [],
         ...changes,
       };
     }

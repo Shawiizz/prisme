@@ -1973,14 +1973,14 @@ mod tests {
     #[test]
     fn the_interface_tells_the_lights_of_what_it_keeps_and_is_asked_for_those_alone() {
         let c = with_mappings([
-            with(mapping(PAD, "deck1.slice1"), lit(ON, 10)),
+            with(mapping(PAD, "deck1.fx.focus"), lit(ON, 10)),
             mapping(Control::note(0, 37), "deck1.play"),
             mapping(Control::note(0, 38), "general.library"),
         ]);
-        assert_eq!(c.told_targets(), ["deck1.slice1", "general.library"]);
+        assert_eq!(c.told_targets(), ["deck1.fx.focus", "general.library"]);
         let pad = |c: &Controllers| c.lights("DDJ", &view()).into_iter().find(|(control, _)| *control == PAD);
         assert_eq!(pad(&c), None, "not told yet");
-        c.set_lights(vec![light("deck1.slice1", ON)]);
+        c.set_lights(vec![light("deck1.fx.focus", ON)]);
         assert_eq!(pad(&c), Some((PAD, LightValue::Steady(10))));
     }
 
@@ -2018,13 +2018,13 @@ mod tests {
         let when = |mode: &str| Some(When { group: "pads".into(), mode: mode.into() });
         let c = with_mappings([
             with(with(mapping(PAD, "deck1.hotcue1"), lit(ON, 10)), |b| b.when = when("cues")),
-            with(with(mapping(PAD, "deck1.slice1"), lit(ON, 20)), |b| b.when = when("slicer")),
+            with(with(mapping(PAD, "deck1.play"), lit(ON, 20)), |b| b.when = when("transport")),
         ]);
         lock(&c.reader).set_modes("DDJ", Modes::from([("pads".into(), "cues".into())]));
-        c.set_lights(vec![light("deck1.slice1", ON)]);
-        let cued = with_hot_cue(view(), 0, 0xff0000);
+        let mut cued = with_hot_cue(view(), 0, 0xff0000);
+        cued.status.decks[0].playing = true;
         assert_eq!(c.lights("DDJ", &cued), [(PAD, LightValue::Steady(10))]);
-        lock(&c.reader).set_mode("DDJ", "pads", "slicer");
+        lock(&c.reader).set_mode("DDJ", "pads", "transport");
         assert_eq!(c.lights("DDJ", &cued), [(PAD, LightValue::Steady(20))]);
     }
 

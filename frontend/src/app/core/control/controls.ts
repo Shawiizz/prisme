@@ -45,14 +45,6 @@ export interface ControlActions {
   /** Has the backend perform action `id` given `value`: a key's 1 pressed and 0 let go, a
    * fader's position, or an encoder's steps (`steps`). */
   perform(id: string, value: number, steps: boolean): void;
-  /** Plays a slice of the slicer while held, the track going on underneath. */
-  slice(deck: number, index: number, held: boolean): void;
-  /** The slice of its slicer the deck plays in, if it does. */
-  slicePlaying(deck: number): number | null;
-  /** Cuts the deck on the beats of `CUT_BEATS[index]` while held. */
-  cut(deck: number, index: number, held: boolean): void;
-  /** The fader cut the deck plays (an index of `CUT_BEATS`), if any. */
-  cutPlaying(deck: number): number | null;
   /** Mutes or plays a part of a separated track. */
   toggleStem(deck: number, part: StemPart): void;
   sampleLoaded(deck: number, slot: number): boolean;
@@ -72,8 +64,6 @@ export interface ControlActions {
   fxFocused(deck: number): number | null;
   /** Focuses the slot, or lets it go if it is focused. */
   toggleFxFocus(deck: number, slot: number): void;
-  /** Rolls a loop of `beats` over the track, the track going on beneath; `null` ends it. */
-  roll(deck: number, beats: number | null): void;
   browse(steps: number): void;
   loadSelected(deck: number | null): void;
   /** Loads the selected track on `deck` and plays it. */
@@ -104,8 +94,6 @@ export interface ControlActions {
   toLoopEdge(deck: number, edge: 'in' | 'out'): void;
   /** The loop moved by so many beats. */
   moveLoop(deck: number, beats: number): void;
-  /** Whether a roll of `beats` plays. */
-  rolling(deck: number, beats: number): boolean;
   /** One tap of the tempo: the track's tempo once there are enough. */
   tapTempo(deck: number): void;
   /** The filter left where it is but heard or not. */
@@ -411,30 +399,22 @@ function deckControls(a: ControlActions, deck: number): Control[] {
     ...fxChainControls(a, deck, group),
     button(id('fx.part'), group, t('Effects on the next part'), () => a.nextFxPart(deck)),
     ...ROLL_BEATS.map((beats, i) =>
-      hold(
+      performed(
+        a,
         id(`roll${i + 1}`),
         group,
         t('Roll {beats} while held', { beats: formatBeats(beats) }),
-        (held) => a.roll(deck, held ? beats : null),
       ),
     ),
     ...Array.from({ length: SLICES }, (_, slice) =>
-      lit(
-        hold(id(`slice${slice + 1}`), group, t('Slice {n} while held', { n: slice + 1 }), (held) =>
-          a.slice(deck, slice, held),
-        ),
-        () => a.slicePlaying(deck) === slice,
-      ),
+      performed(a, id(`slice${slice + 1}`), group, t('Slice {n} while held', { n: slice + 1 })),
     ),
     ...CUT_BEATS.map((beats, i) =>
-      lit(
-        hold(
-          id(`cut${i + 1}`),
-          group,
-          t('Fader cut on {beats} while held', { beats: formatBeats(beats) }),
-          (held) => a.cut(deck, i, held),
-        ),
-        () => a.cutPlaying(deck) === i,
+      performed(
+        a,
+        id(`cut${i + 1}`),
+        group,
+        t('Fader cut on {beats} while held', { beats: formatBeats(beats) }),
       ),
     ),
     performed(a, id('pitch'), group, t('Tempo'), 'fader'),
@@ -611,16 +591,11 @@ export function measuredControl(a: ControlActions, id: string): Control | undefi
   if (kind === 'jump')
     return { ...performed(a, id, group, t('Jump {n} beats', { n: beats })), deck };
   if (beats < 0) return undefined;
-  if (kind === 'roll') {
-    return {
-      ...hold(id, group, t('Roll {n} beats while held', { n: beats }), (held) =>
-        a.roll(deck, held ? beats : null),
-      ),
-      lit: () => a.rolling(deck, beats),
-      deck,
-    };
-  }
-  return { ...performed(a, id, group, t('Loop {n} beats', { n: beats })), deck };
+  const label =
+    kind === 'roll'
+      ? t('Roll {n} beats while held', { n: beats })
+      : t('Loop {n} beats', { n: beats });
+  return { ...performed(a, id, group, label), deck };
 }
 
 export function buildControls(a: ControlActions): Control[] {

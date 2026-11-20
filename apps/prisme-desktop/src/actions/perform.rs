@@ -6,6 +6,7 @@ use crate::dto::{CrossfaderCurveDto, EffectKindDto, LiveSourceDto};
 use crate::error::AppResult;
 use crate::state::lock;
 use prisme_actions::input::{Given, Input};
+use prisme_actions::pads::ROLL_BEATS;
 use prisme_actions::position::FX_PERIODS;
 use prisme_actions::scales::{
     balance_amount, eq_gain, eq_knob, filter_amount, headphone_gain, live_gain, live_knob, next_tempo_range,
@@ -83,6 +84,10 @@ impl Performing<'_> {
             }
             DeckAction::Sample(slot, SampleAction::Held) => sampler::stop_sample(state, deck, slot),
             DeckAction::Cue => self.cue(deck, held),
+            DeckAction::Roll(roll) => self.roll(deck, ROLL_BEATS[roll], held),
+            DeckAction::RollBeats(Beats(beats)) => self.roll(deck, beats, held),
+            DeckAction::Slice(slice) => self.slice(deck, slice, held),
+            DeckAction::Cut(cut) => self.cut(deck, cut, held),
             DeckAction::GridMove => self.edit_grid(deck, action, given),
             DeckAction::Tempo => self.step_tempo(deck, steps),
             DeckAction::Size if steps != 0 => deck::scale_size(state, deck, 2f64.powi(steps)),
@@ -225,7 +230,7 @@ impl Performing<'_> {
             DeckAction::Eq(band) => {
                 let gain = eq_gain(at);
                 mixer::set_eq(state, deck, band.into(), gain)?;
-                lock(&self.actions.perform).faders.give_silent_end(&target, at, eq_knob(gain));
+                self.perform_state().faders.give_silent_end(&target, at, eq_knob(gain));
                 Ok(())
             }
             DeckAction::Filter => mixer::set_filter(state, deck, filter_amount(at)),
@@ -249,7 +254,7 @@ impl Performing<'_> {
             DeckAction::Fx(slot, FxAction::Amount) => fx::set_fx_amount(state, deck, slot, at),
             DeckAction::Fx(slot, FxAction::Param2) => fx::set_fx_param2(state, deck, slot, at),
             DeckAction::Fx(slot, FxAction::Period) => {
-                let step = lock(&self.actions.perform).faders.give_stepped(&target, at, FX_PERIODS.len());
+                let step = self.perform_state().faders.give_stepped(&target, at, FX_PERIODS.len());
                 let beats = FX_PERIODS[step];
                 if lock(&state.decks)[deck].fx.slots[slot].beats == beats {
                     return Ok(());
@@ -257,7 +262,7 @@ impl Performing<'_> {
                 fx::set_fx_beats(state, deck, slot, beats)
             }
             DeckAction::Fx(slot, FxAction::Kind) => {
-                let step = lock(&self.actions.perform).faders.give_stepped(&target, at, Effect::NAMED.len());
+                let step = self.perform_state().faders.give_stepped(&target, at, Effect::NAMED.len());
                 let kind = EffectKindDto::from(Effect::NAMED[step]);
                 if lock(&state.decks)[deck].fx.slots[slot].kind == kind {
                     return Ok(());
@@ -278,7 +283,7 @@ impl Performing<'_> {
         let live = |source: LiveSourceDto| {
             let gain = live_gain(at);
             mixer::set_live_level(state, source, gain)?;
-            lock(&self.actions.perform).faders.give_silent_end(&target, at, live_knob(gain));
+            self.perform_state().faders.give_silent_end(&target, at, live_knob(gain));
             Ok(())
         };
         match action {
@@ -293,7 +298,7 @@ impl Performing<'_> {
             MixerAction::Mic => live(LiveSourceDto::Mic),
             MixerAction::Aux => live(LiveSourceDto::Aux),
             MixerAction::CrossfaderCurve => {
-                let sharp = lock(&self.actions.perform).faders.give_stepped(&target, at, 2) == 1;
+                let sharp = self.perform_state().faders.give_stepped(&target, at, 2) == 1;
                 let curve = if sharp { CrossfaderCurveDto::Sharp } else { CrossfaderCurveDto::Smooth };
                 if state.preferences.read(|p| p.mixer.crossfader_curve) == curve {
                     return Ok(());

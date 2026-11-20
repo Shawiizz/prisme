@@ -15,6 +15,7 @@ mod edits;
 pub mod fx;
 mod general;
 pub mod mixer;
+pub mod pads;
 mod perform;
 pub mod sampler;
 pub mod transport;
@@ -23,16 +24,16 @@ mod view;
 use crate::auto_dj::{AutoDj, Takeover};
 use crate::error::{AppError, AppResult};
 use crate::library_service::LibraryService;
-use crate::state::{lock, AppState};
+use crate::state::{lock, AppState, MirroredGuard};
 use prisme_actions::input::{Given, Input, Inputs};
 use prisme_actions::lane::{lane, Lane};
-use prisme_actions::perform::PerformState;
+use prisme_actions::perform::{Clips, PerformState};
 use prisme_actions::position::position;
 use prisme_actions::view::View;
 use prisme_control::{Owner, Target, Unknown};
 use prisme_library::LibraryDb;
 use std::sync::mpsc::{self, Sender, SyncSender};
-use std::sync::{Arc, Mutex, MutexGuard};
+use std::sync::{Arc, Mutex};
 use std::time::Instant;
 use tauri::{AppHandle, Emitter, Manager};
 
@@ -106,7 +107,8 @@ impl Answer {
 type Job = Box<dyn FnOnce() + Send>;
 
 pub struct Actions {
-    perform: Mutex<PerformState>,
+    /// When the levels last clipped, for the lights.
+    clips: Mutex<Clips>,
     /// The controllers' faders picking their settings up, and their encoders' steps short of
     /// one.
     inputs: Mutex<Inputs>,
@@ -124,7 +126,7 @@ impl Actions {
             .name("prisme-actions".into())
             .spawn(move || jobs.into_iter().for_each(|job| job()))
             .expect("cannot start the actions' worker");
-        Self { perform: Mutex::default(), inputs: Mutex::default(), slow, started: Instant::now() }
+        Self { clips: Mutex::default(), inputs: Mutex::default(), slow, started: Instant::now() }
     }
 
     /// Performs `target` driven by `input`, as `source` asks: at once here, or in turn on the
@@ -162,7 +164,7 @@ impl Actions {
     /// The application as the actions see it now.
     pub fn view(&self, app: &AppHandle) -> View {
         let auto_dj = app.try_state::<AutoDj>().is_some_and(|a| a.plays());
-        view_of(&app.state(), auto_dj, &self.perform, self.now_s())
+        view_of(&app.state(), auto_dj, &self.clips, self.now_s())
     }
 }
 
@@ -184,8 +186,8 @@ impl Performing<'_> {
     }
 
     /// What the actions keep between presses.
-    fn perform_state(&self) -> MutexGuard<'_, PerformState> {
-        lock(&self.actions.perform)
+    fn perform_state(&self) -> MirroredGuard<'_, PerformState> {
+        lock(&self.state.perform)
     }
 
     /// The Auto DJ lets go of `deck`'s transport, the DJ taking it.
@@ -338,7 +340,7 @@ pub(crate) mod bench {
 
         /// Where the fader of `id` stands.
         pub fn position(&self, id: &str) -> Option<f32> {
-            let view = view_of(&self.state, false, &self.actions.perform, 0.0);
+            let view = view_of(&self.state, false, &self.actions.clips, 0.0);
             position(&id.parse().unwrap(), &view)
         }
 
@@ -379,6 +381,14 @@ pub(crate) mod bench {
             let commands = track.load_commands(deck, false);
             let turn = self.state.ask_load(deck);
             self.state.put_track(deck, turn, Some(track), commands).unwrap();
+            self.run(0.01);
+        }
+
+        /// The track on `deck` put at `seconds` on the screen, the engine run.
+        pub fn at(&mut self, deck: usize, seconds: f64) {
+            let duration_s = self.status(deck).duration_s;
+            let input = Input::Value((seconds / duration_s) as f32);
+            self.perform(&format!("deck{}.position", deck + 1), input, Source::Interface).unwrap();
             self.run(0.01);
         }
 

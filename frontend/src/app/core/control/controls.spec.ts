@@ -294,24 +294,25 @@ describe('controls', () => {
     ]);
   });
 
-  it('play a slice while held, lit on the slice playing', () => {
-    const { calls, find } = recorder();
+  it('roll, slice and cut while held, eight rolls, eight slices, four cuts', () => {
+    const { calls, find, actions } = recorder();
     find('deck2.slice3').apply(1);
     find('deck2.slice3').apply(0);
-    expect(find('deck1.slice8').lit!()).toBe(false);
-    expect(find('deck1.slice9')).toBeUndefined();
-    expect(calls).toEqual(['slice(1,2,true)', 'slice(1,2,false)', 'slicePlaying(0)']);
-  });
-
-  it('cut the deck on the beats while held, from a sixteenth to a half', () => {
-    const { calls, find } = recorder();
     find('deck1.cut1').apply(1);
-    find('deck1.cut1').apply(0);
-    find('deck2.cut4').apply(1);
-    expect(find('deck2.cut4').lit!()).toBe(false);
+    find('deck1.roll8').apply(1);
+    measuredControl(actions, 'deck2.roll.0.5')!.apply(0);
+    expect(find('deck1.slice9')).toBeUndefined();
     expect(find('deck1.cut5')).toBeUndefined();
+    expect(find('deck1.roll9')).toBeUndefined();
     expect(find('deck1.cut1').label).toBe('Fader cut on 1/16 while held');
-    expect(calls).toEqual(['cut(0,0,true)', 'cut(0,0,false)', 'cut(1,3,true)', 'cutPlaying(1)']);
+    expect(find('deck1.slice8').lit).toBeUndefined();
+    expect(calls).toEqual([
+      'perform(deck2.slice3,1,false)',
+      'perform(deck2.slice3,0,false)',
+      'perform(deck1.cut1,1,false)',
+      'perform(deck1.roll8,1,false)',
+      'perform(deck2.roll.0.5,0,false)',
+    ]);
   });
 
   it('move the range of a tempo fader, or of them all, either way', () => {

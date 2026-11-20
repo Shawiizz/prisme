@@ -31,18 +31,12 @@ export class ControlService {
   private readonly trackEdit = inject(TrackEditService);
   /** The searches running, by deck. */
   private readonly searches = new Map<number, ReturnType<typeof setInterval>>();
-  /** The roll playing on each deck, in beats. */
-  private readonly rolls = new Map<number, number>();
   private readonly taps = new Map<number, TapTempo>();
   /** The filter of each deck set aside, where it stood. */
   private readonly filtersAside = new Map<number, number>();
 
   private readonly actions: ControlActions = {
     perform: (id, value, steps) => this.engine.perform(id, value, steps),
-    slice: (deck, index, held) => this.performance.slice(deck, index, held),
-    slicePlaying: (deck) => this.performance.slicePlaying(deck),
-    cut: (deck, index, held) => this.performance.cut(deck, index, held),
-    cutPlaying: (deck) => this.performance.cuts()[deck],
     toggleStem: (deck, stem) => this.engine.toggleStem(deck, stem),
     sampleLoaded: (deck, slot) => !!this.engine.decks()[deck].samples[slot],
     samplePlaying: (deck, slot) => ((this.deck(deck)?.samplesPlaying ?? 0) & (1 << slot)) !== 0,
@@ -54,11 +48,6 @@ export class ControlService {
     fxBeats: (deck, slot) => this.fx.settings(deck, slot).beats,
     fxFocused: (deck) => this.fx.focused(deck),
     toggleFxFocus: (deck, slot) => this.fx.toggleFocus(deck, slot),
-    roll: (deck, beats) => {
-      if (beats === null) this.rolls.delete(deck);
-      else this.rolls.set(deck, beats);
-      this.performance.loopRoll(deck, beats);
-    },
     browse: (steps) =>
       this.library.focus() === 'lists'
         ? this.library.movePointedList(steps)
@@ -115,7 +104,6 @@ export class ControlService {
       const by = beats * beat;
       this.engine.setLoop(deck, loop.startS + by, loop.endS + by, loop.active);
     },
-    rolling: (deck, beats) => this.rolls.get(deck) === beats,
     tapTempo: (deck) => {
       const taps = this.taps.get(deck) ?? new TapTempo();
       this.taps.set(deck, taps);

@@ -264,7 +264,7 @@ pub(crate) mod fixtures {
             },
             quantize: false,
             auto_dj: false,
-            perform: PerformState::default().view(&status, 0.0),
+            perform: PerformState::default().view(Default::default()),
         }
     }
 

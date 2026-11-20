@@ -136,6 +136,17 @@ export interface ControlState {
   quantize: boolean;
   /** The range of the tempo faders without one of their own. */
   pitchRange: number;
+  /** What each deck's pads hold. */
+  perform: DeckPerform[];
+}
+
+export interface DeckPerform {
+  /** Where the bar its slicer divides starts (s). */
+  slicer: number | null;
+  /** The fader cut playing (an index of `CUT_BEATS`). */
+  cut: number | null;
+  /** The roll playing, in beats. */
+  roll: number | null;
 }
 
 export interface TrackState {
