@@ -4,7 +4,7 @@
 use super::{fx, mixer, take_over, transport, Performing};
 use crate::auto_dj::Takeover;
 use crate::commands::edits::GridChange;
-use crate::dto::{StemMixDto, VinylChangeDto, VinylModeDto, VinylSettings};
+use crate::dto::{RpmDto, StemMixDto, VinylChangeDto, VinylModeDto};
 use crate::error::{AppError, AppResult};
 use crate::preferences::{DeckPreferences, VinylSync};
 use crate::state::{deck_commands, lock, AppState, DeckSettings, LoadedTrack};
@@ -153,7 +153,11 @@ pub fn set_vinyl(state: &AppState, deck: usize, change: VinylChangeDto) -> AppRe
             return Err(AppError::Other(format!("a lead-in of {s} s: it is 0 or more")));
         }
     }
-    let settings = change_vinyl(state, deck, |settings| change.apply(settings));
+    let settings = change_vinyl(state, deck, |(_, mode, rpm, lead_in_s)| match change {
+        VinylChangeDto::Mode(m) => *mode = m,
+        VinylChangeDto::Rpm(r) => *rpm = r,
+        VinylChangeDto::LeadIn(s) => *lead_in_s = s,
+    });
     send_deck(state, deck, &settings)
 }
 
@@ -171,6 +175,9 @@ pub fn set_vinyl_enabled(state: &AppState, deck: usize, on: bool) -> AppResult<(
     }
     send_deck(state, deck, &settings)
 }
+
+/// Where a deck's vinyl settings are kept: whether it is on, its mode, speed and lead-in.
+type VinylSettings<'a> = (&'a mut bool, &'a mut VinylModeDto, &'a mut RpmDto, &'a mut Option<f64>);
 
 /// The vinyl settings of `deck` changed by `change`, on the deck and in the preferences: the
 /// settings of the deck now.

@@ -91,20 +91,6 @@ pub enum VinylChangeDto {
     LeadIn(Option<f64>),
 }
 
-/// Where a deck's vinyl settings are kept: whether it is on, its mode, speed and lead-in.
-pub type VinylSettings<'a> = (&'a mut bool, &'a mut VinylModeDto, &'a mut RpmDto, &'a mut Option<f64>);
-
-impl VinylChangeDto {
-    /// Its setting changed among `settings`.
-    pub fn apply(self, (_, mode, rpm, lead_in_s): VinylSettings) {
-        match self {
-            VinylChangeDto::Mode(m) => *mode = m,
-            VinylChangeDto::Rpm(r) => *rpm = r,
-            VinylChangeDto::LeadIn(s) => *lead_in_s = s,
-        }
-    }
-}
-
 /// The speed the record turns at when the track plays at its own speed.
 #[derive(Debug, Clone, Copy, Default, Serialize, Deserialize, PartialEq, Eq)]
 pub enum RpmDto {
