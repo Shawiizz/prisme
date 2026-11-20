@@ -14,6 +14,7 @@ Prisme is a Rust engine that plays the audio, an application around it that hold
 ```text
 apps/
   prisme-desktop/    the application (Tauri v2); its interface is in frontend/ (Angular)
+  prisme-setup/      the Windows installer's window
   prisme-cli/        the whole chain from the command line, without the interface
 crates/
   prisme-timecode/   timecode vinyl decoder: speed, direction, absolute position
@@ -24,8 +25,9 @@ crates/
   prisme-analysis/   waveforms, tempo and beat grid, musical key
   prisme-library/    track database, folder scanning, background analysis
   prisme-stems/      source separation on the GPU or the processor
-  prisme-import/     Serato and rekordbox import
-  prisme-control/    MIDI controller messages, mappings and profiles
+  prisme-import/     Serato and rekordbox import, rekordbox and playlist export
+  prisme-control/    MIDI and HID controller messages, mappings and profiles, the list of actions
+  prisme-actions/    what each action decides: its rules, its light, what the screen shows
   prisme-session/    settings files with atomic writes
 frontend/            the interface (Angular)
 design/              the design system: DESIGN.md and the reference screens
@@ -45,8 +47,9 @@ website/             this site (Astro and Starlight)
 | `prisme-analysis` | Waveforms (the peak level and the energy of the low, mid and high bands of each slice, computed as the track is decoded), tempo and beat grid, musical key with its Camelot code, loudness, and where each stem plays. |
 | `prisme-library` | The SQLite database of the tracks, their analysis (redone when the file or the algorithms change), cues, crates and set history; scanning the music folders; smart crates; duplicates; the background analysis, at low priority. |
 | `prisme-stems` | Stem separation with RoFormer networks (Mel-Band and BS-RoFormer), on the GPU through wgpu (DirectX 12 or Vulkan, Metal), or on the processor. |
-| `prisme-import` | Crates, cues, loops, beat grids, colours and ratings from Serato and rekordbox, merged without overwriting what Prisme already has. |
-| `prisme-control` | MIDI and HID controllers: what their messages and reports say, which action each control drives, the messages that light them, and the [profiles](/docs/controllers/profiles/) of the models Prisme knows. The actions are only names here: the application performs them. |
+| `prisme-import` | Crates, cues, loops, beat grids, colours and ratings from Serato and rekordbox, merged without overwriting what Prisme already has; the export to rekordbox and to playlists. |
+| `prisme-control` | MIDI and HID controllers: what their messages and reports say, which action each control drives, the messages that light them, and the [profiles](/docs/controllers/profiles/) of the models Prisme knows. It also lists every action of the app, with its id, group, name and kind (`target.rs`, `listed.rs`): the keyboard, the command palette and the controllers all name the same actions. The actions are only names here. |
+| `prisme-actions` | What each action decides, apart from what it drives: the rules of its keys (a CDJ's cue, a SYNC tapped or held, a key held that repeats), the pads and their pages, the lengths of loops and rolls, the order actions keep among themselves. And what the app looks like at a moment, read once (a *view*): what each light and fader of a controller shows, and what the screen shows of each deck. The application performs the actions by these rules, whoever asks. |
 | `prisme-session` | Settings kept in JSON files, written atomically (a temporary file, then a rename), so that a crash never leaves half a file. |
 
 ## The real-time rules
@@ -69,8 +72,11 @@ A change to `prisme-engine`, `prisme-dsp` or `prisme-timecode` must keep these r
 
 - **The audio**: the sound card stream lives on a thread of its own, with the engine in its callback. A watchdog restarts it when its device comes back after a loss, when the engine failed or when the driver stopped calling, with the decks where they were.
 - **Commands**: what the interface can ask, by domain (`src/commands`): decks, mixer, effects, library, crates, stems, controllers…
-- **Streams to the interface**: the engine's state about 60 times a second, and a turntable's signal while its oscilloscope is shown, each on a channel of its own; the rest as events.
-- **Controllers**: a mapped control's message becomes an event the interface performs, except the jog wheels and tempo faders, which drive the engine from the MIDI thread, in time, without going through the interface.
+- **Actions**: every action, whoever asks for it (a controller, a key, a click on the screen, the command palette), goes in by one door (`src/actions`) and is performed in Rust. Each keeps its order among the actions of its lane (a deck's track, a deck's settings, the mixer, the library…): it is done at once on the thread asking for it, unless its lane has one waiting. One that opens or writes a file is left to the lane's worker: the actions of the other lanes never wait for it.
+- **The clock**: about 60 times a second, the backend reads the engine's state once into a view, and from it fires the keys held, lights the controllers, moves the previews and ranks the library's rows.
+- **The status stream**: the clock then tells the interface what changed, on a channel of its own. The state is cut into sections (decks, tracks, mixer, pads, library, settings, controllers, audio…), each with a revision: only the sections that moved are sent, and nothing at all while nothing moves. A turntable's signal goes on a channel of its own while its oscilloscope is shown; the rest goes as events.
+- **The library view**: the list browsed, its search, its sort and its selection live in Rust, every track in memory; the interface draws only the rows it shows.
+- **Controllers**: a mapped control's messages drive the actions from the MIDI or HID thread, with the time each message arrived, so a scratch follows your hand. The interface is only told of the few actions it does itself: its windows, the focus of its search.
 - **Background work**: loading a track in two steps (playable at once, the rest on a worker thread), the analysis of the library, the stem separation queue, writing tags, recording to a file.
 - **Kept on disk**, in the data folder: `preferences.json`, `controllers.json`, `session.json` (what the decks held, to put them back after a crash), `library.sqlite`, the logs (one file a day, a week kept), your own controller profiles.
 
@@ -78,10 +84,11 @@ A change to `prisme-engine`, `prisme-dsp` or `prisme-timecode` must keep these r
 
 `frontend` is an Angular application. Its parts:
 
-- `core/control/controls.ts` lists every action of the app once, with its id, group, label and kind. The keyboard, the [command palette](/docs/interface/keyboard/) and the [controllers](/docs/controllers/actions/) all drive these same actions.
-- `core/services` talks to the application: the engine's state, the library, the mixer, the effects, the sampler…
+- The interface shows what the backend computes and sends it gestures: a key pressed or let go, a fader moved, a click. It decides nothing of what an action does. The [keyboard](/docs/interface/keyboard/), the command palette and the [controllers](/docs/controllers/actions/) all drive the same actions, which the backend lists (`list_targets`) and names.
+- `core/models/status.ts` holds the types of the status stream, written from the backend's own by a test (`PRISME_WRITE_TYPES=1 cargo test -p prisme-desktop status_stream`), never by hand.
+- `core/services` talks to the application: the status stream, the library, the mixer, the effects, the sampler…
 - `features` holds the screens: decks, mixer, library, turntables, settings, the palette, the phone layout.
-- `core/i18n`: the interface is written in English, which is also the key of each text; `fr.json` holds the French.
+- `core/i18n`: the interface is written in English, which is also the key of each text; `fr.json` holds the French. `actions.json`, the names of the actions to translate, is written by the tests of `prisme-control`.
 - The look comes from the design system in `design/DESIGN.md`: the tokens and ready-made classes in `frontend/src/styles`.
 
 ## The command line
