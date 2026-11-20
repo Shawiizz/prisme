@@ -7,6 +7,9 @@
 .menu {
   display: grid;
   gap: 1px;
+  &.waiting {
+    visibility: hidden;
+  }
   > button {
     display: block;
     width: 100%;

@@ -19,6 +19,7 @@ import { t } from '../../../core/i18n/i18n';
 import { TPipe } from '../../../core/i18n/t.pipe';
 import { PHONE } from '../../../core/platform';
 import { lastName } from '../../../core/folders';
+import { errorText } from '../../../core/errors';
 
 export type TrackMenuPanel = 'main' | 'crates' | 'color' | 'genre';
 
@@ -55,6 +56,8 @@ export class TrackMenu {
   protected readonly hexColor = hexColor;
   protected readonly lastName = lastName;
   protected readonly genre = signal('');
+  /** The DJ typed a genre: the one the tracks share does not replace it. */
+  private genreTyped = false;
   private readonly genreInput = viewChild<ElementRef<HTMLInputElement>>('genreInput');
 
   /** Crates tracks can be put in: not the smart ones, which pick their own. */
@@ -74,12 +77,16 @@ export class TrackMenu {
     effect(() => this.panel.set(this.start()));
     effect(() => {
       const paths = this.paths();
+      this.menu.set(null);
       this.library.menu(paths).then(
         (menu) => {
           this.menu.set(menu);
-          this.genre.set(menu.genre);
+          if (!this.genreTyped) this.genre.set(menu.genre);
         },
-        () => this.menu.set(null),
+        (e) => {
+          this.library.error.set(errorText(e));
+          this.closed.emit();
+        },
       );
     });
     effect(() => {
@@ -143,6 +150,11 @@ export class TrackMenu {
     const menu = this.menu();
     if (menu) this.library.removeFromPrisme(this.paths(), menu);
     this.closed.emit();
+  }
+
+  typeGenre(genre: string) {
+    this.genreTyped = true;
+    this.genre.set(genre);
   }
 
   applyGenre(genre: string | null) {

@@ -2,7 +2,8 @@
 @let separable = menu()?.separable ?? 0;
 @switch (panel()) {
   @case ('main') {
-    <div class="menu" role="menu">
+    <!-- what it offers shown once the backend said it -->
+    <div class="menu" role="menu" [class.waiting]="!menu()">
       @if (count === 1) {
         @for (d of decks(); track d) {
           <button role="menuitem" (click)="load(d)">
@@ -102,7 +103,7 @@
         class="pr-input"
         list="library-genres"
         [value]="genre()"
-        (input)="genre.set(genreInput.value)"
+        (input)="typeGenre(genreInput.value)"
         (keydown.escape)="closed.emit()"
         [placeholder]="'House, Techno…' | t"
         [attr.aria-label]="'Genre' | t"
