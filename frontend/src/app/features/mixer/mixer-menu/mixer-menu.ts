@@ -1,6 +1,5 @@
 import { Component, signal } from '@angular/core';
 import { TPipe } from '../../../core/i18n/t.pipe';
-import { Knob } from '../../../shared/knob/knob';
 import { Dismiss, overlay } from '../../../shared/overlay';
 import { MixerControls } from '../mixer-controls/mixer-controls';
 

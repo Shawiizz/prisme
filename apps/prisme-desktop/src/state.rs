@@ -371,7 +371,7 @@ pub enum Section {
 }
 
 impl Section {
-    pub const ALL: [Section; SECTIONS] = [
+    pub const ALL: [Section; 13] = [
         Section::Mixer,
         Section::Decks,
         Section::Tracks,
@@ -388,7 +388,7 @@ impl Section {
     ];
 }
 
-pub const SECTIONS: usize = 13;
+pub const SECTIONS: usize = Section::ALL.len();
 
 /// Where the changes of each [`Section`] are at: each moves at every change of its own.
 #[derive(Default)]
