@@ -307,6 +307,8 @@ pub fn run() {
             commands::decks::set_vinyl,
             commands::decks::set_vinyl_swap,
             commands::decks::set_timecode,
+            commands::decks::set_record,
+            commands::decks::set_deck_mode,
             commands::decks::set_tempo_range,
             commands::mixer::set_mix_mode,
             commands::mixer::set_headphones_output,

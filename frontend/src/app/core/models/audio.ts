@@ -74,17 +74,8 @@ export interface TimecodeRecord {
   sides: TimecodeFormat[];
 }
 
-/** The timecode formats by maker, then record, in the order given. */
-export function timecodeMakers(
-  formats: TimecodeFormat[],
-): { name: string; records: TimecodeRecord[] }[] {
-  const makers: { name: string; records: TimecodeRecord[] }[] = [];
-  for (const f of formats) {
-    let maker = makers.find((m) => m.name === f.maker);
-    if (!maker) makers.push((maker = { name: f.maker, records: [] }));
-    let record = maker.records.find((r) => r.name === f.record);
-    if (!record) maker.records.push((record = { name: f.record, sides: [] }));
-    record.sides.push(f);
-  }
-  return makers;
+/** The timecode records of a maker. */
+export interface TimecodeMaker {
+  name: string;
+  records: TimecodeRecord[];
 }

@@ -1,5 +1,5 @@
 use crate::actions::general;
-use crate::audio_host::deck_pair;
+use crate::audio_host::{deck_pair, layer_partner};
 use crate::choices::{self, OutputNote};
 use crate::dto::{
     AudioInfo, CrossfaderSideDto, DeckSettingsDto, HeadphonesOutputDto, LiveSourceDto, LiveStateDto,
@@ -41,6 +41,8 @@ pub fn mixer_state_of(state: &AppState, view: &View) -> MixerStateDto {
     let headphones_in_use = routing.and_then(|r| r.headphones);
     let booth_in_use = routing.and_then(|r| r.booth);
     let laid_out = info.as_ref().map_or(view.decks_in_use, |info| info.decks);
+    let inputs = info.as_ref().map(|info| info.input_channels);
+    let turntables = info.as_ref().is_some_and(|info| info.simulated || info.input_channels >= 2);
     MixerStateDto {
         decks: state
             .decks_laid_out(info.as_ref().map(AudioInfo::layout))
@@ -68,6 +70,11 @@ pub fn mixer_state_of(state: &AppState, view: &View) -> MixerStateDto {
                 sampler_gain: d.sampler_gain,
                 size_beats: d.size_beats,
                 passthrough: d.passthrough,
+                records: turntables || d.vinyl_enabled || d.passthrough,
+                input: inputs.map(|inputs| 2 * deck_pair(deck, laid_out, inputs)),
+                layered_on: inputs
+                    .and_then(|inputs| layer_partner(deck, laid_out, inputs))
+                    .filter(|&partner| partner < deck),
                 side: d.side.unwrap_or(CrossfaderSideDto::of_deck(deck)),
                 jog_scratch: d.jog_scratch,
                 repeat: d.repeat,

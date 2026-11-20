@@ -26,7 +26,9 @@ export interface VinylStatus {
   /** The record has read backwards at play speed for a while: crossed channels? */
   crossed: boolean;
   signal: SignalState;
-  /** Timecode carrier level (full scale = 1). */
+  /** The signal as the deck's light shows it: `null` while no record drives it. */
+  light: SignalState | null;
+  /** Timecode carrier level, as a share of a healthy line level's (0 to 1). */
   level: number;
   recordSpeed: number;
   recordPositionS: number | null;
@@ -424,6 +426,12 @@ export interface DeckSettings {
   sizeBeats: number;
   /** The deck plays its input as it comes instead of its track. */
   passthrough: boolean;
+  /** Records may drive it. */
+  records: boolean;
+  /** The first of the input pair its turntable and its passthrough come in on (0-based). */
+  input: number | null;
+  /** The deck whose turntable it shares, on a device without a pair of inputs for each deck. */
+  layeredOn: number | null;
   /** Its side of the crossfader. */
   side: CrossfaderSide;
   /** A touch of its controller's jog wheel holds the record (else it only nudges). */

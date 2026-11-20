@@ -2,7 +2,7 @@ use crate::audio_host;
 use crate::commands::blocking;
 use crate::dto::{
     AudioInfo, AudioSettings, BackendChoiceDto, BackendDto, BufferSizeDto, DeviceDto, LatencyDto,
-    TimecodeFormatDto,
+    TimecodeMakerDto,
 };
 use crate::error::{AppError, AppResult};
 use crate::state::{lock, AppState};
@@ -62,8 +62,8 @@ pub fn decline_card(state: State<'_, AppState>, name: String) {
 }
 
 #[tauri::command]
-pub fn timecode_formats() -> Vec<TimecodeFormatDto> {
-    prisme_timecode::FORMATS.iter().map(TimecodeFormatDto::from).collect()
+pub fn timecode_formats() -> Vec<TimecodeMakerDto> {
+    TimecodeMakerDto::of(prisme_timecode::FORMATS)
 }
 
 /// The audio settings the user chose (they may differ from the running ones if the

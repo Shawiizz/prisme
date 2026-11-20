@@ -177,11 +177,6 @@ export class EngineService {
     return this.turn(`deck${deck + 1}.keylock`, enabled);
   }
 
-  /** The deck plays its input as it comes (a record, a CD player) instead of its track. */
-  setPassthrough(deck: number, enabled: boolean) {
-    return this.turn(`deck${deck + 1}.passthrough`, enabled);
-  }
-
   /** The range of the tempo fader of `deck`, or of every deck (`null`), which then all follow
    * the general one. */
   setTempoRange(deck: number | null, range: number) {

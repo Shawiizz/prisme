@@ -6,6 +6,7 @@ use crate::commands::blocking;
 use crate::dto::VinylChangeDto;
 use crate::error::{AppError, AppResult};
 use crate::state::{lock, AppState};
+use prisme_actions::screen::Drive;
 use prisme_engine::Command;
 use prisme_timecode::TimecodeFormat;
 use tauri::{AppHandle, Manager, State};
@@ -54,6 +55,29 @@ pub fn set_vinyl_swap(state: State<'_, AppState>, deck: usize, swap: bool) -> Ap
     lock(&state.decks)[deck].swap_channels = swap;
     state.update_preferences(|p| p.decks[deck].swap_channels = swap);
     replace_decoder(&state, deck)
+}
+
+/// Who drives `deck`: itself, its record or its input (see `deck::set_mode`).
+#[tauri::command]
+pub fn set_deck_mode(state: State<'_, AppState>, deck: usize, mode: Drive) -> AppResult<()> {
+    deck::set_mode(&state, deck, mode)
+}
+
+/// Another record on the deck's turntable (`record`: the id of one of its sides), on the side the
+/// one before was on if it has it (see `set_timecode`).
+#[tauri::command]
+pub async fn set_record(app: AppHandle, deck: usize, record: String) -> AppResult<Vec<usize>> {
+    AppState::deck_exists(deck)?;
+    let chosen = TimecodeFormat::by_id(&record).ok_or(AppError::UnknownFormat(record))?;
+    let side = lock(&app.state::<AppState>().decks)[deck].timecode.side;
+    set_timecode(app, deck, on_side(chosen, side).id.to_owned()).await
+}
+
+/// The side `side` of the record `chosen` is a side of, else `chosen`.
+fn on_side(chosen: &'static TimecodeFormat, side: Option<&str>) -> &'static TimecodeFormat {
+    let sides =
+        prisme_timecode::FORMATS.iter().filter(|f| f.maker == chosen.maker && f.record == chosen.record);
+    sides.into_iter().find(|f| f.side == side).unwrap_or(chosen)
 }
 
 /// The record on the deck's turntable (a timecode format's id), kept for the next start: on
@@ -111,4 +135,27 @@ fn replace_decoder(state: &AppState, deck: usize) -> AppResult<()> {
 #[tauri::command]
 pub fn set_tempo_range(state: State<'_, AppState>, deck: Option<usize>, range: f64) -> AppResult<()> {
     deck::set_tempo_range(&state, deck, range)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::dto::TimecodeMakerDto;
+
+    #[test]
+    fn another_record_goes_on_the_side_the_one_before_was_on() {
+        let by_id = |id: &str| TimecodeFormat::by_id(id).unwrap();
+        assert_eq!(on_side(by_id("serato_cv02_a"), Some("B")).id, "serato_cv02_b");
+        assert_eq!(on_side(by_id("serato_cv02_b"), None).id, "serato_cv02_b", "no side: the one chosen");
+    }
+
+    #[test]
+    fn the_records_are_listed_by_maker_each_with_its_sides() {
+        let makers = TimecodeMakerDto::of(prisme_timecode::FORMATS);
+        let serato = makers.iter().find(|m| m.name == "Serato").unwrap();
+        let cv02 = serato.records.iter().find(|r| r.name == "Control vinyl CV02").unwrap();
+        assert_eq!(cv02.sides.iter().map(|s| s.side).collect::<Vec<_>>(), [Some("A"), Some("B")]);
+        let formats: usize = makers.iter().flat_map(|m| &m.records).map(|r| r.sides.len()).sum();
+        assert_eq!(formats, prisme_timecode::FORMATS.len());
+    }
 }

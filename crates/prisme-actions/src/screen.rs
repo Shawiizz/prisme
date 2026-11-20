@@ -11,7 +11,7 @@ use crate::view::{plays, View};
 use prisme_analysis::Key;
 use prisme_control::StemPart;
 use prisme_engine::VinylMode;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 /// The offset heard as two kicks rather than one: a sixteenth note (of a beat).
 const HEARD_BEATS: f64 = 1.0 / 16.0;
@@ -92,7 +92,7 @@ pub enum Reading {
 }
 
 /// Who drives a deck.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Drive {
     /// It plays by itself.
     #[serde(rename = "int")]

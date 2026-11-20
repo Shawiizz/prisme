@@ -4,11 +4,12 @@
 use super::{fx, mixer, take_over, transport, Performing};
 use crate::auto_dj::Takeover;
 use crate::commands::edits::GridChange;
-use crate::dto::{StemMixDto, VinylChangeDto, VinylSettings};
+use crate::dto::{StemMixDto, VinylChangeDto, VinylModeDto, VinylSettings};
 use crate::error::{AppError, AppResult};
 use crate::preferences::{DeckPreferences, VinylSync};
 use crate::state::{deck_commands, lock, AppState, DeckSettings, LoadedTrack};
 use prisme_actions::input::Input;
+use prisme_actions::screen::Drive;
 use prisme_actions::sync::{kept_tempo, matching_tempo};
 use prisme_actions::view::{mixed_with, tempo_rate};
 use prisme_control::{DeckAction, StemPart};
@@ -185,6 +186,24 @@ fn change_vinyl(state: &AppState, deck: usize, change: impl Fn(VinylSettings)) -
 /// The engine told `deck` is set as `settings` say.
 fn send_deck(state: &AppState, deck: usize, settings: &DeckSettings) -> AppResult<()> {
     deck_commands(deck, settings).into_iter().try_for_each(|c| state.send_if_running(c))
+}
+
+/// Who drives `deck`: itself, its record (relative or absolute) or its input as it comes. Its
+/// input leaves the record's settings as they were, for when the deck plays its track again.
+pub fn set_mode(state: &AppState, deck: usize, mode: Drive) -> AppResult<()> {
+    AppState::deck_exists(deck)?;
+    let thru = mode == Drive::Thru;
+    if lock(&state.decks)[deck].passthrough != thru {
+        set_passthrough(state, deck, thru)?;
+    }
+    let vinyl = match mode {
+        Drive::Thru => return Ok(()),
+        Drive::Internal => return set_vinyl_enabled(state, deck, false),
+        Drive::Relative => VinylModeDto::Relative,
+        Drive::Absolute => VinylModeDto::Absolute,
+    };
+    set_vinyl(state, deck, VinylChangeDto::Mode(vinyl))?;
+    set_vinyl_enabled(state, deck, true)
 }
 
 /// The deck plays its input as it comes (a record, a CD player) instead of its track.
@@ -370,7 +389,7 @@ mod tests {
     use super::*;
     use crate::actions::bench::Bench;
     use crate::actions::{Moved, Source};
-    use crate::dto::{RpmDto, VinylModeDto};
+    use crate::dto::RpmDto;
 
     fn turned(deck: usize, action: DeckAction, steps: f32, at_s: f64, jog_scratch: bool) -> Option<Command> {
         let input = Input::of(steps, action != DeckAction::JogTouch, None);
@@ -449,6 +468,23 @@ mod tests {
             (kept.vinyl_enabled, kept.vinyl_mode, kept.rpm, kept.lead_in_s),
             (true, VinylModeDto::Relative, RpmDto::Rpm45, Some(12.0))
         );
+    }
+
+    #[test]
+    fn a_deck_handed_to_its_input_keeps_its_record_for_later() {
+        let bench = Bench::new();
+        let mode = |bench: &Bench| {
+            let d = lock(&bench.state.decks)[1];
+            (d.passthrough, d.vinyl_enabled, d.vinyl_mode)
+        };
+        set_mode(&bench.state, 1, Drive::Relative).unwrap();
+        assert_eq!(mode(&bench), (false, true, VinylModeDto::Relative));
+        set_mode(&bench.state, 1, Drive::Thru).unwrap();
+        assert_eq!(mode(&bench), (true, true, VinylModeDto::Relative));
+        set_mode(&bench.state, 1, Drive::Absolute).unwrap();
+        assert_eq!(mode(&bench), (false, true, VinylModeDto::Absolute));
+        set_mode(&bench.state, 1, Drive::Internal).unwrap();
+        assert_eq!(mode(&bench), (false, false, VinylModeDto::Absolute));
     }
 
     #[test]

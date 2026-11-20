@@ -9,7 +9,7 @@ import {
   AudioSettings,
   BackendChoice,
   CardOffer,
-  TimecodeFormat,
+  TimecodeMaker,
 } from '../models/audio';
 import { decimal } from '../../shared/time';
 import { EngineService } from './engine.service';
@@ -25,7 +25,8 @@ export class SettingsService {
   readonly devices = signal<AudioDevice[]>([]);
   /** The backend `devices` are of. */
   readonly devicesBackend = signal<AudioBackend | null>(null);
-  readonly formats = signal<TimecodeFormat[]>([]);
+  /** The timecode records Prisme reads, by maker. */
+  readonly makers = signal<TimecodeMaker[]>([]);
   readonly settings = signal<AudioSettings | null>(null);
   readonly info = signal<AudioInfo | null>(null);
   private readonly engine = inject(EngineService);
@@ -73,14 +74,14 @@ export class SettingsService {
   }
 
   async refresh(): Promise<void> {
-    const [backends, formats, settings, info] = await Promise.all([
+    const [backends, makers, settings, info] = await Promise.all([
       invoke<BackendChoice[]>('audio_backends'),
-      invoke<TimecodeFormat[]>('timecode_formats'),
+      invoke<TimecodeMaker[]>('timecode_formats'),
       invoke<AudioSettings>('get_audio_settings'),
       invoke<AudioInfo | null>('audio_info'),
     ]);
     this.backends.set(backends);
-    this.formats.set(formats);
+    this.makers.set(makers);
     this.settings.set(settings);
     this.info.set(info);
     await this.loadDevices(settings.backend);

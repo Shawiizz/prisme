@@ -537,6 +537,47 @@ impl AudioInfo {
     }
 }
 
+/// The timecode records of a maker.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TimecodeMakerDto {
+    pub name: &'static str,
+    pub records: Vec<TimecodeRecordDto>,
+}
+
+/// A timecode record (or CD), a format for each side when its sides differ.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TimecodeRecordDto {
+    pub name: &'static str,
+    pub sides: Vec<TimecodeFormatDto>,
+}
+
+impl TimecodeMakerDto {
+    /// `formats` by maker, then record, in their order.
+    pub fn of(formats: &'static [TimecodeFormat]) -> Vec<Self> {
+        let mut makers: Vec<Self> = Vec::new();
+        for format in formats {
+            let maker = match makers.iter().position(|m| m.name == format.maker) {
+                Some(m) => &mut makers[m],
+                None => {
+                    makers.push(Self { name: format.maker, records: Vec::new() });
+                    makers.last_mut().expect("just pushed")
+                }
+            };
+            let record = match maker.records.iter().position(|r| r.name == format.record) {
+                Some(r) => &mut maker.records[r],
+                None => {
+                    maker.records.push(TimecodeRecordDto { name: format.record, sides: Vec::new() });
+                    maker.records.last_mut().expect("just pushed")
+                }
+            };
+            record.sides.push(format.into());
+        }
+        makers
+    }
+}
+
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct TimecodeFormatDto {
@@ -922,6 +963,13 @@ pub struct DeckSettingsDto {
     pub size_beats: f64,
     /// The deck plays its input instead of its track.
     pub passthrough: bool,
+    /// Records may drive it: turntables can be read on the device, or it is handed to one.
+    pub records: bool,
+    /// The first of the input pair its turntable and its passthrough come in on (0-based).
+    pub input: Option<usize>,
+    /// The deck whose turntable it shares and reads the record of, on a device without a pair of
+    /// inputs for each deck.
+    pub layered_on: Option<usize>,
     /// Its side of the crossfader.
     pub side: CrossfaderSideDto,
     /// A touch of its controller's jog wheel holds the record (else the wheel only nudges).
@@ -1115,7 +1163,10 @@ pub struct VinylDto {
     pub crossed: bool,
     /// "none", "bounce" or "ok"
     pub signal: &'static str,
-    /// Timecode carrier level (full scale = 1.0).
+    /// The signal as the deck's light shows it: none while no record drives it, "none" while its
+    /// channels seem crossed.
+    pub light: Option<&'static str>,
+    /// Timecode carrier level, as a share of a healthy line level's (0 to 1).
     pub level: f32,
     pub record_speed: f64,
     pub record_position_s: Option<f64>,
@@ -1178,6 +1229,23 @@ pub struct DeckStatusDto {
     /// How far its track's separation is, from 0 to 1: as it is separated, or as the downloads
     /// of the models it waits for are.
     pub separating: Option<f64>,
+}
+
+/// The carrier level of a healthy line-level timecode.
+const FULL_LEVEL: f32 = 0.5;
+
+fn signal_name(signal: SignalState) -> &'static str {
+    match signal {
+        SignalState::None => "none",
+        SignalState::Bounce => "bounce",
+        SignalState::Ok => "ok",
+    }
+}
+
+/// The timecode as the light of a deck shows it: none while no record drives it (it plays by
+/// itself or its input), none heard while its channels seem crossed.
+fn signal_light(on_record: bool, crossed: bool, signal: SignalState) -> Option<&'static str> {
+    on_record.then(|| if crossed { "none" } else { signal_name(signal) })
 }
 
 /// What a deck's keys and pads light by the controllers' rules.
@@ -1274,12 +1342,13 @@ impl DeckStatusDto {
                 mode: d.vinyl.mode.into(),
                 run_out: d.vinyl.run_out,
                 crossed: d.vinyl.crossed,
-                signal: match d.vinyl.signal {
-                    SignalState::None => "none",
-                    SignalState::Bounce => "bounce",
-                    SignalState::Ok => "ok",
-                },
-                level: d.vinyl.level,
+                signal: signal_name(d.vinyl.signal),
+                light: signal_light(
+                    view.decks[deck].vinyl && !view.decks[deck].passthrough,
+                    d.vinyl.crossed,
+                    d.vinyl.signal,
+                ),
+                level: (d.vinyl.level / FULL_LEVEL).min(1.0),
                 record_speed: d.vinyl.record_speed,
                 record_position_s: d.vinyl.record_position_s,
             },
@@ -2097,6 +2166,13 @@ pub struct LightDto {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_decks_signal_light_shows_the_record_driving_it_and_none_with_its_cables_crossed() {
+        assert_eq!(signal_light(true, false, SignalState::Ok), Some("ok"));
+        assert_eq!(signal_light(true, true, SignalState::Ok), Some("none"));
+        assert_eq!(signal_light(false, false, SignalState::Ok), None);
+    }
 
     fn view_of(state: &AppState) -> View {
         crate::actions::view_of(state, false, &Default::default(), 0.0)
