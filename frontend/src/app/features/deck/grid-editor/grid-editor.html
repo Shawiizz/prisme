@@ -45,25 +45,17 @@
     </button>
     <button
       class="pr-btn pr-btn--sm tap"
-      [title]="'Tap the beat: after four taps, the grid takes the tempo tapped' | t"
-      (click)="press('tap')"
+      [title]="'Tap the beat; the tempo shows after four taps' | t"
+      (click)="tap()"
     >
       {{ 'Tap' | t }}
     </button>
   </div>
   <div class="row">
-    <button
-      class="pr-btn pr-btn--sm"
-      [title]="'Grid earlier (20 ms)' | t"
-      (click)="moveGrid(-coarse)"
-    >
+    <button class="pr-btn pr-btn--sm" [title]="'Grid earlier (20 ms)' | t" (click)="shift(-coarse)">
       ◀◀
     </button>
-    <button
-      class="pr-btn pr-btn--sm"
-      [title]="'Grid earlier (5 ms)' | t"
-      (click)="press('grid.earlier')"
-    >
+    <button class="pr-btn pr-btn--sm" [title]="'Grid earlier (2 ms)' | t" (click)="shift(-fine)">
       ◀
     </button>
     <button
@@ -73,14 +65,10 @@
     >
       {{ 'Beat here' | t }}
     </button>
-    <button
-      class="pr-btn pr-btn--sm"
-      [title]="'Grid later (5 ms)' | t"
-      (click)="press('grid.later')"
-    >
+    <button class="pr-btn pr-btn--sm" [title]="'Grid later (2 ms)' | t" (click)="shift(fine)">
       ▶
     </button>
-    <button class="pr-btn pr-btn--sm" [title]="'Grid later (20 ms)' | t" (click)="moveGrid(coarse)">
+    <button class="pr-btn pr-btn--sm" [title]="'Grid later (20 ms)' | t" (click)="shift(coarse)">
       ▶▶
     </button>
   </div>

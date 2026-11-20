@@ -686,6 +686,13 @@ impl Actions {
         let _ = self.kept.send(Box::new(write));
     }
 
+    /// A tap of the tempo of `deck` at `at_s`: the tempo, to a hundredth of a BPM, once there
+    /// are enough taps.
+    pub(crate) fn tapped(&self, deck: usize, at_s: f64) -> Option<f64> {
+        let bpm = lock(&self.memory).decks[deck].taps.tap(at_s)?;
+        Some((bpm * 100.0).round() / 100.0)
+    }
+
     /// Seconds since Prisme started: the clock of the actions no controller times.
     pub(crate) fn now_s(&self) -> f64 {
         self.started.elapsed().as_secs_f64()

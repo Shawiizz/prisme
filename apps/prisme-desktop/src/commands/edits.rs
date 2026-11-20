@@ -124,6 +124,14 @@ pub fn set_key(
     })
 }
 
+/// A tap of the grid editor's tempo key for the track on `deck`: the tempo tapped, once there
+/// are enough taps, for the DJ to apply.
+#[tauri::command]
+pub fn tap_tempo(actions: State<'_, Actions>, deck: usize) -> AppResult<Option<f64>> {
+    AppState::deck_exists(deck)?;
+    Ok(actions.tapped(deck, actions.now_s()))
+}
+
 /// The 24 keys, in Camelot order.
 #[tauri::command]
 pub fn key_choices() -> Vec<KeyDto> {

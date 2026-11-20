@@ -283,6 +283,7 @@ export interface TrackInfo {
 export type GridChange =
   | { kind: 'bpm'; bpm: number }
   | { kind: 'scale'; factor: number }
+  | { kind: 'shift'; seconds: number }
   | { kind: 'align' }
   | { kind: 'reset' };
 

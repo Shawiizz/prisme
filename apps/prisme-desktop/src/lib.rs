@@ -327,6 +327,7 @@ pub fn run() {
             commands::transport::pad_pages,
             commands::transport::show_fx_slot,
             commands::edits::edit_grid,
+            commands::edits::tap_tempo,
             commands::edits::set_key,
             commands::edits::key_choices,
             commands::folders::sort_dropped,

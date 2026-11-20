@@ -1,4 +1,5 @@
-import { Component, computed, inject, input, output, viewChild } from '@angular/core';
+import { Component, computed, inject, input, output, signal, viewChild } from '@angular/core';
+import { invoke } from '@tauri-apps/api/core';
 import { GridChange } from '../../../core/models/engine';
 import { EngineService } from '../../../core/services/engine.service';
 import { TrackEditService } from '../../../core/services/track-edit.service';
@@ -8,9 +9,9 @@ import { Dismiss, overlay } from '../../../shared/overlay';
 import { PHONE } from '../../../core/platform';
 import { Sheet } from '../../../shared/sheet';
 
-/** The coarse arrows move the grid by so many of the backend's steps (a step: 5 ms), the fine
- * ones by one, as a controller's grid keys do. */
-const COARSE_STEPS = 4;
+/** How far the fine and the coarse arrows move the grid (s): finer than a controller's steps. */
+const FINE_SHIFT_S = 0.002;
+const COARSE_SHIFT_S = 0.02;
 
 /** Corrections of the beat grid and key of the track on a deck, and its key shift. */
 @Component({
@@ -31,10 +32,13 @@ export class GridEditor {
   private readonly engine = inject(EngineService);
   private readonly edits = inject(TrackEditService);
 
-  protected readonly coarse = COARSE_STEPS;
+  protected readonly fine = FINE_SHIFT_S;
+  protected readonly coarse = COARSE_SHIFT_S;
   protected readonly track = computed(() => this.engine.tracks()[this.deck()]);
+  /** What the BPM field shows: the tempo being tapped, for the DJ to apply, else the track's. */
+  private readonly tapped = signal<number | null>(null);
   protected readonly bpmText = computed(() => {
-    const bpm = this.track()?.tempo?.bpm;
+    const bpm = this.tapped() ?? this.track()?.tempo?.bpm;
     return bpm === undefined ? '' : bpm.toFixed(2);
   });
   protected readonly minorKeys = computed(() => this.edits.keys().filter((k) => k.minor));
@@ -62,6 +66,7 @@ export class GridEditor {
   }
 
   grid(change: GridChange) {
+    this.tapped.set(null);
     this.edits.editGrid(this.deck(), change);
   }
 
@@ -79,9 +84,15 @@ export class GridEditor {
     this.engine.press(this.deck(), action);
   }
 
-  /** The grid moved later (earlier below 0) by `steps` steps, as a controller's encoder. */
-  moveGrid(steps: number) {
-    this.engine.perform(`deck${this.deck() + 1}.grid.move`, steps);
+  /** The grid moved later (earlier below 0) by `seconds`. */
+  shift(seconds: number) {
+    this.grid({ kind: 'shift', seconds });
+  }
+
+  /** A tap of the beat: the tempo tapped shown in the field once there are enough taps. */
+  async tap() {
+    const bpm = await invoke<number | null>('tap_tempo', { deck: this.deck() });
+    if (bpm !== null) this.tapped.set(bpm);
   }
 
   setKey(camelot: string | null) {

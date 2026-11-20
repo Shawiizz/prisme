@@ -369,17 +369,10 @@ impl Performing<'_> {
         mixer::set_filter(self.state, deck, to)
     }
 
-    /// A tap of the tempo of `deck`, on the clock of the one asking: the tempo, to a hundredth
-    /// of a BPM, once there are enough.
-    pub(super) fn tapped(&self, deck: usize) -> Option<f64> {
-        let bpm = self.memory().decks[deck].taps.tap(self.at_s())?;
-        Some((bpm * 100.0).round() / 100.0)
-    }
-
     /// The tempo of the track on `deck` tapped on its key: its beat grid at that tempo, once
     /// there are enough taps.
     pub(super) fn tap(&self, deck: usize) -> AppResult<()> {
-        match self.tapped(deck) {
+        match self.actions.tapped(deck, self.at_s()) {
             Some(bpm) => self.change_grid(deck, GridChange::Bpm { bpm }),
             None => Ok(()),
         }
@@ -405,7 +398,7 @@ impl Performing<'_> {
 mod tests {
     use super::*;
     use crate::actions::bench::Bench;
-    use crate::actions::{Moved, Source};
+    use crate::actions::Source;
     use crate::dto::RpmDto;
 
     fn turned(deck: usize, action: DeckAction, steps: f32, at_s: f64, jog_scratch: bool) -> Option<Command> {
@@ -576,15 +569,15 @@ mod tests {
     }
 
     #[test]
-    fn a_tempo_is_tapped_on_the_controllers_own_clock() {
+    fn the_grid_editor_s_taps_give_the_tempo_without_setting_it() {
         let bench = Bench::new();
-        let tap = |at_s: f64| {
-            let source = Source::Controller(Moved { device: "DDJ".into(), at_s, jog_steps_per_turn: 720.0 });
-            bench.performing(source).tapped(0)
-        };
+        bench.load(0, 60.0, Some(120.0));
+        let tap = |at_s| bench.actions.tapped(0, at_s);
         assert_eq!([0.0, 0.48, 0.96].map(tap), [None, None, None]);
         assert_eq!(tap(1.44), Some(125.0));
         assert_eq!(tap(9.0), None, "a pause starts the count again");
+        let bpm = bench.state.with_track(0, |t| t.grid().map(|g| g.bpm)).unwrap();
+        assert_eq!(bpm, Some(120.0), "for the DJ to apply");
     }
 
     /// A track on `deck` in `camelot` (a key of the wheel), playing or not.
