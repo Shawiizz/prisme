@@ -45,12 +45,17 @@ export class SettingsService {
   /** Loads the backends and the records offered, and offers the sound cards plugged in. */
   async init(): Promise<void> {
     await listen<CardOffer>('card-plugged', ({ payload }) => this.offer(payload));
-    const [backends, makers] = await Promise.all([
-      invoke<BackendChoice[]>('audio_backends'),
+    const [, makers] = await Promise.all([
+      this.loadBackends(),
       invoke<TimecodeMaker[]>('timecode_formats'),
     ]);
-    this.backends.set(backends);
     this.makers.set(makers);
+  }
+
+  /** The backends and their drivers, read again as the settings open: a driver installed
+   * meanwhile shows. */
+  async loadBackends(): Promise<void> {
+    this.backends.set(await invoke<BackendChoice[]>('audio_backends'));
   }
 
   /** A sound card plugged in, offered: used at once, or not offered again. */

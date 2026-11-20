@@ -235,13 +235,19 @@ export class SettingsDialog implements OnInit {
   }
 
   async ngOnInit() {
+    void this.service.loadBackends();
     this.version.set(await getVersion().catch(() => ''));
-    await this.readLatencyChannels();
   }
 
-  private async readLatencyChannels() {
-    this.latencyChannels.set(await invoke<LatencyChannels>('latency_channels'));
-  }
+  /** The channels a latency measurement can join, read as the window opens and as the audio
+   * moves. */
+  private readonly readLatencyChannels = effect(() => {
+    this.service.info();
+    invoke<LatencyChannels>('latency_channels').then(
+      (channels) => this.latencyChannels.set(channels),
+      (e) => this.error.set(errorText(e)),
+    );
+  });
 
   /** Shows a page (and leaves the search). */
   go(category: SettingsCategory) {
@@ -410,7 +416,6 @@ export class SettingsDialog implements OnInit {
       if (!d) return;
       await this.service.apply(d, this.mixMode());
       await this.redraft(d);
-      await this.readLatencyChannels();
     } catch (e) {
       this.error.set(errorText(e));
     } finally {
