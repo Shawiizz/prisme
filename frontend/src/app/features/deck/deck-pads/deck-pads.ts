@@ -43,58 +43,34 @@ const SAMPLE_COLOR = 'var(--pr-tag-violet)';
 const SIZE_COLOR = 'var(--pr-light)';
 /** The bar of an effect pad whose effect sounds in another slot of the chain. */
 const ELSEWHERE_COLOR = 'var(--pr-text-3)';
-/** The effects on the pads, in the backend's order, their name in four letters on a narrow
- * pad, with what their AMOUNT knob does. */
-const EFFECTS: { kind: EffectKind; label: string; short: string; title: Text }[] = [
-  {
-    kind: 'echo',
-    label: 'ECHO',
-    short: 'ECHO',
-    title: () => t('Echo on the beat · amount: feedback'),
-  },
-  {
-    kind: 'pingPong',
+/** How an effects' pad shows its effect: its name in four letters on a narrow pad, with what
+ * its AMOUNT knob does. */
+const EFFECT_PADS: Record<EffectKind, { label: string; short: string; title: Text }> = {
+  echo: { label: 'ECHO', short: 'ECHO', title: () => t('Echo on the beat · amount: feedback') },
+  pingPong: {
     label: 'PING',
     short: 'PING',
     title: () => t('Ping-pong echo, bouncing left and right · amount: feedback'),
   },
-  {
-    kind: 'reverb',
-    label: 'VERB',
-    short: 'VERB',
-    title: () => t('Reverb · amount: room size'),
-  },
-  {
-    kind: 'flanger',
-    label: 'FLANGE',
-    short: 'FLNG',
-    title: () => t('Flanger · amount: feedback'),
-  },
-  {
-    kind: 'phaser',
-    label: 'PHASE',
-    short: 'PHSR',
-    title: () => t('Phaser · amount: feedback'),
-  },
-  {
-    kind: 'filter',
+  reverb: { label: 'VERB', short: 'VERB', title: () => t('Reverb · amount: room size') },
+  flanger: { label: 'FLANGE', short: 'FLNG', title: () => t('Flanger · amount: feedback') },
+  phaser: { label: 'PHASE', short: 'PHSR', title: () => t('Phaser · amount: feedback') },
+  filter: {
     label: 'FILTER',
     short: 'FLTR',
     title: () => t('Filter sweeping on the beat · amount: depth'),
   },
-  {
-    kind: 'gate',
+  gate: {
     label: 'GATE',
     short: 'GATE',
     title: () => t('Gate, cutting the sound on the beat · amount: depth'),
   },
-  {
-    kind: 'bitcrusher',
+  bitcrusher: {
     label: 'CRUSH',
     short: 'CRSH',
     title: () => t('Bitcrusher, lowering the resolution · amount: crush'),
   },
-];
+};
 /** Pad `pad` of a page is lit, or marked. */
 const bit = (bits: number, pad: number) => (bits & (1 << pad)) !== 0;
 
@@ -206,7 +182,7 @@ export class DeckPads {
     });
   }
 
-  /** The pads of the page shown named by their action, if it is one of those. */
+  /** The pads of the page shown, as the backend sets them out, if it is one of those. */
   private readonly named = computed(
     () => this.performance.pages().find((p) => p.page === this.mode())?.pads ?? null,
   );
@@ -222,22 +198,25 @@ export class DeckPads {
         return this.samplePad(this.samples()[slot] ?? null, slot);
       });
     const { lit, marked } = this.status()?.lights.pads[mode] ?? this.NO_LIGHTS;
-    if (mode === 'fx')
-      return EFFECTS.map((e, pad) => ({
-        label: e.label,
-        short: e.short,
-        set: true,
-        color: bit(marked, pad) ? ELSEWHERE_COLOR : null,
-        active: bit(lit, pad),
-        title: e.title(),
-      }));
-    return (this.named() ?? []).map((p, pad) => ({
-      label: p.caption,
-      set: true,
-      color: bit(marked, pad) ? SIZE_COLOR : null,
-      active: bit(lit, pad),
-      title: labelText(p.label),
-    }));
+    return (this.named() ?? []).map((p, pad) => {
+      const effect = p.effect && EFFECT_PADS[p.effect];
+      return effect
+        ? {
+            label: effect.label,
+            short: effect.short,
+            set: true,
+            color: bit(marked, pad) ? ELSEWHERE_COLOR : null,
+            active: bit(lit, pad),
+            title: effect.title(),
+          }
+        : {
+            label: p.caption,
+            set: true,
+            color: bit(marked, pad) ? SIZE_COLOR : null,
+            active: bit(lit, pad),
+            title: labelText(p.label),
+          };
+    });
   });
 
   /** A length in beats, with its unit: under keys that halve and double it. */
@@ -270,8 +249,10 @@ export class DeckPads {
         this.held.set(event.pointerId, () => this.performance.pad(deck, action, false));
         return;
       }
-      case 'fx':
-        return this.fx.press(deck, this.slot(), EFFECTS[index].kind);
+      case 'fx': {
+        const effect = this.named()?.[index]?.effect;
+        return effect && this.fx.press(deck, this.slot(), effect);
+      }
       case 'sampler':
         if (!this.samples()[slot]) return this.sampler.choose(deck, slot);
         return event.shiftKey ? this.sampler.clear(deck, slot) : this.sampler.trigger(deck, slot);

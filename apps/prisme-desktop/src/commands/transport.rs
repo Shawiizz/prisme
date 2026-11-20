@@ -1,12 +1,13 @@
 use crate::actions::pads;
+use crate::dto::EffectKindDto;
 use crate::error::AppResult;
 use crate::state::AppState;
 use prisme_actions::pads::Page;
-use prisme_control::{beats_text, Beats, DeckAction, Label, Target, CUT_BEATS, ROLL_BEATS};
+use prisme_control::{beats_text, Beats, DeckAction, FxAction, Label, Target, CUT_BEATS, ROLL_BEATS};
 use serde::Serialize;
 use tauri::State;
 
-/// A page of a deck's pads on the screen whose pads are named by their action.
+/// A page of a deck's pads on the screen.
 #[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct PadPageDto {
     pub page: Page,
@@ -20,10 +21,11 @@ pub struct PadDto {
     /// What it shows: its beats, or its number.
     pub caption: String,
     pub label: Label,
+    /// The effect an effects' pad turns on, on the slot shown.
+    pub effect: Option<EffectKindDto>,
 }
 
-/// The pages of pads the screen names by their action, in the order of `Page::ALL`: all but the
-/// effects', which it names by the effect.
+/// The pages of pads the screen shows by their action, in the order of `Page::ALL`.
 #[tauri::command]
 pub fn pad_pages() -> Vec<PadPageDto> {
     let caption = |action| match action {
@@ -40,14 +42,14 @@ pub fn pad_pages() -> Vec<PadPageDto> {
                 action: action.to_string(),
                 caption: caption(action),
                 label: Target::Deck(0, action).label(),
+                effect: match action {
+                    DeckAction::Fx(_, FxAction::Effect(effect)) => Some(effect.into()),
+                    _ => None,
+                },
             })
             .collect()
     };
-    Page::ALL
-        .into_iter()
-        .filter(|page| *page != Page::Fx)
-        .map(|page| PadPageDto { page, pads: pads(page) })
-        .collect()
+    Page::ALL.into_iter().map(|page| PadPageDto { page, pads: pads(page) }).collect()
 }
 
 /// The slot of the chain of `deck` the screen's pads and knobs act on.
@@ -76,6 +78,8 @@ mod tests {
         assert_eq!(first(Page::Jump), Some((&"jump.-32".to_owned(), &"-32".to_owned())));
         assert_eq!(first(Page::Slice), Some((&"slice1".to_owned(), &"1".to_owned())));
         assert_eq!(pages.iter().find(|p| p.page == Page::Cut).map(|p| p.pads.len()), Some(4));
-        assert!(pages.iter().all(|p| p.page != Page::Fx), "the effects are named by the effect");
+        let effects = pages.iter().find(|p| p.page == Page::Fx).unwrap();
+        assert_eq!(effects.pads[0].effect, Some(EffectKindDto::Echo), "in the order the lights are");
+        assert_eq!(effects.pads.len(), prisme_control::Effect::NAMED.len());
     }
 }

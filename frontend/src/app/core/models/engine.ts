@@ -73,10 +73,16 @@ export type VinylChange =
 /** A page of a deck's pads whose pads each perform an action of the deck. */
 export type PadPage = 'loops' | 'roll' | 'jump' | 'slice' | 'cut' | 'fx';
 
-/** A page of pads named by their action (`pad_pages`): all but the effects'. */
+/** A page of pads, its pads in the order of their lights (`pad_pages`). */
 export interface PadPageNames {
   page: PadPage;
-  pads: { action: string; caption: string; label: Label }[];
+  pads: {
+    action: string;
+    caption: string;
+    label: Label;
+    /** The effect an effects' pad turns on, on the slot shown. */
+    effect: EffectKind | null;
+  }[];
 }
 
 export interface Cue {
