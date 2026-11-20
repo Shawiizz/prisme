@@ -6,6 +6,7 @@ import { TRACKS_DRAG_TYPE } from '../../shared/drag';
 import { lastName } from '../folders';
 import { PHONE } from '../platform';
 import { LibraryService } from './library.service';
+import { errorText } from '../errors';
 
 /** Where files from the file manager are dropped. */
 export type FileDropTarget =
@@ -112,6 +113,8 @@ export class FileDropService {
   private readonly library = inject(LibraryService);
   /** What is being dragged over the window; `null` while nothing comes from outside. */
   readonly dragged = signal<FileDrag | null>(null);
+  /** Counts the drags ended, to tell one going on from one over. */
+  private drags = 0;
   /** Where it would be dropped, if dropping it there does something. */
   readonly over = signal<FileDropTarget | null>(null, { equal: sameTarget });
 
@@ -160,17 +163,28 @@ export class FileDropService {
     await getCurrentWebview().onDragDropEvent(({ payload }) => {
       // the page's own tracks pass here too, without paths
       if (payload.type === 'enter' && payload.paths.length) {
-        void sortDropped(payload.paths).then((dropped) => this.dragged.set(draggedOf(dropped)));
+        const drag = this.drags;
+        sortDropped(payload.paths).then(
+          (dropped) => {
+            // told after the drag ended: nothing to light
+            if (drag === this.drags) this.dragged.set(draggedOf(dropped));
+          },
+          (e) => this.library.error.set(errorText(e)),
+        );
       }
       if (payload.type === 'leave') {
         this.end();
         return;
       }
       // in the page's pixels, though called physical: the view's points
-      const target = this.point(document.elementFromPoint(payload.position.x, payload.position.y));
+      const under = document.elementFromPoint(payload.position.x, payload.position.y);
       if (payload.type === 'drop') {
         this.end();
+        // what was dropped is sorted again: dropped before it was told, it still goes
+        const target = targetOf(under);
         if (target) void this.drop(target, payload.paths);
+      } else {
+        this.point(under);
       }
     });
   }
@@ -185,13 +199,21 @@ export class FileDropService {
   }
 
   private end() {
+    this.drags++;
     this.dragged.set(null);
     this.over.set(null);
   }
 
   /** The first track onto a deck, the tracks into a list, the folders into the music folders. */
   private async drop(target: FileDropTarget, paths: string[]) {
-    const { tracks, folders } = await sortDropped(paths);
+    let sorted: Dropped;
+    try {
+      sorted = await sortDropped(paths);
+    } catch (e) {
+      this.library.error.set(errorText(e));
+      return;
+    }
+    const { tracks, folders } = sorted;
     if (target.kind === 'folders') {
       for (const folder of folders) {
         await this.library.addFolder(folder);
