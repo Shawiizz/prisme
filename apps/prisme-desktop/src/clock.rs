@@ -132,7 +132,7 @@ impl Clock {
         piece("keys", || actions.fire_keys(app, &view));
         #[cfg(target_os = "android")]
         piece("lock player", || {
-            if moved(Section::Mixer) {
+            if moved(Section::Routing) {
                 self.player.internal = state.mixes_itself();
             }
             if moved(Section::Tracks) || moved(Section::Settings) {

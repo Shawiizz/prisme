@@ -1,5 +1,5 @@
 import { TestBed } from '@angular/core/testing';
-import { ControlState, MixerState } from '../models/engine';
+import { ControlState, MixerState, RoutingState } from '../models/engine';
 import { EngineService } from './engine.service';
 import { FxService } from './fx.service';
 import { MixerService } from './mixer.service';
@@ -9,7 +9,10 @@ describe('MixerService', () => {
   it('shows the mixer the backend tells, the same as it tells other sections', () => {
     const engine = TestBed.inject(EngineService);
     const mixer = TestBed.inject(MixerService);
-    const told = { mixer: { limiter: false, mic: { on: true } } as MixerState } as ControlState;
+    const told = {
+      mixer: { limiter: false } as MixerState,
+      routing: { mic: { on: true } } as RoutingState,
+    } as ControlState;
     engine.controls.set(told);
     const mic = mixer.mic();
     expect([mixer.limiter(), mic.on]).toEqual([false, true]);

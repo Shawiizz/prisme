@@ -82,7 +82,13 @@ mod tests {
         state.crossfader.set(-1.0);
         assert_eq!(state.moved_since(eq), [Section::Mixer]);
         state.update_preferences(|p| p.dj.quantize = true);
-        assert_eq!(state.moved_since(eq), [Section::Mixer, Section::Decks]);
+        assert_eq!(state.moved_since(eq), [Section::Mixer, Section::Decks], "the routing as it was");
+        state.update_preferences(|p| p.mixer.booth = Some(4));
+        assert_eq!(state.moved_since(eq), [Section::Mixer, Section::Routing, Section::Decks]);
+        assert_eq!(
+            ControlStateDto::of(&state, &view_of(&state), [Section::Routing]).routing.unwrap().booth,
+            Some(4)
+        );
         let controls = ControlStateDto::of(&state, &view_of(&state), Section::ALL);
         assert_eq!(controls.decks.unwrap()[1].strip.eq[0], 0.5);
         assert_eq!(controls.mixer.unwrap().knobs.crossfader.at, 0.0);

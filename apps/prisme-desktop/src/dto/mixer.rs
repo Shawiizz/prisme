@@ -301,12 +301,30 @@ pub struct LiveStateDto {
     pub cue: bool,
 }
 
-/// Settings the backend applies to the engine (the UI mirrors them at startup).
+/// The mixer as the interface shows it: its knobs, the DJ's preferences of it.
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct MixerStateDto {
     /// The knobs beside the channels and the crossfader, as the screen shows them.
     pub knobs: MixerKnobs,
+    /// Headphones: the cue on the left and the master on the right.
+    pub split_cue: bool,
+    pub crossfader_curve: CrossfaderCurveDto,
+    /// The crossfader's sides swapped.
+    pub crossfader_reverse: bool,
+    pub limiter: bool,
+    pub talkover: bool,
+    pub talkover_depth_db: f32,
+    /// What was recorded last.
+    pub record_source: Option<RecordSourceDto>,
+    /// The last recording ended.
+    pub last_recording: Option<RecordingDto>,
+}
+
+/// Where the mixer is heard on the running device, and the live inputs it takes.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RoutingStateDto {
     /// The mode the user chose.
     pub mode: MixModeDto,
     /// The software mixer is in use (or would be, the audio off).
@@ -323,12 +341,6 @@ pub struct MixerStateDto {
     pub headphones_choices: Vec<usize>,
     /// Where the headphones are heard on the running device.
     pub headphones_note: Option<OutputNote>,
-    /// Headphones: the cue on the left and the master on the right.
-    pub split_cue: bool,
-    pub crossfader_curve: CrossfaderCurveDto,
-    /// The crossfader's sides swapped.
-    pub crossfader_reverse: bool,
-    pub limiter: bool,
     /// The first output of the booth chosen, and the one in use if it is heard.
     pub booth: Option<usize>,
     pub booth_in_use: Option<usize>,
@@ -337,14 +349,8 @@ pub struct MixerStateDto {
     pub booth_note: Option<OutputNote>,
     pub mic: LiveStateDto,
     pub aux: LiveStateDto,
-    pub talkover: bool,
-    pub talkover_depth_db: f32,
-    /// What was recorded last.
-    pub record_source: Option<RecordSourceDto>,
     /// What can be recorded on the running device.
     pub record_options: Vec<RecordOptionDto>,
-    /// The last recording ended.
-    pub last_recording: Option<RecordingDto>,
 }
 
 /// A source the Rec menu offers.

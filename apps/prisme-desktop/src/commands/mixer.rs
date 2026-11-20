@@ -3,7 +3,7 @@ use crate::audio_host::{deck_pair, layer_partner};
 use crate::choices::{self, OutputNote};
 use crate::dto::{
     AudioInfo, CrossfaderSideDto, DeckSettingsDto, HeadphonesOutputDto, LiveSourceDto, LiveStateDto,
-    MixModeDto, MixerStateDto,
+    MixModeDto, MixerStateDto, RoutingStateDto,
 };
 use crate::error::AppResult;
 use crate::sampler;
@@ -13,8 +13,25 @@ use prisme_actions::view::View;
 use prisme_engine::{Command, Rpm, MAX_DECKS};
 use tauri::State;
 
-/// The settings of the decks and the mixer of `state`, their knobs as `view` shows them.
+/// The mixer of `state`, its knobs as `view` shows them.
 pub fn mixer_state_of(state: &AppState, view: &View) -> MixerStateDto {
+    let mixer = state.preferences.read(|p| p.mixer);
+    MixerStateDto {
+        knobs: knobs::mixer(view),
+        split_cue: mixer.split_cue,
+        crossfader_curve: mixer.crossfader_curve,
+        crossfader_reverse: mixer.crossfader_reverse,
+        limiter: mixer.limiter,
+        talkover: mixer.talkover,
+        talkover_depth_db: mixer.talkover_depth_db,
+        record_source: mixer.record_source,
+        last_recording: lock(&state.recorded).clone(),
+    }
+}
+
+/// Where the mixer of `state` is heard on the running device (laid out for `decks_in_use`
+/// without one), and the live inputs it takes.
+pub fn routing_of(state: &AppState, decks_in_use: usize) -> RoutingStateDto {
     let mixer = state.preferences.read(|p| p.mixer);
     let info = lock(&state.session).as_ref().map(|s| s.info.clone());
     let routing = info.as_ref().map(|info| state.routing(info));
@@ -38,9 +55,8 @@ pub fn mixer_state_of(state: &AppState, view: &View) -> MixerStateDto {
     let internal = routing.map_or(mixer.mode, |r| r.mode.into()) == MixModeDto::Internal;
     let headphones_in_use = routing.and_then(|r| r.headphones);
     let booth_in_use = routing.and_then(|r| r.booth);
-    let laid_out = info.as_ref().map_or(view.decks_in_use, |info| info.decks);
-    MixerStateDto {
-        knobs: knobs::mixer(view),
+    let laid_out = info.as_ref().map_or(decks_in_use, |info| info.decks);
+    RoutingStateDto {
         mode: mixer.mode,
         internal,
         fallback: (mixer.mode == MixModeDto::External && internal && info.is_some())
@@ -53,10 +69,6 @@ pub fn mixer_state_of(state: &AppState, view: &View) -> MixerStateDto {
             Some(first) => OutputNote::On { first },
             None => OutputNote::NotHeard,
         }),
-        split_cue: mixer.split_cue,
-        crossfader_curve: mixer.crossfader_curve,
-        crossfader_reverse: mixer.crossfader_reverse,
-        limiter: mixer.limiter,
         booth: mixer.booth,
         booth_in_use,
         booth_choices: choices::booth(outputs, headphones_in_use.filter(|_| internal), mixer.booth),
@@ -66,11 +78,7 @@ pub fn mixer_state_of(state: &AppState, view: &View) -> MixerStateDto {
             .and_then(|_| choices::booth_note(booth_in_use, mixer.booth, headphones_in_use)),
         mic: live(LiveSourceDto::Mic),
         aux: live(LiveSourceDto::Aux),
-        talkover: mixer.talkover,
-        talkover_depth_db: mixer.talkover_depth_db,
-        record_source: mixer.record_source,
         record_options: general::record_options(internal, info.as_ref()),
-        last_recording: lock(&state.recorded).clone(),
     }
 }
 

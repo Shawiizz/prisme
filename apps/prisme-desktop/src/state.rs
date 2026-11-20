@@ -297,6 +297,12 @@ pub struct LiveSwitches {
     pub cue: bool,
 }
 
+/// What the routing reads of the preferences (see `commands::mixer::routing_of`).
+fn routed(p: &Preferences) -> impl PartialEq {
+    let MixerPreferences { mode, headphones, booth, mic, aux, .. } = p.mixer;
+    (mode, headphones, booth, mic.input, aux.input, p.dj.decks())
+}
+
 /// What the interface is shown of the pads: each deck's slots of its effect chain, and whether
 /// the library takes the whole window.
 pub type PadsShown = ([DeckPadsDto; MAX_DECKS], bool);
@@ -348,8 +354,10 @@ pub struct AppState {
 /// A part of what the interface mirrors (`ControlStateDto`), sent again alone when it changed.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Section {
-    /// The mixer, the routing, the DJ's preferences of them.
+    /// The mixer: its knobs, the DJ's preferences of it.
     Mixer,
+    /// Where the mixer is heard on the running device, and the live inputs it takes.
+    Routing,
     /// The decks' settings and their samplers.
     Decks,
     /// The decks' tracks, and their loads.
@@ -375,8 +383,9 @@ pub enum Section {
 }
 
 impl Section {
-    pub const ALL: [Section; 13] = [
+    pub const ALL: [Section; 14] = [
         Section::Mixer,
+        Section::Routing,
         Section::Decks,
         Section::Tracks,
         Section::Perform,
@@ -595,7 +604,7 @@ impl AppState {
             decks: Mirrored::new(saved.map(DeckSettings::from), &revisions, Section::Decks),
             crossfader: Mirrored::new(0.0, &revisions, Section::Mixer),
             sync_leader: Mutex::default(),
-            live: Mirrored::new(Default::default(), &revisions, Section::Mixer),
+            live: Mirrored::new(Default::default(), &revisions, Section::Routing),
             recorder: Mutex::new(None),
             recorded: Mirrored::new(None, &revisions, Section::Mixer),
             audio_start: Mutex::new(()),
@@ -666,10 +675,14 @@ impl AppState {
         self.revisions.moved(Section::Library);
     }
 
-    /// Changes the preferences, saved soon after; the interface hears of it (the mixer, and the
-    /// decks' tempo ranges).
+    /// Changes the preferences, saved soon after; the interface hears of it (the mixer, the
+    /// decks' tempo ranges, and the routing if what it reads of them changed).
     pub fn update_preferences(&self, change: impl FnOnce(&mut Preferences)) {
+        let before = self.preferences.read(routed);
         self.preferences.update(change);
+        if self.preferences.read(routed) != before {
+            self.revisions.moved(Section::Routing);
+        }
         self.revisions.moved(Section::Mixer);
         self.revisions.moved(Section::Decks);
     }
@@ -687,7 +700,7 @@ impl AppState {
     /// routing as the device lays them out.
     pub fn replace_session(&self, session: Option<AudioSession>) -> Option<AudioSession> {
         let previous = std::mem::replace(&mut *lock(&self.session), session);
-        for section in [Section::Mixer, Section::Decks, Section::Audio] {
+        for section in [Section::Routing, Section::Decks, Section::Audio] {
             self.revisions.moved(section);
         }
         previous
@@ -1556,7 +1569,7 @@ mod tests {
         let revision = bench.state.revision();
         let session = bench.state.replace_session(None);
         assert!(session.is_some());
-        assert_eq!(bench.state.moved_since(revision), [Section::Mixer, Section::Decks, Section::Audio]);
+        assert_eq!(bench.state.moved_since(revision), [Section::Routing, Section::Decks, Section::Audio]);
         bench.state.replace_session(session);
         assert!(lock(&bench.state.session).is_some());
         let audio = crate::dto::ControlStateDto::of(&bench.state, &bench.view(), [Section::Audio]).audio;

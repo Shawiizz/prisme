@@ -27,7 +27,7 @@ describe('PhaseStrip', () => {
     const phase = { decks: [0, 1], ...reading };
     const engine = TestBed.inject(EngineService);
     engine.status.set({ decks: [{}, {}], phase } as EngineStatus);
-    engine.controls.set({ mixer: { internal: false } } as ControlState);
+    engine.controls.set({ routing: { internal: false } } as ControlState);
     const fixture = TestBed.createComponent(PhaseStrip);
     fixture.detectChanges();
     const words = (fixture.nativeElement as HTMLElement).querySelector('.phase')!.textContent!;

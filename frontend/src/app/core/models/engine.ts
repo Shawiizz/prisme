@@ -120,6 +120,7 @@ export type ControlChanges = Partial<Omit<ControlState, 'mixer' | 'decks'>> & {
 /** What the app mirrors of the decks, their tracks, the mixer and the DJ's preferences. */
 export interface ControlState {
   mixer: MixerState;
+  routing: RoutingState;
   /** Each deck's track, as it is now. */
   tracks: (TrackInfo | null)[];
   /** Whether each deck loads a track. */
@@ -445,6 +446,24 @@ export interface MixerKnobs {
 export interface MixerState {
   /** The knobs beside the channels, and where the crossfader stands (0 to 1). */
   knobs: MixerKnobs;
+  /** Headphones: the cue on the left and the master on the right, each in mono. */
+  splitCue: boolean;
+  crossfaderCurve: CrossfaderCurve;
+  /** The crossfader's sides swapped: towards the left, the decks on the right come in. */
+  crossfaderReverse: boolean;
+  /** Master limiter. */
+  limiter: boolean;
+  /** While the microphone is on, the music ducks by `talkoverDepthDb`. */
+  talkover: boolean;
+  talkoverDepthDb: number;
+  /** What was recorded last. */
+  recordSource: RecordSource | null;
+  /** The last recording ended. */
+  lastRecording: Recording | null;
+}
+
+/** Where the mixer is heard on the running device, and the live inputs it takes. */
+export interface RoutingState {
   mode: MixMode;
   /** The software mixer is in use (or would be, the audio off). */
   internal: boolean;
@@ -460,13 +479,6 @@ export interface MixerState {
   headphonesChoices: number[];
   /** Where the headphones are heard on the running device. */
   headphonesNote: OutputNote | null;
-  /** Headphones: the cue on the left and the master on the right, each in mono. */
-  splitCue: boolean;
-  crossfaderCurve: CrossfaderCurve;
-  /** The crossfader's sides swapped: towards the left, the decks on the right come in. */
-  crossfaderReverse: boolean;
-  /** Master limiter. */
-  limiter: boolean;
   /** First output (0-based) of the booth chosen, and of the booth in use. */
   booth: number | null;
   boothInUse: number | null;
@@ -476,15 +488,8 @@ export interface MixerState {
   boothNote: OutputNote | null;
   mic: LiveState;
   aux: LiveState;
-  /** While the microphone is on, the music ducks by `talkoverDepthDb`. */
-  talkover: boolean;
-  talkoverDepthDb: number;
-  /** What was recorded last. */
-  recordSource: RecordSource | null;
   /** What can be recorded on the running device: a turntable's inputs told apart. */
   recordOptions: { source: RecordSource; turntable: boolean }[];
-  /** The last recording ended. */
-  lastRecording: Recording | null;
 }
 
 /** Why an output chosen is heard or not on the running device. */

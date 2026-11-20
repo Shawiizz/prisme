@@ -10,7 +10,7 @@ import {
   LiveSource,
   LiveState,
   MixMode,
-  MixerState,
+  RoutingState,
   RecordSource,
 } from '../models/engine';
 import { EngineService } from './engine.service';
@@ -27,17 +27,21 @@ export class MixerService {
 
   /** The mixer as the backend last told it: the same while it tells other sections. */
   private readonly told = computed(() => this.engine.told().mixer);
+  /** Where it is heard, as the backend last told it. */
+  private readonly routed = computed(() => this.engine.told().routing);
 
   /** The knobs beside the channels, and the crossfader, as the backend shows them. */
   readonly knobs = computed<MixerKnobs>(() => this.told().knobs, { equal: same });
   /** The mode the user chose. */
-  readonly mode = computed<MixMode>(() => this.told().mode);
+  readonly mode = computed<MixMode>(() => this.routed().mode);
   /** Where the user wants the headphones: those of the software mixer, or with an external
    * mixer those of the preview. */
-  readonly headphones = computed<HeadphonesOutput>(() => this.told().headphones, { equal: same });
+  readonly headphones = computed<HeadphonesOutput>(() => this.routed().headphones, {
+    equal: same,
+  });
   /** First output (0-based) of the headphones in use; `null` when they are not heard. With an
    * external mixer, a pair no deck uses, for the preview alone. */
-  readonly headphonesInUse = computed(() => this.told().headphonesInUse);
+  readonly headphonesInUse = computed(() => this.routed().headphonesInUse);
   /** Headphones: the cue on the left and the master on the right, each in mono. */
   readonly splitCue = computed(() => this.told().splitCue);
   readonly crossfaderCurve = computed<CrossfaderCurve>(() => this.told().crossfaderCurve);
@@ -45,10 +49,10 @@ export class MixerService {
   readonly crossfaderReverse = computed(() => this.told().crossfaderReverse);
   readonly limiter = computed(() => this.told().limiter);
   /** First output (0-based) of the booth the DJ wants, and of the booth in use. */
-  readonly booth = computed(() => this.told().booth);
-  readonly boothInUse = computed(() => this.told().boothInUse);
-  readonly mic = computed<LiveState>(() => this.told().mic, { equal: same });
-  readonly aux = computed<LiveState>(() => this.told().aux, { equal: same });
+  readonly booth = computed(() => this.routed().booth);
+  readonly boothInUse = computed(() => this.routed().boothInUse);
+  readonly mic = computed<LiveState>(() => this.routed().mic, { equal: same });
+  readonly aux = computed<LiveState>(() => this.routed().aux, { equal: same });
   /** While the microphone is on, the music ducks by `talkoverDepthDb`. */
   readonly talkover = computed(() => this.told().talkover);
   readonly talkoverDepthDb = computed(() => this.told().talkoverDepthDb);
@@ -57,29 +61,30 @@ export class MixerService {
     equal: same,
   });
   /** The software mixer is in use. */
-  readonly internal = computed(() => this.told().internal);
+  readonly internal = computed(() => this.routed().internal);
   /** External mode asked for, but the device has too few outputs (it needs this many): the
    * software mixer runs. */
-  readonly fallback = computed(() => this.told().fallback);
+  readonly fallback = computed(() => this.routed().fallback);
   /** The routing as the backend tells it: first outputs of the decks, the pairs the
    * headphones and the booth can take and where they are heard. */
   readonly routing = computed<
     Pick<
-      MixerState,
+      RoutingState,
       'deckOutputs' | 'headphonesChoices' | 'headphonesNote' | 'boothChoices' | 'boothNote'
     >
   >(
     () => {
       const { deckOutputs, headphonesChoices, headphonesNote, boothChoices, boothNote } =
-        this.told();
+        this.routed();
       return { deckOutputs, headphonesChoices, headphonesNote, boothChoices, boothNote };
     },
     { equal: same },
   );
   /** What the Rec menu offers. */
-  readonly recordOptions = computed<MixerState['recordOptions']>(() => this.told().recordOptions, {
-    equal: same,
-  });
+  readonly recordOptions = computed<RoutingState['recordOptions']>(
+    () => this.routed().recordOptions,
+    { equal: same },
+  );
 
   /** The outputs of `deck` to an external mixer, counting from 1 (`3-4`). */
   outputsOf(deck: number): string {

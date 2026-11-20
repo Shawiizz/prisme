@@ -2,11 +2,12 @@
 
 use super::{
     AudioHealthDto, AutoDjStatusDto, DeckPadsDto, DeckSettingsDto, DeckStatusDto, FoldersStateDto,
-    LibraryListsDto, LibraryViewDto, MixerStateDto, RecordingStatusDto, StemsStateDto, TrackInfoDto,
+    LibraryListsDto, LibraryViewDto, MixerStateDto, RecordingStatusDto, RoutingStateDto, StemsStateDto,
+    TrackInfoDto,
 };
 use crate::commands::audio::AudioStateDto;
 use crate::commands::controllers::ControllersStateDto;
-use crate::commands::mixer::{decks_of, mixer_state_of};
+use crate::commands::mixer::{decks_of, mixer_state_of, routing_of};
 use crate::commands::preferences::PreferencesDto;
 use crate::state::{lock, AppState, Section};
 use prisme_actions::meter::Levels;
@@ -46,6 +47,8 @@ pub struct StatusDto {
 pub struct ControlStateDto {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub mixer: Option<MixerStateDto>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub routing: Option<RoutingStateDto>,
     /// The decks' settings.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub decks: Option<Vec<DeckSettingsDto>>,
@@ -100,6 +103,7 @@ impl ControlStateDto {
                     controls.mixer = Some(mixer_state_of(state, view));
                     (controls.quantize, controls.pitch_range) = (Some(quantize), Some(pitch_range));
                 }
+                Section::Routing => controls.routing = Some(routing_of(state, view.decks_in_use)),
                 Section::Decks => controls.decks = Some(decks_of(state, view)),
                 Section::Tracks => {
                     let tracks = lock(&state.tracks)
