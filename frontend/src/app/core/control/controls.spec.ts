@@ -153,19 +153,24 @@ describe('controls', () => {
     expect(calls).toEqual(['perform(deck1.fx.knob3,0.2,false)', 'perform(deck2.fx.next,1,false)']);
   });
 
-  it('preview the selected track, move through it, stop it, or load and play', () => {
+  it('preview the selected track, move through it, stop it, or have the backend load it', () => {
     const { calls, find } = recorder();
     find('library.preview').apply(1);
     find('library.preview').apply(0);
     find('library.preview.seek').apply(-2);
     find('library.preview.stop').apply(1);
     find('library.load2.play').apply(1);
+    find('library.double3').apply(1);
+    find('deck1.sample2.smart').apply(1);
     expect(find('library.preview.seek').kind).toBe('encoder');
+    expect(find('library.load4').deck).toBe(3);
     expect(calls).toEqual([
       'togglePreview()',
       'seekPreview(-2)',
       'stopPreview()',
-      'loadSelectedAndPlay(1)',
+      'perform(library.load2.play,1,false)',
+      'perform(library.double3,1,false)',
+      'perform(deck1.sample2.smart,1,false)',
     ]);
   });
 
@@ -340,39 +345,6 @@ describe('controls', () => {
       'go()',
       'setFocus(lists)',
       'setFocus(tracks)',
-    ]);
-  });
-
-  it('a smart sample pad loads an empty slot, plays a loaded one, stops a playing one', () => {
-    const slots = { loaded: false, playing: false };
-    const calls: string[] = [];
-    const actions = new Proxy(
-      {},
-      {
-        get:
-          (_, name: string) =>
-          (...args: unknown[]) => {
-            if (name === 'sampleLoaded') return slots.loaded;
-            if (name === 'samplePlaying') return slots.playing;
-            calls.push(`${name}(${args.join(',')})`);
-            return true;
-          },
-      },
-    ) as ControlActions;
-    const pad = buildControls(actions).find((c) => c.id === 'deck2.sample3.smart')!;
-    const press = () => {
-      pad.apply(1);
-      pad.apply(0);
-    };
-    press();
-    slots.loaded = true;
-    press();
-    slots.playing = true;
-    press();
-    expect(calls).toEqual([
-      'loadSample(1,2)',
-      'perform(deck2.sample3,1,false)',
-      'perform(deck2.sample3.stop,1,false)',
     ]);
   });
 

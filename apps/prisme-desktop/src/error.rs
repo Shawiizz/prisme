@@ -36,6 +36,14 @@ pub enum AppError {
     SilentMaster,
     #[error("no headphones of their own to preview in: choose their outputs in the settings")]
     NoPreviewOutput,
+    /// The track of a deck that plays stays on it, the DJ having chosen so (`eject`: taken off,
+    /// else replaced).
+    #[error("deck {} plays: its track stays on it", .deck + 1)]
+    DeckPlays { deck: usize, eject: bool },
+    /// The track of a deck that plays leaves it once the DJ says so: `target` performed again
+    /// then.
+    #[error("deck {} plays: its track leaves it once the DJ says so", .deck + 1)]
+    ConfirmReplace { target: String, deck: usize, eject: bool },
     #[error("{0} is not a folder")]
     FolderNotFound(String),
     /// The music folder it is, or is in.
@@ -108,6 +116,10 @@ impl AppError {
             AppError::AlreadyRecording => ("alreadyRecording", none()),
             AppError::SilentMaster => ("silentMaster", none()),
             AppError::NoPreviewOutput => ("noPreviewOutput", none()),
+            AppError::DeckPlays { deck, eject } => ("deckPlays", json!({ "deck": deck, "eject": eject })),
+            AppError::ConfirmReplace { target, deck, eject } => {
+                ("confirmReplace", json!({ "target": target, "deck": deck, "eject": eject }))
+            }
             AppError::FolderNotFound(_) => ("folderNotFound", none()),
             AppError::FolderAlreadyIn(folder) => ("folderAlreadyIn", json!({ "folder": folder })),
             AppError::FolderHoldsAnother(folder) => ("folderHoldsAnother", json!({ "folder": folder })),

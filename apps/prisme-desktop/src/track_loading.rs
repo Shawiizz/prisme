@@ -4,7 +4,7 @@
 //! as the audio is decoded and drawn as it comes (`track_waveform`), and the analysis,
 //! sent to the UI once known (`deck-track-update`).
 
-use crate::dto::{DeckTrackUpdateDto, TrackAnalysisDto, TrackInfoDto};
+use crate::dto::{DeckTrackUpdateDto, TrackAnalysisDto};
 use crate::error::AppResult;
 use crate::library_service::LibraryService;
 use crate::preview::Previews;
@@ -51,18 +51,18 @@ pub fn preload(
 
 /// Puts `path` on `deck` as soon as it can play (blocks while its start is read); its
 /// waveform and analysis follow. The preview of the same file stops: it is on a deck now.
-/// `None` if another load was asked for on the deck meanwhile: that one goes there.
-pub fn load_on_deck(app: &AppHandle, deck: usize, path: PathBuf) -> AppResult<Option<TrackInfoDto>> {
+/// Whether it went there: not if another load was asked for on the deck meanwhile, which goes
+/// there instead. The interface hears of it with the decks' tracks.
+pub fn load_on_deck(app: &AppHandle, deck: usize, path: PathBuf) -> AppResult<bool> {
     let state = app.state::<AppState>();
     state.has_deck(deck)?;
     let turn = state.ask_load(deck);
     let (track, completion) = prepare(path, &app.state::<Arc<LibraryService>>())?;
-    let info = track.info(deck);
     let commands = track.load_commands(deck, state.preferences.read(|p| p.dj.auto_gain));
     let file = track.path.clone();
-    if !state.put_track(deck, turn, Some(track), commands)? {
+    if !state.put_track(&turn, Some(track), commands)? {
         info!("{} not put on deck {deck}: another load was asked for meanwhile", file.display());
-        return Ok(None);
+        return Ok(false);
     }
     if let Err(e) = app.state::<Previews>().stop_previewing(&state, &file) {
         warn!("the preview of {} goes on: {e}", file.display());
@@ -70,7 +70,7 @@ pub fn load_on_deck(app: &AppHandle, deck: usize, path: PathBuf) -> AppResult<Op
     crate::actions::deck::loaded(&state, deck);
     let app = app.clone();
     tauri::async_runtime::spawn_blocking(move || completion.run(&app));
-    Ok(Some(info))
+    Ok(true)
 }
 
 /// The track, playable, and what is left to do ([`Completion::run`]).

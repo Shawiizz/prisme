@@ -380,17 +380,44 @@ impl<T> Lock for Mirrored<T> {
 }
 
 /// The loads asked for on each deck, in turn: one ends on its deck only if no other was asked
-/// for there since.
+/// for there since. A deck loads until the last one asked for there is over.
 #[derive(Default)]
-struct LoadTurns([AtomicU64; MAX_DECKS]);
+struct LoadTurns {
+    asked: [AtomicU64; MAX_DECKS],
+    /// The last turn over on each deck.
+    over: [AtomicU64; MAX_DECKS],
+}
 
 impl LoadTurns {
     fn ask(&self, deck: usize) -> u64 {
-        self.0[deck].fetch_add(1, Ordering::SeqCst) + 1
+        self.asked[deck].fetch_add(1, Ordering::SeqCst) + 1
     }
 
     fn is_last(&self, deck: usize, turn: u64) -> bool {
-        self.0[deck].load(Ordering::SeqCst) == turn
+        self.asked[deck].load(Ordering::SeqCst) == turn
+    }
+
+    fn end(&self, deck: usize, turn: u64) {
+        self.over[deck].fetch_max(turn, Ordering::SeqCst);
+    }
+
+    fn loading(&self, deck: usize) -> bool {
+        self.over[deck].load(Ordering::SeqCst) != self.asked[deck].load(Ordering::SeqCst)
+    }
+}
+
+/// A load asked for on a deck ([`AppState::ask_load`]), over once dropped, whether its track
+/// went there or not.
+pub struct LoadTurn<'a> {
+    state: &'a AppState,
+    deck: usize,
+    turn: u64,
+}
+
+impl Drop for LoadTurn<'_> {
+    fn drop(&mut self) {
+        self.state.load_turns.end(self.deck, self.turn);
+        self.state.revision.fetch_add(1, Ordering::SeqCst);
     }
 }
 
@@ -548,26 +575,33 @@ impl AppState {
     }
 
     /// Asks for a load on `deck` (a track, a double, or none): those asked for before it no
-    /// longer end there. Its turn, for [`AppState::put_track`].
-    pub fn ask_load(&self, deck: usize) -> u64 {
-        self.load_turns.ask(deck)
+    /// longer end there. Its turn, for [`AppState::put_track`]: the deck loads until it is
+    /// dropped, if no other was asked for there since.
+    pub fn ask_load(&self, deck: usize) -> LoadTurn<'_> {
+        let turn = self.load_turns.ask(deck);
+        self.revision.fetch_add(1, Ordering::SeqCst);
+        LoadTurn { state: self, deck, turn }
     }
 
-    /// Puts `track` on `deck` and sends the engine `commands` (its load), unless another load
-    /// was asked for there since `turn`; whether it did.
+    /// Whether each deck loads a track.
+    pub fn loading(&self) -> [bool; MAX_DECKS] {
+        std::array::from_fn(|deck| self.load_turns.loading(deck))
+    }
+
+    /// Puts `track` on the deck of `turn` and sends the engine `commands` (its load), unless
+    /// another load was asked for there since; whether it did.
     pub fn put_track(
         &self,
-        deck: usize,
-        turn: u64,
+        turn: &LoadTurn,
         track: Option<LoadedTrack>,
         commands: impl IntoIterator<Item = Command>,
     ) -> AppResult<bool> {
         // held while the engine is told: it gets the loads in the order the decks do
         let mut tracks = lock(&self.tracks);
-        if !self.load_turns.is_last(deck, turn) {
+        if !self.load_turns.is_last(turn.deck, turn.turn) {
             return Ok(false);
         }
-        tracks[deck] = track;
+        tracks[turn.deck] = track;
         for c in commands {
             self.send_if_running(c)?;
         }
@@ -1213,6 +1247,20 @@ mod tests {
         let other_deck = turns.ask(0);
         assert!(turns.is_last(1, quick) && !turns.is_last(1, slow));
         assert!(turns.is_last(0, other_deck));
+    }
+
+    #[test]
+    fn a_deck_loads_until_the_last_load_asked_for_there_is_over() {
+        let state = AppState::new(JsonFile::in_memory(Default::default()));
+        let slow = state.ask_load(1);
+        let quick = state.ask_load(1);
+        assert_eq!(state.loading(), [false, true, false, false]);
+        drop(quick);
+        assert_eq!(state.loading(), [false; MAX_DECKS], "the slow one ends nowhere");
+        let revision = state.revision();
+        drop(slow);
+        assert_eq!(state.loading(), [false; MAX_DECKS]);
+        assert!(state.revision() > revision, "the interface hears of it");
     }
 
     /// An engine called every few milliseconds, as by a sound card, until the returned flag

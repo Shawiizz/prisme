@@ -14,10 +14,10 @@ describe('DeckPads', () => {
     calls = [];
     const performance = TestBed.inject(PerformanceService);
     vi.spyOn(performance, 'roll').mockImplementation(
-      async (d, i, held) => void calls.push(`roll ${d} ${i} ${held}`),
+      async (d, i, held) => calls.push(`roll ${d} ${i} ${held}`) > 0,
     );
     vi.spyOn(performance, 'censor').mockImplementation(
-      async (d, a) => void calls.push(`censor ${d} ${a}`),
+      async (d, a) => calls.push(`censor ${d} ${a}`) > 0,
     );
     TestBed.inject(EngineService).status.set({
       decks: [0, 1].map(() => ({ loaded: true, looping: {}, samplesPlaying: 0 })),

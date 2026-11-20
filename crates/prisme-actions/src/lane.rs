@@ -12,7 +12,8 @@ pub enum Lane {
 
 pub fn lane(target: &Target) -> Lane {
     match target {
-        // a cue or a beat grid written to the library, a sound decoded, a track ejected
+        // a cue or a beat grid written to the library, a track or a sound read, and what they
+        // replace, a recording started or ended
         Target::Deck(
             _,
             DeckAction::Cue
@@ -27,15 +28,13 @@ pub fn lane(target: &Target) -> Lane {
             | DeckAction::GridMove
             | DeckAction::Tap
             | DeckAction::Eject
-            | DeckAction::Sample(_, SampleAction::Load | SampleAction::Smart),
+            | DeckAction::Sample(_, SampleAction::Load | SampleAction::Smart | SampleAction::Eject),
         )
         | Target::Library(
             LibraryAction::Load(_)
             | LibraryAction::LoadPlay(_)
             | LibraryAction::LoadFree
-            | LibraryAction::Double(_)
-            | LibraryAction::Go
-            | LibraryAction::Preview,
+            | LibraryAction::Double(_),
         )
         | Target::General(GeneralAction::Record) => Lane::Slow,
         _ => Lane::Instant,
@@ -64,7 +63,10 @@ mod tests {
             "deck1.cue",
             "deck2.tap",
             "deck1.sample2.load",
+            "deck1.sample2.eject",
+            "deck1.eject",
             "library.load1",
+            "library.double2",
             "general.record",
         ] {
             assert_eq!(of(id), Lane::Slow, "{id}");

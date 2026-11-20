@@ -29,12 +29,13 @@ import { ConfirmService } from '../../shared/confirm/confirm';
 import { same } from '../same';
 import { deckLetter } from '../../shared/time';
 import { t } from '../i18n/i18n';
-import { errorText } from '../errors';
+import { errorText, isBackendError } from '../errors';
 
 /** Slower than this, a deck under its record is still: a hand holding it, the record stopped. */
 const MOVING_SPEED = 0.05;
 /** How long a refusal stays said. */
 const REFUSAL_MS = 5000;
+const NONE_LOADING: boolean[] = Array(MAX_DECKS).fill(false);
 
 const DEFAULT_DECK: DeckSettings = {
   pitch: 1,
@@ -75,7 +76,8 @@ export class EngineService {
   /** What the app mirrors as the backend last told it changed (`EngineStatus.controls`). */
   readonly controls = signal<ControlState | null>(null);
   readonly tracks = signal<(TrackInfo | null)[]>(Array(MAX_DECKS).fill(null));
-  readonly loading = signal<boolean[]>(Array(MAX_DECKS).fill(false));
+  /** Whether each deck loads a track. */
+  readonly loading = computed(() => this.controls()?.loading ?? NONE_LOADING);
   /** Waveform of each deck's track, once fetched. */
   readonly waveforms = signal<(Waveform | null)[]>(Array(MAX_DECKS).fill(null));
   readonly decks = signal<DeckSettings[]>(
@@ -130,14 +132,7 @@ export class EngineService {
     };
     await invoke('subscribe_status', { channel });
     await listen<DeckTrackUpdate>('deck-track-update', (e) => this.completeTrack(e.payload));
-    // a track the Auto DJ put on a deck
-    await listen<TrackInfo>('deck-loaded', ({ payload }) => this.show(payload.deck, payload));
-    const [tracks, mixer] = await Promise.all([
-      invoke<(TrackInfo | null)[]>('loaded_tracks'),
-      invoke<MixerState>('mixer_state'),
-    ]);
-    this.tracks.set(tracks);
-    tracks.forEach((t, deck) => t && this.watchWaveform(deck, t.loadId));
+    const mixer = await invoke<MixerState>('mixer_state');
     this.showDecks(mixer);
     return mixer;
   }
@@ -153,9 +148,10 @@ export class EngineService {
     this.decks.set(mixer.decks.map((d) => ({ ...DEFAULT_DECK, ...d })));
   }
 
-  /** What the backend changed of what the app mirrors: the decks' settings, the tracks' key
-   * shifts, stem mixes and cues, the DJ's quantize and tempo range. What is the same stays as
-   * it is, for the views that follow it. */
+  /** What the backend changed of what the app mirrors: the decks' settings, their tracks (one
+   * gone leaves its deck, one not shown yet is asked for) with their key shifts, stem mixes and
+   * cues, the DJ's quantize and tempo range. What is the same stays as it is, for the views
+   * that follow it. */
   private applyControls(controls: ControlState) {
     const decks = controls.mixer.decks.map((d, deck) => {
       const next = { ...DEFAULT_DECK, ...d };
@@ -164,17 +160,53 @@ export class EngineService {
     if (decks.some((d, deck) => d !== this.decks()[deck])) this.decks.set(decks);
     const tracks = this.tracks().map((track, deck) => {
       const told = controls.tracks[deck];
-      if (!track || told?.loadId !== track.loadId) return track;
+      if (!told) return null;
+      if (track?.loadId !== told.loadId) return track;
       const { keyShift, stemMix, cues } = told;
       const next = { ...track, keyShift, stemMix, cues };
       return same(next, track) ? track : next;
     });
-    if (tracks.some((t, deck) => t !== this.tracks()[deck])) this.tracks.set(tracks);
+    if (tracks.some((t, deck) => t !== this.tracks()[deck])) {
+      this.tracks.set(tracks);
+      this.waveforms.update((waveforms) => waveforms.map((w, deck) => (tracks[deck] ? w : null)));
+    }
     const { quantize, pitchRange } = controls;
     const dj = this.preferences.dj();
     if (dj.quantize !== quantize || dj.pitchRange !== pitchRange)
       this.preferences.dj.set({ ...dj, quantize, pitchRange });
     this.controls.set(controls);
+    if (this.unknownTrack()) void this.fetchTracks();
+  }
+
+  /** Whether the backend has a track on a deck that the app does not show yet. */
+  private unknownTrack(): boolean {
+    const told = this.controls()?.tracks ?? [];
+    return told.some((t, deck) => t !== null && t.loadId !== this.tracks()[deck]?.loadId);
+  }
+
+  private fetching = false;
+
+  /** Shows the tracks the backend put on the decks, whoever loaded them (the DJ, a controller,
+   * the Auto DJ), asking again while it tells of others meanwhile. */
+  private async fetchTracks() {
+    if (this.fetching) return;
+    this.fetching = true;
+    try {
+      let asked: ControlState | null;
+      do {
+        asked = this.controls();
+        const tracks = await invoke<(TrackInfo | null)[]>('loaded_tracks');
+        tracks.forEach((info, deck) => {
+          const told = this.controls()?.tracks[deck];
+          if (info && info.loadId === told?.loadId && info.loadId !== this.tracks()[deck]?.loadId)
+            this.show(deck, info);
+        });
+      } while (this.controls() !== asked && this.unknownTrack());
+    } catch (e) {
+      this.error.set(errorText(e));
+    } finally {
+      this.fetching = false;
+    }
   }
 
   /** Matches the leader once and leaves the deck free (unlocking it first). */
@@ -309,76 +341,10 @@ export class EngineService {
     return bpm && trackBpm ? bpm / trackBpm : null;
   }
 
-  /** Loads `path` on `deck`; whether it was. */
-  async load(deck: number, path: string): Promise<boolean> {
-    if (!(await this.mayReplace(deck))) return false;
-    return this.put(deck, () => invoke<TrackInfo | null>('load_track', { deck, path }));
-  }
-
-  /** Takes the track off `deck`; whether it was. */
-  async eject(deck: number): Promise<boolean> {
-    if (!(await this.mayReplace(deck, 'eject'))) return false;
-    await this.call('eject_track', { deck });
-    const without = <T>(values: T[]) => values.map((v, d) => (d === deck ? null : v));
-    this.tracks.update(without);
-    this.waveforms.update(without);
-    return true;
-  }
-
   /** Whether a touch of the controller's jog wheel of `deck` holds the record. */
   setJogScratch(deck: number, on: boolean) {
     this.patchDeck(deck, { jogScratch: on });
     return this.call('set_jog_scratch', { deck, on });
-  }
-
-  /** The track of deck `from` on `deck`, where it is and playing if it plays. */
-  async double(from: number, deck: number): Promise<void> {
-    if (!this.tracks()[from] || !(await this.mayReplace(deck))) return;
-    await this.put(deck, () => invoke<TrackInfo | null>('double_deck', { from, deck }));
-  }
-
-  /** The track of a deck that plays, by itself or under its record, gives way to another or
-   * leaves the deck only if the DJ says so; never, if the DJ chose so. */
-  private async mayReplace(deck: number, by: 'load' | 'eject' = 'load'): Promise<boolean> {
-    const d = this.status()?.decks[deck];
-    if (!d?.loaded || (!d.playing && Math.abs(d.speed) < MOVING_SPEED)) return true;
-    const letter = { deck: deckLetter(deck) };
-    const eject = by === 'eject';
-    if (this.preferences.dj().protectPlaying) {
-      this.refuse(
-        eject
-          ? t('Deck {deck} is playing: its track stays on it', letter)
-          : t('Deck {deck} is playing: nothing is loaded on it', letter),
-      );
-      return false;
-    }
-    return this.confirm.ask({
-      title: t('Deck {deck} is playing', letter),
-      detail: eject
-        ? t('The track playing stops and leaves the deck.')
-        : t('The track playing stops, and the new one takes its place.'),
-      confirm: eject ? t('Eject') : t('Load'),
-      cancel: t('Cancel'),
-    });
-  }
-
-  /** Puts on `deck` what `load` gives, nothing if another load asked for there since goes
-   * there instead; whether it came. */
-  private async put(deck: number, load: () => Promise<TrackInfo | null>): Promise<boolean> {
-    this.refusal.set(null);
-    this.patch(this.loading, deck, true);
-    try {
-      const info = await load();
-      if (!info) return false;
-      this.show(deck, info);
-      this.error.set(null);
-      return true;
-    } catch (e) {
-      this.error.set(errorText(e));
-      return false;
-    } finally {
-      this.patch(this.loading, deck, false);
-    }
   }
 
   /** `info` is on `deck` now: its waveform follows. */
@@ -391,10 +357,6 @@ export class EngineService {
   /** PLAY; pressed while CUE previews, the deck plays on once CUE is let go, as on a CDJ. */
   togglePlay(deck: number) {
     return this.press(deck, 'play');
-  }
-
-  setPlaying(deck: number, playing: boolean) {
-    return this.call('set_playing', { deck, playing });
   }
 
   seek(deck: number, seconds: number) {
@@ -527,9 +489,10 @@ export class EngineService {
   }
 
   /** Has the backend perform action `target` given `value`: a key's 1 pressed and 0 let go, a
-   * fader's position, or an encoder's steps (`steps`), as a controller's control would. */
-  perform(target: string, value: number, steps = false) {
-    return this.call('perform_action', { target, value, steps, step: null });
+   * fader's position, or an encoder's steps (`steps`), as a controller's control would;
+   * `confirmed`, the DJ said yes to what it replaces. Whether it was done. */
+  perform(target: string, value: number, steps = false, confirmed = false) {
+    return this.call('perform_action', { target, value, steps, step: null, confirmed });
   }
 
   /** The key of `action` of `deck` (`play`, `cue`…) pressed, or let go (`down` false). */
@@ -537,14 +500,46 @@ export class EngineService {
     return this.perform(`deck${deck + 1}.${action}`, down ? 1 : 0);
   }
 
-  /** Runs a backend command; a failure is shown rather than thrown, until one goes through. */
-  async call(command: string, args: Record<string, unknown>): Promise<void> {
+  /** Runs a backend command; a failure is shown rather than thrown, until one goes through
+   * (see `failed`). Whether it was done. */
+  async call(command: string, args: Record<string, unknown>): Promise<boolean> {
     this.refusal.set(null);
     try {
       await invoke(command, args);
       this.error.set(null);
+      return true;
     } catch (e) {
-      this.error.set(errorText(e));
+      return this.failed(e);
     }
+  }
+
+  /** What the backend did not do, for the app or a controller: the track of a deck that plays
+   * stays there (said for a few seconds, not as an error), or leaves it once the DJ says so,
+   * the action performed again then; any other failure is shown. Whether it was done in the
+   * end. */
+  async failed(error: unknown): Promise<boolean> {
+    if (!isBackendError(error) || !['deckPlays', 'confirmReplace'].includes(error.code)) {
+      this.error.set(errorText(error));
+      return false;
+    }
+    const letter = { deck: deckLetter(Number(error.params['deck'])) };
+    const eject = Boolean(error.params['eject']);
+    if (error.code === 'deckPlays') {
+      this.refuse(
+        eject
+          ? t('Deck {deck} is playing: its track stays on it', letter)
+          : t('Deck {deck} is playing: nothing is loaded on it', letter),
+      );
+      return false;
+    }
+    const confirmed = await this.confirm.ask({
+      title: t('Deck {deck} is playing', letter),
+      detail: eject
+        ? t('The track playing stops and leaves the deck.')
+        : t('The track playing stops, and the new one takes its place.'),
+      confirm: eject ? t('Eject') : t('Load'),
+      cancel: t('Cancel'),
+    });
+    return confirmed && this.perform(String(error.params['target']), 1, false, true);
   }
 }

@@ -26,9 +26,9 @@ describe('DeckWaveform', () => {
     Element.prototype.setPointerCapture = () => undefined;
     const engine = TestBed.inject(EngineService);
     const hands: string[] = [];
-    vi.spyOn(engine, 'seek').mockResolvedValue(undefined);
+    vi.spyOn(engine, 'seek').mockResolvedValue(true);
     vi.spyOn(engine, 'hand').mockImplementation(
-      async (deck, at) => void hands.push(`${deck} ${at}`),
+      async (deck, at) => hands.push(`${deck} ${at}`) > 0,
     );
     const track = { path: '/a.mp3', durationS: 60, separation: 'none' } as TrackInfo;
     engine.tracks.set([track, track]);

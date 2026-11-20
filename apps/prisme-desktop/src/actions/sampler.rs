@@ -1,8 +1,10 @@
 //! A deck's sampler: its sounds played and stopped (see `crate::sampler`).
 
 use crate::error::{AppError, AppResult};
+use crate::sampler;
 use crate::state::{lock, AppState};
 use prisme_engine::{Command, SAMPLE_SLOTS};
+use std::path::PathBuf;
 
 pub fn check_slot(deck: usize, slot: usize) -> AppResult<()> {
     AppState::check_deck(deck)?;
@@ -19,6 +21,36 @@ pub fn trigger_sample(state: &AppState, deck: usize, slot: usize, velocity: Opti
     check_slot(deck, slot)?;
     let gain = velocity.unwrap_or(1.0).clamp(0.0, 1.0);
     state.send(Command::TriggerSample { deck, slot, gain })
+}
+
+/// Puts the sound of `path` in a slot, read first; kept for the next start.
+pub fn load_sample(state: &AppState, deck: usize, slot: usize, path: PathBuf) -> AppResult<()> {
+    check_slot(deck, slot)?;
+    let audio = sampler::decode(&path)?;
+    let saved = path.display().to_string();
+    sampler::put(state, deck, slot, path, audio)?;
+    state.update_preferences(|p| {
+        let samples = &mut p.decks[deck].samples;
+        samples.resize(SAMPLE_SLOTS, None);
+        samples[slot] = Some(saved);
+    });
+    Ok(())
+}
+
+/// Empties a slot; kept for the next start.
+pub fn clear_sample(state: &AppState, deck: usize, slot: usize) -> AppResult<()> {
+    check_slot(deck, slot)?;
+    lock(&state.samplers)[deck][slot] = None;
+    state.update_preferences(|p| {
+        let samples = &mut p.decks[deck].samples;
+        if let Some(saved) = samples.get_mut(slot) {
+            *saved = None;
+        }
+        while samples.last() == Some(&None) {
+            samples.pop();
+        }
+    });
+    state.send_if_running(Command::SetSample { deck, slot, sample: None })
 }
 
 pub fn stop_sample(state: &AppState, deck: usize, slot: usize) -> AppResult<()> {

@@ -11,6 +11,7 @@ import {
 } from '../models/engine';
 import { EngineService } from './engine.service';
 import { PreferencesService } from './preferences.service';
+import { ConfirmService } from '../../shared/confirm/confirm';
 
 function deck(changes: Partial<DeckStatus> = {}): DeckStatus {
   return {
@@ -67,21 +68,17 @@ describe('EngineService', () => {
     calls = [];
     vi.spyOn(engine, 'call').mockImplementation(async (command, args) => {
       calls.push([command, args]);
+      return true;
     });
   });
 
   afterEach(() => vi.restoreAllMocks());
 
-  /** The deck as the engine tells it after what was sent. */
-  function playing(on: boolean) {
-    engine.status.set(status([deck({ playing: on }), deck()]));
-  }
-
   it('has the backend perform the keys of a deck, pressed and let go', () => {
     engine.press(1, 'cue');
     engine.press(1, 'cue', false);
     engine.togglePlay(0);
-    const performed = { steps: false, step: null };
+    const performed = { steps: false, step: null, confirmed: false };
     expect(calls).toEqual([
       ['perform_action', { target: 'deck2.cue', value: 1, ...performed }],
       ['perform_action', { target: 'deck2.cue', value: 0, ...performed }],
@@ -89,22 +86,18 @@ describe('EngineService', () => {
     ]);
   });
 
-  describe('loading', () => {
+  describe('a deck that plays', () => {
     afterEach(() => clearMocks());
 
-    it('shows nothing, and no error, when another load asked for on the deck goes there', async () => {
-      mockIPC((command) => (command === 'load_track' ? null : undefined));
-      expect(await engine.load(0, 'C:/Music/late.mp3')).toBe(false);
-      expect(engine.tracks()[0]).toBeNull();
-      expect(engine.error()).toBeNull();
-      expect(engine.loading()[0]).toBe(false);
+    const refused = (eject: boolean) => ({
+      code: 'deckPlays',
+      params: { deck: 0, eject },
+      message: 'deck 1 plays: its track stays on it',
     });
 
-    it('says for a few seconds, and not as an error, that a playing deck keeps its track', async () => {
+    it('says for a few seconds, and not as an error, that it keeps its track', async () => {
       vi.useFakeTimers();
-      TestBed.inject(PreferencesService).dj.update((p) => ({ ...p, protectPlaying: true }));
-      playing(true);
-      expect(await engine.load(0, 'C:/Music/next.mp3')).toBe(false);
+      expect(await engine.failed(refused(false))).toBe(false);
       expect(engine.refusal()).toBe('Deck A is playing: nothing is loaded on it');
       expect(engine.error()).toBeNull();
       vi.advanceTimersByTime(5000);
@@ -113,14 +106,32 @@ describe('EngineService', () => {
     });
 
     it('takes a refusal back at the next thing asked', async () => {
-      TestBed.inject(PreferencesService).dj.update((p) => ({ ...p, protectPlaying: true }));
-      playing(true);
-      await engine.eject(0);
+      await engine.failed(refused(true));
       expect(engine.refusal()).toBe('Deck A is playing: its track stays on it');
       vi.mocked(engine.call).mockRestore();
       mockIPC(() => undefined);
-      await engine.setPlaying(0, false);
+      await engine.press(0, 'play');
       expect(engine.refusal()).toBeNull();
+    });
+
+    it('gives its track up once the DJ says so, the action asked again', async () => {
+      const confirm = vi.spyOn(TestBed.inject(ConfirmService), 'ask');
+      const asked = {
+        code: 'confirmReplace',
+        params: { target: 'deck2.eject', deck: 1, eject: true },
+        message: 'deck 2 plays',
+      };
+      confirm.mockResolvedValueOnce(false);
+      expect(await engine.failed(asked)).toBe(false);
+      expect(calls).toEqual([]);
+      confirm.mockResolvedValueOnce(true);
+      expect(await engine.failed(asked)).toBe(true);
+      expect(calls).toEqual([
+        [
+          'perform_action',
+          { target: 'deck2.eject', value: 1, steps: false, step: null, confirmed: true },
+        ],
+      ]);
     });
   });
 
@@ -195,6 +206,7 @@ describe('EngineService', () => {
       return {
         mixer: { decks: engine.decks() } as ControlState['mixer'],
         tracks: [null, { loadId: 7, keyShift: -2, stemMix, cues: [drop] }, null, null],
+        loading: [false, false, false, false],
         quantize: true,
         pitchRange: 0.16,
         perform: [],
@@ -217,13 +229,31 @@ describe('EngineService', () => {
       expect([dj.quantize, dj.pitchRange]).toEqual([true, 0.16]);
     });
 
-    it('leaves what did not change as it was, and another load of a deck', () => {
+    it('leaves what did not change as it was', () => {
       const before = engine.decks();
-      engine['applyControls'](
-        controls({ tracks: [null, { loadId: 6, keyShift: 3, stemMix, cues: [] }, null, null] }),
-      );
+      engine['applyControls'](controls({}));
+      const track = engine.tracks()[1];
+      engine['applyControls'](controls({}));
       expect(engine.decks()).toBe(before);
-      expect(engine.tracks()[1]?.cues).toEqual([]);
+      expect(engine.tracks()[1]).toBe(track);
+    });
+
+    it('shows a track put on a deck whoever loaded it, and lets one taken off go', async () => {
+      const loaded = { loadId: 8, deck: 1, cues: [] } as unknown as TrackInfo;
+      mockIPC((command) => (command === 'loaded_tracks' ? [null, loaded, null, null] : undefined));
+      const loading = [false, true, false, false];
+      engine['applyControls'](controls({ loading }));
+      expect(engine.loading()).toEqual(loading);
+      engine['applyControls'](
+        controls({ tracks: [null, { loadId: 8, keyShift: 0, stemMix, cues: [] }, null, null] }),
+      );
+      expect(engine.tracks()[1]?.loadId).toBe(7);
+      await vi.waitFor(() => expect(engine.tracks()[1]?.loadId).toBe(8));
+      engine.waveforms.set([null, {} as Waveform, null, null]);
+      engine['applyControls'](controls({ tracks: [null, null, null, null] }));
+      expect(engine.tracks()[1]).toBeNull();
+      expect(engine.waveforms()[1]).toBeNull();
+      clearMocks();
     });
   });
 });

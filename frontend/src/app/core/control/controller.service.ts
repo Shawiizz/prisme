@@ -55,9 +55,7 @@ export class ControllerService {
     await listen<UiAction>('ui-action', ({ payload }) =>
       this.controls.findInUse(payload.target)?.apply(payload.value),
     );
-    await listen<unknown>('action-failed', ({ payload }) =>
-      this.engine.error.set(errorText(payload)),
-    );
+    await listen<unknown>('action-failed', ({ payload }) => void this.engine.failed(payload));
     await listen<ControllerMapping>('controller-learned', () => {
       this.learning.set(null);
       this.reloadMappings();

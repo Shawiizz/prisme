@@ -91,18 +91,7 @@ pub fn light(target: &Target, view: &View) -> Option<Light> {
         Target::AutoDj(AutoDjAction::Toggle) => Some(Light::lit(view.auto_dj)),
         _ => None,
     }?;
-    Some(if deck_of(target).is_some_and(|deck| !view.shows(deck)) { Light::OFF } else { light })
-}
-
-/// The deck an action is of, a load's among them.
-fn deck_of(target: &Target) -> Option<usize> {
-    match target {
-        Target::Deck(deck, _)
-        | Target::Library(
-            LibraryAction::Load(deck) | LibraryAction::LoadPlay(deck) | LibraryAction::Double(deck),
-        ) => Some(*deck),
-        _ => None,
-    }
+    Some(if target.deck().is_some_and(|deck| !view.shows(deck)) { Light::OFF } else { light })
 }
 
 /// Whether a switch's key turning it `turn` is lit, the switch `on` or not: its key turning it

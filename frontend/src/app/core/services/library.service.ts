@@ -144,7 +144,8 @@ export class LibraryService {
   readonly filter = signal('');
   readonly scope = signal<SearchScope>('list');
   readonly sort = signal<TrackSort>({ column: 'title', direction: 1 });
-  /** The track the keyboard and the controllers move through, and load. */
+  /** The track the keyboard and the controllers move through, and load (the backend is told of
+   * it). */
   readonly selected = signal<string | null>(null);
   /** Tracks picked with Ctrl and Shift clicks (or Ctrl + A), the cursor's among them. */
   readonly picked = signal<ReadonlySet<string>>(new Set());
@@ -279,6 +280,10 @@ export class LibraryService {
   });
 
   constructor() {
+    effect(() => {
+      const path = this.selected();
+      untracked(() => void this.tellSelection(path));
+    });
     effect(() => {
       this.referenceTrack();
       if (this.sort().column === 'mix') untracked(() => this.captureMixReference());
@@ -670,10 +675,9 @@ export class LibraryService {
 
   /** Loads the selected track on the first deck that is not playing, if one is not. */
   loadSelectedOnStoppedDeck() {
-    const path = this.selected();
     const decks = this.engine.status()?.decks ?? [];
     const stopped = firstStoppedDeck(this.engine.deckIndexes(), (d) => !!decks[d]?.playing);
-    if (path && stopped !== undefined) this.load(path, stopped);
+    if (stopped !== undefined) void this.engine.perform(`library.load${stopped + 1}`, 1);
   }
 
   moveSelection(delta: number) {
@@ -685,23 +689,19 @@ export class LibraryService {
     this.selected.set(tracks[next].path);
   }
 
-  /** Loads the selected track on `deck`, or on the first free deck (deck A if none). */
-  loadSelected(deck: number | null) {
-    const path = this.selected();
-    if (path) this.load(path, deck);
-  }
-
-  /** Loads the selected track on `deck` and plays it (if it was loaded). */
-  async loadSelectedAndPlay(deck: number) {
-    const path = this.selected();
-    if (path && (await this.load(path, deck))) await this.engine.setPlaying(deck, true);
-  }
-
-  /** Loads `path` on `deck`, or on the first free deck (deck A if none); whether it was. */
-  load(path: string, deck: number | null): Promise<boolean> {
+  /** Loads `path` on `deck`, or on the first deck without a track (deck A if none), selected
+   * first: the backend loads the selected track. Whether it was. */
+  async load(path: string, deck: number | null): Promise<boolean> {
     this.selected.set(path);
-    const free = this.engine.deckIndexes().find((d) => !this.engine.tracks()[d]);
-    return this.engine.load(deck ?? free ?? 0, path);
+    await this.tellSelection(path);
+    return this.engine.perform(deck === null ? 'library.load' : `library.load${deck + 1}`, 1);
+  }
+
+  /** Tells the backend the track selected. */
+  private tellSelection(path: string | null): Promise<void> {
+    return invoke<void>('set_library_selection', { path }).catch((e) =>
+      this.error.set(errorText(e)),
+    );
   }
 
   /** Browses `source`, its tracks those `tracks` gives, unless another list was asked for

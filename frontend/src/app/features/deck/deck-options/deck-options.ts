@@ -215,7 +215,7 @@ export class DeckOptions {
   }
 
   protected async eject() {
-    if (await this.engine.eject(this.deck())) this.ejected.emit();
+    if (await this.engine.press(this.deck(), 'eject')) this.ejected.emit();
   }
 
   protected spinBack(held: boolean) {

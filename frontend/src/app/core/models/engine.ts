@@ -131,8 +131,10 @@ export interface EngineStatus {
 /** What the app mirrors of the decks, their tracks, the mixer and the DJ's preferences. */
 export interface ControlState {
   mixer: MixerState;
-  /** What changes of each deck's track while it stays loaded. */
+  /** Each deck's track by its load, and what changes of it while it stays there. */
   tracks: (TrackState | null)[];
+  /** Whether each deck loads a track. */
+  loading: boolean[];
   quantize: boolean;
   /** The range of the tempo faders without one of their own. */
   pitchRange: number;

@@ -25,7 +25,7 @@ pub const MAX_KEY_SHIFT: u8 = 12;
 pub(super) fn turn(doing: &Performing, deck: usize, action: DeckAction, input: Input) -> AppResult<()> {
     let steps_per_turn = match doing.source {
         super::Source::Controller(moved) => moved.jog_steps_per_turn,
-        super::Source::Interface => prisme_control::JOG_STEPS_PER_TURN,
+        super::Source::Interface | super::Source::Confirmed => prisme_control::JOG_STEPS_PER_TURN,
     };
     let jog_scratch = lock(&doing.state.decks)[deck].jog_scratch;
     let Some(command) = jog(deck, action, input, doing.at_s(), steps_per_turn, jog_scratch) else {

@@ -1,7 +1,6 @@
 import { computed, Injectable, inject } from '@angular/core';
 import { EngineService } from '../services/engine.service';
 import { LibraryService } from '../services/library.service';
-import { SamplerService } from '../services/sampler.service';
 import { NavigationService } from '../services/navigation.service';
 import { RecordingService } from '../services/recording.service';
 import { PREVIEW_STEP_S, PreviewService } from '../services/preview.service';
@@ -11,7 +10,6 @@ import { Control, ControlActions, buildControls, measuredControl } from './contr
 @Injectable({ providedIn: 'root' })
 export class ControlService {
   private readonly engine = inject(EngineService);
-  private readonly sampler = inject(SamplerService);
   private readonly library = inject(LibraryService);
   private readonly navigation = inject(NavigationService);
   private readonly preview = inject(PreviewService);
@@ -19,21 +17,16 @@ export class ControlService {
 
   private readonly actions: ControlActions = {
     perform: (id, value, steps) => this.engine.perform(id, value, steps),
-    sampleLoaded: (deck, slot) => !!this.engine.decks()[deck].samples[slot],
-    samplePlaying: (deck, slot) => ((this.deck(deck)?.samplesPlaying ?? 0) & (1 << slot)) !== 0,
     browse: (steps) =>
       this.library.focus() === 'lists'
         ? this.library.movePointedList(steps)
         : this.library.moveSelection(steps),
-    loadSelected: (deck) => this.library.loadSelected(deck),
-    loadSelectedAndPlay: (deck) => this.library.loadSelectedAndPlay(deck),
     togglePreview: () => {
       const path = this.library.selected();
       if (path) this.preview.toggle(path);
     },
     stopPreview: () => this.preview.stop(),
     seekPreview: (steps) => this.preview.skip(steps * PREVIEW_STEP_S),
-    double: (deck) => this.engine.double(deck ^ 1, deck),
     removeSelected: () => this.library.removeSelected(),
     selectAll: () => this.library.selectAll(),
     clearSelection: () => this.library.clearSelection(),
@@ -42,12 +35,6 @@ export class ControlService {
     toggleHelp: () => this.navigation.toggleSettings('shortcuts'),
     togglePalette: () => this.navigation.togglePalette(),
     openSettings: () => this.navigation.openSettings(),
-    eject: (deck) => this.engine.eject(deck),
-    ejectSample: (deck, slot) => this.sampler.clear(deck, slot),
-    loadSample: (deck, slot) => {
-      const path = this.library.selected();
-      if (path) this.sampler.load(deck, slot, path);
-    },
     toggleRecording: () =>
       this.recordings.status() ? this.recordings.stop() : this.recordings.startPreferred(),
     moveFocus: () => this.library.focus.update((f) => (f === 'tracks' ? 'lists' : 'tracks')),
@@ -102,9 +89,5 @@ export class ControlService {
   private measured(id: string): Control | undefined {
     if (!this.measuredById.has(id)) this.measuredById.set(id, measuredControl(this.actions, id));
     return this.measuredById.get(id);
-  }
-
-  private deck(deck: number) {
-    return this.engine.status()?.decks[deck];
   }
 }

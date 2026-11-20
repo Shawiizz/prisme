@@ -1046,8 +1046,11 @@ pub struct StatusDto {
 #[serde(rename_all = "camelCase")]
 pub struct ControlStateDto {
     pub mixer: MixerStateDto,
-    /// What changes of each deck's track while it stays loaded.
+    /// Each deck's track by its load, and what changes of it while it stays there: the
+    /// interface asks for one it does not show yet (`loaded_tracks`).
     pub tracks: Vec<Option<TrackStateDto>>,
+    /// Whether each deck loads a track.
+    pub loading: Vec<bool>,
     pub quantize: bool,
     /// The range of the tempo faders without one of their own.
     pub pitch_range: f64,
@@ -1102,7 +1105,8 @@ impl ControlStateDto {
                 fx_focus: d.fx_focus,
             })
             .collect();
-        Self { mixer: mixer_state_of(state), tracks, quantize, pitch_range, perform }
+        let loading = state.loading().to_vec();
+        Self { mixer: mixer_state_of(state), tracks, loading, quantize, pitch_range, perform }
     }
 }
 

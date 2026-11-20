@@ -12,6 +12,7 @@ describe('PerformanceService', () => {
     const calls: unknown[] = [];
     vi.spyOn(engine, 'perform').mockImplementation(async (target, value) => {
       calls.push([target, value]);
+      return true;
     });
     const none: DeckPerform = { slicer: null, cut: null, roll: null, fxFocus: null };
     expect(performance.cuts()).toEqual([null, null, null, null]);

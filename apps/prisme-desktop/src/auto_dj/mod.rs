@@ -29,8 +29,6 @@ use tauri::{AppHandle, Emitter, Manager};
 use tracing::warn;
 
 pub const AUTO_DJ_EVENT: &str = "auto-dj";
-/// A track the Auto DJ put on a deck (`TrackInfoDto`).
-pub const DECK_LOADED_EVENT: &str = "deck-loaded";
 /// How often the decks are looked at: a mix starts at most this late (and is caught up).
 const TICK: Duration = Duration::from_millis(10);
 /// How often the first track of the prepare list is read again (the DJ reorders it).
@@ -141,12 +139,8 @@ impl AutoDj {
                 let app = app.clone();
                 std::thread::spawn(move || {
                     let loaded = match track_loading::load_on_deck(&app, deck, path.clone()) {
-                        Ok(Some(info)) => {
-                            let _ = app.emit(DECK_LOADED_EVENT, info);
-                            true
-                        }
-                        // the DJ's own load goes there: not the track's fault
-                        Ok(None) => true,
+                        // or the DJ's own load goes there: not the track's fault
+                        Ok(_) => true,
                         Err(e) => {
                             warn!("Auto DJ: {} not loaded: {e}", path.display());
                             false

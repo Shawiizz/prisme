@@ -3,7 +3,7 @@ import { Params, t } from './i18n/i18n';
 
 /** A failure of the backend (`error.rs`): a code the UI words in its language, with what it
  * needs to word it, and the English message for the codes it does not know. */
-interface BackendError {
+export interface BackendError {
   code: string;
   params: Params;
   message: string;
@@ -68,6 +68,6 @@ export function errorText(error: unknown): string {
   return TEXTS[error.code]?.(error.params) ?? error.message;
 }
 
-function isBackendError(error: unknown): error is BackendError {
+export function isBackendError(error: unknown): error is BackendError {
   return typeof error === 'object' && error !== null && 'code' in error && 'message' in error;
 }

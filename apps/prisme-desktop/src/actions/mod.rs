@@ -6,14 +6,15 @@
 //! order. What each action does is in `perform`; the zones' modules hold what the actions and
 //! the interface's commands both do, done once. What the actions keep between presses is here,
 //! and the view of the application the controllers' lights and values are read from
-//! ([`Actions::view`]). The actions the interface performs yet, a controller tells it
-//! (`ui-action`).
+//! ([`Actions::view`]). The actions the interface performs (the library's browsing, its
+//! windows), a controller tells it (`ui-action`).
 
 mod cues;
 pub mod deck;
 mod edits;
 pub mod fx;
 mod general;
+pub mod loads;
 mod loops;
 pub mod mixer;
 pub mod pads;
@@ -33,6 +34,7 @@ use prisme_actions::position::position;
 use prisme_actions::view::View;
 use prisme_control::{Owner, Target, Unknown};
 use prisme_library::LibraryDb;
+use std::path::PathBuf;
 use std::sync::mpsc::{self, Sender, SyncSender};
 use std::sync::{Arc, Mutex};
 use std::time::Instant;
@@ -59,12 +61,16 @@ pub enum Source<'d> {
     Controller(Moved<'d>),
     /// The interface: a click, a drag, a key, the command palette.
     Interface,
+    /// The interface, the DJ having said yes to what the action replaces: the track of a deck
+    /// that plays.
+    Confirmed,
 }
 
 /// A [`Source`] kept for the worker.
 enum Asked {
     Controller { device: String, at_s: f64, jog_steps_per_turn: f64 },
     Interface,
+    Confirmed,
 }
 
 impl Asked {
@@ -74,6 +80,7 @@ impl Asked {
                 Asked::Controller { device: device.to_owned(), at_s, jog_steps_per_turn }
             }
             Source::Interface => Asked::Interface,
+            Source::Confirmed => Asked::Confirmed,
         }
     }
 
@@ -83,6 +90,7 @@ impl Asked {
                 Source::Controller(Moved { device, at_s: *at_s, jog_steps_per_turn: *jog_steps_per_turn })
             }
             Asked::Interface => Source::Interface,
+            Asked::Confirmed => Source::Confirmed,
         }
     }
 }
@@ -113,6 +121,8 @@ pub struct Actions {
     /// The controllers' faders picking their settings up, and their encoders' steps short of
     /// one.
     inputs: Mutex<Inputs>,
+    /// The track selected in the library, as the interface tells it: what the loads load.
+    selected: Mutex<Option<PathBuf>>,
     /// The worker's queue (see [`Lane::Slow`]).
     slow: Sender<Job>,
     /// What the actions are timed by when no controller's clock tells it.
@@ -127,7 +137,13 @@ impl Actions {
             .name("prisme-actions".into())
             .spawn(move || jobs.into_iter().for_each(|job| job()))
             .expect("cannot start the actions' worker");
-        Self { clips: Mutex::default(), inputs: Mutex::default(), slow, started: Instant::now() }
+        Self {
+            clips: Mutex::default(),
+            inputs: Mutex::default(),
+            selected: Mutex::default(),
+            slow,
+            started: Instant::now(),
+        }
     }
 
     /// Performs `target` driven by `input`, as `source` asks: at once here, or in turn on the
@@ -220,7 +236,7 @@ impl Performing<'_> {
     fn at_s(&self) -> f64 {
         match self.source {
             Source::Controller(moved) => moved.at_s,
-            Source::Interface => self.actions.now_s(),
+            Source::Interface | Source::Confirmed => self.actions.now_s(),
         }
     }
 
@@ -229,9 +245,9 @@ impl Performing<'_> {
     /// its fader stands is read.
     fn given(&self, target: &Target, input: Input) -> Option<Given> {
         match (self.source, input) {
-            (Source::Interface, Input::Value(value)) => Some(Given::Value(value)),
+            (Source::Interface | Source::Confirmed, Input::Value(value)) => Some(Given::Value(value)),
             // the interface's encoders under a name no controller has
-            (Source::Interface, steps) => {
+            (Source::Interface | Source::Confirmed, steps) => {
                 let at = position(target, self);
                 lock(&self.actions.inputs).resolve("", target, steps, at)
             }
@@ -255,7 +271,7 @@ fn not_performed(target: &Target) -> AppError {
 }
 
 /// Performs the action `target` driven to `value` (an encoder's `steps`, each moving a fader
-/// by `step`), as the interface asks.
+/// by `step`), as the interface asks: `confirmed`, the DJ said yes to what it replaces.
 #[tauri::command]
 pub async fn perform_action(
     app: AppHandle,
@@ -263,11 +279,13 @@ pub async fn perform_action(
     value: f32,
     steps: bool,
     step: Option<f32>,
+    confirmed: bool,
 ) -> AppResult<()> {
     let target: Target = target.parse().map_err(|e: Unknown| AppError::Other(e.to_string()))?;
     let (answer, outcome) = mpsc::sync_channel(1);
     let input = Input::of(value, steps, step);
-    app.state::<Actions>().perform(&app, &target, input, Source::Interface, Answer::To(answer));
+    let source = if confirmed { Source::Confirmed } else { Source::Interface };
+    app.state::<Actions>().perform(&app, &target, input, source, Answer::To(answer));
     match outcome.try_recv() {
         Ok(outcome) => outcome,
         // queued on the worker
@@ -390,8 +408,7 @@ pub(crate) mod bench {
                 loudness: None,
             };
             let commands = track.load_commands(deck, false);
-            let turn = self.state.ask_load(deck);
-            self.state.put_track(deck, turn, Some(track), commands).unwrap();
+            self.state.put_track(&self.state.ask_load(deck), Some(track), commands).unwrap();
             self.run(0.01);
         }
 

@@ -40,19 +40,12 @@ export interface ControlActions {
   /** Has the backend perform action `id` given `value`: a key's 1 pressed and 0 let go, a
    * fader's position, or an encoder's steps (`steps`). */
   perform(id: string, value: number, steps: boolean): void;
-  sampleLoaded(deck: number, slot: number): boolean;
-  samplePlaying(deck: number, slot: number): boolean;
   browse(steps: number): void;
-  loadSelected(deck: number | null): void;
-  /** Loads the selected track on `deck` and plays it. */
-  loadSelectedAndPlay(deck: number): void;
   /** Previews the selected track in the headphones, or stops it if it is the one previewed. */
   togglePreview(): void;
   stopPreview(): void;
   /** Moves the preview by so many steps of a few seconds, back if negative. */
   seekPreview(steps: number): void;
-  /** Loads on `deck` the track of the other deck of its pair, where it is. */
-  double(deck: number): void;
   removeSelected(): void;
   selectAll(): void;
   clearSelection(): void;
@@ -61,10 +54,6 @@ export interface ControlActions {
   toggleHelp(): void;
   togglePalette(): void;
   openSettings(): void;
-  eject(deck: number): void;
-  ejectSample(deck: number, slot: number): void;
-  /** The selected track into the slot. */
-  loadSample(deck: number, slot: number): void;
   toggleRecording(): void;
   /** The browse knob on the lists of the left, or on the tracks. */
   moveFocus(): void;
@@ -347,7 +336,7 @@ function moreDeckControls(
     performed(a, id('start.play'), group, t('To the start and play')),
     performed(a, id('start.keep'), group, t('To the start')),
     performed(a, id('end'), group, t('To the end')),
-    button(id('eject'), group, t('Eject the track'), () => a.eject(deck)),
+    performed(a, id('eject'), group, t('Eject the track')),
     performed(a, id('sync.once'), group, t('Match the tempo and beats once')),
     performed(a, id('sync.leader'), group, t('Lead the other decks')),
     performed(a, id('search.back'), group, t('Run back through the track while held')),
@@ -388,17 +377,17 @@ function moreDeckControls(
     performed(a, id('sampler.gain'), group, t('Sampler level'), 'fader'),
     ...Array.from({ length: SAMPLE_SLOTS }, (_, slot) => [
       performed(a, id(`sample${slot + 1}.stop`), group, t('Stop sample {n}', { n: slot + 1 })),
-      button(
+      performed(
+        a,
         id(`sample${slot + 1}.eject`),
         group,
         t('Empty sample slot {n}', { n: slot + 1 }),
-        () => a.ejectSample(deck, slot),
       ),
-      button(
+      performed(
+        a,
         id(`sample${slot + 1}.load`),
         group,
         t('The selected track into sample slot {n}', { n: slot + 1 }),
-        () => a.loadSample(deck, slot),
       ),
       performed(
         a,
@@ -406,15 +395,11 @@ function moreDeckControls(
         group,
         t('Sample {n} while held', { n: slot + 1 }),
       ),
-      button(
+      performed(
+        a,
         id(`sample${slot + 1}.smart`),
         group,
         t('Sample {n}: load the selected track, play, or stop', { n: slot + 1 }),
-        () => {
-          if (a.samplePlaying(deck, slot)) a.perform(id(`sample${slot + 1}.stop`), 1, false);
-          else if (a.sampleLoaded(deck, slot)) a.perform(id(`sample${slot + 1}`), 1, false);
-          else a.loadSample(deck, slot);
-        },
       ),
     ]).flat(),
     ...switched(a, id('vinyl'), group, t('Vinyl control')),
@@ -517,21 +502,21 @@ export function buildControls(a: ControlActions): Control[] {
     button('library.previous', library, t('Previous track'), () => a.browse(-1)),
     button('library.next', library, t('Next track'), () => a.browse(1)),
     ...Array.from({ length: MAX_DECKS }, (_, deck) => ({
-      ...button(
+      ...performed(
+        a,
         `library.load${deck + 1}`,
         library,
         t('Load on deck {deck}', { deck: deckLetter(deck) }),
-        () => a.loadSelected(deck),
       ),
       deck,
     })),
-    button('library.load', library, t('Load on a free deck'), () => a.loadSelected(null)),
+    performed(a, 'library.load', library, t('Load on a free deck')),
     ...Array.from({ length: MAX_DECKS }, (_, deck) => ({
-      ...button(
+      ...performed(
+        a,
         `library.load${deck + 1}.play`,
         library,
         t('Load on deck {deck} and play', { deck: deckLetter(deck) }),
-        () => a.loadSelectedAndPlay(deck),
       ),
       deck,
     })),
@@ -547,11 +532,11 @@ export function buildControls(a: ControlActions): Control[] {
       apply: (steps) => a.seekPreview(steps),
     },
     ...Array.from({ length: MAX_DECKS }, (_, deck) => ({
-      ...button(
+      ...performed(
+        a,
         `library.double${deck + 1}`,
         library,
         t('Instant double on deck {deck}', { deck: deckLetter(deck) }),
-        () => a.double(deck),
       ),
       deck,
     })),

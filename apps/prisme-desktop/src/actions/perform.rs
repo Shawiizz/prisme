@@ -20,9 +20,11 @@ use prisme_engine::Command;
 use transport::{LOOP_BEATS, PITCH_BEND, SMALL_BEND, TEMPO_STEP};
 
 impl Performing<'_> {
-    /// Performs `target` driven by `input`: nothing on a deck not in use.
+    /// Performs `target` driven by `input`: nothing on a deck not in use, nor for a light.
     pub(super) fn perform(&self, target: &Target, input: Input) -> AppResult<()> {
-        if target.deck().is_some_and(|deck| self.state.has_deck(deck).is_err()) {
+        if target.kind() == Kind::Light
+            || target.deck().is_some_and(|deck| self.state.has_deck(deck).is_err())
+        {
             return Ok(());
         }
         if let Target::Deck(deck, action @ (DeckAction::Jog | DeckAction::JogTouch | DeckAction::JogSearch)) =
@@ -39,6 +41,8 @@ impl Performing<'_> {
                 _ => self.deck(deck, action, given),
             },
             Target::Mixer(action) => self.mixer(action, given),
+            Target::Library(action) if given.pressed() => self.load(action),
+            Target::Library(_) => Ok(()),
             Target::General(action) => self.general(action, given),
             Target::AutoDj(action) => {
                 if let Some(auto_dj) = self.auto_dj().filter(|_| given.pressed()) {
@@ -171,6 +175,10 @@ impl Performing<'_> {
                 Given::Steps(_) => Ok(()),
             },
             DeckAction::Sample(slot, SampleAction::Stop) => sampler::stop_sample(state, deck, slot),
+            DeckAction::Sample(slot, SampleAction::Load) => self.load_sample(deck, slot),
+            DeckAction::Sample(slot, SampleAction::Eject) => sampler::clear_sample(state, deck, slot),
+            DeckAction::Sample(slot, SampleAction::Smart) => self.smart_sample(deck, slot),
+            DeckAction::Eject => self.eject(deck),
             DeckAction::HotCueDelete(slot) => self.delete_hot_cue(deck, slot),
             DeckAction::GridHere
             | DeckAction::GridEarlier

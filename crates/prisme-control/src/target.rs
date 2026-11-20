@@ -369,150 +369,39 @@ impl Target {
         }
     }
 
-    /// The deck it acts on, if it is a deck's.
+    /// The deck it acts on: a deck's, or a load's.
     pub fn deck(&self) -> Option<usize> {
         match self {
-            Target::Deck(deck, _) => Some(*deck),
+            Target::Deck(deck, _)
+            | Target::Library(
+                LibraryAction::Load(deck) | LibraryAction::LoadPlay(deck) | LibraryAction::Double(deck),
+            ) => Some(*deck),
             _ => None,
         }
     }
 
+    /// Where it is performed: in the application's core, but the library's browsing and the
+    /// application's windows, which the interface keeps, and a controller's shifts and modes,
+    /// which its reader keeps.
     pub fn owner(&self) -> Owner {
         match self {
-            Target::Deck(
-                _,
-                DeckAction::Play
-                | DeckAction::Cue
-                | DeckAction::CuePlay
-                | DeckAction::CueStop
-                | DeckAction::CueGoto
-                | DeckAction::CueSet
-                | DeckAction::Start
-                | DeckAction::StartPlay
-                | DeckAction::StartKeep
-                | DeckAction::End
-                | DeckAction::HotCue(_)
-                | DeckAction::Roll(_)
-                | DeckAction::RollBeats(_)
-                | DeckAction::Slice(_)
-                | DeckAction::Cut(_)
-                | DeckAction::FxKnob(_)
-                | DeckAction::FxPart
-                | DeckAction::SearchBack
-                | DeckAction::SearchForward
-                | DeckAction::FilterToggle
-                | DeckAction::Tap
-                | DeckAction::KeySync
-                | DeckAction::Stem(_)
-                | DeckAction::Jog
-                | DeckAction::JogTouch
-                | DeckAction::JogSearch
-                | DeckAction::Pitch
-                | DeckAction::Brake
-                | DeckAction::Spinback
-                | DeckAction::Censor
-                | DeckAction::ReverseHeld
-                | DeckAction::SlipHeld
-                | DeckAction::LoopIn
-                | DeckAction::LoopOut
-                | DeckAction::Reloop
-                | DeckAction::LoopHalve
-                | DeckAction::LoopDouble
-                | DeckAction::LoopClear
-                | DeckAction::ReloopStop
-                | DeckAction::LoopInGoto
-                | DeckAction::LoopOutGoto
-                | DeckAction::LoopMoveBack
-                | DeckAction::LoopMoveForward
-                | DeckAction::LoopMove
-                | DeckAction::JumpBeats(_)
-                | DeckAction::LoopBeats(_)
-                | DeckAction::BendDown
-                | DeckAction::BendUp
-                | DeckAction::BendDownSmall
-                | DeckAction::BendUpSmall
-                | DeckAction::SyncLeader
-                | DeckAction::EqKill(_)
-                | DeckAction::Fx(_, FxAction::Held)
-                | DeckAction::Sample(
-                    _,
-                    SampleAction::Trigger | SampleAction::Stop | SampleAction::Held | SampleAction::Velocity,
-                )
-                | DeckAction::HotCueDelete(_)
-                | DeckAction::GridHere
-                | DeckAction::GridEarlier
-                | DeckAction::GridLater
-                | DeckAction::GridFaster
-                | DeckAction::GridSlower
-                | DeckAction::GridMove
-                | DeckAction::Volume
-                | DeckAction::Trim
-                | DeckAction::Eq(_)
-                | DeckAction::Filter
-                | DeckAction::Position
-                | DeckAction::Key
-                | DeckAction::SamplerGain
-                | DeckAction::StemLevel(_)
-                | DeckAction::FxSuper
-                | DeckAction::Fx(
-                    _,
-                    FxAction::Mix
-                    | FxAction::Amount
-                    | FxAction::Param2
-                    | FxAction::Period
-                    | FxAction::Kind
-                    | FxAction::Beats
-                    | FxAction::Next
-                    | FxAction::Previous
-                    | FxAction::Focus
-                    | FxAction::Effect(_)
-                    | FxAction::Enabled(_),
-                )
-                | DeckAction::Switch(..)
-                | DeckAction::SyncOnce
-                | DeckAction::HeadphonesSolo
-                | DeckAction::CrossfaderSide(_)
-                | DeckAction::TempoReset
-                | DeckAction::TempoUp
-                | DeckAction::TempoDown
-                | DeckAction::Tempo
-                | DeckAction::TempoRange
-                | DeckAction::TempoRangePrevious
-                | DeckAction::KeyUp
-                | DeckAction::KeyDown
-                | DeckAction::KeyReset
-                | DeckAction::KeyTo(_)
-                | DeckAction::JumpBack
-                | DeckAction::JumpForward
-                | DeckAction::Loop
-                | DeckAction::LoopSize
-                | DeckAction::SizeHalve
-                | DeckAction::SizeDouble
-                | DeckAction::Size,
-            )
-            | Target::Mixer(
-                MixerAction::Crossfader
-                | MixerAction::CueMix
-                | MixerAction::Balance
-                | MixerAction::Booth
-                | MixerAction::Mic
-                | MixerAction::Aux
-                | MixerAction::Headphones
-                | MixerAction::Main
-                | MixerAction::CrossfaderCurve
-                | MixerAction::SamplerGain
-                | MixerAction::MicOn
-                | MixerAction::MicCue
-                | MixerAction::AuxOn
-                | MixerAction::AuxCue
-                | MixerAction::CrossfaderCurveNext
-                | MixerAction::Switch(..),
-            )
+            Target::Library(
+                LibraryAction::Load(_)
+                | LibraryAction::LoadPlay(_)
+                | LibraryAction::LoadFree
+                | LibraryAction::Double(_),
+            ) => Owner::Rust,
+            Target::Library(_)
             | Target::General(
-                GeneralAction::Quantize(_) | GeneralAction::TempoRange | GeneralAction::TempoRangePrevious,
+                GeneralAction::Library
+                | GeneralAction::Record
+                | GeneralAction::Help
+                | GeneralAction::Palette
+                | GeneralAction::Settings,
             )
-            | Target::AutoDj(_) => Owner::Rust,
-            _ => Owner::Ui,
+            | Target::Shift(_)
+            | Target::Mode { .. } => Owner::Ui,
+            _ => Owner::Rust,
         }
     }
 
@@ -971,5 +860,6 @@ mod tests {
         assert_eq!(several, BTreeSet::from(["deck2.jog".to_owned(), "deck2.jog.search".to_owned()]));
         assert_eq!("deck3.pitch".parse::<Target>().unwrap().deck(), Some(2));
         assert_eq!("mixer.crossfader".parse::<Target>().unwrap().deck(), None);
+        assert_eq!("library.double4".parse::<Target>().unwrap().deck(), Some(3));
     }
 }

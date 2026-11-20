@@ -11,16 +11,6 @@ use prisme_timecode::TimecodeFormat;
 use tauri::{AppHandle, Manager, State};
 
 #[tauri::command]
-pub fn set_playing(
-    state: State<'_, AppState>,
-    auto_dj: State<'_, AutoDj>,
-    deck: usize,
-    playing: bool,
-) -> AppResult<()> {
-    transport::set_playing(&state, Some(&auto_dj), deck, playing)
-}
-
-#[tauri::command]
 pub fn seek(
     state: State<'_, AppState>,
     auto_dj: State<'_, AutoDj>,
