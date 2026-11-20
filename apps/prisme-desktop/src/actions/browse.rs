@@ -36,7 +36,7 @@ pub struct Library {
     pub browser: Browser,
     pub folders: Vec<PathBuf>,
     separations: HashMap<TrackId, SeparationDto>,
-    /// As the status stream last read it (see [`Around`]).
+    /// As the clock last read it (see [`Around`]).
     pub around: Around,
     /// Why the music folder shown at start could not be read, until a list is read.
     unread: Option<serde_json::Value>,

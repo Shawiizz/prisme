@@ -1,139 +1,65 @@
-//! Streams the engine state to the frontend about 60 times per second, with the sections of
-//! what the interface mirrors that changed since last sent, and frees what the engine hands back
-//! at the same pace. Each status says only what changed since the one before (see [`Told`]):
-//! nothing at all while nothing moves. The library's rows are sent again as what they show of
-//! the decks changes (see `browse::Around`), and ranked again as the deck they follow does.
+//! Tells the page the state of the application about 60 times a second, as the backend's clock
+//! builds it (`clock`), with the sections of what the interface mirrors that moved since last
+//! sent. Each status says only what changed since the one before (see [`Told`]): nothing at all
+//! while nothing moves.
 
-use crate::actions::browse::{self, Around, RowsStems};
-use crate::actions::Actions;
-use crate::auto_dj::AutoDj;
 use crate::dto::{ControlStateDto, StatusDto};
-use crate::preview::Previews;
-use crate::state::{lock, AppState, Section};
-use crate::stems_service::Shown;
-use prisme_actions::lane::Lane;
-use prisme_actions::meter::Meters;
-#[cfg(target_os = "android")]
-use prisme_actions::player::Player;
-use prisme_analysis::Key;
-use prisme_library::browse::Column;
+use crate::state::{lock, AppState, Section, SECTIONS};
+use prisme_actions::view::View;
 use serde::Serialize;
 use serde_json::{Map, Value};
-use std::path::PathBuf;
-use std::sync::atomic::{AtomicU64, Ordering};
-use std::time::Duration;
+use std::sync::Mutex;
 use tauri::ipc::Channel;
-use tauri::{AppHandle, Manager};
+use tauri::State;
 
-const INTERVAL: Duration = Duration::from_millis(16);
+/// The page listening, if one does.
+#[derive(Default)]
+pub struct StatusStream {
+    listener: Mutex<Option<Listener>>,
+}
 
-/// Incremented by every subscription: an older stream stops when it sees a newer one
-/// (e.g. after a page reload).
-static GENERATION: AtomicU64 = AtomicU64::new(0);
+struct Listener {
+    channel: Channel<Value>,
+    told: Told,
+    /// The revisions of what the interface mirrors it was last sent: none, all sent first.
+    revision: Option<[u64; SECTIONS]>,
+}
 
+/// The page listens from now on: a newer one in place of an older (a page reloaded).
 #[tauri::command]
-pub fn subscribe_status(app: AppHandle, channel: Channel<Value>) {
-    let generation = GENERATION.fetch_add(1, Ordering::SeqCst) + 1;
-    std::thread::Builder::new()
-        .name("prisme-status".into())
-        .spawn(move || {
-            let state = app.state::<AppState>();
-            let actions = app.state::<Actions>();
-            let auto_dj = app.state::<AutoDj>();
-            // the revisions of what the interface mirrors it was last sent: none, all sent first
-            let mut told = None;
-            let mut sent = Told::default();
-            let mut around = Around::default();
-            // the deck the library's rows are compared with, and whether they are ranked by it
-            let mut compared = (0, false);
-            let mut ranked_against: Option<Ranked> = None;
-            let mut meters = Meters::default();
-            let mut stems = Shown::default();
-            #[cfg(target_os = "android")]
-            let (mut player, mut lock_player, mut internal) =
-                (Player::default(), crate::lock_player::LockPlayer::default(), false);
-            while GENERATION.load(Ordering::SeqCst) == generation {
-                // read before what it is of: a change after moves it again
-                let revision = state.revision();
-                let (engine, garbage) = {
-                    let mut session = lock(&state.session);
-                    session.as_mut().map_or((None, Vec::new()), |s| {
-                        let stream = (s.stats.clone(), s.engine_config.sample_rate);
-                        let engine = (s.controller.status(), s.info.layout(), stream);
-                        (Some(engine), s.controller.take_garbage())
-                    })
-                };
-                // freed, and the status built, with the session's lock released: the jogs and
-                // the clock wait on it
-                drop(garbage);
-                if let Some(previews) = app.try_state::<Previews>() {
-                    let playing = engine.as_ref().and_then(|(e, ..)| e.preview.as_ref()).map(|p| p.id);
-                    previews.follow(&state, playing);
-                }
-                let (view, stream) = match engine {
-                    Some((engine, layout, stream)) => {
-                        (actions.view_with(&app, engine, Some(layout)), Some(stream))
-                    }
-                    None => (actions.view_with(&app, Default::default(), None), None),
-                };
-                let now_s = actions.now_s();
-                let levels = meters.read(&view.status, now_s);
-                let stream = stream.as_ref().map(|(stats, rate)| (&**stats, *rate));
-                let mut status = StatusDto::of(&view, stream, levels);
-                let moved = |s: Section| told.is_none_or(|t: [u64; _]| t[s as usize] != revision[s as usize]);
-                status.mix_in_s = auto_dj.mix_in_s(&view.status);
-                #[cfg(target_os = "android")]
-                {
-                    if moved(Section::Mixer) {
-                        internal = state.mixes_itself();
-                    }
-                    if moved(Section::Tracks) || moved(Section::Settings) {
-                        lock_player.read(&state);
-                    }
-                    lock_player.follow(&app, &view, player.read(&view, internal, now_s), now_s);
-                }
-                if moved(Section::Tracks) {
-                    around.decks = lock(&state.tracks).each_ref().map(|t| t.as_ref().map(|t| t.path.clone()));
-                }
-                if moved(Section::Preview) {
-                    let preview = lock(&state.preview);
-                    around.previewed =
-                        [preview.track.as_ref().map(|t| t.path.clone()), preview.opening.clone()];
-                }
-                if moved(Section::Library) {
-                    let library = lock(&state.library);
-                    compared = (library.browser.reference(), library.browser.sort().column == Column::Mix);
-                }
-                if moved(Section::Stems) || moved(Section::Settings) {
-                    stems = lock(&state.stems).clone();
-                    let reach = stems.reach(state.preferences.read(|p| p.library.stems_fast));
-                    around.stems =
-                        RowsStems { current: stems.current(), queued: stems.queued.clone(), reach };
-                }
-                for (deck, shown) in status.decks.iter_mut().enumerate() {
-                    shown.separating = around.decks[deck].as_deref().and_then(|path| stems.separating(path));
-                }
-                let before = around.clone();
-                around.read(&view, compared.0);
-                if compared.1 {
-                    rank(&app, &view, &around, compared.0, &mut ranked_against);
-                }
-                // what the rows show of the decks, sent again only where it shows
-                let rows_moved = around != before && lock(&state.library).look_around(&around);
-                if told != Some(revision) || rows_moved {
-                    let sections = Section::ALL
-                        .into_iter()
-                        .filter(|&s| moved(s) || (rows_moved && s == Section::Library));
-                    status.controls = Some(ControlStateDto::of(&state, &view, sections));
-                    told = Some(revision);
-                }
-                if sent.changes(status).is_some_and(|changes| channel.send(changes).is_err()) {
-                    break; // the window is gone
-                }
-                std::thread::sleep(INTERVAL);
-            }
-        })
-        .expect("cannot start the status thread");
+pub fn subscribe_status(stream: State<'_, StatusStream>, channel: Channel<Value>) {
+    *lock(&stream.listener) = Some(Listener { channel, told: Told::default(), revision: None });
+}
+
+impl StatusStream {
+    /// Tells the page listening, if one does, what changed of the status `status` builds (only
+    /// then) and of the sections of `state` that moved since it was last told at `revision`,
+    /// read in `view`; the library's too if its rows were sent again (`rows_moved`).
+    pub fn tell(
+        &self,
+        state: &AppState,
+        view: &View,
+        revision: [u64; SECTIONS],
+        rows_moved: bool,
+        status: impl FnOnce() -> StatusDto,
+    ) {
+        // taken out while it is told: nothing waits on its lock meanwhile
+        let Some(mut listener) = lock(&self.listener).take() else { return };
+        let mut status = status();
+        if listener.revision != Some(revision) || rows_moved {
+            let told = listener.revision;
+            let moved = |s: Section| told.is_none_or(|t| t[s as usize] != revision[s as usize]);
+            let sections =
+                Section::ALL.into_iter().filter(|&s| moved(s) || (rows_moved && s == Section::Library));
+            status.controls = Some(ControlStateDto::of(state, view, sections));
+            listener.revision = Some(revision);
+        }
+        let changes = listener.told.changes(status);
+        // the window is gone when its channel is
+        if changes.is_none_or(|changes| listener.channel.send(changes).is_ok()) {
+            lock(&self.listener).get_or_insert(listener);
+        }
+    }
 }
 
 /// What the interface was last told, as it holds it: a status sends only what changed of it.
@@ -205,41 +131,6 @@ fn changed(told: &mut Option<Map<String, Value>>, now: Map<String, Value>) -> Ma
     };
     *told = Some(now);
     changes
-}
-
-/// What the library's rows were last ranked against: the deck, its track and that track's tempo
-/// and key, and the deck beside it, which the next track goes on.
-type Ranked = (usize, Option<PathBuf>, Option<f64>, Option<Key>, f64, bool);
-
-/// The library's rows ranked again against the deck `reference` if another track came on it,
-/// its analysis did, or the deck beside it changed its range or its key lock: not as its tempo
-/// and key move with the platter. In turn with the library's actions, not on the stream's
-/// thread: a library of tens of thousands takes a while to sort.
-fn rank(
-    app: &AppHandle,
-    view: &prisme_actions::view::View,
-    around: &Around,
-    reference: usize,
-    last: &mut Option<Ranked>,
-) {
-    let deck = browse::effective(reference, view.decks_in_use);
-    let track = view.decks[deck].track;
-    let next = &view.decks[deck ^ 1];
-    let now = (
-        deck,
-        around.decks[deck].clone(),
-        track.and_then(|t| t.bpm),
-        track.and_then(|t| t.key),
-        next.tempo_range,
-        next.key_lock,
-    );
-    if last.as_ref() != Some(&now) {
-        let mix = browse::mix_reference(view, deck, around.decks[deck].as_deref());
-        let ranking = app.clone();
-        let job = move || ranking.state::<AppState>().browse(|l| l.browser.set_mix(mix));
-        app.state::<Actions>().in_turn_on(Lane::Library, job);
-        *last = Some(now);
-    }
 }
 
 #[cfg(test)]

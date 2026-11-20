@@ -10,7 +10,7 @@
 //! used one way only: by HID if Prisme knows it so and not by MIDI, else by MIDI, as its
 //! maker's driver then speaks to the device itself.
 
-use crate::actions::{Actions, Host, InTurn, Moved, Source};
+use crate::actions::{Host, InTurn, Moved, Source};
 use crate::controller_hid;
 use crate::controller_profiles;
 use crate::dto::{ControllerDto, ControllersDto, OfferedProfileDto, OpenedDto, UiActionDto};
@@ -50,10 +50,8 @@ const WATCH_EVERY: Duration = Duration::from_millis(500);
 /// How often MIDI is tried again on a system whose MIDI does not answer (no sequencer loaded,
 /// on Linux).
 const WATCH_WITHOUT_MIDI_EVERY: Duration = Duration::from_secs(10);
-/// How often blinking lights and keep-alive messages are seen to.
-const OUTPUT_EVERY: Duration = Duration::from_millis(20);
 /// How often the levels shown on the controllers are sent.
-const METERS_EVERY: Duration = Duration::from_millis(40);
+pub const METERS_EVERY: Duration = Duration::from_millis(40);
 /// The most steps of an encoder driving keys pressed for one of its messages.
 const MOST_KEY_STEPS: i32 = 16;
 /// The state a light shows while its key is held, if its profile gives it one.
@@ -503,7 +501,7 @@ impl Controllers {
     }
 
     /// The profiles were read again: what they map, and the lights they give (shown at the
-    /// next tick of [`Self::drive_outputs`]).
+    /// next tick of [`Self::tick`]).
     pub fn profiles_changed(&self) {
         self.layer();
         for connection in lock(&self.connections).iter_mut() {
@@ -1041,34 +1039,16 @@ impl Controllers {
         self.setup.flush();
     }
 
-    /// Sends what goes out by itself, each tick: the lights (the engine moves what many show),
-    /// those that blink, the values and the levels the controllers show, the keep-alive
-    /// messages.
-    pub fn drive_outputs(app: AppHandle) {
-        let spawned = std::thread::Builder::new().name("prisme-midi-out".into()).spawn(move || {
-            let mut metered = Instant::now();
-            loop {
-                std::thread::sleep(OUTPUT_EVERY);
-                let controllers = app.state::<Controllers>();
-                controllers.fire_holds(&app);
-                let levels = (metered.elapsed() >= METERS_EVERY).then(|| {
-                    metered = Instant::now();
-                    Levels::of(&app.state::<AppState>())
-                });
-                let actions = app.state::<Actions>();
-                let view = actions.view(&app);
-                controllers.drive(&view, levels.flatten().as_ref(), actions.now_s());
-                // the interface's keys held, on the same clock as the controllers' holds
-                actions.fire_keys(&app, &view);
-            }
-        });
-        if let Err(e) = spawned {
-            error!("controller lights and levels not sent: {e}");
-        }
+    /// A tick of the backend's clock (`clock`) at `now_s`: the holds whose time came fired, then
+    /// what each controller shows of `view`, and of the `levels` of its meters when they are
+    /// due.
+    pub fn tick(&self, host: &impl Host, view: &View, levels: Option<&Levels>, now_s: f64) {
+        self.fire_holds(host);
+        self.drive(view, levels, now_s);
     }
 
-    /// A tick of [`Self::drive_outputs`] at `now_s` on the actions' clock: what each controller
-    /// shows of `view`, and of the `levels` of its meters when they are due.
+    /// What each controller shows of `view` at `now_s` on the actions' clock, and of the
+    /// `levels` of its meters when they are due.
     fn drive(&self, view: &View, levels: Option<&Levels>, now_s: f64) {
         for connection in lock(&self.connections).iter_mut() {
             self.show_on(connection, view);
@@ -1441,7 +1421,7 @@ impl Controllers {
         }
         let at = holdings.iter().position(|h| h.device == device && h.control == event.control)?;
         let mut held = holdings.remove(at);
-        // let go after its time, the output tick late: held all the same
+        // let go after its time, the clock late: held all the same
         let late = !held.pressed.acted() && held.pressed.due(held.since.elapsed().as_secs_f64());
         let target = &held.hold.target;
         if let Some((group, mode)) = target.mode() {
@@ -1641,7 +1621,7 @@ fn key_steps(up: &TargetId, down: &TargetId, steps: i32) -> Option<Routed> {
 
 /// The levels the meters show, at a moment.
 #[derive(Debug, Clone, Copy)]
-struct Levels {
+pub struct Levels {
     /// The decks the engine runs, each.
     decks: [f32; prisme_control::MAX_DECKS],
     deck_count: usize,
@@ -1651,16 +1631,10 @@ struct Levels {
 }
 
 impl Levels {
-    /// The levels of the running engine; none while the audio is not running.
-    fn of(state: &AppState) -> Option<Self> {
-        let status = lock(&state.session).as_mut()?.controller.status();
+    /// The levels of the engine at `status`.
+    pub fn of(status: &prisme_engine::EngineStatus) -> Self {
         let decks = std::array::from_fn(|d| status.decks[d].peak);
-        Some(Levels {
-            decks,
-            deck_count: status.deck_count,
-            main: status.main_peak,
-            sides: status.master_peaks,
-        })
+        Levels { decks, deck_count: status.deck_count, main: status.main_peak, sides: status.master_peaks }
     }
 
     /// The level of a meter's `source`: `deck1`… (one the engine runs), `main`, `main.left`,

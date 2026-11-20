@@ -16,7 +16,8 @@
 //! * `tag_writer`: writes the tempo and key into the files' tags;
 //! * `preferences`: what is kept from one start to the next;
 //! * `commands`: what the frontend can ask, by domain;
-//! * `status_stream`: engine state pushed to the frontend at ~60 Hz;
+//! * `clock`: the view built and followed about 60 times a second; `status_stream`: what
+//!   changed of it told to the frontend;
 //! * `scope_stream`: a turntable's signal pushed while its oscilloscope is shown;
 //! * `track_loading`: putting a track on a deck, playable before it is fully decoded;
 //! * `preview`: a track of the library heard in the headphones before it goes on a deck;
@@ -33,6 +34,7 @@ mod audio_host;
 mod audio_watchdog;
 mod auto_dj;
 mod choices;
+mod clock;
 mod commands;
 mod controller_hid;
 mod controller_profiles;
@@ -219,6 +221,7 @@ pub fn run() {
                 .or_else(|| app.path().app_data_dir().inspect_err(|e| warn!("no data folder: {e}")).ok());
             app.manage(AppState::new(open_json(data_dir.as_deref(), "preferences.json")));
             app.manage(Actions::start());
+            app.manage(status_stream::StatusStream::default());
             if let Some(data_dir) = data_dir.as_deref() {
                 controller_profiles::install(data_dir);
             }
@@ -273,9 +276,9 @@ pub fn run() {
             let controllers = app.state::<Controllers>();
             controllers.open_at_start(app.handle());
             Controllers::watch(app.handle().clone());
-            Controllers::drive_outputs(app.handle().clone());
             app.manage(MidiClock::new(controllers.setup().clock_output));
             MidiClock::start(app.handle().clone());
+            clock::start(app.handle().clone());
             app.state::<TagWriter>().wake();
             #[cfg(target_os = "android")]
             android_jni::install(app.handle());

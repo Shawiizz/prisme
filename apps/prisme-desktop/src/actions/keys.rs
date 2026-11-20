@@ -1,6 +1,6 @@
 //! The interface's keys whose press does more than act (see `prisme_actions::hold`): SYNC held
 //! matches the leader once, the tempo keys step on while held. Timed on the actions' clock and
-//! fired by the controllers' output tick, as a controller's key with a hold is.
+//! fired by the backend's clock, as a controller's key with a hold is.
 
 use crate::state::lock;
 use prisme_actions::hold::{interface_rule, Pressed};
