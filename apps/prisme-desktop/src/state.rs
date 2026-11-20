@@ -7,7 +7,7 @@ use crate::audio_host::{deck_pair, layer_partner, AudioSession};
 use crate::dto::{
     AudioInfo, BackendDto, BandDto, ChannelStripDto, CrossfaderSideDto, CueDto, DeckStemsDto, FxChainDto,
     FxPartDto, HeadphonesOutputDto, InputChannelsDto, KeyDto, LiveSourceDto, MixModeDto, PreviewStateDto,
-    RpmDto, SeparationDto, StemMixDto, TempoDto, TrackInfoDto, VinylModeDto,
+    RecordingDto, RpmDto, SeparationDto, StemMixDto, TempoDto, TrackInfoDto, VinylModeDto,
 };
 use crate::error::{AppError, AppResult};
 use crate::folders;
@@ -309,6 +309,8 @@ pub struct AppState {
     /// The microphone's and the aux line's, in the order of [`LiveSourceDto::ALL`].
     pub live: Mirrored<[LiveSwitches; 2]>,
     pub recorder: Mutex<Option<Recorder>>,
+    /// The last recording ended.
+    pub recorded: Mirrored<Option<RecordingDto>>,
     /// Held while the audio starts: the watchdog and the user never start it at once.
     pub audio_start: Mutex<()>,
     /// Where the decks were as the audio last stopped to start again: kept for the start
@@ -530,6 +532,7 @@ impl AppState {
             sync_leader: Mutex::default(),
             live: Mirrored::new(Default::default(), &revisions, Section::Mixer),
             recorder: Mutex::new(None),
+            recorded: Mirrored::new(None, &revisions, Section::Mixer),
             audio_start: Mutex::new(()),
             carried: Mutex::default(),
             samplers: Mirrored::new(Samplers::default(), &revisions, Section::Mixer),

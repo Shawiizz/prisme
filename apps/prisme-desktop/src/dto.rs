@@ -288,15 +288,46 @@ impl From<RecordSourceDto> for prisme_engine::RecordSource {
 pub struct RecordingDto {
     /// Its first file.
     pub path: String,
-    /// Every file it was written in: the first, then `… 2.wav` past 4 GB or an audio restart.
-    pub files: Vec<String>,
+    /// The name of its first file, and the folder it is in.
+    pub file_name: String,
+    pub folder: String,
+    /// The files it was written in: the first, then `… 2.wav` past 4 GB or an audio restart.
+    pub parts: usize,
     pub seconds: f64,
     /// Tracks in its tracklist.
     pub tracks: usize,
-    /// The tracklist written beside it, if it could be.
+    /// The name of the tracklist written beside it, if it could be.
     pub tracklist: Option<String>,
-    /// Why the audio was not written whole (a disk full, a drive gone), if it was not.
-    pub failure: Option<String>,
+    /// Why the audio was not written whole, if it was not.
+    pub failure: Option<RecordingFailureDto>,
+}
+
+/// Why a recording was not written whole.
+#[derive(Debug, Clone, Copy, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub enum RecordingFailureDto {
+    DiskFull,
+    /// Its file could not be written: a drive gone, a file locked.
+    NotWritten,
+    /// Its writer stopped unexpectedly.
+    Stopped,
+}
+
+impl RecordingDto {
+    /// A recording of `parts` files from `first`, its tracklist at `tracklist`.
+    pub fn of(first: &std::path::Path, parts: usize, tracklist: Option<&std::path::Path>) -> Self {
+        let name = |path: &std::path::Path| path.file_name().map(|n| n.to_string_lossy().into_owned());
+        Self {
+            path: first.display().to_string(),
+            file_name: name(first).unwrap_or_default(),
+            folder: first.parent().map(|f| f.display().to_string()).unwrap_or_default(),
+            parts,
+            seconds: 0.0,
+            tracks: 0,
+            tracklist: tracklist.and_then(name),
+            failure: None,
+        }
+    }
 }
 
 /// A slot of a deck's effect chain.
@@ -1139,6 +1170,8 @@ pub struct MixerStateDto {
     pub record_source: Option<RecordSourceDto>,
     /// What can be recorded on the running device.
     pub record_options: Vec<RecordOptionDto>,
+    /// The last recording ended.
+    pub last_recording: Option<RecordingDto>,
 }
 
 /// A source the Rec menu offers.

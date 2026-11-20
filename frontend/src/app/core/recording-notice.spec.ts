@@ -7,10 +7,12 @@ const PHONE_FIRST =
   '/storage/emulated/0/Documents/Prisme Recordings/Prisme 2026-11-16 21h30m05.wav';
 const SET: Recording = {
   path: FIRST,
-  files: [FIRST],
+  fileName: 'Prisme 2026-11-16 21h30m05.wav',
+  folder: 'C:\\Users\\dj\\Documents\\Prisme Recordings',
+  parts: 1,
   seconds: 3725,
   tracks: 21,
-  tracklist: FIRST.replace('.wav', '.txt'),
+  tracklist: 'Prisme 2026-11-16 21h30m05.txt',
   failure: null,
 };
 
@@ -23,17 +25,18 @@ describe('recordingNotice', () => {
   });
 
   it('says what could not be written, in how many files, and where on a phone', () => {
-    const cut = {
+    const cut: Recording = {
       ...SET,
       path: PHONE_FIRST,
-      files: [PHONE_FIRST, PHONE_FIRST.replace('.wav', ' 2.wav')],
+      folder: '/storage/emulated/0/Documents/Prisme Recordings',
+      parts: 2,
       tracklist: null,
-      failure: 'No space left on device',
+      failure: 'diskFull',
     };
     const notice = recordingNotice(cut, true);
     expect(notice.text).toBe('Mix cut short, saved up to there: Prisme 2026-11-16 21h30m05.wav');
     expect(notice.detail).toBe(
-      '1:02:05 · 2 files · the tracklist could not be written · No space left on device · /storage/emulated/0/Documents/Prisme Recordings',
+      '1:02:05 · 2 files · the tracklist could not be written · the disk is full · /storage/emulated/0/Documents/Prisme Recordings',
     );
   });
 });

@@ -971,5 +971,8 @@
   "They leave the library. The files stay where they are.": "Ils quittent la bibliothèque. Les fichiers restent où ils sont.",
   "External mixer needs {n} outputs": "Table externe : {n} sorties nécessaires",
   "The microphone has one of these inputs": "Le micro a l’une de ces entrées",
-  "The aux line has one of these inputs": "La ligne aux a l’une de ces entrées"
+  "The aux line has one of these inputs": "La ligne aux a l’une de ces entrées",
+  "the disk is full": "le disque est plein",
+  "the file could not be written": "le fichier n’a pas pu être écrit",
+  "the recording stopped unexpectedly": "l’enregistrement s’est arrêté de lui-même"
 }

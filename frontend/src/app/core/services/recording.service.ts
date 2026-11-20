@@ -1,4 +1,4 @@
-import { Injectable, computed, inject, signal } from '@angular/core';
+import { Injectable, computed, inject } from '@angular/core';
 import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
 import { RecordSource, Recording } from '../models/engine';
@@ -30,7 +30,7 @@ export class RecordingService {
 
   readonly status = computed(() => this.engine.status()?.recording ?? null);
   /** The last recording finished. */
-  readonly last = signal<Recording | null>(null);
+  readonly last = computed(() => this.engine.controls()?.mixer.lastRecording ?? null);
 
   /** The software mixer's master, and each input pair (a hardware mixer's record out), those
    * a turntable comes into told apart. */
@@ -67,7 +67,6 @@ export class RecordingService {
   }
 
   private saved(recording: Recording) {
-    this.last.set(recording);
     this.notices.show({
       ...recordingNotice(recording, PHONE),
       // a phone shows no folders: the notice says where it went

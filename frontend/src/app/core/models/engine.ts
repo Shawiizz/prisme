@@ -296,16 +296,23 @@ export type RecordSource = { kind: 'master' } | { kind: 'input'; first: number }
 export interface Recording {
   /** Its first file. */
   path: string;
-  /** Every file it was written in: the first, then `… 2.wav` past 4 GB or an audio restart. */
-  files: string[];
+  /** The name of its first file, and the folder it is in. */
+  fileName: string;
+  folder: string;
+  /** The files it was written in: the first, then `… 2.wav` past 4 GB or an audio restart. */
+  parts: number;
   seconds: number;
   /** Tracks in its tracklist. */
   tracks: number;
-  /** The tracklist written beside it, if it could be. */
+  /** The name of the tracklist written beside it, if it could be. */
   tracklist: string | null;
-  /** Why the audio was not written whole (a disk full, a drive gone), if it was not. */
-  failure: string | null;
+  /** Why the audio was not written whole, if it was not. */
+  failure: RecordingFailure | null;
 }
+
+/** Why a recording was not written whole: its disk full, its file not written (a drive gone, a
+ * file locked), its writer stopped. */
+export type RecordingFailure = 'diskFull' | 'notWritten' | 'stopped';
 
 /** A waveform as it is drawn (sent in binary, see `decodeWaveform`): for each slice known,
  * from the start of the track, the height of its envelope and its colour, a byte each. */
@@ -596,6 +603,8 @@ export interface MixerState {
   recordSource: RecordSource | null;
   /** What can be recorded on the running device: a turntable's inputs told apart. */
   recordOptions: { source: RecordSource; turntable: boolean }[];
+  /** The last recording ended. */
+  lastRecording: Recording | null;
 }
 
 /** Why an output chosen is heard or not on the running device. */

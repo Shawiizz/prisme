@@ -111,6 +111,7 @@ pub fn mixer_state_of(state: &AppState, view: &View) -> MixerStateDto {
         talkover_depth_db: mixer.talkover_depth_db,
         record_source: mixer.record_source,
         record_options: general::record_options(internal, info.as_ref()),
+        last_recording: lock(&state.recorded).clone(),
     }
 }
 

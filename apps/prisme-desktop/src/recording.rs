@@ -8,9 +8,9 @@
 //! (4 GB: 4 hours at 48 kHz) goes on in `… 2.wav`, `… 3.wav`. However it ends (stopped, the
 //! audio lost, the app closed), the interface is told where it went (`recording-saved`).
 
-use crate::dto::RecordingDto;
+use crate::dto::{RecordingDto, RecordingFailureDto};
 use crate::error::{AppError, AppResult};
-use crate::state::AppState;
+use crate::state::{lock, AppState};
 use hound::{SampleFormat, WavSpec, WavWriter};
 use prisme_engine::{Command, RecordSource};
 use prisme_library::{HistoryPlay, LibraryDb};
@@ -48,7 +48,7 @@ pub struct Recorder {
     /// Seconds the writers that ended wrote.
     earlier_s: f64,
     /// Why the audio was not written whole, if it was not.
-    failure: Option<String>,
+    failure: Option<RecordingFailureDto>,
     /// The last file written in, by its number (1: the first).
     part: Arc<AtomicUsize>,
     /// Where the plays of the tracklist are read.
@@ -126,12 +126,22 @@ impl Recorder {
         let failure = match writer.join() {
             Ok(written) => {
                 self.earlier_s += written.seconds;
-                written.failure.map(|e| e.to_string())
+                written.failure.map(|e| {
+                    warn!("recording cut short: {e}");
+                    match e {
+                        hound::Error::IoError(e) if e.kind() == std::io::ErrorKind::StorageFull => {
+                            RecordingFailureDto::DiskFull
+                        }
+                        _ => RecordingFailureDto::NotWritten,
+                    }
+                })
             }
-            Err(_) => Some("the recording thread failed".into()),
+            Err(_) => {
+                warn!("recording cut short: the recording thread failed");
+                Some(RecordingFailureDto::Stopped)
+            }
         };
         if let Some(failure) = failure {
-            warn!("recording cut short: {failure}");
             self.failure.get_or_insert(failure);
         }
     }
@@ -150,20 +160,19 @@ impl Recorder {
         }
         let parts = self.part.load(Ordering::Acquire);
         let (tracks, tracklist) = match self.write_tracklist(parts) {
-            Ok((tracks, tracklist)) => (tracks, Some(tracklist.display().to_string())),
+            Ok((tracks, tracklist)) => (tracks, Some(tracklist)),
             Err(e) => {
                 error!("tracklist of {} not written: {e}", self.path.display());
                 (0, None)
             }
         };
         let saved = RecordingDto {
-            path: self.path.display().to_string(),
-            files: (1..=parts).map(|part| part_path(&self.path, part).display().to_string()).collect(),
             seconds: self.earlier_s,
             tracks,
-            tracklist,
             failure: self.failure.take(),
+            ..RecordingDto::of(&self.path, parts, tracklist.as_deref())
         };
+        *lock(&state.recorded) = Some(saved.clone());
         let _ = self.app.emit(SAVED_EVENT, &saved);
         saved
     }
@@ -372,6 +381,17 @@ mod tests {
                 record: None,
             },
         ]
+    }
+
+    #[test]
+    fn a_recording_ended_names_its_file_its_folder_and_its_tracklist() {
+        let first = Path::new("C:/Users/dj/Documents/Prisme Recordings/Prisme 21h30.wav");
+        let saved = RecordingDto::of(first, 2, Some(&first.with_extension("txt")));
+        assert_eq!(
+            (saved.file_name.as_str(), saved.folder.as_str(), saved.tracklist.as_deref(), saved.parts),
+            ("Prisme 21h30.wav", "C:/Users/dj/Documents/Prisme Recordings", Some("Prisme 21h30.txt"), 2)
+        );
+        assert_eq!(RecordingDto::of(first, 1, None).tracklist, None);
     }
 
     #[test]
