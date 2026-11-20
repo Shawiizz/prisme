@@ -85,10 +85,7 @@ impl LibraryDb {
         before: FileStamp,
         after: FileStamp,
     ) -> Result<(), DbError> {
-        if self.restamp(path, before, after, "genre", &genre)? {
-            // the genre is searched by too
-            self.reindex(path)?;
-        }
+        self.restamp(path, before, after, "genre", &genre)?;
         Ok(())
     }
 

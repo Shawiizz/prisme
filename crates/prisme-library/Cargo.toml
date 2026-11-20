@@ -27,9 +27,5 @@ libc = "0.2"
 criterion.workspace = true
 
 [[bench]]
-name = "search"
-harness = false
-
-[[bench]]
 name = "browse"
 harness = false

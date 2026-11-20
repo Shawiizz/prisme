@@ -1,6 +1,6 @@
 //! Library database (SQLite): tracks and their analysis and tags ([`tracks`]), the
-//! corrections made by hand ([`edits`]), cues,
-//! cover thumbnails, waveforms, full-text search, crates, history of the sets, prepare list.
+//! corrections made by hand ([`edits`]), cues, cover thumbnails, waveforms, crates, history of
+//! the sets, prepare list. The library is searched in memory (`catalogue`).
 
 mod covers;
 mod crates;
@@ -158,6 +158,9 @@ const MIGRATIONS: &[&str] = &[
     "CREATE TABLE written_tags (path TEXT PRIMARY KEY NOT NULL, bpm REAL, key TEXT) WITHOUT ROWID;
      INSERT INTO written_tags
          SELECT path, tag_bpm, tag_key FROM tracks WHERE tag_bpm IS NOT NULL OR tag_key IS NOT NULL;",
+    // the library is searched in memory (`catalogue`): its full-text index goes, nothing else
+    "DROP TABLE search_rows;
+     DROP TABLE track_search;",
 ];
 
 pub fn now_ms() -> i64 {
@@ -252,5 +255,39 @@ mod tests {
         assert_eq!(db.track_count().unwrap(), 1);
         drop(db);
         std::fs::remove_dir_all(dir).ok();
+    }
+
+    #[test]
+    fn a_library_of_0_4_0_loses_its_search_index_and_nothing_else() {
+        // the schema of Prisme 0.4.0, which indexed each track for a full-text search
+        let conn = Connection::open_in_memory().unwrap();
+        for sql in &MIGRATIONS[..15] {
+            conn.execute_batch(sql).unwrap();
+        }
+        conn.pragma_update(None, "user_version", 15).unwrap();
+        conn.execute_batch(
+            "INSERT INTO tracks (path, size, modified_ms, analysis_version, analyzed_at_ms, title)
+                 VALUES ('C:/Music/a.mp3', 1, 2, 1, 3, 'Strobe');
+             INSERT INTO track_search (path, words) VALUES ('C:/Music/a.mp3', 'Strobe a');
+             INSERT INTO search_rows (path, row) VALUES ('C:/Music/a.mp3', last_insert_rowid());
+             INSERT INTO cues (path, slot, position_s, color, label) VALUES ('C:/Music/a.mp3', 1, 2.5, 0, '');",
+        )
+        .unwrap();
+        let db = LibraryDb::init(conn).unwrap();
+        let tables: Vec<String> = {
+            let conn = db.conn();
+            let mut stmt = conn.prepare("SELECT name FROM sqlite_master WHERE name LIKE '%search%'").unwrap();
+            stmt.query_map([], |r| r.get(0)).unwrap().collect::<Result<_, _>>().unwrap()
+        };
+        assert_eq!(tables, Vec::<String>::new(), "the index and its own tables gone");
+        let version: i64 = db.conn().pragma_query_value(None, "user_version", |r| r.get(0)).unwrap();
+        assert_eq!(version, MIGRATIONS.len() as i64);
+        let track = db.get(Path::new("C:/Music/a.mp3")).unwrap().unwrap();
+        assert_eq!(track.tags.title.as_deref(), Some("Strobe"));
+        assert_eq!(db.cues(Path::new("C:/Music/a.mp3")).unwrap().len(), 1);
+        db.save(&track).unwrap();
+        db.relocate(Path::new("C:/Music/a.mp3"), Path::new("C:/Music/b.mp3")).unwrap();
+        db.forget(&["C:/Music/b.mp3".into()]).unwrap();
+        assert_eq!(db.cues(Path::new("C:/Music/b.mp3")).unwrap().len(), 1, "written without an index");
     }
 }

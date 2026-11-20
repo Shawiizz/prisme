@@ -9,7 +9,7 @@ use super::{path_key, DbError, FileStamp, LibraryDb};
 use crate::scan::within;
 use prisme_analysis::{Key, KeyEstimate, Mode, Tempo, TrackAnalysis, ANALYSIS_VERSION};
 use prisme_media::TrackTags;
-use rusqlite::{params, Connection, OptionalExtension, Row};
+use rusqlite::{params, OptionalExtension, Row};
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
@@ -20,7 +20,7 @@ pub const TAGS_VERSION: u32 = 1;
 /// forgotten whole.
 const KEPT: [&str; 6] = ["cues", "track_edits", "track_marks", "crate_tracks", "history_plays", "prepare"];
 
-/// Tables keyed by a file's path (`track_search`, a virtual table, is apart).
+/// Tables keyed by a file's path.
 const RELOCATED: [&str; 11] = [
     "audio_ids",
     "written_tags",
@@ -133,18 +133,6 @@ impl TrackRecord {
     pub fn with_tags(self, tags: TrackTags) -> Self {
         Self { tags, version: RecordVersion { tags_version: TAGS_VERSION, ..self.version }, ..self }
     }
-
-    /// What full-text search looks into: the tags and the file name.
-    fn search_words(&self) -> String {
-        let stem = Path::new(&self.path).file_stem().map(|s| s.to_string_lossy().into_owned());
-        let t = &self.tags;
-        [&t.title, &t.artist, &t.album, &t.genre, &stem]
-            .into_iter()
-            .flatten()
-            .cloned()
-            .collect::<Vec<_>>()
-            .join(" ")
-    }
 }
 
 impl LibraryDb {
@@ -169,63 +157,46 @@ impl LibraryDb {
         Ok(rows.collect::<Result<_, _>>()?)
     }
 
-    /// Stores the record and indexes it for search.
+    /// Stores the record.
     pub fn save(&self, record: &TrackRecord) -> Result<(), DbError> {
         let tempo = record.analysis.tempo;
         let key = record.analysis.key;
         let tags = &record.tags;
         let now_ms = super::now_ms();
-        let conn = self.conn();
-        let tx = conn.unchecked_transaction()?;
-        tx.prepare_cached(
-            "INSERT OR REPLACE INTO tracks (path, size, modified_ms, analysis_version, duration_s, bpm,
+        self.conn()
+            .prepare_cached(
+                "INSERT OR REPLACE INTO tracks (path, size, modified_ms, analysis_version, duration_s, bpm,
                  first_beat_s, tempo_confidence, key_tonic, key_minor, key_confidence, tuning_cents, error,
                  analyzed_at_ms, title, artist, album, genre, year, comment, tags_version)
              VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19,
                  ?20, ?21)",
-        )?
-        .execute(params![
-            record.path,
-            record.version.stamp.size as i64,
-            record.version.stamp.modified_ms,
-            record.version.analysis_version,
-            record.duration_s,
-            tempo.map(|t| t.bpm),
-            tempo.map(|t| t.first_beat_s),
-            tempo.map(|t| t.confidence),
-            key.map(|k| k.key.tonic()),
-            key.map(|k| k.key.mode() == Mode::Minor),
-            key.map(|k| k.confidence),
-            key.map(|k| k.tuning_cents),
-            record.error,
-            now_ms,
-            tags.title,
-            tags.artist,
-            tags.album,
-            tags.genre,
-            tags.year,
-            tags.comment,
-            record.version.tags_version,
-        ])?;
-        index(&tx, record)?;
-        tx.commit()?;
+            )?
+            .execute(params![
+                record.path,
+                record.version.stamp.size as i64,
+                record.version.stamp.modified_ms,
+                record.version.analysis_version,
+                record.duration_s,
+                tempo.map(|t| t.bpm),
+                tempo.map(|t| t.first_beat_s),
+                tempo.map(|t| t.confidence),
+                key.map(|k| k.key.tonic()),
+                key.map(|k| k.key.mode() == Mode::Minor),
+                key.map(|k| k.confidence),
+                key.map(|k| k.tuning_cents),
+                record.error,
+                now_ms,
+                tags.title,
+                tags.artist,
+                tags.album,
+                tags.genre,
+                tags.year,
+                tags.comment,
+                record.version.tags_version,
+            ])?;
         Ok(())
     }
 
-    /// Indexes the stored record of `path` again for search, its tags changed in place.
-    pub(super) fn reindex(&self, path: &Path) -> Result<(), DbError> {
-        let Some(record) = self.get(path)? else { return Ok(()) };
-        let conn = self.conn();
-        let tx = conn.unchecked_transaction()?;
-        index(&tx, &record)?;
-        tx.commit()?;
-        Ok(())
-    }
-
-    /// Tracks whose tags or file name contain every word of `query` (word starts
-    /// match: "dee mau" finds deadmau5), at most `limit` of them. They are not ranked:
-    /// the track list sorts them, and ranking every match costs 6 times more with
-    /// thousands of them (one letter typed in a large library).
     /// The genres of the library's tracks, the most common first.
     pub fn genres(&self) -> Result<Vec<String>, DbError> {
         let conn = self.conn();
@@ -237,20 +208,8 @@ impl LibraryDb {
         Ok(rows.collect::<Result<_, _>>()?)
     }
 
-    pub fn search(&self, query: &str, limit: usize) -> Result<Vec<TrackRecord>, DbError> {
-        let Some(fts) = fts_query(query) else { return Ok(Vec::new()) };
-        let conn = self.conn();
-        let mut stmt = conn.prepare_cached(
-            "SELECT track_view.* FROM track_search JOIN track_view ON track_view.path = track_search.path
-             WHERE track_search MATCH ?1 LIMIT ?2",
-        )?;
-        let rows = stmt.query_map(params![fts, limit as i64], record_from_row)?;
-        Ok(rows.collect::<Result<_, _>>()?)
-    }
-
-    /// Moves everything known about a file to its new path (moved or renamed): record,
-    /// search entry, cover, cues, corrections, marks, crate entries, history and prepare
-    /// list. What another file, gone since, left at the new path (its audio was not this
+    /// Moves everything known about a file to its new path (moved or renamed): record, cover,
+    /// cues, corrections, marks, crate entries, history and prepare list. What another file, gone since, left at the new path (its audio was not this
     /// one's) goes first.
     pub fn relocate(&self, from: &Path, to: &Path) -> Result<(), DbError> {
         let (from, to) = (path_key(from), path_key(to));
@@ -263,8 +222,6 @@ impl LibraryDb {
             )?
             .query_row([&from, &to], |r| r.get(0))?;
         if of_another_file {
-            tx.prepare_cached(DELETE_SEARCH_ROW)?.execute([&to])?;
-            tx.prepare_cached("DELETE FROM search_rows WHERE path = ?1")?.execute([&to])?;
             for table in RELOCATED {
                 tx.prepare_cached(&format!("DELETE FROM {table} WHERE path = ?1"))?.execute([&to])?;
             }
@@ -275,36 +232,18 @@ impl LibraryDb {
                 .execute([&from, &to])?;
             tx.prepare_cached(&format!("DELETE FROM {table} WHERE path = ?1"))?.execute([&from])?;
         }
-        // the search row already at the new path wins too
-        if tx.prepare_cached("SELECT 1 FROM search_rows WHERE path = ?1")?.exists([&to])? {
-            tx.prepare_cached(DELETE_SEARCH_ROW)?.execute([&from])?;
-            tx.prepare_cached("DELETE FROM search_rows WHERE path = ?1")?.execute([&from])?;
-        } else {
-            tx.prepare_cached(
-                "UPDATE track_search SET path = ?2
-                 WHERE rowid = (SELECT row FROM search_rows WHERE path = ?1)",
-            )?
-            .execute([&from, &to])?;
-            tx.prepare_cached("UPDATE search_rows SET path = ?2 WHERE path = ?1")?.execute([&from, &to])?;
-        }
         tx.commit()?;
         Ok(())
     }
 
     /// Forgets what was read from files that are gone (deleted or moved): their records,
-    /// search entries, covers and waveforms. Their cues, corrections and crate entries stay,
+    /// covers and waveforms. Their cues, corrections and crate entries stay,
     /// for when they come back, with the identity of their audio to know them by; a file
     /// that leaves none of those leaves nothing.
     pub fn forget(&self, paths: &[String]) -> Result<(), DbError> {
         let conn = self.conn();
         let tx = conn.unchecked_transaction()?;
-        {
-            let mut search = tx.prepare_cached(DELETE_SEARCH_ROW)?;
-            for path in paths {
-                search.execute([path])?;
-            }
-        }
-        for table in ["tracks", "search_rows", "covers", "waveforms"] {
+        for table in ["tracks", "covers", "waveforms"] {
             let mut delete = tx.prepare_cached(&format!("DELETE FROM {table} WHERE path = ?1"))?;
             for path in paths {
                 delete.execute([path])?;
@@ -363,31 +302,6 @@ impl LibraryDb {
     pub fn track_count(&self) -> Result<usize, DbError> {
         Ok(self.conn().query_row("SELECT COUNT(*) FROM tracks", [], |r| r.get::<_, i64>(0))? as usize)
     }
-}
-
-/// Deletes the search row of path ?1, found through `search_rows` (track_search would read
-/// every row to find a path).
-const DELETE_SEARCH_ROW: &str =
-    "DELETE FROM track_search WHERE rowid = (SELECT row FROM search_rows WHERE path = ?1)";
-
-/// Indexes `record` for search in place of what was indexed of its path.
-fn index(conn: &Connection, record: &TrackRecord) -> Result<(), DbError> {
-    conn.prepare_cached(DELETE_SEARCH_ROW)?.execute([&record.path])?;
-    conn.prepare_cached("INSERT INTO track_search (path, words) VALUES (?1, ?2)")?
-        .execute(params![record.path, record.search_words()])?;
-    conn.prepare_cached("INSERT OR REPLACE INTO search_rows (path, row) VALUES (?1, ?2)")?
-        .execute(params![record.path, conn.last_insert_rowid()])?;
-    Ok(())
-}
-
-/// `deadmau5 alone` -> `"deadmau5"* "alone"*`; `None` when there is nothing to look for.
-fn fts_query(query: &str) -> Option<String> {
-    let terms: Vec<String> = query
-        .split(|c: char| !c.is_alphanumeric())
-        .filter(|w| !w.is_empty())
-        .map(|w| format!("\"{w}\"*"))
-        .collect();
-    (!terms.is_empty()).then(|| terms.join(" "))
 }
 
 /// A row of `SELECT <list>.path AS entry_path, track_view.* ... LEFT JOIN track_view`.
@@ -477,8 +391,6 @@ mod tests {
         let record = db.get(path).unwrap().unwrap();
         assert_eq!(record.tags.genre.as_deref(), Some("Progressive"));
         assert_eq!(record.version.stamp, after);
-        assert_eq!(db.search("progressive", 10).unwrap(), [record]);
-        assert!(db.search("house", 10).unwrap().is_empty());
 
         // the file changed meanwhile: the record is left for the next analysis
         db.genre_written(path, None, STAMP, FileStamp { size: 1, modified_ms: 1 }).unwrap();
@@ -516,19 +428,17 @@ mod tests {
     }
 
     #[test]
-    fn saving_again_replaces_the_record_and_its_search_entry() {
+    fn saving_again_replaces_the_record() {
         let db = LibraryDb::open_in_memory().unwrap();
         db.save(&sample("x.mp3", "Old Artist", "Old Title")).unwrap();
         let newer = sample("x.mp3", "New Artist", "New Title");
         db.save(&newer).unwrap();
         assert_eq!(db.track_count().unwrap(), 1);
         assert_eq!(db.get(Path::new("x.mp3")).unwrap(), Some(newer));
-        assert!(db.search("old", 10).unwrap().is_empty());
-        assert_eq!(db.search("new", 10).unwrap().len(), 1);
     }
 
     #[test]
-    fn forgotten_tracks_leave_the_search_but_keep_their_cues() {
+    fn forgotten_tracks_keep_their_cues() {
         let db = LibraryDb::open_in_memory().unwrap();
         let path = "C:/Music/gone.mp3";
         db.save(&sample(path, "deadmau5", "Gone")).unwrap();
@@ -536,7 +446,6 @@ mod tests {
         db.save_cue(Path::new(path), &crate::Cue::point(crate::CueSlot::Main, 1.0)).unwrap();
         db.forget(&[path.to_string()]).unwrap();
         assert_eq!(db.get(Path::new(path)).unwrap(), None);
-        assert!(db.search("gone", 10).unwrap().is_empty());
         assert_eq!(db.cover(Path::new(path)).unwrap(), None);
         assert_eq!(db.cues(Path::new(path)).unwrap().len(), 1);
     }
@@ -576,7 +485,6 @@ mod tests {
         assert_eq!(db.cues(new).unwrap().len(), 1);
         assert_eq!(db.crate_tracks(id).unwrap()[0].path, path_key(new));
         assert_eq!(db.prepare_list().unwrap()[0].path, path_key(new));
-        assert_eq!(db.search("strobe", 10).unwrap()[0].path, path_key(new));
     }
 
     #[test]
@@ -598,25 +506,5 @@ mod tests {
         assert!(retagged.is_current(STAMP));
         assert_eq!(retagged.tags, tags);
         assert_eq!(retagged.analysis, stale.analysis);
-    }
-
-    #[test]
-    fn search_finds_word_starts_in_tags_and_file_names() {
-        let db = LibraryDb::open_in_memory().unwrap();
-        db.save(&sample("C:/Music/House/alone.mp3", "deadmau5", "Alone with You")).unwrap();
-        db.save(&sample("C:/Music/House/b.mp3", "Claptone", "No Eyes")).unwrap();
-        db.save(&TrackRecord::failed(Path::new("C:/Music/Schranz/Café Noir - Écho.mp3"), STAMP, "x".into()))
-            .unwrap();
-        let found = |q: &str| db.search(q, 10).unwrap().into_iter().map(|r| r.path).collect::<Vec<_>>();
-        assert_eq!(found("dead alo"), ["C:/Music/House/alone.mp3"]);
-        assert_eq!(found("eyes CLAPTONE"), ["C:/Music/House/b.mp3"]);
-        assert_eq!(
-            found("cafe echo"),
-            ["C:/Music/Schranz/Café Noir - Écho.mp3"],
-            "file name, accents ignored"
-        );
-        assert!(found("house").len() == 2, "genre");
-        assert!(found("  ").is_empty());
-        assert!(found("\"; DROP TABLE tracks; --").is_empty());
     }
 }
