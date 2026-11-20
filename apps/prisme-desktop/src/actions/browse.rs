@@ -830,12 +830,14 @@ pub fn mix_reference(view: &View, reference: usize, path: Option<&Path>) -> MixR
     }
 }
 
-/// Picks the row of the track at `path` (played at `played_at_ms` in a set) as `pick` says.
+/// Picks the row of the track at `path` (played at `played_at_ms` in a set) as `pick` says. A
+/// right click or a drag on a row gone from the list meanwhile picks nothing, the selection let
+/// go: the menu or the drop acts on no other track.
 pub fn select(state: &AppState, path: &str, played_at_ms: Option<i64>, pick: Pick) {
-    state.browse(|l| {
-        if let Some(entry) = l.browser.find(path, played_at_ms) {
-            l.browser.select(entry, pick);
-        }
+    state.browse(|l| match l.browser.find(path, played_at_ms) {
+        Some(entry) => l.browser.select(entry, pick),
+        None if pick == Pick::Context => l.browser.put_cursor(None),
+        None => {}
     });
 }
 
@@ -872,6 +874,16 @@ mod tests {
             l.browser.show(Source::Folder("C:/Music".into()), rows);
         });
         bench
+    }
+
+    #[test]
+    fn a_right_click_on_a_row_gone_from_the_list_selects_nothing() {
+        let bench = library();
+        select(&bench.state, "C:/Music/a.mp3", None, Pick::Only);
+        select(&bench.state, "C:/Music/gone.mp3", None, Pick::Toggle);
+        assert_eq!(tracks(&bench.state, None), ["C:/Music/a.mp3"], "a click on it: nothing changes");
+        select(&bench.state, "C:/Music/gone.mp3", None, Pick::Context);
+        assert!(tracks(&bench.state, None).is_empty());
     }
 
     #[test]
