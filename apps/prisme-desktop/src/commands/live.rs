@@ -37,32 +37,24 @@ pub fn set_live_level(state: State<'_, AppState>, source: LiveSourceDto, gain: f
 /// Heard in the master, or not.
 #[tauri::command]
 pub fn set_live_on(state: State<'_, AppState>, source: LiveSourceDto, on: bool) -> AppResult<()> {
-    lock(&state.live)[source as usize].on = on;
-    state.send_if_running(Command::SetLiveOn { source: source.into(), on })
+    mixer::set_live_on(&state, source, on)
 }
 
 /// Heard in the headphones, or not.
 #[tauri::command]
 pub fn set_live_cue(state: State<'_, AppState>, source: LiveSourceDto, cue: bool) -> AppResult<()> {
-    lock(&state.live)[source as usize].cue = cue;
-    state.send_if_running(Command::SetLiveCue { source: source.into(), cue })
+    mixer::set_live_cue(&state, source, cue)
 }
 
 /// While the microphone is on, the music ducks; kept for the next start.
 #[tauri::command]
 pub fn set_talkover(state: State<'_, AppState>, enabled: bool) -> AppResult<()> {
-    state.update_preferences(|p| p.mixer.talkover = enabled);
-    send_talkover(&state)
+    mixer::set_talkover(&state, enabled)
 }
 
 /// How far the music ducks under the microphone (dB); kept for the next start.
 #[tauri::command]
 pub fn set_talkover_depth(state: State<'_, AppState>, db: f32) -> AppResult<()> {
     state.update_preferences(|p| p.mixer.talkover_depth_db = db.min(0.0));
-    send_talkover(&state)
-}
-
-fn send_talkover(state: &AppState) -> AppResult<()> {
-    let (enabled, depth_db) = state.preferences.read(|p| (p.mixer.talkover, p.mixer.talkover_depth_db));
-    state.send_if_running(Command::SetTalkover { enabled, depth_db })
+    mixer::send_talkover(&state)
 }

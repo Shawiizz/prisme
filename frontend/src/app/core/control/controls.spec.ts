@@ -1,5 +1,4 @@
 import { buildControls, Control, ControlActions, measuredControl } from './controls';
-import { nextTempoRange } from '../models/preferences';
 
 /** Controls whose actions record their calls; queries answer `true`. */
 function recorder() {
@@ -89,16 +88,13 @@ describe('controls', () => {
       'perform(mixer.balance,0.25,false)',
       'perform(mixer.booth,0.8,false)',
       'perform(mixer.aux,0.5,false)',
-      'toggleLive(mic)',
-      'talkover()',
-      'setTalkover(false)',
-      'passthrough(1)',
-      'setPassthrough(1,false)',
-      'splitCue()',
-      'setSplitCue(false)',
-      'soloHeadphones(1)',
-      'muted(0)',
-      'setMute(0,false)',
+      'perform(mixer.mic.on,1,false)',
+      'perform(mixer.mic.on,0,false)',
+      'perform(mixer.talkover,1,false)',
+      'perform(deck2.passthrough,1,false)',
+      'perform(mixer.headphones.split,1,false)',
+      'perform(deck2.headphones.solo,1,false)',
+      'perform(deck1.mute,1,false)',
     ]);
   });
 
@@ -131,11 +127,11 @@ describe('controls', () => {
     find('deck2.fx2.mix').apply(0.5);
     find('deck1.fx.part').apply(1);
     expect(calls).toEqual([
-      'toggleFx(0,0)',
-      'setFxOn(1,2,true)',
+      'perform(deck1.fx,1,false)',
+      'perform(deck2.fx3.on,1,false)',
       'pressFx(0,1,reverb)',
-      'scaleFxBeats(0,0,0.5)',
-      'scaleFxBeats(1,1,4)',
+      'perform(deck1.fx.beats,-1,true)',
+      'perform(deck2.fx2.beats,2,true)',
       'perform(deck2.fx2.mix,0.5,false)',
       'nextFxPart(0)',
     ]);
@@ -161,7 +157,6 @@ describe('controls', () => {
    * amounts, second knobs and periods (along a knob of 7 steps, from 1/8 beat). */
   function chainOf(fx: { kind: string; amount: number; param2: number; beats: number }[]) {
     const focus = { slot: null as number | null };
-    const chain = { on: true };
     const actions = {
       perform: (id: string, v: number) => {
         const [, n, name] = /^deck1\.fx(\d?)\.(\w+)$/.exec(id)!;
@@ -177,11 +172,9 @@ describe('controls', () => {
       fxAmountPosition: (_: number, slot: number) => fx[slot].amount,
       fxParam2Position: (_: number, slot: number) => fx[slot].param2,
       fxBeats: (_: number, slot: number) => fx[slot].beats,
-      fxChainOn: () => chain.on,
-      setFxChainOn: (_: number, on: boolean) => (chain.on = on),
     } as unknown as ControlActions;
     const controls = buildControls(actions);
-    return { find: (id: string) => controls.find((c) => c.id === id)!, chain };
+    return { find: (id: string) => controls.find((c) => c.id === id)! };
   }
 
   const slots = () =>
@@ -214,14 +207,6 @@ describe('controls', () => {
     expect(knobs[2].position!()).toBe(0.2);
     fx[2].beats = 2;
     expect(knobs[2].position!()).toBeCloseTo(4.5 / 7);
-  });
-
-  it('switch the whole chain', () => {
-    const { find, chain } = chainOf(slots());
-    find('deck1.fx.chain').apply(1);
-    expect(chain.on).toBe(false);
-    find('deck1.fx.chain.on').apply(1);
-    expect(chain.on).toBe(true);
   });
 
   it('preview the selected track, move through it, stop it, or load and play', () => {
@@ -281,10 +266,8 @@ describe('controls', () => {
       'perform(deck1.brake,0,false)',
       'perform(deck2.spinback,1,false)',
       'perform(deck2.spinback,0,false)',
-      'repeating(0)',
-      'setRepeat(0,false)',
-      'faderStart(1)',
-      'setFaderStart(1,false)',
+      'perform(deck1.repeat,1,false)',
+      'perform(deck2.faderStart,1,false)',
     ]);
   });
 
@@ -294,8 +277,7 @@ describe('controls', () => {
     find('deck2.reverse.held').apply(1);
     find('deck2.reverse.held').apply(0);
     expect(calls).toEqual([
-      'reversing(0)',
-      'setReverse(0,false)',
+      'perform(deck1.reverse,1,false)',
       'perform(deck2.reverse.held,1,false)',
       'perform(deck2.reverse.held,0,false)',
     ]);
@@ -311,19 +293,7 @@ describe('controls', () => {
   });
 
   it('jump and loop by the size of the deck, which a step halves or doubles', () => {
-    const calls: string[] = [];
-    const actions = new Proxy(
-      {},
-      {
-        get:
-          (_, name: string) =>
-          (...args: unknown[]) => {
-            calls.push(`${name}(${args.join(',')})`);
-            return name === 'size' ? 8 : true;
-          },
-      },
-    ) as ControlActions;
-    const find = (id: string) => buildControls(actions).find((c) => c.id === id)!;
+    const { calls, find } = recorder();
     find('deck2.jump.back').apply(1);
     find('deck1.jump.forward').apply(1);
     find('deck1.loop.size').apply(1);
@@ -332,14 +302,12 @@ describe('controls', () => {
     find('deck2.size').apply(-2);
     expect(find('deck1.size').kind).toBe('encoder');
     expect(calls).toEqual([
-      'size(1)',
-      'beatJump(1,-8)',
-      'size(0)',
-      'beatJump(0,8)',
-      'sizedLoop(0)',
-      'scaleSize(0,0.5)',
-      'scaleSize(1,2)',
-      'scaleSize(1,0.25)',
+      'perform(deck2.jump.back,1,false)',
+      'perform(deck1.jump.forward,1,false)',
+      'perform(deck1.loop.size,1,false)',
+      'perform(deck1.size.halve,1,false)',
+      'perform(deck2.size.double,1,false)',
+      'perform(deck2.size,-2,true)',
     ]);
   });
 
@@ -370,15 +338,11 @@ describe('controls', () => {
     find('general.tempoRange').apply(1);
     find('general.tempoRange.previous').apply(1);
     expect(calls).toEqual([
-      'cycleDeckTempoRange(1,1)',
-      'cycleDeckTempoRange(0,-1)',
-      'cycleTempoRange(1)',
-      'cycleTempoRange(-1)',
+      'perform(deck2.tempoRange,1,false)',
+      'perform(deck1.tempoRange.previous,1,false)',
+      'perform(general.tempoRange,1,false)',
+      'perform(general.tempoRange.previous,1,false)',
     ]);
-    expect(nextTempoRange(0.08, 1)).toBe(0.16);
-    expect(nextTempoRange(0.5, 1)).toBe(0.08);
-    expect(nextTempoRange(0.08, -1)).toBe(0.5);
-    expect(nextTempoRange(0.1, 1)).toBe(0.08);
   });
 
   it('give each switch a key putting it on and one putting it off, whatever it is', () => {
@@ -389,10 +353,11 @@ describe('controls', () => {
     find('mixer.crossfader.reverse.off').apply(1);
     find('deck1.vinyl.on').apply(0);
     expect(calls).toEqual([
-      'setSync(0,true)',
-      'setKeyLock(1,false)',
-      'setQuantize(true)',
-      'setCrossfaderReverse(false)',
+      'perform(deck1.sync.on,1,false)',
+      'perform(deck2.keylock.off,1,false)',
+      'perform(general.quantize.on,1,false)',
+      'perform(mixer.crossfader.reverse.off,1,false)',
+      'perform(deck1.vinyl.on,0,false)',
     ]);
     const switches = [
       'deck1.sync',

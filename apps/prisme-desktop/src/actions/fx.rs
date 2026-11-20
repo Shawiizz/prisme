@@ -50,3 +50,10 @@ pub fn set_fx_param2(state: &AppState, deck: usize, slot: usize, param2: f32) ->
 pub fn set_fx_beats(state: &AppState, deck: usize, slot: usize, beats: f32) -> AppResult<()> {
     set_slot(state, deck, slot, |fx| fx.beats = beats, Command::SetFxBeats { deck, slot, beats })
 }
+
+/// The whole chain on or off, each slot keeping its own switch.
+pub fn set_fx_chain_enabled(state: &AppState, deck: usize, enabled: bool) -> AppResult<()> {
+    AppState::check_deck(deck)?;
+    lock(&state.decks)[deck].fx.enabled = enabled;
+    state.send_if_running(Command::SetFxChainEnabled { deck, enabled })
+}

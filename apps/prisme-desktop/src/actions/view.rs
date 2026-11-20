@@ -6,7 +6,7 @@ use crate::dto::{CrossfaderCurveDto, CrossfaderSideDto, FxDto, LiveSourceDto};
 use crate::state::{as_laid_out, live_preferences, lock, AppState, LoadedTrack};
 use prisme_actions::perform::PerformState;
 use prisme_actions::view::{DeckView, FxChain, FxSlot, Live, MixerView, Strip, TrackView, View};
-use prisme_control::{Side, HOT_CUES};
+use prisme_control::HOT_CUES;
 use prisme_library::CueSlot;
 use std::sync::Mutex;
 
@@ -48,7 +48,7 @@ pub fn view_of(state: &AppState, auto_dj: bool, perform: &Mutex<PerformState>, n
             repeat: d.repeat,
             mute: d.mute,
             passthrough: d.passthrough,
-            side: side(d.side.unwrap_or(CrossfaderSideDto::of_deck(deck))),
+            side: d.side.unwrap_or(CrossfaderSideDto::of_deck(deck)).into(),
             strip: Strip { trim: d.strip.trim, eq: d.strip.eq, kills: d.strip.kills, filter: d.strip.filter },
             fx: FxChain { enabled: d.fx.enabled, slots: d.fx.slots.map(fx_slot) },
             sampler_gain: d.sampler_gain,
@@ -112,13 +112,5 @@ fn fx_slot(fx: FxDto) -> FxSlot {
         amount: fx.amount,
         param2: fx.param2,
         beats: fx.beats,
-    }
-}
-
-fn side(side: CrossfaderSideDto) -> Side {
-    match side {
-        CrossfaderSideDto::Left => Side::Left,
-        CrossfaderSideDto::Center => Side::Center,
-        CrossfaderSideDto::Right => Side::Right,
     }
 }

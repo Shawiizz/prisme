@@ -780,6 +780,26 @@ impl CrossfaderSideDto {
     }
 }
 
+impl From<CrossfaderSideDto> for prisme_control::Side {
+    fn from(side: CrossfaderSideDto) -> Self {
+        match side {
+            CrossfaderSideDto::Left => Self::Left,
+            CrossfaderSideDto::Center => Self::Center,
+            CrossfaderSideDto::Right => Self::Right,
+        }
+    }
+}
+
+impl From<prisme_control::Side> for CrossfaderSideDto {
+    fn from(side: prisme_control::Side) -> Self {
+        match side {
+            prisme_control::Side::Left => Self::Left,
+            prisme_control::Side::Center => Self::Center,
+            prisme_control::Side::Right => Self::Right,
+        }
+    }
+}
+
 impl From<CrossfaderSideDto> for prisme_engine::CrossfaderSide {
     fn from(side: CrossfaderSideDto) -> Self {
         match side {

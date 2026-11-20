@@ -98,6 +98,15 @@ impl Turn {
     #[cfg(test)]
     const ALL: [Turn; 3] = [Turn::Over, Turn::On, Turn::Off];
 
+    /// Whether a switch standing `on` is on once turned.
+    pub fn turns(self, on: bool) -> bool {
+        match self {
+            Turn::Over => !on,
+            Turn::On => true,
+            Turn::Off => false,
+        }
+    }
+
     fn suffix(self) -> &'static str {
         match self {
             Turn::Over => "",
@@ -418,8 +427,35 @@ impl Target {
                 | DeckAction::FxSuper
                 | DeckAction::Fx(
                     _,
-                    FxAction::Mix | FxAction::Amount | FxAction::Param2 | FxAction::Period | FxAction::Kind,
-                ),
+                    FxAction::Mix
+                    | FxAction::Amount
+                    | FxAction::Param2
+                    | FxAction::Period
+                    | FxAction::Kind
+                    | FxAction::Beats
+                    | FxAction::Enabled(_),
+                )
+                | DeckAction::Switch(..)
+                | DeckAction::SyncOnce
+                | DeckAction::HeadphonesSolo
+                | DeckAction::CrossfaderSide(_)
+                | DeckAction::TempoReset
+                | DeckAction::TempoUp
+                | DeckAction::TempoDown
+                | DeckAction::Tempo
+                | DeckAction::TempoRange
+                | DeckAction::TempoRangePrevious
+                | DeckAction::KeyUp
+                | DeckAction::KeyDown
+                | DeckAction::KeyReset
+                | DeckAction::KeyTo(_)
+                | DeckAction::JumpBack
+                | DeckAction::JumpForward
+                | DeckAction::Loop
+                | DeckAction::LoopSize
+                | DeckAction::SizeHalve
+                | DeckAction::SizeDouble
+                | DeckAction::Size,
             )
             | Target::Mixer(
                 MixerAction::Crossfader
@@ -431,7 +467,16 @@ impl Target {
                 | MixerAction::Headphones
                 | MixerAction::Main
                 | MixerAction::CrossfaderCurve
-                | MixerAction::SamplerGain,
+                | MixerAction::SamplerGain
+                | MixerAction::MicOn
+                | MixerAction::MicCue
+                | MixerAction::AuxOn
+                | MixerAction::AuxCue
+                | MixerAction::CrossfaderCurveNext
+                | MixerAction::Switch(..),
+            )
+            | Target::General(
+                GeneralAction::Quantize(_) | GeneralAction::TempoRange | GeneralAction::TempoRangePrevious,
             )
             | Target::AutoDj(_) => Owner::Rust,
             _ => Owner::Ui,

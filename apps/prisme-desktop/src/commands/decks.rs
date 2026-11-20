@@ -5,8 +5,7 @@ use crate::commands::audio::start_audio;
 use crate::commands::blocking;
 use crate::dto::{RpmDto, VinylModeDto};
 use crate::error::{AppError, AppResult};
-use crate::preferences::DeckPreferences;
-use crate::state::{deck_commands, lock, AppState};
+use crate::state::{lock, AppState};
 use prisme_engine::Command;
 use prisme_timecode::TimecodeFormat;
 use tauri::{AppHandle, Manager, State};
@@ -67,9 +66,7 @@ pub fn jog(
 /// only nudges it).
 #[tauri::command]
 pub fn set_jog_scratch(state: State<'_, AppState>, deck: usize, on: bool) -> AppResult<()> {
-    AppState::check_deck(deck)?;
-    lock(&state.decks)[deck].jog_scratch = on;
-    Ok(())
+    deck::set_jog_scratch(&state, deck, on)
 }
 
 #[tauri::command]
@@ -89,28 +86,7 @@ pub fn set_vinyl(
     rpm: RpmDto,
     lead_in_s: Option<f64>,
 ) -> AppResult<Option<usize>> {
-    AppState::check_deck(deck)?;
-    if !enabled {
-        state.let_go_of_record(deck);
-    }
-    let settings = {
-        let mut decks = lock(&state.decks);
-        let d = &mut decks[deck];
-        d.vinyl_enabled = enabled;
-        d.vinyl_mode = mode;
-        d.rpm = rpm;
-        d.lead_in_s = lead_in_s;
-        *d
-    };
-    state.update_preferences(|p| {
-        let d = &mut p.decks[deck];
-        (d.vinyl_enabled, d.vinyl_mode, d.rpm, d.lead_in_s) = (enabled, mode, rpm, lead_in_s);
-    });
-    let freed = enabled.then(|| state.take_turntable(deck)).flatten();
-    for c in deck_commands(deck, &settings) {
-        state.send_if_running(c)?;
-    }
-    Ok(freed)
+    deck::set_vinyl(&state, deck, enabled, mode, rpm, lead_in_s)
 }
 
 /// Swaps the turntable's left and right channels (crossed cables), kept for the next start.
@@ -175,85 +151,30 @@ fn replace_decoder(state: &AppState, deck: usize) -> AppResult<()> {
 /// The deck plays its input as it comes (a record, a CD player) instead of its track.
 #[tauri::command]
 pub fn set_passthrough(state: State<'_, AppState>, deck: usize, enabled: bool) -> AppResult<()> {
-    AppState::check_deck(deck)?;
-    lock(&state.decks)[deck].passthrough = enabled;
-    state.send_if_running(Command::SetPassthrough { deck, enabled })
+    deck::set_passthrough(&state, deck, enabled)
 }
 
 /// The range of the tempo fader of `deck` (0.08 = ±8 %), or of every deck (`None`), which
 /// then all follow the general one; kept for the next start.
 #[tauri::command]
 pub fn set_tempo_range(state: State<'_, AppState>, deck: Option<usize>, range: f64) -> AppResult<()> {
-    if !(range > 0.0 && range <= 1.0) {
-        return Err(AppError::Other("a tempo range is within ±100 %".into()));
-    }
-    match deck {
-        Some(deck) => {
-            AppState::check_deck(deck)?;
-            lock(&state.decks)[deck].pitch_range = Some(range);
-            state.update_preferences(|p| p.decks[deck].pitch_range = Some(range));
-        }
-        None => {
-            lock(&state.decks).iter_mut().for_each(|d| d.pitch_range = None);
-            state.update_preferences(|p| {
-                p.dj.pitch_range = range;
-                p.decks.iter_mut().for_each(|d| d.pitch_range = None);
-            });
-        }
-    }
-    Ok(())
-}
-
-/// The deck's size in beats, what its jumps go by and its sized loop lasts; kept for the next
-/// start.
-#[tauri::command]
-pub fn set_deck_size(state: State<'_, AppState>, deck: usize, beats: f64) -> AppResult<()> {
-    AppState::check_deck(deck)?;
-    if !DeckPreferences::SIZE_BEATS.contains(&beats) {
-        return Err(AppError::Other("a deck's size is from 1/16 of a beat to 64 beats".into()));
-    }
-    lock(&state.decks)[deck].size_beats = beats;
-    state.update_preferences(|p| p.decks[deck].size_beats = beats);
-    Ok(())
+    deck::set_tempo_range(&state, deck, range)
 }
 
 /// At the end, the track goes on from its start.
 #[tauri::command]
 pub fn set_repeat(state: State<'_, AppState>, deck: usize, enabled: bool) -> AppResult<()> {
-    AppState::check_deck(deck)?;
-    lock(&state.decks)[deck].repeat = enabled;
-    state.send_if_running(Command::SetRepeat { deck, enabled })
+    deck::set_repeat(&state, deck, enabled)
 }
 
 /// The pitch stays when the speed changes; kept for the next start.
 #[tauri::command]
 pub fn set_key_lock(state: State<'_, AppState>, deck: usize, enabled: bool) -> AppResult<()> {
-    AppState::check_deck(deck)?;
-    lock(&state.decks)[deck].key_lock = enabled;
-    state.update_preferences(|p| p.decks[deck].key_lock = enabled);
-    state.send_if_running(Command::SetKeyLock { deck, enabled })
+    deck::set_key_lock(&state, deck, enabled)
 }
 
 /// Transposes the track on `deck` until the next load.
 #[tauri::command]
 pub fn set_key_shift(state: State<'_, AppState>, deck: usize, semitones: i8) -> AppResult<()> {
     deck::set_key_shift(&state, deck, semitones)
-}
-
-#[tauri::command]
-pub fn set_sync_locked(state: State<'_, AppState>, deck: usize, locked: bool) -> AppResult<()> {
-    state.has_deck(deck)?;
-    state.send(Command::SetSyncLocked { deck, locked })
-}
-
-#[tauri::command]
-pub fn sync_once(state: State<'_, AppState>, deck: usize) -> AppResult<()> {
-    state.has_deck(deck)?;
-    state.send(Command::SyncOnce { deck })
-}
-
-/// `None`: the leader is picked automatically.
-#[tauri::command]
-pub fn set_sync_leader(state: State<'_, AppState>, deck: Option<usize>) -> AppResult<()> {
-    deck::set_sync_leader(&state, deck)
 }

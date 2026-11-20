@@ -96,8 +96,8 @@
       (valueChange)="fx.setParam2(deck(), slot(), $event)"
     />
     <div class="beats" [title]="'Period of the effect, in beats' | t">
-      <button class="pr-btn pr-btn--sm" (click)="fx.scaleBeats(deck(), slot(), 0.5)">½</button>
-      <button class="pr-btn pr-btn--sm" (click)="fx.scaleBeats(deck(), slot(), 2)">×2</button>
+      <button class="pr-btn pr-btn--sm" (click)="fx.stepBeats(deck(), slot(), -1)">½</button>
+      <button class="pr-btn pr-btn--sm" (click)="fx.stepBeats(deck(), slot(), 1)">×2</button>
       <span class="pr-num">{{ beats(effect().beats) }}</span>
     </div>
   </div>
@@ -137,10 +137,8 @@
         }
         @case ('jump') {
           <div class="beats" [title]="'Size of the jumps and of the sized loop, in beats' | t">
-            <button class="pr-btn pr-btn--sm" (click)="performance.scaleSize(deck(), 0.5)">
-              ½
-            </button>
-            <button class="pr-btn pr-btn--sm" (click)="performance.scaleSize(deck(), 2)">×2</button>
+            <button class="pr-btn pr-btn--sm" (click)="performance.resize(deck(), -1)">½</button>
+            <button class="pr-btn pr-btn--sm" (click)="performance.resize(deck(), 1)">×2</button>
             <span class="pr-num">{{ beats(size()) }}</span>
           </div>
           <ng-container [ngTemplateOutlet]="slipKey" />

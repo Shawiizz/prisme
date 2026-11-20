@@ -1,20 +1,22 @@
 //! What each action does, by its target, with what its control gives: a key pressed or let go,
 //! a fader's position, an encoder's steps.
 
-use super::{deck, fx, mixer, not_performed, sampler, transport, Performing};
+use super::{deck, fx, general, mixer, not_performed, sampler, transport, Performing};
 use crate::dto::{CrossfaderCurveDto, EffectKindDto, LiveSourceDto};
 use crate::error::AppResult;
 use crate::state::lock;
 use prisme_actions::input::{Given, Input};
 use prisme_actions::position::FX_PERIODS;
 use prisme_actions::scales::{
-    balance_amount, eq_gain, eq_knob, filter_amount, headphone_gain, live_gain, live_knob, trim_gain, Tempo,
+    balance_amount, eq_gain, eq_knob, filter_amount, headphone_gain, live_gain, live_knob, next_tempo_range,
+    trim_gain, Tempo,
 };
 use prisme_control::{
-    AutoDjAction, Beats, DeckAction, Effect, FxAction, Kind, MixerAction, SampleAction, Target, FX_SLOTS,
+    AutoDjAction, Beats, DeckAction, DeckSwitch, Effect, FxAction, GeneralAction, Kind, MixerAction,
+    MixerSwitch, SampleAction, Target, Turn, FX_SLOTS,
 };
 use prisme_engine::Command;
-use transport::{PITCH_BEND, SMALL_BEND};
+use transport::{LOOP_BEATS, PITCH_BEND, SMALL_BEND, TEMPO_STEP};
 
 impl Performing<'_> {
     /// Performs `target` driven by `input`: nothing on a deck not in use.
@@ -36,6 +38,7 @@ impl Performing<'_> {
                 _ => self.deck(deck, action, given),
             },
             Target::Mixer(action) => self.mixer(action, given),
+            Target::General(action) => self.general(action, given),
             Target::AutoDj(action) => {
                 if let Some(auto_dj) = self.auto_dj().filter(|_| given.pressed()) {
                     match action {
@@ -50,16 +53,21 @@ impl Performing<'_> {
         }
     }
 
+    /// An action of `deck` but its faders': the keys held act as they are pressed and let go,
+    /// the others as they are pressed; the encoders by their steps.
     fn deck(&self, deck: usize, action: DeckAction, given: Given) -> AppResult<()> {
         let state = self.state;
         let held = given.pressed();
         let send = |command| transport::send(state, deck, command);
-        let pressed = |command| if held { send(command) } else { Ok(()) };
         let bend =
             |amount: f64| send(Command::SetPitchBend { deck, amount: if held { amount } else { 0.0 } });
+        let steps = match given {
+            Given::Steps(steps) => steps,
+            Given::Value(_) => 0,
+        };
+        let size = || lock(&state.decks)[deck].size_beats;
+        let key = || state.with_track(deck, |t| i32::from(t.key_shift)).unwrap_or(0);
         match action {
-            DeckAction::SyncLeader if held => deck::toggle_leader(state, deck),
-            DeckAction::Brake => pressed(Command::Brake { deck }),
             DeckAction::Spinback => send(Command::SpinBack { deck, held }),
             DeckAction::Censor => send(Command::Censor { deck, active: held }),
             DeckAction::ReverseHeld => send(Command::HoldReverse { deck, held }),
@@ -68,46 +76,125 @@ impl Performing<'_> {
             DeckAction::BendUp => bend(PITCH_BEND),
             DeckAction::BendDownSmall => bend(-SMALL_BEND),
             DeckAction::BendUpSmall => bend(SMALL_BEND),
-            DeckAction::LoopIn => pressed(Command::LoopIn { deck }),
-            DeckAction::LoopOut => pressed(Command::LoopOut { deck }),
-            DeckAction::Reloop => pressed(Command::Reloop { deck }),
-            DeckAction::LoopHalve => pressed(Command::ScaleLoop { deck, factor: 0.5 }),
-            DeckAction::LoopDouble => pressed(Command::ScaleLoop { deck, factor: 2.0 }),
-            DeckAction::LoopBeats(Beats(beats)) => pressed(Command::BeatLoop { deck, beats }),
-            DeckAction::JumpBeats(Beats(beats)) if held => {
-                transport::beat_jump(state, self.auto_dj().as_deref(), deck, beats)
-            }
-            DeckAction::LoopClear if held => transport::set_loop(state, deck, None, None, false),
             DeckAction::EqKill(band) => mixer::set_eq_kill(state, deck, band.into(), held),
             DeckAction::Fx(slot, FxAction::Held) => fx::set_fx_enabled(state, deck, slot, held),
-            DeckAction::Sample(slot, SampleAction::Trigger) if held => {
-                sampler::trigger_sample(state, deck, slot, None)
-            }
-            // as hard as the pad was hit
-            DeckAction::Sample(slot, SampleAction::Velocity) => match given {
-                Given::Value(velocity) if held => sampler::trigger_sample(state, deck, slot, Some(velocity)),
-                _ => Ok(()),
-            },
-            DeckAction::Sample(slot, SampleAction::Stop) if held => sampler::stop_sample(state, deck, slot),
             DeckAction::Sample(slot, SampleAction::Held) if held => {
                 sampler::trigger_sample(state, deck, slot, None)
             }
             DeckAction::Sample(slot, SampleAction::Held) => sampler::stop_sample(state, deck, slot),
-            DeckAction::HotCueDelete(slot) if held => self.delete_hot_cue(deck, slot),
+            DeckAction::GridMove => self.edit_grid(deck, action, given),
+            DeckAction::Tempo => self.step_tempo(deck, steps),
+            DeckAction::Size if steps != 0 => deck::scale_size(state, deck, 2f64.powi(steps)),
+            DeckAction::Fx(slot, FxAction::Beats) if steps != 0 => {
+                let (shortest, longest) = (FX_PERIODS[0], FX_PERIODS[FX_PERIODS.len() - 1]);
+                let beats = lock(&state.decks)[deck].fx.slots[slot].beats * 2f32.powi(steps);
+                fx::set_fx_beats(state, deck, slot, beats.clamp(shortest, longest))
+            }
+            DeckAction::Size | DeckAction::Fx(_, FxAction::Beats) => Ok(()),
+            // a key let go
+            _ if !held && action.kind() == Kind::Button => Ok(()),
+            DeckAction::Brake => send(Command::Brake { deck }),
+            DeckAction::LoopIn => send(Command::LoopIn { deck }),
+            DeckAction::LoopOut => send(Command::LoopOut { deck }),
+            DeckAction::Reloop => send(Command::Reloop { deck }),
+            DeckAction::LoopHalve => send(Command::ScaleLoop { deck, factor: 0.5 }),
+            DeckAction::LoopDouble => send(Command::ScaleLoop { deck, factor: 2.0 }),
+            DeckAction::LoopBeats(Beats(beats)) => send(Command::BeatLoop { deck, beats }),
+            DeckAction::Loop => self.toggle_loop(deck, LOOP_BEATS),
+            DeckAction::LoopSize => self.toggle_loop(deck, size()),
+            DeckAction::LoopClear => transport::set_loop(state, deck, None, None, false),
+            DeckAction::JumpBeats(Beats(beats)) => self.jump(deck, beats),
+            DeckAction::JumpBack => self.jump(deck, -size()),
+            DeckAction::JumpForward => self.jump(deck, size()),
+            DeckAction::SizeHalve => deck::scale_size(state, deck, 0.5),
+            DeckAction::SizeDouble => deck::scale_size(state, deck, 2.0),
+            DeckAction::SyncLeader => deck::toggle_leader(state, deck),
+            DeckAction::SyncOnce => deck::match_once(state, deck),
+            DeckAction::Switch(switch, turn) => self.switch(deck, switch, turn),
+            DeckAction::TempoReset => deck::set_pitch(state, deck, 1.0),
+            DeckAction::TempoUp => self.step_tempo(deck, 1),
+            DeckAction::TempoDown => self.step_tempo(deck, -1),
+            DeckAction::TempoRange => self.next_tempo_range(Some(deck), 1),
+            DeckAction::TempoRangePrevious => self.next_tempo_range(Some(deck), -1),
+            DeckAction::KeyUp => deck::key_to(state, deck, key() + 1),
+            DeckAction::KeyDown => deck::key_to(state, deck, key() - 1),
+            DeckAction::KeyReset => deck::key_to(state, deck, 0),
+            DeckAction::KeyTo(semitones) => deck::key_to(state, deck, semitones),
+            DeckAction::HeadphonesSolo => {
+                let decks = state.preferences.read(|p| p.dj.decks());
+                (0..decks).try_for_each(|d| mixer::set_deck_cue(state, d, d == deck))
+            }
+            DeckAction::CrossfaderSide(side) => mixer::set_crossfader_side(state, deck, side.into()),
+            DeckAction::Fx(slot, FxAction::Enabled(turn)) => {
+                let on = lock(&state.decks)[deck].fx.slots[slot].enabled;
+                fx::set_fx_enabled(state, deck, slot, turn.turns(on))
+            }
+            DeckAction::Sample(slot, SampleAction::Trigger) => {
+                sampler::trigger_sample(state, deck, slot, None)
+            }
+            // as hard as the pad was hit
+            DeckAction::Sample(slot, SampleAction::Velocity) => match given {
+                Given::Value(velocity) => sampler::trigger_sample(state, deck, slot, Some(velocity)),
+                Given::Steps(_) => Ok(()),
+            },
+            DeckAction::Sample(slot, SampleAction::Stop) => sampler::stop_sample(state, deck, slot),
+            DeckAction::HotCueDelete(slot) => self.delete_hot_cue(deck, slot),
             DeckAction::GridHere
             | DeckAction::GridEarlier
             | DeckAction::GridLater
             | DeckAction::GridFaster
-            | DeckAction::GridSlower
-            | DeckAction::GridMove => self.edit_grid(deck, action, given),
-            // a key let go
-            DeckAction::SyncLeader
-            | DeckAction::JumpBeats(_)
-            | DeckAction::LoopClear
-            | DeckAction::Sample(_, SampleAction::Trigger | SampleAction::Stop)
-            | DeckAction::HotCueDelete(_) => Ok(()),
+            | DeckAction::GridSlower => self.edit_grid(deck, action, given),
             _ => Err(not_performed(&Target::Deck(deck, action))),
         }
+    }
+
+    /// A switch of `deck` turned `turn`, from where it stands.
+    fn switch(&self, deck: usize, switch: DeckSwitch, turn: Turn) -> AppResult<()> {
+        let state = self.state;
+        let d = lock(&state.decks)[deck];
+        let status = || state.deck_status(deck).unwrap_or_default();
+        let send = |command| transport::send(state, deck, command);
+        match switch {
+            DeckSwitch::Sync => deck::set_sync(state, deck, turn.turns(status().sync.locked)),
+            DeckSwitch::Slip => send(Command::SetSlip { deck, enabled: turn.turns(status().slip_mode) }),
+            DeckSwitch::Reverse => send(Command::SetReverse { deck, enabled: turn.turns(status().reverse) }),
+            DeckSwitch::Repeat => deck::set_repeat(state, deck, turn.turns(d.repeat)),
+            DeckSwitch::FaderStart => mixer::set_fader_start(state, deck, turn.turns(d.fader_start)),
+            DeckSwitch::KeyLock => deck::set_key_lock(state, deck, turn.turns(d.key_lock)),
+            DeckSwitch::Headphones => mixer::set_deck_cue(state, deck, turn.turns(d.cue)),
+            DeckSwitch::Mute => mixer::set_mute(state, deck, turn.turns(d.mute)),
+            DeckSwitch::Passthrough => deck::set_passthrough(state, deck, turn.turns(d.passthrough)),
+            DeckSwitch::Vinyl => deck::set_vinyl_enabled(state, deck, turn.turns(d.vinyl_enabled)),
+            DeckSwitch::JogScratch => deck::set_jog_scratch(state, deck, turn.turns(d.jog_scratch)),
+            DeckSwitch::FxChain => fx::set_fx_chain_enabled(state, deck, turn.turns(d.fx.enabled)),
+        }
+    }
+
+    /// So many beats ahead, or back below zero.
+    fn jump(&self, deck: usize, beats: f64) -> AppResult<()> {
+        transport::beat_jump(self.state, self.auto_dj().as_deref(), deck, beats)
+    }
+
+    /// A loop of `beats` where `deck` plays, or out of the loop it plays.
+    fn toggle_loop(&self, deck: usize, beats: f64) -> AppResult<()> {
+        let looping = self.state.deck_status(deck).is_ok_and(|status| status.looping.active);
+        let command = if looping { Command::ExitLoop { deck } } else { Command::BeatLoop { deck, beats } };
+        transport::send(self.state, deck, command)
+    }
+
+    /// The tempo of `deck` moved by so many steps, and kept.
+    fn step_tempo(&self, deck: usize, steps: i32) -> AppResult<()> {
+        let ratio = lock(&self.state.decks)[deck].pitch + f64::from(steps) * TEMPO_STEP;
+        deck::set_pitch(self.state, deck, ratio)
+    }
+
+    /// The range of the tempo fader of `deck`, or of them all (`None`), `step` places on.
+    fn next_tempo_range(&self, deck: Option<usize>, step: isize) -> AppResult<()> {
+        let range = match deck {
+            Some(deck) => self.state.tempo_range(deck),
+            None => self.state.preferences.read(|p| p.dj.pitch_range),
+        };
+        deck::set_tempo_range(self.state, deck, next_tempo_range(range, step))
     }
 
     /// A fader of `deck` moved to `at`, 0 to 1, on its scale.
@@ -172,6 +259,8 @@ impl Performing<'_> {
         let state = self.state;
         let target = Target::Mixer(action);
         let Given::Value(at) = given else { return Ok(()) };
+        let mixer = state.preferences.read(|p| p.mixer);
+        let switches = *lock(&state.live);
         let live = |source: LiveSourceDto| {
             let gain = live_gain(at);
             mixer::set_live_level(state, source, gain)?;
@@ -202,7 +291,41 @@ impl Performing<'_> {
                 let decks = state.preferences.read(|p| p.dj.decks());
                 (0..decks).try_for_each(|deck| sampler::set_sampler_gain(state, deck, at))
             }
-            _ => Err(not_performed(&target)),
+            // a key let go
+            _ if !given.pressed() => Ok(()),
+            MixerAction::MicOn => mixer::set_live_on(state, LiveSourceDto::Mic, !switches[0].on),
+            MixerAction::AuxOn => mixer::set_live_on(state, LiveSourceDto::Aux, !switches[1].on),
+            MixerAction::MicCue => mixer::set_live_cue(state, LiveSourceDto::Mic, !switches[0].cue),
+            MixerAction::AuxCue => mixer::set_live_cue(state, LiveSourceDto::Aux, !switches[1].cue),
+            MixerAction::CrossfaderCurveNext => {
+                let sharp = mixer.crossfader_curve == CrossfaderCurveDto::Sharp;
+                let curve = if sharp { CrossfaderCurveDto::Smooth } else { CrossfaderCurveDto::Sharp };
+                mixer::set_crossfader_curve(state, curve)
+            }
+            MixerAction::Switch(MixerSwitch::HeadphonesSplit, turn) => {
+                mixer::set_split_cue(state, turn.turns(mixer.split_cue))
+            }
+            MixerAction::Switch(MixerSwitch::Talkover, turn) => {
+                mixer::set_talkover(state, turn.turns(mixer.talkover))
+            }
+            MixerAction::Switch(MixerSwitch::CrossfaderReverse, turn) => {
+                mixer::set_crossfader_reverse(state, turn.turns(mixer.crossfader_reverse))
+            }
+            MixerAction::MainClip => Err(not_performed(&target)),
+        }
+    }
+
+    /// An action of every deck, given `given`.
+    fn general(&self, action: GeneralAction, given: Given) -> AppResult<()> {
+        let state = self.state;
+        match action {
+            _ if !given.pressed() => Ok(()),
+            GeneralAction::Quantize(turn) => {
+                general::set_quantize(state, turn.turns(state.preferences.read(|p| p.dj.quantize)))
+            }
+            GeneralAction::TempoRange => self.next_tempo_range(None, 1),
+            GeneralAction::TempoRangePrevious => self.next_tempo_range(None, -1),
+            _ => Err(not_performed(&Target::General(action))),
         }
     }
 }
@@ -500,5 +623,202 @@ mod faders {
         set(&bench, "deck1.vocals.level", 0.2);
         set(&bench, "deck1.position", 0.5);
         assert!(bench.sent().is_empty());
+    }
+}
+
+#[cfg(test)]
+mod switches {
+    use crate::actions::bench::Bench;
+    use crate::dto::CrossfaderCurveDto;
+    use crate::state::{lock, LoadedTrack};
+    use crate::track_waveform::TrackWaveform;
+    use prisme_actions::input::Input;
+    use prisme_engine::Command;
+    use prisme_media::TrackAudio;
+    use std::sync::Arc;
+
+    /// `id` pressed then let go.
+    fn press(bench: &Bench, id: &str) {
+        bench.press(id, 1.0).unwrap();
+        bench.press(id, 0.0).unwrap();
+    }
+
+    fn turn(bench: &Bench, id: &str, steps: f32) {
+        bench.moved("DDJ", id, Input::Steps { steps, step: None }).unwrap();
+    }
+
+    #[test]
+    fn a_switch_turned_on_or_off_stays_so_and_one_turned_over_flips() {
+        let mut bench = Bench::new();
+        let key_lock = |bench: &Bench| lock(&bench.state.decks)[0].key_lock;
+        press(&bench, "deck1.keylock.on");
+        press(&bench, "deck1.keylock.on");
+        assert!(key_lock(&bench));
+        press(&bench, "deck1.keylock");
+        assert!(!key_lock(&bench));
+        press(&bench, "deck1.keylock.off");
+        assert!(!key_lock(&bench));
+
+        press(&bench, "mixer.talkover.on");
+        press(&bench, "mixer.talkover.on");
+        assert!(bench.state.preferences.read(|p| p.mixer.talkover));
+        press(&bench, "general.quantize.off");
+        press(&bench, "general.quantize.off");
+        assert!(!bench.state.preferences.read(|p| p.dj.quantize));
+        press(&bench, "deck2.fx2.on");
+        press(&bench, "deck2.fx2.on");
+        assert!(lock(&bench.state.decks)[1].fx.slots[1].enabled);
+        press(&bench, "deck2.fx2");
+        assert!(!lock(&bench.state.decks)[1].fx.slots[1].enabled);
+        bench.sent();
+
+        // the engine's own: on twice is on
+        press(&bench, "deck1.slip.on");
+        press(&bench, "deck1.slip.on");
+        assert!(matches!(
+            bench.sent()[..],
+            [Command::SetSlip { deck: 0, enabled: true }, Command::SetSlip { deck: 0, enabled: true }]
+        ));
+    }
+
+    #[test]
+    fn the_size_is_halved_and_doubled_within_a_sixteenth_and_64_beats() {
+        let bench = Bench::new();
+        let size = || lock(&bench.state.decks)[0].size_beats;
+        turn(&bench, "deck1.size", 3.0);
+        assert_eq!(size(), 32.0);
+        for _ in 0..4 {
+            press(&bench, "deck1.size.double");
+        }
+        assert_eq!(size(), 64.0);
+        turn(&bench, "deck1.size", -20.0);
+        assert_eq!(size(), 1.0 / 16.0);
+        press(&bench, "deck1.size.halve");
+        assert_eq!(size(), 1.0 / 16.0);
+        assert_eq!(bench.state.preferences.read(|p| p.decks[0].size_beats), 1.0 / 16.0, "kept");
+    }
+
+    #[test]
+    fn a_jump_and_a_sized_loop_go_by_the_size_the_loop_key_by_four_beats() {
+        let mut bench = Bench::new();
+        press(&bench, "deck2.size.double");
+        press(&bench, "deck2.jump.back");
+        press(&bench, "deck2.loop.size");
+        press(&bench, "deck2.loop");
+        assert!(matches!(
+            bench.sent()[..],
+            [
+                Command::BeatJump { deck: 1, beats: -8.0 },
+                Command::BeatLoop { deck: 1, beats: 8.0 },
+                Command::BeatLoop { deck: 1, beats: 4.0 },
+            ]
+        ));
+    }
+
+    #[test]
+    fn the_tempo_moves_by_a_tenth_of_a_percent_a_step_and_back_to_the_track() {
+        let bench = Bench::new();
+        let pitch = || lock(&bench.state.decks)[0].pitch;
+        press(&bench, "deck1.tempo.up");
+        press(&bench, "deck1.tempo.up");
+        assert!((pitch() - 1.002).abs() < 1e-9);
+        turn(&bench, "deck1.tempo", -5.0);
+        assert!((pitch() - 0.997).abs() < 1e-9);
+        press(&bench, "deck1.tempo.reset");
+        assert_eq!(pitch(), 1.0);
+    }
+
+    #[test]
+    fn a_tempo_range_goes_round_on_a_deck_or_on_them_all() {
+        let bench = Bench::new();
+        press(&bench, "deck2.tempoRange");
+        assert_eq!(bench.state.tempo_range(1), 0.16);
+        press(&bench, "deck2.tempoRange.previous");
+        press(&bench, "deck2.tempoRange.previous");
+        assert_eq!(bench.state.tempo_range(1), 0.5);
+        press(&bench, "general.tempoRange.previous");
+        assert_eq!(bench.state.preferences.read(|p| p.dj.pitch_range), 0.5);
+        assert_eq!(bench.state.tempo_range(1), 0.5, "every deck follows the general one again");
+    }
+
+    fn track() -> LoadedTrack {
+        LoadedTrack {
+            load_id: LoadedTrack::next_load_id(),
+            path: "drop.flac".into(),
+            audio: Arc::new(TrackAudio::from_interleaved(48_000, vec![0.0; 2])),
+            waveform: TrackWaveform::growing(1),
+            detected: Default::default(),
+            edits: Default::default(),
+            tags: Default::default(),
+            cues: Vec::new(),
+            key_shift: 0,
+            stems: Default::default(),
+            stem_mix: Default::default(),
+            loudness: None,
+        }
+    }
+
+    #[test]
+    fn the_key_moves_by_a_semitone_within_twelve_either_way() {
+        let mut bench = Bench::new();
+        press(&bench, "deck1.key.up");
+        assert!(bench.sent().is_empty(), "no track");
+        lock(&bench.state.tracks)[0] = Some(track());
+        let key = |bench: &Bench| bench.state.with_track(0, |t| t.key_shift).unwrap();
+        press(&bench, "deck1.key.up");
+        press(&bench, "deck1.key.up");
+        assert_eq!(key(&bench), 2);
+        press(&bench, "deck1.key.down");
+        assert_eq!(key(&bench), 1);
+        press(&bench, "deck1.key.+11");
+        press(&bench, "deck1.key.up");
+        assert_eq!(key(&bench), 12);
+        press(&bench, "deck1.key.reset");
+        assert_eq!(key(&bench), 0);
+    }
+
+    #[test]
+    fn the_headphones_on_one_deck_alone_and_the_mixer_keys() {
+        let bench = Bench::new();
+        press(&bench, "deck2.headphones.on");
+        press(&bench, "deck1.headphones.solo");
+        assert_eq!(lock(&bench.state.decks).map(|d| d.cue)[..2], [true, false]);
+        press(&bench, "mixer.mic.on");
+        assert!(lock(&bench.state.live)[0].on);
+        press(&bench, "mixer.mic.on");
+        assert!(!lock(&bench.state.live)[0].on, "a toggle");
+        press(&bench, "mixer.crossfaderCurve.next");
+        assert_eq!(bench.state.preferences.read(|p| p.mixer.crossfader_curve), CrossfaderCurveDto::Sharp);
+        press(&bench, "deck1.crossfader.right");
+        assert_eq!(lock(&bench.state.decks)[0].side, Some(crate::dto::CrossfaderSideDto::Right));
+    }
+
+    #[test]
+    fn sync_locks_a_deck_or_matches_a_record_once() {
+        let mut bench = Bench::new();
+        press(&bench, "deck1.sync.on");
+        lock(&bench.state.decks)[1].vinyl_enabled = true;
+        press(&bench, "deck2.sync");
+        press(&bench, "deck1.sync.once");
+        assert!(matches!(
+            bench.sent()[..],
+            [
+                Command::SetSyncLocked { deck: 0, locked: true },
+                Command::SyncOnce { deck: 1 },
+                Command::SyncOnce { deck: 0 },
+            ]
+        ));
+    }
+
+    #[test]
+    fn an_effects_period_is_halved_or_doubled_within_an_eighth_and_eight_beats() {
+        let bench = Bench::new();
+        let beats = || lock(&bench.state.decks)[0].fx.slots[2].beats;
+        turn(&bench, "deck1.fx3.beats", 2.0);
+        assert_eq!(beats(), 4.0);
+        turn(&bench, "deck1.fx3.beats", 5.0);
+        assert_eq!(beats(), 8.0);
+        turn(&bench, "deck1.fx3.beats", -9.0);
+        assert_eq!(beats(), 0.125);
     }
 }

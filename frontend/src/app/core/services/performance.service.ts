@@ -5,8 +5,6 @@ import { EngineService } from './engine.service';
 import { errorText } from '../errors';
 import { CUT_BEATS } from '../../shared/beats';
 
-/** The shortest and longest size of a deck, in beats (see `PerformanceService.sizes`). */
-export const SIZE_BEATS = { min: 1 / 16, max: 64 };
 const BEATS_PER_BAR = 4;
 
 /** Performance actions on a deck: hot cues, loops, rolls, beat jumps, the slicer, fader
@@ -70,22 +68,9 @@ export class PerformanceService {
     return this.engine.call('scale_loop', { deck, factor });
   }
 
-  size(deck: number): number {
-    return this.sizes()[deck];
-  }
-
-  /** The size of `deck` multiplied by `factor` (halved, doubled), within `SIZE_BEATS`. */
-  scaleSize(deck: number, factor: number) {
-    const beats = Math.min(Math.max(this.size(deck) * factor, SIZE_BEATS.min), SIZE_BEATS.max);
-    this.engine.patchDeck(deck, { sizeBeats: beats });
-    return this.engine.call('set_deck_size', { deck, beats });
-  }
-
-  /** A loop of the deck's size where it plays, or out of the loop it plays. */
-  toggleSizedLoop(deck: number) {
-    return this.engine.status()?.decks[deck]?.looping.active
-      ? this.exitLoop(deck)
-      : this.beatLoop(deck, this.size(deck));
+  /** The size of `deck` halved (-1) or doubled (1) so many times, from 1/16 beat to 64. */
+  resize(deck: number, steps: number) {
+    return this.engine.perform(`deck${deck + 1}.size`, steps, true);
   }
 
   beatJump(deck: number, beats: number) {

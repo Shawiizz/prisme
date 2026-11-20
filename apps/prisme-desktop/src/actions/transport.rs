@@ -10,6 +10,10 @@ use prisme_engine::{Command, LoopRegion};
 /// The speed change while a bend key is held, and while a small one is.
 pub const PITCH_BEND: f64 = 0.03;
 pub const SMALL_BEND: f64 = 0.01;
+/// A step of the tempo (a ratio), kept.
+pub const TEMPO_STEP: f64 = 0.001;
+/// The length of the loop a deck's loop key plays (beats), whatever its size.
+pub const LOOP_BEATS: f64 = 4.0;
 
 /// Sends `command` to the engine for `deck`, one of those in use.
 pub fn send(state: &AppState, deck: usize, command: Command) -> AppResult<()> {

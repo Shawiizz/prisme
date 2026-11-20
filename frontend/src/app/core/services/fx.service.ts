@@ -1,12 +1,6 @@
 import { Injectable, effect, inject, signal, untracked } from '@angular/core';
-import {
-  EFFECT_KINDS,
-  EffectKind,
-  FX_BEATS,
-  FxChain,
-  FxSettings,
-  MAX_DECKS,
-} from '../models/engine';
+import { EFFECT_KINDS, EffectKind, FxChain, FxSettings, MAX_DECKS } from '../models/engine';
+import { fxId } from '../control/controls';
 import { StemPart, hasPart } from '../stem-parts';
 import { EngineService } from './engine.service';
 
@@ -106,15 +100,9 @@ export class FxService {
     return this.engine.call('set_fx_param2', { deck, slot, param2 });
   }
 
-  /** Halves (0.5) or doubles (2) the slot's period. */
-  scaleBeats(deck: number, slot: number, factor: number) {
-    return this.setBeats(deck, slot, this.settings(deck, slot).beats * factor);
-  }
-
-  setBeats(deck: number, slot: number, beats: number) {
-    beats = Math.min(Math.max(beats, FX_BEATS.min), FX_BEATS.max);
-    this.patch(deck, slot, { beats });
-    return this.engine.call('set_fx_beats', { deck, slot, beats });
+  /** The slot's period halved (-1) or doubled (1) so many times, from 1/8 beat to 8. */
+  stepBeats(deck: number, slot: number, steps: number) {
+    return this.engine.perform(`${fxId(deck, slot)}.beats`, steps, true);
   }
 
   /** The whole chain on or off, each slot keeping its own switch. */

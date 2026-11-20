@@ -36,18 +36,10 @@ pub fn set_fx_param2(state: State<'_, AppState>, deck: usize, slot: usize, param
     fx::set_fx_param2(&state, deck, slot, param2)
 }
 
-/// The slot's period in beats.
-#[tauri::command]
-pub fn set_fx_beats(state: State<'_, AppState>, deck: usize, slot: usize, beats: f32) -> AppResult<()> {
-    fx::set_fx_beats(&state, deck, slot, beats)
-}
-
 /// The whole chain on or off, each slot keeping its own switch.
 #[tauri::command]
 pub fn set_fx_chain_enabled(state: State<'_, AppState>, deck: usize, enabled: bool) -> AppResult<()> {
-    AppState::check_deck(deck)?;
-    lock(&state.decks)[deck].fx.enabled = enabled;
-    state.send_if_running(Command::SetFxChainEnabled { deck, enabled })
+    fx::set_fx_chain_enabled(&state, deck, enabled)
 }
 
 /// The part of the track the chain is on, where separated (`None`: the whole deck).

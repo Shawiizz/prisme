@@ -109,9 +109,27 @@ impl Tempo {
     }
 }
 
+/// The ranges a tempo fader goes through: ±8, ±16, ±50 %.
+pub const TEMPO_RANGES: [f64; 3] = [0.08, 0.16, 0.5];
+
+/// The range `step` places after `range` among [`TEMPO_RANGES`] (before it, negative), round
+/// from the last to the first; the first for a range not among them.
+pub fn next_tempo_range(range: f64, step: isize) -> f64 {
+    let Some(at) = TEMPO_RANGES.iter().position(|r| *r == range) else { return TEMPO_RANGES[0] };
+    TEMPO_RANGES[(at as isize + step).rem_euclid(TEMPO_RANGES.len() as isize) as usize]
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_tempo_range_goes_round_either_way() {
+        assert_eq!(next_tempo_range(0.08, 1), 0.16);
+        assert_eq!(next_tempo_range(0.5, 1), 0.08);
+        assert_eq!(next_tempo_range(0.08, -1), 0.5);
+        assert_eq!(next_tempo_range(0.1, 1), 0.08, "one of none of them");
+    }
 
     fn close(a: f32, b: f32) -> bool {
         (a - b).abs() < 1e-4

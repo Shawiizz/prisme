@@ -137,33 +137,6 @@ describe('EngineService', () => {
     });
   });
 
-  describe('SYNC off', () => {
-    const locked = { locked: true, leader: false, rateOffset: 1 };
-
-    beforeEach(() => {
-      engine.tracks.set([{ tempo: { bpm: 120 } } as TrackInfo, null, null, null]);
-      engine.patchDeck(0, { pitch: 1 });
-    });
-
-    it('keeps the tempo a deck playing by itself was locked to, its fader moved there', async () => {
-      engine.status.set(status([deck({ playing: true, bpm: 126, sync: locked }), deck()]));
-      await engine.setSync(0, false);
-      expect(calls).toEqual([
-        ['set_pitch', { deck: 0, ratio: 1.05 }],
-        ['set_sync_locked', { deck: 0, locked: false }],
-      ]);
-      expect(engine.decks()[0].pitch).toBe(1.05);
-    });
-
-    it('leaves the tempo of a record to the turntable', async () => {
-      const vinyl = { ...deck().vinyl, enabled: true };
-      engine.status.set(status([deck({ bpm: 126, sync: locked, vinyl }), deck()]));
-      await engine.setSync(0, false);
-      expect(calls).toEqual([['set_sync_locked', { deck: 0, locked: false }]]);
-      expect(engine.decks()[0].pitch).toBe(1);
-    });
-  });
-
   describe('fewer decks', () => {
     it('leaves C and D empty, as the backend leaves them', () => {
       const dj = TestBed.inject(PreferencesService).dj;

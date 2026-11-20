@@ -3,12 +3,13 @@
 
 use super::{take_over, Performing};
 use crate::auto_dj::Takeover;
-use crate::dto::StemMixDto;
+use crate::dto::{RpmDto, StemMixDto, VinylModeDto};
 use crate::error::{AppError, AppResult};
-use crate::state::{lock, AppState, LoadedTrack};
+use crate::preferences::{DeckPreferences, VinylSync};
+use crate::state::{deck_commands, lock, AppState, LoadedTrack};
 use prisme_actions::input::Input;
 use prisme_control::{DeckAction, StemPart};
-use prisme_engine::Command;
+use prisme_engine::{Command, DeckStatus};
 
 /// Seconds of track a turn of a jog wheel goes through in a search.
 const SEARCH_SECONDS_PER_TURN: f64 = 10.0;
@@ -101,6 +102,177 @@ pub fn toggle_leader(state: &AppState, deck: usize) -> AppResult<()> {
     set_sync_leader(state, (!leads).then_some(deck))
 }
 
+/// Whether a touch of the controller's jog wheel of `deck` holds the record (else the wheel
+/// only nudges it).
+pub fn set_jog_scratch(state: &AppState, deck: usize, on: bool) -> AppResult<()> {
+    AppState::check_deck(deck)?;
+    lock(&state.decks)[deck].jog_scratch = on;
+    Ok(())
+}
+
+/// Vinyl control of a deck, kept for the next start. Returns the deck it took the turntable
+/// from, if they are layered on it (see `audio_host::deck_pair`). A deck a record lets go of
+/// plays on at the record's tempo.
+pub fn set_vinyl(
+    state: &AppState,
+    deck: usize,
+    enabled: bool,
+    mode: VinylModeDto,
+    rpm: RpmDto,
+    lead_in_s: Option<f64>,
+) -> AppResult<Option<usize>> {
+    AppState::check_deck(deck)?;
+    if !enabled {
+        state.let_go_of_record(deck);
+    }
+    let settings = {
+        let mut decks = lock(&state.decks);
+        let d = &mut decks[deck];
+        d.vinyl_enabled = enabled;
+        d.vinyl_mode = mode;
+        d.rpm = rpm;
+        d.lead_in_s = lead_in_s;
+        *d
+    };
+    state.update_preferences(|p| {
+        let d = &mut p.decks[deck];
+        (d.vinyl_enabled, d.vinyl_mode, d.rpm, d.lead_in_s) = (enabled, mode, rpm, lead_in_s);
+    });
+    let freed = enabled.then(|| state.take_turntable(deck)).flatten();
+    for c in deck_commands(deck, &settings) {
+        state.send_if_running(c)?;
+    }
+    Ok(freed)
+}
+
+/// The deck plays its input as it comes (a record, a CD player) instead of its track.
+pub fn set_passthrough(state: &AppState, deck: usize, enabled: bool) -> AppResult<()> {
+    AppState::check_deck(deck)?;
+    lock(&state.decks)[deck].passthrough = enabled;
+    state.send_if_running(Command::SetPassthrough { deck, enabled })
+}
+
+/// The range of the tempo fader of `deck` (0.08 = ±8 %), or of every deck (`None`), which
+/// then all follow the general one; kept for the next start.
+pub fn set_tempo_range(state: &AppState, deck: Option<usize>, range: f64) -> AppResult<()> {
+    if !(range > 0.0 && range <= 1.0) {
+        return Err(AppError::Other("a tempo range is within ±100 %".into()));
+    }
+    match deck {
+        Some(deck) => {
+            AppState::check_deck(deck)?;
+            lock(&state.decks)[deck].pitch_range = Some(range);
+            state.update_preferences(|p| p.decks[deck].pitch_range = Some(range));
+        }
+        None => {
+            lock(&state.decks).iter_mut().for_each(|d| d.pitch_range = None);
+            state.update_preferences(|p| {
+                p.dj.pitch_range = range;
+                p.decks.iter_mut().for_each(|d| d.pitch_range = None);
+            });
+        }
+    }
+    Ok(())
+}
+
+/// The deck's size in beats, what its jumps go by and its sized loop lasts; kept for the next
+/// start.
+fn set_deck_size(state: &AppState, deck: usize, beats: f64) -> AppResult<()> {
+    AppState::check_deck(deck)?;
+    if !DeckPreferences::SIZE_BEATS.contains(&beats) {
+        return Err(AppError::Other("a deck's size is from 1/16 of a beat to 64 beats".into()));
+    }
+    lock(&state.decks)[deck].size_beats = beats;
+    state.update_preferences(|p| p.decks[deck].size_beats = beats);
+    Ok(())
+}
+
+/// At the end, the track goes on from its start.
+pub fn set_repeat(state: &AppState, deck: usize, enabled: bool) -> AppResult<()> {
+    AppState::check_deck(deck)?;
+    lock(&state.decks)[deck].repeat = enabled;
+    state.send_if_running(Command::SetRepeat { deck, enabled })
+}
+
+/// The pitch stays when the speed changes; kept for the next start.
+pub fn set_key_lock(state: &AppState, deck: usize, enabled: bool) -> AppResult<()> {
+    AppState::check_deck(deck)?;
+    lock(&state.decks)[deck].key_lock = enabled;
+    state.update_preferences(|p| p.decks[deck].key_lock = enabled);
+    state.send_if_running(Command::SetKeyLock { deck, enabled })
+}
+
+/// Locked to the leader, or free.
+fn set_sync_locked(state: &AppState, deck: usize, locked: bool) -> AppResult<()> {
+    state.has_deck(deck)?;
+    state.send(Command::SetSyncLocked { deck, locked })
+}
+
+/// The leader's tempo and beats matched once.
+fn sync_once(state: &AppState, deck: usize) -> AppResult<()> {
+    state.has_deck(deck)?;
+    state.send(Command::SyncOnce { deck })
+}
+
+/// SYNC on, locked to the leader (or matched once, on a record in one-shot mode), or off.
+pub fn set_sync(state: &AppState, deck: usize, on: bool) -> AppResult<()> {
+    if !on {
+        return unlock(state, deck);
+    }
+    let record = lock(&state.decks)[deck].vinyl_enabled;
+    if record && state.preferences.read(|p| p.dj.vinyl_sync == VinylSync::Once) {
+        sync_once(state, deck)
+    } else {
+        set_sync_locked(state, deck, true)
+    }
+}
+
+/// The leader's tempo and beats matched once, the deck left free (unlocked first).
+pub fn match_once(state: &AppState, deck: usize) -> AppResult<()> {
+    if state.deck_status(deck).is_ok_and(|status| status.sync.locked) {
+        unlock(state, deck)?;
+    }
+    sync_once(state, deck)
+}
+
+/// SYNC off. A deck playing by itself keeps the tempo it was locked to: its fader is moved
+/// there first (a locked deck does not follow it), and a controller's picks it up there.
+fn unlock(state: &AppState, deck: usize) -> AppResult<()> {
+    if let Some(ratio) = kept_tempo(&state.deck_status(deck)?) {
+        set_pitch(state, deck, ratio)?;
+    }
+    set_sync_locked(state, deck, false)
+}
+
+/// The tempo a deck at `status` keeps as its SYNC goes off: the one it is locked to, if it
+/// plays by itself a track with a grid (a record keeps its turntable's).
+fn kept_tempo(status: &DeckStatus) -> Option<f64> {
+    (status.sync.locked && !status.vinyl.enabled && status.bpm.is_some()).then_some(status.rate)
+}
+
+/// The deck's size multiplied by `factor`, within 1/16 of a beat and 64 beats.
+pub fn scale_size(state: &AppState, deck: usize, factor: f64) -> AppResult<()> {
+    let beats = lock(&state.decks)[deck].size_beats * factor;
+    let sizes = DeckPreferences::SIZE_BEATS;
+    set_deck_size(state, deck, beats.clamp(*sizes.start(), *sizes.end()))
+}
+
+/// The track's key moved to `semitones`, within 12 either way: nothing without a track.
+pub fn key_to(state: &AppState, deck: usize, semitones: i32) -> AppResult<()> {
+    if state.with_track(deck, |_| ()).is_err() {
+        return Ok(());
+    }
+    let most = i32::from(MAX_KEY_SHIFT);
+    set_key_shift(state, deck, semitones.clamp(-most, most) as i8)
+}
+
+/// A vinyl control of `deck` on or off, as it was set otherwise; the deck it took the
+/// turntable from goes on by itself.
+pub fn set_vinyl_enabled(state: &AppState, deck: usize, enabled: bool) -> AppResult<()> {
+    let d = lock(&state.decks)[deck];
+    set_vinyl(state, deck, enabled, d.vinyl_mode, d.rpm, d.lead_in_s).map(drop)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -164,6 +336,18 @@ mod tests {
         assert!(pitch(&mut bench, "DDJ", 0.55).is_some());
         bench.perform("deck1.pitch", Input::Value(1.0), super::super::Source::Interface).unwrap();
         assert!((lock(&bench.state.decks)[0].pitch - 1.08).abs() < 1e-6);
+    }
+
+    #[test]
+    fn a_deck_unlocked_keeps_the_tempo_it_was_locked_to_but_on_a_record() {
+        let mut status = DeckStatus { bpm: Some(126.0), rate: 1.05, ..Default::default() };
+        status.sync.locked = true;
+        assert_eq!(kept_tempo(&status), Some(1.05));
+        status.vinyl.enabled = true;
+        assert_eq!(kept_tempo(&status), None, "the turntable's");
+        status.vinyl.enabled = false;
+        status.bpm = None;
+        assert_eq!(kept_tempo(&status), None, "no grid");
     }
 
     #[test]

@@ -135,9 +135,7 @@ pub fn set_crossfader_side(
     deck: usize,
     side: CrossfaderSideDto,
 ) -> AppResult<()> {
-    AppState::check_deck(deck)?;
-    lock(&state.decks)[deck].side = Some(side);
-    state.send_if_running(Command::SetCrossfaderSide { deck, side: side.into() })
+    mixer::set_crossfader_side(&state, deck, side)
 }
 
 /// -1 = the master on the left only, 1 = on the right only; kept for the next start.
@@ -164,10 +162,7 @@ pub fn set_volume(state: State<'_, AppState>, deck: usize, gain: f32) -> AppResu
 /// Software mixer: the channel fader starts and stops the deck; kept for the next start.
 #[tauri::command]
 pub fn set_fader_start(state: State<'_, AppState>, deck: usize, enabled: bool) -> AppResult<()> {
-    AppState::check_deck(deck)?;
-    lock(&state.decks)[deck].fader_start = enabled;
-    state.update_preferences(|p| p.decks[deck].fader_start = enabled);
-    Ok(())
+    mixer::set_fader_start(&state, deck, enabled)
 }
 
 #[tauri::command]
@@ -182,24 +177,19 @@ pub fn set_crossfader(
 /// Sends the deck to the headphones (software mixer).
 #[tauri::command]
 pub fn set_deck_cue(state: State<'_, AppState>, deck: usize, enabled: bool) -> AppResult<()> {
-    AppState::check_deck(deck)?;
-    lock(&state.decks)[deck].cue = enabled;
-    state.send(Command::SetDeckCue { deck, enabled })
+    mixer::set_deck_cue(&state, deck, enabled)
 }
 
 /// The crossfader's sides swapped, or back. Kept for the next start.
 #[tauri::command]
 pub fn set_crossfader_reverse(state: State<'_, AppState>, enabled: bool) -> AppResult<()> {
-    state.update_preferences(|p| p.mixer.crossfader_reverse = enabled);
-    state.send_if_running(Command::SetCrossfaderReverse { enabled })
+    mixer::set_crossfader_reverse(&state, enabled)
 }
 
 /// The deck's channel silenced in the master, after its fader, or heard again.
 #[tauri::command]
 pub fn set_mute(state: State<'_, AppState>, deck: usize, enabled: bool) -> AppResult<()> {
-    AppState::check_deck(deck)?;
-    lock(&state.decks)[deck].mute = enabled;
-    state.send_if_running(Command::SetMute { deck, muted: enabled })
+    mixer::set_mute(&state, deck, enabled)
 }
 
 /// Headphones: 0 = cued decks only, 1 = master only. Kept for the next start.
@@ -212,8 +202,7 @@ pub fn set_cue_mix(state: State<'_, AppState>, mix: f32) -> AppResult<()> {
 /// Kept for the next start.
 #[tauri::command]
 pub fn set_split_cue(state: State<'_, AppState>, enabled: bool) -> AppResult<()> {
-    state.update_preferences(|p| p.mixer.split_cue = enabled);
-    state.send_if_running(Command::SetSplitCue { enabled })
+    mixer::set_split_cue(&state, enabled)
 }
 
 #[tauri::command]

@@ -4,7 +4,7 @@
 
 use super::take_over;
 use crate::auto_dj::{AutoDj, Takeover};
-use crate::dto::{BandDto, CrossfaderCurveDto, LiveSourceDto};
+use crate::dto::{BandDto, CrossfaderCurveDto, CrossfaderSideDto, LiveSourceDto};
 use crate::error::AppResult;
 use crate::state::{lock, AppState};
 use prisme_engine::Command;
@@ -119,6 +119,72 @@ pub fn set_live_level(state: &AppState, source: LiveSourceDto, gain: f32) -> App
         LiveSourceDto::Aux => p.mixer.aux.level = gain,
     });
     state.send_if_running(Command::SetLiveLevel { source: source.into(), gain })
+}
+
+/// The side of the crossfader `deck` is on.
+pub fn set_crossfader_side(state: &AppState, deck: usize, side: CrossfaderSideDto) -> AppResult<()> {
+    AppState::check_deck(deck)?;
+    lock(&state.decks)[deck].side = Some(side);
+    state.send_if_running(Command::SetCrossfaderSide { deck, side: side.into() })
+}
+
+/// Software mixer: the channel fader starts and stops the deck; kept for the next start.
+pub fn set_fader_start(state: &AppState, deck: usize, enabled: bool) -> AppResult<()> {
+    AppState::check_deck(deck)?;
+    lock(&state.decks)[deck].fader_start = enabled;
+    state.update_preferences(|p| p.decks[deck].fader_start = enabled);
+    Ok(())
+}
+
+/// Sends the deck to the headphones (software mixer).
+pub fn set_deck_cue(state: &AppState, deck: usize, enabled: bool) -> AppResult<()> {
+    AppState::check_deck(deck)?;
+    lock(&state.decks)[deck].cue = enabled;
+    state.send_if_running(Command::SetDeckCue { deck, enabled })
+}
+
+/// The crossfader's sides swapped, or back. Kept for the next start.
+pub fn set_crossfader_reverse(state: &AppState, enabled: bool) -> AppResult<()> {
+    state.update_preferences(|p| p.mixer.crossfader_reverse = enabled);
+    state.send_if_running(Command::SetCrossfaderReverse { enabled })
+}
+
+/// The deck's channel silenced in the master, after its fader, or heard again.
+pub fn set_mute(state: &AppState, deck: usize, enabled: bool) -> AppResult<()> {
+    AppState::check_deck(deck)?;
+    lock(&state.decks)[deck].mute = enabled;
+    state.send_if_running(Command::SetMute { deck, muted: enabled })
+}
+
+/// Headphones: the cue on the left and the master on the right, each in mono, or blended.
+/// Kept for the next start.
+pub fn set_split_cue(state: &AppState, enabled: bool) -> AppResult<()> {
+    state.update_preferences(|p| p.mixer.split_cue = enabled);
+    state.send_if_running(Command::SetSplitCue { enabled })
+}
+
+/// Heard in the master, or not.
+pub fn set_live_on(state: &AppState, source: LiveSourceDto, on: bool) -> AppResult<()> {
+    lock(&state.live)[source as usize].on = on;
+    state.send_if_running(Command::SetLiveOn { source: source.into(), on })
+}
+
+/// Heard in the headphones, or not.
+pub fn set_live_cue(state: &AppState, source: LiveSourceDto, cue: bool) -> AppResult<()> {
+    lock(&state.live)[source as usize].cue = cue;
+    state.send_if_running(Command::SetLiveCue { source: source.into(), cue })
+}
+
+/// While the microphone is on, the music ducks; kept for the next start.
+pub fn set_talkover(state: &AppState, enabled: bool) -> AppResult<()> {
+    state.update_preferences(|p| p.mixer.talkover = enabled);
+    send_talkover(state)
+}
+
+/// Talkover as the DJ left it, to the engine.
+pub fn send_talkover(state: &AppState) -> AppResult<()> {
+    let (enabled, depth_db) = state.preferences.read(|p| (p.mixer.talkover, p.mixer.talkover_depth_db));
+    state.send_if_running(Command::SetTalkover { enabled, depth_db })
 }
 
 #[cfg(test)]
