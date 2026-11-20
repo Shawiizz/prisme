@@ -10,6 +10,16 @@ pub const FX_PERIODS: [f32; 7] = [0.125, 0.25, 0.5, 1.0, 2.0, 4.0, 8.0];
 /// Turns a minute of the record a jog wheel's ring shows.
 const RECORD_RPM: f64 = 100.0 / 3.0;
 
+/// The fader of a deck's effect chain knob `knob` turns, `focus` the slot focused, as Mixxx's
+/// effect unit has them: with none, the amount of effect `knob`; with one, its amount, second
+/// knob and period.
+pub fn fx_knob(knob: usize, focus: Option<usize>) -> DeckAction {
+    match focus {
+        None => DeckAction::Fx(knob, FxAction::Amount),
+        Some(slot) => DeckAction::Fx(slot, [FxAction::Amount, FxAction::Param2, FxAction::Period][knob]),
+    }
+}
+
 /// Where the fader of `target` stands, 0 to 1, if it has one and its deck is in use: only what
 /// it stands by is read of `seen`.
 pub fn position(target: &Target, seen: &impl Sees) -> Option<f32> {
@@ -77,10 +87,7 @@ fn deck_position(deck: usize, action: DeckAction, seen: &impl Sees) -> Option<f3
         DeckAction::SamplerGain => settings.sampler_gain,
         DeckAction::StemLevel(part) => seen.track(deck).map_or(1.0, |t| t.stem_mix.level(part)),
         DeckAction::FxSuper => slots.iter().map(|s| s.amount).sum::<f32>() / FX_SLOTS as f32,
-        DeckAction::FxKnob(knob) => match seen.fx_focus(deck) {
-            None => slots[knob].amount,
-            Some(focused) => [slots[focused].amount, slots[focused].param2, period(focused)][knob],
-        },
+        DeckAction::FxKnob(knob) => return deck_position(deck, fx_knob(knob, seen.fx_focus(deck)), seen),
         DeckAction::Fx(slot, FxAction::Mix) => slots[slot].mix,
         DeckAction::Fx(slot, FxAction::Amount) => slots[slot].amount,
         DeckAction::Fx(slot, FxAction::Param2) => slots[slot].param2,

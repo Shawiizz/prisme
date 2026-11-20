@@ -373,6 +373,19 @@ impl FxPartDto {
     }
 }
 
+impl From<prisme_control::StemPart> for FxPartDto {
+    fn from(part: prisme_control::StemPart) -> Self {
+        use prisme_control::StemPart;
+        match part {
+            StemPart::Vocals => Self::Vocals,
+            StemPart::Drums => Self::Drums,
+            StemPart::Bass => Self::Bass,
+            StemPart::Melody => Self::Other,
+            StemPart::Instrumental => Self::Instrumental,
+        }
+    }
+}
+
 impl From<FxPartDto> for prisme_control::StemPart {
     fn from(part: FxPartDto) -> Self {
         match part {

@@ -5,7 +5,8 @@ use super::Performing;
 use crate::dto::{EffectKindDto, FxDto, FxPartDto, SeparationDto};
 use crate::error::{AppError, AppResult};
 use crate::state::{lock, AppState};
-use prisme_control::{DeckAction, Effect, FxAction};
+use prisme_actions::position::fx_knob;
+use prisme_control::{DeckAction, Effect, StemPart};
 use prisme_engine::{Command, FX_SLOTS};
 
 /// Changes a slot of the deck's chain as the backend keeps it, then sends `command` to the
@@ -68,23 +69,16 @@ pub fn set_fx_part(state: &AppState, deck: usize, part: Option<FxPartDto>) -> Ap
     state.send_if_running(Command::SetFxParts { deck, parts: FxPartDto::parts(part) })
 }
 
-/// The parts a chain can be on alone, as its track is separated, after the whole deck.
-fn parts(separation: SeparationDto) -> &'static [Option<FxPartDto>] {
-    use FxPartDto::*;
-    match separation {
-        SeparationDto::None => &[None],
-        SeparationDto::Vocals => &[None, Some(Vocals), Some(Instrumental)],
-        SeparationDto::Full => &[None, Some(Vocals), Some(Drums), Some(Bass), Some(Other)],
-    }
-}
-
-/// The chain of `deck` on the next part of its track it can be on, after the last on the whole
-/// deck again.
+/// The chain of `deck` on the next part of its track it can be on (as the track is separated),
+/// after the last on the whole deck again.
 pub fn next_fx_part(state: &AppState, deck: usize) -> AppResult<()> {
     let separation = state.with_track(deck, |t| t.separation()).unwrap_or(SeparationDto::None);
-    let parts = parts(separation);
-    let at = parts.iter().position(|p| *p == lock(&state.decks)[deck].fx.part);
-    set_fx_part(state, deck, parts[at.map_or(0, |at| (at + 1) % parts.len())])
+    let parts = separation.parts();
+    let next = match lock(&state.decks)[deck].fx.part.map(StemPart::from) {
+        None => parts.first(),
+        Some(part) => parts.iter().position(|&p| p == part).and_then(|at| parts.get(at + 1)),
+    };
+    set_fx_part(state, deck, next.map(|&part| FxPartDto::from(part)))
 }
 
 /// The effect `step` places after the slot's (before it, negative), on or off as it was.
@@ -116,14 +110,9 @@ impl Performing<'_> {
         Ok(())
     }
 
-    /// Knob `knob` of the chain of `deck`, as Mixxx's effect unit has them: with no effect
-    /// focused, the amount of effect `knob`; with one focused, its amount, second knob and
-    /// period.
+    /// The fader knob `knob` of the chain of `deck` turns (see `position::fx_knob`).
     pub(super) fn fx_knob(&self, deck: usize, knob: usize) -> DeckAction {
-        match self.perform_state().decks[deck].fx_focus {
-            None => DeckAction::Fx(knob, FxAction::Amount),
-            Some(slot) => DeckAction::Fx(slot, [FxAction::Amount, FxAction::Param2, FxAction::Period][knob]),
-        }
+        fx_knob(knob, self.perform_state().decks[deck].fx_focus)
     }
 }
 

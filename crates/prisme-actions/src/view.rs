@@ -198,15 +198,19 @@ impl View {
         mixed_with(&self.status, deck)
     }
 
-    /// The rate `deck` plays at, gestures aside: the engine's for a track, which a record or
-    /// the sync may give it, else its tempo fader's.
+    /// The rate `deck` plays at (see [`tempo_rate`]).
     pub fn tempo_rate(&self, deck: usize) -> f64 {
-        let status = self.deck_status(deck);
-        if status.loaded {
-            status.rate
-        } else {
-            self.decks[deck].pitch
-        }
+        tempo_rate(self.deck_status(deck), self.decks[deck].pitch)
+    }
+}
+
+/// The rate a deck at `status` plays at, gestures aside: the engine's for a track, which a
+/// record or the sync may give it, else its tempo fader's (`pitch`).
+pub fn tempo_rate(status: &DeckStatus, pitch: f64) -> f64 {
+    if status.loaded {
+        status.rate
+    } else {
+        pitch
     }
 }
 

@@ -1,6 +1,6 @@
 //! Where two decks' beats are against each other.
 
-use prisme_engine::DeckStatus;
+use prisme_engine::{DeckStatus, EngineStatus};
 
 /// Where a deck's beats are: its tempo and how far into its beat it is (0 to 1).
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -26,6 +26,23 @@ pub fn phase_offset(deck: Beat, other: Beat) -> f64 {
     let other_phase = (other.phase * octave_ratio(deck.bpm, other.bpm)) % 1.0;
     let gap = deck.phase - other_phase;
     gap - gap.round()
+}
+
+/// The tempo at which `deck` plays the beats of the deck it follows, the engine at `status`
+/// (the leader, else another deck on a beat grid), an octave apart if closer: none unless both
+/// have a grid.
+pub fn matching_tempo(status: &EngineStatus, deck: usize) -> Option<f64> {
+    let own = &status.decks[deck];
+    let others = || status.decks.iter().enumerate().filter(|&(d, _)| d != deck).map(|(_, s)| s);
+    let followed = others().find(|s| s.sync.leader).or_else(|| others().find(|s| s.bpm.is_some()))?;
+    let (bpm, other) = (own.bpm?, followed.bpm?);
+    Some(own.rate * octave_ratio(bpm, other) * other / bpm)
+}
+
+/// The tempo a deck at `status` keeps as its SYNC goes off: the one it is locked to, if it
+/// plays by itself a track with a grid (a record keeps its turntable's).
+pub fn kept_tempo(status: &DeckStatus) -> Option<f64> {
+    (status.sync.locked && !status.vinyl.enabled && status.bpm.is_some()).then_some(status.rate)
 }
 
 /// How far to move the beat grid of a deck at `deck` (seconds of its track, a grid of
@@ -103,6 +120,30 @@ mod tests {
     #[test]
     fn off_unless_both_play_on_a_grid() {
         assert_eq!(phase(None, Some(beat(128.0, 0.5)), 0.03), Phase::Off);
+    }
+
+    #[test]
+    fn a_deck_unlocked_keeps_the_tempo_it_was_locked_to_but_on_a_record() {
+        let mut status = DeckStatus { bpm: Some(126.0), rate: 1.05, ..Default::default() };
+        status.sync.locked = true;
+        assert_eq!(kept_tempo(&status), Some(1.05));
+        status.vinyl.enabled = true;
+        assert_eq!(kept_tempo(&status), None, "the turntable's");
+        status.vinyl.enabled = false;
+        status.bpm = None;
+        assert_eq!(kept_tempo(&status), None, "no grid");
+    }
+
+    #[test]
+    fn a_deck_matches_the_leader_else_a_deck_on_a_grid_an_octave_apart_if_closer() {
+        let mut status = EngineStatus::default();
+        let deck = |bpm: f64| DeckStatus { bpm: Some(bpm), rate: 1.0, ..DeckStatus::default() };
+        status.decks[..3].copy_from_slice(&[deck(125.0), deck(64.0), deck(130.0)]);
+        assert!(close(matching_tempo(&status, 0).unwrap(), 128.0 / 125.0), "the first on a grid, doubled");
+        status.decks[2].sync.leader = true;
+        assert!(close(matching_tempo(&status, 0).unwrap(), 130.0 / 125.0), "the leader");
+        status.decks[0].bpm = None;
+        assert_eq!(matching_tempo(&status, 0), None, "no grid of its own");
     }
 
     #[test]

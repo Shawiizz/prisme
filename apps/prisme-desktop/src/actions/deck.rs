@@ -10,10 +10,10 @@ use crate::preferences::{DeckPreferences, VinylSync};
 use crate::state::{deck_commands, lock, AppState, LoadedTrack};
 use prisme_actions::input::Input;
 use prisme_actions::key::heard;
-use prisme_actions::sync::octave_ratio;
-use prisme_actions::view::mixed_with;
+use prisme_actions::sync::{kept_tempo, matching_tempo};
+use prisme_actions::view::{mixed_with, tempo_rate};
 use prisme_control::{DeckAction, StemPart};
-use prisme_engine::{Command, DeckStatus, EngineStatus};
+use prisme_engine::Command;
 use tracing::warn;
 
 /// Seconds of track a turn of a jog wheel goes through in a search.
@@ -269,16 +269,6 @@ pub fn match_once(state: &AppState, deck: usize) -> AppResult<()> {
     sync_once(state, deck)
 }
 
-/// The tempo at which `deck` plays the beats of the deck it follows (the leader, else another
-/// deck on a beat grid), an octave apart if closer: none unless both have a grid.
-fn matching_tempo(status: &EngineStatus, deck: usize) -> Option<f64> {
-    let own = &status.decks[deck];
-    let others = || status.decks.iter().enumerate().filter(|&(d, _)| d != deck).map(|(_, s)| s);
-    let followed = others().find(|s| s.sync.leader).or_else(|| others().find(|s| s.bpm.is_some()))?;
-    let (bpm, other) = (own.bpm?, followed.bpm?);
-    Some(own.rate * octave_ratio(bpm, other) * other / bpm)
-}
-
 /// SYNC off. A deck playing by itself keeps the tempo it was locked to: its fader is moved
 /// there first (a locked deck does not follow it), and a controller's picks it up there.
 fn unlock(state: &AppState, deck: usize) -> AppResult<()> {
@@ -286,12 +276,6 @@ fn unlock(state: &AppState, deck: usize) -> AppResult<()> {
         set_pitch(state, deck, ratio)?;
     }
     set_sync_locked(state, deck, false)
-}
-
-/// The tempo a deck at `status` keeps as its SYNC goes off: the one it is locked to, if it
-/// plays by itself a track with a grid (a record keeps its turntable's).
-fn kept_tempo(status: &DeckStatus) -> Option<f64> {
-    (status.sync.locked && !status.vinyl.enabled && status.bpm.is_some()).then_some(status.rate)
 }
 
 /// The deck's size multiplied by `factor`, within 1/16 of a beat and 64 beats.
@@ -366,7 +350,7 @@ impl Performing<'_> {
             return Ok(());
         };
         let d = lock(&state.decks)[other];
-        let rate = if status.decks[other].loaded { status.decks[other].rate } else { d.pitch };
+        let rate = tempo_rate(&status.decks[other], d.pitch);
         key_to(state, deck, own.semitones_to_mix(heard(theirs, d.key_lock, shift, rate)))
     }
 }
@@ -436,18 +420,6 @@ mod tests {
         assert!(pitch(&mut bench, "DDJ", 0.55).is_some());
         bench.perform("deck1.pitch", Input::Value(1.0), Source::Interface).unwrap();
         assert!((lock(&bench.state.decks)[0].pitch - 1.08).abs() < 1e-6);
-    }
-
-    #[test]
-    fn a_deck_unlocked_keeps_the_tempo_it_was_locked_to_but_on_a_record() {
-        let mut status = DeckStatus { bpm: Some(126.0), rate: 1.05, ..Default::default() };
-        status.sync.locked = true;
-        assert_eq!(kept_tempo(&status), Some(1.05));
-        status.vinyl.enabled = true;
-        assert_eq!(kept_tempo(&status), None, "the turntable's");
-        status.vinyl.enabled = false;
-        status.bpm = None;
-        assert_eq!(kept_tempo(&status), None, "no grid");
     }
 
     #[test]

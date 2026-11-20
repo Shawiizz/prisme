@@ -28,6 +28,15 @@ impl Separation {
         }
     }
 
+    /// The parts a track separated this far is shown in, one knob each.
+    pub fn parts(self) -> &'static [StemPart] {
+        match self {
+            Separation::None => &[],
+            Separation::Vocals => &[StemPart::Vocals, StemPart::Instrumental],
+            Separation::Full => &[StemPart::Vocals, StemPart::Drums, StemPart::Bass, StemPart::Melody],
+        }
+    }
+
     /// Whether a track separated this far has `part` to mute.
     pub fn has(self, part: StemPart) -> bool {
         match self {
