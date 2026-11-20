@@ -84,7 +84,11 @@ export class PreviewStrip {
     const ctx = canvas.getContext('2d');
     const status = this.preview.status();
     const waveform = this.preview.waveform();
-    if (!ctx || width === 0 || height === 0) return;
+    if (!ctx || width === 0 || height === 0) {
+      // hidden, its canvas emptied: drawn again once shown
+      this.showing.forget();
+      return;
+    }
     this.showing
       .start()
       .with(status?.positionS)

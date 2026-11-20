@@ -287,7 +287,11 @@ export class DeckWaveform {
     const lanesCanvas = this.lanesCanvas()?.nativeElement;
     const lanes = lanesCanvas ? this.fit(lanesCanvas) : null;
     const activity = this.activity();
-    if (!zoom || !overview) return;
+    if (!zoom || !overview) {
+      // hidden, its canvases emptied: drawn again once shown, however still the deck
+      this.showing.forget();
+      return;
+    }
     if (!track) {
       zoom.ctx.clearRect(0, 0, zoom.size.width, zoom.size.height);
       overview.ctx.clearRect(0, 0, overview.size.width, overview.size.height);
