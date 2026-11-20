@@ -1,8 +1,7 @@
-import { Component, computed, inject, input, output, signal, viewChild } from '@angular/core';
+import { Component, computed, inject, input, output, viewChild } from '@angular/core';
 import { GridChange } from '../../../core/models/engine';
 import { EngineService } from '../../../core/services/engine.service';
 import { TrackEditService } from '../../../core/services/track-edit.service';
-import { TapTempo } from '../../../shared/tap-tempo';
 import { TPipe } from '../../../core/i18n/t.pipe';
 import { camelotHue, camelotMajor, keyName } from '../../../shared/camelot';
 import { Dismiss, overlay } from '../../../shared/overlay';
@@ -33,15 +32,12 @@ export class GridEditor {
 
   private readonly engine = inject(EngineService);
   private readonly edits = inject(TrackEditService);
-  private readonly tapTempo = new TapTempo();
 
   protected readonly fine = FINE_SHIFT_S;
   protected readonly coarse = COARSE_SHIFT_S;
   protected readonly track = computed(() => this.engine.tracks()[this.deck()]);
-  /** What the BPM field shows: the tempo being tapped, else the track's. */
-  protected readonly tapped = signal<number | null>(null);
   protected readonly bpmText = computed(() => {
-    const bpm = this.tapped() ?? this.track()?.tempo?.bpm;
+    const bpm = this.track()?.tempo?.bpm;
     return bpm === undefined ? '' : bpm.toFixed(2);
   });
   protected readonly minorKeys = computed(() =>
@@ -80,7 +76,6 @@ export class GridEditor {
   }
 
   grid(change: GridChange) {
-    this.tapped.set(null);
     this.edits.editGrid(this.deck(), change);
   }
 
@@ -94,9 +89,9 @@ export class GridEditor {
     if (Number.isFinite(bpm)) this.grid({ kind: 'bpm', bpm });
   }
 
+  /** The beat tapped, as on the deck's tap key: the grid takes the tempo once it is known. */
   tap() {
-    const bpm = this.tapTempo.tap(performance.now());
-    if (bpm !== null) this.tapped.set(bpm);
+    this.engine.press(this.deck(), 'tap');
   }
 
   shiftKey(semitones: number) {
