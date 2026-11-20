@@ -1,13 +1,12 @@
 //! Corrections of a loaded track's beat grid and key: applied at once to every deck playing the
 //! track and to the engine, then stored in the library in turn (see `Actions::keep`) and shown
-//! in its lists; the decks playing the track show them as they are told (`deck-track-update`).
+//! in its lists; the decks playing the track show them with their tracks (`Section::Tracks`).
 
 use crate::actions::Actions;
-use crate::dto::{DeckTrackUpdateDto, KeyDto, TrackAnalysisDto};
+use crate::dto::KeyDto;
 use crate::error::{AppError, AppResult};
 use crate::library_service::LibraryService;
 use crate::state::{lock, AppState};
-use crate::track_loading::DECK_TRACK_UPDATE_EVENT;
 use prisme_actions::sync::grid_shift_to;
 use prisme_actions::view::mixed_with;
 use prisme_analysis::Key;
@@ -15,7 +14,7 @@ use prisme_engine::Command;
 use prisme_library::{GridEdit, TrackEdits};
 use serde::Deserialize;
 use std::sync::Arc;
-use tauri::{AppHandle, Emitter, Manager, State};
+use tauri::{AppHandle, Manager, State};
 use tracing::error;
 
 #[derive(Debug, Clone, Copy, Deserialize)]
@@ -154,15 +153,13 @@ fn edit(
             .filter_map(|(on, track)| {
                 let track = track.as_mut().filter(|t| t.path == path)?;
                 track.edits = edits;
-                Some((on, track.load_id, track.grid(), TrackAnalysisDto::from(&*track)))
+                Some((on, track.grid()))
             })
             .collect();
         (path, edits, updated)
     };
-    for (on, load_id, grid, dto) in updated {
+    for (on, grid) in updated {
         state.send_if_running(Command::SetBeatGrid { deck: on, grid })?;
-        let update = DeckTrackUpdateDto { deck: on, load_id, analysis: Some(dto), stems: None };
-        let _ = app.emit(DECK_TRACK_UPDATE_EVENT, update);
     }
     let library = library.clone();
     app.state::<Actions>().keep(move || match library.db.save_edits(&path, &edits) {

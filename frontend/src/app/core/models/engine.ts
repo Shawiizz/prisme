@@ -241,8 +241,8 @@ export type ControlChanges = Partial<Omit<ControlState, 'mixer'>> & { mixer?: Pa
 /** What the app mirrors of the decks, their tracks, the mixer and the DJ's preferences. */
 export interface ControlState {
   mixer: MixerState;
-  /** Each deck's track by its load, and what changes of it while it stays there. */
-  tracks: (TrackState | null)[];
+  /** Each deck's track, as it is now. */
+  tracks: (TrackInfo | null)[];
   /** Whether each deck loads a track. */
   loading: boolean[];
   quantize: boolean;
@@ -271,14 +271,6 @@ export interface DeckPerform {
   fxFocus: number | null;
   /** The slot of its effect chain the screen's pads and knobs act on. */
   fxShown: number;
-}
-
-export interface TrackState {
-  /** The load it is of: another load of the deck is not changed. */
-  loadId: number;
-  keyShift: number;
-  stemMix: StemMix;
-  cues: Cue[];
 }
 
 export interface PreviewStatus {
@@ -421,18 +413,6 @@ export interface TrackInfo {
   /** The parts the deck plays (all at each load). */
   stemMix: StemMix;
 }
-
-/** What became known of a loaded track after it was put on its deck. */
-export interface DeckTrackUpdate {
-  deck: number;
-  loadId: number;
-  analysis: TrackAnalysis | null;
-  /** Its separated stems reached the deck, or its separation stopped short. */
-  stems: Pick<TrackInfo, 'separation' | 'partial'> | null;
-}
-
-/** Tempo and key of a loaded track, after a correction or its analysis. */
-export type TrackAnalysis = Pick<TrackInfo, 'tempo' | 'key' | 'gridEdited' | 'keyEdited'>;
 
 /** A correction of the beat grid (see `edit_grid`). */
 export type GridChange =

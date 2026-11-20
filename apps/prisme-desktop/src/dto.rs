@@ -6,7 +6,7 @@ use crate::auto_dj::plan::FadeLength;
 use crate::choices::{BoothChoice, LiveNote, OutputNote};
 use crate::commands::mixer::mixer_state_of;
 use crate::commands::preferences::PreferencesDto;
-use crate::state::{lock, AppState, LoadedTrack, Section};
+use crate::state::{lock, AppState, Section};
 use prisme_actions::knobs::{MixerKnobs, StripKnobs};
 use prisme_actions::meter::Levels;
 use prisme_actions::pads::Pads;
@@ -774,7 +774,7 @@ impl From<&prisme_analysis::KeyEstimate> for KeyDto {
 #[serde(rename_all = "camelCase")]
 pub struct TrackInfoDto {
     pub deck: usize,
-    /// Tells this load from another of the same file (see `deck-track-update`).
+    /// Tells this load from another of the same file.
     pub load_id: u64,
     pub path: String,
     pub title: String,
@@ -918,39 +918,6 @@ pub enum RowStemsDto {
     Separated {
         separation: SeparationDto,
     },
-}
-
-/// What became known of a loaded track after it was put on its deck.
-#[derive(Debug, Clone, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct DeckTrackUpdateDto {
-    pub deck: usize,
-    pub load_id: u64,
-    pub analysis: Option<TrackAnalysisDto>,
-    /// The track's separated stems reached the deck, or its separation stopped short.
-    pub stems: Option<DeckStemsDto>,
-}
-
-/// Tempo and key of a loaded track, after a correction or its analysis.
-#[derive(Debug, Clone, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct TrackAnalysisDto {
-    pub tempo: Option<TempoDto>,
-    pub key: Option<KeyDto>,
-    pub grid_edited: bool,
-    pub key_edited: bool,
-}
-
-impl From<&crate::state::LoadedTrack> for TrackAnalysisDto {
-    fn from(track: &crate::state::LoadedTrack) -> Self {
-        let analysis = track.analysis();
-        Self {
-            tempo: analysis.tempo.as_ref().map(TempoDto::from),
-            key: analysis.key.as_ref().map(KeyDto::from),
-            grid_edited: track.edits.grid.is_some(),
-            key_edited: track.edits.key.is_some(),
-        }
-    }
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -1508,10 +1475,9 @@ pub struct ControlStateDto {
     /// The range of the tempo faders without one of their own.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub pitch_range: Option<f64>,
-    /// Each deck's track by its load, and what changes of it while it stays there: the
-    /// interface asks for one it does not show yet (`loaded_tracks`).
+    /// Each deck's track, as it is now.
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub tracks: Option<Vec<Option<TrackStateDto>>>,
+    pub tracks: Option<Vec<Option<TrackInfoDto>>>,
     /// Whether each deck loads a track.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub loading: Option<[bool; MAX_DECKS]>,
@@ -1548,16 +1514,6 @@ impl From<&DeckPerform> for DeckPadsDto {
     }
 }
 
-#[derive(Debug, Clone, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct TrackStateDto {
-    /// The load it is of: one the interface does not show yet is not changed.
-    pub load_id: u64,
-    pub key_shift: i8,
-    pub stem_mix: StemMixDto,
-    pub cues: Vec<CueDto>,
-}
-
 impl ControlStateDto {
     /// The `sections` of `state`, what is shown of them read in `view`.
     pub fn of(state: &AppState, view: &View, sections: impl IntoIterator<Item = Section>) -> Self {
@@ -1571,8 +1527,11 @@ impl ControlStateDto {
                     (controls.quantize, controls.pitch_range) = (Some(quantize), Some(pitch_range));
                 }
                 Section::Tracks => {
-                    let tracks =
-                        lock(&state.tracks).iter().map(|t| t.as_ref().map(TrackStateDto::of)).collect();
+                    let tracks = lock(&state.tracks)
+                        .iter()
+                        .enumerate()
+                        .map(|(deck, t)| t.as_ref().map(|t| t.info(deck)))
+                        .collect();
                     controls.tracks = Some(tracks);
                     controls.loading = Some(state.loading());
                 }
@@ -1591,13 +1550,6 @@ impl ControlStateDto {
             }
         }
         controls
-    }
-}
-
-impl TrackStateDto {
-    fn of(track: &LoadedTrack) -> Self {
-        let cues = track.cue_dtos();
-        TrackStateDto { load_id: track.load_id, key_shift: track.key_shift, stem_mix: track.stem_mix, cues }
     }
 }
 

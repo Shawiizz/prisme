@@ -1462,6 +1462,19 @@ mod tests {
     }
 
     #[test]
+    fn the_interface_is_told_each_decks_whole_track_with_its_changes() {
+        let bench = crate::actions::bench::Bench::new();
+        bench.load(0, 60.0, None);
+        let load_id = bench.state.with_track(0, |t| t.load_id).unwrap();
+        bench.state.change_loaded(0, load_id, |t| t.key_shift = 2).unwrap();
+        let told =
+            crate::dto::ControlStateDto::of(&bench.state, &bench.view(), [Section::Tracks]).tracks.unwrap();
+        let track = told[0].as_ref().unwrap();
+        assert_eq!((track.deck, track.load_id, track.key_shift), (0, load_id, 2));
+        assert!(told[1].is_none());
+    }
+
+    #[test]
     fn the_interface_hears_of_the_audio_stopped_or_started_as_of_what_it_lays_out() {
         let bench = crate::actions::bench::Bench::new();
         let revision = bench.state.revision();

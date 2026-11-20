@@ -2,9 +2,8 @@
 //! start of the audio, what the library knows of it, its cached waveform); then, on a
 //! worker thread, the rest of the audio and whatever was missing: the waveform, computed
 //! as the audio is decoded and drawn as it comes (`track_waveform`), and the analysis,
-//! sent to the UI once known (`deck-track-update`).
+//! shown with the deck's track once known.
 
-use crate::dto::{DeckTrackUpdateDto, TrackAnalysisDto};
 use crate::error::AppResult;
 use crate::library_service::LibraryService;
 use crate::preview::Previews;
@@ -16,10 +15,9 @@ use prisme_library::{FileStamp, LibraryDb, Search, TrackRecord};
 use prisme_media::LoadingTrack;
 use std::path::PathBuf;
 use std::sync::Arc;
-use tauri::{AppHandle, Emitter, Manager};
+use tauri::{AppHandle, Manager};
 use tracing::{error, info, warn};
 
-pub const DECK_TRACK_UPDATE_EVENT: &str = "deck-track-update";
 /// Waveform resolution: enough for a zoomed, scrolling view.
 pub const WAVEFORM_SLICES_PER_S: u32 = 150;
 
@@ -176,11 +174,7 @@ impl Completion {
                 }
             }
         }
-        let mut updates = Updates::default();
-        let loads = state.loads_of(&audio);
-        for (deck, load_id, stems) in crate::stems_service::give_stems(app, &loads, &self.path, &audio) {
-            updates.of(deck, load_id).stems = Some(stems);
-        }
+        crate::stems_service::give_stems(app, &state.loads_of(&audio), &self.path, &audio);
         let loudness = prisme_analysis::loudness(&audio);
         let auto_gain = state.preferences.read(|p| p.dj.auto_gain);
         for (deck, _, gain) in state.change_loads_of(&audio, |t| {
@@ -198,12 +192,11 @@ impl Completion {
                 let edits = library.db.edits(&self.path).unwrap_or_default();
                 library.store(&TrackRecord { edits, ..analyzed }, metadata.cover.as_deref());
             }
-            for (deck, load_id, (grid, dto)) in state.change_loads_of(&audio, |t| {
+            for (deck, _, grid) in state.change_loads_of(&audio, |t| {
                 t.detected = analysis;
-                (t.grid(), TrackAnalysisDto::from(&*t))
+                t.grid()
             }) {
                 let _ = state.send_if_running(Command::SetBeatGrid { deck, grid });
-                updates.of(deck, load_id).analysis = Some(dto);
             }
         }
         // after the analysis, which a track dropped from the file manager has to go through:
@@ -220,27 +213,5 @@ impl Completion {
         if library.db.audio_id(&self.path).is_ok_and(|id| id.is_none()) {
             prisme_library::remember_audio(&library.db, &self.path);
         }
-        for update in updates.0 {
-            if update.analysis.is_some() || update.stems.is_some() {
-                let _ = app.emit(DECK_TRACK_UPDATE_EVENT, update);
-            }
-        }
-    }
-}
-
-/// What the end of a load brought to each deck playing it.
-#[derive(Default)]
-struct Updates(Vec<DeckTrackUpdateDto>);
-
-impl Updates {
-    fn of(&mut self, deck: usize, load_id: u64) -> &mut DeckTrackUpdateDto {
-        let at = match self.0.iter().position(|u| u.deck == deck && u.load_id == load_id) {
-            Some(at) => at,
-            None => {
-                self.0.push(DeckTrackUpdateDto { deck, load_id, analysis: None, stems: None });
-                self.0.len() - 1
-            }
-        };
-        &mut self.0[at]
     }
 }

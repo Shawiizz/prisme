@@ -1,4 +1,4 @@
-use crate::dto::{SeparationDto, TrackInfoDto};
+use crate::dto::SeparationDto;
 use crate::state::{lock, AppState};
 use prisme_engine::Stem;
 use tauri::ipc::{Channel, Response};
@@ -41,10 +41,4 @@ pub fn stem_activity(state: State<'_, AppState>, deck: usize, load_id: u64) -> R
         std::iter::once(rows.len() as u8).chain(lanes).collect()
     });
     Response::new(shown.unwrap_or_default())
-}
-
-/// Tracks currently loaded on the decks (to rebuild the UI after a reload).
-#[tauri::command]
-pub fn loaded_tracks(state: State<'_, AppState>) -> Vec<Option<TrackInfoDto>> {
-    lock(&state.tracks).iter().enumerate().map(|(deck, t)| t.as_ref().map(|t| t.info(deck))).collect()
 }

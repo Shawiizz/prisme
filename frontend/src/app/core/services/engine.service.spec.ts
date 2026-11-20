@@ -1,13 +1,6 @@
 import { TestBed } from '@angular/core/testing';
 import { clearMocks, mockIPC } from '@tauri-apps/api/mocks';
-import {
-  ControlState,
-  Cue,
-  DeckSettings,
-  DeckTrackUpdate,
-  TrackInfo,
-  Waveform,
-} from '../models/engine';
+import { ControlState, Cue, DeckSettings, TrackInfo, Waveform } from '../models/engine';
 import { EngineService } from './engine.service';
 import { ConfirmService } from '../../shared/confirm/confirm';
 
@@ -116,36 +109,6 @@ describe('EngineService', () => {
     });
   });
 
-  describe('a track separated once on its deck', () => {
-    const stems = { separation: 'vocals', partial: false } as const;
-    const update = (changes: Partial<DeckTrackUpdate>): DeckTrackUpdate => ({
-      deck: 1,
-      loadId: 7,
-      analysis: null,
-      stems: null,
-      ...changes,
-    });
-
-    beforeEach(() =>
-      engine.tracks.set([
-        null,
-        { loadId: 7, separation: 'none' } as unknown as TrackInfo,
-        null,
-        null,
-      ]),
-    );
-
-    it('takes its stems as they come', () => {
-      engine['completeTrack'](update({ stems }));
-      expect(engine.tracks()[1]?.separation).toBe('vocals');
-    });
-
-    it('leaves a later load of the deck as it is', () => {
-      engine['completeTrack'](update({ loadId: 6, stems }));
-      expect(engine.tracks()[1]?.separation).toBe('none');
-    });
-  });
-
   describe('what the backend changed', () => {
     const drop: Cue = { hot: 2, positionS: 12, loopLengthS: null, color: 0xff0000, label: '' };
     const level = { level: 1, on: true };
@@ -156,7 +119,7 @@ describe('EngineService', () => {
     function controls(changes: Partial<ControlState>): Partial<ControlState> {
       return {
         mixer: { decks: settings } as ControlState['mixer'],
-        tracks: [null, { loadId: 7, keyShift: -2, stemMix, cues: [drop] }, null, null],
+        tracks: [null, { loadId: 7, keyShift: -2, stemMix, cues: [drop] } as never, null, null],
         loading: [false, false, false, false],
         quantize: true,
         pitchRange: 0.16,
@@ -209,17 +172,18 @@ describe('EngineService', () => {
       expect(engine.tracks()[1]?.keyShift).toBe(-2);
     });
 
-    it('shows a track put on a deck whoever loaded it, and lets one taken off go', async () => {
-      const loaded = { loadId: 8, deck: 1, cues: [] } as unknown as TrackInfo;
-      mockIPC((command) => (command === 'loaded_tracks' ? [null, loaded, null, null] : undefined));
+    it('shows a track put on a deck whoever loaded it, and lets one taken off go', () => {
+      const watched: unknown[] = [];
+      mockIPC((command, args) => {
+        if (command === 'watch_waveform') watched.push(args);
+      });
       const loading = [false, true, false, false];
       engine['applyControls'](controls({ loading }));
       expect(engine.loading()).toEqual(loading);
-      engine['applyControls'](
-        controls({ tracks: [null, { loadId: 8, keyShift: 0, stemMix, cues: [] }, null, null] }),
-      );
-      expect(engine.tracks()[1]?.loadId).toBe(7);
-      await vi.waitFor(() => expect(engine.tracks()[1]?.loadId).toBe(8));
+      const loaded = { loadId: 8, deck: 1, keyShift: 0, stemMix, cues: [] } as unknown as TrackInfo;
+      engine['applyControls'](controls({ tracks: [null, loaded, null, null] }));
+      expect(engine.tracks()[1]).toBe(loaded);
+      expect(watched).toHaveLength(1);
       engine.waveforms.set([null, {} as Waveform, null, null]);
       engine['applyControls'](controls({ tracks: [null, null, null, null] }));
       expect(engine.tracks()[1]).toBeNull();

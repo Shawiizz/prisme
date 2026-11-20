@@ -19,13 +19,12 @@
 //! of all this, [`Shown`], is mirrored in `AppState::stems` as it changes.
 
 use crate::dto::{
-    stored_separation, ChoiceDto, DeckStemsDto, DeckTrackUpdateDto, ModelRowDto, ModelStatusDto, SeparateDto,
-    SeparationDto, StemMixDto, StemsProgressDto, StemsStateDto,
+    stored_separation, ChoiceDto, DeckStemsDto, ModelRowDto, ModelStatusDto, SeparateDto, SeparationDto,
+    StemMixDto, StemsProgressDto, StemsStateDto,
 };
 use crate::error::{AppError, AppResult};
 use crate::preferences::Preferences;
-use crate::state::{lock, AppState};
-use crate::track_loading::DECK_TRACK_UPDATE_EVENT;
+use crate::state::{lock, AppState, Section};
 use prisme_engine::{Command, Stem, StemTracks};
 use prisme_media::TrackAudio;
 use prisme_stems::track::TrackSeparation;
@@ -38,7 +37,7 @@ use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Condvar, Mutex, OnceLock};
 use std::time::Duration;
-use tauri::{AppHandle, Emitter, Manager};
+use tauri::{AppHandle, Manager};
 use tracing::{error, info, warn};
 
 /// Longest track separated as soon as it is loaded: an hour-long mix would hold gigabytes
@@ -1111,9 +1110,7 @@ impl Live {
             .filter_map(|(deck, t)| t.as_ref().filter(|t| t.path == path).map(|t| (deck, t.load_id)))
             .collect();
         for (deck, load_id) in decks {
-            if let Some(given) = give(app, deck, load_id, &stems, frames, rate) {
-                tell(app, deck, load_id, given);
-            }
+            give(app, deck, load_id, &stems, frames, rate);
         }
         Ok(live)
     }
@@ -1199,23 +1196,26 @@ pub fn attach_stems(app: &AppHandle, path: &Path) {
     let stored = stored_separation(path);
     let state = app.state::<AppState>();
     let mut audio = None;
-    let mut whole = Vec::new();
+    // stems filled where they played: their decks' tracks show them whole
+    let mut whole = false;
     let loads: Vec<(usize, u64)> = lock(&state.tracks)
         .iter()
         .enumerate()
         .filter_map(|(deck, t)| {
             let t = t.as_ref().filter(|t| t.path == path && t.audio.is_complete())?;
             if plays_whole(&t.stems, stored) {
-                whole.push((deck, t.load_id, DeckStemsDto::of(&t.stems)));
+                whole = true;
                 return None;
             }
             audio.get_or_insert_with(|| t.audio.clone());
             Some((deck, t.load_id))
         })
         .collect();
-    let given = audio.map(|audio| give_stems(app, &loads, path, &audio)).unwrap_or_default();
-    for (deck, load_id, stems) in whole.into_iter().chain(given) {
-        tell(app, deck, load_id, stems);
+    if let Some(audio) = audio {
+        give_stems(app, &loads, path, &audio);
+    }
+    if whole {
+        state.moved(Section::Tracks);
     }
 }
 
@@ -1224,7 +1224,7 @@ pub fn attach_stems(app: &AppHandle, path: &Path) {
 /// leaves the deck, all of them without the vocals (the drums and bass count only with them).
 fn stopped_short(app: &AppHandle, path: &Path) {
     let state = app.state::<AppState>();
-    let decks: Vec<(usize, u64, StemTracks)> = lock(&state.tracks)
+    let decks: Vec<(usize, StemTracks)> = lock(&state.tracks)
         .iter_mut()
         .enumerate()
         .filter_map(|(deck, t)| {
@@ -1233,12 +1233,11 @@ fn stopped_short(app: &AppHandle, path: &Path) {
                 .filter(|t| t.path == path && t.stems.iter().flatten().any(|s| !s.is_complete()))?;
             let vocals = t.stems[Stem::Vocals as usize].as_ref().is_some_and(|s| !s.is_blank());
             t.stems = t.stems.clone().map(|stem| stem.filter(|s| vocals && !s.is_blank()));
-            Some((deck, t.load_id, t.stems.clone()))
+            Some((deck, t.stems.clone()))
         })
         .collect();
-    for (deck, load_id, stems) in decks {
-        let _ = state.send_if_running(Command::SetStems { deck, stems: stems.clone() });
-        tell(app, deck, load_id, DeckStemsDto::of(&stems));
+    for (deck, stems) in decks {
+        let _ = state.send_if_running(Command::SetStems { deck, stems });
     }
 }
 
@@ -1249,16 +1248,10 @@ fn plays_whole(stems: &StemTracks, separation: SeparationDto) -> bool {
 }
 
 /// Gives the decks playing `loads` of `path` (its decoded `audio`) its stems: as they come if
-/// it is being separated, else those stored, read once for them all; for each deck, the stems
-/// it has (the caller tells the UI).
-pub fn give_stems(
-    app: &AppHandle,
-    loads: &[(usize, u64)],
-    path: &Path,
-    audio: &TrackAudio,
-) -> Vec<(usize, u64, DeckStemsDto)> {
+/// it is being separated, else those stored, read once for them all.
+pub fn give_stems(app: &AppHandle, loads: &[(usize, u64)], path: &Path, audio: &TrackAudio) {
     if loads.is_empty() {
-        return Vec::new();
+        return;
     }
     let (frames, rate) = (audio.frames(), audio.sample_rate());
     let stems = app.state::<StemsService>().live(path).unwrap_or_else(|| {
@@ -1270,38 +1263,27 @@ pub fn give_stems(
             }
         })
     });
-    loads
-        .iter()
-        .filter_map(|&(deck, load_id)| Some((deck, load_id, give(app, deck, load_id, &stems, frames, rate)?)))
-        .collect()
+    for &(deck, load_id) in loads {
+        give(app, deck, load_id, &stems, frames, rate);
+    }
 }
 
-/// Gives `stems` to the deck playing `load_id` if they fit its track and separate it at all;
-/// the stems it has then.
-fn give(
-    app: &AppHandle,
-    deck: usize,
-    load_id: u64,
-    stems: &StemTracks,
-    frames: usize,
-    rate: u32,
-) -> Option<DeckStemsDto> {
-    let given = DeckStemsDto::of(stems);
-    if given.separation == SeparationDto::None {
-        return None;
+/// Gives `stems` to the deck playing `load_id` if they fit its track and separate it at all.
+fn give(app: &AppHandle, deck: usize, load_id: u64, stems: &StemTracks, frames: usize, rate: u32) {
+    if DeckStemsDto::of(stems).separation == SeparationDto::None {
+        return;
     }
     let state = app.state::<AppState>();
-    state.change_loaded(deck, load_id, |t| {
-        (t.audio.frames() == frames && t.audio.sample_rate() == rate).then(|| t.stems = stems.clone())
-    })??;
-    let _ = state.send_if_running(Command::SetStems { deck, stems: stems.clone() });
-    Some(given)
-}
-
-/// Tells the UI the stems the track on `deck` has.
-fn tell(app: &AppHandle, deck: usize, load_id: u64, stems: DeckStemsDto) {
-    let update = DeckTrackUpdateDto { deck, load_id, analysis: None, stems: Some(stems) };
-    let _ = app.emit(DECK_TRACK_UPDATE_EVENT, update);
+    let fits = state.change_loaded(deck, load_id, |t| {
+        let fits = t.audio.frames() == frames && t.audio.sample_rate() == rate;
+        if fits {
+            t.stems = stems.clone();
+        }
+        fits
+    });
+    if fits == Some(true) {
+        let _ = state.send_if_running(Command::SetStems { deck, stems: stems.clone() });
+    }
 }
 
 #[cfg(test)]

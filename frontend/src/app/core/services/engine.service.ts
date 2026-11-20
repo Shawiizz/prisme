@@ -1,12 +1,10 @@
 import { Injectable, computed, effect, inject, signal, untracked } from '@angular/core';
 import { StemPart, partId } from '../stem-parts';
 import { Channel, invoke } from '@tauri-apps/api/core';
-import { listen } from '@tauri-apps/api/event';
 import {
   ControlChanges,
   ControlState,
   MAX_DECKS,
-  DeckTrackUpdate,
   DeckSettings,
   EngineStatus,
   StatusChanges,
@@ -89,15 +87,13 @@ export class EngineService {
       this.status.set(s);
     };
     await invoke('subscribe_status', { channel });
-    await listen<DeckTrackUpdate>('deck-track-update', (e) => this.completeTrack(e.payload));
     await told;
   }
 
   /** The sections the backend changed of what the app mirrors (`changed`, the first time all
-   * of them): the decks' settings, their tracks (one gone leaves its deck, one not shown yet is
-   * asked for) with their key shifts, stem mixes and cues, the DJ's quantize and tempo range.
-   * The sections not sent, and what is the same, stay as they are, for the views that follow
-   * them. */
+   * of them): the decks' settings, their tracks (a new load's waveform followed), the DJ's
+   * quantize and tempo range. The sections not sent, and what is the same, stay as they are,
+   * for the views that follow them. */
   private applyControls(changed: ControlChanges) {
     const before = this.controls();
     const mixer = changed.mixer && withChanges(before?.mixer ?? null, changed.mixer);
@@ -109,52 +105,20 @@ export class EngineService {
       if (decks.some((d, deck) => d !== this.decks()[deck])) this.decks.set(decks);
     }
     if (changed.tracks) {
-      const told = changed.tracks;
-      const tracks = this.tracks().map((track, deck) => {
-        if (!told[deck]) return null;
-        if (track?.loadId !== told[deck].loadId) return track;
-        const { keyShift, stemMix, cues } = told[deck];
-        const next = { ...track, keyShift, stemMix, cues };
-        return same(next, track) ? track : next;
-      });
-      if (tracks.some((t, deck) => t !== this.tracks()[deck])) {
+      const before = this.tracks();
+      const tracks = changed.tracks.map((track, deck) =>
+        same(track, before[deck]) ? before[deck] : track,
+      );
+      if (tracks.some((t, deck) => t !== before[deck])) {
         this.tracks.set(tracks);
-        this.waveforms.update((waveforms) => waveforms.map((w, deck) => (tracks[deck] ? w : null)));
+        tracks.forEach((track, deck) => {
+          if (track?.loadId === before[deck]?.loadId) return;
+          this.patch(this.waveforms, deck, null);
+          if (track) this.watchWaveform(deck, track.loadId);
+        });
       }
     }
     this.controls.set(controls);
-    if (this.unknownTrack()) void this.fetchTracks();
-  }
-
-  /** Whether the backend has a track on a deck that the app does not show yet. */
-  private unknownTrack(): boolean {
-    const told = this.controls()?.tracks ?? [];
-    return told.some((t, deck) => t !== null && t.loadId !== this.tracks()[deck]?.loadId);
-  }
-
-  private fetching = false;
-
-  /** Shows the tracks the backend put on the decks, whoever loaded them (the DJ, a controller,
-   * the Auto DJ), asking again while it tells of others meanwhile. */
-  private async fetchTracks() {
-    if (this.fetching) return;
-    this.fetching = true;
-    try {
-      let asked: ControlState | null;
-      do {
-        asked = this.controls();
-        const tracks = await invoke<(TrackInfo | null)[]>('loaded_tracks');
-        tracks.forEach((info, deck) => {
-          const told = this.controls()?.tracks[deck];
-          if (info && info.loadId === told?.loadId && info.loadId !== this.tracks()[deck]?.loadId)
-            this.show(deck, info);
-        });
-      } while (this.controls() !== asked && this.unknownTrack());
-    } catch (e) {
-      this.error.set(errorText(e));
-    } finally {
-      this.fetching = false;
-    }
   }
 
   /**
@@ -207,13 +171,6 @@ export class EngineService {
   /** At the end, the track goes on from its start. */
   setRepeat(deck: number, enabled: boolean) {
     return this.turn(`deck${deck + 1}.repeat`, enabled);
-  }
-
-  /** `info` is on `deck` now: its waveform follows. */
-  private show(deck: number, info: TrackInfo) {
-    this.patch(this.tracks, deck, info);
-    this.patch(this.waveforms, deck, null);
-    this.watchWaveform(deck, info.loadId);
   }
 
   /** PLAY; pressed while CUE previews, the deck plays on once CUE is let go, as on a CDJ. */
@@ -274,13 +231,6 @@ export class EngineService {
       `deck${deck + 1}.bend.${direction < 0 ? 'down' : 'up'}`,
       Math.abs(direction),
     );
-  }
-
-  /** Analysis and stems that arrive after the track was put on its deck. */
-  private completeTrack({ deck, loadId, analysis, stems }: DeckTrackUpdate) {
-    const track = this.tracks()[deck];
-    if (track?.loadId !== loadId) return;
-    if (analysis || stems) this.patch(this.tracks, deck, { ...track, ...analysis, ...stems });
   }
 
   /** The waveform of the load `loadId` on `deck`: what is known of it at once, then, while the

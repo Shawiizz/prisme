@@ -298,7 +298,6 @@ pub fn run() {
             commands::stems::download_stems_models,
             commands::stems::separate_library,
             commands::stems::cancel_separation,
-            commands::tracks::loaded_tracks,
             commands::preview::toggle_preview,
             commands::preview::seek_preview,
             commands::preview::preview_waveform,
