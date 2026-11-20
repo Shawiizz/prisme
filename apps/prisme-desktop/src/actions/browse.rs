@@ -73,6 +73,7 @@ impl Library {
             reorderable: browser.reorderable(),
             count: browser.count(),
             cursor: browser.cursor_index(),
+            cursor_moves: browser.cursor_moves(),
             selected: browser.selected_paths().len(),
             focus: browser.focus().into(),
             pointed: match browser.pointed() {

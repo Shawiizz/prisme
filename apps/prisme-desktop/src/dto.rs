@@ -1814,6 +1814,8 @@ pub struct LibraryViewDto {
     pub count: usize,
     /// Where the cursor is among the rows shown.
     pub cursor: Option<usize>,
+    /// Moved each time the cursor goes to another row (not when rows before it move).
+    pub cursor_moves: u64,
     /// How many tracks the actions on the selection take.
     pub selected: usize,
     pub focus: FocusDto,

@@ -47,11 +47,13 @@ const STARS = [1, 2, 3, 4, 5];
 /** Rows asked for beyond those in view, above and below: a quick scroll shows no gap. */
 const OVERSCAN = 12;
 
-/** Whether two views show the same list the same way: the cursor moved in it, not the list. */
-function sameList(a: LibraryView, b: LibraryView): boolean {
+/** Whether the cursor went to another row of the list shown `before`, which `now` shows the
+ * same way: a key or a controller moved it, not rows coming, going or moving before it. */
+export function cursorMoved(before: LibraryView | null, now: LibraryView | null): boolean {
+  if (!before || !now || now.cursorMoves === before.cursorMoves) return false;
   return (
-    JSON.stringify([a.source, a.scope, a.filter, a.sort]) ===
-    JSON.stringify([b.source, b.scope, b.filter, b.sort])
+    JSON.stringify([now.source, now.scope, now.filter, now.sort]) ===
+    JSON.stringify([before.source, before.scope, before.filter, before.sort])
   );
 }
 
@@ -176,9 +178,9 @@ export class TrackTable {
     let before: LibraryView | null = null;
     effect(() => {
       const view = this.library.view();
-      const moved = view && before && sameList(view, before) && view.cursor !== before.cursor;
+      const moved = cursorMoved(before, view);
       before = view;
-      if (moved && view.cursor !== null) untracked(() => this.scrollTo(view.cursor!));
+      if (moved && view?.cursor != null) untracked(() => this.scrollTo(view.cursor!));
     });
     const destroyRef = inject(DestroyRef);
     destroyRef.onDestroy(() => cancelAnimationFrame(frame));

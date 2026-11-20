@@ -17,6 +17,7 @@ const view = (seq: number, filter: string): LibraryView => ({
   reorderable: true,
   count: 0,
   cursor: null,
+  cursorMoves: 0,
   selected: 0,
   focus: 'tracks',
   pointed: { kind: 'prepare' },

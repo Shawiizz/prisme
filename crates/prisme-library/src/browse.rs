@@ -141,6 +141,10 @@ pub struct Browser {
     /// Those of them the search finds: the rows shown.
     shown: Vec<u32>,
     cursor: Option<Entry>,
+    /// Where the cursor is among the rows shown, found again at each change.
+    cursor_at: Option<usize>,
+    /// Moved each time the cursor goes to another row.
+    cursor_moves: u64,
     picked: HashSet<Entry>,
     anchor: Option<Entry>,
     focus: Focus,
@@ -175,6 +179,8 @@ impl Default for Browser {
             sorted: Vec::new(),
             shown: Vec::new(),
             cursor: None,
+            cursor_at: None,
+            cursor_moves: 0,
             picked: HashSet::new(),
             anchor: None,
             focus: Focus::Tracks,
@@ -574,7 +580,7 @@ impl Browser {
         if pick != Pick::Range {
             self.anchor = Some(entry);
         }
-        self.cursor = Some(entry);
+        self.set_cursor(Some(entry));
         self.changed();
     }
 
@@ -595,20 +601,23 @@ impl Browser {
     /// The cursor moved by `steps` rows shown, held at the ends, to the first if it is on none;
     /// the rows picked let go.
     pub fn move_cursor(&mut self, steps: i64) {
-        self.clear_selection();
-        let Some(last) = self.shown.len().checked_sub(1) else { return };
-        let at = match self.cursor.and_then(|cursor| self.index_of(cursor)) {
-            Some(at) => (at as i64 + steps).clamp(0, last as i64) as usize,
-            None => 0,
-        };
-        self.cursor = Some(self.rows()[self.shown[at] as usize]);
+        self.picked.clear();
+        self.anchor = None;
+        if let Some(last) = self.shown.len().checked_sub(1) {
+            let at = match self.cursor_at {
+                Some(at) => (at as i64 + steps).clamp(0, last as i64) as usize,
+                None => 0,
+            };
+            self.set_cursor(Some(self.rows()[self.shown[at] as usize]));
+        }
+        self.changed();
     }
 
     /// The cursor put on `entry`, nothing picked (where it goes after the rows it was on left).
     pub fn put_cursor(&mut self, entry: Option<Entry>) {
         self.picked.clear();
         self.anchor = None;
-        self.cursor = entry;
+        self.set_cursor(entry);
         self.changed();
     }
 
@@ -624,7 +633,13 @@ impl Browser {
 
     /// Where the cursor is among the rows shown.
     pub fn cursor_index(&self) -> Option<usize> {
-        self.cursor.and_then(|cursor| self.index_of(cursor))
+        self.cursor_at
+    }
+
+    /// Moved each time the cursor goes to another row, by a gesture or because the rows it was
+    /// on left; not when rows before it come, go or move.
+    pub fn cursor_moves(&self) -> u64 {
+        self.cursor_moves
     }
 
     /// The rows the actions on the selection take, as shown: those picked, else the cursor's.
@@ -764,8 +779,17 @@ impl Browser {
     }
 
     fn changed(&mut self) {
+        self.cursor_at = self.cursor.and_then(|cursor| self.index_of(cursor));
         self.revision += 1;
         self.seq += 1;
+    }
+
+    /// The cursor on `entry`, whatever is shown.
+    fn set_cursor(&mut self, entry: Option<Entry>) {
+        if self.cursor != entry {
+            self.cursor = entry;
+            self.cursor_moves += 1;
+        }
     }
 
     fn lists_changed(&mut self) {
@@ -1118,12 +1142,28 @@ mod tests {
         assert_eq!(browser.selected(), [e]);
         browser.move_cursor(-9);
         assert_eq!(browser.cursor_index(), Some(0), "held at the ends");
+        let moves = browser.cursor_moves();
+        browser.move_cursor(-1);
+        assert_eq!(browser.cursor_moves(), moves, "it stayed on its row");
         browser.select_all();
         assert_eq!(browser.selected_paths().len(), 4);
         browser.set_filter("house");
         assert_eq!(browser.selected(), [cafe, strobe], "the picks hidden by the search left out");
         browser.clear_selection();
         assert_eq!(browser.selected(), [], "the cursor's row is hidden");
+    }
+
+    #[test]
+    fn the_cursor_moves_with_a_gesture_not_when_rows_before_it_move() {
+        let mut browser = folder();
+        let cafe = entry(&browser, "c.mp3");
+        browser.select(cafe, Pick::Only);
+        let (at, moves) = (browser.cursor_index(), browser.cursor_moves());
+        browser.put(record("C:/Music/e.mp3", tags("Aardvark", None, None), Some(100.0), None));
+        assert_eq!(browser.cursor_index(), at.map(|at| at + 1), "a row came before it");
+        assert_eq!(browser.cursor_moves(), moves);
+        browser.move_cursor(-1);
+        assert_eq!(browser.cursor_moves(), moves + 1);
     }
 
     #[test]

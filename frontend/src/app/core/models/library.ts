@@ -110,6 +110,8 @@ export interface LibraryView {
   count: number;
   /** Where the cursor is among the rows shown. */
   cursor: number | null;
+  /** Moved each time the cursor goes to another row (not when rows before it move). */
+  cursorMoves: number;
   /** How many tracks the actions on the selection take. */
   selected: number;
   focus: 'tracks' | 'lists';
