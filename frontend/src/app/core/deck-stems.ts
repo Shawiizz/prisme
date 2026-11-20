@@ -2,7 +2,16 @@ import { Signal, computed, inject } from '@angular/core';
 import { t } from './i18n/i18n';
 import { EngineService } from './services/engine.service';
 import { StemsService } from './services/stems.service';
-import { StemPart, partIn, partLevel, partPlaying } from './stem-parts';
+import { StemPart } from './stem-parts';
+
+/** Each part's knob label and name. */
+const PARTS: Record<StemPart, { label: string; name: () => string }> = {
+  vocals: { label: 'VOX', name: () => t('Vocals') },
+  drums: { label: 'DRUM', name: () => t('Drums') },
+  bass: { label: 'BASS', name: () => t('Bass') },
+  other: { label: 'MELO', name: () => t('Melody (the other instruments)') },
+  instrumental: { label: 'INST', name: () => t('Instrumental') },
+};
 
 /**
  * The stems of a deck as its controls show them: the parts of its track with their level,
@@ -14,32 +23,17 @@ export function deckStems(deck: Signal<number>) {
   const stems = inject(StemsService);
   const track = computed(() => engine.tracks()[deck()]);
   const separation = computed(() => track()?.separation ?? 'none');
-  /** Vocals and instrumental, or the four stems of a fully separated track: a knob each,
-   * its name muting it at its level, greyed where the deck plays a part not separated yet. */
-  const knobs = computed(() => {
-    const mix = track()?.stemMix;
-    const status = engine.status()?.decks[deck()];
-    const waiting = status?.stemsWaiting ?? 0;
-    const here = status?.stemsHere ?? 0;
-    const knob = (part: StemPart, label: string, name: string) => ({
-      part,
-      label,
-      name,
-      title: t('{part}: turn for the level, click the name to mute', { part: name }),
-      level: mix ? partLevel(mix, part) : 1,
-      on: !mix || partPlaying(mix, part),
-      waiting: partIn(waiting, part),
-      ready: partIn(here, part),
-    });
-    return separation() === 'full'
-      ? [
-          knob('vocals', 'VOX', t('Vocals')),
-          knob('drums', 'DRUM', t('Drums')),
-          knob('bass', 'BASS', t('Bass')),
-          knob('other', 'MELO', t('Melody (the other instruments)')),
-        ]
-      : [knob('vocals', 'VOX', t('Vocals')), knob('instrumental', 'INST', t('Instrumental'))];
-  });
+  /** Vocals and instrumental, or the four stems of a fully separated track, as the backend
+   * shows them: a knob each, its name muting it at its level, greyed where the deck plays a
+   * part not separated yet. */
+  const knobs = computed(() =>
+    (engine.status()?.decks[deck()]?.stems ?? []).map((knob) => {
+      const { label, name } = PARTS[knob.part];
+      const named = name();
+      const title = t('{part}: turn for the level, click the name to mute', { part: named });
+      return { ...knob, label, name: named, title };
+    }),
+  );
   /** How far the track's separation is, while it is being separated, or the download of
    * the models it waits for. */
   const separating = computed(() => {

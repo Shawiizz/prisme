@@ -96,6 +96,11 @@ fn stems_of(part: StemPart) -> &'static [usize] {
     }
 }
 
+/// Whether any stem of `part` is among `bits`, a bit each by the engine's order.
+pub fn part_in(bits: u8, part: StemPart) -> bool {
+    stems_of(part).iter().any(|&s| bits & 1 << s != 0)
+}
+
 impl StemMix {
     fn levels(&self) -> [&StemLevel; 4] {
         [&self.vocals, &self.drums, &self.bass, &self.other]
@@ -162,6 +167,16 @@ mod tests {
         assert!(!Separation::Vocals.has(StemPart::Drums));
         assert!(Separation::Full.has(StemPart::Bass));
         assert!(Separation::Full.has(StemPart::Instrumental));
+    }
+
+    #[test]
+    fn the_engines_bits_hold_a_part_the_instrumental_by_any_of_its_instruments() {
+        assert!(part_in(0b0001, StemPart::Vocals));
+        assert!(!part_in(0b0001, StemPart::Drums));
+        assert!(part_in(0b0100, StemPart::Bass));
+        assert!(part_in(0b1000, StemPart::Instrumental));
+        assert!(part_in(0b1000, StemPart::Melody));
+        assert!(!part_in(0b0001, StemPart::Instrumental));
     }
 
     #[test]

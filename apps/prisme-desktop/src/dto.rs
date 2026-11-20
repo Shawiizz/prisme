@@ -1047,10 +1047,8 @@ pub struct DeckStatusDto {
     pub vinyl: VinylDto,
     /// Sampler slots playing (bit per slot).
     pub samples_playing: u16,
-    /// The parts whose change waits for the next bar, a bit each: vocals, drums, bass, other.
-    pub stems_waiting: u8,
-    /// The parts separated where the deck plays, the same bits.
-    pub stems_here: u8,
+    /// The parts of its separated track, a knob each.
+    pub stems: Vec<StemKnobDto>,
 }
 
 /// What a deck's keys and pads light by the controllers' rules.
@@ -1061,6 +1059,25 @@ pub struct DeckLightsDto {
     pub cue: light::State,
     /// The slice of its slicer it plays in.
     pub slice: Option<usize>,
+}
+
+/// A part of a deck's separated track, as its knob shows it.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct StemKnobDto {
+    pub part: FxPartDto,
+    pub level: f32,
+    pub on: bool,
+    /// Its change waits for the next bar.
+    pub waiting: bool,
+    /// Separated where the deck plays.
+    pub ready: bool,
+}
+
+impl From<screen::StemKnob> for StemKnobDto {
+    fn from(k: screen::StemKnob) -> Self {
+        Self { part: k.part.into(), level: k.level, on: k.on, waiting: k.waiting, ready: k.ready }
+    }
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -1121,8 +1138,7 @@ impl DeckStatusDto {
             reverse: d.reverse,
             slip_position_s: d.slip_position_s,
             samples_playing: d.samples_playing,
-            stems_waiting: d.stems_waiting,
-            stems_here: d.stems_here,
+            stems: screen::stem_knobs(view, deck).map(StemKnobDto::from).collect(),
             vinyl: VinylDto {
                 enabled: d.vinyl.enabled,
                 mode: d.vinyl.mode.into(),

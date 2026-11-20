@@ -117,10 +117,8 @@ export interface DeckStatus {
   lights: DeckLights;
   /** Sampler slots playing, one bit per slot (16). */
   samplesPlaying: number;
-  /** The parts whose change waits for the next bar, a bit each: vocals, drums, bass, other. */
-  stemsWaiting: number;
-  /** The parts separated where the deck plays, the same bits. */
-  stemsHere: number;
+  /** The parts of its separated track, a knob each. */
+  stems: StemKnob[];
 }
 
 export interface DeckLights {
@@ -128,6 +126,17 @@ export interface DeckLights {
   cue: LightState;
   /** The slice of its slicer it plays in. */
   slice: number | null;
+}
+
+/** A part of a deck's separated track, as its knob shows it. */
+export interface StemKnob {
+  part: StemPart;
+  level: number;
+  on: boolean;
+  /** Its change waits for the next bar. */
+  waiting: boolean;
+  /** Separated where the deck plays. */
+  ready: boolean;
 }
 
 export interface Cue {

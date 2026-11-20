@@ -1,13 +1,16 @@
 //! What the screen shows of each deck at a frame, read from a [`View`] by the rules the
 //! controllers' lights and values follow: the rate it plays at and the key heard, where its
-//! tempo fader stands, the time left, who drives it, and what its keys may do and light.
+//! tempo fader stands, the time left, who drives it, what its keys may do and light, and its
+//! stems.
 
 use crate::key::heard;
 use crate::light::{cue_state, ending, slice_playing, State};
 use crate::scales::Tempo;
+use crate::stems::part_in;
 use crate::sync::{grid_shift_to, matching_tempo};
 use crate::view::{plays, View};
 use prisme_analysis::Key;
+use prisme_control::StemPart;
 use prisme_engine::VinylMode;
 use serde::Serialize;
 
@@ -40,6 +43,18 @@ pub struct Deck {
     pub cue: State,
     /// The slice of its slicer it plays in.
     pub slice: Option<usize>,
+}
+
+/// A part of a deck's separated track, as its knob shows it.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct StemKnob {
+    pub part: StemPart,
+    pub level: f32,
+    pub on: bool,
+    /// Its change waits for the next bar.
+    pub waiting: bool,
+    /// Separated where the deck plays.
+    pub ready: bool,
 }
 
 /// Who drives a deck.
@@ -141,6 +156,20 @@ pub fn deck(view: &View, deck: usize) -> Deck {
     }
 }
 
+/// The knobs of the parts of the track on `deck`, as far as it is separated.
+pub fn stem_knobs(view: &View, deck: usize) -> impl Iterator<Item = StemKnob> + '_ {
+    let status = view.deck_status(deck);
+    view.decks[deck].track.into_iter().flat_map(move |track| {
+        track.separation.parts().iter().map(move |&part| StemKnob {
+            part,
+            level: track.stem_mix.level(part),
+            on: track.stem_mix.playing(part),
+            waiting: part_in(status.stems_waiting, part),
+            ready: part_in(status.stems_here, part),
+        })
+    })
+}
+
 /// The key the track on `deck` is heard in, if its key is known.
 fn heard_key(view: &View, deck: usize) -> Option<Key> {
     let settings = &view.decks[deck];
@@ -184,6 +213,7 @@ fn tempo_fader(view: &View, deck: usize) -> TempoFader {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::stems::{Separation, StemMix};
     use crate::view::fixtures::{loaded, view};
 
     fn camelot(code: &str) -> Key {
@@ -334,6 +364,36 @@ mod tests {
         assert_eq!(deck(&v, 0).slice, Some(2));
         v.status.decks[0].position_s = 9.0;
         assert_eq!(deck(&v, 0).slice, None, "past its eight beats");
+    }
+
+    #[test]
+    fn a_separated_track_shows_a_knob_a_part_the_instrumental_by_its_loudest_instrument() {
+        let mut v = loaded(view(), 0, 0.0, true);
+        assert_eq!(stem_knobs(&v, 0).count(), 0, "not separated");
+        if let Some(track) = &mut v.decks[0].track {
+            track.separation = Separation::Vocals;
+            track.stem_mix = StemMix::default()
+                .with_level(StemPart::Drums, 0.25)
+                .with_level(StemPart::Bass, 0.5)
+                .with_level(StemPart::Melody, 0.1)
+                .toggled(StemPart::Vocals);
+        }
+        v.status.decks[0].stems_waiting = 0b0100;
+        v.status.decks[0].stems_here = 0b0001;
+        let knobs: Vec<StemKnob> = stem_knobs(&v, 0).collect();
+        let knob = |part, level, on, waiting, ready| StemKnob { part, level, on, waiting, ready };
+        assert_eq!(
+            knobs,
+            [
+                knob(StemPart::Vocals, 1.0, false, false, true),
+                knob(StemPart::Instrumental, 0.5, true, true, false)
+            ]
+        );
+        if let Some(track) = &mut v.decks[0].track {
+            track.separation = Separation::Full;
+        }
+        let parts: Vec<StemPart> = stem_knobs(&v, 0).map(|k| k.part).collect();
+        assert_eq!(parts, [StemPart::Vocals, StemPart::Drums, StemPart::Bass, StemPart::Melody]);
     }
 
     #[test]
