@@ -56,10 +56,6 @@ export class PerformanceService {
     return this.engine.press(deck, 'loop.out');
   }
 
-  exitLoop(deck: number) {
-    return this.engine.call('exit_loop', { deck });
-  }
-
   /** The stored loop played again, or left while it plays. */
   reloop(deck: number) {
     return this.engine.press(deck, 'reloop');

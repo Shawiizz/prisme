@@ -305,8 +305,9 @@ export class DeckPads {
           ? this.performance.deleteHotCue(deck, slot)
           : this.performance.pressHotCue(deck, slot);
       case 'loops':
+        // the pad of the loop playing leaves it
         return this.activeLoopBeats() === LOOP_BEATS[index]
-          ? this.performance.exitLoop(deck)
+          ? this.performance.reloop(deck)
           : this.performance.beatLoop(deck, LOOP_BEATS[index]);
       case 'roll':
         this.performance.roll(deck, index, true);
@@ -366,8 +367,7 @@ export class DeckPads {
   }
 
   toggleLoop() {
-    if (this.loopActive()) this.performance.exitLoop(this.deck());
-    else this.performance.reloop(this.deck());
+    this.performance.reloop(this.deck());
   }
 
   toggleSlip() {

@@ -310,7 +310,6 @@ pub fn run() {
             commands::live::set_live_input,
             commands::live::set_talkover_depth,
             commands::transport::anchor_slicer,
-            commands::transport::exit_loop,
             commands::edits::edit_grid,
             commands::edits::set_key,
             commands::edits::key_choices,
