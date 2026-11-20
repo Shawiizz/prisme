@@ -209,8 +209,10 @@ impl Performing<'_> {
             DeckSwitch::Headphones => mixer::set_deck_cue(state, deck, turn.turns(d.cue)),
             DeckSwitch::Mute => mixer::set_mute(state, deck, turn.turns(d.mute)),
             DeckSwitch::Passthrough => deck::set_passthrough(state, deck, turn.turns(d.passthrough)),
+            // from what the deck shows: off while the deck layered with it has the turntable
             DeckSwitch::Vinyl => {
-                deck::set_vinyl(state, deck, VinylChangeDto::Enabled(turn.turns(d.vinyl_enabled)))
+                let shown = state.decks_laid_out()[deck].vinyl_enabled;
+                deck::set_vinyl(state, deck, VinylChangeDto::Enabled(turn.turns(shown)))
             }
             DeckSwitch::JogScratch => deck::set_jog_scratch(state, deck, turn.turns(d.jog_scratch)),
             DeckSwitch::FxChain => fx::set_fx_chain_enabled(state, deck, turn.turns(d.fx.enabled)),
@@ -747,6 +749,20 @@ mod switches {
             bench.sent()[..],
             [Command::SetSlip { deck: 0, enabled: true }, Command::SetSlip { deck: 0, enabled: true }]
         ));
+    }
+
+    #[test]
+    fn the_vinyl_key_turns_the_vinyl_control_from_what_the_deck_shows() {
+        let bench = Bench::new();
+        bench.state.update_preferences(|p| p.dj.deck_count = 4.into());
+        lock(&bench.state.session).as_mut().unwrap().info.decks = 4;
+        // decks A and C on one turntable, both kept on: C shows off, A has the record
+        for deck in [0, 2] {
+            lock(&bench.state.decks)[deck].vinyl_enabled = true;
+        }
+        press(&bench, "deck3.vinyl");
+        let vinyl = lock(&bench.state.decks).map(|d| d.vinyl_enabled);
+        assert_eq!([vinyl[0], vinyl[2]], [false, true], "put on, taking the turntable");
     }
 
     #[test]

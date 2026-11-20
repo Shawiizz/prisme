@@ -768,6 +768,13 @@ impl AppState {
         }
     }
 
+    /// The settings of the decks as the running device lays them out (see [`as_laid_out`]): as
+    /// the interface and the lights show them.
+    pub fn decks_laid_out(&self) -> [DeckSettings; MAX_DECKS] {
+        let layout = lock(&self.session).as_ref().map(|s| (s.info.decks, s.info.input_channels));
+        as_laid_out(*lock(&self.decks), layout)
+    }
+
     /// The settings of the decks as the device of `info` lets them be (see [`as_laid_out`]).
     pub fn decks_in_use(&self, info: Option<&AudioInfo>) -> [DeckSettings; MAX_DECKS] {
         as_laid_out(*lock(&self.decks), info.map(|info| (info.decks, info.input_channels)))
