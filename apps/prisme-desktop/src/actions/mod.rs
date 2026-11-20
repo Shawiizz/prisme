@@ -42,6 +42,7 @@ use prisme_engine::EngineStatus;
 use prisme_library::LibraryDb;
 use serde::Serialize;
 use std::borrow::Cow;
+use std::cell::RefCell;
 use std::collections::{HashMap, VecDeque};
 use std::panic::{catch_unwind, AssertUnwindSafe};
 use std::path::PathBuf;
@@ -323,11 +324,44 @@ impl Follower {
         if self.before.fetch_sub(1, Ordering::SeqCst) != 1 {
             return;
         }
-        let send = lock(&self.send).take();
-        // run as an action it follows ends, maybe unwinding from its failure
-        if send.is_some_and(|send| catch_unwind(AssertUnwindSafe(send)).is_err()) {
+        if let Some(send) = lock(&self.send).take() {
+            send_ready(send);
+        }
+    }
+}
+
+thread_local! {
+    /// The followers this thread sends, while it sends one: those an action it sent let go
+    /// wait for it to be over, so that a chain of thousands set aside never deepens the stack.
+    static READY: RefCell<Option<VecDeque<Job>>> = const { RefCell::new(None) };
+}
+
+/// Runs `send`, an action whose turn came, here; or after the one this thread is sending, if
+/// it is (an action it sent ended). Run as an action it follows ends, maybe unwinding from its
+/// failure.
+fn send_ready(send: Job) {
+    let sending = READY.with_borrow_mut(|ready| match ready {
+        Some(ready) => {
+            ready.push_back(send);
+            None
+        }
+        None => {
+            *ready = Some(VecDeque::new());
+            Some(send)
+        }
+    });
+    let mut next = sending;
+    while let Some(send) = next {
+        if catch_unwind(AssertUnwindSafe(send)).is_err() {
             error!("an action sent in turn failed");
         }
+        next = READY.with_borrow_mut(|ready| {
+            let next = ready.as_mut().and_then(VecDeque::pop_front);
+            if next.is_none() {
+                *ready = None;
+            }
+            next
+        });
     }
 }
 
@@ -1166,6 +1200,25 @@ mod lanes {
         loading.send(()).unwrap();
         bench.actions.settle();
         assert!(!split(&bench), "turned on, then off");
+    }
+
+    #[test]
+    fn thousands_of_actions_set_aside_one_after_the_other_follow_without_deepening_the_stack() {
+        let bench = Arc::new(Bench::new());
+        let file = track("chain");
+        bench.select(&file.0);
+        let loading = held(&bench, Lane::Track(0));
+        let in_turn = &mut InTurn::default();
+        sent(&bench, "library.load1", 1.0, in_turn);
+        sent(&bench, "mixer.headphones.split.on", 1.0, in_turn);
+        for at in 0..20_000 {
+            let id = if at % 2 == 0 { "mixer.headphones.split.off" } else { "mixer.headphones.split.on" };
+            sent(&bench, id, 1.0, &mut InTurn::default());
+        }
+        assert!(!split(&bench), "every one waits for the load");
+        loading.send(()).unwrap();
+        bench.actions.settle();
+        assert!(split(&bench), "the last, on, in turn");
     }
 
     #[test]
