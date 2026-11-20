@@ -13,9 +13,15 @@ export class PerformanceService {
   readonly pages = signal<PadPageNames[]>([]);
   private loading: Promise<void> | null = null;
 
-  /** Asks the backend for the pages once. */
+  /** Asks the backend for the pages once: again next time, if it failed. */
   loadPages() {
-    this.loading ??= invoke<PadPageNames[]>('pad_pages').then((pages) => this.pages.set(pages));
+    this.loading ??= invoke<PadPageNames[]>('pad_pages').then(
+      (pages) => this.pages.set(pages),
+      (e) => {
+        this.loading = null;
+        this.engine.error.set(errorText(e));
+      },
+    );
     return this.loading;
   }
 
