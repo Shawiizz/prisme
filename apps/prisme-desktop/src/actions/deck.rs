@@ -105,8 +105,8 @@ pub fn loaded(state: &AppState, deck: usize) {
 /// `part` of the track on `deck` muted, or played again: on the next bar with quantize; nothing
 /// on a track without it.
 pub fn toggle_stem(state: &AppState, deck: usize, part: StemPart) -> AppResult<()> {
-    let mix = |t: &mut LoadedTrack| t.separation().has(part).then(|| t.stem_mix.toggled(part));
-    match state.change_track(deck, mix) {
+    let mix = |t: &LoadedTrack| t.separation().has(part).then(|| t.stem_mix.toggled(part));
+    match state.with_track(deck, mix) {
         Ok(Some(mix)) => set_stem_mix(state, deck, mix, state.preferences.read(|p| p.dj.quantize)),
         _ => Ok(()),
     }
@@ -114,8 +114,8 @@ pub fn toggle_stem(state: &AppState, deck: usize, part: StemPart) -> AppResult<(
 
 /// How loud `part` of the track on `deck` plays, 0 to 1: nothing on a track without it.
 pub fn set_stem_level(state: &AppState, deck: usize, part: StemPart, level: f32) -> AppResult<()> {
-    let mix = |t: &mut LoadedTrack| t.separation().has(part).then(|| t.stem_mix.with_level(part, level));
-    match state.change_track(deck, mix) {
+    let mix = |t: &LoadedTrack| t.separation().has(part).then(|| t.stem_mix.with_level(part, level));
+    match state.with_track(deck, mix) {
         Ok(Some(mix)) => set_stem_mix(state, deck, mix, false),
         _ => Ok(()),
     }

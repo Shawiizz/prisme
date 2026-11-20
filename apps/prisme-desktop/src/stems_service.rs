@@ -1041,7 +1041,7 @@ fn give(
         return None;
     }
     let state = app.state::<AppState>();
-    state.with_loaded(deck, load_id, |t| {
+    state.change_loaded(deck, load_id, |t| {
         (t.audio.frames() == frames && t.audio.sample_rate() == rate).then(|| t.stems = stems.clone())
     })??;
     let _ = state.send_if_running(Command::SetStems { deck, stems: stems.clone() });

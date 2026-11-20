@@ -183,7 +183,7 @@ impl Completion {
         }
         let loudness = prisme_analysis::loudness(&audio);
         let auto_gain = state.preferences.read(|p| p.dj.auto_gain);
-        for (deck, _, gain) in state.with_audio(&audio, |t| {
+        for (deck, _, gain) in state.change_loads_of(&audio, |t| {
             t.loudness = loudness;
             t.level(auto_gain)
         }) {
@@ -198,7 +198,7 @@ impl Completion {
                 let edits = library.db.edits(&self.path).unwrap_or_default();
                 library.store(&TrackRecord { edits, ..analyzed }, metadata.cover.as_deref());
             }
-            for (deck, load_id, (grid, dto)) in state.with_audio(&audio, |t| {
+            for (deck, load_id, (grid, dto)) in state.change_loads_of(&audio, |t| {
                 t.detected = analysis;
                 (t.grid(), TrackAnalysisDto::from(&*t))
             }) {

@@ -126,7 +126,7 @@ impl Performing<'_> {
     pub(super) fn delete_hot_cue(&self, deck: usize, slot: usize) -> AppResult<()> {
         let slot = hot(slot);
         let path = self.state.with_track(deck, |track| track.path.clone())?;
-        self.state.with_path(&path, |track| track.remove_cue(slot));
+        self.state.change_file(&path, |track| track.remove_cue(slot));
         self.keep(move |library| library.delete_cue(&path, slot));
         Ok(())
     }
@@ -134,7 +134,7 @@ impl Performing<'_> {
     /// `cue` for the track on `deck`, on every deck playing it, then in the library.
     fn put_cue(&self, deck: usize, cue: Cue) -> AppResult<()> {
         let path = self.state.with_track(deck, |track| track.path.clone())?;
-        self.state.with_path(&path, |track: &mut LoadedTrack| track.put_cue(cue.clone()));
+        self.state.change_file(&path, |track: &mut LoadedTrack| track.put_cue(cue.clone()));
         self.keep(move |library| library.save_cue(&path, &cue));
         Ok(())
     }

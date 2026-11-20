@@ -602,55 +602,6 @@ impl AppState {
         status.decks[..status.deck_count].iter().any(moves)
     }
 
-    /// Runs `f` on the track on `deck` if it is still the load `load_id`.
-    pub fn with_loaded<R>(
-        &self,
-        deck: usize,
-        load_id: u64,
-        f: impl FnOnce(&mut LoadedTrack) -> R,
-    ) -> Option<R> {
-        let mut tracks = lock(&self.tracks);
-        tracks.get_mut(deck)?.as_mut().filter(|t| t.load_id == load_id).map(f)
-    }
-
-    /// Runs `f` on every loaded track playing `audio` (a load and its instant doubles): what
-    /// is found out about a load goes to them all. The deck, load and result of each.
-    pub fn with_audio<R>(
-        &self,
-        audio: &Arc<TrackAudio>,
-        f: impl FnMut(&mut LoadedTrack) -> R,
-    ) -> Vec<(usize, u64, R)> {
-        self.with_tracks(|t| Arc::ptr_eq(&t.audio, audio), f)
-    }
-
-    /// Runs `f` on every loaded track of the file `path` (loaded twice, or doubled): what is
-    /// changed of a file changes on every deck playing it. The deck, load and result of each.
-    pub fn with_path<R>(&self, path: &Path, f: impl FnMut(&mut LoadedTrack) -> R) -> Vec<(usize, u64, R)> {
-        self.with_tracks(|t| t.path == path, f)
-    }
-
-    fn with_tracks<R>(
-        &self,
-        which: impl Fn(&LoadedTrack) -> bool,
-        mut f: impl FnMut(&mut LoadedTrack) -> R,
-    ) -> Vec<(usize, u64, R)> {
-        lock(&self.tracks)
-            .iter_mut()
-            .enumerate()
-            .filter_map(|(deck, t)| {
-                let t = t.as_mut().filter(|t| which(t))?;
-                Some((deck, t.load_id, f(t)))
-            })
-            .collect()
-    }
-
-    /// The decks playing `audio`, and their loads (see [`AppState::with_audio`]).
-    pub fn loads_of(&self, audio: &Arc<TrackAudio>) -> Vec<(usize, u64)> {
-        let tracks = lock(&self.tracks);
-        let playing = tracks.iter().enumerate().filter_map(|(deck, t)| Some((deck, t.as_ref()?)));
-        playing.filter(|(_, t)| Arc::ptr_eq(&t.audio, audio)).map(|(deck, t)| (deck, t.load_id)).collect()
-    }
-
     /// Reads the track loaded on `deck` with `f`.
     pub fn with_track<R>(&self, deck: usize, f: impl FnOnce(&LoadedTrack) -> R) -> AppResult<R> {
         Self::deck_exists(deck)?;
@@ -661,7 +612,70 @@ impl AppState {
     pub fn change_track<R>(&self, deck: usize, f: impl FnOnce(&mut LoadedTrack) -> R) -> AppResult<R> {
         Self::deck_exists(deck)?;
         let mut tracks = lock(&self.tracks);
+        if tracks[deck].is_none() {
+            return Err(AppError::NoTrack(deck));
+        }
         tracks[deck].as_mut().map(f).ok_or(AppError::NoTrack(deck))
+    }
+
+    /// Reads the track on `deck` with `f` if it is still the load `load_id`.
+    pub fn with_loaded<R>(&self, deck: usize, load_id: u64, f: impl FnOnce(&LoadedTrack) -> R) -> Option<R> {
+        lock(&self.tracks).get(deck)?.as_ref().filter(|t| t.load_id == load_id).map(f)
+    }
+
+    /// Changes the track on `deck` with `f` if it is still the load `load_id`.
+    pub fn change_loaded<R>(
+        &self,
+        deck: usize,
+        load_id: u64,
+        f: impl FnOnce(&mut LoadedTrack) -> R,
+    ) -> Option<R> {
+        let mut tracks = lock(&self.tracks);
+        tracks.get(deck)?.as_ref().filter(|t| t.load_id == load_id)?;
+        tracks[deck].as_mut().map(f)
+    }
+
+    /// The decks playing `audio`, and their loads (see [`AppState::change_loads_of`]).
+    pub fn loads_of(&self, audio: &Arc<TrackAudio>) -> Vec<(usize, u64)> {
+        let tracks = lock(&self.tracks);
+        let playing = tracks.iter().enumerate().filter_map(|(deck, t)| Some((deck, t.as_ref()?)));
+        playing.filter(|(_, t)| Arc::ptr_eq(&t.audio, audio)).map(|(deck, t)| (deck, t.load_id)).collect()
+    }
+
+    /// Changes with `f` every loaded track playing `audio` (a load and its instant doubles):
+    /// what is found out about a load goes to them all. The deck, load and result of each.
+    pub fn change_loads_of<R>(
+        &self,
+        audio: &Arc<TrackAudio>,
+        f: impl FnMut(&mut LoadedTrack) -> R,
+    ) -> Vec<(usize, u64, R)> {
+        self.change_tracks(|t| Arc::ptr_eq(&t.audio, audio), f)
+    }
+
+    /// Changes with `f` every loaded track of the file `path` (loaded twice, or doubled): what
+    /// is changed of a file changes on every deck playing it. The deck, load and result of each.
+    pub fn change_file<R>(&self, path: &Path, f: impl FnMut(&mut LoadedTrack) -> R) -> Vec<(usize, u64, R)> {
+        self.change_tracks(|t| t.path == path, f)
+    }
+
+    /// Changes with `f` the tracks `which` takes: the interface hears of it if there are any.
+    fn change_tracks<R>(
+        &self,
+        which: impl Fn(&LoadedTrack) -> bool,
+        mut f: impl FnMut(&mut LoadedTrack) -> R,
+    ) -> Vec<(usize, u64, R)> {
+        let mut tracks = lock(&self.tracks);
+        if !tracks.iter().flatten().any(&which) {
+            return Vec::new();
+        }
+        tracks
+            .iter_mut()
+            .enumerate()
+            .filter_map(|(deck, t)| {
+                let t = t.as_mut().filter(|t| which(t))?;
+                Some((deck, t.load_id, f(t)))
+            })
+            .collect()
     }
 
     /// Asks for a load on `deck` (a track, a double, or none): those asked for before it no
@@ -1378,6 +1392,22 @@ mod tests {
         drop(slow);
         assert_eq!(state.loading(), [false; MAX_DECKS]);
         assert_eq!(state.moved_since(revision), [Section::Tracks], "the interface hears of it");
+    }
+
+    #[test]
+    fn a_track_read_or_found_nowhere_moves_no_revision() {
+        let bench = crate::actions::bench::Bench::new();
+        bench.load(0, 60.0, None);
+        let before = bench.state.revision();
+        let load_id = bench.state.with_track(0, |t| t.load_id).unwrap();
+        assert_eq!(bench.state.with_loaded(0, load_id, |t| t.key_shift), Some(0));
+        assert!(bench.state.change_track(1, |t| t.key_shift = 1).is_err());
+        assert!(bench.state.change_loaded(0, load_id + 1, |t| t.key_shift = 1).is_none());
+        assert!(bench.state.change_file(Path::new("elsewhere.flac"), |t| t.key_shift = 1).is_empty());
+        bench.press("deck1.vocals", 1.0).unwrap();
+        assert_eq!(bench.state.moved_since(before), [], "a track without stems");
+        bench.state.change_loaded(0, load_id, |t| t.key_shift = 1).unwrap();
+        assert_eq!(bench.state.moved_since(before), [Section::Tracks]);
     }
 
     #[test]
