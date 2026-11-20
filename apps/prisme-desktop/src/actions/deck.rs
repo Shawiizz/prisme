@@ -32,13 +32,17 @@ pub(super) fn turn(doing: &Performing, deck: usize, action: DeckAction, input: I
     let Some(command) = jog(deck, action, input, doing.at_s(), steps_per_turn, jog_scratch) else {
         return Ok(());
     };
-    take_over(doing.auto_dj().as_deref(), Takeover::Transport(deck));
+    // a hand let go of the wheel takes nothing over
+    if !matches!(command, Command::JogTouch { touched: false, .. }) {
+        take_over(doing.auto_dj().as_deref(), Takeover::Transport(deck));
+    }
     doing.state.send_if_running(command)
 }
 
 /// The command for a jog wheel of `deck` turned or touched by `input` at `at_s`, a turn of it
 /// sending `steps_per_turn`, its top holding the record or not (`jog_scratch`). None for a
-/// touch of a wheel that only nudges.
+/// touch of a wheel that only nudges; a hand let go always is, the wheel maybe switched to
+/// nudging while it held the record.
 fn jog(
     deck: usize,
     action: DeckAction,
@@ -53,7 +57,8 @@ fn jog(
         // however lightly: some wheels tell how hard they are touched; a wheel that only
         // nudges: its top is no hand on the record
         DeckAction::JogTouch => {
-            jog_scratch.then_some(Command::JogTouch { deck, touched: input.amount() > 0.0, at_s })
+            let touched = input.amount() > 0.0;
+            (jog_scratch || !touched).then_some(Command::JogTouch { deck, touched, at_s })
         }
         DeckAction::JogSearch => Some(Command::SearchBy { deck, seconds: turns * SEARCH_SECONDS_PER_TURN }),
         _ => None,
@@ -421,6 +426,11 @@ mod tests {
         assert!(
             turned(0, DeckAction::JogTouch, 1.0, 4.0, false).is_none(),
             "a wheel that only nudges holds nothing"
+        );
+        let switched = turned(0, DeckAction::JogTouch, 0.0, 4.5, false);
+        assert!(
+            matches!(switched, Some(Command::JogTouch { deck: 0, touched: false, .. })),
+            "let go after the wheel was switched to nudging"
         );
     }
 
