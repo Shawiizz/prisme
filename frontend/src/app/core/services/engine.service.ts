@@ -12,7 +12,6 @@ import {
   MusicalKey,
   DeckSettings,
   EngineStatus,
-  MAX_KEY_SHIFT,
   MixerState,
   Rpm,
   SAMPLE_SLOTS,
@@ -250,12 +249,9 @@ export class EngineService {
     return semitones === 0 ? track.key : transposeCamelot(track.key.camelot, semitones);
   }
 
+  /** The key of the track on `deck` moved by `semitones`, within an octave either way. */
   setKeyShift(deck: number, semitones: number) {
-    const track = this.tracks()[deck];
-    if (!track) return;
-    const keyShift = Math.max(-MAX_KEY_SHIFT, Math.min(MAX_KEY_SHIFT, semitones));
-    this.patch(this.tracks, deck, { ...track, keyShift });
-    return this.call('set_key_shift', { deck, semitones: keyShift });
+    return this.press(deck, `key.${semitones}`);
   }
 
   /** The deck `deck` is mixed with: another one playing, else the one beside it (A and B, C
@@ -284,14 +280,12 @@ export class EngineService {
   }
 
   setKeyLock(deck: number, enabled: boolean) {
-    this.patchDeck(deck, { keyLock: enabled });
-    return this.call('set_key_lock', { deck, enabled });
+    return this.turn(`deck${deck + 1}.keylock`, enabled);
   }
 
   /** The deck plays its input as it comes (a record, a CD player) instead of its track. */
   setPassthrough(deck: number, enabled: boolean) {
-    this.patchDeck(deck, { passthrough: enabled });
-    return this.call('set_passthrough', { deck, enabled });
+    return this.turn(`deck${deck + 1}.passthrough`, enabled);
   }
 
   /** The range of the tempo fader of `deck`: its own, else the general one (0.08 = ±8 %). */
@@ -302,12 +296,6 @@ export class EngineService {
   /** The range of the tempo fader of `deck`, or of every deck (`null`), which then all follow
    * the general one. */
   setTempoRange(deck: number | null, range: number) {
-    if (deck !== null) {
-      this.patchDeck(deck, { pitchRange: range });
-    } else {
-      this.preferences.dj.update((dj) => ({ ...dj, pitchRange: range }));
-      this.decks.update((decks) => decks.map((d) => ({ ...d, pitchRange: null })));
-    }
     return this.call('set_tempo_range', { deck, range });
   }
 
@@ -318,20 +306,17 @@ export class EngineService {
 
   /** Software mixer: the channel fader starts and stops the deck. */
   setFaderStart(deck: number, enabled: boolean) {
-    this.patchDeck(deck, { faderStart: enabled });
-    return this.call('set_fader_start', { deck, enabled });
+    return this.turn(`deck${deck + 1}.faderStart`, enabled);
   }
 
   /** The deck's channel silenced in the master, after its fader, or heard again. */
   setMute(deck: number, enabled: boolean) {
-    this.patchDeck(deck, { mute: enabled });
-    return this.call('set_mute', { deck, enabled });
+    return this.turn(`deck${deck + 1}.mute`, enabled);
   }
 
   /** At the end, the track goes on from its start. */
   setRepeat(deck: number, enabled: boolean) {
-    this.patchDeck(deck, { repeat: enabled });
-    return this.call('set_repeat', { deck, enabled });
+    return this.turn(`deck${deck + 1}.repeat`, enabled);
   }
 
   /** Playback rate of the tempo the engine reports (sync and platter included), if the track has a beat grid. */
@@ -343,8 +328,7 @@ export class EngineService {
 
   /** Whether a touch of the controller's jog wheel of `deck` holds the record. */
   setJogScratch(deck: number, on: boolean) {
-    this.patchDeck(deck, { jogScratch: on });
-    return this.call('set_jog_scratch', { deck, on });
+    return this.turn(`deck${deck + 1}.jog.scratch`, on);
   }
 
   /** `info` is on `deck` now: its waveform follows. */
@@ -377,56 +361,33 @@ export class EngineService {
   }
 
   setPitch(deck: number, ratio: number) {
-    this.patchDeck(deck, { pitch: ratio });
     return this.call('set_pitch', { deck, ratio });
-  }
-
-  setVinyl(
-    deck: number,
-    changes: { enabled?: boolean; mode?: VinylMode; rpm?: Rpm; leadInS?: number | null },
-  ) {
-    const d = this.patchDeck(deck, {
-      vinylEnabled: changes.enabled ?? this.decks()[deck].vinylEnabled,
-      vinylMode: changes.mode ?? this.decks()[deck].vinylMode,
-      rpm: changes.rpm ?? this.decks()[deck].rpm,
-      leadInS: changes.leadInS !== undefined ? changes.leadInS : this.decks()[deck].leadInS,
-    });
-    return this.takeTurntable(deck, d);
   }
 
   /** A deck put on a record takes the turntable from the deck layered with it, which goes
    * on by itself. */
-  private async takeTurntable(deck: number, d: DeckSettings) {
-    try {
-      const freed = await invoke<number | null>('set_vinyl', {
-        deck,
-        enabled: d.vinylEnabled,
-        mode: d.vinylMode,
-        rpm: d.rpm,
-        leadInS: d.leadInS,
-      });
-      if (freed !== null) this.patchDeck(freed, { vinylEnabled: false });
-    } catch (e) {
-      this.error.set(errorText(e));
-    }
+  setVinyl(
+    deck: number,
+    changes: { enabled?: boolean; mode?: VinylMode; rpm?: Rpm; leadInS?: number | null },
+  ) {
+    const d = this.decks()[deck];
+    return this.call('set_vinyl', {
+      deck,
+      enabled: changes.enabled ?? d.vinylEnabled,
+      mode: changes.mode ?? d.vinylMode,
+      rpm: changes.rpm ?? d.rpm,
+      leadInS: changes.leadInS !== undefined ? changes.leadInS : d.leadInS,
+    });
   }
 
   setVinylSwap(deck: number, swap: boolean) {
-    this.patchDeck(deck, { swapChannels: swap });
     return this.call('set_vinyl_swap', { deck, swap });
   }
 
   /** The record on the deck's turntable (a timecode format's id): on the deck layered with
    * it too, which reads the same turntable. */
-  async setTimecode(deck: number, format: string) {
-    this.patchDeck(deck, { timecode: format });
-    try {
-      const decks = await invoke<number[]>('set_timecode', { deck, format });
-      for (const d of decks) this.patchDeck(d, { timecode: format });
-      this.error.set(null);
-    } catch (e) {
-      this.error.set(errorText(e));
-    }
+  setTimecode(deck: number, format: string) {
+    return this.call('set_timecode', { deck, format });
   }
 
   /**
@@ -498,6 +459,11 @@ export class EngineService {
   /** The key of `action` of `deck` (`play`, `cue`…) pressed, or let go (`down` false). */
   press(deck: number, action: string, down = true) {
     return this.perform(`deck${deck + 1}.${action}`, down ? 1 : 0);
+  }
+
+  /** The switch `target` (`deck1.keylock`, `mixer.talkover`…) turned on or off. */
+  turn(target: string, on: boolean) {
+    return this.perform(`${target}.${on ? 'on' : 'off'}`, 1);
   }
 
   /** Runs a backend command; a failure is shown rather than thrown, until one goes through

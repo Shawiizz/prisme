@@ -78,11 +78,15 @@ describe('EngineService', () => {
     engine.press(1, 'cue');
     engine.press(1, 'cue', false);
     engine.togglePlay(0);
+    engine.setKeyLock(1, false);
+    engine.setKeyShift(0, -3);
     const performed = { steps: false, step: null, confirmed: false };
     expect(calls).toEqual([
       ['perform_action', { target: 'deck2.cue', value: 1, ...performed }],
       ['perform_action', { target: 'deck2.cue', value: 0, ...performed }],
       ['perform_action', { target: 'deck1.play', value: 1, ...performed }],
+      ['perform_action', { target: 'deck2.keylock.off', value: 1, ...performed }],
+      ['perform_action', { target: 'deck1.key.-3', value: 1, ...performed }],
     ]);
   });
 

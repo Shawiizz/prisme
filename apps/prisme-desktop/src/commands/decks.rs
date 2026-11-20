@@ -50,13 +50,6 @@ pub fn jog(
     state.send(Command::Jog { deck, turns, at_s: at_ms / 1000.0 })
 }
 
-/// Whether a touch of the controller's jog wheel of `deck` holds the record (else the wheel
-/// only nudges it).
-#[tauri::command]
-pub fn set_jog_scratch(state: State<'_, AppState>, deck: usize, on: bool) -> AppResult<()> {
-    deck::set_jog_scratch(&state, deck, on)
-}
-
 #[tauri::command]
 pub fn set_pitch(state: State<'_, AppState>, deck: usize, ratio: f64) -> AppResult<()> {
     deck::set_pitch(&state, deck, ratio)
@@ -136,33 +129,9 @@ fn replace_decoder(state: &AppState, deck: usize) -> AppResult<()> {
     Ok(())
 }
 
-/// The deck plays its input as it comes (a record, a CD player) instead of its track.
-#[tauri::command]
-pub fn set_passthrough(state: State<'_, AppState>, deck: usize, enabled: bool) -> AppResult<()> {
-    deck::set_passthrough(&state, deck, enabled)
-}
-
 /// The range of the tempo fader of `deck` (0.08 = ±8 %), or of every deck (`None`), which
 /// then all follow the general one; kept for the next start.
 #[tauri::command]
 pub fn set_tempo_range(state: State<'_, AppState>, deck: Option<usize>, range: f64) -> AppResult<()> {
     deck::set_tempo_range(&state, deck, range)
-}
-
-/// At the end, the track goes on from its start.
-#[tauri::command]
-pub fn set_repeat(state: State<'_, AppState>, deck: usize, enabled: bool) -> AppResult<()> {
-    deck::set_repeat(&state, deck, enabled)
-}
-
-/// The pitch stays when the speed changes; kept for the next start.
-#[tauri::command]
-pub fn set_key_lock(state: State<'_, AppState>, deck: usize, enabled: bool) -> AppResult<()> {
-    deck::set_key_lock(&state, deck, enabled)
-}
-
-/// Transposes the track on `deck` until the next load.
-#[tauri::command]
-pub fn set_key_shift(state: State<'_, AppState>, deck: usize, semitones: i8) -> AppResult<()> {
-    deck::set_key_shift(&state, deck, semitones)
 }

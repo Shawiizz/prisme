@@ -159,12 +159,6 @@ pub fn set_volume(state: State<'_, AppState>, deck: usize, gain: f32) -> AppResu
     mixer::set_volume(&state, deck, gain)
 }
 
-/// Software mixer: the channel fader starts and stops the deck; kept for the next start.
-#[tauri::command]
-pub fn set_fader_start(state: State<'_, AppState>, deck: usize, enabled: bool) -> AppResult<()> {
-    mixer::set_fader_start(&state, deck, enabled)
-}
-
 #[tauri::command]
 pub fn set_crossfader(
     state: State<'_, AppState>,
@@ -184,12 +178,6 @@ pub fn set_deck_cue(state: State<'_, AppState>, deck: usize, enabled: bool) -> A
 #[tauri::command]
 pub fn set_crossfader_reverse(state: State<'_, AppState>, enabled: bool) -> AppResult<()> {
     mixer::set_crossfader_reverse(&state, enabled)
-}
-
-/// The deck's channel silenced in the master, after its fader, or heard again.
-#[tauri::command]
-pub fn set_mute(state: State<'_, AppState>, deck: usize, enabled: bool) -> AppResult<()> {
-    mixer::set_mute(&state, deck, enabled)
 }
 
 /// Headphones: 0 = cued decks only, 1 = master only. Kept for the next start.
