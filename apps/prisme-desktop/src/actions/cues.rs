@@ -22,7 +22,7 @@ impl Performing<'_> {
             None => Ok(()),
             Some(CuePress::Back) => self.to_cue(deck, Some(false)),
             Some(CuePress::Preview) => {
-                self.perform_state().decks[deck].cue_preview = true;
+                self.memory().decks[deck].cue_preview = true;
                 self.set_playing(deck, true)
             }
             Some(CuePress::Set(at_s)) => {
@@ -47,7 +47,7 @@ impl Performing<'_> {
 
     /// Whether the cue key of `deck` played from the cue point, which it no longer does.
     fn take_cue_preview(&self, deck: usize) -> bool {
-        std::mem::take(&mut self.perform_state().decks[deck].cue_preview)
+        std::mem::take(&mut self.memory().decks[deck].cue_preview)
     }
 
     /// To the main cue point of `deck` (the start without one), then playing, stopped or as it

@@ -31,7 +31,7 @@ use crate::library_service::LibraryService;
 use crate::state::{lock, AppState, MirroredGuard};
 use prisme_actions::input::{Given, Input, Inputs};
 use prisme_actions::lane::{lane, reads_files, Lane};
-use prisme_actions::perform::{Clips, PerformState};
+use prisme_actions::perform::{Memory, PerformState};
 use prisme_actions::position::position;
 use prisme_actions::view::View;
 use prisme_control::{DeckAction, LibraryAction, Owner, SampleAction, Target, Unknown};
@@ -317,8 +317,9 @@ struct Selection {
 }
 
 pub struct Actions {
-    /// When the levels last clipped, for the lights.
-    clips: Mutex<Clips>,
+    /// What they keep between presses for themselves (see `prisme_actions::perform`): taken
+    /// last, nothing else locked while it is held.
+    memory: Mutex<Memory>,
     /// The controllers' faders picking their settings up, and their encoders' steps short of
     /// one.
     inputs: Mutex<Inputs>,
@@ -354,7 +355,7 @@ impl Actions {
             })
             .expect("cannot start the worker keeping the actions' changes");
         Self {
-            clips: Mutex::default(),
+            memory: Mutex::default(),
             inputs: Mutex::default(),
             selection: Mutex::default(),
             caught_up: Condvar::new(),
@@ -509,7 +510,7 @@ impl Actions {
     /// The application as the actions see it now.
     pub fn view(&self, app: &AppHandle) -> View {
         let auto_dj = app.try_state::<AutoDj>().is_some_and(|a| a.plays());
-        view_of(&app.state(), auto_dj, &self.clips, self.now_s())
+        view_of(&app.state(), auto_dj, &self.memory, self.now_s())
     }
 
     /// Waits for the lanes to have no action waiting, then for what they changed to be kept.
@@ -543,9 +544,14 @@ impl Performing<'_> {
         self.app.and_then(|app| app.try_state::<AutoDj>())
     }
 
-    /// What the actions keep between presses.
+    /// What the pads hold, which the interface shows.
     fn perform_state(&self) -> MirroredGuard<'_, PerformState> {
         lock(&self.state.perform)
+    }
+
+    /// What the actions keep for themselves: let go before any other lock is taken.
+    fn memory(&self) -> MutexGuard<'_, Memory> {
+        lock(&self.actions.memory)
     }
 
     /// The Auto DJ lets go of `deck`'s transport, the DJ taking it.
@@ -740,7 +746,7 @@ pub(crate) mod bench {
 
         /// The application as the actions see it now.
         pub fn view(&self) -> View {
-            view_of(&self.state, false, &self.actions.clips, 0.0)
+            view_of(&self.state, false, &self.actions.memory, 0.0)
         }
 
         /// `id` driven to `value` by the controller `device`.
@@ -989,7 +995,7 @@ mod lanes {
         }
         busy.send(()).unwrap();
         bench.actions.settle();
-        let mut taps = lock(&bench.state.perform).decks[0].taps.clone();
+        let mut taps = lock(&bench.actions.memory).decks[0].taps.clone();
         assert_eq!(taps.tap(2.0).map(|bpm| bpm.round()), Some(120.0), "taps half a second apart");
     }
 }

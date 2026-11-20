@@ -277,7 +277,7 @@ impl Performing<'_> {
             DeckAction::Eq(band) => {
                 let gain = eq_gain(at);
                 mixer::set_eq(state, deck, band.into(), gain)?;
-                self.perform_state().faders.give_silent_end(&target, at, eq_knob(gain));
+                self.memory().faders.give_silent_end(&target, at, eq_knob(gain));
                 Ok(())
             }
             DeckAction::Filter => mixer::set_filter(state, deck, filter_amount(at)),
@@ -302,7 +302,7 @@ impl Performing<'_> {
             DeckAction::Fx(slot, FxAction::Amount) => fx::set_fx_amount(state, deck, slot, at),
             DeckAction::Fx(slot, FxAction::Param2) => fx::set_fx_param2(state, deck, slot, at),
             DeckAction::Fx(slot, FxAction::Period) => {
-                let step = self.perform_state().faders.give_stepped(&target, at, FX_PERIODS.len());
+                let step = self.memory().faders.give_stepped(&target, at, FX_PERIODS.len());
                 let beats = FX_PERIODS[step];
                 if lock(&state.decks)[deck].fx.slots[slot].beats == beats {
                     return Ok(());
@@ -310,7 +310,7 @@ impl Performing<'_> {
                 fx::set_fx_beats(state, deck, slot, beats)
             }
             DeckAction::Fx(slot, FxAction::Kind) => {
-                let step = self.perform_state().faders.give_stepped(&target, at, Effect::NAMED.len());
+                let step = self.memory().faders.give_stepped(&target, at, Effect::NAMED.len());
                 let kind = EffectKindDto::from(Effect::NAMED[step]);
                 if lock(&state.decks)[deck].fx.slots[slot].kind == kind {
                     return Ok(());
@@ -331,7 +331,7 @@ impl Performing<'_> {
         let live = |source: LiveSourceDto| {
             let gain = live_gain(at);
             mixer::set_live_level(state, source, gain)?;
-            self.perform_state().faders.give_silent_end(&target, at, live_knob(gain));
+            self.memory().faders.give_silent_end(&target, at, live_knob(gain));
             Ok(())
         };
         match action {
@@ -346,7 +346,7 @@ impl Performing<'_> {
             MixerAction::Mic => live(LiveSourceDto::Mic),
             MixerAction::Aux => live(LiveSourceDto::Aux),
             MixerAction::CrossfaderCurve => {
-                let sharp = self.perform_state().faders.give_stepped(&target, at, 2) == 1;
+                let sharp = self.memory().faders.give_stepped(&target, at, 2) == 1;
                 let curve = if sharp { CrossfaderCurveDto::Sharp } else { CrossfaderCurveDto::Smooth };
                 if state.preferences.read(|p| p.mixer.crossfader_curve) == curve {
                     return Ok(());
@@ -657,6 +657,18 @@ mod faders {
         let back: Vec<f32> = knob(1.0).into_iter().rev().collect();
         turn(&bench, "mixer.crossfaderCurve", &back);
         assert_eq!(curve(), CrossfaderCurveDto::Smooth);
+    }
+
+    #[test]
+    fn what_the_actions_keep_for_themselves_is_not_sent_to_the_interface() {
+        let bench = Bench::new();
+        bench.load(0, 60.0, Some(120.0));
+        let revision = bench.state.revision();
+        turn(&bench, "mixer.crossfaderCurve", &knob(0.3));
+        bench.press("deck1.tap", 1.0).unwrap();
+        bench.press("deck1.tap", 0.0).unwrap();
+        let _ = bench.state.with_track(0, |t| t.key_shift);
+        assert_eq!(bench.state.revision(), revision);
     }
 
     #[test]

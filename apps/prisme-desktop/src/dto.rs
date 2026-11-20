@@ -4,11 +4,12 @@ use crate::auto_dj::machine::{Reason, State, Status, Takeover};
 use crate::auto_dj::plan::FadeLength;
 use crate::commands::mixer::mixer_state_of;
 use crate::state::{lock, AppState};
+use prisme_actions::perform::DeckPerformView;
 pub use prisme_actions::stems::{Separation as SeparationDto, StemMix as StemMixDto};
 use prisme_audio_io::{Backend, StreamStats};
 use prisme_engine::{
     DeckStatus, EngineStatus, InputChannels, LiveSource, LoopStatus, MixMode, Rpm, StemTracks, VinylMode,
-    FX_SLOTS,
+    FX_SLOTS, MAX_DECKS,
 };
 use prisme_library::{Cue, CueSlot};
 use prisme_timecode::{SignalState, TimecodeFormat};
@@ -1083,21 +1084,8 @@ pub struct ControlStateDto {
     /// The range of the tempo faders without one of their own.
     pub pitch_range: f64,
     /// What each deck's pads hold.
-    pub perform: Vec<DeckPerformDto>,
+    pub perform: [DeckPerformView; MAX_DECKS],
     pub preview: PreviewStateDto,
-}
-
-#[derive(Debug, Clone, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct DeckPerformDto {
-    /// Where the bar its slicer divides starts (s).
-    pub slicer: Option<f64>,
-    /// The fader cut playing, by its place among the cuts.
-    pub cut: Option<usize>,
-    /// The roll playing, in beats.
-    pub roll: Option<f64>,
-    /// The slot of its effect chain the effect knobs turn.
-    pub fx_focus: Option<usize>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -1124,16 +1112,7 @@ impl ControlStateDto {
                 })
             })
             .collect();
-        let perform = lock(&state.perform)
-            .decks
-            .iter()
-            .map(|d| DeckPerformDto {
-                slicer: d.slicer,
-                cut: d.cuts.acting(),
-                roll: d.roll,
-                fx_focus: d.fx_focus,
-            })
-            .collect();
+        let perform = lock(&state.perform).pads();
         let loading = state.loading().to_vec();
         let preview = lock(&state.preview).clone();
         Self { mixer: mixer_state_of(state), tracks, loading, quantize, pitch_range, perform, preview }

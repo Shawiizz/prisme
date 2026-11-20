@@ -72,14 +72,14 @@ pub fn set_key_shift(state: &AppState, deck: usize, semitones: i8) -> AppResult<
     if semitones.unsigned_abs() > MAX_KEY_SHIFT {
         return Err(AppError::Other(format!("a key shift is ±{MAX_KEY_SHIFT} semitones at most")));
     }
-    state.with_track(deck, |track| track.key_shift = semitones)?;
+    state.change_track(deck, |track| track.key_shift = semitones)?;
     state.send_if_running(Command::SetKeyShift { deck, semitones })
 }
 
 /// How the track on `deck` plays each part, until the next load: the parts it turns on or off
 /// from the next bar if `on_bar` (see `Command::SetStemMix`).
 pub fn set_stem_mix(state: &AppState, deck: usize, mix: StemMixDto, on_bar: bool) -> AppResult<()> {
-    state.with_track(deck, |t| t.stem_mix = mix)?;
+    state.change_track(deck, |t| t.stem_mix = mix)?;
     state.send_if_running(Command::SetStemMix { deck, mix: mix.into(), on_bar })
 }
 
@@ -106,7 +106,7 @@ pub fn loaded(state: &AppState, deck: usize) {
 /// on a track without it.
 pub fn toggle_stem(state: &AppState, deck: usize, part: StemPart) -> AppResult<()> {
     let mix = |t: &mut LoadedTrack| t.separation().has(part).then(|| t.stem_mix.toggled(part));
-    match state.with_track(deck, mix) {
+    match state.change_track(deck, mix) {
         Ok(Some(mix)) => set_stem_mix(state, deck, mix, state.preferences.read(|p| p.dj.quantize)),
         _ => Ok(()),
     }
@@ -115,7 +115,7 @@ pub fn toggle_stem(state: &AppState, deck: usize, part: StemPart) -> AppResult<(
 /// How loud `part` of the track on `deck` plays, 0 to 1: nothing on a track without it.
 pub fn set_stem_level(state: &AppState, deck: usize, part: StemPart, level: f32) -> AppResult<()> {
     let mix = |t: &mut LoadedTrack| t.separation().has(part).then(|| t.stem_mix.with_level(part, level));
-    match state.with_track(deck, mix) {
+    match state.change_track(deck, mix) {
         Ok(Some(mix)) => set_stem_mix(state, deck, mix, false),
         _ => Ok(()),
     }
@@ -325,7 +325,7 @@ impl Performing<'_> {
     pub(super) fn toggle_filter(&self, deck: usize) -> AppResult<()> {
         let filter = lock(&self.state.decks)[deck].strip.filter;
         let to = {
-            let aside = &mut self.perform_state().decks[deck].filter_aside;
+            let aside = &mut self.memory().decks[deck].filter_aside;
             if filter != 0.0 {
                 *aside = Some(filter);
                 0.0
@@ -342,7 +342,7 @@ impl Performing<'_> {
     /// A tap of the tempo of `deck`, on the clock of the one asking: the tempo, to a hundredth
     /// of a BPM, once there are enough.
     pub(super) fn tapped(&self, deck: usize) -> Option<f64> {
-        let bpm = self.perform_state().decks[deck].taps.tap(self.at_s())?;
+        let bpm = self.memory().decks[deck].taps.tap(self.at_s())?;
         Some((bpm * 100.0).round() / 100.0)
     }
 

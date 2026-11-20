@@ -582,11 +582,19 @@ impl AppState {
 
     /// The decks playing `audio`, and their loads (see [`AppState::with_audio`]).
     pub fn loads_of(&self, audio: &Arc<TrackAudio>) -> Vec<(usize, u64)> {
-        self.with_audio(audio, |_| ()).into_iter().map(|(deck, load_id, ())| (deck, load_id)).collect()
+        let tracks = lock(&self.tracks);
+        let playing = tracks.iter().enumerate().filter_map(|(deck, t)| Some((deck, t.as_ref()?)));
+        playing.filter(|(_, t)| Arc::ptr_eq(&t.audio, audio)).map(|(deck, t)| (deck, t.load_id)).collect()
     }
 
-    /// Runs `f` on the track loaded on `deck`.
-    pub fn with_track<R>(&self, deck: usize, f: impl FnOnce(&mut LoadedTrack) -> R) -> AppResult<R> {
+    /// Reads the track loaded on `deck` with `f`.
+    pub fn with_track<R>(&self, deck: usize, f: impl FnOnce(&LoadedTrack) -> R) -> AppResult<R> {
+        Self::check_deck(deck)?;
+        lock(&self.tracks)[deck].as_ref().map(f).ok_or(AppError::NoTrack(deck))
+    }
+
+    /// Changes the track loaded on `deck` with `f`: the interface hears of it.
+    pub fn change_track<R>(&self, deck: usize, f: impl FnOnce(&mut LoadedTrack) -> R) -> AppResult<R> {
         Self::check_deck(deck)?;
         let mut tracks = lock(&self.tracks);
         tracks[deck].as_mut().map(f).ok_or(AppError::NoTrack(deck))
