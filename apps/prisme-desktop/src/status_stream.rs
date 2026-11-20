@@ -8,6 +8,7 @@ use crate::state::{lock, AppState, Section, SECTIONS};
 use prisme_actions::view::View;
 use serde::Serialize;
 use serde_json::{Map, Value};
+use std::panic::{catch_unwind, resume_unwind, AssertUnwindSafe};
 use std::sync::Mutex;
 use tauri::ipc::Channel;
 use tauri::State;
@@ -45,20 +46,44 @@ impl StatusStream {
     ) {
         // taken out while it is told: nothing waits on its lock meanwhile
         let Some(mut listener) = lock(&self.listener).take() else { return };
+        let told =
+            catch_unwind(AssertUnwindSafe(|| listener.tell(state, view, revision, rows_moved, status)));
+        let kept = match &told {
+            Ok(kept) => kept.then_some(listener),
+            // what it holds no longer known: told whole next time
+            Err(_) => Some(Listener { told: Told::default(), revision: None, ..listener }),
+        };
+        if let Some(listener) = kept {
+            lock(&self.listener).get_or_insert(listener);
+        }
+        if let Err(panic) = told {
+            resume_unwind(panic);
+        }
+    }
+}
+
+impl Listener {
+    /// Sends what changed: whether the page still listens (its window is gone when its channel
+    /// is).
+    fn tell(
+        &mut self,
+        state: &AppState,
+        view: &View,
+        revision: [u64; SECTIONS],
+        rows_moved: bool,
+        status: impl FnOnce() -> StatusDto,
+    ) -> bool {
         let mut status = status();
-        if listener.revision != Some(revision) || rows_moved {
-            let told = listener.revision;
+        if self.revision != Some(revision) || rows_moved {
+            let told = self.revision;
             let moved = |s: Section| told.is_none_or(|t| t[s as usize] != revision[s as usize]);
             let sections =
                 Section::ALL.into_iter().filter(|&s| moved(s) || (rows_moved && s == Section::Library));
             status.controls = Some(ControlStateDto::of(state, view, sections));
-            listener.revision = Some(revision);
+            self.revision = Some(revision);
         }
-        let changes = listener.told.changes(status);
-        // the window is gone when its channel is
-        if changes.is_none_or(|changes| listener.channel.send(changes).is_ok()) {
-            lock(&self.listener).get_or_insert(listener);
-        }
+        let changes = self.told.changes(status);
+        changes.is_none_or(|changes| self.channel.send(changes).is_ok())
     }
 }
 
@@ -154,6 +179,33 @@ mod tests {
             status.controls = Some(ControlStateDto::of(state, &view, sections.iter().copied()));
         }
         status
+    }
+
+    #[test]
+    fn a_page_told_of_a_status_that_failed_listens_on_and_is_told_it_whole() {
+        let state = AppState::new(JsonFile::in_memory(Default::default()));
+        let view =
+            crate::actions::view_with(&state, EngineStatus::default(), None, false, &Default::default(), 0.0);
+        let sent = std::sync::Arc::new(Mutex::new(0));
+        let counted = sent.clone();
+        let channel = Channel::new(move |_| {
+            *lock(&counted) += 1;
+            Ok(())
+        });
+        let stream = StatusStream::default();
+        *lock(&stream.listener) = Some(Listener { channel, told: Told::default(), revision: None });
+        let tell = || {
+            stream.tell(&state, &view, state.revision(), false, || {
+                StatusDto::of(&view, None, Default::default())
+            })
+        };
+        tell();
+        tell();
+        assert_eq!(*lock(&sent), 1, "nothing moved the second time");
+        let failed = || stream.tell(&state, &view, state.revision(), false, || panic!("no status"));
+        assert!(catch_unwind(AssertUnwindSafe(failed)).is_err());
+        tell();
+        assert_eq!(*lock(&sent), 2, "listening still, told it whole");
     }
 
     #[test]

@@ -20,11 +20,13 @@ use prisme_actions::meter::Meters;
 use prisme_actions::view::View;
 use prisme_analysis::Key;
 use prisme_library::browse::Column;
+use std::panic::{catch_unwind, AssertUnwindSafe};
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 use tauri::{AppHandle, Manager};
+use tracing::error;
 
 const TICK: Duration = Duration::from_millis(16);
 
@@ -35,11 +37,19 @@ pub fn start(app: AppHandle) {
         .spawn(move || {
             let mut clock = Clock::default();
             loop {
-                clock.tick(&app);
+                piece("tick", || clock.tick(&app));
                 std::thread::sleep(TICK);
             }
         })
         .expect("cannot start the clock");
+}
+
+/// Does `work`, a piece of a tick: one that panics is logged, and what follows it goes on (the
+/// controllers' lights and holds, the stream, the lock screen), this tick and the next.
+fn piece(what: &str, work: impl FnOnce()) {
+    if catch_unwind(AssertUnwindSafe(work)).is_err() {
+        error!("the clock's {what} failed");
+    }
 }
 
 /// What the library's rows were last ranked against.
@@ -103,7 +113,7 @@ impl Clock {
         drop(garbage);
         if let Some(previews) = app.try_state::<Previews>() {
             let playing = engine.as_ref().and_then(|(e, ..)| e.preview.as_ref()).map(|p| p.id);
-            previews.follow(&state, playing);
+            piece("preview", || previews.follow(&state, playing));
         }
         let (view, stream) = match engine {
             Some((engine, layout, stream)) => (actions.view_with(app, engine, Some(layout)), Some(stream)),
@@ -115,11 +125,11 @@ impl Clock {
         if due {
             self.metered = Some(Instant::now());
         }
-        app.state::<Controllers>().tick(app, &view, levels.as_ref(), now_s);
+        piece("controllers", || app.state::<Controllers>().tick(app, &view, levels.as_ref(), now_s));
         // the interface's keys held, on the same clock as the controllers' holds
-        actions.fire_keys(app, &view);
+        piece("keys", || actions.fire_keys(app, &view));
         #[cfg(target_os = "android")]
-        {
+        piece("lock player", || {
             if moved(Section::Mixer) {
                 self.player.internal = state.mixes_itself();
             }
@@ -128,7 +138,7 @@ impl Clock {
             }
             let heard = self.player.heard.read(&view, self.player.internal, now_s);
             self.player.told.follow(app, &view, heard, now_s);
-        }
+        });
         let rows_moved = self.look_around(app, &state, &view, &moved);
         // the rows sent once their separations are known: held back until then
         let mut told = revision;
