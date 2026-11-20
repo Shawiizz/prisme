@@ -1,7 +1,7 @@
 //! The controllers in use and what drives what: the profiles, what was learnt over them, the
 //! choices of the DJ kept in `controllers.json`; what the interface is shown of them.
 
-use super::{base_port_name, ControllerSetup, Controllers, KeyWays, Shown, Unmapped};
+use super::{base_port_name, ControllerSetup, Controllers, KeyWays, Models, Shown, Unmapped};
 use crate::controller_profiles;
 use crate::dto::{ControllerDto, ControllersDto, OfferedProfileDto};
 use crate::error::{AppError, AppResult};
@@ -131,6 +131,7 @@ impl Controllers {
     pub fn show(&self, state: &AppState) {
         let shown = Shown {
             listed: self.listed(),
+            profiles: Models(controller_profiles::current()),
             mappings: lock(&self.mappings).all().to_vec(),
             clock_output: self.setup.read(|s| s.clock_output.clone()),
             learning: lock(&self.learning).as_ref().map(|l| l.target.clone()),

@@ -249,12 +249,25 @@ struct DeviceKeys {
 #[derive(Debug, Clone, Default, PartialEq)]
 pub struct Shown {
     pub listed: ControllersDto,
+    /// The controller models known.
+    pub profiles: Models,
     /// What drives what: the profiles of the controllers in use, and what was learnt.
     pub mappings: Vec<Mapping>,
     /// Where the MIDI clock goes.
     pub clock_output: Option<String>,
     /// The action the next control moved will drive.
     pub learning: Option<String>,
+}
+
+/// The controller models known, the same as long as they are not read again (compared by
+/// pointer: the clock compares them often).
+#[derive(Debug, Clone, Default)]
+pub struct Models(pub Arc<controller_profiles::Library>);
+
+impl PartialEq for Models {
+    fn eq(&self, other: &Self) -> bool {
+        Arc::ptr_eq(&self.0, &other.0)
+    }
 }
 
 pub struct Controllers {
@@ -515,6 +528,18 @@ mod tests {
         assert_eq!(c.route("DDJ", parse(&[0x80, 36, 0]).unwrap(), 0.0), input("deck1.play", 0.0));
         assert_eq!(c.route("DDJ", parse(&[0x90, 36, 127]).unwrap(), 0.0), input("deck1.play", 1.0));
         assert_eq!(c.route("Other", parse(&[0x90, 36, 127]).unwrap(), 0.0), None);
+    }
+
+    #[test]
+    fn the_controllers_are_shown_again_once_their_models_are_read_again() {
+        let (c, state) = (controllers(), AppState::new(JsonFile::in_memory(Default::default())));
+        c.show(&state);
+        let before = state.revision();
+        c.show(&state);
+        assert_eq!(state.revision(), before, "nothing changed");
+        controller_profiles::reload();
+        c.show(&state);
+        assert_ne!(state.revision(), before, "the models read again");
     }
 
     #[test]

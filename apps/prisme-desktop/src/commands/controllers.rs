@@ -36,7 +36,7 @@ impl ControllersStateDto {
         Self {
             mapped: mapped(&shown.mappings, decks),
             listed: shown.listed,
-            profiles: profiles_dto(&controller_profiles::current()),
+            profiles: profiles_dto(&shown.profiles.0),
             clock_output: shown.clock_output,
             learning: shown.learning,
         }
