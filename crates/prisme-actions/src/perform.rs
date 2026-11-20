@@ -114,6 +114,8 @@ pub struct DeckPerformView {
     pub cut: Option<usize>,
     /// The slot of its effect chain the effect knobs turn.
     pub fx_focus: Option<usize>,
+    /// The slot of its effect chain the screen's pads and knobs act on.
+    pub fx_shown: usize,
 }
 
 impl PerformState {
@@ -127,6 +129,7 @@ impl PerformState {
                 slicer: deck.slicer,
                 cut: deck.cuts.acting(),
                 fx_focus: deck.fx_focus,
+                fx_shown: deck.fx_shown,
             }
         });
         PerformView { decks, main_clipping: clipping.main }

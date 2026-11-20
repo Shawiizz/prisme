@@ -3,7 +3,8 @@
 //! tempo fader stands, the time left, who drives it, what its keys may do and light, its stems;
 //! and the strip comparing two decks' beats.
 
-use crate::light::{cue_state, ending, slice_playing, State};
+use crate::light::{cue_state, ending, State};
+use crate::pads::Pads;
 use crate::scales::Tempo;
 use crate::stems::part_in;
 use crate::sync::{drift_time, grid_shift_to, matching_tempo, phase, phase_offset, Beat, Phase, IN_PHASE};
@@ -47,8 +48,8 @@ pub struct Deck {
     pub can_sync_key: bool,
     /// Its CUE key: on at the cue point, paused stopped elsewhere.
     pub cue: State,
-    /// The slice of its slicer it plays in.
-    pub slice: Option<usize>,
+    /// What its pads on the screen show.
+    pub pads: Pads,
 }
 
 /// A part of a deck's separated track, as its knob shows it.
@@ -187,7 +188,7 @@ pub fn deck(view: &View, deck: usize) -> Deck {
         can_align_grid: bpm.and_then(|bpm| grid_shift_to(status, other, bpm)).is_some(),
         can_sync_key: settings.track.and_then(|t| t.key).is_some() && heard_key(view, mixed_with).is_some(),
         cue: cue_state(status, settings.track.as_ref()),
-        slice: slice_playing(status, settings.track.as_ref(), view.perform.decks[deck].slicer),
+        pads: Pads::of(view, deck),
     }
 }
 
@@ -423,11 +424,11 @@ mod tests {
     fn the_slice_played_is_the_one_the_playhead_is_in() {
         // 120 BPM: a slice of half a second from 4 s
         let mut v = loaded(view(), 0, 5.2, true);
-        assert_eq!(deck(&v, 0).slice, None, "no slicer");
+        assert_eq!(deck(&v, 0).pads.slice.lit, 0, "no slicer");
         v.perform.decks[0].slicer = Some(4.0);
-        assert_eq!(deck(&v, 0).slice, Some(2));
+        assert_eq!(deck(&v, 0).pads.slice.lit, 1 << 2);
         v.status.decks[0].position_s = 9.0;
-        assert_eq!(deck(&v, 0).slice, None, "past its eight beats");
+        assert_eq!(deck(&v, 0).pads.slice.lit, 0, "past its eight beats");
     }
 
     #[test]

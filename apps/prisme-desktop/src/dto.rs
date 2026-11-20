@@ -9,7 +9,7 @@ use crate::commands::preferences::PreferencesDto;
 use crate::state::{lock, AppState, LoadedTrack, Section};
 use prisme_actions::knobs::{MixerKnobs, StripKnobs};
 use prisme_actions::meter::Levels;
-use prisme_actions::pads::playing_loop;
+use prisme_actions::pads::Pads;
 use prisme_actions::perform::DeckPerform;
 pub use prisme_actions::stems::{Separation as SeparationDto, StemMix as StemMixDto};
 use prisme_actions::view::View;
@@ -1376,8 +1376,8 @@ fn signal_light(on_record: bool, crossed: bool, signal: SignalState) -> Option<&
 pub struct DeckLightsDto {
     /// Its CUE: on at the cue point, paused stopped elsewhere.
     pub cue: light::State,
-    /// The slice of its slicer it plays in.
-    pub slice: Option<usize>,
+    /// What its pads on the screen show.
+    pub pads: Pads,
 }
 
 /// A part of a deck's separated track, as its knob shows it.
@@ -1404,9 +1404,6 @@ impl From<screen::StemKnob> for StemKnobDto {
 pub struct LoopDto {
     pub start_s: Option<f64>,
     pub end_s: Option<f64>,
-    /// The beats of the loop playing, as the pads of a loop of that length show it
-    /// (`pads::playing_loop`).
-    pub beats: Option<f64>,
     pub active: bool,
     /// Start marked by LOOP IN, waiting for LOOP OUT.
     pub loop_in_s: Option<f64>,
@@ -1417,7 +1414,6 @@ impl From<LoopStatus> for LoopDto {
         Self {
             start_s: l.region.map(|r| r.start_s),
             end_s: l.region.map(|r| r.end_s),
-            beats: playing_loop(&l),
             active: l.active,
             loop_in_s: l.loop_in_s,
         }
@@ -1450,7 +1446,7 @@ impl DeckStatusDto {
             can_motor: shown.can_motor,
             can_align_grid: shown.can_align_grid,
             can_sync_key: shown.can_sync_key,
-            lights: DeckLightsDto { cue: shown.cue, slice: shown.slice },
+            lights: DeckLightsDto { cue: shown.cue, pads: shown.pads },
             looping: d.looping.into(),
             cue: d.cue,
             slip_mode: d.slip_mode,
@@ -1536,14 +1532,10 @@ pub struct ControlStateDto {
     pub stems: Option<StemsStateDto>,
 }
 
-/// What a deck's pads hold, as the interface shows them.
+/// Which slots of a deck's effect chain its pads and knobs act on.
 #[derive(Debug, Clone, Copy, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct DeckPadsDto {
-    /// The roll playing, in beats.
-    pub roll: Option<f64>,
-    /// The fader cut playing, of those held.
-    pub cut: Option<usize>,
     /// The slot of its effect chain the effect knobs turn.
     pub fx_focus: Option<usize>,
     /// The slot of its effect chain the screen's pads and knobs act on.
@@ -1552,7 +1544,7 @@ pub struct DeckPadsDto {
 
 impl From<&DeckPerform> for DeckPadsDto {
     fn from(deck: &DeckPerform) -> Self {
-        Self { roll: deck.roll, cut: deck.cuts.acting(), fx_focus: deck.fx_focus, fx_shown: deck.fx_shown }
+        Self { fx_focus: deck.fx_focus, fx_shown: deck.fx_shown }
     }
 }
 

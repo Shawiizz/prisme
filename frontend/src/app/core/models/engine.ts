@@ -1,3 +1,4 @@
+import { Label } from '../i18n/i18n';
 import { Preferences } from './preferences';
 /** Shapes exchanged with the Rust side (see apps/prisme-desktop/src/dto.rs). */
 
@@ -71,8 +72,6 @@ export interface TempoFader {
 export interface LoopStatus {
   startS: number | null;
   endS: number | null;
-  /** The beats of the loop playing, as the pads of a loop of that length show it. */
-  beats: number | null;
   active: boolean;
   /** Start marked by LOOP IN, waiting for LOOP OUT. */
   loopInS: number | null;
@@ -135,8 +134,24 @@ export interface DeckStatus {
 export interface DeckLights {
   /** CUE: on at the cue point, paused stopped elsewhere. */
   cue: LightState;
-  /** The slice of its slicer it plays in. */
-  slice: number | null;
+  /** What its pads on the screen show. */
+  pads: Record<PadPage, PageLights>;
+}
+
+/** A page of a deck's pads whose pads each perform an action of the deck. */
+export type PadPage = 'loops' | 'roll' | 'jump' | 'slice' | 'cut' | 'fx';
+
+/** What the pads of a page show, a bit per pad: lit by their action's light, and marked (a loop
+ * or a jump of the deck's size, an effect sounding in another slot of the chain). */
+export interface PageLights {
+  lit: number;
+  marked: number;
+}
+
+/** A page of pads named by their action (`pad_pages`): all but the effects'. */
+export interface PadPageNames {
+  page: PadPage;
+  pads: { action: string; caption: string; label: Label }[];
 }
 
 /** A part of a deck's separated track, as its knob shows it. */
@@ -177,8 +192,6 @@ export const HOT_CUES = 16;
 export const SAMPLE_SLOTS = 16;
 /** The pads of a deck: a page of hot cues or sounds. */
 export const PADS = 8;
-/** The slicer's slices: two bars of the beat grid, a beat each. */
-export const SLICES = 8;
 
 /** What SYNC does on a record in relative mode. */
 export type VinylSyncMode = 'once' | 'locked';
@@ -254,10 +267,6 @@ export interface PreviewState {
 }
 
 export interface DeckPerform {
-  /** The fader cut playing (an index of `CUT_BEATS`). */
-  cut: number | null;
-  /** The roll playing, in beats. */
-  roll: number | null;
   /** The slot of its effect chain the effect knobs turn. */
   fxFocus: number | null;
   /** The slot of its effect chain the screen's pads and knobs act on. */

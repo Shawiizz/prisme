@@ -4,11 +4,11 @@ import { FxService } from '../../../core/services/fx.service';
 import { SamplerService } from '../../../core/services/sampler.service';
 import { EngineService } from '../../../core/services/engine.service';
 import { PerformanceService } from '../../../core/services/performance.service';
-import { EffectKind, FxSettings, PADS, SLICES } from '../../../core/models/engine';
+import { EffectKind, PADS, PageLights } from '../../../core/models/engine';
 import { Knob } from '../../../shared/knob/knob';
-import { CUT_BEATS, ROLL_BEATS, formatBeats } from '../../../shared/beats';
+import { formatBeats } from '../../../shared/beats';
 import { percent } from '../../../shared/readout';
-import { Text, t } from '../../../core/i18n/i18n';
+import { Text, labelText, t } from '../../../core/i18n/i18n';
 import { TPipe } from '../../../core/i18n/t.pipe';
 import { Press } from '../../../shared/press';
 import { deckStems } from '../../../core/deck-stems';
@@ -43,8 +43,8 @@ const SAMPLE_COLOR = 'var(--pr-tag-violet)';
 const SIZE_COLOR = 'var(--pr-light)';
 /** The bar of an effect pad whose effect sounds in another slot of the chain. */
 const ELSEWHERE_COLOR = 'var(--pr-text-3)';
-/** The effects on the pads, their name in four letters on a narrow pad, with what their AMOUNT
- * knob does. */
+/** The effects on the pads, in the backend's order, their name in four letters on a narrow
+ * pad, with what their AMOUNT knob does. */
 const EFFECTS: { kind: EffectKind; label: string; short: string; title: Text }[] = [
   {
     kind: 'echo',
@@ -95,8 +95,8 @@ const EFFECTS: { kind: EffectKind; label: string; short: string; title: Text }[]
     title: () => t('Bitcrusher, lowering the resolution · amount: crush'),
   },
 ];
-const LOOP_BEATS = [0.25, 0.5, 1, 2, 4, 8, 16, 32];
-const JUMP_BEATS = [-32, -16, -4, -1, 1, 4, 16, 32];
+/** Pad `pad` of a page is lit, or marked. */
+const bit = (bits: number, pad: number) => (bits & (1 << pad)) !== 0;
 
 /**
  * Eight performance pads per deck (hot cues and sounds on two pages), at the end of its rail (hot cues, loops, rolls, beat
@@ -189,8 +189,8 @@ export class DeckPads {
   protected readonly padsEnabled = computed(
     () => this.mode() === 'fx' || this.mode() === 'sampler' || this.canMove(),
   );
-  /** The deck's size: what its jumps go by; the pads of that size have a bar in the light. */
-  protected readonly size = computed(() => this.performance.sizes()[this.deck()]);
+  /** The deck's size: what its jumps go by. */
+  protected readonly size = computed(() => this.engine.decks()[this.deck()].sizeBeats);
   protected readonly percent = percent;
   /** What lets go each pad held, by the pointer holding it: the action and deck it pressed,
    * even if the mode or the deck changed since. */
@@ -199,80 +199,45 @@ export class DeckPads {
   private censored: number | null = null;
 
   constructor() {
+    void this.performance.loadPages();
     inject(DestroyRef).onDestroy(() => {
       for (const release of this.held.values()) release();
       this.held.clear();
     });
   }
 
-  private readonly activeLoopBeats = computed(() => this.status()?.looping.beats ?? null);
+  /** The pads of the page shown named by their action, if it is one of those. */
+  private readonly named = computed(
+    () => this.performance.pages().find((p) => p.page === this.mode())?.pads ?? null,
+  );
+  private readonly NO_LIGHTS: PageLights = { lit: 0, marked: 0 };
 
   protected readonly pads = computed<Pad[]>(() => {
-    switch (this.mode()) {
-      case 'cues':
-        return Array.from({ length: PADS }, (_, pad) => this.cuePad(this.first() + pad));
-      case 'loops':
-        return LOOP_BEATS.map((b) =>
-          this.beatPad(
-            b,
-            this.activeLoopBeats() === b,
-            t('Loop {beats}', { beats: formatBeats(b) }),
-            b === this.size(),
-          ),
-        );
-      case 'roll': {
-        const playing = this.performance.rolls()[this.deck()];
-        return ROLL_BEATS.map((b) =>
-          this.beatPad(b, playing === b, t('Roll {beats} while held', { beats: formatBeats(b) })),
-        );
-      }
-      case 'jump':
-        return JUMP_BEATS.map((b) =>
-          this.beatPad(
-            b,
-            false,
-            t('Jump {beats} beats', { beats: formatBeats(b) }),
-            Math.abs(b) === this.size(),
-          ),
-        );
-      case 'slice': {
-        const playing = this.status()?.lights.slice ?? null;
-        return Array.from({ length: SLICES }, (_, slice) => ({
-          label: `${slice + 1}`,
-          set: true,
-          color: null,
-          active: playing === slice,
-          title: t('Slice {n} while held', { n: slice + 1 }),
-        }));
-      }
-      case 'cut': {
-        const playing = this.performance.cuts()[this.deck()];
-        return CUT_BEATS.map((b, i) =>
-          this.beatPad(
-            b,
-            playing === i,
-            t('Fader cut on {beats} while held', { beats: formatBeats(b) }),
-          ),
-        );
-      }
-      case 'fx': {
-        const [slots, chosen] = [this.chain().slots, this.slot()];
-        const sounds = (fx: FxSettings, kind: EffectKind) => fx.enabled && fx.kind === kind;
-        return EFFECTS.map((e) => ({
-          label: e.label,
-          short: e.short,
-          set: true,
-          color: slots.some((fx, s) => s !== chosen && sounds(fx, e.kind)) ? ELSEWHERE_COLOR : null,
-          active: sounds(slots[chosen], e.kind),
-          title: e.title(),
-        }));
-      }
-      case 'sampler':
-        return Array.from({ length: PADS }, (_, pad) => {
-          const slot = this.first() + pad;
-          return this.samplePad(this.samples()[slot] ?? null, slot);
-        });
-    }
+    const mode = this.mode();
+    if (mode === 'cues')
+      return Array.from({ length: PADS }, (_, pad) => this.cuePad(this.first() + pad));
+    if (mode === 'sampler')
+      return Array.from({ length: PADS }, (_, pad) => {
+        const slot = this.first() + pad;
+        return this.samplePad(this.samples()[slot] ?? null, slot);
+      });
+    const { lit, marked } = this.status()?.lights.pads[mode] ?? this.NO_LIGHTS;
+    if (mode === 'fx')
+      return EFFECTS.map((e, pad) => ({
+        label: e.label,
+        short: e.short,
+        set: true,
+        color: bit(marked, pad) ? ELSEWHERE_COLOR : null,
+        active: bit(lit, pad),
+        title: e.title(),
+      }));
+    return (this.named() ?? []).map((p, pad) => ({
+      label: p.caption,
+      set: true,
+      color: bit(marked, pad) ? SIZE_COLOR : null,
+      active: bit(lit, pad),
+      title: labelText(p.label),
+    }));
   });
 
   /** A length in beats, with its unit: under keys that halve and double it. */
@@ -295,22 +260,16 @@ export class DeckPads {
           ? this.performance.deleteHotCue(deck, slot)
           : this.performance.pressHotCue(deck, slot);
       case 'loops':
-        // the pad of the loop playing leaves it
-        return this.performance.beatLoop(deck, LOOP_BEATS[index]);
       case 'roll':
-        this.performance.roll(deck, index, true);
-        this.held.set(event.pointerId, () => this.performance.roll(deck, index, false));
-        return;
       case 'jump':
-        return this.performance.beatJump(deck, JUMP_BEATS[index]);
       case 'slice':
-        this.performance.slice(deck, index, true);
-        this.held.set(event.pointerId, () => this.performance.slice(deck, index, false));
+      case 'cut': {
+        const action = this.named()?.[index]?.action;
+        if (action === undefined) return;
+        this.performance.pad(deck, action, true);
+        this.held.set(event.pointerId, () => this.performance.pad(deck, action, false));
         return;
-      case 'cut':
-        this.performance.cut(deck, index, true);
-        this.held.set(event.pointerId, () => this.performance.cut(deck, index, false));
-        return;
+      }
       case 'fx':
         return this.fx.press(deck, this.slot(), EFFECTS[index].kind);
       case 'sampler':
@@ -418,11 +377,5 @@ export class DeckPads {
 
   private samplePlaying(slot: number): boolean {
     return ((this.status()?.samplesPlaying ?? 0) & (1 << slot)) !== 0;
-  }
-
-  /** A pad of so many beats; one of the deck's size has a bar in the light. */
-  private beatPad(beats: number, active: boolean, title: string, sized = false): Pad {
-    const color = sized ? SIZE_COLOR : null;
-    return { label: formatBeats(beats), set: true, color, active, title };
   }
 }

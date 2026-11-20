@@ -84,12 +84,14 @@ fn deck_letter(deck: usize) -> String {
     char::from(b'A' + deck as u8).to_string()
 }
 
-/// 0.25 as "1/4", 2 as "2".
-fn beats_text(beats: f64) -> String {
-    if beats >= 1.0 {
-        beats.to_string()
+/// So many beats as a DJ writes them: 0.25 as "1/4", 2 as "2", -0.5 as "-1/2".
+pub fn beats_text(beats: f64) -> String {
+    let sign = if beats < 0.0 { "-" } else { "" };
+    let size = beats.abs();
+    if size >= 1.0 {
+        format!("{sign}{size}")
     } else {
-        format!("1/{}", (1.0 / beats).round())
+        format!("{sign}1/{}", (1.0 / size).round())
     }
 }
 
@@ -671,6 +673,7 @@ mod tests {
         assert_eq!(label("deck1.key.+2"), "Key moved 2 semitones");
         assert_eq!(label("deck2.sample3.velocity"), "Sample 3 (as hard as the pad is hit)");
         assert_eq!(label("deck1.cut1"), "Fader cut on 1/16 while held");
+        assert_eq!([beats_text(-32.0), beats_text(-0.5), beats_text(0.0625)], ["-32", "-1/2", "1/16"]);
         assert_eq!("deck2.play".parse::<Target>().unwrap().group().english(), "Deck B");
     }
 

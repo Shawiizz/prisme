@@ -160,17 +160,12 @@ mod tests {
     }
 
     #[test]
-    fn what_the_pads_hold_reaches_the_interface() {
+    fn what_the_pads_hold_lights_them_on_the_screen() {
         let bench = Bench::new();
-        let before = bench.state.revision();
         hold(&bench, "deck2.cut2", true);
         hold(&bench, "deck2.roll.1", true);
-        assert_eq!(bench.state.moved_since(before), [crate::state::Section::Perform]);
-        let pads =
-            crate::dto::ControlStateDto::of(&bench.state, &bench.view(), [crate::state::Section::Perform])
-                .perform;
-        let held = &pads.unwrap()[1];
-        assert_eq!((held.cut, held.roll), (Some(1), Some(1.0)));
+        let pads = prisme_actions::pads::Pads::of(&bench.view(), 1);
+        assert_eq!((pads.cut.lit, pads.roll.lit), (1 << 1, 1 << 4));
     }
 
     #[test]

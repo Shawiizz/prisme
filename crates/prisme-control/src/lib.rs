@@ -22,7 +22,7 @@ mod target;
 pub use id::{Id, SourceId, TargetId};
 pub use label::{Label, Param};
 pub use light::{light, nearest, LightValue, LightValues, OFF, ON};
-pub use listed::{listed_targets, CUT_BEATS, ROLL_BEATS};
+pub use listed::{beats_text, listed_targets, CUT_BEATS, ROLL_BEATS};
 pub use mapping::{
     Chord, Encoding, FaderSet, Hold, Mapping, Mappings, Modes, ProfileControl, Reader, Seen, Shift, Shifts,
     ShownRoom, When, SHIFT,

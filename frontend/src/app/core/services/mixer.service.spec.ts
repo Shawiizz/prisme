@@ -35,7 +35,7 @@ describe('the screen', () => {
     mixer.setCrossfaderCurve('sharp');
     TestBed.inject(FxService).setChainEnabled(1, true);
     TestBed.inject(PerformanceService).scaleLoop(0, 0.5);
-    TestBed.inject(PerformanceService).beatJump(1, -4);
+    TestBed.inject(PerformanceService).pad(1, 'jump.-4', true);
     expect(performed).toEqual([
       ['deck2.eq.low', 0.25],
       ['mixer.crossfader', 0.5],

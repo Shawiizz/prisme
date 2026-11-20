@@ -1,27 +1,23 @@
-import { Injectable, computed, inject } from '@angular/core';
+import { Injectable, inject, signal } from '@angular/core';
 import { invoke } from '@tauri-apps/api/core';
-import { Cue, DeckPerform, MAX_DECKS } from '../models/engine';
+import { Cue, PadPageNames } from '../models/engine';
 import { EngineService } from './engine.service';
 import { errorText } from '../errors';
-import { sameItems } from '../same';
 
-/** Performance actions on a deck: hot cues, loops, rolls, beat jumps, the slicer, fader
- * cuts, slip, censor, reverse, the motor (brake, spinback). */
+/** Performance actions on a deck: hot cues, the pads of a page (loops, rolls, beat jumps, the
+ * slicer, fader cuts), slip, censor, reverse, the motor (brake, spinback). */
 @Injectable({ providedIn: 'root' })
 export class PerformanceService {
   private readonly engine = inject(EngineService);
-  /** Each deck's size in beats: what its jumps go by, what its sized loop lasts. */
-  readonly sizes = computed(() => this.engine.decks().map((d) => d.sizeBeats));
-  /** What each deck's pads hold, as the backend keeps it. */
-  private readonly held = computed<DeckPerform[]>(
-    () =>
-      this.engine.controls()?.perform ??
-      Array(MAX_DECKS).fill({ cut: null, roll: null, fxFocus: null }),
-  );
-  /** The fader cut each deck plays (an index of `CUT_BEATS`). */
-  readonly cuts = computed(() => this.held().map((d) => d.cut), { equal: sameItems });
-  /** The roll each deck plays, in beats. */
-  readonly rolls = computed(() => this.held().map((d) => d.roll), { equal: sameItems });
+  /** The pages of pads named by their action, as the backend sets them out (`loadPages`). */
+  readonly pages = signal<PadPageNames[]>([]);
+  private loading: Promise<void> | null = null;
+
+  /** Asks the backend for the pages once. */
+  loadPages() {
+    this.loading ??= invoke<PadPageNames[]>('pad_pages').then((pages) => this.pages.set(pages));
+    return this.loading;
+  }
 
   hotCue(deck: number, slot: number): Cue | null {
     return this.engine.tracks()[deck]?.cues.find((c) => c.hot === slot) ?? null;
@@ -36,14 +32,9 @@ export class PerformanceService {
     return this.engine.press(deck, `hotcue${slot + 1}.delete`);
   }
 
-  /** A loop of `beats` on `deck`, or out of it if it plays that loop. */
-  beatLoop(deck: number, beats: number) {
-    return this.engine.press(deck, `loop.${beats}`);
-  }
-
-  /** Roll `index` (of `ROLL_BEATS`) while the pad is `held`. */
-  roll(deck: number, index: number, held: boolean) {
-    return this.engine.press(deck, `roll${index + 1}`, held);
+  /** The action of a pad of `deck` pressed (`held`) or let go. */
+  pad(deck: number, action: string, held: boolean) {
+    return this.engine.press(deck, action, held);
   }
 
   /** Marks where the next loop starts. */
@@ -69,10 +60,6 @@ export class PerformanceService {
   /** The size of `deck` halved (-1) or doubled (1) so many times, from 1/16 beat to 64. */
   resize(deck: number, steps: number) {
     return this.engine.perform(`deck${deck + 1}.size`, steps);
-  }
-
-  beatJump(deck: number, beats: number) {
-    return this.engine.press(deck, `jump.${beats}`);
   }
 
   setSlip(deck: number, enabled: boolean) {
@@ -107,17 +94,5 @@ export class PerformanceService {
     } catch (e) {
       this.engine.error.set(errorText(e));
     }
-  }
-
-  /** Plays slice `index` of the slicer round and round while `held`, the track going on
-   * underneath; of the slices held, the last pressed. */
-  slice(deck: number, index: number, held: boolean) {
-    return this.engine.press(deck, `slice${index + 1}`, held);
-  }
-
-  /** Cuts the deck on the beats of fader cut `index` (of `CUT_BEATS`) while `held`; of the
-   * cuts held, the last pressed. */
-  cut(deck: number, index: number, held: boolean) {
-    return this.engine.press(deck, `cut${index + 1}`, held);
   }
 }
