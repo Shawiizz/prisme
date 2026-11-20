@@ -881,6 +881,15 @@ impl LiveSourceDto {
     pub const ALL: [LiveSourceDto; 2] = [LiveSourceDto::Mic, LiveSourceDto::Aux];
 }
 
+impl From<prisme_actions::switch::Live> for LiveSourceDto {
+    fn from(live: prisme_actions::switch::Live) -> Self {
+        match live {
+            prisme_actions::switch::Live::Mic => LiveSourceDto::Mic,
+            prisme_actions::switch::Live::Aux => LiveSourceDto::Aux,
+        }
+    }
+}
+
 impl From<LiveSourceDto> for LiveSource {
     fn from(s: LiveSourceDto) -> Self {
         match s {

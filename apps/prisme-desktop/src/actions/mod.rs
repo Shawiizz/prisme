@@ -172,7 +172,7 @@ impl Host for AppHandle {
 
     fn perform_here(&self, target: &Target, input: Input, asked: Asked) -> AppResult<()> {
         if target.owner() == Owner::Ui {
-            return Err(not_performed(target));
+            return Err(AppError::NotPerformed(target.to_string()));
         }
         let library = self.try_state::<Arc<LibraryService>>();
         let library = library.as_ref().map(|l| &l.db);
@@ -622,10 +622,6 @@ pub fn take_over(auto_dj: Option<&AutoDj>, takeover: Takeover) {
     }
 }
 
-fn not_performed(target: &Target) -> AppError {
-    AppError::Other(format!("{target} is the interface's to perform"))
-}
-
 /// Performs the action `target` driven to `value` (an encoder's `steps`, if it says so), as the
 /// interface asks: `confirmed`, the DJ said yes to what it replaces. The
 /// interface numbers its actions (`order`): each is sent in turn after those sent before it, a
@@ -857,7 +853,7 @@ pub(crate) mod bench {
 
         fn perform_here(&self, target: &Target, input: Input, asked: Asked) -> AppResult<()> {
             if target.owner() == Owner::Ui {
-                return Err(not_performed(target));
+                return Err(AppError::NotPerformed(target.to_string()));
             }
             self.asked(asked).perform(target, input)
         }

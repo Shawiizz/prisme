@@ -88,7 +88,7 @@ pub fn next_fx_part(state: &AppState, deck: usize) -> AppResult<()> {
 }
 
 /// The effect `step` places after the slot's (before it, negative), on or off as it was.
-fn cycle_fx(state: &AppState, deck: usize, slot: usize, step: isize) -> AppResult<()> {
+pub(super) fn cycle_fx(state: &AppState, deck: usize, slot: usize, step: isize) -> AppResult<()> {
     let effect = Effect::from(lock(&state.decks)[deck].fx.slots[slot].kind);
     let at = Effect::NAMED.iter().position(|e| *e == effect).unwrap_or(0) as isize;
     let next = Effect::NAMED[(at + step).rem_euclid(Effect::NAMED.len() as isize) as usize];
@@ -96,7 +96,7 @@ fn cycle_fx(state: &AppState, deck: usize, slot: usize, step: isize) -> AppResul
 }
 
 /// `effect` put in the slot and on; pressed again while it plays, off.
-fn press_fx(state: &AppState, deck: usize, slot: usize, effect: Effect) -> AppResult<()> {
+pub(super) fn press_fx(state: &AppState, deck: usize, slot: usize, effect: Effect) -> AppResult<()> {
     let fx = lock(&state.decks)[deck].fx.slots[slot];
     let kind = EffectKindDto::from(effect);
     if fx.kind == kind && fx.enabled {
@@ -109,20 +109,11 @@ fn press_fx(state: &AppState, deck: usize, slot: usize, effect: Effect) -> AppRe
 }
 
 impl Performing<'_> {
-    /// A key of slot `slot` of the chain of `deck` pressed: another effect, an effect on or
-    /// off, the slot focused on the three knobs or let go of.
-    pub(super) fn fx_key(&self, deck: usize, slot: usize, action: FxAction) -> AppResult<()> {
-        match action {
-            FxAction::Next => cycle_fx(self.state, deck, slot, 1),
-            FxAction::Previous => cycle_fx(self.state, deck, slot, -1),
-            FxAction::Effect(effect) => press_fx(self.state, deck, slot, effect),
-            FxAction::Focus => {
-                let focus = &mut self.perform_state().decks[deck].fx_focus;
-                *focus = if *focus == Some(slot) { None } else { Some(slot) };
-                Ok(())
-            }
-            _ => Err(super::not_performed(&prisme_control::Target::Deck(deck, DeckAction::Fx(slot, action)))),
-        }
+    /// Slot `slot` of the chain of `deck` focused on the three knobs, or let go of.
+    pub(super) fn focus_fx(&self, deck: usize, slot: usize) -> AppResult<()> {
+        let focus = &mut self.perform_state().decks[deck].fx_focus;
+        *focus = if *focus == Some(slot) { None } else { Some(slot) };
+        Ok(())
     }
 
     /// Knob `knob` of the chain of `deck`, as Mixxx's effect unit has them: with no effect

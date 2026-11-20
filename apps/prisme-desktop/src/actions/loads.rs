@@ -3,7 +3,7 @@
 //! interface tells ([`set_library_selection`]). The track of a deck that plays leaves it once
 //! the DJ says so, or never if the DJ chose so (see [`Performing::may_replace`]).
 
-use super::{deck, not_performed, sampler, take_over, Actions, Performing, Source};
+use super::{deck, sampler, take_over, Actions, Performing, Source};
 use crate::auto_dj::Takeover;
 use crate::error::{AppError, AppResult};
 use crate::preview::Previews;
@@ -46,7 +46,30 @@ impl Performing<'_> {
                 Some(app) => app.state::<Previews>().stop(self.state),
                 None => Ok(()),
             },
-            _ => Err(not_performed(&target)),
+            // the interface's browsing; the preview moved by its encoder, before
+            LibraryAction::Previous
+            | LibraryAction::Next
+            | LibraryAction::Remove
+            | LibraryAction::Prepare
+            | LibraryAction::SelectAll
+            | LibraryAction::ClearSelection
+            | LibraryAction::Search
+            | LibraryAction::Focus
+            | LibraryAction::ListOpen
+            | LibraryAction::ListNext
+            | LibraryAction::ListPrevious
+            | LibraryAction::Go
+            | LibraryAction::Left
+            | LibraryAction::Right
+            | LibraryAction::PagePrevious
+            | LibraryAction::PageNext
+            | LibraryAction::SortTitle
+            | LibraryAction::SortArtist
+            | LibraryAction::SortBpm
+            | LibraryAction::SortKey
+            | LibraryAction::Browse
+            | LibraryAction::PreviewSeek
+            | LibraryAction::Lists => Err(AppError::NotPerformed(target.to_string())),
         }
     }
 

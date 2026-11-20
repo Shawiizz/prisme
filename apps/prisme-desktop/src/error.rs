@@ -88,6 +88,9 @@ pub enum AppError {
     Audio(#[from] AudioError),
     #[error("{0}")]
     Io(#[from] std::io::Error),
+    /// An action asked of the one that does not perform it (the interface's, or one only shown).
+    #[error("{0} is not performed here")]
+    NotPerformed(String),
     #[error("{0}")]
     Other(String),
 }
@@ -151,6 +154,7 @@ impl AppError {
             }
             AppError::Media(_) => ("media", none()),
             AppError::Io(_) => ("io", none()),
+            AppError::NotPerformed(_) => ("notPerformed", none()),
             AppError::Other(_) => ("other", none()),
         }
     }

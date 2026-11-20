@@ -4,7 +4,7 @@
 
 use crate::cue::at_cue;
 use crate::pads::{loop_beats, plays_loop, slice_at, LOOP_LENGTH_WITHIN, ROLL_BEATS};
-use crate::switch::{is_on, turn_of};
+use crate::switch::Switch;
 use crate::sync::{phase, Beat, Phase};
 use crate::view::{band_index, TrackView, View};
 use prisme_control::{
@@ -80,8 +80,8 @@ pub fn told_by_interface(target: &Target) -> bool {
 
 /// The light of `target` as `view` shows it, if it has one; off for one of a deck not in use.
 pub fn light(target: &Target, view: &View) -> Option<Light> {
-    let light = match (is_on(target, view), target) {
-        (Some(on), _) => Some(Light::lit(shows(turn_of(target), on))),
+    let light = match (Switch::of(target), target) {
+        (Some((switch, turn)), _) => Some(Light::lit(shows(turn, switch.is_on(view)))),
         (None, Target::Deck(deck, action)) => deck_light(*deck, *action, view),
         (None, Target::Mixer(MixerAction::MainClip)) => Some(Light::lit(view.perform.main_clipping)),
         (None, Target::Library(LibraryAction::Load(deck))) => {
