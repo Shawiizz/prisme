@@ -96,7 +96,7 @@ mod tests {
 
     #[test]
     fn a_roll_plays_while_held_named_by_its_place_or_its_length() {
-        let mut bench = Bench::new();
+        let bench = Bench::new();
         hold(&bench, "deck1.roll4", true);
         assert_eq!(lock(&bench.state.perform).decks[0].roll, Some(0.5));
         hold(&bench, "deck1.roll4", false);
@@ -143,7 +143,7 @@ mod tests {
 
     #[test]
     fn the_slicer_stays_while_the_track_is_in_it_and_follows_it_once_it_left() {
-        let mut bench = Bench::new();
+        let bench = Bench::new();
         bench.load(0, 60.0, Some(120.0));
         super::anchor_slicer(&bench.state, 0).unwrap();
         assert_eq!(lock(&bench.state.perform).decks[0].slicer, Some(0.0));
@@ -169,7 +169,7 @@ mod tests {
 
     #[test]
     fn two_cuts_held_the_last_cuts_and_letting_it_go_the_first_cuts_again() {
-        let mut bench = Bench::new();
+        let bench = Bench::new();
         hold(&bench, "deck2.cut1", true);
         hold(&bench, "deck2.cut3", true);
         assert_eq!(lock(&bench.state.perform).decks[1].cuts.acting(), Some(2));

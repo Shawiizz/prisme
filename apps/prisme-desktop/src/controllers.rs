@@ -81,6 +81,39 @@ pub struct ControllerSetup {
 pub const PLUGGED_EVENT: &str = "controller-plugged";
 /// A controller's action the interface performs (a `UiActionDto`).
 pub const UI_ACTION_EVENT: &str = "ui-action";
+/// A control learnt (its `Mapping`).
+pub const LEARNED_EVENT: &str = "controller-learned";
+
+/// What a controller's moves reach of the application: the actions they drive, the interface
+/// they tell of the actions it performs and of the controls learnt, and the view their lights
+/// show. The application, or a bench in the tests (`end_to_end`).
+pub(crate) trait Host {
+    fn actions(&self) -> &Actions;
+    /// Performs `target` driven by `input` as `source` asks: the interface hears of a failure.
+    fn perform(&self, target: &Target, input: Input, source: Source);
+    /// Tells the interface `event`.
+    fn tell<P: Serialize + Clone>(&self, event: &str, payload: P);
+    /// The application as the actions see it now.
+    fn view(&self) -> View;
+}
+
+impl Host for AppHandle {
+    fn actions(&self) -> &Actions {
+        self.state::<Actions>().inner()
+    }
+
+    fn perform(&self, target: &Target, input: Input, source: Source) {
+        self.actions().perform(self, target, input, source, Answer::Told);
+    }
+
+    fn tell<P: Serialize + Clone>(&self, event: &str, payload: P) {
+        drop(self.emit(event, payload));
+    }
+
+    fn view(&self) -> View {
+        self.actions().view(self)
+    }
+}
 
 /// What the DJ is told of a controller plugged in while Prisme runs.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
@@ -204,6 +237,9 @@ enum Link {
     },
     /// Read and written from its own thread.
     Hid(controller_hid::Link),
+    /// A MIDI controller of the tests (`end_to_end`): the messages sent to it are kept.
+    #[cfg(test)]
+    Sent(Vec<Vec<u8>>),
 }
 
 /// A controller let go is closed, not only dropped: on Android, a port dropped keeps the device
@@ -342,6 +378,8 @@ impl Link {
             Link::Midi { output: Some(output), .. } => drop(output.send(message)),
             Link::Midi { output: None, .. } => {}
             Link::Hid(link) => link.send(message),
+            #[cfg(test)]
+            Link::Sent(sent) => sent.push(message.to_vec()),
         }
     }
 }
@@ -800,8 +838,8 @@ impl Controllers {
     }
 
     /// Shows on `device`'s lights the state of their actions.
-    fn show_lights(&self, app: &AppHandle, device: &str) {
-        let view = app.state::<Actions>().view(app);
+    fn show_lights(&self, host: &impl Host, device: &str) {
+        let view = host.view();
         if let Some(connection) = lock(&self.connections).iter_mut().find(|c| c.device == device) {
             self.show(connection, &view);
         }
@@ -1063,7 +1101,7 @@ impl Controllers {
 
     /// `device` opened on `port`: it is sent what its profile sends first (some of it later),
     /// its groups are in their first modes, and its lights show.
-    fn opened(&self, app: &AppHandle, device: &str, port: String, link: Link) {
+    fn opened(&self, host: &impl Host, device: &str, port: String, link: Link) {
         let profile = self.profile(device);
         let mut connection = Connection {
             device: device.to_owned(),
@@ -1087,12 +1125,12 @@ impl Controllers {
         }
         lock(&self.reader).set_modes(device, profile.map(|p| p.first_modes()).unwrap_or_default());
         lock(&self.connections).push(connection);
-        self.show_lights(app, device);
+        self.show_lights(host, device);
     }
 
     /// An event of `device`, whose jog wheels turn by `jog_steps_per_turn`, at `at_s` on its
     /// clock.
-    fn receive(&self, app: &AppHandle, device: &str, jog_steps_per_turn: f64, event: Event, at_s: f64) {
+    fn receive(&self, host: &impl Host, device: &str, jog_steps_per_turn: f64, event: Event, at_s: f64) {
         let layer = || {
             let reader = lock(&self.reader);
             (reader.mode_changes(device), reader.shifts(device))
@@ -1101,9 +1139,9 @@ impl Controllers {
         let routed = self.route(device, event, at_s);
         let relayered = layer() != before;
         match routed {
-            Some(Routed::Learned(mapping)) => drop(app.emit("controller-learned", mapping)),
+            Some(Routed::Learned(mapping)) => host.tell(LEARNED_EVENT, mapping),
             Some(Routed::Actions(actions)) => {
-                self.act(app, actions, Moved { device, at_s, jog_steps_per_turn })
+                self.act(host, actions, Moved { device, at_s, jog_steps_per_turn })
             }
             None => {}
         }
@@ -1111,17 +1149,17 @@ impl Controllers {
         // what its action did; the lights show the layer in use (a mode chosen by a switch,
         // say)
         if event.control.is_key() || relayered {
-            self.show_lights(app, device);
+            self.show_lights(host, device);
         }
     }
 
     /// A report of the HID controller `device`, at `at_s` on its clock (see [`Self::read_hid`]).
-    fn receive_hid(&self, app: &AppHandle, device: &str, read: &Read, jog_steps_per_turn: f64, at_s: f64) {
+    fn receive_hid(&self, host: &impl Host, device: &str, read: &Read, jog_steps_per_turn: f64, at_s: f64) {
         match self.read_hid(device, read) {
-            Reported::Learnt(mapping) => drop(app.emit("controller-learned", mapping)),
+            Reported::Learnt(mapping) => host.tell(LEARNED_EVENT, mapping),
             Reported::Events(events) => {
                 for event in events {
-                    self.receive(app, device, jog_steps_per_turn, event, at_s);
+                    self.receive(host, device, jog_steps_per_turn, event, at_s);
                 }
             }
         }
@@ -1146,30 +1184,27 @@ impl Controllers {
 
     /// Performs what a controller drove (`moved`): the interface is told the actions it
     /// performs, given what they are given (an encoder's whole steps), the others are done here.
-    fn act(&self, app: &AppHandle, actions: Vec<Action>, moved: Moved) {
+    fn act(&self, host: &impl Host, actions: Vec<Action>, moved: Moved) {
         for action in actions {
             match action {
                 Action::Ui(id, input) => {
                     let Some(target) = id.target() else { continue };
-                    if let Some(value) = app.state::<Actions>().interface_value(moved.device, target, input) {
-                        drop(app.emit(UI_ACTION_EVENT, UiActionDto { target: id.into(), value }));
+                    if let Some(value) = host.actions().interface_value(moved.device, target, input) {
+                        host.tell(UI_ACTION_EVENT, UiActionDto { target: id.into(), value });
                     }
                 }
-                Action::Rust(target, input) => {
-                    let source = Source::Controller(moved);
-                    app.state::<Actions>().perform(app, &target, input, source, Answer::Told);
-                }
+                Action::Rust(target, input) => host.perform(&target, input, Source::Controller(moved)),
             }
         }
     }
 
     /// A controller gone lets go of what it held: its keys (shift among them) are released,
     /// and so are the jog wheels it touched, however they tell it.
-    fn let_go(&self, app: &AppHandle, device: &str) {
+    fn let_go(&self, host: &impl Host, device: &str) {
         let jog_steps_per_turn = self.jog_steps_per_turn(device);
         let held = lock(&self.reader).held(device);
         for control in held {
-            self.receive(app, device, jog_steps_per_turn, Event { control, raw: 0 }, 0.0);
+            self.receive(host, device, jog_steps_per_turn, Event { control, raw: 0 }, 0.0);
         }
         let touched: Vec<usize> = lock(&self.mappings)
             .all()
@@ -1182,8 +1217,7 @@ impl Controllers {
             .collect();
         let source = Source::Controller(Moved { device, at_s: 0.0, jog_steps_per_turn });
         for deck in touched {
-            let let_go = Target::Deck(deck, DeckAction::JogTouch);
-            app.state::<Actions>().perform(app, &let_go, Input::Value(0.0), source, Answer::Told);
+            host.perform(&Target::Deck(deck, DeckAction::JogTouch), Input::Value(0.0), source);
         }
     }
 
@@ -1337,14 +1371,14 @@ impl Controllers {
     }
 
     /// The keys held long enough: their hold's action pressed, or its mode chosen.
-    fn fire_holds(&self, app: &AppHandle) {
+    fn fire_holds(&self, host: &impl Host) {
         for (device, pressed) in self.fired_holds() {
             match pressed {
                 Some((action, at_s)) => {
                     let jog_steps_per_turn = self.jog_steps_per_turn(&device);
-                    self.act(app, vec![action], Moved { device: &device, at_s, jog_steps_per_turn });
+                    self.act(host, vec![action], Moved { device: &device, at_s, jog_steps_per_turn });
                 }
-                None => self.show_lights(app, &device),
+                None => self.show_lights(host, &device),
             }
         }
     }
@@ -1567,6 +1601,9 @@ fn base_port_name(name: &str) -> String {
 fn midi_error(e: impl std::fmt::Display) -> AppError {
     AppError::Midi(e.to_string())
 }
+
+#[cfg(test)]
+mod end_to_end;
 
 #[cfg(test)]
 mod tests {

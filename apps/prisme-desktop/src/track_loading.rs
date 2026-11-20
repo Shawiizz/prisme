@@ -12,7 +12,7 @@ use crate::state::{lock, AppState, LoadedTrack};
 use crate::track_waveform::{TrackWaveform, WaveformFeed};
 use prisme_analysis::{AnalysisOptions, TrackAnalysis};
 use prisme_engine::{Command, StemTracks};
-use prisme_library::{FileStamp, Search, TrackRecord};
+use prisme_library::{FileStamp, LibraryDb, Search, TrackRecord};
 use prisme_media::LoadingTrack;
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -42,7 +42,7 @@ pub fn preload(
     path: PathBuf,
 ) -> AppResult<()> {
     state.has_deck(deck)?;
-    let (track, completion) = prepare(path, library)?;
+    let (track, completion) = prepare(path, &library.db)?;
     lock(&state.tracks)[deck] = Some(track);
     let app = app.clone();
     std::thread::spawn(move || completion.run(&app));
@@ -50,44 +50,59 @@ pub fn preload(
 }
 
 /// Puts `path` on `deck` as soon as it can play (blocks while its start is read); its
-/// waveform and analysis follow. The preview of the same file stops: it is on a deck now.
-/// Whether it went there: not if another load was asked for on the deck meanwhile, which goes
-/// there instead. The interface hears of it with the decks' tracks.
+/// waveform and analysis follow. Whether it went there: not if another load was asked for on
+/// the deck meanwhile, which goes there instead. The interface hears of it with the decks'
+/// tracks.
 pub fn load_on_deck(app: &AppHandle, deck: usize, path: PathBuf) -> AppResult<bool> {
     let state = app.state::<AppState>();
+    let library = app.state::<Arc<LibraryService>>();
+    let previews = app.state::<Previews>();
+    let completion = put_on_deck(&state, &library.db, Some(&previews), deck, path)?;
+    Ok(completion.map(|completion| completion.run_aside(app)).is_some())
+}
+
+/// Puts `path` on `deck` as soon as it can play (blocks while its start is read), as
+/// `library` knows it; the preview of the same file stops (`previews`, if there are): it is on
+/// a deck now. What is left to do of it, none if another load was asked for on the deck
+/// meanwhile, which goes there instead.
+pub fn put_on_deck(
+    state: &AppState,
+    library: &LibraryDb,
+    previews: Option<&Previews>,
+    deck: usize,
+    path: PathBuf,
+) -> AppResult<Option<Completion>> {
     state.has_deck(deck)?;
     let turn = state.ask_load(deck);
-    let (track, completion) = prepare(path, &app.state::<Arc<LibraryService>>())?;
+    let (track, completion) = prepare(path, library)?;
     let commands = track.load_commands(deck, state.preferences.read(|p| p.dj.auto_gain));
     let file = track.path.clone();
     if !state.put_track(&turn, Some(track), commands)? {
         info!("{} not put on deck {deck}: another load was asked for meanwhile", file.display());
-        return Ok(false);
+        return Ok(None);
     }
-    if let Err(e) = app.state::<Previews>().stop_previewing(&state, &file) {
+    if let Err(e) = previews.map_or(Ok(()), |previews| previews.stop_previewing(state, &file)) {
         warn!("the preview of {} goes on: {e}", file.display());
     }
-    crate::actions::deck::loaded(&state, deck);
-    let app = app.clone();
-    tauri::async_runtime::spawn_blocking(move || completion.run(&app));
-    Ok(true)
+    crate::actions::deck::loaded(state, deck);
+    Ok(Some(completion))
 }
 
 /// The track, playable, and what is left to do ([`Completion::run`]).
-pub fn prepare(path: PathBuf, library: &LibraryService) -> AppResult<(LoadedTrack, Completion)> {
+fn prepare(path: PathBuf, library: &LibraryDb) -> AppResult<(LoadedTrack, Completion)> {
     let loading = LoadingTrack::open(&path)?;
     let stamp = FileStamp::of(&path).ok();
     // a file the library knew elsewhere (renamed, moved, another drive letter) has its cues
     if let Some(stamp) = stamp {
-        match prisme_library::adopt(&library.db, &path, stamp, Search::Audio) {
+        match prisme_library::adopt(library, &path, stamp, Search::Audio) {
             Ok(Some(from)) => info!("{} was {}", path.display(), from.display()),
             Ok(None) => {}
             Err(e) => warn!("{} not looked for elsewhere: {e}", path.display()),
         }
     }
     let stored = stamp
-        .and_then(|s| library.db.get(&path).ok().flatten().filter(|r| r.is_current(s) && r.error.is_none()));
-    let waveform = match stamp.and_then(|s| library.db.waveform(&path, s).ok().flatten()) {
+        .and_then(|s| library.get(&path).ok().flatten().filter(|r| r.is_current(s) && r.error.is_none()));
+    let waveform = match stamp.and_then(|s| library.waveform(&path, s).ok().flatten()) {
         Some(stored) => TrackWaveform::Whole(stored),
         None => TrackWaveform::growing(WAVEFORM_SLICES_PER_S),
     };
@@ -102,11 +117,11 @@ pub fn prepare(path: PathBuf, library: &LibraryService) -> AppResult<(LoadedTrac
         Some(r) => (r.analysis, r.edits, r.tags),
         None => (
             TrackAnalysis::default(),
-            library.db.edits(&path).unwrap_or_default(),
+            library.edits(&path).unwrap_or_default(),
             prisme_media::read_tags(&path).map(|(tags, _)| tags).unwrap_or_default(),
         ),
     };
-    let cues = library.db.cues(&path).unwrap_or_else(|e| {
+    let cues = library.cues(&path).unwrap_or_else(|e| {
         warn!("cues of {} not read: {e}", path.display());
         Vec::new()
     });
@@ -128,6 +143,12 @@ pub fn prepare(path: PathBuf, library: &LibraryService) -> AppResult<(LoadedTrac
 }
 
 impl Completion {
+    /// Runs on a worker thread of the application's.
+    pub fn run_aside(self, app: &AppHandle) {
+        let app = app.clone();
+        tauri::async_runtime::spawn_blocking(move || self.run(&app));
+    }
+
     /// Runs on a worker thread. The results go to the decks still playing the track's audio
     /// (its load, and the instant doubles made of it meanwhile), and nowhere once another
     /// track was loaded on them.

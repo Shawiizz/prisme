@@ -469,7 +469,7 @@ mod tests {
 
     #[test]
     fn a_deck_is_chosen_to_lead_the_others() {
-        let mut bench = Bench::new();
+        let bench = Bench::new();
         bench.press("deck2.sync.leader", 1.0).unwrap();
         bench.press("deck2.sync.leader", 0.0).unwrap();
         assert!(matches!(bench.sent()[..], [Command::SetSyncLeader { deck: Some(1) }]));
@@ -483,7 +483,7 @@ mod tests {
 
     #[test]
     fn a_search_runs_through_the_track_while_held() {
-        let mut bench = Bench::new();
+        let bench = Bench::new();
         bench.load(0, 60.0, None);
         bench.press("deck1.play", 1.0).unwrap();
         bench.press("deck1.search.forward", 1.0).unwrap();
@@ -552,7 +552,7 @@ mod tests {
 
     #[test]
     fn a_stem_is_muted_and_played_again_on_a_separated_track_alone() {
-        let mut bench = Bench::new();
+        let bench = Bench::new();
         bench.load(0, 1.0, None);
         press(&bench, "deck1.vocals");
         assert!(
@@ -570,7 +570,7 @@ mod tests {
 
     #[test]
     fn a_track_loaded_takes_the_effects_off_a_part_it_lacks_and_may_be_heard_alone() {
-        let mut bench = Bench::new();
+        let bench = Bench::new();
         crate::actions::fx::set_fx_part(&bench.state, 1, Some(crate::dto::FxPartDto::Vocals)).unwrap();
         crate::actions::mixer::set_deck_cue(&bench.state, 0, true).unwrap();
         bench.load(1, 1.0, None);

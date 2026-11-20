@@ -185,7 +185,7 @@ mod tests {
 
     #[test]
     fn the_cue_held_on_the_cue_point_plays_until_let_go_then_goes_back_there() {
-        let mut bench = Bench::new();
+        let bench = Bench::new();
         bench.load(0, 60.0, None);
         bench.press("deck1.cue", 1.0).unwrap();
         bench.run(0.5);

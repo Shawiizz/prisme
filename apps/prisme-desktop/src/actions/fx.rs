@@ -228,7 +228,7 @@ mod tests {
 
     #[test]
     fn the_chain_goes_from_part_to_part_of_the_track_as_it_is_separated() {
-        let mut bench = Bench::new();
+        let bench = Bench::new();
         let part = |bench: &Bench| lock(&bench.state.decks)[0].fx.part;
         press(&bench, "deck1.fx.part");
         assert_eq!(part(&bench), None, "no track: the whole deck");

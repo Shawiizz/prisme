@@ -466,7 +466,7 @@ mod tests {
 
     #[test]
     fn a_held_key_keeps_what_it_holds_in_the_decks_settings() {
-        let mut bench = Bench::new();
+        let bench = Bench::new();
         bench.press("deck2.eq.low.kill", 1.0).unwrap();
         bench.press("deck1.fx2.held", 1.0).unwrap();
         assert!(lock(&bench.state.decks)[1].strip.kills[0]);
@@ -488,7 +488,7 @@ mod tests {
 
     #[test]
     fn a_pad_plays_its_sample_as_hard_as_it_is_hit() {
-        let mut bench = Bench::new();
+        let bench = Bench::new();
         bench.press("deck2.sample3.velocity", 0.25).unwrap();
         bench.press("deck2.sample3.velocity", 0.0).unwrap();
         assert!(matches!(bench.sent()[..], [Command::TriggerSample { deck: 1, slot: 2, gain: 0.25 }]));
@@ -496,14 +496,14 @@ mod tests {
 
     #[test]
     fn a_deck_not_in_use_does_nothing() {
-        let mut bench = Bench::new();
+        let bench = Bench::new();
         bench.press("deck3.brake", 1.0).unwrap();
         assert!(bench.sent().is_empty());
     }
 
     #[test]
     fn a_loop_cleared_is_forgotten_by_the_engine() {
-        let mut bench = Bench::new();
+        let bench = Bench::new();
         crate::actions::transport::set_loop(&bench.state, 0, Some(1.0), Some(3.0), false).unwrap();
         let stored = bench.sent();
         assert!(matches!(
@@ -532,7 +532,7 @@ mod tests {
         let listed: Vec<prisme_control::ListedTarget> =
             serde_json::from_str(&std::fs::read_to_string(path).unwrap()).unwrap();
         let measured = ["deck1.jump.-8", "deck2.loop.0.5", "deck4.key.+2", "deck1.sample3.velocity"];
-        let mut bench = Bench::new();
+        let bench = Bench::new();
         for id in listed.iter().map(|t| t.id.as_str()).chain(measured) {
             let target: Target = id.parse().unwrap();
             if target.owner() == Owner::Ui {
@@ -684,7 +684,7 @@ mod faders {
 
     #[test]
     fn the_key_and_the_stems_of_no_track_and_the_place_in_none_do_nothing() {
-        let mut bench = Bench::new();
+        let bench = Bench::new();
         set(&bench, "deck1.key", 1.0);
         set(&bench, "deck1.vocals.level", 0.2);
         set(&bench, "deck1.position", 0.5);
@@ -715,7 +715,7 @@ mod switches {
 
     #[test]
     fn a_switch_turned_on_or_off_stays_so_and_one_turned_over_flips() {
-        let mut bench = Bench::new();
+        let bench = Bench::new();
         let key_lock = |bench: &Bench| lock(&bench.state.decks)[0].key_lock;
         press(&bench, "deck1.keylock.on");
         press(&bench, "deck1.keylock.on");
@@ -766,7 +766,7 @@ mod switches {
 
     #[test]
     fn a_jump_and_a_sized_loop_go_by_the_size_the_loop_key_by_four_beats() {
-        let mut bench = Bench::new();
+        let bench = Bench::new();
         press(&bench, "deck2.size.double");
         press(&bench, "deck2.jump.back");
         press(&bench, "deck2.loop.size");
@@ -830,7 +830,7 @@ mod switches {
 
     #[test]
     fn the_key_moves_by_a_semitone_within_twelve_either_way() {
-        let mut bench = Bench::new();
+        let bench = Bench::new();
         press(&bench, "deck1.key.up");
         assert!(bench.sent().is_empty(), "no track");
         lock(&bench.state.tracks)[0] = Some(track());
@@ -865,7 +865,7 @@ mod switches {
 
     #[test]
     fn sync_locks_a_deck_or_matches_a_record_once() {
-        let mut bench = Bench::new();
+        let bench = Bench::new();
         press(&bench, "deck1.sync.on");
         lock(&bench.state.decks)[1].vinyl_enabled = true;
         press(&bench, "deck2.sync");
@@ -882,7 +882,7 @@ mod switches {
 
     #[test]
     fn a_deck_matched_once_takes_the_tempo_of_the_other_on_its_fader_but_on_a_record() {
-        let mut bench = Bench::new();
+        let bench = Bench::new();
         bench.load(0, 10.0, Some(125.0));
         bench.load(1, 10.0, Some(128.0));
         bench.sent();

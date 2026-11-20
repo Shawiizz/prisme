@@ -101,13 +101,21 @@ impl Performing<'_> {
     }
 
     /// The selected track put on `deck`, played once there if `play`; the Auto DJ lets the deck
-    /// go.
+    /// go. Nothing before the library is open.
     fn load_selected(&self, target: &Target, deck: usize, play: bool) -> AppResult<()> {
-        let Some(path) = self.selected() else { return Ok(()) };
+        let (Some(path), Some(library)) = (self.selected(), self.library) else { return Ok(()) };
         self.may_replace(target, deck, false)?;
-        let Some(app) = self.app else { return Ok(()) };
         take_over(self.auto_dj().as_deref(), Takeover::Load(deck));
-        if track_loading::load_on_deck(app, deck, path)? && play {
+        let previews = self.app.map(|app| app.state::<Previews>());
+        let Some(completion) =
+            track_loading::put_on_deck(self.state, library, previews.as_deref(), deck, path)?
+        else {
+            return Ok(());
+        };
+        if let Some(app) = self.app {
+            completion.run_aside(app);
+        }
+        if play {
             self.set_playing(deck, true)?;
         }
         Ok(())
@@ -209,7 +217,7 @@ mod tests {
 
     #[test]
     fn a_stopped_deck_gives_its_track_up_without_asking() {
-        let mut bench = Bench::new();
+        let bench = Bench::new();
         bench.load(0, 60.0, None);
         bench.press("deck1.eject", 1.0).unwrap();
         bench.press("deck1.eject", 0.0).unwrap();
@@ -233,7 +241,7 @@ mod tests {
 
     #[test]
     fn a_load_without_a_deck_goes_to_the_first_without_a_track() {
-        let mut bench = Bench::new();
+        let bench = Bench::new();
         let free = |bench: &Bench| bench.performing(Source::Interface).free_deck();
         assert_eq!(free(&bench), 0);
         bench.load(0, 60.0, None);
@@ -257,7 +265,7 @@ mod tests {
 
     #[test]
     fn a_smart_pad_stops_its_sound_plays_it_or_loads_the_selected_one() {
-        let mut bench = Bench::new();
+        let bench = Bench::new();
         select(&bench, Some("missing.wav"));
         assert!(bench.press("deck1.sample3.smart", 1.0).is_err(), "the selected file read");
         let audio = std::sync::Arc::new(prisme_media::TrackAudio::from_interleaved(48_000, vec![0.0; 4_800]));

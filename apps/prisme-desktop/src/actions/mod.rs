@@ -315,7 +315,9 @@ pub(crate) mod bench {
         pub state: AppState,
         pub actions: Actions,
         pub library: LibraryDb,
-        engine: Engine,
+        engine: Mutex<Engine>,
+        /// What the interface was told, in turn.
+        told: Mutex<Vec<(String, serde_json::Value)>>,
     }
 
     impl Bench {
@@ -336,7 +338,28 @@ pub(crate) mod bench {
             let state = AppState::new(JsonFile::in_memory(Default::default()));
             *lock(&state.session) = Some(AudioSession::idle(controller, config, info));
             let library = LibraryDb::open_in_memory().unwrap();
-            Self { state, actions: Actions::start(), library, engine }
+            Self {
+                state,
+                actions: Actions::start(),
+                library,
+                engine: Mutex::new(engine),
+                told: Mutex::default(),
+            }
+        }
+
+        /// `path` selected in the library, as the interface tells it.
+        pub fn select(&self, path: &std::path::Path) {
+            *lock(&self.actions.selected) = Some(path.to_owned());
+        }
+
+        /// What the interface was told since last asked: each event and what it carried.
+        pub fn told(&self) -> Vec<(String, serde_json::Value)> {
+            std::mem::take(&mut *lock(&self.told))
+        }
+
+        /// The application as the actions see it now.
+        pub fn view(&self) -> View {
+            view_of(&self.state, false, &self.actions.clips, 0.0)
         }
 
         /// `id` driven to `value` by the controller `device`.
@@ -369,28 +392,28 @@ pub(crate) mod bench {
 
         /// Where the fader of `id` stands.
         pub fn position(&self, id: &str) -> Option<f32> {
-            let view = view_of(&self.state, false, &self.actions.clips, 0.0);
-            position(&id.parse().unwrap(), &view)
+            position(&id.parse().unwrap(), &self.view())
         }
 
         /// The commands the engine was sent since last asked, not applied.
-        pub fn sent(&mut self) -> Vec<Command> {
-            self.engine.take_commands()
+        pub fn sent(&self) -> Vec<Command> {
+            lock(&self.engine).take_commands()
         }
 
         /// The engine run for `seconds`, a period of 10 ms at least: what it was sent applied,
         /// its state told.
-        pub fn run(&mut self, seconds: f64) {
+        pub fn run(&self, seconds: f64) {
             let frames = 480;
             let (input, mut output) = (vec![0.0; frames * 2], vec![0.0; frames * 2]);
+            let mut engine = lock(&self.engine);
             for _ in 0..(seconds / 0.01).round().max(1.0) as usize {
-                self.engine.process(&input, 2, &mut output, 2);
+                engine.process(&input, 2, &mut output, 2);
             }
         }
 
         /// A silent track of `seconds` on `deck`, with a beat grid at `bpm` from its start if
         /// it has one, stopped at its start.
-        pub fn load(&mut self, deck: usize, seconds: f64, bpm: Option<f64>) {
+        pub fn load(&self, deck: usize, seconds: f64, bpm: Option<f64>) {
             let audio = TrackAudio::from_interleaved(48_000, vec![0.0; (seconds * 48_000.0) as usize * 2]);
             let tempo = bpm.map(|bpm| prisme_analysis::Tempo { bpm, first_beat_s: 0.0, confidence: 1.0 });
             let track = LoadedTrack {
@@ -413,7 +436,7 @@ pub(crate) mod bench {
         }
 
         /// The track on `deck` put at `seconds` on the screen, the engine run.
-        pub fn at(&mut self, deck: usize, seconds: f64) {
+        pub fn at(&self, deck: usize, seconds: f64) {
             let duration_s = self.status(deck).duration_s;
             let input = Input::Value((seconds / duration_s) as f32);
             self.perform(&format!("deck{}.position", deck + 1), input, Source::Interface).unwrap();
@@ -423,6 +446,28 @@ pub(crate) mod bench {
         /// What the engine shows of `deck`.
         pub fn status(&self, deck: usize) -> prisme_engine::DeckStatus {
             self.state.deck_status(deck).unwrap()
+        }
+    }
+
+    /// The bench reached as the application is by the controllers: what they drive performed
+    /// at once, on the thread of their messages, the interface's events kept.
+    impl crate::controllers::Host for Bench {
+        fn actions(&self) -> &Actions {
+            &self.actions
+        }
+
+        fn perform(&self, target: &Target, input: Input, source: Source) {
+            if let Err(e) = self.performing(source).perform(target, input) {
+                self.tell(FAILED_EVENT, &e);
+            }
+        }
+
+        fn tell<P: serde::Serialize + Clone>(&self, event: &str, payload: P) {
+            lock(&self.told).push((event.to_owned(), serde_json::to_value(payload).unwrap()));
+        }
+
+        fn view(&self) -> View {
+            Bench::view(self)
         }
     }
 }

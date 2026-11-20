@@ -460,6 +460,15 @@ pub mod simulated {
         reports.into_values().try_for_each(|report| feed(id, report))
     }
 
+    /// Device `id` as the watch finds it plugged in.
+    #[cfg(test)]
+    pub fn plugged(id: u32) -> Option<super::Plugged> {
+        let entry = entries().into_iter().find(|e| e.path == Path::Simulated(id))?;
+        let name =
+            prisme_control::hid::device_name(&entry.product, entry.info.vendor_id, entry.info.product_id);
+        Some(super::Plugged { name, product: entry.product, info: entry.info, path: entry.path })
+    }
+
     /// The reports device `id` was written since this was last asked.
     pub fn written(id: u32) -> Vec<Vec<u8>> {
         lock(&DEVICES)
