@@ -1,15 +1,13 @@
 import { Injectable, computed, effect, inject, signal, untracked } from '@angular/core';
 import { EffectKind, FxChain, FxSettings, MAX_DECKS } from '../models/engine';
 import { fxId } from '../control/controls';
-import { StemPart } from '../stem-parts';
 import { EngineService } from './engine.service';
 
 /**
  * Each deck's chain of beat effects: in each slot, which effect, on or off, its level, its
  * two knobs and its period; the whole chain on or off; the part of the track the chain is
  * on; the slot the pads and knobs of the screen act on, and the slot a controller's knobs
- * are focused on, if any. A track loaded without that part puts the chain back on the whole
- * deck, where it is heard.
+ * are focused on, if any.
  */
 @Injectable({ providedIn: 'root' })
 export class FxService {
@@ -80,19 +78,6 @@ export class FxService {
   /** The whole chain on or off, each slot keeping its own switch. */
   setChainEnabled(deck: number, enabled: boolean) {
     return this.engine.turn(`deck${deck + 1}.fx.chain`, enabled);
-  }
-
-  /** The parts the chain can be on alone, as the deck's track is separated, after the
-   * whole deck (`null`). */
-  parts(deck: number): (StemPart | null)[] {
-    switch (this.engine.tracks()[deck]?.separation ?? 'none') {
-      case 'none':
-        return [null];
-      case 'vocals':
-        return [null, 'vocals', 'instrumental'];
-      case 'full':
-        return [null, 'vocals', 'drums', 'bass', 'other'];
-    }
   }
 
   /** The chain on the next part it can be on, after the last on the whole deck again. */

@@ -178,14 +178,13 @@ export class DeckPads {
   protected readonly effectPart = computed(() => {
     const part = this.chain().part;
     const stem = this.stemKnobs().find((k) => k.part === part);
-    const parts = this.fx.parts(this.deck());
     return {
       on: part !== null,
       label: stem?.label ?? 'DECK',
       title: t('Effects on: {part}. Click for the next part', {
         part: stem ? stem.name : t('the whole deck'),
       }),
-      choice: parts.length > 1,
+      choice: (this.engine.tracks()[this.deck()]?.separation ?? 'none') !== 'none',
     };
   });
   protected readonly samplerGain = computed(() => this.engine.decks()[this.deck()].samplerGain);

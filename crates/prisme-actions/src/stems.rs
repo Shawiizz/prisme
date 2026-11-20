@@ -129,11 +129,6 @@ impl StemMix {
     }
 }
 
-/// Whether any stem of `part` is in `bits`, the engine's set (`DeckStatus::stems_waiting`).
-pub fn part_in(bits: u8, part: StemPart) -> bool {
-    stems_of(part).iter().any(|&s| bits & (1 << s) != 0)
-}
-
 impl From<StemMix> for prisme_engine::StemMix {
     fn from(m: StemMix) -> Self {
         Self { vocals: m.vocals.gain(), drums: m.drums.gain(), bass: m.bass.gain(), other: m.other.gain() }
@@ -204,14 +199,5 @@ mod tests {
         let mix = StemMix { vocals: at(0.5, true), drums: at(1.0, false), ..Default::default() };
         let engine = prisme_engine::StemMix::from(mix);
         assert_eq!((engine.vocals, engine.drums, engine.bass), (0.25, 0.0, 1.0));
-    }
-
-    #[test]
-    fn the_engine_bits_tell_a_part_the_instrumental_by_any_of_its_instruments() {
-        assert!(part_in(0b0001, StemPart::Vocals));
-        assert!(!part_in(0b0001, StemPart::Drums));
-        assert!(part_in(0b0100, StemPart::Bass));
-        assert!(part_in(0b1000, StemPart::Instrumental));
-        assert!(!part_in(0b0001, StemPart::Instrumental));
     }
 }
