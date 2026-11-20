@@ -3,7 +3,7 @@
 //! fired by the backend's clock, as a controller's key with a hold is.
 
 use crate::state::lock;
-use prisme_actions::hold::{interface_rule, Pressed};
+use prisme_actions::hold::{interface_rule, Pressed, Release};
 use prisme_actions::screen;
 use prisme_actions::view::View;
 use prisme_control::{DeckAction, Target};
@@ -42,25 +42,27 @@ impl Keys {
         let Some((timing, hold)) = interface_rule(target) else { return Press::Act };
         let mut held = lock(&self.0);
         let at = held.iter().position(|k| k.target == *target && !k.pressed.released());
-        // let go while the clock performs its action: let go after it (see `fired`)
-        if value <= 0.0 && at.is_some_and(|at| held[at].pressed.let_go()) {
-            return Press::Wait;
-        }
-        let was = at.map(|at| held.remove(at));
         if value > 0.0 {
+            if let Some(at) = at {
+                held.remove(at);
+            }
             let waits = hold.is_some();
             held.push(Held { target: target.clone(), pressed: Pressed::new(timing, now_s), hold });
             return if waits { Press::Wait } else { Press::Act };
         }
-        let Some(hold) = hold else { return Press::Act };
         // its press lost, or never seen
-        let Some(mut was) = was else { return Press::Wait };
-        if was.pressed.acted() {
-            Press::Release(hold)
-        } else if was.pressed.due(now_s) {
-            Press::Held(hold)
-        } else {
-            Press::Tap
+        let Some(at) = at else { return if hold.is_some() { Press::Wait } else { Press::Act } };
+        let release = held[at].pressed.release(now_s);
+        // let go while the clock performs its action: let go after it (see `fired`)
+        if release == Release::Wait {
+            return Press::Wait;
+        }
+        held.remove(at);
+        match (hold, release) {
+            (None, _) => Press::Act,
+            (Some(hold), Release::Release) => Press::Release(hold),
+            (Some(hold), Release::Late) => Press::Held(hold),
+            (Some(_), _) => Press::Tap,
         }
     }
 

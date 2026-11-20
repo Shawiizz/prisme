@@ -33,12 +33,26 @@ pub fn interface_rule(target: &Target) -> Option<(Timing, Option<Target>)> {
     }
 }
 
+/// What letting a key go does, held as long as it was.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Release {
+    /// Its action due is being performed: its release waits for it ([`Pressed::fired`]).
+    Wait,
+    /// It acted while held: what it held is let go.
+    Release,
+    /// Its time came, the clock late to see it: what it holds pressed and let go.
+    Late,
+    /// Let go before its time: its own action, pressed and let go.
+    Tap,
+}
+
 /// A key pressed at a moment, on any clock that goes on (s).
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Pressed {
     timing: Timing,
     /// When it acts next, if it still does.
     next_s: Option<f64>,
+    /// It acted while held: a key with a hold let go then lets its hold go, not its own action.
     acted: bool,
     firing: Firing,
 }
@@ -78,11 +92,24 @@ impl Pressed {
 
     /// Let go: whether its release waits for its action due, not performed yet ([`Self::fired`]
     /// then says it was let go).
-    pub fn let_go(&mut self) -> bool {
+    fn let_go(&mut self) -> bool {
         if self.firing == Firing::Now {
             self.firing = Firing::LetGo;
         }
         self.released()
+    }
+
+    /// Let go at `now_s`: what that does. Waiting, it stays held until its action is performed.
+    pub fn release(&mut self, now_s: f64) -> Release {
+        if self.let_go() {
+            Release::Wait
+        } else if self.acted {
+            Release::Release
+        } else if self.due(now_s) {
+            Release::Late
+        } else {
+            Release::Tap
+        }
     }
 
     /// Let go already, its release waiting for its action.
@@ -95,11 +122,6 @@ impl Pressed {
     pub fn fired(&mut self) -> bool {
         std::mem::replace(&mut self.firing, Firing::No) == Firing::LetGo
     }
-
-    /// It acted while held: a key with a hold let go then lets its hold go, not its own action.
-    pub fn acted(&self) -> bool {
-        self.acted
-    }
 }
 
 #[cfg(test)]
@@ -110,10 +132,10 @@ mod tests {
     fn a_key_held_long_enough_acts_once() {
         let mut pressed = Pressed::new(Timing::Held(450), 10.0);
         assert!(!pressed.due(10.44));
-        assert!(!pressed.acted(), "let go now, a tap");
+        assert!(!pressed.acted, "let go now, a tap");
         assert!(pressed.due(10.45));
         assert!(!pressed.due(11.0), "once");
-        assert!(pressed.acted());
+        assert!(pressed.acted);
     }
 
     #[test]
@@ -130,6 +152,24 @@ mod tests {
         kept.due(0.5);
         assert!(!kept.fired(), "held on");
         assert!(!kept.let_go(), "its action performed: let go at once");
+    }
+
+    #[test]
+    fn a_key_let_go_taps_lets_its_hold_go_or_waits_for_it() {
+        let release = |due_at: Option<f64>, at: f64| {
+            let mut pressed = Pressed::new(Timing::Held(450), 0.0);
+            if let Some(due_at) = due_at {
+                pressed.due(due_at);
+            }
+            pressed.release(at)
+        };
+        assert_eq!(release(None, 0.2), Release::Tap);
+        assert_eq!(release(None, 0.6), Release::Late, "the clock did not see its time");
+        assert_eq!(release(Some(0.5), 0.6), Release::Wait, "its action not performed yet");
+        let mut held = Pressed::new(Timing::Held(450), 0.0);
+        held.due(0.5);
+        held.fired();
+        assert_eq!(held.release(0.7), Release::Release);
     }
 
     #[test]

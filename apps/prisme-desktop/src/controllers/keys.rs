@@ -8,7 +8,7 @@ use super::{
 use crate::actions::{Host, InTurn, Moved, Source};
 use crate::dto::UiActionDto;
 use crate::state::lock;
-use prisme_actions::hold::{Pressed, Timing};
+use prisme_actions::hold::{Pressed, Release, Timing};
 use prisme_actions::input::Input;
 use prisme_control::hid::Read;
 use prisme_control::{Control, Event, FaderSet, Hold, Mapping, Owner, Reader, TargetId};
@@ -218,26 +218,27 @@ impl Controllers {
         let at = holdings
             .iter()
             .position(|h| h.device == device && h.control == event.control && !h.pressed.released())?;
-        if holdings[at].pressed.let_go() {
+        let since = holdings[at].since.elapsed().as_secs_f64();
+        let release = holdings[at].pressed.release(since);
+        if release == Release::Wait {
             // the clock performs its hold now: let go after it (see `hold_fired`)
             holdings[at].at_s = at_s;
             return None;
         }
-        let mut held = holdings.remove(at);
-        // let go after its time, the clock late: held all the same
-        let late = !held.pressed.acted() && held.pressed.due(held.since.elapsed().as_secs_f64());
+        let held = holdings.remove(at);
         let target = &held.hold.target;
-        if let Some((group, mode)) = target.mode() {
-            if late {
+        match (target.mode(), release) {
+            // let go after its time, the clock late: held all the same
+            (Some((group, mode)), Release::Late) => {
                 reader.set_mode(device, group, mode);
-            }
-            if held.pressed.acted() {
                 return None;
             }
-        } else if late {
-            return driven(vec![Action::press(target, 1.0), Action::press(target, 0.0)]);
-        } else if held.pressed.acted() {
-            return driven(vec![Action::press(target, 0.0)]);
+            (Some(_), Release::Release) => return None,
+            (None, Release::Late) => {
+                return driven(vec![Action::press(target, 1.0), Action::press(target, 0.0)]);
+            }
+            (None, Release::Release) => return driven(vec![Action::press(target, 0.0)]),
+            _ => {}
         }
         reader.choose(device, mapping);
         let mut pressed = inputs(mapping, 1.0);
