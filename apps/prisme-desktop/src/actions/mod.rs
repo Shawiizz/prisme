@@ -467,8 +467,8 @@ impl Actions {
         let _ = self.kept.send(Box::new(write));
     }
 
-    /// Seconds since Prisme started.
-    fn now_s(&self) -> f64 {
+    /// Seconds since Prisme started: the clock of the actions no controller times.
+    pub(crate) fn now_s(&self) -> f64 {
         self.started.elapsed().as_secs_f64()
     }
 

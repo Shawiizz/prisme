@@ -20,6 +20,7 @@ use crate::state::{lock, AppState};
 use midir::{Ignore, MidiInput, MidiInputConnection, MidiOutput, MidiOutputConnection};
 use prisme_actions::input::Input;
 use prisme_actions::light::{light, told_by_interface};
+use prisme_actions::perform::ClipHold;
 use prisme_actions::position::output;
 use prisme_actions::view::View;
 use prisme_audio_io::base_device_name;
@@ -53,8 +54,6 @@ const WATCH_WITHOUT_MIDI_EVERY: Duration = Duration::from_secs(10);
 const OUTPUT_EVERY: Duration = Duration::from_millis(20);
 /// How often the levels shown on the controllers are sent.
 const METERS_EVERY: Duration = Duration::from_millis(40);
-/// How long a meter shows its clip value after its level reached full scale.
-const CLIP_SHOWN: Duration = Duration::from_secs(1);
 /// The most steps of an encoder driving keys pressed for one of its messages.
 const MOST_KEY_STEPS: i32 = 16;
 /// The state a light shows while its key is held, if its profile gives it one.
@@ -192,10 +191,10 @@ struct Connection {
     room: ShownRoom,
     /// The messages of its profile to send later, and when.
     later: Vec<(Instant, Vec<u8>)>,
-    /// When each of its meters last reached full scale.
-    clipped: HashMap<usize, Instant>,
-    /// What each of its screens' numbers was last sent, by its place among the displays.
-    displayed: HashMap<usize, Vec<u8>>,
+    /// When each of its meters last reached full scale, by its place among the meters.
+    clipped: Vec<ClipHold>,
+    /// The number each of its screens was last sent, by its place among the displays.
+    displayed: Vec<Option<i64>>,
 }
 
 /// How a controller is reached.
@@ -972,8 +971,8 @@ impl Controllers {
             for extra in &profile.lights {
                 connection.light(extra.control, Shade::Given(extra.values.value(OFF)));
             }
-            for (control, value) in profile.meters.iter().flat_map(|m| m.show(0.0, false)) {
-                connection.light(control, Shade::Given(&value));
+            for meter in &profile.meters {
+                meter.show(0.0, false, |control, value| connection.light(control, Shade::Given(value)));
             }
             for message in &profile.close {
                 connection.send(message);
@@ -1002,9 +1001,10 @@ impl Controllers {
                 controllers.fire_holds(&app);
                 let levels = (metered.elapsed() >= METERS_EVERY).then(|| {
                     metered = Instant::now();
-                    levels(&app.state::<AppState>())
+                    Levels::of(&app.state::<AppState>())
                 });
-                controllers.drive(&app.state::<Actions>().view(&app), levels.as_ref());
+                let actions = app.state::<Actions>();
+                controllers.drive(&actions.view(&app), levels.flatten().as_ref(), actions.now_s());
             }
         });
         if let Err(e) = spawned {
@@ -1012,9 +1012,9 @@ impl Controllers {
         }
     }
 
-    /// A tick of [`Self::drive_outputs`]: what each controller shows of `view`, and of the
-    /// `levels` of its meters when they are due.
-    fn drive(&self, view: &View, levels: Option<&HashMap<String, f32>>) {
+    /// A tick of [`Self::drive_outputs`] at `now_s` on the actions' clock: what each controller
+    /// shows of `view`, and of the `levels` of its meters when they are due.
+    fn drive(&self, view: &View, levels: Option<&Levels>, now_s: f64) {
         for connection in lock(&self.connections).iter_mut() {
             self.show(connection, view);
             connection.blink();
@@ -1031,15 +1031,11 @@ impl Controllers {
                     connection.send(&keep.message);
                 }
             }
+            connection.clipped.resize(profile.meters.len(), ClipHold::default());
             for (at, meter) in profile.meters.iter().enumerate().filter(|(_, m)| shown(&m.when)) {
-                let Some(&level) = levels.and_then(|l| l.get(&meter.source)) else { continue };
-                if level >= 1.0 {
-                    connection.clipped.insert(at, Instant::now());
-                }
-                let clipping = connection.clipped.get(&at).is_some_and(|t| t.elapsed() < CLIP_SHOWN);
-                for (control, value) in meter.show(level, clipping) {
-                    connection.light(control, Shade::Given(&value));
-                }
+                let Some(level) = levels.and_then(|l| l.of_source(&meter.source)) else { continue };
+                let clipping = connection.clipped[at].heard(level, now_s);
+                meter.show(level, clipping, |control, value| connection.light(control, Shade::Given(value)));
             }
             let value_of = |source: &prisme_control::SourceId| output(source.named()?, view);
             for output in profile.outputs.iter().filter(|o| shown(&o.when)) {
@@ -1047,12 +1043,13 @@ impl Controllers {
                     connection.light(output.control, Shade::Steady(output.value(value as f32)));
                 }
             }
+            connection.displayed.resize(profile.displays.len(), None);
             for (at, display) in profile.displays.iter().enumerate().filter(|(_, d)| shown(&d.when)) {
                 let Some(value) = value_of(&display.source) else { continue };
-                let message = display.message(value);
-                if connection.displayed.get(&at) != Some(&message) {
-                    connection.send(&message);
-                    connection.displayed.insert(at, message);
+                let number = Some(display.number(value));
+                if connection.displayed[at] != number {
+                    connection.send(&display.message(value));
+                    connection.displayed[at] = number;
                 }
             }
         }
@@ -1131,8 +1128,8 @@ impl Controllers {
             lit: Lit::default(),
             room: ShownRoom::default(),
             later: Vec::new(),
-            clipped: HashMap::new(),
-            displayed: HashMap::new(),
+            clipped: Vec::new(),
+            displayed: Vec::new(),
         };
         for (after_ms, message) in profile.iter().flat_map(|p| p.init.iter().map(|m| m.when_and_what())) {
             if after_ms == 0 {
@@ -1580,21 +1577,43 @@ fn key_steps(up: &TargetId, down: &TargetId, steps: i32) -> Option<Routed> {
     driven((0..presses).flat_map(|_| [Action::press(target, 1.0), Action::press(target, 0.0)]).collect())
 }
 
-/// The level of each source of a meter (`deck1`…, `main`) at the moment; none when the audio
-/// is not running.
-fn levels(state: &AppState) -> HashMap<String, f32> {
-    let mut session = lock(&state.session);
-    let Some(session) = session.as_mut() else { return HashMap::new() };
-    let status = session.controller.status();
-    let decks = status.decks[..status.deck_count].iter().enumerate();
-    decks
-        .map(|(d, deck)| (format!("deck{}", d + 1), deck.peak))
-        .chain([
-            ("main".to_owned(), status.main_peak),
-            ("main.left".to_owned(), status.master_peaks[0]),
-            ("main.right".to_owned(), status.master_peaks[1]),
-        ])
-        .collect()
+/// The levels the meters show, at a moment.
+#[derive(Debug, Clone, Copy)]
+struct Levels {
+    /// The decks the engine runs, each.
+    decks: [f32; prisme_control::MAX_DECKS],
+    deck_count: usize,
+    main: f32,
+    /// The master's left and right.
+    sides: [f32; 2],
+}
+
+impl Levels {
+    /// The levels of the running engine; none while the audio is not running.
+    fn of(state: &AppState) -> Option<Self> {
+        let status = lock(&state.session).as_mut()?.controller.status();
+        let decks = std::array::from_fn(|d| status.decks[d].peak);
+        Some(Levels {
+            decks,
+            deck_count: status.deck_count,
+            main: status.main_peak,
+            sides: status.master_peaks,
+        })
+    }
+
+    /// The level of a meter's `source`: `deck1`… (one the engine runs), `main`, `main.left`,
+    /// `main.right`.
+    fn of_source(&self, source: &str) -> Option<f32> {
+        match source {
+            "main" => Some(self.main),
+            "main.left" => Some(self.sides[0]),
+            "main.right" => Some(self.sides[1]),
+            _ => {
+                let deck: usize = source.strip_prefix("deck")?.parse().ok()?;
+                (1..=self.deck_count).contains(&deck).then(|| self.decks[deck - 1])
+            }
+        }
+    }
 }
 
 /// The output of the same name, for the lights.
@@ -2178,14 +2197,16 @@ mod tests {
     /// The messages going to the controller for `meter` at `level`, what `lit` shows already
     /// left out.
     fn sent(lit: &mut Lit, meter: &Meter, level: f32, clipping: bool) -> Vec<Vec<u8>> {
-        meter
-            .show(level, clipping)
-            .into_iter()
-            .filter_map(|(control, value)| match lit.light(control, Shade::Given(&value))? {
-                Lighting::Value(control, value) => prisme_control::light(control, value).map(Vec::from),
-                Lighting::Message(_, message) => Some(message.to_vec()),
-            })
-            .collect()
+        let mut sent = Vec::new();
+        meter.show(level, clipping, |control, value| {
+            let message = match lit.light(control, Shade::Given(value)) {
+                Some(Lighting::Value(control, value)) => prisme_control::light(control, value).map(Vec::from),
+                Some(Lighting::Message(_, message)) => Some(message.to_vec()),
+                None => None,
+            };
+            sent.extend(message);
+        });
+        sent
     }
 
     #[test]
@@ -2207,6 +2228,15 @@ mod tests {
     }
 
     #[test]
+    fn a_meter_reads_the_level_of_its_source_among_the_decks_the_engine_runs() {
+        let levels = Levels { decks: [0.1, 0.2, 0.3, 0.4], deck_count: 2, main: 0.5, sides: [0.6, 0.7] };
+        assert_eq!(levels.of_source("deck2"), Some(0.2));
+        assert_eq!(levels.of_source("deck3"), None, "not running");
+        assert_eq!(levels.of_source("deck0"), None);
+        assert_eq!(levels.of_source("main.right"), Some(0.7));
+    }
+
+    #[test]
     fn a_connection_shows_its_lights_as_they_change_in_the_room_it_keeps() {
         let c = with_mappings([with(mapping(PAD, "deck1.play"), lit(ON, 10))]);
         let mut connection = Connection {
@@ -2218,8 +2248,8 @@ mod tests {
             lit: Lit::default(),
             room: ShownRoom::default(),
             later: Vec::new(),
-            clipped: HashMap::new(),
-            displayed: HashMap::new(),
+            clipped: Vec::new(),
+            displayed: Vec::new(),
         };
         let mut playing = view();
         c.show(&mut connection, &playing);

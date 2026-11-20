@@ -57,16 +57,16 @@ pub struct Clips {
     main: ClipHold,
 }
 
-/// When a level last went past full scale.
+/// When a level last went past full scale: a clip light, or a controller's meter.
 #[derive(Debug, Clone, Copy, Default)]
-struct ClipHold {
+pub struct ClipHold {
     at_s: Option<f64>,
 }
 
 impl ClipHold {
     /// A level of `peak` heard at `now_s` (seconds, on any clock that goes on): whether it
     /// shows clipping.
-    fn heard(&mut self, peak: f32, now_s: f64) -> bool {
+    pub fn heard(&mut self, peak: f32, now_s: f64) -> bool {
         if peak >= 1.0 {
             self.at_s = Some(now_s);
         }

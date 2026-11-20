@@ -167,9 +167,14 @@ pub enum ValuePlace {
 }
 
 impl Display {
+    /// The number it shows for `value`, its source's: its message changes with it alone.
+    pub fn number(&self, value: f64) -> i64 {
+        (value * self.scale + self.offset).round() as i64
+    }
+
     /// The message showing `value`, its source's.
     pub fn message(&self, value: f64) -> Vec<u8> {
-        let number = (value * self.scale + self.offset).round() as i64;
+        let number = self.number(value);
         let mut message = Vec::with_capacity(self.message.len() + 16);
         for part in &self.message {
             match (part, self.nibbles) {
@@ -280,22 +285,22 @@ const CLIP: &str = "clip";
 
 impl Meter {
     /// What its controls show at `level` (full scale 1), `clipping` for a while after the
-    /// level reached full scale.
-    pub fn show(&self, level: f32, clipping: bool) -> Vec<(Control, LightValue)> {
+    /// level reached full scale: each given to `show`, in turn.
+    pub fn show(&self, level: f32, clipping: bool, mut show: impl FnMut(Control, &LightValue)) {
         let shaped = level.clamp(0.0, 1.0).powf(self.curve);
         match &self.on {
             MeterOn::Control { control, clip: Some(clip), .. } if clipping => {
-                vec![(*control, LightValue::Steady(*clip))]
+                show(*control, &LightValue::Steady(*clip))
             }
             MeterOn::Control { control, min, max, steps, .. } => {
                 let value = match steps.len().checked_sub(1) {
                     Some(last) => steps[(shaped * last as f32).round() as usize],
                     None => (f32::from(*min) + shaped * (f32::from(*max) - f32::from(*min))).round() as u8,
                 };
-                vec![(*control, LightValue::Steady(value))]
+                show(*control, &LightValue::Steady(value))
             }
             MeterOn::Leds { leds } => {
-                leds.iter().map(|led| (led.control, led.value(shaped, clipping))).collect()
+                leds.iter().for_each(|led| show(led.control, led.value(shaped, clipping)))
             }
         }
     }
@@ -303,7 +308,7 @@ impl Meter {
 
 impl MeterLed {
     /// Its value at `shaped`, the level past its meter's curve.
-    fn value(&self, shaped: f32, clipping: bool) -> LightValue {
+    fn value(&self, shaped: f32, clipping: bool) -> &LightValue {
         let state = if clipping && self.values.has(CLIP) {
             CLIP
         } else if shaped >= self.from {
@@ -311,7 +316,7 @@ impl MeterLed {
         } else {
             OFF
         };
-        self.values.value(state).clone()
+        self.values.value(state)
     }
 }
 
@@ -688,9 +693,16 @@ mod tests {
         serde_json::from_str(json).unwrap()
     }
 
+    /// What `meter` shows at `level`, `clipping` or not.
+    fn shown(meter: &Meter, level: f32, clipping: bool) -> Vec<(Control, LightValue)> {
+        let mut shown = Vec::new();
+        meter.show(level, clipping, |control, value| shown.push((control, value.clone())));
+        shown
+    }
+
     /// The value a meter on one control shows at `level`.
     fn value(meter: &Meter, level: f32) -> u8 {
-        match meter.show(level, false)[..] {
+        match shown(meter, level, false)[..] {
             [(_, LightValue::Steady(value))] => value,
             ref shown => panic!("not a value on one control: {shown:?}"),
         }
@@ -731,7 +743,7 @@ mod tests {
         let meter = meter(
             r#"{ "source": "deck1", "control": { "kind": "controlChange", "channel": 0, "number": 2 }, "max": 117, "clip": 119 }"#,
         );
-        assert_eq!(meter.show(0.5, true), [(meter_control(0, 2), LightValue::Steady(119))]);
+        assert_eq!(shown(&meter, 0.5, true), [(meter_control(0, 2), LightValue::Steady(119))]);
     }
 
     fn meter_control(channel: u8, number: u8) -> Control {
@@ -749,13 +761,13 @@ mod tests {
     }
 
     fn lit(meter: &Meter, level: f32, clipping: bool) -> Vec<LightValue> {
-        meter.show(level, clipping).into_iter().map(|(_, value)| value).collect()
+        shown(meter, level, clipping).into_iter().map(|(_, value)| value).collect()
     }
 
     #[test]
     fn each_led_of_a_meter_lights_from_its_own_share_with_a_lights_values() {
         let meter = leds();
-        let controls: Vec<Control> = meter.show(0.0, false).into_iter().map(|(c, _)| c).collect();
+        let controls: Vec<Control> = shown(&meter, 0.0, false).into_iter().map(|(c, _)| c).collect();
         assert_eq!(controls, [83, 84, 85].map(|n| meter_control(0, n)));
         let [unlit, lit_message] = [81, 80].map(|on| LightValue::Message(vec![176, on, 10]));
         let steady = LightValue::Steady;
