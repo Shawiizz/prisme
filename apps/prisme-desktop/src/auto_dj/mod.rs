@@ -163,7 +163,7 @@ impl AutoDj {
             }
             Action::Cue { deck, position_s } => state.send(Command::Seek { deck, seconds: position_s }),
             Action::Start { deck, from_s, rate, snap } => {
-                lock(&state.decks)[deck].pitch = rate;
+                state.decks.change(|decks| decks[deck].pitch = rate);
                 let snap = snap.then_some(Command::SyncOnce { deck });
                 [
                     Some(Command::SetSyncLocked { deck, locked: false }),
@@ -178,7 +178,7 @@ impl AutoDj {
             }
             Action::Stop { deck } => state.send(Command::SetPlaying { deck, playing: false }),
             Action::Crossfader(position) => {
-                *lock(&state.crossfader) = position;
+                state.crossfader.set(position);
                 state.send(Command::SetCrossfader { position })
             }
             Action::TakeOut(path) => {

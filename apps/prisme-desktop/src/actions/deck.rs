@@ -63,7 +63,7 @@ fn jog(
 /// The tempo of `deck`'s fader, as a ratio to its track's; kept as the audio stops.
 pub fn set_pitch(state: &AppState, deck: usize, ratio: f64) -> AppResult<()> {
     state.deck_in_use(deck)?;
-    lock(&state.decks)[deck].pitch = ratio;
+    state.decks.change(|decks| decks[deck].pitch = ratio);
     state.send_if_running(Command::SetPitch { deck, ratio })
 }
 

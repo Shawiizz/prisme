@@ -15,11 +15,9 @@ use tauri::State;
 
 /// The settings of the decks and the mixer of `state`, their knobs as `view` shows them.
 pub fn mixer_state_of(state: &AppState, view: &View) -> MixerStateDto {
-    let (mixer, ranges) =
-        state.preferences.read(|p| (p.mixer, std::array::from_fn::<_, MAX_DECKS, _>(|d| p.tempo_range(d))));
+    let mixer = state.preferences.read(|p| p.mixer);
     let info = lock(&state.session).as_ref().map(|s| s.info.clone());
     let routing = info.as_ref().map(|info| state.routing(info));
-    let samplers = lock(&state.samplers);
     let switches = *lock(&state.live);
     let free = info.as_ref().map(free_inputs).unwrap_or_default();
     let live = |source: LiveSourceDto| {
@@ -41,46 +39,7 @@ pub fn mixer_state_of(state: &AppState, view: &View) -> MixerStateDto {
     let headphones_in_use = routing.and_then(|r| r.headphones);
     let booth_in_use = routing.and_then(|r| r.booth);
     let laid_out = info.as_ref().map_or(view.decks_in_use, |info| info.decks);
-    let inputs = info.as_ref().map(|info| info.input_channels);
-    let turntables = info.as_ref().is_some_and(|info| info.simulated || info.input_channels >= 2);
     MixerStateDto {
-        decks: state
-            .decks_laid_out(info.as_ref().map(AudioInfo::layout))
-            .iter()
-            .zip(samplers.iter())
-            .enumerate()
-            .map(|(deck, (d, samples))| DeckSettingsDto {
-                pitch: d.pitch,
-                volume: d.volume,
-                cue: d.cue,
-                vinyl_enabled: d.vinyl_enabled,
-                vinyl_mode: d.vinyl_mode,
-                rpm: d.rpm,
-                lead_in_s: d.lead_in_s,
-                record_lead_in_s: Rpm::from(d.rpm).music_s(d.timecode.lead_in_s),
-                swap_channels: d.swap_channels,
-                timecode: d.timecode.id,
-                key_lock: d.key_lock,
-                fader_start: d.fader_start,
-                tempo_range: ranges[deck],
-                strip: d.strip,
-                knobs: knobs::strip(view, deck),
-                fx: d.fx,
-                samples: samples.iter().map(|s| s.as_ref().map(|s| sampler::name(&s.path))).collect(),
-                sampler_gain: d.sampler_gain,
-                size_beats: d.size_beats,
-                passthrough: d.passthrough,
-                records: turntables || d.vinyl_enabled || d.passthrough,
-                input: inputs.map(|inputs| 2 * deck_pair(deck, laid_out, inputs)),
-                layered_on: inputs
-                    .and_then(|inputs| layer_partner(deck, laid_out, inputs))
-                    .filter(|&partner| partner < deck),
-                side: d.side.unwrap_or(CrossfaderSideDto::of_deck(deck)),
-                jog_scratch: d.jog_scratch,
-                repeat: d.repeat,
-                mute: d.mute,
-            })
-            .collect(),
         knobs: knobs::mixer(view),
         mode: mixer.mode,
         internal,
@@ -113,6 +72,53 @@ pub fn mixer_state_of(state: &AppState, view: &View) -> MixerStateDto {
         record_options: general::record_options(internal, info.as_ref()),
         last_recording: lock(&state.recorded).clone(),
     }
+}
+
+/// The decks' settings as the interface shows them, `view` showing their knobs.
+pub fn decks_of(state: &AppState, view: &View) -> Vec<DeckSettingsDto> {
+    let ranges = state.preferences.read(|p| std::array::from_fn::<_, MAX_DECKS, _>(|d| p.tempo_range(d)));
+    let info = lock(&state.session).as_ref().map(|s| s.info.clone());
+    let samplers = lock(&state.samplers);
+    let laid_out = info.as_ref().map_or(view.decks_in_use, |info| info.decks);
+    let inputs = info.as_ref().map(|info| info.input_channels);
+    let turntables = info.as_ref().is_some_and(|info| info.simulated || info.input_channels >= 2);
+    state
+        .decks_laid_out(info.as_ref().map(AudioInfo::layout))
+        .iter()
+        .zip(samplers.iter())
+        .enumerate()
+        .map(|(deck, (d, samples))| DeckSettingsDto {
+            pitch: d.pitch,
+            volume: d.volume,
+            cue: d.cue,
+            vinyl_enabled: d.vinyl_enabled,
+            vinyl_mode: d.vinyl_mode,
+            rpm: d.rpm,
+            lead_in_s: d.lead_in_s,
+            record_lead_in_s: Rpm::from(d.rpm).music_s(d.timecode.lead_in_s),
+            swap_channels: d.swap_channels,
+            timecode: d.timecode.id,
+            key_lock: d.key_lock,
+            fader_start: d.fader_start,
+            tempo_range: ranges[deck],
+            strip: d.strip,
+            knobs: knobs::strip(view, deck),
+            fx: d.fx,
+            samples: samples.iter().map(|s| s.as_ref().map(|s| sampler::name(&s.path))).collect(),
+            sampler_gain: d.sampler_gain,
+            size_beats: d.size_beats,
+            passthrough: d.passthrough,
+            records: turntables || d.vinyl_enabled || d.passthrough,
+            input: inputs.map(|inputs| 2 * deck_pair(deck, laid_out, inputs)),
+            layered_on: inputs
+                .and_then(|inputs| layer_partner(deck, laid_out, inputs))
+                .filter(|&partner| partner < deck),
+            side: d.side.unwrap_or(CrossfaderSideDto::of_deck(deck)),
+            jog_scratch: d.jog_scratch,
+            repeat: d.repeat,
+            mute: d.mute,
+        })
+        .collect()
 }
 
 /// External or software mixer, kept for the next start: the mode in use follows (an external

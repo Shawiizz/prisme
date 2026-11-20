@@ -176,7 +176,7 @@ impl LoadedTrack {
     }
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub struct DeckSettings {
     pub pitch: f64,
     pub volume: f32,
@@ -344,8 +344,10 @@ pub struct AppState {
 /// A part of what the interface mirrors (`ControlStateDto`), sent again alone when it changed.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Section {
-    /// The decks' settings, their samplers, the mixer, the routing, the DJ's preferences.
+    /// The mixer, the routing, the DJ's preferences of them.
     Mixer,
+    /// The decks' settings and their samplers.
+    Decks,
     /// The decks' tracks, and their loads.
     Tracks,
     /// What the pads hold.
@@ -371,6 +373,7 @@ pub enum Section {
 impl Section {
     pub const ALL: [Section; SECTIONS] = [
         Section::Mixer,
+        Section::Decks,
         Section::Tracks,
         Section::Perform,
         Section::Preview,
@@ -385,7 +388,7 @@ impl Section {
     ];
 }
 
-pub const SECTIONS: usize = 12;
+pub const SECTIONS: usize = 13;
 
 /// Where the changes of each [`Section`] are at: each moves at every change of its own.
 #[derive(Default)]
@@ -415,14 +418,21 @@ impl<T> Mirrored<T> {
     }
 }
 
-impl<T: PartialEq> Mirrored<T> {
+impl<T: Clone + PartialEq> Mirrored<T> {
     /// Holds `value` from now: its section moves only if it changed.
     pub fn set(&self, value: T) {
+        self.change(|held| *held = value);
+    }
+
+    /// `change` made to what it holds: its section moves only if that changed.
+    pub fn change<R>(&self, change: impl FnOnce(&mut T) -> R) -> R {
         let mut held = self.value.guard();
-        if *held != value {
-            *held = value;
+        let before = (*held).clone();
+        let changed = change(&mut held);
+        if *held != before {
             self.revisions.moved(self.section);
         }
+        changed
     }
 }
 
@@ -557,7 +567,7 @@ impl AppState {
             session: Mutex::new(None),
             tracks: Mirrored::new(Default::default(), &revisions, Section::Tracks),
             load_turns: LoadTurns::default(),
-            decks: Mirrored::new(saved.map(DeckSettings::from), &revisions, Section::Mixer),
+            decks: Mirrored::new(saved.map(DeckSettings::from), &revisions, Section::Decks),
             crossfader: Mirrored::new(0.0, &revisions, Section::Mixer),
             sync_leader: Mutex::default(),
             live: Mirrored::new(Default::default(), &revisions, Section::Mixer),
@@ -565,7 +575,7 @@ impl AppState {
             recorded: Mirrored::new(None, &revisions, Section::Mixer),
             audio_start: Mutex::new(()),
             carried: Mutex::default(),
-            samplers: Mirrored::new(Samplers::default(), &revisions, Section::Mixer),
+            samplers: Mirrored::new(Samplers::default(), &revisions, Section::Decks),
             perform: Mirrored::new(PerformState::default(), &revisions, Section::Perform),
             preview: Mirrored::new(PreviewStateDto::default(), &revisions, Section::Preview),
             stems: Mirrored::new(Default::default(), &revisions, Section::Stems),
@@ -627,10 +637,12 @@ impl AppState {
         self.revisions.moved(Section::Library);
     }
 
-    /// Changes the preferences, saved soon after; the interface hears of it.
+    /// Changes the preferences, saved soon after; the interface hears of it (the mixer, and the
+    /// decks' tempo ranges).
     pub fn update_preferences(&self, change: impl FnOnce(&mut Preferences)) {
         self.preferences.update(change);
         self.revisions.moved(Section::Mixer);
+        self.revisions.moved(Section::Decks);
     }
 
     /// [`Self::update_preferences`] for what the settings show of them (the DJ's, the
@@ -646,8 +658,9 @@ impl AppState {
     /// routing as the device lays them out.
     pub fn replace_session(&self, session: Option<AudioSession>) -> Option<AudioSession> {
         let previous = std::mem::replace(&mut *lock(&self.session), session);
-        self.revisions.moved(Section::Mixer);
-        self.revisions.moved(Section::Audio);
+        for section in [Section::Mixer, Section::Decks, Section::Audio] {
+            self.revisions.moved(section);
+        }
         previous
     }
 
@@ -827,7 +840,7 @@ impl AppState {
         command: Command,
     ) -> AppResult<()> {
         Self::deck_exists(deck)?;
-        change(&mut lock(&self.decks)[deck]);
+        self.decks.change(|decks| change(&mut decks[deck]));
         self.send_if_running(command)
     }
 
@@ -1514,7 +1527,7 @@ mod tests {
         let revision = bench.state.revision();
         let session = bench.state.replace_session(None);
         assert!(session.is_some());
-        assert_eq!(bench.state.moved_since(revision), [Section::Mixer, Section::Audio]);
+        assert_eq!(bench.state.moved_since(revision), [Section::Mixer, Section::Decks, Section::Audio]);
         bench.state.replace_session(session);
         assert!(lock(&bench.state.session).is_some());
         let audio = crate::dto::ControlStateDto::of(&bench.state, &bench.view(), [Section::Audio]).audio;

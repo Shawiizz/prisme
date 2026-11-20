@@ -245,7 +245,7 @@ impl Performing<'_> {
                 let gain = eq_gain(at);
                 mixer::set_eq(state, deck, band.into(), gain)?;
                 self.memory().faders.give_silent_end(&target, at, eq_knob(gain));
-                state.moved(Section::Mixer);
+                state.moved(Section::Decks);
                 Ok(())
             }
             DeckAction::Filter => mixer::set_filter(state, deck, filter_amount(at)),

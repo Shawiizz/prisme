@@ -100,14 +100,17 @@ export class EngineService {
    * for the views that follow them. */
   private applyControls(changed: ControlChanges) {
     const before = this.controls();
-    const mixer = changed.mixer && withChanges(before?.mixer ?? null, changed.mixer);
-    const controls = { ...before, ...changed, ...(mixer && { mixer }) } as ControlState;
-    if (mixer) {
-      const decks = mixer.decks.map((d, deck) =>
-        same(d, this.decks()[deck]) ? this.decks()[deck] : d,
-      );
-      if (decks.some((d, deck) => d !== this.decks()[deck])) this.decks.set(decks);
-    }
+    const mixer = changed.mixer && { ...before?.mixer, ...changed.mixer };
+    const decks = changed.decks?.map((d, deck) =>
+      d === null || same(d, this.decks()[deck]) ? this.decks()[deck] : d,
+    );
+    const controls = {
+      ...before,
+      ...changed,
+      ...(mixer && { mixer }),
+      ...(decks && { decks }),
+    } as ControlState;
+    if (decks?.some((d, deck) => d !== this.decks()[deck])) this.decks.set(decks);
     if (changed.tracks) {
       const before = this.tracks();
       const tracks = changed.tracks.map((track, deck) =>

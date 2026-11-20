@@ -17,10 +17,9 @@ const FADER_CLOSED: f32 = 1e-3;
 /// fader raised from closed plays its deck, and closed stops it on its cue point.
 pub fn set_volume(state: &AppState, deck: usize, gain: f32) -> AppResult<()> {
     AppState::deck_exists(deck)?;
-    let (before, fader_start) = {
-        let mut decks = lock(&state.decks);
-        (std::mem::replace(&mut decks[deck].volume, gain), decks[deck].fader_start)
-    };
+    let (before, fader_start) = state
+        .decks
+        .change(|decks| (std::mem::replace(&mut decks[deck].volume, gain), decks[deck].fader_start));
     state.send_if_running(Command::SetVolume { deck, gain })?;
     let Some(play) = fader_start.then(|| opened(before, gain)).flatten() else { return Ok(()) };
     if !state.mixes_itself() {
@@ -72,7 +71,7 @@ pub fn set_filter(state: &AppState, deck: usize, position: f32) -> AppResult<()>
 /// -1 full left, 1 full right; the Auto DJ lets the crossfader go.
 pub fn set_crossfader(state: &AppState, auto_dj: Option<&AutoDj>, position: f32) -> AppResult<()> {
     take_over(auto_dj, Takeover::Crossfader);
-    *lock(&state.crossfader) = position;
+    state.crossfader.set(position);
     state.send_if_running(Command::SetCrossfader { position })
 }
 

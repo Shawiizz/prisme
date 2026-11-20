@@ -6,7 +6,7 @@ use crate::auto_dj::plan::FadeLength;
 use crate::choices::{BoothChoice, LiveNote, OutputNote};
 use crate::commands::audio::AudioStateDto;
 use crate::commands::controllers::ControllersStateDto;
-use crate::commands::mixer::mixer_state_of;
+use crate::commands::mixer::{decks_of, mixer_state_of};
 use crate::commands::preferences::PreferencesDto;
 use crate::state::{lock, AppState, Section};
 use prisme_actions::knobs::{MixerKnobs, StripKnobs};
@@ -1203,7 +1203,6 @@ pub struct LiveStateDto {
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct MixerStateDto {
-    pub decks: Vec<DeckSettingsDto>,
     /// The knobs beside the channels and the crossfader, as the screen shows them.
     pub knobs: MixerKnobs,
     /// The mode the user chose.
@@ -1483,6 +1482,9 @@ pub struct StatusDto {
 pub struct ControlStateDto {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub mixer: Option<MixerStateDto>,
+    /// The decks' settings.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub decks: Option<Vec<DeckSettingsDto>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub quantize: Option<bool>,
     /// The library over the whole window.
@@ -1550,6 +1552,7 @@ impl ControlStateDto {
                     controls.mixer = Some(mixer_state_of(state, view));
                     (controls.quantize, controls.pitch_range) = (Some(quantize), Some(pitch_range));
                 }
+                Section::Decks => controls.decks = Some(decks_of(state, view)),
                 Section::Tracks => {
                     let tracks = lock(&state.tracks)
                         .iter()
@@ -2388,15 +2391,17 @@ mod tests {
         let pitch = lock(&state.decks)[1].pitch;
         assert_eq!((pitch, state.moved_since(before)), (1.0, vec![]), "read");
         lock(&state.decks)[1].strip.eq[0] = 0.5;
-        assert_eq!(state.moved_since(before), [Section::Mixer]);
+        assert_eq!(state.moved_since(before), [Section::Decks]);
         let eq = state.revision();
-        state.update_preferences(|p| p.dj.quantize = true);
-        *lock(&state.crossfader) = -1.0;
+        state.crossfader.set(0.0);
+        assert_eq!(state.moved_since(eq), [], "the crossfader where it was");
+        state.crossfader.set(-1.0);
         assert_eq!(state.moved_since(eq), [Section::Mixer]);
+        state.update_preferences(|p| p.dj.quantize = true);
+        assert_eq!(state.moved_since(eq), [Section::Mixer, Section::Decks]);
         let controls = ControlStateDto::of(&state, &view_of(&state), Section::ALL);
-        let mixer = controls.mixer.unwrap();
-        assert_eq!(mixer.decks[1].strip.eq[0], 0.5);
-        assert_eq!(mixer.knobs.crossfader.at, 0.0);
+        assert_eq!(controls.decks.unwrap()[1].strip.eq[0], 0.5);
+        assert_eq!(controls.mixer.unwrap().knobs.crossfader.at, 0.0);
         assert_eq!(controls.quantize, Some(true));
         assert_eq!(controls.tracks.unwrap().len(), prisme_engine::MAX_DECKS);
     }

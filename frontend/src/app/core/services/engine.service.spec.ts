@@ -118,7 +118,8 @@ describe('EngineService', () => {
 
     function controls(changes: Partial<ControlState>): Partial<ControlState> {
       return {
-        mixer: { decks: settings } as ControlState['mixer'],
+        mixer: {} as ControlState['mixer'],
+        decks: settings,
         tracks: [null, { loadId: 7, keyShift: -2, stemMix, cues: [drop] } as never, null, null],
         loading: [false, false, false, false],
         quantize: true,
@@ -135,7 +136,7 @@ describe('EngineService', () => {
 
     it('shows the decks and the tracks as the backend has them', () => {
       const decks = settings.map((d, i) => (i === 0 ? { ...d, pitch: 1.04 } : d));
-      engine['applyControls'](controls({ mixer: { decks } as ControlState['mixer'] }));
+      engine['applyControls'](controls({ decks }));
       expect(engine.decks()[0].pitch).toBe(1.04);
       expect(engine.tracks()[1]).toEqual(
         expect.objectContaining({ keyShift: -2, cues: [drop] }) as TrackInfo,
@@ -151,14 +152,15 @@ describe('EngineService', () => {
       expect(engine.tracks()[1]).toBe(track);
     });
 
-    it('takes of the mixer what changed of it, the rest kept as it was', () => {
-      engine['applyControls'](controls({ mixer: { decks: settings, limiter: true } as never }));
+    it('takes of the mixer and the decks what changed of them, the rest kept as it was', () => {
+      engine['applyControls'](controls({ mixer: { limiter: true } as never }));
       const before = engine.decks();
       const moved = { pitch: 1.02 } as DeckSettings;
-      engine['applyControls']({ mixer: { decks: [null, moved, null, null] as never } });
+      engine['applyControls']({ mixer: { talkover: true }, decks: [null, moved, null, null] });
       expect(engine.decks()[1]).toBe(moved);
       expect(engine.decks()[0]).toBe(before[0]);
-      expect(engine.controls()!.mixer.limiter).toBe(true);
+      expect(engine.controls()!.decks).toEqual(engine.decks());
+      expect(engine.controls()!.mixer).toEqual({ limiter: true, talkover: true });
     });
 
     it('keeps the sections the backend did not send again', () => {

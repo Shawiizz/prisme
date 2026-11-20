@@ -67,14 +67,17 @@ impl StatusStream {
 struct Told {
     status: Option<Map<String, Value>>,
     mixer: Option<Map<String, Value>>,
-    /// Each section of what the interface mirrors, but the mixer, by its name.
+    /// The decks' settings, as `{ decks }`.
+    decks: Option<Map<String, Value>>,
+    /// Each section of what the interface mirrors, but the mixer and the decks, by its name.
     sections: Map<String, Value>,
 }
 
 impl Told {
     /// What to send of `status`: its fields that changed since last told, of its decks those
-    /// that changed (the others `null`); of the sections it carries, those that changed, and of
-    /// the mixer its fields that changed, its decks likewise. Nothing when nothing changed.
+    /// that changed (the others `null`); of the sections it carries, those that changed, of the
+    /// mixer its fields that changed, of the decks' settings those that changed (the others
+    /// `null`). Nothing when nothing changed.
     fn changes(&mut self, mut status: StatusDto) -> Option<Value> {
         let controls = status.controls.take();
         let mut sent = changed(&mut self.status, object(&status));
@@ -87,6 +90,9 @@ impl Told {
                     if !mixer.is_empty() {
                         changes.insert(section, Value::Object(mixer));
                     }
+                } else if section == "decks" {
+                    let decks = changed(&mut self.decks, Map::from_iter([(section, now)]));
+                    changes.extend(decks);
                 } else if self.sections.get(&section) != Some(&now) {
                     self.sections.insert(section.clone(), now.clone());
                     changes.insert(section, now);
@@ -158,17 +164,18 @@ mod tests {
         let mut engine = EngineStatus::default();
         let first = told.changes(status(&state, engine, &Section::ALL)).unwrap();
         assert_eq!(first["decks"].as_array().map(Vec::len), Some(4));
-        assert!(first["controls"]["mixer"]["decks"][3].is_object(), "all of it, the first time");
+        assert!(first["controls"]["decks"][3].is_object(), "all of it, the first time");
         assert_eq!(told.changes(status(&state, engine, &[])), None, "nothing moved");
         assert_eq!(told.changes(status(&state, engine, &Section::ALL)), None, "nor changed");
         engine.decks[1].position_s = 12.0;
         lock(&state.decks)[2].volume = 0.5;
-        let moved = told.changes(status(&state, engine, &[Section::Mixer])).unwrap();
+        let moved = told.changes(status(&state, engine, &[Section::Mixer, Section::Decks])).unwrap();
         let decks = moved["decks"].as_array().unwrap();
         assert!(decks[0].is_null() && decks[1]["positionS"] == 12.0, "{decks:?}");
-        let mixer = moved["controls"]["mixer"].as_object().unwrap();
-        assert!(mixer["decks"][2].is_object() && mixer["decks"][0].is_null());
-        assert!(!mixer.contains_key("knobs") && !moved.as_object().unwrap().contains_key("meters"));
+        let controls = moved["controls"].as_object().unwrap();
+        assert!(controls["decks"][2].is_object() && controls["decks"][0].is_null());
+        assert!(!controls.contains_key("mixer"), "the mixer as it was");
+        assert!(!moved.as_object().unwrap().contains_key("meters"));
         assert!(serde_json::to_string(&moved).unwrap().len() < 8 * 1024, "Tauri's quick way in");
     }
 }

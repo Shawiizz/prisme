@@ -237,7 +237,10 @@ export interface EngineStatus {
  * time. */
 export type StatusChanges = Partial<EngineStatus> & { controls?: ControlChanges };
 
-export type ControlChanges = Partial<Omit<ControlState, 'mixer'>> & { mixer?: Partial<MixerState> };
+export type ControlChanges = Partial<Omit<ControlState, 'mixer' | 'decks'>> & {
+  mixer?: Partial<MixerState>;
+  decks?: (DeckSettings | null)[];
+};
 
 /** What the app mirrors of the decks, their tracks, the mixer and the DJ's preferences. */
 export interface ControlState {
@@ -260,6 +263,8 @@ export interface ControlState {
   lists: LibraryLists;
   preferences: Preferences;
   stems: StemsState;
+  /** The decks' settings. */
+  decks: DeckSettings[];
   controllers: ControllersState;
   audio: AudioState;
   folders: FoldersState;
@@ -591,7 +596,6 @@ export interface MixerKnobs {
 }
 
 export interface MixerState {
-  decks: DeckSettings[];
   /** The knobs beside the channels, and where the crossfader stands (0 to 1). */
   knobs: MixerKnobs;
   mode: MixMode;
