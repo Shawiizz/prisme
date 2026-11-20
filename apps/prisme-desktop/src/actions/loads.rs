@@ -153,7 +153,8 @@ impl Performing<'_> {
         } else if self.state.preferences.read(|p| p.dj.protect_playing) {
             Err(AppError::DeckPlays { deck, eject })
         } else {
-            Err(AppError::ConfirmReplace { target: target.to_string(), deck, eject })
+            let track = self.track().map(|path| path.display().to_string());
+            Err(AppError::ConfirmReplace { target: target.to_string(), deck, eject, track })
         }
     }
 }
@@ -194,13 +195,35 @@ mod tests {
         playing(&mut bench);
         let asked = bench.press("deck1.eject", 1.0);
         assert!(
-            matches!(&asked, Err(AppError::ConfirmReplace { target, deck: 0, eject: true }) if target == "deck1.eject"),
+            matches!(&asked, Err(AppError::ConfirmReplace { target, deck: 0, eject: true, track: None }) if target == "deck1.eject"),
             "{asked:?}"
         );
         assert_eq!(loaded(&bench.state), [true, false], "asked first");
         confirmed(&bench, "deck1.eject").unwrap();
         assert_eq!(loaded(&bench.state), [false, false]);
         assert!(bench.sent().iter().any(|c| matches!(c, Command::Eject { deck: 0 })));
+    }
+
+    #[test]
+    fn a_load_asks_about_the_track_pressed_and_loads_it_once_the_dj_says_so() {
+        let mut bench = Bench::new();
+        playing(&mut bench);
+        let (pressed, browsed) =
+            (crate::actions::bench::track("pressed"), crate::actions::bench::track("browsed"));
+        bench.select(&pressed.0);
+        let asked = bench.press("library.load1.play", 1.0);
+        let Err(AppError::ConfirmReplace { target, track: Some(track), .. }) = asked else {
+            panic!("{asked:?}")
+        };
+        assert_eq!(std::path::PathBuf::from(&track), pressed.0);
+        // the DJ browses on before saying yes
+        bench.select(&browsed.0);
+        let named = Source::Interface { confirmed: true };
+        bench.perform_taking(&target, Input::Value(1.0), named, Some(track.into())).unwrap();
+        bench.run(0.05);
+        let loaded = lock(&bench.state.tracks)[0].as_ref().map(|t| t.path.clone());
+        assert_eq!(loaded, Some(pressed.0.clone()));
+        assert!(bench.status(0).playing, "and played");
     }
 
     #[test]

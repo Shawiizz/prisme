@@ -262,9 +262,10 @@ export class EngineService {
 
   /** Has the backend perform action `target` given `value`: a key's 1 pressed and 0 let go, a
    * fader's position, or an encoder's steps (`steps`), as a controller's control would;
-   * `confirmed`, the DJ said yes to what it replaces. Whether it was done. */
-  perform(target: string, value: number, confirmed = false) {
-    return this.call('perform_action', { target, value, confirmed, order: this.order() });
+   * `confirmed`, the DJ said yes to what it replaces, the track of the library it takes the one
+   * the DJ was asked about (`track`), else the one selected. Whether it was done. */
+  perform(target: string, value: number, confirmed = false, track: string | null = null) {
+    return this.call('perform_action', { target, value, confirmed, track, order: this.order() });
   }
 
   /** Loads the track at `path` on `deck`, or on the first deck without a track (`null`); asked
@@ -327,7 +328,8 @@ export class EngineService {
 
   /** What the backend did not do, for the app or a controller: the track of a deck that plays
    * stays there (said for a few seconds, not as an error), or leaves it once the DJ says so,
-   * the action done `again` then (by default, performed again); any other failure is shown.
+   * the action done `again` then (by default, performed again on the track it took); any other
+   * failure is shown.
    * Whether it was done in the end. */
   async failed(error: unknown, again?: () => Promise<boolean>): Promise<boolean> {
     if (!isBackendError(error) || !['deckPlays', 'confirmReplace'].includes(error.code)) {
@@ -353,6 +355,14 @@ export class EngineService {
       cancel: t('Cancel'),
     });
     if (!confirmed) return false;
-    return again ? again() : this.perform(String(error.params['target']), 1, true);
+    const track = error.params['track'];
+    return again
+      ? again()
+      : this.perform(
+          String(error.params['target']),
+          1,
+          true,
+          typeof track === 'string' ? track : null,
+        );
   }
 }

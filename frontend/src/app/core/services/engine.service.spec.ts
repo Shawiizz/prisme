@@ -26,7 +26,7 @@ describe('EngineService', () => {
     engine.setKeyLock(1, false);
     engine.setVinylEnabled(0, true);
     engine.moveTempo(1, 0.75);
-    const performed = { confirmed: false, order: expect.anything() };
+    const performed = { confirmed: false, track: null, order: expect.anything() };
     expect(calls).toEqual([
       ['perform_action', { target: 'deck2.cue', value: 1, ...performed }],
       ['perform_action', { target: 'deck2.cue', value: 0, ...performed }],
@@ -102,6 +102,29 @@ describe('EngineService', () => {
             target: 'deck2.eject',
             value: 1,
             confirmed: true,
+            track: null,
+            order: expect.anything(),
+          },
+        ],
+      ]);
+    });
+
+    it('loads the track the DJ was asked about once the DJ says so', async () => {
+      vi.spyOn(TestBed.inject(ConfirmService), 'ask').mockResolvedValueOnce(true);
+      const asked = {
+        code: 'confirmReplace',
+        params: { target: 'library.load1.play', deck: 0, eject: false, track: '/music/a.flac' },
+        message: 'deck 1 plays',
+      };
+      expect(await engine.failed(asked)).toBe(true);
+      expect(calls).toEqual([
+        [
+          'perform_action',
+          {
+            target: 'library.load1.play',
+            value: 1,
+            confirmed: true,
+            track: '/music/a.flac',
             order: expect.anything(),
           },
         ],

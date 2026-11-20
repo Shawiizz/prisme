@@ -874,7 +874,8 @@ fn interface_input(target: &Target, value: f32) -> Input {
 }
 
 /// Performs the action `target` driven to `value` (an encoder's `steps`, if it says so), as the
-/// interface asks: `confirmed`, the DJ said yes to what it replaces. The
+/// interface asks: `confirmed`, the DJ said yes to what it replaces, the track it takes the one
+/// the DJ was asked about (`track`), else the one selected. The
 /// interface numbers its actions (`order`): each is sent in turn after those sent before it, a
 /// key let go after it was pressed; one that is not an action takes its turn all the same.
 #[tauri::command]
@@ -883,6 +884,7 @@ pub async fn perform_action(
     target: String,
     value: Option<f32>,
     confirmed: bool,
+    track: Option<PathBuf>,
     order: Order,
 ) -> AppResult<()> {
     crate::commands::blocking(move || {
@@ -891,31 +893,22 @@ pub async fn perform_action(
         actions.in_order(order, || -> AppResult<()> {
             let target: Target = target.parse().map_err(|e: Unknown| AppError::Other(e.to_string()))?;
             let value = value.ok_or_else(|| AppError::Other(format!("{target} given no value")))?;
-            let source = || Source::Interface { confirmed };
             let mut turn = InTurn::default();
+            let mut send = |target: &Target, input, answer| {
+                let asked = actions.asked(Source::Interface { confirmed }, track.clone());
+                actions.send_asked(&app, target, input, asked, answer, &mut turn);
+            };
             match actions.keys.press(&target, value, actions.now_s()) {
-                Press::Act => {
-                    let input = interface_input(&target, value);
-                    actions.perform(&app, &target, input, source(), Answer::To(answer), &mut turn);
-                }
+                Press::Act => send(&target, interface_input(&target, value), Answer::To(answer)),
                 Press::Wait => drop(answer.send(Ok(()))),
                 Press::Tap => {
-                    actions.perform(
-                        &app,
-                        &target,
-                        Input::Value(1.0),
-                        source(),
-                        Answer::To(answer),
-                        &mut turn,
-                    );
-                    actions.perform(&app, &target, Input::Value(0.0), source(), Answer::Told, &mut turn);
+                    send(&target, Input::Value(1.0), Answer::To(answer));
+                    send(&target, Input::Value(0.0), Answer::Told);
                 }
-                Press::Release(hold) => {
-                    actions.perform(&app, &hold, Input::Value(0.0), source(), Answer::To(answer), &mut turn);
-                }
+                Press::Release(hold) => send(&hold, Input::Value(0.0), Answer::To(answer)),
                 Press::Held(hold) => {
-                    actions.perform(&app, &hold, Input::Value(1.0), source(), Answer::To(answer), &mut turn);
-                    actions.perform(&app, &hold, Input::Value(0.0), source(), Answer::Told, &mut turn);
+                    send(&hold, Input::Value(1.0), Answer::To(answer));
+                    send(&hold, Input::Value(0.0), Answer::Told);
                 }
             }
             Ok(())
@@ -1068,10 +1061,23 @@ pub(crate) mod bench {
         }
 
         pub fn perform(&self, id: &str, input: Input, source: Source) -> AppResult<()> {
+            self.perform_taking(id, input, source, None)
+        }
+
+        /// `id` driven by `input` as `source` asks, taking `track` of the library if it names
+        /// one, else the one selected.
+        pub fn perform_taking(
+            &self,
+            id: &str,
+            input: Input,
+            source: Source,
+            track: Option<PathBuf>,
+        ) -> AppResult<()> {
             let target: Target = id.parse().unwrap();
             assert_eq!(target.owner(), Owner::Rust, "{id}");
             let target = self.actions.sent_as(&self.state, &target).unwrap_or(target);
-            let track = takes_selection(&target).then(|| browse::selected(&self.state)).flatten();
+            let selected = || takes_selection(&target).then(|| browse::selected(&self.state)).flatten();
+            let track = track.or_else(selected);
             self.asked(self.actions.asked(source, track)).perform(&target, input)
         }
 

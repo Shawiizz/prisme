@@ -55,9 +55,9 @@ pub enum AppError {
     #[error("deck {} plays: its track stays on it", .deck + 1)]
     DeckPlays { deck: usize, eject: bool },
     /// The track of a deck that plays leaves it once the DJ says so: `target` performed again
-    /// then.
+    /// then, taking `track` of the library if it took one.
     #[error("deck {} plays: its track leaves it once the DJ says so", .deck + 1)]
-    ConfirmReplace { target: String, deck: usize, eject: bool },
+    ConfirmReplace { target: String, deck: usize, eject: bool, track: Option<String> },
     #[error("{0} is not a folder")]
     FolderNotFound(String),
     /// The music folder it is, or is in.
@@ -141,8 +141,8 @@ impl AppError {
             AppError::NoRecordSource => ("noRecordSource", none()),
             AppError::InputTaken(source) => ("inputTaken", json!({ "source": source })),
             AppError::DeckPlays { deck, eject } => ("deckPlays", json!({ "deck": deck, "eject": eject })),
-            AppError::ConfirmReplace { target, deck, eject } => {
-                ("confirmReplace", json!({ "target": target, "deck": deck, "eject": eject }))
+            AppError::ConfirmReplace { target, deck, eject, track } => {
+                ("confirmReplace", json!({ "target": target, "deck": deck, "eject": eject, "track": track }))
             }
             AppError::FolderNotFound(_) => ("folderNotFound", none()),
             AppError::FolderAlreadyIn(folder) => ("folderAlreadyIn", json!({ "folder": folder })),
