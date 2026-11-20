@@ -97,11 +97,11 @@
         @if (key(); as k) {
           <span
             class="pr-key pr-key--fill pr-key--lg"
-            [class.pr-key--maj]="major(k.camelot)"
-            [style.--h]="hue(k.camelot)"
+            [class.pr-key--maj]="!k.minor"
+            [style.--h]="hue(k)"
             >{{ k.camelot }}</span
           >
-          <span class="pr-readout__sub">{{ keyName(k.camelot) }}</span>
+          <span class="pr-readout__sub">{{ keyName(k) }}</span>
         } @else {
           <span class="pr-readout__value pr-readout__value--mid">—</span>
           <span class="pr-readout__sub"></span>

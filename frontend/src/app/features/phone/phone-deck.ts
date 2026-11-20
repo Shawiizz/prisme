@@ -41,7 +41,7 @@ const VINYL_LABEL = { relative: 'REL', absolute: 'ABS', thru: 'THRU' } as const;
         <span class="bpm pr-num">{{ bpm() ?? '' }}</span>
       }
       @if (key(); as k) {
-        <app-key-chip fill [camelot]="k.camelot" />
+        <app-key-chip fill [key]="k" />
       }
       @if (compact()) {
         <span class="time pr-num" [class]="ending() ?? ''">{{ remaining() }}</span>

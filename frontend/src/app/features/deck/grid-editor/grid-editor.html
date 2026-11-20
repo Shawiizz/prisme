@@ -114,10 +114,10 @@
       @for (k of row; track k.camelot) {
         <button
           class="pr-key"
-          [class.pr-key--maj]="major(k.camelot)"
+          [class.pr-key--maj]="!k.minor"
           [class.pr-key--fill]="track()?.key?.camelot === k.camelot"
-          [style.--h]="hue(k.camelot)"
-          [title]="keyName(k.camelot)"
+          [style.--h]="hue(k)"
+          [title]="keyName(k)"
           (click)="setKey(k.camelot)"
         >
           {{ k.camelot }}

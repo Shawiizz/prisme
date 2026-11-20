@@ -17,7 +17,7 @@ import { EngineService } from '../../core/services/engine.service';
 import { NamedTrack } from '../../core/models/library';
 import { Text, t } from '../../core/i18n/i18n';
 import { TPipe } from '../../core/i18n/t.pipe';
-import { camelotHue, camelotMajor } from '../../shared/camelot';
+import { keyHue } from '../../shared/camelot';
 import { decimal, deckLetter } from '../../shared/time';
 import { PHONE } from '../../core/platform';
 import { Dismiss, overlay } from '../../shared/overlay';
@@ -88,8 +88,7 @@ export class CommandPalette {
 
   protected readonly PHONE = PHONE;
   protected readonly letter = deckLetter;
-  protected readonly hue = camelotHue;
-  protected readonly major = camelotMajor;
+  protected readonly hue = keyHue;
   protected readonly decimal = decimal;
 
   /** The pages of the settings: what the palette offers before anything is typed. */

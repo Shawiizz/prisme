@@ -758,11 +758,19 @@ pub struct KeyDto {
     pub name: &'static str,
     /// "8A", "2B"...
     pub camelot: &'static str,
+    /// Its place on the Camelot wheel, 1 to 12.
+    pub number: u8,
+    pub minor: bool,
 }
 
 impl From<prisme_analysis::Key> for KeyDto {
     fn from(key: prisme_analysis::Key) -> Self {
-        Self { name: key.name(), camelot: key.camelot() }
+        Self {
+            name: key.name(),
+            camelot: key.camelot(),
+            number: key.camelot_number(),
+            minor: key.mode() == prisme_analysis::Mode::Minor,
+        }
     }
 }
 

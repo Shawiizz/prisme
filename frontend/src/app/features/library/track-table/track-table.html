@@ -139,10 +139,10 @@
               @if (t.key; as k) {
                 <span
                   class="pr-key"
-                  [class.pr-key--maj]="major(k.camelot)"
+                  [class.pr-key--maj]="!k.minor"
                   [class.pr-key--fill]="t.fits"
-                  [style.--h]="hue(k.camelot)"
-                  [title]="keyName(k.camelot)"
+                  [style.--h]="hue(k)"
+                  [title]="keyName(k)"
                   >{{ k.camelot }}</span
                 >
               }

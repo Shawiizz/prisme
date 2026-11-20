@@ -3,7 +3,7 @@ import { GridChange } from '../../../core/models/engine';
 import { EngineService } from '../../../core/services/engine.service';
 import { TrackEditService } from '../../../core/services/track-edit.service';
 import { TPipe } from '../../../core/i18n/t.pipe';
-import { camelotHue, camelotMajor, keyName } from '../../../shared/camelot';
+import { keyHue, musicalKeyName } from '../../../shared/camelot';
 import { Dismiss, overlay } from '../../../shared/overlay';
 import { PHONE } from '../../../core/platform';
 import { Sheet } from '../../../shared/sheet';
@@ -22,9 +22,8 @@ const COARSE_STEPS = 4;
 export class GridEditor {
   /** On a phone it rises from the bottom, over the panel of its deck. */
   protected readonly PHONE = PHONE;
-  protected readonly hue = camelotHue;
-  protected readonly major = camelotMajor;
-  protected readonly keyName = keyName;
+  protected readonly hue = keyHue;
+  protected readonly keyName = musicalKeyName;
   readonly deck = input.required<number>();
   readonly closed = output();
   private readonly sheet = viewChild.required(Sheet);
@@ -38,12 +37,8 @@ export class GridEditor {
     const bpm = this.track()?.tempo?.bpm;
     return bpm === undefined ? '' : bpm.toFixed(2);
   });
-  protected readonly minorKeys = computed(() =>
-    this.edits.keys().filter((k) => k.camelot.endsWith('A')),
-  );
-  protected readonly majorKeys = computed(() =>
-    this.edits.keys().filter((k) => k.camelot.endsWith('B')),
-  );
+  protected readonly minorKeys = computed(() => this.edits.keys().filter((k) => k.minor));
+  protected readonly majorKeys = computed(() => this.edits.keys().filter((k) => !k.minor));
 
   protected readonly keyShift = computed(() => this.track()?.keyShift ?? 0);
   protected readonly shiftLabel = computed(() => {

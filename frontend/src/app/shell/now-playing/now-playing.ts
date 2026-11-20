@@ -25,7 +25,7 @@ import { deckLetter } from '../../shared/time';
     }
     <span class="bpm pr-num">{{ bpm() ?? '' }}</span>
     @if (key(); as k) {
-      <app-key-chip fill [camelot]="k.camelot" />
+      <app-key-chip fill [key]="k" />
     }
     <span class="time pr-num" [class]="ending() ?? ''">{{ remaining() }}</span>
     <i class="played" [style.--played]="played()"></i>

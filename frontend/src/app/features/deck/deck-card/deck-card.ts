@@ -12,7 +12,7 @@ import { MixerService } from '../../../core/services/mixer.service';
 import { deckReadouts } from '../../../core/deck-readouts';
 import { DECK_MODES, deckVinyl } from '../../../core/deck-vinyl';
 import { decimal, deckLetter, formatTime } from '../../../shared/time';
-import { camelotHue, camelotMajor, keyName } from '../../../shared/camelot';
+import { keyHue, musicalKeyName } from '../../../shared/camelot';
 import { sameSegments, segments } from '../../../shared/meter';
 import { Cover } from '../../../shared/cover/cover';
 import { DeckMenu } from '../deck-menu/deck-menu';
@@ -86,7 +86,6 @@ export class DeckCard {
   protected readonly keyShifted = computed(
     () => this.key()?.camelot !== this.track()?.key?.camelot,
   );
-  protected readonly hue = camelotHue;
-  protected readonly major = camelotMajor;
-  protected readonly keyName = keyName;
+  protected readonly hue = keyHue;
+  protected readonly keyName = musicalKeyName;
 }

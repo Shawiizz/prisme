@@ -392,6 +392,9 @@ export interface MusicalKey {
   name: string;
   /** "8A", "2B"... */
   camelot: string;
+  /** Its place on the Camelot wheel, 1 to 12. */
+  number: number;
+  minor: boolean;
 }
 
 export interface TrackInfo {

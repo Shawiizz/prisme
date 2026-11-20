@@ -59,12 +59,9 @@
                   <span class="pr-num bpm">{{ decimal(bpm, 1) }}</span>
                 }
                 @if (track.key; as k) {
-                  <span
-                    class="pr-key"
-                    [class.pr-key--maj]="major(k.camelot)"
-                    [style.--h]="hue(k.camelot)"
-                    >{{ k.camelot }}</span
-                  >
+                  <span class="pr-key" [class.pr-key--maj]="!k.minor" [style.--h]="hue(k)">{{
+                    k.camelot
+                  }}</span>
                 }
                 @for (deck of engine.deckIndexes(); track deck) {
                   <button

@@ -14,7 +14,7 @@ import { LibraryRow, LibraryView, SortColumn, TrackSource } from '../../../core/
 import { EngineService } from '../../../core/services/engine.service';
 import { LibraryService } from '../../../core/services/library.service';
 import { PreferencesService } from '../../../core/services/preferences.service';
-import { camelotHue, camelotMajor, keyName } from '../../../shared/camelot';
+import { keyHue, musicalKeyName } from '../../../shared/camelot';
 import { Cover } from '../../../shared/cover/cover';
 import { TRACKS_DRAG_TYPE } from '../../../shared/drag';
 import { decimal, deckLetter } from '../../../shared/time';
@@ -102,9 +102,8 @@ export class TrackTable {
   protected readonly allColumns = COLUMNS;
   protected readonly letter = deckLetter;
   protected readonly decimal = decimal;
-  protected readonly hue = camelotHue;
-  protected readonly major = camelotMajor;
-  protected readonly keyName = keyName;
+  protected readonly hue = keyHue;
+  protected readonly keyName = musicalKeyName;
   protected readonly hexColor = hexColor;
   protected readonly parentOf = parentOf;
   protected readonly shortPath = shortPath;
