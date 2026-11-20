@@ -5,7 +5,7 @@
 //! what the controllers are sent back, their lights and values, read where they would be
 //! written.
 
-use super::{ControllerSetup, Controllers, Link};
+use super::{ControllerSetup, Controllers, JogSteps, Link};
 use crate::actions::bench::{track, Bench, TRACK_S};
 use crate::actions::{Source, FAILED_EVENT};
 use crate::controller_hid::{self, simulated};
@@ -60,7 +60,8 @@ impl Jogvision {
     fn plugged() -> Self {
         let controllers = controllers(Self::PORT);
         let bench = Arc::new(Bench::new());
-        controllers.opened(&bench, Self::PORT, Self::PORT.into(), Link::Sent(Vec::new()));
+        let jog = JogSteps::new(controllers.jog_steps_per_turn(Self::PORT));
+        controllers.opened(&bench, Self::PORT, Self::PORT.into(), jog, Link::Sent(Vec::new()));
         Self { controllers, bench }
     }
 
@@ -209,15 +210,15 @@ impl S4 {
         let bench = Arc::new(Bench::new());
         let profile = controllers.profile(&device).unwrap();
         let (done, read) = mpsc::channel();
-        let steps = controllers.jog_steps_per_turn(&device);
-        let (receiving, on, name) = (controllers.clone(), bench.clone(), device.clone());
+        let jog = JogSteps::new(controllers.jog_steps_per_turn(&device));
+        let (receiving, on, name, steps) = (controllers.clone(), bench.clone(), device.clone(), jog.clone());
         let link =
             controller_hid::Link::open(&plugged, profile.hid.as_ref(), Some(true), move |read, at_s| {
-                receiving.receive_hid(&on, &name, &read, steps, at_s);
+                receiving.receive_hid(&on, &name, &read, steps.get(), at_s);
                 let _ = done.send(());
             })
             .unwrap();
-        controllers.opened(&bench, &device, device.clone(), Link::Hid(link));
+        controllers.opened(&bench, &device, device.clone(), jog, Link::Hid(link));
         let mut s4 = Self {
             id,
             controllers,

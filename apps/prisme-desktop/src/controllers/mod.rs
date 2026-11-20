@@ -36,6 +36,7 @@ use prisme_control::{
 use prisme_session::JsonFile;
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::mpsc::Sender;
 use std::sync::{Arc, Mutex};
 use std::thread::JoinHandle;
@@ -155,6 +156,8 @@ struct Connection {
     port: String,
     /// Its profile, as chosen when it opened or when the profiles were read again.
     profile: Option<Arc<Profile>>,
+    /// The steps of a turn of its jog wheels, as its profile says, shared with its reader.
+    jog_steps: JogSteps,
     link: Link,
     /// When its keep-alive message last went.
     kept_alive: Instant,
@@ -167,6 +170,25 @@ struct Connection {
     clipped: Vec<ClipHold>,
     /// The number each of its screens was last sent, by its place among the displays.
     displayed: Vec<Option<i64>>,
+}
+
+/// The steps of a turn of a controller's jog wheels, shared with the thread reading it: its
+/// profile read again changes them there too.
+#[derive(Debug, Clone)]
+struct JogSteps(Arc<AtomicU64>);
+
+impl JogSteps {
+    fn new(steps: f64) -> Self {
+        Self(Arc::new(AtomicU64::new(steps.to_bits())))
+    }
+
+    fn get(&self) -> f64 {
+        f64::from_bits(self.0.load(Ordering::Relaxed))
+    }
+
+    fn set(&self, steps: f64) {
+        self.0.store(steps.to_bits(), Ordering::Relaxed);
+    }
 }
 
 /// How a controller is reached.
@@ -687,6 +709,20 @@ mod tests {
     }
 
     #[test]
+    fn an_open_controller_s_jogs_turn_by_its_profile_read_again() {
+        let c = controllers();
+        let jog = JogSteps::new(c.jog_steps_per_turn("VCI-100"));
+        let link = Link::Midi { input: None, output: None };
+        let connection = Connection::new("VCI-100", "VCI-100".into(), None, jog.clone(), link);
+        lock(&c.connections).push(connection);
+        c.save(|s| {
+            s.profiles.insert("VCI-100".into(), "vestax-vci-100-hile.json".into());
+        });
+        c.profiles_changed();
+        assert_eq!(jog.get(), 256.0);
+    }
+
+    #[test]
     fn a_profile_chosen_that_is_not_offered_for_a_controller_leaves_it_its_models() {
         let c = sb2();
         c.save(|s| {
@@ -1057,18 +1093,8 @@ mod tests {
     #[test]
     fn a_connection_shows_its_lights_as_they_change_in_the_room_it_keeps() {
         let c = with_mappings([with(mapping(PAD, "deck1.play"), lit(ON, 10))]);
-        let mut connection = Connection {
-            device: "DDJ".into(),
-            port: "DDJ".into(),
-            profile: None,
-            link: Link::Midi { input: None, output: None },
-            kept_alive: Instant::now(),
-            lit: Lit::default(),
-            room: ShownRoom::default(),
-            later: Vec::new(),
-            clipped: Vec::new(),
-            displayed: Vec::new(),
-        };
+        let link = Link::Midi { input: None, output: None };
+        let mut connection = Connection::new("DDJ", "DDJ".into(), None, JogSteps::new(720.0), link);
         let mut playing = view();
         c.show_on(&mut connection, &playing);
         assert_eq!(connection.lit.shown[&PAD], 0);

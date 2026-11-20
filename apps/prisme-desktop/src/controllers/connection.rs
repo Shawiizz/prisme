@@ -3,8 +3,8 @@
 
 use super::{
     base_port_name, hid_plugged, light_of, midi_error, open_output, port_names, port_of, with_hid,
-    Connection, Controllers, Lighting, Link, Lit, MidiWriter, PluggedIn, Shade, CLIENT, PLUGGED_EVENT,
-    WATCH_EVERY, WATCH_WITHOUT_MIDI_EVERY,
+    Connection, Controllers, JogSteps, Lighting, Link, Lit, MidiWriter, PluggedIn, Shade, CLIENT,
+    PLUGGED_EVENT, WATCH_EVERY, WATCH_WITHOUT_MIDI_EVERY,
 };
 use crate::actions::{Host, InTurn, Moved, Source};
 use crate::controller_hid;
@@ -15,8 +15,9 @@ use crate::state::{lock, AppState};
 use midir::{Ignore, MidiInput, MidiOutputConnection};
 use prisme_actions::input::Input;
 use prisme_control::hid::{self};
-use prisme_control::{Control, DeckAction, Event, ShownRoom, Target, OFF};
+use prisme_control::{Control, DeckAction, Event, Profile, ShownRoom, Target, OFF};
 use std::sync::mpsc::{self};
+use std::sync::Arc;
 use std::time::{Duration, Instant};
 use tauri::{AppHandle, Emitter, Manager};
 use tracing::{error, info, warn};
@@ -249,7 +250,8 @@ impl Controllers {
             .ok_or_else(|| AppError::ControllerUnplugged(device.to_owned()))?;
         let (port, port_name) = (&ports[at], names[at].clone());
         let (receiving, name) = (app.clone(), device.to_owned());
-        let jog_steps_per_turn = self.jog_steps_per_turn(device);
+        let jog = JogSteps::new(self.jog_steps_per_turn(device));
+        let read = jog.clone();
         let connection = input
             .connect(
                 port,
@@ -258,14 +260,14 @@ impl Controllers {
                     if let Some(event) = prisme_control::parse(bytes) {
                         let at_s = stamp_us as f64 / 1e6;
                         let controllers = receiving.state::<Controllers>();
-                        controllers.receive(&receiving, &name, jog_steps_per_turn, event, at_s);
+                        controllers.receive(&receiving, &name, read.get(), event, at_s);
                     }
                 },
                 (),
             )
             .map_err(midi_error)?;
         let output = open_output(&port_name);
-        self.opened(app, device, port_name, Link::Midi { input: Some(connection), output });
+        self.opened(app, device, port_name, jog, Link::Midi { input: Some(connection), output });
         Ok(())
     }
 
@@ -279,37 +281,27 @@ impl Controllers {
         // a profile's fields tell whether the device numbers its reports, else its descriptor does
         let numbered = profile.as_ref().and_then(|p| p.hid_inputs().first().map(|f| f.report != 0));
         let (receiving, name) = (app.clone(), device.to_owned());
-        let jog_steps_per_turn = self.jog_steps_per_turn(device);
+        let jog = JogSteps::new(self.jog_steps_per_turn(device));
+        let steps = jog.clone();
         let link = controller_hid::Link::open(
             &plugged[at],
             profile.as_ref().and_then(|p| p.hid.as_ref()),
             numbered,
             move |read, at_s| {
                 let controllers = receiving.state::<Controllers>();
-                controllers.receive_hid(&receiving, &name, &read, jog_steps_per_turn, at_s);
+                controllers.receive_hid(&receiving, &name, &read, steps.get(), at_s);
             },
         )
         .map_err(AppError::Hid)?;
-        self.opened(app, device, names[at].clone(), Link::Hid(link));
+        self.opened(app, device, names[at].clone(), jog, Link::Hid(link));
         Ok(())
     }
 
-    /// `device` opened on `port`: it is sent what its profile sends first (some of it later),
-    /// its groups are in their first modes, and its lights show.
-    pub(super) fn opened(&self, host: &impl Host, device: &str, port: String, link: Link) {
+    /// `device` opened on `port`, its jogs read by `jog`: it is sent what its profile sends
+    /// first (some of it later), its groups are in their first modes, and its lights show.
+    pub(super) fn opened(&self, host: &impl Host, device: &str, port: String, jog: JogSteps, link: Link) {
         let profile = self.profile(device);
-        let mut connection = Connection {
-            device: device.to_owned(),
-            port,
-            profile: profile.clone(),
-            link,
-            kept_alive: Instant::now(),
-            lit: Lit::default(),
-            room: ShownRoom::default(),
-            later: Vec::new(),
-            clipped: Vec::new(),
-            displayed: Vec::new(),
-        };
+        let mut connection = Connection::new(device, port, profile.clone(), jog, link);
         for (after_ms, message) in profile.iter().flat_map(|p| p.init.iter().map(|m| m.when_and_what())) {
             if after_ms == 0 {
                 connection.send(message);
@@ -422,6 +414,29 @@ impl Link {
 }
 
 impl Connection {
+    /// `device` opened on `port`, driven by `profile`, nothing shown nor sent yet.
+    pub(super) fn new(
+        device: &str,
+        port: String,
+        profile: Option<Arc<Profile>>,
+        jog_steps: JogSteps,
+        link: Link,
+    ) -> Self {
+        Connection {
+            device: device.to_owned(),
+            port,
+            profile,
+            jog_steps,
+            link,
+            kept_alive: Instant::now(),
+            lit: Lit::default(),
+            room: ShownRoom::default(),
+            later: Vec::new(),
+            clipped: Vec::new(),
+            displayed: Vec::new(),
+        }
+    }
+
     /// Sets the light of `control` to `shade`, blinking or not.
     pub(super) fn light(&mut self, control: Control, shade: Shade) {
         if let Some(lighting) = self.lit.light(control, shade) {

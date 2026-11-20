@@ -41,6 +41,7 @@ impl Controllers {
         self.layer();
         for connection in lock(&self.connections).iter_mut() {
             connection.profile = self.profile(&connection.device);
+            connection.jog_steps.set(self.jog_steps_per_turn(&connection.device));
         }
     }
 
