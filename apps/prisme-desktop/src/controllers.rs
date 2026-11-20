@@ -32,7 +32,9 @@ use prisme_control::{
 use prisme_session::JsonFile;
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
+use std::sync::mpsc::{self, Sender};
 use std::sync::{Arc, Mutex};
+use std::thread::JoinHandle;
 use std::time::{Duration, Instant};
 use tauri::{AppHandle, Emitter, Manager};
 use tracing::{error, info, warn};
@@ -202,7 +204,7 @@ enum Link {
         /// Taken only to be closed (see [`Drop`]).
         input: Option<MidiInputConnection<()>>,
         /// Lights; not every controller has them.
-        output: Option<MidiOutputConnection>,
+        output: Option<MidiWriter>,
     },
     /// Read and written from its own thread.
     Hid(controller_hid::Link),
@@ -219,9 +221,45 @@ impl Drop for Connection {
             if let Some(input) = input.take() {
                 input.close();
             }
-            if let Some(output) = output.take() {
-                output.close();
+            // its last messages sent, then closed
+            drop(output.take());
+        }
+    }
+}
+
+/// A controller's MIDI output, written by a thread of its own: the thread of a key's message or
+/// of the lights' tick never waits for the port (Windows sends a SysEx message a little at a
+/// time), nor sends while it holds the controllers.
+struct MidiWriter {
+    messages: Option<Sender<Vec<u8>>>,
+    writer: Option<JoinHandle<()>>,
+}
+
+impl MidiWriter {
+    fn new(mut output: MidiOutputConnection) -> std::io::Result<Self> {
+        let (messages, waiting) = mpsc::channel::<Vec<u8>>();
+        let writer = std::thread::Builder::new().name("prisme-midi-write".into()).spawn(move || {
+            for message in waiting {
+                let _ = output.send(&message);
             }
+            output.close();
+        })?;
+        Ok(Self { messages: Some(messages), writer: Some(writer) })
+    }
+
+    fn send(&self, message: &[u8]) {
+        if let Some(messages) = &self.messages {
+            let _ = messages.send(message.to_vec());
+        }
+    }
+}
+
+/// Sends what is left to send, then closes the port.
+impl Drop for MidiWriter {
+    fn drop(&mut self) {
+        drop(self.messages.take());
+        if let Some(writer) = self.writer.take() {
+            let _ = writer.join();
         }
     }
 }
@@ -344,7 +382,7 @@ impl Link {
     /// Sends a message of its own: a MIDI message, a whole HID report.
     fn send(&mut self, message: &[u8]) {
         match self {
-            Link::Midi { output: Some(output), .. } => drop(output.send(message)),
+            Link::Midi { output: Some(output), .. } => output.send(message),
             Link::Midi { output: None, .. } => {}
             Link::Hid(link) => link.send(message),
             #[cfg(test)]
@@ -1551,12 +1589,12 @@ fn levels(state: &AppState) -> HashMap<String, f32> {
 }
 
 /// The output of the same name, for the lights.
-fn open_output(device: &str) -> Option<MidiOutputConnection> {
+fn open_output(device: &str) -> Option<MidiWriter> {
     let output = MidiOutput::new(CLIENT).ok()?;
     let ports = output.ports();
     let names: Vec<String> = ports.iter().map(|p| output.port_name(p).unwrap_or_default()).collect();
     let port = &ports[port_of(&names, device, &[])?];
-    output.connect(port, CLIENT).ok()
+    MidiWriter::new(output.connect(port, CLIENT).ok()?).ok()
 }
 
 fn port_names(input: &MidiInput) -> Vec<String> {
