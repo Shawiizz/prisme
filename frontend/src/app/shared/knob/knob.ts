@@ -4,12 +4,11 @@ import {
   computed,
   inject,
   input,
-  linkedSignal,
   output,
   signal,
-  untracked,
 } from '@angular/core';
 import { PreferencesService } from '../../core/services/preferences.service';
+import { ownValue } from '../own-value';
 
 /** The knob turns through 270 degrees, from bottom left to bottom right. */
 const SWEEP = 270;
@@ -249,12 +248,12 @@ export class Knob {
   protected readonly CENTRE = CENTRE;
   protected readonly CAP = CAP;
   protected readonly track = arc(START, START + SWEEP);
+  protected readonly grabbed = signal<{ y: number; value: number } | null>(null);
   /** Follows the input, and moves at once with the gestures (several can come before the
-   * input does); held, the pointer's, the input's echoes of older values coming in between. */
-  protected readonly current = linkedSignal<number, number>({
-    source: this.value,
-    computation: (value, before) => (before && untracked(this.grabbed) ? before.value : value),
-  });
+   * input does); held and a moment after, its own, the input's echoes of older values coming
+   * in between. */
+  private readonly own = ownValue(this.value, () => this.grabbed() !== null);
+  protected readonly current = this.own.current;
   private readonly angle = computed(() => START + Math.min(Math.max(this.current(), 0), 1) * SWEEP);
   protected readonly valueArc = computed(() =>
     arc(this.bipolar() ? START + SWEEP / 2 : START, this.angle()),
@@ -264,7 +263,6 @@ export class Knob {
     to: polar(this.angle(), CAP - 2.5),
   }));
   protected readonly hovered = signal(false);
-  protected readonly grabbed = signal<{ y: number; value: number } | null>(null);
   protected readonly reading = computed(
     () => this.readout() !== null && (this.hovered() || this.grabbed() !== null),
   );
@@ -302,6 +300,7 @@ export class Knob {
   release(event: PointerEvent) {
     (event.target as Element).releasePointerCapture(event.pointerId);
     this.grabbed.set(null);
+    this.own.moved();
   }
 
   scroll(event: WheelEvent) {
@@ -329,6 +328,7 @@ export class Knob {
     const clamped = Math.min(Math.max(value, 0), 1);
     if (clamped === this.current()) return;
     this.current.set(clamped);
+    this.own.moved();
     this.valueChange.emit(clamped);
   }
 }

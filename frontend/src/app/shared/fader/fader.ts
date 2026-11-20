@@ -5,9 +5,9 @@ import {
   computed,
   inject,
   input,
-  linkedSignal,
   output,
 } from '@angular/core';
+import { ownValue } from '../own-value';
 
 /** Size of the cap along the travel (pixels): the track runs between its two centres. */
 const CAP = 14;
@@ -251,19 +251,16 @@ export class Fader {
   readonly valueChange = output<number>();
 
   private readonly host = inject(ElementRef<HTMLElement>);
-  /** Follows the input, and moves at once with the gestures; held, the pointer's, the input's
-   * echoes of older values coming in between. */
-  protected readonly current = linkedSignal<number, number>({
-    source: this.value,
-    computation: (value, before) => (before && this.grabbed ? before.value : value),
-  });
+  protected grabbed: { pointer: number; fraction: number } | null = null;
+  /** Follows the input, and moves at once with the gestures; held and a moment after, its own,
+   * the input's echoes of older values coming in between. */
+  private readonly own = ownValue(this.value, () => this.grabbed !== null);
+  protected readonly current = this.own.current;
   protected readonly fraction = computed(() => this.toFraction(this.current()));
   protected readonly cap = computed(() => (this.touch() ? TOUCH_CAP : CAP));
   private readonly origin = computed(() => (this.centered() ? 0.5 : 0));
   protected readonly fillFrom = computed(() => Math.min(this.origin(), this.fraction()));
   protected readonly fillTo = computed(() => Math.max(this.origin(), this.fraction()));
-
-  protected grabbed: { pointer: number; fraction: number } | null = null;
 
   grab(event: PointerEvent) {
     if (this.disabled() || event.button !== 0) return;
@@ -286,6 +283,7 @@ export class Fader {
     if (!this.grabbed) return;
     this.host.nativeElement.releasePointerCapture(event.pointerId);
     this.grabbed = null;
+    this.own.moved();
   }
 
   scroll(event: WheelEvent) {
@@ -327,6 +325,7 @@ export class Fader {
     const value = this.min() + f * (this.max() - this.min());
     if (value === this.current()) return;
     this.current.set(value);
+    this.own.moved();
     this.valueChange.emit(value);
   }
 
