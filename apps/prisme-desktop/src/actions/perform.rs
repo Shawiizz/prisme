@@ -367,6 +367,7 @@ impl Performing<'_> {
             }
             GeneralAction::TempoRange => self.next_tempo_range(None, 1),
             GeneralAction::TempoRangePrevious => self.next_tempo_range(None, -1),
+            GeneralAction::Record => self.record(),
             _ => Err(not_performed(&Target::General(action))),
         }
     }

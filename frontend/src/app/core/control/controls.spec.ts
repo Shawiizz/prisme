@@ -162,6 +162,7 @@ describe('controls', () => {
     find('library.load2.play').apply(1);
     find('library.double3').apply(1);
     find('deck1.sample2.smart').apply(1);
+    find('general.record').apply(1);
     expect(find('library.preview.seek').kind).toBe('encoder');
     expect(find('library.load4').deck).toBe(3);
     expect(calls).toEqual([
@@ -171,6 +172,7 @@ describe('controls', () => {
       'perform(library.load2.play,1,false)',
       'perform(library.double3,1,false)',
       'perform(deck1.sample2.smart,1,false)',
+      'perform(general.record,1,false)',
     ]);
   });
 

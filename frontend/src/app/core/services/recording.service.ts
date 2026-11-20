@@ -7,7 +7,6 @@ import { EngineService } from './engine.service';
 import { MixerService } from './mixer.service';
 import { SettingsService } from './settings.service';
 import { errorText } from '../errors';
-import { preferredSource } from '../record-source';
 import { PHONE } from '../platform';
 import { NoticeService } from '../../shared/notice/notice';
 import { recordingNotice } from '../recording-notice';
@@ -22,7 +21,7 @@ export interface RecordOption {
 /**
  * Recording the mix to a WAV file in Documents/Prisme Recordings, with its tracklist
  * (text and CUE) from the history of the set. The Rec menu offers what can be recorded; what
- * is started without asking takes the source recorded last (see `preferredSource`).
+ * is started without asking (`general.record`) takes the source recorded last.
  */
 @Injectable({ providedIn: 'root' })
 export class RecordingService {
@@ -68,34 +67,8 @@ export class RecordingService {
     }
     return options;
   });
-  /** What a recording started without asking takes, if anything. */
-  readonly preferred = computed(() =>
-    preferredSource(
-      this.options().map((o) => o.source),
-      this.mixer.recordSource(),
-      this.mixer.freeInputs(),
-    ),
-  );
-
-  async start(source: RecordSource): Promise<void> {
-    try {
-      await invoke<string>('start_recording', { source });
-      this.mixer.recordSource.set(source);
-      this.engine.error.set(null);
-    } catch (e) {
-      this.engine.error.set(errorText(e));
-    }
-  }
-
-  /** Records what was recorded last, or the software mixer's master; says so when there is
-   * nothing it may take without asking. */
-  startPreferred(): Promise<void> {
-    const source = this.preferred();
-    if (source) return this.start(source);
-    this.engine.error.set(
-      t('Nothing to record without asking: choose the inputs of your mixer in the Rec menu'),
-    );
-    return Promise.resolve();
+  start(source: RecordSource) {
+    return this.engine.call('start_recording', { source });
   }
 
   /** Tells where each recording went as it ends, whatever ended it (the Rec key, a
@@ -104,12 +77,8 @@ export class RecordingService {
     await listen<Recording>('recording-saved', (e) => this.saved(e.payload));
   }
 
-  async stop(): Promise<void> {
-    try {
-      await invoke<Recording | null>('stop_recording');
-    } catch (e) {
-      this.engine.error.set(errorText(e));
-    }
+  stop() {
+    return this.engine.call('stop_recording', {});
   }
 
   private saved(recording: Recording) {

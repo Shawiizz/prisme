@@ -1,22 +1,17 @@
 //! Recording the mix (see `recording`).
 
+use crate::actions::general;
 use crate::commands::blocking;
 use crate::dto::{RecordSourceDto, RecordingDto};
-use crate::error::{AppError, AppResult};
+use crate::error::AppResult;
 use crate::folders;
 use crate::library_service::LibraryService;
-use crate::recording::Recorder;
-use crate::state::{lock, AppState};
+use crate::state::AppState;
 use std::path::Path;
 use std::sync::Arc;
 use tauri::{AppHandle, Manager, State};
 
-/// Where recordings go, in the documents: out of the music folder, so that they do not
-/// end up in the library.
-const FOLDER: &str = "Prisme Recordings";
-
-/// Starts recording, never the master of a software mixer not in use (silence); returns the
-/// file being written. The source is kept: a recording started without asking takes it again.
+/// Starts recording `source` (see `general::start_recording`); returns the file being written.
 #[tauri::command]
 pub fn start_recording(
     app: AppHandle,
@@ -24,35 +19,14 @@ pub fn start_recording(
     library: State<'_, Arc<LibraryService>>,
     source: RecordSourceDto,
 ) -> AppResult<String> {
-    let mut recorder = lock(&state.recorder);
-    if recorder.is_some() {
-        return Err(AppError::AlreadyRecording);
-    }
-    if source == RecordSourceDto::Master && state.sample_rate().is_some() && !state.mixes_itself() {
-        return Err(AppError::SilentMaster);
-    }
-    #[cfg(target_os = "android")]
-    let documents = folders::shared_documents();
-    #[cfg(not(target_os = "android"))]
-    let documents = app.path().document_dir().map_err(|e| AppError::Other(e.to_string()))?;
-    let started =
-        Recorder::start(app.clone(), &state, source.into(), &documents.join(FOLDER), library.db.clone())?;
-    let path = started.path().display().to_string();
-    *recorder = Some(started);
-    state.update_preferences(|p| p.mixer.record_source = Some(source));
-    Ok(path)
+    general::start_recording(&app, &state, library.db.clone(), source)
 }
 
 /// Ends the recording and writes its tracklist next to it, off the main thread: the end of
 /// the recording is written first.
 #[tauri::command]
 pub async fn stop_recording(app: AppHandle) -> AppResult<Option<RecordingDto>> {
-    blocking(move || {
-        let state = app.state::<AppState>();
-        let recorder = lock(&state.recorder).take();
-        Ok(recorder.map(|recorder| recorder.stop(&state)))
-    })
-    .await
+    blocking(move || Ok(general::stop_recording(&app.state::<AppState>()))).await
 }
 
 /// Shows a recording in the system's file manager.

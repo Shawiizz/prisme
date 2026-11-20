@@ -2,7 +2,6 @@ import { computed, Injectable, inject } from '@angular/core';
 import { EngineService } from '../services/engine.service';
 import { LibraryService } from '../services/library.service';
 import { NavigationService } from '../services/navigation.service';
-import { RecordingService } from '../services/recording.service';
 import { PREVIEW_STEP_S, PreviewService } from '../services/preview.service';
 import { Control, ControlActions, buildControls, measuredControl } from './controls';
 
@@ -13,7 +12,6 @@ export class ControlService {
   private readonly library = inject(LibraryService);
   private readonly navigation = inject(NavigationService);
   private readonly preview = inject(PreviewService);
-  private readonly recordings = inject(RecordingService);
 
   private readonly actions: ControlActions = {
     perform: (id, value, steps) => this.engine.perform(id, value, steps),
@@ -35,8 +33,6 @@ export class ControlService {
     toggleHelp: () => this.navigation.toggleSettings('shortcuts'),
     togglePalette: () => this.navigation.togglePalette(),
     openSettings: () => this.navigation.openSettings(),
-    toggleRecording: () =>
-      this.recordings.status() ? this.recordings.stop() : this.recordings.startPreferred(),
     moveFocus: () => this.library.focus.update((f) => (f === 'tracks' ? 'lists' : 'tracks')),
     browseLists: (steps) => this.library.movePointedList(steps),
     openPointedList: () => this.library.openPointedList(),

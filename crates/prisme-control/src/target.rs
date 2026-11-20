@@ -394,7 +394,6 @@ impl Target {
             Target::Library(_)
             | Target::General(
                 GeneralAction::Library
-                | GeneralAction::Record
                 | GeneralAction::Help
                 | GeneralAction::Palette
                 | GeneralAction::Settings,

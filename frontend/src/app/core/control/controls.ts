@@ -54,7 +54,6 @@ export interface ControlActions {
   toggleHelp(): void;
   togglePalette(): void;
   openSettings(): void;
-  toggleRecording(): void;
   /** The browse knob on the lists of the left, or on the tracks. */
   moveFocus(): void;
   /** The pointer on the lists of the left moved, or the list it points at opened. */
@@ -587,7 +586,7 @@ export function buildControls(a: ControlActions): Control[] {
     ...switched(a, 'mixer.crossfader.reverse', t('Mixer'), t('Crossfader sides swapped')),
     performed(a, 'sampler.gain', t('Mixer'), t("Level of every deck's sampler"), 'fader'),
     light('main.clip', t('Mixer'), t('Light: the master past full scale')),
-    button('general.record', t('General'), t('Record the mix'), () => a.toggleRecording()),
+    performed(a, 'general.record', t('General'), t('Record the mix')),
     performed(a, 'autodj.toggle', t('Auto DJ'), t('Auto DJ on / off')),
     performed(a, 'autodj.fade', t('Auto DJ'), t('Mix into the next track now')),
     performed(a, 'autodj.skip', t('Auto DJ'), t('Skip the next track')),

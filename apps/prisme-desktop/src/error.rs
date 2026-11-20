@@ -36,6 +36,8 @@ pub enum AppError {
     SilentMaster,
     #[error("no headphones of their own to preview in: choose their outputs in the settings")]
     NoPreviewOutput,
+    #[error("nothing to record without asking: choose the inputs of your mixer in the Rec menu")]
+    NoRecordSource,
     /// The track of a deck that plays stays on it, the DJ having chosen so (`eject`: taken off,
     /// else replaced).
     #[error("deck {} plays: its track stays on it", .deck + 1)]
@@ -116,6 +118,7 @@ impl AppError {
             AppError::AlreadyRecording => ("alreadyRecording", none()),
             AppError::SilentMaster => ("silentMaster", none()),
             AppError::NoPreviewOutput => ("noPreviewOutput", none()),
+            AppError::NoRecordSource => ("noRecordSource", none()),
             AppError::DeckPlays { deck, eject } => ("deckPlays", json!({ "deck": deck, "eject": eject })),
             AppError::ConfirmReplace { target, deck, eject } => {
                 ("confirmReplace", json!({ "target": target, "deck": deck, "eject": eject }))

@@ -13,7 +13,7 @@ mod cues;
 pub mod deck;
 mod edits;
 pub mod fx;
-mod general;
+pub mod general;
 pub mod loads;
 mod loops;
 pub mod mixer;
