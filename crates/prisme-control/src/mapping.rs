@@ -552,8 +552,8 @@ struct DeviceReader {
     modes: Modes,
     /// The modes its groups begin in.
     first_modes: Modes,
-    /// How many times a mode key changed a mode.
-    mode_changes: u32,
+    /// How many times a shift or a mode key changed the layer read.
+    layer_changes: u32,
     pressed: HashMap<Control, (Shifts, Modes)>,
     /// The mode each group held in a mode by a key was in before.
     held_modes: HashMap<Control, (String, String)>,
@@ -603,10 +603,13 @@ impl Reader {
         }
         if let Some(Target::Shift(name)) = mapping.target.target() {
             let held = event.raw > 0;
-            match name {
-                Some(name) if held => drop(reader.shifts.names.insert(name.clone())),
-                Some(name) => drop(reader.shifts.names.remove(name)),
-                None => reader.shifts.plain = held,
+            let changed = match name {
+                Some(name) if held => reader.shifts.names.insert(name.clone()),
+                Some(name) => reader.shifts.names.remove(name),
+                None => std::mem::replace(&mut reader.shifts.plain, held) != held,
+            };
+            if changed {
+                reader.layer_changes = reader.layer_changes.wrapping_add(1);
             }
             return None;
         }
@@ -658,11 +661,6 @@ impl Reader {
         whole as i32
     }
 
-    /// The shifts of `device` held.
-    pub fn shifts(&self, device: &str) -> Shifts {
-        self.devices.get(device).map(|d| d.shifts.clone()).unwrap_or_default()
-    }
-
     /// What is read of `device` now: its shifts held, the modes its groups are in, its keys
     /// held.
     pub fn seen(&self, device: &str) -> Seen<'_> {
@@ -671,9 +669,10 @@ impl Reader {
         Seen { shifts: &reader.shifts, modes: &reader.modes, pressed: &reader.pressed }
     }
 
-    /// How many times `device`'s mode keys changed a mode: a change shows in another count.
-    pub fn mode_changes(&self, device: &str) -> u32 {
-        self.devices.get(device).map_or(0, |d| d.mode_changes)
+    /// How many times `device`'s shifts and mode keys changed the layer it reads: a change
+    /// shows in another count.
+    pub fn layer_changes(&self, device: &str) -> u32 {
+        self.devices.get(device).map_or(0, |d| d.layer_changes)
     }
 
     /// Puts `device`'s groups in `modes`, those it starts in.
@@ -738,7 +737,7 @@ impl DeviceReader {
     fn change_mode(&mut self, group: &str, mode: &str) {
         if self.modes.get(group).is_none_or(|m| m != mode) {
             self.modes.insert(group.to_owned(), mode.to_owned());
-            self.mode_changes = self.mode_changes.wrapping_add(1);
+            self.layer_changes = self.layer_changes.wrapping_add(1);
         }
     }
 
@@ -1130,13 +1129,15 @@ mod tests {
         let shown = |reader: &Reader| -> Vec<String> {
             let mut room = ShownRoom::default();
             mappings
-                .shown("DDJ", &reader.shifts("DDJ"), &Modes::new(), &mut room)
+                .shown("DDJ", reader.seen("DDJ").shifts, &Modes::new(), &mut room)
                 .filter(|m| m.control == PAD || m.control == KNOB)
                 .map(|m| m.target.to_string())
                 .collect()
         };
         assert_eq!(shown(&reader), ["deck1.hotcue1", "deck1.volume"]);
+        let layer = reader.layer_changes("DDJ");
         read(&mut reader, &mappings, &[0x90, 1, 127]);
+        assert_eq!(reader.layer_changes("DDJ"), layer + 1, "a shift held: another layer");
         assert_eq!(
             shown(&reader),
             ["deck1.hotcue1.delete", "deck1.volume"],

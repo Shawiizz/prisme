@@ -28,10 +28,7 @@ impl Controllers {
         event: Event,
         at_s: f64,
     ) {
-        let layer = || {
-            let reader = lock(&self.reader);
-            (reader.mode_changes(device), reader.shifts(device))
-        };
+        let layer = || lock(&self.reader).layer_changes(device);
         let before = layer();
         let routed = self.route(device, event, at_s);
         let relayered = layer() != before;
