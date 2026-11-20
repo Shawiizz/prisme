@@ -32,9 +32,43 @@ pub struct DeviceDto {
     pub kind: &'static str,
     pub channels: u16,
     pub sample_rate: u32,
-    /// Periods the driver accepts (frames): `[min, max]`.
-    pub buffer_range: Option<(u32, u32)>,
+    /// The periods the settings offer that the driver accepts.
+    pub buffer_sizes: Vec<BufferSizeDto>,
     pub is_default: bool,
+}
+
+/// A period of the audio: so many frames, so long at the device's rate.
+#[derive(Debug, Clone, Copy, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct BufferSizeDto {
+    pub frames: u32,
+    pub ms: f64,
+}
+
+impl BufferSizeDto {
+    /// The periods the settings offer (frames).
+    const OFFERED: [u32; 7] = [32, 64, 128, 256, 512, 1024, 2048];
+
+    /// Those of [`Self::OFFERED`] within `range` (all if the driver does not say), at `rate`
+    /// (48 kHz if it does not say).
+    pub fn offered(range: Option<(u32, u32)>, rate: u32) -> Vec<Self> {
+        let rate = if rate == 0 { 48_000 } else { rate };
+        Self::OFFERED
+            .into_iter()
+            .filter(|n| range.is_none_or(|(min, max)| (min..=max).contains(n)))
+            .map(|frames| Self { frames, ms: f64::from(frames) * 1000.0 / f64::from(rate) })
+            .collect()
+    }
+}
+
+/// An audio driver the settings offer.
+#[derive(Debug, Clone, Copy, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct BackendChoiceDto {
+    pub backend: BackendDto,
+    /// One device for the outputs and, with turntables on it, the inputs (an ASIO driver, a USB
+    /// card Prisme drives itself).
+    pub one_device: bool,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -2010,6 +2044,15 @@ mod tests {
         assert_eq!((mixer.crossfader, mixer.knobs.crossfader), (-1.0, 0.0));
         assert_eq!(controls.quantize, Some(true));
         assert_eq!(controls.tracks.unwrap().len(), prisme_engine::MAX_DECKS);
+    }
+
+    #[test]
+    fn the_periods_offered_are_those_the_driver_accepts_with_their_length() {
+        let sizes = BufferSizeDto::offered(Some((100, 600)), 48_000);
+        assert_eq!(sizes.iter().map(|s| s.frames).collect::<Vec<_>>(), [128, 256, 512]);
+        assert!((sizes[0].ms - 2.666).abs() < 0.01);
+        assert_eq!(BufferSizeDto::offered(None, 0).len(), 7, "every one, at 48 kHz");
+        assert_eq!(BufferSizeDto::offered(None, 0)[1].ms, 64_000.0 / 48_000.0);
     }
 
     #[test]

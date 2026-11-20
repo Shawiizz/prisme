@@ -73,13 +73,13 @@
               <div class="pr-card">
                 <app-setting-row id="audio.driver">
                   <div class="pr-seg pr-seg--lg" role="radiogroup" settingControl>
-                    @for (b of service.backends(); track b) {
+                    @for (b of service.backends(); track b.backend) {
                       <button
                         role="radio"
-                        [attr.aria-checked]="d.backend === b"
-                        (click)="setBackend(b)"
+                        [attr.aria-checked]="d.backend === b.backend"
+                        (click)="setBackend(b.backend)"
                       >
-                        {{ BACKEND_NAMES[b] }}
+                        {{ BACKEND_NAMES[b.backend] }}
                       </button>
                     }
                   </div>
@@ -135,9 +135,9 @@
                     settingControl
                   >
                     <option value="">{{ 'Driver default' | t }}</option>
-                    @for (n of bufferSizes(); track n) {
-                      <option [value]="n" [selected]="n === d.bufferFrames">
-                        {{ bufferLabel(n) }}
+                    @for (size of bufferSizes(); track size.frames) {
+                      <option [value]="size.frames" [selected]="size.frames === d.bufferFrames">
+                        {{ bufferLabel(size) }}
                       </option>
                     }
                   </select>

@@ -7,6 +7,7 @@ import {
   AudioDevice,
   AudioInfo,
   AudioSettings,
+  BackendChoice,
   CardOffer,
   TimecodeFormat,
 } from '../models/audio';
@@ -20,7 +21,7 @@ import { errorText } from '../errors';
  * and diagnostics. */
 @Injectable({ providedIn: 'root' })
 export class SettingsService {
-  readonly backends = signal<AudioBackend[]>([]);
+  readonly backends = signal<BackendChoice[]>([]);
   readonly devices = signal<AudioDevice[]>([]);
   /** The backend `devices` are of. */
   readonly devicesBackend = signal<AudioBackend | null>(null);
@@ -73,7 +74,7 @@ export class SettingsService {
 
   async refresh(): Promise<void> {
     const [backends, formats, settings, info] = await Promise.all([
-      invoke<AudioBackend[]>('audio_backends'),
+      invoke<BackendChoice[]>('audio_backends'),
       invoke<TimecodeFormat[]>('timecode_formats'),
       invoke<AudioSettings>('get_audio_settings'),
       invoke<AudioInfo | null>('audio_info'),

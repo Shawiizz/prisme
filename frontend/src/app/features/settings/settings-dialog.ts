@@ -20,7 +20,7 @@ import { UpdateService } from '../../core/services/update.service';
 import { StemsService } from '../../core/services/stems.service';
 import { LibraryService } from '../../core/services/library.service';
 import { NavigationService, SettingsCategory } from '../../core/services/navigation.service';
-import { AudioBackend, AudioSettings, BACKEND_NAMES, BUFFER_SIZES } from '../../core/models/audio';
+import { AudioBackend, AudioDevice, AudioSettings, BACKEND_NAMES } from '../../core/models/audio';
 import { InputChannels, LiveSource, MixMode, OutputNote } from '../../core/models/engine';
 import { Settings } from '../../core/models/preferences';
 import { LANGUAGES, language, t } from '../../core/i18n/i18n';
@@ -161,8 +161,9 @@ export class SettingsDialog implements OnInit {
   });
   /** One device for the outputs and, if the turntables are on it, the inputs: an ASIO driver,
    * a USB card Prisme drives itself. */
-  protected readonly oneDevice = computed(() =>
-    ['asio', 'usb'].includes(this.draft()?.backend ?? ''),
+  protected readonly oneDevice = computed(
+    () =>
+      this.service.backends().find((b) => b.backend === this.draft()?.backend)?.oneDevice ?? false,
   );
   protected readonly driverLabel = computed(() =>
     this.draft()?.backend === 'usb' ? t('USB sound card') : t('ASIO driver'),
@@ -190,8 +191,7 @@ export class SettingsDialog implements OnInit {
     const device =
       this.outputs().find((o) => o.name === d?.outputDevice) ??
       this.outputs().find((o) => o.isDefault);
-    const range = device?.bufferRange;
-    return range ? BUFFER_SIZES.filter((n) => n >= range[0] && n <= range[1]) : BUFFER_SIZES;
+    return device?.bufferSizes ?? [];
   });
 
   /** What waits for Apply: the audio restarts, or the interface starts again. */
@@ -427,9 +427,8 @@ export class SettingsDialog implements OnInit {
     return v === '' ? null : v;
   }
 
-  bufferLabel(frames: number): string {
-    const rate = this.service.info()?.sampleRate ?? 48_000;
-    return t('{frames} samples · {ms} ms', { frames, ms: ((frames / rate) * 1000).toFixed(1) });
+  bufferLabel(size: AudioDevice['bufferSizes'][number]): string {
+    return t('{frames} samples · {ms} ms', { frames: size.frames, ms: decimal(size.ms, 1) });
   }
 }
 

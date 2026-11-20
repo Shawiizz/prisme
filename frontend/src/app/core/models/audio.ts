@@ -1,5 +1,12 @@
 export type AudioBackend = 'wasapi' | 'asio' | 'coreAudio' | 'alsa' | 'jack' | 'aaudio' | 'usb';
 
+/** A driver the settings offer: with `oneDevice`, one device for the outputs and, with the
+ * turntables on it, the inputs (an ASIO driver, a USB card Prisme drives itself). */
+export interface BackendChoice {
+  backend: AudioBackend;
+  oneDevice: boolean;
+}
+
 /** The backends as their systems call them. */
 export const BACKEND_NAMES: Record<AudioBackend, string> = {
   wasapi: 'WASAPI',
@@ -16,8 +23,8 @@ export interface AudioDevice {
   kind: 'input' | 'output';
   channels: number;
   sampleRate: number;
-  /** Periods the driver accepts (frames), when it says. */
-  bufferRange: [number, number] | null;
+  /** The periods the settings offer that the driver accepts, and how long each lasts. */
+  bufferSizes: { frames: number; ms: number }[];
   isDefault: boolean;
 }
 
@@ -81,5 +88,3 @@ export function timecodeMakers(
   }
   return makers;
 }
-
-export const BUFFER_SIZES = [32, 64, 128, 256, 512, 1024, 2048];

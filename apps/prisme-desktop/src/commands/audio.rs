@@ -1,6 +1,9 @@
 use crate::audio_host;
 use crate::commands::blocking;
-use crate::dto::{AudioInfo, AudioSettings, BackendDto, DeviceDto, LatencyDto, TimecodeFormatDto};
+use crate::dto::{
+    AudioInfo, AudioSettings, BackendChoiceDto, BackendDto, BufferSizeDto, DeviceDto, LatencyDto,
+    TimecodeFormatDto,
+};
 use crate::error::{AppError, AppResult};
 use crate::state::{lock, AppState};
 use prisme_audio_io::{latency, AudioError, Backend, DeviceKind};
@@ -16,8 +19,17 @@ pub fn set_hidden(state: State<'_, AppState>, hidden: bool) {
 
 /// Backends this computer offers (ASIO only with an ASIO driver installed).
 #[tauri::command]
-pub fn audio_backends() -> Vec<BackendDto> {
-    Backend::available().into_iter().map(BackendDto::from).collect()
+pub fn audio_backends() -> Vec<BackendChoiceDto> {
+    Backend::available()
+        .into_iter()
+        .map(BackendDto::from)
+        .map(|backend| BackendChoiceDto { backend, one_device: one_device(backend) })
+        .collect()
+}
+
+/// Whether `backend` reaches one device for the outputs and the inputs.
+fn one_device(backend: BackendDto) -> bool {
+    matches!(backend, BackendDto::Asio | BackendDto::Usb)
 }
 
 #[tauri::command]
@@ -32,7 +44,7 @@ pub fn list_devices(backend: BackendDto) -> AppResult<Vec<DeviceDto>> {
             name: d.name,
             channels: d.channels,
             sample_rate: d.sample_rate,
-            buffer_range: d.buffer_range,
+            buffer_sizes: BufferSizeDto::offered(d.buffer_range, d.sample_rate),
             is_default: d.is_default,
         })
         .collect())
@@ -154,7 +166,7 @@ pub async fn measure_latency(app: AppHandle, output: usize, input: usize) -> App
         let settings = running.unwrap_or_else(|| state.preferences.read(|p| p.audio.clone()));
         let mut devices = audio_host::stream_settings(&settings);
         // a card or a driver both ways listens where it plays
-        if matches!(devices.backend, Backend::Asio | Backend::Usb) {
+        if one_device(settings.backend) {
             devices.input_device = devices.input_device.or_else(|| devices.output_device.clone());
         }
         let (_, measured) = restart(&state, &settings, || {
