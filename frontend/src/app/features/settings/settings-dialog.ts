@@ -8,6 +8,7 @@ import {
   inject,
   linkedSignal,
   signal,
+  untracked,
   viewChild,
 } from '@angular/core';
 import { getVersion } from '@tauri-apps/api/app';
@@ -201,6 +202,17 @@ export class SettingsDialog implements OnInit {
   /** Buffer sizes the chosen output's driver accepts. */
   protected readonly bufferSizes = computed(() => this.drafted()?.bufferSizes ?? []);
 
+  /** The draft started from the saved settings, and again as they change while the window is
+   * open (a new sound card used): one holding changes of its own keeps them, weighed against
+   * the settings saved now. */
+  private readonly followSaved = effect(() => {
+    const settings = this.service.settings();
+    untracked(() => {
+      const drafted = this.drafted();
+      void this.redraft(drafted?.changed ? drafted.draft : settings);
+    });
+  });
+
   /** What waits for Apply: the audio restarts, or the mixer changes. */
   protected readonly pending = computed(
     () => !!this.drafted()?.changed || this.mixMode() !== this.mixer.mode(),
@@ -223,7 +235,6 @@ export class SettingsDialog implements OnInit {
   }
 
   async ngOnInit() {
-    void this.redraft(this.service.settings());
     this.version.set(await getVersion().catch(() => ''));
     await this.readLatencyChannels();
   }
