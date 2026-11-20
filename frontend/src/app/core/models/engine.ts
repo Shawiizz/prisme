@@ -1,6 +1,6 @@
 import { Label } from '../i18n/i18n';
 import { Preferences } from './preferences';
-/** Shapes exchanged with the Rust side (see apps/prisme-desktop/src/dto.rs). */
+/** Shapes exchanged with the Rust side (see apps/prisme-desktop/src/dto). */
 
 import { Fader, Knob } from '../../shared/readout';
 import { MeterLevel } from '../../shared/meter';
