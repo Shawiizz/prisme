@@ -691,6 +691,11 @@ impl Actions {
         self.started.elapsed().as_secs_f64()
     }
 
+    /// A page of the interface loaded: the keys the one before held are let go, nothing done.
+    pub fn page_loaded(&self) {
+        self.keys.clear();
+    }
+
     /// The interface's keys held whose time came in `view`, performed (see `keys`): an action
     /// let go after it, its key let go meanwhile.
     pub fn fire_keys(&self, host: &impl Host, view: &View) {

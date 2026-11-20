@@ -3,6 +3,7 @@
 //! sent. Each status says only what changed since the one before (see [`Told`]): nothing at all
 //! while nothing moves.
 
+use crate::actions::Actions;
 use crate::dto::{ControlStateDto, StatusDto};
 use crate::state::{lock, AppState, Section, SECTIONS};
 use prisme_actions::view::View;
@@ -26,9 +27,15 @@ struct Listener {
     revision: Option<[u64; SECTIONS]>,
 }
 
-/// The page listens from now on: a newer one in place of an older (a page reloaded).
+/// The page listens from now on: a newer one in place of an older (a page reloaded), the keys
+/// the older held let go.
 #[tauri::command]
-pub fn subscribe_status(stream: State<'_, StatusStream>, channel: Channel<Value>) {
+pub fn subscribe_status(
+    stream: State<'_, StatusStream>,
+    actions: State<'_, Actions>,
+    channel: Channel<Value>,
+) {
+    actions.page_loaded();
     *lock(&stream.listener) = Some(Listener { channel, told: Told::default(), revision: None });
 }
 

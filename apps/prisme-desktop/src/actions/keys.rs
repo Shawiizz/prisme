@@ -69,6 +69,11 @@ impl Keys {
         lock(&self.0).retain(|k| k.target != *target || k.pressed.released());
     }
 
+    /// Every key let go, nothing done: the page holding them is gone.
+    pub fn clear(&self) {
+        lock(&self.0).clear();
+    }
+
     /// The keys whose time came at `now_s` in `view` and the action each performs: the holds of
     /// the keys held long enough, the tempo keys stepping on, but on a deck whose tempo something
     /// else holds (sync, a record), where they stop. Each is performed, then said `fired`.
@@ -178,6 +183,15 @@ mod tests {
         assert_eq!(fire(&keys, 0.4, &view()), std::slice::from_ref(&up));
         assert_eq!(fire(&keys, 0.46, &view()), std::slice::from_ref(&up));
         assert_eq!(keys.press(&up, 0.0, 0.5), Press::Act);
+        assert_eq!(fire(&keys, 1.0, &view()), []);
+    }
+
+    #[test]
+    fn the_keys_of_a_page_gone_stop() {
+        let keys = Keys::default();
+        let up = target("deck1.tempo.up");
+        keys.press(&up, 1.0, 0.0);
+        keys.clear();
         assert_eq!(fire(&keys, 1.0, &view()), []);
     }
 
