@@ -9,3 +9,4 @@ pub mod press;
 pub mod scales;
 pub mod stems;
 pub mod sync;
+pub mod tap;
