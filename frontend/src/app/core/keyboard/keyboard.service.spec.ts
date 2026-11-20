@@ -14,7 +14,8 @@ describe('KeyboardService', () => {
 
   it('leaves a key pressed in a dialog to the dialog', async () => {
     mockIPC(() => undefined);
-    tellPreferences({ keys: {} } as unknown as Preferences);
+    const load = { code: 'Enter', control: 'library.load', everywhere: false, inUse: true };
+    tellPreferences({ shortcuts: [load] } as unknown as Preferences);
     const applied: string[] = [];
     vi.spyOn(TestBed.inject(ControlService), 'act').mockImplementation(
       (id, value) => void (value && applied.push(id)),

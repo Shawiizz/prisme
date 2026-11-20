@@ -6,12 +6,13 @@ use crate::library_service::LibraryService;
 use crate::preferences::{
     DeckCount, DjPreferences, KeyPreference, LibraryPreferences, Preferences, UiPreferences, VinylSync,
 };
+use crate::shortcuts::{self, Shortcut};
 use crate::state::{lock, AppState};
 use crate::stems_service::StemsService;
 use crate::tag_writer::TagWriter;
 use prisme_actions::scales::TEMPO_RANGES;
+use prisme_control::Target;
 use serde::{Deserialize, Serialize};
-use std::collections::BTreeMap;
 use std::sync::Arc;
 use tauri::{AppHandle, Manager, State};
 
@@ -22,8 +23,23 @@ pub struct PreferencesDto {
     pub dj: DjPreferences,
     pub library: LibraryPreferences,
     pub ui: UiPreferences,
-    pub keys: BTreeMap<String, Vec<KeyPreference>>,
+    /// The keyboard's shortcuts in use: the keys the DJ gave, the defaults of the other actions.
+    pub shortcuts: Vec<ShortcutDto>,
+    /// The actions whose keys the DJ changed.
+    pub changed: Vec<String>,
     pub choices: SettingChoicesDto,
+}
+
+/// A key of the keyboard bound to an action.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ShortcutDto {
+    #[serde(flatten)]
+    pub shortcut: Shortcut,
+    /// It acts while typing and over the settings and the palette.
+    pub everywhere: bool,
+    /// Its action is of a deck in use, or of none.
+    pub in_use: bool,
 }
 
 /// The values the settings offer where there are a few.
@@ -40,13 +56,24 @@ impl PreferencesDto {
     pub fn of(state: &AppState) -> Self {
         let (dj, library, ui, keys) =
             state.preferences.read(|p| (p.dj, p.library.clone(), p.ui.clone(), p.keys.clone()));
+        let in_use = |control: &str| {
+            control.parse::<Target>().is_ok_and(|t| t.deck().is_none_or(|deck| deck < dj.decks()))
+        };
+        let shortcuts = shortcuts::effective(&keys)
+            .into_iter()
+            .map(|shortcut| ShortcutDto {
+                everywhere: shortcuts::everywhere(&shortcut),
+                in_use: in_use(&shortcut.control),
+                shortcut,
+            })
+            .collect();
         let choices = SettingChoicesDto {
             tempo_ranges: TEMPO_RANGES,
             deck_counts: [DeckCount::Two.into(), DeckCount::Four.into()],
             talkover_depths: TALKOVER_DEPTHS,
             languages: UiPreferences::LANGUAGES,
         };
-        Self { dj, library, ui, keys, choices }
+        Self { dj, library, ui, shortcuts, changed: keys.into_keys().collect(), choices }
     }
 }
 
@@ -181,10 +208,42 @@ fn change(state: &AppState, setting: Setting) -> AppResult<Then> {
     put
 }
 
-/// The keyboard keys the DJ changed, by action.
+/// `keys` given to `control` (none: those Prisme gives it), taken from the actions that have
+/// them once the DJ says so (`take`): until then they are told back, nothing changed.
 #[tauri::command]
-pub fn set_key_preferences(state: State<'_, AppState>, keys: BTreeMap<String, Vec<KeyPreference>>) {
-    state.update_settings(|p| p.keys = keys);
+pub fn set_keys(
+    state: State<'_, AppState>,
+    control: String,
+    keys: Option<Vec<KeyPreference>>,
+    take: bool,
+) -> AppResult<Vec<Shortcut>> {
+    give_keys(&state, &control, keys, take)
+}
+
+fn give_keys(
+    state: &AppState,
+    control: &str,
+    keys: Option<Vec<KeyPreference>>,
+    take: bool,
+) -> AppResult<Vec<Shortcut>> {
+    if !shortcuts::keyed(control) {
+        return Err(AppError::Other(format!("no key presses {control}")));
+    }
+    let keys = keys.unwrap_or_else(|| shortcuts::default_keys(control));
+    let mut taken = Vec::new();
+    state.update_settings(|p| {
+        taken = shortcuts::conflicts(&shortcuts::effective(&p.keys), control, &keys);
+        if take || taken.is_empty() {
+            p.keys = shortcuts::assign(&p.keys, control, &keys);
+        }
+    });
+    Ok(if take { Vec::new() } else { taken })
+}
+
+/// Every action back to the keys Prisme gives it.
+#[tauri::command]
+pub fn reset_keys(state: State<'_, AppState>) {
+    state.update_settings(|p| p.keys.clear());
 }
 
 #[cfg(test)]
@@ -197,6 +256,41 @@ mod tests {
 
     fn setting(json: serde_json::Value) -> Setting {
         serde_json::from_value(json).unwrap()
+    }
+
+    #[test]
+    fn keys_another_action_has_are_told_until_the_dj_says_to_take_them() {
+        let state = state();
+        let a = KeyPreference { code: "KeyA".into(), ctrl: false, shift: false };
+        let taken = give_keys(&state, "deck1.play", Some(vec![a.clone()]), false).unwrap();
+        assert_eq!(taken.iter().map(|s| s.control.as_str()).collect::<Vec<_>>(), ["deck1.cue"]);
+        assert!(state.preferences.read(|p| p.keys.is_empty()), "nothing changed yet");
+        assert_eq!(give_keys(&state, "deck1.play", Some(vec![a.clone()]), true).unwrap(), []);
+        let shown = PreferencesDto::of(&state);
+        assert_eq!(shown.changed, ["deck1.cue", "deck1.play"]);
+        let play: Vec<_> = shown.shortcuts.iter().filter(|s| s.shortcut.control == "deck1.play").collect();
+        assert_eq!(play.len(), 1);
+        assert_eq!(play[0].shortcut.key, a);
+        give_keys(&state, "deck1.cue", None, true).unwrap();
+        give_keys(&state, "deck1.play", None, false).unwrap();
+        assert!(state.preferences.read(|p| p.keys.is_empty()), "both back to their defaults");
+        assert!(give_keys(&state, "mixer.crossfader", None, false).is_err(), "no key presses a fader");
+    }
+
+    #[test]
+    fn the_keys_of_decks_not_in_use_do_nothing() {
+        let state = state();
+        let in_use = |control: &str| {
+            PreferencesDto::of(&state)
+                .shortcuts
+                .iter()
+                .find(|s| s.shortcut.control == control)
+                .unwrap()
+                .in_use
+        };
+        assert!(in_use("deck2.play") && !in_use("deck3.play") && in_use("library.load"));
+        change(&state, Setting::DeckCount(4)).unwrap();
+        assert!(in_use("deck3.play"));
     }
 
     #[test]

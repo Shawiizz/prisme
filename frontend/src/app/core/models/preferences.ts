@@ -1,5 +1,5 @@
 import { VinylSyncMode } from './engine';
-import { KeyChanges } from '../keyboard/shortcuts';
+import { Shortcut } from '../keyboard/shortcuts';
 
 /** Shapes of apps/prisme-desktop/src/preferences.rs. */
 
@@ -59,8 +59,10 @@ export interface Preferences {
   dj: DjPreferences;
   library: LibraryPreferences;
   ui: UiPreferences;
-  /** The keys the DJ changed, by control. */
-  keys: KeyChanges;
+  /** The keyboard's shortcuts in use. */
+  shortcuts: Shortcut[];
+  /** The actions whose keys the DJ changed. */
+  changed: string[];
   choices: {
     tempoRanges: number[];
     deckCounts: number[];

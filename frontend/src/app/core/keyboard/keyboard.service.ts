@@ -2,15 +2,17 @@ import { Injectable, computed, inject, signal } from '@angular/core';
 import { NavigationService } from '../services/navigation.service';
 import { ControlService } from '../control/control.service';
 import { PreferencesService } from '../services/preferences.service';
-import { CTRL, everywhere, Key, keyOf, matches, shortcutsWith } from './shortcuts';
+import { CTRL, Key, Shortcut, keyName, keyOf } from './shortcuts';
 import { t } from '../i18n/i18n';
 
 interface KeyboardLayoutApi {
   keyboard?: { getLayoutMap(): Promise<Map<string, string>> };
 }
 
-/** Plays the keyboard shortcuts, the DJ's own keys over the defaults; held keys are released
- * on key up or on focus loss. */
+/** Plays the keyboard shortcuts as the backend tells them, the DJ's own keys over the
+ * defaults; held keys are released on key up or on focus loss. Whether a key is a shortcut is
+ * decided as it is pressed (it must not reach the page then): it is looked up in a table by its
+ * code and modifiers, made again from the backend's shortcuts as they change. */
 @Injectable({ providedIn: 'root' })
 export class KeyboardService {
   private readonly controls = inject(ControlService);
@@ -18,7 +20,16 @@ export class KeyboardService {
   private readonly preferences = inject(PreferencesService);
 
   /** The shortcuts in use. */
-  readonly shortcuts = computed(() => shortcutsWith(this.preferences.keys()));
+  readonly shortcuts = computed(() => this.preferences.shortcuts());
+  /** The shortcuts of the actions in use, by the key's name (`keyName`). */
+  private readonly table = computed(
+    () =>
+      new Map<string, Shortcut>(
+        this.shortcuts()
+          .filter((s) => s.inUse)
+          .map((s) => [keyName(s), s]),
+      ),
+  );
   /** Key code -> what the user's keyboard layout prints on that key. */
   private readonly layout = signal(new Map<string, string>());
   /** The action of each key held, by its code. */
@@ -83,9 +94,10 @@ export class KeyboardService {
   }
 
   private onKeyDown(event: KeyboardEvent) {
-    const shortcut = this.shortcuts().find((s) => matches(s, event));
-    if (!shortcut || !this.controls.findInUse(shortcut.control)) return;
-    if (!everywhere(shortcut) && (isTyping(event) || inDialog(event) || this.navigation.covered()))
+    const key = keyOf(event);
+    const shortcut = key && this.table().get(keyName(key));
+    if (!shortcut) return;
+    if (!shortcut.everywhere && (isTyping(event) || inDialog(event) || this.navigation.covered()))
       return;
     event.preventDefault();
     if (event.repeat || this.held.has(event.code)) return;

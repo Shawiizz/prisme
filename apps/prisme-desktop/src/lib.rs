@@ -60,6 +60,7 @@ mod preview;
 mod recording;
 mod sampler;
 mod scope_stream;
+mod shortcuts;
 mod state;
 mod status_stream;
 mod stems_service;
@@ -404,7 +405,8 @@ pub fn run() {
             commands::auto_dj::set_auto_dj_fade,
             commands::preferences::get_preferences,
             commands::preferences::set_preference,
-            commands::preferences::set_key_preferences,
+            commands::preferences::set_keys,
+            commands::preferences::reset_keys,
             #[cfg(desktop)]
             commands::update::download_update,
             #[cfg(desktop)]

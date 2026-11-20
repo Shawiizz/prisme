@@ -51,8 +51,10 @@ export class PreferencesService {
   readonly dj = computed(() => told()!.dj);
   readonly library = computed(() => told()!.library);
   readonly ui = computed(() => told()!.ui);
-  /** The keys the DJ changed, by control: the others keep their defaults. */
-  readonly keys = computed(() => told()!.keys);
+  /** The keyboard's shortcuts in use. */
+  readonly shortcuts = computed(() => told()!.shortcuts);
+  /** The actions whose keys the DJ changed. */
+  readonly changed = computed(() => told()!.changed);
   /** What the settings offer where there are a few values. */
   readonly choices = computed(() => told()!.choices);
 
