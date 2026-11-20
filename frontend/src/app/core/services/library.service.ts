@@ -27,7 +27,6 @@ import { t } from '../i18n/i18n';
 import { ConfirmService } from '../../shared/confirm/confirm';
 import { same } from '../same';
 
-const NO_LISTS: LibraryLists = { crates: [], sessions: [], prepare: 0, next: null, elsewhere: 0 };
 const NO_WINDOW: LibraryWindow = { seq: -1, first: 0, rows: [] };
 
 /**
@@ -44,19 +43,17 @@ export class LibraryService {
   private readonly exports = inject(ExportService);
   private readonly confirm = inject(ConfirmService);
 
-  private readonly told = computed(() => this.engine.controls()?.folders ?? null);
+  private readonly told = computed(() => this.engine.told().folders);
   /** The folders whose tracks make the library, the main one first. */
-  readonly folders = computed(() => this.told()?.folders ?? []);
+  readonly folders = computed(() => this.told().folders);
   /** The main music folder. */
   readonly root = computed(() => this.folders().find((f) => f.main)?.path ?? null);
   readonly error = signal<string | null>(null);
-  readonly progress = computed<AnalysisProgress>(
-    () => this.told()?.progress ?? { total: 0, done: 0, failed: 0, running: false, paused: false },
-  );
+  readonly progress = computed<AnalysisProgress>(() => this.told().progress);
   /** The run of the analysis `progress` is of. */
-  readonly scan = computed(() => this.told()?.scan ?? 0);
+  readonly scan = computed(() => this.told().scan);
   /** The library's database could not be opened: what changes is lost at exit. */
-  readonly inMemory = computed(() => this.told()?.inMemory ?? false);
+  readonly inMemory = computed(() => this.told().inMemory);
   /** The genres of the library, the most common first (loaded on demand). */
   readonly genres = signal<string[]>([]);
   /** Incremented to ask the view to focus the search field. */
@@ -68,7 +65,7 @@ export class LibraryService {
   readonly window = signal<LibraryWindow>(NO_WINDOW);
   /** The crates, the sets, the prepare list and the tracks from elsewhere, as the side panel
    * shows them. */
-  readonly lists = computed(() => this.engine.controls()?.lists ?? NO_LISTS, { equal: same });
+  readonly lists = computed(() => this.engine.told().lists, { equal: same });
   /** What is typed in the search while it has the focus: shown rather than the search applied,
    * which follows a keystroke behind. */
   private readonly typing = signal<string | null>(null);

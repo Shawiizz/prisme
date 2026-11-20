@@ -33,9 +33,9 @@ export class SettingsService {
   readonly makers = signal<TimecodeMaker[]>([]);
   private readonly engine = inject(EngineService);
   /** The settings the DJ chose, as the backend keeps them. */
-  readonly settings = computed(() => this.engine.controls()?.audio.settings ?? null);
+  readonly settings = computed(() => this.engine.told().audio.settings);
   /** The audio running. */
-  readonly info = computed(() => this.engine.controls()?.audio.info ?? null);
+  readonly info = computed(() => this.engine.told().audio.info);
   private readonly notices = inject(NoticeService);
   /** The length of an audio period, `5.3 ms`, once the driver has called the engine. */
   readonly period = computed(() => {

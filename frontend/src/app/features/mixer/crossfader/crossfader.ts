@@ -12,8 +12,8 @@ import { MixerMenu } from '../mixer-menu/mixer-menu';
     <span class="pr-label">A</span>
     <app-fader
       centered
-      [value]="mixer.knobs()?.crossfader.at ?? 0.5"
-      [defaultValue]="mixer.knobs()?.crossfader.home ?? 0.5"
+      [value]="mixer.knobs().crossfader.at"
+      [defaultValue]="mixer.knobs().crossfader.home"
       (valueChange)="mixer.setCrossfader($event)"
       [label]="'Crossfader' | t"
     />

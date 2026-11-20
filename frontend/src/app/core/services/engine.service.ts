@@ -37,6 +37,10 @@ export class EngineService {
   readonly status = signal<EngineStatus | null>(null);
   /** What the app mirrors as the backend last told it changed (`StatusChanges.controls`). */
   readonly controls = signal<ControlState | null>(null);
+  /** What the app mirrors, once the backend told it: the shell shows from then on (`ready`),
+   * and reads it only there. */
+  readonly told = computed(() => this.controls()!);
+  readonly ready = computed(() => this.controls() !== null);
   readonly tracks = signal<(TrackInfo | null)[]>(Array(MAX_DECKS).fill(null));
   /** Whether each deck loads a track. */
   readonly loading = computed(() => this.controls()?.loading ?? NONE_LOADING, { equal: sameItems });

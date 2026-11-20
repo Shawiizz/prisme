@@ -14,10 +14,10 @@ export class StemsService {
   private readonly engine = inject(EngineService);
 
   /** As the backend last told it; nothing until the first status. */
-  readonly state = computed<StemsState | null>(() => this.engine.controls()?.stems ?? null);
-  readonly progress = computed(() => this.state()?.progress ?? null);
+  readonly state = computed<StemsState>(() => this.engine.told().stems);
+  readonly progress = computed(() => this.state().progress);
   /** How far the models chosen and installed separate a track. */
-  readonly reach = computed(() => this.state()?.reach ?? 'none');
+  readonly reach = computed(() => this.state().reach);
   readonly error = signal<string | null>(null);
   /** The models were offered for tracks to separate: the dialog shows. */
   readonly offered = signal(false);

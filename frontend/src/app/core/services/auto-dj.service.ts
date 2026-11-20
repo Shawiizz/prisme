@@ -7,17 +7,6 @@ import { t } from '../i18n/i18n';
 import { deckLetter } from '../../shared/time';
 import { errorText } from '../errors';
 
-const OFF: AutoDjStatus = {
-  state: 'off',
-  reason: null,
-  reasonDeck: null,
-  current: null,
-  incoming: null,
-  mixAtS: null,
-  fadeBeats: 16,
-  fadeS: 10,
-};
-
 /**
  * The Auto DJ: plays the prepare list on decks A and B, each track mixed into the next with
  * the software mixer's crossfader. It runs in the backend, so that it keeps time with the
@@ -29,7 +18,7 @@ export class AutoDjService {
   private readonly engine = inject(EngineService);
   private readonly mixer = inject(MixerService);
 
-  readonly status = computed(() => this.engine.controls()?.autoDj ?? OFF);
+  readonly status = computed(() => this.engine.told().autoDj);
   /** On, paused or not. */
   readonly on = computed(() => this.status().state !== 'off');
   /** Playing the list: what a controller's light shows. */
@@ -39,7 +28,7 @@ export class AutoDjService {
   /** It fades with the software mixer's crossfader: an external mixer's is out of its reach. */
   readonly available = computed(() => this.mixer.internal());
   /** The first track of the prepare list: the one mixed in next. */
-  readonly next = computed(() => this.engine.controls()?.lists.next ?? null);
+  readonly next = computed(() => this.engine.told().lists.next);
   /** Seconds before the next mix starts, while one is planned. */
   readonly mixIn = computed(() => this.engine.status()?.mixInS ?? null);
   /** Why it stopped, paused or left a track out, in words. */

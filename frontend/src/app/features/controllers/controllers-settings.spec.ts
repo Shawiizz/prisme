@@ -32,7 +32,8 @@ describe('ControllersSettings', () => {
       if (['midi_outputs', 'controller_light_targets', 'list_targets'].includes(command)) return [];
       return undefined;
     });
-    const shown = { controllers, canLearn: true, profiles: null, mapped: [], learning: null };
+    const profiles = { profiles: [], counts: { all: 0, updated: 0, own: 0 }, replacing: [] };
+    const shown = { controllers, canLearn: true, profiles, mapped: [], learning: null };
     TestBed.inject(EngineService).controls.set({ controllers: shown } as unknown as ControlState);
     const fixture = TestBed.createComponent(ControllersSettings);
     fixture.detectChanges();

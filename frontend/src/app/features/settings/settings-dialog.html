@@ -605,7 +605,7 @@
                   </button>
                 </div>
               </app-setting-row>
-              @for (m of stems.state()?.models ?? []; track m.id) {
+              @for (m of stems.state().models; track m.id) {
                 <app-setting-row [id]="MODEL_SETTINGS[m.id]">
                   @if (m.error; as error) {
                     <span class="pr-row__help error">{{ error }}</span>
@@ -628,7 +628,7 @@
               <app-setting-row
                 id="library.stemsGpu"
                 [help]="
-                  stems.state()?.gpu === false
+                  stems.state().gpu === false
                     ? ('No graphics chip worth it here: the processor separates.' | t)
                     : null
                 "
@@ -636,9 +636,9 @@
                 <button
                   class="pr-switch"
                   role="switch"
-                  [attr.aria-checked]="stems.state()?.onGpu ?? false"
+                  [attr.aria-checked]="stems.state().onGpu"
                   settingControl
-                  [disabled]="stems.state()?.gpu === false"
+                  [disabled]="stems.state().gpu === false"
                   (click)="set('stemsGpu', !preferences.library().stemsGpu)"
                 >
                   <span></span>

@@ -30,7 +30,7 @@ export class RecordingService {
 
   readonly status = computed(() => this.engine.status()?.recording ?? null);
   /** The last recording finished. */
-  readonly last = computed(() => this.engine.controls()?.mixer.lastRecording ?? null);
+  readonly last = computed(() => this.engine.told().mixer.lastRecording);
 
   /** The software mixer's master, and each input pair (a hardware mixer's record out), those
    * a turntable comes into told apart. */

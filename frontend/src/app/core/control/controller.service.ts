@@ -29,16 +29,16 @@ export class ControllerService {
   private readonly notices = inject(NoticeService);
   private readonly navigation = inject(NavigationService);
 
-  private readonly told = computed(() => this.engine.controls()?.controllers ?? null);
-  readonly controllers = computed(() => this.told()?.controllers ?? []);
+  private readonly told = computed(() => this.engine.told().controllers);
+  readonly controllers = computed(() => this.told().controllers);
   /** A controller is open: controls can be learnt. */
-  readonly canLearn = computed(() => this.told()?.canLearn ?? false);
-  readonly profiles = computed(() => this.told()?.profiles ?? null);
+  readonly canLearn = computed(() => this.told().canLearn);
+  readonly profiles = computed(() => this.told().profiles);
   /** What drives what, by action and by controller. */
-  readonly mappings = computed(() => this.told()?.mapped ?? []);
-  readonly clockOutput = computed(() => this.told()?.clockOutput ?? null);
+  readonly mappings = computed(() => this.told().mapped);
+  readonly clockOutput = computed(() => this.told().clockOutput);
   /** The control waiting for a move on the controller. */
-  readonly learning = computed(() => this.told()?.learning ?? null);
+  readonly learning = computed(() => this.told().learning);
   /** MIDI outputs, for the clock (`look`). */
   readonly outputs = signal<string[]>([]);
 

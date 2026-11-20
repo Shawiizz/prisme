@@ -19,12 +19,12 @@ export class FxService {
   private readonly engine = inject(EngineService);
   /** The slot each deck's effect knobs are focused on, as the backend keeps it. */
   private readonly focusedSlots = computed<(number | null)[]>(
-    () => this.engine.controls()?.perform.map((d) => d.fxFocus) ?? Array(MAX_DECKS).fill(null),
+    () => this.engine.told().perform.map((d) => d.fxFocus),
     { equal: sameItems },
   );
   /** The slot each deck's pads and knobs act on, as the backend keeps it. */
   private readonly shownSlots = computed<number[]>(
-    () => this.engine.controls()?.perform.map((d) => d.fxShown) ?? Array(MAX_DECKS).fill(0),
+    () => this.engine.told().perform.map((d) => d.fxShown),
     { equal: sameItems },
   );
 

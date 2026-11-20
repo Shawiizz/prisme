@@ -117,28 +117,23 @@ export class SettingsDialog implements OnInit {
   protected readonly drafting = new Serial();
   protected readonly dj = this.preferences.dj;
   /** What the backend keeps of the DJ's preferences as the actions change them. */
-  protected readonly quantize = computed(() => this.engine.controls()?.quantize ?? false);
-  protected readonly pitchRange = computed(() => this.engine.controls()?.pitchRange ?? null);
+  protected readonly quantize = computed(() => this.engine.told().quantize);
+  protected readonly pitchRange = computed(() => this.engine.told().pitchRange);
   /** The pairs the headphones can take on the running device, with the one chosen. */
-  protected readonly headphonesPairs = computed(
-    () => this.mixer.routing()?.headphonesChoices ?? [],
-  );
+  protected readonly headphonesPairs = computed(() => this.mixer.routing().headphonesChoices);
   /** What the choice of the headphones does, and where they are heard on the running device. */
   protected readonly headphonesHelp = computed(() => {
     const described = SETTING_BY_ID.get('mixing.headphones')!.description();
     const help = this.mixer.internal()
       ? described
       : `${described} ${t('With an external mixer, only the preview plays there, on a pair no deck uses; Automatic takes the pair after the decks’ on an ASIO interface.')}`;
-    return withNote(help, this.mixer.routing()?.headphonesNote ?? null);
+    return withNote(help, this.mixer.routing().headphonesNote);
   });
   /** The pairs the booth can take on the running device (the master has 1-2, the headphones
    * theirs), with the one chosen. */
-  protected readonly boothPairs = computed(() => this.mixer.routing()?.boothChoices ?? []);
+  protected readonly boothPairs = computed(() => this.mixer.routing().boothChoices);
   protected readonly boothHelp = computed(() =>
-    withNote(
-      SETTING_BY_ID.get('mixing.booth')!.description(),
-      this.mixer.routing()?.boothNote ?? null,
-    ),
+    withNote(SETTING_BY_ID.get('mixing.booth')!.description(), this.mixer.routing().boothNote),
   );
   protected readonly micChoices = computed(() => this.mixer.mic().choices);
   protected readonly auxChoices = computed(() => this.mixer.aux().choices);
@@ -150,7 +145,7 @@ export class SettingsDialog implements OnInit {
   protected readonly pauseWhilePlaying = computed(
     () => this.preferences.library().pauseWhilePlaying,
   );
-  protected readonly separateOnLoad = computed(() => this.stems.state()?.onLoad ?? false);
+  protected readonly separateOnLoad = computed(() => this.stems.state().onLoad);
   /** The setting each separation model is listed under. */
   protected readonly MODEL_SETTINGS: Record<ModelId, string> = {
     vocals: 'library.stemsModel',

@@ -150,7 +150,7 @@
         {{ look()?.state === 'looking' ? ('Looking…' | t) : ('Look for updates' | t) }}
       </button>
     </div>
-    @if (!PHONE && service.profiles()?.folder) {
+    @if (!PHONE && service.profiles().folder) {
       <div class="pr-row">
         <div>
           <span class="pr-row__name">{{ 'Your own profiles' | t }}</span>
@@ -164,7 +164,7 @@
                 | t: { file: p.file, model: p.name }
             }}</span>
           }
-          @for (problem of service.profiles()?.unreadable; track problem) {
+          @for (problem of service.profiles().unreadable; track problem) {
             <span class="pr-row__help failed">{{ problem }}</span>
           }
         </div>

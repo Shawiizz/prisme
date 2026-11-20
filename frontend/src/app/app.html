@@ -1,55 +1,58 @@
-@if (PHONE) {
-  <!-- loaded apart: a computer never needs the screens of a phone -->
-  @defer (on immediate) {
-    <app-phone />
-  }
-} @else {
-  <app-titlebar />
-
-  <main
-    class="layout"
-    [class.split]="under() !== null"
-    [class.library-only]="navigation.libraryOnly()"
-    [style.--under.px]="under()"
-    [style.--under-zoom]="underZoom()"
-  >
-    @if (under() !== null || navigation.libraryOnly()) {
-      <app-now-playing />
+<!-- the shell shows once the backend told what it mirrors: the splash covers it until then -->
+@if (ready()) {
+  @if (PHONE) {
+    <!-- loaded apart: a computer never needs the screens of a phone -->
+    @defer (on immediate) {
+      <app-phone />
     }
-    <section class="decks" [class.mix]="mixer.internal()" [class.compact]="compact()">
-      @for (deck of decks(); track deck) {
-        <app-deck-lane
-          [deck]="deck"
-          [compact]="compact()"
-          animate.enter="lane-in"
-          animate.leave="lane-out"
-        />
-        @if (deck === 0) {
-          <app-phase-strip />
-        }
+  } @else {
+    <app-titlebar />
+
+    <main
+      class="layout"
+      [class.split]="under() !== null"
+      [class.library-only]="navigation.libraryOnly()"
+      [style.--under.px]="under()"
+      [style.--under-zoom]="underZoom()"
+    >
+      @if (under() !== null || navigation.libraryOnly()) {
+        <app-now-playing />
       }
-    </section>
+      <section class="decks" [class.mix]="mixer.internal()" [class.compact]="compact()">
+        @for (deck of decks(); track deck) {
+          <app-deck-lane
+            [deck]="deck"
+            [compact]="compact()"
+            animate.enter="lane-in"
+            animate.leave="lane-out"
+          />
+          @if (deck === 0) {
+            <app-phase-strip />
+          }
+        }
+      </section>
 
-    <section class="library">
-      <app-library />
-    </section>
-  </main>
-}
-
-<!-- loaded when first opened -->
-@if (!PHONE && navigation.settings()) {
-  @defer (on immediate) {
-    <app-settings-dialog />
+      <section class="library">
+        <app-library />
+      </section>
+    </main>
   }
-}
 
-@if (!PHONE && navigation.palette()) {
-  @defer (on immediate) {
-    <app-command-palette />
+  <!-- loaded when first opened -->
+  @if (!PHONE && navigation.settings()) {
+    @defer (on immediate) {
+      <app-settings-dialog />
+    }
   }
-}
 
-<app-models-dialog />
+  @if (!PHONE && navigation.palette()) {
+    @defer (on immediate) {
+      <app-command-palette />
+    }
+  }
+
+  <app-models-dialog />
+}
 <app-select-picker />
 <app-confirm />
 <app-notice />

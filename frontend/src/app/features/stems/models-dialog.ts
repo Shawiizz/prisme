@@ -29,7 +29,7 @@ export class ModelsDialog {
   constructor() {
     effect(() => {
       if (this.stems.offered()) {
-        this.fast.set(untracked(() => this.stems.state()?.suggestFast ?? false));
+        this.fast.set(untracked(() => this.stems.state().suggestFast));
       }
     });
     // the models in, the track separating: nothing left to show

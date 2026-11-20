@@ -103,12 +103,10 @@ export class ControllersSettings implements OnInit, OnDestroy {
   });
 
   /** The DJ's own profiles that replace Prisme's of the same file name. */
-  protected readonly replacing = computed(() => this.service.profiles()?.replacing ?? []);
+  protected readonly replacing = computed(() => this.service.profiles().replacing);
 
   /** How many models come from where, their variants aside. */
-  protected readonly counts = computed(
-    () => this.service.profiles()?.counts ?? { all: 0, updated: 0, own: 0 },
-  );
+  protected readonly counts = computed(() => this.service.profiles().counts);
 
   protected readonly stepEncodings = STEP_ENCODINGS;
 

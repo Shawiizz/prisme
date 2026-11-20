@@ -1,6 +1,6 @@
 import { TestBed } from '@angular/core/testing';
 import { clearMocks, mockIPC } from '@tauri-apps/api/mocks';
-import { EngineStatus, PhaseReading } from '../../../core/models/engine';
+import { ControlState, EngineStatus, PhaseReading } from '../../../core/models/engine';
 import { EngineService } from '../../../core/services/engine.service';
 
 describe('PhaseStrip', () => {
@@ -25,7 +25,9 @@ describe('PhaseStrip', () => {
     const { PhaseStrip } = await import('./phase-strip');
     mockIPC(() => undefined);
     const phase = { decks: [0, 1], ...reading };
-    TestBed.inject(EngineService).status.set({ decks: [{}, {}], phase } as EngineStatus);
+    const engine = TestBed.inject(EngineService);
+    engine.status.set({ decks: [{}, {}], phase } as EngineStatus);
+    engine.controls.set({ mixer: { internal: false } } as ControlState);
     const fixture = TestBed.createComponent(PhaseStrip);
     fixture.detectChanges();
     const words = (fixture.nativeElement as HTMLElement).querySelector('.phase')!.textContent!;

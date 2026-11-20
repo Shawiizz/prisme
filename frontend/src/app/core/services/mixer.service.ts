@@ -16,15 +16,6 @@ import {
 import { EngineService } from './engine.service';
 import { same } from '../same';
 
-const LIVE_OFF: LiveState = {
-  input: null,
-  inUse: false,
-  choices: [],
-  note: null,
-  on: false,
-  cue: false,
-};
-
 /**
  * Where the decks are heard: a hardware mixer, or the software mixer (channel strips,
  * faders, crossfader, the microphone and the aux line, master limiter and balance, booth)
@@ -35,75 +26,64 @@ export class MixerService {
   private readonly engine = inject(EngineService);
 
   /** The mixer as the backend last told it: the same while it tells other sections. */
-  private readonly told = computed(() => this.engine.controls()?.mixer);
+  private readonly told = computed(() => this.engine.told().mixer);
 
   /** The knobs beside the channels, and the crossfader, as the backend shows them. */
-  readonly knobs = computed<MixerKnobs | null>(() => this.told()?.knobs ?? null, { equal: same });
+  readonly knobs = computed<MixerKnobs>(() => this.told().knobs, { equal: same });
   /** The mode the user chose. */
-  readonly mode = computed<MixMode>(() => this.told()?.mode ?? 'external');
+  readonly mode = computed<MixMode>(() => this.told().mode);
   /** Where the user wants the headphones: those of the software mixer, or with an external
    * mixer those of the preview. */
-  readonly headphones = computed<HeadphonesOutput>(
-    () => this.told()?.headphones ?? { kind: 'auto' },
-    { equal: same },
-  );
+  readonly headphones = computed<HeadphonesOutput>(() => this.told().headphones, { equal: same });
   /** First output (0-based) of the headphones in use; `null` when they are not heard. With an
    * external mixer, a pair no deck uses, for the preview alone. */
-  readonly headphonesInUse = computed(() => this.told()?.headphonesInUse ?? null);
+  readonly headphonesInUse = computed(() => this.told().headphonesInUse);
   /** Headphones: the cue on the left and the master on the right, each in mono. */
-  readonly splitCue = computed(() => this.told()?.splitCue ?? false);
-  readonly crossfaderCurve = computed<CrossfaderCurve>(
-    () => this.told()?.crossfaderCurve ?? 'smooth',
-  );
+  readonly splitCue = computed(() => this.told().splitCue);
+  readonly crossfaderCurve = computed<CrossfaderCurve>(() => this.told().crossfaderCurve);
   /** The crossfader's sides swapped: towards the left, the decks on the right come in. */
-  readonly crossfaderReverse = computed(() => this.told()?.crossfaderReverse ?? false);
-  readonly limiter = computed(() => this.told()?.limiter ?? true);
+  readonly crossfaderReverse = computed(() => this.told().crossfaderReverse);
+  readonly limiter = computed(() => this.told().limiter);
   /** First output (0-based) of the booth the DJ wants, and of the booth in use. */
-  readonly booth = computed(() => this.told()?.booth ?? null);
-  readonly boothInUse = computed(() => this.told()?.boothInUse ?? null);
-  readonly mic = computed<LiveState>(() => this.told()?.mic ?? LIVE_OFF, { equal: same });
-  readonly aux = computed<LiveState>(() => this.told()?.aux ?? LIVE_OFF, { equal: same });
+  readonly booth = computed(() => this.told().booth);
+  readonly boothInUse = computed(() => this.told().boothInUse);
+  readonly mic = computed<LiveState>(() => this.told().mic, { equal: same });
+  readonly aux = computed<LiveState>(() => this.told().aux, { equal: same });
   /** While the microphone is on, the music ducks by `talkoverDepthDb`. */
-  readonly talkover = computed(() => this.told()?.talkover ?? false);
-  readonly talkoverDepthDb = computed(() => this.told()?.talkoverDepthDb ?? 0);
+  readonly talkover = computed(() => this.told().talkover);
+  readonly talkoverDepthDb = computed(() => this.told().talkoverDepthDb);
   /** What was recorded last: a recording started without asking takes it again. */
-  readonly recordSource = computed<RecordSource | null>(() => this.told()?.recordSource ?? null, {
+  readonly recordSource = computed<RecordSource | null>(() => this.told().recordSource, {
     equal: same,
   });
   /** The software mixer is in use. */
-  readonly internal = computed(() => this.told()?.internal ?? false);
+  readonly internal = computed(() => this.told().internal);
   /** External mode asked for, but the device has too few outputs (it needs this many): the
    * software mixer runs. */
-  readonly fallback = computed(() => this.told()?.fallback ?? null);
+  readonly fallback = computed(() => this.told().fallback);
   /** The routing as the backend tells it: first outputs of the decks, the pairs the
    * headphones and the booth can take and where they are heard. */
-  readonly routing = computed<Pick<
-    MixerState,
-    'deckOutputs' | 'headphonesChoices' | 'headphonesNote' | 'boothChoices' | 'boothNote'
-  > | null>(
+  readonly routing = computed<
+    Pick<
+      MixerState,
+      'deckOutputs' | 'headphonesChoices' | 'headphonesNote' | 'boothChoices' | 'boothNote'
+    >
+  >(
     () => {
-      const state = this.told();
-      return state
-        ? {
-            deckOutputs: state.deckOutputs,
-            headphonesChoices: state.headphonesChoices,
-            headphonesNote: state.headphonesNote,
-            boothChoices: state.boothChoices,
-            boothNote: state.boothNote,
-          }
-        : null;
+      const { deckOutputs, headphonesChoices, headphonesNote, boothChoices, boothNote } =
+        this.told();
+      return { deckOutputs, headphonesChoices, headphonesNote, boothChoices, boothNote };
     },
     { equal: same },
   );
   /** What the Rec menu offers. */
-  readonly recordOptions = computed<MixerState['recordOptions']>(
-    () => this.told()?.recordOptions ?? [],
-    { equal: same },
-  );
+  readonly recordOptions = computed<MixerState['recordOptions']>(() => this.told().recordOptions, {
+    equal: same,
+  });
 
   /** The outputs of `deck` to an external mixer, counting from 1 (`3-4`). */
   outputsOf(deck: number): string {
-    const first = this.routing()?.deckOutputs[deck] ?? 0;
+    const first = this.routing().deckOutputs[deck];
     return `${first + 1}-${first + 2}`;
   }
 

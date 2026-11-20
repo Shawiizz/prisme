@@ -20,11 +20,11 @@ export class PreviewService {
   private readonly mixer = inject(MixerService);
 
   /** The track previewed, from when the engine has it. */
-  readonly track = computed(() => this.engine.controls()?.preview.track ?? null, { equal: same });
+  readonly track = computed(() => this.engine.told().preview.track, { equal: same });
   private readonly trackId = computed(() => this.track()?.id ?? null);
   readonly waveform = signal<Waveform | null>(null);
   /** The track asked for while its file opens. */
-  readonly opening = computed(() => this.engine.controls()?.preview.opening ?? null);
+  readonly opening = computed(() => this.engine.told().preview.opening);
   /** Where the preview plays, once the engine reports it. */
   readonly status = computed(() => {
     const status = this.engine.status()?.preview ?? null;

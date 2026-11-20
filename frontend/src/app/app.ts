@@ -66,6 +66,8 @@ export class App implements OnInit {
   private readonly keyboard = inject(KeyboardService);
   protected readonly mixer = inject(MixerService);
   protected readonly decks = this.engine.deckIndexes;
+  /** The backend told what the app mirrors. */
+  protected readonly ready = this.engine.ready;
   private readonly controllers = inject(ControllerService);
   private readonly updates = inject(UpdateService);
   protected readonly navigation = inject(NavigationService);
