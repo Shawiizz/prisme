@@ -90,12 +90,8 @@ export interface DeckStatus {
   rate: number;
   /** Current tempo, gestures excluded (`null` without a beat grid). */
   bpm: number | null;
-  /** Position within the current beat, 0..1. */
-  beatPhase: number | null;
   /** The key its track is heard in, moved by the rate unless held. */
   heardKey: MusicalKey | null;
-  /** The deck it is mixed with. */
-  mixedWith: number;
   /** The DJ hears or holds its track: it plays, or moves under its record. */
   plays: boolean;
   /** The time left of its track (s). */
@@ -114,12 +110,9 @@ export interface DeckStatus {
   /** Its key may be moved to mix with the one heard on the deck it is mixed with. */
   canSyncKey: boolean;
   looping: LoopStatus;
-  cue: boolean;
   slipMode: boolean;
   /** The reverse is on: the track plays backwards. */
   reverse: boolean;
-  /** Where the track would be without the loop, roll, censor or reverse in progress. */
-  slipPositionS: number | null;
   vinyl: VinylStatus;
   /** What its keys and pads light, by the controllers' rules. */
   lights: DeckLights;
@@ -479,8 +472,6 @@ export interface DeckSettings {
   layeredOn: number | null;
   /** Its side of the crossfader. */
   side: CrossfaderSide;
-  /** A touch of its controller's jog wheel holds the record (else it only nudges). */
-  jogScratch: boolean;
   /** At the end, the track goes on from its start. */
   repeat: boolean;
   /** The deck's channel silenced in the master, after its fader (the headphones still hear it). */

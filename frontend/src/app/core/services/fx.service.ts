@@ -1,5 +1,5 @@
 import { Injectable, computed, inject } from '@angular/core';
-import { EffectKind, FxChain, FxSettings, MAX_DECKS } from '../models/engine';
+import { EffectKind, FxChain, FxSettings } from '../models/engine';
 import { EngineService } from './engine.service';
 import { sameItems } from '../same';
 

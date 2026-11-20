@@ -1075,8 +1075,6 @@ pub struct DeckSettingsDto {
     pub layered_on: Option<usize>,
     /// Its side of the crossfader.
     pub side: CrossfaderSideDto,
-    /// A touch of its controller's jog wheel holds the record (else the wheel only nudges).
-    pub jog_scratch: bool,
     /// At the end, the track goes on from its start.
     pub repeat: bool,
     /// Silenced in the master, after its fader (still heard in the headphones).
@@ -1296,9 +1294,7 @@ pub struct DeckStatusDto {
     pub rate: f64,
     /// Its tempo, gestures excluded (needs a beat grid).
     pub bpm: Option<f64>,
-    pub beat_phase: Option<f64>,
     pub heard_key: Option<KeyDto>,
-    pub mixed_with: usize,
     /// The DJ hears or holds its track: a load would replace it.
     pub plays: bool,
     pub remaining_s: Option<f64>,
@@ -1318,11 +1314,9 @@ pub struct DeckStatusDto {
     pub can_sync_key: bool,
     pub lights: DeckLightsDto,
     pub looping: LoopDto,
-    pub cue: bool,
     pub slip_mode: bool,
     /// The reverse is on: the track plays backwards.
     pub reverse: bool,
-    pub slip_position_s: Option<f64>,
     pub vinyl: VinylDto,
     /// Sampler slots playing (bit per slot).
     pub samples_playing: u16,
@@ -1413,9 +1407,7 @@ impl DeckStatusDto {
             speed: d.speed,
             rate: shown.rate,
             bpm: d.bpm,
-            beat_phase: d.beat_phase,
             heard_key: shown.heard_key.map(KeyDto::from),
-            mixed_with: shown.mixed_with,
             plays: shown.plays,
             remaining_s: shown.remaining_s,
             ending: shown.ending,
@@ -1428,10 +1420,8 @@ impl DeckStatusDto {
             can_sync_key: shown.can_sync_key,
             lights: DeckLightsDto { cue: shown.cue, pads: shown.pads },
             looping: d.looping.into(),
-            cue: d.cue,
             slip_mode: d.slip_mode,
             reverse: d.reverse,
-            slip_position_s: d.slip_position_s,
             samples_playing: d.samples_playing,
             stems: screen::stem_knobs(view, deck).map(StemKnobDto::from).collect(),
             separating: None,

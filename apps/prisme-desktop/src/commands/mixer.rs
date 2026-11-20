@@ -114,7 +114,6 @@ pub fn decks_of(state: &AppState, view: &View) -> Vec<DeckSettingsDto> {
                 .and_then(|inputs| layer_partner(deck, laid_out, inputs))
                 .filter(|&partner| partner < deck),
             side: d.side.unwrap_or(CrossfaderSideDto::of_deck(deck)),
-            jog_scratch: d.jog_scratch,
             repeat: d.repeat,
             mute: d.mute,
         })
