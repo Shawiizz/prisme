@@ -168,7 +168,7 @@ impl SilentEnd {
 
 /// Where the faders over a few steps or silent at an end were last given, by action, whoever
 /// moved them (see [`Stepped`], [`SilentEnd`]): every deck's EQ bands, effect periods and
-/// effects, the live sources' levels, the crossfader's curve.
+/// effects and key, the live sources' levels, the crossfader's curve.
 #[derive(Debug, Clone, Copy, Default, PartialEq)]
 pub struct Faders {
     silent_ends: [SilentEnd; SILENT_ENDS],
@@ -177,8 +177,11 @@ pub struct Faders {
 
 /// The EQ bands of every deck, then the microphone's and the aux line's levels.
 const SILENT_ENDS: usize = MAX_DECKS * 3 + 2;
-/// The period then the effect of every deck's slots, then the crossfader's curve.
-const STEPPED: usize = MAX_DECKS * FX_SLOTS * 2 + 1;
+/// The period then the effect of every deck's slots, every deck's key, then the crossfader's
+/// curve.
+const STEPPED: usize = MAX_DECKS * FX_SLOTS * 2 + MAX_DECKS + 1;
+/// The keys a deck's key fader goes over: 12 semitones down to 12 up.
+pub const KEY_STEPS: usize = 25;
 
 impl Faders {
     /// The memory of `target`, if it is silent at an end.
@@ -220,6 +223,7 @@ fn stepped(target: &Target) -> Option<usize> {
     match *target {
         Target::Deck(deck, DeckAction::Fx(slot, FxAction::Period)) => Some((deck * FX_SLOTS + slot) * 2),
         Target::Deck(deck, DeckAction::Fx(slot, FxAction::Kind)) => Some((deck * FX_SLOTS + slot) * 2 + 1),
+        Target::Deck(deck, DeckAction::Key) => Some(MAX_DECKS * FX_SLOTS * 2 + deck),
         Target::Mixer(MixerAction::CrossfaderCurve) => Some(STEPPED - 1),
         _ => None,
     }
@@ -345,6 +349,35 @@ mod tests {
         assert_eq!(kind.give(0.99, 8), 7);
         assert_eq!(kind.give(0.4, 8), 3);
         assert_eq!(kind.position(3, 8), 0.4);
+    }
+
+    #[test]
+    fn a_key_fader_and_an_encoder_reach_every_semitone() {
+        let key = target("deck1.key");
+        // a fader moved slowly up from the middle, its key read back as it stands
+        let mut faders = Faders::default();
+        let mut inputs = Inputs::default();
+        let mut shift = 12;
+        for value in (64..=127).map(|i| i as f32 / 127.0) {
+            let at = Some(faders.stepped(&key).position(shift, KEY_STEPS));
+            if let Some(Given::Value(v)) = inputs.resolve("DDJ", &key, Input::Value(value), at) {
+                shift = faders.give_stepped(&key, v, KEY_STEPS);
+            }
+        }
+        assert_eq!(shift, KEY_STEPS - 1, "12 semitones up");
+        // an encoder, a step at a time from the middle
+        let (mut faders, mut inputs, mut shift) = (Faders::default(), Inputs::default(), 12);
+        let mut keys = Vec::new();
+        for _ in 0..8 {
+            let at = Some(faders.stepped(&key).position(shift, KEY_STEPS));
+            let step = Input::Steps { steps: 1.0, step: None };
+            if let Some(Given::Value(v)) = inputs.resolve("DDJ", &key, step, at) {
+                shift = faders.give_stepped(&key, v, KEY_STEPS);
+            }
+            keys.push(shift);
+        }
+        assert!(keys.windows(2).all(|k| k[1] <= k[0] + 1), "a semitone at most a step: {keys:?}");
+        assert!(shift >= 14, "{keys:?}");
     }
 
     #[test]

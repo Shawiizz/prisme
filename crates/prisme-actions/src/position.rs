@@ -1,6 +1,7 @@
 //! Where the fader of an action stands, read from what the actions see ([`Sees`]), and what a
 //! value a profile shows on a controller is: a fader's position, or a deck's track measured.
 
+use crate::input::KEY_STEPS;
 use crate::scales::{balance_knob, eq_knob, filter_knob, headphone_knob, live_knob, trim_knob, Tempo};
 use crate::view::{band_index, Sees, View};
 use prisme_control::{DeckAction, Effect, FxAction, Kind, Measure, MixerAction, Source, Target, FX_SLOTS};
@@ -83,7 +84,11 @@ fn deck_position(deck: usize, action: DeckAction, seen: &impl Sees) -> Option<f3
                 0.0
             }
         }
-        DeckAction::Key => (f32::from(seen.track(deck).map_or(0, |t| t.key_shift)) + 12.0) / 24.0,
+        DeckAction::Key => {
+            let shift = seen.track(deck).map_or(0, |t| t.key_shift);
+            let step = usize::try_from(i32::from(shift) + 12).unwrap_or(0);
+            seen.faders().stepped(&Target::Deck(deck, action)).position(step, KEY_STEPS)
+        }
         DeckAction::SamplerGain => settings.sampler_gain,
         DeckAction::StemLevel(part) => seen.track(deck).map_or(1.0, |t| t.stem_mix.level(part)),
         DeckAction::FxSuper => slots.iter().map(|s| s.amount).sum::<f32>() / FX_SLOTS as f32,
@@ -249,7 +254,7 @@ mod tests {
             track.key_shift = 6;
             track.stem_mix = track.stem_mix.with_level(StemPart::Vocals, 0.25);
         }
-        assert_eq!(at("deck1.key", &v), Some(0.75));
+        assert_eq!(at("deck1.key", &v), Some(18.5 / 25.0), "the middle of its semitone");
         assert_eq!(at("deck1.vocals.level", &v), Some(0.25));
     }
 

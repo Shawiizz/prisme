@@ -5,7 +5,7 @@ use super::{deck, fx, general, mixer, sampler, transport, Performing};
 use crate::dto::{CrossfaderCurveDto, LiveSourceDto};
 use crate::error::{AppError, AppResult};
 use crate::state::{lock, Section};
-use prisme_actions::input::{Given, Input};
+use prisme_actions::input::{Given, Input, KEY_STEPS};
 use prisme_actions::pads::{plays_loop, ROLL_BEATS};
 use prisme_actions::position::FX_PERIODS;
 use prisme_actions::scales::{
@@ -243,7 +243,10 @@ impl Performing<'_> {
             },
             // a track's key, 12 semitones down to 12 up
             DeckAction::Key => match state.with_track(deck, |_| ()) {
-                Ok(()) => deck::set_key_shift(state, deck, (at * 24.0).round() as i8 - 12),
+                Ok(()) => {
+                    let step = self.memory().faders.give_stepped(&target, at, KEY_STEPS);
+                    deck::set_key_shift(state, deck, step as i8 - 12)
+                }
                 Err(_) => Ok(()),
             },
             DeckAction::SamplerGain => sampler::set_sampler_gain(state, deck, at),
