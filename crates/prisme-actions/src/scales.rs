@@ -1,5 +1,8 @@
 //! Where a knob or a fader stands (0 full left or down, 0.5 the centre, 1 full right or up) and
-//! the setting it gives: each scale both ways, the setting read back as a position.
+//! the setting it gives: each scale both ways, the setting read back as a position, and what a
+//! knob reads under it.
+
+use serde::Serialize;
 
 /// Below this the EQ knob removes its band, like an isolator, and a live input is silent.
 const SILENT_BELOW: f32 = 0.02;
@@ -89,6 +92,45 @@ pub fn headphone_knob(gain: f32) -> f32 {
     gain / MAX_HEADPHONE_GAIN
 }
 
+/// What a knob reads under it: its setting as the DJ reads it, which the screen only words.
+#[derive(Debug, Clone, Copy, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub enum Readout {
+    /// A gain in dB, to a tenth; `None` silent.
+    Db(Option<f32>),
+    Percent(i32),
+    /// The side the master leans to, as a percentage turned down on the other: negative on
+    /// the left.
+    Balance(i32),
+    /// How closed the filter is, as a percentage: negative a low-pass, positive a high-pass,
+    /// 0 open.
+    Filter(i32),
+}
+
+impl Readout {
+    /// A linear gain.
+    pub fn db(gain: f32) -> Self {
+        // + 0.0: a tenth of a dB under nothing reads 0, not -0
+        Readout::Db((gain > 0.0).then(|| (db_of(gain) * 10.0).round() / 10.0 + 0.0))
+    }
+
+    /// A share from 0 to 1.
+    pub fn percent(share: f32) -> Self {
+        Readout::Percent((share * 100.0).round() as i32)
+    }
+
+    /// The master's balance from -1 to 1.
+    pub fn balance(amount: f32) -> Self {
+        Readout::Balance((amount * 100.0).round() as i32)
+    }
+
+    /// A filter from -1 to 1: open within 2 % of the centre.
+    pub fn filter(amount: f32) -> Self {
+        let closed = (amount.abs() * 100.0).round() as i32;
+        Readout::Filter(if closed < 2 { 0 } else { closed * amount.signum() as i32 })
+    }
+}
+
 /// What a deck's tempo fader acts on: the tempo now, as a playback rate, and the fader's
 /// range (0.08 for ±8 %).
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -122,6 +164,21 @@ pub fn next_tempo_range(range: f64, step: isize) -> f64 {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_knob_reads_its_setting_in_db_percent_or_the_side_it_leans_to() {
+        assert_eq!(Readout::db(0.0), Readout::Db(None), "silent");
+        assert_eq!(Readout::db(1.0), Readout::Db(Some(0.0)));
+        assert_eq!(Readout::db(0.999), Readout::Db(Some(0.0)), "never -0");
+        assert_eq!(Readout::db(eq_gain(1.0)), Readout::Db(Some(6.0)));
+        assert_eq!(Readout::db(trim_gain(0.0)), Readout::Db(Some(-12.0)));
+        assert_eq!(Readout::db(headphone_gain(1.0)), Readout::Db(Some(3.5)));
+        assert_eq!(Readout::percent(0.424), Readout::Percent(42));
+        assert_eq!(Readout::balance(balance_amount(0.3)), Readout::Balance(-40));
+        assert_eq!(Readout::filter(filter_amount(0.505)), Readout::Filter(0), "open near the centre");
+        assert_eq!(Readout::filter(filter_amount(0.2)), Readout::Filter(-60), "a low-pass");
+        assert_eq!(Readout::filter(filter_amount(0.9)), Readout::Filter(80), "a high-pass");
+    }
 
     #[test]
     fn a_tempo_range_goes_round_either_way() {

@@ -166,7 +166,9 @@ mod tests {
         hold(&bench, "deck2.cut2", true);
         hold(&bench, "deck2.roll.1", true);
         assert_eq!(bench.state.moved_since(before), [crate::state::Section::Perform]);
-        let pads = crate::dto::ControlStateDto::of(&bench.state, [crate::state::Section::Perform]).perform;
+        let pads =
+            crate::dto::ControlStateDto::of(&bench.state, &bench.view(), [crate::state::Section::Perform])
+                .perform;
         let held = &pads.unwrap()[1];
         assert_eq!((held.cut, held.roll), (Some(1), Some(1.0)));
     }

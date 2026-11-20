@@ -3,6 +3,8 @@ import {
   Band,
   ChannelStrip,
   CrossfaderCurve,
+  MixerKnobs,
+  StripKnobs,
   HeadphonesOutput,
   InputChannels,
   LiveSource,
@@ -14,7 +16,7 @@ import {
 import { EngineService } from './engine.service';
 import { same } from '../same';
 
-const LIVE_OFF: LiveState = { input: null, inUse: false, level: 1, on: false, cue: false };
+const LIVE_OFF: LiveState = { input: null, inUse: false, on: false, cue: false };
 
 /**
  * Where the decks are heard: a hardware mixer, or the software mixer (channel strips,
@@ -25,6 +27,9 @@ const LIVE_OFF: LiveState = { input: null, inUse: false, level: 1, on: false, cu
 export class MixerService {
   private readonly engine = inject(EngineService);
 
+  /** The knobs beside the channels, and the crossfader, as the backend shows them. */
+  readonly knobs = signal<MixerKnobs | null>(null, { equal: same });
+  /** From -1 (left) to 1. */
   readonly crossfader = signal(0);
   /** The mode the user chose. */
   readonly mode = signal<MixMode>('external');
@@ -38,21 +43,15 @@ export class MixerService {
   readonly headphonesInUse = signal<number | null>(null);
   /** Outputs of the running device. */
   readonly outputChannels = signal<number | null>(null);
-  readonly cueMix = signal(0);
   /** Headphones: the cue on the left and the master on the right, each in mono. */
   readonly splitCue = signal(false);
-  readonly headphoneGain = signal(1);
   readonly crossfaderCurve = signal<CrossfaderCurve>('smooth');
   /** The crossfader's sides swapped: towards the left, the decks on the right come in. */
   readonly crossfaderReverse = signal(false);
   readonly limiter = signal(true);
-  readonly mainGain = signal(1);
-  /** -1 = the master on the left only, 1 = on the right only. */
-  readonly balance = signal(0);
   /** First output (0-based) of the booth the DJ wants, and of the booth in use. */
   readonly booth = signal<number | null>(null);
   readonly boothInUse = signal<number | null>(null);
-  readonly boothGain = signal(1);
   readonly mic = signal<LiveState>(LIVE_OFF, { equal: same });
   readonly aux = signal<LiveState>(LIVE_OFF, { equal: same });
   /** While the microphone is on, the music ducks by `talkoverDepthDb`. */
@@ -87,6 +86,7 @@ export class MixerService {
   }
 
   apply(state: MixerState) {
+    this.knobs.set(state.knobs);
     this.crossfader.set(state.crossfader);
     this.mode.set(state.mode);
     this.modeInUse.set(state.modeInUse);
@@ -98,15 +98,10 @@ export class MixerService {
     this.mic.set(state.mic);
     this.aux.set(state.aux);
     this.freeInputs.set(state.freeInputs);
-    this.cueMix.set(state.cueMix);
     this.splitCue.set(state.splitCue);
-    this.headphoneGain.set(state.headphoneGain);
     this.crossfaderCurve.set(state.crossfaderCurve);
     this.crossfaderReverse.set(state.crossfaderReverse);
     this.limiter.set(state.limiter);
-    this.mainGain.set(state.mainGain);
-    this.balance.set(state.balance);
-    this.boothGain.set(state.boothGain);
     this.talkover.set(state.talkover);
     this.talkoverDepthDb.set(state.talkoverDepthDb);
     this.recordSource.set(state.recordSource);
@@ -125,12 +120,13 @@ export class MixerService {
     return this.engine.call('set_booth_output', { first });
   }
 
-  setMainGain(gain: number) {
-    return this.engine.perform('mixer.main', gain);
+  /** The master's level, where its knob stands (0 to 1). */
+  setMainGain(knob: number) {
+    return this.engine.perform('mixer.main', knob);
   }
 
-  setBoothGain(gain: number) {
-    return this.engine.perform('mixer.booth', gain);
+  setBoothGain(knob: number) {
+    return this.engine.perform('mixer.booth', knob);
   }
 
   /** The master's balance, where its knob stands (0 to 1). */
@@ -178,9 +174,9 @@ export class MixerService {
     return this.engine.turn(`deck${deck + 1}.headphones`, enabled);
   }
 
-  /** The crossfader from -1 (left) to 1 (right). */
+  /** The crossfader, where it stands (0 left to 1). */
   setCrossfader(position: number) {
-    return this.engine.perform('mixer.crossfader', (position + 1) / 2);
+    return this.engine.perform('mixer.crossfader', position);
   }
 
   setCueMix(mix: number) {
@@ -191,13 +187,18 @@ export class MixerService {
     return this.engine.turn('mixer.headphones.split', enabled);
   }
 
-  /** The headphones' level, where its knob stands (0 to 1, up to +3.5 dB). */
+  /** The headphones' level, where its knob stands (0 to 1). */
   setHeadphoneLevel(knob: number) {
     return this.engine.perform('mixer.headphones', knob);
   }
 
   strip(deck: number): ChannelStrip {
     return this.engine.decks()[deck].strip;
+  }
+
+  /** The knobs of `deck`'s channel. */
+  stripKnobs(deck: number): StripKnobs {
+    return this.engine.decks()[deck].knobs;
   }
 
   /** The gain of `deck`, where its knob stands (0 to 1). */

@@ -73,7 +73,7 @@
       small
       label="MIX"
       [labelTitle]="'Level of the effect' | t"
-      [format]="readouts.percent"
+      [readout]="percent(effect().mix)"
       [value]="effect().mix"
       (valueChange)="fx.setMix(deck(), slot(), $event)"
     />
@@ -81,7 +81,7 @@
       small
       label="AMOUNT"
       [labelTitle]="'Main knob of the effect (see each pad)' | t"
-      [format]="readouts.percent"
+      [readout]="percent(effect().amount)"
       [value]="effect().amount"
       (valueChange)="fx.setAmount(deck(), slot(), $event)"
     />
@@ -91,7 +91,7 @@
       [label]="second.label"
       [labelTitle]="second.name"
       [defaultValue]="0.5"
-      [format]="readouts.percent"
+      [readout]="percent(effect().param2)"
       [value]="effect().param2"
       (valueChange)="fx.setParam2(deck(), slot(), $event)"
     />
@@ -128,7 +128,7 @@
             label="VOL"
             [labelTitle]="'Level of the sampler' | t"
             [defaultValue]="1"
-            [format]="readouts.percent"
+            [readout]="percent(samplerGain())"
             [value]="samplerGain()"
             (valueChange)="sampler.setGain(deck(), $event)"
           />

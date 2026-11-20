@@ -3,7 +3,7 @@ import { PreferencesService } from '../../core/services/preferences.service';
 import { StemsService } from '../../core/services/stems.service';
 import { PHONE } from '../../core/platform';
 import { TPipe } from '../../core/i18n/t.pipe';
-import { readouts } from '../../shared/mixer-scales';
+import { percent } from '../../shared/readout';
 import { Dismiss, overlay } from '../../shared/overlay';
 
 /**
@@ -20,7 +20,7 @@ import { Dismiss, overlay } from '../../shared/overlay';
 export class ModelsDialog {
   protected readonly stems = inject(StemsService);
   private readonly preferences = inject(PreferencesService);
-  protected readonly percent = readouts.percent;
+  protected readonly percent = percent;
 
   /** The small models are the better choice on a phone or without a graphics chip worth it. */
   protected readonly fastSuits = computed(() => PHONE || this.stems.gpu() === false);

@@ -43,8 +43,9 @@ function arc(from: number, to: number): string {
  * centre for a bipolar knob (with a detent at the top, which holds it as it is turned through
  * with magnetic knobs on). Drag up or down (Shift for fine
  * moves), scroll, use the arrow keys, double-click to go back to the default. While it is
- * touched, its label shows the value (`format`). Its value goes from 0 to 1. Disabled, it is
- * greyed and nothing moves it.
+ * touched, its label shows what it reads (`readout`): its setting as the backend tells it, the
+ * cap following the pointer meanwhile. Its value goes from 0 to 1. Disabled, it is greyed and
+ * nothing moves it.
  */
 @Component({
   selector: 'app-knob',
@@ -62,7 +63,7 @@ function arc(from: number, to: number): string {
       aria-valuemin="0"
       aria-valuemax="1"
       [attr.aria-valuenow]="current()"
-      [attr.aria-valuetext]="format()?.(current()) ?? null"
+      [attr.aria-valuetext]="readout()"
       [attr.aria-label]="labelTitle() || label()"
       [class.grabbed]="grabbed() !== null"
       (pointerdown)="grab($event)"
@@ -100,11 +101,8 @@ function arc(from: number, to: number): string {
         [title]="labelTitle()"
       >
         <span class="face" [class.shown]="!reading()">{{ label() }}</span>
-        @if (format(); as format) {
-          @for (sample of widest(); track $index) {
-            <span class="face number" aria-hidden="true">{{ sample }}</span>
-          }
-          <span class="face number" [class.shown]="reading()">{{ format(current()) }}</span>
+        @if (readout() !== null) {
+          <span class="face number" [class.shown]="reading()">{{ readout() }}</span>
         }
       </button>
     }
@@ -191,8 +189,7 @@ function arc(from: number, to: number): string {
       &.toggle:enabled {
         cursor: pointer;
       }
-      // the name and the value in one cell, the cell as wide as the widest of them: reading
-      // the value moves nothing around the knob
+      // the name and the value in one cell, as wide as the wider
       display: grid;
       &.reading {
         color: var(--pr-text);
@@ -216,6 +213,8 @@ function arc(from: number, to: number): string {
       }
     }
     .number {
+      // as wide as the widest it reads: what is read moves nothing around the knob
+      min-width: var(--knob-readout-width, 5ch);
       font-family: var(--pr-font-mono);
       font-stretch: var(--pr-mono-width);
       letter-spacing: 0;
@@ -233,8 +232,8 @@ export class Knob {
   readonly bipolar = input(false, { transform: booleanAttribute });
   readonly label = input('');
   readonly labelTitle = input('');
-  /** The value as read under the knob while it is touched (dB, %…). */
-  readonly format = input<((value: number) => string) | null>(null);
+  /** What it reads under it while it is touched (dB, %…). */
+  readonly readout = input<string | null>(null);
   /** Highlights the label (a kill engaged, for instance); left out, the label only names the
    * knob. */
   readonly active = input<boolean | null>(null);
@@ -266,14 +265,8 @@ export class Knob {
   }));
   protected readonly hovered = signal(false);
   protected readonly grabbed = signal<{ y: number; value: number } | null>(null);
-  /** Values read at the ends and the middle, laid out unseen: the label keeps the width of the
-   * widest, whatever is read. */
-  protected readonly widest = computed(() => {
-    const format = this.format();
-    return format ? [0, 0.5, 1].map(format) : [];
-  });
   protected readonly reading = computed(
-    () => this.format() !== null && (this.hovered() || this.grabbed() !== null),
+    () => this.readout() !== null && (this.hovered() || this.grabbed() !== null),
   );
 
   grab(event: PointerEvent) {

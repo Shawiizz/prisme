@@ -1,5 +1,7 @@
 /** Shapes exchanged with the Rust side (see apps/prisme-desktop/src/dto.rs). */
 
+import { Knob } from '../../shared/readout';
+import { MeterLevel } from '../../shared/meter';
 import { StemPart } from '../stem-parts';
 import { LibraryLists, LibraryView } from './library';
 import { Separation, StemMix } from './stems';
@@ -107,8 +109,6 @@ export interface DeckStatus {
   /** Its key may be moved to mix with the one heard on the deck it is mixed with. */
   canSyncKey: boolean;
   looping: LoopStatus;
-  /** Loudest sample since the previous status. */
-  peak: number;
   cue: boolean;
   slipMode: boolean;
   /** The reverse is on: the track plays backwards. */
@@ -193,10 +193,8 @@ export interface AudioHealth {
 export interface EngineStatus {
   audioRunning: boolean;
   decks: DeckStatus[];
-  mainPeak: number;
-  /** The microphone and the aux line at their levels, on or not. */
-  micPeak: number;
-  auxPeak: number;
+  /** What the meters show: every deck's, the master's, the live sources' (on or not). */
+  meters: { decks: MeterLevel[]; main: MeterLevel; mic: MeterLevel; aux: MeterLevel };
   health: AudioHealth | null;
   recording: RecordingStatus | null;
   /** The track heard in the headphones before it goes on a deck. */
@@ -447,6 +445,8 @@ export interface DeckSettings {
   /** The range of its tempo fader: its own, else the general one (0.08 for ±8 %). */
   tempoRange: number;
   strip: ChannelStrip;
+  /** Its channel's knobs as the backend shows them. */
+  knobs: StripKnobs;
   fx: FxChain;
   /** Name of the sound in each sampler slot. */
   samples: (string | null)[];
@@ -543,8 +543,6 @@ export interface LiveState {
   input: InputChannels | null;
   /** They are on the running device, left free by the turntables. */
   inUse: boolean;
-  /** Linear gain. */
-  level: number;
   /** Heard in the master. */
   on: boolean;
   /** Heard in the headphones. */
@@ -552,8 +550,30 @@ export interface LiveState {
 }
 
 /** Settings as the backend applies them. */
+/** The knobs of a deck's channel: trim, EQ (low, mid, high), filter. */
+export interface StripKnobs {
+  trim: Knob;
+  eq: [Knob, Knob, Knob];
+  filter: Knob;
+}
+
+/** The knobs of the mixer beside its channels. */
+export interface MixerKnobs {
+  crossfader: number;
+  cueMix: Knob;
+  headphones: Knob;
+  main: Knob;
+  balance: Knob;
+  booth: Knob;
+  mic: Knob;
+  aux: Knob;
+}
+
 export interface MixerState {
   decks: DeckSettings[];
+  /** The knobs beside the channels, and where the crossfader stands (0 to 1). */
+  knobs: MixerKnobs;
+  /** From -1 (left) to 1. */
   crossfader: number;
   mode: MixMode;
   /** An external mixer needs an output pair per deck; `null` without audio. */
@@ -564,24 +584,16 @@ export interface MixerState {
   headphonesInUse: number | null;
   /** Outputs of the running device; `null` without audio. */
   outputChannels: number | null;
-  /** Headphones: 0 = cued decks only, 1 = master only. */
-  cueMix: number;
   /** Headphones: the cue on the left and the master on the right, each in mono. */
   splitCue: boolean;
-  headphoneGain: number;
   crossfaderCurve: CrossfaderCurve;
   /** The crossfader's sides swapped: towards the left, the decks on the right come in. */
   crossfaderReverse: boolean;
   /** Master limiter. */
   limiter: boolean;
-  /** The master's level (linear). */
-  mainGain: number;
-  /** -1 = the master on the left only, 1 = on the right only. */
-  balance: number;
   /** First output (0-based) of the booth chosen, and of the booth in use. */
   booth: number | null;
   boothInUse: number | null;
-  boothGain: number;
   mic: LiveState;
   aux: LiveState;
   /** While the microphone is on, the music ducks by `talkoverDepthDb`. */

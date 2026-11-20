@@ -4,8 +4,10 @@
 
 pub mod cue;
 pub mod input;
+pub mod knobs;
 pub mod lane;
 pub mod light;
+pub mod meter;
 pub mod pads;
 pub mod perform;
 pub mod position;

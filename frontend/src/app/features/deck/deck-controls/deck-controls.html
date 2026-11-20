@@ -45,7 +45,7 @@
         [label]="k.label"
         [labelTitle]="k.title"
         [active]="!k.on"
-        [format]="percent"
+        [readout]="percent(k.level)"
         (valueChange)="engine.setStemLevel(deck(), k.part, $event)"
         (labelClick)="engine.toggleStem(deck(), k.part)"
       />

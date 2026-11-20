@@ -4,7 +4,7 @@
 use super::{deck, fx, general, mixer, sampler, transport, Performing};
 use crate::dto::{CrossfaderCurveDto, EffectKindDto, LiveSourceDto};
 use crate::error::{AppError, AppResult};
-use crate::state::lock;
+use crate::state::{lock, Section};
 use prisme_actions::input::{Given, Input};
 use prisme_actions::pads::{plays_loop, ROLL_BEATS};
 use prisme_actions::position::FX_PERIODS;
@@ -240,6 +240,7 @@ impl Performing<'_> {
                 let gain = eq_gain(at);
                 mixer::set_eq(state, deck, band.into(), gain)?;
                 self.memory().faders.give_silent_end(&target, at, eq_knob(gain));
+                state.moved(Section::Mixer);
                 Ok(())
             }
             DeckAction::Filter => mixer::set_filter(state, deck, filter_amount(at)),
@@ -366,6 +367,7 @@ impl Performing<'_> {
             let gain = live_gain(at);
             mixer::set_live_level(state, source, gain)?;
             self.memory().faders.give_silent_end(&target, at, live_knob(gain));
+            state.moved(Section::Mixer);
             Ok(())
         };
         match action {

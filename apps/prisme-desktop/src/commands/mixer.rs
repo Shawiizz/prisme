@@ -5,11 +5,13 @@ use crate::dto::{
 use crate::error::AppResult;
 use crate::sampler;
 use crate::state::{free_inputs, live_preferences, lock, AppState};
+use prisme_actions::knobs;
+use prisme_actions::view::View;
 use prisme_engine::{Command, Rpm, MAX_DECKS};
 use tauri::State;
 
-/// The settings of the decks and the mixer of `state`.
-pub fn mixer_state_of(state: &AppState) -> MixerStateDto {
+/// The settings of the decks and the mixer of `state`, their knobs as `view` shows them.
+pub fn mixer_state_of(state: &AppState, view: &View) -> MixerStateDto {
     let (mixer, ranges) =
         state.preferences.read(|p| (p.mixer, std::array::from_fn::<_, MAX_DECKS, _>(|d| p.tempo_range(d))));
     let info = lock(&state.session).as_ref().map(|s| s.info.clone());
@@ -22,7 +24,6 @@ pub fn mixer_state_of(state: &AppState) -> MixerStateDto {
         LiveStateDto {
             input: chosen.input,
             in_use: state.live_input(source, info.as_ref()).is_some(),
-            level: chosen.level,
             on: switches.on,
             cue: switches.cue,
         }
@@ -48,6 +49,7 @@ pub fn mixer_state_of(state: &AppState) -> MixerStateDto {
                 fader_start: d.fader_start,
                 tempo_range: ranges[deck],
                 strip: d.strip,
+                knobs: knobs::strip(view, deck),
                 fx: d.fx,
                 samples: samples.iter().map(|s| s.as_ref().map(|s| sampler::name(&s.path))).collect(),
                 sampler_gain: d.sampler_gain,
@@ -59,23 +61,19 @@ pub fn mixer_state_of(state: &AppState) -> MixerStateDto {
                 mute: d.mute,
             })
             .collect(),
+        knobs: knobs::mixer(view),
         crossfader: *lock(&state.crossfader),
         mode: mixer.mode,
         mode_in_use: routing.map(|r| r.mode.into()),
         headphones: mixer.headphones,
         headphones_in_use: routing.and_then(|r| r.headphones),
         output_channels: info.as_ref().map(|info| info.output_channels),
-        cue_mix: mixer.cue_mix,
         split_cue: mixer.split_cue,
-        headphone_gain: mixer.headphone_gain,
         crossfader_curve: mixer.crossfader_curve,
         crossfader_reverse: mixer.crossfader_reverse,
         limiter: mixer.limiter,
-        main_gain: mixer.main_gain,
-        balance: mixer.balance,
         booth: mixer.booth,
         booth_in_use: routing.and_then(|r| r.booth),
-        booth_gain: mixer.booth_gain,
         mic: live(LiveSourceDto::Mic),
         aux: live(LiveSourceDto::Aux),
         talkover: mixer.talkover,

@@ -1,8 +1,8 @@
 import { Component, inject, input } from '@angular/core';
-import { BANDS, Band } from '../../../core/models/engine';
+import { BANDS, Band, StripKnobs } from '../../../core/models/engine';
 import { MixerService } from '../../../core/services/mixer.service';
 import { Knob } from '../../../shared/knob/knob';
-import { bandKnob, filterKnob, readouts, trimKnob } from '../../../shared/mixer-scales';
+import { Knob as KnobView, readout } from '../../../shared/readout';
 import { Text, t } from '../../../core/i18n/i18n';
 import { TPipe } from '../../../core/i18n/t.pipe';
 
@@ -16,8 +16,8 @@ import { TPipe } from '../../../core/i18n/t.pipe';
         [label]="b.label"
         [labelTitle]="b.killTitle()"
         bipolar
-        [format]="readouts.eq"
-        [value]="eqKnob(b.band)"
+        [readout]="read(eq(b.band))"
+        [value]="eq(b.band).at"
         [active]="killed(b.band)"
         (valueChange)="setEq(b.band, $event)"
         (labelClick)="toggleKill(b.band)"
@@ -28,8 +28,8 @@ import { TPipe } from '../../../core/i18n/t.pipe';
         label="TRIM"
         [labelTitle]="'Gain before the EQ (±12 dB)' | t"
         bipolar
-        [format]="readouts.trim"
-        [value]="trimKnob()"
+        [readout]="read(knobs().trim)"
+        [value]="knobs().trim.at"
         (valueChange)="setTrim($event)"
       />
     }
@@ -37,8 +37,9 @@ import { TPipe } from '../../../core/i18n/t.pipe';
       label="FILTER"
       [labelTitle]="'Left: low-pass, right: high-pass' | t"
       bipolar
-      [format]="readouts.filter"
-      [value]="filterKnob()"
+      class="filter"
+      [readout]="read(knobs().filter)"
+      [value]="knobs().filter.at"
       (valueChange)="setFilter($event)"
     />
   `,
@@ -46,6 +47,10 @@ import { TPipe } from '../../../core/i18n/t.pipe';
     :host {
       display: flex;
       gap: 4px;
+      --knob-readout-width: 8ch;
+    }
+    .filter {
+      --knob-readout-width: 9ch;
     }
   `,
   imports: [Knob, TPipe],
@@ -55,7 +60,7 @@ export class ChannelStrip {
   /** With its trim knob (a phone leaves it out). */
   readonly trim = input(true);
   protected readonly mixer = inject(MixerService);
-  protected readonly readouts = readouts;
+  protected readonly read = (knob: KnobView) => readout(knob.reads);
   protected readonly bands: { band: Band; label: string; killTitle: Text }[] = [
     {
       band: 'high',
@@ -78,24 +83,20 @@ export class ChannelStrip {
     return this.mixer.strip(this.deck());
   }
 
-  protected trimKnob(): number {
-    return trimKnob(this.strip().trim);
+  protected knobs(): StripKnobs {
+    return this.mixer.stripKnobs(this.deck());
   }
 
   protected setTrim(knob: number) {
     this.mixer.setTrim(this.deck(), knob);
   }
 
-  protected eqKnob(band: Band): number {
-    return bandKnob(this.strip(), band);
+  protected eq(band: Band): KnobView {
+    return this.knobs().eq[BANDS.indexOf(band)];
   }
 
   protected setEq(band: Band, knob: number) {
     this.mixer.setEq(this.deck(), band, knob);
-  }
-
-  protected filterKnob(): number {
-    return filterKnob(this.strip().filter);
   }
 
   protected setFilter(knob: number) {

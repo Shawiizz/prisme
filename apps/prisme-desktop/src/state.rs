@@ -537,6 +537,12 @@ impl AppState {
         }
     }
 
+    /// The interface to hear of `section` again: what it shows of it moved, with nothing it
+    /// mirrors changed (a knob turned within its silent end).
+    pub fn moved(&self, section: Section) {
+        self.revisions.moved(section);
+    }
+
     /// Where the changes of what the interface mirrors are at, by [`Section`]: each moves at
     /// every change of its own.
     pub fn revision(&self) -> [u64; SECTIONS] {

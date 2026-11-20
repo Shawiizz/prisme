@@ -40,7 +40,7 @@ describe('the screen', () => {
     TestBed.inject(PerformanceService).beatJump(1, -4);
     expect(performed).toEqual([
       ['deck2.eq.low', 0.25],
-      ['mixer.crossfader', 0.75],
+      ['mixer.crossfader', 0.5],
       ['mixer.headphones', 0.8],
       ['mixer.aux.on', 1],
       ['deck1.headphones.off', 1],

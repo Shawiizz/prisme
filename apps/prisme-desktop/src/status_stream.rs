@@ -8,6 +8,7 @@ use crate::actions::Actions;
 use crate::dto::{ControlStateDto, StatusDto};
 use crate::preview::Previews;
 use crate::state::{lock, AppState, Section};
+use prisme_actions::meter::Meters;
 use prisme_analysis::Key;
 use prisme_library::browse::Column;
 use std::path::PathBuf;
@@ -36,6 +37,7 @@ pub fn subscribe_status(app: AppHandle, channel: Channel<StatusDto>) {
             // the deck the library's rows are compared with, and whether they are ranked by it
             let mut compared = (0, false);
             let mut ranked_against: Option<Ranked> = None;
+            let mut meters = Meters::default();
             while GENERATION.load(Ordering::SeqCst) == generation {
                 // read before what it is of: a change after moves it again
                 let revision = state.revision();
@@ -60,7 +62,9 @@ pub fn subscribe_status(app: AppHandle, channel: Channel<StatusDto>) {
                     }
                     None => (actions.view_with(&app, Default::default(), None), None),
                 };
-                let mut status = StatusDto::of(&view, stream.as_ref().map(|(stats, rate)| (&**stats, *rate)));
+                let levels = meters.read(&view.status, actions.now_s());
+                let stream = stream.as_ref().map(|(stats, rate)| (&**stats, *rate));
+                let mut status = StatusDto::of(&view, stream, levels);
                 let moved = |s: Section| told.is_none_or(|t: [u64; _]| t[s as usize] != revision[s as usize]);
                 if moved(Section::Tracks) {
                     around.decks = lock(&state.tracks).each_ref().map(|t| t.as_ref().map(|t| t.path.clone()));
@@ -85,7 +89,7 @@ pub fn subscribe_status(app: AppHandle, channel: Channel<StatusDto>) {
                     let sections = Section::ALL
                         .into_iter()
                         .filter(|&s| moved(s) || (rows_moved && s == Section::Library));
-                    status.controls = Some(ControlStateDto::of(&state, sections));
+                    status.controls = Some(ControlStateDto::of(&state, &view, sections));
                     told = Some(revision);
                 }
                 if channel.send(status).is_err() {

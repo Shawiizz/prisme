@@ -7,7 +7,7 @@ import { PerformanceService } from '../../../core/services/performance.service';
 import { EffectKind, FxSettings, PADS, SLICES } from '../../../core/models/engine';
 import { Knob } from '../../../shared/knob/knob';
 import { CUT_BEATS, ROLL_BEATS, formatBeats } from '../../../shared/beats';
-import { readouts } from '../../../shared/mixer-scales';
+import { percent } from '../../../shared/readout';
 import { Text, t } from '../../../core/i18n/i18n';
 import { TPipe } from '../../../core/i18n/t.pipe';
 import { Press } from '../../../shared/press';
@@ -191,7 +191,7 @@ export class DeckPads {
   );
   /** The deck's size: what its jumps go by; the pads of that size have a bar in the light. */
   protected readonly size = computed(() => this.performance.sizes()[this.deck()]);
-  protected readonly readouts = readouts;
+  protected readonly percent = percent;
   /** What lets go each pad held, by the pointer holding it: the action and deck it pressed,
    * even if the mode or the deck changed since. */
   private readonly held = new Map<number, () => void>();

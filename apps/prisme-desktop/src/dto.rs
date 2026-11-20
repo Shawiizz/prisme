@@ -4,6 +4,8 @@ use crate::auto_dj::machine::{Reason, State, Status, Takeover};
 use crate::auto_dj::plan::FadeLength;
 use crate::commands::mixer::mixer_state_of;
 use crate::state::{lock, AppState, LoadedTrack, Section};
+use prisme_actions::knobs::{MixerKnobs, StripKnobs};
+use prisme_actions::meter::Levels;
 use prisme_actions::pads::playing_loop;
 use prisme_actions::perform::DeckPerform;
 pub use prisme_actions::stems::{Separation as SeparationDto, StemMix as StemMixDto};
@@ -810,6 +812,8 @@ pub struct DeckSettingsDto {
     /// The range of its tempo fader: its own, else the general one.
     pub tempo_range: f64,
     pub strip: ChannelStripDto,
+    /// Its channel's knobs, as the screen shows them.
+    pub knobs: StripKnobs,
     pub fx: FxChainDto,
     /// Name of the sound in each sampler slot.
     pub samples: Vec<Option<String>>,
@@ -936,7 +940,6 @@ pub struct LiveStateDto {
     pub input: Option<InputChannelsDto>,
     /// They are on the running device, left free by the turntables.
     pub in_use: bool,
-    pub level: f32,
     pub on: bool,
     pub cue: bool,
 }
@@ -946,6 +949,9 @@ pub struct LiveStateDto {
 #[serde(rename_all = "camelCase")]
 pub struct MixerStateDto {
     pub decks: Vec<DeckSettingsDto>,
+    /// The knobs beside the channels and the crossfader, as the screen shows them.
+    pub knobs: MixerKnobs,
+    /// From -1 (left) to 1: what decks the lock player hears.
     pub crossfader: f32,
     /// The mode the user chose.
     pub mode: MixModeDto,
@@ -957,20 +963,15 @@ pub struct MixerStateDto {
     pub headphones_in_use: Option<usize>,
     /// Outputs of the running device.
     pub output_channels: Option<usize>,
-    pub cue_mix: f32,
     /// Headphones: the cue on the left and the master on the right.
     pub split_cue: bool,
-    pub headphone_gain: f32,
     pub crossfader_curve: CrossfaderCurveDto,
     /// The crossfader's sides swapped.
     pub crossfader_reverse: bool,
     pub limiter: bool,
-    pub main_gain: f32,
-    pub balance: f32,
     /// The first output of the booth chosen, and the one in use if it is heard.
     pub booth: Option<usize>,
     pub booth_in_use: Option<usize>,
-    pub booth_gain: f32,
     pub mic: LiveStateDto,
     pub aux: LiveStateDto,
     pub talkover: bool,
@@ -1042,7 +1043,6 @@ pub struct DeckStatusDto {
     pub can_sync_key: bool,
     pub lights: DeckLightsDto,
     pub looping: LoopDto,
-    pub peak: f32,
     pub cue: bool,
     pub slip_mode: bool,
     /// The reverse is on: the track plays backwards.
@@ -1137,7 +1137,6 @@ impl DeckStatusDto {
             can_sync_key: shown.can_sync_key,
             lights: DeckLightsDto { cue: shown.cue, slice: shown.slice },
             looping: d.looping.into(),
-            peak: d.peak,
             cue: d.cue,
             slip_mode: d.slip_mode,
             reverse: d.reverse,
@@ -1167,9 +1166,8 @@ impl DeckStatusDto {
 pub struct StatusDto {
     pub audio_running: bool,
     pub decks: Vec<DeckStatusDto>,
-    pub main_peak: f32,
-    pub mic_peak: f32,
-    pub aux_peak: f32,
+    /// What the meters show: each deck's, the master's, the live sources'.
+    pub meters: Levels,
     pub health: Option<AudioHealthDto>,
     pub recording: Option<RecordingStatusDto>,
     pub preview: Option<PreviewStatusDto>,
@@ -1240,15 +1238,15 @@ pub struct TrackStateDto {
 }
 
 impl ControlStateDto {
-    /// The `sections` of `state`.
-    pub fn of(state: &AppState, sections: impl IntoIterator<Item = Section>) -> Self {
+    /// The `sections` of `state`, what is shown of them read in `view`.
+    pub fn of(state: &AppState, view: &View, sections: impl IntoIterator<Item = Section>) -> Self {
         let mut controls = Self::default();
         for section in sections {
             match section {
                 Section::Mixer => {
                     let (quantize, pitch_range) =
                         state.preferences.read(|p| (p.dj.quantize, p.dj.pitch_range));
-                    controls.mixer = Some(mixer_state_of(state));
+                    controls.mixer = Some(mixer_state_of(state, view));
                     (controls.quantize, controls.pitch_range) = (Some(quantize), Some(pitch_range));
                 }
                 Section::Tracks => {
@@ -1353,17 +1351,15 @@ impl From<&StreamStats> for AudioHealthDto {
 
 impl StatusDto {
     /// What `view` shows, its engine running a stream of `stats` at `sample_rate` (none: the
-    /// audio is off): the decks in use.
-    pub fn of(view: &View, stream: Option<(&StreamStats, u32)>) -> Self {
+    /// audio is off): the decks in use, and the `meters`.
+    pub fn of(view: &View, stream: Option<(&StreamStats, u32)>, meters: Levels) -> Self {
         let s = &view.status;
         let health = stream.map(|(stats, _)| AudioHealthDto::from(stats));
         let sample_rate = stream.map_or(1.0, |(_, rate)| f64::from(rate));
         Self {
             audio_running: health.as_ref().is_some_and(|h| !h.device_lost),
             decks: (0..view.decks_in_use).map(|d| DeckStatusDto::of(view, d)).collect(),
-            main_peak: s.main_peak,
-            mic_peak: s.mic_peak,
-            aux_peak: s.aux_peak,
+            meters,
             health,
             recording: s.recording.map(|r| RecordingStatusDto {
                 seconds: r.frames as f64 / sample_rate,
@@ -1965,6 +1961,10 @@ pub struct LightDto {
 mod tests {
     use super::*;
 
+    fn view_of(state: &AppState) -> View {
+        crate::actions::view_of(state, false, &Default::default(), 0.0)
+    }
+
     #[test]
     fn a_change_the_interface_mirrors_moves_the_revision_and_reaches_it_a_read_does_not() {
         let state = AppState::new(prisme_session::JsonFile::in_memory(Default::default()));
@@ -1977,10 +1977,10 @@ mod tests {
         state.update_preferences(|p| p.dj.quantize = true);
         *lock(&state.crossfader) = -1.0;
         assert_eq!(state.moved_since(eq), [Section::Mixer]);
-        let controls = ControlStateDto::of(&state, Section::ALL);
+        let controls = ControlStateDto::of(&state, &view_of(&state), Section::ALL);
         let mixer = controls.mixer.unwrap();
         assert_eq!(mixer.decks[1].strip.eq[0], 0.5);
-        assert_eq!(mixer.crossfader, -1.0);
+        assert_eq!((mixer.crossfader, mixer.knobs.crossfader), (-1.0, 0.0));
         assert_eq!(controls.quantize, Some(true));
         assert_eq!(controls.tracks.unwrap().len(), prisme_engine::MAX_DECKS);
     }
@@ -1992,7 +1992,7 @@ mod tests {
         lock(&state.perform).decks[0].roll = Some(1.0);
         let moved = state.moved_since(before);
         assert_eq!(moved, [Section::Perform]);
-        let controls = serde_json::to_value(ControlStateDto::of(&state, moved)).unwrap();
+        let controls = serde_json::to_value(ControlStateDto::of(&state, &view_of(&state), moved)).unwrap();
         assert_eq!(
             controls.as_object().unwrap().keys().collect::<Vec<_>>(),
             ["perform"],

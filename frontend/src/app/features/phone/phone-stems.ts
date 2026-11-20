@@ -3,7 +3,7 @@ import { deckStems } from '../../core/deck-stems';
 import { EngineService } from '../../core/services/engine.service';
 import { TPipe } from '../../core/i18n/t.pipe';
 import { Knob } from '../../shared/knob/knob';
-import { readouts } from '../../shared/mixer-scales';
+import { percent } from '../../shared/readout';
 import { PhoneFloatHead } from './phone-float-head';
 
 /**
@@ -41,7 +41,7 @@ import { PhoneFloatHead } from './phone-float-head';
             [label]="k.label"
             [labelTitle]="k.title"
             [active]="!k.on"
-            [format]="percent"
+            [readout]="percent(k.level)"
             (valueChange)="engine.setStemLevel(deck(), k.part, $event)"
             (labelClick)="engine.toggleStem(deck(), k.part)"
           />
@@ -73,5 +73,5 @@ export class PhoneStems {
 
   protected readonly engine = inject(EngineService);
   protected readonly stems = deckStems(this.deck);
-  protected readonly percent = readouts.percent;
+  protected readonly percent = percent;
 }

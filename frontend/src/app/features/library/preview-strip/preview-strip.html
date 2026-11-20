@@ -28,12 +28,14 @@
 >
   <canvas #bar></canvas>
 </div>
-<app-knob
-  small
-  label="PHONES"
-  [labelTitle]="'Headphone volume' | t"
-  [defaultValue]="1 / MAX_HEADPHONE_GAIN"
-  [format]="phonesReadout"
-  [value]="mixer.headphoneGain() / MAX_HEADPHONE_GAIN"
-  (valueChange)="mixer.setHeadphoneLevel($event)"
-/>
+@if (mixer.knobs(); as knobs) {
+  <app-knob
+    small
+    label="PHONES"
+    [labelTitle]="'Headphone volume' | t"
+    [defaultValue]="knobs.headphones.home"
+    [readout]="read(knobs.headphones)"
+    [value]="knobs.headphones.at"
+    (valueChange)="mixer.setHeadphoneLevel($event)"
+  />
+}

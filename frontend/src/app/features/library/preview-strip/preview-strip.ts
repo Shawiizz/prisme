@@ -13,7 +13,7 @@ import { PreviewService } from '../../../core/services/preview.service';
 import { TPipe } from '../../../core/i18n/t.pipe';
 import { fitToDevicePixels, forgetCanvas } from '../../../shared/device-pixels';
 import { Knob } from '../../../shared/knob/knob';
-import { MAX_HEADPHONE_GAIN, readouts } from '../../../shared/mixer-scales';
+import { Knob as KnobView, readout } from '../../../shared/readout';
 import { Showing, everyFrame } from '../../../shared/frames';
 import { formatClock } from '../../../shared/time';
 import { WaveformOverlay, WaveformPainter } from '../../deck/deck-waveform/waveform-painter';
@@ -39,8 +39,7 @@ export class PreviewStrip {
 
   protected readonly preview = inject(PreviewService);
   protected readonly mixer = inject(MixerService);
-  protected readonly MAX_HEADPHONE_GAIN = MAX_HEADPHONE_GAIN;
-  protected readonly phonesReadout = (knob: number) => readouts.gain(knob * MAX_HEADPHONE_GAIN);
+  protected readonly read = (knob: KnobView) => readout(knob.reads);
   private readonly canvas = viewChild.required<ElementRef<HTMLCanvasElement>>('bar');
   private readonly painter = new WaveformPainter();
   private readonly showing = new Showing();

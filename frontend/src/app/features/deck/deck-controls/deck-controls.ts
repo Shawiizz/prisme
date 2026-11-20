@@ -6,7 +6,7 @@ import { t } from '../../../core/i18n/i18n';
 import { TPipe } from '../../../core/i18n/t.pipe';
 import { deckStems } from '../../../core/deck-stems';
 import { Knob } from '../../../shared/knob/knob';
-import { readouts } from '../../../shared/mixer-scales';
+import { percent } from '../../../shared/readout';
 import { Press } from '../../../shared/press';
 
 /** Holding SYNC this long (ms) matches the leader once instead of locking to it. */
@@ -40,7 +40,7 @@ export class DeckControls {
   protected readonly canSeparate = this.stemsOf.canSeparate;
   protected readonly resumable = this.stemsOf.resumable;
   protected readonly separate = this.stemsOf.separate;
-  protected readonly percent = readouts.percent;
+  protected readonly percent = percent;
 
   /** CUE lit at the cue point, blinking stopped elsewhere, as a CDJ's. */
   protected readonly cue = computed(() => this.status()?.lights.cue ?? 'off');
