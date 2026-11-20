@@ -2155,6 +2155,28 @@ pub struct ControllerDto {
     pub replaces: Option<String>,
     /// The file its profile is exported as, by default.
     pub export_file: String,
+    /// Listed with the controllers: a MIDI port, a HID device of a model Prisme knows, or one in
+    /// use (most other HID devices are no controllers).
+    pub listed: bool,
+    /// What it drives can be written as a profile: it is in use and plugged in.
+    pub can_export: bool,
+}
+
+/// The controllers plugged in and those in use that are not.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ControllersDto {
+    pub controllers: Vec<ControllerDto>,
+    /// A controller is open: controls can be learnt.
+    pub can_learn: bool,
+}
+
+/// A controller in use opened again: its device, and the model it is.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct OpenedDto {
+    pub device: String,
+    pub model: String,
 }
 
 /// A profile the DJ may choose for a controller.
@@ -2169,6 +2191,10 @@ pub struct OfferedProfileDto {
 #[serde(rename_all = "camelCase")]
 pub struct ControllerProfilesDto {
     pub profiles: Vec<ControllerProfileDto>,
+    /// The models known (their variants aside): all of them, those updated since, the DJ's own.
+    pub counts: ProfileCountsDto,
+    /// The DJ's own profiles that take the place of Prisme's of the same file name.
+    pub replacing: Vec<OfferedProfileDto>,
     /// The DJ's files that could not be read, and why (`file: why`).
     pub unreadable: Vec<String>,
     /// The folder of the DJ's own profiles, if Prisme has a data folder.
@@ -2186,6 +2212,24 @@ pub struct ControllerProfileDto {
     pub variant: bool,
     /// Prisme's model whose profile of the same file name this one, the DJ's own, replaces.
     pub replaces: Option<String>,
+}
+
+/// How many models come from where, their variants aside.
+#[derive(Debug, Clone, Copy, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ProfileCountsDto {
+    pub all: usize,
+    pub updated: usize,
+    pub own: usize,
+}
+
+impl ProfileCountsDto {
+    pub fn of(profiles: &[ControllerProfileDto]) -> Self {
+        let models = || profiles.iter().filter(|p| !p.variant);
+        let count = |source| models().filter(|p| p.source == source).count();
+        use crate::controller_profiles::Source;
+        Self { all: models().count(), updated: count(Source::Updated), own: count(Source::Own) }
+    }
 }
 
 /// An action the interface performs that a controller drove: a key's value, or an encoder's

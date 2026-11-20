@@ -33,6 +33,11 @@ export interface Controller {
   replaces: string | null;
   /** The file its profile is exported as, by default. */
   exportFile: string;
+  /** Listed with the controllers: a MIDI port, a HID device of a model Prisme knows, or one in
+   * use (most other HID devices are no controllers). */
+  listed: boolean;
+  /** What it drives can be written as a profile: it is in use and plugged in. */
+  canExport: boolean;
 }
 
 /** Shipped with Prisme, published since and fetched, or the DJ's own. */
@@ -50,6 +55,11 @@ export interface ControllerProfiles {
     /** Prisme's model whose profile of the same file name this one, the DJ's own, replaces. */
     replaces: string | null;
   }[];
+  /** The models known (their variants aside): all of them, those updated since, the DJ's own. */
+  counts: { all: number; updated: number; own: number };
+  /** The DJ's own profiles that take the place of Prisme's of the same file name (`name`: the
+   * model replaced). */
+  replacing: { file: string; name: string }[];
   /** The DJ's files that could not be read: `file: why`. */
   unreadable: string[];
   folder: string | null;
@@ -97,6 +107,19 @@ export interface ControllerMapping {
 }
 
 /** An action the app performs that a controller drove: a key's value. */
+/** The controllers plugged in and those in use that are not. */
+export interface Controllers {
+  controllers: Controller[];
+  /** A controller is open: controls can be learnt. */
+  canLearn: boolean;
+}
+
+/** A controller in use opened again. */
+export interface Opened {
+  device: string;
+  model: string;
+}
+
 export interface UiAction {
   target: string;
   value: number;

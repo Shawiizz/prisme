@@ -2,7 +2,10 @@
 
 use crate::controller_profiles;
 use crate::controllers::Controllers;
-use crate::dto::{ControllerDto, ControllerProfileDto, ControllerProfilesDto, LightDto, OfferedProfileDto};
+use crate::dto::{
+    ControllerDto, ControllerProfileDto, ControllerProfilesDto, ControllersDto, LightDto, OfferedProfileDto,
+    ProfileCountsDto,
+};
 use crate::error::{AppError, AppResult};
 use crate::midi_clock::MidiClock;
 use prisme_control::hid;
@@ -12,7 +15,7 @@ use tauri::{AppHandle, State};
 
 /// The controllers plugged in, and those in use that are not.
 #[tauri::command]
-pub fn list_controllers(controllers: State<'_, Controllers>) -> Vec<ControllerDto> {
+pub fn list_controllers(controllers: State<'_, Controllers>) -> ControllersDto {
     let plugged = Controllers::plugged();
     let setup = controllers.setup();
     let missing = setup.enabled.iter().filter(|name| !plugged.contains(name)).cloned().collect::<Vec<_>>();
@@ -20,8 +23,11 @@ pub fn list_controllers(controllers: State<'_, Controllers>) -> Vec<ControllerDt
     let dto = |name: String, plugged: bool| {
         let known = library.chosen(&name, setup.profiles.get(&name).map(String::as_str));
         let models = known.map(|k| &k.file) == library.of(&name).map(|k| &k.file);
+        let (enabled, hid) = (setup.enabled.contains(&name), hid::ids_of(&name).is_some());
         ControllerDto {
-            enabled: setup.enabled.contains(&name),
+            listed: !hid || known.is_some() || enabled,
+            can_export: enabled && plugged,
+            enabled,
             profile: known.map(|k| k.profile.name.clone()),
             profile_file: known.map(|k| k.file.clone()),
             offered: library
@@ -33,12 +39,14 @@ pub fn list_controllers(controllers: State<'_, Controllers>) -> Vec<ControllerDt
             profile_source: known.map(|k| k.source),
             replaces: library.replaced_on(&name).filter(|_| models).map(|k| k.profile.name.clone()),
             export_file: controller_profiles::file_name(&controllers.model_name(&name)),
-            hid: hid::ids_of(&name).is_some(),
+            hid,
             name,
             plugged,
         }
     };
-    plugged.into_iter().map(|n| dto(n, true)).chain(missing.into_iter().map(|n| dto(n, false))).collect()
+    let controllers: Vec<ControllerDto> =
+        plugged.into_iter().map(|n| dto(n, true)).chain(missing.into_iter().map(|n| dto(n, false))).collect();
+    ControllersDto { can_learn: controllers.iter().any(|c| c.can_export), controllers }
 }
 
 #[tauri::command]
@@ -188,20 +196,53 @@ pub fn open_controller_profiles_folder() -> AppResult<()> {
 }
 
 fn profiles_dto(library: &controller_profiles::Library) -> ControllerProfilesDto {
+    let profiles: Vec<ControllerProfileDto> = library
+        .known
+        .iter()
+        .map(|k| ControllerProfileDto {
+            file: k.file.clone(),
+            name: k.profile.name.clone(),
+            source: k.source,
+            verified: k.profile.verified,
+            variant: k.profile.variant,
+            replaces: library.replaced.iter().find(|r| r.file == k.file).map(|r| r.profile.name.clone()),
+        })
+        .collect();
+    let replacing = profiles
+        .iter()
+        .filter_map(|p| Some(OfferedProfileDto { file: p.file.clone(), name: p.replaces.clone()? }))
+        .collect();
     ControllerProfilesDto {
-        profiles: library
-            .known
-            .iter()
-            .map(|k| ControllerProfileDto {
-                file: k.file.clone(),
-                name: k.profile.name.clone(),
-                source: k.source,
-                verified: k.profile.verified,
-                variant: k.profile.variant,
-                replaces: library.replaced.iter().find(|r| r.file == k.file).map(|r| r.profile.name.clone()),
-            })
-            .collect(),
+        counts: ProfileCountsDto::of(&profiles),
+        replacing,
+        profiles,
         unreadable: library.unreadable.clone(),
         folder: controller_profiles::own_folder().map(|f| f.display().to_string()),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::controller_profiles::Source;
+    use crate::dto::{ControllerProfileDto, ProfileCountsDto};
+
+    #[test]
+    fn the_models_are_counted_by_where_they_come_from_their_variants_aside() {
+        let profile = |source, variant| ControllerProfileDto {
+            file: String::new(),
+            name: String::new(),
+            source,
+            verified: false,
+            variant,
+            replaces: None,
+        };
+        let profiles = [
+            profile(Source::Shipped, false),
+            profile(Source::Shipped, true),
+            profile(Source::Updated, false),
+            profile(Source::Own, false),
+            profile(Source::Own, true),
+        ];
+        assert_eq!(ProfileCountsDto::of(&profiles), ProfileCountsDto { all: 3, updated: 1, own: 1 });
     }
 }

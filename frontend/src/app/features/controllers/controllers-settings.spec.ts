@@ -18,6 +18,8 @@ const VCI_100: Controller = {
   profileSource: 'shipped',
   replaces: null,
   exportFile: 'vestax-vci-100.json',
+  listed: true,
+  canExport: true,
 };
 
 describe('ControllersSettings', () => {
@@ -25,7 +27,7 @@ describe('ControllersSettings', () => {
 
   async function settings(controllers: Controller[], chosen: unknown[] = []) {
     mockIPC((command, args) => {
-      if (command === 'list_controllers') return controllers;
+      if (command === 'list_controllers') return { controllers, canLearn: true };
       if (command === 'choose_controller_profile') chosen.push(args);
       if (['controller_mappings', 'controller_light_targets'].includes(command)) return [];
       return undefined;

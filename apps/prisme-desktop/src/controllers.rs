@@ -14,7 +14,7 @@
 use crate::actions::{Actions, Host, InTurn, Moved, Source};
 use crate::controller_hid;
 use crate::controller_profiles;
-use crate::dto::{LightDto, UiActionDto};
+use crate::dto::{LightDto, OpenedDto, UiActionDto};
 use crate::error::{AppError, AppResult};
 use crate::state::{lock, AppState};
 use midir::{Ignore, MidiInput, MidiInputConnection, MidiOutput, MidiOutputConnection};
@@ -650,7 +650,8 @@ impl Controllers {
                             missing.retain(|d| *d != device);
                             info!("controller {device} opened again");
                             // back with its lights off
-                            let _ = app.emit("controller-opened", &device);
+                            let model = controllers.model_name(&device);
+                            let _ = app.emit("controller-opened", OpenedDto { device, model });
                         }
                         // told once, tried again
                         Err(e) if !missing.contains(&device) => {

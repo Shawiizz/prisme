@@ -44,7 +44,7 @@
         }}</span>
       }
     </div>
-    @if (c.enabled && c.plugged) {
+    @if (c.canExport) {
       <button
         class="pr-btn pr-btn--sm"
         (click)="exportProfile(c)"
@@ -161,7 +161,7 @@
           @for (p of replacing(); track p.file) {
             <span class="pr-row__help replaces">{{
               '{file} replaces the profile Prisme gives the {model}'
-                | t: { file: p.file, model: p.model }
+                | t: { file: p.file, model: p.name }
             }}</span>
           }
           @for (problem of service.profiles()?.unreadable; track problem) {

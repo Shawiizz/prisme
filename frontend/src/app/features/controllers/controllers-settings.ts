@@ -103,39 +103,23 @@ export class ControllersSettings implements OnInit, OnDestroy {
   });
 
   /** The DJ's own profiles that replace Prisme's of the same file name. */
-  protected readonly replacing = computed(() =>
-    (this.service.profiles()?.profiles ?? []).flatMap(({ file, replaces }) =>
-      replaces ? [{ file, model: replaces }] : [],
-    ),
-  );
+  protected readonly replacing = computed(() => this.service.profiles()?.replacing ?? []);
 
   /** How many models come from where, their variants aside. */
-  protected readonly counts = computed(() => {
-    const profiles = (this.service.profiles()?.profiles ?? []).filter((p) => !p.variant);
-    const count = (source: string) => profiles.filter((p) => p.source === source).length;
-    return { all: profiles.length, updated: count('updated'), own: count('own') };
-  });
+  protected readonly counts = computed(
+    () => this.service.profiles()?.counts ?? { all: 0, updated: 0, own: 0 },
+  );
 
   protected readonly stepEncodings = STEP_ENCODINGS;
 
   /** The controllers listed: the MIDI ports, and the HID devices of a model Prisme knows or in
    * use; the other HID devices (most are no controllers) folded apart. */
-  protected readonly listed = computed(() =>
-    this.service.controllers().filter((c) => !this.otherHid(c)),
-  );
-  protected readonly others = computed(() =>
-    this.service.controllers().filter((c) => this.otherHid(c)),
-  );
+  protected readonly listed = computed(() => this.service.controllers().filter((c) => c.listed));
+  protected readonly others = computed(() => this.service.controllers().filter((c) => !c.listed));
   protected readonly othersOpen = signal(false);
 
-  private otherHid(c: Controller): boolean {
-    return c.hid && !c.profile && !c.enabled;
-  }
-
   /** A controller is open: controls can be learnt. */
-  protected readonly canLearn = computed(() =>
-    this.service.controllers().some((c) => c.enabled && c.plugged),
-  );
+  protected readonly canLearn = this.service.canLearn;
 
   /** The controls by group, those of the decks shown only; a light only shows: nothing is
    * learnt for it. */

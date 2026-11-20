@@ -6,6 +6,8 @@ import {
   Controller,
   ControllerMapping,
   ControllerProfiles,
+  Controllers,
+  Opened,
   PluggedIn,
   StepEncoding,
   UiAction,
@@ -31,6 +33,8 @@ export class ControllerService {
   private readonly navigation = inject(NavigationService);
 
   readonly controllers = signal<Controller[]>([]);
+  /** A controller is open: controls can be learnt. */
+  readonly canLearn = signal(false);
   readonly profiles = signal<ControllerProfiles | null>(null);
   readonly mappings = signal<ControllerMapping[]>([]);
   /** The actions whose lights the app tells: what they show is kept here yet. */
@@ -60,10 +64,9 @@ export class ControllerService {
       this.reloadMappings();
     });
     // plugged back in, or let go by the program that held it: it plays, its lights off
-    await listen<string>('controller-opened', async ({ payload }) => {
+    await listen<Opened>('controller-opened', async ({ payload: { model } }) => {
       await this.refresh();
       this.sendAllLights();
-      const model = this.controllers().find((c) => c.name === payload)?.profile ?? payload;
       this.notices.show({ text: t('{model} connected', { model }), detail: t('Ready to play') });
     });
     // profiles published since came
@@ -123,12 +126,13 @@ export class ControllerService {
 
   async refresh() {
     await this.run(async () => {
-      const [controllers, outputs, clockOutput] = await Promise.all([
-        invoke<Controller[]>('list_controllers'),
+      const [{ controllers, canLearn }, outputs, clockOutput] = await Promise.all([
+        invoke<Controllers>('list_controllers'),
         invoke<string[]>('midi_outputs'),
         invoke<string | null>('midi_clock_output'),
       ]);
       this.controllers.set(controllers);
+      this.canLearn.set(canLearn);
       this.outputs.set(outputs);
       this.clockOutput.set(clockOutput);
     });
