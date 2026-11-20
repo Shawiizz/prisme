@@ -100,7 +100,7 @@ export class App implements OnInit {
   async ngOnInit() {
     try {
       await this.preferences.load();
-      const [mixer] = await Promise.all([
+      await Promise.all([
         this.engine.connect(),
         this.library.init(),
         this.autoDj.init(),
@@ -113,7 +113,6 @@ export class App implements OnInit {
         this.recording.init(),
         this.fileDrops.start(),
       ]);
-      this.mixer.apply(mixer);
     } finally {
       void dismissSplash();
     }

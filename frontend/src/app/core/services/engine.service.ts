@@ -12,7 +12,6 @@ import {
   MusicalKey,
   DeckSettings,
   EngineStatus,
-  MixerState,
   SAMPLE_SLOTS,
   TrackInfo,
   VinylChange,
@@ -119,23 +118,23 @@ export class EngineService {
   /** Where each deck's playhead was when, and its speed: what it is drawn from. */
   private playheads: (Playhead | null)[] = [];
 
-  /** Subscribes to the engine state; returns the mixer settings for the mixer service. */
-  async connect(): Promise<MixerState> {
+  /** Subscribes to the engine state: done once its first state came, which tells all the app
+   * mirrors (the decks' settings, the mixer's…). */
+  async connect(): Promise<void> {
     const channel = new Channel<EngineStatus>();
+    let mirrored: () => void;
+    const told = new Promise<void>((resolve) => (mirrored = resolve));
     channel.onmessage = (s) => {
       this.playheads = s.decks.map((d, i) => followPlayhead(this.playheads[i] ?? null, d));
-      if (s.controls) this.applyControls(s.controls);
+      if (s.controls) {
+        this.applyControls(s.controls);
+        mirrored();
+      }
       this.status.set(s);
     };
     await invoke('subscribe_status', { channel });
     await listen<DeckTrackUpdate>('deck-track-update', (e) => this.completeTrack(e.payload));
-    const mixer = await invoke<MixerState>('mixer_state');
-    this.showDecks(mixer);
-    return mixer;
-  }
-
-  private showDecks(mixer: MixerState) {
-    this.decks.set(mixer.decks.map((d) => ({ ...DEFAULT_DECK, ...d })));
+    await told;
   }
 
   /** What the backend changed of what the app mirrors: the decks' settings, their tracks (one

@@ -8,12 +8,6 @@ use crate::state::{free_inputs, live_preferences, lock, AppState};
 use prisme_engine::Command;
 use tauri::State;
 
-/// Deck and mixer settings as the backend knows them (to rebuild the UI).
-#[tauri::command]
-pub fn mixer_state(state: State<'_, AppState>) -> MixerStateDto {
-    mixer_state_of(&state)
-}
-
 /// The settings of the decks and the mixer of `state`.
 pub fn mixer_state_of(state: &AppState) -> MixerStateDto {
     let mixer = state.preferences.read(|p| p.mixer);
