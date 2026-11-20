@@ -1,4 +1,4 @@
-use crate::actions::deck;
+use crate::actions::{deck, transport};
 use crate::audio_host::layer_partner;
 use crate::auto_dj::{AutoDj, Takeover};
 use crate::commands::audio::start_audio;
@@ -12,7 +12,7 @@ use prisme_timecode::TimecodeFormat;
 use tauri::{AppHandle, Manager, State};
 
 /// The track dragged by hand to `seconds` on the scrolling waveform at `at_ms` on the
-/// pointer's clock, or let go (`None`).
+/// pointer's clock (not before its start), or let go (`None`).
 #[tauri::command]
 pub fn hand(
     state: State<'_, AppState>,
@@ -23,7 +23,23 @@ pub fn hand(
 ) -> AppResult<()> {
     state.deck_in_use(deck)?;
     auto_dj.take_over(Takeover::Transport(deck));
-    state.send(Command::Hand { deck, position_s: seconds, at_s: at_ms / 1000.0 })
+    let position_s = seconds.map(|s| s.max(0.0));
+    state.send(Command::Hand { deck, position_s, at_s: at_ms / 1000.0 })
+}
+
+/// The track on `deck` put at `seconds`, within it; nothing without a track.
+#[tauri::command]
+pub fn seek_deck(
+    state: State<'_, AppState>,
+    auto_dj: State<'_, AutoDj>,
+    deck: usize,
+    seconds: f64,
+) -> AppResult<()> {
+    let duration_s = state.deck_status(deck)?.duration_s;
+    if duration_s <= 0.0 {
+        return Ok(());
+    }
+    transport::seek(&state, Some(&auto_dj), deck, seconds.clamp(0.0, duration_s))
 }
 
 /// The edge of a jog wheel turned by `seconds` of track (positive forwards) at `at_ms`: a

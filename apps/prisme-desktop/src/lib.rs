@@ -306,6 +306,7 @@ pub fn run() {
             commands::tracks::watch_waveform,
             commands::tracks::stem_activity,
             commands::decks::hand,
+            commands::decks::seek_deck,
             commands::decks::jog,
             commands::decks::set_vinyl,
             commands::decks::set_vinyl_swap,

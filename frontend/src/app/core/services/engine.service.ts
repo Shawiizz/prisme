@@ -178,19 +178,15 @@ export class EngineService {
     return this.press(deck, 'play');
   }
 
-  /** The track on `deck` put at `seconds`, as its place along it (`position`). */
+  /** The track on `deck` put at `seconds`. */
   seek(deck: number, seconds: number) {
-    const duration = this.status()?.decks[deck]?.durationS;
-    if (!duration) return Promise.resolve(false);
-    const at = Math.min(Math.max(seconds / duration, 0), 1);
-    return this.perform(`deck${deck + 1}.position`, at);
+    return this.call('seek_deck', { deck, seconds });
   }
 
   /** The track dragged by hand to `seconds` at `atMs` (the pointer event's time), as the
    * scrolling waveform is moved like a record, or let go (`null`). */
   hand(deck: number, seconds: number | null, atMs = performance.now()) {
-    const at = seconds === null ? null : Math.max(0, seconds);
-    return this.call('hand', { deck, seconds: at, atMs });
+    return this.call('hand', { deck, seconds, atMs });
   }
 
   /** The edge of a jog wheel turned by `seconds` of track (positive forwards) at `atMs`: a
