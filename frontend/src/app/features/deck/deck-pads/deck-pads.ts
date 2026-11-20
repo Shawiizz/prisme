@@ -361,7 +361,7 @@ export class DeckPads {
     this.performance.loopOut(this.deck());
   }
 
-  scaleLoop(factor: number) {
+  scaleLoop(factor: 0.5 | 2) {
     this.performance.scaleLoop(this.deck(), factor);
   }
 

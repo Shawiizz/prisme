@@ -38,7 +38,7 @@ export class PerformanceService {
   }
 
   beatLoop(deck: number, beats: number) {
-    return this.engine.call('beat_loop', { deck, beats });
+    return this.engine.press(deck, `loop.${beats}`);
   }
 
   /** Roll `index` (of `ROLL_BEATS`) while the pad is `held`. */
@@ -48,24 +48,26 @@ export class PerformanceService {
 
   /** Marks where the next loop starts. */
   loopIn(deck: number) {
-    return this.engine.call('loop_in', { deck });
+    return this.engine.press(deck, 'loop.in');
   }
 
   /** Ends the loop at the playhead and plays it (from LOOP IN, else the stored loop). */
   loopOut(deck: number) {
-    return this.engine.call('loop_out', { deck });
+    return this.engine.press(deck, 'loop.out');
   }
 
   exitLoop(deck: number) {
     return this.engine.call('exit_loop', { deck });
   }
 
+  /** The stored loop played again, or left while it plays. */
   reloop(deck: number) {
-    return this.engine.call('reloop', { deck });
+    return this.engine.press(deck, 'reloop');
   }
 
-  scaleLoop(deck: number, factor: number) {
-    return this.engine.call('scale_loop', { deck, factor });
+  /** The loop halved (`factor` 0.5) or doubled (2). */
+  scaleLoop(deck: number, factor: 0.5 | 2) {
+    return this.engine.press(deck, factor < 1 ? 'loop.halve' : 'loop.double');
   }
 
   /** The size of `deck` halved (-1) or doubled (1) so many times, from 1/16 beat to 64. */
@@ -74,31 +76,32 @@ export class PerformanceService {
   }
 
   beatJump(deck: number, beats: number) {
-    return this.engine.call('beat_jump', { deck, beats });
+    return this.engine.press(deck, `jump.${beats}`);
   }
 
   setSlip(deck: number, enabled: boolean) {
-    return this.engine.call('set_slip', { deck, enabled });
+    return this.engine.turn(`deck${deck + 1}.slip`, enabled);
   }
 
+  /** The track muted, playing on underneath, while `active`. */
   censor(deck: number, active: boolean) {
-    return this.engine.call('censor', { deck, active });
+    return this.engine.press(deck, 'censor', active);
   }
 
   /** The track played backwards at the deck's rate, or forwards again; with slip, it comes
    * back where it would be. */
   setReverse(deck: number, enabled: boolean) {
-    return this.engine.call('set_reverse', { deck, enabled });
+    return this.engine.turn(`deck${deck + 1}.reverse`, enabled);
   }
 
   /** A playing deck slows to a stop as a turntable switched off; a stopped one starts softly. */
   brake(deck: number) {
-    return this.engine.call('brake', { deck });
+    return this.engine.press(deck, 'brake');
   }
 
   /** The record spun back while held; let go, it plays on from there. */
   spinBack(deck: number, held: boolean) {
-    return this.engine.call('spin_back', { deck, held });
+    return this.engine.press(deck, 'spinback', held);
   }
 
   /** Puts the slicer of `deck` on the bar the track is in (under a loop, where it would be). */

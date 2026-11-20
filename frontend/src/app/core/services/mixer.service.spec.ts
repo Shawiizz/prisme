@@ -2,6 +2,7 @@ import { TestBed } from '@angular/core/testing';
 import { EngineService } from './engine.service';
 import { FxService } from './fx.service';
 import { MixerService } from './mixer.service';
+import { PerformanceService } from './performance.service';
 
 describe('the screen', () => {
   it('has the backend perform what its knobs, faders and keys drive, as a controller would', () => {
@@ -19,6 +20,8 @@ describe('the screen', () => {
     mixer.setDeckCue(0, false);
     mixer.setCrossfaderCurve('sharp');
     TestBed.inject(FxService).setChainEnabled(1, true);
+    TestBed.inject(PerformanceService).scaleLoop(0, 0.5);
+    TestBed.inject(PerformanceService).beatJump(1, -4);
     expect(performed).toEqual([
       ['deck2.eq.low', 0.25],
       ['mixer.crossfader', 0.75],
@@ -27,6 +30,8 @@ describe('the screen', () => {
       ['deck1.headphones.off', 1],
       ['mixer.crossfaderCurve', 1],
       ['deck2.fx.chain.on', 1],
+      ['deck1.loop.halve', 1],
+      ['deck2.jump.-4', 1],
     ]);
     vi.restoreAllMocks();
   });
