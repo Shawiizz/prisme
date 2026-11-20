@@ -17,10 +17,8 @@ const NOTES: Record<string, string> = {
   B: 'Si',
 };
 
-/** "Cm" -> "C minor", "Do mineur" in French; accidentals as ♯ and ♭. */
+/** "C♯ minor", "Do♯ mineur" in French. */
 export function musicalKeyName(key: MusicalKey): string {
-  const name = key.minor ? key.name.slice(0, -1) : key.name;
-  const note = language() === 'fr' ? NOTES[name[0]] : name[0];
-  const accidental = name.slice(1).replace('#', '♯').replace('b', '♭');
-  return `${note}${accidental} ${key.minor ? t('minor') : t('major')}`;
+  const note = language() === 'fr' ? NOTES[key.note] : key.note;
+  return `${note}${key.accidental} ${key.minor ? t('minor') : t('major')}`;
 }

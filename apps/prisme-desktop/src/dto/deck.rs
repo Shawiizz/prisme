@@ -60,6 +60,10 @@ impl From<&prisme_analysis::Tempo> for TempoDto {
 pub struct KeyDto {
     /// "Am", "F#"...
     pub name: &'static str,
+    /// Its tonic's letter, "C" to "B".
+    pub note: &'static str,
+    /// Its tonic's "♯" or "♭", or nothing.
+    pub accidental: &'static str,
     /// "8A", "2B"...
     pub camelot: &'static str,
     /// Its place on the Camelot wheel, 1 to 12.
@@ -69,8 +73,11 @@ pub struct KeyDto {
 
 impl From<prisme_analysis::Key> for KeyDto {
     fn from(key: prisme_analysis::Key) -> Self {
+        let (note, accidental) = key.tonic_spelled();
         Self {
             name: key.name(),
+            note,
+            accidental,
             camelot: key.camelot(),
             number: key.camelot_number(),
             minor: key.mode() == prisme_analysis::Mode::Minor,

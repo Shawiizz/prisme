@@ -119,6 +119,17 @@ impl Key {
         }
     }
 
+    /// How its tonic is written: its letter ("C" to "B"), then "♯", "♭" or nothing.
+    pub fn tonic_spelled(&self) -> (&'static str, &'static str) {
+        let name = self.name();
+        let accidental = match name.as_bytes().get(1) {
+            Some(b'#') => "♯",
+            Some(b'b') => "♭",
+            _ => "",
+        };
+        (&name[..1], accidental)
+    }
+
     /// Camelot wheel number (1..=12): neighbours on the wheel mix harmonically.
     pub fn camelot_number(&self) -> u8 {
         // C major is 8B and each step of a fifth moves one place; a minor key sits
@@ -387,6 +398,14 @@ mod tests {
         for key in all {
             assert_eq!(Key::from_camelot(key.camelot()), Some(key));
         }
+    }
+
+    #[test]
+    fn a_tonic_is_spelled_with_its_letter_and_its_accidental() {
+        assert_eq!(Key::new(6, Mode::Minor).tonic_spelled(), ("F", "♯"));
+        assert_eq!(Key::new(10, Mode::Major).tonic_spelled(), ("B", "♭"));
+        assert_eq!(Key::new(10, Mode::Minor).tonic_spelled(), ("B", "♭"), "Bbm: the minor's m aside");
+        assert_eq!(Key::new(4, Mode::Minor).tonic_spelled(), ("E", ""));
     }
 
     #[test]

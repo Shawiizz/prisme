@@ -103,6 +103,14 @@ export type MusicalKey = {
    */
   name: string;
   /**
+   * Its tonic's letter, "C" to "B".
+   */
+  note: string;
+  /**
+   * Its tonic's "♯" or "♭", or nothing.
+   */
+  accidental: string;
+  /**
    * "8A", "2B"...
    */
   camelot: string;
