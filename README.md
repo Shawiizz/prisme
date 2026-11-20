@@ -129,7 +129,7 @@ System Settings > Privacy & Security.
 Versions, tags, file names and the words used are set in [docs/STANDARDS.md](docs/STANDARDS.md).
 
 1. Set the new version in the workspace `Cargo.toml` (`[workspace.package] version`).
-2. Push a tag with that version, such as `0.4.0`: CI builds the packages of every system,
+2. Push a tag with that version, such as `0.5.0`: CI builds the packages of every system,
    their signed update packages and the Android APK, and attaches them to a draft release.
 3. Publish the draft: the installed copies then offer the update.
 
@@ -149,16 +149,21 @@ crates/
   prisme-analysis/   waveforms, tempo and beat grid, musical key
   prisme-library/    track database, folder scanning, background analysis
   prisme-stems/      source separation (RoFormer models) on the GPU (wgpu) or the CPU
-  prisme-import/     Serato and rekordbox import
-  prisme-control/    MIDI and HID controller messages and mappings
+  prisme-import/     Serato and rekordbox import, rekordbox and playlist export
+  prisme-control/    MIDI and HID controller messages, mappings and profiles, the list of actions
+  prisme-actions/    what each action decides: its rules, its light, what the screen shows
   prisme-session/    settings files with atomic writes
 design/              the design system: DESIGN.md and the reference screens
 website/             the site and the documentation, in English and French
 ```
 
-The audio thread never allocates, locks or frees: the interface sends commands through
+The audio thread never allocates, locks or frees: the application sends commands through
 a lock-free queue, the engine publishes its state in a triple buffer, and what it
 replaces (tracks, decoders) goes back to the control side to be freed there.
+
+Every action is performed in Rust, whoever asks for it: a controller from its MIDI or HID
+thread, a key, the screen. The interface only shows what the backend computes, from a
+status stream that sends only what changed, and sends it gestures.
 
 ## Command line
 
