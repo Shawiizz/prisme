@@ -5,10 +5,8 @@ import { save } from '@tauri-apps/plugin-dialog';
 import {
   AudioBackend,
   AudioDevice,
-  AudioDevices,
   AudioSettings,
   BackendChoice,
-  BufferSize,
   CardOffer,
   TimecodeMaker,
 } from '../models/audio';
@@ -27,8 +25,6 @@ export class SettingsService {
   readonly devices = signal<AudioDevice[]>([]);
   /** The backend `devices` are of. */
   readonly devicesBackend = signal<AudioBackend | null>(null);
-  /** The periods offered with none of `devices` chosen. */
-  readonly bufferSizes = signal<BufferSize[]>([]);
   /** The timecode records Prisme reads, by maker. */
   readonly makers = signal<TimecodeMaker[]>([]);
   private readonly engine = inject(EngineService);
@@ -81,10 +77,9 @@ export class SettingsService {
   /** The devices of the backend asked for last: a slower answer for another one is dropped. */
   async loadDevices(backend: AudioBackend): Promise<void> {
     const asked = ++this.devicesAsked;
-    const { devices, bufferSizes } = await invoke<AudioDevices>('list_devices', { backend });
+    const devices = await invoke<AudioDevice[]>('list_devices', { backend });
     if (asked === this.devicesAsked) {
       this.devices.set(devices);
-      this.bufferSizes.set(bufferSizes);
       this.devicesBackend.set(backend);
     }
   }

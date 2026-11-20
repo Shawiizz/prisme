@@ -1,8 +1,8 @@
 use crate::audio_host;
 use crate::commands::blocking;
 use crate::dto::{
-    AudioChangeDto, AudioInfo, AudioInfoDto, AudioSettings, BackendChoiceDto, BackendDto, BufferSizeDto,
-    DeviceDto, DevicesDto, LatencyChannelsDto, LatencyDto, MixModeDto, TimecodeMakerDto,
+    AudioChangeDto, AudioDraftDto, AudioInfo, AudioInfoDto, AudioSettings, BackendChoiceDto, BackendDto,
+    BufferSizeDto, DeviceDto, LatencyChannelsDto, LatencyDto, MixModeDto, TimecodeMakerDto,
 };
 use crate::error::{AppError, AppResult};
 use crate::state::{lock, AppState, Section};
@@ -34,7 +34,7 @@ fn one_device(backend: BackendDto) -> bool {
 }
 
 #[tauri::command]
-pub fn list_devices(backend: BackendDto) -> AppResult<DevicesDto> {
+pub fn list_devices(backend: BackendDto) -> AppResult<Vec<DeviceDto>> {
     let devices = prisme_audio_io::list_devices(backend.into())?
         .into_iter()
         .map(|d| DeviceDto {
@@ -49,7 +49,7 @@ pub fn list_devices(backend: BackendDto) -> AppResult<DevicesDto> {
             is_default: d.is_default,
         })
         .collect();
-    Ok(DevicesDto::of(devices))
+    Ok(devices)
 }
 
 /// The DJ chose not to use the sound card `name` just plugged in: it is not offered again.
@@ -90,16 +90,26 @@ impl AudioStateDto {
     }
 }
 
-/// The audio settings drafted in the settings window, `change` made (see `AudioSettings::changed`).
-/// Off the window's thread: a driver's devices may take a moment to list.
+/// The audio settings drafted in the settings window, `change` made if any (see
+/// `AudioSettings::changed`), against those kept. Off the window's thread: a driver's devices
+/// may take a moment to list.
 #[tauri::command(async)]
-pub fn change_audio_draft(draft: AudioSettings, change: AudioChangeDto) -> AudioSettings {
+pub fn change_audio_draft(
+    state: State<'_, AppState>,
+    draft: AudioSettings,
+    change: Option<AudioChangeDto>,
+) -> AudioDraftDto {
     let backend = draft.backend;
     let first_output = || {
         let devices = prisme_audio_io::list_devices(backend.into()).ok()?;
         devices.into_iter().find(|d| d.kind == DeviceKind::Output).map(|d| d.name)
     };
-    draft.changed(change, first_output)
+    let draft = match change {
+        Some(change) => draft.changed(change, first_output),
+        None => draft,
+    };
+    let devices = list_devices(draft.backend).unwrap_or_default();
+    AudioDraftDto::of(draft, &state.preferences.read(|p| p.audio.clone()), &devices)
 }
 
 /// Restarts the audio with new settings, if they changed, and keeps them for the next start; then

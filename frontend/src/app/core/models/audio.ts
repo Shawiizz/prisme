@@ -34,9 +34,12 @@ export interface BufferSize {
   ms: number;
 }
 
-/** The devices of a driver, and the periods a draft naming none of them is offered. */
-export interface AudioDevices {
-  devices: AudioDevice[];
+/** The audio settings drafted in the settings, as the backend shapes them. */
+export interface AudioDraft {
+  draft: AudioSettings;
+  /** It differs from the settings kept: Apply restarts the audio. */
+  changed: boolean;
+  /** The periods offered: the output chosen's, else the default output's. */
   bufferSizes: BufferSize[];
 }
 

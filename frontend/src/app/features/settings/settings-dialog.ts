@@ -25,6 +25,7 @@ import {
   AudioBackend,
   AudioChange,
   AudioDevice,
+  AudioDraft,
   AudioSettings,
   BACKEND_NAMES,
   LatencyChannels,
@@ -110,7 +111,9 @@ export class SettingsDialog implements OnInit {
   private readonly body = viewChild.required<ElementRef<HTMLElement>>('body');
 
   protected readonly language = language;
-  protected readonly draft = signal<AudioSettings | null>(null);
+  /** The audio settings drafted, as the backend shapes them. */
+  private readonly drafted = signal<AudioDraft | null>(null);
+  protected readonly draft = computed(() => this.drafted()?.draft ?? null);
   /** The mixer drafted: the one in use until another is chosen. */
   protected readonly mixMode = linkedSignal<MixMode>(() => this.mixer.mode());
   /** The changes of the draft, each made to the draft the one before left. */
@@ -193,18 +196,11 @@ export class SettingsDialog implements OnInit {
   protected readonly latencyOutputs = computed(() => numbers(this.latencyChannels().outputs));
   protected readonly latencyInputs = computed(() => numbers(this.latencyChannels().inputs));
   /** Buffer sizes the chosen output's driver accepts. */
-  protected readonly bufferSizes = computed(() => {
-    const named = this.outputs().find((o) => o.name === this.draft()?.outputDevice);
-    return named?.bufferSizes ?? this.service.bufferSizes();
-  });
+  protected readonly bufferSizes = computed(() => this.drafted()?.bufferSizes ?? []);
 
-  /** What waits for Apply: the audio restarts, or the interface starts again. */
-  private readonly audioChanged = computed(() => {
-    const d = this.draft();
-    return !!d && JSON.stringify(d) !== JSON.stringify(this.service.settings());
-  });
+  /** What waits for Apply: the audio restarts, or the mixer changes. */
   protected readonly pending = computed(
-    () => this.audioChanged() || this.mixMode() !== this.mixer.mode(),
+    () => !!this.drafted()?.changed || this.mixMode() !== this.mixer.mode(),
   );
 
   constructor() {
@@ -224,7 +220,7 @@ export class SettingsDialog implements OnInit {
   }
 
   async ngOnInit() {
-    this.draft.set(structuredClone(this.service.settings()));
+    void this.redraft(this.service.settings());
     this.version.set(await getVersion().catch(() => ''));
     await this.readLatencyChannels();
   }
@@ -268,13 +264,23 @@ export class SettingsDialog implements OnInit {
     this.navigation.closeSettings();
   }
 
-  /** The draft with `change`, as the backend shapes it. */
+  /** The draft with `change`, as the backend shapes it: made to the draft the change before
+   * left. */
   change(change: AudioChange): Promise<void> {
     return this.drafting.run(async () => {
       const draft = this.draft();
       if (draft)
-        this.draft.set(await invoke<AudioSettings>('change_audio_draft', { draft, change }));
+        this.drafted.set(await invoke<AudioDraft>('change_audio_draft', { draft, change }));
     });
+  }
+
+  /** The draft started again from `settings`, as the backend shapes it. */
+  private redraft(settings: AudioSettings): Promise<void> {
+    return this.drafting.run(async () =>
+      this.drafted.set(
+        await invoke<AudioDraft>('change_audio_draft', { draft: settings, change: null }),
+      ),
+    );
   }
 
   set<K extends keyof Settings>(setting: K, value: Settings[K]) {
@@ -389,6 +395,7 @@ export class SettingsDialog implements OnInit {
       const d = this.draft();
       if (!d) return;
       await this.service.apply(d, this.mixMode());
+      await this.redraft(d);
       await this.readLatencyChannels();
     } catch (e) {
       this.error.set(errorText(e));
@@ -402,10 +409,8 @@ export class SettingsDialog implements OnInit {
     await this.drafting.settled();
     this.mixMode.set(this.mixer.mode());
     const settings = this.service.settings();
-    if (settings) {
-      await this.service.loadDevices(settings.backend);
-      this.draft.set(structuredClone(settings));
-    }
+    await this.service.loadDevices(settings.backend);
+    await this.redraft(settings);
   }
 
   async saveDiagnostics() {

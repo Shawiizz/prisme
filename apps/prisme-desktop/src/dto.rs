@@ -40,21 +40,27 @@ pub struct DeviceDto {
     pub is_default: bool,
 }
 
-/// The devices of a driver, and the periods a draft naming none of them is offered.
-#[derive(Debug, Clone, Serialize)]
+/// The audio settings drafted in the settings, as the backend shapes them.
+#[derive(Debug, Clone, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct DevicesDto {
-    pub devices: Vec<DeviceDto>,
-    /// The default output's periods, else every one at 48 kHz.
+pub struct AudioDraftDto {
+    pub draft: AudioSettings,
+    /// It differs from the settings kept: Apply restarts the audio.
+    pub changed: bool,
+    /// The periods offered: the output chosen's, else the default output's, else every one at
+    /// 48 kHz.
     pub buffer_sizes: Vec<BufferSizeDto>,
 }
 
-impl DevicesDto {
-    pub fn of(devices: Vec<DeviceDto>) -> Self {
-        let default = devices.iter().find(|d| d.kind == "output" && d.is_default);
-        let buffer_sizes =
-            default.map_or_else(|| BufferSizeDto::offered(None, 0), |d| d.buffer_sizes.clone());
-        Self { devices, buffer_sizes }
+impl AudioDraftDto {
+    /// `draft` against the settings `kept`, `devices` those of its driver.
+    pub fn of(draft: AudioSettings, kept: &AudioSettings, devices: &[DeviceDto]) -> Self {
+        let outputs = || devices.iter().filter(|d| d.kind == "output");
+        let output = outputs()
+            .find(|d| Some(&d.name) == draft.output_device.as_ref())
+            .or_else(|| outputs().find(|d| d.is_default));
+        let buffer_sizes = output.map_or_else(|| BufferSizeDto::offered(None, 0), |d| d.buffer_sizes.clone());
+        Self { changed: draft != *kept, draft, buffer_sizes }
     }
 }
 
@@ -2418,17 +2424,24 @@ mod tests {
         assert_eq!(sizes.iter().map(|s| s.frames).collect::<Vec<_>>(), [128, 256, 512]);
         assert!((sizes[0].ms - 2.666).abs() < 0.01);
         assert_eq!(BufferSizeDto::offered(None, 0).len(), 7, "every one, at 48 kHz");
-        assert_eq!(DevicesDto::of(Vec::new()).buffer_sizes, BufferSizeDto::offered(None, 0), "no device");
-        let output = |is_default| DeviceDto {
-            name: "Out".into(),
+        let kept = AudioSettings::default();
+        let draft =
+            |output: Option<&str>| AudioSettings { output_device: output.map(String::from), ..kept.clone() };
+        let drafted = |output, devices: &[DeviceDto]| AudioDraftDto::of(draft(output), &kept, devices);
+        assert_eq!(drafted(None, &[]).buffer_sizes, BufferSizeDto::offered(None, 0), "no device");
+        assert!(!drafted(None, &[]).changed);
+        let output = |name: &str, is_default| DeviceDto {
+            name: name.into(),
             kind: "output",
             channels: 2,
             sample_rate: 44_100,
-            buffer_sizes: sizes.clone(),
+            buffer_sizes: if is_default { sizes.clone() } else { BufferSizeDto::offered(None, 96_000) },
             is_default,
         };
-        assert_eq!(DevicesDto::of(vec![output(true)]).buffer_sizes, sizes, "the default output's");
-        assert_eq!(DevicesDto::of(vec![output(false)]).buffer_sizes.len(), 7);
+        let devices = [output("Default", true), output("Card", false)];
+        assert_eq!(drafted(None, &devices).buffer_sizes, sizes, "the default output's");
+        let chosen = drafted(Some("Card"), &devices);
+        assert_eq!((chosen.changed, chosen.buffer_sizes), (true, BufferSizeDto::offered(None, 96_000)));
         assert_eq!(BufferSizeDto::offered(None, 0)[1].ms, 64_000.0 / 48_000.0);
     }
 
