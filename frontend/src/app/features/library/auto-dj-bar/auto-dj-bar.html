@@ -50,7 +50,7 @@
     [attr.aria-label]="'Beats, when both tracks have a beat grid' | t"
     [title]="'Beats, when both tracks have a beat grid' | t"
   >
-    @for (beats of FADE_BEATS; track beats) {
+    @for (beats of choices().fadeBeats; track beats) {
       <button
         role="radio"
         [attr.aria-checked]="autoDj.status().fadeBeats === beats"
@@ -68,7 +68,7 @@
     [attr.aria-label]="'Seconds, when a track has no beat grid' | t"
     [title]="'Seconds, when a track has no beat grid' | t"
   >
-    @for (seconds of FADE_SECONDS; track seconds) {
+    @for (seconds of choices().fadeSeconds; track seconds) {
       <button
         role="radio"
         [attr.aria-checked]="autoDj.status().fadeS === seconds"

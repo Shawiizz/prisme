@@ -1,10 +1,8 @@
 import { Injectable, inject } from '@angular/core';
+import { invoke } from '@tauri-apps/api/core';
 import { open } from '@tauri-apps/plugin-dialog';
 import { t } from '../i18n/i18n';
 import { EngineService } from './engine.service';
-import { AUDIO_EXTENSIONS } from '../audio-files';
-
-const AUDIO_FILES = { name: () => t('Audio'), extensions: AUDIO_EXTENSIONS };
 
 /** Each deck's sampler: short sounds played from their start, on the beat with quantize. The
  * backend performs it; its slots are shown as it tells them (`EngineService.decks`). */
@@ -14,9 +12,10 @@ export class SamplerService {
 
   /** Asks for a sound and puts it in `slot`. */
   async choose(deck: number, slot: number) {
+    const extensions = await invoke<string[]>('audio_extensions');
     const path = await open({
       title: t('Sampler sound'),
-      filters: [{ ...AUDIO_FILES, name: AUDIO_FILES.name() }],
+      filters: [{ name: t('Audio'), extensions }],
     });
     if (path) await this.engine.call('load_sample', { deck, slot, path });
   }

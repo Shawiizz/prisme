@@ -60,6 +60,15 @@ impl AutoDj {
         AutoDjStatusDto::of(machine.status(), machine.fade())
     }
 
+    /// Seconds before the next mix starts, while one is planned on a deck playing at `status`.
+    pub fn mix_in_s(&self, status: &prisme_engine::EngineStatus) -> Option<f64> {
+        let machine = lock(&self.machine);
+        let at = machine.status();
+        let (current, mix_at_s) = (at.current?, at.mix_at_s?);
+        let deck = &status.decks[current];
+        (at.state == machine::State::On && deck.playing).then(|| seconds_until(mix_at_s, deck))
+    }
+
     /// Whether it plays or mixes.
     pub fn plays(&self) -> bool {
         matches!(lock(&self.machine).status().state, machine::State::On | machine::State::Mixing)
@@ -285,5 +294,23 @@ impl Decks {
                 Some(audible)
             }
         }
+    }
+}
+
+/// Seconds before a deck at `deck` reaches `at_s`, at its speed (a crawl counted as a twentieth).
+fn seconds_until(at_s: f64, deck: &prisme_engine::DeckStatus) -> f64 {
+    ((at_s - deck.position_s) / deck.speed.abs().max(0.05)).max(0.0)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn the_next_mix_comes_at_the_decks_speed() {
+        let deck = |position_s, speed| prisme_engine::DeckStatus { position_s, speed, ..Default::default() };
+        assert_eq!(seconds_until(70.0, &deck(60.0, 2.0)), 5.0);
+        assert_eq!(seconds_until(70.0, &deck(60.0, 0.0)), 200.0, "a crawl");
+        assert_eq!(seconds_until(50.0, &deck(60.0, 1.0)), 0.0, "past it");
     }
 }

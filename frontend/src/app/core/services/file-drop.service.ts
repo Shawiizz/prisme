@@ -1,8 +1,8 @@
 import { Injectable, inject, signal } from '@angular/core';
+import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
 import { getCurrentWebview } from '@tauri-apps/api/webview';
 import { TRACKS_DRAG_TYPE } from '../../shared/drag';
-import { isAudioFile } from '../audio-files';
 import { lastName } from '../folders';
 import { PHONE } from '../platform';
 import { LibraryService } from './library.service';
@@ -80,11 +80,20 @@ function draggedTypes(items: DataTransferItemList): FileDrag {
   };
 }
 
-/** Anything that is not a track may be a folder. */
-function draggedPaths(paths: string[]): FileDrag {
-  const folders = paths.filter((path) => !isAudioFile(path));
+/** The files and folders dropped, as the backend sorts them: anything not a track may be a
+ * folder. */
+interface Dropped {
+  tracks: string[];
+  folders: string[];
+}
+
+function sortDropped(paths: string[]): Promise<Dropped> {
+  return invoke<Dropped>('sort_dropped', { paths });
+}
+
+function draggedOf({ tracks, folders }: Dropped): FileDrag {
   return {
-    audio: folders.length < paths.length,
+    audio: tracks.length > 0,
     folders: folders.length > 0,
     name: folders.length === 1 ? lastName(folders[0]) : null,
   };
@@ -151,7 +160,7 @@ export class FileDropService {
     await getCurrentWebview().onDragDropEvent(({ payload }) => {
       // the page's own tracks pass here too, without paths
       if (payload.type === 'enter' && payload.paths.length) {
-        this.dragged.set(draggedPaths(payload.paths));
+        void sortDropped(payload.paths).then((dropped) => this.dragged.set(draggedOf(dropped)));
       }
       if (payload.type === 'leave') {
         this.end();
@@ -182,9 +191,9 @@ export class FileDropService {
 
   /** The first track onto a deck, the tracks into a list, the folders into the music folders. */
   private async drop(target: FileDropTarget, paths: string[]) {
-    const tracks = paths.filter(isAudioFile);
+    const { tracks, folders } = await sortDropped(paths);
     if (target.kind === 'folders') {
-      for (const folder of paths.filter((path) => !isAudioFile(path))) {
+      for (const folder of folders) {
         await this.library.addFolder(folder);
       }
     } else if (!tracks.length) {

@@ -65,9 +65,9 @@ export class PreviewService {
     return this.engine.perform('library.preview.stop', 1);
   }
 
-  seek(seconds: number) {
-    if (!this.track()) return Promise.resolve(false);
-    return this.engine.call('seek_preview', { seconds: Math.max(0, seconds) });
+  /** The preview put at `share` (0 to 1) of its track. */
+  seek(share: number) {
+    return this.engine.call('seek_preview', { share });
   }
 
   private async fetchWaveform(id: number) {

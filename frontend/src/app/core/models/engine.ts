@@ -212,6 +212,8 @@ export interface EngineStatus {
   phase: PhaseStrip;
   /** The deck a phone's lock screen shows. */
   player: number | null;
+  /** Seconds before the Auto DJ's next mix starts, while one is planned. */
+  mixInS: number | null;
   /** The sections of what the app mirrors the backend changed since the status before: the
    * mixer (with the quantize and the tempo range), the tracks (with their loads), the pads,
    * the preview. All of them in the first status. */

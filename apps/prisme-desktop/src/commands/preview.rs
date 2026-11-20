@@ -1,7 +1,7 @@
 use super::blocking;
 use crate::error::AppResult;
 use crate::preview::Previews;
-use crate::state::AppState;
+use crate::state::{lock, AppState};
 use prisme_engine::Command;
 use std::path::PathBuf;
 use tauri::ipc::Response;
@@ -15,10 +15,12 @@ pub async fn toggle_preview(app: AppHandle, path: String) -> AppResult<()> {
     blocking(move || app.state::<Previews>().toggle(&app, PathBuf::from(path))).await
 }
 
-/// The preview put at `seconds` into its track: where the screen's strip is clicked.
+/// The preview put at `share` (0 to 1) of its track: where the screen's strip is clicked.
 #[tauri::command]
-pub fn seek_preview(state: State<'_, AppState>, seconds: f64) -> AppResult<()> {
-    state.send(Command::SeekPreview { seconds })
+pub fn seek_preview(state: State<'_, AppState>, share: f64) -> AppResult<()> {
+    let preview = lock(&state.session).as_mut().and_then(|s| s.controller.status().preview);
+    let Some(preview) = preview else { return Ok(()) };
+    state.send(Command::SeekPreview { seconds: share.clamp(0.0, 1.0) * preview.duration_s })
 }
 
 /// The waveform of preview `id` (`dto::waveform_bytes`); empty until it is known.

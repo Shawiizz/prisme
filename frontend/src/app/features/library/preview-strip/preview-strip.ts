@@ -74,11 +74,8 @@ export class PreviewStrip {
   }
 
   private seekTo(event: PointerEvent) {
-    const duration = this.preview.status()?.durationS ?? this.preview.track()?.durationS;
-    if (!duration) return;
     const r = (event.currentTarget as Element).getBoundingClientRect();
-    const fraction = Math.min(Math.max((event.clientX - r.left) / r.width, 0), 1);
-    this.preview.seek(fraction * duration);
+    this.preview.seek(Math.min(Math.max((event.clientX - r.left) / r.width, 0), 1));
   }
 
   private draw() {

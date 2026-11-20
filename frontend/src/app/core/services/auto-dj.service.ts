@@ -37,9 +37,6 @@ export interface AutoDjStatus {
   fadeS: number;
 }
 
-export const FADE_BEATS = [8, 16, 32, 64] as const;
-export const FADE_SECONDS = [5, 10, 15, 30] as const;
-
 const OFF: AutoDjStatus = {
   state: 'off',
   reason: null,
@@ -50,11 +47,6 @@ const OFF: AutoDjStatus = {
   fadeBeats: 16,
   fadeS: 10,
 };
-
-/** Seconds before a deck at `positionS`, going at `speed`, reaches `atS`. */
-export function secondsUntil(atS: number, positionS: number, speed: number): number {
-  return Math.max(0, (atS - positionS) / Math.max(Math.abs(speed), 0.05));
-}
 
 /**
  * The Auto DJ: plays the prepare list on decks A and B, each track mixed into the next with
@@ -79,12 +71,7 @@ export class AutoDjService {
   /** The first track of the prepare list: the one mixed in next. */
   readonly next = computed(() => this.engine.controls()?.lists.next ?? null);
   /** Seconds before the next mix starts, while one is planned. */
-  readonly mixIn = computed(() => {
-    const { state, current, mixAtS } = this.status();
-    if (state !== 'on' || current === null || mixAtS === null) return null;
-    const deck = this.engine.status()?.decks[current];
-    return deck?.playing ? secondsUntil(mixAtS, deck.positionS, deck.speed) : null;
-  });
+  readonly mixIn = computed(() => this.engine.status()?.mixInS ?? null);
   /** Why it stopped, paused or left a track out, in words. */
   readonly reason = computed(() => {
     const { reason, reasonDeck } = this.status();
@@ -131,8 +118,14 @@ export class AutoDjService {
     return this.engine.perform('autodj.skip', 1);
   }
 
-  setFade(beats: number, seconds: number) {
-    return this.call('set_auto_dj_fade', { beats, seconds });
+  /** How long a mix lasts between tracks with a beat grid. */
+  setFadeBeats(beats: number) {
+    return this.call('set_auto_dj_fade', { beats, seconds: null });
+  }
+
+  /** How long a mix lasts when a track has no beat grid. */
+  setFadeSeconds(seconds: number) {
+    return this.call('set_auto_dj_fade', { beats: null, seconds });
   }
 
   private async call(command: string, args: Record<string, unknown> = {}) {

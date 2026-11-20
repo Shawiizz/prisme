@@ -5,6 +5,7 @@
 
 use crate::actions::browse::{self, Around, RowsStems};
 use crate::actions::Actions;
+use crate::auto_dj::AutoDj;
 use crate::dto::{ControlStateDto, StatusDto};
 use crate::preview::Previews;
 use crate::state::{lock, AppState, Section};
@@ -33,6 +34,7 @@ pub fn subscribe_status(app: AppHandle, channel: Channel<StatusDto>) {
         .spawn(move || {
             let state = app.state::<AppState>();
             let actions = app.state::<Actions>();
+            let auto_dj = app.state::<AutoDj>();
             // the revisions of what the interface mirrors it was last sent: none, all sent first
             let mut told = None;
             let mut around = Around::default();
@@ -75,6 +77,7 @@ pub fn subscribe_status(app: AppHandle, channel: Channel<StatusDto>) {
                 if moved(Section::Mixer) {
                     internal = state.mixes_itself();
                 }
+                status.mix_in_s = auto_dj.mix_in_s(&view.status);
                 let heard = player.read(&view, internal, now_s);
                 status.player = heard.deck;
                 for (deck, shown) in status.decks.iter_mut().enumerate() {

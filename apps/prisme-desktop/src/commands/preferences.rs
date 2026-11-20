@@ -4,7 +4,8 @@ use crate::commands::live::TALKOVER_DEPTHS;
 use crate::error::{AppError, AppResult};
 use crate::library_service::LibraryService;
 use crate::preferences::{
-    DeckCount, DjPreferences, KeyPreference, LibraryPreferences, Preferences, UiPreferences, VinylSync,
+    AutoDjPreferences, DeckCount, DjPreferences, KeyPreference, LibraryPreferences, Preferences,
+    UiPreferences, VinylSync,
 };
 use crate::shortcuts::{self, Shortcut};
 use crate::state::{lock, AppState};
@@ -50,6 +51,9 @@ pub struct SettingChoicesDto {
     pub deck_counts: [usize; 2],
     pub talkover_depths: [f32; 4],
     pub languages: [&'static str; 2],
+    /// The lengths the Auto DJ's mixes are offered at: in beats, and in seconds.
+    pub fade_beats: [u32; 4],
+    pub fade_seconds: [f64; 4],
 }
 
 impl PreferencesDto {
@@ -72,6 +76,8 @@ impl PreferencesDto {
             deck_counts: [DeckCount::Two.into(), DeckCount::Four.into()],
             talkover_depths: TALKOVER_DEPTHS,
             languages: UiPreferences::LANGUAGES,
+            fade_beats: AutoDjPreferences::FADE_BEATS,
+            fade_seconds: AutoDjPreferences::FADE_SECONDS,
         };
         Self { dj, library, ui, shortcuts, changed: keys.into_keys().collect(), choices }
     }
@@ -94,7 +100,11 @@ pub enum Setting {
     LockControls(bool),
     CueOnLoad(bool),
     ProtectPlaying(bool),
-    HiddenColumns(Vec<String>),
+    /// A column of the track table shown, or hidden.
+    Column {
+        column: String,
+        shown: bool,
+    },
     WriteTags(bool),
     ReplaceTags(bool),
     PauseWhilePlaying(bool),
@@ -142,7 +152,14 @@ impl Setting {
             Setting::LockControls(on) => p.dj.lock_controls = on,
             Setting::CueOnLoad(on) => p.dj.cue_on_load = on,
             Setting::ProtectPlaying(on) => p.dj.protect_playing = on,
-            Setting::HiddenColumns(columns) => p.library.hidden_columns = columns,
+            Setting::Column { column, shown } => {
+                let hidden = &mut p.library.hidden_columns;
+                if shown {
+                    hidden.retain(|hidden| *hidden != column);
+                } else if !hidden.contains(&column) {
+                    hidden.push(column);
+                }
+            }
             Setting::WriteTags(on) => {
                 p.library.write_tags = on;
                 return Ok(if on { Then::WriteTags } else { Then::Nothing });
@@ -302,6 +319,19 @@ mod tests {
         assert!(after.dj.cue_on_load);
         assert_eq!(DjPreferences { cue_on_load: false, ..after.dj }, before.dj, "the rest as it was");
         assert_eq!(after.library, before.library);
+    }
+
+    #[test]
+    fn a_column_is_shown_or_hidden_alone() {
+        let state = state();
+        let column = |column: &str, shown| Setting::Column { column: column.into(), shown };
+        let hidden = || state.preferences.read(|p| p.library.hidden_columns.clone());
+        change(&state, column("album", false)).unwrap();
+        change(&state, column("year", false)).unwrap();
+        change(&state, column("album", false)).unwrap();
+        assert_eq!(hidden(), ["album", "year"]);
+        change(&state, column("album", true)).unwrap();
+        assert_eq!(hidden(), ["year"]);
     }
 
     #[test]

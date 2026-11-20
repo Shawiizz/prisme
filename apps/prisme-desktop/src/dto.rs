@@ -1469,6 +1469,8 @@ pub struct StatusDto {
     pub phase: screen::PhaseStrip,
     /// The deck a phone's lock screen shows (`prisme_actions::player`).
     pub player: Option<usize>,
+    /// Seconds before the Auto DJ's next mix starts, while one is planned.
+    pub mix_in_s: Option<f64>,
     /// What the interface mirrors, when it changed since the status before.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub controls: Option<ControlStateDto>,
@@ -1695,6 +1697,7 @@ impl StatusDto {
             }),
             phase: screen::phase_strip(view),
             player: None,
+            mix_in_s: None,
             controls: None,
         }
     }

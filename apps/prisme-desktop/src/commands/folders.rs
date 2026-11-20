@@ -8,6 +8,29 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use tauri::{AppHandle, Manager, State};
 
+/// Files and folders dropped from the computer's file manager: the tracks Prisme plays, the
+/// rest taken for folders.
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DroppedDto {
+    pub tracks: Vec<String>,
+    pub folders: Vec<String>,
+}
+
+/// `paths` dropped, sorted into tracks and folders by their names (the files may not be read
+/// yet: a drag only shows them).
+#[tauri::command]
+pub fn sort_dropped(paths: Vec<String>) -> DroppedDto {
+    let (tracks, folders) = paths.into_iter().partition(|p| prisme_media::is_supported(Path::new(p)));
+    DroppedDto { tracks, folders }
+}
+
+/// The extensions of the files Prisme plays, for a file dialog.
+#[tauri::command]
+pub fn audio_extensions() -> &'static [&'static str] {
+    prisme_media::SUPPORTED_EXTENSIONS
+}
+
 #[tauri::command]
 pub fn music_root(library: State<'_, Arc<LibraryService>>) -> String {
     library.root().display().to_string()
@@ -85,4 +108,20 @@ pub fn list_dir(library: State<'_, Arc<LibraryService>>, path: String) -> AppRes
         folders: listing.folders.iter().map(|folder| FolderDto::of(folder)).collect(),
         tracks: listing.files.len(),
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn the_files_dropped_are_tracks_by_their_extension_the_rest_folders() {
+        let dropped = sort_dropped(
+            ["C:/Music/Track.FLAC", "C:/Music/House.mp3s", "C:/Music/cover.jpg", "/dj/a.mp3"]
+                .map(String::from)
+                .to_vec(),
+        );
+        assert_eq!(dropped.tracks, ["C:/Music/Track.FLAC", "/dj/a.mp3"]);
+        assert_eq!(dropped.folders, ["C:/Music/House.mp3s", "C:/Music/cover.jpg"]);
+    }
 }

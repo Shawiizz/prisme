@@ -1,5 +1,6 @@
 import { Component, booleanAttribute, computed, inject, input } from '@angular/core';
-import { AutoDjService, FADE_BEATS, FADE_SECONDS } from '../../../core/services/auto-dj.service';
+import { AutoDjService } from '../../../core/services/auto-dj.service';
+import { PreferencesService } from '../../../core/services/preferences.service';
 import { EngineService } from '../../../core/services/engine.service';
 import { t } from '../../../core/i18n/i18n';
 import { TPipe } from '../../../core/i18n/t.pipe';
@@ -23,8 +24,8 @@ export class AutoDjBar {
 
   protected readonly autoDj = inject(AutoDjService);
   private readonly engine = inject(EngineService);
-  protected readonly FADE_BEATS = FADE_BEATS;
-  protected readonly FADE_SECONDS = FADE_SECONDS;
+  /** The lengths the mixes are offered at. */
+  protected readonly choices = inject(PreferencesService).choices;
 
   /** What the Auto DJ does, in a line. */
   protected readonly line = computed(() => {
@@ -56,10 +57,10 @@ export class AutoDjBar {
   );
 
   protected setBeats(beats: number) {
-    this.autoDj.setFade(beats, this.autoDj.status().fadeS);
+    this.autoDj.setFadeBeats(beats);
   }
 
   protected setSeconds(seconds: number) {
-    this.autoDj.setFade(this.autoDj.status().fadeBeats, seconds);
+    this.autoDj.setFadeSeconds(seconds);
   }
 }

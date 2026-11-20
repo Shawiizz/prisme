@@ -68,6 +68,9 @@ export interface Preferences {
     deckCounts: number[];
     talkoverDepths: number[];
     languages: string[];
+    /** The lengths the Auto DJ's mixes are offered at: in beats, and in seconds. */
+    fadeBeats: number[];
+    fadeSeconds: number[];
   };
 }
 
@@ -80,7 +83,7 @@ export interface Settings {
   lockControls: boolean;
   cueOnLoad: boolean;
   protectPlaying: boolean;
-  hiddenColumns: string[];
+  column: { column: string; shown: boolean };
   writeTags: boolean;
   replaceTags: boolean;
   pauseWhilePlaying: boolean;

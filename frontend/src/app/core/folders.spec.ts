@@ -1,5 +1,4 @@
 import { folderOf, isWithin, lastName, parentOf, shortPath, stepsFrom } from './folders';
-import { isAudioFile } from './audio-files';
 
 describe('lastName', () => {
   it('is the last folder of a path, a drive by its letter', () => {
@@ -60,14 +59,5 @@ describe('shortPath', () => {
     expect(shortPath('/home/dj/Music')).toBe('~/Music');
     expect(shortPath('/Users/dj/Music')).toBe('~/Music');
     expect(shortPath('E:\\DJ')).toBe('E:\\DJ');
-  });
-});
-
-describe('isAudioFile', () => {
-  it('knows the files Prisme plays by their extension', () => {
-    expect(isAudioFile('C:\\Music\\Track.FLAC')).toBe(true);
-    expect(isAudioFile('/home/dj/a.mp3')).toBe(true);
-    expect(isAudioFile('C:\\Music\\cover.jpg')).toBe(false);
-    expect(isAudioFile('C:\\Music\\House.mp3s\\Sets')).toBe(false);
   });
 });

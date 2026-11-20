@@ -257,6 +257,9 @@ pub struct AutoDjPreferences {
 impl AutoDjPreferences {
     pub const MAX_BEATS: u32 = 128;
     pub const MAX_S: f64 = 60.0;
+    /// The lengths offered, in beats and in seconds.
+    pub const FADE_BEATS: [u32; 4] = [8, 16, 32, 64];
+    pub const FADE_SECONDS: [f64; 4] = [5.0, 10.0, 15.0, 30.0];
 
     /// The lengths a mix can have: at least a beat or a second, at most a long blend.
     pub fn bounded(self) -> Self {
