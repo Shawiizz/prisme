@@ -41,7 +41,7 @@ use std::borrow::Cow;
 use std::collections::{HashMap, VecDeque};
 use std::panic::{catch_unwind, AssertUnwindSafe};
 use std::path::PathBuf;
-use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
 use std::sync::mpsc::{self, Sender, SyncSender};
 use std::sync::{Arc, Condvar, Mutex, MutexGuard};
 use std::time::{Duration, Instant};
@@ -166,58 +166,82 @@ impl Host for AppHandle {
 
 type Job = Box<dyn FnOnce() + Send>;
 
-/// The lanes with actions waiting (see `prisme_actions::lane`), each emptied in turn by a
-/// worker of its own, which ends as its lane does.
+/// The actions waiting their turn (see `prisme_actions::lane`): those queued on each busy lane,
+/// which a worker of its own performs in turn and ends with; and the actions of a move set
+/// aside until those sent before them in the move are over.
 #[derive(Default)]
-struct Lanes(Arc<Mutex<HashMap<Lane, VecDeque<Job>>>>);
+struct Lanes(Arc<Mutex<Waiting>>);
 
-/// A lane taken for an action to wait its turn on.
-struct Queuing<'l> {
-    waiting: MutexGuard<'l, HashMap<Lane, VecDeque<Job>>>,
-    lanes: &'l Arc<Mutex<HashMap<Lane, VecDeque<Job>>>>,
+#[derive(Default)]
+struct Waiting {
+    queued: HashMap<Lane, VecDeque<Job>>,
+    /// The last action each controller set aside for a lane: its later actions on that lane
+    /// follow it.
+    aside: Vec<Aside>,
+}
+
+struct Aside {
     lane: Lane,
+    device: String,
+    turn: Arc<Turn>,
+}
+
+impl Waiting {
+    /// The action `device` last set aside for `lane`, while it is not over.
+    fn aside_on(&mut self, lane: Lane, device: &str) -> Option<Arc<Turn>> {
+        if self.aside.is_empty() {
+            return None;
+        }
+        self.aside.retain(|aside| !aside.turn.is_over());
+        let aside = self.aside.iter().find(|aside| aside.lane == lane && aside.device == device)?;
+        Some(aside.turn.clone())
+    }
+
+    /// `turn`, an action of `device` set aside for `lane`, the last there.
+    fn set_aside(&mut self, lane: Lane, device: &str, turn: Arc<Turn>) {
+        match self.aside.iter_mut().find(|aside| aside.lane == lane && aside.device == device) {
+            Some(aside) => aside.turn = turn,
+            None => self.aside.push(Aside { lane, device: device.to_owned(), turn }),
+        }
+    }
 }
 
 impl Lanes {
-    /// `lane` taken for an action that waits its turn, if it has to (`waits`) or if the lane
-    /// has actions waiting; none if it can be performed at once.
-    fn take(&self, lane: Lane, waits: bool) -> Option<Queuing<'_>> {
-        let waiting = lock(&self.0);
-        (waits || waiting.contains_key(&lane)).then_some(Queuing { waiting, lanes: &self.0, lane })
+    /// `job` after those queued on `lane` (`waiting`, this lock held); a lane with none gets a
+    /// worker, without which its jobs are dropped.
+    fn push(&self, mut waiting: MutexGuard<'_, Waiting>, lane: Lane, job: Job) {
+        if let Some(queued) = waiting.queued.get_mut(&lane) {
+            queued.push_back(job);
+            return;
+        }
+        waiting.queued.insert(lane, VecDeque::from([job]));
+        drop(waiting);
+        let lanes = self.0.clone();
+        let started =
+            std::thread::Builder::new().name("prisme-lane".into()).spawn(move || run_lane(&lanes, lane));
+        if let Err(e) = started {
+            error!("no worker for the actions of {lane:?}: {e}");
+            let dropped = lock(&self.0).queued.remove(&lane);
+            // their ends told with the lock let go: what follows them is sent
+            drop(dropped);
+        }
     }
 
     fn busy(&self, lane: Lane) -> bool {
-        lock(&self.0).contains_key(&lane)
+        lock(&self.0).queued.contains_key(&lane)
     }
 }
 
-impl Queuing<'_> {
-    /// `job` after those waiting on the lane; a lane with none gets a worker.
-    fn push(mut self, job: Job) {
-        if let Some(waiting) = self.waiting.get_mut(&self.lane) {
-            waiting.push_back(job);
-            return;
-        }
-        self.waiting.insert(self.lane, VecDeque::from([job]));
-        drop(self.waiting);
-        let (lanes, lane) = (self.lanes.clone(), self.lane);
-        std::thread::Builder::new()
-            .name("prisme-lane".into())
-            .spawn(move || run_lane(&lanes, lane))
-            .expect("cannot start a worker of the actions");
-    }
-}
-
-/// Performs the actions waiting on `lane`, in turn, until there are none: the lane stays taken
+/// Performs the actions queued on `lane`, in turn, until there are none: the lane stays busy
 /// while one runs.
-fn run_lane(lanes: &Mutex<HashMap<Lane, VecDeque<Job>>>, lane: Lane) {
+fn run_lane(lanes: &Mutex<Waiting>, lane: Lane) {
     loop {
         let job = {
             let mut waiting = lock(lanes);
-            match waiting.get_mut(&lane).and_then(VecDeque::pop_front) {
+            match waiting.queued.get_mut(&lane).and_then(VecDeque::pop_front) {
                 Some(job) => job,
                 None => {
-                    waiting.remove(&lane);
+                    waiting.queued.remove(&lane);
                     return;
                 }
             }
@@ -228,42 +252,91 @@ fn run_lane(lanes: &Mutex<HashMap<Lane, VecDeque<Job>>>, lane: Lane) {
     }
 }
 
-/// The end of an action performed in turn, which those sent after it in one move wait for.
-#[derive(Default)]
-struct Done {
-    over: Mutex<bool>,
-    ended: Condvar,
+/// An action waiting its turn, and the actions sent once it is over.
+struct Turn(Mutex<Then>);
+
+enum Then {
+    Waiting(Vec<Arc<Follower>>),
+    Over,
 }
 
-impl Done {
-    fn is_over(&self) -> bool {
-        *lock(&self.over)
+impl Turn {
+    fn new() -> Arc<Self> {
+        Arc::new(Turn(Mutex::new(Then::Waiting(Vec::new()))))
     }
 
-    fn wait(&self) {
-        let over = lock(&self.over);
-        drop(self.ended.wait_while(over, |over| !*over).unwrap_or_else(|e| e.into_inner()));
+    fn is_over(&self) -> bool {
+        matches!(*lock(&self.0), Then::Over)
+    }
+
+    /// `follower` told once this is over; false if it is already.
+    fn then(&self, follower: &Arc<Follower>) -> bool {
+        match &mut *lock(&self.0) {
+            Then::Waiting(followers) => {
+                followers.push(follower.clone());
+                true
+            }
+            Then::Over => false,
+        }
+    }
+
+    fn end(&self) {
+        if let Then::Waiting(followers) = std::mem::replace(&mut *lock(&self.0), Then::Over) {
+            followers.iter().for_each(|follower| follower.one_over());
+        }
     }
 }
 
 /// Ends its action as it is dropped, whatever came of it.
-struct Ending(Arc<Done>);
+struct Ending(Arc<Turn>);
 
 impl Drop for Ending {
     fn drop(&mut self) {
-        *lock(&self.0.over) = true;
-        self.0.ended.notify_all();
+        self.0.end();
+    }
+}
+
+/// An action sent once the actions it follows are all over.
+struct Follower {
+    before: AtomicUsize,
+    send: Mutex<Option<Job>>,
+}
+
+impl Follower {
+    /// `send` run once every one of `turns` is over: at once, on this thread, if they are.
+    fn after(turns: impl IntoIterator<Item = Arc<Turn>>, send: Job) {
+        let follower = Arc::new(Follower { before: AtomicUsize::new(1), send: Mutex::new(Some(send)) });
+        for turn in turns {
+            follower.before.fetch_add(1, Ordering::SeqCst);
+            if !turn.then(&follower) {
+                follower.before.fetch_sub(1, Ordering::SeqCst);
+            }
+        }
+        follower.one_over();
+    }
+
+    fn one_over(&self) {
+        if self.before.fetch_sub(1, Ordering::SeqCst) != 1 {
+            return;
+        }
+        let send = lock(&self.send).take();
+        // run as an action it follows ends, maybe unwinding from its failure
+        if send.is_some_and(|send| catch_unwind(AssertUnwindSafe(send)).is_err()) {
+            error!("an action sent in turn failed");
+        }
     }
 }
 
 /// The actions one move of a control drives, which keep their order whatever their lanes: one
-/// sent after an action waiting its turn waits for it.
+/// sent after an action waiting its turn is set aside, its lane free for others, and sent once
+/// that one is over.
 #[derive(Default)]
-pub struct InTurn(Option<Arc<Done>>);
+pub struct InTurn(Option<Arc<Turn>>);
 
 impl InTurn {
-    fn waits(&self) -> bool {
-        self.0.as_ref().is_some_and(|done| !done.is_over())
+    /// The last action of the move, while it waits its turn.
+    fn waiting(&self) -> Option<Arc<Turn>> {
+        self.0.as_ref().filter(|turn| !turn.is_over()).cloned()
     }
 }
 
@@ -346,6 +419,8 @@ impl Actions {
     /// Performs `target` driven by `input`, as `source` asks, after the actions `in_turn` sent
     /// before it: at once on this thread if its lane has none waiting and it opens no file, else
     /// in turn by its lane's worker (see `prisme_actions::lane`); `answer` hears how it went.
+    /// One following an action still waiting its turn, of its move or the last its controller
+    /// set aside for its lane, is set aside until those are over, its lane left to the others.
     /// Stamped with the time it is sent. Never called from the audio thread.
     pub(crate) fn perform<H: Host>(
         &self,
@@ -363,19 +438,67 @@ impl Actions {
         let asked = Asked { source, at_s, told: self.told.load(Ordering::SeqCst) };
         let sent = self.sent_as(host.app_state(), target);
         let target = sent.as_ref().unwrap_or(target);
-        let Some(queuing) = self.lanes.take(lane(target), in_turn.waits() || reads_files(target)) else {
-            return answer.give(host, host.perform_here(target, input, asked));
+        let lane = lane(target);
+        let mut waiting = lock(&self.lanes.0);
+        let device = match &asked.source {
+            Source::Controller(moved) => Some(&*moved.device),
+            Source::Interface { .. } => None,
         };
-        let done = Arc::new(Done::default());
-        let (after, ending) = (in_turn.0.replace(done.clone()), Ending(done));
-        let (host, target, asked) = (host.clone(), target.clone(), asked.into_owned());
-        queuing.push(Box::new(move || {
-            let _ending = ending;
-            if let Some(after) = after {
-                after.wait();
+        let aside = device.and_then(|device| waiting.aside_on(lane, device));
+        let after = in_turn.waiting();
+        if after.is_none() && aside.is_none() {
+            if !reads_files(target) && !waiting.queued.contains_key(&lane) {
+                drop(waiting);
+                return answer.give(host, host.perform_here(target, input, asked));
             }
+            let ending = self.in_turn_of(in_turn);
+            let (host, target, asked) = (host.clone(), target.clone(), asked.into_owned());
+            let job = move || {
+                let _ending = ending;
+                answer.give(&host, host.perform_here(&target, input, asked));
+            };
+            return self.lanes.push(waiting, lane, Box::new(job));
+        }
+        let ending = self.in_turn_of(in_turn);
+        if let Some(device) = device {
+            waiting.set_aside(lane, device, ending.0.clone());
+        }
+        drop(waiting);
+        let (host, target, asked) = (host.clone(), target.clone(), asked.into_owned());
+        let send = move || host.actions().send(&host, target, input, asked, answer, ending);
+        Follower::after(after.into_iter().chain(aside), Box::new(send));
+    }
+
+    /// The end of an action waiting its turn, the last of the move `in_turn` from now.
+    fn in_turn_of(&self, in_turn: &mut InTurn) -> Ending {
+        let turn = Turn::new();
+        in_turn.0 = Some(turn.clone());
+        Ending(turn)
+    }
+
+    /// Sends `target` driven by `input`, an action set aside until those it followed were
+    /// over: performed at once on this thread, or queued on its lane as any action sent now.
+    fn send<H: Host>(
+        &self,
+        host: &H,
+        target: Target,
+        input: Input,
+        asked: Asked<'static>,
+        answer: Answer,
+        ending: Ending,
+    ) {
+        let lane = lane(&target);
+        let waiting = lock(&self.lanes.0);
+        if !reads_files(&target) && !waiting.queued.contains_key(&lane) {
+            drop(waiting);
+            return answer.give(host, host.perform_here(&target, input, asked));
+        }
+        let host = host.clone();
+        let job = move || {
+            let _ending = ending;
             answer.give(&host, host.perform_here(&target, input, asked));
-        }));
+        };
+        self.lanes.push(waiting, lane, Box::new(job));
     }
 
     /// What `target` is sent as: a load on the first deck without a track, on that deck; a smart
@@ -455,9 +578,7 @@ impl Actions {
     /// `job` done in turn on `lane`, after the actions waiting there (the Auto DJ's load of a
     /// deck, say).
     pub(crate) fn in_turn_on(&self, lane: Lane, job: impl FnOnce() + Send + 'static) {
-        if let Some(queuing) = self.lanes.take(lane, true) {
-            queuing.push(Box::new(job));
-        }
+        self.lanes.push(lock(&self.lanes.0), lane, Box::new(job));
     }
 
     /// Keeps in the library what `write` writes, in turn after what was kept before: the
@@ -491,7 +612,7 @@ impl Actions {
     /// Waits for the lanes to have no action waiting, then for what they changed to be kept.
     #[cfg(test)]
     pub fn settle(&self) {
-        while !lock(&self.lanes.0).is_empty() {
+        while !lock(&self.lanes.0).queued.is_empty() {
             std::thread::sleep(std::time::Duration::from_millis(1));
         }
         let (kept, over) = mpsc::sync_channel(1);
@@ -877,6 +998,52 @@ mod lanes {
         bench.actions.settle();
         assert!(lock(&bench.state.tracks)[0].is_some(), "loaded");
         assert_eq!(lock(&bench.state.decks).map(|d| d.cue)[..2], [true, true]);
+    }
+
+    fn split(bench: &Bench) -> bool {
+        bench.state.preferences.read(|p| p.mixer.split_cue)
+    }
+
+    #[test]
+    fn a_move_waiting_for_a_load_holds_up_no_other_lane() {
+        let bench = Arc::new(Bench::new());
+        let file = track("aside");
+        bench.select(&file.0);
+        let loading = held(&bench, Lane::Track(0));
+        // a load, then the headphones split, on one key
+        let in_turn = &mut InTurn::default();
+        sent(&bench, "library.load1", 1.0, in_turn);
+        sent(&bench, "mixer.headphones.split.on", 1.0, in_turn);
+        let other = |value: f32| {
+            let source =
+                Source::Controller(Moved { device: "Other".into(), at_s: 0.0, jog_steps_per_turn: 720.0 });
+            let crossfader: Target = "mixer.crossfader".parse().unwrap();
+            let in_turn = &mut InTurn::default();
+            bench.actions.perform(&bench, &crossfader, Input::Value(value), source, Answer::Told, in_turn);
+        };
+        other(0.5);
+        other(0.75);
+        assert_eq!(*lock(&bench.state.crossfader), 0.5, "another controller's crossfader at once");
+        assert!(!split(&bench), "the split after the load");
+        loading.send(()).unwrap();
+        bench.actions.settle();
+        assert!(lock(&bench.state.tracks)[0].is_some() && split(&bench));
+    }
+
+    #[test]
+    fn a_controller_s_later_actions_on_a_lane_follow_the_one_it_set_aside_there() {
+        let bench = Arc::new(Bench::new());
+        let file = track("after-aside");
+        bench.select(&file.0);
+        let loading = held(&bench, Lane::Track(0));
+        let in_turn = &mut InTurn::default();
+        sent(&bench, "library.load1", 1.0, in_turn);
+        sent(&bench, "mixer.headphones.split.on", 1.0, in_turn);
+        sent(&bench, "mixer.headphones.split.off", 1.0, &mut InTurn::default());
+        assert!(!split(&bench));
+        loading.send(()).unwrap();
+        bench.actions.settle();
+        assert!(!split(&bench), "turned on, then off");
     }
 
     #[test]
