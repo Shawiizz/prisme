@@ -35,6 +35,35 @@ pub enum GridChange {
     Reset,
 }
 
+/// A [`GridChange`] as the deck it is made on resolves it: a beat put at a place, a grid
+/// shifted onto another deck's beats by so many seconds.
+#[derive(Debug, Clone, Copy)]
+enum Regrid {
+    Bpm(f64),
+    Scale(f64),
+    Shift(f64),
+    BeatAt(f64),
+    Reset,
+}
+
+impl GridChange {
+    /// What it does to the grid of the track on `deck`: nothing for an alignment the decks do
+    /// not allow.
+    fn resolved(self, state: &AppState, deck: usize) -> AppResult<Option<Regrid>> {
+        Ok(Some(match self {
+            GridChange::Bpm { bpm } => Regrid::Bpm(bpm),
+            GridChange::Scale { factor } => Regrid::Scale(factor),
+            GridChange::Shift { seconds } => Regrid::Shift(seconds),
+            GridChange::BeatHere => Regrid::BeatAt(state.deck_status(deck)?.position_s),
+            GridChange::Align => match shift_to_other(state, deck)? {
+                Some(seconds) => Regrid::Shift(seconds),
+                None => return Ok(None),
+            },
+            GridChange::Reset => Regrid::Reset,
+        }))
+    }
+}
+
 #[tauri::command]
 pub fn edit_grid(
     app: AppHandle,
@@ -54,29 +83,18 @@ pub fn change_grid(
     deck: usize,
     change: GridChange,
 ) -> AppResult<()> {
-    let position_s = match change {
-        GridChange::BeatHere => state.deck_status(deck)?.position_s,
-        _ => 0.0,
-    };
-    let change = match change {
-        GridChange::Align => match shift_to_other(state, deck)? {
-            Some(seconds) => GridChange::Shift { seconds },
-            None => return Ok(()),
-        },
-        change => change,
-    };
+    let Some(regrid) = change.resolved(state, deck)? else { return Ok(()) };
     edit(app, state, library, deck, |track_grid, edits| {
         let grid = || track_grid.ok_or(AppError::NoBeatGrid(deck));
         let with_bpm = |g: GridEdit, bpm: f64| g.with_bpm(bpm).ok_or(AppError::InvalidBpm(bpm));
-        edits.grid = match change {
-            GridChange::Bpm { bpm } => {
+        edits.grid = match regrid {
+            Regrid::Bpm(bpm) => {
                 Some(with_bpm(track_grid.unwrap_or(GridEdit { bpm, first_beat_s: 0.0 }), bpm)?)
             }
-            GridChange::Scale { factor } => Some(with_bpm(grid()?, grid()?.bpm * factor)?),
-            GridChange::Shift { seconds } => Some(grid()?.shifted(seconds)),
-            GridChange::BeatHere => Some(grid()?.with_beat_at(position_s)),
-            GridChange::Reset => None,
-            GridChange::Align => track_grid,
+            Regrid::Scale(factor) => Some(with_bpm(grid()?, grid()?.bpm * factor)?),
+            Regrid::Shift(seconds) => Some(grid()?.shifted(seconds)),
+            Regrid::BeatAt(position_s) => Some(grid()?.with_beat_at(position_s)),
+            Regrid::Reset => None,
         };
         Ok(())
     })
