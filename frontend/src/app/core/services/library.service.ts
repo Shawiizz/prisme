@@ -334,7 +334,12 @@ export class LibraryService {
    * shown after it. The rows of the same window come again as what they show changes: told,
    * they take the place of those an answer gave (`viewport`). */
   private take(view: LibraryView) {
-    if (view.seq >= (this.view()?.seq ?? -1)) this.view.set(view);
+    const before = this.view();
+    if (view.seq >= (before?.seq ?? -1)) {
+      // another list shown, its search emptied: what was typed for the one before goes
+      if (before && !same(view.source, before.source)) this.typing.set(null);
+      this.view.set(view);
+    }
     if (view.window.seq >= this.window().seq) this.window.set(view.window);
   }
 

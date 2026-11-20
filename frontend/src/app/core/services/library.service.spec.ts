@@ -63,6 +63,14 @@ describe('LibraryService', () => {
     expect(library.window()).toBe(told);
   });
 
+  it('forgets what was typed once another list is shown', async () => {
+    mockIPC((command) => (command === 'library_filter' ? view(1, 'de') : null));
+    const library = TestBed.inject(LibraryService);
+    await library.setFilter('dee');
+    library['take']({ ...view(2, ''), source: { kind: 'crate', id: 3 } });
+    expect(library.filter()).toBe('');
+  });
+
   it('shows what is typed while the search has the focus, then the search applied', async () => {
     mockIPC((command, args) =>
       command === 'library_filter' ? view(1, (args as { text: string }).text.slice(0, 2)) : null,
