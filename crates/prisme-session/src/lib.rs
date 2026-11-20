@@ -11,12 +11,16 @@ use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Condvar, Mutex, MutexGuard};
 use std::thread::JoinHandle;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 use tracing::error;
 
 /// Reads of a file another program holds: a scan by an antivirus takes a moment.
 const READ_TRIES: usize = 5;
 const READ_RETRY: Duration = Duration::from_millis(100);
+/// How long a file waits for the changes that follow one before it is saved (a fader moving is
+/// saved once it rests), and the longest a change waits.
+const QUIET: Duration = Duration::from_millis(300);
+const LONGEST: Duration = Duration::from_secs(1);
 
 /// A value read from disk.
 #[derive(Debug)]
@@ -91,7 +95,8 @@ pub fn save<T: Serialize>(path: &Path, value: &T) -> std::io::Result<()> {
 
 /// A value kept in memory and saved to its file after every change, by a thread of its own:
 /// a change never waits for the disk, nor does a read wait for a save, and the changes made
-/// while a save runs go to the file together in the next.
+/// one after the other, or while a save runs, go to the file together, once they rest. What is
+/// left to save is saved at once when the file is flushed or closed.
 pub struct JsonFile<T> {
     shared: Arc<Shared<T>>,
     writer: Option<JoinHandle<()>>,
@@ -109,6 +114,8 @@ struct Saves {
     made: u64,
     saved: u64,
     closing: bool,
+    /// Someone waits for the changes made to be in the file.
+    hurried: bool,
 }
 
 impl<T: Serialize + DeserializeOwned + Default + Clone + Send + 'static> JsonFile<T> {
@@ -158,6 +165,8 @@ impl<T: Serialize + DeserializeOwned + Default + Clone + Send + 'static> JsonFil
             return;
         }
         let mut saves = lock(&self.shared.saves);
+        saves.hurried = true;
+        self.shared.changed.notify_all();
         let made = saves.made;
         while saves.saved < made {
             saves = self.shared.changed.wait(saves).unwrap_or_else(|e| e.into_inner());
@@ -176,6 +185,7 @@ impl<T: Serialize + Clone> Shared<T> {
             if saves.saved == saves.made {
                 return;
             }
+            saves = self.rest(saves);
             let made = saves.made;
             drop(saves);
             let value = lock(&self.value).clone();
@@ -184,7 +194,27 @@ impl<T: Serialize + Clone> Shared<T> {
             }
             saves = lock(&self.saves);
             saves.saved = made;
+            saves.hurried &= saves.saved != saves.made;
             self.changed.notify_all();
+        }
+    }
+}
+
+impl<T> Shared<T> {
+    /// Waits for the changes to rest [`QUIET`], [`LONGEST`] at most since the first, unless the
+    /// file closes or is flushed.
+    fn rest<'s>(&self, mut saves: MutexGuard<'s, Saves>) -> MutexGuard<'s, Saves> {
+        let first = Instant::now();
+        loop {
+            let made = saves.made;
+            let left = QUIET.min(LONGEST.saturating_sub(first.elapsed()));
+            let quiet = |s: &mut Saves| s.made == made && !s.closing && !s.hurried;
+            let (waited, timeout) =
+                self.changed.wait_timeout_while(saves, left, quiet).unwrap_or_else(|e| e.into_inner());
+            saves = waited;
+            if timeout.timed_out() || saves.closing || saves.hurried || first.elapsed() >= LONGEST {
+                return saves;
+            }
         }
     }
 }
@@ -332,6 +362,48 @@ mod tests {
         assert!(SLOW_SAVES.load(Ordering::SeqCst) <= 2);
         assert_eq!(load::<f32>(&path).value, 49.0);
         drop(file);
+        std::fs::remove_dir_all(dir).ok();
+    }
+
+    /// A value that counts its saves.
+    #[derive(Clone, Default, Deserialize)]
+    struct Counted(f32);
+
+    static COUNTED_SAVES: AtomicUsize = AtomicUsize::new(0);
+
+    impl Serialize for Counted {
+        fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+            COUNTED_SAVES.fetch_add(1, Ordering::SeqCst);
+            self.0.serialize(serializer)
+        }
+    }
+
+    #[test]
+    fn changes_one_after_the_other_are_saved_once_they_rest() {
+        let dir = temp_dir("rest");
+        let path = dir.join("counted.json");
+        let (file, _) = JsonFile::<Counted>::open(path.clone());
+        for step in 0..10 {
+            file.update(|v| v.0 = step as f32);
+            std::thread::sleep(Duration::from_millis(10));
+        }
+        std::thread::sleep(QUIET * 2);
+        assert_eq!(COUNTED_SAVES.load(Ordering::SeqCst), 1);
+        assert_eq!(load::<f32>(&path).value, 9.0);
+        drop(file);
+        std::fs::remove_dir_all(dir).ok();
+    }
+
+    #[test]
+    fn a_flush_saves_at_once() {
+        let dir = temp_dir("hurry");
+        let path = dir.join("prefs.json");
+        let (file, _) = JsonFile::<Prefs>::open(path.clone());
+        file.update(|p| p.volume = 0.4);
+        let flushing = Instant::now();
+        file.flush();
+        assert!(flushing.elapsed() < QUIET, "{:?}", flushing.elapsed());
+        assert_eq!(load::<Prefs>(&path).value.volume, 0.4);
         std::fs::remove_dir_all(dir).ok();
     }
 
