@@ -94,17 +94,10 @@ impl Controllers {
         lights
     }
 
-    /// A tick of the backend's clock (`clock`) at `now_s`: the holds whose time came fired, then
-    /// what each controller shows of `view`, and of the `levels` of its meters when they are
-    /// due.
-    pub fn tick(&self, host: &impl Host, view: &View, levels: Option<&Levels>, now_s: f64) {
-        self.fire_holds(host);
-        self.drive(view, levels, now_s);
-    }
-
-    /// What each controller shows of `view` at `now_s` on the actions' clock, and of the
-    /// `levels` of its meters when they are due.
-    pub(super) fn drive(&self, view: &View, levels: Option<&Levels>, now_s: f64) {
+    /// A tick of the backend's clock (`clock`), the holds whose time came fired before `view` was
+    /// built ([`Self::fire_holds`]): what each controller shows of it at `now_s` on the actions'
+    /// clock, and of the `levels` of its meters when they are due.
+    pub fn tick(&self, view: &View, levels: Option<&Levels>, now_s: f64) {
         for connection in lock(&self.connections).iter_mut() {
             self.show_on(connection, view);
             connection.blink();

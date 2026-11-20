@@ -82,7 +82,7 @@ impl Jogvision {
 
     /// What the controller was sent since last asked, a tick of the lights and values done.
     fn sent(&self) -> Vec<Vec<u8>> {
-        self.controllers.drive(&self.bench.view(), None, 0.0);
+        self.controllers.tick(&self.bench.view(), None, 0.0);
         let mut connections = lock(&self.controllers.connections);
         let connection = connections.iter_mut().find(|c| c.device == Self::PORT).unwrap();
         match &mut connection.link {
@@ -267,7 +267,7 @@ impl S4 {
     /// The bytes from `byte` of output report `report` as the device was last written them,
     /// what the lights show now written (its thread writes them every few milliseconds).
     fn shown(&mut self, report: u8, byte: usize, length: usize) -> Vec<u8> {
-        self.controllers.drive(&self.bench.view(), None, 0.0);
+        self.controllers.tick(&self.bench.view(), None, 0.0);
         std::thread::sleep(Duration::from_millis(50));
         for written in simulated::written(self.id) {
             self.written.insert(written[0], written);

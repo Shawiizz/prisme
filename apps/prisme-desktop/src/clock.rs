@@ -111,6 +111,8 @@ impl Clock {
         // freed, and the view built, with the session's lock released: the jogs and the clock
         // wait on it
         drop(garbage);
+        // before the view: the controllers show what their holds did at once
+        piece("holds", || app.state::<Controllers>().fire_holds(app));
         if let Some(previews) = app.try_state::<Previews>() {
             let playing = engine.as_ref().and_then(|(e, ..)| e.preview.as_ref()).map(|p| p.id);
             piece("preview", || previews.follow(&state, playing));
@@ -125,7 +127,7 @@ impl Clock {
         if due {
             self.metered = Some(Instant::now());
         }
-        piece("controllers", || app.state::<Controllers>().tick(app, &view, levels.as_ref(), now_s));
+        piece("controllers", || app.state::<Controllers>().tick(&view, levels.as_ref(), now_s));
         // the interface's keys held, on the same clock as the controllers' holds
         piece("keys", || actions.fire_keys(app, &view));
         #[cfg(target_os = "android")]

@@ -247,7 +247,7 @@ impl Controllers {
 
     /// The keys held long enough: their hold's action pressed, or its mode chosen; let go after
     /// it, the key let go meanwhile.
-    pub(super) fn fire_holds(&self, host: &impl Host) {
+    pub fn fire_holds(&self, host: &impl Host) {
         for (device, control, pressed) in self.fired_holds() {
             match pressed {
                 Some(pressed) => self.act_held(host, &device, pressed),
