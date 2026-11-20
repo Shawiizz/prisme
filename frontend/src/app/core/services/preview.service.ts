@@ -36,8 +36,9 @@ export class PreviewService {
   );
 
   constructor() {
+    // from the backend's first status on: the service starts with the app
     effect(() => {
-      const id = this.trackId();
+      const id = this.engine.ready() ? this.trackId() : null;
       untracked(() => {
         this.waveform.set(null);
         if (id !== null && this.track()?.waveformReady) void this.fetchWaveform(id);
