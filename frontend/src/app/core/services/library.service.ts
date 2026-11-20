@@ -78,6 +78,8 @@ export class LibraryService {
     equal: same,
   });
   readonly count = computed(() => this.view()?.count ?? 0);
+  /** Moves each time a list is shown, searched, sorted or scoped, the same one again too. */
+  readonly listed = computed(() => this.view()?.listed ?? 0);
   /** Whether the list has an order of its own (shown in a `#` column). */
   readonly ordered = computed(() => this.view()?.ordered ?? false);
   /** Whether the selection can be taken out of the list shown. */

@@ -179,9 +179,10 @@ export class PhoneLibrary {
       () => this.menu.set(null),
     );
     overlay(this.browsing, () => this.browsing.set(false));
-    // a list chosen among those of the library is the one shown: its panel closes
+    // a list chosen among those of the library is shown, the one already shown too: its panel
+    // closes
     effect(() => {
-      this.library.source();
+      this.library.listed();
       untracked(() => this.browsing.set(false));
     });
     // the tracks in view asked for as the list scrolls or grows, once a frame at most
