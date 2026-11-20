@@ -2,12 +2,12 @@
 //! (`MainActivity.kt`). The DJ is asked as Prisme starts, while the music folders are first
 //! scanned and listed: they are scanned and listed again with the answer.
 
-use crate::folder_watch::FILES_CHANGED_EVENT;
 use crate::library_service::LibraryService;
+use crate::state::AppState;
 use jni::objects::JObject;
 use jni::JNIEnv;
 use std::sync::{Arc, OnceLock};
-use tauri::{AppHandle, Emitter, Manager};
+use tauri::{AppHandle, Manager};
 
 static APP: OnceLock<AppHandle> = OnceLock::new();
 
@@ -24,7 +24,6 @@ pub extern "system" fn Java_com_shawiizz_prisme_MainActivity_musicAllowed(_env: 
     tauri::async_runtime::spawn_blocking(move || {
         let library = app.state::<Arc<LibraryService>>();
         library.start();
-        let roots: Vec<String> = library.roots().iter().map(|root| root.display().to_string()).collect();
-        let _ = app.emit(FILES_CHANGED_EVENT, roots);
+        crate::actions::browse::files_changed(&app.state::<AppState>(), &library.db, &library.roots());
     });
 }
