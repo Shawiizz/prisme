@@ -13,7 +13,6 @@ pub mod diagnostics;
 pub mod edits;
 pub mod export;
 pub mod folders;
-pub mod fx;
 pub mod history;
 pub mod import;
 pub mod library;

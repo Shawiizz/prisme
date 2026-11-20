@@ -1,5 +1,6 @@
 import { TestBed } from '@angular/core/testing';
 import { EngineService } from './engine.service';
+import { FxService } from './fx.service';
 import { MixerService } from './mixer.service';
 
 describe('the screen', () => {
@@ -17,6 +18,7 @@ describe('the screen', () => {
     mixer.toggleLiveOn('aux');
     mixer.setDeckCue(0, false);
     mixer.setCrossfaderCurve('sharp');
+    TestBed.inject(FxService).setChainEnabled(1, true);
     expect(performed).toEqual([
       ['deck2.eq.low', 0.25],
       ['mixer.crossfader', 0.75],
@@ -24,6 +26,7 @@ describe('the screen', () => {
       ['mixer.aux.on', 1],
       ['deck1.headphones.off', 1],
       ['mixer.crossfaderCurve', 1],
+      ['deck2.fx.chain.on', 1],
     ]);
     vi.restoreAllMocks();
   });

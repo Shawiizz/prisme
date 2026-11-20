@@ -61,18 +61,15 @@ export class FxService {
   }
 
   setMix(deck: number, slot: number, mix: number) {
-    this.patch(deck, slot, { mix });
-    return this.engine.call('set_fx_mix', { deck, slot, mix });
+    return this.engine.perform(fxId(deck, slot, '.mix'), mix);
   }
 
   setAmount(deck: number, slot: number, amount: number) {
-    this.patch(deck, slot, { amount });
-    return this.engine.call('set_fx_amount', { deck, slot, amount });
+    return this.engine.perform(fxId(deck, slot, '.amount'), amount);
   }
 
   setParam2(deck: number, slot: number, param2: number) {
-    this.patch(deck, slot, { param2 });
-    return this.engine.call('set_fx_param2', { deck, slot, param2 });
+    return this.engine.perform(fxId(deck, slot, '.param2'), param2);
   }
 
   /** The slot's period halved (-1) or doubled (1) so many times, from 1/8 beat to 8. */
@@ -82,8 +79,7 @@ export class FxService {
 
   /** The whole chain on or off, each slot keeping its own switch. */
   setChainEnabled(deck: number, enabled: boolean) {
-    this.engine.patchDeck(deck, { fx: { ...this.chain(deck), enabled } });
-    return this.engine.call('set_fx_chain_enabled', { deck, enabled });
+    return this.engine.turn(`deck${deck + 1}.fx.chain`, enabled);
   }
 
   /** The parts the chain can be on alone, as the deck's track is separated, after the
@@ -102,11 +98,5 @@ export class FxService {
   /** The chain on the next part it can be on, after the last on the whole deck again. */
   nextPart(deck: number) {
     return this.engine.press(deck, 'fx.part');
-  }
-
-  private patch(deck: number, slot: number, changes: Partial<FxSettings>) {
-    const chain = this.chain(deck);
-    const slots = chain.slots.map((fx, s) => (s === slot ? { ...fx, ...changes } : fx));
-    this.engine.patchDeck(deck, { fx: { ...chain, slots } });
   }
 }
