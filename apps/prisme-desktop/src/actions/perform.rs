@@ -62,70 +62,40 @@ impl Performing<'_> {
     }
 
     /// An action of `deck`: the keys held act as they are pressed and let go, the others as they
-    /// are pressed; the faders by their position, on their scales; the encoders by their steps.
+    /// are pressed; the faders by their position (see [`Performing::deck_fader`]); the encoders
+    /// by their steps.
     fn deck(&self, deck: usize, action: DeckAction, given: Given) -> AppResult<()> {
         let state = self.state;
-        let target = Target::Deck(deck, action);
         let held = given.pressed();
         let send = |command| transport::send(state, deck, command);
         let bend =
             |amount: f64| send(Command::SetPitchBend { deck, amount: if held { amount } else { 0.0 } });
-        let (steps, at) = match given {
-            Given::Steps(steps) => (steps, None),
-            Given::Value(at) => (0, Some(at)),
+        let steps = match given {
+            Given::Steps(steps) => steps,
+            Given::Value(_) => 0,
         };
-        // a fader's position, which an encoder's steps on a fader are made into
-        let fader = |set: &dyn Fn(f32) -> AppResult<()>| at.map_or(Ok(()), set);
         let size = || lock(&state.decks)[deck].size_beats;
         let key = || state.with_track(deck, |t| i32::from(t.key_shift)).unwrap_or(0);
         match action {
-            DeckAction::Pitch => fader(&|at| {
-                let tempo = Tempo { ratio: lock(&state.decks)[deck].pitch, range: state.tempo_range(deck) };
-                deck::set_pitch(state, deck, tempo.at(at))
-            }),
-            DeckAction::Volume => fader(&|at| mixer::set_volume(state, deck, at)),
-            DeckAction::Trim => fader(&|at| mixer::set_trim(state, deck, trim_gain(at))),
-            DeckAction::Eq(band) => fader(&|at| {
-                let gain = eq_gain(at);
-                mixer::set_eq(state, deck, band.into(), gain)?;
-                self.memory().faders.give_silent_end(&target, at, eq_knob(gain));
-                Ok(())
-            }),
-            DeckAction::Filter => fader(&|at| mixer::set_filter(state, deck, filter_amount(at))),
-            DeckAction::Position => fader(&|at| match state.deck_status(deck).map(|s| s.duration_s) {
-                Ok(duration_s) if duration_s > 0.0 => self.seek(deck, f64::from(at) * duration_s),
-                _ => Ok(()),
-            }),
-            // a track's key, 12 semitones down to 12 up
-            DeckAction::Key => fader(&|at| match state.with_track(deck, |_| ()) {
-                Ok(()) => deck::set_key_shift(state, deck, (at * 24.0).round() as i8 - 12),
-                Err(_) => Ok(()),
-            }),
-            DeckAction::SamplerGain => fader(&|at| sampler::set_sampler_gain(state, deck, at)),
-            DeckAction::StemLevel(part) => fader(&|at| deck::set_stem_level(state, deck, part, at)),
-            DeckAction::FxKnob(knob) => self.deck(deck, self.fx_knob(deck, knob), given),
-            DeckAction::FxSuper => {
-                fader(&|at| (0..FX_SLOTS).try_for_each(|slot| fx::set_fx_amount(state, deck, slot, at)))
-            }
-            DeckAction::Fx(slot, FxAction::Mix) => fader(&|at| fx::set_fx_mix(state, deck, slot, at)),
-            DeckAction::Fx(slot, FxAction::Amount) => fader(&|at| fx::set_fx_amount(state, deck, slot, at)),
-            DeckAction::Fx(slot, FxAction::Param2) => fader(&|at| fx::set_fx_param2(state, deck, slot, at)),
-            DeckAction::Fx(slot, FxAction::Period) => fader(&|at| {
-                let step = self.memory().faders.give_stepped(&target, at, FX_PERIODS.len());
-                let beats = FX_PERIODS[step];
-                if lock(&state.decks)[deck].fx.slots[slot].beats == beats {
-                    return Ok(());
-                }
-                fx::set_fx_beats(state, deck, slot, beats)
-            }),
-            DeckAction::Fx(slot, FxAction::Kind) => fader(&|at| {
-                let step = self.memory().faders.give_stepped(&target, at, Effect::NAMED.len());
-                let kind = EffectKindDto::from(Effect::NAMED[step]);
-                if lock(&state.decks)[deck].fx.slots[slot].kind == kind {
-                    return Ok(());
-                }
-                fx::set_fx(state, deck, slot, kind)
-            }),
+            DeckAction::Pitch
+            | DeckAction::Volume
+            | DeckAction::Trim
+            | DeckAction::Eq(_)
+            | DeckAction::Filter
+            | DeckAction::Position
+            | DeckAction::Key
+            | DeckAction::SamplerGain
+            | DeckAction::StemLevel(_)
+            | DeckAction::FxKnob(_)
+            | DeckAction::FxSuper
+            | DeckAction::Fx(
+                _,
+                FxAction::Mix | FxAction::Amount | FxAction::Param2 | FxAction::Period | FxAction::Kind,
+            ) => match given {
+                Given::Value(at) => self.deck_fader(deck, action, at),
+                // never: an encoder's steps on a fader are given as its position
+                Given::Steps(_) => Ok(()),
+            },
             DeckAction::Spinback => send(Command::SpinBack { deck, held }),
             DeckAction::Censor => send(Command::Censor { deck, active: held }),
             DeckAction::ReverseHeld => send(Command::HoldReverse { deck, held }),
@@ -218,9 +188,10 @@ impl Performing<'_> {
                 sampler::trigger_sample(state, deck, slot, None)
             }
             // as hard as the pad was hit
-            DeckAction::Sample(slot, SampleAction::Velocity) => {
-                fader(&|velocity| sampler::trigger_sample(state, deck, slot, Some(velocity)))
-            }
+            DeckAction::Sample(slot, SampleAction::Velocity) => match given {
+                Given::Value(velocity) => sampler::trigger_sample(state, deck, slot, Some(velocity)),
+                Given::Steps(_) => Ok(()),
+            },
             DeckAction::Sample(slot, SampleAction::Stop) => sampler::stop_sample(state, deck, slot),
             DeckAction::Sample(slot, SampleAction::Load) => self.load_sample(deck, slot),
             DeckAction::Sample(slot, SampleAction::Eject) => sampler::clear_sample(state, deck, slot),
@@ -232,7 +203,7 @@ impl Performing<'_> {
             | DeckAction::GridLater
             | DeckAction::GridFaster
             | DeckAction::GridSlower => self.edit_grid(deck, action, given),
-            // turned, switched or only shown, before
+            // turned or switched by `perform`, or lights
             DeckAction::Jog
             | DeckAction::JogTouch
             | DeckAction::JogSearch
@@ -247,7 +218,64 @@ impl Performing<'_> {
             | DeckAction::Phase
             | DeckAction::PhaseAhead
             | DeckAction::PhaseBehind
-            | DeckAction::LoopAny => Err(AppError::NotPerformed(target.to_string())),
+            | DeckAction::LoopAny => Err(AppError::NotPerformed(Target::Deck(deck, action).to_string())),
+        }
+    }
+
+    /// A fader of `deck` put `at` a position (0 to 1), on its scale.
+    fn deck_fader(&self, deck: usize, action: DeckAction, at: f32) -> AppResult<()> {
+        let state = self.state;
+        let target = Target::Deck(deck, action);
+        match action {
+            DeckAction::Pitch => {
+                let tempo = Tempo { ratio: lock(&state.decks)[deck].pitch, range: state.tempo_range(deck) };
+                deck::set_pitch(state, deck, tempo.at(at))
+            }
+            DeckAction::Volume => mixer::set_volume(state, deck, at),
+            DeckAction::Trim => mixer::set_trim(state, deck, trim_gain(at)),
+            DeckAction::Eq(band) => {
+                let gain = eq_gain(at);
+                mixer::set_eq(state, deck, band.into(), gain)?;
+                self.memory().faders.give_silent_end(&target, at, eq_knob(gain));
+                Ok(())
+            }
+            DeckAction::Filter => mixer::set_filter(state, deck, filter_amount(at)),
+            DeckAction::Position => match state.deck_status(deck).map(|s| s.duration_s) {
+                Ok(duration_s) if duration_s > 0.0 => self.seek(deck, f64::from(at) * duration_s),
+                _ => Ok(()),
+            },
+            // a track's key, 12 semitones down to 12 up
+            DeckAction::Key => match state.with_track(deck, |_| ()) {
+                Ok(()) => deck::set_key_shift(state, deck, (at * 24.0).round() as i8 - 12),
+                Err(_) => Ok(()),
+            },
+            DeckAction::SamplerGain => sampler::set_sampler_gain(state, deck, at),
+            DeckAction::StemLevel(part) => deck::set_stem_level(state, deck, part, at),
+            DeckAction::FxKnob(knob) => self.deck_fader(deck, self.fx_knob(deck, knob), at),
+            DeckAction::FxSuper => {
+                (0..FX_SLOTS).try_for_each(|slot| fx::set_fx_amount(state, deck, slot, at))
+            }
+            DeckAction::Fx(slot, FxAction::Mix) => fx::set_fx_mix(state, deck, slot, at),
+            DeckAction::Fx(slot, FxAction::Amount) => fx::set_fx_amount(state, deck, slot, at),
+            DeckAction::Fx(slot, FxAction::Param2) => fx::set_fx_param2(state, deck, slot, at),
+            DeckAction::Fx(slot, FxAction::Period) => {
+                let step = self.memory().faders.give_stepped(&target, at, FX_PERIODS.len());
+                let beats = FX_PERIODS[step];
+                if lock(&state.decks)[deck].fx.slots[slot].beats == beats {
+                    return Ok(());
+                }
+                fx::set_fx_beats(state, deck, slot, beats)
+            }
+            DeckAction::Fx(slot, FxAction::Kind) => {
+                let step = self.memory().faders.give_stepped(&target, at, Effect::NAMED.len());
+                let kind = EffectKindDto::from(Effect::NAMED[step]);
+                if lock(&state.decks)[deck].fx.slots[slot].kind == kind {
+                    return Ok(());
+                }
+                fx::set_fx(state, deck, slot, kind)
+            }
+            // a key or an encoder, never given a position here (see `Performing::deck`)
+            _ => Err(AppError::NotPerformed(target.to_string())),
         }
     }
 
@@ -368,7 +396,7 @@ impl Performing<'_> {
                 let curve = if sharp { CrossfaderCurveDto::Smooth } else { CrossfaderCurveDto::Sharp };
                 mixer::set_crossfader_curve(state, curve)
             }
-            // switched or only shown, before
+            // switched by `perform`, or a light
             MixerAction::MicOn
             | MixerAction::AuxOn
             | MixerAction::MicCue
@@ -385,7 +413,7 @@ impl Performing<'_> {
             GeneralAction::TempoRange => self.next_tempo_range(None, 1),
             GeneralAction::TempoRangePrevious => self.next_tempo_range(None, -1),
             GeneralAction::Record => self.record(),
-            // switched before, or the interface's
+            // switched by `perform`, or the interface's
             GeneralAction::Quantize(_)
             | GeneralAction::Library
             | GeneralAction::Help
