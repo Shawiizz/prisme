@@ -1,6 +1,6 @@
 import { Component, OnDestroy, OnInit, computed, inject, signal } from '@angular/core';
 import { NgTemplateOutlet } from '@angular/common';
-import { ControlService } from '../../core/control/control.service';
+import { ControlService, named } from '../../core/control/control.service';
 import { ControllerService } from '../../core/control/controller.service';
 import { Control } from '../../core/control/controls';
 import {
@@ -121,15 +121,18 @@ export class ControllersSettings implements OnInit, OnDestroy {
   /** A controller is open: controls can be learnt. */
   protected readonly canLearn = this.service.canLearn;
 
-  /** The controls by group, those of the decks shown only; a light only shows: nothing is
-   * learnt for it. */
+  /** The controls by group, those of the decks shown only, then those mapped the list leaves
+   * out (a loop of so many beats); a light only shows: nothing is learnt for it. */
   protected readonly groups = computed(() => {
+    const mapped = new Map(this.service.mappings().map((m) => [m.target.id, m]));
+    const listed = this.controls.inUse();
+    const ids = new Set(listed.map((c) => c.id));
+    const others = [...mapped.values()]
+      .filter((m) => m.target.inUse && !ids.has(m.target.id))
+      .map((m) => named(m.target));
     const groups = new Map<string, Row[]>();
-    for (const control of this.controls.inUse().filter((c) => c.kind !== 'light')) {
-      const devices = new Map<string, ControllerMapping[]>();
-      for (const m of this.service.mappings().filter((m) => m.target === control.id))
-        devices.set(m.device, [...(devices.get(m.device) ?? []), m]);
-      const bindings = [...devices].map(([device, mappings]) => ({
+    for (const control of [...listed, ...others].filter((c) => c.kind !== 'light')) {
+      const bindings = (mapped.get(control.id)?.devices ?? []).map(({ device, mappings }) => ({
         device,
         text: `${shortName(device)} · ${mappings.map(describeMapping).join(' / ')}`,
         encoder: mappings.find((m) => m.encoding && m.encoding !== 'absolute'),

@@ -3,10 +3,13 @@ import { join } from 'node:path';
 import { translate } from './i18n';
 
 const FR: Record<string, string> = JSON.parse(readFileSync('src/app/core/i18n/fr.json', 'utf8'));
+/** The names of the actions, as the backend's labels have them (its tests write the file). */
+const ACTIONS: string[] = JSON.parse(readFileSync('src/app/core/i18n/actions.json', 'utf8'));
 
-/** Every text the UI translates: `t('…')` in the code, `'…' | t` in the templates (inline ones too). */
+/** Every text the UI translates: `t('…')` in the code, `'…' | t` in the templates (inline ones
+ * too), and the backend's names of the actions. */
 function textsInSources(): Set<string> {
-  const texts = new Set<string>();
+  const texts = new Set<string>(ACTIONS);
   const files = readdirSync('src/app', { recursive: true, encoding: 'utf8' })
     // the translation machinery itself holds no UI text
     .filter((f) => /\.(ts|html)$/.test(f) && !f.endsWith('.spec.ts') && !/^core[\\/]i18n/.test(f))

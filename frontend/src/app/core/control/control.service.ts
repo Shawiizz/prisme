@@ -1,8 +1,10 @@
-import { computed, Injectable, inject } from '@angular/core';
+import { computed, effect, Injectable, inject, signal, untracked } from '@angular/core';
+import { invoke } from '@tauri-apps/api/core';
 import { EngineService } from '../services/engine.service';
 import { LibraryService } from '../services/library.service';
 import { NavigationService } from '../services/navigation.service';
-import { Control, buildControls, measuredControl } from './controls';
+import { labelText } from '../i18n/i18n';
+import { Control, Target } from './controls';
 
 /** A key's action, done as it is pressed: a pad hit softly is hit all the same. */
 const pressed =
@@ -11,8 +13,14 @@ const pressed =
     if (value > 0) run();
   };
 
+/** `target` named in the UI's language: read in a `computed`, it follows the language. */
+export function named(target: Target): Control {
+  const { id, kind, inUse } = target;
+  return { id, kind, inUse, group: labelText(target.group), label: labelText(target.label) };
+}
+
 /**
- * Every action a key or a controller can do (see `buildControls`), and the one way to do it
+ * Every action a key or a controller can do, as the backend lists them, and the one way to do it
  * (`act`): the backend performs it, whoever asks (a key, the command palette), as it does for
  * the controllers, the library's browsing included; the app does itself only what it keeps
  * (`own`): its windows, the focus of its search. A controller's control driving one of those
@@ -35,26 +43,31 @@ export class ControlService {
     shift: () => undefined,
   };
 
-  /** Built again when the language changes: their names are in it. */
-  private readonly built = computed(() => {
-    const controls = buildControls();
-    return { controls, byId: new Map(controls.map((c) => [c.id, c])) };
-  });
+  private readonly targets = signal<Target[]>([]);
 
-  /** Every control, named in the UI's language. */
-  get controls(): Control[] {
-    return this.built().controls;
+  /** Every action, named in the UI's language. */
+  readonly controls = computed(() => this.targets().map(named));
+
+  /** The actions that act now: those of the decks shown, and those of no deck. */
+  readonly inUse = computed(() => this.controls().filter((c) => c.inUse));
+
+  private readonly byId = computed(() => new Map(this.controls().map((c) => [c.id, c])));
+
+  constructor() {
+    // the decks in use tell which actions act
+    effect(() => {
+      this.engine.deckIndexes();
+      untracked(() => void this.load());
+    });
   }
 
-  /** The controls that act now: those of the decks shown, and those of no deck. */
-  readonly inUse = computed(() => {
-    const decks = this.engine.deckIndexes().length;
-    return this.controls.filter((c) => c.deck === undefined || c.deck < decks);
-  });
+  private async load() {
+    this.targets.set(await invoke<Target[]>('list_targets'));
+  }
 
-  /** The control `id`, whatever its deck (to name it, to map it, to put its light out). */
+  /** The action `id`, if listed. */
   find(id: string): Control | undefined {
-    return this.built().byId.get(id) ?? this.measured(id);
+    return this.byId().get(id);
   }
 
   /** The action `id` given `value` (a key's 1 pressed and 0 let go, a fader's position, an
@@ -70,13 +83,5 @@ export class ControlService {
    * the window): `undefined` for any other, which the backend lights. */
   lit(id: string): boolean | undefined {
     return id === 'general.library' ? this.navigation.libraryOnly() : undefined;
-  }
-
-  /** The controls named by their measure (`deck1.jump.-8`), made once each. */
-  private readonly measuredById = new Map<string, Control | undefined>();
-
-  private measured(id: string): Control | undefined {
-    if (!this.measuredById.has(id)) this.measuredById.set(id, measuredControl(id));
-    return this.measuredById.get(id);
   }
 }

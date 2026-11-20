@@ -53,6 +53,26 @@ export function t(text: string, params?: Params): string {
   return fill(current().texts[text] || text, params);
 }
 
+/** A name the backend gives: its English text, the key of its translations, its placeholders
+ * filled from `params` (a label among them translated too). */
+export interface Label {
+  key: string;
+  params?: Record<string, string | number | Label>;
+}
+
+/** `label` in the UI's language. */
+export function labelText(label: Label): string {
+  const params =
+    label.params &&
+    Object.fromEntries(
+      Object.entries(label.params).map(([name, value]) => [
+        name,
+        typeof value === 'object' ? labelText(value) : value,
+      ]),
+    );
+  return t(label.key, params);
+}
+
 /** `text` in a language whose texts are given (for the tests). */
 export function translate(texts: Texts, text: string, params?: Params): string {
   return fill(texts[text] || text, params);

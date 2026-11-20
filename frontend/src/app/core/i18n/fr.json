@@ -980,5 +980,7 @@
   "Kill the highs, or bring them back": "Couper les aigus, ou les rétablir",
   "Smooth crossfader curve": "Courbe douce du crossfader",
   "Sharp crossfader curve": "Courbe franche du crossfader",
-  "The music folder could not be read: {why}": "Le dossier de musique n'a pas pu être lu : {why}"
+  "The music folder could not be read: {why}": "Le dossier de musique n'a pas pu être lu : {why}",
+  "Shift: {name}": "Shift : {name}",
+  "Mode {mode} of the {group} controls": "Mode {mode} des commandes {group}"
 }

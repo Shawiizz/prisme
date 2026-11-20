@@ -370,6 +370,7 @@ pub fn run() {
             commands::export::export_rekordbox,
             commands::sampler::load_sample,
             commands::controllers::list_controllers,
+            commands::targets::list_targets,
             commands::controllers::set_controller_enabled,
             commands::controllers::choose_controller_profile,
             commands::controllers::decline_controller,

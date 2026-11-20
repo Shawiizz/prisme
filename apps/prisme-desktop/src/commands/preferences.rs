@@ -60,9 +60,7 @@ impl PreferencesDto {
     pub fn of(state: &AppState) -> Self {
         let (dj, library, ui, keys) =
             state.preferences.read(|p| (p.dj, p.library.clone(), p.ui.clone(), p.keys.clone()));
-        let in_use = |control: &str| {
-            control.parse::<Target>().is_ok_and(|t| t.deck().is_none_or(|deck| deck < dj.decks()))
-        };
+        let in_use = |control: &str| control.parse::<Target>().is_ok_and(|t| t.in_use(dj.decks()));
         let shortcuts = shortcuts::effective(&keys)
             .into_iter()
             .map(|shortcut| ShortcutDto {

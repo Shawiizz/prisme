@@ -2066,12 +2066,10 @@ mod tests {
 
     #[test]
     fn the_interface_is_told_of_none_of_the_actions_performed_here() {
-        let path = concat!(env!("CARGO_MANIFEST_DIR"), "/controllers/targets.json");
-        let listed: Vec<prisme_control::ListedTarget> =
-            serde_json::from_str(&std::fs::read_to_string(path).unwrap()).unwrap();
+        let listed = Target::all().iter().map(Target::to_string).collect::<Vec<_>>();
         let measured =
             ["deck1.jump.-8", "deck2.loop.0.5", "deck3.roll.1", "deck4.key.+2", "deck1.sample3.velocity"];
-        let ids = listed.iter().map(|t| t.id.as_str()).chain(measured);
+        let ids = listed.iter().map(String::as_str).chain(measured);
         let mut here = 0;
         for id in ids {
             match Action::of(&id.into(), 1.0, false, None) {

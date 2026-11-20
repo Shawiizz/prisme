@@ -68,7 +68,7 @@ export class ShortcutsSettings implements OnDestroy {
     const shortcuts = this.keyboard.shortcuts();
     const words = this.query().toLowerCase().split(/\s+/).filter(Boolean);
     const groups = new Map<string, Line[]>();
-    for (const control of this.controls.controls.filter((c) => c.kind === 'button')) {
+    for (const control of this.controls.controls().filter((c) => c.kind === 'button')) {
       const keys = shortcuts
         .filter((s) => s.control === control.id)
         .map((s) => this.keyboard.label(s));

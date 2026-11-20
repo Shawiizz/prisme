@@ -1,5 +1,6 @@
 //! Controllers, MIDI and HID (see `controllers`).
 
+use crate::commands::targets::{self, TargetDto};
 use crate::controller_profiles;
 use crate::controllers::Controllers;
 use crate::dto::{
@@ -8,8 +9,10 @@ use crate::dto::{
 };
 use crate::error::{AppError, AppResult};
 use crate::midi_clock::MidiClock;
+use crate::state::AppState;
 use prisme_control::hid;
 use prisme_control::{Encoding, Mapping};
+use serde::Serialize;
 use std::path::PathBuf;
 use tauri::{AppHandle, State};
 
@@ -82,10 +85,48 @@ pub fn decline_controller(controllers: State<'_, Controllers>, name: String) {
     controllers.decline(&name);
 }
 
-/// What drives what: the profiles of the controllers in use, and what was learnt.
+/// An action the controllers in use drive, and what drives it on each.
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct MappedDto {
+    pub target: TargetDto,
+    pub devices: Vec<DeviceMappingsDto>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct DeviceMappingsDto {
+    pub device: String,
+    pub mappings: Vec<Mapping>,
+}
+
+/// What drives what, by action and by controller in the order first met: the profiles of the
+/// controllers in use, and what was learnt. An action this version does not know is left out.
+pub fn mapped(mappings: &[Mapping], decks: usize) -> Vec<MappedDto> {
+    let mut mapped: Vec<MappedDto> = Vec::new();
+    for mapping in mappings {
+        let Some(target) = mapping.target.target() else { continue };
+        let index = match mapped.iter().position(|m| m.target.id == mapping.target.as_str()) {
+            Some(index) => index,
+            None => {
+                mapped.push(MappedDto { target: TargetDto::of(target, decks), devices: Vec::new() });
+                mapped.len() - 1
+            }
+        };
+        let devices = &mut mapped[index].devices;
+        match devices.iter_mut().find(|d| d.device == mapping.device) {
+            Some(device) => device.mappings.push(mapping.clone()),
+            None => devices
+                .push(DeviceMappingsDto { device: mapping.device.clone(), mappings: vec![mapping.clone()] }),
+        }
+    }
+    mapped
+}
+
 #[tauri::command]
-pub fn controller_mappings(controllers: State<'_, Controllers>) -> Vec<Mapping> {
-    controllers.mappings().all().to_vec()
+pub fn controller_mappings(
+    state: State<'_, AppState>,
+    controllers: State<'_, Controllers>,
+) -> Vec<MappedDto> {
+    mapped(controllers.mappings().all(), targets::decks(&state))
 }
 
 /// The actions whose light the interface tells (`set_lights`), of those the controllers in use
@@ -222,8 +263,43 @@ fn profiles_dto(library: &controller_profiles::Library) -> ControllerProfilesDto
 
 #[cfg(test)]
 mod tests {
+    use super::mapped;
     use crate::controller_profiles::Source;
     use crate::dto::{ControllerProfileDto, ProfileCountsDto};
+    use prisme_control::{Control, Mapping, ProfileControl};
+
+    #[test]
+    fn the_mappings_are_told_by_action_then_by_controller_measured_ones_too() {
+        let mapping = |device: &str, number, target: &str| {
+            Mapping::new(
+                device,
+                ProfileControl {
+                    control: Control::note(0, number),
+                    target: target.into(),
+                    ..Default::default()
+                },
+            )
+        };
+        let mappings = [
+            mapping("DDJ", 1, "deck1.loop.2"),
+            mapping("DDJ", 2, "deck1.play"),
+            mapping("Xone", 3, "deck1.loop.2"),
+            mapping("DDJ", 4, "deck1.loop.2"),
+            mapping("DDJ", 5, "deck1.unknown"),
+        ];
+        let mapped = mapped(&mappings, 2);
+        let told: Vec<(&str, Vec<(&str, usize)>)> = mapped
+            .iter()
+            .map(|m| {
+                (
+                    m.target.id.as_str(),
+                    m.devices.iter().map(|d| (d.device.as_str(), d.mappings.len())).collect(),
+                )
+            })
+            .collect();
+        assert_eq!(told, [("deck1.loop.2", vec![("DDJ", 2), ("Xone", 1)]), ("deck1.play", vec![("DDJ", 1)])]);
+        assert_eq!(mapped[0].target.label.english(), "Loop 2 beats");
+    }
 
     #[test]
     fn the_models_are_counted_by_where_they_come_from_their_variants_aside() {

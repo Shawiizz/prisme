@@ -2,13 +2,10 @@
 //! slicer, the eight beats from the start of a bar, each a slice a pad plays round and round
 //! while held, the track going on underneath.
 
-use prisme_control::{CUTS, ROLLS, SLICES};
+use prisme_control::SLICES;
+pub use prisme_control::{CUT_BEATS, ROLL_BEATS};
 use prisme_engine::{LoopStatus, BEATS_PER_BAR};
 
-/// The rolls' lengths, in beats, by their place among the rolls.
-pub const ROLL_BEATS: [f64; ROLLS] = [0.0625, 0.125, 0.25, 0.5, 1.0, 2.0, 4.0, 8.0];
-/// The fader cuts' lengths, in beats.
-pub const CUT_BEATS: [f64; CUTS] = [0.0625, 0.125, 0.25, 0.5];
 /// A loop this close to a length (of a beat, or of the deck's size) has it.
 const LOOP_LENGTH_WITHIN: f64 = 0.01;
 /// The lengths the loops are named by: whole 32nds of a beat, each further than twice

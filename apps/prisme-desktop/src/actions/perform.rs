@@ -602,12 +602,10 @@ mod tests {
 
     #[test]
     fn every_action_rust_owns_is_performed_here() {
-        let path = concat!(env!("CARGO_MANIFEST_DIR"), "/controllers/targets.json");
-        let listed: Vec<prisme_control::ListedTarget> =
-            serde_json::from_str(&std::fs::read_to_string(path).unwrap()).unwrap();
+        let listed = Target::all().iter().map(Target::to_string).collect::<Vec<_>>();
         let measured = ["deck1.jump.-8", "deck2.loop.0.5", "deck4.key.+2", "deck1.sample3.velocity"];
         let bench = Bench::new();
-        for id in listed.iter().map(|t| t.id.as_str()).chain(measured) {
+        for id in listed.iter().map(String::as_str).chain(measured) {
             let target: Target = id.parse().unwrap();
             if target.owner() == Owner::Ui {
                 continue;

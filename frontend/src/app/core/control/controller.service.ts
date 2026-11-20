@@ -7,6 +7,7 @@ import {
   ControllerMapping,
   ControllerProfiles,
   Controllers,
+  Mapped,
   Opened,
   PluggedIn,
   StepEncoding,
@@ -36,7 +37,8 @@ export class ControllerService {
   /** A controller is open: controls can be learnt. */
   readonly canLearn = signal(false);
   readonly profiles = signal<ControllerProfiles | null>(null);
-  readonly mappings = signal<ControllerMapping[]>([]);
+  /** What drives what, by action and by controller. */
+  readonly mappings = signal<Mapped[]>([]);
   /** The actions whose lights the app tells: what they show is kept here yet. */
   private readonly lightTargets = signal<string[]>([]);
   /** MIDI outputs, for the clock. */
@@ -226,7 +228,7 @@ export class ControllerService {
 
   private async reloadMappings() {
     const [mappings, lightTargets] = await Promise.all([
-      invoke<ControllerMapping[]>('controller_mappings'),
+      invoke<Mapped[]>('controller_mappings'),
       invoke<string[]>('controller_light_targets'),
     ]);
     this.mappings.set(mappings);

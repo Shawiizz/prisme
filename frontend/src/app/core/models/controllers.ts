@@ -1,5 +1,6 @@
 /** Shapes exchanged with the Rust side about controllers, MIDI and HID (see `controllers.rs`). */
 
+import { Target } from '../control/controls';
 import { t } from '../i18n/i18n';
 
 /** A controller plugged in while Prisme runs: opened if Prisme knows its model (or, held by
@@ -90,7 +91,7 @@ export interface HidControl {
 export type StepEncoding =
   'relative' | 'relativeOffset' | 'relativeOffsetNoZero' | 'relativeSigned';
 
-/** A control of a controller driving a control of the app (`target`, see `buildControls`). */
+/** A control of a controller driving an action of the app (`target`). */
 export interface ControllerMapping {
   device: string;
   control: PhysicalControl;
@@ -102,6 +103,12 @@ export interface ControllerMapping {
   /** In the second layer: while the controller's shift is held (`true`), or a named
    * shift (`"left"`). */
   shift?: boolean | string;
+}
+
+/** An action the controllers in use drive, and what drives it on each. */
+export interface Mapped {
+  target: Target;
+  devices: { device: string; mappings: ControllerMapping[] }[];
 }
 
 /** An action the app performs that a controller drove: a key's value. */

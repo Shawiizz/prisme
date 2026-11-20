@@ -604,7 +604,7 @@ fn index_of(files: &[(&str, &str)], before: &Index) -> Index {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use prisme_control::{profile_schema, ListedTarget};
+    use prisme_control::{listed_targets, profile_schema, Kind, Target};
 
     const FOLDER: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/controllers");
 
@@ -666,6 +666,67 @@ mod tests {
             unknown.extend(lights.map(|t| format!("{}: {t}", profile.name)));
         }
         assert_eq!(unknown, Vec::<String>::new());
+    }
+
+    /// As written: an encoding left out is read as positions.
+    #[test]
+    fn every_shipped_profile_shows_and_reads_what_prisme_has() {
+        let kinds: BTreeMap<String, Kind> = Target::all().iter().map(|t| (t.to_string(), t.kind())).collect();
+        let deck_measure = |source: &str, measures: &[&str]| {
+            source.strip_prefix("deck").and_then(|rest| rest.split_once('.')).is_some_and(
+                |(deck, measure)| ["1", "2", "3", "4"].contains(&deck) && measures.contains(&measure),
+            )
+        };
+        let mut wrong = Vec::new();
+        for (file, text) in SHIPPED {
+            let p: serde_json::Value = serde_json::from_str(text).unwrap();
+            let list = |key: &str| p[key].as_array().cloned().unwrap_or_default();
+            let text = |v: &serde_json::Value, key: &str| v[key].as_str().unwrap_or_default().to_owned();
+            for group in list("modes") {
+                let modes = group["modes"].as_array().unwrap();
+                for select in group["select"].as_array().unwrap() {
+                    if !modes.contains(&select["mode"]) {
+                        wrong.push(format!(
+                            "{file}: mode {}.{}",
+                            text(&group, "group"),
+                            text(select, "mode")
+                        ));
+                    }
+                }
+            }
+            for meter in list("meters").iter().map(|m| text(m, "source")) {
+                if !["deck1", "deck2", "deck3", "deck4", "main", "main.left", "main.right"]
+                    .contains(&meter.as_str())
+                {
+                    wrong.push(format!("{file}: meter {meter}"));
+                }
+            }
+            for output in list("outputs").iter().map(|o| text(o, "source")) {
+                if kinds.get(&output) != Some(&Kind::Fader) && !deck_measure(&output, &["position", "turn"]) {
+                    wrong.push(format!("{file}: output {output}"));
+                }
+            }
+            let numbers = ["bpm", "elapsed", "remaining", "duration", "tempo", "tempoRange"];
+            for display in list("displays").iter().map(|d| text(d, "source")) {
+                if !deck_measure(&display, &numbers) {
+                    wrong.push(format!("{file}: display {display}"));
+                }
+            }
+            for control in list("controls") {
+                let target = text(&control, "target");
+                let encoded = !control["encoding"].is_null();
+                let kind = kinds.get(&target);
+                let misread = if kind == Some(&Kind::Encoder) || !control["down"].is_null() {
+                    !encoded
+                } else {
+                    encoded && kind != Some(&Kind::Fader)
+                };
+                if misread {
+                    wrong.push(format!("{file}: steps of {target}"));
+                }
+            }
+        }
+        assert_eq!(wrong, Vec::<String>::new());
     }
 
     #[test]
@@ -939,14 +1000,12 @@ mod tests {
     }
 
     /// The index and the schema published beside the profiles follow them and the format;
-    /// `PRISME_WRITE_PROFILES=1` writes them (`targets.json` comes from the page's tests).
+    /// `PRISME_WRITE_PROFILES=1` writes them (`targets.json` comes from prisme-control's tests).
     #[test]
     fn the_published_index_and_schema_are_up_to_date() {
         let index = index_of(SHIPPED, &shipped_index());
         let index = format!("{}\n", serde_json::to_string_pretty(&index).unwrap());
-        let targets: Vec<ListedTarget> =
-            serde_json::from_str(&std::fs::read_to_string(format!("{FOLDER}/targets.json")).unwrap())
-                .unwrap();
+        let targets = listed_targets();
         let schema = format!("{}\n", serde_json::to_string_pretty(&profile_schema(&targets)).unwrap());
         for (file, text) in [(INDEX, index), ("profile.schema.json", schema)] {
             let path = format!("{FOLDER}/{file}");

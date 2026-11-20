@@ -28,7 +28,8 @@ describe('ControllersSettings', () => {
     mockIPC((command, args) => {
       if (command === 'list_controllers') return { controllers, canLearn: true };
       if (command === 'choose_controller_profile') chosen.push(args);
-      if (['controller_mappings', 'controller_light_targets'].includes(command)) return [];
+      if (['controller_mappings', 'controller_light_targets', 'list_targets'].includes(command))
+        return [];
       return undefined;
     });
     const fixture = TestBed.createComponent(ControllersSettings);

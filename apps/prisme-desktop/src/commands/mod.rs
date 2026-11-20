@@ -31,6 +31,7 @@ pub mod screens;
 #[cfg(debug_assertions)]
 pub mod simulated;
 pub mod stems;
+pub mod targets;
 pub mod tracks;
 pub mod transport;
 #[cfg(desktop)]

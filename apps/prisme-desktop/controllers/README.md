@@ -26,12 +26,12 @@ Three layers, each replacing the one before it for the same file name
 
 `profile.schema.json` is the format as a JSON Schema, generated from the types Prisme reads
 (`crates/prisme-control`) with the actions of the app (`targets.json`, from
-`frontend/src/app/core/control/controls.ts`). A profile naming it as its `"$schema"` is
+`crates/prisme-control/src/listed.rs`). A profile naming it as its `"$schema"` is
 checked and completed by editors such as VS Code: misspelt fields, unknown actions, MIDI
 values out of range, HID fields of a width Prisme does not read.
 
-The tests keep the published files in step: `PRISME_WRITE_TARGETS=1 npm test` in `frontend`
-writes `targets.json`, then `PRISME_WRITE_PROFILES=1 cargo test -p prisme-desktop
+The tests keep the published files in step: `PRISME_WRITE_TARGETS=1 cargo test -p
+prisme-control listed` writes `targets.json`, then `PRISME_WRITE_PROFILES=1 cargo test -p prisme-desktop
 controller_profiles` writes `index.json` and `profile.schema.json`. A profile changed or added
 gets a later revision in the index then.
 
@@ -132,8 +132,8 @@ change are sent:
 A meter's controls show the level at silence once the controller is closed. A peak LED of
 its own is rather a light of `deck1.clip` or `main.clip`.
 
-`frontend/src/app/core/control/profiles.spec.ts` checks that every target exists, that only
-encoders read steps, that mode keys choose modes their group has and that meters show
+The tests of `apps/prisme-desktop/src/controller_profiles.rs` check that every target exists,
+that only encoders read steps, that mode keys choose modes their group has and that meters show
 levels the app has.
 
 ## HID controllers

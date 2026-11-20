@@ -94,8 +94,7 @@ pub enum Turn {
 }
 
 impl Turn {
-    #[cfg(test)]
-    const ALL: [Turn; 3] = [Turn::Over, Turn::On, Turn::Off];
+    pub const ALL: [Turn; 3] = [Turn::Over, Turn::On, Turn::Off];
 
     /// Whether a switch standing `on` is on once turned.
     pub fn turns(self, on: bool) -> bool {
@@ -703,79 +702,6 @@ mod tests {
     use super::*;
     use std::collections::BTreeSet;
 
-    /// The actions the application lists, as its page of controls writes them.
-    fn listed() -> Vec<crate::ListedTarget> {
-        let path = concat!(env!("CARGO_MANIFEST_DIR"), "/../../apps/prisme-desktop/controllers/targets.json");
-        serde_json::from_str(&std::fs::read_to_string(path).unwrap()).unwrap()
-    }
-
-    /// Every action named by its id and its slots, one of each kind of switch: none measured.
-    fn every_listed() -> Vec<Target> {
-        let mut deck: Vec<DeckAction> = DeckAction::NAMED.to_vec();
-        for switch in DeckSwitch::NAMED {
-            deck.extend(Turn::ALL.map(|turn| DeckAction::Switch(*switch, turn)));
-        }
-        for n in 0..HOT_CUES {
-            deck.extend([DeckAction::HotCue(n), DeckAction::HotCueDelete(n)]);
-        }
-        for n in 0..SAMPLE_SLOTS {
-            let actions = SampleAction::NAMED.iter().filter(|a| **a != SampleAction::Velocity);
-            deck.extend(actions.map(|action| DeckAction::Sample(n, *action)));
-        }
-        deck.extend((0..ROLLS).map(DeckAction::Roll));
-        deck.extend((0..SLICES).map(DeckAction::Slice));
-        deck.extend((0..CUTS).map(DeckAction::Cut));
-        deck.extend((0..FX_KNOBS).map(DeckAction::FxKnob));
-        for slot in 0..FX_SLOTS {
-            let mut actions: Vec<FxAction> = FxAction::NAMED.to_vec();
-            actions.extend(Turn::ALL.map(FxAction::Enabled));
-            actions.extend(Effect::NAMED.iter().map(|e| FxAction::Effect(*e)));
-            deck.extend(actions.into_iter().map(|action| DeckAction::Fx(slot, action)));
-        }
-        for part in StemPart::NAMED {
-            deck.extend([DeckAction::Stem(*part), DeckAction::StemLevel(*part)]);
-        }
-        for band in Band::NAMED {
-            deck.extend([DeckAction::Eq(*band), DeckAction::EqKill(*band), DeckAction::EqKillToggle(*band)]);
-        }
-        deck.extend(Side::NAMED.iter().map(|s| DeckAction::CrossfaderSide(*s)));
-        let mut all: Vec<Target> =
-            (0..MAX_DECKS).flat_map(|d| deck.iter().map(move |a| Target::Deck(d, *a))).collect();
-        all.extend(MixerAction::NAMED.iter().map(|a| Target::Mixer(*a)));
-        for switch in MixerSwitch::NAMED {
-            all.extend(Turn::ALL.map(|turn| Target::Mixer(MixerAction::Switch(*switch, turn))));
-        }
-        all.extend(LibraryAction::NAMED.iter().map(|a| Target::Library(*a)));
-        for d in 0..MAX_DECKS {
-            all.extend(
-                [LibraryAction::Load(d), LibraryAction::LoadPlay(d), LibraryAction::Double(d)]
-                    .map(Target::Library),
-            );
-        }
-        all.extend(GeneralAction::NAMED.iter().map(|a| Target::General(*a)));
-        all.extend(Turn::ALL.map(|turn| Target::General(GeneralAction::Quantize(turn))));
-        all.extend(AutoDjAction::NAMED.iter().map(|a| Target::AutoDj(*a)));
-        all.push(Target::Shift(None));
-        all
-    }
-
-    #[test]
-    fn every_action_listed_reads_and_writes_back_of_its_kind() {
-        for listed in listed() {
-            let target: Target = listed.id.parse().unwrap_or_else(|e| panic!("{e}"));
-            assert_eq!(target.to_string(), listed.id);
-            assert_eq!(target.kind(), listed.kind, "{}", listed.id);
-        }
-    }
-
-    #[test]
-    fn the_actions_listed_are_those_prisme_knows() {
-        let listed: BTreeSet<String> = listed().into_iter().map(|t| t.id).collect();
-        let known: Vec<String> = every_listed().iter().map(Target::to_string).collect();
-        assert_eq!(known.len(), listed.len(), "each written once");
-        assert_eq!(known.into_iter().collect::<BTreeSet<_>>(), listed);
-    }
-
     #[test]
     fn measured_actions_read_their_number() {
         let deck = |action| Some(Target::Deck(0, action));
@@ -850,7 +776,7 @@ mod tests {
 
     #[test]
     fn only_a_jog_wheel_takes_several_controls_of_a_controller() {
-        let several: BTreeSet<String> = every_listed()
+        let several: BTreeSet<String> = Target::all()
             .iter()
             .filter(|t| t.takes_several())
             .map(Target::to_string)
@@ -865,7 +791,7 @@ mod tests {
     #[test]
     fn the_interface_performs_its_windows_and_the_focus_of_its_search_and_nothing_else() {
         let ui: BTreeSet<String> =
-            every_listed().iter().filter(|t| t.owner() == Owner::Ui).map(Target::to_string).collect();
+            Target::all().iter().filter(|t| t.owner() == Owner::Ui).map(Target::to_string).collect();
         let windows = [
             "library.search",
             "general.library",

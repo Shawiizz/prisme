@@ -1,8 +1,12 @@
 import { Injectable, computed, inject } from '@angular/core';
 import { EffectKind, FxChain, FxSettings, MAX_DECKS } from '../models/engine';
-import { fxId } from '../control/controls';
 import { EngineService } from './engine.service';
 import { sameItems } from '../same';
+
+/** The id of an action of a slot of a deck's effect chain: `deck1.fx…` for the first,
+ * `deck1.fx2…` and `deck1.fx3…` for the next. */
+const fxId = (deck: number, slot: number, name = '') =>
+  `deck${deck + 1}.${slot === 0 ? 'fx' : `fx${slot + 1}`}${name}`;
 
 /**
  * Each deck's chain of beat effects: in each slot, which effect, on or off, its level, its
