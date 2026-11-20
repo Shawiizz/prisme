@@ -33,7 +33,7 @@ use crate::library_service::LibraryService;
 use crate::state::{lock, AppState, MirroredGuard, PadsShown};
 use keys::{Keys, Press};
 use prisme_actions::input::{Given, Input, Inputs};
-use prisme_actions::lane::{lane, reads_files, takes_selection, Lane};
+use prisme_actions::lane::{follows, lane, reads_files, takes_selection, Lane};
 use prisme_actions::perform::{Memory, PerformState};
 use prisme_actions::position::position;
 use prisme_actions::view::View;
@@ -79,9 +79,20 @@ pub enum Source<'d> {
     Interface { confirmed: bool },
 }
 
+impl Source<'_> {
+    /// The name of the controller asking, empty for the interface.
+    fn device(&self) -> &str {
+        match self {
+            Source::Controller(moved) => &moved.device,
+            Source::Interface { .. } => "",
+        }
+    }
+}
+
 /// An action asked for, as it was sent, whenever it is performed: by whom, when on the clock of
 /// the one asking (a controller's own, else Prisme's), and the track of the library it takes (a
-/// load, a preview): the one selected as it was sent, or the one the interface named.
+/// load, a preview): the one the interface named, else the one selected once the library's
+/// actions sent before it are over.
 #[derive(Debug, Clone)]
 pub struct Asked<'d> {
     pub source: Source<'d>,
@@ -301,6 +312,26 @@ impl Drop for Ending {
     }
 }
 
+/// The end of an action's turn, once it waits: made then, the last of its move (`in_turn`)
+/// from then, or made already as it was set aside.
+enum Ends<'t> {
+    Move(&'t mut InTurn),
+    Made(Ending),
+}
+
+impl Ends<'_> {
+    fn made(self) -> Ending {
+        match self {
+            Ends::Move(in_turn) => {
+                let turn = Turn::new();
+                in_turn.0 = Some(turn.clone());
+                Ending(turn)
+            }
+            Ends::Made(ending) => ending,
+        }
+    }
+}
+
 /// An action sent once the actions it follows are all over.
 struct Follower {
     before: AtomicUsize,
@@ -446,8 +477,10 @@ impl Actions {
     /// before it: at once on this thread if its lane has none waiting and it opens no file, else
     /// in turn by its lane's worker (see `prisme_actions::lane`); `answer` hears how it went.
     /// One following an action still waiting its turn, of its move or the last its controller
-    /// set aside for its lane, is set aside until those are over, its lane left to the others.
-    /// Stamped with the time it is sent. Never called from the audio thread.
+    /// set aside for its lane, is set aside until those are over, its lane left to the others;
+    /// one reading what another lane's actions leave (a load, the selection) waits for those
+    /// sent there before it. Stamped with the time it is sent. Never called from the audio
+    /// thread.
     pub(crate) fn perform<H: Host>(
         &self,
         host: &H,
@@ -457,11 +490,7 @@ impl Actions {
         answer: Answer,
         in_turn: &mut InTurn,
     ) {
-        let sent = self.sent_as(host.app_state(), target);
-        let target = sent.as_ref().unwrap_or(target);
-        let track = takes_selection(target).then(|| browse::selected(host.app_state())).flatten();
-        let asked = self.asked(source, track);
-        self.send_asked(host, target, input, asked, answer, in_turn);
+        self.send_asked(host, target, input, self.asked(source, None), answer, in_turn);
     }
 
     /// Loads the track at `path` (not the selection) on `deck`, or on the first deck without a
@@ -476,13 +505,13 @@ impl Actions {
         answer: Answer,
     ) {
         let target = Target::Library(deck.map_or(LibraryAction::LoadFree, LibraryAction::Load));
-        let sent = self.sent_as(host.app_state(), &target);
-        let target = sent.as_ref().unwrap_or(&target);
         let asked = self.asked(Source::Interface { confirmed }, Some(path));
-        self.send_asked(host, target, Input::Value(1.0), asked, answer, &mut InTurn::default());
+        self.send_asked(host, &target, Input::Value(1.0), asked, answer, &mut InTurn::default());
     }
 
     /// Performs `target` driven by `input`, `asked` as it was sent (see [`Actions::perform`]).
+    /// One taking the selection takes it as it is when it is sent, or once what it follows is
+    /// over if it does.
     fn send_asked<H: Host>(
         &self,
         host: &H,
@@ -492,35 +521,41 @@ impl Actions {
         answer: Answer,
         in_turn: &mut InTurn,
     ) {
+        let sent = self.sent_as(host.app_state(), target);
+        let target = sent.as_ref().unwrap_or(target);
         let lane = lane(target);
+        let takes = takes_selection(target) && asked.track.is_none();
         let mut waiting = lock(&self.lanes.0);
-        let device = match &asked.source {
-            Source::Controller(moved) => Some(&*moved.device),
-            Source::Interface { .. } => None,
-        };
-        let aside = device.and_then(|device| waiting.aside_on(lane, device));
+        let aside = waiting.aside_on(lane, asked.source.device());
         let after = in_turn.waiting();
-        if after.is_none() && aside.is_none() {
-            if !reads_files(target) && !waiting.queued.contains_key(&lane) {
-                drop(waiting);
-                return answer.give(host, host.perform_here(target, input, asked));
+        let before = follows(target, !takes).filter(|before| waiting.queued.contains_key(before));
+        if after.is_none() && aside.is_none() && before.is_none() {
+            drop(waiting);
+            let track = if takes { browse::selected(host.app_state()) } else { asked.track };
+            let asked = Asked { track, ..asked };
+            return self.perform_or_queue(host, target, input, asked, answer, Ends::Move(in_turn));
+        }
+        let ending = Ends::Move(in_turn).made();
+        waiting.set_aside(lane, asked.source.device(), ending.0.clone());
+        let (host, target, mut asked) = (host.clone(), target.clone(), asked.into_owned());
+        let send = move || {
+            if takes {
+                asked.track = browse::selected(host.app_state());
             }
-            let ending = self.in_turn_of(in_turn);
-            let (host, target, asked) = (host.clone(), target.clone(), asked.into_owned());
-            let job = move || {
-                let _ending = ending;
-                answer.give(&host, host.perform_here(&target, input, asked));
-            };
-            return self.lanes.push(waiting, lane, Box::new(job));
+            host.actions().perform_or_queue(&host, &target, input, asked, answer, Ends::Made(ending));
+        };
+        let turns: Vec<_> = after.into_iter().chain(aside).collect();
+        match before {
+            // in turn behind the actions whose outcome it reads
+            Some(before) => {
+                let follow = move || Follower::after(turns, Box::new(send));
+                self.lanes.push(waiting, before, Box::new(follow));
+            }
+            None => {
+                drop(waiting);
+                Follower::after(turns, Box::new(send));
+            }
         }
-        let ending = self.in_turn_of(in_turn);
-        if let Some(device) = device {
-            waiting.set_aside(lane, device, ending.0.clone());
-        }
-        drop(waiting);
-        let (host, target, asked) = (host.clone(), target.clone(), asked.into_owned());
-        let send = move || host.actions().send(&host, target, input, asked, answer, ending);
-        Follower::after(after.into_iter().chain(aside), Box::new(send));
     }
 
     /// An action `source` asks for now, taking `track` of the library.
@@ -532,31 +567,27 @@ impl Actions {
         Asked { source, at_s, track }
     }
 
-    /// The end of an action waiting its turn, the last of the move `in_turn` from now.
-    fn in_turn_of(&self, in_turn: &mut InTurn) -> Ending {
-        let turn = Turn::new();
-        in_turn.0 = Some(turn.clone());
-        Ending(turn)
-    }
-
-    /// Sends `target` driven by `input`, an action set aside until those it followed were
-    /// over: performed at once on this thread, or queued on its lane as any action sent now.
-    fn send<H: Host>(
+    /// Performs `target` driven by `input` at once on this thread if its lane has none waiting
+    /// and it opens no file, else queues it on its lane.
+    fn perform_or_queue<H: Host>(
         &self,
         host: &H,
-        target: Target,
+        target: &Target,
         input: Input,
-        asked: Asked<'static>,
+        asked: Asked,
         answer: Answer,
-        ending: Ending,
+        ends: Ends,
     ) {
-        let lane = lane(&target);
+        let lane = lane(target);
         let waiting = lock(&self.lanes.0);
-        if !reads_files(&target) && !waiting.queued.contains_key(&lane) {
+        if !reads_files(target) && !waiting.queued.contains_key(&lane) {
             drop(waiting);
-            return answer.give(host, host.perform_here(&target, input, asked));
+            // a turn made already ends once it is performed
+            let _ends = ends;
+            return answer.give(host, host.perform_here(target, input, asked));
         }
-        let host = host.clone();
+        let ending = ends.made();
+        let (host, target, asked) = (host.clone(), target.clone(), asked.into_owned());
         let job = move || {
             let _ending = ending;
             answer.give(&host, host.perform_here(&target, input, asked));
@@ -1325,25 +1356,36 @@ mod lanes {
 mod selection {
     //! The loads of a controller, browsing in the library.
 
-    use super::bench::{track, Bench};
+    use super::bench::{track, Bench, Track};
     use super::*;
     use std::time::Duration;
 
     fn pressed(bench: &Arc<Bench>, id: &str) {
-        let source = Source::Controller(Moved { device: "CDJ".into(), at_s: 0.0, jog_steps_per_turn: 720.0 });
-        let target: Target = id.parse().unwrap();
-        bench.actions.perform(
-            bench,
-            &target,
-            Input::Value(1.0),
-            source,
-            Answer::Told,
-            &mut InTurn::default(),
-        );
+        moved(bench, id, &mut InTurn::default());
     }
 
     fn loaded(bench: &Bench, deck: usize) -> Option<PathBuf> {
         lock(&bench.state.tracks)[deck].as_ref().map(|t| t.path.clone())
+    }
+
+    fn selected(bench: &Bench) -> Option<PathBuf> {
+        browse::selected(&bench.state)
+    }
+
+    /// `id` pressed by the CDJ, after what `in_turn` sent.
+    fn moved(bench: &Arc<Bench>, id: &str, in_turn: &mut InTurn) {
+        let source = Source::Controller(Moved { device: "CDJ".into(), at_s: 0.0, jog_steps_per_turn: 720.0 });
+        let target: Target = id.parse().unwrap();
+        bench.actions.perform(bench, &target, Input::Value(1.0), source, Answer::Told, in_turn);
+    }
+
+    /// A job holding `lane` until the sender it gives is dropped or sent to.
+    fn held(bench: &Bench, lane: Lane) -> SyncSender<()> {
+        let (release, wait) = mpsc::sync_channel(1);
+        bench.actions.in_turn_on(lane, move || {
+            let _ = wait.recv_timeout(Duration::from_secs(5));
+        });
+        release
     }
 
     #[test]
@@ -1366,16 +1408,68 @@ mod selection {
     fn a_controller_browses_then_loads_without_the_interface() {
         let bench = Arc::new(Bench::new());
         let files = [track("browse-a"), track("browse-b")];
-        bench.state.browse(|l| {
-            let rows = l.browser.entries(files.iter().map(|f| (f.0.display().to_string(), None)));
-            l.browser.show(prisme_library::browse::Source::Prepare, rows);
-        });
+        listed(&bench, &files);
         pressed(&bench, "library.next");
         pressed(&bench, "library.next");
         pressed(&bench, "library.load2");
         bench.actions.settle();
         assert_eq!(loaded(&bench, 1), Some(files[1].0.clone()), "the second row");
         assert!(bench.told().is_empty(), "the interface told nothing");
+    }
+
+    /// Two tracks listed in the library, nothing picked.
+    fn listed(bench: &Bench, files: &[Track]) {
+        bench.state.browse(|l| {
+            let rows = l.browser.entries(files.iter().map(|f| (f.0.display().to_string(), None)));
+            l.browser.show(prisme_library::browse::Source::Prepare, rows);
+        });
+    }
+
+    #[test]
+    fn a_load_takes_the_row_the_library_s_actions_sent_before_it_leave() {
+        let bench = Arc::new(Bench::new());
+        let files = [track("left-a"), track("left-b")];
+        listed(&bench, &files);
+        let busy = held(&bench, Lane::Library);
+        // a CDJ's track search loading what it finds, then another move's load
+        let in_turn = &mut InTurn::default();
+        for id in ["library.next", "library.load1"] {
+            moved(&bench, id, in_turn);
+        }
+        moved(&bench, "library.next", &mut InTurn::default());
+        moved(&bench, "library.load2", &mut InTurn::default());
+        busy.send(()).unwrap();
+        bench.actions.settle();
+        assert_eq!(loaded(&bench, 0), Some(files[0].0.clone()), "the first row, browsed to");
+        assert_eq!(loaded(&bench, 1), Some(files[1].0.clone()), "the second, browsed to after");
+    }
+
+    #[test]
+    fn the_clock_s_looks_at_the_rows_hold_no_library_action() {
+        let bench = Arc::new(Bench::new());
+        let files = [track("looked-a"), track("looked-b")];
+        listed(&bench, &files);
+        let looking = held(&bench, Lane::Rows);
+        pressed(&bench, "library.next");
+        pressed(&bench, "library.next");
+        pressed(&bench, "library.load1");
+        assert_eq!(selected(&bench), Some(files[1].0.clone()), "browsed at once");
+        looking.send(()).unwrap();
+        bench.actions.settle();
+        assert_eq!(loaded(&bench, 0), Some(files[1].0.clone()));
+    }
+
+    #[test]
+    fn a_double_copies_the_track_the_deck_beside_was_loading() {
+        let bench = Arc::new(Bench::new());
+        let file = track("doubled");
+        bench.select(&file.0);
+        let loading = held(&bench, Lane::Track(0));
+        pressed(&bench, "library.load1");
+        pressed(&bench, "library.double2");
+        loading.send(()).unwrap();
+        bench.actions.settle();
+        assert_eq!(loaded(&bench, 1), Some(file.0.clone()));
     }
 
     #[test]

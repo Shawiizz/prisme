@@ -1,10 +1,11 @@
 //! Which actions keep their order among themselves: those of one lane. A lane is what an action
 //! changes: a deck's track and where it plays, a deck's settings (its strip, its effects, its
 //! tempo fader), a slot of its sampler, the mixer and what all decks share, the preview, the
-//! recording, the library as it is browsed. An action is performed at once on the thread asking for it while its lane has
-//! none waiting; one that reads or writes a file (a track or a sound opened, a recording ended)
-//! is performed in turn by a worker of its lane, and the actions of that lane sent after it wait
-//! behind it. No action waits for a file of another lane.
+//! recording, the library as it is browsed. An action is performed at once on the thread asking
+//! for it while its lane has none waiting; one that reads or writes a file (a track or a sound
+//! opened, a recording ended) is performed in turn by a worker of its lane, and the actions of
+//! that lane sent after it wait behind it. An action waits for another lane only for what it
+//! reads there ([`follows`]): a load, the selection the library's actions sent before it leave.
 
 use prisme_control::{DeckAction, DeckSwitch, GeneralAction, LibraryAction, SampleAction, Target};
 
@@ -24,6 +25,9 @@ pub enum Lane {
     Recording,
     /// The list browsed, its rows picked, and the lists the library keeps.
     Library,
+    /// What the library's rows show beside their tracks, looked for by the backend's clock:
+    /// their separations on disk, their ranking against a deck. No action's.
+    Rows,
 }
 
 /// The lane of `target`. A load on the first deck without a track (`library.load`) is deck A's
@@ -100,7 +104,19 @@ pub fn reads_files(target: &Target) -> bool {
         )
 }
 
-/// Whether `target` opens the track selected in the library: as it was when it was sent.
+/// The lane whose actions sent before `target` it reads the outcome of, once they are over: the
+/// library's for the track selected (unless the one asking `named` the track), the deck
+/// beside's for a double.
+pub fn follows(target: &Target, named: bool) -> Option<Lane> {
+    match *target {
+        Target::Library(LibraryAction::Double(deck)) => Some(Lane::Track(deck ^ 1)),
+        _ if takes_selection(target) && !named => Some(Lane::Library),
+        _ => None,
+    }
+}
+
+/// Whether `target` opens the track selected in the library: as it is once the library's
+/// actions sent before it are over.
 pub fn takes_selection(target: &Target) -> bool {
     matches!(
         target,
@@ -186,5 +202,21 @@ mod tests {
             assert!(!reads(id), "{id}");
         }
         assert!(!takes_selection(&"general.record".parse().unwrap()), "a file of its own");
+    }
+
+    #[test]
+    fn a_load_follows_the_library_and_a_double_the_deck_beside() {
+        let follows = |id: &str, named| follows(&id.parse().unwrap(), named);
+        for id in
+            ["library.load1", "library.load2.play", "library.load", "deck1.sample2.load", "library.preview"]
+        {
+            assert_eq!(follows(id, false), Some(Lane::Library), "{id}");
+            assert_eq!(follows(id, true), None, "{id} named");
+        }
+        assert_eq!(follows("library.double1", false), Some(Lane::Track(1)));
+        assert_eq!(follows("library.double2", false), Some(Lane::Track(0)));
+        for id in ["library.next", "deck1.play", "library.list.open", "mixer.crossfader"] {
+            assert_eq!(follows(id, false), None, "{id}");
+        }
     }
 }

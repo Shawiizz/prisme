@@ -83,6 +83,15 @@ struct Clock {
     player: Player,
 }
 
+/// The separations of the rows being looked for: over as it is dropped, however the look ended.
+struct Looking(Arc<AtomicBool>);
+
+impl Drop for Looking {
+    fn drop(&mut self) {
+        self.0.store(false, Ordering::Release);
+    }
+}
+
 /// A phone's lock screen: the deck heard, and what it is told.
 #[cfg(target_os = "android")]
 #[derive(Default)]
@@ -164,22 +173,23 @@ impl Clock {
         self.seen = Some(told);
     }
 
-    /// Whether the rows of the library's window wait for their separations, then looked for on
-    /// the library's lane (a drive may be slow): the library moves once they are known.
+    /// Whether the rows of the library's window wait for their separations, then looked for
+    /// off the clock and off the lane of the library's actions (a drive may be slow): the
+    /// library moves once they are known.
     fn rows_wait(&self, app: &AppHandle, state: &AppState) -> bool {
         let unknown = lock(&state.library).unknown();
         if unknown.is_empty() {
             return false;
         }
         if !self.looking.swap(true, Ordering::AcqRel) {
-            let (looked, looking) = (app.clone(), self.looking.clone());
+            let (looked, looking) = (app.clone(), Looking(self.looking.clone()));
             let job = move || {
                 let state = looked.state::<AppState>();
                 browse::look_for_separations(&state, unknown);
-                looking.store(false, Ordering::Release);
+                drop(looking);
                 state.moved(Section::Library);
             };
-            app.state::<Actions>().in_turn_on(Lane::Library, job);
+            app.state::<Actions>().in_turn_on(Lane::Rows, job);
         }
         true
     }
@@ -221,8 +231,8 @@ impl Clock {
 
     /// The library's rows ranked again against the deck they follow if another track came on
     /// it, its analysis did, or the deck beside it changed its range or its key lock: not as its
-    /// tempo and key move with the platter. In turn with the library's actions, not on the
-    /// clock: a library of tens of thousands takes a while to sort.
+    /// tempo and key move with the platter. Off the clock, and off the lane of the library's
+    /// actions: a library of tens of thousands takes a while to sort.
     fn rank(&mut self, app: &AppHandle, view: &View) {
         let deck = browse::effective(self.compared.0, view.decks_in_use);
         let track = view.decks[deck].track;
@@ -239,7 +249,7 @@ impl Clock {
             let mix = browse::mix_reference(view, deck, self.around.decks[deck].as_deref());
             let ranking = app.clone();
             let job = move || ranking.state::<AppState>().browse(|l| l.browser.set_mix(mix));
-            app.state::<Actions>().in_turn_on(Lane::Library, job);
+            app.state::<Actions>().in_turn_on(Lane::Rows, job);
             self.ranked = Some(now);
         }
     }
