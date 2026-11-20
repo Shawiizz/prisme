@@ -372,8 +372,43 @@ impl Target {
         match self {
             Target::Deck(
                 _,
-                DeckAction::Jog | DeckAction::JogTouch | DeckAction::JogSearch | DeckAction::Pitch,
-            ) => Owner::Rust,
+                DeckAction::Jog
+                | DeckAction::JogTouch
+                | DeckAction::JogSearch
+                | DeckAction::Pitch
+                | DeckAction::Brake
+                | DeckAction::Spinback
+                | DeckAction::Censor
+                | DeckAction::ReverseHeld
+                | DeckAction::SlipHeld
+                | DeckAction::LoopIn
+                | DeckAction::LoopOut
+                | DeckAction::Reloop
+                | DeckAction::LoopHalve
+                | DeckAction::LoopDouble
+                | DeckAction::LoopClear
+                | DeckAction::JumpBeats(_)
+                | DeckAction::LoopBeats(_)
+                | DeckAction::BendDown
+                | DeckAction::BendUp
+                | DeckAction::BendDownSmall
+                | DeckAction::BendUpSmall
+                | DeckAction::SyncLeader
+                | DeckAction::EqKill(_)
+                | DeckAction::Fx(_, FxAction::Held)
+                | DeckAction::Sample(
+                    _,
+                    SampleAction::Trigger | SampleAction::Stop | SampleAction::Held | SampleAction::Velocity,
+                )
+                | DeckAction::HotCueDelete(_)
+                | DeckAction::GridHere
+                | DeckAction::GridEarlier
+                | DeckAction::GridLater
+                | DeckAction::GridFaster
+                | DeckAction::GridSlower
+                | DeckAction::GridMove,
+            )
+            | Target::AutoDj(_) => Owner::Rust,
             _ => Owner::Ui,
         }
     }
@@ -675,7 +710,7 @@ fn numbered<'i>(id: &'i str, prefix: &str, count: usize) -> Option<(usize, Optio
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::collections::{BTreeMap, BTreeSet};
+    use std::collections::BTreeSet;
 
     /// The actions the application lists, as its page of controls writes them.
     fn listed() -> Vec<crate::ListedTarget> {
@@ -823,20 +858,14 @@ mod tests {
     }
 
     #[test]
-    fn the_jogs_and_the_tempo_faders_are_performed_straight_from_the_controller() {
-        let owners: BTreeMap<String, bool> = every_listed()
+    fn only_a_jog_wheel_takes_several_controls_of_a_controller() {
+        let several: BTreeSet<String> = every_listed()
             .iter()
-            .filter(|t| t.owner() == Owner::Rust)
-            .map(|t| (t.to_string(), t.takes_several()))
-            .filter(|(id, _)| id.starts_with("deck2."))
+            .filter(|t| t.takes_several())
+            .map(Target::to_string)
+            .filter(|id| id.starts_with("deck2."))
             .collect();
-        let expected = [
-            ("deck2.jog", true),
-            ("deck2.jog.search", true),
-            ("deck2.jog.touch", false),
-            ("deck2.pitch", false),
-        ];
-        assert_eq!(owners, expected.map(|(id, several)| (id.to_owned(), several)).into());
+        assert_eq!(several, BTreeSet::from(["deck2.jog".to_owned(), "deck2.jog.search".to_owned()]));
         assert_eq!("deck3.pitch".parse::<Target>().unwrap().deck(), Some(2));
         assert_eq!("mixer.crossfader".parse::<Target>().unwrap().deck(), None);
     }

@@ -60,10 +60,22 @@ pub fn delete_hot_cue(
     deck: usize,
     slot: u8,
 ) -> AppResult<Vec<CueDto>> {
+    delete_cue(&app, &state, &library, deck, slot)
+}
+
+/// Takes hot cue `slot` off the track on `deck`, on every deck playing it; returns the cues of
+/// `deck`.
+pub fn delete_cue(
+    app: &AppHandle,
+    state: &AppState,
+    library: &LibraryService,
+    deck: usize,
+    slot: u8,
+) -> AppResult<Vec<CueDto>> {
     let slot = hot_slot(slot)?;
     let path = state.with_track(deck, |track| track.path.clone())?;
     library.db.delete_cue(&path, slot)?;
-    change_cues(&app, &state, deck, &path, |track| track.remove_cue(slot))
+    change_cues(app, state, deck, &path, |track| track.remove_cue(slot))
 }
 
 /// Stores the main cue (on the nearest beat with quantize on); returns where it went.

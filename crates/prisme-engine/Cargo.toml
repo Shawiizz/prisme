@@ -15,6 +15,10 @@ signalsmith-stretch.workspace = true
 rtrb.workspace = true
 triple_buffer.workspace = true
 
+[features]
+# What a test reads of an engine it does not run: the commands sent to it.
+testing = []
+
 [dev-dependencies]
 criterion.workspace = true
 

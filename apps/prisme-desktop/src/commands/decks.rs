@@ -1,3 +1,4 @@
+use crate::actions::deck;
 use crate::audio_host::layer_partner;
 use crate::auto_dj::{AutoDj, Takeover};
 use crate::commands::audio::start_audio;
@@ -77,9 +78,7 @@ pub fn set_jog_scratch(state: State<'_, AppState>, deck: usize, on: bool) -> App
 
 #[tauri::command]
 pub fn set_pitch(state: State<'_, AppState>, deck: usize, ratio: f64) -> AppResult<()> {
-    state.has_deck(deck)?;
-    lock(&state.decks)[deck].pitch = ratio;
-    state.send(Command::SetPitch { deck, ratio })
+    deck::set_pitch(&state, deck, ratio)
 }
 
 /// Vinyl control of a deck, kept for the next start. Returns the deck it took the turntable
@@ -264,9 +263,5 @@ pub fn sync_once(state: State<'_, AppState>, deck: usize) -> AppResult<()> {
 /// `None`: the leader is picked automatically.
 #[tauri::command]
 pub fn set_sync_leader(state: State<'_, AppState>, deck: Option<usize>) -> AppResult<()> {
-    if let Some(d) = deck {
-        state.has_deck(d)?;
-    }
-    *lock(&state.sync_leader) = deck;
-    state.send(Command::SetSyncLeader { deck })
+    deck::set_sync_leader(&state, deck)
 }

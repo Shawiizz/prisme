@@ -50,8 +50,8 @@ describe('controls', () => {
       'cue(1,true)',
       'cue(1,false)',
       'hotCue(0,2)',
-      'bend(1,1)',
-      'bend(1,0)',
+      'perform(deck2.bend.up,1,false)',
+      'perform(deck2.bend.up,0,false)',
     ]);
   });
 
@@ -113,7 +113,7 @@ describe('controls', () => {
     find('deck2.sample9').apply(1);
     expect(find('deck1.hotcue17')).toBeUndefined();
     expect(find('deck1.sample17')).toBeUndefined();
-    expect(calls).toEqual(['hotCue(0,15)', 'triggerSample(1,8)']);
+    expect(calls).toEqual(['hotCue(0,15)', 'perform(deck2.sample9,1,false)']);
   });
 
   it('light only what the app keeps, the backend lighting the rest', () => {
@@ -155,8 +155,8 @@ describe('controls', () => {
     find('deck1.fx.focus').apply(1);
     expect(calls).toEqual([
       'setFxParam2(0,1,0.3)',
-      'holdFx(1,2,true)',
-      'holdFx(1,2,false)',
+      'perform(deck2.fx3.held,1,false)',
+      'perform(deck2.fx3.held,0,false)',
       'toggleFxFocus(0,0)',
     ]);
     expect(find('deck1.fx.held').label).toBe('Effect 1 on while held');
@@ -268,7 +268,25 @@ describe('controls', () => {
     find('autodj.fade').apply(1);
     find('autodj.skip').apply(1);
     expect(find('autodj.toggle').kind).toBe('button');
-    expect(calls).toEqual(['toggleAutoDj()', 'autoDjFade()', 'autoDjSkip()']);
+    expect(calls).toEqual([
+      'perform(autodj.toggle,1,false)',
+      'perform(autodj.toggle,0,false)',
+      'perform(autodj.fade,1,false)',
+      'perform(autodj.skip,1,false)',
+    ]);
+  });
+
+  it('have the backend perform what it performs, given what they are given', () => {
+    const { calls, find } = recorder();
+    find('deck1.grid.move').apply(-2);
+    find('deck2.pitch').apply(0.25);
+    find('deck1.jog.touch').apply(1);
+    expect(calls).toEqual([
+      'perform(deck1.grid.move,-2,true)',
+      'perform(deck2.pitch,0.25,false)',
+      'perform(deck1.jog.touch,1,false)',
+    ]);
+    expect(find('shift').apply(1)).toBeUndefined();
   });
 
   it('brake, spin back while held, repeat, fader start', () => {
@@ -280,9 +298,10 @@ describe('controls', () => {
     find('deck1.repeat').apply(1);
     find('deck2.faderStart').apply(1);
     expect(calls).toEqual([
-      'brake(0)',
-      'spinBack(1,true)',
-      'spinBack(1,false)',
+      'perform(deck1.brake,1,false)',
+      'perform(deck1.brake,0,false)',
+      'perform(deck2.spinback,1,false)',
+      'perform(deck2.spinback,0,false)',
       'repeating(0)',
       'setRepeat(0,false)',
       'faderStart(1)',
@@ -298,8 +317,8 @@ describe('controls', () => {
     expect(calls).toEqual([
       'reversing(0)',
       'setReverse(0,false)',
-      'holdReverse(1,true)',
-      'holdReverse(1,false)',
+      'perform(deck2.reverse.held,1,false)',
+      'perform(deck2.reverse.held,0,false)',
     ]);
   });
 
@@ -462,14 +481,18 @@ describe('controls', () => {
     press();
     slots.playing = true;
     press();
-    expect(calls).toEqual(['loadSample(1,2)', 'triggerSample(1,2)', 'stopSample(1,2)']);
+    expect(calls).toEqual([
+      'loadSample(1,2)',
+      'perform(deck2.sample3,1,false)',
+      'perform(deck2.sample3.stop,1,false)',
+    ]);
   });
 
   it('read a jump or a loop of so many beats from its id', () => {
     const { calls, actions } = recorder();
     measuredControl(actions, 'deck2.jump.-8')!.apply(1);
     measuredControl(actions, 'deck1.loop.0.5')!.apply(1);
-    expect(calls).toEqual(['beatJump(1,-8)', 'beatLoop(0,0.5)']);
+    expect(calls).toEqual(['perform(deck2.jump.-8,1,false)', 'perform(deck1.loop.0.5,1,false)']);
     expect(measuredControl(actions, 'deck1.loop')).toBeUndefined();
     expect(measuredControl(actions, 'deck1.loop.-1')).toBeUndefined();
     expect(measuredControl(actions, 'deck9.jump.4')).toBeUndefined();
@@ -480,7 +503,10 @@ describe('controls', () => {
     const pad = measuredControl(actions, 'deck2.sample3.velocity')!;
     pad.apply(0.25);
     pad.apply(0);
-    expect(calls).toEqual(['triggerSample(1,2,0.25)']);
+    expect(calls).toEqual([
+      'perform(deck2.sample3.velocity,0.25,false)',
+      'perform(deck2.sample3.velocity,0,false)',
+    ]);
   });
 
   /** A controller's fader sending each of `values` in turn, taken over as `ControllerService` does. */

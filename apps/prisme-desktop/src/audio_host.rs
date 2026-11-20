@@ -84,6 +84,22 @@ impl AudioSession {
     pub fn periods(&self) -> u64 {
         self.stats.callbacks.load(Ordering::Relaxed)
     }
+
+    /// A session of an engine no sound card calls, for a test to read what it is sent.
+    #[cfg(test)]
+    pub fn idle(controller: EngineController, engine_config: EngineConfig, info: AudioInfo) -> Self {
+        Self {
+            id: 0,
+            controller,
+            stats: Arc::default(),
+            engine_config,
+            info,
+            settings: AudioSettings::default(),
+            restored: 0,
+            stop: None,
+            thread: None,
+        }
+    }
 }
 
 impl Drop for AudioSession {

@@ -509,6 +509,15 @@ fn fill_deck_input(deck_in: &mut [f32], input: &[f32], in_ch: usize, offset: usi
     }
 }
 
+#[cfg(feature = "testing")]
+impl Engine {
+    /// The commands sent and not applied yet, taken unapplied: what a test sent an engine it
+    /// does not run.
+    pub fn take_commands(&mut self) -> Vec<Command> {
+        std::iter::from_fn(|| self.commands.pop().ok()).collect()
+    }
+}
+
 /// The control half: send commands, read the state, free what the engine returns.
 pub struct EngineController {
     commands: rtrb::Producer<Command>,

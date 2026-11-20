@@ -140,6 +140,16 @@ impl BandDto {
     pub const ALL: [BandDto; 3] = [BandDto::Low, BandDto::Mid, BandDto::High];
 }
 
+impl From<prisme_control::Band> for BandDto {
+    fn from(b: prisme_control::Band) -> Self {
+        match b {
+            prisme_control::Band::Low => Self::Low,
+            prisme_control::Band::Mid => Self::Mid,
+            prisme_control::Band::High => Self::High,
+        }
+    }
+}
+
 impl From<BandDto> for prisme_engine::Band {
     fn from(b: BandDto) -> Self {
         match b {
@@ -1404,14 +1414,6 @@ pub struct ControllerInputDto {
     /// How far a step moves a fader's action, when the profile says.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub step: Option<f32>,
-}
-
-impl ControllerInputDto {
-    /// `target` driven to `value`, as a key or a fader.
-    #[cfg(test)]
-    pub fn of(target: &str, value: f32) -> Self {
-        Self { target: target.to_owned(), value, steps: false, step: None }
-    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]

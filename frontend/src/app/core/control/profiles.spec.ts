@@ -76,7 +76,7 @@ describe('controller profiles', () => {
   });
 
   it('choose among the modes they have, and show levels and values the app has', () => {
-    const positioned = new Set(controls.filter((c) => c.position !== undefined).map((c) => c.id));
+    const faders = new Set(controls.filter((c) => c.kind === 'fader').map((c) => c.id));
     for (const p of profiles) {
       const strays = (p.modes ?? []).flatMap((g) =>
         g.select.filter((s) => !g.modes.includes(s.mode)).map((s) => `${g.group}.${s.mode}`),
@@ -86,7 +86,7 @@ describe('controller profiles', () => {
         .filter((s) => !/^(deck[1-4]|main|main\.left|main\.right)$/.test(s));
       const values = (p.outputs ?? [])
         .map((o) => o.source)
-        .filter((s) => !positioned.has(s) && !/^deck[1-4]\.(position|turn)$/.test(s));
+        .filter((s) => !faders.has(s) && !/^deck[1-4]\.(position|turn)$/.test(s));
       const numbers = (p.displays ?? [])
         .map((d) => d.source)
         .filter((s) => !/^deck[1-4]\.(bpm|elapsed|remaining|duration|tempo|tempoRange)$/.test(s));

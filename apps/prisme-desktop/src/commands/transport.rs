@@ -1,14 +1,9 @@
-use crate::auto_dj::{AutoDj, Takeover};
+use crate::actions::transport::{self, send};
+use crate::auto_dj::AutoDj;
 use crate::error::AppResult;
 use crate::state::AppState;
 use prisme_engine::{Command, LoopRegion};
 use tauri::State;
-
-/// Temporary speed change while a bend key is held (0 when released).
-#[tauri::command]
-pub fn set_pitch_bend(state: State<'_, AppState>, deck: usize, amount: f64) -> AppResult<()> {
-    send(&state, deck, Command::SetPitchBend { deck, amount })
-}
 
 #[tauri::command]
 pub fn beat_loop(state: State<'_, AppState>, deck: usize, beats: f64) -> AppResult<()> {
@@ -67,8 +62,7 @@ pub fn beat_jump(
     deck: usize,
     beats: f64,
 ) -> AppResult<()> {
-    auto_dj.take_over(Takeover::Transport(deck));
-    send(&state, deck, Command::BeatJump { deck, beats })
+    transport::beat_jump(&state, Some(&auto_dj), deck, beats)
 }
 
 #[tauri::command]
@@ -99,17 +93,6 @@ pub fn set_reverse(state: State<'_, AppState>, deck: usize, enabled: bool) -> Ap
     send(&state, deck, Command::SetReverse { deck, enabled })
 }
 
-/// The track played backwards while `held`.
-#[tauri::command]
-pub fn hold_reverse(state: State<'_, AppState>, deck: usize, held: bool) -> AppResult<()> {
-    send(&state, deck, Command::HoldReverse { deck, held })
-}
-
-fn send(state: &AppState, deck: usize, command: Command) -> AppResult<()> {
-    state.has_deck(deck)?;
-    state.send(command)
-}
-
 /// Stores the loop of `deck` from `start_s` to `end_s`, playing it if `active`; without them,
 /// forgets it.
 #[tauri::command]
@@ -120,7 +103,5 @@ pub fn set_loop(
     end_s: Option<f64>,
     active: bool,
 ) -> AppResult<()> {
-    let region = start_s.zip(end_s).filter(|(s, e)| s.is_finite() && e > s);
-    let region = region.map(|(start_s, end_s)| prisme_engine::LoopRegion { start_s, end_s });
-    send(&state, deck, Command::SetLoop { deck, region, active: active && region.is_some() })
+    transport::set_loop(&state, deck, start_s, end_s, active)
 }

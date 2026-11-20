@@ -112,11 +112,6 @@ export class PerformanceService {
     return this.engine.call('set_reverse', { deck, enabled });
   }
 
-  /** The track played backwards while held. */
-  holdReverse(deck: number, held: boolean) {
-    return this.engine.call('hold_reverse', { deck, held });
-  }
-
   /** A playing deck slows to a stop as a turntable switched off; a stopped one starts softly. */
   brake(deck: number) {
     return this.engine.call('brake', { deck });

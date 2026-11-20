@@ -1,20 +1,12 @@
 //! A deck's sampler (see `sampler`).
 
+use crate::actions::sampler::{self as actions, check_slot};
 use crate::error::{AppError, AppResult};
 use crate::sampler;
 use crate::state::{lock, AppState};
 use prisme_engine::{Command, SAMPLE_SLOTS};
 use std::path::PathBuf;
 use tauri::State;
-
-fn check_slot(deck: usize, slot: usize) -> AppResult<()> {
-    AppState::check_deck(deck)?;
-    if slot < SAMPLE_SLOTS {
-        Ok(())
-    } else {
-        Err(AppError::Other(format!("no sampler slot {}", slot + 1)))
-    }
-}
 
 /// Puts a sound in a slot; returns its name. Kept for the next start.
 #[tauri::command]
@@ -57,24 +49,15 @@ pub fn clear_sample(state: State<'_, AppState>, deck: usize, slot: usize) -> App
     state.send_if_running(Command::SetSample { deck, slot, sample: None })
 }
 
-/// Plays a slot from its start (on the next beat with quantize on), as loud as its pad was
-/// hit (`velocity` 0-1) times the sampler's level, or at that level.
+/// Plays a slot from its start (on the next beat with quantize on), at the sampler's level.
 #[tauri::command]
-pub fn trigger_sample(
-    state: State<'_, AppState>,
-    deck: usize,
-    slot: usize,
-    velocity: Option<f32>,
-) -> AppResult<()> {
-    check_slot(deck, slot)?;
-    let gain = velocity.unwrap_or(1.0).clamp(0.0, 1.0);
-    state.send(Command::TriggerSample { deck, slot, gain })
+pub fn trigger_sample(state: State<'_, AppState>, deck: usize, slot: usize) -> AppResult<()> {
+    actions::trigger_sample(&state, deck, slot, None)
 }
 
 #[tauri::command]
 pub fn stop_sample(state: State<'_, AppState>, deck: usize, slot: usize) -> AppResult<()> {
-    check_slot(deck, slot)?;
-    state.send(Command::StopSample { deck, slot })
+    actions::stop_sample(&state, deck, slot)
 }
 
 /// The level of the deck's sampler; kept for the next start.

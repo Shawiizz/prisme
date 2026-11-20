@@ -45,6 +45,13 @@ pub enum Given {
     Steps(i32),
 }
 
+impl Given {
+    /// A key's: down, however softly a pad was hit.
+    pub fn pressed(self) -> bool {
+        matches!(self, Given::Value(value) if value > 0.0)
+    }
+}
+
 /// What is kept of a controller's control of an action between its moves.
 #[derive(Debug, Default)]
 struct Held {

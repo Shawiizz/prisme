@@ -1,3 +1,4 @@
+use crate::actions::mixer;
 use crate::auto_dj::{AutoDj, Takeover};
 use crate::dto::{
     BandDto, CrossfaderCurveDto, CrossfaderSideDto, DeckSettingsDto, HeadphonesOutputDto, LiveSourceDto,
@@ -274,9 +275,7 @@ pub fn set_eq(state: State<'_, AppState>, deck: usize, band: BandDto, gain: f32)
 
 #[tauri::command]
 pub fn set_eq_kill(state: State<'_, AppState>, deck: usize, band: BandDto, kill: bool) -> AppResult<()> {
-    AppState::check_deck(deck)?;
-    lock(&state.decks)[deck].strip.kills[band as usize] = kill;
-    state.send_if_running(Command::SetEqKill { deck, band: band.into(), kill })
+    mixer::set_eq_kill(&state, deck, band, kill)
 }
 
 /// Software mixer: -1 = low-pass closed, 0 = off, 1 = high-pass open.

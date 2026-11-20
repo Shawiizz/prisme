@@ -47,6 +47,9 @@ sha2 = "0.10"
 dirs = "7"
 rayon = "1"
 
+[dev-dependencies]
+prisme-engine = { workspace = true, features = ["testing"] }
+
 [target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]
 tauri-plugin-updater = "2"
 tauri-plugin-single-instance = "2"

@@ -36,11 +36,22 @@ pub fn edit_grid(
     deck: usize,
     change: GridChange,
 ) -> AppResult<TrackAnalysisDto> {
+    change_grid(&app, &state, &library, deck, change)
+}
+
+/// Corrects the beat grid of the track on `deck` by `change`; returns its analysis.
+pub fn change_grid(
+    app: &AppHandle,
+    state: &AppState,
+    library: &LibraryService,
+    deck: usize,
+    change: GridChange,
+) -> AppResult<TrackAnalysisDto> {
     let position_s = match change {
         GridChange::BeatHere => state.deck_status(deck)?.position_s,
         _ => 0.0,
     };
-    edit(&app, &state, &library, deck, |track_grid, edits| {
+    edit(app, state, library, deck, |track_grid, edits| {
         let grid = || track_grid.ok_or(AppError::NoBeatGrid(deck));
         let with_bpm = |g: GridEdit, bpm: f64| g.with_bpm(bpm).ok_or(AppError::InvalidBpm(bpm));
         edits.grid = match change {
@@ -79,8 +90,9 @@ pub fn key_choices() -> Vec<KeyDto> {
 }
 
 /// Applies `change` to the stored edits of the track on `deck` (given its grid with them),
-/// stores them, and updates every deck playing the track, the engine and the UI. The
-/// stored edits, not the deck's: another deck may have changed them since it loaded.
+/// stores them, and updates every deck playing the track, the engine and the interface (told
+/// of `deck` too: a controller may have asked). The stored edits, not the deck's: another
+/// deck may have changed them since it loaded.
 fn edit(
     app: &AppHandle,
     state: &AppState,
@@ -100,12 +112,10 @@ fn edit(
     for (on, load_id, (grid, dto)) in updated {
         state.send_if_running(Command::SetBeatGrid { deck: on, grid })?;
         if on == deck {
-            analysis = Some(dto);
-        } else {
-            let update =
-                DeckTrackUpdateDto { deck: on, load_id, analysis: Some(dto), stems: None, cues: None };
-            let _ = app.emit(DECK_TRACK_UPDATE_EVENT, update);
+            analysis = Some(dto.clone());
         }
+        let update = DeckTrackUpdateDto { deck: on, load_id, analysis: Some(dto), stems: None, cues: None };
+        let _ = app.emit(DECK_TRACK_UPDATE_EVENT, update);
     }
     library.announce(&path);
     library.write_tags_soon();

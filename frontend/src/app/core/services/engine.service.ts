@@ -36,8 +36,6 @@ import { errorText } from '../errors';
 /** A deck this close to its cue point counts as sitting on it. */
 const CUE_TOLERANCE_S = 0.02;
 const MAIN_CUE_COLOR = 0xffb02e;
-/** Speed change while a bend key is held. */
-const PITCH_BEND = 0.03;
 /** Slower than this, a deck under its record is still: a hand holding it, the record stopped. */
 const MOVING_SPEED = 0.05;
 /** How long a refusal stays said. */
@@ -553,9 +551,12 @@ export class EngineService {
     if (this.previewing.delete(deck)) this.returnToCue(deck);
   }
 
-  /** -1, 0 or 1: slower, released, faster. */
+  /** -1, 0 or 1: slower, released, faster, as the bend keys. */
   pitchBend(deck: number, direction: -1 | 0 | 1) {
-    return this.call('set_pitch_bend', { deck, amount: direction * PITCH_BEND });
+    return this.perform(
+      `deck${deck + 1}.bend.${direction < 0 ? 'down' : 'up'}`,
+      Math.abs(direction),
+    );
   }
 
   private returnToCue(deck: number) {
@@ -643,6 +644,12 @@ export class EngineService {
     clearTimeout(this.refusalTimer);
     this.refusal.set(text);
     this.refusalTimer = setTimeout(() => this.refusal.set(null), REFUSAL_MS);
+  }
+
+  /** Has the backend perform action `target` given `value`: a key's 1 pressed and 0 let go, a
+   * fader's position, or an encoder's steps (`steps`), as a controller's control would. */
+  perform(target: string, value: number, steps = false) {
+    return this.call('perform_action', { target, value, steps, step: null });
   }
 
   /** Runs a backend command; a failure is shown rather than thrown, until one goes through. */

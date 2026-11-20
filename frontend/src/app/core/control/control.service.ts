@@ -1,6 +1,5 @@
 import { nextTempoRange } from '../models/preferences';
 import { computed, Injectable, inject } from '@angular/core';
-import { AutoDjService } from '../services/auto-dj.service';
 import { EngineService } from '../services/engine.service';
 import { FxService } from '../services/fx.service';
 import { LibraryService } from '../services/library.service';
@@ -33,12 +32,8 @@ const LOOP_BEATS = 4;
 /** A search runs this many times as fast as play, in jumps of this often (ms). */
 const SEARCH_SPEED = 8;
 const SEARCH_EVERY_MS = 50;
-/** A tempo step (ratio) and a small bend. */
+/** A tempo step (ratio). */
 const TEMPO_STEP = 0.001;
-const SMALL_BEND = 0.01;
-/** A step of a beat grid moved (s) and stretched (BPM). */
-const GRID_STEP_S = 0.005;
-const GRID_STEP_BPM = 0.01;
 
 /** Every action a key or a controller can do (see `buildControls`). */
 @Injectable({ providedIn: 'root' })
@@ -61,9 +56,9 @@ export class ControlService {
   private readonly taps = new Map<number, TapTempo>();
   /** The filter of each deck set aside, where it stood. */
   private readonly filtersAside = new Map<number, number>();
-  private readonly autoDj = inject(AutoDjService);
 
   private readonly actions: ControlActions = {
+    perform: (id, value, steps) => this.engine.perform(id, value, steps),
     togglePlay: (deck) => this.engine.togglePlay(deck),
     cue: (deck, pressed) => (pressed ? this.engine.cueDown(deck) : this.engine.cueUp(deck)),
     setSync: (deck, on) => this.engine.setSync(deck, on),
@@ -73,9 +68,6 @@ export class ControlService {
       this.deck(deck)?.looping.active
         ? this.performance.exitLoop(deck)
         : this.performance.beatLoop(deck, LOOP_BEATS),
-    scaleLoop: (deck, factor) => this.performance.scaleLoop(deck, factor),
-    loopIn: (deck) => this.performance.loopIn(deck),
-    loopOut: (deck) => this.performance.loopOut(deck),
     beatJump: (deck, beats) => this.performance.beatJump(deck, beats),
     size: (deck) => this.performance.size(deck),
     scaleSize: (deck, factor) => this.performance.scaleSize(deck, factor),
@@ -84,8 +76,6 @@ export class ControlService {
     slicePlaying: (deck) => this.performance.slicePlaying(deck),
     cut: (deck, index, held) => this.performance.cut(deck, index, held),
     cutPlaying: (deck) => this.performance.cuts()[deck],
-    beatLoop: (deck, beats) => this.performance.beatLoop(deck, beats),
-    bend: (deck, direction) => this.engine.pitchBend(deck, direction),
     setKeyLock: (deck, on) => this.engine.setKeyLock(deck, on),
     keyLocked: (deck) => this.engine.decks()[deck].keyLock,
     toggleStem: (deck, stem) => this.engine.toggleStem(deck, stem),
@@ -94,7 +84,6 @@ export class ControlService {
       const track = this.engine.tracks()[deck];
       return track ? partLevel(track.stemMix, part) : 1;
     },
-    triggerSample: (deck, slot, velocity) => this.sampler.trigger(deck, slot, velocity),
     sampleLoaded: (deck, slot) => !!this.engine.decks()[deck].samples[slot],
     samplePlaying: (deck, slot) => ((this.deck(deck)?.samplesPlaying ?? 0) & (1 << slot)) !== 0,
     toggleFx: (deck, slot) => this.fx.setEnabled(deck, slot, !this.fx.settings(deck, slot).enabled),
@@ -117,15 +106,10 @@ export class ControlService {
     toggleFxFocus: (deck, slot) => this.fx.toggleFocus(deck, slot),
     setFxChainOn: (deck, on) => this.fx.setChainEnabled(deck, on),
     fxChainOn: (deck) => this.fx.chain(deck).enabled,
-    setKill: (deck, band, kill) => this.mixer.setKill(deck, band, kill),
     roll: (deck, beats) => {
       if (beats === null) this.rolls.delete(deck);
       else this.rolls.set(deck, beats);
       this.performance.loopRoll(deck, beats);
-    },
-    pitchPosition: (deck) => {
-      const range = this.engine.tempoRange(deck);
-      return Math.min(Math.max(0.5 + (this.engine.decks()[deck].pitch - 1) / (2 * range), 0), 1);
     },
     setVolume: (deck, position) => this.mixer.setVolume(deck, position),
     setEq: (deck, band, position) => this.mixer.setEq(deck, band, eqGain(position)),
@@ -159,20 +143,14 @@ export class ControlService {
     soloHeadphones: (deck) => this.engine.soloCue(deck),
     setSlip: (deck, on) => this.performance.setSlip(deck, on),
     slipping: (deck) => this.deck(deck)?.slipMode ?? false,
-    censor: (deck, held) => this.performance.censor(deck, held),
-    brake: (deck) => this.performance.brake(deck),
-    spinBack: (deck, held) => this.performance.spinBack(deck, held),
     setReverse: (deck, on) => this.performance.setReverse(deck, on),
     reversing: (deck) => this.deck(deck)?.reverse ?? false,
-    holdReverse: (deck, held) => this.performance.holdReverse(deck, held),
     setMute: (deck, on) => this.engine.setMute(deck, on),
     muted: (deck) => this.engine.decks()[deck].mute,
     setRepeat: (deck, on) => this.engine.setRepeat(deck, on),
     repeating: (deck) => this.engine.decks()[deck].repeat,
     setFaderStart: (deck, on) => this.engine.setFaderStart(deck, on),
     faderStart: (deck) => this.engine.decks()[deck].faderStart,
-    reloop: (deck) => this.performance.reloop(deck),
-    deleteHotCue: (deck, slot) => this.performance.deleteHotCue(deck, slot),
     resetTempo: (deck) => this.engine.setPitch(deck, 1),
     browse: (steps) =>
       this.library.focus() === 'lists'
@@ -191,9 +169,6 @@ export class ControlService {
     selectAll: () => this.library.selectAll(),
     clearSelection: () => this.library.clearSelection(),
     prepareSelected: () => this.library.addSelectedToPrepare(),
-    toggleAutoDj: () => this.autoDj.toggle(),
-    autoDjFade: () => this.autoDj.fadeNow(),
-    autoDjSkip: () => this.autoDj.skip(),
     focusSearch: () => this.library.searchRequests.update((n) => n + 1),
     keyShift: (deck) => this.engine.tracks()[deck]?.keyShift ?? 0,
     setKeyShift: (deck, semitones) => this.engine.setKeyShift(deck, semitones),
@@ -218,8 +193,6 @@ export class ControlService {
     toEnd: (deck) => this.performance.toEnd(deck),
     eject: (deck) => this.engine.eject(deck),
     syncOnce: (deck) => this.engine.syncOnce(deck),
-    toggleLeader: (deck) =>
-      this.engine.call('set_sync_leader', { deck: this.deck(deck)?.sync.leader ? null : deck }),
     search: (deck, direction, held) => {
       clearInterval(this.searches.get(deck));
       this.searches.delete(deck);
@@ -233,8 +206,6 @@ export class ControlService {
     },
     stepTempo: (deck, steps) =>
       this.engine.setPitch(deck, this.engine.decks()[deck].pitch + steps * TEMPO_STEP),
-    bendSmall: (deck, direction) =>
-      this.engine.call('set_pitch_bend', { deck, amount: direction * SMALL_BEND }),
     setPosition: (deck, position) => {
       const duration = this.deck(deck)?.durationS ?? 0;
       if (duration > 0) this.engine.seek(deck, position * duration);
@@ -247,7 +218,6 @@ export class ControlService {
       const shift = this.engine.keyMatch(deck);
       if (shift !== null) this.engine.setKeyShift(deck, shift);
     },
-    clearLoop: (deck) => this.engine.setLoop(deck, null, null, false),
     reloopStopped: (deck) => {
       const loop = this.deck(deck)?.looping;
       if (loop?.startS == null || loop.endS == null) return;
@@ -268,13 +238,6 @@ export class ControlService {
       this.engine.setLoop(deck, loop.startS + by, loop.endS + by, loop.active);
     },
     rolling: (deck, beats) => this.rolls.get(deck) === beats,
-    gridHere: (deck) => this.trackEdit.editGrid(deck, { kind: 'beatHere' }),
-    moveGrid: (deck, steps) =>
-      this.trackEdit.editGrid(deck, { kind: 'shift', seconds: steps * GRID_STEP_S }),
-    stretchGrid: (deck, steps) => {
-      const bpm = this.engine.tracks()[deck]?.tempo?.bpm;
-      if (bpm) this.trackEdit.editGrid(deck, { kind: 'bpm', bpm: bpm + steps * GRID_STEP_BPM });
-    },
     tapTempo: (deck) => {
       const taps = this.taps.get(deck) ?? new TapTempo();
       this.taps.set(deck, taps);
@@ -282,8 +245,6 @@ export class ControlService {
       if (bpm !== null)
         this.trackEdit.editGrid(deck, { kind: 'bpm', bpm: Math.round(bpm * 100) / 100 });
     },
-    holdFx: (deck, slot, held) => this.fx.setEnabled(deck, slot, held),
-    holdSlip: (deck, held) => this.performance.setSlip(deck, held),
     // a filter heard is set aside, whatever was before; a silent one gets back the one set aside
     toggleFilter: (deck) => {
       const position = this.mixer.strip(deck).filter;
@@ -308,14 +269,11 @@ export class ControlService {
         this.sampler.setGain(d, position);
     },
     samplerGainPosition: (deck) => this.engine.decks()[deck ?? 0].samplerGain,
-    stopSample: (deck, slot) => this.sampler.stop(deck, slot),
     ejectSample: (deck, slot) => this.sampler.clear(deck, slot),
     loadSample: (deck, slot) => {
       const path = this.library.selected();
       if (path) this.sampler.load(deck, slot, path);
     },
-    holdSample: (deck, slot, held) =>
-      held ? this.sampler.trigger(deck, slot) : this.sampler.stop(deck, slot),
     setVinyl: (deck, on) => this.engine.setVinyl(deck, { enabled: on }),
     vinylOn: (deck) => this.engine.decks()[deck].vinylEnabled,
     setJogScratch: (deck, on) => this.engine.setJogScratch(deck, on),

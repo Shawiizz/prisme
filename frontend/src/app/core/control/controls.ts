@@ -43,6 +43,9 @@ export interface Control {
 
 /** What the controls do, independent of how it is done. Positions go from 0 to 1. */
 export interface ControlActions {
+  /** Has the backend perform action `id` given `value`: a key's 1 pressed and 0 let go, a
+   * fader's position, or an encoder's steps (`steps`). */
+  perform(id: string, value: number, steps: boolean): void;
   togglePlay(deck: number): void;
   cue(deck: number, pressed: boolean): void;
   /** Locked to the leader (or matched once, on a record in one-shot mode), or free. */
@@ -50,9 +53,6 @@ export interface ControlActions {
   synced(deck: number): boolean;
   hotCue(deck: number, slot: number): void;
   toggleLoop(deck: number): void;
-  scaleLoop(deck: number, factor: number): void;
-  loopIn(deck: number): void;
-  loopOut(deck: number): void;
   beatJump(deck: number, beats: number): void;
   /** The deck's size in beats: what its jumps go by, what its sized loop lasts. */
   size(deck: number): number;
@@ -68,9 +68,6 @@ export interface ControlActions {
   cut(deck: number, index: number, held: boolean): void;
   /** The fader cut the deck plays (an index of `CUT_BEATS`), if any. */
   cutPlaying(deck: number): number | null;
-  /** A loop of `beats` from where the deck plays, or out of the loop it is in. */
-  beatLoop(deck: number, beats: number): void;
-  bend(deck: number, direction: -1 | 0 | 1): void;
   setKeyLock(deck: number, on: boolean): void;
   keyLocked(deck: number): boolean;
   /** The track's key moved by so many semitones. */
@@ -81,9 +78,6 @@ export interface ControlActions {
   /** Sets how loud a part of a separated track plays. */
   setStemLevel(deck: number, part: StemPart, position: number): void;
   stemLevel(deck: number, part: StemPart): number;
-  /** Plays a sample; a pad that tells how hard it was hit gives `velocity` (0 to 1), which
-   * scales that sound alone. */
-  triggerSample(deck: number, slot: number, velocity?: number): void;
   sampleLoaded(deck: number, slot: number): boolean;
   samplePlaying(deck: number, slot: number): boolean;
   /** The effects of a deck are in a chain of slots, played one after the other. */
@@ -119,12 +113,8 @@ export interface ControlActions {
   /** The deck's whole chain on or off, each slot keeping its own switch. */
   setFxChainOn(deck: number, on: boolean): void;
   fxChainOn(deck: number): boolean;
-  /** Cuts a band of the deck's EQ, or brings it back. */
-  setKill(deck: number, band: Band, kill: boolean): void;
   /** Rolls a loop of `beats` over the track, the track going on beneath; `null` ends it. */
   roll(deck: number, beats: number | null): void;
-  /** Where the deck's tempo fader is, 0 to 1: its fastest end at 1, the track's tempo midway. */
-  pitchPosition(deck: number): number;
   setVolume(deck: number, position: number): void;
   setEq(deck: number, band: Band, position: number): void;
   setFilter(deck: number, position: number): void;
@@ -165,16 +155,9 @@ export interface ControlActions {
   soloHeadphones(deck: number): void;
   setSlip(deck: number, on: boolean): void;
   slipping(deck: number): boolean;
-  censor(deck: number, held: boolean): void;
-  /** A playing deck slows to a stop as a turntable switched off; a stopped one starts softly. */
-  brake(deck: number): void;
-  /** The record spun back while held; let go, it plays on from there. */
-  spinBack(deck: number, held: boolean): void;
   /** The track played backwards at the deck's rate, or forwards again. */
   setReverse(deck: number, on: boolean): void;
   reversing(deck: number): boolean;
-  /** The track played backwards while held; with slip, it comes back where it would be. */
-  holdReverse(deck: number, held: boolean): void;
   /** The deck's channel silenced in the master, after its fader, or heard again. */
   setMute(deck: number, on: boolean): void;
   muted(deck: number): boolean;
@@ -184,8 +167,6 @@ export interface ControlActions {
   /** Software mixer: the channel fader starts and stops the deck, or not. */
   setFaderStart(deck: number, on: boolean): void;
   faderStart(deck: number): boolean;
-  reloop(deck: number): void;
-  deleteHotCue(deck: number, slot: number): void;
   resetTempo(deck: number): void;
   browse(steps: number): void;
   loadSelected(deck: number | null): void;
@@ -202,12 +183,6 @@ export interface ControlActions {
   selectAll(): void;
   clearSelection(): void;
   prepareSelected(): void;
-  /** The Auto DJ on, off, or on again after the DJ took over. */
-  toggleAutoDj(): void;
-  /** The Auto DJ mixes into the next track at once. */
-  autoDjFade(): void;
-  /** The Auto DJ leaves the next track out: the one after comes next. */
-  autoDjSkip(): void;
   focusSearch(): void;
   setQuantize(on: boolean): void;
   quantized(): boolean;
@@ -231,21 +206,15 @@ export interface ControlActions {
   eject(deck: number): void;
   /** The leader's tempo and beats, once: the deck stays free. */
   syncOnce(deck: number): void;
-  /** The deck leads the others, or back to the leader Prisme picks. */
-  toggleLeader(deck: number): void;
   /** Runs through the track while held, forwards or back. */
   search(deck: number, direction: -1 | 1, held: boolean): void;
   /** The tempo moved by so many tenths of a percent, and kept. */
   stepTempo(deck: number, steps: number): void;
-  /** A smaller bend while held. */
-  bendSmall(deck: number, direction: -1 | 0 | 1): void;
   /** Where the deck plays in its track (0 to 1). */
   setPosition(deck: number, position: number): void;
   positionInTrack(deck: number): number;
   /** The key of the deck brought to the key of the deck it mixes with. */
   syncKey(deck: number): void;
-  /** Takes the stored loop away. */
-  clearLoop(deck: number): void;
   /** Back to the start of the stored loop, playing it, stopped. */
   reloopStopped(deck: number): void;
   /** To the start or the end of the stored loop. */
@@ -254,16 +223,8 @@ export interface ControlActions {
   moveLoop(deck: number, beats: number): void;
   /** Whether a roll of `beats` plays. */
   rolling(deck: number, beats: number): boolean;
-  /** A correction of the beat grid: a beat here, earlier or later, faster or slower. */
-  gridHere(deck: number): void;
-  moveGrid(deck: number, steps: number): void;
-  stretchGrid(deck: number, steps: number): void;
   /** One tap of the tempo: the track's tempo once there are enough. */
   tapTempo(deck: number): void;
-  /** An effect of the deck on while held. */
-  holdFx(deck: number, slot: number, held: boolean): void;
-  /** Slip on while held. */
-  holdSlip(deck: number, held: boolean): void;
   /** The filter left where it is but heard or not. */
   toggleFilter(deck: number): void;
   setCrossfaderSide(deck: number, side: CrossfaderSide): void;
@@ -275,12 +236,9 @@ export interface ControlActions {
   nextCrossfaderCurve(): void;
   setSamplerGain(deck: number | null, position: number): void;
   samplerGainPosition(deck: number | null): number;
-  stopSample(deck: number, slot: number): void;
   ejectSample(deck: number, slot: number): void;
   /** The selected track into the slot. */
   loadSample(deck: number, slot: number): void;
-  /** Plays the sample while held. */
-  holdSample(deck: number, slot: number, held: boolean): void;
   /** Vinyl control of the deck on or off. */
   setVinyl(deck: number, on: boolean): void;
   vinylOn(deck: number): boolean;
@@ -420,19 +378,21 @@ function silentEnd(control: Control): Control {
   };
 }
 
-/**
- * A control the backend performs itself, straight from the controller (the jog wheels and
- * tempo faders, its `actions`): listed to be mapped, never applied here; a fader's position
- * tells it shows a value on the controllers (the backend shows it).
- */
-function direct(
+/** A control the controller reads itself (its shift): listed to be mapped, never applied here. */
+function direct(id: string, group: string, label: string): Control {
+  return { id, group, label, kind: 'button', apply: () => undefined };
+}
+
+/** A control the backend performs, whoever moves it: a controller (straight to the backend),
+ * a key, the command palette. */
+function performed(
+  a: ControlActions,
   id: string,
   group: string,
   label: string,
-  kind: ControlKind,
-  position?: () => number,
+  kind: ControlKind = 'button',
 ): Control {
-  return { id, group, label, kind, apply: () => undefined, position };
+  return { id, group, label, kind, apply: (v) => a.perform(id, v, kind === 'encoder') };
 }
 
 /** A control with a light the app tells the controllers, on when `on` says. */
@@ -542,9 +502,7 @@ function fxControls(a: ControlActions, deck: number, slot: number, group: string
       ),
       () => a.fxFocused(deck) === slot,
     ),
-    hold(id('.held'), group, t('Effect {n} on while held', { n }), (held) =>
-      a.holdFx(deck, slot, held),
-    ),
+    performed(a, id('.held'), group, t('Effect {n} on while held', { n })),
   ];
 }
 
@@ -624,19 +582,17 @@ function deckControls(a: ControlActions, deck: number): Control[] {
       ),
     ),
     ...Array.from({ length: HOT_CUES }, (_, slot) =>
-      button(id(`hotcue${slot + 1}.delete`), group, t('Delete hot cue {n}', { n: slot + 1 }), () =>
-        a.deleteHotCue(deck, slot),
-      ),
+      performed(a, id(`hotcue${slot + 1}.delete`), group, t('Delete hot cue {n}', { n: slot + 1 })),
     ),
-    direct(id('jog'), group, t('Jog wheel (turn)'), 'encoder'),
-    direct(id('jog.touch'), group, t('Jog wheel (touch: scratch)'), 'button'),
-    direct(id('jog.search'), group, t('Jog wheel (search through the track)'), 'encoder'),
+    performed(a, id('jog'), group, t('Jog wheel (turn)'), 'encoder'),
+    performed(a, id('jog.touch'), group, t('Jog wheel (touch: scratch)')),
+    performed(a, id('jog.search'), group, t('Jog wheel (search through the track)'), 'encoder'),
     button(id('loop'), group, t('Loop 4 beats / exit'), () => a.toggleLoop(deck)),
-    button(id('loop.in'), group, t('Loop in'), () => a.loopIn(deck)),
-    button(id('loop.out'), group, t('Loop out'), () => a.loopOut(deck)),
-    button(id('reloop'), group, t('Reloop'), () => a.reloop(deck)),
-    button(id('loop.halve'), group, t('Halve the loop'), () => a.scaleLoop(deck, 0.5)),
-    button(id('loop.double'), group, t('Double the loop'), () => a.scaleLoop(deck, 2)),
+    performed(a, id('loop.in'), group, t('Loop in')),
+    performed(a, id('loop.out'), group, t('Loop out')),
+    performed(a, id('reloop'), group, t('Reloop')),
+    performed(a, id('loop.halve'), group, t('Halve the loop')),
+    performed(a, id('loop.double'), group, t('Double the loop')),
     button(id('jump.back'), group, t('Jump back by the size'), () =>
       a.beatJump(deck, -a.size(deck)),
     ),
@@ -653,8 +609,8 @@ function deckControls(a: ControlActions, deck: number): Control[] {
       kind: 'encoder',
       apply: (steps) => a.scaleSize(deck, 2 ** steps),
     },
-    hold(id('bend.down'), group, t('Slow down while held'), (held) => a.bend(deck, held ? -1 : 0)),
-    hold(id('bend.up'), group, t('Speed up while held'), (held) => a.bend(deck, held ? 1 : 0)),
+    performed(a, id('bend.down'), group, t('Slow down while held')),
+    performed(a, id('bend.up'), group, t('Speed up while held')),
     button(id('tempo.reset'), group, t('Tempo back to the track'), () => a.resetTempo(deck)),
     button(id('tempoRange'), group, t('Tempo fader range: next'), () =>
       a.cycleDeckTempoRange(deck, 1),
@@ -676,9 +632,9 @@ function deckControls(a: ControlActions, deck: number): Control[] {
       () => a.slipping(deck),
       (on) => a.setSlip(deck, on),
     ),
-    hold(id('censor'), group, t('Censor while held'), (held) => a.censor(deck, held)),
-    button(id('brake'), group, t('Brake (stopped: soft start)'), () => a.brake(deck)),
-    hold(id('spinback'), group, t('Spinback while held'), (held) => a.spinBack(deck, held)),
+    performed(a, id('censor'), group, t('Censor while held')),
+    performed(a, id('brake'), group, t('Brake (stopped: soft start)')),
+    performed(a, id('spinback'), group, t('Spinback while held')),
     ...switched(
       id('reverse'),
       group,
@@ -686,7 +642,7 @@ function deckControls(a: ControlActions, deck: number): Control[] {
       () => a.reversing(deck),
       (on) => a.setReverse(deck, on),
     ),
-    hold(id('reverse.held'), group, t('Reverse while held'), (held) => a.holdReverse(deck, held)),
+    performed(a, id('reverse.held'), group, t('Reverse while held')),
     ...switched(
       id('repeat'),
       group,
@@ -721,9 +677,7 @@ function deckControls(a: ControlActions, deck: number): Control[] {
       ),
     ),
     ...Array.from({ length: SAMPLE_SLOTS }, (_, slot) =>
-      button(id(`sample${slot + 1}`), group, t('Sample {n}', { n: slot + 1 }), () =>
-        a.triggerSample(deck, slot),
-      ),
+      performed(a, id(`sample${slot + 1}`), group, t('Sample {n}', { n: slot + 1 })),
     ),
     ...fxChainControls(a, deck, group),
     button(id('fx.part'), group, t('Effects on the next part'), () => a.nextFxPart(deck)),
@@ -754,7 +708,7 @@ function deckControls(a: ControlActions, deck: number): Control[] {
         () => a.cutPlaying(deck) === i,
       ),
     ),
-    direct(id('pitch'), group, t('Tempo'), 'fader', () => a.pitchPosition(deck)),
+    performed(a, id('pitch'), group, t('Tempo'), 'fader'),
     fader(
       id('volume'),
       group,
@@ -780,9 +734,7 @@ function deckControls(a: ControlActions, deck: number): Control[] {
         ),
       ),
     ),
-    ...BANDS.map((band) =>
-      hold(id(`eq.${band}.kill`), group, KILL_LABEL[band](), (held) => a.setKill(deck, band, held)),
-    ),
+    ...BANDS.map((band) => performed(a, id(`eq.${band}.kill`), group, KILL_LABEL[band]())),
     fader(
       id('filter'),
       group,
@@ -843,7 +795,7 @@ function moreDeckControls(
     button(id('end'), group, t('To the end'), () => a.toEnd(deck)),
     button(id('eject'), group, t('Eject the track'), () => a.eject(deck)),
     button(id('sync.once'), group, t('Match the tempo and beats once'), () => a.syncOnce(deck)),
-    button(id('sync.leader'), group, t('Lead the other decks'), () => a.toggleLeader(deck)),
+    performed(a, id('sync.leader'), group, t('Lead the other decks')),
     hold(id('search.back'), group, t('Run back through the track while held'), (held) =>
       a.search(deck, -1, held),
     ),
@@ -853,12 +805,8 @@ function moreDeckControls(
     button(id('tempo.up'), group, t('Tempo up 0.1 %'), () => a.stepTempo(deck, 1)),
     button(id('tempo.down'), group, t('Tempo down 0.1 %'), () => a.stepTempo(deck, -1)),
     encoder('tempo', t('Tempo, 0.1 % a step'), (steps) => a.stepTempo(deck, steps)),
-    hold(id('bend.down.small'), group, t('Slow down a little while held'), (held) =>
-      a.bendSmall(deck, held ? -1 : 0),
-    ),
-    hold(id('bend.up.small'), group, t('Speed up a little while held'), (held) =>
-      a.bendSmall(deck, held ? 1 : 0),
-    ),
+    performed(a, id('bend.down.small'), group, t('Slow down a little while held')),
+    performed(a, id('bend.up.small'), group, t('Speed up a little while held')),
     fader(
       id('position'),
       group,
@@ -874,7 +822,7 @@ function moreDeckControls(
       (v) => a.setKeyShift(deck, Math.round(v * 24 - 12)),
       () => (a.keyShift(deck) + 12) / 24,
     ),
-    button(id('loop.clear'), group, t('Forget the loop'), () => a.clearLoop(deck)),
+    performed(a, id('loop.clear'), group, t('Forget the loop')),
     button(id('reloop.stop'), group, t('Back to the loop, stopped'), () => a.reloopStopped(deck)),
     button(id('loop.in.goto'), group, t('To the start of the loop'), () =>
       a.toLoopEdge(deck, 'in'),
@@ -885,16 +833,20 @@ function moreDeckControls(
     button(id('loop.move.back'), group, t('Loop a beat back'), () => a.moveLoop(deck, -1)),
     button(id('loop.move.forward'), group, t('Loop a beat forward'), () => a.moveLoop(deck, 1)),
     encoder('loop.move', t('Loop moved, a beat a step'), (steps) => a.moveLoop(deck, steps)),
-    button(id('grid.here'), group, t('A beat of the grid here'), () => a.gridHere(deck)),
-    button(id('grid.earlier'), group, t('Beat grid earlier'), () => a.moveGrid(deck, -1)),
-    button(id('grid.later'), group, t('Beat grid later'), () => a.moveGrid(deck, 1)),
-    button(id('grid.faster'), group, t('Beat grid faster'), () => a.stretchGrid(deck, 1)),
-    button(id('grid.slower'), group, t('Beat grid slower'), () => a.stretchGrid(deck, -1)),
-    encoder('grid.move', t('Beat grid moved, a few milliseconds a step'), (steps) =>
-      a.moveGrid(deck, steps),
+    performed(a, id('grid.here'), group, t('A beat of the grid here')),
+    performed(a, id('grid.earlier'), group, t('Beat grid earlier')),
+    performed(a, id('grid.later'), group, t('Beat grid later')),
+    performed(a, id('grid.faster'), group, t('Beat grid faster')),
+    performed(a, id('grid.slower'), group, t('Beat grid slower')),
+    performed(
+      a,
+      id('grid.move'),
+      group,
+      t('Beat grid moved, a few milliseconds a step'),
+      'encoder',
     ),
     button(id('tap'), group, t('Tap the tempo'), () => a.tapTempo(deck)),
-    hold(id('slip.held'), group, t('Slip while held'), (held) => a.holdSlip(deck, held)),
+    performed(a, id('slip.held'), group, t('Slip while held')),
     button(id('filter.toggle'), group, t('Filter heard or not'), () => a.toggleFilter(deck)),
     ...(['left', 'center', 'right'] as const).map((side) =>
       button(id(`crossfader.${side}`), group, CROSSFADER_SIDE[side](), () =>
@@ -909,9 +861,7 @@ function moreDeckControls(
       () => a.samplerGainPosition(deck),
     ),
     ...Array.from({ length: SAMPLE_SLOTS }, (_, slot) => [
-      button(id(`sample${slot + 1}.stop`), group, t('Stop sample {n}', { n: slot + 1 }), () =>
-        a.stopSample(deck, slot),
-      ),
+      performed(a, id(`sample${slot + 1}.stop`), group, t('Stop sample {n}', { n: slot + 1 })),
       button(
         id(`sample${slot + 1}.eject`),
         group,
@@ -924,19 +874,19 @@ function moreDeckControls(
         t('The selected track into sample slot {n}', { n: slot + 1 }),
         () => a.loadSample(deck, slot),
       ),
-      hold(
+      performed(
+        a,
         id(`sample${slot + 1}.held`),
         group,
         t('Sample {n} while held', { n: slot + 1 }),
-        (held) => a.holdSample(deck, slot, held),
       ),
       button(
         id(`sample${slot + 1}.smart`),
         group,
         t('Sample {n}: load the selected track, play, or stop', { n: slot + 1 }),
         () => {
-          if (a.samplePlaying(deck, slot)) a.stopSample(deck, slot);
-          else if (a.sampleLoaded(deck, slot)) a.triggerSample(deck, slot);
+          if (a.samplePlaying(deck, slot)) a.perform(id(`sample${slot + 1}.stop`), 1, false);
+          else if (a.sampleLoaded(deck, slot)) a.perform(id(`sample${slot + 1}`), 1, false);
           else a.loadSample(deck, slot);
         },
       ),
@@ -1004,13 +954,7 @@ export function measuredControl(a: ControlActions, id: string): Control | undefi
     if (deck < 0 || deck >= MAX_DECKS || slot < 0 || slot >= SAMPLE_SLOTS) return undefined;
     const group = t('Deck {deck}', { deck: deckLetter(deck) });
     const label = t('Sample {n} (as hard as the pad is hit)', { n: slot + 1 });
-    return {
-      ...button(id, group, label, () => undefined),
-      apply: (v) => {
-        if (v > 0) a.triggerSample(deck, slot, v);
-      },
-      deck,
-    };
+    return { ...performed(a, id, group, label), deck };
   }
   const [, d, kind, amount] =
     /^deck(\d)\.(jump|loop|key|roll)\.([+-]?\d+(?:\.\d+)?)$/.exec(id) ?? [];
@@ -1028,12 +972,8 @@ export function measuredControl(a: ControlActions, id: string): Control | undefi
     };
   }
   if (beats === 0) return undefined;
-  if (kind === 'jump') {
-    return {
-      ...button(id, group, t('Jump {n} beats', { n: beats }), () => a.beatJump(deck, beats)),
-      deck,
-    };
-  }
+  if (kind === 'jump')
+    return { ...performed(a, id, group, t('Jump {n} beats', { n: beats })), deck };
   if (beats < 0) return undefined;
   if (kind === 'roll') {
     return {
@@ -1044,10 +984,7 @@ export function measuredControl(a: ControlActions, id: string): Control | undefi
       deck,
     };
   }
-  return {
-    ...button(id, group, t('Loop {n} beats', { n: beats }), () => a.beatLoop(deck, beats)),
-    deck,
-  };
+  return { ...performed(a, id, group, t('Loop {n} beats', { n: beats })), deck };
 }
 
 export function buildControls(a: ControlActions): Control[] {
@@ -1099,7 +1036,7 @@ export function buildControls(a: ControlActions): Control[] {
       () => a.talkover(),
       (on) => a.setTalkover(on),
     ),
-    direct('shift', t('Controller'), t('Shift (second use of the controls)'), 'button'),
+    direct('shift', t('Controller'), t('Shift (second use of the controls)')),
     {
       id: 'library.browse',
       group: library,
@@ -1223,9 +1160,9 @@ export function buildControls(a: ControlActions): Control[] {
     ),
     light('main.clip', t('Mixer'), t('Light: the master past full scale')),
     button('general.record', t('General'), t('Record the mix'), () => a.toggleRecording()),
-    button('autodj.toggle', t('Auto DJ'), t('Auto DJ on / off'), () => a.toggleAutoDj()),
-    button('autodj.fade', t('Auto DJ'), t('Mix into the next track now'), () => a.autoDjFade()),
-    button('autodj.skip', t('Auto DJ'), t('Skip the next track'), () => a.autoDjSkip()),
+    performed(a, 'autodj.toggle', t('Auto DJ'), t('Auto DJ on / off')),
+    performed(a, 'autodj.fade', t('Auto DJ'), t('Mix into the next track now')),
+    performed(a, 'autodj.skip', t('Auto DJ'), t('Skip the next track')),
     ...switched(
       'general.quantize',
       t('General'),
