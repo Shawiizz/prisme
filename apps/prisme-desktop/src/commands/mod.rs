@@ -23,6 +23,8 @@ pub mod preferences;
 pub mod prepare;
 pub mod preview;
 pub mod recording;
+#[cfg(debug_assertions)]
+pub mod round_trip;
 pub mod sampler;
 pub mod screens;
 #[cfg(debug_assertions)]

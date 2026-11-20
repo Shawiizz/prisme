@@ -385,6 +385,8 @@ pub fn run() {
             commands::simulated::simulate_hid_set,
             #[cfg(debug_assertions)]
             commands::simulated::simulated_hid_written,
+            #[cfg(debug_assertions)]
+            commands::round_trip::ping,
             commands::controllers::midi_outputs,
             commands::controllers::midi_clock_output,
             commands::controllers::set_midi_clock_output,
