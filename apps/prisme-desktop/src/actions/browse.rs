@@ -49,8 +49,8 @@ impl Library {
         self.separations.insert(id, separation);
     }
 
-    /// The list browsed as the interface shows it, the separations of its window found first
-    /// (see [`shown`]).
+    /// The list browsed as the interface shows it, the separations of its window as known (see
+    /// [`shown`]).
     pub fn view(&self) -> LibraryViewDto {
         let browser = &self.browser;
         let folder = match browser.source() {
@@ -89,7 +89,7 @@ impl Library {
     }
 
     /// The rows of the window the interface asked for (see [`Browser::set_window`]), their
-    /// separations found first (see [`shown`]).
+    /// separations as known (see [`shown`]).
     pub fn window(&self) -> LibraryWindowDto {
         let Library { browser, separations, around, .. } = self;
         let rows = browser.window().map(|row| {
@@ -144,7 +144,7 @@ impl Library {
     }
 
     /// The tracks of the window whose separation is not known yet.
-    fn unknown(&self) -> Vec<(TrackId, String)> {
+    pub fn unknown(&self) -> Vec<(TrackId, String)> {
         let rows = self.browser.window().filter(|row| !self.separations.contains_key(&row.entry.track));
         rows.map(|row| (row.entry.track, row.track.path.clone())).collect()
     }
@@ -262,9 +262,18 @@ pub fn shown<T>(state: &AppState, look: impl Fn(&Library) -> T) -> T {
             return look(&library);
         }
         drop(library);
-        let found: Vec<_> =
-            unknown.into_iter().map(|(id, path)| (id, stored_separation(Path::new(&path)))).collect();
-        lock(&state.library).separations.extend(found);
+        look_for_separations(state, unknown);
+    }
+}
+
+/// The separations of the `unknown` tracks looked for on disk, the library's lock let go: kept
+/// where none was told meanwhile (see [`Library::separated`]).
+pub fn look_for_separations(state: &AppState, unknown: Vec<(TrackId, String)>) {
+    let found: Vec<_> =
+        unknown.into_iter().map(|(id, path)| (id, stored_separation(Path::new(&path)))).collect();
+    let mut library = lock(&state.library);
+    for (id, separation) in found {
+        library.separations.entry(id).or_insert(separation);
     }
 }
 
@@ -1022,6 +1031,19 @@ mod tests {
         assert_eq!(lock(&bench.state.library).unknown().len(), 3);
         assert_eq!(shown(&bench.state, Library::window).rows.len(), 3);
         assert!(lock(&bench.state.library).unknown().is_empty(), "known from then on");
+    }
+
+    #[test]
+    fn a_separation_told_while_the_rows_are_looked_for_is_kept() {
+        let bench = library();
+        lock(&bench.state.library).browser.set_window(0, 10);
+        let unknown = lock(&bench.state.library).unknown();
+        bench.state.separated("C:/Music/b.mp3", SeparationDto::Full);
+        look_for_separations(&bench.state, unknown);
+        let window = lock(&bench.state.library).window();
+        let stems = |path: &str| window.rows.iter().find(|r| r.path == path).map(|r| r.stems);
+        assert_eq!(stems("C:/Music/b.mp3"), Some(RowStemsDto::Separated { separation: SeparationDto::Full }));
+        assert_eq!(stems("C:/Music/a.mp3"), Some(RowStemsDto::Separated { separation: SeparationDto::None }));
     }
 
     #[test]

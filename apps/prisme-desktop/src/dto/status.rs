@@ -4,7 +4,6 @@ use super::{
     AudioHealthDto, AutoDjStatusDto, DeckPadsDto, DeckSettingsDto, DeckStatusDto, FoldersStateDto,
     LibraryListsDto, LibraryViewDto, MixerStateDto, RecordingStatusDto, StemsStateDto, TrackInfoDto,
 };
-use crate::actions::browse::{self, Library};
 use crate::commands::audio::AudioStateDto;
 use crate::commands::controllers::ControllersStateDto;
 use crate::commands::mixer::{decks_of, mixer_state_of};
@@ -117,7 +116,7 @@ impl ControlStateDto {
                     controls.library_only = Some(perform.library_only);
                 }
                 Section::Preview => controls.preview = Some(lock(&state.preview).clone()),
-                Section::Library => controls.library = Some(browse::shown(state, Library::view)),
+                Section::Library => controls.library = Some(lock(&state.library).view()),
                 Section::Lists => controls.lists = Some(lock(&state.library).lists()),
                 Section::Settings => controls.preferences = Some(PreferencesDto::of(state)),
                 Section::Stems | Section::Controllers => {}

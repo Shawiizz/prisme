@@ -21,6 +21,8 @@ use prisme_actions::view::View;
 use prisme_analysis::Key;
 use prisme_library::browse::Column;
 use std::path::PathBuf;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Arc;
 use std::time::{Duration, Instant};
 use tauri::{AppHandle, Manager};
 
@@ -62,6 +64,8 @@ struct Clock {
     compared: (usize, bool),
     ranked: Option<Ranked>,
     stems: Shown,
+    /// The separations of the library's rows are looked for on the library's lane.
+    looking: Arc<AtomicBool>,
     meters: Meters,
     /// When the controllers' meters were last given their levels.
     metered: Option<Instant>,
@@ -126,11 +130,18 @@ impl Clock {
             self.player.told.follow(app, &view, heard, now_s);
         }
         let rows_moved = self.look_around(app, &state, &view, &moved);
+        // the rows sent once their separations are known: held back until then
+        let mut told = revision;
+        let waits = (moved(Section::Library) || rows_moved) && self.rows_wait(app, &state);
+        if waits {
+            told[Section::Library as usize] = seen.map_or(0, |s| s[Section::Library as usize]);
+        }
+        let rows_moved = rows_moved && !waits;
         let stream_stats = stream.as_ref().map(|(stats, rate)| (&**stats, *rate));
         let stems = &self.stems;
         let around = &self.around;
         let meters = &mut self.meters;
-        app.state::<StatusStream>().tell(&state, &view, revision, rows_moved, || {
+        app.state::<StatusStream>().tell(&state, &view, told, rows_moved, || {
             let mut status = StatusDto::of(&view, stream_stats, meters.read(&view.status, now_s));
             status.mix_in_s = app.state::<AutoDj>().mix_in_s(&view.status);
             for (deck, shown) in status.decks.iter_mut().enumerate() {
@@ -138,7 +149,27 @@ impl Clock {
             }
             status
         });
-        self.seen = Some(revision);
+        self.seen = Some(told);
+    }
+
+    /// Whether the rows of the library's window wait for their separations, then looked for on
+    /// the library's lane (a drive may be slow): the library moves once they are known.
+    fn rows_wait(&self, app: &AppHandle, state: &AppState) -> bool {
+        let unknown = lock(&state.library).unknown();
+        if unknown.is_empty() {
+            return false;
+        }
+        if !self.looking.swap(true, Ordering::AcqRel) {
+            let (looked, looking) = (app.clone(), self.looking.clone());
+            let job = move || {
+                let state = looked.state::<AppState>();
+                browse::look_for_separations(&state, unknown);
+                looking.store(false, Ordering::Release);
+                state.moved(Section::Library);
+            };
+            app.state::<Actions>().in_turn_on(Lane::Library, job);
+        }
+        true
     }
 
     /// The library's rows look at the decks, and are ranked again against the deck they follow:
