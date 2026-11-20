@@ -5,7 +5,7 @@ use crate::auto_dj::plan::FadeLength;
 use crate::commands::mixer::mixer_state_of;
 use crate::state::{lock, AppState, LoadedTrack, Section};
 use prisme_actions::pads::playing_loop;
-use prisme_actions::perform::DeckPerformView;
+use prisme_actions::perform::DeckPerform;
 pub use prisme_actions::stems::{Separation as SeparationDto, StemMix as StemMixDto};
 use prisme_audio_io::{Backend, StreamStats};
 use prisme_engine::{
@@ -1115,9 +1115,29 @@ pub struct ControlStateDto {
     pub loading: Option<[bool; MAX_DECKS]>,
     /// What each deck's pads hold.
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub perform: Option<[DeckPerformView; MAX_DECKS]>,
+    pub perform: Option<[DeckPadsDto; MAX_DECKS]>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub preview: Option<PreviewStateDto>,
+}
+
+/// What a deck's pads hold, as the interface shows them.
+#[derive(Debug, Clone, Copy, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DeckPadsDto {
+    /// The roll playing, in beats.
+    pub roll: Option<f64>,
+    /// Where the bar its slicer divides starts (s).
+    pub slicer: Option<f64>,
+    /// The fader cut playing, of those held.
+    pub cut: Option<usize>,
+    /// The slot of its effect chain the effect knobs turn.
+    pub fx_focus: Option<usize>,
+}
+
+impl From<&DeckPerform> for DeckPadsDto {
+    fn from(deck: &DeckPerform) -> Self {
+        Self { roll: deck.roll, slicer: deck.slicer, cut: deck.cuts.acting(), fx_focus: deck.fx_focus }
+    }
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -1148,7 +1168,9 @@ impl ControlStateDto {
                     controls.tracks = Some(tracks);
                     controls.loading = Some(state.loading());
                 }
-                Section::Perform => controls.perform = Some(lock(&state.perform).pads()),
+                Section::Perform => {
+                    controls.perform = Some(lock(&state.perform).decks.each_ref().map(DeckPadsDto::from))
+                }
                 Section::Preview => controls.preview = Some(lock(&state.preview).clone()),
             }
         }

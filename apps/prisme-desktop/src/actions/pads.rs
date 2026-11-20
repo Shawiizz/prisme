@@ -53,18 +53,19 @@ impl Performing<'_> {
         let place = place(self.state, deck);
         let region = {
             let mut perform = self.perform_state();
-            let d = &mut perform.decks[deck];
-            if let Some(place) = place.as_ref().filter(|_| held && d.slices.acting().is_none()) {
-                let left = d.slicer.is_none_or(|start| slice_at(start, place.at_s, place.beat_s).is_none());
-                if left {
-                    d.slicer = Some(place.bar_start());
+            let mut memory = self.memory();
+            let slices = &mut memory.decks[deck].slices;
+            if let Some(place) = place.as_ref().filter(|_| held && slices.acting().is_none()) {
+                let start = perform.decks[deck].slicer;
+                if start.is_none_or(|start| slice_at(start, place.at_s, place.beat_s).is_none()) {
+                    perform.decks[deck].slicer = Some(place.bar_start());
                 }
             }
-            let (before, now) = d.slices.press(slice, held);
+            let (before, now) = slices.press(slice, held);
             if before == now {
                 return Ok(());
             }
-            let slicer = d.slicer.zip(place.map(|p| p.beat_s));
+            let slicer = perform.decks[deck].slicer.zip(place.map(|p| p.beat_s));
             now.zip(slicer).map(|(slice, (start_s, beat_s))| {
                 let start_s = start_s + slice as f64 * beat_s;
                 LoopRegion { start_s, end_s: start_s + beat_s }
@@ -148,9 +149,11 @@ mod tests {
         super::anchor_slicer(&bench.state, 0).unwrap();
         assert_eq!(lock(&bench.state.perform).decks[0].slicer, Some(0.0));
         bench.at(0, 3.0);
+        let before = bench.state.revision();
         hold(&bench, "deck1.slice1", true);
         hold(&bench, "deck1.slice1", false);
         assert_eq!(lock(&bench.state.perform).decks[0].slicer, Some(0.0), "within its eight beats");
+        assert_eq!(bench.state.moved_since(before), [], "the slices held are not shown");
         bench.at(0, 9.0);
         hold(&bench, "deck1.slice1", true);
         assert_eq!(lock(&bench.state.perform).decks[0].slicer, Some(8.0));

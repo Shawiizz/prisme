@@ -30,14 +30,14 @@ pub fn view_of(state: &AppState, auto_dj: bool, memory: &Mutex<Memory>, now_s: f
         let mut memory = lock(memory);
         (memory.clips.heard(&status, now_s), memory.faders)
     };
-    let perform = lock(&state.perform).view(clipping, faders);
+    let perform = lock(&state.perform).view(clipping);
     let settings = as_laid_out(*lock(&state.decks), layout);
     let tracks = lock(&state.tracks).each_ref().map(|t| t.as_ref().map(track_view));
     let samples = lock(&state.samplers).each_ref().map(loaded);
     let mixer = mixer_view(&mixer, *lock(&state.live), *lock(&state.crossfader));
     let preview_opening = lock(&state.preview).opening.is_some();
     let decks = std::array::from_fn(|d| deck_view(d, &settings[d], ranges[d], samples[d], tracks[d]));
-    View { decks_in_use, status, decks, mixer, quantize, auto_dj, preview_opening, perform }
+    View { decks_in_use, status, decks, mixer, quantize, auto_dj, preview_opening, perform, faders }
 }
 
 /// What a move reads, as it reads it: the settings of a deck as it shows them (a turntable

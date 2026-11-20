@@ -220,7 +220,7 @@ mod tests {
         let target = |id: &str| id.parse::<Target>().unwrap();
         // a period of 1/4 beat given at 0.2, the knob of the focused slot reading it too
         v.decks[0].fx.slots[1].beats = 0.25;
-        v.perform.faders.give_stepped(&target("deck1.fx2.period"), 0.2, 7);
+        v.faders.give_stepped(&target("deck1.fx2.period"), 0.2, 7);
         v.perform.decks[0].fx_focus = Some(1);
         assert_eq!(at("deck1.fx2.period", &v), Some(0.2));
         assert_eq!(at("deck1.fx.knob3", &v), Some(0.2));
@@ -228,13 +228,13 @@ mod tests {
         assert!(close(at("deck1.fx2.period", &v), 4.5 / 7.0), "changed elsewhere");
         // a band silent at 0.01, a live source at 0.015
         v.decks[1].strip.eq[2] = 0.0;
-        v.perform.faders.give_silent_end(&target("deck2.eq.high"), 0.01, 0.0);
+        v.faders.give_silent_end(&target("deck2.eq.high"), 0.01, 0.0);
         assert_eq!(at("deck2.eq.high", &v), Some(0.01));
         assert_eq!(at("deck1.eq.high", &v), Some(eq_knob(1.0)), "the other deck's");
         v.mixer.aux.level = 0.0;
-        v.perform.faders.give_silent_end(&target("mixer.aux"), 0.015, live_knob(0.0));
+        v.faders.give_silent_end(&target("mixer.aux"), 0.015, live_knob(0.0));
         assert_eq!(at("mixer.aux", &v), Some(0.015));
-        v.perform.faders.give_stepped(&target("mixer.crossfaderCurve"), 0.9, 2);
+        v.faders.give_stepped(&target("mixer.crossfaderCurve"), 0.9, 2);
         v.mixer.sharp_curve = true;
         assert_eq!(at("mixer.crossfaderCurve", &v), Some(0.9));
     }

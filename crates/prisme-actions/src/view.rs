@@ -49,7 +49,7 @@ impl Sees for View {
     }
 
     fn faders(&self) -> Faders {
-        self.perform.faders
+        self.faders
     }
 
     fn fx_focus(&self, deck: usize) -> Option<usize> {
@@ -75,6 +75,8 @@ pub struct View {
     /// The file of a track to preview opens (the engine previews it once it is open).
     pub preview_opening: bool,
     pub perform: PerformView,
+    /// Where the faders over a few steps or silent at an end were last given.
+    pub faders: Faders,
 }
 
 /// A deck's settings, and its track.
@@ -287,7 +289,8 @@ pub(crate) mod fixtures {
             quantize: false,
             auto_dj: false,
             preview_opening: false,
-            perform: PerformState::default().view(Default::default(), Default::default()),
+            perform: PerformState::default().view(Default::default()),
+            faders: Faders::default(),
         }
     }
 

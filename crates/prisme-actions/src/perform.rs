@@ -1,6 +1,6 @@
 //! What the actions keep between two presses, beside the engine and the settings: what the
-//! pads and the interface show (a deck's slicer and the slices and cuts held, its roll, its
-//! effect focused), what they keep for themselves alone (its cue played while held, its filter
+//! pads and the interface show (a deck's slicer, the cuts held, its roll, its effect focused),
+//! what they keep for themselves alone (its cue played while held, the slices held, its filter
 //! set aside, its tempo tapped, where the faders over a few steps or silent at an end were
 //! given); and when the levels last clipped.
 
@@ -9,7 +9,6 @@ use crate::press::Held;
 use crate::tap::TapTempo;
 use prisme_control::MAX_DECKS;
 use prisme_engine::EngineStatus;
-use serde::Serialize;
 
 /// How long a light shows a level past full scale after it.
 const CLIP_SHOWN_S: f64 = 1.0;
@@ -24,7 +23,6 @@ pub struct PerformState {
 pub struct DeckPerform {
     /// Where the bar its slices divide starts (s).
     pub slicer: Option<f64>,
-    pub slices: Held,
     pub cuts: Held,
     /// The roll playing, in beats.
     pub roll: Option<f64>,
@@ -45,6 +43,8 @@ pub struct Memory {
 pub struct DeckMemory {
     /// Its cue held on the cue point: the track plays until the cue is let go.
     pub cue_preview: bool,
+    /// The slices of its slicer held, the last pressed playing.
+    pub slices: Held,
     /// Where its filter stood when set aside.
     pub filter_aside: Option<f32>,
     pub taps: TapTempo,
@@ -91,20 +91,17 @@ impl Clips {
     }
 }
 
-/// What the lights read of the performance state.
+/// What the lights read of the pads and of the levels clipping.
 #[derive(Debug, Clone, Copy, Default, PartialEq)]
 pub struct PerformView {
     pub decks: [DeckPerformView; MAX_DECKS],
-    pub faders: Faders,
     pub main_clipping: bool,
 }
 
-/// What the lights and the interface read of a deck's pads.
-#[derive(Debug, Clone, Copy, Default, PartialEq, Serialize)]
-#[serde(rename_all = "camelCase")]
+/// What the lights read of a deck's pads and of its level.
+#[derive(Debug, Clone, Copy, Default, PartialEq)]
 pub struct DeckPerformView {
     /// Its level went past full scale within the last second.
-    #[serde(skip)]
     pub clipping: bool,
     /// The roll playing, in beats.
     pub roll: Option<f64>,
@@ -117,25 +114,19 @@ pub struct DeckPerformView {
 }
 
 impl PerformState {
-    /// What the interface reads of each deck's pads.
-    pub fn pads(&self) -> [DeckPerformView; MAX_DECKS] {
-        self.decks.each_ref().map(|deck| DeckPerformView {
-            clipping: false,
-            roll: deck.roll,
-            slicer: deck.slicer,
-            cut: deck.cuts.acting(),
-            fx_focus: deck.fx_focus,
-        })
-    }
-
-    /// What the lights read of it, the levels clipping as `clipping` says, the faders given as
-    /// `faders`.
-    pub fn view(&self, clipping: Clipping, faders: Faders) -> PerformView {
-        let mut decks = self.pads();
-        for (deck, clipping) in decks.iter_mut().zip(clipping.decks) {
-            deck.clipping = clipping;
-        }
-        PerformView { decks, faders, main_clipping: clipping.main }
+    /// What the lights read of it, the levels clipping as `clipping` says.
+    pub fn view(&self, clipping: Clipping) -> PerformView {
+        let decks = std::array::from_fn(|d| {
+            let deck = &self.decks[d];
+            DeckPerformView {
+                clipping: clipping.decks[d],
+                roll: deck.roll,
+                slicer: deck.slicer,
+                cut: deck.cuts.acting(),
+                fx_focus: deck.fx_focus,
+            }
+        });
+        PerformView { decks, main_clipping: clipping.main }
     }
 }
 
@@ -164,7 +155,7 @@ mod tests {
         state.decks[1].cuts.press(1, true);
         state.decks[1].cuts.press(3, true);
         state.decks[0].roll = Some(0.5);
-        let view = state.view(Clipping::default(), Faders::default());
+        let view = state.view(Clipping::default());
         assert_eq!((view.decks[1].cut, view.decks[0].cut, view.decks[0].roll), (Some(3), None, Some(0.5)));
     }
 }
