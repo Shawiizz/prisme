@@ -7,7 +7,7 @@
 
 use crate::catalogue::{folded, Catalogue, Track, TrackId, Tracks};
 use crate::db::{Crate, CrateId, HistorySession, SessionId, TrackRecord};
-use crate::duplicates::duplicate_groups;
+use crate::duplicates::{duplicate_groups, song_key};
 use crate::mix::{MixReference, Rank};
 use crate::scan::within;
 use std::cmp::Ordering;
@@ -197,6 +197,21 @@ impl Default for Browser {
     }
 }
 
+/// The lists a track belongs to by what it is, not by where its file is: the smart crates it
+/// matches, in their order, and its song, which its duplicates share.
+#[derive(PartialEq)]
+struct Belongs {
+    smart: Vec<bool>,
+    song: Option<String>,
+}
+
+impl Belongs {
+    /// A track the library does not know, `smart` crates kept.
+    fn nowhere(smart: usize) -> Self {
+        Self { smart: vec![false; smart], song: None }
+    }
+}
+
 impl Browser {
     // --- the library and its lists ---
 
@@ -212,14 +227,34 @@ impl Browser {
         self.remake();
     }
 
-    /// What the library knows of one track, analysed or changed.
+    /// What the library knows of one track, analysed or changed: in the lists it now belongs
+    /// to, those shown and the counts of the side panel, at once.
     pub fn put(&mut self, record: TrackRecord) {
+        let before = match self.catalogue.find(&record.path) {
+            Some(id) => self.belongs(id),
+            None => Belongs::nowhere(self.crates.iter().filter(|c| c.rules.is_some()).count()),
+        };
         let id = self.catalogue.put(record);
-        if self.place(id) {
+        let placed = self.place(id);
+        let now = self.belongs(id);
+        let smart = self.crates.iter_mut().filter(|c| c.rules.is_some());
+        for (c, (was, is)) in smart.zip(before.smart.iter().zip(&now.smart)) {
+            c.track_count = (c.track_count + usize::from(*is)).saturating_sub(usize::from(*was));
+        }
+        if placed || before != now {
             self.lists_changed();
-            if self.source == Source::Elsewhere {
-                self.rederive();
+        }
+        let shown_moved = match self.source {
+            Source::Elsewhere => placed,
+            Source::Duplicates => before.song != now.song,
+            Source::Crate(shown) => {
+                let at = self.crates.iter().filter(|c| c.rules.is_some()).position(|c| c.id == shown);
+                at.is_some_and(|at| before.smart[at] != now.smart[at])
             }
+            _ => false,
+        };
+        if shown_moved {
+            self.rederive();
         }
         if self.scope == Scope::Library
             && self.catalogue.get(id).analysed()
@@ -251,6 +286,7 @@ impl Browser {
                 self.place(id);
             }
         }
+        self.count_smart_crates();
         self.lists_changed();
         if self.scope == Scope::Library {
             self.library = self.analysed();
@@ -898,6 +934,16 @@ impl Browser {
         self.elsewhere = elsewhere;
     }
 
+    /// The lists the track `id` belongs to by what it is.
+    fn belongs(&self, id: TrackId) -> Belongs {
+        let record = self.catalogue.get(id).record.as_ref();
+        let rules = self.crates.iter().filter_map(|c| c.rules.as_ref());
+        Belongs {
+            smart: rules.map(|rules| record.is_some_and(|r| rules.matches(r))).collect(),
+            song: record.filter(|r| r.error.is_none()).and_then(song_key),
+        }
+    }
+
     fn count_smart_crates(&mut self) {
         let records: Vec<&TrackRecord> =
             self.catalogue.ids().filter_map(|id| self.catalogue.get(id).record.as_ref()).collect();
@@ -1300,6 +1346,32 @@ mod tests {
         assert_eq!(titles(&mut browser), ["Café Noir", "Strobe"]);
         assert!(!browser.removable(), "it picks its own");
         assert!(browser.rows_of(&Source::Crate(CrateId(1))).is_none(), "the database's");
+        // a track analysed or edited joins the crate shown, and its count, at once
+        browser.put(record(
+            "C:/Music/b.mp3",
+            tags("Alone", Some("Claptone"), Some("Deep House")),
+            None,
+            None,
+        ));
+        assert_eq!(titles(&mut browser), ["Alone", "Café Noir", "Strobe"]);
+        assert_eq!(browser.crates()[1].track_count, 3);
+        browser.put(record("C:/Music/a.mp3", tags("Strobe", None, Some("Techno")), None, None));
+        assert_eq!(titles(&mut browser), ["Alone", "Café Noir"], "and leaves it");
+        browser.forget(&["C:/Music/c.mp3".into()]);
+        assert_eq!(browser.crates()[1].track_count, 1);
+    }
+
+    #[test]
+    fn a_track_edited_into_a_duplicate_shows_among_them_at_once() {
+        let mut browser = folder();
+        let rows = browser.rows_of(&Source::Duplicates).unwrap();
+        browser.show(Source::Duplicates, rows);
+        assert_eq!(browser.count(), 0);
+        let count = |b: &Browser| b.lists_revision();
+        let before = count(&browser);
+        browser.put(record("C:/Music/b.mp3", tags("Strobe", Some("deadmau5"), None), None, None));
+        assert_eq!(titles(&mut browser), ["Strobe", "Strobe"]);
+        assert!(count(&browser) > before, "the side panel told");
     }
 
     #[test]

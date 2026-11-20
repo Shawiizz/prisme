@@ -16,7 +16,9 @@ pub fn duplicate_groups<'r>(records: impl IntoIterator<Item = &'r TrackRecord>) 
     groups.into_values().filter(|g| g.len() > 1).collect()
 }
 
-fn song_key(record: &TrackRecord) -> Option<String> {
+/// What tells a song apart from the others, whatever its file: two tracks with the same are
+/// duplicates.
+pub(crate) fn song_key(record: &TrackRecord) -> Option<String> {
     let tags = &record.tags;
     let text = match (&tags.artist, &tags.title) {
         (Some(artist), Some(title)) => format!("{artist} {title}"),
