@@ -411,7 +411,7 @@ export class EngineService {
    * `confirmed`, the DJ said yes to what it replaces. Whether it was done. */
   perform(target: string, value: number, steps = false, confirmed = false) {
     const order = { run: this.run, number: ++this.sent };
-    return this.call('perform_action', { target, value, steps, step: null, confirmed, order });
+    return this.call('perform_action', { target, value, steps, confirmed, order });
   }
 
   /** The key of `action` of `deck` (`play`, `cue`…) pressed, or let go (`down` false). */

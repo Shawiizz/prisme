@@ -347,7 +347,7 @@ export type GridChange =
   | { kind: 'align' }
   | { kind: 'reset' };
 
-/** Deck settings owned by the UI and pushed to the engine. */
+/** A deck's settings, as the backend keeps them and the status stream tells them. */
 export interface DeckSettings {
   pitch: number;
   volume: number;

@@ -620,8 +620,8 @@ fn not_performed(target: &Target) -> AppError {
     AppError::Other(format!("{target} is the interface's to perform"))
 }
 
-/// Performs the action `target` driven to `value` (an encoder's `steps`, each moving a fader
-/// by `step`), as the interface asks: `confirmed`, the DJ said yes to what it replaces. The
+/// Performs the action `target` driven to `value` (an encoder's `steps`, if it says so), as the
+/// interface asks: `confirmed`, the DJ said yes to what it replaces. The
 /// interface numbers its actions (`order`): each is sent in turn after those sent before it, a
 /// key let go after it was pressed.
 #[tauri::command]
@@ -630,12 +630,11 @@ pub async fn perform_action(
     target: String,
     value: f32,
     steps: bool,
-    step: Option<f32>,
     confirmed: bool,
     order: Order,
 ) -> AppResult<()> {
     let target: Target = target.parse().map_err(|e: Unknown| AppError::Other(e.to_string()))?;
-    let input = Input::of(value, steps, step);
+    let input = Input::of(value, steps, None);
     let source = if confirmed { Source::Confirmed } else { Source::Interface };
     crate::commands::blocking(move || {
         let actions = app.state::<Actions>();

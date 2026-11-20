@@ -82,7 +82,7 @@ describe('EngineService', () => {
     engine.setVinylEnabled(0, true);
     // half the range up: three quarters of the fader
     engine.moveTempo(1, engine.tempoRange(1) / 2);
-    const performed = { steps: false, step: null, confirmed: false, order: expect.anything() };
+    const performed = { steps: false, confirmed: false, order: expect.anything() };
     expect(calls).toEqual([
       ['perform_action', { target: 'deck2.cue', value: 1, ...performed }],
       ['perform_action', { target: 'deck2.cue', value: 0, ...performed }],
@@ -150,7 +150,6 @@ describe('EngineService', () => {
             target: 'deck2.eject',
             value: 1,
             steps: false,
-            step: null,
             confirmed: true,
             order: expect.anything(),
           },

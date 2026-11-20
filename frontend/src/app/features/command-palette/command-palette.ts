@@ -111,7 +111,8 @@ export class CommandPalette {
   private readonly everything = computed<Item[]>(() => [
     ...this.controls
       .inUse()
-      .filter((c) => c.kind === 'button' && c.id !== 'general.palette')
+      // a controller's shift does nothing alone
+      .filter((c) => c.kind === 'button' && c.id !== 'general.palette' && c.id !== 'shift')
       .map((c) => ({
         section: 'actions' as const,
         title: c.label,
