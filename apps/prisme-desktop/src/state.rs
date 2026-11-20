@@ -685,6 +685,26 @@ impl AppState {
         }
     }
 
+    /// `change` made to the settings of `deck`, kept as the audio stops, then `command` sent to
+    /// the engine if it runs.
+    pub fn set_deck(
+        &self,
+        deck: usize,
+        change: impl FnOnce(&mut DeckSettings),
+        command: Command,
+    ) -> AppResult<()> {
+        Self::check_deck(deck)?;
+        change(&mut lock(&self.decks)[deck]);
+        self.send_if_running(command)
+    }
+
+    /// `change` made to the mixer's preferences, kept for the next start, then `command` sent
+    /// to the engine if it runs.
+    pub fn set_mixer(&self, change: impl FnOnce(&mut MixerPreferences), command: Command) -> AppResult<()> {
+        self.update_preferences(|p| change(&mut p.mixer));
+        self.send_if_running(command)
+    }
+
     /// Puts every loaded track at its level, after auto gain was turned on or off.
     pub fn apply_levels(&self) -> AppResult<()> {
         let auto_gain = self.preferences.read(|p| p.dj.auto_gain);

@@ -18,12 +18,10 @@ fn set_slot(
     change: impl FnOnce(&mut FxDto),
     command: Command,
 ) -> AppResult<()> {
-    AppState::check_deck(deck)?;
     if slot >= FX_SLOTS {
         return Err(AppError::Other(format!("no effect slot {}", slot + 1)));
     }
-    change(&mut lock(&state.decks)[deck].fx.slots[slot]);
-    state.send_if_running(command)
+    state.set_deck(deck, |d| change(&mut d.fx.slots[slot]), command)
 }
 
 pub fn set_fx_enabled(state: &AppState, deck: usize, slot: usize, enabled: bool) -> AppResult<()> {
@@ -57,16 +55,12 @@ pub fn set_fx_beats(state: &AppState, deck: usize, slot: usize, beats: f32) -> A
 
 /// The whole chain on or off, each slot keeping its own switch.
 pub fn set_fx_chain_enabled(state: &AppState, deck: usize, enabled: bool) -> AppResult<()> {
-    AppState::check_deck(deck)?;
-    lock(&state.decks)[deck].fx.enabled = enabled;
-    state.send_if_running(Command::SetFxChainEnabled { deck, enabled })
+    state.set_deck(deck, |d| d.fx.enabled = enabled, Command::SetFxChainEnabled { deck, enabled })
 }
 
 /// The part of the track the chain is on, where separated (`None`: the whole deck).
 pub fn set_fx_part(state: &AppState, deck: usize, part: Option<FxPartDto>) -> AppResult<()> {
-    AppState::check_deck(deck)?;
-    lock(&state.decks)[deck].fx.part = part;
-    state.send_if_running(Command::SetFxParts { deck, parts: FxPartDto::parts(part) })
+    state.set_deck(deck, |d| d.fx.part = part, Command::SetFxParts { deck, parts: FxPartDto::parts(part) })
 }
 
 /// The chain of `deck` on the next part of its track it can be on (as the track is separated),

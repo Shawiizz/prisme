@@ -46,30 +46,27 @@ fn opened(before: f32, after: f32) -> Option<bool> {
 
 /// The gain before the EQ (linear).
 pub fn set_trim(state: &AppState, deck: usize, gain: f32) -> AppResult<()> {
-    AppState::check_deck(deck)?;
-    lock(&state.decks)[deck].strip.trim = gain;
-    state.send_if_running(Command::SetTrim { deck, gain })
+    state.set_deck(deck, |d| d.strip.trim = gain, Command::SetTrim { deck, gain })
 }
 
 /// An EQ band's gain (linear, 1 = flat).
 pub fn set_eq(state: &AppState, deck: usize, band: BandDto, gain: f32) -> AppResult<()> {
-    AppState::check_deck(deck)?;
-    lock(&state.decks)[deck].strip.eq[band as usize] = gain;
-    state.send_if_running(Command::SetEq { deck, band: band.into(), gain })
+    state.set_deck(
+        deck,
+        |d| d.strip.eq[band as usize] = gain,
+        Command::SetEq { deck, band: band.into(), gain },
+    )
 }
 
 /// A band of the deck's EQ cut, or back.
 pub fn set_eq_kill(state: &AppState, deck: usize, band: BandDto, kill: bool) -> AppResult<()> {
-    AppState::check_deck(deck)?;
-    lock(&state.decks)[deck].strip.kills[band as usize] = kill;
-    state.send_if_running(Command::SetEqKill { deck, band: band.into(), kill })
+    let command = Command::SetEqKill { deck, band: band.into(), kill };
+    state.set_deck(deck, |d| d.strip.kills[band as usize] = kill, command)
 }
 
 /// -1 = low-pass closed, 0 = off, 1 = high-pass closed.
 pub fn set_filter(state: &AppState, deck: usize, position: f32) -> AppResult<()> {
-    AppState::check_deck(deck)?;
-    lock(&state.decks)[deck].strip.filter = position;
-    state.send_if_running(Command::SetFilter { deck, position })
+    state.set_deck(deck, |d| d.strip.filter = position, Command::SetFilter { deck, position })
 }
 
 /// -1 full left, 1 full right; the Auto DJ lets the crossfader go.
@@ -81,51 +78,46 @@ pub fn set_crossfader(state: &AppState, auto_dj: Option<&AutoDj>, position: f32)
 
 /// Headphones: 0 = cued decks only, 1 = master only.
 pub fn set_cue_mix(state: &AppState, mix: f32) -> AppResult<()> {
-    state.update_preferences(|p| p.mixer.cue_mix = mix);
-    state.send_if_running(Command::SetCueMix { mix })
+    state.set_mixer(|m| m.cue_mix = mix, Command::SetCueMix { mix })
 }
 
 /// -1 = the master on the left only, 1 = on the right only.
 pub fn set_balance(state: &AppState, balance: f32) -> AppResult<()> {
-    state.update_preferences(|p| p.mixer.balance = balance);
-    state.send_if_running(Command::SetBalance { balance })
+    state.set_mixer(|m| m.balance = balance, Command::SetBalance { balance })
 }
 
 pub fn set_booth_gain(state: &AppState, gain: f32) -> AppResult<()> {
-    state.update_preferences(|p| p.mixer.booth_gain = gain);
-    state.send_if_running(Command::SetBoothGain { gain })
+    state.set_mixer(|m| m.booth_gain = gain, Command::SetBoothGain { gain })
 }
 
 pub fn set_headphone_gain(state: &AppState, gain: f32) -> AppResult<()> {
-    state.update_preferences(|p| p.mixer.headphone_gain = gain);
-    state.send_if_running(Command::SetHeadphoneGain { gain })
+    state.set_mixer(|m| m.headphone_gain = gain, Command::SetHeadphoneGain { gain })
 }
 
 /// The master's level (linear).
 pub fn set_main_gain(state: &AppState, gain: f32) -> AppResult<()> {
-    state.update_preferences(|p| p.mixer.main_gain = gain);
-    state.send_if_running(Command::SetMasterGain { gain })
+    state.set_mixer(|m| m.main_gain = gain, Command::SetMasterGain { gain })
 }
 
 pub fn set_crossfader_curve(state: &AppState, curve: CrossfaderCurveDto) -> AppResult<()> {
-    state.update_preferences(|p| p.mixer.crossfader_curve = curve);
-    state.send_if_running(Command::SetCrossfaderCurve { curve: curve.into() })
+    state.set_mixer(|m| m.crossfader_curve = curve, Command::SetCrossfaderCurve { curve: curve.into() })
 }
 
 /// The level of a live source (linear).
 pub fn set_live_level(state: &AppState, source: LiveSourceDto, gain: f32) -> AppResult<()> {
-    state.update_preferences(|p| match source {
-        LiveSourceDto::Mic => p.mixer.mic.level = gain,
-        LiveSourceDto::Aux => p.mixer.aux.level = gain,
-    });
-    state.send_if_running(Command::SetLiveLevel { source: source.into(), gain })
+    let command = Command::SetLiveLevel { source: source.into(), gain };
+    state.set_mixer(
+        |m| match source {
+            LiveSourceDto::Mic => m.mic.level = gain,
+            LiveSourceDto::Aux => m.aux.level = gain,
+        },
+        command,
+    )
 }
 
 /// The side of the crossfader `deck` is on.
 pub fn set_crossfader_side(state: &AppState, deck: usize, side: CrossfaderSideDto) -> AppResult<()> {
-    AppState::check_deck(deck)?;
-    lock(&state.decks)[deck].side = Some(side);
-    state.send_if_running(Command::SetCrossfaderSide { deck, side: side.into() })
+    state.set_deck(deck, |d| d.side = Some(side), Command::SetCrossfaderSide { deck, side: side.into() })
 }
 
 /// Software mixer: the channel fader starts and stops the deck; kept for the next start.
@@ -138,9 +130,7 @@ pub fn set_fader_start(state: &AppState, deck: usize, enabled: bool) -> AppResul
 
 /// Sends the deck to the headphones (software mixer).
 pub fn set_deck_cue(state: &AppState, deck: usize, enabled: bool) -> AppResult<()> {
-    AppState::check_deck(deck)?;
-    lock(&state.decks)[deck].cue = enabled;
-    state.send_if_running(Command::SetDeckCue { deck, enabled })
+    state.set_deck(deck, |d| d.cue = enabled, Command::SetDeckCue { deck, enabled })
 }
 
 /// `deck` alone in the headphones, of the decks in use.
@@ -151,22 +141,18 @@ pub fn solo_cue(state: &AppState, deck: usize) -> AppResult<()> {
 
 /// The crossfader's sides swapped, or back. Kept for the next start.
 pub fn set_crossfader_reverse(state: &AppState, enabled: bool) -> AppResult<()> {
-    state.update_preferences(|p| p.mixer.crossfader_reverse = enabled);
-    state.send_if_running(Command::SetCrossfaderReverse { enabled })
+    state.set_mixer(|m| m.crossfader_reverse = enabled, Command::SetCrossfaderReverse { enabled })
 }
 
 /// The deck's channel silenced in the master, after its fader, or heard again.
 pub fn set_mute(state: &AppState, deck: usize, enabled: bool) -> AppResult<()> {
-    AppState::check_deck(deck)?;
-    lock(&state.decks)[deck].mute = enabled;
-    state.send_if_running(Command::SetMute { deck, muted: enabled })
+    state.set_deck(deck, |d| d.mute = enabled, Command::SetMute { deck, muted: enabled })
 }
 
 /// Headphones: the cue on the left and the master on the right, each in mono, or blended.
 /// Kept for the next start.
 pub fn set_split_cue(state: &AppState, enabled: bool) -> AppResult<()> {
-    state.update_preferences(|p| p.mixer.split_cue = enabled);
-    state.send_if_running(Command::SetSplitCue { enabled })
+    state.set_mixer(|m| m.split_cue = enabled, Command::SetSplitCue { enabled })
 }
 
 /// Heard in the master, or not.

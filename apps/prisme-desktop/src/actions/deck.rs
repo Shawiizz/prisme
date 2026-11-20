@@ -174,9 +174,7 @@ pub fn set_vinyl(state: &AppState, deck: usize, change: VinylChangeDto) -> AppRe
 
 /// The deck plays its input as it comes (a record, a CD player) instead of its track.
 pub fn set_passthrough(state: &AppState, deck: usize, enabled: bool) -> AppResult<()> {
-    AppState::check_deck(deck)?;
-    lock(&state.decks)[deck].passthrough = enabled;
-    state.send_if_running(Command::SetPassthrough { deck, enabled })
+    state.set_deck(deck, |d| d.passthrough = enabled, Command::SetPassthrough { deck, enabled })
 }
 
 /// The range of the tempo fader of `deck` (0.08 = ±8 %), or of every deck (`None`), which
@@ -216,17 +214,14 @@ fn set_deck_size(state: &AppState, deck: usize, beats: f64) -> AppResult<()> {
 
 /// At the end, the track goes on from its start.
 pub fn set_repeat(state: &AppState, deck: usize, enabled: bool) -> AppResult<()> {
-    AppState::check_deck(deck)?;
-    lock(&state.decks)[deck].repeat = enabled;
-    state.send_if_running(Command::SetRepeat { deck, enabled })
+    state.set_deck(deck, |d| d.repeat = enabled, Command::SetRepeat { deck, enabled })
 }
 
 /// The pitch stays when the speed changes; kept for the next start.
 pub fn set_key_lock(state: &AppState, deck: usize, enabled: bool) -> AppResult<()> {
-    AppState::check_deck(deck)?;
-    lock(&state.decks)[deck].key_lock = enabled;
+    state.set_deck(deck, |d| d.key_lock = enabled, Command::SetKeyLock { deck, enabled })?;
     state.update_preferences(|p| p.decks[deck].key_lock = enabled);
-    state.send_if_running(Command::SetKeyLock { deck, enabled })
+    Ok(())
 }
 
 /// Locked to the leader, or free.
