@@ -665,7 +665,7 @@ mod faders {
         bench.press("deck1.tap", 1.0).unwrap();
         bench.press("deck1.tap", 0.0).unwrap();
         let _ = bench.state.with_track(0, |t| t.key_shift);
-        assert_eq!(bench.state.revision(), revision);
+        assert_eq!(bench.state.moved_since(revision), []);
     }
 
     #[test]

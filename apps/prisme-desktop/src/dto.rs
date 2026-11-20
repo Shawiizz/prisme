@@ -1654,13 +1654,13 @@ mod tests {
         let state = AppState::new(prisme_session::JsonFile::in_memory(Default::default()));
         let before = state.revision();
         let pitch = lock(&state.decks)[1].pitch;
-        assert_eq!((pitch, state.revision()), (1.0, before), "read");
+        assert_eq!((pitch, state.moved_since(before)), (1.0, vec![]), "read");
         lock(&state.decks)[1].strip.eq[0] = 0.5;
+        assert_eq!(state.moved_since(before), [Section::Mixer]);
         let eq = state.revision();
-        assert!(eq > before);
         state.update_preferences(|p| p.dj.quantize = true);
         *lock(&state.crossfader) = -1.0;
-        assert!(state.revision() > eq);
+        assert_eq!(state.moved_since(eq), [Section::Mixer]);
         let controls = ControlStateDto::of(&state, Section::ALL);
         let mixer = controls.mixer.unwrap();
         assert_eq!(mixer.decks[1].strip.eq[0], 0.5);
@@ -1674,10 +1674,7 @@ mod tests {
         let state = AppState::new(prisme_session::JsonFile::in_memory(Default::default()));
         let before = state.revision();
         lock(&state.perform).decks[0].roll = Some(1.0);
-        let moved: Vec<_> = Section::ALL
-            .into_iter()
-            .filter(|&s| state.revision()[s as usize] != before[s as usize])
-            .collect();
+        let moved = state.moved_since(before);
         assert_eq!(moved, [Section::Perform]);
         let controls = serde_json::to_value(ControlStateDto::of(&state, moved)).unwrap();
         assert_eq!(

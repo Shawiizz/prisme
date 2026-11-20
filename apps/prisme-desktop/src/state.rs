@@ -528,6 +528,13 @@ impl AppState {
         Section::ALL.map(|section| self.revisions.of(section).load(Ordering::SeqCst))
     }
 
+    /// The sections that moved since they were at `before` (a [`AppState::revision`]).
+    #[cfg(test)]
+    pub fn moved_since(&self, before: [u64; SECTIONS]) -> Vec<Section> {
+        let now = self.revision();
+        Section::ALL.into_iter().filter(|&s| now[s as usize] != before[s as usize]).collect()
+    }
+
     /// Whether `deck` is one the engine can have, kept for when it is in use (its settings);
     /// [`AppState::deck_in_use`] for one in use.
     pub fn deck_exists(deck: usize) -> AppResult<()> {
@@ -1370,7 +1377,7 @@ mod tests {
         let revision = state.revision();
         drop(slow);
         assert_eq!(state.loading(), [false; MAX_DECKS]);
-        assert!(state.revision() > revision, "the interface hears of it");
+        assert_eq!(state.moved_since(revision), [Section::Tracks], "the interface hears of it");
     }
 
     #[test]
@@ -1379,7 +1386,7 @@ mod tests {
         let revision = bench.state.revision();
         let session = bench.state.replace_session(None);
         assert!(session.is_some());
-        assert!(bench.state.revision() > revision);
+        assert_eq!(bench.state.moved_since(revision), [Section::Mixer]);
         bench.state.replace_session(session);
         assert!(lock(&bench.state.session).is_some());
     }
