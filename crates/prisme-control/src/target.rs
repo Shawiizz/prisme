@@ -68,11 +68,10 @@ macro_rules! actions {
             pub const NAMED: &[Self] = &[$($(Self::$variant,)+)+];
 
             /// Its id and its kind, if it is named by its id alone.
-            #[allow(unreachable_patterns)]
             fn name(self) -> Option<(&'static str, Kind)> {
                 match self {
                     $($(Self::$variant => Some(($id, Kind::$kind)),)+)+
-                    _ => None,
+                    $($(Self::$extra(..) => None,)+)?
                 }
             }
 
