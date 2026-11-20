@@ -8,7 +8,7 @@ import { fitToDevicePixels, forgetCanvas } from '../../../shared/device-pixels';
 import { Showing, everyFrame } from '../../../shared/frames';
 import { palette } from '../../../shared/palette';
 import { deckLetter } from '../../../shared/time';
-import { sameItems } from '../../../core/same';
+import { same, sameItems } from '../../../core/same';
 import { Crossfader } from '../../mixer/crossfader/crossfader';
 
 /**
@@ -31,7 +31,7 @@ export class PhaseStrip {
   private readonly redraw = () => this.draw();
 
   /** What the backend tells of the two decks compared. */
-  private readonly strip = computed(() => this.engine.status()?.phase ?? null);
+  private readonly strip = computed(() => this.engine.status()?.phase ?? null, { equal: same });
   /** The two decks compared: with four decks, the first two that play; else A and B. */
   protected readonly pair = computed<[number, number]>(() => this.strip()?.decks ?? [0, 1], {
     equal: sameItems,

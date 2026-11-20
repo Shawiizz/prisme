@@ -23,3 +23,8 @@ export function segments(meter: MeterLevel | undefined, count: number): Segment[
     return lit ? (at >= HOT ? 'is-hot' : 'is-lit') : '';
   });
 }
+
+/** Whether two meters show the same segments: a meter is drawn again only when one changed. */
+export function sameSegments(a: Segment[] | null, b: Segment[] | null): boolean {
+  return a === b || (!!a && !!b && a.length === b.length && a.every((s, i) => s === b[i]));
+}

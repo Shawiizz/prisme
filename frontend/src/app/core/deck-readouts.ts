@@ -1,6 +1,7 @@
 import { Signal, computed, inject } from '@angular/core';
 import { EngineService } from './services/engine.service';
 import { decimal, formatPitch, formatRemaining } from '../shared/time';
+import { same } from './same';
 
 /**
  * What a deck tells from afar, as its card, its strip on a phone and its line of what plays
@@ -30,6 +31,6 @@ export function deckReadouts(deck: Signal<number>) {
     return track()?.tempo && rate !== undefined ? formatPitch(rate) : '';
   });
   /** The key heard: shifted by the pitch unless the key lock holds it. */
-  const key = computed(() => status()?.heardKey ?? null);
+  const key = computed(() => status()?.heardKey ?? null, { equal: same });
   return { track, status, remaining, ending, bpm, pitch, key };
 }

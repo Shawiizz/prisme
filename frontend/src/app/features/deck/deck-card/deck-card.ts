@@ -13,7 +13,7 @@ import { deckReadouts } from '../../../core/deck-readouts';
 import { DECK_MODES, deckVinyl } from '../../../core/deck-vinyl';
 import { decimal, deckLetter, formatTime } from '../../../shared/time';
 import { camelotHue, camelotMajor, keyName } from '../../../shared/camelot';
-import { segments } from '../../../shared/meter';
+import { sameSegments, segments } from '../../../shared/meter';
 import { Cover } from '../../../shared/cover/cover';
 import { DeckMenu } from '../deck-menu/deck-menu';
 import { GridEditor } from '../grid-editor/grid-editor';
@@ -45,10 +45,12 @@ export class DeckCard {
   protected readonly letter = computed(() => deckLetter(this.deck()));
   /** The level sent to the deck's outputs of an external mixer (the software mixer has
    * its own meters). */
-  protected readonly send = computed(() =>
-    this.mixer.internal()
-      ? null
-      : segments(this.engine.status()?.meters.decks[this.deck()], SEND_SEGMENTS),
+  protected readonly send = computed(
+    () =>
+      this.mixer.internal()
+        ? null
+        : segments(this.engine.status()?.meters.decks[this.deck()], SEND_SEGMENTS),
+    { equal: sameSegments },
   );
   protected readonly outputs = computed(() => this.mixer.outputsOf(this.deck()));
   private readonly readouts = deckReadouts(this.deck);

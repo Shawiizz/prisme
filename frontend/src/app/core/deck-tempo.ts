@@ -2,6 +2,7 @@ import { Signal, computed, inject } from '@angular/core';
 import { EngineService } from './services/engine.service';
 import { SyncState, TempoFader } from './models/engine';
 import { formatPitch } from '../shared/time';
+import { same } from './same';
 
 const STILL: TempoFader = {
   held: false,
@@ -23,7 +24,7 @@ export function deckTempo(deck: Signal<number>) {
   const vinyl = computed(() => settings().vinylEnabled);
   const syncState = computed<SyncState>(() => status()?.sync.state ?? 'off');
   const rate = computed(() => status()?.rate ?? 1);
-  const fader = computed(() => status()?.tempo ?? STILL);
+  const fader = computed(() => status()?.tempo ?? STILL, { equal: same });
   /** The fader does not set the tempo: a record does, or sync. */
   const held = computed(() => fader().held);
   /** How far the fader goes either way: 0.08 for ±8 %. */

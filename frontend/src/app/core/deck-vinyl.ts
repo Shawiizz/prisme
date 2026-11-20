@@ -1,6 +1,7 @@
 import { Signal, computed, inject } from '@angular/core';
 import { DeckMode, SignalState } from './models/engine';
 import { EngineService } from './services/engine.service';
+import { same } from './same';
 import { Text, t } from './i18n/i18n';
 
 const SIGNAL_TITLE: Record<SignalState, string> = {
@@ -44,7 +45,7 @@ export const DECK_MODES: readonly { id: DeckMode; label: string; title: Text }[]
  */
 export function deckVinyl(deck: Signal<number>) {
   const engine = inject(EngineService);
-  const vinyl = computed(() => engine.status()?.decks[deck()]?.vinyl ?? null);
+  const vinyl = computed(() => engine.status()?.decks[deck()]?.vinyl ?? null, { equal: same });
   const settings = computed(() => engine.decks()[deck()]);
   /** After the end of the record the deck plays on by itself until handed back. */
   const mode = computed<DeckMode>(() => engine.status()?.decks[deck()]?.mode ?? 'int');
