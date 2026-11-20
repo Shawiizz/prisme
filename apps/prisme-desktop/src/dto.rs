@@ -1103,8 +1103,6 @@ pub struct MixerStateDto {
     pub decks: Vec<DeckSettingsDto>,
     /// The knobs beside the channels and the crossfader, as the screen shows them.
     pub knobs: MixerKnobs,
-    /// From -1 (left) to 1: what decks the lock player hears.
-    pub crossfader: f32,
     /// The mode the user chose.
     pub mode: MixModeDto,
     /// The software mixer is in use (or would be, the audio off).
@@ -1229,6 +1227,8 @@ pub struct DeckStatusDto {
     /// How far its track's separation is, from 0 to 1: as it is separated, or as the downloads
     /// of the models it waits for are.
     pub separating: Option<f64>,
+    /// The DJ hears it go, for a phone's lock screen (`prisme_actions::player`).
+    pub heard: bool,
 }
 
 /// The carrier level of a healthy line-level timecode.
@@ -1337,6 +1337,7 @@ impl DeckStatusDto {
             samples_playing: d.samples_playing,
             stems: screen::stem_knobs(view, deck).map(StemKnobDto::from).collect(),
             separating: None,
+            heard: false,
             vinyl: VinylDto {
                 enabled: d.vinyl.enabled,
                 mode: d.vinyl.mode.into(),
@@ -1368,6 +1369,8 @@ pub struct StatusDto {
     pub preview: Option<PreviewStatusDto>,
     /// The strip comparing two decks' beats.
     pub phase: screen::PhaseStrip,
+    /// The deck a phone's lock screen shows (`prisme_actions::player`).
+    pub player: Option<usize>,
     /// What the interface mirrors, when it changed since the status before.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub controls: Option<ControlStateDto>,
@@ -1578,6 +1581,7 @@ impl StatusDto {
                 waiting: p.waiting,
             }),
             phase: screen::phase_strip(view),
+            player: None,
             controls: None,
         }
     }
@@ -2193,7 +2197,7 @@ mod tests {
         let controls = ControlStateDto::of(&state, &view_of(&state), Section::ALL);
         let mixer = controls.mixer.unwrap();
         assert_eq!(mixer.decks[1].strip.eq[0], 0.5);
-        assert_eq!((mixer.crossfader, mixer.knobs.crossfader), (-1.0, 0.0));
+        assert_eq!(mixer.knobs.crossfader, 0.0);
         assert_eq!(controls.quantize, Some(true));
         assert_eq!(controls.tracks.unwrap().len(), prisme_engine::MAX_DECKS);
     }

@@ -82,7 +82,6 @@ pub fn mixer_state_of(state: &AppState, view: &View) -> MixerStateDto {
             })
             .collect(),
         knobs: knobs::mixer(view),
-        crossfader: *lock(&state.crossfader),
         mode: mixer.mode,
         internal,
         fallback: (mixer.mode == MixModeDto::External && internal && info.is_some())

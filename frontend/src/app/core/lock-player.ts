@@ -1,8 +1,6 @@
-import { Injectable, Injector, computed, effect, inject, signal } from '@angular/core';
+import { Injectable, Injector, computed, effect, inject } from '@angular/core';
 import { convertFileSrc } from '@tauri-apps/api/core';
-import { CrossfaderCurve } from './models/engine';
 import { EngineService } from './services/engine.service';
-import { MixerService } from './services/mixer.service';
 import { PreferencesService } from './services/preferences.service';
 
 /** A deck as Android's player shows it (`Player.kt`). */
@@ -43,39 +41,10 @@ interface AndroidPlayer {
   cover(path: string, base64: string): void;
 }
 
-/** As `mixer.rs`: how far the sharp curve cuts. */
-const SHARP_CUT = 0.04;
-/** Slower than this, a deck is not heard as playing: a record held or nudged, a jog let go;
- * the engine counts a deck still only far below (its `MOVING_SPEED`). */
-const PLAYING_SPEED = 0.25;
 /** Android moves the position on by itself: told again past this much of a drift. */
 const DRIFT_S = 1;
 /** A change of speed smaller than this is not told. */
 const SPEED_STEP = 0.005;
-
-/** The crossfader's gain on `deck`, as `mixer.rs` has it: A and C on its left, B and D on its
- * right. */
-export function crossfaderGain(deck: number, position: number, curve: CrossfaderCurve): number {
-  const x = (Math.min(Math.max(position, -1), 1) + 1) / 2;
-  const away = deck % 2 === 0 ? x : 1 - x;
-  return curve === 'smooth' ? Math.cos((away * Math.PI) / 2) : Math.min((1 - away) / SHARP_CUT, 1);
-}
-
-/** Of the decks `moving`, the one heard: the loudest through the software mixer (`level`), the
- * last started when they are as loud or when a mixer of its own mixes them (`level` null). */
-export function heardDeck(
-  moving: number[],
-  startedAt: readonly number[],
-  level: ((deck: number) => number) | null,
-): number | null {
-  const later = (a: number, b: number) => (startedAt[b] > startedAt[a] ? b : a);
-  const louder = (a: number, b: number) => {
-    if (!level) return later(a, b);
-    const [la, lb] = [level(a), level(b)];
-    return Math.abs(la - lb) < 1e-3 ? later(a, b) : lb > la ? b : a;
-  };
-  return moving.length ? moving.reduce(louder) : null;
-}
 
 /** Whether the player shows the same in both, where the deck shown is aside. */
 export function sameShowing(a: PlayerShowing, b: PlayerShowing): boolean {
@@ -108,56 +77,24 @@ export function stillTrue(
 }
 
 /**
- * The player of Android's lock screen and notifications: the track heard, its cover and where
- * it is, a button for each deck. Android keeps the sound going while a deck plays, and a while
+ * The player of Android's lock screen and notifications: the track of the deck the backend says
+ * is heard, its cover and where it is, a button for each deck. Android keeps the sound going while a deck plays, and a while
  * after (`PlaybackService.kt`).
  */
 @Injectable({ providedIn: 'root' })
 export class LockPlayer {
   private readonly engine = inject(EngineService);
-  private readonly mixer = inject(MixerService);
   private readonly preferences = inject(PreferencesService);
   private readonly injector = inject(Injector);
   private readonly android = (window as { prismeDecks?: AndroidPlayer }).prismeDecks;
 
-  /** When each deck last started to move. */
-  private readonly startedAt = signal<number[]>([]);
-  private readonly moving = computed(() => {
-    const decks = this.engine.status()?.decks ?? [];
-    const tracks = this.engine.tracks();
-    return this.engine
-      .deckIndexes()
-      .filter(
-        (d) => tracks[d] && (decks[d]?.playing || Math.abs(decks[d]?.speed ?? 0) > PLAYING_SPEED),
-      );
-  });
-  private readonly heard = computed(() => {
-    const mixer = this.mixer;
-    const level = mixer.internal()
-      ? (d: number) =>
-          this.engine.decks()[d].volume *
-          crossfaderGain(d, mixer.crossfader(), mixer.crossfaderCurve())
-      : null;
-    return heardDeck(this.moving(), this.startedAt(), level);
-  });
-  /** The deck heard last, shown while all stand. */
-  private readonly lastHeard = signal<number | null>(null);
-  private readonly shown = computed(() => {
-    const tracks = this.engine.tracks();
-    const last = this.lastHeard();
-    return (
-      this.heard() ??
-      (last !== null && tracks[last] ? last : null) ??
-      this.engine.deckIndexes().find((d) => tracks[d]) ??
-      null
-    );
-  });
+  private readonly shown = computed(() => this.engine.status()?.player ?? null);
   private readonly showing = computed<PlayerShowing>(
     () => {
       const tracks = this.engine.tracks();
-      const moving = this.moving();
+      const status = this.engine.status();
       const shown = this.shown();
-      const deck = shown === null ? null : this.engine.status()?.decks[shown];
+      const deck = shown === null ? null : status?.decks[shown];
       return {
         decks: this.engine
           .deckIndexes()
@@ -166,7 +103,7 @@ export class LockPlayer {
             deck: d,
             title: tracks[d]!.title,
             artist: tracks[d]!.artist,
-            playing: moving.includes(d),
+            playing: status?.decks[d]?.heard ?? false,
           })),
         shown,
         path: shown === null ? null : tracks[shown]!.path,
@@ -190,35 +127,12 @@ export class LockPlayer {
       toggle: (deck: number) => this.engine.togglePlay(deck),
     };
     const injector = this.injector;
-    let wasMoving = new Set<number>();
-    effect(
-      () => {
-        const moving = new Set(this.moving());
-        const started = [...moving].filter((d) => !wasMoving.has(d));
-        wasMoving = moving;
-        if (!started.length) return;
-        const now = performance.now();
-        this.startedAt.update((at) => {
-          const next = [...at];
-          started.forEach((d) => (next[d] = now));
-          return next;
-        });
-      },
-      { injector },
-    );
-    effect(
-      () => {
-        const heard = this.heard();
-        if (heard !== null) this.lastHeard.set(heard);
-      },
-      { injector },
-    );
     effect(
       () => {
         const showing = this.showing();
         const shown = showing.shown;
         const deck = shown === null ? null : this.engine.status()?.decks[shown];
-        const speed = shown !== null && this.moving().includes(shown) ? (deck?.speed ?? 0) : 0;
+        const speed = deck?.heard ? deck.speed : 0;
         this.tell(android, showing, deck?.positionS ?? 0, speed);
       },
       { injector },

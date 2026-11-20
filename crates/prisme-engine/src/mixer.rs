@@ -359,15 +359,19 @@ impl Mixer {
         // how far the crossfader is towards the other side, 0..1
         let position = if self.crossfader_reverse { -self.crossfader } else { self.crossfader };
         let x = (position.clamp(-1.0, 1.0) + 1.0) * 0.5;
-        let away = match side {
-            CrossfaderSide::Center => return 1.0,
-            CrossfaderSide::Left => x,
-            CrossfaderSide::Right => 1.0 - x,
-        };
-        match self.curve {
-            CrossfaderCurve::Smooth => (away * FRAC_PI_2).cos(),
-            CrossfaderCurve::Sharp => ((1.0 - away) / SHARP_CUT).min(1.0),
+        match side {
+            CrossfaderSide::Center => 1.0,
+            CrossfaderSide::Left => crossfader_gain(x, self.curve),
+            CrossfaderSide::Right => crossfader_gain(1.0 - x, self.curve),
         }
+    }
+}
+
+/// The gain of a deck the crossfader is `away` from (0 on its side, 1 on the other), by `curve`.
+pub fn crossfader_gain(away: f32, curve: CrossfaderCurve) -> f32 {
+    match curve {
+        CrossfaderCurve::Smooth => (away * FRAC_PI_2).cos(),
+        CrossfaderCurve::Sharp => ((1.0 - away) / SHARP_CUT).min(1.0),
     }
 }
 

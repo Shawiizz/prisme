@@ -128,6 +128,8 @@ export interface DeckStatus {
   /** How far its track's separation is (0 to 1): as it is separated, or as the downloads of the
    * models it waits for are. */
   separating: number | null;
+  /** The DJ hears it go, for a phone's lock screen. */
+  heard: boolean;
 }
 
 export interface DeckLights {
@@ -206,6 +208,8 @@ export interface EngineStatus {
   /** The track heard in the headphones before it goes on a deck. */
   preview: PreviewStatus | null;
   phase: PhaseStrip;
+  /** The deck a phone's lock screen shows. */
+  player: number | null;
   /** The sections of what the app mirrors the backend changed since the status before: the
    * mixer (with the quantize and the tempo range), the tracks (with their loads), the pads,
    * the preview. All of them in the first status. */
@@ -554,8 +558,6 @@ export interface MixerState {
   decks: DeckSettings[];
   /** The knobs beside the channels, and where the crossfader stands (0 to 1). */
   knobs: MixerKnobs;
-  /** From -1 (left) to 1. */
-  crossfader: number;
   mode: MixMode;
   /** The software mixer is in use (or would be, the audio off). */
   internal: boolean;

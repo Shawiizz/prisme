@@ -10,6 +10,7 @@ use crate::preview::Previews;
 use crate::state::{lock, AppState, Section};
 use crate::stems_service::Shown;
 use prisme_actions::meter::Meters;
+use prisme_actions::player::Player;
 use prisme_analysis::Key;
 use prisme_library::browse::Column;
 use std::path::PathBuf;
@@ -40,6 +41,8 @@ pub fn subscribe_status(app: AppHandle, channel: Channel<StatusDto>) {
             let mut ranked_against: Option<Ranked> = None;
             let mut meters = Meters::default();
             let mut stems = Shown::default();
+            let mut player = Player::default();
+            let mut internal = false;
             while GENERATION.load(Ordering::SeqCst) == generation {
                 // read before what it is of: a change after moves it again
                 let revision = state.revision();
@@ -64,10 +67,19 @@ pub fn subscribe_status(app: AppHandle, channel: Channel<StatusDto>) {
                     }
                     None => (actions.view_with(&app, Default::default(), None), None),
                 };
-                let levels = meters.read(&view.status, actions.now_s());
+                let now_s = actions.now_s();
+                let levels = meters.read(&view.status, now_s);
                 let stream = stream.as_ref().map(|(stats, rate)| (&**stats, *rate));
                 let mut status = StatusDto::of(&view, stream, levels);
                 let moved = |s: Section| told.is_none_or(|t: [u64; _]| t[s as usize] != revision[s as usize]);
+                if moved(Section::Mixer) {
+                    internal = state.mixes_itself();
+                }
+                let heard = player.read(&view, internal, now_s);
+                status.player = heard.deck;
+                for (deck, shown) in status.decks.iter_mut().enumerate() {
+                    shown.heard = heard.moves(deck);
+                }
                 if moved(Section::Tracks) {
                     around.decks = lock(&state.tracks).each_ref().map(|t| t.as_ref().map(|t| t.path.clone()));
                 }

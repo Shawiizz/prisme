@@ -43,7 +43,7 @@ pub use engine::{create, Engine, EngineConfig, EngineController};
 pub use grid::{BeatGrid, BEATS_PER_BAR};
 pub use live::{InputChannels, LiveSource};
 pub use looping::LoopRegion;
-pub use mixer::{CrossfaderCurve, MixMode, OutputRouting};
+pub use mixer::{crossfader_gain, CrossfaderCurve, MixMode, OutputRouting};
 pub use prisme_dsp::{Band, EffectKind, FX_SLOTS, PARAM2_DEFAULT};
 pub use sampler::SAMPLE_SLOTS;
 pub use status::{

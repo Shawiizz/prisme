@@ -11,6 +11,7 @@ pub mod light;
 pub mod meter;
 pub mod pads;
 pub mod perform;
+pub mod player;
 pub mod position;
 pub mod press;
 pub mod scales;

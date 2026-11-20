@@ -36,8 +36,6 @@ export class MixerService {
 
   /** The knobs beside the channels, and the crossfader, as the backend shows them. */
   readonly knobs = signal<MixerKnobs | null>(null, { equal: same });
-  /** From -1 (left) to 1. */
-  readonly crossfader = signal(0);
   /** The mode the user chose. */
   readonly mode = signal<MixMode>('external');
   /** Where the user wants the headphones: those of the software mixer, or with an external
@@ -95,7 +93,6 @@ export class MixerService {
 
   apply(state: MixerState) {
     this.knobs.set(state.knobs);
-    this.crossfader.set(state.crossfader);
     this.mode.set(state.mode);
     this.internal.set(state.internal);
     this.fallback.set(state.fallback);
