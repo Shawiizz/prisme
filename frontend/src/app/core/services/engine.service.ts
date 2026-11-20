@@ -2,7 +2,7 @@ import { Injectable, computed, effect, inject, signal, untracked } from '@angula
 import { StemPart, partId } from '../stem-parts';
 import { Channel, invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
-import { semitonesToMix, transposeCamelot } from '../../shared/camelot';
+import { transposeCamelot } from '../../shared/camelot';
 import {
   ControlState,
   MAX_DECKS,
@@ -246,13 +246,6 @@ export class EngineService {
   mixedWith(deck: number): number {
     const playing = (this.status()?.decks ?? []).findIndex((d, i) => i !== deck && d.playing);
     return playing >= 0 ? playing : deck ^ 1;
-  }
-
-  /** The smallest key shift after which `deck` mixes with the other deck, if both keys are known. */
-  keyMatch(deck: number): number | null {
-    const own = this.tracks()[deck]?.key;
-    const other = this.heardKey(this.mixedWith(deck));
-    return own && other ? semitonesToMix(own.camelot, other.camelot) : null;
   }
 
   /** Mutes or plays a part of the track on `deck` (until the next load), on the next bar

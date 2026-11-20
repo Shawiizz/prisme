@@ -52,7 +52,10 @@ export class GridEditor {
     const s = this.keyShift();
     return s > 0 ? `+${s}` : s < 0 ? `−${-s}` : '0';
   });
-  protected readonly keyMatch = computed(() => this.engine.keyMatch(this.deck()));
+  /** Both keys known: the deck's can be matched to the one heard beside it (`key.sync`). */
+  protected readonly keysKnown = computed(
+    () => !!this.track()?.key && this.engine.heardKey(this.engine.mixedWith(this.deck())) !== null,
+  );
   /** How far to move the grid (seconds of the track) so that its beats fall on the other
    * deck's, both playing: matched by ear, the deck keeps what is heard and is in phase. */
   protected readonly toOther = computed(() => {

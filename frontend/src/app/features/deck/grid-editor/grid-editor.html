@@ -156,7 +156,7 @@
     </button>
     <button
       class="pr-btn pr-btn--sm wide"
-      [disabled]="keyMatch() === null"
+      [disabled]="!keysKnown()"
       [title]="'The smallest shift after which the two decks mix harmonically' | t"
       (click)="press('key.sync')"
     >
