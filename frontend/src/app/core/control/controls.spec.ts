@@ -189,10 +189,18 @@ describe('controls', () => {
     find('deck1.grid.move').apply(-2);
     find('deck2.pitch').apply(0.25);
     find('deck1.jog.touch').apply(1);
+    find('deck2.search.back').apply(1);
+    find('deck2.search.back').apply(0);
+    find('deck1.melody').apply(1);
+    find('deck1.loop.move').apply(-1);
     expect(calls).toEqual([
       'perform(deck1.grid.move,-2,true)',
       'perform(deck2.pitch,0.25,false)',
       'perform(deck1.jog.touch,1,false)',
+      'perform(deck2.search.back,1,false)',
+      'perform(deck2.search.back,0,false)',
+      'perform(deck1.melody,1,false)',
+      'perform(deck1.loop.move,-1,true)',
     ]);
     expect(find('shift').apply(1)).toBeUndefined();
   });

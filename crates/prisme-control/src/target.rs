@@ -398,6 +398,12 @@ impl Target {
                 | DeckAction::Cut(_)
                 | DeckAction::FxKnob(_)
                 | DeckAction::FxPart
+                | DeckAction::SearchBack
+                | DeckAction::SearchForward
+                | DeckAction::FilterToggle
+                | DeckAction::Tap
+                | DeckAction::KeySync
+                | DeckAction::Stem(_)
                 | DeckAction::Jog
                 | DeckAction::JogTouch
                 | DeckAction::JogSearch

@@ -350,6 +350,20 @@ impl Deck {
         }
     }
 
+    /// The track run through at `speed` seconds a second beside its play (back below zero),
+    /// while a search key is held; 0 lets it go.
+    pub(crate) fn search(&mut self, speed: f64) {
+        self.search.set(speed);
+    }
+
+    /// A search's jump of `seconds` (back below zero), within the track.
+    pub(super) fn search_by(&mut self, seconds: f64) {
+        if self.controls_position() {
+            let to = self.playhead.position_s() + seconds;
+            self.playhead.seek_s(to.clamp(0.0, self.playhead.duration_s()));
+        }
+    }
+
     fn controls_position(&self) -> bool {
         self.playhead.is_loaded() && self.drive_mode() != DriveMode::Absolute
     }

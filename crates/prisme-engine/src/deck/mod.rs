@@ -6,6 +6,7 @@ mod cut;
 mod hand;
 mod jog;
 mod motor;
+mod search;
 mod transport;
 
 use crate::command::{CrossfaderSide, Rpm, VinylMode};
@@ -26,6 +27,7 @@ use jog::{Jog, Turn};
 use motor::Motor;
 use prisme_dsp::{Beat, FxChain, Smoothed};
 use prisme_timecode::TimecodeDecoder;
+use search::Search;
 use transport::Transport;
 
 /// In absolute mode, a gap larger than this (s) is a needle drop: jump.
@@ -97,6 +99,8 @@ pub(crate) struct Deck {
     through: Smoothed,
     /// The deck chopped in time with its beats while a pad is held.
     pub(crate) cut: Cut,
+    /// The track run through while a search key is held.
+    search: Search,
 }
 
 impl Deck {
@@ -132,6 +136,7 @@ impl Deck {
             bar_mix: BarMix::default(),
             through: Smoothed::new(0.0, THROUGH_FADE_S, sample_rate as f32),
             cut: Cut::new(sample_rate as f32),
+            search: Search::default(),
         }
     }
 
@@ -264,6 +269,9 @@ impl Deck {
         self.speed = speed;
         self.leap_stems_to_their_bar(playhead_s, seconds * speed);
         self.fade_with_motion(out);
+        if let Some(by) = self.search.step(seconds) {
+            self.search_by(by);
+        }
         self.stop_at_the_end();
 
         let platter = self.vinyl.enabled.then_some(drive.speed);

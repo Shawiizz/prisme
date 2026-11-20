@@ -26,7 +26,14 @@ impl Performing<'_> {
     /// Corrects the beat grid of the track on `deck` as `action` given `given` does.
     pub(super) fn edit_grid(&self, deck: usize, action: DeckAction, given: Given) -> AppResult<()> {
         let bpm = || self.state.with_track(deck, |t| t.grid().map(|g| g.bpm)).ok().flatten();
-        let Some(change) = grid_change(action, given, bpm) else { return Ok(()) };
+        match grid_change(action, given, bpm) {
+            Some(change) => self.change_grid(deck, change),
+            None => Ok(()),
+        }
+    }
+
+    /// Corrects the beat grid of the track on `deck` by `change`.
+    pub(super) fn change_grid(&self, deck: usize, change: GridChange) -> AppResult<()> {
         let (app, library) = self.library_service()?;
         change_grid(app, self.state, &library, deck, change).map(drop)
     }

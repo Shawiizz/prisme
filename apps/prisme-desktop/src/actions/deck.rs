@@ -1,13 +1,16 @@
 //! A deck's own actions: the jog wheels, played in time (a jog searching moves through the
 //! track quickly, under shift say), the tempo fader, and the deck leading the others.
 
-use super::{take_over, Performing};
+use super::{mixer, take_over, transport, Performing};
 use crate::auto_dj::Takeover;
+use crate::commands::edits::GridChange;
 use crate::dto::{RpmDto, StemMixDto, VinylModeDto};
 use crate::error::{AppError, AppResult};
 use crate::preferences::{DeckPreferences, VinylSync};
 use crate::state::{deck_commands, lock, AppState, LoadedTrack};
 use prisme_actions::input::Input;
+use prisme_actions::key::heard;
+use prisme_actions::view::mixed_with;
 use prisme_control::{DeckAction, StemPart};
 use prisme_engine::{Command, DeckStatus};
 
@@ -76,6 +79,16 @@ pub fn set_key_shift(state: &AppState, deck: usize, semitones: i8) -> AppResult<
 pub fn set_stem_mix(state: &AppState, deck: usize, mix: StemMixDto, on_bar: bool) -> AppResult<()> {
     state.with_track(deck, |t| t.stem_mix = mix)?;
     state.send_if_running(Command::SetStemMix { deck, mix: mix.into(), on_bar })
+}
+
+/// `part` of the track on `deck` muted, or played again: on the next bar with quantize; nothing
+/// on a track without it.
+pub fn toggle_stem(state: &AppState, deck: usize, part: StemPart) -> AppResult<()> {
+    let mix = |t: &mut LoadedTrack| t.separation().has(part).then(|| t.stem_mix.toggled(part));
+    match state.with_track(deck, mix) {
+        Ok(Some(mix)) => set_stem_mix(state, deck, mix, state.preferences.read(|p| p.dj.quantize)),
+        _ => Ok(()),
+    }
 }
 
 /// How loud `part` of the track on `deck` plays, 0 to 1: nothing on a track without it.
@@ -266,6 +279,67 @@ pub fn key_to(state: &AppState, deck: usize, semitones: i32) -> AppResult<()> {
     set_key_shift(state, deck, semitones.clamp(-most, most) as i8)
 }
 
+impl Performing<'_> {
+    /// The track on `deck` run through while `held`, back (`way` -1) or forward (1).
+    pub(super) fn search(&self, deck: usize, way: f64, held: bool) -> AppResult<()> {
+        if held {
+            self.take_over_transport(deck);
+        }
+        let speed = if held { way * transport::SEARCH_SPEED } else { 0.0 };
+        transport::send(self.state, deck, Command::Search { deck, speed })
+    }
+
+    /// The filter of `deck` heard or not: one heard is set aside, whatever was set aside
+    /// before; a silent one gets back the one set aside.
+    pub(super) fn toggle_filter(&self, deck: usize) -> AppResult<()> {
+        let filter = lock(&self.state.decks)[deck].strip.filter;
+        let aside = &mut self.perform_state().decks[deck].filter_aside;
+        let to = if filter != 0.0 {
+            *aside = Some(filter);
+            0.0
+        } else {
+            match aside.take() {
+                Some(aside) => aside,
+                None => return Ok(()),
+            }
+        };
+        mixer::set_filter(self.state, deck, to)
+    }
+
+    /// A tap of the tempo of `deck`, on the clock of the one asking: the tempo, to a hundredth
+    /// of a BPM, once there are enough.
+    pub(super) fn tapped(&self, deck: usize) -> Option<f64> {
+        let bpm = self.perform_state().decks[deck].taps.tap(self.at_s())?;
+        Some((bpm * 100.0).round() / 100.0)
+    }
+
+    /// The tempo of the track on `deck` tapped on its key: its beat grid at that tempo, once
+    /// there are enough taps.
+    pub(super) fn tap(&self, deck: usize) -> AppResult<()> {
+        match self.tapped(deck) {
+            Some(bpm) => self.change_grid(deck, GridChange::Bpm { bpm }),
+            None => Ok(()),
+        }
+    }
+
+    /// The key of the track on `deck` moved by the fewest semitones that make it mix with the
+    /// key the deck it is mixed with is heard in: nothing unless both keys are known.
+    pub(super) fn sync_key(&self, deck: usize) -> AppResult<()> {
+        let state = self.state;
+        let Some(status) = lock(&state.session).as_mut().map(|s| s.controller.status()) else {
+            return Ok(());
+        };
+        let other = mixed_with(&status, deck);
+        let key = |d: usize| state.with_track(d, |t| (t.analysis().key.map(|k| k.key), t.key_shift)).ok();
+        let (Some((Some(own), _)), Some((Some(theirs), shift))) = (key(deck), key(other)) else {
+            return Ok(());
+        };
+        let d = lock(&state.decks)[other];
+        let rate = if status.decks[other].loaded { status.decks[other].rate } else { d.pitch };
+        key_to(state, deck, own.semitones_to_mix(heard(theirs, d.key_lock, shift, rate)))
+    }
+}
+
 /// A vinyl control of `deck` on or off, as it was set otherwise; the deck it took the
 /// turntable from goes on by itself.
 pub fn set_vinyl_enabled(state: &AppState, deck: usize, enabled: bool) -> AppResult<()> {
@@ -277,6 +351,7 @@ pub fn set_vinyl_enabled(state: &AppState, deck: usize, enabled: bool) -> AppRes
 mod tests {
     use super::*;
     use crate::actions::bench::Bench;
+    use crate::actions::{Moved, Source};
 
     fn turned(deck: usize, action: DeckAction, steps: f32, at_s: f64, jog_scratch: bool) -> Option<Command> {
         let input = Input::of(steps, action != DeckAction::JogTouch, None);
@@ -334,7 +409,7 @@ mod tests {
         assert!(pitch(&mut bench, "DDJ", 0.5).is_some());
         assert_eq!(pitch(&mut bench, "CDJ", 0.9), None, "its fader is elsewhere");
         assert!(pitch(&mut bench, "DDJ", 0.55).is_some());
-        bench.perform("deck1.pitch", Input::Value(1.0), super::super::Source::Interface).unwrap();
+        bench.perform("deck1.pitch", Input::Value(1.0), Source::Interface).unwrap();
         assert!((lock(&bench.state.decks)[0].pitch - 1.08).abs() < 1e-6);
     }
 
@@ -357,5 +432,97 @@ mod tests {
         bench.press("deck2.sync.leader", 0.0).unwrap();
         assert!(matches!(bench.sent()[..], [Command::SetSyncLeader { deck: Some(1) }]));
         assert_eq!(*lock(&bench.state.sync_leader), Some(1));
+    }
+
+    fn press(bench: &Bench, id: &str) {
+        bench.press(id, 1.0).unwrap();
+        bench.press(id, 0.0).unwrap();
+    }
+
+    #[test]
+    fn a_search_runs_through_the_track_while_held() {
+        let mut bench = Bench::new();
+        bench.load(0, 60.0, None);
+        bench.press("deck1.play", 1.0).unwrap();
+        bench.press("deck1.search.forward", 1.0).unwrap();
+        bench.run(1.0);
+        assert!((bench.status(0).position_s - 9.0).abs() < 0.1);
+        bench.press("deck1.search.forward", 0.0).unwrap();
+        bench.run(1.0);
+        assert!((bench.status(0).position_s - 10.0).abs() < 0.1, "let go: played on");
+        bench.press("deck1.search.back", 1.0).unwrap();
+        bench.run(1.0);
+        assert!((bench.status(0).position_s - 3.0).abs() < 0.1);
+    }
+
+    #[test]
+    fn the_filter_heard_is_set_aside_even_one_moved_since_the_last_was() {
+        let bench = Bench::new();
+        let filter = || lock(&bench.state.decks)[0].strip.filter;
+        crate::actions::mixer::set_filter(&bench.state, 0, 0.6).unwrap();
+        press(&bench, "deck1.filter.toggle");
+        assert_eq!(filter(), 0.0);
+        crate::actions::mixer::set_filter(&bench.state, 0, -0.3).unwrap();
+        press(&bench, "deck1.filter.toggle");
+        assert_eq!(filter(), 0.0);
+        press(&bench, "deck1.filter.toggle");
+        assert_eq!(filter(), -0.3);
+        press(&bench, "deck1.filter.toggle");
+        press(&bench, "deck1.filter.toggle");
+        assert_eq!(filter(), -0.3, "the one set aside last");
+    }
+
+    #[test]
+    fn a_tempo_is_tapped_on_the_controllers_own_clock() {
+        let bench = Bench::new();
+        let tap = |at_s: f64| {
+            let source = Source::Controller(Moved { device: "DDJ", at_s, jog_steps_per_turn: 720.0 });
+            bench.performing(source).tapped(0)
+        };
+        assert_eq!([0.0, 0.48, 0.96].map(tap), [None, None, None]);
+        assert_eq!(tap(1.44), Some(125.0));
+        assert_eq!(tap(9.0), None, "a pause starts the count again");
+    }
+
+    /// A track on `deck` in `camelot` (a key of the wheel), playing or not.
+    fn keyed(bench: &mut Bench, deck: usize, camelot: &str, playing: bool) {
+        bench.load(deck, 60.0, Some(120.0));
+        let key = prisme_analysis::Key::from_camelot(camelot).unwrap();
+        lock(&bench.state.tracks)[deck].as_mut().unwrap().detected.key =
+            Some(prisme_analysis::KeyEstimate { key, confidence: 1.0, tuning_cents: 0.0 });
+        if playing {
+            bench.press(&format!("deck{}.play", deck + 1), 1.0).unwrap();
+            bench.run(0.01);
+        }
+    }
+
+    #[test]
+    fn the_key_is_brought_to_mix_with_the_deck_heard_beside_it() {
+        let mut bench = Bench::new();
+        keyed(&mut bench, 0, "8A", false);
+        keyed(&mut bench, 1, "10A", true);
+        press(&bench, "deck1.key.sync");
+        let shift = bench.state.with_track(0, |t| t.key_shift).unwrap();
+        let heard = prisme_analysis::Key::from_camelot("8A").unwrap().transposed(i32::from(shift));
+        assert!(heard.mixes_with(prisme_analysis::Key::from_camelot("10A").unwrap()), "{shift}");
+        assert_ne!(shift, 0);
+    }
+
+    #[test]
+    fn a_stem_is_muted_and_played_again_on_a_separated_track_alone() {
+        let mut bench = Bench::new();
+        bench.load(0, 1.0, None);
+        press(&bench, "deck1.vocals");
+        assert!(
+            bench.state.with_track(0, |t| t.stem_mix.playing(StemPart::Vocals)).unwrap(),
+            "not separated"
+        );
+        let stem = std::sync::Arc::new(prisme_media::TrackAudio::from_interleaved(48_000, vec![0.0; 2]));
+        lock(&bench.state.tracks)[0].as_mut().unwrap().stems[prisme_engine::Stem::Vocals as usize] =
+            Some(stem);
+        press(&bench, "deck1.vocals");
+        assert!(!bench.state.with_track(0, |t| t.stem_mix.playing(StemPart::Vocals)).unwrap());
+        press(&bench, "deck1.vocals");
+        assert!(bench.state.with_track(0, |t| t.stem_mix.playing(StemPart::Vocals)).unwrap());
     }
 }

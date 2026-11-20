@@ -14,6 +14,8 @@ pub const SMALL_BEND: f64 = 0.01;
 pub const TEMPO_STEP: f64 = 0.001;
 /// The length of the loop a deck's loop key plays (beats), whatever its size.
 pub const LOOP_BEATS: f64 = 4.0;
+/// Seconds of track a second a search runs through beside the track's play.
+pub const SEARCH_SPEED: f64 = 8.0;
 
 /// Sends `command` to the engine for `deck`, one of those in use.
 pub fn send(state: &AppState, deck: usize, command: Command) -> AppResult<()> {

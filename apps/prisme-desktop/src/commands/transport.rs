@@ -79,16 +79,3 @@ pub fn spin_back(state: State<'_, AppState>, deck: usize, held: bool) -> AppResu
 pub fn set_reverse(state: State<'_, AppState>, deck: usize, enabled: bool) -> AppResult<()> {
     send(&state, deck, Command::SetReverse { deck, enabled })
 }
-
-/// Stores the loop of `deck` from `start_s` to `end_s`, playing it if `active`; without them,
-/// forgets it.
-#[tauri::command]
-pub fn set_loop(
-    state: State<'_, AppState>,
-    deck: usize,
-    start_s: Option<f64>,
-    end_s: Option<f64>,
-    active: bool,
-) -> AppResult<()> {
-    transport::set_loop(&state, deck, start_s, end_s, active)
-}

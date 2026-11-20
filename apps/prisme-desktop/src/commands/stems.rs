@@ -1,10 +1,8 @@
 //! Stem separation: the models, the queue, and the stems a deck plays.
 
-use crate::actions::deck;
-use crate::dto::{StemMixDto, StemsStatusDto};
+use crate::dto::StemsStatusDto;
 use crate::error::AppResult;
 use crate::library_service::LibraryService;
-use crate::state::AppState;
 use crate::stems_service::{self, StemsService};
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -49,11 +47,4 @@ pub fn separate_library(
 #[tauri::command]
 pub fn cancel_separation(stems: State<'_, StemsService>) {
     stems.cancel();
-}
-
-/// Sets how the track on `deck` plays each part, until the next load: the parts it turns on
-/// or off from the next bar if `on_bar` (see `Command::SetStemMix`).
-#[tauri::command]
-pub fn set_stem_mix(state: State<'_, AppState>, deck: usize, mix: StemMixDto, on_bar: bool) -> AppResult<()> {
-    deck::set_stem_mix(&state, deck, mix, on_bar)
 }

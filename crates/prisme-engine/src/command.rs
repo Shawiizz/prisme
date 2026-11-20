@@ -119,6 +119,12 @@ pub enum Command {
         deck: DeckId,
         seconds: f64,
     },
+    /// While `speed` is not 0, the track runs through at `speed` seconds a second beside its
+    /// play (back below zero), by jumps a few times a second; 0 lets the search go.
+    Search {
+        deck: DeckId,
+        speed: f64,
+    },
     /// Puts `deck` where `from` is in the same track, in its loop, playing if it plays: an
     /// instant double.
     TakePlace {

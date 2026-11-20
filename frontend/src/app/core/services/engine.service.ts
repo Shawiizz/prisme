@@ -1,5 +1,5 @@
 import { Injectable, computed, effect, inject, signal, untracked } from '@angular/core';
-import { StemPart, hasPart, partId, togglePart } from '../stem-parts';
+import { StemPart, partId } from '../stem-parts';
 import { Channel, invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
 import { semitonesToMix, transposeCamelot } from '../../shared/camelot';
@@ -243,12 +243,7 @@ export class EngineService {
   /** Mutes or plays a part of the track on `deck` (until the next load), on the next bar
    * with quantize. */
   toggleStem(deck: number, part: StemPart) {
-    const track = this.tracks()[deck];
-    if (!track || !hasPart(track.separation, part)) return;
-    const stemMix = togglePart(track.stemMix, part);
-    this.patch(this.tracks, deck, { ...track, stemMix });
-    const onBar = this.preferences.dj().quantize;
-    return this.call('set_stem_mix', { deck, mix: stemMix, onBar });
+    return this.press(deck, partId(part));
   }
 
   /** Sets how loud a part of the track on `deck` plays (0 to 1, until the next load). */
@@ -334,12 +329,6 @@ export class EngineService {
   setJogScratch(deck: number, on: boolean) {
     this.patchDeck(deck, { jogScratch: on });
     return this.call('set_jog_scratch', { deck, on });
-  }
-
-  /** Stores the loop of `deck` from `startS` to `endS`, playing it if `active`; without them,
-   * forgets it. */
-  setLoop(deck: number, startS: number | null, endS: number | null, active: boolean) {
-    return this.call('set_loop', { deck, startS, endS, active });
   }
 
   /** The track of deck `from` on `deck`, where it is and playing if it plays. */

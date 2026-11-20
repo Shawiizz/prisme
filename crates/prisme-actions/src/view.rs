@@ -180,11 +180,9 @@ impl View {
         deck < self.decks_in_use
     }
 
-    /// The deck `deck` is mixed with: another one playing, else the one beside it (A and B,
-    /// C and D).
+    /// The deck `deck` is mixed with (see [`mixed_with`]).
     pub fn mixed_with(&self, deck: usize) -> usize {
-        let running = &self.status.decks[..self.status.deck_count];
-        running.iter().enumerate().position(|(d, s)| d != deck && s.playing).unwrap_or(deck ^ 1)
+        mixed_with(&self.status, deck)
     }
 
     /// The rate `deck` plays at, gestures aside: the engine's for a track, which a record or
@@ -197,6 +195,13 @@ impl View {
             self.decks[deck].pitch
         }
     }
+}
+
+/// The deck `deck` is mixed with, the engine at `status`: another one playing, else the one
+/// beside it (A and B, C and D).
+pub fn mixed_with(status: &EngineStatus, deck: usize) -> usize {
+    let running = &status.decks[..status.deck_count];
+    running.iter().enumerate().position(|(d, s)| d != deck && s.playing).unwrap_or(deck ^ 1)
 }
 
 #[cfg(test)]

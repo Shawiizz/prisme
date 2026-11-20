@@ -2,20 +2,10 @@
 //! the chain is on.
 
 use crate::actions::fx;
-use crate::dto::{EffectKindDto, FxPartDto};
+use crate::dto::FxPartDto;
 use crate::error::AppResult;
 use crate::state::AppState;
 use tauri::State;
-
-#[tauri::command]
-pub fn set_fx(state: State<'_, AppState>, deck: usize, slot: usize, kind: EffectKindDto) -> AppResult<()> {
-    fx::set_fx(&state, deck, slot, kind)
-}
-
-#[tauri::command]
-pub fn set_fx_enabled(state: State<'_, AppState>, deck: usize, slot: usize, enabled: bool) -> AppResult<()> {
-    fx::set_fx_enabled(&state, deck, slot, enabled)
-}
 
 /// Level of the slot's effect, 0..1.
 #[tauri::command]

@@ -28,13 +28,6 @@ export function partPlaying(mix: StemMix, part: StemPart): boolean {
   return stemsOf(part).some((s) => mix[s].on);
 }
 
-/** `mix` with `part` muted or played again: the instrumental mutes all its instruments, or
- * plays them all. The levels stay. */
-export function togglePart(mix: StemMix, part: StemPart): StemMix {
-  const on = !partPlaying(mix, part);
-  return stemsOf(part).reduce((m, s) => ({ ...m, [s]: { ...m[s], on } }), mix);
-}
-
 /** The order of the stems in the engine's bit sets (`DeckStatus.stemsWaiting`). */
 const STEM_BITS: (keyof StemMix)[] = ['vocals', 'drums', 'bass', 'other'];
 

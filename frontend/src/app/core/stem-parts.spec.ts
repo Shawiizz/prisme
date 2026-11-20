@@ -1,13 +1,5 @@
 import { StemMix } from './models/stems';
-import {
-  StemPart,
-  hasPart,
-  partId,
-  partIn,
-  partLevel,
-  partPlaying,
-  togglePart,
-} from './stem-parts';
+import { StemPart, hasPart, partId, partIn, partLevel, partPlaying } from './stem-parts';
 
 const ALL: StemMix = {
   vocals: { level: 1, on: true },
@@ -27,29 +19,10 @@ describe('stem parts', () => {
     expect(hasPart('full', 'instrumental')).toBe(true);
   });
 
-  it('toggles one stem alone', () => {
-    expect(togglePart(ALL, 'drums')).toEqual({ ...ALL, drums: off });
-    expect(togglePart({ ...ALL, other: off }, 'other')).toEqual(ALL);
-  });
-
-  it('mutes the whole instrumental, then plays it all again', () => {
-    const muted = togglePart(ALL, 'instrumental');
-    expect(muted).toEqual({ vocals: ALL.vocals, drums: off, bass: off, other: off });
-    expect(partPlaying(muted, 'instrumental')).toBe(false);
-    expect(togglePart(muted, 'instrumental')).toEqual(ALL);
-  });
-
   it('counts the instrumental as playing while any instrument does', () => {
     const drumsOnly: StemMix = { vocals: off, drums: ALL.drums, bass: off, other: off };
     expect(partPlaying(drumsOnly, 'instrumental')).toBe(true);
-    expect(togglePart(drumsOnly, 'instrumental')).toEqual({ ...drumsOnly, drums: off });
-  });
-
-  it('keeps a level through a mute', () => {
-    const low = { ...ALL, bass: { level: 0.4, on: true } };
-    const muted = togglePart(low, 'bass');
-    expect(muted.bass).toEqual({ level: 0.4, on: false });
-    expect(togglePart(muted, 'bass').bass).toEqual({ level: 0.4, on: true });
+    expect(partPlaying({ ...drumsOnly, drums: off }, 'instrumental')).toBe(false);
   });
 
   it('reads the instrumental level as its loudest instrument', () => {

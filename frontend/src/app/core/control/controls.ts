@@ -14,7 +14,6 @@ import { EFFECT_NAMES } from '../effects';
 import { Text, t } from '../i18n/i18n';
 import { CUT_BEATS, ROLL_BEATS, formatBeats } from '../../shared/beats';
 import { deckLetter } from '../../shared/time';
-import { StemPart } from '../stem-parts';
 
 /** The physical control an action suits. */
 /** A light shows a state only: nothing drives it (the beat, a clip, the end of a track). */
@@ -43,8 +42,6 @@ export interface ControlActions {
   /** Has the backend perform action `id` given `value`: a key's 1 pressed and 0 let go, a
    * fader's position, or an encoder's steps (`steps`). */
   perform(id: string, value: number, steps: boolean): void;
-  /** Mutes or plays a part of a separated track. */
-  toggleStem(deck: number, part: StemPart): void;
   sampleLoaded(deck: number, slot: number): boolean;
   samplePlaying(deck: number, slot: number): boolean;
   browse(steps: number): void;
@@ -67,14 +64,6 @@ export interface ControlActions {
   togglePalette(): void;
   openSettings(): void;
   eject(deck: number): void;
-  /** Runs through the track while held, forwards or back. */
-  search(deck: number, direction: -1 | 1, held: boolean): void;
-  /** The key of the deck brought to the key of the deck it mixes with. */
-  syncKey(deck: number): void;
-  /** One tap of the tempo: the track's tempo once there are enough. */
-  tapTempo(deck: number): void;
-  /** The filter left where it is but heard or not. */
-  toggleFilter(deck: number): void;
   ejectSample(deck: number, slot: number): void;
   /** The selected track into the slot. */
   loadSample(deck: number, slot: number): void;
@@ -137,11 +126,6 @@ function button(id: string, group: string, label: string, run: () => void): Cont
       if (down(v)) run();
     },
   };
-}
-
-/** A button acting while held. */
-function hold(id: string, group: string, label: string, run: (held: boolean) => void): Control {
-  return { id, group, label, kind: 'button', apply: (v) => run(down(v)) };
 }
 
 /** A control the controller reads itself (its shift): listed to be mapped, never applied here. */
@@ -254,12 +238,12 @@ function deckControls(a: ControlActions, deck: number): Control[] {
   const group = t('Deck {deck}', { deck: deckLetter(deck) });
   const id = (name: string) => `deck${deck + 1}.${name}`;
   // the parts of a separated track: a button muting each, a fader for its level
-  const stems: [string, StemPart, string, string][] = [
-    ['vocals', 'vocals', t('Vocals'), t('Vocals level')],
-    ['instrumental', 'instrumental', t('Instrumental'), t('Instrumental level')],
-    ['drums', 'drums', t('Drums'), t('Drums level')],
-    ['bass', 'bass', t('Bass'), t('Bass level')],
-    ['melody', 'other', t('Melody (the other instruments)'), t('Melody level')],
+  const stems: [string, string, string][] = [
+    ['vocals', t('Vocals'), t('Vocals level')],
+    ['instrumental', t('Instrumental'), t('Instrumental level')],
+    ['drums', t('Drums'), t('Drums level')],
+    ['bass', t('Bass'), t('Bass level')],
+    ['melody', t('Melody (the other instruments)'), t('Melody level')],
   ];
   return [
     performed(a, id('play'), group, t('Play / pause')),
@@ -309,12 +293,8 @@ function deckControls(a: ControlActions, deck: number): Control[] {
     ...switched(a, id('repeat'), group, t('Repeat the track')),
     ...switched(a, id('faderStart'), group, t('Fader start')),
     ...switched(a, id('keylock'), group, t('Key lock')),
-    ...stems.map(([name, part, label]) =>
-      button(id(name), group, label, () => a.toggleStem(deck, part)),
-    ),
-    ...stems.map(([name, part, , level]) =>
-      performed(a, id(`${name}.level`), group, level, 'fader'),
-    ),
+    ...stems.map(([name, label]) => performed(a, id(name), group, label)),
+    ...stems.map(([name, , level]) => performed(a, id(`${name}.level`), group, level, 'fader')),
     ...Array.from({ length: SAMPLE_SLOTS }, (_, slot) =>
       performed(a, id(`sample${slot + 1}`), group, t('Sample {n}', { n: slot + 1 })),
     ),
@@ -372,19 +352,15 @@ function moreDeckControls(
     button(id('eject'), group, t('Eject the track'), () => a.eject(deck)),
     performed(a, id('sync.once'), group, t('Match the tempo and beats once')),
     performed(a, id('sync.leader'), group, t('Lead the other decks')),
-    hold(id('search.back'), group, t('Run back through the track while held'), (held) =>
-      a.search(deck, -1, held),
-    ),
-    hold(id('search.forward'), group, t('Run through the track while held'), (held) =>
-      a.search(deck, 1, held),
-    ),
+    performed(a, id('search.back'), group, t('Run back through the track while held')),
+    performed(a, id('search.forward'), group, t('Run through the track while held')),
     performed(a, id('tempo.up'), group, t('Tempo up 0.1 %')),
     performed(a, id('tempo.down'), group, t('Tempo down 0.1 %')),
     performed(a, id('tempo'), group, t('Tempo, 0.1 % a step'), 'encoder'),
     performed(a, id('bend.down.small'), group, t('Slow down a little while held')),
     performed(a, id('bend.up.small'), group, t('Speed up a little while held')),
     performed(a, id('position'), group, t('Place in the track (a touch strip)'), 'fader'),
-    button(id('key.sync'), group, t('Key matched to the other deck'), () => a.syncKey(deck)),
+    performed(a, id('key.sync'), group, t('Key matched to the other deck')),
     performed(a, id('key'), group, t('Key, from 12 semitones down to 12 up'), 'fader'),
     performed(a, id('loop.clear'), group, t('Forget the loop')),
     performed(a, id('reloop.stop'), group, t('Back to the loop, stopped')),
@@ -405,9 +381,9 @@ function moreDeckControls(
       t('Beat grid moved, a few milliseconds a step'),
       'encoder',
     ),
-    button(id('tap'), group, t('Tap the tempo'), () => a.tapTempo(deck)),
+    performed(a, id('tap'), group, t('Tap the tempo')),
     performed(a, id('slip.held'), group, t('Slip while held')),
-    button(id('filter.toggle'), group, t('Filter heard or not'), () => a.toggleFilter(deck)),
+    performed(a, id('filter.toggle'), group, t('Filter heard or not')),
     ...(['left', 'center', 'right'] as const).map((side) =>
       performed(a, id(`crossfader.${side}`), group, CROSSFADER_SIDE[side]()),
     ),

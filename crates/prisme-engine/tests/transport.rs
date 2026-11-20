@@ -24,6 +24,24 @@ fn assert_close(actual: f64, expected: f64, tolerance: f64) {
 }
 
 #[test]
+fn a_search_runs_through_the_track_beside_its_play_while_held() {
+    let mut rig = playing_deck(10.0);
+    rig.send(Command::Search { deck: 0, speed: 8.0 });
+    rig.run(1.0);
+    assert_close(rig.deck(0).position_s, 19.0, 0.1);
+    rig.send(Command::Search { deck: 0, speed: -8.0 });
+    rig.run(1.0);
+    assert_close(rig.deck(0).position_s, 12.0, 0.1);
+    rig.send(Command::SetPlaying { deck: 0, playing: false });
+    rig.run(2.0);
+    assert_eq!(rig.deck(0).position_s, 0.0, "stopped, it runs back to the start");
+    rig.send(Command::Search { deck: 0, speed: 0.0 });
+    rig.send(Command::Seek { deck: 0, seconds: 5.0 });
+    rig.run(0.5);
+    assert_eq!(rig.deck(0).position_s, 5.0, "let go");
+}
+
+#[test]
 fn a_beat_loop_starts_on_the_nearest_beat_and_keeps_playing_inside() {
     let mut rig = playing_deck(10.1);
     rig.send(Command::BeatLoop { deck: 0, beats: 4.0 });
