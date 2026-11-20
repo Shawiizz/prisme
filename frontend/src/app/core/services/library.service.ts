@@ -175,8 +175,12 @@ export class LibraryService {
     if (window.seq > this.window().seq) this.window.set(window);
   }
 
-  /** Loads `path` on `deck`, or on the first deck without a track (`null`). Whether it was. */
-  load(path: string, deck: number | null): Promise<boolean> {
+  /** Loads `path` (played at `playedAtMs`, in a set) on `deck`, or on the first deck without a
+   * track (`null`), the cursor put on its row if it is shown. Whether it was. */
+  load(path: string, deck: number | null, playedAtMs: number | null = null): Promise<boolean> {
+    void this.attempt(() =>
+      this.engine.ordered('library_select', { path, playedAtMs, pick: 'only' }),
+    );
     return this.engine.loadTrack(path, deck);
   }
 

@@ -63,6 +63,18 @@ describe('LibraryService', () => {
     expect(library.window()).toBe(told);
   });
 
+  it('puts the cursor on the row it loads', async () => {
+    const calls: [string, unknown][] = [];
+    mockIPC((command, args) => {
+      calls.push([command, args]);
+      return null;
+    });
+    await TestBed.inject(LibraryService).load('/a.flac', 1, 7);
+    const select = calls.find(([command]) => command === 'library_select');
+    expect(select?.[1]).toMatchObject({ path: '/a.flac', playedAtMs: 7, pick: 'only' });
+    expect(calls.map(([command]) => command)).toContain('load_track');
+  });
+
   it('forgets what was typed once another list is shown', async () => {
     mockIPC((command) => (command === 'library_filter' ? view(1, 'de') : null));
     const library = TestBed.inject(LibraryService);
