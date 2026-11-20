@@ -1353,6 +1353,29 @@ mod lanes {
     }
 
     #[test]
+    fn the_screen_plays_a_deck_while_the_library_reads_a_folder_and_loads_after_it() {
+        let bench = Arc::new(Bench::new());
+        bench.load(1, 60.0, None);
+        let file = track("after-folder");
+        let reading = held(&bench, Lane::Library);
+        let screen = |id: &str| {
+            let target: Target = id.parse().unwrap();
+            let source = Source::Interface { confirmed: false };
+            let in_turn = &mut InTurn::default();
+            bench.actions.perform(&bench, &target, Input::Value(1.0), source, Answer::Told, in_turn);
+        };
+        screen("library.load1");
+        screen("deck2.play");
+        bench.run(0.05);
+        assert!(bench.status(1).playing, "not held up by the folder");
+        bench.select(&file.0);
+        reading.send(()).unwrap();
+        bench.actions.settle();
+        let loaded = lock(&bench.state.tracks)[0].as_ref().map(|t| t.path.clone());
+        assert_eq!(loaded, Some(file.0.clone()), "the row picked in the folder read");
+    }
+
+    #[test]
     fn a_hot_cue_is_set_at_once_while_another_deck_loads() {
         let bench = Arc::new(Bench::new());
         bench.load(0, 60.0, None);

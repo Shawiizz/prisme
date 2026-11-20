@@ -1,6 +1,6 @@
 //! The library as the interface browses it: each gesture a command, sent in turn with its other
-//! actions (`order`); the list shown comes back with the status stream, the window of rows a
-//! scroll asks for at once (`library_viewport`).
+//! actions (`order`) and done on the library's lane; the list shown comes back with the status
+//! stream, the window of rows a scroll asks for at once (`library_viewport`).
 
 use crate::actions::browse::{self, effective, Library};
 use crate::actions::{Actions, Order};
@@ -9,29 +9,38 @@ use crate::dto::{
     ColumnDto, LibraryMenuDto, LibraryViewDto, LibraryWindowDto, NamedTrackDto, PickDto, ScopeDto,
     SeparateDto, SourceDto,
 };
-use crate::error::AppResult;
+use crate::error::{AppError, AppResult};
 use crate::library_service::LibraryService;
 use crate::state::{lock, AppState};
 use crate::stems_service::StemsService;
+use prisme_actions::lane::Lane;
 use prisme_library::browse::Column;
 use prisme_library::{within, LibraryDb};
 use std::path::{Path, PathBuf};
-use std::sync::Arc;
+use std::sync::{mpsc, Arc};
 use tauri::{AppHandle, Manager, State};
 
 /// Most tracks the command palette is given for a search.
 const SEARCH_LIMIT: usize = 500;
 
-/// Does `act` on the library, in turn with the interface's other actions (`order`), off the main
-/// thread: a list opened may read a folder.
+/// Does `act` on the library, sent in turn with the interface's other actions (`order`) and done
+/// in turn with the library's on their lane: a list opened may read a folder, which the actions
+/// of the decks sent after it do not wait for, and a load does (see `prisme_actions::lane`).
 pub(crate) async fn in_turn<R: Send + 'static>(
     app: AppHandle,
     order: Order,
     act: impl FnOnce(&AppState, &LibraryDb) -> AppResult<R> + Send + 'static,
 ) -> AppResult<R> {
     blocking(move || {
-        let (state, library) = (app.state::<AppState>(), app.state::<Arc<LibraryService>>());
-        app.state::<Actions>().in_order(order, || act(&state, &library.db))
+        let actions = app.state::<Actions>();
+        let (answer, outcome) = mpsc::sync_channel(1);
+        let doing = app.clone();
+        let job = move || {
+            let (state, library) = (doing.state::<AppState>(), doing.state::<Arc<LibraryService>>());
+            drop(answer.send(act(&state, &library.db)));
+        };
+        actions.in_order(order, || actions.in_turn_on(Lane::Library, job));
+        outcome.recv().unwrap_or_else(|e| Err(AppError::Other(e.to_string())))
     })
     .await
 }
