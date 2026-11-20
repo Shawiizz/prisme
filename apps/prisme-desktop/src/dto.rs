@@ -2,6 +2,7 @@
 
 use crate::auto_dj::machine::{Reason, State, Status, Takeover};
 use crate::auto_dj::plan::FadeLength;
+pub use prisme_actions::stems::{Separation as SeparationDto, StemMix as StemMixDto};
 use prisme_audio_io::{Backend, StreamStats};
 use prisme_engine::{
     DeckStatus, EngineStatus, InputChannels, LiveSource, LoopStatus, MixMode, Rpm, StemTracks, VinylMode,
@@ -504,34 +505,9 @@ pub struct TrackInfoDto {
     pub stem_mix: StemMixDto,
 }
 
-/// How far a track is separated.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub enum SeparationDto {
-    None,
-    /// Its vocals, the rest being the instrumental.
-    Vocals,
-    /// Its vocals, drums and bass, the rest being the other instruments.
-    Full,
-}
-
-impl SeparationDto {
-    /// From which stems there are; the drums and bass count only with the vocals.
-    pub fn of(has: impl Fn(prisme_engine::Stem) -> bool) -> Self {
-        use prisme_engine::Stem;
-        if !has(Stem::Vocals) {
-            Self::None
-        } else if has(Stem::Drums) && has(Stem::Bass) {
-            Self::Full
-        } else {
-            Self::Vocals
-        }
-    }
-
-    /// Of the stems stored next to `track`.
-    pub fn stored(track: &std::path::Path) -> Self {
-        Self::of(|stem| prisme_stems::track::has_stem(track, stem.name()))
-    }
+/// The stems stored next to `track`: how far it is separated.
+pub fn stored_separation(track: &std::path::Path) -> SeparationDto {
+    SeparationDto::of(|stem| prisme_stems::track::has_stem(track, stem.name()))
 }
 
 /// The stems on a deck, which it can mute.
@@ -549,49 +525,6 @@ impl DeckStemsDto {
             separation: SeparationDto::of(|stem| stems[stem as usize].is_some()),
             partial: stems.iter().flatten().any(|s| !s.is_complete()),
         }
-    }
-}
-
-/// How a deck plays each part of the track.
-#[derive(Debug, Clone, Copy, PartialEq, Default, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct StemMixDto {
-    pub vocals: StemLevelDto,
-    pub drums: StemLevelDto,
-    pub bass: StemLevelDto,
-    /// What no stem holds: the instrumental of a track separated into its vocals alone.
-    pub other: StemLevelDto,
-}
-
-/// A part's level: where its knob stands (0 to 1), kept while it is muted.
-#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct StemLevelDto {
-    pub level: f32,
-    pub on: bool,
-}
-
-impl Default for StemLevelDto {
-    fn default() -> Self {
-        Self { level: 1.0, on: true }
-    }
-}
-
-impl StemLevelDto {
-    /// The gain of the knob's position along a volume taper (the square: -12 dB half way),
-    /// so that the whole travel is heard, as on a fader.
-    fn gain(self) -> f32 {
-        if self.on {
-            self.level.clamp(0.0, 1.0).powi(2)
-        } else {
-            0.0
-        }
-    }
-}
-
-impl From<StemMixDto> for prisme_engine::StemMix {
-    fn from(m: StemMixDto) -> Self {
-        Self { vocals: m.vocals.gain(), drums: m.drums.gain(), bass: m.bass.gain(), other: m.other.gain() }
     }
 }
 
@@ -1259,7 +1192,7 @@ impl From<&prisme_library::TrackRecord> for TrackDetailsDto {
             rating: r.marks.rating,
             play_count: r.play_count,
             failed: r.error.is_some(),
-            separation: SeparationDto::stored(std::path::Path::new(&r.path)),
+            separation: stored_separation(std::path::Path::new(&r.path)),
         }
     }
 }
@@ -1589,13 +1522,5 @@ mod tests {
         let changed = FxChainDto { enabled: false, ..chain };
         let written = serde_json::to_string(&changed).unwrap();
         assert_eq!(serde_json::from_str::<FxChainDto>(&written).unwrap(), changed);
-    }
-
-    #[test]
-    fn a_stem_knob_follows_a_volume_taper_and_a_mute_keeps_its_level() {
-        let at = |level, on| StemLevelDto { level, on };
-        let mix = StemMixDto { vocals: at(0.5, true), drums: at(1.0, false), ..Default::default() };
-        let engine = prisme_engine::StemMix::from(mix);
-        assert_eq!((engine.vocals, engine.drums, engine.bass), (0.25, 0.0, 1.0));
     }
 }

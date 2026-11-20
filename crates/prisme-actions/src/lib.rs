@@ -4,3 +4,4 @@
 //! over a few steps or silent at an end), the keys held of a row, the tempo tapped.
 
 pub mod scales;
+pub mod stems;

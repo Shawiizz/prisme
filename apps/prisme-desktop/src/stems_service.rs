@@ -15,8 +15,8 @@
 //! on a deck gets its stems as soon as they exist.
 
 use crate::dto::{
-    DeckStemsDto, DeckTrackUpdateDto, ModelStatusDto, SeparatedDto, SeparationDto, StemMixDto,
-    StemsProgressDto, StemsStatusDto,
+    stored_separation, DeckStemsDto, DeckTrackUpdateDto, ModelStatusDto, SeparatedDto, SeparationDto,
+    StemMixDto, StemsProgressDto, StemsStatusDto,
 };
 use crate::error::{AppError, AppResult};
 use crate::state::{lock, AppState};
@@ -584,7 +584,7 @@ impl Worker {
             match result {
                 Ok(Ended::Through) => {
                     self.update(|p| p.done += 1);
-                    let separation = SeparationDto::stored(&job.path);
+                    let separation = stored_separation(&job.path);
                     let separated = SeparatedDto { path: job.path.display().to_string(), separation };
                     let _ = self.app.emit(STEMS_SEPARATED_EVENT, separated);
                     attach_stems(&self.app, &job.path);
@@ -946,7 +946,7 @@ fn idle(progress: &mut StemsProgressDto) {
 /// otherwise the end of its loading does it), but for those that got them as they came,
 /// which are told they have them whole.
 pub fn attach_stems(app: &AppHandle, path: &Path) {
-    let stored = SeparationDto::stored(path);
+    let stored = stored_separation(path);
     let state = app.state::<AppState>();
     let mut audio = None;
     let mut whole = Vec::new();

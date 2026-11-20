@@ -9,3 +9,5 @@ license.workspace = true
 
 [dependencies]
 prisme-control.workspace = true
+prisme-engine.workspace = true
+serde.workspace = true
