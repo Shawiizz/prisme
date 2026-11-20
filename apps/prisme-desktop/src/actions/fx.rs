@@ -1,5 +1,6 @@
 //! A deck's chain of beat effects: each slot's effect and settings, the chain on or off and the
-//! part of the track it is on; the slot its three knobs are focused on.
+//! part of the track it is on; the slot its three knobs are focused on, and the one the screen
+//! shows.
 
 use super::Performing;
 use crate::dto::{EffectKindDto, FxDto, FxPartDto, SeparationDto};
@@ -99,8 +100,9 @@ pub(super) fn press_fx(state: &AppState, deck: usize, slot: usize, effect: Effec
 impl Performing<'_> {
     /// Slot `slot` of the chain of `deck` focused on the three knobs, or let go of.
     pub(super) fn focus_fx(&self, deck: usize, slot: usize) -> AppResult<()> {
-        let focus = &mut self.perform_state().decks[deck].fx_focus;
-        *focus = if *focus == Some(slot) { None } else { Some(slot) };
+        let deck = &mut self.perform_state().decks[deck];
+        deck.fx_focus = if deck.fx_focus == Some(slot) { None } else { Some(slot) };
+        deck.fx_shown = deck.fx_focus.unwrap_or(deck.fx_shown);
         Ok(())
     }
 
@@ -108,6 +110,16 @@ impl Performing<'_> {
     pub(super) fn fx_knob(&self, deck: usize, knob: usize) -> DeckAction {
         fx_knob(knob, self.perform_state().decks[deck].fx_focus)
     }
+}
+
+/// The slot of the chain of `deck` the screen's pads and knobs act on.
+pub fn show_fx_slot(state: &AppState, deck: usize, slot: usize) -> AppResult<()> {
+    AppState::deck_exists(deck)?;
+    if slot >= FX_SLOTS {
+        return Err(AppError::Other(format!("no effect slot {slot}")));
+    }
+    lock(&state.perform).decks[deck].fx_shown = slot;
+    Ok(())
 }
 
 #[cfg(test)]
@@ -121,6 +133,19 @@ mod tests {
     fn press(bench: &Bench, id: &str) {
         bench.press(id, 1.0).unwrap();
         bench.press(id, 0.0).unwrap();
+    }
+
+    #[test]
+    fn the_screen_shows_the_slot_chosen_there_or_focused_last() {
+        let bench = Bench::new();
+        let shown = || lock(&bench.state.perform).decks[1].fx_shown;
+        super::show_fx_slot(&bench.state, 1, 2).unwrap();
+        assert_eq!(shown(), 2);
+        press(&bench, "deck2.fx2.focus");
+        assert_eq!(shown(), 1);
+        press(&bench, "deck2.fx2.focus");
+        assert_eq!(shown(), 1, "the focus let go keeps the slot shown");
+        assert!(super::show_fx_slot(&bench.state, 1, 9).is_err());
     }
 
     fn set(bench: &Bench, id: &str, value: f32) {

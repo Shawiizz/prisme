@@ -1455,11 +1455,13 @@ pub struct DeckPadsDto {
     pub cut: Option<usize>,
     /// The slot of its effect chain the effect knobs turn.
     pub fx_focus: Option<usize>,
+    /// The slot of its effect chain the screen's pads and knobs act on.
+    pub fx_shown: usize,
 }
 
 impl From<&DeckPerform> for DeckPadsDto {
     fn from(deck: &DeckPerform) -> Self {
-        Self { roll: deck.roll, cut: deck.cuts.acting(), fx_focus: deck.fx_focus }
+        Self { roll: deck.roll, cut: deck.cuts.acting(), fx_focus: deck.fx_focus, fx_shown: deck.fx_shown }
     }
 }
 

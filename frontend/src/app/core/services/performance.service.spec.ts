@@ -14,7 +14,7 @@ describe('PerformanceService', () => {
       calls.push([target, value]);
       return true;
     });
-    const none: DeckPerform = { cut: null, roll: null, fxFocus: null };
+    const none: DeckPerform = { cut: null, roll: null, fxFocus: null, fxShown: 0 };
     expect(performance.cuts()).toEqual([null, null, null, null]);
     const perform = [none, { ...none, cut: 2, roll: 0.5 }, none, none];
     engine.controls.set({ perform } as ControlState);

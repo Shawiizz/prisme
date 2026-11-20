@@ -28,6 +28,9 @@ pub struct DeckPerform {
     pub roll: Option<f64>,
     /// The slot of its effect chain the effect knobs turn.
     pub fx_focus: Option<usize>,
+    /// The slot of its effect chain the screen's pads and knobs act on: the one focused last, else
+    /// chosen there.
+    pub fx_shown: usize,
 }
 
 /// What the actions keep between presses for themselves, which the interface is not sent: the

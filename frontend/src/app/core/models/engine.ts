@@ -251,6 +251,8 @@ export interface DeckPerform {
   roll: number | null;
   /** The slot of its effect chain the effect knobs turn. */
   fxFocus: number | null;
+  /** The slot of its effect chain the screen's pads and knobs act on. */
+  fxShown: number;
 }
 
 export interface TrackState {

@@ -1,4 +1,4 @@
-import { Injectable, computed, effect, inject, signal, untracked } from '@angular/core';
+import { Injectable, computed, inject } from '@angular/core';
 import { EffectKind, FxChain, FxSettings, MAX_DECKS } from '../models/engine';
 import { fxId } from '../control/controls';
 import { EngineService } from './engine.service';
@@ -13,24 +13,16 @@ import { sameItems } from '../same';
 @Injectable({ providedIn: 'root' })
 export class FxService {
   private readonly engine = inject(EngineService);
-  private readonly chosenSlots = signal<number[]>(Array(MAX_DECKS).fill(0));
   /** The slot each deck's effect knobs are focused on, as the backend keeps it. */
   private readonly focusedSlots = computed<(number | null)[]>(
     () => this.engine.controls()?.perform.map((d) => d.fxFocus) ?? Array(MAX_DECKS).fill(null),
     { equal: sameItems },
   );
-
-  constructor() {
-    // a slot focused is chosen on the screen too
-    effect(() => {
-      const focused = this.focusedSlots();
-      untracked(() =>
-        focused.forEach((slot, deck) => {
-          if (slot !== null) this.choose(deck, slot);
-        }),
-      );
-    });
-  }
+  /** The slot each deck's pads and knobs act on, as the backend keeps it. */
+  private readonly shownSlots = computed<number[]>(
+    () => this.engine.controls()?.perform.map((d) => d.fxShown) ?? Array(MAX_DECKS).fill(0),
+    { equal: sameItems },
+  );
 
   chain(deck: number): FxChain {
     return this.engine.decks()[deck].fx;
@@ -42,11 +34,11 @@ export class FxService {
 
   /** The slot the pads and knobs of the screen act on. */
   chosen(deck: number): number {
-    return this.chosenSlots()[deck];
+    return this.shownSlots()[deck];
   }
 
   choose(deck: number, slot: number) {
-    this.chosenSlots.update((slots) => slots.map((s, d) => (d === deck ? slot : s)));
+    return this.engine.call('show_fx_slot', { deck, slot });
   }
 
   /** The slot a controller's knobs act on as Mixxx's focused effect, if one is. */
