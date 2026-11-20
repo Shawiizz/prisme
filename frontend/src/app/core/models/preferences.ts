@@ -25,6 +25,8 @@ export interface DjPreferences {
 export interface LibraryPreferences {
   /** The music folder chosen (`null`: the system's); changed with `set_music_folder`. */
   musicFolder: string | null;
+  /** The music folders added next to it, in the order they were added; none on a phone. */
+  folders: string[];
   lastFolder: string | null;
   /** Columns of the track list the DJ hid. */
   hiddenColumns: string[];
@@ -35,8 +37,8 @@ export interface LibraryPreferences {
   /** The background analysis of the music folder waits while a deck plays. */
   pauseWhilePlaying: boolean;
   /** A track loaded on a deck is separated right away, before the library's; one put in the
-   * prepare list in the background. */
-  /** `null`: not chosen, on with a graphics card that can separate. */
+   * prepare list in the background. `null`: not chosen, on with a graphics card that can
+   * separate. */
   stemsOnLoad: boolean | null;
   /** The separation runs on the graphics chip when there is one worth it. */
   stemsGpu: boolean;
