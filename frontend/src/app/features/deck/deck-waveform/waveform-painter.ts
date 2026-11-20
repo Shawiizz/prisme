@@ -32,6 +32,8 @@ const HEADROOM = 0.88;
 const GRID_BEAT = 0.14;
 const GRID_TICK = 0.6;
 const GRID_BAR = 0.5;
+/** The colours of slices kept written at most: a long set draws many, the next written again. */
+const COLORS_KEPT = 4096;
 
 /**
  * Draws the waveforms (design/DESIGN.md, Waveform): the envelope the backend made of each slice,
@@ -452,6 +454,7 @@ export class WaveformPainter {
     const rgb = (w.red[k] << 16) | (w.green[k] << 8) | w.blue[k];
     let written = this.colors.get(rgb);
     if (written === undefined) {
+      if (this.colors.size >= COLORS_KEPT) this.colors.clear();
       written = `rgb(${w.red[k]},${w.green[k]},${w.blue[k]})`;
       this.colors.set(rgb, written);
     }
