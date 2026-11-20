@@ -2235,6 +2235,8 @@ pub struct ControllerProfileDto {
     pub source: crate::controller_profiles::Source,
     pub verified: bool,
     /// Another profile of a model's (see `Profile::variant`): no model of its own.
+    /// Another profile of a model's: counted with it.
+    #[serde(skip)]
     pub variant: bool,
     /// Prisme's model whose profile of the same file name this one, the DJ's own, replaces.
     pub replaces: Option<String>,

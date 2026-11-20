@@ -38,12 +38,14 @@ impl fmt::Display for Kind {
     }
 }
 
-/// Where an action is performed: by the application's core, or by the interface the
-/// controller tells (`ui-action`).
+/// Where an action is performed: by the application's core, by the interface a controller
+/// tells (`ui-action`), or by the reader of the controller's messages itself (its shifts and
+/// modes).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Owner {
     Rust,
-    Ui,
+    Interface,
+    Reader,
 }
 
 /// Declares an enum whose unit variants are each named by an id and of a kind, the variants
@@ -387,9 +389,10 @@ impl Target {
     pub fn owner(&self) -> Owner {
         match self {
             Target::Library(LibraryAction::Search)
-            | Target::General(GeneralAction::Help | GeneralAction::Palette | GeneralAction::Settings)
-            | Target::Shift(_)
-            | Target::Mode { .. } => Owner::Ui,
+            | Target::General(GeneralAction::Help | GeneralAction::Palette | GeneralAction::Settings) => {
+                Owner::Interface
+            }
+            Target::Shift(_) | Target::Mode { .. } => Owner::Reader,
             _ => Owner::Rust,
         }
     }
@@ -786,8 +789,10 @@ mod tests {
     #[test]
     fn the_interface_performs_its_windows_and_the_focus_of_its_search_and_nothing_else() {
         let ui: BTreeSet<String> =
-            Target::all().iter().filter(|t| t.owner() == Owner::Ui).map(Target::to_string).collect();
-        let windows = ["library.search", "general.help", "general.palette", "general.settings", "shift"];
+            Target::all().iter().filter(|t| t.owner() == Owner::Interface).map(Target::to_string).collect();
+        let windows = ["library.search", "general.help", "general.palette", "general.settings"];
+        assert_eq!("shift".parse::<Target>().map(|t| t.owner()), Ok(Owner::Reader));
+        assert_eq!("mode.pads.roll".parse::<Target>().map(|t| t.owner()), Ok(Owner::Reader));
         let expected: BTreeSet<String> = windows.iter().map(|id| id.to_string()).collect();
         assert_eq!(ui, expected);
     }

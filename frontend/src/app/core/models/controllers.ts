@@ -49,8 +49,6 @@ export interface ControllerProfiles {
     name: string;
     source: ProfileSource;
     verified: boolean;
-    /** Another profile of a model's (a firmware, an edition): no model of its own. */
-    variant: boolean;
     /** Prisme's model whose profile of the same file name this one, the DJ's own, replaces. */
     replaces: string | null;
   }[];

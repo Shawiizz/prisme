@@ -149,7 +149,7 @@ impl Host for AppHandle {
     }
 
     fn perform_here(&self, target: &Target, input: Input, asked: Asked) -> AppResult<()> {
-        if target.owner() == Owner::Ui {
+        if target.owner() != Owner::Rust {
             return Err(AppError::NotPerformed(target.to_string()));
         }
         let library = self.try_state::<Arc<LibraryService>>();
@@ -1093,7 +1093,7 @@ pub(crate) mod bench {
         }
 
         fn perform_here(&self, target: &Target, input: Input, asked: Asked) -> AppResult<()> {
-            if target.owner() == Owner::Ui {
+            if target.owner() != Owner::Rust {
                 return Err(AppError::NotPerformed(target.to_string()));
             }
             self.asked(asked).perform(target, input)

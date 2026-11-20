@@ -422,7 +422,7 @@ impl Connection {
 
 /// What the keys of the controllers do beyond driving their action, by controller.
 #[derive(Default)]
-struct Keys(HashMap<String, DeviceKeys>);
+struct KeyWays(HashMap<String, DeviceKeys>);
 
 /// What the keys of a controller do beyond driving their action, by key.
 #[derive(Default)]
@@ -438,7 +438,7 @@ struct DeviceKeys {
     instead: HashMap<Control, TargetId>,
 }
 
-impl Keys {
+impl KeyWays {
     /// The keys of `device`: its name is copied once, not at each message.
     fn of(&mut self, device: &str) -> &mut DeviceKeys {
         if !self.0.contains_key(device) {
@@ -477,7 +477,7 @@ pub struct Controllers {
     reader: Mutex<Reader>,
     connections: Mutex<Vec<Connection>>,
     holdings: Mutex<Vec<Holding>>,
-    keys: Mutex<Keys>,
+    keys: Mutex<KeyWays>,
     /// The fields of each HID controller's reports its mappings read.
     hid_fields: Mutex<HashMap<String, Arc<BTreeSet<Field>>>>,
 }
@@ -493,7 +493,7 @@ impl Controllers {
             reader: Mutex::new(Reader::default()),
             connections: Mutex::new(Vec::new()),
             holdings: Mutex::new(Vec::new()),
-            keys: Mutex::new(Keys::default()),
+            keys: Mutex::new(KeyWays::default()),
             hid_fields: Mutex::new(HashMap::new()),
         };
         controllers.layer();
@@ -1595,13 +1595,14 @@ fn with_hid(mut midi: Vec<String>, hid: &[controller_hid::Plugged]) -> Vec<Strin
     midi
 }
 
-/// What `mapping` driven to `value` drives: its action (a mode key's is chosen as it is read),
-/// and those it drives along.
+/// What `mapping` driven to `value` drives: its action and those it drives along, but a shift's
+/// and a mode's, which the reader keeps.
 fn inputs(mapping: &Mapping, value: f32) -> Vec<Action> {
     let steps = mapping.encoding.is_relative();
-    let own = mapping.target.mode().is_none().then_some(&mapping.target);
-    own.into_iter()
+    let read = |target: &&TargetId| target.target().is_some_and(|t| t.owner() == Owner::Reader);
+    std::iter::once(&mapping.target)
         .chain(&mapping.also)
+        .filter(|target| !read(target))
         .map(|target| Action::of(target, value, steps, mapping.step))
         .collect()
 }
@@ -2111,7 +2112,7 @@ mod tests {
         let mut here = 0;
         for id in ids {
             match Action::of(&id.into(), 1.0, false, None) {
-                Action::Ui(id, _) => assert_eq!(id.target().map(Target::owner), Some(Owner::Ui), "{id}"),
+                Action::Ui(id, _) => assert_ne!(id.target().map(Target::owner), Some(Owner::Rust), "{id}"),
                 Action::Rust(target, _) => {
                     assert_eq!(target.owner(), Owner::Rust, "{id}");
                     here += 1;

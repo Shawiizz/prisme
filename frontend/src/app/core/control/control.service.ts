@@ -38,8 +38,6 @@ export class ControlService {
     'general.help': pressed(() => this.navigation.toggleSettings('shortcuts')),
     'general.palette': pressed(() => this.navigation.togglePalette()),
     'general.settings': pressed(() => this.navigation.openSettings()),
-    // the backend reads a controller's shift as it reads the controller
-    shift: () => undefined,
   };
 
   private readonly targets = signal<Target[]>([]);

@@ -622,7 +622,7 @@ mod tests {
         let bench = Bench::new();
         for id in listed.iter().map(String::as_str).chain(measured) {
             let target: Target = id.parse().unwrap();
-            if target.owner() == Owner::Ui {
+            if target.owner() != Owner::Rust {
                 continue;
             }
             for value in [1.0, 0.0] {
