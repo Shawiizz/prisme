@@ -82,9 +82,19 @@ impl AutoDj {
         self.change(|m| m.set_fade(fade_of(preferences)));
     }
 
-    /// The DJ acted by hand: the Auto DJ pauses if it was playing.
+    /// The DJ acted by hand: the Auto DJ pauses if it was playing. Called at each move of a
+    /// jog, the crossfader, a deck's place: nothing is woken nor told unless it paused.
     pub fn take_over(&self, takeover: Takeover) {
-        self.change(|m| m.take_over(takeover));
+        let paused = {
+            let mut machine = lock(&self.machine);
+            let before = machine.status();
+            machine.take_over(takeover);
+            machine.status() != before
+        };
+        if paused {
+            self.wake.notify_all();
+            self.tell();
+        }
     }
 
     fn change(&self, change: impl FnOnce(&mut Machine)) {
@@ -93,13 +103,17 @@ impl AutoDj {
         self.tell();
     }
 
-    /// Tells the interface the status, if it changed.
+    /// Tells the interface the status, if it changed (the lock let go first).
     fn tell(&self) {
         let status = self.status();
-        let mut told = lock(&self.told);
-        if told.as_ref() != Some(&status) {
+        let changed = {
+            let mut told = lock(&self.told);
+            let changed = told.as_ref() != Some(&status);
+            *told = Some(status.clone());
+            changed
+        };
+        if changed {
             let _ = self.app.emit(AUTO_DJ_EVENT, &status);
-            *told = Some(status);
         }
     }
 
