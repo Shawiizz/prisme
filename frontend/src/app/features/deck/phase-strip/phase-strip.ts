@@ -1,7 +1,6 @@
 import { Component, DestroyRef, ElementRef, computed, inject, viewChild } from '@angular/core';
 import { EngineService } from '../../../core/services/engine.service';
 import { MixerService } from '../../../core/services/mixer.service';
-import { driftTime, phaseOffset } from '../../../core/sync';
 import { t } from '../../../core/i18n/i18n';
 import { TPipe } from '../../../core/i18n/t.pipe';
 import { ZOOM_SPAN_S } from '../deck-waveform/deck-waveform';
@@ -9,14 +8,8 @@ import { fitToDevicePixels, forgetCanvas } from '../../../shared/device-pixels';
 import { Showing, everyFrame } from '../../../shared/frames';
 import { palette } from '../../../shared/palette';
 import { deckLetter } from '../../../shared/time';
+import { sameItems } from '../../../core/same';
 import { Crossfader } from '../../mixer/crossfader/crossfader';
-
-/** Beat offset under which the two decks count as matched. */
-const MATCHED_BEATS = 0.02;
-/** The offset heard as two kicks rather than one: a sixteenth note. */
-const HEARD_BEATS = 1 / 16;
-/** How far ahead the drift is told (s). */
-const FORECAST_S = 60;
 
 /**
  * Between the first two decks: the beats of one deck at the top and of the other at the
@@ -37,46 +30,48 @@ export class PhaseStrip {
   private readonly showing = new Showing();
   private readonly redraw = () => this.draw();
 
+  /** What the backend tells of the two decks compared. */
+  private readonly strip = computed(() => this.engine.status()?.phase ?? null);
   /** The two decks compared: with four decks, the first two that play; else A and B. */
-  protected readonly pair = computed<[number, number]>(() => {
-    const decks = this.engine.status()?.decks ?? [];
-    const playing = decks.flatMap((d, i) => (d.playing ? [i] : []));
-    return playing.length >= 2 ? [playing[0], playing[1]] : [0, 1];
+  protected readonly pair = computed<[number, number]>(() => this.strip()?.decks ?? [0, 1], {
+    equal: sameItems,
   });
   /** The pair by its letters, told when there are more than two decks. */
   protected readonly pairName = computed(() =>
     this.engine.deckIndexes().length > 2 ? this.pair().map(deckLetter).join('·') : '',
   );
-  private readonly statuses = computed(() => {
-    const decks = this.engine.status()?.decks ?? [];
-    return this.pair().map((deck) => decks[deck]);
-  });
 
   /**
    * What the strip says of the two decks: drifting apart at their tempos, when the second will
    * be heard off the beat of the first; else how far its beats are from the first's.
    */
   protected readonly phase = computed(() => {
-    const [a, b] = this.statuses();
-    if (!a || !b) return { words: '', drifting: false };
-    const seconds = Math.round(driftTime(b, a, HEARD_BEATS) ?? Infinity);
-    if (seconds <= FORECAST_S) {
-      const words =
-        seconds === 0
-          ? t('Off the beat: adjust the pitch')
-          : t('Off by 1/16 in {s} s', { s: String(seconds) });
-      return { words, drifting: true };
-    }
-    const beats = phaseOffset(b, a);
-    if (beats === null || !b.bpm) return { words: '', drifting: false };
-    if (Math.abs(beats) < MATCHED_BEATS) return { words: t('Matched'), drifting: false };
-    const ms = String(Math.round((Math.abs(beats) * 60_000) / b.bpm));
+    const strip = this.strip();
     const deck = deckLetter(this.pair()[1]);
-    const words =
-      beats > 0
-        ? t('{deck} ahead by {ms} ms', { deck, ms })
-        : t('{deck} behind by {ms} ms', { deck, ms });
-    return { words, drifting: false };
+    switch (strip?.state) {
+      case 'drifting':
+        return {
+          words:
+            strip.seconds === 0
+              ? t('Off the beat: adjust the pitch')
+              : t('Off by 1/16 in {s} s', { s: String(strip.seconds) }),
+          drifting: true,
+        };
+      case 'matched':
+        return { words: t('Matched'), drifting: false };
+      case 'ahead':
+        return {
+          words: t('{deck} ahead by {ms} ms', { deck, ms: String(strip.ms) }),
+          drifting: false,
+        };
+      case 'behind':
+        return {
+          words: t('{deck} behind by {ms} ms', { deck, ms: String(strip.ms) }),
+          drifting: false,
+        };
+      default:
+        return { words: '', drifting: false };
+    }
   });
 
   constructor() {

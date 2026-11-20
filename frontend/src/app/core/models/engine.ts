@@ -139,6 +139,17 @@ export interface StemKnob {
   ready: boolean;
 }
 
+/** What the strip between the decks tells of the second deck's beats against the first's: off
+ * the beat within so many seconds at their tempos (0: already), matched, or ahead or behind by
+ * so many milliseconds. */
+export type PhaseReading =
+  | { state: 'off' | 'matched' }
+  | { state: 'drifting'; seconds: number }
+  | { state: 'ahead' | 'behind'; ms: number };
+
+/** The strip comparing two decks' beats: the first two playing, else A and B. */
+export type PhaseStrip = { decks: [number, number] } & PhaseReading;
+
 export interface Cue {
   /** Hot cue slot, `null` for the main cue. */
   hot: number | null;
@@ -187,6 +198,7 @@ export interface EngineStatus {
   recording: RecordingStatus | null;
   /** The track heard in the headphones before it goes on a deck. */
   preview: PreviewStatus | null;
+  phase: PhaseStrip;
   /** The sections of what the app mirrors the backend changed since the status before: the
    * mixer (with the quantize and the tempo range), the tracks (with their loads), the pads,
    * the preview. All of them in the first status. */

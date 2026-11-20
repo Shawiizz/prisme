@@ -5,7 +5,7 @@
 use crate::cue::at_cue;
 use crate::pads::{plays_loop, slice_at, ROLL_BEATS};
 use crate::switch::Switch;
-use crate::sync::{phase, Beat, Phase};
+use crate::sync::{phase, Beat, Phase, IN_PHASE};
 use crate::view::{band_index, TrackView, View};
 use prisme_control::{
     AutoDjAction, Beats, DeckAction, FxAction, GeneralAction, LibraryAction, MixerAction, SampleAction,
@@ -23,8 +23,6 @@ const ENDING_SOON_S: f64 = 10.0;
 const AT_TEMPO: f64 = 0.0005;
 /// Two decks this close in tempo (BPM) are at the same.
 const SAME_BPM: f64 = 0.01;
-/// Two decks this close in their beat (of a beat) are in phase.
-const IN_PHASE: f64 = 0.03;
 
 /// The state a light shows.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]

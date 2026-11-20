@@ -2,6 +2,11 @@
 
 use prisme_engine::{DeckStatus, EngineStatus};
 
+/// Two decks this close in their beat (of a beat) are in phase.
+pub const IN_PHASE: f64 = 0.03;
+/// Slower than this (beats a second), two decks' beats hold together for minutes.
+const MIN_DRIFT: f64 = 1e-4;
+
 /// Where a deck's beats are: its tempo and how far into its beat it is (0 to 1).
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Beat {
@@ -26,6 +31,22 @@ pub fn phase_offset(deck: Beat, other: Beat) -> f64 {
     let other_phase = (other.phase * octave_ratio(deck.bpm, other.bpm)) % 1.0;
     let gap = deck.phase - other_phase;
     gap - gap.round()
+}
+
+/// How long (s) before `deck`'s beats, drifting at the two tempos, are `limit` beats from
+/// `other`'s (0: they are already): none while they hold together.
+pub fn drift_time(deck: Beat, other: Beat, limit: f64) -> Option<f64> {
+    let offset = phase_offset(deck, other);
+    // the beats a second the deck gains on the other
+    let gain = (deck.bpm - octave_ratio(deck.bpm, other.bpm) * other.bpm) / 60.0;
+    if gain.abs() < MIN_DRIFT {
+        None
+    } else if offset.abs() >= limit {
+        Some(0.0)
+    } else {
+        let left = if gain > 0.0 { limit - offset } else { offset + limit };
+        Some(left / gain.abs())
+    }
 }
 
 /// The tempo at which `deck` plays the beats of the deck it follows, the engine at `status`
@@ -107,6 +128,18 @@ mod tests {
     #[test]
     fn a_double_time_deck_is_compared_with_twice_the_other_phase() {
         assert!(close(phase_offset(beat(140.0, 0.5), beat(70.0, 0.25)), 0.0));
+    }
+
+    #[test]
+    fn a_faster_deck_gets_a_sixteenth_ahead_from_where_its_beats_are() {
+        // 0.1 BPM faster: 1/600 beat a second, from in phase to 1/16 ahead in 37.5 s
+        let drift = |deck, other| drift_time(deck, other, 1.0 / 16.0).unwrap();
+        assert!(close(drift(beat(128.1, 0.5), beat(128.0, 0.5)), 37.5));
+        assert!(close(drift(beat(128.1, 0.53), beat(128.0, 0.5)), 19.5));
+        assert!(close(drift(beat(127.9, 0.53), beat(128.0, 0.5)), 55.5), "slower: the other way");
+        assert_eq!(drift(beat(128.1, 0.6), beat(128.0, 0.5)), 0.0, "past it already");
+        assert_eq!(drift(beat(128.1, 0.4), beat(128.0, 0.5)), 0.0);
+        assert_eq!(drift_time(beat(128.0, 0.6), beat(128.0, 0.5), 1.0 / 16.0), None, "one tempo");
     }
 
     #[test]

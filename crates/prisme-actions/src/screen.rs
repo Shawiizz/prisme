@@ -1,18 +1,23 @@
 //! What the screen shows of each deck at a frame, read from a [`View`] by the rules the
 //! controllers' lights and values follow: the rate it plays at and the key heard, where its
-//! tempo fader stands, the time left, who drives it, what its keys may do and light, and its
-//! stems.
+//! tempo fader stands, the time left, who drives it, what its keys may do and light, its stems;
+//! and the strip comparing two decks' beats.
 
 use crate::key::heard;
 use crate::light::{cue_state, ending, slice_playing, State};
 use crate::scales::Tempo;
 use crate::stems::part_in;
-use crate::sync::{grid_shift_to, matching_tempo};
+use crate::sync::{drift_time, grid_shift_to, matching_tempo, phase, phase_offset, Beat, Phase, IN_PHASE};
 use crate::view::{plays, View};
 use prisme_analysis::Key;
 use prisme_control::StemPart;
 use prisme_engine::VinylMode;
 use serde::Serialize;
+
+/// The offset heard as two kicks rather than one: a sixteenth note (of a beat).
+const HEARD_BEATS: f64 = 1.0 / 16.0;
+/// How far ahead the strip tells the drift (s).
+const FORECAST_S: f64 = 60.0;
 
 /// A deck as the screen shows it.
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -55,6 +60,34 @@ pub struct StemKnob {
     pub waiting: bool,
     /// Separated where the deck plays.
     pub ready: bool,
+}
+
+/// The strip comparing two decks' beats.
+#[derive(Debug, Clone, Copy, PartialEq, Serialize)]
+pub struct PhaseStrip {
+    /// The decks compared: the first two playing, else A and B.
+    pub decks: [usize; 2],
+    #[serde(flatten)]
+    pub reading: Reading,
+}
+
+/// What the strip tells of the second deck's beats against the first's.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(tag = "state", rename_all = "camelCase")]
+pub enum Reading {
+    /// Not both playing on a grid.
+    Off,
+    /// At their tempos, they will be heard off the beat within a minute (0: they are).
+    Drifting {
+        seconds: u32,
+    },
+    Matched,
+    Ahead {
+        ms: u32,
+    },
+    Behind {
+        ms: u32,
+    },
 }
 
 /// Who drives a deck.
@@ -168,6 +201,32 @@ pub fn stem_knobs(view: &View, deck: usize) -> impl Iterator<Item = StemKnob> + 
             ready: part_in(status.stems_here, part),
         })
     })
+}
+
+/// The strip as `view` shows it.
+pub fn phase_strip(view: &View) -> PhaseStrip {
+    let mut playing = (0..view.decks_in_use).filter(|&d| view.deck_status(d).playing);
+    let decks = match (playing.next(), playing.next()) {
+        (Some(a), Some(b)) => [a, b],
+        _ => [0, 1],
+    };
+    let [first, second] = decks.map(|d| Beat::playing(view.deck_status(d)));
+    PhaseStrip { decks, reading: second.zip(first).map_or(Reading::Off, |(b, a)| reading(b, a)) }
+}
+
+/// What the strip tells of `deck`'s beats against `other`'s, both playing.
+fn reading(deck: Beat, other: Beat) -> Reading {
+    let drifting = drift_time(deck, other, HEARD_BEATS).map(f64::round).filter(|s| *s <= FORECAST_S);
+    if let Some(seconds) = drifting {
+        return Reading::Drifting { seconds: seconds as u32 };
+    }
+    let ms = (phase_offset(deck, other).abs() * 60_000.0 / deck.bpm).round() as u32;
+    match phase(Some(deck), Some(other), IN_PHASE) {
+        Phase::In => Reading::Matched,
+        Phase::Ahead => Reading::Ahead { ms },
+        Phase::Behind => Reading::Behind { ms },
+        Phase::Off => Reading::Off,
+    }
 }
 
 /// The key the track on `deck` is heard in, if its key is known.
@@ -394,6 +453,39 @@ mod tests {
         }
         let parts: Vec<StemPart> = stem_knobs(&v, 0).map(|k| k.part).collect();
         assert_eq!(parts, [StemPart::Vocals, StemPart::Drums, StemPart::Bass, StemPart::Melody]);
+    }
+
+    /// Decks A and B playing on grids of `bpm` at `phase`.
+    fn strip(a: (f64, f64), b: (f64, f64)) -> PhaseStrip {
+        let mut v = loaded(loaded(view(), 1, 30.0, true), 0, 30.0, true);
+        for (d, (bpm, phase)) in [a, b].into_iter().enumerate() {
+            (v.status.decks[d].bpm, v.status.decks[d].beat_phase) = (Some(bpm), Some(phase));
+        }
+        phase_strip(&v)
+    }
+
+    #[test]
+    fn decks_at_different_tempos_are_told_when_they_will_be_heard_off_the_beat() {
+        assert_eq!(strip((120.0, 0.5), (150.0, 0.5)).reading, Reading::Drifting { seconds: 0 });
+        assert_eq!(strip((128.0, 0.5), (128.1, 0.5)).reading, Reading::Drifting { seconds: 38 });
+    }
+
+    #[test]
+    fn decks_at_one_tempo_are_told_whether_their_beats_meet() {
+        assert_eq!(strip((128.0, 0.5), (128.0, 0.5)).reading, Reading::Matched);
+        assert_eq!(strip((128.0, 0.5), (128.0, 0.6)).reading, Reading::Ahead { ms: 47 });
+        assert_eq!(strip((128.0, 0.5), (128.0, 0.4)).reading, Reading::Behind { ms: 47 });
+    }
+
+    #[test]
+    fn the_strip_compares_the_first_two_decks_playing_else_a_and_b_both_playing() {
+        let mut v = view();
+        v.decks_in_use = 4;
+        v.status.deck_count = 4;
+        let v = loaded(loaded(v, 3, 30.0, true), 1, 30.0, true);
+        assert_eq!(phase_strip(&v).decks, [1, 3]);
+        let one = loaded(view(), 1, 30.0, true);
+        assert_eq!(phase_strip(&one), PhaseStrip { decks: [0, 1], reading: Reading::Off });
     }
 
     #[test]

@@ -1168,6 +1168,8 @@ pub struct StatusDto {
     pub health: Option<AudioHealthDto>,
     pub recording: Option<RecordingStatusDto>,
     pub preview: Option<PreviewStatusDto>,
+    /// The strip comparing two decks' beats.
+    pub phase: screen::PhaseStrip,
     /// What the interface mirrors, when it changed since the status before.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub controls: Option<ControlStateDto>,
@@ -1361,6 +1363,7 @@ impl StatusDto {
                 duration_s: p.duration_s,
                 waiting: p.waiting,
             }),
+            phase: screen::phase_strip(view),
             controls: None,
         }
     }
