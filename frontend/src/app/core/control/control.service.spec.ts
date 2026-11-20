@@ -47,7 +47,6 @@ describe('ControlService', () => {
     controls.act('library.search', 1);
     controls.act('general.library', 1);
     controls.act('general.palette', 1);
-    controls.act('shift', 1);
     expect(performed).toEqual([
       ['library.browse', -3],
       ['library.next', 1],
