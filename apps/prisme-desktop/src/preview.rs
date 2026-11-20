@@ -5,7 +5,7 @@
 //! the waveform, from the library or computed once the file is read (and kept there for the
 //! decks), is drawn under the library (`preview-update` says when it comes).
 
-use crate::dto::{waveform_bytes, PreviewDto, PreviewStateDto};
+use crate::dto::{whole_waveform_bytes, PreviewDto, PreviewStateDto};
 use crate::error::AppResult;
 use crate::folders;
 use crate::library_service::LibraryService;
@@ -170,7 +170,7 @@ impl Previews {
     pub fn waveform(&self, id: u64) -> Vec<u8> {
         let current = lock(&self.current);
         let waveform = current.as_ref().filter(|c| c.id == id).and_then(|c| c.waveform.as_ref());
-        waveform.map(|w| waveform_bytes(w, w.len())).unwrap_or_default()
+        waveform.map(whole_waveform_bytes).unwrap_or_default()
     }
 }
 

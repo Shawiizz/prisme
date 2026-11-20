@@ -5,7 +5,7 @@ use tauri::ipc::{Channel, Response};
 use tauri::State;
 
 /// Sends the waveform of the track on `deck` to `channel` (`dto::waveform_bytes`): what is
-/// known of it at once, then, while the track is decoded, all of it again as it grows. Nothing
+/// known of it at once, then, while the track is decoded, what changed of it as it grows. Nothing
 /// once another track was loaded.
 #[tauri::command]
 pub fn watch_waveform(state: State<'_, AppState>, deck: usize, load_id: u64, channel: Channel) {

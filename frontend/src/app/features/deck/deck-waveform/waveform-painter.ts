@@ -43,9 +43,8 @@ export class WaveformPainter {
   private readonly palette = palette();
   /** The colour of each tag of a cue, written once. */
   private readonly cueColors = new Map<number, string>();
-  /** The colour of each slice, written once per waveform. */
-  private colors: string[] = [];
-  private source: Waveform | null = null;
+  /** The colours of the slices drawn, by their red, green and blue, each written once. */
+  private readonly colors = new Map<number, string>();
   /** The overview's audio as it plays and as played, drawn once per waveform and size. */
   private overview: {
     w: Waveform;
@@ -175,14 +174,21 @@ export class WaveformPainter {
     ctx.fillRect(Math.floor(playedX) - view.ratio, 0, 2 * view.ratio, view.height);
   }
 
-  /** The audio from its tiles at `pxPerS`, what has played (left of the playhead) dimmed. */
+  /** The audio from its tiles at `pxPerS`, what has played (left of the playhead) dimmed. A
+   * waveform growing keeps the tiles of the slices that no longer change. */
   private drawZoomedAudio(ctx: CanvasRenderingContext2D, w: Waveform, view: View, pxPerS: number) {
-    const cached = this.tiles;
-    const tiles =
-      cached && cached.w === w && cached.pxPerS === pxPerS && cached.height === view.height
-        ? cached
-        : (this.tiles = { w, pxPerS, height: view.height, images: new Map() });
     const tileS = TILE_PX / pxPerS;
+    const cached = this.tiles;
+    const kept = cached && cached.pxPerS === pxPerS && cached.height === view.height;
+    let tiles = cached!;
+    if (!kept || (cached.w !== w && w.height.buffer !== cached.w.height.buffer)) {
+      tiles = this.tiles = { w, pxPerS, height: view.height, images: new Map() };
+    } else if (cached.w !== w) {
+      // the tiles drawn hold the slices before where the waveform drawn last changed, final
+      const stale = Math.floor(cached.w.changedFrom / w.slicesPerSecond / tileS);
+      for (const k of tiles.images.keys()) if (k >= stale) tiles.images.delete(k);
+      tiles.w = w;
+    }
     const first = Math.max(Math.floor(view.fromS / tileS), 0);
     const last = Math.min(
       Math.floor((view.fromS + view.spanS) / tileS),
@@ -228,7 +234,6 @@ export class WaveformPainter {
     view: View,
     reach: number,
   ) {
-    this.prepare(w);
     const sps = w.slicesPerSecond;
     const slicesPerPx = (view.spanS * sps) / view.width;
     const mid = view.height / 2;
@@ -238,24 +243,27 @@ export class WaveformPainter {
       if (last <= 0 || first >= w.height.length) continue;
       const highest = this.highest(w, first, last);
       const h = (w.height[highest] / 255) * reach;
-      ctx.fillStyle = this.colors[highest];
+      ctx.fillStyle = this.color(w, highest);
       ctx.fillRect(x, mid - h, 1, h * 2);
     }
   }
 
-  /** The overview's audio, drawn again only for another waveform or another size. */
+  /** The overview's audio, drawn again only for another waveform or another size, on the
+   * canvases of before when they have its size. */
   private overviewAudio(
     w: Waveform,
     view: View,
   ): { full: OffscreenCanvas; played: OffscreenCanvas } {
     const cached = this.overview;
-    if (cached && cached.w === w && cached.width === view.width && cached.height === view.height) {
-      return cached;
-    }
-    const full = new OffscreenCanvas(view.width, view.height);
-    const played = new OffscreenCanvas(view.width, view.height);
-    this.drawOverviewAudio(full.getContext('2d')!, w, view);
+    const sized = cached && cached.width === view.width && cached.height === view.height;
+    if (sized && cached.w === w) return cached;
+    const full = sized ? cached.full : new OffscreenCanvas(view.width, view.height);
+    const played = sized ? cached.played : new OffscreenCanvas(view.width, view.height);
+    const ctx = full.getContext('2d')!;
+    ctx.clearRect(0, 0, view.width, view.height);
+    this.drawOverviewAudio(ctx, w, view);
     const dimmed = played.getContext('2d')!;
+    dimmed.clearRect(0, 0, view.width, view.height);
     dimmed.globalAlpha = PLAYED_OVERVIEW;
     dimmed.drawImage(full, 0, 0);
     this.overview = { w, width: view.width, height: view.height, full, played };
@@ -266,7 +274,6 @@ export class WaveformPainter {
    * their loudness, the loudest column across the whole height; in the colour of its highest
    * slice. */
   private drawOverviewAudio(ctx: OffscreenCanvasRenderingContext2D, w: Waveform, view: View) {
-    this.prepare(w);
     const n = w.slices;
     const known = w.height.length;
     const means = new Float32Array(view.width);
@@ -285,7 +292,7 @@ export class WaveformPainter {
       const last = Math.max(first + 1, Math.floor(((x + 1) / view.width) * n));
       if (first >= known) break;
       const h = (means[x] / highest) * (mid - 1);
-      ctx.fillStyle = this.colors[this.highest(w, first, last)];
+      ctx.fillStyle = this.color(w, this.highest(w, first, last));
       ctx.fillRect(x, mid - h, 1, h * 2);
     }
   }
@@ -440,11 +447,15 @@ export class WaveformPainter {
     ctx.fillRect(x - r, 0, 2 * r, view.height);
   }
 
-  /** The colour of each slice, written once per waveform. */
-  private prepare(w: Waveform) {
-    if (this.source === w) return;
-    this.source = w;
-    this.colors = Array.from(w.height, (_, k) => `rgb(${w.red[k]},${w.green[k]},${w.blue[k]})`);
+  /** The colour of slice `k` of `w`. */
+  private color(w: Waveform, k: number): string {
+    const rgb = (w.red[k] << 16) | (w.green[k] << 8) | w.blue[k];
+    let written = this.colors.get(rgb);
+    if (written === undefined) {
+      written = `rgb(${w.red[k]},${w.green[k]},${w.blue[k]})`;
+      this.colors.set(rgb, written);
+    }
+    return written;
   }
 }
 

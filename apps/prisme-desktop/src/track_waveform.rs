@@ -1,10 +1,12 @@
 //! The waveform of a loaded track on its way to the page: whole at once when the library
-//! has it; otherwise computed as the track is decoded and sent again as it grows, the page
-//! drawing the start of the track while the rest is read. Each has a lock of its own,
-//! which the pieces are sent under: never the decks' tracks', which the controllers wait on.
+//! has it; otherwise computed as the track is decoded and sent as it grows, from where it
+//! changed, the page drawing the start of the track while the rest is read. Each has a lock of
+//! its own, which the pieces are sent under: never the decks' tracks', which the controllers
+//! wait on.
 
-use crate::dto::waveform_bytes;
+use crate::dto::{waveform_bytes, whole_waveform_bytes};
 use crate::state::{lock, AppState};
+use prisme_analysis::envelope::Envelope;
 use prisme_analysis::{Waveform, WaveformBuilder};
 use prisme_media::TrackAudio;
 use std::ops::Range;
@@ -21,14 +23,15 @@ pub struct TrackWaveform(Arc<Mutex<Shape>>);
 enum Shape {
     /// All of it: from the library, or once the track is all decoded.
     Whole(Waveform),
-    /// While the track is decoded: the slices so far, of about `slices`, and the pages
-    /// watching it, which get it again each time it grows.
-    Growing { so_far: Waveform, slices: usize, watchers: Vec<Channel> },
+    /// While the track is decoded: the slices so far, of about `slices`, their envelope, and
+    /// the pages watching it, which get what changed of it each time it grows.
+    Growing { so_far: Waveform, envelope: Envelope, slices: usize, watchers: Vec<Channel> },
 }
 
 impl TrackWaveform {
     pub fn growing(slices_per_second: u32) -> Self {
-        Self::of(Shape::Growing { so_far: Waveform::new(slices_per_second), slices: 0, watchers: Vec::new() })
+        let so_far = Waveform::new(slices_per_second);
+        Self::of(Shape::Growing { so_far, envelope: Envelope::default(), slices: 0, watchers: Vec::new() })
     }
 
     pub fn whole(waveform: Waveform) -> Self {
@@ -56,37 +59,40 @@ impl TrackWaveform {
         }
     }
 
-    /// Sends what is known to `channel`, then, while it grows, all of it again each time.
+    /// Sends what is known to `channel`, then, while it grows, what changed of it each time.
     pub fn watch(&self, channel: Channel) {
         match &mut *lock(&self.0) {
-            Shape::Whole(w) => send(&channel, w, w.len()),
-            Shape::Growing { so_far, slices, watchers } => {
-                send(&channel, so_far, *slices);
+            Shape::Whole(w) => send(&channel, whole_waveform_bytes(w)),
+            Shape::Growing { so_far, envelope, slices, watchers } => {
+                send(&channel, waveform_bytes(so_far, envelope.heights(), *slices, 0));
                 watchers.push(channel);
             }
         }
     }
 
-    /// Adds the slices `range` of `from`, of a track of about `slices`, and sends what is known.
-    fn grow(&self, from: &Waveform, range: Range<usize>, slices: usize) {
-        if let Shape::Growing { so_far, slices: expected, watchers } = &mut *lock(&self.0) {
-            so_far.extend_from(from, range);
+    /// Adds the slices `range` of `computed`, of a track of about `slices`, and sends what
+    /// changed.
+    fn grow(&self, computed: &Waveform, range: Range<usize>, slices: usize) {
+        if let Shape::Growing { so_far, envelope, slices: expected, watchers } = &mut *lock(&self.0) {
+            so_far.extend_from(computed, range);
+            let from = envelope.grow(so_far);
             *expected = slices;
             if !watchers.is_empty() {
-                let bytes = waveform_bytes(so_far, slices);
+                let bytes = waveform_bytes(so_far, envelope.heights(), slices, from);
                 for channel in watchers.iter() {
-                    let _ = channel.send(InvokeResponseBody::Raw(bytes.clone()));
+                    send(channel, bytes.clone());
                 }
             }
         }
     }
 
-    /// The whole waveform, sent.
+    /// The whole waveform, sent: its heights set against all of it.
     fn complete(&self, whole: Waveform) {
         let mut shape = lock(&self.0);
         if let Shape::Growing { watchers, .. } = &*shape {
+            let bytes = whole_waveform_bytes(&whole);
             for channel in watchers.iter() {
-                send(channel, &whole, whole.len());
+                send(channel, bytes.clone());
             }
         }
         *shape = Shape::Whole(whole);
@@ -98,15 +104,18 @@ impl Clone for TrackWaveform {
     fn clone(&self) -> Self {
         Self::of(match &*lock(&self.0) {
             Shape::Whole(w) => Shape::Whole(w.clone()),
-            Shape::Growing { so_far, slices, .. } => {
-                Shape::Growing { so_far: so_far.clone(), slices: *slices, watchers: Vec::new() }
-            }
+            Shape::Growing { so_far, envelope, slices, .. } => Shape::Growing {
+                so_far: so_far.clone(),
+                envelope: envelope.clone(),
+                slices: *slices,
+                watchers: Vec::new(),
+            },
         })
     }
 }
 
-fn send(channel: &Channel, w: &Waveform, slices: usize) {
-    let _ = channel.send(InvokeResponseBody::Raw(waveform_bytes(w, slices)));
+fn send(channel: &Channel, bytes: Vec<u8>) {
+    let _ = channel.send(InvokeResponseBody::Raw(bytes));
 }
 
 /// The waveforms of the decks playing `audio` (a load and its instant doubles), read from the
@@ -135,19 +144,19 @@ impl WaveformFeed {
     }
 
     /// Reads what was decoded since; now and then, gives the new slices to the decks playing
-    /// `audio`.
+    /// `audio`: `PIECE_EVERY` after the last were given, however long giving them took.
     pub fn follow(&mut self, audio: &Arc<TrackAudio>, state: &AppState) {
         self.builder.read(audio);
         if self.given_at.is_some_and(|at| at.elapsed() < PIECE_EVERY) {
             return;
         }
-        self.given_at = Some(Instant::now());
         let waveform = self.builder.waveform();
         let (range, slices) = (self.given..waveform.len(), self.builder.slices_of(audio.frames()));
         for growing in waveforms_of(state, audio) {
             growing.grow(waveform, range.clone(), slices.max(range.end));
         }
         self.given = range.end;
+        self.given_at = Some(Instant::now());
     }
 
     /// The whole waveform once `audio` is all decoded, given to the decks playing it.
@@ -184,8 +193,9 @@ mod tests {
         w.grow(&computed, 2..4, 5);
         let double = w.clone();
         match &*lock(&double.0) {
-            Shape::Growing { so_far, slices, watchers } => {
+            Shape::Growing { so_far, envelope, slices, watchers } => {
                 assert_eq!((so_far, *slices, watchers.len()), (&computed, 5, 0));
+                assert_eq!(envelope.heights().len(), 4);
             }
             Shape::Whole(_) => panic!("still growing"),
         }

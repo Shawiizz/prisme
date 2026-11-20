@@ -710,23 +710,28 @@ impl From<&'static TimecodeFormat> for TimecodeFormatDto {
 }
 
 /// A waveform as the screen draws it, in binary (as JSON, a track's waveform is several hundred
-/// kilobytes of numbers): the slices of the whole track and `slices_per_second` (u32 each,
-/// little-endian), then for each slice known the height of its envelope, then its red, green
-/// and blue (`prisme_analysis::envelope`), one byte each. The heights are set against every
-/// slice known: a waveform still read is sent whole each time it grows.
-pub fn waveform_bytes(w: &prisme_analysis::Waveform, slices: usize) -> Vec<u8> {
-    use prisme_analysis::envelope;
+/// kilobytes of numbers): the slices of the whole track, `slices_per_second` and the first slice
+/// sent, `from` (u32 each, little-endian), then for each slice known from there the height of its
+/// envelope, `heights`, then its red, green and blue (`prisme_analysis::envelope`), one byte
+/// each. A waveform still read is sent from where it changed as it grows: the slices before
+/// `from` stay as they were sent.
+pub fn waveform_bytes(w: &prisme_analysis::Waveform, heights: &[u8], slices: usize, from: usize) -> Vec<u8> {
     let known = w.len();
-    let mut bytes = Vec::with_capacity(8 + 4 * known);
-    for value in [slices.max(known) as u32, w.slices_per_second] {
-        bytes.extend(value.to_le_bytes());
+    let mut bytes = Vec::with_capacity(12 + 4 * (known - from));
+    for value in [slices.max(known), w.slices_per_second as usize, from] {
+        bytes.extend((value as u32).to_le_bytes());
     }
-    bytes.extend(envelope::heights(w));
-    let colours: Vec<[u8; 3]> = (0..known).map(|i| envelope::colour(w, i)).collect();
+    bytes.extend(&heights[from..]);
+    let colours: Vec<[u8; 3]> = (from..known).map(|i| prisme_analysis::envelope::colour(w, i)).collect();
     for c in 0..3 {
         bytes.extend(colours.iter().map(|rgb| rgb[c]));
     }
     bytes
+}
+
+/// All of `w`, a waveform whose slices are all known, in binary (see [`waveform_bytes`]).
+pub fn whole_waveform_bytes(w: &prisme_analysis::Waveform) -> Vec<u8> {
+    waveform_bytes(w, &prisme_analysis::envelope::heights(w), w.len(), 0)
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -2407,6 +2412,23 @@ mod tests {
         assert_eq!(mixer.knobs.crossfader.at, 0.0);
         assert_eq!(controls.quantize, Some(true));
         assert_eq!(controls.tracks.unwrap().len(), prisme_engine::MAX_DECKS);
+    }
+
+    #[test]
+    fn a_waveform_is_sent_from_the_first_slice_that_changed() {
+        let w = prisme_analysis::Waveform {
+            slices_per_second: 150,
+            peak: vec![0; 3],
+            low: vec![200, 0, 0],
+            mid: vec![0, 80, 0],
+            high: vec![0, 0, 9],
+        };
+        let bytes = waveform_bytes(&w, &[1, 2, 3], 10, 1);
+        let header: Vec<u32> =
+            bytes[..12].chunks(4).map(|b| u32::from_le_bytes(b.try_into().unwrap())).collect();
+        assert_eq!(header, [10, 150, 1]);
+        assert_eq!(bytes[12..], [2, 3, 0, 0, 230, 0, 0, 255]);
+        assert_eq!(whole_waveform_bytes(&w).len(), 12 + 4 * 3);
     }
 
     #[test]

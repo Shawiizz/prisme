@@ -284,13 +284,13 @@ export class EngineService {
   }
 
   /** The waveform of the load `loadId` on `deck`: what is known of it at once, then, while the
-   * track is read, all of it again as it grows. */
+   * track is read, what changed of it as it grows. */
   private watchWaveform(deck: number, loadId: number) {
     const channel = new Channel<ArrayBuffer>();
+    let shown: Waveform | null = null;
     channel.onmessage = (buffer) => {
-      const waveform = decodeWaveform(buffer);
-      if (waveform && this.tracks()[deck]?.loadId === loadId)
-        this.patch(this.waveforms, deck, waveform);
+      shown = decodeWaveform(buffer, shown) ?? shown;
+      if (shown && this.tracks()[deck]?.loadId === loadId) this.patch(this.waveforms, deck, shown);
     };
     invoke('watch_waveform', { deck, loadId, channel }).catch(() => {});
   }

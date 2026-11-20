@@ -18,19 +18,76 @@ const TOP_SHARE: f64 = 0.005;
 /// The green of a slice whose mid band is the strongest: a full green outshines the others.
 const GREEN: f64 = 230.0;
 
+/// The share the track's scale may move by before the heights already set against it are set
+/// again: a waveform read meanwhile is not sent whole at each piece.
+const RESCALE: f64 = 0.02;
+/// The scale is looked at again once the slices known grew by this share: it settles as the
+/// track is read, and looking at it costs a pass over them all.
+const RESCALE_AFTER: usize = 50;
+
 /// The height of the envelope at each slice of `w`, 0 to 255: its loudness (from the energy of
 /// its bands) set against the track's, the median slice at `MEDIAN_HEIGHT` and the loudest
 /// `TOP_SHARE` at the top. A dynamic track keeps its shape; a limited master, every peak at the
-/// ceiling, unfolds into its kicks. While the track is read, `w` holds what has arrived of it,
-/// set against itself.
+/// ceiling, unfolds into its kicks.
 pub fn heights(w: &Waveform) -> Vec<u8> {
-    let n = w.len();
-    let radius = (LOW_SMOOTHING_S * f64::from(w.slices_per_second) / 2.0) as usize;
+    let mut envelope = Envelope::default();
+    envelope.grow(w);
+    envelope.heights
+}
+
+/// The envelope of a waveform as it is read (see [`heights`]): what arrived of the track set
+/// against itself, its heights set again only when its scale moved by more than [`RESCALE`].
+#[derive(Debug, Clone, Default)]
+pub struct Envelope {
+    loudness: Vec<f64>,
+    scale: Scale,
+    /// The slices known when the scale was last looked at.
+    scaled_at: usize,
+    heights: Vec<u8>,
+}
+
+impl Envelope {
+    /// The slices of `w` that arrived since, followed: the first slice whose height changed (the
+    /// last ones smoothed with those that came after them; all of them when the scale moved).
+    pub fn grow(&mut self, w: &Waveform) -> usize {
+        let n = w.len();
+        let from = self.loudness.len().saturating_sub(radius(w)).min(n);
+        self.loudness.truncate(from);
+        self.loudness.extend(loudness(w, from..n));
+        if self.scaled_at == 0 || n >= self.scaled_at + self.scaled_at / RESCALE_AFTER {
+            self.scaled_at = n;
+            let scale = Scale::of(&self.loudness);
+            if scale.moved_from(&self.scale) {
+                self.scale = scale;
+                self.heights.clear();
+            }
+        }
+        let from = from.min(self.heights.len());
+        self.heights.truncate(from);
+        self.heights.extend(self.loudness[from..].iter().map(|&l| self.scale.height(l)));
+        from
+    }
+
+    /// The height of each slice known.
+    pub fn heights(&self) -> &[u8] {
+        &self.heights
+    }
+}
+
+/// The half width of the low band's smoothing, in slices.
+fn radius(w: &Waveform) -> usize {
+    (LOW_SMOOTHING_S * f64::from(w.slices_per_second) / 2.0) as usize
+}
+
+/// The loudness of the slices `range` of `w`: the energy of their bands, the low band's
+/// smoothed over the slices around.
+fn loudness(w: &Waveform, range: std::ops::Range<usize>) -> impl Iterator<Item = f64> + '_ {
+    let (n, radius) = (w.len(), radius(w));
     let low = |k: usize| f64::from(w.low[k]).powi(2);
-    let mut loudness = Vec::with_capacity(n);
     // the low band's energy over the slices from i - radius to i + radius
-    let mut low_sum: f64 = (0..radius.min(n)).map(low).sum();
-    for i in 0..n {
+    let behind = if range.start > radius { range.start - radius - 1 } else { 0 };
+    let mut low_sum: f64 = (behind..(range.start + radius).min(n)).map(low).sum();
+    range.map(move |i| {
         if i + radius < n {
             low_sum += low(i + radius);
         }
@@ -40,25 +97,50 @@ pub fn heights(w: &Waveform) -> Vec<u8> {
         let count = ((i + radius).min(n - 1) - i.saturating_sub(radius) + 1) as f64;
         let energy =
             LOW_WEIGHT * low_sum / count + f64::from(w.mid[i]).powi(2) + f64::from(w.high[i]).powi(2);
-        loudness.push(energy.powf(LOUDNESS_EXPONENT / 2.0));
+        energy.powf(LOUDNESS_EXPONENT / 2.0)
+    })
+}
+
+/// What a track's loudness is set against: its median slice with sound, and the loudest
+/// `TOP_SHARE` of them; none for a silent track.
+#[derive(Debug, Clone, Copy, Default, PartialEq)]
+struct Scale {
+    median: f64,
+    top: f64,
+}
+
+impl Scale {
+    fn of(loudness: &[f64]) -> Self {
+        let mut sounding: Vec<f64> = loudness.iter().copied().filter(|&l| l > 0.0).collect();
+        let Some(last) = sounding.len().checked_sub(1) else { return Self::default() };
+        let (median, top) =
+            (sounding.len() / 2, (((1.0 - TOP_SHARE) * sounding.len() as f64) as usize).min(last));
+        let (below, &mut top, _) = sounding.select_nth_unstable_by(top, f64::total_cmp);
+        let median =
+            if median < below.len() { *below.select_nth_unstable_by(median, f64::total_cmp).1 } else { top };
+        Self { median, top }
     }
-    let mut sounding: Vec<f64> = loudness.iter().copied().filter(|&l| l > 0.0).collect();
-    if sounding.is_empty() {
-        return vec![0; n];
+
+    /// Whether the heights set against `before` are too far from those set against this.
+    fn moved_from(&self, before: &Scale) -> bool {
+        let moved = |now: f64, was: f64| (now - was).abs() > RESCALE * was;
+        before.median == 0.0 || moved(self.median, before.median) || moved(self.top, before.top)
     }
-    sounding.sort_by(f64::total_cmp);
-    let median = sounding[sounding.len() / 2];
-    let top = sounding[(((1.0 - TOP_SHARE) * sounding.len() as f64) as usize).min(sounding.len() - 1)];
-    let height = |l: f64| {
-        if l <= median {
+
+    /// The height of a slice as loud as `l`, 0 to 255.
+    fn height(&self, l: f64) -> u8 {
+        let Scale { median, top } = *self;
+        let height = if median == 0.0 {
+            0.0
+        } else if l <= median {
             l / median * MEDIAN_HEIGHT
         } else if top > median {
             (MEDIAN_HEIGHT + (l - median) / (top - median) * (1.0 - MEDIAN_HEIGHT)).min(1.0)
         } else {
             1.0
-        }
-    };
-    loudness.into_iter().map(|l| (height(l) * 255.0).round() as u8).collect()
+        };
+        (height * 255.0).round() as u8
+    }
 }
 
 /// The colour of slice `i` of `w`: the bands mixed like light, the low band lighting the red,
@@ -153,6 +235,26 @@ mod tests {
         for i in [kick_slice(5), offbeat_slice(5)] {
             assert!((share(h[i]) - share(whole[i])).abs() < 0.05);
         }
+    }
+
+    #[test]
+    fn a_waveform_read_piece_by_piece_is_sent_from_where_it_changed() {
+        let whole = track(60, groove(1.0));
+        let mut arriving = Waveform::new(SPS);
+        let mut envelope = Envelope::default();
+        let piece = SPS as usize / 4;
+        let mut froms = Vec::new();
+        for start in (0..whole.len()).step_by(piece) {
+            arriving.extend_from(&whole, start..(start + piece).min(whole.len()));
+            froms.push(envelope.grow(&arriving));
+        }
+        let radius = radius(&whole);
+        let resent = froms.iter().filter(|&&from| from == 0).count();
+        assert!(resent < froms.len() / 10, "{resent} of {} pieces set it all again", froms.len());
+        assert!(froms.iter().skip(1).all(|&from| from == 0 || from + radius >= piece), "{froms:?}");
+        let h = heights(&whole);
+        let close = envelope.heights().iter().zip(&h).all(|(a, b)| a.abs_diff(*b) <= 8);
+        assert!(close && envelope.heights().len() == h.len(), "within the scale's leeway");
     }
 
     #[test]

@@ -335,22 +335,41 @@ export interface Waveform {
   red: Uint8Array;
   green: Uint8Array;
   blue: Uint8Array;
+  /** Grown from the waveform before it, whose slices it shares (the same buffers): the first
+   * slice that changed. From then on, the slices before it never change again. */
+  changedFrom: number;
 }
 
-/** The track's slices and `slices_per_second` (u32 little-endian each), then the height, red,
- * green and blue of each slice known. */
-export function decodeWaveform(buffer: ArrayBuffer): Waveform | null {
-  if (buffer.byteLength <= 8) return null;
+/** The track's slices, `slices_per_second` and the first slice sent (u32 little-endian each),
+ * then the height, red, green and blue of each slice sent. Sent from a slice after the first,
+ * it is a piece of the waveform `before`, which keeps the slices before it; `null` without it. */
+export function decodeWaveform(
+  buffer: ArrayBuffer,
+  before: Waveform | null = null,
+): Waveform | null {
+  if (buffer.byteLength <= 12) return null;
   const header = new DataView(buffer);
-  const known = (buffer.byteLength - 8) / 4;
-  const band = (i: number) => new Uint8Array(buffer, 8 + i * known, known);
+  const [slices, slicesPerSecond, from] = [0, 4, 8].map((at) => header.getUint32(at, true));
+  const sent = (buffer.byteLength - 12) / 4;
+  const known = from + sent;
+  const grows = from > 0 && !!before && before.height.length >= from;
+  if (from > 0 && !grows) return null;
+  // the slices kept in the buffers of the waveform grown, unless it outgrew them
+  const shared = grows && before.height.buffer.byteLength >= known;
+  const bands = [before?.height, before?.red, before?.green, before?.blue].map((kept, i) => {
+    const all = shared ? new Uint8Array(kept!.buffer) : new Uint8Array(Math.max(slices, known));
+    if (grows && !shared) all.set(kept!.subarray(0, from));
+    all.set(new Uint8Array(buffer, 12 + i * sent, sent), from);
+    return all.subarray(0, known);
+  });
   return {
-    slices: header.getUint32(0, true),
-    slicesPerSecond: header.getUint32(4, true),
-    height: band(0),
-    red: band(1),
-    green: band(2),
-    blue: band(3),
+    slices: Math.max(slices, known),
+    slicesPerSecond,
+    height: bands[0],
+    red: bands[1],
+    green: bands[2],
+    blue: bands[3],
+    changedFrom: shared ? from : 0,
   };
 }
 
