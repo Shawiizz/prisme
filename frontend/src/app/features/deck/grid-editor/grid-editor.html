@@ -46,7 +46,7 @@
     <button
       class="pr-btn pr-btn--sm tap"
       [title]="'Tap the beat: after four taps, the grid takes the tempo tapped' | t"
-      (click)="tap()"
+      (click)="press('tap')"
     >
       {{ 'Tap' | t }}
     </button>
@@ -133,7 +133,11 @@
   <header>
     <span class="pr-label">{{ 'Key shift' | t }}</span>
     @if (keyShift() !== 0) {
-      <button class="pr-btn pr-btn--sm" [title]="'Back to the track key' | t" (click)="shiftKey(0)">
+      <button
+        class="pr-btn pr-btn--sm"
+        [title]="'Back to the track key' | t"
+        (click)="press('key.reset')"
+      >
         {{ 'Reset' | t }}
       </button>
     }
@@ -142,23 +146,19 @@
     <button
       class="pr-btn pr-btn--sm step"
       [title]="'Down a semitone' | t"
-      (click)="shiftKey(keyShift() - 1)"
+      (click)="press('key.down')"
     >
       ♭
     </button>
     <span class="shift pr-num" [class.moved]="keyShift() !== 0">{{ shiftLabel() }}</span>
-    <button
-      class="pr-btn pr-btn--sm step"
-      [title]="'Up a semitone' | t"
-      (click)="shiftKey(keyShift() + 1)"
-    >
+    <button class="pr-btn pr-btn--sm step" [title]="'Up a semitone' | t" (click)="press('key.up')">
       ♯
     </button>
     <button
       class="pr-btn pr-btn--sm wide"
       [disabled]="keyMatch() === null"
       [title]="'The smallest shift after which the two decks mix harmonically' | t"
-      (click)="shiftKey(keyMatch()!)"
+      (click)="press('key.sync')"
     >
       {{ 'Mix with the other deck' | t }}
     </button>

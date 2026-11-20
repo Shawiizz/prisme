@@ -89,13 +89,9 @@ export class GridEditor {
     if (Number.isFinite(bpm)) this.grid({ kind: 'bpm', bpm });
   }
 
-  /** The beat tapped, as on the deck's tap key: the grid takes the tempo once it is known. */
-  tap() {
-    this.engine.press(this.deck(), 'tap');
-  }
-
-  shiftKey(semitones: number) {
-    this.engine.setKeyShift(this.deck(), semitones);
+  /** A key of the deck's (`key.up`, `key.sync`…), as a controller's does it. */
+  press(action: string) {
+    this.engine.press(this.deck(), action);
   }
 
   setKey(camelot: string | null) {

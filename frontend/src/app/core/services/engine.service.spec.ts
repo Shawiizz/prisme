@@ -79,14 +79,17 @@ describe('EngineService', () => {
     engine.press(1, 'cue', false);
     engine.togglePlay(0);
     engine.setKeyLock(1, false);
-    engine.setKeyShift(0, -3);
+    engine.setVinylEnabled(0, true);
+    // half the range up: three quarters of the fader
+    engine.moveTempo(1, engine.tempoRange(1) / 2);
     const performed = { steps: false, step: null, confirmed: false };
     expect(calls).toEqual([
       ['perform_action', { target: 'deck2.cue', value: 1, ...performed }],
       ['perform_action', { target: 'deck2.cue', value: 0, ...performed }],
       ['perform_action', { target: 'deck1.play', value: 1, ...performed }],
       ['perform_action', { target: 'deck2.keylock.off', value: 1, ...performed }],
-      ['perform_action', { target: 'deck1.key.-3', value: 1, ...performed }],
+      ['perform_action', { target: 'deck1.vinyl.on', value: 1, ...performed }],
+      ['perform_action', { target: 'deck2.pitch', value: 0.75, ...performed }],
     ]);
   });
 

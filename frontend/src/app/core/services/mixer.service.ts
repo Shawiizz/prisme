@@ -3,7 +3,6 @@ import {
   Band,
   ChannelStrip,
   CrossfaderCurve,
-  CrossfaderSide,
   HeadphonesOutput,
   InputChannels,
   LiveSource,
@@ -125,10 +124,6 @@ export class MixerService {
 
   setMainGain(gain: number) {
     return this.engine.perform('mixer.main', gain);
-  }
-
-  setCrossfaderSide(deck: number, side: CrossfaderSide) {
-    return this.engine.press(deck, `crossfader.${side}`);
   }
 
   setBoothGain(gain: number) {

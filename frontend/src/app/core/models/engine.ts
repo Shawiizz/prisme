@@ -94,7 +94,6 @@ export interface Cue {
 
 /** Two pages of eight pads. */
 export const HOT_CUES = 16;
-export const MAX_KEY_SHIFT = 12;
 export const SAMPLE_SLOTS = 16;
 /** The pads of a deck: a page of hot cues or sounds. */
 export const PADS = 8;
@@ -438,8 +437,6 @@ export const DEFAULT_FX: FxChain = {
   enabled: true,
   part: null,
 };
-/** Shortest and longest effect period, in beats: powers of two. */
-export const FX_BEATS = { min: 1 / 8, max: 8 };
 
 /** EQ bands, in the order of `ChannelStrip.eq`. */
 export type Band = 'low' | 'mid' | 'high';

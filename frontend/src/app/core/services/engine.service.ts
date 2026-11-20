@@ -241,11 +241,6 @@ export class EngineService {
     return semitones === 0 ? track.key : transposeCamelot(track.key.camelot, semitones);
   }
 
-  /** The key of the track on `deck` moved by `semitones`, within an octave either way. */
-  setKeyShift(deck: number, semitones: number) {
-    return this.press(deck, `key.${semitones}`);
-  }
-
   /** The deck `deck` is mixed with: another one playing, else the one beside it (A and B, C
    * and D). */
   mixedWith(deck: number): number {
@@ -316,11 +311,6 @@ export class EngineService {
     const bpm = this.status()?.decks[deck]?.bpm;
     const trackBpm = this.tracks()[deck]?.tempo?.bpm;
     return bpm && trackBpm ? bpm / trackBpm : null;
-  }
-
-  /** Whether a touch of the controller's jog wheel of `deck` holds the record. */
-  setJogScratch(deck: number, on: boolean) {
-    return this.turn(`deck${deck + 1}.jog.scratch`, on);
   }
 
   /** `info` is on `deck` now: its waveform follows. */
