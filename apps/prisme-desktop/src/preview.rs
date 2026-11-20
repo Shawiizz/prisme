@@ -141,7 +141,8 @@ impl Previews {
     }
 
     /// Follows the engine previewing `playing` (its id): a preview it reported then stopped (at
-    /// the end of its track, as it went on a deck, as the audio restarted) is over.
+    /// the end of its track, as it went on a deck, as the audio restarted) is over, a file
+    /// opening meanwhile for the next still shown.
     pub fn follow(&self, state: &AppState, playing: Option<u64>) {
         let mut current = lock(&self.current);
         let Some(shown) = current.as_mut() else { return };
@@ -151,7 +152,7 @@ impl Previews {
             if let Some(old) = current.take() {
                 old.give_up();
             }
-            *lock(&state.preview) = PreviewStateDto::default();
+            lock(&state.preview).track = None;
         }
     }
 
@@ -236,8 +237,11 @@ mod tests {
         previews.follow(&state, None);
         assert!(lock(&state.preview).track.is_some(), "not started yet");
         previews.follow(&state, Some(3));
+        // the next opening as it ends
+        lock(&state.preview).opening = Some("b.mp3".into());
         previews.follow(&state, None);
         assert!(lock(&state.preview).track.is_none());
+        assert_eq!(lock(&state.preview).opening.as_deref(), Some("b.mp3"), "the next still opening");
         assert!(!wanted.load(Ordering::Relaxed), "its file no longer read");
     }
 }
