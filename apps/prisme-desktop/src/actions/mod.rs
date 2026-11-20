@@ -332,6 +332,15 @@ impl Ends<'_> {
     }
 }
 
+/// Performs `target` driven by `input` as `asked`, here: one that panics fails as any other,
+/// the thread asking (a controller's, the interface's turn) going on.
+fn perform_here<H: Host>(host: &H, target: &Target, input: Input, asked: Asked) -> AppResult<()> {
+    catch_unwind(AssertUnwindSafe(|| host.perform_here(target, input, asked))).unwrap_or_else(|_| {
+        error!("{target} failed");
+        Err(AppError::Other(format!("{target} failed")))
+    })
+}
+
 /// An action sent once the actions it follows are all over.
 struct Follower {
     before: AtomicUsize,
@@ -584,13 +593,13 @@ impl Actions {
             drop(waiting);
             // a turn made already ends once it is performed
             let _ends = ends;
-            return answer.give(host, host.perform_here(target, input, asked));
+            return answer.give(host, perform_here(host, target, input, asked));
         }
         let ending = ends.made();
         let (host, target, asked) = (host.clone(), target.clone(), asked.into_owned());
         let job = move || {
             let _ending = ending;
-            answer.give(&host, host.perform_here(&target, input, asked));
+            answer.give(&host, perform_here(&host, &target, input, asked));
         };
         self.lanes.push(waiting, lane, Box::new(job));
     }
@@ -660,13 +669,8 @@ impl Actions {
             }
         }
         drop(sent);
-        let sent_back = send();
-        let mut sent = lock(&self.sent);
-        if sent.run == run && sent.next == number && sent.started {
-            (sent.next, sent.started) = (number + 1, false);
-            self.sent_on.notify_all();
-        }
-        sent_back
+        let _over = Sending { actions: self, order: Order { run, number } };
+        send()
     }
 
     /// `job` done in turn on `lane`, after the actions waiting there (the Auto DJ's load of a
@@ -743,6 +747,24 @@ impl Actions {
     #[cfg(test)]
     pub fn settle(&self) {
         assert!(self.finish(Duration::from_secs(10)), "the actions never settled");
+    }
+}
+
+/// An action of the interface being sent (see [`Actions::in_order`]): the next one's turn
+/// comes as it is over, whatever came of it.
+struct Sending<'a> {
+    actions: &'a Actions,
+    order: Order,
+}
+
+impl Drop for Sending<'_> {
+    fn drop(&mut self) {
+        let Order { run, number } = self.order;
+        let mut sent = lock(&self.actions.sent);
+        if sent.run == run && sent.next == number && sent.started {
+            (sent.next, sent.started) = (number + 1, false);
+            self.actions.sent_on.notify_all();
+        }
     }
 }
 
@@ -1271,6 +1293,54 @@ mod lanes {
         assert!(bench.actions.finish(Duration::from_secs(5)));
     }
 
+    /// The bench, its actions failing by a bug.
+    #[derive(Clone)]
+    struct Panics(Arc<Bench>);
+
+    impl Host for Panics {
+        fn actions(&self) -> &Actions {
+            &self.0.actions
+        }
+
+        fn app_state(&self) -> &AppState {
+            &self.0.state
+        }
+
+        fn perform_here(&self, target: &Target, _: Input, _: Asked) -> AppResult<()> {
+            panic!("{target} has a bug")
+        }
+
+        fn tell<P: Serialize + Clone>(&self, event: &str, payload: P) {
+            self.0.tell(event, payload);
+        }
+
+        fn view(&self) -> View {
+            self.0.view()
+        }
+    }
+
+    #[test]
+    fn an_action_that_panics_fails_alone_on_the_thread_asking_or_its_lane() {
+        let bench = Arc::new(Bench::new());
+        let panics = Panics(bench.clone());
+        let source = || Source::Interface { confirmed: false };
+        let perform = |id: &str| {
+            let (answer, outcome) = mpsc::sync_channel(1);
+            let target: Target = id.parse().unwrap();
+            let in_turn = &mut InTurn::default();
+            bench.actions.perform(&panics, &target, Input::Value(1.0), source(), Answer::To(answer), in_turn);
+            outcome
+        };
+        assert!(perform("deck1.play").recv().unwrap().is_err(), "here");
+        let busy = held(&bench, Lane::Track(0));
+        let queued = perform("deck1.play");
+        busy.send(()).unwrap();
+        assert!(queued.recv().unwrap().is_err(), "on its lane");
+        bench.actions.settle();
+        pressed(&bench, "mixer.headphones.split.on");
+        assert!(split(&bench), "the next goes on");
+    }
+
     #[test]
     fn a_hot_cue_is_set_at_once_while_another_deck_loads() {
         let bench = Arc::new(Bench::new());
@@ -1545,6 +1615,17 @@ mod interface_order {
         assert_eq!(sent(&actions, 7, &[1]), [1]);
         let failed: Result<(), &str> = actions.in_order(Order { run: 7, number: 2 }, || Err("not an action"));
         assert!(failed.is_err());
+        let next = Instant::now();
+        assert_eq!(sent(&actions, 7, &[3]), [3]);
+        assert!(next.elapsed() < ORDER_WAIT, "not waited for");
+    }
+
+    #[test]
+    fn a_call_that_panics_takes_its_turn() {
+        let actions = Arc::new(Actions::start());
+        assert_eq!(sent(&actions, 7, &[1]), [1]);
+        let bug = || actions.in_order(Order { run: 7, number: 2 }, || panic!("a bug"));
+        assert!(catch_unwind(AssertUnwindSafe(bug)).is_err());
         let next = Instant::now();
         assert_eq!(sent(&actions, 7, &[3]), [3]);
         assert!(next.elapsed() < ORDER_WAIT, "not waited for");
