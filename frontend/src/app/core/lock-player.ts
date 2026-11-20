@@ -1,5 +1,6 @@
 import { Injectable, Injector, computed, effect, inject } from '@angular/core';
 import { convertFileSrc } from '@tauri-apps/api/core';
+import { EngineStatus, TrackInfo } from './models/engine';
 import { EngineService } from './services/engine.service';
 import { PreferencesService } from './services/preferences.service';
 
@@ -64,6 +65,32 @@ export function sameShowing(a: PlayerShowing, b: PlayerShowing): boolean {
   );
 }
 
+/** What the player shows of the decks in `status`: those loaded, and the one the backend says
+ * is heard once its track reached the page (the stream may name it a moment before). */
+export function playerShowing(
+  tracks: readonly (TrackInfo | null)[],
+  status: EngineStatus | null,
+  decks: readonly number[],
+  controls: boolean,
+): PlayerShowing {
+  const heard = status?.player ?? null;
+  const shown = heard !== null && tracks[heard] ? heard : null;
+  return {
+    decks: decks
+      .filter((d) => tracks[d])
+      .map((d) => ({
+        deck: d,
+        title: tracks[d]!.title,
+        artist: tracks[d]!.artist,
+        playing: status?.decks[d]?.heard ?? false,
+      })),
+    shown,
+    path: shown === null ? null : tracks[shown]!.path,
+    durationS: shown === null ? 0 : (status?.decks[shown]?.durationS ?? 0),
+    controls,
+  };
+}
+
 /** Whether Android, told `told`, still shows the deck at `positionS` and `speed` at `now` (ms):
  * the same speed, and the position it moved on by itself close to the deck's. */
 export function stillTrue(
@@ -88,29 +115,14 @@ export class LockPlayer {
   private readonly injector = inject(Injector);
   private readonly android = (window as { prismeDecks?: AndroidPlayer }).prismeDecks;
 
-  private readonly shown = computed(() => this.engine.status()?.player ?? null);
-  private readonly showing = computed<PlayerShowing>(
-    () => {
-      const tracks = this.engine.tracks();
-      const status = this.engine.status();
-      const shown = this.shown();
-      const deck = shown === null ? null : status?.decks[shown];
-      return {
-        decks: this.engine
-          .deckIndexes()
-          .filter((d) => tracks[d])
-          .map((d) => ({
-            deck: d,
-            title: tracks[d]!.title,
-            artist: tracks[d]!.artist,
-            playing: status?.decks[d]?.heard ?? false,
-          })),
-        shown,
-        path: shown === null ? null : tracks[shown]!.path,
-        durationS: deck?.durationS ?? 0,
-        controls: this.preferences.dj().lockControls,
-      };
-    },
+  private readonly showing = computed(
+    () =>
+      playerShowing(
+        this.engine.tracks(),
+        this.engine.status(),
+        this.engine.deckIndexes(),
+        this.preferences.dj().lockControls,
+      ),
     { equal: sameShowing },
   );
 

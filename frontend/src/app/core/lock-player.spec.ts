@@ -1,4 +1,22 @@
-import { PlayerShowing, sameShowing, stillTrue } from './lock-player';
+import { EngineStatus, TrackInfo } from './models/engine';
+import { PlayerShowing, playerShowing, sameShowing, stillTrue } from './lock-player';
+
+describe('playerShowing', () => {
+  const track = { path: 'one.mp3', title: 'One', artist: null } as TrackInfo;
+  const status = (player: number | null) =>
+    ({ player, decks: [{ heard: true, durationS: 300 }, { heard: false }] }) as EngineStatus;
+
+  it('shows the deck heard with its track', () => {
+    const showing = playerShowing([track, null], status(0), [0, 1], true);
+    expect([showing.shown, showing.path, showing.durationS]).toEqual([0, 'one.mp3', 300]);
+    expect(showing.decks).toEqual([{ deck: 0, title: 'One', artist: null, playing: true }]);
+  });
+
+  it('waits for the track of the deck heard to reach the page', () => {
+    const showing = playerShowing([track, null], status(1), [0, 1], true);
+    expect([showing.shown, showing.path, showing.durationS]).toEqual([null, null, 0]);
+  });
+});
 
 describe('sameShowing', () => {
   const showing: PlayerShowing = {
