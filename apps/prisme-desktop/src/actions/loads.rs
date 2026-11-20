@@ -1,20 +1,23 @@
-//! Tracks put on the decks and taken off, sounds put in the samplers: what is loaded is the
-//! track selected in the library, which the interface tells ([`set_library_selection`]). The
-//! track of a deck that plays leaves it once the DJ says so, or never if the DJ chose so (see
-//! [`Performing::may_replace`]).
+//! Tracks put on the decks and taken off, sounds put in the samplers, a track previewed in the
+//! headphones: what is loaded or previewed is the track selected in the library, which the
+//! interface tells ([`set_library_selection`]). The track of a deck that plays leaves it once
+//! the DJ says so, or never if the DJ chose so (see [`Performing::may_replace`]).
 
 use super::{deck, not_performed, sampler, take_over, Actions, Performing, Source};
 use crate::auto_dj::Takeover;
 use crate::error::{AppError, AppResult};
+use crate::preview::Previews;
 use crate::state::lock;
 use crate::track_loading;
 use prisme_control::{DeckAction, LibraryAction, Target};
 use prisme_engine::{Command, DeckStatus};
 use std::path::PathBuf;
-use tauri::State;
+use tauri::{Manager, State};
 
 /// Slower than this, a deck under its record is still: a hand holding it, the record stopped.
 const MOVING_SPEED: f64 = 0.05;
+/// How far a step of an encoder moves the preview (s).
+const PREVIEW_STEP_S: f64 = 4.0;
 
 /// The track selected in the library, as the interface tells it: what the loads load.
 #[tauri::command]
@@ -37,8 +40,25 @@ impl Performing<'_> {
             LibraryAction::LoadPlay(deck) => self.load_selected(&target, deck, true),
             LibraryAction::LoadFree => self.load_selected(&target, self.free_deck(), false),
             LibraryAction::Double(deck) => self.double(&target, deck),
+            LibraryAction::Preview => self.toggle_preview(),
+            LibraryAction::PreviewStop => match self.app {
+                Some(app) => app.state::<Previews>().stop(self.state),
+                None => Ok(()),
+            },
             _ => Err(not_performed(&target)),
         }
+    }
+
+    /// The selected track previewed in the headphones, or stopped if it is the one previewed.
+    fn toggle_preview(&self) -> AppResult<()> {
+        let (Some(app), Some(path)) = (self.app, self.selected()) else { return Ok(()) };
+        app.state::<Previews>().toggle(app, path)
+    }
+
+    /// The preview moved by an encoder's `steps`, a few seconds each, back below zero.
+    pub(super) fn skip_preview(&self, steps: i32) -> AppResult<()> {
+        let seconds = f64::from(steps) * PREVIEW_STEP_S;
+        self.state.send_if_running(Command::SkipPreview { seconds })
     }
 
     /// The track taken off `deck`.

@@ -2,7 +2,6 @@ import { computed, Injectable, inject } from '@angular/core';
 import { EngineService } from '../services/engine.service';
 import { LibraryService } from '../services/library.service';
 import { NavigationService } from '../services/navigation.service';
-import { PREVIEW_STEP_S, PreviewService } from '../services/preview.service';
 import { Control, buildControls, measuredControl } from './controls';
 
 /** Tracks a page of the library moves by. */
@@ -26,7 +25,6 @@ export class ControlService {
   private readonly engine = inject(EngineService);
   private readonly library = inject(LibraryService);
   private readonly navigation = inject(NavigationService);
-  private readonly preview = inject(PreviewService);
 
   /** What the app does of the actions it keeps, given a key's value or an encoder's steps. */
   private readonly own: Record<string, (value: number) => void> = {
@@ -35,12 +33,6 @@ export class ControlService {
     'library.next': pressed(() => this.browse(1)),
     'library.page.previous': pressed(() => this.browse(-PAGE)),
     'library.page.next': pressed(() => this.browse(PAGE)),
-    'library.preview': pressed(() => {
-      const path = this.library.selected();
-      if (path) this.preview.toggle(path);
-    }),
-    'library.preview.stop': pressed(() => this.preview.stop()),
-    'library.preview.seek': (steps) => this.preview.skip(steps * PREVIEW_STEP_S),
     'library.remove': pressed(() => this.library.removeSelected()),
     'library.prepare': pressed(() => this.library.addSelectedToPrepare()),
     'library.selectAll': pressed(() => this.library.selectAll()),

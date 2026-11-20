@@ -146,6 +146,14 @@ export interface ControlState {
   pitchRange: number;
   /** What each deck's pads hold. */
   perform: DeckPerform[];
+  preview: PreviewState;
+}
+
+/** What the headphones preview: the track the engine was given, and the file opening for the
+ * preview asked last. */
+export interface PreviewState {
+  track: PreviewTrack | null;
+  opening: string | null;
 }
 
 export interface DeckPerform {

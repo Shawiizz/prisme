@@ -389,7 +389,10 @@ impl Target {
                 LibraryAction::Load(_)
                 | LibraryAction::LoadPlay(_)
                 | LibraryAction::LoadFree
-                | LibraryAction::Double(_),
+                | LibraryAction::Double(_)
+                | LibraryAction::Preview
+                | LibraryAction::PreviewStop
+                | LibraryAction::PreviewSeek,
             ) => Owner::Rust,
             Target::Library(_)
             | Target::General(
@@ -860,5 +863,38 @@ mod tests {
         assert_eq!("deck3.pitch".parse::<Target>().unwrap().deck(), Some(2));
         assert_eq!("mixer.crossfader".parse::<Target>().unwrap().deck(), None);
         assert_eq!("library.double4".parse::<Target>().unwrap().deck(), Some(3));
+    }
+
+    #[test]
+    fn the_interface_performs_the_librarys_browsing_its_windows_and_nothing_else() {
+        let ui: BTreeSet<String> =
+            every_listed().iter().filter(|t| t.owner() == Owner::Ui).map(Target::to_string).collect();
+        let browsing = [
+            "library.browse",
+            "library.previous",
+            "library.next",
+            "library.page.previous",
+            "library.page.next",
+            "library.remove",
+            "library.prepare",
+            "library.selectAll",
+            "library.clearSelection",
+            "library.search",
+            "library.focus",
+            "library.lists",
+            "library.list.open",
+            "library.list.next",
+            "library.list.previous",
+            "library.go",
+            "library.left",
+            "library.right",
+            "library.sort.title",
+            "library.sort.artist",
+            "library.sort.bpm",
+            "library.sort.key",
+        ];
+        let windows = ["general.library", "general.help", "general.palette", "general.settings", "shift"];
+        let expected: BTreeSet<String> = browsing.iter().chain(&windows).map(|id| id.to_string()).collect();
+        assert_eq!(ui, expected);
     }
 }

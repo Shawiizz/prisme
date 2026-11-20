@@ -5,8 +5,8 @@
 use crate::audio_host::{deck_pair, layer_partner, AudioSession};
 use crate::dto::{
     AudioInfo, BackendDto, BandDto, ChannelStripDto, CrossfaderSideDto, CueDto, DeckStemsDto, FxChainDto,
-    FxPartDto, HeadphonesOutputDto, InputChannelsDto, KeyDto, LiveSourceDto, MixModeDto, RpmDto,
-    SeparationDto, StemMixDto, TempoDto, TrackInfoDto, VinylModeDto,
+    FxPartDto, HeadphonesOutputDto, InputChannelsDto, KeyDto, LiveSourceDto, MixModeDto, PreviewStateDto,
+    RpmDto, SeparationDto, StemMixDto, TempoDto, TrackInfoDto, VinylModeDto,
 };
 use crate::error::{AppError, AppResult};
 use crate::folders;
@@ -294,6 +294,8 @@ pub struct AppState {
     pub samplers: Mirrored<Samplers>,
     /// What the actions keep between presses (see `prisme_actions::perform`).
     pub perform: Mirrored<PerformState>,
+    /// What the headphones preview, as the interface shows it (see `preview::Previews`).
+    pub preview: Mirrored<PreviewStateDto>,
     /// The interface is out of sight: a phone's application in the background, which the
     /// system may stop calling for audio.
     pub hidden: AtomicBool,
@@ -458,6 +460,7 @@ impl AppState {
             carried: Mutex::default(),
             samplers: Mirrored::new(Samplers::default(), &revision),
             perform: Mirrored::new(PerformState::default(), &revision),
+            preview: Mirrored::new(PreviewStateDto::default(), &revision),
             hidden: AtomicBool::new(false),
             revision,
         }

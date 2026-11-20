@@ -1,10 +1,11 @@
 //! The preview: a track of the library heard in the headphones before it goes on a deck (the
-//! engine's preview). Its file is read on a worker thread while it plays, a start a third in
-//! waiting for the audio to get there. Its waveform, from the library or computed once the
-//! file is read (and kept there for the decks), is drawn under the library (`preview-update`
-//! says when it comes).
+//! engine's preview), as the actions ask for it (`library.preview`) or the screen for one of
+//! its tracks. Its file is read on a worker thread while it plays, a start a third in waiting
+//! for the audio to get there. The interface shows what is previewed from `AppState::preview`;
+//! the waveform, from the library or computed once the file is read (and kept there for the
+//! decks), is drawn under the library (`preview-update` says when it comes).
 
-use crate::dto::{waveform_bytes, PreviewDto};
+use crate::dto::{waveform_bytes, PreviewDto, PreviewStateDto};
 use crate::error::AppResult;
 use crate::folders;
 use crate::library_service::LibraryService;
@@ -46,12 +47,49 @@ impl Current {
 }
 
 impl Previews {
-    /// Previews `path` in place of the track previewed; `None` if another preview, or a stop,
-    /// was asked for while its file opened. Reads from the disk: off the commands' threads.
-    pub fn start(&self, app: &AppHandle, path: PathBuf) -> AppResult<Option<PreviewDto>> {
+    /// Previews `path`, or stops it if it is the one previewed. Reads from the disk: off the
+    /// threads of the controllers and the commands.
+    pub fn toggle(&self, app: &AppHandle, path: PathBuf) -> AppResult<()> {
+        let state = app.state::<AppState>();
+        if self.previewing(&state, &path) {
+            self.stop(&state)
+        } else {
+            self.start(app, path)
+        }
+    }
+
+    /// Whether `path` is previewed: its file opens for it, or the engine plays it (not once it
+    /// stopped it at the end of the track).
+    fn previewing(&self, state: &AppState, path: &Path) -> bool {
+        let playing = state.engine_status().ok().and_then(|s| s.preview).map(|p| p.id);
+        let current = lock(&self.current);
+        let shown = current.as_ref().is_some_and(|c| c.path == path && Some(c.id) == playing);
+        shown || lock(&state.preview).opening == Some(path.display().to_string())
+    }
+
+    /// Previews `path` in place of the track previewed, unless another preview, or a stop, is
+    /// asked for while its file opens; one that cannot be read stops the preview.
+    fn start(&self, app: &AppHandle, path: PathBuf) -> AppResult<()> {
         let id = self.asked.fetch_add(1, Ordering::SeqCst) + 1;
         let state = app.state::<AppState>();
         state.preview_output()?;
+        lock(&state.preview).opening = Some(path.display().to_string());
+        let opened = self.open(app, &state, id, path);
+        if self.asked.load(Ordering::SeqCst) != id {
+            return opened;
+        }
+        match opened {
+            Ok(()) => {
+                lock(&state.preview).opening = None;
+                Ok(())
+            }
+            Err(e) => self.stop(&state).and(Err(e)),
+        }
+    }
+
+    /// Opens `path` and has the engine preview it as preview `id`, if it is still the one asked
+    /// for.
+    fn open(&self, app: &AppHandle, state: &AppState, id: u64, path: PathBuf) -> AppResult<()> {
         let library = app.state::<Arc<LibraryService>>();
         let loading = LoadingTrack::open(&path)?;
         let stamp = FileStamp::of(&path).ok();
@@ -71,24 +109,23 @@ impl Previews {
             waveform_ready: waveform.is_some(),
         };
         let wanted = Arc::new(AtomicBool::new(true));
-        {
-            let mut current = lock(&self.current);
-            if self.asked.load(Ordering::SeqCst) != id {
-                return Ok(None);
-            }
-            let start_s = audio.duration_s() * START;
-            state.send(Command::Preview { id, track: audio, start_s })?;
-            let waveform_missing = waveform.is_none();
-            let next = Current { id, path: path.clone(), wanted: wanted.clone(), waveform };
-            if let Some(old) = current.replace(next) {
-                old.give_up();
-            }
-            let app = app.clone();
-            std::thread::Builder::new()
-                .name("prisme-preview".into())
-                .spawn(move || read_rest(&app, id, loading, &path, stamp, waveform_missing, &wanted))?;
+        let mut current = lock(&self.current);
+        if self.asked.load(Ordering::SeqCst) != id {
+            return Ok(());
         }
-        Ok(Some(dto))
+        let start_s = audio.duration_s() * START;
+        state.send(Command::Preview { id, track: audio, start_s })?;
+        let waveform_missing = waveform.is_none();
+        let next = Current { id, path: path.clone(), wanted: wanted.clone(), waveform };
+        if let Some(old) = current.replace(next) {
+            old.give_up();
+        }
+        lock(&state.preview).track = Some(dto);
+        let app = app.clone();
+        std::thread::Builder::new()
+            .name("prisme-preview".into())
+            .spawn(move || read_rest(&app, id, loading, &path, stamp, waveform_missing, &wanted))?;
+        Ok(())
     }
 
     /// Stops the preview, and one whose file is still opening.
@@ -97,6 +134,7 @@ impl Previews {
         if let Some(old) = lock(&self.current).take() {
             old.give_up();
         }
+        *lock(&state.preview) = PreviewStateDto::default();
         state.send_if_running(Command::StopPreview)
     }
 

@@ -1,5 +1,4 @@
 use super::blocking;
-use crate::dto::PreviewDto;
 use crate::error::AppResult;
 use crate::preview::Previews;
 use crate::state::AppState;
@@ -8,27 +7,18 @@ use std::path::PathBuf;
 use tauri::ipc::Response;
 use tauri::{AppHandle, Manager, State};
 
-/// Previews a track in the headphones, about a third in, in place of the one previewed;
-/// `None` if another was asked for meanwhile.
+/// Previews a track of the screen's in the headphones, about a third in, in place of the one
+/// previewed, or stops it if it is the one previewed (the selected one's is an action:
+/// `library.preview`).
 #[tauri::command]
-pub async fn preview_track(app: AppHandle, path: String) -> AppResult<Option<PreviewDto>> {
-    blocking(move || app.state::<Previews>().start(&app, PathBuf::from(path))).await
+pub async fn toggle_preview(app: AppHandle, path: String) -> AppResult<()> {
+    blocking(move || app.state::<Previews>().toggle(&app, PathBuf::from(path))).await
 }
 
-#[tauri::command]
-pub fn stop_preview(state: State<'_, AppState>, previews: State<'_, Previews>) -> AppResult<()> {
-    previews.stop(&state)
-}
-
+/// The preview put at `seconds` into its track: where the screen's strip is clicked.
 #[tauri::command]
 pub fn seek_preview(state: State<'_, AppState>, seconds: f64) -> AppResult<()> {
     state.send(Command::SeekPreview { seconds })
-}
-
-/// Moves the preview by `seconds`, forwards or back.
-#[tauri::command]
-pub fn skip_preview(state: State<'_, AppState>, seconds: f64) -> AppResult<()> {
-    state.send(Command::SkipPreview { seconds })
 }
 
 /// The waveform of preview `id` (`dto::waveform_bytes`); empty until it is known.

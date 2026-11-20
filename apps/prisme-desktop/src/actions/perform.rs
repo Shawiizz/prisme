@@ -13,8 +13,8 @@ use prisme_actions::scales::{
     trim_gain, Tempo,
 };
 use prisme_control::{
-    AutoDjAction, Beats, DeckAction, DeckSwitch, Effect, FxAction, GeneralAction, Kind, MixerAction,
-    MixerSwitch, SampleAction, Target, Turn, FX_SLOTS,
+    AutoDjAction, Beats, DeckAction, DeckSwitch, Effect, FxAction, GeneralAction, Kind, LibraryAction,
+    MixerAction, MixerSwitch, SampleAction, Target, Turn, FX_SLOTS,
 };
 use prisme_engine::Command;
 use transport::{LOOP_BEATS, PITCH_BEND, SMALL_BEND, TEMPO_STEP};
@@ -41,6 +41,10 @@ impl Performing<'_> {
                 _ => self.deck(deck, action, given),
             },
             Target::Mixer(action) => self.mixer(action, given),
+            Target::Library(LibraryAction::PreviewSeek) => match given {
+                Given::Steps(steps) => self.skip_preview(steps),
+                Given::Value(_) => Ok(()),
+            },
             Target::Library(action) if given.pressed() => self.load(action),
             Target::Library(_) => Ok(()),
             Target::General(action) => self.general(action, given),

@@ -13,7 +13,8 @@ pub enum Lane {
 pub fn lane(target: &Target) -> Lane {
     match target {
         // a cue or a beat grid written to the library, a track or a sound read, and what they
-        // replace, a recording started or ended
+        // replace, a recording started or ended; the preview's keys in the order pressed, the
+        // first reading its track
         Target::Deck(
             _,
             DeckAction::Cue
@@ -34,7 +35,10 @@ pub fn lane(target: &Target) -> Lane {
             LibraryAction::Load(_)
             | LibraryAction::LoadPlay(_)
             | LibraryAction::LoadFree
-            | LibraryAction::Double(_),
+            | LibraryAction::Double(_)
+            | LibraryAction::Preview
+            | LibraryAction::PreviewStop
+            | LibraryAction::PreviewSeek,
         )
         | Target::General(GeneralAction::Record) => Lane::Slow,
         _ => Lane::Instant,
@@ -67,6 +71,9 @@ mod tests {
             "deck1.eject",
             "library.load1",
             "library.double2",
+            "library.preview",
+            "library.preview.stop",
+            "library.preview.seek",
             "general.record",
         ] {
             assert_eq!(of(id), Lane::Slow, "{id}");

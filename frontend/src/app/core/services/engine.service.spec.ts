@@ -201,6 +201,7 @@ describe('EngineService', () => {
         quantize: true,
         pitchRange: 0.16,
         perform: [],
+        preview: { track: null, opening: null },
         ...changes,
       };
     }

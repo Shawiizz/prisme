@@ -1084,6 +1084,7 @@ pub struct ControlStateDto {
     pub pitch_range: f64,
     /// What each deck's pads hold.
     pub perform: Vec<DeckPerformDto>,
+    pub preview: PreviewStateDto,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -1134,7 +1135,8 @@ impl ControlStateDto {
             })
             .collect();
         let loading = state.loading().to_vec();
-        Self { mixer: mixer_state_of(state), tracks, loading, quantize, pitch_range, perform }
+        let preview = lock(&state.preview).clone();
+        Self { mixer: mixer_state_of(state), tracks, loading, quantize, pitch_range, perform, preview }
     }
 }
 
@@ -1149,7 +1151,16 @@ pub struct PreviewStatusDto {
     pub waiting: bool,
 }
 
-/// A track previewed in the headphones (`preview_track`).
+/// What the headphones preview: the track the engine was given, and the file being opened
+/// for the preview asked last, if any.
+#[derive(Debug, Clone, Default, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PreviewStateDto {
+    pub track: Option<PreviewDto>,
+    pub opening: Option<String>,
+}
+
+/// A track previewed in the headphones.
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PreviewDto {
