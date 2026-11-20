@@ -162,6 +162,16 @@ impl Actions {
         self.started.elapsed().as_secs_f64()
     }
 
+    /// What a controller `device`'s `input` gives `target`, an action the interface performs: a
+    /// key's value, an encoder's whole steps (those short of one kept for its next move); none
+    /// for an encoder on a key.
+    pub fn interface_value(&self, device: &str, target: &Target, input: Input) -> Option<f32> {
+        match lock(&self.inputs).resolve(device, target, input, None)? {
+            Given::Value(value) => Some(value),
+            Given::Steps(steps) => Some(steps as f32),
+        }
+    }
+
     /// The application as the actions see it now.
     pub fn view(&self, app: &AppHandle) -> View {
         let auto_dj = app.try_state::<AutoDj>().is_some_and(|a| a.plays());

@@ -1489,17 +1489,13 @@ pub struct ControllerProfileDto {
     pub replaces: Option<String>,
 }
 
-/// A mapped control moved: the action and its value (see `prisme_control::Encoding`).
+/// An action the interface performs that a controller drove: a key's value, or an encoder's
+/// whole steps.
 #[derive(Debug, Clone, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct ControllerInputDto {
+pub struct UiActionDto {
     pub target: String,
     pub value: f32,
-    /// The value is steps of an encoder (a fader's action then moves by them).
-    pub steps: bool,
-    /// How far a step moves a fader's action, when the profile says.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub step: Option<f32>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]

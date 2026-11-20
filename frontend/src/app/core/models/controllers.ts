@@ -99,14 +99,11 @@ export interface ControllerMapping {
   shift?: boolean | string;
 }
 
-/** A mapped control moved. */
-export interface ControllerInput {
+/** An action the app performs that a controller drove: a key's value, an encoder's whole
+ * steps. */
+export interface UiAction {
   target: string;
   value: number;
-  /** `value` is steps of an encoder: a fader's control moves by them. */
-  steps: boolean;
-  /** How far a step moves a fader, when the controller's profile says. */
-  step?: number;
 }
 
 export function describeControl(c: PhysicalControl): string {

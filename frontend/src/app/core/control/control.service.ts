@@ -1,7 +1,6 @@
 import { computed, Injectable, inject } from '@angular/core';
 import { EngineService } from '../services/engine.service';
 import { LibraryService } from '../services/library.service';
-import { PerformanceService } from '../services/performance.service';
 import { SamplerService } from '../services/sampler.service';
 import { NavigationService } from '../services/navigation.service';
 import { RecordingService } from '../services/recording.service';
@@ -12,7 +11,6 @@ import { Control, ControlActions, buildControls, measuredControl } from './contr
 @Injectable({ providedIn: 'root' })
 export class ControlService {
   private readonly engine = inject(EngineService);
-  private readonly performance = inject(PerformanceService);
   private readonly sampler = inject(SamplerService);
   private readonly library = inject(LibraryService);
   private readonly navigation = inject(NavigationService);

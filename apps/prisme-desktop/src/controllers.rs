@@ -14,7 +14,7 @@
 use crate::actions::{Actions, Answer, Moved, Source};
 use crate::controller_hid;
 use crate::controller_profiles;
-use crate::dto::{ControllerInputDto, LightDto};
+use crate::dto::{LightDto, UiActionDto};
 use crate::error::{AppError, AppResult};
 use crate::state::{lock, AppState};
 use midir::{Ignore, MidiInput, MidiInputConnection, MidiOutput, MidiOutputConnection};
@@ -78,7 +78,7 @@ pub struct ControllerSetup {
 }
 
 pub const PLUGGED_EVENT: &str = "controller-plugged";
-/// A controller's action the interface performs (a `ControllerInputDto`).
+/// A controller's action the interface performs (a `UiActionDto`).
 pub const UI_ACTION_EVENT: &str = "ui-action";
 
 /// What the DJ is told of a controller plugged in while Prisme runs.
@@ -139,7 +139,7 @@ enum Routed {
 /// An action a controller drives, performed by the interface or here, and how it is driven.
 #[derive(Debug, PartialEq)]
 enum Action {
-    Ui(ControllerInputDto),
+    Ui(TargetId, Input),
     Rust(Target, Input),
 }
 
@@ -147,11 +147,10 @@ impl Action {
     /// `target` driven to `value` (an encoder's `steps`, each moving a fader by `step`),
     /// performed where it is.
     fn of(target: &TargetId, value: f32, steps: bool, step: Option<f32>) -> Self {
+        let input = Input::of(value, steps, step);
         match target.target() {
-            Some(rust) if rust.owner() == Owner::Rust => {
-                Action::Rust(rust.clone(), Input::of(value, steps, step))
-            }
-            _ => Action::Ui(ControllerInputDto { target: target.to_string(), value, steps, step }),
+            Some(rust) if rust.owner() == Owner::Rust => Action::Rust(rust.clone(), input),
+            _ => Action::Ui(target.clone(), input),
         }
     }
 
@@ -1095,11 +1094,16 @@ impl Controllers {
     }
 
     /// Performs what a controller drove (`moved`): the interface is told the actions it
-    /// performs, the others are done here.
+    /// performs, given what they are given (an encoder's whole steps), the others are done here.
     fn act(&self, app: &AppHandle, actions: Vec<Action>, moved: Moved) {
         for action in actions {
             match action {
-                Action::Ui(input) => drop(app.emit(UI_ACTION_EVENT, input)),
+                Action::Ui(id, input) => {
+                    let Some(target) = id.target() else { continue };
+                    if let Some(value) = app.state::<Actions>().interface_value(moved.device, target, input) {
+                        drop(app.emit(UI_ACTION_EVENT, UiActionDto { target: id.into(), value }));
+                    }
+                }
                 Action::Rust(target, input) => {
                     let source = Source::Controller(moved);
                     app.state::<Actions>().perform(app, &target, input, source, Answer::Told);
@@ -1877,9 +1881,7 @@ mod tests {
         let mut here = 0;
         for id in ids {
             match Action::of(&id.into(), 1.0, false, None) {
-                Action::Ui(input) => {
-                    assert_eq!(input.target.parse::<Target>().map(|t| t.owner()), Ok(Owner::Ui), "{id}")
-                }
+                Action::Ui(id, _) => assert_eq!(id.target().map(Target::owner), Some(Owner::Ui), "{id}"),
                 Action::Rust(target, _) => {
                     assert_eq!(target.owner(), Owner::Rust, "{id}");
                     here += 1;

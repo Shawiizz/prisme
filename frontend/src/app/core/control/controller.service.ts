@@ -1,16 +1,15 @@
 import { Injectable, effect, inject, signal } from '@angular/core';
-import { Pickup } from './pickup';
 import { invoke } from '@tauri-apps/api/core';
 import { save } from '@tauri-apps/plugin-dialog';
 import { listen } from '@tauri-apps/api/event';
 import {
   Controller,
-  ControllerInput,
   ControllerMapping,
   ControllerProfiles,
   Learnt,
   PluggedIn,
   StepEncoding,
+  UiAction,
 } from '../models/controllers';
 import { EngineService } from '../services/engine.service';
 import { ControlService } from './control.service';
@@ -21,12 +20,10 @@ import { NavigationService } from '../services/navigation.service';
 
 /**
  * Controllers, MIDI and HID: the backend performs most of what their controls drive and lights
- * them; the actions the app performs yet it is told of (`ui-action`), and it tells the lights of
- * what it keeps (`set_lights`). A control is mapped by moving it (learn).
+ * them; the actions the app performs (the library's, its windows') it is told of (`ui-action`),
+ * and it tells the lights of what it keeps (`set_lights`). A control is mapped by moving it
+ * (learn).
  */
-/** How far a step of an encoder moves a fader's setting (from 0 to 1). */
-const ENCODER_STEP = 1 / 64;
-
 @Injectable({ providedIn: 'root' })
 export class ControllerService {
   private readonly controls = inject(ControlService);
@@ -49,17 +46,15 @@ export class ControllerService {
   private readonly sent = new Map<string, string>();
   /** Bumped to send every light again (a controller was opened). */
   private readonly relight = signal(0);
-  /** The soft takeover of each fader, by control. */
-  private readonly pickups = new Map<string, Pickup>();
-  /** What is left of each encoder's steps short of a whole one. */
-  private readonly partSteps = new Map<string, number>();
 
   constructor() {
     effect(() => this.updateLights());
   }
 
   async start() {
-    await listen<ControllerInput>('ui-action', ({ payload }) => this.input(payload));
+    await listen<UiAction>('ui-action', ({ payload }) =>
+      this.controls.findInUse(payload.target)?.apply(payload.value),
+    );
     await listen<unknown>('action-failed', ({ payload }) =>
       this.engine.error.set(errorText(payload)),
     );
@@ -127,31 +122,6 @@ export class ControllerService {
       text: t('{model} is used by another program', { model }),
       detail: t('Close that program: Prisme takes the controller at once.'),
     });
-  }
-
-  /** A mapped control moved; a fader acts once it has picked its setting up, an encoder's
-   * steps move it from where it is (a profile may scale them below one step: they add up). */
-  private input({ target, value, steps, step }: ControllerInput) {
-    const control = this.controls.findInUse(target);
-    const current = control?.position?.();
-    if (steps && control?.kind !== 'encoder') {
-      if (current !== undefined)
-        control?.apply(Math.min(Math.max(current + value * (step ?? ENCODER_STEP), 0), 1));
-      return;
-    }
-    if (steps) {
-      const total = (this.partSteps.get(target) ?? 0) + value;
-      const whole = Math.trunc(total);
-      this.partSteps.set(target, total - whole);
-      if (whole !== 0) control?.apply(whole);
-      return;
-    }
-    if (current !== undefined) {
-      const pickup = this.pickups.get(target) ?? new Pickup();
-      this.pickups.set(target, pickup);
-      if (!pickup.takes(value, current)) return;
-    }
-    control?.apply(value);
   }
 
   async refresh() {

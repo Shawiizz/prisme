@@ -30,11 +30,9 @@ export interface Control {
   deck?: number;
   /** Button: 1 pressed, 0 released. Fader: 0 to 1. Encoder: steps, negative to the left. */
   apply(value: number): void;
-  /** Whether the control's light is on, for the few the app tells the controllers: the
-   * backend lights the others. */
+  /** Whether the control's light is on, for the one the app tells the controllers (the
+   * library over the window): the backend lights the others. */
   lit?(): boolean;
-  /** A fader's setting now (0 to 1): a controller's fader takes it over from there. */
-  position?(): number;
 }
 
 /** What the controls do, independent of how it is done. Positions go from 0 to 1. */

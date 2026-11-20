@@ -495,6 +495,20 @@ mod tests {
     }
 
     #[test]
+    fn the_interface_hears_whole_steps_by_controller_a_keys_value_and_no_encoder_on_a_key() {
+        let bench = Bench::new();
+        let heard =
+            |device, id: &str, input| bench.actions.interface_value(device, &id.parse().unwrap(), input);
+        let half = Input::Steps { steps: 0.5, step: None };
+        assert_eq!(heard("DDJ", "library.browse", half), None);
+        assert_eq!(heard("Xone", "library.browse", half), None, "its own steps");
+        assert_eq!(heard("DDJ", "library.browse", half), Some(1.0));
+        assert_eq!(heard("DDJ", "library.lists", Input::Steps { steps: -2.0, step: None }), Some(-2.0));
+        assert_eq!(heard("DDJ", "library.load1", Input::Value(0.3)), Some(0.3));
+        assert_eq!(heard("DDJ", "library.load1", Input::Steps { steps: 1.0, step: None }), None);
+    }
+
+    #[test]
     fn every_action_rust_owns_is_performed_here() {
         let path = concat!(env!("CARGO_MANIFEST_DIR"), "/controllers/targets.json");
         let listed: Vec<prisme_control::ListedTarget> =
