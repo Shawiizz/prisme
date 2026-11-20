@@ -80,6 +80,11 @@ fn kept_by_the_deck(action: DeckAction) -> bool {
 /// Whether `target` reads or writes a file as it is performed: never on the thread asking for
 /// it. A smart pad loads only into an empty slot, which the one sending it knows.
 pub fn reads_files(target: &Target) -> bool {
+    takes_selection(target) || *target == Target::General(GeneralAction::Record)
+}
+
+/// Whether `target` opens the track selected in the library: as it was when it was sent.
+pub fn takes_selection(target: &Target) -> bool {
     matches!(
         target,
         Target::Deck(_, DeckAction::Sample(_, SampleAction::Load))
@@ -89,7 +94,6 @@ pub fn reads_files(target: &Target) -> bool {
                     | LibraryAction::LoadFree
                     | LibraryAction::Preview
             )
-            | Target::General(GeneralAction::Record)
     )
 }
 
@@ -152,5 +156,6 @@ mod tests {
         ] {
             assert!(!reads(id), "{id}");
         }
+        assert!(!takes_selection(&"general.record".parse().unwrap()), "a file of its own");
     }
 }

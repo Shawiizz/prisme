@@ -30,7 +30,7 @@ use crate::error::{AppError, AppResult};
 use crate::library_service::LibraryService;
 use crate::state::{lock, AppState, MirroredGuard};
 use prisme_actions::input::{Given, Input, Inputs};
-use prisme_actions::lane::{lane, reads_files, Lane};
+use prisme_actions::lane::{lane, reads_files, takes_selection, Lane};
 use prisme_actions::perform::{Memory, PerformState};
 use prisme_actions::position::position;
 use prisme_actions::view::View;
@@ -77,13 +77,25 @@ pub enum Source<'d> {
 }
 
 /// An action asked for, as it was sent, whenever it is performed: by whom, when on the clock of
-/// the one asking (a controller's own, else Prisme's), and after how many of the actions the
-/// interface was told to perform (`ui-action`).
+/// the one asking (a controller's own, else Prisme's), and the track of the library it takes.
 #[derive(Debug, Clone)]
 pub struct Asked<'d> {
     pub source: Source<'d>,
     pub at_s: f64,
-    pub told: u64,
+    pub selected: Selected,
+}
+
+/// The track of the library a load or a preview takes: the one selected as it was sent.
+#[derive(Debug, Clone)]
+pub enum Selected {
+    /// An action that takes none.
+    Unread,
+    /// The track selected as it was sent, the interface having applied every action it was told
+    /// to perform (`ui-action`) before.
+    Then(Option<PathBuf>),
+    /// The track the interface tells it selects once it applied the actions it was told to
+    /// perform up to this number, the browsing sent before the action.
+    Once(u64),
 }
 
 impl Asked<'_> {
@@ -364,6 +376,26 @@ pub struct Order {
 struct Selection {
     path: Option<PathBuf>,
     applied: u64,
+    /// The numbers actions sent before the interface applied them wait for, and what it
+    /// selected as it got there, kept until they read it.
+    awaited: Vec<Awaited>,
+}
+
+struct Awaited {
+    told: u64,
+    readers: usize,
+    path: Option<Option<PathBuf>>,
+}
+
+impl Selection {
+    /// The interface applied the actions up to `applied`, with the track selected now: what the
+    /// actions waiting for a number up to there take.
+    fn reach(&mut self, applied: u64) {
+        self.applied = self.applied.max(applied);
+        for awaited in self.awaited.iter_mut().filter(|a| a.path.is_none() && a.told <= self.applied) {
+            awaited.path = Some(self.path.clone());
+        }
+    }
 }
 
 pub struct Actions {
@@ -433,13 +465,9 @@ impl Actions {
         answer: Answer,
         in_turn: &mut InTurn,
     ) {
-        let at_s = match &source {
-            Source::Controller(moved) => moved.at_s,
-            Source::Interface { .. } => self.now_s(),
-        };
-        let asked = Asked { source, at_s, told: self.told.load(Ordering::SeqCst) };
         let sent = self.sent_as(host.app_state(), target);
         let target = sent.as_ref().unwrap_or(target);
+        let asked = self.asked(source, target);
         let lane = lane(target);
         let mut waiting = lock(&self.lanes.0);
         let device = match &asked.source {
@@ -469,6 +497,32 @@ impl Actions {
         let (host, target, asked) = (host.clone(), target.clone(), asked.into_owned());
         let send = move || host.actions().send(&host, target, input, asked, answer, ending);
         Follower::after(after.into_iter().chain(aside), Box::new(send));
+    }
+
+    /// `target` as `source` asks for it now, with the track of the library it takes, if it takes
+    /// one.
+    fn asked<'d>(&self, source: Source<'d>, target: &Target) -> Asked<'d> {
+        let at_s = match &source {
+            Source::Controller(moved) => moved.at_s,
+            Source::Interface { .. } => self.now_s(),
+        };
+        let selected = if takes_selection(target) { self.selected_now() } else { Selected::Unread };
+        Asked { source, at_s, selected }
+    }
+
+    /// The track of the library an action sent now takes: the one selected, if the interface
+    /// applied every action it was told to perform; else the one it selects once it did.
+    fn selected_now(&self) -> Selected {
+        let told = self.told.load(Ordering::SeqCst);
+        let mut selection = lock(&self.selection);
+        if selection.applied >= told {
+            return Selected::Then(selection.path.clone());
+        }
+        match selection.awaited.iter_mut().find(|a| a.told == told) {
+            Some(awaited) => awaited.readers += 1,
+            None => selection.awaited.push(Awaited { told, readers: 1, path: None }),
+        }
+        Selected::Once(told)
     }
 
     /// The end of an action waiting its turn, the last of the move `in_turn` from now.
@@ -585,24 +639,37 @@ impl Actions {
     pub fn select(&self, path: Option<PathBuf>, applied: Option<u64>) {
         let mut selection = lock(&self.selection);
         selection.path = path;
-        selection.applied = selection.applied.max(applied.unwrap_or(0));
+        selection.reach(applied.unwrap_or(0));
         self.caught_up.notify_all();
     }
 
-    /// The track selected once the interface applied the actions it was told to perform before
-    /// an action asked after `told` of them: a browse sent before a load moves what it loads.
-    /// Waited for [`SELECTION_WAIT`] at most, then the selection as it is (a window asleep), not
-    /// waited for again for those actions. Off the threads of the controllers.
-    fn selected(&self, told: u64) -> Option<PathBuf> {
-        let selection = lock(&self.selection);
+    /// The track `selected` names: a browse sent before a load moves what it loads, one sent
+    /// after does not. One the interface has yet to tell is waited for [`SELECTION_WAIT`] at
+    /// most, then the selection as it is (a window asleep), the actions before counted as
+    /// applied, not waited for again. Off the threads of the controllers.
+    fn selected(&self, selected: &Selected) -> Option<PathBuf> {
+        let told = match selected {
+            Selected::Unread => return None,
+            Selected::Then(path) => return path.clone(),
+            Selected::Once(told) => *told,
+        };
+        let unanswered = |s: &mut Selection| s.awaited.iter().any(|a| a.told == told && a.path.is_none());
         let (mut selection, waited) = self
             .caught_up
-            .wait_timeout_while(selection, SELECTION_WAIT, |s| s.applied < told)
+            .wait_timeout_while(lock(&self.selection), SELECTION_WAIT, unanswered)
             .unwrap_or_else(|e| e.into_inner());
         if waited.timed_out() {
-            selection.applied = told;
+            selection.reach(told);
         }
-        selection.path.clone()
+        let Some(at) = selection.awaited.iter().position(|a| a.told == told) else {
+            return selection.path.clone();
+        };
+        let awaited = &mut selection.awaited[at];
+        awaited.readers -= 1;
+        if awaited.readers > 0 {
+            return awaited.path.clone().flatten();
+        }
+        selection.awaited.swap_remove(at).path.flatten()
     }
 
     /// `job` done in turn on `lane`, after the actions waiting there (the Auto DJ's load of a
@@ -709,7 +776,7 @@ impl Performing<'_> {
     /// The track selected in the library, once the interface applied the actions it was told to
     /// perform before this one (see [`Actions::selected`]).
     fn selected(&self) -> Option<PathBuf> {
-        self.actions.selected(self.asked.told)
+        self.actions.selected(&self.asked.selected)
     }
 
     /// Keeps in the library, once it is open, what `write` writes there (see [`Actions::keep`]).
@@ -885,16 +952,16 @@ pub(crate) mod bench {
         pub fn perform(&self, id: &str, input: Input, source: Source) -> AppResult<()> {
             let target: Target = id.parse().unwrap();
             assert_eq!(target.owner(), Owner::Rust, "{id}");
-            self.performing(source).perform(&target, input)
+            self.asked(self.actions.asked(source, &target)).perform(&target, input)
         }
 
-        /// An action asked for by `source`, now.
+        /// An action taking no track of the library asked for by `source`, now.
         pub(in crate::actions) fn performing<'a>(&'a self, source: Source<'a>) -> Performing<'a> {
             let at_s = match &source {
                 Source::Controller(moved) => moved.at_s,
                 Source::Interface { .. } => self.actions.now_s(),
             };
-            self.asked(Asked { source, at_s, told: self.actions.told.load(Ordering::SeqCst) })
+            self.asked(Asked { source, at_s, selected: Selected::Unread })
         }
 
         fn asked<'a>(&'a self, asked: Asked<'a>) -> Performing<'a> {
@@ -1166,7 +1233,7 @@ mod selection {
     use super::*;
     use std::time::Duration;
 
-    fn load(bench: &Arc<Bench>, id: &str) {
+    fn pressed(bench: &Arc<Bench>, id: &str) {
         let source = Source::Controller(Moved { device: "CDJ".into(), at_s: 0.0, jog_steps_per_turn: 720.0 });
         let target: Target = id.parse().unwrap();
         bench.actions.perform(
@@ -1177,7 +1244,50 @@ mod selection {
             Answer::Told,
             &mut InTurn::default(),
         );
+    }
+
+    fn load(bench: &Arc<Bench>, id: &str) {
+        pressed(bench, id);
         bench.actions.settle();
+    }
+
+    /// A job holding deck A's lane until the sender it gives is sent to.
+    fn busy(bench: &Bench) -> mpsc::SyncSender<()> {
+        let (release, wait) = mpsc::sync_channel(1);
+        bench.actions.in_turn_on(Lane::Track(0), move || {
+            let _ = wait.recv_timeout(Duration::from_secs(5));
+        });
+        release
+    }
+
+    #[test]
+    fn a_load_waiting_its_turn_takes_the_track_selected_as_it_was_sent() {
+        let bench = Arc::new(Bench::new());
+        let (first, next) = (track("sent"), track("browsed-after"));
+        bench.select(&first.0);
+        let loading = busy(&bench);
+        pressed(&bench, "library.load1");
+        bench.select(&next.0);
+        loading.send(()).unwrap();
+        bench.actions.settle();
+        assert_eq!(loaded(&bench, 0), Some(first.0.clone()));
+    }
+
+    #[test]
+    fn a_load_sent_before_the_interface_caught_up_takes_what_it_selected_once_it_did() {
+        let bench = Arc::new(Bench::new());
+        let (first, browsed, after) = (track("before"), track("browsed"), track("later"));
+        bench.select(&first.0);
+        let browse = bench.actions.tell_interface();
+        let loading = busy(&bench);
+        pressed(&bench, "library.load1");
+        // the browse sent before the load applied, then one sent after it
+        bench.actions.select(Some(browsed.0.clone()), Some(browse));
+        let later = bench.actions.tell_interface();
+        bench.actions.select(Some(after.0.clone()), Some(later));
+        loading.send(()).unwrap();
+        bench.actions.settle();
+        assert_eq!(loaded(&bench, 0), Some(browsed.0.clone()));
     }
 
     fn loaded(bench: &Bench, deck: usize) -> Option<PathBuf> {
