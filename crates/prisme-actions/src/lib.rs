@@ -22,6 +22,23 @@ pub mod sync;
 pub mod tap;
 pub mod view;
 
+use prisme_control::Effect;
+use prisme_engine::EffectKind;
+
+/// The engine's effect that plays `effect`.
+pub fn engine_effect(effect: Effect) -> EffectKind {
+    match effect {
+        Effect::Echo => EffectKind::Echo,
+        Effect::PingPong => EffectKind::PingPong,
+        Effect::Reverb => EffectKind::Reverb,
+        Effect::Flanger => EffectKind::Flanger,
+        Effect::Phaser => EffectKind::Phaser,
+        Effect::Filter => EffectKind::Filter,
+        Effect::Gate => EffectKind::Gate,
+        Effect::Bitcrusher => EffectKind::Bitcrusher,
+    }
+}
+
 #[cfg(test)]
 mod tests {
     #[test]

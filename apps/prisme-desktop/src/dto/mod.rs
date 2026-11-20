@@ -210,7 +210,7 @@ mod tests {
         let old = r#"{"kind":"gate","enabled":true,"mix":0.8,"amount":0.3,"beats":2.0,"part":"vocals"}"#;
         let chain: FxChainDto = serde_json::from_str(old).unwrap();
         let gate = FxDto {
-            kind: EffectKindDto::Gate,
+            kind: prisme_control::Effect::Gate,
             enabled: true,
             mix: 0.8,
             amount: 0.3,

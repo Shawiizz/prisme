@@ -3,9 +3,10 @@
 //! shows.
 
 use super::Performing;
-use crate::dto::{EffectKindDto, FxDto, FxPartDto, SeparationDto};
+use crate::dto::{FxDto, FxPartDto, SeparationDto};
 use crate::error::{AppError, AppResult};
 use crate::state::{lock, AppState};
+use prisme_actions::engine_effect;
 use prisme_actions::position::fx_knob;
 use prisme_control::{DeckAction, Effect, StemPart};
 use prisme_engine::{Command, FX_SLOTS};
@@ -30,8 +31,9 @@ pub fn set_fx_enabled(state: &AppState, deck: usize, slot: usize, enabled: bool)
 }
 
 /// Another effect in the slot, on or off as it was.
-pub fn set_fx(state: &AppState, deck: usize, slot: usize, kind: EffectKindDto) -> AppResult<()> {
-    set_slot(state, deck, slot, |fx| fx.kind = kind, Command::SetFx { deck, slot, kind: kind.into() })
+pub fn set_fx(state: &AppState, deck: usize, slot: usize, kind: Effect) -> AppResult<()> {
+    let command = Command::SetFx { deck, slot, kind: engine_effect(kind) };
+    set_slot(state, deck, slot, |fx| fx.kind = kind, command)
 }
 
 /// The level of the slot's effect, 0..1.
@@ -78,21 +80,20 @@ pub fn next_fx_part(state: &AppState, deck: usize) -> AppResult<()> {
 
 /// The effect `step` places after the slot's (before it, negative), on or off as it was.
 pub(super) fn cycle_fx(state: &AppState, deck: usize, slot: usize, step: isize) -> AppResult<()> {
-    let effect = Effect::from(lock(&state.decks)[deck].fx.slots[slot].kind);
+    let effect = lock(&state.decks)[deck].fx.slots[slot].kind;
     let at = Effect::NAMED.iter().position(|e| *e == effect).unwrap_or(0) as isize;
     let next = Effect::NAMED[(at + step).rem_euclid(Effect::NAMED.len() as isize) as usize];
-    set_fx(state, deck, slot, next.into())
+    set_fx(state, deck, slot, next)
 }
 
 /// `effect` put in the slot and on; pressed again while it plays, off.
 pub(super) fn press_fx(state: &AppState, deck: usize, slot: usize, effect: Effect) -> AppResult<()> {
     let fx = lock(&state.decks)[deck].fx.slots[slot];
-    let kind = EffectKindDto::from(effect);
-    if fx.kind == kind && fx.enabled {
+    if fx.kind == effect && fx.enabled {
         return set_fx_enabled(state, deck, slot, false);
     }
-    if fx.kind != kind {
-        set_fx(state, deck, slot, kind)?;
+    if fx.kind != effect {
+        set_fx(state, deck, slot, effect)?;
     }
     set_fx_enabled(state, deck, slot, true)
 }
@@ -126,9 +127,10 @@ pub fn show_fx_slot(state: &AppState, deck: usize, slot: usize) -> AppResult<()>
 mod tests {
     use crate::actions::bench::Bench;
     use crate::actions::Source;
-    use crate::dto::{EffectKindDto, FxPartDto};
+    use crate::dto::FxPartDto;
     use crate::state::lock;
     use prisme_actions::input::Input;
+    use prisme_control::Effect;
 
     fn press(bench: &Bench, id: &str) {
         bench.press(id, 1.0).unwrap();
@@ -202,16 +204,16 @@ mod tests {
         let bench = Bench::new();
         let slot = || lock(&bench.state.decks)[1].fx.slots[2];
         press(&bench, "deck2.fx3.reverb");
-        assert_eq!((slot().kind, slot().enabled), (EffectKindDto::Reverb, true));
+        assert_eq!((slot().kind, slot().enabled), (Effect::Reverb, true));
         press(&bench, "deck2.fx3.reverb");
         assert!(!slot().enabled, "pressed again: off");
         press(&bench, "deck2.fx3.previous");
         press(&bench, "deck2.fx3.previous");
         press(&bench, "deck2.fx3.previous");
-        assert_eq!(slot().kind, EffectKindDto::Bitcrusher, "round past the first");
+        assert_eq!(slot().kind, Effect::Bitcrusher, "round past the first");
         assert!(!slot().enabled, "on or off as it was");
         press(&bench, "deck2.fx3.next");
-        assert_eq!(slot().kind, EffectKindDto::Echo);
+        assert_eq!(slot().kind, Effect::Echo);
     }
 
     #[test]

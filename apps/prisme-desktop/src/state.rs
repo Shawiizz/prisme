@@ -1198,7 +1198,7 @@ pub fn deck_commands(deck: usize, s: &DeckSettings) -> Vec<Command> {
     ];
     for (slot, fx) in s.fx.slots.iter().enumerate() {
         commands.extend([
-            Command::SetFx { deck, slot, kind: fx.kind.into() },
+            Command::SetFx { deck, slot, kind: prisme_actions::engine_effect(fx.kind) },
             Command::SetFxMix { deck, slot, mix: fx.mix },
             Command::SetFxAmount { deck, slot, amount: fx.amount },
             Command::SetFxParam2 { deck, slot, param2: fx.param2 },

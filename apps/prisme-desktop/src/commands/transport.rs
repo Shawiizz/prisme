@@ -1,9 +1,8 @@
 use crate::actions::pads;
-use crate::dto::EffectKindDto;
 use crate::error::AppResult;
 use crate::state::AppState;
 use prisme_actions::pads::Page;
-use prisme_control::{beats_text, Beats, DeckAction, FxAction, Label, Target, CUT_BEATS, ROLL_BEATS};
+use prisme_control::{beats_text, Beats, DeckAction, Effect, FxAction, Label, Target, CUT_BEATS, ROLL_BEATS};
 use serde::Serialize;
 use tauri::State;
 
@@ -22,7 +21,7 @@ pub struct PadDto {
     pub caption: String,
     pub label: Label,
     /// The effect an effects' pad turns on, on the slot shown.
-    pub effect: Option<EffectKindDto>,
+    pub effect: Option<Effect>,
 }
 
 /// The pages of pads the screen shows by their action, in the order of `Page::ALL`.
@@ -43,7 +42,7 @@ pub fn pad_pages() -> Vec<PadPageDto> {
                 caption: caption(action),
                 label: Target::Deck(0, action).label(),
                 effect: match action {
-                    DeckAction::Fx(_, FxAction::Effect(effect)) => Some(effect.into()),
+                    DeckAction::Fx(_, FxAction::Effect(effect)) => Some(effect),
                     _ => None,
                 },
             })
@@ -79,7 +78,7 @@ mod tests {
         assert_eq!(first(Page::Slice), Some((&"slice1".to_owned(), &"1".to_owned())));
         assert_eq!(pages.iter().find(|p| p.page == Page::Cut).map(|p| p.pads.len()), Some(4));
         let effects = pages.iter().find(|p| p.page == Page::Fx).unwrap();
-        assert_eq!(effects.pads[0].effect, Some(EffectKindDto::Echo), "in the order the lights are");
-        assert_eq!(effects.pads.len(), prisme_control::Effect::NAMED.len());
+        assert_eq!(effects.pads[0].effect, Some(Effect::Echo), "in the order the lights are");
+        assert_eq!(effects.pads.len(), Effect::NAMED.len());
     }
 }

@@ -2,7 +2,7 @@
 //! a fader's position, an encoder's steps.
 
 use super::{deck, fx, general, mixer, sampler, transport, Performing};
-use crate::dto::{CrossfaderCurveDto, EffectKindDto, LiveSourceDto};
+use crate::dto::{CrossfaderCurveDto, LiveSourceDto};
 use crate::error::{AppError, AppResult};
 use crate::state::{lock, Section};
 use prisme_actions::input::{Given, Input};
@@ -265,7 +265,7 @@ impl Performing<'_> {
             }
             DeckAction::Fx(slot, FxAction::Kind) => {
                 let step = self.memory().faders.give_stepped(&target, at, Effect::NAMED.len());
-                let kind = EffectKindDto::from(Effect::NAMED[step]);
+                let kind = Effect::NAMED[step];
                 if lock(&state.decks)[deck].fx.slots[slot].kind == kind {
                     return Ok(());
                 }
@@ -743,9 +743,9 @@ mod faders {
         assert!(close(bench.position("deck1.fx3.period").unwrap(), 4.5 / 7.0), "changed elsewhere");
 
         set(&bench, "deck1.fx3.kind", 0.99);
-        assert_eq!(slot().kind, crate::dto::EffectKindDto::Bitcrusher);
+        assert_eq!(slot().kind, prisme_control::Effect::Bitcrusher);
         set(&bench, "deck1.fx3.kind", 0.4);
-        assert_eq!(slot().kind, crate::dto::EffectKindDto::Flanger);
+        assert_eq!(slot().kind, prisme_control::Effect::Flanger);
         assert_eq!(bench.position("deck1.fx3.kind"), Some(0.4));
     }
 

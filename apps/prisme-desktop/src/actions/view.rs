@@ -188,7 +188,7 @@ fn track_view(track: &LoadedTrack) -> TrackView {
 
 fn fx_slot(fx: FxDto) -> FxSlot {
     FxSlot {
-        effect: fx.kind.into(),
+        effect: fx.kind,
         enabled: fx.enabled,
         mix: fx.mix,
         amount: fx.amount,

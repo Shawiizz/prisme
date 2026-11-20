@@ -1,73 +1,14 @@
 //! The decks' effect chains.
 
+use prisme_control::Effect;
 use prisme_engine::FX_SLOTS;
 use serde::{Deserialize, Serialize};
-
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub enum EffectKindDto {
-    #[default]
-    Echo,
-    PingPong,
-    Reverb,
-    Flanger,
-    Phaser,
-    Filter,
-    Gate,
-    Bitcrusher,
-}
-
-impl From<EffectKindDto> for prisme_control::Effect {
-    fn from(k: EffectKindDto) -> Self {
-        match k {
-            EffectKindDto::Echo => Self::Echo,
-            EffectKindDto::PingPong => Self::PingPong,
-            EffectKindDto::Reverb => Self::Reverb,
-            EffectKindDto::Flanger => Self::Flanger,
-            EffectKindDto::Phaser => Self::Phaser,
-            EffectKindDto::Filter => Self::Filter,
-            EffectKindDto::Gate => Self::Gate,
-            EffectKindDto::Bitcrusher => Self::Bitcrusher,
-        }
-    }
-}
-
-impl From<prisme_control::Effect> for EffectKindDto {
-    fn from(e: prisme_control::Effect) -> Self {
-        use prisme_control::Effect;
-        match e {
-            Effect::Echo => Self::Echo,
-            Effect::PingPong => Self::PingPong,
-            Effect::Reverb => Self::Reverb,
-            Effect::Flanger => Self::Flanger,
-            Effect::Phaser => Self::Phaser,
-            Effect::Filter => Self::Filter,
-            Effect::Gate => Self::Gate,
-            Effect::Bitcrusher => Self::Bitcrusher,
-        }
-    }
-}
-
-impl From<EffectKindDto> for prisme_engine::EffectKind {
-    fn from(k: EffectKindDto) -> Self {
-        match k {
-            EffectKindDto::Echo => Self::Echo,
-            EffectKindDto::PingPong => Self::PingPong,
-            EffectKindDto::Reverb => Self::Reverb,
-            EffectKindDto::Flanger => Self::Flanger,
-            EffectKindDto::Phaser => Self::Phaser,
-            EffectKindDto::Filter => Self::Filter,
-            EffectKindDto::Gate => Self::Gate,
-            EffectKindDto::Bitcrusher => Self::Bitcrusher,
-        }
-    }
-}
 
 /// A slot of a deck's effect chain.
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct FxDto {
-    pub kind: EffectKindDto,
+    pub kind: Effect,
     pub enabled: bool,
     /// Level of the effect, 0..1.
     pub mix: f32,
@@ -88,7 +29,7 @@ fn param2_default() -> f32 {
 impl Default for FxDto {
     fn default() -> Self {
         Self {
-            kind: EffectKindDto::Echo,
+            kind: Effect::Echo,
             enabled: false,
             mix: 0.5,
             amount: 0.5,

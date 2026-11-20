@@ -195,6 +195,21 @@ actions! {
     }
 }
 
+/// Written by its id, as the profiles and the preferences name it (`pingPong`).
+impl Serialize for Effect {
+    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        serializer.serialize_str(self.id())
+    }
+}
+
+impl<'de> Deserialize<'de> for Effect {
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let id = String::deserialize(deserializer)?;
+        let effect = Effect::NAMED.iter().copied().find(|effect| effect.id() == id);
+        effect.ok_or_else(|| serde::de::Error::custom(format!("no effect is named {id}")))
+    }
+}
+
 actions! {
     /// What a slot of a deck's effect chain does.
     FxAction {
@@ -698,6 +713,16 @@ fn numbered<'i>(id: &'i str, prefix: &str, count: usize) -> Option<(usize, Optio
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn an_effect_is_written_by_its_id() {
+        assert_eq!(serde_json::to_string(&Effect::PingPong).unwrap(), r#""pingPong""#);
+        for effect in Effect::NAMED {
+            let written = serde_json::to_string(effect).unwrap();
+            assert_eq!(serde_json::from_str::<Effect>(&written).unwrap(), *effect);
+        }
+        assert!(serde_json::from_str::<Effect>(r#""wah""#).is_err());
+    }
     use std::collections::BTreeSet;
 
     #[test]
