@@ -6,7 +6,7 @@ use crate::dto::{CrossfaderCurveDto, EffectKindDto, LiveSourceDto, VinylChangeDt
 use crate::error::AppResult;
 use crate::state::lock;
 use prisme_actions::input::{Given, Input};
-use prisme_actions::pads::ROLL_BEATS;
+use prisme_actions::pads::{plays_loop, ROLL_BEATS};
 use prisme_actions::position::FX_PERIODS;
 use prisme_actions::scales::{
     balance_amount, eq_gain, eq_knob, filter_amount, headphone_gain, live_gain, live_knob, next_tempo_range,
@@ -138,7 +138,7 @@ impl Performing<'_> {
             DeckAction::Reloop => send(Command::Reloop { deck }),
             DeckAction::LoopHalve => send(Command::ScaleLoop { deck, factor: 0.5 }),
             DeckAction::LoopDouble => send(Command::ScaleLoop { deck, factor: 2.0 }),
-            DeckAction::LoopBeats(Beats(beats)) => send(Command::BeatLoop { deck, beats }),
+            DeckAction::LoopBeats(Beats(beats)) => self.loop_of(deck, beats),
             DeckAction::Loop => self.toggle_loop(deck, LOOP_BEATS),
             DeckAction::LoopSize => self.toggle_loop(deck, size()),
             DeckAction::LoopClear => transport::set_loop(state, deck, None, None, false),
@@ -228,6 +228,18 @@ impl Performing<'_> {
     fn toggle_loop(&self, deck: usize, beats: f64) -> AppResult<()> {
         let looping = self.state.deck_status(deck).is_ok_and(|status| status.looping.active);
         let command = if looping { Command::ExitLoop { deck } } else { Command::BeatLoop { deck, beats } };
+        transport::send(self.state, deck, command)
+    }
+
+    /// A loop of `beats` where `deck` plays, or out of it if it plays that loop.
+    fn loop_of(&self, deck: usize, beats: f64) -> AppResult<()> {
+        let status = self.state.deck_status(deck)?;
+        let bpm = self.state.with_track(deck, |t| t.grid().map(|g| g.bpm)).ok().flatten();
+        let command = if plays_loop(&status, bpm, beats) {
+            Command::ExitLoop { deck }
+        } else {
+            Command::BeatLoop { deck, beats }
+        };
         transport::send(self.state, deck, command)
     }
 
@@ -797,6 +809,23 @@ mod switches {
                 Command::BeatLoop { deck: 1, beats: 4.0 },
             ]
         ));
+    }
+
+    #[test]
+    fn a_loop_key_leaves_its_own_loop_and_moves_to_its_length_from_another() {
+        let bench = Bench::new();
+        bench.load(0, 60.0, Some(120.0));
+        press(&bench, "deck1.loop.4");
+        bench.run(0.01);
+        assert!(bench.status(0).looping.active);
+        press(&bench, "deck1.loop.2");
+        let sent = bench.sent();
+        assert!(matches!(sent[..], [Command::BeatLoop { deck: 0, beats }] if beats == 2.0));
+        bench.load(0, 60.0, Some(120.0));
+        press(&bench, "deck1.loop.2");
+        bench.run(0.01);
+        press(&bench, "deck1.loop.2");
+        assert!(matches!(bench.sent()[..], [Command::ExitLoop { deck: 0 }]));
     }
 
     #[test]

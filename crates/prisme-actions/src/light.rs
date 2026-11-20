@@ -3,7 +3,7 @@
 //! hot cue.
 
 use crate::cue::at_cue;
-use crate::pads::{slice_at, ROLL_BEATS};
+use crate::pads::{loop_beats, plays_loop, slice_at, LOOP_LENGTH_WITHIN, ROLL_BEATS};
 use crate::sync::{phase, Beat, Phase};
 use crate::view::{band_index, TrackView, View};
 use prisme_control::{
@@ -23,8 +23,6 @@ const AT_TEMPO: f64 = 0.0005;
 const SAME_BPM: f64 = 0.01;
 /// Two decks this close in their beat (of a beat) are in phase.
 const IN_PHASE: f64 = 0.03;
-/// A loop this close to a length (of a beat, or of the deck's size) has it.
-const LOOP_LENGTH_WITHIN: f64 = 0.01;
 
 /// The state a light shows.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -142,11 +140,9 @@ fn deck_light(deck: usize, action: DeckAction, view: &View) -> Option<Light> {
         }
         DeckAction::Loop | DeckAction::LoopAny => status.looping.active,
         DeckAction::LoopIn => status.looping.loop_in_s.is_some(),
-        DeckAction::LoopSize => loop_beats(status, track)
+        DeckAction::LoopSize => loop_beats(status, track.and_then(|t| t.bpm))
             .is_some_and(|beats| (beats / settings.size_beats - 1.0).abs() < LOOP_LENGTH_WITHIN),
-        DeckAction::LoopBeats(Beats(length)) => {
-            loop_beats(status, track).is_some_and(|beats| (beats - length).abs() < LOOP_LENGTH_WITHIN)
-        }
+        DeckAction::LoopBeats(Beats(length)) => plays_loop(status, track.and_then(|t| t.bpm), length),
         DeckAction::ReloopStop => status.looping.region.is_some(),
         DeckAction::KeyReset => key_shift != 0,
         DeckAction::KeyTo(semitones) => i32::from(key_shift) == semitones,
@@ -235,12 +231,6 @@ fn deck_state(status: &DeckStatus) -> State {
 fn slice_playing(status: &DeckStatus, track: Option<&TrackView>, slicer: Option<f64>) -> Option<usize> {
     let beat_s = 60.0 / track?.bpm?;
     slice_at(slicer?, status.position_s, beat_s).filter(|_| status.loaded)
-}
-
-/// The beats of the loop playing, if the track has a grid.
-fn loop_beats(status: &DeckStatus, track: Option<&TrackView>) -> Option<f64> {
-    let region = status.looping.region.filter(|_| status.looping.active)?;
-    Some((region.end_s - region.start_s) * track?.bpm? / 60.0)
 }
 
 fn ending(status: &DeckStatus) -> State {

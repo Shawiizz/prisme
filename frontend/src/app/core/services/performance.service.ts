@@ -37,6 +37,7 @@ export class PerformanceService {
     return this.engine.press(deck, `hotcue${slot + 1}.delete`);
   }
 
+  /** A loop of `beats` on `deck`, or out of it if it plays that loop. */
   beatLoop(deck: number, beats: number) {
     return this.engine.press(deck, `loop.${beats}`);
   }

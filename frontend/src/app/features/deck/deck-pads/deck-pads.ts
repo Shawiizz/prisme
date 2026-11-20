@@ -306,9 +306,7 @@ export class DeckPads {
           : this.performance.pressHotCue(deck, slot);
       case 'loops':
         // the pad of the loop playing leaves it
-        return this.activeLoopBeats() === LOOP_BEATS[index]
-          ? this.performance.reloop(deck)
-          : this.performance.beatLoop(deck, LOOP_BEATS[index]);
+        return this.performance.beatLoop(deck, LOOP_BEATS[index]);
       case 'roll':
         this.performance.roll(deck, index, true);
         this.held.set(event.pointerId, () => this.performance.roll(deck, index, false));
