@@ -292,8 +292,10 @@ impl Turn {
         }
     }
 
+    /// Over: what followed it is sent, its lock let go first (sending takes the lanes').
     fn end(&self) {
-        if let Then::Waiting(followers) = std::mem::replace(&mut *lock(&self.0), Then::Over) {
+        let then = std::mem::replace(&mut *lock(&self.0), Then::Over);
+        if let Then::Waiting(followers) = then {
             followers.iter().for_each(|follower| follower.one_over());
         }
     }
