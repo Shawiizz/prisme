@@ -3,6 +3,7 @@
 //! application at a moment (its [`view::View`]).
 
 pub mod cue;
+pub mod hold;
 pub mod input;
 pub mod knobs;
 pub mod lane;

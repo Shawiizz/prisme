@@ -377,6 +377,7 @@ pub fn run() {
             commands::controllers::forget_control,
             commands::controllers::set_lights,
             actions::perform_action,
+            actions::let_go_key,
             commands::controllers::controller_profiles,
             commands::controllers::reload_controller_profiles,
             commands::controllers::update_controller_profiles,

@@ -70,8 +70,8 @@
   class="pr-btn pr-btn--lg key sync"
   [class.is-on]="syncState() === 'locked'"
   [class.matched]="syncState() === 'matched'"
-  (press)="syncDown()"
-  (release)="$event ? syncUp() : syncCancel()"
+  (press)="engine.press(deck(), 'sync')"
+  (release)="engine.release(deck(), 'sync', $event)"
   [disabled]="!canSync()"
   [title]="syncTitle()"
 >

@@ -17,6 +17,7 @@ pub mod deck;
 mod edits;
 pub mod fx;
 pub mod general;
+mod keys;
 pub mod loads;
 mod loops;
 pub mod mixer;
@@ -30,6 +31,7 @@ use crate::auto_dj::{AutoDj, Takeover};
 use crate::error::{AppError, AppResult};
 use crate::library_service::LibraryService;
 use crate::state::{lock, AppState, MirroredGuard};
+use keys::{Keys, Press};
 use prisme_actions::input::{Given, Input, Inputs};
 use prisme_actions::lane::{lane, reads_files, takes_selection, Lane};
 use prisme_actions::perform::{Memory, PerformState};
@@ -47,7 +49,7 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::mpsc::{self, Sender, SyncSender};
 use std::sync::{Arc, Condvar, Mutex, MutexGuard};
 use std::time::{Duration, Instant};
-use tauri::{AppHandle, Emitter, Manager};
+use tauri::{AppHandle, Emitter, Manager, State};
 use tracing::error;
 
 pub use view::{view_of, view_with};
@@ -376,6 +378,8 @@ pub struct Actions {
     kept: Sender<Job>,
     /// What the actions are timed by when no controller's clock tells it.
     started: Instant,
+    /// The interface's keys held that act while they are.
+    keys: Keys,
 }
 
 impl Actions {
@@ -400,6 +404,7 @@ impl Actions {
             lanes: Lanes::default(),
             kept,
             started: Instant::now(),
+            keys: Keys::default(),
         }
     }
 
@@ -617,6 +622,14 @@ impl Actions {
         self.started.elapsed().as_secs_f64()
     }
 
+    /// The interface's keys held whose time came in `view`, performed (see `keys`).
+    pub fn fire_keys(&self, host: &impl Host, view: &View) {
+        for target in self.keys.due(self.now_s(), view) {
+            let source = Source::Interface { confirmed: false };
+            host.perform(&target, Input::Value(1.0), source, &mut InTurn::default());
+        }
+    }
+
     /// What a controller `device`'s `input` gives `target`, an action the interface performs: a
     /// key's value, an encoder's whole steps (those short of one kept for its next move); none
     /// for an encoder on a key.
@@ -782,14 +795,43 @@ pub async fn perform_action(
         actions.in_order(order, || -> AppResult<()> {
             let target: Target = target.parse().map_err(|e: Unknown| AppError::Other(e.to_string()))?;
             let value = value.ok_or_else(|| AppError::Other(format!("{target} given no value")))?;
-            let input = interface_input(&target, value);
-            let source = Source::Interface { confirmed };
-            actions.perform(&app, &target, input, source, Answer::To(answer), &mut InTurn::default());
+            let source = || Source::Interface { confirmed };
+            let mut turn = InTurn::default();
+            match actions.keys.press(&target, value, actions.now_s()) {
+                Press::Act => {
+                    let input = interface_input(&target, value);
+                    actions.perform(&app, &target, input, source(), Answer::To(answer), &mut turn);
+                }
+                Press::Wait => drop(answer.send(Ok(()))),
+                Press::Tap => {
+                    actions.perform(
+                        &app,
+                        &target,
+                        Input::Value(1.0),
+                        source(),
+                        Answer::To(answer),
+                        &mut turn,
+                    );
+                    actions.perform(&app, &target, Input::Value(0.0), source(), Answer::Told, &mut turn);
+                }
+                Press::Release(hold) => {
+                    actions.perform(&app, &hold, Input::Value(0.0), source(), Answer::To(answer), &mut turn);
+                }
+            }
             Ok(())
         })?;
         outcome.recv().unwrap_or_else(|e| Err(AppError::Other(e.to_string())))
     })
     .await
+}
+
+/// The interface's press of the key `target` lost (the key gone from under the pointer): let
+/// go, without what its release does.
+#[tauri::command]
+pub fn let_go_key(actions: State<'_, Actions>, target: String) -> AppResult<()> {
+    let target: Target = target.parse().map_err(|e: Unknown| AppError::Other(e.to_string()))?;
+    actions.keys.lost(&target);
+    Ok(())
 }
 
 #[cfg(test)]

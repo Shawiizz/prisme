@@ -1,4 +1,4 @@
-import { Component, DestroyRef, computed, inject, input } from '@angular/core';
+import { Component, computed, inject, input } from '@angular/core';
 import { deckTempo } from '../../../core/deck-tempo';
 import { EngineService } from '../../../core/services/engine.service';
 import { formatPitch } from '../../../shared/time';
@@ -8,9 +8,6 @@ import { deckStems } from '../../../core/deck-stems';
 import { Knob } from '../../../shared/knob/knob';
 import { percent } from '../../../shared/readout';
 import { Press } from '../../../shared/press';
-
-/** Holding SYNC this long (ms) matches the leader once instead of locking to it. */
-const SYNC_HOLD_MS = 450;
 
 /**
  * What plays a deck, at the start of its rail: the transport (a record has its own), the
@@ -60,16 +57,10 @@ export class DeckControls {
         return t('Tap: lock to the leader · hold: match its tempo and beats once');
     }
   });
-  private syncHold: ReturnType<typeof setTimeout> | null = null;
-
   protected readonly pitchText = computed(() => formatPitch(this.tempo.rate()));
   /** On a record not locked by sync: the pitch to set on the turntable to match the other
    * deck. */
   protected readonly pitchTarget = this.tempo.toMatch;
-
-  constructor() {
-    inject(DestroyRef).onDestroy(() => this.syncCancel());
-  }
 
   cueDown() {
     this.engine.press(this.deck(), 'cue');
@@ -77,26 +68,6 @@ export class DeckControls {
 
   cueUp() {
     this.engine.press(this.deck(), 'cue', false);
-  }
-
-  syncDown() {
-    this.syncCancel();
-    this.syncHold = setTimeout(() => {
-      this.syncHold = null;
-      this.engine.syncOnce(this.deck());
-    }, SYNC_HOLD_MS);
-  }
-
-  /** Released before the hold: a tap. */
-  syncUp() {
-    if (this.syncHold === null) return;
-    this.syncCancel();
-    this.engine.toggleSync(this.deck());
-  }
-
-  syncCancel() {
-    if (this.syncHold !== null) clearTimeout(this.syncHold);
-    this.syncHold = null;
   }
 
   resetPitch() {

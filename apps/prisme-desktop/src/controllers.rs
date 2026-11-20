@@ -18,6 +18,7 @@ use crate::dto::{LightDto, UiActionDto};
 use crate::error::{AppError, AppResult};
 use crate::state::{lock, AppState};
 use midir::{Ignore, MidiInput, MidiInputConnection, MidiOutput, MidiOutputConnection};
+use prisme_actions::hold::{Pressed, Timing};
 use prisme_actions::input::Input;
 use prisme_actions::light::{light, told_by_interface};
 use prisme_actions::perform::ClipHold;
@@ -165,7 +166,7 @@ impl Action {
 }
 
 /// A key pressed whose action waits to know whether it is held: held for `hold.ms`, it drives
-/// `hold.target` (`fired`), let go sooner its own.
+/// `hold.target` (it acted), let go sooner its own.
 struct Holding {
     device: String,
     control: Control,
@@ -173,7 +174,8 @@ struct Holding {
     since: Instant,
     /// When it was pressed, on its controller's clock.
     at_s: f64,
-    fired: bool,
+    /// Timed from `since`.
+    pressed: Pressed,
 }
 
 struct Connection {
@@ -1009,7 +1011,10 @@ impl Controllers {
                     Levels::of(&app.state::<AppState>())
                 });
                 let actions = app.state::<Actions>();
-                controllers.drive(&actions.view(&app), levels.flatten().as_ref(), actions.now_s());
+                let view = actions.view(&app);
+                controllers.drive(&view, levels.flatten().as_ref(), actions.now_s());
+                // the interface's keys held, on the same clock as the controllers' holds
+                actions.fire_keys(&app, &view);
             }
         });
         if let Err(e) = spawned {
@@ -1385,16 +1390,16 @@ impl Controllers {
                 hold: hold.clone(),
                 since: Instant::now(),
                 at_s,
-                fired: false,
+                pressed: Pressed::new(Timing::Held(hold.ms), 0.0),
             });
             return None;
         }
         let at = holdings.iter().position(|h| h.device == device && h.control == event.control)?;
         let held = holdings.remove(at);
-        if held.fired && held.hold.target.mode().is_some() {
+        if held.pressed.acted() && held.hold.target.mode().is_some() {
             return None;
         }
-        if held.fired {
+        if held.pressed.acted() {
             return driven(vec![Action::press(&held.hold.target, 0.0)]);
         }
         reader.choose(device, mapping);
@@ -1425,8 +1430,7 @@ impl Controllers {
     fn fired_holds(&self) -> Vec<(String, Option<(Action, f64)>)> {
         let mut fired = Vec::new();
         for held in lock(&self.holdings).iter_mut() {
-            if !held.fired && held.since.elapsed() >= Duration::from_millis(u64::from(held.hold.ms)) {
-                held.fired = true;
+            if held.pressed.due(held.since.elapsed().as_secs_f64()) {
                 let at_s = held.at_s + f64::from(held.hold.ms) / 1000.0;
                 fired.push((held.device.clone(), held.hold.target.clone(), at_s));
             }

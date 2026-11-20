@@ -1,18 +1,14 @@
-import { Component, DestroyRef, booleanAttribute, inject, input } from '@angular/core';
+import { Component, booleanAttribute, inject, input } from '@angular/core';
 import { deckTempo } from '../../../core/deck-tempo';
 import { EngineService } from '../../../core/services/engine.service';
 import { TPipe } from '../../../core/i18n/t.pipe';
 import { Fader } from '../../../shared/fader/fader';
 import { Press } from '../../../shared/press';
 
-/** A press of − or + moves the tempo a step (0.1 %); held, it goes on, a step this often (ms)
- * after the first wait. (The temporary bend is on the keyboard and the controllers.) */
-const STEP_WAIT_MS = 400;
-const STEP_EVERY_MS = 60;
-
 /**
  * The tempo fader at the end of a deck's lane, where a turntable has it and the same way
- * up: faster is down. A record or sync holding the tempo, it shows the rate played and, on
+ * up: faster is down. A press of − or + moves the tempo a step (0.1 %); held, the backend
+ * steps on. (The temporary bend is on the keyboard and the controllers.) A record or sync holding the tempo, it shows the rate played and, on
  * a record, where to bring the turntable's own fader to match the other deck.
  */
 @Component({
@@ -25,8 +21,8 @@ const STEP_EVERY_MS = 60;
         [title]="'Tempo down 0.1 % (held, on down)' | t"
         [attr.aria-label]="'Tempo down 0.1 % (held, on down)' | t"
         [disabled]="tempo.held()"
-        (press)="stepDown(-1)"
-        (release)="stepStop()"
+        (press)="engine.press(deck(), 'tempo.down')"
+        (release)="engine.release(deck(), 'tempo.down', $event)"
       >
         −
       </button>
@@ -58,8 +54,8 @@ const STEP_EVERY_MS = 60;
         [title]="'Tempo up 0.1 % (held, on up)' | t"
         [attr.aria-label]="'Tempo up 0.1 % (held, on up)' | t"
         [disabled]="tempo.held()"
-        (press)="stepDown(1)"
-        (release)="stepStop()"
+        (press)="engine.press(deck(), 'tempo.up')"
+        (release)="engine.release(deck(), 'tempo.up', $event)"
       >
         +
       </button>
@@ -148,33 +144,4 @@ export class PitchFader {
 
   protected readonly engine = inject(EngineService);
   protected readonly tempo = deckTempo(this.deck);
-
-  private stepping: ReturnType<typeof setTimeout> | null = null;
-
-  constructor() {
-    inject(DestroyRef).onDestroy(() => this.stepStop());
-  }
-
-  stepDown(direction: -1 | 1) {
-    this.stepStop();
-    this.step(direction);
-    const goOn = (wait: number) => {
-      this.stepping = setTimeout(() => {
-        // the key disabled under the finger (sync took the tempo): its release may not come
-        if (this.tempo.held()) return this.stepStop();
-        this.step(direction);
-        goOn(STEP_EVERY_MS);
-      }, wait);
-    };
-    goOn(STEP_WAIT_MS);
-  }
-
-  stepStop() {
-    if (this.stepping !== null) clearTimeout(this.stepping);
-    this.stepping = null;
-  }
-
-  private step(direction: -1 | 1) {
-    this.engine.press(this.deck(), direction < 0 ? 'tempo.down' : 'tempo.up');
-  }
 }

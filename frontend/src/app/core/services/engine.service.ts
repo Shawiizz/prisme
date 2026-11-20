@@ -152,12 +152,6 @@ export class EngineService {
     }
   }
 
-  /** Matches the leader once and leaves the deck free (unlocking it first); a deck playing by
-   * itself takes the tempo on its fader. */
-  syncOnce(deck: number) {
-    return this.perform(`deck${deck + 1}.sync.once`, 1);
-  }
-
   /**
    * Position of a deck extrapolated to this instant, for smooth 60 fps drawing between
    * two status updates.
@@ -274,14 +268,6 @@ export class EngineService {
     return this.call('set_timecode', { deck, format });
   }
 
-  /**
-   * SYNC button: unlocks a locked deck; otherwise locks it, or on a relative record in
-   * one-shot mode matches it once (pressing again re-matches after a drift).
-   */
-  toggleSync(deck: number) {
-    return this.perform(`deck${deck + 1}.sync`, 1);
-  }
-
   /** -1, 0 or 1: slower, released, faster, as the bend keys. */
   pitchBend(deck: number, direction: -1 | 0 | 1) {
     return this.perform(
@@ -355,6 +341,17 @@ export class EngineService {
   /** The key of `action` of `deck` (`play`, `cue`…) pressed, or let go (`down` false). */
   press(deck: number, action: string, down = true) {
     return this.perform(`deck${deck + 1}.${action}`, down ? 1 : 0);
+  }
+
+  /** The key `action` of `deck` pressed and lost (gone from under the pointer): let go without
+   * what its release does (SYNC tapped). */
+  letGo(deck: number, action: string) {
+    return this.call('let_go_key', { target: `deck${deck + 1}.${action}` });
+  }
+
+  /** The key `action` of `deck` let go, or its press lost (`letGo`). */
+  release(deck: number, action: string, letGo: boolean) {
+    return letGo ? this.press(deck, action, false) : this.letGo(deck, action);
   }
 
   /** The switch `target` (`deck1.keylock`, `mixer.talkover`…) turned on or off. */
