@@ -90,7 +90,7 @@ impl VinylControl {
 
     /// Where the track starts on the record, in seconds of music.
     fn lead_in_s(&self) -> f64 {
-        self.lead_in_s.unwrap_or_else(|| self.decoder.format().lead_in_s / self.rpm.record_speed())
+        self.lead_in_s.unwrap_or_else(|| self.rpm.music_s(self.decoder.format().lead_in_s))
     }
 
     /// A position read from the record, in seconds of music.

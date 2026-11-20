@@ -45,6 +45,12 @@ impl Rpm {
     pub fn turn_s(self) -> f64 {
         1.8 / self.record_speed()
     }
+
+    /// The music `record_s` seconds of grooves at 33⅓ rpm hold at that speed (s): less at 45 rpm,
+    /// the grooves going by faster.
+    pub fn music_s(self, record_s: f64) -> f64 {
+        record_s / self.record_speed()
+    }
 }
 
 /// Which side of the crossfader a deck is on.
@@ -497,4 +503,16 @@ pub enum Garbage {
     Track(Arc<TrackAudio>),
     Decoder(Box<TimecodeDecoder>),
     Recording(rtrb::Producer<f32>),
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn a_lead_in_holds_less_music_at_45_rpm() {
+        assert_eq!(Rpm::Rpm33.music_s(28.0), 28.0);
+        assert!((Rpm::Rpm45.music_s(28.0) - 20.74).abs() < 0.01);
+        assert_eq!(Rpm::Rpm45.music_s(0.0), 0.0);
+    }
 }

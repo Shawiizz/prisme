@@ -5,7 +5,7 @@ use crate::dto::{
 use crate::error::AppResult;
 use crate::sampler;
 use crate::state::{free_inputs, live_preferences, lock, AppState};
-use prisme_engine::Command;
+use prisme_engine::{Command, Rpm};
 use tauri::State;
 
 /// The settings of the decks and the mixer of `state`.
@@ -40,6 +40,7 @@ pub fn mixer_state_of(state: &AppState) -> MixerStateDto {
                 vinyl_mode: d.vinyl_mode,
                 rpm: d.rpm,
                 lead_in_s: d.lead_in_s,
+                record_lead_in_s: Rpm::from(d.rpm).music_s(d.timecode.lead_in_s),
                 swap_channels: d.swap_channels,
                 timecode: d.timecode.id,
                 key_lock: d.key_lock,

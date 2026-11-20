@@ -14,15 +14,6 @@ export type VinylChange =
   | { setting: 'rpm'; value: Rpm }
   | { setting: 'leadIn'; value: number | null };
 
-/** How much faster than at 33 rpm a record turns (`Rpm::record_speed`). */
-const RECORD_SPEED: Record<Rpm, number> = { '33': 1, '45': 1.35 };
-
-/** The lead-in of a timecode (`recordLeadInS` of its grooves at 33 rpm) in seconds of music on
- * a record turning at `rpm`: what the deck uses when no lead-in is chosen. */
-export function recordLeadIn(recordLeadInS: number, rpm: Rpm): number {
-  return recordLeadInS / RECORD_SPEED[rpm];
-}
-
 export interface VinylStatus {
   enabled: boolean;
   mode: VinylMode;
@@ -362,6 +353,8 @@ export interface DeckSettings {
   rpm: Rpm;
   /** Where the track starts on the record, if chosen: else the record's own. */
   leadInS: number | null;
+  /** The record's own: where its track starts at its speed (s of music). */
+  recordLeadInS: number;
   /** The turntable's left and right channels are crossed. */
   swapChannels: boolean;
   /** The record on its turntable (a timecode format's id). */

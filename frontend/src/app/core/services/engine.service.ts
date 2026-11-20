@@ -41,6 +41,7 @@ const DEFAULT_DECK: DeckSettings = {
   vinylMode: 'absolute',
   rpm: '33',
   leadInS: null,
+  recordLeadInS: 0,
   swapChannels: false,
   timecode: 'serato_cv02_a',
   keyLock: false,

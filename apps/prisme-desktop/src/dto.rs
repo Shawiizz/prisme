@@ -790,6 +790,8 @@ pub struct DeckSettingsDto {
     pub rpm: RpmDto,
     /// Chosen, else the record's own.
     pub lead_in_s: Option<f64>,
+    /// The record's own: where its track starts at its speed (s of music).
+    pub record_lead_in_s: f64,
     pub swap_channels: bool,
     /// The record on its turntable (a timecode format's id).
     pub timecode: &'static str,
