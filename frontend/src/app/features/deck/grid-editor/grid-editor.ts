@@ -8,9 +8,9 @@ import { Dismiss, overlay } from '../../../shared/overlay';
 import { PHONE } from '../../../core/platform';
 import { Sheet } from '../../../shared/sheet';
 
-/** Grid moves of the arrow buttons: fine and coarse (seconds). */
-const FINE_SHIFT_S = 0.002;
-const COARSE_SHIFT_S = 0.02;
+/** The coarse arrows move the grid by so many of the backend's steps (a step: 5 ms), the fine
+ * ones by one, as a controller's grid keys do. */
+const COARSE_STEPS = 4;
 
 /** Corrections of the beat grid and key of the track on a deck, and its key shift. */
 @Component({
@@ -32,8 +32,7 @@ export class GridEditor {
   private readonly engine = inject(EngineService);
   private readonly edits = inject(TrackEditService);
 
-  protected readonly fine = FINE_SHIFT_S;
-  protected readonly coarse = COARSE_SHIFT_S;
+  protected readonly coarse = COARSE_STEPS;
   protected readonly track = computed(() => this.engine.tracks()[this.deck()]);
   protected readonly bpmText = computed(() => {
     const bpm = this.track()?.tempo?.bpm;
@@ -87,9 +86,14 @@ export class GridEditor {
     if (Number.isFinite(bpm)) this.grid({ kind: 'bpm', bpm });
   }
 
-  /** A key of the deck's (`key.up`, `key.sync`…), as a controller's does it. */
+  /** A key of the deck's (`key.up`, `grid.later`…), as a controller's does it. */
   press(action: string) {
     this.engine.press(this.deck(), action);
+  }
+
+  /** The grid moved later (earlier below 0) by `steps` steps, as a controller's encoder. */
+  moveGrid(steps: number) {
+    this.engine.perform(`deck${this.deck() + 1}.grid.move`, steps, true);
   }
 
   setKey(camelot: string | null) {

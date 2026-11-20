@@ -55,36 +55,32 @@
     <button
       class="pr-btn pr-btn--sm"
       [title]="'Grid earlier (20 ms)' | t"
-      (click)="grid({ kind: 'shift', seconds: -coarse })"
+      (click)="moveGrid(-coarse)"
     >
       ◀◀
     </button>
     <button
       class="pr-btn pr-btn--sm"
-      [title]="'Grid earlier (2 ms)' | t"
-      (click)="grid({ kind: 'shift', seconds: -fine })"
+      [title]="'Grid earlier (5 ms)' | t"
+      (click)="press('grid.earlier')"
     >
       ◀
     </button>
     <button
       class="pr-btn pr-btn--sm wide"
       [title]="'Put a beat where the deck is' | t"
-      (click)="grid({ kind: 'beatHere' })"
+      (click)="press('grid.here')"
     >
       {{ 'Beat here' | t }}
     </button>
     <button
       class="pr-btn pr-btn--sm"
-      [title]="'Grid later (2 ms)' | t"
-      (click)="grid({ kind: 'shift', seconds: fine })"
+      [title]="'Grid later (5 ms)' | t"
+      (click)="press('grid.later')"
     >
       ▶
     </button>
-    <button
-      class="pr-btn pr-btn--sm"
-      [title]="'Grid later (20 ms)' | t"
-      (click)="grid({ kind: 'shift', seconds: coarse })"
-    >
+    <button class="pr-btn pr-btn--sm" [title]="'Grid later (20 ms)' | t" (click)="moveGrid(coarse)">
       ▶▶
     </button>
   </div>

@@ -337,8 +337,6 @@ export type TrackAnalysis = Pick<TrackInfo, 'tempo' | 'key' | 'gridEdited' | 'ke
 export type GridChange =
   | { kind: 'bpm'; bpm: number }
   | { kind: 'scale'; factor: number }
-  | { kind: 'shift'; seconds: number }
-  | { kind: 'beatHere' }
   | { kind: 'align' }
   | { kind: 'reset' };
 
