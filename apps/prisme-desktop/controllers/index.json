@@ -55,6 +55,11 @@
       "revision": 1,
       "format": 2
     },
+    "behringer-cmd-dv-1-ch1.json": {
+      "sha256": "3d821440129acc25692bfbbd94db5451f07c15703d717ce758acd2b53dd9f135",
+      "revision": 1,
+      "format": 3
+    },
     "behringer-cmd-dv-1.json": {
       "sha256": "c156ccf1eb9e5feb8befba59f32665399128d82994043c29de0c91d40ae171b2",
       "revision": 1,

@@ -40,6 +40,7 @@ const SHIPPED: &[(&str, &str)] = &[
     ("behringer-bcd3000.json", include_str!("../controllers/behringer-bcd3000.json")),
     ("behringer-bcr2000.json", include_str!("../controllers/behringer-bcr2000.json")),
     ("behringer-cmd-dv-1.json", include_str!("../controllers/behringer-cmd-dv-1.json")),
+    ("behringer-cmd-dv-1-ch1.json", include_str!("../controllers/behringer-cmd-dv-1-ch1.json")),
     ("behringer-cmd-micro.json", include_str!("../controllers/behringer-cmd-micro.json")),
     ("behringer-cmd-mm-1.json", include_str!("../controllers/behringer-cmd-mm-1.json")),
     ("behringer-cmd-studio-4a.json", include_str!("../controllers/behringer-cmd-studio-4a.json")),
