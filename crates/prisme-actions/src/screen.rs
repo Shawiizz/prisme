@@ -239,7 +239,7 @@ fn reading(deck: Beat, other: Beat) -> Reading {
 }
 
 /// The key the track on `deck` is heard in, if its key is known.
-fn heard_key(view: &View, deck: usize) -> Option<Key> {
+pub fn heard_key(view: &View, deck: usize) -> Option<Key> {
     let settings = &view.decks[deck];
     let track = settings.track?;
     Some(track.key?.heard(settings.key_lock, track.key_shift, view.tempo_rate(deck)))
@@ -260,10 +260,15 @@ fn drive(view: &View, deck: usize) -> Drive {
     }
 }
 
+/// Whether something else than its fader holds the tempo of `deck`: its record, or the sync.
+pub fn tempo_held(view: &View, deck: usize) -> bool {
+    view.decks[deck].vinyl || view.deck_status(deck).sync.locked
+}
+
 fn tempo_fader(view: &View, deck: usize) -> TempoFader {
     let status = view.deck_status(deck);
     let settings = &view.decks[deck];
-    let held = settings.vinyl || status.sync.locked;
+    let held = tempo_held(view, deck);
     let ratio = if held { view.tempo_rate(deck) } else { settings.pitch };
     let range = settings.tempo_range;
     let matching = matching_tempo(&view.status, deck).filter(|_| settings.vinyl && !status.sync.locked);

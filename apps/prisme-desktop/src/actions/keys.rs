@@ -83,7 +83,7 @@ impl Keys {
         let mut held = lock(&self.0);
         held.retain(|k| match k.target {
             Target::Deck(deck, DeckAction::TempoUp | DeckAction::TempoDown) => {
-                deck < view.decks_in_use && !screen::deck(view, deck).tempo.held
+                deck < view.decks_in_use && !screen::tempo_held(view, deck)
             }
             _ => true,
         });
@@ -203,7 +203,7 @@ mod tests {
         let down = target("deck1.tempo.down");
         keys.press(&down, 1.0, 0.0);
         let synced = seen(true);
-        assert!(screen::deck(&synced, 0).tempo.held, "the fixture's deck locked by sync");
+        assert!(screen::tempo_held(&synced, 0), "the fixture's deck locked by sync");
         assert_eq!(fire(&keys, 0.5, &synced), []);
         assert_eq!(fire(&keys, 0.6, &view()), [], "its release never came: it does not go on later");
     }

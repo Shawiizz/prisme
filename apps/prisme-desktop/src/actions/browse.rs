@@ -213,7 +213,7 @@ impl Around {
         let reference = effective(reference, view.decks_in_use);
         let status = &view.status.decks[reference];
         self.compare = Compare {
-            key: prisme_actions::screen::deck(view, reference).heard_key,
+            key: prisme_actions::screen::heard_key(view, reference),
             bpm: status.bpm.map(|bpm| (bpm * 10.0).round() / 10.0),
             range: view.decks[reference ^ 1].tempo_range,
         };
@@ -823,7 +823,7 @@ pub fn mix_reference(view: &View, reference: usize, path: Option<&Path>) -> MixR
     let next = &view.decks[reference ^ 1];
     MixReference {
         bpm: view.status.decks[reference].bpm.or(view.decks[reference].track.and_then(|t| t.bpm)),
-        key: prisme_actions::screen::deck(view, reference).heard_key,
+        key: prisme_actions::screen::heard_key(view, reference),
         path: path.map(|path| path.display().to_string()),
         range: next.tempo_range,
         key_lock: next.key_lock,
