@@ -96,8 +96,9 @@ export class App implements OnInit {
 
   async ngOnInit() {
     try {
+      // what the others read (the preferences among it) comes with the first status
+      await this.engine.connect();
       await Promise.all([
-        this.engine.connect(),
         this.preview.init(),
         this.settings.init(),
         this.keyboard.start(),
@@ -106,6 +107,8 @@ export class App implements OnInit {
         this.recording.init(),
         this.fileDrops.start(),
       ]);
+    } catch (err) {
+      console.error(err);
     } finally {
       void dismissSplash();
     }

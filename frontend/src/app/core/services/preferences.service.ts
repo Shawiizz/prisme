@@ -69,24 +69,22 @@ function choose<K extends keyof Settings>(setting: K, value: Settings[K]): Promi
 export class PreferencesService {
   private readonly engine = inject(EngineService);
 
-  // read before the interface starts (`loadPreferences`)
-  readonly dj = computed(() => told()!.dj);
-  readonly library = computed(() => told()!.library);
-  readonly ui = computed(() => told()!.ui);
+  /** As the status stream tells them, else as read before the interface started
+   * (`loadPreferences`): one or the other is there once the backend told what it mirrors. */
+  private readonly current = computed(() => this.engine.controls()?.preferences ?? told()!);
+  readonly dj = computed(() => this.current().dj);
+  readonly library = computed(() => this.current().library);
+  readonly ui = computed(() => this.current().ui);
   /** The keyboard's shortcuts in use. */
-  readonly shortcuts = computed(() => told()!.shortcuts);
+  readonly shortcuts = computed(() => this.current().shortcuts);
   /** The actions whose keys the DJ changed. */
-  readonly changed = computed(() => told()!.changed);
+  readonly changed = computed(() => this.current().changed);
   /** What the settings offer where there are a few values. */
-  readonly choices = computed(() => told()!.choices);
+  readonly choices = computed(() => this.current().choices);
 
   constructor() {
     effect(() => {
-      const preferences = this.engine.controls()?.preferences;
-      if (preferences) untracked(() => told.set(preferences));
-    });
-    effect(() => {
-      const language = told()?.ui.language;
+      const language = (this.engine.controls()?.preferences ?? told())?.ui.language;
       if (language !== undefined) untracked(() => void showLanguage(language));
     });
   }
