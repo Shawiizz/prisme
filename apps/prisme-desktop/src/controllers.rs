@@ -11,7 +11,7 @@
 //! used one way only: by HID if Prisme knows it so and not by MIDI, else by MIDI, as its
 //! maker's driver then speaks to the device itself.
 
-use crate::actions::{Actions, Answer, Moved, Source};
+use crate::actions::{Actions, Host, InTurn, Moved, Source};
 use crate::controller_hid;
 use crate::controller_profiles;
 use crate::dto::{LightDto, UiActionDto};
@@ -83,37 +83,6 @@ pub const PLUGGED_EVENT: &str = "controller-plugged";
 pub const UI_ACTION_EVENT: &str = "ui-action";
 /// A control learnt (its `Mapping`).
 pub const LEARNED_EVENT: &str = "controller-learned";
-
-/// What a controller's moves reach of the application: the actions they drive, the interface
-/// they tell of the actions it performs and of the controls learnt, and the view their lights
-/// show. The application, or a bench in the tests (`end_to_end`).
-pub(crate) trait Host {
-    fn actions(&self) -> &Actions;
-    /// Performs `target` driven by `input` as `source` asks: the interface hears of a failure.
-    fn perform(&self, target: &Target, input: Input, source: Source);
-    /// Tells the interface `event`.
-    fn tell<P: Serialize + Clone>(&self, event: &str, payload: P);
-    /// The application as the actions see it now.
-    fn view(&self) -> View;
-}
-
-impl Host for AppHandle {
-    fn actions(&self) -> &Actions {
-        self.state::<Actions>().inner()
-    }
-
-    fn perform(&self, target: &Target, input: Input, source: Source) {
-        self.actions().perform(self, target, input, source, Answer::Told);
-    }
-
-    fn tell<P: Serialize + Clone>(&self, event: &str, payload: P) {
-        drop(self.emit(event, payload));
-    }
-
-    fn view(&self) -> View {
-        self.actions().view(self)
-    }
-}
 
 /// What the DJ is told of a controller plugged in while Prisme runs.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
@@ -1182,9 +1151,11 @@ impl Controllers {
         Reported::Events(read.events(&fields))
     }
 
-    /// Performs what a controller drove (`moved`): the interface is told the actions it
-    /// performs, given what they are given (an encoder's whole steps), the others are done here.
+    /// Performs what a controller drove (`moved`), in turn: the interface is told the actions
+    /// it performs, given what they are given (an encoder's whole steps), the others are done
+    /// here.
     fn act(&self, host: &impl Host, actions: Vec<Action>, moved: Moved) {
+        let in_turn = &mut InTurn::default();
         for action in actions {
             match action {
                 Action::Ui(id, input) => {
@@ -1193,7 +1164,9 @@ impl Controllers {
                         host.tell(UI_ACTION_EVENT, UiActionDto { target: id.into(), value });
                     }
                 }
-                Action::Rust(target, input) => host.perform(&target, input, Source::Controller(moved)),
+                Action::Rust(target, input) => {
+                    host.perform(&target, input, Source::Controller(moved), in_turn)
+                }
             }
         }
     }
@@ -1217,7 +1190,8 @@ impl Controllers {
             .collect();
         let source = Source::Controller(Moved { device, at_s: 0.0, jog_steps_per_turn });
         for deck in touched {
-            host.perform(&Target::Deck(deck, DeckAction::JogTouch), Input::Value(0.0), source);
+            let touch = Target::Deck(deck, DeckAction::JogTouch);
+            host.perform(&touch, Input::Value(0.0), source, &mut InTurn::default());
         }
     }
 

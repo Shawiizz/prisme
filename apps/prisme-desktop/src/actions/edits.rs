@@ -1,5 +1,5 @@
-//! What the actions change of a deck's track in the library: the beat grid corrected. Done in
-//! turn on the actions' worker (see `prisme_actions::lane`).
+//! What the actions change of a deck's track in the library: the beat grid corrected, at once
+//! on the decks and kept in the library in turn (see `commands::edits`).
 
 use super::Performing;
 use crate::commands::edits::{change_grid, GridChange};

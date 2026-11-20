@@ -1,13 +1,14 @@
 //! A deck's cues, kept in the library: its main cue point, which a CDJ's cue key plays from,
-//! and its hot cues. A cue changed changes on every deck playing the file; the interface hears
-//! of it with the decks' tracks.
+//! and its hot cues. A cue changed changes at once on every deck playing the file, then is kept
+//! in the library in turn (see `Actions::keep`); the interface hears of it with the decks'
+//! tracks.
 
 use super::Performing;
-use crate::error::{AppError, AppResult};
-use crate::state::{AppState, LoadedTrack};
+use crate::error::AppResult;
+use crate::state::{lock, AppState, LoadedTrack};
 use prisme_actions::cue::{self, CuePress};
 use prisme_engine::{BeatGrid, Command, LoopRegion};
-use prisme_library::{Cue, CueSlot, LibraryDb};
+use prisme_library::{Cue, CueSlot};
 
 impl Performing<'_> {
     /// The cue key of `deck` pressed (`held`) or let go (see `prisme_actions::cue`): let go
@@ -32,14 +33,15 @@ impl Performing<'_> {
     }
 
     /// PLAY: the deck plays or pauses; pressed while the cue key plays from the cue point, the
-    /// deck plays on once the cue key is let go, as on a CDJ.
+    /// deck plays on once the cue key is let go, as on a CDJ. A track just put on the deck
+    /// plays, whether the engine has taken it yet or not.
     pub(super) fn play(&self, deck: usize) -> AppResult<()> {
-        if self.take_cue_preview(deck) {
+        if self.take_cue_preview(deck) || lock(&self.state.tracks)[deck].is_none() {
             return Ok(());
         }
         match self.state.deck_status(deck) {
-            Ok(status) if status.loaded => self.set_playing(deck, !status.playing),
-            _ => Ok(()),
+            Ok(status) => self.set_playing(deck, !status.playing),
+            Err(_) => Ok(()),
         }
     }
 
@@ -84,7 +86,7 @@ impl Performing<'_> {
             .state
             .with_track(deck, |track| Cue::point(CueSlot::Main, snapped(track.grid(), seconds, quantize)))?;
         let position_s = cue.position_s;
-        put_cue(self.state, self.library()?, deck, cue)?;
+        self.put_cue(deck, cue)?;
         Ok(position_s)
     }
 
@@ -117,30 +119,25 @@ impl Performing<'_> {
                 None => Cue::point(hot(slot), snapped(track.grid(), status.position_s, quantize)),
             }
         })?;
-        put_cue(self.state, self.library()?, deck, cue)
+        self.put_cue(deck, cue)
     }
 
     /// Takes hot cue `slot` off the track on `deck`.
     pub(super) fn delete_hot_cue(&self, deck: usize, slot: usize) -> AppResult<()> {
         let slot = hot(slot);
         let path = self.state.with_track(deck, |track| track.path.clone())?;
-        self.library()?.delete_cue(&path, slot)?;
         self.state.with_path(&path, |track| track.remove_cue(slot));
+        self.keep(move |library| library.delete_cue(&path, slot));
         Ok(())
     }
 
-    /// The library the cues are kept in.
-    fn library(&self) -> AppResult<&LibraryDb> {
-        self.library.ok_or_else(|| AppError::Other("no library yet".into()))
+    /// `cue` for the track on `deck`, on every deck playing it, then in the library.
+    fn put_cue(&self, deck: usize, cue: Cue) -> AppResult<()> {
+        let path = self.state.with_track(deck, |track| track.path.clone())?;
+        self.state.with_path(&path, |track: &mut LoadedTrack| track.put_cue(cue.clone()));
+        self.keep(move |library| library.save_cue(&path, &cue));
+        Ok(())
     }
-}
-
-/// Keeps `cue` for the track on `deck`, on every deck playing it.
-fn put_cue(state: &AppState, library: &LibraryDb, deck: usize, cue: Cue) -> AppResult<()> {
-    let path = state.with_track(deck, |track| track.path.clone())?;
-    library.save_cue(&path, &cue)?;
-    state.with_path(&path, |track: &mut LoadedTrack| track.put_cue(cue.clone()));
-    Ok(())
 }
 
 /// Where the main cue point of `deck` is: the start of its track without one.
@@ -281,12 +278,14 @@ mod tests {
         press(&mut bench, "deck1.hotcue3");
         let set = bench.state.with_track(0, |t| t.cue(CueSlot::Hot(2)).map(|c| c.position_s)).unwrap();
         assert_eq!(set, Some(30.0));
+        bench.actions.settle();
         assert_eq!(bench.library.cues(std::path::Path::new("deck0.flac")).unwrap().len(), 1, "kept");
         bench.at(0, 0.0);
         press(&mut bench, "deck1.hotcue3");
         assert_eq!(bench.status(0).position_s, 30.0);
         press(&mut bench, "deck1.hotcue3.delete");
         assert!(bench.state.with_track(0, |t| t.cues.is_empty()).unwrap());
+        bench.actions.settle();
         assert!(bench.library.cues(std::path::Path::new("deck0.flac")).unwrap().is_empty());
     }
 

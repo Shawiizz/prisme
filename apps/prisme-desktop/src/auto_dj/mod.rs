@@ -11,6 +11,7 @@
 pub mod machine;
 pub mod plan;
 
+use crate::actions::Actions;
 use crate::dto::AutoDjStatusDto;
 use crate::history::PREPARE_CHANGED_EVENT;
 use crate::library_service::LibraryService;
@@ -20,6 +21,7 @@ use crate::track_loading;
 pub use machine::Takeover;
 use machine::{Action, DeckView, Machine, TrackView, View, DECKS};
 use plan::{Audible, FadeLength};
+use prisme_actions::lane::Lane;
 use prisme_engine::{Command, MixMode};
 use prisme_library::CueSlot;
 use std::path::PathBuf;
@@ -135,9 +137,10 @@ impl AutoDj {
         let app = &self.app;
         let state = app.state::<AppState>();
         let sent = match action {
+            // in turn with the DJ's actions on the deck
             Action::Load { deck, path } => {
                 let app = app.clone();
-                std::thread::spawn(move || {
+                self.app.state::<Actions>().in_turn_on(Lane::Track(deck), move || {
                     let loaded = match track_loading::load_on_deck(&app, deck, path.clone()) {
                         // or the DJ's own load goes there: not the track's fault
                         Ok(_) => true,

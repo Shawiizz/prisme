@@ -38,7 +38,7 @@ impl Performing<'_> {
         match action {
             LibraryAction::Load(deck) => self.load_selected(&target, deck, false),
             LibraryAction::LoadPlay(deck) => self.load_selected(&target, deck, true),
-            LibraryAction::LoadFree => self.load_selected(&target, self.free_deck(), false),
+            LibraryAction::LoadFree => self.load_selected(&target, self.actions.free_deck(self.state), false),
             LibraryAction::Double(deck) => self.double(&target, deck),
             LibraryAction::Preview => self.toggle_preview(),
             LibraryAction::PreviewStop => match self.app {
@@ -91,13 +91,6 @@ impl Performing<'_> {
 
     fn selected(&self) -> Option<PathBuf> {
         lock(&self.actions.selected).clone()
-    }
-
-    /// The first deck in use without a track, else deck A.
-    fn free_deck(&self) -> usize {
-        let decks = self.state.preferences.read(|p| p.dj.decks());
-        let tracks = lock(&self.state.tracks);
-        (0..decks).find(|&deck| tracks[deck].is_none()).unwrap_or(0)
     }
 
     /// The selected track put on `deck`, played once there if `play`; the Auto DJ lets the deck
@@ -242,7 +235,7 @@ mod tests {
     #[test]
     fn a_load_without_a_deck_goes_to_the_first_without_a_track() {
         let bench = Bench::new();
-        let free = |bench: &Bench| bench.performing(Source::Interface).free_deck();
+        let free = |bench: &Bench| bench.actions.free_deck(&bench.state);
         assert_eq!(free(&bench), 0);
         bench.load(0, 60.0, None);
         assert_eq!(free(&bench), 1);

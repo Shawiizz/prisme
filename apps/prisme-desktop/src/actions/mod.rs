@@ -1,13 +1,15 @@
 //! The actions of the application, with one way in for all who ask for them
 //! ([`Actions::perform`]): the controllers from their threads, and the interface
-//! ([`perform_action`]). An action driving the engine or what is kept in memory is done at once
-//! on the thread asking for it; one reading or writing the disk or the library, in turn on a
-//! worker of its own (`prisme_actions::lane`), so that a press and its release keep their
-//! order. What each action does is in `perform`; the zones' modules hold what the actions and
-//! the interface's commands both do, done once. What the actions keep between presses is here,
-//! and the view of the application the controllers' lights and values are read from
-//! ([`Actions::view`]). The actions the interface performs (the library's browsing, its
-//! windows), a controller tells it (`ui-action`).
+//! ([`perform_action`]). Each action keeps its order among those of its lane
+//! (`prisme_actions::lane`): it is done at once on the thread asking for it while its lane has
+//! none waiting, else in turn by the lane's worker, as one opening a file always is; the actions
+//! one move drives keep their order whatever their lanes. What an action changes of the library
+//! (a cue, a beat grid) is in memory and in the engine at once, and kept in the library in turn
+//! by a worker of its own ([`Actions::keep`]). What each action does is in `perform`; the zones'
+//! modules hold what the actions and the interface's commands both do, done once. What the
+//! actions keep between presses is here, and the view of the application the controllers'
+//! lights and values are read from ([`Actions::view`]). The actions the interface performs (the
+//! library's browsing, its windows), a controller tells it (`ui-action`).
 
 mod cues;
 pub mod deck;
@@ -28,17 +30,21 @@ use crate::error::{AppError, AppResult};
 use crate::library_service::LibraryService;
 use crate::state::{lock, AppState, MirroredGuard};
 use prisme_actions::input::{Given, Input, Inputs};
-use prisme_actions::lane::{lane, Lane};
+use prisme_actions::lane::{lane, reads_files, Lane};
 use prisme_actions::perform::{Clips, PerformState};
 use prisme_actions::position::position;
 use prisme_actions::view::View;
-use prisme_control::{Owner, Target, Unknown};
+use prisme_control::{DeckAction, LibraryAction, Owner, SampleAction, Target, Unknown};
 use prisme_library::LibraryDb;
+use serde::Serialize;
+use std::collections::{HashMap, VecDeque};
+use std::panic::{catch_unwind, AssertUnwindSafe};
 use std::path::PathBuf;
 use std::sync::mpsc::{self, Sender, SyncSender};
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Condvar, Mutex, MutexGuard};
 use std::time::Instant;
 use tauri::{AppHandle, Emitter, Manager};
+use tracing::error;
 
 pub use view::view_of;
 
@@ -66,31 +72,39 @@ pub enum Source<'d> {
     Confirmed,
 }
 
-/// A [`Source`] kept for the worker.
-enum Asked {
-    Controller { device: String, at_s: f64, jog_steps_per_turn: f64 },
-    Interface,
-    Confirmed,
+/// An action asked for, as it was sent: by whom, and when on the clock of the one asking (a
+/// controller's own, else Prisme's), whenever it is performed.
+#[derive(Debug, Clone, Copy)]
+pub struct Asked<'d> {
+    pub source: Source<'d>,
+    pub at_s: f64,
 }
 
-impl Asked {
-    fn of(source: Source) -> Self {
-        match source {
+/// An [`Asked`] kept for a lane's worker.
+enum Kept {
+    Controller { device: String, at_s: f64, jog_steps_per_turn: f64 },
+    Interface { at_s: f64, confirmed: bool },
+}
+
+impl Kept {
+    fn of(asked: Asked) -> Self {
+        match asked.source {
             Source::Controller(Moved { device, at_s, jog_steps_per_turn }) => {
-                Asked::Controller { device: device.to_owned(), at_s, jog_steps_per_turn }
+                Kept::Controller { device: device.to_owned(), at_s, jog_steps_per_turn }
             }
-            Source::Interface => Asked::Interface,
-            Source::Confirmed => Asked::Confirmed,
+            Source::Interface => Kept::Interface { at_s: asked.at_s, confirmed: false },
+            Source::Confirmed => Kept::Interface { at_s: asked.at_s, confirmed: true },
         }
     }
 
-    fn source(&self) -> Source<'_> {
-        match self {
-            Asked::Controller { device, at_s, jog_steps_per_turn } => {
-                Source::Controller(Moved { device, at_s: *at_s, jog_steps_per_turn: *jog_steps_per_turn })
+    fn asked(&self) -> Asked<'_> {
+        match *self {
+            Kept::Controller { ref device, at_s, jog_steps_per_turn } => {
+                Asked { source: Source::Controller(Moved { device, at_s, jog_steps_per_turn }), at_s }
             }
-            Asked::Interface => Source::Interface,
-            Asked::Confirmed => Source::Confirmed,
+            Kept::Interface { at_s, confirmed } => {
+                Asked { source: if confirmed { Source::Confirmed } else { Source::Interface }, at_s }
+            }
         }
     }
 }
@@ -104,16 +118,165 @@ pub enum Answer {
 }
 
 impl Answer {
-    fn give(self, app: &AppHandle, outcome: AppResult<()>) {
+    fn give(self, host: &impl Host, outcome: AppResult<()>) {
         match (self, outcome) {
             (Answer::To(asking), outcome) => drop(asking.send(outcome)),
-            (Answer::Told, Err(e)) => drop(app.emit(FAILED_EVENT, &e)),
+            (Answer::Told, Err(e)) => host.tell(FAILED_EVENT, &e),
             (Answer::Told, Ok(())) => {}
         }
     }
 }
 
+/// What the actions are performed on, and what they tell: the application, or a bench in the
+/// tests. Kept by the lanes' workers for the actions they perform in turn.
+pub(crate) trait Host: Clone + Send + Sync + 'static {
+    fn actions(&self) -> &Actions;
+    fn app_state(&self) -> &AppState;
+    /// Performs `target` driven by `input` as `asked`, at once on this thread.
+    fn perform_here(&self, target: &Target, input: Input, asked: Asked) -> AppResult<()>;
+    /// Tells the interface `event`.
+    fn tell<P: Serialize + Clone>(&self, event: &str, payload: P);
+    /// The application as the actions see it now.
+    fn view(&self) -> View;
+
+    /// Performs `target` driven by `input` as `source` asks, after the actions `in_turn` sent
+    /// before it (see [`Actions::perform`]): the interface hears of a failure.
+    fn perform(&self, target: &Target, input: Input, source: Source, in_turn: &mut InTurn) {
+        self.actions().perform(self, target, input, source, Answer::Told, in_turn);
+    }
+}
+
+impl Host for AppHandle {
+    fn actions(&self) -> &Actions {
+        self.state::<Actions>().inner()
+    }
+
+    fn app_state(&self) -> &AppState {
+        self.state::<AppState>().inner()
+    }
+
+    fn perform_here(&self, target: &Target, input: Input, asked: Asked) -> AppResult<()> {
+        if target.owner() == Owner::Ui {
+            return Err(not_performed(target));
+        }
+        let library = self.try_state::<Arc<LibraryService>>();
+        let library = library.as_ref().map(|l| &l.db);
+        let (state, actions) = (self.app_state(), self.actions());
+        Performing { state, actions, app: Some(self), library, source: asked.source, at_s: asked.at_s }
+            .perform(target, input)
+    }
+
+    fn tell<P: Serialize + Clone>(&self, event: &str, payload: P) {
+        drop(self.emit(event, payload));
+    }
+
+    fn view(&self) -> View {
+        self.actions().view(self)
+    }
+}
+
 type Job = Box<dyn FnOnce() + Send>;
+
+/// The lanes with actions waiting (see `prisme_actions::lane`), each emptied in turn by a
+/// worker of its own, which ends as its lane does.
+#[derive(Default)]
+struct Lanes(Arc<Mutex<HashMap<Lane, VecDeque<Job>>>>);
+
+/// A lane taken for an action to wait its turn on.
+struct Queuing<'l> {
+    waiting: MutexGuard<'l, HashMap<Lane, VecDeque<Job>>>,
+    lanes: &'l Arc<Mutex<HashMap<Lane, VecDeque<Job>>>>,
+    lane: Lane,
+}
+
+impl Lanes {
+    /// `lane` taken for an action that waits its turn, if it has to (`waits`) or if the lane
+    /// has actions waiting; none if it can be performed at once.
+    fn take(&self, lane: Lane, waits: bool) -> Option<Queuing<'_>> {
+        let waiting = lock(&self.0);
+        (waits || waiting.contains_key(&lane)).then_some(Queuing { waiting, lanes: &self.0, lane })
+    }
+
+    fn busy(&self, lane: Lane) -> bool {
+        lock(&self.0).contains_key(&lane)
+    }
+}
+
+impl Queuing<'_> {
+    /// `job` after those waiting on the lane; a lane with none gets a worker.
+    fn push(mut self, job: Job) {
+        if let Some(waiting) = self.waiting.get_mut(&self.lane) {
+            waiting.push_back(job);
+            return;
+        }
+        self.waiting.insert(self.lane, VecDeque::from([job]));
+        drop(self.waiting);
+        let (lanes, lane) = (self.lanes.clone(), self.lane);
+        std::thread::Builder::new()
+            .name("prisme-lane".into())
+            .spawn(move || run_lane(&lanes, lane))
+            .expect("cannot start a worker of the actions");
+    }
+}
+
+/// Performs the actions waiting on `lane`, in turn, until there are none: the lane stays taken
+/// while one runs.
+fn run_lane(lanes: &Mutex<HashMap<Lane, VecDeque<Job>>>, lane: Lane) {
+    loop {
+        let job = {
+            let mut waiting = lock(lanes);
+            match waiting.get_mut(&lane).and_then(VecDeque::pop_front) {
+                Some(job) => job,
+                None => {
+                    waiting.remove(&lane);
+                    return;
+                }
+            }
+        };
+        if catch_unwind(AssertUnwindSafe(job)).is_err() {
+            error!("an action of {lane:?} failed");
+        }
+    }
+}
+
+/// The end of an action performed in turn, which those sent after it in one move wait for.
+#[derive(Default)]
+struct Done {
+    over: Mutex<bool>,
+    ended: Condvar,
+}
+
+impl Done {
+    fn is_over(&self) -> bool {
+        *lock(&self.over)
+    }
+
+    fn wait(&self) {
+        let over = lock(&self.over);
+        drop(self.ended.wait_while(over, |over| !*over).unwrap_or_else(|e| e.into_inner()));
+    }
+}
+
+/// Ends its action as it is dropped, whatever came of it.
+struct Ending(Arc<Done>);
+
+impl Drop for Ending {
+    fn drop(&mut self) {
+        *lock(&self.0.over) = true;
+        self.0.ended.notify_all();
+    }
+}
+
+/// The actions one move of a control drives, which keep their order whatever their lanes: one
+/// sent after an action waiting its turn waits for it.
+#[derive(Default)]
+pub struct InTurn(Option<Arc<Done>>);
+
+impl InTurn {
+    fn waits(&self) -> bool {
+        self.0.as_ref().is_some_and(|done| !done.is_over())
+    }
+}
 
 pub struct Actions {
     /// When the levels last clipped, for the lights.
@@ -123,54 +286,109 @@ pub struct Actions {
     inputs: Mutex<Inputs>,
     /// The track selected in the library, as the interface tells it: what the loads load.
     selected: Mutex<Option<PathBuf>>,
-    /// The worker's queue (see [`Lane::Slow`]).
-    slow: Sender<Job>,
+    lanes: Lanes,
+    /// The queue of the worker keeping in the library what the actions changed.
+    kept: Sender<Job>,
     /// What the actions are timed by when no controller's clock tells it.
     started: Instant,
 }
 
 impl Actions {
-    /// The actions, the worker of the slow lane started.
+    /// The actions, the worker keeping their changes in the library started.
     pub fn start() -> Self {
-        let (slow, jobs) = mpsc::channel::<Job>();
+        let (kept, jobs) = mpsc::channel::<Job>();
         std::thread::Builder::new()
-            .name("prisme-actions".into())
-            .spawn(move || jobs.into_iter().for_each(|job| job()))
-            .expect("cannot start the actions' worker");
+            .name("prisme-keep".into())
+            .spawn(move || {
+                for job in jobs {
+                    if catch_unwind(AssertUnwindSafe(job)).is_err() {
+                        error!("a change of the library not kept");
+                    }
+                }
+            })
+            .expect("cannot start the worker keeping the actions' changes");
         Self {
             clips: Mutex::default(),
             inputs: Mutex::default(),
             selected: Mutex::default(),
-            slow,
+            lanes: Lanes::default(),
+            kept,
             started: Instant::now(),
         }
     }
 
-    /// Performs `target` driven by `input`, as `source` asks: at once here, or in turn on the
-    /// worker; `answer` hears how it went. Never called from the audio thread.
-    pub fn perform(&self, app: &AppHandle, target: &Target, input: Input, source: Source, answer: Answer) {
-        match lane(target) {
-            Lane::Instant => answer.give(app, self.perform_here(app, target, input, source)),
-            Lane::Slow => {
-                let (app, target, asked) = (app.clone(), target.clone(), Asked::of(source));
-                let job = move || {
-                    let outcome = app.state::<Actions>().perform_here(&app, &target, input, asked.source());
-                    answer.give(&app, outcome);
-                };
-                // the worker lives as long as the application
-                let _ = self.slow.send(Box::new(job));
+    /// Performs `target` driven by `input`, as `source` asks, after the actions `in_turn` sent
+    /// before it: at once on this thread if its lane has none waiting and it opens no file, else
+    /// in turn by its lane's worker (see `prisme_actions::lane`); `answer` hears how it went.
+    /// Stamped with the time it is sent. Never called from the audio thread.
+    pub(crate) fn perform<H: Host>(
+        &self,
+        host: &H,
+        target: &Target,
+        input: Input,
+        source: Source,
+        answer: Answer,
+        in_turn: &mut InTurn,
+    ) {
+        let at_s = match source {
+            Source::Controller(moved) => moved.at_s,
+            Source::Interface | Source::Confirmed => self.now_s(),
+        };
+        let asked = Asked { source, at_s };
+        let sent = self.sent_as(host.app_state(), target);
+        let target = sent.as_ref().unwrap_or(target);
+        let Some(queuing) = self.lanes.take(lane(target), in_turn.waits() || reads_files(target)) else {
+            return answer.give(host, host.perform_here(target, input, asked));
+        };
+        let done = Arc::new(Done::default());
+        let (after, ending) = (in_turn.0.replace(done.clone()), Ending(done));
+        let (host, target, kept) = (host.clone(), target.clone(), Kept::of(asked));
+        queuing.push(Box::new(move || {
+            let _ending = ending;
+            if let Some(after) = after {
+                after.wait();
             }
+            answer.give(&host, host.perform_here(&target, input, kept.asked()));
+        }));
+    }
+
+    /// What `target` is sent as: a load on the first deck without a track, on that deck; a smart
+    /// pad on an empty slot, a load (unless its slot has a load waiting, which may fill it).
+    fn sent_as(&self, state: &AppState, target: &Target) -> Option<Target> {
+        match *target {
+            Target::Library(LibraryAction::LoadFree) => {
+                Some(Target::Library(LibraryAction::Load(self.free_deck(state))))
+            }
+            Target::Deck(deck, DeckAction::Sample(slot, SampleAction::Smart))
+                if !self.lanes.busy(Lane::Sample(deck, slot))
+                    && lock(&state.samplers)[deck][slot].is_none() =>
+            {
+                Some(Target::Deck(deck, DeckAction::Sample(slot, SampleAction::Load)))
+            }
+            _ => None,
         }
     }
 
-    fn perform_here(&self, app: &AppHandle, target: &Target, input: Input, source: Source) -> AppResult<()> {
-        if target.owner() == Owner::Ui {
-            return Err(not_performed(target));
+    /// The first deck in use without a track nor a load waiting, else deck A.
+    fn free_deck(&self, state: &AppState) -> usize {
+        let decks = state.preferences.read(|p| p.dj.decks());
+        let tracks = lock(&state.tracks);
+        (0..decks).find(|&deck| tracks[deck].is_none() && !self.lanes.busy(Lane::Track(deck))).unwrap_or(0)
+    }
+
+    /// `job` done in turn on `lane`, after the actions waiting there (the Auto DJ's load of a
+    /// deck, say).
+    pub(crate) fn in_turn_on(&self, lane: Lane, job: impl FnOnce() + Send + 'static) {
+        if let Some(queuing) = self.lanes.take(lane, true) {
+            queuing.push(Box::new(job));
         }
-        let state = app.state::<AppState>();
-        let library = app.try_state::<Arc<LibraryService>>();
-        let library = library.as_ref().map(|l| &*l.db);
-        Performing { state: &state, actions: self, app: Some(app), library, source }.perform(target, input)
+    }
+
+    /// Keeps in the library what `write` writes, in turn after what was kept before: the
+    /// change is in memory and in the engine already.
+    pub(crate) fn keep(&self, write: impl FnOnce() + Send + 'static) {
+        // the worker lives as long as the application
+        let _ = self.kept.send(Box::new(write));
     }
 
     /// Seconds since Prisme started.
@@ -193,17 +411,32 @@ impl Actions {
         let auto_dj = app.try_state::<AutoDj>().is_some_and(|a| a.plays());
         view_of(&app.state(), auto_dj, &self.clips, self.now_s())
     }
+
+    /// Waits for the lanes to have no action waiting, then for what they changed to be kept.
+    #[cfg(test)]
+    pub fn settle(&self) {
+        while !lock(&self.lanes.0).is_empty() {
+            std::thread::sleep(std::time::Duration::from_millis(1));
+        }
+        let (kept, over) = mpsc::sync_channel(1);
+        self.keep(move || {
+            let _ = kept.send(());
+        });
+        let _ = over.recv();
+    }
 }
 
-/// An action being performed on the application's state, as `source` asks.
+/// An action being performed on the application's state, as `source` asks, sent at `at_s` on
+/// its clock.
 struct Performing<'a> {
     state: &'a AppState,
     actions: &'a Actions,
     /// What the Auto DJ and the library's edits are reached by: none in a test.
     app: Option<&'a AppHandle>,
     /// Where the cues are kept, once open.
-    library: Option<&'a LibraryDb>,
+    library: Option<&'a Arc<LibraryDb>>,
     source: Source<'a>,
+    at_s: f64,
 }
 
 impl Performing<'_> {
@@ -232,12 +465,20 @@ impl Performing<'_> {
         transport::seek(self.state, self.auto_dj().as_deref(), deck, seconds)
     }
 
-    /// Seconds on the clock of the one asking: a controller's own, else Prisme's.
+    /// Seconds on the clock of the one asking as the action was sent: a controller's own, else
+    /// Prisme's.
     fn at_s(&self) -> f64 {
-        match self.source {
-            Source::Controller(moved) => moved.at_s,
-            Source::Interface | Source::Confirmed => self.actions.now_s(),
-        }
+        self.at_s
+    }
+
+    /// Keeps in the library, once it is open, what `write` writes there (see [`Actions::keep`]).
+    fn keep(&self, what: impl FnOnce(&LibraryDb) -> Result<(), prisme_library::DbError> + Send + 'static) {
+        let Some(library) = self.library.cloned() else { return };
+        self.actions.keep(move || {
+            if let Err(e) = what(&library) {
+                error!("a change of the library not kept: {e}");
+            }
+        });
     }
 
     /// What `input` gives `target`: the interface's faders set what they show, a controller's
@@ -285,10 +526,11 @@ pub async fn perform_action(
     let (answer, outcome) = mpsc::sync_channel(1);
     let input = Input::of(value, steps, step);
     let source = if confirmed { Source::Confirmed } else { Source::Interface };
-    app.state::<Actions>().perform(&app, &target, input, source, Answer::To(answer));
+    let in_turn = &mut InTurn::default();
+    app.state::<Actions>().perform(&app, &target, input, source, Answer::To(answer), in_turn);
     match outcome.try_recv() {
         Ok(outcome) => outcome,
-        // queued on the worker
+        // waiting its turn
         Err(_) => {
             crate::commands::blocking(move || {
                 outcome.recv().unwrap_or_else(|e| Err(AppError::Other(e.to_string())))
@@ -311,10 +553,39 @@ pub(crate) mod bench {
     use prisme_media::TrackAudio;
     use prisme_session::JsonFile;
 
+    /// How long a track of the tests lasts (s).
+    pub const TRACK_S: f64 = 10.0;
+
+    /// A quiet track of [`TRACK_S`] on the disk, written for the test `name` to be loaded as a
+    /// DJ would, and removed with it.
+    pub struct Track(pub PathBuf);
+
+    impl Drop for Track {
+        fn drop(&mut self) {
+            let _ = std::fs::remove_file(&self.0);
+        }
+    }
+
+    pub fn track(name: &str) -> Track {
+        let path = std::env::temp_dir().join(format!("prisme-bench-{name}-{}.wav", std::process::id()));
+        let spec = hound::WavSpec {
+            channels: 2,
+            sample_rate: 48_000,
+            bits_per_sample: 16,
+            sample_format: hound::SampleFormat::Int,
+        };
+        let mut writer = hound::WavWriter::create(&path, spec).unwrap();
+        for _ in 0..(TRACK_S * 48_000.0) as usize * 2 {
+            writer.write_sample(0i16).unwrap();
+        }
+        writer.finalize().unwrap();
+        Track(path)
+    }
+
     pub struct Bench {
         pub state: AppState,
         pub actions: Actions,
-        pub library: LibraryDb,
+        pub library: Arc<LibraryDb>,
         engine: Mutex<Engine>,
         /// What the interface was told, in turn.
         told: Mutex<Vec<(String, serde_json::Value)>>,
@@ -337,7 +608,7 @@ pub(crate) mod bench {
             };
             let state = AppState::new(JsonFile::in_memory(Default::default()));
             *lock(&state.session) = Some(AudioSession::idle(controller, config, info));
-            let library = LibraryDb::open_in_memory().unwrap();
+            let library = Arc::new(LibraryDb::open_in_memory().unwrap());
             Self {
                 state,
                 actions: Actions::start(),
@@ -379,14 +650,23 @@ pub(crate) mod bench {
             self.performing(source).perform(&target, input)
         }
 
-        /// An action asked for by `source`.
+        /// An action asked for by `source`, now.
         pub(in crate::actions) fn performing<'a>(&'a self, source: Source<'a>) -> Performing<'a> {
+            let at_s = match source {
+                Source::Controller(moved) => moved.at_s,
+                Source::Interface | Source::Confirmed => self.actions.now_s(),
+            };
+            self.asked(Asked { source, at_s })
+        }
+
+        fn asked<'a>(&'a self, asked: Asked<'a>) -> Performing<'a> {
             Performing {
                 state: &self.state,
                 actions: &self.actions,
                 app: None,
                 library: Some(&self.library),
-                source,
+                source: asked.source,
+                at_s: asked.at_s,
             }
         }
 
@@ -449,25 +729,158 @@ pub(crate) mod bench {
         }
     }
 
-    /// The bench reached as the application is by the controllers: what they drive performed
-    /// at once, on the thread of their messages, the interface's events kept.
-    impl crate::controllers::Host for Bench {
+    /// The bench reached as the application is: what the controllers drive performed in turn
+    /// on the lanes, the interface's events kept.
+    impl Host for Arc<Bench> {
         fn actions(&self) -> &Actions {
             &self.actions
         }
 
-        fn perform(&self, target: &Target, input: Input, source: Source) {
-            if let Err(e) = self.performing(source).perform(target, input) {
-                self.tell(FAILED_EVENT, &e);
-            }
+        fn app_state(&self) -> &AppState {
+            &self.state
         }
 
-        fn tell<P: serde::Serialize + Clone>(&self, event: &str, payload: P) {
+        fn perform_here(&self, target: &Target, input: Input, asked: Asked) -> AppResult<()> {
+            if target.owner() == Owner::Ui {
+                return Err(not_performed(target));
+            }
+            self.asked(asked).perform(target, input)
+        }
+
+        fn tell<P: Serialize + Clone>(&self, event: &str, payload: P) {
             lock(&self.told).push((event.to_owned(), serde_json::to_value(payload).unwrap()));
         }
 
         fn view(&self) -> View {
             Bench::view(self)
         }
+    }
+}
+
+#[cfg(test)]
+mod lanes {
+    //! The lanes run by their workers, as the application's are.
+
+    use super::bench::{track, Bench};
+    use super::*;
+    use prisme_library::CueSlot;
+    use std::path::Path;
+    use std::time::Duration;
+
+    /// `id` driven to `value` by a controller, after what `in_turn` sent.
+    fn sent(bench: &Arc<Bench>, id: &str, value: f32, in_turn: &mut InTurn) {
+        let source = Source::Controller(Moved { device: "DDJ", at_s: 0.0, jog_steps_per_turn: 720.0 });
+        let target: Target = id.parse().unwrap();
+        bench.actions.perform(bench, &target, Input::Value(value), source, Answer::Told, in_turn);
+    }
+
+    fn pressed(bench: &Arc<Bench>, id: &str) {
+        for value in [1.0, 0.0] {
+            sent(bench, id, value, &mut InTurn::default());
+        }
+    }
+
+    /// A job holding `lane` until the sender it gives is dropped or sent to.
+    fn held(bench: &Bench, lane: Lane) -> SyncSender<()> {
+        let (release, wait) = mpsc::sync_channel(1);
+        bench.actions.in_turn_on(lane, move || {
+            let _ = wait.recv_timeout(Duration::from_secs(5));
+        });
+        release
+    }
+
+    #[test]
+    fn the_actions_of_one_move_keep_their_order_whatever_their_lanes() {
+        let bench = Arc::new(Bench::new());
+        bench.state.update_preferences(|p| p.dj.cue_on_load = true);
+        let file = track("in-turn");
+        bench.select(&file.0);
+        // a load heard alone in the headphones, then the deck beside it heard too
+        let in_turn = &mut InTurn::default();
+        sent(&bench, "library.load1", 1.0, in_turn);
+        sent(&bench, "deck2.headphones.on", 1.0, in_turn);
+        bench.actions.settle();
+        assert!(lock(&bench.state.tracks)[0].is_some(), "loaded");
+        assert_eq!(lock(&bench.state.decks).map(|d| d.cue)[..2], [true, true]);
+    }
+
+    #[test]
+    fn a_hot_cue_is_set_at_once_while_another_deck_loads() {
+        let bench = Arc::new(Bench::new());
+        bench.load(0, 60.0, None);
+        let file = track("loading");
+        bench.select(&file.0);
+        let loading = held(&bench, Lane::Track(1));
+        sent(&bench, "library.load2", 1.0, &mut InTurn::default());
+        pressed(&bench, "deck1.hotcue1");
+        assert!(bench.state.with_track(0, |t| t.cue(CueSlot::Hot(0)).is_some()).unwrap(), "not delayed");
+        assert!(lock(&bench.state.tracks)[1].is_none(), "deck B still loads");
+        loading.send(()).unwrap();
+        bench.actions.settle();
+        assert!(lock(&bench.state.tracks)[1].is_some());
+    }
+
+    #[test]
+    fn an_action_on_a_deck_that_loads_waits_for_its_track() {
+        let bench = Arc::new(Bench::new());
+        let file = track("then-play");
+        bench.select(&file.0);
+        let loading = held(&bench, Lane::Track(0));
+        sent(&bench, "library.load1", 1.0, &mut InTurn::default());
+        pressed(&bench, "deck1.play");
+        bench.run(0.01);
+        assert!(!bench.status(0).playing, "waits");
+        loading.send(()).unwrap();
+        bench.actions.settle();
+        bench.run(0.05);
+        assert!(bench.status(0).playing, "the track loaded plays");
+    }
+
+    #[test]
+    fn cue_then_play_play_while_the_library_is_busy() {
+        let bench = Arc::new(Bench::new());
+        bench.load(0, 60.0, None);
+        bench.at(0, 5.0);
+        let (release, wait) = mpsc::sync_channel::<()>(1);
+        bench.actions.keep(move || {
+            let _ = wait.recv_timeout(Duration::from_secs(5));
+        });
+        sent(&bench, "deck1.cue", 1.0, &mut InTurn::default());
+        pressed(&bench, "deck1.play");
+        sent(&bench, "deck1.cue", 0.0, &mut InTurn::default());
+        bench.run(0.05);
+        assert!(bench.status(0).playing);
+        let cue_s = bench.state.with_track(0, |t| t.cue(CueSlot::Main).map(|c| c.position_s)).unwrap();
+        assert!(cue_s.is_some_and(|s| (s - 5.0).abs() < 1e-3), "set at once: {cue_s:?}");
+        assert!(bench.library.cues(Path::new("deck0.flac")).unwrap().is_empty(), "not kept yet");
+        release.send(()).unwrap();
+        bench.actions.settle();
+        assert_eq!(bench.library.cues(Path::new("deck0.flac")).unwrap().len(), 1, "kept");
+    }
+
+    #[test]
+    fn a_tap_is_timed_as_it_is_sent_not_as_it_is_performed() {
+        let bench = Arc::new(Bench::new());
+        bench.load(0, 60.0, Some(100.0));
+        let busy = held(&bench, Lane::Track(0));
+        let tap = |at_s: f64| {
+            let source = Source::Controller(Moved { device: "DDJ", at_s, jog_steps_per_turn: 720.0 });
+            let tap: Target = "deck1.tap".parse().unwrap();
+            bench.actions.perform(
+                &bench,
+                &tap,
+                Input::Value(1.0),
+                source,
+                Answer::Told,
+                &mut InTurn::default(),
+            );
+        };
+        for at_s in [0.0, 0.5, 1.0, 1.5] {
+            tap(at_s);
+        }
+        busy.send(()).unwrap();
+        bench.actions.settle();
+        let mut taps = lock(&bench.state.perform).decks[0].taps.clone();
+        assert_eq!(taps.tap(2.0).map(|bpm| bpm.round()), Some(120.0), "taps half a second apart");
     }
 }

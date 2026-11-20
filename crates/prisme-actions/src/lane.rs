@@ -1,82 +1,156 @@
-//! Where an action is performed: at once on the thread that asks for it (the engine's
-//! commands, what is kept in memory), or in turn on one worker, for those that read or write
-//! the disk or the library or decode a file: a press and its release keep their order.
+//! Which actions keep their order among themselves: those of one lane. A lane is what an action
+//! changes: a deck's track and where it plays, a deck's settings (its strip, its effects, its
+//! tempo fader), a slot of its sampler, the mixer and what all decks share, the preview, the
+//! recording. An action is performed at once on the thread asking for it while its lane has
+//! none waiting; one that reads or writes a file (a track or a sound opened, a recording ended)
+//! is performed in turn by a worker of its lane, and the actions of that lane sent after it wait
+//! behind it. No action waits for a file of another lane.
 
-use prisme_control::{DeckAction, GeneralAction, LibraryAction, SampleAction, Target};
+use prisme_control::{DeckAction, DeckSwitch, GeneralAction, LibraryAction, SampleAction, Target};
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Lane {
-    Instant,
-    Slow,
+    /// The track of a deck, put there or taken off, and how and where it plays: what a load
+    /// replaces.
+    Track(usize),
+    /// What a deck keeps from one track to the next: its strip, its effects, its tempo fader,
+    /// its switches.
+    Settings(usize),
+    /// A slot of a deck's sampler.
+    Sample(usize, usize),
+    /// The mixer, and what every deck shares.
+    Mixer,
+    Preview,
+    Recording,
 }
 
+/// The lane of `target`. A load on the first deck without a track (`library.load`) is deck A's
+/// until the deck it goes to is known.
 pub fn lane(target: &Target) -> Lane {
-    match target {
-        // a cue or a beat grid written to the library, a track or a sound read, and what they
-        // replace, a recording started or ended; the preview's keys in the order pressed, the
-        // first reading its track
-        Target::Deck(
-            _,
-            DeckAction::Cue
-            | DeckAction::CueSet
-            | DeckAction::HotCue(_)
-            | DeckAction::HotCueDelete(_)
-            | DeckAction::GridHere
-            | DeckAction::GridEarlier
-            | DeckAction::GridLater
-            | DeckAction::GridFaster
-            | DeckAction::GridSlower
-            | DeckAction::GridMove
-            | DeckAction::Tap
-            | DeckAction::Eject
-            | DeckAction::Sample(_, SampleAction::Load | SampleAction::Smart | SampleAction::Eject),
-        )
-        | Target::Library(
-            LibraryAction::Load(_)
-            | LibraryAction::LoadPlay(_)
-            | LibraryAction::LoadFree
-            | LibraryAction::Double(_)
-            | LibraryAction::Preview
-            | LibraryAction::PreviewStop
-            | LibraryAction::PreviewSeek,
-        )
-        | Target::General(GeneralAction::Record) => Lane::Slow,
-        _ => Lane::Instant,
+    match *target {
+        Target::Deck(deck, DeckAction::Sample(slot, _)) => Lane::Sample(deck, slot),
+        Target::Deck(deck, action) if kept_by_the_deck(action) => Lane::Settings(deck),
+        Target::Deck(deck, _) => Lane::Track(deck),
+        Target::Library(
+            LibraryAction::Load(deck) | LibraryAction::LoadPlay(deck) | LibraryAction::Double(deck),
+        ) => Lane::Track(deck),
+        Target::Library(LibraryAction::LoadFree) => Lane::Track(0),
+        Target::Library(LibraryAction::Preview | LibraryAction::PreviewStop | LibraryAction::PreviewSeek) => {
+            Lane::Preview
+        }
+        Target::General(GeneralAction::Record) => Lane::Recording,
+        _ => Lane::Mixer,
     }
+}
+
+/// Whether `action` changes what a deck keeps from one track to the next.
+fn kept_by_the_deck(action: DeckAction) -> bool {
+    match action {
+        DeckAction::Switch(switch, _) => {
+            !matches!(switch, DeckSwitch::Sync | DeckSwitch::Slip | DeckSwitch::Reverse)
+        }
+        DeckAction::Pitch
+        | DeckAction::Tempo
+        | DeckAction::TempoUp
+        | DeckAction::TempoDown
+        | DeckAction::TempoReset
+        | DeckAction::TempoRange
+        | DeckAction::TempoRangePrevious
+        | DeckAction::Volume
+        | DeckAction::Trim
+        | DeckAction::Filter
+        | DeckAction::FilterToggle
+        | DeckAction::Eq(_)
+        | DeckAction::EqKill(_)
+        | DeckAction::Fx(..)
+        | DeckAction::FxKnob(_)
+        | DeckAction::FxSuper
+        | DeckAction::FxPart
+        | DeckAction::SamplerGain
+        | DeckAction::CrossfaderSide(_)
+        | DeckAction::HeadphonesSolo
+        | DeckAction::Size
+        | DeckAction::SizeHalve
+        | DeckAction::SizeDouble
+        | DeckAction::SyncLeader => true,
+        _ => false,
+    }
+}
+
+/// Whether `target` reads or writes a file as it is performed: never on the thread asking for
+/// it. A smart pad loads only into an empty slot, which the one sending it knows.
+pub fn reads_files(target: &Target) -> bool {
+    matches!(
+        target,
+        Target::Deck(_, DeckAction::Sample(_, SampleAction::Load))
+            | Target::Library(
+                LibraryAction::Load(_)
+                    | LibraryAction::LoadPlay(_)
+                    | LibraryAction::LoadFree
+                    | LibraryAction::Preview
+            )
+            | Target::General(GeneralAction::Record)
+    )
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
 
+    fn of(id: &str) -> Lane {
+        lane(&id.parse().unwrap())
+    }
+
     #[test]
-    fn what_reads_or_writes_the_disk_waits_its_turn_the_rest_is_done_at_once() {
-        let of = |id: &str| lane(&id.parse().unwrap());
+    fn a_load_and_what_plays_on_its_deck_share_a_lane_the_decks_settings_another() {
+        for id in ["library.load2", "library.load2.play", "library.double2", "deck2.eject", "deck2.play"] {
+            assert_eq!(of(id), Lane::Track(1), "{id}");
+        }
+        for id in ["deck1.hotcue3", "deck1.cue", "deck1.tap", "deck1.jog", "deck1.key.up", "deck1.sync"] {
+            assert_eq!(of(id), Lane::Track(0), "{id}");
+        }
         for id in [
-            "deck1.jog",
             "deck1.pitch",
-            "deck2.play",
-            "mixer.crossfader",
-            "general.quantize",
-            "deck1.sample1",
+            "deck1.tempo.up",
+            "deck1.volume",
+            "deck1.fx2.mix",
+            "deck1.keylock",
+            "deck1.eq.low",
         ] {
-            assert_eq!(of(id), Lane::Instant, "{id}");
+            assert_eq!(of(id), Lane::Settings(0), "{id}");
+        }
+        assert_eq!(of("deck2.sample3.load"), Lane::Sample(1, 2));
+        assert_eq!(of("deck2.sample3"), Lane::Sample(1, 2));
+        assert_eq!(of("library.preview.stop"), Lane::Preview);
+        assert_eq!(of("general.record"), Lane::Recording);
+        assert_eq!(of("mixer.crossfader"), Lane::Mixer);
+        assert_eq!(of("general.quantize"), Lane::Mixer);
+    }
+
+    #[test]
+    fn what_opens_a_file_waits_its_turn_the_rest_is_done_at_once() {
+        let reads = |id: &str| reads_files(&id.parse().unwrap());
+        for id in [
+            "library.load1",
+            "library.load1.play",
+            "library.load",
+            "deck1.sample2.load",
+            "library.preview",
+            "general.record",
+        ] {
+            assert!(reads(id), "{id}");
         }
         for id in [
             "deck1.hotcue3",
             "deck1.cue",
-            "deck2.tap",
-            "deck1.sample2.load",
-            "deck1.sample2.eject",
+            "deck1.tap",
+            "deck1.grid.here",
             "deck1.eject",
-            "library.load1",
             "library.double2",
-            "library.preview",
+            "deck1.sample2.smart",
             "library.preview.stop",
-            "library.preview.seek",
-            "general.record",
         ] {
-            assert_eq!(of(id), Lane::Slow, "{id}");
+            assert!(!reads(id), "{id}");
         }
     }
 }

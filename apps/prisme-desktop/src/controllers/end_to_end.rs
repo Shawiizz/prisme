@@ -1,11 +1,12 @@
 //! Controllers played from one end to the other with the interface asleep: a MIDI controller
 //! and a HID one, each by its shipped profile, their messages taken where a real device's are
 //! (`Controllers::receive`, and for HID the reader thread of a simulated device), the actions
-//! performed on a bench whose engine is run by hand, and what the controllers are sent back,
-//! their lights and values, read where they would be written.
+//! performed on a bench whose engine is run by hand (in turn on their lanes, waited for), and
+//! what the controllers are sent back, their lights and values, read where they would be
+//! written.
 
 use super::{ControllerSetup, Controllers, Link};
-use crate::actions::bench::Bench;
+use crate::actions::bench::{track, Bench, TRACK_S};
 use crate::actions::{Source, FAILED_EVENT};
 use crate::controller_hid::{self, simulated};
 use crate::state::lock;
@@ -13,39 +14,9 @@ use prisme_actions::input::Input;
 use prisme_control::hid::{self, HidInfo};
 use prisme_session::JsonFile;
 use std::collections::BTreeMap;
-use std::path::PathBuf;
 use std::sync::mpsc::{self, Receiver};
 use std::sync::Arc;
 use std::time::Duration;
-
-/// How long a track of the tests lasts (s).
-const TRACK_S: f64 = 10.0;
-
-/// A quiet track of [`TRACK_S`], written for the test `name` to be loaded as a DJ would, and
-/// removed with it.
-struct Track(PathBuf);
-
-impl Drop for Track {
-    fn drop(&mut self) {
-        let _ = std::fs::remove_file(&self.0);
-    }
-}
-
-fn track(name: &str) -> Track {
-    let path = std::env::temp_dir().join(format!("prisme-end-to-end-{name}-{}.wav", std::process::id()));
-    let spec = hound::WavSpec {
-        channels: 2,
-        sample_rate: 48_000,
-        bits_per_sample: 16,
-        sample_format: hound::SampleFormat::Int,
-    };
-    let mut writer = hound::WavWriter::create(&path, spec).unwrap();
-    for _ in 0..(TRACK_S * 48_000.0) as usize * 2 {
-        writer.write_sample(0i16).unwrap();
-    }
-    writer.finalize().unwrap();
-    Track(path)
-}
 
 /// Controllers with `device` in use, as Prisme keeps them.
 fn controllers(device: &str) -> Arc<Controllers> {
@@ -80,7 +51,7 @@ fn load_id(bench: &Bench) -> Option<u64> {
 /// A Hercules DJControl Jogvision on its MIDI port.
 struct Jogvision {
     controllers: Arc<Controllers>,
-    bench: Bench,
+    bench: Arc<Bench>,
 }
 
 impl Jogvision {
@@ -88,16 +59,18 @@ impl Jogvision {
 
     fn plugged() -> Self {
         let controllers = controllers(Self::PORT);
-        let bench = Bench::new();
+        let bench = Arc::new(Bench::new());
         controllers.opened(&bench, Self::PORT, Self::PORT.into(), Link::Sent(Vec::new()));
         Self { controllers, bench }
     }
 
-    /// The controller sends `message`, as its port gives it; the engine then runs a moment.
+    /// The controller sends `message`, as its port gives it; once it is performed, the engine
+    /// runs a moment.
     fn send(&self, message: &[u8]) {
         let event = prisme_control::parse(message).unwrap();
         let steps = self.controllers.jog_steps_per_turn(Self::PORT);
         self.controllers.receive(&self.bench, Self::PORT, steps, event, 0.0);
+        self.bench.actions.settle();
         self.bench.run(0.01);
     }
 
@@ -240,11 +213,11 @@ impl S4 {
         let (receiving, on, name) = (controllers.clone(), bench.clone(), device.clone());
         let link =
             controller_hid::Link::open(&plugged, profile.hid.as_ref(), Some(true), move |read, at_s| {
-                receiving.receive_hid(&*on, &name, &read, steps, at_s);
+                receiving.receive_hid(&on, &name, &read, steps, at_s);
                 let _ = done.send(());
             })
             .unwrap();
-        controllers.opened(&*bench, &device, device.clone(), Link::Hid(link));
+        controllers.opened(&bench, &device, device.clone(), Link::Hid(link));
         let mut s4 = Self {
             id,
             controllers,
@@ -261,10 +234,11 @@ impl S4 {
         s4
     }
 
-    /// The device sends `report`; once read, the engine runs a moment.
+    /// The device sends `report`; once read and performed, the engine runs a moment.
     fn feed(&self, report: Vec<u8>) {
         simulated::feed(self.id, report).unwrap();
         self.read.recv_timeout(Duration::from_secs(5)).expect("the report read");
+        self.bench.actions.settle();
         self.bench.run(0.01);
     }
 
