@@ -24,7 +24,7 @@ use plan::{Audible, FadeLength};
 use prisme_actions::lane::Lane;
 use prisme_engine::{Command, MixMode};
 use prisme_library::CueSlot;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::{Arc, Condvar, Mutex};
 use std::time::{Duration, Instant};
 use tauri::{AppHandle, Manager};
@@ -125,12 +125,19 @@ impl AutoDj {
                             .unwrap_or_else(|e| e.into_inner()),
                     );
                     if let Some(view) = decks.view(&app, list.next(&app)) {
-                        let actions = lock(&auto_dj.machine).tick(&view);
-                        for action in actions {
-                            if matches!(action, Action::TakeOut(_)) {
-                                list.forget();
+                        // done with the machine held: the DJ taking over meanwhile waits, then wins
+                        let mut machine = lock(&auto_dj.machine);
+                        let mut taken_out = Vec::new();
+                        for action in machine.tick(&view) {
+                            match action {
+                                Action::TakeOut(path) => taken_out.push(path),
+                                action => auto_dj.perform(action),
                             }
-                            auto_dj.perform(action);
+                        }
+                        drop(machine);
+                        for path in taken_out {
+                            list.forget();
+                            auto_dj.take_out(&path);
                         }
                     }
                     auto_dj.tell();
@@ -140,14 +147,19 @@ impl AutoDj {
             .expect("cannot start the Auto DJ thread");
     }
 
+    /// Does `action`, the machine held by the caller (a load only queued).
     fn perform(&self, action: Action) {
         let app = &self.app;
         let state = app.state::<AppState>();
         let sent = match action {
-            // in turn with the DJ's actions on the deck
+            // in turn with the DJ's actions on the deck: none once the DJ took over
             Action::Load { deck, path } => {
                 let app = app.clone();
                 self.app.state::<Actions>().in_turn_on(Lane::Track(deck), move || {
+                    let auto_dj = app.state::<AutoDj>();
+                    if !auto_dj.plays() {
+                        return auto_dj.change(|m| m.loaded(deck, &path, true));
+                    }
                     let loaded = match track_loading::load_on_deck(&app, deck, path.clone()) {
                         // or the DJ's own load goes there: not the track's fault
                         Ok(_) => true,
@@ -156,7 +168,6 @@ impl AutoDj {
                             false
                         }
                     };
-                    let auto_dj = app.state::<AutoDj>();
                     auto_dj.change(|m| m.loaded(deck, &path, loaded));
                 });
                 Ok(())
@@ -182,16 +193,22 @@ impl AutoDj {
                 state.send(Command::SetCrossfader { position })
             }
             Action::TakeOut(path) => {
-                let library = app.state::<Arc<LibraryService>>();
-                match library.db.remove_from_prepare(&[path.as_path()]) {
-                    Ok(_) => crate::actions::browse::prepare_changed(&state, &library.db),
-                    Err(e) => warn!("Auto DJ: {} left in the prepare list: {e}", path.display()),
-                }
+                self.take_out(&path);
                 Ok(())
             }
         };
         if let Err(e) = sent {
             warn!("Auto DJ: {e}");
+        }
+    }
+
+    /// The track at `path` taken out of the prepare list.
+    fn take_out(&self, path: &Path) {
+        let state = self.app.state::<AppState>();
+        let library = self.app.state::<Arc<LibraryService>>();
+        match library.db.remove_from_prepare(&[path]) {
+            Ok(_) => crate::actions::browse::prepare_changed(&state, &library.db),
+            Err(e) => warn!("Auto DJ: {} left in the prepare list: {e}", path.display()),
         }
     }
 }
