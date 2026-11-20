@@ -3,9 +3,24 @@ import { EngineService } from '../services/engine.service';
 import { LibraryService } from '../services/library.service';
 import { NavigationService } from '../services/navigation.service';
 import { PREVIEW_STEP_S, PreviewService } from '../services/preview.service';
-import { Control, ControlActions, buildControls, measuredControl } from './controls';
+import { Control, buildControls, measuredControl } from './controls';
 
-/** Every action a key or a controller can do (see `buildControls`). */
+/** Tracks a page of the library moves by. */
+const PAGE = 12;
+
+/** A key's action, done as it is pressed: a pad hit softly is hit all the same. */
+const pressed =
+  (run: () => void) =>
+  (value: number): void => {
+    if (value > 0) run();
+  };
+
+/**
+ * Every action a key or a controller can do (see `buildControls`), and the one way to do it
+ * (`act`): the backend performs it, whoever asks (a key, the command palette), as it does for
+ * the controllers; the app does itself only what it keeps (`own`): the library's browsing, its
+ * windows. A controller's control driving one of those the backend tells (`ui-action`).
+ */
 @Injectable({ providedIn: 'root' })
 export class ControlService {
   private readonly engine = inject(EngineService);
@@ -13,43 +28,53 @@ export class ControlService {
   private readonly navigation = inject(NavigationService);
   private readonly preview = inject(PreviewService);
 
-  private readonly actions: ControlActions = {
-    perform: (id, value, steps) => this.engine.perform(id, value, steps),
-    browse: (steps) =>
-      this.library.focus() === 'lists'
-        ? this.library.movePointedList(steps)
-        : this.library.moveSelection(steps),
-    togglePreview: () => {
+  /** What the app does of the actions it keeps, given a key's value or an encoder's steps. */
+  private readonly own: Record<string, (value: number) => void> = {
+    'library.browse': (steps) => this.browse(steps),
+    'library.previous': pressed(() => this.browse(-1)),
+    'library.next': pressed(() => this.browse(1)),
+    'library.page.previous': pressed(() => this.browse(-PAGE)),
+    'library.page.next': pressed(() => this.browse(PAGE)),
+    'library.preview': pressed(() => {
       const path = this.library.selected();
       if (path) this.preview.toggle(path);
-    },
-    stopPreview: () => this.preview.stop(),
-    seekPreview: (steps) => this.preview.skip(steps * PREVIEW_STEP_S),
-    removeSelected: () => this.library.removeSelected(),
-    selectAll: () => this.library.selectAll(),
-    clearSelection: () => this.library.clearSelection(),
-    prepareSelected: () => this.library.addSelectedToPrepare(),
-    focusSearch: () => this.library.searchRequests.update((n) => n + 1),
-    toggleHelp: () => this.navigation.toggleSettings('shortcuts'),
-    togglePalette: () => this.navigation.togglePalette(),
-    openSettings: () => this.navigation.openSettings(),
-    moveFocus: () => this.library.focus.update((f) => (f === 'tracks' ? 'lists' : 'tracks')),
-    browseLists: (steps) => this.library.movePointedList(steps),
-    openPointedList: () => this.library.openPointedList(),
-    openNextList: (steps) => this.library.openNextList(steps),
-    go: () =>
+    }),
+    'library.preview.stop': pressed(() => this.preview.stop()),
+    'library.preview.seek': (steps) => this.preview.skip(steps * PREVIEW_STEP_S),
+    'library.remove': pressed(() => this.library.removeSelected()),
+    'library.prepare': pressed(() => this.library.addSelectedToPrepare()),
+    'library.selectAll': pressed(() => this.library.selectAll()),
+    'library.clearSelection': pressed(() => this.library.clearSelection()),
+    'library.search': pressed(() => this.library.searchRequests.update((n) => n + 1)),
+    'library.focus': pressed(() =>
+      this.library.focus.update((f) => (f === 'tracks' ? 'lists' : 'tracks')),
+    ),
+    'library.lists': (steps) => this.library.movePointedList(steps),
+    'library.list.open': pressed(() => this.library.openPointedList()),
+    'library.list.next': pressed(() => this.library.openNextList(1)),
+    'library.list.previous': pressed(() => this.library.openNextList(-1)),
+    'library.go': pressed(() =>
       this.library.focus() === 'lists'
         ? this.library.openPointedList()
         : this.library.loadSelectedOnStoppedDeck(),
-    setFocus: (where) => this.library.focus.set(where),
-    sortBy: (column) => this.library.sortBy(column),
-    toggleLibraryOnly: () => this.navigation.libraryOnly.update((only) => !only),
-    libraryOnly: () => this.navigation.libraryOnly(),
+    ),
+    'library.left': pressed(() => this.library.focus.set('lists')),
+    'library.right': pressed(() => this.library.focus.set('tracks')),
+    'library.sort.title': pressed(() => this.library.sortBy('title')),
+    'library.sort.artist': pressed(() => this.library.sortBy('artist')),
+    'library.sort.bpm': pressed(() => this.library.sortBy('bpm')),
+    'library.sort.key': pressed(() => this.library.sortBy('key')),
+    'general.library': pressed(() => this.navigation.libraryOnly.update((only) => !only)),
+    'general.help': pressed(() => this.navigation.toggleSettings('shortcuts')),
+    'general.palette': pressed(() => this.navigation.togglePalette()),
+    'general.settings': pressed(() => this.navigation.openSettings()),
+    // the backend reads a controller's shift as it reads the controller
+    shift: () => undefined,
   };
 
   /** Built again when the language changes: their names are in it. */
   private readonly built = computed(() => {
-    const controls = buildControls(this.actions);
+    const controls = buildControls();
     return { controls, byId: new Map(controls.map((c) => [c.id, c])) };
   });
 
@@ -79,11 +104,32 @@ export class ControlService {
     return measured && measured.deck! < this.engine.deckIndexes().length ? measured : undefined;
   }
 
+  /** The action `id` given `value` (a key's 1 pressed and 0 let go, a fader's position, an
+   * encoder's steps), if it acts now. */
+  act(id: string, value: number) {
+    const control = this.findInUse(id);
+    if (!control || control.kind === 'light') return;
+    const own = this.own[id];
+    if (own) own(value);
+    else void this.engine.perform(id, value, control.kind === 'encoder');
+  }
+
+  /** Whether the light of `id` is on, for one the app keeps what it shows (the library over
+   * the window): `undefined` for any other, which the backend lights. */
+  lit(id: string): boolean | undefined {
+    return id === 'general.library' ? this.navigation.libraryOnly() : undefined;
+  }
+
+  private browse(steps: number) {
+    if (this.library.focus() === 'lists') this.library.movePointedList(steps);
+    else this.library.moveSelection(steps);
+  }
+
   /** The controls named by their measure (`deck1.jump.-8`), made once each. */
   private readonly measuredById = new Map<string, Control | undefined>();
 
   private measured(id: string): Control | undefined {
-    if (!this.measuredById.has(id)) this.measuredById.set(id, measuredControl(this.actions, id));
+    if (!this.measuredById.has(id)) this.measuredById.set(id, measuredControl(id));
     return this.measuredById.get(id);
   }
 }

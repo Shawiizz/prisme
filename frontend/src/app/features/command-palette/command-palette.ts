@@ -118,8 +118,8 @@ export class CommandPalette {
         detail: c.group,
         keys: this.keyboard.keyOf(c.id) ?? undefined,
         run: () => {
-          c.apply(1);
-          c.apply(0);
+          this.controls.act(c.id, 1);
+          this.controls.act(c.id, 0);
         },
       })),
     {

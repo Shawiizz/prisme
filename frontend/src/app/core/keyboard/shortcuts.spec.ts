@@ -1,4 +1,4 @@
-import { buildControls, ControlActions } from '../control/controls';
+import { buildControls } from '../control/controls';
 import {
   assign,
   DEFAULT_SHORTCUTS as SHORTCUTS,
@@ -27,9 +27,7 @@ describe('shortcuts', () => {
   });
 
   it('only names controls that exist', () => {
-    const ids = new Set(
-      buildControls(new Proxy({}, { get: () => () => {} }) as ControlActions).map((c) => c.id),
-    );
+    const ids = new Set(buildControls().map((c) => c.id));
     expect(SHORTCUTS.filter((s) => !ids.has(s.control))).toEqual([]);
   });
 

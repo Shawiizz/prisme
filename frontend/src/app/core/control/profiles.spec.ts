@@ -1,6 +1,6 @@
 import { readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { buildControls, ControlActions, measuredControl } from './controls';
+import { buildControls, measuredControl } from './controls';
 
 /** The controller profiles shipped with the app. */
 const SHIPPED = '../apps/prisme-desktop/controllers';
@@ -42,14 +42,13 @@ const profiles: Profile[] = readdirSync(FOLDER)
   .filter((f) => f.endsWith('.json') && !NOT_PROFILES.has(f))
   .map((f) => JSON.parse(readFileSync(join(FOLDER, f), 'utf8')));
 
-const actions = new Proxy({}, { get: () => () => true }) as ControlActions;
-const controls = buildControls(actions);
+const controls = buildControls();
 const ids = new Set(controls.map((c) => c.id));
 /** An action of the app, a measured one (`deck1.jump.-8`), a named shift (`shift.left`), or a
  * mode of the profile's. */
 const known = (p: Profile, target: string) =>
   ids.has(target) ||
-  measuredControl(actions, target) !== undefined ||
+  measuredControl(target) !== undefined ||
   /^shift\.[^.]+$/.test(target) ||
   (p.modes ?? []).some((g) => g.modes.some((m) => target === `mode.${g.group}.${m}`));
 const encoders = new Set(controls.filter((c) => c.kind === 'encoder').map((c) => c.id));

@@ -1,5 +1,4 @@
 import { Injectable, computed, inject, signal } from '@angular/core';
-import { Control } from '../control/controls';
 import { NavigationService } from '../services/navigation.service';
 import { ControlService } from '../control/control.service';
 import { PreferencesService } from '../services/preferences.service';
@@ -22,7 +21,8 @@ export class KeyboardService {
   readonly shortcuts = computed(() => shortcutsWith(this.preferences.keys()));
   /** Key code -> what the user's keyboard layout prints on that key. */
   private readonly layout = signal(new Map<string, string>());
-  private readonly held = new Map<string, Control>();
+  /** The action of each key held, by its code. */
+  private readonly held = new Map<string, string>();
   /** Given the next key pressed, while one is waited for (`capture`). */
   private captured: ((key: Key | null) => void) | null = null;
 
@@ -84,23 +84,23 @@ export class KeyboardService {
 
   private onKeyDown(event: KeyboardEvent) {
     const shortcut = this.shortcuts().find((s) => matches(s, event));
-    const control = shortcut && this.controls.findInUse(shortcut.control);
-    if (!control) return;
+    if (!shortcut || !this.controls.findInUse(shortcut.control)) return;
     if (!everywhere(shortcut) && (isTyping(event) || inDialog(event) || this.navigation.covered()))
       return;
     event.preventDefault();
     if (event.repeat || this.held.has(event.code)) return;
-    control.apply(1);
-    this.held.set(event.code, control);
+    this.controls.act(shortcut.control, 1);
+    this.held.set(event.code, shortcut.control);
   }
 
   private onKeyUp(event: KeyboardEvent) {
-    this.held.get(event.code)?.apply(0);
+    const control = this.held.get(event.code);
     this.held.delete(event.code);
+    if (control) this.controls.act(control, 0);
   }
 
   private releaseAll() {
-    for (const control of this.held.values()) control.apply(0);
+    for (const control of this.held.values()) this.controls.act(control, 0);
     this.held.clear();
   }
 }

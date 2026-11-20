@@ -1,6 +1,5 @@
 import { TestBed } from '@angular/core/testing';
 import { clearMocks, mockIPC } from '@tauri-apps/api/mocks';
-import { Control } from '../control/controls';
 import { ControlService } from '../control/control.service';
 import { KeyboardService } from './keyboard.service';
 
@@ -14,13 +13,9 @@ describe('KeyboardService', () => {
   it('leaves a key pressed in a dialog to the dialog', async () => {
     mockIPC(() => undefined);
     const applied: string[] = [];
-    vi.spyOn(TestBed.inject(ControlService), 'findInUse').mockImplementation((id): Control => ({
-      id,
-      group: '',
-      label: '',
-      kind: 'button',
-      apply: (v) => void (v && applied.push(id)),
-    }));
+    vi.spyOn(TestBed.inject(ControlService), 'act').mockImplementation(
+      (id, value) => void (value && applied.push(id)),
+    );
     await TestBed.inject(KeyboardService).start();
     document.body.innerHTML = `<button id="page"></button>
       <div role="alertdialog" aria-modal="true"><button id="no"></button></div>`;

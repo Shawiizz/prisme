@@ -53,7 +53,7 @@ export class ControllerService {
 
   async start() {
     await listen<UiAction>('ui-action', ({ payload }) =>
-      this.controls.findInUse(payload.target)?.apply(payload.value),
+      this.controls.act(payload.target, payload.value),
     );
     await listen<unknown>('action-failed', ({ payload }) => void this.engine.failed(payload));
     await listen<ControllerMapping>('controller-learned', () => {
@@ -243,19 +243,14 @@ export class ControllerService {
     this.relight();
     const lights: { target: string; state: string }[] = [];
     for (const target of this.lightTargets()) {
-      const state = this.lightOf(target);
-      if (state === null || this.sent.get(target) === state) continue;
+      const lit = this.controls.lit(target);
+      if (lit === undefined) continue;
+      const state = lit ? 'on' : 'off';
+      if (this.sent.get(target) === state) continue;
       this.sent.set(target, state);
       lights.push({ target, state });
     }
     if (lights.length > 0) this.run(() => invoke('set_lights', { lights }));
-  }
-
-  /** The state the light of `target` shows: out on a deck no longer shown. */
-  private lightOf(target: string): 'on' | 'off' | null {
-    const control = this.controls.findInUse(target);
-    if (control?.lit) return control.lit() ? 'on' : 'off';
-    return this.controls.find(target)?.lit ? 'off' : null;
   }
 
   private async run(action: () => Promise<unknown>) {
