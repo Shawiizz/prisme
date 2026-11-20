@@ -5,9 +5,8 @@ import { TPipe } from '../../../core/i18n/t.pipe';
 import { Fader } from '../../../shared/fader/fader';
 import { Press } from '../../../shared/press';
 
-/** A press of − or + moves the tempo this much; held, it goes on, a step this often (ms)
+/** A press of − or + moves the tempo a step (0.1 %); held, it goes on, a step this often (ms)
  * after the first wait. (The temporary bend is on the keyboard and the controllers.) */
-const PITCH_STEP = 0.001;
 const STEP_WAIT_MS = 400;
 const STEP_EVERY_MS = 60;
 
@@ -40,7 +39,7 @@ const STEP_EVERY_MS = 60;
         [min]="-tempo.range()"
         [max]="tempo.range()"
         [value]="-tempo.offset()"
-        (valueChange)="engine.setPitch(deck(), 1 - $event)"
+        (valueChange)="engine.moveTempo(deck(), -$event)"
         [disabled]="tempo.held()"
         [label]="'Tempo' | t"
       />
@@ -185,9 +184,6 @@ export class PitchFader {
   }
 
   private step(direction: -1 | 1) {
-    const range = this.tempo.range();
-    const pitch = this.tempo.settings().pitch + direction * PITCH_STEP;
-    const kept = Math.min(Math.max(pitch, 1 - range), 1 + range);
-    this.engine.setPitch(this.deck(), Math.round(kept * 1e4) / 1e4);
+    this.engine.press(this.deck(), direction < 0 ? 'tempo.down' : 'tempo.up');
   }
 }

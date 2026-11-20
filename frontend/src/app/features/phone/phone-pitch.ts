@@ -32,7 +32,7 @@ import { PhoneTempo } from './phone-tempo';
       <button
         class="pr-btn pr-reach"
         [disabled]="tempo.held()"
-        (click)="engine.setPitch(deck(), 1)"
+        (click)="engine.press(deck(), 'tempo.reset')"
       >
         0
       </button>

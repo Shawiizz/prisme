@@ -18,7 +18,7 @@ import { Fader } from '../../shared/fader/fader';
       [min]="-tempo.range()"
       [max]="tempo.range()"
       [value]="tempo.offset()"
-      (valueChange)="engine.setPitch(deck(), 1 + $event)"
+      (valueChange)="engine.moveTempo(deck(), $event)"
       [disabled]="tempo.held()"
       [label]="'Tempo' | t"
     />

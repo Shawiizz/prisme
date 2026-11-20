@@ -1,4 +1,4 @@
-use crate::actions::{deck, transport};
+use crate::actions::deck;
 use crate::audio_host::layer_partner;
 use crate::auto_dj::{AutoDj, Takeover};
 use crate::commands::audio::start_audio;
@@ -9,16 +9,6 @@ use crate::state::{lock, AppState};
 use prisme_engine::Command;
 use prisme_timecode::TimecodeFormat;
 use tauri::{AppHandle, Manager, State};
-
-#[tauri::command]
-pub fn seek(
-    state: State<'_, AppState>,
-    auto_dj: State<'_, AutoDj>,
-    deck: usize,
-    seconds: f64,
-) -> AppResult<()> {
-    transport::seek(&state, Some(&auto_dj), deck, seconds)
-}
 
 /// The track dragged by hand to `seconds` on the scrolling waveform at `at_ms` on the
 /// pointer's clock, or let go (`None`).
@@ -48,11 +38,6 @@ pub fn jog(
     state.has_deck(deck)?;
     auto_dj.take_over(Takeover::Transport(deck));
     state.send(Command::Jog { deck, turns, at_s: at_ms / 1000.0 })
-}
-
-#[tauri::command]
-pub fn set_pitch(state: State<'_, AppState>, deck: usize, ratio: f64) -> AppResult<()> {
-    deck::set_pitch(&state, deck, ratio)
 }
 
 /// Vinyl control of a deck, kept for the next start. Returns the deck it took the turntable

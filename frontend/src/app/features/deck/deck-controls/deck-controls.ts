@@ -2,7 +2,6 @@ import { Component, DestroyRef, computed, inject, input } from '@angular/core';
 import { deckTempo } from '../../../core/deck-tempo';
 import { EngineService } from '../../../core/services/engine.service';
 import { PreferencesService } from '../../../core/services/preferences.service';
-import { pitchToMatch } from '../../../core/sync';
 import { formatPitch } from '../../../shared/time';
 import { t } from '../../../core/i18n/i18n';
 import { TPipe } from '../../../core/i18n/t.pipe';
@@ -87,7 +86,7 @@ export class DeckControls {
     this.syncCancel();
     this.syncHold = setTimeout(() => {
       this.syncHold = null;
-      this.matchOnce();
+      this.engine.syncOnce(this.deck());
     }, SYNC_HOLD_MS);
   }
 
@@ -103,19 +102,7 @@ export class DeckControls {
     this.syncHold = null;
   }
 
-  /** The leader's tempo and beats, once: the deck stays free. Internal play takes the
-   * tempo on its fader, so that the fader says what it plays. */
-  private matchOnce() {
-    const own = this.status();
-    const reference = this.tempo.reference();
-    const change = own && reference ? pitchToMatch(own, reference) : null;
-    if (!this.vinyl() && change !== null) {
-      this.engine.setPitch(this.deck(), this.tempo.rate() * (1 + change));
-    }
-    this.engine.syncOnce(this.deck());
-  }
-
   resetPitch() {
-    if (!this.tempo.held()) this.engine.setPitch(this.deck(), 1);
+    if (!this.tempo.held()) this.engine.press(this.deck(), 'tempo.reset');
   }
 }

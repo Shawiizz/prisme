@@ -223,10 +223,13 @@ impl Performing<'_> {
         transport::send(self.state, deck, command)
     }
 
-    /// The tempo of `deck` moved by so many steps, and kept.
+    /// The tempo of `deck` moved by so many steps within its fader's range, and kept: on the
+    /// step, so that steps back bring it to the track's own again.
     fn step_tempo(&self, deck: usize, steps: i32) -> AppResult<()> {
+        let range = self.state.tempo_range(deck);
         let ratio = lock(&self.state.decks)[deck].pitch + f64::from(steps) * TEMPO_STEP;
-        deck::set_pitch(self.state, deck, ratio)
+        let stepped = (ratio / TEMPO_STEP).round() * TEMPO_STEP;
+        deck::set_pitch(self.state, deck, stepped.clamp(1.0 - range, 1.0 + range))
     }
 
     /// The range of the tempo fader of `deck`, or of them all (`None`), `step` places on.
@@ -781,6 +784,10 @@ mod switches {
         assert!((pitch() - 1.002).abs() < 1e-9);
         turn(&bench, "deck1.tempo", -5.0);
         assert!((pitch() - 0.997).abs() < 1e-9);
+        turn(&bench, "deck1.tempo", 3.0);
+        assert_eq!(pitch(), 1.0, "on the step");
+        turn(&bench, "deck1.tempo", 200.0);
+        assert_eq!(pitch(), 1.08, "within the fader's range");
         press(&bench, "deck1.tempo.reset");
         assert_eq!(pitch(), 1.0);
     }
@@ -865,6 +872,24 @@ mod switches {
                 Command::SyncOnce { deck: 0 },
             ]
         ));
+    }
+
+    #[test]
+    fn a_deck_matched_once_takes_the_tempo_of_the_other_on_its_fader_but_on_a_record() {
+        let mut bench = Bench::new();
+        bench.load(0, 10.0, Some(125.0));
+        bench.load(1, 10.0, Some(128.0));
+        bench.sent();
+        press(&bench, "deck1.sync.once");
+        assert!((lock(&bench.state.decks)[0].pitch - 1.024).abs() < 1e-9);
+        assert!(matches!(
+            bench.sent()[..],
+            [Command::SetPitch { deck: 0, .. }, Command::SyncOnce { deck: 0 }]
+        ));
+        lock(&bench.state.decks)[1].vinyl_enabled = true;
+        press(&bench, "deck2.sync.once");
+        assert_eq!(lock(&bench.state.decks)[1].pitch, 1.0, "the record keeps its tempo");
+        assert!(matches!(bench.sent()[..], [Command::SyncOnce { deck: 1 }]));
     }
 
     #[test]

@@ -208,7 +208,8 @@ export class EngineService {
     }
   }
 
-  /** Matches the leader once and leaves the deck free (unlocking it first). */
+  /** Matches the leader once and leaves the deck free (unlocking it first); a deck playing by
+   * itself takes the tempo on its fader. */
   syncOnce(deck: number) {
     return this.perform(`deck${deck + 1}.sync.once`, 1);
   }
@@ -343,8 +344,12 @@ export class EngineService {
     return this.press(deck, 'play');
   }
 
+  /** The track on `deck` put at `seconds`, as its place along it (`position`). */
   seek(deck: number, seconds: number) {
-    return this.call('seek', { deck, seconds: Math.max(0, seconds) });
+    const duration = this.status()?.decks[deck]?.durationS;
+    if (!duration) return Promise.resolve(false);
+    const at = Math.min(Math.max(seconds / duration, 0), 1);
+    return this.perform(`deck${deck + 1}.position`, at);
   }
 
   /** The track dragged by hand to `seconds` at `atMs` (the pointer event's time), as the
@@ -360,8 +365,10 @@ export class EngineService {
     return this.call('jog', { deck, turns, atMs });
   }
 
-  setPitch(deck: number, ratio: number) {
-    return this.call('set_pitch', { deck, ratio });
+  /** The tempo fader of `deck` moved to `offset` from the track's tempo (0.02: +2 %), within
+   * its range. */
+  moveTempo(deck: number, offset: number) {
+    return this.perform(`deck${deck + 1}.pitch`, 0.5 + offset / (2 * this.tempoRange(deck)));
   }
 
   /** A deck put on a record takes the turntable from the deck layered with it, which goes

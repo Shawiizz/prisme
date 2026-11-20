@@ -55,7 +55,6 @@ export function deckTempo(deck: Signal<number>) {
     settings,
     vinyl,
     syncState,
-    reference,
     rate,
     held,
     range,

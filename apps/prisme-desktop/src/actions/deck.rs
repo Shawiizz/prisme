@@ -10,9 +10,10 @@ use crate::preferences::{DeckPreferences, VinylSync};
 use crate::state::{deck_commands, lock, AppState, LoadedTrack};
 use prisme_actions::input::Input;
 use prisme_actions::key::heard;
+use prisme_actions::sync::octave_ratio;
 use prisme_actions::view::mixed_with;
 use prisme_control::{DeckAction, StemPart};
-use prisme_engine::{Command, DeckStatus};
+use prisme_engine::{Command, DeckStatus, EngineStatus};
 use tracing::warn;
 
 /// Seconds of track a turn of a jog wheel goes through in a search.
@@ -260,12 +261,29 @@ pub fn set_sync(state: &AppState, deck: usize, on: bool) -> AppResult<()> {
     }
 }
 
-/// The leader's tempo and beats matched once, the deck left free (unlocked first).
+/// The leader's tempo and beats matched once, the deck left free (unlocked first). A deck
+/// playing by itself takes the tempo on its fader, which then says what it plays.
 pub fn match_once(state: &AppState, deck: usize) -> AppResult<()> {
-    if state.deck_status(deck).is_ok_and(|status| status.sync.locked) {
+    let status = state.engine_status()?;
+    if status.decks[deck].sync.locked {
         unlock(state, deck)?;
     }
+    if !lock(&state.decks)[deck].vinyl_enabled {
+        if let Some(ratio) = matching_tempo(&status, deck) {
+            set_pitch(state, deck, ratio)?;
+        }
+    }
     sync_once(state, deck)
+}
+
+/// The tempo at which `deck` plays the beats of the deck it follows (the leader, else another
+/// deck on a beat grid), an octave apart if closer: none unless both have a grid.
+fn matching_tempo(status: &EngineStatus, deck: usize) -> Option<f64> {
+    let own = &status.decks[deck];
+    let others = || status.decks.iter().enumerate().filter(|&(d, _)| d != deck).map(|(_, s)| s);
+    let followed = others().find(|s| s.sync.leader).or_else(|| others().find(|s| s.bpm.is_some()))?;
+    let (bpm, other) = (own.bpm?, followed.bpm?);
+    Some(own.rate * octave_ratio(bpm, other) * other / bpm)
 }
 
 /// SYNC off. A deck playing by itself keeps the tempo it was locked to: its fader is moved
@@ -346,9 +364,7 @@ impl Performing<'_> {
     /// key the deck it is mixed with is heard in: nothing unless both keys are known.
     pub(super) fn sync_key(&self, deck: usize) -> AppResult<()> {
         let state = self.state;
-        let Some(status) = lock(&state.session).as_mut().map(|s| s.controller.status()) else {
-            return Ok(());
-        };
+        let Ok(status) = state.engine_status() else { return Ok(()) };
         let other = mixed_with(&status, deck);
         let key = |d: usize| state.with_track(d, |t| (t.analysis().key.map(|k| k.key), t.key_shift)).ok();
         let (Some((Some(own), _)), Some((Some(theirs), shift))) = (key(deck), key(other)) else {

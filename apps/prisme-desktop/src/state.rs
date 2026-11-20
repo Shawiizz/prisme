@@ -485,6 +485,12 @@ impl AppState {
     }
 
     /// The engine's latest view of `deck`.
+    /// What the running engine shows of every deck.
+    pub fn engine_status(&self) -> AppResult<EngineStatus> {
+        let mut session = lock(&self.session);
+        Ok(session.as_mut().ok_or(AppError::AudioNotRunning)?.controller.status())
+    }
+
     pub fn deck_status(&self, deck: usize) -> AppResult<DeckStatus> {
         Self::check_deck(deck)?;
         let mut session = lock(&self.session);
