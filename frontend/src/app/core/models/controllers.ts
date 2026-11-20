@@ -85,9 +85,14 @@ export interface HidControl {
 }
 
 /** How an encoder sends its steps: two's complement, around 64 (with no zero: 64 one step
- * left), or with a sign bit. */
+ * left), with a sign bit, from zero (127 one step left), or as a position that wraps around. */
 export type StepEncoding =
-  'relative' | 'relativeOffset' | 'relativeOffsetNoZero' | 'relativeSigned';
+  | 'relative'
+  | 'relativeOffset'
+  | 'relativeOffsetNoZero'
+  | 'relativeSigned'
+  | 'relativeZero'
+  | 'absoluteWrap';
 
 /** A control of a controller driving an action of the app (`target`). */
 export interface ControllerMapping {
