@@ -501,10 +501,6 @@ impl Drop for LoadTurn<'_> {
     }
 }
 
-/// The speed (1: as recorded) from which a track counts as moving: a record at rest
-/// trembles under its needle.
-const MOVING_SPEED: f64 = 0.05;
-
 /// How long a restore waits in all for the engine to take its commands: longer than its
 /// periods, however long they are, and than its stream may take to start calling it.
 const RESTORE_WAIT: Duration = Duration::from_secs(1);
@@ -1071,9 +1067,9 @@ pub fn live_channels(chosen: Option<InputChannelsDto>, free: &[usize]) -> Option
     chosen.filter(|c| c.channels().all(|channel| free.contains(&channel)))
 }
 
-/// A deck's track moves, by itself or under a record.
+/// A deck's track moves, by itself or under a record: the DJ hears or holds it.
 fn moves(d: &DeckStatus) -> bool {
-    d.loaded && d.speed.abs() > MOVING_SPEED
+    prisme_actions::view::plays(d)
 }
 
 /// Decks layered on one turntable of the device of `info` (see `layer_partner`) read its one

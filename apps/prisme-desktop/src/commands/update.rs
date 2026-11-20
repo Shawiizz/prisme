@@ -1,4 +1,5 @@
 use crate::error::{AppError, AppResult};
+use crate::state::AppState;
 use std::sync::{Mutex, PoisonError};
 use tauri::{ipc::Channel, AppHandle, State};
 use tauri_plugin_updater::{Update, UpdaterExt};
@@ -44,10 +45,12 @@ pub async fn download_update(
     Ok(())
 }
 
-/// Installs the version downloaded. On Windows its installer then takes over and Prisme ends
-/// at once, without the end of a normal close: Prisme is closed first, as when it quits.
+/// Installs the version downloaded, once the decks are stopped. On Windows its installer then
+/// takes over and Prisme ends at once, without the end of a normal close: Prisme is closed
+/// first, as when it quits.
 #[tauri::command]
-pub fn install_update(downloaded: State<'_, Downloaded>) -> AppResult<()> {
+pub fn install_update(state: State<'_, AppState>, downloaded: State<'_, Downloaded>) -> AppResult<()> {
+    super::new_version::decks_stopped(&state)?;
     let (update, bytes) = downloaded
         .0
         .lock()

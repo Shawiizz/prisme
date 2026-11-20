@@ -410,6 +410,7 @@ pub fn run() {
             commands::preferences::set_preference,
             commands::preferences::set_keys,
             commands::preferences::reset_keys,
+            commands::new_version::check_update,
             #[cfg(desktop)]
             commands::update::download_update,
             #[cfg(desktop)]

@@ -94,6 +94,8 @@ pub enum AppError {
     #[cfg(target_os = "android")]
     #[error("the file downloaded is not the new version of Prisme")]
     NotTheUpdate,
+    #[error("a deck plays: the new version installs once they are all stopped")]
+    DecksPlay,
     #[error(transparent)]
     Media(#[from] MediaError),
     #[error(transparent)]
@@ -164,6 +166,7 @@ impl AppError {
             AppError::InputsNotAllowed => ("inputsNotAllowed", none()),
             #[cfg(target_os = "android")]
             AppError::NotTheUpdate => ("notTheUpdate", none()),
+            AppError::DecksPlay => ("decksPlay", none()),
             AppError::Media(MediaError::Open { path, .. }) => ("cannotOpen", json!({ "path": path })),
             AppError::Media(MediaError::Format(_) | MediaError::NoAudio | MediaError::NoSampleRate) => {
                 ("unreadableFile", none())

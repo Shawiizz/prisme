@@ -19,6 +19,7 @@ pub mod library;
 pub mod live;
 pub mod marks;
 pub mod mixer;
+pub mod new_version;
 pub mod preferences;
 pub mod prepare;
 pub mod preview;

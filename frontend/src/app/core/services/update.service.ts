@@ -1,14 +1,10 @@
 import { Injectable, computed, inject, signal } from '@angular/core';
-import { getVersion } from '@tauri-apps/api/app';
 import { Channel, invoke } from '@tauri-apps/api/core';
 import { relaunch } from '@tauri-apps/plugin-process';
-import { Update, check } from '@tauri-apps/plugin-updater';
 import { EngineService } from './engine.service';
-import { errorText } from '../errors';
+import { errorText, isBackendError } from '../errors';
 import { ANDROID } from '../platform';
 
-/** The latest release, from GitHub's API. */
-const LATEST = 'https://api.github.com/repos/Shawiizz/prisme/releases/latest';
 /** A look shows that it looks at least this long (ms): an answer at once would go unseen. */
 const LOOKING_MS = 1200;
 
@@ -18,15 +14,16 @@ export interface Apk {
   size: number;
 }
 
-/** A newer version: installed in place on a computer, its APK handed to Android on a phone. */
+/** A newer version, as the backend found it: installed in place on a computer, its APK handed
+ * to Android on a phone. */
 export interface NewVersion {
   version: string;
-  update: Update | null;
   apk: Apk | null;
 }
 
 /**
- * New versions published on GitHub, installed only when the DJ asks and no deck is playing.
+ * New versions published on GitHub, installed only when the DJ asks and no deck is playing
+ * (the backend refuses meanwhile, the version downloaded kept).
  * On a computer, signed and offered in the title bar; installing restarts Prisme. On Android,
  * the APK of the release, downloaded by Prisme and handed to Android's installer, where the
  * DJ confirms; installing ends Prisme.
@@ -61,7 +58,7 @@ export class UpdateService {
     this.looked.set('looking');
     const shown = new Promise((done) => setTimeout(done, LOOKING_MS));
     try {
-      const found = await (ANDROID ? newerApk() : newerUpdate());
+      const found = await invoke<NewVersion | null>('check_update');
       await shown;
       this.available.set(found);
       this.looked.set(found ? null : 'latest');
@@ -77,9 +74,10 @@ export class UpdateService {
     this.installing.set(true);
     try {
       if (found.apk) await this.handToAndroid(found.apk);
-      else if (found.update) await this.installInPlace(found.version);
+      else await this.installInPlace(found.version);
     } catch (e) {
-      this.engine.error.set(errorText(e));
+      // a deck started meanwhile: what came waits for the decks to stop
+      if (!isBackendError(e) || e.code !== 'decksPlay') this.engine.error.set(errorText(e));
     } finally {
       this.installing.set(false);
       this.progress.set(null);
@@ -97,7 +95,6 @@ export class UpdateService {
       this.downloaded = version;
     }
     this.progress.set(null);
-    if (this.decksPlaying()) return;
     // by Prisme, which closes first: on Windows the installer ends it at once
     await invoke('install_update');
     await relaunch();
@@ -106,7 +103,6 @@ export class UpdateService {
   private async handToAndroid(apk: Apk): Promise<void> {
     await invoke('download_apk', { url: apk.url, size: apk.size, progress: this.told() });
     this.progress.set(null);
-    if (this.decksPlaying()) return;
     const handed = await invoke<'installer' | 'notAllowed'>('install_apk', { url: apk.url });
     this.needsLeave.set(handed === 'notAllowed');
   }
@@ -118,34 +114,4 @@ export class UpdateService {
     progress.onmessage = (fraction) => this.progress.set(fraction);
     return progress;
   }
-}
-
-async function newerUpdate(): Promise<NewVersion | null> {
-  const update = await check();
-  return update && { version: update.version, update, apk: null };
-}
-
-async function newerApk(): Promise<NewVersion | null> {
-  const response = await fetch(LATEST, { headers: { Accept: 'application/vnd.github+json' } });
-  if (!response.ok) throw new Error(`GitHub answered ${response.status}`);
-  const release = (await response.json()) as {
-    tag_name: string;
-    assets: { name: string; browser_download_url: string; size: number }[];
-  };
-  const apk = release.assets.find((a) => a.name.endsWith('.apk'));
-  if (!apk || !isNewer(release.tag_name, await getVersion())) return null;
-  return {
-    version: release.tag_name,
-    update: null,
-    apk: { url: apk.browser_download_url, size: apk.size },
-  };
-}
-
-/** Whether version `a` (1.2.3) comes after `b`. */
-export function isNewer(a: string, b: string): boolean {
-  const [x, y] = [a, b].map((v) => v.split('.').map(Number));
-  for (let i = 0; i < Math.max(x.length, y.length); i++) {
-    if ((x[i] ?? 0) !== (y[i] ?? 0)) return (x[i] ?? 0) > (y[i] ?? 0);
-  }
-  return false;
 }

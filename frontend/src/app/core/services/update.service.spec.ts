@@ -1,48 +1,41 @@
 import { TestBed } from '@angular/core/testing';
 import { clearMocks, mockIPC } from '@tauri-apps/api/mocks';
-import { Update } from '@tauri-apps/plugin-updater';
 import { EngineStatus } from '../models/engine';
 import { EngineService } from './engine.service';
-import { UpdateService, isNewer } from './update.service';
+import { UpdateService } from './update.service';
 
-describe('isNewer', () => {
-  it('compares each number in turn, not the text', () => {
-    expect(isNewer('0.3.10', '0.3.9')).toBe(true);
-    expect(isNewer('0.4.0', '0.3.12')).toBe(true);
-    expect(isNewer('1.0.0', '0.9.9')).toBe(true);
-  });
-
-  it('is false for the same version or an older one', () => {
-    expect(isNewer('0.3.6', '0.3.6')).toBe(false);
-    expect(isNewer('0.3.5', '0.3.6')).toBe(false);
-  });
-});
+/** The backend's refusal while a deck plays. */
+const DECKS_PLAY = { code: 'decksPlay', params: {}, message: 'a deck plays' };
 
 describe('UpdateService', () => {
   afterEach(() => clearMocks());
 
-  it('has Prisme download, then install once the decks are stopped, even when one started during the download', async () => {
+  it('has Prisme download, then install once the backend lets it, the download kept meanwhile', async () => {
     const commands: string[] = [];
     const engine = TestBed.inject(EngineService);
     const updates = TestBed.inject(UpdateService);
-    const playing = (on: boolean) => engine.status.set({ decks: [{ plays: on }] } as EngineStatus);
+    let playing = true;
     mockIPC((command) => {
       commands.push(command);
-      if (command === 'download_update') playing(true);
+      if (command === 'install_update' && playing) throw DECKS_PLAY;
+      return undefined;
     });
-    const update = { downloadAndInstall: vi.fn() } as unknown as Update;
-    playing(false);
-    updates.available.set({ version: '9.9.9', update, apk: null });
+    engine.status.set({ decks: [{ plays: false }] } as EngineStatus);
+    updates.available.set({ version: '9.9.9', apk: null });
 
     await updates.install();
-    expect(commands).toEqual(['download_update']);
+    expect(commands).toEqual(['download_update', 'install_update']);
     expect(updates.installing()).toBe(false);
-    expect(updates.waitsForDecks()).toBe(true);
+    expect(engine.error()).toBeNull();
 
-    playing(false);
+    playing = false;
     await updates.install();
-    expect(commands).toEqual(['download_update', 'install_update', 'plugin:process|restart']);
-    expect(update.downloadAndInstall).not.toHaveBeenCalled();
+    expect(commands).toEqual([
+      'download_update',
+      'install_update',
+      'install_update',
+      'plugin:process|restart',
+    ]);
   });
 
   it('hands the APK downloaded to Android, once the DJ let Prisme install applications', async () => {
@@ -57,7 +50,7 @@ describe('UpdateService', () => {
     });
     engine.status.set({ decks: [{ plays: false }] } as EngineStatus);
     const apk = { url: 'https://github.com/x.apk', size: 42 };
-    updates.available.set({ version: '9.9.9', update: null, apk });
+    updates.available.set({ version: '9.9.9', apk });
 
     await updates.install();
     expect(commands.map(([c]) => c)).toEqual(['download_apk', 'install_apk']);
@@ -71,23 +64,18 @@ describe('UpdateService', () => {
     expect(updates.needsLeave()).toBe(false);
   });
 
-  it('downloads the APK but keeps it while a deck plays', async () => {
+  it('waits while a deck plays', async () => {
     const commands: string[] = [];
     const engine = TestBed.inject(EngineService);
     const updates = TestBed.inject(UpdateService);
     mockIPC((command) => {
       commands.push(command);
-      if (command === 'download_apk') {
-        engine.status.set({ decks: [{ plays: true }] } as EngineStatus);
-      }
     });
-    engine.status.set({ decks: [{ plays: false }] } as EngineStatus);
-    updates.available.set({ version: '9.9.9', update: null, apk: { url: 'x.apk', size: 1 } });
+    engine.status.set({ decks: [{ plays: true }] } as EngineStatus);
+    updates.available.set({ version: '9.9.9', apk: { url: 'x.apk', size: 1 } });
 
-    await updates.install();
-    expect(commands).toEqual(['download_apk']);
     expect(updates.waitsForDecks()).toBe(true);
     await updates.install();
-    expect(commands).toEqual(['download_apk']);
+    expect(commands).toEqual([]);
   });
 });
