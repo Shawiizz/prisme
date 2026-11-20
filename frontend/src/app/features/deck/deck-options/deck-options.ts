@@ -190,22 +190,13 @@ export class DeckOptions {
   protected readonly ranges = PITCH_RANGES;
   protected readonly range = computed(() => this.engine.decks()[this.deck()].tempoRange);
   protected readonly settings = computed(() => this.engine.decks()[this.deck()]);
-  protected readonly reversed = computed(
-    () => this.engine.status()?.decks[this.deck()]?.reverse ?? false,
-  );
-
-  protected readonly loaded = computed(() => !!this.engine.status()?.decks[this.deck()]?.loaded);
-
+  private readonly status = computed(() => this.engine.status()?.decks[this.deck()] ?? null);
+  protected readonly reversed = computed(() => this.status()?.reverse ?? false);
+  protected readonly loaded = computed(() => this.status()?.loaded ?? false);
   /** The motor moves a track that plays by itself: a record drives its own. */
-  protected readonly movable = computed(
-    () => this.loaded() && !this.settings().vinylEnabled && !this.settings().passthrough,
-  );
-
+  protected readonly movable = computed(() => this.status()?.canMotor ?? false);
   /** A jump moves a track a record in absolute mode does not hold. */
-  protected readonly placeable = computed(
-    () =>
-      this.loaded() && !(this.settings().vinylEnabled && this.settings().vinylMode === 'absolute'),
-  );
+  protected readonly placeable = computed(() => this.status()?.canMove ?? false);
 
   /** The deck spun back: the one let go, even if the menu changed decks meanwhile. */
   private spun: number | null = null;

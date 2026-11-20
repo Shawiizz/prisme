@@ -40,6 +40,8 @@ pub struct Deck {
     pub sync_key: SyncKey,
     /// Its loops, jumps and pads may move its track: it has one, which no record holds in place.
     pub can_move: bool,
+    /// Its motor (brake, spin back) may move its track: it has one, which it plays by itself.
+    pub can_motor: bool,
     /// Its grid may move onto the beats of the deck it is mixed with: both play on a grid.
     pub can_align_grid: bool,
     /// Its key may be moved to mix with the one heard on the deck it is mixed with: both known.
@@ -182,6 +184,7 @@ pub fn deck(view: &View, deck: usize) -> Deck {
         sync,
         sync_key,
         can_move: status.loaded && drive != Drive::Absolute,
+        can_motor: status.loaded && drive == Drive::Internal,
         can_align_grid: bpm.and_then(|bpm| grid_shift_to(status, other, bpm)).is_some(),
         can_sync_key: settings.track.and_then(|t| t.key).is_some() && heard_key(view, mixed_with).is_some(),
         cue: cue_state(status, settings.track.as_ref()),
@@ -340,14 +343,17 @@ mod tests {
     fn a_record_drives_its_deck_until_the_needle_runs_out_and_a_deck_on_its_input_is_thru() {
         let mut v = loaded(view(), 0, 10.0, true);
         assert_eq!(deck(&v, 0).drive, Drive::Internal);
+        assert!(deck(&v, 0).can_motor);
         v.decks[0].vinyl = true;
         assert_eq!(deck(&v, 0).drive, Drive::Absolute);
         assert!(!deck(&v, 0).can_move, "the record holds the place");
         v.decks[0].vinyl_mode = VinylMode::Relative;
         assert_eq!(deck(&v, 0).drive, Drive::Relative);
         assert!(deck(&v, 0).can_move);
+        assert!(!deck(&v, 0).can_motor, "the record turns it");
         v.status.decks[0].vinyl.run_out = true;
         assert_eq!(deck(&v, 0).drive, Drive::Internal);
+        assert!(deck(&v, 0).can_motor, "played by itself");
         v.decks[0].passthrough = true;
         assert_eq!(deck(&v, 0).drive, Drive::Thru);
         assert!(!deck(&view(), 0).can_move, "no track");

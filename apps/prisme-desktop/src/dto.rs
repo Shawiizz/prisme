@@ -1032,6 +1032,8 @@ pub struct DeckStatusDto {
     pub sync: SyncDto,
     /// Its loops, jumps and pads may move its track.
     pub can_move: bool,
+    /// Its motor (brake, spin back) may move its track.
+    pub can_motor: bool,
     /// Its grid may move onto the beats of the deck it is mixed with.
     pub can_align_grid: bool,
     /// Its key may be moved to mix with the one heard on the deck it is mixed with.
@@ -1128,6 +1130,7 @@ impl DeckStatusDto {
             tempo: shown.tempo,
             sync: SyncDto { state: shown.sync, leader: d.sync.leader, key: shown.sync_key },
             can_move: shown.can_move,
+            can_motor: shown.can_motor,
             can_align_grid: shown.can_align_grid,
             can_sync_key: shown.can_sync_key,
             lights: DeckLightsDto { cue: shown.cue, slice: shown.slice },

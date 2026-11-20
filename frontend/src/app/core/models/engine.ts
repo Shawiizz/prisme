@@ -99,6 +99,8 @@ export interface DeckStatus {
   sync: SyncStatus;
   /** Its loops, jumps and pads may move its track. */
   canMove: boolean;
+  /** Its motor (brake, spin back) may move its track: it plays it by itself. */
+  canMotor: boolean;
   /** Its grid may move onto the beats of the deck it is mixed with. */
   canAlignGrid: boolean;
   /** Its key may be moved to mix with the one heard on the deck it is mixed with. */
