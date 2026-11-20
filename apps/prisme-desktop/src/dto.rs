@@ -2302,12 +2302,8 @@ pub struct AutoDjStatusDto {
     pub state: AutoDjStateDto,
     pub reason: Option<AutoDjReasonDto>,
     pub reason_deck: Option<usize>,
-    /// The deck heard.
-    pub current: Option<usize>,
     /// The deck being mixed in.
     pub incoming: Option<usize>,
-    /// Where on the deck heard the next mix starts (to the hundredth of a second).
-    pub mix_at_s: Option<f64>,
     pub fade_beats: u32,
     pub fade_s: f64,
 }
@@ -2336,9 +2332,7 @@ impl AutoDjStatusDto {
             },
             reason,
             reason_deck,
-            current: status.current,
             incoming: status.incoming,
-            mix_at_s: status.mix_at_s.map(|s| (s * 100.0).round() / 100.0),
             fade_beats: fade.beats,
             fade_s: fade.seconds,
         }

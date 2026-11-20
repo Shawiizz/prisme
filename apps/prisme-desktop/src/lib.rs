@@ -328,7 +328,6 @@ pub fn run() {
             commands::edits::edit_grid,
             commands::edits::set_key,
             commands::edits::key_choices,
-            commands::folders::music_root,
             commands::folders::sort_dropped,
             commands::folders::audio_extensions,
             commands::folders::set_music_folder,

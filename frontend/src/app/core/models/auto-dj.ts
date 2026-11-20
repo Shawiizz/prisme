@@ -16,12 +16,8 @@ export interface AutoDjStatus {
   reason: AutoDjReason | null;
   /** The deck the DJ played or loaded, for those reasons. */
   reasonDeck: number | null;
-  /** The deck heard. */
-  current: number | null;
   /** The deck being mixed in. */
   incoming: number | null;
-  /** Where on the deck heard the next mix starts. */
-  mixAtS: number | null;
   /** Length of a mix between tracks with a beat grid. */
   fadeBeats: number;
   /** Length of a mix when one has none. */

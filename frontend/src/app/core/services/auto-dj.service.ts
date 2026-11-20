@@ -1,6 +1,5 @@
 import { Injectable, computed, inject } from '@angular/core';
 import { invoke } from '@tauri-apps/api/core';
-import { AutoDjStatus } from '../models/auto-dj';
 import { EngineService } from './engine.service';
 import { MixerService } from './mixer.service';
 import { t } from '../i18n/i18n';

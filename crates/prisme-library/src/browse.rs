@@ -331,10 +331,6 @@ impl Browser {
         self.elsewhere.iter().map(|&id| self.catalogue.get(id))
     }
 
-    pub fn is_elsewhere(&self, id: TrackId) -> bool {
-        self.outside.contains(&id)
-    }
-
     /// Those of `paths` that are tracks from elsewhere.
     pub fn elsewhere_among(&self, paths: &[String]) -> Vec<String> {
         let outside = |path: &&String| self.catalogue.find(path).is_some_and(|id| self.outside.contains(&id));

@@ -31,11 +31,6 @@ pub fn audio_extensions() -> &'static [&'static str] {
     prisme_media::SUPPORTED_EXTENSIONS
 }
 
-#[tauri::command]
-pub fn music_root(library: State<'_, Arc<LibraryService>>) -> String {
-    library.root().display().to_string()
-}
-
 /// Makes `path` the music folder (`None`: the system's), scanned at once; returns the music
 /// folder. Off the main thread: the analysis running stops first.
 #[tauri::command]

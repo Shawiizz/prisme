@@ -341,7 +341,7 @@ pub fn analysed(state: &AppState, record: TrackRecord) {
 /// Shows `source`: the whole list, in its own order if it has one. A folder is the one shown
 /// next time Prisme starts.
 pub fn open(state: &AppState, db: &LibraryDb, source: Source) -> AppResult<()> {
-    let (rows, folders) = read(state, db, &source)?;
+    let Read { rows, folders } = read(state, db, &source)?;
     if let Source::Folder(path) = &source {
         let last = Some(path.display().to_string());
         if state.preferences.read(|p| p.library.last_folder != last) {
@@ -369,7 +369,7 @@ pub fn up(state: &AppState, db: &LibraryDb) -> AppResult<()> {
 /// The list shown read again, searched, sorted and picked as it was: what it holds changed.
 pub fn refresh(state: &AppState, db: &LibraryDb) -> AppResult<()> {
     let source = lock(&state.library).browser.source().clone();
-    let (rows, folders) = read(state, db, &source)?;
+    let Read { rows, folders } = read(state, db, &source)?;
     state.browse(|l| {
         if *l.browser.source() == source {
             let rows = l.browser.entries(rows);
@@ -406,39 +406,39 @@ pub fn folders_changed(state: &AppState, db: &LibraryDb, roots: Vec<PathBuf>) {
     }
 }
 
-/// The rows of `source`, each played when it says (a set's), and the folders in it if it is a
-/// folder.
-#[allow(clippy::type_complexity)]
-fn read(
-    state: &AppState,
-    db: &LibraryDb,
-    source: &Source,
-) -> AppResult<(Vec<(String, Option<i64>)>, Vec<PathBuf>)> {
+/// What a list holds, as read: its rows, each a track's path and when it was played (a set's),
+/// and the folders in it if it is a folder.
+#[derive(Default)]
+struct Read {
+    rows: Vec<(String, Option<i64>)>,
+    folders: Vec<PathBuf>,
+}
+
+/// What `source` holds.
+fn read(state: &AppState, db: &LibraryDb, source: &Source) -> AppResult<Read> {
     let derived = lock(&state.library).browser.rows_of(source);
     if let Some(entries) = derived {
         let library = lock(&state.library);
         let catalogue = library.browser.catalogue();
         let rows = entries.iter().map(|e| (catalogue.get(e.track).path.clone(), e.played_at_ms)).collect();
-        return Ok((rows, Vec::new()));
+        return Ok(Read { rows, ..Read::default() });
     }
-    match source {
+    let rows = match source {
         Source::Folder(path) => {
             let roots = lock(&state.library).browser.roots().to_vec();
             let listing = folders::listing(path, &roots)?;
             known(state, db, &listing.files);
             let rows =
                 listing.files.into_iter().map(|(file, _)| (file.display().to_string(), None)).collect();
-            Ok((rows, listing.folders))
+            return Ok(Read { rows, folders: listing.folders });
         }
-        Source::Crate(id) => {
-            Ok((db.crate_tracks(*id)?.into_iter().map(|e| (e.path, None)).collect(), Vec::new()))
+        Source::Crate(id) => db.crate_tracks(*id)?.into_iter().map(|e| (e.path, None)).collect(),
+        Source::History(id) => {
+            db.history_plays(*id)?.into_iter().map(|p| (p.path, Some(p.played_at_ms))).collect()
         }
-        Source::History(id) => Ok((
-            db.history_plays(*id)?.into_iter().map(|p| (p.path, Some(p.played_at_ms))).collect(),
-            Vec::new(),
-        )),
-        Source::Prepare | Source::Elsewhere | Source::Duplicates => Ok((Vec::new(), Vec::new())),
-    }
+        Source::Prepare | Source::Elsewhere | Source::Duplicates => Vec::new(),
+    };
+    Ok(Read { rows, ..Read::default() })
 }
 
 /// What the library knows of `files` of a folder, those it does not know as they are now read
