@@ -57,7 +57,7 @@ The data folder is described on [MIDI learn and your own profile](/docs/controll
 | `name` | text | The model, as the settings show it: **Mapped as a** `name`. |
 | `ports` | list of texts | The controller is the MIDI port whose name contains one of these, upper or lower case alike. Of several models that fit, the one with the longest matching name wins. |
 | `credits` | text | Where the mapping comes from, when it is not Prisme's own. |
-| `verified` | `true` or `false` | `true` once the profile was tried on the controller itself. Without it, the settings say **Converted from the mapping of Mixxx, not yet tried on this controller**. Default `false`. |
+| `verified` | `true` or `false` | `true` once the profile was tried on the controller itself: the settings show **Verified** beside the controller's name. Without it, they show **Not verified** and say **Converted from the mapping of Mixxx, not yet tried on this controller**. Default `false`. |
 | `variant` | `true` or `false` | `true` for another profile of a model, for a firmware or an edition of its own on the same ports: it is never chosen by itself, the model's profile is, and the settings offer it under the controller (see [Variants](/docs/controllers/#variants)). Default `false`. |
 | `jogStepsPerTurn` | number | Steps the controller sends for a whole turn of a jog wheel, measured on it. It sets how far a scratch moves the track. Default 720. |
 | `init` | list of messages | Sent when the controller is opened, SysEx included. A message written `{ "afterMs": 1500, "message": [...] }` goes that many milliseconds later, once a light show the model plays by itself is over. |
@@ -292,20 +292,18 @@ The folder of the shipped profiles holds three more files, which Prisme's tests 
 
 | File | |
 | --- | --- |
-| `targets.json` | Every action of the app (`frontend/src/app/core/control/controls.ts`): its id, group, label and kind. |
+| `targets.json` | Every action of the app, as `crates/prisme-control` lists it (`listed.rs`): its id, group, label and kind. |
 | `profile.schema.json` | The [schema](#the-schema), made from the types Prisme reads and `targets.json`. |
 | `index.json` | Of each profile, the digest of its text, its revision (raised at each change) and the version of the format it was written in. Installed copies read it to know what to fetch. |
 
 After adding or changing a profile:
 
 ```sh
-cd frontend
-PRISME_WRITE_TARGETS=1 pnpm exec ng test --watch=false   # writes targets.json
-cd ..
+PRISME_WRITE_TARGETS=1 cargo test -p prisme-control listed   # writes targets.json, after a change to the actions
 PRISME_WRITE_PROFILES=1 cargo test -p prisme-desktop controller_profiles   # writes index.json and the schema
 ```
 
-A profile changed or added then gets a later revision in the index. The frontend's tests (`profiles.spec.ts`) also check every profile: that every action exists, that only encoders drive actions of the kind *encoder*, that mode keys choose modes their group has, and that meters and outputs show what the app has.
+A profile changed or added then gets a later revision in the index. The same tests (`controller_profiles`) also check every shipped profile: that it reads without a problem, that every action it names exists, that only encoders drive actions of the kind *encoder*, that mode keys choose modes their group has, and that meters, outputs and screens show what the app has.
 
 The format has a version (2 today). A profile using what an older Prisme does not read is published with the newer version, and that Prisme keeps its own copy.
 

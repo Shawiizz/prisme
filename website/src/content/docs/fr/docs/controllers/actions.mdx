@@ -30,7 +30,7 @@ En plus des actions listées plus bas, un profil peut nommer des actions par un 
 | Id | Action | Exemple |
 | --- | --- | --- |
 | `deckN.jump.<beats>` | Un saut d’autant de temps, en arrière sous zéro | `deck1.jump.-8`, `deck1.jump.16` |
-| `deckN.loop.<beats>` | Une boucle d’autant de temps ; allumée pendant que cette boucle tourne | `deck1.loop.0.25`, `deck1.loop.8` |
+| `deckN.loop.<beats>` | Une boucle d’autant de temps, ou la sortie de cette boucle si elle tourne ; allumée pendant qu’elle tourne | `deck1.loop.0.25`, `deck1.loop.8` |
 | `deckN.roll.<beats>` | Un loop roll d’autant de temps tant que c’est appuyé | `deck1.roll.0.5` |
 | `deckN.key.<semitones>` | La tonalité décalée d’autant de demi-tons par rapport à celle du morceau ; allumée tant qu’elle l’est | `deck1.key.+2`, `deck1.key.-1` |
 | `deckN.sample<n>.velocity` | Le sample `n` (1 à 16) joué aussi fort que son pad est frappé | `deck2.sample3.velocity` |

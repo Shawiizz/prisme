@@ -76,7 +76,7 @@ On Windows, only one program at a time can open a MIDI port. If another DJ progr
 
 Each model Prisme knows has a profile, which lists the names its MIDI port goes by. When the name of a port contains one of them (upper or lower case alike), that profile maps the controller. When several models fit, the longest name wins, so a DDJ-SB2 is never taken for a DDJ-SB. A HID controller is known by its USB ids instead, whatever your system calls it.
 
-Under the controller's name, the settings tell you what Prisme made of it:
+Beside the controller's name, a badge says whether its profile was tried on the controller itself: **Verified**, or **Not verified** for a profile nobody has played on the hardware yet. A profile of your own shows neither. Under the name, the settings tell you what Prisme made of it:
 
 | Line | Meaning |
 | --- | --- |
@@ -88,7 +88,7 @@ Under the controller's name, the settings tell you what Prisme made of it:
 
 ### Variants
 
-A few models come in versions their port does not tell apart: another firmware, an edition sold with other software. The Vestax VCI-100, its Hile mod and its MixVibes 3DEX edition all call themselves **VCI-100**. Prisme maps such a controller as the model itself, and offers the others in a menu under **Mapped as a…**, with **Other profiles fit this controller: a firmware or an edition of its own**. Choose the one your controller is: it plays by that profile at once, and Prisme keeps the choice for that controller, at every start.
+A few models come in versions their port does not tell apart: another firmware, an edition sold with other software. The Vestax VCI-100, its Hile mod and its MixVibes 3DEX edition all call themselves **VCI-100**. Prisme maps such a controller as the model itself, and offers the others in a menu under **Mapped as a…**, with **Other profiles fit this controller: a firmware or an edition of its own**. Choose the one your controller is: it plays by that profile at once, and Prisme keeps the choice for that controller, at every start. The Behringer CMD DV-1 has one too: **Behringer CMD DV-1 (MIDI channel 1)**, for a DV-1 set to send on channel 1.
 
 ## What the controller does
 
@@ -109,7 +109,7 @@ Many profiles give the controls a second use while the controller's Shift key is
 
 The deck action **Jog wheel: a touch scratches, or only nudges** turns the scratching on a touch off and on, per deck. It is on by default.
 
-Jog wheels and tempo faders do not wait for the interface: Prisme hands them to the audio engine as they come, with the time each message arrived, so a scratch follows your hand.
+A controller never waits for the interface: Prisme performs each control as its message comes, even with the window hidden, and hands the jog wheels and tempo faders to the audio engine with the time each message arrived, so a scratch follows your hand.
 
 ### Lights
 
@@ -173,7 +173,7 @@ A profile of your own always wins over Prisme's for the same model: once you hav
 
 ### The list of actions
 
-Below, every action a control can drive, by group, with where it is mapped now (the controller, then the control: `DDJ-SB2 · Note 11 · ch 1`). **Learn** maps a control to it, and the **×** after a controller takes it off that controller alone. For an encoder, a menu chooses how it sends its steps. All of this is on [MIDI learn and your own profile](/docs/controllers/learn/).
+Below, every action a control can drive, by group, with where it is mapped now (the controller, then the control: `DDJ-SB2 · Note 11 · ch 1`). **Learn** maps a control to it, and the **×** after a controller takes it off that controller alone. For an encoder, a menu chooses how it sends its steps. **Find any action, to map it**, above the list, keeps only the actions whose name, group or id holds every word you type, those of decks C and D included while two decks show; <kbd>Esc</kbd> empties it. All of this is on [MIDI learn and your own profile](/docs/controllers/learn/).
 
 ## Next
 

@@ -76,7 +76,7 @@ Sous Windows, un seul logiciel à la fois peut ouvrir un port MIDI. Si un autre 
 
 Chaque modèle que Prisme connaît a un profil, qui liste les noms sous lesquels son port MIDI se présente. Quand le nom d’un port contient l’un d’eux (majuscules et minuscules confondues), ce profil mappe le contrôleur. Quand plusieurs modèles correspondent, le nom le plus long l’emporte : une DDJ-SB2 n’est donc jamais prise pour une DDJ-SB. Un contrôleur HID est reconnu à ses identifiants USB, quel que soit le nom que lui donne votre système.
 
-Sous le nom du contrôleur, les réglages vous disent ce que Prisme en a compris :
+À côté du nom du contrôleur, un badge dit si son profil a été essayé sur le contrôleur lui-même : **Vérifié**, ou **Non vérifié** pour un profil que personne n’a encore joué sur le matériel. Un profil à vous n’affiche ni l’un ni l’autre. Sous le nom, les réglages vous disent ce que Prisme en a compris :
 
 | Ligne | Signification |
 | --- | --- |
@@ -88,7 +88,7 @@ Sous le nom du contrôleur, les réglages vous disent ce que Prisme en a compris
 
 ### Variantes
 
-Quelques modèles existent en versions que leur port ne distingue pas : un autre firmware, une édition vendue avec un autre logiciel. Le Vestax VCI-100, son mod Hile et son édition MixVibes 3DEX se présentent tous comme **VCI-100**. Prisme mappe un tel contrôleur comme le modèle lui-même, et propose les autres dans un menu sous **Reconnu comme…**, avec **D’autres profils conviennent à ce contrôleur : un firmware ou une édition à part**. Choisissez celui qu’est votre contrôleur : il joue aussitôt avec ce profil, et Prisme garde ce choix pour ce contrôleur, à chaque démarrage.
+Quelques modèles existent en versions que leur port ne distingue pas : un autre firmware, une édition vendue avec un autre logiciel. Le Vestax VCI-100, son mod Hile et son édition MixVibes 3DEX se présentent tous comme **VCI-100**. Prisme mappe un tel contrôleur comme le modèle lui-même, et propose les autres dans un menu sous **Reconnu comme…**, avec **D’autres profils conviennent à ce contrôleur : un firmware ou une édition à part**. Choisissez celui qu’est votre contrôleur : il joue aussitôt avec ce profil, et Prisme garde ce choix pour ce contrôleur, à chaque démarrage. Le Behringer CMD DV-1 en a une aussi : **Behringer CMD DV-1 (MIDI channel 1)**, pour un DV-1 réglé pour envoyer sur le canal 1.
 
 ## Ce que fait le contrôleur
 
@@ -109,7 +109,7 @@ Beaucoup de profils donnent aux commandes une seconde fonction tant que la touch
 
 L’action de deck **Jog : un toucher scratche, ou pousse seulement** active ou coupe le scratch au toucher, deck par deck. Elle est activée par défaut.
 
-Les jogs et les faders de pitch n’attendent pas l’interface : Prisme les transmet au moteur audio à mesure qu’ils arrivent, avec l’heure d’arrivée de chaque message, pour qu’un scratch suive votre main.
+Un contrôleur n’attend jamais l’interface : Prisme exécute chaque commande à mesure que son message arrive, même fenêtre cachée, et transmet les jogs et les faders de pitch au moteur audio avec l’heure d’arrivée de chaque message, pour qu’un scratch suive votre main.
 
 ### Voyants
 
@@ -173,7 +173,7 @@ Votre propre profil l’emporte toujours sur celui de Prisme pour le même modè
 
 ### La liste des actions
 
-En dessous, toutes les actions qu’une commande peut piloter, par groupe, avec l’endroit où elles sont mappées en ce moment (le contrôleur, puis la commande : `DDJ-SB2 · Note 11 · ch 1`). **Apprendre** y mappe une commande, et le **×** après un contrôleur la retire de ce contrôleur seul. Pour un encodeur, un menu choisit comment il envoie ses pas. Tout cela est expliqué dans [MIDI learn et votre propre profil](/fr/docs/controllers/learn/).
+En dessous, toutes les actions qu’une commande peut piloter, par groupe, avec l’endroit où elles sont mappées en ce moment (le contrôleur, puis la commande : `DDJ-SB2 · Note 11 · ch 1`). **Apprendre** y mappe une commande, et le **×** après un contrôleur la retire de ce contrôleur seul. Pour un encodeur, un menu choisit comment il envoie ses pas. **Chercher n’importe quelle action, pour l’associer**, au-dessus de la liste, ne garde que les actions dont le nom, le groupe ou l’id contient chaque mot tapé, y compris celles des decks C et D quand deux decks sont affichés ; <kbd>Esc</kbd> la vide. Tout cela est expliqué dans [MIDI learn et votre propre profil](/fr/docs/controllers/learn/).
 
 ## Pour continuer
 
