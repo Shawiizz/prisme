@@ -120,17 +120,17 @@ export class AutoDjService {
 
   /** On, off, or on again after the DJ took over. */
   toggle() {
-    return this.call('toggle_auto_dj');
+    return this.engine.perform('autodj.toggle', 1);
   }
 
   /** Mixes into the next track at once. */
   fadeNow() {
-    return this.call('auto_dj_fade_now');
+    return this.engine.perform('autodj.fade', 1);
   }
 
   /** Leaves the next track out of the list: the one after comes next. */
   skip() {
-    return this.call('auto_dj_skip');
+    return this.engine.perform('autodj.skip', 1);
   }
 
   setFade(beats: number, seconds: number) {
