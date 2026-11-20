@@ -40,7 +40,7 @@ export class UpdateService {
   readonly progress = signal<number | null>(null);
   /** Android installs the new version once the DJ lets Prisme install applications. */
   readonly needsLeave = signal(false);
-  readonly decksPlaying = computed(() => this.engine.status()?.decks.some((d) => d.plays) ?? false);
+  readonly decksPlaying = computed(() => this.engine.status()?.plays ?? false);
   readonly waitsForDecks = computed(() => !!this.available() && this.decksPlaying());
   /** The version downloaded: a deck that started meanwhile leaves it to install once stopped. */
   private downloaded: string | null = null;

@@ -20,7 +20,7 @@ describe('UpdateService', () => {
       if (command === 'install_update' && playing) throw DECKS_PLAY;
       return undefined;
     });
-    engine.status.set({ decks: [{ plays: false }] } as EngineStatus);
+    engine.status.set({ decks: [{ plays: false }], plays: false } as EngineStatus);
     updates.available.set({ version: '9.9.9', apk: null });
 
     await updates.install();
@@ -48,7 +48,7 @@ describe('UpdateService', () => {
       if (command === 'install_apk') return allowed ? 'installer' : 'notAllowed';
       return undefined;
     });
-    engine.status.set({ decks: [{ plays: false }] } as EngineStatus);
+    engine.status.set({ decks: [{ plays: false }], plays: false } as EngineStatus);
     const apk = { url: 'https://github.com/x.apk', size: 42 };
     updates.available.set({ version: '9.9.9', apk });
 
@@ -71,7 +71,7 @@ describe('UpdateService', () => {
     mockIPC((command) => {
       commands.push(command);
     });
-    engine.status.set({ decks: [{ plays: true }] } as EngineStatus);
+    engine.status.set({ decks: [{ plays: true }], plays: true } as EngineStatus);
     updates.available.set({ version: '9.9.9', apk: { url: 'x.apk', size: 1 } });
 
     expect(updates.waitsForDecks()).toBe(true);

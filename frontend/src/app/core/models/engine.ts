@@ -217,6 +217,8 @@ export interface AudioHealth {
 export interface EngineStatus {
   audioRunning: boolean;
   decks: DeckStatus[];
+  /** A deck plays: no update is installed meanwhile. */
+  plays: boolean;
   /** What the meters show: every deck's, the master's, the live sources' (on or not). */
   meters: { decks: MeterLevel[]; main: MeterLevel; mic: MeterLevel; aux: MeterLevel };
   health: AudioHealth | null;

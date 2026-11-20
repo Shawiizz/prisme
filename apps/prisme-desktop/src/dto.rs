@@ -14,7 +14,7 @@ use prisme_actions::meter::Levels;
 use prisme_actions::pads::Pads;
 use prisme_actions::perform::DeckPerform;
 pub use prisme_actions::stems::{Separation as SeparationDto, StemMix as StemMixDto};
-use prisme_actions::view::View;
+use prisme_actions::view::{plays, View};
 use prisme_actions::{light, screen};
 use prisme_audio_io::{Backend, StreamStats};
 use prisme_engine::{
@@ -1454,6 +1454,8 @@ impl DeckStatusDto {
 pub struct StatusDto {
     pub audio_running: bool,
     pub decks: Vec<DeckStatusDto>,
+    /// A deck plays (see `view::plays`): no update is installed meanwhile.
+    pub plays: bool,
     /// What the meters show: each deck's, the master's, the live sources'.
     pub meters: Levels,
     pub health: Option<AudioHealthDto>,
@@ -1678,6 +1680,7 @@ impl StatusDto {
         Self {
             audio_running: health.as_ref().is_some_and(|h| !h.device_lost),
             decks: (0..view.decks_in_use).map(|d| DeckStatusDto::of(view, d)).collect(),
+            plays: s.decks.iter().any(plays),
             meters,
             health,
             recording: s.recording.map(|r| RecordingStatusDto {
