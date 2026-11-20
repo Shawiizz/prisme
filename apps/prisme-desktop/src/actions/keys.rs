@@ -20,6 +20,9 @@ pub(crate) enum Press {
     Tap,
     /// Let go after its hold acted: the hold's action let go.
     Release(Target),
+    /// Let go after its time, its hold not acted yet (the tick late): the hold's action pressed
+    /// and let go.
+    Held(Target),
 }
 
 /// The interface's keys held whose rule acts while they are.
@@ -45,12 +48,15 @@ impl Keys {
             held.push(Held { target: target.clone(), pressed: Pressed::new(timing, now_s), hold });
             return if waits { Press::Wait } else { Press::Act };
         }
-        match (hold, was) {
-            (None, _) => Press::Act,
-            // its press lost, or never seen
-            (Some(_), None) => Press::Wait,
-            (Some(hold), Some(was)) if was.pressed.acted() => Press::Release(hold),
-            (Some(_), Some(_)) => Press::Tap,
+        let Some(hold) = hold else { return Press::Act };
+        // its press lost, or never seen
+        let Some(mut was) = was else { return Press::Wait };
+        if was.pressed.acted() {
+            Press::Release(hold)
+        } else if was.pressed.due(now_s) {
+            Press::Held(hold)
+        } else {
+            Press::Tap
         }
     }
 
@@ -108,7 +114,9 @@ mod tests {
         assert_eq!(keys.press(&sync, 1.0, 1.0), Press::Wait);
         assert_eq!(keys.due(1.5, &view()), std::slice::from_ref(&once));
         assert_eq!(keys.due(2.0, &view()), [], "once");
-        assert_eq!(keys.press(&sync, 0.0, 2.0), Press::Release(once));
+        assert_eq!(keys.press(&sync, 0.0, 2.0), Press::Release(once.clone()));
+        keys.press(&sync, 1.0, 3.0);
+        assert_eq!(keys.press(&sync, 0.0, 3.6), Press::Held(once), "held, the tick late");
     }
 
     #[test]

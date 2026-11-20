@@ -50,12 +50,13 @@ impl Pressed {
         Self { timing, next_s: Some(now_s + f64::from(wait) / 1000.0), acted: false }
     }
 
-    /// Whether it acts at `now_s`: held long enough (once), or its next repeat come.
+    /// Whether it acts at `now_s`: held long enough (once), or its next repeat come. Asked late
+    /// (a stall), a repeat acts once and goes on at its pace from then.
     pub fn due(&mut self, now_s: f64) -> bool {
         let Some(next_s) = self.next_s.filter(|&next| now_s >= next) else { return false };
         self.next_s = match self.timing {
             Timing::Held(_) => None,
-            Timing::Repeated { every, .. } => Some(next_s + f64::from(every) / 1000.0),
+            Timing::Repeated { every, .. } => Some(next_s.max(now_s) + f64::from(every) / 1000.0),
         };
         self.acted = true;
         true
@@ -86,6 +87,13 @@ mod tests {
         let mut pressed = Pressed::new(Timing::Repeated { wait: 400, every: 60 }, 0.0);
         let due: Vec<bool> = [0.399, 0.4, 0.459, 0.461, 0.521, 0.6, 0.6].map(|t| pressed.due(t)).into();
         assert_eq!(due, [false, true, false, true, true, true, false]);
+    }
+
+    #[test]
+    fn a_repeat_asked_late_acts_once_then_keeps_its_pace() {
+        let mut pressed = Pressed::new(Timing::Repeated { wait: 400, every: 60 }, 0.0);
+        let due: Vec<bool> = [1.0, 1.0, 1.059, 1.06].map(|t| pressed.due(t)).into();
+        assert_eq!(due, [true, false, false, true], "no burst for the repeats missed");
     }
 
     #[test]

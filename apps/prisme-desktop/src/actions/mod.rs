@@ -49,7 +49,7 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::mpsc::{self, Sender, SyncSender};
 use std::sync::{Arc, Condvar, Mutex, MutexGuard};
 use std::time::{Duration, Instant};
-use tauri::{AppHandle, Emitter, Manager, State};
+use tauri::{AppHandle, Emitter, Manager};
 use tracing::error;
 
 pub use view::{view_of, view_with};
@@ -817,6 +817,10 @@ pub async fn perform_action(
                 Press::Release(hold) => {
                     actions.perform(&app, &hold, Input::Value(0.0), source(), Answer::To(answer), &mut turn);
                 }
+                Press::Held(hold) => {
+                    actions.perform(&app, &hold, Input::Value(1.0), source(), Answer::To(answer), &mut turn);
+                    actions.perform(&app, &hold, Input::Value(0.0), source(), Answer::Told, &mut turn);
+                }
             }
             Ok(())
         })?;
@@ -826,12 +830,17 @@ pub async fn perform_action(
 }
 
 /// The interface's press of the key `target` lost (the key gone from under the pointer): let
-/// go, without what its release does.
+/// go, without what its release does, in its turn (`order`) after the press.
 #[tauri::command]
-pub fn let_go_key(actions: State<'_, Actions>, target: String) -> AppResult<()> {
-    let target: Target = target.parse().map_err(|e: Unknown| AppError::Other(e.to_string()))?;
-    actions.keys.lost(&target);
-    Ok(())
+pub async fn let_go_key(app: AppHandle, target: String, order: Order) -> AppResult<()> {
+    crate::commands::blocking(move || {
+        app.state::<Actions>().in_order(order, || {
+            let target: Target = target.parse().map_err(|e: Unknown| AppError::Other(e.to_string()))?;
+            app.state::<Actions>().keys.lost(&target);
+            Ok(())
+        })
+    })
+    .await
 }
 
 #[cfg(test)]

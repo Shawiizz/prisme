@@ -1396,12 +1396,21 @@ impl Controllers {
             return None;
         }
         let at = holdings.iter().position(|h| h.device == device && h.control == event.control)?;
-        let held = holdings.remove(at);
-        if held.pressed.acted() && held.hold.target.mode().is_some() {
-            return None;
-        }
-        if held.pressed.acted() {
-            return driven(vec![Action::press(&held.hold.target, 0.0)]);
+        let mut held = holdings.remove(at);
+        // let go after its time, the output tick late: held all the same
+        let late = !held.pressed.acted() && held.pressed.due(held.since.elapsed().as_secs_f64());
+        let target = &held.hold.target;
+        if let Some((group, mode)) = target.mode() {
+            if late {
+                reader.set_mode(device, group, mode);
+            }
+            if held.pressed.acted() {
+                return None;
+            }
+        } else if late {
+            return driven(vec![Action::press(target, 1.0), Action::press(target, 0.0)]);
+        } else if held.pressed.acted() {
+            return driven(vec![Action::press(target, 0.0)]);
         }
         reader.choose(device, mapping);
         let mut pressed = inputs(mapping, 1.0);
@@ -2041,6 +2050,18 @@ mod tests {
         assert_eq!(mode(&c), "slicer");
         assert_eq!(route(&c, &[0x90, 9, 0]), None);
         assert_eq!(mode(&c), "slicer", "let go after its hold, its own mode is not chosen");
+        lock(&c.reader).set_modes("DDJ", Modes::from([("pads".into(), "cues".into())]));
+        route(&c, &[0x90, 9, 127]);
+        assert_eq!(route(&c, &[0x90, 9, 0]), None);
+        assert_eq!(mode(&c), "slicer", "held its time, its hold not fired yet: chosen at the release");
+    }
+
+    #[test]
+    fn a_key_let_go_after_its_hold_was_due_drives_the_hold_the_tick_late() {
+        let eject = |b: &mut ProfileControl| b.hold = Some(Hold { ms: 0, target: "deck1.eject".into() });
+        let c = with_mappings([with(mapping(PAD, "library.load1"), eject)]);
+        assert_eq!(route(&c, &[0x90, 36, 127]), None);
+        assert_eq!(route(&c, &[0x90, 36, 0]), inputs_of(&[("deck1.eject", 1.0), ("deck1.eject", 0.0)]));
     }
 
     #[test]
