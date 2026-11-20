@@ -2,8 +2,8 @@ use crate::actions::general;
 use crate::audio_host::{deck_pair, layer_partner};
 use crate::choices::{self, OutputNote};
 use crate::dto::{
-    AudioInfo, CrossfaderSideDto, DeckSettingsDto, HeadphonesOutputDto, LiveSourceDto, LiveStateDto,
-    MixModeDto, MixerStateDto, RoutingStateDto,
+    AudioInfo, DeckSettingsDto, HeadphonesOutputDto, LiveSourceDto, LiveStateDto, MixModeDto, MixerStateDto,
+    RoutingStateDto,
 };
 use crate::error::AppResult;
 use crate::sampler;
@@ -121,7 +121,7 @@ pub fn decks_of(state: &AppState, view: &View) -> Vec<DeckSettingsDto> {
             layered_on: inputs
                 .and_then(|inputs| layer_partner(deck, laid_out, inputs))
                 .filter(|&partner| partner < deck),
-            side: d.side.unwrap_or(CrossfaderSideDto::of_deck(deck)),
+            side: d.side.unwrap_or(prisme_control::Side::of_deck(deck)),
             repeat: d.repeat,
             mute: d.mute,
         })

@@ -22,8 +22,26 @@ pub mod sync;
 pub mod tap;
 pub mod view;
 
-use prisme_control::Effect;
+use prisme_control::{Band, Effect, Side};
 use prisme_engine::EffectKind;
+
+/// The engine's band of `band`.
+pub fn engine_band(band: Band) -> prisme_engine::Band {
+    match band {
+        Band::Low => prisme_engine::Band::Low,
+        Band::Mid => prisme_engine::Band::Mid,
+        Band::High => prisme_engine::Band::High,
+    }
+}
+
+/// The engine's side of the crossfader for `side`.
+pub fn engine_side(side: Side) -> prisme_engine::CrossfaderSide {
+    match side {
+        Side::Left => prisme_engine::CrossfaderSide::Left,
+        Side::Center => prisme_engine::CrossfaderSide::Center,
+        Side::Right => prisme_engine::CrossfaderSide::Right,
+    }
+}
 
 /// The engine's effect that plays `effect`.
 pub fn engine_effect(effect: Effect) -> EffectKind {

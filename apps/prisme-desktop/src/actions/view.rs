@@ -3,7 +3,7 @@
 //! session's lock. A move of a control reads only the part it needs ([`Sees`]).
 
 use super::Performing;
-use crate::dto::{CrossfaderCurveDto, CrossfaderSideDto, FxDto, LiveSourceDto};
+use crate::dto::{CrossfaderCurveDto, FxDto, LiveSourceDto};
 use crate::preferences::{MixerPreferences, VinylSync};
 use crate::sampler::LoadedSample;
 use crate::state::{live_preferences, lock, AppState, DeckSettings, LiveSwitches, LoadedTrack};
@@ -130,7 +130,7 @@ fn deck_view(
         repeat: d.repeat,
         mute: d.mute,
         passthrough: d.passthrough,
-        side: d.side.unwrap_or(CrossfaderSideDto::of_deck(deck)).into(),
+        side: d.side.unwrap_or(prisme_control::Side::of_deck(deck)),
         strip: Strip { trim: d.strip.trim, eq: d.strip.eq, kills: d.strip.kills, filter: d.strip.filter },
         fx: FxChain { enabled: d.fx.enabled, slots: d.fx.slots.map(fx_slot) },
         sampler_gain: d.sampler_gain,

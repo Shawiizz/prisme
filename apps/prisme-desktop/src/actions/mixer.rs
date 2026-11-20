@@ -4,9 +4,11 @@
 
 use super::take_over;
 use crate::auto_dj::{AutoDj, Takeover};
-use crate::dto::{BandDto, CrossfaderCurveDto, CrossfaderSideDto, LiveSourceDto};
+use crate::dto::{CrossfaderCurveDto, LiveSourceDto};
 use crate::error::AppResult;
 use crate::state::{lock, AppState};
+use prisme_actions::{engine_band, engine_side};
+use prisme_control::{Band, Side};
 use prisme_engine::Command;
 use prisme_library::CueSlot;
 
@@ -49,17 +51,17 @@ pub fn set_trim(state: &AppState, deck: usize, gain: f32) -> AppResult<()> {
 }
 
 /// An EQ band's gain (linear, 1 = flat).
-pub fn set_eq(state: &AppState, deck: usize, band: BandDto, gain: f32) -> AppResult<()> {
+pub fn set_eq(state: &AppState, deck: usize, band: Band, gain: f32) -> AppResult<()> {
     state.set_deck(
         deck,
         |d| d.strip.eq[band as usize] = gain,
-        Command::SetEq { deck, band: band.into(), gain },
+        Command::SetEq { deck, band: engine_band(band), gain },
     )
 }
 
 /// A band of the deck's EQ cut, or back.
-pub fn set_eq_kill(state: &AppState, deck: usize, band: BandDto, kill: bool) -> AppResult<()> {
-    let command = Command::SetEqKill { deck, band: band.into(), kill };
+pub fn set_eq_kill(state: &AppState, deck: usize, band: Band, kill: bool) -> AppResult<()> {
+    let command = Command::SetEqKill { deck, band: engine_band(band), kill };
     state.set_deck(deck, |d| d.strip.kills[band as usize] = kill, command)
 }
 
@@ -115,8 +117,9 @@ pub fn set_live_level(state: &AppState, source: LiveSourceDto, gain: f32) -> App
 }
 
 /// The side of the crossfader `deck` is on.
-pub fn set_crossfader_side(state: &AppState, deck: usize, side: CrossfaderSideDto) -> AppResult<()> {
-    state.set_deck(deck, |d| d.side = Some(side), Command::SetCrossfaderSide { deck, side: side.into() })
+pub fn set_crossfader_side(state: &AppState, deck: usize, side: Side) -> AppResult<()> {
+    let command = Command::SetCrossfaderSide { deck, side: engine_side(side) };
+    state.set_deck(deck, |d| d.side = Some(side), command)
 }
 
 /// Software mixer: the channel fader starts and stops the deck; kept for the next start.

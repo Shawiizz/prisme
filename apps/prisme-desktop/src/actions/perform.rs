@@ -116,7 +116,7 @@ impl Performing<'_> {
             DeckAction::BendUp => return bend(PITCH_BEND),
             DeckAction::BendDownSmall => return bend(-SMALL_BEND),
             DeckAction::BendUpSmall => return bend(SMALL_BEND),
-            DeckAction::EqKill(band) => return mixer::set_eq_kill(state, deck, band.into(), held),
+            DeckAction::EqKill(band) => return mixer::set_eq_kill(state, deck, band, held),
             DeckAction::Fx(slot, FxAction::Held) => return fx::set_fx_enabled(state, deck, slot, held),
             DeckAction::Sample(slot, SampleAction::Held) if held => {
                 return sampler::trigger_sample(state, deck, slot, None)
@@ -157,7 +157,7 @@ impl Performing<'_> {
             DeckAction::FilterToggle => self.toggle_filter(deck),
             DeckAction::EqKillToggle(band) => {
                 let killed = lock(&state.decks)[deck].strip.kills[band_index(band)];
-                mixer::set_eq_kill(state, deck, band.into(), !killed)
+                mixer::set_eq_kill(state, deck, band, !killed)
             }
             DeckAction::Tap => self.tap(deck),
             DeckAction::KeySync => self.sync_key(deck),
@@ -194,7 +194,7 @@ impl Performing<'_> {
             DeckAction::KeyReset => deck::key_to(state, deck, 0),
             DeckAction::KeyTo(semitones) => deck::key_to(state, deck, semitones),
             DeckAction::HeadphonesSolo => mixer::solo_cue(state, deck),
-            DeckAction::CrossfaderSide(side) => mixer::set_crossfader_side(state, deck, side.into()),
+            DeckAction::CrossfaderSide(side) => mixer::set_crossfader_side(state, deck, side),
             DeckAction::Sample(slot, SampleAction::Trigger) => {
                 sampler::trigger_sample(state, deck, slot, None)
             }
@@ -231,7 +231,7 @@ impl Performing<'_> {
             DeckAction::Trim => mixer::set_trim(state, deck, trim_gain(at)),
             DeckAction::Eq(band) => {
                 let gain = eq_gain(at);
-                mixer::set_eq(state, deck, band.into(), gain)?;
+                mixer::set_eq(state, deck, band, gain)?;
                 self.memory().faders.give_silent_end(&target, at, eq_knob(gain));
                 state.moved(Section::Decks);
                 Ok(())
@@ -1018,7 +1018,7 @@ mod switches {
         press(&bench, "mixer.crossfaderCurve.next");
         assert_eq!(bench.state.preferences.read(|p| p.mixer.crossfader_curve), CrossfaderCurveDto::Sharp);
         press(&bench, "deck1.crossfader.right");
-        assert_eq!(lock(&bench.state.decks)[0].side, Some(crate::dto::CrossfaderSideDto::Right));
+        assert_eq!(lock(&bench.state.decks)[0].side, Some(prisme_control::Side::Right));
     }
 
     #[test]

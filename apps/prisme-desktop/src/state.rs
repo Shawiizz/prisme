@@ -5,10 +5,10 @@
 use crate::actions::browse::Library;
 use crate::audio_host::{deck_pair, layer_partner, AudioSession};
 use crate::dto::{
-    AudioInfo, AutoDjStatusDto, BackendDto, BandDto, ChannelStripDto, CrossfaderSideDto, CueDto, DeckPadsDto,
-    DeckStemsDto, FoldersStateDto, FxChainDto, FxPartDto, HeadphonesOutputDto, InputChannelsDto, KeyDto,
-    LiveSourceDto, MixModeDto, PreviewStateDto, RecordingDto, RpmDto, SeparationDto, StemMixDto, TempoDto,
-    TrackInfoDto, VinylModeDto,
+    AudioInfo, AutoDjStatusDto, BackendDto, ChannelStripDto, CueDto, DeckPadsDto, DeckStemsDto,
+    FoldersStateDto, FxChainDto, FxPartDto, HeadphonesOutputDto, InputChannelsDto, KeyDto, LiveSourceDto,
+    MixModeDto, PreviewStateDto, RecordingDto, RpmDto, SeparationDto, StemMixDto, TempoDto, TrackInfoDto,
+    VinylModeDto,
 };
 use crate::error::{AppError, AppResult};
 use crate::folders;
@@ -202,7 +202,7 @@ pub struct DeckSettings {
     /// The deck plays its input instead of its track.
     pub passthrough: bool,
     /// Its side of the crossfader, if the DJ chose another than its letter's.
-    pub side: Option<CrossfaderSideDto>,
+    pub side: Option<prisme_control::Side>,
     /// A touch of its controller's jog wheel holds the record.
     pub jog_scratch: bool,
     /// At the end, the track goes on from its start.
@@ -1189,7 +1189,7 @@ pub fn share_records(decks: &mut [DeckSettings; MAX_DECKS], info: &AudioInfo) ->
 /// Commands that put a deck in the state described by `s`.
 pub fn deck_commands(deck: usize, s: &DeckSettings) -> Vec<Command> {
     let strip = s.strip;
-    let side = s.side.unwrap_or(CrossfaderSideDto::of_deck(deck)).into();
+    let side = prisme_actions::engine_side(s.side.unwrap_or(prisme_control::Side::of_deck(deck)));
     let mut commands = vec![
         Command::SetCrossfaderSide { deck, side },
         Command::SetDeckCue { deck, enabled: s.cue },
@@ -1219,9 +1219,10 @@ pub fn deck_commands(deck: usize, s: &DeckSettings) -> Vec<Command> {
             Command::SetFxEnabled { deck, slot, enabled: fx.enabled },
         ]);
     }
-    for (i, band) in BandDto::ALL.into_iter().enumerate() {
-        commands.push(Command::SetEq { deck, band: band.into(), gain: strip.eq[i] });
-        commands.push(Command::SetEqKill { deck, band: band.into(), kill: strip.kills[i] });
+    for (i, &band) in prisme_control::Band::NAMED.iter().enumerate() {
+        let band = prisme_actions::engine_band(band);
+        commands.push(Command::SetEq { deck, band, gain: strip.eq[i] });
+        commands.push(Command::SetEqKill { deck, band, kill: strip.kills[i] });
     }
     commands
 }

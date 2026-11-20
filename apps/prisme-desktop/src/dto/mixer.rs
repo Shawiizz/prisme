@@ -59,38 +59,6 @@ impl From<CrossfaderCurveDto> for prisme_engine::CrossfaderCurve {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub enum BandDto {
-    Low,
-    Mid,
-    High,
-}
-
-impl BandDto {
-    pub const ALL: [BandDto; 3] = [BandDto::Low, BandDto::Mid, BandDto::High];
-}
-
-impl From<prisme_control::Band> for BandDto {
-    fn from(b: prisme_control::Band) -> Self {
-        match b {
-            prisme_control::Band::Low => Self::Low,
-            prisme_control::Band::Mid => Self::Mid,
-            prisme_control::Band::High => Self::High,
-        }
-    }
-}
-
-impl From<BandDto> for prisme_engine::Band {
-    fn from(b: BandDto) -> Self {
-        match b {
-            BandDto::Low => Self::Low,
-            BandDto::Mid => Self::Mid,
-            BandDto::High => Self::High,
-        }
-    }
-}
-
 /// What a recording takes.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "camelCase")]
@@ -181,56 +149,6 @@ impl From<MixModeDto> for MixMode {
         match m {
             MixModeDto::External => MixMode::External,
             MixModeDto::Internal => MixMode::Internal,
-        }
-    }
-}
-
-/// The side of the crossfader a deck is on, or neither (heard whatever the crossfader).
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub enum CrossfaderSideDto {
-    Left,
-    Center,
-    Right,
-}
-
-impl CrossfaderSideDto {
-    /// A and C on the left, B and D on the right.
-    pub fn of_deck(deck: usize) -> Self {
-        if deck.is_multiple_of(2) {
-            Self::Left
-        } else {
-            Self::Right
-        }
-    }
-}
-
-impl From<CrossfaderSideDto> for prisme_control::Side {
-    fn from(side: CrossfaderSideDto) -> Self {
-        match side {
-            CrossfaderSideDto::Left => Self::Left,
-            CrossfaderSideDto::Center => Self::Center,
-            CrossfaderSideDto::Right => Self::Right,
-        }
-    }
-}
-
-impl From<prisme_control::Side> for CrossfaderSideDto {
-    fn from(side: prisme_control::Side) -> Self {
-        match side {
-            prisme_control::Side::Left => Self::Left,
-            prisme_control::Side::Center => Self::Center,
-            prisme_control::Side::Right => Self::Right,
-        }
-    }
-}
-
-impl From<CrossfaderSideDto> for prisme_engine::CrossfaderSide {
-    fn from(side: CrossfaderSideDto) -> Self {
-        match side {
-            CrossfaderSideDto::Left => Self::Left,
-            CrossfaderSideDto::Center => Self::Center,
-            CrossfaderSideDto::Right => Self::Right,
         }
     }
 }

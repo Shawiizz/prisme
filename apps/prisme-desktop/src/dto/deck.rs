@@ -1,8 +1,6 @@
 //! The decks: their tracks, their settings, what the screen shows of them at each frame.
 
-use super::{
-    ChannelStripDto, CrossfaderSideDto, FxChainDto, FxPartDto, RpmDto, SignalDto, VinylDto, VinylModeDto,
-};
+use super::{ChannelStripDto, FxChainDto, FxPartDto, RpmDto, SignalDto, VinylDto, VinylModeDto};
 use prisme_actions::knobs::StripKnobs;
 use prisme_actions::pads::Pads;
 use prisme_actions::perform::DeckPerform;
@@ -200,7 +198,7 @@ pub struct DeckSettingsDto {
     /// inputs for each deck.
     pub layered_on: Option<usize>,
     /// Its side of the crossfader.
-    pub side: CrossfaderSideDto,
+    pub side: prisme_control::Side,
     /// At the end, the track goes on from its start.
     pub repeat: bool,
     /// Silenced in the master, after its fader (still heard in the headphones).

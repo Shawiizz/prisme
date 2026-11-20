@@ -196,17 +196,37 @@ actions! {
 }
 
 /// Written by its id, as the profiles and the preferences name it (`pingPong`).
-impl Serialize for Effect {
-    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
-        serializer.serialize_str(self.id())
-    }
+/// Told by their ids: an effect, a band of the EQ, a side of the crossfader.
+macro_rules! by_id {
+    ($($name:ident),+) => {$(
+        impl Serialize for $name {
+            fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+                serializer.serialize_str(self.id())
+            }
+        }
+
+        impl<'de> Deserialize<'de> for $name {
+            fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+                let id = String::deserialize(deserializer)?;
+                let named = $name::NAMED.iter().copied().find(|named| named.id() == id);
+                named.ok_or_else(|| {
+                    serde::de::Error::custom(format!("no {} is named {id}", stringify!($name)))
+                })
+            }
+        }
+    )+};
 }
 
-impl<'de> Deserialize<'de> for Effect {
-    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
-        let id = String::deserialize(deserializer)?;
-        let effect = Effect::NAMED.iter().copied().find(|effect| effect.id() == id);
-        effect.ok_or_else(|| serde::de::Error::custom(format!("no effect is named {id}")))
+by_id!(Effect, Band, Side);
+
+impl Side {
+    /// The side of deck `deck` by its letter: A and C on the left, B and D on the right.
+    pub fn of_deck(deck: usize) -> Self {
+        if deck.is_multiple_of(2) {
+            Side::Left
+        } else {
+            Side::Right
+        }
     }
 }
 
@@ -715,13 +735,16 @@ mod tests {
     use super::*;
 
     #[test]
-    fn an_effect_is_written_by_its_id() {
+    fn an_effect_a_band_and_a_side_are_written_by_their_ids() {
         assert_eq!(serde_json::to_string(&Effect::PingPong).unwrap(), r#""pingPong""#);
         for effect in Effect::NAMED {
             let written = serde_json::to_string(effect).unwrap();
             assert_eq!(serde_json::from_str::<Effect>(&written).unwrap(), *effect);
         }
         assert!(serde_json::from_str::<Effect>(r#""wah""#).is_err());
+        assert_eq!(serde_json::to_string(&Band::Mid).unwrap(), r#""mid""#);
+        assert_eq!(serde_json::from_str::<Side>(r#""center""#).unwrap(), Side::Center);
+        assert_eq!([0, 1, 2, 3].map(Side::of_deck), [Side::Left, Side::Right, Side::Left, Side::Right]);
     }
     use std::collections::BTreeSet;
 
