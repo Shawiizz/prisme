@@ -398,15 +398,15 @@ impl Default for LibraryPreferences {
 
 #[cfg(test)]
 mod tests {
+    use super::*;
+
     #[test]
     fn the_settings_keep_the_quantize_and_the_tempo_range_the_actions_set() {
-        let current = super::DjPreferences { quantize: false, pitch_range: 0.16, ..Default::default() };
-        let older = super::DjPreferences { quantize: true, pitch_range: 0.08, cue_on_load: true, ..current };
+        let current = DjPreferences { quantize: false, pitch_range: 0.16, ..Default::default() };
+        let older = DjPreferences { quantize: true, pitch_range: 0.08, cue_on_load: true, ..current };
         let kept = older.keeping_actions_of(&current);
         assert_eq!((kept.quantize, kept.pitch_range, kept.cue_on_load), (false, 0.16, true));
     }
-
-    use super::*;
 
     #[test]
     fn a_partial_file_keeps_the_other_defaults() {
