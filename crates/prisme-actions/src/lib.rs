@@ -5,6 +5,7 @@
 
 pub mod input;
 pub mod key;
+pub mod press;
 pub mod scales;
 pub mod stems;
 pub mod sync;
