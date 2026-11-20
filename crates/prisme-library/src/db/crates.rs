@@ -21,6 +21,21 @@ pub struct Crate {
 impl LibraryDb {
     /// Every crate, by name.
     pub fn crates(&self) -> Result<Vec<Crate>, DbError> {
+        let mut crates = self.crate_list()?;
+        if crates.iter().any(|c| c.rules.is_some()) {
+            let library = self.analysed_records()?;
+            for c in &mut crates {
+                if let Some(rules) = &c.rules {
+                    c.track_count = library.iter().filter(|r| rules.matches(r)).count();
+                }
+            }
+        }
+        Ok(crates)
+    }
+
+    /// Every crate, by name, the tracks of a smart one not counted (0): whoever holds the
+    /// library counts them.
+    pub fn crate_list(&self) -> Result<Vec<Crate>, DbError> {
         let crates: Vec<(CrateId, String, Option<String>, usize)> = {
             let conn = self.conn();
             let mut stmt = conn.prepare_cached(
@@ -33,16 +48,11 @@ impl LibraryDb {
             })?;
             rows.collect::<Result<_, _>>()?
         };
-        let smart = crates.iter().any(|c| c.2.is_some());
-        let library = if smart { self.analysed_records()? } else { Vec::new() };
         crates
             .into_iter()
             .map(|(id, name, rules, count)| {
                 let rules = rules.map(|json| serde_json::from_str::<SmartRules>(&json)).transpose()?;
-                let track_count = match &rules {
-                    Some(rules) => library.iter().filter(|r| rules.matches(r)).count(),
-                    None => count,
-                };
+                let track_count = if rules.is_some() { 0 } else { count };
                 Ok(Crate { id, name, rules, track_count })
             })
             .collect()

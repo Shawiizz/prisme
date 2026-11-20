@@ -6,10 +6,10 @@ use std::collections::BTreeMap;
 use std::path::Path;
 
 /// Groups of two or more tracks that look like the same song, in a stable order.
-pub fn duplicate_groups(records: Vec<TrackRecord>) -> Vec<Vec<TrackRecord>> {
-    let mut groups: BTreeMap<String, Vec<TrackRecord>> = BTreeMap::new();
+pub fn duplicate_groups<'r>(records: impl IntoIterator<Item = &'r TrackRecord>) -> Vec<Vec<&'r TrackRecord>> {
+    let mut groups: BTreeMap<String, Vec<&TrackRecord>> = BTreeMap::new();
     for record in records {
-        if let Some(key) = song_key(&record) {
+        if let Some(key) = song_key(record) {
             groups.entry(key).or_default().push(record);
         }
     }
@@ -45,13 +45,14 @@ mod tests {
 
     #[test]
     fn same_song_by_tags_or_file_name() {
-        let groups = duplicate_groups(vec![
+        let records = [
             record("C:/a/strobe.mp3", Some("deadmau5"), Some("Strobe")),
             record("C:/b/Strobe (copy).flac", Some("Deadmau5"), Some("strobe!")),
             record("C:/c/other.mp3", Some("deadmau5"), Some("Ghosts n Stuff")),
             record("C:/d/Untagged Song.mp3", None, None),
             record("C:/e/untagged_song.wav", None, None),
-        ]);
+        ];
+        let groups = duplicate_groups(&records);
         let paths: Vec<Vec<&str>> =
             groups.iter().map(|g| g.iter().map(|r| r.path.as_str()).collect()).collect();
         assert_eq!(

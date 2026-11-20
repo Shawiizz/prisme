@@ -1,5 +1,7 @@
 //! The music library.
 //!
+//! * [`catalogue`]: every track the library lists, in memory, and [`browse`]: the library as
+//!   it is browsed, searched, sorted and selected, with [`mix`]: how its tracks go with a deck;
 //! * [`db`]: SQLite database of the tracks, their analysis results (invalidated when the
 //!   file or the algorithms change), their [`cues`], the crates and the history of the sets;
 //! * [`metadata`] and [`covers`]: tags and cover thumbnails;
@@ -10,12 +12,15 @@
 //!   whose stored results are missing or stale.
 
 pub mod analyzer;
+pub mod browse;
+pub mod catalogue;
 pub mod covers;
 pub mod cues;
 pub mod db;
 pub mod duplicates;
 pub mod identity;
 pub mod metadata;
+pub mod mix;
 pub mod scan;
 pub mod smart;
 

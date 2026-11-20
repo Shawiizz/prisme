@@ -327,6 +327,14 @@ impl LibraryDb {
         Ok(())
     }
 
+    /// Every track of the library, analysed or not readable.
+    pub fn records(&self) -> Result<Vec<TrackRecord>, DbError> {
+        let conn = self.conn();
+        let mut stmt = conn.prepare_cached("SELECT * FROM track_view")?;
+        let rows = stmt.query_map([], record_from_row)?;
+        Ok(rows.collect::<Result<_, _>>()?)
+    }
+
     /// Every track analysed without error.
     pub fn analysed_records(&self) -> Result<Vec<TrackRecord>, DbError> {
         let conn = self.conn();
