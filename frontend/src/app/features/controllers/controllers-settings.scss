@@ -27,6 +27,9 @@
   border-color: var(--pr-ok);
   color: var(--pr-ok);
 }
+.find {
+  width: min(100%, 480px);
+}
 .hint {
   margin: 0;
   font-size: var(--pr-size-small);
@@ -64,6 +67,11 @@
   &:hover {
     background: transparent;
     color: var(--pr-text);
+  }
+  // unfolded by a search: read as it is, nothing to fold
+  &:disabled {
+    opacity: 1;
+    color: var(--pr-text-3);
   }
 }
 .mapping {

@@ -199,14 +199,30 @@
 </section>
 
 @if (canLearn()) {
+  <input
+    class="pr-input find"
+    type="search"
+    [placeholder]="'Find any action, to map it' | t"
+    [attr.aria-label]="'Find any action, to map it' | t"
+    [value]="query()"
+    (input)="query.set($any($event.target).value)"
+    (keydown.escape)="clearSearch($event)"
+  />
   <p class="hint">{{ 'Press Learn, then move the control on the controller.' | t }}</p>
   @for (g of groups(); track g.name) {
     <section class="pr-group">
-      <button class="fold" [attr.aria-expanded]="isOpen(g.name)" (click)="toggle(g.name)">
+      <button
+        class="fold"
+        [attr.aria-expanded]="isOpen(g.name)"
+        [disabled]="searching()"
+        (click)="toggle(g.name)"
+      >
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6" /></svg>
         <span class="pr-label">{{ g.name }}</span>
         @if (g.mapped > 0) {
-          <span class="mapped">{{ '{n} mapped' | t: { n: g.mapped } }}</span>
+          <span class="mapped">{{
+            g.mapped === 1 ? ('1 mapped' | t) : ('{n} mapped' | t: { n: g.mapped })
+          }}</span>
         }
       </button>
       @if (isOpen(g.name)) {
@@ -261,6 +277,10 @@
         </div>
       }
     </section>
+  } @empty {
+    @if (searching()) {
+      <p class="hint">{{ 'No action found.' | t }}</p>
+    }
   }
 } @else {
   <p class="hint">{{ 'Turn a controller on to map its controls.' | t }}</p>

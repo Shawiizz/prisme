@@ -1,9 +1,11 @@
-import { TestBed } from '@angular/core/testing';
+import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { clearMocks, mockIPC } from '@tauri-apps/api/mocks';
+import { vi } from 'vitest';
+import { Target } from '../../core/control/controls';
 import { Controller } from '../../core/models/controllers';
 import { ControlState } from '../../core/models/engine';
 import { EngineService } from '../../core/services/engine.service';
-import { ControllersSettings } from './controllers-settings';
+import { ControllersSettings, found } from './controllers-settings';
 
 const VCI_100: Controller = {
   name: 'VCI-100',
@@ -23,19 +25,50 @@ const VCI_100: Controller = {
   canExport: true,
 };
 
+/** A deck's action, of a deck shown or not. */
+function deckTarget(id: string, label: string, deck: number, inUse = deck < 2): Target {
+  const letter = 'ABCD'[deck];
+  return {
+    id: `deck${deck + 1}.${id}`,
+    kind: 'button',
+    deck,
+    group: { key: 'Deck {deck}', params: { deck: letter } },
+    label: { key: label },
+    inUse,
+  };
+}
+
+const TARGETS: Target[] = [
+  deckTarget('play', 'Play', 0),
+  deckTarget('cue', 'Cue', 0),
+  deckTarget('play', 'Play', 1),
+  deckTarget('play', 'Play', 2),
+  { ...deckTarget('beat', 'On the beat', 0), kind: 'light' },
+  {
+    id: 'mixer.crossfader',
+    kind: 'fader',
+    deck: null,
+    group: { key: 'Mixer' },
+    label: { key: 'Crossfader' },
+    inUse: true,
+  },
+];
+
 describe('ControllersSettings', () => {
+  let fixture: ComponentFixture<ControllersSettings>;
   afterEach(() => clearMocks());
 
   async function settings(controllers: Controller[], chosen: unknown[] = []) {
     mockIPC((command, args) => {
       if (command === 'choose_controller_profile') chosen.push(args);
-      if (['midi_outputs', 'controller_light_targets', 'list_targets'].includes(command)) return [];
+      if (command === 'list_targets') return TARGETS;
+      if (['midi_outputs', 'controller_light_targets'].includes(command)) return [];
       return undefined;
     });
     const profiles = { profiles: [], counts: { all: 0, updated: 0, own: 0 }, replacing: [] };
     const shown = { controllers, canLearn: true, profiles, mapped: [], learning: null };
     TestBed.inject(EngineService).controls.set({ controllers: shown } as unknown as ControlState);
-    const fixture = TestBed.createComponent(ControllersSettings);
+    fixture = TestBed.createComponent(ControllersSettings);
     fixture.detectChanges();
     // the outputs asked for at the start come
     await new Promise((resolve) => setTimeout(resolve));
@@ -74,5 +107,59 @@ describe('ControllersSettings', () => {
   it('offer no choice to a controller its model alone fits', async () => {
     const element = await settings([{ ...VCI_100, offered: VCI_100.offered.slice(0, 1) }]);
     expect(element.querySelector('.choice')).toBeNull();
+  });
+
+  it('find any action by its name, its group or its id, the decks not shown too', async () => {
+    const element = await settings([VCI_100]);
+    const input = element.querySelector<HTMLInputElement>('input.find')!;
+    const groups = () => [...element.querySelectorAll('.fold .pr-label')].map((g) => g.textContent);
+    const rows = () => [...element.querySelectorAll('.mapping .name')].map((n) => n.textContent);
+    const search = (text: string) => {
+      input.value = text;
+      input.dispatchEvent(new Event('input'));
+      fixture.detectChanges();
+    };
+    expect(groups()).toEqual(['Deck A', 'Deck B', 'Mixer']);
+    expect(rows()).toEqual([]);
+
+    search('play');
+    expect(groups()).toEqual(['Deck A', 'Deck B', 'Deck C']);
+    expect(rows()).toEqual(['Play', 'Play', 'Play']);
+
+    search(' deck   B ');
+    expect(rows()).toEqual(['Play']);
+
+    search('MIXER.CROSS');
+    expect(rows()).toEqual(['Crossfader']);
+
+    search('beat');
+    expect(element.querySelector('.hint + .hint')?.textContent?.trim()).toBe('No action found.');
+
+    search('play');
+    const escape = new KeyboardEvent('keydown', { key: 'Escape', bubbles: true });
+    const closed = vi.fn();
+    element.addEventListener('keydown', closed);
+    input.dispatchEvent(escape);
+    fixture.detectChanges();
+    expect(input.value).toBe('');
+    expect(closed).not.toHaveBeenCalled();
+    expect(groups()).toEqual(['Deck A', 'Deck B', 'Mixer']);
+  });
+});
+
+describe('found', () => {
+  const control = {
+    id: 'deck1.play',
+    group: 'Mélangeur',
+    label: 'Lecture',
+    kind: 'button' as const,
+    inUse: true,
+  };
+
+  it('need every word in the name, the group or the id', () => {
+    expect(found(['lecture'], control)).toBe(true);
+    expect(found(['melangeur', 'lect'], control)).toBe(true);
+    expect(found(['deck1.play'], control)).toBe(true);
+    expect(found(['lecture', 'deck2'], control)).toBe(false);
   });
 });

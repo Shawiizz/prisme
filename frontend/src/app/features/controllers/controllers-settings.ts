@@ -14,6 +14,7 @@ import { Text, t } from '../../core/i18n/i18n';
 import { errorText } from '../../core/errors';
 import { PHONE } from '../../core/platform';
 import { TPipe } from '../../core/i18n/t.pipe';
+import { matches, normalize } from '../settings/settings-catalog';
 
 /** Where a control is mapped on one controller. */
 interface Binding {
@@ -57,6 +58,11 @@ type Look =
 interface Outcome {
   done: boolean;
   text: string;
+}
+
+/** Whether `control` has every word looked for (normalized) in its name, its group or its id. */
+export function found(words: string[], control: Control): boolean {
+  return matches(words, `${control.label} ${control.group} ${control.id}`);
 }
 
 /** The least time "Looking…" shows (ms). */
@@ -119,23 +125,36 @@ export class ControllersSettings implements OnInit, OnDestroy {
   /** A controller is open: controls can be learnt. */
   protected readonly canLearn = this.service.canLearn;
 
+  /** Words looked for among every action, to map one. */
+  protected readonly query = signal('');
+  private readonly words = computed(() => normalize(this.query()).split(/\s+/).filter(Boolean));
+  protected readonly searching = computed(() => this.words().length > 0);
+
   /** The controls by group, those of the decks shown only, then those mapped the list leaves
-   * out (a loop of so many beats); a light only shows: nothing is learnt for it. */
+   * out (a loop of so many beats); a search looks among every action, those of the decks not
+   * shown too. A light only shows: nothing is learnt for it. */
   protected readonly groups = computed(() => {
     const mapped = new Map(this.service.mappings().map((m) => [m.target.id, m]));
-    const listed = this.controls.inUse();
+    const words = this.words();
+    const searching = this.searching();
+    const listed = searching ? this.controls.controls() : this.controls.inUse();
     const ids = new Set(listed.map((c) => c.id));
     const others = [...mapped.values()]
-      .filter((m) => m.target.inUse && !ids.has(m.target.id))
+      .filter((m) => (searching || m.target.inUse) && !ids.has(m.target.id))
       .map((m) => named(m.target));
+    const shown = [...listed, ...others].filter(
+      (c) => c.kind !== 'light' && (!searching || found(words, c)),
+    );
     const groups = new Map<string, Row[]>();
-    for (const control of [...listed, ...others].filter((c) => c.kind !== 'light')) {
+    for (const control of shown) {
       const bindings = (mapped.get(control.id)?.devices ?? []).map(({ device, mappings }) => ({
         device,
         text: `${shortName(device)} · ${mappings.map(describeMapping).join(' / ')}`,
         encoder: mappings.find((m) => m.encoding && m.encoding !== 'absolute'),
       }));
-      groups.set(control.group, [...(groups.get(control.group) ?? []), { control, bindings }]);
+      const rows = groups.get(control.group) ?? [];
+      rows.push({ control, bindings });
+      groups.set(control.group, rows);
     }
     return [...groups.entries()].map(([name, rows]) => ({
       name,
@@ -182,8 +201,16 @@ export class ControllersSettings implements OnInit, OnDestroy {
     this.service.cancelLearning();
   }
 
+  /** Escape empties the search first; then it gives up learning, or closes the settings. */
+  protected clearSearch(event: Event) {
+    if (!this.query()) return;
+    event.stopPropagation();
+    this.query.set('');
+  }
+
+  /** Every group found by a search shows unfolded. */
   isOpen(group: string): boolean {
-    return this.opened().has(group);
+    return this.searching() || this.opened().has(group);
   }
 
   toggle(group: string) {
