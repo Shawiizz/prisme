@@ -32,8 +32,6 @@ const MAX_RESTARTS: usize = 3;
 const RESTART_WINDOW: Duration = Duration::from_secs(60);
 /// Looks for the saved devices after the system's devices changed.
 const LOOKS_AFTER_A_CHANGE: u32 = 5;
-/// Sent when the audio moved to other devices by itself: the interface shows them again.
-pub const AUDIO_CHANGED_EVENT: &str = "audio-changed";
 /// Sent with a [`CardOffer`] when a sound card is plugged in.
 pub const CARD_PLUGGED_EVENT: &str = "card-plugged";
 
@@ -55,7 +53,7 @@ pub fn start(app: AppHandle) {
             loop {
                 std::thread::sleep(CHECK);
                 if input_access::newly_allowed() {
-                    take_the_inputs(&state, &app);
+                    take_the_inputs(&state);
                     last_periods = None;
                 }
                 let session = lock(&state.session).as_ref().map(|s| {
@@ -70,7 +68,7 @@ pub fn start(app: AppHandle) {
                     }
                     if last_look.elapsed() >= RETRY {
                         last_look = Instant::now();
-                        start_when_devices_change(&state, &app, &mut devices);
+                        start_when_devices_change(&state, &mut devices);
                     }
                     continue;
                 };
@@ -78,7 +76,6 @@ pub fn start(app: AppHandle) {
                 if lost {
                     info!("audio device lost, waiting for it to come back");
                     recover(&state, &settings);
-                    let _ = app.emit(AUDIO_CHANGED_EVENT, ());
                     last_periods = None;
                     continue;
                 }
@@ -89,19 +86,11 @@ pub fn start(app: AppHandle) {
                     offer_cards_plugged(&state, &app, &settings, &saved, &device, &mut plugged);
                     if saved == settings {
                         devices = None;
-                    } else if move_to_saved(
-                        &state,
-                        &app,
-                        id,
-                        &saved,
-                        &settings,
-                        &mut devices,
-                        &mut looks_left,
-                    ) {
+                    } else if move_to_saved(&state, id, &saved, &settings, &mut devices, &mut looks_left) {
                         last_periods = None;
                         continue;
                     }
-                    if follow_default_output(&state, &app, id, &settings, &device, &mut default_output) {
+                    if follow_default_output(&state, id, &settings, &device, &mut default_output) {
                         last_periods = None;
                         continue;
                     }
@@ -132,7 +121,6 @@ pub fn start(app: AppHandle) {
 /// once the audio of session `id` has moved, or other audio took its place.
 fn move_to_saved(
     state: &AppState,
-    app: &AppHandle,
     id: u64,
     saved: &AudioSettings,
     current: &AudioSettings,
@@ -154,10 +142,7 @@ fn move_to_saved(
     *looks_left = 0;
     info!("saved audio devices found, moving to them");
     match start_audio_instead_of(state, id, saved) {
-        Ok(Some(_)) => {
-            let _ = app.emit(AUDIO_CHANGED_EVENT, ());
-        }
-        Ok(None) => {}
+        Ok(_) => {}
         Err(e) => {
             warn!("saved audio devices unusable ({e}), back to the previous ones");
             if let Err(e) = start_audio_unless_running(state, current) {
@@ -173,7 +158,6 @@ fn move_to_saved(
 /// other program. True once the audio of session `id` moved, or other audio took its place.
 fn follow_default_output(
     state: &AppState,
-    app: &AppHandle,
     id: u64,
     settings: &AudioSettings,
     device: &str,
@@ -193,7 +177,6 @@ fn follow_default_output(
             if let Err(e) = start_audio_instead_of(state, id, settings) {
                 error!("audio could not follow the default output: {e}");
             }
-            let _ = app.emit(AUDIO_CHANGED_EVENT, ());
             true
         }
         _ => false,
@@ -268,7 +251,7 @@ pub fn card_name(endpoint: &str) -> &str {
 
 /// With no audio at all (no device when Prisme started, or a restart that failed), starts it
 /// on the saved devices, else the default ones, whenever the system's devices change.
-fn start_when_devices_change(state: &AppState, app: &AppHandle, devices: &mut Option<Vec<String>>) {
+fn start_when_devices_change(state: &AppState, devices: &mut Option<Vec<String>>) {
     let now = system_devices();
     if devices.as_ref() == Some(&now) {
         return;
@@ -280,18 +263,16 @@ fn start_when_devices_change(state: &AppState, app: &AppHandle, devices: &mut Op
         start_audio_unless_running(state, &saved).or_else(|_| start_audio_unless_running(state, &defaults));
     if let Ok(Some(_)) = started {
         info!("audio started on the devices there are");
-        let _ = app.emit(AUDIO_CHANGED_EVENT, ());
     }
 }
 
 /// The DJ let Prisme listen to the inputs: the saved audio, which was refused them, starts
 /// unless it runs.
-fn take_the_inputs(state: &AppState, app: &AppHandle) {
+fn take_the_inputs(state: &AppState) {
     match restart_saved_audio(state) {
         Ok(false) => {}
         Ok(true) => {
             info!("the inputs allowed, the saved audio starts");
-            let _ = app.emit(AUDIO_CHANGED_EVENT, ());
         }
         Err(e) => warn!("the inputs allowed, but the saved audio could not start: {e}"),
     }

@@ -5,8 +5,9 @@ use crate::dto::{
     DeviceDto, DevicesDto, LatencyChannelsDto, LatencyDto, MixModeDto, TimecodeMakerDto,
 };
 use crate::error::{AppError, AppResult};
-use crate::state::{lock, AppState};
+use crate::state::{lock, AppState, Section};
 use prisme_audio_io::{latency, AudioError, Backend, DeviceKind};
+use serde::Serialize;
 use std::time::Duration;
 use tauri::{AppHandle, Manager, State};
 use tracing::error;
@@ -67,21 +68,26 @@ pub fn timecode_formats() -> Vec<TimecodeMakerDto> {
     TimecodeMakerDto::of(prisme_timecode::FORMATS)
 }
 
-/// The audio settings the user chose (they may differ from the running ones if the
-/// chosen device was missing at startup).
-#[tauri::command]
-pub fn get_audio_settings(state: State<'_, AppState>) -> AudioSettings {
-    state.preferences.get().audio
+/// The audio as the settings show it.
+#[derive(Debug, Clone, Serialize)]
+pub struct AudioStateDto {
+    /// The settings the DJ chose: the audio runs on the default devices while one of theirs is
+    /// missing.
+    pub settings: AudioSettings,
+    /// The audio running, if it does.
+    pub info: Option<AudioInfoDto>,
 }
 
-#[tauri::command]
-pub fn audio_info(state: State<'_, AppState>) -> Option<AudioInfoDto> {
-    let saved = state.preferences.read(|p| p.audio.clone());
-    lock(&state.session).as_ref().map(|s| {
-        let missing =
-            (!s.settings.same_devices(&saved)).then(|| saved.output_device.clone().unwrap_or_default());
-        AudioInfo { missing, ..s.info.clone() }.into()
-    })
+impl AudioStateDto {
+    pub fn of(state: &AppState) -> Self {
+        let settings = state.preferences.read(|p| p.audio.clone());
+        let info = lock(&state.session).as_ref().map(|s| {
+            let missing = (!s.settings.same_devices(&settings))
+                .then(|| settings.output_device.clone().unwrap_or_default());
+            AudioInfo { missing, ..s.info.clone() }.into()
+        });
+        Self { settings, info }
+    }
 }
 
 /// The audio settings drafted in the settings window, `change` made (see `AudioSettings::changed`).
@@ -104,15 +110,15 @@ pub async fn apply_audio_settings(
     app: AppHandle,
     settings: AudioSettings,
     mix_mode: Option<MixModeDto>,
-) -> AppResult<Option<AudioInfoDto>> {
+) -> AppResult<()> {
     blocking(move || {
         let state = app.state::<AppState>();
         let saved = state.preferences.read(|p| p.audio.clone());
         let running = lock(&state.session).is_some();
-        let info = if settings != saved || !running {
+        if settings != saved || !running {
             // kept as they start: no other start comes between
             let _starting = lock(&state.audio_start);
-            let info = match start(&state, &settings) {
+            match start(&state, &settings) {
                 // devices missing since the start stay chosen, the defaults playing meanwhile
                 Err(AppError::Audio(AudioError::DeviceNotFound(_))) if settings.same_devices(&saved) => {
                     start(&state, &settings.on_default_devices())?
@@ -120,14 +126,12 @@ pub async fn apply_audio_settings(
                 started => started?,
             };
             state.update_preferences(|p| p.audio = settings);
-            Some(info.into())
-        } else {
-            None
-        };
+            state.moved(Section::Audio);
+        }
         if let Some(mode) = mix_mode.filter(|&mode| state.preferences.read(|p| p.mixer.mode) != mode) {
             crate::commands::mixer::set_mix_mode(&state, mode)?;
         }
-        Ok(info)
+        Ok(())
     })
     .await
 }

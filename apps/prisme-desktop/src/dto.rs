@@ -4,6 +4,8 @@ use crate::actions::browse::{self, Library};
 use crate::auto_dj::machine::{Reason, State, Status, Takeover};
 use crate::auto_dj::plan::FadeLength;
 use crate::choices::{BoothChoice, LiveNote, OutputNote};
+use crate::commands::audio::AudioStateDto;
+use crate::commands::controllers::ControllersStateDto;
 use crate::commands::mixer::mixer_state_of;
 use crate::commands::preferences::PreferencesDto;
 use crate::state::{lock, AppState, Section};
@@ -1496,6 +1498,14 @@ pub struct ControlStateDto {
     /// The separation into stems, with the DJ's preferences of it.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub stems: Option<StemsStateDto>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub controllers: Option<ControllersStateDto>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub audio: Option<AudioStateDto>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub folders: Option<FoldersStateDto>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub auto_dj: Option<AutoDjStatusDto>,
 }
 
 /// Which slots of a deck's effect chain its pads and knobs act on.
@@ -1542,11 +1552,20 @@ impl ControlStateDto {
                 Section::Library => controls.library = Some(browse::shown(state, Library::view)),
                 Section::Lists => controls.lists = Some(lock(&state.library).lists()),
                 Section::Settings => controls.preferences = Some(PreferencesDto::of(state)),
-                Section::Stems => {}
+                Section::Stems | Section::Controllers => {}
+                Section::Audio => controls.audio = Some(AudioStateDto::of(state)),
+                Section::Folders => controls.folders = Some(lock(&state.folders).clone()),
+                Section::AutoDj => controls.auto_dj = Some(lock(&state.auto_dj).clone()),
             }
             if matches!(section, Section::Stems | Section::Settings) {
                 let stems = lock(&state.stems).clone();
                 controls.stems = Some(state.preferences.read(|p| stems.dto(p)));
+            }
+            // the actions of the decks not in use leave the mappings shown
+            if matches!(section, Section::Controllers | Section::Settings) {
+                let shown = lock(&state.controllers).clone();
+                controls.controllers =
+                    Some(ControllersStateDto::of(shown, crate::commands::targets::decks(state)));
             }
         }
         controls
@@ -2043,8 +2062,8 @@ impl From<&prisme_library::Crate> for CrateDto {
     }
 }
 
-/// Payload of the `library-progress` event.
-#[derive(Debug, Clone, Copy, Serialize)]
+/// How far the analysis of the music folders is.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ProgressDto {
     pub total: usize,
@@ -2071,8 +2090,21 @@ pub struct DirListingDto {
     pub tracks: usize,
 }
 
+/// The music folders, and how far their analysis is.
+#[derive(Debug, Clone, Default, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct FoldersStateDto {
+    /// The main one first.
+    pub folders: Vec<MusicFolderDto>,
+    pub progress: ProgressDto,
+    /// The run of the analysis `progress` is of: each look through the folders the next.
+    pub scan: u64,
+    /// The library's database could not be opened: what changes is lost at exit.
+    pub in_memory: bool,
+}
+
 /// A music folder: the main one, or one added next to it (a USB key, a drive, a sets
-/// folder). Payload of the `music-folders-changed` event, as a list, the main one first.
+/// folder).
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct MusicFolderDto {
@@ -2107,7 +2139,7 @@ pub struct StoragePlaceDto {
 }
 
 /// A controller, MIDI or HID.
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Default, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ControllerDto {
     /// Its MIDI port's name, or the name Prisme gives a HID device.
@@ -2136,7 +2168,7 @@ pub struct ControllerDto {
 }
 
 /// The controllers plugged in and those in use that are not.
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Default, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ControllersDto {
     pub controllers: Vec<ControllerDto>,
@@ -2153,7 +2185,7 @@ pub struct OpenedDto {
 }
 
 /// A profile the DJ may choose for a controller.
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Default, PartialEq, Serialize)]
 pub struct OfferedProfileDto {
     pub file: String,
     pub name: String,
@@ -2214,9 +2246,10 @@ pub struct UiActionDto {
     pub value: f32,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub enum AutoDjStateDto {
+    #[default]
     Off,
     On,
     Mixing,
@@ -2239,8 +2272,8 @@ pub enum AutoDjReasonDto {
     Unloadable,
 }
 
-/// The Auto DJ as the interface shows it (`auto-dj`).
-#[derive(Debug, Clone, PartialEq, Serialize)]
+/// The Auto DJ as the interface shows it.
+#[derive(Debug, Clone, Default, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AutoDjStatusDto {
     pub state: AutoDjStateDto,

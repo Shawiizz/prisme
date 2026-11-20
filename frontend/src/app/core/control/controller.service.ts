@@ -1,13 +1,10 @@
-import { Injectable, effect, inject, signal } from '@angular/core';
+import { Injectable, computed, effect, inject, signal } from '@angular/core';
 import { invoke } from '@tauri-apps/api/core';
 import { save } from '@tauri-apps/plugin-dialog';
 import { listen } from '@tauri-apps/api/event';
 import {
   Controller,
   ControllerMapping,
-  ControllerProfiles,
-  Controllers,
-  Mapped,
   Opened,
   PluggedIn,
   StepEncoding,
@@ -21,10 +18,10 @@ import { NoticeService } from '../../shared/notice/notice';
 import { NavigationService } from '../services/navigation.service';
 
 /**
- * Controllers, MIDI and HID: the backend performs what their controls drive and lights them;
- * the actions the app performs (its windows, the focus of its search) it is told of (`ui-action`),
- * and it tells the lights of what it keeps (`set_lights`). A control is mapped by moving it
- * (learn).
+ * Controllers, MIDI and HID, as the backend shows them (`controls.controllers`): it performs
+ * what their controls drive and lights them; the actions the app performs (its windows, the
+ * focus of its search) it is told of (`ui-action`), and it tells the lights of what it keeps
+ * (`set_lights`). A control is mapped by moving it (learn).
  */
 @Injectable({ providedIn: 'root' })
 export class ControllerService {
@@ -33,19 +30,20 @@ export class ControllerService {
   private readonly notices = inject(NoticeService);
   private readonly navigation = inject(NavigationService);
 
-  readonly controllers = signal<Controller[]>([]);
+  private readonly told = computed(() => this.engine.controls()?.controllers ?? null);
+  readonly controllers = computed(() => this.told()?.controllers ?? []);
   /** A controller is open: controls can be learnt. */
-  readonly canLearn = signal(false);
-  readonly profiles = signal<ControllerProfiles | null>(null);
+  readonly canLearn = computed(() => this.told()?.canLearn ?? false);
+  readonly profiles = computed(() => this.told()?.profiles ?? null);
   /** What drives what, by action and by controller. */
-  readonly mappings = signal<Mapped[]>([]);
+  readonly mappings = computed(() => this.told()?.mapped ?? []);
+  readonly clockOutput = computed(() => this.told()?.clockOutput ?? null);
+  /** The control waiting for a move on the controller. */
+  readonly learning = computed(() => this.told()?.learning ?? null);
   /** The actions whose lights the app tells: what they show is kept here yet. */
   private readonly lightTargets = signal<string[]>([]);
-  /** MIDI outputs, for the clock. */
+  /** MIDI outputs, for the clock (`look`). */
   readonly outputs = signal<string[]>([]);
-  readonly clockOutput = signal<string | null>(null);
-  /** The control waiting for a move on the controller. */
-  readonly learning = signal<string | null>(null);
 
   /** Light state last sent, by control. */
   private readonly sent = new Map<string, string>();
@@ -54,6 +52,11 @@ export class ControllerService {
 
   constructor() {
     effect(() => this.updateLights());
+    // the lights the app tells follow what the controllers drive
+    effect(() => {
+      this.mappings();
+      void this.loadLightTargets();
+    });
   }
 
   async start() {
@@ -61,35 +64,24 @@ export class ControllerService {
       this.controls.act(payload.target, payload.value),
     );
     await listen<unknown>('action-failed', ({ payload }) => void this.engine.failed(payload));
-    await listen<ControllerMapping>('controller-learned', () => {
-      this.learning.set(null);
-      this.reloadMappings();
-    });
     // plugged back in, or let go by the program that held it: it plays, its lights off
-    await listen<Opened>('controller-opened', async ({ payload: { model } }) => {
-      await this.refresh();
+    await listen<Opened>('controller-opened', ({ payload: { model } }) => {
       this.sendAllLights();
       this.notices.show({ text: t('{model} connected', { model }), detail: t('Ready to play') });
     });
-    // profiles published since came
-    await listen<number>('controller-profiles-changed', () => this.profilesChanged());
     await listen<PluggedIn>('controller-plugged', ({ payload }) => this.pluggedIn(payload));
-    await this.reloadMappings();
     const waiting = await invoke<string[]>('waiting_controllers');
     if (waiting.length) this.showWaiting(waiting.join(', '));
   }
 
   /** A controller plugged in: one Prisme knows plays at once, with its lights; any other is
    * offered, until the DJ chooses not to use it. */
-  private async pluggedIn({ kind, device, model }: PluggedIn) {
+  private pluggedIn({ kind, device, model }: PluggedIn) {
     if (kind === 'waiting') {
-      await this.refresh();
       this.showWaiting(model);
       return;
     }
     if (kind === 'opened') {
-      await this.refresh();
-      await this.reloadMappings();
       this.sendAllLights();
       this.notices.show({
         text: t('{model} connected', { model }),
@@ -98,7 +90,6 @@ export class ControllerService {
       });
       return;
     }
-    await this.refresh();
     this.notices.show({
       text: t('New controller: {model}', { model }),
       detail: t('Not a model Prisme knows yet: set up its controls by learning them.'),
@@ -126,39 +117,25 @@ export class ControllerService {
     });
   }
 
-  async refresh() {
+  /** Looks for the controllers plugged in, and the MIDI outputs the clock can go to. */
+  async look() {
     await this.run(async () => {
-      const [{ controllers, canLearn }, outputs, clockOutput] = await Promise.all([
-        invoke<Controllers>('list_controllers'),
+      const [, outputs] = await Promise.all([
+        invoke('look_for_controllers'),
         invoke<string[]>('midi_outputs'),
-        invoke<string | null>('midi_clock_output'),
       ]);
-      this.controllers.set(controllers);
-      this.canLearn.set(canLearn);
       this.outputs.set(outputs);
-      this.clockOutput.set(clockOutput);
     });
   }
 
-  async loadProfiles() {
-    await this.run(async () =>
-      this.profiles.set(await invoke<ControllerProfiles>('controller_profiles')),
-    );
-  }
-
   /** Reads the profiles again (the DJ's own changed). */
-  async reloadProfiles() {
-    await this.run(async () =>
-      this.profiles.set(await invoke<ControllerProfiles>('reload_controller_profiles')),
-    );
-    await this.profilesChanged();
+  reloadProfiles() {
+    return this.run(() => invoke('reload_controller_profiles'));
   }
 
   /** Fetches the profiles published since: how many came. */
-  async updateProfiles(): Promise<number> {
-    const came = await invoke<number>('update_controller_profiles');
-    await this.profilesChanged();
-    return came;
+  updateProfiles(): Promise<number> {
+    return invoke<number>('update_controller_profiles');
   }
 
   /** Asks where to write what `controller` drives now as a profile, to share or keep, and
@@ -177,62 +154,44 @@ export class ControllerService {
     return this.run(() => invoke('open_controller_profiles_folder'));
   }
 
-  /** The profiles drive the controllers otherwise: their list, their mappings, their lights. */
-  private async profilesChanged() {
-    await Promise.all([this.refresh(), this.loadProfiles(), this.reloadMappings()]);
-    this.sendAllLights();
-  }
-
-  async setEnabled(name: string, enabled: boolean) {
-    await this.run(() => invoke('set_controller_enabled', { name, enabled }));
-    await this.refresh();
-    await this.reloadMappings();
+  setEnabled(name: string, enabled: boolean) {
+    return this.run(() => invoke('set_controller_enabled', { name, enabled }));
   }
 
   /** Drives the controller `name` by `file`, another of the profiles offered for it. */
-  async chooseProfile(name: string, file: string) {
-    await this.run(() => invoke('choose_controller_profile', { name, file }));
-    await this.refresh();
-    await this.reloadMappings();
+  chooseProfile(name: string, file: string) {
+    return this.run(() => invoke('choose_controller_profile', { name, file }));
   }
 
   /** Sends the MIDI clock, in time with the sync leader, to `name` (`null`: nowhere). */
-  async setClockOutput(name: string | null) {
-    await this.run(() => invoke('set_midi_clock_output', { name }));
-    await this.refresh();
+  setClockOutput(name: string | null) {
+    return this.run(() => invoke('set_midi_clock_output', { name }));
   }
 
   learn(target: string) {
-    this.learning.set(target);
     return this.run(() => invoke('learn_control', { target }));
   }
 
   cancelLearning() {
     if (this.learning() === null) return;
-    this.learning.set(null);
     return this.run(() => invoke('cancel_learning'));
   }
 
   /** Reads the steps of `mapping`'s encoder another way. */
-  async setEncoding(mapping: ControllerMapping, encoding: StepEncoding) {
+  setEncoding(mapping: ControllerMapping, encoding: StepEncoding) {
     const { device, target } = mapping;
-    await this.run(() => invoke('set_control_encoding', { device, target, encoding }));
-    await this.reloadMappings();
+    return this.run(() => invoke('set_control_encoding', { device, target, encoding }));
   }
 
   /** Takes `target` off the controller `device`, its profile's controls included. */
-  async forget(device: string, target: string) {
-    await this.run(() => invoke('forget_control', { device, target }));
-    await this.reloadMappings();
+  forget(device: string, target: string) {
+    return this.run(() => invoke('forget_control', { device, target }));
   }
 
-  private async reloadMappings() {
-    const [mappings, lightTargets] = await Promise.all([
-      invoke<Mapped[]>('controller_mappings'),
-      invoke<string[]>('controller_light_targets'),
-    ]);
-    this.mappings.set(mappings);
-    this.lightTargets.set(lightTargets);
+  private async loadLightTargets() {
+    await this.run(async () =>
+      this.lightTargets.set(await invoke<string[]>('controller_light_targets')),
+    );
     this.sendAllLights();
   }
 

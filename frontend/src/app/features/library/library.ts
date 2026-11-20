@@ -57,11 +57,13 @@ export class Library {
   protected readonly importOpen = signal(false);
   protected readonly exportOpen = signal(false);
   protected readonly progress = this.library.progress;
-  /** The scans ended when a rescan was asked for, while it runs. */
-  private readonly rescanFrom = signal<number | null>(null);
+  /** The run of the analysis a rescan started, while it runs. */
+  private readonly rescan = signal<number | null>(null);
+  /** The rescan asked for runs, or is not shown yet. */
   protected readonly rescanning = computed(() => {
-    const from = this.rescanFrom();
-    return from !== null && this.library.scansEnded() === from;
+    const asked = this.rescan();
+    const scan = this.library.scan();
+    return asked !== null && (scan < asked || (scan === asked && this.progress().running));
   });
   protected readonly rescanned = signal(false);
   private rescannedTimer: ReturnType<typeof setTimeout> | undefined;
@@ -99,9 +101,8 @@ export class Library {
       if (this.library.searchRequests() > 0) this.search().nativeElement.focus();
     });
     effect(() => {
-      const from = this.rescanFrom();
-      if (from === null || this.library.scansEnded() === from) return;
-      this.rescanFrom.set(null);
+      if (this.rescan() === null || this.rescanning()) return;
+      this.rescan.set(null);
       this.rescanned.set(true);
       clearTimeout(this.rescannedTimer);
       this.rescannedTimer = setTimeout(() => this.rescanned.set(false), RESCANNED_MS);
@@ -109,9 +110,11 @@ export class Library {
     inject(DestroyRef).onDestroy(() => clearTimeout(this.rescannedTimer));
   }
 
-  protected rescan() {
+  protected startRescan() {
     this.rescanned.set(false);
-    this.rescanFrom.set(this.library.scansEnded());
-    this.library.rescan().catch(() => this.rescanFrom.set(null));
+    this.library.rescan().then(
+      (scan) => this.rescan.set(scan),
+      () => this.rescan.set(null),
+    );
   }
 }

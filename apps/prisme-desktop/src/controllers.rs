@@ -14,7 +14,7 @@
 use crate::actions::{Actions, Host, InTurn, Moved, Source};
 use crate::controller_hid;
 use crate::controller_profiles;
-use crate::dto::{LightDto, OpenedDto, UiActionDto};
+use crate::dto::{ControllerDto, ControllersDto, LightDto, OfferedProfileDto, OpenedDto, UiActionDto};
 use crate::error::{AppError, AppResult};
 use crate::state::{lock, AppState};
 use midir::{Ignore, MidiInput, MidiInputConnection, MidiOutput, MidiOutputConnection};
@@ -83,8 +83,6 @@ pub struct ControllerSetup {
 pub const PLUGGED_EVENT: &str = "controller-plugged";
 /// A controller's action the interface performs (a `UiActionDto`).
 pub const UI_ACTION_EVENT: &str = "ui-action";
-/// A control learnt (its `Mapping`).
-pub const LEARNED_EVENT: &str = "controller-learned";
 
 /// What the DJ is told of a controller plugged in while Prisme runs.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
@@ -458,8 +456,22 @@ impl Keys {
     }
 }
 
+/// What the interface shows of the controllers (see [`Controllers::show`]).
+#[derive(Debug, Clone, Default, PartialEq)]
+pub struct Shown {
+    pub listed: ControllersDto,
+    /// What drives what: the profiles of the controllers in use, and what was learnt.
+    pub mappings: Vec<Mapping>,
+    /// Where the MIDI clock goes.
+    pub clock_output: Option<String>,
+    /// The action the next control moved will drive.
+    pub learning: Option<String>,
+}
+
 pub struct Controllers {
     setup: JsonFile<ControllerSetup>,
+    /// The controllers plugged in when last looked for (see [`Controllers::plugged`]).
+    plugged: Mutex<Vec<String>>,
     /// The profiles of the controllers in use, with what was learnt over them.
     mappings: Mutex<Mappings>,
     learning: Mutex<Option<Learning>>,
@@ -480,6 +492,7 @@ impl Controllers {
     pub fn new(setup: JsonFile<ControllerSetup>) -> Self {
         let controllers = Self {
             setup,
+            plugged: Mutex::new(Vec::new()),
             mappings: Mutex::new(Mappings::default()),
             learning: Mutex::new(None),
             just_learnt: Mutex::new(None),
@@ -562,9 +575,10 @@ impl Controllers {
             }
             match tauri::async_runtime::block_on(controller_profiles::update()) {
                 Ok(0) => {}
-                Ok(came) => {
-                    app.state::<Controllers>().profiles_changed();
-                    let _ = app.emit("controller-profiles-changed", came);
+                Ok(_) => {
+                    let controllers = app.state::<Controllers>();
+                    controllers.profiles_changed();
+                    controllers.show(&app.state::<AppState>());
                 }
                 Err(e) => warn!("controller profiles not looked for: {e}"),
             }
@@ -587,8 +601,65 @@ impl Controllers {
         self.setup.get()
     }
 
+    /// Looks for the controllers plugged in now, and shows them.
+    pub fn look(&self, state: &AppState) {
+        *lock(&self.plugged) = Self::plugged();
+        self.show(state);
+    }
+
+    /// Shows the interface the controllers, what they drive, the action being learnt: its
+    /// section moves if any of it changed.
+    pub fn show(&self, state: &AppState) {
+        let shown = Shown {
+            listed: self.listed(),
+            mappings: lock(&self.mappings).all().to_vec(),
+            clock_output: self.setup.read(|s| s.clock_output.clone()),
+            learning: lock(&self.learning).as_ref().map(|l| l.target.clone()),
+        };
+        state.controllers.set(shown);
+    }
+
+    /// The controllers plugged in when last looked for, and those in use that are not.
+    fn listed(&self) -> ControllersDto {
+        let plugged = lock(&self.plugged).clone();
+        let setup = self.setup();
+        let missing: Vec<String> =
+            setup.enabled.iter().filter(|name| !plugged.contains(name)).cloned().collect();
+        let library = controller_profiles::current();
+        let dto = |name: String, plugged: bool| {
+            let known = library.chosen(&name, setup.profiles.get(&name).map(String::as_str));
+            let models = known.map(|k| &k.file) == library.of(&name).map(|k| &k.file);
+            let (enabled, hid) = (setup.enabled.contains(&name), hid::ids_of(&name).is_some());
+            ControllerDto {
+                listed: !hid || known.is_some() || enabled,
+                can_export: enabled && plugged,
+                enabled,
+                profile: known.map(|k| k.profile.name.clone()),
+                profile_file: known.map(|k| k.file.clone()),
+                offered: library
+                    .offered(&name)
+                    .into_iter()
+                    .map(|k| OfferedProfileDto { file: k.file.clone(), name: k.profile.name.clone() })
+                    .collect(),
+                verified: known.is_some_and(|k| k.profile.verified),
+                profile_source: known.map(|k| k.source),
+                replaces: library.replaced_on(&name).filter(|_| models).map(|k| k.profile.name.clone()),
+                export_file: controller_profiles::file_name(&self.model_name(&name)),
+                name,
+                plugged,
+            }
+        };
+        let controllers: Vec<ControllerDto> = plugged
+            .into_iter()
+            .map(|n| dto(n, true))
+            .chain(missing.into_iter().map(|n| dto(n, false)))
+            .collect();
+        ControllersDto { can_learn: controllers.iter().any(|c| c.can_export), controllers }
+    }
+
     /// What drives what: the profiles of the controllers in use, and what was learnt.
-    pub fn mappings(&self) -> Mappings {
+    #[cfg(test)]
+    fn mappings(&self) -> Mappings {
         lock(&self.mappings).clone()
     }
 
@@ -600,11 +671,14 @@ impl Controllers {
                 warn!("controller {device} not opened: {e}");
             }
         }
-        for port in Self::plugged() {
-            if self.new_to_the_dj(&port) && controller_profiles::of(&port).is_some() {
-                self.take_up(app, &port);
+        let plugged = Self::plugged();
+        for port in &plugged {
+            if self.new_to_the_dj(port) && controller_profiles::of(port).is_some() {
+                self.take_up(app, port);
             }
         }
+        *lock(&self.plugged) = plugged;
+        self.show(&app.state::<AppState>());
     }
 
     /// Keeps the controllers in use open: one unplugged (a USB cable pulled, a hub that
@@ -666,6 +740,8 @@ impl Controllers {
                         controllers.plug_in(&app, port);
                     }
                 }
+                *lock(&controllers.plugged) = plugged.clone();
+                controllers.show(&app.state::<AppState>());
                 seen = Some(plugged);
             }
         });
@@ -867,13 +943,13 @@ impl Controllers {
     fn show_lights(&self, host: &impl Host, device: &str) {
         let view = host.view();
         if let Some(connection) = lock(&self.connections).iter_mut().find(|c| c.device == device) {
-            self.show(connection, &view);
+            self.show_on(connection, &view);
         }
     }
 
     /// Shows on `connection`'s lights what `view` shows of their actions (see [`Self::lights`]):
     /// nothing is allocated, the lights changed are sent at once.
-    fn show(&self, connection: &mut Connection, view: &View) {
+    fn show_on(&self, connection: &mut Connection, view: &View) {
         let Connection { device, profile, link, lit, room, .. } = connection;
         self.lights(device, profile.as_deref(), view, room, |control, shade| {
             if let Some(lighting) = lit.light(control, shade) {
@@ -1027,7 +1103,7 @@ impl Controllers {
     /// shows of `view`, and of the `levels` of its meters when they are due.
     fn drive(&self, view: &View, levels: Option<&Levels>, now_s: f64) {
         for connection in lock(&self.connections).iter_mut() {
-            self.show(connection, view);
+            self.show_on(connection, view);
             connection.blink();
             connection.send_due();
             let Some(profile) = connection.profile.clone() else { continue };
@@ -1166,7 +1242,7 @@ impl Controllers {
         let routed = self.route(device, event, at_s);
         let relayered = layer() != before;
         match routed {
-            Some(Routed::Learned(mapping)) => host.tell(LEARNED_EVENT, mapping),
+            Some(Routed::Learned(_)) => self.show(host.app_state()),
             Some(Routed::Actions(actions)) => {
                 self.act(host, actions, Moved { device: device.into(), at_s, jog_steps_per_turn })
             }
@@ -1183,7 +1259,7 @@ impl Controllers {
     /// A report of the HID controller `device`, at `at_s` on its clock (see [`Self::read_hid`]).
     fn receive_hid(&self, host: &impl Host, device: &str, read: &Read, jog_steps_per_turn: f64, at_s: f64) {
         match self.read_hid(device, read) {
-            Reported::Learnt(mapping) => host.tell(LEARNED_EVENT, mapping),
+            Reported::Learnt(_) => self.show(host.app_state()),
             Reported::Events(events) => {
                 for event in events {
                     self.receive(host, device, jog_steps_per_turn, event, at_s);
@@ -1961,6 +2037,26 @@ mod tests {
         c
     }
 
+    #[test]
+    fn the_interface_is_shown_the_controllers_again_only_when_something_of_them_changed() {
+        let state = AppState::new(JsonFile::in_memory(Default::default()));
+        let c = with_mappings([mapping(PAD, "deck1.loop.2")]);
+        *lock(&c.plugged) = vec!["DDJ".into()];
+        let before = state.revision();
+        c.show(&state);
+        assert_eq!(state.moved_since(before), [crate::state::Section::Controllers]);
+        let before = state.revision();
+        c.show(&state);
+        assert_eq!(state.moved_since(before), [], "the same");
+        c.learn("deck1.play".into());
+        c.show(&state);
+        let shown = lock(&state.controllers).clone();
+        assert_eq!(shown.learning.as_deref(), Some("deck1.play"));
+        assert_eq!(shown.listed.controllers.iter().map(|c| c.name.as_str()).collect::<Vec<_>>(), ["DDJ"]);
+        assert_eq!(shown.mappings.len(), 1);
+        assert_eq!(state.moved_since(before), [crate::state::Section::Controllers]);
+    }
+
     fn inputs_of(pairs: &[(&str, f32)]) -> Option<Routed> {
         Some(Routed::Actions(pairs.iter().map(|&(t, v)| Action::press(&t.into(), v)).collect()))
     }
@@ -2281,10 +2377,10 @@ mod tests {
             displayed: Vec::new(),
         };
         let mut playing = view();
-        c.show(&mut connection, &playing);
+        c.show_on(&mut connection, &playing);
         assert_eq!(connection.lit.shown[&PAD], 0);
         playing.status.decks[0].playing = true;
-        c.show(&mut connection, &playing);
+        c.show_on(&mut connection, &playing);
         assert_eq!(connection.lit.shown[&PAD], 10);
     }
 

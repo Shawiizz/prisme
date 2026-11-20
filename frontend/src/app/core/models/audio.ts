@@ -54,6 +54,15 @@ export interface AudioSettings {
   bufferFrames: number | null;
 }
 
+/** The audio as the settings show it. */
+export interface AudioState {
+  /** The settings the DJ chose: the audio runs on the default devices while one of theirs is
+   * missing. */
+  settings: AudioSettings;
+  /** The audio running, if it does. */
+  info: AudioInfo | null;
+}
+
 export interface AudioInfo {
   backend: AudioBackend;
   /** Name of the output device. */

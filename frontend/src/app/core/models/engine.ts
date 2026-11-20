@@ -5,7 +5,10 @@ import { Preferences } from './preferences';
 import { Fader, Knob } from '../../shared/readout';
 import { MeterLevel } from '../../shared/meter';
 import { StemPart } from '../stem-parts';
-import { LibraryLists, LibraryView } from './library';
+import { FoldersState, LibraryLists, LibraryView } from './library';
+import { AudioState } from './audio';
+import { AutoDjStatus } from './auto-dj';
+import { ControllersState } from './controllers';
 import { Separation, StemMix, StemsState } from './stems';
 
 export type SignalState = 'none' | 'bounce' | 'ok';
@@ -257,6 +260,10 @@ export interface ControlState {
   lists: LibraryLists;
   preferences: Preferences;
   stems: StemsState;
+  controllers: ControllersState;
+  audio: AudioState;
+  folders: FoldersState;
+  autoDj: AutoDjStatus;
 }
 
 /** What the headphones preview: the track the engine was given, and the file opening for the

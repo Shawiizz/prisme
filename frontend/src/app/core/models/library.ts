@@ -210,6 +210,17 @@ export interface AnalysisProgress {
 }
 
 /** A folder whose tracks make the library; the main one first. */
+/** The music folders, and how far their analysis is. */
+export interface FoldersState {
+  /** The main one first. */
+  folders: MusicFolder[];
+  progress: AnalysisProgress;
+  /** The run of the analysis `progress` is of: each look through the folders the next. */
+  scan: number;
+  /** The library's database could not be opened: what changes is lost at exit. */
+  inMemory: boolean;
+}
+
 export interface MusicFolder {
   path: string;
   /** The folder the library started with, which stays. */

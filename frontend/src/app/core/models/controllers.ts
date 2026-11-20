@@ -112,11 +112,20 @@ export interface Mapped {
 }
 
 /** An action the app performs that a controller drove: a key's value. */
-/** The controllers plugged in and those in use that are not. */
-export interface Controllers {
+/** The controllers as the backend shows them. */
+export interface ControllersState {
+  /** Those plugged in, and those in use that are not. */
   controllers: Controller[];
   /** A controller is open: controls can be learnt. */
   canLearn: boolean;
+  /** The controller models Prisme knows. */
+  profiles: ControllerProfiles;
+  /** What drives what, by action and by controller. */
+  mapped: Mapped[];
+  /** Where the MIDI clock goes. */
+  clockOutput: string | null;
+  /** The action the next control moved will drive. */
+  learning: string | null;
 }
 
 /** A controller in use opened again. */

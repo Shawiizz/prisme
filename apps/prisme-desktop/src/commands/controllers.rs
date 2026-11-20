@@ -1,88 +1,47 @@
-//! Controllers, MIDI and HID (see `controllers`).
+//! Controllers, MIDI and HID (see `controllers`): what the interface shows of them comes with
+//! its section (`ControllersStateDto`), shown again after each command that changes it.
 
-use crate::commands::targets::{self, TargetDto};
+use crate::commands::targets::TargetDto;
 use crate::controller_profiles;
-use crate::controllers::Controllers;
+use crate::controllers::{Controllers, Shown};
 use crate::dto::{
-    ControllerDto, ControllerProfileDto, ControllerProfilesDto, ControllersDto, LightDto, OfferedProfileDto,
+    ControllerProfileDto, ControllerProfilesDto, ControllersDto, LightDto, OfferedProfileDto,
     ProfileCountsDto,
 };
 use crate::error::{AppError, AppResult};
 use crate::midi_clock::MidiClock;
 use crate::state::AppState;
-use prisme_control::hid;
 use prisme_control::{Encoding, Mapping};
 use serde::Serialize;
 use std::path::PathBuf;
-use tauri::{AppHandle, State};
+use tauri::{AppHandle, Manager, State};
 
-/// The controllers plugged in, and those in use that are not.
-#[tauri::command]
-pub fn list_controllers(controllers: State<'_, Controllers>) -> ControllersDto {
-    let plugged = Controllers::plugged();
-    let setup = controllers.setup();
-    let missing = setup.enabled.iter().filter(|name| !plugged.contains(name)).cloned().collect::<Vec<_>>();
-    let library = controller_profiles::current();
-    let dto = |name: String, plugged: bool| {
-        let known = library.chosen(&name, setup.profiles.get(&name).map(String::as_str));
-        let models = known.map(|k| &k.file) == library.of(&name).map(|k| &k.file);
-        let (enabled, hid) = (setup.enabled.contains(&name), hid::ids_of(&name).is_some());
-        ControllerDto {
-            listed: !hid || known.is_some() || enabled,
-            can_export: enabled && plugged,
-            enabled,
-            profile: known.map(|k| k.profile.name.clone()),
-            profile_file: known.map(|k| k.file.clone()),
-            offered: library
-                .offered(&name)
-                .into_iter()
-                .map(|k| OfferedProfileDto { file: k.file.clone(), name: k.profile.name.clone() })
-                .collect(),
-            verified: known.is_some_and(|k| k.profile.verified),
-            profile_source: known.map(|k| k.source),
-            replaces: library.replaced_on(&name).filter(|_| models).map(|k| k.profile.name.clone()),
-            export_file: controller_profiles::file_name(&controllers.model_name(&name)),
-            name,
-            plugged,
+/// The controllers as the interface shows them.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ControllersStateDto {
+    #[serde(flatten)]
+    pub listed: ControllersDto,
+    /// The controller models Prisme knows.
+    pub profiles: ControllerProfilesDto,
+    /// What drives what, by action and by controller.
+    pub mapped: Vec<MappedDto>,
+    /// Where the MIDI clock goes.
+    pub clock_output: Option<String>,
+    /// The action the next control moved will drive.
+    pub learning: Option<String>,
+}
+
+impl ControllersStateDto {
+    pub fn of(shown: Shown, decks: usize) -> Self {
+        Self {
+            mapped: mapped(&shown.mappings, decks),
+            listed: shown.listed,
+            profiles: profiles_dto(&controller_profiles::current()),
+            clock_output: shown.clock_output,
+            learning: shown.learning,
         }
-    };
-    let controllers: Vec<ControllerDto> =
-        plugged.into_iter().map(|n| dto(n, true)).chain(missing.into_iter().map(|n| dto(n, false))).collect();
-    ControllersDto { can_learn: controllers.iter().any(|c| c.can_export), controllers }
-}
-
-#[tauri::command]
-pub fn set_controller_enabled(
-    app: AppHandle,
-    controllers: State<'_, Controllers>,
-    name: String,
-    enabled: bool,
-) -> AppResult<()> {
-    controllers.set_enabled(&app, &name, enabled)
-}
-
-/// Drives the controller `name` by `file`, one of the profiles offered for it (a variant of its
-/// model's), from now on.
-#[tauri::command]
-pub fn choose_controller_profile(
-    app: AppHandle,
-    controllers: State<'_, Controllers>,
-    name: String,
-    file: String,
-) -> AppResult<()> {
-    controllers.choose_profile(&app, &name, &file)
-}
-
-/// The models of the controllers in use that another program holds.
-#[tauri::command]
-pub fn waiting_controllers(controllers: State<'_, Controllers>) -> Vec<String> {
-    controllers.waiting()
-}
-
-/// The DJ chose not to use the controller just plugged in: it is not offered again.
-#[tauri::command]
-pub fn decline_controller(controllers: State<'_, Controllers>, name: String) {
-    controllers.decline(&name);
+    }
 }
 
 /// An action the controllers in use drive, and what drives it on each.
@@ -121,12 +80,42 @@ pub fn mapped(mappings: &[Mapping], decks: usize) -> Vec<MappedDto> {
     mapped
 }
 
+/// Runs `change` on the controllers, then shows them.
+fn changing<R>(app: &AppHandle, change: impl FnOnce(&Controllers) -> R) -> R {
+    let controllers = app.state::<Controllers>();
+    let changed = change(&controllers);
+    controllers.show(&app.state::<AppState>());
+    changed
+}
+
+/// Looks for the controllers plugged in now (they are looked for twice a second besides).
 #[tauri::command]
-pub fn controller_mappings(
-    state: State<'_, AppState>,
-    controllers: State<'_, Controllers>,
-) -> Vec<MappedDto> {
-    mapped(controllers.mappings().all(), targets::decks(&state))
+pub fn look_for_controllers(state: State<'_, AppState>, controllers: State<'_, Controllers>) {
+    controllers.look(&state);
+}
+
+#[tauri::command]
+pub fn set_controller_enabled(app: AppHandle, name: String, enabled: bool) -> AppResult<()> {
+    changing(&app, |c| c.set_enabled(&app, &name, enabled))
+}
+
+/// Drives the controller `name` by `file`, one of the profiles offered for it (a variant of its
+/// model's), from now on.
+#[tauri::command]
+pub fn choose_controller_profile(app: AppHandle, name: String, file: String) -> AppResult<()> {
+    changing(&app, |c| c.choose_profile(&app, &name, &file))
+}
+
+/// The models of the controllers in use that another program holds.
+#[tauri::command]
+pub fn waiting_controllers(controllers: State<'_, Controllers>) -> Vec<String> {
+    controllers.waiting()
+}
+
+/// The DJ chose not to use the controller just plugged in: it is not offered again.
+#[tauri::command]
+pub fn decline_controller(app: AppHandle, name: String) {
+    changing(&app, |c| c.decline(&name));
 }
 
 /// The actions whose light the interface tells (`set_lights`), of those the controllers in use
@@ -137,33 +126,28 @@ pub fn controller_light_targets(controllers: State<'_, Controllers>) -> Vec<Stri
 }
 
 /// The next control moved on a controller in use will drive `target`, read as a key, a fader
-/// or an encoder as its action takes (`controller-learned` says which).
+/// or an encoder as its action takes.
 #[tauri::command]
-pub fn learn_control(controllers: State<'_, Controllers>, target: String) {
-    controllers.learn(target);
+pub fn learn_control(app: AppHandle, target: String) {
+    changing(&app, |c| c.learn(target));
 }
 
 /// How the encoder of `target` on `device` sends its steps (a jog that turns the wrong way
 /// or by leaps is read with another encoding).
 #[tauri::command]
-pub fn set_control_encoding(
-    controllers: State<'_, Controllers>,
-    device: String,
-    target: String,
-    encoding: Encoding,
-) {
-    controllers.set_encoding(&device, &target, encoding);
+pub fn set_control_encoding(app: AppHandle, device: String, target: String, encoding: Encoding) {
+    changing(&app, |c| c.set_encoding(&device, &target, encoding));
 }
 
 #[tauri::command]
-pub fn cancel_learning(controllers: State<'_, Controllers>) {
-    controllers.cancel_learning();
+pub fn cancel_learning(app: AppHandle) {
+    changing(&app, Controllers::cancel_learning);
 }
 
 /// Takes `target` off the controller `device`.
 #[tauri::command]
-pub fn forget_control(controllers: State<'_, Controllers>, device: String, target: String) {
-    controllers.forget(&device, &target);
+pub fn forget_control(app: AppHandle, device: String, target: String) {
+    changing(&app, |c| c.forget(&device, &target));
 }
 
 #[tauri::command]
@@ -177,42 +161,26 @@ pub fn midi_outputs() -> AppResult<Vec<String>> {
     MidiClock::outputs()
 }
 
-#[tauri::command]
-pub fn midi_clock_output(clock: State<'_, MidiClock>) -> Option<String> {
-    clock.output_name()
-}
-
 /// Sends the MIDI clock to `name` (`None`: nowhere); kept for the next start.
 #[tauri::command]
-pub fn set_midi_clock_output(
-    clock: State<'_, MidiClock>,
-    controllers: State<'_, Controllers>,
-    name: Option<String>,
-) -> AppResult<()> {
-    clock.set_output(name.as_deref())?;
-    controllers.remember_clock_output(name);
+pub fn set_midi_clock_output(app: AppHandle, name: Option<String>) -> AppResult<()> {
+    app.state::<MidiClock>().set_output(name.as_deref())?;
+    changing(&app, |c| c.remember_clock_output(name));
     Ok(())
-}
-
-/// The controller models Prisme knows.
-#[tauri::command]
-pub fn controller_profiles() -> ControllerProfilesDto {
-    profiles_dto(&controller_profiles::current())
 }
 
 /// Reads the profiles again: the DJ's own changed.
 #[tauri::command]
-pub fn reload_controller_profiles(controllers: State<'_, Controllers>) -> ControllerProfilesDto {
-    let library = controller_profiles::reload();
-    controllers.profiles_changed();
-    profiles_dto(&library)
+pub fn reload_controller_profiles(app: AppHandle) {
+    controller_profiles::reload();
+    changing(&app, Controllers::profiles_changed);
 }
 
 /// Fetches the profiles published since: how many came.
 #[tauri::command]
-pub async fn update_controller_profiles(controllers: State<'_, Controllers>) -> AppResult<usize> {
+pub async fn update_controller_profiles(app: AppHandle) -> AppResult<usize> {
     let came = controller_profiles::update().await.map_err(AppError::Other)?;
-    controllers.profiles_changed();
+    changing(&app, Controllers::profiles_changed);
     Ok(came)
 }
 

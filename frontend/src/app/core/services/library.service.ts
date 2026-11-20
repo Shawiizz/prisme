@@ -1,6 +1,5 @@
 import { Injectable, computed, effect, inject, signal, untracked } from '@angular/core';
 import { invoke } from '@tauri-apps/api/core';
-import { listen } from '@tauri-apps/api/event';
 import { open } from '@tauri-apps/plugin-dialog';
 import {
   AnalysisProgress,
@@ -36,8 +35,7 @@ const NO_WINDOW: LibraryWindow = { seq: -1, first: 0, rows: [] };
  * picked live in the backend, which tells them with the status (`controls.library`) and gives
  * the rows the table draws as it scrolls (`viewport`); each gesture here is a command sent in
  * turn with the app's actions. The lists of the side panel come the same way
- * (`controls.lists`). The background analysis says how far it is (`library-progress`); the
- * music folders, when one is added, removed, unplugged or plugged back (`music-folders-changed`).
+ * (`controls.lists`), and the music folders with how far their analysis is (`controls.folders`).
  */
 @Injectable({ providedIn: 'root' })
 export class LibraryService {
@@ -46,22 +44,19 @@ export class LibraryService {
   private readonly exports = inject(ExportService);
   private readonly confirm = inject(ConfirmService);
 
+  private readonly told = computed(() => this.engine.controls()?.folders ?? null);
   /** The folders whose tracks make the library, the main one first. */
-  readonly folders = signal<MusicFolder[]>([]);
+  readonly folders = computed(() => this.told()?.folders ?? []);
   /** The main music folder. */
   readonly root = computed(() => this.folders().find((f) => f.main)?.path ?? null);
   readonly error = signal<string | null>(null);
-  readonly progress = signal<AnalysisProgress>({
-    total: 0,
-    done: 0,
-    failed: 0,
-    running: false,
-    paused: false,
-  });
-  /** How many scans of the folder have ended. */
-  readonly scansEnded = signal(0);
+  readonly progress = computed<AnalysisProgress>(
+    () => this.told()?.progress ?? { total: 0, done: 0, failed: 0, running: false, paused: false },
+  );
+  /** The run of the analysis `progress` is of. */
+  readonly scan = computed(() => this.told()?.scan ?? 0);
   /** The library's database could not be opened: what changes is lost at exit. */
-  readonly inMemory = signal(false);
+  readonly inMemory = computed(() => this.told()?.inMemory ?? false);
   /** The genres of the library, the most common first (loaded on demand). */
   readonly genres = signal<string[]>([]);
   /** Incremented to ask the view to focus the search field. */
@@ -113,19 +108,6 @@ export class LibraryService {
       const view = this.engine.controls()?.library;
       if (view) untracked(() => this.take(view));
     });
-  }
-
-  async init(): Promise<void> {
-    await Promise.all([
-      listen<AnalysisProgress>('library-progress', (e) => {
-        this.progress.set(e.payload);
-        if (!e.payload.running) this.scansEnded.update((n) => n + 1);
-      }),
-      listen<MusicFolder[]>('music-folders-changed', (e) => this.folders.set(e.payload)),
-    ]);
-    this.progress.set(await invoke<AnalysisProgress>('library_progress'));
-    this.inMemory.set(await invoke<boolean>('library_in_memory'));
-    this.folders.set(await invoke<MusicFolder[]>('music_folders'));
   }
 
   /** The crate `id`, if there is one. */
@@ -293,7 +275,6 @@ export class LibraryService {
   /** Makes `path` the main music folder (`null`: the system's), scanned at once, and opens it. */
   async setRoot(path: string | null): Promise<void> {
     const root = await invoke<string>('set_music_folder', { path });
-    this.folders.set(await invoke<MusicFolder[]>('music_folders'));
     await this.openFolder(root);
   }
 
@@ -310,7 +291,7 @@ export class LibraryService {
 
   /** Adds a folder to the music folders and opens it; throws what kept it out. */
   async joinFolder(path: string): Promise<void> {
-    this.folders.set(await invoke<MusicFolder[]>('add_music_folder', { path }));
+    await invoke('add_music_folder', { path });
     await this.engine.ordered('library_open', { source: { kind: 'folder', path } });
   }
 
@@ -329,9 +310,7 @@ export class LibraryService {
       cancel: t('Cancel'),
     });
     if (!yes) return;
-    await this.attempt(async () =>
-      this.folders.set(await invoke<MusicFolder[]>('remove_music_folder', { path: folder.path })),
-    );
+    await this.attempt(() => invoke('remove_music_folder', { path: folder.path }));
   }
 
   /** Shows a folder in the computer's file manager, or a file selected in its folder. */
@@ -344,9 +323,9 @@ export class LibraryService {
     return invoke<DirListing>('list_dir', { path });
   }
 
-  /** Looks for new or changed files and analyses them. */
-  rescan(): Promise<void> {
-    return invoke('rescan_library');
+  /** Looks for new or changed files and analyses them: the run started (see `scan`). */
+  rescan(): Promise<number> {
+    return invoke<number>('rescan_library');
   }
 
   /** The list and the rows sent last, whichever came first: a view told before another is not

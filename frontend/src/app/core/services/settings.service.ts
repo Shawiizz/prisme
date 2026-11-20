@@ -6,7 +6,6 @@ import {
   AudioBackend,
   AudioDevice,
   AudioDevices,
-  AudioInfo,
   AudioSettings,
   BackendChoice,
   BufferSize,
@@ -32,9 +31,11 @@ export class SettingsService {
   readonly bufferSizes = signal<BufferSize[]>([]);
   /** The timecode records Prisme reads, by maker. */
   readonly makers = signal<TimecodeMaker[]>([]);
-  readonly settings = signal<AudioSettings | null>(null);
-  readonly info = signal<AudioInfo | null>(null);
   private readonly engine = inject(EngineService);
+  /** The settings the DJ chose, as the backend keeps them. */
+  readonly settings = computed(() => this.engine.controls()?.audio.settings ?? null);
+  /** The audio running. */
+  readonly info = computed(() => this.engine.controls()?.audio.info ?? null);
   private readonly notices = inject(NoticeService);
   /** The length of an audio period, `5.3 ms`, once the driver has called the engine. */
   readonly period = computed(() => {
@@ -45,11 +46,15 @@ export class SettingsService {
   readonly turntables = computed(() => this.info()?.turntables ?? false);
   private devicesAsked = 0;
 
-  /** Loads the settings, and again whenever the audio moves to other devices by itself. */
+  /** Loads the backends and the records offered, and offers the sound cards plugged in. */
   async init(): Promise<void> {
-    await listen('audio-changed', () => this.refresh());
     await listen<CardOffer>('card-plugged', ({ payload }) => this.offer(payload));
-    await this.refresh();
+    const [backends, makers] = await Promise.all([
+      invoke<BackendChoice[]>('audio_backends'),
+      invoke<TimecodeMaker[]>('timecode_formats'),
+    ]);
+    this.backends.set(backends);
+    this.makers.set(makers);
   }
 
   /** A sound card plugged in, offered: used at once, or not offered again. */
@@ -71,20 +76,6 @@ export class SettingsService {
         },
       ],
     });
-  }
-
-  async refresh(): Promise<void> {
-    const [backends, makers, settings, info] = await Promise.all([
-      invoke<BackendChoice[]>('audio_backends'),
-      invoke<TimecodeMaker[]>('timecode_formats'),
-      invoke<AudioSettings>('get_audio_settings'),
-      invoke<AudioInfo | null>('audio_info'),
-    ]);
-    this.backends.set(backends);
-    this.makers.set(makers);
-    this.settings.set(settings);
-    this.info.set(info);
-    await this.loadDevices(settings.backend);
   }
 
   /** The devices of the backend asked for last: a slower answer for another one is dropped. */
@@ -109,12 +100,10 @@ export class SettingsService {
     return true;
   }
 
-  /** Restarts the audio with new settings if they changed (the decks and the mixer as it lays
-   * them out come with the engine's state), then uses the mixer `mixMode` if given. Throws the
-   * error message on failure. */
+  /** Restarts the audio with new settings if they changed (what runs then comes with the
+   * engine's state), then uses the mixer `mixMode` if given. Throws the error message on
+   * failure. */
   async apply(settings: AudioSettings, mixMode: MixMode | null = null): Promise<void> {
-    const info = await invoke<AudioInfo | null>('apply_audio_settings', { settings, mixMode });
-    this.settings.set(settings);
-    if (info) this.info.set(info);
+    await invoke('apply_audio_settings', { settings, mixMode });
   }
 }

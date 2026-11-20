@@ -5,9 +5,10 @@
 use crate::actions::browse::Library;
 use crate::audio_host::{deck_pair, layer_partner, AudioSession};
 use crate::dto::{
-    AudioInfo, BackendDto, BandDto, ChannelStripDto, CrossfaderSideDto, CueDto, DeckStemsDto, FxChainDto,
-    FxPartDto, HeadphonesOutputDto, InputChannelsDto, KeyDto, LiveSourceDto, MixModeDto, PreviewStateDto,
-    RecordingDto, RpmDto, SeparationDto, StemMixDto, TempoDto, TrackInfoDto, VinylModeDto,
+    AudioInfo, AutoDjStatusDto, BackendDto, BandDto, ChannelStripDto, CrossfaderSideDto, CueDto,
+    DeckStemsDto, FoldersStateDto, FxChainDto, FxPartDto, HeadphonesOutputDto, InputChannelsDto, KeyDto,
+    LiveSourceDto, MixModeDto, PreviewStateDto, RecordingDto, RpmDto, SeparationDto, StemMixDto, TempoDto,
+    TrackInfoDto, VinylModeDto,
 };
 use crate::error::{AppError, AppResult};
 use crate::folders;
@@ -323,6 +324,13 @@ pub struct AppState {
     pub preview: Mirrored<PreviewStateDto>,
     /// The separation into stems, as the interface shows it (see `StemsService::show`).
     pub stems: Mirrored<crate::stems_service::Shown>,
+    /// The controllers, as the interface shows them (see `Controllers::show`).
+    pub controllers: Mirrored<crate::controllers::Shown>,
+    /// The music folders and their analysis, as the interface shows them (see
+    /// `LibraryService::show`).
+    pub folders: Mirrored<FoldersStateDto>,
+    /// The Auto DJ, as the interface shows it (see `AutoDj::tell`).
+    pub auto_dj: Mirrored<AutoDjStatusDto>,
     /// The library as it is browsed, changed through [`AppState::browse`]: taken last, nothing
     /// else locked while it is held.
     pub library: Mutex<Library>,
@@ -351,6 +359,13 @@ pub enum Section {
     Settings,
     /// The separation into stems: its models and its queue.
     Stems,
+    /// The controllers, their profiles and what they drive.
+    Controllers,
+    /// The audio settings and the devices running.
+    Audio,
+    /// The music folders, and how far their analysis is.
+    Folders,
+    AutoDj,
 }
 
 impl Section {
@@ -363,10 +378,14 @@ impl Section {
         Section::Lists,
         Section::Settings,
         Section::Stems,
+        Section::Controllers,
+        Section::Audio,
+        Section::Folders,
+        Section::AutoDj,
     ];
 }
 
-pub const SECTIONS: usize = 8;
+pub const SECTIONS: usize = 12;
 
 /// Where the changes of each [`Section`] are at: each moves at every change of its own.
 #[derive(Default)]
@@ -393,6 +412,17 @@ pub struct Mirrored<T> {
 impl<T> Mirrored<T> {
     fn new(value: T, revisions: &Arc<Revisions>, section: Section) -> Self {
         Self { value: Mutex::new(value), revisions: revisions.clone(), section }
+    }
+}
+
+impl<T: PartialEq> Mirrored<T> {
+    /// Holds `value` from now: its section moves only if it changed.
+    pub fn set(&self, value: T) {
+        let mut held = self.value.guard();
+        if *held != value {
+            *held = value;
+            self.revisions.moved(self.section);
+        }
     }
 }
 
@@ -539,6 +569,9 @@ impl AppState {
             perform: Mirrored::new(PerformState::default(), &revisions, Section::Perform),
             preview: Mirrored::new(PreviewStateDto::default(), &revisions, Section::Preview),
             stems: Mirrored::new(Default::default(), &revisions, Section::Stems),
+            controllers: Mirrored::new(Default::default(), &revisions, Section::Controllers),
+            folders: Mirrored::new(Default::default(), &revisions, Section::Folders),
+            auto_dj: Mirrored::new(AutoDjStatusDto::default(), &revisions, Section::AutoDj),
             library: Mutex::default(),
             hidden: AtomicBool::new(false),
             revisions,
@@ -614,6 +647,7 @@ impl AppState {
     pub fn replace_session(&self, session: Option<AudioSession>) -> Option<AudioSession> {
         let previous = std::mem::replace(&mut *lock(&self.session), session);
         self.revisions.moved(Section::Mixer);
+        self.revisions.moved(Section::Audio);
         previous
     }
 
@@ -1480,9 +1514,21 @@ mod tests {
         let revision = bench.state.revision();
         let session = bench.state.replace_session(None);
         assert!(session.is_some());
-        assert_eq!(bench.state.moved_since(revision), [Section::Mixer]);
+        assert_eq!(bench.state.moved_since(revision), [Section::Mixer, Section::Audio]);
         bench.state.replace_session(session);
         assert!(lock(&bench.state.session).is_some());
+        let audio = crate::dto::ControlStateDto::of(&bench.state, &bench.view(), [Section::Audio]).audio;
+        assert!(audio.is_some_and(|audio| audio.info.is_some()), "the audio running shown");
+    }
+
+    #[test]
+    fn what_the_interface_mirrors_moves_once_set_to_something_else() {
+        let state = AppState::new(JsonFile::in_memory(Default::default()));
+        let before = state.revision();
+        state.auto_dj.set(crate::dto::AutoDjStatusDto::default());
+        assert_eq!(state.moved_since(before), [], "the same");
+        state.auto_dj.set(crate::dto::AutoDjStatusDto { fade_beats: 32, ..Default::default() });
+        assert_eq!(state.moved_since(before), [Section::AutoDj]);
     }
 
     /// An engine called every few milliseconds, as by a sound card, until the returned flag

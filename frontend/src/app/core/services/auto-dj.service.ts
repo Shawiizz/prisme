@@ -1,41 +1,11 @@
-import { Injectable, computed, inject, signal } from '@angular/core';
+import { Injectable, computed, inject } from '@angular/core';
 import { invoke } from '@tauri-apps/api/core';
-import { listen } from '@tauri-apps/api/event';
+import { AutoDjStatus } from '../models/auto-dj';
 import { EngineService } from './engine.service';
 import { MixerService } from './mixer.service';
 import { t } from '../i18n/i18n';
 import { deckLetter } from '../../shared/time';
 import { errorText } from '../errors';
-
-export type AutoDjState = 'off' | 'on' | 'mixing' | 'paused';
-export type AutoDjReason =
-  | 'externalMixer'
-  | 'records'
-  | 'listEmpty'
-  | 'listEnded'
-  | 'transport'
-  | 'crossfader'
-  | 'load'
-  | 'unloadable';
-
-/** The Auto DJ as the backend runs it (see apps/prisme-desktop/src/auto_dj). */
-export interface AutoDjStatus {
-  state: AutoDjState;
-  /** Why it stopped, paused, or left a track out. */
-  reason: AutoDjReason | null;
-  /** The deck the DJ played or loaded, for those reasons. */
-  reasonDeck: number | null;
-  /** The deck heard. */
-  current: number | null;
-  /** The deck being mixed in. */
-  incoming: number | null;
-  /** Where on the deck heard the next mix starts. */
-  mixAtS: number | null;
-  /** Length of a mix between tracks with a beat grid. */
-  fadeBeats: number;
-  /** Length of a mix when one has none. */
-  fadeS: number;
-}
 
 const OFF: AutoDjStatus = {
   state: 'off',
@@ -59,7 +29,7 @@ export class AutoDjService {
   private readonly engine = inject(EngineService);
   private readonly mixer = inject(MixerService);
 
-  readonly status = signal<AutoDjStatus>(OFF);
+  readonly status = computed(() => this.engine.controls()?.autoDj ?? OFF);
   /** On, paused or not. */
   readonly on = computed(() => this.status().state !== 'off');
   /** Playing the list: what a controller's light shows. */
@@ -98,11 +68,6 @@ export class AutoDjService {
     }
   });
 
-  async init(): Promise<void> {
-    await listen<AutoDjStatus>('auto-dj', ({ payload }) => this.status.set(payload));
-    this.status.set(await invoke<AutoDjStatus>('auto_dj_status'));
-  }
-
   /** On, off, or on again after the DJ took over. */
   toggle() {
     return this.engine.perform('autodj.toggle', 1);
@@ -130,7 +95,7 @@ export class AutoDjService {
 
   private async call(command: string, args: Record<string, unknown> = {}) {
     try {
-      this.status.set(await invoke<AutoDjStatus>(command, args));
+      await invoke(command, args);
     } catch (e) {
       this.engine.error.set(errorText(e));
     }

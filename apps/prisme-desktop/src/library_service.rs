@@ -1,11 +1,7 @@
 //! The analysed library inside the app: the track database, the background analysis
 //! of the music folders, what of it the library as browsed takes at once (`actions::browse`: a
-//! file analysed, a scan ended, the music folders changed), and the events that keep the UI up
-//! to date:
-//!
-//! * `library-progress` ([`ProgressDto`]) as the run advances;
-//! * `music-folders-changed` ([`MusicFolderDto`] list) when a music folder is added, removed,
-//!   chosen as the main one, goes away or comes back.
+//! file analysed, a scan ended, the music folders changed), and what the interface shows of the
+//! folders and the analysis (`AppState::folders`, see [`LibraryService::show`]).
 //!
 //! The music folders are the main one and those added next to it (a USB key, a drive, a
 //! sets folder). They are watched ([`FolderWatch`]): new and changed files are analysed as
@@ -13,7 +9,7 @@
 //! or left are handled as files gone from the library.
 
 use crate::actions::browse;
-use crate::dto::{MusicFolderDto, ProgressDto};
+use crate::dto::MusicFolderDto;
 use crate::error::{AppError, AppResult};
 use crate::folder_watch::FolderWatch;
 use crate::state::{lock, AppState};
@@ -23,13 +19,12 @@ use prisme_library::{
     within, AnalysisListener, AnalysisProgress, BackgroundAnalyzer, FileStamp, LibraryDb, TrackRecord,
 };
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Condvar, Mutex};
 use std::time::Duration;
-use tauri::{AppHandle, Emitter, Manager};
+use tauri::{AppHandle, Manager};
 use tracing::{error, info, warn};
 
-pub const PROGRESS_EVENT: &str = "library-progress";
-pub const FOLDERS_CHANGED_EVENT: &str = "music-folders-changed";
 /// How often the music folders are looked for: one away may be back, one there may be gone.
 const WATCH_RETRY: Duration = Duration::from_secs(30);
 
@@ -43,7 +38,8 @@ pub struct LibraryService {
     /// Music folders left whose tracks were not handled yet (a run stopped before).
     left: Arc<Mutex<Vec<PathBuf>>>,
     analyzer: Mutex<Option<BackgroundAnalyzer>>,
-    progress: Arc<Mutex<AnalysisProgress>>,
+    /// The run of the analysis started last: each look through the folders the next.
+    scan: Arc<AtomicU64>,
     /// The database could not be opened: the library lives in memory, lost at exit.
     in_memory: bool,
 }
@@ -68,14 +64,17 @@ impl LibraryService {
             changed: Condvar::new(),
             left: Arc::default(),
             analyzer: Mutex::new(None),
-            progress: Arc::new(Mutex::new(AnalysisProgress::default())),
+            scan: Arc::default(),
             in_memory,
         }
     }
 
-    /// Whether the library lives in memory only, its database not opened.
-    pub fn in_memory(&self) -> bool {
-        self.in_memory
+    /// Shows the interface the music folders, each asked whether it is there.
+    pub fn show_folders(&self) {
+        let folders = self.folders();
+        let state = self.app.state::<AppState>();
+        let mut shown = lock(&state.folders);
+        (shown.folders, shown.in_memory) = (folders, self.in_memory);
     }
 
     /// The main music folder.
@@ -190,7 +189,7 @@ impl LibraryService {
     }
 
     fn announce_folders(&self) {
-        let _ = self.app.emit(FOLDERS_CHANGED_EVENT, self.folders());
+        self.show_folders();
         browse::folders_changed(&self.app.state::<AppState>(), &self.db, self.roots());
     }
 
@@ -219,13 +218,16 @@ impl LibraryService {
         drop(self.changed.wait_timeout_while(current, time, |current| current.as_slice() == roots));
     }
 
-    /// (Re)starts the analysis of the music folders: new and changed files only.
-    pub fn start(&self) {
+    /// (Re)starts the analysis of the music folders: new and changed files only. The run it
+    /// starts.
+    pub fn start(&self) -> u64 {
+        let scan = self.scan.fetch_add(1, Ordering::SeqCst) + 1;
         let listener = Arc::new(EventListener {
             app: self.app.clone(),
             db: self.db.clone(),
-            progress: self.progress.clone(),
             left: self.left.clone(),
+            scans: self.scan.clone(),
+            scan,
         });
         let analyzer = BackgroundAnalyzer::leaving(
             self.db.clone(),
@@ -238,6 +240,7 @@ impl LibraryService {
         // the previous run (if any) is stopped outside the lock
         let previous = lock(&self.analyzer).replace(analyzer);
         drop(previous);
+        scan
     }
 
     /// Analyses the files of the music folders as they appear or change. The watch is set up
@@ -280,10 +283,6 @@ impl LibraryService {
         }
     }
 
-    pub fn progress(&self) -> AnalysisProgress {
-        *lock(&self.progress)
-    }
-
     /// What the library knows of a track changed: its rows show it.
     pub fn announce(&self, path: &Path) {
         browse::reread(&self.app.state::<AppState>(), &self.db, [path]);
@@ -318,8 +317,10 @@ impl LibraryService {
 struct EventListener {
     app: AppHandle,
     db: Arc<LibraryDb>,
-    progress: Arc<Mutex<AnalysisProgress>>,
     left: Arc<Mutex<Vec<PathBuf>>>,
+    /// The run started last, and this one's: a run stopped for another is not shown.
+    scans: Arc<AtomicU64>,
+    scan: u64,
 }
 
 impl AnalysisListener for EventListener {
@@ -332,8 +333,12 @@ impl AnalysisListener for EventListener {
     /// A run that ended may have found files gone or moved: the library as browsed is read
     /// whole again.
     fn progress(&self, progress: AnalysisProgress) {
-        *lock(&self.progress) = progress;
-        let _ = self.app.emit(PROGRESS_EVENT, ProgressDto::from(progress));
+        if self.scans.load(Ordering::SeqCst) == self.scan {
+            if let Some(state) = self.app.try_state::<AppState>() {
+                let mut shown = lock(&state.folders);
+                (shown.progress, shown.scan) = (progress.into(), self.scan);
+            }
+        }
         if !progress.running {
             self.app.state::<TagWriter>().wake();
             if let Some(state) = self.app.try_state::<AppState>() {

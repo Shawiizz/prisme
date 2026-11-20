@@ -6,8 +6,8 @@ use crate::actions::browse::{self, effective, Library};
 use crate::actions::{Actions, Order};
 use crate::commands::blocking;
 use crate::dto::{
-    ColumnDto, LibraryMenuDto, LibraryViewDto, LibraryWindowDto, NamedTrackDto, PickDto, ProgressDto,
-    ScopeDto, SeparateDto, SourceDto,
+    ColumnDto, LibraryMenuDto, LibraryViewDto, LibraryWindowDto, NamedTrackDto, PickDto, ScopeDto,
+    SeparateDto, SourceDto,
 };
 use crate::error::AppResult;
 use crate::library_service::LibraryService;
@@ -36,28 +36,11 @@ pub(crate) async fn in_turn<R: Send + 'static>(
     .await
 }
 
-/// State of the background analysis of the music folder.
+/// Looks for new or changed files in the music folder and analyses them: the run started (see
+/// `FoldersStateDto::scan`). Off the main thread: the analysis running stops first.
 #[tauri::command]
-pub fn library_progress(library: State<'_, Arc<LibraryService>>) -> ProgressDto {
-    library.progress().into()
-}
-
-/// Whether the library lives in memory only (its database could not be opened): what is
-/// changed of it is lost at exit.
-#[tauri::command]
-pub fn library_in_memory(library: State<'_, Arc<LibraryService>>) -> bool {
-    library.in_memory()
-}
-
-/// Looks for new or changed files in the music folder and analyses them. Off the main thread:
-/// the analysis running stops first.
-#[tauri::command]
-pub async fn rescan_library(app: AppHandle) -> AppResult<()> {
-    blocking(move || {
-        app.state::<Arc<LibraryService>>().start();
-        Ok(())
-    })
-    .await
+pub async fn rescan_library(app: AppHandle) -> AppResult<u64> {
+    blocking(move || Ok(app.state::<Arc<LibraryService>>().start())).await
 }
 
 /// Shows `source`: the whole list, in its own order if it has one.

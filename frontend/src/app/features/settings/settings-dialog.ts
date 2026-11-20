@@ -229,12 +229,8 @@ export class SettingsDialog implements OnInit {
   }
 
   async ngOnInit() {
-    const [version] = await Promise.all([
-      getVersion().catch(() => ''),
-      this.service.refresh().catch((e) => this.error.set(errorText(e))),
-    ]);
-    this.version.set(version);
     this.draft.set(structuredClone(this.service.settings()));
+    this.version.set(await getVersion().catch(() => ''));
     await this.readLatencyChannels();
   }
 
@@ -312,8 +308,6 @@ export class SettingsDialog implements OnInit {
       await this.preferences.set('deckCount', deckCount);
     } catch (e) {
       this.engine.error.set(errorText(e));
-    } finally {
-      await this.service.refresh();
     }
   }
 
@@ -400,7 +394,6 @@ export class SettingsDialog implements OnInit {
       const d = this.draft();
       if (!d) return;
       await this.service.apply(d, this.mixMode());
-      this.draft.set(structuredClone(this.service.settings()));
       await this.readLatencyChannels();
     } catch (e) {
       this.error.set(errorText(e));

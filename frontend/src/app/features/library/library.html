@@ -120,7 +120,7 @@
         </button>
         <button
           class="pr-btn pr-btn--sm pr-btn--ghost"
-          (click)="rescan()"
+          (click)="startRescan()"
           [disabled]="progress().running || rescanning()"
           [title]="'Analyse new and changed files' | t"
         >

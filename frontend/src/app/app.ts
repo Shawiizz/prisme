@@ -18,9 +18,7 @@ import { PHONE } from './core/platform';
 import { KeyboardService } from './core/keyboard/keyboard.service';
 import { ControllerService } from './core/control/controller.service';
 import { UpdateService } from './core/services/update.service';
-import { AutoDjService } from './core/services/auto-dj.service';
 import { EngineService } from './core/services/engine.service';
-import { LibraryService } from './core/services/library.service';
 import { SettingsService } from './core/services/settings.service';
 import { PreferencesService } from './core/services/preferences.service';
 import { MixerService } from './core/services/mixer.service';
@@ -61,8 +59,6 @@ const WHOLE_LANES_PX = 420;
 })
 export class App implements OnInit {
   private readonly engine = inject(EngineService);
-  private readonly library = inject(LibraryService);
-  private readonly autoDj = inject(AutoDjService);
   private readonly preview = inject(PreviewService);
   private readonly settings = inject(SettingsService);
   /** Follows the preferences the backend tells from the start. */
@@ -100,8 +96,6 @@ export class App implements OnInit {
     try {
       await Promise.all([
         this.engine.connect(),
-        this.library.init(),
-        this.autoDj.init(),
         this.preview.init(),
         this.settings.init(),
         this.keyboard.start(),

@@ -1,6 +1,8 @@
 import { TestBed } from '@angular/core/testing';
 import { clearMocks, mockIPC } from '@tauri-apps/api/mocks';
 import { Controller } from '../../core/models/controllers';
+import { ControlState } from '../../core/models/engine';
+import { EngineService } from '../../core/services/engine.service';
 import { ControllersSettings } from './controllers-settings';
 
 const VCI_100: Controller = {
@@ -26,15 +28,15 @@ describe('ControllersSettings', () => {
 
   async function settings(controllers: Controller[], chosen: unknown[] = []) {
     mockIPC((command, args) => {
-      if (command === 'list_controllers') return { controllers, canLearn: true };
       if (command === 'choose_controller_profile') chosen.push(args);
-      if (['controller_mappings', 'controller_light_targets', 'list_targets'].includes(command))
-        return [];
+      if (['midi_outputs', 'controller_light_targets', 'list_targets'].includes(command)) return [];
       return undefined;
     });
+    const shown = { controllers, canLearn: true, profiles: null, mapped: [], learning: null };
+    TestBed.inject(EngineService).controls.set({ controllers: shown } as unknown as ControlState);
     const fixture = TestBed.createComponent(ControllersSettings);
     fixture.detectChanges();
-    // the list asked for at the start comes
+    // the outputs asked for at the start come
     await new Promise((resolve) => setTimeout(resolve));
     fixture.detectChanges();
     return fixture.nativeElement as HTMLElement;

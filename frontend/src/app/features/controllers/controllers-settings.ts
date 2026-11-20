@@ -149,8 +149,7 @@ export class ControllersSettings implements OnInit, OnDestroy {
   private readonly opened = signal<ReadonlySet<string>>(new Set());
 
   ngOnInit() {
-    this.service.refresh();
-    this.service.loadProfiles();
+    void this.service.look();
   }
 
   protected async updateProfiles() {
@@ -177,7 +176,7 @@ export class ControllersSettings implements OnInit, OnDestroy {
   /** Looked for long enough to be seen looking, even when nothing new is found. */
   protected async refresh() {
     this.refreshing.set(true);
-    await Promise.all([this.service.refresh(), new Promise((r) => setTimeout(r, LOOKING_MS))]);
+    await Promise.all([this.service.look(), new Promise((r) => setTimeout(r, LOOKING_MS))]);
     this.refreshing.set(false);
   }
 

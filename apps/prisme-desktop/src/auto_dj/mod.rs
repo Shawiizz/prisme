@@ -27,10 +27,9 @@ use prisme_library::CueSlot;
 use std::path::PathBuf;
 use std::sync::{Arc, Condvar, Mutex};
 use std::time::{Duration, Instant};
-use tauri::{AppHandle, Emitter, Manager};
+use tauri::{AppHandle, Manager};
 use tracing::warn;
 
-pub const AUTO_DJ_EVENT: &str = "auto-dj";
 /// How often the decks are looked at: a mix starts at most this late (and is caught up).
 const TICK: Duration = Duration::from_millis(10);
 /// How often the first track of the prepare list is read again (the DJ reorders it).
@@ -41,18 +40,11 @@ pub struct AutoDj {
     machine: Mutex<Machine>,
     /// Wakes the loop when the Auto DJ is turned on.
     wake: Condvar,
-    /// The status last told to the interface.
-    told: Mutex<Option<AutoDjStatusDto>>,
 }
 
 impl AutoDj {
     pub fn new(app: AppHandle, preferences: AutoDjPreferences) -> Self {
-        Self {
-            app,
-            machine: Mutex::new(Machine::new(fade_of(preferences))),
-            wake: Condvar::new(),
-            told: Mutex::new(None),
-        }
+        Self { app, machine: Mutex::new(Machine::new(fade_of(preferences))), wake: Condvar::new() }
     }
 
     pub fn status(&self) -> AutoDjStatusDto {
@@ -111,18 +103,10 @@ impl AutoDj {
         self.tell();
     }
 
-    /// Tells the interface the status, if it changed (the lock let go first).
-    fn tell(&self) {
+    /// Shows the interface the status (the lock let go first): its section moves if it changed.
+    pub fn tell(&self) {
         let status = self.status();
-        let changed = {
-            let mut told = lock(&self.told);
-            let changed = told.as_ref() != Some(&status);
-            *told = Some(status.clone());
-            changed
-        };
-        if changed {
-            let _ = self.app.emit(AUTO_DJ_EVENT, &status);
-        }
+        self.app.state::<AppState>().auto_dj.set(status);
     }
 
     /// Runs the Auto DJ for the whole life of the app, asleep while it is off.

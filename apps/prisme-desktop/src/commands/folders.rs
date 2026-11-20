@@ -1,5 +1,5 @@
 use crate::commands::blocking;
-use crate::dto::{DirListingDto, FolderDto, MusicFolderDto, StoragePlaceDto};
+use crate::dto::{DirListingDto, FolderDto, StoragePlaceDto};
 use crate::error::AppResult;
 use crate::folders;
 use crate::library_service::LibraryService;
@@ -50,36 +50,18 @@ pub async fn set_music_folder(app: AppHandle, path: Option<String>) -> AppResult
     .await
 }
 
-/// The music folders: the main one first, then those added, in the order they were. Off the
-/// main thread: whether each is there is asked of its drive (a NAS may be slow to answer).
-#[tauri::command(async)]
-pub fn music_folders(library: State<'_, Arc<LibraryService>>) -> Vec<MusicFolderDto> {
-    library.folders()
-}
-
-/// Adds `path` to the music folders, scanned and watched at once; returns the music folders.
-/// Off the main thread: the analysis running stops first.
+/// Adds `path` to the music folders, scanned and watched at once. Off the main thread: the
+/// analysis running stops first.
 #[tauri::command]
-pub async fn add_music_folder(app: AppHandle, path: String) -> AppResult<Vec<MusicFolderDto>> {
-    blocking(move || {
-        let library = app.state::<Arc<LibraryService>>();
-        library.add(Path::new(&path))?;
-        Ok(library.folders())
-    })
-    .await
+pub async fn add_music_folder(app: AppHandle, path: String) -> AppResult<()> {
+    blocking(move || app.state::<Arc<LibraryService>>().add(Path::new(&path))).await
 }
 
 /// Removes `path`, added before, from the music folders; its files stay as they are, its
-/// tracks leave the library. Returns the music folders. Off the main thread: the analysis
-/// running stops first.
+/// tracks leave the library. Off the main thread: the analysis running stops first.
 #[tauri::command]
-pub async fn remove_music_folder(app: AppHandle, path: String) -> AppResult<Vec<MusicFolderDto>> {
-    blocking(move || {
-        let library = app.state::<Arc<LibraryService>>();
-        library.remove(Path::new(&path))?;
-        Ok(library.folders())
-    })
-    .await
+pub async fn remove_music_folder(app: AppHandle, path: String) -> AppResult<()> {
+    blocking(move || app.state::<Arc<LibraryService>>().remove(Path::new(&path))).await
 }
 
 /// Shows `path` in the system's file manager: a folder opened, a file selected in its own.

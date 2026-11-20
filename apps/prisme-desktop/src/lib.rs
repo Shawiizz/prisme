@@ -265,6 +265,7 @@ pub fn run() {
             history::start(app.handle().clone());
             let auto_dj = state.preferences.read(|p| p.auto_dj);
             app.manage(auto_dj::AutoDj::new(app.handle().clone(), auto_dj));
+            app.state::<auto_dj::AutoDj>().tell();
             auto_dj::AutoDj::start(app.handle().clone());
             sampler::load_saved(app.handle().clone());
             let controllers = app.state::<Controllers>();
@@ -276,6 +277,7 @@ pub fn run() {
             app.state::<TagWriter>().wake();
             #[cfg(target_os = "android")]
             music_access::install(app.handle());
+            library.show_folders();
             library.browse();
             library.start();
             library.watch();
@@ -286,8 +288,6 @@ pub fn run() {
             commands::audio::set_hidden,
             commands::audio::list_devices,
             commands::audio::timecode_formats,
-            commands::audio::get_audio_settings,
-            commands::audio::audio_info,
             commands::audio::apply_audio_settings,
             commands::audio::measure_latency,
             commands::audio::latency_channels,
@@ -326,15 +326,12 @@ pub fn run() {
             commands::folders::sort_dropped,
             commands::folders::audio_extensions,
             commands::folders::set_music_folder,
-            commands::folders::music_folders,
             commands::folders::add_music_folder,
             commands::folders::remove_music_folder,
             commands::folders::show_in_file_manager,
             commands::folders::storage_places,
             commands::recording::show_recording,
             commands::folders::list_dir,
-            commands::library::library_progress,
-            commands::library::library_in_memory,
             commands::library::rescan_library,
             commands::library::search_library,
             commands::library::library_open,
@@ -369,14 +366,13 @@ pub fn run() {
             commands::export::export_m3u,
             commands::export::export_rekordbox,
             commands::sampler::load_sample,
-            commands::controllers::list_controllers,
+            commands::controllers::look_for_controllers,
             commands::targets::list_targets,
             commands::controllers::set_controller_enabled,
             commands::controllers::choose_controller_profile,
             commands::controllers::decline_controller,
             commands::controllers::waiting_controllers,
             commands::audio::decline_card,
-            commands::controllers::controller_mappings,
             commands::controllers::controller_light_targets,
             commands::controllers::learn_control,
             commands::controllers::set_control_encoding,
@@ -385,7 +381,6 @@ pub fn run() {
             commands::controllers::set_lights,
             actions::perform_action,
             actions::let_go_key,
-            commands::controllers::controller_profiles,
             commands::controllers::reload_controller_profiles,
             commands::controllers::update_controller_profiles,
             commands::controllers::export_controller_profile,
@@ -404,12 +399,10 @@ pub fn run() {
             #[cfg(debug_assertions)]
             commands::round_trip::ping,
             commands::controllers::midi_outputs,
-            commands::controllers::midi_clock_output,
             commands::controllers::set_midi_clock_output,
             commands::recording::start_recording,
             commands::recording::stop_recording,
             commands::prepare::add_to_prepare,
-            commands::auto_dj::auto_dj_status,
             commands::auto_dj::set_auto_dj_fade,
             commands::preferences::get_preferences,
             commands::preferences::set_preference,
