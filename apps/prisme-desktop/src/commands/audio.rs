@@ -8,6 +8,7 @@ use crate::error::{AppError, AppResult};
 use crate::state::{lock, AppState, Section};
 use prisme_audio_io::{latency, AudioError, Backend, DeviceKind};
 use serde::Serialize;
+use std::sync::Mutex;
 use std::time::Duration;
 use tauri::{AppHandle, Manager, State};
 use tracing::error;
@@ -33,8 +34,33 @@ fn one_device(backend: BackendDto) -> bool {
     matches!(backend, BackendDto::Asio | BackendDto::Usb)
 }
 
+/// The devices of the driver listed last, which the settings window's drafts are read against:
+/// listed again as the window lists them (it opens, the audio moves, another driver is
+/// drafted), not at each change of a draft (a driver may take a moment to list).
+#[derive(Default)]
+pub struct ListedDevices(Mutex<Option<(BackendDto, Vec<DeviceDto>)>>);
+
+impl ListedDevices {
+    /// The devices of `backend`, from `list` unless they were listed last.
+    fn of(&self, backend: BackendDto, list: impl FnOnce() -> Vec<DeviceDto>) -> Vec<DeviceDto> {
+        if let Some((_, devices)) = lock(&self.0).as_ref().filter(|(b, _)| *b == backend) {
+            return devices.clone();
+        }
+        let devices = list();
+        *lock(&self.0) = Some((backend, devices.clone()));
+        devices
+    }
+}
+
+/// The devices of `backend`, listed now.
 #[tauri::command]
-pub fn list_devices(backend: BackendDto) -> AppResult<Vec<DeviceDto>> {
+pub fn list_devices(listed: State<'_, ListedDevices>, backend: BackendDto) -> AppResult<Vec<DeviceDto>> {
+    let devices = devices_of(backend)?;
+    *lock(&listed.0) = Some((backend, devices.clone()));
+    Ok(devices)
+}
+
+fn devices_of(backend: BackendDto) -> AppResult<Vec<DeviceDto>> {
     let devices = prisme_audio_io::list_devices(backend.into())?
         .into_iter()
         .map(|d| DeviceDto {
@@ -96,19 +122,18 @@ impl AudioStateDto {
 #[tauri::command(async)]
 pub fn change_audio_draft(
     state: State<'_, AppState>,
+    listed: State<'_, ListedDevices>,
     draft: AudioSettings,
     change: Option<AudioChangeDto>,
 ) -> AudioDraftDto {
+    let listed_of = |backend: BackendDto| listed.of(backend, || devices_of(backend).unwrap_or_default());
     let backend = draft.backend;
-    let first_output = || {
-        let devices = prisme_audio_io::list_devices(backend.into()).ok()?;
-        devices.into_iter().find(|d| d.kind == DeviceKind::Output).map(|d| d.name)
-    };
+    let first_output = || listed_of(backend).into_iter().find(|d| d.kind == "output").map(|d| d.name);
     let draft = match change {
         Some(change) => draft.changed(change, first_output),
         None => draft,
     };
-    let devices = list_devices(draft.backend).unwrap_or_default();
+    let devices = listed_of(draft.backend);
     AudioDraftDto::of(draft, &state.preferences.read(|p| p.audio.clone()), &devices)
 }
 
@@ -277,4 +302,27 @@ fn restart<T>(
         }
     }
     Ok((info, between))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn a_drivers_devices_are_listed_once_until_another_is_drafted() {
+        let listed = ListedDevices::default();
+        let lists = std::cell::Cell::new(0);
+        let of = |backend| {
+            listed.of(backend, || {
+                lists.set(lists.get() + 1);
+                Vec::new()
+            })
+        };
+        of(BackendDto::Wasapi);
+        of(BackendDto::Wasapi);
+        assert_eq!(lists.get(), 1, "a change of the draft on the same driver");
+        of(BackendDto::Asio);
+        of(BackendDto::Wasapi);
+        assert_eq!(lists.get(), 3);
+    }
 }

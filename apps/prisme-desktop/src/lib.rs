@@ -221,6 +221,7 @@ pub fn run() {
                 .or_else(|| app.path().app_data_dir().inspect_err(|e| warn!("no data folder: {e}")).ok());
             app.manage(AppState::new(open_json(data_dir.as_deref(), "preferences.json")));
             app.manage(Actions::start());
+            app.manage(commands::audio::ListedDevices::default());
             app.manage(status_stream::StatusStream::default());
             if let Some(data_dir) = data_dir.as_deref() {
                 controller_profiles::install(data_dir);

@@ -169,10 +169,13 @@ export class SettingsDialog implements OnInit {
   );
   protected readonly outputs = computed(() => this.devices().filter((d) => d.kind === 'output'));
   protected readonly inputs = computed(() => this.devices().filter((d) => d.kind === 'input'));
+  private readonly draftBackend = computed(() => this.draft()?.backend);
+  /** The devices of the drafted driver listed as the window opens, as another driver is
+   * drafted and as the audio moves (a card plugged in, the audio restarted). */
   private readonly listDraftDevices = effect(() => {
-    const backend = this.draft()?.backend;
-    if (backend && backend !== this.service.devicesBackend())
-      void this.service.loadDevices(backend);
+    const backend = this.draftBackend();
+    this.service.info();
+    if (backend) void this.service.loadDevices(backend);
   });
   /** One device for the outputs and, if the turntables are on it, the inputs: an ASIO driver,
    * a USB card Prisme drives itself. */
