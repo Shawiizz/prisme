@@ -49,6 +49,8 @@ rayon = "1"
 
 [dev-dependencies]
 prisme-engine = { workspace = true, features = ["testing"] }
+prisme-actions = { workspace = true, features = ["ts"] }
+ts-rs.workspace = true
 
 [target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]
 tauri-plugin-updater = "2"

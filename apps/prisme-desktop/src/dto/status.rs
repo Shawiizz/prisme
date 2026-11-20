@@ -19,6 +19,7 @@ use serde::Serialize;
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
+#[cfg_attr(test, derive(ts_rs::TS), ts(rename = "EngineStatus"))]
 pub struct StatusDto {
     pub audio_running: bool,
     pub decks: Vec<DeckStatusDto>,
@@ -35,6 +36,7 @@ pub struct StatusDto {
     pub mix_in_s: Option<f64>,
     /// What the interface mirrors, when it changed since the status before.
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(test, ts(skip))]
     pub controls: Option<ControlStateDto>,
 }
 
@@ -140,6 +142,7 @@ impl ControlStateDto {
 
 #[derive(Debug, Clone, Copy, Serialize)]
 #[serde(rename_all = "camelCase")]
+#[cfg_attr(test, derive(ts_rs::TS), ts(rename = "PreviewStatus"))]
 pub struct PreviewStatusDto {
     pub id: u64,
     pub position_s: f64,

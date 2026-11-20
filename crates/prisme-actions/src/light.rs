@@ -27,6 +27,7 @@ const SAME_BPM: f64 = 0.01;
 /// The state a light shows.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "lowercase")]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS), ts(rename = "LightState"))]
 pub enum State {
     On,
     Off,

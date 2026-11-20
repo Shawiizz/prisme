@@ -15,6 +15,7 @@ const HOLD_S: f64 = 1.0;
 
 /// What a meter shows, as positions on its scale: 0 at its floor or below, 1 at full scale.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Serialize)]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS), ts(rename = "MeterLevel"))]
 pub struct Level {
     pub level: f32,
     /// The highest level of late.
@@ -76,6 +77,7 @@ pub struct Meters {
 
 /// What each of the [`Meters`] shows.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Serialize)]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS), ts(rename = "MeterLevels"))]
 pub struct Levels {
     pub decks: [Level; MAX_DECKS],
     pub main: Level,

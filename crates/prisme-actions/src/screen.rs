@@ -66,6 +66,7 @@ pub struct StemKnob {
 
 /// The strip comparing two decks' beats.
 #[derive(Debug, Clone, Copy, PartialEq, Serialize)]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 pub struct PhaseStrip {
     /// The decks compared: the first two playing, else A and B.
     pub decks: [usize; 2],
@@ -76,6 +77,7 @@ pub struct PhaseStrip {
 /// What the strip tells of the second deck's beats against the first's.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 #[serde(tag = "state", rename_all = "camelCase")]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS), ts(rename = "PhaseReading"))]
 pub enum Reading {
     /// Not both playing on a grid.
     Off,
@@ -94,6 +96,7 @@ pub enum Reading {
 
 /// Who drives a deck.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS), ts(rename = "DeckMode"))]
 pub enum Drive {
     /// It plays by itself.
     #[serde(rename = "int")]
@@ -112,6 +115,7 @@ pub enum Drive {
 /// A deck's tempo fader as shown.
 #[derive(Debug, Clone, Copy, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 pub struct TempoFader {
     /// It does not set the tempo: a record does, or the sync.
     pub held: bool,
@@ -128,6 +132,7 @@ pub struct TempoFader {
 /// A deck's sync.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "lowercase")]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS), ts(rename = "SyncState"))]
 pub enum Sync {
     Off,
     /// Matched once, on a record: its speed is moved by the match.
@@ -138,6 +143,7 @@ pub enum Sync {
 /// What a deck's SYNC key does.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 pub enum SyncKey {
     /// Locks it to the leader, or held, matches it once.
     Lock,

@@ -358,6 +358,7 @@ pub struct RecordOptionDto {
 
 #[derive(Debug, Clone, Copy, Serialize)]
 #[serde(rename_all = "camelCase")]
+#[cfg_attr(test, derive(ts_rs::TS), ts(rename = "RecordingStatus"))]
 pub struct RecordingStatusDto {
     pub seconds: f64,
     /// Audio the writer could not take in time (lost).

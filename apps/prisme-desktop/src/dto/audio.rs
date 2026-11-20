@@ -259,6 +259,7 @@ pub struct LatencyChannelsDto {
 /// How well the audio keeps up.
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
+#[cfg_attr(test, derive(ts_rs::TS), ts(rename = "AudioHealth"))]
 pub struct AudioHealthDto {
     /// Periods processed too late: each one is an audible click.
     pub over_budget: u64,

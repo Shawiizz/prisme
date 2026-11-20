@@ -154,6 +154,7 @@ impl From<FxChainFile> for FxChainDto {
 /// A part of a track an effect can be on alone.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+#[cfg_attr(test, derive(ts_rs::TS), ts(rename = "StemPart"))]
 pub enum FxPartDto {
     Vocals,
     Drums,

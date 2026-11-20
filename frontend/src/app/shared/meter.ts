@@ -1,13 +1,9 @@
+import type { MeterLevel } from '../core/models/status';
+
+export type { MeterLevel };
+
 /** A segment of a level meter (`.pr-meter`): off, lit, hot or clipping. */
 export type Segment = '' | 'is-lit' | 'is-hot' | 'is-clip';
-
-/** What a meter shows, as the backend reads the peaks (`meter::Level`): positions on its
- * scale, 0 at its floor, 1 at full scale. */
-export interface MeterLevel {
-  level: number;
-  held: number;
-  clip: boolean;
-}
 
 /** The segments drawn amber: the top eighth of the scale (from −6 dB of its 48). */
 const HOT = 0.875;

@@ -59,8 +59,8 @@ mod tests {
 
     #[test]
     fn a_decks_signal_light_shows_the_record_driving_it_and_none_with_its_cables_crossed() {
-        assert_eq!(signal_light(true, false, SignalState::Ok), Some("ok"));
-        assert_eq!(signal_light(true, true, SignalState::Ok), Some("none"));
+        assert_eq!(signal_light(true, false, SignalState::Ok), Some(SignalDto::Ok));
+        assert_eq!(signal_light(true, true, SignalState::Ok), Some(SignalDto::None));
         assert_eq!(signal_light(false, false, SignalState::Ok), None);
     }
 

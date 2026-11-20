@@ -1,6 +1,7 @@
 //! The records and how they drive the decks.
 
 use prisme_engine::{Rpm, VinylMode};
+use prisme_timecode::SignalState;
 use prisme_timecode::TimecodeFormat;
 use serde::{Deserialize, Serialize};
 
@@ -63,6 +64,7 @@ impl From<&'static TimecodeFormat> for TimecodeFormatDto {
 
 #[derive(Debug, Clone, Copy, Default, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
+#[cfg_attr(test, derive(ts_rs::TS), ts(rename = "VinylMode"))]
 pub enum VinylModeDto {
     #[default]
     Absolute,
@@ -131,8 +133,29 @@ impl From<VinylMode> for VinylModeDto {
     }
 }
 
+/// The timecode as a deck hears it: none, a signal that comes and goes, a good one.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "lowercase")]
+#[cfg_attr(test, derive(ts_rs::TS), ts(rename = "SignalState"))]
+pub enum SignalDto {
+    None,
+    Bounce,
+    Ok,
+}
+
+impl From<SignalState> for SignalDto {
+    fn from(signal: SignalState) -> Self {
+        match signal {
+            SignalState::None => SignalDto::None,
+            SignalState::Bounce => SignalDto::Bounce,
+            SignalState::Ok => SignalDto::Ok,
+        }
+    }
+}
+
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
+#[cfg_attr(test, derive(ts_rs::TS), ts(rename = "VinylStatus"))]
 pub struct VinylDto {
     pub enabled: bool,
     pub mode: VinylModeDto,
@@ -140,11 +163,10 @@ pub struct VinylDto {
     pub run_out: bool,
     /// The record has read backwards at play speed for a while: crossed channels?
     pub crossed: bool,
-    /// "none", "bounce" or "ok"
-    pub signal: &'static str,
-    /// The signal as the deck's light shows it: none while no record drives it, "none" while its
-    /// channels seem crossed.
-    pub light: Option<&'static str>,
+    pub signal: SignalDto,
+    /// The signal as the deck's light shows it: none while no record drives it, none heard while
+    /// its channels seem crossed.
+    pub light: Option<SignalDto>,
     /// Timecode carrier level, as a share of a healthy line level's (0 to 1).
     pub level: f32,
     pub record_speed: f64,

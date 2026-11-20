@@ -1,9 +1,59 @@
 import { Label } from '../i18n/i18n';
 import { Preferences } from './preferences';
-/** Shapes exchanged with the Rust side (see apps/prisme-desktop/src/dto). */
+/** Shapes exchanged with the Rust side (see apps/prisme-desktop/src/dto); those of the status
+ * stream are generated from it (`./status`). */
+import type {
+  AudioHealth,
+  DeckLights,
+  DeckMode,
+  DeckStatus,
+  EngineStatus,
+  LightState,
+  LoopStatus,
+  MeterLevels,
+  MusicalKey,
+  PadsLights,
+  PageLights,
+  PhaseReading,
+  PhaseStrip,
+  PreviewStatus,
+  RecordingStatus,
+  SignalState,
+  StemKnob,
+  SyncKey,
+  SyncState,
+  SyncStatus,
+  TempoFader,
+  VinylMode,
+  VinylStatus,
+} from './status';
+export type {
+  AudioHealth,
+  DeckLights,
+  DeckMode,
+  DeckStatus,
+  EngineStatus,
+  LightState,
+  LoopStatus,
+  MeterLevels,
+  MusicalKey,
+  PadsLights,
+  PageLights,
+  PhaseReading,
+  PhaseStrip,
+  PreviewStatus,
+  RecordingStatus,
+  SignalState,
+  StemKnob,
+  SyncKey,
+  SyncState,
+  SyncStatus,
+  TempoFader,
+  VinylMode,
+  VinylStatus,
+} from './status';
 
 import { Fader, Knob } from '../../shared/readout';
-import { MeterLevel } from '../../shared/meter';
 import { StemPart } from '../stem-parts';
 import { FoldersState, LibraryLists, LibraryView } from './library';
 import { AudioState } from './audio';
@@ -11,8 +61,6 @@ import { AutoDjStatus } from './auto-dj';
 import { ControllersState } from './controllers';
 import { Separation, StemMix, StemsState } from './stems';
 
-export type SignalState = 'none' | 'bounce' | 'ok';
-export type VinylMode = 'absolute' | 'relative';
 /** The speed the record turns at when the track plays at its own speed. */
 export type Rpm = '33' | '45';
 /** A setting of a deck's vinyl control, changed alone: how the record drives the deck, how
@@ -22,153 +70,14 @@ export type VinylChange =
   | { setting: 'rpm'; value: Rpm }
   | { setting: 'leadIn'; value: number | null };
 
-export interface VinylStatus {
-  enabled: boolean;
-  mode: VinylMode;
-  /** The needle reached the end of the record: the deck plays on by itself. */
-  runOut: boolean;
-  /** The record has read backwards at play speed for a while: crossed channels? */
-  crossed: boolean;
-  signal: SignalState;
-  /** The signal as the deck's light shows it: `null` while no record drives it. */
-  light: SignalState | null;
-  /** Timecode carrier level, as a share of a healthy line level's (0 to 1). */
-  level: number;
-  recordSpeed: number;
-  recordPositionS: number | null;
-}
-
-/** Who drives a deck: itself (INT), its record in relative or absolute mode, or no one: it
- * plays its input as it comes (THRU, a real record or a CD player). */
-export type DeckMode = 'int' | VinylMode | 'thru';
-
-/** A deck's sync: off, matched once on a record, or locked to the leader. */
-export type SyncState = 'off' | 'matched' | 'locked';
-
-/** What a deck's SYNC key does: lock (held: match once), match once, or nothing for want of a
- * beat grid or because its record holds the place. */
-export type SyncKey = 'lock' | 'once' | 'noGrid' | 'absolute';
-
-export interface SyncStatus {
-  state: SyncState;
-  leader: boolean;
-  key: SyncKey;
-}
-
-/** A light's state, as the controllers' lights have it. */
-export type LightState = 'on' | 'off' | 'paused' | 'loaded' | 'playing' | 'soon';
-
-/** A deck's tempo fader as shown. */
-export interface TempoFader {
-  /** It does not set the tempo: a record does, or sync. */
-  held: boolean;
-  /** The tempo it shows, as a rate: the one played while held, else its own. */
-  ratio: number;
-  /** Where it stands, 0 to 1. */
-  position: number;
-  /** On a record not locked by sync: the rate matching the deck it follows. */
-  matching: number | null;
-  /** Where that rate is along the fader, within its range. */
-  matchingAt: number | null;
-}
-
-export interface LoopStatus {
-  startS: number | null;
-  endS: number | null;
-  active: boolean;
-  /** Start marked by LOOP IN, waiting for LOOP OUT. */
-  loopInS: number | null;
-}
-
-export interface DeckStatus {
-  loaded: boolean;
-  playing: boolean;
-  positionS: number;
-  durationS: number;
-  speed: number;
-  /** The rate it plays at: its tempo, gestures excluded, or its fader's without a track. */
-  rate: number;
-  /** Current tempo, gestures excluded (`null` without a beat grid). */
-  bpm: number | null;
-  /** The key its track is heard in, moved by the rate unless held. */
-  heardKey: MusicalKey | null;
-  /** The DJ hears or holds its track: it plays, or moves under its record. */
-  plays: boolean;
-  /** The time left of its track (s). */
-  remainingS: number | null;
-  /** The end of its track near (on), or soon. */
-  ending: LightState;
-  mode: DeckMode;
-  tempo: TempoFader;
-  sync: SyncStatus;
-  /** Its loops, jumps and pads may move its track. */
-  canMove: boolean;
-  /** Its motor (brake, spin back) may move its track: it plays it by itself. */
-  canMotor: boolean;
-  /** Its grid may move onto the beats of the deck it is mixed with. */
-  canAlignGrid: boolean;
-  /** Its key may be moved to mix with the one heard on the deck it is mixed with. */
-  canSyncKey: boolean;
-  looping: LoopStatus;
-  slipMode: boolean;
-  /** The reverse is on: the track plays backwards. */
-  reverse: boolean;
-  vinyl: VinylStatus;
-  /** What its keys and pads light, by the controllers' rules. */
-  lights: DeckLights;
-  /** Sampler slots playing, one bit per slot (16). */
-  samplesPlaying: number;
-  /** The parts of its separated track, a knob each. */
-  stems: StemKnob[];
-  /** How far its track's separation is (0 to 1): as it is separated, or as the downloads of the
-   * models it waits for are. */
-  separating: number | null;
-}
-
-export interface DeckLights {
-  /** CUE: on at the cue point, paused stopped elsewhere. */
-  cue: LightState;
-  /** What its pads on the screen show. */
-  pads: Record<PadPage, PageLights>;
-}
-
 /** A page of a deck's pads whose pads each perform an action of the deck. */
 export type PadPage = 'loops' | 'roll' | 'jump' | 'slice' | 'cut' | 'fx';
-
-/** What the pads of a page show, a bit per pad: lit by their action's light, and marked (a loop
- * or a jump of the deck's size, an effect sounding in another slot of the chain). */
-export interface PageLights {
-  lit: number;
-  marked: number;
-}
 
 /** A page of pads named by their action (`pad_pages`): all but the effects'. */
 export interface PadPageNames {
   page: PadPage;
   pads: { action: string; caption: string; label: Label }[];
 }
-
-/** A part of a deck's separated track, as its knob shows it. */
-export interface StemKnob {
-  part: StemPart;
-  level: number;
-  on: boolean;
-  /** Its change waits for the next bar. */
-  waiting: boolean;
-  /** Separated where the deck plays. */
-  ready: boolean;
-}
-
-/** What the strip between the decks tells of the second deck's beats against the first's: off
- * the beat within so many seconds at their tempos (0: already), matched, or ahead or behind by
- * so many milliseconds. */
-export type PhaseReading =
-  | { state: 'off' | 'matched' }
-  | { state: 'drifting'; seconds: number }
-  | { state: 'ahead' | 'behind'; ms: number };
-
-/** The strip comparing two decks' beats: the first two playing, else A and B. */
-export type PhaseStrip = { decks: [number, number] } & PhaseReading;
 
 export interface Cue {
   /** Hot cue slot, `null` for the main cue. */
@@ -189,39 +98,6 @@ export const PADS = 8;
 
 /** What SYNC does on a record in relative mode. */
 export type VinylSyncMode = 'once' | 'locked';
-
-/** How well the audio keeps up. */
-export interface AudioHealth {
-  /** Periods processed too late: each one is an audible click. */
-  overBudget: number;
-  worstCallbackUs: number;
-  inputUnderruns: number;
-  /** Input frames dropped: more had come than the output took. */
-  inputDropped: number;
-  deviceLost: boolean;
-  /** The engine failed and could not be restarted: the audio is silent. */
-  engineFailed: boolean;
-  /** Frames per period, as the driver calls the engine (0 before the first period). */
-  periodFrames: number;
-  /** How long a period lasts, once the driver has called the engine. */
-  periodMs: number | null;
-}
-
-export interface EngineStatus {
-  audioRunning: boolean;
-  decks: DeckStatus[];
-  /** A deck plays: no update is installed meanwhile. */
-  plays: boolean;
-  /** What the meters show: every deck's, the master's, the live sources' (on or not). */
-  meters: { decks: MeterLevel[]; main: MeterLevel; mic: MeterLevel; aux: MeterLevel };
-  health: AudioHealth | null;
-  recording: RecordingStatus | null;
-  /** The track heard in the headphones before it goes on a deck. */
-  preview: PreviewStatus | null;
-  phase: PhaseStrip;
-  /** Seconds before the Auto DJ's next mix starts, while one is planned. */
-  mixInS: number | null;
-}
 
 /** What the backend tells ~60 times per second: what changed of the engine's status since the
  * time before (see `withChanges`), nothing while nothing does; and the sections of what the app
@@ -278,16 +154,6 @@ export interface DeckPerform {
   fxShown: number;
 }
 
-export interface PreviewStatus {
-  /** The preview's (`PreviewTrack.id`). */
-  id: number;
-  positionS: number;
-  /** Estimated until the track is all read. */
-  durationS: number;
-  /** Its audio is not read that far yet: it waits, silent. */
-  waiting: boolean;
-}
-
 /** A track previewed in the headphones. */
 export interface PreviewTrack {
   id: number;
@@ -298,12 +164,6 @@ export interface PreviewTrack {
   durationS: number;
   /** The waveform can be fetched; otherwise a `preview-update` with the id says when. */
   waveformReady: boolean;
-}
-
-export interface RecordingStatus {
-  seconds: number;
-  /** Audio the writer could not take in time (lost). */
-  droppedSeconds: number;
 }
 
 /** What a recording takes: the software mixer's master, or an input pair (0-based). */
@@ -385,16 +245,6 @@ export interface Tempo {
   firstBeatS: number;
   /** The beats of a bar, the first on `firstBeatS`. */
   beatsPerBar: number;
-}
-
-export interface MusicalKey {
-  /** "Am", "F#"... */
-  name: string;
-  /** "8A", "2B"... */
-  camelot: string;
-  /** Its place on the Camelot wheel, 1 to 12. */
-  number: number;
-  minor: boolean;
 }
 
 export interface TrackInfo {

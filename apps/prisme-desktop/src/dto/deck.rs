@@ -1,6 +1,8 @@
 //! The decks: their tracks, their settings, what the screen shows of them at each frame.
 
-use super::{ChannelStripDto, CrossfaderSideDto, FxChainDto, FxPartDto, RpmDto, VinylDto, VinylModeDto};
+use super::{
+    ChannelStripDto, CrossfaderSideDto, FxChainDto, FxPartDto, RpmDto, SignalDto, VinylDto, VinylModeDto,
+};
 use prisme_actions::knobs::StripKnobs;
 use prisme_actions::pads::Pads;
 use prisme_actions::perform::DeckPerform;
@@ -54,6 +56,7 @@ impl From<&prisme_analysis::Tempo> for TempoDto {
 
 #[derive(Debug, Clone, Copy, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
+#[cfg_attr(test, derive(ts_rs::TS), ts(rename = "MusicalKey"))]
 pub struct KeyDto {
     /// "Am", "F#"...
     pub name: &'static str,
@@ -204,6 +207,7 @@ pub struct DeckSettingsDto {
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
+#[cfg_attr(test, derive(ts_rs::TS), ts(rename = "SyncStatus"))]
 pub struct SyncDto {
     pub state: screen::Sync,
     pub leader: bool,
@@ -214,6 +218,7 @@ pub struct SyncDto {
 /// A deck as the engine has it and the screen shows it at a frame.
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
+#[cfg_attr(test, derive(ts_rs::TS), ts(rename = "DeckStatus"))]
 pub struct DeckStatusDto {
     pub loaded: bool,
     pub playing: bool,
@@ -260,23 +265,16 @@ pub struct DeckStatusDto {
 /// The carrier level of a healthy line-level timecode.
 const FULL_LEVEL: f32 = 0.5;
 
-fn signal_name(signal: SignalState) -> &'static str {
-    match signal {
-        SignalState::None => "none",
-        SignalState::Bounce => "bounce",
-        SignalState::Ok => "ok",
-    }
-}
-
 /// The timecode as the light of a deck shows it: none while no record drives it (it plays by
 /// itself or its input), none heard while its channels seem crossed.
-pub(super) fn signal_light(on_record: bool, crossed: bool, signal: SignalState) -> Option<&'static str> {
-    on_record.then(|| if crossed { "none" } else { signal_name(signal) })
+pub(super) fn signal_light(on_record: bool, crossed: bool, signal: SignalState) -> Option<SignalDto> {
+    on_record.then(|| if crossed { SignalDto::None } else { signal.into() })
 }
 
 /// What a deck's keys and pads light by the controllers' rules.
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
+#[cfg_attr(test, derive(ts_rs::TS), ts(rename = "DeckLights"))]
 pub struct DeckLightsDto {
     /// Its CUE: on at the cue point, paused stopped elsewhere.
     pub cue: light::State,
@@ -287,6 +285,7 @@ pub struct DeckLightsDto {
 /// A part of a deck's separated track, as its knob shows it.
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
+#[cfg_attr(test, derive(ts_rs::TS), ts(rename = "StemKnob"))]
 pub struct StemKnobDto {
     pub part: FxPartDto,
     pub level: f32,
@@ -305,6 +304,7 @@ impl From<screen::StemKnob> for StemKnobDto {
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
+#[cfg_attr(test, derive(ts_rs::TS), ts(rename = "LoopStatus"))]
 pub struct LoopDto {
     pub start_s: Option<f64>,
     pub end_s: Option<f64>,
@@ -360,7 +360,7 @@ impl DeckStatusDto {
                 mode: d.vinyl.mode.into(),
                 run_out: d.vinyl.run_out,
                 crossed: d.vinyl.crossed,
-                signal: signal_name(d.vinyl.signal),
+                signal: d.vinyl.signal.into(),
                 light: signal_light(
                     view.decks[deck].vinyl && !view.decks[deck].passthrough,
                     d.vinyl.crossed,

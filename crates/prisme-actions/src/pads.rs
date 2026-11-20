@@ -61,6 +61,7 @@ impl Page {
 /// What the pads of a page show, a bit per pad: lit by their action's light, and marked (a
 /// loop or a jump of the deck's size, an effect sounding in another slot of the chain).
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize)]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 pub struct PageLights {
     pub lit: u8,
     pub marked: u8,
@@ -68,6 +69,7 @@ pub struct PageLights {
 
 /// What the pads of each page of a deck show.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize)]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS), ts(rename = "PadsLights"))]
 pub struct Pads {
     pub loops: PageLights,
     pub roll: PageLights,
