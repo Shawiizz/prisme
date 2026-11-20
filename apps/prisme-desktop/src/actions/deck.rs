@@ -324,14 +324,16 @@ impl Performing<'_> {
     /// before; a silent one gets back the one set aside.
     pub(super) fn toggle_filter(&self, deck: usize) -> AppResult<()> {
         let filter = lock(&self.state.decks)[deck].strip.filter;
-        let aside = &mut self.perform_state().decks[deck].filter_aside;
-        let to = if filter != 0.0 {
-            *aside = Some(filter);
-            0.0
-        } else {
-            match aside.take() {
-                Some(aside) => aside,
-                None => return Ok(()),
+        let to = {
+            let aside = &mut self.perform_state().decks[deck].filter_aside;
+            if filter != 0.0 {
+                *aside = Some(filter);
+                0.0
+            } else {
+                match aside.take() {
+                    Some(aside) => aside,
+                    None => return Ok(()),
+                }
             }
         };
         mixer::set_filter(self.state, deck, to)
