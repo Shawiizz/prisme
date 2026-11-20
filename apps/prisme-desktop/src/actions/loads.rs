@@ -100,8 +100,9 @@ impl Performing<'_> {
         }
     }
 
-    /// A pad of the sampler: its sound stopped while it plays, played while it waits, an empty
-    /// slot given the sound of the selected track.
+    /// A pad of the sampler: its sound stopped while it plays, played while it waits. On an
+    /// empty slot it is sent as a load (`Actions::sent_as`): one emptied since does nothing,
+    /// never opening a file on the thread that sent it.
     pub(super) fn smart_sample(&self, deck: usize, slot: usize) -> AppResult<()> {
         let state = self.state;
         if state.deck_status(deck).is_ok_and(|s| s.samples_playing & 1 << slot != 0) {
@@ -109,7 +110,7 @@ impl Performing<'_> {
         } else if lock(&state.samplers)[deck][slot].is_some() {
             sampler::trigger_sample(state, deck, slot, None)
         } else {
-            self.load_sample(deck, slot)
+            Ok(())
         }
     }
 
@@ -277,13 +278,17 @@ mod tests {
     }
 
     #[test]
-    fn a_smart_pad_stops_its_sound_plays_it_or_loads_the_selected_one() {
+    fn a_smart_pad_stops_its_sound_plays_it_or_is_sent_as_a_load() {
         let bench = Bench::new();
-        select(&bench, Some("missing.wav"));
-        assert!(bench.press("deck1.sample3.smart", 1.0).is_err(), "the selected file read");
+        let smart: Target = "deck1.sample3.smart".parse().unwrap();
+        let load: Target = "deck1.sample3.load".parse().unwrap();
+        assert_eq!(bench.actions.sent_as(&bench.state, &smart), Some(load));
+        bench.press("deck1.sample3.smart", 1.0).unwrap();
+        assert!(bench.sent().is_empty(), "the slot emptied after it was sent: nothing opened");
         let audio = std::sync::Arc::new(prisme_media::TrackAudio::from_interleaved(48_000, vec![0.0; 4_800]));
         crate::sampler::put(&bench.state, 0, 2, "kick.wav".into(), audio).unwrap();
         bench.run(0.01);
+        assert_eq!(bench.actions.sent_as(&bench.state, &smart), None);
         bench.press("deck1.sample3.smart", 1.0).unwrap();
         bench.run(0.01);
         assert_eq!(bench.status(0).samples_playing, 1 << 2);
