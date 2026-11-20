@@ -7,6 +7,12 @@ export type SignalState = 'none' | 'bounce' | 'ok';
 export type VinylMode = 'absolute' | 'relative';
 /** The speed the record turns at when the track plays at its own speed. */
 export type Rpm = '33' | '45';
+/** A setting of a deck's vinyl control, changed alone: how the record drives the deck, how
+ * fast it turns, where on it the track starts (`null`: where its own lead-in ends). */
+export type VinylChange =
+  | { setting: 'mode'; value: VinylMode }
+  | { setting: 'rpm'; value: Rpm }
+  | { setting: 'leadIn'; value: number | null };
 
 /** How much faster than at 33 rpm a record turns (`Rpm::record_speed`). */
 const RECORD_SPEED: Record<Rpm, number> = { '33': 1, '45': 1.35 };

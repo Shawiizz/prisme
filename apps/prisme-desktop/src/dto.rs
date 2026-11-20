@@ -704,6 +704,34 @@ impl From<VinylModeDto> for VinylMode {
     }
 }
 
+/// A setting of a deck's vinyl control, changed alone: whether it is on (an action of the deck:
+/// `deckN.vinyl`), how the record drives the deck, how fast it turns, where on it the track
+/// starts (`None`: where the record's own lead-in ends).
+#[derive(Debug, Clone, Copy, PartialEq, Deserialize)]
+#[serde(rename_all = "camelCase", tag = "setting", content = "value")]
+pub enum VinylChangeDto {
+    #[serde(skip)]
+    Enabled(bool),
+    Mode(VinylModeDto),
+    Rpm(RpmDto),
+    LeadIn(Option<f64>),
+}
+
+/// Where a deck's vinyl settings are kept: whether it is on, its mode, speed and lead-in.
+pub type VinylSettings<'a> = (&'a mut bool, &'a mut VinylModeDto, &'a mut RpmDto, &'a mut Option<f64>);
+
+impl VinylChangeDto {
+    /// Its setting changed among `settings`.
+    pub fn apply(self, (enabled, mode, rpm, lead_in_s): VinylSettings) {
+        match self {
+            VinylChangeDto::Enabled(on) => *enabled = on,
+            VinylChangeDto::Mode(m) => *mode = m,
+            VinylChangeDto::Rpm(r) => *rpm = r,
+            VinylChangeDto::LeadIn(s) => *lead_in_s = s,
+        }
+    }
+}
+
 /// The speed the record turns at when the track plays at its own speed.
 #[derive(Debug, Clone, Copy, Default, Serialize, Deserialize, PartialEq, Eq)]
 pub enum RpmDto {
@@ -1656,5 +1684,14 @@ mod tests {
         let changed = FxChainDto { enabled: false, ..chain };
         let written = serde_json::to_string(&changed).unwrap();
         assert_eq!(serde_json::from_str::<FxChainDto>(&written).unwrap(), changed);
+    }
+
+    #[test]
+    fn a_vinyl_setting_is_changed_by_its_name_but_never_put_on() {
+        let lead_in: VinylChangeDto = serde_json::from_str(r#"{"setting":"leadIn","value":null}"#).unwrap();
+        assert_eq!(lead_in, VinylChangeDto::LeadIn(None));
+        let rpm: VinylChangeDto = serde_json::from_str(r#"{"setting":"rpm","value":"45"}"#).unwrap();
+        assert_eq!(rpm, VinylChangeDto::Rpm(RpmDto::Rpm45));
+        assert!(serde_json::from_str::<VinylChangeDto>(r#"{"setting":"enabled","value":true}"#).is_err());
     }
 }

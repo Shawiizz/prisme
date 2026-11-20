@@ -95,24 +95,24 @@ export class TurntablePanel {
   }
 
   setEnabled(enabled: boolean) {
-    this.engine.setVinyl(this.deck(), { enabled });
+    this.engine.setVinylEnabled(this.deck(), enabled);
   }
 
   setMode(mode: VinylMode) {
-    this.engine.setVinyl(this.deck(), { mode });
+    this.engine.setVinyl(this.deck(), { setting: 'mode', value: mode });
   }
 
   setRpm(rpm: Rpm) {
-    this.engine.setVinyl(this.deck(), { rpm });
+    this.engine.setVinyl(this.deck(), { setting: 'rpm', value: rpm });
   }
 
   /** Emptied, the record's own lead-in again. */
   setLeadIn(event: Event) {
     const value = (event.target as HTMLInputElement).value.trim();
     const seconds = Number(value);
-    if (value === '') this.engine.setVinyl(this.deck(), { leadInS: null });
+    if (value === '') this.engine.setVinyl(this.deck(), { setting: 'leadIn', value: null });
     else if (Number.isFinite(seconds) && seconds >= 0)
-      this.engine.setVinyl(this.deck(), { leadInS: seconds });
+      this.engine.setVinyl(this.deck(), { setting: 'leadIn', value: seconds });
   }
 
   setTimecode(format: string) {

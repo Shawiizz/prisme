@@ -2,7 +2,7 @@
 //! a fader's position, an encoder's steps.
 
 use super::{deck, fx, general, mixer, not_performed, sampler, transport, Performing};
-use crate::dto::{CrossfaderCurveDto, EffectKindDto, LiveSourceDto};
+use crate::dto::{CrossfaderCurveDto, EffectKindDto, LiveSourceDto, VinylChangeDto};
 use crate::error::AppResult;
 use crate::state::lock;
 use prisme_actions::input::{Given, Input};
@@ -205,7 +205,9 @@ impl Performing<'_> {
             DeckSwitch::Headphones => mixer::set_deck_cue(state, deck, turn.turns(d.cue)),
             DeckSwitch::Mute => mixer::set_mute(state, deck, turn.turns(d.mute)),
             DeckSwitch::Passthrough => deck::set_passthrough(state, deck, turn.turns(d.passthrough)),
-            DeckSwitch::Vinyl => deck::set_vinyl_enabled(state, deck, turn.turns(d.vinyl_enabled)),
+            DeckSwitch::Vinyl => {
+                deck::set_vinyl(state, deck, VinylChangeDto::Enabled(turn.turns(d.vinyl_enabled)))
+            }
             DeckSwitch::JogScratch => deck::set_jog_scratch(state, deck, turn.turns(d.jog_scratch)),
             DeckSwitch::FxChain => fx::set_fx_chain_enabled(state, deck, turn.turns(d.fx.enabled)),
         }

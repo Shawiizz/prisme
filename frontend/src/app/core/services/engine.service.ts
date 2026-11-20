@@ -13,11 +13,10 @@ import {
   DeckSettings,
   EngineStatus,
   MixerState,
-  Rpm,
   SAMPLE_SLOTS,
   TrackAnalysis,
   TrackInfo,
-  VinylMode,
+  VinylChange,
   Waveform,
   addWaveformPiece,
   decodeWaveform,
@@ -371,20 +370,15 @@ export class EngineService {
     return this.perform(`deck${deck + 1}.pitch`, 0.5 + offset / (2 * this.tempoRange(deck)));
   }
 
-  /** A deck put on a record takes the turntable from the deck layered with it, which goes
+  /** A deck put on a record (on) takes the turntable from the deck layered with it, which goes
    * on by itself. */
-  setVinyl(
-    deck: number,
-    changes: { enabled?: boolean; mode?: VinylMode; rpm?: Rpm; leadInS?: number | null },
-  ) {
-    const d = this.decks()[deck];
-    return this.call('set_vinyl', {
-      deck,
-      enabled: changes.enabled ?? d.vinylEnabled,
-      mode: changes.mode ?? d.vinylMode,
-      rpm: changes.rpm ?? d.rpm,
-      leadInS: changes.leadInS !== undefined ? changes.leadInS : d.leadInS,
-    });
+  setVinylEnabled(deck: number, on: boolean) {
+    return this.turn(`deck${deck + 1}.vinyl`, on);
+  }
+
+  /** A setting of the vinyl control of `deck` changed alone. */
+  setVinyl(deck: number, change: VinylChange) {
+    return this.call('set_vinyl', { deck, change });
   }
 
   setVinylSwap(deck: number, swap: boolean) {

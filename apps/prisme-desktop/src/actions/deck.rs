@@ -4,7 +4,7 @@
 use super::{fx, mixer, take_over, transport, Performing};
 use crate::auto_dj::Takeover;
 use crate::commands::edits::GridChange;
-use crate::dto::{RpmDto, StemMixDto, VinylModeDto};
+use crate::dto::{StemMixDto, VinylChangeDto};
 use crate::error::{AppError, AppResult};
 use crate::preferences::{DeckPreferences, VinylSync};
 use crate::state::{deck_commands, lock, AppState, LoadedTrack};
@@ -144,39 +144,32 @@ pub fn set_jog_scratch(state: &AppState, deck: usize, on: bool) -> AppResult<()>
     Ok(())
 }
 
-/// Vinyl control of a deck, kept for the next start. Returns the deck it took the turntable
-/// from, if they are layered on it (see `audio_host::deck_pair`). A deck a record lets go of
-/// plays on at the record's tempo.
-pub fn set_vinyl(
-    state: &AppState,
-    deck: usize,
-    enabled: bool,
-    mode: VinylModeDto,
-    rpm: RpmDto,
-    lead_in_s: Option<f64>,
-) -> AppResult<Option<usize>> {
+/// One setting of the vinyl control of `deck` changed, the others as they are; kept for the
+/// next start. Put on, it takes the turntable from the deck layered with it there (see
+/// `audio_host::deck_pair`), which plays on by itself; a deck a record lets go of plays on at
+/// the record's tempo.
+pub fn set_vinyl(state: &AppState, deck: usize, change: VinylChangeDto) -> AppResult<()> {
     AppState::check_deck(deck)?;
-    if !enabled {
+    if change == VinylChangeDto::Enabled(false) {
         state.let_go_of_record(deck);
     }
     let settings = {
         let mut decks = lock(&state.decks);
         let d = &mut decks[deck];
-        d.vinyl_enabled = enabled;
-        d.vinyl_mode = mode;
-        d.rpm = rpm;
-        d.lead_in_s = lead_in_s;
+        change.apply((&mut d.vinyl_enabled, &mut d.vinyl_mode, &mut d.rpm, &mut d.lead_in_s));
         *d
     };
     state.update_preferences(|p| {
         let d = &mut p.decks[deck];
-        (d.vinyl_enabled, d.vinyl_mode, d.rpm, d.lead_in_s) = (enabled, mode, rpm, lead_in_s);
+        change.apply((&mut d.vinyl_enabled, &mut d.vinyl_mode, &mut d.rpm, &mut d.lead_in_s));
     });
-    let freed = enabled.then(|| state.take_turntable(deck)).flatten();
+    if change == VinylChangeDto::Enabled(true) {
+        state.take_turntable(deck);
+    }
     for c in deck_commands(deck, &settings) {
         state.send_if_running(c)?;
     }
-    Ok(freed)
+    Ok(())
 }
 
 /// The deck plays its input as it comes (a record, a CD player) instead of its track.
@@ -376,18 +369,12 @@ impl Performing<'_> {
     }
 }
 
-/// A vinyl control of `deck` on or off, as it was set otherwise; the deck it took the
-/// turntable from goes on by itself.
-pub fn set_vinyl_enabled(state: &AppState, deck: usize, enabled: bool) -> AppResult<()> {
-    let d = lock(&state.decks)[deck];
-    set_vinyl(state, deck, enabled, d.vinyl_mode, d.rpm, d.lead_in_s).map(drop)
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::actions::bench::Bench;
     use crate::actions::{Moved, Source};
+    use crate::dto::{RpmDto, VinylModeDto};
 
     fn turned(deck: usize, action: DeckAction, steps: f32, at_s: f64, jog_scratch: bool) -> Option<Command> {
         let input = Input::of(steps, action != DeckAction::JogTouch, None);
@@ -459,6 +446,25 @@ mod tests {
         status.vinyl.enabled = false;
         status.bpm = None;
         assert_eq!(kept_tempo(&status), None, "no grid");
+    }
+
+    #[test]
+    fn a_vinyl_setting_changes_alone_whatever_else_changed_meanwhile() {
+        let bench = Bench::new();
+        set_vinyl(&bench.state, 1, VinylChangeDto::Mode(VinylModeDto::Relative)).unwrap();
+        set_vinyl(&bench.state, 1, VinylChangeDto::Rpm(RpmDto::Rpm45)).unwrap();
+        bench.press("deck2.vinyl.on", 1.0).unwrap();
+        set_vinyl(&bench.state, 1, VinylChangeDto::LeadIn(Some(12.0))).unwrap();
+        let d = lock(&bench.state.decks)[1];
+        assert_eq!(
+            (d.vinyl_enabled, d.vinyl_mode, d.rpm, d.lead_in_s),
+            (true, VinylModeDto::Relative, RpmDto::Rpm45, Some(12.0))
+        );
+        let kept = bench.state.preferences.read(|p| p.decks[1].clone());
+        assert_eq!(
+            (kept.vinyl_enabled, kept.vinyl_mode, kept.rpm, kept.lead_in_s),
+            (true, VinylModeDto::Relative, RpmDto::Rpm45, Some(12.0))
+        );
     }
 
     #[test]

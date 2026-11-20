@@ -3,7 +3,7 @@ use crate::audio_host::layer_partner;
 use crate::auto_dj::{AutoDj, Takeover};
 use crate::commands::audio::start_audio;
 use crate::commands::blocking;
-use crate::dto::{RpmDto, VinylModeDto};
+use crate::dto::VinylChangeDto;
 use crate::error::{AppError, AppResult};
 use crate::state::{lock, AppState};
 use prisme_engine::Command;
@@ -40,19 +40,11 @@ pub fn jog(
     state.send(Command::Jog { deck, turns, at_s: at_ms / 1000.0 })
 }
 
-/// Vinyl control of a deck, kept for the next start. Returns the deck it took the turntable
-/// from, if they are layered on it (see `audio_host::deck_pair`). A deck a record lets go of
-/// plays on at the record's tempo.
+/// A setting of the vinyl control of `deck` changed alone (see `deck::set_vinyl`); it is put on
+/// and off as an action (`deckN.vinyl`), which no change given here can be.
 #[tauri::command]
-pub fn set_vinyl(
-    state: State<'_, AppState>,
-    deck: usize,
-    enabled: bool,
-    mode: VinylModeDto,
-    rpm: RpmDto,
-    lead_in_s: Option<f64>,
-) -> AppResult<Option<usize>> {
-    deck::set_vinyl(&state, deck, enabled, mode, rpm, lead_in_s)
+pub fn set_vinyl(state: State<'_, AppState>, deck: usize, change: VinylChangeDto) -> AppResult<()> {
+    deck::set_vinyl(&state, deck, change)
 }
 
 /// Swaps the turntable's left and right channels (crossed cables), kept for the next start.

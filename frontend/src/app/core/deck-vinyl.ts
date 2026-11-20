@@ -80,10 +80,12 @@ export function deckVinyl(deck: Signal<number>) {
       : SIGNAL_TITLE[vinyl()?.signal ?? 'none'];
   });
   /** THRU leaves the record as it was, for when the deck plays its track again. */
-  const setMode = (to: DeckMode) => {
-    if ((to === 'thru') !== settings().passthrough) engine.setPassthrough(deck(), to === 'thru');
+  const setMode = async (to: DeckMode) => {
+    if ((to === 'thru') !== settings().passthrough)
+      await engine.setPassthrough(deck(), to === 'thru');
     if (to === 'thru') return;
-    engine.setVinyl(deck(), to === 'int' ? { enabled: false } : { enabled: true, mode: to });
+    if (to !== 'int') await engine.setVinyl(deck(), { setting: 'mode', value: to });
+    await engine.setVinylEnabled(deck(), to !== 'int');
   };
   return { mode, offered, signal, signalTitle, setMode };
 }
