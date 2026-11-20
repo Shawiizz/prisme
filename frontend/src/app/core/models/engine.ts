@@ -184,7 +184,7 @@ export interface PreviewStatus {
   waiting: boolean;
 }
 
-/** A track previewed in the headphones (`preview_track`). */
+/** A track previewed in the headphones. */
 export interface PreviewTrack {
   id: number;
   path: string;
