@@ -4,6 +4,7 @@ import { listen } from '@tauri-apps/api/event';
 import { Waveform, addWaveformPiece, decodeWaveform } from '../models/engine';
 import { EngineService } from './engine.service';
 import { MixerService } from './mixer.service';
+import { same } from '../same';
 
 /**
  * The preview: a track of the library heard in the headphones alone before it goes on a deck,
@@ -19,7 +20,7 @@ export class PreviewService {
   private readonly mixer = inject(MixerService);
 
   /** The track previewed, from when the engine has it. */
-  readonly track = computed(() => this.engine.controls()?.preview.track ?? null);
+  readonly track = computed(() => this.engine.controls()?.preview.track ?? null, { equal: same });
   private readonly trackId = computed(() => this.track()?.id ?? null);
   readonly waveform = signal<Waveform | null>(null);
   /** The track asked for while its file opens. */

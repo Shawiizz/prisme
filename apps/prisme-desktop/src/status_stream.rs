@@ -1,9 +1,10 @@
-//! Streams the engine state to the frontend about 60 times per second, with what the interface
-//! mirrors whenever it changed, and frees what the engine hands back at the same pace.
+//! Streams the engine state to the frontend about 60 times per second, with the sections of
+//! what the interface mirrors that changed since last sent, and frees what the engine hands back
+//! at the same pace.
 
 use crate::dto::{ControlStateDto, StatusDto};
 use crate::preview::Previews;
-use crate::state::{lock, AppState};
+use crate::state::{lock, AppState, Section};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::Duration;
 use tauri::ipc::Channel;
@@ -22,7 +23,7 @@ pub fn subscribe_status(app: AppHandle, channel: Channel<StatusDto>) {
         .name("prisme-status".into())
         .spawn(move || {
             let state = app.state::<AppState>();
-            // the revision of what the interface mirrors it was last sent
+            // the revisions of what the interface mirrors it was last sent: none, all sent first
             let mut told = None;
             while GENERATION.load(Ordering::SeqCst) == generation {
                 // read before what it is of: a change after moves it again
@@ -48,7 +49,10 @@ pub fn subscribe_status(app: AppHandle, channel: Channel<StatusDto>) {
                     None => StatusDto::stopped(),
                 };
                 if told != Some(revision) {
-                    status.controls = Some(ControlStateDto::of(&state));
+                    let moved =
+                        |s: &Section| told.is_none_or(|t: [u64; _]| t[*s as usize] != revision[*s as usize]);
+                    status.controls =
+                        Some(ControlStateDto::of(&state, Section::ALL.into_iter().filter(moved)));
                     told = Some(revision);
                 }
                 if channel.send(status).is_err() {

@@ -129,8 +129,10 @@ export interface EngineStatus {
   recording: RecordingStatus | null;
   /** The track heard in the headphones before it goes on a deck. */
   preview: PreviewStatus | null;
-  /** What the app mirrors, when the backend changed it since the status before. */
-  controls?: ControlState;
+  /** The sections of what the app mirrors the backend changed since the status before: the
+   * mixer (with the quantize and the tempo range), the tracks (with their loads), the pads,
+   * the preview. All of them in the first status. */
+  controls?: Partial<ControlState>;
 }
 
 /** What the app mirrors of the decks, their tracks, the mixer and the DJ's preferences. */

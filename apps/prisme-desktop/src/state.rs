@@ -300,19 +300,53 @@ pub struct AppState {
     /// system may stop calling for audio.
     pub hidden: AtomicBool,
     /// Moved by every change of what the interface mirrors (see [`Mirrored`]).
-    revision: Arc<AtomicU64>,
+    revisions: Arc<Revisions>,
+}
+
+/// A part of what the interface mirrors (`ControlStateDto`), sent again alone when it changed.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Section {
+    /// The decks' settings, their samplers, the mixer, the routing, the DJ's preferences.
+    Mixer,
+    /// The decks' tracks, and their loads.
+    Tracks,
+    /// What the pads hold.
+    Perform,
+    Preview,
+}
+
+impl Section {
+    pub const ALL: [Section; SECTIONS] =
+        [Section::Mixer, Section::Tracks, Section::Perform, Section::Preview];
+}
+
+pub const SECTIONS: usize = 4;
+
+/// Where the changes of each [`Section`] are at: each moves at every change of its own.
+#[derive(Default)]
+struct Revisions([AtomicU64; SECTIONS]);
+
+impl Revisions {
+    fn of(&self, section: Section) -> &AtomicU64 {
+        &self.0[section as usize]
+    }
+
+    fn moved(&self, section: Section) {
+        self.of(section).fetch_add(1, Ordering::SeqCst);
+    }
 }
 
 /// State the interface mirrors (`ControlStateDto`): taken to be changed, it moves the
-/// revision the status stream tells the interface of a change by.
+/// revision of its section, by which the status stream tells the interface of a change.
 pub struct Mirrored<T> {
     value: Mutex<T>,
-    revision: Arc<AtomicU64>,
+    revisions: Arc<Revisions>,
+    section: Section,
 }
 
 impl<T> Mirrored<T> {
-    fn new(value: T, revision: &Arc<AtomicU64>) -> Self {
-        Self { value: Mutex::new(value), revision: revision.clone() }
+    fn new(value: T, revisions: &Arc<Revisions>, section: Section) -> Self {
+        Self { value: Mutex::new(value), revisions: revisions.clone(), section }
     }
 }
 
@@ -377,7 +411,7 @@ impl<T> Lock for Mirrored<T> {
         T: 'a;
 
     fn guard(&self) -> MirroredGuard<'_, T> {
-        MirroredGuard { guard: self.value.guard(), revision: &self.revision }
+        MirroredGuard { guard: self.value.guard(), revision: self.revisions.of(self.section) }
     }
 }
 
@@ -419,7 +453,7 @@ pub struct LoadTurn<'a> {
 impl Drop for LoadTurn<'_> {
     fn drop(&mut self) {
         self.state.load_turns.end(self.deck, self.turn);
-        self.state.revision.fetch_add(1, Ordering::SeqCst);
+        self.state.revisions.moved(Section::Tracks);
     }
 }
 
@@ -445,30 +479,31 @@ impl AppState {
             preferences.update(|p| p.settle());
         }
         let saved = preferences.get().decks;
-        let revision = Arc::new(AtomicU64::new(0));
+        let revisions = Arc::new(Revisions::default());
         Self {
             preferences,
             session: Mutex::new(None),
-            tracks: Mirrored::new(Default::default(), &revision),
+            tracks: Mirrored::new(Default::default(), &revisions, Section::Tracks),
             load_turns: LoadTurns::default(),
-            decks: Mirrored::new(saved.map(DeckSettings::from), &revision),
-            crossfader: Mirrored::new(0.0, &revision),
+            decks: Mirrored::new(saved.map(DeckSettings::from), &revisions, Section::Mixer),
+            crossfader: Mirrored::new(0.0, &revisions, Section::Mixer),
             sync_leader: Mutex::default(),
-            live: Mirrored::new(Default::default(), &revision),
+            live: Mirrored::new(Default::default(), &revisions, Section::Mixer),
             recorder: Mutex::new(None),
             audio_start: Mutex::new(()),
             carried: Mutex::default(),
-            samplers: Mirrored::new(Samplers::default(), &revision),
-            perform: Mirrored::new(PerformState::default(), &revision),
-            preview: Mirrored::new(PreviewStateDto::default(), &revision),
+            samplers: Mirrored::new(Samplers::default(), &revisions, Section::Mixer),
+            perform: Mirrored::new(PerformState::default(), &revisions, Section::Perform),
+            preview: Mirrored::new(PreviewStateDto::default(), &revisions, Section::Preview),
             hidden: AtomicBool::new(false),
-            revision,
+            revisions,
         }
     }
 
-    /// Where the changes of what the interface mirrors are at: it moves at each.
-    pub fn revision(&self) -> u64 {
-        self.revision.load(Ordering::SeqCst)
+    /// Where the changes of what the interface mirrors are at, by [`Section`]: each moves at
+    /// every change of its own.
+    pub fn revision(&self) -> [u64; SECTIONS] {
+        Section::ALL.map(|section| self.revisions.of(section).load(Ordering::SeqCst))
     }
 
     /// Whether `deck` is one the engine can have, kept for when it is in use (its settings);
@@ -484,7 +519,7 @@ impl AppState {
     /// Changes the preferences, saved soon after; the interface hears of it.
     pub fn update_preferences(&self, change: impl FnOnce(&mut Preferences)) {
         self.preferences.update(change);
-        self.revision.fetch_add(1, Ordering::SeqCst);
+        self.revisions.moved(Section::Mixer);
     }
 
     /// The engine's latest view of `deck`.
@@ -493,7 +528,7 @@ impl AppState {
     /// routing as the device lays them out.
     pub fn replace_session(&self, session: Option<AudioSession>) -> Option<AudioSession> {
         let previous = std::mem::replace(&mut *lock(&self.session), session);
-        self.revision.fetch_add(1, Ordering::SeqCst);
+        self.revisions.moved(Section::Mixer);
         previous
     }
 
@@ -605,7 +640,7 @@ impl AppState {
     /// dropped, if no other was asked for there since.
     pub fn ask_load(&self, deck: usize) -> LoadTurn<'_> {
         let turn = self.load_turns.ask(deck);
-        self.revision.fetch_add(1, Ordering::SeqCst);
+        self.revisions.moved(Section::Tracks);
         LoadTurn { state: self, deck, turn }
     }
 

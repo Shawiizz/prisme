@@ -2,6 +2,7 @@ import { Injectable, computed, effect, inject, signal, untracked } from '@angula
 import { EffectKind, FxChain, FxSettings, MAX_DECKS } from '../models/engine';
 import { fxId } from '../control/controls';
 import { EngineService } from './engine.service';
+import { sameItems } from '../same';
 
 /**
  * Each deck's chain of beat effects: in each slot, which effect, on or off, its level, its
@@ -16,7 +17,7 @@ export class FxService {
   /** The slot each deck's effect knobs are focused on, as the backend keeps it. */
   private readonly focusedSlots = computed<(number | null)[]>(
     () => this.engine.controls()?.perform.map((d) => d.fxFocus) ?? Array(MAX_DECKS).fill(null),
-    { equal: (a, b) => a.every((slot, deck) => slot === b[deck]) },
+    { equal: sameItems },
   );
 
   constructor() {

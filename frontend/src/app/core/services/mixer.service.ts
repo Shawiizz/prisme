@@ -70,8 +70,8 @@ export class MixerService {
   constructor() {
     // what the backend changed, the routing the device it runs on lays out among it
     effect(() => {
-      const controls = this.engine.controls();
-      if (controls) untracked(() => this.apply(controls.mixer));
+      const mixer = this.engine.controls()?.mixer;
+      if (mixer) untracked(() => this.apply(mixer));
     });
   }
 

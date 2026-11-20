@@ -163,7 +163,8 @@ mod tests {
         hold(&bench, "deck2.cut2", true);
         hold(&bench, "deck2.roll.1", true);
         assert!(bench.state.revision() > before);
-        let held = &crate::dto::ControlStateDto::of(&bench.state).perform[1];
+        let pads = crate::dto::ControlStateDto::of(&bench.state, [crate::state::Section::Perform]).perform;
+        let held = &pads.unwrap()[1];
         assert_eq!((held.cut, held.roll, held.slicer), (Some(1), Some(1.0), None));
     }
 

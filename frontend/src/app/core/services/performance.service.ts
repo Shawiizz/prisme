@@ -3,6 +3,7 @@ import { invoke } from '@tauri-apps/api/core';
 import { Cue, DeckPerform, MAX_DECKS, SLICES } from '../models/engine';
 import { EngineService } from './engine.service';
 import { errorText } from '../errors';
+import { sameItems } from '../same';
 
 /** Performance actions on a deck: hot cues, loops, rolls, beat jumps, the slicer, fader
  * cuts, slip, censor, reverse, the motor (brake, spinback). */
@@ -18,11 +19,11 @@ export class PerformanceService {
       Array(MAX_DECKS).fill({ slicer: null, cut: null, roll: null, fxFocus: null }),
   );
   /** Where each deck's slicer starts (s): on the bar it played in when it was put there. */
-  readonly slicers = computed(() => this.held().map((d) => d.slicer));
+  readonly slicers = computed(() => this.held().map((d) => d.slicer), { equal: sameItems });
   /** The fader cut each deck plays (an index of `CUT_BEATS`). */
-  readonly cuts = computed(() => this.held().map((d) => d.cut));
+  readonly cuts = computed(() => this.held().map((d) => d.cut), { equal: sameItems });
   /** The roll each deck plays, in beats. */
-  readonly rolls = computed(() => this.held().map((d) => d.roll));
+  readonly rolls = computed(() => this.held().map((d) => d.roll), { equal: sameItems });
 
   hotCue(deck: number, slot: number): Cue | null {
     return this.engine.tracks()[deck]?.cues.find((c) => c.hot === slot) ?? null;

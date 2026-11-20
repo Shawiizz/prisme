@@ -3,7 +3,7 @@
 use crate::auto_dj::machine::{Reason, State, Status, Takeover};
 use crate::auto_dj::plan::FadeLength;
 use crate::commands::mixer::mixer_state_of;
-use crate::state::{lock, AppState};
+use crate::state::{lock, AppState, LoadedTrack, Section};
 use prisme_actions::perform::DeckPerformView;
 pub use prisme_actions::stems::{Separation as SeparationDto, StemMix as StemMixDto};
 use prisme_audio_io::{Backend, StreamStats};
@@ -1070,22 +1070,30 @@ pub struct StatusDto {
     pub controls: Option<ControlStateDto>,
 }
 
-/// What the interface mirrors of the decks, their tracks, the mixer and the DJ's preferences.
-#[derive(Debug, Clone, Serialize)]
+/// What the interface mirrors of the decks, their tracks, the mixer and the DJ's preferences,
+/// by section (`state::Section`): those that did not change since last sent are left out.
+#[derive(Debug, Clone, Default, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ControlStateDto {
-    pub mixer: MixerStateDto,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub mixer: Option<MixerStateDto>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub quantize: Option<bool>,
+    /// The range of the tempo faders without one of their own.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub pitch_range: Option<f64>,
     /// Each deck's track by its load, and what changes of it while it stays there: the
     /// interface asks for one it does not show yet (`loaded_tracks`).
-    pub tracks: Vec<Option<TrackStateDto>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub tracks: Option<Vec<Option<TrackStateDto>>>,
     /// Whether each deck loads a track.
-    pub loading: Vec<bool>,
-    pub quantize: bool,
-    /// The range of the tempo faders without one of their own.
-    pub pitch_range: f64,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub loading: Option<[bool; MAX_DECKS]>,
     /// What each deck's pads hold.
-    pub perform: [DeckPerformView; MAX_DECKS],
-    pub preview: PreviewStateDto,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub perform: Option<[DeckPerformView; MAX_DECKS]>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub preview: Option<PreviewStateDto>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -1099,23 +1107,35 @@ pub struct TrackStateDto {
 }
 
 impl ControlStateDto {
-    pub fn of(state: &AppState) -> Self {
-        let (quantize, pitch_range) = state.preferences.read(|p| (p.dj.quantize, p.dj.pitch_range));
-        let tracks = lock(&state.tracks)
-            .iter()
-            .map(|t| {
-                t.as_ref().map(|t| TrackStateDto {
-                    load_id: t.load_id,
-                    key_shift: t.key_shift,
-                    stem_mix: t.stem_mix,
-                    cues: t.cue_dtos(),
-                })
-            })
-            .collect();
-        let perform = lock(&state.perform).pads();
-        let loading = state.loading().to_vec();
-        let preview = lock(&state.preview).clone();
-        Self { mixer: mixer_state_of(state), tracks, loading, quantize, pitch_range, perform, preview }
+    /// The `sections` of `state`.
+    pub fn of(state: &AppState, sections: impl IntoIterator<Item = Section>) -> Self {
+        let mut controls = Self::default();
+        for section in sections {
+            match section {
+                Section::Mixer => {
+                    let (quantize, pitch_range) =
+                        state.preferences.read(|p| (p.dj.quantize, p.dj.pitch_range));
+                    controls.mixer = Some(mixer_state_of(state));
+                    (controls.quantize, controls.pitch_range) = (Some(quantize), Some(pitch_range));
+                }
+                Section::Tracks => {
+                    let tracks =
+                        lock(&state.tracks).iter().map(|t| t.as_ref().map(TrackStateDto::of)).collect();
+                    controls.tracks = Some(tracks);
+                    controls.loading = Some(state.loading());
+                }
+                Section::Perform => controls.perform = Some(lock(&state.perform).pads()),
+                Section::Preview => controls.preview = Some(lock(&state.preview).clone()),
+            }
+        }
+        controls
+    }
+}
+
+impl TrackStateDto {
+    fn of(track: &LoadedTrack) -> Self {
+        let cues = track.cue_dtos();
+        TrackStateDto { load_id: track.load_id, key_shift: track.key_shift, stem_mix: track.stem_mix, cues }
     }
 }
 
@@ -1622,11 +1642,30 @@ mod tests {
         state.update_preferences(|p| p.dj.quantize = true);
         *lock(&state.crossfader) = -1.0;
         assert!(state.revision() > eq);
-        let controls = ControlStateDto::of(&state);
-        assert_eq!(controls.mixer.decks[1].strip.eq[0], 0.5);
-        assert_eq!(controls.mixer.crossfader, -1.0);
-        assert!(controls.quantize);
-        assert_eq!(controls.tracks.len(), prisme_engine::MAX_DECKS);
+        let controls = ControlStateDto::of(&state, Section::ALL);
+        let mixer = controls.mixer.unwrap();
+        assert_eq!(mixer.decks[1].strip.eq[0], 0.5);
+        assert_eq!(mixer.crossfader, -1.0);
+        assert_eq!(controls.quantize, Some(true));
+        assert_eq!(controls.tracks.unwrap().len(), prisme_engine::MAX_DECKS);
+    }
+
+    #[test]
+    fn a_change_moves_the_revision_of_its_section_alone() {
+        let state = AppState::new(prisme_session::JsonFile::in_memory(Default::default()));
+        let before = state.revision();
+        lock(&state.perform).decks[0].roll = Some(1.0);
+        let moved: Vec<_> = Section::ALL
+            .into_iter()
+            .filter(|&s| state.revision()[s as usize] != before[s as usize])
+            .collect();
+        assert_eq!(moved, [Section::Perform]);
+        let controls = serde_json::to_value(ControlStateDto::of(&state, moved)).unwrap();
+        assert_eq!(
+            controls.as_object().unwrap().keys().collect::<Vec<_>>(),
+            ["perform"],
+            "the rest left out"
+        );
     }
 
     #[test]

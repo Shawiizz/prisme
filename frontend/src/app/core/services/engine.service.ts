@@ -22,7 +22,7 @@ import {
 import { PreferencesService } from './preferences.service';
 import { Playhead, followPlayhead } from '../playhead';
 import { ConfirmService } from '../../shared/confirm/confirm';
-import { same } from '../same';
+import { same, sameItems } from '../same';
 import { deckLetter } from '../../shared/time';
 import { t } from '../i18n/i18n';
 import { errorText, isBackendError } from '../errors';
@@ -73,7 +73,7 @@ export class EngineService {
   readonly controls = signal<ControlState | null>(null);
   readonly tracks = signal<(TrackInfo | null)[]>(Array(MAX_DECKS).fill(null));
   /** Whether each deck loads a track. */
-  readonly loading = computed(() => this.controls()?.loading ?? NONE_LOADING);
+  readonly loading = computed(() => this.controls()?.loading ?? NONE_LOADING, { equal: sameItems });
   /** Waveform of each deck's track, once fetched. */
   readonly waveforms = signal<(Waveform | null)[]>(Array(MAX_DECKS).fill(null));
   readonly decks = signal<DeckSettings[]>(
@@ -131,32 +131,38 @@ export class EngineService {
     await told;
   }
 
-  /** What the backend changed of what the app mirrors: the decks' settings, their tracks (one
-   * gone leaves its deck, one not shown yet is asked for) with their key shifts, stem mixes and
-   * cues, the DJ's quantize and tempo range. What is the same stays as it is, for the views
-   * that follow it. */
-  private applyControls(controls: ControlState) {
-    const decks = controls.mixer.decks.map((d, deck) => {
-      const next = { ...DEFAULT_DECK, ...d };
-      return same(next, this.decks()[deck]) ? this.decks()[deck] : next;
-    });
-    if (decks.some((d, deck) => d !== this.decks()[deck])) this.decks.set(decks);
-    const tracks = this.tracks().map((track, deck) => {
-      const told = controls.tracks[deck];
-      if (!told) return null;
-      if (track?.loadId !== told.loadId) return track;
-      const { keyShift, stemMix, cues } = told;
-      const next = { ...track, keyShift, stemMix, cues };
-      return same(next, track) ? track : next;
-    });
-    if (tracks.some((t, deck) => t !== this.tracks()[deck])) {
-      this.tracks.set(tracks);
-      this.waveforms.update((waveforms) => waveforms.map((w, deck) => (tracks[deck] ? w : null)));
+  /** The sections the backend changed of what the app mirrors (`changed`, the first time all
+   * of them): the decks' settings, their tracks (one gone leaves its deck, one not shown yet is
+   * asked for) with their key shifts, stem mixes and cues, the DJ's quantize and tempo range.
+   * The sections not sent, and what is the same, stay as they are, for the views that follow
+   * them. */
+  private applyControls(changed: Partial<ControlState>) {
+    const controls = { ...this.controls(), ...changed } as ControlState;
+    if (changed.mixer) {
+      const decks = changed.mixer.decks.map((d, deck) => {
+        const next = { ...DEFAULT_DECK, ...d };
+        return same(next, this.decks()[deck]) ? this.decks()[deck] : next;
+      });
+      if (decks.some((d, deck) => d !== this.decks()[deck])) this.decks.set(decks);
+      const { quantize, pitchRange } = controls;
+      const dj = this.preferences.dj();
+      if (dj.quantize !== quantize || dj.pitchRange !== pitchRange)
+        this.preferences.dj.set({ ...dj, quantize, pitchRange });
     }
-    const { quantize, pitchRange } = controls;
-    const dj = this.preferences.dj();
-    if (dj.quantize !== quantize || dj.pitchRange !== pitchRange)
-      this.preferences.dj.set({ ...dj, quantize, pitchRange });
+    if (changed.tracks) {
+      const told = changed.tracks;
+      const tracks = this.tracks().map((track, deck) => {
+        if (!told[deck]) return null;
+        if (track?.loadId !== told[deck].loadId) return track;
+        const { keyShift, stemMix, cues } = told[deck];
+        const next = { ...track, keyShift, stemMix, cues };
+        return same(next, track) ? track : next;
+      });
+      if (tracks.some((t, deck) => t !== this.tracks()[deck])) {
+        this.tracks.set(tracks);
+        this.waveforms.update((waveforms) => waveforms.map((w, deck) => (tracks[deck] ? w : null)));
+      }
+    }
     this.controls.set(controls);
     if (this.unknownTrack()) void this.fetchTracks();
   }

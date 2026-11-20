@@ -221,7 +221,8 @@ mod tests {
         press(&bench, "deck1.fx3.focus");
         press(&bench, "deck1.fx.focus");
         assert_eq!(lock(&bench.state.perform).decks[0].fx_focus, Some(0));
-        assert_eq!(crate::dto::ControlStateDto::of(&bench.state).perform[0].fx_focus, Some(0));
+        let pads = crate::dto::ControlStateDto::of(&bench.state, [crate::state::Section::Perform]).perform;
+        assert_eq!(pads.unwrap()[0].fx_focus, Some(0));
         press(&bench, "deck1.fx.focus");
         assert_eq!(lock(&bench.state.perform).decks[0].fx_focus, None);
     }

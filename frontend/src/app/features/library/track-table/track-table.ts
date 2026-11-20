@@ -37,6 +37,7 @@ import { KeyboardService } from '../../../core/keyboard/keyboard.service';
 import { Dismiss, overlay } from '../../../shared/overlay';
 import { lastName, parentOf, shortPath } from '../../../core/folders';
 import { Popover, popoverAbove, popoverAtPointer } from '../../../shared/popover';
+import { sameItems } from '../../../core/same';
 
 /** What an empty list says; the prepare list's names the key that adds to it, if it has one. */
 const EMPTY_LIST: Record<TrackSource['kind'], (key: string | null) => string> = {
@@ -163,7 +164,7 @@ export class TrackTable {
   /** Which decks play: the deck marks change with it, not with every status tick. */
   protected readonly playing = computed(
     () => (this.engine.status()?.decks ?? []).map((d) => d?.playing ?? false),
-    { equal: (a, b) => a.length === b.length && a.every((v, i) => v === b[i]) },
+    { equal: sameItems },
   );
   protected readonly pitchHeader = computed(() =>
     t('Pitch → {deck}', { deck: deckLetter(this.library.reference()) }),

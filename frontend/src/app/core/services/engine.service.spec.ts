@@ -230,6 +230,17 @@ describe('EngineService', () => {
       expect(engine.tracks()[1]).toBe(track);
     });
 
+    it('keeps the sections the backend did not send again', () => {
+      engine['applyControls'](controls({}));
+      const { tracks, preview } = engine.controls()!;
+      const perform = [{ slicer: 4, cut: null, roll: null, fxFocus: null }];
+      engine['applyControls']({ perform });
+      expect(engine.controls()!.perform).toBe(perform);
+      expect(engine.controls()!.tracks).toBe(tracks);
+      expect(engine.controls()!.preview).toBe(preview);
+      expect(engine.tracks()[1]?.keyShift).toBe(-2);
+    });
+
     it('shows a track put on a deck whoever loaded it, and lets one taken off go', async () => {
       const loaded = { loadId: 8, deck: 1, cues: [] } as unknown as TrackInfo;
       mockIPC((command) => (command === 'loaded_tracks' ? [null, loaded, null, null] : undefined));
