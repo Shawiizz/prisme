@@ -18,8 +18,7 @@ use prisme_actions::input::Given;
 use prisme_actions::view::View;
 use prisme_control::LibraryAction;
 use prisme_library::browse::{Browser, Column, Focus, Pick, Shelf, Source, PAGE};
-use prisme_library::catalogue::Track;
-use prisme_library::catalogue::TrackId;
+use prisme_library::catalogue::{Track, TrackId, Tracks};
 use prisme_library::mix::{Compare, MixReference, Pitch};
 use prisme_library::{adopt, CrateId, LibraryDb, Search, SessionId, SmartRules, TrackRecord};
 use std::collections::HashMap;
@@ -50,8 +49,9 @@ impl Library {
         self.separations.insert(id, separation);
     }
 
-    /// The list browsed as the interface shows it.
-    pub fn view(&mut self) -> LibraryViewDto {
+    /// The list browsed as the interface shows it, the separations of its window found first
+    /// (see [`shown`]).
+    pub fn view(&self) -> LibraryViewDto {
         let browser = &self.browser;
         let folder = match browser.source() {
             Source::Folder(path) => Some(FolderViewDto {
@@ -76,7 +76,7 @@ impl Library {
             count: browser.count(),
             cursor: browser.cursor_index(),
             cursor_moves: browser.cursor_moves(),
-            selected: browser.selected_paths().len(),
+            selected: browser.selected_count(),
             focus: browser.focus().into(),
             pointed: match browser.pointed() {
                 Shelf::Prepare => ShelfDto::Prepare,
@@ -88,8 +88,9 @@ impl Library {
         }
     }
 
-    /// The rows of the window the interface asked for (see [`Browser::set_window`]).
-    pub fn window(&mut self) -> LibraryWindowDto {
+    /// The rows of the window the interface asked for (see [`Browser::set_window`]), their
+    /// separations found first (see [`shown`]).
+    pub fn window(&self) -> LibraryWindowDto {
         let Library { browser, separations, around, .. } = self;
         let rows = browser.window().map(|row| {
             let track = row.track;
@@ -97,9 +98,7 @@ impl Library {
             let tags = record.map(|r| &r.tags);
             let tag =
                 |pick: fn(&prisme_media::TrackTags) -> &Option<String>| tags.and_then(|t| pick(t).clone());
-            let separation = *separations
-                .entry(row.entry.track)
-                .or_insert_with(|| stored_separation(Path::new(&track.path)));
+            let separation = separations.get(&row.entry.track).copied().unwrap_or_default();
             let seen = around.sees(track);
             let stems = match seen.separating {
                 Some(percent) => RowStemsDto::Separating { fraction: f64::from(percent) / 100.0 },
@@ -144,6 +143,12 @@ impl Library {
         LibraryWindowDto { seq: browser.seq(), first: browser.window_first(), rows }
     }
 
+    /// The tracks of the window whose separation is not known yet.
+    fn unknown(&self) -> Vec<(TrackId, String)> {
+        let rows = self.browser.window().filter(|row| !self.separations.contains_key(&row.entry.track));
+        rows.map(|row| (row.entry.track, row.track.path.clone())).collect()
+    }
+
     /// What the rows read `around` them from now on: whether the rows of the window show
     /// another thing of it (a tempo, a key heard, a deck holding one of them, a preview).
     pub fn look_around(&mut self, around: &Around) -> bool {
@@ -166,8 +171,9 @@ impl Library {
 }
 
 /// What the rows of the library show of the rest of the application: the deck they are
-/// compared with as it sounds (its tempo to a hundredth of a BPM: the rows follow a tempo
-/// change, not every frame), the decks holding them, the track previewed.
+/// compared with as it sounds (its tempo to a tenth of a BPM, about the tenth of a percent the
+/// rows' pitch shows: a tempo fader moving sends them again only that often), the decks holding
+/// them, the track previewed.
 #[derive(Debug, Clone, Default, PartialEq)]
 pub struct Around {
     pub compare: Compare,
@@ -195,7 +201,7 @@ impl Around {
         let status = &view.status.decks[reference];
         self.compare = Compare {
             key: prisme_actions::screen::deck(view, reference).heard_key,
-            bpm: status.bpm.map(|bpm| (bpm * 100.0).round() / 100.0),
+            bpm: status.bpm.map(|bpm| (bpm * 10.0).round() / 10.0),
             range: view.decks[reference ^ 1].tempo_range,
         };
         self.playing = std::array::from_fn(|d| view.status.decks[d].playing);
@@ -246,6 +252,22 @@ pub fn effective(reference: usize, decks_in_use: usize) -> usize {
     }
 }
 
+/// What `look` reads of the library, once the separations of the rows of its window are known:
+/// those not known yet are looked for on disk with its lock let go (a drive may be slow).
+pub fn shown<T>(state: &AppState, look: impl Fn(&Library) -> T) -> T {
+    loop {
+        let library = lock(&state.library);
+        let unknown = library.unknown();
+        if unknown.is_empty() {
+            return look(&library);
+        }
+        drop(library);
+        let found: Vec<_> =
+            unknown.into_iter().map(|(id, path)| (id, stored_separation(Path::new(&path)))).collect();
+        lock(&state.library).separations.extend(found);
+    }
+}
+
 /// The library read whole, its lists, then the folder shown last (else the main music folder)
 /// opened: at start, off the main thread.
 pub fn start(state: &AppState, db: &LibraryDb, roots: Vec<PathBuf>) {
@@ -268,10 +290,14 @@ pub fn start(state: &AppState, db: &LibraryDb, roots: Vec<PathBuf>) {
     }
 }
 
-/// The library read whole again: a scan ended, files went, moved or came back.
+/// The library read whole again: a scan ended, files went, moved or came back. Its tracks are
+/// made with the library's lock let go.
 pub fn reload(state: &AppState, db: &LibraryDb) {
     match db.records() {
-        Ok(records) => state.browse(|l| l.browser.load(records)),
+        Ok(records) => {
+            let tracks = Tracks::of(records);
+            state.browse(|l| l.browser.load(tracks));
+        }
         Err(e) => error!("the library not read: {e}"),
     }
 }
@@ -987,6 +1013,30 @@ mod tests {
         assert!(!library.look_around(&around), "the rows have no tempo");
         around.previewed[0] = Some("C:/Music/b.mp3".into());
         assert!(library.look_around(&around));
+    }
+
+    #[test]
+    fn the_separations_of_the_rows_are_looked_for_with_the_library_let_go_once() {
+        let bench = library();
+        lock(&bench.state.library).browser.set_window(0, 10);
+        assert_eq!(lock(&bench.state.library).unknown().len(), 3);
+        assert_eq!(shown(&bench.state, Library::window).rows.len(), 3);
+        assert!(lock(&bench.state.library).unknown().is_empty(), "known from then on");
+    }
+
+    #[test]
+    fn the_rows_follow_the_deck_s_tempo_as_far_as_their_pitch_shows_it() {
+        let state = AppState::new(prisme_session::JsonFile::in_memory(Default::default()));
+        let compared = |bpm| {
+            let mut status = prisme_engine::EngineStatus::default();
+            status.decks[0].bpm = Some(bpm);
+            let view = crate::actions::view_with(&state, status, None, false, &Default::default(), 0.0);
+            let mut around = Around::default();
+            around.read(&view, 0);
+            around.compare.bpm
+        };
+        assert_eq!(compared(124.04), compared(124.01), "a fader moving by a hair");
+        assert_eq!(compared(124.2), Some(124.2));
     }
 
     #[test]

@@ -69,6 +69,17 @@ impl Track {
     }
 }
 
+/// Tracks made of their records, to take the place of the catalogue's (see
+/// [`Catalogue::load`]): what takes long in reading a library, done beforehand.
+#[derive(Debug, Default)]
+pub struct Tracks(Vec<Track>);
+
+impl Tracks {
+    pub fn of(records: Vec<TrackRecord>) -> Self {
+        Self(records.into_iter().map(|record| Track::new(record.path.clone(), Some(record))).collect())
+    }
+}
+
 /// The tracks of the library, and the files listed beside them not analysed yet.
 #[derive(Debug, Default)]
 pub struct Catalogue {
@@ -95,7 +106,11 @@ impl Catalogue {
 
     /// `record`, in place of what was known of its track: its id.
     pub fn put(&mut self, record: TrackRecord) -> TrackId {
-        let track = Track::new(record.path.clone(), Some(record));
+        self.place(Track::new(record.path.clone(), Some(record)))
+    }
+
+    /// `track` in place of what was known of its file: its id.
+    fn place(&mut self, track: Track) -> TrackId {
         match self.find(&track.path) {
             Some(id) => {
                 self.tracks[id.0 as usize] = track;
@@ -115,10 +130,10 @@ impl Catalogue {
 
     /// The library as the database holds it all, `records`: the tracks it no longer holds left
     /// without a record.
-    pub fn load(&mut self, records: Vec<TrackRecord>) {
+    pub fn load(&mut self, tracks: Tracks) {
         let mut known = vec![false; self.tracks.len()];
-        for record in records {
-            let id = self.put(record);
+        for track in tracks.0 {
+            let id = self.place(track);
             match known.get_mut(id.0 as usize) {
                 Some(seen) => *seen = true,
                 None => known.push(true),
@@ -242,7 +257,7 @@ pub(crate) mod tests {
         let mut catalogue = Catalogue::default();
         let a = catalogue.put(tagged("C:/a.mp3", "A", "x"));
         let b = catalogue.put(tagged("C:/b.mp3", "B", "x"));
-        catalogue.load(vec![tagged("C:/b.mp3", "B again", "x"), tagged("C:/c.mp3", "C", "x")]);
+        catalogue.load(Tracks::of(vec![tagged("C:/b.mp3", "B again", "x"), tagged("C:/c.mp3", "C", "x")]));
         assert!(catalogue.get(a).record.is_none(), "gone from the database");
         assert_eq!(catalogue.get(b).title, "B again");
         assert_eq!(catalogue.ids().count(), 2);

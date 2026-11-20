@@ -1,5 +1,6 @@
 //! Data exchanged with the frontend (camelCase JSON).
 
+use crate::actions::browse::{self, Library};
 use crate::auto_dj::machine::{Reason, State, Status, Takeover};
 use crate::auto_dj::plan::FadeLength;
 use crate::choices::{BoothChoice, LiveNote, OutputNote};
@@ -1582,7 +1583,7 @@ impl ControlStateDto {
                     controls.perform = Some(lock(&state.perform).decks.each_ref().map(DeckPadsDto::from))
                 }
                 Section::Preview => controls.preview = Some(lock(&state.preview).clone()),
-                Section::Library => controls.library = Some(lock(&state.library).view()),
+                Section::Library => controls.library = Some(browse::shown(state, Library::view)),
                 Section::Lists => controls.lists = Some(lock(&state.library).lists()),
                 Section::Settings => controls.preferences = Some(PreferencesDto::of(state)),
                 Section::Stems => {}

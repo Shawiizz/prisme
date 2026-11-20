@@ -2,7 +2,7 @@
 //! actions (`order`); the list shown comes back with the status stream, the window of rows a
 //! scroll asks for at once (`library_viewport`).
 
-use crate::actions::browse::{self, effective};
+use crate::actions::browse::{self, effective, Library};
 use crate::actions::{Actions, Order};
 use crate::commands::blocking;
 use crate::dto::{
@@ -78,7 +78,7 @@ pub async fn library_up(app: AppHandle, order: Order) -> AppResult<()> {
 pub async fn library_filter(app: AppHandle, text: String, order: Order) -> AppResult<LibraryViewDto> {
     in_turn(app, order, move |state, _| {
         state.browse(|l| l.browser.set_filter(&text));
-        Ok(lock(&state.library).view())
+        Ok(browse::shown(state, Library::view))
     })
     .await
 }
@@ -141,9 +141,8 @@ pub async fn library_compare_with(app: AppHandle, deck: usize, order: Order) -> 
 /// stream as they change. Off the main thread: a track shown first is looked for its stems.
 #[tauri::command(async)]
 pub fn library_viewport(state: State<'_, AppState>, first: usize, count: usize) -> LibraryWindowDto {
-    let mut library = lock(&state.library);
-    library.browser.set_window(first, count);
-    library.window()
+    lock(&state.library).browser.set_window(first, count);
+    browse::shown(&state, Library::window)
 }
 
 /// What the menu of the tracks at `paths` (else of those selected) can do with them.

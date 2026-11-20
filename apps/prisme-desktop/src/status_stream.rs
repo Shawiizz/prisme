@@ -11,6 +11,7 @@ use crate::dto::{ControlStateDto, StatusDto};
 use crate::preview::Previews;
 use crate::state::{lock, AppState, Section};
 use crate::stems_service::Shown;
+use prisme_actions::lane::Lane;
 use prisme_actions::meter::Meters;
 use prisme_actions::player::Player;
 use prisme_analysis::Key;
@@ -111,7 +112,7 @@ pub fn subscribe_status(app: AppHandle, channel: Channel<Value>) {
                 let before = around.clone();
                 around.read(&view, compared.0);
                 if compared.1 {
-                    rank(&state, &view, &around, compared.0, &mut ranked_against);
+                    rank(&app, &view, &around, compared.0, &mut ranked_against);
                 }
                 // what the rows show of the decks, sent again only where it shows
                 let rows_moved = around != before && lock(&state.library).look_around(&around);
@@ -208,9 +209,10 @@ type Ranked = (usize, Option<PathBuf>, Option<f64>, Option<Key>, f64, bool);
 
 /// The library's rows ranked again against the deck `reference` if another track came on it,
 /// its analysis did, or the deck beside it changed its range or its key lock: not as its tempo
-/// and key move with the platter.
+/// and key move with the platter. In turn with the library's actions, not on the stream's
+/// thread: a library of tens of thousands takes a while to sort.
 fn rank(
-    state: &AppState,
+    app: &AppHandle,
     view: &prisme_actions::view::View,
     around: &Around,
     reference: usize,
@@ -229,7 +231,9 @@ fn rank(
     );
     if last.as_ref() != Some(&now) {
         let mix = browse::mix_reference(view, deck, around.decks[deck].as_deref());
-        state.browse(|l| l.browser.set_mix(mix));
+        let ranking = app.clone();
+        let job = move || ranking.state::<AppState>().browse(|l| l.browser.set_mix(mix));
+        app.state::<Actions>().in_turn_on(Lane::Library, job);
         *last = Some(now);
     }
 }

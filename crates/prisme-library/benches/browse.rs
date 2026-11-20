@@ -4,6 +4,7 @@
 use criterion::{criterion_group, criterion_main, BatchSize, Criterion};
 use prisme_analysis::{Key, KeyEstimate, Tempo, TrackAnalysis};
 use prisme_library::browse::{Browser, Column, Pick, Scope, Source};
+use prisme_library::catalogue::Tracks;
 use prisme_library::mix::MixReference;
 use prisme_library::{FileStamp, TrackRecord};
 use prisme_media::TrackTags;
@@ -45,7 +46,7 @@ fn records() -> Vec<TrackRecord> {
 fn library() -> Browser {
     let mut browser = Browser::default();
     browser.set_roots(vec![PathBuf::from("C:/Music")]);
-    browser.load(records());
+    browser.load(Tracks::of(records()));
     browser.show(Source::Prepare, Vec::new());
     browser.set_scope(Scope::Library);
     browser.set_window(0, 60);
@@ -55,7 +56,7 @@ fn library() -> Browser {
 fn browse(c: &mut Criterion) {
     let mut group = c.benchmark_group("browse 50 000 tracks");
     group.bench_function("load the library", |b| {
-        b.iter_batched(records, |records| Browser::default().load(records), BatchSize::LargeInput)
+        b.iter_batched(records, |records| Browser::default().load(Tracks::of(records)), BatchSize::LargeInput)
     });
     let mut browser = library();
     for query in ["d", "deep", "deep ho", "artist 1234", "zzz"] {

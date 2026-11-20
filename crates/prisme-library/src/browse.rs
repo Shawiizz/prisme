@@ -5,7 +5,7 @@
 //! lists of the side panel are here too: the crates, the sets, the prepare list, the tracks
 //! from elsewhere. Nothing is read from the disk here: what a list holds is given.
 
-use crate::catalogue::{folded, Catalogue, Track, TrackId};
+use crate::catalogue::{folded, Catalogue, Track, TrackId, Tracks};
 use crate::db::{Crate, CrateId, HistorySession, SessionId, TrackRecord};
 use crate::duplicates::duplicate_groups;
 use crate::mix::{MixReference, Rank};
@@ -198,8 +198,8 @@ impl Browser {
     // --- the library and its lists ---
 
     /// The library as the database holds it all.
-    pub fn load(&mut self, records: Vec<TrackRecord>) {
-        self.catalogue.load(records);
+    pub fn load(&mut self, tracks: Tracks) {
+        self.catalogue.load(tracks);
         self.find_elsewhere();
         self.count_smart_crates();
         self.lists_changed();
@@ -642,6 +642,16 @@ impl Browser {
         self.cursor_moves
     }
 
+    /// How many tracks [`Browser::selected`] holds.
+    pub fn selected_count(&self) -> usize {
+        if self.picked.is_empty() {
+            return usize::from(self.cursor_at.is_some());
+        }
+        let rows = self.rows();
+        let picked = self.shown.iter().map(|&r| rows[r as usize]).filter(|e| self.picked.contains(e));
+        picked.map(|e| e.track).collect::<HashSet<_>>().len()
+    }
+
     /// The rows the actions on the selection take, as shown: those picked, else the cursor's.
     pub fn selected(&self) -> Vec<Entry> {
         let rows = self.rows();
@@ -1021,7 +1031,7 @@ mod tests {
     fn folder() -> Browser {
         let mut browser = Browser::default();
         browser.set_roots(vec![PathBuf::from("C:/Music")]);
-        browser.load(vec![
+        browser.load(Tracks::of(vec![
             record(
                 "C:/Music/a.mp3",
                 tags("Strobe", Some("deadmau5"), Some("Progressive House")),
@@ -1031,7 +1041,7 @@ mod tests {
             record("C:/Music/b.mp3", tags("Alone", Some("Claptone"), None), Some(122.0), Some("3B")),
             record("C:/Music/c.mp3", tags("Café Noir", None, Some("House")), None, None),
             record("D:/Downloads/d.mp3", tags("Dropped", Some("Someone"), None), Some(174.0), Some("1A")),
-        ]);
+        ]));
         let rows = browser
             .entries(["a.mp3", "b.mp3", "c.mp3", "e.mp3"].map(|name| (format!("C:/Music/{name}"), None)));
         browser.show(Source::Folder("C:/Music".into()), rows);
@@ -1123,6 +1133,7 @@ mod tests {
         assert_eq!(browser.selected(), [second]);
         browser.select_all();
         assert_eq!(browser.selected_paths(), ["C:/Music/a.mp3"], "one track");
+        assert_eq!(browser.selected_count(), 1);
     }
 
     #[test]
@@ -1146,7 +1157,7 @@ mod tests {
         browser.move_cursor(-1);
         assert_eq!(browser.cursor_moves(), moves, "it stayed on its row");
         browser.select_all();
-        assert_eq!(browser.selected_paths().len(), 4);
+        assert_eq!((browser.selected_paths().len(), browser.selected_count()), (4, 4));
         browser.set_filter("house");
         assert_eq!(browser.selected(), [cafe, strobe], "the picks hidden by the search left out");
         browser.clear_selection();
