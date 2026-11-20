@@ -46,15 +46,16 @@ Les deux boutons à gauche du champ choisissent où vous cherchez :
 
 | Bouton | Cherche dans | Comment |
 | --- | --- | --- |
-| La liste ouverte (**Dossier**, **Crate**, **Set**, **Préparation** ou **Doublons**) | Les morceaux de cette liste | Chaque mot tapé doit figurer dans le titre, l’artiste, l’album, le genre ou le nom du fichier, dans n’importe quel ordre. `daft around` trouve *Around the World* de Daft Punk |
-| **Bibliothèque** | Tous les morceaux analysés | Les mots correspondent au début des mots dans les mêmes champs, sans tenir compte des accents. Jusqu’à 500 résultats |
+| La liste ouverte (**Dossier**, **Crate**, **Set**, **Préparation** ou **Doublons**) | Les morceaux de cette liste | Chaque mot tapé doit figurer dans le titre, l’artiste, l’album, le genre ou le nom du fichier, dans n’importe quel ordre, même au milieu d’un mot ; majuscules et accents ne comptent pas. `daft around` trouve *Around the World* de Daft Punk, `unk orld` aussi |
+| **Bibliothèque** | Tous les morceaux analysés | De la même façon, tous les résultats affichés |
 
 Aucune syntaxe particulière : ni guillemets, ni champs, ni opérateurs. Ouvrir une autre liste
 efface la recherche et revient à la recherche dans cette liste.
 
 <Aside type="note">
   La recherche dans la **Bibliothèque** ne couvre que les morceaux analysés. Un fichier copié il
-  y a une minute apparaît une fois son analyse terminée, ce qu’indique la barre d’outils.
+  y a une minute apparaît une fois son analyse terminée, ce qu’indique la barre d’outils ; un
+  fichier qui ne peut pas être décodé n’apparaît jamais.
 </Aside>
 
 ## Les colonnes
@@ -194,6 +195,11 @@ Sur Mac, <kbd>⌘</kbd> remplace <kbd>Ctrl</kbd>. La liste complète est dans
 [Clavier et palette de commandes](/fr/docs/interface/keyboard/). Le potard de navigation d’un
 contrôleur, ses boutons de chargement et ses boutons de liste marchent de la même façon : voir
 la [référence des actions](/fr/docs/controllers/actions/).
+
+Sur un contrôleur, **Ouvrir la liste suivante** et **Ouvrir la liste précédente** parcourent le
+panneau latéral dans son ordre : **Préparation**, **Doublons**, chaque dossier de musique suivi des
+dossiers juste en dessous qui contiennent des morceaux, les crates, puis les sets de l’historique.
+Elles s’arrêtent à chaque bout.
 
 Sur un téléphone, la bibliothèque a sa propre disposition, faite pour le doigt : voir
 [Téléphone et tablette](/fr/docs/interface/phone/).

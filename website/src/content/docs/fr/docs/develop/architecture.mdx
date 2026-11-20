@@ -14,6 +14,7 @@ Prisme, c’est un moteur Rust qui joue l’audio, une application autour qui g�
 ```text
 apps/
   prisme-desktop/    l’application (Tauri v2) ; son interface est dans frontend/ (Angular)
+  prisme-setup/      la fenêtre de l’installateur Windows
   prisme-cli/        toute la chaîne en ligne de commande, sans l’interface
 crates/
   prisme-timecode/   décodeur de vinyle timecode : vitesse, sens, position absolue
@@ -24,8 +25,9 @@ crates/
   prisme-analysis/   formes d’onde, tempo et grille rythmique, tonalité
   prisme-library/    base de données des morceaux, scan des dossiers, analyse en arrière-plan
   prisme-stems/      séparation des sources sur le GPU ou le processeur
-  prisme-import/     import depuis Serato et rekordbox
-  prisme-control/    messages, mappings et profils des contrôleurs MIDI et HID
+  prisme-import/     import depuis Serato et rekordbox, export vers rekordbox et en playlists
+  prisme-control/    messages, mappings et profils des contrôleurs MIDI et HID, la liste des actions
+  prisme-actions/    ce que décide chaque action : ses règles, son voyant, ce qu’affiche l’écran
   prisme-session/    fichiers de réglages à écriture atomique
 frontend/            l’interface (Angular)
 design/              le design system : DESIGN.md et les écrans de référence
@@ -45,8 +47,9 @@ website/             ce site (Astro et Starlight)
 | `prisme-analysis` | Les formes d’onde (le niveau de crête et l’énergie des graves, des médiums et des aigus de chaque tranche, calculés pendant le décodage du morceau), le tempo et la grille rythmique, la tonalité avec son code Camelot, le volume perçu, et où joue chaque stem. |
 | `prisme-library` | La base SQLite des morceaux, leur analyse (refaite quand le fichier ou les algorithmes changent), les cues, les crates et l’historique des sets ; le scan des dossiers de musique ; les crates intelligentes ; les doublons ; l’analyse en arrière-plan, en basse priorité. |
 | `prisme-stems` | La séparation en stems avec des réseaux RoFormer (Mel-Band et BS-RoFormer), sur le GPU via wgpu (DirectX 12 ou Vulkan, Metal), ou sur le processeur. |
-| `prisme-import` | Crates, cues, boucles, grilles rythmiques, couleurs et notes depuis Serato et rekordbox, fusionnées sans écraser ce que Prisme a déjà. |
-| `prisme-control` | Les contrôleurs MIDI et HID : ce que disent leurs messages et leurs rapports, quelle action pilote chaque commande, les messages qui les allument, et les [profils](/fr/docs/controllers/profiles/) des modèles que Prisme connaît. Ici, les actions ne sont que des noms : c’est l’application qui les exécute. |
+| `prisme-import` | Crates, cues, boucles, grilles rythmiques, couleurs et notes depuis Serato et rekordbox, fusionnées sans écraser ce que Prisme a déjà ; l’export vers rekordbox et en playlists. |
+| `prisme-control` | Les contrôleurs MIDI et HID : ce que disent leurs messages et leurs rapports, quelle action pilote chaque commande, les messages qui les allument, et les [profils](/fr/docs/controllers/profiles/) des modèles que Prisme connaît. Elle liste aussi chaque action de l’application, avec son id, son groupe, son nom et son type (`target.rs`, `listed.rs`) : le clavier, la palette de commandes et les contrôleurs nomment tous les mêmes actions. Ici, les actions ne sont que des noms. |
+| `prisme-actions` | Ce que décide chaque action, à part ce qu’elle pilote : les règles de ses touches (le cue d’un CDJ, un SYNC tapé ou maintenu, une touche maintenue qui se répète), les pads et leurs pages, les longueurs des boucles et des rolls, l’ordre que les actions gardent entre elles. Et ce qu’est l’application à un instant, lu une seule fois (une *vue*) : ce que montrent chaque voyant et chaque fader d’un contrôleur, et ce que l’écran affiche de chaque deck. L’application exécute les actions selon ces règles, qui que ce soit qui les demande. |
 | `prisme-session` | Les réglages gardés dans des fichiers JSON, écrits de façon atomique (un fichier temporaire, puis un renommage), pour qu’un plantage ne laisse jamais un fichier à moitié écrit. |
 
 ## Les règles du temps réel
@@ -69,8 +72,11 @@ Une modification de `prisme-engine`, `prisme-dsp` ou `prisme-timecode` doit resp
 
 - **L’audio** : le flux de la carte son vit sur un thread à lui, avec le moteur dans son callback. Un chien de garde le redémarre quand son périphérique revient après une perte, quand le moteur a échoué ou quand le pilote a cessé d’appeler, avec les decks là où ils en étaient.
 - **Les commandes** : ce que l’interface peut demander, par domaine (`src/commands`) : decks, table de mixage, effets, bibliothèque, crates, stems, contrôleurs…
-- **Les flux vers l’interface** : l’état du moteur environ 60 fois par seconde, et le signal d’une platine tant que son oscilloscope est affiché, chacun sur son propre canal ; le reste sous forme d’événements.
-- **Les contrôleurs** : le message d’une commande mappée devient un événement que l’interface exécute, sauf pour les jogs et les faders de pitch, qui pilotent le moteur depuis le thread MIDI, en temps réel, sans passer par l’interface.
+- **Les actions** : chaque action, qui que ce soit qui la demande (un contrôleur, une touche, un clic à l’écran, la palette de commandes), entre par une seule porte (`src/actions`) et s’exécute en Rust. Chacune garde son ordre parmi les actions de sa file (le morceau d’un deck, les réglages d’un deck, la table de mixage, la bibliothèque…) : elle s’exécute aussitôt sur le thread qui la demande, sauf si sa file en a une en attente. Celle qui ouvre ou écrit un fichier est laissée au thread de travail de sa file : les actions des autres files ne l’attendent jamais.
+- **L’horloge** : environ 60 fois par seconde, le backend lit une seule fois l’état du moteur dans une vue, et à partir d’elle déclenche les touches maintenues, allume les contrôleurs, fait suivre les pré-écoutes et classe les lignes de la bibliothèque.
+- **Le flux d’état** : l’horloge dit ensuite à l’interface ce qui a changé, sur son propre canal. L’état est découpé en sections (decks, morceaux, table de mixage, pads, bibliothèque, réglages, contrôleurs, audio…), chacune avec une révision : seules les sections qui ont bougé sont envoyées, et rien du tout tant que rien ne bouge. Le signal d’une platine passe sur son propre canal tant que son oscilloscope est affiché ; le reste part sous forme d’événements.
+- **La vue de la bibliothèque** : la liste parcourue, sa recherche, son tri et sa sélection vivent en Rust, tous les morceaux en mémoire ; l’interface ne dessine que les lignes qu’elle affiche.
+- **Les contrôleurs** : les messages d’une commande mappée pilotent les actions depuis le thread MIDI ou HID, avec l’heure d’arrivée de chaque message, pour qu’un scratch suive la main. L’interface n’est prévenue que des quelques actions qu’elle fait elle-même : ses fenêtres, le focus de sa recherche.
 - **Le travail en arrière-plan** : le chargement d’un morceau en deux temps (jouable aussitôt, le reste sur un thread de travail), l’analyse de la bibliothèque, la file de séparation en stems, l’écriture des tags, l’enregistrement dans un fichier.
 - **Ce qui est gardé sur disque**, dans le dossier de données : `preferences.json`, `controllers.json`, `session.json` (ce que contenaient les decks, pour les remettre en place après un plantage), `library.sqlite`, les logs (un fichier par jour, une semaine conservée), vos propres profils de contrôleurs.
 
@@ -78,10 +84,11 @@ Une modification de `prisme-engine`, `prisme-dsp` ou `prisme-timecode` doit resp
 
 `frontend` est une application Angular. Ses parties :
 
-- `core/control/controls.ts` liste une seule fois chaque action de l’application, avec son id, son groupe, son libellé et son type. Le clavier, la [palette de commandes](/fr/docs/interface/keyboard/) et les [contrôleurs](/fr/docs/controllers/actions/) pilotent tous ces mêmes actions.
-- `core/services` dialogue avec l’application : l’état du moteur, la bibliothèque, la table de mixage, les effets, le sampler…
+- L’interface affiche ce que calcule le backend et lui envoie des gestes : une touche enfoncée ou relâchée, un fader bougé, un clic. Elle ne décide rien de ce que fait une action. Le [clavier](/fr/docs/interface/keyboard/), la palette de commandes et les [contrôleurs](/fr/docs/controllers/actions/) pilotent tous les mêmes actions, que le backend liste (`list_targets`) et nomme.
+- `core/models/status.ts` contient les types du flux d’état, écrits à partir de ceux du backend par un test (`PRISME_WRITE_TYPES=1 cargo test -p prisme-desktop status_stream`), jamais à la main.
+- `core/services` dialogue avec l’application : le flux d’état, la bibliothèque, la table de mixage, les effets, le sampler…
 - `features` contient les écrans : decks, table de mixage, bibliothèque, platines, réglages, la palette, la disposition pour téléphone.
-- `core/i18n` : l’interface est écrite en anglais, qui sert aussi de clé à chaque texte ; `fr.json` contient le français.
+- `core/i18n` : l’interface est écrite en anglais, qui sert aussi de clé à chaque texte ; `fr.json` contient le français. `actions.json`, les noms des actions à traduire, est écrit par les tests de `prisme-control`.
 - L’apparence vient du design system de `design/DESIGN.md` : les tokens et les classes toutes prêtes de `frontend/src/styles`.
 
 ## La ligne de commande

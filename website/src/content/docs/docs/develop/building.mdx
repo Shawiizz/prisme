@@ -125,7 +125,15 @@ cargo clippy --workspace --all-targets -- -D warnings
 cargo test --workspace
 ```
 
-Changing the actions of the interface, or a controller profile, also changes files the tests compare: see [The files beside the profiles](/docs/controllers/profiles/#the-files-beside-the-profiles).
+Some files are written from the code by a test, and the tests fail while they are behind; run the test again with its variable to write them:
+
+| After changing | Run | Writes |
+| --- | --- | --- |
+| The actions (`crates/prisme-control`) | `PRISME_WRITE_TARGETS=1 cargo test -p prisme-control listed` | `targets.json` beside the profiles, and the names to translate, `frontend/src/app/core/i18n/actions.json` |
+| A controller profile, or the format | `PRISME_WRITE_PROFILES=1 cargo test -p prisme-desktop controller_profiles` | `index.json` and `profile.schema.json` beside the profiles |
+| What the status stream sends | `PRISME_WRITE_TYPES=1 cargo test -p prisme-desktop status_stream` | `frontend/src/app/core/models/status.ts` |
+
+See [The files beside the profiles](/docs/controllers/profiles/#the-files-beside-the-profiles).
 
 ## Make the packages
 

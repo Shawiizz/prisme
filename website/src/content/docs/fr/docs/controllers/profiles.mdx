@@ -57,7 +57,7 @@ Le dossier de données est décrit dans [MIDI learn et votre propre profil](/fr/
 | `name` | texte | Le modèle, tel que les réglages l’affichent : **Reconnu comme** `name`. |
 | `ports` | liste de textes | Le contrôleur est le port MIDI dont le nom contient l’un de ces textes, majuscules et minuscules confondues. Parmi plusieurs modèles qui correspondent, celui dont le nom trouvé est le plus long l’emporte. |
 | `credits` | texte | D’où vient le mapping, quand il n’est pas propre à Prisme. |
-| `verified` | `true` ou `false` | `true` une fois le profil essayé sur le contrôleur lui-même. Sans lui, les réglages affichent **Converti depuis le mapping de Mixxx, pas encore essayé sur ce contrôleur**. Par défaut `false`. |
+| `verified` | `true` ou `false` | `true` une fois le profil essayé sur le contrôleur lui-même : les réglages affichent **Vérifié** à côté du nom du contrôleur. Sans lui, ils affichent **Non vérifié** et disent **Converti depuis le mapping de Mixxx, pas encore essayé sur ce contrôleur**. Par défaut `false`. |
 | `variant` | `true` ou `false` | `true` pour un autre profil d’un modèle, pour un firmware ou une édition à part sur les mêmes ports : il n’est jamais choisi de lui-même, le profil du modèle l’est, et les réglages le proposent sous le contrôleur (voir [Variantes](/fr/docs/controllers/#variantes)). Par défaut `false`. |
 | `jogStepsPerTurn` | nombre | Le nombre de pas que le contrôleur envoie pour un tour complet de jog, mesuré dessus. Il règle de combien un scratch déplace le morceau. Par défaut 720. |
 | `init` | liste de messages | Envoyés à l’ouverture du contrôleur, SysEx compris. Un message écrit `{ "afterMs": 1500, "message": [...] }` part autant de millisecondes plus tard, une fois terminé le jeu de lumière que le modèle joue tout seul. |
@@ -292,20 +292,18 @@ Le dossier des profils livrés contient trois autres fichiers, que les tests de 
 
 | Fichier | |
 | --- | --- |
-| `targets.json` | Toutes les actions de l’application (`frontend/src/app/core/control/controls.ts`) : leur id, leur groupe, leur libellé et leur type. |
+| `targets.json` | Toutes les actions de l’application, telles que `crates/prisme-control` les liste (`listed.rs`) : leur id, leur groupe, leur libellé et leur type. |
 | `profile.schema.json` | Le [schéma](#le-schéma), généré à partir des types que lit Prisme et de `targets.json`. |
 | `index.json` | Pour chaque profil, l’empreinte de son texte, sa révision (augmentée à chaque modification) et la version du format dans laquelle il est écrit. Les copies installées le lisent pour savoir quoi récupérer. |
 
 Après avoir ajouté ou modifié un profil :
 
 ```sh
-cd frontend
-PRISME_WRITE_TARGETS=1 pnpm exec ng test --watch=false   # writes targets.json
-cd ..
+PRISME_WRITE_TARGETS=1 cargo test -p prisme-control listed   # writes targets.json, after a change to the actions
 PRISME_WRITE_PROFILES=1 cargo test -p prisme-desktop controller_profiles   # writes index.json and the schema
 ```
 
-Un profil modifié ou ajouté reçoit alors une révision plus récente dans l’index. Les tests du frontend (`profiles.spec.ts`) vérifient aussi chaque profil : que chaque action existe, que seuls des encodeurs pilotent des actions du type *encoder*, que les touches de mode choisissent des modes que leur groupe possède, et que les vumètres et les sorties affichent ce que l’application propose.
+Un profil modifié ou ajouté reçoit alors une révision plus récente dans l’index. Les mêmes tests (`controller_profiles`) vérifient aussi chaque profil livré : qu’il se lit sans problème, que chaque action qu’il nomme existe, que seuls des encodeurs pilotent des actions du type *encoder*, que les touches de mode choisissent des modes que leur groupe possède, et que les vumètres, les sorties et les écrans affichent ce que l’application propose.
 
 Le format a une version (2 aujourd’hui). Un profil qui utilise ce qu’un Prisme plus ancien ne sait pas lire est publié avec la version la plus récente, et ce Prisme-là garde sa propre copie.
 

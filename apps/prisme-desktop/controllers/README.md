@@ -84,9 +84,10 @@ One JSON file per model:
 
 ### Targets
 
-An action id of `frontend/src/app/core/control/controls.ts` (`deck1.play`, `deck2.hotcue3`,
+An action id of `targets.json`, as `crates/prisme-control` lists them (`deck1.play`, `deck2.hotcue3`,
 `deck1.fx.next`, `deck1.key.up`, `deck1.jog.search`, `general.quantize`, `mixer.crossfader`…),
-a jump or a loop of so many beats (`deck1.jump.-8`, `deck1.jump.16`, `deck1.loop.0.25`), the
+a jump or a loop of so many beats (`deck1.jump.-8`, `deck1.jump.16`, `deck1.loop.0.25`; a loop
+key leaves the loop it plays), the
 key moved so many semitones (`deck1.key.+2`), a sample played as hard as its pad is hit
 (`deck1.sample3.velocity`), or a mode key (`mode.<group>.<mode>`, made from `modes`).
 
@@ -132,9 +133,9 @@ change are sent:
 A meter's controls show the level at silence once the controller is closed. A peak LED of
 its own is rather a light of `deck1.clip` or `main.clip`.
 
-The tests of `apps/prisme-desktop/src/controller_profiles.rs` check that every target exists,
-that only encoders read steps, that mode keys choose modes their group has and that meters show
-levels the app has.
+The tests of `apps/prisme-desktop/src/controller_profiles.rs` check that every shipped profile
+reads without a problem, that every target exists, that only encoders read steps, that mode keys
+choose modes their group has and that meters, outputs and displays show what the app has.
 
 ## HID controllers
 
