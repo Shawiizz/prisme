@@ -7,7 +7,7 @@ use crate::commands::edits::GridChange;
 use crate::dto::{StemMixDto, VinylChangeDto, VinylSettings};
 use crate::error::{AppError, AppResult};
 use crate::preferences::{DeckPreferences, VinylSync};
-use crate::state::{deck_commands, lock, AppState, LoadedTrack};
+use crate::state::{deck_commands, lock, AppState, DeckSettings, LoadedTrack};
 use prisme_actions::input::Input;
 use prisme_actions::key::heard;
 use prisme_actions::sync::{kept_tempo, matching_tempo};
@@ -148,7 +148,8 @@ pub fn set_jog_scratch(state: &AppState, deck: usize, on: bool) -> AppResult<()>
 /// next start.
 pub fn set_vinyl(state: &AppState, deck: usize, change: VinylChangeDto) -> AppResult<()> {
     AppState::deck_exists(deck)?;
-    change_vinyl(state, deck, |settings| change.apply(settings))
+    let settings = change_vinyl(state, deck, |settings| change.apply(settings));
+    send_deck(state, deck, &settings)
 }
 
 /// The vinyl control of `deck` put on or off, kept for the next start. Put on, it takes the
@@ -159,16 +160,16 @@ pub fn set_vinyl_enabled(state: &AppState, deck: usize, on: bool) -> AppResult<(
     if !on {
         state.let_go_of_record(deck);
     }
-    change_vinyl(state, deck, |(enabled, ..)| *enabled = on)?;
+    let settings = change_vinyl(state, deck, |(enabled, ..)| *enabled = on);
     if on {
         state.take_turntable(deck);
     }
-    Ok(())
+    send_deck(state, deck, &settings)
 }
 
-/// The vinyl settings of `deck` changed by `change`, on the deck and in the preferences, then
-/// sent.
-fn change_vinyl(state: &AppState, deck: usize, change: impl Fn(VinylSettings)) -> AppResult<()> {
+/// The vinyl settings of `deck` changed by `change`, on the deck and in the preferences: the
+/// settings of the deck now.
+fn change_vinyl(state: &AppState, deck: usize, change: impl Fn(VinylSettings)) -> DeckSettings {
     let settings = {
         let mut decks = lock(&state.decks);
         let d = &mut decks[deck];
@@ -179,7 +180,12 @@ fn change_vinyl(state: &AppState, deck: usize, change: impl Fn(VinylSettings)) -
         let d = &mut p.decks[deck];
         change((&mut d.vinyl_enabled, &mut d.vinyl_mode, &mut d.rpm, &mut d.lead_in_s));
     });
-    deck_commands(deck, &settings).into_iter().try_for_each(|c| state.send_if_running(c))
+    settings
+}
+
+/// The engine told `deck` is set as `settings` say.
+fn send_deck(state: &AppState, deck: usize, settings: &DeckSettings) -> AppResult<()> {
+    deck_commands(deck, settings).into_iter().try_for_each(|c| state.send_if_running(c))
 }
 
 /// The deck plays its input as it comes (a record, a CD player) instead of its track.
@@ -444,6 +450,24 @@ mod tests {
             (kept.vinyl_enabled, kept.vinyl_mode, kept.rpm, kept.lead_in_s),
             (true, VinylModeDto::Relative, RpmDto::Rpm45, Some(12.0))
         );
+    }
+
+    #[test]
+    fn a_deck_taking_its_turntable_is_told_after_the_deck_it_takes_it_from() {
+        let bench = Bench::new();
+        // four decks on two turntables: C on A's
+        lock(&bench.state.session).as_mut().unwrap().info.decks = 4;
+        lock(&bench.state.decks)[2].vinyl_enabled = true;
+        bench.press("deck1.vinyl.on", 1.0).unwrap();
+        let turned: Vec<_> = bench
+            .sent()
+            .into_iter()
+            .filter_map(|c| match c {
+                Command::SetVinylEnabled { deck, enabled } => Some((deck, enabled)),
+                _ => None,
+            })
+            .collect();
+        assert_eq!(turned, [(2, false), (0, true)]);
     }
 
     #[test]
