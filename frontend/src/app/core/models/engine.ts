@@ -214,11 +214,16 @@ export interface EngineStatus {
   player: number | null;
   /** Seconds before the Auto DJ's next mix starts, while one is planned. */
   mixInS: number | null;
-  /** The sections of what the app mirrors the backend changed since the status before: the
-   * mixer (with the quantize and the tempo range), the tracks (with their loads), the pads,
-   * the preview. All of them in the first status. */
-  controls?: Partial<ControlState>;
 }
+
+/** What the backend tells ~60 times per second: what changed of the engine's status since the
+ * time before (see `withChanges`), nothing while nothing does; and the sections of what the app
+ * mirrors that changed (the mixer by what changed of it): the mixer (with the quantize and the
+ * tempo range), the tracks (with their loads), the pads, the preview... All of it the first
+ * time. */
+export type StatusChanges = Partial<EngineStatus> & { controls?: ControlChanges };
+
+export type ControlChanges = Partial<Omit<ControlState, 'mixer'>> & { mixer?: Partial<MixerState> };
 
 /** What the app mirrors of the decks, their tracks, the mixer and the DJ's preferences. */
 export interface ControlState {

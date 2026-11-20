@@ -1,6 +1,6 @@
 /** Whether `a` and `b` hold the same values (plain data, as the backend sends it). */
 export function same<T>(a: T, b: T): boolean {
-  return JSON.stringify(a) === JSON.stringify(b);
+  return a === b || JSON.stringify(a) === JSON.stringify(b);
 }
 
 /** Whether `a` and `b` hold the same items, one by one: what a list of plain values computed

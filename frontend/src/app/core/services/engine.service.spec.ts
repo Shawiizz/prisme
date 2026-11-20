@@ -188,6 +188,16 @@ describe('EngineService', () => {
       expect(engine.tracks()[1]).toBe(track);
     });
 
+    it('takes of the mixer what changed of it, the rest kept as it was', () => {
+      engine['applyControls'](controls({ mixer: { decks: settings, limiter: true } as never }));
+      const before = engine.decks();
+      const moved = { pitch: 1.02 } as DeckSettings;
+      engine['applyControls']({ mixer: { decks: [null, moved, null, null] as never } });
+      expect(engine.decks()[1]).toBe(moved);
+      expect(engine.decks()[0]).toBe(before[0]);
+      expect(engine.controls()!.mixer.limiter).toBe(true);
+    });
+
     it('keeps the sections the backend did not send again', () => {
       engine['applyControls'](controls({}));
       const { tracks, preview } = engine.controls()!;

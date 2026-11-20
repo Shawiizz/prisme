@@ -1,7 +1,8 @@
 //! Streams the engine state to the frontend about 60 times per second, with the sections of
 //! what the interface mirrors that changed since last sent, and frees what the engine hands back
-//! at the same pace. The library's rows are sent again as what they show of the decks changes
-//! (see `browse::Around`), and ranked again as the deck they follow does.
+//! at the same pace. Each status says only what changed since the one before (see [`Told`]):
+//! nothing at all while nothing moves. The library's rows are sent again as what they show of
+//! the decks changes (see `browse::Around`), and ranked again as the deck they follow does.
 
 use crate::actions::browse::{self, Around, RowsStems};
 use crate::actions::Actions;
@@ -14,6 +15,8 @@ use prisme_actions::meter::Meters;
 use prisme_actions::player::Player;
 use prisme_analysis::Key;
 use prisme_library::browse::Column;
+use serde::Serialize;
+use serde_json::{Map, Value};
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::Duration;
@@ -27,7 +30,7 @@ const INTERVAL: Duration = Duration::from_millis(16);
 static GENERATION: AtomicU64 = AtomicU64::new(0);
 
 #[tauri::command]
-pub fn subscribe_status(app: AppHandle, channel: Channel<StatusDto>) {
+pub fn subscribe_status(app: AppHandle, channel: Channel<Value>) {
     let generation = GENERATION.fetch_add(1, Ordering::SeqCst) + 1;
     std::thread::Builder::new()
         .name("prisme-status".into())
@@ -37,6 +40,7 @@ pub fn subscribe_status(app: AppHandle, channel: Channel<StatusDto>) {
             let auto_dj = app.state::<AutoDj>();
             // the revisions of what the interface mirrors it was last sent: none, all sent first
             let mut told = None;
+            let mut sent = Told::default();
             let mut around = Around::default();
             // the deck the library's rows are compared with, and whether they are ranked by it
             let mut compared = (0, false);
@@ -118,13 +122,84 @@ pub fn subscribe_status(app: AppHandle, channel: Channel<StatusDto>) {
                     status.controls = Some(ControlStateDto::of(&state, &view, sections));
                     told = Some(revision);
                 }
-                if channel.send(status).is_err() {
+                if sent.changes(status).is_some_and(|changes| channel.send(changes).is_err()) {
                     break; // the window is gone
                 }
                 std::thread::sleep(INTERVAL);
             }
         })
         .expect("cannot start the status thread");
+}
+
+/// What the interface was last told, as it holds it: a status sends only what changed of it.
+#[derive(Default)]
+struct Told {
+    status: Option<Map<String, Value>>,
+    mixer: Option<Map<String, Value>>,
+    /// Each section of what the interface mirrors, but the mixer, by its name.
+    sections: Map<String, Value>,
+}
+
+impl Told {
+    /// What to send of `status`: its fields that changed since last told, of its decks those
+    /// that changed (the others `null`); of the sections it carries, those that changed, and of
+    /// the mixer its fields that changed, its decks likewise. Nothing when nothing changed.
+    fn changes(&mut self, mut status: StatusDto) -> Option<Value> {
+        let controls = status.controls.take();
+        let mut sent = changed(&mut self.status, object(&status));
+        if let Some(controls) = controls {
+            let mut changes = Map::new();
+            for (section, now) in object(&controls) {
+                if section == "mixer" {
+                    let Value::Object(now) = now else { continue };
+                    let mixer = changed(&mut self.mixer, now);
+                    if !mixer.is_empty() {
+                        changes.insert(section, Value::Object(mixer));
+                    }
+                } else if self.sections.get(&section) != Some(&now) {
+                    self.sections.insert(section.clone(), now.clone());
+                    changes.insert(section, now);
+                }
+            }
+            if !changes.is_empty() {
+                sent.insert("controls".into(), Value::Object(changes));
+            }
+        }
+        (!sent.is_empty()).then_some(Value::Object(sent))
+    }
+}
+
+/// `value`'s fields.
+fn object(value: &impl Serialize) -> Map<String, Value> {
+    match serde_json::to_value(value) {
+        Ok(Value::Object(fields)) => fields,
+        _ => Map::new(),
+    }
+}
+
+/// The fields of `now` that changed since `told`, which becomes `now`: all of them the first
+/// time. Of `decks`, as many as before, those that changed, the others `null`.
+fn changed(told: &mut Option<Map<String, Value>>, now: Map<String, Value>) -> Map<String, Value> {
+    let changes = match told {
+        None => now.clone(),
+        Some(before) => now
+            .iter()
+            .filter(|&(key, value)| before.get(key) != Some(value))
+            .map(|(key, value)| {
+                let value = match (key.as_str(), before.get(key), value) {
+                    ("decks", Some(Value::Array(was)), Value::Array(decks)) if was.len() == decks.len() => {
+                        let deck =
+                            |(was, now): (&Value, &Value)| if was == now { Value::Null } else { now.clone() };
+                        Value::Array(was.iter().zip(decks).map(deck).collect())
+                    }
+                    _ => value.clone(),
+                };
+                (key.clone(), value)
+            })
+            .collect(),
+    };
+    *told = Some(now);
+    changes
 }
 
 /// What the library's rows were last ranked against: the deck, its track and that track's tempo
@@ -156,5 +231,45 @@ fn rank(
         let mix = browse::mix_reference(view, deck, around.decks[deck].as_deref());
         state.browse(|l| l.browser.set_mix(mix));
         *last = Some(now);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::preferences::DeckCount;
+    use prisme_engine::EngineStatus;
+    use prisme_session::JsonFile;
+
+    /// The status of the engine at `engine`, with the `sections` of what the interface mirrors.
+    fn status(state: &AppState, engine: EngineStatus, sections: &[Section]) -> StatusDto {
+        let view = crate::actions::view_with(state, engine, None, false, &Default::default(), 0.0);
+        let mut status = StatusDto::of(&view, None, Default::default());
+        if !sections.is_empty() {
+            status.controls = Some(ControlStateDto::of(state, &view, sections.iter().copied()));
+        }
+        status
+    }
+
+    #[test]
+    fn a_status_tells_what_changed_and_nothing_while_nothing_does() {
+        let state = AppState::new(JsonFile::in_memory(Default::default()));
+        state.update_settings(|p| p.dj.deck_count = DeckCount::Four);
+        let mut told = Told::default();
+        let mut engine = EngineStatus::default();
+        let first = told.changes(status(&state, engine, &Section::ALL)).unwrap();
+        assert_eq!(first["decks"].as_array().map(Vec::len), Some(4));
+        assert!(first["controls"]["mixer"]["decks"][3].is_object(), "all of it, the first time");
+        assert_eq!(told.changes(status(&state, engine, &[])), None, "nothing moved");
+        assert_eq!(told.changes(status(&state, engine, &Section::ALL)), None, "nor changed");
+        engine.decks[1].position_s = 12.0;
+        lock(&state.decks)[2].volume = 0.5;
+        let moved = told.changes(status(&state, engine, &[Section::Mixer])).unwrap();
+        let decks = moved["decks"].as_array().unwrap();
+        assert!(decks[0].is_null() && decks[1]["positionS"] == 12.0, "{decks:?}");
+        let mixer = moved["controls"]["mixer"].as_object().unwrap();
+        assert!(mixer["decks"][2].is_object() && mixer["decks"][0].is_null());
+        assert!(!mixer.contains_key("knobs") && !moved.as_object().unwrap().contains_key("meters"));
+        assert!(serde_json::to_string(&moved).unwrap().len() < 8 * 1024, "Tauri's quick way in");
     }
 }

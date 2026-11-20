@@ -3,11 +3,13 @@ import { StemPart, partId } from '../stem-parts';
 import { Channel, invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
 import {
+  ControlChanges,
   ControlState,
   MAX_DECKS,
   DeckTrackUpdate,
   DeckSettings,
   EngineStatus,
+  StatusChanges,
   TrackInfo,
   VinylChange,
   Waveform,
@@ -16,6 +18,7 @@ import {
 import { Playhead, followPlayhead } from '../playhead';
 import { ConfirmService } from '../../shared/confirm/confirm';
 import { same, sameItems } from '../same';
+import { withChanges } from '../told';
 import { deckLetter } from '../../shared/time';
 import { t } from '../i18n/i18n';
 import { errorText, isBackendError } from '../errors';
@@ -34,7 +37,7 @@ export class EngineService {
 
   /** Latest engine state (drives the templates). */
   readonly status = signal<EngineStatus | null>(null);
-  /** What the app mirrors as the backend last told it changed (`EngineStatus.controls`). */
+  /** What the app mirrors as the backend last told it changed (`StatusChanges.controls`). */
   readonly controls = signal<ControlState | null>(null);
   readonly tracks = signal<(TrackInfo | null)[]>(Array(MAX_DECKS).fill(null));
   /** Whether each deck loads a track. */
@@ -73,13 +76,14 @@ export class EngineService {
   /** Subscribes to the engine state: done once its first state came, which tells all the app
    * mirrors (the decks' settings, the mixer's…). */
   async connect(): Promise<void> {
-    const channel = new Channel<EngineStatus>();
+    const channel = new Channel<StatusChanges>();
     let mirrored: () => void;
     const told = new Promise<void>((resolve) => (mirrored = resolve));
-    channel.onmessage = (s) => {
+    channel.onmessage = ({ controls, ...changes }) => {
+      const s = withChanges(this.status(), changes);
       this.playheads = s.decks.map((d, i) => followPlayhead(this.playheads[i] ?? null, d));
-      if (s.controls) {
-        this.applyControls(s.controls);
+      if (controls) {
+        this.applyControls(controls);
         mirrored();
       }
       this.status.set(s);
@@ -94,10 +98,12 @@ export class EngineService {
    * asked for) with their key shifts, stem mixes and cues, the DJ's quantize and tempo range.
    * The sections not sent, and what is the same, stay as they are, for the views that follow
    * them. */
-  private applyControls(changed: Partial<ControlState>) {
-    const controls = { ...this.controls(), ...changed } as ControlState;
-    if (changed.mixer) {
-      const decks = changed.mixer.decks.map((d, deck) =>
+  private applyControls(changed: ControlChanges) {
+    const before = this.controls();
+    const mixer = changed.mixer && withChanges(before?.mixer ?? null, changed.mixer);
+    const controls = { ...before, ...changed, ...(mixer && { mixer }) } as ControlState;
+    if (mixer) {
+      const decks = mixer.decks.map((d, deck) =>
         same(d, this.decks()[deck]) ? this.decks()[deck] : d,
       );
       if (decks.some((d, deck) => d !== this.decks()[deck])) this.decks.set(decks);
