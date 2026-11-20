@@ -17,6 +17,7 @@ import { errorText } from '../errors';
 import { t } from '../i18n/i18n';
 import { NoticeService } from '../../shared/notice/notice';
 import { NavigationService } from '../services/navigation.service';
+import { LibraryService } from '../services/library.service';
 
 /**
  * Controllers, MIDI and HID: the backend performs most of what their controls drive and lights
@@ -30,6 +31,7 @@ export class ControllerService {
   private readonly engine = inject(EngineService);
   private readonly notices = inject(NoticeService);
   private readonly navigation = inject(NavigationService);
+  private readonly library = inject(LibraryService);
 
   readonly controllers = signal<Controller[]>([]);
   readonly profiles = signal<ControllerProfiles | null>(null);
@@ -52,9 +54,10 @@ export class ControllerService {
   }
 
   async start() {
-    await listen<UiAction>('ui-action', ({ payload }) =>
-      this.controls.act(payload.target, payload.value),
-    );
+    await listen<UiAction>('ui-action', ({ payload }) => {
+      this.controls.act(payload.target, payload.value);
+      this.library.applied(payload.number);
+    });
     await listen<unknown>('action-failed', ({ payload }) => void this.engine.failed(payload));
     await listen<ControllerMapping>('controller-learned', () => {
       this.learning.set(null);

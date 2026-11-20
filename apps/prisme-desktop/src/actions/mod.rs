@@ -40,9 +40,10 @@ use serde::Serialize;
 use std::collections::{HashMap, VecDeque};
 use std::panic::{catch_unwind, AssertUnwindSafe};
 use std::path::PathBuf;
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::mpsc::{self, Sender, SyncSender};
 use std::sync::{Arc, Condvar, Mutex, MutexGuard};
-use std::time::Instant;
+use std::time::{Duration, Instant};
 use tauri::{AppHandle, Emitter, Manager};
 use tracing::error;
 
@@ -50,6 +51,8 @@ pub use view::view_of;
 
 /// A failure of an action a controller asked for, for the interface to word (an `AppError`).
 pub const FAILED_EVENT: &str = "action-failed";
+/// How long a load waits for the interface to apply the browsing sent before it.
+const SELECTION_WAIT: Duration = Duration::from_millis(500);
 
 /// A move of a controller: which one, when on its clock, and how many steps a turn of its jog
 /// wheels sends.
@@ -72,40 +75,50 @@ pub enum Source<'d> {
     Confirmed,
 }
 
-/// An action asked for, as it was sent: by whom, and when on the clock of the one asking (a
-/// controller's own, else Prisme's), whenever it is performed.
+/// An action asked for, as it was sent, whenever it is performed: by whom, when on the clock of
+/// the one asking (a controller's own, else Prisme's), and after how many of the actions the
+/// interface was told to perform (`ui-action`).
 #[derive(Debug, Clone, Copy)]
 pub struct Asked<'d> {
     pub source: Source<'d>,
     pub at_s: f64,
+    pub told: u64,
 }
 
 /// An [`Asked`] kept for a lane's worker.
-enum Kept {
+struct Kept {
+    source: KeptSource,
+    at_s: f64,
+    told: u64,
+}
+
+enum KeptSource {
     Controller { device: String, at_s: f64, jog_steps_per_turn: f64 },
-    Interface { at_s: f64, confirmed: bool },
+    Interface,
+    Confirmed,
 }
 
 impl Kept {
     fn of(asked: Asked) -> Self {
-        match asked.source {
+        let source = match asked.source {
             Source::Controller(Moved { device, at_s, jog_steps_per_turn }) => {
-                Kept::Controller { device: device.to_owned(), at_s, jog_steps_per_turn }
+                KeptSource::Controller { device: device.to_owned(), at_s, jog_steps_per_turn }
             }
-            Source::Interface => Kept::Interface { at_s: asked.at_s, confirmed: false },
-            Source::Confirmed => Kept::Interface { at_s: asked.at_s, confirmed: true },
-        }
+            Source::Interface => KeptSource::Interface,
+            Source::Confirmed => KeptSource::Confirmed,
+        };
+        Kept { source, at_s: asked.at_s, told: asked.told }
     }
 
     fn asked(&self) -> Asked<'_> {
-        match *self {
-            Kept::Controller { ref device, at_s, jog_steps_per_turn } => {
-                Asked { source: Source::Controller(Moved { device, at_s, jog_steps_per_turn }), at_s }
+        let source = match self.source {
+            KeptSource::Controller { ref device, at_s, jog_steps_per_turn } => {
+                Source::Controller(Moved { device, at_s, jog_steps_per_turn })
             }
-            Kept::Interface { at_s, confirmed } => {
-                Asked { source: if confirmed { Source::Confirmed } else { Source::Interface }, at_s }
-            }
-        }
+            KeptSource::Interface => Source::Interface,
+            KeptSource::Confirmed => Source::Confirmed,
+        };
+        Asked { source, at_s: self.at_s, told: self.told }
     }
 }
 
@@ -162,8 +175,7 @@ impl Host for AppHandle {
         let library = self.try_state::<Arc<LibraryService>>();
         let library = library.as_ref().map(|l| &l.db);
         let (state, actions) = (self.app_state(), self.actions());
-        Performing { state, actions, app: Some(self), library, source: asked.source, at_s: asked.at_s }
-            .perform(target, input)
+        Performing { state, actions, app: Some(self), library, asked }.perform(target, input)
     }
 
     fn tell<P: Serialize + Clone>(&self, event: &str, payload: P) {
@@ -278,14 +290,26 @@ impl InTurn {
     }
 }
 
+/// The track selected in the library, as the interface tells it, and the last of the actions it
+/// was told to perform (`ui-action`) it had applied then.
+#[derive(Default)]
+struct Selection {
+    path: Option<PathBuf>,
+    applied: u64,
+}
+
 pub struct Actions {
     /// When the levels last clipped, for the lights.
     clips: Mutex<Clips>,
     /// The controllers' faders picking their settings up, and their encoders' steps short of
     /// one.
     inputs: Mutex<Inputs>,
-    /// The track selected in the library, as the interface tells it: what the loads load.
-    selected: Mutex<Option<PathBuf>>,
+    /// What the loads load.
+    selection: Mutex<Selection>,
+    /// Told as the interface applies its actions.
+    caught_up: Condvar,
+    /// How many actions the interface was told to perform.
+    told: AtomicU64,
     lanes: Lanes,
     /// The queue of the worker keeping in the library what the actions changed.
     kept: Sender<Job>,
@@ -310,7 +334,9 @@ impl Actions {
         Self {
             clips: Mutex::default(),
             inputs: Mutex::default(),
-            selected: Mutex::default(),
+            selection: Mutex::default(),
+            caught_up: Condvar::new(),
+            told: AtomicU64::new(0),
             lanes: Lanes::default(),
             kept,
             started: Instant::now(),
@@ -334,7 +360,7 @@ impl Actions {
             Source::Controller(moved) => moved.at_s,
             Source::Interface | Source::Confirmed => self.now_s(),
         };
-        let asked = Asked { source, at_s };
+        let asked = Asked { source, at_s, told: self.told.load(Ordering::SeqCst) };
         let sent = self.sent_as(host.app_state(), target);
         let target = sent.as_ref().unwrap_or(target);
         let Some(queuing) = self.lanes.take(lane(target), in_turn.waits() || reads_files(target)) else {
@@ -374,6 +400,36 @@ impl Actions {
         let decks = state.preferences.read(|p| p.dj.decks());
         let tracks = lock(&state.tracks);
         (0..decks).find(|&deck| tracks[deck].is_none() && !self.lanes.busy(Lane::Track(deck))).unwrap_or(0)
+    }
+
+    /// The number of an action the interface is told to perform (see [`Actions::select`]).
+    pub(crate) fn tell_interface(&self) -> u64 {
+        self.told.fetch_add(1, Ordering::SeqCst) + 1
+    }
+
+    /// `path` selected in the library, as the interface tells it, having applied the actions
+    /// it was told to perform up to the one numbered `applied`, if it says.
+    pub fn select(&self, path: Option<PathBuf>, applied: Option<u64>) {
+        let mut selection = lock(&self.selection);
+        selection.path = path;
+        selection.applied = selection.applied.max(applied.unwrap_or(0));
+        self.caught_up.notify_all();
+    }
+
+    /// The track selected once the interface applied the actions it was told to perform before
+    /// an action asked after `told` of them: a browse sent before a load moves what it loads.
+    /// Waited for [`SELECTION_WAIT`] at most, then the selection as it is (a window asleep), not
+    /// waited for again for those actions. Off the threads of the controllers.
+    fn selected(&self, told: u64) -> Option<PathBuf> {
+        let selection = lock(&self.selection);
+        let (mut selection, waited) = self
+            .caught_up
+            .wait_timeout_while(selection, SELECTION_WAIT, |s| s.applied < told)
+            .unwrap_or_else(|e| e.into_inner());
+        if waited.timed_out() {
+            selection.applied = told;
+        }
+        selection.path.clone()
     }
 
     /// `job` done in turn on `lane`, after the actions waiting there (the Auto DJ's load of a
@@ -426,8 +482,7 @@ impl Actions {
     }
 }
 
-/// An action being performed on the application's state, as `source` asks, sent at `at_s` on
-/// its clock.
+/// An action being performed on the application's state, as it was asked.
 struct Performing<'a> {
     state: &'a AppState,
     actions: &'a Actions,
@@ -435,8 +490,7 @@ struct Performing<'a> {
     app: Option<&'a AppHandle>,
     /// Where the cues are kept, once open.
     library: Option<&'a Arc<LibraryDb>>,
-    source: Source<'a>,
-    at_s: f64,
+    asked: Asked<'a>,
 }
 
 impl Performing<'_> {
@@ -468,7 +522,18 @@ impl Performing<'_> {
     /// Seconds on the clock of the one asking as the action was sent: a controller's own, else
     /// Prisme's.
     fn at_s(&self) -> f64 {
-        self.at_s
+        self.asked.at_s
+    }
+
+    /// Who asks.
+    fn source(&self) -> Source<'_> {
+        self.asked.source
+    }
+
+    /// The track selected in the library, once the interface applied the actions it was told to
+    /// perform before this one (see [`Actions::selected`]).
+    fn selected(&self) -> Option<PathBuf> {
+        self.actions.selected(self.asked.told)
     }
 
     /// Keeps in the library, once it is open, what `write` writes there (see [`Actions::keep`]).
@@ -485,7 +550,7 @@ impl Performing<'_> {
     /// pick their setting up first (see `Inputs`); nothing while it gives nothing. Only where
     /// its fader stands is read.
     fn given(&self, target: &Target, input: Input) -> Option<Given> {
-        match (self.source, input) {
+        match (self.asked.source, input) {
             (Source::Interface | Source::Confirmed, Input::Value(value)) => Some(Given::Value(value)),
             // the interface's encoders under a name no controller has
             (Source::Interface | Source::Confirmed, steps) => {
@@ -618,9 +683,11 @@ pub(crate) mod bench {
             }
         }
 
-        /// `path` selected in the library, as the interface tells it.
+        /// `path` selected in the library, as the interface tells it, every action it was told
+        /// applied.
         pub fn select(&self, path: &std::path::Path) {
-            *lock(&self.actions.selected) = Some(path.to_owned());
+            let told = self.actions.told.load(Ordering::SeqCst);
+            self.actions.select(Some(path.to_owned()), Some(told));
         }
 
         /// What the interface was told since last asked: each event and what it carried.
@@ -656,7 +723,7 @@ pub(crate) mod bench {
                 Source::Controller(moved) => moved.at_s,
                 Source::Interface | Source::Confirmed => self.actions.now_s(),
             };
-            self.asked(Asked { source, at_s })
+            self.asked(Asked { source, at_s, told: self.actions.told.load(Ordering::SeqCst) })
         }
 
         fn asked<'a>(&'a self, asked: Asked<'a>) -> Performing<'a> {
@@ -665,8 +732,7 @@ pub(crate) mod bench {
                 actions: &self.actions,
                 app: None,
                 library: Some(&self.library),
-                source: asked.source,
-                at_s: asked.at_s,
+                asked,
             }
         }
 
@@ -882,5 +948,65 @@ mod lanes {
         bench.actions.settle();
         let mut taps = lock(&bench.state.perform).decks[0].taps.clone();
         assert_eq!(taps.tap(2.0).map(|bpm| bpm.round()), Some(120.0), "taps half a second apart");
+    }
+}
+
+#[cfg(test)]
+mod selection {
+    //! The loads of a controller, browsing on the screen.
+
+    use super::bench::{track, Bench};
+    use super::*;
+    use std::time::Duration;
+
+    fn load(bench: &Arc<Bench>, id: &str) {
+        let source = Source::Controller(Moved { device: "CDJ", at_s: 0.0, jog_steps_per_turn: 720.0 });
+        let target: Target = id.parse().unwrap();
+        bench.actions.perform(
+            bench,
+            &target,
+            Input::Value(1.0),
+            source,
+            Answer::Told,
+            &mut InTurn::default(),
+        );
+        bench.actions.settle();
+    }
+
+    fn loaded(bench: &Bench, deck: usize) -> Option<PathBuf> {
+        lock(&bench.state.tracks)[deck].as_ref().map(|t| t.path.clone())
+    }
+
+    #[test]
+    fn a_load_takes_the_track_the_browsing_sent_before_it_selects() {
+        let bench = Arc::new(Bench::new());
+        let (first, next) = (track("first"), track("next"));
+        bench.select(&first.0);
+        // the browse goes to the interface, which moves a moment later
+        let browse = bench.actions.tell_interface();
+        let (interface, path) = (bench.clone(), next.0.clone());
+        let moving = std::thread::spawn(move || {
+            std::thread::sleep(Duration::from_millis(50));
+            interface.actions.select(Some(path), Some(browse));
+        });
+        load(&bench, "library.load1");
+        moving.join().unwrap();
+        assert_eq!(loaded(&bench, 0), Some(next.0.clone()));
+    }
+
+    #[test]
+    fn a_window_asleep_lets_the_load_take_the_selection_it_has_once() {
+        let bench = Arc::new(Bench::new());
+        let first = track("asleep");
+        bench.select(&first.0);
+        bench.actions.tell_interface();
+        let waiting = Instant::now();
+        load(&bench, "library.load1");
+        assert!(waiting.elapsed() >= SELECTION_WAIT);
+        assert_eq!(loaded(&bench, 0), Some(first.0.clone()));
+        let again = Instant::now();
+        load(&bench, "library.load2");
+        assert!(again.elapsed() < SELECTION_WAIT, "not waited for again");
+        assert_eq!(loaded(&bench, 1), Some(first.0.clone()));
     }
 }

@@ -117,6 +117,8 @@ export class LibraryService {
   private readonly confirm = inject(ConfirmService);
   /** Analyses received since the last frame, by path. */
   private analyzed = new Map<string, TrackDetails>();
+  /** The number of the last action a controller had the app perform, applied. */
+  private appliedAction: number | null = null;
 
   /** The folders whose tracks make the library, the main one first. */
   readonly folders = signal<MusicFolder[]>([]);
@@ -697,9 +699,17 @@ export class LibraryService {
     return this.engine.perform(deck === null ? 'library.load' : `library.load${deck + 1}`, 1);
   }
 
-  /** Tells the backend the track selected. */
+  /** A controller's action `number` (`ui-action`) applied: the backend hears at once the track
+   * it left selected, which a load sent after it waits for. */
+  applied(number: number) {
+    this.appliedAction = number;
+    void this.tellSelection(this.selected());
+  }
+
+  /** Tells the backend the track selected, and the last controller's action applied. */
   private tellSelection(path: string | null): Promise<void> {
-    return invoke<void>('set_library_selection', { path }).catch((e) =>
+    const applied = this.appliedAction;
+    return invoke<void>('set_library_selection', { path, applied }).catch((e) =>
       this.error.set(errorText(e)),
     );
   }

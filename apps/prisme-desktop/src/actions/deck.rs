@@ -24,7 +24,7 @@ pub const MAX_KEY_SHIFT: u8 = 12;
 /// A jog wheel of `deck` turned, touched or let go (`action`) by `input`, its turns not
 /// added up as an encoder's steps: they come as finely as the wheel tells them.
 pub(super) fn turn(doing: &Performing, deck: usize, action: DeckAction, input: Input) -> AppResult<()> {
-    let steps_per_turn = match doing.source {
+    let steps_per_turn = match doing.source() {
         super::Source::Controller(moved) => moved.jog_steps_per_turn,
         super::Source::Interface | super::Source::Confirmed => prisme_control::JOG_STEPS_PER_TURN,
     };

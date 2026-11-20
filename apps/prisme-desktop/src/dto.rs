@@ -1539,6 +1539,9 @@ pub struct ControllerProfileDto {
 pub struct UiActionDto {
     pub target: String,
     pub value: f32,
+    /// Its number, which the interface tells with the selection once it applied it
+    /// (`set_library_selection`).
+    pub number: u64,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]

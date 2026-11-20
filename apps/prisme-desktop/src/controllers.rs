@@ -1161,7 +1161,8 @@ impl Controllers {
                 Action::Ui(id, input) => {
                     let Some(target) = id.target() else { continue };
                     if let Some(value) = host.actions().interface_value(moved.device, target, input) {
-                        host.tell(UI_ACTION_EVENT, UiActionDto { target: id.into(), value });
+                        let number = host.actions().tell_interface();
+                        host.tell(UI_ACTION_EVENT, UiActionDto { target: id.into(), value, number });
                     }
                 }
                 Action::Rust(target, input) => {

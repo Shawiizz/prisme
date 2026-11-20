@@ -100,10 +100,11 @@ export interface ControllerMapping {
 }
 
 /** An action the app performs that a controller drove: a key's value, an encoder's whole
- * steps. */
+ * steps; its number, told the backend once applied (see `LibraryService.applied`). */
 export interface UiAction {
   target: string;
   value: number;
+  number: number;
 }
 
 export function describeControl(c: PhysicalControl): string {

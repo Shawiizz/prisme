@@ -19,10 +19,11 @@ const MOVING_SPEED: f64 = 0.05;
 /// How far a step of an encoder moves the preview (s).
 const PREVIEW_STEP_S: f64 = 4.0;
 
-/// The track selected in the library, as the interface tells it: what the loads load.
+/// The track selected in the library, as the interface tells it, right after it moved, and the
+/// last of the actions it was told to perform (`ui-action`) it applied: what the loads load.
 #[tauri::command]
-pub fn set_library_selection(actions: State<'_, Actions>, path: Option<String>) {
-    *lock(&actions.selected) = path.map(PathBuf::from);
+pub fn set_library_selection(actions: State<'_, Actions>, path: Option<String>, applied: Option<u64>) {
+    actions.select(path.map(PathBuf::from), applied);
 }
 
 /// Whether the DJ hears or holds the track of a deck: it plays, or moves under its record.
@@ -89,10 +90,6 @@ impl Performing<'_> {
         }
     }
 
-    fn selected(&self) -> Option<PathBuf> {
-        lock(&self.actions.selected).clone()
-    }
-
     /// The selected track put on `deck`, played once there if `play`; the Auto DJ lets the deck
     /// go. Nothing before the library is open.
     fn load_selected(&self, target: &Target, deck: usize, play: bool) -> AppResult<()> {
@@ -139,7 +136,7 @@ impl Performing<'_> {
     /// plays, else once the DJ is asked.
     fn may_replace(&self, target: &Target, deck: usize, eject: bool) -> AppResult<()> {
         let heard = self.state.deck_status(deck).is_ok_and(|s| plays(&s));
-        if !heard || matches!(self.source, Source::Confirmed) {
+        if !heard || matches!(self.source(), Source::Confirmed) {
             Ok(())
         } else if self.state.preferences.read(|p| p.dj.protect_playing) {
             Err(AppError::DeckPlays { deck, eject })
@@ -166,7 +163,7 @@ mod tests {
     }
 
     fn select(bench: &Bench, path: Option<&str>) {
-        *lock(&bench.actions.selected) = path.map(PathBuf::from);
+        bench.actions.select(path.map(PathBuf::from), None);
     }
 
     /// A track of a minute playing on deck A.
