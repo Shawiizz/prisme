@@ -114,11 +114,6 @@ pub struct TrackInfoDto {
     pub stem_mix: StemMixDto,
 }
 
-/// The stems stored next to `track`: how far it is separated.
-pub fn stored_separation(track: &std::path::Path) -> SeparationDto {
-    SeparationDto::of(|stem| prisme_stems::track::has_stem(track, stem.name()))
-}
-
 /// The stems on a deck, which it can mute.
 #[derive(Debug, Clone, Copy, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]

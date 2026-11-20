@@ -6,13 +6,14 @@
 
 use super::Performing;
 use crate::dto::{
-    stored_separation, CrateDto, DeckMarkDto, FolderDto, FolderViewDto, HistorySessionDto, LibraryListsDto,
-    LibraryRowDto, LibraryViewDto, LibraryWindowDto, NamedTrackDto, RowStemsDto, SeparationDto, ShelfDto,
-    SortDto, SourceDto,
+    CrateDto, DeckMarkDto, FolderDto, FolderViewDto, HistorySessionDto, LibraryListsDto, LibraryRowDto,
+    LibraryViewDto, LibraryWindowDto, NamedTrackDto, RowStemsDto, SeparationDto, ShelfDto, SortDto,
+    SourceDto,
 };
 use crate::error::{AppError, AppResult};
 use crate::folders;
 use crate::state::{lock, AppState};
+use crate::stems_service::stored_separation;
 use crate::stems_service::{self, Queued, StemsService};
 use prisme_actions::input::Given;
 use prisme_actions::view::View;

@@ -19,8 +19,8 @@
 //! of all this, [`Shown`], is mirrored in `AppState::stems` as it changes.
 
 use crate::dto::{
-    stored_separation, ChoiceDto, DeckStemsDto, ModelRowDto, ModelStatusDto, SeparateDto, SeparationDto,
-    StemMixDto, StemsProgressDto, StemsStateDto,
+    ChoiceDto, DeckStemsDto, ModelRowDto, ModelStatusDto, SeparateDto, SeparationDto, StemMixDto,
+    StemsProgressDto, StemsStateDto,
 };
 use crate::error::{AppError, AppResult};
 use crate::preferences::Preferences;
@@ -250,6 +250,11 @@ fn prefers_fast(state: &AppState) -> bool {
 /// a graphics card only (the processor alone takes minutes a track, on all its cores).
 pub fn separates_on_load(state: &AppState) -> bool {
     state.preferences.read(|p| p.library.separate_on_load).unwrap_or_else(|| has_gpu(state))
+}
+
+/// The stems stored next to `track`: how far it is separated (a file looked for per stem).
+pub fn stored_separation(track: &Path) -> SeparationDto {
+    SeparationDto::of(|stem| prisme_stems::track::has_stem(track, stem.name()))
 }
 
 /// What the interface shows of the separation (see [`StemsService::show`]): the models, the
