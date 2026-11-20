@@ -4,7 +4,7 @@
 use super::{fx, mixer, take_over, transport, Performing};
 use crate::auto_dj::Takeover;
 use crate::commands::edits::GridChange;
-use crate::dto::{StemMixDto, VinylChangeDto};
+use crate::dto::{StemMixDto, VinylChangeDto, VinylSettings};
 use crate::error::{AppError, AppResult};
 use crate::preferences::{DeckPreferences, VinylSync};
 use crate::state::{deck_commands, lock, AppState, LoadedTrack};
@@ -145,31 +145,41 @@ pub fn set_jog_scratch(state: &AppState, deck: usize, on: bool) -> AppResult<()>
 }
 
 /// One setting of the vinyl control of `deck` changed, the others as they are; kept for the
-/// next start. Put on, it takes the turntable from the deck layered with it there (see
-/// `audio_host::deck_pair`), which plays on by itself; a deck a record lets go of plays on at
-/// the record's tempo.
+/// next start.
 pub fn set_vinyl(state: &AppState, deck: usize, change: VinylChangeDto) -> AppResult<()> {
     AppState::deck_exists(deck)?;
-    if change == VinylChangeDto::Enabled(false) {
+    change_vinyl(state, deck, |settings| change.apply(settings))
+}
+
+/// The vinyl control of `deck` put on or off, kept for the next start. Put on, it takes the
+/// turntable from the deck layered with it there (see `audio_host::deck_pair`), which plays on
+/// by itself; a deck a record lets go of plays on at the record's tempo.
+pub fn set_vinyl_enabled(state: &AppState, deck: usize, on: bool) -> AppResult<()> {
+    AppState::deck_exists(deck)?;
+    if !on {
         state.let_go_of_record(deck);
     }
+    change_vinyl(state, deck, |(enabled, ..)| *enabled = on)?;
+    if on {
+        state.take_turntable(deck);
+    }
+    Ok(())
+}
+
+/// The vinyl settings of `deck` changed by `change`, on the deck and in the preferences, then
+/// sent.
+fn change_vinyl(state: &AppState, deck: usize, change: impl Fn(VinylSettings)) -> AppResult<()> {
     let settings = {
         let mut decks = lock(&state.decks);
         let d = &mut decks[deck];
-        change.apply((&mut d.vinyl_enabled, &mut d.vinyl_mode, &mut d.rpm, &mut d.lead_in_s));
+        change((&mut d.vinyl_enabled, &mut d.vinyl_mode, &mut d.rpm, &mut d.lead_in_s));
         *d
     };
     state.update_preferences(|p| {
         let d = &mut p.decks[deck];
-        change.apply((&mut d.vinyl_enabled, &mut d.vinyl_mode, &mut d.rpm, &mut d.lead_in_s));
+        change((&mut d.vinyl_enabled, &mut d.vinyl_mode, &mut d.rpm, &mut d.lead_in_s));
     });
-    if change == VinylChangeDto::Enabled(true) {
-        state.take_turntable(deck);
-    }
-    for c in deck_commands(deck, &settings) {
-        state.send_if_running(c)?;
-    }
-    Ok(())
+    deck_commands(deck, &settings).into_iter().try_for_each(|c| state.send_if_running(c))
 }
 
 /// The deck plays its input as it comes (a record, a CD player) instead of its track.

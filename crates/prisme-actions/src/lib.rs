@@ -1,9 +1,6 @@
 //! What the application's actions decide, apart from the engine, the files and the windows
-//! they drive: a CDJ's cue key, the scales of the knobs, the parts of a separated track, the
-//! phase and the keys of two decks, how a control's moves reach its action (soft takeover,
-//! encoder steps, faders over a few steps or silent at an end), the keys held of a row, the
-//! lengths of the rolls and cuts and the slicer, the tempo tapped, where an action is performed, what the actions keep between presses, and what
-//! their lights and faders show of the application at a moment (its [`view::View`]).
+//! they drive: the rules of each action, and what its light and its fader show of the
+//! application at a moment (its [`view::View`]).
 
 pub mod cue;
 pub mod input;

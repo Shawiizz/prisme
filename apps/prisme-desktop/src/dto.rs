@@ -718,14 +718,12 @@ impl From<VinylModeDto> for VinylMode {
     }
 }
 
-/// A setting of a deck's vinyl control, changed alone: whether it is on (an action of the deck:
-/// `deckN.vinyl`), how the record drives the deck, how fast it turns, where on it the track
-/// starts (`None`: where the record's own lead-in ends).
+/// A setting of a deck's vinyl control, changed alone: how the record drives the deck, how fast
+/// it turns, where on it the track starts (`None`: where the record's own lead-in ends). It is
+/// put on and off by an action of the deck (`deckN.vinyl`).
 #[derive(Debug, Clone, Copy, PartialEq, Deserialize)]
 #[serde(rename_all = "camelCase", tag = "setting", content = "value")]
 pub enum VinylChangeDto {
-    #[serde(skip)]
-    Enabled(bool),
     Mode(VinylModeDto),
     Rpm(RpmDto),
     LeadIn(Option<f64>),
@@ -736,9 +734,8 @@ pub type VinylSettings<'a> = (&'a mut bool, &'a mut VinylModeDto, &'a mut RpmDto
 
 impl VinylChangeDto {
     /// Its setting changed among `settings`.
-    pub fn apply(self, (enabled, mode, rpm, lead_in_s): VinylSettings) {
+    pub fn apply(self, (_, mode, rpm, lead_in_s): VinylSettings) {
         match self {
-            VinylChangeDto::Enabled(on) => *enabled = on,
             VinylChangeDto::Mode(m) => *mode = m,
             VinylChangeDto::Rpm(r) => *rpm = r,
             VinylChangeDto::LeadIn(s) => *lead_in_s = s,
