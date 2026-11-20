@@ -41,6 +41,8 @@ export class ControlService {
   };
 
   private readonly targets = signal<Target[]>([]);
+  /** The lists asked for: a slower answer to an older one is dropped. */
+  private asked = 0;
 
   /** Every action, named in the UI's language. */
   readonly controls = computed(() => this.targets().map(named));
@@ -59,7 +61,9 @@ export class ControlService {
   }
 
   private async load() {
-    this.targets.set(await invoke<Target[]>('list_targets'));
+    const asked = ++this.asked;
+    const targets = await invoke<Target[]>('list_targets');
+    if (asked === this.asked) this.targets.set(targets);
   }
 
   /** The action `id`, if listed. */
