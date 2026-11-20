@@ -9,7 +9,7 @@
 //! or left are handled as files gone from the library.
 
 use crate::actions::browse;
-use crate::dto::MusicFolderDto;
+use crate::dto::{FoldersStateDto, MusicFolderDto};
 use crate::error::{AppError, AppResult};
 use crate::folder_watch::FolderWatch;
 use crate::state::{lock, AppState};
@@ -218,10 +218,24 @@ impl LibraryService {
         drop(self.changed.wait_timeout_while(current, time, |current| current.as_slice() == roots));
     }
 
-    /// (Re)starts the analysis of the music folders: new and changed files only. The run it
-    /// starts.
-    pub fn start(&self) -> u64 {
+    /// (Re)starts the analysis of the music folders: new and changed files only.
+    pub fn start(&self) {
+        self.run(false);
+    }
+
+    /// [`Self::start`] as the DJ asked: shown as a rescan until a run ends (this one, or one
+    /// started after it in its place).
+    pub fn rescan(&self) {
+        self.run(true);
+    }
+
+    fn run(&self, asked: bool) {
         let scan = self.scan.fetch_add(1, Ordering::SeqCst) + 1;
+        if asked {
+            if let Some(state) = self.app.try_state::<AppState>() {
+                lock(&state.folders).rescanning = true;
+            }
+        }
         let listener = Arc::new(EventListener {
             app: self.app.clone(),
             db: self.db.clone(),
@@ -240,7 +254,6 @@ impl LibraryService {
         // the previous run (if any) is stopped outside the lock
         let previous = lock(&self.analyzer).replace(analyzer);
         drop(previous);
-        scan
     }
 
     /// Analyses the files of the music folders as they appear or change. The watch is set up
@@ -314,6 +327,15 @@ impl LibraryService {
     }
 }
 
+/// The analysis's `progress` shown in `shown`: a rescan asked for ends with the run.
+fn told(shown: &mut FoldersStateDto, progress: AnalysisProgress) {
+    shown.progress = progress.into();
+    if !progress.running && shown.rescanning {
+        shown.rescanning = false;
+        shown.rescans += 1;
+    }
+}
+
 struct EventListener {
     app: AppHandle,
     db: Arc<LibraryDb>,
@@ -335,8 +357,7 @@ impl AnalysisListener for EventListener {
     fn progress(&self, progress: AnalysisProgress) {
         if self.scans.load(Ordering::SeqCst) == self.scan {
             if let Some(state) = self.app.try_state::<AppState>() {
-                let mut shown = lock(&state.folders);
-                (shown.progress, shown.scan) = (progress.into(), self.scan);
+                told(&mut lock(&state.folders), progress);
             }
         }
         if !progress.running {
@@ -422,6 +443,19 @@ fn may_join(roots: &[PathBuf], folder: &Path) -> AppResult<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_rescan_asked_for_ends_with_the_run_that_ends() {
+        let mut shown = FoldersStateDto { rescanning: true, ..Default::default() };
+        let running = AnalysisProgress { running: true, ..Default::default() };
+        told(&mut shown, running);
+        assert!(shown.rescanning);
+        told(&mut shown, AnalysisProgress { running: false, ..running });
+        assert!(!shown.rescanning);
+        assert_eq!(shown.rescans, 1);
+        told(&mut shown, AnalysisProgress { running: false, ..running });
+        assert_eq!(shown.rescans, 1, "a run nobody asked for");
+    }
 
     #[test]
     fn a_folder_joins_the_music_folders_unless_one_holds_the_other() {

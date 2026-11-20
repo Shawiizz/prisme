@@ -21,6 +21,7 @@ import { dragSize, saveSize, savedSize } from '../../shared/resize';
 import { TrackTable } from './track-table/track-table';
 import { TPipe } from '../../core/i18n/t.pipe';
 import { deckLetter } from '../../shared/time';
+import { errorText } from '../../core/errors';
 import { KeyboardService } from '../../core/keyboard/keyboard.service';
 import { LIST_LABEL, SEARCH_PLACEHOLDER } from './list-labels';
 import { PathStep, folderName, lastName, stepsFrom } from '../../core/folders';
@@ -57,14 +58,8 @@ export class Library {
   protected readonly importOpen = signal(false);
   protected readonly exportOpen = signal(false);
   protected readonly progress = this.library.progress;
-  /** The run of the analysis a rescan started, while it runs. */
-  private readonly rescan = signal<number | null>(null);
-  /** The rescan asked for runs, or is not shown yet. */
-  protected readonly rescanning = computed(() => {
-    const asked = this.rescan();
-    const scan = this.library.scan();
-    return asked !== null && (scan < asked || (scan === asked && this.progress().running));
-  });
+  protected readonly rescanning = this.library.rescanning;
+  /** A rescan asked for ended a moment ago. */
   protected readonly rescanned = signal(false);
   private rescannedTimer: ReturnType<typeof setTimeout> | undefined;
   protected readonly progressPercent = computed(() => {
@@ -100,9 +95,10 @@ export class Library {
     effect(() => {
       if (this.library.searchRequests() > 0) this.search().nativeElement.focus();
     });
+    let rescans = this.library.rescans();
     effect(() => {
-      if (this.rescan() === null || this.rescanning()) return;
-      this.rescan.set(null);
+      if (this.library.rescans() === rescans) return;
+      rescans = this.library.rescans();
       this.rescanned.set(true);
       clearTimeout(this.rescannedTimer);
       this.rescannedTimer = setTimeout(() => this.rescanned.set(false), RESCANNED_MS);
@@ -112,9 +108,6 @@ export class Library {
 
   protected startRescan() {
     this.rescanned.set(false);
-    this.library.rescan().then(
-      (scan) => this.rescan.set(scan),
-      () => this.rescan.set(null),
-    );
+    this.library.rescan().catch((e) => this.library.error.set(errorText(e)));
   }
 }

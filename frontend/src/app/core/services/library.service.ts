@@ -49,8 +49,10 @@ export class LibraryService {
   readonly root = computed(() => this.folders().find((f) => f.main)?.path ?? null);
   readonly error = signal<string | null>(null);
   readonly progress = computed<AnalysisProgress>(() => this.told().progress);
-  /** The run of the analysis `progress` is of. */
-  readonly scan = computed(() => this.told().scan);
+  /** A rescan the DJ asked for runs. */
+  readonly rescanning = computed(() => this.told().rescanning);
+  /** How many rescans the DJ asked for ended. */
+  readonly rescans = computed(() => this.told().rescans);
   /** The library's database could not be opened: what changes is lost at exit. */
   readonly inMemory = computed(() => this.told().inMemory);
   /** The genres of the library, the most common first (loaded on demand). */
@@ -319,9 +321,9 @@ export class LibraryService {
     return invoke<DirListing>('list_dir', { path });
   }
 
-  /** Looks for new or changed files and analyses them: the run started (see `scan`). */
-  rescan(): Promise<number> {
-    return invoke<number>('rescan_library');
+  /** Looks for new or changed files and analyses them, shown as a rescan (see `rescanning`). */
+  rescan(): Promise<void> {
+    return invoke('rescan_library');
   }
 
   /** The list and the rows sent last, whichever came first: a view told before another is not

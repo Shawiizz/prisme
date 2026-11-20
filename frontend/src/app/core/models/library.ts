@@ -217,8 +217,10 @@ export interface FoldersState {
   /** The main one first. */
   folders: MusicFolder[];
   progress: AnalysisProgress;
-  /** The run of the analysis `progress` is of: each look through the folders the next. */
-  scan: number;
+  /** A rescan the DJ asked for runs. */
+  rescanning: boolean;
+  /** How many rescans the DJ asked for ended: the library is up to date as one does. */
+  rescans: number;
   /** The library's database could not be opened: what changes is lost at exit. */
   inMemory: boolean;
 }

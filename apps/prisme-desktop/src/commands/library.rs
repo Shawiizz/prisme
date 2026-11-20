@@ -36,11 +36,15 @@ pub(crate) async fn in_turn<R: Send + 'static>(
     .await
 }
 
-/// Looks for new or changed files in the music folder and analyses them: the run started (see
-/// `FoldersStateDto::scan`). Off the main thread: the analysis running stops first.
+/// Looks for new or changed files in the music folder and analyses them, shown as a rescan
+/// (see `FoldersStateDto::rescanning`). Off the main thread: the analysis running stops first.
 #[tauri::command]
-pub async fn rescan_library(app: AppHandle) -> AppResult<u64> {
-    blocking(move || Ok(app.state::<Arc<LibraryService>>().start())).await
+pub async fn rescan_library(app: AppHandle) -> AppResult<()> {
+    blocking(move || {
+        app.state::<Arc<LibraryService>>().rescan();
+        Ok(())
+    })
+    .await
 }
 
 /// Shows `source`: the whole list, in its own order if it has one.

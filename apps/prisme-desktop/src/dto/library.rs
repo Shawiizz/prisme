@@ -418,8 +418,10 @@ pub struct FoldersStateDto {
     /// The main one first.
     pub folders: Vec<MusicFolderDto>,
     pub progress: ProgressDto,
-    /// The run of the analysis `progress` is of: each look through the folders the next.
-    pub scan: u64,
+    /// A rescan the DJ asked for runs.
+    pub rescanning: bool,
+    /// How many rescans the DJ asked for ended: the library is up to date as one does.
+    pub rescans: u64,
     /// The library's database could not be opened: what changes is lost at exit.
     pub in_memory: bool,
 }
