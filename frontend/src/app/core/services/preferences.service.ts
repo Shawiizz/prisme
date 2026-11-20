@@ -11,30 +11,52 @@ export function tellPreferences(preferences: Preferences) {
   told.set(preferences);
 }
 
-/** Where the interface kept the language and the phone's touch controls before the backend
- * kept them: taken over once, then forgotten. */
-const STORED = { language: 'prisme.language', phoneTouch: 'prisme.phone.touch' } as const;
-
-/** What the page's storage kept under `key`, forgotten. */
-export function takeStored(key: string): string | null {
-  try {
-    const saved = localStorage.getItem(key);
-    localStorage.removeItem(key);
-    return saved;
-  } catch {
-    return null;
-  }
-}
+/** Where the interface kept the language, the phone's touch controls and the screen below
+ * before the backend kept them: taken over once, then forgotten. */
+const STORED = {
+  language: 'prisme.language',
+  phoneTouch: 'prisme.phone.touch',
+  screenBelow: 'prisme.screenBelow',
+} as const;
 
 /** The preferences as the backend keeps them, read before the interface starts, the language
  * shown in theirs. */
 export async function loadPreferences(): Promise<void> {
   tellPreferences(await invoke<Preferences>('get_preferences'));
-  const language = takeStored(STORED.language);
-  if (language && !told()!.ui.language) await choose('language', language);
-  const touch = takeStored(STORED.phoneTouch);
-  if (touch && told()!.ui.phoneTouch === null) await choose('phoneTouch', touch === 'true');
-  await showLanguage(told()!.ui.language ?? language);
+  const ui = told()!.ui;
+  const taken = [
+    await takeOver(STORED.language, (saved) => !ui.language && choose('language', saved)),
+    await takeOver(
+      STORED.phoneTouch,
+      (saved) => ui.phoneTouch === null && choose('phoneTouch', saved === 'true'),
+    ),
+    await takeOver(
+      STORED.screenBelow,
+      (saved) => saved === 'true' && !ui.screenBelow && choose('screenBelow', true),
+    ),
+  ];
+  if (taken.includes(true)) tellPreferences(await invoke<Preferences>('get_preferences'));
+  await showLanguage(told()!.ui.language);
+}
+
+/** What the page's storage kept under `key`, given to the backend by `give` unless it says
+ * `false` (not wanted), then forgotten: whether it was given. Kept for the next start when the
+ * backend could not take it, the interface starting all the same. */
+export async function takeOver(
+  key: string,
+  give: (saved: string) => false | Promise<void>,
+): Promise<boolean> {
+  try {
+    const saved = localStorage.getItem(key);
+    if (saved === null) return false;
+    const given = give(saved);
+    if (given) await given;
+    localStorage.removeItem(key);
+    return given !== false;
+  } catch (err) {
+    console.error(err);
+    return false;
+  }
 }
 
 function choose<K extends keyof Settings>(setting: K, value: Settings[K]): Promise<void> {

@@ -1,10 +1,7 @@
 import { Injectable, inject, signal } from '@angular/core';
 import { invoke } from '@tauri-apps/api/core';
 import { PHONE } from '../platform';
-import { PreferencesService, takeStored } from './preferences.service';
-
-/** Where the interface kept the choice before the backend kept it: taken over once. */
-const STORED = 'prisme.screenBelow';
+import { PreferencesService } from './preferences.service';
 
 /**
  * A screen under the main one, as on a laptop with two screens: Prisme can spread over
@@ -23,8 +20,7 @@ export class ScreensService {
   async init(): Promise<void> {
     if (PHONE) return;
     this.below.set(await invoke<boolean>('screen_below'));
-    const chosen = takeStored(STORED) === 'true' || this.preferences.ui().screenBelow;
-    if (this.below() && chosen) await this.spread(true);
+    if (this.below() && this.preferences.ui().screenBelow) await this.spread(true);
   }
 
   /** Spreads over the screen below or no longer: the backend keeps the choice. */

@@ -92,4 +92,5 @@ export interface Settings {
   stemsFast: boolean;
   language: string | null;
   phoneTouch: boolean | null;
+  screenBelow: boolean;
 }

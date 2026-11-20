@@ -20,6 +20,8 @@ if (!isDevMode()) {
 
 slideSegments();
 
+// the interface starts even when the preferences could not all be read: it shows what it can
 loadPreferences()
+  .catch((err) => console.error(err))
   .then(() => bootstrapApplication(App, appConfig))
   .catch((err) => console.error(err));

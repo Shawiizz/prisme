@@ -113,6 +113,8 @@ pub enum Setting {
     StemsFast(bool),
     Language(Option<String>),
     PhoneTouch(Option<bool>),
+    /// Spread over the screen below at the next start (`span_screens` spreads at once).
+    ScreenBelow(bool),
 }
 
 /// What a setting changed does beyond the preferences.
@@ -184,6 +186,7 @@ impl Setting {
                 p.ui.language = language;
             }
             Setting::PhoneTouch(touch) => p.ui.phone_touch = touch,
+            Setting::ScreenBelow(on) => p.ui.screen_below = on,
         }
         Ok(Then::Nothing)
     }
@@ -209,7 +212,10 @@ pub async fn set_preference(app: AppHandle, setting: Setting) -> AppResult<()> {
                 }
                 state.apply_levels()?;
             }
-            Then::Retag => app.state::<Arc<LibraryService>>().db.retag_all()?,
+            Then::Retag => {
+                app.state::<Arc<LibraryService>>().db.retag_all()?;
+                app.state::<TagWriter>().wake();
+            }
             Then::WriteTags => app.state::<TagWriter>().wake(),
             Then::Rechoose => app.state::<StemsService>().rechosen(),
         }
@@ -360,10 +366,11 @@ mod tests {
         let state = state();
         let before = state.revision();
         change(&state, Setting::PhoneTouch(Some(false))).unwrap();
+        change(&state, Setting::ScreenBelow(true)).unwrap();
         let moved = state.moved_since(before);
         assert!(moved.contains(&crate::state::Section::Settings), "{moved:?}");
         let shown = PreferencesDto::of(&state);
-        assert_eq!(shown.ui.phone_touch, Some(false));
+        assert_eq!((shown.ui.phone_touch, shown.ui.screen_below), (Some(false), true));
         assert_eq!(shown.choices.deck_counts, [2, 4]);
     }
 }
