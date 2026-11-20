@@ -144,7 +144,7 @@
   }
   <div [style.height.px]="window().after"></div>
   @if (empty()) {
-    <p class="empty">{{ library.error() ?? ('No audio file in this folder' | t) }}</p>
+    <p class="empty">{{ emptyMessage() }}</p>
     <button class="pr-btn pr-btn--lg again" (click)="lookAgain()">{{ 'Look again' | t }}</button>
   }
 </div>

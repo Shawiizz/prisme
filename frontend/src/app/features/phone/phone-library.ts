@@ -26,7 +26,7 @@ import { AutoDjBar } from '../library/auto-dj-bar/auto-dj-bar';
 import { ImportDialog } from '../library/import-dialog/import-dialog';
 import { LibrarySidebar } from '../library/library-sidebar/library-sidebar';
 import { PreviewStrip } from '../library/preview-strip/preview-strip';
-import { LIST_LABEL, SEARCH_PLACEHOLDER } from '../library/list-labels';
+import { LIST_LABEL, SEARCH_PLACEHOLDER, emptyText } from '../library/list-labels';
 import { PhoneFolderPicker } from './phone-folder-picker';
 import { TrackMenu } from '../library/track-menu/track-menu';
 import { COLUMNS } from '../library/track-table/columns';
@@ -59,6 +59,8 @@ interface FolderRow {
 /** A finger on a track: where it landed, how far it has slid it, and whether it still may tap. */
 interface Slide {
   path: string;
+  /** Its row's key: a set can hold the track twice. */
+  row: string;
   pointer: number;
   x: number;
   y: number;
@@ -134,6 +136,9 @@ export class PhoneLibrary {
   });
   protected readonly empty = computed(
     () => this.folders().length === 0 && this.library.count() === 0,
+  );
+  protected readonly emptyMessage = computed(
+    () => this.library.error() ?? emptyText(this.library.view(), this.library.filter(), null),
   );
   /** The tracks under the folders the list would show: those in view and some more each way. */
   private readonly wanted = computed(() => {
@@ -218,7 +223,7 @@ export class PhoneLibrary {
   /** How far the row of `track` is slid, and the deck it would load on if let go there. */
   protected slid(track: LibraryRow): { dx: number; deck: number | null } | null {
     const slide = this.slide();
-    if (!slide?.sliding || slide.path !== track.path) return null;
+    if (!slide?.sliding || slide.row !== this.rowKey(track)) return null;
     return { dx: slide.dx, deck: this.deckAt(slide.dx) };
   }
 
@@ -231,7 +236,15 @@ export class PhoneLibrary {
   protected press(track: LibraryRow, event: PointerEvent) {
     if (event.button !== 0 || this.slide()?.sliding) return;
     const { clientX: x, clientY: y, pointerId: pointer } = event;
-    this.slide.set({ path: track.path, pointer, x, y, dx: 0, sliding: false });
+    this.slide.set({
+      path: track.path,
+      row: this.rowKey(track),
+      pointer,
+      x,
+      y,
+      dx: 0,
+      sliding: false,
+    });
   }
 
   protected move(event: PointerEvent) {
