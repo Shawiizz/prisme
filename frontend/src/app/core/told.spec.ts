@@ -10,7 +10,7 @@ describe('withChanges', () => {
   const before: Told = { decks: [{ at: 1 }, { at: 2 }], level: 0.5, name: 'A' };
 
   it('takes the fields sent and the decks that changed, the others kept as they were', () => {
-    const next = withChanges(before, { decks: [null as never, { at: 3 }], level: 0.75 });
+    const next = withChanges(before, { decks: [null, { at: 3 }], level: 0.75 });
     expect(next).toEqual({ decks: [{ at: 1 }, { at: 3 }], level: 0.75, name: 'A' });
     expect(next.decks[0]).toBe(before.decks[0]);
   });

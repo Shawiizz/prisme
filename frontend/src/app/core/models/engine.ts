@@ -110,7 +110,12 @@ export type VinylSyncMode = 'once' | 'locked';
  * mirrors that changed (the mixer by what changed of it): the mixer (with the quantize and the
  * tempo range), the tracks (with their loads), the pads, the preview... All of it the first
  * time. */
-export type StatusChanges = Partial<EngineStatus> & { controls?: ControlChanges };
+export type StatusChanges = Told<EngineStatus> & { controls?: ControlChanges };
+
+/** What changed of `T`: each field sent, its decks with `null` for those that did not change. */
+export type Told<T extends { decks: readonly unknown[] }> = Partial<Omit<T, 'decks'>> & {
+  decks?: (T['decks'][number] | null)[];
+};
 
 export type ControlChanges = Partial<Omit<ControlState, 'mixer' | 'decks'>> & {
   mixer?: Partial<MixerState>;
