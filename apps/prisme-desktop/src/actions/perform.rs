@@ -229,13 +229,15 @@ impl Performing<'_> {
         transport::send(self.state, deck, command)
     }
 
-    /// The tempo of `deck` moved by so many steps within its fader's range, and kept: on the
-    /// step, so that steps back bring it to the track's own again.
+    /// The tempo of `deck` moved by so many steps from where it is, and kept: on the step, so
+    /// that steps back bring it to the track's own again. Past its fader's range too, from a
+    /// tempo there (kept from a sync, given by the Auto DJ) as from any.
     fn step_tempo(&self, deck: usize, steps: i32) -> AppResult<()> {
-        let range = self.state.tempo_range(deck);
+        if steps == 0 {
+            return Ok(());
+        }
         let ratio = lock(&self.state.decks)[deck].pitch + f64::from(steps) * TEMPO_STEP;
-        let stepped = (ratio / TEMPO_STEP).round() * TEMPO_STEP;
-        deck::set_pitch(self.state, deck, stepped.clamp(1.0 - range, 1.0 + range))
+        deck::set_pitch(self.state, deck, ((ratio / TEMPO_STEP).round() * TEMPO_STEP).max(0.0))
     }
 
     /// The range of the tempo fader of `deck`, or of them all (`None`), `step` places on.
@@ -793,9 +795,22 @@ mod switches {
         turn(&bench, "deck1.tempo", 3.0);
         assert_eq!(pitch(), 1.0, "on the step");
         turn(&bench, "deck1.tempo", 200.0);
-        assert_eq!(pitch(), 1.08, "within the fader's range");
+        assert!((pitch() - 1.2).abs() < 1e-9, "past the fader's range: {}", pitch());
         press(&bench, "deck1.tempo.reset");
         assert_eq!(pitch(), 1.0);
+    }
+
+    #[test]
+    fn a_tempo_past_the_faders_range_moves_by_a_step_from_where_it_is() {
+        let bench = Bench::new();
+        let pitch = || lock(&bench.state.decks)[0].pitch;
+        // kept from a sync to a deck 16 % faster, on a fader of ±8 %
+        crate::actions::deck::set_pitch(&bench.state, 0, 1.16).unwrap();
+        press(&bench, "deck1.tempo.up");
+        assert!((pitch() - 1.161).abs() < 1e-9, "{}", pitch());
+        press(&bench, "deck1.tempo.down");
+        press(&bench, "deck1.tempo.down");
+        assert!((pitch() - 1.159).abs() < 1e-9, "{}", pitch());
     }
 
     #[test]
