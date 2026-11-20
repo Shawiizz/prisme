@@ -65,74 +65,76 @@ impl Performing<'_> {
         }
     }
 
-    /// An action of `deck`: the keys held act as they are pressed and let go, the others as they
-    /// are pressed; the faders by their position (see [`Performing::deck_fader`]); the encoders
-    /// by their steps.
+    /// An action of `deck` given `given`, by the kind of control it suits.
     fn deck(&self, deck: usize, action: DeckAction, given: Given) -> AppResult<()> {
+        match (action.kind(), given) {
+            (Kind::Fader, Given::Value(at)) => self.deck_fader(deck, action, at),
+            // never: an encoder's steps on a fader are given as its position
+            (Kind::Fader, Given::Steps(_)) => Ok(()),
+            (Kind::Encoder, _) => self.deck_encoder(deck, action, given),
+            (Kind::Button, _) => self.deck_key(deck, action, given),
+            (Kind::Light, _) => Err(AppError::NotPerformed(Target::Deck(deck, action).to_string())),
+        }
+    }
+
+    /// An encoder of `deck` turned by so many steps.
+    fn deck_encoder(&self, deck: usize, action: DeckAction, given: Given) -> AppResult<()> {
+        let state = self.state;
+        let steps = match given {
+            Given::Steps(steps) => steps,
+            Given::Value(_) => 0,
+        };
+        match action {
+            DeckAction::GridMove => self.edit_grid(deck, action, given),
+            DeckAction::Tempo => self.step_tempo(deck, steps),
+            _ if steps == 0 => Ok(()),
+            DeckAction::Size => deck::scale_size(state, deck, 2f64.powi(steps)),
+            DeckAction::Fx(slot, FxAction::Beats) => {
+                let (shortest, longest) = (FX_PERIODS[0], FX_PERIODS[FX_PERIODS.len() - 1]);
+                let beats = lock(&state.decks)[deck].fx.slots[slot].beats * 2f32.powi(steps);
+                fx::set_fx_beats(state, deck, slot, beats.clamp(shortest, longest))
+            }
+            DeckAction::LoopMove => self.move_loop(deck, steps),
+            // turned by `perform`
+            _ => Err(AppError::NotPerformed(Target::Deck(deck, action).to_string())),
+        }
+    }
+
+    /// A key of `deck` pressed or let go: an action while held, else one when pressed.
+    fn deck_key(&self, deck: usize, action: DeckAction, given: Given) -> AppResult<()> {
         let state = self.state;
         let held = given.pressed();
         let send = |command| transport::send(state, deck, command);
         let bend =
             |amount: f64| send(Command::SetPitchBend { deck, amount: if held { amount } else { 0.0 } });
-        let steps = match given {
-            Given::Steps(steps) => steps,
-            Given::Value(_) => 0,
-        };
+        match action {
+            DeckAction::Spinback => return send(Command::SpinBack { deck, held }),
+            DeckAction::Censor => return send(Command::Censor { deck, active: held }),
+            DeckAction::ReverseHeld => return send(Command::HoldReverse { deck, held }),
+            DeckAction::SlipHeld => return send(Command::SetSlip { deck, enabled: held }),
+            DeckAction::BendDown => return bend(-PITCH_BEND),
+            DeckAction::BendUp => return bend(PITCH_BEND),
+            DeckAction::BendDownSmall => return bend(-SMALL_BEND),
+            DeckAction::BendUpSmall => return bend(SMALL_BEND),
+            DeckAction::EqKill(band) => return mixer::set_eq_kill(state, deck, band.into(), held),
+            DeckAction::Fx(slot, FxAction::Held) => return fx::set_fx_enabled(state, deck, slot, held),
+            DeckAction::Sample(slot, SampleAction::Held) if held => {
+                return sampler::trigger_sample(state, deck, slot, None)
+            }
+            DeckAction::Sample(slot, SampleAction::Held) => return sampler::stop_sample(state, deck, slot),
+            DeckAction::Cue => return self.cue(deck, held),
+            DeckAction::Roll(roll) => return self.roll(deck, ROLL_BEATS[roll], held),
+            DeckAction::RollBeats(Beats(beats)) => return self.roll(deck, beats, held),
+            DeckAction::Slice(slice) => return self.slice(deck, slice, held),
+            DeckAction::Cut(cut) => return self.cut(deck, cut, held),
+            DeckAction::SearchBack => return self.search(deck, -1.0, held),
+            DeckAction::SearchForward => return self.search(deck, 1.0, held),
+            _ if !held => return Ok(()),
+            _ => {}
+        }
         let size = || lock(&state.decks)[deck].size_beats;
         let key = || state.with_track(deck, |t| i32::from(t.key_shift)).unwrap_or(0);
         match action {
-            DeckAction::Pitch
-            | DeckAction::Volume
-            | DeckAction::Trim
-            | DeckAction::Eq(_)
-            | DeckAction::Filter
-            | DeckAction::Position
-            | DeckAction::Key
-            | DeckAction::SamplerGain
-            | DeckAction::StemLevel(_)
-            | DeckAction::FxKnob(_)
-            | DeckAction::FxSuper
-            | DeckAction::Fx(
-                _,
-                FxAction::Mix | FxAction::Amount | FxAction::Param2 | FxAction::Period | FxAction::Kind,
-            ) => match given {
-                Given::Value(at) => self.deck_fader(deck, action, at),
-                // never: an encoder's steps on a fader are given as its position
-                Given::Steps(_) => Ok(()),
-            },
-            DeckAction::Spinback => send(Command::SpinBack { deck, held }),
-            DeckAction::Censor => send(Command::Censor { deck, active: held }),
-            DeckAction::ReverseHeld => send(Command::HoldReverse { deck, held }),
-            DeckAction::SlipHeld => send(Command::SetSlip { deck, enabled: held }),
-            DeckAction::BendDown => bend(-PITCH_BEND),
-            DeckAction::BendUp => bend(PITCH_BEND),
-            DeckAction::BendDownSmall => bend(-SMALL_BEND),
-            DeckAction::BendUpSmall => bend(SMALL_BEND),
-            DeckAction::EqKill(band) => mixer::set_eq_kill(state, deck, band.into(), held),
-            DeckAction::Fx(slot, FxAction::Held) => fx::set_fx_enabled(state, deck, slot, held),
-            DeckAction::Sample(slot, SampleAction::Held) if held => {
-                sampler::trigger_sample(state, deck, slot, None)
-            }
-            DeckAction::Sample(slot, SampleAction::Held) => sampler::stop_sample(state, deck, slot),
-            DeckAction::Cue => self.cue(deck, held),
-            DeckAction::Roll(roll) => self.roll(deck, ROLL_BEATS[roll], held),
-            DeckAction::RollBeats(Beats(beats)) => self.roll(deck, beats, held),
-            DeckAction::Slice(slice) => self.slice(deck, slice, held),
-            DeckAction::Cut(cut) => self.cut(deck, cut, held),
-            DeckAction::SearchBack => self.search(deck, -1.0, held),
-            DeckAction::SearchForward => self.search(deck, 1.0, held),
-            DeckAction::GridMove => self.edit_grid(deck, action, given),
-            DeckAction::Tempo => self.step_tempo(deck, steps),
-            DeckAction::Size if steps != 0 => deck::scale_size(state, deck, 2f64.powi(steps)),
-            DeckAction::Fx(slot, FxAction::Beats) if steps != 0 => {
-                let (shortest, longest) = (FX_PERIODS[0], FX_PERIODS[FX_PERIODS.len() - 1]);
-                let beats = lock(&state.decks)[deck].fx.slots[slot].beats * 2f32.powi(steps);
-                fx::set_fx_beats(state, deck, slot, beats.clamp(shortest, longest))
-            }
-            DeckAction::LoopMove if steps != 0 => self.move_loop(deck, steps),
-            DeckAction::Size | DeckAction::Fx(_, FxAction::Beats) | DeckAction::LoopMove => Ok(()),
-            // a key let go
-            _ if !held && action.kind() == Kind::Button => Ok(()),
             DeckAction::Play => self.play(deck),
             DeckAction::CuePlay => self.to_cue(deck, Some(true)),
             DeckAction::CueStop => self.to_cue(deck, Some(false)),
@@ -146,6 +148,7 @@ impl Performing<'_> {
                 _ => Ok(()),
             },
             DeckAction::HotCue(slot) => self.hot_cue(deck, slot),
+            DeckAction::HotCueDelete(slot) => self.delete_hot_cue(deck, slot),
             DeckAction::Fx(slot, FxAction::Next) => fx::cycle_fx(state, deck, slot, 1),
             DeckAction::Fx(slot, FxAction::Previous) => fx::cycle_fx(state, deck, slot, -1),
             DeckAction::Fx(slot, FxAction::Effect(effect)) => fx::press_fx(state, deck, slot, effect),
@@ -205,28 +208,13 @@ impl Performing<'_> {
             DeckAction::Sample(slot, SampleAction::Eject) => sampler::clear_sample(state, deck, slot),
             DeckAction::Sample(slot, SampleAction::Smart) => self.smart_sample(deck, slot),
             DeckAction::Eject => self.eject(deck),
-            DeckAction::HotCueDelete(slot) => self.delete_hot_cue(deck, slot),
             DeckAction::GridHere
             | DeckAction::GridEarlier
             | DeckAction::GridLater
             | DeckAction::GridFaster
             | DeckAction::GridSlower => self.edit_grid(deck, action, given),
-            // turned or switched by `perform`, or lights
-            DeckAction::Jog
-            | DeckAction::JogTouch
-            | DeckAction::JogSearch
-            | DeckAction::Switch(..)
-            | DeckAction::Fx(_, FxAction::Enabled(_))
-            | DeckAction::Beat
-            | DeckAction::Clip
-            | DeckAction::Ending
-            | DeckAction::TempoZero
-            | DeckAction::TempoSlower
-            | DeckAction::TempoFaster
-            | DeckAction::Phase
-            | DeckAction::PhaseAhead
-            | DeckAction::PhaseBehind
-            | DeckAction::LoopAny => Err(AppError::NotPerformed(Target::Deck(deck, action).to_string())),
+            // switched by `perform`, the touch of a jog wheel too, or held above
+            _ => Err(AppError::NotPerformed(Target::Deck(deck, action).to_string())),
         }
     }
 
