@@ -1,12 +1,12 @@
 import { LibraryView } from '../../../core/models/library';
 import { cursorMoved } from './track-table';
 
-const view = (cursor: number, cursorMoves: number, filter = ''): LibraryView => ({
+const view = (cursor: number, cursorMoves: number, listed = 1): LibraryView => ({
   seq: 1,
   source: { kind: 'prepare' },
   folder: null,
   scope: 'list',
-  filter,
+  filter: '',
   sort: { column: 'order', descending: false },
   ordered: true,
   removable: true,
@@ -14,6 +14,7 @@ const view = (cursor: number, cursorMoves: number, filter = ''): LibraryView => 
   count: 40,
   cursor,
   cursorMoves,
+  listed,
   selected: 1,
   focus: 'tracks',
   pointed: { kind: 'prepare' },
@@ -29,7 +30,7 @@ describe('cursorMoved', () => {
   });
 
   it('leaves a list searched or opened again alone', () => {
-    expect(cursorMoved(view(3, 1), view(0, 2, 'deep'))).toBe(false);
+    expect(cursorMoved(view(3, 1), view(0, 2, 2))).toBe(false);
     expect(cursorMoved(null, view(0, 2))).toBe(false);
   });
 });

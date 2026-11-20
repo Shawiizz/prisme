@@ -76,6 +76,7 @@ impl Library {
             count: browser.count(),
             cursor: browser.cursor_index(),
             cursor_moves: browser.cursor_moves(),
+            listed: browser.listed(),
             selected: browser.selected_count(),
             focus: browser.focus().into(),
             pointed: match browser.pointed() {

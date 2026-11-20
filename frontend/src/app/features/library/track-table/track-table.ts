@@ -51,10 +51,8 @@ const OVERSCAN = 12;
 /** Whether the cursor went to another row of the list shown `before`, which `now` shows the
  * same way: a key or a controller moved it, not rows coming, going or moving before it. */
 export function cursorMoved(before: LibraryView | null, now: LibraryView | null): boolean {
-  if (!before || !now || now.cursorMoves === before.cursorMoves) return false;
   return (
-    JSON.stringify([now.source, now.scope, now.filter, now.sort]) ===
-    JSON.stringify([before.source, before.scope, before.filter, before.sort])
+    !!before && !!now && now.cursorMoves !== before.cursorMoves && now.listed === before.listed
   );
 }
 

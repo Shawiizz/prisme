@@ -113,6 +113,8 @@ export interface LibraryView {
   cursor: number | null;
   /** Moved each time the cursor goes to another row (not when rows before it move). */
   cursorMoves: number;
+  /** Moved each time another list is shown, or the list is searched, sorted or scoped. */
+  listed: number;
   /** How many tracks the actions on the selection take. */
   selected: number;
   focus: 'tracks' | 'lists';

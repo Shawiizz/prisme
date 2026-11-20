@@ -145,6 +145,8 @@ pub struct Browser {
     cursor_at: Option<usize>,
     /// Moved each time the cursor goes to another row.
     cursor_moves: u64,
+    /// Moved each time another list is shown, or the list is searched, sorted or scoped.
+    listed: u64,
     picked: HashSet<Entry>,
     anchor: Option<Entry>,
     focus: Focus,
@@ -181,6 +183,7 @@ impl Default for Browser {
             cursor: None,
             cursor_at: None,
             cursor_moves: 0,
+            listed: 0,
             picked: HashSet::new(),
             anchor: None,
             focus: Focus::Tracks,
@@ -419,6 +422,7 @@ impl Browser {
             self.sort = Sort { column: Column::Title, descending: false };
         }
         self.resort();
+        self.listed += 1;
         self.changed();
     }
 
@@ -496,6 +500,7 @@ impl Browser {
             self.sorted.clone()
         };
         self.shown = shown.into_iter().filter(|&row| self.visible(row)).collect();
+        self.listed += 1;
         self.changed();
     }
 
@@ -510,6 +515,7 @@ impl Browser {
             Scope::List => Vec::new(),
         };
         self.resort();
+        self.listed += 1;
         self.changed();
     }
 
@@ -521,6 +527,7 @@ impl Browser {
             self.mix = mix;
         }
         self.resort();
+        self.listed += 1;
         self.changed();
     }
 
@@ -636,6 +643,12 @@ impl Browser {
     /// on left; not when rows before it come, go or move.
     pub fn cursor_moves(&self) -> u64 {
         self.cursor_moves
+    }
+
+    /// Moved each time another list is shown, or the list is searched, sorted or scoped: a
+    /// cursor moved meanwhile was not moved within the list.
+    pub fn listed(&self) -> u64 {
+        self.listed
     }
 
     /// How many tracks [`Browser::selected`] holds.
@@ -1130,6 +1143,20 @@ mod tests {
         browser.select_all();
         assert_eq!(browser.selected_paths(), ["C:/Music/a.mp3"], "one track");
         assert_eq!(browser.selected_count(), 1);
+    }
+
+    #[test]
+    fn a_cursor_moved_within_the_list_is_told_apart_from_another_list_shown() {
+        let mut browser = folder();
+        let listed = browser.listed();
+        browser.move_cursor(1);
+        assert_eq!(browser.listed(), listed, "moved within the list");
+        browser.set_filter("e");
+        browser.sort_by(Column::Title, None);
+        browser.set_scope(Scope::Library);
+        assert_eq!(browser.listed(), listed + 3);
+        browser.show(Source::Prepare, Vec::new());
+        assert_eq!(browser.listed(), listed + 4);
     }
 
     #[test]

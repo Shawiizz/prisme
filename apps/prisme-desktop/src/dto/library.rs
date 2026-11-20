@@ -122,6 +122,8 @@ pub struct LibraryViewDto {
     pub cursor: Option<usize>,
     /// Moved each time the cursor goes to another row (not when rows before it move).
     pub cursor_moves: u64,
+    /// Moved each time another list is shown, or the list is searched, sorted or scoped.
+    pub listed: u64,
     /// How many tracks the actions on the selection take.
     pub selected: usize,
     pub focus: FocusDto,
