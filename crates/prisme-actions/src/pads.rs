@@ -3,13 +3,12 @@
 //! while held, the track going on underneath.
 
 use prisme_control::{CUTS, ROLLS, SLICES};
-use prisme_engine::LoopStatus;
+use prisme_engine::{LoopStatus, BEATS_PER_BAR};
 
 /// The rolls' lengths, in beats, by their place among the rolls.
 pub const ROLL_BEATS: [f64; ROLLS] = [0.0625, 0.125, 0.25, 0.5, 1.0, 2.0, 4.0, 8.0];
 /// The fader cuts' lengths, in beats.
 pub const CUT_BEATS: [f64; CUTS] = [0.0625, 0.125, 0.25, 0.5];
-const BEATS_PER_BAR: f64 = 4.0;
 /// A loop this close to a length (of a beat, or of the deck's size) has it.
 const LOOP_LENGTH_WITHIN: f64 = 0.01;
 /// The lengths the loops are named by: whole 32nds of a beat, each further than twice
@@ -33,7 +32,7 @@ pub fn playing_loop(looping: &LoopStatus) -> Option<f64> {
 /// Where the slicer of a track at `position_s` starts: the bar it is in, by a grid whose first
 /// beat is at `first_beat_s`, a beat lasting `beat_s`.
 pub fn bar_start(position_s: f64, first_beat_s: f64, beat_s: f64) -> f64 {
-    let bar_s = BEATS_PER_BAR * beat_s;
+    let bar_s = f64::from(BEATS_PER_BAR) * beat_s;
     first_beat_s + ((position_s - first_beat_s) / bar_s).floor() * bar_s
 }
 

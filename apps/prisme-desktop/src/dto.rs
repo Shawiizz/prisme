@@ -553,21 +553,22 @@ impl From<&'static TimecodeFormat> for TimecodeFormatDto {
     }
 }
 
-/// Slices of a waveform as sent to the UI, in binary (as JSON, a track's waveform is several
-/// hundred kilobytes of numbers): the first slice sent, the slices of the whole track and
-/// `slices_per_second` (u32 each, little-endian), then the peak, low, mid and high bands of
-/// the slices `range`, one byte per slice each.
-pub fn waveform_bytes(
-    w: &prisme_analysis::Waveform,
-    range: std::ops::Range<usize>,
-    slices: usize,
-) -> Vec<u8> {
-    let mut bytes = Vec::with_capacity(12 + 4 * range.len());
-    for value in [range.start as u32, slices as u32, w.slices_per_second] {
+/// A waveform as the screen draws it, in binary (as JSON, a track's waveform is several hundred
+/// kilobytes of numbers): the slices of the whole track and `slices_per_second` (u32 each,
+/// little-endian), then for each slice known the height of its envelope, then its red, green
+/// and blue (`prisme_analysis::envelope`), one byte each. The heights are set against every
+/// slice known: a waveform still read is sent whole each time it grows.
+pub fn waveform_bytes(w: &prisme_analysis::Waveform, slices: usize) -> Vec<u8> {
+    use prisme_analysis::envelope;
+    let known = w.len();
+    let mut bytes = Vec::with_capacity(8 + 4 * known);
+    for value in [slices.max(known) as u32, w.slices_per_second] {
         bytes.extend(value.to_le_bytes());
     }
-    for band in [&w.peak, &w.low, &w.mid, &w.high] {
-        bytes.extend_from_slice(&band[range.clone()]);
+    bytes.extend(envelope::heights(w));
+    let colours: Vec<[u8; 3]> = (0..known).map(|i| envelope::colour(w, i)).collect();
+    for c in 0..3 {
+        bytes.extend(colours.iter().map(|rgb| rgb[c]));
     }
     bytes
 }
@@ -577,11 +578,13 @@ pub fn waveform_bytes(
 pub struct TempoDto {
     pub bpm: f64,
     pub first_beat_s: f64,
+    /// The beats of a bar, the first on `first_beat_s`.
+    pub beats_per_bar: u32,
 }
 
 impl From<&prisme_analysis::Tempo> for TempoDto {
     fn from(t: &prisme_analysis::Tempo) -> Self {
-        Self { bpm: t.bpm, first_beat_s: t.first_beat_s }
+        Self { bpm: t.bpm, first_beat_s: t.first_beat_s, beats_per_bar: prisme_engine::BEATS_PER_BAR }
     }
 }
 

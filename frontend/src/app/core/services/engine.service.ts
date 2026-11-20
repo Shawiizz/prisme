@@ -11,7 +11,6 @@ import {
   TrackInfo,
   VinylChange,
   Waveform,
-  addWaveformPiece,
   decodeWaveform,
 } from '../models/engine';
 import { Playhead, followPlayhead } from '../playhead';
@@ -284,13 +283,13 @@ export class EngineService {
   }
 
   /** The waveform of the load `loadId` on `deck`: what is known of it at once, then, while the
-   * track is read, the rest piece by piece. */
+   * track is read, all of it again as it grows. */
   private watchWaveform(deck: number, loadId: number) {
     const channel = new Channel<ArrayBuffer>();
     channel.onmessage = (buffer) => {
-      const piece = decodeWaveform(buffer);
-      if (piece && this.tracks()[deck]?.loadId === loadId)
-        this.patch(this.waveforms, deck, addWaveformPiece(this.waveforms()[deck], piece));
+      const waveform = decodeWaveform(buffer);
+      if (waveform && this.tracks()[deck]?.loadId === loadId)
+        this.patch(this.waveforms, deck, waveform);
     };
     invoke('watch_waveform', { deck, loadId, channel }).catch(() => {});
   }

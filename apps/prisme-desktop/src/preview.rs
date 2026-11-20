@@ -170,7 +170,7 @@ impl Previews {
     pub fn waveform(&self, id: u64) -> Vec<u8> {
         let current = lock(&self.current);
         let waveform = current.as_ref().filter(|c| c.id == id).and_then(|c| c.waveform.as_ref());
-        waveform.map(|w| waveform_bytes(w, 0..w.len(), w.len())).unwrap_or_default()
+        waveform.map(|w| waveform_bytes(w, w.len())).unwrap_or_default()
     }
 }
 

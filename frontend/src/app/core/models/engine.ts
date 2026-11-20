@@ -297,78 +297,41 @@ export interface Recording {
   failure: string | null;
 }
 
-/** One byte per slice of the track in each band (sent in binary, see `decodeWaveform`). */
+/** A waveform as it is drawn (sent in binary, see `decodeWaveform`): for each slice known,
+ * from the start of the track, the height of its envelope and its colour, a byte each. */
 export interface Waveform {
   slicesPerSecond: number;
-  peak: Uint8Array;
-  low: Uint8Array;
-  mid: Uint8Array;
-  high: Uint8Array;
-  /** The slices known, from the start: all of them once the track is read. */
-  known: number;
-}
-
-/** Slices of a waveform from `from` on, of a track of `slices` slices. */
-export interface WaveformPiece {
-  from: number;
+  /** The track's slices: those known, and those still read. */
   slices: number;
-  slicesPerSecond: number;
-  peak: Uint8Array;
-  low: Uint8Array;
-  mid: Uint8Array;
-  high: Uint8Array;
+  height: Uint8Array;
+  red: Uint8Array;
+  green: Uint8Array;
+  blue: Uint8Array;
 }
 
-const WAVEFORM_BANDS = ['peak', 'low', 'mid', 'high'] as const;
-
-/** The first slice, the track's slices and `slices_per_second` (u32 little-endian each), then
- * the peak, low, mid and high bands of the slices sent. */
-export function decodeWaveform(buffer: ArrayBuffer): WaveformPiece | null {
-  if (buffer.byteLength < 12) return null;
+/** The track's slices and `slices_per_second` (u32 little-endian each), then the height, red,
+ * green and blue of each slice known. */
+export function decodeWaveform(buffer: ArrayBuffer): Waveform | null {
+  if (buffer.byteLength <= 8) return null;
   const header = new DataView(buffer);
-  const n = (buffer.byteLength - 12) / 4;
-  const band = (i: number) => new Uint8Array(buffer, 12 + i * n, n);
+  const known = (buffer.byteLength - 8) / 4;
+  const band = (i: number) => new Uint8Array(buffer, 8 + i * known, known);
   return {
-    from: header.getUint32(0, true),
-    slices: header.getUint32(4, true),
-    slicesPerSecond: header.getUint32(8, true),
-    peak: band(0),
-    low: band(1),
-    mid: band(2),
-    high: band(3),
+    slices: header.getUint32(0, true),
+    slicesPerSecond: header.getUint32(4, true),
+    height: band(0),
+    red: band(1),
+    green: band(2),
+    blue: band(3),
   };
-}
-
-/** `w` with `piece` in it, as a new waveform: the bands are filled in place while the track's
- * length holds, copied into new ones when it changes (once the track is all read). */
-export function addWaveformPiece(w: Waveform | null, piece: WaveformPiece): Waveform {
-  const same = w?.slicesPerSecond === piece.slicesPerSecond;
-  const next: Waveform =
-    w && same && w.peak.length === piece.slices
-      ? { ...w }
-      : {
-          slicesPerSecond: piece.slicesPerSecond,
-          peak: new Uint8Array(piece.slices),
-          low: new Uint8Array(piece.slices),
-          mid: new Uint8Array(piece.slices),
-          high: new Uint8Array(piece.slices),
-          known: w && same ? Math.min(w.known, piece.slices) : 0,
-        };
-  if (w && next.peak !== w.peak) {
-    for (const band of WAVEFORM_BANDS) next[band].set(w[band].subarray(0, next.known));
-  }
-  const end = Math.min(piece.from + piece.peak.length, piece.slices);
-  if (piece.from > next.known || end <= piece.from) return next;
-  for (const band of WAVEFORM_BANDS)
-    next[band].set(piece[band].subarray(0, end - piece.from), piece.from);
-  next.known = Math.max(next.known, end);
-  return next;
 }
 
 export interface Tempo {
   bpm: number;
   /** First beat at or after the start of the track (seconds). */
   firstBeatS: number;
+  /** The beats of a bar, the first on `firstBeatS`. */
+  beatsPerBar: number;
 }
 
 export interface MusicalKey {

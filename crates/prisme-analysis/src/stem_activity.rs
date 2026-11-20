@@ -7,6 +7,10 @@ use prisme_media::TrackAudio;
 pub const ACTIVITY_SLICES_PER_S: f64 = 4.0;
 /// The quietest level told apart from silence (dBFS); 0 dBFS maps to 255.
 const FLOOR_DB: f64 = -48.0;
+/// Levels at or below this are another stem's bleed, not the part playing.
+const BLEED: u8 = 80;
+/// How far above the bleed a part shows fully.
+const FULL_ABOVE: f64 = 150.0;
 
 /// The level of each of `stems` along `track`, then of the rest: a row of levels from 0
 /// (silent) to 255 (full scale) per part, [`ACTIVITY_SLICES_PER_S`] a second. `None` unless
@@ -47,6 +51,13 @@ pub fn stem_activity(track: &TrackAudio, stems: &[&TrackAudio]) -> Option<Vec<Ve
 fn level(mean_square: f64) -> u8 {
     let db = 10.0 * mean_square.max(1e-12).log10();
     ((db - FLOOR_DB) / -FLOOR_DB * 255.0).clamp(0.0, 255.0) as u8
+}
+
+/// How strongly a lane shows its part where it is at `level` (0 to 255), 0 to 255: not at all
+/// at another stem's bleed, fully from `FULL_ABOVE` over it.
+pub fn shown(level: u8) -> u8 {
+    let above = f64::from(level.saturating_sub(BLEED));
+    ((above / FULL_ABOVE).min(1.0) * 255.0).round() as u8
 }
 
 #[cfg(test)]
@@ -93,5 +104,11 @@ mod tests {
         let mix = track(8_000, 2.0, |_| 0.5);
         let short = track(8_000, 1.0, |_| 0.5);
         assert!(stem_activity(&mix, &[&short]).is_none());
+    }
+
+    #[test]
+    fn a_lane_hides_the_bleed_and_shows_a_part_fully_well_above_it() {
+        assert_eq!([shown(0), shown(80), shown(230), shown(255)], [0, 0, 255, 255]);
+        assert_eq!(shown(155), 128);
     }
 }

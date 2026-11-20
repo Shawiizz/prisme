@@ -1,7 +1,7 @@
 //! Track analysis, run off the audio thread when a track is loaded.
 //!
 //! * [`waveform`]: peak and low / mid / high energy per time slice, for drawing
-//!   colored waveforms.
+//!   colored waveforms; [`envelope`]: the height and colour drawn of each slice.
 //! * [`tempo`]: BPM and beat grid, put on the kicks' attacks by [`grid`].
 //! * [`key`]: musical key, with its Camelot code.
 //! * [`loudness`]: loudness (LUFS), to play tracks at the same level.
@@ -11,6 +11,7 @@
 //! onset envelopes ([`onset`]).
 
 pub mod dsp;
+pub mod envelope;
 pub mod grid;
 pub mod key;
 pub mod loudness;

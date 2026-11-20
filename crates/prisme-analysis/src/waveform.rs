@@ -1,6 +1,6 @@
 //! Waveform summary: for each time slice, the peak amplitude and the energy of the low,
-//! mid and high bands. The UI draws the height from the band energies and the color from
-//! the band balance. Each slice depends on the audio before it only, so the waveform is
+//! mid and high bands, from which the height and the colour drawn are made
+//! ([`crate::envelope`]). Each slice depends on the audio before it only, so the waveform is
 //! computed as the track is decoded and drawn as it comes ([`WaveformBuilder`]).
 
 use prisme_media::TrackAudio;

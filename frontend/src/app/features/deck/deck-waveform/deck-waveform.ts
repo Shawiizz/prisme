@@ -12,7 +12,6 @@ import {
   viewChild,
 } from '@angular/core';
 import { invoke } from '@tauri-apps/api/core';
-import { StemsService } from '../../../core/services/stems.service';
 import { t } from '../../../core/i18n/i18n';
 import { fitToDevicePixels, forgetCanvas } from '../../../shared/device-pixels';
 import { Showing, everyFrame } from '../../../shared/frames';
@@ -88,7 +87,6 @@ export class DeckWaveform {
   private readonly zoomCanvas = viewChild.required<ElementRef<HTMLCanvasElement>>('zoom');
   private readonly overviewCanvas = viewChild.required<ElementRef<HTMLCanvasElement>>('overview');
   private readonly lanesCanvas = viewChild<ElementRef<HTMLCanvasElement>>('lanes');
-  private readonly stems = inject(StemsService);
   private readonly audio = inject(SettingsService);
   private readonly painter = new WaveformPainter();
   protected readonly track = computed(() => this.engine.tracks()[this.deck()]);
@@ -101,10 +99,10 @@ export class DeckWaveform {
     const pair = own ? this.deck() : this.deck() % 2;
     return `${pair * 2 + 1}-${pair * 2 + 2}`;
   });
-  /** Where each part of the separated track plays (`stem_activity`), once it is all
-   * separated. */
+  /** How strongly each part of the separated track shows along it (`stem_activity`), once
+   * it is all separated. */
   protected readonly activity = signal<Uint8Array[] | null>(null);
-  /** The load and separation the activity was asked for. */
+  /** The load and stems the activity was asked for. */
   private activityOf = '';
   protected readonly lanesTitle = computed(() =>
     this.activity()?.length === 4
@@ -137,35 +135,28 @@ export class DeckWaveform {
     });
   }
 
-  /** Asks the activity of the track once it is separated, again until it is all there. */
+  /** Asks the activity of the track again whenever its stems change: none until they are all
+   * there. */
   private askActivity() {
     const track = this.track();
-    const separating = this.stems.progress().current === track?.path;
-    const of =
-      track && track.separation !== 'none' && !track.partial && !separating
-        ? `${track.loadId} ${track.separation}`
-        : '';
+    const of = track ? `${track.loadId} ${track.separation} ${track.partial}` : '';
     if (of === this.activityOf) return;
     this.activityOf = of;
     this.activity.set(null);
-    if (!track || !of) return;
-    const parts = track.separation === 'full' ? 4 : 2;
+    if (!track) return;
     invoke<ArrayBuffer>('stem_activity', { deck: this.deck(), loadId: track.loadId }).then(
       (buffer) => {
-        if (this.activityOf !== of) return;
         const bytes = new Uint8Array(buffer);
-        const slices = bytes.length / parts;
-        if (!slices) {
-          this.activityOf = '';
-          return;
-        }
+        const parts = bytes[0] ?? 0;
+        if (this.activityOf !== of || !parts) return;
+        const slices = (bytes.length - 1) / parts;
         this.activity.set(
-          Array.from({ length: parts }, (_, i) => bytes.subarray(i * slices, (i + 1) * slices)),
+          Array.from({ length: parts }, (_, i) =>
+            bytes.subarray(1 + i * slices, 1 + (i + 1) * slices),
+          ),
         );
       },
-      () => {
-        if (this.activityOf === of) this.activityOf = '';
-      },
+      () => {},
     );
   }
 

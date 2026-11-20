@@ -1,6 +1,6 @@
 //! The waveform of a loaded track on its way to the page: whole at once when the library
-//! has it; otherwise computed as the track is decoded and sent in pieces as they come, the
-//! page drawing the start of the track while the rest is read. Each has a lock of its own,
+//! has it; otherwise computed as the track is decoded and sent again as it grows, the page
+//! drawing the start of the track while the rest is read. Each has a lock of its own,
 //! which the pieces are sent under: never the decks' tracks', which the controllers wait on.
 
 use crate::dto::waveform_bytes;
@@ -56,35 +56,37 @@ impl TrackWaveform {
         }
     }
 
-    /// Sends what is known to `channel`, then, while it grows, each piece.
+    /// Sends what is known to `channel`, then, while it grows, all of it again each time.
     pub fn watch(&self, channel: Channel) {
         match &mut *lock(&self.0) {
-            Shape::Whole(w) => send(&channel, w, 0..w.len(), w.len()),
+            Shape::Whole(w) => send(&channel, w, w.len()),
             Shape::Growing { so_far, slices, watchers } => {
-                send(&channel, so_far, 0..so_far.len(), *slices);
+                send(&channel, so_far, *slices);
                 watchers.push(channel);
             }
         }
     }
 
-    /// Adds the slices `range` of `from`, of a track of about `slices`, and sends them.
+    /// Adds the slices `range` of `from`, of a track of about `slices`, and sends what is known.
     fn grow(&self, from: &Waveform, range: Range<usize>, slices: usize) {
         if let Shape::Growing { so_far, slices: expected, watchers } = &mut *lock(&self.0) {
-            let start = so_far.len();
             so_far.extend_from(from, range);
             *expected = slices;
-            for channel in watchers.iter() {
-                send(channel, so_far, start..so_far.len(), slices);
+            if !watchers.is_empty() {
+                let bytes = waveform_bytes(so_far, slices);
+                for channel in watchers.iter() {
+                    let _ = channel.send(InvokeResponseBody::Raw(bytes.clone()));
+                }
             }
         }
     }
 
-    /// The whole waveform, its last slices sent.
+    /// The whole waveform, sent.
     fn complete(&self, whole: Waveform) {
         let mut shape = lock(&self.0);
-        if let Shape::Growing { so_far, watchers, .. } = &*shape {
+        if let Shape::Growing { watchers, .. } = &*shape {
             for channel in watchers.iter() {
-                send(channel, &whole, so_far.len()..whole.len(), whole.len());
+                send(channel, &whole, whole.len());
             }
         }
         *shape = Shape::Whole(whole);
@@ -103,8 +105,8 @@ impl Clone for TrackWaveform {
     }
 }
 
-fn send(channel: &Channel, w: &Waveform, range: Range<usize>, slices: usize) {
-    let _ = channel.send(InvokeResponseBody::Raw(waveform_bytes(w, range, slices)));
+fn send(channel: &Channel, w: &Waveform, slices: usize) {
+    let _ = channel.send(InvokeResponseBody::Raw(waveform_bytes(w, slices)));
 }
 
 /// The waveforms of the decks playing `audio` (a load and its instant doubles), read from the

@@ -1,5 +1,8 @@
 //! Where the beats of a track are.
 
+/// The beats of a bar, its first on the grid's first beat.
+pub const BEATS_PER_BAR: u32 = 4;
+
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct BeatGrid {
     pub bpm: f64,

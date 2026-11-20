@@ -1,7 +1,6 @@
 import { Cue, LoopStatus, Tempo, Waveform } from '../../../core/models/engine';
 import { palette } from '../../../shared/palette';
 import { hexColor } from '../../../shared/track-colors';
-import { envelopeHeights } from './envelope';
 
 /** What is drawn over the waveform. */
 export interface WaveformOverlay {
@@ -23,8 +22,6 @@ interface View {
 /** Opacity of what has played, in the scrolling view and in the overview. */
 const PLAYED = 0.45;
 const PLAYED_OVERVIEW = 0.35;
-/** Stem levels (0 to 255, -48 to 0 dBFS) below this are another stem's bleed: not drawn. */
-const LANE_FLOOR = 80;
 /** Width of the tiles the scrolling view's audio is drawn in once (device pixels). */
 const TILE_PX = 1024;
 /** Share of the half height the loudest slices reach in the scrolling view: the rest holds the
@@ -37,9 +34,8 @@ const GRID_TICK = 0.6;
 const GRID_BAR = 0.5;
 
 /**
- * Draws the waveforms (design/DESIGN.md, Waveform): one envelope, its height the loudness of
- * each slice against the track's, coloured slice by slice by the balance of its bands; the beat
- * grid over it, discreet (the bars in red, marked at both edges); cues as flags in their tag
+ * Draws the waveforms (design/DESIGN.md, Waveform): the envelope the backend made of each slice,
+ * in its colour; the beat grid over it, discreet (the bars in red, marked at both edges); cues as flags in their tag
  * colour, the loop as a band of light and the playhead, the only white line, dispersed on its
  * edges.
  */
@@ -47,10 +43,8 @@ export class WaveformPainter {
   private readonly palette = palette();
   /** The colour of each tag of a cue, written once. */
   private readonly cueColors = new Map<number, string>();
-  /** Colour and height of each slice, cached per waveform: the colours of the slices known
-   * kept as more arrive, the heights set again against what has arrived. */
+  /** The colour of each slice, written once per waveform. */
   private colors: string[] = [];
-  private heights: Float32Array = new Float32Array(0);
   private source: Waveform | null = null;
   /** The overview's audio as it plays and as played, drawn once per waveform and size. */
   private overview: {
@@ -120,10 +114,10 @@ export class WaveformPainter {
       for (let x = 0; x < size.width; x++) {
         const first = Math.floor((x / size.width) * n);
         const last = Math.max(first + 1, Math.floor(((x + 1) / size.width) * n));
-        let level = 0;
-        for (let k = first; k < Math.min(last, n); k++) level = Math.max(level, levels[k]);
-        if (level <= LANE_FLOOR) continue;
-        ctx.globalAlpha = Math.min((level - LANE_FLOOR) / 150, 1);
+        let shown = 0;
+        for (let k = first; k < Math.min(last, n); k++) shown = Math.max(shown, levels[k]);
+        if (shown === 0) continue;
+        ctx.globalAlpha = shown / 255;
         ctx.fillRect(x, top, 1, height);
       }
     });
@@ -147,7 +141,7 @@ export class WaveformPainter {
     ctx.clearRect(0, 0, view.width, view.height);
     this.drawLoop(ctx, overlay.loop, view);
     if (w) this.drawZoomedAudio(ctx, w, view, view.width / ownSpanS);
-    const durationS = w && w.peak.length / w.slicesPerSecond;
+    const durationS = w && w.slices / w.slicesPerSecond;
     this.drawRolls(ctx, durationS, view);
     if (overlay.tempo) this.drawBeatGrid(ctx, overlay.tempo, durationS, view);
     this.drawCues(ctx, overlay.cues, view, true);
@@ -192,7 +186,7 @@ export class WaveformPainter {
     const first = Math.max(Math.floor(view.fromS / tileS), 0);
     const last = Math.min(
       Math.floor((view.fromS + view.spanS) / tileS),
-      Math.floor(w.peak.length / w.slicesPerSecond / tileS),
+      Math.floor(w.slices / w.slicesPerSecond / tileS),
     );
     for (const k of tiles.images.keys()) {
       if (k < first - 1 || k > last + 1) tiles.images.delete(k);
@@ -226,7 +220,7 @@ export class WaveformPainter {
     }
   }
 
-  /** The highest slice under each column of `view`, in its colour, the loudest of the track
+  /** The highest slice under each column of `view`, in its colour, the highest of the track
    * `reach` high. */
   private drawColumns(
     ctx: OffscreenCanvasRenderingContext2D,
@@ -241,12 +235,9 @@ export class WaveformPainter {
     for (let x = 0; x < view.width; x++) {
       const first = Math.floor(view.fromS * sps + x * slicesPerPx);
       const last = Math.max(first + 1, Math.floor(view.fromS * sps + (x + 1) * slicesPerPx));
-      if (last <= 0 || first >= w.known) continue;
-      let highest = Math.max(first, 0);
-      for (let i = highest; i < Math.min(last, w.known); i++) {
-        if (this.heights[i] > this.heights[highest]) highest = i;
-      }
-      const h = this.heights[highest] * reach;
+      if (last <= 0 || first >= w.height.length) continue;
+      const highest = this.highest(w, first, last);
+      const h = (w.height[highest] / 255) * reach;
       ctx.fillStyle = this.colors[highest];
       ctx.fillRect(x, mid - h, 1, h * 2);
     }
@@ -272,17 +263,18 @@ export class WaveformPainter {
   }
 
   /** Each column as high as the mean of its slices, so that the parts of the track read by
-   * their loudness, the loudest column across the whole height; in the colour of its loudest
-   * peak. */
+   * their loudness, the loudest column across the whole height; in the colour of its highest
+   * slice. */
   private drawOverviewAudio(ctx: OffscreenCanvasRenderingContext2D, w: Waveform, view: View) {
     this.prepare(w);
-    const n = this.heights.length;
+    const n = w.slices;
+    const known = w.height.length;
     const means = new Float32Array(view.width);
     for (let x = 0; x < view.width; x++) {
       const first = Math.floor((x / view.width) * n);
-      const last = Math.min(Math.max(first + 1, Math.floor(((x + 1) / view.width) * n)), w.known);
+      const last = Math.min(Math.max(first + 1, Math.floor(((x + 1) / view.width) * n)), known);
       let sum = 0;
-      for (let i = first; i < last; i++) sum += this.heights[i];
+      for (let i = first; i < last; i++) sum += w.height[i];
       means[x] = last > first ? sum / (last - first) : 0;
     }
     const highest = Math.max(...means);
@@ -291,19 +283,18 @@ export class WaveformPainter {
     for (let x = 0; x < view.width; x++) {
       const first = Math.floor((x / view.width) * n);
       const last = Math.max(first + 1, Math.floor(((x + 1) / view.width) * n));
-      if (first >= w.known) break;
+      if (first >= known) break;
       const h = (means[x] / highest) * (mid - 1);
-      ctx.fillStyle = this.colors[this.loudest(w, first, last)];
+      ctx.fillStyle = this.colors[this.highest(w, first, last)];
       ctx.fillRect(x, mid - h, 1, h * 2);
     }
   }
 
-  /** The slice with the highest peak from `first` to `last` (excluded), within the slices
-   * known. */
-  private loudest(w: Waveform, first: number, last: number): number {
+  /** The highest slice from `first` to `last` (excluded), within the slices known. */
+  private highest(w: Waveform, first: number, last: number): number {
     let best = Math.max(first, 0);
-    for (let i = best; i < Math.min(last, w.known); i++) {
-      if (w.peak[i] > w.peak[best]) best = i;
+    for (let i = best; i < Math.min(last, w.height.length); i++) {
+      if (w.height[i] > w.height[best]) best = i;
     }
     return best;
   }
@@ -358,8 +349,9 @@ export class WaveformPainter {
     const h = view.height;
     const tall = Math.min(5 * r, ((1 - HEADROOM) / 2) * h);
     ctx.fillStyle = this.palette.text;
+    const bar = tempo.beatsPerBar;
     for (let n = first; n <= last; n++) {
-      if (n % 4 === 0) continue;
+      if (n % bar === 0) continue;
       const x = left(n);
       ctx.globalAlpha = GRID_BEAT;
       ctx.fillRect(x, tall, line, h - 2 * tall);
@@ -369,11 +361,12 @@ export class WaveformPainter {
     }
     ctx.fillStyle = this.palette.bar;
     ctx.globalAlpha = GRID_BAR;
-    for (let n = Math.ceil(first / 4) * 4; n <= last; n += 4) ctx.fillRect(left(n), 0, line, h);
+    for (let n = Math.ceil(first / bar) * bar; n <= last; n += bar)
+      ctx.fillRect(left(n), 0, line, h);
     ctx.globalAlpha = 1;
     const half = 0.8 * tall;
     ctx.beginPath();
-    for (let n = Math.ceil(first / 4) * 4; n <= last; n += 4) {
+    for (let n = Math.ceil(first / bar) * bar; n <= last; n += bar) {
       const mid = left(n) + line / 2;
       ctx.moveTo(mid - half, 0);
       ctx.lineTo(mid + half, 0);
@@ -447,23 +440,11 @@ export class WaveformPainter {
     ctx.fillRect(x - r, 0, 2 * r, view.height);
   }
 
-  /**
-   * The colour and height of each slice, once per waveform. The bands mixed like light: the
-   * low band lights the red, the mid the green, the high the blue, scaled to the strongest so
-   * that the colours stay vivid whatever the level.
-   */
+  /** The colour of each slice, written once per waveform. */
   private prepare(w: Waveform) {
     if (this.source === w) return;
-    if (this.source?.peak !== w.peak) this.colors = [];
     this.source = w;
-    this.heights = envelopeHeights(w);
-    for (let k = this.colors.length; k < w.known; k++) {
-      const max = Math.max(w.low[k], w.mid[k], w.high[k], 1);
-      const r = Math.round((w.low[k] / max) * 255);
-      const g = Math.round((w.mid[k] / max) * 230);
-      const b = Math.round((w.high[k] / max) * 255);
-      this.colors.push(`rgb(${r},${g},${b})`);
-    }
+    this.colors = Array.from(w.height, (_, k) => `rgb(${w.red[k]},${w.green[k]},${w.blue[k]})`);
   }
 }
 

@@ -132,7 +132,7 @@ export class PhaseStrip {
     const last = Math.floor((from + span - tempo.firstBeatS) / period);
     for (let n = first; n <= last; n++) {
       const x = Math.round(((tempo.firstBeatS + n * period - from) / span) * width);
-      ctx.fillStyle = n % 4 === 0 ? this.palette.light : this.palette.text2;
+      ctx.fillStyle = n % tempo.beatsPerBar === 0 ? this.palette.light : this.palette.text2;
       ctx.fillRect(x, top, ratio, bottom - top);
     }
   }

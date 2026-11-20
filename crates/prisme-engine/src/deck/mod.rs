@@ -46,8 +46,6 @@ const STILL_SPEED: f64 = 0.02;
 const FULL_LEVEL_SPEED: f64 = 0.25;
 /// How fast the level of a track glides to its auto gain (s): no click when it comes.
 const LEVEL_GLIDE_S: f32 = 0.05;
-/// Stem changes on the bar wait for the next group of this many beats.
-const BEATS_PER_BAR: f64 = 4.0;
 /// A playhead this far (s) from where play took it went round a loop or jumped.
 const LEAP_S: f64 = 1e-3;
 /// How fast the track fades with the motion (s).
@@ -205,7 +203,7 @@ impl Deck {
     /// The start of the next bar after the playhead, by the beat grid.
     fn next_bar_s(&self) -> Option<f64> {
         let grid = self.grid?;
-        let bar_s = BEATS_PER_BAR * grid.beat_period_s();
+        let bar_s = f64::from(crate::grid::BEATS_PER_BAR) * grid.beat_period_s();
         let bars = ((self.playhead.position_s() - grid.first_beat_s) / bar_s).floor() + 1.0;
         Some(grid.first_beat_s + bars * bar_s)
     }
